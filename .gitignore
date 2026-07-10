@@ -15,6 +15,9 @@
 *.keystore
 *.jks
 
+# Ruflo hook'larının yeniden oluşturduğu artık
+.tab-navigation
+
 # İşletim sistemi / editör artıkları
 Thumbs.db
 Desktop.ini
