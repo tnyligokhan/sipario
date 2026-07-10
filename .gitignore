@@ -1,0 +1,23 @@
+# Sipario monorepo kök .gitignore
+# apps/mobile ve apps/api kendi .gitignore dosyalarını taşır (Flutter/Laravel standart).
+
+# Ruflo/claude-flow yerel durumu — makineye özgü, paylaşılmaz
+.claude-flow/
+.claude/settings.local.json
+.claude/helpers/
+.claude/checkpoints/
+
+# Ortam ve gizli bilgiler (kırmızı çizgi: asla commit edilmez)
+.env
+.env.*
+*.pem
+*.key
+*.keystore
+*.jks
+
+# İşletim sistemi / editör artıkları
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.log
+*.tmp

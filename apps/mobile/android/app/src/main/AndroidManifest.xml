@@ -1,0 +1,121 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      KIRMIZI ÇİZGİ #6 — İZİN DİSİPLİNİ
+
+      SMS / Call Log izin grubundan HİÇBİR izin bulunmayacak:
+        READ_CALL_LOG, WRITE_CALL_LOG, PROCESS_OUTGOING_CALLS,
+        READ_PHONE_STATE, READ_PHONE_NUMBERS, ANSWER_PHONE_CALLS
+      Bu izinler Play'in kısıtlı izin beyan formunu tetikler ve red riski doğurur.
+      Arayan tanıma bunların hiçbiri olmadan CallScreeningService ile yapılır.
+
+      Aşağıdaki `tools:node="remove"` satırları, üçüncü parti paketlerin
+      birleştirilmiş manifest'e enjekte ettiği izinleri de söker.
+      scripts/check_permissions.sh bunu build çıktısı üzerinde denetler.
+    -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" tools:node="remove" />
+    <uses-permission android:name="android.permission.WRITE_CALL_LOG" tools:node="remove" />
+    <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" tools:node="remove" />
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" tools:node="remove" />
+
+    <!--
+      Rehberde KAYITLI numaralarda da arayan tanıma yapabilmek için zorunlu.
+
+      Telecom (packages/services/Telecomm, CallScreeningServiceFilter.startFilterLookup):
+          if (priorStageResult.contactExists && !hasReadContactsPermission()) { serviste atla }
+      ve hasReadContactsPermission() yalnız taşıyıcı ile varsayılan telefon uygulamasını
+      muaf tutar; ROLE_CALL_SCREENING sahibi için gerçek izin kontrolü yapar.
+
+      Yani bu izin olmadan, bayinin telefon rehberine kaydettiği müşteri aradığında
+      onScreenCall HİÇ çağrılmaz — ürünün en değerli müşterilerde kör kalması demektir.
+      READ_CONTACTS, Play'in kısıtlı SMS/Call Log grubunda DEĞİLDİR; kırmızı çizgi #6 korunur.
+    -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
+    <!-- Arayan kartını çizmek için. Play'in kısıtlı izinlerinden DEĞİLDİR. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Overlay izni yoksa yedek yol olan heads-up bildirim için (API 33+). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
+      Kilit ekranında arayan kartını göstermenin TEK yolu.
+      Overlay penceresi keyguard'ın altında kalır; keyguard'ı yalnız
+      android:showWhenLocked olan bir Activity geçebilir ve onu arka plandan
+      başlatmanın belgelenmiş tek muafiyeti tam ekran niyetli bildirimdir.
+
+      Android 14+ bu izni yalnız arama/alarm uygulamalarına otomatik verir; verilmezse
+      kullanıcı Ayarlar'dan açar (kurulum sihirbazının adımı). İzin yoksa uygulama
+      çalışmaya devam eder, kilit ekranında bildirime düşer — sessizce ölmez.
+    -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:label="Sipario"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <!--
+          Kilit ekranının üstünde açılan arayan kartı. Yalnız sistemin tam ekran niyeti
+          tarafından başlatılır (exported=false); showWhenLocked hem burada hem kodda
+          beyan edilir, bazı OEM kabuklarında ikisi birden gerekiyor.
+        -->
+        <activity
+            android:name=".CallerActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=".caller"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!--
+          Sistem, çağrı geldiğinde bu servisi uygulama süreci ölü olsa bile ayağa kaldırır.
+          BIND_SCREENING_SERVICE izni servisi KORUR (biz talep etmiyoruz, sistem sağlıyor);
+          yalnız Telecom bu servise bağlanabilir.
+        -->
+        <service
+            android:name=".SiparioCallScreeningService"
+            android:exported="true"
+            android:permission="android.permission.BIND_SCREENING_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.CallScreeningService"/>
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>
