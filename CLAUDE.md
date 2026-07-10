@@ -181,7 +181,12 @@ npx ruflo@latest doctor --fix
 
 ## Proje
 BRIEF.md bu projenin tek kaynağıdır — önce onu oku.
+Sonra DECISIONS.md'yi (verilmiş kararlar ve gerekçeleri — bunları yeniden tartışma)
+ve PLAN.md'yi (yol haritası + güncel durum + sıradaki işler) oku.
 Mimar sensin: şemayı, stack'i, planı sen kur.
 Sadece ilk planı onaya sun; onaydan sonra karar sorma.
-Önemli kararları DECISIONS.md'ye tek satır yaz.
+Önemli kararları DECISIONS.md'nin SONUNA tek satır yaz (otomatik commit mesajı son satırı alır).
+Vardiya/oturum sonunda PLAN.md'nin "Güncel durum" bölümünü güncelle.
+Bu projede iki geliştirici nöbetleşe çalışır; sohbet geçmişi paylaşılmaz —
+depodaki bu üç dosya ortak hafızadır, güncel tutulmaları pazarlıksızdır.
 Benimle Türkçe konuş.
