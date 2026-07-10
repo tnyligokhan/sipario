@@ -108,6 +108,16 @@
             "timeout": 10000
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd /c \"powershell -NoProfile -ExecutionPolicy Bypass -File \"%CLAUDE_PROJECT_DIR%\\scripts\\quality-gate-commit.ps1\"\"",
+            "timeout": 600,
+            "statusMessage": "Kalite kapisi + otomatik commit calisiyor..."
+          }
+        ]
       }
     ],
     "PreCompact": [
