@@ -54,6 +54,10 @@ değişen bir karar "~~üstü çizili~~ → yeni karar" biçiminde güncellenir.
 
 - ~~Yerel geliştirme veritabanı: taşınabilir PostgreSQL zip'i, Docker yok~~ → **Yerelde de Docker (kullanıcı Docker Desktop'ı kendisi kurdu)** — yerel ile üretim aynı Postgres 16 imajını koşar, "bende çalışıyordu" sınıfı fark ortadan kalkar.
 
+## Çalışma disiplini
+
+- **Otomatik commit disiplini Claude Code Stop hook'u ile (`scripts/quality-gate-commit.ps1`)** — anlamlı iş bitince kalite kapısı (flutter analyze+test, pint, phpstan, php test, sır taraması) yeşilse dev'e otomatik commit+push; main/master'a asla; kapı kırmızıysa commit yok; araç kurulu değilse kontrol atlanır ama commit gövdesine "atlanan" olarak yazılır — çalışmamış kontrol başarılı sayılmaz. Hook harness tarafından çalıştırılır, modelin unutmasından etkilenmez.
+
 ## Kiracı izolasyonu
 
 - **PostgreSQL RLS + her istekte `SET LOCAL app.tenant_id`** — değişken set edilmemişse sorgu sıfır satır döner; güvenli varsayılan.
