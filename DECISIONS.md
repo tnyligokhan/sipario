@@ -108,3 +108,5 @@ değişen bir karar "~~üstü çizili~~ → yeni karar" biçiminde güncellenir.
 ## Sürüm yönetimi
 
 - **PR akışı: "PR aç" de, gerisi Claude'da** — gh CLI kuruldu (her iki geliştirici de kurmalı: `winget install GitHub.cli` + `gh auth login`). main'e geçiş istendiğinde Claude dev'deki commit aralığından başlık+tam açıklama yazarak PR'ı açar; merge kararı ve düğmesi insanda. GitHub çok commit'li PR'da açıklamayı otomatik doldurmaz; elle açılan PR'lar için .github/pull_request_template.md iskelet sunar.
+
+- **Stop hook komutu cmd sarmalayicidan bash formuna cevrildi; vardiya senkron kontrolu SessionStart hook'u olarak eklendi** — cmd/IF EXIST tirnak katmanlari hook'u sessizce isleymez kiliyordu (elle test edilerek bulundu); oturum basinda fetch + temiz agacta otomatik ff-pull, gerideyse acik uyari. Kabuk artigi sifir baytlik dosyalar artik kapida filtrelenir.
