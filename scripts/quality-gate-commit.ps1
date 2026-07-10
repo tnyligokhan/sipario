@@ -57,6 +57,29 @@ $ran     = New-Object System.Collections.Generic.List[string]
 $skipped = New-Object System.Collections.Generic.List[string]
 $detail  = New-Object System.Collections.Generic.List[string]
 
+# ============ 0) KABUK ARTIGI FILTRESI ============
+# Ortamdaki bir arac (buyuk olasilikla prompt metnini kabuktan geciren bir hook)
+# zaman zaman sifir baytlik, bozuk/parantezli isimli dosyalar birakiyor; iki kez
+# commit'e sizdilar. Sifir baytlik + supheli isimli dosyalar commit'e giremez.
+$junk = New-Object System.Collections.Generic.List[string]
+foreach ($f in $staged) {
+  $suspicious = ($f -match '[(){}<>|]') -or ($f -match '[^ -~]')
+  if (-not $suspicious) { continue }
+  $item = Get-Item -LiteralPath $f -ErrorAction SilentlyContinue
+  if ($item -and -not $item.PSIsContainer -and $item.Length -eq 0) {
+    git reset -q -- $f 2>$null | Out-Null
+    Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
+    $junk.Add($f)
+  }
+}
+if ($junk.Count -gt 0) {
+  $staged = @(git diff --cached --name-only 2>$null)
+  if ($staged.Count -eq 0) {
+    Emit ("Yalniz kabuk artigi vardi, silindi (commit yok): " + ($junk -join ', '))
+    exit 0
+  }
+}
+
 # ============ 1) SIR TARAMASI (her zaman calisir, araca bagli degil) ============
 $selfPath = 'scripts/quality-gate-commit.ps1'
 

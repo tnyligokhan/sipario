@@ -86,6 +86,16 @@
             "timeout": 8000
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/scripts/shift-sync-check.ps1\"; [ -f \"$f\" ] && powershell -NoProfile -ExecutionPolicy Bypass -File \"$f\" || true",
+            "timeout": 60,
+            "statusMessage": "Vardiya senkron kontrolu..."
+          }
+        ]
       }
     ],
     "SessionEnd": [
@@ -113,7 +123,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\scripts\\quality-gate-commit.ps1\" powershell -NoProfile -ExecutionPolicy Bypass -File \"%CLAUDE_PROJECT_DIR%\\scripts\\quality-gate-commit.ps1\"\"",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/scripts/quality-gate-commit.ps1\"; [ -f \"$f\" ] && powershell -NoProfile -ExecutionPolicy Bypass -File \"$f\" || true",
             "timeout": 600,
             "statusMessage": "Kalite kapisi + otomatik commit calisiyor..."
           }
