@@ -10,6 +10,9 @@
 # Ortam ve gizli bilgiler (kırmızı çizgi: asla commit edilmez)
 .env
 .env.*
+# .env.example bir şablondur, sır içermez ve commitlenmesi zorunludur (Laravel konvansiyonu)
+!.env.example
+!**/.env.example
 *.pem
 *.key
 *.keystore
