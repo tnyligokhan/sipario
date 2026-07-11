@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16
+    container_name: sipario_db
+    environment:
+      POSTGRES_DB: sipario
+      # DB sahibi + migration rolü (imajda superuser). Runtime app rolü init betiğinde kurulur.
+      POSTGRES_USER: sipario_owner
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:-sipario_owner_dev}
+      # Runtime uygulama rolünün parolası — init betiği (10-roles.sh) bunu okur.
+      SIPARIO_APP_PASSWORD: ${DB_APP_PASSWORD:-sipario_app_dev}
+      # Postgres 16 ICU: Türkçe sıralama/case (ç,ş,ğ,ı,ö,ü). libc tr_TR.UTF-8 imajda yok, ICU var.
+      POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=tr-TR --lc-collate=C.UTF-8 --lc-ctype=C.UTF-8 --encoding=UTF8"
+    ports:
+      # Host portu bilinçli olarak 5432 DEĞİL: geliştirici makinelerinde Laragon vb. ile
+      # gelen yerli PostgreSQL 5432'yi tutuyor; standart port kullanılsaydı uygulama
+      # sessizce yanlış sunucuya bağlanabilirdi. Konteyner içi port 5432 kalır.
+      - "55432:5432"
+    volumes:
+      - sipario_pgdata:/var/lib/postgresql/data
+      # Rol kurulumu — yalnız volume boşken (ilk initdb'de) koşar.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sipario_owner -d sipario"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  sipario_pgdata:

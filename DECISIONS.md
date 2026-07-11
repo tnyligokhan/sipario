@@ -6,7 +6,7 @@ değişen bir karar "~~üstü çizili~~ → yeni karar" biçiminde güncellenir.
 ## Stack
 
 - **Mobil: Flutter + native Kotlin köprüsü** — ekipte Flutter deneyimi var, tek kod tabanı Android+iOS; arayan tanıma zaten native yazılacağı için Flutter engel değil.
-- **API: Laravel 12 / PHP 8.3** — ekipte Laravel deneyimi var ve bakım bizde kalacak; stack seçimini domine eden maliyet kalemi bu.
+- ~~API: Laravel 12 / PHP 8.3~~ → **API: Laravel 13 / PHP 8.3** — iskelet oluşturulduğunda güncel major 13'tü (kurulu: v13.19.0); karar yazıldığındaki "12" o günün güncel sürümüydü, niyet "güncel Laravel + PHP 8.3"tür; gerekçe değişmedi (ekip deneyimi + bakım maliyeti).
 - **Veritabanı: PostgreSQL 16** — Row-Level Security ile kiracı izolasyonu veritabanı seviyesinde zorlanabiliyor (kırmızı çizgi #1); MySQL'de bu yok.
 - **Yerel DB: SQLite (Drift)** — offline asıl üründür, Drift tip güvenli sorgu ve migration disiplini verir.
 - **Site + yönetim paneli: Laravel + Livewire, aynı repo ayrı guard** — v1'de ayrı frontend'in maliyeti karşılığını vermiyor.
@@ -110,3 +110,19 @@ değişen bir karar "~~üstü çizili~~ → yeni karar" biçiminde güncellenir.
 - **PR akışı: "PR aç" de, gerisi Claude'da** — gh CLI kuruldu (her iki geliştirici de kurmalı: `winget install GitHub.cli` + `gh auth login`). main'e geçiş istendiğinde Claude dev'deki commit aralığından başlık+tam açıklama yazarak PR'ı açar; merge kararı ve düğmesi insanda. GitHub çok commit'li PR'da açıklamayı otomatik doldurmaz; elle açılan PR'lar için .github/pull_request_template.md iskelet sunar.
 
 - **Stop hook komutu cmd sarmalayicidan bash formuna cevrildi; vardiya senkron kontrolu SessionStart hook'u olarak eklendi** — cmd/IF EXIST tirnak katmanlari hook'u sessizce isleymez kiliyordu (elle test edilerek bulundu); oturum basinda fetch + temiz agacta otomatik ff-pull, gerideyse acik uyari. Kabuk artigi sifir baytlik dosyalar artik kapida filtrelenir.
+
+## Faz 1 — uygulama (coder, 2026-07-11)
+
+- **İki DB rolü: migration `sipario_owner` (imaj superuser), runtime+test `sipario_app` (NOSUPERUSER/NOBYPASSRLS)** — Postgres'te tablo sahibi ve superuser RLS'i atlar; izolasyonu gerçekten kanıtlamak için app/test bağlantısı sahibi-olmayan rol OLMALI. Her tabloda ek `FORCE ROW LEVEL SECURITY` — owner ile yanlışlıkla bağlanılsa da izolasyon çökmesin (kuşak+askı).
+- **UUIDv7 trait'i `HasUuids` (architect'in adlandırdığı `HasVersion7Uuids` Laravel 13'te YOK)** — `HasUuids` bu sürümde zaten `Str::uuid7()` üretiyor ve id boş değilse istemcininkini koruyor (offline-first gereği); aynı sonuç, mevcut trait.
+- **RLS bağlama noktası middleware (`ResolveTenantContext`), DB connection event DEĞİL** — tenant token satırından çözülüyor ve isteğin transaction ömrünü kontrol etmemiz gerekiyor; istek tek transaction'a sarılır, `set_config('app.tenant_id', ?, true)` yazılır, commit'te otomatik sıfırlanır (kalıcı bağlantıda sızıntı yok).
+- **`ResolveTenantContext` middleware önceliği auth:sanctum'dan ÖNCE zorlandı (`prependToPriorityList`)** — Laravel'in öncelik listesi `Authenticate`'i öne alıyordu; tenant bağlamı kurulmadan kullanıcı RLS altında yüklenemeyip 401 dönüyordu (yerel uçtan uca testte yakalandı).
+- **Login lookup `SECURITY DEFINER` fonksiyon + sahibi `sipario_auth` (BYPASSRLS); ayrıca `GRANT SELECT ON users,tenants TO sipario_auth`** — tenant bilinmeden email ile kullanıcı bulmanın tek meşru yolu; BYPASSRLS RLS'i atlar ama tablo yetkisi ayrıdır, grant olmadan "permission denied" (yerel testte yakalandı). Nötr 401 ile email enumeration engellenir.
+- **`personal_access_tokens`: `uuidMorphs('tokenable')` + `tenant_id` kolonu** — User kimliği UUID olduğundan Sanctum'un varsayılan bigint `morphs`'u token üretiminde patlıyordu (yerel testte yakalandı); `tenant_id` token satırında tutulur ki middleware kullanıcıyı yüklemeden tenant'ı çözebilsin (bu tablo RLS'e tabi değil).
+- **Rol modeli: tek `role` sütunu + string PHP enum (`UserRole`), ayrı tablo/paket yok** — yetki `role` middleware ile; `TenantStatus` enum'u login'de trial/active kapısını tutar (diğerleri nötr 403).
+- **Email GLOBAL tekil (tenant başına değil)** — login yalnız email+parola alır (mobilde tenant kodu yok), lookup deterministik tek satır dönsün; RLS zaten cross-tenant görünürlüğü engeller.
+- **Yönetim paneli salt-okunur DB rolü (`sipario_panel`) Faz 5'e ertelendi** — Faz 1'de yalnız kolon/yapı hazır; rol ve grant'leri para/panel fazında kurulur.
+- **Testler ayrı `sipario_test` DB'sinde, gerçek Postgres'e koşar (RLS SQLite'ta yok); phpunit.xml DB_USERNAME=sipario_app** — migration `--database=pgsql_owner` ile, HTTP istekleri app rolüyle. RefreshDatabase yerine owner ile migrate:fresh + TRUNCATE deseni (SET LOCAL doğal sıfırlansın, prod davranışı taklit edilsin).
+- **Kök `.gitignore`'daki `.env.*` deseni `.env.example`'ı da yutuyordu; `!**/.env.example` negasyonu eklendi** — Laravel konvansiyonu `.env.example`'ın commit'lenmesini gerektirir (sır içermez, şablondur).
+- **Yerel Postgres 16 imajı ICU `tr-TR` collation ile (`--icu-locale=tr-TR`), libc tr_TR.UTF-8 üretilmeden** — Türkçe sıralama/case; docker init betikleri (`10-roles.sh`, `20-test-db.sh`) rolleri ve test DB'sini yalnız ilk initdb'de kurar, CI'da aynı SQL elle koşulur.
+- **Docker Postgres host portu 55432 (5432 değil)** — geliştirici makinelerinde Laragon'un yerli PostgreSQL'i 5432'yi tutuyor; standart portta uygulama sessizce yanlış sunucuya bağlanıyordu (sahada yakalandı), standart-dışı port bu çakışma sınıfını bütün makinelerde kökten kapatır. Konteyner içi port 5432 kalır; CI service container'ı etkilenmez.
