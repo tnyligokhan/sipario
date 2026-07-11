@@ -10,7 +10,7 @@
 | Faz | Kapsam | Durum |
 |-----|--------|-------|
 | 0 | Arayan tanıma kanıtı (gerçek cihazlarda go/no-go) | ✅ **KAPANDI — GO (şartlı)**, 2026-07-10 |
-| 1 | Temel: Laravel API, Postgres+RLS, auth, izolasyon test matrisi | 🔨 **SIRADA** |
+| 1 | Temel: Laravel API, Postgres+RLS, auth, izolasyon test matrisi | 🟢 **KOD TAMAM — PR dev'e açık, merge bekliyor** |
 | 2 | Offline çekirdek: SQLite/Drift, outbox, senkron motoru, müşteri+sipariş | bekliyor |
 | 3 | Defter: veresiye, kasa, ödeme tipleri, kupon, gün sonu | bekliyor |
 | 4 | Kurye: atama, teslim kapatma, kasa devri (+iOS başlangıcı) | bekliyor |
@@ -18,27 +18,40 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-11)
+## Güncel durum (son güncelleme: 2026-07-11, Faz 1 kapanışı)
 
-- **Faz 0 kapandı.** Arayan tanıma Samsung S24 FE (And.16) ve Xiaomi 14 (HyperOS 2)
-  üzerinde kanıtlandı: soğuk süreç, kilitli ekran, derin Doze, rehberli numara, giden
-  arama, sıfır kurulum sihirbazı. Yasaklı izin yok. Ayrıntılar `DECISIONS.md`'de.
-- **Otomatik commit disiplini kurulu:** Stop hook kalite kapısından (analyze+test+sır
-  taraması) geçen işi dev'e otomatik commit+push eder; main/master korumalı.
-- **Faz 1 henüz başlamadı.** `apps/api` temiz Laravel 12 iskeleti — dokunulmadı.
-- Docker Desktop kuruldu (yerel Postgres 16 bunda koşacak).
+- **Faz 1 kodu tamam, `faz1-temel` dalında; dev'e taslak PR açık — merge insan kararı.**
+  Yapılanlar: docker-compose (Postgres 16, ICU tr-TR, adlandırılmış volume, host port
+  **55432** — Laragon'un yerli 5432'siyle çakışmasın diye), 6 migration (tenants/users/
+  devices + RLS ENABLE+FORCE + roller/grant'ler), Sanctum auth (patron/operatör/kurye),
+  cihaz kaydı (istemci üretimli UUIDv7), `sipario:create-tenant` komutu, CI workflow'u.
+- **İzolasyon matrisi yeşil: 34/34 test, 88 assertion, gerçek Postgres 16'ya karşı,
+  RLS'i atlayamayan `sipario_app` rolüyle.** RouteCoverageGuardTest testsiz endpoint'i
+  build'de kırar. Reviewer onayı: YEŞİL (kırmızı çizgi #1 ve #4 kanıtlı).
+- **Faz 1 kapısı şartları sağlandı** (izolasyon matrisi yeşil + auth akışı çalışıyor);
+  resmi kapanış PR merge ile.
+- Mimari ayrıntılar ve tuzaklar (`sipario_owner`/`sipario_app`/`sipario_auth` rolleri,
+  SECURITY DEFINER login, token'dan tenant çözme, SET LOCAL/transaction) `DECISIONS.md`
+  "Faz 1 — uygulama" bölümünde.
+- **Yeni makinede dikkat:** PHP'de `pdo_pgsql`+`pgsql` eklentileri php.ini'de açık
+  olmalı (Laragon varsayılanı kapalı); Postgres artık **127.0.0.1:55432**.
+- Faz 0 durumu değişmedi (GO şartlı, ayrıntı DECISIONS.md).
 
-## Faz 1 — sıradaki işler (sırayla)
+## Faz 1 — yapılan işler (hepsi ✅)
 
-1. `docker-compose.yml`: Postgres 16, TR locale, adlandırılmış volume
-2. Laravel `.env` + `config/database.php` Postgres bağlantısı; `.env.example` güncelle
-3. Migration'lar: `tenants`, `users`, `devices` (UUIDv7, istemci üretimli kimlik)
-4. **RLS politikaları** migration içinde: her tabloda `tenant_id` policy;
-   `app.tenant_id` set edilmemişse sıfır satır (güvenli varsayılan)
-5. Auth: Sanctum token, patron/operatör/kurye rolleri, cihaz kaydı
-6. **Cross-tenant izolasyon test matrisi**: her endpoint için "B'nin verisini A'nın
-   token'ıyla iste → 404" otomatik testi; CI'da zorunlu (kırmızı çizgi #1)
-7. Sıradaki faz kapısı: izolasyon matrisi yeşil + temel auth akışı çalışır durumda
+1. ✅ `docker-compose.yml`: Postgres 16, TR locale (ICU), adlandırılmış volume, port 55432
+2. ✅ `.env.example` + `config/database.php` (pgsql=app rolü, pgsql_owner=migration)
+3. ✅ Migration'lar: `tenants`, `users`, `devices` (UUIDv7, istemci üretimli kimlik)
+4. ✅ RLS politikaları migration içinde; `app.tenant_id` yoksa sıfır satır + FORCE RLS
+5. ✅ Auth: Sanctum, patron/operatör/kurye, cihaz kaydı; login zamanlama yan-kanalı kapalı
+6. ✅ Cross-tenant izolasyon matrisi + route kapsam bekçisi; CI'da postgres:16 service
+7. ✅ Faz kapısı: izolasyon matrisi yeşil + auth akışı çalışıyor → **Faz 2'ye hazır**
+
+## Faz 2'ye devreden küçük işler
+
+- Login zamanlama yan-kanalı kapatıldı; kalan düşük öncelikli notlar: larastan eklenmesi
+  (statik analiz şu an kalite kapısında "atlanan"), logout için ayrı izolasyon assertion'ı,
+  `personal_access_tokens`'ın bilinçli RLS'sizliği (raw-SQL eklenirse hatırla).
 
 ## Açık riskler / şartlar (Faz 0'dan devreden)
 

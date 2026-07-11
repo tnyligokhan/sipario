@@ -1,0 +1,91 @@
+name: API CI
+
+on:
+  push:
+    paths:
+      - 'apps/api/**'
+      - '.github/workflows/api-ci.yml'
+      - 'docker/postgres/**'
+  pull_request:
+    paths:
+      - 'apps/api/**'
+      - '.github/workflows/api-ci.yml'
+      - 'docker/postgres/**'
+
+defaults:
+  run:
+    working-directory: apps/api
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: sipario_test
+          POSTGRES_USER: sipario_owner
+          POSTGRES_PASSWORD: ci_owner
+          POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=tr-TR --lc-collate=C.UTF-8 --lc-ctype=C.UTF-8"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sipario_owner"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: sipario_test
+      # RUNTIME + test bağlantısı: superuser/BYPASSRLS DEĞİL → RLS uygulanır (izolasyon gerçekten sınanır).
+      DB_USERNAME: sipario_app
+      DB_PASSWORD: ci_app
+      # Migration/policy oluşturma bağlantısı (owner).
+      DB_OWNER_USERNAME: sipario_owner
+      DB_OWNER_PASSWORD: ci_owner
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP 8.3 + pgsql
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_pgsql, pgsql
+          coverage: none
+
+      # Roller local 10-roles.sh ile aynı mantık; init betiği CI'da koşmadığı için elle kuruyoruz.
+      # sipario_app: RLS'e tabi runtime rolü. sipario_auth: SECURITY DEFINER login fonksiyonunun sahibi.
+      - name: Postgres rollerini kur
+        env:
+          PGPASSWORD: ci_owner
+        run: |
+          psql -h 127.0.0.1 -U sipario_owner -d sipario_test -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE sipario_app LOGIN PASSWORD 'ci_app' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;" \
+            -c "CREATE ROLE sipario_auth NOLOGIN NOSUPERUSER BYPASSRLS;" \
+            -c "GRANT CONNECT ON DATABASE sipario_test TO sipario_app;" \
+            -c "GRANT USAGE ON SCHEMA public TO sipario_app;"
+
+      - name: Composer bağımlılıkları
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Uygulama anahtarı
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Kod stili (pint)
+        run: vendor/bin/pint --test
+
+      # Migration owner ile (tablo + RLS policy oluşturur); testler app rolüyle koşar.
+      - name: Migrationlar (owner)
+        run: php artisan migrate --database=pgsql_owner --force
+
+      # Kırmızı çizgi #1: izolasyon test matrisi burada koşar. Yeni bir tenant-scope endpoint
+      # izolasyon testi almadan eklendiyse bu adım kırılmalıdır (TenantIsolationTest).
+      - name: Testler
+        run: php artisan test

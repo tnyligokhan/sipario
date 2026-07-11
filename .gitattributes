@@ -1,0 +1,4 @@
+# Kabuk betikleri ve SQL init dosyaları Linux konteynerinde koşar: LF zorunlu
+# (Windows'ta autocrlf CRLF'e çevirirse postgres entrypoint betiği "bad interpreter" verir)
+*.sh text eol=lf
+docker/postgres/init/** text eol=lf
