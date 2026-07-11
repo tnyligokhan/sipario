@@ -307,5 +307,8 @@
       "cveCheck": true,
       "threatModel": true
     }
+  },
+  "worktree": {
+    "bgIsolation": "none"
   }
 }
