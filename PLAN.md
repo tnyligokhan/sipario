@@ -18,23 +18,33 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-11, Faz 1 kapanışı)
+## Güncel durum (son güncelleme: 2026-07-11 vardiya sonu)
 
-- **Faz 1 kodu tamam, `faz1-temel` dalında; dev'e taslak PR açık — merge insan kararı.**
-  Yapılanlar: docker-compose (Postgres 16, ICU tr-TR, adlandırılmış volume, host port
-  **55432** — Laragon'un yerli 5432'siyle çakışmasın diye), 6 migration (tenants/users/
-  devices + RLS ENABLE+FORCE + roller/grant'ler), Sanctum auth (patron/operatör/kurye),
-  cihaz kaydı (istemci üretimli UUIDv7), `sipario:create-tenant` komutu, CI workflow'u.
+- **FAZ 1 KAPANDI ve main'e merge edildi** (PR #4 faz1-temel→dev, PR #6 dev→main).
+  dev = güncel çalışma hattı; main yalnız 2 küçük düzen commit'i geride (sorun değil).
+- **Çalışma akışı değişti (karar DECISIONS.md'de):** yan dal/worktree YOK; iş doğrudan
+  dev'de yapılır, main'e yalnız dev→main PR ile gidilir. `.claude/settings.json`'da
+  `worktree.bgIsolation=none`.
+- **Canlı doğrulama yapıldı:** API `php artisan serve` ile ayağa kaldırıldı, dışarıdan
+  gerçek HTTP istekleriyle sınandı — login 200, cihaz kaydı 201 (istemci UUIDv7 korunuyor),
+  cross-tenant istek 404, tokensiz 401. İzolasyon canlıda da kanıtlı.
+- **YARIM KALDI: API güvenlik denetimi + düzeltme.** Kapsamlı denetim (rate limiting,
+  token yaşam döngüsü, mass assignment, bilgi sızıntısı, CORS/başlıklar, composer audit)
+  başlatılmıştı ama vardiya sonuna yetişmedi; kod değişikliği YAPILMADI. Sonraki vardiya:
+  denetimi baştan koştur (denetçi→düzeltici→doğrulayıcı zinciri), bulguları düzelt,
+  34 testin yeşil kaldığını ve yeni testler eklendiğini kanıtla. Bilinen adaylar:
+  login'de throttle/rate-limit yokluğu, token süresi/rotasyonu, larastan eklenmesi.
 - **İzolasyon matrisi yeşil: 34/34 test, 88 assertion, gerçek Postgres 16'ya karşı,
   RLS'i atlayamayan `sipario_app` rolüyle.** RouteCoverageGuardTest testsiz endpoint'i
-  build'de kırar. Reviewer onayı: YEŞİL (kırmızı çizgi #1 ve #4 kanıtlı).
-- **Faz 1 kapısı şartları sağlandı** (izolasyon matrisi yeşil + auth akışı çalışıyor);
-  resmi kapanış PR merge ile.
+  build'de kırar. CI (postgres:16 service) PR'da yeşil koştu.
 - Mimari ayrıntılar ve tuzaklar (`sipario_owner`/`sipario_app`/`sipario_auth` rolleri,
   SECURITY DEFINER login, token'dan tenant çözme, SET LOCAL/transaction) `DECISIONS.md`
   "Faz 1 — uygulama" bölümünde.
-- **Yeni makinede dikkat:** PHP'de `pdo_pgsql`+`pgsql` eklentileri php.ini'de açık
-  olmalı (Laragon varsayılanı kapalı); Postgres artık **127.0.0.1:55432**.
+- **Yeni makinede dikkat:** php.ini'de `pdo_pgsql`, `pgsql` ve `zip` eklentileri açık
+  olmalı (Laragon varsayılanı kapalı; bu makinede hâlâ kapalı — komutlar
+  `php -d extension=...` ile koşuldu). Postgres Docker'da **127.0.0.1:55432**.
+  `apps/api/.env` yerelde `.env.example`'dan üretildi (git'te yok). Yerel DB'de demo
+  bayiler var: patronA/patronB@demo.sipario.
 - Faz 0 durumu değişmedi (GO şartlı, ayrıntı DECISIONS.md).
 
 ## Faz 1 — yapılan işler (hepsi ✅)
