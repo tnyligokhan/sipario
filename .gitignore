@@ -6,6 +6,8 @@
 .claude/settings.local.json
 .claude/helpers/
 .claude/checkpoints/
+# Git worktree'leri asla depoya girmez (makineye özgü; hook bir kez yanlışlıkla commitlemişti)
+.claude/worktrees/
 
 # Ortam ve gizli bilgiler (kırmızı çizgi: asla commit edilmez)
 .env
