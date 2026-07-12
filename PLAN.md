@@ -50,6 +50,16 @@
   doğrulandı (yukarıda). php'yi kalıcı PATH'e/ini'ye almak sonraki tercih.
 - **İzolasyon matrisi hâlâ yeşil:** 34/34 (+3 güvenlik = 37), gerçek Postgres 16, RLS'i
   atlayamayan `sipario_app` rolüyle. RouteCoverageGuardTest testsiz endpoint'i build'de kırar.
+- **YARIM KALAN İŞ YOK — vardiya temiz kapandı.** Ağaç temiz, her şey commit + dev'e push'landı.
+- **SONRAKİ KİŞİ BURADAN DEVAM ETSİN:**
+  1. İstenirse **dev→main PR** aç ("PR aç" de) — Faz 1 güvenlik turunu main'e taşır (merge insanda).
+  2. Kod işi = **Faz 2 — offline çekirdek**: SQLite/Drift şeması (server tablolarının aynası,
+     UUIDv7 kimlikler istemcide), **outbox** tablosu (yazma yolu outbox üzerinden — DECISIONS
+     "Senkron"), senkron motoru (tenant başına monoton `sequence` ile delta pull + ilk kurulumda
+     tam snapshot; her olayda `client_event_id` ile idempotent retry), müşteri + sipariş CRUD.
+     Senkron çakışma/birleşme kuralları DECISIONS "Senkron" ve "Veri modeli"nde hazır — yeniden
+     tartışma, uygula. Not: defter tutarlılığı (korku #2) asıl Faz 3 ama `ledger_entries`/
+     `order_events` şema kararları Faz 2'de atılmalı ki outbox baştan doğru olsun.
 - Faz 0 durumu değişmedi (GO şartlı, ayrıntı DECISIONS.md).
 
 ## Faz 1 — yapılan işler (hepsi ✅)
