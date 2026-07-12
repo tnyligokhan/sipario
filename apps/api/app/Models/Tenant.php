@@ -8,10 +8,23 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Bayi (kiracı). Tüm iş verisi bir tenant'a bağlıdır ve RLS ile izole edilir.
  * Kimlik UUIDv7 (HasUuids → Str::uuid7); tenant'ın kendisinde tenant_id yoktur.
+ *
+ * casts() ile türeyen gerçek tipler (statik analiz bunları kolon şemasından çıkaramaz):
+ *
+ * @property string $id
+ * @property string $name
+ * @property string|null $slug
+ * @property TenantStatus $status
+ * @property Carbon|null $trial_ends_at
+ * @property Carbon|null $valid_until
+ * @property string|null $phone
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 class Tenant extends Model
 {

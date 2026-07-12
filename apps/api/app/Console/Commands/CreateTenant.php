@@ -52,7 +52,7 @@ class CreateTenant extends Command
         $this->info('Bayi oluşturuldu.');
         $this->line('  tenant_id : '.$result['tenant']->id);
         $this->line('  patron    : '.$result['patron']->email);
-        $this->line('  deneme    : '.$result['tenant']->trial_ends_at->toDateString().' tarihine kadar');
+        $this->line('  deneme    : '.$result['tenant']->trial_ends_at?->toDateString().' tarihine kadar');
 
         return self::SUCCESS;
     }

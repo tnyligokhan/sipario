@@ -10,7 +10,7 @@
 | Faz | Kapsam | Durum |
 |-----|--------|-------|
 | 0 | Arayan tanıma kanıtı (gerçek cihazlarda go/no-go) | ✅ **KAPANDI — GO (şartlı)**, 2026-07-10 |
-| 1 | Temel: Laravel API, Postgres+RLS, auth, izolasyon test matrisi | 🟢 **KOD TAMAM — PR dev'e açık, merge bekliyor** |
+| 1 | Temel: Laravel API, Postgres+RLS, auth, izolasyon test matrisi | ✅ **KAPANDI** (güvenlik denetimi dahil, 2026-07-13) |
 | 2 | Offline çekirdek: SQLite/Drift, outbox, senkron motoru, müşteri+sipariş | bekliyor |
 | 3 | Defter: veresiye, kasa, ödeme tipleri, kupon, gün sonu | bekliyor |
 | 4 | Kurye: atama, teslim kapatma, kasa devri (+iOS başlangıcı) | bekliyor |
@@ -18,33 +18,38 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-11 vardiya sonu)
+## Güncel durum (son güncelleme: 2026-07-13 vardiya sonu)
 
-- **FAZ 1 KAPANDI ve main'e merge edildi** (PR #4 faz1-temel→dev, PR #6 dev→main).
-  dev = güncel çalışma hattı; main yalnız 2 küçük düzen commit'i geride (sorun değil).
-- **Çalışma akışı değişti (karar DECISIONS.md'de):** yan dal/worktree YOK; iş doğrudan
-  dev'de yapılır, main'e yalnız dev→main PR ile gidilir. `.claude/settings.json`'da
-  `worktree.bgIsolation=none`.
-- **Canlı doğrulama yapıldı:** API `php artisan serve` ile ayağa kaldırıldı, dışarıdan
-  gerçek HTTP istekleriyle sınandı — login 200, cihaz kaydı 201 (istemci UUIDv7 korunuyor),
-  cross-tenant istek 404, tokensiz 401. İzolasyon canlıda da kanıtlı.
-- **YARIM KALDI: API güvenlik denetimi + düzeltme.** Kapsamlı denetim (rate limiting,
-  token yaşam döngüsü, mass assignment, bilgi sızıntısı, CORS/başlıklar, composer audit)
-  başlatılmıştı ama vardiya sonuna yetişmedi; kod değişikliği YAPILMADI. Sonraki vardiya:
-  denetimi baştan koştur (denetçi→düzeltici→doğrulayıcı zinciri), bulguları düzelt,
-  34 testin yeşil kaldığını ve yeni testler eklendiğini kanıtla. Bilinen adaylar:
-  login'de throttle/rate-limit yokluğu, token süresi/rotasyonu, larastan eklenmesi.
-- **İzolasyon matrisi yeşil: 34/34 test, 88 assertion, gerçek Postgres 16'ya karşı,
-  RLS'i atlayamayan `sipario_app` rolüyle.** RouteCoverageGuardTest testsiz endpoint'i
-  build'de kırar. CI (postgres:16 service) PR'da yeşil koştu.
-- Mimari ayrıntılar ve tuzaklar (`sipario_owner`/`sipario_app`/`sipario_auth` rolleri,
-  SECURITY DEFINER login, token'dan tenant çözme, SET LOCAL/transaction) `DECISIONS.md`
-  "Faz 1 — uygulama" bölümünde.
-- **Yeni makinede dikkat:** php.ini'de `pdo_pgsql`, `pgsql` ve `zip` eklentileri açık
-  olmalı (Laragon varsayılanı kapalı; bu makinede hâlâ kapalı — komutlar
-  `php -d extension=...` ile koşuldu). Postgres Docker'da **127.0.0.1:55432**.
-  `apps/api/.env` yerelde `.env.example`'dan üretildi (git'te yok). Yerel DB'de demo
-  bayiler var: patronA/patronB@demo.sipario.
+- **FAZ 1 TAMAMEN KAPANDI — güvenlik denetimi + düzeltme bitti.** Önceki vardiyadan
+  devreden "YARIM KALDI: API güvenlik denetimi" işi bu vardiyada baştan koşuldu,
+  bulgular düzeltildi ve doğrulandı. Ayrıntılı kararlar DECISIONS.md "Faz 1 — güvenlik
+  denetimi" bölümünde.
+- **Düzeltilen bulgular:** F1 rate-limit (login+API `throttle`), F3 güvenlik başlıkları
+  (`SecurityHeaders` middleware), F4 CORS kilidi (`config/cors.php`, env-driven origin,
+  credentials kapalı), F2 Sanctum `token_prefix=sipario_` (token süresizliği offline-first
+  gereği bilinçli korundu), F6 larastan/phpstan seviye 6 (4 tip bulgusu kök nedenden
+  düzeltildi, baskılama yok).
+- **Doğrulama (bu makinede, doğru php+eklentilerle elle koşuldu):**
+  pint ✓ · phpstan seviye 6 **0 hata** ✓ · phpunit **37/37, 105 assertion** ✓ ·
+  `composer audit` **CVE yok** ✓. 3 yeni test `SecurityHardeningTest`'te (429 rate-limit,
+  güvenlik başlıkları, izinsiz origin CORS reddi); mevcut 34 izolasyon/auth testi bozulmadı.
+- **Çalışma akışı (karar DECISIONS.md'de):** yan dal/worktree YOK; iş doğrudan dev'de,
+  main'e yalnız dev→main PR ile. Faz 1 kodu daha önce main'e merge edilmişti (PR #4, #6);
+  bu güvenlik turu dev'de, dev→main PR sıradaki insan kararı.
+- **Kurulum notu — ÖNEMLİ (fresh checkout'ta yaşandı):** `apps/api/vendor` ve `.env`
+  git'te YOK. Yeni makinede: `composer install` (zip eklentisi gerekli:
+  `php -d extension=zip composer.phar install`), `.env`'i `.env.example`'dan kopyala,
+  `php artisan key:generate`. Docker Postgres **127.0.0.1:55432** (`docker compose up -d`;
+  ilk initdb roller+`sipario_test`'i kurar). php.ini'de `pdo_pgsql`/`pgsql`/`zip` KAPALI
+  (Laragon varsayılanı) → testler `php -d extension=pdo_pgsql -d extension=pgsql
+  -d extension=zip vendor\phpunit\phpunit\phpunit` ile; `php artisan test` alt-sürece
+  `-d` geçirmediğinden "could not find driver" verir, doğrudan phpunit çağır.
+- **Kalite kapısı (Stop hook) bu makinede API kontrollerini ATLAR:** hook `Get-Command php`
+  ile arıyor, php PATH'te değil → "atlanan: php/composer (kurulum eksik)". CI'da (php+
+  eklentiler açık) phpstan/pint/test gerçekten koşar. Bu vardiyanın kontrolleri elle
+  doğrulandı (yukarıda). php'yi kalıcı PATH'e/ini'ye almak sonraki tercih.
+- **İzolasyon matrisi hâlâ yeşil:** 34/34 (+3 güvenlik = 37), gerçek Postgres 16, RLS'i
+  atlayamayan `sipario_app` rolüyle. RouteCoverageGuardTest testsiz endpoint'i build'de kırar.
 - Faz 0 durumu değişmedi (GO şartlı, ayrıntı DECISIONS.md).
 
 ## Faz 1 — yapılan işler (hepsi ✅)
@@ -59,9 +64,11 @@
 
 ## Faz 2'ye devreden küçük işler
 
-- Login zamanlama yan-kanalı kapatıldı; kalan düşük öncelikli notlar: larastan eklenmesi
-  (statik analiz şu an kalite kapısında "atlanan"), logout için ayrı izolasyon assertion'ı,
-  `personal_access_tokens`'ın bilinçli RLS'sizliği (raw-SQL eklenirse hatırla).
+- ✅ larastan/phpstan eklendi (seviye 6, kalite kapısı `vendor\bin\phpstan.bat` bulunca koşar).
+- Kalan düşük öncelikli notlar: logout için ayrı izolasyon assertion'ı;
+  `personal_access_tokens`'ın bilinçli RLS'sizliği (raw-SQL eklenirse hatırla);
+  429 throttle yanıtlarına `server_time` istenirse `AppendServerTime` exception yolunu da kapsamalı;
+  kalite kapısının API kontrollerini bu makinede koşabilmesi için php'yi PATH'e + eklentileri ini'ye almak.
 
 ## Açık riskler / şartlar (Faz 0'dan devreden)
 

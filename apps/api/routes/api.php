@@ -13,10 +13,14 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     // --- Public -----------------------------------------------------------------
-    Route::post('/auth/login', [AuthController::class, 'login'])->name('api.auth.login');
+    // throttle:login — kaba kuvvet / kimlik bilgisi doldurma sınırı (F1). Limitler AppServiceProvider'da.
+    Route::post('/auth/login', [AuthController::class, 'login'])
+        ->middleware('throttle:login')
+        ->name('api.auth.login');
 
     // --- Korumalı ---------------------------------------------------------------
-    Route::middleware(['tenant', 'auth:sanctum'])->group(function () {
+    // throttle:api — kullanıcı/IP başına genel hız sınırı (çalınan token istismarı + DoS yüzeyi).
+    Route::middleware(['throttle:api', 'tenant', 'auth:sanctum'])->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me'])->name('api.auth.me');
         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
 
