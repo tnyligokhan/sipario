@@ -69,6 +69,23 @@ claude mcp list
 npx ruflo@latest doctor --fix
 ```
 
+Ardından ruflo eklentilerini plugin marketten kur (proje kapsamında kuruludur,
+her klonda yeniden kurulması gerekir):
+
+```powershell
+# Önce ruflo marketplace'ini ekle:
+claude plugin marketplace add ruvnet/ruflo
+
+# Sonra dört eklentiyi kur:
+claude plugin install ruflo-adr@ruflo
+claude plugin install ruflo-cost-tracker@ruflo
+claude plugin install ruflo-security-audit@ruflo
+claude plugin install ruflo-testgen@ruflo
+```
+
+Alternatif: Claude Code içinde `/plugin` yaz → marketplace ekle (`ruvnet/ruflo`) →
+aynı dört eklentiyi arayüzden kur.
+
 > Sunucuyu başka bir makinede/projede elle eklemen gerekirse Windows'ta `npx`
 > doğrudan çağrılamaz (`.cmd` dosyasıdır, "Failed to connect" alırsın);
 > `cmd /c` ile sarmala:
