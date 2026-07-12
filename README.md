@@ -55,10 +55,24 @@ git checkout dev        # ÇALIŞMA DALI dev'DİR; main korumalıdır
 
 ### 4. Ruflo / claude-flow kurulumu (Claude Code eklentisi)
 
+MCP sunucu tanımı depoyla birlikte gelir (`.mcp.json` git'te takiplidir) — **`claude mcp add` ÇALIŞTIRMA**, "already exists" hatası alırsın. Yapman gereken sadece:
+
 ```powershell
-claude mcp add claude-flow -- npx -y ruflo@latest mcp start
+# Proje kökünde Claude Code'u başlat; .mcp.json'daki claude-flow sunucusunu
+# kullanmak isteyip istemediğini sorar -> onayla.
+claude
+
+# Doğrula (claude-flow satırında "Connected" görmelisin):
+claude mcp list
+
+# Tek seferlik sağlık kontrolü:
 npx ruflo@latest doctor --fix
 ```
+
+> Sunucuyu başka bir makinede/projede elle eklemen gerekirse Windows'ta `npx`
+> doğrudan çağrılamaz (`.cmd` dosyasıdır, "Failed to connect" alırsın);
+> `cmd /c` ile sarmala:
+> `claude mcp add claude-flow -- cmd /c npx -y ruflo@latest mcp start`
 
 > Arka plan `daemon`'u OPSİYONEL ve sürekli token yakar — bilerek istemedikçe başlatma.
 
