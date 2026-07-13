@@ -14,9 +14,17 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Faz 0: native tarafın salt-okunur açacağı SQLite dosyasını Flutter yazar.
-  # Faz 2'de yerini Drift alacak; dosya adı ve şema aynı kalacağı için native taraf değişmez.
+  # Faz 0 ölçüm ekranı hâlâ kullanır; ürün DB'si Faz 2'de Drift'e devredildi.
   sqflite: ^2.4.1
   path: ^1.9.0
+
+  # Faz 2: ürünün yerel veritabanı. sipario.db dosya adı + customers/customer_phones/phone_last10
+  # sözleşmesi native arayan-tanıma tarafı için KORUNUR (DECISIONS Faz 0).
+  drift: ^2.22.0
+  sqlite3_flutter_libs: ^0.5.24
+  uuid: ^4.5.0                # UUIDv7 istemcide (uuid.v7()) — offline-first kimlik
+  http: ^1.2.2               # senkron push/pull taşıması
+  connectivity_plus: ^6.0.5  # ağ tetiği (online olunca gönderici koşar)
 
 dev_dependencies:
   flutter_test:
@@ -24,5 +32,22 @@ dev_dependencies:
 
   flutter_lints: ^6.0.0
 
+  # Drift kod üretimi (yerel DB şeması → tip güvenli erişim)
+  drift_dev: ^2.22.0
+  build_runner: ^2.5.4
+
+  # migration_test.dart phase0 (v1) şemasını ham sqlite3 ile kurar (drift'in çekirdek bağımlılığı;
+  # testte DOĞRUDAN kullanıldığından açıkça listelenir). Codegen override'ıyla çelişmez (o kapalı).
+  sqlite3: ^3.3.0
+
 flutter:
   uses-material-design: true
+
+# Faz 2 codegen notu (KOD ÜRETİMİ İÇİN GEÇİCİ): sqlite3 >=3.3 native build-hook'u Dart 3.10'da
+# `dart run build_runner`ın AOT derlemesini kırıyor ("dart compile does not support build hooks").
+# Drift .g.dart'ı yeniden üretmen gerekirse ÖNCE aşağıdaki override'ı geçici olarak aç (sqlite3'ü
+# hook'suz sürüme indir), `flutter pub get && dart run build_runner build`, SONRA override'ı yine
+# kapat ve `flutter pub get` (runtime + flutter test drift 2.34'ün beklediği sqlite3 3.x'i ister).
+# Üretilen kod sqlite3 sürümünden bağımsızdır; override'ı kapalı bırakmak normal durumdur.
+# dependency_overrides:
+#   sqlite3: ">=2.4.0 <3.3.0"

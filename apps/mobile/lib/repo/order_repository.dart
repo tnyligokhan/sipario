@@ -1,0 +1,209 @@
+import 'dart:convert';
+
+import 'package:drift/drift.dart';
+
+import '../data/app_database.dart';
+import '../data/ids.dart';
+import '../data/outbox.dart';
+
+class LineInput {
+  LineInput({required this.productName, required this.unitPriceKurus, required this.qty, this.productId});
+  final String? productId;
+  final String productName;
+  final int unitPriceKurus;
+  final int qty;
+}
+
+/// Sipariş yerel CRUD'u. status/total YERELDE de olaylardan türer (sunucu önbelleğinin aynası).
+/// Her mutasyon: order_events'e ekleme + orders/order_lines yazımı + outbox olayı, AYNI transaction.
+/// order_event yerel id'si + AYNI client_event_id ile yazılır; sunucudan geri gelen olay bu
+/// client_event_id ile "yoksa ekle" mantığında eşlenir (çift kayıt olmaz).
+class OrderRepository {
+  OrderRepository(this.db);
+  final AppDatabase db;
+
+  Future<String> create({String? customerId, String? note, required List<LineInput> lines}) async {
+    final meta = await db.syncState();
+    final at = correctedNowIso(meta.serverTimeOffsetMs);
+    final device = meta.deviceId;
+    final orderId = newId();
+    final clientEventId = newId();
+
+    final linePayloads = <Map<String, Object?>>[];
+
+    await db.transaction(() async {
+      await db.into(db.orders).insert(OrdersCompanion.insert(
+            id: orderId,
+            customerId: Value(customerId),
+            note: Value(note),
+            occurredAt: at,
+            createdDeviceId: Value(device),
+          ));
+
+      for (final l in lines) {
+        final lineId = newId();
+        await db.into(db.orderLines).insert(OrderLinesCompanion.insert(
+              id: lineId,
+              orderId: orderId,
+              productId: Value(l.productId),
+              productName: l.productName,
+              unitPriceKurus: l.unitPriceKurus,
+              qty: l.qty,
+              lineTotalKurus: l.unitPriceKurus * l.qty,
+            ));
+        linePayloads.add({
+          'id': lineId,
+          'product_id': l.productId,
+          'product_name': l.productName,
+          'unit_price_kurus': l.unitPriceKurus,
+          'qty': l.qty,
+        });
+      }
+
+      final payload = {
+        'order': {'id': orderId, 'customer_id': customerId, 'note': note},
+        'lines': linePayloads,
+      };
+      await _appendEvent(orderId, 'created', clientEventId, payload, at, device);
+      await _recompute(orderId);
+      await enqueueOutbox(db,
+          entityType: 'order', op: 'created', entityId: orderId,
+          occurredAt: at, deviceId: device, clientEventId: clientEventId, payload: payload);
+    });
+
+    return orderId;
+  }
+
+  Future<void> deliver(String orderId, {String? paymentType}) =>
+      _statusEvent(orderId, 'delivered', {'order_id': orderId, 'payment_type': ?paymentType},
+          paymentType: paymentType);
+
+  Future<void> cancel(String orderId) =>
+      _statusEvent(orderId, 'cancelled', {'order_id': orderId});
+
+  Future<void> setPayment(String orderId, String paymentType) =>
+      _statusEvent(orderId, 'payment_set', {'order_id': orderId, 'payment_type': paymentType}, paymentType: paymentType);
+
+  Future<void> setNote(String orderId, String? note) =>
+      _statusEvent(orderId, 'note_set', {'order_id': orderId, 'note': note}, note: note, setNoteFlag: true);
+
+  Future<String> addLine(String orderId, LineInput l) async {
+    final meta = await db.syncState();
+    final at = correctedNowIso(meta.serverTimeOffsetMs);
+    final device = meta.deviceId;
+    final clientEventId = newId();
+    final lineId = newId();
+
+    await db.transaction(() async {
+      await db.into(db.orderLines).insert(OrderLinesCompanion.insert(
+            id: lineId,
+            orderId: orderId,
+            productId: Value(l.productId),
+            productName: l.productName,
+            unitPriceKurus: l.unitPriceKurus,
+            qty: l.qty,
+            lineTotalKurus: l.unitPriceKurus * l.qty,
+          ));
+      final payload = {
+        'order_id': orderId,
+        'line': {
+          'id': lineId,
+          'product_id': l.productId,
+          'product_name': l.productName,
+          'unit_price_kurus': l.unitPriceKurus,
+          'qty': l.qty,
+        },
+      };
+      await _appendEvent(orderId, 'line_added', clientEventId, payload, at, device);
+      await _recompute(orderId);
+      await enqueueOutbox(db,
+          entityType: 'order', op: 'line_added', entityId: orderId,
+          occurredAt: at, deviceId: device, clientEventId: clientEventId, payload: payload);
+    });
+
+    return lineId;
+  }
+
+  Future<void> removeLine(String orderId, String lineId) async {
+    final meta = await db.syncState();
+    final at = correctedNowIso(meta.serverTimeOffsetMs);
+    final device = meta.deviceId;
+    final clientEventId = newId();
+
+    await db.transaction(() async {
+      await (db.update(db.orderLines)..where((t) => t.id.equals(lineId)))
+          .write(OrderLinesCompanion(deletedAt: Value(at)));
+      final payload = {'order_id': orderId, 'line_id': lineId};
+      await _appendEvent(orderId, 'line_removed', clientEventId, payload, at, device);
+      await _recompute(orderId);
+      await enqueueOutbox(db,
+          entityType: 'order', op: 'line_removed', entityId: orderId,
+          occurredAt: at, deviceId: device, clientEventId: clientEventId, payload: payload);
+    });
+  }
+
+  Future<void> _statusEvent(
+    String orderId,
+    String op,
+    Map<String, Object?> payload, {
+    String? paymentType,
+    String? note,
+    bool setNoteFlag = false,
+  }) async {
+    final meta = await db.syncState();
+    final at = correctedNowIso(meta.serverTimeOffsetMs);
+    final device = meta.deviceId;
+    final clientEventId = newId();
+
+    await db.transaction(() async {
+      if (paymentType != null) {
+        await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
+            .write(OrdersCompanion(paymentType: Value(paymentType)));
+      }
+      if (setNoteFlag) {
+        await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
+            .write(OrdersCompanion(note: Value(note)));
+      }
+      await _appendEvent(orderId, op, clientEventId, payload, at, device);
+      await _recompute(orderId);
+      await enqueueOutbox(db,
+          entityType: 'order', op: op, entityId: orderId,
+          occurredAt: at, deviceId: device, clientEventId: clientEventId, payload: payload);
+    });
+  }
+
+  Future<void> _appendEvent(
+    String orderId,
+    String type,
+    String clientEventId,
+    Map<String, Object?> payload,
+    String at,
+    String? device,
+  ) {
+    return db.into(db.orderEvents).insert(OrderEventsCompanion.insert(
+          id: newId(),
+          orderId: orderId,
+          eventType: type,
+          payload: Value(jsonEncode(payload)),
+          clientEventId: clientEventId,
+          occurredAt: at,
+          deviceId: Value(device),
+        ));
+  }
+
+  /// status/total'ı olaylardan + aktif satırlardan türet (sunucu recompute'unun aynası).
+  Future<void> _recompute(String orderId) async {
+    final events = await (db.select(db.orderEvents)..where((t) => t.orderId.equals(orderId))).get();
+    final hasCancelled = events.any((e) => e.eventType == 'cancelled');
+    final hasDelivered = events.any((e) => e.eventType == 'delivered');
+    final status = hasCancelled ? 'cancelled' : (hasDelivered ? 'delivered' : 'open');
+
+    final lines = await (db.select(db.orderLines)
+          ..where((t) => t.orderId.equals(orderId) & t.deletedAt.isNull()))
+        .get();
+    final total = lines.fold<int>(0, (s, l) => s + l.lineTotalKurus);
+
+    await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
+        .write(OrdersCompanion(status: Value(status), totalKurus: Value(total)));
+  }
+}

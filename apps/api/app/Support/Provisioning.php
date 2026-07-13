@@ -65,6 +65,10 @@ class Provisioning
                 'status' => 'active',
             ]);
 
+            // Senkron seq sayacının başlangıç satırı (owner bağlamında; RLS'i superuser atlar).
+            // push() zaten ON CONFLICT DO NOTHING ile self-heal yapar; burada üretim için baştan kurulur.
+            DB::table('tenant_sync_state')->insertOrIgnore(['tenant_id' => $tenant->id, 'last_seq' => 0]);
+
             return ['tenant' => $tenant, 'patron' => $patron];
         });
     }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceController;
+use App\Http\Controllers\Api\SyncController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -27,5 +28,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/devices', [DeviceController::class, 'index'])->name('api.devices.index');
         Route::post('/devices', [DeviceController::class, 'store'])->name('api.devices.store');
         Route::get('/devices/{device}', [DeviceController::class, 'show'])->name('api.devices.show');
+
+        // Senkron: tek yazma yüzeyi (push) + tek okuma yüzeyi (pull). İstemci başka bir yazma
+        // endpoint'i görmez; müşteri/sipariş CRUD yerelde Drift + outbox, sunucuya buradan yansır.
+        Route::post('/sync/push', [SyncController::class, 'push'])->name('api.sync.push');
+        Route::get('/sync/pull', [SyncController::class, 'pull'])->name('api.sync.pull');
     });
 });
