@@ -23,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo \"hook fired\" >> \"$CLAUDE_PROJECT_DIR/.claude/hook-check.tmp\"; f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" pre-bash; fi",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" pre-bash; fi",
             "timeout": 10
           }
         ]
