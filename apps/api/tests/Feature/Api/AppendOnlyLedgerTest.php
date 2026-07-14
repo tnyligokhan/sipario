@@ -26,6 +26,7 @@ class AppendOnlyLedgerTest extends ApiTestCase
             ['order_events'],
             ['sync_changes'],
             ['processed_events'],
+            ['coupon_movements'],
         ];
     }
 
@@ -60,5 +61,15 @@ class AppendOnlyLedgerTest extends ApiTestCase
         // (Boş SELECT yeter — INSERT yolu SyncTest'te uçtan uca kanıtlanıyor.)
         $count = DB::table('ledger_entries')->count();
         $this->assertIsInt($count);
+    }
+
+    #[Test]
+    public function app_rolu_coupon_balances_onbellegini_guncelleyebilir(): void
+    {
+        // coupon_balances append-only DEĞİL — önbellek (customers.balance_kurus ikizi); recompute onu
+        // UPDATE eder. Yanlışlıkla append-only REVOKE setine girerse kupon akışı 42501 ile kırılırdı;
+        // bu test o regresyonu yakalar. Boş UPDATE (0 satır) yetki reddi FIRLATMAMALI.
+        $affected = DB::update('UPDATE coupon_balances SET balance_qty = balance_qty');
+        $this->assertSame(0, $affected, 'coupon_balances güncellenebilir olmalı (REVOKE setinde değil).');
     }
 }

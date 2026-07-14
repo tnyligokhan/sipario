@@ -3844,12 +3844,34 @@ class $LedgerEntriesTable extends LedgerEntries
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _paymentTypeMeta = const VerificationMeta(
+    'paymentType',
+  );
+  @override
+  late final GeneratedColumn<String> paymentType = GeneratedColumn<String>(
+    'payment_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _relatedOrderIdMeta = const VerificationMeta(
     'relatedOrderId',
   );
   @override
   late final GeneratedColumn<String> relatedOrderId = GeneratedColumn<String>(
     'related_order_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reversesEntryIdMeta = const VerificationMeta(
+    'reversesEntryId',
+  );
+  @override
+  late final GeneratedColumn<String> reversesEntryId = GeneratedColumn<String>(
+    'reverses_entry_id',
     aliasedName,
     true,
     type: DriftSqlType.string,
@@ -3903,7 +3925,9 @@ class $LedgerEntriesTable extends LedgerEntries
     customerId,
     entryType,
     amountKurus,
+    paymentType,
     relatedOrderId,
+    reversesEntryId,
     note,
     occurredAt,
     deviceId,
@@ -3951,12 +3975,30 @@ class $LedgerEntriesTable extends LedgerEntries
     } else if (isInserting) {
       context.missing(_amountKurusMeta);
     }
+    if (data.containsKey('payment_type')) {
+      context.handle(
+        _paymentTypeMeta,
+        paymentType.isAcceptableOrUnknown(
+          data['payment_type']!,
+          _paymentTypeMeta,
+        ),
+      );
+    }
     if (data.containsKey('related_order_id')) {
       context.handle(
         _relatedOrderIdMeta,
         relatedOrderId.isAcceptableOrUnknown(
           data['related_order_id']!,
           _relatedOrderIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reverses_entry_id')) {
+      context.handle(
+        _reversesEntryIdMeta,
+        reversesEntryId.isAcceptableOrUnknown(
+          data['reverses_entry_id']!,
+          _reversesEntryIdMeta,
         ),
       );
     }
@@ -4016,9 +4058,17 @@ class $LedgerEntriesTable extends LedgerEntries
         DriftSqlType.int,
         data['${effectivePrefix}amount_kurus'],
       )!,
+      paymentType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payment_type'],
+      ),
       relatedOrderId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}related_order_id'],
+      ),
+      reversesEntryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reverses_entry_id'],
       ),
       note: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -4050,7 +4100,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
   final String? customerId;
   final String entryType;
   final int amountKurus;
+  final String? paymentType;
   final String? relatedOrderId;
+  final String? reversesEntryId;
   final String? note;
   final String occurredAt;
   final String? deviceId;
@@ -4060,7 +4112,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
     this.customerId,
     required this.entryType,
     required this.amountKurus,
+    this.paymentType,
     this.relatedOrderId,
+    this.reversesEntryId,
     this.note,
     required this.occurredAt,
     this.deviceId,
@@ -4075,8 +4129,14 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
     }
     map['entry_type'] = Variable<String>(entryType);
     map['amount_kurus'] = Variable<int>(amountKurus);
+    if (!nullToAbsent || paymentType != null) {
+      map['payment_type'] = Variable<String>(paymentType);
+    }
     if (!nullToAbsent || relatedOrderId != null) {
       map['related_order_id'] = Variable<String>(relatedOrderId);
+    }
+    if (!nullToAbsent || reversesEntryId != null) {
+      map['reverses_entry_id'] = Variable<String>(reversesEntryId);
     }
     if (!nullToAbsent || note != null) {
       map['note'] = Variable<String>(note);
@@ -4097,9 +4157,15 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
           : Value(customerId),
       entryType: Value(entryType),
       amountKurus: Value(amountKurus),
+      paymentType: paymentType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paymentType),
       relatedOrderId: relatedOrderId == null && nullToAbsent
           ? const Value.absent()
           : Value(relatedOrderId),
+      reversesEntryId: reversesEntryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reversesEntryId),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       occurredAt: Value(occurredAt),
       deviceId: deviceId == null && nullToAbsent
@@ -4119,7 +4185,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
       customerId: serializer.fromJson<String?>(json['customerId']),
       entryType: serializer.fromJson<String>(json['entryType']),
       amountKurus: serializer.fromJson<int>(json['amountKurus']),
+      paymentType: serializer.fromJson<String?>(json['paymentType']),
       relatedOrderId: serializer.fromJson<String?>(json['relatedOrderId']),
+      reversesEntryId: serializer.fromJson<String?>(json['reversesEntryId']),
       note: serializer.fromJson<String?>(json['note']),
       occurredAt: serializer.fromJson<String>(json['occurredAt']),
       deviceId: serializer.fromJson<String?>(json['deviceId']),
@@ -4134,7 +4202,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
       'customerId': serializer.toJson<String?>(customerId),
       'entryType': serializer.toJson<String>(entryType),
       'amountKurus': serializer.toJson<int>(amountKurus),
+      'paymentType': serializer.toJson<String?>(paymentType),
       'relatedOrderId': serializer.toJson<String?>(relatedOrderId),
+      'reversesEntryId': serializer.toJson<String?>(reversesEntryId),
       'note': serializer.toJson<String?>(note),
       'occurredAt': serializer.toJson<String>(occurredAt),
       'deviceId': serializer.toJson<String?>(deviceId),
@@ -4147,7 +4217,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
     Value<String?> customerId = const Value.absent(),
     String? entryType,
     int? amountKurus,
+    Value<String?> paymentType = const Value.absent(),
     Value<String?> relatedOrderId = const Value.absent(),
+    Value<String?> reversesEntryId = const Value.absent(),
     Value<String?> note = const Value.absent(),
     String? occurredAt,
     Value<String?> deviceId = const Value.absent(),
@@ -4157,9 +4229,13 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
     customerId: customerId.present ? customerId.value : this.customerId,
     entryType: entryType ?? this.entryType,
     amountKurus: amountKurus ?? this.amountKurus,
+    paymentType: paymentType.present ? paymentType.value : this.paymentType,
     relatedOrderId: relatedOrderId.present
         ? relatedOrderId.value
         : this.relatedOrderId,
+    reversesEntryId: reversesEntryId.present
+        ? reversesEntryId.value
+        : this.reversesEntryId,
     note: note.present ? note.value : this.note,
     occurredAt: occurredAt ?? this.occurredAt,
     deviceId: deviceId.present ? deviceId.value : this.deviceId,
@@ -4175,9 +4251,15 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
       amountKurus: data.amountKurus.present
           ? data.amountKurus.value
           : this.amountKurus,
+      paymentType: data.paymentType.present
+          ? data.paymentType.value
+          : this.paymentType,
       relatedOrderId: data.relatedOrderId.present
           ? data.relatedOrderId.value
           : this.relatedOrderId,
+      reversesEntryId: data.reversesEntryId.present
+          ? data.reversesEntryId.value
+          : this.reversesEntryId,
       note: data.note.present ? data.note.value : this.note,
       occurredAt: data.occurredAt.present
           ? data.occurredAt.value
@@ -4196,7 +4278,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
           ..write('customerId: $customerId, ')
           ..write('entryType: $entryType, ')
           ..write('amountKurus: $amountKurus, ')
+          ..write('paymentType: $paymentType, ')
           ..write('relatedOrderId: $relatedOrderId, ')
+          ..write('reversesEntryId: $reversesEntryId, ')
           ..write('note: $note, ')
           ..write('occurredAt: $occurredAt, ')
           ..write('deviceId: $deviceId, ')
@@ -4211,7 +4295,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
     customerId,
     entryType,
     amountKurus,
+    paymentType,
     relatedOrderId,
+    reversesEntryId,
     note,
     occurredAt,
     deviceId,
@@ -4225,7 +4311,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
           other.customerId == this.customerId &&
           other.entryType == this.entryType &&
           other.amountKurus == this.amountKurus &&
+          other.paymentType == this.paymentType &&
           other.relatedOrderId == this.relatedOrderId &&
+          other.reversesEntryId == this.reversesEntryId &&
           other.note == this.note &&
           other.occurredAt == this.occurredAt &&
           other.deviceId == this.deviceId &&
@@ -4237,7 +4325,9 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
   final Value<String?> customerId;
   final Value<String> entryType;
   final Value<int> amountKurus;
+  final Value<String?> paymentType;
   final Value<String?> relatedOrderId;
+  final Value<String?> reversesEntryId;
   final Value<String?> note;
   final Value<String> occurredAt;
   final Value<String?> deviceId;
@@ -4248,7 +4338,9 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
     this.customerId = const Value.absent(),
     this.entryType = const Value.absent(),
     this.amountKurus = const Value.absent(),
+    this.paymentType = const Value.absent(),
     this.relatedOrderId = const Value.absent(),
+    this.reversesEntryId = const Value.absent(),
     this.note = const Value.absent(),
     this.occurredAt = const Value.absent(),
     this.deviceId = const Value.absent(),
@@ -4260,7 +4352,9 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
     this.customerId = const Value.absent(),
     required String entryType,
     required int amountKurus,
+    this.paymentType = const Value.absent(),
     this.relatedOrderId = const Value.absent(),
+    this.reversesEntryId = const Value.absent(),
     this.note = const Value.absent(),
     required String occurredAt,
     this.deviceId = const Value.absent(),
@@ -4276,7 +4370,9 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
     Expression<String>? customerId,
     Expression<String>? entryType,
     Expression<int>? amountKurus,
+    Expression<String>? paymentType,
     Expression<String>? relatedOrderId,
+    Expression<String>? reversesEntryId,
     Expression<String>? note,
     Expression<String>? occurredAt,
     Expression<String>? deviceId,
@@ -4288,7 +4384,9 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
       if (customerId != null) 'customer_id': customerId,
       if (entryType != null) 'entry_type': entryType,
       if (amountKurus != null) 'amount_kurus': amountKurus,
+      if (paymentType != null) 'payment_type': paymentType,
       if (relatedOrderId != null) 'related_order_id': relatedOrderId,
+      if (reversesEntryId != null) 'reverses_entry_id': reversesEntryId,
       if (note != null) 'note': note,
       if (occurredAt != null) 'occurred_at': occurredAt,
       if (deviceId != null) 'device_id': deviceId,
@@ -4302,7 +4400,9 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
     Value<String?>? customerId,
     Value<String>? entryType,
     Value<int>? amountKurus,
+    Value<String?>? paymentType,
     Value<String?>? relatedOrderId,
+    Value<String?>? reversesEntryId,
     Value<String?>? note,
     Value<String>? occurredAt,
     Value<String?>? deviceId,
@@ -4314,7 +4414,9 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
       customerId: customerId ?? this.customerId,
       entryType: entryType ?? this.entryType,
       amountKurus: amountKurus ?? this.amountKurus,
+      paymentType: paymentType ?? this.paymentType,
       relatedOrderId: relatedOrderId ?? this.relatedOrderId,
+      reversesEntryId: reversesEntryId ?? this.reversesEntryId,
       note: note ?? this.note,
       occurredAt: occurredAt ?? this.occurredAt,
       deviceId: deviceId ?? this.deviceId,
@@ -4338,8 +4440,14 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
     if (amountKurus.present) {
       map['amount_kurus'] = Variable<int>(amountKurus.value);
     }
+    if (paymentType.present) {
+      map['payment_type'] = Variable<String>(paymentType.value);
+    }
     if (relatedOrderId.present) {
       map['related_order_id'] = Variable<String>(relatedOrderId.value);
+    }
+    if (reversesEntryId.present) {
+      map['reverses_entry_id'] = Variable<String>(reversesEntryId.value);
     }
     if (note.present) {
       map['note'] = Variable<String>(note.value);
@@ -4366,11 +4474,974 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
           ..write('customerId: $customerId, ')
           ..write('entryType: $entryType, ')
           ..write('amountKurus: $amountKurus, ')
+          ..write('paymentType: $paymentType, ')
           ..write('relatedOrderId: $relatedOrderId, ')
+          ..write('reversesEntryId: $reversesEntryId, ')
           ..write('note: $note, ')
           ..write('occurredAt: $occurredAt, ')
           ..write('deviceId: $deviceId, ')
           ..write('clientEventId: $clientEventId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CouponMovementsTable extends CouponMovements
+    with TableInfo<$CouponMovementsTable, CouponMovement> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CouponMovementsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _customerIdMeta = const VerificationMeta(
+    'customerId',
+  );
+  @override
+  late final GeneratedColumn<String> customerId = GeneratedColumn<String>(
+    'customer_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
+    'product_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _movementTypeMeta = const VerificationMeta(
+    'movementType',
+  );
+  @override
+  late final GeneratedColumn<String> movementType = GeneratedColumn<String>(
+    'movement_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _qtyDeltaMeta = const VerificationMeta(
+    'qtyDelta',
+  );
+  @override
+  late final GeneratedColumn<int> qtyDelta = GeneratedColumn<int>(
+    'qty_delta',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _relatedOrderIdMeta = const VerificationMeta(
+    'relatedOrderId',
+  );
+  @override
+  late final GeneratedColumn<String> relatedOrderId = GeneratedColumn<String>(
+    'related_order_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reversesMovementIdMeta =
+      const VerificationMeta('reversesMovementId');
+  @override
+  late final GeneratedColumn<String> reversesMovementId =
+      GeneratedColumn<String>(
+        'reverses_movement_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _occurredAtMeta = const VerificationMeta(
+    'occurredAt',
+  );
+  @override
+  late final GeneratedColumn<String> occurredAt = GeneratedColumn<String>(
+    'occurred_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _clientEventIdMeta = const VerificationMeta(
+    'clientEventId',
+  );
+  @override
+  late final GeneratedColumn<String> clientEventId = GeneratedColumn<String>(
+    'client_event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    customerId,
+    productId,
+    movementType,
+    qtyDelta,
+    relatedOrderId,
+    note,
+    reversesMovementId,
+    occurredAt,
+    deviceId,
+    clientEventId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'coupon_movements';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CouponMovement> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('customer_id')) {
+      context.handle(
+        _customerIdMeta,
+        customerId.isAcceptableOrUnknown(data['customer_id']!, _customerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_customerIdMeta);
+    }
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    }
+    if (data.containsKey('movement_type')) {
+      context.handle(
+        _movementTypeMeta,
+        movementType.isAcceptableOrUnknown(
+          data['movement_type']!,
+          _movementTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_movementTypeMeta);
+    }
+    if (data.containsKey('qty_delta')) {
+      context.handle(
+        _qtyDeltaMeta,
+        qtyDelta.isAcceptableOrUnknown(data['qty_delta']!, _qtyDeltaMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_qtyDeltaMeta);
+    }
+    if (data.containsKey('related_order_id')) {
+      context.handle(
+        _relatedOrderIdMeta,
+        relatedOrderId.isAcceptableOrUnknown(
+          data['related_order_id']!,
+          _relatedOrderIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('reverses_movement_id')) {
+      context.handle(
+        _reversesMovementIdMeta,
+        reversesMovementId.isAcceptableOrUnknown(
+          data['reverses_movement_id']!,
+          _reversesMovementIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('occurred_at')) {
+      context.handle(
+        _occurredAtMeta,
+        occurredAt.isAcceptableOrUnknown(data['occurred_at']!, _occurredAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_occurredAtMeta);
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    }
+    if (data.containsKey('client_event_id')) {
+      context.handle(
+        _clientEventIdMeta,
+        clientEventId.isAcceptableOrUnknown(
+          data['client_event_id']!,
+          _clientEventIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_clientEventIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {clientEventId},
+  ];
+  @override
+  CouponMovement map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CouponMovement(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      customerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}customer_id'],
+      )!,
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_id'],
+      ),
+      movementType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}movement_type'],
+      )!,
+      qtyDelta: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}qty_delta'],
+      )!,
+      relatedOrderId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}related_order_id'],
+      ),
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+      reversesMovementId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reverses_movement_id'],
+      ),
+      occurredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}occurred_at'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      ),
+      clientEventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}client_event_id'],
+      )!,
+    );
+  }
+
+  @override
+  $CouponMovementsTable createAlias(String alias) {
+    return $CouponMovementsTable(attachedDatabase, alias);
+  }
+}
+
+class CouponMovement extends DataClass implements Insertable<CouponMovement> {
+  final String id;
+  final String customerId;
+  final String? productId;
+  final String movementType;
+  final int qtyDelta;
+  final String? relatedOrderId;
+  final String? note;
+  final String? reversesMovementId;
+  final String occurredAt;
+  final String? deviceId;
+  final String clientEventId;
+  const CouponMovement({
+    required this.id,
+    required this.customerId,
+    this.productId,
+    required this.movementType,
+    required this.qtyDelta,
+    this.relatedOrderId,
+    this.note,
+    this.reversesMovementId,
+    required this.occurredAt,
+    this.deviceId,
+    required this.clientEventId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['customer_id'] = Variable<String>(customerId);
+    if (!nullToAbsent || productId != null) {
+      map['product_id'] = Variable<String>(productId);
+    }
+    map['movement_type'] = Variable<String>(movementType);
+    map['qty_delta'] = Variable<int>(qtyDelta);
+    if (!nullToAbsent || relatedOrderId != null) {
+      map['related_order_id'] = Variable<String>(relatedOrderId);
+    }
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    if (!nullToAbsent || reversesMovementId != null) {
+      map['reverses_movement_id'] = Variable<String>(reversesMovementId);
+    }
+    map['occurred_at'] = Variable<String>(occurredAt);
+    if (!nullToAbsent || deviceId != null) {
+      map['device_id'] = Variable<String>(deviceId);
+    }
+    map['client_event_id'] = Variable<String>(clientEventId);
+    return map;
+  }
+
+  CouponMovementsCompanion toCompanion(bool nullToAbsent) {
+    return CouponMovementsCompanion(
+      id: Value(id),
+      customerId: Value(customerId),
+      productId: productId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(productId),
+      movementType: Value(movementType),
+      qtyDelta: Value(qtyDelta),
+      relatedOrderId: relatedOrderId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(relatedOrderId),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      reversesMovementId: reversesMovementId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reversesMovementId),
+      occurredAt: Value(occurredAt),
+      deviceId: deviceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deviceId),
+      clientEventId: Value(clientEventId),
+    );
+  }
+
+  factory CouponMovement.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CouponMovement(
+      id: serializer.fromJson<String>(json['id']),
+      customerId: serializer.fromJson<String>(json['customerId']),
+      productId: serializer.fromJson<String?>(json['productId']),
+      movementType: serializer.fromJson<String>(json['movementType']),
+      qtyDelta: serializer.fromJson<int>(json['qtyDelta']),
+      relatedOrderId: serializer.fromJson<String?>(json['relatedOrderId']),
+      note: serializer.fromJson<String?>(json['note']),
+      reversesMovementId: serializer.fromJson<String?>(
+        json['reversesMovementId'],
+      ),
+      occurredAt: serializer.fromJson<String>(json['occurredAt']),
+      deviceId: serializer.fromJson<String?>(json['deviceId']),
+      clientEventId: serializer.fromJson<String>(json['clientEventId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'customerId': serializer.toJson<String>(customerId),
+      'productId': serializer.toJson<String?>(productId),
+      'movementType': serializer.toJson<String>(movementType),
+      'qtyDelta': serializer.toJson<int>(qtyDelta),
+      'relatedOrderId': serializer.toJson<String?>(relatedOrderId),
+      'note': serializer.toJson<String?>(note),
+      'reversesMovementId': serializer.toJson<String?>(reversesMovementId),
+      'occurredAt': serializer.toJson<String>(occurredAt),
+      'deviceId': serializer.toJson<String?>(deviceId),
+      'clientEventId': serializer.toJson<String>(clientEventId),
+    };
+  }
+
+  CouponMovement copyWith({
+    String? id,
+    String? customerId,
+    Value<String?> productId = const Value.absent(),
+    String? movementType,
+    int? qtyDelta,
+    Value<String?> relatedOrderId = const Value.absent(),
+    Value<String?> note = const Value.absent(),
+    Value<String?> reversesMovementId = const Value.absent(),
+    String? occurredAt,
+    Value<String?> deviceId = const Value.absent(),
+    String? clientEventId,
+  }) => CouponMovement(
+    id: id ?? this.id,
+    customerId: customerId ?? this.customerId,
+    productId: productId.present ? productId.value : this.productId,
+    movementType: movementType ?? this.movementType,
+    qtyDelta: qtyDelta ?? this.qtyDelta,
+    relatedOrderId: relatedOrderId.present
+        ? relatedOrderId.value
+        : this.relatedOrderId,
+    note: note.present ? note.value : this.note,
+    reversesMovementId: reversesMovementId.present
+        ? reversesMovementId.value
+        : this.reversesMovementId,
+    occurredAt: occurredAt ?? this.occurredAt,
+    deviceId: deviceId.present ? deviceId.value : this.deviceId,
+    clientEventId: clientEventId ?? this.clientEventId,
+  );
+  CouponMovement copyWithCompanion(CouponMovementsCompanion data) {
+    return CouponMovement(
+      id: data.id.present ? data.id.value : this.id,
+      customerId: data.customerId.present
+          ? data.customerId.value
+          : this.customerId,
+      productId: data.productId.present ? data.productId.value : this.productId,
+      movementType: data.movementType.present
+          ? data.movementType.value
+          : this.movementType,
+      qtyDelta: data.qtyDelta.present ? data.qtyDelta.value : this.qtyDelta,
+      relatedOrderId: data.relatedOrderId.present
+          ? data.relatedOrderId.value
+          : this.relatedOrderId,
+      note: data.note.present ? data.note.value : this.note,
+      reversesMovementId: data.reversesMovementId.present
+          ? data.reversesMovementId.value
+          : this.reversesMovementId,
+      occurredAt: data.occurredAt.present
+          ? data.occurredAt.value
+          : this.occurredAt,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      clientEventId: data.clientEventId.present
+          ? data.clientEventId.value
+          : this.clientEventId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CouponMovement(')
+          ..write('id: $id, ')
+          ..write('customerId: $customerId, ')
+          ..write('productId: $productId, ')
+          ..write('movementType: $movementType, ')
+          ..write('qtyDelta: $qtyDelta, ')
+          ..write('relatedOrderId: $relatedOrderId, ')
+          ..write('note: $note, ')
+          ..write('reversesMovementId: $reversesMovementId, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('clientEventId: $clientEventId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    customerId,
+    productId,
+    movementType,
+    qtyDelta,
+    relatedOrderId,
+    note,
+    reversesMovementId,
+    occurredAt,
+    deviceId,
+    clientEventId,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CouponMovement &&
+          other.id == this.id &&
+          other.customerId == this.customerId &&
+          other.productId == this.productId &&
+          other.movementType == this.movementType &&
+          other.qtyDelta == this.qtyDelta &&
+          other.relatedOrderId == this.relatedOrderId &&
+          other.note == this.note &&
+          other.reversesMovementId == this.reversesMovementId &&
+          other.occurredAt == this.occurredAt &&
+          other.deviceId == this.deviceId &&
+          other.clientEventId == this.clientEventId);
+}
+
+class CouponMovementsCompanion extends UpdateCompanion<CouponMovement> {
+  final Value<String> id;
+  final Value<String> customerId;
+  final Value<String?> productId;
+  final Value<String> movementType;
+  final Value<int> qtyDelta;
+  final Value<String?> relatedOrderId;
+  final Value<String?> note;
+  final Value<String?> reversesMovementId;
+  final Value<String> occurredAt;
+  final Value<String?> deviceId;
+  final Value<String> clientEventId;
+  final Value<int> rowid;
+  const CouponMovementsCompanion({
+    this.id = const Value.absent(),
+    this.customerId = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.movementType = const Value.absent(),
+    this.qtyDelta = const Value.absent(),
+    this.relatedOrderId = const Value.absent(),
+    this.note = const Value.absent(),
+    this.reversesMovementId = const Value.absent(),
+    this.occurredAt = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.clientEventId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CouponMovementsCompanion.insert({
+    required String id,
+    required String customerId,
+    this.productId = const Value.absent(),
+    required String movementType,
+    required int qtyDelta,
+    this.relatedOrderId = const Value.absent(),
+    this.note = const Value.absent(),
+    this.reversesMovementId = const Value.absent(),
+    required String occurredAt,
+    this.deviceId = const Value.absent(),
+    required String clientEventId,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       customerId = Value(customerId),
+       movementType = Value(movementType),
+       qtyDelta = Value(qtyDelta),
+       occurredAt = Value(occurredAt),
+       clientEventId = Value(clientEventId);
+  static Insertable<CouponMovement> custom({
+    Expression<String>? id,
+    Expression<String>? customerId,
+    Expression<String>? productId,
+    Expression<String>? movementType,
+    Expression<int>? qtyDelta,
+    Expression<String>? relatedOrderId,
+    Expression<String>? note,
+    Expression<String>? reversesMovementId,
+    Expression<String>? occurredAt,
+    Expression<String>? deviceId,
+    Expression<String>? clientEventId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (customerId != null) 'customer_id': customerId,
+      if (productId != null) 'product_id': productId,
+      if (movementType != null) 'movement_type': movementType,
+      if (qtyDelta != null) 'qty_delta': qtyDelta,
+      if (relatedOrderId != null) 'related_order_id': relatedOrderId,
+      if (note != null) 'note': note,
+      if (reversesMovementId != null)
+        'reverses_movement_id': reversesMovementId,
+      if (occurredAt != null) 'occurred_at': occurredAt,
+      if (deviceId != null) 'device_id': deviceId,
+      if (clientEventId != null) 'client_event_id': clientEventId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CouponMovementsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? customerId,
+    Value<String?>? productId,
+    Value<String>? movementType,
+    Value<int>? qtyDelta,
+    Value<String?>? relatedOrderId,
+    Value<String?>? note,
+    Value<String?>? reversesMovementId,
+    Value<String>? occurredAt,
+    Value<String?>? deviceId,
+    Value<String>? clientEventId,
+    Value<int>? rowid,
+  }) {
+    return CouponMovementsCompanion(
+      id: id ?? this.id,
+      customerId: customerId ?? this.customerId,
+      productId: productId ?? this.productId,
+      movementType: movementType ?? this.movementType,
+      qtyDelta: qtyDelta ?? this.qtyDelta,
+      relatedOrderId: relatedOrderId ?? this.relatedOrderId,
+      note: note ?? this.note,
+      reversesMovementId: reversesMovementId ?? this.reversesMovementId,
+      occurredAt: occurredAt ?? this.occurredAt,
+      deviceId: deviceId ?? this.deviceId,
+      clientEventId: clientEventId ?? this.clientEventId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (customerId.present) {
+      map['customer_id'] = Variable<String>(customerId.value);
+    }
+    if (productId.present) {
+      map['product_id'] = Variable<String>(productId.value);
+    }
+    if (movementType.present) {
+      map['movement_type'] = Variable<String>(movementType.value);
+    }
+    if (qtyDelta.present) {
+      map['qty_delta'] = Variable<int>(qtyDelta.value);
+    }
+    if (relatedOrderId.present) {
+      map['related_order_id'] = Variable<String>(relatedOrderId.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (reversesMovementId.present) {
+      map['reverses_movement_id'] = Variable<String>(reversesMovementId.value);
+    }
+    if (occurredAt.present) {
+      map['occurred_at'] = Variable<String>(occurredAt.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (clientEventId.present) {
+      map['client_event_id'] = Variable<String>(clientEventId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CouponMovementsCompanion(')
+          ..write('id: $id, ')
+          ..write('customerId: $customerId, ')
+          ..write('productId: $productId, ')
+          ..write('movementType: $movementType, ')
+          ..write('qtyDelta: $qtyDelta, ')
+          ..write('relatedOrderId: $relatedOrderId, ')
+          ..write('note: $note, ')
+          ..write('reversesMovementId: $reversesMovementId, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('clientEventId: $clientEventId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CouponBalancesTable extends CouponBalances
+    with TableInfo<$CouponBalancesTable, CouponBalance> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CouponBalancesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _customerIdMeta = const VerificationMeta(
+    'customerId',
+  );
+  @override
+  late final GeneratedColumn<String> customerId = GeneratedColumn<String>(
+    'customer_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _productIdMeta = const VerificationMeta(
+    'productId',
+  );
+  @override
+  late final GeneratedColumn<String> productId = GeneratedColumn<String>(
+    'product_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _balanceQtyMeta = const VerificationMeta(
+    'balanceQty',
+  );
+  @override
+  late final GeneratedColumn<int> balanceQty = GeneratedColumn<int>(
+    'balance_qty',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [customerId, productId, balanceQty];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'coupon_balances';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CouponBalance> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('customer_id')) {
+      context.handle(
+        _customerIdMeta,
+        customerId.isAcceptableOrUnknown(data['customer_id']!, _customerIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_customerIdMeta);
+    }
+    if (data.containsKey('product_id')) {
+      context.handle(
+        _productIdMeta,
+        productId.isAcceptableOrUnknown(data['product_id']!, _productIdMeta),
+      );
+    }
+    if (data.containsKey('balance_qty')) {
+      context.handle(
+        _balanceQtyMeta,
+        balanceQty.isAcceptableOrUnknown(data['balance_qty']!, _balanceQtyMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {customerId, productId};
+  @override
+  CouponBalance map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CouponBalance(
+      customerId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}customer_id'],
+      )!,
+      productId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_id'],
+      )!,
+      balanceQty: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}balance_qty'],
+      )!,
+    );
+  }
+
+  @override
+  $CouponBalancesTable createAlias(String alias) {
+    return $CouponBalancesTable(attachedDatabase, alias);
+  }
+}
+
+class CouponBalance extends DataClass implements Insertable<CouponBalance> {
+  final String customerId;
+  final String productId;
+  final int balanceQty;
+  const CouponBalance({
+    required this.customerId,
+    required this.productId,
+    required this.balanceQty,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['customer_id'] = Variable<String>(customerId);
+    map['product_id'] = Variable<String>(productId);
+    map['balance_qty'] = Variable<int>(balanceQty);
+    return map;
+  }
+
+  CouponBalancesCompanion toCompanion(bool nullToAbsent) {
+    return CouponBalancesCompanion(
+      customerId: Value(customerId),
+      productId: Value(productId),
+      balanceQty: Value(balanceQty),
+    );
+  }
+
+  factory CouponBalance.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CouponBalance(
+      customerId: serializer.fromJson<String>(json['customerId']),
+      productId: serializer.fromJson<String>(json['productId']),
+      balanceQty: serializer.fromJson<int>(json['balanceQty']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'customerId': serializer.toJson<String>(customerId),
+      'productId': serializer.toJson<String>(productId),
+      'balanceQty': serializer.toJson<int>(balanceQty),
+    };
+  }
+
+  CouponBalance copyWith({
+    String? customerId,
+    String? productId,
+    int? balanceQty,
+  }) => CouponBalance(
+    customerId: customerId ?? this.customerId,
+    productId: productId ?? this.productId,
+    balanceQty: balanceQty ?? this.balanceQty,
+  );
+  CouponBalance copyWithCompanion(CouponBalancesCompanion data) {
+    return CouponBalance(
+      customerId: data.customerId.present
+          ? data.customerId.value
+          : this.customerId,
+      productId: data.productId.present ? data.productId.value : this.productId,
+      balanceQty: data.balanceQty.present
+          ? data.balanceQty.value
+          : this.balanceQty,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CouponBalance(')
+          ..write('customerId: $customerId, ')
+          ..write('productId: $productId, ')
+          ..write('balanceQty: $balanceQty')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(customerId, productId, balanceQty);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CouponBalance &&
+          other.customerId == this.customerId &&
+          other.productId == this.productId &&
+          other.balanceQty == this.balanceQty);
+}
+
+class CouponBalancesCompanion extends UpdateCompanion<CouponBalance> {
+  final Value<String> customerId;
+  final Value<String> productId;
+  final Value<int> balanceQty;
+  final Value<int> rowid;
+  const CouponBalancesCompanion({
+    this.customerId = const Value.absent(),
+    this.productId = const Value.absent(),
+    this.balanceQty = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CouponBalancesCompanion.insert({
+    required String customerId,
+    this.productId = const Value.absent(),
+    this.balanceQty = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : customerId = Value(customerId);
+  static Insertable<CouponBalance> custom({
+    Expression<String>? customerId,
+    Expression<String>? productId,
+    Expression<int>? balanceQty,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (customerId != null) 'customer_id': customerId,
+      if (productId != null) 'product_id': productId,
+      if (balanceQty != null) 'balance_qty': balanceQty,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CouponBalancesCompanion copyWith({
+    Value<String>? customerId,
+    Value<String>? productId,
+    Value<int>? balanceQty,
+    Value<int>? rowid,
+  }) {
+    return CouponBalancesCompanion(
+      customerId: customerId ?? this.customerId,
+      productId: productId ?? this.productId,
+      balanceQty: balanceQty ?? this.balanceQty,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (customerId.present) {
+      map['customer_id'] = Variable<String>(customerId.value);
+    }
+    if (productId.present) {
+      map['product_id'] = Variable<String>(productId.value);
+    }
+    if (balanceQty.present) {
+      map['balance_qty'] = Variable<int>(balanceQty.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CouponBalancesCompanion(')
+          ..write('customerId: $customerId, ')
+          ..write('productId: $productId, ')
+          ..write('balanceQty: $balanceQty, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5627,11 +6698,19 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $OrderLinesTable orderLines = $OrderLinesTable(this);
   late final $OrderEventsTable orderEvents = $OrderEventsTable(this);
   late final $LedgerEntriesTable ledgerEntries = $LedgerEntriesTable(this);
+  late final $CouponMovementsTable couponMovements = $CouponMovementsTable(
+    this,
+  );
+  late final $CouponBalancesTable couponBalances = $CouponBalancesTable(this);
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
   late final Index idxPhonesLast10 = Index(
     'idx_phones_last10',
     'CREATE INDEX idx_phones_last10 ON customer_phones (phone_last10)',
+  );
+  late final Index idxCouponMovesCustomer = Index(
+    'idx_coupon_moves_customer',
+    'CREATE INDEX idx_coupon_moves_customer ON coupon_movements (customer_id)',
   );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -5646,9 +6725,12 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     orderLines,
     orderEvents,
     ledgerEntries,
+    couponMovements,
+    couponBalances,
     outbox,
     syncMeta,
     idxPhonesLast10,
+    idxCouponMovesCustomer,
   ];
 }
 
@@ -7537,7 +8619,9 @@ typedef $$LedgerEntriesTableCreateCompanionBuilder =
       Value<String?> customerId,
       required String entryType,
       required int amountKurus,
+      Value<String?> paymentType,
       Value<String?> relatedOrderId,
+      Value<String?> reversesEntryId,
       Value<String?> note,
       required String occurredAt,
       Value<String?> deviceId,
@@ -7550,7 +8634,9 @@ typedef $$LedgerEntriesTableUpdateCompanionBuilder =
       Value<String?> customerId,
       Value<String> entryType,
       Value<int> amountKurus,
+      Value<String?> paymentType,
       Value<String?> relatedOrderId,
+      Value<String?> reversesEntryId,
       Value<String?> note,
       Value<String> occurredAt,
       Value<String?> deviceId,
@@ -7587,8 +8673,18 @@ class $$LedgerEntriesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get paymentType => $composableBuilder(
+    column: $table.paymentType,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get relatedOrderId => $composableBuilder(
     column: $table.relatedOrderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reversesEntryId => $composableBuilder(
+    column: $table.reversesEntryId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7642,8 +8738,18 @@ class $$LedgerEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get paymentType => $composableBuilder(
+    column: $table.paymentType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get relatedOrderId => $composableBuilder(
     column: $table.relatedOrderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reversesEntryId => $composableBuilder(
+    column: $table.reversesEntryId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -7693,8 +8799,18 @@ class $$LedgerEntriesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get paymentType => $composableBuilder(
+    column: $table.paymentType,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get relatedOrderId => $composableBuilder(
     column: $table.relatedOrderId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reversesEntryId => $composableBuilder(
+    column: $table.reversesEntryId,
     builder: (column) => column,
   );
 
@@ -7750,7 +8866,9 @@ class $$LedgerEntriesTableTableManager
                 Value<String?> customerId = const Value.absent(),
                 Value<String> entryType = const Value.absent(),
                 Value<int> amountKurus = const Value.absent(),
+                Value<String?> paymentType = const Value.absent(),
                 Value<String?> relatedOrderId = const Value.absent(),
+                Value<String?> reversesEntryId = const Value.absent(),
                 Value<String?> note = const Value.absent(),
                 Value<String> occurredAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
@@ -7761,7 +8879,9 @@ class $$LedgerEntriesTableTableManager
                 customerId: customerId,
                 entryType: entryType,
                 amountKurus: amountKurus,
+                paymentType: paymentType,
                 relatedOrderId: relatedOrderId,
+                reversesEntryId: reversesEntryId,
                 note: note,
                 occurredAt: occurredAt,
                 deviceId: deviceId,
@@ -7774,7 +8894,9 @@ class $$LedgerEntriesTableTableManager
                 Value<String?> customerId = const Value.absent(),
                 required String entryType,
                 required int amountKurus,
+                Value<String?> paymentType = const Value.absent(),
                 Value<String?> relatedOrderId = const Value.absent(),
+                Value<String?> reversesEntryId = const Value.absent(),
                 Value<String?> note = const Value.absent(),
                 required String occurredAt,
                 Value<String?> deviceId = const Value.absent(),
@@ -7785,7 +8907,9 @@ class $$LedgerEntriesTableTableManager
                 customerId: customerId,
                 entryType: entryType,
                 amountKurus: amountKurus,
+                paymentType: paymentType,
                 relatedOrderId: relatedOrderId,
+                reversesEntryId: reversesEntryId,
                 note: note,
                 occurredAt: occurredAt,
                 deviceId: deviceId,
@@ -7815,6 +8939,506 @@ typedef $$LedgerEntriesTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $LedgerEntriesTable, LedgerEntry>,
       ),
       LedgerEntry,
+      PrefetchHooks Function()
+    >;
+typedef $$CouponMovementsTableCreateCompanionBuilder =
+    CouponMovementsCompanion Function({
+      required String id,
+      required String customerId,
+      Value<String?> productId,
+      required String movementType,
+      required int qtyDelta,
+      Value<String?> relatedOrderId,
+      Value<String?> note,
+      Value<String?> reversesMovementId,
+      required String occurredAt,
+      Value<String?> deviceId,
+      required String clientEventId,
+      Value<int> rowid,
+    });
+typedef $$CouponMovementsTableUpdateCompanionBuilder =
+    CouponMovementsCompanion Function({
+      Value<String> id,
+      Value<String> customerId,
+      Value<String?> productId,
+      Value<String> movementType,
+      Value<int> qtyDelta,
+      Value<String?> relatedOrderId,
+      Value<String?> note,
+      Value<String?> reversesMovementId,
+      Value<String> occurredAt,
+      Value<String?> deviceId,
+      Value<String> clientEventId,
+      Value<int> rowid,
+    });
+
+class $$CouponMovementsTableFilterComposer
+    extends Composer<_$AppDatabase, $CouponMovementsTable> {
+  $$CouponMovementsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customerId => $composableBuilder(
+    column: $table.customerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get movementType => $composableBuilder(
+    column: $table.movementType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get qtyDelta => $composableBuilder(
+    column: $table.qtyDelta,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get relatedOrderId => $composableBuilder(
+    column: $table.relatedOrderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reversesMovementId => $composableBuilder(
+    column: $table.reversesMovementId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get clientEventId => $composableBuilder(
+    column: $table.clientEventId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CouponMovementsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CouponMovementsTable> {
+  $$CouponMovementsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customerId => $composableBuilder(
+    column: $table.customerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get movementType => $composableBuilder(
+    column: $table.movementType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get qtyDelta => $composableBuilder(
+    column: $table.qtyDelta,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get relatedOrderId => $composableBuilder(
+    column: $table.relatedOrderId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reversesMovementId => $composableBuilder(
+    column: $table.reversesMovementId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get clientEventId => $composableBuilder(
+    column: $table.clientEventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CouponMovementsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CouponMovementsTable> {
+  $$CouponMovementsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get customerId => $composableBuilder(
+    column: $table.customerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get productId =>
+      $composableBuilder(column: $table.productId, builder: (column) => column);
+
+  GeneratedColumn<String> get movementType => $composableBuilder(
+    column: $table.movementType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get qtyDelta =>
+      $composableBuilder(column: $table.qtyDelta, builder: (column) => column);
+
+  GeneratedColumn<String> get relatedOrderId => $composableBuilder(
+    column: $table.relatedOrderId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<String> get reversesMovementId => $composableBuilder(
+    column: $table.reversesMovementId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<String> get clientEventId => $composableBuilder(
+    column: $table.clientEventId,
+    builder: (column) => column,
+  );
+}
+
+class $$CouponMovementsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CouponMovementsTable,
+          CouponMovement,
+          $$CouponMovementsTableFilterComposer,
+          $$CouponMovementsTableOrderingComposer,
+          $$CouponMovementsTableAnnotationComposer,
+          $$CouponMovementsTableCreateCompanionBuilder,
+          $$CouponMovementsTableUpdateCompanionBuilder,
+          (
+            CouponMovement,
+            BaseReferences<
+              _$AppDatabase,
+              $CouponMovementsTable,
+              CouponMovement
+            >,
+          ),
+          CouponMovement,
+          PrefetchHooks Function()
+        > {
+  $$CouponMovementsTableTableManager(
+    _$AppDatabase db,
+    $CouponMovementsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CouponMovementsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CouponMovementsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CouponMovementsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> customerId = const Value.absent(),
+                Value<String?> productId = const Value.absent(),
+                Value<String> movementType = const Value.absent(),
+                Value<int> qtyDelta = const Value.absent(),
+                Value<String?> relatedOrderId = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<String?> reversesMovementId = const Value.absent(),
+                Value<String> occurredAt = const Value.absent(),
+                Value<String?> deviceId = const Value.absent(),
+                Value<String> clientEventId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CouponMovementsCompanion(
+                id: id,
+                customerId: customerId,
+                productId: productId,
+                movementType: movementType,
+                qtyDelta: qtyDelta,
+                relatedOrderId: relatedOrderId,
+                note: note,
+                reversesMovementId: reversesMovementId,
+                occurredAt: occurredAt,
+                deviceId: deviceId,
+                clientEventId: clientEventId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String customerId,
+                Value<String?> productId = const Value.absent(),
+                required String movementType,
+                required int qtyDelta,
+                Value<String?> relatedOrderId = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<String?> reversesMovementId = const Value.absent(),
+                required String occurredAt,
+                Value<String?> deviceId = const Value.absent(),
+                required String clientEventId,
+                Value<int> rowid = const Value.absent(),
+              }) => CouponMovementsCompanion.insert(
+                id: id,
+                customerId: customerId,
+                productId: productId,
+                movementType: movementType,
+                qtyDelta: qtyDelta,
+                relatedOrderId: relatedOrderId,
+                note: note,
+                reversesMovementId: reversesMovementId,
+                occurredAt: occurredAt,
+                deviceId: deviceId,
+                clientEventId: clientEventId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CouponMovementsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CouponMovementsTable,
+      CouponMovement,
+      $$CouponMovementsTableFilterComposer,
+      $$CouponMovementsTableOrderingComposer,
+      $$CouponMovementsTableAnnotationComposer,
+      $$CouponMovementsTableCreateCompanionBuilder,
+      $$CouponMovementsTableUpdateCompanionBuilder,
+      (
+        CouponMovement,
+        BaseReferences<_$AppDatabase, $CouponMovementsTable, CouponMovement>,
+      ),
+      CouponMovement,
+      PrefetchHooks Function()
+    >;
+typedef $$CouponBalancesTableCreateCompanionBuilder =
+    CouponBalancesCompanion Function({
+      required String customerId,
+      Value<String> productId,
+      Value<int> balanceQty,
+      Value<int> rowid,
+    });
+typedef $$CouponBalancesTableUpdateCompanionBuilder =
+    CouponBalancesCompanion Function({
+      Value<String> customerId,
+      Value<String> productId,
+      Value<int> balanceQty,
+      Value<int> rowid,
+    });
+
+class $$CouponBalancesTableFilterComposer
+    extends Composer<_$AppDatabase, $CouponBalancesTable> {
+  $$CouponBalancesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get customerId => $composableBuilder(
+    column: $table.customerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get balanceQty => $composableBuilder(
+    column: $table.balanceQty,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CouponBalancesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CouponBalancesTable> {
+  $$CouponBalancesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get customerId => $composableBuilder(
+    column: $table.customerId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get productId => $composableBuilder(
+    column: $table.productId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get balanceQty => $composableBuilder(
+    column: $table.balanceQty,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CouponBalancesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CouponBalancesTable> {
+  $$CouponBalancesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get customerId => $composableBuilder(
+    column: $table.customerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get productId =>
+      $composableBuilder(column: $table.productId, builder: (column) => column);
+
+  GeneratedColumn<int> get balanceQty => $composableBuilder(
+    column: $table.balanceQty,
+    builder: (column) => column,
+  );
+}
+
+class $$CouponBalancesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CouponBalancesTable,
+          CouponBalance,
+          $$CouponBalancesTableFilterComposer,
+          $$CouponBalancesTableOrderingComposer,
+          $$CouponBalancesTableAnnotationComposer,
+          $$CouponBalancesTableCreateCompanionBuilder,
+          $$CouponBalancesTableUpdateCompanionBuilder,
+          (
+            CouponBalance,
+            BaseReferences<_$AppDatabase, $CouponBalancesTable, CouponBalance>,
+          ),
+          CouponBalance,
+          PrefetchHooks Function()
+        > {
+  $$CouponBalancesTableTableManager(
+    _$AppDatabase db,
+    $CouponBalancesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CouponBalancesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CouponBalancesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CouponBalancesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> customerId = const Value.absent(),
+                Value<String> productId = const Value.absent(),
+                Value<int> balanceQty = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CouponBalancesCompanion(
+                customerId: customerId,
+                productId: productId,
+                balanceQty: balanceQty,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String customerId,
+                Value<String> productId = const Value.absent(),
+                Value<int> balanceQty = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CouponBalancesCompanion.insert(
+                customerId: customerId,
+                productId: productId,
+                balanceQty: balanceQty,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CouponBalancesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CouponBalancesTable,
+      CouponBalance,
+      $$CouponBalancesTableFilterComposer,
+      $$CouponBalancesTableOrderingComposer,
+      $$CouponBalancesTableAnnotationComposer,
+      $$CouponBalancesTableCreateCompanionBuilder,
+      $$CouponBalancesTableUpdateCompanionBuilder,
+      (
+        CouponBalance,
+        BaseReferences<_$AppDatabase, $CouponBalancesTable, CouponBalance>,
+      ),
+      CouponBalance,
       PrefetchHooks Function()
     >;
 typedef $$OutboxTableCreateCompanionBuilder =
@@ -8427,6 +10051,10 @@ class $AppDatabaseManager {
       $$OrderEventsTableTableManager(_db, _db.orderEvents);
   $$LedgerEntriesTableTableManager get ledgerEntries =>
       $$LedgerEntriesTableTableManager(_db, _db.ledgerEntries);
+  $$CouponMovementsTableTableManager get couponMovements =>
+      $$CouponMovementsTableTableManager(_db, _db.couponMovements);
+  $$CouponBalancesTableTableManager get couponBalances =>
+      $$CouponBalancesTableTableManager(_db, _db.couponBalances);
   $$OutboxTableTableManager get outbox =>
       $$OutboxTableTableManager(_db, _db.outbox);
   $$SyncMetaTableTableManager get syncMeta =>

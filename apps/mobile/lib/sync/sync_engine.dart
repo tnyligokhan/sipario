@@ -190,6 +190,16 @@ class SyncEngine {
         await _insertOrderEventIfAbsent(m);
       case 'ledger_entry':
         await _insertLedgerIfAbsent(m);
+      case 'coupon_movement':
+        await _insertCouponMovementIfAbsent(m);
+      case 'coupon_balance':
+        // Önbellek (customers.balance_kurus deseni): sunucu türetir, istemci upsert eder. İş anahtarı
+        // (customer_id, product_id); genel kupon product_id null → SENTINEL '' (Drift PK).
+        await db.into(db.couponBalances).insertOnConflictUpdate(CouponBalancesCompanion(
+              customerId: Value(_s(m['customer_id'])),
+              productId: Value(_sN(m['product_id']) ?? ''),
+              balanceQty: Value(_i(m['balance_qty'])),
+            ));
     }
   }
 
@@ -220,8 +230,30 @@ class SyncEngine {
           customerId: Value(_sN(m['customer_id'])),
           entryType: _s(m['entry_type']),
           amountKurus: _i(m['amount_kurus']),
+          paymentType: Value(_sN(m['payment_type'])),
+          relatedOrderId: Value(_sN(m['related_order_id'])),
+          reversesEntryId: Value(_sN(m['reverses_entry_id'])),
+          note: Value(_sN(m['note'])),
+          occurredAt: _s(m['occurred_at']),
+          deviceId: Value(_sN(m['device_id'])),
+          clientEventId: _s(m['client_event_id']),
+        ));
+  }
+
+  Future<void> _insertCouponMovementIfAbsent(Map<String, dynamic> m) async {
+    final id = _s(m['id']);
+    final exists = await (db.select(db.couponMovements)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (exists != null) return;
+
+    await db.into(db.couponMovements).insert(CouponMovementsCompanion.insert(
+          id: id,
+          customerId: _s(m['customer_id']),
+          productId: Value(_sN(m['product_id'])),
+          movementType: _s(m['movement_type']),
+          qtyDelta: _i(m['qty_delta']),
           relatedOrderId: Value(_sN(m['related_order_id'])),
           note: Value(_sN(m['note'])),
+          reversesMovementId: Value(_sN(m['reverses_movement_id'])),
           occurredAt: _s(m['occurred_at']),
           deviceId: Value(_sN(m['device_id'])),
           clientEventId: _s(m['client_event_id']),

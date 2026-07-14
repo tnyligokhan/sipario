@@ -1,15 +1,17 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:sipario/data/app_database.dart';
 import 'package:sqlite3/sqlite3.dart';
 
-/// Faz 0 (sqflite v1) → Drift v2 ADDİTİF migration'ı doğrular (architect kabul kriteri):
-/// phase0 `customers`/`customer_phones` verisi ve native sözleşmesi KORUNUR, yeni tablolar oluşur.
+/// Faz 0 (sqflite v1) → Drift v3 ADDİTİF migration'ı doğrular (architect kabul kriteri):
+/// phase0 `customers`/`customer_phones` verisi ve native sözleşmesi KORUNUR, yeni tablolar (Faz 2 +
+/// Faz 3 kupon) oluşur. Drift açılışta şemayı doğrular → v3 hedef şeması eksiksiz kurulmuş olmalı.
 void main() {
-  test('v1→v2: phase0 verisi ve native sözleşmesi korunur, yeni tablolar açılır', () async {
+  test('v1→v3: phase0 verisi ve native sözleşmesi korunur, Faz 2/3 tabloları açılır', () async {
     final file = File(p.join(
       Directory.systemTemp.path,
       'sipario_mig_${DateTime.now().microsecondsSinceEpoch}.db',
@@ -65,5 +67,15 @@ void main() {
     final meta = await db.syncState();
     expect(meta.id, 1);
     expect(meta.snapshotDone, isFalse);
+
+    // FAZ 3 yüzeyleri kuruldu: kupon tabloları erişilebilir, ledger yeni kolonlarıyla yazılabilir.
+    expect(await db.select(db.couponMovements).get(), isEmpty);
+    expect(await db.select(db.couponBalances).get(), isEmpty);
+    await db.into(db.ledgerEntries).insert(LedgerEntriesCompanion.insert(
+          id: 'l1', entryType: 'payment', amountKurus: -5000,
+          paymentType: const Value('nakit'), occurredAt: '2026-07-14T00:00:00.000Z', clientEventId: 'ce1',
+        ));
+    final entry = await (db.select(db.ledgerEntries)..where((t) => t.id.equals('l1'))).getSingle();
+    expect(entry.paymentType, 'nakit');
   });
 }

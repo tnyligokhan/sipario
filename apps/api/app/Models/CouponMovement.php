@@ -8,26 +8,25 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * Defterin APPEND-ONLY kalbi (kırmızı çizgi #2). Silme/güncelleme yok; düzeltme ters kayıtla
- * (entry_type='correction', amount_kurus signed). customers.balance_kurus buradan türetilir.
- *
- * FAZ 2: şema + sync hattı hazır; defteri üreten iş akışları FAZ 3. Yalnız created_at (timestamps kapalı).
+ * Kupon hareketi — APPEND-ONLY (kırmızı çizgi #2, ledger_entries kalıbı). Kupon PARA değil ADETtir:
+ * qty_delta İMZALI (grant +N, use −qty, correction imzalı). Silme/güncelleme yok; düzeltme yalnız
+ * ters hareketle (movement_type='correction', reverses_movement_id). coupon_balances buradan türetilir.
  *
  * @property string $id
  * @property string $tenant_id
- * @property string|null $customer_id
- * @property string $entry_type
- * @property int $amount_kurus
- * @property string|null $payment_type
+ * @property string $customer_id
+ * @property string|null $product_id
+ * @property string $movement_type
+ * @property int $qty_delta
  * @property string|null $related_order_id
- * @property string|null $reverses_entry_id
  * @property string|null $note
+ * @property string|null $reverses_movement_id
  * @property Carbon $occurred_at
  * @property string|null $device_id
  * @property string $client_event_id
  * @property Carbon|null $created_at
  */
-class LedgerEntry extends Model
+class CouponMovement extends Model
 {
     use HasUuids;
 
@@ -37,12 +36,12 @@ class LedgerEntry extends Model
         'id',
         'tenant_id',
         'customer_id',
-        'entry_type',
-        'amount_kurus',
-        'payment_type',
+        'product_id',
+        'movement_type',
+        'qty_delta',
         'related_order_id',
-        'reverses_entry_id',
         'note',
+        'reverses_movement_id',
         'occurred_at',
         'device_id',
         'client_event_id',
@@ -51,7 +50,7 @@ class LedgerEntry extends Model
     protected function casts(): array
     {
         return [
-            'amount_kurus' => 'integer',
+            'qty_delta' => 'integer',
             'occurred_at' => 'datetime',
             'created_at' => 'datetime',
         ];

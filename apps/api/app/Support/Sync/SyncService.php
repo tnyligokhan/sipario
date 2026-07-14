@@ -2,6 +2,8 @@
 
 namespace App\Support\Sync;
 
+use App\Models\CouponBalance;
+use App\Models\CouponMovement;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\CustomerPhone;
@@ -204,6 +206,8 @@ class SyncService
                 'order_line' => OrderLine::query()->whereNull('deleted_at')->get()->toArray(),
                 'order_event' => OrderEvent::query()->get()->toArray(),
                 'ledger_entry' => LedgerEntry::query()->get()->toArray(),
+                'coupon_movement' => CouponMovement::query()->get()->toArray(),
+                'coupon_balance' => CouponBalance::query()->get()->toArray(),
             ],
         ];
     }

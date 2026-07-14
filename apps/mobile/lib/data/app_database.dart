@@ -21,6 +21,8 @@ part 'app_database.g.dart';
     OrderLines,
     OrderEvents,
     LedgerEntries,
+    CouponMovements,
+    CouponBalances,
     Outbox,
     SyncMeta,
   ],
@@ -33,7 +35,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.file() : super(_openOnDevice());
 
   @override
-  int get schemaVersion => 2; // v1 = Faz 0 sqflite spike şeması
+  int get schemaVersion => 3; // v1 = Faz 0 spike, v2 = Faz 2 çekirdek, v3 = Faz 3 defter
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -61,6 +63,18 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(ledgerEntries);
             await m.createTable(outbox);
             await m.createTable(syncMeta);
+          }
+          if (from < 3) {
+            // FAZ 3 defter: ADDİTİF (native sözleşme + mevcut veri korunur). ledger_entries'e para
+            // akışı kolonları eklenir, kupon tabloları kurulur. from<2 yolu ledgerEntries'i zaten
+            // v3 şemasıyla oluşturur (yeni kolonlar dahil); bu ALTER'lar yalnız v2→v3 için gerekli,
+            // v1→v3'te kolonlar zaten var → koşullu ekle (tekrar eklemede hata olmasın).
+            if (from == 2) {
+              await m.database.customStatement('ALTER TABLE ledger_entries ADD COLUMN payment_type TEXT');
+              await m.database.customStatement('ALTER TABLE ledger_entries ADD COLUMN reverses_entry_id TEXT');
+            }
+            await m.createTable(couponMovements);
+            await m.createTable(couponBalances);
           }
         },
         beforeOpen: (details) async {

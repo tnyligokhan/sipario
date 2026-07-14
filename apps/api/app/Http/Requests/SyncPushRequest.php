@@ -25,8 +25,8 @@ class SyncPushRequest extends FormRequest
         return [
             'events' => ['required', 'array', 'min:1', 'max:'.SyncService::MAX_EVENTS],
             'events.*.client_event_id' => ['required', 'uuid'],
-            'events.*.entity_type' => ['required', 'string', 'in:customer,customer_phone,customer_address,product,order,ledger'],
-            'events.*.op' => ['required', 'string', 'in:upsert,delete,created,line_added,line_removed,delivered,cancelled,payment_set,note_set,entry'],
+            'events.*.entity_type' => ['required', 'string', 'in:customer,customer_phone,customer_address,product,order,ledger,coupon'],
+            'events.*.op' => ['required', 'string', 'in:upsert,delete,created,line_added,line_removed,delivered,cancelled,payment_set,note_set,entry,grant,use,correction'],
             'events.*.occurred_at' => ['required', 'date'],
             'events.*.payload' => ['required', 'array'],
             'events.*.device_id' => ['nullable', 'uuid'],

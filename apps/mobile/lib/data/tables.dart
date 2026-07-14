@@ -131,12 +131,16 @@ class OrderEvents extends Table {
 }
 
 /// Defter aynası (APPEND-ONLY — kırmızı çizgi #2). Bakiye buradan türer; istemci ezmez.
+/// FAZ 3: entry_type debit(+borç)|credit|payment(−borç)|correction. amount_kurus İMZALI (çift-satır).
+/// paymentType yalnız payment'ta (nakit|kart|havale) — kasa gruplaması. reversesEntryId ters kayıt.
 class LedgerEntries extends Table {
   TextColumn get id => text()();
   TextColumn get customerId => text().nullable()();
   TextColumn get entryType => text()();
   IntColumn get amountKurus => integer()();
+  TextColumn get paymentType => text().nullable()();
   TextColumn get relatedOrderId => text().nullable()();
+  TextColumn get reversesEntryId => text().nullable()();
   TextColumn get note => text().nullable()();
   TextColumn get occurredAt => text()();
   TextColumn get deviceId => text().nullable()();
@@ -144,6 +148,44 @@ class LedgerEntries extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// Kupon hareketi aynası (APPEND-ONLY). Kupon PARA değil ADET; qtyDelta İMZALI (grant +N, use −qty,
+/// correction imzalı). Bakiye coupon_balances'ten türer; eksiye düşebilir (DECISIONS). client_event_id
+/// ile tekil — sunucudan geri gelen hareketi "yoksa ekle" ile uygular (çift eklemez).
+@TableIndex(name: 'idx_coupon_moves_customer', columns: {#customerId})
+class CouponMovements extends Table {
+  TextColumn get id => text()();
+  TextColumn get customerId => text()();
+  TextColumn get productId => text().nullable()();
+  TextColumn get movementType => text()();
+  IntColumn get qtyDelta => integer()();
+  TextColumn get relatedOrderId => text().nullable()();
+  TextColumn get note => text().nullable()();
+  TextColumn get reversesMovementId => text().nullable()();
+  TextColumn get occurredAt => text()();
+  TextColumn get deviceId => text().nullable()();
+  TextColumn get clientEventId => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {clientEventId},
+      ];
+}
+
+/// Kupon bakiyesi ÖNBELLEĞİ (customers.balance_kurus ikizi). balanceQty = SUM(qtyDelta). İş anahtarı
+/// (customerId, productId); genel kupon (ürün ayrımsız) için productId SENTINEL boş string '' — Drift
+/// PK'sinde NULL sorunlu olduğundan '' kullanılır. Sunucu payload'ındaki null product_id → ''.
+class CouponBalances extends Table {
+  TextColumn get customerId => text()();
+  TextColumn get productId => text().withDefault(const Constant(''))(); // '' = genel kupon
+  IntColumn get balanceQty => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {customerId, productId};
 }
 
 /// Giden kutusu (DECISIONS: yazma yolu outbox üzerinden). Yerel yazma + outbox AYNI transaction'da.
