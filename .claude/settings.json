@@ -5,11 +5,28 @@
     "CLAUDE_FLOW_HOOKS_ENABLED": "true"
   },
   "permissions": {
+    "defaultMode": "acceptEdits",
     "allow": [
       "Bash(npx @claude-flow*)",
       "Bash(npx claude-flow*)",
       "Bash(node .claude/*)",
-      "mcp__claude-flow__*"
+      "mcp__claude-flow__*",
+      "Bash(php -v)",
+      "Bash(php -m)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-Item *)",
+      "PowerShell(Get-Location)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(Select-String *)",
+      "PowerShell(git status *)",
+      "PowerShell(git log *)",
+      "PowerShell(git diff *)",
+      "PowerShell(git branch *)",
+      "PowerShell(git rev-list *)",
+      "PowerShell(docker ps *)",
+      "PowerShell(php -v)",
+      "PowerShell(php -m *)"
     ],
     "deny": [
       "Read(./.env)",
