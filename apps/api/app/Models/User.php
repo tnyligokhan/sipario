@@ -9,12 +9,27 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
  * Bir bayiye (tenant) bağlı kullanıcı: patron / operator / kurye.
  * Kimlik UUIDv7. Kimlik doğrulama Sanctum token'ı ile (session yok → remember_token yok).
  * RLS: bu tablo tenant_id policy'sine tabidir; bir bayi diğerinin kullanıcısını göremez.
+ *
+ * casts() ile türeyen gerçek tipler (statik analiz bunları kolon şemasından çıkaramaz):
+ *
+ * @property string $id
+ * @property string $tenant_id
+ * @property string $name
+ * @property string $email
+ * @property string $password
+ * @property UserRole $role
+ * @property string $status
+ * @property string|null $phone
+ * @property Carbon|null $last_login_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 class User extends Authenticatable
 {

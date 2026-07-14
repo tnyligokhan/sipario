@@ -20,8 +20,8 @@ class EnsureRole
             abort(401);
         }
 
-        // role bir UserRole enum'una cast edilir; string değerini karşılaştır.
-        $current = $user->role instanceof \BackedEnum ? $user->role->value : $user->role;
+        // role UserRole enum'una cast edilir (model @property); string değerini karşılaştır.
+        $current = $user->role->value;
 
         if (! in_array($current, $roles, true)) {
             abort(403, 'Bu işlem için yetkiniz yok.');

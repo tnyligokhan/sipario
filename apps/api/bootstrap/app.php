@@ -3,6 +3,7 @@
 use App\Http\Middleware\AppendServerTime;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\ResolveTenantContext;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -30,9 +31,10 @@ return Application::configure(basePath: dirname(__DIR__))
             prepend: ResolveTenantContext::class,
         );
 
-        // Tüm api JSON yanıtlarına server_time ekle (DECISIONS: sunucu her yanıtta saatini döner).
+        // Tüm api yanıtlarına: server_time (DECISIONS: sunucu her yanıtta saatini döner) + güvenlik başlıkları (F3).
         $middleware->api(append: [
             AppendServerTime::class,
+            SecurityHeaders::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

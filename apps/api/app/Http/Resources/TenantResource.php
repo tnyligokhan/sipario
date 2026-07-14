@@ -17,7 +17,7 @@ class TenantResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'status' => $this->status instanceof \BackedEnum ? $this->status->value : $this->status,
+            'status' => $this->status->value,
             'valid_until' => optional($this->valid_until)->toIso8601String(),
         ];
     }

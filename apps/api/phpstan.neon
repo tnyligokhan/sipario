@@ -1,0 +1,16 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    # Statik analiz (denetim bulgusu F6 — kalite kapısında "atlanan" boşluğu kapatır).
+    # Seviye 6: Laravel + larastan için makul bir taban; katı ama gürültüsüz.
+    level: 6
+
+    paths:
+        - app
+        - config
+        - routes
+        - database
+
+    # Migration/factory tarafındaki dinamik Laravel sihri için gerekirse istisnalar buraya.
+    ignoreErrors: []

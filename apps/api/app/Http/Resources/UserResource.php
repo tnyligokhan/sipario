@@ -19,7 +19,7 @@ class UserResource extends JsonResource
             'tenant_id' => $this->tenant_id,
             'name' => $this->name,
             'email' => $this->email,
-            'role' => $this->role instanceof \BackedEnum ? $this->role->value : $this->role,
+            'role' => $this->role->value,
         ];
         // password ASLA döndürülmez.
     }

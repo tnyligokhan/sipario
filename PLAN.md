@@ -10,42 +10,84 @@
 | Faz | Kapsam | Durum |
 |-----|--------|-------|
 | 0 | Arayan tanıma kanıtı (gerçek cihazlarda go/no-go) | ✅ **KAPANDI — GO (şartlı)**, 2026-07-10 |
-| 1 | Temel: Laravel API, Postgres+RLS, auth, izolasyon test matrisi | 🟢 **KOD TAMAM — PR dev'e açık, merge bekliyor** |
-| 2 | Offline çekirdek: SQLite/Drift, outbox, senkron motoru, müşteri+sipariş | bekliyor |
+| 1 | Temel: Laravel API, Postgres+RLS, auth, izolasyon test matrisi | ✅ **KAPANDI** (güvenlik denetimi dahil, 2026-07-13) |
+| 2 | Offline çekirdek: SQLite/Drift, outbox, senkron motoru, müşteri+sipariş | ✅ **ÇEKİRDEK KAPANDI — test + inceleme yeşil** (2026-07-13) |
 | 3 | Defter: veresiye, kasa, ödeme tipleri, kupon, gün sonu | bekliyor |
 | 4 | Kurye: atama, teslim kapatma, kasa devri (+iOS başlangıcı) | bekliyor |
 | 5 | Para: site, iyzico, abonelik kilidi, yönetim paneli | bekliyor |
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-11 vardiya sonu)
+## Güncel durum (son güncelleme: 2026-07-13 — Faz 2 çekirdek kapandı, inceleme yeşil)
 
-- **FAZ 1 KAPANDI ve main'e merge edildi** (PR #4 faz1-temel→dev, PR #6 dev→main).
-  dev = güncel çalışma hattı; main yalnız 2 küçük düzen commit'i geride (sorun değil).
-- **Çalışma akışı değişti (karar DECISIONS.md'de):** yan dal/worktree YOK; iş doğrudan
-  dev'de yapılır, main'e yalnız dev→main PR ile gidilir. `.claude/settings.json`'da
-  `worktree.bgIsolation=none`.
-- **Canlı doğrulama yapıldı:** API `php artisan serve` ile ayağa kaldırıldı, dışarıdan
-  gerçek HTTP istekleriyle sınandı — login 200, cihaz kaydı 201 (istemci UUIDv7 korunuyor),
-  cross-tenant istek 404, tokensiz 401. İzolasyon canlıda da kanıtlı.
-- **YARIM KALDI: API güvenlik denetimi + düzeltme.** Kapsamlı denetim (rate limiting,
-  token yaşam döngüsü, mass assignment, bilgi sızıntısı, CORS/başlıklar, composer audit)
-  başlatılmıştı ama vardiya sonuna yetişmedi; kod değişikliği YAPILMADI. Sonraki vardiya:
-  denetimi baştan koştur (denetçi→düzeltici→doğrulayıcı zinciri), bulguları düzelt,
-  34 testin yeşil kaldığını ve yeni testler eklendiğini kanıtla. Bilinen adaylar:
-  login'de throttle/rate-limit yokluğu, token süresi/rotasyonu, larastan eklenmesi.
-- **İzolasyon matrisi yeşil: 34/34 test, 88 assertion, gerçek Postgres 16'ya karşı,
-  RLS'i atlayamayan `sipario_app` rolüyle.** RouteCoverageGuardTest testsiz endpoint'i
-  build'de kırar. CI (postgres:16 service) PR'da yeşil koştu.
-- Mimari ayrıntılar ve tuzaklar (`sipario_owner`/`sipario_app`/`sipario_auth` rolleri,
-  SECURITY DEFINER login, token'dan tenant çözme, SET LOCAL/transaction) `DECISIONS.md`
-  "Faz 1 — uygulama" bölümünde.
-- **Yeni makinede dikkat:** php.ini'de `pdo_pgsql`, `pgsql` ve `zip` eklentileri açık
-  olmalı (Laragon varsayılanı kapalı; bu makinede hâlâ kapalı — komutlar
-  `php -d extension=...` ile koşuldu). Postgres Docker'da **127.0.0.1:55432**.
-  `apps/api/.env` yerelde `.env.example`'dan üretildi (git'te yok). Yerel DB'de demo
-  bayiler var: patronA/patronB@demo.sipario.
-- Faz 0 durumu değişmedi (GO şartlı, ayrıntı DECISIONS.md).
+- **FAZ 2 OFFLINE ÇEKİRDEK KAPANDI — kod + test + kalite/güvenlik incelemesi bitti, HEPSİ YEŞİL.**
+  Architect'in tasarımı (DECISIONS "Faz 2 — mimari") uygulandı; uygulama kararları DECISIONS
+  "Faz 2 — uygulama (coder)"da. Test derinleştirmesi + inceleme + düzeltmeler aynı vardiyada kapandı.
+- **İNCELEME SONUCU: YEŞİL (şartlı kapanış).** Kırmızı çizgiler tek tek doğrulandı — kiracı
+  izolasyonu (11 tabloda ENABLE+FORCE RLS, güvenli varsayılan, bileşik FK, tenant_id oturumdan,
+  cross-tenant referans doğrulaması), offline-first (outbox+yerel yazma tek transaction,
+  client_event_id idempotency, FOR UPDATE monoton seq, olay bazında savepoint izolasyonu, veri
+  kaybı senaryosu yok), KVKK (API'de sıfır PII log), para (her yerde int kuruş). 3 bulgu düzeltildi
+  (aşağıda). Ayrıntı DECISIONS "Faz 2 — güvenlik/kalite incelemesi".
+- **DÜZELTİLEN BULGULAR (inceleme turu):**
+  1. **KRİTİK — append-only DB seviyesinde zorlanmıyordu (kırmızı çizgi #2):** 210 migration'ı
+     `sipario_app`'e ledger_entries/order_events'te de UPDATE/DELETE veriyordu → append-only yalnız
+     kod disipliniyle korunuyordu. Yeni migration `2026_07_13_000211_revoke_writes_on_append_only`:
+     `REVOKE UPDATE, DELETE` (ledger_entries, order_events, sync_changes, processed_events;
+     tenant_sync_state hariç — seq UPDATE'lenir). Yeni test `AppendOnlyLedgerTest` 42501
+     permission-denied'i kanıtlıyor. FORCE RLS felsefesiyle simetrik askı.
+  2. **Tester bulgusu:** order_lines.product_id / ledger_entries.related_order_id'de cross-tenant
+     referans doğrulaması eksikti → `ChangeApplier` customer_id ile simetrik RLS-kapsamlı kontrol
+     eklendi, kalıcı reddetme testleri.
+  3. **Kalite:** `ChangeApplier.php` 516 satırdı (500 sınırı aşımı) → üçe bölündü
+     (`ChangeApplier` 270 / `OrderChangeApplier` 238 / `SyncPayload` 40). İzlenen 0-baytlık kök
+     kabuk artıkları (`'`,`true`,`Xiaomi`,`cursor`,`bölümünü`) `git rm` ile temizlendi.
+- **Sunucu (apps/api):** 10 migration (`customers`, `customer_phones`, `customer_addresses`,
+  `products`, `orders`, `order_lines`, `order_events`, `ledger_entries` + senkron altyapısı
+  `tenant_sync_state`/`sync_changes`/`processed_events`) + Faz 2 RLS migration (11 tabloya
+  ENABLE/FORCE + politika). 8 model (HasUuids, casts, @property). `SyncService` (push: FOR UPDATE
+  seq kilidi, idempotency, olay bazında savepoint; pull: snapshot/delta) + `ChangeApplier`
+  (LWW / append / sipariş olayları). `SyncController` + `SyncPushRequest`/`SyncPullRequest` +
+  route'lar `POST/GET /api/v1/sync/push|pull`. `Provisioning` tenant_sync_state satırı ekler.
+- **İstemci (apps/mobile):** Drift şeması (`lib/data/tables.dart` + `app_database.dart`, `.g.dart`
+  COMMIT'li) — sunucu aynası MİNUS tenant_id, `sipario.db`/`customers`/`customer_phones`/
+  `phone_last10` native sözleşmesi korundu. Outbox + sync_meta. UUIDv7 (`lib/data/ids.dart`).
+  Repository'ler (`lib/repo/`: müşteri/ürün/sipariş — yerel yazma + outbox aynı transaction).
+  Sync motoru (`lib/sync/`: `SyncApi` arayüz + HTTP impl, `SyncEngine` push/pull + apply +
+  istemci çakışma kuralı).
+- **Doğrulama (test + inceleme turu sonrası, reviewer tarafından bu makinede BAĞIMSIZ koşuldu — HEPSİ YEŞİL):**
+  API → pint ✓ · phpstan seviye 6 **0 hata** ✓ · phpunit **66/66, 246 assertion** ✓ · composer audit CVE yok
+  (Faz 1'in 37'si + Faz 2: tester'ın derinleştirdiği `SyncTest`/`TenantIsolationTest` cross-tenant &
+  senkron sözleşme testleri + reviewer turunun `AppendOnlyLedgerTest` 9 testi; `RouteCoverageGuard`
+  sync uçlarını kapsar).
+  Mobil → `flutter analyze` **0 sorun** ✓ · `flutter test` **38/38** ✓ (tester +3: outbox atomikliği,
+  UUIDv7 üretimi; repository + sync motoru + db smoke + Faz 0).
+- **ORTAM NOTLARI (Faz 2'de yaşandı, sonraki kişi için):**
+  - API: `larastan/phpstan` bu checkout'ta vendor'da YOKTU; `php -d extension=zip
+    /c/ProgramData/ComposerSetup/bin/composer.phar install` ile kuruldu (lock'ta vardı).
+    Test/analiz komutları Faz 1'deki gibi `php -d extension=pdo_pgsql -d extension=pgsql
+    -d extension=zip ...`. Docker `sipario_db` konteyneri `docker start sipario_db` ile ayağa kalktı.
+  - Mobil: **Drift codegen Dart 3.10'da `dart run build_runner`ı kırıyor** (`sqlite3>=3.3` ve
+    `objective_c` native hook'ları). `path_provider` kaldırıldı (objective_c gitti), üretilmiş
+    `.g.dart` commit'lendi. Şema DEĞİŞİRSE: pubspec sonundaki kapalı `dependency_overrides:
+    sqlite3 <3.3` bloğunu geçici aç → `flutter pub get && dart run build_runner build` → override'ı
+    yine kapat → `flutter pub get`. `flutter test`/runtime override KAPALI ister (sqlite3 3.4).
+- **BİLİNEN AÇIK / SONRAKİ KİŞİYE:**
+  - `ledger_entries` şeması + sync hattı kuruldu; defteri ÜRETEN iş akışları (veresiye/kasa/kupon/
+    gün sonu) **Faz 3**. Faz 2'de yalnız minimal `ledger.entry` kabulü + bakiye önbelleği tazeleme var.
+  - Drift `journal_mode=TRUNCATE` native salt-okunur açıcı için ayarlandı ama **gerçek cihazda
+    doğrulanmadı** (WAL riski açık — architect B.4). Faz 6 native entegrasyonunda sınanmalı.
+  - Native arayan-tanıma tarafı Faz 2'de dokunulmadı; `customers.address` → `customer_addresses`
+    normalizasyonu yapıldığından native adres okuması (varsa) ayrı sorguya taşınmalı (Faz 6).
+  - UI minimal/yok (architect: "UI ayrıntısı sonraki iş"); repository katmanı hazır, ekranlar sonra.
+- **SONRAKİ KİŞİ BURADAN DEVAM ETSİN:**
+  1. İstenirse **dev→main PR** ("PR aç" de) — Faz 2 çekirdeğini main'e taşır (merge insanda).
+     Faz 2 test + inceleme kapandı, kalite kapısı yeşil; PR'a hazır.
+  2. Sonraki kod işi = **Faz 3 — defter** (veresiye/kasa/kupon/gün sonu); şema+sync hattı hazır,
+     ledger append-only artık DB seviyesinde kilitli (düzeltme yalnız ters kayıtla — Faz 3 buna göre).
+  3. Faz 2 açık devirleri (aşağıdaki "BİLİNEN AÇIK"): gerçek `HttpSyncApi` network testi
+     (FakeSyncApi ile test edildi), Drift journal_mode gerçek cihaz doğrulaması (Faz 6), UI ekranları.
+- Faz 1 tamamen kapalı (güvenlik denetimi dahil); Faz 0 GO (şartlı). Ayrıntı DECISIONS.md.
 
 ## Faz 1 — yapılan işler (hepsi ✅)
 
@@ -59,9 +101,11 @@
 
 ## Faz 2'ye devreden küçük işler
 
-- Login zamanlama yan-kanalı kapatıldı; kalan düşük öncelikli notlar: larastan eklenmesi
-  (statik analiz şu an kalite kapısında "atlanan"), logout için ayrı izolasyon assertion'ı,
-  `personal_access_tokens`'ın bilinçli RLS'sizliği (raw-SQL eklenirse hatırla).
+- ✅ larastan/phpstan eklendi (seviye 6, kalite kapısı `vendor\bin\phpstan.bat` bulunca koşar).
+- Kalan düşük öncelikli notlar: logout için ayrı izolasyon assertion'ı;
+  `personal_access_tokens`'ın bilinçli RLS'sizliği (raw-SQL eklenirse hatırla);
+  429 throttle yanıtlarına `server_time` istenirse `AppendServerTime` exception yolunu da kapsamalı;
+  kalite kapısının API kontrollerini bu makinede koşabilmesi için php'yi PATH'e + eklentileri ini'ye almak.
 
 ## Açık riskler / şartlar (Faz 0'dan devreden)
 

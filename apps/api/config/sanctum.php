@@ -65,7 +65,9 @@ return [
     |
     */
 
-    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
+    // Sabit önek (F2): sızan token'ları depo taramaları/GitHub secret scanning yakalayabilsin.
+    // Token doğrulaması öneki görmezden gelir; üretimde henüz token yok, geriye dönük risk sıfır.
+    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', 'sipario_'),
 
     /*
     |--------------------------------------------------------------------------

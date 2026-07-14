@@ -2,10 +2,16 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Customer;
 use App\Models\Device;
+use App\Models\LedgerEntry;
+use App\Models\Order;
+use App\Models\OrderLine;
+use App\Models\Product;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\ApiTestCase;
+use Tests\Feature\Api\Concerns\BuildsSyncEvents;
 
 /**
  * KIRMIZI ÇİZGİ #1 — bir bayi başka bayinin verisini ASLA göremez/değiştiremez.
@@ -22,6 +28,8 @@ use Tests\ApiTestCase;
  */
 class TenantIsolationTest extends ApiTestCase
 {
+    use BuildsSyncEvents;
+
     #[Test]
     public function devices_show_baska_bayinin_kaydini_404_verir(): void
     {
@@ -118,5 +126,185 @@ class TenantIsolationTest extends ApiTestCase
             'device_id' => (string) Str::uuid7(),
             'platform' => 'android',
         ])->assertUnauthorized();
+        $this->getJson('/api/v1/sync/pull')->assertUnauthorized();
+        $this->postJson('/api/v1/sync/push', ['events' => []])->assertUnauthorized();
+    }
+
+    #[Test]
+    public function sync_pull_baska_bayinin_verisini_asla_dondurmez(): void
+    {
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $tokenA = $this->tokenFor($a['patron']);
+        $tokenB = $this->tokenFor($b['patron']);
+
+        // Her bayi kendi müşterisini push eder.
+        $custA = $this->customerUpsert(['name' => 'A Müşterisi']);
+        $custB = $this->customerUpsert(['name' => 'B Müşterisi']);
+        $this->pushEvents($tokenA, [$custA])->assertOk();
+        $this->pushEvents($tokenB, [$custB])->assertOk();
+
+        // B'nin snapshot'ı yalnız kendi müşterisini içerir; A'nınki sızmaz.
+        $snapB = $this->pullSince($tokenB, 0);
+        $snapB->assertOk();
+        $namesB = collect($snapB->json('entities.customer'))->pluck('id')->all();
+        $this->assertContains($custB['payload']['id'], $namesB);
+        $this->assertNotContains($custA['payload']['id'], $namesB);
+
+        // A'nın seq akışı (delta) da B'nin değişikliklerini içermez: A'nın current_seq'i yalnız kendi
+        // tek olayını sayar (B'nin push'u A'nın sayacını ilerletmez — tenant başına monoton).
+        $this->assertSame(1, $snapB->json('current_seq'));
+        $snapA = $this->pullSince($tokenA, 0);
+        $this->assertSame(1, $snapA->json('current_seq'));
+    }
+
+    #[Test]
+    public function sync_push_baska_bayinin_customer_idsine_siparis_baglayamaz(): void
+    {
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $tokenA = $this->tokenFor($a['patron']);
+        $tokenB = $this->tokenFor($b['patron']);
+
+        // A bir müşteri oluşturur.
+        $custA = $this->customerUpsert(['name' => 'A Müşterisi']);
+        $this->pushEvents($tokenA, [$custA])->assertOk();
+        $aCustomerId = $custA['payload']['id'];
+
+        // B, A'nın customer_id'sine sipariş bağlamayı dener → RLS önden reddeder (FK zehirlenmez).
+        $order = $this->orderCreated([$this->line()], ['customer_id' => $aCustomerId]);
+        $response = $this->pushEvents($tokenB, [$order]);
+        $response->assertOk();
+        $this->assertSame('rejected', $response->json('results.0.status'));
+
+        // B'de hiç sipariş oluşmadı; A'nın müşterisi B için görünmez kaldı.
+        $snapB = $this->pullSince($tokenB, 0);
+        $this->assertCount(0, $snapB->json('entities.order'));
+        $this->assertCount(0, $snapB->json('entities.customer'));
+    }
+
+    #[Test]
+    public function sync_push_baska_bayinin_order_idsine_satir_ekleyemez_veya_teslim_edemez(): void
+    {
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $tokenA = $this->tokenFor($a['patron']);
+        $tokenB = $this->tokenFor($b['patron']);
+
+        $orderA = $this->orderCreated([$this->line()]);
+        $this->pushEvents($tokenA, [$orderA])->assertOk();
+        $orderAId = $orderA['payload']['order']['id'];
+
+        // B, A'nın order_id'sine satır eklemeyi dener — RLS altında Order::find() A'nın satırını
+        // hiç göremez (bulunamadı → reddedilir), B'nin bağlamında sipariş "yok" sayılır.
+        $lineAdd = $this->event('order', 'line_added', ['order_id' => $orderAId, 'line' => $this->line()]);
+        $this->pushEvents($tokenB, [$lineAdd])
+            ->assertJsonPath('results.0.status', 'rejected');
+
+        // B, A'nın siparişini teslim etmeyi dener.
+        $deliver = $this->event('order', 'delivered', ['order_id' => $orderAId, 'payment_type' => 'nakit']);
+        $this->pushEvents($tokenB, [$deliver])
+            ->assertJsonPath('results.0.status', 'rejected');
+
+        // A'nın siparişi hiç değişmedi: hâlâ tek satır, hâlâ 'open'.
+        $lineCount = $this->asOwner(fn () => OrderLine::query()->where('order_id', $orderAId)->count());
+        $this->assertSame(1, $lineCount);
+        $status = $this->asOwner(fn () => Order::query()->find($orderAId)?->status);
+        $this->assertSame('open', $status);
+    }
+
+    #[Test]
+    public function sync_push_ledger_baska_bayinin_customer_idsine_kayit_ekleyemez(): void
+    {
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $tokenA = $this->tokenFor($a['patron']);
+        $tokenB = $this->tokenFor($b['patron']);
+
+        $custA = $this->customerUpsert(['name' => 'A Müşterisi']);
+        $this->pushEvents($tokenA, [$custA])->assertOk();
+        $aCustomerId = $custA['payload']['id'];
+
+        // B, A'nın customer_id'sine defter kaydı düşmeyi dener → reddedilir, A'nın bakiyesi etkilenmez.
+        $ledger = $this->ledgerEntry(['customer_id' => $aCustomerId, 'amount_kurus' => 50000]);
+        $this->pushEvents($tokenB, [$ledger])
+            ->assertJsonPath('results.0.status', 'rejected');
+
+        $balance = $this->asOwner(fn () => Customer::query()->find($aCustomerId)?->balance_kurus);
+        $this->assertSame(0, $balance, 'B\'nin denemesi A\'nın bakiyesini etkilememeli.');
+        $entryCount = $this->asOwner(fn () => LedgerEntry::query()->where('customer_id', $aCustomerId)->count());
+        $this->assertSame(0, $entryCount);
+    }
+
+    #[Test]
+    public function sync_delta_ic_ice_pushlarda_diger_bayinin_degisikligini_asla_gostermez(): void
+    {
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $tokenA = $this->tokenFor($a['patron']);
+        $tokenB = $this->tokenFor($b['patron']);
+
+        // A ve B sırayla, iç içe (interleaved) birden fazla olay push eder.
+        $this->pushEvents($tokenA, [$this->customerUpsert(['name' => 'A1'])])->assertJsonPath('current_seq', 1);
+        $this->pushEvents($tokenB, [$this->customerUpsert(['name' => 'B1'])])->assertJsonPath('current_seq', 1);
+        $this->pushEvents($tokenA, [$this->customerUpsert(['name' => 'A2'])])->assertJsonPath('current_seq', 2);
+        $this->pushEvents($tokenB, [$this->customerUpsert(['name' => 'B2'])])->assertJsonPath('current_seq', 2);
+
+        // A'nın since=0 delta'sı yalnız kendi iki değişikliğini içerir; B'ninkiler hiç görünmez.
+        $deltaA = $this->pullSince($tokenA, 0);
+        $namesA = collect($deltaA->json('entities.customer'))->pluck('name')->all();
+        sort($namesA);
+        $this->assertSame(['A1', 'A2'], $namesA);
+
+        $deltaB = $this->pullSince($tokenB, 1);
+        $namesB = collect($deltaB->json('changes'))->pluck('payload.name')->all();
+        $this->assertSame(['B2'], $namesB, 'B\'nin delta akışına A\'nın olayları asla karışmamalı.');
+    }
+
+    #[Test]
+    public function sync_push_siparis_satirinda_baska_bayinin_product_idsine_referans_veremez(): void
+    {
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $tokenA = $this->tokenFor($a['patron']);
+        $tokenB = $this->tokenFor($b['patron']);
+
+        $prodA = $this->event('product', 'upsert', [
+            'id' => (string) Str::uuid7(), 'name' => 'A Ürünü', 'unit_price_kurus' => 1000,
+        ]);
+        $this->pushEvents($tokenA, [$prodA])->assertOk();
+        $aProductId = $prodA['payload']['id'];
+
+        // B, siparişinde A'nın product_id'sine referans vermeyi dener → reddedilir.
+        $order = $this->orderCreated([$this->line(['product_id' => $aProductId])]);
+        $response = $this->pushEvents($tokenB, [$order]);
+        $response->assertJsonPath('results.0.status', 'rejected');
+
+        // B'de hiç sipariş oluşmadı; A'nın ürünü A'da hâlâ tek başına duruyor.
+        $snapB = $this->pullSince($tokenB, 0);
+        $this->assertCount(0, $snapB->json('entities.order'));
+        $productCount = $this->asOwner(fn () => Product::query()->count());
+        $this->assertSame(1, $productCount, 'A\'nın ürünü B\'nin denemesinden etkilenmemeli.');
+    }
+
+    #[Test]
+    public function sync_push_ledger_related_order_idsinde_baska_bayinin_siparisine_referans_veremez(): void
+    {
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $tokenA = $this->tokenFor($a['patron']);
+        $tokenB = $this->tokenFor($b['patron']);
+
+        $orderA = $this->orderCreated([$this->line()]);
+        $this->pushEvents($tokenA, [$orderA])->assertOk();
+        $aOrderId = $orderA['payload']['order']['id'];
+
+        // B, defter kaydında A'nın order_id'sini related_order_id olarak vermeyi dener → reddedilir.
+        $ledger = $this->ledgerEntry(['related_order_id' => $aOrderId, 'customer_id' => null]);
+        $response = $this->pushEvents($tokenB, [$ledger]);
+        $response->assertJsonPath('results.0.status', 'rejected');
+
+        $entryCount = $this->asOwner(fn () => LedgerEntry::query()->count());
+        $this->assertSame(0, $entryCount, 'B için hiçbir defter kaydı oluşmamalı.');
     }
 }

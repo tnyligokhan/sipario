@@ -23,8 +23,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" pre-bash) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" pre-bash)\"",
-            "timeout": 5000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" pre-bash; fi",
+            "timeout": 10
           }
         ]
       },
@@ -33,8 +33,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" pre-edit) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" pre-edit)\"",
-            "timeout": 5000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" pre-edit; fi",
+            "timeout": 10
           }
         ]
       }
@@ -45,8 +45,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" post-edit) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" post-edit)\"",
-            "timeout": 10000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" post-edit; fi",
+            "timeout": 15
           }
         ]
       },
@@ -55,8 +55,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" post-bash) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" post-bash)\"",
-            "timeout": 5000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" post-bash; fi",
+            "timeout": 10
           }
         ]
       }
@@ -66,8 +66,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" route) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" route)\"",
-            "timeout": 10000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" route; fi",
+            "timeout": 10
           }
         ]
       }
@@ -77,13 +77,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" session-restore) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" session-restore)\"",
-            "timeout": 15000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" session-restore; fi",
+            "timeout": 15
           },
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\auto-memory-hook.mjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\auto-memory-hook.mjs\" import) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\auto-memory-hook.mjs\" import)\"",
-            "timeout": 8000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/auto-memory-hook.mjs\"; if [ -f \"$f\" ]; then node \"$f\" import; fi",
+            "timeout": 10
           }
         ]
       },
@@ -103,8 +103,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" session-end) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" session-end)\"",
-            "timeout": 10000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" session-end; fi",
+            "timeout": 15
           }
         ]
       }
@@ -114,8 +114,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\auto-memory-hook.mjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\auto-memory-hook.mjs\" sync) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\auto-memory-hook.mjs\" sync)\"",
-            "timeout": 10000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/auto-memory-hook.mjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/auto-memory-hook.mjs\"; if [ -f \"$f\" ]; then node \"$f\" sync; fi",
+            "timeout": 15
           }
         ]
       },
@@ -136,12 +136,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" compact-manual) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" compact-manual)\""
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" compact-manual; fi",
+            "timeout": 10
           },
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" session-end) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" session-end)\"",
-            "timeout": 5000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" session-end; fi",
+            "timeout": 10
           }
         ]
       },
@@ -150,12 +151,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" compact-auto) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" compact-auto)\""
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" compact-auto; fi",
+            "timeout": 10
           },
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" session-end) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" session-end)\"",
-            "timeout": 6000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" session-end; fi",
+            "timeout": 10
           }
         ]
       }
@@ -165,8 +167,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" status) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" status)\"",
-            "timeout": 3000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" status; fi",
+            "timeout": 5
           }
         ]
       }
@@ -176,8 +178,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" post-task) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" post-task)\"",
-            "timeout": 5000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" post-task; fi",
+            "timeout": 10
           }
         ]
       }
@@ -187,8 +189,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c \"IF EXIST \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" (node \"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\" notify) ELSE (node \"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\" notify)\"",
-            "timeout": 3000
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/helpers/hook-handler.cjs\"; [ -f \"$f\" ] || f=\"$HOME/.claude/helpers/hook-handler.cjs\"; if [ -f \"$f\" ]; then node \"$f\" notify; fi",
+            "timeout": 5
           }
         ]
       }

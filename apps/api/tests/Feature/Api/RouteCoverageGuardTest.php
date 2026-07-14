@@ -27,6 +27,8 @@ class RouteCoverageGuardTest extends TestCase
         'api.devices.index',
         'api.devices.store',
         'api.devices.show',
+        'api.sync.push',
+        'api.sync.pull',
     ];
 
     #[Test]
