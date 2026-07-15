@@ -8,6 +8,7 @@ use App\Models\CustomerPhone;
 use App\Models\LedgerEntry;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
@@ -49,6 +50,7 @@ class ChangeApplier
             'order' => (new OrderChangeApplier)->apply($tenantId, $event),
             'ledger' => $this->applyLedger($tenantId, $event),
             'coupon' => (new CouponChangeApplier)->apply($tenantId, $event),
+            'cash_handover' => (new CashHandoverChangeApplier)->apply($tenantId, $event),
             default => throw new InvalidArgumentException("Bilinmeyen entity_type: {$type}"),
         };
     }
@@ -224,6 +226,14 @@ class ChangeApplier
             throw new InvalidArgumentException('reverses_entry_id bu bayide bulunamadı');
         }
 
+        // collected_by_user_id (FAZ 4): tahsilatı KİM aldı — kasa devri mutabakatının dayanağı.
+        // customer/product referans deseniyle simetrik: yazımdan önce RLS-kapsamlı doğrula (başka
+        // bayinin kullanıcısına nakit atfedilemez, kırmızı çizgi #1). Verilmemişse (null) atlanır.
+        $collectedByUserId = isset($payload['collected_by_user_id']) ? (string) $payload['collected_by_user_id'] : null;
+        if ($collectedByUserId !== null && ! User::query()->whereKey($collectedByUserId)->exists()) {
+            throw new InvalidArgumentException('collected_by_user_id bu bayide bulunamadı');
+        }
+
         $entry = new LedgerEntry;
         $entry->forceFill([
             'id' => $id,
@@ -232,6 +242,7 @@ class ChangeApplier
             'entry_type' => $entryType,
             'amount_kurus' => $amount,
             'payment_type' => $paymentType,
+            'collected_by_user_id' => $collectedByUserId,
             'related_order_id' => $relatedOrderId,
             'reverses_entry_id' => $reversesEntryId,
             'note' => $payload['note'] ?? null,

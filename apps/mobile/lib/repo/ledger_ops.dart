@@ -14,33 +14,40 @@ import '../data/outbox.dart';
 /// Bir defter kaydını ekler + customers.balance_kurus önbelleğini defterden yeniden kurar + outbox.
 /// Kayıt id'sini döner. Kaydın client_event_id'si outbox olayıyla AYNIdır (sunucudan geri gelen kayıt
 /// id ile "yoksa ekle" mantığında eşlenir — çift eklenmez).
+/// id / clientEventId verilmezse UUIDv7 türetilir (rastgele, elle tahsilat/correction için). Teslim
+/// akışında çağıran DETERMİNİSTİK uuid5 geçer (FAZ 4 teslim idempotensi) — iki cihaz aynı siparişi
+/// teslim edince sunucu processed_events ile tekilleştirir. collectedByUserId nakit atfıdır (kasa devri).
 Future<String> writeLedgerEntry(
   AppDatabase db, {
   required String entryType,
   required int amountKurus,
   required String occurredAt,
+  String? id,
+  String? clientEventId,
   String? customerId,
   String? paymentType,
+  String? collectedByUserId,
   String? relatedOrderId,
   String? reversesEntryId,
   String? note,
   String? deviceId,
 }) async {
-  final id = newId();
-  final clientEventId = newId();
+  final entryId = id ?? newId();
+  final ceid = clientEventId ?? newId();
 
   await db.into(db.ledgerEntries).insert(LedgerEntriesCompanion.insert(
-        id: id,
+        id: entryId,
         customerId: Value(customerId),
         entryType: entryType,
         amountKurus: amountKurus,
         paymentType: Value(paymentType),
+        collectedByUserId: Value(collectedByUserId),
         relatedOrderId: Value(relatedOrderId),
         reversesEntryId: Value(reversesEntryId),
         note: Value(note),
         occurredAt: occurredAt,
         deviceId: Value(deviceId),
-        clientEventId: clientEventId,
+        clientEventId: ceid,
       ));
 
   if (customerId != null) {
@@ -50,43 +57,48 @@ Future<String> writeLedgerEntry(
   await enqueueOutbox(db,
       entityType: 'ledger',
       op: 'entry',
-      entityId: id,
+      entityId: entryId,
       occurredAt: occurredAt,
       deviceId: deviceId,
-      clientEventId: clientEventId,
+      clientEventId: ceid,
       payload: {
-        'id': id,
+        'id': entryId,
         'customer_id': customerId,
         'entry_type': entryType,
         'amount_kurus': amountKurus,
         'payment_type': paymentType,
+        'collected_by_user_id': collectedByUserId,
         'related_order_id': relatedOrderId,
         'reverses_entry_id': reversesEntryId,
         'note': note,
       });
 
-  return id;
+  return entryId;
 }
 
 /// Bir kupon hareketini ekler + coupon_balances önbelleğini hareketlerden yeniden kurar + outbox.
 /// op = grant|use|correction. qtyDelta İMZALI. NEGATİF BAKİYE KABUL (hiçbir kontrol yok).
+/// id / clientEventId verilmezse UUIDv7 türetilir. Teslim akışında (kupon kullanımı) çağıran
+/// DETERMİNİSTİK uuid5 geçer (FAZ 4 teslim idempotensi).
 Future<String> writeCouponMovement(
   AppDatabase db, {
   required String op,
   required String customerId,
   required int qtyDelta,
   required String occurredAt,
+  String? id,
+  String? clientEventId,
   String? productId,
   String? relatedOrderId,
   String? reversesMovementId,
   String? note,
   String? deviceId,
 }) async {
-  final id = newId();
-  final clientEventId = newId();
+  final moveId = id ?? newId();
+  final ceid = clientEventId ?? newId();
 
   await db.into(db.couponMovements).insert(CouponMovementsCompanion.insert(
-        id: id,
+        id: moveId,
         customerId: customerId,
         productId: Value(productId),
         movementType: op,
@@ -96,7 +108,7 @@ Future<String> writeCouponMovement(
         note: Value(note),
         occurredAt: occurredAt,
         deviceId: Value(deviceId),
-        clientEventId: clientEventId,
+        clientEventId: ceid,
       ));
 
   await recomputeCouponBalance(db, customerId, productId);
@@ -104,12 +116,12 @@ Future<String> writeCouponMovement(
   await enqueueOutbox(db,
       entityType: 'coupon',
       op: op,
-      entityId: id,
+      entityId: moveId,
       occurredAt: occurredAt,
       deviceId: deviceId,
-      clientEventId: clientEventId,
+      clientEventId: ceid,
       payload: {
-        'id': id,
+        'id': moveId,
         'customer_id': customerId,
         'product_id': productId,
         'qty_delta': qtyDelta,
@@ -118,7 +130,7 @@ Future<String> writeCouponMovement(
         'note': note,
       });
 
-  return id;
+  return moveId;
 }
 
 /// customers.balance_kurus = SUM(amount_kurus) — sunucu recompute'unun yerel aynası (DECISIONS:

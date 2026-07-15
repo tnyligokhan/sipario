@@ -23,6 +23,7 @@ part 'app_database.g.dart';
     LedgerEntries,
     CouponMovements,
     CouponBalances,
+    CashHandovers,
     Outbox,
     SyncMeta,
   ],
@@ -35,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.file() : super(_openOnDevice());
 
   @override
-  int get schemaVersion => 3; // v1 = Faz 0 spike, v2 = Faz 2 çekirdek, v3 = Faz 3 defter
+  int get schemaVersion => 4; // v1 = Faz 0 spike, v2 = Faz 2 çekirdek, v3 = Faz 3 defter, v4 = Faz 4 kurye
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -75,6 +76,18 @@ class AppDatabase extends _$AppDatabase {
             }
             await m.createTable(couponMovements);
             await m.createTable(couponBalances);
+          }
+          if (from < 4) {
+            // FAZ 4 kurye: ADDİTİF (native sözleşme + mevcut veri korunur). orders'a atama, ledger'a
+            // nakit atfı kolonu, sync_meta'ya oturum kullanıcısı; yeni cash_handovers tablosu. from<2
+            // yolu bu tabloları zaten v4 şemasıyla (yeni kolonlar dahil) oluşturur; ALTER'lar yalnız
+            // daha eski bir Drift kurulumunu (v2/v3) yükseltirken gerekli → koşullu ekle.
+            if (from >= 2) {
+              await m.database.customStatement('ALTER TABLE orders ADD COLUMN assigned_user_id TEXT');
+              await m.database.customStatement('ALTER TABLE ledger_entries ADD COLUMN collected_by_user_id TEXT');
+              await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN user_id TEXT');
+            }
+            await m.createTable(cashHandovers);
           }
         },
         beforeOpen: (details) async {

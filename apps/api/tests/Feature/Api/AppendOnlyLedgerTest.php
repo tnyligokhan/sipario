@@ -27,6 +27,7 @@ class AppendOnlyLedgerTest extends ApiTestCase
             ['sync_changes'],
             ['processed_events'],
             ['coupon_movements'],
+            ['cash_handovers'],
         ];
     }
 

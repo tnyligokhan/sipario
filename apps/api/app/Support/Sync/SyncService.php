@@ -2,6 +2,7 @@
 
 namespace App\Support\Sync;
 
+use App\Models\CashHandover;
 use App\Models\CouponBalance;
 use App\Models\CouponMovement;
 use App\Models\Customer;
@@ -208,6 +209,7 @@ class SyncService
                 'ledger_entry' => LedgerEntry::query()->get()->toArray(),
                 'coupon_movement' => CouponMovement::query()->get()->toArray(),
                 'coupon_balance' => CouponBalance::query()->get()->toArray(),
+                'cash_handover' => CashHandover::query()->get()->toArray(),
             ],
         ];
     }

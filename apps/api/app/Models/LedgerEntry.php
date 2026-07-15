@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property string $entry_type
  * @property int $amount_kurus
  * @property string|null $payment_type
+ * @property string|null $collected_by_user_id
  * @property string|null $related_order_id
  * @property string|null $reverses_entry_id
  * @property string|null $note
@@ -40,6 +41,7 @@ class LedgerEntry extends Model
         'entry_type',
         'amount_kurus',
         'payment_type',
+        'collected_by_user_id',
         'related_order_id',
         'reverses_entry_id',
         'note',
