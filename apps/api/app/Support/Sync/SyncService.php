@@ -322,7 +322,7 @@ class SyncService
      * Abonelik durumu yayını (DECISIONS: tek doğru kaynak sunucu). İstemci önbellekler + ileri-sadece
      * saatle grace hesaplar. server_time = kilit kararında kullanılan $now (tutarlı kaynak).
      *
-     * @return array{status: string, valid_until: string|null, locked_at: string|null, server_time: string}
+     * @return array{status: string, valid_until: string|null, locked_at: string|null, modules: array<string, mixed>, server_time: string}
      */
     private function subscriptionPayload(Tenant $tenant, Carbon $now): array
     {
@@ -330,6 +330,8 @@ class SyncService
             'status' => $tenant->status->value,
             'valid_until' => $tenant->valid_until?->utc()->toIso8601String(),
             'locked_at' => $tenant->locked_at?->utc()->toIso8601String(),
+            // Opsiyonel modül bayrakları (FAZ 5c-2): istemci UI'yı çizerken kullanır (mobil UI sonraki iş).
+            'modules' => $tenant->modules,
             'server_time' => $now->utc()->toIso8601String(),
         ];
     }

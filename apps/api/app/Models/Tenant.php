@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $trial_ends_at
  * @property Carbon|null $valid_until
  * @property Carbon|null $locked_at
+ * @property array<string, mixed> $modules
  * @property string|null $phone
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -39,6 +40,7 @@ class Tenant extends Model
         'trial_ends_at',
         'valid_until',
         'locked_at',
+        'modules',
         'phone',
     ];
 
@@ -49,6 +51,7 @@ class Tenant extends Model
             'trial_ends_at' => 'datetime',
             'valid_until' => 'datetime',
             'locked_at' => 'datetime',
+            'modules' => 'array',
         ];
     }
 

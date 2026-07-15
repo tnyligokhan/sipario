@@ -3,6 +3,7 @@
 namespace App\Panel;
 
 use App\Enums\TenantStatus;
+use App\Enums\UserRole;
 use App\Models\Device;
 use App\Models\Tenant;
 use App\Models\User;
