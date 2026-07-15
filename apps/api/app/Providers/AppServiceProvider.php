@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Payment\IyzicoPaymentGateway;
+use App\Payment\PaymentGateway;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -15,7 +17,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Ödeme sağlayıcısı SOYUT (FAZ 5b): üretimde iyzico (sandbox/prod anahtarları config'den);
+        // testler FakePaymentGateway ile swap eder. Abonelik durumu tek doğru kaynak SUNUCU.
+        $this->app->bind(PaymentGateway::class, function () {
+            /** @var array{api_key: string, secret_key: string, base_url: string} $cfg */
+            $cfg = config('subscription.iyzico');
+
+            return new IyzicoPaymentGateway($cfg['api_key'], $cfg['secret_key'], $cfg['base_url']);
+        });
     }
 
     /**

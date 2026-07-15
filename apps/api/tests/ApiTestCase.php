@@ -29,7 +29,7 @@ abstract class ApiTestCase extends TestCase
     private static bool $migrated = false;
 
     /** Testler arası owner ile boşaltılan tablolar (FK'ler CASCADE ile çözülür). */
-    private const TABLES = ['personal_access_tokens', 'devices', 'users', 'tenants', 'admin_users', 'panel_audit'];
+    private const TABLES = ['personal_access_tokens', 'devices', 'users', 'tenants', 'admin_users', 'panel_audit', 'subscription_payments'];
 
     protected function setUp(): void
     {

@@ -3,12 +3,29 @@
 use App\Livewire\Panel\Login;
 use App\Livewire\Panel\TenantDetail;
 use App\Livewire\Panel\TenantList;
+use App\Livewire\Site\Register;
+use App\Livewire\Site\Subscribe;
+use App\Payment\SubscriptionService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+/*
+ * Public abonelik/ödeme sitesi (Faz 5b) — WEB, mağaza kuralı gereği mobil DIŞI. auth YOK; üyelik
+ * tenant+patron yaratır (owner), abonelik iyzico ile (soyut PaymentGateway). Callback CSRF muaf
+ * (bootstrap/app.php) — iyzico dış POST.
+ */
+Route::get('kayit', Register::class)->name('subscription.register');
+Route::get('abonelik', Subscribe::class)->name('subscription.subscribe');
+Route::post('abonelik/callback', function (Request $request, SubscriptionService $service) {
+    $service->handleCallback($request->all());
+
+    return redirect()->route('subscription.subscribe')->with('status', 'Ödeme sonucu işlendi.');
+})->name('subscription.callback');
 
 /*
  * Yönetim paneli (Faz 5c) — BİZE ait iç araç, `admin` guard (bayilerden ayrı). Livewire + session.
