@@ -43,10 +43,18 @@ class PanelTest extends ApiTestCase
         ]));
     }
 
-    /** @return list<array{string}> */
+    /**
+     * TAM iş verisi matrisi (13 tablo): panel yalnız SELECT'e sahip; UPDATE/DELETE hepsinde 42501.
+     *
+     * @return list<array{string}>
+     */
     public static function businessTables(): array
     {
-        return [['orders'], ['ledger_entries'], ['customers'], ['coupon_movements'], ['cash_handovers']];
+        return [
+            ['customers'], ['customer_phones'], ['customer_addresses'], ['products'],
+            ['orders'], ['order_lines'], ['order_events'], ['ledger_entries'],
+            ['coupon_movements'], ['coupon_balances'], ['cash_handovers'], ['devices'], ['users'],
+        ];
     }
 
     #[Test]

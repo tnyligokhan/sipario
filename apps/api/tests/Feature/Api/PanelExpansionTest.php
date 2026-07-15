@@ -3,8 +3,10 @@
 namespace Tests\Feature\Api;
 
 use App\Models\AdminUser;
+use App\Models\Device;
 use App\Models\Order;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Panel\PanelExportService;
 use App\Panel\PanelStatsService;
 use App\Panel\TenantAdminService;
@@ -78,25 +80,68 @@ class PanelExpansionTest extends ApiTestCase
         $this->assertNotNull($this->stats()->minutesToFirstOrder($tenantId), 'İlk siparişe süre hesaplanmalı.');
     }
 
+    /**
+     * Bir bayi için 12 export tablosunun HEPSİNE veri tohumlar (push API + makeTenant cihazı).
+     * Döner: bu bayinin json'da aranacak ayırt edici id'leri.
+     *
+     * @param  array{tenant: Tenant, patron: User, kurye: User, device: Device}  $seed
+     * @return list<string>
+     */
+    private function seedFullDataset(string $token, array $seed): array
+    {
+        $cust = $this->customerUpsert(['name' => 'Müşteri']);
+        $cid = $cust['payload']['id'];
+        $prod = $this->event('product', 'upsert', ['id' => (string) Str::uuid7(), 'name' => 'Ürün', 'unit_price_kurus' => 1000]);
+        $pid = $prod['payload']['id'];
+        $this->pushEvents($token, [$cust, $prod])->assertOk();
+
+        $phone = $this->event('customer_phone', 'upsert', ['id' => (string) Str::uuid7(), 'customer_id' => $cid, 'phone_e164' => '+905321112233']);
+        $addr = $this->event('customer_address', 'upsert', ['id' => (string) Str::uuid7(), 'customer_id' => $cid, 'address_text' => 'Adres']);
+        $this->pushEvents($token, [$phone, $addr])->assertOk();
+
+        $order = $this->orderCreated([$this->line(['product_id' => $pid])], ['customer_id' => $cid]);
+        $oid = $order['payload']['order']['id'];
+        $this->pushEvents($token, [$order])->assertOk();
+        $this->pushEvents($token, [$this->orderEvent('delivered', ['order_id' => $oid, 'payment_type' => 'nakit'])])->assertOk();
+
+        // Defter (debit+payment) + kupon (movement+balance) + kasa devri.
+        $this->pushEvents($token, [
+            $this->ledgerEntry(['customer_id' => $cid, 'entry_type' => 'debit', 'amount_kurus' => 9000, 'related_order_id' => $oid]),
+            $this->ledgerEntry(['customer_id' => $cid, 'entry_type' => 'payment', 'amount_kurus' => -9000, 'payment_type' => 'nakit', 'related_order_id' => $oid]),
+            $this->couponMovement('grant', ['customer_id' => $cid, 'qty_delta' => 5]),
+            $this->cashHandover(['from_user_id' => $seed['kurye']->id, 'counted_cash_kurus' => 9000, 'expected_cash_kurus' => 9000]),
+        ])->assertOk();
+
+        // 12 tablonun her birinde aranacak ayırt edici id'ler (devices makeTenant'tan).
+        return [$cid, $pid, $oid, $phone['payload']['id'], $addr['payload']['id'], $seed['device']->id];
+    }
+
     #[Test]
-    public function export_bayinin_verisini_verir_baska_bayininki_sizmaz(): void
+    public function export_tum_tablolarda_bayinin_verisini_verir_baska_bayininki_sizmaz(): void
     {
         $a = $this->makeTenant('a');
         $b = $this->makeTenant('b');
-        $tokenA = $this->tokenFor($a['patron']);
-        $tokenB = $this->tokenFor($b['patron']);
 
-        $custA = $this->customerUpsert(['name' => 'A Müşterisi']);
-        $custB = $this->customerUpsert(['name' => 'B Müşterisi']);
-        $this->pushEvents($tokenA, [$custA])->assertOk();
-        $this->pushEvents($tokenB, [$custB])->assertOk();
+        $idsA = $this->seedFullDataset($this->tokenFor($a['patron']), $a);
+        $idsB = $this->seedFullDataset($this->tokenFor($b['patron']), $b);
 
         $export = (new PanelExportService('pgsql_panel'))->export($a['tenant']->id);
-        $json = json_encode($export);
+        $json = (string) json_encode($export);
 
-        $this->assertStringContainsString($custA['payload']['id'], (string) $json, 'A\'nın verisi export\'ta olmalı.');
-        $this->assertStringNotContainsString($custB['payload']['id'], (string) $json, 'B\'nin verisi A export\'una SIZMAMALI.');
-        $this->assertCount(1, $export['customers']);
+        // 12 export tablosunun HEPSİ mevcut ve A için DOLU (tam kapsama).
+        foreach (['customers', 'customer_phones', 'customer_addresses', 'products', 'orders', 'order_lines',
+            'order_events', 'ledger_entries', 'coupon_movements', 'coupon_balances', 'cash_handovers', 'devices'] as $table) {
+            $this->assertArrayHasKey($table, $export, "Export {$table} tablosunu içermeli.");
+            $this->assertNotEmpty($export[$table], "A'nın {$table} verisi export'ta DOLU olmalı.");
+        }
+
+        // A'nın id'leri VAR; B'nin HİÇBİR id'si (12 tablonun hiçbirinden) A export'una SIZMAZ.
+        foreach ($idsA as $id) {
+            $this->assertStringContainsString($id, $json, "A'nın verisi ({$id}) export'ta olmalı.");
+        }
+        foreach ($idsB as $id) {
+            $this->assertStringNotContainsString($id, $json, "B'nin verisi ({$id}) A export'una SIZMAMALI.");
+        }
     }
 
     #[Test]

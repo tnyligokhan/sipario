@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Livewire\Site\Login as SiteLogin;
 use App\Models\SubscriptionPayment;
 use App\Models\Tenant;
 use App\Models\User;
@@ -12,6 +13,7 @@ use App\Payment\PaymentGateway;
 use App\Payment\SubscriptionService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\ApiTestCase;
 use Tests\Feature\Api\Concerns\BuildsSyncEvents;
@@ -186,8 +188,71 @@ class SubscriptionTest extends ApiTestCase
     public function kayit_ekrani_gorunur_ve_abonelik_oturumsuz_reddeder(): void
     {
         $this->get('/kayit')->assertOk()->assertSee('Üyelik');
-        // Oturumda tenant yoksa /abonelik 403 (önce üyelik).
+        $this->get('/giris')->assertOk()->assertSee('Giriş');
+        // Oturumda tenant yoksa /abonelik 403 (önce üyelik/giriş).
         $this->get('/abonelik')->assertForbidden();
+    }
+
+    #[Test]
+    public function web_login_gecerli_patron_aboneligi_acar(): void
+    {
+        $a = $this->makeTenant('a'); // patron parolası UserFactory ile 'password'
+
+        Livewire::test(SiteLogin::class)
+            ->set('email', $a['patron']->email)
+            ->set('password', 'password')
+            ->call('authenticate')
+            ->assertRedirect(route('subscription.subscribe'));
+
+        $this->assertSame($a['tenant']->id, session('subscription_tenant_id'), 'Login web session tenant bağlamını kurmalı.');
+        // Session kurulunca /abonelik erişilebilir (Subscribe.mount yalnız session'a bakar).
+        $this->withSession(['subscription_tenant_id' => $a['tenant']->id, 'subscription_email' => $a['patron']->email])
+            ->get('/abonelik')->assertOk();
+    }
+
+    #[Test]
+    public function web_login_yanlis_parola_notr_hata_verir(): void
+    {
+        $a = $this->makeTenant('a');
+
+        Livewire::test(SiteLogin::class)
+            ->set('email', $a['patron']->email)
+            ->set('password', 'yanlis-parola')
+            ->call('authenticate')
+            ->assertHasErrors('email');
+
+        $this->assertNull(session('subscription_tenant_id'), 'Yanlış parola oturum kurmamalı.');
+    }
+
+    #[Test]
+    public function web_login_olmayan_email_notr_hata_verir(): void
+    {
+        // E-posta var/yok ayrımı sızmaz (numaralandırma önlenir); dummy-hash zamanlama koruması.
+        Livewire::test(SiteLogin::class)
+            ->set('email', 'yok@sipario.test')
+            ->set('password', 'herhangi')
+            ->call('authenticate')
+            ->assertHasErrors('email');
+
+        $this->assertNull(session('subscription_tenant_id'));
+    }
+
+    #[Test]
+    public function web_login_suresi_dolmus_bayiye_odeme_icin_izin_verir(): void
+    {
+        // API login'in AKSİNE: billing sitesi süresi dolmuş bayinin GİRİŞİNE izin verir (ödeme yapsın).
+        $a = $this->makeTenant('a');
+        $this->asOwner(fn () => Tenant::query()->whereKey($a['tenant']->id)
+            ->update(['status' => 'locked', 'valid_until' => now()->subDay(), 'locked_at' => now()->subDay()]));
+
+        Livewire::test(SiteLogin::class)
+            ->set('email', $a['patron']->email)
+            ->set('password', 'password')
+            ->call('authenticate')
+            ->assertRedirect(route('subscription.subscribe'));
+
+        $this->assertSame($a['tenant']->id, session('subscription_tenant_id'),
+            'Süresi dolmuş bayi ödeme için giriş yapabilmeli (billing sitesi).');
     }
 
     /** @return array<string, bool> */

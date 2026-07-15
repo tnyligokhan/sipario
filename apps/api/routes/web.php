@@ -3,6 +3,7 @@
 use App\Livewire\Panel\Login;
 use App\Livewire\Panel\TenantDetail;
 use App\Livewire\Panel\TenantList;
+use App\Livewire\Site\Login as SiteLogin;
 use App\Livewire\Site\Register;
 use App\Livewire\Site\Subscribe;
 use App\Panel\PanelExportService;
@@ -21,6 +22,7 @@ Route::get('/', function () {
  * (bootstrap/app.php) — iyzico dış POST.
  */
 Route::get('kayit', Register::class)->name('subscription.register');
+Route::get('giris', SiteLogin::class)->name('subscription.login');
 Route::get('abonelik', Subscribe::class)->name('subscription.subscribe');
 Route::post('abonelik/callback', function (Request $request, SubscriptionService $service) {
     $service->handleCallback($request->all());
