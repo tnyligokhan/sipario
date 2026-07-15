@@ -10,13 +10,18 @@ use RuntimeException;
  * iyzico ödeme sağlayıcısı (FAZ 5b — SANDBOX). DECISIONS: TR yerleşik (KVKK/veri yerleşimi), kart
  * saklama + abonelik olgun. Yıllık PEŞİN tek çekim (checkout form). Kartı iyzico saklar, biz DEĞİL.
  *
- * AÇIK / DOĞRULANMADI: Bu sınıf iyzico v2 HMAC imza + checkout-form-initialize akışının YAPISINI
- * kurar ama GERÇEK sandbox çağrısı bu ortamda DOĞRULANMADI (sandbox anahtarı/hesabı insan/PLAN işidir).
- * ÜRETİM anahtarı da PLAN'da. Tüm testler FakePaymentGateway ile koşar; gerçek entegrasyon anahtar
- * gelince sandbox'ta sınanacak (webhook imza doğrulaması dahil). Anahtar yoksa initiate/verify
- * RuntimeException fırlatır — sessiz yanlış davranış YERİNE açık hata.
+ * GÜVENLİK (reviewer bulgusu — FAIL-CLOSED): verify() callback POST GÖVDESİNDEKİ `paymentStatus`'a
+ * ASLA güvenmez (gövde forge edilebilir + callback CSRF-muaf → aksi halde saldırgan sahte SUCCESS
+ * POST'layıp bedava abonelik alırdı). Bunun yerine iyzico'ya SUNUCU-SUNUCU geri-sorgu (checkout-form
+ * retrieve) yapılır; sonuç YALNIZ iyzico'nun döndürdüğü paymentStatus + tutardan türetilir. Retrieve
+ * yapılamıyorsa (anahtar yok / hata) → success:false (fail-closed) veya açık hata; ASLA sessiz success.
  *
- * @see https://docs.iyzico.com (checkout form + IYZWSv2 auth)
+ * AÇIK / DOĞRULANMADI: HMAC imza + initialize/retrieve akışının YAPISI kuruldu ama GERÇEK sandbox
+ * çağrısı bu ortamda DOĞRULANMADI (sandbox anahtarı/hesabı insan/PLAN işidir). Anahtar gelince
+ * sandbox'ta forged-body reddi + gerçek retrieve + IYZWSv2 imza doğrulaması sınanacak (PLAN). Anahtar
+ * yoksa initiate/verify RuntimeException fırlatır — sessiz yanlış davranış YERİNE açık hata.
+ *
+ * @see https://docs.iyzico.com (checkout form initialize + retrieve + IYZWSv2 auth)
  */
 class IyzicoPaymentGateway implements PaymentGateway
 {
@@ -62,18 +67,61 @@ class IyzicoPaymentGateway implements PaymentGateway
     }
 
     /**
+     * FAIL-CLOSED doğrulama. Callback gövdesinden YALNIZ `token` alınır (status DEĞİL); iyzico'ya
+     * sunucu-sunucu retrieve yapılıp sonuç ORADAN türetilir. Gövdedeki `paymentStatus` KULLANILMAZ
+     * (forge edilebilir). Token yoksa veya retrieve başarısızsa → success:false. Ayrıca tutar
+     * manipülasyonuna karşı: iyzico'nun döndürdüğü ödenen tutar beklenen fiyatla (config) eşleşmeli.
+     *
      * @param  array<string, mixed>  $callback
      */
     public function verify(array $callback): PaymentResult
     {
-        $this->assertConfigured();
+        $this->assertConfigured(); // anahtar yoksa açık hata (fail-closed; gövdeden SUCCESS türetilemez)
 
-        // GERÇEK: callback token'ıyla /payment/iyzipos/checkoutform/auth/ecom/detail çağrılıp
-        // paymentStatus + imza doğrulanır. Bu ortamda DOĞRULANMADI (sandbox anahtarı yok) — AÇIK.
-        $conversationId = (string) ($callback['conversationId'] ?? $callback['provider_ref'] ?? '');
-        $status = (string) ($callback['paymentStatus'] ?? $callback['status'] ?? '');
+        $token = (string) ($callback['token'] ?? '');
+        if ($token === '') {
+            // token olmadan iyzico'ya sorulamaz → doğrulanamaz → aktive ETME (fail-closed).
+            $ref = (string) ($callback['conversationId'] ?? $callback['provider_ref'] ?? '');
 
-        return new PaymentResult(providerRef: $conversationId, success: $status === 'SUCCESS');
+            return new PaymentResult(providerRef: $ref, success: false);
+        }
+
+        $retrieved = $this->retrievePaymentStatus($token); // GERÇEK iyzico geri-sorgu (gövde-güven YOK)
+
+        $ref = (string) ($retrieved['conversationId'] ?? '');
+        $paidStatus = (string) ($retrieved['paymentStatus'] ?? '');
+        $expectedKurus = (int) config('subscription.price_kurus');
+        $amountOk = isset($retrieved['paidPrice'])
+            && $this->kurusFromDecimal((string) $retrieved['paidPrice']) === $expectedKurus;
+
+        // Başarı YALNIZ iyzico'nun döndürdüğü SUCCESS + doğru tutarla; gövdedeki hiçbir değer sayılmaz.
+        return new PaymentResult(providerRef: $ref, success: $paidStatus === 'SUCCESS' && $amountOk);
+    }
+
+    /**
+     * iyzico checkout-form-retrieve — SUNUCU-SUNUCU geri-sorgu (gövde-güven yerine bunun sonucu esas).
+     * IYZWSv2 imzalı HTTP; anahtarsız assertConfigured (verify üstünde) patlar → forge edilen gövde
+     * ASLA success üretemez. GERÇEK sandbox doğrulaması (imza + durum) anahtarla sınanacak — AÇIK (PLAN).
+     *
+     * @return array<string, mixed>
+     */
+    private function retrievePaymentStatus(string $token): array
+    {
+        $uriPath = '/payment/iyzipos/checkoutform/auth/ecom/detail';
+        $body = ['locale' => 'tr', 'token' => $token];
+
+        $response = Http::withHeaders([
+            'Authorization' => $this->authHeader($uriPath, $body),
+            'Content-Type' => 'application/json',
+        ])->post($this->baseUrl.$uriPath, $body);
+
+        /** @var array<string, mixed> $json */
+        $json = $response->json() ?? [];
+        if (($json['status'] ?? null) !== 'success') {
+            throw new RuntimeException('iyzico ödeme doğrulaması (retrieve) alınamadı.');
+        }
+
+        return $json;
     }
 
     private function assertConfigured(): void
@@ -102,5 +150,11 @@ class IyzicoPaymentGateway implements PaymentGateway
     private function toDecimal(int $amountKurus): string
     {
         return number_format($amountKurus / 100, 2, '.', '');
+    }
+
+    /** iyzico ondalık string → kuruş (ör. "1200.00" → 120000). Tutar eşleşme kontrolü için. */
+    private function kurusFromDecimal(string $decimal): int
+    {
+        return (int) round(((float) $decimal) * 100);
     }
 }
