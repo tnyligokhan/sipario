@@ -57,6 +57,7 @@ class LedgerRepository {
           amountKurus: amountKurus,
           customerId: customerId,
           paymentType: paymentType,
+          collectedByUserId: meta.userId, // FAZ 4: nakit atfı (kasa devri dayanağı)
           reversesEntryId: reversesEntryId,
           note: note,
           occurredAt: at,

@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -21,10 +22,24 @@ return new class extends Migration
             $table->uuid('assigned_user_id')->nullable()->after('customer_id');
             $table->index(['tenant_id', 'assigned_user_id']);
         });
+
+        // order_events.event_type CHECK'ine atama olaylarını ekle (atama olay-kaynaklı: assigned/
+        // unassigned birer order olayıdır; CHECK bunları içermezse INSERT 23514 ile reddedilirdi).
+        DB::statement('ALTER TABLE order_events DROP CONSTRAINT order_events_type_check');
+        DB::statement(
+            'ALTER TABLE order_events ADD CONSTRAINT order_events_type_check '.
+            "CHECK (event_type IN ('created','line_added','line_removed','delivered','cancelled','payment_set','note_set','assigned','unassigned'))"
+        );
     }
 
     public function down(): void
     {
+        DB::statement('ALTER TABLE order_events DROP CONSTRAINT order_events_type_check');
+        DB::statement(
+            'ALTER TABLE order_events ADD CONSTRAINT order_events_type_check '.
+            "CHECK (event_type IN ('created','line_added','line_removed','delivered','cancelled','payment_set','note_set'))"
+        );
+
         Schema::table('orders', function (Blueprint $table) {
             $table->dropIndex(['tenant_id', 'assigned_user_id']);
             $table->dropColumn('assigned_user_id');

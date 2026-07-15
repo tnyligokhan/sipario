@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\CashHandover;
 use App\Models\CouponBalance;
 use App\Models\CouponMovement;
 use App\Models\Customer;
@@ -423,5 +424,70 @@ class TenantIsolationTest extends ApiTestCase
         $this->assertSame(7, $snapB->json('entities.coupon_balance.0.balance_qty'), 'B yalnız kendi 7 kupon bakiyesini görür.');
         // A'nın müşteri id'si B'nin yanıtında hiçbir yerde geçmez.
         $this->assertStringNotContainsString($custA['payload']['id'], $snapB->getContent());
+    }
+
+    #[Test]
+    public function sync_push_siparisi_baska_bayinin_kullanicisina_atayamaz(): void
+    {
+        // FAZ 4: assigned_user_id yazımdan önce RLS kapsamında doğrulanır — B, kendi siparişini
+        // A'nın kullanıcısına atayamaz (kırmızı çizgi #1).
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $tokenB = $this->tokenFor($b['patron']);
+
+        $orderB = $this->orderCreated([$this->line()]);
+        $this->pushEvents($tokenB, [$orderB])->assertOk();
+        $orderBId = $orderB['payload']['order']['id'];
+
+        // B, siparişini A'nın kuryesine atamayı dener → reddedilir.
+        $this->pushEvents($tokenB, [$this->orderEvent('assigned', [
+            'order_id' => $orderBId, 'assigned_user_id' => $a['kurye']->id,
+        ])])->assertJsonPath('results.0.status', 'rejected');
+
+        $assigned = $this->asOwner(fn () => Order::query()->find($orderBId)->assigned_user_id);
+        $this->assertNull($assigned, 'B\'nin siparişi A\'nın kullanıcısına atanmamalı.');
+    }
+
+    #[Test]
+    public function sync_push_kasa_devrini_baska_bayinin_kullanicisina_baglayamaz(): void
+    {
+        // FAZ 4: cash_handover from_user_id / to_user_id yazımdan önce RLS kapsamında doğrulanır.
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $tokenB = $this->tokenFor($b['patron']);
+
+        // B, from_user_id = A'nın kuryesi ile kasa devri dener → reddedilir.
+        $this->pushEvents($tokenB, [$this->cashHandover([
+            'from_user_id' => $a['kurye']->id, 'counted_cash_kurus' => 5000, 'expected_cash_kurus' => 5000,
+        ])])->assertJsonPath('results.0.status', 'rejected');
+
+        // to_user_id = A'nın patronu (from geçerli B kuryesi) ile de reddedilir.
+        $this->pushEvents($tokenB, [$this->cashHandover([
+            'from_user_id' => $b['kurye']->id, 'to_user_id' => $a['patron']->id,
+            'counted_cash_kurus' => 5000, 'expected_cash_kurus' => 5000,
+        ])])->assertJsonPath('results.0.status', 'rejected');
+
+        $count = $this->asOwner(fn () => CashHandover::query()->count());
+        $this->assertSame(0, $count, 'B için hiçbir kasa devri oluşmamalı.');
+    }
+
+    #[Test]
+    public function sync_push_ledger_collected_by_baska_bayinin_kullanicisi_olamaz(): void
+    {
+        // FAZ 4: collected_by_user_id yazımdan önce RLS kapsamında doğrulanır (nakit atfı sızmaz).
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $tokenB = $this->tokenFor($b['patron']);
+
+        $custB = $this->customerUpsert(['name' => 'B Müşterisi']);
+        $this->pushEvents($tokenB, [$custB])->assertOk();
+
+        $this->pushEvents($tokenB, [$this->ledgerEntry([
+            'customer_id' => $custB['payload']['id'], 'entry_type' => 'payment', 'amount_kurus' => -5000,
+            'payment_type' => 'nakit', 'collected_by_user_id' => $a['kurye']->id,
+        ])])->assertJsonPath('results.0.status', 'rejected');
+
+        $count = $this->asOwner(fn () => LedgerEntry::query()->where('customer_id', $custB['payload']['id'])->count());
+        $this->assertSame(0, $count, 'B için hiçbir defter kaydı oluşmamalı (cross-tenant collected_by reddi).');
     }
 }

@@ -7,11 +7,11 @@ import 'package:path/path.dart' as p;
 import 'package:sipario/data/app_database.dart';
 import 'package:sqlite3/sqlite3.dart';
 
-/// Faz 0 (sqflite v1) → Drift v3 ADDİTİF migration'ı doğrular (architect kabul kriteri):
+/// Faz 0 (sqflite v1) → Drift v4 ADDİTİF migration'ı doğrular (architect kabul kriteri):
 /// phase0 `customers`/`customer_phones` verisi ve native sözleşmesi KORUNUR, yeni tablolar (Faz 2 +
-/// Faz 3 kupon) oluşur. Drift açılışta şemayı doğrular → v3 hedef şeması eksiksiz kurulmuş olmalı.
+/// Faz 3 kupon + Faz 4 kurye) oluşur. Drift açılışta şemayı doğrular → v4 hedef şeması eksiksiz kurulmuş olmalı.
 void main() {
-  test('v1→v3: phase0 verisi ve native sözleşmesi korunur, Faz 2/3 tabloları açılır', () async {
+  test('v1→v4: phase0 verisi ve native sözleşmesi korunur, Faz 2/3/4 tabloları açılır', () async {
     final file = File(p.join(
       Directory.systemTemp.path,
       'sipario_mig_${DateTime.now().microsecondsSinceEpoch}.db',
@@ -77,5 +77,20 @@ void main() {
         ));
     final entry = await (db.select(db.ledgerEntries)..where((t) => t.id.equals('l1'))).getSingle();
     expect(entry.paymentType, 'nakit');
+
+    // FAZ 4 yüzeyleri kuruldu: cash_handovers tablosu + orders.assigned_user_id + ledger.collected_by
+    // + sync_meta.user_id kolonları (ADDİTİF; native sözleşme ve mevcut veri korunur).
+    expect(await db.select(db.cashHandovers).get(), isEmpty);
+    await db.into(db.cashHandovers).insert(CashHandoversCompanion.insert(
+          id: 'h1', fromUserId: 'u1', countedCashKurus: 5000, expectedCashKurus: 5000, diffKurus: 0,
+          occurredAt: '2026-07-15T00:00:00.000Z',
+        ));
+    final handover = await (db.select(db.cashHandovers)..where((t) => t.id.equals('h1'))).getSingle();
+    expect(handover.diffKurus, 0);
+    // Yeni kolonlar yazılabilir (v3→v4 ALTER doğrulaması).
+    await db.into(db.orders).insert(OrdersCompanion.insert(
+          id: 'o1', assignedUserId: const Value('u1'), occurredAt: '2026-07-15T00:00:00.000Z'));
+    final order = await (db.select(db.orders)..where((t) => t.id.equals('o1'))).getSingle();
+    expect(order.assignedUserId, 'u1');
   });
 }

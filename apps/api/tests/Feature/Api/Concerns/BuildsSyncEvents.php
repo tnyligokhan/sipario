@@ -88,6 +88,23 @@ trait BuildsSyncEvents
     }
 
     /**
+     * Kasa devri (Faz 4): op = handover. from_user_id ZORUNLU. counted/expected/diff kuruş.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $meta
+     * @return array<string, mixed>
+     */
+    protected function cashHandover(array $payload = [], array $meta = []): array
+    {
+        return $this->event('cash_handover', 'handover', array_merge([
+            'id' => (string) Str::uuid7(),
+            'counted_cash_kurus' => 0,
+            'expected_cash_kurus' => 0,
+            'diff_kurus' => 0,
+        ], $payload), $meta);
+    }
+
+    /**
      * @param  array<string, mixed>  $line
      * @return array<string, mixed>
      */

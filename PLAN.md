@@ -5,6 +5,27 @@
 > bölümünü güncelle" de — sonraki kişi kaldığın yerden devam eder. Sohbet geçmişi
 > paylaşılmaz; **bu üç dosya + git geçmişi projenin tek ortak hafızasıdır.**
 
+## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
+
+> **Genel proje: ~%53**  ·  **Mevcut faz — Faz 4 (Kurye): ~%45**
+> _(mimari ✅ · kod 🔄 sürüyor · test ⏳ · inceleme ⏳)_
+
+| Faz | Ağırlık | Durum | Katkı |
+|-----|---------|-------|-------|
+| 0 · Arayan tanıma kanıtı | %8 | ✅ kapandı | 8 |
+| 1 · Temel (API/Postgres+RLS/auth) | %12 | ✅ kapandı | 12 |
+| 2 · Offline çekirdek (Drift/outbox/sync) | %15 | ✅ kapandı | 15 |
+| 3 · Defter (veresiye/kasa/kupon/gün sonu) | %12 | ✅ kapandı | 12 |
+| 4 · Kurye (atama/teslim/kasa devri/+iOS) | %13 | 🔄 ~%45 | ~6 |
+| 5 · Para (site/iyzico/abonelik/panel) | %20 | ⬜ bekliyor | 0 |
+| 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %12 | ⬜ bekliyor | 0 |
+| 7 · Antalya pilotu (2–3 bayi) | %8 | ⬜ bekliyor | 0 |
+| **Toplam** | **%100** | | **~%53** |
+
+> Ağırlıklar EFOR tahminidir (fazlar eşit büyüklükte değil — Faz 5 en ağır); genel yüzde bu
+> ağırlıklara göre hesaplanır. Bir faz kapandığında Katkı = tam Ağırlık olur ve genel yüzde artar.
+> Mevcut faz yüzdesi kaba göstergedir: mimari/kod/test/inceleme dört kapısına göre biçilir.
+
 ## Fazlar
 
 | Faz | Kapsam | Durum |
@@ -13,7 +34,7 @@
 | 1 | Temel: Laravel API, Postgres+RLS, auth, izolasyon test matrisi | ✅ **KAPANDI** (güvenlik denetimi dahil, 2026-07-13) |
 | 2 | Offline çekirdek: SQLite/Drift, outbox, senkron motoru, müşteri+sipariş | ✅ **ÇEKİRDEK KAPANDI — test + inceleme yeşil** (2026-07-13) |
 | 3 | Defter: veresiye, kasa, ödeme tipleri, kupon, gün sonu | ✅ **KAPANDI — test + inceleme yeşil** (2026-07-14) |
-| 4 | Kurye: atama, teslim kapatma, kasa devri (+iOS başlangıcı) | bekliyor |
+| 4 | Kurye: atama, teslim kapatma, kasa devri (+iOS başlangıcı) | 🔄 **SÜRÜYOR** (mimari ✅, kod yazılıyor) |
 | 5 | Para: site, iyzico, abonelik kilidi, yönetim paneli | bekliyor |
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
