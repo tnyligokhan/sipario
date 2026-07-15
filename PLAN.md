@@ -7,8 +7,8 @@
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
-> **Genel proje: ~%53**  ·  **Mevcut faz — Faz 4 (Kurye): ~%45**
-> _(mimari ✅ · kod 🔄 sürüyor · test ⏳ · inceleme ⏳)_
+> **Genel proje: ~%56**  ·  **Mevcut faz — Faz 4 (Kurye): ~%68**
+> _(mimari ✅ · kod ✅ · API test ✅ 94/94 · mobil test ⏳ partner Flutter makinesi · inceleme 🔄)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
@@ -16,15 +16,26 @@
 | 1 · Temel (API/Postgres+RLS/auth) | %12 | ✅ kapandı | 12 |
 | 2 · Offline çekirdek (Drift/outbox/sync) | %15 | ✅ kapandı | 15 |
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %12 | ✅ kapandı | 12 |
-| 4 · Kurye (atama/teslim/kasa devri/+iOS) | %13 | 🔄 ~%45 | ~6 |
+| 4 · Kurye (atama/teslim/kasa devri/+iOS) | %13 | 🔄 ~%68 (API✅, mobil test bekliyor) | ~9 |
 | 5 · Para (site/iyzico/abonelik/panel) | %20 | ⬜ bekliyor | 0 |
 | 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %12 | ⬜ bekliyor | 0 |
 | 7 · Antalya pilotu (2–3 bayi) | %8 | ⬜ bekliyor | 0 |
-| **Toplam** | **%100** | | **~%53** |
+| **Toplam** | **%100** | | **~%56** |
 
 > Ağırlıklar EFOR tahminidir (fazlar eşit büyüklükte değil — Faz 5 en ağır); genel yüzde bu
 > ağırlıklara göre hesaplanır. Bir faz kapandığında Katkı = tam Ağırlık olur ve genel yüzde artar.
 > Mevcut faz yüzdesi kaba göstergedir: mimari/kod/test/inceleme dört kapısına göre biçilir.
+
+## İnsan gerektiren işler (SENİN SIRAN — otonom modda bunlara takılmam, listeye yazıp devam ederim)
+
+> Kullanıcı kararı (2026-07-15): "bana sormadan ajanlarla limit bitene kadar devam et." Dışsal/insan
+> gerektiren şeyleri buraya biriktiriyorum; teknik her kararı kendim verip ilerliyorum.
+
+- **[Faz 4]** Mobil doğrulama: partnerin **Flutter'lı makinesinde** `.g.dart` codegen + `flutter analyze` + `flutter test` (bu makinede Flutter yok). Yeşilse Faz 4 kapanır.
+- **[Faz 4]** `dev→main` PR (#11) merge kararı insanda.
+- **[Faz 5]** iyzico **üretim** hesabı + API anahtarları (geliştirme sandbox anahtarlarıyla yürür); site domain TLS; e-arşiv fatura sağlayıcı entegrasyon bilgileri.
+- **[Faz 6]** Apple + Google Play geliştirici hesapları + mağaza başvurusu; `USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı; KVKK aydınlatma + mesafeli satış/ön bilgilendirme metinlerinin **hukukça onayı**.
+- **[Faz 7]** Antalya'da 2–3 gerçek bayi + gerçek Android cihazlar (pilot).
 
 ## Fazlar
 

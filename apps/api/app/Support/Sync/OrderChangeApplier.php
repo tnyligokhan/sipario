@@ -271,12 +271,13 @@ class OrderChangeApplier
 
     /**
      * assigned_user_id önbelleğini olaylardan türet (status deseni): en son assigned/unassigned
-     * olayına bak; assigned ise payload'daki kullanıcı, unassigned ise null. Sıra occurred_at (düzeltilmiş
-     * saat) DESC, eşitlikte created_at DESC, SON tiebreak id DESC — id uuid7 benzersiz+zaman-sıralı olduğundan
-     * TAM determinizm sağlar (occurred_at saniye hassasiyetinde eşitlenip created_at de eşit kalınca Postgres
-     * keyfi sıra döndürüyordu — flaky). DECISIONS LWW "device_id ile deterministik ayrım" felsefesiyle simetrik.
-     * İstemci _recompute AYNI zinciri (occurredAt, id) kullanır; iki cihazın kendi olayları uuid7 nedeniyle
-     * nedensel sırada üretildiğinden aynı kazananı seçer (tam eşzamanlı çakışma sunucu pull'unda mutabık kalır).
+     * olayına bak; assigned ise payload'daki kullanıcı, unassigned ise null. Sıra SADECE (occurred_at
+     * DESC, id DESC) — id uuid7 benzersiz+zaman-sıralı olduğundan occurred_at saniye hassasiyetinde
+     * eşitlense bile TAM determinizm sağlar (eşitlikte Postgres keyfi sıra döndürüyordu — flaky).
+     * created_at BİLİNÇLİ DIŞARIDA: sunucuya özel (varış anı), istemcide karşılığı YOK; ortada olsaydı
+     * iki cihazın id sırasıyla çelişip sunucu/istemci FARKLI kurye türetirdi (kalıcı ıraksama). İki taraf
+     * yalnız ORTAK anahtarı (occurred_at, id) kullanır → istemci _recompute ile BİREBİR simetrik.
+     * DECISIONS LWW "device_id ile deterministik ayrım" felsefesiyle aynı çizgi.
      */
     private function deriveAssignedUserId(string $orderId): ?string
     {
@@ -284,7 +285,7 @@ class OrderChangeApplier
         $latest = OrderEvent::query()
             ->where('order_id', $orderId)
             ->whereIn('event_type', ['assigned', 'unassigned'])
-            ->orderByDesc('occurred_at')->orderByDesc('created_at')->orderByDesc('id')
+            ->orderByDesc('occurred_at')->orderByDesc('id')
             ->first();
 
         if ($latest === null || $latest->event_type === 'unassigned') {
