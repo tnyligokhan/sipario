@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Panel;
 
+use App\Panel\PanelStatsService;
 use App\Panel\TenantAdminService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -18,6 +19,9 @@ class TenantDetail extends Component
     public string $tenantId;
 
     public int $extendDays = 14;
+
+    /** Şifre sıfırlama sonrası admin'e BİR KEZ gösterilir (kalıcı saklanmaz). */
+    public ?string $newPassword = null;
 
     public function mount(string $tenant): void
     {
@@ -49,12 +53,35 @@ class TenantDetail extends Component
         $this->service()->suspend($this->tenantId, $this->adminId());
     }
 
+    /** Opsiyonel modül aç/kapa (FAZ 5c-2). Mevcut durumu tersine çevirir. */
+    public function toggleModule(string $module): void
+    {
+        $detail = $this->service()->tenantDetail($this->tenantId);
+        $current = (bool) ($detail['tenant']->modules[$module] ?? false);
+        $this->service()->setModule($this->tenantId, $module, ! $current, $this->adminId());
+    }
+
+    /** Patron şifre sıfırlama (FAZ 5c-2). Yeni parola BİR KEZ gösterilir (owner ile üretilir). */
+    public function resetPassword(): void
+    {
+        $this->newPassword = $this->service()->resetPatronPassword($this->tenantId, $this->adminId());
+    }
+
     public function render(): mixed
     {
         $detail = $this->service()->tenantDetail($this->tenantId);
         abort_if($detail === null, 404);
 
-        return view('livewire.panel.tenant-detail', ['detail' => $detail]);
+        $stats = app(PanelStatsService::class);
+
+        return view('livewire.panel.tenant-detail', [
+            'detail' => $detail,
+            'dailyOrders' => $stats->dailyOrders($this->tenantId),
+            'hourDistribution' => $stats->orderHourDistribution($this->tenantId),
+            'minutesToFirstOrder' => $stats->minutesToFirstOrder($this->tenantId),
+            'activeDevices' => $stats->activeDeviceCount($this->tenantId),
+            'devices' => $stats->devices($this->tenantId),
+        ]);
     }
 
     private function service(): TenantAdminService

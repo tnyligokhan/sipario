@@ -130,6 +130,42 @@ class TenantAdminService
         return $result;
     }
 
+    /**
+     * Opsiyonel modül aç/kapa (FAZ 5c-2; BRIEF: boş/emanet takibi). tenants.modules JSONB bayrağını
+     * panel bağlantısıyla günceller (tenants UPDATE grant'i var). İstemci bunu subscription bloğuyla alır.
+     */
+    public function setModule(string $tenantId, string $module, bool $enabled, ?string $adminId = null): Tenant
+    {
+        $tenant = $this->find($tenantId);
+        $modules = $tenant->modules;
+        $modules[$module] = $enabled;
+
+        return $this->apply($tenant, ['modules' => $modules], $adminId, 'set_module', "{$module}=".($enabled ? '1' : '0'));
+    }
+
+    /**
+     * Patron şifre sıfırlama (FAZ 5c-2; BRIEF). Panelin `users`'ta UPDATE'i YOK (SELECT-only) →
+     * AYRICALIKLI, owner bağlantısıyla (tenant yaratma deseni). Yeni parola üretilir, döner (admin bir
+     * kez görür); audit'e parola DEĞERİ YAZILMAZ (KVKK) — yalnız "reset_password" + hedef user id.
+     */
+    public function resetPatronPassword(string $tenantId, ?string $adminId = null): string
+    {
+        return Provisioning::asOwner(function () use ($tenantId, $adminId) {
+            /** @var User $patron */
+            $patron = User::query()
+                ->where('tenant_id', $tenantId)
+                ->where('role', UserRole::Patron->value)
+                ->firstOrFail();
+
+            $newPassword = Str::password(16);
+            $patron->forceFill(['password' => $newPassword])->save(); // 'hashed' cast bcrypt'ler
+
+            $this->audit($adminId, $tenantId, 'reset_password', 'user:'.$patron->id);
+
+            return $newPassword;
+        });
+    }
+
     // ------------------------------------------------------------------------------------
 
     private function find(string $tenantId): Tenant

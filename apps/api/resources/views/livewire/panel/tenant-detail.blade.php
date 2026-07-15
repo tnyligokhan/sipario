@@ -24,4 +24,45 @@
         <button wire:click="unlock">Aç</button>
         <button wire:click="suspend">Askıya Al</button>
     </div>
+
+    <div class="card" style="margin-top:1rem;">
+        <h2>Modüller & Hesap</h2>
+        <p>
+            <strong>Boş/emanet takibi:</strong>
+            {{ ($tenant->modules['empty_tracking'] ?? false) ? 'AÇIK' : 'kapalı' }}
+            <button wire:click="toggleModule('empty_tracking')">Değiştir</button>
+        </p>
+        <p>
+            <button wire:click="resetPassword">Patron Şifresini Sıfırla</button>
+            @if ($newPassword)
+                <span class="status">Yeni parola: <code>{{ $newPassword }}</code> (bir kez gösterilir)</span>
+            @endif
+        </p>
+        <p><a href="{{ route('panel.tenant.export', $tenant->id) }}">Veriyi Dışa Aktar (JSON)</a></p>
+    </div>
+
+    <div class="card" style="margin-top:1rem;">
+        <h2>Kullanım (churn sinyalleri)</h2>
+        <p><strong>Aktif cihaz (7 gün):</strong> {{ $activeDevices }}</p>
+        <p><strong>Kurulumdan ilk siparişe:</strong>
+            {{ $minutesToFirstOrder !== null ? $minutesToFirstOrder.' dk' : 'henüz sipariş yok' }}</p>
+        <p><strong>Günlük sipariş (7 gün):</strong>
+            @forelse ($dailyOrders as $date => $count) {{ $date }}: {{ $count }} · @empty yok @endforelse</p>
+        <p><strong>Sipariş girme saatleri (30 gün):</strong>
+            @foreach ($hourDistribution as $hour => $count) @if ($count > 0) {{ $hour }}h:{{ $count }} @endif @endforeach</p>
+    </div>
+
+    <div class="card" style="margin-top:1rem;">
+        <h2>Cihazlar</h2>
+        <table>
+            <thead><tr><th>Model</th><th>Platform</th><th>Son görülme</th></tr></thead>
+            <tbody>
+                @forelse ($devices as $device)
+                    <tr><td>{{ $device->model ?? '—' }}</td><td>{{ $device->platform ?? '—' }}</td><td>{{ $device->last_seen_at ?? '—' }}</td></tr>
+                @empty
+                    <tr><td colspan="3">Cihaz yok.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
 </div>

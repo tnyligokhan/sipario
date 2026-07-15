@@ -5,6 +5,7 @@ use App\Livewire\Panel\TenantDetail;
 use App\Livewire\Panel\TenantList;
 use App\Livewire\Site\Register;
 use App\Livewire\Site\Subscribe;
+use App\Panel\PanelExportService;
 use App\Payment\SubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -45,5 +46,14 @@ Route::prefix('panel')->group(function () {
     Route::middleware('auth:admin')->group(function () {
         Route::get('/', TenantList::class)->name('panel.tenants');
         Route::get('tenants/{tenant}', TenantDetail::class)->name('panel.tenant');
+
+        // Veri export (Faz 5c-2): bayinin iş verisi JSON dump (panel SELECT, salt-okunur, cross-tenant filtreli).
+        Route::get('tenants/{tenant}/export', function (string $tenant, PanelExportService $export) {
+            $data = $export->export($tenant);
+            abort_if($data === [], 404);
+
+            return response()->json($data)
+                ->header('Content-Disposition', 'attachment; filename="tenant-'.$tenant.'.json"');
+        })->name('panel.tenant.export');
     });
 });
