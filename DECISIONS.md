@@ -340,3 +340,7 @@ değişen bir karar "~~üstü çizili~~ → yeni karar" biçiminde güncellenir.
 
 - **Mağaza inceleme DEMO hesabı seeder'i (`DemoSeeder`) — BRIEF "içi dolu demo hesabı" + arayan-tanıma gereksinimi:** `demo@sipario.com.tr` / `demo1234`, AKTİF tenant + `valid_until = now+10yıl` (inceleme boyunca kilitlenmez); 4 TELEFONLU müşteri (arayan-tanıma demosunu besler), 2 ürün, 3 teslim edilmiş sipariş + defter (2 veresiye borç, 1 nakit peşin), `balance_kurus` defterden türetilir. Provizyon **owner ile** (`Provisioning::asOwner` deseni; superuser RLS'i atlar, tenant_id açıkça yazılır). **İDEMPOTENT** (demo e-postası varsa atlar). SAHTE demo verisi (KVKK açısından temsili; gerçek bayiye verilmez). Çalıştırma: `php artisan db:seed --class=DemoSeeder`.
 - **DemoSeederTest 2 test** (dolu+aktif+telefonlu+borç-türetildi+kimlik-geçerli; idempotent ikizlemez). **phpunit 167/167, pint, phpstan sv6 0.** Lead SOLO — test-verisi, kırmızı çizgi yüzeyi yok. (commit 81ad54b). **AÇIK (SENİN SIRAN):** demo hesabının mağaza konsollarına girilmesi + arayan-tanıma tanıtım videosu = insan.
+
+## Vardiya özeti
+
+- **Vardiya 2026-07-15 (otonom, ajanlarla): Faz 4 (Kurye) + Faz 5 (Para) SUNUCU KODU tamamlandı ve incelemeden geçti (167/167, kırmızı çizgi ihlali yok), 5d hukuk iskeleti + Faz 6 demo hesabı kuruldu, CI `sipario_panel` rolüyle yeşile döndü; kalan iş TÜMÜYLE DIŞSAL (iyzico anahtar + verify retrieve/imza güvenlik testi, hukuk prose, mobil codegen-partner, mağaza hesapları, pilot) — PLAN "SENİN SIRAN".**

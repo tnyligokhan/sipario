@@ -51,22 +51,36 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-15 — Faz 4 + Faz 5 KOD TAM, CI YEŞİL)
+## Güncel durum (son güncelleme: 2026-07-15 — Faz 4 + Faz 5 KOD TAM, 5d iskelet + demo hesap, CI YEŞİL, 167/167)
 
-- **VARDİYA 2026-07-15 (otonom, ajanlarla): Faz 4 (Kurye) + Faz 5 (Para) SUNUCU KODU TAMAM, incelemeden geçti, CI YEŞİL.**
-  - **Faz 4 — Kurye:** sipariş ATAMA (olay-kaynaklı, deterministik `(occurred_at,id)` türetme — flaky→sağlam),
-    TESLİM İDEMPOTENSİ (deterministik uuid5 → iki cihaz tek defter seti), KASA DEVRİ (append-only `cash_handovers`),
-    nakit atfı (`collected_by_user_id`). API 95/95, inceleme YEŞİL. **Mobil DOĞRULANMADI → partnerin Flutter makinesinde
-    codegen+analyze+test şart** (bu makinede Flutter yok; `.g.dart` stale). Faz 4 BÜTÜN olarak bu yüzden kapanmadı.
-  - **Faz 5 — Para:** 5a abonelik kilidi (sunucu enforcement, durum yayını, `locked_at` çıpası); 5b site + iyzico
-    soyutlaması + **GÜVENLİK sertleştirme** (verify fail-closed — forged-body bedava-abonelik açığı kapatıldı, tutar koruması);
-    5c-1/5c-2 yönetim paneli (`sipario_panel` salt-okunur DB rolü — panel bayinin siparişini/parasını FİZİKSEL değiştiremez;
-    istatistik/export/modül/şifre/cihaz); geri-dönen bayi web login. **Toplu inceleme YEŞİL, phpunit 163/163**, kırmızı çizgi ihlali yok.
-  - **CI DÜZELTİLDİ:** `sipario_panel` rolü CI workflow'una eklendi (migration 504 patlıyordu) → **push + PR #11 CI YEŞİL** (163 test).
-  - **PR #11 (dev→main)** artık Faz 3+4+5'i taşıyor; **merge insanda.** Her şey origin/dev'de (`55595ec`).
-  - **SONRAKİ KİŞİ / KALAN = tümüyle DIŞSAL (yukarıdaki "SENİN SIRAN" listesi):** iyzico anahtar + gerçek retrieve/imza testi
-    (⚠️ güvenlik), hukuk metin prose'u (5d), mobil codegen+test (partner Flutter), Faz 6 mağaza hesapları, Faz 7 pilot.
-  - Ayrıntı: DECISIONS "Faz 4 — *", "Faz 5 — *" bölümleri. Bu vardiyanın kod işi coder ajanı, inceleme reviewer ajanıyla yapıldı.
+**VARDİYA 2026-07-15 (otonom, ajanlarla — coder + reviewer). Özet: Faz 4 (Kurye) + Faz 5 (Para) SUNUCU KODU TAMAM ve incelemeden geçti; 5d hukuk iskeleti + Faz 6 demo hesabı kuruldu; CI YEŞİL (167/167).**
+
+### NE BİTTİ (sunucu, doğrulandı — phpunit 167/167, pint temiz, phpstan sv6 0, CI yeşil)
+- **Faz 4 — Kurye (API):** olay-kaynaklı sipariş ATAMA (deterministik `(occurred_at,id)` türetme — sunucu+istemci simetrik), TESLİM İDEMPOTENSİ (deterministik uuid5 → iki cihaz offline teslim = TEK defter seti), KASA DEVRİ (append-only `cash_handovers`), nakit atfı (`collected_by_user_id`). Toplu inceleme YEŞİL.
+- **Faz 5 — Para (sunucu tam):** 5a abonelik kilidi (`sync/push` enforcement, `locked_at` çıpası, durum yayını; okuma/pull ASLA kilitlenmez); 5b site+iyzico soyutlaması + **GÜVENLİK sertleştirme** (verify FAIL-CLOSED — forged-body bedava-abonelik açığı kapatıldı + tutar koruması); 5c-1/5c-2 yönetim paneli (`sipario_panel` salt-okunur DB rolü — panel iş verisini FİZİKSEL yazamaz; istatistik/export/modül/şifre-sıfırlama/cihaz); geri-dönen bayi web login. Faz 5 toplu inceleme YEŞİL.
+- **5d hukuk İSKELET:** 4 belge şablonu (mesafeli satış/ön bilgilendirme/iptal-iade/KVKK) + `/sozlesme/{doc}` route + checkout onay linkleri (metinler PLACEHOLDER).
+- **Faz 6 demo hesabı:** `DemoSeeder` — içi dolu AKTİF demo bayi (`demo@sipario.com.tr` / `demo1234`), 4 TELEFONLU müşteri (arayan-tanıma demosu) + defter; `php artisan db:seed --class=DemoSeeder`.
+- **CI düzeltildi:** `sipario_panel` rolü CI workflow'una eklendi (migration 504 patlıyordu). Her şey origin/dev'de, **PR #11 (dev→main) Faz 3+4+5'i taşıyor — merge İNSANDA.**
+
+### NE YARIM KALDI / AÇIK (tümü DIŞSAL — "SENİN SIRAN" listesi başta)
+- **Mobil (Faz 4 + 5a) DOĞRULANMADI** — bu makinede Flutter yok; `.g.dart` STALE. **Partnerin Flutter makinesinde codegen + analyze + test şart.** Faz 4/5 bu yüzden BÜTÜN olarak kapanmadı.
+- **iyzico** gerçek sandbox/üretim anahtarı + `verify()` retrieve/imza'nın GERÇEK testi (⚠️ güvenlik — smoke yetmez).
+- **Hukuk metin prose'u** (5d iskelet hazır, tam metin + avukat onayı insan işi).
+- **Faz 6** mağaza hesapları/başvuru + **Faz 7** pilot (saha).
+
+### SONRAKİ KİŞİ NEREDEN DEVAM ETMELİ
+1. İstersen **PR #11'i incele/merge** (Faz 3+4+5 main'e).
+2. Tek bir dışsal girdiyle ilerlet: (a) **iyzico sandbox anahtarı** ver → gerçek ödeme akışı bağlanır+test edilir; (b) partnere **mobil codegen** koştur → mobil doğrulanır, Faz 4/5 kapanır; (c) **hukuk prose'unu** ver → 5d tamamlanır.
+3. Sunucuda test-edilebilir yeni kod işi kalmadı; Faz 6/7 çoğunlukla insan/saha.
+
+### BİLİNEN TUZAKLAR (sonraki kişi bunlara dikkat)
+- **Flutter yok bu makinede** → mobil test/codegen partnerde. Şema değişince `.g.dart` stale kalır.
+- **php PATH'te yok:** `/c/laragon/bin/php/php-8.3.30-Win32-vs16-x64/php.exe` + `-d extension=pdo_pgsql -d extension=pgsql -d extension=zip`. Docker: `docker start sipario_db`.
+- **`sipario_panel` rolü küme düzeyinde** (docker init `10-roles.sh` yalnız İLK initdb'de koşar) → yeni makinede ELLE kur; CI'a eklendi (bu vardiya). Şifre `sipario_panel_dev` (phpunit.xml).
+- **Elle commit push-lag:** ajan elle commit atınca origin geride kalır → "başlamamış mı?" yanılgısı. HER ZAMAN git tip'e bak; gerekirse `git push origin dev`. (Öneri: elle commit'i kendi turunda pushla.)
+- **iyzico callback CSRF-muaf** → `verify()` gövdeye ASLA güvenmemeli (fail-closed kuruldu); anahtar gelince retrieve+imza gerçekten test edilmeli.
+- **Drift codegen:** sqlite3 override `<3.0.0` (DECISIONS Faz 3); `.env*` araç-korumalı → `DB_PANEL_USERNAME/PASSWORD` elle eklenmeli.
+- Ayrıntı: DECISIONS "Faz 4 — *", "Faz 5 — *", "Faz 5c — CI", "Faz 5d", "Faz 6 — hazırlık".
 
 - **FAZ 3 — DEFTER KAPANDI (kod + test + kalite/güvenlik incelemesi bitti, HEPSİ YEŞİL).**
   Architect'in tasarımı (DECISIONS "Faz 3 — mimari") uygulandı; uygulama kararları DECISIONS
