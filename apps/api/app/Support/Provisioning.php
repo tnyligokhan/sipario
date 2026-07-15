@@ -50,10 +50,14 @@ class Provisioning
         string $patronName = 'Patron',
     ): array {
         return self::asOwner(function () use ($tenantName, $patronEmail, $patronPassword, $patronName) {
+            // valid_until = trial_ends_at (FAZ 5a): tek enforcement çıpası; trial_ends_at yalnız
+            // "deneme miydi" bilgisi. Ödeme onayında valid_until = now+1yıl'a uzar (5b).
+            $trialEnds = now()->addDays(30);
             $tenant = Tenant::create([
                 'name' => $tenantName,
                 'status' => TenantStatus::Trial->value,
-                'trial_ends_at' => now()->addDays(30),
+                'trial_ends_at' => $trialEnds,
+                'valid_until' => $trialEnds,
             ]);
 
             $patron = User::create([

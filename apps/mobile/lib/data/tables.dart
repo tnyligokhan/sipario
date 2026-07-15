@@ -252,7 +252,12 @@ class SyncMeta extends Table {
   /// kaynağı. Login akışı doldurur (Faz 5); yoksa null → nakit atfı boş, kasa devri opsiyonel.
   TextColumn get userId => text().nullable()();
 
+  /// Abonelik durumu ÖNBELLEĞİ (FAZ 5a — DECISIONS: tek doğru kaynak sunucu, istemci önbellekler).
+  /// Sunucunun her push/pull yanıtındaki `subscription` bloğundan yazılır. İstemci ileri-sadece saatle
+  /// (lastServerTimeIso + elapsedAnchorMs) kilit/grace kararını bu değerlerden verir.
   TextColumn get validUntilIso => text().nullable()();
+  TextColumn get lockedAtIso => text().nullable()();
+  TextColumn get subscriptionStatus => text().nullable()(); // trial|active|locked|suspended
 
   @override
   Set<Column> get primaryKey => {id};

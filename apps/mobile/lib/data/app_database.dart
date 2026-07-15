@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.file() : super(_openOnDevice());
 
   @override
-  int get schemaVersion => 4; // v1 = Faz 0 spike, v2 = Faz 2 çekirdek, v3 = Faz 3 defter, v4 = Faz 4 kurye
+  int get schemaVersion => 5; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik önbelleği
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -88,6 +88,14 @@ class AppDatabase extends _$AppDatabase {
               await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN user_id TEXT');
             }
             await m.createTable(cashHandovers);
+          }
+          if (from < 5) {
+            // FAZ 5a abonelik önbelleği: sync_meta'ya kilit alanları. from<2 yolu sync_meta'yı zaten
+            // v5 şemasıyla (bu kolonlar dahil) oluşturur; ALTER yalnız v2/v3/v4 yükseltmesinde gerekli.
+            if (from >= 2) {
+              await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN locked_at_iso TEXT');
+              await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN subscription_status TEXT');
+            }
           }
         },
         beforeOpen: (details) async {

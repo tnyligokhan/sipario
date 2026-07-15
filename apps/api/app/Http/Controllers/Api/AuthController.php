@@ -11,6 +11,7 @@ use App\Models\Device;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -46,9 +47,12 @@ class AuthController extends Controller
             return response()->json(['message' => 'E-posta veya parola hatalı.'], 401);
         }
 
-        // Pasif kullanıcı veya trial/active olmayan bayi: nötr 403 (Faz 5 kilit akışını detaylandırır).
+        // Pasif kullanıcı, trial/active olmayan bayi, veya SÜRESİ DOLMUŞ abonelik (FAZ 5a): nötr 403.
+        // valid_until geçmişse status hâlâ trial/active olsa bile giriş kapalı (süre tek çıpa; NULL geç).
+        // Kontrol Hash::check'ten SONRA (sabit süre zaten harcandı → zamanlama yan-kanalı açılmaz).
         $tenantStatus = TenantStatus::tryFrom($row->tenant_status);
-        if ($row->status !== 'active' || $tenantStatus === null || ! $tenantStatus->allowsLogin()) {
+        $expired = $row->valid_until !== null && Carbon::parse($row->valid_until)->isPast();
+        if ($row->status !== 'active' || $tenantStatus === null || ! $tenantStatus->allowsLogin() || $expired) {
             return response()->json(['message' => 'Hesabınız şu anda kullanıma kapalı. Destek alın.'], 403);
         }
 

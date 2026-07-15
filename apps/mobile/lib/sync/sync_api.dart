@@ -27,11 +27,29 @@ class EventResult {
       );
 }
 
+/// Abonelik durumu yayını (FAZ 5a — DECISIONS: tek doğru kaynak sunucu). Push VE pull yanıtında gelir;
+/// istemci sync_meta'ya önbellekler ve ileri-sadece saatle kilit/grace kararını verir.
+class SubscriptionInfo {
+  SubscriptionInfo({this.status, this.validUntil, this.lockedAt, this.serverTime});
+  final String? status; // trial|active|locked|suspended
+  final String? validUntil; // ISO8601
+  final String? lockedAt; // ISO8601
+  final String? serverTime; // ISO8601
+
+  factory SubscriptionInfo.fromJson(Map<String, dynamic> j) => SubscriptionInfo(
+        status: j['status'] as String?,
+        validUntil: j['valid_until'] as String?,
+        lockedAt: j['locked_at'] as String?,
+        serverTime: j['server_time'] as String?,
+      );
+}
+
 class PushResponse {
-  PushResponse({required this.results, required this.currentSeq, this.serverTime});
+  PushResponse({required this.results, required this.currentSeq, this.serverTime, this.subscription});
   final List<EventResult> results;
   final int currentSeq;
   final String? serverTime;
+  final SubscriptionInfo? subscription;
 
   factory PushResponse.fromJson(Map<String, dynamic> j) => PushResponse(
         results: ((j['results'] as List?) ?? [])
@@ -39,6 +57,9 @@ class PushResponse {
             .toList(),
         currentSeq: (j['current_seq'] as num?)?.toInt() ?? 0,
         serverTime: j['server_time'] as String?,
+        subscription: j['subscription'] is Map
+            ? SubscriptionInfo.fromJson((j['subscription'] as Map).cast<String, dynamic>())
+            : null,
       );
 }
 
@@ -49,6 +70,7 @@ class PullResponse {
     required this.hasMore,
     required this.currentSeq,
     this.serverTime,
+    this.subscription,
     this.changes = const [],
     this.entities = const {},
   });
@@ -57,6 +79,7 @@ class PullResponse {
   final bool hasMore;
   final int currentSeq;
   final String? serverTime;
+  final SubscriptionInfo? subscription;
   final List<Map<String, dynamic>> changes; // delta
   final Map<String, List<Map<String, dynamic>>> entities; // snapshot
 
@@ -68,6 +91,9 @@ class PullResponse {
       hasMore: (j['has_more'] as bool?) ?? false,
       currentSeq: (j['current_seq'] as num?)?.toInt() ?? 0,
       serverTime: j['server_time'] as String?,
+      subscription: j['subscription'] is Map
+          ? SubscriptionInfo.fromJson((j['subscription'] as Map).cast<String, dynamic>())
+          : null,
       changes: ((j['changes'] as List?) ?? [])
           .map((e) => (e as Map).cast<String, dynamic>())
           .toList(),

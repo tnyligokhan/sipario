@@ -39,6 +39,7 @@ class SyncEngine {
 
     final resp = await api.push(events);
     await _applyServerTime(resp.serverTime);
+    await _applySubscription(resp.subscription);
 
     final byId = {for (final res in resp.results) res.clientEventId: res};
     await db.transaction(() async {
@@ -66,6 +67,7 @@ class SyncEngine {
       final meta = await db.syncState();
       final resp = await api.pull(since: meta.lastPulledSeq, limit: limit);
       await _applyServerTime(resp.serverTime);
+      await _applySubscription(resp.subscription);
 
       if (resp.mode == 'snapshot') {
         await _applySnapshot(resp);
@@ -295,6 +297,17 @@ class SyncEngine {
       final localT = DateTime.tryParse(r.occurredAt);
       return localT != null && localT.isAfter(serverT);
     });
+  }
+
+  /// Abonelik durumunu sync_meta'ya önbellekle (FAZ 5a — DECISIONS: tek doğru kaynak sunucu).
+  /// İstemci kilit/grace kararını bu önbellek + ileri-sadece saatle verir (SubscriptionState).
+  Future<void> _applySubscription(SubscriptionInfo? sub) async {
+    if (sub == null) return;
+    await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(SyncMetaCompanion(
+      validUntilIso: Value(sub.validUntil),
+      lockedAtIso: Value(sub.lockedAt),
+      subscriptionStatus: Value(sub.status),
+    ));
   }
 
   /// server_time'dan saat offset'i türet (DECISIONS: istemci offset tutar).
