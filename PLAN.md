@@ -7,8 +7,8 @@
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
-> **Genel proje: ~%75**  ·  **Faz 4: ~%85** (mobil partnerde) · **Faz 5: ~%80** (sunucu ✅, inceleme ✅ YEŞİL)
-> _(5a✅ 5b✅ 5c✅ · Faz 5 inceleme YEŞİL 137/137, kırmızı çizgi temiz · iyzico verify güvenlik fix 🔄 · dışsal: 5d hukuk/iyzico anahtar/mobil = SENİN SIRAN)_
+> **Genel proje: ~%76**  ·  **Faz 4: ~%85** (mobil partnerde) · **Faz 5: ~%85** (sunucu ✅ inceleme ✅ güvenlik ✅)
+> _(5a✅ 5b✅ 5c✅ · inceleme YEŞİL · iyzico verify fail-closed ✅ 143/143 · kalan: geri-dönen login (kod) + 5d hukuk/iyzico anahtar/mobil = SENİN SIRAN)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
@@ -17,10 +17,10 @@
 | 2 · Offline çekirdek (Drift/outbox/sync) | %15 | ✅ kapandı | 15 |
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %12 | ✅ kapandı | 12 |
 | 4 · Kurye (atama/teslim/kasa devri/+iOS) | %13 | 🔄 ~%85 (API✅ inceleme✅, mobil test partnerde) | ~11 |
-| 5 · Para (site/iyzico/abonelik/panel) | %20 | 🔄 ~%80 (sunucu ✅ inceleme ✅, güvenlik fix+dışsal) | ~16 |
+| 5 · Para (site/iyzico/abonelik/panel) | %20 | 🔄 ~%85 (sunucu+inceleme+güvenlik ✅, dışsal kaldı) | ~17 |
 | 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %12 | ⬜ bekliyor | 0 |
 | 7 · Antalya pilotu (2–3 bayi) | %8 | ⬜ bekliyor | 0 |
-| **Toplam** | **%100** | | **~%75** |
+| **Toplam** | **%100** | | **~%76** |
 
 > Ağırlıklar EFOR tahminidir (fazlar eşit büyüklükte değil — Faz 5 en ağır); genel yüzde bu
 > ağırlıklara göre hesaplanır. Bir faz kapandığında Katkı = tam Ağırlık olur ve genel yüzde artar.
