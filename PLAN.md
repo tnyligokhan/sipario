@@ -7,8 +7,8 @@
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
-> **Genel proje: ~%76**  ·  **Faz 4: ~%85** (mobil partnerde) · **Faz 5: ~%85** (sunucu ✅ inceleme ✅ güvenlik ✅)
-> _(5a✅ 5b✅ 5c✅ · inceleme YEŞİL · iyzico verify fail-closed ✅ 143/143 · kalan: geri-dönen login (kod) + 5d hukuk/iyzico anahtar/mobil = SENİN SIRAN)_
+> **Genel proje: ~%77**  ·  **Faz 4: ~%85** (mobil partnerde) · **Faz 5: ~%90 — KOD TARAFI TAM**
+> _(5a✅ 5b✅ 5c✅ · inceleme YEŞİL · güvenlik fail-closed ✅ · web login ✅ · 163/163 · kalan TÜMÜYLE DIŞSAL: iyzico anahtar/hukuk prose/mobil = SENİN SIRAN)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
@@ -17,10 +17,10 @@
 | 2 · Offline çekirdek (Drift/outbox/sync) | %15 | ✅ kapandı | 15 |
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %12 | ✅ kapandı | 12 |
 | 4 · Kurye (atama/teslim/kasa devri/+iOS) | %13 | 🔄 ~%85 (API✅ inceleme✅, mobil test partnerde) | ~11 |
-| 5 · Para (site/iyzico/abonelik/panel) | %20 | 🔄 ~%85 (sunucu+inceleme+güvenlik ✅, dışsal kaldı) | ~17 |
-| 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %12 | ⬜ bekliyor | 0 |
-| 7 · Antalya pilotu (2–3 bayi) | %8 | ⬜ bekliyor | 0 |
-| **Toplam** | **%100** | | **~%76** |
+| 5 · Para (site/iyzico/abonelik/panel) | %20 | 🔄 ~%90 KOD TAM (dışsal: anahtar/hukuk/mobil) | ~18 |
+| 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %12 | ⬜ bekliyor (çoğu dışsal) | 0 |
+| 7 · Antalya pilotu (2–3 bayi) | %8 | ⬜ bekliyor (saha/insan) | 0 |
+| **Toplam** | **%100** | | **~%77** |
 
 > Ağırlıklar EFOR tahminidir (fazlar eşit büyüklükte değil — Faz 5 en ağır); genel yüzde bu
 > ağırlıklara göre hesaplanır. Bir faz kapandığında Katkı = tam Ağırlık olur ve genel yüzde artar.
@@ -47,7 +47,7 @@
 | 2 | Offline çekirdek: SQLite/Drift, outbox, senkron motoru, müşteri+sipariş | ✅ **ÇEKİRDEK KAPANDI — test + inceleme yeşil** (2026-07-13) |
 | 3 | Defter: veresiye, kasa, ödeme tipleri, kupon, gün sonu | ✅ **KAPANDI — test + inceleme yeşil** (2026-07-14) |
 | 4 | Kurye: atama, teslim kapatma, kasa devri (+iOS başlangıcı) | 🔄 **SÜRÜYOR** (mimari ✅, kod yazılıyor) |
-| 5 | Para: site, iyzico, abonelik kilidi, yönetim paneli | bekliyor |
+| 5 | Para: site, iyzico, abonelik kilidi, yönetim paneli | 🔄 **KOD TAM** (sunucu ✅ inceleme ✅ güvenlik ✅ 163/163); dışsal: iyzico anahtar/hukuk prose/mobil |
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
