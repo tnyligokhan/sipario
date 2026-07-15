@@ -7,8 +7,8 @@
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
-> **Genel proje: ~%73**  ·  **Faz 4: ~%85** (mobil partnerde) · **Faz 5: ~%75** (sunucu kodu ✅, inceleme 🔄)
-> _(5a kilit ✅ · 5b site+iyzico ✅ · 5c-1/5c-2 panel ✅ 137/137 · Faz 5 toplu inceleme 🔄 · dışsal: 5d hukuk/iyzico anahtar/mobil = SENİN SIRAN)_
+> **Genel proje: ~%75**  ·  **Faz 4: ~%85** (mobil partnerde) · **Faz 5: ~%80** (sunucu ✅, inceleme ✅ YEŞİL)
+> _(5a✅ 5b✅ 5c✅ · Faz 5 inceleme YEŞİL 137/137, kırmızı çizgi temiz · iyzico verify güvenlik fix 🔄 · dışsal: 5d hukuk/iyzico anahtar/mobil = SENİN SIRAN)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
@@ -17,10 +17,10 @@
 | 2 · Offline çekirdek (Drift/outbox/sync) | %15 | ✅ kapandı | 15 |
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %12 | ✅ kapandı | 12 |
 | 4 · Kurye (atama/teslim/kasa devri/+iOS) | %13 | 🔄 ~%85 (API✅ inceleme✅, mobil test partnerde) | ~11 |
-| 5 · Para (site/iyzico/abonelik/panel) | %20 | 🔄 ~%75 (sunucu kodu ✅, inceleme+dışsal) | ~15 |
+| 5 · Para (site/iyzico/abonelik/panel) | %20 | 🔄 ~%80 (sunucu ✅ inceleme ✅, güvenlik fix+dışsal) | ~16 |
 | 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %12 | ⬜ bekliyor | 0 |
 | 7 · Antalya pilotu (2–3 bayi) | %8 | ⬜ bekliyor | 0 |
-| **Toplam** | **%100** | | **~%73** |
+| **Toplam** | **%100** | | **~%75** |
 
 > Ağırlıklar EFOR tahminidir (fazlar eşit büyüklükte değil — Faz 5 en ağır); genel yüzde bu
 > ağırlıklara göre hesaplanır. Bir faz kapandığında Katkı = tam Ağırlık olur ve genel yüzde artar.
@@ -33,7 +33,7 @@
 
 - **[Faz 4]** Mobil doğrulama: partnerin **Flutter'lı makinesinde** `.g.dart` codegen + `flutter analyze` + `flutter test` (bu makinede Flutter yok). Yeşilse Faz 4 kapanır.
 - **[Faz 4]** `dev→main` PR (#11) merge kararı insanda.
-- **[Faz 5]** iyzico **üretim** hesabı + API anahtarları (geliştirme sandbox anahtarlarıyla yürür); site domain TLS; e-arşiv fatura sağlayıcı entegrasyon bilgileri.
+- **[Faz 5]** iyzico **üretim** hesabı + API anahtarları (geliştirme sandbox anahtarlarıyla yürür); site domain TLS; e-arşiv fatura sağlayıcı entegrasyon bilgileri. **⚠️ GÜVENLİK:** anahtar entegre edilirken `IyzicoPaymentGateway::verify()` MUTLAKA iyzico'ya sunucu-sunucu geri-sorgu + IYZWSv2 imza doğrulaması yapmalı (kod fail-closed kuruldu; smoke-test YETMEZ — gövde-güven = bedava abonelik açığı). Sandbox'ta forged-body reddi + gerçek retrieve sınanmalı.
 - **[Faz 5c ortam]** `sipario_panel` DB rolü küme düzeyinde ELLE kuruldu (mevcut container); **CI/yeni makinede rol SQL'i elle koşulmalı** (Faz 1 sipario_app deseni). `.env`/`.env.example`'a `DB_PANEL_USERNAME=sipario_panel` + `DB_PANEL_PASSWORD=...` eklenmeli (config default'u var, testler yeşil; araç `.env*`'i koruyor).
 - **[Faz 6]** Apple + Google Play geliştirici hesapları + mağaza başvurusu; `USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı; KVKK aydınlatma + mesafeli satış/ön bilgilendirme metinlerinin **hukukça onayı**.
 - **[Faz 7]** Antalya'da 2–3 gerçek bayi + gerçek Android cihazlar (pilot).
