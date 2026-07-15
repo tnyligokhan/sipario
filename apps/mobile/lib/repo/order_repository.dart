@@ -294,13 +294,18 @@ class OrderRepository {
     ));
   }
 
-  /// assigned_user_id önbelleğini en son assigned/unassigned olayından türet (sunucu deseninin aynası).
-  /// occurred_at'e göre sırala; en son assigned ise payload'daki kullanıcı, unassigned ise null.
+  /// assigned_user_id önbelleğini en son assigned/unassigned olayından türet (SUNUCU deseninin aynası,
+  /// deriveAssignedUserId). Sıra (occurredAt, id) ASC → sonuncu = en son. id (uuid7) SON tiebreak:
+  /// occurred_at eşit kalınca (aynı an) TAM determinizm sağlar; sunucuyla BİREBİR aynı zincir (yoksa
+  /// türetme diverge eder). Kendi olaylarımızın id'si uuid7 olduğundan nedensel sırayı korur.
   String? _deriveAssignedUserId(List<OrderEvent> events) {
     final assignEvents = events
         .where((e) => e.eventType == 'assigned' || e.eventType == 'unassigned')
         .toList()
-      ..sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
+      ..sort((a, b) {
+        final byTime = a.occurredAt.compareTo(b.occurredAt);
+        return byTime != 0 ? byTime : a.id.compareTo(b.id);
+      });
     if (assignEvents.isEmpty) return null;
     final last = assignEvents.last;
     if (last.eventType != 'assigned' || last.payload == null) return null;
