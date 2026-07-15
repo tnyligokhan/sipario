@@ -7,8 +7,8 @@
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
-> **Genel proje: ~%56**  ·  **Mevcut faz — Faz 4 (Kurye): ~%68**
-> _(mimari ✅ · kod ✅ · API test ✅ 94/94 · mobil test ⏳ partner Flutter makinesi · inceleme 🔄)_
+> **Genel proje: ~%58**  ·  **Faz 4 (Kurye): ~%85** (yalnız mobil test partnerde) · **sırada Faz 5a**
+> _(mimari ✅ · kod ✅ · API test ✅ 95/95 · inceleme ✅ API yeşil · mobil test ⏳ partner Flutter makinesi)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
@@ -16,11 +16,11 @@
 | 1 · Temel (API/Postgres+RLS/auth) | %12 | ✅ kapandı | 12 |
 | 2 · Offline çekirdek (Drift/outbox/sync) | %15 | ✅ kapandı | 15 |
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %12 | ✅ kapandı | 12 |
-| 4 · Kurye (atama/teslim/kasa devri/+iOS) | %13 | 🔄 ~%68 (API✅, mobil test bekliyor) | ~9 |
+| 4 · Kurye (atama/teslim/kasa devri/+iOS) | %13 | 🔄 ~%85 (API✅ inceleme✅, mobil test partnerde) | ~11 |
 | 5 · Para (site/iyzico/abonelik/panel) | %20 | ⬜ bekliyor | 0 |
 | 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %12 | ⬜ bekliyor | 0 |
 | 7 · Antalya pilotu (2–3 bayi) | %8 | ⬜ bekliyor | 0 |
-| **Toplam** | **%100** | | **~%56** |
+| **Toplam** | **%100** | | **~%58** |
 
 > Ağırlıklar EFOR tahminidir (fazlar eşit büyüklükte değil — Faz 5 en ağır); genel yüzde bu
 > ağırlıklara göre hesaplanır. Bir faz kapandığında Katkı = tam Ağırlık olur ve genel yüzde artar.

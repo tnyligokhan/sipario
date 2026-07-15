@@ -66,6 +66,36 @@ class CourierSyncTest extends ApiTestCase
         $this->assertSame($a['operator']->id, $final->assigned_user_id, 'En son atama (operator) kazanmalı.');
     }
 
+    /**
+     * REGRESYON (reviewer bulgu #1): eşit occurred_at'te kazananı YALNIZ id tiebreak belirler — flaky'yi
+     * doğuran tam senaryo. Diğer atama testleri farklı occurred_at kullanıyordu; bu, id-DESC tiebreak'ini
+     * her koşuda DOĞRUDAN tetikler. assigned ve unassigned AYNI occurred_at; unassigned sonra insert
+     * edildiğinden uuid7 order_event id'si daha büyük → deterministik kazanır → assigned_user_id null.
+     * Fix (occurred_at, id) geri alınırsa (created_at'e dönülürse) bu test flaky/kırmızı olur.
+     */
+    #[Test]
+    public function atama_esit_occurred_at_id_tiebreak_ile_deterministik(): void
+    {
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $order = $this->orderCreated([$this->line()]);
+        $orderId = $order['payload']['order']['id'];
+        $this->pushEvents($token, [$order]);
+
+        $t = now()->toIso8601String(); // İKİ olay da AYNI occurred_at → tiebreak = id.
+        $this->pushEvents($token, [$this->orderEvent('assigned',
+            ['order_id' => $orderId, 'assigned_user_id' => $a['kurye']->id], ['occurred_at' => $t])])
+            ->assertJsonPath('results.0.status', 'applied');
+        $this->pushEvents($token, [$this->orderEvent('unassigned', ['order_id' => $orderId], ['occurred_at' => $t])])
+            ->assertJsonPath('results.0.status', 'applied');
+
+        $this->assertNull(
+            $this->asOwner(fn () => Order::query()->find($orderId)->assigned_user_id),
+            'Eşit occurred_at: sonradan gelen unassigned (daha büyük uuid7 id) deterministik kazanmalı.'
+        );
+    }
+
     #[Test]
     public function teslim_idempotensi_ayni_deterministik_id_iki_kez_tek_defter_seti_birakir(): void
     {
