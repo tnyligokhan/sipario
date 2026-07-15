@@ -119,6 +119,25 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        // PANEL bağlantısı (Faz 5c): yönetim paneli BİZE ait iç araç. sipario_panel rolü BYPASSRLS
+        // (destek+istatistik için cross-tenant OKUR) ama iş verisine YAZAMAZ (grant matrisi: yalnız
+        // SELECT iş tabloları; tenants UPDATE; admin_users/panel_audit INSERT/UPDATE). Panelin bayinin
+        // siparişini/parasını değiştirememesi kod disiplinine değil DB iznine bağlıdır (BRIEF sınırı).
+        'pgsql_panel' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            'database' => env('DB_DATABASE', 'laravel'),
+            'username' => env('DB_PANEL_USERNAME', 'sipario_panel'),
+            'password' => env('DB_PANEL_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

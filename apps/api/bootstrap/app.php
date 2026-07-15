@@ -36,6 +36,11 @@ return Application::configure(basePath: dirname(__DIR__))
             AppendServerTime::class,
             SecurityHeaders::class,
         ]);
+
+        // Panel (Faz 5c) oturumsuz istekleri panel login'e yönlendir; API yolları JSON 401 döner (değişmez).
+        $middleware->redirectGuestsTo(
+            fn (Request $request) => $request->is('panel*') ? route('panel.login') : null,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
