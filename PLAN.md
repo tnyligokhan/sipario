@@ -7,8 +7,8 @@
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
-> **Genel proje: ~%60**  ·  **Faz 4: ~%85** (mobil test partnerde) · **Faz 5: ~%15** (5a sunucu kilidi ✅)
-> _(Faz 5a: sunucu abonelik kilidi ✅ API 102/102 · mobil+5b/5c/5d bekliyor · sırada 5c panel)_
+> **Genel proje: ~%65**  ·  **Faz 4: ~%85** (mobil test partnerde) · **Faz 5: ~%40** (5a kilit ✅ · 5c-1 panel ✅)
+> _(5a sunucu kilidi ✅ 102/102 · 5c-1 panel temeli ✅ 123/123 · sırada 5b iyzico+site · 5c-2/5d/mobil bekliyor)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
@@ -17,10 +17,10 @@
 | 2 · Offline çekirdek (Drift/outbox/sync) | %15 | ✅ kapandı | 15 |
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %12 | ✅ kapandı | 12 |
 | 4 · Kurye (atama/teslim/kasa devri/+iOS) | %13 | 🔄 ~%85 (API✅ inceleme✅, mobil test partnerde) | ~11 |
-| 5 · Para (site/iyzico/abonelik/panel) | %20 | 🔄 ~%15 (5a sunucu kilidi ✅) | ~3 |
+| 5 · Para (site/iyzico/abonelik/panel) | %20 | 🔄 ~%40 (5a kilit✅ · 5c-1 panel✅) | ~8 |
 | 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %12 | ⬜ bekliyor | 0 |
 | 7 · Antalya pilotu (2–3 bayi) | %8 | ⬜ bekliyor | 0 |
-| **Toplam** | **%100** | | **~%60** |
+| **Toplam** | **%100** | | **~%65** |
 
 > Ağırlıklar EFOR tahminidir (fazlar eşit büyüklükte değil — Faz 5 en ağır); genel yüzde bu
 > ağırlıklara göre hesaplanır. Bir faz kapandığında Katkı = tam Ağırlık olur ve genel yüzde artar.
@@ -34,6 +34,7 @@
 - **[Faz 4]** Mobil doğrulama: partnerin **Flutter'lı makinesinde** `.g.dart` codegen + `flutter analyze` + `flutter test` (bu makinede Flutter yok). Yeşilse Faz 4 kapanır.
 - **[Faz 4]** `dev→main` PR (#11) merge kararı insanda.
 - **[Faz 5]** iyzico **üretim** hesabı + API anahtarları (geliştirme sandbox anahtarlarıyla yürür); site domain TLS; e-arşiv fatura sağlayıcı entegrasyon bilgileri.
+- **[Faz 5c ortam]** `sipario_panel` DB rolü küme düzeyinde ELLE kuruldu (mevcut container); **CI/yeni makinede rol SQL'i elle koşulmalı** (Faz 1 sipario_app deseni). `.env`/`.env.example`'a `DB_PANEL_USERNAME=sipario_panel` + `DB_PANEL_PASSWORD=...` eklenmeli (config default'u var, testler yeşil; araç `.env*`'i koruyor).
 - **[Faz 6]** Apple + Google Play geliştirici hesapları + mağaza başvurusu; `USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı; KVKK aydınlatma + mesafeli satış/ön bilgilendirme metinlerinin **hukukça onayı**.
 - **[Faz 7]** Antalya'da 2–3 gerçek bayi + gerçek Android cihazlar (pilot).
 
