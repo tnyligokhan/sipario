@@ -325,3 +325,8 @@ değişen bir karar "~~üstü çizili~~ → yeni karar" biçiminde güncellenir.
 - **Tam-tablo izolasyon testleri (reviewer minör KAPATILDI):** `PanelExpansionTest` export 12 iş tablosunun HEPSİNİ A+B tohumlar → A export'unda 12 tablo dolu + B'nin hiçbir id'si sızmaz; `PanelTest` grant write-denial 5→**13 tablo** (UPDATE+DELETE 42501 tam matris).
 - **LEAD DOĞRULAMA:** bağımsız pint temiz + phpstan sv6 0 + **phpunit 163/163 (550 assert), 2×**; `Login.php` okundu — enumeration yok, session doğru, subscription-check-yok billing için bilinçli.
 - **FAZ 5 KOD TARAFI TAM.** Kalan tümüyle DIŞSAL (PLAN "SENİN SIRAN"): iyzico anahtar + gerçek retrieve/imza testi, hukuk metin prose'u (5d), mobil codegen+test (partner).
+
+## Faz 5c — CI ortam düzeltmesi (lead, 2026-07-15)
+
+- **CI'da `sipario_panel` rolü eksikti → migration 504 (grant_panel_role) `42704 role does not exist` ile patlıyor, TÜM API CI (push + PR #11) kırılıyordu** (yerelde 163/163 geçse de — rol yerelde elle kurulmuştu). `.github/workflows/api-ci.yml` "Postgres rollerini kur" adımına `CREATE ROLE sipario_panel LOGIN PASSWORD 'sipario_panel_dev' NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS` + CONNECT/USAGE eklendi (yerel `10-roles.sh` ile birebir; şifre `phpunit.xml` `DB_PANEL_PASSWORD` ile eşleşir). **Push + PR CI YEŞİL** (56-57s, 163 test). Faz 5c "CI'da rol SQL'i elle koşulmalı" açığı KAPANDI (commit 55595ec).
+- **Workflow notu (coder önerisi — sonraki tur için):** elle commit'ler kendi turunda PUSH edilmeli (Stop hook'un pushuna bel bağlanmasın); bu, "origin geride → başlamamış mı?" döngüsel karışıklığını bitirir. (coder bu vardiya session-limit'e takıldı — 07:50 Europe/Istanbul reset.)

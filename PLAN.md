@@ -51,7 +51,22 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-14 — Faz 3 defter KAPANDI, test + inceleme YEŞİL)
+## Güncel durum (son güncelleme: 2026-07-15 — Faz 4 + Faz 5 KOD TAM, CI YEŞİL)
+
+- **VARDİYA 2026-07-15 (otonom, ajanlarla): Faz 4 (Kurye) + Faz 5 (Para) SUNUCU KODU TAMAM, incelemeden geçti, CI YEŞİL.**
+  - **Faz 4 — Kurye:** sipariş ATAMA (olay-kaynaklı, deterministik `(occurred_at,id)` türetme — flaky→sağlam),
+    TESLİM İDEMPOTENSİ (deterministik uuid5 → iki cihaz tek defter seti), KASA DEVRİ (append-only `cash_handovers`),
+    nakit atfı (`collected_by_user_id`). API 95/95, inceleme YEŞİL. **Mobil DOĞRULANMADI → partnerin Flutter makinesinde
+    codegen+analyze+test şart** (bu makinede Flutter yok; `.g.dart` stale). Faz 4 BÜTÜN olarak bu yüzden kapanmadı.
+  - **Faz 5 — Para:** 5a abonelik kilidi (sunucu enforcement, durum yayını, `locked_at` çıpası); 5b site + iyzico
+    soyutlaması + **GÜVENLİK sertleştirme** (verify fail-closed — forged-body bedava-abonelik açığı kapatıldı, tutar koruması);
+    5c-1/5c-2 yönetim paneli (`sipario_panel` salt-okunur DB rolü — panel bayinin siparişini/parasını FİZİKSEL değiştiremez;
+    istatistik/export/modül/şifre/cihaz); geri-dönen bayi web login. **Toplu inceleme YEŞİL, phpunit 163/163**, kırmızı çizgi ihlali yok.
+  - **CI DÜZELTİLDİ:** `sipario_panel` rolü CI workflow'una eklendi (migration 504 patlıyordu) → **push + PR #11 CI YEŞİL** (163 test).
+  - **PR #11 (dev→main)** artık Faz 3+4+5'i taşıyor; **merge insanda.** Her şey origin/dev'de (`55595ec`).
+  - **SONRAKİ KİŞİ / KALAN = tümüyle DIŞSAL (yukarıdaki "SENİN SIRAN" listesi):** iyzico anahtar + gerçek retrieve/imza testi
+    (⚠️ güvenlik), hukuk metin prose'u (5d), mobil codegen+test (partner Flutter), Faz 6 mağaza hesapları, Faz 7 pilot.
+  - Ayrıntı: DECISIONS "Faz 4 — *", "Faz 5 — *" bölümleri. Bu vardiyanın kod işi coder ajanı, inceleme reviewer ajanıyla yapıldı.
 
 - **FAZ 3 — DEFTER KAPANDI (kod + test + kalite/güvenlik incelemesi bitti, HEPSİ YEŞİL).**
   Architect'in tasarımı (DECISIONS "Faz 3 — mimari") uygulandı; uygulama kararları DECISIONS
