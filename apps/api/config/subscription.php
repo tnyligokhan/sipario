@@ -22,6 +22,17 @@ return [
         'kvkk_version' => env('LEGAL_KVKK_VERSION', '2026-07-15'),
     ],
 
+    // Hukuk BELGELERİ (5d iskeleti): slug → başlık + sürüm anahtarı (yukarıdaki 'legal'den çözülür) + içerik
+    // partial'i (resources/views/legal/docs/<slug>.blade.php). Metinler PLACEHOLDER — TAM METİN + HUKUK ONAYI
+    // İNSAN İŞİDİR (PLAN "SENİN SIRAN"). Checkout onay kutuları bu belgelere link verir; kabul edilen sürüm
+    // subscription_payments'a yazılır. Yeni belge = buraya satır + bir partial (route/view otomatik).
+    'legal_docs' => [
+        'mesafeli-satis' => ['title' => 'Mesafeli Satış Sözleşmesi', 'version_key' => 'distance_sales_version'],
+        'on-bilgilendirme' => ['title' => 'Ön Bilgilendirme Formu', 'version_key' => 'preinfo_version'],
+        'iptal-iade' => ['title' => 'İptal ve İade Koşulları', 'version_key' => 'preinfo_version'],
+        'kvkk-aydinlatma' => ['title' => 'KVKK Aydınlatma Metni ve Açık Rıza', 'version_key' => 'kvkk_version'],
+    ],
+
     // iyzico (sandbox). SDK/HTTP entegrasyonu IyzicoPaymentGateway'de; anahtarlar env'den.
     'iyzico' => [
         'api_key' => env('IYZICO_API_KEY', ''),

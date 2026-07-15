@@ -31,6 +31,23 @@ Route::post('abonelik/callback', function (Request $request, SubscriptionService
 })->name('subscription.callback');
 
 /*
+ * Hukuk belgeleri (5d iskeleti) — mesafeli satış / ön bilgilendirme / iptal-iade / KVKK. İçerik
+ * config('subscription.legal_docs') haritasından; metinler PLACEHOLDER (hukuk onayı = SENİN SIRAN).
+ * Checkout onay kutuları buraya link verir; bilinmeyen slug 404.
+ */
+Route::get('sozlesme/{doc}', function (string $doc) {
+    /** @var array<string, array{title: string, version_key: string}> $docs */
+    $docs = config('subscription.legal_docs');
+    abort_unless(isset($docs[$doc]), 404);
+
+    return view('legal.show', [
+        'slug' => $doc,
+        'title' => $docs[$doc]['title'],
+        'version' => config('subscription.legal')[$docs[$doc]['version_key']],
+    ]);
+})->name('legal.show');
+
+/*
  * Yönetim paneli (Faz 5c) — BİZE ait iç araç, `admin` guard (bayilerden ayrı). Livewire + session.
  * İş verisi salt-okunur (sipario_panel DB izniyle zorlanır); panel abonelik/durum yönetir.
  */
