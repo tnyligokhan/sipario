@@ -55,7 +55,7 @@ B2B saha uygulaması olduğu için "İş" birincil).
 - Geliştirici adı: `[şirket tüzel adı — PLACEHOLDER]`
 - E-posta: `[destek e-postası — PLACEHOLDER]`
 - Web sitesi: `sipario.com.tr` (varsayım — domain alındı, DECISIONS'a göre)
-- Gizlilik politikası URL: `[sipario.com.tr/gizlilik veya /sozlesme/kvkk — PLACEHOLDER, 5d hukuk metni tamamlanınca kesinleşir]`
+- Gizlilik politikası URL: `[sipario.com.tr/gizlilik veya /sozlesme/kvkk-aydinlatma — PLACEHOLDER, 5d hukuk metni tamamlanınca kesinleşir]` (route slug config/subscription.php'de `kvkk-aydinlatma`)
 
 ## İzin gerekçeleri (Play'in "İzin beyanı" bölümü için)
 

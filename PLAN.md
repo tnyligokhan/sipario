@@ -7,8 +7,8 @@
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
-> **Genel proje: ~%79**  ·  **Faz 4: ~%85** (mobil partnerde) · **Faz 5: ~%92 KOD TAM** · **Faz 6: ~%10** (demo hesap ✅)
-> _(5d hukuk iskelet ✅ · Faz 6 demo hesap seeder ✅ 167/167 · kalan DIŞSAL: iyzico anahtar/hukuk prose/mobil/mağaza hesabı/pilot = SENİN SIRAN)_
+> **Genel proje: ~%80**  ·  **Faz 4: ~%85** (mobil partnerde) · **Faz 5: ~%93 KOD+PROSE TASLAK** · **Faz 6: ~%20** (demo hesap ✅ + mağaza metin paketi ✅)
+> _(5d hukuk metinleri PLACEHOLDER→gerçek TASLAK ✅ · Faz 6 mağaza başvuru metin paketi docs/magaza/ ✅ · denetim kırmızı-çizgi temiz · kalan DIŞSAL: iyzico anahtar/hukuk-AVUKAT-onayı/mobil/mağaza-hesabı+video/pilot = SENİN SIRAN)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
@@ -51,9 +51,29 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-15 — Faz 4 + Faz 5 KOD TAM, 5d iskelet + demo hesap, CI YEŞİL, 167/167)
+## Güncel durum (son güncelleme: 2026-07-16 — 5d hukuk metinleri gerçek TASLAK + Faz 6 mağaza paketi, denetim temiz)
 
-**VARDİYA 2026-07-15 (otonom, ajanlarla — coder + reviewer). Özet: Faz 4 (Kurye) + Faz 5 (Para) SUNUCU KODU TAMAM ve incelemeden geçti; 5d hukuk iskeleti + Faz 6 demo hesabı kuruldu; CI YEŞİL (167/167).**
+**VARDİYA 2026-07-16 (otonom, 3 ajanlı fan-out+review — legal-drafter + store-writer + legal-reviewer).**
+Sunucu kodu zaten bitmiş ve kalan her şey dışsal olduğundan, anahtar/Flutter/cihaz GEREKTİRMEYEN
+tek iç iş ilerletildi: **5d hukuk metinleri PLACEHOLDER'dan gerçek Türkçe TASLAĞA yükseltildi + Faz 6
+mağaza başvuru metin paketi (`docs/magaza/`) yazıldı.** Ajan denetimi + lead çapraz-doğrulama:
+**kırmızı çizgi ihlali YOK.** Tam metin/mağaza-konsol/avukat onayı DIŞSAL kalır (SENİN SIRAN).
+
+### NE BİTTİ (bu vardiya — taslak metin, kod/test yüzeyi yok)
+- **5d hukuk (4 belge, `apps/api/resources/views/legal/docs/*.blade.php`):** mesafeli-satis (9 madde),
+  on-bilgilendirme (Yönetmelik m.5), iptal-iade (cayma m.15/1-ğ + iade + iptal + veri-saklama),
+  kvkk-aydinlatma (m.10/m.11 + veri-sorumlusu/işleyen ayrımı). ⚠️ TASLAK bannerı + `[köşeli]` şirket
+  boşlukları (uydurma YOK) + her belgede B2B/tacir için `<!-- HUKUK NOTU: avukat -->`.
+- **Faz 6 mağaza paketi (`docs/magaza/`, 5 md, hepsi ⚠️ TASLAK):** play-data-safety (Play form cevabı),
+  play-listing + app-store-listing (liste metinleri; iOS'ta arayan tanıma YOK açıkça), inceleme-notlari
+  (demo hesap + "kayıt yok yalnız giriş" Apple 3.1.3-f/Play gerekçesi + FULL_SCREEN_INTENT beyanı + video
+  PLACEHOLDER), README.
+- **Denetim:** legal-reviewer 9 maddelik kontrol → kritik ihlal yok; izin seti SMS/Call Log grubundan
+  temiz; inceleme notları DemoSeeder ile birebir; reviewer bulgusu (gizlilik URL slug) düzeltildi.
+
+### VARDİYA 2026-07-15 (önceki — Faz 4+5 KOD TAM)
+Faz 4 (Kurye) + Faz 5 (Para) SUNUCU KODU TAMAM ve incelemeden geçti; 5d hukuk iskeleti + Faz 6 demo
+hesabı kuruldu; CI YEŞİL (167/167).
 
 ### NE BİTTİ (sunucu, doğrulandı — phpunit 167/167, pint temiz, phpstan sv6 0, CI yeşil)
 - **Faz 4 — Kurye (API):** olay-kaynaklı sipariş ATAMA (deterministik `(occurred_at,id)` türetme — sunucu+istemci simetrik), TESLİM İDEMPOTENSİ (deterministik uuid5 → iki cihaz offline teslim = TEK defter seti), KASA DEVRİ (append-only `cash_handovers`), nakit atfı (`collected_by_user_id`). Toplu inceleme YEŞİL.
