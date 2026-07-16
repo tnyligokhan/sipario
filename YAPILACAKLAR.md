@@ -122,6 +122,11 @@ bitirince ilgili faz kapanışına yaklaşırsın; hangisini önce açtığın b
 - **16. `sipario_panel` CI şifresi** `sipario_panel_dev` sabit — prod'a giderken değiştir (madde 11 ile).
 - **17. Stok Android gerçek cihaz testi** — yalnız emülatörde; pilot Xiaomi/Samsung ağırlıklı, risk düşük ama açık.
 - **18. Marka başvurusu** (9/35/42 sınıfları) süreçte — durumu takip et (BRIEF).
+- **19. Merged-manifest izin bekçisi (mobil CI ile)** — kaynak-manifest bekçisi kuruldu ve CI'da
+  (`manifest-lint.yml`); ama 3. parti paketlerin manifest-merger ile enjekte ettiği izinleri yalnız
+  BİRLEŞTİRİLMİŞ manifest yakalar (`scripts/check_permissions.sh`, gradle build ister). Partnerin Flutter'lı
+  makinesinde **mobil CI kurulunca** bu adım da eklensin (madde 2 ile birlikte). Kırmızı çizgi #6'nın tam
+  otomatik korumasının son katmanı.
 
 ---
 
