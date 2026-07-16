@@ -7,8 +7,8 @@
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
-> **Genel proje: ~%80**  ·  **Faz 4: ~%85** (mobil partnerde) · **Faz 5: ~%93 KOD+PROSE TASLAK** · **Faz 6: ~%20** (demo hesap ✅ + mağaza metin paketi ✅)
-> _(5d hukuk metinleri PLACEHOLDER→gerçek TASLAK ✅ · Faz 6 mağaza başvuru metin paketi docs/magaza/ ✅ · denetim kırmızı-çizgi temiz · kalan DIŞSAL: iyzico anahtar/hukuk-AVUKAT-onayı/mobil/mağaza-hesabı+video/pilot = SENİN SIRAN)_
+> **Genel proje: ~%79** (pano tek sayı — denetim 79/80 tutarsızlığını yakaladı, harmonize edildi)  ·  **Faz 4: ~%85** (mobil partnerde) · **Faz 5: ~%93 KOD+PROSE TASLAK** · **Faz 6: ~%22** (demo hesap ✅ + mağaza metin paketi ✅ + hesap-silme sayfası ✅)
+> _(5d hukuk metinleri PLACEHOLDER→gerçek TASLAK ✅ · Faz 6 mağaza başvuru paketi + Play-zorunlu hesap-silme sayfası ✅ · 3 ajanlı uçtan-uca denetim: kod-belge örtüşüyor, kırmızı-çizgi temiz · kalan DIŞSAL: iyzico anahtar/hukuk-AVUKAT-onayı/mobil-codegen/mağaza-hesabı+imza-anahtarı+video/pilot = SENİN SIRAN, tam döküm YAPILACAKLAR.md)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
@@ -18,7 +18,7 @@
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %12 | ✅ kapandı | 12 |
 | 4 · Kurye (atama/teslim/kasa devri/+iOS) | %13 | 🔄 ~%85 (API✅ inceleme✅, mobil test partnerde) | ~11 |
 | 5 · Para (site/iyzico/abonelik/panel) | %20 | 🔄 ~%90 KOD TAM (dışsal: anahtar/hukuk/mobil) | ~18 |
-| 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %12 | 🔄 ~%10 (demo hesap ✅; kalan dışsal) | ~1 |
+| 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %12 | 🔄 ~%22 (demo hesap ✅ + mağaza metin paketi ✅ + hesap-silme ✅; kalan dışsal) | ~2 |
 | 7 · Antalya pilotu (2–3 bayi) | %8 | ⬜ bekliyor (saha/insan) | 0 |
 | **Toplam** | **%100** | | **~%79** |
 
@@ -59,7 +59,7 @@ tek iç iş ilerletildi: **5d hukuk metinleri PLACEHOLDER'dan gerçek Türkçe T
 mağaza başvuru metin paketi (`docs/magaza/`) yazıldı.** Ajan denetimi + lead çapraz-doğrulama:
 **kırmızı çizgi ihlali YOK.** Tam metin/mağaza-konsol/avukat onayı DIŞSAL kalır (SENİN SIRAN).
 
-### NE BİTTİ (bu vardiya — taslak metin, kod/test yüzeyi yok)
+### NE BİTTİ (bu vardiya)
 - **5d hukuk (4 belge, `apps/api/resources/views/legal/docs/*.blade.php`):** mesafeli-satis (9 madde),
   on-bilgilendirme (Yönetmelik m.5), iptal-iade (cayma m.15/1-ğ + iade + iptal + veri-saklama),
   kvkk-aydinlatma (m.10/m.11 + veri-sorumlusu/işleyen ayrımı). ⚠️ TASLAK bannerı + `[köşeli]` şirket
@@ -68,8 +68,14 @@ mağaza başvuru metin paketi (`docs/magaza/`) yazıldı.** Ajan denetimi + lead
   play-listing + app-store-listing (liste metinleri; iOS'ta arayan tanıma YOK açıkça), inceleme-notlari
   (demo hesap + "kayıt yok yalnız giriş" Apple 3.1.3-f/Play gerekçesi + FULL_SCREEN_INTENT beyanı + video
   PLACEHOLDER), README.
-- **Denetim:** legal-reviewer 9 maddelik kontrol → kritik ihlal yok; izin seti SMS/Call Log grubundan
-  temiz; inceleme notları DemoSeeder ile birebir; reviewer bulgusu (gizlilik URL slug) düzeltildi.
+- **Google Play ZORUNLU hesap-silme sayfası (KOD):** `/hesap-silme` route (`account.deletion`) + statik
+  view (`legal/hesap-silme.blade.php`, BRIEF ile tutarlı: uygulamada buton yok/destek kanalı, veri-rehin-
+  alınmaz, KVKK sorumlu/işleyen) + `AccountDeletionPageTest` 2 test. Mağaza doküman URL'leri bağlandı
+  (Play data-safety silme URL + gizlilik URL = `/sozlesme/kvkk-aydinlatma`). İletişim/süre hâlâ [köşeli].
+- **Denetim (3 ajanlı uçtan-uca):** legal-reviewer 9 maddelik kontrol → kritik ihlal yok; audit-phases →
+  Faz 0-6 kod-belge örtüşüyor, uydurma yok; audit-external-deps → tam dışsal döküm (YENİ bulgular:
+  Android release imza anahtarı build.gradle.kts TODO, Mac/Xcode iOS, e-arşiv sağlayıcı, VERBİS kaydı).
+  **Tam test paketi bu makinede koşuldu: phpunit 169/169 (587 assert), pint, phpstan sv6 0.**
 
 ### VARDİYA 2026-07-15 (önceki — Faz 4+5 KOD TAM)
 Faz 4 (Kurye) + Faz 5 (Para) SUNUCU KODU TAMAM ve incelemeden geçti; 5d hukuk iskeleti + Faz 6 demo
