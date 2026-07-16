@@ -48,6 +48,13 @@ Route::get('sozlesme/{doc}', function (string $doc) {
 })->name('legal.show');
 
 /*
+ * Hesap ve veri silme talebi sayfası (Faz 6) — Google Play, hesap sistemi olan uygulamalar için
+ * genel erişilebilir bir silme URL'i şart koşar; data-safety formu buraya işaret eder. Statik bilgi
+ * sayfası (BRIEF: uygulamada silme butonu yok, talep destek kanalından). İletişim/süre PLACEHOLDER.
+ */
+Route::view('hesap-silme', 'legal.hesap-silme')->name('account.deletion');
+
+/*
  * Yönetim paneli (Faz 5c) — BİZE ait iç araç, `admin` guard (bayilerden ayrı). Livewire + session.
  * İş verisi salt-okunur (sipario_panel DB izniyle zorlanır); panel abonelik/durum yönetir.
  */

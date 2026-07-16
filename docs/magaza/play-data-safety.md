@@ -14,7 +14,7 @@ karşılaştırarak doldur, kelimesi kelimesine kopyalama.
 | Uygulama veri paylaşıyor mu? | **Evet** (yalnız zorunlu altyapı sağlayıcılarıyla — aşağıda) |
 | Veri aktarımı şifrelenmiş mi? (uçuş halinde) | **Evet** — tüm API trafiği TLS ile |
 | Kullanıcı veri silinmesini talep edebilir mi? | **Evet** — uygulama içinde silme düğmesi YOK (bilinçli tasarım, BRIEF §4: veri bayinin
-mülkiyetindedir, kayıt dışsal süreçle kapanır); talep **destek kanalı** üzerinden yapılır → `[destek e-postası/URL — PLACEHOLDER]`. Bu hesap oluşturma web sitesi üzerinden yürüdüğü için Play'in hesap-silme politikası gereği ayrıca bir **web sayfası** da gerekebilir — `[hesap silme sayfası URL — PLACEHOLDER, henüz yok]`. |
+mülkiyetindedir, kayıt dışsal süreçle kapanır); talep **destek kanalı** üzerinden yapılır → `[destek e-postası/URL — PLACEHOLDER]`. Play'in hesap-silme politikası gereği genel erişilebilir silme sayfası **KURULDU**: `sipario.com.tr/hesap-silme` (route `account.deletion`, view `legal/hesap-silme.blade.php`; iletişim/süre alanları hâlâ [köşeli] — yayına almadan doldurulacak). |
 
 ## 2. Toplanan / paylaşılan veri türleri
 

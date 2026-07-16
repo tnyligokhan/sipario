@@ -77,7 +77,8 @@ kelimeleri tekrar etmemeye dikkat edildi; Apple aynı kelimeyi iki kez saymaz am
 
 - Destek URL: `[sipario.com.tr/destek — PLACEHOLDER]`
 - Pazarlama URL: `sipario.com.tr` (varsayım)
-- Gizlilik politikası URL: `[PLACEHOLDER — 5d hukuk metni tamamlanınca kesinleşir, play-listing.md ile AYNI URL olmalı]`
+- Gizlilik politikası URL: `sipario.com.tr/sozlesme/kvkk-aydinlatma` (play-listing.md ile AYNI URL; 5d prose tamamlanınca içerik kesinleşir)
+- Hesap/veri silme URL: `sipario.com.tr/hesap-silme` (route `account.deletion` — KURULDU; Apple da hesap silme yolu ister)
 
 ## App Privacy (Apple'ın "Gizlilik Beslemesi" formu) — kısa not
 
