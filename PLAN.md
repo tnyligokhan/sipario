@@ -51,31 +51,54 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-16 — 5d hukuk metinleri gerçek TASLAK + Faz 6 mağaza paketi, denetim temiz)
+## Güncel durum (son güncelleme: 2026-07-16 — 5d hukuk TASLAK + Faz 6 mağaza paketi + hesap-silme + uçtan-uca denetim; YAPILACAKLAR.md)
 
-**VARDİYA 2026-07-16 (otonom, 3 ajanlı fan-out+review — legal-drafter + store-writer + legal-reviewer).**
-Sunucu kodu zaten bitmiş ve kalan her şey dışsal olduğundan, anahtar/Flutter/cihaz GEREKTİRMEYEN
-tek iç iş ilerletildi: **5d hukuk metinleri PLACEHOLDER'dan gerçek Türkçe TASLAĞA yükseltildi + Faz 6
-mağaza başvuru metin paketi (`docs/magaza/`) yazıldı.** Ajan denetimi + lead çapraz-doğrulama:
-**kırmızı çizgi ihlali YOK.** Tam metin/mağaza-konsol/avukat onayı DIŞSAL kalır (SENİN SIRAN).
+**VARDİYA 2026-07-16 (otonom, 6 ajan iki dalga + inline — HEAD `c4d9a27`, tam test 169/169, ağaç temiz).**
+Sunucu kodu (Faz 0–5) zaten bitmişti; kalan her şey dışsal. Anahtar/Flutter/cihaz GEREKTİRMEYEN tüm iç
+işleri bitirdim + kullanıcı için tam yapılacaklar dökümanı çıkardım. iyzico'ya (anahtarsız doğrulanamaz)
+ve mobile (Flutter yok) BİLEREK dokunulmadı.
 
 ### NE BİTTİ (bu vardiya)
 - **5d hukuk (4 belge, `apps/api/resources/views/legal/docs/*.blade.php`):** mesafeli-satis (9 madde),
-  on-bilgilendirme (Yönetmelik m.5), iptal-iade (cayma m.15/1-ğ + iade + iptal + veri-saklama),
-  kvkk-aydinlatma (m.10/m.11 + veri-sorumlusu/işleyen ayrımı). ⚠️ TASLAK bannerı + `[köşeli]` şirket
-  boşlukları (uydurma YOK) + her belgede B2B/tacir için `<!-- HUKUK NOTU: avukat -->`.
-- **Faz 6 mağaza paketi (`docs/magaza/`, 5 md, hepsi ⚠️ TASLAK):** play-data-safety (Play form cevabı),
-  play-listing + app-store-listing (liste metinleri; iOS'ta arayan tanıma YOK açıkça), inceleme-notlari
-  (demo hesap + "kayıt yok yalnız giriş" Apple 3.1.3-f/Play gerekçesi + FULL_SCREEN_INTENT beyanı + video
-  PLACEHOLDER), README.
-- **Google Play ZORUNLU hesap-silme sayfası (KOD):** `/hesap-silme` route (`account.deletion`) + statik
-  view (`legal/hesap-silme.blade.php`, BRIEF ile tutarlı: uygulamada buton yok/destek kanalı, veri-rehin-
-  alınmaz, KVKK sorumlu/işleyen) + `AccountDeletionPageTest` 2 test. Mağaza doküman URL'leri bağlandı
-  (Play data-safety silme URL + gizlilik URL = `/sozlesme/kvkk-aydinlatma`). İletişim/süre hâlâ [köşeli].
-- **Denetim (3 ajanlı uçtan-uca):** legal-reviewer 9 maddelik kontrol → kritik ihlal yok; audit-phases →
-  Faz 0-6 kod-belge örtüşüyor, uydurma yok; audit-external-deps → tam dışsal döküm (YENİ bulgular:
-  Android release imza anahtarı build.gradle.kts TODO, Mac/Xcode iOS, e-arşiv sağlayıcı, VERBİS kaydı).
-  **Tam test paketi bu makinede koşuldu: phpunit 169/169 (587 assert), pint, phpstan sv6 0.**
+  on-bilgilendirme (Yönetmelik m.5), iptal-iade (cayma m.15/1-ğ), kvkk-aydinlatma (m.10/m.11 + veri
+  sorumlusu/işleyen). PLACEHOLDER→gerçek Türkçe TASLAK; ⚠️ banner + `[köşeli]` (uydurma YOK) +
+  her belgede B2B/tacir için `<!-- HUKUK NOTU: avukat -->`.
+- **Faz 6 mağaza paketi (`docs/magaza/`, 5 md, ⚠️ TASLAK):** play-data-safety, play-listing,
+  app-store-listing (iOS'ta arayan tanıma YOK açıkça), inceleme-notlari (demo hesap + "kayıt yok yalnız
+  giriş" Apple 3.1.3-f/Play gerekçesi + FULL_SCREEN_INTENT beyanı + video PLACEHOLDER), README.
+- **Google Play ZORUNLU hesap-silme sayfası (KOD+TEST):** `/hesap-silme` route (`account.deletion`) +
+  view (`legal/hesap-silme.blade.php`) + `AccountDeletionPageTest` 2 test. Mağaza URL'leri bağlandı
+  (silme URL + gizlilik = `/sozlesme/kvkk-aydinlatma`). İletişim/süre hâlâ [köşeli].
+- **Kırmızı çizgi #6 regresyon bekçisi (KOD+CI) — audit bulgusu:** `check_permissions.sh` hiçbir CI'a
+  bağlı değildi (DECISIONS "CI'da çalışır" diyordu, yanlıştı). İki katman kuruldu: `check_permissions_source.sh`
+  (Flutter'sız kaynak-manifest denetimi, pozitif kontrolle doğrulandı: enjekte edilen `READ_PHONE_STATE`→exit 1)
+  + `.github/workflows/manifest-lint.yml`. Merged-manifest katmanı mobil CI'a devredildi.
+- **Uçtan-uca DENETİM (6 ajan: legal-reviewer + audit-phases + audit-redlines + audit-external-deps +
+  legal-drafter + store-writer):** Faz 0–7 kod-belge örtüşüyor (uydurma yok), 6 kırmızı çizgi kod düzeyinde
+  KANITLANDI, kritik açık yok. Düzeltilen tutarsızlıklar: pano %79/%80→%79; test sayısı 167→**169/169**
+  (koşuldu, 587 assert, pint+phpstan sv6 0). Yeni dışsal bulgular: **Android release imza anahtarı**
+  (build.gradle.kts TODO — debug-imzalı), **Mac/Xcode**, **e-arşiv sağlayıcı** (kodda yok), **VERBİS kaydı**.
+- **`YAPILACAKLAR.md` OLUŞTURULDU** (kullanıcı talebi): proje sahibinin TÜM insan/dışsal işleri tek dökümanda,
+  öncelikli (🔴/🟡/🟢), her kalemde NE/NEDEN/NASIL/kanıt + kırmızı-çizgi güvence bölümü. **Dışsal işlerin
+  ARTIK KANONİK KAYNAĞI bu dosya.**
+
+### NE YARIM KALDI / AÇIK (bu vardiya — tümü DIŞSAL, ayrıntı `YAPILACAKLAR.md`)
+- **iyzico** gerçek sandbox/üretim anahtarı + `verify()` retrieve/imza GERÇEK testi (⚠️ smoke yetmez). BİLEREK dokunulmadı.
+- **Mobil (Faz 4+5a)** codegen+analyze+test partnerde (Flutter yok, `.g.dart` STALE).
+- **Hukuk** [köşeli] alanlar + avukat onayı; **mağaza** hesap/imza-anahtarı/video/görsel; **Faz 7** pilot.
+
+### SONRAKİ KİŞİ NEREDEN DEVAM ETMELİ
+1. **Önce `YAPILACAKLAR.md`'yi oku** — dışsal işlerin tam öncelikli dökümü orada.
+2. Sunucuda test-edilebilir, dışsal-girdisiz yeni kod işi KALMADI (bu vardiya tükendi). Bir dışsal girdi gelince aç:
+   (a) **iyzico sandbox anahtarı** → ödeme akışı canlı bağlanır + güvenlik testi koşulur;
+   (b) partnerde **mobil codegen** → Faz 4/5a kapanır; (c) **hukuk [köşeli]+avukat** → 5d tamamlanır.
+3. İstenirse **PR #11 (dev→main)** — o günden beri dev ilerledi, güncel dev'den yeniden gözden geçir.
+
+### BİLİNEN TUZAKLAR (bu vardiya — sonraki kişi dikkat)
+- **`YAPILACAKLAR.md` bu vardiyada eklendi** — dışsal iş listesi artık orada; PLAN "SENİN SIRAN" özet, tam liste YAPILACAKLAR'da (senkron tut).
+- **Merged-manifest bekçisi HÂLÂ yok** — yalnız kaynak-manifest katmanı CI'da; 3. parti enjeksiyonunu ancak `check_permissions.sh` (gradle build) yakalar, mobil CI ile gelecek.
+- **iyzico `initiate()` buyer/basketItems eksik** — alıcı adı/telefon/kimlik DTO'da yok; doldurmak Subscribe akışını değiştirir + anahtarsız doğrulanamaz → PARK (anahtar gelince sandbox'la yapılır).
+- **Elle commit push-lag** — bu vardiya her commit kendi turunda push'landı (temiz); Stop hook'un push'una bel bağlama, `git rev-parse HEAD == origin/dev` ile teyit et.
 
 ### VARDİYA 2026-07-15 (önceki — Faz 4+5 KOD TAM)
 Faz 4 (Kurye) + Faz 5 (Para) SUNUCU KODU TAMAM ve incelemeden geçti; 5d hukuk iskeleti + Faz 6 demo
