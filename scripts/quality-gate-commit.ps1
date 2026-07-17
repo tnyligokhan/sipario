@@ -112,15 +112,22 @@ $ran.Add('sir-taramasi')
 # ============ 2) MOBIL (yalniz apps/mobile degistiyse) ============
 $mobileChanged = @($staged | Where-Object { $_ -like 'apps/mobile/*' })
 if ($mobileChanged.Count -gt 0) {
+  # Hook, PATH guncellemesinden onceki oturumdan miras kalabilir; bilinen kurulum yolunu dene.
+  if (-not (Get-Command flutter -ErrorAction SilentlyContinue) -and (Test-Path 'C:\src\flutter\bin\flutter.bat')) {
+    $env:Path = "$env:Path;C:\src\flutter\bin"
+  }
   if (Get-Command flutter -ErrorAction SilentlyContinue) {
     Push-Location (Join-Path $root 'apps/mobile')
 
-    $out = (flutter analyze --no-pub 2>&1 | Out-String)
+    # dart analyze, flutter analyze DEGIL: bu makinede projenin Turkce-karakterli yolu
+    # (Masaustu'ndeki u) flutter analyze'in LSP kanalini kiriyor (analysis server 255);
+    # dart analyze ayni analizoru cokme olmadan kosuyor (2026-07-17'de dogrulandi).
+    $out = (dart analyze 2>&1 | Out-String)
     if ($LASTEXITCODE -ne 0) {
-      $failed.Add('flutter-analyze')
+      $failed.Add('dart-analyze')
       $detail.Add((@($out.Trim() -split "`n") | Select-Object -Last 2) -join ' | ')
     }
-    $ran.Add('flutter-analyze')
+    $ran.Add('dart-analyze')
 
     $out = (flutter test 2>&1 | Out-String)
     if ($LASTEXITCODE -ne 0) {

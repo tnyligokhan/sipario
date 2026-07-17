@@ -2241,6 +2241,17 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _assignedUserIdMeta = const VerificationMeta(
+    'assignedUserId',
+  );
+  @override
+  late final GeneratedColumn<String> assignedUserId = GeneratedColumn<String>(
+    'assigned_user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -2320,6 +2331,7 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
   List<GeneratedColumn> get $columns => [
     id,
     customerId,
+    assignedUserId,
     status,
     totalKurus,
     paymentType,
@@ -2349,6 +2361,15 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
       context.handle(
         _customerIdMeta,
         customerId.isAcceptableOrUnknown(data['customer_id']!, _customerIdMeta),
+      );
+    }
+    if (data.containsKey('assigned_user_id')) {
+      context.handle(
+        _assignedUserIdMeta,
+        assignedUserId.isAcceptableOrUnknown(
+          data['assigned_user_id']!,
+          _assignedUserIdMeta,
+        ),
       );
     }
     if (data.containsKey('status')) {
@@ -2418,6 +2439,10 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
         DriftSqlType.string,
         data['${effectivePrefix}customer_id'],
       ),
+      assignedUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}assigned_user_id'],
+      ),
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -2459,6 +2484,10 @@ class Order extends DataClass implements Insertable<Order> {
   final String id;
   final String? customerId;
 
+  /// ÖNBELLEK — kaynak assigned/unassigned order_events (FAZ 4). Hangi kuryeye atandığı; en son
+  /// atama olayından türer. Tek kişilik bayide UI'da hiç görünmez (BRIEF), sunucu her zaman destekler.
+  final String? assignedUserId;
+
   /// ÖNBELLEK — kaynak order_events (DECISIONS). status: open|delivered|cancelled.
   final String status;
   final int totalKurus;
@@ -2470,6 +2499,7 @@ class Order extends DataClass implements Insertable<Order> {
   const Order({
     required this.id,
     this.customerId,
+    this.assignedUserId,
     required this.status,
     required this.totalKurus,
     this.paymentType,
@@ -2484,6 +2514,9 @@ class Order extends DataClass implements Insertable<Order> {
     map['id'] = Variable<String>(id);
     if (!nullToAbsent || customerId != null) {
       map['customer_id'] = Variable<String>(customerId);
+    }
+    if (!nullToAbsent || assignedUserId != null) {
+      map['assigned_user_id'] = Variable<String>(assignedUserId);
     }
     map['status'] = Variable<String>(status);
     map['total_kurus'] = Variable<int>(totalKurus);
@@ -2509,6 +2542,9 @@ class Order extends DataClass implements Insertable<Order> {
       customerId: customerId == null && nullToAbsent
           ? const Value.absent()
           : Value(customerId),
+      assignedUserId: assignedUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assignedUserId),
       status: Value(status),
       totalKurus: Value(totalKurus),
       paymentType: paymentType == null && nullToAbsent
@@ -2533,6 +2569,7 @@ class Order extends DataClass implements Insertable<Order> {
     return Order(
       id: serializer.fromJson<String>(json['id']),
       customerId: serializer.fromJson<String?>(json['customerId']),
+      assignedUserId: serializer.fromJson<String?>(json['assignedUserId']),
       status: serializer.fromJson<String>(json['status']),
       totalKurus: serializer.fromJson<int>(json['totalKurus']),
       paymentType: serializer.fromJson<String?>(json['paymentType']),
@@ -2548,6 +2585,7 @@ class Order extends DataClass implements Insertable<Order> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'customerId': serializer.toJson<String?>(customerId),
+      'assignedUserId': serializer.toJson<String?>(assignedUserId),
       'status': serializer.toJson<String>(status),
       'totalKurus': serializer.toJson<int>(totalKurus),
       'paymentType': serializer.toJson<String?>(paymentType),
@@ -2561,6 +2599,7 @@ class Order extends DataClass implements Insertable<Order> {
   Order copyWith({
     String? id,
     Value<String?> customerId = const Value.absent(),
+    Value<String?> assignedUserId = const Value.absent(),
     String? status,
     int? totalKurus,
     Value<String?> paymentType = const Value.absent(),
@@ -2571,6 +2610,9 @@ class Order extends DataClass implements Insertable<Order> {
   }) => Order(
     id: id ?? this.id,
     customerId: customerId.present ? customerId.value : this.customerId,
+    assignedUserId: assignedUserId.present
+        ? assignedUserId.value
+        : this.assignedUserId,
     status: status ?? this.status,
     totalKurus: totalKurus ?? this.totalKurus,
     paymentType: paymentType.present ? paymentType.value : this.paymentType,
@@ -2587,6 +2629,9 @@ class Order extends DataClass implements Insertable<Order> {
       customerId: data.customerId.present
           ? data.customerId.value
           : this.customerId,
+      assignedUserId: data.assignedUserId.present
+          ? data.assignedUserId.value
+          : this.assignedUserId,
       status: data.status.present ? data.status.value : this.status,
       totalKurus: data.totalKurus.present
           ? data.totalKurus.value
@@ -2610,6 +2655,7 @@ class Order extends DataClass implements Insertable<Order> {
     return (StringBuffer('Order(')
           ..write('id: $id, ')
           ..write('customerId: $customerId, ')
+          ..write('assignedUserId: $assignedUserId, ')
           ..write('status: $status, ')
           ..write('totalKurus: $totalKurus, ')
           ..write('paymentType: $paymentType, ')
@@ -2625,6 +2671,7 @@ class Order extends DataClass implements Insertable<Order> {
   int get hashCode => Object.hash(
     id,
     customerId,
+    assignedUserId,
     status,
     totalKurus,
     paymentType,
@@ -2639,6 +2686,7 @@ class Order extends DataClass implements Insertable<Order> {
       (other is Order &&
           other.id == this.id &&
           other.customerId == this.customerId &&
+          other.assignedUserId == this.assignedUserId &&
           other.status == this.status &&
           other.totalKurus == this.totalKurus &&
           other.paymentType == this.paymentType &&
@@ -2651,6 +2699,7 @@ class Order extends DataClass implements Insertable<Order> {
 class OrdersCompanion extends UpdateCompanion<Order> {
   final Value<String> id;
   final Value<String?> customerId;
+  final Value<String?> assignedUserId;
   final Value<String> status;
   final Value<int> totalKurus;
   final Value<String?> paymentType;
@@ -2662,6 +2711,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   const OrdersCompanion({
     this.id = const Value.absent(),
     this.customerId = const Value.absent(),
+    this.assignedUserId = const Value.absent(),
     this.status = const Value.absent(),
     this.totalKurus = const Value.absent(),
     this.paymentType = const Value.absent(),
@@ -2674,6 +2724,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   OrdersCompanion.insert({
     required String id,
     this.customerId = const Value.absent(),
+    this.assignedUserId = const Value.absent(),
     this.status = const Value.absent(),
     this.totalKurus = const Value.absent(),
     this.paymentType = const Value.absent(),
@@ -2687,6 +2738,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   static Insertable<Order> custom({
     Expression<String>? id,
     Expression<String>? customerId,
+    Expression<String>? assignedUserId,
     Expression<String>? status,
     Expression<int>? totalKurus,
     Expression<String>? paymentType,
@@ -2699,6 +2751,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (customerId != null) 'customer_id': customerId,
+      if (assignedUserId != null) 'assigned_user_id': assignedUserId,
       if (status != null) 'status': status,
       if (totalKurus != null) 'total_kurus': totalKurus,
       if (paymentType != null) 'payment_type': paymentType,
@@ -2713,6 +2766,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   OrdersCompanion copyWith({
     Value<String>? id,
     Value<String?>? customerId,
+    Value<String?>? assignedUserId,
     Value<String>? status,
     Value<int>? totalKurus,
     Value<String?>? paymentType,
@@ -2725,6 +2779,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     return OrdersCompanion(
       id: id ?? this.id,
       customerId: customerId ?? this.customerId,
+      assignedUserId: assignedUserId ?? this.assignedUserId,
       status: status ?? this.status,
       totalKurus: totalKurus ?? this.totalKurus,
       paymentType: paymentType ?? this.paymentType,
@@ -2744,6 +2799,9 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     }
     if (customerId.present) {
       map['customer_id'] = Variable<String>(customerId.value);
+    }
+    if (assignedUserId.present) {
+      map['assigned_user_id'] = Variable<String>(assignedUserId.value);
     }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
@@ -2777,6 +2835,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     return (StringBuffer('OrdersCompanion(')
           ..write('id: $id, ')
           ..write('customerId: $customerId, ')
+          ..write('assignedUserId: $assignedUserId, ')
           ..write('status: $status, ')
           ..write('totalKurus: $totalKurus, ')
           ..write('paymentType: $paymentType, ')
@@ -3855,6 +3914,18 @@ class $LedgerEntriesTable extends LedgerEntries
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _collectedByUserIdMeta = const VerificationMeta(
+    'collectedByUserId',
+  );
+  @override
+  late final GeneratedColumn<String> collectedByUserId =
+      GeneratedColumn<String>(
+        'collected_by_user_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _relatedOrderIdMeta = const VerificationMeta(
     'relatedOrderId',
   );
@@ -3926,6 +3997,7 @@ class $LedgerEntriesTable extends LedgerEntries
     entryType,
     amountKurus,
     paymentType,
+    collectedByUserId,
     relatedOrderId,
     reversesEntryId,
     note,
@@ -3981,6 +4053,15 @@ class $LedgerEntriesTable extends LedgerEntries
         paymentType.isAcceptableOrUnknown(
           data['payment_type']!,
           _paymentTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('collected_by_user_id')) {
+      context.handle(
+        _collectedByUserIdMeta,
+        collectedByUserId.isAcceptableOrUnknown(
+          data['collected_by_user_id']!,
+          _collectedByUserIdMeta,
         ),
       );
     }
@@ -4062,6 +4143,10 @@ class $LedgerEntriesTable extends LedgerEntries
         DriftSqlType.string,
         data['${effectivePrefix}payment_type'],
       ),
+      collectedByUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}collected_by_user_id'],
+      ),
       relatedOrderId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}related_order_id'],
@@ -4101,6 +4186,10 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
   final String entryType;
   final int amountKurus;
   final String? paymentType;
+
+  /// FAZ 4: tahsilatı KİM aldı (kasa devri mutabakatının dayanağı). Nullable + geriye null; kasa
+  /// özeti etkilenmez (hâlâ payment_type bazlı). Kuryenin beklenen nakiti bu alandan hesaplanır.
+  final String? collectedByUserId;
   final String? relatedOrderId;
   final String? reversesEntryId;
   final String? note;
@@ -4113,6 +4202,7 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
     required this.entryType,
     required this.amountKurus,
     this.paymentType,
+    this.collectedByUserId,
     this.relatedOrderId,
     this.reversesEntryId,
     this.note,
@@ -4131,6 +4221,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
     map['amount_kurus'] = Variable<int>(amountKurus);
     if (!nullToAbsent || paymentType != null) {
       map['payment_type'] = Variable<String>(paymentType);
+    }
+    if (!nullToAbsent || collectedByUserId != null) {
+      map['collected_by_user_id'] = Variable<String>(collectedByUserId);
     }
     if (!nullToAbsent || relatedOrderId != null) {
       map['related_order_id'] = Variable<String>(relatedOrderId);
@@ -4160,6 +4253,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
       paymentType: paymentType == null && nullToAbsent
           ? const Value.absent()
           : Value(paymentType),
+      collectedByUserId: collectedByUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(collectedByUserId),
       relatedOrderId: relatedOrderId == null && nullToAbsent
           ? const Value.absent()
           : Value(relatedOrderId),
@@ -4186,6 +4282,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
       entryType: serializer.fromJson<String>(json['entryType']),
       amountKurus: serializer.fromJson<int>(json['amountKurus']),
       paymentType: serializer.fromJson<String?>(json['paymentType']),
+      collectedByUserId: serializer.fromJson<String?>(
+        json['collectedByUserId'],
+      ),
       relatedOrderId: serializer.fromJson<String?>(json['relatedOrderId']),
       reversesEntryId: serializer.fromJson<String?>(json['reversesEntryId']),
       note: serializer.fromJson<String?>(json['note']),
@@ -4203,6 +4302,7 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
       'entryType': serializer.toJson<String>(entryType),
       'amountKurus': serializer.toJson<int>(amountKurus),
       'paymentType': serializer.toJson<String?>(paymentType),
+      'collectedByUserId': serializer.toJson<String?>(collectedByUserId),
       'relatedOrderId': serializer.toJson<String?>(relatedOrderId),
       'reversesEntryId': serializer.toJson<String?>(reversesEntryId),
       'note': serializer.toJson<String?>(note),
@@ -4218,6 +4318,7 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
     String? entryType,
     int? amountKurus,
     Value<String?> paymentType = const Value.absent(),
+    Value<String?> collectedByUserId = const Value.absent(),
     Value<String?> relatedOrderId = const Value.absent(),
     Value<String?> reversesEntryId = const Value.absent(),
     Value<String?> note = const Value.absent(),
@@ -4230,6 +4331,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
     entryType: entryType ?? this.entryType,
     amountKurus: amountKurus ?? this.amountKurus,
     paymentType: paymentType.present ? paymentType.value : this.paymentType,
+    collectedByUserId: collectedByUserId.present
+        ? collectedByUserId.value
+        : this.collectedByUserId,
     relatedOrderId: relatedOrderId.present
         ? relatedOrderId.value
         : this.relatedOrderId,
@@ -4254,6 +4358,9 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
       paymentType: data.paymentType.present
           ? data.paymentType.value
           : this.paymentType,
+      collectedByUserId: data.collectedByUserId.present
+          ? data.collectedByUserId.value
+          : this.collectedByUserId,
       relatedOrderId: data.relatedOrderId.present
           ? data.relatedOrderId.value
           : this.relatedOrderId,
@@ -4279,6 +4386,7 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
           ..write('entryType: $entryType, ')
           ..write('amountKurus: $amountKurus, ')
           ..write('paymentType: $paymentType, ')
+          ..write('collectedByUserId: $collectedByUserId, ')
           ..write('relatedOrderId: $relatedOrderId, ')
           ..write('reversesEntryId: $reversesEntryId, ')
           ..write('note: $note, ')
@@ -4296,6 +4404,7 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
     entryType,
     amountKurus,
     paymentType,
+    collectedByUserId,
     relatedOrderId,
     reversesEntryId,
     note,
@@ -4312,6 +4421,7 @@ class LedgerEntry extends DataClass implements Insertable<LedgerEntry> {
           other.entryType == this.entryType &&
           other.amountKurus == this.amountKurus &&
           other.paymentType == this.paymentType &&
+          other.collectedByUserId == this.collectedByUserId &&
           other.relatedOrderId == this.relatedOrderId &&
           other.reversesEntryId == this.reversesEntryId &&
           other.note == this.note &&
@@ -4326,6 +4436,7 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
   final Value<String> entryType;
   final Value<int> amountKurus;
   final Value<String?> paymentType;
+  final Value<String?> collectedByUserId;
   final Value<String?> relatedOrderId;
   final Value<String?> reversesEntryId;
   final Value<String?> note;
@@ -4339,6 +4450,7 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
     this.entryType = const Value.absent(),
     this.amountKurus = const Value.absent(),
     this.paymentType = const Value.absent(),
+    this.collectedByUserId = const Value.absent(),
     this.relatedOrderId = const Value.absent(),
     this.reversesEntryId = const Value.absent(),
     this.note = const Value.absent(),
@@ -4353,6 +4465,7 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
     required String entryType,
     required int amountKurus,
     this.paymentType = const Value.absent(),
+    this.collectedByUserId = const Value.absent(),
     this.relatedOrderId = const Value.absent(),
     this.reversesEntryId = const Value.absent(),
     this.note = const Value.absent(),
@@ -4371,6 +4484,7 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
     Expression<String>? entryType,
     Expression<int>? amountKurus,
     Expression<String>? paymentType,
+    Expression<String>? collectedByUserId,
     Expression<String>? relatedOrderId,
     Expression<String>? reversesEntryId,
     Expression<String>? note,
@@ -4385,6 +4499,7 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
       if (entryType != null) 'entry_type': entryType,
       if (amountKurus != null) 'amount_kurus': amountKurus,
       if (paymentType != null) 'payment_type': paymentType,
+      if (collectedByUserId != null) 'collected_by_user_id': collectedByUserId,
       if (relatedOrderId != null) 'related_order_id': relatedOrderId,
       if (reversesEntryId != null) 'reverses_entry_id': reversesEntryId,
       if (note != null) 'note': note,
@@ -4401,6 +4516,7 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
     Value<String>? entryType,
     Value<int>? amountKurus,
     Value<String?>? paymentType,
+    Value<String?>? collectedByUserId,
     Value<String?>? relatedOrderId,
     Value<String?>? reversesEntryId,
     Value<String?>? note,
@@ -4415,6 +4531,7 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
       entryType: entryType ?? this.entryType,
       amountKurus: amountKurus ?? this.amountKurus,
       paymentType: paymentType ?? this.paymentType,
+      collectedByUserId: collectedByUserId ?? this.collectedByUserId,
       relatedOrderId: relatedOrderId ?? this.relatedOrderId,
       reversesEntryId: reversesEntryId ?? this.reversesEntryId,
       note: note ?? this.note,
@@ -4442,6 +4559,9 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
     }
     if (paymentType.present) {
       map['payment_type'] = Variable<String>(paymentType.value);
+    }
+    if (collectedByUserId.present) {
+      map['collected_by_user_id'] = Variable<String>(collectedByUserId.value);
     }
     if (relatedOrderId.present) {
       map['related_order_id'] = Variable<String>(relatedOrderId.value);
@@ -4475,6 +4595,7 @@ class LedgerEntriesCompanion extends UpdateCompanion<LedgerEntry> {
           ..write('entryType: $entryType, ')
           ..write('amountKurus: $amountKurus, ')
           ..write('paymentType: $paymentType, ')
+          ..write('collectedByUserId: $collectedByUserId, ')
           ..write('relatedOrderId: $relatedOrderId, ')
           ..write('reversesEntryId: $reversesEntryId, ')
           ..write('note: $note, ')
@@ -5448,6 +5569,636 @@ class CouponBalancesCompanion extends UpdateCompanion<CouponBalance> {
   }
 }
 
+class $CashHandoversTable extends CashHandovers
+    with TableInfo<$CashHandoversTable, CashHandover> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CashHandoversTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fromUserIdMeta = const VerificationMeta(
+    'fromUserId',
+  );
+  @override
+  late final GeneratedColumn<String> fromUserId = GeneratedColumn<String>(
+    'from_user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _toUserIdMeta = const VerificationMeta(
+    'toUserId',
+  );
+  @override
+  late final GeneratedColumn<String> toUserId = GeneratedColumn<String>(
+    'to_user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _countedCashKurusMeta = const VerificationMeta(
+    'countedCashKurus',
+  );
+  @override
+  late final GeneratedColumn<int> countedCashKurus = GeneratedColumn<int>(
+    'counted_cash_kurus',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expectedCashKurusMeta = const VerificationMeta(
+    'expectedCashKurus',
+  );
+  @override
+  late final GeneratedColumn<int> expectedCashKurus = GeneratedColumn<int>(
+    'expected_cash_kurus',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _diffKurusMeta = const VerificationMeta(
+    'diffKurus',
+  );
+  @override
+  late final GeneratedColumn<int> diffKurus = GeneratedColumn<int>(
+    'diff_kurus',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _periodStartMeta = const VerificationMeta(
+    'periodStart',
+  );
+  @override
+  late final GeneratedColumn<String> periodStart = GeneratedColumn<String>(
+    'period_start',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _occurredAtMeta = const VerificationMeta(
+    'occurredAt',
+  );
+  @override
+  late final GeneratedColumn<String> occurredAt = GeneratedColumn<String>(
+    'occurred_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    fromUserId,
+    toUserId,
+    countedCashKurus,
+    expectedCashKurus,
+    diffKurus,
+    periodStart,
+    occurredAt,
+    deviceId,
+    note,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cash_handovers';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CashHandover> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('from_user_id')) {
+      context.handle(
+        _fromUserIdMeta,
+        fromUserId.isAcceptableOrUnknown(
+          data['from_user_id']!,
+          _fromUserIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_fromUserIdMeta);
+    }
+    if (data.containsKey('to_user_id')) {
+      context.handle(
+        _toUserIdMeta,
+        toUserId.isAcceptableOrUnknown(data['to_user_id']!, _toUserIdMeta),
+      );
+    }
+    if (data.containsKey('counted_cash_kurus')) {
+      context.handle(
+        _countedCashKurusMeta,
+        countedCashKurus.isAcceptableOrUnknown(
+          data['counted_cash_kurus']!,
+          _countedCashKurusMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_countedCashKurusMeta);
+    }
+    if (data.containsKey('expected_cash_kurus')) {
+      context.handle(
+        _expectedCashKurusMeta,
+        expectedCashKurus.isAcceptableOrUnknown(
+          data['expected_cash_kurus']!,
+          _expectedCashKurusMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_expectedCashKurusMeta);
+    }
+    if (data.containsKey('diff_kurus')) {
+      context.handle(
+        _diffKurusMeta,
+        diffKurus.isAcceptableOrUnknown(data['diff_kurus']!, _diffKurusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_diffKurusMeta);
+    }
+    if (data.containsKey('period_start')) {
+      context.handle(
+        _periodStartMeta,
+        periodStart.isAcceptableOrUnknown(
+          data['period_start']!,
+          _periodStartMeta,
+        ),
+      );
+    }
+    if (data.containsKey('occurred_at')) {
+      context.handle(
+        _occurredAtMeta,
+        occurredAt.isAcceptableOrUnknown(data['occurred_at']!, _occurredAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_occurredAtMeta);
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
+      );
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CashHandover map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CashHandover(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      fromUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}from_user_id'],
+      )!,
+      toUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}to_user_id'],
+      ),
+      countedCashKurus: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}counted_cash_kurus'],
+      )!,
+      expectedCashKurus: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}expected_cash_kurus'],
+      )!,
+      diffKurus: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}diff_kurus'],
+      )!,
+      periodStart: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}period_start'],
+      ),
+      occurredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}occurred_at'],
+      )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      ),
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+    );
+  }
+
+  @override
+  $CashHandoversTable createAlias(String alias) {
+    return $CashHandoversTable(attachedDatabase, alias);
+  }
+}
+
+class CashHandover extends DataClass implements Insertable<CashHandover> {
+  final String id;
+  final String fromUserId;
+  final String? toUserId;
+  final int countedCashKurus;
+  final int expectedCashKurus;
+  final int diffKurus;
+  final String? periodStart;
+  final String occurredAt;
+  final String? deviceId;
+  final String? note;
+  const CashHandover({
+    required this.id,
+    required this.fromUserId,
+    this.toUserId,
+    required this.countedCashKurus,
+    required this.expectedCashKurus,
+    required this.diffKurus,
+    this.periodStart,
+    required this.occurredAt,
+    this.deviceId,
+    this.note,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['from_user_id'] = Variable<String>(fromUserId);
+    if (!nullToAbsent || toUserId != null) {
+      map['to_user_id'] = Variable<String>(toUserId);
+    }
+    map['counted_cash_kurus'] = Variable<int>(countedCashKurus);
+    map['expected_cash_kurus'] = Variable<int>(expectedCashKurus);
+    map['diff_kurus'] = Variable<int>(diffKurus);
+    if (!nullToAbsent || periodStart != null) {
+      map['period_start'] = Variable<String>(periodStart);
+    }
+    map['occurred_at'] = Variable<String>(occurredAt);
+    if (!nullToAbsent || deviceId != null) {
+      map['device_id'] = Variable<String>(deviceId);
+    }
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    return map;
+  }
+
+  CashHandoversCompanion toCompanion(bool nullToAbsent) {
+    return CashHandoversCompanion(
+      id: Value(id),
+      fromUserId: Value(fromUserId),
+      toUserId: toUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(toUserId),
+      countedCashKurus: Value(countedCashKurus),
+      expectedCashKurus: Value(expectedCashKurus),
+      diffKurus: Value(diffKurus),
+      periodStart: periodStart == null && nullToAbsent
+          ? const Value.absent()
+          : Value(periodStart),
+      occurredAt: Value(occurredAt),
+      deviceId: deviceId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deviceId),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+    );
+  }
+
+  factory CashHandover.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CashHandover(
+      id: serializer.fromJson<String>(json['id']),
+      fromUserId: serializer.fromJson<String>(json['fromUserId']),
+      toUserId: serializer.fromJson<String?>(json['toUserId']),
+      countedCashKurus: serializer.fromJson<int>(json['countedCashKurus']),
+      expectedCashKurus: serializer.fromJson<int>(json['expectedCashKurus']),
+      diffKurus: serializer.fromJson<int>(json['diffKurus']),
+      periodStart: serializer.fromJson<String?>(json['periodStart']),
+      occurredAt: serializer.fromJson<String>(json['occurredAt']),
+      deviceId: serializer.fromJson<String?>(json['deviceId']),
+      note: serializer.fromJson<String?>(json['note']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'fromUserId': serializer.toJson<String>(fromUserId),
+      'toUserId': serializer.toJson<String?>(toUserId),
+      'countedCashKurus': serializer.toJson<int>(countedCashKurus),
+      'expectedCashKurus': serializer.toJson<int>(expectedCashKurus),
+      'diffKurus': serializer.toJson<int>(diffKurus),
+      'periodStart': serializer.toJson<String?>(periodStart),
+      'occurredAt': serializer.toJson<String>(occurredAt),
+      'deviceId': serializer.toJson<String?>(deviceId),
+      'note': serializer.toJson<String?>(note),
+    };
+  }
+
+  CashHandover copyWith({
+    String? id,
+    String? fromUserId,
+    Value<String?> toUserId = const Value.absent(),
+    int? countedCashKurus,
+    int? expectedCashKurus,
+    int? diffKurus,
+    Value<String?> periodStart = const Value.absent(),
+    String? occurredAt,
+    Value<String?> deviceId = const Value.absent(),
+    Value<String?> note = const Value.absent(),
+  }) => CashHandover(
+    id: id ?? this.id,
+    fromUserId: fromUserId ?? this.fromUserId,
+    toUserId: toUserId.present ? toUserId.value : this.toUserId,
+    countedCashKurus: countedCashKurus ?? this.countedCashKurus,
+    expectedCashKurus: expectedCashKurus ?? this.expectedCashKurus,
+    diffKurus: diffKurus ?? this.diffKurus,
+    periodStart: periodStart.present ? periodStart.value : this.periodStart,
+    occurredAt: occurredAt ?? this.occurredAt,
+    deviceId: deviceId.present ? deviceId.value : this.deviceId,
+    note: note.present ? note.value : this.note,
+  );
+  CashHandover copyWithCompanion(CashHandoversCompanion data) {
+    return CashHandover(
+      id: data.id.present ? data.id.value : this.id,
+      fromUserId: data.fromUserId.present
+          ? data.fromUserId.value
+          : this.fromUserId,
+      toUserId: data.toUserId.present ? data.toUserId.value : this.toUserId,
+      countedCashKurus: data.countedCashKurus.present
+          ? data.countedCashKurus.value
+          : this.countedCashKurus,
+      expectedCashKurus: data.expectedCashKurus.present
+          ? data.expectedCashKurus.value
+          : this.expectedCashKurus,
+      diffKurus: data.diffKurus.present ? data.diffKurus.value : this.diffKurus,
+      periodStart: data.periodStart.present
+          ? data.periodStart.value
+          : this.periodStart,
+      occurredAt: data.occurredAt.present
+          ? data.occurredAt.value
+          : this.occurredAt,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      note: data.note.present ? data.note.value : this.note,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CashHandover(')
+          ..write('id: $id, ')
+          ..write('fromUserId: $fromUserId, ')
+          ..write('toUserId: $toUserId, ')
+          ..write('countedCashKurus: $countedCashKurus, ')
+          ..write('expectedCashKurus: $expectedCashKurus, ')
+          ..write('diffKurus: $diffKurus, ')
+          ..write('periodStart: $periodStart, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('note: $note')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    fromUserId,
+    toUserId,
+    countedCashKurus,
+    expectedCashKurus,
+    diffKurus,
+    periodStart,
+    occurredAt,
+    deviceId,
+    note,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CashHandover &&
+          other.id == this.id &&
+          other.fromUserId == this.fromUserId &&
+          other.toUserId == this.toUserId &&
+          other.countedCashKurus == this.countedCashKurus &&
+          other.expectedCashKurus == this.expectedCashKurus &&
+          other.diffKurus == this.diffKurus &&
+          other.periodStart == this.periodStart &&
+          other.occurredAt == this.occurredAt &&
+          other.deviceId == this.deviceId &&
+          other.note == this.note);
+}
+
+class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
+  final Value<String> id;
+  final Value<String> fromUserId;
+  final Value<String?> toUserId;
+  final Value<int> countedCashKurus;
+  final Value<int> expectedCashKurus;
+  final Value<int> diffKurus;
+  final Value<String?> periodStart;
+  final Value<String> occurredAt;
+  final Value<String?> deviceId;
+  final Value<String?> note;
+  final Value<int> rowid;
+  const CashHandoversCompanion({
+    this.id = const Value.absent(),
+    this.fromUserId = const Value.absent(),
+    this.toUserId = const Value.absent(),
+    this.countedCashKurus = const Value.absent(),
+    this.expectedCashKurus = const Value.absent(),
+    this.diffKurus = const Value.absent(),
+    this.periodStart = const Value.absent(),
+    this.occurredAt = const Value.absent(),
+    this.deviceId = const Value.absent(),
+    this.note = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CashHandoversCompanion.insert({
+    required String id,
+    required String fromUserId,
+    this.toUserId = const Value.absent(),
+    required int countedCashKurus,
+    required int expectedCashKurus,
+    required int diffKurus,
+    this.periodStart = const Value.absent(),
+    required String occurredAt,
+    this.deviceId = const Value.absent(),
+    this.note = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       fromUserId = Value(fromUserId),
+       countedCashKurus = Value(countedCashKurus),
+       expectedCashKurus = Value(expectedCashKurus),
+       diffKurus = Value(diffKurus),
+       occurredAt = Value(occurredAt);
+  static Insertable<CashHandover> custom({
+    Expression<String>? id,
+    Expression<String>? fromUserId,
+    Expression<String>? toUserId,
+    Expression<int>? countedCashKurus,
+    Expression<int>? expectedCashKurus,
+    Expression<int>? diffKurus,
+    Expression<String>? periodStart,
+    Expression<String>? occurredAt,
+    Expression<String>? deviceId,
+    Expression<String>? note,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (fromUserId != null) 'from_user_id': fromUserId,
+      if (toUserId != null) 'to_user_id': toUserId,
+      if (countedCashKurus != null) 'counted_cash_kurus': countedCashKurus,
+      if (expectedCashKurus != null) 'expected_cash_kurus': expectedCashKurus,
+      if (diffKurus != null) 'diff_kurus': diffKurus,
+      if (periodStart != null) 'period_start': periodStart,
+      if (occurredAt != null) 'occurred_at': occurredAt,
+      if (deviceId != null) 'device_id': deviceId,
+      if (note != null) 'note': note,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CashHandoversCompanion copyWith({
+    Value<String>? id,
+    Value<String>? fromUserId,
+    Value<String?>? toUserId,
+    Value<int>? countedCashKurus,
+    Value<int>? expectedCashKurus,
+    Value<int>? diffKurus,
+    Value<String?>? periodStart,
+    Value<String>? occurredAt,
+    Value<String?>? deviceId,
+    Value<String?>? note,
+    Value<int>? rowid,
+  }) {
+    return CashHandoversCompanion(
+      id: id ?? this.id,
+      fromUserId: fromUserId ?? this.fromUserId,
+      toUserId: toUserId ?? this.toUserId,
+      countedCashKurus: countedCashKurus ?? this.countedCashKurus,
+      expectedCashKurus: expectedCashKurus ?? this.expectedCashKurus,
+      diffKurus: diffKurus ?? this.diffKurus,
+      periodStart: periodStart ?? this.periodStart,
+      occurredAt: occurredAt ?? this.occurredAt,
+      deviceId: deviceId ?? this.deviceId,
+      note: note ?? this.note,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (fromUserId.present) {
+      map['from_user_id'] = Variable<String>(fromUserId.value);
+    }
+    if (toUserId.present) {
+      map['to_user_id'] = Variable<String>(toUserId.value);
+    }
+    if (countedCashKurus.present) {
+      map['counted_cash_kurus'] = Variable<int>(countedCashKurus.value);
+    }
+    if (expectedCashKurus.present) {
+      map['expected_cash_kurus'] = Variable<int>(expectedCashKurus.value);
+    }
+    if (diffKurus.present) {
+      map['diff_kurus'] = Variable<int>(diffKurus.value);
+    }
+    if (periodStart.present) {
+      map['period_start'] = Variable<String>(periodStart.value);
+    }
+    if (occurredAt.present) {
+      map['occurred_at'] = Variable<String>(occurredAt.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
+    }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CashHandoversCompanion(')
+          ..write('id: $id, ')
+          ..write('fromUserId: $fromUserId, ')
+          ..write('toUserId: $toUserId, ')
+          ..write('countedCashKurus: $countedCashKurus, ')
+          ..write('expectedCashKurus: $expectedCashKurus, ')
+          ..write('diffKurus: $diffKurus, ')
+          ..write('periodStart: $periodStart, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('deviceId: $deviceId, ')
+          ..write('note: $note, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $OutboxTable extends Outbox with TableInfo<$OutboxTable, OutboxData> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -6234,6 +6985,15 @@ class $SyncMetaTable extends SyncMeta
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _validUntilIsoMeta = const VerificationMeta(
     'validUntilIso',
   );
@@ -6245,6 +7005,28 @@ class $SyncMetaTable extends SyncMeta
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _lockedAtIsoMeta = const VerificationMeta(
+    'lockedAtIso',
+  );
+  @override
+  late final GeneratedColumn<String> lockedAtIso = GeneratedColumn<String>(
+    'locked_at_iso',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _subscriptionStatusMeta =
+      const VerificationMeta('subscriptionStatus');
+  @override
+  late final GeneratedColumn<String> subscriptionStatus =
+      GeneratedColumn<String>(
+        'subscription_status',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -6254,7 +7036,10 @@ class $SyncMetaTable extends SyncMeta
     elapsedAnchorMs,
     snapshotDone,
     deviceId,
+    userId,
     validUntilIso,
+    lockedAtIso,
+    subscriptionStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6322,12 +7107,36 @@ class $SyncMetaTable extends SyncMeta
         deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
       );
     }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
     if (data.containsKey('valid_until_iso')) {
       context.handle(
         _validUntilIsoMeta,
         validUntilIso.isAcceptableOrUnknown(
           data['valid_until_iso']!,
           _validUntilIsoMeta,
+        ),
+      );
+    }
+    if (data.containsKey('locked_at_iso')) {
+      context.handle(
+        _lockedAtIsoMeta,
+        lockedAtIso.isAcceptableOrUnknown(
+          data['locked_at_iso']!,
+          _lockedAtIsoMeta,
+        ),
+      );
+    }
+    if (data.containsKey('subscription_status')) {
+      context.handle(
+        _subscriptionStatusMeta,
+        subscriptionStatus.isAcceptableOrUnknown(
+          data['subscription_status']!,
+          _subscriptionStatusMeta,
         ),
       );
     }
@@ -6368,9 +7177,21 @@ class $SyncMetaTable extends SyncMeta
         DriftSqlType.string,
         data['${effectivePrefix}device_id'],
       ),
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
       validUntilIso: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}valid_until_iso'],
+      ),
+      lockedAtIso: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}locked_at_iso'],
+      ),
+      subscriptionStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subscription_status'],
       ),
     );
   }
@@ -6389,7 +7210,17 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
   final int? elapsedAnchorMs;
   final bool snapshotDone;
   final String? deviceId;
+
+  /// Oturumdaki kullanıcı (FAZ 4): teslim/tahsilatta collected_by_user_id ve kasa devrinde from_user_id
+  /// kaynağı. Login akışı doldurur (Faz 5); yoksa null → nakit atfı boş, kasa devri opsiyonel.
+  final String? userId;
+
+  /// Abonelik durumu ÖNBELLEĞİ (FAZ 5a — DECISIONS: tek doğru kaynak sunucu, istemci önbellekler).
+  /// Sunucunun her push/pull yanıtındaki `subscription` bloğundan yazılır. İstemci ileri-sadece saatle
+  /// (lastServerTimeIso + elapsedAnchorMs) kilit/grace kararını bu değerlerden verir.
   final String? validUntilIso;
+  final String? lockedAtIso;
+  final String? subscriptionStatus;
   const SyncMetaData({
     required this.id,
     required this.lastPulledSeq,
@@ -6398,7 +7229,10 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     this.elapsedAnchorMs,
     required this.snapshotDone,
     this.deviceId,
+    this.userId,
     this.validUntilIso,
+    this.lockedAtIso,
+    this.subscriptionStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6416,8 +7250,17 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     if (!nullToAbsent || deviceId != null) {
       map['device_id'] = Variable<String>(deviceId);
     }
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
+    }
     if (!nullToAbsent || validUntilIso != null) {
       map['valid_until_iso'] = Variable<String>(validUntilIso);
+    }
+    if (!nullToAbsent || lockedAtIso != null) {
+      map['locked_at_iso'] = Variable<String>(lockedAtIso);
+    }
+    if (!nullToAbsent || subscriptionStatus != null) {
+      map['subscription_status'] = Variable<String>(subscriptionStatus);
     }
     return map;
   }
@@ -6437,9 +7280,18 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       deviceId: deviceId == null && nullToAbsent
           ? const Value.absent()
           : Value(deviceId),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
       validUntilIso: validUntilIso == null && nullToAbsent
           ? const Value.absent()
           : Value(validUntilIso),
+      lockedAtIso: lockedAtIso == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lockedAtIso),
+      subscriptionStatus: subscriptionStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(subscriptionStatus),
     );
   }
 
@@ -6458,7 +7310,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       elapsedAnchorMs: serializer.fromJson<int?>(json['elapsedAnchorMs']),
       snapshotDone: serializer.fromJson<bool>(json['snapshotDone']),
       deviceId: serializer.fromJson<String?>(json['deviceId']),
+      userId: serializer.fromJson<String?>(json['userId']),
       validUntilIso: serializer.fromJson<String?>(json['validUntilIso']),
+      lockedAtIso: serializer.fromJson<String?>(json['lockedAtIso']),
+      subscriptionStatus: serializer.fromJson<String?>(
+        json['subscriptionStatus'],
+      ),
     );
   }
   @override
@@ -6472,7 +7329,10 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       'elapsedAnchorMs': serializer.toJson<int?>(elapsedAnchorMs),
       'snapshotDone': serializer.toJson<bool>(snapshotDone),
       'deviceId': serializer.toJson<String?>(deviceId),
+      'userId': serializer.toJson<String?>(userId),
       'validUntilIso': serializer.toJson<String?>(validUntilIso),
+      'lockedAtIso': serializer.toJson<String?>(lockedAtIso),
+      'subscriptionStatus': serializer.toJson<String?>(subscriptionStatus),
     };
   }
 
@@ -6484,7 +7344,10 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     Value<int?> elapsedAnchorMs = const Value.absent(),
     bool? snapshotDone,
     Value<String?> deviceId = const Value.absent(),
+    Value<String?> userId = const Value.absent(),
     Value<String?> validUntilIso = const Value.absent(),
+    Value<String?> lockedAtIso = const Value.absent(),
+    Value<String?> subscriptionStatus = const Value.absent(),
   }) => SyncMetaData(
     id: id ?? this.id,
     lastPulledSeq: lastPulledSeq ?? this.lastPulledSeq,
@@ -6497,9 +7360,14 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
         : this.elapsedAnchorMs,
     snapshotDone: snapshotDone ?? this.snapshotDone,
     deviceId: deviceId.present ? deviceId.value : this.deviceId,
+    userId: userId.present ? userId.value : this.userId,
     validUntilIso: validUntilIso.present
         ? validUntilIso.value
         : this.validUntilIso,
+    lockedAtIso: lockedAtIso.present ? lockedAtIso.value : this.lockedAtIso,
+    subscriptionStatus: subscriptionStatus.present
+        ? subscriptionStatus.value
+        : this.subscriptionStatus,
   );
   SyncMetaData copyWithCompanion(SyncMetaCompanion data) {
     return SyncMetaData(
@@ -6520,9 +7388,16 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           ? data.snapshotDone.value
           : this.snapshotDone,
       deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
+      userId: data.userId.present ? data.userId.value : this.userId,
       validUntilIso: data.validUntilIso.present
           ? data.validUntilIso.value
           : this.validUntilIso,
+      lockedAtIso: data.lockedAtIso.present
+          ? data.lockedAtIso.value
+          : this.lockedAtIso,
+      subscriptionStatus: data.subscriptionStatus.present
+          ? data.subscriptionStatus.value
+          : this.subscriptionStatus,
     );
   }
 
@@ -6536,7 +7411,10 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           ..write('elapsedAnchorMs: $elapsedAnchorMs, ')
           ..write('snapshotDone: $snapshotDone, ')
           ..write('deviceId: $deviceId, ')
-          ..write('validUntilIso: $validUntilIso')
+          ..write('userId: $userId, ')
+          ..write('validUntilIso: $validUntilIso, ')
+          ..write('lockedAtIso: $lockedAtIso, ')
+          ..write('subscriptionStatus: $subscriptionStatus')
           ..write(')'))
         .toString();
   }
@@ -6550,7 +7428,10 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     elapsedAnchorMs,
     snapshotDone,
     deviceId,
+    userId,
     validUntilIso,
+    lockedAtIso,
+    subscriptionStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -6563,7 +7444,10 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           other.elapsedAnchorMs == this.elapsedAnchorMs &&
           other.snapshotDone == this.snapshotDone &&
           other.deviceId == this.deviceId &&
-          other.validUntilIso == this.validUntilIso);
+          other.userId == this.userId &&
+          other.validUntilIso == this.validUntilIso &&
+          other.lockedAtIso == this.lockedAtIso &&
+          other.subscriptionStatus == this.subscriptionStatus);
 }
 
 class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
@@ -6574,7 +7458,10 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
   final Value<int?> elapsedAnchorMs;
   final Value<bool> snapshotDone;
   final Value<String?> deviceId;
+  final Value<String?> userId;
   final Value<String?> validUntilIso;
+  final Value<String?> lockedAtIso;
+  final Value<String?> subscriptionStatus;
   const SyncMetaCompanion({
     this.id = const Value.absent(),
     this.lastPulledSeq = const Value.absent(),
@@ -6583,7 +7470,10 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.elapsedAnchorMs = const Value.absent(),
     this.snapshotDone = const Value.absent(),
     this.deviceId = const Value.absent(),
+    this.userId = const Value.absent(),
     this.validUntilIso = const Value.absent(),
+    this.lockedAtIso = const Value.absent(),
+    this.subscriptionStatus = const Value.absent(),
   });
   SyncMetaCompanion.insert({
     this.id = const Value.absent(),
@@ -6593,7 +7483,10 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.elapsedAnchorMs = const Value.absent(),
     this.snapshotDone = const Value.absent(),
     this.deviceId = const Value.absent(),
+    this.userId = const Value.absent(),
     this.validUntilIso = const Value.absent(),
+    this.lockedAtIso = const Value.absent(),
+    this.subscriptionStatus = const Value.absent(),
   });
   static Insertable<SyncMetaData> custom({
     Expression<int>? id,
@@ -6603,7 +7496,10 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Expression<int>? elapsedAnchorMs,
     Expression<bool>? snapshotDone,
     Expression<String>? deviceId,
+    Expression<String>? userId,
     Expression<String>? validUntilIso,
+    Expression<String>? lockedAtIso,
+    Expression<String>? subscriptionStatus,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -6614,7 +7510,10 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       if (elapsedAnchorMs != null) 'elapsed_anchor_ms': elapsedAnchorMs,
       if (snapshotDone != null) 'snapshot_done': snapshotDone,
       if (deviceId != null) 'device_id': deviceId,
+      if (userId != null) 'user_id': userId,
       if (validUntilIso != null) 'valid_until_iso': validUntilIso,
+      if (lockedAtIso != null) 'locked_at_iso': lockedAtIso,
+      if (subscriptionStatus != null) 'subscription_status': subscriptionStatus,
     });
   }
 
@@ -6626,7 +7525,10 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Value<int?>? elapsedAnchorMs,
     Value<bool>? snapshotDone,
     Value<String?>? deviceId,
+    Value<String?>? userId,
     Value<String?>? validUntilIso,
+    Value<String?>? lockedAtIso,
+    Value<String?>? subscriptionStatus,
   }) {
     return SyncMetaCompanion(
       id: id ?? this.id,
@@ -6636,7 +7538,10 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       elapsedAnchorMs: elapsedAnchorMs ?? this.elapsedAnchorMs,
       snapshotDone: snapshotDone ?? this.snapshotDone,
       deviceId: deviceId ?? this.deviceId,
+      userId: userId ?? this.userId,
       validUntilIso: validUntilIso ?? this.validUntilIso,
+      lockedAtIso: lockedAtIso ?? this.lockedAtIso,
+      subscriptionStatus: subscriptionStatus ?? this.subscriptionStatus,
     );
   }
 
@@ -6664,8 +7569,17 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     if (deviceId.present) {
       map['device_id'] = Variable<String>(deviceId.value);
     }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
     if (validUntilIso.present) {
       map['valid_until_iso'] = Variable<String>(validUntilIso.value);
+    }
+    if (lockedAtIso.present) {
+      map['locked_at_iso'] = Variable<String>(lockedAtIso.value);
+    }
+    if (subscriptionStatus.present) {
+      map['subscription_status'] = Variable<String>(subscriptionStatus.value);
     }
     return map;
   }
@@ -6680,7 +7594,10 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
           ..write('elapsedAnchorMs: $elapsedAnchorMs, ')
           ..write('snapshotDone: $snapshotDone, ')
           ..write('deviceId: $deviceId, ')
-          ..write('validUntilIso: $validUntilIso')
+          ..write('userId: $userId, ')
+          ..write('validUntilIso: $validUntilIso, ')
+          ..write('lockedAtIso: $lockedAtIso, ')
+          ..write('subscriptionStatus: $subscriptionStatus')
           ..write(')'))
         .toString();
   }
@@ -6702,6 +7619,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $CouponBalancesTable couponBalances = $CouponBalancesTable(this);
+  late final $CashHandoversTable cashHandovers = $CashHandoversTable(this);
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
   late final Index idxPhonesLast10 = Index(
@@ -6727,6 +7645,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     ledgerEntries,
     couponMovements,
     couponBalances,
+    cashHandovers,
     outbox,
     syncMeta,
     idxPhonesLast10,
@@ -7835,6 +8754,7 @@ typedef $$OrdersTableCreateCompanionBuilder =
     OrdersCompanion Function({
       required String id,
       Value<String?> customerId,
+      Value<String?> assignedUserId,
       Value<String> status,
       Value<int> totalKurus,
       Value<String?> paymentType,
@@ -7848,6 +8768,7 @@ typedef $$OrdersTableUpdateCompanionBuilder =
     OrdersCompanion Function({
       Value<String> id,
       Value<String?> customerId,
+      Value<String?> assignedUserId,
       Value<String> status,
       Value<int> totalKurus,
       Value<String?> paymentType,
@@ -7874,6 +8795,11 @@ class $$OrdersTableFilterComposer
 
   ColumnFilters<String> get customerId => $composableBuilder(
     column: $table.customerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assignedUserId => $composableBuilder(
+    column: $table.assignedUserId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7932,6 +8858,11 @@ class $$OrdersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get assignedUserId => $composableBuilder(
+    column: $table.assignedUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -7982,6 +8913,11 @@ class $$OrdersTableAnnotationComposer
 
   GeneratedColumn<String> get customerId => $composableBuilder(
     column: $table.customerId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get assignedUserId => $composableBuilder(
+    column: $table.assignedUserId,
     builder: (column) => column,
   );
 
@@ -8045,6 +8981,7 @@ class $$OrdersTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String?> customerId = const Value.absent(),
+                Value<String?> assignedUserId = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> totalKurus = const Value.absent(),
                 Value<String?> paymentType = const Value.absent(),
@@ -8056,6 +8993,7 @@ class $$OrdersTableTableManager
               }) => OrdersCompanion(
                 id: id,
                 customerId: customerId,
+                assignedUserId: assignedUserId,
                 status: status,
                 totalKurus: totalKurus,
                 paymentType: paymentType,
@@ -8069,6 +9007,7 @@ class $$OrdersTableTableManager
               ({
                 required String id,
                 Value<String?> customerId = const Value.absent(),
+                Value<String?> assignedUserId = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> totalKurus = const Value.absent(),
                 Value<String?> paymentType = const Value.absent(),
@@ -8080,6 +9019,7 @@ class $$OrdersTableTableManager
               }) => OrdersCompanion.insert(
                 id: id,
                 customerId: customerId,
+                assignedUserId: assignedUserId,
                 status: status,
                 totalKurus: totalKurus,
                 paymentType: paymentType,
@@ -8620,6 +9560,7 @@ typedef $$LedgerEntriesTableCreateCompanionBuilder =
       required String entryType,
       required int amountKurus,
       Value<String?> paymentType,
+      Value<String?> collectedByUserId,
       Value<String?> relatedOrderId,
       Value<String?> reversesEntryId,
       Value<String?> note,
@@ -8635,6 +9576,7 @@ typedef $$LedgerEntriesTableUpdateCompanionBuilder =
       Value<String> entryType,
       Value<int> amountKurus,
       Value<String?> paymentType,
+      Value<String?> collectedByUserId,
       Value<String?> relatedOrderId,
       Value<String?> reversesEntryId,
       Value<String?> note,
@@ -8675,6 +9617,11 @@ class $$LedgerEntriesTableFilterComposer
 
   ColumnFilters<String> get paymentType => $composableBuilder(
     column: $table.paymentType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get collectedByUserId => $composableBuilder(
+    column: $table.collectedByUserId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8743,6 +9690,11 @@ class $$LedgerEntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get collectedByUserId => $composableBuilder(
+    column: $table.collectedByUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get relatedOrderId => $composableBuilder(
     column: $table.relatedOrderId,
     builder: (column) => ColumnOrderings(column),
@@ -8801,6 +9753,11 @@ class $$LedgerEntriesTableAnnotationComposer
 
   GeneratedColumn<String> get paymentType => $composableBuilder(
     column: $table.paymentType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get collectedByUserId => $composableBuilder(
+    column: $table.collectedByUserId,
     builder: (column) => column,
   );
 
@@ -8867,6 +9824,7 @@ class $$LedgerEntriesTableTableManager
                 Value<String> entryType = const Value.absent(),
                 Value<int> amountKurus = const Value.absent(),
                 Value<String?> paymentType = const Value.absent(),
+                Value<String?> collectedByUserId = const Value.absent(),
                 Value<String?> relatedOrderId = const Value.absent(),
                 Value<String?> reversesEntryId = const Value.absent(),
                 Value<String?> note = const Value.absent(),
@@ -8880,6 +9838,7 @@ class $$LedgerEntriesTableTableManager
                 entryType: entryType,
                 amountKurus: amountKurus,
                 paymentType: paymentType,
+                collectedByUserId: collectedByUserId,
                 relatedOrderId: relatedOrderId,
                 reversesEntryId: reversesEntryId,
                 note: note,
@@ -8895,6 +9854,7 @@ class $$LedgerEntriesTableTableManager
                 required String entryType,
                 required int amountKurus,
                 Value<String?> paymentType = const Value.absent(),
+                Value<String?> collectedByUserId = const Value.absent(),
                 Value<String?> relatedOrderId = const Value.absent(),
                 Value<String?> reversesEntryId = const Value.absent(),
                 Value<String?> note = const Value.absent(),
@@ -8908,6 +9868,7 @@ class $$LedgerEntriesTableTableManager
                 entryType: entryType,
                 amountKurus: amountKurus,
                 paymentType: paymentType,
+                collectedByUserId: collectedByUserId,
                 relatedOrderId: relatedOrderId,
                 reversesEntryId: reversesEntryId,
                 note: note,
@@ -9441,6 +10402,311 @@ typedef $$CouponBalancesTableProcessedTableManager =
       CouponBalance,
       PrefetchHooks Function()
     >;
+typedef $$CashHandoversTableCreateCompanionBuilder =
+    CashHandoversCompanion Function({
+      required String id,
+      required String fromUserId,
+      Value<String?> toUserId,
+      required int countedCashKurus,
+      required int expectedCashKurus,
+      required int diffKurus,
+      Value<String?> periodStart,
+      required String occurredAt,
+      Value<String?> deviceId,
+      Value<String?> note,
+      Value<int> rowid,
+    });
+typedef $$CashHandoversTableUpdateCompanionBuilder =
+    CashHandoversCompanion Function({
+      Value<String> id,
+      Value<String> fromUserId,
+      Value<String?> toUserId,
+      Value<int> countedCashKurus,
+      Value<int> expectedCashKurus,
+      Value<int> diffKurus,
+      Value<String?> periodStart,
+      Value<String> occurredAt,
+      Value<String?> deviceId,
+      Value<String?> note,
+      Value<int> rowid,
+    });
+
+class $$CashHandoversTableFilterComposer
+    extends Composer<_$AppDatabase, $CashHandoversTable> {
+  $$CashHandoversTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fromUserId => $composableBuilder(
+    column: $table.fromUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get toUserId => $composableBuilder(
+    column: $table.toUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get countedCashKurus => $composableBuilder(
+    column: $table.countedCashKurus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get expectedCashKurus => $composableBuilder(
+    column: $table.expectedCashKurus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get diffKurus => $composableBuilder(
+    column: $table.diffKurus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get periodStart => $composableBuilder(
+    column: $table.periodStart,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CashHandoversTableOrderingComposer
+    extends Composer<_$AppDatabase, $CashHandoversTable> {
+  $$CashHandoversTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fromUserId => $composableBuilder(
+    column: $table.fromUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get toUserId => $composableBuilder(
+    column: $table.toUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get countedCashKurus => $composableBuilder(
+    column: $table.countedCashKurus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get expectedCashKurus => $composableBuilder(
+    column: $table.expectedCashKurus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get diffKurus => $composableBuilder(
+    column: $table.diffKurus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get periodStart => $composableBuilder(
+    column: $table.periodStart,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CashHandoversTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CashHandoversTable> {
+  $$CashHandoversTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get fromUserId => $composableBuilder(
+    column: $table.fromUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get toUserId =>
+      $composableBuilder(column: $table.toUserId, builder: (column) => column);
+
+  GeneratedColumn<int> get countedCashKurus => $composableBuilder(
+    column: $table.countedCashKurus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get expectedCashKurus => $composableBuilder(
+    column: $table.expectedCashKurus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get diffKurus =>
+      $composableBuilder(column: $table.diffKurus, builder: (column) => column);
+
+  GeneratedColumn<String> get periodStart => $composableBuilder(
+    column: $table.periodStart,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+}
+
+class $$CashHandoversTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CashHandoversTable,
+          CashHandover,
+          $$CashHandoversTableFilterComposer,
+          $$CashHandoversTableOrderingComposer,
+          $$CashHandoversTableAnnotationComposer,
+          $$CashHandoversTableCreateCompanionBuilder,
+          $$CashHandoversTableUpdateCompanionBuilder,
+          (
+            CashHandover,
+            BaseReferences<_$AppDatabase, $CashHandoversTable, CashHandover>,
+          ),
+          CashHandover,
+          PrefetchHooks Function()
+        > {
+  $$CashHandoversTableTableManager(_$AppDatabase db, $CashHandoversTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CashHandoversTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CashHandoversTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CashHandoversTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> fromUserId = const Value.absent(),
+                Value<String?> toUserId = const Value.absent(),
+                Value<int> countedCashKurus = const Value.absent(),
+                Value<int> expectedCashKurus = const Value.absent(),
+                Value<int> diffKurus = const Value.absent(),
+                Value<String?> periodStart = const Value.absent(),
+                Value<String> occurredAt = const Value.absent(),
+                Value<String?> deviceId = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CashHandoversCompanion(
+                id: id,
+                fromUserId: fromUserId,
+                toUserId: toUserId,
+                countedCashKurus: countedCashKurus,
+                expectedCashKurus: expectedCashKurus,
+                diffKurus: diffKurus,
+                periodStart: periodStart,
+                occurredAt: occurredAt,
+                deviceId: deviceId,
+                note: note,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String fromUserId,
+                Value<String?> toUserId = const Value.absent(),
+                required int countedCashKurus,
+                required int expectedCashKurus,
+                required int diffKurus,
+                Value<String?> periodStart = const Value.absent(),
+                required String occurredAt,
+                Value<String?> deviceId = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CashHandoversCompanion.insert(
+                id: id,
+                fromUserId: fromUserId,
+                toUserId: toUserId,
+                countedCashKurus: countedCashKurus,
+                expectedCashKurus: expectedCashKurus,
+                diffKurus: diffKurus,
+                periodStart: periodStart,
+                occurredAt: occurredAt,
+                deviceId: deviceId,
+                note: note,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CashHandoversTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CashHandoversTable,
+      CashHandover,
+      $$CashHandoversTableFilterComposer,
+      $$CashHandoversTableOrderingComposer,
+      $$CashHandoversTableAnnotationComposer,
+      $$CashHandoversTableCreateCompanionBuilder,
+      $$CashHandoversTableUpdateCompanionBuilder,
+      (
+        CashHandover,
+        BaseReferences<_$AppDatabase, $CashHandoversTable, CashHandover>,
+      ),
+      CashHandover,
+      PrefetchHooks Function()
+    >;
 typedef $$OutboxTableCreateCompanionBuilder =
     OutboxCompanion Function({
       Value<int> id,
@@ -9777,7 +11043,10 @@ typedef $$SyncMetaTableCreateCompanionBuilder =
       Value<int?> elapsedAnchorMs,
       Value<bool> snapshotDone,
       Value<String?> deviceId,
+      Value<String?> userId,
       Value<String?> validUntilIso,
+      Value<String?> lockedAtIso,
+      Value<String?> subscriptionStatus,
     });
 typedef $$SyncMetaTableUpdateCompanionBuilder =
     SyncMetaCompanion Function({
@@ -9788,7 +11057,10 @@ typedef $$SyncMetaTableUpdateCompanionBuilder =
       Value<int?> elapsedAnchorMs,
       Value<bool> snapshotDone,
       Value<String?> deviceId,
+      Value<String?> userId,
       Value<String?> validUntilIso,
+      Value<String?> lockedAtIso,
+      Value<String?> subscriptionStatus,
     });
 
 class $$SyncMetaTableFilterComposer
@@ -9835,8 +11107,23 @@ class $$SyncMetaTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get validUntilIso => $composableBuilder(
     column: $table.validUntilIso,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lockedAtIso => $composableBuilder(
+    column: $table.lockedAtIso,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subscriptionStatus => $composableBuilder(
+    column: $table.subscriptionStatus,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -9885,8 +11172,23 @@ class $$SyncMetaTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get validUntilIso => $composableBuilder(
     column: $table.validUntilIso,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lockedAtIso => $composableBuilder(
+    column: $table.lockedAtIso,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subscriptionStatus => $composableBuilder(
+    column: $table.subscriptionStatus,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -9931,8 +11233,21 @@ class $$SyncMetaTableAnnotationComposer
   GeneratedColumn<String> get deviceId =>
       $composableBuilder(column: $table.deviceId, builder: (column) => column);
 
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
   GeneratedColumn<String> get validUntilIso => $composableBuilder(
     column: $table.validUntilIso,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lockedAtIso => $composableBuilder(
+    column: $table.lockedAtIso,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get subscriptionStatus => $composableBuilder(
+    column: $table.subscriptionStatus,
     builder: (column) => column,
   );
 }
@@ -9975,7 +11290,10 @@ class $$SyncMetaTableTableManager
                 Value<int?> elapsedAnchorMs = const Value.absent(),
                 Value<bool> snapshotDone = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 Value<String?> validUntilIso = const Value.absent(),
+                Value<String?> lockedAtIso = const Value.absent(),
+                Value<String?> subscriptionStatus = const Value.absent(),
               }) => SyncMetaCompanion(
                 id: id,
                 lastPulledSeq: lastPulledSeq,
@@ -9984,7 +11302,10 @@ class $$SyncMetaTableTableManager
                 elapsedAnchorMs: elapsedAnchorMs,
                 snapshotDone: snapshotDone,
                 deviceId: deviceId,
+                userId: userId,
                 validUntilIso: validUntilIso,
+                lockedAtIso: lockedAtIso,
+                subscriptionStatus: subscriptionStatus,
               ),
           createCompanionCallback:
               ({
@@ -9995,7 +11316,10 @@ class $$SyncMetaTableTableManager
                 Value<int?> elapsedAnchorMs = const Value.absent(),
                 Value<bool> snapshotDone = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 Value<String?> validUntilIso = const Value.absent(),
+                Value<String?> lockedAtIso = const Value.absent(),
+                Value<String?> subscriptionStatus = const Value.absent(),
               }) => SyncMetaCompanion.insert(
                 id: id,
                 lastPulledSeq: lastPulledSeq,
@@ -10004,7 +11328,10 @@ class $$SyncMetaTableTableManager
                 elapsedAnchorMs: elapsedAnchorMs,
                 snapshotDone: snapshotDone,
                 deviceId: deviceId,
+                userId: userId,
                 validUntilIso: validUntilIso,
+                lockedAtIso: lockedAtIso,
+                subscriptionStatus: subscriptionStatus,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -10055,6 +11382,8 @@ class $AppDatabaseManager {
       $$CouponMovementsTableTableManager(_db, _db.couponMovements);
   $$CouponBalancesTableTableManager get couponBalances =>
       $$CouponBalancesTableTableManager(_db, _db.couponBalances);
+  $$CashHandoversTableTableManager get cashHandovers =>
+      $$CashHandoversTableTableManager(_db, _db.cashHandovers);
   $$OutboxTableTableManager get outbox =>
       $$OutboxTableTableManager(_db, _db.outbox);
   $$SyncMetaTableTableManager get syncMeta =>
