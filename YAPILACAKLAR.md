@@ -32,13 +32,12 @@ bitirince ilgili faz kapanışına yaklaşırsın; hangisini önce açtığın b
   abonelik açığı).
 - **Kanıt:** `apps/api/config/subscription.php:38-40`, `apps/api/app/Payment/IyzicoPaymentGateway.php`.
 
-### 2. Mobil doğrulama (partnerin Flutter'lı makinesinde)
-- **NEDEN:** Bu makinede Flutter yok; Faz 4/5a mobil kodu yazıldı ama `.g.dart` STALE (şema-kod uyumsuz),
-  test edilemedi. Yeşilse **Faz 4 ve 5a bütün olarak kapanır.**
-- **NASIL:** Partnerde: pubspec'teki kapalı `dependency_overrides: sqlite3 <3.0.0` bloğunu **geçici aç** →
-  `flutter pub get && dart run build_runner build` → override'ı **kapat** → `flutter pub get && flutter
-  analyze && flutter test`. Yeşil çıktıyı bana ilet.
-- **Kanıt:** `apps/mobile/lib/data/app_database.g.dart` (Faz 3 tarihli) vs `tables.dart` (Faz 4/5a).
+### ~~2. Mobil doğrulama (partnerin Flutter'lı makinesinde)~~ ✅ KAPANDI (2026-07-17)
+- **SONUÇ:** Flutter 3.44.6 kullanıcının onayıyla BU makineye kuruldu (`C:\src\flutter`); partner
+  bağımlılığı bitti. Codegen koşuldu (`.g.dart` 1.332 satır eksikmiş, tazelendi), `dart analyze` temiz
+  (1 gerçek hata düzeltildi), **`flutter test` 72/72**, **debug APK uçtan uca derlendi**. Faz 4/5a'nın
+  mobil doğrulaması tamam. _(Gerçek CİHAZDA doğrulama — arayan tanıma + Drift journal_mode — hâlâ
+  telefonla yapılacak; madde 12/15 kapsamında.)_
 
 ### 3. Android release imza anahtarı  ⭐ YENİ (PLAN'da yoktu, denetim buldu)
 - **NEDEN:** `release` derleme hâlâ **debug** anahtarıyla imzalanıyor — debug-imzalı AAB/APK **Play'e

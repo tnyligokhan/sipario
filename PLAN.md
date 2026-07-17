@@ -7,24 +7,32 @@
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
-> **Genel proje: ~%79** (pano tek sayı — denetim 79/80 tutarsızlığını yakaladı, harmonize edildi)  ·  **Faz 4: ~%85** (mobil partnerde) · **Faz 5: ~%93 KOD+PROSE TASLAK** · **Faz 6: ~%22** (demo hesap ✅ + mağaza metin paketi ✅ + hesap-silme sayfası ✅)
-> _(5d hukuk metinleri PLACEHOLDER→gerçek TASLAK ✅ · Faz 6 mağaza başvuru paketi + Play-zorunlu hesap-silme sayfası ✅ · 3 ajanlı uçtan-uca denetim: kod-belge örtüşüyor, kırmızı-çizgi temiz · kalan DIŞSAL: iyzico anahtar/hukuk-AVUKAT-onayı/mobil-codegen/mağaza-hesabı+imza-anahtarı+video/pilot = SENİN SIRAN, tam döküm YAPILACAKLAR.md)_
+> **Genel proje: ~%68** ⚠️ (2026-07-17 DÜZELTME: eski %79 yalnız sunucu+veri katmanını sayıyordu —
+> **bayinin kullanacağı UI ekranları HİÇBİR fazın ağırlığında yoktu**; kullanıcı "APK alıp test
+> edemez miyiz?" diye sorunca boşluk ortaya çıktı. Ağırlıklar yeniden dağıtıldı, "4b · Saha UI" satırı eklendi.)
+> **Faz 4: ~%92 (mobil BU MAKİNEDE doğrulandı ✅)** · **Faz 5: ~%93** · **Faz 6: ~%22** · **4b UI: ~%10**
+> _(2026-07-17: Flutter bu makineye kuruldu → codegen+analyze+72/72 test+debug APK uçtan uca YEŞİL,
+> partner bağımlılığı bitti · kalan DIŞSAL işler YAPILACAKLAR.md · kalan EN BÜYÜK KOD İŞİ: 4b Saha UI)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
-| 0 · Arayan tanıma kanıtı | %8 | ✅ kapandı | 8 |
-| 1 · Temel (API/Postgres+RLS/auth) | %12 | ✅ kapandı | 12 |
-| 2 · Offline çekirdek (Drift/outbox/sync) | %15 | ✅ kapandı | 15 |
-| 3 · Defter (veresiye/kasa/kupon/gün sonu) | %12 | ✅ kapandı | 12 |
-| 4 · Kurye (atama/teslim/kasa devri/+iOS) | %13 | 🔄 ~%85 (API✅ inceleme✅, mobil test partnerde) | ~11 |
-| 5 · Para (site/iyzico/abonelik/panel) | %20 | 🔄 ~%90 KOD TAM (dışsal: anahtar/hukuk/mobil) | ~18 |
-| 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %12 | 🔄 ~%22 (demo hesap ✅ + mağaza metin paketi ✅ + hesap-silme ✅; kalan dışsal) | ~2 |
-| 7 · Antalya pilotu (2–3 bayi) | %8 | ⬜ bekliyor (saha/insan) | 0 |
-| **Toplam** | **%100** | | **~%79** |
+| 0 · Arayan tanıma kanıtı | %7 | ✅ kapandı | 7 |
+| 1 · Temel (API/Postgres+RLS/auth) | %10 | ✅ kapandı | 10 |
+| 2 · Offline çekirdek (Drift/outbox/sync) | %13 | ✅ kapandı | 13 |
+| 3 · Defter (veresiye/kasa/kupon/gün sonu) | %10 | ✅ kapandı | 10 |
+| 4 · Kurye (atama/teslim/kasa devri/+iOS) | %11 | 🔄 ~%92 (API✅ inceleme✅ mobil test✅; iOS açık) | ~10 |
+| **4b · Saha UI (bayi+kurye ekranları)** | **%15** | 🔄 ~%10 (yalnız Faz 0 ekranı + kilit ekranı; giriş/sipariş/defter/kasa UI YOK) | ~1,5 |
+| 5 · Para (site/iyzico/abonelik/panel) | %17 | 🔄 ~%93 KOD TAM (dışsal: anahtar/hukuk) | ~16 |
+| 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %10 | 🔄 ~%22 (demo hesap ✅ + metin paketi ✅ + hesap-silme ✅; kalan dışsal) | ~2 |
+| 7 · Antalya pilotu (2–3 bayi) | %7 | ⬜ bekliyor (saha/insan) | 0 |
+| **Toplam** | **%100** | | **~%68** |
 
-> Ağırlıklar EFOR tahminidir (fazlar eşit büyüklükte değil — Faz 5 en ağır); genel yüzde bu
-> ağırlıklara göre hesaplanır. Bir faz kapandığında Katkı = tam Ağırlık olur ve genel yüzde artar.
-> Mevcut faz yüzdesi kaba göstergedir: mimari/kod/test/inceleme dört kapısına göre biçilir.
+> Ağırlıklar EFOR tahminidir (fazlar eşit büyüklükte değil); genel yüzde bu ağırlıklara göre hesaplanır.
+> Bir faz kapandığında Katkı = tam Ağırlık olur ve genel yüzde artar. Mevcut faz yüzdesi kaba göstergedir:
+> mimari/kod/test/inceleme dört kapısına göre biçilir. **2026-07-17 ağırlık düzeltmesi:** eski tablo
+> UI eforunu hiç içermiyordu; her faz "UI sonraki iş" deyip devretmiş, iş sahipsiz kalmıştı. Eski
+> satırlar ×0,85 küçültüldü, %15'lik "4b · Saha UI" eklendi — genel yüzdedeki düşüş (%79→%68) gerileme
+> değil, ölçeğin dürüstleşmesidir.
 
 ## İnsan gerektiren işler (SENİN SIRAN — otonom modda bunlara takılmam, listeye yazıp devam ederim)
 
@@ -51,9 +59,48 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-17 — PR #11 güncel dev'e göre yenilendi; merge insanda)
+## Güncel durum (son güncelleme: 2026-07-17 — Flutter kuruldu, mobil doğrulandı, APK derlendi, UI boşluğu panoya işlendi)
 
-### VARDİYA 2026-07-17 (kısa vardiya — PR #11 tazelendi, kalite kapıları bağımsız doğrulandı)
+### VARDİYA 2026-07-17/2 (Flutter kurulumu + mobil doğrulama + APK + pano düzeltmesi)
+
+**TETİKLEYİCİ:** Kullanıcı "avukat/ödeme olmadan APK alıp test edemez miyiz?" diye sordu. Cevap iki katmanlı çıktı:
+(1) Evet, mağaza/hukuk/ödeme TEST İÇİN GEREKMİYOR (onlar satış/mağaza koşulu); (2) ama APK alsak içinde
+bayinin kullanacağı EKRAN YOK — her faz "UI sonraki iş" deyip devretmiş, iş hiçbir faza yazılmamış,
+pano bu eforu hiç saymıyordu. Pano düzeltildi (%79→%68, "4b · Saha UI" %15 satırı eklendi).
+
+### NE BİTTİ (bu vardiya — hepsi bu makinede koşulup doğrulandı)
+- **Flutter 3.44.6 BU MAKİNEYE KURULDU** (`C:\src\flutter`, kullanıcı PATH'inde; SDK zip SHA256 doğrulandı).
+  Android SDK zaten vardı; `cmdline-tools/latest` eklendi, lisanslar kabul, JDK = Android Studio JBR 21
+  (`flutter config --jdk-dir`). `flutter doctor` temiz (tek eksik VS = Windows masaüstü, gerekmiyor).
+- **YAPILACAKLAR madde 2 (mobil doğrulama) KAPANDI — partner bağımlılığı bitti:**
+  codegen 62 çıktı (`.g.dart` 1.332 satır EKSİKMİŞ — Faz 4/5a şeması hiç üretilmemişti) →
+  `dart analyze` temiz (1 GERÇEK hata bulundu+düzeltildi: `courier_test.dart` ambiguous `isNull`,
+  drift import'una `hide isNull`) → **`flutter test` 72/72** → **debug APK uçtan uca derlendi**
+  (`build/app/outputs/flutter-apk/app-debug.apk`, 150 MB debug-normal).
+- **Türkçe-yol tuzakları çözüldü (yol: `OneDrive\Masaüstü` — ü AOT/LSP/AGP'yi kırıyor):**
+  (a) `build_runner` AOT yazamıyor → **`--force-jit`**; (b) `flutter analyze` LSP çöküyor →
+  **`dart analyze` kullan** (kalite kapısı scripti buna çevrildi + bilinen Flutter yolunu PATH'e
+  ekleyen emniyet); (c) AGP ASCII-yol reddi → `gradle.properties`'e `android.overridePathCheck=true`.
+- **Pano dürüstleştirildi:** UI eforu hiçbir fazda yoktu; "4b · Saha UI" %15 eklendi, eski ağırlıklar
+  ×0,85; genel %79→%68. Faz 4 mobil testi doğrulandığından ~%85→~%92.
+
+### SONRAKİ KİŞİ NEREDEN DEVAM ETMELİ
+1. **EN BÜYÜK KOD İŞİ ARTIK NET: 4b — Saha UI.** Repository katmanı hazır (customer/order/ledger/coupon/
+   day_end/cash_handover), sync motoru hazır, native arayan tanıma hazır. Yazılacak: giriş (token→
+   `HttpSyncApi.tokenProvider` bağla), müşteri liste/detay/arama, sipariş giriş/teslim, veresiye/tahsilat,
+   kupon, gün sonu, kurye akışı, sync durum göstergesi. Tek kişilik bayide kurye adımları GÖRÜNMEZ (BRIEF).
+   Artık bu makinede yaz-derle-test-APK döngüsü TAM dönüyor.
+2. PR #11 hâlâ açık (Faz 3+4+5+6 → main), merge insanda.
+3. Dışsal işler `YAPILACAKLAR.md` (madde 2 kapandı; iyzico/avukat/imza-anahtarı/mağaza duruyor).
+
+### BİLİNEN TUZAKLAR (bu vardiya)
+- **Mobil komut sırası (bu makine):** kısa yola cd (`/c/Users/bugra/OneDrive/MASAST~1/...`) güvenli;
+  codegen `--force-jit` ŞART; analiz `dart analyze` (flutter analyze ÇÖKÜYOR, kapı scripti de dart analyze koşar).
+- **`flutter build apk` ilk koşuda uzun** (Gradle+CMake indirir, ~5-8 dk); sonrakiler ~3 dk.
+- **APK debug-imzalı** — telefona yan yükleme OK, Play'e YÜKLENEMEZ (YAPILACAKLAR madde 3: release anahtarı).
+- **`android.overridePathCheck=true` commit'lendi** — ASCII-yollu makinelerde etkisiz, zararsız.
+
+### VARDİYA 2026-07-17/1 (kısa vardiya — PR #11 tazelendi, kalite kapıları bağımsız doğrulandı)
 
 **`main` FAZ 2'DE KALMIŞ — "bekliyor" görünümünün sebebi bu (kullanıcı fark etti, önemli).**
 main son olarak PR #10'da (Faz 2) merge edildi; o günden beri **Faz 3+4+5+6 dev'de birikti: 40 commit,
