@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AdminUser;
 use App\Models\User;
 
 return [
@@ -42,6 +43,13 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Yönetim paneli (Faz 5c) — BİZE ait, bayilerden AYRI guard. Session tabanlı (panel web/Livewire).
+        // admin_users provider'ı bayilerin 'users' tablosundan tamamen ayrıdır (cross-kontaminasyon yok).
+        'admin' => [
+            'driver' => 'session',
+            'provider' => 'admin_users',
+        ],
     ],
 
     /*
@@ -67,10 +75,11 @@ return [
             'model' => env('AUTH_MODEL', User::class),
         ],
 
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        // Panel hesapları (Faz 5c) — ayrı model + pgsql_panel bağlantısı (sipario_panel rolü).
+        'admin_users' => [
+            'driver' => 'eloquent',
+            'model' => AdminUser::class,
+        ],
     ],
 
     /*

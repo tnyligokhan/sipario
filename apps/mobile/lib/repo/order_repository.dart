@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import '../data/app_database.dart';
 import '../data/ids.dart';
 import '../data/outbox.dart';
+import 'ledger_ops.dart';
 
 class LineInput {
   LineInput({required this.productName, required this.unitPriceKurus, required this.qty, this.productId});
@@ -74,9 +75,84 @@ class OrderRepository {
     return orderId;
   }
 
-  Future<void> deliver(String orderId, {String? paymentType}) =>
-      _statusEvent(orderId, 'delivered', {'order_id': orderId, 'payment_type': ?paymentType},
-          paymentType: paymentType);
+  /// Teslimat parayı/kuponu deftere düşürür (FAZ 3), teslim olayıyla AYNI transaction'da:
+  ///  - veresiye → debit(+total) (borç yazılır).
+  ///  - nakit/kart/havale → debit(+total) + payment(−total, ödeme tipiyle) (net borç 0, kasa dolu).
+  ///  - kupon → para hareketi YOK (peşin ödendi); coupon use(−qty). couponQty verilmezse sipariş
+  ///    satırlarının adet toplamından türer.
+  ///
+  /// TESLİM İDEMPOTENSİ (FAZ 4, DECISIONS): teslimden türeyen TÜM olayların client_event_id'si (ve
+  /// ledger/coupon id'leri) sipariş id'sinden DETERMİNİSTİK uuid5 ile üretilir. İki cihaz aynı siparişi
+  /// offline teslim edince AYNI id'ler → sunucu processed_events UNIQUE ile tek defter seti bırakır.
+  /// Yerel çift-dokunma zaten teslim edilmiş siparişte erken döner (UI koruması; asıl garanti uuid5).
+  ///
+  /// collectedByUserId nakit atfıdır (kasa devri); verilmezse oturumdaki kullanıcıdan (syncMeta) alınır.
+  Future<void> deliver(String orderId,
+      {required String paymentType, int? couponQty, String? collectedByUserId}) async {
+    final meta = await db.syncState();
+    final at = correctedNowIso(meta.serverTimeOffsetMs);
+    final device = meta.deviceId;
+    final collector = collectedByUserId ?? meta.userId;
+
+    final order = await (db.select(db.orders)..where((t) => t.id.equals(orderId))).getSingle();
+    if (order.status == 'delivered') return; // çift-dokunma koruması (yerel no-op)
+
+    // Deterministik client_event_id / id'ler — iki cihazda AYNI (idempotensi inşa gereği).
+    final deliverEventId = deliveryEventId(orderId, 'order');
+
+    await db.transaction(() async {
+      // 1) Teslim olayı + ödeme tipi + önbellek + outbox (mevcut sipariş akışı).
+      await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
+          .write(OrdersCompanion(paymentType: Value(paymentType)));
+      final payload = {'order_id': orderId, 'payment_type': paymentType};
+      await _appendEvent(orderId, 'delivered', deliverEventId, payload, at, device);
+      await _recompute(orderId);
+      await enqueueOutbox(db,
+          entityType: 'order', op: 'delivered', entityId: orderId,
+          occurredAt: at, deviceId: device, clientEventId: deliverEventId, payload: payload);
+
+      // 2) Para/kupon deftere düşer. total recompute sonrası aktif satır toplamıdır.
+      final lines = await _activeLines(orderId);
+      final total = lines.fold<int>(0, (s, l) => s + l.lineTotalKurus);
+      final customerId = order.customerId;
+
+      switch (paymentType) {
+        case 'veresiye':
+          await writeLedgerEntry(db, entryType: 'debit', amountKurus: total,
+              id: deliveryEventId(orderId, 'debit'), clientEventId: deliveryEventId(orderId, 'debit'),
+              customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
+        case 'nakit':
+        case 'kart':
+        case 'havale':
+          await writeLedgerEntry(db, entryType: 'debit', amountKurus: total,
+              id: deliveryEventId(orderId, 'debit'), clientEventId: deliveryEventId(orderId, 'debit'),
+              customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
+          await writeLedgerEntry(db, entryType: 'payment', amountKurus: -total, paymentType: paymentType,
+              id: deliveryEventId(orderId, 'payment'), clientEventId: deliveryEventId(orderId, 'payment'),
+              collectedByUserId: collector,
+              customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
+        case 'kupon':
+          if (customerId == null) {
+            throw ArgumentError('Kuponla teslimat için müşteri gerekli.');
+          }
+          final qty = (couponQty ?? lines.fold<int>(0, (s, l) => s + l.qty)).abs();
+          await writeCouponMovement(db, op: 'use', customerId: customerId, qtyDelta: -qty,
+              id: deliveryEventId(orderId, 'coupon'), clientEventId: deliveryEventId(orderId, 'coupon'),
+              relatedOrderId: orderId, occurredAt: at, deviceId: device);
+      }
+    });
+  }
+
+  /// Siparişi bir kuryeye ata (FAZ 4, olay-kaynaklı). assigned order olayı + orders.assignedUserId
+  /// önbelleği + outbox, tek transaction (_statusEvent deseni). Tek kişilik bayide UI'da hiç çağrılmaz.
+  Future<void> assign(String orderId, String userId) =>
+      _statusEvent(orderId, 'assigned', {'order_id': orderId, 'assigned_user_id': userId},
+          assignedUserId: userId, setAssignedFlag: true);
+
+  /// Atamayı geri al (FAZ 4). unassigned olayı + orders.assignedUserId = null.
+  Future<void> unassign(String orderId) =>
+      _statusEvent(orderId, 'unassigned', {'order_id': orderId},
+          assignedUserId: null, setAssignedFlag: true);
 
   Future<void> cancel(String orderId) =>
       _statusEvent(orderId, 'cancelled', {'order_id': orderId});
@@ -149,6 +225,8 @@ class OrderRepository {
     String? paymentType,
     String? note,
     bool setNoteFlag = false,
+    String? assignedUserId,
+    bool setAssignedFlag = false,
   }) async {
     final meta = await db.syncState();
     final at = correctedNowIso(meta.serverTimeOffsetMs);
@@ -163,6 +241,10 @@ class OrderRepository {
       if (setNoteFlag) {
         await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
             .write(OrdersCompanion(note: Value(note)));
+      }
+      if (setAssignedFlag) {
+        await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
+            .write(OrdersCompanion(assignedUserId: Value(assignedUserId)));
       }
       await _appendEvent(orderId, op, clientEventId, payload, at, device);
       await _recompute(orderId);
@@ -191,19 +273,42 @@ class OrderRepository {
         ));
   }
 
-  /// status/total'ı olaylardan + aktif satırlardan türet (sunucu recompute'unun aynası).
+  /// Silinmemiş sipariş satırları (total ve kupon adedi buradan türer).
+  Future<List<OrderLine>> _activeLines(String orderId) =>
+      (db.select(db.orderLines)..where((t) => t.orderId.equals(orderId) & t.deletedAt.isNull())).get();
+
+  /// status/total/assignedUserId'i olaylardan + aktif satırlardan türet (sunucu recompute'unun aynası).
   Future<void> _recompute(String orderId) async {
     final events = await (db.select(db.orderEvents)..where((t) => t.orderId.equals(orderId))).get();
     final hasCancelled = events.any((e) => e.eventType == 'cancelled');
     final hasDelivered = events.any((e) => e.eventType == 'delivered');
     final status = hasCancelled ? 'cancelled' : (hasDelivered ? 'delivered' : 'open');
 
-    final lines = await (db.select(db.orderLines)
-          ..where((t) => t.orderId.equals(orderId) & t.deletedAt.isNull()))
-        .get();
+    final lines = await _activeLines(orderId);
     final total = lines.fold<int>(0, (s, l) => s + l.lineTotalKurus);
 
-    await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
-        .write(OrdersCompanion(status: Value(status), totalKurus: Value(total)));
+    await (db.update(db.orders)..where((t) => t.id.equals(orderId))).write(OrdersCompanion(
+      status: Value(status),
+      totalKurus: Value(total),
+      assignedUserId: Value(_deriveAssignedUserId(events)),
+    ));
+  }
+
+  /// assigned_user_id önbelleğini en son assigned/unassigned olayından türet (SUNUCU deseninin aynası,
+  /// deriveAssignedUserId). Sıra (occurredAt, id) ASC → sonuncu = en son. id (uuid7) SON tiebreak:
+  /// occurred_at eşit kalınca (aynı an) TAM determinizm sağlar; sunucuyla BİREBİR aynı zincir (yoksa
+  /// türetme diverge eder). Kendi olaylarımızın id'si uuid7 olduğundan nedensel sırayı korur.
+  String? _deriveAssignedUserId(List<OrderEvent> events) {
+    final assignEvents = events
+        .where((e) => e.eventType == 'assigned' || e.eventType == 'unassigned')
+        .toList()
+      ..sort((a, b) {
+        final byTime = a.occurredAt.compareTo(b.occurredAt);
+        return byTime != 0 ? byTime : a.id.compareTo(b.id);
+      });
+    if (assignEvents.isEmpty) return null;
+    final last = assignEvents.last;
+    if (last.eventType != 'assigned' || last.payload == null) return null;
+    return (jsonDecode(last.payload!) as Map<String, dynamic>)['assigned_user_id'] as String?;
   }
 }

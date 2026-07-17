@@ -8,6 +8,7 @@ use App\Models\CustomerPhone;
 use App\Models\LedgerEntry;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
@@ -48,6 +49,8 @@ class ChangeApplier
         return match ($type) {
             'order' => (new OrderChangeApplier)->apply($tenantId, $event),
             'ledger' => $this->applyLedger($tenantId, $event),
+            'coupon' => (new CouponChangeApplier)->apply($tenantId, $event),
+            'cash_handover' => (new CashHandoverChangeApplier)->apply($tenantId, $event),
             default => throw new InvalidArgumentException("Bilinmeyen entity_type: {$type}"),
         };
     }
@@ -199,6 +202,12 @@ class ChangeApplier
         if (LedgerEntry::query()->find($id) !== null) {
             throw new InvalidArgumentException('Bu defter kaydı zaten var');
         }
+
+        $entryType = (string) SyncPayload::req($payload, 'entry_type');
+        $amount = (int) SyncPayload::req($payload, 'amount_kurus');
+        $paymentType = isset($payload['payment_type']) ? (string) $payload['payment_type'] : null;
+        $this->validateLedgerEntry($entryType, $amount, $paymentType);
+
         $customerId = isset($payload['customer_id']) ? (string) $payload['customer_id'] : null;
         if ($customerId !== null && ! Customer::query()->whereKey($customerId)->exists()) {
             throw new InvalidArgumentException('customer_id bu bayide bulunamadı');
@@ -211,14 +220,31 @@ class ChangeApplier
             throw new InvalidArgumentException('related_order_id bu bayide bulunamadı');
         }
 
+        // reverses_entry_id: ters kayıt yalnız AYNI bayinin bir defter satırını düzeltebilir.
+        $reversesEntryId = isset($payload['reverses_entry_id']) ? (string) $payload['reverses_entry_id'] : null;
+        if ($reversesEntryId !== null && ! LedgerEntry::query()->whereKey($reversesEntryId)->exists()) {
+            throw new InvalidArgumentException('reverses_entry_id bu bayide bulunamadı');
+        }
+
+        // collected_by_user_id (FAZ 4): tahsilatı KİM aldı — kasa devri mutabakatının dayanağı.
+        // customer/product referans deseniyle simetrik: yazımdan önce RLS-kapsamlı doğrula (başka
+        // bayinin kullanıcısına nakit atfedilemez, kırmızı çizgi #1). Verilmemişse (null) atlanır.
+        $collectedByUserId = isset($payload['collected_by_user_id']) ? (string) $payload['collected_by_user_id'] : null;
+        if ($collectedByUserId !== null && ! User::query()->whereKey($collectedByUserId)->exists()) {
+            throw new InvalidArgumentException('collected_by_user_id bu bayide bulunamadı');
+        }
+
         $entry = new LedgerEntry;
         $entry->forceFill([
             'id' => $id,
             'tenant_id' => $tenantId,
             'customer_id' => $customerId,
-            'entry_type' => (string) SyncPayload::req($payload, 'entry_type'),
-            'amount_kurus' => (int) SyncPayload::req($payload, 'amount_kurus'),
+            'entry_type' => $entryType,
+            'amount_kurus' => $amount,
+            'payment_type' => $paymentType,
+            'collected_by_user_id' => $collectedByUserId,
             'related_order_id' => $relatedOrderId,
+            'reverses_entry_id' => $reversesEntryId,
             'note' => $payload['note'] ?? null,
             'occurred_at' => (string) ($event['occurred_at'] ?? ''),
             'device_id' => $event['device_id'] ?? null,
@@ -228,6 +254,7 @@ class ChangeApplier
         $changes = [SyncPayload::change('ledger_entry', $id, 'upsert', $entry)];
 
         // Bakiye önbelleğini DEFTERDEN yeniden kur (DECISIONS: önbellek bozulursa defterden kurulur).
+        // Tüm entry_type'lar borç-deltası taşır (debit+, payment/credit−); filtresiz SUM net borcu verir.
         if ($customerId !== null) {
             /** @var Customer $customer */
             $customer = Customer::query()->findOrFail($customerId);
@@ -238,6 +265,36 @@ class ChangeApplier
         }
 
         return ['status' => 'applied', 'entity_id' => $id, 'changes' => $changes];
+    }
+
+    /**
+     * İşaret tiple tutarlı olmalı (DECISIONS Faz 3 çift-satır): debit ≥ 0 (borç artışı),
+     * payment/credit ≤ 0 (borç azalışı), correction serbest (ters kayıt imzalı olabilir).
+     *
+     * payment_type payment VE correction'da olabilir (debit/credit'te YASAK): kasa = "payment_type
+     * taşıyan kayıt = kasaya dokundu" invariant'ı (DECISIONS Faz 3). Yanlış tahsilatı ters çeviren
+     * correction, ters çevirdiği payment'ın tipini taşıyarak kasayı da düzeltir (bakiye + kasa birlikte).
+     */
+    private function validateLedgerEntry(string $entryType, int $amount, ?string $paymentType): void
+    {
+        $signOk = match ($entryType) {
+            'debit' => $amount >= 0,
+            'payment', 'credit' => $amount <= 0,
+            'correction' => true,
+            default => throw new InvalidArgumentException("Geçersiz entry_type: {$entryType}"),
+        };
+        if (! $signOk) {
+            throw new InvalidArgumentException("{$entryType} için tutar işareti geçersiz");
+        }
+
+        if ($paymentType !== null) {
+            if (! in_array($entryType, ['payment', 'correction'], true)) {
+                throw new InvalidArgumentException('payment_type yalnız payment/correction kaydında olabilir');
+            }
+            if (! in_array($paymentType, ['nakit', 'kart', 'havale'], true)) {
+                throw new InvalidArgumentException("Geçersiz payment_type: {$paymentType}");
+            }
+        }
     }
 
     // ----------------------------------------------------------------------------------

@@ -1,0 +1,30 @@
+name: Manifest Lint (Kırmızı Çizgi #6)
+
+# Kaynak-manifest izin bekçisi — Flutter/Android build GEREKTİRMEZ, saf bash grep, saniyeler sürer.
+# BRIEF kırmızı çizgi #6'nın "otomatik testlerle sürekli kanıtla" şartının hafif katmanı: kendi
+# AndroidManifest.xml'imizde bir yasaklı SMS/Call Log izni plain beyan edilirse (tools:node="remove"
+# olmadan) ya da READ_CONTACTS / CallScreeningService düşerse build'i kırar.
+#
+# NOT: 3. parti paketlerin manifest-merger ile enjekte ettiği izinler yalnız BİRLEŞTİRİLMİŞ manifest'te
+# görünür; onu scripts/check_permissions.sh (build sonrası) denetler ve tam mobil CI kurulunca (partnerin
+# Flutter'lı makinesi / codegen işiyle birlikte) eklenir. Bu workflow o gelene dek tek otomatik bekçidir.
+
+on:
+  push:
+    paths:
+      - 'apps/mobile/android/app/src/main/AndroidManifest.xml'
+      - 'scripts/check_permissions_source.sh'
+      - '.github/workflows/manifest-lint.yml'
+  pull_request:
+    paths:
+      - 'apps/mobile/android/app/src/main/AndroidManifest.xml'
+      - 'scripts/check_permissions_source.sh'
+      - '.github/workflows/manifest-lint.yml'
+
+jobs:
+  manifest-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Kaynak manifest izin denetimi (kırmızı çizgi #6)
+        run: bash scripts/check_permissions_source.sh

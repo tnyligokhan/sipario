@@ -39,6 +39,7 @@ class SyncEngine {
 
     final resp = await api.push(events);
     await _applyServerTime(resp.serverTime);
+    await _applySubscription(resp.subscription);
 
     final byId = {for (final res in resp.results) res.clientEventId: res};
     await db.transaction(() async {
@@ -66,6 +67,7 @@ class SyncEngine {
       final meta = await db.syncState();
       final resp = await api.pull(since: meta.lastPulledSeq, limit: limit);
       await _applyServerTime(resp.serverTime);
+      await _applySubscription(resp.subscription);
 
       if (resp.mode == 'snapshot') {
         await _applySnapshot(resp);
@@ -167,6 +169,7 @@ class SyncEngine {
         await db.into(db.orders).insertOnConflictUpdate(OrdersCompanion(
               id: Value(_s(m['id'])),
               customerId: Value(_sN(m['customer_id'])),
+              assignedUserId: Value(_sN(m['assigned_user_id'])),
               status: Value(_s(m['status'])),
               totalKurus: Value(_i(m['total_kurus'])),
               paymentType: Value(_sN(m['payment_type'])),
@@ -190,6 +193,18 @@ class SyncEngine {
         await _insertOrderEventIfAbsent(m);
       case 'ledger_entry':
         await _insertLedgerIfAbsent(m);
+      case 'coupon_movement':
+        await _insertCouponMovementIfAbsent(m);
+      case 'cash_handover':
+        await _insertCashHandoverIfAbsent(m);
+      case 'coupon_balance':
+        // Önbellek (customers.balance_kurus deseni): sunucu türetir, istemci upsert eder. İş anahtarı
+        // (customer_id, product_id); genel kupon product_id null → SENTINEL '' (Drift PK).
+        await db.into(db.couponBalances).insertOnConflictUpdate(CouponBalancesCompanion(
+              customerId: Value(_s(m['customer_id'])),
+              productId: Value(_sN(m['product_id']) ?? ''),
+              balanceQty: Value(_i(m['balance_qty'])),
+            ));
     }
   }
 
@@ -220,11 +235,53 @@ class SyncEngine {
           customerId: Value(_sN(m['customer_id'])),
           entryType: _s(m['entry_type']),
           amountKurus: _i(m['amount_kurus']),
+          paymentType: Value(_sN(m['payment_type'])),
+          collectedByUserId: Value(_sN(m['collected_by_user_id'])),
           relatedOrderId: Value(_sN(m['related_order_id'])),
+          reversesEntryId: Value(_sN(m['reverses_entry_id'])),
           note: Value(_sN(m['note'])),
           occurredAt: _s(m['occurred_at']),
           deviceId: Value(_sN(m['device_id'])),
           clientEventId: _s(m['client_event_id']),
+        ));
+  }
+
+  Future<void> _insertCouponMovementIfAbsent(Map<String, dynamic> m) async {
+    final id = _s(m['id']);
+    final exists = await (db.select(db.couponMovements)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (exists != null) return;
+
+    await db.into(db.couponMovements).insert(CouponMovementsCompanion.insert(
+          id: id,
+          customerId: _s(m['customer_id']),
+          productId: Value(_sN(m['product_id'])),
+          movementType: _s(m['movement_type']),
+          qtyDelta: _i(m['qty_delta']),
+          relatedOrderId: Value(_sN(m['related_order_id'])),
+          note: Value(_sN(m['note'])),
+          reversesMovementId: Value(_sN(m['reverses_movement_id'])),
+          occurredAt: _s(m['occurred_at']),
+          deviceId: Value(_sN(m['device_id'])),
+          clientEventId: _s(m['client_event_id']),
+        ));
+  }
+
+  Future<void> _insertCashHandoverIfAbsent(Map<String, dynamic> m) async {
+    final id = _s(m['id']);
+    final exists = await (db.select(db.cashHandovers)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (exists != null) return;
+
+    await db.into(db.cashHandovers).insert(CashHandoversCompanion.insert(
+          id: id,
+          fromUserId: _s(m['from_user_id']),
+          toUserId: Value(_sN(m['to_user_id'])),
+          countedCashKurus: _i(m['counted_cash_kurus']),
+          expectedCashKurus: _i(m['expected_cash_kurus']),
+          diffKurus: _i(m['diff_kurus']),
+          periodStart: Value(_sN(m['period_start'])),
+          occurredAt: _s(m['occurred_at']),
+          deviceId: Value(_sN(m['device_id'])),
+          note: Value(_sN(m['note'])),
         ));
   }
 
@@ -240,6 +297,17 @@ class SyncEngine {
       final localT = DateTime.tryParse(r.occurredAt);
       return localT != null && localT.isAfter(serverT);
     });
+  }
+
+  /// Abonelik durumunu sync_meta'ya önbellekle (FAZ 5a — DECISIONS: tek doğru kaynak sunucu).
+  /// İstemci kilit/grace kararını bu önbellek + ileri-sadece saatle verir (SubscriptionState).
+  Future<void> _applySubscription(SubscriptionInfo? sub) async {
+    if (sub == null) return;
+    await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(SyncMetaCompanion(
+      validUntilIso: Value(sub.validUntil),
+      lockedAtIso: Value(sub.lockedAt),
+      subscriptionStatus: Value(sub.status),
+    ));
   }
 
   /// server_time'dan saat offset'i türet (DECISIONS: istemci offset tutar).

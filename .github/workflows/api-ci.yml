@@ -60,6 +60,8 @@ jobs:
 
       # Roller local 10-roles.sh ile aynı mantık; init betiği CI'da koşmadığı için elle kuruyoruz.
       # sipario_app: RLS'e tabi runtime rolü. sipario_auth: SECURITY DEFINER login fonksiyonunun sahibi.
+      # sipario_panel (Faz 5c): yönetim paneli rolü — BYPASSRLS (cross-tenant OKUR), iş verisine yazamaz
+      # (grant matrisi migration 504'te). Şifre phpunit.xml'deki DB_PANEL_PASSWORD ile eşleşir.
       - name: Postgres rollerini kur
         env:
           PGPASSWORD: ci_owner
@@ -67,8 +69,11 @@ jobs:
           psql -h 127.0.0.1 -U sipario_owner -d sipario_test -v ON_ERROR_STOP=1 \
             -c "CREATE ROLE sipario_app LOGIN PASSWORD 'ci_app' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;" \
             -c "CREATE ROLE sipario_auth NOLOGIN NOSUPERUSER BYPASSRLS;" \
+            -c "CREATE ROLE sipario_panel LOGIN PASSWORD 'sipario_panel_dev' NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS;" \
             -c "GRANT CONNECT ON DATABASE sipario_test TO sipario_app;" \
-            -c "GRANT USAGE ON SCHEMA public TO sipario_app;"
+            -c "GRANT USAGE ON SCHEMA public TO sipario_app;" \
+            -c "GRANT CONNECT ON DATABASE sipario_test TO sipario_panel;" \
+            -c "GRANT USAGE ON SCHEMA public TO sipario_panel;"
 
       - name: Composer bağımlılıkları
         run: composer install --no-interaction --prefer-dist --no-progress

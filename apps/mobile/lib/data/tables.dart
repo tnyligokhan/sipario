@@ -81,6 +81,10 @@ class Orders extends Table {
   TextColumn get id => text()();
   TextColumn get customerId => text().nullable()();
 
+  /// ÖNBELLEK — kaynak assigned/unassigned order_events (FAZ 4). Hangi kuryeye atandığı; en son
+  /// atama olayından türer. Tek kişilik bayide UI'da hiç görünmez (BRIEF), sunucu her zaman destekler.
+  TextColumn get assignedUserId => text().nullable()();
+
   /// ÖNBELLEK — kaynak order_events (DECISIONS). status: open|delivered|cancelled.
   TextColumn get status => text().withDefault(const Constant('open'))();
   IntColumn get totalKurus => integer().withDefault(const Constant(0))();
@@ -131,16 +135,82 @@ class OrderEvents extends Table {
 }
 
 /// Defter aynası (APPEND-ONLY — kırmızı çizgi #2). Bakiye buradan türer; istemci ezmez.
+/// FAZ 3: entry_type debit(+borç)|credit|payment(−borç)|correction. amount_kurus İMZALI (çift-satır).
+/// paymentType yalnız payment'ta (nakit|kart|havale) — kasa gruplaması. reversesEntryId ters kayıt.
 class LedgerEntries extends Table {
   TextColumn get id => text()();
   TextColumn get customerId => text().nullable()();
   TextColumn get entryType => text()();
   IntColumn get amountKurus => integer()();
+  TextColumn get paymentType => text().nullable()();
+
+  /// FAZ 4: tahsilatı KİM aldı (kasa devri mutabakatının dayanağı). Nullable + geriye null; kasa
+  /// özeti etkilenmez (hâlâ payment_type bazlı). Kuryenin beklenen nakiti bu alandan hesaplanır.
+  TextColumn get collectedByUserId => text().nullable()();
+
   TextColumn get relatedOrderId => text().nullable()();
+  TextColumn get reversesEntryId => text().nullable()();
   TextColumn get note => text().nullable()();
   TextColumn get occurredAt => text()();
   TextColumn get deviceId => text().nullable()();
   TextColumn get clientEventId => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Kupon hareketi aynası (APPEND-ONLY). Kupon PARA değil ADET; qtyDelta İMZALI (grant +N, use −qty,
+/// correction imzalı). Bakiye coupon_balances'ten türer; eksiye düşebilir (DECISIONS). client_event_id
+/// ile tekil — sunucudan geri gelen hareketi "yoksa ekle" ile uygular (çift eklemez).
+@TableIndex(name: 'idx_coupon_moves_customer', columns: {#customerId})
+class CouponMovements extends Table {
+  TextColumn get id => text()();
+  TextColumn get customerId => text()();
+  TextColumn get productId => text().nullable()();
+  TextColumn get movementType => text()();
+  IntColumn get qtyDelta => integer()();
+  TextColumn get relatedOrderId => text().nullable()();
+  TextColumn get note => text().nullable()();
+  TextColumn get reversesMovementId => text().nullable()();
+  TextColumn get occurredAt => text()();
+  TextColumn get deviceId => text().nullable()();
+  TextColumn get clientEventId => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {clientEventId},
+      ];
+}
+
+/// Kupon bakiyesi ÖNBELLEĞİ (customers.balance_kurus ikizi). balanceQty = SUM(qtyDelta). İş anahtarı
+/// (customerId, productId); genel kupon (ürün ayrımsız) için productId SENTINEL boş string '' — Drift
+/// PK'sinde NULL sorunlu olduğundan '' kullanılır. Sunucu payload'ındaki null product_id → ''.
+class CouponBalances extends Table {
+  TextColumn get customerId => text()();
+  TextColumn get productId => text().withDefault(const Constant(''))(); // '' = genel kupon
+  IntColumn get balanceQty => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {customerId, productId};
+}
+
+/// Kasa devri (FAZ 4) — APPEND-ONLY kalıcı mutabakat aynası. Kurye gün sonu kasayı patrona devreder.
+/// counted (sayılan) − expected (beklenen, anlık snapshot) = diff (kanıt olarak durur). Silme/güncelleme
+/// YOK; düzeltme yeni devir kaydıyla. id ile tekil — sunucudan geri gelen kaydı "yoksa ekle" ile uygular.
+class CashHandovers extends Table {
+  TextColumn get id => text()();
+  TextColumn get fromUserId => text()();          // kurye (kasayı devreden)
+  TextColumn get toUserId => text().nullable()();  // patron (kasayı alan)
+  IntColumn get countedCashKurus => integer()();
+  IntColumn get expectedCashKurus => integer()();
+  IntColumn get diffKurus => integer()();
+  TextColumn get periodStart => text().nullable()();
+  TextColumn get occurredAt => text()();
+  TextColumn get deviceId => text().nullable()();
+  TextColumn get note => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -177,7 +247,17 @@ class SyncMeta extends Table {
   IntColumn get elapsedAnchorMs => integer().nullable()();
   BoolColumn get snapshotDone => boolean().withDefault(const Constant(false))();
   TextColumn get deviceId => text().nullable()();
+
+  /// Oturumdaki kullanıcı (FAZ 4): teslim/tahsilatta collected_by_user_id ve kasa devrinde from_user_id
+  /// kaynağı. Login akışı doldurur (Faz 5); yoksa null → nakit atfı boş, kasa devri opsiyonel.
+  TextColumn get userId => text().nullable()();
+
+  /// Abonelik durumu ÖNBELLEĞİ (FAZ 5a — DECISIONS: tek doğru kaynak sunucu, istemci önbellekler).
+  /// Sunucunun her push/pull yanıtındaki `subscription` bloğundan yazılır. İstemci ileri-sadece saatle
+  /// (lastServerTimeIso + elapsedAnchorMs) kilit/grace kararını bu değerlerden verir.
   TextColumn get validUntilIso => text().nullable()();
+  TextColumn get lockedAtIso => text().nullable()();
+  TextColumn get subscriptionStatus => text().nullable()(); // trial|active|locked|suspended
 
   @override
   Set<Column> get primaryKey => {id};

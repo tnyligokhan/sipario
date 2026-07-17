@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\OrderLine;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -35,6 +36,7 @@ class OrderChangeApplier
             'line_added' => $this->orderLineAdded($tenantId, $event, $payload),
             'line_removed' => $this->orderLineRemoved($tenantId, $event, $payload),
             'delivered', 'cancelled', 'payment_set', 'note_set' => $this->orderStatusEvent($tenantId, $op, $event, $payload),
+            'assigned', 'unassigned' => $this->orderAssignEvent($tenantId, $op, $event, $payload),
             default => throw new InvalidArgumentException("Geçersiz sipariş op: {$op}"),
         };
     }
@@ -162,6 +164,36 @@ class OrderChangeApplier
     }
 
     /**
+     * Sipariş ATAMA olayı (FAZ 4, olay-kaynaklı). assigned: assigned_user_id yazımdan ÖNCE
+     * RLS-kapsamlı User::exists() ile doğrulanır (customer/product referans deseni; başka bayinin
+     * kullanıcısına atama InvalidArgument + savepoint ile reddedilir, kırmızı çizgi #1). unassigned:
+     * doğrulama gerekmez. orders.assigned_user_id ÖNBELLEĞİ recomputeOrder'da en son olaydan türer.
+     *
+     * @param  array<string, mixed>  $event
+     * @param  array<string, mixed>  $payload
+     * @return array{status: string, entity_id: string, changes: list<array<string, mixed>>}
+     */
+    private function orderAssignEvent(string $tenantId, string $op, array $event, array $payload): array
+    {
+        $order = $this->findOrder($payload);
+
+        if ($op === 'assigned') {
+            $userId = (string) SyncPayload::req($payload, 'assigned_user_id');
+            if (! User::query()->whereKey($userId)->exists()) {
+                throw new InvalidArgumentException('assigned_user_id bu bayide bulunamadı');
+            }
+        }
+
+        $orderEvent = $this->appendOrderEvent($tenantId, $order->id, $op, $event, $payload);
+        $this->recomputeOrder($order); // assigned_user_id önbelleği olaylardan türer + $order'ı kaydeder
+
+        return ['status' => 'applied', 'entity_id' => $order->id, 'changes' => [
+            SyncPayload::change('order', $order->id, 'upsert', $order),
+            SyncPayload::change('order_event', $orderEvent->id, 'upsert', $orderEvent),
+        ]];
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      */
     private function findOrder(array $payload): Order
@@ -233,6 +265,36 @@ class OrderChangeApplier
         $order->status = $hasCancelled ? 'cancelled' : ($hasDelivered ? 'delivered' : 'open');
         $order->total_kurus = (int) OrderLine::query()
             ->where('order_id', $order->id)->whereNull('deleted_at')->sum('line_total_kurus');
+        $order->assigned_user_id = $this->deriveAssignedUserId($order->id);
         $order->save();
+    }
+
+    /**
+     * assigned_user_id önbelleğini olaylardan türet (status deseni): en son assigned/unassigned
+     * olayına bak; assigned ise payload'daki kullanıcı, unassigned ise null. Sıra SADECE (occurred_at
+     * DESC, id DESC) — id uuid7 benzersiz+zaman-sıralı olduğundan occurred_at saniye hassasiyetinde
+     * eşitlense bile TAM determinizm sağlar (eşitlikte Postgres keyfi sıra döndürüyordu — flaky).
+     * created_at BİLİNÇLİ DIŞARIDA: sunucuya özel (varış anı), istemcide karşılığı YOK; ortada olsaydı
+     * iki cihazın id sırasıyla çelişip sunucu/istemci FARKLI kurye türetirdi (kalıcı ıraksama). İki taraf
+     * yalnız ORTAK anahtarı (occurred_at, id) kullanır → istemci _recompute ile BİREBİR simetrik.
+     * DECISIONS LWW "device_id ile deterministik ayrım" felsefesiyle aynı çizgi.
+     */
+    private function deriveAssignedUserId(string $orderId): ?string
+    {
+        /** @var OrderEvent|null $latest */
+        $latest = OrderEvent::query()
+            ->where('order_id', $orderId)
+            ->whereIn('event_type', ['assigned', 'unassigned'])
+            ->orderByDesc('occurred_at')->orderByDesc('id')
+            ->first();
+
+        if ($latest === null || $latest->event_type === 'unassigned') {
+            return null;
+        }
+
+        $payload = $latest->payload ?? [];
+        $userId = $payload['assigned_user_id'] ?? null;
+
+        return $userId !== null ? (string) $userId : null;
     }
 }

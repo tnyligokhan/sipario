@@ -35,6 +35,9 @@
         <env name="DB_PASSWORD" value="sipario_app_dev"/>
         <env name="DB_OWNER_USERNAME" value="sipario_owner"/>
         <env name="DB_OWNER_PASSWORD" value="sipario_owner_dev"/>
+        <!-- Panel rolu (Faz 5c): BYPASSRLS cross-tenant okur, is verisine YAZAMAZ (grant matrisi). -->
+        <env name="DB_PANEL_USERNAME" value="sipario_panel"/>
+        <env name="DB_PANEL_PASSWORD" value="sipario_panel_dev"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

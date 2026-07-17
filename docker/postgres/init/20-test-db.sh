@@ -12,4 +12,6 @@ EOSQL
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname sipario_test <<-EOSQL
   GRANT CONNECT ON DATABASE sipario_test TO sipario_app;
   GRANT USAGE ON SCHEMA public TO sipario_app;
+  GRANT CONNECT ON DATABASE sipario_test TO sipario_panel;
+  GRANT USAGE ON SCHEMA public TO sipario_panel;
 EOSQL

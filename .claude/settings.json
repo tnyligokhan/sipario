@@ -5,11 +5,28 @@
     "CLAUDE_FLOW_HOOKS_ENABLED": "true"
   },
   "permissions": {
+    "defaultMode": "acceptEdits",
     "allow": [
       "Bash(npx @claude-flow*)",
       "Bash(npx claude-flow*)",
       "Bash(node .claude/*)",
-      "mcp__claude-flow__*"
+      "mcp__claude-flow__*",
+      "Bash(php -v)",
+      "Bash(php -m)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-Item *)",
+      "PowerShell(Get-Location)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(Select-String *)",
+      "PowerShell(git status *)",
+      "PowerShell(git log *)",
+      "PowerShell(git diff *)",
+      "PowerShell(git branch *)",
+      "PowerShell(git rev-list *)",
+      "PowerShell(docker ps *)",
+      "PowerShell(php -v)",
+      "PowerShell(php -m *)"
     ],
     "deny": [
       "Read(./.env)",
@@ -198,7 +215,7 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "node -e \"const fs=require('fs'),p=require('path');const d=process.env.CLAUDE_PROJECT_DIR||'.';const f=p.join(d,'.claude/helpers/statusline.cjs');const h=p.join(process.env.USERPROFILE||process.env.HOME||'.', '.claude/helpers/statusline.cjs');require(fs.existsSync(f)?f:h);\""
+    "command": "node -e \"require(require('path').join(process.env.CLAUDE_PROJECT_DIR||process.cwd(),'scripts','statusline.cjs'))\""
   },
   "enabledPlugins": {
     "ruflo-adr@ruflo": true,

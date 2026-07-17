@@ -9,6 +9,8 @@ services:
       POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:-sipario_owner_dev}
       # Runtime uygulama rolünün parolası — init betiği (10-roles.sh) bunu okur.
       SIPARIO_APP_PASSWORD: ${DB_APP_PASSWORD:-sipario_app_dev}
+      # Yönetim paneli rolünün parolası (Faz 5c) — init betiği bunu okur (cross-tenant SELECT + tenants UPDATE).
+      SIPARIO_PANEL_PASSWORD: ${DB_PANEL_PASSWORD:-sipario_panel_dev}
       # Postgres 16 ICU: Türkçe sıralama/case (ç,ş,ğ,ı,ö,ü). libc tr_TR.UTF-8 imajda yok, ICU var.
       POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=tr-TR --lc-collate=C.UTF-8 --lc-ctype=C.UTF-8 --encoding=UTF8"
     ports:

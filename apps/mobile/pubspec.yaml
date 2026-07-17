@@ -43,11 +43,12 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-# Faz 2 codegen notu (KOD ÜRETİMİ İÇİN GEÇİCİ): sqlite3 >=3.3 native build-hook'u Dart 3.10'da
-# `dart run build_runner`ın AOT derlemesini kırıyor ("dart compile does not support build hooks").
-# Drift .g.dart'ı yeniden üretmen gerekirse ÖNCE aşağıdaki override'ı geçici olarak aç (sqlite3'ü
-# hook'suz sürüme indir), `flutter pub get && dart run build_runner build`, SONRA override'ı yine
-# kapat ve `flutter pub get` (runtime + flutter test drift 2.34'ün beklediği sqlite3 3.x'i ister).
+# Codegen notu (KOD ÜRETİMİ İÇİN GEÇİCİ): sqlite3'ün native build-hook'u (hook/build.dart) Dart
+# 3.10'da `dart run build_runner`ın AOT derlemesini kırıyor ("dart compile does not support build
+# hooks"). Faz 3'te doğrulandı: hook'suz SON sürüm 2.9.4 (3.2.0 ve 3.4.0 hook'lu) — bu yüzden sınır
+# `<3.0.0` (eski not `<3.3` yanılıyordu, 3.2.0 sonradan hook kazandı). Drift .g.dart'ı yeniden üretmen
+# gerekirse ÖNCE aşağıdaki override'ı aç, `flutter pub get && dart run build_runner build`, SONRA
+# override'ı yine kapat ve `flutter pub get` (runtime + flutter test sqlite3 3.x ister).
 # Üretilen kod sqlite3 sürümünden bağımsızdır; override'ı kapalı bırakmak normal durumdur.
 # dependency_overrides:
-#   sqlite3: ">=2.4.0 <3.3.0"
+#   sqlite3: ">=2.4.0 <3.0.0"

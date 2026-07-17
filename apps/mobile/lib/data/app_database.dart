@@ -21,6 +21,9 @@ part 'app_database.g.dart';
     OrderLines,
     OrderEvents,
     LedgerEntries,
+    CouponMovements,
+    CouponBalances,
+    CashHandovers,
     Outbox,
     SyncMeta,
   ],
@@ -33,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.file() : super(_openOnDevice());
 
   @override
-  int get schemaVersion => 2; // v1 = Faz 0 sqflite spike şeması
+  int get schemaVersion => 5; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik önbelleği
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -61,6 +64,38 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(ledgerEntries);
             await m.createTable(outbox);
             await m.createTable(syncMeta);
+          }
+          if (from < 3) {
+            // FAZ 3 defter: ADDİTİF (native sözleşme + mevcut veri korunur). ledger_entries'e para
+            // akışı kolonları eklenir, kupon tabloları kurulur. from<2 yolu ledgerEntries'i zaten
+            // v3 şemasıyla oluşturur (yeni kolonlar dahil); bu ALTER'lar yalnız v2→v3 için gerekli,
+            // v1→v3'te kolonlar zaten var → koşullu ekle (tekrar eklemede hata olmasın).
+            if (from == 2) {
+              await m.database.customStatement('ALTER TABLE ledger_entries ADD COLUMN payment_type TEXT');
+              await m.database.customStatement('ALTER TABLE ledger_entries ADD COLUMN reverses_entry_id TEXT');
+            }
+            await m.createTable(couponMovements);
+            await m.createTable(couponBalances);
+          }
+          if (from < 4) {
+            // FAZ 4 kurye: ADDİTİF (native sözleşme + mevcut veri korunur). orders'a atama, ledger'a
+            // nakit atfı kolonu, sync_meta'ya oturum kullanıcısı; yeni cash_handovers tablosu. from<2
+            // yolu bu tabloları zaten v4 şemasıyla (yeni kolonlar dahil) oluşturur; ALTER'lar yalnız
+            // daha eski bir Drift kurulumunu (v2/v3) yükseltirken gerekli → koşullu ekle.
+            if (from >= 2) {
+              await m.database.customStatement('ALTER TABLE orders ADD COLUMN assigned_user_id TEXT');
+              await m.database.customStatement('ALTER TABLE ledger_entries ADD COLUMN collected_by_user_id TEXT');
+              await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN user_id TEXT');
+            }
+            await m.createTable(cashHandovers);
+          }
+          if (from < 5) {
+            // FAZ 5a abonelik önbelleği: sync_meta'ya kilit alanları. from<2 yolu sync_meta'yı zaten
+            // v5 şemasıyla (bu kolonlar dahil) oluşturur; ALTER yalnız v2/v3/v4 yükseltmesinde gerekli.
+            if (from >= 2) {
+              await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN locked_at_iso TEXT');
+              await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN subscription_status TEXT');
+            }
           }
         },
         beforeOpen: (details) async {

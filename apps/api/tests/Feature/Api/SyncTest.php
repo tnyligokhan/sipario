@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\CouponBalance;
+use App\Models\CouponMovement;
 use App\Models\Customer;
 use App\Models\LedgerEntry;
 use App\Models\Order;
@@ -379,7 +381,8 @@ class SyncTest extends ApiTestCase
     public function kupon_kullanimi_bakiyeyi_eksiye_dusurebilir_reddedilmez(): void
     {
         // DECISIONS: iki cihaz offline'ken aynı son kuponu harcayabilir; teslim edilmiş mal
-        // gerçektir, sistem reddedemez — bakiye eksiye düşer, düzeltme kaydıyla kapatılır.
+        // gerçektir, sistem reddedemez — kupon bakiyesi eksiye düşer, correction hareketiyle kapatılır.
+        // FAZ 3: kupon ADETtir (coupon_movements), PARA değil — para tarafı normal debit+payment ile.
         $a = $this->makeTenant('a');
         $token = $this->tokenFor($a['patron']);
 
@@ -387,28 +390,295 @@ class SyncTest extends ApiTestCase
         $customerId = $cust['payload']['id'];
         $this->pushEvents($token, [$cust]);
 
-        // Kupon bakiyesi 1 hakla başlar (coupon_grant +1), iki cihaz OFFLINE'ken aynı son hakkı
-        // harcar (coupon_use -1 iki kez) → bakiye -1'e düşer, sistem reddetmez.
-        $this->pushEvents($token, [$this->event('ledger', 'entry', [
-            'id' => (string) Str::uuid7(), 'customer_id' => $customerId,
-            'entry_type' => 'coupon_grant', 'amount_kurus' => 1,
-        ])])->assertJsonPath('results.0.status', 'applied');
-
-        $this->pushEvents($token, [$this->event('ledger', 'entry', [
-            'id' => (string) Str::uuid7(), 'customer_id' => $customerId,
-            'entry_type' => 'coupon_use', 'amount_kurus' => -1,
-        ])])->assertJsonPath('results.0.status', 'applied');
-
-        $second = $this->pushEvents($token, [$this->event('ledger', 'entry', [
-            'id' => (string) Str::uuid7(), 'customer_id' => $customerId,
-            'entry_type' => 'coupon_use', 'amount_kurus' => -1,
-        ])]);
+        // 1 adet kupon hakkı (grant +1), iki cihaz OFFLINE'ken aynı son hakkı harcar (use -1 iki kez).
+        $this->pushEvents($token, [$this->couponMovement('grant', ['customer_id' => $customerId, 'qty_delta' => 1])])
+            ->assertJsonPath('results.0.status', 'applied');
+        $this->pushEvents($token, [$this->couponMovement('use', ['customer_id' => $customerId])])
+            ->assertJsonPath('results.0.status', 'applied');
+        $second = $this->pushEvents($token, [$this->couponMovement('use', ['customer_id' => $customerId])]);
         $second->assertJsonPath('results.0.status', 'applied', 'İkinci cihazın kupon harcaması da KABUL edilmeli — reddedilmez.');
 
-        $balance = $this->asOwner(fn () => Customer::query()->find($customerId)?->balance_kurus);
-        $this->assertSame(-1, $balance, 'Kupon bakiyesi eksiye düşebilir (DECISIONS) — düzeltme sonraki bir correction kaydıyla yapılır.');
+        // Bakiye önbelleği (coupon_balances) defterden türer, eksiye düşer.
+        $balance = $this->asOwner(fn () => CouponBalance::query()->where('customer_id', $customerId)->value('balance_qty'));
+        $this->assertSame(-1, $balance, 'Kupon bakiyesi eksiye düşebilir (DECISIONS); düzeltme sonraki correction hareketiyle.');
 
-        $entryCount = $this->asOwner(fn () => LedgerEntry::query()->where('customer_id', $customerId)->count());
-        $this->assertSame(3, $entryCount, 'Her üç kayıt da append-only durur, hiçbiri silinmez/ezilmez.');
+        $moveCount = $this->asOwner(fn () => CouponMovement::query()->where('customer_id', $customerId)->count());
+        $this->assertSame(3, $moveCount, 'Üç hareket de append-only durur; hiçbiri silinmez/ezilmez.');
+    }
+
+    #[Test]
+    public function pesin_satis_cift_satir_uretir_net_borc_sifir_kasa_dolu(): void
+    {
+        // DECISIONS Faz 3 çift-satır: peşin/kart satış debit(+total) + payment(−total) → net borç 0,
+        // para kasada (payment payment_type ile). Veresiye yalnız debit; sonradan tahsilat yalnız payment.
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $cust = $this->customerUpsert(['name' => 'Peşin Müşteri']);
+        $customerId = $cust['payload']['id'];
+        $this->pushEvents($token, [$cust]);
+
+        // Peşin nakit satış: debit +9000 ve payment −9000 (nakit).
+        $this->pushEvents($token, [$this->ledgerEntry([
+            'customer_id' => $customerId, 'entry_type' => 'debit', 'amount_kurus' => 9000,
+        ])])->assertJsonPath('results.0.status', 'applied');
+        $this->pushEvents($token, [$this->ledgerEntry([
+            'customer_id' => $customerId, 'entry_type' => 'payment', 'amount_kurus' => -9000, 'payment_type' => 'nakit',
+        ])])->assertJsonPath('results.0.status', 'applied');
+
+        $balance = $this->asOwner(fn () => Customer::query()->find($customerId)?->balance_kurus);
+        $this->assertSame(0, $balance, 'Peşin satış net borcu 0 bırakır (debit+payment).');
+
+        // Kasa = payment toplamı (ödeme tipine göre). Ciro = debit toplamı.
+        $kasaNakit = $this->asOwner(fn () => (int) LedgerEntry::query()
+            ->where('customer_id', $customerId)->where('payment_type', 'nakit')->sum('amount_kurus'));
+        $this->assertSame(-9000, $kasaNakit, 'Kasaya 9000 nakit girdi (payment negatif).');
+    }
+
+    #[Test]
+    public function defter_isaret_dogrulamasi_yanlis_isareti_reddeder(): void
+    {
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $cust = $this->customerUpsert(['name' => 'İşaret Müşteri']);
+        $customerId = $cust['payload']['id'];
+        $this->pushEvents($token, [$cust]);
+
+        // debit NEGATİF → rejected (borç artışı ≥ 0 olmalı).
+        $this->pushEvents($token, [$this->ledgerEntry([
+            'customer_id' => $customerId, 'entry_type' => 'debit', 'amount_kurus' => -100,
+        ])])->assertJsonPath('results.0.status', 'rejected');
+
+        // payment POZİTİF → rejected (borç azalışı ≤ 0 olmalı).
+        $this->pushEvents($token, [$this->ledgerEntry([
+            'customer_id' => $customerId, 'entry_type' => 'payment', 'amount_kurus' => 100, 'payment_type' => 'nakit',
+        ])])->assertJsonPath('results.0.status', 'rejected');
+
+        // payment_type payment DIŞINDA → rejected.
+        $this->pushEvents($token, [$this->ledgerEntry([
+            'customer_id' => $customerId, 'entry_type' => 'debit', 'amount_kurus' => 100, 'payment_type' => 'nakit',
+        ])])->assertJsonPath('results.0.status', 'rejected');
+
+        // Hiçbiri uygulanmadı; bakiye 0 kaldı (yalnızca müşteri var).
+        $balance = $this->asOwner(fn () => Customer::query()->find($customerId)?->balance_kurus);
+        $this->assertSame(0, $balance);
+    }
+
+    #[Test]
+    public function correction_payment_type_tasiyabilir_kasa_ve_bakiye_birlikte_duzelir(): void
+    {
+        // DECISIONS Faz 3: yanlış tahsilatı ters çeviren correction, payment'ın payment_type'ını
+        // taşır → hem bakiye hem kasa (payment_type IS NOT NULL toplamı) net 0'a döner.
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+        $cust = $this->customerUpsert(['name' => 'Düzeltme Müşteri']);
+        $customerId = $cust['payload']['id'];
+        $this->pushEvents($token, [$cust]);
+
+        // Yanlış nakit tahsilat: payment(−5000, nakit).
+        $pay = $this->ledgerEntry([
+            'customer_id' => $customerId, 'entry_type' => 'payment', 'amount_kurus' => -5000, 'payment_type' => 'nakit',
+        ]);
+        $this->pushEvents($token, [$pay])->assertJsonPath('results.0.status', 'applied');
+
+        // Ters çeviren correction AYNI payment_type'ı taşır — KABUL edilmeli (debit/credit'te YASAK olurdu).
+        $this->pushEvents($token, [$this->ledgerEntry([
+            'customer_id' => $customerId, 'entry_type' => 'correction', 'amount_kurus' => 5000,
+            'payment_type' => 'nakit', 'reverses_entry_id' => $pay['payload']['id'],
+        ])])->assertJsonPath('results.0.status', 'applied');
+
+        $balance = $this->asOwner(fn () => Customer::query()->find($customerId)?->balance_kurus);
+        $this->assertSame(0, $balance, 'payment −5000 + correction +5000 = 0');
+
+        // Kasa = payment_type IS NOT NULL kayıtların toplamı → net 0.
+        $kasa = $this->asOwner(fn () => (int) LedgerEntry::query()
+            ->whereNotNull('payment_type')->sum('amount_kurus'));
+        $this->assertSame(0, $kasa, 'correction payment_type taşıdı → kasa da net 0');
+    }
+
+    #[Test]
+    public function correction_payment_type_yalniz_payment_ve_correctionda_kabul_edilir(): void
+    {
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+        $cust = $this->customerUpsert(['name' => 'İşaret']);
+        $customerId = $cust['payload']['id'];
+        $this->pushEvents($token, [$cust]);
+
+        // debit + payment_type → hâlâ rejected (satış hesaba yazılır, nakde dokunmaz).
+        $this->pushEvents($token, [$this->ledgerEntry([
+            'customer_id' => $customerId, 'entry_type' => 'debit', 'amount_kurus' => 100, 'payment_type' => 'nakit',
+        ])])->assertJsonPath('results.0.status', 'rejected');
+
+        // credit + payment_type → de rejected (manuel alacak/indirim kasaya dokunmaz; kapı B'de
+        // gevşetilirken yalnız payment+correction'a açıldı, credit HÂLÂ dışarıda kalmalı).
+        $this->pushEvents($token, [$this->ledgerEntry([
+            'customer_id' => $customerId, 'entry_type' => 'credit', 'amount_kurus' => -100, 'payment_type' => 'nakit',
+        ])])->assertJsonPath('results.0.status', 'rejected');
+
+        $count = $this->asOwner(fn () => LedgerEntry::query()->where('customer_id', $customerId)->count());
+        $this->assertSame(0, $count, 'İki geçersiz kayıt da uygulanmamalı (payment_type sınırı korunur).');
+    }
+
+    #[Test]
+    public function kupon_satisi_ve_kullanimi_bakiye_ve_snapshot_dogru(): void
+    {
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $cust = $this->customerUpsert(['name' => 'Paket Müşteri']);
+        $customerId = $cust['payload']['id'];
+        $this->pushEvents($token, [$cust]);
+
+        // 5'lik paket satışı: kupon grant +5 (+ paranın parası ayrı debit/payment ile, burada yalnız adet).
+        $this->pushEvents($token, [$this->couponMovement('grant', ['customer_id' => $customerId, 'qty_delta' => 5])])
+            ->assertJsonPath('results.0.status', 'applied');
+        // İki teslimatta 2 kupon kullanıldı.
+        $this->pushEvents($token, [$this->couponMovement('use', ['customer_id' => $customerId])]);
+        $this->pushEvents($token, [$this->couponMovement('use', ['customer_id' => $customerId])]);
+
+        $balance = $this->asOwner(fn () => CouponBalance::query()->where('customer_id', $customerId)->value('balance_qty'));
+        $this->assertSame(3, $balance, '5 verildi, 2 kullanıldı → 3 kaldı.');
+
+        // Snapshot iki yeni tabloyu da taşır.
+        $snap = $this->pullSince($token, 0);
+        $this->assertCount(3, $snap->json('entities.coupon_movement'));
+        $this->assertCount(1, $snap->json('entities.coupon_balance'));
+        $this->assertSame(3, $snap->json('entities.coupon_balance.0.balance_qty'));
+    }
+
+    #[Test]
+    public function kupon_hareketi_ayni_client_event_id_ile_tekrarlanirsa_bakiye_ikizlenmez(): void
+    {
+        // Idempotency (DECISIONS): ağ zaman aşımı sonrası aynı kupon 'use' birden çok kez gönderilir.
+        // İkinci+ gönderim duplicate döner ve bakiye TEKRAR düşmez (korku #2: defter ikizlenmemeli).
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $cust = $this->customerUpsert(['name' => 'Kupon Idempotent']);
+        $customerId = $cust['payload']['id'];
+        $this->pushEvents($token, [$cust]);
+        $this->pushEvents($token, [$this->couponMovement('grant', ['customer_id' => $customerId, 'qty_delta' => 3])]);
+
+        // Sabit client_event_id taşıyan tek bir 'use' olayı — üç kez gönderilir.
+        $use = $this->couponMovement('use', ['customer_id' => $customerId]);
+        $this->pushEvents($token, [$use])->assertJsonPath('results.0.status', 'applied');
+        foreach (range(1, 2) as $_) {
+            $this->pushEvents($token, [$use])->assertJsonPath('results.0.status', 'duplicate');
+        }
+
+        $balance = $this->asOwner(fn () => CouponBalance::query()->where('customer_id', $customerId)->value('balance_qty'));
+        $this->assertSame(2, $balance, 'Retry bakiyeyi tekrar düşürmemeli: 3 grant − 1 use = 2.');
+        $moveCount = $this->asOwner(fn () => CouponMovement::query()->where('customer_id', $customerId)->count());
+        $this->assertSame(2, $moveCount, 'Retry yeni hareket eklememeli (grant + tek use).');
+    }
+
+    #[Test]
+    public function bozulan_bakiye_onbellegi_sonraki_defter_kaydiyla_defterden_yeniden_kurulur(): void
+    {
+        // DECISIONS: "önbellek bozulursa defterden yeniden kurulur". Bakiye kasıtlı bozulur; sonraki
+        // ledger kaydı SUM'ı BAŞTAN hesapladığından bakiye gerçek toplama döner (bozuk+delta DEĞİL).
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $cust = $this->customerUpsert(['name' => 'Bozuk Bakiye']);
+        $customerId = $cust['payload']['id'];
+        $this->pushEvents($token, [$cust]);
+        $this->pushEvents($token, [$this->ledgerEntry([
+            'customer_id' => $customerId, 'entry_type' => 'debit', 'amount_kurus' => 10000,
+        ])]);
+
+        // Önbelleği kasıtlı boz (owner ile — istemci balance_kurus yazamaz, bu bir simülasyon).
+        $this->asOwner(fn () => Customer::query()->whereKey($customerId)->update(['balance_kurus' => 999999]));
+
+        // Yeni kayıt +5000: sunucu SUM'ı defterden kurar → 15000 (999999+5000 DEĞİL).
+        $this->pushEvents($token, [$this->ledgerEntry([
+            'customer_id' => $customerId, 'entry_type' => 'debit', 'amount_kurus' => 5000,
+        ])])->assertJsonPath('results.0.status', 'applied');
+
+        $balance = $this->asOwner(fn () => Customer::query()->find($customerId)?->balance_kurus);
+        $this->assertSame(15000, $balance, 'Bozuk önbellek deltaya değil, defterin gerçek toplamına düzelmeli.');
+        $trueSum = $this->asOwner(fn () => (int) LedgerEntry::query()->where('customer_id', $customerId)->sum('amount_kurus'));
+        $this->assertSame($trueSum, $balance, 'balance_kurus birebir SUM(ledger_entries.amount_kurus) olmalı.');
+    }
+
+    #[Test]
+    public function bozulan_kupon_bakiyesi_sonraki_hareketle_harekelerden_yeniden_kurulur(): void
+    {
+        // coupon_balances de önbellek: bozulursa bir sonraki hareket SUM(qty_delta) ile onarır.
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $cust = $this->customerUpsert(['name' => 'Bozuk Kupon']);
+        $customerId = $cust['payload']['id'];
+        $this->pushEvents($token, [$cust]);
+        $this->pushEvents($token, [$this->couponMovement('grant', ['customer_id' => $customerId, 'qty_delta' => 5])]);
+
+        $this->asOwner(fn () => CouponBalance::query()->where('customer_id', $customerId)->update(['balance_qty' => 999]));
+
+        // use −1: SUM harekelerden = 4 (999−1 DEĞİL).
+        $this->pushEvents($token, [$this->couponMovement('use', ['customer_id' => $customerId])])
+            ->assertJsonPath('results.0.status', 'applied');
+
+        $balance = $this->asOwner(fn () => CouponBalance::query()->where('customer_id', $customerId)->value('balance_qty'));
+        $this->assertSame(4, $balance, 'Bozuk kupon önbelleği harekelerin gerçek toplamına düzelmeli.');
+    }
+
+    #[Test]
+    public function ledger_ters_kaydi_yanlis_borcu_kapatir_kaynak_kayit_durur(): void
+    {
+        // BRIEF/DECISIONS: düzeltme yalnız ters kayıtla; kaynak kayıt kanıt olarak durur (silinmez).
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $cust = $this->customerUpsert(['name' => 'Ters Kayıt']);
+        $customerId = $cust['payload']['id'];
+        $this->pushEvents($token, [$cust]);
+
+        $hatali = $this->ledgerEntry(['customer_id' => $customerId, 'entry_type' => 'debit', 'amount_kurus' => 10000]);
+        $hataliId = $hatali['payload']['id'];
+        $this->pushEvents($token, [$hatali])->assertJsonPath('results.0.status', 'applied');
+
+        // Ters kayıt: correction −10000, reverses_entry_id = hatalı kaydın id'si.
+        $this->pushEvents($token, [$this->ledgerEntry([
+            'customer_id' => $customerId, 'entry_type' => 'correction',
+            'amount_kurus' => -10000, 'reverses_entry_id' => $hataliId,
+        ])])->assertJsonPath('results.0.status', 'applied');
+
+        $balance = $this->asOwner(fn () => Customer::query()->find($customerId)?->balance_kurus);
+        $this->assertSame(0, $balance, 'debit +10000 + correction −10000 = 0.');
+        $count = $this->asOwner(fn () => LedgerEntry::query()->where('customer_id', $customerId)->count());
+        $this->assertSame(2, $count, 'Kaynak kayıt silinmez; düzeltme yeni satır olarak durur (append-only).');
+        $reverses = $this->asOwner(fn () => LedgerEntry::query()->where('entry_type', 'correction')->value('reverses_entry_id'));
+        $this->assertSame($hataliId, $reverses, 'Ters kayıt düzelttiği satıra bağlı olmalı (kanıt zinciri).');
+    }
+
+    #[Test]
+    public function kupon_ters_hareketi_eksi_bakiyeyi_kapatir_kaynak_hareket_durur(): void
+    {
+        // Eksi kupon bakiyesi correction hareketiyle kapatılır (DECISIONS: düzeltme kaydıyla kapanır).
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $cust = $this->customerUpsert(['name' => 'Kupon Ters']);
+        $customerId = $cust['payload']['id'];
+        $this->pushEvents($token, [$cust]);
+
+        // 1 hak, iki kullanım → −1 (iki cihaz aynı son kuponu harcadı).
+        $this->pushEvents($token, [$this->couponMovement('grant', ['customer_id' => $customerId, 'qty_delta' => 1])]);
+        $this->pushEvents($token, [$this->couponMovement('use', ['customer_id' => $customerId])]);
+        $this->pushEvents($token, [$this->couponMovement('use', ['customer_id' => $customerId])]);
+
+        $reverses = $this->asOwner(fn () => CouponMovement::query()->where('movement_type', 'use')->value('id'));
+        // correction +1 → 0 (bir kullanımı ters çevirir).
+        $this->pushEvents($token, [$this->couponMovement('correction', [
+            'customer_id' => $customerId, 'qty_delta' => 1, 'reverses_movement_id' => $reverses,
+        ])])->assertJsonPath('results.0.status', 'applied');
+
+        $balance = $this->asOwner(fn () => CouponBalance::query()->where('customer_id', $customerId)->value('balance_qty'));
+        $this->assertSame(0, $balance, 'grant 1 − use 2 + correction 1 = 0.');
+        $count = $this->asOwner(fn () => CouponMovement::query()->where('customer_id', $customerId)->count());
+        $this->assertSame(4, $count, 'Dört hareket de append-only durur, hiçbiri silinmez/ezilmez.');
     }
 }

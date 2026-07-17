@@ -2,6 +2,10 @@
 
 namespace App\Support\Sync;
 
+use App\Enums\TenantStatus;
+use App\Models\CashHandover;
+use App\Models\CouponBalance;
+use App\Models\CouponMovement;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\CustomerPhone;
@@ -10,8 +14,10 @@ use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\OrderLine;
 use App\Models\Product;
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -37,14 +43,21 @@ class SyncService
 
     /**
      * @param  list<array<string, mixed>>  $events
-     * @return array{results: list<array<string, mixed>>, current_seq: int}
+     * @return array{results: list<array<string, mixed>>, current_seq: int, subscription: array<string, mixed>}
      */
     public function push(User $user, array $events): array
     {
         $tenantId = (string) $user->tenant_id;
         $applier = new ChangeApplier;
+        $now = now();
 
-        return DB::transaction(function () use ($tenantId, $events, $applier) {
+        return DB::transaction(function () use ($tenantId, $events, $applier, $now) {
+            // Abonelik kilidi (FAZ 5a): TEK yazma yüzeyinde uygulanır (okuma/pull ASLA kilitlenmez).
+            // Kilitliyse locked_at çıpasını lazy kur; kilit kararı server saatine göre kesin (grace YALNIZ
+            // istemcide). RLS altında oturumdaki tenant okunur/güncellenir.
+            $tenant = Tenant::query()->findOrFail($tenantId);
+            [$locked, $lockedAt] = $this->resolveLock($tenant, $now);
+
             // Seq sayacını kilitle (satır yoksa oluştur). Kilit outer transaction commit'ine kadar tutulur.
             DB::insert(
                 'INSERT INTO tenant_sync_state (tenant_id, last_seq) VALUES (?, 0) ON CONFLICT (tenant_id) DO NOTHING',
@@ -72,6 +85,16 @@ class SyncService
                     continue;
                 }
 
+                // Kilitliyken: occurred_at <= locked_at olan olay KABUL (offline birikmiş yazım akar,
+                // veri kaybı yok — BRIEF kırmızı çizgi #5); occurred_at > locked_at ise `locked` reddedilir.
+                // 'locked' reddi processed_events'e YAZILMAZ (rejected'tan farklı: geçici; abonelik
+                // yenilenince AYNI olay retry'da uygulanabilir) ve seq'i ilerletmez.
+                if ($locked && $lockedAt !== null && $this->lockedOut($event, $lockedAt)) {
+                    $results[] = $this->locked($clientEventId);
+
+                    continue;
+                }
+
                 try {
                     [$lastSeq, $result] = $this->applyOne($tenantId, $event, $lastSeq, $applier);
                     $results[] = $result;
@@ -90,7 +113,11 @@ class SyncService
                 [$lastSeq, $tenantId]
             );
 
-            return ['results' => $results, 'current_seq' => $lastSeq];
+            return [
+                'results' => $results,
+                'current_seq' => $lastSeq,
+                'subscription' => $this->subscriptionPayload($tenant, $now),
+            ];
         });
     }
 
@@ -144,16 +171,22 @@ class SyncService
     }
 
     /**
-     * @return array{mode: string, cursor: int, has_more: bool, current_seq: int, changes?: list<array<string, mixed>>, entities?: array<string, mixed>}
+     * @return array{mode: string, cursor: int, has_more: bool, current_seq: int, subscription: array<string, mixed>, changes?: list<array<string, mixed>>, entities?: array<string, mixed>}
      */
     public function pull(User $user, int $since, int $limit): array
     {
         $tenantId = (string) $user->tenant_id;
+        $now = now();
+        // Okuma ASLA kilitlenmez (kırmızı çizgi #5); pull yalnız abonelik durumunu YAYINLAR (istemci
+        // önbellekler + ileri-sadece saatle grace hesaplar). Salt-okuma: locked_at LAZY yazımı YOK (o push'a özgü).
+        $tenant = Tenant::query()->findOrFail($tenantId);
+        $subscription = $this->subscriptionPayload($tenant, $now);
+
         $currentSeq = (int) (DB::table('tenant_sync_state')
             ->where('tenant_id', $tenantId)->value('last_seq') ?? 0);
 
         if ($since <= 0) {
-            return $this->snapshot($currentSeq);
+            return $this->snapshot($currentSeq) + ['subscription' => $subscription];
         }
 
         $rows = DB::select(
@@ -178,6 +211,7 @@ class SyncService
             'cursor' => $nextCursor,
             'has_more' => count($changes) === $limit,
             'current_seq' => $currentSeq,
+            'subscription' => $subscription,
             'changes' => $changes,
         ];
     }
@@ -204,6 +238,9 @@ class SyncService
                 'order_line' => OrderLine::query()->whereNull('deleted_at')->get()->toArray(),
                 'order_event' => OrderEvent::query()->get()->toArray(),
                 'ledger_entry' => LedgerEntry::query()->get()->toArray(),
+                'coupon_movement' => CouponMovement::query()->get()->toArray(),
+                'coupon_balance' => CouponBalance::query()->get()->toArray(),
+                'cash_handover' => CashHandover::query()->get()->toArray(),
             ],
         ];
     }
@@ -219,6 +256,83 @@ class SyncService
             'entity_id' => null,
             'server_seq' => null,
             'message' => $message,
+        ];
+    }
+
+    /**
+     * Kilit durumu (FAZ 5a). Kilit koşulu: status ∈ {locked, suspended} VEYA valid_until < now.
+     * valid_until NULL → KİLİTLİ DEĞİL (factory/test tenant'ları ve sınırsız durumlar bozulmaz).
+     * Kilitliyse ve locked_at NULL ise LAZY set: locked_at = valid_until (süre dolumu çıpası); valid_until
+     * de yoksa (panel-lock, çıpasız) now — bekleyen sınırı en kötü ihtimalle şimdiye çeker.
+     *
+     * @return array{0: bool, 1: Carbon|null}
+     */
+    private function resolveLock(Tenant $tenant, Carbon $now): array
+    {
+        $expired = $tenant->valid_until !== null && $tenant->valid_until->lessThan($now);
+        $statusLocked = in_array($tenant->status, [TenantStatus::Locked, TenantStatus::Suspended], true);
+
+        if (! $statusLocked && ! $expired) {
+            return [false, null];
+        }
+
+        $lockedAt = $tenant->locked_at;
+        if ($lockedAt === null) {
+            $lockedAt = $tenant->valid_until ?? $now;
+            $tenant->forceFill(['locked_at' => $lockedAt])->save();
+        }
+
+        return [true, $lockedAt];
+    }
+
+    /**
+     * Kilit-sonrası yeni yazım mı? occurred_at > locked_at → EVET (reddedilir). occurred_at <= locked_at
+     * → HAYIR (bekleyen offline yazım, kabul edilir). occurred_at yoksa yeni sayılır (kilitli).
+     *
+     * @param  array<string, mixed>  $event
+     */
+    private function lockedOut(array $event, Carbon $lockedAt): bool
+    {
+        $occurredAt = (string) ($event['occurred_at'] ?? '');
+        if ($occurredAt === '') {
+            return true;
+        }
+
+        return Carbon::parse($occurredAt)->greaterThan($lockedAt);
+    }
+
+    /**
+     * 'locked' sonucu: 'rejected'tan FARKLI (geçici; abonelik yenilenince retry uygulanabilir).
+     * processed_events'e YAZILMAZ, seq'i ilerletmez. Mesaj nötr (PII yok, KVKK).
+     *
+     * @return array{client_event_id: string, status: string, entity_id: null, server_seq: null, message: string}
+     */
+    private function locked(string $clientEventId): array
+    {
+        return [
+            'client_event_id' => $clientEventId,
+            'status' => 'locked',
+            'entity_id' => null,
+            'server_seq' => null,
+            'message' => 'Aboneliğiniz sona erdi. Yeni kayıt kilitli.',
+        ];
+    }
+
+    /**
+     * Abonelik durumu yayını (DECISIONS: tek doğru kaynak sunucu). İstemci önbellekler + ileri-sadece
+     * saatle grace hesaplar. server_time = kilit kararında kullanılan $now (tutarlı kaynak).
+     *
+     * @return array{status: string, valid_until: string|null, locked_at: string|null, modules: array<string, mixed>, server_time: string}
+     */
+    private function subscriptionPayload(Tenant $tenant, Carbon $now): array
+    {
+        return [
+            'status' => $tenant->status->value,
+            'valid_until' => $tenant->valid_until?->utc()->toIso8601String(),
+            'locked_at' => $tenant->locked_at?->utc()->toIso8601String(),
+            // Opsiyonel modül bayrakları (FAZ 5c-2): istemci UI'yı çizerken kullanır (mobil UI sonraki iş).
+            'modules' => $tenant->modules,
+            'server_time' => $now->utc()->toIso8601String(),
         ];
     }
 }

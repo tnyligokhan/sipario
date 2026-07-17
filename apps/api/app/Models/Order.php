@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property string $id
  * @property string $tenant_id
  * @property string|null $customer_id
+ * @property string|null $assigned_user_id
  * @property string $status
  * @property int $total_kurus
  * @property string|null $payment_type
@@ -33,6 +34,7 @@ class Order extends Model
         'id',
         'tenant_id',
         'customer_id',
+        'assigned_user_id',
         'status',
         'total_kurus',
         'payment_type',
