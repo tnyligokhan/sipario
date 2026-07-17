@@ -36,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.file() : super(_openOnDevice());
 
   @override
-  int get schemaVersion => 5; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik önbelleği
+  int get schemaVersion => 6; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -95,6 +95,17 @@ class AppDatabase extends _$AppDatabase {
             if (from >= 2) {
               await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN locked_at_iso TEXT');
               await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN subscription_status TEXT');
+            }
+          }
+          if (from < 6) {
+            // DİLİM 1 oturum: sync_meta'ya login alanları. from<2 yolu tabloyu zaten v6 şemasıyla
+            // oluşturur; ALTER yalnız v2..v5 yükseltmesinde gerekli.
+            if (from >= 2) {
+              await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN auth_token TEXT');
+              await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN user_name TEXT');
+              await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN user_role TEXT');
+              await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN tenant_name TEXT');
+              await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN api_base_url TEXT');
             }
           }
         },

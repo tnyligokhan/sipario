@@ -7027,6 +7027,61 @@ class $SyncMetaTable extends SyncMeta
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _authTokenMeta = const VerificationMeta(
+    'authToken',
+  );
+  @override
+  late final GeneratedColumn<String> authToken = GeneratedColumn<String>(
+    'auth_token',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _userNameMeta = const VerificationMeta(
+    'userName',
+  );
+  @override
+  late final GeneratedColumn<String> userName = GeneratedColumn<String>(
+    'user_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _userRoleMeta = const VerificationMeta(
+    'userRole',
+  );
+  @override
+  late final GeneratedColumn<String> userRole = GeneratedColumn<String>(
+    'user_role',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tenantNameMeta = const VerificationMeta(
+    'tenantName',
+  );
+  @override
+  late final GeneratedColumn<String> tenantName = GeneratedColumn<String>(
+    'tenant_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _apiBaseUrlMeta = const VerificationMeta(
+    'apiBaseUrl',
+  );
+  @override
+  late final GeneratedColumn<String> apiBaseUrl = GeneratedColumn<String>(
+    'api_base_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -7040,6 +7095,11 @@ class $SyncMetaTable extends SyncMeta
     validUntilIso,
     lockedAtIso,
     subscriptionStatus,
+    authToken,
+    userName,
+    userRole,
+    tenantName,
+    apiBaseUrl,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -7140,6 +7200,39 @@ class $SyncMetaTable extends SyncMeta
         ),
       );
     }
+    if (data.containsKey('auth_token')) {
+      context.handle(
+        _authTokenMeta,
+        authToken.isAcceptableOrUnknown(data['auth_token']!, _authTokenMeta),
+      );
+    }
+    if (data.containsKey('user_name')) {
+      context.handle(
+        _userNameMeta,
+        userName.isAcceptableOrUnknown(data['user_name']!, _userNameMeta),
+      );
+    }
+    if (data.containsKey('user_role')) {
+      context.handle(
+        _userRoleMeta,
+        userRole.isAcceptableOrUnknown(data['user_role']!, _userRoleMeta),
+      );
+    }
+    if (data.containsKey('tenant_name')) {
+      context.handle(
+        _tenantNameMeta,
+        tenantName.isAcceptableOrUnknown(data['tenant_name']!, _tenantNameMeta),
+      );
+    }
+    if (data.containsKey('api_base_url')) {
+      context.handle(
+        _apiBaseUrlMeta,
+        apiBaseUrl.isAcceptableOrUnknown(
+          data['api_base_url']!,
+          _apiBaseUrlMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -7193,6 +7286,26 @@ class $SyncMetaTable extends SyncMeta
         DriftSqlType.string,
         data['${effectivePrefix}subscription_status'],
       ),
+      authToken: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}auth_token'],
+      ),
+      userName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_name'],
+      ),
+      userRole: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_role'],
+      ),
+      tenantName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tenant_name'],
+      ),
+      apiBaseUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}api_base_url'],
+      ),
     );
   }
 
@@ -7221,6 +7334,17 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
   final String? validUntilIso;
   final String? lockedAtIso;
   final String? subscriptionStatus;
+
+  /// Oturum (DİLİM 1 — Saha UI). Sanctum bearer token'ı uygulama-özel sandbox'taki bu DB'de durur;
+  /// cihaz bayinindir, DB dosyasına başka uygulama erişemez (Android app-private). Token NULL = çıkış.
+  /// Çıkışta yalnız token silinir — yerel iş verisi KALIR (offline-first; veri kaybettirme yok).
+  final String? authToken;
+  final String? userName;
+  final String? userRole;
+  final String? tenantName;
+
+  /// API taban adresi (varsayılan üretim; geliştirmede login ekranından değiştirilebilir).
+  final String? apiBaseUrl;
   const SyncMetaData({
     required this.id,
     required this.lastPulledSeq,
@@ -7233,6 +7357,11 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     this.validUntilIso,
     this.lockedAtIso,
     this.subscriptionStatus,
+    this.authToken,
+    this.userName,
+    this.userRole,
+    this.tenantName,
+    this.apiBaseUrl,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -7261,6 +7390,21 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     }
     if (!nullToAbsent || subscriptionStatus != null) {
       map['subscription_status'] = Variable<String>(subscriptionStatus);
+    }
+    if (!nullToAbsent || authToken != null) {
+      map['auth_token'] = Variable<String>(authToken);
+    }
+    if (!nullToAbsent || userName != null) {
+      map['user_name'] = Variable<String>(userName);
+    }
+    if (!nullToAbsent || userRole != null) {
+      map['user_role'] = Variable<String>(userRole);
+    }
+    if (!nullToAbsent || tenantName != null) {
+      map['tenant_name'] = Variable<String>(tenantName);
+    }
+    if (!nullToAbsent || apiBaseUrl != null) {
+      map['api_base_url'] = Variable<String>(apiBaseUrl);
     }
     return map;
   }
@@ -7292,6 +7436,21 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       subscriptionStatus: subscriptionStatus == null && nullToAbsent
           ? const Value.absent()
           : Value(subscriptionStatus),
+      authToken: authToken == null && nullToAbsent
+          ? const Value.absent()
+          : Value(authToken),
+      userName: userName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userName),
+      userRole: userRole == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userRole),
+      tenantName: tenantName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tenantName),
+      apiBaseUrl: apiBaseUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(apiBaseUrl),
     );
   }
 
@@ -7316,6 +7475,11 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       subscriptionStatus: serializer.fromJson<String?>(
         json['subscriptionStatus'],
       ),
+      authToken: serializer.fromJson<String?>(json['authToken']),
+      userName: serializer.fromJson<String?>(json['userName']),
+      userRole: serializer.fromJson<String?>(json['userRole']),
+      tenantName: serializer.fromJson<String?>(json['tenantName']),
+      apiBaseUrl: serializer.fromJson<String?>(json['apiBaseUrl']),
     );
   }
   @override
@@ -7333,6 +7497,11 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       'validUntilIso': serializer.toJson<String?>(validUntilIso),
       'lockedAtIso': serializer.toJson<String?>(lockedAtIso),
       'subscriptionStatus': serializer.toJson<String?>(subscriptionStatus),
+      'authToken': serializer.toJson<String?>(authToken),
+      'userName': serializer.toJson<String?>(userName),
+      'userRole': serializer.toJson<String?>(userRole),
+      'tenantName': serializer.toJson<String?>(tenantName),
+      'apiBaseUrl': serializer.toJson<String?>(apiBaseUrl),
     };
   }
 
@@ -7348,6 +7517,11 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     Value<String?> validUntilIso = const Value.absent(),
     Value<String?> lockedAtIso = const Value.absent(),
     Value<String?> subscriptionStatus = const Value.absent(),
+    Value<String?> authToken = const Value.absent(),
+    Value<String?> userName = const Value.absent(),
+    Value<String?> userRole = const Value.absent(),
+    Value<String?> tenantName = const Value.absent(),
+    Value<String?> apiBaseUrl = const Value.absent(),
   }) => SyncMetaData(
     id: id ?? this.id,
     lastPulledSeq: lastPulledSeq ?? this.lastPulledSeq,
@@ -7368,6 +7542,11 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     subscriptionStatus: subscriptionStatus.present
         ? subscriptionStatus.value
         : this.subscriptionStatus,
+    authToken: authToken.present ? authToken.value : this.authToken,
+    userName: userName.present ? userName.value : this.userName,
+    userRole: userRole.present ? userRole.value : this.userRole,
+    tenantName: tenantName.present ? tenantName.value : this.tenantName,
+    apiBaseUrl: apiBaseUrl.present ? apiBaseUrl.value : this.apiBaseUrl,
   );
   SyncMetaData copyWithCompanion(SyncMetaCompanion data) {
     return SyncMetaData(
@@ -7398,6 +7577,15 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       subscriptionStatus: data.subscriptionStatus.present
           ? data.subscriptionStatus.value
           : this.subscriptionStatus,
+      authToken: data.authToken.present ? data.authToken.value : this.authToken,
+      userName: data.userName.present ? data.userName.value : this.userName,
+      userRole: data.userRole.present ? data.userRole.value : this.userRole,
+      tenantName: data.tenantName.present
+          ? data.tenantName.value
+          : this.tenantName,
+      apiBaseUrl: data.apiBaseUrl.present
+          ? data.apiBaseUrl.value
+          : this.apiBaseUrl,
     );
   }
 
@@ -7414,7 +7602,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           ..write('userId: $userId, ')
           ..write('validUntilIso: $validUntilIso, ')
           ..write('lockedAtIso: $lockedAtIso, ')
-          ..write('subscriptionStatus: $subscriptionStatus')
+          ..write('subscriptionStatus: $subscriptionStatus, ')
+          ..write('authToken: $authToken, ')
+          ..write('userName: $userName, ')
+          ..write('userRole: $userRole, ')
+          ..write('tenantName: $tenantName, ')
+          ..write('apiBaseUrl: $apiBaseUrl')
           ..write(')'))
         .toString();
   }
@@ -7432,6 +7625,11 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     validUntilIso,
     lockedAtIso,
     subscriptionStatus,
+    authToken,
+    userName,
+    userRole,
+    tenantName,
+    apiBaseUrl,
   );
   @override
   bool operator ==(Object other) =>
@@ -7447,7 +7645,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           other.userId == this.userId &&
           other.validUntilIso == this.validUntilIso &&
           other.lockedAtIso == this.lockedAtIso &&
-          other.subscriptionStatus == this.subscriptionStatus);
+          other.subscriptionStatus == this.subscriptionStatus &&
+          other.authToken == this.authToken &&
+          other.userName == this.userName &&
+          other.userRole == this.userRole &&
+          other.tenantName == this.tenantName &&
+          other.apiBaseUrl == this.apiBaseUrl);
 }
 
 class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
@@ -7462,6 +7665,11 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
   final Value<String?> validUntilIso;
   final Value<String?> lockedAtIso;
   final Value<String?> subscriptionStatus;
+  final Value<String?> authToken;
+  final Value<String?> userName;
+  final Value<String?> userRole;
+  final Value<String?> tenantName;
+  final Value<String?> apiBaseUrl;
   const SyncMetaCompanion({
     this.id = const Value.absent(),
     this.lastPulledSeq = const Value.absent(),
@@ -7474,6 +7682,11 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.validUntilIso = const Value.absent(),
     this.lockedAtIso = const Value.absent(),
     this.subscriptionStatus = const Value.absent(),
+    this.authToken = const Value.absent(),
+    this.userName = const Value.absent(),
+    this.userRole = const Value.absent(),
+    this.tenantName = const Value.absent(),
+    this.apiBaseUrl = const Value.absent(),
   });
   SyncMetaCompanion.insert({
     this.id = const Value.absent(),
@@ -7487,6 +7700,11 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.validUntilIso = const Value.absent(),
     this.lockedAtIso = const Value.absent(),
     this.subscriptionStatus = const Value.absent(),
+    this.authToken = const Value.absent(),
+    this.userName = const Value.absent(),
+    this.userRole = const Value.absent(),
+    this.tenantName = const Value.absent(),
+    this.apiBaseUrl = const Value.absent(),
   });
   static Insertable<SyncMetaData> custom({
     Expression<int>? id,
@@ -7500,6 +7718,11 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Expression<String>? validUntilIso,
     Expression<String>? lockedAtIso,
     Expression<String>? subscriptionStatus,
+    Expression<String>? authToken,
+    Expression<String>? userName,
+    Expression<String>? userRole,
+    Expression<String>? tenantName,
+    Expression<String>? apiBaseUrl,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -7514,6 +7737,11 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       if (validUntilIso != null) 'valid_until_iso': validUntilIso,
       if (lockedAtIso != null) 'locked_at_iso': lockedAtIso,
       if (subscriptionStatus != null) 'subscription_status': subscriptionStatus,
+      if (authToken != null) 'auth_token': authToken,
+      if (userName != null) 'user_name': userName,
+      if (userRole != null) 'user_role': userRole,
+      if (tenantName != null) 'tenant_name': tenantName,
+      if (apiBaseUrl != null) 'api_base_url': apiBaseUrl,
     });
   }
 
@@ -7529,6 +7757,11 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Value<String?>? validUntilIso,
     Value<String?>? lockedAtIso,
     Value<String?>? subscriptionStatus,
+    Value<String?>? authToken,
+    Value<String?>? userName,
+    Value<String?>? userRole,
+    Value<String?>? tenantName,
+    Value<String?>? apiBaseUrl,
   }) {
     return SyncMetaCompanion(
       id: id ?? this.id,
@@ -7542,6 +7775,11 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       validUntilIso: validUntilIso ?? this.validUntilIso,
       lockedAtIso: lockedAtIso ?? this.lockedAtIso,
       subscriptionStatus: subscriptionStatus ?? this.subscriptionStatus,
+      authToken: authToken ?? this.authToken,
+      userName: userName ?? this.userName,
+      userRole: userRole ?? this.userRole,
+      tenantName: tenantName ?? this.tenantName,
+      apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
     );
   }
 
@@ -7581,6 +7819,21 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     if (subscriptionStatus.present) {
       map['subscription_status'] = Variable<String>(subscriptionStatus.value);
     }
+    if (authToken.present) {
+      map['auth_token'] = Variable<String>(authToken.value);
+    }
+    if (userName.present) {
+      map['user_name'] = Variable<String>(userName.value);
+    }
+    if (userRole.present) {
+      map['user_role'] = Variable<String>(userRole.value);
+    }
+    if (tenantName.present) {
+      map['tenant_name'] = Variable<String>(tenantName.value);
+    }
+    if (apiBaseUrl.present) {
+      map['api_base_url'] = Variable<String>(apiBaseUrl.value);
+    }
     return map;
   }
 
@@ -7597,7 +7850,12 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
           ..write('userId: $userId, ')
           ..write('validUntilIso: $validUntilIso, ')
           ..write('lockedAtIso: $lockedAtIso, ')
-          ..write('subscriptionStatus: $subscriptionStatus')
+          ..write('subscriptionStatus: $subscriptionStatus, ')
+          ..write('authToken: $authToken, ')
+          ..write('userName: $userName, ')
+          ..write('userRole: $userRole, ')
+          ..write('tenantName: $tenantName, ')
+          ..write('apiBaseUrl: $apiBaseUrl')
           ..write(')'))
         .toString();
   }
@@ -11047,6 +11305,11 @@ typedef $$SyncMetaTableCreateCompanionBuilder =
       Value<String?> validUntilIso,
       Value<String?> lockedAtIso,
       Value<String?> subscriptionStatus,
+      Value<String?> authToken,
+      Value<String?> userName,
+      Value<String?> userRole,
+      Value<String?> tenantName,
+      Value<String?> apiBaseUrl,
     });
 typedef $$SyncMetaTableUpdateCompanionBuilder =
     SyncMetaCompanion Function({
@@ -11061,6 +11324,11 @@ typedef $$SyncMetaTableUpdateCompanionBuilder =
       Value<String?> validUntilIso,
       Value<String?> lockedAtIso,
       Value<String?> subscriptionStatus,
+      Value<String?> authToken,
+      Value<String?> userName,
+      Value<String?> userRole,
+      Value<String?> tenantName,
+      Value<String?> apiBaseUrl,
     });
 
 class $$SyncMetaTableFilterComposer
@@ -11124,6 +11392,31 @@ class $$SyncMetaTableFilterComposer
 
   ColumnFilters<String> get subscriptionStatus => $composableBuilder(
     column: $table.subscriptionStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authToken => $composableBuilder(
+    column: $table.authToken,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userName => $composableBuilder(
+    column: $table.userName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userRole => $composableBuilder(
+    column: $table.userRole,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tenantName => $composableBuilder(
+    column: $table.tenantName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get apiBaseUrl => $composableBuilder(
+    column: $table.apiBaseUrl,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -11191,6 +11484,31 @@ class $$SyncMetaTableOrderingComposer
     column: $table.subscriptionStatus,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get authToken => $composableBuilder(
+    column: $table.authToken,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userName => $composableBuilder(
+    column: $table.userName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userRole => $composableBuilder(
+    column: $table.userRole,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tenantName => $composableBuilder(
+    column: $table.tenantName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get apiBaseUrl => $composableBuilder(
+    column: $table.apiBaseUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SyncMetaTableAnnotationComposer
@@ -11250,6 +11568,25 @@ class $$SyncMetaTableAnnotationComposer
     column: $table.subscriptionStatus,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get authToken =>
+      $composableBuilder(column: $table.authToken, builder: (column) => column);
+
+  GeneratedColumn<String> get userName =>
+      $composableBuilder(column: $table.userName, builder: (column) => column);
+
+  GeneratedColumn<String> get userRole =>
+      $composableBuilder(column: $table.userRole, builder: (column) => column);
+
+  GeneratedColumn<String> get tenantName => $composableBuilder(
+    column: $table.tenantName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get apiBaseUrl => $composableBuilder(
+    column: $table.apiBaseUrl,
+    builder: (column) => column,
+  );
 }
 
 class $$SyncMetaTableTableManager
@@ -11294,6 +11631,11 @@ class $$SyncMetaTableTableManager
                 Value<String?> validUntilIso = const Value.absent(),
                 Value<String?> lockedAtIso = const Value.absent(),
                 Value<String?> subscriptionStatus = const Value.absent(),
+                Value<String?> authToken = const Value.absent(),
+                Value<String?> userName = const Value.absent(),
+                Value<String?> userRole = const Value.absent(),
+                Value<String?> tenantName = const Value.absent(),
+                Value<String?> apiBaseUrl = const Value.absent(),
               }) => SyncMetaCompanion(
                 id: id,
                 lastPulledSeq: lastPulledSeq,
@@ -11306,6 +11648,11 @@ class $$SyncMetaTableTableManager
                 validUntilIso: validUntilIso,
                 lockedAtIso: lockedAtIso,
                 subscriptionStatus: subscriptionStatus,
+                authToken: authToken,
+                userName: userName,
+                userRole: userRole,
+                tenantName: tenantName,
+                apiBaseUrl: apiBaseUrl,
               ),
           createCompanionCallback:
               ({
@@ -11320,6 +11667,11 @@ class $$SyncMetaTableTableManager
                 Value<String?> validUntilIso = const Value.absent(),
                 Value<String?> lockedAtIso = const Value.absent(),
                 Value<String?> subscriptionStatus = const Value.absent(),
+                Value<String?> authToken = const Value.absent(),
+                Value<String?> userName = const Value.absent(),
+                Value<String?> userRole = const Value.absent(),
+                Value<String?> tenantName = const Value.absent(),
+                Value<String?> apiBaseUrl = const Value.absent(),
               }) => SyncMetaCompanion.insert(
                 id: id,
                 lastPulledSeq: lastPulledSeq,
@@ -11332,6 +11684,11 @@ class $$SyncMetaTableTableManager
                 validUntilIso: validUntilIso,
                 lockedAtIso: lockedAtIso,
                 subscriptionStatus: subscriptionStatus,
+                authToken: authToken,
+                userName: userName,
+                userRole: userRole,
+                tenantName: tenantName,
+                apiBaseUrl: apiBaseUrl,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

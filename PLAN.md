@@ -10,9 +10,10 @@
 > **Genel proje: ~%68** ⚠️ (2026-07-17 DÜZELTME: eski %79 yalnız sunucu+veri katmanını sayıyordu —
 > **bayinin kullanacağı UI ekranları HİÇBİR fazın ağırlığında yoktu**; kullanıcı "APK alıp test
 > edemez miyiz?" diye sorunca boşluk ortaya çıktı. Ağırlıklar yeniden dağıtıldı, "4b · Saha UI" satırı eklendi.)
-> **Faz 4: ~%92 (mobil BU MAKİNEDE doğrulandı ✅)** · **Faz 5: ~%93** · **Faz 6: ~%22** · **4b UI: ~%10**
-> _(2026-07-17: Flutter bu makineye kuruldu → codegen+analyze+72/72 test+debug APK uçtan uca YEŞİL,
-> partner bağımlılığı bitti · kalan DIŞSAL işler YAPILACAKLAR.md · kalan EN BÜYÜK KOD İŞİ: 4b Saha UI)_
+> **Faz 4: ~%92 (mobil BU MAKİNEDE doğrulandı ✅)** · **Faz 5: ~%93** · **Faz 6: ~%22** · **4b UI: ~%35 (Dilim 1 ✅)**
+> _(2026-07-17: Flutter kuruldu + mobil doğrulama YEŞİL + **UI Dilim 1 BİTTİ: giriş/oturum + ana kabuk +
+> müşteri liste-arama-ekle-detay + abonelik şeridi + senkron servisi; 89/89 test, APK derlendi** ·
+> kalan UI dilimleri: sipariş/teslim → defter/tahsilat/kupon/gün-sonu → kurye · dışsal işler YAPILACAKLAR.md)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
@@ -21,7 +22,7 @@
 | 2 · Offline çekirdek (Drift/outbox/sync) | %13 | ✅ kapandı | 13 |
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %10 | ✅ kapandı | 10 |
 | 4 · Kurye (atama/teslim/kasa devri/+iOS) | %11 | 🔄 ~%92 (API✅ inceleme✅ mobil test✅; iOS açık) | ~10 |
-| **4b · Saha UI (bayi+kurye ekranları)** | **%15** | 🔄 ~%10 (yalnız Faz 0 ekranı + kilit ekranı; giriş/sipariş/defter/kasa UI YOK) | ~1,5 |
+| **4b · Saha UI (bayi+kurye ekranları)** | **%15** | 🔄 ~%35 (Dilim 1 ✅: giriş+kabuk+müşteri; kalan: sipariş/defter/kasa/kurye) | ~5 |
 | 5 · Para (site/iyzico/abonelik/panel) | %17 | 🔄 ~%93 KOD TAM (dışsal: anahtar/hukuk) | ~16 |
 | 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %10 | 🔄 ~%22 (demo hesap ✅ + metin paketi ✅ + hesap-silme ✅; kalan dışsal) | ~2 |
 | 7 · Antalya pilotu (2–3 bayi) | %7 | ⬜ bekliyor (saha/insan) | 0 |
@@ -85,13 +86,17 @@ pano bu eforu hiç saymıyordu. Pano düzeltildi (%79→%68, "4b · Saha UI" %15
   ×0,85; genel %79→%68. Faz 4 mobil testi doğrulandığından ~%85→~%92.
 
 ### SONRAKİ KİŞİ NEREDEN DEVAM ETMELİ
-1. **EN BÜYÜK KOD İŞİ ARTIK NET: 4b — Saha UI.** Repository katmanı hazır (customer/order/ledger/coupon/
-   day_end/cash_handover), sync motoru hazır, native arayan tanıma hazır. Yazılacak: giriş (token→
-   `HttpSyncApi.tokenProvider` bağla), müşteri liste/detay/arama, sipariş giriş/teslim, veresiye/tahsilat,
-   kupon, gün sonu, kurye akışı, sync durum göstergesi. Tek kişilik bayide kurye adımları GÖRÜNMEZ (BRIEF).
-   Artık bu makinede yaz-derle-test-APK döngüsü TAM dönüyor.
-2. PR #11 hâlâ açık (Faz 3+4+5+6 → main), merge insanda.
-3. Dışsal işler `YAPILACAKLAR.md` (madde 2 kapandı; iyzico/avukat/imza-anahtarı/mağaza duruyor).
+1. **4b Saha UI — Dilim 1 BİTTİ (aynı gün):** `lib/auth/` (AuthApi+Session — token sync_meta'da, deviceId
+   kalıcı), `lib/sync/sync_service.dart` (periyodik push+pull, durum akışı), `lib/screens/` (login —
+   mağaza kuralına uygun: kayıt/fiyat YOK; home_shell — 3 sekme + abonelik şeridi + salt-okunur kapısı;
+   customers/ liste-arama-ekle-detay). Drift v6 (+authToken/userName/userRole/tenantName/apiBaseUrl).
+   Test 89/89; testte bulunan GERÇEK hata: '0'lı telefon yazımı aramada eşleşmiyordu → normalize düzeltildi.
+2. **SIRADAKİ KOD İŞİ = Dilim 2: sipariş ekranları** (yeni sipariş: müşteri+ürün satırları; açık sipariş
+   listesi; teslim kapatma — ödeme tipi peşin/veresiye/kupon; OrderRepository.deliver hazır bekliyor).
+   Sonra Dilim 3 (tahsilat/defter/gün-sonu), Dilim 4 (kurye+kasa devri; tek kişilik bayide gizle).
+3. PR #11 hâlâ açık (Faz 3+4+5+6 → main), merge insanda. Dışsal işler `YAPILACAKLAR.md`.
+4. **Kullanıcıya güncel APK verildi mi kontrol et:** `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`
+   (Dilim 1'li). Telefon USB ile gelirse `adb install -r` + gerçek-cihaz doğrulaması (journal_mode/native).
 
 ### BİLİNEN TUZAKLAR (bu vardiya)
 - **Mobil komut sırası (bu makine):** kısa yola cd (`/c/Users/bugra/OneDrive/MASAST~1/...`) güvenli;

@@ -259,6 +259,17 @@ class SyncMeta extends Table {
   TextColumn get lockedAtIso => text().nullable()();
   TextColumn get subscriptionStatus => text().nullable()(); // trial|active|locked|suspended
 
+  /// Oturum (DİLİM 1 — Saha UI). Sanctum bearer token'ı uygulama-özel sandbox'taki bu DB'de durur;
+  /// cihaz bayinindir, DB dosyasına başka uygulama erişemez (Android app-private). Token NULL = çıkış.
+  /// Çıkışta yalnız token silinir — yerel iş verisi KALIR (offline-first; veri kaybettirme yok).
+  TextColumn get authToken => text().nullable()();
+  TextColumn get userName => text().nullable()();
+  TextColumn get userRole => text().nullable()(); // patron|operator|kurye
+  TextColumn get tenantName => text().nullable()();
+
+  /// API taban adresi (varsayılan üretim; geliştirmede login ekranından değiştirilebilir).
+  TextColumn get apiBaseUrl => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
