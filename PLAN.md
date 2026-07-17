@@ -55,14 +55,14 @@
 | 1 | Temel: Laravel API, Postgres+RLS, auth, izolasyon test matrisi | ✅ **KAPANDI** (güvenlik denetimi dahil, 2026-07-13) |
 | 2 | Offline çekirdek: SQLite/Drift, outbox, senkron motoru, müşteri+sipariş | ✅ **ÇEKİRDEK KAPANDI — test + inceleme yeşil** (2026-07-13) |
 | 3 | Defter: veresiye, kasa, ödeme tipleri, kupon, gün sonu | ✅ **KAPANDI — test + inceleme yeşil** (2026-07-14) |
-| 4 | Kurye: atama, teslim kapatma, kasa devri (+iOS başlangıcı) | 🔄 **SÜRÜYOR** (mimari ✅, kod yazılıyor) |
+| 4 | Kurye: atama, teslim kapatma, kasa devri (+iOS başlangıcı) | 🔄 **~%92** (API ✅ inceleme ✅ mobil test ✅ 2026-07-17; iOS/gerçek-cihaz açık) |
 | 5 | Para: site, iyzico, abonelik kilidi, yönetim paneli | 🔄 **KOD TAM** (sunucu ✅ inceleme ✅ güvenlik ✅ 163/163); dışsal: iyzico anahtar/hukuk prose/mobil |
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-17 — Flutter kuruldu, mobil doğrulandı, APK derlendi, UI boşluğu panoya işlendi)
+## Güncel durum (son güncelleme: 2026-07-17 VARDİYA KAPANIŞI — Flutter kuruldu, mobil doğrulandı, UI Dilim 1 bitti, APK'da artık gerçek ekranlar var)
 
-### VARDİYA 2026-07-17/2 (Flutter kurulumu + mobil doğrulama + APK + pano düzeltmesi)
+### VARDİYA 2026-07-17/2 (Flutter kurulumu + mobil doğrulama + pano düzeltmesi + 4b DİLİM 1)
 
 **TETİKLEYİCİ:** Kullanıcı "avukat/ödeme olmadan APK alıp test edemez miyiz?" diye sordu. Cevap iki katmanlı çıktı:
 (1) Evet, mağaza/hukuk/ödeme TEST İÇİN GEREKMİYOR (onlar satış/mağaza koşulu); (2) ama APK alsak içinde
@@ -84,24 +84,51 @@ pano bu eforu hiç saymıyordu. Pano düzeltildi (%79→%68, "4b · Saha UI" %15
   ekleyen emniyet); (c) AGP ASCII-yol reddi → `gradle.properties`'e `android.overridePathCheck=true`.
 - **Pano dürüstleştirildi:** UI eforu hiçbir fazda yoktu; "4b · Saha UI" %15 eklendi, eski ağırlıklar
   ×0,85; genel %79→%68. Faz 4 mobil testi doğrulandığından ~%85→~%92.
+- **4b DİLİM 1 BİTTİ (aynı vardiya, commit `94a2f4a`):** giriş/oturum (`lib/auth/` — token sync_meta'da,
+  deviceId ilk girişte üretilip KALICI, çıkış veri silmez), senkron servisi (`lib/sync/sync_service.dart` —
+  periyodik 2 dk push+pull + durum akışı), ekranlar (`lib/screens/` — login mağaza-kuralı temiz [kayıt/
+  fiyat/₺ YOK, regresyon testli], home_shell 3 sekme + abonelik şeridi + salt-okunur kapısı, müşteri
+  liste/arama/ekle/detay). Drift şema v6 (additif). **Doğrulama: dart analyze 0 · flutter test 89/89 ·
+  APK derlendi.** Testin bulduğu GERÇEK hata: '0532...' yazımı telefon aramasında eşleşmiyordu → normalize
+  düzeltildi. Faz 0 ölçüm ekranı üründe KALDI (Menü → arayan tanıma).
+- **Kullanıcıya Dilim 1'li APK teslim edildi** (`apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`);
+  demo hesap `demo@sipario.com.tr / demo1234` (sunucuda DemoSeeder ile).
+
+### NE YARIM KALDI / AÇIK
+- **4b'nin kalan dilimleri (sıradaki kod işi):** Dilim 2 sipariş ekranları (yeni sipariş, açık liste,
+  teslim kapatma — `OrderRepository.deliver` hazır bekliyor) → Dilim 3 tahsilat/defter/gün-sonu →
+  Dilim 4 kurye+kasa devri (tek kişilik bayide kurye adımları GİZLİ — BRIEF).
+- **Gerçek cihaz doğrulaması yapılmadı:** kullanıcı APK'yı telefonda henüz denemedi (vardiya kapanırken
+  bekliyordu). Telefon gelince: `adb install -r` → giriş → müşteri ekle → o numaradan ara → kart çıkmalı.
+  Aynı seansta **Drift v6 + journal_mode=TRUNCATE'in native salt-okunur açıcıyla uyumu** cihazda sınanmalı
+  (Faz 2'den beri açık risk; şema v6'ya büyüdü, native sözleşme korunuyor ama CİHAZDA görülmedi).
+- **PR #11 merge bekliyor** (Faz 3+4+5+6 → main; bugünkü Dilim 1 commit'leri de PR'a dahil — dal dev).
+  Kullanıcıya "merge düğmesi"nin ne olduğu anlatıldı; hazır olduğunda basacak (veya "merge et" diyecek).
+- **Dışsal işler** `YAPILACAKLAR.md` (madde 2 KAPANDI; iyzico/avukat/imza-anahtarı/mağaza/pilot duruyor).
 
 ### SONRAKİ KİŞİ NEREDEN DEVAM ETMELİ
-1. **4b Saha UI — Dilim 1 BİTTİ (aynı gün):** `lib/auth/` (AuthApi+Session — token sync_meta'da, deviceId
-   kalıcı), `lib/sync/sync_service.dart` (periyodik push+pull, durum akışı), `lib/screens/` (login —
-   mağaza kuralına uygun: kayıt/fiyat YOK; home_shell — 3 sekme + abonelik şeridi + salt-okunur kapısı;
-   customers/ liste-arama-ekle-detay). Drift v6 (+authToken/userName/userRole/tenantName/apiBaseUrl).
-   Test 89/89; testte bulunan GERÇEK hata: '0'lı telefon yazımı aramada eşleşmiyordu → normalize düzeltildi.
-2. **SIRADAKİ KOD İŞİ = Dilim 2: sipariş ekranları** (yeni sipariş: müşteri+ürün satırları; açık sipariş
-   listesi; teslim kapatma — ödeme tipi peşin/veresiye/kupon; OrderRepository.deliver hazır bekliyor).
-   Sonra Dilim 3 (tahsilat/defter/gün-sonu), Dilim 4 (kurye+kasa devri; tek kişilik bayide gizle).
-3. PR #11 hâlâ açık (Faz 3+4+5+6 → main), merge insanda. Dışsal işler `YAPILACAKLAR.md`.
-4. **Kullanıcıya güncel APK verildi mi kontrol et:** `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`
-   (Dilim 1'li). Telefon USB ile gelirse `adb install -r` + gerçek-cihaz doğrulaması (journal_mode/native).
+1. **Sıradaki kod işi = Dilim 2: sipariş ekranları.** Yeni sipariş (müşteri seç + ürün satırları — ürünler
+   sync'le geliyor, `ProductRepository` hazır), açık sipariş listesi, teslim kapatma (ödeme tipi
+   peşin/veresiye/kupon — `OrderRepository.deliver` para+kupon defterini zaten yazıyor). Home_shell'deki
+   `_OrdersPlaceholder`'ın yerine gelecek. Desen Dilim 1'dekiyle aynı: ekran → repository → test → APK.
+2. **Kullanıcı telefonu bağlarsa (öncelik):** `adb install -r apps/mobile/build/.../app-debug.apk` →
+   gerçek cihazda giriş + müşteri + arayan-tanıma + **journal_mode/native uyum** doğrulaması (yukarıda).
+   Giriş için API'nin telefondan erişilebilir olması gerek — aşağıdaki tuzağa bak.
+3. PR #11 merge insanda; dışsal işler `YAPILACAKLAR.md`.
 
-### BİLİNEN TUZAKLAR (bu vardiya)
+### BİLİNEN TUZAKLAR (bu vardiya — sonraki kişi dikkat)
 - **Mobil komut sırası (bu makine):** kısa yola cd (`/c/Users/bugra/OneDrive/MASAST~1/...`) güvenli;
   codegen `--force-jit` ŞART; analiz `dart analyze` (flutter analyze ÇÖKÜYOR, kapı scripti de dart analyze koşar).
-- **`flutter build apk` ilk koşuda uzun** (Gradle+CMake indirir, ~5-8 dk); sonrakiler ~3 dk.
+  Tam sıra hafıza dosyasında ve DECISIONS "Türkçe-yol" satırında.
+- **Drift + widget-test üç dersi (DECISIONS'a işlendi):** akış-zamanlamalı senaryoyu saf async teste indir
+  (`watchCustomers()` bu yüzden ekrandan ayrı); akış-abonelikli db'yi widget-testte `close()` ETME (asılı
+  kalıyor); test sonunda ağacı boşaltıp sahte saati ilerlet (bekleyen SnackBar/animasyon sayaçları).
+- **Takılan `flutter test`'i öldürünce dart süreçleri yetim kalıyor** ve `build/native_assets/.../sqlite3.dll`
+  kilitli kalıp SONRAKİ build'i "cannot access file" ile kırıyor → `Get-Process dart,flutter_tester | Stop-Process -Force`.
+- **Telefonda GERÇEK giriş için API'ye erişim gerek:** sunucu şu an yalnız bu makinede. Telefon aynı
+  Wi-Fi'deyken `php artisan serve --host 0.0.0.0 --port 8000` ile başlat, telefonda login "Gelişmiş" →
+  `http://<PC-yerel-IP>:8000/api/v1`. (Mobil bearer kullanır, CORS tarayıcı işi — engel değil.)
+- **`flutter build apk` ilk koşuda uzun** (Gradle+CMake indirir, ~5-8 dk); sonrakiler saniyeler-dakikalar.
 - **APK debug-imzalı** — telefona yan yükleme OK, Play'e YÜKLENEMEZ (YAPILACAKLAR madde 3: release anahtarı).
 - **`android.overridePathCheck=true` commit'lendi** — ASCII-yollu makinelerde etkisiz, zararsız.
 
