@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
 import '../../repo/customer_repository.dart';
+import '../money.dart';
+import '../orders/order_form_screen.dart';
 import 'customer_form_screen.dart' show normalizePhoneTR;
-import 'customer_list_screen.dart' show formatKurus;
 
 /// Müşteri detayı: bakiye, telefonlar, adresler, not; ad/not düzenleme ve telefon ekleme.
 /// Defter hareket listesi ve tahsilat Dilim 3'te (repository hazır).
@@ -152,6 +153,17 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   ),
                 ),
               ),
+              if (widget.writable) ...[
+                const SizedBox(height: 12),
+                // Telefon çalar → müşteri kartı açılır → buradan sipariş: BRIEF'in "birkaç dokunuş" akışı.
+                FilledButton.icon(
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => OrderFormScreen(db: widget.db, initialCustomerId: c.id),
+                  )),
+                  icon: const Icon(Icons.add_shopping_cart),
+                  label: const Text('Sipariş oluştur'),
+                ),
+              ],
               const SizedBox(height: 16),
               Row(
                 children: [

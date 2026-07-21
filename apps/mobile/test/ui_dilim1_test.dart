@@ -8,6 +8,7 @@ import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/screens/customers/customer_form_screen.dart';
 import 'package:sipario/screens/customers/customer_list_screen.dart';
 import 'package:sipario/screens/login_screen.dart';
+import 'package:sipario/screens/money.dart';
 
 /// Dilim 1 UI testleri: telefon normalizasyonu, para biçimi, giriş doğrulaması, müşteri listesi/arama.
 class _OkAuthApi implements AuthApi {

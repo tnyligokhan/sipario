@@ -8,6 +8,8 @@ import '../phase0/phase0_screen.dart';
 import '../subscription/subscription_state.dart';
 import '../sync/sync_service.dart';
 import 'customers/customer_list_screen.dart';
+import 'orders/order_list_screen.dart';
+import 'products/product_list_screen.dart';
 
 /// Ana kabuk: alt gezinme (Müşteriler | Siparişler | Menü) + abonelik durum şeridi + senkron durumu.
 /// Kurye adımlarının tek kişilik bayide gizlenmesi (BRIEF) ilgili ekranların işidir (Dilim 4).
@@ -72,12 +74,13 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final pages = [
       CustomerListScreen(db: widget.db, writable: writable),
-      const _OrdersPlaceholder(),
+      OrderListScreen(db: widget.db, writable: writable),
       _MenuTab(
         db: widget.db,
         session: widget.session,
         sync: widget.sync,
         lastSync: _lastSync,
+        writable: writable,
         onLoggedOut: widget.onLoggedOut,
       ),
     ];
@@ -138,29 +141,13 @@ class _SubscriptionBanner extends StatelessWidget {
   }
 }
 
-class _OrdersPlaceholder extends StatelessWidget {
-  const _OrdersPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Siparişler')),
-      body: const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('Sipariş ekranları bir sonraki sürümde.', textAlign: TextAlign.center),
-        ),
-      ),
-    );
-  }
-}
-
 class _MenuTab extends StatelessWidget {
   const _MenuTab({
     required this.db,
     required this.session,
     required this.sync,
     required this.lastSync,
+    required this.writable,
     required this.onLoggedOut,
   });
 
@@ -168,6 +155,7 @@ class _MenuTab extends StatelessWidget {
   final Session session;
   final SyncService sync;
   final SyncOutcome? lastSync;
+  final bool writable;
   final VoidCallback onLoggedOut;
 
   @override
@@ -190,6 +178,14 @@ class _MenuTab extends StatelessWidget {
                   ].join(' ')),
                 ),
               const Divider(),
+              ListTile(
+                leading: const Icon(Icons.inventory_2_outlined),
+                title: const Text('Ürünler'),
+                subtitle: const Text('Sipariş satırlarında çıkan ürün listesi'),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => ProductListScreen(db: db, writable: writable),
+                )),
+              ),
               ListTile(
                 leading: const Icon(Icons.sync),
                 title: const Text('Şimdi senkronla'),

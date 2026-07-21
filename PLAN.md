@@ -7,13 +7,14 @@
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
-> **Genel proje: ~%68** ⚠️ (2026-07-17 DÜZELTME: eski %79 yalnız sunucu+veri katmanını sayıyordu —
+> **Genel proje: ~%72** (2026-07-17 DÜZELTME tabanı: eski %79 yalnız sunucu+veri katmanını sayıyordu —
 > **bayinin kullanacağı UI ekranları HİÇBİR fazın ağırlığında yoktu**; kullanıcı "APK alıp test
 > edemez miyiz?" diye sorunca boşluk ortaya çıktı. Ağırlıklar yeniden dağıtıldı, "4b · Saha UI" satırı eklendi.)
-> **Faz 4: ~%92 (mobil BU MAKİNEDE doğrulandı ✅)** · **Faz 5: ~%93** · **Faz 6: ~%22** · **4b UI: ~%35 (Dilim 1 ✅)**
-> _(2026-07-17: Flutter kuruldu + mobil doğrulama YEŞİL + **UI Dilim 1 BİTTİ: giriş/oturum + ana kabuk +
-> müşteri liste-arama-ekle-detay + abonelik şeridi + senkron servisi; 89/89 test, APK derlendi** ·
-> kalan UI dilimleri: sipariş/teslim → defter/tahsilat/kupon/gün-sonu → kurye · dışsal işler YAPILACAKLAR.md)_
+> **Faz 4: ~%92 (mobil doğrulandı ✅)** · **Faz 5: ~%93** · **Faz 6: ~%22** · **4b UI: ~%60 (Dilim 1+2 ✅)**
+> _(2026-07-21: **UI Dilim 2 BİTTİ: sipariş listesi/yeni sipariş/sipariş detayı + teslim kapatma
+> (nakit/kart/havale/veresiye/kupon) + ürün yönetimi; 109/109 test, APK derlendi**. Dilim 1: giriş/oturum,
+> kabuk, müşteri ekranları, abonelik şeridi, senkron servisi ·
+> kalan UI dilimleri: defter/tahsilat/gün-sonu → kurye · dışsal işler YAPILACAKLAR.md)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
@@ -22,11 +23,11 @@
 | 2 · Offline çekirdek (Drift/outbox/sync) | %13 | ✅ kapandı | 13 |
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %10 | ✅ kapandı | 10 |
 | 4 · Kurye (atama/teslim/kasa devri/+iOS) | %11 | 🔄 ~%92 (API✅ inceleme✅ mobil test✅; iOS açık) | ~10 |
-| **4b · Saha UI (bayi+kurye ekranları)** | **%15** | 🔄 ~%35 (Dilim 1 ✅: giriş+kabuk+müşteri; kalan: sipariş/defter/kasa/kurye) | ~5 |
+| **4b · Saha UI (bayi+kurye ekranları)** | **%15** | 🔄 ~%60 (Dilim 1 ✅ giriş+kabuk+müşteri · Dilim 2 ✅ sipariş+teslim+ürün; kalan: defter/kasa/kurye) | ~9 |
 | 5 · Para (site/iyzico/abonelik/panel) | %17 | 🔄 ~%93 KOD TAM (dışsal: anahtar/hukuk) | ~16 |
 | 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %10 | 🔄 ~%22 (demo hesap ✅ + metin paketi ✅ + hesap-silme ✅; kalan dışsal) | ~2 |
 | 7 · Antalya pilotu (2–3 bayi) | %7 | ⬜ bekliyor (saha/insan) | 0 |
-| **Toplam** | **%100** | | **~%68** |
+| **Toplam** | **%100** | | **~%72** |
 
 > Ağırlıklar EFOR tahminidir (fazlar eşit büyüklükte değil); genel yüzde bu ağırlıklara göre hesaplanır.
 > Bir faz kapandığında Katkı = tam Ağırlık olur ve genel yüzde artar. Mevcut faz yüzdesi kaba göstergedir:
@@ -60,7 +61,74 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-17 VARDİYA KAPANIŞI — Flutter kuruldu, mobil doğrulandı, UI Dilim 1 bitti, APK'da artık gerçek ekranlar var)
+## Güncel durum (son güncelleme: 2026-07-21 — 4b Dilim 2 bitti: sipariş girişi + teslim kapatma + ürün yönetimi)
+
+### VARDİYA 2026-07-21 (4b DİLİM 2 — sipariş ekranları; İKİNCİ GELİŞTİRİCİ MAKİNESİ)
+
+**Bu vardiya `C:\Users\GokhanT\Desktop\sipario` makinesinde koştu** (diğer geliştiricininki
+`C:\Users\bugra\OneDrive\Masaüstü\...`). **Önemli fark: bu makinede yol ASCII** — geçen vardiyanın
+"Türkçe-yol tuzakları" (build_runner `--force-jit`, `flutter analyze` LSP çökmesi, AGP ASCII reddi)
+BURADA YAŞANMADI; `flutter analyze`/`dart analyze` ve normal build sorunsuz. Flutter `C:\flutter`'da,
+php Laragon'da PATH'te, Docker/Postgres ayakta DEĞİL (mobil iş için gerekmedi).
+
+### NE BİTTİ (bu vardiya — hepsi bu makinede koşulup doğrulandı)
+- **4b DİLİM 2 BİTTİ — sipariş akışı uçtan uca ekranda:**
+  - `lib/screens/orders/order_list_screen.dart` — Açık/Teslim/Tümü sekmeli liste (`watchOrders()`
+    ekrandan ayrı, müşteri adı LEFT JOIN, en yeni önce), durum ikonu, tutar, salt-okunur FAB kapısı.
+  - `lib/screens/orders/order_form_screen.dart` — yeni sipariş: müşteri seçici (Dilim 1'in son-10
+    telefon arama kuralını AYNEN kullanır), katalogdan ürün ekleme (aynı ürün ikinci kez seçilince
+    adet artar), **serbest satır** (katalogda olmayan tek seferlik iş; ürün kaydı OLUŞTURMAZ),
+    adet ±, canlı toplam, not. **Ödeme tipi BURADA sorulmaz** — teslimde sorulur.
+  - `lib/screens/orders/order_detail_screen.dart` — satırlar/toplam/durum + **teslim kapatma**
+    (`OrderRepository.deliver`) ve iptal. Ödeme tipi alt sayfası: nakit/kart/havale + **müşteri
+    varsa** veresiye/kupon. Kuponda "N adet düşer · kalan M" gösterilir, M<0 kırmızıdır ama
+    **teslim REDDEDİLMEZ** (BRIEF: teslim edilmiş mal gerçektir).
+  - `lib/screens/products/product_list_screen.dart` — Menü → **Ürünler** (ekle/düzenle/pasifle).
+    Gerekçe: taze kurulumda bayinin hiç ürünü yok, sipariş ekranı onsuz kullanılamazdı (ürünler
+    senkronla da gelir ama ilk ürünü birinin girmesi gerek). Silme yok, PASİFLEME var.
+  - `lib/screens/money.dart` — `formatKurus` (customer_list'ten taşındı) + **yeni `parseKurus`**:
+    kullanıcı yazımı ↔ int kuruş sınırı tek yerde. "1.234" TR binlik sayılır; 2 haneden uzun kuruş
+    REDDEDİLİR (sessiz yuvarlama yok — para).
+  - `home_shell` `_OrdersPlaceholder` KALDIRILDI → gerçek sipariş sekmesi; Menü'ye Ürünler eklendi.
+  - Müşteri detayına **"Sipariş oluştur"** düğmesi (telefon çaldı → kart açıldı → sipariş: BRIEF'in
+    "birkaç dokunuş" akışı).
+- **Doğrulama: `dart analyze` 0 sorun · `flutter test` 109/109 (89 → +20) · debug APK derlendi ·
+  `check_permissions_source.sh` temiz (kırmızı çizgi #6 bekçisi).**
+- **Yeni testler (`test/ui_dilim2_test.dart`):** parseKurus (TR yazımları + gidiş-dönüş + red
+  edilenler), toplamKurus, `teslimOdemeTipleri` (müşterisiz siparişte veresiye/kupon SUNULMAZ),
+  saatBicimi, watchProducts (aktif/pasif), watchOrders (3 filtre + join + sıra), **`kuponAdedi`
+  ekranla defteri aynı sayıda tutuyor mu** (ekran 5 diyorsa defter −5 yazmalı; eksi bakiye kabul),
+  OrderList/ProductList salt-okunur kapıları, sipariş ekranında mağaza-kuralı regresyonu.
+
+### NE YARIM KALDI / AÇIK (bu vardiya)
+- **Dilim 3 (sıradaki kod işi): defter/tahsilat/gün-sonu ekranları** — `LedgerRepository`
+  (tahsilat/borç/alacak/düzeltme), `CouponRepository` (kupon satışı), `DayEndRepository` (kasa/borç/
+  kupon salt-okuma) HAZIR bekliyor; müşteri detayında hareket listesi + "Tahsilat al" ve Menü'de
+  "Gün sonu" ekranı gelecek. Sonra Dilim 4 (kurye + kasa devri; tek kişilik bayide GİZLİ).
+- **Sipariş düzenleme (satır ekle/çıkar) ekranda YOK** — `addLine`/`removeLine`/`setNote` repoda var;
+  bilinçli sadelik: açık sipariş yanlışsa iptal edilip yeniden girilir. Saha isterse Dilim 3'e eklenir.
+- **Gerçek cihaz doğrulaması HÂLÂ yapılmadı** (geçen vardiyadan devir): arayan tanıma + Drift v6
+  `journal_mode=TRUNCATE`'in native salt-okunur açıcıyla uyumu CİHAZDA görülmedi.
+- **PR #11 merge insanda** (artık Dilim 2 commit'leri de dahil). Dışsal işler `YAPILACAKLAR.md`.
+
+### SONRAKİ KİŞİ NEREDEN DEVAM ETMELİ
+1. **Sıradaki kod işi = Dilim 3: defter/tahsilat/gün sonu ekranları** (desen aynı: ekran → var olan
+   repository → ekrandan ayrı `watch*()` sorgusu → saf async test + widget ilk-çizim testi → APK).
+2. **Telefon bağlanırsa öncelik:** `adb install -r apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`
+   → giriş → müşteri ekle → ürün ekle → sipariş gir → teslim et → o numaradan ara (kart çıkmalı) →
+   journal_mode/native uyumu. Giriş için API telefondan erişilebilir olmalı (aşağıdaki tuzak).
+3. PR #11 merge insanda; dışsal işler `YAPILACAKLAR.md`.
+
+### BİLİNEN TUZAKLAR (bu vardiya)
+- **İki geliştirici makinesi FARKLI davranıyor:** Türkçe-yol tuzakları yalnız `Masaüstü` yollu
+  makinede geçerli; ASCII yollu makinede `flutter analyze` ve normal `build_runner` çalışır.
+  Komut sırasını makineye göre seç, "geçen vardiyada böyleydi" diye körlemesine uygulama.
+- **`Order` sınıfı Drift'ten gelir** (`Orders` tablosunun satır sınıfı); `drift.dart`'ı material ile
+  birlikte import ederken `hide Column` şart (mevcut desen).
+- **Testte `Expression<bool>` üzerinde `&` kullanmak drift import'u ister** — ya `hide Column, Table`
+  ile import et ya da (tercih) `..where()..where()` zincirle (drift AND'ler).
+- **uuid7 aynı milisaniyede monoton değil** — sıralama testi yazarken kayıtlar arasına birkaç ms
+  bekleme koy, `occurred_at` ayrışsın (id yalnız eşitlik bozucudur).
 
 ### VARDİYA 2026-07-17/2 (Flutter kurulumu + mobil doğrulama + pano düzeltmesi + 4b DİLİM 1)
 

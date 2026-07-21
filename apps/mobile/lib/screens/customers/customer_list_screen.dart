@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../data/app_database.dart';
 import '../../data/outbox.dart' show phoneLast10;
 import '../../repo/customer_repository.dart';
+import '../money.dart';
 import 'customer_detail_screen.dart';
 import 'customer_form_screen.dart';
 
@@ -171,15 +172,4 @@ Stream<List<Customer>> watchCustomers(AppDatabase db, String query) {
         ..where((t) => t.deletedAt.isNull() & t.name.like('%$q%'))
         ..orderBy([(t) => OrderingTerm.asc(t.name)]))
       .watch();
-}
-
-/// Kuruşu "1.234,56 ₺" biçiminde yazar (int kuruş — kayan nokta YOK, kırmızı çizgi/para kararı).
-String formatKurus(int kurus) {
-  final negative = kurus < 0;
-  final abs = kurus.abs();
-  final lira = abs ~/ 100;
-  final kr = abs % 100;
-  final liraStr = lira.toString().replaceAllMapped(
-      RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.');
-  return '${negative ? '−' : ''}$liraStr,${kr.toString().padLeft(2, '0')} ₺';
 }
