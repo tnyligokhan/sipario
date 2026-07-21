@@ -6,9 +6,10 @@ import '../../repo/customer_repository.dart';
 import '../money.dart';
 import '../orders/order_form_screen.dart';
 import 'customer_form_screen.dart' show normalizePhoneTR;
+import 'customer_ledger.dart';
 
-/// Müşteri detayı: bakiye, telefonlar, adresler, not; ad/not düzenleme ve telefon ekleme.
-/// Defter hareket listesi ve tahsilat Dilim 3'te (repository hazır).
+/// Müşteri detayı: bakiye, defter hareketleri + tahsilat/kupon (Dilim 3), telefonlar, adresler, not.
+/// Defter bölümü ayrı dosyada (customer_ledger.dart) — bu dosya 500 satır sınırının altında kalsın.
 class CustomerDetailScreen extends StatefulWidget {
   const CustomerDetailScreen({
     super.key,
@@ -165,6 +166,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 ),
               ],
               const SizedBox(height: 16),
+              // DİLİM 3 — defter: hareket listesi + tahsilat + kupon satışı + düzeltme (repo hazır).
+              CustomerLedgerSection(
+                  db: widget.db, customerId: widget.customerId, writable: widget.writable),
+              const Divider(height: 32),
               Row(
                 children: [
                   Text('Telefonlar', style: Theme.of(context).textTheme.titleMedium),

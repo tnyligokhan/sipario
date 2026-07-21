@@ -8,6 +8,7 @@ import '../phase0/phase0_screen.dart';
 import '../subscription/subscription_state.dart';
 import '../sync/sync_service.dart';
 import 'customers/customer_list_screen.dart';
+import 'day_end_screen.dart';
 import 'orders/order_list_screen.dart';
 import 'products/product_list_screen.dart';
 
@@ -184,6 +185,14 @@ class _MenuTab extends StatelessWidget {
                 subtitle: const Text('Sipariş satırlarında çıkan ürün listesi'),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => ProductListScreen(db: db, writable: writable),
+                )),
+              ),
+              ListTile(
+                leading: const Icon(Icons.point_of_sale_outlined),
+                title: const Text('Gün sonu'),
+                subtitle: const Text('Kasa · veresiye · kupon özeti (salt-okunur)'),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => DayEndScreen(db: db),
                 )),
               ),
               ListTile(
