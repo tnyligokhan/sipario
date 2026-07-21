@@ -5,16 +5,21 @@ import '../../data/app_database.dart';
 import '../../data/outbox.dart' show phoneLast10;
 import '../../repo/customer_repository.dart';
 import '../money.dart';
+import '../team.dart';
 import 'customer_detail_screen.dart';
 import 'customer_form_screen.dart';
 
 /// Müşteri listesi + arama. Arama hem ada hem telefona bakar (telefon girildiyse son-10 hane
 /// normalizasyonuyla — arayan tanımadaki eşleşme kuralının aynısı). Bakiye rozeti: + borç kırmızı.
 class CustomerListScreen extends StatefulWidget {
-  const CustomerListScreen({super.key, required this.db, required this.writable});
+  const CustomerListScreen({super.key, required this.db, required this.writable, this.yetki});
 
   final AppDatabase db;
   final bool writable;
+
+  /// Rol bazlı yetki (K2 — Dilim 4). null → tam yetki (giriş öncesi/test yolu); detayda kupon
+  /// satışı/düzeltme kapıları buradan gelir.
+  final RolYetkileri? yetki;
 
   @override
   State<CustomerListScreen> createState() => _CustomerListScreenState();
@@ -92,7 +97,10 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                 trailing: _BalanceBadge(kurus: c.balanceKurus),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => CustomerDetailScreen(
-                      db: widget.db, customerId: c.id, writable: widget.writable),
+                      db: widget.db,
+                      customerId: c.id,
+                      writable: widget.writable,
+                      yetki: widget.yetki),
                 )),
               );
             },

@@ -307,6 +307,33 @@ void main() {
     });
   });
 
+  group('CustomerLedgerSection mağaza-kuralı (day_end deseniyle simetri)', () {
+    testWidgets('mağaza-kuralı ihlali yok (satın alma/abonelik metni)', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      late String cid;
+      await tester.runAsync(() async {
+        cid = await CustomerRepository(db).create(name: 'Mağaza Kural');
+        await LedgerRepository(db).borcEkle(cid, 4500);
+        await CouponRepository(db)
+            .kuponSat(customerId: cid, qty: 2, priceKurus: 9000, paymentType: 'nakit');
+      });
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: CustomerLedgerSection(db: db, customerId: cid, writable: true)),
+      ));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+      await tester.pump();
+
+      for (final yasak in ['Abone', 'Satın al', 'Üye ol', 'Kaydol', 'Ödeme yap']) {
+        expect(find.textContaining(yasak), findsNothing, reason: '"$yasak" mobilde gösterilemez');
+      }
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+  });
+
   group('ekran-repo tutarlılığı: defterde gösterilen tutar repo\'nun yazdığıyla birebir aynı', () {
     testWidgets('küsuratlı bir borç repo\'da ne yazdıysa ekranda AYNI metinle çıkar', (tester) async {
       // Dilim 2'deki kuponAdedi testiyle aynı ilke: ekran ile repo aynı kaynağı konuşmalı.

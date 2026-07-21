@@ -24,6 +24,7 @@ part 'app_database.g.dart';
     CouponMovements,
     CouponBalances,
     CashHandovers,
+    Users,
     Outbox,
     SyncMeta,
   ],
@@ -36,7 +37,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.file() : super(_openOnDevice());
 
   @override
-  int get schemaVersion => 6; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum
+  int get schemaVersion => 7; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users)
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -107,6 +108,11 @@ class AppDatabase extends _$AppDatabase {
               await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN tenant_name TEXT');
               await m.database.customStatement('ALTER TABLE sync_meta ADD COLUMN api_base_url TEXT');
             }
+          }
+          if (from < 7) {
+            // DİLİM 4 ekip: yeni `users` aynası (team bloğu önbelleği). ADDİTİF — native sözleşme +
+            // mevcut veri korunur. from<2 yolu tabloyu zaten v7 şemasıyla oluşturur.
+            await m.createTable(users);
           }
         },
         beforeOpen: (details) async {

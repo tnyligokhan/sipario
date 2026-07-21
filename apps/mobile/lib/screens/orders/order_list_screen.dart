@@ -3,16 +3,28 @@ import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
 import '../money.dart';
+import '../team.dart';
 import 'order_detail_screen.dart';
 import 'order_form_screen.dart';
 
 /// Sipariş sekmesi: açık siparişler önce gelir (bayinin gün içinde baktığı liste budur),
 /// sekmelerle teslim edilenlere ve tümüne geçilir. Yeni sipariş sağ alttan.
+/// Kurye girişinde ek "Benim" sekmesi (yalnız bana atanmış açık siparişler).
 class OrderListScreen extends StatefulWidget {
-  const OrderListScreen({super.key, required this.db, required this.writable});
+  const OrderListScreen({
+    super.key,
+    required this.db,
+    required this.writable,
+    this.userRole,
+    this.userId,
+    this.canAssign = false,
+  });
 
   final AppDatabase db;
   final bool writable;
+  final String? userRole; // patron|operator|kurye
+  final String? userId; // "Benim" filtresinin atama hedefi
+  final bool canAssign; // sipariş detayında "Kuryeye ata" görünürlüğü (K2: yönetici + kurye var)
 
   @override
   State<OrderListScreen> createState() => _OrderListScreenState();
@@ -21,8 +33,18 @@ class OrderListScreen extends StatefulWidget {
 class _OrderListScreenState extends State<OrderListScreen> {
   OrderFilter _filter = OrderFilter.acik;
 
+  bool get _kurye => widget.userRole == 'kurye';
+
   @override
   Widget build(BuildContext context) {
+    // "Benim" yalnız kuryede — atama kullanmayan bayide boş bir sekme karşılamasın.
+    final segments = <ButtonSegment<OrderFilter>>[
+      if (_kurye) const ButtonSegment(value: OrderFilter.benim, label: Text('Benim')),
+      const ButtonSegment(value: OrderFilter.acik, label: Text('Açık')),
+      const ButtonSegment(value: OrderFilter.teslim, label: Text('Teslim')),
+      const ButtonSegment(value: OrderFilter.tumu, label: Text('Tümü')),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Siparişler'),
@@ -31,54 +53,66 @@ class _OrderListScreenState extends State<OrderListScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: SegmentedButton<OrderFilter>(
-              segments: const [
-                ButtonSegment(value: OrderFilter.acik, label: Text('Açık')),
-                ButtonSegment(value: OrderFilter.teslim, label: Text('Teslim')),
-                ButtonSegment(value: OrderFilter.tumu, label: Text('Tümü')),
-              ],
+              segments: segments,
               selected: {_filter},
               onSelectionChanged: (s) => setState(() => _filter = s.first),
             ),
           ),
         ),
       ),
-      body: StreamBuilder<List<OrderListItem>>(
-        stream: watchOrders(widget.db, _filter),
-        builder: (context, snap) {
-          final orders = snap.data;
-          if (orders == null) return const Center(child: CircularProgressIndicator());
-          if (orders.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  _filter == OrderFilter.acik
-                      ? 'Açık sipariş yok.\nTelefon çalınca sağ alttan sipariş girin.'
-                      : 'Kayıt yok.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-          return ListView.separated(
-            itemCount: orders.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, i) {
-              final item = orders[i];
-              return ListTile(
-                leading: _StatusIcon(status: item.order.status),
-                title: Text(item.customerName ?? 'Müşterisiz sipariş'),
-                subtitle: Text([
-                  saatBicimi(item.order.occurredAt),
-                  if (item.order.paymentType != null) odemeTipiEtiketi(item.order.paymentType!),
-                  if (item.order.note != null && item.order.note!.isNotEmpty) item.order.note!,
-                ].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis),
-                trailing: Text(formatKurus(item.order.totalKurus),
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => OrderDetailScreen(
-                      db: widget.db, orderId: item.order.id, writable: widget.writable),
-                )),
+      body: StreamBuilder<List<User>>(
+        stream: watchTeam(widget.db),
+        builder: (context, teamSnap) {
+          final team = teamSnap.data ?? const <User>[];
+          return StreamBuilder<List<OrderListItem>>(
+            stream: watchOrders(widget.db, _filter, assignedTo: widget.userId),
+            builder: (context, snap) {
+              final orders = snap.data;
+              if (orders == null) return const Center(child: CircularProgressIndicator());
+              if (orders.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      switch (_filter) {
+                        OrderFilter.acik => 'Açık sipariş yok.\nTelefon çalınca sağ alttan sipariş girin.',
+                        OrderFilter.benim => 'Size atanmış açık sipariş yok.',
+                        _ => 'Kayıt yok.',
+                      },
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                );
+              }
+              return ListView.separated(
+                itemCount: orders.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, i) {
+                  final item = orders[i];
+                  final kurye = item.order.assignedUserId == null
+                      ? null
+                      : (kullaniciAdi(team, item.order.assignedUserId) ?? 'Kurye');
+                  return ListTile(
+                    leading: _StatusIcon(status: item.order.status),
+                    title: Text(item.customerName ?? 'Müşterisiz sipariş'),
+                    subtitle: Text([
+                      saatBicimi(item.order.occurredAt),
+                      if (item.order.paymentType != null) odemeTipiEtiketi(item.order.paymentType!),
+                      if (kurye != null) '→ $kurye',
+                      if (item.order.note != null && item.order.note!.isNotEmpty) item.order.note!,
+                    ].join(' · '), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    trailing: Text(formatKurus(item.order.totalKurus),
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => OrderDetailScreen(
+                        db: widget.db,
+                        orderId: item.order.id,
+                        writable: widget.writable,
+                        canAssign: widget.canAssign,
+                      ),
+                    )),
+                  );
+                },
               );
             },
           );
@@ -112,7 +146,7 @@ class _StatusIcon extends StatelessWidget {
   }
 }
 
-enum OrderFilter { acik, teslim, tumu }
+enum OrderFilter { benim, acik, teslim, tumu }
 
 class OrderListItem {
   OrderListItem({required this.order, this.customerName});
@@ -122,12 +156,17 @@ class OrderListItem {
 
 /// Sipariş listesi sorgusu — müşteri adıyla birlikte, en yeni önce. Ekrandan bağımsız fonksiyon:
 /// sorgu mantığı saf async testle sınanır (widget-test sahte zamanı drift akışlarında güvenilmez).
-Stream<List<OrderListItem>> watchOrders(AppDatabase db, OrderFilter filter) {
+Stream<List<OrderListItem>> watchOrders(AppDatabase db, OrderFilter filter, {String? assignedTo}) {
   final q = db.select(db.orders).join([
     leftOuterJoin(db.customers, db.customers.id.equalsExp(db.orders.customerId)),
   ]);
   q.where(db.orders.deletedAt.isNull());
   switch (filter) {
+    case OrderFilter.benim:
+      // Yalnız bana atanmış AÇIK siparişler (kurye günlük iş listesi). assignedTo null gelirse
+      // hiçbir gerçek uuid ile eşleşmeyen sentinel → boş liste (kimseye atanmamış gösterilmez).
+      q.where(db.orders.status.equals('open'));
+      q.where(db.orders.assignedUserId.equals(assignedTo ?? '__none__'));
     case OrderFilter.acik:
       q.where(db.orders.status.equals('open'));
     case OrderFilter.teslim:

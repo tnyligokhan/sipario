@@ -43,7 +43,7 @@ class SyncService
 
     /**
      * @param  list<array<string, mixed>>  $events
-     * @return array{results: list<array<string, mixed>>, current_seq: int, subscription: array<string, mixed>}
+     * @return array{results: list<array<string, mixed>>, current_seq: int, subscription: array<string, mixed>, team: list<array<string, mixed>>}
      */
     public function push(User $user, array $events): array
     {
@@ -117,6 +117,7 @@ class SyncService
                 'results' => $results,
                 'current_seq' => $lastSeq,
                 'subscription' => $this->subscriptionPayload($tenant, $now),
+                'team' => $this->teamPayload(),
             ];
         });
     }
@@ -171,7 +172,7 @@ class SyncService
     }
 
     /**
-     * @return array{mode: string, cursor: int, has_more: bool, current_seq: int, subscription: array<string, mixed>, changes?: list<array<string, mixed>>, entities?: array<string, mixed>}
+     * @return array{mode: string, cursor: int, has_more: bool, current_seq: int, subscription: array<string, mixed>, team: list<array<string, mixed>>, changes?: list<array<string, mixed>>, entities?: array<string, mixed>}
      */
     public function pull(User $user, int $since, int $limit): array
     {
@@ -186,7 +187,7 @@ class SyncService
             ->where('tenant_id', $tenantId)->value('last_seq') ?? 0);
 
         if ($since <= 0) {
-            return $this->snapshot($currentSeq) + ['subscription' => $subscription];
+            return $this->snapshot($currentSeq) + ['subscription' => $subscription, 'team' => $this->teamPayload()];
         }
 
         $rows = DB::select(
@@ -212,6 +213,7 @@ class SyncService
             'has_more' => count($changes) === $limit,
             'current_seq' => $currentSeq,
             'subscription' => $subscription,
+            'team' => $this->teamPayload(),
             'changes' => $changes,
         ];
     }
@@ -334,5 +336,33 @@ class SyncService
             'modules' => $tenant->modules,
             'server_time' => $now->utc()->toIso8601String(),
         ];
+    }
+
+    /**
+     * Ekip listesi yayını (K1 — 4b Dilim 4). Bayinin kullanıcıları; mobil `team` bloğuyla iner ve
+     * yerel önbelleğe toptan yazılır (users ASLA istemciden push edilmez → sync_changes'e düşmez;
+     * snapshot/delta yerine her senkronda tazelenen hafif liste). Bu bloğa BİLEREK yalnız atama +
+     * ad-çözümü için gereken alanlar konur.
+     *
+     * PII ASGARİ (kırmızı çizgi #4): SELECT açıkça ['id','name','role','status'] — email/parola/
+     * telefon/last_login_at ASLA seçilmez ($hidden'a güvenmeyiz, kolon listesi garantidir). users
+     * tablosu Faz 1'den beri ENABLE+FORCE RLS → sorgu oturumdaki tenant'a kısıtlı, cross-tenant
+     * sızma DB seviyesinde imkânsız (SyncTeamTest bunu sürekli kanıtlar). disabled kullanıcı da
+     * DÖNER: eski atamalarda adı gösterilmeli; UI atama hedefi olarak yalnız active sunar.
+     *
+     * @return list<array{id: string, name: string, role: string, status: string}>
+     */
+    private function teamPayload(): array
+    {
+        return User::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'role', 'status'])
+            ->map(fn (User $u) => [
+                'id' => (string) $u->id,
+                'name' => (string) $u->name,
+                'role' => $u->role->value,
+                'status' => (string) $u->status,
+            ])
+            ->all();
     }
 }

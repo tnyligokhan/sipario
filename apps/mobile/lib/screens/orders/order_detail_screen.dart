@@ -4,22 +4,28 @@ import 'package:flutter/material.dart';
 import '../../data/app_database.dart';
 import '../../repo/order_repository.dart';
 import '../money.dart';
+import '../team.dart';
 import 'order_list_screen.dart' show odemeTipiEtiketi, saatBicimi;
 
 /// Sipariş detayı + TESLİM KAPATMA. Teslim, ödeme tipini sorar ve `OrderRepository.deliver` ile
 /// parayı/kuponu deftere tek transaction'da düşürür (FAZ 3/4). Teslim internetsiz saniyeler içinde
 /// biter — hiçbir ağ çağrısı beklenmez (BRIEF); kayıt outbox'a düşer, senkron sonra taşır.
+/// Kurye ATAMASI (Dilim 4) yönetici + kurye varken görünür; teslimde atama salt gösterim.
 class OrderDetailScreen extends StatelessWidget {
   const OrderDetailScreen({
     super.key,
     required this.db,
     required this.orderId,
     required this.writable,
+    this.canAssign = false,
   });
 
   final AppDatabase db;
   final String orderId;
   final bool writable;
+
+  /// Sipariş kuryeye atanabilir mi (K2: yönetici VE bayide aktif kurye var). Tek kişilikte false.
+  final bool canAssign;
 
   Stream<Order?> _order() =>
       (db.select(db.orders)..where((t) => t.id.equals(orderId))).watchSingleOrNull();
@@ -58,6 +64,7 @@ class OrderDetailScreen extends StatelessWidget {
                 children: [
                   _DurumSeridi(order: order),
                   const SizedBox(height: 8),
+                  _AtamaBolumu(db: db, order: order, canAssign: canAssign, writable: writable),
                   if (order.customerId != null)
                     FutureBuilder<Customer?>(
                       future: (db.select(db.customers)
@@ -183,6 +190,91 @@ class _DurumSeridi extends StatelessWidget {
         Text(saatBicimi(order.occurredAt), style: Theme.of(context).textTheme.bodySmall),
       ],
     );
+  }
+}
+
+/// Kurye atama bölümü (Dilim 4). Atanmışsa `Kurye: ad` gösterir; yönetici + aktif kurye varken
+/// (canAssign) açık siparişte "Kuryeye ata" / "Geri al" sunar. Tek kişilik bayide (canAssign=false,
+/// atama da yok) HİÇ render edilmez — kurye adımları görünmez (BRIEF).
+class _AtamaBolumu extends StatelessWidget {
+  const _AtamaBolumu({
+    required this.db,
+    required this.order,
+    required this.canAssign,
+    required this.writable,
+  });
+
+  final AppDatabase db;
+  final Order order;
+  final bool canAssign;
+  final bool writable;
+
+  @override
+  Widget build(BuildContext context) {
+    final open = order.status == 'open';
+    final atanmis = order.assignedUserId != null;
+    final duzenlenebilir = canAssign && open && writable;
+    // Atama kullanılmıyorsa (atanmamış + düzenlenemez) bölümü hiç gösterme.
+    if (!atanmis && !duzenlenebilir) return const SizedBox.shrink();
+
+    return StreamBuilder<List<User>>(
+      stream: watchTeam(db),
+      builder: (context, snap) {
+        final team = snap.data ?? const <User>[];
+        final ad = atanmis ? (kullaniciAdi(team, order.assignedUserId) ?? 'Kurye') : null;
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Row(
+              children: [
+                const Icon(Icons.delivery_dining_outlined, size: 20),
+                const SizedBox(width: 8),
+                Expanded(child: Text(atanmis ? 'Kurye: $ad' : 'Kuryeye atanmadı')),
+                if (duzenlenebilir)
+                  atanmis
+                      ? TextButton(
+                          onPressed: () => OrderRepository(db).unassign(order.id),
+                          child: const Text('Geri al'))
+                      : TextButton(
+                          onPressed: () => _atamaSecici(context),
+                          child: const Text('Kuryeye ata')),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _atamaSecici(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final kuryeler = await watchAktifKuryeler(db).first;
+    if (!context.mounted) return;
+    if (kuryeler.isEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('Atanacak aktif kurye yok.')));
+      return;
+    }
+    final secili = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(title: Text('Kuryeye ata')),
+            const Divider(height: 1),
+            for (final k in kuryeler)
+              ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text(k.name),
+                onTap: () => Navigator.of(ctx).pop(k.id),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (secili == null) return;
+    await OrderRepository(db).assign(order.id, secili);
   }
 }
 

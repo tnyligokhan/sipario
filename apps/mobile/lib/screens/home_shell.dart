@@ -7,13 +7,18 @@ import '../data/app_database.dart';
 import '../phase0/phase0_screen.dart';
 import '../subscription/subscription_state.dart';
 import '../sync/sync_service.dart';
+import 'cash_handover_screen.dart';
 import 'customers/customer_list_screen.dart';
 import 'day_end_screen.dart';
 import 'orders/order_list_screen.dart';
 import 'products/product_list_screen.dart';
+import 'team.dart';
 
 /// Ana kabuk: alt gezinme (Müşteriler | Siparişler | Menü) + abonelik durum şeridi + senkron durumu.
-/// Kurye adımlarının tek kişilik bayide gizlenmesi (BRIEF) ilgili ekranların işidir (Dilim 4).
+/// Rol bazlı görünüm (Dilim 4, K2): oturumdaki kullanıcının rolü + bayide aktif kurye olup olmadığı
+/// `yetkiler()`e verilir; ürün/gün-sonu/kupon/düzeltme/atama/kasa-devri kapıları buradan türer.
+/// **Tek kişilik bayide kurye adımları HİÇ render edilmez** (BRIEF — pazarlıksız): aktif kurye yoksa
+/// atama ve (yönetici için) kasa devri girişi görünmez.
 class HomeShell extends StatefulWidget {
   const HomeShell({
     super.key,
@@ -35,27 +40,38 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   AccessLevel _access = AccessLevel.full;
+  String? _userRole;
+  String? _userId;
+  List<User> _kuryeler = const [];
   StreamSubscription<SyncOutcome>? _syncSub;
+  StreamSubscription<List<User>>? _kuryeSub;
   SyncOutcome? _lastSync;
 
   @override
   void initState() {
     super.initState();
-    _refreshAccess();
+    _refreshMeta();
+    // Aktif kurye varlığı "tek kişilik bayi" kararının dayanağıdır (K2 kuryeVar). Ekip listesi
+    // senkronla (team bloğu) değiştikçe kapılar canlı güncellenir.
+    _kuryeSub = watchAktifKuryeler(widget.db).listen((k) {
+      if (!mounted) return;
+      setState(() => _kuryeler = k);
+    });
     _syncSub = widget.sync.status.listen((o) {
       if (!mounted) return;
       setState(() => _lastSync = o);
-      _refreshAccess(); // sunucu yanıtı abonelik önbelleğini tazelemiş olabilir
+      _refreshMeta(); // sunucu yanıtı abonelik önbelleğini + oturum bilgisini tazelemiş olabilir
     });
   }
 
   @override
   void dispose() {
     _syncSub?.cancel();
+    _kuryeSub?.cancel();
     super.dispose();
   }
 
-  Future<void> _refreshAccess() async {
+  Future<void> _refreshMeta() async {
     final meta = await widget.db.syncState();
     final now = SubscriptionState.estimateServerNow(
       serverTimeOffsetMs: meta.serverTimeOffsetMs,
@@ -66,22 +82,43 @@ class _HomeShellState extends State<HomeShell> {
       validUntil: meta.validUntilIso != null ? DateTime.tryParse(meta.validUntilIso!) : null,
       status: meta.subscriptionStatus,
     );
-    if (mounted && level != _access) setState(() => _access = level);
+    if (!mounted) return;
+    if (level != _access || meta.userRole != _userRole || meta.userId != _userId) {
+      setState(() {
+        _access = level;
+        _userRole = meta.userRole;
+        _userId = meta.userId;
+      });
+    }
   }
 
   bool get writable => SubscriptionState.writable(_access);
 
+  /// Rol + kurye varlığından türeyen görünüm yetkileri (K2). Kurye yoksa yönetici için atama/kasa
+  /// devri kapalıdır (tek kişilik gizleme).
+  RolYetkileri get _yetki => yetkiler(rol: _userRole, kuryeVar: _kuryeler.isNotEmpty);
+
   @override
   Widget build(BuildContext context) {
+    final yetki = _yetki;
     final pages = [
-      CustomerListScreen(db: widget.db, writable: writable),
-      OrderListScreen(db: widget.db, writable: writable),
+      CustomerListScreen(db: widget.db, writable: writable, yetki: yetki),
+      OrderListScreen(
+        db: widget.db,
+        writable: writable,
+        userRole: _userRole,
+        userId: _userId,
+        canAssign: yetki.atama,
+      ),
       _MenuTab(
         db: widget.db,
         session: widget.session,
         sync: widget.sync,
         lastSync: _lastSync,
         writable: writable,
+        yetki: yetki,
+        userId: _userId,
+        userRole: _userRole,
         onLoggedOut: widget.onLoggedOut,
       ),
     ];
@@ -149,6 +186,9 @@ class _MenuTab extends StatelessWidget {
     required this.sync,
     required this.lastSync,
     required this.writable,
+    required this.yetki,
+    required this.userId,
+    required this.userRole,
     required this.onLoggedOut,
   });
 
@@ -157,6 +197,9 @@ class _MenuTab extends StatelessWidget {
   final SyncService sync;
   final SyncOutcome? lastSync;
   final bool writable;
+  final RolYetkileri yetki;
+  final String? userId;
+  final String? userRole;
   final VoidCallback onLoggedOut;
 
   @override
@@ -179,22 +222,42 @@ class _MenuTab extends StatelessWidget {
                   ].join(' ')),
                 ),
               const Divider(),
-              ListTile(
-                leading: const Icon(Icons.inventory_2_outlined),
-                title: const Text('Ürünler'),
-                subtitle: const Text('Sipariş satırlarında çıkan ürün listesi'),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => ProductListScreen(db: db, writable: writable),
-                )),
-              ),
-              ListTile(
-                leading: const Icon(Icons.point_of_sale_outlined),
-                title: const Text('Gün sonu'),
-                subtitle: const Text('Kasa · veresiye · kupon özeti (salt-okunur)'),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => DayEndScreen(db: db),
-                )),
-              ),
+              // Ürün yönetimi yönetici işidir (K2) — kuryede gizli.
+              if (yetki.urunYonetimi)
+                ListTile(
+                  leading: const Icon(Icons.inventory_2_outlined),
+                  title: const Text('Ürünler'),
+                  subtitle: const Text('Sipariş satırlarında çıkan ürün listesi'),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => ProductListScreen(db: db, writable: writable),
+                  )),
+                ),
+              // Gün sonu özeti yönetici işidir (K2) — kuryede gizli.
+              if (yetki.gunSonu)
+                ListTile(
+                  leading: const Icon(Icons.point_of_sale_outlined),
+                  title: const Text('Gün sonu'),
+                  subtitle: const Text('Kasa · veresiye · kupon özeti (salt-okunur)'),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => DayEndScreen(db: db),
+                  )),
+                ),
+              // Kasa devri: kurye HER ZAMAN (kendi devri), yönetici yalnız aktif kurye varken (K2).
+              // Tek kişilik bayide bu giriş HİÇ görünmez (BRIEF). userId yoksa devir yapılamaz.
+              if (yetki.kasaDevri && userId != null)
+                ListTile(
+                  leading: const Icon(Icons.account_balance_wallet_outlined),
+                  title: const Text('Kasa devri'),
+                  subtitle: const Text('Gün sonu nakit devri (kurye → patron)'),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => CashHandoverScreen(
+                      db: db,
+                      userId: userId!,
+                      userRole: userRole,
+                      writable: writable,
+                    ),
+                  )),
+                ),
               ListTile(
                 leading: const Icon(Icons.sync),
                 title: const Text('Şimdi senkronla'),

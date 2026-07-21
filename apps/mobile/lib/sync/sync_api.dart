@@ -44,12 +44,19 @@ class SubscriptionInfo {
       );
 }
 
+/// Ekip listesi (FAZ 4b Dilim 4). NULLABLE: eski sunucu `team` göndermezse null → istemci yerel
+/// önbelleği KORUR (silmez). Anahtar List DEĞİLSE null (savunmacı). Eleman: {id,name,role,status}.
+List<Map<String, dynamic>>? _parseTeam(dynamic v) =>
+    v is List ? v.map((e) => (e as Map).cast<String, dynamic>()).toList() : null;
+
 class PushResponse {
-  PushResponse({required this.results, required this.currentSeq, this.serverTime, this.subscription});
+  PushResponse(
+      {required this.results, required this.currentSeq, this.serverTime, this.subscription, this.team});
   final List<EventResult> results;
   final int currentSeq;
   final String? serverTime;
   final SubscriptionInfo? subscription;
+  final List<Map<String, dynamic>>? team;
 
   factory PushResponse.fromJson(Map<String, dynamic> j) => PushResponse(
         results: ((j['results'] as List?) ?? [])
@@ -60,6 +67,7 @@ class PushResponse {
         subscription: j['subscription'] is Map
             ? SubscriptionInfo.fromJson((j['subscription'] as Map).cast<String, dynamic>())
             : null,
+        team: _parseTeam(j['team']),
       );
 }
 
@@ -71,6 +79,7 @@ class PullResponse {
     required this.currentSeq,
     this.serverTime,
     this.subscription,
+    this.team,
     this.changes = const [],
     this.entities = const {},
   });
@@ -80,6 +89,7 @@ class PullResponse {
   final int currentSeq;
   final String? serverTime;
   final SubscriptionInfo? subscription;
+  final List<Map<String, dynamic>>? team;
   final List<Map<String, dynamic>> changes; // delta
   final Map<String, List<Map<String, dynamic>>> entities; // snapshot
 
@@ -94,6 +104,7 @@ class PullResponse {
       subscription: j['subscription'] is Map
           ? SubscriptionInfo.fromJson((j['subscription'] as Map).cast<String, dynamic>())
           : null,
+      team: _parseTeam(j['team']),
       changes: ((j['changes'] as List?) ?? [])
           .map((e) => (e as Map).cast<String, dynamic>())
           .toList(),

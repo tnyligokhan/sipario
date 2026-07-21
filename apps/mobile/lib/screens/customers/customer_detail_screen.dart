@@ -5,6 +5,7 @@ import '../../data/app_database.dart';
 import '../../repo/customer_repository.dart';
 import '../money.dart';
 import '../orders/order_form_screen.dart';
+import '../team.dart';
 import 'customer_form_screen.dart' show normalizePhoneTR;
 import 'customer_ledger.dart';
 
@@ -16,11 +17,16 @@ class CustomerDetailScreen extends StatefulWidget {
     required this.db,
     required this.customerId,
     required this.writable,
+    this.yetki,
   });
 
   final AppDatabase db;
   final String customerId;
   final bool writable;
+
+  /// Rol bazlı yetki (K2 — Dilim 4). null → tam yetki. Kupon satışı ve defter düzeltme yönetici
+  /// işidir; kurye tahsilat alır ama kupon satamaz/düzeltemez.
+  final RolYetkileri? yetki;
 
   @override
   State<CustomerDetailScreen> createState() => _CustomerDetailScreenState();
@@ -167,8 +173,14 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               ],
               const SizedBox(height: 16),
               // DİLİM 3 — defter: hareket listesi + tahsilat + kupon satışı + düzeltme (repo hazır).
+              // Kupon satışı/düzeltme yönetici işidir (K2); tahsilat herkeste (kurye dahil).
               CustomerLedgerSection(
-                  db: widget.db, customerId: widget.customerId, writable: widget.writable),
+                db: widget.db,
+                customerId: widget.customerId,
+                writable: widget.writable,
+                canKuponSat: widget.yetki?.kuponSatisi ?? true,
+                canDuzelt: widget.yetki?.defterDuzeltme ?? true,
+              ),
               const Divider(height: 32),
               Row(
                 children: [

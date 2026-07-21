@@ -7,14 +7,14 @@
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
-> **Genel proje: ~%76** (2026-07-17 DÜZELTME tabanı: eski %79 yalnız sunucu+veri katmanını sayıyordu —
-> **bayinin kullanacağı UI ekranları HİÇBİR fazın ağırlığında yoktu**; ağırlıklar yeniden dağıtıldı,
-> "4b · Saha UI" satırı eklendi.)
-> **Faz 4: ~%92 (mobil doğrulandı ✅)** · **Faz 5: ~%93** · **Faz 6: ~%22** · **4b UI: ~%85 (Dilim 1+2+3 ✅)**
-> _(2026-07-21/2: **UI Dilim 3 BİTTİ (4 ajanlı hat: auditor→coder→tester→reviewer): defter hareket
-> listesi + tahsilat + kupon satışı + ters-kayıt düzeltme + gün-sonu ekranı; 130/130 test, inceleme
-> YEŞİL, APK derlendi**. Aynı gün Dilim 2 de bitmişti (sipariş/teslim/ürün, 109/109) ·
-> kalan UI dilimi: Dilim 4 kurye+kasa devri · dışsal işler YAPILACAKLAR.md)_
+> **Genel proje: ~%78** (2026-07-17 DÜZELTME tabanı: eski %79 yalnız sunucu+veri katmanını sayıyordu —
+> UI eforu "4b · Saha UI" satırıyla panoya eklendi.)
+> **Faz 4: ~%92** · **Faz 5: ~%93** · **Faz 6: ~%22** · **4b UI: ✅ KAPANDI (Dilim 1+2+3+4)**
+> _(2026-07-21/3: **UI Dilim 4 BİTTİ — 4b TAMAMEN KAPANDI: kurye listesi sunucudan team bloğuyla,
+> Drift v7 users aynası, K2 rol-yetki matrisi, atama UI, kasa devri ekranı, tek-kişilik gizleme;
+> mobil 159/159 · API 174/174 · inceleme YEŞİL · APK derlendi · guzzle güvenlik yükseltmesi (4
+> Dependabot uyarısı kapandı)**. KODLA YAPILABİLİR İŞ BİTTİ — kalan her şey dışsal/insan:
+> YAPILACAKLAR.md + PR #11 merge + gerçek cihaz + pilot.)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
@@ -23,11 +23,11 @@
 | 2 · Offline çekirdek (Drift/outbox/sync) | %13 | ✅ kapandı | 13 |
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %10 | ✅ kapandı | 10 |
 | 4 · Kurye (atama/teslim/kasa devri/+iOS) | %11 | 🔄 ~%92 (API✅ inceleme✅ mobil test✅; iOS açık) | ~10 |
-| **4b · Saha UI (bayi+kurye ekranları)** | **%15** | 🔄 ~%85 (Dilim 1 ✅ giriş+kabuk+müşteri · Dilim 2 ✅ sipariş+teslim+ürün · Dilim 3 ✅ defter+tahsilat+gün-sonu; kalan: Dilim 4 kurye) | ~13 |
+| **4b · Saha UI (bayi+kurye ekranları)** | **%15** | ✅ **KAPANDI** (D1 giriş+kabuk+müşteri · D2 sipariş+teslim+ürün · D3 defter+tahsilat+gün-sonu · D4 kurye+kasa devri) | 15 |
 | 5 · Para (site/iyzico/abonelik/panel) | %17 | 🔄 ~%93 KOD TAM (dışsal: anahtar/hukuk) | ~16 |
 | 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %10 | 🔄 ~%22 (demo hesap ✅ + metin paketi ✅ + hesap-silme ✅; kalan dışsal) | ~2 |
 | 7 · Antalya pilotu (2–3 bayi) | %7 | ⬜ bekliyor (saha/insan) | 0 |
-| **Toplam** | **%100** | | **~%76** |
+| **Toplam** | **%100** | | **~%78** |
 
 > Ağırlıklar EFOR tahminidir (fazlar eşit büyüklükte değil); genel yüzde bu ağırlıklara göre hesaplanır.
 > Bir faz kapandığında Katkı = tam Ağırlık olur ve genel yüzde artar. Mevcut faz yüzdesi kaba göstergedir:
@@ -61,7 +61,59 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-21/2 — 4b Dilim 3 bitti: defter/tahsilat/gün-sonu; 4 ajanlı hat, inceleme YEŞİL)
+## Güncel durum (son güncelleme: 2026-07-21/3 — 4b Dilim 4 bitti, 4b KAPANDI; kodla yapılabilir iş TÜKENDİ)
+
+### VARDİYA 2026-07-21/3 (4b DİLİM 4 — kurye + kasa devri; 4 ajanlı hat, koordinasyon kazalı ama YEŞİL)
+
+**Kullanıcı talebi:** "plandaki kalan görevlerin hepsini ajanlarla bitir." Hat: **architect** (Plan tipi,
+tasarım) → **coder-2** → **tester-2** → **reviewer-2**. Ek görevler: guzzle güvenlik yükseltmesi (4
+Dependabot uyarısı) + customer_ledger mağaza-kuralı simetri testi.
+
+### NE BİTTİ (bu vardiya — üç bağımsız doğrulama: tester-2, reviewer-2, lead)
+- **4b DİLİM 4 BİTTİ → 4b · Saha UI TAMAMEN KAPANDI:**
+  - **Sunucu:** `SyncService::teamPayload` — push/pull yanıtına `team` bloğu (subscription deseni;
+    YALNIZ id/name/role/status — parola/telefon/e-posta ASLA; sipario_app bağlantısı = FORCE RLS →
+    cross-tenant yapısal imkânsız). `SyncTeamTest` 5 test (cross-tenant sızmaz + PII-asgari kanıtı).
+  - **Mobil:** Drift **v7 additif** `users` aynası (senkronda toptan tazelenir; `team=null` → dokunma
+    [eski sunucu uyumu], `[]` → temizle); `lib/screens/team.dart` — `yetkiler()` K2 rol matrisi
+    (kurye: teslim+tahsilat+kendi kasa devri; yönetici işleri patron/operator; **atama ve kasa devri
+    yalnız AKTİF KURYE VARSA** → tek kişilik bayide HİÇ render edilmez — BRIEF pazarlıksız, testli);
+    sipariş listesinde kuryeye "Benim" sekmesi + atanmış kurye chip'i; sipariş detayında atama UI;
+    `cash_handover_screen.dart` (beklenen nakit `CashHandoverRepository.onizle()` — ekran ve kayıt
+    AYNI koddan; sayılan tutar parseKurus; fark KANIT, eksik para kırmızı görünür kalır; düzeltme
+    YENİ devirle); home_shell rol/yetki gating.
+  - **Guzzle 7.14.0 → 7.15.1** (+psr7): 4 Dependabot uyarısının hepsi kapandı, `composer audit` temiz,
+    majör atlama yok, kod değişikliği yok.
+- **Doğrulama:** mobil `dart analyze` 0 · `flutter test` **159/159** (~7 sn; 130 taban + 29) · debug
+  APK derlendi · izin bekçisi temiz; API `phpunit` **174/174 (608 assert)** · pint ✓ · phpstan sv6 0 ·
+  `composer audit` temiz. **İnceleme (reviewer-2): 8 madde dosya:satır kanıtıyla YEŞİL — kırmızı çizgi
+  ihlali YOK; en kritik risk (#1 pull'a team eklenmesi) test+kod düzeyinde kanıtlandı.**
+
+### KODLA YAPILABİLİR İŞ BİTTİ — KALAN HER ŞEY DIŞSAL/İNSAN
+1. **PR #11 merge** (dev→main; Faz 3–6 + 4b'nin tamamı) — düğme insanda.
+2. **Gerçek cihaz doğrulaması** — güncel APK'da artık TAM ürün akışı var: giriş → müşteri → ürün →
+   sipariş → teslim → tahsilat → gün sonu → (kurye varsa) atama + kasa devri → arayan tanıma +
+   journal_mode/native uyumu. `adb install -r apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`.
+3. **YAPILACAKLAR.md** (kanonik dışsal liste): iyzico anahtarı + verify güvenlik testi, hukuk/avukat,
+   mağaza hesapları + release imza anahtarı, Mac/Xcode (iOS), e-arşiv, VERBİS, Antalya pilotu.
+
+### BİLİNEN TUZAKLAR (bu vardiya — YENİ dersler, çoğu AJAN KOORDİNASYONU)
+- **Ajan adı çakışması:** aynı adla ikinci ajan spawn edilince yeni ajan `-2` eki alır ama ESKİ ada
+  giden SendMessage eski (bitmiş) ajanı DİRİLTİR — bu vardiya eski 'coder' yanlış mesajla Dilim 4'ü
+  paralel yazmaya başladı. Ders: her tura TAZE benzersiz adlar ver; yanlış diriltilen ajanı nazik "dur"
+  mesajı TUR ORTASINDA durdurmaz — `TaskStop` (sert sonlandırma) gerekir, sonra ağacın gerçekten
+  donduğunu mtime taramasıyla doğrula.
+- **`Get-Process dart,flutter_tester -ErrorAction Stop` TUZAĞI:** listedeki HERHANGİ bir ad yoksa
+  istisna fırlar ve VAR OLAN süreçler de gizlenir (bu vardiya iki zombi flutter_tester bu yüzden
+  görünmedi, sqlite3.dll kilidi 3 koşum yaktı). Süreçleri AYRI AYRI sorgula.
+- **Kilitli `build/native_assets/.../sqlite3.dll`:** `rm -rf` sessizce başarısız olur (kabuk asılır);
+  önce dll'i tutan süreci bul (`Get-Process | ? { $_.Modules.FileName -eq $yol }`), öldür, sonra sil.
+- **`addTearDown(db.close)` widget testinde YİNE yazıldı** (Dilim 1 dersi tekrar yaşandı — bu kez
+  eski-coder'ın test dosyasında): akış-abonelikli drift db widget-test zonunda kapatılMAZ; shrink
+  sonrası `pump(Duration(seconds: 5))` şart (!timersPending). Test dosyasının başına açıklama kondu.
+- **Ajan sessiz ölebilir:** coder-2 doğrulama aşamasında yanıtsız kaldı (dürtme dahil) — kalan işi
+  lead devraldı. Ders: teslim mesajı gelmeden "bitti" sayma; ağaç + süreç durumundan gerçeği oku.
+
 
 ### VARDİYA 2026-07-21/2 (4b DİLİM 3 — 4 AJANLI HAT: auditor→coder→tester→reviewer)
 

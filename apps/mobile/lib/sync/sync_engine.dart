@@ -40,6 +40,7 @@ class SyncEngine {
     final resp = await api.push(events);
     await _applyServerTime(resp.serverTime);
     await _applySubscription(resp.subscription);
+    await _applyTeam(resp.team);
 
     final byId = {for (final res in resp.results) res.clientEventId: res};
     await db.transaction(() async {
@@ -68,6 +69,7 @@ class SyncEngine {
       final resp = await api.pull(since: meta.lastPulledSeq, limit: limit);
       await _applyServerTime(resp.serverTime);
       await _applySubscription(resp.subscription);
+      await _applyTeam(resp.team);
 
       if (resp.mode == 'snapshot') {
         await _applySnapshot(resp);
@@ -308,6 +310,26 @@ class SyncEngine {
       lockedAtIso: Value(sub.lockedAt),
       subscriptionStatus: Value(sub.status),
     ));
+  }
+
+  /// Ekip listesini yerel `users` aynasına TOPTAN yaz (FAZ 4b Dilim 4 — team bloğu önbelleği).
+  /// team NULL ise (eski sunucu anahtarı hiç göndermedi) tabloya DOKUNMA — yoksa mevcut ekip
+  /// listesi kaybolur ve kurye adımları yanlışlıkla gizlenir (KRİTİK, architect §7). team boş
+  /// liste ([]) ise tablo boşaltılır (bayinin gerçekten kullanıcısı yok/hepsi başka tenant değil).
+  /// LWW/tombstone yok: sunucu tam listeyi her seferinde verir → delete-all + insert-all.
+  Future<void> _applyTeam(List<Map<String, dynamic>>? team) async {
+    if (team == null) return;
+    await db.transaction(() async {
+      await db.delete(db.users).go();
+      for (final u in team) {
+        await db.into(db.users).insert(UsersCompanion.insert(
+              id: _s(u['id']),
+              name: _s(u['name']),
+              role: _s(u['role']),
+              status: _s(u['status']),
+            ));
+      }
+    });
   }
 
   /// server_time'dan saat offset'i türet (DECISIONS: istemci offset tutar).

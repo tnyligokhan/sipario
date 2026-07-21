@@ -56,11 +56,19 @@ class CustomerLedgerSection extends StatelessWidget {
     required this.db,
     required this.customerId,
     required this.writable,
+    this.canKuponSat = true,
+    this.canDuzelt = true,
   });
 
   final AppDatabase db;
   final String customerId;
   final bool writable;
+
+  /// Kupon satışı yönetici işidir (K2 — Dilim 4). false ise düğme gizlenir.
+  final bool canKuponSat;
+
+  /// Defter düzeltme (ters kayıt) yönetici işidir (K2). false ise satır menüsü gizlenir.
+  final bool canDuzelt;
 
   static const _saltOkunur = 'Salt-okunur kip: yeni kayıt eklenemez.';
 
@@ -88,13 +96,14 @@ class CustomerLedgerSection extends StatelessWidget {
                       ),
                 ),
                 const Spacer(),
-                TextButton.icon(
-                  onPressed: writable
-                      ? () => _kuponSat(context)
-                      : () => _snackbar(context, _saltOkunur),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Kupon sat'),
-                ),
+                if (canKuponSat)
+                  TextButton.icon(
+                    onPressed: writable
+                        ? () => _kuponSat(context)
+                        : () => _snackbar(context, _saltOkunur),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Kupon sat'),
+                  ),
               ],
             );
           },
@@ -130,7 +139,11 @@ class CustomerLedgerSection extends StatelessWidget {
               );
             }
             return Column(
-              children: [for (final e in entries) _HareketSatiri(e: e, onDuzelt: writable ? () => _duzelt(context, e) : null)],
+              children: [
+                for (final e in entries)
+                  _HareketSatiri(
+                      e: e, onDuzelt: (writable && canDuzelt) ? () => _duzelt(context, e) : null)
+              ],
             );
           },
         ),

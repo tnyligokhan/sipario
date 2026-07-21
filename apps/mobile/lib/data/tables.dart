@@ -216,6 +216,20 @@ class CashHandovers extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Sunucu `users` aynası (FAZ 4b Dilim 4 — team bloğu). PII ASGARİ: yalnız id/name/role/status;
+/// email/parola/telefon YOK (sunucu da göndermez). LWW/tombstone YOK — bu tablo salt sunucu-kaynaklı
+/// önbellektir (coupon_balances sınıfı): her `team` bloğunda TOPTAN değiştirilir (delete-all + insert).
+/// Kullanıcı istemciden ASLA push edilmez; atama hedefi ve atanan kurye adı çözümü için tutulur.
+class Users extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get role => text()(); // patron|operator|kurye
+  TextColumn get status => text()(); // active|disabled
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Giden kutusu (DECISIONS: yazma yolu outbox üzerinden). Yerel yazma + outbox AYNI transaction'da.
 /// client_event_id tenant-içi tekil idempotency anahtarı; retry her zaman güvenli.
 class Outbox extends Table {

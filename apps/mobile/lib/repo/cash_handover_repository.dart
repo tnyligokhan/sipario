@@ -29,8 +29,9 @@ class CashHandoverRepository {
     final device = meta.deviceId;
     final id = newId();
 
-    final periodStart = await _periodStart(fromUserId);
-    final expected = await _expectedCash(fromUserId, periodStart);
+    final on = await onizle(fromUserId);
+    final periodStart = on.periodStartIso;
+    final expected = on.expectedKurus;
     final diff = countedCashKurus - expected;
 
     await db.transaction(() async {
@@ -67,6 +68,16 @@ class CashHandoverRepository {
     return id;
   }
 
+  /// Devir ÖNİZLEMESİ (FAZ 4b Dilim 4): ekranın gösterdiği "beklenen nakit" ile devret()'in kayda
+  /// yazdığı beklenen AYNI koddan çıksın diye public. Yalnız OKUR (yazma yok). devret() submit anında
+  /// bunu YENİDEN çağırır → "anlık snapshot" tanımı korunur (ekranda gösterilen ile yazılan arasında
+  /// süre geçse de kayıt submit anındaki değeri tutar).
+  Future<HandoverOnizleme> onizle(String fromUserId) async {
+    final periodStart = await _periodStart(fromUserId);
+    final expected = await _expectedCash(fromUserId, periodStart);
+    return HandoverOnizleme(periodStartIso: periodStart, expectedKurus: expected);
+  }
+
   /// fromUserId'nin son devir occurred_at'i (mutabakat sınırı); yoksa bugünün TR gün başı (UTC ISO).
   Future<String> _periodStart(String fromUserId) async {
     final last = await (db.select(db.cashHandovers)
@@ -98,4 +109,12 @@ class CashHandoverRepository {
     final trMidnight = DateTime.utc(tr.year, tr.month, tr.day); // TR 00:00 (saat değeri olarak)
     return trMidnight.subtract(_trOffset).toIso8601String(); // gerçek UTC'ye geri al
   }
+}
+
+/// Devir önizleme değeri (salt-okunur): mutabakat dönemi başı + o dönemde kuryenin topladığı
+/// beklenen nakit. Ekran gösterir, devret() aynı hesabı kayda yazar.
+class HandoverOnizleme {
+  HandoverOnizleme({required this.periodStartIso, required this.expectedKurus});
+  final String periodStartIso;
+  final int expectedKurus;
 }
