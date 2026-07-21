@@ -240,6 +240,257 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
     });
+
+    testWidgets('salt-okunur kipte kupon satışı DA SnackBar ile engellenir', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: CustomerLedgerSection(db: db, customerId: 'yok', writable: false),
+        ),
+      ));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+      await tester.pump();
+
+      await tester.tap(find.text('Kupon sat'));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing, reason: 'salt-okunurda dialog hiç açılmamalı');
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('salt-okunur kipte var olan hareketin "Ters kayıtla düzelt" menüsü GÖRÜNMEZ', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      late String cid;
+      await tester.runAsync(() async {
+        cid = await CustomerRepository(db).create(name: 'Salt Okunur Defter');
+        await LedgerRepository(db).borcEkle(cid, 4500);
+      });
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: CustomerLedgerSection(db: db, customerId: cid, writable: false)),
+      ));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+      await tester.pump();
+
+      expect(find.text('Borç'), findsOneWidget, reason: 'hareket listelenir');
+      expect(find.byType(PopupMenuButton<String>), findsNothing,
+          reason: 'salt-okunurda düzeltme menüsü hiç eklenmemeli (onDuzelt null)');
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('yazılabilir kipte aynı hareketin düzeltme menüsü GÖRÜNÜR (kontrast)', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      late String cid;
+      await tester.runAsync(() async {
+        cid = await CustomerRepository(db).create(name: 'Yazılabilir Defter');
+        await LedgerRepository(db).borcEkle(cid, 4500);
+      });
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: CustomerLedgerSection(db: db, customerId: cid, writable: true)),
+      ));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+      await tester.pump();
+
+      expect(find.byType(PopupMenuButton<String>), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+  });
+
+  group('ekran-repo tutarlılığı: defterde gösterilen tutar repo\'nun yazdığıyla birebir aynı', () {
+    testWidgets('küsuratlı bir borç repo\'da ne yazdıysa ekranda AYNI metinle çıkar', (tester) async {
+      // Dilim 2'deki kuponAdedi testiyle aynı ilke: ekran ile repo aynı kaynağı konuşmalı.
+      // 12345 kuruş bilerek küsuratlı seçildi (yuvarlama/kesme hatası varsa yakalasın).
+      final db = AppDatabase(NativeDatabase.memory());
+      late String cid;
+      await tester.runAsync(() async {
+        cid = await CustomerRepository(db).create(name: 'Küsuratlı');
+        await LedgerRepository(db).borcEkle(cid, 12345);
+      });
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: CustomerLedgerSection(db: db, customerId: cid, writable: false)),
+      ));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+      await tester.pump();
+
+      // Repo'nun yazdığı gerçek satırdan (DB'den okunarak) beklenen metni kur — ekrandaki sabit
+      // bir string'i tahmin etmiyoruz, repo'nun ürettiği değeri imzaliTutarText'e sokup karşılaştırıyoruz.
+      // NOT (Dilim 1 dersi — genişletildi): drift sorgusu watch() akışı OLMASA bile gerçek async'tir;
+      // widget-test sahte zaman diliminde runAsync DIŞINDA await edilirse asılı kalır.
+      late LedgerEntry yazilan;
+      await tester.runAsync(() async {
+        yazilan = await (db.select(db.ledgerEntries)..where((t) => t.customerId.equals(cid))).getSingle();
+      });
+      expect(find.text(imzaliTutarText(yazilan.amountKurus)), findsOneWidget);
+      expect(find.text('+123,45 ₺'), findsOneWidget, reason: 'küsurat kaybolmadan 12345 kuruş göründü');
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('kupon bakiyesi repo\'daki adetle (watchCouponBalance) birebir aynı gösterilir', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      late String cid;
+      await tester.runAsync(() async {
+        cid = await CustomerRepository(db).create(name: 'Kupon Ekran');
+        await CouponRepository(db)
+            .kuponSat(customerId: cid, qty: 7, priceKurus: 63000, paymentType: 'kart');
+      });
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: CustomerLedgerSection(db: db, customerId: cid, writable: false)),
+      ));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+      await tester.pump();
+
+      // watch() akışı da gerçek async'tir — runAsync DIŞINDA .first beklemek asılı kalır (Dilim 1 dersi).
+      late int gercekBakiye;
+      await tester.runAsync(() async {
+        gercekBakiye = await watchCouponBalance(db, cid).first;
+      });
+      expect(gercekBakiye, 7);
+      expect(find.text('$gercekBakiye adet'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+  });
+
+  group('tahsilat: bakiye ve kasa AYNI tutarda birlikte değişir', () {
+    test('borç 8000 → havale tahsilat 3000 → bakiye 5000 düşer VE kasa havale gözü 3000 artar', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final cid = await CustomerRepository(db).create(name: 'Havaleci');
+      final ledger = LedgerRepository(db);
+
+      await ledger.borcEkle(cid, 8000);
+      final kasaOnce = await DayEndRepository(db).kasaOzeti(bugunTr());
+      expect(kasaOnce.havale, 0, reason: 'yalnız borç yazıldı, kasaya henüz para girmedi');
+
+      await ledger.tahsilat(cid, 3000, 'havale');
+
+      expect((await _musteri(db, cid)).balanceKurus, 5000, reason: '8000 borç − 3000 tahsilat');
+      final kasaSonra = await DayEndRepository(db).kasaOzeti(bugunTr());
+      expect(kasaSonra.havale, 3000, reason: 'bakiyeden düşen tutarla kasaya giren tutar AYNI (3000)');
+      expect(kasaSonra.nakit, 0);
+      expect(kasaSonra.kart, 0);
+    });
+  });
+
+  group('düzeltme append-only kanıt: kayıt sayısı artar, orijinal satır hiçbir alanıyla değişmez', () {
+    test('correction eklenince satır SAYISI +1 olur; orijinal satır (tüm alanlarıyla) AYNEN durur', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final cid = await CustomerRepository(db).create(name: 'Kanıt');
+      final ledger = LedgerRepository(db);
+      final payId = await ledger.tahsilat(cid, 7500, 'kart');
+
+      final oncekiSatirlar = await db.select(db.ledgerEntries).get();
+      expect(oncekiSatirlar, hasLength(1));
+      final orijinalOnce = oncekiSatirlar.single;
+
+      await ledger.duzeltme(payId, 7500, customerId: cid);
+
+      final sonrakiSatirlar = await db.select(db.ledgerEntries).get();
+      expect(sonrakiSatirlar, hasLength(2), reason: 'düzeltme YENİ satırdır, mevcut satır yerine geçmez');
+
+      // Orijinal satır UPDATE edilmediyse drift veri sınıfı (tüm alanlar) hâlâ birebir eşit olmalı.
+      final orijinalSonra = sonrakiSatirlar.firstWhere((e) => e.id == payId);
+      expect(orijinalSonra, equals(orijinalOnce),
+          reason: 'append-only: kaynak satırın TEK bir alanı bile değişmemiş olmalı');
+    });
+  });
+
+  group('kupon zinciri: satış artırır, kuponlu teslim düşürür, eksiye düşebilir (watchCouponBalance)', () {
+    test('3 kupon satılır → teslimle 1\'i kullanılır → sonra 3 daha kullanılınca eksiye düşer', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final cid = await CustomerRepository(db).create(name: 'Kupon Zinciri');
+
+      await CouponRepository(db).kuponSat(customerId: cid, qty: 3, priceKurus: 27000, paymentType: 'nakit');
+      expect(await watchCouponBalance(db, cid).first, 3, reason: 'satış ekran fonksiyonunda artış olarak görünür');
+
+      final orders = OrderRepository(db);
+      final o1 = await orders.create(customerId: cid,
+          lines: [LineInput(productName: 'Damacana', unitPriceKurus: 9000, qty: 1)]);
+      await orders.deliver(o1, paymentType: 'kupon');
+      expect(await watchCouponBalance(db, cid).first, 2, reason: 'kuponlu teslim ekran fonksiyonunda düşüş olarak görünür');
+
+      final o2 = await orders.create(customerId: cid,
+          lines: [LineInput(productName: 'Damacana', unitPriceKurus: 9000, qty: 3)]);
+      await orders.deliver(o2, paymentType: 'kupon');
+      expect(await watchCouponBalance(db, cid).first, -1,
+          reason: 'hakkı aşan teslim reddedilmez; ekran fonksiyonu da eksiyi olduğu gibi gösterir');
+    });
+  });
+
+  group("gün sonu: kasa/borç/kupon rakamları BAĞIMSIZ hesapla doğrulanır", () {
+    test('çok müşterili/çok ödeme tipli karışık senaryoda elle kurulan beklenti repository çıktısıyla eşleşir',
+        () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final orders = OrderRepository(db);
+      final ledger = LedgerRepository(db);
+      final coupons = CouponRepository(db);
+
+      // Ayşe: nakit peşin teslim → debit+payment nakit, net borç 0, kasa nakit +4500.
+      final ayseId = await CustomerRepository(db).create(name: 'Ayşe');
+      final o1 = await orders.create(customerId: ayseId,
+          lines: [LineInput(productName: 'D', unitPriceKurus: 4500, qty: 1)]);
+      await orders.deliver(o1, paymentType: 'nakit');
+
+      // Bora: kart peşin teslim → kasa kart +9000; sonra 4 kupon alır kartla → kasa kart +8000 daha.
+      final boraId = await CustomerRepository(db).create(name: 'Bora');
+      final o2 = await orders.create(customerId: boraId,
+          lines: [LineInput(productName: 'D', unitPriceKurus: 9000, qty: 1)]);
+      await orders.deliver(o2, paymentType: 'kart');
+      await coupons.kuponSat(customerId: boraId, qty: 4, priceKurus: 8000, paymentType: 'kart');
+      // Bora 2 kupon kullanır (teslim) → kupon bakiyesi 4−2=2, kasaya para hareketi YOK (peşin ödendi).
+      final o2b = await orders.create(customerId: boraId,
+          lines: [LineInput(productName: 'D', unitPriceKurus: 9000, qty: 2)]);
+      await orders.deliver(o2b, paymentType: 'kupon');
+
+      // Cem: 5000 borcu var, 2000 havale tahsilat yapılır → kalan borç 3000, kasa havale +2000.
+      final cemId = await CustomerRepository(db).create(name: 'Cem');
+      await ledger.borcEkle(cemId, 5000);
+      await ledger.tahsilat(cemId, 2000, 'havale');
+
+      // Derya: veresiye teslim → borç 12000, kasaya HİÇ dokunmaz.
+      final deryaId = await CustomerRepository(db).create(name: 'Derya');
+      final o3 = await orders.create(customerId: deryaId,
+          lines: [LineInput(productName: 'D', unitPriceKurus: 12000, qty: 1)]);
+      await orders.deliver(o3, paymentType: 'veresiye');
+
+      final ozet = await gunSonuOzeti(db, bugunTr());
+
+      // --- Aşağıdaki beklenti rakamları girdilerden ELLE çıkarıldı (repository kodunu tekrar
+      // ETMİYORUZ) — DayEndRepository'nin ürettiğiyle karşılaştırıyoruz. ---
+      expect(ozet.kasa.nakit, 4500, reason: 'yalnız Ayşe\'nin peşin nakit teslimi');
+      expect(ozet.kasa.kart, 9000 + 8000, reason: 'Bora\'nın peşin teslimi + kupon paketi kartla');
+      expect(ozet.kasa.havale, 2000, reason: 'Cem\'in tahsilatı');
+      expect(ozet.kasa.toplam, 4500 + 17000 + 2000);
+
+      expect(ozet.borc.toplamAcikBorc, 3000 + 12000, reason: 'Cem 3000 + Derya 12000; peşin/kupon müşterileri borçsuz');
+      expect(ozet.borc.borclular.map((b) => b.name).toSet(), {'Cem', 'Derya'});
+
+      expect(ozet.kupon.gunlukVerilen, 4, reason: 'Bora\'ya verilen kupon');
+      expect(ozet.kupon.gunlukKullanilan, 2, reason: 'Bora\'nın kullandığı kupon');
+      expect(ozet.kupon.toplamAcikKupon, 2, reason: '4 verildi 2 kullanıldı → 2 açık (eksi yok)');
+      expect(ozet.kupon.eksiBakiyeliler, isEmpty);
+    });
   });
 }
 
