@@ -7,14 +7,14 @@
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
-> **Genel proje: ~%72** (2026-07-17 DÜZELTME tabanı: eski %79 yalnız sunucu+veri katmanını sayıyordu —
-> **bayinin kullanacağı UI ekranları HİÇBİR fazın ağırlığında yoktu**; kullanıcı "APK alıp test
-> edemez miyiz?" diye sorunca boşluk ortaya çıktı. Ağırlıklar yeniden dağıtıldı, "4b · Saha UI" satırı eklendi.)
-> **Faz 4: ~%92 (mobil doğrulandı ✅)** · **Faz 5: ~%93** · **Faz 6: ~%22** · **4b UI: ~%60 (Dilim 1+2 ✅)**
-> _(2026-07-21: **UI Dilim 2 BİTTİ: sipariş listesi/yeni sipariş/sipariş detayı + teslim kapatma
-> (nakit/kart/havale/veresiye/kupon) + ürün yönetimi; 109/109 test, APK derlendi**. Dilim 1: giriş/oturum,
-> kabuk, müşteri ekranları, abonelik şeridi, senkron servisi ·
-> kalan UI dilimleri: defter/tahsilat/gün-sonu → kurye · dışsal işler YAPILACAKLAR.md)_
+> **Genel proje: ~%76** (2026-07-17 DÜZELTME tabanı: eski %79 yalnız sunucu+veri katmanını sayıyordu —
+> **bayinin kullanacağı UI ekranları HİÇBİR fazın ağırlığında yoktu**; ağırlıklar yeniden dağıtıldı,
+> "4b · Saha UI" satırı eklendi.)
+> **Faz 4: ~%92 (mobil doğrulandı ✅)** · **Faz 5: ~%93** · **Faz 6: ~%22** · **4b UI: ~%85 (Dilim 1+2+3 ✅)**
+> _(2026-07-21/2: **UI Dilim 3 BİTTİ (4 ajanlı hat: auditor→coder→tester→reviewer): defter hareket
+> listesi + tahsilat + kupon satışı + ters-kayıt düzeltme + gün-sonu ekranı; 130/130 test, inceleme
+> YEŞİL, APK derlendi**. Aynı gün Dilim 2 de bitmişti (sipariş/teslim/ürün, 109/109) ·
+> kalan UI dilimi: Dilim 4 kurye+kasa devri · dışsal işler YAPILACAKLAR.md)_
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
@@ -23,11 +23,11 @@
 | 2 · Offline çekirdek (Drift/outbox/sync) | %13 | ✅ kapandı | 13 |
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %10 | ✅ kapandı | 10 |
 | 4 · Kurye (atama/teslim/kasa devri/+iOS) | %11 | 🔄 ~%92 (API✅ inceleme✅ mobil test✅; iOS açık) | ~10 |
-| **4b · Saha UI (bayi+kurye ekranları)** | **%15** | 🔄 ~%60 (Dilim 1 ✅ giriş+kabuk+müşteri · Dilim 2 ✅ sipariş+teslim+ürün; kalan: defter/kasa/kurye) | ~9 |
+| **4b · Saha UI (bayi+kurye ekranları)** | **%15** | 🔄 ~%85 (Dilim 1 ✅ giriş+kabuk+müşteri · Dilim 2 ✅ sipariş+teslim+ürün · Dilim 3 ✅ defter+tahsilat+gün-sonu; kalan: Dilim 4 kurye) | ~13 |
 | 5 · Para (site/iyzico/abonelik/panel) | %17 | 🔄 ~%93 KOD TAM (dışsal: anahtar/hukuk) | ~16 |
 | 6 · Mağaza + hukuk (Play/KVKK/mesafeli) | %10 | 🔄 ~%22 (demo hesap ✅ + metin paketi ✅ + hesap-silme ✅; kalan dışsal) | ~2 |
 | 7 · Antalya pilotu (2–3 bayi) | %7 | ⬜ bekliyor (saha/insan) | 0 |
-| **Toplam** | **%100** | | **~%72** |
+| **Toplam** | **%100** | | **~%76** |
 
 > Ağırlıklar EFOR tahminidir (fazlar eşit büyüklükte değil); genel yüzde bu ağırlıklara göre hesaplanır.
 > Bir faz kapandığında Katkı = tam Ağırlık olur ve genel yüzde artar. Mevcut faz yüzdesi kaba göstergedir:
@@ -61,7 +61,63 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-21 — 4b Dilim 2 bitti: sipariş girişi + teslim kapatma + ürün yönetimi)
+## Güncel durum (son güncelleme: 2026-07-21/2 — 4b Dilim 3 bitti: defter/tahsilat/gün-sonu; 4 ajanlı hat, inceleme YEŞİL)
+
+### VARDİYA 2026-07-21/2 (4b DİLİM 3 — 4 AJANLI HAT: auditor→coder→tester→reviewer)
+
+**Kullanıcı talebi:** "yapılmış görevleri analiz et, eksikleri ajanlarla tamamla." Sıralı hat kuruldu
+(hepsi aynı dev ağacında — worktree yasak; inceleme donmuş ağaçta): **auditor** (salt-okunur denetim +
+repo imza çıkarımı) → **coder** (Dilim 3 ekranları) → **tester** (9 ek derinleştirme testi) →
+**reviewer** (8 maddelik kırmızı-çizgi incelemesi + bağımsız koşum). Lead ayrıca bağımsız doğruladı.
+
+### NE BİTTİ (bu vardiya — commit a90b70f + b0fa8ec, otomatik kalite-kapısı hook'u commit'ledi)
+- **4b DİLİM 3 BİTTİ — defter/tahsilat/gün-sonu ekranda:**
+  - `lib/screens/customers/customer_ledger.dart` (417 satır, YENİ) — müşteri detayına defter bölümü:
+    hareket listesi (entry_type/payment_type Türkçe etiketli, imzalı renkli tutar), **"Tahsilat al"**
+    (parseKurus + nakit/kart/havale → LedgerRepository), **"Kupon sat"** (adet + not → CouponRepository;
+    eksi bakiye kırmızı ama hiçbir işlem engellenmez), **"Ters kayıtla düzelt"** (satır menüsünden;
+    yalnız ters kayıt — silme/ezme YOK, salt-okunurda menü hiç render edilmez).
+  - `lib/screens/day_end_screen.dart` (218 satır, YENİ) — Menü → **"Gün sonu"**: kasa özeti ödeme tipi
+    bazında + veresiye toplamı + kupon özeti (DayEndRepository read-model, TAMAMEN salt-okunur).
+  - `customer_detail_screen.dart` +9 (CustomerLedgerSection entegre; dosya 500 sınırının altında
+    kalsın diye defter ayrı dosyada), `home_shell.dart` +9 (Gün sonu menü girişi).
+  - `test/ui_dilim3_test.dart` (498 satır): coder 12 + tester 9 = 21 test. Öne çıkanlar: **append-only
+    kanıtı** (düzeltme sonrası satır sayısı +1 VE orijinal satır drift value-equality ile birebir
+    değişmemiş), tahsilatın bakiye+kasayı AYNI tutarda değiştirmesi, kupon zinciri (sat→düş→eksiye düş),
+    gün-sonu rakamlarının ELLE kurulan beklentiyle karşılaştırılması, salt-okunur kapı kontrastları,
+    ekran-repo tutarlılığı (12345 kuruş → "+123,45 ₺").
+- **İNCELEME: YEŞİL (reviewer, bağımsız koşumla).** 8 madde kod kanıtıyla: append-only ✓ para-int-kuruş ✓
+  mağaza kuralı ✓ KVKK (sıfır log) ✓ salt-okunur kip ✓ offline-first ✓ kalite (<500, ekran-dışı sorgular) ✓
+  ekran-defter tutarlılığı ✓. Repository'lere DOKUNULMADI (Faz 3'te incelenmişlerdi; Dilim 3 yalnız delege eder).
+- **Doğrulama (üç bağımsız koşum: tester, reviewer, lead):** `dart analyze` 0 · `flutter test`
+  **130/130 (~6 sn)** · debug APK derlendi · `check_permissions_source.sh` temiz.
+
+### NE YARIM KALDI / AÇIK
+- **Dilim 4 (son UI dilimi): kurye ekranları + kasa devri** — atama (assign/unassign repoda hazır),
+  kurye görünümü, kasa devri (`CashHandoverRepository` hazır). **Tek kişilik bayide kurye adımları
+  HİÇ GÖRÜNMEZ (BRIEF)** — kullanıcı listesi/rol bilgisi üzerinden koşullanacak.
+- **Reviewer'ın minör gözlemi (bloklamaz):** customer_ledger için ayrı mağaza-kuralı regresyon testi yok
+  (day_end ve orders'ta var; ekran yalnız iş ₺'si gösteriyor, ihlal değil) — simetri için eklenebilir.
+- Gerçek cihaz doğrulaması + PR #11 merge + dışsal işler (YAPILACAKLAR.md) — değişmedi, insanda.
+
+### SONRAKİ KİŞİ NEREDEN DEVAM ETMELİ
+1. **Sıradaki kod işi = Dilim 4: kurye + kasa devri** (son UI dilimi; desen aynı). Tek kişilik bayi
+   gizleme kuralına dikkat.
+2. **Telefon bağlanırsa öncelik:** gerçek cihaz doğrulaması (Dilim 1-2-3'lü APK hazır:
+   `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`) — giriş → müşteri → ürün → sipariş →
+   teslim → tahsilat → gün sonu → arayan tanıma → journal_mode/native uyumu.
+3. PR #11 merge insanda; dışsal işler `YAPILACAKLAR.md`.
+
+### BİLİNEN TUZAKLAR (bu vardiya — YENİ ders)
+- **Widget-testin sahte-zaman diliminde HERHANGİ gerçek async drift çağrısı asılır — yalnız watch()
+  değil, DÜZ Future sorgular da** (`getSingle()`, `.first`): `tester.runAsync(() async {...})` sarmalı
+  ŞART. Dilim 1 dersinin genişletilmiş hali; tester bunu 6 dk asılı koşumla yaşadı (normal koşum ~6 sn —
+  koşum dakikalara uzuyorsa asılı test var demektir, 10 dk timeout'u bekleme).
+- Asılı `flutter test` öldürünce yetim süreç temizliği: `Get-Process dart,flutter_tester | Stop-Process -Force`
+  (sqlite3.dll kilidi sonraki build'i kırar — Dilim 1'den beri geçerli).
+- **Stop hook'u ajan oturumlarının sonunda otomatik commit + push yaptı** (a90b70f, b0fa8ec —
+  "otomatik(dev)" mesajlı). Ajanlara "commit yapma" dense de hook devrede; kapanışta `git log`'a bak,
+  işin zaten commit'lenmiş olabilir.
 
 ### VARDİYA 2026-07-21 (4b DİLİM 2 — sipariş ekranları; İKİNCİ GELİŞTİRİCİ MAKİNESİ)
 
