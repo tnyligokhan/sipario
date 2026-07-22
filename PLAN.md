@@ -61,7 +61,74 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-21/3 — 4b Dilim 4 bitti, 4b KAPANDI; kodla yapılabilir iş TÜKENDİ)
+## Güncel durum (son güncelleme: 2026-07-22 — GERÇEK CİHAZ TESTİ başladı; saha 2 GERÇEK hata yakaladı, ikisi de düzeltildi; devir rehberi aşağıda)
+
+### VARDİYA 2026-07-22 (GERÇEK CİHAZ TESTİ — Samsung S24 FE + arkadaş cihazı; 2 saha hatası bulundu ve KAPATILDI)
+
+**DEVRALAN KİŞİ — BURADAN BAŞLA (rehber):**
+1. **İlk iş: cihaz testinin sonucunu öğren/tamamla.** Düzeltilmiş APK kullanıcının telefonuna kuruldu
+   ama "açılış düzeldi + kart adresle çıkıyor" TEYİDİ vardiya kapanırken HENÜZ GELMEMİŞTİ. Test
+   senaryosu: uygulamayı aç (veri SİLME — onarım kodu damgayı yerinde tamir eder) → giriş →
+   kayıtlı numaradan ara → kart ≤1 sn'de ADRESLE çıkmalı → uygulamayı tamamen kapatıp tekrar ara
+   (journal_mode/native sınavı) → sipariş→teslim→tahsilat→gün sonu akışı → Menüde "Kasa devri"
+   GÖRÜNMEMELİ (demo bayi tek kişilik).
+2. **Sunucu köprüsü (arkadaş-testi için):** Bu makinede OTURUMDAN BAĞIMSIZ iki süreç çalışıyor:
+   `php.exe` (0.0.0.0:8000, pgsql eklentili) + `cloudflared.exe` (hızlı tünel). Tünel adresi:
+   `https://chemicals-discussions-customized-mailing.trycloudflare.com/api/v1` — **makine yeniden
+   başlarsa İKİSİ DE ÖLÜR ve tünel adresi HER SEFERİNDE DEĞİŞİR.** Yeniden kurmak için:
+   `apps/api` içinde `php -d extension=pdo_pgsql -d extension=pgsql -d extension=zip -S 0.0.0.0:8000 -t public`
+   (⚠️ `artisan serve` KULLANMA — alt sürece -d bayraklarını GEÇİRMİYOR, "could not find driver")
+   + `cloudflared tunnel --url http://127.0.0.1:8000` (URL çıktıda). Yeni adresi test cihazlarına
+   "Gelişmiş"ten yeniden girmek gerekir (çıkış yap → yeni adresle gir; veri silinmez).
+   USB'li cihaz için alternatif: `adb reverse tcp:8000 tcp:8000` → adres `http://127.0.0.1:8000/api/v1`
+   (kablo çıkınca reverse DÜŞER, yeniden kur).
+3. **Giriş bilgileri:** demo hesap `demo@sipario.com.tr / demo1234` (4 sahte müşteri + gerçek test
+   kaydı "Ahmet BUĞRA +905442014305" sunucuda). Cihaz: Samsung S24 FE (SM-S721B, Android 16),
+   adb yetkili.
+4. **Sıradaki işler:** cihaz teyidi sonrası YAPILACAKLAR.md kritik yolu (iyzico anahtarı → ben
+   bağlarım; Apple D-U-N-S erken başla; release imza anahtarı; avukat). PR #11 merge hâlâ insanda.
+
+### NE OLDU (bu vardiya — gerçek cihaz testi 2 GERÇEK hata yakaladı, TAM AMACINA ULAŞTI)
+- **Kurulum zinciri ÇALIŞTI:** APK Samsung'a kuruldu, USB tüneliyle giriş + senkron BAŞARILI
+  (sunucuya gerçek müşteri kaydı düştü — yazma zinciri kanıtlı), arkadaş cihazına internet
+  tüneliyle uzaktan kurulum yapıldı.
+- **SAHA HATASI 1 — sonsuz loading (İKİ cihazda):** Faz 0 ölçüm ekranı `sipario.db`'yi sqflite
+  `version: 1` ile açıyordu → Drift'in v7 `user_version` damgası 1'e eziliyordu → sonraki soğuk
+  açılışta migration YENİDEN koşup "duplicate column: updated_occurred_at" ile çöküyor, açılış
+  sonsuz spinner'da kalıyordu. "Arayan tanıma sihirbazını kur → bir süre sonra girilmez ol → veri
+  sil → düzel → sihirbazı yeniden kur → yeniden boz" döngüsünün açıklaması. Logcat ile kanıtlandı.
+  **DÜZELTME (3 katman):** (a) kaynak kaldırıldı — `lib/phase0/local_db.dart` SİLİNDİ, Phase0Screen
+  artık ürünün AppDatabase'ini + CustomerRepository'yi kullanır (spike tohum verisi de artık üretim
+  DB'sine YAZILMAZ; eski çöpler — id `c1/c2/c3` ve `c-<zaman>` — beforeOpen'da otomatik silinir);
+  (b) migration KENDİNİ ONARIR — v7 işareti (`users` tablosu) varken migration atlanır, Drift
+  damgayı yeniden yazar + tüm ALTER'lar "duplicate column"a toleranslı `_addColumnIfMissing`;
+  (c) `main.dart` açılış hatasını EKRANA basar — sonsuz spinner yapısal olarak imkânsız.
+- **SAHA HATASI 2 — taze kurulumda arayan tanıma HEP "kayıtsız" (arkadaş cihazı):**
+  `CustomerLookup.kt` sorgusu `customers.address` okuyordu; taze v7 kurulumda o kolon YOK (Faz 2
+  normalizasyonu — "native adres sorgusu taşınacak" devri unutulmuştu, PLAN Faz 2 "BİLİNEN AÇIK"
+  maddesiydi). Sorgu "no such column" ile patlayıp her aramada null dönüyordu. **DÜZELTME:** adres
+  `customer_addresses` birincilinden alt-sorguyla; arşivli müşteri/telefon eşleşmez.
+- **Doğrulama:** `dart analyze` 0 · `flutter test` **161/161** (+2 yeni regresyon: sürüm-damgası-
+  ezilme onarımı [dosya-DB ile], native SQL sözleşme testi [Kotlin sorgusunun birebir kopyası taze
+  şemada koşar]) · APK derlendi + kullanıcının telefonuna kuruldu. migration_test'in korunma kanıtı
+  spike-temizliğiyle çakışmasın diye uuid-biçimli kimliğe taşındı + temizlik kanıtı eklendi.
+- **Ortam işleri:** bu makinenin Docker DB'sine Faz 4+5 migration'ları uygulandı
+  (`php artisan migrate --database=pgsql_owner --force` — ⚠️ owner bağlantısı ŞART, düz migrate
+  "must be owner" ile düşer) + DemoSeeder koşuldu. `sipario_panel` rolü bu makinede kuruldu.
+
+### BİLİNEN TUZAKLAR (bu vardiya — YENİ dersler)
+- **`php artisan serve` -d eklenti bayraklarını alt sürece GEÇİRMEZ** → "could not find driver".
+  Doğrudan `php -d ... -S 0.0.0.0:8000 -t public` kullan.
+- **Hızlı tünel (trycloudflare) adresi her başlatmada değişir** ve süreç ölünce istemciler SESSİZCE
+  senkronsuz kalır (offline-first hata göstermez — tasarım gereği). Cihazda "Şimdi senkronla"
+  sonucu tek dokunuşta gerçeği söyler. Kalıcı çözüm: prod VPS (kritik yol).
+- **Claude oturumunun arka plan görevleri kalıcı sunucular için güvenilmez** (bu vardiya iki kez
+  dışarıdan öldürüldü) → sunucu/tünel `Start-Process` ile AYRIK başlatıldı; kapatmak istersen Görev
+  Yöneticisi'nden `php.exe` + `cloudflared.exe`.
+- **`adb reverse` kablo çıkınca düşer** — telefon "sunucuya ulaşılamadı" derse önce `adb reverse --list` bak.
+- **Aynı DB dosyasını İKİNCİ bir açıcıyla (sqflite/SQLiteOpenHelper) `version` parametreli AÇMA** —
+  user_version damgasını ezer, Drift migration'ı raydan çıkar. Tek yazıcı AppDatabase'dir; native
+  taraf YALNIZ `SQLiteDatabase.openDatabase(..., OPEN_READONLY)` (versiyonsuz).
 
 ### VARDİYA 2026-07-21/3 (4b DİLİM 4 — kurye + kasa devri; 4 ajanlı hat, koordinasyon kazalı ama YEŞİL)
 
