@@ -48,12 +48,20 @@ object CustomerLookup {
 
         val db = openForRead(file.absolutePath) ?: return null
         try {
+            // ADRES `customer_addresses`'ten okunur (2026-07-22 SAHA BULGUSU): Faz 2 adresi ayrı
+            // tabloya taşıdı; taze kurulumda customers.address kolonu HİÇ YOKTUR — eski `c.address`
+            // sorgusu "no such column" ile patlayıp HER aramada null dönüyordu (kart hep "kayıtsız").
+            // Alt sorgu birincil (yoksa ilk) arşivsiz adresi seçer; arşivli müşteri/telefon eşleşmez.
             db.rawQuery(
                 """
-                SELECT c.name, c.address, c.balance_kurus, c.note
+                SELECT c.name,
+                       (SELECT a.address_text FROM customer_addresses a
+                         WHERE a.customer_id = c.id AND a.deleted_at IS NULL
+                         ORDER BY a.is_primary DESC LIMIT 1) AS address,
+                       c.balance_kurus, c.note
                 FROM customer_phones p
                 JOIN customers c ON c.id = p.customer_id
-                WHERE p.phone_last10 = ?
+                WHERE p.phone_last10 = ? AND p.deleted_at IS NULL AND c.deleted_at IS NULL
                 LIMIT 1
                 """.trimIndent(),
                 arrayOf(key)

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sipario/phase0/local_db.dart';
+import 'package:sipario/data/outbox.dart' show phoneLast10;
 import 'package:sipario/phase0/measurements.dart';
 
 String _log(List<Map<String, dynamic>> entries) => jsonEncode(entries);
@@ -29,24 +29,24 @@ Map<String, dynamic> _locked({int ms = 300}) =>
     _m(ms: ms, path: 'fullscreen', locked: true);
 
 void main() {
-  group('telefon normalizasyonu', () {
+  group('telefon normalizasyonu (kanonik phoneLast10 — eski LocalDb.last10 emekli)', () {
     test('aynı numaranın üç yazımı aynı anahtara düşer', () {
-      expect(LocalDb.last10('+905321112233'), '5321112233');
-      expect(LocalDb.last10('05321112233'), '5321112233');
-      expect(LocalDb.last10('5321112233'), '5321112233');
+      expect(phoneLast10('+905321112233'), '5321112233');
+      expect(phoneLast10('05321112233'), '5321112233');
+      expect(phoneLast10('5321112233'), '5321112233');
     });
 
     test('boşluk ve ayraçlar temizlenir', () {
-      expect(LocalDb.last10('0532 111 22 33'), '5321112233');
-      expect(LocalDb.last10('(0532) 111-22-33'), '5321112233');
+      expect(phoneLast10('0532 111 22 33'), '5321112233');
+      expect(phoneLast10('(0532) 111-22-33'), '5321112233');
     });
 
     test('sabit hat numarası da 10 haneye iner', () {
-      expect(LocalDb.last10('+902422223344'), '2422223344');
+      expect(phoneLast10('+902422223344'), '2422223344');
     });
 
     test('eksik numara olduğu gibi döner, eşleşme aranmaz', () {
-      expect(LocalDb.last10('112'), '112');
+      expect(phoneLast10('112'), '112');
     });
   });
 

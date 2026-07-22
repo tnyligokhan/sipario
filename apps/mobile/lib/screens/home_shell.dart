@@ -281,7 +281,7 @@ class _MenuTab extends StatelessWidget {
                 title: const Text('Arayan tanıma kurulumu ve ölçüm'),
                 subtitle: const Text('Kurulum sihirbazı, izinler, gecikme ölçümleri'),
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const Phase0Screen()),
+                  MaterialPageRoute(builder: (_) => Phase0Screen(db: db)),
                 ),
               ),
               const Divider(),

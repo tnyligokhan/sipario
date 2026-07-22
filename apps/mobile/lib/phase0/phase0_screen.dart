@@ -1,15 +1,25 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sqflite/sqflite.dart';
 
-import 'local_db.dart';
+import '../data/app_database.dart';
+import '../repo/customer_repository.dart';
+import '../screens/customers/customer_form_screen.dart' show normalizePhoneTR;
 import 'measurements.dart';
 import 'setup_wizard.dart';
 
 /// Faz 0 kanıt ekranı. Tek işi var: gerçek bir cihazda, gerçek çağrılarla,
 /// arayan tanımanın çalıştığını (veya çalışmadığını) rakamla göstermek.
+///
+/// SAHA BULGUSU (2026-07-22): Bu ekran eskiden sipario.db'yi sqflite `version: 1` ile açıyordu —
+/// bu, Drift'in v7 sürüm damgasını 1'e EZİYOR ve bir sonraki açılışta migration'ın yeniden koşup
+/// "duplicate column" ile uygulamayı kilitlemesine yol açıyordu (iki gerçek cihazda yaşandı).
+/// Ayrıca spike tohum verisi üretim DB'sini kirletiyordu. Artık ürünün KENDİ AppDatabase'ini
+/// kullanır: test müşterisi CustomerRepository ile eklenir (outbox → senkrona da girer).
 class Phase0Screen extends StatefulWidget {
-  const Phase0Screen({super.key});
+  const Phase0Screen({super.key, required this.db});
+
+  final AppDatabase db;
 
   @override
   State<Phase0Screen> createState() => _Phase0ScreenState();
@@ -47,13 +57,11 @@ class _Phase0ScreenState extends State<Phase0Screen> with WidgetsBindingObserver
 
   Future<void> _bootstrap() async {
     try {
-      final db = await LocalDb.open();
-      await LocalDb.seed(db);
-      _phones = await LocalDb.allPhones(db);
+      _phones = await loadTestPhones(widget.db);
       await _refresh();
     } on PlatformException catch (e) {
       setState(() => _error = 'Platform hatası: ${e.message}');
-    } on DatabaseException catch (e) {
+    } catch (e) {
       setState(() => _error = 'Veritabanı hatası: $e');
     }
   }
@@ -100,14 +108,22 @@ class _Phase0ScreenState extends State<Phase0Screen> with WidgetsBindingObserver
 
   /// Saha ölçümünde arayacak telefonu rehbere ekler; yoksa her arama
   /// "kayıtlı olmayan numara" kartı çıkarır ve eşleşme yolu hiç sınanmaz.
+  /// GERÇEK müşteri kaydı açılır (CustomerRepository → outbox → senkron) — ürünle aynı yol.
   Future<void> _addPhone(String name, String phone) async {
-    final db = await LocalDb.open();
-    await LocalDb.addCustomer(db, name: name, phone: phone);
-    _phones = await LocalDb.allPhones(db);
+    final normalized = normalizePhoneTR(phone);
+    if (normalized == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Geçersiz telefon numarası')),
+      );
+      return;
+    }
+    await CustomerRepository(widget.db)
+        .create(name: name, phones: [PhoneInput(phoneE164: normalized, isPrimary: true)]);
+    _phones = await loadTestPhones(widget.db);
     if (!mounted) return;
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$name rehbere eklendi (${LocalDb.last10(phone)})')),
+      SnackBar(content: Text('$name rehbere eklendi ($normalized)')),
     );
   }
 
@@ -457,9 +473,9 @@ class _TestCardState extends State<_TestCard> {
 
   Future<void> _submit() async {
     final phone = _phone.text.trim();
-    if (LocalDb.last10(phone).length < 10) {
+    if (normalizePhoneTR(phone) == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Numara en az 10 hane olmalı')),
+        const SnackBar(content: Text('Geçersiz numara — 05xx xxx xx xx biçiminde girin')),
       );
       return;
     }
@@ -549,6 +565,25 @@ class _TestCardState extends State<_TestCard> {
       ),
     );
   }
+}
+
+/// Test rehberi listesi: arşivsiz müşteriler + telefonları (ada göre). Ekrandan bağımsız
+/// fonksiyon — saf async testle sınanır (Dilim 1 deseni). UI eski LocalDb.allPhones satır
+/// biçimini bekler: {'name', 'phone_e164'}.
+Future<List<Map<String, Object?>>> loadTestPhones(AppDatabase db) async {
+  final rows = await (db.select(db.customerPhones).join([
+    innerJoin(db.customers, db.customers.id.equalsExp(db.customerPhones.customerId)),
+  ])
+        ..where(db.customers.deletedAt.isNull() & db.customerPhones.deletedAt.isNull())
+        ..orderBy([OrderingTerm.asc(db.customers.name)]))
+      .get();
+  return [
+    for (final r in rows)
+      {
+        'name': r.readTable(db.customers).name,
+        'phone_e164': r.readTable(db.customerPhones).phoneE164,
+      },
+  ];
 }
 
 class _LogCard extends StatelessWidget {

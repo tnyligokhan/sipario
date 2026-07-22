@@ -32,13 +32,26 @@ void main() {
         is_primary INTEGER NOT NULL DEFAULT 0
       )''');
     raw.execute('CREATE INDEX idx_phones_last10 ON customer_phones(phone_last10)');
+    // Gerçek kayıt UUID benzeri kimlikle (spike-temizliği c1/c2/c3 ve 'c-%' kimliklerini siler —
+    // aşağıda ayrıca kanıtlanır; korunma kanıtı temizlik kapsamı DIŞI kimlikle yapılmalı).
     raw.execute(
       "INSERT INTO customers (id,name,address,note,balance_kurus) "
-      "VALUES ('c1','Faz0 Müşteri','Eski Adres',null,24000)",
+      "VALUES ('0190f0f0-0000-7000-8000-000000000001','Faz0 Müşteri','Eski Adres',null,24000)",
     );
     raw.execute(
       "INSERT INTO customer_phones (id,customer_id,phone_e164,phone_last10,label,is_primary) "
-      "VALUES ('p1','c1','+905321112233','5321112233','cep',1)",
+      "VALUES ('p1','0190f0f0-0000-7000-8000-000000000001','+905321112233','5321112233','cep',1)",
+    );
+    // Eski Faz 0 ekranının bıraktığı SPIKE çöpleri (temizlik bunları SİLMELİ — 2026-07-22 bulgusu).
+    raw.execute(
+      "INSERT INTO customers (id,name,address,note,balance_kurus) VALUES ('c1','Spike Ahmet',null,null,0)",
+    );
+    raw.execute(
+      "INSERT INTO customers (id,name,address,note,balance_kurus) VALUES ('c-1700000000','Saha Testi',null,null,0)",
+    );
+    raw.execute(
+      "INSERT INTO customer_phones (id,customer_id,phone_e164,phone_last10,label,is_primary) "
+      "VALUES ('c1-p0','c1','+905000000001','5000000001',null,0)",
     );
     raw.execute('PRAGMA user_version = 1');
     raw.close();
@@ -51,11 +64,20 @@ void main() {
     });
 
     // Phase0 verisi korundu (DROP edilmedi).
-    final cust = await (db.select(db.customers)..where((t) => t.id.equals('c1'))).getSingle();
+    final cust = await (db.select(db.customers)
+          ..where((t) => t.id.equals('0190f0f0-0000-7000-8000-000000000001')))
+        .getSingle();
     expect(cust.name, 'Faz0 Müşteri');
     expect(cust.balanceKurus, 24000);
     final phone = await (db.select(db.customerPhones)..where((t) => t.id.equals('p1'))).getSingle();
     expect(phone.phoneLast10, '5321112233'); // native eşleşme anahtarı korundu
+
+    // SPIKE ÇÖPÜ TEMİZLENDİ (beforeOpen): c1/c-<zaman> müşterileri ve telefonları silindi;
+    // gerçek kayıt (uuid biçimli) DURUYOR.
+    expect(await (db.select(db.customers)..where((t) => t.id.isIn(['c1', 'c-1700000000']))).get(),
+        isEmpty);
+    expect(
+        await (db.select(db.customerPhones)..where((t) => t.customerId.equals('c1'))).get(), isEmpty);
 
     // Eski satıra eklenen NOT NULL LWW kolonu eski varsayılan aldı (sunucu güncellemesi kazanır).
     expect(cust.updatedOccurredAt, '1970-01-01T00:00:00.000Z');
@@ -92,5 +114,79 @@ void main() {
           id: 'o1', assignedUserId: const Value('u1'), occurredAt: '2026-07-15T00:00:00.000Z'));
     final order = await (db.select(db.orders)..where((t) => t.id.equals('o1'))).getSingle();
     expect(order.assignedUserId, 'u1');
+  });
+
+  test(
+      'SÜRÜM DAMGASI EZİLMESİ: v7 dosya user_version=1 damgalansa bile açılış KİLİTLENMEZ, '
+      'veri korunur, sürüm onarılır (2026-07-22 saha bulgusu — iki cihaz sonsuz loading)', () async {
+    final file = File(p.join(
+      Directory.systemTemp.path,
+      'sipario_stamp_${DateTime.now().microsecondsSinceEpoch}.db',
+    ));
+    if (file.existsSync()) file.deleteSync();
+
+    // 1) Güncel v7 şemasıyla dosya-DB kur + gerçek veri yaz.
+    final db1 = AppDatabase(NativeDatabase(file));
+    await db1.into(db1.customers).insert(CustomersCompanion.insert(
+        id: '0190aaaa-0000-7000-8000-000000000001',
+        name: 'Gerçek Müşteri',
+        updatedOccurredAt: '2026-07-22T00:00:00.000Z'));
+    await db1.close();
+
+    // 2) Harici açıcının yaptığı sabotajı taklit et: user_version'ı 1'e ez (eski phase0 sqflite
+    //    version:1 davranışı — kaynak kaldırıldı ama savunma sonsuza dek kalmalı).
+    final raw = sqlite3.open(file.path);
+    raw.execute('PRAGMA user_version = 1');
+    raw.close();
+
+    // 3) Yeniden aç: migration marker'ı görüp ATLAMALI; açılış tamamlanmalı; veri durmalı.
+    final db2 = AppDatabase(NativeDatabase(file));
+    addTearDown(() async {
+      await db2.close();
+      if (file.existsSync()) file.deleteSync();
+    });
+    final cust = await (db2.select(db2.customers)
+          ..where((t) => t.id.equals('0190aaaa-0000-7000-8000-000000000001')))
+        .getSingle();
+    expect(cust.name, 'Gerçek Müşteri', reason: 'veri kaybı olmadan kendini onarmalı');
+    expect(await db2.syncState().then((m) => m.id), 1, reason: 'açılış tamamlandı (spinner kilidi yok)');
+  });
+
+  test(
+      'NATIVE SÖZLEŞME: CustomerLookup.kt sorgusu taze v7 şemasında çalışır; adres '
+      'customer_addresses birincilinden gelir (2026-07-22: eski c.address sorgusu taze kurulumda '
+      'patlıyordu — arkadaş cihazında her arama "kayıtsız" çıktı)', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+
+    await db.into(db.customers).insert(CustomersCompanion.insert(
+        id: 'm1', name: 'Ayşe Yılmaz', updatedOccurredAt: '2026-07-22T00:00:00.000Z'));
+    await db.into(db.customerPhones).insert(CustomerPhonesCompanion.insert(
+        id: 'm1p', customerId: 'm1', phoneE164: '+905442014305', phoneLast10: '5442014305',
+        updatedOccurredAt: '2026-07-22T00:00:00.000Z'));
+    await db.into(db.customerAddresses).insert(CustomerAddressesCompanion.insert(
+        id: 'm1a', customerId: 'm1', addressText: 'Kışla Mah. No:3',
+        isPrimary: const Value(true), updatedOccurredAt: '2026-07-22T00:00:00.000Z'));
+
+    // CustomerLookup.kt'deki SQL'in BİREBİR kopyası — Kotlin tarafı değişirse burası da değişmeli.
+    final rows = await db.customSelect(
+      '''
+      SELECT c.name,
+             (SELECT a.address_text FROM customer_addresses a
+               WHERE a.customer_id = c.id AND a.deleted_at IS NULL
+               ORDER BY a.is_primary DESC LIMIT 1) AS address,
+             c.balance_kurus, c.note
+      FROM customer_phones p
+      JOIN customers c ON c.id = p.customer_id
+      WHERE p.phone_last10 = ? AND p.deleted_at IS NULL AND c.deleted_at IS NULL
+      LIMIT 1
+      ''',
+      variables: [Variable.withString('5442014305')],
+    ).get();
+
+    expect(rows, hasLength(1));
+    expect(rows.single.read<String>('name'), 'Ayşe Yılmaz');
+    expect(rows.single.read<String?>('address'), 'Kışla Mah. No:3');
+    expect(rows.single.read<int>('balance_kurus'), 0);
   });
 }
