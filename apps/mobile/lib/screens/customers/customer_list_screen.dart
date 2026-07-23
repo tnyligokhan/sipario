@@ -5,6 +5,7 @@ import '../../data/app_database.dart';
 import '../../data/outbox.dart' show phoneLast10;
 import '../../repo/customer_repository.dart';
 import '../../theme/components/balance_badge.dart';
+import '../../theme/components/empty_state.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../team.dart';
@@ -262,45 +263,19 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-/// Boş durum — yönlendirici mesaj (handoff dilinde).
+/// Boş durum — ortak SipEmptyState'e devreder (arama mı, hiç kayıt mı).
 class _EmptyCustomers extends StatelessWidget {
   const _EmptyCustomers({required this.searching});
   final bool searching;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(40, 0, 40, 120),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 84,
-              height: 84,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: SipColors.s2,
-                shape: BoxShape.circle,
-                border: Border.all(color: SipColors.line),
-              ),
-              child: Icon(searching ? Icons.search_off : Icons.group_outlined,
-                  size: 40, color: SipColors.t3),
-            ),
-            const SizedBox(height: 22),
-            Text(searching ? 'Sonuç bulunamadı' : 'Henüz müşteri yok',
-                textAlign: TextAlign.center, style: SipText.emptyTitle),
-            const SizedBox(height: 8),
-            Text(
-              searching
-                  ? 'Farklı bir ad veya numara deneyin.'
-                  : 'Sağ alttan ilk müşterinizi ekleyin — telefon çaldığında ekranda tanıyacaksınız.',
-              textAlign: TextAlign.center,
-              style: SipText.emptyBody,
-            ),
-          ],
-        ),
-      ),
+    return SipEmptyState(
+      icon: searching ? Icons.search_off : Icons.group_outlined,
+      title: searching ? 'Sonuç bulunamadı' : 'Henüz müşteri yok',
+      subtitle: searching
+          ? 'Farklı bir ad veya numara deneyin.'
+          : 'Sağ alttan ilk müşterinizi ekleyin — telefon çaldığında ekranda tanıyacaksınız.',
     );
   }
 }
