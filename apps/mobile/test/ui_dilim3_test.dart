@@ -9,6 +9,9 @@ import 'package:sipario/repo/ledger_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/screens/customers/customer_ledger.dart';
 import 'package:sipario/screens/day_end_screen.dart';
+import 'package:sipario/screens/money.dart';
+import 'package:sipario/theme/tokens.dart';
+import 'package:sipario/theme/typography.dart';
 
 /// Dilim 3 UI testleri: defter (hareket listesi/tahsilat/düzeltme/kupon) + gün sonu read-model.
 /// Sorgu ve özet mantığı ekrandan bağımsız fonksiyonlarda tutulur ve saf async sınanır
@@ -214,6 +217,53 @@ void main() {
         expect(find.textContaining(yasak), findsNothing, reason: '"$yasak" mobilde gösterilemez');
       }
 
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('AppBar yok; ekran başlığı "Gün sonu" screenTitle token stiliyle çizilir', (tester) async {
+      // Yeni tasarım: AppBar kaldırıldı → SafeArea + ekran başlığı (Ekran 1-2 başlık deseni).
+      final db = AppDatabase(NativeDatabase.memory());
+
+      await tester.pumpWidget(MaterialApp(home: DayEndScreen(db: db)));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+      await tester.pump();
+
+      expect(find.byType(AppBar), findsNothing,
+          reason: 'yeni tasarımda AppBar yerine SafeArea + ekran başlığı var');
+      final baslik = tester.widget<Text>(find.text('Gün sonu'));
+      expect(baslik.style, SipText.screenTitle,
+          reason: 'başlık token tipografisiyle (screenTitle) çizilmeli, ham TextStyle değil');
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('açık borç > 0 → toplam tutar SipColors.debt (kırmızı) ile vurgulanır', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        final orders = OrderRepository(db);
+        // İki veresiye teslim → toplam açık borç 4500+12000=16500 (benzersiz; tekil satırlarla karışmaz).
+        final a = await CustomerRepository(db).create(name: 'Veresiyeci A');
+        final oa = await orders.create(
+            customerId: a, lines: [LineInput(productName: 'D', unitPriceKurus: 4500, qty: 1)]);
+        await orders.deliver(oa, paymentType: 'veresiye');
+        final b = await CustomerRepository(db).create(name: 'Veresiyeci B');
+        final ob = await orders.create(
+            customerId: b, lines: [LineInput(productName: 'D', unitPriceKurus: 12000, qty: 1)]);
+        await orders.deliver(ob, paymentType: 'veresiye');
+      });
+
+      await tester.pumpWidget(MaterialApp(home: DayEndScreen(db: db)));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+      await tester.pump();
+
+      final toplamTutar = tester.widget<Text>(find.text(formatKurus(16500)));
+      expect(toplamTutar.style?.color, SipColors.debt,
+          reason: 'açık borç > 0 iken toplam tutar borç rengiyle çizilir (handoff kırmızı bakiye dili)');
+
+      await tester.pump(const Duration(seconds: 5));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
     });
