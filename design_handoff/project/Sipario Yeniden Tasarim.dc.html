@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-25..0&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#090C10;-webkit-font-smoothing:antialiased;font-family:'IBM Plex Sans',system-ui,sans-serif}
+a{color:#54C4EE;text-decoration:none}
+a:hover{color:#8AD6F5}
+@keyframes sipPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.6)}}
+</style>
+</helmet>
+
+<div id="board" ref="{{ boardRef }}" style="--bg:#0C1015;--s1:#141A21;--s2:#1C242D;--s3:#28323C;--line:rgba(255,255,255,0.07);--line2:rgba(255,255,255,0.12);--t1:#EEF2F5;--t2:#9AA6B2;--t3:#5F6975;--acc:#23A9E0;--acc-fg:#54C4EE;--acc-soft:rgba(35,169,224,0.15);--acc-ink:#06131B;--debt:#E85640;--debt-soft:rgba(232,86,64,0.16);--ok:#41B883;--warn:#E7A93C;--err:#E85640;--r:16px;--r-sm:11px;--r-fab:18px;--r-input:15px;width:max-content;min-height:100vh;padding:52px 56px 76px;color:var(--t1);background-color:#090C10;background-image:radial-gradient(rgba(255,255,255,0.045) 1px,transparent 1.4px);background-size:26px 26px">
+
+  <div style="max-width:960px;margin-bottom:42px">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:18px">
+      <div style="width:40px;height:40px;border-radius:12px;background:var(--acc-soft);display:flex;align-items:center;justify-content:center">
+        <span class="material-symbols-rounded" style="font-size:24px;color:var(--acc-fg);font-variation-settings:'FILL' 1,'wght' 500">water_drop</span>
+      </div>
+      <span style="font-size:15px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--t2)">Sipario</span>
+    </div>
+    <h1 style="margin:0 0 14px;font-size:38px;line-height:1.05;font-weight:700;letter-spacing:-0.025em;color:var(--t1)">Yeniden tasarım — sistem + 1–2. ekranlar</h1>
+    <p style="margin:0 0 22px;max-width:730px;font-size:16px;line-height:1.6;color:var(--t2);text-wrap:pretty">Su bayii esnafı için: telefon çalarken tek elle, hızlı ve okunaklı. Simsiyah değil <b style="color:var(--t1);font-weight:600">katmanlı koyu yüzeyler</b>, su temalı bir <b style="color:var(--t1);font-weight:600">vurgu rengi</b>, düz satır yerine <b style="color:var(--t1);font-weight:600">kartlar</b>, ve borçluyu bir bakışta ayıran <b style="color:var(--t1);font-weight:600">bakiye rozetleri</b>. Sağdaki telefonlar canlı — arama ve filtre çalışıyor. Vurgu rengini/köşeleri sağ üstteki <b style="color:var(--t1);font-weight:600">Tweaks</b>'ten deneyebilirsin.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <span style="padding:7px 13px;background:var(--s1);border:1px solid var(--line);border-radius:999px;font-size:12.5px;font-weight:500;color:var(--t2)">Android · ~393dp</span>
+      <span style="padding:7px 13px;background:var(--s1);border:1px solid var(--line);border-radius:999px;font-size:12.5px;font-weight:500;color:var(--t2)">Koyu tema</span>
+      <span style="padding:7px 13px;background:var(--s1);border:1px solid var(--line);border-radius:999px;font-size:12.5px;font-weight:500;color:var(--t2)">Offline-first</span>
+      <span style="padding:7px 13px;background:var(--s1);border:1px solid var(--line);border-radius:999px;font-size:12.5px;font-weight:500;color:var(--t2)">IBM Plex Sans</span>
+      <span style="padding:7px 13px;background:var(--s1);border:1px solid var(--line);border-radius:999px;font-size:12.5px;font-weight:500;color:var(--t2)">Dokunma ≥56px</span>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:46px;align-items:flex-start">
+
+    <div style="width:560px;flex:none;display:flex;flex-direction:column;gap:22px">
+
+      <div style="background:var(--s1);border:1px solid var(--line);border-radius:20px;padding:24px">
+        <div style="font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin:0 0 20px">Renk paleti</div>
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div>
+            <div style="font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Yüzeyler — elevation</div>
+            <div style="display:flex;gap:10px">
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:#0C1015;border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">Zemin</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">#0C1015</div></div>
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:#141A21;border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">Yüzey 1</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">#141A21</div></div>
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:#1C242D;border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">Yüzey 2</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">#1C242D</div></div>
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:#28323C;border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">Yüzey 3</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">#28323C</div></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Metin</div>
+            <div style="display:flex;gap:10px">
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:#EEF2F5;border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">Birincil</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">#EEF2F5</div></div>
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:#9AA6B2;border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">İkincil</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">#9AA6B2</div></div>
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:#5F6975;border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">Soluk</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">#5F6975</div></div>
+              <div style="flex:1;min-width:0"></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Vurgu — su · tweak'lenebilir</div>
+            <div style="display:flex;gap:10px">
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:var(--acc);border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">Vurgu</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3)">FAB · tab · aksiyon</div></div>
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:var(--acc-fg);border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">İkon/Yazı</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3)">koyu üstünde</div></div>
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:var(--acc-soft);border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">Yumuşak</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3)">seçili zemin</div></div>
+              <div style="flex:1;min-width:0"></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Durum</div>
+            <div style="display:flex;gap:10px">
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:#E85640;border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">Borç</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">#E85640</div></div>
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:#41B883;border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">Başarılı</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">#41B883</div></div>
+              <div style="flex:1;min-width:0"><div style="height:46px;border-radius:10px;background:#E7A93C;border:1px solid var(--line2)"></div><div style="margin-top:7px;font-size:12px;font-weight:600;color:var(--t1)">Uyarı</div><div style="margin-top:1px;font-size:11px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">#E7A93C</div></div>
+              <div style="flex:1;min-width:0"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--s1);border:1px solid var(--line);border-radius:20px;padding:24px">
+        <div style="font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin:0 0 18px">Tipografi — IBM Plex Sans</div>
+        <div style="font-size:40px;font-weight:600;letter-spacing:-0.01em;color:var(--t1);line-height:1.1">Aa Çç Ğğ İı Şş</div>
+        <div style="margin-top:6px;font-size:24px;font-weight:500;color:var(--t2);font-feature-settings:'tnum' 1">0 1 2 3 4 5 6 7 8 9</div>
+        <div style="height:1px;background:var(--line);margin:20px 0"></div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px"><span style="font-size:27px;font-weight:700;letter-spacing:-0.02em;color:var(--t1)">Müşteriler</span><span style="font-size:11.5px;font-weight:500;color:var(--t3);flex:none">Ekran başlığı · 27/700</span></div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px"><span style="font-size:18px;font-weight:600;color:var(--t1)">Fatma Şahin</span><span style="font-size:11.5px;font-weight:500;color:var(--t3);flex:none">Kart başlığı · 18/600</span></div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px"><span style="font-size:14px;font-weight:400;color:var(--t2);font-feature-settings:'tnum' 1">0532 771 08 63</span><span style="font-size:11.5px;font-weight:500;color:var(--t3);flex:none">İkincil bilgi · 14/400</span></div>
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px">
+            <div style="text-align:right"><div style="font-size:18px;font-weight:700;color:var(--t1);font-feature-settings:'tnum' 1">1.350,00 ₺</div><div style="font-size:18px;font-weight:700;color:var(--t1);font-feature-settings:'tnum' 1">45,00 ₺</div></div>
+            <span style="font-size:11.5px;font-weight:500;color:var(--t3);flex:none">Tutar · tabular hizalı</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--s1);border:1px solid var(--line);border-radius:20px;padding:24px">
+        <div style="font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin:0 0 18px">Bileşenler & durumlar</div>
+
+        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:12px">Bakiye rozeti</div>
+        <div style="display:flex;gap:26px;align-items:flex-start;margin-bottom:22px">
+          <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start"><span style="padding:7px 12px;background:var(--debt);color:#fff;border-radius:var(--r-sm);font-size:15px;font-weight:700;font-feature-settings:'tnum' 1">45,00 ₺</span><span style="font-size:11.5px;color:var(--t3)">Borç — dolgulu, dikkat çeker</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start"><span style="padding:7px 12px;color:var(--t3);font-size:15px;font-weight:500;font-feature-settings:'tnum' 1">0,00 ₺</span><span style="font-size:11.5px;color:var(--t3)">Temiz — nötr, sessiz</span></div>
+        </div>
+
+        <div style="height:1px;background:var(--line);margin:0 0 18px"></div>
+        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:12px">Segment filtresi & FAB</div>
+        <div style="display:flex;gap:4px;padding:4px;background:var(--s2);border:1px solid var(--line);border-radius:999px;height:46px;max-width:330px;margin-bottom:16px">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:999px;background:var(--acc);color:var(--acc-ink);font-size:14.5px;font-weight:600"><span class="material-symbols-rounded" style="font-size:17px;font-variation-settings:'wght' 700">check</span>Açık</div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:14.5px;font-weight:600">Teslim</div>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:14.5px;font-weight:600">Tümü</div>
+        </div>
+        <div style="display:inline-flex;align-items:center;gap:9px;height:50px;padding:0 20px 0 16px;background:var(--acc);color:var(--acc-ink);border-radius:var(--r-fab);font-size:15px;font-weight:600;box-shadow:0 10px 22px -8px rgba(0,0,0,.7)">
+          <span class="material-symbols-rounded" style="font-size:22px;font-variation-settings:'wght' 600">add_shopping_cart</span>Sipariş
+        </div>
+
+        <div style="height:1px;background:var(--line);margin:20px 0 18px"></div>
+        <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:14px">Senkron durumu <span style="color:var(--t3);font-weight:400">· Menü'de görünür</span></div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:11px"><span style="width:9px;height:9px;border-radius:50%;background:var(--ok);flex:none;box-shadow:0 0 0 4px rgba(65,184,131,.16)"></span><span style="font-size:14px;font-weight:500;color:var(--t1)">Son senkron başarılı</span><span style="margin-left:auto;font-size:12.5px;color:var(--t3);font-feature-settings:'tnum' 1">14:32</span></div>
+          <div style="display:flex;align-items:center;gap:11px"><span style="width:9px;height:9px;border-radius:50%;background:var(--acc);flex:none;box-shadow:0 0 0 4px var(--acc-soft);animation:sipPulse 1.4s ease-in-out infinite"></span><span style="font-size:14px;font-weight:500;color:var(--t1)">Senkronize ediliyor…</span></div>
+          <div style="display:flex;align-items:center;gap:11px"><span style="width:9px;height:9px;border-radius:50%;background:var(--err);flex:none;box-shadow:0 0 0 4px rgba(232,86,64,.16)"></span><span style="font-size:14px;font-weight:500;color:var(--t1)">Son senkron başarısız — tekrar denenecek</span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:flex;gap:36px;align-items:flex-start">
+
+      <div style="flex:none;display:flex;flex-direction:column;gap:14px;width:405px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="width:22px;height:22px;border-radius:7px;background:var(--acc);color:var(--acc-ink);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">1</span>
+          <span style="font-size:13px;font-weight:600;color:var(--t1)">Müşteriler</span>
+        </div>
+        <div style="width:405px;height:864px;background:#04060A;border-radius:46px;padding:6px;box-shadow:0 40px 90px -20px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.04)">
+          <div style="position:relative;width:393px;height:852px;background:var(--bg);border-radius:40px;overflow:hidden;display:flex;flex-direction:column">
+            <div style="position:relative;height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px">
+              <span style="font-size:14px;font-weight:600;color:var(--t1);letter-spacing:.01em">2:04</span>
+              <div style="position:absolute;left:50%;top:15px;transform:translateX(-50%);width:9px;height:9px;border-radius:50%;background:#05070A"></div>
+              <div style="display:flex;align-items:center;gap:7px;color:var(--t1)">
+                <span class="material-symbols-rounded" style="font-size:16px;font-variation-settings:'FILL' 1,'wght' 500">dark_mode</span>
+                <span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 600">signal_cellular_alt</span>
+                <span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 500">wifi</span>
+                <span class="material-symbols-rounded" style="font-size:20px;font-variation-settings:'FILL' 1">battery_full</span>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;position:relative;display:flex;flex-direction:column;overflow:hidden">
+              <div style="flex:none;padding:8px 18px 12px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px">
+                  <h1 style="margin:0;font-size:27px;font-weight:700;letter-spacing:-0.02em;color:var(--t1)">Müşteriler</h1>
+                  <sc-if value="{{ hasDebt }}">
+                    <div style="display:flex;align-items:center;gap:6px;padding:6px 11px;background:var(--debt-soft);border-radius:999px;flex:none">
+                      <span style="width:7px;height:7px;border-radius:50%;background:var(--debt)"></span>
+                      <span style="font-size:12.5px;font-weight:600;color:var(--debt);font-feature-settings:'tnum' 1">{{ debtCount }} borçlu</span>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;height:52px;padding:0 15px;background:var(--s2);border:1px solid var(--line);border-radius:var(--r-input)">
+                  <span class="material-symbols-rounded" style="font-size:22px;color:var(--t3)">search</span>
+                  <input value="{{ q }}" onChange="{{ onQ }}" placeholder="Ad veya telefon ara" style="flex:1;min-width:0;border:none;outline:none;background:transparent;font-family:'IBM Plex Sans';font-size:16px;font-weight:400;color:var(--t1)" />
+                </div>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:2px 14px 104px;display:flex;flex-direction:column;gap:10px">
+                <sc-for list="{{ customers }}" as="c" hint-placeholder-count="6">
+                  <div style="display:flex;align-items:center;gap:13px;padding:13px 14px;background:var(--s1);border:1px solid var(--line);border-radius:var(--r);min-height:70px;box-sizing:border-box" style-active="background:var(--s2)">
+                    <div style="flex:none;width:44px;height:44px;border-radius:50%;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--t2)">{{ c.initials }}</div>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:17.5px;font-weight:600;line-height:1.2;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</div>
+                      <div style="margin-top:3px;font-size:13.5px;font-weight:400;color:var(--t2);font-feature-settings:'tnum' 1">{{ c.phone }}</div>
+                    </div>
+                    <sc-if value="{{ c.isDebt }}">
+                      <span style="flex:none;padding:7px 12px;background:var(--debt);color:#fff;border-radius:var(--r-sm);font-size:15px;font-weight:700;font-feature-settings:'tnum' 1">{{ c.balanceText }}</span>
+                    </sc-if>
+                    <sc-if value="{{ c.isClean }}">
+                      <span style="flex:none;padding:7px 8px;color:var(--t3);font-size:15px;font-weight:500;font-feature-settings:'tnum' 1">{{ c.balanceText }}</span>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ custEmpty }}">
+                  <div style="padding:56px 20px;text-align:center;color:var(--t3);font-size:15px;line-height:1.5">Sonuç bulunamadı.</div>
+                </sc-if>
+              </div>
+              <button style="position:absolute;right:16px;bottom:18px;height:56px;padding:0 22px 0 19px;display:flex;align-items:center;gap:10px;background:var(--acc);color:var(--acc-ink);border:none;border-radius:var(--r-fab);font-family:'IBM Plex Sans';font-size:16px;font-weight:600;box-shadow:0 12px 28px -8px rgba(0,0,0,.75);cursor:pointer">
+                <span class="material-symbols-rounded" style="font-size:23px;font-variation-settings:'wght' 600">person_add</span>Müşteri
+              </button>
+            </div>
+            <div style="flex:none;display:flex;align-items:stretch;padding:8px 10px 6px;background:var(--s1);border-top:1px solid var(--line)">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:3px 0">
+                <div style="width:62px;height:30px;border-radius:15px;background:var(--acc-soft);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px;color:var(--acc-fg);font-variation-settings:'FILL' 1,'wght' 500">group</span></div>
+                <span style="font-size:11.5px;font-weight:600;color:var(--acc-fg)">Müşteriler</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:3px 0">
+                <div style="width:62px;height:30px;display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px;color:var(--t3);font-variation-settings:'wght' 500">receipt_long</span></div>
+                <span style="font-size:11.5px;font-weight:600;color:var(--t3)">Siparişler</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:3px 0">
+                <div style="width:62px;height:30px;display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px;color:var(--t3);font-variation-settings:'wght' 500">menu</span></div>
+                <span style="font-size:11.5px;font-weight:600;color:var(--t3)">Menü</span>
+              </div>
+            </div>
+            <div style="flex:none;height:22px;display:flex;align-items:center;justify-content:center;background:var(--s1)"><div style="width:120px;height:4px;border-radius:2px;background:var(--t2);opacity:.5"></div></div>
+          </div>
+        </div>
+        <div style="font-size:12.5px;line-height:1.5;color:var(--t3);padding:0 4px">Canlı arama · isim büyük, telefon ikincil · bakiye rozeti sağda · başlıkta borçlu sayısı.</div>
+      </div>
+
+      <div style="flex:none;display:flex;flex-direction:column;gap:14px;width:405px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="width:22px;height:22px;border-radius:7px;background:var(--acc);color:var(--acc-ink);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">2</span>
+          <span style="font-size:13px;font-weight:600;color:var(--t1)">Siparişler · boş durum</span>
+        </div>
+        <div style="width:405px;height:864px;background:#04060A;border-radius:46px;padding:6px;box-shadow:0 40px 90px -20px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.04)">
+          <div style="position:relative;width:393px;height:852px;background:var(--bg);border-radius:40px;overflow:hidden;display:flex;flex-direction:column">
+            <div style="position:relative;height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px">
+              <span style="font-size:14px;font-weight:600;color:var(--t1);letter-spacing:.01em">2:04</span>
+              <div style="position:absolute;left:50%;top:15px;transform:translateX(-50%);width:9px;height:9px;border-radius:50%;background:#05070A"></div>
+              <div style="display:flex;align-items:center;gap:7px;color:var(--t1)">
+                <span class="material-symbols-rounded" style="font-size:16px;font-variation-settings:'FILL' 1,'wght' 500">dark_mode</span>
+                <span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 600">signal_cellular_alt</span>
+                <span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 500">wifi</span>
+                <span class="material-symbols-rounded" style="font-size:20px;font-variation-settings:'FILL' 1">battery_full</span>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;position:relative;display:flex;flex-direction:column;overflow:hidden">
+              <div style="flex:none;padding:8px 18px 14px">
+                <h1 style="margin:0 0 14px;font-size:27px;font-weight:700;letter-spacing:-0.02em;color:var(--t1)">Siparişler</h1>
+                <div style="display:flex;gap:4px;padding:4px;background:var(--s2);border:1px solid var(--line);border-radius:999px;height:48px;box-sizing:border-box">
+                  <sc-for list="{{ segsEmpty }}" as="s" hint-placeholder-count="3">
+                    <sc-if value="{{ s.selected }}">
+                      <button onClick="{{ s.onSelect }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:999px;background:var(--acc);color:var(--acc-ink);font-family:'IBM Plex Sans';font-size:15px;font-weight:600;cursor:pointer"><span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 700">check</span>{{ s.label }}</button>
+                    </sc-if>
+                    <sc-if value="{{ s.notSelected }}">
+                      <button onClick="{{ s.onSelect }}" style="flex:1;display:flex;align-items:center;justify-content:center;border:none;border-radius:999px;background:transparent;color:var(--t2);font-family:'IBM Plex Sans';font-size:15px;font-weight:600;cursor:pointer" style-active="background:var(--s3)">{{ s.label }}</button>
+                    </sc-if>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 40px 120px;text-align:center">
+                <div style="width:84px;height:84px;border-radius:50%;background:var(--s2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin-bottom:22px"><span class="material-symbols-rounded" style="font-size:40px;color:var(--t3);font-variation-settings:'wght' 300">receipt_long</span></div>
+                <div style="font-size:18px;font-weight:600;line-height:1.3;color:var(--t1);margin-bottom:8px">{{ emptyTitle }}</div>
+                <div style="font-size:14.5px;font-weight:400;line-height:1.5;color:var(--t2);max-width:250px;text-wrap:pretty">{{ emptySub }}</div>
+              </div>
+              <button style="position:absolute;right:16px;bottom:18px;height:56px;padding:0 22px 0 19px;display:flex;align-items:center;gap:10px;background:var(--acc);color:var(--acc-ink);border:none;border-radius:var(--r-fab);font-family:'IBM Plex Sans';font-size:16px;font-weight:600;box-shadow:0 12px 28px -8px rgba(0,0,0,.75);cursor:pointer">
+                <span class="material-symbols-rounded" style="font-size:23px;font-variation-settings:'wght' 600">add_shopping_cart</span>Sipariş
+              </button>
+            </div>
+            <div style="flex:none;display:flex;align-items:stretch;padding:8px 10px 6px;background:var(--s1);border-top:1px solid var(--line)">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:3px 0">
+                <div style="width:62px;height:30px;display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px;color:var(--t3);font-variation-settings:'wght' 500">group</span></div>
+                <span style="font-size:11.5px;font-weight:600;color:var(--t3)">Müşteriler</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:3px 0">
+                <div style="width:62px;height:30px;border-radius:15px;background:var(--acc-soft);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px;color:var(--acc-fg);font-variation-settings:'FILL' 1,'wght' 500">receipt_long</span></div>
+                <span style="font-size:11.5px;font-weight:600;color:var(--acc-fg)">Siparişler</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:3px 0">
+                <div style="width:62px;height:30px;display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px;color:var(--t3);font-variation-settings:'wght' 500">menu</span></div>
+                <span style="font-size:11.5px;font-weight:600;color:var(--t3)">Menü</span>
+              </div>
+            </div>
+            <div style="flex:none;height:22px;display:flex;align-items:center;justify-content:center;background:var(--s1)"><div style="width:120px;height:4px;border-radius:2px;background:var(--t2);opacity:.5"></div></div>
+          </div>
+        </div>
+        <div style="font-size:12.5px;line-height:1.5;color:var(--t3);padding:0 4px">Yönlendirici empty state — ikon + net mesaj. Filtreye göre metin değişir (dene).</div>
+      </div>
+
+      <div style="flex:none;display:flex;flex-direction:column;gap:14px;width:405px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="width:22px;height:22px;border-radius:7px;background:var(--acc);color:var(--acc-ink);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">2</span>
+          <span style="font-size:13px;font-weight:600;color:var(--t1)">Siparişler · dolu liste</span>
+        </div>
+        <div style="width:405px;height:864px;background:#04060A;border-radius:46px;padding:6px;box-shadow:0 40px 90px -20px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.04)">
+          <div style="position:relative;width:393px;height:852px;background:var(--bg);border-radius:40px;overflow:hidden;display:flex;flex-direction:column">
+            <div style="position:relative;height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px">
+              <span style="font-size:14px;font-weight:600;color:var(--t1);letter-spacing:.01em">2:04</span>
+              <div style="position:absolute;left:50%;top:15px;transform:translateX(-50%);width:9px;height:9px;border-radius:50%;background:#05070A"></div>
+              <div style="display:flex;align-items:center;gap:7px;color:var(--t1)">
+                <span class="material-symbols-rounded" style="font-size:16px;font-variation-settings:'FILL' 1,'wght' 500">dark_mode</span>
+                <span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 600">signal_cellular_alt</span>
+                <span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 500">wifi</span>
+                <span class="material-symbols-rounded" style="font-size:20px;font-variation-settings:'FILL' 1">battery_full</span>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;position:relative;display:flex;flex-direction:column;overflow:hidden">
+              <div style="flex:none;padding:8px 18px 14px">
+                <h1 style="margin:0 0 14px;font-size:27px;font-weight:700;letter-spacing:-0.02em;color:var(--t1)">Siparişler</h1>
+                <div style="display:flex;gap:4px;padding:4px;background:var(--s2);border:1px solid var(--line);border-radius:999px;height:48px;box-sizing:border-box">
+                  <sc-for list="{{ segsFull }}" as="s" hint-placeholder-count="3">
+                    <sc-if value="{{ s.selected }}">
+                      <button onClick="{{ s.onSelect }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:999px;background:var(--acc);color:var(--acc-ink);font-family:'IBM Plex Sans';font-size:15px;font-weight:600;cursor:pointer"><span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 700">check</span>{{ s.label }}</button>
+                    </sc-if>
+                    <sc-if value="{{ s.notSelected }}">
+                      <button onClick="{{ s.onSelect }}" style="flex:1;display:flex;align-items:center;justify-content:center;border:none;border-radius:999px;background:transparent;color:var(--t2);font-family:'IBM Plex Sans';font-size:15px;font-weight:600;cursor:pointer" style-active="background:var(--s3)">{{ s.label }}</button>
+                    </sc-if>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:2px 14px 104px;display:flex;flex-direction:column;gap:10px">
+                <sc-if value="{{ fullHasOrders }}">
+                  <sc-for list="{{ fullList }}" as="o" hint-placeholder-count="4">
+                    <div style="background:var(--s1);border:1px solid var(--line);border-radius:var(--r);padding:14px 15px">
+                      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+                        <div style="min-width:0">
+                          <div style="font-size:17.5px;font-weight:600;line-height:1.2;color:var(--t1)">{{ o.cust }}</div>
+                          <div style="margin-top:5px;font-size:14px;font-weight:400;line-height:1.35;color:var(--t2)">{{ o.items }}</div>
+                        </div>
+                        <sc-if value="{{ o.isAcik }}">
+                          <span style="flex:none;display:flex;align-items:center;gap:5px;padding:5px 10px;background:var(--acc-soft);color:var(--acc-fg);border-radius:9px;font-size:12.5px;font-weight:600"><span style="width:6px;height:6px;border-radius:50%;background:var(--acc-fg)"></span>Açık</span>
+                        </sc-if>
+                        <sc-if value="{{ o.isTeslim }}">
+                          <span style="flex:none;display:flex;align-items:center;gap:4px;padding:5px 10px;background:rgba(65,184,131,.15);color:var(--ok);border-radius:9px;font-size:12.5px;font-weight:600"><span class="material-symbols-rounded" style="font-size:15px;font-variation-settings:'FILL' 1,'wght' 600">check</span>Teslim</span>
+                        </sc-if>
+                      </div>
+                      <div style="margin-top:12px;padding-top:11px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between">
+                        <span style="font-size:13px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">{{ o.metaText }}</span>
+                        <span style="font-size:18px;font-weight:700;color:var(--t1);font-feature-settings:'tnum' 1">{{ o.totalText }}</span>
+                      </div>
+                    </div>
+                  </sc-for>
+                </sc-if>
+                <sc-if value="{{ fullEmpty }}">
+                  <div style="padding:70px 30px;text-align:center;color:var(--t2);font-size:15px;line-height:1.5">Bu filtrede sipariş yok.</div>
+                </sc-if>
+              </div>
+              <button style="position:absolute;right:16px;bottom:18px;height:56px;padding:0 22px 0 19px;display:flex;align-items:center;gap:10px;background:var(--acc);color:var(--acc-ink);border:none;border-radius:var(--r-fab);font-family:'IBM Plex Sans';font-size:16px;font-weight:600;box-shadow:0 12px 28px -8px rgba(0,0,0,.75);cursor:pointer">
+                <span class="material-symbols-rounded" style="font-size:23px;font-variation-settings:'wght' 600">add_shopping_cart</span>Sipariş
+              </button>
+            </div>
+            <div style="flex:none;display:flex;align-items:stretch;padding:8px 10px 6px;background:var(--s1);border-top:1px solid var(--line)">
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:3px 0">
+                <div style="width:62px;height:30px;display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px;color:var(--t3);font-variation-settings:'wght' 500">group</span></div>
+                <span style="font-size:11.5px;font-weight:600;color:var(--t3)">Müşteriler</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:3px 0">
+                <div style="width:62px;height:30px;border-radius:15px;background:var(--acc-soft);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px;color:var(--acc-fg);font-variation-settings:'FILL' 1,'wght' 500">receipt_long</span></div>
+                <span style="font-size:11.5px;font-weight:600;color:var(--acc-fg)">Siparişler</span>
+              </div>
+              <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:3px 0">
+                <div style="width:62px;height:30px;display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:22px;color:var(--t3);font-variation-settings:'wght' 500">menu</span></div>
+                <span style="font-size:11.5px;font-weight:600;color:var(--t3)">Menü</span>
+              </div>
+            </div>
+            <div style="flex:none;height:22px;display:flex;align-items:center;justify-content:center;background:var(--s1)"><div style="width:120px;height:4px;border-radius:2px;background:var(--t2);opacity:.5"></div></div>
+          </div>
+        </div>
+        <div style="font-size:12.5px;line-height:1.5;color:var(--t3);padding:0 4px">Sipariş kartı: müşteri, ürün özeti, durum rozeti (Açık/Teslim), saat · ödeme, tutar. Filtre canlı.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="margin-top:58px">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:8px">
+      <span style="width:28px;height:28px;border-radius:8px;background:var(--acc);color:var(--acc-ink);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'FILL' 1,'wght' 600">phone_in_talk</span></span>
+      <h2 style="margin:0;font-size:21px;font-weight:700;letter-spacing:-0.015em;color:var(--t1)">Gelen çağrı popup'ı</h2>
+    </div>
+    <p style="margin:0 0 26px;max-width:560px;font-size:14px;line-height:1.55;color:var(--t2)">Android overlay penceresi · ~320dp · ekranın üst yarısı. Bayi telefona bakmadan 1–2 saniyede karar verir; en baskın öğe <b style="color:var(--t1);font-weight:600">isim</b>, en kritik bilgi <b style="color:var(--t1);font-weight:600">bakiye şeridi</b>. Rozet dili müşteri listesiyle birebir aynı.</p>
+
+    <div style="display:flex;gap:36px;align-items:flex-start">
+
+      <div style="flex:none;display:flex;flex-direction:column;gap:14px;width:405px">
+        <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:var(--debt)"></span><span style="font-size:13px;font-weight:600;color:var(--t1)">Kayıtlı · borçlu</span></div>
+        <div style="width:405px;height:864px;background:#04060A;border-radius:46px;padding:6px;box-shadow:0 40px 90px -20px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.04)">
+          <div style="position:relative;width:393px;height:852px;background:var(--bg);border-radius:40px;overflow:hidden;display:flex;flex-direction:column">
+            <div style="position:relative;height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;z-index:3">
+              <span style="font-size:14px;font-weight:600;color:var(--t1);letter-spacing:.01em">2:04</span>
+              <div style="position:absolute;left:50%;top:15px;transform:translateX(-50%);width:9px;height:9px;border-radius:50%;background:#05070A"></div>
+              <div style="display:flex;align-items:center;gap:7px;color:var(--t1)">
+                <span class="material-symbols-rounded" style="font-size:16px;font-variation-settings:'FILL' 1,'wght' 500">dark_mode</span>
+                <span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 600">signal_cellular_alt</span>
+                <span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 500">wifi</span>
+                <span class="material-symbols-rounded" style="font-size:20px;font-variation-settings:'FILL' 1">battery_full</span>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;position:relative">
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding-top:36px;opacity:.26">
+                <div style="width:96px;height:96px;border-radius:50%;background:var(--s3)"></div>
+                <div style="margin-top:16px;font-size:22px;font-weight:600;color:var(--t1);font-feature-settings:'tnum' 1">0532 771 08 63</div>
+                <div style="margin-top:6px;font-size:14px;color:var(--t2)">arıyor…</div>
+              </div>
+              <div style="position:absolute;left:0;right:0;bottom:44px;display:flex;justify-content:center;gap:64px;opacity:.26">
+                <div style="width:64px;height:64px;border-radius:50%;background:var(--err);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:29px;color:#fff;font-variation-settings:'FILL' 1">call_end</span></div>
+                <div style="width:64px;height:64px;border-radius:50%;background:var(--ok);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:29px;color:#fff;font-variation-settings:'FILL' 1">call</span></div>
+              </div>
+              <div style="position:absolute;inset:0;background:rgba(3,5,8,.52)"></div>
+              <div style="position:absolute;left:50%;top:66px;transform:translateX(-50%);width:337px;background:var(--s2);border:1px solid var(--line2);border-radius:22px;box-shadow:0 26px 64px -12px rgba(0,0,0,.9),0 8px 22px -8px rgba(0,0,0,.7);overflow:hidden">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 0">
+                  <div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 4px var(--acc-soft);animation:sipPulse 1.4s ease-in-out infinite"></span><span style="font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--acc-fg)">GELEN ÇAĞRI</span></div>
+                  <span style="font-size:12.5px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">0532 771 08 63</span>
+                </div>
+                <div style="padding:11px 18px 0;display:flex;align-items:center;gap:9px">
+                  <h3 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Fatma Şahin</h3>
+                  <span style="flex:none;padding:3px 9px;background:var(--s3);border-radius:7px;font-size:12px;font-weight:600;color:var(--t2);font-feature-settings:'tnum' 1">M-102</span>
+                </div>
+                <div style="padding:9px 18px 0;display:flex;align-items:center;gap:7px;color:var(--t2)"><span class="material-symbols-rounded" style="font-size:18px;color:var(--t3);font-variation-settings:'FILL' 1">location_on</span><span style="font-size:14px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Cumhuriyet Mah. 1453 Sk. No:7/B</span></div>
+                <div style="margin:14px 18px 0;display:flex;align-items:center;justify-content:space-between;padding:13px 16px;background:var(--debt);border-radius:13px">
+                  <span style="display:flex;align-items:center;gap:8px;color:#fff;font-size:14px;font-weight:600"><span class="material-symbols-rounded" style="font-size:19px;font-variation-settings:'FILL' 1">account_balance_wallet</span>Borçlu</span>
+                  <span style="color:#fff;font-size:22px;font-weight:700;font-feature-settings:'tnum' 1">45,00 ₺</span>
+                </div>
+                <div style="margin:12px 18px 0;padding:11px 14px;background:var(--acc-soft);border-radius:11px;display:flex;align-items:center;gap:8px"><span style="width:7px;height:7px;border-radius:50%;background:var(--acc-fg);flex:none;box-shadow:0 0 0 3px rgba(35,169,224,.18);animation:sipPulse 1.4s ease-in-out infinite"></span><span style="font-size:13.5px;font-weight:700;color:var(--acc-fg);flex:none">Açık sipariş</span><span style="font-size:13.5px;font-weight:400;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">2× 19L · 45 dk önce verildi</span></div>
+                <div style="padding:10px 18px 15px 20px;display:flex;align-items:center;gap:7px;color:var(--t3)"><span class="material-symbols-rounded" style="font-size:16px">history</span><span style="font-size:12.5px;font-weight:400">Son teslim: 3× 19L · 12 Tem</span></div>
+                <div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px">
+                  <button style="height:58px;display:flex;align-items:center;justify-content:center;gap:9px;background:var(--acc);color:var(--acc-ink);border:none;border-radius:var(--r);font-family:'IBM Plex Sans';font-size:16.5px;font-weight:600;cursor:pointer"><span class="material-symbols-rounded" style="font-size:23px;font-variation-settings:'wght' 600">add_shopping_cart</span>Sipariş Oluştur</button>
+                  <div style="display:flex;gap:8px">
+                    <button style="flex:1;height:52px;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--s3);color:var(--t1);border:none;border-radius:var(--r);font-family:'IBM Plex Sans';font-size:14.5px;font-weight:600;cursor:pointer"><span class="material-symbols-rounded" style="font-size:20px;font-variation-settings:'wght' 500">badge</span>Müşteri Kartı</button>
+                    <button style="flex:1;height:52px;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--t2);border:1px solid var(--line2);border-radius:var(--r);font-family:'IBM Plex Sans';font-size:14.5px;font-weight:600;cursor:pointer">Kapat</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="flex:none;height:22px;display:flex;align-items:center;justify-content:center;background:var(--bg);position:relative;z-index:3"><div style="width:120px;height:4px;border-radius:2px;background:var(--t2);opacity:.5"></div></div>
+          </div>
+        </div>
+        <div style="font-size:12.5px;line-height:1.5;color:var(--t3);padding:0 4px">Kayıtlı müşteri, borçlu — kırmızı şerit, tutar büyük. Liste rozetiyle aynı dil.</div>
+      </div>
+
+      <div style="flex:none;display:flex;flex-direction:column;gap:14px;width:405px">
+        <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:var(--ok)"></span><span style="font-size:13px;font-weight:600;color:var(--t1)">Kayıtlı · bakiye temiz</span></div>
+        <div style="width:405px;height:864px;background:#04060A;border-radius:46px;padding:6px;box-shadow:0 40px 90px -20px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.04)">
+          <div style="position:relative;width:393px;height:852px;background:var(--bg);border-radius:40px;overflow:hidden;display:flex;flex-direction:column">
+            <div style="position:relative;height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;z-index:3">
+              <span style="font-size:14px;font-weight:600;color:var(--t1);letter-spacing:.01em">2:04</span>
+              <div style="position:absolute;left:50%;top:15px;transform:translateX(-50%);width:9px;height:9px;border-radius:50%;background:#05070A"></div>
+              <div style="display:flex;align-items:center;gap:7px;color:var(--t1)">
+                <span class="material-symbols-rounded" style="font-size:16px;font-variation-settings:'FILL' 1,'wght' 500">dark_mode</span>
+                <span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 600">signal_cellular_alt</span>
+                <span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 500">wifi</span>
+                <span class="material-symbols-rounded" style="font-size:20px;font-variation-settings:'FILL' 1">battery_full</span>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;position:relative">
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding-top:36px;opacity:.26">
+                <div style="width:96px;height:96px;border-radius:50%;background:var(--s3)"></div>
+                <div style="margin-top:16px;font-size:22px;font-weight:600;color:var(--t1);font-feature-settings:'tnum' 1">0505 662 19 07</div>
+                <div style="margin-top:6px;font-size:14px;color:var(--t2)">arıyor…</div>
+              </div>
+              <div style="position:absolute;left:0;right:0;bottom:44px;display:flex;justify-content:center;gap:64px;opacity:.26">
+                <div style="width:64px;height:64px;border-radius:50%;background:var(--err);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:29px;color:#fff;font-variation-settings:'FILL' 1">call_end</span></div>
+                <div style="width:64px;height:64px;border-radius:50%;background:var(--ok);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:29px;color:#fff;font-variation-settings:'FILL' 1">call</span></div>
+              </div>
+              <div style="position:absolute;inset:0;background:rgba(3,5,8,.52)"></div>
+              <div style="position:absolute;left:50%;top:66px;transform:translateX(-50%);width:337px;background:var(--s2);border:1px solid var(--line2);border-radius:22px;box-shadow:0 26px 64px -12px rgba(0,0,0,.9),0 8px 22px -8px rgba(0,0,0,.7);overflow:hidden">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 0">
+                  <div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 4px var(--acc-soft);animation:sipPulse 1.4s ease-in-out infinite"></span><span style="font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--acc-fg)">GELEN ÇAĞRI</span></div>
+                  <span style="font-size:12.5px;font-weight:500;color:var(--t3);font-feature-settings:'tnum' 1">0505 662 19 07</span>
+                </div>
+                <div style="padding:11px 18px 0;display:flex;align-items:center;gap:9px">
+                  <h3 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ahmet Yılmaz</h3>
+                  <span style="flex:none;padding:3px 9px;background:var(--s3);border-radius:7px;font-size:12px;font-weight:600;color:var(--t2);font-feature-settings:'tnum' 1">M-047</span>
+                </div>
+                <div style="padding:9px 18px 0;display:flex;align-items:center;gap:7px;color:var(--t2)"><span class="material-symbols-rounded" style="font-size:18px;color:var(--t3);font-variation-settings:'FILL' 1">location_on</span><span style="font-size:14px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Bağlar Mah. Zafer Cd. No:22</span></div>
+                <div style="margin:14px 18px 0;display:flex;align-items:center;gap:9px;padding:13px 16px;background:var(--ok);border-radius:13px">
+                  <span class="material-symbols-rounded" style="font-size:20px;color:#06231B;font-variation-settings:'FILL' 1">check_circle</span>
+                  <span style="color:#06231B;font-size:16px;font-weight:700">Borcu yok</span>
+                  <span style="margin-left:auto;color:rgba(6,35,27,.82);font-size:14px;font-weight:700;font-feature-settings:'tnum' 1">0,00 ₺</span>
+                </div>
+                <div style="margin:12px 18px 0;padding:11px 14px;background:rgba(65,184,131,.13);border-radius:11px;display:flex;align-items:center;gap:8px"><span class="material-symbols-rounded" style="font-size:18px;color:var(--ok);flex:none;font-variation-settings:'FILL' 1">local_shipping</span><span style="font-size:13.5px;font-weight:700;color:var(--ok);flex:none">Teslim edildi</span><span style="font-size:13.5px;font-weight:400;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">1× 10L · 2 sa önce</span></div>
+                <div style="padding:10px 18px 15px 20px;display:flex;align-items:center;gap:7px;color:var(--t3)"><span class="material-symbols-rounded" style="font-size:16px">history</span><span style="font-size:12.5px;font-weight:400">Son teslim: 1× 10L · 09 Tem</span></div>
+                <div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px">
+                  <button style="height:58px;display:flex;align-items:center;justify-content:center;gap:9px;background:var(--acc);color:var(--acc-ink);border:none;border-radius:var(--r);font-family:'IBM Plex Sans';font-size:16.5px;font-weight:600;cursor:pointer"><span class="material-symbols-rounded" style="font-size:23px;font-variation-settings:'wght' 600">add_shopping_cart</span>Sipariş Oluştur</button>
+                  <div style="display:flex;gap:8px">
+                    <button style="flex:1;height:52px;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--s3);color:var(--t1);border:none;border-radius:var(--r);font-family:'IBM Plex Sans';font-size:14.5px;font-weight:600;cursor:pointer"><span class="material-symbols-rounded" style="font-size:20px;font-variation-settings:'wght' 500">badge</span>Müşteri Kartı</button>
+                    <button style="flex:1;height:52px;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--t2);border:1px solid var(--line2);border-radius:var(--r);font-family:'IBM Plex Sans';font-size:14.5px;font-weight:600;cursor:pointer">Kapat</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="flex:none;height:22px;display:flex;align-items:center;justify-content:center;background:var(--bg);position:relative;z-index:3"><div style="width:120px;height:4px;border-radius:2px;background:var(--t2);opacity:.5"></div></div>
+          </div>
+        </div>
+        <div style="font-size:12.5px;line-height:1.5;color:var(--t3);padding:0 4px">Kayıtlı müşteri, temiz — yeşil "Borcu yok" şeridi + son teslim durumu.</div>
+      </div>
+
+      <div style="flex:none;display:flex;flex-direction:column;gap:14px;width:405px">
+        <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:var(--t3)"></span><span style="font-size:13px;font-weight:600;color:var(--t1)">Kayıtsız numara</span></div>
+        <div style="width:405px;height:864px;background:#04060A;border-radius:46px;padding:6px;box-shadow:0 40px 90px -20px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.04)">
+          <div style="position:relative;width:393px;height:852px;background:var(--bg);border-radius:40px;overflow:hidden;display:flex;flex-direction:column">
+            <div style="position:relative;height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 26px;z-index:3">
+              <span style="font-size:14px;font-weight:600;color:var(--t1);letter-spacing:.01em">2:04</span>
+              <div style="position:absolute;left:50%;top:15px;transform:translateX(-50%);width:9px;height:9px;border-radius:50%;background:#05070A"></div>
+              <div style="display:flex;align-items:center;gap:7px;color:var(--t1)">
+                <span class="material-symbols-rounded" style="font-size:16px;font-variation-settings:'FILL' 1,'wght' 500">dark_mode</span>
+                <span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 600">signal_cellular_alt</span>
+                <span class="material-symbols-rounded" style="font-size:18px;font-variation-settings:'wght' 500">wifi</span>
+                <span class="material-symbols-rounded" style="font-size:20px;font-variation-settings:'FILL' 1">battery_full</span>
+              </div>
+            </div>
+            <div style="flex:1;min-height:0;position:relative">
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding-top:36px;opacity:.26">
+                <div style="width:96px;height:96px;border-radius:50%;background:var(--s3)"></div>
+                <div style="margin-top:16px;font-size:22px;font-weight:600;color:var(--t1);font-feature-settings:'tnum' 1">0536 214 88 90</div>
+                <div style="margin-top:6px;font-size:14px;color:var(--t2)">arıyor…</div>
+              </div>
+              <div style="position:absolute;left:0;right:0;bottom:44px;display:flex;justify-content:center;gap:64px;opacity:.26">
+                <div style="width:64px;height:64px;border-radius:50%;background:var(--err);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:29px;color:#fff;font-variation-settings:'FILL' 1">call_end</span></div>
+                <div style="width:64px;height:64px;border-radius:50%;background:var(--ok);display:flex;align-items:center;justify-content:center"><span class="material-symbols-rounded" style="font-size:29px;color:#fff;font-variation-settings:'FILL' 1">call</span></div>
+              </div>
+              <div style="position:absolute;inset:0;background:rgba(3,5,8,.52)"></div>
+              <div style="position:absolute;left:50%;top:78px;transform:translateX(-50%);width:337px;background:var(--s2);border:1px solid var(--line2);border-radius:22px;box-shadow:0 26px 64px -12px rgba(0,0,0,.9),0 8px 22px -8px rgba(0,0,0,.7);overflow:hidden">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 0">
+                  <div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 4px var(--acc-soft);animation:sipPulse 1.4s ease-in-out infinite"></span><span style="font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--acc-fg)">GELEN ÇAĞRI</span></div>
+                  <span style="display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--t3)"><span class="material-symbols-rounded" style="font-size:15px">person_off</span>Kayıtlı değil</span>
+                </div>
+                <div style="padding:16px 18px 0">
+                  <div style="font-size:29px;font-weight:700;letter-spacing:-0.01em;color:var(--t1);font-feature-settings:'tnum' 1">0536 214 88 90</div>
+                  <div style="margin-top:6px;font-size:14px;font-weight:400;color:var(--t2)">Bu numara müşteri kaydında yok.</div>
+                </div>
+                <div style="margin:16px 18px 0;display:flex;align-items:center;gap:9px;padding:13px 16px;background:var(--s3);border-radius:13px">
+                  <span class="material-symbols-rounded" style="font-size:20px;color:var(--t3)">help</span>
+                  <span style="color:var(--t2);font-size:14px;font-weight:600">Bakiye / geçmiş kaydı yok</span>
+                </div>
+                <div style="padding:18px 14px 14px;display:flex;flex-direction:column;gap:8px">
+                  <button style="height:58px;display:flex;align-items:center;justify-content:center;gap:9px;background:var(--acc);color:var(--acc-ink);border:none;border-radius:var(--r);font-family:'IBM Plex Sans';font-size:16px;font-weight:600;cursor:pointer"><span class="material-symbols-rounded" style="font-size:23px;font-variation-settings:'wght' 600">person_add</span>Yeni müşteri olarak kaydet</button>
+                  <button style="height:52px;display:flex;align-items:center;justify-content:center;background:transparent;color:var(--t2);border:1px solid var(--line2);border-radius:var(--r);font-family:'IBM Plex Sans';font-size:14.5px;font-weight:600;cursor:pointer">Kapat</button>
+                </div>
+              </div>
+            </div>
+            <div style="flex:none;height:22px;display:flex;align-items:center;justify-content:center;background:var(--bg);position:relative;z-index:3"><div style="width:120px;height:4px;border-radius:2px;background:var(--t2);opacity:.5"></div></div>
+          </div>
+        </div>
+        <div style="font-size:12.5px;line-height:1.5;color:var(--t3);padding:0 4px">Kayıtsız — isim yerine numara baskın; tek birincil aksiyon: kaydet.</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;accent&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Azur&quot;, &quot;options&quot;: [&quot;Azur&quot;, &quot;Turkuaz&quot;, &quot;Deniz mavisi&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Marka&quot; },
+  &quot;corner&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Yumuşak&quot;, &quot;options&quot;: [&quot;Yumuşak&quot;, &quot;Keskin&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Biçim&quot; }
+}">
+class Component extends DCLogic {
+  state = { q:'', fFull:'tumu', fEmpty:'acik' };
+
+  accentPresets = {
+    'Azur':         { acc:'#23A9E0', fg:'#54C4EE', soft:'rgba(35,169,224,0.15)', ink:'#06131B' },
+    'Turkuaz':      { acc:'#16B5AE', fg:'#48D6CE', soft:'rgba(22,181,174,0.15)', ink:'#04211F' },
+    'Deniz mavisi': { acc:'#3B7DE0', fg:'#7BA9F4', soft:'rgba(59,125,224,0.16)', ink:'#050F22' },
+  };
+  cornerPresets = {
+    'Yumuşak': { r:'16px', rsm:'11px', rfab:'18px', rin:'15px' },
+    'Keskin':  { r:'10px', rsm:'8px',  rfab:'12px', rin:'10px' },
+  };
+
+  applyTokens() {
+    const el = this._board; if (!el) return;
+    const a = this.accentPresets[this.props.accent] || this.accentPresets['Azur'];
+    el.style.setProperty('--acc', a.acc);
+    el.style.setProperty('--acc-fg', a.fg);
+    el.style.setProperty('--acc-soft', a.soft);
+    el.style.setProperty('--acc-ink', a.ink);
+    const c = this.cornerPresets[this.props.corner] || this.cornerPresets['Yumuşak'];
+    el.style.setProperty('--r', c.r);
+    el.style.setProperty('--r-sm', c.rsm);
+    el.style.setProperty('--r-fab', c.rfab);
+    el.style.setProperty('--r-input', c.rin);
+  }
+  boardRef = (el) => { this._board = el; if (el) this.applyTokens(); };
+  componentDidUpdate() { this.applyTokens(); }
+
+  tl(n) {
+    const s = Math.abs(n).toFixed(2).split('.');
+    const i = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return (n < 0 ? '-' : '') + i + ',' + s[1] + ' ₺';
+  }
+  low(s) { return (s || '').toLocaleLowerCase('tr'); }
+
+  renderVals() {
+    const tl = this.tl.bind(this);
+    const rawCust = [
+      { name:'Ahmet Buğra',   phone:'0532 118 44 21', bal:0 },
+      { name:'Ahmet Yılmaz',  phone:'0505 662 19 07', bal:0 },
+      { name:'Ayşe Demir',    phone:'0542 330 55 12', bal:0 },
+      { name:'Fatma Şahin',   phone:'0532 771 08 63', bal:45 },
+      { name:'Hüseyin Aydın', phone:'0538 204 76 90', bal:0 },
+      { name:'Mehmet Kaya',   phone:'0544 615 23 88', bal:260.5 },
+      { name:'Zeynep Çelik',  phone:'0507 449 91 25', bal:15 },
+    ];
+    const q = this.low(this.state.q).trim();
+    const nq = q.replace(/\s/g, '');
+    const customers = rawCust
+      .filter(c => !q || this.low(c.name).includes(q) || c.phone.replace(/\s/g, '').includes(nq))
+      .map(c => {
+        const p = c.name.split(' ');
+        const initials = ((p[0][0] || '') + (p[1] ? p[1][0] : '')).toLocaleUpperCase('tr');
+        const isDebt = c.bal > 0.001;
+        return { name:c.name, phone:c.phone, initials, isDebt, isClean:!isDebt, balanceText:tl(c.bal) };
+      });
+    const debtCount = rawCust.filter(c => c.bal > 0.001).length;
+
+    const rawOrders = [
+      { cust:'Fatma Şahin',   items:'2 × 19L Damacana',        total:90,  status:'acik',   pay:'Veresiye', time:'14:32' },
+      { cust:'Ahmet Buğra',   items:'3 × 19L Damacana',        total:135, status:'acik',   pay:'Nakit',    time:'14:05' },
+      { cust:'Zeynep Çelik',  items:'1 × 10L Damacana',        total:30,  status:'acik',   pay:'Havale',   time:'11:15' },
+      { cust:'Mehmet Kaya',   items:'1 × 19L · 2 × 10L Damacana', total:105, status:'teslim', pay:'Kart',   time:'13:20' },
+      { cust:'Ayşe Demir',    items:'4 × 19L Damacana',        total:180, status:'teslim', pay:'Nakit',    time:'12:48' },
+      { cust:'Hüseyin Aydın', items:'2 × 10L Damacana',        total:60,  status:'teslim', pay:'Nakit',    time:'10:30' },
+    ];
+    const mapO = o => ({
+      cust:o.cust, items:o.items,
+      isAcik:o.status === 'acik', isTeslim:o.status === 'teslim',
+      totalText:tl(o.total), metaText:o.time + ' · ' + o.pay,
+    });
+    const seg = (cur, key) => [['acik','Açık'],['teslim','Teslim'],['tumu','Tümü']].map(([k, l]) => ({
+      label:l, selected:cur === k, notSelected:cur !== k, onSelect:() => this.setState({ [key]:k }),
+    }));
+    const applyF = f => f === 'tumu' ? rawOrders : rawOrders.filter(o => o.status === f);
+    const fullList = applyF(this.state.fFull).map(mapO);
+    const em = {
+      acik:  ['Açık sipariş yok.', 'Telefon çalınca sağ alttan sipariş girin.'],
+      teslim:['Teslim edilen sipariş yok.', 'Teslim edilen siparişler burada görünür.'],
+      tumu:  ['Henüz sipariş yok.', 'İlk siparişi sağ alttan ekle.'],
+    }[this.state.fEmpty];
+
+    return {
+      boardRef: this.boardRef,
+      q: this.state.q, onQ: (e) => this.setState({ q: e.target.value }),
+      customers, custEmpty: customers.length === 0, hasDebt: debtCount > 0, debtCount,
+      segsFull: seg(this.state.fFull, 'fFull'), fullList,
+      fullHasOrders: fullList.length > 0, fullEmpty: fullList.length === 0,
+      segsEmpty: seg(this.state.fEmpty, 'fEmpty'), emptyTitle: em[0], emptySub: em[1],
+    };
+  }
+}
+</script>
+</body>
+</html>

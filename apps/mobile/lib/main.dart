@@ -5,6 +5,7 @@ import 'data/app_database.dart';
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
 import 'sync/sync_service.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,13 +60,7 @@ class _SiparioAppState extends State<SiparioApp> {
     return MaterialApp(
       title: 'Sipario',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2F6BFF),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: SipTheme.dark(),
       home: switch (_loggedIn) {
         null when _startupError != null => Scaffold(
             body: Center(

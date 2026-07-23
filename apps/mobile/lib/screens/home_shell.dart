@@ -7,6 +7,7 @@ import '../data/app_database.dart';
 import '../phase0/phase0_screen.dart';
 import '../subscription/subscription_state.dart';
 import '../sync/sync_service.dart';
+import '../theme/tokens.dart';
 import 'cash_handover_screen.dart';
 import 'customers/customer_list_screen.dart';
 import 'day_end_screen.dart';
@@ -134,8 +135,14 @@ class _HomeShellState extends State<HomeShell> {
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.people_outline), label: 'Müşteriler'),
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), label: 'Siparişler'),
+          NavigationDestination(
+              icon: Icon(Icons.group_outlined),
+              selectedIcon: Icon(Icons.group),
+              label: 'Müşteriler'),
+          NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long),
+              label: 'Siparişler'),
           NavigationDestination(icon: Icon(Icons.menu), label: 'Menü'),
         ],
       ),
@@ -151,24 +158,24 @@ class _SubscriptionBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final readOnly = access == AccessLevel.readOnly;
+    // Nötr bilgi şeridi (BRIEF mağaza kuralı: fiyat/abone-ol/link YOK). Renk token'lardan.
+    final fg = readOnly ? SipColors.debt : SipColors.warn;
     return Material(
-      color: readOnly
-          ? Theme.of(context).colorScheme.errorContainer
-          : Theme.of(context).colorScheme.tertiaryContainer,
+      color: readOnly ? SipColors.debtSoft : SipColors.warnSoft,
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
-              Icon(readOnly ? Icons.lock_outline : Icons.info_outline, size: 18),
+              Icon(readOnly ? Icons.lock_outline : Icons.info_outline, size: 18, color: fg),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   readOnly
                       ? 'Aboneliğiniz sona erdi; kayıtlar salt-okunur. Destek alın.'
                       : 'Abonelik süreniz doldu görünüyor; bağlantı kurulunca netleşecek.',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: const TextStyle(color: SipColors.t1, fontSize: 13, height: 1.35),
                 ),
               ),
             ],
