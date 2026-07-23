@@ -61,7 +61,62 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-22 — GERÇEK CİHAZ TESTİ başladı; saha 2 GERÇEK hata yakaladı, ikisi de düzeltildi; devir rehberi aşağıda)
+## Güncel durum (son güncelleme: 2026-07-23 — UI YENİDEN TASARIM: tema temeli + Ekran 1-2 (Müşteriler/Siparişler) bitti, Ekran 3 Gün sonu KOD BAŞLAMADI; 161/161 + APK)
+
+### VARDİYA 2026-07-23 (UI YENİDEN TASARIM — Claude Design handoff; merkezî tema + Ekran 1-2 bitti, Ekran 3 yarım)
+
+**TETİKLEYİCİ:** Kullanıcı Claude Design'da (claude.ai/design) mobil arayüzü yeniden tasarladı, handoff
+paketini `design_handoff/`'a koydu ("çok basit tasarımı var, yeniden düzenlet"). Görev: handoff'u
+Flutter'a idiomatik uygula, ekran ekran onay kapılarıyla (kullanıcı 7 kurallı iş emri verdi).
+Handoff = koyu tema, katmanlı yüzeyler, su-temalı Azur vurgu, kartlar + bakiye rozetleri, IBM Plex Sans.
+Handoff'ta detaylı mockup olan ekranlar: **Müşteriler, Siparişler (boş+dolu), Gelen Çağrı Popup (3 varyant)**.
+
+**NE BİTTİ (hepsi bu makinede doğrulandı — dart analyze 0 · flutter test 161/161 · debug APK):**
+- **Merkezî tema katmanı `apps/mobile/lib/theme/`** — `tokens.dart` (SipColors/SipRadius/SipSpace),
+  `typography.dart` (SipText + TextTheme), `app_theme.dart` (SipTheme.dark → M3 ThemeData:
+  appbar/nav/fab/input/dialog/buton temaları), `components/` (BalanceBadge, SipEmptyState, SipSegmented).
+  **Ekranlarda ham renk/ölçü/font YASAK — hepsi token'dan.** Özet: **`DESIGN_SYSTEM.md`** (YENİ, repo kökü —
+  sonraki TÜM ekranların referansı; önce onu oku).
+- **Font IBM Plex Sans `assets/fonts/`'a GÖMÜLDÜ** (OFL; google_fonts DEĞİL — offline-first/kırmızı çizgi #3
+  runtime indirmeyi reddeder). 400/600/700. İkonlar Flutter yerleşik `Icons.*` (Material Symbols'a yakın).
+- **Ekran 1 — Müşteriler** (`customer_list_screen.dart`): kart satırları (avatar baş-harf + ad + telefon),
+  sağda `BalanceBadge` (borç dolgulu kırmızı), başlıkta canlı "N borçlu" rozeti, dolgulu arama, boş durum
+  ortak bileşen. Alt gezinme (seçili hap + dolu ikon) ve abonelik şeridi de tasarıma uydu (`home_shell.dart`).
+- **Ekran 2 — Siparişler** (`order_list_screen.dart`): `SipSegmented` filtre + sipariş kartı (müşteri +
+  ürün özeti + durum rozeti Açık/Teslim/İptal + alt satırda saat·ödeme·kurye + tutar). Kurye "Benim" sekmesi korundu.
+- **İki additive salt-okunur sorgu** (testli sözleşmelere DOKUNMADAN): `watchCustomerRows` (birincil telefon
+  LEFT JOIN) ve `watchOrderItemsSummary` (sipariş ürün özeti). `watchCustomers`/`watchOrders` AYNEN korundu.
+
+**NE YARIM KALDI / AÇIK:**
+- **Ekran 3 — Gün sonu: KOD BAŞLAMADI. Repo'da HÂLÂ ESKİ görünümde.** Ultracode tasarım-paneli workflow'u
+  başlatıldı (3 öneri → jüri → sentez) ama vardiya kapanınca DURDURULDU (jüri+sentez koşmadı, KOD ÜRETİLMEDİ).
+  Sonraki kişi Gün sonu'nu **DESIGN_SYSTEM.md'yi izleyerek DOĞRUDAN uygulasın** — özet bir ekran için panel
+  gereksiz; Ekran 1/2 kart desenini kopyalamak yeter.
+- **Kalan ekranlar (kullanıcı sırası):** Ekran 3 Gün sonu → Ekran 4 Menü → Ekran 5 Ürünler → **Ekran 6 Gelen
+  Çağrı Popup** (overlay penceresi; ANA Scaffold'a bağımlı OLMAYAN bağımsız widget; tema token'larını lib/theme/'den
+  alır; 2 varyant: kayıtlı müşteri [borçlu/temiz] + kayıtsız numara — handoff'ta 3 detaylı mockup var).
+- **Elle çizilmeyen ekranlar (global temayı MİRAS alıyor, otomatik uydu ama tam sadakat için elden geçebilir):**
+  login, müşteri detay/form, sipariş form/detay, ürün listesi, kasa devri, kupon, abonelik-kilit, Faz 0.
+  Kullanıcı Ekran 2 checkpoint'inde "form/detay da elle gerekli mi?" sorusunu YANITLAMADI — sor.
+
+**SONRAKİ KİŞİ NEREDEN DEVAM ETMELİ:**
+1. **Önce `DESIGN_SYSTEM.md`'yi oku** (tema sözleşmesi) + DECISIONS.md sonundaki "Tasarım sistemi" bölümü.
+2. **Ekran 3 = Gün sonu** (`lib/screens/day_end_screen.dart`). **KORUNACAK (testler find.text ile arıyor):**
+   kart başlıkları **"Kasa (bugün)" / "Veresiye (açık borç)" / "Kupon"**. Salt-okunur (aksiyon/FAB YOK).
+   `gunSonuOzeti`/`bugunTr` testli — DOKUNMA. Desen: SafeArea + "Gün sonu" başlık + tarih + kartlar
+   (Material s1 + kenar line + radius card; etiket/tutar satırları amount stiliyle; borç>0 kırmızı, eksi kupon kırmızı).
+3. **Her ekran bitince:** `dart analyze` + `flutter test` + `flutter build apk --debug`, sonra kullanıcıya
+   "KARAR GEREKLİ" ile göster, onay al, SONRAKİ ekrana geç (kullanıcının 7 kurallı iş emri böyle).
+
+**BİLİNEN TUZAKLAR (bu vardiya):**
+- **Codegen GEREKMEDİ** — şema değişmedi, yalnız mevcut üretilmiş tablolarla yeni sorgular; build_runner
+  AOT/`--force-jit` tuzağına hiç girilmedi. **Şema (tables.dart) değiştirirsen o tuzak geri gelir** (pubspec notu).
+- **Testli sorgu sözleşmelerine DOKUNMA** — `watchCustomers`/`watchOrders`/`gunSonuOzeti` testler DOĞRUDAN
+  çağırır; görüntü için ek veri gerekince (telefon, ürün özeti) AYRI additive fonksiyon yaz, mevcut imzayı koru.
+- **Ekranlarda ham renk/ölçü YAZMA** — bir kez `Color(0xFF...)` (iptal rozeti) kaçtı, analyze DEĞİL gözle
+  yakalandı → `SipColors.s3`. Her değer token'dan; lint hardcoded rengi yakalamaz.
+- **Font makine-yerel OFL kopyası** (geçerli TTF doğrulandı, magic 00010000) — kanonik IBM Plex ile değiştirilebilir.
+- **Ultracode workflow'u vardiya kapanışında TaskStop ile durdurulmalı** — arka plan workflow'u farklı oturuma taşınmaz.
 
 ### VARDİYA 2026-07-22 (GERÇEK CİHAZ TESTİ — Samsung S24 FE + arkadaş cihazı; 2 saha hatası bulundu ve KAPATILDI)
 
