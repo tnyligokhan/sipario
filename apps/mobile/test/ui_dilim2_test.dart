@@ -257,6 +257,46 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
     });
+
+    testWidgets('yeniden tasarım (Ekran 5): sayaç + fiyat + pasif çipi çizilir', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        final repo = ProductRepository(db);
+        await repo.create(name: 'Damacana 19 L', unitPriceKurus: 4500);
+        final eski = await repo.create(name: 'Bardak su', unitPriceKurus: 500);
+        await repo.deactivate(eski);
+      });
+
+      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: true)));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+      await tester.pump();
+
+      expect(find.text('1 aktif ürün · 1 pasif'), findsOneWidget,
+          reason: 'başlık altı canlı sayaç aktif/pasif ayrımını gösterir');
+      expect(find.text(formatKurus(4500)), findsOneWidget, reason: 'fiyat kartın sağında (amount)');
+      expect(find.text('Pasif'), findsOneWidget, reason: 'pasif ürün çip taşır');
+      expect(find.text(formatKurus(500)), findsOneWidget,
+          reason: 'pasif üründe fiyat kaybolmaz, soluklaşır');
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    });
+
+    testWidgets('yeniden tasarım (Ekran 5): boş durum ortak bileşenle', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+
+      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: true)));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+      await tester.pump();
+
+      expect(find.text('Henüz ürün yok'), findsOneWidget);
+      expect(find.text('Sağ alttan ekleyin — sipariş satırları buradan seçilir.'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    });
   });
 
   group('sipariş ekranlarında mağaza kuralı ihlali yok (regresyon)', () {
