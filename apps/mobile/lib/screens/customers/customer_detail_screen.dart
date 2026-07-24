@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
 import '../../repo/customer_repository.dart';
+import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../money.dart';
 import '../orders/order_form_screen.dart';
 import '../team.dart';
@@ -139,25 +141,44 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Text(borclu ? 'Veresiye borcu' : 'Bakiye',
-                          style: Theme.of(context).textTheme.labelLarge),
-                      const SizedBox(height: 4),
-                      Text(
-                        formatKurus(c.balanceKurus),
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: borclu
-                                  ? Theme.of(context).colorScheme.error
-                                  : Theme.of(context).colorScheme.onSurface,
-                              fontWeight: FontWeight.bold,
-                            ),
+              // Bakiye şeridi — çağrı kartı ve liste rozetiyle AYNI dil: borç dolgulu kırmızı,
+              // alacak yeşil, temiz nötr. Aynı bilgi her yüzeyde aynı renk konuşur.
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: borclu
+                      ? SipColors.debt
+                      : (c.balanceKurus < 0 ? SipColors.ok : SipColors.s1),
+                  borderRadius: SipRadius.cardBr,
+                  border: borclu || c.balanceKurus < 0
+                      ? null
+                      : Border.all(color: SipColors.line),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        borclu
+                            ? 'Veresiye borcu'
+                            : (c.balanceKurus < 0 ? 'Alacak' : 'Bakiye temiz'),
+                        style: SipText.secondary.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: borclu
+                              ? Colors.white
+                              : (c.balanceKurus < 0 ? SipColors.okInk : SipColors.t2),
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                    Text(
+                      formatKurus(c.balanceKurus.abs()),
+                      style: SipText.amount.copyWith(
+                        fontSize: 22,
+                        color: borclu
+                            ? Colors.white
+                            : (c.balanceKurus < 0 ? SipColors.okInk : SipColors.t1),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               if (widget.writable) ...[
@@ -184,7 +205,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               const Divider(height: 32),
               Row(
                 children: [
-                  Text('Telefonlar', style: Theme.of(context).textTheme.titleMedium),
+                  const Text('TELEFONLAR', style: SipText.sectionLabel),
                   const Spacer(),
                   if (widget.writable)
                     TextButton.icon(
@@ -218,8 +239,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 8),
-              Text('Adresler', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: SipSpace.lg),
+              const Text('ADRESLER', style: SipText.sectionLabel),
               StreamBuilder<List<CustomerAddressesData>>(
                 stream: _addresses(),
                 builder: (context, snap) {
@@ -243,9 +264,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 },
               ),
               if (c.note != null && c.note!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text('Not', style: Theme.of(context).textTheme.titleMedium),
-                Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(c.note!)),
+                const SizedBox(height: SipSpace.lg),
+                const Text('NOT', style: SipText.sectionLabel),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(c.note!, style: SipText.secondary.copyWith(color: SipColors.t1)),
+                ),
               ],
             ],
           ),

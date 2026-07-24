@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../data/app_database.dart';
 import '../repo/cash_handover_repository.dart';
+import '../theme/typography.dart';
 import 'money.dart';
 import 'orders/order_list_screen.dart' show saatBicimi;
 import 'team.dart';
@@ -114,7 +115,7 @@ class _CashHandoverScreenState extends State<CashHandoverScreen> {
             },
           ),
           const Divider(height: 32),
-          Text('Geçmiş devirler', style: Theme.of(context).textTheme.titleMedium),
+          const Text('GEÇMİŞ DEVİRLER', style: SipText.sectionLabel),
           const SizedBox(height: 8),
           _Gecmis(db: widget.db, fromUserId: _kurye ? widget.userId : null),
         ],
@@ -166,11 +167,7 @@ class _DevirFormu extends StatelessWidget {
               enabled: writable,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               onChanged: (_) => onCountedChanged(),
-              decoration: const InputDecoration(
-                labelText: 'Sayılan nakit',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
+              decoration: const InputDecoration(labelText: 'Sayılan nakit'),
             ),
             const SizedBox(height: 8),
             if (fark != null)
@@ -190,11 +187,7 @@ class _DevirFormu extends StatelessWidget {
                 return DropdownButtonFormField<String?>(
                   initialValue: devralanId,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Devralan (opsiyonel)',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
+                  decoration: const InputDecoration(labelText: 'Devralan (opsiyonel)'),
                   items: [
                     const DropdownMenuItem<String?>(value: null, child: Text('—')),
                     for (final u in list)
@@ -208,11 +201,7 @@ class _DevirFormu extends StatelessWidget {
             TextField(
               controller: note,
               enabled: writable,
-              decoration: const InputDecoration(
-                labelText: 'Not (opsiyonel)',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
+              decoration: const InputDecoration(labelText: 'Not (opsiyonel)'),
             ),
             const SizedBox(height: 16),
             SizedBox(

@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
 import '../../repo/order_repository.dart';
+import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../money.dart';
 import '../team.dart';
-import 'order_list_screen.dart' show odemeTipiEtiketi, saatBicimi;
+import 'order_list_screen.dart' show OrderStatusBadge, odemeTipiEtiketi, saatBicimi;
 
 /// Sipariş detayı + TESLİM KAPATMA. Teslim, ödeme tipini sorar ve `OrderRepository.deliver` ile
 /// parayı/kuponu deftere tek transaction'da düşürür (FAZ 3/4). Teslim internetsiz saniyeler içinde
@@ -95,19 +97,20 @@ class OrderDetailScreen extends StatelessWidget {
                   const Divider(),
                   Row(
                     children: [
-                      Text('Toplam', style: Theme.of(context).textTheme.titleMedium),
+                      const Text('Toplam', style: SipText.cardTitle),
                       const Spacer(),
                       Text(formatKurus(order.totalKurus),
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.bold)),
+                          style: SipText.amount.copyWith(fontSize: 22)),
                     ],
                   ),
                   if (order.note != null && order.note!.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text('Not', style: Theme.of(context).textTheme.titleMedium),
-                    Padding(padding: const EdgeInsets.only(top: 4), child: Text(order.note!)),
+                    const SizedBox(height: SipSpace.md),
+                    const Text('NOT', style: SipText.sectionLabel),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(order.note!,
+                          style: SipText.secondary.copyWith(color: SipColors.t1)),
+                    ),
                   ],
                   const SizedBox(height: 24),
                   if (writable && order.status == 'open')
@@ -176,18 +179,14 @@ class _DurumSeridi extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (String etiket, Color renk) = switch (order.status) {
-      'delivered' => ('Teslim edildi', Theme.of(context).colorScheme.tertiary),
-      'cancelled' => ('İptal edildi', Theme.of(context).colorScheme.outline),
-      _ => ('Açık', Theme.of(context).colorScheme.primary),
-    };
+    // Liste ekranıyla AYNI rozet — aynı durum her yüzeyde aynı dili konuşur.
     return Row(
       children: [
-        Chip(label: Text(etiket), avatar: Icon(Icons.circle, size: 12, color: renk)),
-        const SizedBox(width: 8),
+        OrderStatusBadge(status: order.status),
+        const SizedBox(width: SipSpace.sm),
         if (order.paymentType != null) Chip(label: Text(odemeTipiEtiketi(order.paymentType!))),
         const Spacer(),
-        Text(saatBicimi(order.occurredAt), style: Theme.of(context).textTheme.bodySmall),
+        Text(saatBicimi(order.occurredAt), style: SipText.muted),
       ],
     );
   }

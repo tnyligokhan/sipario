@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../data/app_database.dart';
 import '../../repo/order_repository.dart';
 import '../../repo/product_repository.dart';
+import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../customers/customer_list_screen.dart' show watchCustomers;
 import '../money.dart';
 import '../products/product_list_screen.dart' show showProductDialog, watchProducts;
@@ -130,8 +132,8 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
               onTap: _pickCustomer,
             ),
           ),
-          const SizedBox(height: 8),
-          Text('Ürünler', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: SipSpace.lg),
+          const Text('ÜRÜNLER', style: SipText.sectionLabel),
           if (_lines.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
@@ -165,36 +167,41 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
             decoration: const InputDecoration(
               labelText: 'Not',
               hintText: 'Ör. kapıya bırak, 3. kat',
-              border: OutlineInputBorder(),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Toplam', style: Theme.of(context).textTheme.labelMedium),
-                    Text(formatKurus(total),
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.bold)),
-                  ],
-                ),
+      // Toplam çubuğu — alt gezinme yüzeyiyle aynı dil (s1 + üst kenar çizgisi), tutar tabular.
+      bottomNavigationBar: Material(
+        color: SipColors.s1,
+        child: Container(
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: SipColors.line)),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Toplam', style: SipText.muted),
+                        Text(formatKurus(total),
+                            style: SipText.amount.copyWith(fontSize: 22)),
+                      ],
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: (_busy || _lines.isEmpty) ? null : _save,
+                    icon: const Icon(Icons.check),
+                    label: const Text('Siparişi kaydet'),
+                  ),
+                ],
               ),
-              FilledButton.icon(
-                onPressed: (_busy || _lines.isEmpty) ? null : _save,
-                icon: const Icon(Icons.check),
-                label: const Text('Siparişi kaydet'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -274,11 +281,9 @@ class _CustomerPickerScreenState extends State<_CustomerPickerScreen> {
             child: TextField(
               autofocus: true,
               onChanged: (v) => setState(() => _query = v),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Ad veya telefon ara',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                isDense: true,
+                prefixIcon: Icon(Icons.search),
               ),
             ),
           ),

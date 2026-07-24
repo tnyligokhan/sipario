@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../data/app_database.dart';
 import '../repo/customer_repository.dart';
 import '../screens/customers/customer_form_screen.dart' show normalizePhoneTR;
+import '../theme/tokens.dart';
 import 'measurements.dart';
 import 'setup_wizard.dart';
 
@@ -200,8 +201,8 @@ class _VerdictCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = !verdict.enoughSamples
-        ? Colors.blueGrey
-        : (verdict.pass ? const Color(0xFF4ECB71) : const Color(0xFFFF6B6B));
+        ? SipColors.t3
+        : (verdict.pass ? SipColors.ok : SipColors.debt);
 
     return Card(
       child: Padding(
@@ -257,7 +258,7 @@ class _VerdictCard extends StatelessWidget {
               Text(
                 '${verdict.simulated.length} simüle çağrı sayıma dahil değil — '
                 'süreç zaten ayakta olduğu için asıl maliyeti ölçmez.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.orange),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: SipColors.warn),
               ),
             ],
           ],
@@ -283,7 +284,7 @@ class _Stat extends StatelessWidget {
         Text(
           value,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: danger ? const Color(0xFFFF6B6B) : null,
+                color: danger ? SipColors.debt : null,
                 fontWeight: FontWeight.w600,
               ),
         ),
@@ -421,11 +422,11 @@ class _Step extends StatelessWidget {
           if (showCheck)
             Icon(
               done ? Icons.check_circle : Icons.radio_button_unchecked,
-              color: done ? const Color(0xFF4ECB71) : Colors.grey,
+              color: done ? SipColors.ok : SipColors.t3,
               size: 20,
             )
           else
-            const Icon(Icons.info_outline, color: Colors.amber, size: 20),
+            const Icon(Icons.info_outline, color: SipColors.warn, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -622,8 +623,8 @@ class _LogCard extends StatelessWidget {
                           : (late ? Icons.warning_amber : Icons.check),
                       size: 16,
                       color: !m.shown
-                          ? const Color(0xFFFF6B6B)
-                          : (late ? Colors.amber : const Color(0xFF4ECB71)),
+                          ? SipColors.debt
+                          : (late ? SipColors.warn : SipColors.ok),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -633,11 +634,11 @@ class _LogCard extends StatelessWidget {
                       ),
                     ),
                     if (m.simulated)
-                      const Text('simüle', style: TextStyle(fontSize: 11, color: Colors.orange)),
+                      const Text('simüle', style: TextStyle(fontSize: 11, color: SipColors.warn)),
                     if (m.direction == 'out')
-                      const Text('giden', style: TextStyle(fontSize: 11, color: Colors.lightBlueAccent)),
+                      const Text('giden', style: TextStyle(fontSize: 11, color: SipColors.accFg)),
                     if (m.locked)
-                      const Text(' kilitli', style: TextStyle(fontSize: 11, color: Colors.purpleAccent)),
+                      const Text(' kilitli', style: TextStyle(fontSize: 11, color: SipColors.t2)),
                     const SizedBox(width: 8),
                     Text(
                       m.matched ? 'eşleşti' : 'yeni',

@@ -70,7 +70,6 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   labelText: 'Ad soyad / ünvan *',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person_outline),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Ad gerekli' : null,
@@ -83,7 +82,6 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Telefon',
                   helperText: 'Arayınca ekranda tanımak için — 05xx xxx xx xx',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.phone_outlined),
                 ),
                 validator: (v) {
@@ -98,7 +96,6 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
                 maxLines: 2,
                 decoration: const InputDecoration(
                   labelText: 'Adres',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.home_outlined),
                 ),
               ),
@@ -109,7 +106,6 @@ class _CustomerFormScreenState extends State<CustomerFormScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Not',
                   helperText: 'Ör. kapı kodu, kat, "akşam 6\'dan sonra"',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.notes_outlined),
                 ),
               ),

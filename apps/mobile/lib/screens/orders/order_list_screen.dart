@@ -216,7 +216,7 @@ class _OrderCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    _StatusBadge(status: o.status),
+                    OrderStatusBadge(status: o.status),
                   ],
                 ),
                 Container(
@@ -248,8 +248,9 @@ class _OrderCard extends StatelessWidget {
 }
 
 /// Durum rozeti — Açık (vurgu + nokta), Teslim (yeşil + onay), İptal (nötr). Liste diliyle aynı.
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
+/// Public: sipariş DETAYI da aynı rozeti kullanır (aynı bilgi her yüzeyde aynı dili konuşur).
+class OrderStatusBadge extends StatelessWidget {
+  const OrderStatusBadge({super.key, required this.status});
   final String status;
 
   @override

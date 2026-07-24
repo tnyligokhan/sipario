@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../../data/app_database.dart';
 import '../../repo/coupon_repository.dart';
 import '../../repo/ledger_repository.dart';
+import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
 import '../money.dart';
 import '../orders/order_list_screen.dart' show odemeTipiEtiketi, saatBicimi;
 
@@ -85,15 +87,17 @@ class CustomerLedgerSection extends StatelessWidget {
             final eksi = bakiye < 0;
             return Row(
               children: [
-                const Icon(Icons.confirmation_number_outlined, size: 20),
+                const Icon(Icons.confirmation_number_outlined,
+                    size: 20, color: SipColors.accFg),
                 const SizedBox(width: 8),
-                Text('Kupon: ', style: Theme.of(context).textTheme.titleMedium),
+                const Text('Kupon: ', style: SipText.cardTitle),
                 Text(
                   '$bakiye adet',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: eksi ? Theme.of(context).colorScheme.error : null,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  // Eksi kupon KIRMIZI — teslim edilmiş mal gerçektir, bakiye eksiye düşebilir.
+                  style: SipText.cardTitle.copyWith(
+                    color: eksi ? SipColors.debt : null,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
                 const Spacer(),
                 if (canKuponSat)
@@ -111,7 +115,7 @@ class CustomerLedgerSection extends StatelessWidget {
         const SizedBox(height: 8),
         Row(
           children: [
-            Text('Defter hareketleri', style: Theme.of(context).textTheme.titleMedium),
+            const Text('DEFTER HAREKETLERİ', style: SipText.sectionLabel),
             const Spacer(),
             FilledButton.tonalIcon(
               onPressed: writable
@@ -216,8 +220,8 @@ class _HareketSatiri extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final artan = e.amountKurus > 0; // +borç → kırmızı; −ödeme → yeşil/nötr
-    final renk = artan ? Theme.of(context).colorScheme.error : Colors.green.shade700;
+    final artan = e.amountKurus > 0; // +borç → kırmızı; −ödeme → yeşil (rozet dili)
+    final renk = artan ? SipColors.debt : SipColors.ok;
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
@@ -231,7 +235,7 @@ class _HareketSatiri extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(imzaliTutarText(e.amountKurus),
-              style: TextStyle(color: renk, fontWeight: FontWeight.w600)),
+              style: SipText.badge.copyWith(color: renk)),
           if (onDuzelt != null)
             PopupMenuButton<String>(
               onSelected: (_) => onDuzelt!(),
