@@ -4,15 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../auth/session.dart';
 import '../data/app_database.dart';
-import '../phase0/phase0_screen.dart';
 import '../subscription/subscription_state.dart';
 import '../sync/sync_service.dart';
 import '../theme/tokens.dart';
-import 'cash_handover_screen.dart';
 import 'customers/customer_list_screen.dart';
-import 'day_end_screen.dart';
+import 'menu_tab.dart';
 import 'orders/order_list_screen.dart';
-import 'products/product_list_screen.dart';
 import 'team.dart';
 
 /// Ana kabuk: alt gezinme (Müşteriler | Siparişler | Menü) + abonelik durum şeridi + senkron durumu.
@@ -47,6 +44,7 @@ class _HomeShellState extends State<HomeShell> {
   StreamSubscription<SyncOutcome>? _syncSub;
   StreamSubscription<List<User>>? _kuryeSub;
   SyncOutcome? _lastSync;
+  DateTime? _lastSyncAt; // yalnız gösterim (senkron kartındaki saat) — veri akışına dokunmaz
 
   @override
   void initState() {
@@ -60,7 +58,10 @@ class _HomeShellState extends State<HomeShell> {
     });
     _syncSub = widget.sync.status.listen((o) {
       if (!mounted) return;
-      setState(() => _lastSync = o);
+      setState(() {
+        _lastSync = o;
+        _lastSyncAt = DateTime.now();
+      });
       _refreshMeta(); // sunucu yanıtı abonelik önbelleğini + oturum bilgisini tazelemiş olabilir
     });
   }
@@ -111,11 +112,12 @@ class _HomeShellState extends State<HomeShell> {
         userId: _userId,
         canAssign: yetki.atama,
       ),
-      _MenuTab(
+      MenuTab(
         db: widget.db,
         session: widget.session,
         sync: widget.sync,
         lastSync: _lastSync,
+        lastSyncAt: _lastSyncAt,
         writable: writable,
         yetki: yetki,
         userId: _userId,
@@ -186,138 +188,3 @@ class _SubscriptionBanner extends StatelessWidget {
   }
 }
 
-class _MenuTab extends StatelessWidget {
-  const _MenuTab({
-    required this.db,
-    required this.session,
-    required this.sync,
-    required this.lastSync,
-    required this.writable,
-    required this.yetki,
-    required this.userId,
-    required this.userRole,
-    required this.onLoggedOut,
-  });
-
-  final AppDatabase db;
-  final Session session;
-  final SyncService sync;
-  final SyncOutcome? lastSync;
-  final bool writable;
-  final RolYetkileri yetki;
-  final String? userId;
-  final String? userRole;
-  final VoidCallback onLoggedOut;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Menü')),
-      body: FutureBuilder<SyncMetaData>(
-        future: db.syncState(),
-        builder: (context, snap) {
-          final meta = snap.data;
-          return ListView(
-            children: [
-              if (meta != null)
-                ListTile(
-                  leading: const Icon(Icons.storefront),
-                  title: Text(meta.tenantName ?? 'Bayi'),
-                  subtitle: Text([
-                    if (meta.userName != null) meta.userName!,
-                    if (meta.userRole != null) '(${meta.userRole})',
-                  ].join(' ')),
-                ),
-              const Divider(),
-              // Ürün yönetimi yönetici işidir (K2) — kuryede gizli.
-              if (yetki.urunYonetimi)
-                ListTile(
-                  leading: const Icon(Icons.inventory_2_outlined),
-                  title: const Text('Ürünler'),
-                  subtitle: const Text('Sipariş satırlarında çıkan ürün listesi'),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => ProductListScreen(db: db, writable: writable),
-                  )),
-                ),
-              // Gün sonu özeti yönetici işidir (K2) — kuryede gizli.
-              if (yetki.gunSonu)
-                ListTile(
-                  leading: const Icon(Icons.point_of_sale_outlined),
-                  title: const Text('Gün sonu'),
-                  subtitle: const Text('Kasa · veresiye · kupon özeti (salt-okunur)'),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => DayEndScreen(db: db),
-                  )),
-                ),
-              // Kasa devri: kurye HER ZAMAN (kendi devri), yönetici yalnız aktif kurye varken (K2).
-              // Tek kişilik bayide bu giriş HİÇ görünmez (BRIEF). userId yoksa devir yapılamaz.
-              if (yetki.kasaDevri && userId != null)
-                ListTile(
-                  leading: const Icon(Icons.account_balance_wallet_outlined),
-                  title: const Text('Kasa devri'),
-                  subtitle: const Text('Gün sonu nakit devri (kurye → patron)'),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => CashHandoverScreen(
-                      db: db,
-                      userId: userId!,
-                      userRole: userRole,
-                      writable: writable,
-                    ),
-                  )),
-                ),
-              ListTile(
-                leading: const Icon(Icons.sync),
-                title: const Text('Şimdi senkronla'),
-                subtitle: lastSync == null
-                    ? null
-                    : Text(lastSync!.ok
-                        ? 'Son senkron başarılı'
-                        : 'Son senkron başarısız — tekrar denenecek'),
-                onTap: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  final o = await sync.syncNow();
-                  messenger.showSnackBar(SnackBar(
-                    content: Text(o.ok
-                        ? 'Senkron tamam${o.pushed > 0 ? ' (${o.pushed} kayıt gönderildi)' : ''}'
-                        : 'Sunucuya ulaşılamadı; kayıtlar bekliyor, otomatik denenecek'),
-                  ));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.phone_in_talk_outlined),
-                title: const Text('Arayan tanıma kurulumu ve ölçüm'),
-                subtitle: const Text('Kurulum sihirbazı, izinler, gecikme ölçümleri'),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => Phase0Screen(db: db)),
-                ),
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Çıkış yap'),
-                subtitle: const Text('Yerel kayıtlar cihazda kalır'),
-                onTap: () async {
-                  final ok = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Çıkış yapılsın mı?'),
-                      content: const Text('Kayıtlarınız cihazda kalır; tekrar girişte devam edersiniz.'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
-                        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Çıkış yap')),
-                      ],
-                    ),
-                  );
-                  if (ok == true) {
-                    await session.logout();
-                    onLoggedOut();
-                  }
-                },
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}

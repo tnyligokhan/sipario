@@ -17,6 +17,7 @@ import 'package:sipario/screens/team.dart';
 import 'package:sipario/sync/sync_api.dart';
 import 'package:sipario/sync/sync_engine.dart';
 import 'package:sipario/sync/sync_service.dart';
+import 'package:sipario/theme/typography.dart';
 
 import 'support/fake_sync_api.dart';
 
@@ -513,6 +514,69 @@ void main() {
       expect(find.text('Gün sonu'), findsOneWidget);
       expect(find.text('Kasa devri'), findsOneWidget,
           reason: 'aktif kurye varken yönetici kasa devrini de görür (tek-kişilik gizlemenin tersi)');
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    });
+
+    // -------------------------------------------------------------------------
+    // Ekran 4 yeniden tasarım regresyonu (görünüm sözleşmesi; davranış testleri yukarıda)
+    // -------------------------------------------------------------------------
+    testWidgets('Ekran 4: AppBar yok, başlık screenTitle; senkron kartı + bölüm etiketleri çizilir',
+        (tester) async {
+      // Varsayılan test yüzeyi 800×600 — ListView tembel çizer, alt bölümler (HESAP) hiç
+      // kurulmaz ve find.text boş döner. Uzun yüzeyle tüm menü tek seferde görünür.
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await setUser(db, id: 'p', role: 'patron');
+        await addUser(db, 'p', 'Patron', 'patron');
+        await addUser(db, 'k1', 'Kurye', 'kurye'); // İŞLETME bölümü tam dolu görünsün
+      });
+
+      await pumpShell(tester, db);
+
+      // Yeniden tasarım: AppBar kalktı, ekran başlığı screenTitle token stiliyle çizilir
+      // (alt gezinme etiketi de 'Menü' — stil üzerinden ayrıştırılır).
+      expect(find.byType(AppBar), findsNothing);
+      final menuBasliklari = tester.widgetList<Text>(find.text('Menü'));
+      expect(menuBasliklari.any((t) => t.style == SipText.screenTitle), isTrue,
+          reason: 'ekran başlığı SipText.screenTitle ile çizilmeli');
+
+      // Senkron durum kartı (DESIGN_SYSTEM "Senkron durumu (Menü)"): etiket + henüz-yok durumu.
+      expect(find.text('Şimdi senkronla'), findsOneWidget);
+      expect(find.text('Bu oturumda henüz senkron olmadı'), findsOneWidget);
+
+      // Bölüm etiketleri sectionLabel ile: İŞLETME (yetkili girişler) + UYGULAMA + HESAP.
+      for (final etiket in ['İŞLETME', 'UYGULAMA', 'HESAP']) {
+        final w = tester.widget<Text>(find.text(etiket));
+        expect(w.style, SipText.sectionLabel, reason: '$etiket bölüm etiketi sectionLabel stilinde');
+      }
+      expect(find.text('Çıkış yap'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    });
+
+    testWidgets('Ekran 4 (kurye): İŞLETME bölümünde yalnız Kasa devri; profil kartı rolü gösterir',
+        (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await setUser(db, id: 'k1', role: 'kurye');
+        await addUser(db, 'k1', 'Kurye', 'kurye');
+      });
+
+      await pumpShell(tester, db);
+
+      // Kurye görünümü: İŞLETME etiketi Kasa devri sayesinde durur, yönetici girişleri yok
+      // (gizleme kanıtı yukarıdaki davranış testinde; burada etiketin de tutarlı olduğu sınanır).
+      expect(find.text('İŞLETME'), findsOneWidget);
+      expect(find.text('Kasa devri'), findsOneWidget);
+      expect(find.text('Ürünler'), findsNothing);
+
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
