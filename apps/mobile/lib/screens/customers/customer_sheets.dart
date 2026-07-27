@@ -13,12 +13,15 @@
 // satırlarından çıkar, `correction` oraya girmez. Kasaya giren para deftere girer; alacaklı
 // bakiye zaten modelde var (`credit`/`correction` onu üretebiliyordu).
 //
-// TAM LİRA GİRİŞİ KORUNUR (tasarım s-musteriler.jsx:88,157 + `ui_musteri_test.dart`): alan
-// `\D` süzer, ön dolgu aşağı yuvarlanır, "Yarısı" tam liraya yuvarlar. Bir ara kuruş yazımını
-// açmıştım — gerekçem "85,50 ₺ borç kuruşu kalmadan kapatılamıyor" idi; fazla tahsilat serbest
-// olunca bu gerekçe DÜŞTÜ (kullanıcı 86 yazar, 50 kuruş alacak kalır) ve değişiklik iki mevcut
-// sözleşme testini kırdı. Kasadan sayılan nakit tam liradır; teslim ekranı ise sistemin ürettiği
-// sipariş tutarını (kuruşlu olabilir) tahsil ettiği için orada kuruş YAZILABİLİR — ayrım bilinçli.
+// ALAN KURUŞ KABUL EDER, ÇİPLER TAM LİRA YUVARLAR (2026-07-27). Tasarım (s-musteriler.jsx:88,157)
+// alanı `\D` ile süzüyordu. Kaldırıldı çünkü gerekçesi tahsilatın YALNIZ BİR TİPİNİ kapsıyordu:
+// "kasadan sayılan nakit tam liradır" doğru, ama `payment_type` nakit|kart|havale'dir — kartla
+// veya havaleyle 85,50 ₺ tahsil etmek olağandır ve borcu TAM kapatır. Tam lira kısıtı orada
+// karşılıksızdı ve kuruşlu borcu kapatmayı imkânsız kılıyordu.
+//
+// Çipler ise TAM LİRA yuvarlamaya devam eder — onlar kısayoldur, kasada sayılan yuvarlak rakamı
+// önerirler; kuruş isteyen alana yazar. TEK İSTİSNA "Tamamı" çipi: adı bir kesinlik iddiasıdır,
+// borcun tamamını kuruşuyla doldurur (yoksa "Tamamı" borcu kapatmayan bir tutar yazardı).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -98,17 +101,10 @@ Future<bool?> duzeltmeSheet(
 // Tahsilat
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
-/// Kuruşu tasarımın tam-lira yazımına çevirir (`Math.round(borc/100)` — s-musteriler.jsx:88).
-///
-/// TEK SAPMA: yuvarlama YUKARI çıkıyorsa aşağı alınır — 8550 → "85", 8540 → "85", 10000 → "100".
-/// Gerekçesi başta "sheet fazlasını reddediyor, 86 yazılırsa form gönderilemez" idi; fazla
-/// tahsilat artık serbest, ama aşağı yuvarlama yine DOĞRU varsayılan: ön dolgu kullanıcıya
-/// istemediği bir alacak kaydı yazdırmamalı (fazlası bilinçli bir dokunuşla girilir).
-String _tamLira(int borcKurus) {
-  var lira = (borcKurus / 100).round();
-  if (lira * 100 > borcKurus) lira = borcKurus ~/ 100;
-  return lira.toString();
-}
+/// "Yarısı" çipinin önerdiği tutar — tasarım `Math.round(borc/200)` TL (s-musteriler.jsx:160).
+/// Kısayol olduğu için TAM LİRAYA yuvarlar: 85,50 ₺ borçta 43 (42,75 değil). Kuruş isteyen
+/// kullanıcı alana kendisi yazar.
+String yarisiTamLira(int borcKurus) => (borcKurus / 200).round().toString();
 
 /// Tahsilat sonrası müşterinin bakiyesi (imzalı kuruş: + borç, − alacak).
 ///
@@ -137,10 +133,10 @@ class _TahsilatGovde extends StatefulWidget {
 class _TahsilatGovdeState extends State<_TahsilatGovde> {
   late final int _borc = widget.bakiyeKurus > 0 ? widget.bakiyeKurus : 0;
 
-  /// Tasarım TAM LİRA çalışır: ön dolgu `Math.round(borc/100)` (s-musteriler.jsx:88) ve alan
-  /// `inputMode=numeric` + `replace(/\D/g,'')` ile kuruş YAZILAMAZ (:157).
+  /// Ön dolgu açık borcun TAMAMIDIR, kuruşuyla — en sık iş "borcu tam kapat"tır ve kart/havale
+  /// tahsilatında kuruş gerçektir (dosya başlığı).
   late final TextEditingController _tutar =
-      TextEditingController(text: _borc > 0 ? _tamLira(_borc) : '');
+      TextEditingController(text: _borc > 0 ? tutarGirdisi(_borc) : '');
   String _odeme = 'nakit';
   String? _hata;
   bool _calisiyor = false;
@@ -189,10 +185,11 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
           const SipFormEtiket('Tahsil edilecek tutar (₺)', ustBosluk: SipSpace.x2),
           SipInput(
             controller: _tutar,
-            // Tasarım `inputMode="numeric"` + `replace(/\D/g,'')`: KURUŞ YAZILAMAZ, tahsilat
-            // tam lira alınır (ayraç yazımı kasada tartışma çıkarmasın).
-            klavye: TextInputType.number,
-            girdiFiltreleri: [FilteringTextInputFormatter.digitsOnly],
+            // Rakam + ayraç: kartla/havaleyle kuruşlu tahsilat olağandır (dosya başlığı).
+            // Hangi ayracın geleceği klavyeye göre değişir, ikisi de kabul edilir; TR yazımını
+            // `parseKurus` çözer ve çözemezse SESSİZ YUVARLAMA yapmadan null döner.
+            klavye: const TextInputType.numberWithOptions(decimal: true),
+            girdiFiltreleri: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
             ipucu: '0',
             hizalama: TextAlign.start,
             stil: SipText.tutar(22),
@@ -211,9 +208,12 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
                 Expanded(
                   child: SipCip(
                     etiket: 'Tamamı · ${sipTutar(_borc)}',
+                    // "Tamamı" KURUŞUYLA doldurur — adı bir kesinlik iddiası: tam liraya
+                    // yuvarlasaydı 85,50 ₺ borçta 85 yazıp borcu kapatmazdı (ve çip, kendi
+                    // yazdığı değerle `secili` görünmezdi).
                     secili: girilen == _borc,
                     onTap: () => setState(() {
-                      _tutar.text = _tamLira(_borc);
+                      _tutar.text = tutarGirdisi(_borc);
                       _hata = null;
                     }),
                   ),
@@ -224,9 +224,10 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
                     child: SipCip(
                       etiket: 'Yarısı',
                       secili: false,
-                      // Tasarım: `Math.round(borc/200)` TL — 85,50 ₺ borçta 43 (42,75 değil).
+                      // Kısayol → TAM LİRA (bkz. [yarisiTamLira]); alan kuruş kabul etse de çip
+                      // kasada sayılan yuvarlak rakamı önerir.
                       onTap: () => setState(() {
-                        _tutar.text = (_borc / 200).round().toString();
+                        _tutar.text = yarisiTamLira(_borc);
                         _hata = null;
                       }),
                     ),

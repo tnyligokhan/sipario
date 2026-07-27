@@ -275,12 +275,12 @@ void main() {
       await tester.tap(find.text('Tahsilat'));
       await tester.pumpAndSettle();
       expect(find.text('Tahsilat Al'), findsOneWidget);
-      // Tutar açık borçla ön-dolu gelir (tasarım: "Tamamı" varsayılan) ama TAM LİRA olarak:
-      // alan `\D` süzdüğü için kuruş yazılamaz (s-musteriler.jsx:88,157).
+      // Tutar açık borcun TAMAMIYLA ön-dolu gelir (tasarım: "Tamamı" varsayılan), kuruşuyla —
+      // alan kuruş kabul eder (kart/havale tahsilatı kuruşlu olur); çipler tam lira yuvarlar.
       expect(find.text('Tamamı · 100,00 ₺'), findsOneWidget);
       expect(find.text(trBuyuk('Tahsil edilecek tutar (₺)')), findsOneWidget,
           reason: 'etikette para birimi var (s-musteriler.jsx:156)');
-      expect(tester.widget<TextField>(find.byType(TextField).first).controller?.text, '100');
+      expect(tester.widget<TextField>(find.byType(TextField).first).controller?.text, '100,00');
 
       await kaydetVeBekle(tester, 'Tahsilatı Kaydet');
 
@@ -450,7 +450,7 @@ void main() {
     });
   });
 
-  group('Tahsilat çipleri (tam lira — s-musteriler.jsx:88,160-161)', () {
+  group('Tahsilat tutarı (çip TAM LİRA, alan KURUŞ — s-musteriler.jsx:88,160-161)', () {
     testWidgets('"Yarısı" TAM LİRAYA yuvarlar: 85,50 ₺ borçta 43', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       late String id;
@@ -464,19 +464,19 @@ void main() {
       await tester.pumpAndSettle();
 
       final alan = find.byType(TextField).first;
-      // Ön dolgu: 85,50 ₺ borçta "85" — yuvarlama açık borcu AŞAMAZ, aşarsa form
-      // gönderilemez olurdu ("açık borçtan fazla olamaz").
-      expect(tester.widget<TextField>(alan).controller?.text, '85');
+      // Ön dolgu açık borcun TAMAMI, kuruşuyla: "borcu tam kapat" en sık iştir ve kart/havale
+      // tahsilatında kuruş gerçektir (payment_type nakit|kart|havale).
+      expect(tester.widget<TextField>(alan).controller?.text, '85,50');
 
       await tester.tap(find.text('Yarısı'));
       await tester.pump();
       expect(tester.widget<TextField>(alan).controller?.text, '43',
-          reason: 'Math.round(8550/200) = 43 — 42,75 değil');
+          reason: 'çip bir KISAYOL: Math.round(8550/200) = 43 — 42,75 değil');
 
-      // Kuruş YAZILAMAZ: virgül/nokta süzülür.
+      // Kuruş YAZILABİLİR: ayraç süzülmez, TR yazımını `parseKurus` çözer.
       await tester.enterText(alan, '12,34');
       await tester.pump();
-      expect(tester.widget<TextField>(alan).controller?.text, '1234');
+      expect(tester.widget<TextField>(alan).controller?.text, '12,34');
 
       await kapat(tester);
     });

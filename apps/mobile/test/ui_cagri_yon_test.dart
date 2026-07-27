@@ -11,6 +11,8 @@
 // buradan test EDİLEMEZ — o tarafta JUnit kaynak kümesi yok. Bu dosya Flutter karşılığını,
 // paylaşılan saf eşlemeleri ve native kuyruğun Dart ucunu çiviler.
 
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -107,6 +109,70 @@ void main() {
       // Nabız kapalı olduğu için ağaç OTURUR; sonsuz animasyonda bu çağrı zaman aşımına düşer.
       await tester.pumpAndSettle();
       expect(find.text('CEVAPSIZ ÇAĞRI'), findsOneWidget);
+    });
+  });
+
+  group('Geçmişten açılan kart — yön korunur', () {
+    // Ayarlar → Çağrı Geçmişi → satıra dokun akışının açtığı YÜZEY budur
+    // (`ayarlar_ekrani.dart` `_aramayiAc` → `cagriKartiGoster`). Kayıtsız numarada kart açılır;
+    // kayıtlıda müşteri defterine gidilir, kart hiç çizilmez.
+    testWidgets('GİDEN çağrının kartı gelen çağrı DEMEZ', (tester) async {
+      late BuildContext ctx;
+      await tester.pumpWidget(_kabuk(Builder(builder: (c) {
+        ctx = c;
+        return const SizedBox.shrink();
+      })));
+
+      final bekleyen = cagriKartiGoster(
+        ctx,
+        kisi: const CagriKisi.kayitsiz('0216 555 01 88'),
+        yon: AramaTipi.giden,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('GELEN ÇAĞRI'), findsNothing);
+      expect(find.text('GİDEN ÇAĞRI'), findsOneWidget);
+
+      await tester.tap(find.text('Müşteri Olarak Kaydet'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(await bekleyen, CagriEylemi.kaydet);
+    });
+
+    testWidgets('yön verilmezse eski davranış (gelen) korunur', (tester) async {
+      late BuildContext ctx;
+      await tester.pumpWidget(_kabuk(Builder(builder: (c) {
+        ctx = c;
+        return const SizedBox.shrink();
+      })));
+
+      cagriKartiGoster(ctx, kisi: const CagriKisi.kayitsiz('0216 555 01 88'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('GELEN ÇAĞRI'), findsOneWidget);
+    });
+
+    // YAPISAL KİLİT: yukarıdaki test kartın yönü ONURLANDIRDIĞINI kanıtlar, çağrı geçmişi
+    // ekranının yönü GEÇTİĞİNİ değil. O akışın uçtan uca widget testi gerçek SQLite bekliyor ve
+    // `testWidgets`in FakeAsync bölgesinde asılıyor (bkz. `ui_cagri_test.dart`daki aynı not),
+    // yani davranışla kilitlenemiyor. Argümanın silinmesi sessiz bir gerileme olurdu: kart yine
+    // açılır, yalnız yanlış yönü yazar. Kaynak taraması bu deseni yakalayan tek ucuz kapı —
+    // ekran metni taramalarıyla (mağaza-kuralı testleri) aynı gerekçe.
+    test('ayarlar_ekrani çağrı kartını AÇARKEN yönü geçirir', () {
+      final kaynak =
+          File('lib/screens/isletme/ayarlar_ekrani.dart').readAsStringSync();
+      final cagri = kaynak.indexOf('cagriKartiGoster(');
+      expect(cagri, isNot(-1), reason: 'çağrı kartı bu ekrandan açılıyor olmalı');
+
+      final kapanis = kaynak.indexOf(');', cagri);
+      final argumanlar = kaynak.substring(cagri, kapanis);
+      expect(
+        argumanlar,
+        contains('yon:'),
+        reason: 'yön geçilmezse geçmişten açılan giden çağrı "GELEN ÇAĞRI" yazar',
+      );
     });
   });
 
