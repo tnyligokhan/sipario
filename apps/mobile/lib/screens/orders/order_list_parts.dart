@@ -55,9 +55,12 @@ String kuryeSuzgecEtiketi(String? seciliId, List<User> adaylar) {
 /// SAHA HATASI 4: tasarım tutamacı sola koyuyordu; telefonu sağ eliyle tutan bayinin başparmağı
 /// ekranın soluna yetişmiyor. Varsayılan SAĞ, sol elini kullananlar için tercih [ElleBant]ta.
 ///
-/// KALICI DEĞİL — süreç ömrü boyunca yaşar (uygulama yeniden başlayınca sağa döner). Kalıcı
-/// saklama bu ajanın sahip OLMADIĞI bir dosyayı gerektiriyor (bkz. rapor); buradaki değişken,
-/// tercih kalıcılaştığında açılışta TEK SATIRLA doldurulacak dikiş yeridir.
+/// KALICIDIR: değeri `tutamac_deposu.dart` diske yazar ve açılışta (`main.dart`) buraya basar.
+/// Değişken o okumanın RAM'deki aynasıdır — ekranlar senkron okumak zorunda (build sırasında
+/// `await` edilemez), disk erişimi açılışta bir kez olur.
+///
+/// Bu dosya depoyu İMPORT ETMEZ (tersi geçerli): çizim katmanı `dart:io`ya bağlanmasın, widget
+/// testleri platform kanalı olmadan koşabilsin.
 bool tutamacSagdaTercihi = true;
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════

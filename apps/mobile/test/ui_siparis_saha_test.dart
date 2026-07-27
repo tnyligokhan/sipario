@@ -20,6 +20,7 @@ import 'package:sipario/screens/orders/musteri_eylemleri.dart';
 // Süzgeç/tutamaç yardımcıları ekranın YÜZEYİNDEN gelir (order_list_screen re-export eder) —
 // testler tek kapıdan konuşur.
 import 'package:sipario/screens/orders/order_list_screen.dart';
+import 'package:sipario/screens/orders/tutamac_deposu.dart';
 
 import 'support/siparis_yardimci.dart';
 
@@ -361,9 +362,37 @@ void main() {
   // HATA 4 — tutamaç tarafı
   // ═════════════════════════════════════════════════════════════════════════════════════════
 
-  testWidgets('tutamaç VARSAYILAN SAĞDA, tercihle sola alınır', (tester) async {
+  group('tutamaç tercihi deposu', () {
+    test('hiç yazılmamışsa SAĞ döner', () async {
+      expect(await TutamacDeposu.bellek().sagdaMi(), isTrue);
+    });
+
+    test('yazılan tercih geri okunur ve yukle() genel değişkene basar', () async {
+      addTearDown(() => tutamacSagdaTercihi = true);
+      final depo = TutamacDeposu.bellek();
+
+      await depo.yaz(false);
+      expect(await depo.sagdaMi(), isFalse);
+
+      // Açılış yolu: main.dart bunu çağırır, ekranlar değişkeni senkron okur.
+      tutamacSagdaTercihi = true;
+      await depo.yukle();
+      expect(tutamacSagdaTercihi, isFalse,
+          reason: 'sol elli bayi her açılışta yeniden seçmek zorunda kalmamalı');
+
+      await depo.yaz(true);
+      await depo.yukle();
+      expect(tutamacSagdaTercihi, isTrue);
+    });
+  });
+
+  testWidgets('tutamaç VARSAYILAN SAĞDA, tercihle sola alınır ve KALICILANIR', (tester) async {
     genisYuzey(tester);
     addTearDown(() => tutamacSagdaTercihi = true);
+    // Disk yerine bellek deposu: test deterministik olsun, gerçek cihaz dosyasına dokunmasın.
+    final depo = TutamacDeposu.bellek();
+    tutamacDeposu = depo;
+    addTearDown(() => tutamacDeposu = TutamacDeposu());
 
     final db = AppDatabase(NativeDatabase.memory());
     await tester.runAsync(() async {
@@ -398,6 +427,9 @@ void main() {
     final yeniTutamacX =
         tester.getCenter(find.byType(ReorderableDragStartListener).first).dx;
     expect(yeniTutamacX, lessThan(adX), reason: 'tercih sola alındı');
+
+    // Tercih DİSKE de gitti — uygulama yeniden açıldığında sol kalır.
+    expect(await depo.sagdaMi(), isFalse, reason: 'tercih kalıcılanmadı');
 
     await ekraniKapat(tester);
   });

@@ -6,6 +6,7 @@ import 'auth/session.dart';
 import 'data/app_database.dart';
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
+import 'screens/orders/tutamac_deposu.dart';
 import 'screens/products/product_form_sheet.dart';
 import 'screens/sihirbaz/izin_sihirbazi.dart';
 import 'sync/sync_service.dart';
@@ -63,6 +64,10 @@ class _SiparioAppState extends State<SiparioApp> {
   void initState() {
     super.initState();
     _tema.yukle();
+    // Sürükle-bırak tutamacının tarafı da cihaz-yerel bir tercihtir (saha hatası 4); temayla
+    // aynı yerde, aynı desenle yüklenir. Beklenmez: sipariş listesi açılmadan çok önce biter,
+    // okunamazsa varsayılan SAĞ kalır.
+    tutamacDeposu.yukle();
     // Açılış hatası SPINNER'DA BIRAKMAZ (2026-07-22 saha bulgusu: migration hatası isLoggedIn'i
     // hiç döndürmeyince iki cihaz sonsuz loading'de kaldı). Hata ekrana çıkar — sessiz kilit yok.
     _session.isLoggedIn().then((v) async {

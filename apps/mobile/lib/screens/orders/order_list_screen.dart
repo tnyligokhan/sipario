@@ -29,6 +29,7 @@ import 'order_detail_screen.dart';
 import 'order_list_parts.dart';
 import 'order_queries.dart';
 import 'order_sheets.dart';
+import 'tutamac_deposu.dart';
 
 // Sorgu/biçim yardımcıları bu ekranın YÜZEYİNDEN de erişilebilir olmalı: mevcut testler ve
 // başka ekranlar `order_list_screen.dart` üzerinden çağırıyor (sözleşme — imzalar değişmez).
@@ -219,11 +220,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
             if (_elle)
               ElleBant(
                 tutamacSagda: _tutamacSagda,
-                onTarafDegis: (sagda) => setState(() {
-                  _tutamacSagda = sagda;
-                  // Süreç ömrü boyunca hatırlanır (ekranlar arası); kalıcı saklama henüz yok.
-                  tutamacSagdaTercihi = sagda;
-                }),
+                onTarafDegis: _tutamacTarafiDegis,
               ),
 
             // ── .segtab ───────────────────────────────────────────────────────────────────
@@ -394,6 +391,16 @@ class _OrderListScreenState extends State<OrderListScreen> {
     if (secim == OrderSort.elle) {
       SipToast.goster(context, 'Elle sıralama açık — tutamaçtan sürükle');
     }
+  }
+
+  /// Tutamaç tarafı değişti: ekran ANINDA döner, disk yazımı arkadan gelir (beklemek dokunmaya
+  /// gereksiz gecikme koyardı; depo hata yutar, yazamasa bile tercih oturum içinde geçerli kalır).
+  void _tutamacTarafiDegis(bool sagda) {
+    setState(() {
+      _tutamacSagda = sagda;
+      tutamacSagdaTercihi = sagda; // diğer ekranlar/sonraki açılışlar aynı değeri okur
+    });
+    tutamacDeposu.yaz(sagda);
   }
 
   void _elleBitir() => setState(() {
