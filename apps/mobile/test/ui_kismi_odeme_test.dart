@@ -1,15 +1,15 @@
-// Kısmi ödeme (saha eksiği 7) + sipariş dışı borç tahsilatı (saha eksiği 5b).
+// Kısmi ödeme (saha eksiği 7) + sipariş dışı borç tahsilatı (saha eksiği 5b) — KURAL ve DEFTER
+// katmanı. Ekran akışları `ui_tahsilat_ekran_test.dart`te (ikisi tek dosyada 500 satırı aşıyordu).
 //
-// DESEN: karar mantığı ekrandan bağımsız SAF fonksiyonlarda sınanır (drift akışları widget-test
-// sahte zamanında güvenilmez — Dilim 1 dersi); widget testine yalnız "alan gerçekten
-// düzenlenebilir mi" ve "sheet müşteri kimliğinden açılıyor mu" akışları kalır.
+// DESEN: karar mantığı ekrandan bağımsız SAF fonksiyonlarda sınanır — drift akışları widget-test
+// sahte zamanında güvenilmez (Dilim 1 dersi), ayrıca kural testi widget kurmadan saniyeler
+// yerine milisaniyelerde koşar.
 //
 // KIRMIZI ÇİZGİ #2: hiçbir test kayıt silmez/günceller. Kısmi ödemenin tüm veri akışı
 // debit(+tutar) + payment(−tahsil edilen) çift-satırıdır; kalan borç AYRI satır değil, ödenmemiş
 // debit'in kendisidir. Testler bunu bakiye ÜZERİNDEN doğrular (bakiye = SUM(amount_kurus)).
 
 import 'package:drift/native.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/repo/customer_repository.dart';
@@ -17,11 +17,6 @@ import 'package:sipario/repo/ledger_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/screens/customers/customer_sheets.dart';
 import 'package:sipario/screens/orders/delivery_sheet.dart';
-
-import 'package:sipario/screens/orders/order_detail_screen.dart';
-
-import 'support/ekran_yardimcilari.dart';
-import 'support/siparis_yardimci.dart';
 
 Future<Customer> _musteri(AppDatabase db, String id) =>
     (db.select(db.customers)..where((t) => t.id.equals(id))).getSingle();

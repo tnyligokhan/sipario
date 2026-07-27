@@ -145,7 +145,11 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
       return;
     }
 
-    final eylem = await cagriKartiGoster(rotaCtx, kisi: kisi);
+    // Yön GEÇMİŞ SATIRINDAN gelir: kart yönü kendi başına bilemez, verilmezse "GELEN ÇAĞRI"
+    // varsayar ve bayi kendi yaptığı aramanın kartında gelen çağrı görürdü (2026-07-27 saha
+    // bulgusunun geçmiş ekranındaki ayağı). `arama.tip` çağrı ANINDAKİ yöndür ve değişmez —
+    // kayıt durumunun aksine yeniden çözülmesi gerekmez.
+    final eylem = await cagriKartiGoster(rotaCtx, kisi: kisi, yon: arama.tip);
     if (eylem != CagriEylemi.kaydet || !rotaCtx.mounted) return;
 
     if (!widget.writable) {
