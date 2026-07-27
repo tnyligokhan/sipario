@@ -34,6 +34,12 @@ object CallerOverlay {
 
     private const val CHANNEL_ID = "sipario_caller"
 
+    /** Kart ekrandayken kullanılan sessiz kanal — bkz. [ensureChannel]. */
+    private const val CHANNEL_ID_SESSIZ = "sipario_caller_sessiz"
+
+    /** Bildirim eylem düğmelerinin PendingIntent istek kodu tabanı (sıra numarası eklenir). */
+    private const val EYLEM_ISTEK_KODU = 6200
+
     /**
      * Kart dokunulmadan kapanmaz; bu yalnız unutulan kartlara karşı emniyet süresi.
      * Saha geri bildirimi: 12 sn'lik otomatik kapanma, adres konuşma sırasında lazımken
@@ -99,7 +105,17 @@ object CallerOverlay {
                 Settings.canDrawOverlays(app) &&
                     showOverlay(app, customer, phone, t0, simulated, yon, locked = false, record = true)
             }
-            if (!shown) showNotification(app, customer, phone, t0, simulated, locked, yon)
+            // BİLDİRİM HER ZAMAN ÇIKAR (2026-07-27 saha isteği: "hem kart hem bildirim aynı
+            // anda gelmeli"). Eskiden yalnız kart gösterilemediğinde çıkıyordu.
+            //
+            // `kartVar` bilgisi iki şeyi belirler:
+            //  • KANAL: kart ekrandayken bildirim SESSİZ kanaldan düşer (heads-up yok) — yoksa
+            //    heads-up kartın üstüne biner ve bayi kartı göremez, bu bir gerileme olurdu.
+            //    Kart yoksa bildirim tek yüzeydir ve yüksek öncelikli kanaldan heads-up çıkar.
+            //  • ÖLÇÜM: gecikme kaydı yalnız bildirim TEK yüzeyken yazılır. Aksi hâlde tek çağrı
+            //    iki ölçüm üretir ve go/no-go sayacı şişerdi (DECISIONS'taki overlay kuralının
+            //    aynısı).
+            showNotification(app, customer, phone, t0, simulated, locked, yon, kartVar = shown)
         }
     }
 
@@ -166,7 +182,10 @@ object CallerOverlay {
             return false
         }
 
-        ensureChannel(nm)
+        // Tam ekran niyet taşıyıcısı YÜKSEK öncelikli kanaldan gider: sistem Activity'yi ancak
+        // yüksek önemli bir bildirimin tam ekran niyetiyle açar. Sessiz kanal buradaki işi
+        // yapamaz — kilit ekranı yolu tamamen ölürdü.
+        ensureChannel(nm, kartVar = false)
 
         val intent = Intent(context, CallerActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_USER_ACTION)
@@ -313,15 +332,25 @@ object CallerOverlay {
         simulated: Boolean,
         locked: Boolean,
         yon: CagriYonu,
+        kartVar: Boolean,
     ) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        ensureChannel(nm)
+        ensureChannel(nm, kartVar)
         try {
-            nm.notify(NOTIFICATION_ID, buildNotification(context, customer, phone, yon).build())
-            val ms = (System.nanoTime() - t0) / 1_000_000
-            LatencyLog.record(context, ms, customer != null, simulated, "notification", locked, yon.olcumKodu)
+            nm.notify(
+                NOTIFICATION_ID,
+                buildNotification(context, customer, phone, yon, kartVar).build(),
+            )
+            // Kart zaten gösterildiyse ölçüm ORADA yazıldı; burada ikinci kez yazmak tek çağrıyı
+            // iki kayda böler ve go/no-go sayacını şişirir.
+            if (!kartVar) {
+                val ms = (System.nanoTime() - t0) / 1_000_000
+                LatencyLog.record(context, ms, customer != null, simulated, "notification", locked, yon.olcumKodu)
+            }
         } catch (_: SecurityException) {
-            LatencyLog.record(context, -1, customer != null, simulated, "failed", locked, yon.olcumKodu)
+            if (!kartVar) {
+                LatencyLog.record(context, -1, customer != null, simulated, "failed", locked, yon.olcumKodu)
+            }
         }
     }
 
@@ -330,6 +359,7 @@ object CallerOverlay {
         customer: CustomerLookup.Customer?,
         phone: String,
         yon: CagriYonu,
+        kartVar: Boolean = false,
     ): Notification.Builder {
         val title = customer?.name ?: "Kayıtlı olmayan numara"
         val body = customer
@@ -348,7 +378,7 @@ object CallerOverlay {
             }.trimEnd()
         } ?: phone
 
-        return Notification.Builder(context, CHANNEL_ID)
+        val builder = Notification.Builder(context, if (kartVar) CHANNEL_ID_SESSIZ else CHANNEL_ID)
             .setSmallIcon(android.R.drawable.sym_action_call)
             .setContentTitle(title)
             .setContentText(body)
@@ -361,9 +391,58 @@ object CallerOverlay {
             // müşteriyi ve borcu gösteren tek yer bu bildirim olur.
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
+
+        // ÇİFT SES/TİTREŞİM YOK: telefon zaten ÇALIYOR. Sessizlik KANAL üzerinden sağlanıyor
+        // (bkz. [ensureChannel]) — Android 8+'da ses ve titreşim kanalın işidir, bildirim
+        // düzeyinde `setSound(null)` yok sayılır. Çerçevenin `Notification.Builder`ında
+        // `setSilent` YOKTUR (o `NotificationCompat`ın API'si; derleyici doğruladı), bu yüzden
+        // tek doğru yol iki ayrı kanal.
+
+        // EYLEM DÜĞMELERİ — kartla AYNI listeden ([CallerCard.eylemListesi]) ve AYNI köprüden
+        // ([CallerCard.eylemNiyeti]). Bildirimden basılan düğme, karttan basılmış gibi davranır.
+        //
+        // requestCode SIRA NUMARASI: `PendingIntent` eşitliği ekstraları saymaz (`filterEquals`),
+        // yani aynı requestCode ile kurulan iki eylem tek bir PendingIntent'e çöker ve iki düğme
+        // de aynı işi yapardı. Sıra numarası bunu ayırır.
+        CallerCard.eylemListesi(customer).forEachIndexed { sira, e ->
+            val pi = PendingIntent.getActivity(
+                context,
+                EYLEM_ISTEK_KODU + sira,
+                CallerCard.eylemNiyeti(context, e.kod, phone),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.addAction(Notification.Action.Builder(null, e.etiket, pi).build())
+        }
+        return builder
     }
 
-    private fun ensureChannel(nm: NotificationManager) {
+    /**
+     * İKİ KANAL, çünkü kanal önemi OLUŞTURULDUKTAN SONRA değiştirilemez (Android 8+; sonrası
+     * kullanıcının ayarıdır). Kart varken/yokken farklı davranış gerektiği için tek kanalla
+     * çözülemezdi:
+     *  • [CHANNEL_ID] — yüksek önem. Kart HİÇ gösterilemediğinde bildirim tek yüzeydir;
+     *    heads-up olarak öne çıkması gerekir.
+     *  • [CHANNEL_ID_SESSIZ] — düşük önem, ses ve titreşim kapalı. Kart ekrandayken bildirim
+     *    yalnız gölgede birikir; heads-up olsaydı kartın üstünü örter ve bayi kartı göremezdi.
+     * Bayi ikisini sistem ayarlarından ayrı ayrı kısabilir — adları da bu yüzden ayrıştırıldı.
+     */
+    private fun ensureChannel(nm: NotificationManager, kartVar: Boolean) {
+        if (kartVar) {
+            if (nm.getNotificationChannel(CHANNEL_ID_SESSIZ) != null) return
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_ID_SESSIZ,
+                    "Arayan bilgisi (sessiz)",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Kart ekrandayken aynı bilgiyi taşıyan sessiz bildirim"
+                    setShowBadge(false)
+                    setSound(null, null)
+                    enableVibration(false)
+                }
+            )
+            return
+        }
         if (nm.getNotificationChannel(CHANNEL_ID) != null) return
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "Gelen arama", NotificationManager.IMPORTANCE_HIGH).apply {

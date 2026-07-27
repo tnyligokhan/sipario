@@ -68,6 +68,13 @@ class MainActivity : FlutterActivity() {
         bekleyen = mapOf("eylem" to eylem, "numara" to numara)
         i.removeExtra(CallerCard.EXTRA_EYLEM)
         i.removeExtra(CallerCard.EXTRA_NUMARA)
+        // EYLEM SEÇİLDİ → HER İKİ YÜZEY DE KAPANIR (DECISIONS: "eylem ve kapatma tek işlemdir").
+        // Artık iki yüzey var: karttan basıldıysa bildirim, bildirimden basıldıysa kart açık
+        // kalırdı. Kapatmayı BURAYA koymak ikisini de kapatır, çünkü her iki düğme de aynı
+        // köprüden ([CallerCard.eylemNiyeti]) buraya geliyor. `kapat` üç yüzeyi birden kaldırır
+        // (overlay penceresi, kilit ekranı Activity'si, bildirim) ve idempotenttir — kart yolu
+        // kendi tarafında da çağırıyor, ikinci çağrı zararsız.
+        CallerOverlay.kapat(this)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

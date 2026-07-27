@@ -1,6 +1,7 @@
 package com.sipario.app
 
 import android.content.Context
+import android.content.Intent
 import android.database.sqlite.SQLiteException
 import android.graphics.drawable.GradientDrawable
 import android.util.Log
@@ -40,6 +41,46 @@ object CallerCard {
     /** Kart eylemleri uygulamayı bu ekstralarla açar; karşılayan taraf [MainActivity]'dir. */
     const val EXTRA_EYLEM = "sipario_cagri_eylem"
     const val EXTRA_NUMARA = "sipario_cagri_numara"
+
+    /** Kartın ve bildirimin ortak eylemi. [kod] Dart tarafındaki `CagriEylemi` ile eşleşir. */
+    data class Eylem(val etiket: String, val kod: String, val ikonId: Int)
+
+    /**
+     * Eylemlerin TEK KAYNAĞI — hem kart düğmeleri hem bildirim düğmeleri buradan üretilir.
+     *
+     * NEDEN TEK LİSTE (2026-07-27, bildirim düğmeleri eklenirken): iki yüzey iki ayrı listeden
+     * beslenseydi, bir eylem eklendiğinde ya da etiketi değiştiğinde biri sessizce geride
+     * kalırdı. Bayi kartta gördüğü düğmeyi bildirimde bulamazsa bu bir hata olarak döner.
+     *
+     * VARYANT: kayıtsız numarada "Defteri Aç" anlamsızdır (açılacak defter yok), o yüzden
+     * yalnız kaydetme eylemi çıkar — kartın bugünkü davranışının aynısı.
+     *
+     * Liste EN FAZLA 2 eleman döner; Android bildirimde en çok 3 düğme gösterir (bazı
+     * kabuklarda daha az), yani hepsi sığar ve seçme/eleme kuralına gerek kalmaz.
+     */
+    fun eylemListesi(customer: CustomerLookup.Customer?): List<Eylem> =
+        if (customer != null) {
+            listOf(
+                Eylem("Sipariş Oluştur", "siparis", R.drawable.sip_ic_plus),
+                Eylem("Defteri Aç", "defter", R.drawable.sip_ic_book),
+            )
+        } else {
+            listOf(Eylem("Müşteri Olarak Kaydet", "kaydet", R.drawable.sip_ic_user_plus))
+        }
+
+    /**
+     * Eylemi uygulamaya taşıyan niyet — KÖPRÜNÜN TEK YERİ.
+     *
+     * Kart düğmesi de bildirim düğmesi de bunu kullanır; ikinci bir transfer yolu YOKTUR
+     * (DECISIONS: "native taraf eylemi BEKLETİR, itmez" — karşılayan `MainActivity.bekleyen`,
+     * Dart'a `sipario/cagri` kanalından geçer). İki ayrı niyet kurulsaydı iki yol zamanla
+     * sessizce ayrışırdı.
+     */
+    fun eylemNiyeti(context: Context, eylem: String, phone: String): Intent =
+        Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .putExtra(EXTRA_EYLEM, eylem)
+            .putExtra(EXTRA_NUMARA, phone)
 
     fun build(
         context: Context,

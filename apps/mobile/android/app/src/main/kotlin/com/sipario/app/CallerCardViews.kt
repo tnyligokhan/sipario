@@ -351,11 +351,23 @@ internal object CallerCardViews {
             orientation = LinearLayout.VERTICAL
             layoutParams = satirParams(context, ust = 16)
         }
-        if (customer != null) {
-            kutu.addView(dugme(context, "Sipariş Oluştur", R.drawable.sip_ic_plus, p.accent, p.accentInk, "siparis", phone, 0))
-            kutu.addView(dugme(context, "Defteri Aç", R.drawable.sip_ic_book, p.surface2, p.ink, "defter", phone, 8))
-        } else {
-            kutu.addView(dugme(context, "Müşteri Olarak Kaydet", R.drawable.sip_ic_user_plus, p.accent, p.accentInk, "kaydet", phone, 0))
+        // Liste [CallerCard.eylemListesi]'nden gelir — bildirim düğmeleri de AYNI kaynaktan
+        // besleniyor, iki yüzey ayrışamaz. Buradaki tek fark görsel: ilk eylem birincil
+        // (accent dolu), sonrakiler ikincil.
+        CallerCard.eylemListesi(customer).forEachIndexed { sira, e ->
+            val birincil = sira == 0
+            kutu.addView(
+                dugme(
+                    context,
+                    e.etiket,
+                    e.ikonId,
+                    if (birincil) p.accent else p.surface2,
+                    if (birincil) p.accentInk else p.ink,
+                    e.kod,
+                    phone,
+                    if (birincil) 0 else 8,
+                )
+            )
         }
         return kutu
     }
@@ -411,11 +423,8 @@ internal object CallerCardViews {
      * (bkz. `MainActivity.bekleyen`), Flutter ayağa kalkınca çekilir.
      */
     private fun eylemiAc(context: Context, eylem: String, phone: String) {
-        val niyet = Intent(context, MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            .putExtra(CallerCard.EXTRA_EYLEM, eylem)
-            .putExtra(CallerCard.EXTRA_NUMARA, phone)
-        runCatching { context.startActivity(niyet) }
+        // Niyet [CallerCard.eylemNiyeti]'nden — bildirim düğmesiyle BİREBİR aynı köprü.
+        runCatching { context.startActivity(CallerCard.eylemNiyeti(context, eylem, phone)) }
             .onFailure { Log.w(TAG, "eylem acilamadi: ${it.javaClass.simpleName}") }
         CallerOverlay.kapat(context)
     }
