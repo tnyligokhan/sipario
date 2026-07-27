@@ -67,44 +67,75 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-26/4 — ÇAĞRI KARTI EYLEMLERİ + GERÇEK BARKOD OKUYUCU + açılış sekmesi ANA; Drift v10 · dart analyze 0 · flutter test 378/378 · APK derlendi ve CİHAZA KURULDU)
+## Güncel durum (son güncelleme: 2026-07-27 — SAHA GERİ BİLDİRİMİ 7 MADDE KAPANDI: çağrı yönü · CallerId son sipariş · kart eylemleri · tutamaç tarafı · borçlu sekmesi · kurye süzgeci · kısmi ödeme; ayrıca UUIDv7 monotonluk hatası bulundu ve düzeltildi; Drift v10 · flutter analyze 0 · flutter test 473/473 · release APK derlendi)
 
 ---
 
-# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-07-26 akşamı kapandı)
+# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-07-27 kapandı)
 
-**Bir cümlede:** Yazılım tarafı büyük ölçüde bitti ve cihazda çalışıyor; **kritik yolun neredeyse
-tamamı artık kodda değil, proje sahibinin elindeki dışsal girdilerde** (anahtar, hesap, avukat,
-saha). Kod tarafında sahipsiz kalan üç iş var: **mobil CI**, **emanet takibi kararı**, ve
-**pilot ölçümünün önündeki `kDebugMode` kapısı**.
+**Bir cümlede:** Bayinin saha testinden gelen **7 maddelik geri bildirimin tamamı kapatıldı** ve
+bu sırada **testlerin yıllardır şansla gizlediği gerçek bir ürün hatası** (UUIDv7 monotonluğu)
+bulunup düzeltildi. Kritik yol hâlâ kodda değil, **proje sahibinin elindeki dışsal girdilerde**
+(anahtar, hesap, avukat, saha) — önceki vardiyanın 🔴 işleri aynen duruyor.
 
-**Ölçüm (2026-07-26 kapanışı):** `dart analyze` 0 (lib+test) · `flutter test` **378/378** ·
-debug APK derlendi ve **Samsung SM-S721B'ye kuruldu** · `adb reverse tcp:8000` kurulu ·
-demo giriş doğrulandı (`demo`/`demo`/`demo1234` → 200).
-**API bu vardiyada HİÇ DEĞİŞMEDİ** — son yeşil koşum 2026-07-26/3: phpunit 220/220, pint+phpstan temiz.
+**Ölçüm (2026-07-27 kapanışı):** `flutter analyze` **0** · `flutter test` **473/473**
+(vardiya başında 455) · release APK derlendi · Kotlin `assembleDebug` ile derlendiği doğrulandı.
+**API bu vardiyada HİÇ DEĞİŞMEDİ** ve değişmesi de gerekmedi — kısmi ödeme sunucu tarafında
+zaten geçerli: `ChangeApplier::validateLedgerEntry` yalnız işaret + `payment_type` enum'u
+denetliyor, bakiye filtresiz `SUM(amount_kurus)`. Son yeşil API koşumu 2026-07-26/3.
 
 ## Bu vardiyada NE YAPILDI
 
-1. **Çağrı kartının düğmeleri bağlandı** (bayi bildirdi: "hiçbir şey olmuyor"). İki ayrı kopukluk
-   vardı, kart kendisi sağlamdı — ayrıntı aşağıdaki vardiya kaydında.
-2. **Gerçek barkod okuyucu** (kamera) — eski "elle yazma sheet'i" silindi.
-3. **Açılış sekmesi ANA** yapıldı (tasarımdan bilinçli sapma, testle kilitli).
-4. **Eksik denetimi** yapıldı — aşağıdaki "SIRADAKİ İŞLER" bölümü onun çıktısıdır.
+Bayi geri bildirimi, üç paralel ajanla (çağrı · liste · ödeme) kapatıldı. Gerekçeler
+`DECISIONS.md`'nin sonundaki 13 satırda.
+
+1. **Giden çağrılar gelen görünüyordu** — yön DOĞRU tespit ediliyordu ama hiçbir yüzeye
+   ulaşmıyordu: kart üst şeridi `"GELEN ÇAĞRI"`yı SABİT yazıyordu, yeniden gösterim yolları
+   yönü `"in"`e çiviliyordu. Yön tek tiple (`CagriYonu`) karta+bildirime+ölçüme+günlüğe taşındı;
+   cevapsız çağrı kavramı eklendi (yeni satır değil, aynı çağrının güncellenmesi).
+2. **CallerId'de son sipariş durumu yoktu** — `CustomerLookup` sipariş bilgisini hiç çekmiyordu.
+   Tek satırlık sorgu eklendi; kartta "Son sipariş: Yolda · 10:24". Kalem dökümü bilerek yok
+   (indeks yok, 1 sn bütçesi kaldırmaz).
+3. **Ara/WhatsApp/Konum düğmeleri işlevsizdi** — bozuk değil, HİÇ BAĞLANMAMIŞTI (üçü de yalnız
+   toast basıyordu). `url_launcher` ile gerçekten açılıyor; numara `+90`'a çevriliyor
+   (`wa.me/0532…` sessizce boş sayfa açıyordu).
+4. **Sürükleme tutamağı sola sabitti** — varsayılan SAĞ oldu, sol el için anahtar bandın içine
+   kondu, tercih cihaz-yerel dosyada KALICI (şema değişikliği yok).
+5. **Borçlu sekmesi teslim edilmemiş siparişi gösteriyordu** — sorgunun tek şartı bakiyeydi,
+   sipariş durumuna hiç bakmıyordu. Ölçüt artık teslim + defter (ödeme TİPİNE bakılmaz).
+   Ayrıca **borç tahsilatı eklendi**: `borcTahsilatiAc` + sipariş detayında "Tahsilat Al".
+6. **Kurye süzgeci yoktu** — iki katmanlı eksikti: `watchOrders`'ın `assignedTo` parametresi
+   gövdede HİÇ KULLANILMIYORDU ve ekran ona kullanıcı kimliği geçip süzdüğünü SANIYORDU.
+   Süzgeç yalnız patrona görünür; patron listede ada göre, ayrıcalıksız durur.
+7. **Teslimde kısmi ödeme yapılamıyordu** — tutar düzenlenebilir oldu; kalan fark AYRI KAYIT
+   DEĞİL, ödenmemiş `debit`in kendisi. Yeni `entry_type`/olay/migration gerekmedi, uuid5 teslim
+   idempotensi korundu. Fazla tahsilat KABUL edilir (kasa devri tutsun diye).
+8. **(Plan dışı, bulundu) `newId()` aynı ms içinde MONOTON DEĞİLDİ** — `uuid` paketi zaman
+   damgasından sonraki 74 biti tamamen rastgele dolduruyor; ölçüldü: aynı ms'e düşen çiftlerin
+   **%50,5'i ters**. Sipariş kalemleri iki cihazda farklı sırada çizilebiliyordu. RFC 9562
+   "monotonic random" ile düzeltildi; 100.000 id'de 0 bozulma.
+9. **Para alanları kuruşa açıldı** — teslim tahsilatı · borç tahsilatı · bakiye düzeltme ·
+   serbest satır (2 yer). "Yarısı" çipi tam lira yuvarlar (kısayol), "Tamamı" çipi kuruşuyla
+   doldurur (kesinlik iddiası). `digitsOnly` kalan tek yer barkod alanları — doğru kullanım.
 
 ## Bu vardiyada NE YAPILMADI (bilerek ya da bloklu)
 
-- **Cihazda tam gezinti BENİM tarafımdan yapılmadı** — telefon bayinin elinde, kurulum yapıldı,
-  gezinmeyi kendisi yapıyor. Gözle doğrulanması istenenler: kayıtlı çağrı kartının 4 varyantı,
-  input yükseklikleri, kuryede Gün Sonu kapsamı, kamera ile barkod okuma.
-- **Emanet/boş damacana takibi KARARI BEKLİYOR** — bayiye üç seçenek sunuldu (tam yap / basit
-  sayaç / v1'den çıkar), **cevap gelmedi**. Karar verilmeden koda dokunma. Ayrıntı: iş #6.
-- **`YAPILACAKLAR.md` bayat** (2026-07-16 tarihli; "~%79" diyor, kupon hâlâ listede, kapanmış
-  maddeler duruyor). Yeniden yazımı önerildi, onay gelmedi. **Çelişki halinde BU BÖLÜM doğrudur.**
+- **CİHAZDA HİÇ DENENMEDİ.** Hepsi test+derleme düzeyinde doğrulandı. Sahada gözle görülmesi
+  gerekenler: (a) giden/cevapsız çağrıda kartın başlığı — OEM'in `callDirection`'ı yanlışsa
+  logcat'te `onScreenCall: yon=<ham sayı>` tek çağrıda kanıtlar, düzeltme tek satır;
+  (b) WhatsApp/harita açılışı (MIUI gibi katmanlarda); (c) borçlu sekmesinin yeni sorgusu.
+- **`orders.customer_id` indeksi eklenmedi** — hem native hem Dart son-sipariş sorgusu tam tablo
+  taraması. Yılda ~18k satırda birkaç ms, ama sınırsız büyür. Şema sürümü + migration gerektirdiği
+  için saha testi sürerken alınmadı. `order_lines.order_id` indeksi de eklenirse native kart
+  kalem dökümünü taşıyabilir.
+- **Kotlin birim test altyapısı yok** (`build.gradle.kts`'te test kaynak kümesi + JUnit yok).
+  `cagriYonuBelirle` ve kart yardımcıları saf fonksiyon olarak ayrıldı ama testleri yazılamadı.
+- **Emanet/boş damacana takibi KARARI HÂLÂ BEKLİYOR** — üç seçenek sunuldu, cevap gelmedi.
+  Karar verilmeden koda dokunma. Ayrıntı: iş #6.
+- **`YAPILACAKLAR.md` bayat** (2026-07-16). **Çelişki halinde BU BÖLÜM doğrudur.**
 - **`test/ui_dilim3_test.dart` 608 satır** — depo kuralı 500. Ortak alan, sahibi belirsiz.
-- **Tasarım tarafında 3 sınıfın CSS kuralı yok** (`balrozet*`, `mrow-tag`, `ara-ic`) — JSX onları
-  kullanıyor, uygulama ölçüyü tahminle çiziyor. Tasarım güncellenmeli, kod değil.
-- **APK büyüdü:** release fat APK 44,8 MB → **73,7 MB** (ML Kit gömülü modeli, ABI başına).
-  Bayinin indireceği arm64 sürümü **27,9 MB**; mağazaya App Bundle gidince bölme kendiliğinden olur.
+- **Tasarım tarafında 3 sınıfın CSS kuralı yok** (`balrozet*`, `mrow-tag`, `ara-ic`).
+- **APK:** release fat APK **73,7 MB**, bayinin kuracağı arm64 sürümü **27,9 MB**.
 
 ---
 
