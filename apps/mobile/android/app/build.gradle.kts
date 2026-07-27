@@ -11,6 +11,17 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // ÇEKİRDEK KÜTÜPHANE ŞEKERSİZLEŞTİRME (core library desugaring) — ZORUNLU.
+        //
+        // `flutter_local_notifications` 10+ zamanlanmış bildirimleri eski Android sürümlerinde
+        // de çalıştırmak için `java.time` API'lerini kullanıyor ve bunu desugaring'e dayandırıyor.
+        // Açık olmadan `:app:checkReleaseAarMetadata` şu hatayla DÜŞER:
+        //   "Dependency ':flutter_local_notifications' requires core library desugaring"
+        //
+        // BU KAPI TESTLERDE GÖRÜNMEZ: 622 Dart testi yeşilken ve `flutter analyze` temizken
+        // release APK derlenmiyordu (2026-07-27). Bildirim bağlaması bittiğinde "Faz 1 bitti"
+        // sanmamızın tek engeli lead'in her tur APK derlemesi oldu.
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
