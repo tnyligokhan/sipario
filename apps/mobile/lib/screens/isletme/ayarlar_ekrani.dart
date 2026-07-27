@@ -9,6 +9,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../bildirim/bildirim_ayar_bolumu.dart';
 import '../../data/app_database.dart';
@@ -28,9 +29,34 @@ import '../customers/customer_form_screen.dart';
 import 'isletme_atomlari.dart';
 import 'isletme_profili_ekrani.dart';
 
-/// Uygulama sürümü — `package_info_plus` bağımlılığı eklenmediği için sabit (offline-first
-/// kurulumda runtime sorgusu da yapılmaz). Sürüm yükseltilirken burası da güncellenir.
-const String siparioSurumu = 'Sipario 3.2';
+/// Uygulama sürümü — APK'nın KENDİSİNDEN okunur, elle yazılmaz.
+///
+/// Eskiden burada `'Sipario 3.2'` sabiti duruyordu ve APK'daki gerçek sürümle (o gün hâlâ
+/// Flutter varsayılanı olan `1.0.0+1`) HİÇBİR bağı yoktu: 2026-07-27'de dört ayrı APK
+/// derlendi, dördü de aynı sürümü gösteriyordu ve sahadaki bayi hangisini test ettiğini
+/// söyleyemiyordu. İki yerde ayrı yazılan bir sayı, biri güncellenip diğeri unutulduğunda
+/// sessizce yalan söyler.
+///
+/// `package_info_plus` Android'de `PackageManager`dan okur — yani `build.gradle.kts`in git
+/// commit sayısından türettiği yapı numarası ne ise bayi onu görür. Bu YEREL bir sorgudur,
+/// ağ kullanmaz; offline-first çizgisi korunur.
+///
+/// YAPI NUMARASI GÖSTERİLMEK ZORUNDA: saha testinde "hangi APK?" sorusunu tek başına o
+/// cevaplıyor. Sürüm adı iki derleme arasında aynı kalabilir, yapı numarası kalamaz.
+Future<String> siparioSurumunuOku() async {
+  try {
+    final bilgi = await PackageInfo.fromPlatform();
+    final ad = bilgi.version.trim();
+    final yapi = bilgi.buildNumber.trim();
+    if (ad.isEmpty) return 'Sipario';
+    return yapi.isEmpty ? 'Sipario $ad' : 'Sipario $ad ($yapi)';
+  } catch (_) {
+    // Platform kanalı yoksa (test ortamı, iOS'ta eksik kayıt) ÇÖKME — nötr metne düş.
+    // Ayarlar ekranının tamamı bir sürüm satırı yüzünden açılamaz hâle gelemez; bu dersi
+    // bildirim ayar bölümünde bir kez ödedik (LateInitializationError, 2026-07-27).
+    return 'Sipario';
+  }
+}
 
 class AyarlarEkrani extends StatefulWidget {
   const AyarlarEkrani({
@@ -331,7 +357,15 @@ class _HakkindaKarti extends StatelessWidget {
       builder: (context, snap) {
         final meta = snap.data;
         return AyarKarti(satirlar: [
-          const AyarSatiri(baslik: 'Sürüm', altBaslik: siparioSurumu),
+          // Sürüm APK'dan okunuyor (asenkron); gelene kadar satır yerini korur ve nötr
+          // 'Sipario' yazar — yer değiştiren/zıplayan bir satır yerine sabit bir satır.
+          FutureBuilder<String>(
+            future: siparioSurumunuOku(),
+            builder: (context, surum) => AyarSatiri(
+              baslik: 'Sürüm',
+              altBaslik: surum.data ?? 'Sipario',
+            ),
+          ),
           AyarSatiri(baslik: 'Lisans', altBaslik: lisansMetni(meta)),
         ]);
       },

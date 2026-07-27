@@ -170,7 +170,19 @@ void main() {
 
       // Lisans NÖTR bilgi olarak durabilir.
       expect(find.text('Lisans'), findsOneWidget);
-      expect(find.text('Sipario 3.2'), findsOneWidget, reason: 'sürüm satırı güncel');
+
+      // SÜRÜM SATIRI ARTIK SABİT METİN DEĞİL — APK'dan okunuyor (`package_info_plus`), yapı
+      // numarası da git commit sayısından türüyor. Eski hâli `'Sipario 3.2'` sabitiydi ve
+      // APK'daki gerçek sürümle hiçbir bağı yoktu; testin o sabiti kilitlemesi, yalanı
+      // kilitlemek anlamına geliyordu. Artık kilitlenen şey ikisi:
+      //   1) satırın VAR olması (mağaza kuralı gereği lisans/sürüm bilgisi nötr biçimde durur),
+      //   2) platform kanalı YOKKEN bile çökmeden çizilmesi — test ortamında `PackageInfo`
+      //      çözülemez ve nötr 'Sipario'ya düşer. Bu düşüş yolu ürünü de korur: iOS'ta ya da
+      //      eklenti kaydı eksikken ayarlar ekranının tamamı bir sürüm satırı yüzünden
+      //      açılamaz hâle gelemez (LateInitializationError dersi, 2026-07-27).
+      expect(find.text('Sürüm'), findsOneWidget);
+      expect(find.textContaining('Sipario'), findsOneWidget,
+          reason: 'sürüm satırı çizilmeli — platform kanalı yoksa nötr metne düşer');
 
       await kapat(tester);
     });

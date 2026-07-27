@@ -1,8 +1,31 @@
+import java.io.ByteArrayOutputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+/**
+ * Depodaki commit sayısı — yapı numarasının (versionCode) tek kaynağı.
+ *
+ * Başarısızlığın HER türü null döner ve çağıran yedek değere düşer: git kurulu değil, depo
+ * dışında derleniyor, sığ klon, komut hata verdi. Bu fonksiyon derlemeyi ASLA kırmamalı —
+ * sürüm numarası uğruna APK üretilememesi, elle yönetilen sürümden daha kötüdür.
+ */
+fun gitCommitSayisi(): Int? = try {
+    val cikti = ByteArrayOutputStream()
+    val sonuc = exec {
+        commandLine("git", "rev-list", "--count", "HEAD")
+        workingDir = rootProject.projectDir
+        standardOutput = cikti
+        errorOutput = ByteArrayOutputStream()
+        isIgnoreExitValue = true
+    }
+    if (sonuc.exitValue == 0) cikti.toString().trim().toIntOrNull() else null
+} catch (_: Exception) {
+    null
 }
 
 android {
@@ -36,7 +59,15 @@ android {
         // varlık sebebi olduğu için altındaki sürümleri desteklemiyoruz.
         minSdk = 29
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
+        // YAPI NUMARASI GİT COMMIT SAYISINDAN TÜRER — elle yönetilmez (kullanıcı kararı 2026-07-27:
+        // "artık versiyon ile uğraşmak istemiyorum"). Her commit'te kendiliğinden artar, monoton
+        // ilerler, atlamaz. Elle yönetilen bir sayı er geç unutulur: 2026-07-27'de dört ayrı APK
+        // derlendi ve DÖRDÜ DE `1.0.0+1` idi — sahadaki bayi hangi APK'yı test ettiğini
+        // söyleyemiyordu.
+        //
+        // Git yoksa/başarısızsa pubspec'teki yedek değere düşülür — derleme ASLA bu yüzden kırılmaz
+        // (depo dışı derleme, sığ klon, git kurulu olmayan CI makinesi hepsi olağan durumlardır).
+        versionCode = gitCommitSayisi() ?: flutter.versionCode
         versionName = flutter.versionName
     }
 
