@@ -13,6 +13,7 @@ import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../money.dart';
 import 'order_parts.dart' show LineDraft;
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
@@ -218,14 +219,17 @@ class _SerbestFormState extends State<_SerbestForm> {
 
   void _ekle() {
     final ad = _ad.text.trim();
-    final lira = int.tryParse(_tutar.text.trim());
+    // Tasarımın tam-lira yazımı (`Number(sbTutar) * 100`) bırakıldı: serbest satır sipariş
+    // toplamına giriyor, yani teslimdeki kuruşlu tahsilatın KAYNAĞI burası. 12,50 ₺'lik bir satırı
+    // 12 ya da 13 yazmaya zorlamak, kuruşa açtığımız teslim/tahsilat/düzeltme alanlarını
+    // anlamsızlaştırırdı. Dönüşüm tek para sınırından (`parseKurus`) geçer — sessiz yuvarlama yok.
+    final kurus = parseKurus(_tutar.text);
     setState(() {
       _adHata = ad.length < 2 ? 'Açıklama girin (en az 2 karakter)' : null;
-      _tutarHata = (lira == null || lira <= 0) ? 'Tutar 0’dan büyük olmalı' : null;
+      _tutarHata = (kurus == null || kurus <= 0) ? 'Tutar 0’dan büyük olmalı' : null;
     });
     if (_adHata != null || _tutarHata != null) return;
-    // Tasarım tam lira alıyor (`Number(sbTutar) * 100`); para int kuruşa burada çevrilir.
-    Navigator.of(context).pop(LineDraft(name: ad, unitPriceKurus: lira! * 100));
+    Navigator.of(context).pop(LineDraft(name: ad, unitPriceKurus: kurus!));
   }
 
   @override
@@ -248,8 +252,9 @@ class _SerbestFormState extends State<_SerbestForm> {
         SipInput(
           controller: _tutar,
           ipucu: '0',
-          klavye: TextInputType.number,
-          girdiFiltreleri: [FilteringTextInputFormatter.digitsOnly],
+          // Rakam + ayraç (tahsilat alanıyla aynı desen) — kuruşlu serbest satır yazılabilsin.
+          klavye: const TextInputType.numberWithOptions(decimal: true),
+          girdiFiltreleri: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
           hata: _tutarHata != null,
           onChanged: (_) {
             if (_tutarHata != null) setState(() => _tutarHata = null);

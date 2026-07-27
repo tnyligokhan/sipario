@@ -16,6 +16,7 @@ import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../money.dart';
 import 'order_parts.dart';
 
 import 'pos_catalog.dart';
@@ -113,13 +114,15 @@ class _DuzenGovdeState extends State<_DuzenGovde> {
 
   void _serbestEkle() {
     final ad = _sbAd.text.trim();
-    final lira = int.tryParse(_sbTutar.text.trim());
-    if (ad.length < 2 || lira == null || lira <= 0) {
+    // Kuruş YAZILABİLİR (order_sd_parts.dart ile aynı gerekçe): serbest satır sipariş toplamına
+    // giriyor, teslimdeki kuruşlu tahsilatın kaynağı burası. Dönüşüm tek para sınırından geçer.
+    final kurus = parseKurus(_sbTutar.text);
+    if (ad.length < 2 || kurus == null || kurus <= 0) {
       SipToast.goster(context, 'Açıklama ve 0’dan büyük tutar girin');
       return;
     }
     setState(() {
-      _taslak.add(DuzenSatiri(ad: ad, birimFiyatKurus: lira * 100, adet: 1));
+      _taslak.add(DuzenSatiri(ad: ad, birimFiyatKurus: kurus, adet: 1));
       _sbAd.clear();
       _sbTutar.clear();
     });
@@ -260,8 +263,9 @@ class _DuzenGovdeState extends State<_DuzenGovde> {
               child: SipInput(
                 controller: _sbTutar,
                 ipucu: '₺',
-                klavye: TextInputType.number,
-                girdiFiltreleri: [FilteringTextInputFormatter.digitsOnly],
+                // Rakam + ayraç (tahsilat alanıyla aynı desen) — kuruşlu serbest satır yazılabilsin.
+                klavye: const TextInputType.numberWithOptions(decimal: true),
+                girdiFiltreleri: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
               ),
             ),
             const SizedBox(width: SipSpace.md),
