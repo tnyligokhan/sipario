@@ -67,12 +67,10 @@ class OrderListScreen extends StatefulWidget {
   final AppDatabase db;
   final bool writable;
 
-  /// Oturumdaki kullanıcı.
-  ///
-  /// LİSTEYİ SÜZMEZ (2026-07-27): eskiden `watchOrders(assignedTo:)`e geçiliyordu ama sorgu o
-  /// parametreyi hiç kullanmıyordu — sessiz ölü bağdı. Artık `assignedTo` gerçek bir süzgeç ve
-  /// hedefini PATRON seçer; oturum kullanıcısını oraya bağlamak, kuryenin listesini haber
-  /// vermeden daraltırdı. Alan `home_shell` sözleşmesinde durduğu için korunuyor.
+  /// Oturumdaki kullanıcı. LİSTEYİ SÜZMEZ (2026-07-27): eskiden `watchOrders(assignedTo:)`e
+  /// geçiliyordu ama sorgu o parametreyi hiç kullanmıyordu — sessiz ölü bağdı. Artık `assignedTo`
+  /// gerçek bir süzgeç ve hedefini PATRON seçer; oturum kullanıcısını oraya bağlamak kuryenin
+  /// listesini haber vermeden daraltırdı. Alan `home_shell` sözleşmesinde durduğu için korunuyor.
   final String? userId;
   final bool canAssign; // kurye çipine dokununca kurye değiştirilebilir mi (K2)
 

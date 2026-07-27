@@ -22,6 +22,7 @@ import '../../theme/typography.dart';
 import '../customers/customer_form_screen.dart' show musteriDuzenleSheet;
 import '../team.dart';
 import 'delivery_sheet.dart';
+import 'order_detail_eylemler.dart';
 import 'order_detail_parts.dart';
 import 'order_edit_sheet.dart';
 import 'order_parts.dart';
@@ -259,13 +260,18 @@ class _Govde extends StatelessWidget {
           ),
         ],
 
+        // Sipariş DIŞI borç tahsilatı — teslim edilmiş siparişte de görünür (asıl kullanım anı
+        // odur: veresiye teslim, sonra tahsilat). Gerekçeler `SiparisTahsilatButonu` başlığında.
+        if (musteriId != null)
+          SiparisTahsilatButonu(db: db, customerId: musteriId, writable: writable),
+
         // ── .sdx-duzen-btns ───────────────────────────────────────────────────────────────
         if (_duzenlenebilir) ...[
           const SizedBox(height: 18),
           Row(
             children: [
               Expanded(
-                child: _YumusakTehlikeButonu(
+                child: YumusakTehlikeButonu(
                   etiket: 'İptal Et',
                   onTap: () => _iptalEt(context),
                 ),
@@ -355,37 +361,6 @@ class _Govde extends StatelessWidget {
     if (!context.mounted) return;
     SipToast.goster(context, 'Sipariş iptal edildi');
     Navigator.of(context).maybePop();
-  }
-}
-
-/// "İptal Et" — tasarım `.btn-d` sınıfını alır ama satır içi stille YUMUŞATILIR:
-/// `background: var(--danger-soft); color: var(--danger)` (s-siparisler.jsx:542).
-/// `SipButonTuru.tehlike` dolu kırmızı, `ikincil` ise nötr gri; ikisi de bu görünümü vermiyor —
-/// yıkıcı eylem nötr görünmemeli, ama dolu kırmızı da "Teslim Et"in yanında onu bastırıyor.
-class _YumusakTehlikeButonu extends StatelessWidget {
-  const _YumusakTehlikeButonu({required this.etiket, required this.onTap});
-
-  final String etiket;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return SipDokun(
-      onTap: onTap,
-      zemin: t.dangerSoft,
-      basiliZemin: t.dangerSoft,
-      radius: SipRadius.br2,
-      olcekle: true,
-      child: SizedBox(
-        height: 44,
-        child: Center(
-          // CSS `.sdx-duzen-btns .btn { height: 44px; font-size: 13.5px }`.
-          child: Text(etiket,
-              style: SipText.metin(13.5, w: 700).copyWith(color: t.danger)),
-        ),
-      ),
-    );
   }
 }
 
