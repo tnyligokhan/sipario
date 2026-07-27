@@ -1,375 +1,504 @@
-import 'package:drift/drift.dart' hide Column;
+// Siparişler ekranı — CSS `.segtab`, `.sliste`, `.srow*`, `.elle-bant`, `.ust-sirala`.
+// Kaynak: s-siparisler.jsx `SiparislerEkran`.
+//
+// Üst: başlık + "Bugün N açık" + Sırala düğmesi (elle kipinde "Bitti").
+// Altında segment sekmeleri (Açık · Teslim · Borçlu · Tümü — tasarımın dördü),
+// sonra sipariş satırları. Elle sıralama kipinde satırlar sürüklenebilir hale gelir, adres/not/
+// eylem şeritleri gizlenir ve sıra `orders.sort_index` olarak KALICI yazılır.
+//
+// Satırın kendisi order_row.dart'ta, sorgular order_queries.dart'ta, seçim sheet'leri
+// order_sheets.dart'ta. Bu dosya yalnız DURUM ve akış birleştirmesi yapar.
+
+import 'dart:async';
+
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
-import '../../theme/components/empty_state.dart';
-import '../../theme/components/segmented.dart';
+import '../../auth/session.dart';
+import '../../repo/order_repository.dart';
+import '../../sync/route_api.dart';
+import '../../theme/components/atoms.dart';
+import '../../theme/components/overlays.dart';
+import '../../theme/components/states.dart';
+import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
-import '../money.dart';
 import '../team.dart';
 import 'order_detail_screen.dart';
-import 'order_form_screen.dart';
+import 'order_queries.dart';
+import 'order_row.dart';
+import 'order_sheets.dart';
 
-/// Sipariş sekmesi (yeniden tasarım — handoff Ekran 2): açık siparişler önce gelir (bayinin gün
-/// içinde baktığı liste budur), segment filtresiyle teslim/tümüne geçilir. Kurye girişinde ek
-/// "Benim" sekmesi. Görsel: sipariş kartı (müşteri + ürün özeti + durum rozeti + saat·ödeme + tutar).
-/// Durum yönetimi/akış deseni + `watchOrders` sözleşmesi DEĞİŞMEDİ; item özeti additive akıştan.
+// Sorgu/biçim yardımcıları bu ekranın YÜZEYİNDEN de erişilebilir olmalı: mevcut testler ve
+// başka ekranlar `order_list_screen.dart` üzerinden çağırıyor (sözleşme — imzalar değişmez).
+export 'order_queries.dart'
+    show
+        AdresBilgi,
+        OrderFilter,
+        OrderListItem,
+        OrderSort,
+        elleSiraYazimi,
+        musteriKod,
+        odemeTipiEtiketi,
+        saatBicimi,
+        satirOzeti,
+        serbestMi,
+        siparisleriSirala,
+        siralamaEtiketi,
+        watchOrderItemsSummary,
+        watchOrders;
+
 class OrderListScreen extends StatefulWidget {
   const OrderListScreen({
     super.key,
     required this.db,
     required this.writable,
-    this.userRole,
     this.userId,
     this.canAssign = false,
+    this.onMenu,
   });
 
   final AppDatabase db;
   final bool writable;
-  final String? userRole; // patron|operator|kurye
-  final String? userId; // "Benim" filtresinin atama hedefi
-  final bool canAssign; // sipariş detayında "Kuryeye ata" görünürlüğü (K2: yönetici + kurye var)
+
+  /// Oturumdaki kullanıcı — kuryeye atanmış siparişleri süzen sorgunun hedefi.
+  final String? userId;
+  final bool canAssign; // kurye çipine dokununca kurye değiştirilebilir mi (K2)
+
+  /// Kabuk çekmecesini açar. Verilmezse üstte menü düğmesi çizilmez.
+  final VoidCallback? onMenu;
 
   @override
   State<OrderListScreen> createState() => _OrderListScreenState();
 }
 
 class _OrderListScreenState extends State<OrderListScreen> {
-  OrderFilter _filter = OrderFilter.acik;
+  OrderFilter _filtre = OrderFilter.acik;
+  OrderSort _sirala = OrderSort.saat;
 
-  // Yardımcı akışlar bir kez abone edilir (filtre değişince yeniden abone olmasın/titremesin).
-  // Sipariş akışı filtreye bağlı olduğundan build'de kalır.
-  late final Stream<List<User>> _team = watchTeam(widget.db);
-  late final Stream<Map<String, String>> _items = watchOrderItemsSummary(widget.db);
+  /// Sürükleme sırasındaki İYİMSER sıra (sipariş id'leri). Boşken kalıcı `sort_index` geçerlidir.
+  List<String> _elleSira = const [];
 
-  bool get _kurye => widget.userRole == 'kurye';
+  /// Kalan oto-sıralama hakkı (sunucu sahipli, senkronla iner). null = HENÜZ BİLİNMİYOR →
+  /// `.sr-oto` düğmesi kontör YAZMADAN, PASİF çizilir. Uydurma bir sayı göstermek yasak:
+  /// kullanıcı "34 hakkım var" deyip tıkladığında sunucu 409 dönerse güven kaybolur.
+  int? _otoHak;
+
+  /// Ekranda o an gösterilen liste — "Oto Sırala" hangi siparişleri sıralayacağını buradan
+  /// okur (kurye filtresi ve seçili sekme dahil, kullanıcının GÖRDÜĞÜ küme).
+  List<OrderListItem> _sonListe = const [];
+
+  StreamSubscription<SyncMetaData>? _metaAbone;
+
+  @override
+  void initState() {
+    super.initState();
+    // AKIŞA abone olunur, tek atış okunmaz: kontör sunucu sahiplidir ve GİRİŞ YANITINDA
+    // GELMEZ — ilk senkron yazar. Tek atış okuma girişten hemen sonra 0 görür ve ekran
+    // sonsuza dek "0 hak" gösterir (cihazda bu hâliyle yakalandı).
+    _metaAbone = widget.db.watchSyncState().listen((meta) {
+      // Oturum yoksa (token null) çevrimiçi eylem hiç sunulmaz.
+      final yeni = meta.authToken == null ? null : meta.routeCredits;
+      if (mounted && yeni != _otoHak) setState(() => _otoHak = yeni);
+    });
+  }
+
+  @override
+  void dispose() {
+    _metaAbone?.cancel();
+    super.dispose();
+  }
+
+  // Yardımcı akışlar bir kez abone edilir — filtre değişince yeniden abone olup titremesinler.
+  // Sipariş akışı filtreye bağlı olduğundan build'de kurulur.
+  late final Stream<List<User>> _ekip = watchTeam(widget.db);
+  late final Stream<Map<String, List<OrderLine>>> _satirlar =
+      watchOrderLinesByOrder(widget.db);
+  late final Stream<Map<String, AdresBilgi>> _adresler = watchBirincilAdresler(widget.db);
+  late final Stream<Map<String, String>> _telefonlar = watchBirincilTelefonlar(widget.db);
+  late final Stream<int> _acikSayisi = watchAcikSiparisSayisi(widget.db);
+
+  bool get _elle => _sirala == OrderSort.elle;
+
+  /// Segment sekmeleri — tasarımın DÖRDÜ (s-siparisler.jsx `sekmeler`). Kurye oturumunda başa
+  /// eklenen "Benim" sekmesi 2026-07-26'da KALDIRILDI: tasarımda yoktu, atama kullanmayan
+  /// bayide boş karşılıyordu ve "Açık" sekmesi kuryenin işini zaten gösteriyor.
+  static const _sekmeler = [
+    OrderFilter.acik,
+    OrderFilter.teslim,
+    OrderFilter.borclu,
+    OrderFilter.tumu,
+  ];
+
+  static String _sekmeEtiketi(OrderFilter f) => switch (f) {
+        OrderFilter.acik => 'Açık',
+        OrderFilter.teslim => 'Teslim',
+        OrderFilter.borclu => 'Borçlu',
+        OrderFilter.tumu => 'Tümü',
+      };
 
   @override
   Widget build(BuildContext context) {
-    // "Benim" yalnız kuryede — atama kullanmayan bayide boş bir sekme karşılamasın.
-    final segments = <SipSegment<OrderFilter>>[
-      if (_kurye) const SipSegment(value: OrderFilter.benim, label: 'Benim'),
-      const SipSegment(value: OrderFilter.acik, label: 'Açık'),
-      const SipSegment(value: OrderFilter.teslim, label: 'Teslim'),
-      const SipSegment(value: OrderFilter.tumu, label: 'Tümü'),
-    ];
+    final t = context.sip;
+    const sekmeler = _sekmeler;
 
     return Scaffold(
-      backgroundColor: SipColors.bg,
+      backgroundColor: t.bg,
       body: SafeArea(
         bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('Siparişler', style: SipText.screenTitle),
-                  const SizedBox(height: 14),
-                  SipSegmented<OrderFilter>(
-                    segments: segments,
-                    selected: _filter,
-                    onChanged: (f) => setState(() => _filter = f),
-                  ),
+            StreamBuilder<int>(
+              stream: _acikSayisi,
+              initialData: 0,
+              builder: (context, snap) => SipUst(
+                baslik: 'Siparişler',
+                alt: 'Bugün ${snap.data ?? 0} açık',
+                onMenu: widget.onMenu,
+                sag: [
+                  if (_elle)
+                    SipMetinButon(etiket: 'Bitti', onTap: _elleBitir)
+                  else
+                    SipMetinButon(
+                      etiket: 'Sırala',
+                      ikon: SipIcons.sirala,
+                      zemin: t.surface,
+                      onTap: _siralamaAc,
+                    ),
                 ],
               ),
             ),
-            Expanded(child: _body()),
+
+            // ── .elle-bant ────────────────────────────────────────────────────────────────
+            if (_elle)
+              Container(
+                margin: const EdgeInsets.fromLTRB(
+                    SipSpace.govde, 0, SipSpace.govde, SipSpace.lg),
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+                decoration:
+                    BoxDecoration(color: t.accentSoft, borderRadius: SipRadius.brHap),
+                child: Row(
+                  children: [
+                    SipIcon(SipIcons.info, boyut: 14, kalinlik: 2, renk: t.accent),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        'Tutamaçtan sürükleyip bırak, bitince “Bitti”ye bas.',
+                        style: SipText.metin(12, w: 600).copyWith(color: t.accent),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // ── .segtab ───────────────────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  SipSpace.govde, 0, SipSpace.govde, SipSpace.xl),
+              child: SipSegment(
+                secenekler: [for (final f in sekmeler) _sekmeEtiketi(f)],
+                secili: sekmeler.indexOf(_filtre).clamp(0, sekmeler.length - 1),
+                onSec: (i) => setState(() => _filtre = sekmeler[i]),
+              ),
+            ),
+
+            Expanded(child: _govde()),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: widget.writable
-            ? () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => OrderFormScreen(db: widget.db)))
-            : () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Salt-okunur kip: yeni kayıt eklenemez.'))),
-        icon: const Icon(Icons.add_shopping_cart),
-        label: const Text('Sipariş'),
-      ),
     );
   }
 
-  Widget _body() {
+  // ── Gövde — dört akış tek listede birleşir ──────────────────────────────────────────────
+  Widget _govde() {
     return StreamBuilder<List<User>>(
-      stream: _team,
+      stream: _ekip,
       initialData: const [],
-      builder: (context, teamSnap) {
-        final team = teamSnap.data ?? const <User>[];
-        return StreamBuilder<Map<String, String>>(
-          stream: _items,
+      builder: (context, ekipSnap) => StreamBuilder<Map<String, List<OrderLine>>>(
+        stream: _satirlar,
+        initialData: const {},
+        builder: (context, satirSnap) => StreamBuilder<Map<String, AdresBilgi>>(
+          stream: _adresler,
           initialData: const {},
-          builder: (context, itemsSnap) {
-            final items = itemsSnap.data ?? const <String, String>{};
-            return StreamBuilder<List<OrderListItem>>(
-              stream: watchOrders(widget.db, _filter, assignedTo: widget.userId),
+          builder: (context, adresSnap) => StreamBuilder<Map<String, String>>(
+            stream: _telefonlar,
+            initialData: const {},
+            builder: (context, telSnap) => StreamBuilder<List<OrderListItem>>(
+              stream: watchOrders(widget.db, _filtre, assignedTo: widget.userId),
               builder: (context, snap) {
-                final orders = snap.data;
-                if (orders == null) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (orders.isEmpty) return _empty();
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(14, 2, 14, 104),
-                  itemCount: orders.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: SipSpace.gap),
-                  itemBuilder: (context, i) {
-                    final item = orders[i];
-                    final kurye = item.order.assignedUserId == null
-                        ? null
-                        : (kullaniciAdi(team, item.order.assignedUserId) ?? 'Kurye');
-                    return _OrderCard(
-                      item: item,
-                      itemsSummary: items[item.order.id],
-                      kuryeName: kurye,
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => OrderDetailScreen(
-                          db: widget.db,
-                          orderId: item.order.id,
-                          writable: widget.writable,
-                          canAssign: widget.canAssign,
-                        ),
-                      )),
-                    );
-                  },
+                if (snap.hasError) return SipHataEkran(onTekrar: () => setState(() {}));
+                final ham = snap.data;
+                if (ham == null) return const SipIskelet(adet: 4);
+                if (ham.isEmpty) return _bos();
+
+                final liste = siparisleriSirala(ham, _sirala, elleSira: _elleSira);
+                // "Oto Sırala"nın kaynağı: kullanıcının GÖRDÜĞÜ küme. build sırasında
+                // setState ÇAĞRILMAZ — bu yalnız bir alan ataması, çizimi etkilemez.
+                _sonListe = liste;
+                return _Liste(
+                  liste: liste,
+                  satirlar: satirSnap.data ?? const {},
+                  adresler: adresSnap.data ?? const {},
+                  telefonlar: telSnap.data ?? const {},
+                  ekip: ekipSnap.data ?? const [],
+                  elle: _elle,
+                  onAc: _detayAc,
+                  // Salt-okunur kipte de GEÇİLİR: çipe dokunan kullanıcı sessizlik değil
+                  // gerekçe duyar (`_kuryeAc` kapıları tek yerde tutar).
+                  onKuryeAc: widget.canAssign ? _kuryeAc : null,
+                  onBildir: (m) => SipToast.goster(context, m),
+                  onSirala: _yenidenSirala,
                 );
               },
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _empty() {
-    final (String title, String sub) = switch (_filter) {
-      OrderFilter.acik => ('Açık sipariş yok', 'Telefon çalınca sağ alttan sipariş girin.'),
-      OrderFilter.benim => ('Size atanmış açık sipariş yok', 'Günün işleri burada görünür.'),
-      OrderFilter.teslim => ('Teslim edilen sipariş yok', 'Teslim edilenler burada listelenir.'),
-      OrderFilter.tumu => ('Henüz sipariş yok', 'İlk siparişi sağ alttan ekleyin.'),
-    };
-    return SipEmptyState(icon: Icons.receipt_long_outlined, title: title, subtitle: sub);
-  }
-}
-
-/// Sipariş kartı — müşteri + ürün özeti (üst), durum rozeti (sağ üst), saat·ödeme + tutar (alt).
-class _OrderCard extends StatelessWidget {
-  const _OrderCard({
-    required this.item,
-    required this.itemsSummary,
-    required this.kuryeName,
-    required this.onTap,
-  });
-
-  final OrderListItem item;
-  final String? itemsSummary;
-  final String? kuryeName;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final o = item.order;
-    final meta = [
-      saatBicimi(o.occurredAt),
-      if (o.paymentType != null) odemeTipiEtiketi(o.paymentType!),
-      if (kuryeName != null) '→ $kuryeName',
-      if (o.note != null && o.note!.isNotEmpty) o.note!,
-    ].join(' · ');
-
-    return Material(
-      color: SipColors.s1,
-      borderRadius: SipRadius.cardBr,
-      child: InkWell(
-        borderRadius: SipRadius.cardBr,
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: SipRadius.cardBr,
-            border: Border.all(color: SipColors.line),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(15, 14, 15, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(item.customerName ?? 'Müşterisiz sipariş',
-                              maxLines: 1, overflow: TextOverflow.ellipsis, style: SipText.cardTitle),
-                          if (itemsSummary != null && itemsSummary!.isNotEmpty) ...[
-                            const SizedBox(height: 5),
-                            Text(itemsSummary!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: SipText.secondary),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    OrderStatusBadge(status: o.status),
-                  ],
-                ),
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  padding: const EdgeInsets.only(top: 11),
-                  decoration: const BoxDecoration(
-                    border: Border(top: BorderSide(color: SipColors.line)),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(meta,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: SipText.muted.copyWith(fontSize: 13)),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(formatKurus(o.totalKurus), style: SipText.amount),
-                    ],
-                  ),
-                ),
-              ],
             ),
           ),
         ),
       ),
     );
   }
+
+  /// Boş durum — tasarımda İKİ metin var (s-siparisler.jsx:116): "Açık" sekmesi kullanıcıya ne
+  /// yapacağını söyler, kalan sekmeler tek nötr cümleyi paylaşır.
+  Widget _bos() => SipBosDurum(
+        ikon: SipIcons.list,
+        baslik: 'Sipariş yok',
+        aciklama: _filtre == OrderFilter.acik
+            ? 'Açık sipariş yok. Yeni sipariş için + tuşuna bas.'
+            : 'Bu filtrede sipariş bulunmuyor.',
+      );
+
+  // ── Eylemler ────────────────────────────────────────────────────────────────────────────
+
+  Future<void> _detayAc(OrderListItem item) => siparisDetaySheetAc(
+        context,
+        db: widget.db,
+        orderId: item.order.id,
+        writable: widget.writable,
+        canAssign: widget.canAssign,
+        // Başlık zaten elimizde — sheet açılmadan önce ikinci bir sorgu atılmasın.
+        baslik: item.customerName ?? 'Tezgâh satışı',
+      );
+
+  Future<void> _kuryeAc(OrderListItem item) async {
+    // Kapalı sipariş: tasarım dokunuşu YUTMAZ, nedenini söyler (s-siparisler.jsx:24).
+    if (item.order.status != 'open') {
+      SipToast.goster(context, 'Kapalı siparişte kurye değiştirilemez');
+      return;
+    }
+    if (!widget.writable) {
+      SipToast.goster(context, 'Salt-okunur kip: kurye atanamaz.');
+      return;
+    }
+    final kuryeler = await watchAktifKuryeler(widget.db).first;
+    if (!mounted) return;
+    if (kuryeler.isEmpty) {
+      SipToast.goster(context, 'Atanacak aktif kurye yok');
+      return;
+    }
+    final secili = await kuryeSecSheet(
+      context,
+      kuryeler: kuryeler,
+      seciliId: item.order.assignedUserId,
+      baslik: 'Kurye Seç · ${item.customerName ?? 'Tezgâh satışı'}',
+    );
+    if (secili == null || secili == item.order.assignedUserId || !mounted) return;
+    await OrderRepository(widget.db).assign(item.order.id, secili);
+    if (!mounted) return;
+    SipToast.goster(
+        context, 'Kurye değiştirildi: ${kullaniciAdi(kuryeler, secili) ?? ''}');
+  }
+
+  Future<void> _siralamaAc() async {
+    final secim = await siralamaSecSheet(
+      context,
+      secili: _sirala,
+      // Elle sıralama `sort_set` OLAYI yazar → salt-okunur kipte sunulmaz (yeni kayıt yasağı).
+      secenekler: [
+        for (final s in OrderSort.values)
+          if (widget.writable || s != OrderSort.elle) s,
+      ],
+      // Oto sıralama da sıra YAZAR. Düğme tasarımdaki gibi hep çizilir; salt-okunur kipte ve
+      // hak bilinmiyorken PASİF olur (sheet nedeni yazar) — kapı korunur, yetenek gizlenmez.
+      otoHak: _otoHak,
+      yazilabilir: widget.writable,
+      onOtoSirala: _otoSirala,
+    );
+    if (secim == null || !mounted) return;
+    setState(() {
+      _sirala = secim;
+      if (secim != OrderSort.elle) _elleSira = const [];
+    });
+    if (secim == OrderSort.elle) {
+      SipToast.goster(context, 'Elle sıralama açık — tutamaçtan sürükle');
+    }
+  }
+
+  void _elleBitir() => setState(() {
+        _sirala = OrderSort.saat;
+        _elleSira = const [];
+      });
+
+  /// Sunucunun bildirdiği güncel kontörü ÖNBELLEĞE yazar. Tek doğru kaynak sunucudur; burada
+  /// yalnız onun söylediği sayı saklanır (istemci kendi kendine düşürmez). Akış aboneliği
+  /// ekranı, `home_shell` de çekmeceyi aynı satırdan tazeler.
+  Future<void> _hakkiYaz(int kalan) => (widget.db.update(widget.db.syncMeta)
+        ..where((t) => t.id.equals(1)))
+      .write(SyncMetaCompanion(routeCredits: Value(kalan)));
+
+  /// "Oto Sırala (rota)" — tasarım `.sr-oto`. Sunucudan SIRA ÖNERİSİ ister, kontörü sunucu
+  /// düşer; dönen sırayı normal yazma yolundan (`sort_set` olayı) kalıcılar ve ekranı rota
+  /// kipine alır — böylece kullanıcı sonucu görür ve isterse sürükleyip düzeltir.
+  ///
+  /// Bu, uygulamanın TEK çevrimİÇİ zorunlu eylemidir. Başarısızlıkta mevcut sıra AYNEN kalır;
+  /// yarım uygulanmış bir rota bırakmaz.
+  Future<void> _otoSirala() async {
+    final liste = _sonListe;
+    if (liste.length < 2) {
+      SipToast.goster(context, 'Sıralanacak en az iki sipariş gerekir');
+      return;
+    }
+
+    final meta = await widget.db.syncState();
+    final token = meta.authToken;
+    if (!mounted) return;
+    if (token == null) {
+      SipToast.goster(context, 'Oto sıralama için oturum gerekir');
+      return;
+    }
+
+    final api = RouteApi(baseUrl: Session.baseUrlOf(meta), token: token);
+    final AutoRouteResult sonuc;
+    try {
+      sonuc = await api.autoRoute([for (final e in liste) e.order.id]);
+    } on RouteException catch (e) {
+      // Sunucu güncel hakkı bildirdiyse ÖNBELLEĞİ düzelt: "34 hak" yazan düğmeye basıp
+      // "hakkınız kalmadı" duymak, sonra hâlâ 34 görmek kullanıcıyı ikinci kez yanıltırdı.
+      // Yerel alana değil sync_meta'ya yazılır — çekmecedeki kart da aynı kaynağı okur.
+      if (e.kalanHak != null) await _hakkiYaz(e.kalanHak!);
+      if (!mounted) return;
+      SipToast.goster(context, e.message);
+      return;
+    }
+
+    // Dönen sırayı ekrandaki öğelere eşle; sunucunun tanımadığı kimlik varsa (silinmiş/kapanmış)
+    // sessizce düşer, kalanlar sırayı korur.
+    final indeks = {for (final e in liste) e.order.id: e};
+    final yeniSira = [
+      for (final id in sonuc.sira)
+        if (indeks[id] != null) indeks[id]!,
+    ];
+
+    final repo = OrderRepository(widget.db);
+    for (final girdi in elleSiraYazimi(yeniSira).entries) {
+      await repo.setSortIndex(girdi.key, girdi.value);
+    }
+    if (!mounted) return;
+
+    await _hakkiYaz(sonuc.kalanHak);
+    if (!mounted) return;
+
+    setState(() {
+      _sirala = OrderSort.elle;
+      _elleSira = [for (final e in yeniSira) e.order.id];
+    });
+
+    // Koordinatsız duraklar sona atıldı — bunu SÖYLEMEK zorundayız, yoksa "sıraladım" demek
+    // yanıltıcı olur (kullanıcı o siparişlerin neden sonda olduğunu anlamaz).
+    final ek = sonuc.konumsuz > 0 ? ' · ${sonuc.konumsuz} sipariş konumsuz, sona alındı' : '';
+    SipToast.goster(
+        context, 'Rota otomatik sıralandı · ${sonuc.kalanHak} hak kaldı$ek');
+  }
+
+  /// Sürükle-bırak sonrası: önce İYİMSER sıra (ekran anında oturur), sonra kalıcı yazım.
+  /// Yazma yolu repo → olay → outbox; `sort_index` yalnız türetilmiş önbellektir.
+  Future<void> _yenidenSirala(List<OrderListItem> yeniSira) async {
+    setState(() => _elleSira = [for (final e in yeniSira) e.order.id]);
+    if (!widget.writable) {
+      SipToast.goster(context, 'Salt-okunur kip: sıra kaydedilmedi.');
+      return;
+    }
+    final repo = OrderRepository(widget.db);
+    for (final girdi in elleSiraYazimi(yeniSira).entries) {
+      await repo.setSortIndex(girdi.key, girdi.value);
+    }
+  }
 }
 
-/// Durum rozeti — Açık (vurgu + nokta), Teslim (yeşil + onay), İptal (nötr). Liste diliyle aynı.
-/// Public: sipariş DETAYI da aynı rozeti kullanır (aynı bilgi her yüzeyde aynı dili konuşur).
-class OrderStatusBadge extends StatelessWidget {
-  const OrderStatusBadge({super.key, required this.status});
-  final String status;
+/// CSS `.sliste` — elle kipinde sürüklenebilir, normalde düz liste. İki kip AYNI satır
+/// bileşenini çizer (görsel ayrışmasın); fark yalnız tutamaç ve sürükleme tanıyıcısıdır.
+class _Liste extends StatelessWidget {
+  const _Liste({
+    required this.liste,
+    required this.satirlar,
+    required this.adresler,
+    required this.telefonlar,
+    required this.ekip,
+    required this.elle,
+    required this.onAc,
+    required this.onKuryeAc,
+    required this.onBildir,
+    required this.onSirala,
+  });
 
-  @override
-  Widget build(BuildContext context) {
-    final (Color bg, Color fg, String label, Widget lead) = switch (status) {
-      'delivered' => (
-          SipColors.okSoft,
-          SipColors.ok,
-          'Teslim',
-          const Icon(Icons.check, size: 15, color: SipColors.ok),
-        ),
-      'cancelled' => (
-          SipColors.s3,
-          SipColors.t3,
-          'İptal',
-          const SizedBox.shrink(),
-        ),
-      _ => (
-          SipColors.accSoft,
-          SipColors.accFg,
-          'Açık',
-          Container(
-            width: 6,
-            height: 6,
-            decoration: const BoxDecoration(color: SipColors.accFg, shape: BoxShape.circle),
-          ),
-        ),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(9)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          lead,
-          const SizedBox(width: 5),
-          Text(label,
-              style: TextStyle(
-                  fontFamily: sipFontFamily,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: fg)),
-        ],
+  final List<OrderListItem> liste;
+  final Map<String, List<OrderLine>> satirlar;
+  final Map<String, AdresBilgi> adresler;
+  final Map<String, String> telefonlar;
+  final List<User> ekip;
+  final bool elle;
+  final ValueChanged<OrderListItem> onAc;
+  final ValueChanged<OrderListItem>? onKuryeAc;
+  final ValueChanged<String> onBildir;
+  final ValueChanged<List<OrderListItem>> onSirala;
+
+  static const _dolgu = EdgeInsets.fromLTRB(SipSpace.govde, 0, SipSpace.govde, 96);
+
+  Widget _satir(BuildContext context, int i, {Key? key}) {
+    final item = liste[i];
+    final musteriId = item.order.customerId;
+    return Padding(
+      key: key,
+      padding: EdgeInsets.only(top: i == 0 ? 0 : SipSpace.md),
+      child: SiparisSatiri(
+        item: item,
+        satirlar: satirlar[item.order.id] ?? const [],
+        kuryeAdi: kullaniciAdi(ekip, item.order.assignedUserId),
+        adres: musteriId == null ? null : adresler[musteriId],
+        telefon: musteriId == null ? null : telefonlar[musteriId],
+        elle: elle,
+        tutamac: elle
+            ? (child) => ReorderableDragStartListener(index: i, child: child)
+            : null,
+        onAc: () => onAc(item),
+        onKuryeAc: onKuryeAc == null ? null : () => onKuryeAc!(item),
+        onBildir: onBildir,
       ),
     );
   }
-}
 
-enum OrderFilter { benim, acik, teslim, tumu }
-
-class OrderListItem {
-  OrderListItem({required this.order, this.customerName});
-  final Order order;
-  final String? customerName;
-}
-
-/// Sipariş listesi sorgusu — müşteri adıyla birlikte, en yeni önce. Ekrandan bağımsız fonksiyon:
-/// sorgu mantığı saf async testle sınanır (widget-test sahte zamanı drift akışlarında güvenilmez).
-/// SÖZLEŞME: testler doğrudan çağırır — imza/davranış DEĞİŞMEZ.
-Stream<List<OrderListItem>> watchOrders(AppDatabase db, OrderFilter filter, {String? assignedTo}) {
-  final q = db.select(db.orders).join([
-    leftOuterJoin(db.customers, db.customers.id.equalsExp(db.orders.customerId)),
-  ]);
-  q.where(db.orders.deletedAt.isNull());
-  switch (filter) {
-    case OrderFilter.benim:
-      // Yalnız bana atanmış AÇIK siparişler (kurye günlük iş listesi). assignedTo null gelirse
-      // hiçbir gerçek uuid ile eşleşmeyen sentinel → boş liste (kimseye atanmamış gösterilmez).
-      q.where(db.orders.status.equals('open'));
-      q.where(db.orders.assignedUserId.equals(assignedTo ?? '__none__'));
-    case OrderFilter.acik:
-      q.where(db.orders.status.equals('open'));
-    case OrderFilter.teslim:
-      q.where(db.orders.status.equals('delivered'));
-    case OrderFilter.tumu:
-      break;
-  }
-  q.orderBy([OrderingTerm.desc(db.orders.occurredAt), OrderingTerm.desc(db.orders.id)]);
-  return q.watch().map((rows) => rows
-      .map((r) => OrderListItem(
-            order: r.readTable(db.orders),
-            customerName: r.readTableOrNull(db.customers)?.name,
-          ))
-      .toList());
-}
-
-/// Sipariş başına ürün özeti (görüntü için; "2 × 19L Damacana · 1 × 10L"). Additive salt-okunur
-/// akış — `watchOrders`'a dokunulmaz. Silinmiş satırlar hariç.
-Stream<Map<String, String>> watchOrderItemsSummary(AppDatabase db) {
-  final q = db.select(db.orderLines)..where((l) => l.deletedAt.isNull());
-  return q.watch().map((lines) {
-    final byOrder = <String, List<String>>{};
-    for (final l in lines) {
-      byOrder.putIfAbsent(l.orderId, () => []).add('${l.qty} × ${l.productName}');
+  @override
+  Widget build(BuildContext context) {
+    if (!elle) {
+      return ListView.builder(
+        padding: _dolgu,
+        itemCount: liste.length,
+        itemBuilder: (context, i) => _satir(context, i),
+      );
     }
-    return {for (final e in byOrder.entries) e.key: e.value.join(' · ')};
-  });
+    return ReorderableListView.builder(
+      padding: _dolgu,
+      buildDefaultDragHandles: false, // tutamaç tasarımda `.srow-grip`, satırın tamamı değil
+      itemCount: liste.length,
+      itemBuilder: (context, i) =>
+          _satir(context, i, key: ValueKey(liste[i].order.id)),
+      onReorder: (eski, yeni) {
+        final kopya = [...liste];
+        final tasinan = kopya.removeAt(eski);
+        kopya.insert(yeni > eski ? yeni - 1 : yeni, tasinan);
+        onSirala(kopya);
+      },
+    );
+  }
 }
-
-/// Ödeme tipinin ekran etiketi (veri değeri değişmez — DB'de 'nakit'/'veresiye'/... durur).
-String odemeTipiEtiketi(String paymentType) => switch (paymentType) {
-      'nakit' => 'Nakit',
-      'kart' => 'Kart',
-      'havale' => 'Havale',
-      'veresiye' => 'Veresiye',
-      'kupon' => 'Kupon',
-      _ => paymentType,
-    };
-
-/// ISO8601 occurred_at → "14:35" (bugünse) veya "17.07 14:35". Saat cihaz yerelinde gösterilir;
-/// kayıtta UTC/sunucu-düzeltilmiş metin OLDUĞU GİBİ durur (DECISIONS — gösterim veriyi değiştirmez).
-String saatBicimi(String iso, {DateTime? simdi}) {
-  final t = DateTime.tryParse(iso);
-  if (t == null) return iso;
-  final local = t.toLocal();
-  final now = simdi ?? DateTime.now();
-  final saat = '${_ikiHane(local.hour)}:${_ikiHane(local.minute)}';
-  final ayniGun = local.year == now.year && local.month == now.month && local.day == now.day;
-  return ayniGun ? saat : '${_ikiHane(local.day)}.${_ikiHane(local.month)} $saat';
-}
-
-String _ikiHane(int n) => n.toString().padLeft(2, '0');

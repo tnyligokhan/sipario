@@ -64,16 +64,19 @@ abstract class ApiTestCase extends TestCase
                 'tenant_id' => $tenant->id,
                 'name' => strtoupper($prefix).' Patron',
                 'email' => "{$prefix}-patron@sipario.test",
+                'username' => 'patron',
             ]);
             $operator = User::factory()->operator()->create([
                 'tenant_id' => $tenant->id,
                 'name' => strtoupper($prefix).' Operator',
                 'email' => "{$prefix}-operator@sipario.test",
+                'username' => 'operator',
             ]);
             $kurye = User::factory()->kurye()->create([
                 'tenant_id' => $tenant->id,
                 'name' => strtoupper($prefix).' Kurye',
                 'email' => "{$prefix}-kurye@sipario.test",
+                'username' => 'kurye',
             ]);
 
             $device = Device::factory()->create([
@@ -83,6 +86,21 @@ abstract class ApiTestCase extends TestCase
 
             return compact('tenant', 'patron', 'operator', 'kurye', 'device');
         });
+    }
+
+    /**
+     * `POST /auth/login` gövdesi — tasarım `s-giris.jsx`: firma kodu + kullanıcı adı + parola.
+     * Firma kodu `tenants.slug`tur (tasarımda "Firma Kodu" olarak yayınlanır).
+     *
+     * @return array<string, mixed>
+     */
+    protected function girisGovdesi(Tenant $tenant, User $user, string $password = 'password'): array
+    {
+        return [
+            'tenant_code' => $tenant->slug,
+            'username' => $user->username,
+            'password' => $password,
+        ];
     }
 
     /**

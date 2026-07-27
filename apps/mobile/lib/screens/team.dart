@@ -40,19 +40,15 @@ class RolYetkileri {
     required this.urunYonetimi,
     required this.gunSonu,
     required this.defterDuzeltme,
-    required this.kuponSatisi,
     required this.tahsilat,
     required this.atama,
-    required this.kasaDevri,
   });
 
   final bool urunYonetimi; // ürün ekle/düzenle/pasifle
   final bool gunSonu; // gün sonu özeti
   final bool defterDuzeltme; // ters kayıtla düzelt
-  final bool kuponSatisi; // kupon sat
   final bool tahsilat; // tahsilat al
   final bool atama; // siparişi kuryeye ata
-  final bool kasaDevri; // kasa devri ekranı
 
   /// Tam yetkili (test/varsayılan yardımcısı; rol bilinmeden ekran açıldığında permissive değil,
   /// gerçek karar yetkiler() ile verilir).
@@ -60,29 +56,26 @@ class RolYetkileri {
     urunYonetimi: true,
     gunSonu: true,
     defterDuzeltme: true,
-    kuponSatisi: true,
     tahsilat: true,
     atama: true,
-    kasaDevri: true,
   );
 }
 
 /// K2 matrisi (tek doğruluk kaynağı). yonetici = patron|operator. kuryeVar = yerelde aktif kurye var.
-/// - ürün/gün-sonu/defter-düzeltme/kupon-satışı: yalnız yönetici (patron işi).
+/// - ürün/gün-sonu/defter-düzeltme: yalnız yönetici (patron işi).
 /// - tahsilat: HERKES (kurye sahada/ay sonu tahsilat yapar; collected_by atfı zaten ondan).
 /// - atama: yönetici VE kuryeVar (tek kişilikte atama yok).
-/// - kasaDevri: kurye HER ZAMAN (kendisi kanıttır — team inmemişken bile kendi devrini görür);
-///   yönetici ise yalnız kuryeVar iken (tek kişilikte kasa devri GİZLİ — BRIEF, pazarlıksız).
+///
+/// `kasaDevri` bayrağı KALDIRILDI (2026-07-26): tasarımda ayrı bir kasa devri ekranı yok, devir
+/// Gün Sonu'nun "Hesabı Kapat · Kasa Devri" sheet'inin içindedir (`s-gunsonu.jsx:110`) ve kurye
+/// kapanışı zaten devri yazar (`DayClosingRepository.kapat(alsoHandover:)`).
 RolYetkileri yetkiler({required String? rol, required bool kuryeVar}) {
   final yonetici = rol == 'patron' || rol == 'operator';
-  final kurye = rol == 'kurye';
   return RolYetkileri(
     urunYonetimi: yonetici,
     gunSonu: yonetici,
     defterDuzeltme: yonetici,
-    kuponSatisi: yonetici,
     tahsilat: true,
     atama: yonetici && kuryeVar,
-    kasaDevri: kurye ? true : (yonetici && kuryeVar),
   );
 }

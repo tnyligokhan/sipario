@@ -5,6 +5,7 @@ import 'package:sipario/data/app_database.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/repo/product_repository.dart';
+import 'package:sipario/theme/components/overlays.dart';
 import 'package:sipario/screens/money.dart';
 import 'package:sipario/screens/orders/order_detail_screen.dart';
 import 'package:sipario/screens/orders/order_form_screen.dart';
@@ -57,18 +58,35 @@ void main() {
     });
   });
 
-  group('teslimOdemeTipleri (defter tutarlılığı)', () {
-    test('müşterisiz siparişte veresiye ve kupon SUNULMAZ', () {
+  group('ödeme tipleri (defter tutarlılığı ↔ tasarım görünürlüğü)', () {
+    test('müşterisiz siparişte veresiye SEÇİLEMEZ (tezgâh satışı kilidi)', () {
       final tipler = teslimOdemeTipleri(musteriVar: false);
       expect(tipler, ['nakit', 'kart', 'havale']);
       expect(tipler.contains('veresiye'), isFalse,
           reason: 'müşterisiz veresiye = kimseye ait olmayan borç kaydı');
-      expect(tipler.contains('kupon'), isFalse);
     });
 
-    test('müşterili siparişte beş tip de sunulur', () {
-      expect(teslimOdemeTipleri(musteriVar: true),
-          ['nakit', 'kart', 'havale', 'veresiye', 'kupon']);
+    test('müşterili siparişte dört tip seçilebilir; KUPON hiçbir kipte YOK', () {
+      final tipler = teslimOdemeTipleri(musteriVar: true);
+      expect(tipler, ['nakit', 'kart', 'havale', 'veresiye']);
+      // Kupon 2026-07-26'da üründen kaldırıldı — tasarımdaki ODEME_TIPLERI dört tiptir.
+      expect(tipler.contains('kupon'), isFalse);
+      expect(teslimOdemeTipleri(musteriVar: false).contains('kupon'), isFalse);
+    });
+
+    test('ÇİZİLEN karolar her zaman dörttür — kilit gizleme değil pasifleştirmedir', () {
+      // Tasarım veresiyeyi müşterisiz siparişte `disabled` + `opacity .45` çiziyor
+      // (s-siparisler.jsx:620): listeden düşürmek kullanıcıya seçeneğin var olduğunu ve neden
+      // kapalı olduğunu göstermiyordu. GÖRÜNÜRLÜK ile SEÇİLEBİLİRLİK ayrı iki kuraldır.
+      expect(odemeTipleri, ['nakit', 'kart', 'havale', 'veresiye']);
+      expect(odemeTipiSecilebilir('veresiye', musteriVar: false), isFalse);
+      expect(odemeTipiSecilebilir('veresiye', musteriVar: true), isTrue);
+      for (final tip in ['nakit', 'kart', 'havale']) {
+        expect(odemeTipiSecilebilir(tip, musteriVar: false), isTrue,
+            reason: '$tip müşteri gerektirmez');
+      }
+      // İki liste TEK kuraldan türer — biri elle güncellenip diğeri unutulamaz.
+      expect(teslimOdemeTipleri(musteriVar: true), odemeTipleri);
     });
   });
 
@@ -167,39 +185,6 @@ void main() {
     });
   });
 
-  group('kuponAdedi ekranla defteri aynı sayıda tutar', () {
-    test('ekranda gösterilen adet, deliver\'ın kupon defterine düşürdüğü adettir', () async {
-      final db = AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
-      final musteriId = await CustomerRepository(db).create(name: 'Mehmet Demir');
-      final orders = OrderRepository(db);
-      final orderId = await orders.create(customerId: musteriId, lines: [
-        LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 2),
-        LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 3),
-      ]);
-
-      final lines = await (db.select(db.orderLines)
-            ..where((t) => t.orderId.equals(orderId))
-            ..where((t) => t.deletedAt.isNull()))
-          .get();
-      final ekranAdedi = kuponAdedi(lines);
-      expect(ekranAdedi, 5);
-
-      await orders.deliver(orderId, paymentType: 'kupon');
-
-      final hareket = await (db.select(db.couponMovements)
-            ..where((t) => t.relatedOrderId.equals(orderId)))
-          .getSingle();
-      expect(hareket.qtyDelta, -ekranAdedi, reason: 'ekran ile defter aynı adedi konuşmalı');
-
-      // Kupon bakiyesi yoktu → eksiye düştü (BRIEF: teslim edilmiş mal gerçektir, reddedilmez).
-      final bakiye = await (db.select(db.couponBalances)
-            ..where((t) => t.customerId.equals(musteriId)))
-          .getSingle();
-      expect(bakiye.balanceQty, -5);
-    });
-  });
-
   group('OrderListScreen (widget — yalnız ilk çizim; akış zamanlaması için Dilim 1 notuna bak)', () {
     testWidgets('açık sipariş listede müşteri adı ve tutarla görünür', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
@@ -223,19 +208,26 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('salt-okunur kipte sipariş girişi engellenir', (tester) async {
+    testWidgets('salt-okunur kipte sipariş KAYDEDİLEMEZ (form okunur kalır)', (tester) async {
+      // SİPARİO 3.0'da yeni sipariş girişi bu ekrandan ÇIKTI: FAB artık alt navigasyonun
+      // ortasında ve kabuğa ait. Dolayısıyla salt-okunur kapısı listede değil, formun
+      // kendisinde. Bu testi o yüzden forma taşıdım.
+      //
+      // NOT — bu test bir GERİLEMEYİ yakaladı: `OrderFormScreen.writable` varsayılanı `true`
+      // olduğu için kabuktaki üç giriş noktası da bayrağı geçmiyordu ve abonelik kilidi
+      // açıkken sipariş girilebiliyordu. Çağrı yerleri düzeltildi; parametrenin zorunlu
+      // yapılması istendi ki bir daha sessizce geri gelmesin.
       final db = AppDatabase(NativeDatabase.memory());
 
-      await tester.pumpWidget(MaterialApp(home: OrderListScreen(db: db, writable: false)));
+      await tester.pumpWidget(MaterialApp(home: OrderFormScreen(db: db, writable: false)));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
-      await tester.tap(find.byType(FloatingActionButton));
-      await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
-      expect(find.byType(OrderFormScreen), findsNothing);
+      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsWidgets,
+          reason: 'kullanıcı neden kaydedemediğini görmeli');
 
       await tester.pump(const Duration(seconds: 5));
+      SipToast.temizle();
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
     });
@@ -243,17 +235,21 @@ void main() {
 
   group('ProductListScreen (widget)', () {
     testWidgets('salt-okunur kipte ürün eklenemez', (tester) async {
+      // Ekleme yolu FAB'dan listenin başındaki kesikli "Yeni ürün ekle" satırına taşındı
+      // (CSS `.ys-ekle`); uyarı da SnackBar yerine `SipToast`. Kural aynı.
       final db = AppDatabase(NativeDatabase.memory());
 
       await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: false)));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
-      await tester.tap(find.byType(FloatingActionButton));
+      await tester.tap(find.text('Yeni ürün ekle'));
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Ürün kaydedildi'), findsNothing, reason: 'form hiç açılmamalı');
 
       await tester.pump(const Duration(seconds: 5));
+      SipToast.temizle();
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
     });
@@ -271,10 +267,11 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
-      expect(find.text('1 aktif ürün · 1 pasif'), findsOneWidget,
-          reason: 'başlık altı canlı sayaç aktif/pasif ayrımını gösterir');
+      expect(find.text('1 aktif · 2 toplam'), findsOneWidget,
+          reason: 'başlık altı canlı sayaç aktif/toplam ayrımını gösterir');
       expect(find.text(formatKurus(4500)), findsOneWidget, reason: 'fiyat kartın sağında (amount)');
-      expect(find.text('Pasif'), findsOneWidget, reason: 'pasif ürün çip taşır');
+      expect(find.text('PASİF'), findsOneWidget,
+          reason: 'pasif ürün BÜYÜK HARF çip taşır (CSS .urow-pasif text-transform: uppercase)');
       expect(find.text(formatKurus(500)), findsOneWidget,
           reason: 'pasif üründe fiyat kaybolmaz, soluklaşır');
 
@@ -291,7 +288,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Henüz ürün yok'), findsOneWidget);
-      expect(find.text('Sağ alttan ekleyin — sipariş satırları buradan seçilir.'), findsOneWidget);
+      expect(find.text('Yukarıdan ekleyin — sipariş satırları buradan seçilir.'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
@@ -303,7 +300,7 @@ void main() {
     testWidgets('yeni sipariş ekranında kayıt/abonelik/satın alma çağrısı YOKTUR', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
-      await tester.pumpWidget(MaterialApp(home: OrderFormScreen(db: db)));
+      await tester.pumpWidget(MaterialApp(home: OrderFormScreen(db: db, writable: true)));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 

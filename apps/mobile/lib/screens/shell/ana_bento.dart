@@ -1,0 +1,244 @@
+// Ana ekranın bento özet ızgarası — s-ana.jsx + Sipario.html `.bento*`.
+//
+// `ana_ekran.dart`'tan ayrıldı (500 satır sınırı). Dört kutu: Açık Sipariş · Bugün Kasa ·
+// Açık Veresiye · Son Arama. İlk üçünün rakamı `ana_ozet.dart`taki read-model'den, dördüncüsü
+// `cagri/cagri_gunlugu.dart`taki [sonAramaAkisi]'ndan gelir — demo sabiti yok.
+
+import 'package:flutter/material.dart';
+
+import '../../data/app_database.dart';
+import '../../theme/components/atoms.dart';
+import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
+import '../cagri/cagri_gunlugu.dart';
+import '../cagri/cagri_model.dart';
+import 'alt_nav.dart';
+import 'ana_ozet.dart';
+
+/// CSS `.bento` — iki sütunlu özet ızgarası.
+class AnaBento extends StatelessWidget {
+  const AnaBento({
+    super.key,
+    required this.db,
+    required this.ozet,
+    required this.onSekme,
+    required this.onArama,
+  });
+
+  final AppDatabase db;
+  final AnaOzet ozet;
+  final ValueChanged<SipSekme> onSekme;
+  final ValueChanged<AramaKaydi> onArama;
+
+  @override
+  Widget build(BuildContext context) {
+    final o = ozet;
+    return Column(
+      children: [
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _Kutu(
+                  etiket: 'Açık Sipariş',
+                  deger: sipSayi(o.acikSiparis),
+                  alt: o.acikSiparis > 0 ? 'teslim bekliyor' : 'hepsi tamam',
+                  birincil: true,
+                  onTap: () => onSekme(SipSekme.siparis),
+                ),
+              ),
+              const SizedBox(width: SipSpace.lg),
+              Expanded(
+                child: _Kutu(
+                  etiket: 'Bugün Kasa',
+                  deger: sipTutar(o.bugunTahsilatKurus),
+                  kucuk: true,
+                  alt: '${o.bugunTeslim} teslimat',
+                  // Tasarım koşulsuz gün sonuna gider (`s-ana.jsx:35`). Gün Sonu sekmesi artık
+                  // kuryede de açık (alt navigasyon 5 yuva) — rol dalı gerekmiyor.
+                  onTap: () => onSekme(SipSekme.gunSonu),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: SipSpace.lg),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _Kutu(
+                  etiket: 'Açık Veresiye',
+                  deger: sipTutar(o.acikVeresiyeKurus),
+                  kucuk: true,
+                  // KOŞULSUZ danger — tasarım sınıfı koşulsuz veriyor (`s-ana.jsx:42`
+                  // `bento-v kucuk tabular eksi`). Kırmızı burada "alarm" değil KATEGORİ
+                  // rengidir: bu kutu tahsil edilmemiş parayı sayar, tutarı ne olursa olsun.
+                  // Koşullu yapılsaydı rakam veri yüklenirken nötrden kırmızıya atlıyordu.
+                  eksi: true,
+                  alt: '${o.borcluMusteri} borçlu müşteri',
+                  onTap: () => onSekme(SipSekme.musteri),
+                ),
+              ),
+              const SizedBox(width: SipSpace.lg),
+              Expanded(child: _SonAramaKutusu(db: db, onArama: onArama)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// CSS `.bento-k` — 108 yüksek düz kart; [birincil] accent dolgulu.
+class _Kutu extends StatelessWidget {
+  const _Kutu({
+    required this.etiket,
+    required this.deger,
+    required this.alt,
+    required this.onTap,
+    this.birincil = false,
+    this.kucuk = false,
+    this.eksi = false,
+    this.altEksi = false,
+    this.tekSatir = false,
+    this.sonuk = false,
+  });
+
+  final String etiket;
+  final String deger;
+  final String alt;
+  final VoidCallback onTap;
+  final bool birincil;
+  final bool kucuk;
+
+  /// DEĞER satırı danger olur (CSS `.bento-v.eksi`).
+  final bool eksi;
+
+  /// ALT satır danger olur. Sönüklük (`opacity: .6`) burada UYGULANMAZ: bu bayrağın tek işi
+  /// dikkat çekmek; %60'a indirilmiş bir kırmızı sinyali yutardı.
+  final bool altEksi;
+
+  /// Değer sığmazsa küçültülmez, ÜÇ NOKTAYLA kesilir (CSS `.bento-v` üstündeki
+  /// `text-overflow: ellipsis` — rakam değil AD taşıyan kutular içindir).
+  final bool tekSatir;
+
+  /// Verisi olmayan kutu (henüz arama yok) — değer sönük yazılır.
+  final bool sonuk;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    final murekkep = birincil ? t.accentInk : t.ink;
+    return SipDokun(
+      onTap: onTap,
+      zemin: birincil ? t.accent : t.surface,
+      basiliZemin: birincil ? t.accent : t.surface2,
+      radius: SipRadius.br3,
+      padding: const EdgeInsets.all(SipSpace.x3),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 108),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              etiket,
+              style: SipText.bentoEtiket
+                  .copyWith(color: murekkep.withValues(alpha: 0.72)),
+            ),
+            const Spacer(),
+            Builder(builder: (_) {
+              final stil = (kucuk ? SipText.bentoDegerKucuk : SipText.bentoDeger).copyWith(
+                color: eksi && !birincil
+                    ? t.danger
+                    : (sonuk ? murekkep.withValues(alpha: 0.35) : murekkep),
+              );
+              if (tekSatir) {
+                return Text(deger,
+                    style: stil, maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false);
+              }
+              return FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(deger, style: stil, maxLines: 1),
+              );
+            }),
+            const SizedBox(height: 2),
+            Text(
+              alt,
+              style: SipText.bentoAlt.copyWith(
+                color: altEksi && !birincil
+                    ? t.danger
+                    : murekkep.withValues(alpha: 0.6),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 4. bento kutusu — "Son Arama" (`s-ana.jsx:45`). Yalnız EN SON aramayı gösterir.
+///
+/// Kayıt yoksa kutu SÖNÜK çizilir ve dokunma bir şey yapmaz — uydurma numara basılmaz.
+///
+/// CEVAPSIZ ALT SATIRI KIRMIZIDIR — geri alma. `Sipario.html`de `.bento-alt.eksi` kuralı YOK
+/// (yalnız `.bento-v.eksi`, `.kd-fark.eksik` ve artık ölü kupon sınıfları tanımlı), ama
+/// `s-ana.jsx:48` bu değiştiriciyi cevapsızda koşullu olarak EKLİYOR. Karar (lead, 2026-07-26):
+/// bu eksik bir CSS kuralı, bilinçli bir tercih değil — `eksi` tasarımın sözlüğünde "danger"
+/// demek ve yazar koşulu silmemiş. "CSS bağlayıcıdır" kuralı ölçü/renk ÇATIŞMALARI içindir;
+/// burada CSS sessiz, çatışma yok.
+/// Ürün gerekçesi: bu uygulamanın varlık sebebi esnafın sipariş çağrısını kaçırmaması —
+/// cevapsız çağrı "kaçırılmış sipariş" demektir, dikkat çekmesi gereken şey tam da budur.
+///
+/// Renk doğrudan `t.danger`: bento kartı açık gövdede `surface` üstünde durur, tıpkı
+/// `.bento-v.eksi`in `var(--danger)`ı doğrudan kullanması gibi (HERO koyu kartlarda gereken
+/// açık ton buraya gerekmez).
+class _SonAramaKutusu extends StatelessWidget {
+  const _SonAramaKutusu({required this.db, required this.onArama});
+
+  final AppDatabase db;
+  final ValueChanged<AramaKaydi> onArama;
+
+  /// Tasarımda yalnız `cevapsiz`/diğer ayrımı vardı; `giden` de kendi adıyla yazılır —
+  /// "giden" aramayı "gelen" diye göstermek yanlış bilgi olurdu.
+  static String yonEtiketi(AramaTipi tip) => switch (tip) {
+        AramaTipi.gelen => 'gelen',
+        AramaTipi.cevapsiz => 'cevapsız',
+        AramaTipi.giden => 'giden',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AramaKaydi?>(
+      stream: sonAramaAkisi(db),
+      builder: (context, snap) {
+        final a = snap.data;
+        if (a == null) {
+          return _Kutu(
+            etiket: 'Son Arama',
+            deger: '—',
+            kucuk: true,
+            sonuk: true,
+            alt: 'henüz arama yok',
+            onTap: () {},
+          );
+        }
+        return _Kutu(
+          etiket: 'Son Arama',
+          deger: a.ad ?? sipTelefon(a.numara),
+          kucuk: true,
+          tekSatir: true, // ad uzunsa küçültülmez, kesilir
+          alt: '${yonEtiketi(a.tip)} · ${a.saat}',
+          altEksi: a.tip == AramaTipi.cevapsiz,
+          onTap: () => onArama(a),
+        );
+      },
+    );
+  }
+}

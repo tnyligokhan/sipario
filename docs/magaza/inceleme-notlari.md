@@ -9,11 +9,22 @@ durumuna bağlı özellikleri video üzerinden anlayabilsin ve hassas izinlerin 
 
 ## Demo hesap
 
-- **Kullanıcı adı / e-posta:** `demo@sipario.com.tr`
+Giriş ekranı **üç alan** ister (e-posta İSTEMEZ):
+
+- **Firma Kodu:** `demo`
+- **Kullanıcı Adı:** `demo`
 - **Şifre:** `demo1234`
 - **Rol:** Patron (tam yetkili)
-- Hesap **aktif** ve **içi dolu**: 4 telefonlu müşteri, teslim edilmiş siparişler, veresiye
-  bakiyesi olan ve olmayan müşteri örnekleri, kasa hareketi. `DemoSeeder` ile kurulur
+
+> Firma kodu, işletmeyi tanımlayan koddur; kullanıcı adı o işletmedeki kişiyi. Saha
+> uygulamasında kurye/tezgâhtar hesaplarının çoğu zaman e-posta adresi olmadığı için giriş
+> kimliği e-posta değildir.
+
+- Hesap **aktif** ve **içi dolu**: 11 telefonlu müşteri (borçlu · hesabı temiz · alacaklı
+  örnekleriyle), 10 ürünlük katalog (barkodlu/barkodsuz, biri pasif), 15 sipariş (açık ·
+  teslim · iptal; nakit/kart/havale/veresiye), defter hareketleri (tahsilat + düzeltme),
+  kupon bakiyeleri, çağrı geçmişi, muaf numaralar ve dünden kalma iki gün-sonu arşiv kaydı.
+  Ekip: patron + tezgâhtar + iki aktif kurye + bir pasif kurye. `DemoSeeder` ile kurulur
   (`apps/api/database/seeders/DemoSeeder.php`), 10 yıllık geçerlilik süresiyle — inceleme
   sırasında abonelik/deneme süresi dolup kilitlenmez.
 - Bu **gerçek bir müşteri hesabı değildir**, temsili/sahte veridir; gerçek bir bayiye
@@ -67,7 +78,7 @@ durumuna bağlı özellikleri video üzerinden anlayabilsin ve hassas izinlerin 
 
 ## Test adımları (incelemeci için önerilen akış)
 
-1. Demo hesapla giriş yap (`demo@sipario.com.tr` / `demo1234`).
+1. Demo hesapla giriş yap (Firma Kodu `demo` · Kullanıcı Adı `demo` · Şifre `demo1234`).
 2. Müşteri listesinde 4 telefonlu müşteriyi ve bakiyelerini gör (2 veresiye borçlu, 1 nakit
    ödemiş, 1 hareketsiz).
 3. Sipariş/teslimat akışını dene (uçak modunu açıp kapatarak offline çalışmayı gözlemleyebilir).

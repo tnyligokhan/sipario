@@ -1,188 +1,244 @@
 // Sipario tasarım sistemi — TEMA (ThemeData).
-// Token'ları (tokens.dart) + tipografiyi (typography.dart) Material 3 ThemeData'ya bağlar.
-// Böylece hazır Material widget'ları (buton/dialog/appbar/nav/input) ekran başına stil yazmadan
-// tasarıma uyar; bespoke öğeler SipColors/SipText'i doğrudan kullanır.
+// Jetonları (tokens.dart) ve tipografiyi (typography.dart) Material 3 ThemeData'ya bağlar; asıl
+// jeton taşıyıcısı [SipTokens] uzantısıdır (`context.sip`). ThemeData yalnız hazır Material
+// widget'larının (input/buton/dialog/snackbar) tasarıma uymasını sağlar.
+//
+// İKİ TEMA: [acik] tasarımın varsayılanıdır, [koyu] CSS `.app.koyu` bloğudur. Kullanıcı
+// Ayarlar'dan değiştirir; seçim yerelde saklanır (bkz. tema_deposu.dart).
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import 'components/form.dart';
 import 'tokens.dart';
 import 'typography.dart';
 
 abstract final class SipTheme {
-  static ThemeData dark() {
-    const scheme = ColorScheme(
-      brightness: Brightness.dark,
-      primary: SipColors.acc,
-      onPrimary: SipColors.accInk,
-      primaryContainer: Color(0xFF0E3648),
-      onPrimaryContainer: SipColors.accFg,
-      secondary: SipColors.accFg,
-      onSecondary: SipColors.accInk,
-      secondaryContainer: Color(0xFF14323F),
-      onSecondaryContainer: Color(0xFFCDE9F6),
-      tertiary: SipColors.ok,
-      onTertiary: SipColors.okInk,
-      tertiaryContainer: Color(0xFF123A2C),
-      onTertiaryContainer: Color(0xFF8FE0BE),
-      error: SipColors.err,
-      onError: Colors.white,
-      errorContainer: Color(0xFF3A1A15),
-      onErrorContainer: Color(0xFFF3B4AA),
-      surface: SipColors.s1,
-      onSurface: SipColors.t1,
-      surfaceContainerLowest: SipColors.bg,
-      surfaceContainerLow: SipColors.s1,
-      surfaceContainer: SipColors.s2,
-      surfaceContainerHigh: SipColors.s3,
-      surfaceContainerHighest: Color(0xFF313B45),
-      onSurfaceVariant: SipColors.t2,
-      outline: SipColors.outline,
-      outlineVariant: SipColors.outlineVariant,
-    );
+  static ThemeData acik() => _kur(SipTokens.acik, Brightness.light);
 
-    final textTheme = buildSipTextTheme();
+  static ThemeData koyu() => _kur(SipTokens.koyuTema, Brightness.dark);
+
+  /// Sistem çubukları (durum + gezinme) tema ile birlikte döner. Ana ekranın hero'su koyu
+  /// olduğundan durum çubuğu ikonları AÇIK temada bile beyazdır — bunu ekran kendi
+  /// [AnnotatedRegion]'ıyla ayarlar; burada varsayılan verilir.
+  static SystemUiOverlayStyle sistemCubuklari(SipTokens t) => SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: t.koyu ? Brightness.light : Brightness.dark,
+        statusBarBrightness: t.koyu ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: t.bg,
+        systemNavigationBarIconBrightness:
+            t.koyu ? Brightness.light : Brightness.dark,
+      );
+
+  static ThemeData _kur(SipTokens t, Brightness parlaklik) {
+    final scheme = ColorScheme(
+      brightness: parlaklik,
+      primary: t.accent,
+      onPrimary: t.accentInk,
+      primaryContainer: t.accentSoft,
+      onPrimaryContainer: t.accent,
+      secondary: t.accent,
+      onSecondary: t.accentInk,
+      secondaryContainer: t.accentSoft,
+      onSecondaryContainer: t.accent,
+      tertiary: t.ok,
+      onTertiary: const Color(0xFFFFFFFF),
+      tertiaryContainer: t.okSoft,
+      onTertiaryContainer: t.ok,
+      error: t.danger,
+      onError: const Color(0xFFFFFFFF),
+      errorContainer: t.dangerSoft,
+      onErrorContainer: t.danger,
+      surface: t.surface,
+      onSurface: t.ink,
+      surfaceContainerLowest: t.bg,
+      surfaceContainerLow: t.bg,
+      surfaceContainer: t.surface,
+      surfaceContainerHigh: t.surface2,
+      surfaceContainerHighest: t.surface2,
+      onSurfaceVariant: t.ink2,
+      outline: t.line2,
+      outlineVariant: t.line,
+      shadow: const Color(0xFF000000),
+      scrim: SipTokens.scrim,
+      inverseSurface: t.hero,
+      onInverseSurface: SipTokens.onHero,
+      inversePrimary: t.accentSoft,
+    );
 
     return ThemeData(
       useMaterial3: true,
+      brightness: parlaklik,
       colorScheme: scheme,
-      scaffoldBackgroundColor: SipColors.bg,
-      canvasColor: SipColors.bg,
-      fontFamily: sipFontFamily,
-      textTheme: textTheme,
-      splashFactory: InkSparkle.splashFactory,
+      scaffoldBackgroundColor: t.bg,
+      canvasColor: t.bg,
 
-      appBarTheme: const AppBarTheme(
-        backgroundColor: SipColors.bg,
+      // Tasarımda hiçbir yerde ripple YOK — dokunma geri bildirimi zeminin bir ton
+      // koyulaşmasıdır (bkz. components/dokunma.dart). Material dalgası kapatılır.
+      splashFactory: NoSplash.splashFactory,
+
+      // Gövde fontu varsayılan; başlık/rakam stilleri SipText üzerinden nokta atışı verilir.
+      fontFamily: sipFontBody,
+      extensions: <ThemeExtension<dynamic>>[t],
+
+      textTheme: Typography.material2021(platform: TargetPlatform.android)
+          .black
+          .apply(
+            fontFamily: sipFontBody,
+            bodyColor: t.ink,
+            displayColor: t.ink,
+          )
+          .copyWith(
+            titleLarge: SipText.ustBaslik,
+            titleMedium: SipText.bolumBaslik,
+            titleSmall: SipText.govdeKalin,
+            bodyLarge: SipText.input,
+            bodyMedium: SipText.govde,
+            bodySmall: SipText.yardimci,
+            labelLarge: SipText.buton,
+          )
+          .apply(bodyColor: t.ink, displayColor: t.ink),
+
+      iconTheme: IconThemeData(color: t.ink2, size: 22),
+
+      // Tasarımda AppBar yok — her ekran kendi `Ust` başlığını çizer. Yine de bir yerde
+      // kullanılırsa zeminle kaynaşsın.
+      appBarTheme: AppBarTheme(
+        backgroundColor: t.bg,
+        foregroundColor: t.ink,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: SipText.screenTitle,
-        iconTheme: IconThemeData(color: SipColors.t1),
+        titleTextStyle: SipText.ustBaslik.copyWith(color: t.ink),
       ),
 
-      // Alt gezinme — handoff: seçilide hap (pill) göstergesi + vurgu ikon/etiket.
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: SipColors.s1,
-        surfaceTintColor: Colors.transparent,
-        indicatorColor: SipColors.accSoft,
-        indicatorShape: const StadiumBorder(),
-        elevation: 0,
-        height: 68,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        iconTheme: WidgetStateProperty.resolveWith((s) => IconThemeData(
-              size: 24,
-              color: s.contains(WidgetState.selected) ? SipColors.accFg : SipColors.t3,
-            )),
-        labelTextStyle: WidgetStateProperty.resolveWith((s) => SipText.navLabel.copyWith(
-              color: s.contains(WidgetState.selected) ? SipColors.accFg : SipColors.t3,
-            )),
-      ),
-
-      // FAB — genişletilmiş, vurgu dolgu, koyu yazı, yumuşak köşe.
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: SipColors.acc,
-        foregroundColor: SipColors.accInk,
-        elevation: 6,
-        focusElevation: 6,
-        hoverElevation: 8,
-        highlightElevation: 10,
-        extendedTextStyle: TextStyle(
-            fontFamily: sipFontFamily, fontSize: 16, fontWeight: FontWeight.w600),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(SipRadius.fab))),
-      ),
-
-      // Arama / metin alanı — yüzey 2 dolgu, kenarlıksız, yuvarlak.
+      // CSS .s-input — saydam kenarlık, surface-2 zemin; odakta accent kenarlık + surface zemin.
+      //
+      // ÖLÇÜLER [SipInputOlcu]'DAN GELİR. Uygulamadaki her girdi [SipInput] atomudur; bu blok
+      // yalnız `labelText`/`errorText` kullanan çıplak `TextField`ler (bkz. phase0_screen.dart)
+      // için vardır. Sayılar burada TEKRAR YAZILMAZ — yoksa girdi ölçüsünün iki kaynağı olur
+      // ve biri düzeltilirken diğeri sessizce eskir.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: SipColors.s2,
+        fillColor: t.surface2,
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        hintStyle: const TextStyle(color: SipColors.t3, fontSize: 16),
-        prefixIconColor: SipColors.t3,
-        suffixIconColor: SipColors.t3,
-        border: OutlineInputBorder(borderRadius: SipRadius.inputBr, borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(
-            borderRadius: SipRadius.inputBr,
-            borderSide: const BorderSide(color: SipColors.line)),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: SipRadius.inputBr,
-            borderSide: const BorderSide(color: SipColors.acc, width: 1.5)),
-        errorBorder: OutlineInputBorder(
-            borderRadius: SipRadius.inputBr,
-            borderSide: const BorderSide(color: SipColors.err)),
-      ),
-
-      cardTheme: CardThemeData(
-        color: SipColors.s1,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: SipRadius.cardBr,
-          side: const BorderSide(color: SipColors.line),
+        visualDensity: VisualDensity.standard,
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: SipInputOlcu.yatayDolgu,
+          vertical: SipInputOlcu.dikeyDolgu(
+            SipText.input,
+            SipInputOlcu.yukseklik,
+          ),
         ),
+        hintStyle: SipText.input.copyWith(color: t.muted),
+        labelStyle: SipText.formEtiket.copyWith(color: t.muted),
+        floatingLabelStyle: SipText.formEtiket.copyWith(color: t.accent),
+        errorStyle: SipText.yardimci.copyWith(color: t.danger),
+        border: SipInputOlcu.kenar(Colors.transparent),
+        enabledBorder: SipInputOlcu.kenar(Colors.transparent),
+        disabledBorder: SipInputOlcu.kenar(Colors.transparent),
+        focusedBorder: SipInputOlcu.kenar(t.accent),
+        errorBorder: SipInputOlcu.kenar(t.danger),
+        focusedErrorBorder: SipInputOlcu.kenar(t.danger),
       ),
 
-      dividerTheme: const DividerThemeData(color: SipColors.line, thickness: 1, space: 1),
-
+      // CSS .btn-p — 48 yüksek, r2 köşe, gölgesiz.
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: SipColors.acc,
-          foregroundColor: SipColors.accInk,
-          minimumSize: const Size(0, 52),
-          textStyle: const TextStyle(
-              fontFamily: sipFontFamily, fontSize: 16, fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(borderRadius: SipRadius.cardBr),
+          backgroundColor: t.accent,
+          foregroundColor: t.accentInk,
+          disabledBackgroundColor: t.disabledFill,
+          disabledForegroundColor: t.disabledInk,
+          minimumSize: const Size.fromHeight(48),
+          elevation: 0,
+          textStyle: SipText.buton,
+          shape: const RoundedRectangleBorder(borderRadius: SipRadius.br2),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: SipColors.accFg),
+        style: TextButton.styleFrom(
+          foregroundColor: t.accent,
+          textStyle: SipText.link,
+          shape: const RoundedRectangleBorder(borderRadius: SipRadius.br2),
+        ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: SipColors.t1,
-          minimumSize: const Size(0, 52),
-          side: const BorderSide(color: SipColors.line2),
-          shape: RoundedRectangleBorder(borderRadius: SipRadius.cardBr),
+          foregroundColor: t.ink,
+          backgroundColor: t.surface2,
+          minimumSize: const Size.fromHeight(48),
+          side: BorderSide.none,
+          textStyle: SipText.buton,
+          shape: const RoundedRectangleBorder(borderRadius: SipRadius.br2),
         ),
       ),
 
-      snackBarTheme: SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: SipColors.s3,
-        contentTextStyle: const TextStyle(color: SipColors.t1, fontFamily: sipFontFamily),
-        shape: RoundedRectangleBorder(borderRadius: SipRadius.smBr),
-      ),
+      dividerTheme: DividerThemeData(color: t.line, thickness: 1, space: 1),
 
       dialogTheme: DialogThemeData(
-        backgroundColor: SipColors.s2,
+        backgroundColor: t.surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: SipRadius.sheetBr),
-        titleTextStyle: const TextStyle(
-            fontFamily: sipFontFamily, fontSize: 19, fontWeight: FontWeight.w700, color: SipColors.t1),
-        contentTextStyle: const TextStyle(
-            fontFamily: sipFontFamily, fontSize: 15, color: SipColors.t2, height: 1.5),
+        elevation: 0,
+        shape: const RoundedRectangleBorder(borderRadius: SipRadius.br3),
+        titleTextStyle: SipText.diyalogBaslik.copyWith(color: t.ink),
+        contentTextStyle: SipText.diyalogMesaj.copyWith(color: t.ink2),
       ),
 
-      listTileTheme: const ListTileThemeData(
-        iconColor: SipColors.t2,
-        textColor: SipColors.t1,
-      ),
-
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: SipColors.s2,
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: t.surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: SipRadius.sheetBr),
+        elevation: 0,
+        modalElevation: 0,
+        showDragHandle: false,
+        shape: const RoundedRectangleBorder(borderRadius: SipRadius.sheetUst),
       ),
 
-      chipTheme: ChipThemeData(
-        backgroundColor: SipColors.s3,
-        side: BorderSide.none,
-        labelStyle: const TextStyle(
-            fontFamily: sipFontFamily, fontSize: 13, fontWeight: FontWeight.w600, color: SipColors.t2),
-        shape: RoundedRectangleBorder(borderRadius: SipRadius.smBr),
+      // Tasarımda SnackBar yerine ortalanmış hap "toast" var (bkz. components/toast.dart).
+      // Kaçan çağrılar da hiç değilse doğru görünsün.
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: t.toastFill,
+        contentTextStyle: SipText.toast.copyWith(color: t.toastInk),
+        behavior: SnackBarBehavior.floating,
+        elevation: 0,
+        shape: const RoundedRectangleBorder(borderRadius: SipRadius.brHap),
+      ),
+
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: t.accent,
+        linearTrackColor: t.surface2,
+        circularTrackColor: t.surface2,
+      ),
+
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? Colors.white : t.knob,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? t.accent : t.line2,
+        ),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+
+      listTileTheme: ListTileThemeData(
+        iconColor: t.ink2,
+        textColor: t.ink,
+        titleTextStyle: SipText.govdeKalin.copyWith(color: t.ink),
+        subtitleTextStyle: SipText.yardimci.copyWith(color: t.muted),
+      ),
+
+      popupMenuTheme: PopupMenuThemeData(
+        color: t.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        shape: const RoundedRectangleBorder(borderRadius: SipRadius.br2),
+        textStyle: SipText.govdeKalin.copyWith(color: t.ink),
+      ),
+
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: t.accent,
+        selectionColor: t.accentSoft,
+        selectionHandleColor: t.accent,
       ),
     );
   }

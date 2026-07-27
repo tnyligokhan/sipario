@@ -106,7 +106,15 @@ class SyncEngine {
   }
 
   /// LWW varlıkları için çakışma kuralı uygulanan tipler.
-  static const _conflictTypes = {'customer', 'customer_phone', 'customer_address', 'product', 'order'};
+  static const _conflictTypes = {
+    'customer',
+    'customer_phone',
+    'customer_address',
+    'product',
+    'order',
+    'exempt_number',
+    'call_log',
+  };
 
   Future<void> _applyEntity(
     String type,
@@ -149,6 +157,7 @@ class SyncEngine {
               customerId: Value(_s(m['customer_id'])),
               label: Value(_sN(m['label'])),
               addressText: Value(_s(m['address_text'])),
+              region: Value(_sN(m['region'])),
               lat: Value(_dN(m['lat'])),
               lng: Value(_dN(m['lng'])),
               isPrimary: Value(_b(m['is_primary'])),
@@ -162,6 +171,10 @@ class SyncEngine {
               name: Value(_s(m['name'])),
               unitPriceKurus: Value(_i(m['unit_price_kurus'])),
               unit: Value(_s(m['unit'])),
+              barcode: Value(_sN(m['barcode'])),
+              imageUrl: Value(_sN(m['image_url'])),
+              // imageLocalPath BİLEREK yazılmaz: cihaz-yerel alandır, sunucu payload'ında yoktur;
+              // buraya null yazmak kullanıcının bu cihazdaki görselini silerdi.
               isActive: Value(_b(m['is_active'])),
               updatedOccurredAt: Value(_s(m['updated_occurred_at'])),
               updatedDeviceId: Value(_sN(m['updated_device_id'])),
@@ -176,6 +189,7 @@ class SyncEngine {
               totalKurus: Value(_i(m['total_kurus'])),
               paymentType: Value(_sN(m['payment_type'])),
               note: Value(_sN(m['note'])),
+              sortIndex: Value(_iN(m['sort_index'])),
               occurredAt: Value(_s(m['occurred_at'])),
               createdDeviceId: Value(_sN(m['created_device_id'])),
               deletedAt: Value(_sN(m['deleted_at'])),
@@ -187,6 +201,8 @@ class SyncEngine {
               productId: Value(_sN(m['product_id'])),
               productName: Value(_s(m['product_name'])),
               unitPriceKurus: Value(_i(m['unit_price_kurus'])),
+              unit: Value(_sN(m['unit'])),
+              isCustom: Value(_b(m['is_custom'])),
               qty: Value(_i(m['qty'])),
               lineTotalKurus: Value(_i(m['line_total_kurus'])),
               deletedAt: Value(_sN(m['deleted_at'])),
@@ -195,18 +211,52 @@ class SyncEngine {
         await _insertOrderEventIfAbsent(m);
       case 'ledger_entry':
         await _insertLedgerIfAbsent(m);
-      case 'coupon_movement':
-        await _insertCouponMovementIfAbsent(m);
       case 'cash_handover':
         await _insertCashHandoverIfAbsent(m);
-      case 'coupon_balance':
-        // Önbellek (customers.balance_kurus deseni): sunucu türetir, istemci upsert eder. İş anahtarı
-        // (customer_id, product_id); genel kupon product_id null → SENTINEL '' (Drift PK).
-        await db.into(db.couponBalances).insertOnConflictUpdate(CouponBalancesCompanion(
-              customerId: Value(_s(m['customer_id'])),
-              productId: Value(_sN(m['product_id']) ?? ''),
-              balanceQty: Value(_i(m['balance_qty'])),
+      case 'exempt_number':
+        await db.into(db.exemptNumbers).insertOnConflictUpdate(ExemptNumbersCompanion(
+              id: Value(_s(m['id'])),
+              phoneE164: Value(_s(m['phone_e164'])),
+              phoneLast10: Value(_s(m['phone_last10'])),
+              label: Value(_sN(m['label'])),
+              updatedOccurredAt: Value(_s(m['updated_occurred_at'])),
+              updatedDeviceId: Value(_sN(m['updated_device_id'])),
+              deletedAt: Value(_sN(m['deleted_at'])),
             ));
+      case 'call_log':
+        await db.into(db.callLogs).insertOnConflictUpdate(CallLogsCompanion(
+              id: Value(_s(m['id'])),
+              customerId: Value(_sN(m['customer_id'])),
+              phoneE164: Value(_s(m['phone_e164'])),
+              phoneLast10: Value(_s(m['phone_last10'])),
+              direction: Value(_s(m['direction'])),
+              outcome: Value(_sN(m['outcome'])),
+              relatedOrderId: Value(_sN(m['related_order_id'])),
+              occurredAt: Value(_s(m['occurred_at'])),
+              deviceId: Value(_sN(m['device_id'])),
+              updatedOccurredAt: Value(_s(m['updated_occurred_at'])),
+              updatedDeviceId: Value(_sN(m['updated_device_id'])),
+              deletedAt: Value(_sN(m['deleted_at'])),
+            ));
+      case 'tenant_settings':
+        // Sunucuda anahtar tenant_id; cihazda TEK SATIR (id=1) — istemci tek kiracıdır.
+        await db.into(db.tenantSettings).insertOnConflictUpdate(TenantSettingsCompanion(
+              id: const Value(1),
+              businessName: Value(_sN(m['business_name'])),
+              ownerName: Value(_sN(m['owner_name'])),
+              phone: Value(_sN(m['phone'])),
+              whatsapp: Value(_sN(m['whatsapp'])),
+              addressText: Value(_sN(m['address_text'])),
+              taxOffice: Value(_sN(m['tax_office'])),
+              taxNumber: Value(_sN(m['tax_number'])),
+              opensAt: Value(_sN(m['opens_at'])),
+              closesAt: Value(_sN(m['closes_at'])),
+              receiptNote: Value(_sN(m['receipt_note'])),
+              updatedOccurredAt: Value(_sN(m['updated_occurred_at'])),
+              updatedDeviceId: Value(_sN(m['updated_device_id'])),
+            ));
+      case 'day_closing':
+        await _insertDayClosingIfAbsent(m);
     }
   }
 
@@ -248,26 +298,6 @@ class SyncEngine {
         ));
   }
 
-  Future<void> _insertCouponMovementIfAbsent(Map<String, dynamic> m) async {
-    final id = _s(m['id']);
-    final exists = await (db.select(db.couponMovements)..where((t) => t.id.equals(id))).getSingleOrNull();
-    if (exists != null) return;
-
-    await db.into(db.couponMovements).insert(CouponMovementsCompanion.insert(
-          id: id,
-          customerId: _s(m['customer_id']),
-          productId: Value(_sN(m['product_id'])),
-          movementType: _s(m['movement_type']),
-          qtyDelta: _i(m['qty_delta']),
-          relatedOrderId: Value(_sN(m['related_order_id'])),
-          note: Value(_sN(m['note'])),
-          reversesMovementId: Value(_sN(m['reverses_movement_id'])),
-          occurredAt: _s(m['occurred_at']),
-          deviceId: Value(_sN(m['device_id'])),
-          clientEventId: _s(m['client_event_id']),
-        ));
-  }
-
   Future<void> _insertCashHandoverIfAbsent(Map<String, dynamic> m) async {
     final id = _s(m['id']);
     final exists = await (db.select(db.cashHandovers)..where((t) => t.id.equals(id))).getSingleOrNull();
@@ -284,6 +314,33 @@ class SyncEngine {
           occurredAt: _s(m['occurred_at']),
           deviceId: Value(_sN(m['device_id'])),
           note: Value(_sN(m['note'])),
+        ));
+  }
+
+  /// Kapanış arşivi APPEND'dir (cash_handover deseni): "yoksa ekle", asla ezme.
+  Future<void> _insertDayClosingIfAbsent(Map<String, dynamic> m) async {
+    final id = _s(m['id']);
+    final exists = await (db.select(db.dayClosings)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (exists != null) return;
+
+    await db.into(db.dayClosings).insert(DayClosingsCompanion.insert(
+          id: id,
+          scope: _s(m['scope']),
+          userId: Value(_sN(m['user_id'])),
+          periodStart: Value(_sN(m['period_start'])),
+          deliveryCount: Value(_i(m['delivery_count'] ?? 0)),
+          totalCollectedKurus: Value(_i(m['total_collected_kurus'] ?? 0)),
+          cashNakitKurus: Value(_i(m['cash_nakit_kurus'] ?? 0)),
+          cashKartKurus: Value(_i(m['cash_kart_kurus'] ?? 0)),
+          cashHavaleKurus: Value(_i(m['cash_havale_kurus'] ?? 0)),
+          openCreditKurus: Value(_i(m['open_credit_kurus'] ?? 0)),
+          expectedCashKurus: Value(_i(m['expected_cash_kurus'] ?? 0)),
+          countedCashKurus: Value(_iN(m['counted_cash_kurus'])),
+          diffKurus: Value(_i(m['diff_kurus'] ?? 0)),
+          cashHandoverId: Value(_sN(m['cash_handover_id'])),
+          note: Value(_sN(m['note'])),
+          occurredAt: _s(m['occurred_at']),
+          deviceId: Value(_sN(m['device_id'])),
         ));
   }
 
@@ -309,6 +366,13 @@ class SyncEngine {
       validUntilIso: Value(sub.validUntil),
       lockedAtIso: Value(sub.lockedAt),
       subscriptionStatus: Value(sub.status),
+      // Sunucu sahipli alanlar: yalnız sunucu GÖNDERDİYSE yazılır (eski sunucu null yollarsa
+      // mevcut önbellek korunur — team bloğundaki "null'a dokunma" ilkesinin aynısı).
+      tenantCode: sub.tenantCode == null ? const Value.absent() : Value(sub.tenantCode),
+      routeCredits: sub.routeCredits == null ? const Value.absent() : Value(sub.routeCredits!),
+      routeCreditsMonthly: sub.routeCreditsMonthly == null
+          ? const Value.absent()
+          : Value(sub.routeCreditsMonthly!),
     ));
   }
 
@@ -327,6 +391,7 @@ class SyncEngine {
               name: _s(u['name']),
               role: _s(u['role']),
               status: _s(u['status']),
+              phone: Value(_sN(u['phone'])),
             ));
       }
     });
@@ -345,6 +410,7 @@ class SyncEngine {
 
   // ---- JSON tip yardımcıları (sunucu attributesToArray çıktısını güvenli çevir) ----
   static int _i(dynamic v) => (v as num).toInt();
+  static int? _iN(dynamic v) => v == null ? null : (v as num).toInt();
   static double? _dN(dynamic v) => v == null ? null : (v as num).toDouble();
   static String _s(dynamic v) => v as String;
   static String? _sN(dynamic v) => v as String?;

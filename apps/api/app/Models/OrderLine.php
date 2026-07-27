@@ -17,6 +17,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $product_id
  * @property string $product_name
  * @property int $unit_price_kurus
+ * @property string|null $unit
+ * @property bool $is_custom
  * @property int $qty
  * @property int $line_total_kurus
  * @property Carbon|null $deleted_at
@@ -34,6 +36,8 @@ class OrderLine extends Model
         'product_id',
         'product_name',
         'unit_price_kurus',
+        'unit',
+        'is_custom',
         'qty',
         'line_total_kurus',
         'deleted_at',
@@ -43,6 +47,7 @@ class OrderLine extends Model
     {
         return [
             'unit_price_kurus' => 'integer',
+            'is_custom' => 'boolean',
             'qty' => 'integer',
             'line_total_kurus' => 'integer',
             'deleted_at' => 'datetime',

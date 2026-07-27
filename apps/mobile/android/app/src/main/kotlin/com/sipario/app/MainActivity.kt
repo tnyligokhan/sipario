@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -21,12 +22,70 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
 
     private val channelName = "sipario/phase0"
+
+    /** Çağrı kartı eylemleri için AYRI kanal — bkz. `lib/screens/cagri/cagri_eylem_kanali.dart`. */
+    private val cagriChannelName = "sipario/cagri"
+
     private val roleRequestCode = 4711
     private val contactsRequestCode = 4712
     private val notificationsRequestCode = 4713
 
+    private var cagriKanali: MethodChannel? = null
+
+    /**
+     * Native karttan gelen, henüz Flutter'a devredilmemiş eylem.
+     *
+     * Neden BEKLETİLİR: kart telefon çalarken çizilir ve o an Flutter motoru YAŞAMIYOR olur.
+     * Düğmeye dokunulduğunda bu Activity başlar; niyet ekstraları burada tutulur ve Dart
+     * hazır olduğunda `bekleyen` çağrısıyla çekilir. Çekildiği anda silinir — iki kez
+     * tüketilmesi imkânsızdır.
+     */
+    private var bekleyen: Map<String, String>? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        eylemiAl(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        eylemiAl(intent)
+        // Uygulama ZATEN önplandaysa (bayi çağrı sırasında uygulamayı kullanıyordu) hiçbir
+        // yaşam döngüsü olayı doğmaz; Dart tarafına "bekleyen var" diye dürtmek şart.
+        if (bekleyen != null) cagriKanali?.invokeMethod("eylem", null)
+    }
+
+    /**
+     * Niyetteki eylemi alır. Ekstra HEMEN SİLİNİR: Activity yeniden kurulduğunda (dönme,
+     * süreç öldürülüp geri gelme) sistem aynı niyeti tekrar verir ve eylem ikinci kez
+     * tetiklenirdi — bayi bir kez dokundu, bir kez sipariş formu açılmalı.
+     */
+    private fun eylemiAl(i: Intent?) {
+        val eylem = i?.getStringExtra(CallerCard.EXTRA_EYLEM) ?: return
+        val numara = i.getStringExtra(CallerCard.EXTRA_NUMARA).orEmpty()
+        // Numara KVKK gereği loglanmaz.
+        bekleyen = mapOf("eylem" to eylem, "numara" to numara)
+        i.removeExtra(CallerCard.EXTRA_EYLEM)
+        i.removeExtra(CallerCard.EXTRA_NUMARA)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        cagriKanali = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, cagriChannelName)
+            .apply {
+                setMethodCallHandler { call, result ->
+                    when (call.method) {
+                        "bekleyen" -> {
+                            result.success(bekleyen)
+                            bekleyen = null
+                        }
+
+                        else -> result.notImplemented()
+                    }
+                }
+            }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->

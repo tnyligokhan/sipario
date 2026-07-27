@@ -15,8 +15,8 @@ const _deliverNamespace = '7a5b3c1d-9e0f-4a2b-8c6d-1f3e5a7b9c0d';
 
 /// Teslimden türeyen olayların DETERMİNİSTİK kimliği (DECISIONS Faz 4). İki cihaz aynı siparişi
 /// offline teslim edince AYNI uuid5 üretilir → sunucu processed_events(tenant_id, client_event_id)
-/// UNIQUE bunları tekilleştirir → tek delivered olay + tek defter seti + tek kupon hareketi. tag ile
-/// aynı teslimin farklı olayları ayrışır: 'order', 'debit', 'payment', 'coupon'.
+/// UNIQUE bunları tekilleştirir → tek delivered olay + tek defter seti. tag ile aynı teslimin
+/// farklı olayları ayrışır: 'order', 'debit', 'payment'.
 String deliveryEventId(String orderId, String tag) =>
     _uuid.v5(_deliverNamespace, 'sipario:deliver-$tag:$orderId');
 

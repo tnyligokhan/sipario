@@ -2,9 +2,11 @@
 
 namespace App\Support\Sync;
 
+use App\Models\CallLog;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\CustomerPhone;
+use App\Models\ExemptNumber;
 use App\Models\LedgerEntry;
 use App\Models\Order;
 use App\Models\Product;
@@ -31,8 +33,14 @@ use InvalidArgumentException;
  */
 class ChangeApplier
 {
-    /** LWW ile yönetilen basit varlıklar (upsert/delete). */
-    private const SIMPLE_ENTITIES = ['customer', 'customer_phone', 'customer_address', 'product'];
+    /**
+     * LWW ile yönetilen basit varlıklar (upsert/delete). exempt_number ve call_log tasarım
+     * boşluğundan gelir (muaf numaralar / çağrı günlüğü): ikisi de düzenlenebilir varlıktır,
+     * para/hareket kaydı DEĞİL — bu yüzden append değil aynı LWW + tombstone yolundan geçerler.
+     */
+    private const SIMPLE_ENTITIES = [
+        'customer', 'customer_phone', 'customer_address', 'product', 'exempt_number', 'call_log',
+    ];
 
     /**
      * @param  array<string, mixed>  $event
@@ -49,8 +57,9 @@ class ChangeApplier
         return match ($type) {
             'order' => (new OrderChangeApplier)->apply($tenantId, $event),
             'ledger' => $this->applyLedger($tenantId, $event),
-            'coupon' => (new CouponChangeApplier)->apply($tenantId, $event),
             'cash_handover' => (new CashHandoverChangeApplier)->apply($tenantId, $event),
+            'tenant_settings', 'user_profile' => (new ProfileChangeApplier)->apply($tenantId, $event),
+            'day_closing' => (new DayClosingChangeApplier)->apply($tenantId, $event),
             default => throw new InvalidArgumentException("Bilinmeyen entity_type: {$type}"),
         };
     }
@@ -98,7 +107,7 @@ class ChangeApplier
         }
 
         $this->validateEntityRefs($type, $payload);
-        $cols = $this->simpleColumns($type, $payload);
+        $cols = $this->simpleColumns($type, $payload, $event);
 
         if ($existing !== null && ! $this->lwwWins($existing, $occurredAt, $deviceId)) {
             return ['status' => 'stale', 'entity_id' => $id, 'changes' => []];
@@ -127,6 +136,8 @@ class ChangeApplier
             'customer_phone' => CustomerPhone::class,
             'customer_address' => CustomerAddress::class,
             'product' => Product::class,
+            'exempt_number' => ExemptNumber::class,
+            'call_log' => CallLog::class,
             default => throw new InvalidArgumentException("Bilinmeyen varlık: {$type}"),
         };
     }
@@ -136,9 +147,10 @@ class ChangeApplier
      * türeyen önbellektir (DECISIONS), istemci ezemez; ledger olayında sunucu tazeler.
      *
      * @param  array<string, mixed>  $p
+     * @param  array<string, mixed>  $event
      * @return array<string, mixed>
      */
-    private function simpleColumns(string $type, array $p): array
+    private function simpleColumns(string $type, array $p, array $event): array
     {
         return match ($type) {
             'customer' => [
@@ -156,6 +168,7 @@ class ChangeApplier
                 'customer_id' => SyncPayload::req($p, 'customer_id'),
                 'label' => $p['label'] ?? null,
                 'address_text' => SyncPayload::req($p, 'address_text'),
+                'region' => $p['region'] ?? null, // tasarım: "Bölge" (Kepez/Muratpaşa/Lara)
                 'lat' => isset($p['lat']) ? (float) $p['lat'] : null,
                 'lng' => isset($p['lng']) ? (float) $p['lng'] : null,
                 'is_primary' => (bool) ($p['is_primary'] ?? false),
@@ -164,10 +177,46 @@ class ChangeApplier
                 'name' => SyncPayload::req($p, 'name'),
                 'unit_price_kurus' => (int) SyncPayload::req($p, 'unit_price_kurus'),
                 'unit' => (string) ($p['unit'] ?? 'adet'),
+                // barcode tekilliği DB'de ZORLANMAZ (migration 605): çevrimdışı iki cihazın aynı
+                // barkodu girmesi olayı reddedip veri kaybettirirdi; UI uyarır, DB kabul eder.
+                'barcode' => $p['barcode'] ?? null,
+                'image_url' => $p['image_url'] ?? null,
                 'is_active' => (bool) ($p['is_active'] ?? true),
+            ],
+            'exempt_number' => [
+                'phone_e164' => SyncPayload::req($p, 'phone_e164'),
+                'phone_last10' => (string) ($p['phone_last10'] ?? self::last10((string) $p['phone_e164'])),
+                'label' => $p['label'] ?? null,
+            ],
+            'call_log' => [
+                'customer_id' => $p['customer_id'] ?? null,
+                'phone_e164' => SyncPayload::req($p, 'phone_e164'),
+                'phone_last10' => (string) ($p['phone_last10'] ?? self::last10((string) $p['phone_e164'])),
+                'direction' => self::direction($p),
+                'outcome' => $p['outcome'] ?? null,
+                'related_order_id' => $p['related_order_id'] ?? null,
+                // Çağrının GERÇEKLEŞTİĞİ an; LWW'nin updated_occurred_at'inden ayrıdır (sonuç sonradan
+                // yazılınca LWW damgası ilerler ama çağrı saati sabit kalmalı).
+                'occurred_at' => (string) ($p['occurred_at'] ?? $event['occurred_at'] ?? ''),
+                'device_id' => $event['device_id'] ?? null,
             ],
             default => throw new InvalidArgumentException("Bilinmeyen varlık: {$type}"),
         };
+    }
+
+    /**
+     * Çağrı yönü beyaz listesi — CHECK ihlalinin transaction'ı zehirlemesini önle (önden reddet).
+     *
+     * @param  array<string, mixed>  $p
+     */
+    private static function direction(array $p): string
+    {
+        $direction = (string) SyncPayload::req($p, 'direction');
+        if (! in_array($direction, ['incoming', 'missed', 'outgoing'], true)) {
+            throw new InvalidArgumentException("Geçersiz direction: {$direction}");
+        }
+
+        return $direction;
     }
 
     /**
@@ -182,6 +231,19 @@ class ChangeApplier
             $cid = (string) SyncPayload::req($payload, 'customer_id');
             if (! Customer::query()->whereKey($cid)->exists()) {
                 throw new InvalidArgumentException('customer_id bu bayide bulunamadı');
+            }
+        }
+
+        // call_log referansları OPSİYONELDİR (kayıtsız numara → customer_id null, sipariş doğmadıysa
+        // related_order_id null) ama verilmişlerse AYNI simetriyle doğrulanır (kırmızı çizgi #1).
+        if ($type === 'call_log') {
+            $cid = isset($payload['customer_id']) ? (string) $payload['customer_id'] : null;
+            if ($cid !== null && ! Customer::query()->whereKey($cid)->exists()) {
+                throw new InvalidArgumentException('customer_id bu bayide bulunamadı');
+            }
+            $oid = isset($payload['related_order_id']) ? (string) $payload['related_order_id'] : null;
+            if ($oid !== null && ! Order::query()->whereKey($oid)->exists()) {
+                throw new InvalidArgumentException('related_order_id bu bayide bulunamadı');
             }
         }
     }

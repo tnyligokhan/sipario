@@ -26,6 +26,12 @@ dependencies:
   http: ^1.2.2               # senkron push/pull taşıması
   connectivity_plus: ^6.0.5  # ağ tetiği (online olunca gönderici koşar)
 
+  # Ürün görseli seçimi (tasarım s-urunler.jsx: gerçek dosya seçici). Seçilen dosyanın YOLU
+  # `products.image_local_path` kolonuna yazılır — cihaz-yerel, senkronlanmaz. Yükleme boru
+  # hattı (nesne deposu → products.image_url) hâlâ açık iş.
+  image_picker: ^1.1.2
+  mobile_scanner: ^7.4.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -43,17 +49,18 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Tasarım sistemi fontu — IBM Plex Sans (OFL, assets/fonts'a gömülü; offline-first: runtime
-  # indirme YOK). Ağırlıklar 400/600/700; 500 istenirse Flutter en yakınına düşer.
+  # SİPARİO 3.0 tasarım sistemi fontları (OFL, assets/fonts'a gömülü; offline-first: runtime
+  # indirme YOK). İkisi de DEĞİŞKEN font — tek dosya tüm ağırlıkları taşır; ağırlık
+  # typography.dart'ta `fontVariations: [FontVariation('wght', N)]` ile verilir.
+  #   Sora          → başlıklar ve rakamlar (CSS --font-d)
+  #   HankenGrotesk → gövde metni (CSS --font-b)
   fonts:
-    - family: IBMPlexSans
+    - family: Sora
       fonts:
-        - asset: assets/fonts/IBMPlexSans-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/IBMPlexSans-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/IBMPlexSans-Bold.ttf
-          weight: 700
+        - asset: assets/fonts/Sora.ttf
+    - family: HankenGrotesk
+      fonts:
+        - asset: assets/fonts/HankenGrotesk.ttf
 
 # Codegen notu (KOD ÜRETİMİ İÇİN GEÇİCİ): sqlite3'ün native build-hook'u (hook/build.dart) Dart
 # 3.10'da `dart run build_runner`ın AOT derlemesini kırıyor ("dart compile does not support build

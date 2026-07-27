@@ -1,204 +1,80 @@
-import 'package:drift/drift.dart' hide Column;
+// Ürünler ekranı — tasarım s-urunler.jsx + Sipario.html `.urow*`, `.ys-ekle`, `.uliste`.
+//
+// Liste satırı: küçük görsel (yoksa baş harf yer tutucusu) · ad (+ PASİF rozeti) · birim
+// (+ barkod) · fiyat · chevron. Pasif ürün satırı sönükleşir ama FİYATI OKUNUR KALIR — bilgi
+// kaybolmaz, yalnız geri plana düşer.
+//
+// Ürün SİLİNMEZ, pasifleşir: geçmiş sipariş satırları ad/fiyatı kendi içinde taşıdığından
+// silme veriyi bozmaz ama katalog geçmişini yalanlar. Form `product_form_sheet.dart` içinde.
+
+import 'dart:io';
+
+import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
 import '../../repo/product_repository.dart';
-import '../../theme/components/empty_state.dart';
+import '../../theme/components/atoms.dart';
+import '../../theme/components/overlays.dart';
+import '../../theme/components/states.dart';
+import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
-import '../money.dart';
+import '../isletme/isletme_atomlari.dart';
+import 'product_form_sheet.dart';
 
-/// Ürün listesi (Menü → Ürünler): ekle / düzenle / pasifle. Ürünler senkronla da gelir; taze kurulumda
-/// bayinin ilk ürününü buradan girmesi gerekir — yoksa sipariş ekranı boş kalır.
-/// Silme YOK, PASİFLEME var (geçmiş sipariş satırları ad/fiyatı kendi içinde taşır, bozulmaz).
-///
-/// EKRAN 5 — yeniden tasarım: SafeArea + ekran başlığı + canlı sayaç + kart satırları (gün sonu/menü
-/// diliyle aynı). Davranış (FAB + salt-okunur kapısı, popup aksiyonları, diyalog, sorgu) DEĞİŞMEDİ.
+/// Salt-okunur kip uyarısı — DEĞİŞTİRME: sözleşme testleri bu metni birebir arıyor.
+const String saltOkunurUyarisi = 'Salt-okunur kip: yeni kayıt eklenemez.';
+
 class ProductListScreen extends StatelessWidget {
-  const ProductListScreen({super.key, required this.db, required this.writable});
+  const ProductListScreen({
+    super.key,
+    required this.db,
+    required this.writable,
+    this.rol,
+  });
 
   final AppDatabase db;
+
+  /// Abonelik salt-okunur kipinde false — mevcut veri okunur, yeni kayıt yazılmaz.
   final bool writable;
+
+  /// Oturumdaki rol (`patron|operator|kurye`). Kurye bu ekranı göremez (K2).
+  final String? rol;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: SipColors.bg,
-      body: SafeArea(
-        bottom: false,
-        child: StreamBuilder<List<Product>>(
-          stream: watchProducts(db, activeOnly: false),
-          builder: (context, snap) {
-            final products = snap.data;
-            final aktif = products?.where((p) => p.isActive).length ?? 0;
-            final pasif = (products?.length ?? 0) - aktif;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Ürünler', style: SipText.screenTitle),
-                      const SizedBox(height: 6),
-                      Text(
-                        products == null
-                            ? ''
-                            : '$aktif aktif ürün${pasif > 0 ? ' · $pasif pasif' : ''}',
-                        style: SipText.secondary,
-                      ),
-                    ],
+    final t = context.sip;
+    return YoneticiKapisi(
+      rol: rol,
+      baslik: 'Ürünler',
+      child: Scaffold(
+        backgroundColor: t.bg,
+        body: SafeArea(
+          bottom: false,
+          child: StreamBuilder<List<Product>>(
+            stream: watchProducts(db, activeOnly: false),
+            builder: (context, snap) {
+              final urunler = snap.data;
+              final aktif = urunler?.where((u) => u.isActive).length ?? 0;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SipUst(
+                    baslik: 'Ürünler',
+                    alt: urunler == null
+                        ? null
+                        : '$aktif aktif · ${urunler.length} toplam',
+                    onGeri: () => Navigator.of(context).maybePop(),
                   ),
-                ),
-                Expanded(
-                  child: products == null
-                      ? const Center(child: CircularProgressIndicator())
-                      : products.isEmpty
-                          ? const SipEmptyState(
-                              icon: Icons.inventory_2_outlined,
-                              title: 'Henüz ürün yok',
-                              subtitle:
-                                  'Sağ alttan ekleyin — sipariş satırları buradan seçilir.',
-                            )
-                          : ListView.separated(
-                              padding: const EdgeInsets.fromLTRB(14, 2, 14, 96),
-                              itemCount: products.length,
-                              separatorBuilder: (_, _) =>
-                                  const SizedBox(height: SipSpace.gap),
-                              itemBuilder: (context, i) => _UrunKarti(
-                                product: products[i],
-                                writable: writable,
-                                db: db,
-                              ),
-                            ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: writable
-            ? () => showProductDialog(context, ProductRepository(db))
-            : () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Salt-okunur kip: yeni kayıt eklenemez.'))),
-        icon: const Icon(Icons.add),
-        label: const Text('Ürün'),
-      ),
-    );
-  }
-}
-
-/// Ürün kartı — sol ikon kutusu + ad/birim, sağda fiyat (amount, tabular). Pasif ürün soluk +
-/// üstü çizili ad + "Pasif" çipi taşır; fiyat görünür kalır (bilgi kaybolmaz, yalnız soluklaşır).
-class _UrunKarti extends StatelessWidget {
-  const _UrunKarti({required this.product, required this.writable, required this.db});
-
-  final Product product;
-  final bool writable;
-  final AppDatabase db;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = product;
-    return Material(
-      color: SipColors.s1,
-      borderRadius: SipRadius.cardBr,
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: SipRadius.cardBr,
-          border: Border.all(color: SipColors.line),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 13, 6, 13),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: SipColors.s3,
-                  borderRadius: SipRadius.smBr,
-                ),
-                child: Icon(Icons.water_drop_outlined,
-                    size: 21, color: p.isActive ? SipColors.accFg : SipColors.t3),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      p.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: p.isActive
-                          ? SipText.cardTitle
-                          : SipText.cardTitle.copyWith(
-                              color: SipColors.t3,
-                              decoration: TextDecoration.lineThrough,
-                              decorationColor: SipColors.t3,
-                            ),
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Text('/ ${p.unit}',
-                            style: SipText.secondary.copyWith(fontSize: 13.5)),
-                        if (!p.isActive) ...[
-                          const SizedBox(width: SipSpace.sm),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: const BoxDecoration(
-                              color: SipColors.s3,
-                              borderRadius: SipRadius.smBr,
-                            ),
-                            child: Text('Pasif',
-                                style: SipText.muted.copyWith(color: SipColors.t2)),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                formatKurus(p.unitPriceKurus),
-                style: p.isActive
-                    ? SipText.amount
-                    : SipText.amount.copyWith(color: SipColors.t3),
-              ),
-              if (writable)
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, size: 20, color: SipColors.t3),
-                  onSelected: (v) async {
-                    if (v == 'duzenle') {
-                      await showProductDialog(context, ProductRepository(db), product: p);
-                    } else if (v == 'pasifle') {
-                      await ProductRepository(db).deactivate(p.id);
-                    } else if (v == 'aktif') {
-                      await ProductRepository(db).update(p.id,
-                          name: p.name,
-                          unitPriceKurus: p.unitPriceKurus,
-                          unit: p.unit,
-                          isActive: true);
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'duzenle', child: Text('Düzenle')),
-                    if (p.isActive)
-                      const PopupMenuItem(value: 'pasifle', child: Text('Pasifle'))
-                    else
-                      const PopupMenuItem(value: 'aktif', child: Text('Yeniden aktif et')),
-                  ],
-                )
-              else
-                const SizedBox(width: 8),
-            ],
+                  Expanded(
+                    child: urunler == null
+                        ? const SipGovde(children: [SipIskelet()])
+                        : _Liste(db: db, urunler: urunler, writable: writable),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -206,70 +82,112 @@ class _UrunKarti extends StatelessWidget {
   }
 }
 
-/// Ürün ekleme/düzenleme diyaloğu. Fiyat kullanıcı yazımından kuruşa `parseKurus` ile çevrilir;
-/// geçersiz yazım SESSİZCE kabul edilmez (para).
-Future<void> showProductDialog(BuildContext context, ProductRepository repo, {Product? product}) async {
-  final name = TextEditingController(text: product?.name ?? '');
-  final price = TextEditingController(
-      text: product == null ? '' : (product.unitPriceKurus / 100).toStringAsFixed(2).replaceAll('.', ','));
-  final unit = TextEditingController(text: product?.unit ?? 'adet');
-  final formKey = GlobalKey<FormState>();
+class _Liste extends StatelessWidget {
+  const _Liste({required this.db, required this.urunler, required this.writable});
 
-  final saved = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(product == null ? 'Yeni ürün' : 'Ürünü düzenle'),
-      content: Form(
-        key: formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: name,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Ürün adı *', hintText: '19 L damacana'),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Ad gerekli' : null,
+  final AppDatabase db;
+  final List<Product> urunler;
+  final bool writable;
+
+  Future<void> _ac(BuildContext context, Product? urun) async {
+    if (!writable) {
+      SipToast.goster(context, saltOkunurUyarisi);
+      return;
+    }
+    final kaydedildi = await urunFormuAc(context, db: db, urun: urun);
+    if (kaydedildi && context.mounted) {
+      SipToast.goster(context, 'Ürün kaydedildi');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SipGovde(
+      children: [
+        EkleSatiri(etiket: 'Yeni ürün ekle', onTap: () => _ac(context, null)),
+        if (urunler.isEmpty)
+          const SipBosDurum(
+            ikon: SipIcons.box,
+            baslik: 'Henüz ürün yok',
+            aciklama: 'Yukarıdan ekleyin — sipariş satırları buradan seçilir.',
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: SipSpace.lg),
+            child: Column(
+              children: [
+                for (var i = 0; i < urunler.length; i++)
+                  Padding(
+                    padding: EdgeInsets.only(top: i == 0 ? 0 : 7),
+                    child: _UrunSatiri(
+                      urun: urunler[i],
+                      onTap: () => _ac(context, urunler[i]),
+                    ),
+                  ),
+              ],
             ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: price,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Birim fiyat *', suffixText: '₺'),
-              validator: (v) {
-                final k = parseKurus(v ?? '');
-                if (k == null) return 'Geçerli bir fiyat girin';
-                if (k == 0) return 'Fiyat sıfır olamaz';
-                return null;
-              },
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: unit,
-              decoration: const InputDecoration(labelText: 'Birim', hintText: 'adet / koli'),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
-        FilledButton(
-          onPressed: () {
-            if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
-          },
-          child: const Text('Kaydet'),
-        ),
+          ),
       ],
-    ),
-  );
+    );
+  }
+}
 
-  if (saved != true) return;
-  final kurus = parseKurus(price.text)!;
-  final unitText = unit.text.trim().isEmpty ? 'adet' : unit.text.trim();
-  if (product == null) {
-    await repo.create(name: name.text.trim(), unitPriceKurus: kurus, unit: unitText);
-  } else {
-    await repo.update(product.id,
-        name: name.text.trim(), unitPriceKurus: kurus, unit: unitText, isActive: product.isActive);
+class _UrunSatiri extends StatelessWidget {
+  const _UrunSatiri({required this.urun, required this.onTap});
+
+  final Product urun;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final barkod = urunBarkodu(urun);
+    return UrunSatiri(
+      // Listede YALNIZ cihaz-yerel dosya çizilir; `imageUrl` bir ağ işaretçisidir ve
+      // offline-first kuralı gereği liste kaydırırken ağ isteği yapılmaz.
+      bas: _Kucuk(ad: urun.name, gorsel: urun.imageLocalPath),
+      ad: urun.name,
+      altSatir: urun.unit,
+      altEk: barkod,
+      sag: sipTutar(urun.unitPriceKurus),
+      pasif: !urun.isActive,
+      onTap: onTap,
+    );
+  }
+}
+
+/// CSS `.urow-thumb` (+ `.ph` yer tutucusu) — 42×42, köşe 12.
+class _Kucuk extends StatelessWidget {
+  const _Kucuk({required this.ad, required this.gorsel});
+
+  final String ad;
+  final String? gorsel;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    const kose = BorderRadius.all(Radius.circular(12));
+    final harf = Text(
+      ad.trim().isEmpty ? '?' : trBuyuk(ad.trim().substring(0, 1)),
+      style: SipText.tutar(16, w: 800).copyWith(color: t.accent),
+    );
+    return Container(
+      width: 42,
+      height: 42,
+      alignment: Alignment.center,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(color: t.accentSoft, borderRadius: kose),
+      // Yerel dosya silinmiş/erişilemez olabilir (galeri temizliği, izin kaybı) — o durumda
+      // satır boş bir kutuya düşmesin diye baş harfe geri dönülür.
+      child: gorsel == null
+          ? harf
+          : Image.file(
+              File(gorsel!),
+              width: 42,
+              height: 42,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Center(child: harf),
+            ),
+    );
   }
 }
 
@@ -280,4 +198,14 @@ Stream<List<Product>> watchProducts(AppDatabase db, {bool activeOnly = true}) {
   if (activeOnly) q.where((t) => t.isActive.equals(true));
   q.orderBy([(t) => OrderingTerm.asc(t.name)]);
   return q.watch();
+}
+
+/// GEÇİŞ KÖPRÜSÜ — sipariş formu (`order_form_screen.dart`, başka ajanın alanı) hâlâ eski adı
+/// çağırıyor. Yeni tasarımın sheet'ine yönlendirir; sipariş ekranı `urunFormuAc`a geçince silinir.
+Future<void> showProductDialog(
+  BuildContext context,
+  ProductRepository repo, {
+  Product? product,
+}) async {
+  await urunFormuAc(context, db: repo.db, urun: product);
 }

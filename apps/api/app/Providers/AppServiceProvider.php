@@ -39,17 +39,23 @@ class AppServiceProvider extends ServiceProvider
      * Hız sınırları (güvenlik denetimi bulgusu F1 — kaba kuvvet / kimlik bilgisi doldurma).
      *
      * Zamanlama yan-kanalı zaten kapalı (AuthController), ama sınırsız deneme sözlük saldırısına
-     * kapı açar. İki katmanlı sınır: (1) hedefli — aynı e-posta+IP'ye kaba kuvvet, (2) yayılı —
-     * tek IP'den birçok e-postaya numaralandırma. Aşımda 429 döner (AppendServerTime yine ekler).
+     * kapı açar. İki katmanlı sınır: (1) hedefli — aynı firma kodu+kullanıcı adı+IP'ye kaba
+     * kuvvet, (2) yayılı — tek IP'den birçok hesaba numaralandırma. Aşımda 429 döner
+     * (AppendServerTime yine ekler).
      */
     private function configureRateLimiters(): void
     {
         RateLimiter::for('login', function (Request $request) {
-            // E-posta gövdeden okunur; büyük/küçük harf normalize (login lookup lower() ile eşleşir).
-            $email = Str::lower((string) $request->input('email'));
+            // Kimlik artık firma kodu + kullanıcı adı ÇİFTİdir (tasarım `s-giris.jsx`); hedefli
+            // sınır bu çiftin üzerinden kurulur. Tek başına kullanıcı adıyla anahtarlamak
+            // yanlış olurdu: "patron" her bayide vardır, bir bayiye kaba kuvvet uygulayan
+            // saldırgan bütün bayilerin girişini kilitlerdi.
+            // Büyük/küçük harf normalize (login lookup lower() ile eşleşir).
+            $kimlik = Str::lower((string) $request->input('tenant_code'))
+                .'/'.Str::lower((string) $request->input('username'));
 
             return [
-                Limit::perMinute(5)->by('login:cred:'.$email.'|'.$request->ip()),
+                Limit::perMinute(5)->by('login:cred:'.$kimlik.'|'.$request->ip()),
                 Limit::perMinute(20)->by('login:ip:'.$request->ip()),
             ];
         });

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceController;
+use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\SyncController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,5 +34,10 @@ Route::prefix('v1')->group(function () {
         // endpoint'i görmez; müşteri/sipariş CRUD yerelde Drift + outbox, sunucuya buradan yansır.
         Route::post('/sync/push', [SyncController::class, 'push'])->name('api.sync.push');
         Route::get('/sync/pull', [SyncController::class, 'pull'])->name('api.sync.pull');
+
+        // "Oto Sırala (rota)" — SIRA ÖNERİSİ döner ve sunucu-sahipli kontörü düşer; siparişlere
+        // YAZMAZ. Yazma yine tek yüzeyden (sync push → sort_set) geçer, yukarıdaki kural bozulmaz.
+        Route::post('/orders/auto-route', [RouteController::class, 'autoRoute'])
+            ->name('api.orders.auto-route');
     });
 });

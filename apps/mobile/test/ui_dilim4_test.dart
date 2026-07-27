@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' hide Column, isNull;
+import 'package:drift/drift.dart' hide Column, isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,23 +8,27 @@ import 'package:sipario/repo/cash_handover_repository.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/ledger_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
-import 'package:sipario/screens/cash_handover_screen.dart';
 import 'package:sipario/screens/home_shell.dart';
-import 'package:sipario/screens/money.dart';
 import 'package:sipario/screens/orders/order_detail_screen.dart';
-import 'package:sipario/screens/orders/order_list_screen.dart';
 import 'package:sipario/screens/team.dart';
 import 'package:sipario/sync/sync_api.dart';
 import 'package:sipario/sync/sync_engine.dart';
 import 'package:sipario/sync/sync_service.dart';
-import 'package:sipario/theme/typography.dart';
+import 'package:sipario/theme/components/atoms.dart';
 
+import 'support/ekran_yardimcilari.dart' show akislariBekle;
 import 'support/fake_sync_api.dart';
 
 /// Dilim 4 UI testleri: kurye + kasa devri. Sorgu/yetki mantığı ekrandan bağımsız fonksiyonlarda
 /// tutulur ve saf async sınanır; widget ilk-çizim testleri gizleme kapılarını doğrular. Widget-test
 /// sahte zamanında HER gerçek drift async çağrısı tester.runAsync içinde await edilir (Dilim 1-3 dersi:
 /// düz Future sorgular da asılır); db widget-testte close edilmez; test sonunda ağaç boşaltılır.
+///
+/// NOT (2026-07-26): AYRI `CashHandoverScreen` KALDIRILDI — tasarımda `kasaDevri` rotası yok, devir
+/// Gün Sonu'nun "Hesabı Kapat · Kasa Devri" sheet'inin içindedir. `CashHandoverRepository` ve
+/// `cash_handovers` tablosu YERİNDE: kurye kapanışı devri yazmaya devam ediyor
+/// (`DayClosingRepository.kapat(alsoHandover: true)`), o yüzden repo testleri burada KALDI —
+/// yalnız ekranın kendi görünüm testleri gitti.
 void main() {
   Future<void> addUser(AppDatabase db, String id, String name, String role,
           {String status = 'active'}) =>
@@ -41,48 +45,42 @@ void main() {
   // K2 rol matrisi — tek kişilik gizleme regresyonu (pazarlıksız, BRIEF)
   // ---------------------------------------------------------------------------
   group('yetkiler() — K2 rol matrisi', () {
-    test('patron/operator: ürün+gün-sonu+kupon+düzeltme AÇIK', () {
+    test('patron/operator: ürün+gün-sonu+düzeltme AÇIK', () {
       for (final rol in ['patron', 'operator']) {
         final y = yetkiler(rol: rol, kuryeVar: true);
         expect(y.urunYonetimi, isTrue, reason: '$rol ürün yönetir');
         expect(y.gunSonu, isTrue);
-        expect(y.kuponSatisi, isTrue);
         expect(y.defterDuzeltme, isTrue);
         expect(y.tahsilat, isTrue);
       }
     });
 
-    test('KURYE: yönetici işleri KAPALI; tahsilat + kasa devri AÇIK (kuryeVar önemsiz)', () {
+    test('KURYE: yönetici işleri KAPALI; tahsilat AÇIK (kuryeVar önemsiz)', () {
       final y = yetkiler(rol: 'kurye', kuryeVar: false);
       expect(y.urunYonetimi, isFalse);
       expect(y.gunSonu, isFalse);
-      expect(y.kuponSatisi, isFalse);
       expect(y.defterDuzeltme, isFalse);
       expect(y.atama, isFalse, reason: 'kurye atama yapmaz');
       expect(y.tahsilat, isTrue, reason: 'kurye sahada tahsilat alır (collected_by ondan)');
-      expect(y.kasaDevri, isTrue, reason: 'kurye kendisi kanıttır — her zaman kendi devrini görür');
     });
 
-    test('TEK KİŞİLİK BAYİ (patron, aktif kurye YOK): atama VE kasa devri GİZLİ', () {
+    test('TEK KİŞİLİK BAYİ (patron, aktif kurye YOK): atama GİZLİ', () {
       final y = yetkiler(rol: 'patron', kuryeVar: false);
       expect(y.atama, isFalse, reason: 'tek kişilikte atama görünmez (BRIEF)');
-      expect(y.kasaDevri, isFalse, reason: 'tek kişilikte kasa devri görünmez (BRIEF)');
       // İş yönetimi yine açık.
       expect(y.urunYonetimi, isTrue);
       expect(y.gunSonu, isTrue);
     });
 
-    test('patron + aktif kurye VAR: atama ve kasa devri AÇILIR', () {
+    test('patron + aktif kurye VAR: atama AÇILIR', () {
       final y = yetkiler(rol: 'patron', kuryeVar: true);
       expect(y.atama, isTrue);
-      expect(y.kasaDevri, isTrue);
     });
 
-    test('rol null (giriş öncesi): yönetici/atama/kasa kapalı, tahsilat açık', () {
+    test('rol null (giriş öncesi): yönetici/atama kapalı, tahsilat açık', () {
       final y = yetkiler(rol: null, kuryeVar: true);
       expect(y.urunYonetimi, isFalse);
       expect(y.atama, isFalse);
-      expect(y.kasaDevri, isFalse);
       expect(y.tahsilat, isTrue);
     });
   });
@@ -246,108 +244,13 @@ void main() {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // CashHandoverScreen — ekran-repo tutarlılığı (paralel hesap yok)
-  // ---------------------------------------------------------------------------
-  group('CashHandoverScreen: ekran-repo tutarlılığı (beklenen nakit = onizle())', () {
-    testWidgets('ekranda gösterilen "Beklenen nakit" repo.onizle() ile birebir aynı metinle çıkar',
-        (tester) async {
-      final db = AppDatabase(NativeDatabase.memory());
-      late int gercekBeklenen;
-      await tester.runAsync(() async {
-        await setUser(db, id: 'k1', role: 'kurye');
-        final custId = await CustomerRepository(db).create(name: 'Ekran Kasa');
-        await LedgerRepository(db).tahsilat(custId, 12345, 'nakit');
-        await LedgerRepository(db).tahsilat(custId, 3000, 'kart'); // fiziksel kasa değil (kontrast)
-        gercekBeklenen = (await CashHandoverRepository(db).onizle('k1')).expectedKurus;
-      });
-
-      await tester.pumpWidget(MaterialApp(
-          home: CashHandoverScreen(db: db, userId: 'k1', writable: true, userRole: 'kurye')));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
-
-      // Ekranın sabit bir metnini tahmin etmiyoruz — repo'nun ürettiği gerçek değeri formatKurus'a
-      // sokup ekranda arıyoruz (Dilim 3 ekran-repo tutarlılığı deseniyle simetri).
-      expect(find.text(formatKurus(gercekBeklenen)), findsOneWidget,
-          reason: 'ekranın önizlemesi ile repo.onizle() paralel hesap değil, AYNI kod');
-      expect(gercekBeklenen, 12345, reason: 'yalnız nakit toplanır; kart hariç (sağlamlık)');
-
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump(const Duration(seconds: 5));
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // watchCashHandovers (geçmiş sorgusu)
-  // ---------------------------------------------------------------------------
-  group('watchCashHandovers (geçmiş)', () {
-    late AppDatabase db;
-    setUp(() => db = AppDatabase(NativeDatabase.memory()));
-    tearDown(() => db.close());
-
-    test('fromUserId → yalnız o kurye; null → tümü; en yeni önce', () async {
-      final repo = CashHandoverRepository(db);
-      await repo.devret(fromUserId: 'k1', countedCashKurus: 100);
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-      await repo.devret(fromUserId: 'k2', countedCashKurus: 200);
-      await Future<void>.delayed(const Duration(milliseconds: 5));
-      await repo.devret(fromUserId: 'k1', countedCashKurus: 300);
-
-      final k1 = await watchCashHandovers(db, fromUserId: 'k1').first;
-      expect(k1.map((h) => h.countedCashKurus).toList(), [300, 100],
-          reason: 'yalnız k1, en yeni önce');
-
-      final all = await watchCashHandovers(db).first;
-      expect(all, hasLength(3));
-      expect(all.first.countedCashKurus, 300, reason: 'yönetici görünümü: tümü, en yeni önce');
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // watchOrders — "Benim" filtresi (kuryenin iş listesi)
-  // ---------------------------------------------------------------------------
-  group('watchOrders — Benim filtresi', () {
-    late AppDatabase db;
-    setUp(() => db = AppDatabase(NativeDatabase.memory()));
-    tearDown(() => db.close());
-
-    Future<String> mkOrder(OrderRepository r) =>
-        r.create(lines: [LineInput(productName: 'D', unitPriceKurus: 100, qty: 1)]);
-
-    test('yalnız bana atanmış AÇIK siparişler', () async {
-      final orders = OrderRepository(db);
-      final o1 = await mkOrder(orders);
-      await Future<void>.delayed(const Duration(milliseconds: 3));
-      final o2 = await mkOrder(orders);
-      await Future<void>.delayed(const Duration(milliseconds: 3));
-      await mkOrder(orders); // o3 atanmamış
-      await orders.assign(o1, 'k1');
-      await orders.assign(o2, 'k2');
-
-      final benim = await watchOrders(db, OrderFilter.benim, assignedTo: 'k1').first;
-      expect(benim.map((i) => i.order.id).toList(), [o1], reason: 'yalnız k1\'e atanmış açık sipariş');
-    });
-
-    test('teslim edilen sipariş Benim listesinden düşer (yalnız açık)', () async {
-      final orders = OrderRepository(db);
-      final custId = await CustomerRepository(db).create(name: 'X');
-      final o = await orders.create(
-          customerId: custId, lines: [LineInput(productName: 'D', unitPriceKurus: 100, qty: 1)]);
-      await orders.assign(o, 'k1');
-      await orders.deliver(o, paymentType: 'nakit');
-
-      final benim = await watchOrders(db, OrderFilter.benim, assignedTo: 'k1').first;
-      expect(benim, isEmpty, reason: 'teslim edilmiş sipariş kuryenin açık iş listesinde olmamalı');
-    });
-
-    test('assignedTo null → boş (kimseye atanmamış gösterilmez)', () async {
-      final orders = OrderRepository(db);
-      await mkOrder(orders);
-      final benim = await watchOrders(db, OrderFilter.benim, assignedTo: null).first;
-      expect(benim, isEmpty);
-    });
-  });
+  // KALDIRILAN İKİ TEST GRUBU (2026-07-26), ikisi de ÖLÜ YÜZEY savunuyordu:
+  //  • `watchCashHandovers` — sorgu silinen `cash_handover_screen.dart` içindeydi, tek tüketicisi
+  //    o ekrandı. Devrin append-only olduğunu yukarıdaki grup + `courier_test.dart` kanıtlıyor;
+  //    geçmiş yeniden gösterilecekse sorgu `CashHandoverRepository`ye taşınmalı, test geri gelir.
+  //  • `OrderFilter.benim` — "Benim" sekmesi kullanıcı kararıyla kalktı (tasarımda yoktu, atama
+  //    kullanmayan bayide boş sekme karşılıyordu). Enum değeri ve `order_queries.dart` dalı da
+  //    temizlenecek. Şeridin yeni sözleşmesi: test/ui_siparis_test.dart (dört sekme, "Benim" YOK).
 
   // ---------------------------------------------------------------------------
   // Widget ilk-çizim: gizleme kapıları (runAsync ŞART).
@@ -356,93 +259,90 @@ void main() {
   // ağaç boşaltılıp sahte saat ilerletilir (bekleyen zamanlayıcılar sönsün — !timersPending).
   // ---------------------------------------------------------------------------
   group('ekran görünürlüğü (widget ilk-çizim)', () {
-    testWidgets('sipariş detayı: canAssign=false → "Kuryeye ata" YOK (tek kişilik)', (tester) async {
+    // ATAMA YÜZEYİ DEĞİŞTİ (2026-07-26): "Kuryeye ata" bağlantısı KALDIRILDI — tasarımın
+    // `.sdx-head`inde kurye çipi HEP doludur (s-siparisler.jsx:470), atanmamış hâl yoktur.
+    // Kurye adı yoksa o bayi atama kullanmıyor demektir ve ona kurye kavramı hatırlatılmaz
+    // (BRIEF: tek kişilikte kurye adımları görünmez). Sınanan sözleşme artık ÇİP:
+    //  • atanmamış → hiç çip yok (ve eski bağlantı da yok)
+    //  • atanmış + canAssign → çip kuryenin adıyla ve DOKUNULABİLİR (atama değişebilir)
+    //  • atanmış + !canAssign → çip var, dokunma KAPALI (K2: kurye atama yapmaz)
+    // BEKLEME: çip `assignedUserId`yi EKİP AKIŞINDAN çözüyor ve ekran İÇ İÇE dört akış dinliyor
+    // (sipariş · satırlar · ekip · adresler). Tek 150 ms turu ekip akışına yetmiyordu: çip
+    // `kuryeAd == null` sanıp hiç çizilmiyordu. Paylaşılan `akislariBekle` (4×80 ms) kullanılıyor.
+    testWidgets('sipariş detayı: atanmamış → kurye çipi de "Kuryeye ata" da YOK', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       late String orderId;
       await tester.runAsync(() async {
-        orderId = await OrderRepository(db)
-            .create(lines: [LineInput(productName: 'D', unitPriceKurus: 100, qty: 1)]);
-      });
-
-      await tester.pumpWidget(MaterialApp(
-          home: OrderDetailScreen(db: db, orderId: orderId, writable: true, canAssign: false)));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
-
-      expect(find.text('Kuryeye ata'), findsNothing);
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump(const Duration(seconds: 5));
-    });
-
-    testWidgets('sipariş detayı: canAssign=true + açık → "Kuryeye ata" VAR', (tester) async {
-      final db = AppDatabase(NativeDatabase.memory());
-      late String orderId;
-      await tester.runAsync(() async {
+        await addUser(db, 'k1', 'Emre', 'kurye');
         orderId = await OrderRepository(db)
             .create(lines: [LineInput(productName: 'D', unitPriceKurus: 100, qty: 1)]);
       });
 
       await tester.pumpWidget(MaterialApp(
           home: OrderDetailScreen(db: db, orderId: orderId, writable: true, canAssign: true)));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
+      await akislariBekle(tester);
 
-      expect(find.text('Kuryeye ata'), findsOneWidget);
+      expect(find.text('Kuryeye ata'), findsNothing, reason: 'bağlantı tasarımda yok');
+      expect(find.text('Emre'), findsNothing,
+          reason: 'atanmamış siparişte kurye çipi hiç çizilmez (boş çip hâli yok)');
+
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('sipariş listesi: kurye → "Benim" sekmesi VAR; patron → YOK', (tester) async {
+    testWidgets('sipariş detayı: atanmış + canAssign=true → çip DOKUNULABİLİR', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
+      late String orderId;
+      await tester.runAsync(() async {
+        await addUser(db, 'k1', 'Emre', 'kurye');
+        final orders = OrderRepository(db);
+        orderId = await orders
+            .create(lines: [LineInput(productName: 'D', unitPriceKurus: 100, qty: 1)]);
+        await orders.assign(orderId, 'k1');
+      });
 
       await tester.pumpWidget(MaterialApp(
-          home: OrderListScreen(db: db, writable: true, userRole: 'kurye', userId: 'k1')));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
-      expect(find.text('Benim'), findsOneWidget, reason: 'kuryede günlük iş sekmesi');
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump(const Duration(seconds: 5));
+          home: OrderDetailScreen(db: db, orderId: orderId, writable: true, canAssign: true)));
+      await akislariBekle(tester);
 
-      await tester.pumpWidget(MaterialApp(
-          home: OrderListScreen(db: db, writable: true, userRole: 'patron', userId: 'p')));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
-      expect(find.text('Benim'), findsNothing, reason: 'yöneticide Benim sekmesi yok');
+      expect(find.text('Emre'), findsOneWidget, reason: 'çip atanan kuryenin adını taşır');
+      final cip = tester.widget<SipDokun>(
+        find.ancestor(of: find.text('Emre'), matching: find.byType(SipDokun)).first,
+      );
+      expect(cip.onTap, isNotNull, reason: 'yönetici çipten atamayı değiştirebilir');
+
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('kasa devri: salt-okunur kipte devir SnackBar ile engellenir', (tester) async {
+    testWidgets('sipariş detayı: atanmış + canAssign=false → çip var, dokunma KAPALI (K2)',
+        (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
-      await tester.runAsync(() => setUser(db, id: 'k1', role: 'kurye'));
+      late String orderId;
+      await tester.runAsync(() async {
+        await addUser(db, 'k1', 'Emre', 'kurye');
+        final orders = OrderRepository(db);
+        orderId = await orders
+            .create(lines: [LineInput(productName: 'D', unitPriceKurus: 100, qty: 1)]);
+        await orders.assign(orderId, 'k1');
+      });
 
       await tester.pumpWidget(MaterialApp(
-          home: CashHandoverScreen(db: db, userId: 'k1', writable: false, userRole: 'kurye')));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
+          home: OrderDetailScreen(db: db, orderId: orderId, writable: true, canAssign: false)));
+      await akislariBekle(tester);
 
-      await tester.tap(find.text('Kasayı devret'));
-      await tester.pump();
-      expect(find.textContaining('Salt-okunur'), findsOneWidget);
+      // Bilgi KAYBOLMAZ (kurye kime atandığını görür), yalnız EYLEM kapanır.
+      expect(find.text('Emre'), findsOneWidget);
+      final cip = tester.widget<SipDokun>(
+        find.ancestor(of: find.text('Emre'), matching: find.byType(SipDokun)).first,
+      );
+      expect(cip.onTap, isNull, reason: 'kurye atama yapmaz (K2)');
+
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('kasa devri: mağaza-kuralı ihlali yok (satın alma/abonelik metni)', (tester) async {
-      final db = AppDatabase(NativeDatabase.memory());
-      await tester.runAsync(() => setUser(db, id: 'k1', role: 'kurye'));
-
-      await tester.pumpWidget(MaterialApp(
-          home: CashHandoverScreen(db: db, userId: 'k1', writable: true, userRole: 'kurye')));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
-
-      for (final yasak in ['Abone', 'Satın al', 'Üye ol', 'Kaydol', 'Ödeme yap']) {
-        expect(find.textContaining(yasak), findsNothing, reason: '"$yasak" mobilde gösterilemez');
-      }
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump(const Duration(seconds: 5));
-    });
+    // NOT — 'kurye → "Benim" sekmesi VAR' testi de KALDIRILDI: sekme hiçbir rolde çizilmiyor.
   });
 
   // ---------------------------------------------------------------------------
@@ -456,13 +356,87 @@ void main() {
           home: HomeShell(db: db, session: session, sync: sync, onLoggedOut: () {})));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
       await tester.pump();
-      await tester.tap(find.text('Menü'));
+      // SİPARİO 3.0: menüyü açan şey artık bir metin değil, ana ekran hero'sundaki ikon
+      // düğmesi (`SipIkonButon(ikon: menu, etiket: 'Menü')`). Tasarımda o düğmenin yanında
+      // yazı YOK — bilinçli bir görsel karar — bu yüzden etiketi semantikten okuyoruz.
+      await tester.tap(find.bySemanticsLabel('Menü'));
       await tester.pump();
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
       await tester.pump();
     }
 
-    testWidgets('kurye kabuğu: Ürünler/Gün sonu YOK, Kasa devri VAR', (tester) async {
+    // CİHAZDA YAKALANAN GERİLEME (2026-07-26): kabuk `onMenu`yu YALNIZ ana ekrana geçiyordu.
+    // Diğer üç sekmede hamburger hiç çizilmiyordu (Gün Sonu'nda yerine işlevsiz bir geri oku
+    // vardı) — yani çekmece, dolayısıyla Ürünler/Kuryeler/Muaf/Ayarlar/çıkış, o sekmelerdeyken
+    // ERİŞİLEMEZDİ. Tasarımda (s-uygulama.jsx) dört ana ekranın dördü de `onMenu` alır.
+    testWidgets('çekmece DÖRT sekmenin hepsinden açılabilir', (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await setUser(db, id: 'p', role: 'patron');
+        await addUser(db, 'p', 'Patron', 'patron');
+      });
+
+      final session = Session(db);
+      final sync = SyncService(db);
+      await tester.pumpWidget(MaterialApp(
+          home: HomeShell(db: db, session: session, sync: sync, onLoggedOut: () {})));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pump();
+
+      // Sekmelere METİNLE dokunulamaz: tasarımda yalnız SEÇİLİ sekmenin etiketi görünür
+      // (CSS `.altnav-b span { display: none }`), diğerleri sadece ikon. Erişilebilirlik
+      // etiketi ise her zaman var — dokunuş oradan.
+      for (final sekme in ['Ana', 'Müşteri', 'Sipariş', 'Gün Sonu']) {
+        if (sekme != 'Ana') {
+          await tester.tap(find.bySemanticsLabel(sekme).last);
+          await tester.pump();
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+          await tester.pump();
+        }
+        expect(find.bySemanticsLabel('Menü'), findsWidgets,
+            reason: '$sekme sekmesinde çekmeceyi açacak düğme yok — '
+                'Ürünler/Kuryeler/Muaf/Ayarlar/çıkış oradan erişiliyor');
+      }
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    });
+
+    // Aynı turda bulunan ikinci kopukluk: Ayarlar ekranı yazılmıştı ama çekmecede girişi yoktu,
+    // ve Kuryeler/Muaf/İşletme Profili yalnız Ayarlar'dan açıldığı için o dalın TAMAMI ölüydü.
+    testWidgets('çekmecede Kuryeler · Muaf Telefonlar · Ayarlar girişleri VAR', (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await setUser(db, id: 'p', role: 'patron');
+        await addUser(db, 'p', 'Patron', 'patron');
+      });
+
+      await pumpShell(tester, db);
+
+      for (final giris in ['Ürünler', 'Kuryeler', 'Muaf Telefonlar', 'Ayarlar']) {
+        expect(find.text(giris), findsOneWidget, reason: '$giris çekmecede yok');
+      }
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    });
+
+    // AYRI KASA DEVRİ EKRANI KALDIRILDI (2026-07-26): çekmecedeki satır artık Gün Sonu sekmesine
+    // gider ve rolüne göre ETİKETLENİR — kuryede "Kasa Devri" (kendi işinin adı), yöneticide
+    // tasarımın birleşik etiketi "Gün Sonu & Kasa Devri". Bu testler kabuğun tamamı üzerinden
+    // (HomeShell) bakar; çekmecenin kendi sözleşmesi test/ui_kabuk_test.dart'ta.
+    testWidgets('kurye kabuğu: Ürünler/Gün sonu YOK, satır "Kasa Devri" adıyla VAR',
+        (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await setUser(db, id: 'k1', role: 'kurye');
@@ -472,15 +446,15 @@ void main() {
       await pumpShell(tester, db);
 
       expect(find.text('Ürünler'), findsNothing);
-      expect(find.text('Gün sonu'), findsNothing);
-      expect(find.text('Kasa devri'), findsOneWidget);
+      expect(find.text('Gün Sonu & Kasa Devri'), findsNothing,
+          reason: 'kuryede birleşik yönetici etiketi kullanılmaz');
+      expect(find.text('Kasa Devri'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
     });
 
-    testWidgets('patron + aktif kurye YOK: Ürünler/Gün sonu VAR, Kasa devri YOK (tek kişilik)',
-        (tester) async {
+    testWidgets('patron + aktif kurye YOK: Ürünler/Gün sonu VAR (tek kişilik)', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await setUser(db, id: 'p', role: 'patron');
@@ -490,17 +464,18 @@ void main() {
       await pumpShell(tester, db);
 
       expect(find.text('Ürünler'), findsOneWidget);
-      expect(find.text('Gün sonu'), findsOneWidget);
-      expect(find.text('Kasa devri'), findsNothing,
-          reason: 'tek kişilik bayide kasa devri girişi HİÇ render edilmez (BRIEF)');
+      expect(find.text('Gün Sonu & Kasa Devri'), findsOneWidget);
+      expect(find.text('Kasa Devri'), findsNothing,
+          reason: 'kuryeye özgü etiket yöneticide çizilmez — tek satır, tek hedef');
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
     });
 
-    testWidgets(
-        'patron kabuğu + aktif kurye VAR: Ürünler/Gün sonu/Kasa devri HEPSİ VAR (kontrast çifti)',
+    testWidgets('patron kabuğu + aktif kurye VAR: etiket kuryeVar\'a göre DEĞİŞMEZ',
         (tester) async {
+      // Eski davranış: kasa devri girişi yöneticide yalnız aktif kurye varken açılıyordu. Artık
+      // ayrı ekran yok — satır Gün Sonu'na gidiyor ve yönetici onu her hâlde görüyor.
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await setUser(db, id: 'p', role: 'patron');
@@ -511,75 +486,14 @@ void main() {
       await pumpShell(tester, db);
 
       expect(find.text('Ürünler'), findsOneWidget);
-      expect(find.text('Gün sonu'), findsOneWidget);
-      expect(find.text('Kasa devri'), findsOneWidget,
-          reason: 'aktif kurye varken yönetici kasa devrini de görür (tek-kişilik gizlemenin tersi)');
+      expect(find.text('Gün Sonu & Kasa Devri'), findsOneWidget);
+      expect(find.text('Kasa Devri'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
     });
 
-    // -------------------------------------------------------------------------
-    // Ekran 4 yeniden tasarım regresyonu (görünüm sözleşmesi; davranış testleri yukarıda)
-    // -------------------------------------------------------------------------
-    testWidgets('Ekran 4: AppBar yok, başlık screenTitle; senkron kartı + bölüm etiketleri çizilir',
-        (tester) async {
-      // Varsayılan test yüzeyi 800×600 — ListView tembel çizer, alt bölümler (HESAP) hiç
-      // kurulmaz ve find.text boş döner. Uzun yüzeyle tüm menü tek seferde görünür.
-      tester.view.physicalSize = const Size(800, 2400);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
-      final db = AppDatabase(NativeDatabase.memory());
-      await tester.runAsync(() async {
-        await setUser(db, id: 'p', role: 'patron');
-        await addUser(db, 'p', 'Patron', 'patron');
-        await addUser(db, 'k1', 'Kurye', 'kurye'); // İŞLETME bölümü tam dolu görünsün
-      });
-
-      await pumpShell(tester, db);
-
-      // Yeniden tasarım: AppBar kalktı, ekran başlığı screenTitle token stiliyle çizilir
-      // (alt gezinme etiketi de 'Menü' — stil üzerinden ayrıştırılır).
-      expect(find.byType(AppBar), findsNothing);
-      final menuBasliklari = tester.widgetList<Text>(find.text('Menü'));
-      expect(menuBasliklari.any((t) => t.style == SipText.screenTitle), isTrue,
-          reason: 'ekran başlığı SipText.screenTitle ile çizilmeli');
-
-      // Senkron durum kartı (DESIGN_SYSTEM "Senkron durumu (Menü)"): etiket + henüz-yok durumu.
-      expect(find.text('Şimdi senkronla'), findsOneWidget);
-      expect(find.text('Bu oturumda henüz senkron olmadı'), findsOneWidget);
-
-      // Bölüm etiketleri sectionLabel ile: İŞLETME (yetkili girişler) + UYGULAMA + HESAP.
-      for (final etiket in ['İŞLETME', 'UYGULAMA', 'HESAP']) {
-        final w = tester.widget<Text>(find.text(etiket));
-        expect(w.style, SipText.sectionLabel, reason: '$etiket bölüm etiketi sectionLabel stilinde');
-      }
-      expect(find.text('Çıkış yap'), findsOneWidget);
-
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump(const Duration(seconds: 5));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-    });
-
-    testWidgets('Ekran 4 (kurye): İŞLETME bölümünde yalnız Kasa devri; profil kartı rolü gösterir',
-        (tester) async {
-      final db = AppDatabase(NativeDatabase.memory());
-      await tester.runAsync(() async {
-        await setUser(db, id: 'k1', role: 'kurye');
-        await addUser(db, 'k1', 'Kurye', 'kurye');
-      });
-
-      await pumpShell(tester, db);
-
-      // Kurye görünümü: İŞLETME etiketi Kasa devri sayesinde durur, yönetici girişleri yok
-      // (gizleme kanıtı yukarıdaki davranış testinde; burada etiketin de tutarlı olduğu sınanır).
-      expect(find.text('İŞLETME'), findsOneWidget);
-      expect(find.text('Kasa devri'), findsOneWidget);
-      expect(find.text('Ürünler'), findsNothing);
-
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump(const Duration(seconds: 5));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
-    });
+    // NOT — "Ekran 4 / Menü sekmesi" testleri KALDIRILDI (2026-07-26): o ekran tasarımda YOK,
+    // yerini Çekmece aldı; çekmecenin görünüm sözleşmesi test/ui_kabuk_test.dart'ta.
   });
 }

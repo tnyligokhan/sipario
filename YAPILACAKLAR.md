@@ -1,5 +1,12 @@
 # YAPILACAKLAR — Sipario (proje sahibi/insan işleri)
 
+> ## ⚠️ BU DOSYA BAYAT (2026-07-16) — GÜNCEL LİSTE `PLAN.md`'DEDİR
+> Aşağıdaki liste 2026-07-16'da yazıldı ve o günden beri güncellenmedi: kapanmış maddeler
+> (2, 13) hâlâ açık görünüyor, kaldırılmış kupon özelliğinden söz ediyor, "~%79" oranı eski.
+> **Güncel ve adım adım liste:** `PLAN.md` → `## Güncel durum` → `🔻 VARDİYA DEVİR NOTU` →
+> `SIRADAKİ İŞLER`. Çelişki halinde PLAN.md doğrudur. Bu dosya arşiv olarak duruyor;
+> yeniden yazımı proje sahibinin onayını bekliyor (2026-07-26'da önerildi).
+
 > **Bu döküman kimin için?** Yazılım tarafı büyük ölçüde bitti; ilerlemenin önündeki her şey artık
 > **senin elindeki dışsal girdiler** (anahtar, hesap, cihaz, avukat, saha). Bu liste, Claude'un
 > bitiremeyeceği — sana ihtiyaç duyan — TÜM işleri tek yerde toplar.
@@ -79,7 +86,7 @@ bitirince ilgili faz kapanışına yaklaşırsın; hangisini önce açtığın b
 
 ### 8. Mağaza başvuru paketindeki kalan PLACEHOLDER'lar (`docs/magaza/`)
 - **Arayan-tanıma tanıtım videosu** (kilitli+kilitsiz ekran) — HENÜZ ÇEKİLMEDİ; BRIEF mağaza incelemesi
-  için zorunlu sayıyor. Demo hesapla çek (`demo@sipario.com.tr` / `demo1234`). `inceleme-notlari.md`.
+  için zorunlu sayıyor. Demo hesapla çek (Firma Kodu `demo` · Kullanıcı Adı `demo` · `demo1234`). `inceleme-notlari.md`.
 - **Destek e-postası/telefonu** — üç mağaza dosyasında [köşeli].
 - **Ekran görüntüleri + feature graphic** — hiç üretilmedi (görsel iş).
 - **`USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı** — metin hazır, Play Console formuna elle aktarılacak.

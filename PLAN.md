@@ -4,6 +4,12 @@
 > `DECISIONS.md`'yi okut. Vardiyanı bitirirken Claude'a "PLAN.md'nin güncel durum
 > bölümünü güncelle" de — sonraki kişi kaldığın yerden devam eder. Sohbet geçmişi
 > paylaşılmaz; **bu üç dosya + git geçmişi projenin tek ortak hafızasıdır.**
+>
+> ## ▶ VARDİYAYA BAŞLIYORSAN
+> Doğruca **`## Güncel durum` → `🔻 VARDİYA DEVİR NOTU`** bölümüne git (bu dosyada, aşağıda).
+> Orada ne yapıldığı, ne yapılmadığı ve **sıradaki işler adım adım** yazılıdır. Aşağıdaki
+> ilerleme panosu ve faz tabloları ARKA PLANDIR; günlük iş o bölümdedir.
+> `YAPILACAKLAR.md` ile çelişirse **devir notu doğrudur** (o dosya bayat).
 
 ## İlerleme panosu (SABİT — her vardiya sonunda güncellenir)
 
@@ -61,9 +67,580 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-23 — UI YENİDEN TASARIM: tema temeli + Ekran 1-2 (Müşteriler/Siparişler) bitti, Ekran 3 Gün sonu KOD BAŞLAMADI; 161/161 + APK)
+## Güncel durum (son güncelleme: 2026-07-26/4 — ÇAĞRI KARTI EYLEMLERİ + GERÇEK BARKOD OKUYUCU + açılış sekmesi ANA; Drift v10 · dart analyze 0 · flutter test 378/378 · APK derlendi ve CİHAZA KURULDU)
 
-### VARDİYA 2026-07-23 (UI YENİDEN TASARIM — Claude Design handoff; merkezî tema + Ekran 1-2 bitti, Ekran 3 yarım)
+---
+
+# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-07-26 akşamı kapandı)
+
+**Bir cümlede:** Yazılım tarafı büyük ölçüde bitti ve cihazda çalışıyor; **kritik yolun neredeyse
+tamamı artık kodda değil, proje sahibinin elindeki dışsal girdilerde** (anahtar, hesap, avukat,
+saha). Kod tarafında sahipsiz kalan üç iş var: **mobil CI**, **emanet takibi kararı**, ve
+**pilot ölçümünün önündeki `kDebugMode` kapısı**.
+
+**Ölçüm (2026-07-26 kapanışı):** `dart analyze` 0 (lib+test) · `flutter test` **378/378** ·
+debug APK derlendi ve **Samsung SM-S721B'ye kuruldu** · `adb reverse tcp:8000` kurulu ·
+demo giriş doğrulandı (`demo`/`demo`/`demo1234` → 200).
+**API bu vardiyada HİÇ DEĞİŞMEDİ** — son yeşil koşum 2026-07-26/3: phpunit 220/220, pint+phpstan temiz.
+
+## Bu vardiyada NE YAPILDI
+
+1. **Çağrı kartının düğmeleri bağlandı** (bayi bildirdi: "hiçbir şey olmuyor"). İki ayrı kopukluk
+   vardı, kart kendisi sağlamdı — ayrıntı aşağıdaki vardiya kaydında.
+2. **Gerçek barkod okuyucu** (kamera) — eski "elle yazma sheet'i" silindi.
+3. **Açılış sekmesi ANA** yapıldı (tasarımdan bilinçli sapma, testle kilitli).
+4. **Eksik denetimi** yapıldı — aşağıdaki "SIRADAKİ İŞLER" bölümü onun çıktısıdır.
+
+## Bu vardiyada NE YAPILMADI (bilerek ya da bloklu)
+
+- **Cihazda tam gezinti BENİM tarafımdan yapılmadı** — telefon bayinin elinde, kurulum yapıldı,
+  gezinmeyi kendisi yapıyor. Gözle doğrulanması istenenler: kayıtlı çağrı kartının 4 varyantı,
+  input yükseklikleri, kuryede Gün Sonu kapsamı, kamera ile barkod okuma.
+- **Emanet/boş damacana takibi KARARI BEKLİYOR** — bayiye üç seçenek sunuldu (tam yap / basit
+  sayaç / v1'den çıkar), **cevap gelmedi**. Karar verilmeden koda dokunma. Ayrıntı: iş #6.
+- **`YAPILACAKLAR.md` bayat** (2026-07-16 tarihli; "~%79" diyor, kupon hâlâ listede, kapanmış
+  maddeler duruyor). Yeniden yazımı önerildi, onay gelmedi. **Çelişki halinde BU BÖLÜM doğrudur.**
+- **`test/ui_dilim3_test.dart` 608 satır** — depo kuralı 500. Ortak alan, sahibi belirsiz.
+- **Tasarım tarafında 3 sınıfın CSS kuralı yok** (`balrozet*`, `mrow-tag`, `ara-ic`) — JSX onları
+  kullanıyor, uygulama ölçüyü tahminle çiziyor. Tasarım güncellenmeli, kod değil.
+- **APK büyüdü:** release fat APK 44,8 MB → **73,7 MB** (ML Kit gömülü modeli, ABI başına).
+  Bayinin indireceği arm64 sürümü **27,9 MB**; mağazaya App Bundle gidince bölme kendiliğinden olur.
+
+---
+
+# SIRADAKİ İŞLER — önem sırasına göre, adım adım
+
+> **Okuma kılavuzu:** Her iş için **NEDEN** (neyi bloklar), **KİMDE** (sen mi Claude mı),
+> **ADIMLAR**, **BİTTİ SAYILIR** ve **KANIT** (koddaki yeri) var. 🔴 = bu olmadan ürün satılamaz.
+>
+> **Acı gerçek:** 🔴 işlerin 4'ü de proje sahibinde. Claude'un tek başına ilerletebileceği en
+> değerli iş **#5 (mobil CI)** ve **#4'ün kod ayağı**. Sıradaki vardiya boş kalmasın diye
+> önce onlara bak.
+
+## 🔴 1. iyzico sandbox anahtarı → ödeme akışını canlıya bağla
+
+**NEDEN:** Faz 5'in kodu TAM ama **gerçek iyzico ile hiç konuşmadı**. Anahtar olmadan tek kuruş
+tahsilat yapılamaz; abonelik iş modelinin tamamı buna bağlı. Bu, tüm listenin en pahalı beklemesi.
+
+**KİMDE:** Anahtar üretimi **sende**; entegrasyon ve güvenlik testi **Claude'da**.
+
+**ADIMLAR:**
+1. iyzico'da **sandbox** hesabı aç (üretim değil — önce sandbox).
+2. `IYZICO_API_KEY` + `IYZICO_SECRET_KEY`'i Claude'a ver → `.env`'e girer.
+3. Claude sandbox'ta ödeme akışını uçtan uca koşar.
+4. **⚠️ PAZARLIKSIZ GÜVENLİK TESTİ** — smoke-test YETMEZ, üçü de ayrı ayrı sınanmalı:
+   - **(a) forged-body reddi:** sahte `paymentStatus: success` gövdesi gönderildiğinde abonelik
+     AÇILMAMALI. Açılırsa bedava abonelik açığı demektir.
+   - **(b) gerçek `retrieve` geri-sorgusu:** karar iyzico'ya sunucu-sunucu sorulup verilmeli.
+   - **(c) IYZWSv2 imza doğrulaması.**
+5. Sandbox yeşilse **üretim** anahtarlarını al, aynı üç testi üretimde tekrarla.
+
+**BİTTİ SAYILIR:** Sandbox'ta sahte gövde reddedildi + gerçek ödeme aboneliği açtı + üretim
+anahtarları `.env`'de.
+
+**KANIT:** `apps/api/config/subscription.php:38-40` · `apps/api/app/Payment/IyzicoPaymentGateway.php`
+
+## 🔴 2. Android release imza anahtarı (keystore)
+
+**NEDEN:** `release` derleme **hâlâ debug anahtarıyla imzalanıyor**. Debug imzalı paket Play'e
+**yüklenemez** — mağaza başvurusu bu satır yüzünden ilk adımda durur. Yapılması yarım saat,
+yapılmaması her şeyi bloklar. **Ucuz ve kritik: sıradaki vardiyada ilk bunu iste.**
+
+**KİMDE:** Anahtar üretimi ve saklanması **sende** (Claude anahtar üretemez/saklayamaz);
+gradle'a bağlama **Claude'da**.
+
+**ADIMLAR:**
+1. Play Console'da **Play App Signing**'e kaydol.
+2. `keytool -genkeypair -v -keystore sipario-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload`
+3. **Parolayı ve .jks dosyasını güvenli sakla.** Kaybolursa uygulama bir daha GÜNCELLENEMEZ —
+   yeni paket adıyla sıfırdan yayımlamak gerekir, mevcut kullanıcılar güncelleme alamaz.
+4. `key.properties` dosyasını Claude'a tarif et (yolu + alias) → gradle'a bağlar.
+   **`.jks` ve parolalar ASLA depoya girmez** (kırmızı çizgi: sır commit edilmez).
+5. `flutter build appbundle --release` ile imzanın gerçekten değiştiğini doğrula.
+
+**BİTTİ SAYILIR:** `build.gradle.kts:35`'teki `signingConfigs.getByName("debug")` gitti,
+release AAB kendi anahtarıyla imzalı.
+
+**KANIT:** `apps/mobile/android/app/build.gradle.kts:32-36` (`// TODO: Faz 6'da kendi imza anahtarımız`)
+
+## 🔴 3. Apple D-U-N-S + mağaza geliştirici hesapları
+
+**NEDEN:** Mağaza başvurusunun ön koşulu. **Apple kurumsal hesap D-U-N-S numarası ister ve
+D-U-N-S başvurusu HAFTALAR sürebilir.** Bu yüzden listede yukarıda: yapacak bir şey yokken bile
+saat işliyor. Bugün başlatılmazsa iOS çıkışı haftalarca gecikir.
+
+**KİMDE:** Tamamen **sende** (tüzel kişilik gerektirir).
+
+**ADIMLAR:**
+1. **D-U-N-S başvurusunu BUGÜN yap** — ücretsiz, sonucu beklerken diğer işler yürür.
+2. Google Play Console kurumsal hesabı aç (tek seferlik ücret).
+3. Apple Developer Program kaydı (D-U-N-S gelince).
+4. Hesaplar açılınca `docs/magaza/` altındaki başvuru paketi Claude tarafından doldurulur.
+
+**BİTTİ SAYILIR:** İki konsola da giriş yapılabiliyor.
+
+## 🔴 4. Arayan tanıma 20/20 ölçümü — ve önündeki `kDebugMode` KAPISI
+
+**NEDEN:** BRIEF'in **1 numaralı korkusu** ve Faz 0 "**şartlı** GO" ile kapandı — şart tam olarak
+buydu: *20/20 aramada ≤1 sn*. Bu ölçüm hâlâ yapılmadı. Ürünün varlık sebebi doğrulanmamış durumda.
+
+**KİMDE:** Ölçüm **sende** (gerçek cihaz, gerçek arama); önündeki kod engelini kaldırmak **Claude'da**.
+
+**⚠️ SIRADAKİ CLAUDE'A NOT — bu tuzağı kimse fark etmemiş:**
+Ölçüm ekranına giden Ayarlar satırı `kDebugMode` ile sarılı
+(`ayarlar_ekrani.dart:266`). Yani **release derlemede o satır hiç çizilmez** ve pilottaki bayi
+ölçümü başlatamaz. Pilottan ÖNCE bir karar gerekli:
+- (a) pilota debug/profile derleme ver (en kolay, ama pilot gerçek dağıtımı temsil etmez), ya da
+- (b) satırı gizli bir kapıya bağla (ör. Ayarlar'da sürüm numarasına 7 kez dokunma — Android'in
+  kendi deseni), böylece esnafın menüsü temiz kalır ama ölçüm sahada erişilebilir olur.
+**Öneri: (b).** Kararı verip uygula, DECISIONS'a yaz.
+
+**ADIMLAR:**
+1. Yukarıdaki kapı kararını uygula (Claude).
+2. Pilot bayiye kurulum yap; **Xiaomi'li bayide MIUI izinlerini BİRLİKTE kur** — programla
+   verilemiyor, uzaktan tarif etmek işe yaramıyor.
+3. İlk hafta **20 gerçek arama** boyunca ölçüm ekranını çalıştır.
+4. Sonuç ≤1 sn / 20 arama ise Faz 0'ın şartı düşer ve **GO kesinleşir**; değilse durup nedenini
+   ara (pil yönetimi mi, tam ekran niyet izni mi, OEM kabuğu mu).
+
+**BİTTİ SAYILIR:** 20 ölçüm kaydı + karar (`DECISIONS.md`'ye tek satır).
+
+**KANIT:** `lib/phase0/phase0_screen.dart` · `lib/screens/isletme/ayarlar_ekrani.dart:266` ·
+`lib/screens/home_shell.dart:252`
+
+## 🟡 5. Mobil CI — Claude'un TEK BAŞINA yapabileceği en değerli iş
+
+**NEDEN:** Ürünün ağırlık merkezi artık mobil (378 test), ama CI'da **yalnız API ve manifest
+denetimi** koşuyor. `flutter test` / `dart analyze` **sadece geliştiricinin makinesinde** çalışıyor —
+yani iki geliştirici nöbetleşe çalışırken hiçbir otomatik bekçi yok. Ayrıca kırmızı çizgi #6'nın
+(Play izin yasağı) son katmanı olan **birleştirilmiş manifest denetimi** gradle build istediği
+için hâlâ kurulamadı; mobil CI gelince o da bağlanır.
+
+**KİMDE:** Tamamen **Claude'da** — dışsal girdi istemez.
+
+**ADIMLAR:**
+1. `.github/workflows/mobile-ci.yml` ekle: `subosito/flutter-action` + `flutter pub get` +
+   `dart analyze --fatal-infos` + `flutter test`.
+2. `dart run build_runner build --force-jit` adımını ekle — `.g.dart` bayatlarsa CI yakalasın
+   (**`--force-jit` şart**: düz `build` "dart compile does not support build hooks" ile düşer).
+3. `scripts/check_permissions.sh`'i **birleştirilmiş** manifest üzerinde koştur (gradle
+   `assembleDebug` sonrası) → kırmızı çizgi #6 tam otomatik korunur.
+4. PR'larda zorunlu kıl.
+
+**BİTTİ SAYILIR:** Bir PR açıldığında mobil testler yeşil/kırmızı raporluyor.
+
+**KANIT:** `.github/workflows/` (yalnız `api-ci.yml`, `manifest-lint.yml`) ·
+`scripts/check_permissions.sh`
+
+## 🟡 6. Emanet / boş damacana takibi — KARAR BEKLİYOR, kod yazma
+
+**NEDEN:** BRIEF'in maddesi. Sunucuda `tenants.modules` bayrağı var, panelde düğmesi var,
+senkron yanıtına konuyor (`SyncService.php:342`) — **ama mobil istemci o alanı okumuyor bile**
+(`sync_api.dart`'ta `modules` alanı YOK) ve açılacak bir özellik yok. **Düğme boşluğa basıyor.**
+
+**NE DEMEK:** Bayinin iki defteri olur — biri **para** (veresiye, ✅ var), biri **adet** (müşterinin
+üstündeki boş kap, ❌ yok). "Ayşe Hanım'ın 3 boş damacanası var" cümlesi para defterine yazılamaz.
+
+**KİMDE:** **Karar sende.** Bayiye üç seçenek sunuldu, cevap gelmedi:
+- **(a) Tam yap:** yeni tablo + senkron tipi + teslimde "kaç boş alındı" alanı + müşteri kartında
+  "Emanet: N kap" satırı + gün sonunda kurye sayımı. Append-only kuralı burada da geçerli.
+- **(b) Basit sayaç:** yalnız müşteri kartında elle düzeltilebilen bir sayı; teslim akışına dokunma.
+- **(c) v1'den çıkar:** `BRIEF.md`'ye kupon gibi "KALDIRILDI" notu düş, pilotta bayilere sor.
+
+**Claude'un önerisi (c) idi** — hangi bayinin gerçekten istediği bilinmiyor; pilotta sorup öğrenmek
+tahminle yazmaktan ucuz. **Karar gelmeden koda dokunma.**
+
+## 🟡 7. Hukuk metinlerinin avukat onayı
+
+**KİMDE:** **Sende.** 4 belge + hesap-silme sayfası TASLAK.
+**Doldurulacak:** şirket unvanı, açık adres, MERSİS no, telefon, e-posta, KEP, KDV oranı, yetkili
+mahkeme, iade/iptal süreleri, saklama süreleri, alt-yüklenici aktarım listesi.
+**Avukatın KARARA BAĞLAMASI gerekenler** (her belgede `<!-- HUKUK NOTU -->` olarak işaretli):
+B2B/tacir muhatapta cayma hakkı istisnası (m.15/1-ğ) ve 30 gün deneme ilişkisi; pazarlama açık
+rızasının gerekip gerekmediği.
+**KANIT:** `apps/api/resources/views/legal/docs/*.blade.php`
+
+## 🟢 8–12. Kalanlar (kısa)
+
+- **e-arşiv fatura:** BRIEF yasal gereklilik sayıyor, kodda **sıfır**. Entegratör seçimi sende,
+  bağlama Claude'da. (`mesafeli-satis.blade.php:22` "fatura elektronik iletilir" diyor.)
+- **iOS:** `apps/mobile/ios/` iskeleti hiç derlenmedi. **Mac + Xcode gerekli** — ekipte kimde
+  olduğu belirsiz, netleştir.
+- **Mağaza görselleri + arayan-tanıma tanıtım videosu:** BRIEF mağaza incelemesi için zorunlu
+  sayıyor, hiç üretilmedi. Video demo hesapla çekilecek (kilitli + kilitsiz ekran).
+- **Transactional e-posta:** `MAIL_MAILER=log`. Panel şifre sıfırlamada yeni şifreyi ekranda
+  gösteriyor, kimseye göndermiyor.
+- **Prod ortam:** TR VPS + Docker + `sipario.com.tr` TLS + `CORS_ALLOWED_ORIGINS` (boşsa tarayıcı
+  reddedilir) + `sipario_panel` DB rolünün elle kurulması (docker init yalnız ilk initdb'de çalışır).
+- **Küçükler:** PR #11 merge · VERBİS değerlendirmesi · marka başvurusu takibi ·
+  Drift `journal_mode=TRUNCATE` gerçek cihazda doğrulanmadı · stok Android hiç denenmedi ·
+  `ui_dilim3_test.dart` 608 satır (sınır 500).
+
+---
+
+### VARDİYA 2026-07-26/4 — EK: BARKOD OKUYUCU (kamera)
+
+**İstek (kullanıcı):** "Yeni Ürün Ekle ve POS tarafındaki barkod ikonuna tıklandığı gibi barkod
+okuyucu açılsın ve okuduğu barkodu direkt inputa yazsın! İkinci bir alanın açılmasına gerek yok."
+
+**Önceki hâl:** iki yerde de kamera YOKTU. İkon, kesik çerçeveli bir kutu + elle giriş alanı +
+kayıtlı barkod listesi içeren bir ara sheet açıyordu (`barkod_okut_sheet.dart`,
+`barcode_sheet.dart`). Yani "barkod okuyucu" aslında bir yazma formuydu.
+
+**Yapılanlar:**
+- `mobile_scanner ^7.4.0` eklendi; `CAMERA` izni + `uses-feature required="false"` manifeste
+  girdi. ML Kit modeli pakete gömülü — çalışma anı indirmesi yok, offline-first korundu.
+- `lib/screens/barkod/barkod_kamera.dart` (YENİ): iki çağıranın ortak yüzeyi. Tam ekran sheet,
+  canlı kamera + nişan çizgisi; kod okunduğunda sayfa kapanır ve kod DÖNER.
+- Ürün formu: okunan kod barkod alanına yazılır. POS: okunan kod arama alanına yazılır ve
+  süzgeç (`katalogSuz`, ekrandan bağımsız) artık adın yanında BARKODU da tarar — ürün karo
+  olarak kalır, dokunuş adet sheet'ini açar.
+- Kabul kapısı `barkodKabulEt`: yalnız rakam, en az 8 hane; harfli kodun rakamları AYIKLANMAZ.
+  Yalnız perakende biçimleri dinlenir (EAN/UPC/Code128/Code39).
+- Kamera yoksa/izin verilmezse okuyucunun İÇİNDE elle giriş çıkar — mutlu yola adım eklemez,
+  eski yeteneği de kaybettirmez.
+- Eski iki sheet SİLİNDİ. `test/isletme_kurallari_test.dart`e 7 test eklendi (kabul kapısı +
+  katalog süzgeci).
+
+**Ölçüm:** `dart analyze` 0 · `flutter test` **377/377** · APK derlendi ve cihaza kuruldu.
+
+### VARDİYA 2026-07-26/4 — ÇAĞRI KARTI EYLEMLERİ (cihaz geri bildirimi)
+
+**Bulgu (bayi, cihazda):** kart düğmeleri hiçbir yere gitmiyor, kayıtsız numarada "Müşteri
+Olarak Kaydet" hiçbir şey yapmıyor, native kart eylemden sonra ekranda asılı kalıyor.
+
+**Kök sebep İKİ ayrı yerdeydi — kart kendisi sağlamdı:**
+1. **Flutter kartı** — `home_shell._cagriKartiAc` kartı açıp DÖNEN EYLEMİ ATIYORDU. Kartın kendi
+   testi ("eylemler doğru geri çağrıyı tetikler") yeşildi; kırık olan tüketen uçtu. Ana ekranın
+   "Son Arama" kutusu ve Ayarlar'ın çağrı simülasyonu bu yoldan geçtiği için üç düğme de ölüydü.
+2. **Native kart** — `CallerCardViews.eylemiAc` niyet ekstralarını koyuyordu ama `MainActivity`
+   onları HİÇ OKUMUYORDU (ölü ekstra), ve kartı kapatan hiçbir çağrı yoktu.
+
+**Yapılanlar:**
+- `home_shell`: `_cagriEylemiUygula` — tek gezinme noktası. `siparis` → sekme + `OrderFormScreen`
+  (müşteri önceden geçer, seçim adımı sorulmaz) · `defter` → sekme + `CustomerDetailScreen` ·
+  `kaydet` → yeni müşteri sheet'i (numara dolu) ve kayıttan sonra YENİ müşterinin defteri
+  (tasarım `s-uygulama.jsx:116`). Salt-okunur kipte yazma eylemleri gerekçeli toast'a düşer.
+- Ölü uç yok: `defter` isteği kayıtsız numaraya düşerse (kart çizildikten sonra müşteri silinmiş)
+  sessiz kalmak yerine kart gösterilir — bayi oradan kaydetmeye geçebilir.
+- `lib/screens/cagri/cagri_eylem_kanali.dart` (YENİ): native köprüsünün Dart ucu. Ayrı kanal
+  (`sipario/cagri`), ÇEKME modeli, bilinmeyen eylem sessizce düşer, köprü Android dışında kapalı.
+- `MainActivity`: `bekleyen` alanı + `bekleyen` metodu + önplan dürtüsü; niyet ekstrası okununca
+  hem alandan hem niyetten silinir (Activity yeniden kurulunca eylem tekrarlanmaz).
+- `CallerOverlay.kapat` (YENİ): overlay penceresi + kilit ekranı Activity'si + bildirim birlikte
+  kaldırılır, `lastPhone` temizlenir (çağrı yanıtlanınca kart geri gelip ekranı örtmesin).
+- `ayarlar_ekrani`: Çağrı Geçmişi'nden kaydetme de yeni müşterinin defterine gider.
+- `test/ui_cagri_eylem_test.dart` (YENİ, 11 test): üç eylemin hedefi, ölü uç dalı, köprünün
+  çözme/tüketme davranışı ve "köprü kapalıyken kanala dokunulmaz" kapısı.
+
+**Ölçüm:** `dart analyze` 0 · `flutter test` **370/370** · APK derlendi ve cihaza kuruldu (SM-S721B).
+
+**Ders:** bir geri-çağrı sözleşmesinin yalnız ÜRETEN ucunu test etmek sözleşmeyi test etmek
+değildir. Ayrıca: platform kanalına dokunan kod kanalın olmadığı yerde çağrılmamalı —
+`flutter_test` sahtelenmemiş kanala ne yanıt ne hata döner, test 10 dk asılı kaldı.
+
+### VARDİYA 2026-07-26/3 — BÖLÜM A: TASARIM DENETİMİ (11 ajanlı hat: 5 denetim + 6 düzeltme)
+
+**TETİKLEYİCİ:** Kullanıcı "UI'da hâlâ yanlışlıklar ve eksikler var; mesela KUPON yok, o kalktı"
+dedi, `Sipario-tek-dosya.html`ı yerel klasöre koydu, "input alanlarının yükseklik sorunu"nu bildirdi
+ve işin ajanlarla yürütülmesini istedi.
+
+**KAYNAK:** Tek dosya `get_file`da 256 KB'de KESİLİYOR (gzip+base64 paket). Kullanıcının yerel
+kopyası (1,5 MB) `zlib` ile açıldı → **`design_handoff_sipario/_cozulmus/`** (16 JSX + `_sayfa.html`
+= tüm CSS). Dosya boyutları `kaynak/` ile birebir aynı: **tasarım DEĞİŞMEMİŞTİ.**
+
+**KÖK BULGU — HATA ANALİZ ÖLÇÜTÜNDEYDİ.** Kupon farkı bir önceki turda GÖRÜLMÜŞ ama "uygulamanın
+ekstrası, BRIEF'te kupon var" denip geçilmişti. Doğru ölçüt: **CSS'te sınıf tanımlı ama hiçbir
+`s-*.jsx` onu çizmiyorsa özellik KALDIRILMIŞTIR.** Bu ölçütle bulunanlar: `.gs-kupon`, `.md-kupon`,
+`.fabpop*`, `.md-bal*`, `.xiaomi-toggle`, `.siz-not`, `.mrow-av`, `.cagri-av`. Denetim üç başlık
+verir: EKSİK · **FAZLA (=kaldırılmış)** · YANLIŞ.
+
+**EN AĞIR HATA — KAYITLI ÇAĞRI KARTI HİÇ KURULMUYORDU.** Üç çağrı yerinin ÜÇÜ de
+`CagriKisi.kayitsiz` geçiyordu → kart HER ZAMAN "Kayıtsız" çıkıyor; bakiye şeridi, müşteri kodu
+rozeti, adres/son sipariş satırları ve "Sipariş Oluştur / Defteri Aç" **ULAŞILAMAZ KODdu.** Ayarlar
+"4 varyant" vaat ediyor, tek varyant gösteriyordu. `cagri/cagri_cozumleyici.dart` yazıldı (son-10
+hane + `idx_phones_last10`, arşivli müşteri "kayıtsız", deterministik satır seçimi, log YOK/KVKK) ve
+üç yer de bağlandı.
+
+**INPUT YÜKSEKLİĞİ — kök sebep ölçülerek bulundu.** `InputDecoration.constraints` DIŞ yuvayı
+büyütür, BOYANAN kutuyu büyütmez (`input_decorator.dart:2673-2676` ↔ `:1107-1123`); `isDense: true`
++ `contentPadding.vertical: 0` kutuyu satır yüksekliğine çöktürüyordu → 46 px yuvanın altında
+**~26 px ölü boşluk**, 37 çağrı yerinde. `SipInputOlcu` tek ölçü kaynağı kuruldu; yükseklik
+dolgudan türetiliyor, satır çarpanı `style` VE `hintStyle`a birlikte veriliyor (yoksa kutu yazmaya
+başlayınca zıplar), `visualDensity` sabitlendi (platform varsayılanı masaüstünde 46'yı 44 yapıyordu).
+
+**TASARIMA HİZALANAN DİĞER İŞLER:** FAB açılır menüsü kaldırıldı (tasarımda tek dokunuş; `.fabpop*`
+ölü CSS'ti) · sipariş detay sheet'ine başlık + tutamaç + KAPAT düğmesi geri geldi (kullanıcının
+sheet'i kapatacak görünür düğmesi yoktu) · geçmiş sipariş satırı artık kalem dökümü +
+`saat · ödeme · kurye` (önce tam tersi: saat üstte, NOT altta) · **ayrı Kasa Devri ekranı
+kaldırıldı** (tasarımda rota yok; devir Gün Sonu'nun "Hesabı Kapat · Kasa Devri" sheet'inde —
+`CashHandoverRepository` ve tablo YERİNDE, kurye kapanışı devri yazmaya devam ediyor, testi eklendi)
+· ana ekran hero'sunda SAHİP adı / çekmecede İŞLETME adı · son aktivite satırı sipariş detayını
+açıyor ve ürün dökümü yazıyor · ilk girişte kurulum sihirbazı tam ekran (damga cihaz-yerel) ·
+müşteri detayı `.md-bal` hero kartından `.md-bakiye` şeridine indi, eylem ızgarası 4→2 · sihirbazın
+5 izin gerekçesi birebir (bildirim adımında anlam kaymıştı), Xiaomi adımı ve `sdk>=34` koşulu
+kaldırıldı (tasarım 6 SABİT adım) · ürün görseli artık GERÇEK galeri seçicisi (`image_picker`) ·
+avatarlar kaldırıldı · muaf/profil/abonelik-kilidi metinleri tasarıma çevrildi · Faz 0 ölçüm
+ekranının girişi `kDebugMode` altına alındı (öksüz kalmıştı — "ölü dal" dersi).
+
+**KULLANICI KARARLARI:** tezgâh satışı giriş kapısı ve kuryenin "Benim" sekmesi KALDIRILDI ·
+salt-okunur şeritleri ve Çağrı Geçmişi ekranı KALDI · kuryede Gün Sonu yuvası kalır, "Kasa Devri"
+satırı yalnız kuryede (tek satır role göre etiketlenir, kopya hedef oluşmaz).
+
+**AJAN HATTI VE ALINAN DERSLER:** 5 salt-okunur denetim ajanı ~90 fark çıkardı; 6 düzeltme ajanı
+AYRIK dosya (ve test dosyası) sahipliğiyle uyguladı; `flutter test` YALNIZ lead koştu (eşzamanlı
+koşum `sqlite3.dll` yarışıyla aracı çökertiyor). Üç ajan aynı test tuzağına düştü: `LineInput`a
+`productId` verilmezse satır `serbestMi` gereği SERBEST sayılır ve `×adet` yazılmaz. Dört test
+kırılması ürün kodunda DEĞİL, testin görünür-alan ve akış-bekleme varsayımlarındaydı (bkz.
+DECISIONS son iki satır: `SipGovde` bir `ListView`, tembel çizer). Bir denetim ajanının bir bulgusu
+kanıtla yanlış çıktı (`.md-kupon` "tasarımda var" demişti) ve düzeltildi; bir düzeltme ajanı lead'in
+"düğmeyi hiç çizme" kararını haklı olarak iyileştirdi (yeteneği gizlemek yerine pasif + gerekçe).
+
+**ÖLÇÜMLER:** `dart analyze` 0 (lib+test) · `flutter test` **359/359** · API **220/220** (788
+assert) · pint ✓ · phpstan 0 · Drift **v10** · debug APK derlendi.
+
+**AÇIK KALANLAR:** ⚠️ **CİHAZDA GEZİNTİ YAPILMADI** (telefon vardiya boyunca kullanıcıdaydı) —
+kayıtlı çağrı kartının 4 varyantı, input yüksekliği ve gün sonunda kurye kapsamı GÖZLE
+doğrulanmalı. `test/ui_dilim3_test.dart` 608 satır (ortak alan, bölünmeyi bekliyor). Tasarımda
+JSX'in kullandığı ama CSS'te kuralı OLMAYAN üç sınıf var (`balrozet*`, `mrow-tag`, `ara-ic`);
+ölçüleri kaynaktan çıkarılamıyor, uygulamada TAHMİNLE duruyor — tasarım tarafının güncellenmesi
+istendi.
+
+### VARDİYA 2026-07-26/3 — BÖLÜM B: KUPON KALDIRMA (tasarım kararı, tam silme)
+
+**TETİKLEYİCİ:** Tasarım (claude.ai/design) kuponu üründen çıkardı — hiçbir `s-*.jsx` kupon
+çizmiyor, `ODEME_TIPLERI` yalnız nakit/kart/havale/veresiye, CSS'teki `.gs-kupon`/`.md-kupon`
+sınıfları yalnız ARTIK olarak duruyor. Kullanıcı TAM SİLME onayı verdi (UI + repo + Drift +
+Postgres + sync applier + `orders.payment_type` CHECK'i).
+
+**YAPILAN (gerekçeler DECISIONS son satırında):**
+- **Mobil:** `coupon_repository.dart` ve `ledger_coupon_test.dart` SİLİNDİ; `CouponMovements`/
+  `CouponBalances` Drift tabloları, `writeCouponMovement`/`recomputeCouponBalance`/
+  `watchCouponBalance`/`kuponDurumu`/`kuponBakiyesi`/`kuponAdedi`, kupon sheet'i · bakiye kartı
+  çipi · gün-sonu kupon bölümü · teslim sheet'i kupon uyarısı, `RolYetkileri.kuponSatisi` ve
+  `SipText.gsKuponEtiket` kaldırıldı. Teslimde artık dört ödeme tipi var; **tezgâh satışında
+  veresiye kilidi KORUNDU.**
+- **Drift şema v10:** iki tablo `DROP TABLE IF EXISTS` ile düşürülür. Düşürme kendini-onarma
+  kapısından **ÖNCE ve koşulsuz** koşar — kapı `tenant_settings` varsa erken döndüğü için
+  `if (from < 10)` bloğu v9 damgalı cihazlarda hiç çalışmazdı (v10 tablo eklemediği için kapının
+  işareti de güncellenemiyor). Regresyon testi: `migration_test.dart` "v9→v10 KUPON KALDIRMA".
+- **API:** `CouponMovement`/`CouponBalance` modelleri + `CouponChangeApplier` SİLİNDİ;
+  `ChangeApplier` dallanması, `SyncService` snapshot anahtarları, `SyncPushRequest`
+  `entity_type=coupon` ve kupona özel `grant`/`use`/`correction` OP'ları, `PanelExportService`
+  tabloları (12→10), demo seeder kupon bloğu temizlendi.
+- **Migration `2026_07_26_000703_drop_coupons`:** tabloları düşürür (policy/grant'lar tabloyla
+  birlikte gider), `orders.payment_type` CHECK'ini daraltır; daraltmadan ÖNCE kalan `'kupon'`
+  satırları NULL'a çekilir (yoksa migration düşerdi). Veri kaybı DEĞİL: kuponla teslim hiç para
+  hareketi üretmiyordu ve olgu APPEND-ONLY `order_events` payload'ında duruyor. `down()` şemayı
+  geri kurar, satırları geri getirmez (dosyada açıkça yazılı).
+- **Belgeler:** `BRIEF.md` kupon maddesi SİLİNMEDİ, altına "KALDIRILDI" notu düşüldü (saha gerçeği
+  olarak tarihsel kayıt kalsın).
+
+**DOĞRULAMA:** `dart analyze` 0 · `flutter test` 308/308 · API phpunit 220/220 (788 iddia) ·
+`pint --test` passed · phpstan 0 hata · migration geliştirme DB'sine uygulandı · `flutter build
+apk --debug` başarılı.
+
+### VARDİYA 2026-07-26/2 (giriş firma kodu+kullanıcı adı · oto sıralama rota · 4 boşluk)
+
+**TETİKLEYİCİ:** Kullanıcı "UI'da hâlâ yanlışlıklar ve eksikler var; MCP ile analiz et, eski
+handoff klasörlerini SİL, MVP'nin güncel hâlini oku — orada uygulamada olmayan alanlar var,
+**arka uç dahil** eklenmeli" dedi.
+
+**KAYNAK ARTIK DEPODA DEĞİL — CANLI.** `design_handoff/` ve `design_handoff_v2/` **silindi**
+(git'ten de). Tasarımın tek kaynağı Claude Design projesi `a4ab826a-d312-4313-96be-e66519b64fce`
+("Sipario APP Reesign", handoff klasörü `design_handoff_sipario/`); `DesignSync` MCP aracıyla
+okunur. Gerekçe: aynı hata iki kez yapıldı — kopya bayatladı ve iki vardiya yanlış kaynağı doğru
+sandı. Koddaki 31 ölü `design_handoff_v2/` yorumu da temizlendi. **Önce `DESIGN_SYSTEM.md`'yi oku**
+(sıfırdan yazıldı, kaynağı ve okuma yolunu anlatır).
+
+**DENETİM YÖNTEMİ VE SONUCU:** uzak handoff'un 17 dosyasının TAMAMI okundu (16 ekran + 656 satır
+CSS). Tasarımın 40 ayrı davranışı/metni tek tek kodda arandı — **39'u zaten vardı.** Uygulama
+beklenenden çok daha sadık çıktı; gerçek boşluklar dört taneydi:
+
+1. **GİRİŞ MODELİ YANLIŞTI (en büyük, arka uç dahil).** Tasarım `s-giris.jsx`: **Firma Kodu +
+   Kullanıcı Adı + Parola**. Uygulama e-posta istiyordu. Gerekçe tasarımın kendi metninde:
+   İşletme Profili firma kodunu "Kullanıcılarınız bu kodla giriş yapar" diye yayınlıyor —
+   bayinin kuryesinin e-postası yok, hesabını patron açıyor.
+   Yapılan: `users.username` (tenant içinde tekil + CHECK `^[a-z0-9._-]{3,60}$`), `tenants.slug`
+   ZORUNLU oldu (giriş kimliği olacaksa NULL meşru değil) + CHECK, `sipario_login_lookup`ın
+   (firma kodu, kullanıcı adı) alan İKİ ARGÜMANLI sürümü, LoginRequest/AuthController, hız
+   sınırı anahtarı kullanıcı adı DEĞİL **çift** üzerinden (yoksa bir bayiye kaba kuvvet tüm
+   bayilerin "patron" hesabını kilitlerdi), mobilde üç alanlı form + saf doğrulama fonksiyonu.
+   **E-postalı tek argümanlı fonksiyon KALDI** — abonelik WEB SİTESİ onu kullanır, o ayrı bir
+   yüzeydir. Mevcut kullanıcılara kullanıcı adı e-postanın yerel parçasından geri dolduruldu.
+2. **"Oto Sırala (rota)" HİÇ ÇİZİLMİYORDU.** Kod vardı ama `otoHak` hiçbir yerden geçilmiyordu;
+   çekmecedeki kontör kartı da beslenmiyordu. Arka uçta sayaç (`route_credits`) vardı, **tüketen
+   servis yoktu.** Yapılan: `tenants.route_credits_monthly` (aylık kota — çekmecedeki çubuğun
+   paydası), `POST /orders/auto-route` (kilitli sayaç düşümü + en-yakın-komşu rota; koordinatsız
+   duraklar sona, sayısı kullanıcıya söylenir), `RouteOrderer` saf sınıfı, mobil `RouteApi` +
+   liste ekranı bağlantısı + çekmece kartı. **Uç nokta siparişlere YAZMAZ** — yalnız sıra önerir,
+   yazma yine `sort_set` olayıyla outbox'tan geçer (tek yazma yüzeyi korundu).
+3. **Gün sonu `gunEngel` kuralı yoktu:** kuryelerin bir kısmı hesabını kapatmışken gün
+   kapatılabiliyordu (yarım kalmış devir). Mevcut "açık sipariş" engelinin yanına eklendi.
+4. **Varsayılan sekme** tasarımda `siparis`, uygulamada `ana`ydı — düzeltildi.
+
+**ÖLÇÜMLER:** `dart analyze` **0** (lib+test) · `flutter test` **319/319** · API **233/233**
+(808 assert) · `pint` ✓ · `phpstan` 0 · Drift şema **v9** (additif, `_addColumnIfMissing`) ·
+codegen `--force-jit` ile koştu.
+
+**CİHAZDA DOĞRULANDI (Samsung SM-S721B, yerel sunucu + `adb reverse tcp:8000`):**
+giriş (firma kodu `demo` · kullanıcı adı `demo`) → açılış SİPARİŞLER sekmesinde → Sırala sayfası
+"Oto Sırala (rota) · 34 hak" → oto sıralama KOŞTU: toast *"Rota otomatik sıralandı · 33 hak
+kaldı · 1 sipariş konumsuz, sona alındı"*, liste rota sırasına geçti (Kepez → Lara → konumsuz
+Ahmet), ekran elle/rota kipine girdi (tutamaçlar + "Bitti") → çekmecede lisans ve oto-sıralama
+kartları çizildi ve kontör 33'e düştü (sunucuyla birebir).
+
+**CİHAZDA YAKALANAN İKİ GERİLEME (ikisi de aynı sınıftan — testler yeşildi):**
+- **"Oto Sırala · 0 hak" gösteriliyordu, sunucuda 34 vardı.** Kalan hak `initState`te TEK ATIŞ
+  okunuyordu; kontör GİRİŞ YANITINDA GELMEZ, ilk senkron yazar. Ekran girişten hemen sonra 0
+  görüp orada donuyordu. `AppDatabase.watchSyncState()` eklendi, ekran akışa abone edildi;
+  regresyon testi yazıldı (ekran açıkken senkron yazınca düğme tazeleniyor mu).
+- **Çekmecedeki kart "34 hak"ta kaldı, oto sıralama 33'e düşürdükten sonra bile.** Kabuk da
+  sync_meta'yı tek atış okuyordu ve yalnız senkron olayında tazeliyordu. O da akışa bağlandı;
+  `_git()` dönüşündeki ikinci tazeleme yolu KALDIRILDI (iki yol tutmak ikisinin ayrışmasıydı).
+- Ders: **sunucu sahipli alanlar (abonelik, firma kodu, kontör) TEK ATIŞ okunmaz, akışla okunur.**
+  Ne `dart analyze` ne 318 test bunu gördü; ölçüt "ekran çizildi" değil "değer değişince
+  tazelendi" olmalıydı — `icon_paint_test` dersinin aynısı.
+
+**AÇIK KALAN (cihazda görülemedi):** Gün Sonu'ndaki yeni `gunEngel` uyarısı demo bayide
+KURYE OLMADIĞI için tetiklenmiyor; widget testiyle sınandı, cihazda görmek için demo bayiye iki
+kurye eklemek gerekir. Gün Sonu / Ana / Müşteriler ekranları bu vardiyada değişmedi (önceki
+vardiyada cihazda gezilmişti).
+
+**KAYDA DEĞER:** `RouteCoverageGuardTest` yeni uç noktayı izolasyon matrisine eklemeden geçirmedi
+— kırmızı çizgi #1'in bekçisi çalıştı, cross-tenant senaryosu yazıldı (B'nin siparişi A'nın
+isteğine konsa sıraya girmiyor, B'nin kontörü etkilenmiyor).
+
+**MAĞAZA NOTU DÜZELTİLDİ:** `docs/magaza/inceleme-notlari.md` incelemeciye hâlâ e-postayla giriş
+söylüyordu — o bilgiyle giriş yapılamaz, inceleme reddedilirdi. Firma Kodu `demo` · Kullanıcı Adı
+`demo` · Şifre `demo1234` olarak güncellendi (DemoSeeder de).
+
+### VARDİYA 2026-07-25/26 (SİPARİO 3.0 — YENİ TASARIM, TÜM ARAYÜZ YENİDEN YAZILIYOR)
+
+> ⚠️ **Bu vardiya bir öncekinin işini GEÇERSİZ KILDI.** Aşağıdaki "VARDİYA 2026-07-23" bölümü
+> tarihsel kayıt olarak duruyor; oradaki tasarım (koyu tema · IBM Plex Sans · Azur mavi ·
+> `design_handoff/`) **artık yürürlükte değil.** Yeni kimlik için önce `DESIGN_SYSTEM.md`'yi oku.
+
+**TETİKLEYİCİ:** Kullanıcı önce tüm dış/kritik-yol işlerini (iyzico, mağaza hesapları, avukat, prod
+VPS, pilot…) ERTELEDİ, sonra Claude Design'da **sıfırdan yeni bir tasarım** yaptırdı ve
+`design_handoff_v2/` olarak depoya koydu. Bağlayıcı kuralı: *"Tasarımda olan her detay back
+tarafında da olacak — DB'de kaydedilmeyen bir şey eklediysem ona karşılık gelen şemayı da
+oluşturman gerekiyor."* İş 6 paralel ajana bölündü.
+
+**HANDOFF KLASÖRÜ — DİKKAT:** `design_handoff_v2/` İKİ projenin dosyasını taşıyor.
+Sipario = **`s-` ön ekli `.jsx` dosyaları + `Sipario.html`** (tüm CSS orada, satır 14–668).
+Ön eksiz dosyalar (`uygulama.jsx`, `pano.jsx`, `veri.jsx`, `yonetici*.jsx`, `Aspendos ERP-*.html` …)
+kullanıcının **Aspendos ERP** projesine ait — AÇMA.
+**`s-bugun.jsx` de ÖLÜ dosya:** tasarımın terk edilmiş bir ara sürümü — `Sipario.html` onu
+yüklemiyor ve kullandığı CSS sınıflarının hiçbiri stil dosyasında yok (farklı jeton seti:
+`--vurgu`/`--borc`). Yerini `s-ana.jsx` aldı.
+
+**YENİ KİMLİK:** açık tema varsayılan (koyu tema da var) · koyu gece-mürekkep "hero" blokları ·
+elektrik moru vurgu `#5A45F0` · **Sora** (başlık + rakam) ve **Hanken Grotesk** (gövde) değişken
+fontları · düz yüzeyler (gölge yok) · Lucide ikonlar. Ayrıntı: `DESIGN_SYSTEM.md`.
+
+**TEMEL KATMAN BİTTİ VE DOĞRULANDI (`lib/theme/`, 41/41 test yeşil):**
+- `tokens.dart` — `SipTokens` artık bir **ThemeExtension** (tema çalışma anında değişiyor);
+  ekranlar `context.sip.surface` diye okuyor. `static const SipColors` KALKTI.
+- `typography.dart` — `SipText`, stiller **renksiz** (renk `DefaultTextStyle`tan miras).
+- `svg_path.dart` + `icons.dart` — Lucide SVG yollarını çizen bağımlılıksız ayrıştırıcı
+  (SVG paketi eklenmedi; `Path.arcToPoint` SVG yay semantiğiyle birebir eşleşiyor).
+- `components/` — `atoms.dart` artık **barrel**: `bicim · dokunma · form · rozetler · yerlesim`
+  (+ `states.dart`, `overlays.dart`). `SnackBar`/`AppBar`/`InkWell` KULLANILMIYOR
+  (yerine `SipToast` · `SipUst` · `SipDokun`).
+- Fontlar `assets/fonts/`'a gömüldü (OFL, değişken font). **IBM Plex Sans SİLİNDİ.**
+- **Türkçe büyük harf tuzağı:** Dart'ın `toUpperCase()`'i `i`→`I` yapıyor. `trBuyuk()`/`trKucuk()`
+  eklendi; `toUpperCase()` yazmak yasak. `test/ui_temel_test.dart` bunu sınıyor.
+- **Değişken font tuzağı:** yalnız `fontWeight` vermek yetmiyor (tek dosya = tek ağırlık);
+  `fontVariations: [FontVariation('wght', N)]` şart. `test/font_variable_test.dart` bunu
+  gerçek TTF yükleyip ÖLÇEREK kanıtlıyor (7/7).
+
+**ŞEMA v8 — tasarım/arka uç eşitliği kuruldu (backend ajanı):**
+Yeni tablolar `tenant_settings`, `exempt_numbers` (muaf numaralar — çağrı kartını engeller),
+`call_logs`, `day_closings`; yeni alanlar `customer_addresses.region`, `products.barcode`,
+`products.image_url`, `orders.sort_index` (elle sıralama), `order_lines.is_custom` (serbest satır).
+Postgres migration + RLS + revoke + sync applier + Drift v8 + yeni repo'lar yazıldı.
+
+**TÜM EKRANLAR YENİDEN YAZILDI.** Tasarımın `s-*.jsx` bileşenlerinin tamamının Dart karşılığı var:
+Ana ekran (hero + bento + son aktivite) · alt navigasyon + çekmece · giriş · kurulum sihirbazı
+(izinler) · müşteriler/detay/defter/tahsilat/düzeltme · siparişler/detay/POS yeni sipariş/teslim ·
+ürünler (barkod + görsel) · gün sonu + arşiv · kasa devri · ayarlar · işletme profili · kuryeler ·
+muaf telefonlar · çağrı kartı (Flutter + native Kotlin) · abonelik kilidi.
+
+**ÖLÇÜMLER (bu makinede doğrulandı):** `dart analyze` **0** (lib + test) · `flutter test`
+**302/302** · API **220/220** (760 assert) + pint/phpstan temiz · Postgres migration 601–607
+`migrate:fresh` ile sıfırdan koştu · RLS dört yeni tabloda FİİLEN sınandı · `flutter build apk
+--debug` **başarılı** (Kotlin dahil).
+
+**BU VARDİYADA YAKALANAN GERİLEMELER (kayda değer):**
+- **Salt-okunur kapısı düşmüştü:** yeni sipariş girişi listeden kabuğa taşınırken üç çağrı yeri de
+  `OrderFormScreen.writable`ı geçmiyordu (varsayılan `true`) → abonelik kilidi açıkken sipariş
+  girilebiliyordu. Çağrı yerleri düzeltildi, parametre **zorunlu** yapıldı.
+- **Türkçe büyük harf:** Dart'ın `toUpperCase()`'i `i`→`I` yapıyor. Avatar baş harfleri ve ürün
+  yer tutucuları bundan etkileniyordu; `trBuyuk()`/`trKucuk()` eklendi, testle sabitlendi.
+- **Değişken font ekseni:** yalnız `fontWeight` vermek tek dosyalı değişken fontta ETKİSİZ.
+  `test/font_variable_test.dart` gerçek TTF yükleyip genişlik ÖLÇEREK kanıtlıyor.
+- **Giriş ekranı taşması:** `IntrinsicHeight` metni sonsuz genişlikte ölçüp sarmalanan satırları
+  tek satır sayıyordu (21 px). `ConstrainedBox(minHeight) + mainAxisAlignment.end` ile çözüldü.
+
+**CİHAZ TESTİ YAPILDI (Samsung SM-S721B / Galaxy S24 FE — önceki vardiyadaki Xiaomi DEĞİL,
+dolayısıyla MIUI'ye özel izin dalları bu cihazda sınanmadı).** Ana ekran, bento ızgarası, alt
+navigasyon, çekmece düğmesi, hızlı eylem ve son aktivite listesi tasarımla örtüşüyor; hem AÇIK hem
+KOYU tema cihazda görüldü.
+
+**CİHAZDA YAKALANAN KRİTİK HATA — hiçbir ikon çizilmiyordu.** `SipIcon` yalnız `hepsi[ad]`
+sözlüğüne bakıyordu ama `SipIcons.phone` bir anahtar değil path'in KENDİSİ; arama `null` dönüp
+sessizce boş kutu çiziliyordu. 307 testin hiçbiri yakalayamadı çünkü ölçütleri "yol ayrıştı" ve
+"widget çökmedi"ydi. Düzeltildi (`_pathMi` ile iki biçim de kabul) ve
+`test/icon_paint_test.dart` eklendi: ikonları gerçekten boyayıp **piksel sayıyor**; düzeltme geri
+alındığında kırmızıya döndüğü doğrulandı.
+
+**CİHAZDA EKRAN EKRAN GEZİLDİ (2026-07-26, ikinci tur) — ENTEGRASYON KOPUKLUKLARI BULUNDU.**
+Kaynak şüphesi önce MCP ile kapatıldı: claude.ai/design projesi okundu, uzak `s-ana.jsx` yerelle
+bayt bayt aynı, `Sipario - Standalone.html` ile `Sipario.html`in CSS sınıf kümeleri birebir eşit
+(390 = 390) — Standalone yeni bir tasarım değil, aynı tasarımın gömülü sürümü. Sorun kaynakta
+değil, ekranların BİRBİRİNE BAĞLANMAMASINDAYDI:
+- **Ayarlar · Kuryeler · Muaf Telefonlar · İşletme Profili · Çağrı Geçmişi hiçbir yerden
+  açılamıyordu.** Çekmece, bu ekranlar yazılmadan önce yazılmış ve güncellenmemişti; Ayarlar bir
+  merkez olduğu için dalın tamamı ölüydü. Çekmece tasarımdaki hâline getirildi
+  (YÖNETİM: Ürünler · Kuryeler · Muaf Telefonlar — UYGULAMA: tek satır Ayarlar).
+- **Çekmece yalnız Ana sekmesinden açılabiliyordu** — kabuk `onMenu`yu diğer üç sekmeye
+  geçmiyordu (Gün Sonu'nda yerine işlevsiz bir geri oku vardı). Düzeltildi + regresyon testi.
+- **Durum çubuğu açık temada okunmuyordu** — stil yalnız kabukta kuruluyordu, push edilen
+  ekranlar hero için beyaza çevrilmiş ikonları miras alıyordu. Kökte (`main.dart`) kuruldu.
+- **Ayarlar'daki tema anahtarı takılı kalıyordu** — push edilen rota `bool` kopyası tutuyordu;
+  `ValueListenable`a çevrildi. (Anahtar zaten sahteydi: yerel bayrak, kalıcı depoya bağlı değildi.)
+- Sunucu adresi ölü bir tünel URL'sine bakıyordu; yerel köprüye çevrilince senkron çalıştı
+  ("Senkron güncel"), çevrimdışı bandı kalktı. Bant DOĞRU davranıyormuş.
+
+Gezilen ve tasarıma uygun bulunan ekranlar: Ana · Müşteriler · Siparişler · Gün Sonu · Çekmece ·
+Giriş · Ayarlar · Kuryeler · İşletme Profili · Muaf. Her iki tema da cihazda görüldü.
+
+**AÇIK KALANLAR:**
+- **Çağrı kartı cihazda HENÜZ ÖLÇÜLMEDİ** — 1 sn bütçesi ve kilit ekranı davranışı için gerçek
+  gelen çağrı testi gerekiyor. Ayarlar → Arayan Tanıma → "Gelen çağrıyı dene" bu iş için var.
+- Müşteri detayı, yeni sipariş (POS) akışı ve sipariş detay sheet'i cihazda AÇILMADI — kod ve
+  testleri var, gözle doğrulanmayı bekliyor.
+- Cihaz Samsung Galaxy S24 FE; **MIUI'ye özel izin dalları hâlâ Xiaomi'de sınanmadı.**
+- **Senkron cihazda başarısız** (ana ekranda çevrimdışı bandı duruyor). Bant DOĞRU davranıyor —
+  son senkron denemesi başarısız olduğu için çıkıyor, uydurma değil. Sebep büyük olasılıkla
+  geliştirme köprüsü (cihazdaki API taban adresi ↔ `adb reverse tcp:8000`); araştırılmadı.
+- `lib/phase0/phase0_screen.dart` 663 satır (500 sınırını aşıyor) — **bu vardiyadan ÖNCE de
+  aşıyordu** (656), regresyon değil; Faz 0 tanı ekranı, bölünmeyi bekliyor.
+- `test/ui_dilim3_test.dart` (621) ve `ui_dilim4_test.dart` (529) de sınırın üstünde.
+- Sipariş formunda salt-okunur uyarısının 1. adımdan itibaren görünmesi istendi (3. adıma kadar
+  gizliydi) — kapatıldıysa doğrula.
+- **Windows tuzağı:** iki `flutter test` aynı anda koşarsa
+  `build/native_assets/windows/sqlite3.dll` kopyalamada yarışır ve araç çökme raporu yazarak
+  düşer. Çözüm: `rm -rf build/native_assets`. Kodla ilgisi yok, bu vardiyada onlarca kez yaşandı.
+- **API testini `artisan test` ile KOŞMA — `vendor/bin/phpunit` kullan.** Bu makinede pdo_pgsql
+  php.ini'de kapalı, `-d extension=...` ile veriliyor; ama `artisan test` işçi alt süreçler
+  doğuruyor ve o bayraklar MİRAS ALINMIYOR → 220 testin 209'u "could not find driver" ile düşüyor
+  ve gerçek bir kırılma sanılıyor. Doğrusu:
+  `php -d extension=pdo_pgsql -d extension=pgsql -d extension=zip vendor/phpunit/phpunit/phpunit --no-coverage`
+  (tek süreç, bayraklar geçerli → 220/220, 760 assert).
+
+### VARDİYA 2026-07-23 (TARİHSEL — bu tasarım ARTIK GEÇERSİZ; üstteki bölüme bak)
 
 **TETİKLEYİCİ:** Kullanıcı Claude Design'da (claude.ai/design) mobil arayüzü yeniden tasarladı, handoff
 paketini `design_handoff/`'a koydu ("çok basit tasarımı var, yeniden düzenlet"). Görev: handoff'u

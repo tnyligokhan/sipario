@@ -200,9 +200,10 @@ class _VerdictCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = context.sip;
     final color = !verdict.enoughSamples
-        ? SipColors.t3
-        : (verdict.pass ? SipColors.ok : SipColors.debt);
+        ? t.muted
+        : (verdict.pass ? t.ok : t.danger);
 
     return Card(
       child: Padding(
@@ -258,7 +259,10 @@ class _VerdictCard extends StatelessWidget {
               Text(
                 '${verdict.simulated.length} simüle çağrı sayıma dahil değil — '
                 'süreç zaten ayakta olduğu için asıl maliyeti ölçmez.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: SipColors.warn),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: context.sip.warn),
               ),
             ],
           ],
@@ -284,7 +288,7 @@ class _Stat extends StatelessWidget {
         Text(
           value,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: danger ? SipColors.debt : null,
+                color: danger ? context.sip.danger : null,
                 fontWeight: FontWeight.w600,
               ),
         ),
@@ -422,11 +426,11 @@ class _Step extends StatelessWidget {
           if (showCheck)
             Icon(
               done ? Icons.check_circle : Icons.radio_button_unchecked,
-              color: done ? SipColors.ok : SipColors.t3,
+              color: done ? context.sip.ok : context.sip.muted,
               size: 20,
             )
           else
-            const Icon(Icons.info_outline, color: SipColors.warn, size: 20),
+            Icon(Icons.info_outline, color: context.sip.warn, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -623,8 +627,8 @@ class _LogCard extends StatelessWidget {
                           : (late ? Icons.warning_amber : Icons.check),
                       size: 16,
                       color: !m.shown
-                          ? SipColors.debt
-                          : (late ? SipColors.warn : SipColors.ok),
+                          ? context.sip.danger
+                          : (late ? context.sip.warn : context.sip.ok),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -634,11 +638,14 @@ class _LogCard extends StatelessWidget {
                       ),
                     ),
                     if (m.simulated)
-                      const Text('simüle', style: TextStyle(fontSize: 11, color: SipColors.warn)),
+                      Text('simüle',
+                          style: TextStyle(fontSize: 11, color: context.sip.warn)),
                     if (m.direction == 'out')
-                      const Text('giden', style: TextStyle(fontSize: 11, color: SipColors.accFg)),
+                      Text('giden',
+                          style: TextStyle(fontSize: 11, color: context.sip.accent)),
                     if (m.locked)
-                      const Text(' kilitli', style: TextStyle(fontSize: 11, color: SipColors.t2)),
+                      Text(' kilitli',
+                          style: TextStyle(fontSize: 11, color: context.sip.ink2)),
                     const SizedBox(width: 8),
                     Text(
                       m.matched ? 'eşleşti' : 'yeni',

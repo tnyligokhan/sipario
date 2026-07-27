@@ -1,91 +1,141 @@
+// Müşteriler listesi — CSS `.mliste` / `.mrow*`, kaynak s-musteriler.jsx `MusterilerEkran`.
+// Üstte başlık + borçlu sayısı, altında hap arama çubuğu, sonra kart satırları:
+// avatar · ad · telefon · adres (konum varsa pin YEŞİL) · sağda bakiye çipi (0 ise çip YOK).
+//
+// Sorgu mantığı ekrandan bağımsız fonksiyonlardadır (watchCustomerRows/watchCustomers/
+// watchDebtCount) — saf async testle sınanır; widget-test sahte zamanı drift akışlarında
+// güvenilmez (Dilim 1 dersi).
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
 import '../../data/outbox.dart' show phoneLast10;
-import '../../repo/customer_repository.dart';
-import '../../theme/components/balance_badge.dart';
-import '../../theme/components/empty_state.dart';
+import '../../theme/components/atoms.dart';
+import '../../theme/components/overlays.dart';
+import '../../theme/components/states.dart';
+import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../team.dart';
 import 'customer_detail_screen.dart';
 import 'customer_form_screen.dart';
+import 'customer_widgets.dart';
 
-/// Müşteri listesi + arama (yeniden tasarım — handoff Ekran 1). Arama hem ada hem telefona bakar
-/// (telefon girildiyse son-10 hane normalizasyonuyla — arayan tanımadaki eşleşme kuralının aynısı).
-/// Görsel: kart satırları (avatar + ad + telefon), sağda bakiye rozeti; başlıkta borçlu sayısı.
-/// Durum yönetimi/akış deseni Faz 2'den DEĞİŞMEDİ; yalnız görsel katman yenilendi.
 class CustomerListScreen extends StatefulWidget {
-  const CustomerListScreen({super.key, required this.db, required this.writable, this.yetki});
+  const CustomerListScreen({
+    super.key,
+    required this.db,
+    required this.writable,
+    this.yetki,
+    this.onMenu,
+  });
 
   final AppDatabase db;
   final bool writable;
 
-  /// Rol bazlı yetki (K2 — Dilim 4). null → tam yetki (giriş öncesi/test yolu); detayda kupon
-  /// satışı/düzeltme kapıları buradan gelir.
+  /// Rol bazlı yetki (K2). null → tam yetki (giriş öncesi/test yolu); detaydaki tahsilat ve
+  /// defter düzeltme kapıları buradan gelir.
   final RolYetkileri? yetki;
+
+  /// Çekmeceyi açan geri çağrım (kabuk verir). null ise hamburger çizilmez.
+  final VoidCallback? onMenu;
 
   @override
   State<CustomerListScreen> createState() => _CustomerListScreenState();
 }
 
 class _CustomerListScreenState extends State<CustomerListScreen> {
-  final _search = TextEditingController();
-  String _query = '';
+  final _arama = TextEditingController();
+  String _sorgu = '';
+
   // Başlıktaki borçlu sayısı — bir kez abone ol (tuş başına yeniden abonelik/titreme olmasın).
-  late final Stream<int> _debtCount = watchDebtCount(widget.db);
+  late final Stream<int> _borcluSayisi = watchDebtCount(widget.db);
 
   @override
   void dispose() {
-    _search.dispose();
+    _arama.dispose();
     super.dispose();
+  }
+
+  Future<void> _yeniMusteri() async {
+    if (!widget.writable) {
+      SipToast.goster(context, 'Salt-okunur kip: yeni kayıt eklenemez.');
+      return;
+    }
+    final eklendi = await musteriEkleSheet(context, db: widget.db);
+    if (eklendi == true && mounted) SipToast.goster(context, 'Müşteri kaydedildi');
+  }
+
+  void _ac(Customer c) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => CustomerDetailScreen(
+        db: widget.db,
+        customerId: c.id,
+        writable: widget.writable,
+        yetki: widget.yetki,
+      ),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SipColors.bg,
       body: SafeArea(
         bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _Header(
-              debtCount: _debtCount,
-              search: _search,
-              query: _query,
-              onChanged: (v) => setState(() => _query = v),
-              onClear: () {
-                _search.clear();
-                setState(() => _query = '');
+            StreamBuilder<int>(
+              stream: _borcluSayisi,
+              builder: (context, snap) {
+                final n = snap.data ?? 0;
+                return SipUst(
+                  baslik: 'Müşteriler',
+                  alt: n > 0 ? '$n borçlu müşteri' : 'Tüm hesaplar temiz',
+                  onMenu: widget.onMenu,
+                  sag: [
+                    SipMetinButon(
+                      etiket: 'Yeni',
+                      ikon: SipIcons.plus,
+                      onTap: _yeniMusteri,
+                    ),
+                  ],
+                );
               },
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(SipSpace.govde, SipSpace.xs, SipSpace.govde, SipSpace.xl),
+              child: SipArama(
+                controller: _arama,
+                ipucu: 'Ad veya telefon ara',
+                onChanged: (v) => setState(() => _sorgu = v),
+                onTemizle: () {
+                  _arama.clear();
+                  setState(() => _sorgu = '');
+                },
+              ),
             ),
             Expanded(
               child: StreamBuilder<List<CustomerRow>>(
-                stream: watchCustomerRows(widget.db, _query),
+                stream: watchCustomerRows(widget.db, _sorgu),
                 builder: (context, snap) {
+                  if (snap.hasError) return const SipHataEkran();
                   final rows = snap.data;
                   if (rows == null) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: SipSpace.govde),
+                      child: SipIskelet(),
+                    );
                   }
-                  if (rows.isEmpty) {
-                    return _EmptyCustomers(searching: _query.trim().isNotEmpty);
-                  }
+                  if (rows.isEmpty) return _bosDurum();
                   return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(14, 2, 14, 104),
+                    padding: const EdgeInsets.fromLTRB(SipSpace.govde, 2, SipSpace.govde, 104),
                     itemCount: rows.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: SipSpace.gap),
-                    itemBuilder: (context, i) => _CustomerCard(
-                      row: rows[i],
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => CustomerDetailScreen(
-                          db: widget.db,
-                          customerId: rows[i].customer.id,
-                          writable: widget.writable,
-                          yetki: widget.yetki,
-                        ),
-                      )),
+                    separatorBuilder: (_, _) => const SizedBox(height: 7),
+                    itemBuilder: (context, i) => _MusteriSatiri(
+                      satir: rows[i],
+                      onAc: () => _ac(rows[i].customer),
                     ),
                   );
                 },
@@ -94,244 +144,177 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: widget.writable
-            ? () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => CustomerFormScreen(repo: CustomerRepository(widget.db))))
-            : () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text('Salt-okunur kip: yeni kayıt eklenemez.'))),
-        icon: const Icon(Icons.person_add),
-        label: const Text('Müşteri'),
-      ),
+    );
+  }
+
+  Widget _bosDurum() {
+    final arama = _sorgu.trim();
+    if (arama.isNotEmpty) {
+      return SipBosDurum(
+        ikon: SipIcons.search,
+        baslik: 'Sonuç yok',
+        aciklama: '"$arama" için müşteri bulunamadı.',
+      );
+    }
+    return SipBosDurum(
+      ikon: SipIcons.users,
+      baslik: 'Henüz müşteri yok',
+      aciklama: 'Gelen çağrıdan ya da + Yeni ile ilk müşterini ekle.',
+      aksiyon: 'Yeni Müşteri',
+      onAksiyon: _yeniMusteri,
     );
   }
 }
 
-/// Başlık + borçlu sayısı çipi + arama alanı.
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.debtCount,
-    required this.search,
-    required this.query,
-    required this.onChanged,
-    required this.onClear,
-  });
+/// CSS `.mrow` — (ad / telefon / adres) + bakiye çipi.
+///
+/// AVATAR YOK: tasarımın `MusteriSatir`ı (s-musteriler.jsx:7-19) avatar çizmiyor; `.mrow-av`
+/// CSS'te kalmış ölü bir sınıf.
+class _MusteriSatiri extends StatelessWidget {
+  const _MusteriSatiri({required this.satir, required this.onAc});
 
-  final Stream<int> debtCount;
-  final TextEditingController search;
-  final String query;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
+  final CustomerRow satir;
+  final VoidCallback onAc;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    final t = context.sip;
+    final c = satir.customer;
+    final adres = satir.adres;
+    final konumVar = adres?.lat != null && adres?.lng != null;
+    final adresMetni = adresGosterimi(adres?.addressText, adres?.region);
+
+    return SipDokun(
+      onTap: onAc,
+      zemin: t.surface,
+      radius: SipRadius.br2,
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
+      child: Row(
+        // CSS `.mrow-bal { align-self: center }` — çip satırın ortasında durur. Ad/telefon/adres
+        // yığını her zaman çipten uzundur, dolayısıyla satırın yüksekliğini o belirler ve
+        // `center` yalnız çipi etkiler (sabit `Padding(top: 7)` yerine).
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              const Expanded(child: Text('Müşteriler', style: SipText.screenTitle)),
-              // Borçlu sayısı rozeti — canlı; borçlu yoksa hiç görünmez (handoff).
-              StreamBuilder<int>(
-                stream: debtCount,
-                builder: (context, snap) {
-                  final n = snap.data ?? 0;
-                  if (n == 0) return const SizedBox.shrink();
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: SipColors.debtSoft,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                              color: SipColors.debt, shape: BoxShape.circle),
-                        ),
-                        const SizedBox(width: 6),
-                        Text('$n borçlu',
-                            style: SipText.muted
-                                .copyWith(color: SipColors.debt, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: search,
-            onChanged: onChanged,
-            textInputAction: TextInputAction.search,
-            style: const TextStyle(fontSize: 16, color: SipColors.t1),
-            decoration: InputDecoration(
-              hintText: 'Ad veya telefon ara',
-              prefixIcon: const Icon(Icons.search, size: 22),
-              suffixIcon: query.isEmpty
-                  ? null
-                  : IconButton(icon: const Icon(Icons.clear, size: 20), onPressed: onClear),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  c.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: SipText.satirAd.copyWith(color: t.ink),
+                ),
+                if (satir.phone != null) ...[
+                  const SizedBox(height: 3),
+                  _AltSatir(
+                    ikon: SipIcons.phone,
+                    ikonRenk: t.muted,
+                    kalinlik: 2,
+                    metin: sipTelefon(satir.phone!),
+                    stil: SipText.satirTel.copyWith(color: t.ink2),
+                  ),
+                ],
+                if (adresMetni != null) ...[
+                  const SizedBox(height: 3),
+                  _AltSatir(
+                    ikon: SipIcons.pin,
+                    // Konumu kayıtlı adres YEŞİL pin — kurye için "bu kapı bulunur" işareti.
+                    ikonRenk: konumVar ? t.ok : t.muted,
+                    kalinlik: 2.2,
+                    metin: adresMetni,
+                    stil: SipText.satirAdres.copyWith(color: t.ink2),
+                    satirlar: 2,
+                  ),
+                ],
+              ],
             ),
           ),
+          // Bakiye 0'da çip HİÇ çizilmez (tasarım); öndeki boşluk da o zaman hayalet kalmasın.
+          if (c.balanceKurus != 0) ...[
+            const SizedBox(width: SipSpace.xl), // CSS `.mrow { gap: 12px }`
+            SipBakiyeCipi(kurus: c.balanceKurus),
+          ],
         ],
       ),
     );
   }
 }
 
-/// Müşteri kartı — avatar (baş harfler) + ad + telefon, sağda bakiye rozeti.
-class _CustomerCard extends StatelessWidget {
-  const _CustomerCard({required this.row, required this.onTap});
+/// `.mrow-tel` / `.mrow-adres` — küçük ikon + metin satırı.
+class _AltSatir extends StatelessWidget {
+  const _AltSatir({
+    required this.ikon,
+    required this.ikonRenk,
+    required this.kalinlik,
+    required this.metin,
+    required this.stil,
+    this.satirlar = 1,
+  });
 
-  final CustomerRow row;
-  final VoidCallback onTap;
+  final String ikon;
+  final Color ikonRenk;
+  final double kalinlik;
+  final String metin;
+  final TextStyle stil;
+  final int satirlar;
 
   @override
   Widget build(BuildContext context) {
-    final c = row.customer;
-    final secondary = row.phone != null ? formatPhoneTR(row.phone!) : (c.note ?? '');
-    return Material(
-      color: SipColors.s1,
-      borderRadius: SipRadius.cardBr,
-      child: InkWell(
-        borderRadius: SipRadius.cardBr,
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: SipRadius.cardBr,
-            border: Border.all(color: SipColors.line),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-            child: Row(
-              children: [
-                _Avatar(name: c.name),
-                const SizedBox(width: 13),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(c.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: SipText.cardTitle),
-                      if (secondary.isNotEmpty) ...[
-                        const SizedBox(height: 3),
-                        Text(secondary,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: SipText.secondary.copyWith(fontSize: 13.5)),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                BalanceBadge(kurus: c.balanceKurus),
-              ],
-            ),
-          ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: SipIcon(ikon, boyut: 13, kalinlik: kalinlik, renk: ikonRenk),
         ),
-      ),
+        const SizedBox(width: SipSpace.sm),
+        Expanded(
+          child: Text(metin, maxLines: satirlar, overflow: TextOverflow.ellipsis, style: stil),
+        ),
+      ],
     );
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.name});
-  final String name;
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Sorgular
+// ═══════════════════════════════════════════════════════════════════════════════════════════
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      alignment: Alignment.center,
-      decoration: const BoxDecoration(color: SipColors.s3, shape: BoxShape.circle),
-      child: Text(
-        initialsOf(name),
-        style: const TextStyle(
-            fontFamily: sipFontFamily, fontSize: 15, fontWeight: FontWeight.w700, color: SipColors.t2),
-      ),
-    );
-  }
-}
+/// Liste satırının verisi: müşteri + görüntü telefonu + birincil adres.
+typedef CustomerRow = ({Customer customer, String? phone, CustomerAddressesData? adres});
 
-/// Boş durum — ortak SipEmptyState'e devreder (arama mı, hiç kayıt mı).
-class _EmptyCustomers extends StatelessWidget {
-  const _EmptyCustomers({required this.searching});
-  final bool searching;
-
-  @override
-  Widget build(BuildContext context) {
-    return SipEmptyState(
-      icon: searching ? Icons.search_off : Icons.group_outlined,
-      title: searching ? 'Sonuç bulunamadı' : 'Henüz müşteri yok',
-      subtitle: searching
-          ? 'Farklı bir ad veya numara deneyin.'
-          : 'Sağ alttan ilk müşterinizi ekleyin — telefon çaldığında ekranda tanıyacaksınız.',
-    );
-  }
-}
-
-/// Ad → baş harfler (ilk iki kelimenin ilk harfi, Türkçe büyük harf). Salt görsel.
-String initialsOf(String name) {
-  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
-  if (parts.isEmpty) return '?';
-  final a = parts[0].characters.first;
-  final b = parts.length > 1 ? parts[1].characters.first : '';
-  return (a + b).toUpperCase();
-}
-
-/// E164/ham numarayı TR yazımına biçimler: "+905327710863" → "0532 771 08 63". 10 haneye
-/// inmiyorsa girdiyi olduğu gibi döner (kısmî/yabancı numara).
-String formatPhoneTR(String raw) {
-  final d = raw.replaceAll(RegExp(r'\D'), '');
-  final n = d.length >= 10 ? d.substring(d.length - 10) : d;
-  if (n.length != 10) return raw;
-  return '0${n.substring(0, 3)} ${n.substring(3, 6)} ${n.substring(6, 8)} ${n.substring(8, 10)}';
-}
-
-/// Müşteri + birincil telefon satırı (yeniden tasarım listesi için). `watchCustomers`'a DOKUNULMADI
-/// (testler ona bağlı); bu ADDITIVE, salt-okunur sorgu birincil telefonu LEFT JOIN'le ekler.
-typedef CustomerRow = ({Customer customer, String? phone});
-
+/// Liste akışı. Telefon ve adres LEFT JOIN'dir — ikisi de olmayan müşteri de listede kalır.
+/// Sorguda 3+ rakam varsa telefon araması (son-10 normalizasyonu — arayan tanımanın kuralı),
+/// yoksa ad araması.
 Stream<List<CustomerRow>> watchCustomerRows(AppDatabase db, String query) {
   final q = query.trim();
 
-  // Görüntü telefonu: birincili tercih et (isPrimary desc), silinmişleri dışla. LEFT join —
-  // telefonu olmayan müşteri de listede kalır.
   final sel = db.select(db.customers).join([
     leftOuterJoin(
       db.customerPhones,
       db.customerPhones.customerId.equalsExp(db.customers.id) &
           db.customerPhones.deletedAt.isNull(),
     ),
+    leftOuterJoin(
+      db.customerAddresses,
+      db.customerAddresses.customerId.equalsExp(db.customers.id) &
+          db.customerAddresses.deletedAt.isNull(),
+    ),
   ]);
 
   if (q.isEmpty) {
     sel.where(db.customers.deletedAt.isNull());
   } else {
-    var digits = q.replaceAll(RegExp(r'\D'), '');
-    if (digits.length >= 3) {
-      // Telefon araması — arayan tanımayla AYNI son-10 normalizasyonu.
-      if (digits.startsWith('90') && digits.length > 10) digits = digits.substring(2);
-      while (digits.startsWith('0')) {
-        digits = digits.substring(1);
-      }
-      final frag = phoneLast10(digits);
+    final digits = _numaraGovdesi(q);
+    if (digits != null) {
       // EXISTS: herhangi bir telefonu eşleşen müşteri (görüntü telefonu yine birincil kalır).
       final match = db.selectOnly(db.customerPhones)
         ..addColumns([db.customerPhones.id])
         ..where(db.customerPhones.customerId.equalsExp(db.customers.id) &
             db.customerPhones.deletedAt.isNull() &
-            db.customerPhones.phoneLast10.like('%$frag%'));
+            db.customerPhones.phoneLast10.like('%$digits%'));
       sel.where(db.customers.deletedAt.isNull() & existsQuery(match));
     } else {
       sel.where(db.customers.deletedAt.isNull() & db.customers.name.like('%$q%'));
@@ -341,25 +324,28 @@ Stream<List<CustomerRow>> watchCustomerRows(AppDatabase db, String query) {
   sel.orderBy([
     OrderingTerm.asc(db.customers.name),
     OrderingTerm.desc(db.customerPhones.isPrimary),
+    OrderingTerm.desc(db.customerAddresses.isPrimary),
   ]);
 
   return sel.watch().map((rows) {
+    // JOIN çarpımını müşteri başına tek satıra indir: ilk gelen (sıralama gereği birincil) kazanır.
     final byId = <String, CustomerRow>{};
     for (final r in rows) {
       final c = r.readTable(db.customers);
       final p = r.readTableOrNull(db.customerPhones);
-      final existing = byId[c.id];
-      if (existing == null) {
-        byId[c.id] = (customer: c, phone: p?.phoneE164);
-      } else if (existing.phone == null && p != null) {
-        byId[c.id] = (customer: c, phone: p.phoneE164);
-      }
+      final a = r.readTableOrNull(db.customerAddresses);
+      final mevcut = byId[c.id];
+      byId[c.id] = (
+        customer: c,
+        phone: mevcut?.phone ?? p?.phoneE164,
+        adres: mevcut?.adres ?? a,
+      );
     }
     return byId.values.toList();
   });
 }
 
-/// Başlıktaki "N borçlu" rozeti için canlı sayım (bakiyesi + olan müşteriler).
+/// Başlıktaki "N borçlu müşteri" için canlı sayım (bakiyesi + olan müşteriler).
 Stream<int> watchDebtCount(AppDatabase db) {
   final count = db.customers.id.count();
   final q = db.selectOnly(db.customers)
@@ -368,13 +354,9 @@ Stream<int> watchDebtCount(AppDatabase db) {
   return q.watchSingle().map((r) => r.read(count) ?? 0);
 }
 
-/// Müşteri listesi sorgusu (arşivsizler, ada göre sıralı). Boş sorgu = hepsi; sorguda 3+ rakam
-/// varsa telefon araması (son-10 normalizasyonlu LIKE — arayan tanımanın eşleşme kuralı), yoksa
-/// ad araması. Ekrandan bağımsız fonksiyon: sorgu mantığı saf async testle sınanır (widget-test
-/// zamanlaması drift akışlarında güvenilmez — bkz. test/ui_dilim1_test.dart notu).
-///
-/// NOT: liste ekranı artık `watchCustomerRows`'u (telefonlu) kullanır; bu fonksiyon KORUNDU çünkü
-/// testler doğrudan onu çağırır (arama/normalizasyon sözleşmesi).
+/// Müşteri listesi sorgusu (arşivsizler, ada göre sıralı). Liste ekranı artık
+/// [watchCustomerRows]'u kullanır; bu fonksiyon KORUNDU çünkü arama/normalizasyon sözleşmesi
+/// doğrudan onun üzerinden test ediliyor.
 Stream<List<Customer>> watchCustomers(AppDatabase db, String query) {
   final q = query.trim();
   if (q.isEmpty) {
@@ -384,19 +366,12 @@ Stream<List<Customer>> watchCustomers(AppDatabase db, String query) {
         .watch();
   }
 
-  var digits = q.replaceAll(RegExp(r'\D'), '');
-  if (digits.length >= 3) {
-    // Kullanıcı yazımını numara gövdesine indir: +90/90 ülke kodu ve baştaki 0 atılır — DB'de
-    // phone_last10 '5321112233' biçimindedir; '0532...' yazımı aynen bırakılsa eşleşme kaçar.
-    if (digits.startsWith('90') && digits.length > 10) digits = digits.substring(2);
-    while (digits.startsWith('0')) {
-      digits = digits.substring(1);
-    }
-    final frag = phoneLast10(digits);
+  final digits = _numaraGovdesi(q);
+  if (digits != null) {
     final join = db.select(db.customers).join([
       innerJoin(db.customerPhones, db.customerPhones.customerId.equalsExp(db.customers.id)),
     ])
-      ..where(db.customers.deletedAt.isNull() & db.customerPhones.phoneLast10.like('%$frag%'))
+      ..where(db.customers.deletedAt.isNull() & db.customerPhones.phoneLast10.like('%$digits%'))
       ..orderBy([OrderingTerm.asc(db.customers.name)]);
     return join.watch().map((rows) =>
         {for (final r in rows) r.readTable(db.customers).id: r.readTable(db.customers)}
@@ -408,4 +383,16 @@ Stream<List<Customer>> watchCustomers(AppDatabase db, String query) {
         ..where((t) => t.deletedAt.isNull() & t.name.like('%$q%'))
         ..orderBy([(t) => OrderingTerm.asc(t.name)]))
       .watch();
+}
+
+/// Kullanıcı yazımını numara gövdesine indirir; 3'ten az rakam varsa null (= ad araması).
+/// DB'de phone_last10 '5321112233' biçimindedir; '+90'/'90' ve baştaki 0 atılmazsa eşleşme kaçar.
+String? _numaraGovdesi(String query) {
+  var digits = query.replaceAll(RegExp(r'\D'), '');
+  if (digits.length < 3) return null;
+  if (digits.startsWith('90') && digits.length > 10) digits = digits.substring(2);
+  while (digits.startsWith('0')) {
+    digits = digits.substring(1);
+  }
+  return phoneLast10(digits);
 }

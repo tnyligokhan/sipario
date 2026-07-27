@@ -29,6 +29,7 @@ class RouteCoverageGuardTest extends TestCase
         'api.devices.show',
         'api.sync.push',
         'api.sync.pull',
+        'api.orders.auto-route',
     ];
 
     #[Test]

@@ -25,7 +25,9 @@ class LoginResult {
 }
 
 /// Kullanıcıya gösterilebilir auth hatası. Sunucunun nötr `message` alanı aynen taşınır
-/// (401 "E-posta veya parola hatalı", 403 "Hesabınız kullanıma kapalı", 429 hız sınırı).
+/// (401 "Firma kodu, kullanıcı adı veya parola hatalı", 403 "Hesabınız kullanıma kapalı",
+/// 429 hız sınırı). İstemci bu metni ZENGİNLEŞTİRMEZ: hangi alanın yanlış olduğunu
+/// söylemek geçerli firma kodlarının numaralandırılmasına kapı açardı.
 class AuthException implements Exception {
   AuthException(this.message);
   final String message;
@@ -42,8 +44,12 @@ class AuthApi {
   final String baseUrl;
   final http.Client _client;
 
+  /// Tasarım `s-giris.jsx`: giriş **firma kodu + kullanıcı adı + parola** ile yapılır.
+  /// [tenantCode] tasarımdaki "Firma Kodu" (sunucuda `tenants.slug`), [username] ise
+  /// kullanıcı adı — tenant içinde tekildir, e-posta DEĞİLDİR.
   Future<LoginResult> login({
-    required String email,
+    required String tenantCode,
+    required String username,
     required String password,
     required String deviceId,
   }) async {
@@ -54,7 +60,8 @@ class AuthApi {
             Uri.parse('$baseUrl/auth/login'),
             headers: const {'Content-Type': 'application/json', 'Accept': 'application/json'},
             body: jsonEncode({
-              'email': email,
+              'tenant_code': tenantCode,
+              'username': username,
               'password': password,
               'device': {
                 'device_id': deviceId,

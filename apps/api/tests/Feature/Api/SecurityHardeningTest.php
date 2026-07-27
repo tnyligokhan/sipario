@@ -17,10 +17,11 @@ use Tests\ApiTestCase;
 class SecurityHardeningTest extends ApiTestCase
 {
     #[Test]
-    public function login_ayni_email_ip_icin_5_denemeden_sonra_429_verir(): void
+    public function login_ayni_kimlik_ip_icin_5_denemeden_sonra_429_verir(): void
     {
         $a = $this->makeTenant('a');
-        $payload = ['email' => $a['patron']->email, 'password' => 'yanlis-parola'];
+        // Hedefli sınır firma kodu + kullanıcı adı ÇİFTİ üzerinden kurulur (AppServiceProvider).
+        $payload = $this->girisGovdesi($a['tenant'], $a['patron'], 'yanlis-parola');
 
         // İlk 5 deneme sınır içinde: kimlik hatası (401), throttle değil.
         for ($i = 1; $i <= 5; $i++) {

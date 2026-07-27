@@ -1,0 +1,224 @@
+// Çağrı kartının ALT YARISI — CSS `.cagri-bal` + `.cagri-bilgi`/`.cagri-brow` + `.cagri-acts`.
+// İskelet `cagri_karti.dart`'tadır; bu dosya 500 satır sınırı için ayrıldı.
+
+import 'package:flutter/material.dart';
+
+import '../../theme/components/atoms.dart';
+import '../../theme/icons.dart';
+import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
+import 'cagri_model.dart';
+
+/// CSS `.cagri-bal` — yalnız bakiye 0 değilken çizilir.
+class CagriBakiyeSeridi extends StatelessWidget {
+  const CagriBakiyeSeridi({super.key, required this.kurus});
+
+  final int kurus;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    final renk = t.bakiyeRenk(kurus);
+    return Container(
+      margin: const EdgeInsets.only(top: SipSpace.x2),
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: SipSpace.xl),
+      decoration: BoxDecoration(
+        color: t.bakiyeSoft(kurus),
+        borderRadius: SipRadius.br2,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Text(
+            kurus > 0 ? 'AÇIK BORÇ' : 'ALACAĞI VAR',
+            style: SipText.cagriBakiyeEtiket.copyWith(color: renk),
+          ),
+          const Spacer(),
+          Text(
+            sipTutar(kurus.abs()),
+            style: SipText.cagriBakiyeDeger.copyWith(color: renk),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// CSS `.cagri-bilgi` — adres, son hareket ve müşteri notu. Hiçbiri yoksa hiç çizilmez.
+class CagriBilgiSatirlari extends StatelessWidget {
+  const CagriBilgiSatirlari({super.key, required this.kisi});
+
+  final CagriKisi kisi;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    final satirlar = <Widget>[];
+
+    final adres = kisi.adres;
+    if (adres != null && adres.isNotEmpty) {
+      final bolge = kisi.bolge;
+      final metin = [adres, if (bolge != null && bolge != '—') bolge]
+          .where((x) => x.isNotEmpty)
+          .join(' — ');
+      satirlar.add(
+        _BilgiSatiri(
+          ikon: SipIcons.pin,
+          ikonRenk: kisi.konumVar ? t.ok : t.muted,
+          metin: metin,
+          // Kayıtlı konum varsa satır sonunda yeşil onay (tasarımdaki `check`).
+          sag: kisi.konumVar
+              ? SipIcon(SipIcons.check, boyut: 12, kalinlik: 3, renk: t.ok)
+              : null,
+        ),
+      );
+    }
+
+    final son = kisi.sonHareket;
+    if (son != null && son.isNotEmpty) {
+      satirlar.add(
+        _BilgiSatiri(
+          ikon: kisi.sonHareketTuru == SonHareketTuru.defter
+              ? SipIcons.book
+              : SipIcons.box,
+          ikonRenk: t.muted,
+          metin: son,
+        ),
+      );
+    }
+
+    final not = kisi.not;
+    if (not != null && not.isNotEmpty) {
+      satirlar.add(
+        _BilgiSatiri(
+          ikon: SipIcons.info,
+          ikonRenk: t.warn,
+          metin: not,
+          uyari: true,
+        ),
+      );
+    }
+
+    if (satirlar.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 13),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < satirlar.length; i++) ...[
+            if (i > 0) const SizedBox(height: SipSpace.md),
+            satirlar[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BilgiSatiri extends StatelessWidget {
+  const _BilgiSatiri({
+    required this.ikon,
+    required this.ikonRenk,
+    required this.metin,
+    this.sag,
+    this.uyari = false,
+  });
+
+  final String ikon;
+  final Color ikonRenk;
+  final String metin;
+  final Widget? sag;
+
+  /// CSS `.cagri-brow.warn` — sarı zeminli not satırı.
+  final bool uyari;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    final satir = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: SipIcon(ikon, boyut: 14, kalinlik: 2.1, renk: ikonRenk),
+        ),
+        const SizedBox(width: SipSpace.md),
+        Expanded(
+          child: Text(
+            metin,
+            style: SipText.cagriBilgi.copyWith(color: uyari ? t.warn : t.ink2),
+          ),
+        ),
+        if (sag != null) ...[
+          const SizedBox(width: SipSpace.sm),
+          Padding(padding: const EdgeInsets.only(top: 2), child: sag!),
+        ],
+      ],
+    );
+
+    if (!uyari) return satir;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+      decoration: BoxDecoration(
+        color: t.warnSoft,
+        borderRadius: SipRadius.br1,
+      ),
+      child: satir,
+    );
+  }
+}
+
+/// CSS `.cagri-acts` — düğme yüksekliği 50.
+class CagriEylemler extends StatelessWidget {
+  const CagriEylemler({
+    super.key,
+    required this.kisi,
+    this.onSiparis,
+    this.onDefter,
+    this.onKaydet,
+  });
+
+  final CagriKisi kisi;
+  final VoidCallback? onSiparis;
+  final VoidCallback? onDefter;
+  final VoidCallback? onKaydet;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: SipSpace.x3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: kisi.kayitli
+            ? [
+                SipButon(
+                  etiket: 'Sipariş Oluştur',
+                  ikon: SipIcons.plus,
+                  yukseklik: 50,
+                  onTap: onSiparis,
+                ),
+                const SizedBox(height: SipSpace.md),
+                SipButon(
+                  etiket: 'Defteri Aç',
+                  ikon: SipIcons.book,
+                  tur: SipButonTuru.ikincil,
+                  yukseklik: 50,
+                  onTap: onDefter,
+                ),
+              ]
+            : [
+                SipButon(
+                  etiket: 'Müşteri Olarak Kaydet',
+                  ikon: SipIcons.userPlus,
+                  yukseklik: 50,
+                  onTap: onKaydet,
+                ),
+              ],
+      ),
+    );
+  }
+}

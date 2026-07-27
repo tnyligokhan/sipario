@@ -7,11 +7,15 @@ import 'package:path/path.dart' as p;
 import 'package:sipario/data/app_database.dart';
 import 'package:sqlite3/sqlite3.dart';
 
-/// Faz 0 (sqflite v1) → Drift v4 ADDİTİF migration'ı doğrular (architect kabul kriteri):
+/// Faz 0 (sqflite v1) → Drift v8 ADDİTİF migration'ı doğrular (architect kabul kriteri):
 /// phase0 `customers`/`customer_phones` verisi ve native sözleşmesi KORUNUR, yeni tablolar (Faz 2 +
-/// Faz 3 kupon + Faz 4 kurye) oluşur. Drift açılışta şemayı doğrular → v4 hedef şeması eksiksiz kurulmuş olmalı.
+/// Faz 3 defter + Faz 4 kurye + v8 tasarım boşluğu) oluşur. Drift açılışta şemayı doğrular → hedef
+/// şema eksiksiz kurulmuş olmalı.
+///
+/// Migration ADDİTİF olma kuralının TEK istisnası v10'dur: kupon özelliği üründen çıktı, iki tablosu
+/// düşürülür. Para tablolarına dokunulmaz (kırmızı çizgi #2 — defter append-only).
 void main() {
-  test('v1→v4: phase0 verisi ve native sözleşmesi korunur, Faz 2/3/4 tabloları açılır', () async {
+  test('v1→v8: phase0 verisi ve native sözleşmesi korunur, Faz 2/3/4 + v8 tabloları açılır', () async {
     final file = File(p.join(
       Directory.systemTemp.path,
       'sipario_mig_${DateTime.now().microsecondsSinceEpoch}.db',
@@ -90,9 +94,9 @@ void main() {
     expect(meta.id, 1);
     expect(meta.snapshotDone, isFalse);
 
-    // FAZ 3 yüzeyleri kuruldu: kupon tabloları erişilebilir, ledger yeni kolonlarıyla yazılabilir.
-    expect(await db.select(db.couponMovements).get(), isEmpty);
-    expect(await db.select(db.couponBalances).get(), isEmpty);
+    // FAZ 3 yüzeyi kuruldu: ledger yeni kolonlarıyla yazılabilir. KUPON tabloları TAZE kurulumda
+    // HİÇ oluşmaz (v10'da özellik kaldırıldı; eski v3 bloğundaki createTable çağrıları silindi).
+    expect(await _tablolar(db), isNot(anyElement(startsWith('coupon_'))));
     await db.into(db.ledgerEntries).insert(LedgerEntriesCompanion.insert(
           id: 'l1', entryType: 'payment', amountKurus: -5000,
           paymentType: const Value('nakit'), occurredAt: '2026-07-14T00:00:00.000Z', clientEventId: 'ce1',
@@ -114,6 +118,149 @@ void main() {
           id: 'o1', assignedUserId: const Value('u1'), occurredAt: '2026-07-15T00:00:00.000Z'));
     final order = await (db.select(db.orders)..where((t) => t.id.equals('o1'))).getSingle();
     expect(order.assignedUserId, 'u1');
+
+    // v8 TASARIM BOŞLUĞU yüzeyleri kuruldu: yeni tablolar + mevcut tablolara eklenen alanlar.
+    expect(await db.select(db.tenantSettings).get(), isEmpty);
+    expect(await db.select(db.exemptNumbers).get(), isEmpty);
+    expect(await db.select(db.callLogs).get(), isEmpty);
+    expect(await db.select(db.dayClosings).get(), isEmpty);
+
+    await db.into(db.products).insert(ProductsCompanion.insert(
+        id: 'pr1', name: 'Damacana', unitPriceKurus: 4500,
+        barcode: const Value('8690521000117'), updatedOccurredAt: '2026-07-25T00:00:00.000Z'));
+    expect((await (db.select(db.products)..where((t) => t.id.equals('pr1'))).getSingle()).barcode,
+        '8690521000117');
+
+    await db.into(db.customerAddresses).insert(CustomerAddressesCompanion.insert(
+        id: 'a1', customerId: '0190f0f0-0000-7000-8000-000000000001', addressText: 'Yeni Adres',
+        region: const Value('Kepez'), updatedOccurredAt: '2026-07-25T00:00:00.000Z'));
+    expect((await (db.select(db.customerAddresses)..where((t) => t.id.equals('a1'))).getSingle()).region,
+        'Kepez');
+
+    await db.into(db.orderLines).insert(OrderLinesCompanion.insert(
+        id: 'ol1', orderId: 'o1', productName: 'Merdiven çıkışı', unitPriceKurus: 2000,
+        unit: const Value('adet'), isCustom: const Value(true), qty: 1, lineTotalKurus: 2000));
+    expect((await (db.select(db.orderLines)..where((t) => t.id.equals('ol1'))).getSingle()).isCustom,
+        isTrue);
+  });
+
+  test(
+      'v7→v8: SAHADAKİ cihazın yükseltme adımı — veri korunur, tasarım boşluğu tabloları ve '
+      'ALTER kolonları eklenir (v1→v8 yolu bu dalı HİÇ koşmaz: orada tablolar createTable ile '
+      'doğrudan v8 şemasında kurulur, ALTER\'lar `from >= 2` / `from >= 7` koşullarıyla atlanır)',
+      () async {
+    final file = File(p.join(
+      Directory.systemTemp.path,
+      'sipario_v7v8_${DateTime.now().microsecondsSinceEpoch}.db',
+    ));
+    if (file.existsSync()) file.deleteSync();
+
+    // 1) Güncel şemayla kur, GERÇEK veri yaz (yükseltmenin korumak zorunda olduğu şey budur).
+    final v8 = AppDatabase(NativeDatabase(file));
+    await v8.into(v8.customers).insert(CustomersCompanion.insert(
+        id: 'v7-c1', name: 'Saha Müşterisi', balanceKurus: const Value(31500),
+        updatedOccurredAt: '2026-07-24T00:00:00.000Z'));
+    await v8.into(v8.customerPhones).insert(CustomerPhonesCompanion.insert(
+        id: 'v7-p1', customerId: 'v7-c1', phoneE164: '+905324152290', phoneLast10: '5324152290',
+        updatedOccurredAt: '2026-07-24T00:00:00.000Z'));
+    await v8.into(v8.customerAddresses).insert(CustomerAddressesCompanion.insert(
+        id: 'v7-a1', customerId: 'v7-c1', addressText: 'Kışla Mah. No:7',
+        isPrimary: const Value(true), updatedOccurredAt: '2026-07-24T00:00:00.000Z'));
+    await v8.into(v8.products).insert(ProductsCompanion.insert(
+        id: 'v7-pr1', name: '19L Damacana', unitPriceKurus: 4500,
+        updatedOccurredAt: '2026-07-24T00:00:00.000Z'));
+    await v8.into(v8.orders).insert(OrdersCompanion.insert(
+        id: 'v7-o1', occurredAt: '2026-07-24T00:00:00.000Z'));
+    await v8.into(v8.orderLines).insert(OrderLinesCompanion.insert(
+        id: 'v7-ol1', orderId: 'v7-o1', productName: '19L Damacana',
+        unitPriceKurus: 4500, qty: 2, lineTotalKurus: 9000));
+    await v8.into(v8.users).insert(UsersCompanion.insert(
+        id: 'v7-u1', name: 'Mehmet Kurye', role: 'kurye', status: 'active'));
+    await v8.close();
+
+    // 2) Dosyayı v7'ye GERİ SAR: v8'de eklenen tablolar/indeksler/kolonlar kaldırılır, damga 7 olur.
+    //    (Gerçek bir v7 cihazının diskteki hâli budur; veri satırları YERİNDE kalır.)
+    final raw = sqlite3.open(file.path);
+    for (final ix in ['idx_products_barcode', 'idx_exempt_last10', 'idx_call_logs_occurred']) {
+      raw.execute('DROP INDEX IF EXISTS $ix');
+    }
+    for (final t in ['tenant_settings', 'exempt_numbers', 'call_logs', 'day_closings']) {
+      raw.execute('DROP TABLE IF EXISTS $t');
+    }
+    const v8Kolonlari = {
+      'customer_addresses': ['region'],
+      'products': ['barcode', 'image_url', 'image_local_path'],
+      'orders': ['sort_index'],
+      'order_lines': ['unit', 'is_custom'],
+      'sync_meta': ['tenant_code', 'route_credits', 'setup_completed_at', 'theme_mode'],
+      'users': ['phone'],
+    };
+    v8Kolonlari.forEach((tablo, kolonlar) {
+      for (final k in kolonlar) {
+        raw.execute('ALTER TABLE $tablo DROP COLUMN $k');
+      }
+    });
+    raw.execute('PRAGMA user_version = 7');
+    raw.close();
+
+    // 3) Yeniden aç → onUpgrade(from: 7, to: 8). Kendini-onarma işareti `tenant_settings`e bakar;
+    //    v7 cihazda o tablo YOK, dolayısıyla adım ATLANMAMALI (işaret v7'deki `users` olarak
+    //    kalsaydı burası sessizce atlanır ve cihaz eksik tabloyla açılırdı — bu test o regresyonu tutar).
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(() async {
+      await db.close();
+      if (file.existsSync()) file.deleteSync();
+    });
+
+    // Mevcut veri KORUNDU (native sözleşme dahil).
+    final cust = await (db.select(db.customers)..where((t) => t.id.equals('v7-c1'))).getSingle();
+    expect(cust.name, 'Saha Müşterisi');
+    expect(cust.balanceKurus, 31500);
+    expect(
+        (await (db.select(db.customerPhones)..where((t) => t.id.equals('v7-p1'))).getSingle())
+            .phoneLast10,
+        '5324152290');
+    expect((await (db.select(db.orderLines)..where((t) => t.id.equals('v7-ol1'))).getSingle())
+        .lineTotalKurus, 9000);
+
+    // Yeni tablolar kuruldu.
+    expect(await db.select(db.tenantSettings).get(), isEmpty);
+    expect(await db.select(db.exemptNumbers).get(), isEmpty);
+    expect(await db.select(db.callLogs).get(), isEmpty);
+    expect(await db.select(db.dayClosings).get(), isEmpty);
+
+    // ALTER ile eklenen kolonlar MEVCUT satırlarda okunabilir/yazılabilir.
+    expect((await (db.select(db.orderLines)..where((t) => t.id.equals('v7-ol1'))).getSingle())
+        .isCustom, isFalse, reason: 'NOT NULL DEFAULT 0 eski satıra uygulanmalı');
+    await (db.update(db.products)..where((t) => t.id.equals('v7-pr1')))
+        .write(const ProductsCompanion(barcode: Value('8690521000117')));
+    expect((await (db.select(db.products)..where((t) => t.id.equals('v7-pr1'))).getSingle()).barcode,
+        '8690521000117');
+    await (db.update(db.customerAddresses)..where((t) => t.id.equals('v7-a1')))
+        .write(const CustomerAddressesCompanion(region: Value('Muratpaşa')));
+    expect(
+        (await (db.select(db.customerAddresses)..where((t) => t.id.equals('v7-a1'))).getSingle())
+            .region,
+        'Muratpaşa');
+    await (db.update(db.orders)..where((t) => t.id.equals('v7-o1')))
+        .write(const OrdersCompanion(sortIndex: Value(2)));
+    expect((await (db.select(db.orders)..where((t) => t.id.equals('v7-o1'))).getSingle()).sortIndex, 2);
+
+    // v7'de var olan `users` tablosuna v8'in `phone` kolonu eklendi (from >= 7 dalı) ve satır durdu.
+    final kurye = await (db.select(db.users)..where((t) => t.id.equals('v7-u1'))).getSingle();
+    expect(kurye.name, 'Mehmet Kurye');
+    // `isNull` matcher'ı drift'in aynı adlı ifadesiyle çakışır (courier_test dersi) — düz null.
+    expect(kurye.phone, null);
+    await (db.update(db.users)..where((t) => t.id.equals('v7-u1')))
+        .write(const UsersCompanion(phone: Value('+905331234567')));
+    expect((await (db.select(db.users)..where((t) => t.id.equals('v7-u1'))).getSingle()).phone,
+        '+905331234567');
+
+    // sync_meta tek satırı korundu ve v8 alanları varsayılanlarıyla geldi.
+    final meta = await db.syncState();
+    expect(meta.id, 1);
+    expect(meta.routeCredits, 0);
+    expect(meta.tenantCode, null);
   });
 
   test(
@@ -189,4 +336,76 @@ void main() {
     expect(rows.single.read<String?>('address'), 'Kışla Mah. No:3');
     expect(rows.single.read<int>('balance_kurus'), 0);
   });
+
+  test(
+      'v9→v10 KUPON KALDIRMA: sahadaki cihazın kupon tabloları düşürülür, defter/müşteri verisi '
+      'AYNEN durur. Düşürme kendini-onarma kapısından ÖNCE koşar — kapı `tenant_settings` varsa '
+      'erken döner ve v9 damgalı bir cihazda o tablo ZATEN vardır (koşul içine alınsaydı adım '
+      'sessizce atlanır, tablolar sonsuza dek kalırdı).', () async {
+    final file = File(p.join(
+      Directory.systemTemp.path,
+      'sipario_v9v10_${DateTime.now().microsecondsSinceEpoch}.db',
+    ));
+    if (file.existsSync()) file.deleteSync();
+
+    // 1) Güncel şemayla kur + korunması gereken PARA verisini yaz.
+    final v10 = AppDatabase(NativeDatabase(file));
+    await v10.into(v10.customers).insert(CustomersCompanion.insert(
+        id: 'v9-c1', name: 'Kupon Müşterisi', balanceKurus: const Value(18000),
+        updatedOccurredAt: '2026-07-26T00:00:00.000Z'));
+    await v10.into(v10.ledgerEntries).insert(LedgerEntriesCompanion.insert(
+          id: 'v9-l1', customerId: const Value('v9-c1'), entryType: 'debit', amountKurus: 18000,
+          occurredAt: '2026-07-26T00:00:00.000Z', clientEventId: 'v9-ce1',
+        ));
+    await v10.close();
+
+    // 2) Dosyayı v9'a GERİ SAR: kupon tablolarını (v3 şemalarıyla) yeniden kur, damgayı 9 yap.
+    //    Gerçek bir v9 cihazının diskteki hâli budur — içinde kupon hareketi de durur.
+    final raw = sqlite3.open(file.path);
+    raw.execute('''
+      CREATE TABLE coupon_movements (
+        id TEXT NOT NULL PRIMARY KEY, customer_id TEXT NOT NULL, product_id TEXT,
+        movement_type TEXT NOT NULL, qty_delta INTEGER NOT NULL, related_order_id TEXT,
+        note TEXT, reverses_movement_id TEXT, occurred_at TEXT NOT NULL, device_id TEXT,
+        client_event_id TEXT NOT NULL UNIQUE
+      )''');
+    raw.execute('CREATE INDEX idx_coupon_moves_customer ON coupon_movements(customer_id)');
+    raw.execute('''
+      CREATE TABLE coupon_balances (
+        customer_id TEXT NOT NULL, product_id TEXT NOT NULL DEFAULT '',
+        balance_qty INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (customer_id, product_id)
+      )''');
+    raw.execute(
+      "INSERT INTO coupon_movements (id,customer_id,movement_type,qty_delta,occurred_at,client_event_id) "
+      "VALUES ('v9-k1','v9-c1','grant',10,'2026-07-26T00:00:00.000Z','v9-kce1')",
+    );
+    raw.execute("INSERT INTO coupon_balances (customer_id,product_id,balance_qty) VALUES ('v9-c1','',10)");
+    raw.execute('PRAGMA user_version = 9');
+    raw.close();
+
+    // 3) Yeniden aç → onUpgrade(from: 9, to: 10).
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(() async {
+      await db.close();
+      if (file.existsSync()) file.deleteSync();
+    });
+
+    // Kupon tabloları (ve indeksleri onlarla birlikte) GİTTİ.
+    final tablolar = await _tablolar(db);
+    expect(tablolar, isNot(contains('coupon_movements')));
+    expect(tablolar, isNot(contains('coupon_balances')));
+
+    // PARA verisi AYNEN durur — kırmızı çizgi #2: defter satırı silinmez, bakiye ezilmez.
+    final cust = await (db.select(db.customers)..where((t) => t.id.equals('v9-c1'))).getSingle();
+    expect(cust.balanceKurus, 18000);
+    final entry = await (db.select(db.ledgerEntries)..where((t) => t.id.equals('v9-l1'))).getSingle();
+    expect(entry.amountKurus, 18000);
+  });
+}
+
+/// Dosyadaki gerçek tablo adları (sqlite_master). Kupon tablolarının YOKLUĞUNU kanıtlamak için
+/// Drift getter'ı kullanılamaz — sınıflar silindi, `db.couponMovements` artık derlenmez.
+Future<List<String>> _tablolar(AppDatabase db) async {
+  final rows = await db.customSelect("SELECT name FROM sqlite_master WHERE type='table'").get();
+  return rows.map((r) => r.read<String>('name')).toList();
 }

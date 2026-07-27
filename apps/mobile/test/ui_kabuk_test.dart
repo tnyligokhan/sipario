@@ -1,0 +1,418 @@
+// UYGULAMA KABUĞU testleri — alt navigasyon, çekmece (rol kapısı), kurulum sihirbazı
+// (ilerleme) ve tema anahtarı. Ana ekranın bento ızgarası `ui_kabuk_ana_test.dart`ta
+// (500 satır sınırı); ortak yardımcılar `support/kabuk_yardimcilari.dart`.
+
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sipario/data/app_database.dart';
+import 'package:sipario/main.dart';
+import 'package:sipario/screens/home_shell.dart';
+import 'package:sipario/screens/login_screen.dart';
+import 'package:sipario/screens/shell/alt_nav.dart';
+import 'package:sipario/screens/shell/cekmece.dart';
+import 'package:sipario/screens/shell/cekmece_istatistik.dart';
+import 'package:sipario/screens/sihirbaz/izin_sihirbazi.dart';
+import 'package:sipario/screens/sihirbaz/sihirbaz_parcalari.dart';
+import 'package:sipario/theme/tema_deposu.dart';
+import 'package:sipario/theme/tokens.dart';
+
+import 'support/kabuk_yardimcilari.dart';
+
+void main() {
+  group('Alt navigasyon — s-bilesenler.jsx AltNav', () {
+    /// Sekmeyi kendi durumunda tutan minik kabuk: içeriğin sekmeyle değiştiğini gösterir.
+    Widget navKabugu({VoidCallback? onYeniSiparis}) =>
+        _NavKabugu(onYeniSiparis: onYeniSiparis, baslangic: SipSekme.ana);
+
+    testWidgets('dört sekme + FAB çizilir; seçili sekmenin etiketi görünür', (tester) async {
+      await ekranaKoy(tester, navKabugu(onYeniSiparis: () {}));
+
+      for (final etiket in ['Ana', 'Müşteri', 'Sipariş', 'Gün Sonu']) {
+        expect(semantikDugme(etiket), findsOneWidget, reason: '$etiket sekmesi yok');
+      }
+      expect(semantikDugme('Yeni sipariş'), findsOneWidget, reason: 'FAB yok');
+
+      // CSS: yalnız SEÇİLİ sekme etiketini yazar (diğerleri ikon-only).
+      expect(find.text('Ana'), findsOneWidget);
+      expect(find.text('Müşteri'), findsNothing);
+      expect(find.text('Sipariş'), findsNothing);
+
+      await kapat(tester);
+    });
+
+    testWidgets('sekme değişince içerik ve görünen etiket değişir', (tester) async {
+      await ekranaKoy(tester, navKabugu());
+
+      expect(find.text('gövde: ana'), findsOneWidget);
+
+      await tester.tap(semantikDugme('Müşteri'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('gövde: musteri'), findsOneWidget);
+      expect(find.text('gövde: ana'), findsNothing);
+      expect(find.text('Müşteri'), findsOneWidget, reason: 'seçilen sekme etiketini açar');
+      expect(find.text('Ana'), findsNothing, reason: 'bırakılan sekme ikon-only olur');
+
+      await kapat(tester);
+    });
+
+    testWidgets('FAB TEK DOKUNUŞLA yeni siparişe gider — açılır menü YOKTUR', (tester) async {
+      // Tasarımda `.altnav-fab`ın className'i sabittir ve doğrudan `onYeniSiparis`e bağlıdır
+      // (`s-bilesenler.jsx:55`). CSS'teki `.fabpop*` ailesi ve `.altnav-fab.on` dönüşü hiçbir
+      // JSX'in kullanmadığı ölü kurallardır; bir ara sürümde uygulanmıştı, kaldırıldı.
+      // Bu test o kararı kilitler: FAB bir daha menü açmasın.
+      var cagri = 0;
+      await ekranaKoy(tester, navKabugu(onYeniSiparis: () => cagri++));
+
+      await tester.tap(semantikDugme('Yeni sipariş'));
+      await tester.pumpAndSettle();
+
+      expect(cagri, 1, reason: 'ilk dokunuş doğrudan yeni siparişi açar');
+      expect(find.text('Yeni Sipariş'), findsNothing, reason: 'menü öğesi çizilmemeli');
+      expect(find.text('Yeni Müşteri'), findsNothing,
+          reason: 'müşteri ekleme FAB\'dan başlamaz (yalnız Müşteriler ekranı ve çağrı kartı)');
+
+      await kapat(tester);
+    });
+
+    testWidgets('gün sonu yuvası rolden BAĞIMSIZ daima çizilir', (tester) async {
+      // Kullanıcı kararı (2026-07-26) + tasarım: `AltNav` her zaman 5 yuvadır, rol yalnız
+      // çekmecenin YÖNETİM bölümünü etkiler. Kuryede sağ grup tek sekmeye düşünce hap
+      // navigasyonun simetrisi de bozuluyordu.
+      await ekranaKoy(tester, navKabugu());
+
+      expect(semantikDugme('Gün Sonu'), findsOneWidget);
+      expect(semantikDugme('Sipariş'), findsOneWidget);
+
+      await tester.tap(semantikDugme('Gün Sonu'));
+      await tester.pumpAndSettle();
+      expect(find.text('gövde: gunSonu'), findsOneWidget);
+
+      await kapat(tester);
+    });
+
+    testWidgets('kilit kipinde FAB ÇİZİLİR ama pasiftir', (tester) async {
+      // Tasarımın kilit dalında da `AltNav` tam çizilir (`s-uygulama.jsx:87`). FAB'ı silmek
+      // hap navigasyonu yeniden yerleştirip yerleşimi atlatıyordu.
+      await ekranaKoy(tester, navKabugu());
+
+      expect(semantikDugme('Yeni sipariş'), findsOneWidget,
+          reason: 'salt-okunur kipte de çizilir');
+      await tester.tap(semantikDugme('Yeni sipariş'));
+      await tester.pumpAndSettle();
+      // Dokunma bir şey yapmaz: sekme değişmedi, ekran açılmadı.
+      expect(find.text('gövde: ana'), findsOneWidget);
+
+      await kapat(tester);
+    });
+  });
+
+  group('Çekmece — rol kapısı (K2, pazarlıksız)', () {
+    Widget cekmece(
+      String rol, {
+      DateTime? lisansBitisi,
+      ValueChanged<SipSekme>? onTab,
+    }) =>
+        SipCekmece(
+          acik: true,
+          onKapat: () {},
+          isletmeAdi: 'Öz Pınar Su',
+          rol: rol,
+          aktif: SipSekme.ana,
+          onTab: onTab ?? (_) {},
+          onGiris: (_) {},
+          onCikis: () {},
+          onDestek: () {},
+          lisansBitisi:
+              lisansBitisi ?? DateTime.now().toUtc().add(const Duration(days: 90)),
+          urunlerGorunur: rol != 'kurye',
+        );
+
+    testWidgets('patron rolünde YÖNETİM bölümü ve istatistik kartları VAR', (tester) async {
+      await ekranaKoy(tester, cekmece('patron'));
+
+      expect(find.text('YÖNETİM'), findsOneWidget);
+      expect(find.text('Ürünler'), findsOneWidget);
+      expect(find.byType(CekmeceIstatistikleri), findsOneWidget);
+      expect(find.text('AKTİF'), findsOneWidget,
+          reason: 'lisans pili Türkçe büyük harf (trBuyuk) — "AKTIF" değil');
+      expect(find.text('Yönetici'), findsNothing); // rol satırı "Yönetici · senkron …" birleşiktir
+      expect(find.textContaining('Yönetici'), findsOneWidget);
+
+      // MENÜ dördüncü satırı: yöneticide tasarımdaki birleşik etiket, AYRI kasa devri satırı YOK
+      // (kullanıcı kararı 2026-07-26 — yöneticiden kalkıyor).
+      expect(find.text('Gün Sonu & Kasa Devri'), findsOneWidget);
+      expect(find.text('Kasa Devri'), findsNothing);
+
+      await kapat(tester);
+    });
+
+    testWidgets('kurye rolünde YÖNETİM bölümü ve istatistik kartları HİÇ çizilmez',
+        (tester) async {
+      await ekranaKoy(tester, cekmece('kurye'));
+
+      expect(find.text('YÖNETİM'), findsNothing);
+      expect(find.text('Ürünler'), findsNothing);
+      expect(find.text('Kuryeler'), findsNothing);
+      expect(find.text('Muaf Telefonlar'), findsNothing);
+      expect(find.byType(CekmeceIstatistikleri), findsNothing,
+          reason: 'koşullu görünürlük değil — kuryede hiç kurulmaz');
+
+      // Kuryeye açık kalanlar:
+      expect(find.text('Müşteriler'), findsOneWidget);
+      expect(find.text('Siparişler'), findsOneWidget);
+      // UYGULAMA bölümü tasarımda TEK satırdır: Ayarlar (s-bilesenler.jsx). Tema anahtarı bir
+      // ara sürümde burada duruyordu; Ayarlar ekranı yazılınca oraya taşındı.
+      expect(find.text('Ayarlar'), findsOneWidget);
+      expect(find.textContaining('Kurye'), findsOneWidget);
+
+      await kapat(tester);
+    });
+
+    testWidgets('kuryenin dördüncü MENÜ satırı "Kasa Devri" ve Gün Sonu sekmesine gider',
+        (tester) async {
+      // Kasa devri EKRANI kaldırıldı; satırın hedefi Gün Sonu sekmesidir. Kuryede satır
+      // adıyla kendi işini söyler, yöneticide tasarımın birleşik etiketi kalır — iki satır
+      // aynı yere gitmesin diye tek satır role göre etiketlenir.
+      final gidilen = <SipSekme>[];
+      await ekranaKoy(tester, cekmece('kurye', onTab: gidilen.add));
+
+      expect(find.text('Kasa Devri'), findsOneWidget);
+      expect(find.text('Gün Sonu & Kasa Devri'), findsNothing);
+
+      await tester.tap(find.text('Kasa Devri'));
+      await tester.pump();
+      expect(gidilen, [SipSekme.gunSonu]);
+
+      await kapat(tester);
+    });
+
+    testWidgets('lisans verisi YOKKEN kart yine çizilir ("bilinmiyor")', (tester) async {
+      // Tasarımda `.lst-grid` DAİMA iki karttır (`s-bilesenler.jsx:110-123`); abonelik bu
+      // uygulamanın omurgası, boş çekmeceden okunamaz. Sayı uydurulmaz: "—" basılır.
+      await ekranaKoy(
+        tester,
+        SipCekmece(
+          acik: true,
+          onKapat: () {},
+          isletmeAdi: 'Öz Pınar Su',
+          rol: 'patron',
+          aktif: SipSekme.ana,
+          onTab: (_) {},
+          onGiris: (_) {},
+          onCikis: () {},
+          onDestek: () {},
+        ),
+      );
+
+      expect(find.byType(CekmeceIstatistikleri), findsOneWidget);
+      expect(find.text('BİLİNMİYOR'), findsOneWidget);
+      expect(find.text('—'), findsOneWidget, reason: 'kalan gün uydurulmaz');
+      expect(find.textContaining('Lisans · '), findsOneWidget);
+
+      await kapat(tester);
+    });
+  });
+
+  group('Kurulum sihirbazı — s-sihirbaz.jsx', () {
+    const kanal = MethodChannel('test/sihirbaz');
+
+    setUp(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(kanal, (cagri) async => switch (cagri.method) {
+                'status' => <String, dynamic>{
+                    'sdkInt': 33,
+                    'manufacturer': 'samsung',
+                    'hasScreeningRole': true,
+                    'hasContactsPermission': true,
+                    'canDrawOverlays': true,
+                    'hasNotificationPermission': true,
+                  },
+                'batteryGuide' => <String>['Pil ayarlarını açın'],
+                _ => null,
+              });
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(kanal, null);
+    });
+
+    testWidgets('ilerleme çubuğu adım ilerledikçe artar', (tester) async {
+      await ekranaKoy(tester, const IzinSihirbazi(channel: kanal));
+
+      // Karşılama adımında ilerleme çubuğu HENÜZ yok (CSS: .siz-karsilama'da bar çizilmez).
+      expect(find.byType(SihirbazIlerleme), findsNothing);
+      expect(find.text('Kuruluma Başla'), findsOneWidget);
+
+      await tester.tap(find.text('Kuruluma Başla'));
+      await tester.pump();
+
+      double oran() => tester.widget<SihirbazIlerleme>(find.byType(SihirbazIlerleme)).oran;
+
+      expect(find.text('Adım 1/6'), findsOneWidget);
+      final ilk = oran();
+      expect(ilk, greaterThan(0));
+
+      // İzin verilmiş görünüyor → düğme "Devam"a döner ve adım ilerler.
+      expect(find.text('İzin verildi'), findsOneWidget);
+      await tester.tap(find.text('Devam'));
+      await tester.pump();
+
+      expect(find.text('Adım 2/6'), findsOneWidget);
+      final ikinci = oran();
+      expect(ikinci, greaterThan(ilk));
+
+      await tester.tap(find.text('Devam'));
+      await tester.pump();
+
+      expect(oran(), greaterThan(ikinci));
+
+      await kapat(tester);
+    });
+
+    testWidgets('geri düğmesi adımı ve ilerlemeyi geri alır', (tester) async {
+      await ekranaKoy(tester, const IzinSihirbazi(channel: kanal));
+
+      await tester.tap(find.text('Kuruluma Başla'));
+      await tester.pump();
+      await tester.tap(find.text('Devam'));
+      await tester.pump();
+
+      final ikinci =
+          tester.widget<SihirbazIlerleme>(find.byType(SihirbazIlerleme)).oran;
+      expect(find.text('Adım 2/6'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('Geri'));
+      await tester.pump();
+
+      expect(find.text('Adım 1/6'), findsOneWidget);
+      expect(tester.widget<SihirbazIlerleme>(find.byType(SihirbazIlerleme)).oran,
+          lessThan(ikinci));
+
+      await kapat(tester);
+    });
+  });
+
+  group('İlk giriş damgası — sync_meta.setup_completed_at', () {
+    // Tasarım girişten sonra sihirbazı KENDİLİĞİNDEN açar (`s-uygulama.jsx:56`) ve kabuğun
+    // yerine tam ekran gösterir (`:61`). Kökün (main.dart) bunu bir kez yapmasının dayanağı
+    // bu cihaz-yerel damgadır; kararı kilitleyen yer burası.
+    test('damga yokken kurulum gerekli, damgalandıktan sonra gerekmez', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      expect(await kurulumGerekliMi(db), isTrue, reason: 'ilk giriş');
+
+      await kurulumuDamgala(db);
+
+      expect(await kurulumGerekliMi(db), isFalse,
+          reason: 'sihirbaz bir daha her girişte önüne dikilmez');
+      expect((await db.syncState()).setupCompletedAt, isNotNull);
+    });
+
+    test('damga sunucuya gitmez — outbox\'a hiçbir şey düşmez', () async {
+      // sync_meta cihaz-yerel bir satırdır; damga bir "olay" değil, yerel tercih.
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      await kurulumuDamgala(db);
+
+      expect(await db.select(db.outbox).get(), isEmpty);
+    });
+  });
+
+  group('Tema anahtarı — tema_deposu', () {
+    testWidgets('koyuya alınınca context.sip.koyu true olur, jetonlar koyu tabloya geçer',
+        (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      final tema = TemaKontrol(depo: TemaDeposu.bellek());
+      addTearDown(tema.dispose);
+
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      // GERÇEK kök widget ile kurulur: sınanan şey tam olarak `SipTokens` ThemeExtension'ının
+      // main.dart'taki kök `MaterialApp`e doğru bağlanması. Sahte bir sarmalayıcı kurulsaydı
+      // o bağ kopsa bile test yeşil kalırdı — yani asıl riski ıskalardı.
+      await tester.pumpWidget(SiparioApp(db: db, tema: tema));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+      await tester.pump();
+
+      // Oturum yok → giriş ekranı.
+      expect(find.byType(LoginScreen), findsOneWidget);
+
+      SipTokens jeton() => tester.element(find.byType(LoginScreen)).sip;
+
+      // Varsayılan AÇIK.
+      expect(jeton().koyu, isFalse);
+      final acikBg = jeton().bg;
+
+      await tema.ayarla(true);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400)); // tema geçiş animasyonu
+
+      expect(jeton().koyu, isTrue);
+      expect(jeton().bg, isNot(acikBg), reason: 'ekran zemini koyu tabloya geçmeli');
+      expect(jeton().accent, SipTokens.acik.accent,
+          reason: 'accent iki temada da AYNI — durum renkleri tema değişince kaymaz');
+
+      await tema.ayarla(false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(jeton().koyu, isFalse);
+      expect(jeton().bg, acikBg);
+
+      await kapat(tester);
+    });
+
+    test('tercih depoya yazılır ve geri okunur (varsayılan AÇIK)', () async {
+      final depo = TemaDeposu.bellek();
+      expect(await depo.koyuMu(), isFalse, reason: 'hiç yazılmamışsa açık tema');
+
+      await TemaKontrol(depo: depo).ayarla(true);
+      expect(await depo.koyuMu(), isTrue);
+
+      final yeni = TemaKontrol(depo: depo);
+      await yeni.yukle();
+      expect(yeni.value, isTrue, reason: 'açılışta kayıtlı tercih geri yüklenir');
+    });
+  });
+}
+
+/// Alt navigasyonun sekme durumunu tutan test kabuğu — gövde metni sekmeyle değişir.
+class _NavKabugu extends StatefulWidget {
+  const _NavKabugu({required this.onYeniSiparis, required this.baslangic});
+
+  /// null → FAB pasif (abonelik kilidi).
+  final VoidCallback? onYeniSiparis;
+  final SipSekme baslangic;
+
+  @override
+  State<_NavKabugu> createState() => _NavKabuguState();
+}
+
+class _NavKabuguState extends State<_NavKabugu> {
+  late SipSekme _aktif = widget.baslangic;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: context.sip.bg,
+      body: Column(
+        children: [
+          Expanded(child: Center(child: Text('gövde: ${_aktif.name}'))),
+          SipAltNav(
+            aktif: _aktif,
+            onSec: (s) => setState(() => _aktif = s),
+            onYeniSiparis: widget.onYeniSiparis,
+          ),
+        ],
+      ),
+    );
+  }
+}

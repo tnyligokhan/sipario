@@ -11,7 +11,9 @@ use Tests\Feature\Api\Concerns\BuildsSyncEvents;
 /**
  * 4b Dilim 4 — sync yanıtındaki `team` bloğu (K1). Bayinin kullanıcıları mobil önbelleğe iner
  * (atama hedefi + atanan kurye adı çözümü). İki güvence sürekli kanıtlanır:
- *  - PII ASGARİ (kırmızı çizgi #4): yalnız {id,name,role,status} — email/parola/telefon SIZMAZ.
+ *  - PII ASGARİ (kırmızı çizgi #4): yalnız {id,name,role,status,phone} — email/parola/last_login_at
+ *    SIZMAZ. `phone` tasarım gereği (Kuryeler ekranı) EKLENDİ: bayinin KENDİ personel iletişim
+ *    bilgisidir, müşteri verisi ya da kimlik bilgisi değildir; kimlik yüzeyi hâlâ payload dışında.
  *  - KİRACI İZOLASYONU (kırmızı çizgi #1): A'nın team'inde B'nin hiçbir kullanıcısı YOK (RLS).
  */
 class SyncTeamTest extends ApiTestCase
@@ -33,9 +35,16 @@ class SyncTeamTest extends ApiTestCase
             array_column($team, 'role')
         );
 
-        // PII kanıtı: her eleman TAM OLARAK {id,name,role,status} — başka anahtar yok.
+        // PII kanıtı: her eleman TAM OLARAK {id,name,role,status,phone} — başka anahtar yok.
+        // Bu katı eşitlik kasıtlıdır: yeni bir kolon payload'a sızarsa test kırmızı yanar.
         foreach ($team as $member) {
-            $this->assertEqualsCanonicalizing(['id', 'name', 'role', 'status'], array_keys($member));
+            $this->assertEqualsCanonicalizing(
+                ['id', 'name', 'role', 'status', 'phone'],
+                array_keys($member)
+            );
+            $this->assertArrayNotHasKey('email', $member);
+            $this->assertArrayNotHasKey('password', $member);
+            $this->assertArrayNotHasKey('last_login_at', $member);
         }
     }
 

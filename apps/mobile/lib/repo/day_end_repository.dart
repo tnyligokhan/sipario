@@ -3,8 +3,8 @@ import 'package:drift/drift.dart';
 import '../data/app_database.dart';
 
 /// Gün sonu SALT-OKUNUR read-model (FAZ 3). Hiçbir tabloya YAZMAZ (kalıcı durum üretmez); tüm veriyi
-/// yerel Drift'ten türetir. Kasa özeti + borç durumu + kupon durumu. Kurye kasa DEVRİ (kalıcı
-/// mutabakat) ve atama FAZ 4 sınırıdır — buraya girmez.
+/// yerel Drift'ten türetir. Kasa özeti + borç durumu. Kurye kasa DEVRİ (kalıcı mutabakat) ve atama
+/// FAZ 4 sınırıdır — buraya girmez.
 ///
 /// Gün sınırı SABİT +03:00 (Türkiye, 2016'dan beri DST yok): occurred_at (düzeltilmiş sunucu saati,
 /// UTC ISO) +3s kaydırılıp yerel takvim günü çıkarılır. Sabit offset DST karmaşasını kökten kapatır.
@@ -26,10 +26,15 @@ class DayEndRepository {
   /// "payment_type taşıyan kayıt = kasaya dokundu" — payment (tahsilat, −) VE payment_type'lı
   /// correction (yanlış tahsilatı ters çeviren, +) birlikte toplanır; kasa katkısı = −amount_kurus.
   /// Böylece yanlış nakit tahsilat correction ile ters çevrilince kasa da düzelir (bakiye + kasa birlikte).
-  Future<KasaOzeti> kasaOzeti(DateTime localDate) async {
-    final tillEntries = await (db.select(db.ledgerEntries)
-          ..where((t) => t.paymentType.isNotNull()))
-        .get();
+  ///
+  /// [userId] verilirse yalnız O KULLANICININ topladıkları sayılır (tasarım: gün sonu ekranındaki
+  /// kurye sekmesi). Opsiyonel — mevcut çağrılar (Tümü) aynen çalışır.
+  Future<KasaOzeti> kasaOzeti(DateTime localDate, {String? userId}) async {
+    final query = db.select(db.ledgerEntries)..where((t) => t.paymentType.isNotNull());
+    if (userId != null) {
+      query.where((t) => t.collectedByUserId.equals(userId));
+    }
+    final tillEntries = await query.get();
 
     var nakit = 0, kart = 0, havale = 0;
     for (final e in tillEntries) {
@@ -47,6 +52,18 @@ class DayEndRepository {
     return KasaOzeti(nakit: nakit, kart: kart, havale: havale);
   }
 
+  /// Gün içinde teslim edilen sipariş SAYISI (tasarım: "N teslimat"). [userId] verilirse yalnız
+  /// o kuryeye atanmış siparişler. İptaller sayılmaz (status='delivered').
+  Future<int> teslimatSayisi(DateTime localDate, {String? userId}) async {
+    final query = db.select(db.orders)
+      ..where((t) => t.deletedAt.isNull() & t.status.equals('delivered'));
+    if (userId != null) {
+      query.where((t) => t.assignedUserId.equals(userId));
+    }
+    final rows = await query.get();
+    return rows.where((o) => _sameTrDay(o.occurredAt, localDate)).length;
+  }
+
   /// Borç durumu: toplam açık veresiye (balance_kurus>0) + borçlu müşteri listesi (çoktan aza).
   Future<BorcDurumu> borcDurumu() async {
     final rows = await (db.select(db.customers)
@@ -61,31 +78,6 @@ class DayEndRepository {
     return BorcDurumu(toplamAcikBorc: toplam, borclular: borclular);
   }
 
-  /// Kupon durumu: eksi bakiyeli müşteriler (UI kırmızı) + toplam açık kupon adedi + gün içinde
-  /// verilen/kullanılan kupon (grant/use toplamı; correction ayrı tutulur).
-  Future<KuponDurumu> kuponDurumu(DateTime localDate) async {
-    final balances = await db.select(db.couponBalances).get();
-    final eksiler = balances
-        .where((b) => b.balanceQty < 0)
-        .map((b) => EksiKupon(customerId: b.customerId, productId: b.productId, balanceQty: b.balanceQty))
-        .toList();
-    final acikToplam = balances.where((b) => b.balanceQty > 0).fold<int>(0, (s, b) => s + b.balanceQty);
-
-    final moves = await db.select(db.couponMovements).get();
-    var verilen = 0, kullanilan = 0;
-    for (final mv in moves) {
-      if (!_sameTrDay(mv.occurredAt, localDate)) continue;
-      if (mv.movementType == 'grant') verilen += mv.qtyDelta;
-      if (mv.movementType == 'use') kullanilan += -mv.qtyDelta; // use negatif → kullanılan pozitif
-    }
-
-    return KuponDurumu(
-      toplamAcikKupon: acikToplam,
-      eksiBakiyeliler: eksiler,
-      gunlukVerilen: verilen,
-      gunlukKullanilan: kullanilan,
-    );
-  }
 }
 
 /// Gün sonu kasa özeti (kuruş). Salt-okunur değer nesnesi.
@@ -108,24 +100,4 @@ class BorcluMusteri {
   final String customerId;
   final String name;
   final int balanceKurus;
-}
-
-class KuponDurumu {
-  KuponDurumu({
-    required this.toplamAcikKupon,
-    required this.eksiBakiyeliler,
-    required this.gunlukVerilen,
-    required this.gunlukKullanilan,
-  });
-  final int toplamAcikKupon;
-  final List<EksiKupon> eksiBakiyeliler;
-  final int gunlukVerilen;
-  final int gunlukKullanilan;
-}
-
-class EksiKupon {
-  EksiKupon({required this.customerId, required this.productId, required this.balanceQty});
-  final String customerId;
-  final String productId; // '' = genel kupon (sentinel)
-  final int balanceQty;
 }

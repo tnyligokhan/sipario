@@ -1,19 +1,23 @@
+// Müşteri detayındaki DEFTER bölümü — CSS `.defter` / `.dhar*`, kaynak s-musteriler.jsx
+// `MusteriDetay` hareket listesi.
+//
+// Sorgu mantığı ekrandan AYRI top-level fonksiyonlardadır (watchLedger) — saf
+// async testle sınanır (widget-test sahte zamanı drift akışlarında güvenilmez; Dilim 1/2 dersi).
+// Para HER YERDE int kuruş.
+// Silme/EZME YOK (kırmızı çizgi #2): bir hareketi "geri almak" ancak ters kayıtla olur
+// (LedgerRepository.duzeltme) — kaynak satır defterde durur. Bu bölüm hiçbir kaydı ne siler
+// ne değiştirir; yalnız okur (düzeltme sheet'i başlıktaki bağlantıdan açılır).
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
-import '../../repo/coupon_repository.dart';
-import '../../repo/ledger_repository.dart';
+import '../../theme/components/atoms.dart';
+import '../../theme/components/states.dart';
+import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
-import '../money.dart';
-import '../orders/order_list_screen.dart' show odemeTipiEtiketi, saatBicimi;
-
-/// DİLİM 3 — müşteri detayındaki DEFTER bölümü: hareket listesi + tahsilat + kupon satışı + düzeltme.
-/// Sorgu mantığı ekrandan AYRI top-level fonksiyonlardadır (watchLedger/watchCouponBalance) — saf
-/// async testle sınanır (widget-test sahte zamanı drift akışlarında güvenilmez; Dilim 1/2 dersi).
-/// Para HER YERDE int kuruş; kullanıcı yazımı ↔ kuruş DÖNÜŞÜMÜ yalnız money.dart parseKurus/formatKurus.
-/// Silme/EZME YOK (kırmızı çizgi #2): düzeltme yalnız ters kayıtla (LedgerRepository.duzeltme).
+import 'customer_widgets.dart';
 
 /// Müşterinin defter hareketleri — en yeni önce. occurred_at eşitse id (uuid7) son tiebreak.
 Stream<List<LedgerEntry>> watchLedger(AppDatabase db, String customerId) {
@@ -22,131 +26,114 @@ Stream<List<LedgerEntry>> watchLedger(AppDatabase db, String customerId) {
   return q.watch();
 }
 
-/// Müşterinin toplam kupon bakiyesi (tüm ürünler + genel kupon). Eksiye düşebilir (DECISIONS:
-/// teslim edilmiş mal gerçektir); UI eksiyi kırmızı gösterir ama hiçbir işlem engellenmez.
-Stream<int> watchCouponBalance(AppDatabase db, String customerId) {
-  return (db.select(db.couponBalances)..where((t) => t.customerId.equals(customerId)))
-      .watch()
-      .map((rows) => rows.fold<int>(0, (s, r) => s + r.balanceQty));
-}
+/// Hareket tipinin Türkçe etiketi — s-musteriler.jsx `HAREKET_META` (58-63): tasarımın dört
+/// sözcüğü **Borç · Tahsilat · Alacak · Düzeltme**'dir. Sipariş borcu ayrı bir etiket DEĞİL
+/// (tasarımda yok; siparişin kendisi `relatedOrderId` ile deftere bağlı kalır). Ödeme tipi de
+/// burada yok, ROZETE ayrıldı (CSS `.dhar-odeme`).
+String defterTipEtiketi(LedgerEntry e) => switch (e.entryType) {
+      'debit' => 'Borç',
+      'payment' => 'Tahsilat',
+      'credit' => 'Alacak',
+      'correction' => 'Düzeltme',
+      _ => e.entryType,
+    };
 
-/// Defter hareketinin Türkçe etiketi (DB değeri değişmez — 'debit'/'payment'/... durur).
+/// Tek satırlık tam etiket (tip + ödeme tipi) — onay diyaloğu ve testler için.
+/// DB değeri değişmez: 'debit'/'payment'/… olduğu gibi durur.
 String defterHareketEtiketi(LedgerEntry e) {
-  final tip = e.paymentType != null ? ' · ${odemeTipiEtiketi(e.paymentType!)}' : '';
-  switch (e.entryType) {
-    case 'debit':
-      return e.relatedOrderId != null ? 'Sipariş borcu' : 'Borç';
-    case 'payment':
-      return 'Tahsilat$tip';
-    case 'credit':
-      return 'Alacak / indirim';
-    case 'correction':
-      return 'Düzeltme$tip';
-    default:
-      return e.entryType;
-  }
+  final tip = e.paymentType != null ? ' · ${odemeEtiketi(e.paymentType!)}' : '';
+  return switch (e.entryType) {
+    'debit' => defterTipEtiketi(e),
+    'credit' => defterTipEtiketi(e),
+    _ => '${defterTipEtiketi(e)}$tip',
+  };
 }
 
-/// İmzalı tutar metni: +borç, −ödeme (formatKurus negatifi zaten − ile yazar; pozitife + ekleriz).
+/// İmzalı tutar metni: +borç, −ödeme (sipTutar negatifi zaten U+2212 ile yazar).
 String imzaliTutarText(int amountKurus) =>
-    amountKurus > 0 ? '+${formatKurus(amountKurus)}' : formatKurus(amountKurus);
+    amountKurus > 0 ? '+${sipTutar(amountKurus)}' : sipTutar(amountKurus);
 
-/// Defter bölümü — müşteri detayının ListView'ine gömülür (kendi başına scroll AÇMAZ; parent kaydırır).
+/// Hareketin rengi — s-musteriler.jsx `HAREKET_META`: borç danger, tahsilat/alacak ok,
+/// düzeltme nötr (yönü tutarın işaretinde okunur).
+Color hareketRengi(SipTokens t, LedgerEntry e) => switch (e.entryType) {
+      'debit' => t.danger,
+      'payment' || 'credit' => t.ok,
+      _ => t.muted,
+    };
+
+/// Hareket ikonu — `HAREKET_META.ikon`.
+String hareketIkonu(String entryType) => switch (entryType) {
+      'debit' => SipIcons.box,
+      'payment' || 'credit' => SipIcons.wallet,
+      'correction' => SipIcons.edit,
+      _ => SipIcons.receipt,
+    };
+
+/// Defter bölümü — müşteri detayının listesine gömülür (kendi başına scroll AÇMAZ).
+/// Tahsilat düğmesi burada DEĞİL: tasarımda hızlı eylem ızgarasında (CSS `.md-akslar`) duruyor.
+/// Başlığın sağındaki "± Bakiye Düzeltme" bağlantısı (CSS `.md-duzelt-link`) buraya aittir.
 class CustomerLedgerSection extends StatelessWidget {
   const CustomerLedgerSection({
     super.key,
     required this.db,
     required this.customerId,
-    required this.writable,
-    this.canKuponSat = true,
-    this.canDuzelt = true,
+    this.writable = true,
+    this.onDuzelt,
   });
 
   final AppDatabase db;
   final String customerId;
+
+  /// KULLANILMIYOR — korundu: satıra dokunup ters kayıt atma kalktı (tasarımda `.dhar`
+  /// tıklanmaz bir div), bölüm artık hiçbir şey yazmıyor. Salt-okunur/yetki kapıları
+  /// [onDuzelt]'i veren ekrandadır. Parametre, kipi geçirerek bu bölümü kuran mevcut çağrı
+  /// yerleri derlenmeye devam etsin diye duruyor.
   final bool writable;
 
-  /// Kupon satışı yönetici işidir (K2 — Dilim 4). false ise düğme gizlenir.
-  final bool canKuponSat;
-
-  /// Defter düzeltme (ters kayıt) yönetici işidir (K2). false ise satır menüsü gizlenir.
-  final bool canDuzelt;
-
-  static const _saltOkunur = 'Salt-okunur kip: yeni kayıt eklenemez.';
+  /// Başlığın sağındaki "± Bakiye Düzeltme" bağlantısı (s-musteriler.jsx:125). null ise
+  /// bağlantı çizilmez.
+  final VoidCallback? onDuzelt;
 
   @override
   Widget build(BuildContext context) {
+    final t = context.sip;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Kupon bakiyesi + Kupon sat
-        StreamBuilder<int>(
-          stream: watchCouponBalance(db, customerId),
-          builder: (context, snap) {
-            final bakiye = snap.data ?? 0;
-            final eksi = bakiye < 0;
-            return Row(
-              children: [
-                const Icon(Icons.confirmation_number_outlined,
-                    size: 20, color: SipColors.accFg),
-                const SizedBox(width: 8),
-                const Text('Kupon: ', style: SipText.cardTitle),
-                Text(
-                  '$bakiye adet',
-                  // Eksi kupon KIRMIZI — teslim edilmiş mal gerçektir, bakiye eksiye düşebilir.
-                  style: SipText.cardTitle.copyWith(
-                    color: eksi ? SipColors.debt : null,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+        SipBolumBaslik(
+          'Defter Hareketleri',
+          sag: onDuzelt == null
+              ? null
+              // CSS `.md-duzelt-link` — accent, 12/700, `padding: 4px 0`.
+              : SipDokun(
+                  onTap: onDuzelt,
+                  radius: SipRadius.br1,
+                  padding: const EdgeInsets.symmetric(vertical: SipSpace.xs),
+                  child: Text(
+                    '± Bakiye Düzeltme',
+                    style: SipText.metin(12, w: 700).copyWith(color: t.accent),
                   ),
                 ),
-                const Spacer(),
-                if (canKuponSat)
-                  TextButton.icon(
-                    onPressed: writable
-                        ? () => _kuponSat(context)
-                        : () => _snackbar(context, _saltOkunur),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Kupon sat'),
-                  ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const Text('DEFTER HAREKETLERİ', style: SipText.sectionLabel),
-            const Spacer(),
-            FilledButton.tonalIcon(
-              onPressed: writable
-                  ? () => _tahsilatAl(context)
-                  : () => _snackbar(context, _saltOkunur),
-              icon: const Icon(Icons.payments_outlined, size: 18),
-              label: const Text('Tahsilat al'),
-            ),
-          ],
         ),
         StreamBuilder<List<LedgerEntry>>(
           stream: watchLedger(db, customerId),
           builder: (context, snap) {
             final entries = snap.data;
-            if (entries == null) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
+            if (entries == null) return const SipIskelet(adet: 3);
             if (entries.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: Text('Henüz hareket yok. Tahsilat veya sipariş girildikçe burada görünür.'),
+              return const SipBosDurum(
+                ikon: SipIcons.book,
+                baslik: 'Hareket yok',
+                aciklama: 'Bu müşteriyle henüz kayıt oluşmadı.',
               );
             }
             return Column(
               children: [
-                for (final e in entries)
-                  _HareketSatiri(
-                      e: e, onDuzelt: (writable && canDuzelt) ? () => _duzelt(context, e) : null)
+                for (var i = 0; i < entries.length; i++)
+                  Padding(
+                    padding: EdgeInsets.only(top: i == 0 ? 0 : SipSpace.sm),
+                    child: _HareketSatiri(e: entries[i]),
+                  ),
               ],
             );
           },
@@ -154,280 +141,102 @@ class CustomerLedgerSection extends StatelessWidget {
       ],
     );
   }
-
-  Future<void> _tahsilatAl(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final sonuc = await showDialog<_TahsilatGirdi>(
-      context: context,
-      builder: (_) => const _TutarOdemeDialog(baslik: 'Tahsilat al', tutarEtiketi: 'Tutar'),
-    );
-    if (sonuc == null) return;
-    await LedgerRepository(db).tahsilat(customerId, sonuc.kurus, sonuc.paymentType);
-    messenger.showSnackBar(SnackBar(
-        content: Text(
-            'Tahsilat alındı — ${odemeTipiEtiketi(sonuc.paymentType).toLowerCase()} ${formatKurus(sonuc.kurus)}')));
-  }
-
-  Future<void> _kuponSat(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final sonuc = await showDialog<_KuponGirdi>(
-      context: context,
-      builder: (_) => const _KuponSatDialog(),
-    );
-    if (sonuc == null) return;
-    // Peşin paket satışı: grant(+adet) + defter debit&payment (net borç 0, kasa dolu). productId
-    // null = genel kupon (teslimde de genel kupon '' düşülür — aynı gözden).
-    await CouponRepository(db).kuponSat(
-      customerId: customerId,
-      qty: sonuc.qty,
-      priceKurus: sonuc.priceKurus,
-      paymentType: sonuc.paymentType,
-    );
-    messenger.showSnackBar(
-        SnackBar(content: Text('${sonuc.qty} kupon satıldı — ${formatKurus(sonuc.priceKurus)}')));
-  }
-
-  Future<void> _duzelt(BuildContext context, LedgerEntry e) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final onay = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Ters kayıtla düzelt'),
-        content: Text(
-            'Bu hareket SİLİNMEZ; etkisini sıfırlayan bir düzeltme kaydı eklenir '
-            '(${defterHareketEtiketi(e)} ${imzaliTutarText(e.amountKurus)}). Devam edilsin mi?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Düzelt')),
-        ],
-      ),
-    );
-    if (onay != true) return;
-    // Ters işaret: kaydın etkisini sıfırla. payment_type repo tarafından otomatik kopyalanır
-    // (bakiye + kasa birlikte düzelir).
-    await LedgerRepository(db).duzeltme(e.id, -e.amountKurus, customerId: customerId);
-    messenger.showSnackBar(const SnackBar(content: Text('Düzeltme kaydı eklendi.')));
-  }
-
-  void _snackbar(BuildContext context, String mesaj) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj)));
 }
 
+/// CSS `.dhar` — ikon + tip (+ ödeme rozeti) + saat/not + imzalı tutar.
+///
+/// TIKLANMAZ: tasarımda `.dhar` bir div'dir (s-musteriler.jsx:132), satıra dokunmakla ters kayıt
+/// atılmaz. Append-only kırmızı çizgisi değişmedi — düzeltme başlıktaki "± Bakiye Düzeltme"
+/// sheet'iyle yapılır ve kaynak satır defterde durur.
 class _HareketSatiri extends StatelessWidget {
-  const _HareketSatiri({required this.e, this.onDuzelt});
+  const _HareketSatiri({required this.e});
+
   final LedgerEntry e;
-  final VoidCallback? onDuzelt;
 
   @override
   Widget build(BuildContext context) {
-    final artan = e.amountKurus > 0; // +borç → kırmızı; −ödeme → yeşil (rozet dili)
-    final renk = artan ? SipColors.debt : SipColors.ok;
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(_ikon(e.entryType)),
-      title: Text(defterHareketEtiketi(e)),
-      subtitle: Text([
-        saatBicimi(e.occurredAt),
-        if (e.note != null && e.note!.isNotEmpty) e.note!,
-      ].join(' · ')),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+    final t = context.sip;
+    final renk = hareketRengi(t, e);
+    final not = e.note;
+    final alt = [
+      defterSaati(e.occurredAt),
+      if (not != null && not.isNotEmpty) not,
+    ].join(' · ');
+
+    return Container(
+      decoration: BoxDecoration(color: t.surface, borderRadius: SipRadius.br2),
+      padding: const EdgeInsets.symmetric(horizontal: SipSpace.x2, vertical: SipSpace.xl),
+      child: Row(
         children: [
-          Text(imzaliTutarText(e.amountKurus),
-              style: SipText.badge.copyWith(color: renk)),
-          if (onDuzelt != null)
-            PopupMenuButton<String>(
-              onSelected: (_) => onDuzelt!(),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'duzelt', child: Text('Ters kayıtla düzelt')),
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              // CSS: color-mix(in srgb, <renk> 12%, transparent)
+              color: renk.withValues(alpha: 0.12),
+              borderRadius: SipRadius.brHap,
+            ),
+            child: SipIcon(hareketIkonu(e.entryType), boyut: 17, kalinlik: 2, renk: renk),
+          ),
+          const SizedBox(width: SipSpace.xl),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        defterTipEtiketi(e),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SipText.govdeKalin.copyWith(color: t.ink),
+                      ),
+                    ),
+                    if (e.paymentType != null) ...[
+                      const SizedBox(width: 7),
+                      _OdemeRozeti(tip: e.paymentType!),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  alt,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: SipText.metin(11.5).copyWith(color: t.muted),
+                ),
               ],
             ),
+          ),
+          const SizedBox(width: SipSpace.md),
+          Text(
+            imzaliTutarText(e.amountKurus),
+            // CSS `.dhar-amt` — font-d 700, 13.5.
+            style: SipText.tutar(13.5).copyWith(color: renk),
+          ),
         ],
       ),
     );
   }
-
-  IconData _ikon(String entryType) => switch (entryType) {
-        'debit' => Icons.trending_up,
-        'payment' => Icons.payments_outlined,
-        'credit' => Icons.discount_outlined,
-        'correction' => Icons.undo,
-        _ => Icons.receipt_long_outlined,
-      };
 }
 
-class _TahsilatGirdi {
-  _TahsilatGirdi(this.kurus, this.paymentType);
-  final int kurus;
-  final String paymentType;
-}
+/// CSS `.dhar-odeme` — hareketin ödeme tipi rozeti (BÜYÜK HARF).
+class _OdemeRozeti extends StatelessWidget {
+  const _OdemeRozeti({required this.tip});
 
-class _KuponGirdi {
-  _KuponGirdi(this.qty, this.priceKurus, this.paymentType);
-  final int qty;
-  final int priceKurus;
-  final String paymentType;
-}
-
-/// Tutar + ödeme tipi (nakit/kart/havale) dialogu. Tutar parseKurus ile int kuruşa çevrilir; geçersiz
-/// yazım SESSİZCE kabul edilmez (para). Ödeme tipleri kasa gruplamasıdır (veresiye/kupon burada YOK —
-/// bunlar teslimde sipariş bağlamında sorulur).
-class _TutarOdemeDialog extends StatefulWidget {
-  const _TutarOdemeDialog({required this.baslik, required this.tutarEtiketi});
-  final String baslik;
-  final String tutarEtiketi;
-
-  @override
-  State<_TutarOdemeDialog> createState() => _TutarOdemeDialogState();
-}
-
-class _TutarOdemeDialogState extends State<_TutarOdemeDialog> {
-  final _tutar = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-  String _tip = 'nakit';
-
-  @override
-  void dispose() {
-    _tutar.dispose();
-    super.dispose();
-  }
+  final String tip;
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.baslik),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _tutar,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(labelText: '${widget.tutarEtiketi} *', suffixText: '₺'),
-              validator: (v) {
-                final k = parseKurus(v ?? '');
-                if (k == null) return 'Geçerli bir tutar girin';
-                if (k == 0) return 'Tutar sıfır olamaz';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            _OdemeTipiSecici(secili: _tip, onChanged: (t) => setState(() => _tip = t)),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
-        FilledButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              Navigator.pop(context, _TahsilatGirdi(parseKurus(_tutar.text)!, _tip));
-            }
-          },
-          child: const Text('Kaydet'),
-        ),
-      ],
-    );
-  }
-}
-
-/// Kupon satışı: adet + peşin paket fiyatı + ödeme tipi. Kupon peşin ödenen pakettir; fiyat zorunlu
-/// (deftere debit&payment olarak yazılır). Genel kupon satılır (productId yok).
-class _KuponSatDialog extends StatefulWidget {
-  const _KuponSatDialog();
-
-  @override
-  State<_KuponSatDialog> createState() => _KuponSatDialogState();
-}
-
-class _KuponSatDialogState extends State<_KuponSatDialog> {
-  final _adet = TextEditingController();
-  final _fiyat = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-  String _tip = 'nakit';
-
-  @override
-  void dispose() {
-    _adet.dispose();
-    _fiyat.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Kupon sat'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _adet,
-              autofocus: true,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Adet *', hintText: 'örn. 10'),
-              validator: (v) {
-                final n = int.tryParse((v ?? '').trim());
-                if (n == null || n <= 0) return 'Geçerli bir adet girin';
-                return null;
-              },
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _fiyat,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Paket fiyatı *', suffixText: '₺'),
-              validator: (v) {
-                final k = parseKurus(v ?? '');
-                if (k == null) return 'Geçerli bir fiyat girin';
-                if (k == 0) return 'Fiyat sıfır olamaz';
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            _OdemeTipiSecici(secili: _tip, onChanged: (t) => setState(() => _tip = t)),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
-        FilledButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              Navigator.pop(
-                  context, _KuponGirdi(int.parse(_adet.text.trim()), parseKurus(_fiyat.text)!, _tip));
-            }
-          },
-          child: const Text('Sat'),
-        ),
-      ],
-    );
-  }
-}
-
-/// Ödeme tipi seçici (nakit/kart/havale) — kasa gruplaması. veresiye/kupon burada YOK.
-class _OdemeTipiSecici extends StatelessWidget {
-  const _OdemeTipiSecici({required this.secili, required this.onChanged});
-  final String secili;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: SegmentedButton<String>(
-        segments: const [
-          ButtonSegment(value: 'nakit', label: Text('Nakit')),
-          ButtonSegment(value: 'kart', label: Text('Kart')),
-          ButtonSegment(value: 'havale', label: Text('Havale')),
-        ],
-        selected: {secili},
-        showSelectedIcon: false,
-        onSelectionChanged: (s) => onChanged(s.first),
+    final t = context.sip;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(color: t.surface2, borderRadius: SipRadius.brHap),
+      child: Text(
+        trBuyuk(odemeEtiketi(tip)),
+        style: SipText.rozetOdeme.copyWith(color: t.muted),
       ),
     );
   }

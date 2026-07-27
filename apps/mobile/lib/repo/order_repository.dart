@@ -8,11 +8,26 @@ import '../data/outbox.dart';
 import 'ledger_ops.dart';
 
 class LineInput {
-  LineInput({required this.productName, required this.unitPriceKurus, required this.qty, this.productId});
+  LineInput({
+    required this.productName,
+    required this.unitPriceKurus,
+    required this.qty,
+    this.productId,
+    this.unit,
+    this.isCustom = false,
+  });
   final String? productId;
   final String productName;
   final int unitPriceKurus;
   final int qty;
+
+  /// Birim ("adet"/"koli"/"kg") satırda saklanır — fiyat/ad ile aynı gerekçe: o anki gerçek.
+  /// Opsiyonel; mevcut çağrılar aynen çalışır.
+  final String? unit;
+
+  /// "Serbest satır" (katalogda olmayan tek seferlik iş — tasarım bunları ayrı gösterir).
+  /// productId'nin null olması yeterli ayırt edici değildir: silinmiş ürünün satırı da null olur.
+  final bool isCustom;
 }
 
 /// Sipariş yerel CRUD'u. status/total YERELDE de olaylardan türer (sunucu önbelleğinin aynası).
@@ -49,16 +64,12 @@ class OrderRepository {
               productId: Value(l.productId),
               productName: l.productName,
               unitPriceKurus: l.unitPriceKurus,
+              unit: Value(l.unit),
+              isCustom: Value(l.isCustom),
               qty: l.qty,
               lineTotalKurus: l.unitPriceKurus * l.qty,
             ));
-        linePayloads.add({
-          'id': lineId,
-          'product_id': l.productId,
-          'product_name': l.productName,
-          'unit_price_kurus': l.unitPriceKurus,
-          'qty': l.qty,
-        });
+        linePayloads.add(_linePayload(lineId, l));
       }
 
       final payload = {
@@ -75,20 +86,18 @@ class OrderRepository {
     return orderId;
   }
 
-  /// Teslimat parayı/kuponu deftere düşürür (FAZ 3), teslim olayıyla AYNI transaction'da:
+  /// Teslimat parayı deftere düşürür (FAZ 3), teslim olayıyla AYNI transaction'da:
   ///  - veresiye → debit(+total) (borç yazılır).
   ///  - nakit/kart/havale → debit(+total) + payment(−total, ödeme tipiyle) (net borç 0, kasa dolu).
-  ///  - kupon → para hareketi YOK (peşin ödendi); coupon use(−qty). couponQty verilmezse sipariş
-  ///    satırlarının adet toplamından türer.
   ///
   /// TESLİM İDEMPOTENSİ (FAZ 4, DECISIONS): teslimden türeyen TÜM olayların client_event_id'si (ve
-  /// ledger/coupon id'leri) sipariş id'sinden DETERMİNİSTİK uuid5 ile üretilir. İki cihaz aynı siparişi
+  /// ledger id'leri) sipariş id'sinden DETERMİNİSTİK uuid5 ile üretilir. İki cihaz aynı siparişi
   /// offline teslim edince AYNI id'ler → sunucu processed_events UNIQUE ile tek defter seti bırakır.
   /// Yerel çift-dokunma zaten teslim edilmiş siparişte erken döner (UI koruması; asıl garanti uuid5).
   ///
   /// collectedByUserId nakit atfıdır (kasa devri); verilmezse oturumdaki kullanıcıdan (syncMeta) alınır.
   Future<void> deliver(String orderId,
-      {required String paymentType, int? couponQty, String? collectedByUserId}) async {
+      {required String paymentType, String? collectedByUserId}) async {
     final meta = await db.syncState();
     final at = correctedNowIso(meta.serverTimeOffsetMs);
     final device = meta.deviceId;
@@ -111,7 +120,7 @@ class OrderRepository {
           entityType: 'order', op: 'delivered', entityId: orderId,
           occurredAt: at, deviceId: device, clientEventId: deliverEventId, payload: payload);
 
-      // 2) Para/kupon deftere düşer. total recompute sonrası aktif satır toplamıdır.
+      // 2) Para deftere düşer. total recompute sonrası aktif satır toplamıdır.
       final lines = await _activeLines(orderId);
       final total = lines.fold<int>(0, (s, l) => s + l.lineTotalKurus);
       final customerId = order.customerId;
@@ -131,14 +140,6 @@ class OrderRepository {
               id: deliveryEventId(orderId, 'payment'), clientEventId: deliveryEventId(orderId, 'payment'),
               collectedByUserId: collector,
               customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
-        case 'kupon':
-          if (customerId == null) {
-            throw ArgumentError('Kuponla teslimat için müşteri gerekli.');
-          }
-          final qty = (couponQty ?? lines.fold<int>(0, (s, l) => s + l.qty)).abs();
-          await writeCouponMovement(db, op: 'use', customerId: customerId, qtyDelta: -qty,
-              id: deliveryEventId(orderId, 'coupon'), clientEventId: deliveryEventId(orderId, 'coupon'),
-              relatedOrderId: orderId, occurredAt: at, deviceId: device);
       }
     });
   }
@@ -177,19 +178,12 @@ class OrderRepository {
             productId: Value(l.productId),
             productName: l.productName,
             unitPriceKurus: l.unitPriceKurus,
+            unit: Value(l.unit),
+            isCustom: Value(l.isCustom),
             qty: l.qty,
             lineTotalKurus: l.unitPriceKurus * l.qty,
           ));
-      final payload = {
-        'order_id': orderId,
-        'line': {
-          'id': lineId,
-          'product_id': l.productId,
-          'product_name': l.productName,
-          'unit_price_kurus': l.unitPriceKurus,
-          'qty': l.qty,
-        },
-      };
+      final payload = {'order_id': orderId, 'line': _linePayload(lineId, l)};
       await _appendEvent(orderId, 'line_added', clientEventId, payload, at, device);
       await _recompute(orderId);
       await enqueueOutbox(db,
@@ -227,6 +221,8 @@ class OrderRepository {
     bool setNoteFlag = false,
     String? assignedUserId,
     bool setAssignedFlag = false,
+    int? sortIndex,
+    bool setSortFlag = false,
   }) async {
     final meta = await db.syncState();
     final at = correctedNowIso(meta.serverTimeOffsetMs);
@@ -246,6 +242,10 @@ class OrderRepository {
         await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
             .write(OrdersCompanion(assignedUserId: Value(assignedUserId)));
       }
+      if (setSortFlag) {
+        await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
+            .write(OrdersCompanion(sortIndex: Value(sortIndex)));
+      }
       await _appendEvent(orderId, op, clientEventId, payload, at, device);
       await _recompute(orderId);
       await enqueueOutbox(db,
@@ -253,6 +253,22 @@ class OrderRepository {
           occurredAt: at, deviceId: device, clientEventId: clientEventId, payload: payload);
     });
   }
+
+  /// Elle sıralama (tasarım: sürükle-bırak rota sırası). ÖNBELLEK sütunu; kaynağı `sort_set`
+  /// olayıdır (assigned deseninin ikizi) — böylece iki cihaz aynı olaylardan aynı sırayı türetir.
+  Future<void> setSortIndex(String orderId, int sortIndex) =>
+      _statusEvent(orderId, 'sort_set', {'order_id': orderId, 'sort_index': sortIndex},
+          sortIndex: sortIndex, setSortFlag: true);
+
+  static Map<String, Object?> _linePayload(String lineId, LineInput l) => {
+        'id': lineId,
+        'product_id': l.productId,
+        'product_name': l.productName,
+        'unit_price_kurus': l.unitPriceKurus,
+        'unit': l.unit,
+        'is_custom': l.isCustom,
+        'qty': l.qty,
+      };
 
   Future<void> _appendEvent(
     String orderId,
@@ -273,7 +289,7 @@ class OrderRepository {
         ));
   }
 
-  /// Silinmemiş sipariş satırları (total ve kupon adedi buradan türer).
+  /// Silinmemiş sipariş satırları (total buradan türer).
   Future<List<OrderLine>> _activeLines(String orderId) =>
       (db.select(db.orderLines)..where((t) => t.orderId.equals(orderId) & t.deletedAt.isNull())).get();
 
@@ -291,7 +307,23 @@ class OrderRepository {
       status: Value(status),
       totalKurus: Value(total),
       assignedUserId: Value(_deriveAssignedUserId(events)),
+      sortIndex: Value(_deriveSortIndex(events)),
     ));
+  }
+
+  /// sort_index önbelleğini en son `sort_set` olayından türet (SUNUCU deriveSortIndex'inin aynası;
+  /// aynı (occurredAt, id) ORTAK anahtarı → iki taraf aynı sırayı bulur, ıraksama yok).
+  int? _deriveSortIndex(List<OrderEvent> events) {
+    final sortEvents = events.where((e) => e.eventType == 'sort_set').toList()
+      ..sort((a, b) {
+        final byTime = a.occurredAt.compareTo(b.occurredAt);
+        return byTime != 0 ? byTime : a.id.compareTo(b.id);
+      });
+    if (sortEvents.isEmpty) return null;
+    final payload = sortEvents.last.payload;
+    if (payload == null) return null;
+    final value = (jsonDecode(payload) as Map<String, dynamic>)['sort_index'];
+    return value is num ? value.toInt() : null;
   }
 
   /// assigned_user_id önbelleğini en son assigned/unassigned olayından türet (SUNUCU deseninin aynası,

@@ -1,437 +1,517 @@
+// Yeni Sipariş — CSS `.ys-*` / `.pos-*`. Kaynak: s-siparisler.jsx `YeniSiparis`.
+// ÜÇ ADIM: müşteri seç → kalemler → özet. Ödeme tipi BURADA sorulmaz; teslim kapatılırken
+// sorulur (BRIEF: mal gidince para konuşulur) — sipariş girişi telefonda birkaç dokunuşta biter.
+
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
 import '../../repo/order_repository.dart';
-import '../../repo/product_repository.dart';
+import '../../theme/components/atoms.dart';
+import '../../theme/components/overlays.dart';
+import '../../theme/components/states.dart';
+import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
-import '../customers/customer_list_screen.dart' show watchCustomers;
-import '../money.dart';
-import '../products/product_list_screen.dart' show showProductDialog, watchProducts;
+import '../customers/customer_form_screen.dart' show musteriEkleSheet;
+import 'order_parts.dart';
+import 'order_queries.dart';
+import 'pos_catalog.dart';
 
-/// Yeni sipariş: müşteri (opsiyonel — tezgâh satışı müşterisiz olabilir), ürün satırları, not.
-/// Ödeme tipi BURADA sorulmaz; teslim kapatılırken sorulur (BRIEF: mal gidince para konuşulur) —
-/// böylece sipariş girişi telefonda birkaç dokunuşta biter.
+export 'order_parts.dart' show LineDraft, toplamKurus;
+
 class OrderFormScreen extends StatefulWidget {
-  const OrderFormScreen({super.key, required this.db, this.initialCustomerId});
+  const OrderFormScreen({
+    super.key,
+    required this.db,
+    required this.writable,
+    this.initialCustomerId,
+  });
 
   final AppDatabase db;
   final String? initialCustomerId;
+
+  /// Salt-okunur kip (abonelik süresi dolmuş): sipariş KAYDEDİLEMEZ, ekran okunur kalır.
+  ///
+  /// ZORUNLU — varsayılanı YOK. Bir kez `= true` varsayılanıyla duruyordu ve üç çağrı yerinin
+  /// üçü de geçmeyi unutunca abonelik kilidi açıkken sipariş girilebildi. Yetki bayrağının
+  /// varsayılanı, unutulduğunda derleyicinin susması demektir; kapı sessizce açık kalır.
+  final bool writable;
 
   @override
   State<OrderFormScreen> createState() => _OrderFormScreenState();
 }
 
 class _OrderFormScreenState extends State<OrderFormScreen> {
-  final _note = TextEditingController();
-  final List<LineDraft> _lines = [];
-  Customer? _customer;
-  bool _busy = false;
+  static const _adimlar = ['Müşteri', 'Kalemler', 'Özet'];
+
+  final _arama = TextEditingController();
+  final _not = TextEditingController();
+  final List<LineDraft> _satirlar = [];
+
+  int _adim = 1;
+  String _sorgu = '';
+  Customer? _musteri;
+
+  bool _kaydediyor = false;
+  String? _uyari;
+  int _uyariSayaci = 0;
+
+  /// Adım 1'e geri dönülebilir mi? Müşteri dışarıdan verilmişse (müşteri detayından "Sipariş
+  /// oluştur") seçim adımı hiç gösterilmez.
+  bool get _musteriKilitli => widget.initialCustomerId != null;
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialCustomerId != null) _loadInitialCustomer(widget.initialCustomerId!);
+    if (_musteriKilitli) {
+      _adim = 2;
+      _musteriYukle(widget.initialCustomerId!);
+    }
   }
 
-  Future<void> _loadInitialCustomer(String id) async {
+  Future<void> _musteriYukle(String id) async {
     final c = await (widget.db.select(widget.db.customers)..where((t) => t.id.equals(id)))
         .getSingleOrNull();
-    if (mounted && c != null) setState(() => _customer = c);
+    if (mounted && c != null) setState(() => _musteri = c);
   }
 
   @override
   void dispose() {
-    _note.dispose();
+    _arama.dispose();
+    _not.dispose();
     super.dispose();
   }
 
-  Future<void> _pickCustomer() async {
-    final picked = await Navigator.of(context).push<Customer>(
-      MaterialPageRoute(builder: (_) => _CustomerPickerScreen(db: widget.db)),
-    );
-    if (picked != null && mounted) setState(() => _customer = picked);
+  int get _toplam => toplamKurus(_satirlar);
+  bool get _sepetBos => _satirlar.isEmpty;
+
+  void _geri() {
+    if (_adim == 1 || (_adim == 2 && _musteriKilitli)) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+    setState(() => _adim--);
   }
 
-  Future<void> _addFromCatalog() async {
-    final product = await showModalBottomSheet<Product>(
-      context: context,
-      showDragHandle: true,
-      builder: (ctx) => _ProductPickerSheet(db: widget.db),
-    );
-    if (product == null || !mounted) return;
+  void _musteriSec(Customer c) {
     setState(() {
-      final existing = _lines.indexWhere((l) => l.productId == product.id);
-      if (existing >= 0) {
-        _lines[existing].qty += 1;
+      _musteri = c;
+      _adim = 2;
+    });
+  }
+
+  /// "Yeni müşteri ekle" — tasarım `.ys-ekle` + `YeniMusteri` sheet (s-siparisler.jsx:311,414).
+  /// Sipariş girerken müşteri kayıtlı değilse akıştan çıkıp Müşteriler sekmesine gitmek, telefonu
+  /// elinde tutan kullanıcı için sipariş kaybıdır — kayıt burada açılır ve HEMEN seçilir.
+  Future<void> _yeniMusteri() async {
+    final oncekiler = await musteriKimlikleri(widget.db);
+    if (!mounted) return;
+    final eklendi = await musteriEkleSheet(context, db: widget.db);
+    if (eklendi != true || !mounted) return;
+    // Sheet `bool?` döner (imzası o — dosya başka ajanın alanı); eklenen kaydın kimliği
+    // önce/sonra kümelerinin farkından bulunur.
+    final sonrakiler = await musteriKimlikleri(widget.db);
+    final yeniId = sonrakiler.difference(oncekiler).firstOrNull;
+    if (!mounted) return;
+    if (yeniId == null) return; // kayıt yapılmamış ya da senkron araya girmiş
+    final yeni = await musteriOku(widget.db, yeniId);
+    if (!mounted || yeni == null) return;
+    _musteriSec(yeni);
+  }
+
+  void _urunEkle(Product u, int adet) {
+    setState(() {
+      final i = _satirlar.indexWhere((l) => l.productId == u.id);
+      if (i >= 0) {
+        _satirlar[i].qty += adet;
       } else {
-        _lines.add(LineDraft(
-            productId: product.id, name: product.name, unitPriceKurus: product.unitPriceKurus));
+        _satirlar.add(LineDraft(
+          productId: u.id,
+          name: u.name,
+          unitPriceKurus: u.unitPriceKurus,
+          unit: u.unit,
+          qty: adet,
+        ));
+      }
+      _uyari = null;
+    });
+  }
+
+  void _adetDegis(int i, int delta) {
+    setState(() {
+      final yeni = _satirlar[i].qty + delta;
+      if (yeni <= 0) {
+        _satirlar.removeAt(i);
+      } else {
+        _satirlar[i].qty = yeni;
       }
     });
   }
 
-  Future<void> _addFreeLine() async {
-    final draft = await showDialog<LineDraft>(
-      context: context,
-      builder: (ctx) => const _FreeLineDialog(),
-    );
-    if (draft != null && mounted) setState(() => _lines.add(draft));
+  Future<void> _serbestEkle() async {
+    final draft = await serbestSatirSheetAc(context);
+    if (draft == null || !mounted) return;
+    setState(() {
+      _satirlar.add(draft);
+      _uyari = null;
+    });
   }
 
-  Future<void> _save() async {
-    if (_lines.isEmpty) return;
-    setState(() => _busy = true);
+  void _devam() {
+    if (_sepetBos) {
+      setState(() {
+        _uyari = 'Sepet boş — önce ürün ekleyin.';
+        _uyariSayaci++; // aynı uyarı tekrar gösterilse de sarsıntı yeniden oynasın
+      });
+      return;
+    }
+    setState(() {
+      _uyari = null;
+      _adim = 3;
+    });
+  }
+
+  Future<void> _kaydet() async {
+    if (_sepetBos || _kaydediyor) return;
+    setState(() => _kaydediyor = true);
     try {
       await OrderRepository(widget.db).create(
-        customerId: _customer?.id,
-        note: _note.text.trim().isEmpty ? null : _note.text.trim(),
-        lines: _lines
+        customerId: _musteri?.id,
+        note: _not.text.trim().isEmpty ? null : _not.text.trim(),
+        lines: _satirlar
             .map((l) => LineInput(
                   productId: l.productId,
                   productName: l.name,
                   unitPriceKurus: l.unitPriceKurus,
+                  unit: l.unit,
+                  isCustom: l.serbest,
                   qty: l.qty,
                 ))
             .toList(),
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Sipariş kaydedildi.')));
-        Navigator.of(context).pop();
-      }
+      if (!mounted) return;
+      SipToast.goster(context, 'Sipariş oluşturuldu');
+      Navigator.of(context).maybePop(true);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _kaydediyor = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final total = toplamKurus(_lines);
+    final t = context.sip;
     return Scaffold(
-      appBar: AppBar(title: const Text('Yeni sipariş')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.person_outline),
-              title: Text(_customer?.name ?? 'Müşteri seç'),
-              subtitle: _customer == null
-                  ? const Text('Tezgâh satışı için boş bırakabilirsiniz')
-                  : Text(_customer!.balanceKurus > 0
-                      ? 'Borç: ${formatKurus(_customer!.balanceKurus)}'
-                      : 'Bakiye: ${formatKurus(_customer!.balanceKurus)}'),
-              trailing: _customer == null
-                  ? const Icon(Icons.chevron_right)
-                  : IconButton(
-                      icon: const Icon(Icons.clear),
-                      tooltip: 'Müşteriyi kaldır',
-                      onPressed: () => setState(() => _customer = null),
-                    ),
-              onTap: _pickCustomer,
+      backgroundColor: t.bg,
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SipUst(
+              baslik: 'Yeni Sipariş',
+              alt: _musteri?.name ?? 'Müşteri seçin',
+              onGeri: _geri,
             ),
-          ),
-          const SizedBox(height: SipSpace.lg),
-          const Text('ÜRÜNLER', style: SipText.sectionLabel),
-          if (_lines.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('Satır yok — aşağıdan ürün ekleyin.'),
-            ),
-          for (var i = 0; i < _lines.length; i++) _lineTile(i),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _busy ? null : _addFromCatalog,
-                  icon: const Icon(Icons.inventory_2_outlined),
-                  label: const Text('Ürün ekle'),
+            AdimGostergesi(adimlar: _adimlar, adim: _adim),
+            // Salt-okunur uyarısı İLK adımdan itibaren durur. Yalnız son adımda göstermek,
+            // kullanıcıya sepeti doldurttuktan sonra "kaydedemezsin" demek olurdu.
+            if (!widget.writable)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(SipSpace.govde, SipSpace.lg, SipSpace.govde, 0),
+                child: SipNotKutusu(
+                  metin: 'Salt-okunur kip: yeni kayıt eklenemez.',
+                  ikon: SipIcons.lock,
+                  tur: SipNotTuru.hata,
                 ),
               ),
-              const SizedBox(width: 8),
+            Expanded(
+              child: switch (_adim) {
+                1 => _adim1(),
+                2 => _adim2(),
+                _ => _adim3(),
+              },
+            ),
+            if (_adim == 2)
+              YsAltCubugu(
+                toplamKurus: _toplam,
+                uyari: _uyari,
+                uyariAnahtar: '$_uyariSayaci',
+                buton: SipButon(
+                  etiket: 'Devam',
+                  ikon: SipIcons.right,
+                  genisle: false,
+                  yatayPadding: 24,
+                  onTap: _devam,
+                ),
+              ),
+            if (_adim == 3)
+              YsAltCubugu(
+                // Uyarı metni yukarıdaki kalıcı şeritte duruyor — burada TEKRARLANMAZ.
+                // Düğmenin pasif olması (onTap: null) ile şerit birlikte yeterli.
+                toplamKurus: _toplam,
+                buton: SipButon(
+                  etiket: 'Siparişi Kaydet',
+                  ikon: SipIcons.check,
+                  genisle: false,
+                  yatayPadding: 20,
+                  yukleniyor: _kaydediyor,
+                  onTap: widget.writable ? _kaydet : null,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Yardımcı akışlar bir kez abone edilir — arama yazılırken yeniden abone olup titremesinler.
+  late final Stream<Map<String, String>> _telefonlar = watchBirincilTelefonlar(widget.db);
+  late final Stream<Map<String, AdresBilgi>> _adresler = watchBirincilAdresler(widget.db);
+
+  // ── Adım 1 — müşteri seç ────────────────────────────────────────────────────────────────
+  Widget _adim1() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(SipSpace.govde, SipSpace.md, SipSpace.govde, SipSpace.xl),
+          child: SipArama(
+            controller: _arama,
+            ipucu: 'İsim ya da telefon ara…',
+            onChanged: (v) => setState(() => _sorgu = v),
+            onTemizle: () => setState(() {
+              _arama.clear();
+              _sorgu = '';
+            }),
+          ),
+        ),
+        Expanded(
+          // Satırda telefon ve adres var (CSS `.mrow-tel`/`.mrow-adres`) — iki yardımcı akış
+          // TEK sorgudur, satır sayısıyla çoğalmaz.
+          child: StreamBuilder<Map<String, String>>(
+            stream: _telefonlar,
+            initialData: const {},
+            builder: (context, telSnap) => StreamBuilder<Map<String, AdresBilgi>>(
+              stream: _adresler,
+              initialData: const {},
+              builder: (context, adresSnap) => StreamBuilder<List<Customer>>(
+                stream: watchMusteriArama(widget.db, _sorgu),
+                builder: (context, snap) {
+                  final liste = snap.data;
+                  final telefonlar = telSnap.data ?? const <String, String>{};
+                  final adresler = adresSnap.data ?? const <String, AdresBilgi>{};
+                  return SipGovde(
+                    altBosluk: SipSpace.x4,
+                    children: [
+                      // Tasarım `.ys-ekle` + `YeniMusteri` (s-siparisler.jsx:311). Buradaki
+                      // "müşterisiz devam et (tezgâh satışı)" kapısı 2026-07-26'da kaldırıldı;
+                      // müşterisiz siparişin GÖRÜNTÜLENMESİ duruyor (senkronla gelebilir),
+                      // yalnız oluşturma yolu gitti.
+                      YsEkleDugmesi(
+                        etiket: 'Yeni müşteri ekle',
+                        ikon: SipIcons.userPlus,
+                        onTap: widget.writable ? _yeniMusteri : null,
+                      ),
+                      const SizedBox(height: SipSpace.xl),
+                      if (liste == null)
+                        const SipIskelet(adet: 4)
+                      else if (liste.isEmpty)
+                        YsBosDurum(
+                          ikon: SipIcons.users,
+                          metin: _sorgu.trim().isEmpty
+                              ? 'Henüz müşteri yok — yukarıdan ekleyin'
+                              : '"$_sorgu" için müşteri yok',
+                        )
+                      else
+                        for (final c in liste)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 7),
+                            child: MusteriSecimSatiri(
+                              musteri: c,
+                              telefon: telefonlar[c.id],
+                              adres: _mrowAdres(adresler[c.id]),
+                              onTap: () => _musteriSec(c),
+                            ),
+                          ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static MrowAdres? _mrowAdres(AdresBilgi? a) =>
+      a == null ? null : MrowAdres(metin: a.tamMetin, konumVar: a.konumVar);
+
+  // ── Adım 2 — kalemler ───────────────────────────────────────────────────────────────────
+  Widget _adim2() {
+    final t = context.sip;
+    return SipGovde(
+      children: [
+        // .ys-secili
+        Container(
+          margin: const EdgeInsets.only(top: SipSpace.lg),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+          decoration: BoxDecoration(color: t.accentSoft, borderRadius: SipRadius.br2),
+          child: Row(
+            children: [
+              SipIcon(SipIcons.user, boyut: 15, kalinlik: 2.1, renk: t.accent),
+              const SizedBox(width: SipSpace.md),
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _busy ? null : _addFreeLine,
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('Serbest satır'),
+                child: Text(
+                  // Müşteri dışarıdan kilitli geldiyse (müşteri detayından "Sipariş oluştur")
+                  // kayıt bir kare gecikmeyle iner — boş satır yerine bekleme işareti.
+                  _musteri?.name ?? '…',
+                  style: SipText.metin(13.5, w: 800).copyWith(color: t.accent),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (!_musteriKilitli)
+                SdxLink(etiket: 'Değiştir', onTap: () => setState(() => _adim = 1)),
+            ],
+          ),
+        ),
+        YsEkleDugmesi(
+          etiket: 'Katalogdan ürün ekle',
+          ikon: SipIcons.plus,
+          onTap: () => posKatalogAc(
+            context,
+            db: widget.db,
+            onEkle: _urunEkle,
+            onBildir: (m) => SipToast.goster(context, m),
+          ),
+        ),
+        if (_sepetBos)
+          const YsBosDurum(metin: 'Sepet boş — katalogdan ürün ekleyin')
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: SipSpace.lg),
+            child: Column(
+              children: [
+                for (var i = 0; i < _satirlar.length; i++)
+                  Padding(
+                    padding: EdgeInsets.only(top: i == 0 ? 0 : 7),
+                    child: YsSatiri(
+                      ad: _satirlar[i].name,
+                      // CSS `.ys-birim` YALNIZ birimi yazar (s-siparisler.jsx:346) — birim
+                      // fiyat sağdaki satır toplamının yanında ikinci kez okunmaz.
+                      altMetin: _satirlar[i].birimEtiketi,
+                      tutarKurus: _satirlar[i].unitPriceKurus * _satirlar[i].qty,
+                      adet: _satirlar[i].serbest ? null : _satirlar[i].qty,
+                      onAzalt: () => _adetDegis(i, -1),
+                      onArtir: () => _adetDegis(i, 1),
+                      onSil: () => setState(() => _satirlar.removeAt(i)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        // .ys-serbest
+        SipDokun(
+          onTap: _serbestEkle,
+          radius: SipRadius.br2,
+          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 2),
+          child: Text(
+            '+ Serbest satır (katalogda olmayan iş)',
+            textAlign: TextAlign.center,
+            style: SipText.metin(12.5, w: 600).copyWith(color: t.muted),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Adım 3 — özet ───────────────────────────────────────────────────────────────────────
+  Widget _adim3() {
+    final t = context.sip;
+    final musteri = _musteri;
+    return SipGovde(
+      children: [
+        const SdxSec('Müşteri', ustBosluk: SipSpace.lg),
+        // CSS `.sdx-adres` — özette müşterinin TELEFONU ve ADRESİ yazar (s-siparisler.jsx:382-383).
+        // Önce burada BAKİYE gösteriliyordu; siparişi teslim edecek kişinin son kontrolü
+        // "doğru numara, doğru kapı" sorusudur — para teslimde konuşulur.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: SipSpace.x2, vertical: SipSpace.xl),
+          decoration: BoxDecoration(color: t.surface2, borderRadius: SipRadius.br2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: SipIcon(SipIcons.user, boyut: 15, kalinlik: 2.1, renk: t.accent),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(musteri?.name ?? '',
+                        style: SipText.metin(13, w: 600).copyWith(color: t.ink)),
+                    if (musteri != null) ...[
+                      const SizedBox(height: 3),
+                      StreamBuilder<Map<String, String>>(
+                        stream: _telefonlar,
+                        initialData: const {},
+                        builder: (context, snap) {
+                          final tel = (snap.data ?? const {})[musteri.id];
+                          return Text(
+                            (tel ?? '').isEmpty ? 'Telefon yok' : sipTelefon(tel!),
+                            style: SipText.metin(11.5, w: 600).copyWith(color: t.muted),
+                          );
+                        },
+                      ),
+                      StreamBuilder<Map<String, AdresBilgi>>(
+                        stream: _adresler,
+                        initialData: const {},
+                        builder: (context, snap) {
+                          final adres = (snap.data ?? const {})[musteri.id];
+                          if (adres == null) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: Text(
+                              adres.tamMetin,
+                              style: SipText.metin(11.5, w: 600).copyWith(color: t.muted),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _note,
-            enabled: !_busy,
-            decoration: const InputDecoration(
-              labelText: 'Not',
-              hintText: 'Ör. kapıya bırak, 3. kat',
-            ),
-          ),
-        ],
-      ),
-      // Toplam çubuğu — alt gezinme yüzeyiyle aynı dil (s1 + üst kenar çizgisi), tutar tabular.
-      bottomNavigationBar: Material(
-        color: SipColors.s1,
-        child: Container(
-          decoration: const BoxDecoration(
-            border: Border(top: BorderSide(color: SipColors.line)),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('Toplam', style: SipText.muted),
-                        Text(formatKurus(total),
-                            style: SipText.amount.copyWith(fontSize: 22)),
-                      ],
-                    ),
-                  ),
-                  FilledButton.icon(
-                    onPressed: (_busy || _lines.isEmpty) ? null : _save,
-                    icon: const Icon(Icons.check),
-                    label: const Text('Siparişi kaydet'),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ),
-      ),
-    );
-  }
-
-  Widget _lineTile(int i) {
-    final l = _lines[i];
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(l.name),
-      subtitle: Text('${formatKurus(l.unitPriceKurus)} × ${l.qty}'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.remove_circle_outline),
-            tooltip: 'Azalt',
-            onPressed: () => setState(() {
-              if (l.qty > 1) {
-                l.qty -= 1;
-              } else {
-                _lines.removeAt(i);
-              }
-            }),
-          ),
-          Text('${l.qty}', style: const TextStyle(fontWeight: FontWeight.w600)),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            tooltip: 'Artır',
-            onPressed: () => setState(() => l.qty += 1),
-          ),
-          SizedBox(
-            width: 88,
-            child: Text(formatKurus(l.unitPriceKurus * l.qty), textAlign: TextAlign.end),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Sipariş satırı taslağı (henüz kaydedilmemiş). Kaydedildiğinde `LineInput`'a çevrilir.
-class LineDraft {
-  LineDraft({this.productId, required this.name, required this.unitPriceKurus, this.qty = 1});
-  final String? productId;
-  final String name;
-  final int unitPriceKurus;
-  int qty;
-}
-
-/// Taslak satırların toplamı (int kuruş — kayan nokta YOK).
-int toplamKurus(List<LineDraft> lines) =>
-    lines.fold<int>(0, (s, l) => s + l.unitPriceKurus * l.qty);
-
-/// Müşteri seçici — liste ekranının arama kuralını (son-10 telefon eşleşmesi) aynen kullanır.
-class _CustomerPickerScreen extends StatefulWidget {
-  const _CustomerPickerScreen({required this.db});
-  final AppDatabase db;
-
-  @override
-  State<_CustomerPickerScreen> createState() => _CustomerPickerScreenState();
-}
-
-class _CustomerPickerScreenState extends State<_CustomerPickerScreen> {
-  String _query = '';
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Müşteri seç'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-            child: TextField(
-              autofocus: true,
-              onChanged: (v) => setState(() => _query = v),
-              decoration: const InputDecoration(
-                hintText: 'Ad veya telefon ara',
-                prefixIcon: Icon(Icons.search),
-              ),
-            ),
-          ),
+        SdxSec(
+          'Kalemler',
+          sag: SdxLink(etiket: 'Düzenle', onTap: () => setState(() => _adim = 2)),
         ),
-      ),
-      body: StreamBuilder<List<Customer>>(
-        stream: watchCustomers(widget.db, _query),
-        builder: (context, snap) {
-          final list = snap.data;
-          if (list == null) return const Center(child: CircularProgressIndicator());
-          if (list.isEmpty) {
-            return const Center(child: Text('Eşleşen müşteri yok.'));
-          }
-          return ListView.separated(
-            itemCount: list.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, i) => ListTile(
-              title: Text(list[i].name),
-              trailing: Text(formatKurus(list[i].balanceKurus)),
-              onTap: () => Navigator.of(context).pop(list[i]),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// Ürün seçici. Ürün yoksa doğrudan buradan eklenebilir — taze kurulumda bayi akıştan çıkmasın.
-class _ProductPickerSheet extends StatelessWidget {
-  const _ProductPickerSheet({required this.db});
-  final AppDatabase db;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: StreamBuilder<List<Product>>(
-        stream: watchProducts(db),
-        builder: (context, snap) {
-          final list = snap.data;
-          if (list == null) {
-            return const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()));
-          }
-          if (list.isEmpty) {
-            return Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Henüz ürün yok.', textAlign: TextAlign.center),
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: () => showProductDialog(context, ProductRepository(db)),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Ürün ekle'),
-                  ),
-                ],
+        SdKart(
+          toplamKurus: _toplam,
+          satirlar: [
+            for (final l in _satirlar)
+              SdSatiri(
+                ad: l.name,
+                // Tasarım `{r.adet} {r.birim} × {fmtTL(r.fiyat)}` (s-siparisler.jsx:390).
+                altMetin: l.serbest
+                    ? 'tek seferlik'
+                    : '${l.qty} ${l.birimEtiketi} × ${sipTutar(l.unitPriceKurus)}',
+                tutarKurus: l.unitPriceKurus * l.qty,
               ),
-            );
-          }
-          return ListView.separated(
-            shrinkWrap: true,
-            itemCount: list.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, i) => ListTile(
-              title: Text(list[i].name),
-              subtitle: Text('${formatKurus(list[i].unitPriceKurus)} / ${list[i].unit}'),
-              onTap: () => Navigator.of(context).pop(list[i]),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// Katalogda olmayan tek seferlik satır (ör. "boru tamiri"). Ürün kaydı OLUŞTURMAZ.
-class _FreeLineDialog extends StatefulWidget {
-  const _FreeLineDialog();
-
-  @override
-  State<_FreeLineDialog> createState() => _FreeLineDialogState();
-}
-
-class _FreeLineDialogState extends State<_FreeLineDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _price = TextEditingController();
-  final _qty = TextEditingController(text: '1');
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _price.dispose();
-    _qty.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Serbest satır'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _name,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Açıklama *'),
-              validator: (v) => (v == null || v.trim().isEmpty) ? 'Açıklama gerekli' : null,
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _price,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Birim fiyat *', suffixText: '₺'),
-              validator: (v) => parseKurus(v ?? '') == null ? 'Geçerli bir fiyat girin' : null,
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _qty,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Adet *'),
-              validator: (v) {
-                final n = int.tryParse((v ?? '').trim());
-                return (n == null || n < 1) ? 'En az 1 adet' : null;
-              },
-            ),
           ],
         ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
-        FilledButton(
-          onPressed: () {
-            if (!_formKey.currentState!.validate()) return;
-            Navigator.pop(
-              context,
-              LineDraft(
-                name: _name.text.trim(),
-                unitPriceKurus: parseKurus(_price.text)!,
-                qty: int.parse(_qty.text.trim()),
-              ),
-            );
-          },
-          child: const Text('Ekle'),
+        const SdxSec('Sipariş Notu'),
+        SipInput(
+          controller: _not,
+          ipucu: 'Kapı kodu, teslim saati, özel istek…',
+          satirlar: 2,
         ),
       ],
     );

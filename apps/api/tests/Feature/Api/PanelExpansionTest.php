@@ -104,15 +104,14 @@ class PanelExpansionTest extends ApiTestCase
         $this->pushEvents($token, [$order])->assertOk();
         $this->pushEvents($token, [$this->orderEvent('delivered', ['order_id' => $oid, 'payment_type' => 'nakit'])])->assertOk();
 
-        // Defter (debit+payment) + kupon (movement+balance) + kasa devri.
+        // Defter (debit+payment) + kasa devri.
         $this->pushEvents($token, [
             $this->ledgerEntry(['customer_id' => $cid, 'entry_type' => 'debit', 'amount_kurus' => 9000, 'related_order_id' => $oid]),
             $this->ledgerEntry(['customer_id' => $cid, 'entry_type' => 'payment', 'amount_kurus' => -9000, 'payment_type' => 'nakit', 'related_order_id' => $oid]),
-            $this->couponMovement('grant', ['customer_id' => $cid, 'qty_delta' => 5]),
             $this->cashHandover(['from_user_id' => $seed['kurye']->id, 'counted_cash_kurus' => 9000, 'expected_cash_kurus' => 9000]),
         ])->assertOk();
 
-        // 12 tablonun her birinde aranacak ayırt edici id'ler (devices makeTenant'tan).
+        // 10 export tablosunun her birinde aranacak ayırt edici id'ler (devices makeTenant'tan).
         return [$cid, $pid, $oid, $phone['payload']['id'], $addr['payload']['id'], $seed['device']->id];
     }
 
@@ -128,14 +127,14 @@ class PanelExpansionTest extends ApiTestCase
         $export = (new PanelExportService('pgsql_panel'))->export($a['tenant']->id);
         $json = (string) json_encode($export);
 
-        // 12 export tablosunun HEPSİ mevcut ve A için DOLU (tam kapsama).
+        // 10 export tablosunun HEPSİ mevcut ve A için DOLU (tam kapsama).
         foreach (['customers', 'customer_phones', 'customer_addresses', 'products', 'orders', 'order_lines',
-            'order_events', 'ledger_entries', 'coupon_movements', 'coupon_balances', 'cash_handovers', 'devices'] as $table) {
+            'order_events', 'ledger_entries', 'cash_handovers', 'devices'] as $table) {
             $this->assertArrayHasKey($table, $export, "Export {$table} tablosunu içermeli.");
             $this->assertNotEmpty($export[$table], "A'nın {$table} verisi export'ta DOLU olmalı.");
         }
 
-        // A'nın id'leri VAR; B'nin HİÇBİR id'si (12 tablonun hiçbirinden) A export'una SIZMAZ.
+        // A'nın id'leri VAR; B'nin HİÇBİR id'si (10 tablonun hiçbirinden) A export'una SIZMAZ.
         foreach ($idsA as $id) {
             $this->assertStringContainsString($id, $json, "A'nın verisi ({$id}) export'ta olmalı.");
         }
@@ -176,13 +175,13 @@ class PanelExpansionTest extends ApiTestCase
         $admin = $this->makeAdmin();
 
         // Eski parola ('password') ile login çalışır.
-        $this->postJson('/api/v1/auth/login', ['email' => $a['patron']->email, 'password' => 'password'])->assertOk();
+        $this->postJson('/api/v1/auth/login', $this->girisGovdesi($a['tenant'], $a['patron']))->assertOk();
 
         $newPassword = $this->admin()->resetPatronPassword($a['tenant']->id, $admin->id);
 
         // Yeni parola login olur; eski parola artık 401.
-        $this->postJson('/api/v1/auth/login', ['email' => $a['patron']->email, 'password' => $newPassword])->assertOk();
-        $this->postJson('/api/v1/auth/login', ['email' => $a['patron']->email, 'password' => 'password'])->assertStatus(401);
+        $this->postJson('/api/v1/auth/login', $this->girisGovdesi($a['tenant'], $a['patron'], $newPassword))->assertOk();
+        $this->postJson('/api/v1/auth/login', $this->girisGovdesi($a['tenant'], $a['patron']))->assertStatus(401);
 
         // Panel rolü users'a YAZAMAZ (şifre sıfırlama owner ile yapıldı, panel ile değil).
         try {

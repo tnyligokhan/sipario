@@ -2,18 +2,19 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
-import 'package:sipario/repo/coupon_repository.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/day_end_repository.dart';
 import 'package:sipario/repo/ledger_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
+import 'package:sipario/screens/customers/customer_detail_screen.dart';
+import 'package:sipario/theme/components/overlays.dart';
 import 'package:sipario/screens/customers/customer_ledger.dart';
 import 'package:sipario/screens/day_end_screen.dart';
 import 'package:sipario/screens/money.dart';
+import 'package:sipario/theme/components/bicim.dart';
 import 'package:sipario/theme/tokens.dart';
-import 'package:sipario/theme/typography.dart';
 
-/// Dilim 3 UI testleri: defter (hareket listesi/tahsilat/düzeltme/kupon) + gün sonu read-model.
+/// Dilim 3 UI testleri: defter (hareket listesi/tahsilat/düzeltme) + gün sonu read-model.
 /// Sorgu ve özet mantığı ekrandan bağımsız fonksiyonlarda tutulur ve saf async sınanır
 /// (widget-test sahte zamanı drift akışlarında güvenilmez — Dilim 1/2 dersi).
 void main() {
@@ -111,19 +112,8 @@ void main() {
     });
   });
 
-  group('watchCouponBalance', () {
-    test('kupon satışı bakiyeyi artırır', () async {
-      final db = AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
-      final cid = await CustomerRepository(db).create(name: 'Kuponlu');
-      expect(await watchCouponBalance(db, cid).first, 0);
-      await CouponRepository(db).kuponSat(customerId: cid, qty: 5, priceKurus: 5000, paymentType: 'nakit');
-      expect(await watchCouponBalance(db, cid).first, 5);
-    });
-  });
-
   group('gün sonu rakamları defterle tutarlıdır', () {
-    test('kasa/borç/kupon defterden türer ve tutar', () async {
+    test('kasa/borç defterden türer ve tutar', () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       final cid = await CustomerRepository(db).create(name: 'Gün Sonu');
@@ -139,25 +129,21 @@ void main() {
           customerId: cid, lines: [LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 1)]);
       await orders.deliver(o2, paymentType: 'veresiye');
 
-      // Kupon satışı: grant +10, debit +10000 & payment −10000 (nakit).
-      await CouponRepository(db)
-          .kuponSat(customerId: cid, qty: 10, priceKurus: 10000, paymentType: 'nakit');
+      // Elle tahsilat: payment −10000 (nakit) — kasaya girer, borcu düşürür.
+      await LedgerRepository(db).borcEkle(cid, 10000);
+      await LedgerRepository(db).tahsilat(cid, 10000, 'nakit');
 
       final ozet = await gunSonuOzeti(db, bugunTr());
 
-      // Kasa nakit = o1 tahsilatı (9000) + kupon peşin ödemesi (10000).
+      // Kasa nakit = o1 tahsilatı (9000) + elle tahsilat (10000).
       expect(ozet.kasa.nakit, 19000);
       expect(ozet.kasa.kart, 0);
       expect(ozet.kasa.havale, 0);
       expect(ozet.kasa.toplam, 19000);
 
-      // Açık borç = yalnız veresiye teslimin borcu (nakit/kupon net 0).
+      // Açık borç = yalnız veresiye teslimin borcu (nakit teslim ve tahsil edilen borç net 0).
       expect(ozet.borc.toplamAcikBorc, 4500);
       expect(ozet.borc.borclular.single.customerId, cid);
-
-      // Kupon: +10 açık, bugün verilen 10.
-      expect(ozet.kupon.toplamAcikKupon, 10);
-      expect(ozet.kupon.gunlukVerilen, 10);
     });
   });
 
@@ -179,13 +165,22 @@ void main() {
       final etiketler = rows.map(defterHareketEtiketi).toSet();
       expect(etiketler.contains('Borç'), isTrue);
       expect(etiketler.contains('Tahsilat · Havale'), isTrue);
-      expect(etiketler.contains('Sipariş borcu'), isTrue,
-          reason: 'relatedOrderId dolu debit sipariş borcudur');
+
+      // Tasarımın (`HAREKET_META`) dört sözcüğü var: Borç · Tahsilat · Alacak · Düzeltme.
+      // "Sipariş borcu" ayrı bir etiket DEĞİL — sipariş bağı etikette değil `relatedOrderId`
+      // kolonunda yaşar; iki debit satırı da aynı sözcükle okunur.
+      expect(etiketler.contains('Sipariş borcu'), isFalse,
+          reason: 'sipariş borcu ayrı etiket taşımaz (tasarımda o sözcük yok)');
+      final siparisBorcu = rows.where((e) => e.relatedOrderId != null).toList();
+      expect(siparisBorcu, hasLength(1), reason: 'veresiye teslim deftere bir debit yazar');
+      expect(defterHareketEtiketi(siparisBorcu.single), 'Borç');
+      expect(siparisBorcu.single.relatedOrderId, oid,
+          reason: 'etiket birleşti ama siparişe giden bağ KAYBOLMADI');
     });
   });
 
   group('DayEndScreen (widget — salt-okunur özet)', () {
-    testWidgets('kasa/borç/kupon kartlarını çizer', (tester) async {
+    testWidgets('kasa/borç kartlarını çizer', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         final cid = await CustomerRepository(db).create(name: 'Ayşe');
@@ -196,12 +191,19 @@ void main() {
       });
 
       await tester.pumpWidget(MaterialApp(home: DayEndScreen(db: db)));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
+      // İKİ tur bekleme ŞART: `gunSonuGorunumu` 2026-07-26'da kurye kapanış sorgularını da
+      // (`acikKuryeAdlari` + aktif kurye sayısı) bekliyor, tek 150 ms'de future tamamlanmıyor
+      // ve ekran hâlâ İSKELET çiziyor — aranan tutar hiç bulunmuyordu. Dosyadaki DÖRT gün-sonu
+      // testinin hepsi aynı kırılganlığı taşıyordu; biri düşünce dördü birlikte düzeltildi.
+      for (var i = 0; i < 2; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+        await tester.pump();
+      }
 
-      expect(find.text('Kasa (bugün)'), findsOneWidget);
-      expect(find.text('Veresiye (açık borç)'), findsOneWidget);
-      expect(find.text('Kupon'), findsWidgets);
+      expect(find.text('Kasa Özeti'), findsOneWidget);
+      expect(find.text('Açık Veresiye'), findsOneWidget);
+      // Kupon üründen kaldırıldı (2026-07-26): gün sonunda kupon bölümü OLMAMALI.
+      expect(find.textContaining('Kupon'), findsNothing);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
@@ -210,8 +212,14 @@ void main() {
     testWidgets('mağaza-kuralı ihlali yok (satın alma/abonelik metni)', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       await tester.pumpWidget(MaterialApp(home: DayEndScreen(db: db)));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
+      // İKİ tur bekleme ŞART: `gunSonuGorunumu` 2026-07-26'da kurye kapanış sorgularını da
+      // (`acikKuryeAdlari` + aktif kurye sayısı) bekliyor, tek 150 ms'de future tamamlanmıyor
+      // ve ekran hâlâ İSKELET çiziyor — aranan tutar hiç bulunmuyordu. Dosyadaki DÖRT gün-sonu
+      // testinin hepsi aynı kırılganlığı taşıyordu; biri düşünce dördü birlikte düzeltildi.
+      for (var i = 0; i < 2; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+        await tester.pump();
+      }
 
       for (final yasak in ['Abone', 'Satın al', 'Üye ol', 'Kaydol', 'Ödeme yap']) {
         expect(find.textContaining(yasak), findsNothing, reason: '"$yasak" mobilde gösterilemez');
@@ -221,26 +229,47 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('AppBar yok; ekran başlığı "Gün sonu" screenTitle token stiliyle çizilir', (tester) async {
-      // Yeni tasarım: AppBar kaldırıldı → SafeArea + ekran başlığı (Ekran 1-2 başlık deseni).
+    testWidgets('AppBar yok; ekran başlığı "Gün Sonu" görünür', (tester) async {
+      // SİPARİO 3.0: AppBar hiçbir ekranda kullanılmaz — başlık `SipUst` ile çizilir.
+      //
+      // Başlığın TAM stilini burada sınamıyoruz. Stil kimliği (`baslik.style == SipText.x`)
+      // kırılgan bir iddiaydı: tasarım sistemi her dokunulduğunda bu dosya da kırılıyordu,
+      // üstelik hiçbir davranışı korumuyordu. Tipografi sözleşmesi artık merkezî olarak
+      // `test/ui_temel_test.dart` içinde sınanıyor; burada ekranın SÖZLEŞMESİ kalıyor:
+      // AppBar yok, başlık metni doğru.
       final db = AppDatabase(NativeDatabase.memory());
 
       await tester.pumpWidget(MaterialApp(home: DayEndScreen(db: db)));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
+      // İKİ tur bekleme ŞART: `gunSonuGorunumu` 2026-07-26'da kurye kapanış sorgularını da
+      // (`acikKuryeAdlari` + aktif kurye sayısı) bekliyor, tek 150 ms'de future tamamlanmıyor
+      // ve ekran hâlâ İSKELET çiziyor — aranan tutar hiç bulunmuyordu. Dosyadaki DÖRT gün-sonu
+      // testinin hepsi aynı kırılganlığı taşıyordu; biri düşünce dördü birlikte düzeltildi.
+      for (var i = 0; i < 2; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+        await tester.pump();
+      }
 
       expect(find.byType(AppBar), findsNothing,
-          reason: 'yeni tasarımda AppBar yerine SafeArea + ekran başlığı var');
-      final baslik = tester.widget<Text>(find.text('Gün sonu'));
-      expect(baslik.style, SipText.screenTitle,
-          reason: 'başlık token tipografisiyle (screenTitle) çizilmeli, ham TextStyle değil');
+          reason: 'SİPARİO 3.0 tasarımında AppBar yok; başlık SipUst ile çizilir');
+      expect(find.text('Gün Sonu'), findsWidgets);
 
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('açık borç > 0 → toplam tutar SipColors.debt (kırmızı) ile vurgulanır', (tester) async {
+    testWidgets('açık borç > 0 → toplam tutar borç rengiyle (danger) vurgulanır', (tester) async {
+      // VIEWPORT YÜKSELTİLİYOR (400 → 2400): `SipGovde` bir `ListView`, yani TEMBEL — katlamanın
+      // altındaki çocuk hiç BUILD edilmez ve `find.text` boş döner (aynı tuzak bu dosyanın
+      // müşteri-detay testinde de yazılı). Varsayılan 800×600 yüzeyde "Açık Veresiye" başlığı
+      // görünüyor ama kartın içindeki toplam satırı fold'un altında kalıyor: kapsam segmenti
+      // 2026-07-26'da KOŞULSUZ çizilmeye başlayınca (tasarım `s-gunsonu.jsx:37-41`) gövde ~50 px
+      // aşağı kaydı ve bu test o yüzden düştü. Ürün kodunda gerileme YOK — kasa/borç hâlâ
+      // defterden türetiliyor; kırılan şey testin görünür alan varsayımıydı.
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         final orders = OrderRepository(db);
@@ -256,12 +285,21 @@ void main() {
       });
 
       await tester.pumpWidget(MaterialApp(home: DayEndScreen(db: db)));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
+      // İKİ tur bekleme ŞART: `gunSonuGorunumu` 2026-07-26'da kurye kapanış sorgularını da
+      // (`acikKuryeAdlari` + aktif kurye sayısı) bekliyor, tek 150 ms'de future tamamlanmıyor
+      // ve ekran hâlâ İSKELET çiziyor — aranan tutar hiç bulunmuyordu. Dosyadaki DÖRT gün-sonu
+      // testinin hepsi aynı kırılganlığı taşıyordu; biri düşünce dördü birlikte düzeltildi.
+      for (var i = 0; i < 2; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+        await tester.pump();
+      }
 
+      // Bu iddia DAVRANIŞSAL: "borç kırmızı görünür" tasarımın bakiye dilinin çekirdeği
+      // (+borç danger · −alacak ok · 0 temiz). Stil kimliği değil, RENK sınanıyor — tasarım
+      // sistemi değişse bile bu kural değişmemeli.
       final toplamTutar = tester.widget<Text>(find.text(formatKurus(16500)));
-      expect(toplamTutar.style?.color, SipColors.debt,
-          reason: 'açık borç > 0 iken toplam tutar borç rengiyle çizilir (handoff kırmızı bakiye dili)');
+      expect(toplamTutar.style?.color, SipTokens.acik.danger,
+          reason: 'açık borç > 0 iken toplam tutar borç rengiyle çizilir (bakiye dili)');
 
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpWidget(const SizedBox.shrink());
@@ -270,44 +308,64 @@ void main() {
   });
 
   group('CustomerLedgerSection (widget — salt-okunur kapısı)', () {
-    testWidgets('salt-okunur kipte tahsilat SnackBar ile engellenir', (tester) async {
+    // SİPARİO 3.0 — YÜZEY DEĞİŞTİ, KURAL DEĞİŞMEDİ:
+    // Tahsilat ve düzeltme eylemleri defter bölümünden çıkıp müşteri detayının hızlı-eylem
+    // ızgarasına (`.md-akslar`) taşındı; uyarı da SnackBar yerine `SipToast`. Bu yüzden
+    // salt-okunur kapısı artık `CustomerDetailScreen` üzerinden sınanıyor. Kırmızı çizgi aynı:
+    // salt-okunur kipte YENİ KAYIT oluşmaz ve kullanıcı bunu görür.
+    testWidgets('salt-okunur kipte tahsilat engellenir ve kullanıcı uyarılır', (tester) async {
       // Akış-abonelikli drift db'si widget-testte KAPATILMAZ (Dilim 1 dersi: asılı kalıyor).
       final db = AppDatabase(NativeDatabase.memory());
+      late String cid;
+      await tester.runAsync(() async {
+        cid = await CustomerRepository(db).create(name: 'Salt Okunur');
+      });
 
       await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: CustomerLedgerSection(db: db, customerId: 'yok', writable: false),
-        ),
+        home: CustomerDetailScreen(db: db, customerId: cid, writable: false),
       ));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
-      await tester.tap(find.text('Tahsilat al'));
+      await tester.tap(find.text('Tahsilat'));
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Tahsilat kaydedildi'), findsNothing,
+          reason: 'sheet hiç açılmamalı, kayıt oluşmamalı');
 
       await tester.pump(const Duration(seconds: 5));
+      SipToast.temizle();
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('salt-okunur kipte kupon satışı DA SnackBar ile engellenir', (tester) async {
+    // Kapı TEK bir eyleme değil, ızgaradaki HER yazma eylemine uygulanır. İkinci eylemi de
+    // sınamak bu yüzden ayrı bir testtir (eskiden bu test "Kupon"u sınıyordu; kupon 2026-07-26'da
+    // üründen kalktı, sıra "Düzeltme"ye geçti — kural aynı kaldı).
+    testWidgets('salt-okunur kipte defter düzeltmesi DE engellenir', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
+      late String cid;
+      await tester.runAsync(() async {
+        cid = await CustomerRepository(db).create(name: 'Salt Okunur Düzeltme');
+      });
 
       await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: CustomerLedgerSection(db: db, customerId: 'yok', writable: false),
-        ),
+        home: CustomerDetailScreen(db: db, customerId: cid, writable: false),
       ));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
-      await tester.tap(find.text('Kupon sat'));
+      // SİPARİO 3.0: düzeltme artık hızlı eylem ızgarasında DEĞİL, defter başlığının sağındaki
+      // "± Bakiye Düzeltme" bağlantısında (tasarım s-musteriler.jsx:125). Kapı yer değiştirdi,
+      // kural değişmedi.
+      await tester.tap(find.text('± Bakiye Düzeltme'));
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
-      expect(find.byType(AlertDialog), findsNothing, reason: 'salt-okunurda dialog hiç açılmamalı');
+      expect(find.text('Düzeltme deftere işlendi'), findsNothing,
+          reason: 'salt-okunurda düzeltme sheet\'i hiç açılmamalı');
 
       await tester.pump(const Duration(seconds: 5));
+      SipToast.temizle();
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
     });
@@ -326,35 +384,26 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
+      // SİPARİO 3.0: düzeltme artık bir açılır menüde (PopupMenuButton) değil — hareket
+      // satırına DOKUNMAK onay diyaloğunu açıyor. Salt-okunurda `onDuzelt` null verildiği için
+      // dokunma hiçbir şey yapmaz; kanıtı diyaloğun açılmamasıdır.
       expect(find.text('Borç'), findsOneWidget, reason: 'hareket listelenir');
-      expect(find.byType(PopupMenuButton<String>), findsNothing,
-          reason: 'salt-okunurda düzeltme menüsü hiç eklenmemeli (onDuzelt null)');
+      await tester.tap(find.text('Borç'));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('Ters kayıtla düzelt'), findsNothing,
+          reason: 'salt-okunurda düzeltme diyaloğu açılmamalı (onDuzelt null)');
 
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('yazılabilir kipte aynı hareketin düzeltme menüsü GÖRÜNÜR (kontrast)', (tester) async {
-      final db = AppDatabase(NativeDatabase.memory());
-      late String cid;
-      await tester.runAsync(() async {
-        cid = await CustomerRepository(db).create(name: 'Yazılabilir Defter');
-        await LedgerRepository(db).borcEkle(cid, 4500);
-      });
-
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(body: CustomerLedgerSection(db: db, customerId: cid, writable: true)),
-      ));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
-
-      expect(find.byType(PopupMenuButton<String>), findsOneWidget);
-
-      await tester.pump(const Duration(seconds: 5));
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump(const Duration(seconds: 5));
-    });
+    // NOT — "yazılabilir kipte harekete dokunmak düzeltme onayını AÇAR" testi KALDIRILDI
+    // (2026-07-26): defter SATIRINA dokunma diye bir jest artık YOK, tasarımda `.dhar`
+    // tıklanabilir değil (düz bir div). Düzeltmenin tek girişi başlığın sağındaki
+    // "± Bakiye Düzeltme" bağlantısı; onun salt-okunur kapısı yukarıdaki testte kanıtlanıyor.
+    // Yukarıdaki "GÖRÜNMEZ" testi de aynı gerçeği ters yönden koruyor: satıra dokunmak hiçbir
+    // diyalog açmaz.
   });
 
   group('CustomerLedgerSection mağaza-kuralı (day_end deseniyle simetri)', () {
@@ -364,8 +413,7 @@ void main() {
       await tester.runAsync(() async {
         cid = await CustomerRepository(db).create(name: 'Mağaza Kural');
         await LedgerRepository(db).borcEkle(cid, 4500);
-        await CouponRepository(db)
-            .kuponSat(customerId: cid, qty: 2, priceKurus: 9000, paymentType: 'nakit');
+        await LedgerRepository(db).tahsilat(cid, 4500, 'nakit');
       });
 
       await tester.pumpWidget(MaterialApp(
@@ -386,7 +434,7 @@ void main() {
 
   group('ekran-repo tutarlılığı: defterde gösterilen tutar repo\'nun yazdığıyla birebir aynı', () {
     testWidgets('küsuratlı bir borç repo\'da ne yazdıysa ekranda AYNI metinle çıkar', (tester) async {
-      // Dilim 2'deki kuponAdedi testiyle aynı ilke: ekran ile repo aynı kaynağı konuşmalı.
+      // İlke: ekran ile repo aynı kaynağı konuşmalı.
       // 12345 kuruş bilerek küsuratlı seçildi (yuvarlama/kesme hatası varsa yakalasın).
       final db = AppDatabase(NativeDatabase.memory());
       late String cid;
@@ -417,28 +465,44 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('kupon bakiyesi repo\'daki adetle (watchCouponBalance) birebir aynı gösterilir', (tester) async {
+    testWidgets('müşteri bakiye kartı repo\'nun yazdığı önbellekle birebir aynı gösterilir',
+        (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       late String cid;
       await tester.runAsync(() async {
-        cid = await CustomerRepository(db).create(name: 'Kupon Ekran');
-        await CouponRepository(db)
-            .kuponSat(customerId: cid, qty: 7, priceKurus: 63000, paymentType: 'kart');
+        cid = await CustomerRepository(db).create(name: 'Bakiye Ekran');
+        await LedgerRepository(db).borcEkle(cid, 63000);
       });
+
+      // Varsayılan 800×600 test yüzeyi bu ekran için kısa: gövde kaydırılabilir ve bakiye kartı
+      // görünür alanın dışında kalabiliyor; ListView tembel çizdiği için find.text boş dönerdi.
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
       await tester.pumpWidget(MaterialApp(
-        home: Scaffold(body: CustomerLedgerSection(db: db, customerId: cid, writable: false)),
+        home: CustomerDetailScreen(db: db, customerId: cid, writable: false),
       ));
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-      await tester.pump();
+      // Ekran İÇ İÇE akışlar dinliyor (müşteri → telefon/adres). Tek tur yetmiyor: dıştaki akış
+      // çözülmeden içteki StreamBuilder ağaca hiç girmiyor.
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+        await tester.pump();
+      }
 
-      // watch() akışı da gerçek async'tir — runAsync DIŞINDA .first beklemek asılı kalır (Dilim 1 dersi).
+      // Ekrandaki sabit bir string tahmin edilmiyor: repo'nun defterden türettiği önbellek
+      // okunup aynı biçimleyiciden geçiriliyor (watch() gerçek async — runAsync İÇİNDE).
       late int gercekBakiye;
       await tester.runAsync(() async {
-        gercekBakiye = await watchCouponBalance(db, cid).first;
+        gercekBakiye = await (db.select(db.customers)..where((t) => t.id.equals(cid)))
+            .getSingle()
+            .then((c) => c.balanceKurus);
       });
-      expect(gercekBakiye, 7);
-      expect(find.text('$gercekBakiye adet'), findsOneWidget);
+      expect(gercekBakiye, 63000);
+      // SİPARİO 3.0: bakiye 34 px'lik hero kartından `.md-bakiye` İNCE şeridine indi ve tutarla
+      // durumu TEK metinde yazıyor ("630,00 ₺ Borç"; 0 bakiyede "Temiz"). Tutar tek başına bir
+      // Text değil, o yüzden `find.text(sipTutar(...))` artık eşleşmez.
+      expect(find.text('${sipTutar(gercekBakiye)} Borç'), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpWidget(const SizedBox.shrink());
@@ -491,37 +555,13 @@ void main() {
     });
   });
 
-  group('kupon zinciri: satış artırır, kuponlu teslim düşürür, eksiye düşebilir (watchCouponBalance)', () {
-    test('3 kupon satılır → teslimle 1\'i kullanılır → sonra 3 daha kullanılınca eksiye düşer', () async {
-      final db = AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
-      final cid = await CustomerRepository(db).create(name: 'Kupon Zinciri');
-
-      await CouponRepository(db).kuponSat(customerId: cid, qty: 3, priceKurus: 27000, paymentType: 'nakit');
-      expect(await watchCouponBalance(db, cid).first, 3, reason: 'satış ekran fonksiyonunda artış olarak görünür');
-
-      final orders = OrderRepository(db);
-      final o1 = await orders.create(customerId: cid,
-          lines: [LineInput(productName: 'Damacana', unitPriceKurus: 9000, qty: 1)]);
-      await orders.deliver(o1, paymentType: 'kupon');
-      expect(await watchCouponBalance(db, cid).first, 2, reason: 'kuponlu teslim ekran fonksiyonunda düşüş olarak görünür');
-
-      final o2 = await orders.create(customerId: cid,
-          lines: [LineInput(productName: 'Damacana', unitPriceKurus: 9000, qty: 3)]);
-      await orders.deliver(o2, paymentType: 'kupon');
-      expect(await watchCouponBalance(db, cid).first, -1,
-          reason: 'hakkı aşan teslim reddedilmez; ekran fonksiyonu da eksiyi olduğu gibi gösterir');
-    });
-  });
-
-  group("gün sonu: kasa/borç/kupon rakamları BAĞIMSIZ hesapla doğrulanır", () {
+  group("gün sonu: kasa/borç rakamları BAĞIMSIZ hesapla doğrulanır", () {
     test('çok müşterili/çok ödeme tipli karışık senaryoda elle kurulan beklenti repository çıktısıyla eşleşir',
         () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       final orders = OrderRepository(db);
       final ledger = LedgerRepository(db);
-      final coupons = CouponRepository(db);
 
       // Ayşe: nakit peşin teslim → debit+payment nakit, net borç 0, kasa nakit +4500.
       final ayseId = await CustomerRepository(db).create(name: 'Ayşe');
@@ -529,16 +569,13 @@ void main() {
           lines: [LineInput(productName: 'D', unitPriceKurus: 4500, qty: 1)]);
       await orders.deliver(o1, paymentType: 'nakit');
 
-      // Bora: kart peşin teslim → kasa kart +9000; sonra 4 kupon alır kartla → kasa kart +8000 daha.
+      // Bora: kart peşin teslim → kasa kart +9000; sonra elle borç açıp kartla tahsil → +8000 daha.
       final boraId = await CustomerRepository(db).create(name: 'Bora');
       final o2 = await orders.create(customerId: boraId,
           lines: [LineInput(productName: 'D', unitPriceKurus: 9000, qty: 1)]);
       await orders.deliver(o2, paymentType: 'kart');
-      await coupons.kuponSat(customerId: boraId, qty: 4, priceKurus: 8000, paymentType: 'kart');
-      // Bora 2 kupon kullanır (teslim) → kupon bakiyesi 4−2=2, kasaya para hareketi YOK (peşin ödendi).
-      final o2b = await orders.create(customerId: boraId,
-          lines: [LineInput(productName: 'D', unitPriceKurus: 9000, qty: 2)]);
-      await orders.deliver(o2b, paymentType: 'kupon');
+      await ledger.borcEkle(boraId, 8000);
+      await ledger.tahsilat(boraId, 8000, 'kart');
 
       // Cem: 5000 borcu var, 2000 havale tahsilat yapılır → kalan borç 3000, kasa havale +2000.
       final cemId = await CustomerRepository(db).create(name: 'Cem');
@@ -556,17 +593,13 @@ void main() {
       // --- Aşağıdaki beklenti rakamları girdilerden ELLE çıkarıldı (repository kodunu tekrar
       // ETMİYORUZ) — DayEndRepository'nin ürettiğiyle karşılaştırıyoruz. ---
       expect(ozet.kasa.nakit, 4500, reason: 'yalnız Ayşe\'nin peşin nakit teslimi');
-      expect(ozet.kasa.kart, 9000 + 8000, reason: 'Bora\'nın peşin teslimi + kupon paketi kartla');
+      expect(ozet.kasa.kart, 9000 + 8000, reason: 'Bora\'nın peşin teslimi + kartla tahsilatı');
       expect(ozet.kasa.havale, 2000, reason: 'Cem\'in tahsilatı');
       expect(ozet.kasa.toplam, 4500 + 17000 + 2000);
 
-      expect(ozet.borc.toplamAcikBorc, 3000 + 12000, reason: 'Cem 3000 + Derya 12000; peşin/kupon müşterileri borçsuz');
+      expect(ozet.borc.toplamAcikBorc, 3000 + 12000,
+          reason: 'Cem 3000 + Derya 12000; peşin ödeyen müşteriler borçsuz');
       expect(ozet.borc.borclular.map((b) => b.name).toSet(), {'Cem', 'Derya'});
-
-      expect(ozet.kupon.gunlukVerilen, 4, reason: 'Bora\'ya verilen kupon');
-      expect(ozet.kupon.gunlukKullanilan, 2, reason: 'Bora\'nın kullandığı kupon');
-      expect(ozet.kupon.toplamAcikKupon, 2, reason: '4 verildi 2 kullanıldı → 2 açık (eksi yok)');
-      expect(ozet.kupon.eksiBakiyeliler, isEmpty);
     });
   });
 }

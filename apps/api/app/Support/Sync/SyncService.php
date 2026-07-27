@@ -3,18 +3,20 @@
 namespace App\Support\Sync;
 
 use App\Enums\TenantStatus;
+use App\Models\CallLog;
 use App\Models\CashHandover;
-use App\Models\CouponBalance;
-use App\Models\CouponMovement;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\CustomerPhone;
+use App\Models\DayClosing;
+use App\Models\ExemptNumber;
 use App\Models\LedgerEntry;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\OrderLine;
 use App\Models\Product;
 use App\Models\Tenant;
+use App\Models\TenantSetting;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
@@ -240,9 +242,13 @@ class SyncService
                 'order_line' => OrderLine::query()->whereNull('deleted_at')->get()->toArray(),
                 'order_event' => OrderEvent::query()->get()->toArray(),
                 'ledger_entry' => LedgerEntry::query()->get()->toArray(),
-                'coupon_movement' => CouponMovement::query()->get()->toArray(),
-                'coupon_balance' => CouponBalance::query()->get()->toArray(),
                 'cash_handover' => CashHandover::query()->get()->toArray(),
+                // Tasarım boşluğu varlıkları: profil (tek satır), muaf numaralar ve çağrı günlüğü
+                // tombstone'suz çekilir; kapanış arşivi append tablosudur (tam çekilir).
+                'tenant_settings' => TenantSetting::query()->get()->toArray(),
+                'exempt_number' => ExemptNumber::query()->whereNull('deleted_at')->get()->toArray(),
+                'call_log' => CallLog::query()->whereNull('deleted_at')->get()->toArray(),
+                'day_closing' => DayClosing::query()->get()->toArray(),
             ],
         ];
     }
@@ -324,7 +330,7 @@ class SyncService
      * Abonelik durumu yayını (DECISIONS: tek doğru kaynak sunucu). İstemci önbellekler + ileri-sadece
      * saatle grace hesaplar. server_time = kilit kararında kullanılan $now (tutarlı kaynak).
      *
-     * @return array{status: string, valid_until: string|null, locked_at: string|null, modules: array<string, mixed>, server_time: string}
+     * @return array{status: string, valid_until: string|null, locked_at: string|null, modules: array<string, mixed>, tenant_code: string, route_credits: int, route_credits_monthly: int, server_time: string}
      */
     private function subscriptionPayload(Tenant $tenant, Carbon $now): array
     {
@@ -334,6 +340,13 @@ class SyncService
             'locked_at' => $tenant->locked_at?->utc()->toIso8601String(),
             // Opsiyonel modül bayrakları (FAZ 5c-2): istemci UI'yı çizerken kullanır (mobil UI sonraki iş).
             'modules' => $tenant->modules,
+            // SUNUCU SAHİPLİ, istemcinin YAZAMAYACAĞI alanlar aynı kanaldan iner (modules deseni):
+            // tenant_code = tasarımdaki "Firma Kodu" (tenants.slug, değiştirilemez);
+            // route_credits = "Oto Sırala (rota) · N hak" KALAN sayaç, route_credits_monthly = aylık kota
+            // (çekmecedeki ilerleme çubuğu bu ikisinin oranı).
+            'tenant_code' => $tenant->slug,
+            'route_credits' => $tenant->route_credits,
+            'route_credits_monthly' => $tenant->route_credits_monthly,
             'server_time' => $now->utc()->toIso8601String(),
         ];
     }
@@ -344,24 +357,30 @@ class SyncService
      * snapshot/delta yerine her senkronda tazelenen hafif liste). Bu bloğa BİLEREK yalnız atama +
      * ad-çözümü için gereken alanlar konur.
      *
-     * PII ASGARİ (kırmızı çizgi #4): SELECT açıkça ['id','name','role','status'] — email/parola/
-     * telefon/last_login_at ASLA seçilmez ($hidden'a güvenmeyiz, kolon listesi garantidir). users
-     * tablosu Faz 1'den beri ENABLE+FORCE RLS → sorgu oturumdaki tenant'a kısıtlı, cross-tenant
-     * sızma DB seviyesinde imkânsız (SyncTeamTest bunu sürekli kanıtlar). disabled kullanıcı da
-     * DÖNER: eski atamalarda adı gösterilmeli; UI atama hedefi olarak yalnız active sunar.
+     * PII ASGARİ (kırmızı çizgi #4): SELECT açıkça sayılır — email/parola/last_login_at ASLA
+     * seçilmez ($hidden'a güvenmeyiz, kolon listesi garantidir). users tablosu Faz 1'den beri
+     * ENABLE+FORCE RLS → sorgu oturumdaki tenant'a kısıtlı, cross-tenant sızma DB seviyesinde
+     * imkânsız (SyncTeamTest bunu sürekli kanıtlar). disabled kullanıcı da DÖNER: eski atamalarda
+     * adı gösterilmeli; UI atama hedefi olarak yalnız active sunar.
      *
-     * @return list<array{id: string, name: string, role: string, status: string}>
+     * `phone` BİLİNÇLİ EKLENDİ (tasarım: Kuryeler ekranı telefonu gösterir ve düzenler). PII-asgari
+     * kuralının amacı MÜŞTERİ verisini ve kimlik bilgisini kısmaktı; kurye telefonu bayinin KENDİ
+     * personel iletişim bilgisidir, patron girer ve kuryeyi aramak için gerekir. Kimlik yüzeyi
+     * (email/parola/rol) hâlâ payload DIŞINDA.
+     *
+     * @return list<array{id: string, name: string, role: string, status: string, phone: string|null}>
      */
     private function teamPayload(): array
     {
         return User::query()
             ->orderBy('name')
-            ->get(['id', 'name', 'role', 'status'])
+            ->get(['id', 'name', 'role', 'status', 'phone'])
             ->map(fn (User $u) => [
                 'id' => (string) $u->id,
                 'name' => (string) $u->name,
                 'role' => $u->role->value,
                 'status' => (string) $u->status,
+                'phone' => $u->phone,
             ])
             ->all();
     }

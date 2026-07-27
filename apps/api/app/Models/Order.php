@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property int $total_kurus
  * @property string|null $payment_type
  * @property string|null $note
+ * @property int|null $sort_index
  * @property Carbon $occurred_at
  * @property string|null $created_device_id
  * @property Carbon|null $deleted_at
@@ -39,6 +40,7 @@ class Order extends Model
         'total_kurus',
         'payment_type',
         'note',
+        'sort_index',
         'occurred_at',
         'created_device_id',
         'deleted_at',
@@ -48,6 +50,7 @@ class Order extends Model
     {
         return [
             'total_kurus' => 'integer',
+            'sort_index' => 'integer',
             'occurred_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];

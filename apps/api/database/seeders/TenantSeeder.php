@@ -25,26 +25,34 @@ class TenantSeeder extends Seeder
 
     private function makeTenant(string $name, string $prefix): void
     {
-        $tenant = Tenant::factory()->create(['name' => $name]);
+        // Firma kodu = giriş ekranının ilk alanı; seed'de öngörülebilir olsun ("a-su-bayii").
+        $tenant = Tenant::factory()->create([
+            'name' => $name,
+            'slug' => Provisioning::benzersizKod($name),
+        ]);
 
         $password = Hash::make('password');
 
+        // Kullanıcı adları tenant içinde tekildir; iki bayide de aynı üçlü kullanılır.
         User::factory()->patron()->create([
             'tenant_id' => $tenant->id,
             'name' => strtoupper($prefix).' Patron',
             'email' => "{$prefix}-patron@sipario.test",
+            'username' => 'patron',
             'password' => $password,
         ]);
         User::factory()->operator()->create([
             'tenant_id' => $tenant->id,
             'name' => strtoupper($prefix).' Operator',
             'email' => "{$prefix}-operator@sipario.test",
+            'username' => 'operator',
             'password' => $password,
         ]);
         User::factory()->kurye()->create([
             'tenant_id' => $tenant->id,
             'name' => strtoupper($prefix).' Kurye',
             'email' => "{$prefix}-kurye@sipario.test",
+            'username' => 'kurye',
             'password' => $password,
         ]);
 

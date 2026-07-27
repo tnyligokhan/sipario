@@ -86,8 +86,11 @@ object CustomerLookup {
      * Drift WAL modunda çalışır. Salt-okunur açış, -wal dosyası kurtarma gerektirdiğinde
      * "attempt to write a readonly database" ile patlayabilir; bu durumda okuma-yazma açıp
      * yalnız okuruz. Yazma yolu hiçbir zaman buradan geçmez.
+     *
+     * `internal`: [CallerCard.muafMi] de aynı düşüş zincirini kullanır — çağrı anında iki ayrı
+     * açış kalıbı taşımak, birinin WAL kurtarma düşüşünü unutması demek olurdu.
      */
-    private fun openForRead(path: String): SQLiteDatabase? {
+    internal fun openForRead(path: String): SQLiteDatabase? {
         try {
             return SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY)
         } catch (e: SQLiteException) {

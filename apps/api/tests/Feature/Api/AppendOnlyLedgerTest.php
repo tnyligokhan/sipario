@@ -26,8 +26,10 @@ class AppendOnlyLedgerTest extends ApiTestCase
             ['order_events'],
             ['sync_changes'],
             ['processed_events'],
-            ['coupon_movements'],
             ['cash_handovers'],
+            // Gün sonu kapanış arşivi (migration 607): "kapatıldı" ifadesi ancak ezilemezse anlam
+            // taşır — yanlış kapanış YENİ kapanış kaydıyla düzeltilir.
+            ['day_closings'],
         ];
     }
 
@@ -65,12 +67,15 @@ class AppendOnlyLedgerTest extends ApiTestCase
     }
 
     #[Test]
-    public function app_rolu_coupon_balances_onbellegini_guncelleyebilir(): void
+    public function app_rolu_bakiye_onbellegini_guncelleyebilir(): void
     {
-        // coupon_balances append-only DEĞİL — önbellek (customers.balance_kurus ikizi); recompute onu
-        // UPDATE eder. Yanlışlıkla append-only REVOKE setine girerse kupon akışı 42501 ile kırılırdı;
-        // bu test o regresyonu yakalar. Boş UPDATE (0 satır) yetki reddi FIRLATMAMALI.
-        $affected = DB::update('UPDATE coupon_balances SET balance_qty = balance_qty');
-        $this->assertSame(0, $affected, 'coupon_balances güncellenebilir olmalı (REVOKE setinde değil).');
+        // ÖNBELLEK taşıyan tablo append-only DEĞİL: customers.balance_kurus defterden türetilir ve
+        // her ledger olayında recompute onu UPDATE eder. Bu tablo yanlışlıkla append-only REVOKE
+        // setine girerse tüm defter akışı 42501 ile kırılırdı; bu test o regresyonu yakalar.
+        // Boş UPDATE (0 satır) yetki reddi FIRLATMAMALI.
+        // (Eskiden aynı değişmez coupon_balances üzerinden sınanıyordu — kupon 2026-07-26'da
+        // üründen kalktı, sıra önbelleğin ASIL taşıyıcısına geçti.)
+        $affected = DB::update('UPDATE customers SET balance_kurus = balance_kurus');
+        $this->assertSame(0, $affected, 'Önbellek tablosu güncellenebilir olmalı (REVOKE setinde değil).');
     }
 }

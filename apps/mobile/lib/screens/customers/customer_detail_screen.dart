@@ -1,18 +1,28 @@
+// Müşteri detayı — kaynak s-musteriler.jsx `MusteriDetay`.
+// Bloklar: koyu iletişim kartı (`.md-kart`) · bakiye kartı (`.md-bal`) · 4'lü hızlı eylem
+// (`.md-akslar`) · not (`.md-not`) · defter hareketleri (`.defter`).
+// Kartların görsel gövdesi customer_detail_cards.dart'ta, defter customer_ledger.dart'ta —
+// bu dosya veriyi bağlar ve eylemleri (yetki/salt-okunur kapılarıyla) yürütür.
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
-import '../../repo/customer_repository.dart';
+import '../../theme/components/atoms.dart';
+import '../../theme/components/overlays.dart';
+import '../../theme/components/states.dart';
+import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
-import '../../theme/typography.dart';
-import '../money.dart';
 import '../orders/order_form_screen.dart';
 import '../team.dart';
-import 'customer_form_screen.dart' show normalizePhoneTR;
+import 'customer_detail_cards.dart';
+import 'customer_form_ops.dart';
+import 'customer_form_screen.dart';
 import 'customer_ledger.dart';
+import 'customer_location_picker.dart';
+import 'customer_sheets.dart';
+import 'customer_widgets.dart';
 
-/// Müşteri detayı: bakiye, defter hareketleri + tahsilat/kupon (Dilim 3), telefonlar, adresler, not.
-/// Defter bölümü ayrı dosyada (customer_ledger.dart) — bu dosya 500 satır sınırının altında kalsın.
 class CustomerDetailScreen extends StatefulWidget {
   const CustomerDetailScreen({
     super.key,
@@ -26,8 +36,8 @@ class CustomerDetailScreen extends StatefulWidget {
   final String customerId;
   final bool writable;
 
-  /// Rol bazlı yetki (K2 — Dilim 4). null → tam yetki. Kupon satışı ve defter düzeltme yönetici
-  /// işidir; kurye tahsilat alır ama kupon satamaz/düzeltemez.
+  /// Rol bazlı yetki (K2). null → tam yetki. Defter düzeltme yönetici işidir; kurye tahsilat
+  /// alır ama defteri düzeltemez.
   final RolYetkileri? yetki;
 
   @override
@@ -35,246 +45,204 @@ class CustomerDetailScreen extends StatefulWidget {
 }
 
 class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
-  late final CustomerRepository _repo = CustomerRepository(widget.db);
+  static const String saltOkunurMesaji = 'Salt-okunur kip: yeni kayıt eklenemez.';
+  static const String yetkisizMesaji = 'Bu işlem için yetkiniz yok.';
 
-  Stream<Customer?> _customer() => (widget.db.select(widget.db.customers)
+  late final Stream<Customer?> _musteri = (widget.db.select(widget.db.customers)
         ..where((t) => t.id.equals(widget.customerId)))
       .watchSingleOrNull();
 
-  Stream<List<CustomerPhone>> _phones() => (widget.db.select(widget.db.customerPhones)
+  late final Stream<List<CustomerPhone>> _telefonlar = (widget.db.select(widget.db.customerPhones)
         ..where((t) => t.customerId.equals(widget.customerId) & t.deletedAt.isNull())
         ..orderBy([(t) => OrderingTerm.desc(t.isPrimary)]))
       .watch();
 
-  Stream<List<CustomerAddressesData>> _addresses() => (widget.db.select(widget.db.customerAddresses)
-        ..where((t) => t.customerId.equals(widget.customerId) & t.deletedAt.isNull()))
-      .watch();
+  late final Stream<List<CustomerAddressesData>> _adresler =
+      (widget.db.select(widget.db.customerAddresses)
+            ..where((t) => t.customerId.equals(widget.customerId) & t.deletedAt.isNull())
+            ..orderBy([(t) => OrderingTerm.desc(t.isPrimary)]))
+          .watch();
 
-  Future<void> _editNameNote(Customer c) async {
-    final name = TextEditingController(text: c.name);
-    final note = TextEditingController(text: c.note ?? '');
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Müşteriyi düzenle'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-                controller: name,
-                decoration: const InputDecoration(labelText: 'Ad soyad / ünvan')),
-            const SizedBox(height: 8),
-            TextField(controller: note, decoration: const InputDecoration(labelText: 'Not')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kaydet')),
-        ],
-      ),
-    );
-    if (saved == true && name.text.trim().isNotEmpty) {
-      await _repo.rename(widget.customerId,
-          name: name.text.trim(), note: note.text.trim().isEmpty ? null : note.text.trim());
-    }
+  @override
+  void dispose() {
+    SipToast.temizle();
+    super.dispose();
   }
 
-  Future<void> _addPhone() async {
-    final phone = TextEditingController();
-    final label = TextEditingController();
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Telefon ekle'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: phone,
-              keyboardType: TextInputType.phone,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Telefon', hintText: '05xx xxx xx xx'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-                controller: label,
-                decoration: const InputDecoration(labelText: 'Etiket', hintText: 'ev / iş / cep')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ekle')),
-        ],
-      ),
-    );
-    if (saved != true) return;
-    final normalized = normalizePhoneTR(phone.text);
-    if (normalized == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Geçersiz telefon numarası')));
-      }
+  /// Yazma kapısı: salt-okunur kip ve rol yetkisi. İzin yoksa toast basar, `false` döner.
+  bool _yazabilir({bool izin = true}) {
+    if (!widget.writable) {
+      SipToast.goster(context, saltOkunurMesaji);
+      return false;
+    }
+    if (!izin) {
+      SipToast.goster(context, yetkisizMesaji);
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _tahsilat(Customer c) async {
+    if (!_yazabilir(izin: widget.yetki?.tahsilat ?? true)) return;
+    final ok = await tahsilatSheet(context,
+        db: widget.db, customerId: c.id, bakiyeKurus: c.balanceKurus);
+    if (ok == true && mounted) SipToast.goster(context, 'Tahsilat kaydedildi');
+  }
+
+  Future<void> _duzeltme(Customer c) async {
+    if (!_yazabilir(izin: widget.yetki?.defterDuzeltme ?? true)) return;
+    final ok = await duzeltmeSheet(context,
+        db: widget.db, customerId: c.id, bakiyeKurus: c.balanceKurus);
+    if (ok == true && mounted) SipToast.goster(context, 'Düzeltme deftere işlendi');
+  }
+
+  void _siparis(Customer c) {
+    if (!_yazabilir()) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => OrderFormScreen(db: widget.db, initialCustomerId: c.id, writable: widget.writable),
+    ));
+  }
+
+  Future<void> _duzenle(
+    Customer c,
+    List<CustomerPhone> telefonlar,
+    CustomerAddressesData? adres,
+  ) async {
+    if (!_yazabilir()) return;
+    final ok = await musteriDuzenleSheet(context,
+        db: widget.db, musteri: c, telefonlar: telefonlar, adres: adres);
+    if (ok == true && mounted) SipToast.goster(context, 'Müşteri bilgileri güncellendi');
+  }
+
+  /// Adresten konum: servis aday döner, doğrusunu KULLANICI seçer (otomatik atama yok).
+  Future<void> _konumAl(CustomerAddressesData? adres) async {
+    if (adres == null) {
+      SipToast.goster(context, 'Önce müşteriye adres ekleyin');
       return;
     }
-    await _repo.addPhone(widget.customerId,
-        PhoneInput(phoneE164: normalized, label: label.text.trim().isEmpty ? null : label.text.trim()));
+    if (!_yazabilir()) return;
+    final secim = await konumSecSheet(context, adresAdaylari(adres.addressText, adres.region));
+    if (secim == null) return;
+    await konumKaydet(widget.db, adres, secim.lat, secim.lng);
+    if (mounted) SipToast.goster(context, 'Konum kaydedildi');
   }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<Customer?>(
-      stream: _customer(),
+      stream: _musteri,
       builder: (context, snap) {
         final c = snap.data;
         if (c == null) {
-          return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator()));
-        }
-        final borclu = c.balanceKurus > 0;
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(c.name),
-            actions: [
-              if (widget.writable)
-                IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => _editNameNote(c)),
-            ],
-          ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              // Bakiye şeridi — çağrı kartı ve liste rozetiyle AYNI dil: borç dolgulu kırmızı,
-              // alacak yeşil, temiz nötr. Aynı bilgi her yüzeyde aynı renk konuşur.
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: borclu
-                      ? SipColors.debt
-                      : (c.balanceKurus < 0 ? SipColors.ok : SipColors.s1),
-                  borderRadius: SipRadius.cardBr,
-                  border: borclu || c.balanceKurus < 0
-                      ? null
-                      : Border.all(color: SipColors.line),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        borclu
-                            ? 'Veresiye borcu'
-                            : (c.balanceKurus < 0 ? 'Alacak' : 'Bakiye temiz'),
-                        style: SipText.secondary.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: borclu
-                              ? Colors.white
-                              : (c.balanceKurus < 0 ? SipColors.okInk : SipColors.t2),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      formatKurus(c.balanceKurus.abs()),
-                      style: SipText.amount.copyWith(
-                        fontSize: 22,
-                        color: borclu
-                            ? Colors.white
-                            : (c.balanceKurus < 0 ? SipColors.okInk : SipColors.t1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (widget.writable) ...[
-                const SizedBox(height: 12),
-                // Telefon çalar → müşteri kartı açılır → buradan sipariş: BRIEF'in "birkaç dokunuş" akışı.
-                FilledButton.icon(
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => OrderFormScreen(db: widget.db, initialCustomerId: c.id),
-                  )),
-                  icon: const Icon(Icons.add_shopping_cart),
-                  label: const Text('Sipariş oluştur'),
-                ),
-              ],
-              const SizedBox(height: 16),
-              // DİLİM 3 — defter: hareket listesi + tahsilat + kupon satışı + düzeltme (repo hazır).
-              // Kupon satışı/düzeltme yönetici işidir (K2); tahsilat herkeste (kurye dahil).
-              CustomerLedgerSection(
-                db: widget.db,
-                customerId: widget.customerId,
-                writable: widget.writable,
-                canKuponSat: widget.yetki?.kuponSatisi ?? true,
-                canDuzelt: widget.yetki?.defterDuzeltme ?? true,
-              ),
-              const Divider(height: 32),
-              Row(
+          return Scaffold(
+            body: SafeArea(
+              bottom: false,
+              child: Column(
                 children: [
-                  const Text('TELEFONLAR', style: SipText.sectionLabel),
-                  const Spacer(),
-                  if (widget.writable)
-                    TextButton.icon(
-                        onPressed: _addPhone,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Ekle')),
+                  SipUst(baslik: 'Müşteri', onGeri: () => Navigator.of(context).pop()),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: SipSpace.govde),
+                    child: SipIskelet(adet: 3),
+                  ),
                 ],
               ),
-              StreamBuilder<List<CustomerPhone>>(
-                stream: _phones(),
-                builder: (context, snap) {
-                  final phones = snap.data ?? const [];
-                  if (phones.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text('Telefon yok — arayınca tanımak için ekleyin.'),
-                    );
-                  }
-                  return Column(
-                    children: [
-                      for (final p in phones)
-                        ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.phone_outlined),
-                          title: Text(p.phoneE164),
-                          subtitle: p.label == null ? null : Text(p.label!),
-                          trailing: p.isPrimary ? const Icon(Icons.star, size: 18) : null,
-                        ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: SipSpace.lg),
-              const Text('ADRESLER', style: SipText.sectionLabel),
-              StreamBuilder<List<CustomerAddressesData>>(
-                stream: _addresses(),
-                builder: (context, snap) {
-                  final list = snap.data ?? const [];
-                  if (list.isEmpty) {
-                    return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8), child: Text('Adres yok.'));
-                  }
-                  return Column(
-                    children: [
-                      for (final a in list)
-                        ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.home_outlined),
-                          title: Text(a.addressText),
-                          subtitle: a.label == null ? null : Text(a.label!),
-                        ),
-                    ],
-                  );
-                },
-              ),
-              if (c.note != null && c.note!.isNotEmpty) ...[
-                const SizedBox(height: SipSpace.lg),
-                const Text('NOT', style: SipText.sectionLabel),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(c.note!, style: SipText.secondary.copyWith(color: SipColors.t1)),
-                ),
-              ],
-            ],
-          ),
+            ),
+          );
+        }
+        return StreamBuilder<List<CustomerPhone>>(
+          stream: _telefonlar,
+          builder: (context, telSnap) {
+            final telefonlar = telSnap.data ?? const <CustomerPhone>[];
+            return StreamBuilder<List<CustomerAddressesData>>(
+              stream: _adresler,
+              builder: (context, adrSnap) {
+                final adresler = adrSnap.data ?? const <CustomerAddressesData>[];
+                return _govde(c, telefonlar, adresler.isEmpty ? null : adresler.first);
+              },
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _govde(Customer c, List<CustomerPhone> telefonlar, CustomerAddressesData? adres) {
+    final tel = telefonlar.isEmpty ? '' : sipTelefon(telefonlar.first.phoneE164);
+    final konumVar = adres?.lat != null && adres?.lng != null;
+    final koordinat = konumVar ? konumMetni(adres!.lat!, adres.lng!) : null;
+    final not = c.note;
+
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            SipUst(
+              baslik: c.name,
+              alt: tel.isEmpty ? null : tel,
+              onGeri: () => Navigator.of(context).pop(),
+              sag: [
+                SipIkonButon(
+                  ikon: SipIcons.edit,
+                  ikonBoyut: 17,
+                  kalinlik: 2,
+                  etiket: 'Müşteriyi düzenle',
+                  onTap: () => _duzenle(c, telefonlar, adres),
+                ),
+              ],
+            ),
+            Expanded(
+              child: SipGovde(
+                altBosluk: 104,
+                children: [
+                  MusteriHeroKart(
+                    adres: adresGosterimi(adres?.addressText, adres?.region),
+                    // Telefonsuz müşteride tasarımın `.md-kart-tel`i BOŞ kalır (s-musteriler.jsx:106)
+                    // — "Telefon yok" diye bir metin yazmaz.
+                    telefon: tel,
+                    koordinat: koordinat,
+                    onKonumAl: () => _konumAl(adres),
+                    // Arama/WhatsApp/harita cihaz uygulamalarını açacak (url_launcher henüz
+                    // bağımlılıkta yok) — şimdilik tasarımdaki `ping` davranışı.
+                    onAra: () => SipToast.goster(context, '${c.name} aranıyor…'),
+                    onWhatsapp: () => SipToast.goster(context, 'WhatsApp açılıyor…'),
+                    onKonum: () => SipToast.goster(
+                      context,
+                      konumVar
+                          ? 'Konum haritada açılıyor ($koordinat)…'
+                          : 'Konum kayıtlı değil — önce Adresten Konum Al',
+                    ),
+                  ),
+                  MusteriBakiyeKarti(kurus: c.balanceKurus),
+                  // Tasarımda ızgara İKİ eylemlidir (s-musteriler.jsx:118-121, inline
+                  // `gridTemplateColumns: '1fr 1fr'`). Bakiye düzeltmesinin yeri defter
+                  // başlığının sağındaki bağlantı.
+                  MusteriAksiyonlari(
+                    eylemler: [
+                      MusteriEylemi(
+                          ikon: SipIcons.plus, etiket: 'Sipariş', onTap: () => _siparis(c)),
+                      MusteriEylemi(
+                          ikon: SipIcons.wallet, etiket: 'Tahsilat', onTap: () => _tahsilat(c)),
+                    ],
+                  ),
+                  if (not != null && not.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: SipSpace.xl),
+                      child: SipNotKutusu(metin: not),
+                    ),
+                  CustomerLedgerSection(
+                    db: widget.db,
+                    customerId: widget.customerId,
+                    // Bağlantı HER ZAMAN çizilir (tasarımda koşulsuz); salt-okunur ve yetki
+                    // kapıları `_duzeltme` içinde durur ve kullanıcıya toast'la söylenir.
+                    onDuzelt: () => _duzeltme(c),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

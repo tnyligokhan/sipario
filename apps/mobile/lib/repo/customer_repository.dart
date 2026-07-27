@@ -13,9 +13,19 @@ class PhoneInput {
 }
 
 class AddressInput {
-  AddressInput({required this.addressText, this.label, this.lat, this.lng, this.isPrimary = false});
+  AddressInput({
+    required this.addressText,
+    this.label,
+    this.region,
+    this.lat,
+    this.lng,
+    this.isPrimary = false,
+  });
   final String addressText;
   final String? label;
+
+  /// Bölge/semt (tasarım: "Bölge"). Opsiyonel — mevcut çağrıları bozmaz.
+  final String? region;
   final double? lat;
   final double? lng;
   final bool isPrimary;
@@ -174,6 +184,7 @@ class CustomerRepository {
           customerId: customerId,
           label: Value(a.label),
           addressText: a.addressText,
+          region: Value(a.region),
           lat: Value(a.lat),
           lng: Value(a.lng),
           isPrimary: Value(a.isPrimary),
@@ -186,15 +197,49 @@ class CustomerRepository {
         entityId: id,
         occurredAt: at,
         deviceId: device,
-        payload: {
-          'id': id,
-          'customer_id': customerId,
-          'label': a.label,
-          'address_text': a.addressText,
-          'lat': a.lat,
-          'lng': a.lng,
-          'is_primary': a.isPrimary,
-        });
+        payload: _addressPayload(id, customerId, a));
     return id;
   }
+
+  /// Var olan adresi güncelle (tasarım: "Müşteriyi Düzenle" adres/bölge alanları ve "Konum Al").
+  /// Tüm alanlar birlikte yazılır — LWW upsert'ün doğası budur: sunucu satırı gelen payload'la
+  /// değiştirir, dolayısıyla çağıran GÜNCEL tam hâli vermelidir (AddressInput zaten tam hâldir).
+  Future<void> updateAddress(String addressId, String customerId, AddressInput a) async {
+    final meta = await db.syncState();
+    final at = correctedNowIso(meta.serverTimeOffsetMs);
+    final device = meta.deviceId;
+
+    await db.transaction(() async {
+      await (db.update(db.customerAddresses)..where((t) => t.id.equals(addressId))).write(
+        CustomerAddressesCompanion(
+          label: Value(a.label),
+          addressText: Value(a.addressText),
+          region: Value(a.region),
+          lat: Value(a.lat),
+          lng: Value(a.lng),
+          isPrimary: Value(a.isPrimary),
+          updatedOccurredAt: Value(at),
+          updatedDeviceId: Value(device),
+        ),
+      );
+      await enqueueOutbox(db,
+          entityType: 'customer_address',
+          op: 'upsert',
+          entityId: addressId,
+          occurredAt: at,
+          deviceId: device,
+          payload: _addressPayload(addressId, customerId, a));
+    });
+  }
+
+  static Map<String, Object?> _addressPayload(String id, String customerId, AddressInput a) => {
+        'id': id,
+        'customer_id': customerId,
+        'label': a.label,
+        'address_text': a.addressText,
+        'region': a.region,
+        'lat': a.lat,
+        'lng': a.lng,
+        'is_primary': a.isPrimary,
+      };
 }

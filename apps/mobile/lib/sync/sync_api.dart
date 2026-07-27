@@ -30,17 +30,36 @@ class EventResult {
 /// Abonelik durumu yayını (FAZ 5a — DECISIONS: tek doğru kaynak sunucu). Push VE pull yanıtında gelir;
 /// istemci sync_meta'ya önbellekler ve ileri-sadece saatle kilit/grace kararını verir.
 class SubscriptionInfo {
-  SubscriptionInfo({this.status, this.validUntil, this.lockedAt, this.serverTime});
+  SubscriptionInfo({
+    this.status,
+    this.validUntil,
+    this.lockedAt,
+    this.serverTime,
+    this.tenantCode,
+    this.routeCredits,
+    this.routeCreditsMonthly,
+  });
   final String? status; // trial|active|locked|suspended
   final String? validUntil; // ISO8601
   final String? lockedAt; // ISO8601
   final String? serverTime; // ISO8601
+
+  /// SUNUCU SAHİPLİ, istemcinin yazamayacağı alanlar (modules ile aynı kanal): tasarımdaki
+  /// "Firma Kodu" (tenants.slug, değiştirilemez) ve "Oto Sırala · N hak" sayacı.
+  final String? tenantCode;
+
+  /// Kalan hak ve AYLIK KOTA — çekmecedeki ilerleme çubuğu bu ikisinin oranıdır.
+  final int? routeCredits;
+  final int? routeCreditsMonthly;
 
   factory SubscriptionInfo.fromJson(Map<String, dynamic> j) => SubscriptionInfo(
         status: j['status'] as String?,
         validUntil: j['valid_until'] as String?,
         lockedAt: j['locked_at'] as String?,
         serverTime: j['server_time'] as String?,
+        tenantCode: j['tenant_code'] as String?,
+        routeCredits: (j['route_credits'] as num?)?.toInt(),
+        routeCreditsMonthly: (j['route_credits_monthly'] as num?)?.toInt(),
       );
 }
 

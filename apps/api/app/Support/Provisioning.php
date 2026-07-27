@@ -41,6 +41,10 @@ class Provisioning
     /**
      * Yeni bir bayi + patron kullanıcı oluşturur (30 gün deneme).
      *
+     * [$patronUsername] mobil girişin kimliğidir (tasarım `s-giris.jsx`: firma kodu + kullanıcı
+     * adı). Verilmezse 'patron' kullanılır — kullanıcı adı TENANT İÇİNDE tekil olduğu için
+     * her bayide aynı varsayılan meşrudur ve kurulum sonrası akılda kalıcıdır.
+     *
      * @return array{tenant: Tenant, patron: User}
      */
     public static function createTenantWithPatron(
@@ -48,13 +52,17 @@ class Provisioning
         string $patronEmail,
         string $patronPassword,
         string $patronName = 'Patron',
+        string $patronUsername = 'patron',
     ): array {
-        return self::asOwner(function () use ($tenantName, $patronEmail, $patronPassword, $patronName) {
+        return self::asOwner(function () use ($tenantName, $patronEmail, $patronPassword, $patronName, $patronUsername) {
             // valid_until = trial_ends_at (FAZ 5a): tek enforcement çıpası; trial_ends_at yalnız
             // "deneme miydi" bilgisi. Ödeme onayında valid_until = now+1yıl'a uzar (5b).
             $trialEnds = now()->addDays(30);
             $tenant = Tenant::create([
                 'name' => $tenantName,
+                // Firma kodu ZORUNLU (giriş ekranının ilk alanı). Addan türetilir; çakışırsa
+                // sayaç eklenir — kurulumda insan müdahalesi gerekmeden benzersizleşir.
+                'slug' => self::benzersizKod($tenantName),
                 'status' => TenantStatus::Trial->value,
                 'trial_ends_at' => $trialEnds,
                 'valid_until' => $trialEnds,
@@ -64,6 +72,7 @@ class Provisioning
                 'tenant_id' => $tenant->id,
                 'name' => $patronName,
                 'email' => mb_strtolower($patronEmail),
+                'username' => mb_strtolower($patronUsername),
                 'password' => $patronPassword, // 'hashed' cast'i bcrypt'ler
                 'role' => UserRole::Patron->value,
                 'status' => 'active',
@@ -75,5 +84,29 @@ class Provisioning
 
             return ['tenant' => $tenant, 'patron' => $patron];
         });
+    }
+
+    /**
+     * İşletme adından firma kodu türetir (tasarım kuralı ^[a-z0-9-]{3,80}$), kullanılmışsa
+     * sonuna sayaç ekler. Türkçe harfler ASCII karşılığına iner.
+     * OWNER bağlamında çağrılmalıdır (tenants RLS altındadır).
+     */
+    public static function benzersizKod(string $ad): string
+    {
+        $tr = ['ı' => 'i', 'İ' => 'i', 'ş' => 's', 'Ş' => 's', 'ğ' => 'g', 'Ğ' => 'g',
+            'ü' => 'u', 'Ü' => 'u', 'ö' => 'o', 'Ö' => 'o', 'ç' => 'c', 'Ç' => 'c'];
+        $taban = trim((string) preg_replace('/[^a-z0-9]+/', '-', mb_strtolower(strtr($ad, $tr), 'UTF-8')), '-');
+        if (strlen($taban) < 3) {
+            $taban = str_pad($taban === '' ? 'bayi' : $taban, 3, 'x');
+        }
+        $taban = substr($taban, 0, 76);
+
+        $aday = $taban;
+        $n = 1;
+        while (Tenant::query()->where('slug', $aday)->exists()) {
+            $aday = $taban.'-'.++$n;
+        }
+
+        return $aday;
     }
 }

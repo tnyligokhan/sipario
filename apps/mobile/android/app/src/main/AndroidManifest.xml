@@ -54,6 +54,15 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+      Barkod okuma (ürün formu + POS kataloğu). Çalışma anı izni `mobile_scanner` ister.
+      Kamera ZORUNLU DEĞİLDİR: cihazda kamera yoksa ya da izin verilmezse barkod alanı
+      elle doldurulabilir kalır, o yüzden `uses-feature` required="false".
+    -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+
     <application
         android:label="Sipario"
         android:name="${applicationName}"

@@ -52,6 +52,17 @@ class SiparioCallScreeningService : CallScreeningService() {
             return
         }
 
+        // MUAF NUMARA — kart hiç çizilmez (s-uygulama.jsx kuralı). Kontrol müşteri sorgusundan
+        // ÖNCE: muaf bir numarada rehber sorgusu da gereksiz iştir, 1 saniyelik bütçe her
+        // okumayı sayıyor. Tablo yoksa `muafMi` false döner ve kart normal çıkar.
+        if (CallerCard.muafMi(this, phone)) {
+            Log.i(tag, "muaf numara, kart gosterilmiyor")
+            return
+        }
+
+        // Çağrı günlüğü ("Son Aramalar") kuyruğuna düş; Dart tarafı uygulama açılınca boşaltır.
+        CallJournal.kaydet(this, phone, if (direction == "out") "outgoing" else "incoming")
+
         val customer = CustomerLookup.find(this, phone)
         Log.i(tag, "rehber sorgusu bitti, eslesme=${customer != null}, yon=$direction")
         CallerOverlay.show(this, customer, phone, t0, simulated = false, direction = direction)

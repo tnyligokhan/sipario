@@ -25,8 +25,11 @@ class SyncPushRequest extends FormRequest
         return [
             'events' => ['required', 'array', 'min:1', 'max:'.SyncService::MAX_EVENTS],
             'events.*.client_event_id' => ['required', 'uuid'],
-            'events.*.entity_type' => ['required', 'string', 'in:customer,customer_phone,customer_address,product,order,ledger,coupon,cash_handover'],
-            'events.*.op' => ['required', 'string', 'in:upsert,delete,created,line_added,line_removed,delivered,cancelled,payment_set,note_set,assigned,unassigned,entry,grant,use,correction,handover'],
+            // KUPON KALDIRILDI (2026-07-26): entity_type'tan `coupon`, op'tan yalnız kupona ait olan
+            // `grant`/`use`/`correction` çıkarıldı. Defterin `correction`ı bir OP değil `entry_type`
+            // payload alanıdır (op'u `entry`dir) — o yerinde durur.
+            'events.*.entity_type' => ['required', 'string', 'in:customer,customer_phone,customer_address,product,order,ledger,cash_handover,tenant_settings,exempt_number,call_log,day_closing,user_profile'],
+            'events.*.op' => ['required', 'string', 'in:upsert,delete,created,line_added,line_removed,delivered,cancelled,payment_set,note_set,assigned,unassigned,sort_set,entry,handover,closing'],
             'events.*.occurred_at' => ['required', 'date'],
             'events.*.payload' => ['required', 'array'],
             'events.*.device_id' => ['nullable', 'uuid'],

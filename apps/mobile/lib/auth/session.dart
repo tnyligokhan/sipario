@@ -25,13 +25,27 @@ class Session {
   Future<bool> isLoggedIn() async => (await db.syncState()).authToken != null;
 
   /// Girişi yapar ve oturumu kalıcılar. Başarısızlıkta AuthException fırlatır (mesaj kullanıcıya).
-  Future<void> login({required String email, required String password, String? baseUrlOverride}) async {
+  ///
+  /// Kimlik tasarım `s-giris.jsx`teki gibidir: **firma kodu + kullanıcı adı + parola**.
+  /// İkisi de küçük harfe indirilir — klavyenin büyük harfe kaçması giriş engeli olmamalı
+  /// (sunucu da aynı normalizasyonu yapar, iki taraf ayrışmasın diye burada da yapılır).
+  ///
+  /// Burada `trKucuk()` DEĞİL düz `toLowerCase()` kullanılır: bunlar Türkçe metin değil,
+  /// `^[a-z0-9._-]{3,}$` sözleşmesine tabi ASCII kimliklerdir. Türkçe harf girilirse
+  /// doğrulama zaten reddeder ve kullanıcı net bir hata görür.
+  Future<void> login({
+    required String tenantCode,
+    required String username,
+    required String password,
+    String? baseUrlOverride,
+  }) async {
     final meta = await db.syncState();
     final baseUrl = _normalizeBaseUrl(baseUrlOverride ?? meta.apiBaseUrl ?? kDefaultApiBaseUrl);
     final deviceId = meta.deviceId ?? newId();
 
     final result = await _apiFactory(baseUrl).login(
-      email: email.trim(),
+      tenantCode: tenantCode.trim().toLowerCase(),
+      username: username.trim().toLowerCase(),
       password: password,
       deviceId: deviceId,
     );

@@ -252,6 +252,31 @@ object CallerOverlay {
         }
     }
 
+    /**
+     * Kartı HER YOLDAN kapatır: overlay penceresi, kilit ekranındaki [CallerActivity] ve
+     * bildirim. Karttaki bir eylem düğmesi uygulamayı açtığında çağrılır.
+     *
+     * Eylem tek başına kartı kapatMIYORDU: bayi "Sipariş Oluştur"a dokunduğunda uygulama
+     * açılıyor ama kart üstünde asılı kalıyordu (cihazda görüldü, 2026-07-26).
+     *
+     * [lastPhone] de TEMİZLENİR — yoksa çağrı yanıtlandığında [CallSessionWatcher] kartı
+     * yeniden gösterir ve bayinin az önce açtığı ekranın üstüne biner. Bayi eylemini seçti;
+     * o çağrı için kartın işi bitmiştir.
+     */
+    fun kapat(context: Context) {
+        val app = context.applicationContext
+        lastPhone = null
+        lastCustomer = null
+        main.post {
+            dismiss(app.getSystemService(Context.WINDOW_SERVICE) as WindowManager)
+            CallerActivity.active?.finish()
+            (app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                .cancel(NOTIFICATION_ID)
+            // Bekleyen emniyet zamanlayıcısı bundan sonra gösterilecek bir kartı kapatmasın.
+            generation++
+        }
+    }
+
     private fun dismiss(wm: WindowManager) {
         current?.let {
             try {

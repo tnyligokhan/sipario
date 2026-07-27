@@ -19,7 +19,7 @@ class PanelExportService
     private const TABLES = [
         'customers', 'customer_phones', 'customer_addresses', 'products',
         'orders', 'order_lines', 'order_events', 'ledger_entries',
-        'coupon_movements', 'coupon_balances', 'cash_handovers', 'devices',
+        'cash_handovers', 'devices',
     ];
 
     public function __construct(private readonly string $connection = 'pgsql_panel') {}

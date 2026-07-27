@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Hash;
 class AuthController extends Controller
 {
     /**
-     * Zamanlama yan-kanalı önlemi: e-posta bulunamadığında da bu SABİT, gerçek bcrypt hash'ine
+     * Zamanlama yan-kanalı önlemi: kullanıcı bulunamadığında da bu SABİT, gerçek bcrypt hash'ine
      * karşı Hash::check koşarız ki yanıt süresi "kullanıcı var mı" bilgisini sızdırmasın.
      * cost=12 üretimdeki BCRYPT_ROUNDS ile eşleşir (gerçek kullanıcı doğrulamasıyla aynı süre).
      * Her istekte Hash::make ÇAĞRILMAZ — sabit hardcoded değer.
@@ -28,23 +28,29 @@ class AuthController extends Controller
     /**
      * POST /api/v1/auth/login  (public)
      *
-     * Email global tekil olduğundan lookup deterministik tek satır döner. Tenant henüz set
-     * olmadığından kullanıcı, RLS'i atlayan SECURITY DEFINER fonksiyonuyla bulunur; token üretimi
-     * ise doğru tenant bağlamı kurulmuş bir transaction içinde yapılır (RLS'i pozitif de sınar).
+     * Tasarım `s-giris.jsx`: **firma kodu + kullanıcı adı + parola**. Kullanıcı adı tenant
+     * içinde tekildir; (tenants.slug, users.username) çifti deterministik tek satır döner.
+     * Tenant henüz set olmadığından kullanıcı, RLS'i atlayan SECURITY DEFINER fonksiyonuyla
+     * bulunur; token üretimi ise doğru tenant bağlamı kurulmuş bir transaction içinde yapılır
+     * (RLS'i pozitif de sınar).
      */
     public function login(LoginRequest $request): JsonResponse
     {
         $data = $request->validated();
 
-        $row = DB::selectOne('SELECT * FROM sipario_login_lookup(?)', [$data['email']]);
+        $row = DB::selectOne(
+            'SELECT * FROM sipario_login_lookup(?, ?)',
+            [$data['tenant_code'], $data['username']]
+        );
 
-        // Hash::check HER ZAMAN koşar (satır yoksa dummy hash'e karşı) → yanıt süresi e-postanın
+        // Hash::check HER ZAMAN koşar (satır yoksa dummy hash'e karşı) → yanıt süresi kullanıcının
         // varlığını sızdırmaz (zamanlama yan-kanalı kapatılır). Kısa-devre YOK: önce doğrula, sonra karar ver.
         $passwordValid = Hash::check($data['password'], $row->password ?? self::DUMMY_PASSWORD_HASH);
 
-        // Nötr hata: email var/yok ayrımını sızdırma (kullanıcı numaralandırma önlenir).
+        // Nötr hata: firma kodu / kullanıcı adı / parola hangisinin yanlış olduğunu SÖYLEME —
+        // yoksa geçerli firma kodları ve kullanıcı adları tek tek numaralandırılabilir.
         if ($row === null || ! $passwordValid) {
-            return response()->json(['message' => 'E-posta veya parola hatalı.'], 401);
+            return response()->json(['message' => 'Firma kodu, kullanıcı adı veya parola hatalı.'], 401);
         }
 
         // Pasif kullanıcı, trial/active olmayan bayi, veya SÜRESİ DOLMUŞ abonelik (FAZ 5a): nötr 403.

@@ -18,13 +18,15 @@ use Illuminate\Support\Carbon;
  *
  * @property string $id
  * @property string $name
- * @property string|null $slug
+ * @property string $slug
  * @property TenantStatus $status
  * @property Carbon|null $trial_ends_at
  * @property Carbon|null $valid_until
  * @property Carbon|null $locked_at
  * @property array<string, mixed> $modules
  * @property string|null $phone
+ * @property int $route_credits
+ * @property int $route_credits_monthly
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -42,6 +44,8 @@ class Tenant extends Model
         'locked_at',
         'modules',
         'phone',
+        'route_credits',
+        'route_credits_monthly',
     ];
 
     protected function casts(): array
@@ -52,6 +56,8 @@ class Tenant extends Model
             'valid_until' => 'datetime',
             'locked_at' => 'datetime',
             'modules' => 'array',
+            'route_credits' => 'integer',
+            'route_credits_monthly' => 'integer',
         ];
     }
 

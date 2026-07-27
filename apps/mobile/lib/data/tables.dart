@@ -52,6 +52,10 @@ class CustomerAddresses extends Table {
   TextColumn get customerId => text()();
   TextColumn get label => text().nullable()();
   TextColumn get addressText => text()();
+
+  /// Bölge/semt (tasarım: "Bölge" — Kepez/Muratpaşa/Lara). Adres satırının yanında gösterilir.
+  TextColumn get region => text().nullable()();
+
   RealColumn get lat => real().nullable()();
   RealColumn get lng => real().nullable()();
   BoolColumn get isPrimary => boolean().withDefault(const Constant(false))();
@@ -63,11 +67,24 @@ class CustomerAddresses extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@TableIndex(name: 'idx_products_barcode', columns: {#barcode})
 class Products extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   IntColumn get unitPriceKurus => integer()();
   TextColumn get unit => text().withDefault(const Constant('adet'))();
+
+  /// Barkod (tasarım: POS'ta okutarak ekleme). TEKİL DEĞİL — çevrimdışı iki cihaz aynı barkodu
+  /// girerse kayıt reddedilip kaybolurdu; UI uyarır, veri kabul edilir (sunucuda da aynı çizgi).
+  TextColumn get barcode => text().nullable()();
+
+  /// Sunucudan gelen görsel İŞARETÇİSİ (blob değil). Yükleme boru hattı (nesne deposu) AÇIK iş.
+  TextColumn get imageUrl => text().nullable()();
+
+  /// YALNIZ CİHAZ-YEREL: kullanıcının bu cihazda seçtiği görselin dosya yolu. Senkronlanmaz
+  /// (sunucu payload'ında karşılığı yok) — imageUrl gelene kadar POS karosunu doldurur.
+  TextColumn get imageLocalPath => text().nullable()();
+
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   TextColumn get updatedOccurredAt => text()();
   TextColumn get updatedDeviceId => text().nullable()();
@@ -90,6 +107,11 @@ class Orders extends Table {
   IntColumn get totalKurus => integer().withDefault(const Constant(0))();
   TextColumn get paymentType => text().nullable()();
   TextColumn get note => text().nullable()();
+
+  /// ÖNBELLEK — kaynak `sort_set` order_events. Elle sıralama (sürükle-bırak rota sırası);
+  /// assigned_user_id ile birebir aynı türetme deseni, iki cihaz aynı sırayı bulur.
+  IntColumn get sortIndex => integer().nullable()();
+
   TextColumn get occurredAt => text()();
   TextColumn get createdDeviceId => text().nullable()();
   TextColumn get deletedAt => text().nullable()();
@@ -106,6 +128,14 @@ class OrderLines extends Table {
   /// SATIRDA saklanır (DECISIONS: siparişin çekildiği andaki gerçek).
   TextColumn get productName => text()();
   IntColumn get unitPriceKurus => integer()();
+
+  /// Birim de satırda saklanır (fiyat/ad ile aynı gerekçe: o anki gerçek).
+  TextColumn get unit => text().nullable()();
+
+  /// "Serbest satır" (katalogda olmayan tek seferlik iş). AÇIK bayrak: productId'nin null olması
+  /// yeterli ayırt edici değildir (silinmiş ürünün satırı da null olabilir).
+  BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
+
   IntColumn get qty => integer()();
   IntColumn get lineTotalKurus => integer()();
   TextColumn get deletedAt => text().nullable()();
@@ -159,44 +189,6 @@ class LedgerEntries extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Kupon hareketi aynası (APPEND-ONLY). Kupon PARA değil ADET; qtyDelta İMZALI (grant +N, use −qty,
-/// correction imzalı). Bakiye coupon_balances'ten türer; eksiye düşebilir (DECISIONS). client_event_id
-/// ile tekil — sunucudan geri gelen hareketi "yoksa ekle" ile uygular (çift eklemez).
-@TableIndex(name: 'idx_coupon_moves_customer', columns: {#customerId})
-class CouponMovements extends Table {
-  TextColumn get id => text()();
-  TextColumn get customerId => text()();
-  TextColumn get productId => text().nullable()();
-  TextColumn get movementType => text()();
-  IntColumn get qtyDelta => integer()();
-  TextColumn get relatedOrderId => text().nullable()();
-  TextColumn get note => text().nullable()();
-  TextColumn get reversesMovementId => text().nullable()();
-  TextColumn get occurredAt => text()();
-  TextColumn get deviceId => text().nullable()();
-  TextColumn get clientEventId => text()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-
-  @override
-  List<Set<Column>> get uniqueKeys => [
-        {clientEventId},
-      ];
-}
-
-/// Kupon bakiyesi ÖNBELLEĞİ (customers.balance_kurus ikizi). balanceQty = SUM(qtyDelta). İş anahtarı
-/// (customerId, productId); genel kupon (ürün ayrımsız) için productId SENTINEL boş string '' — Drift
-/// PK'sinde NULL sorunlu olduğundan '' kullanılır. Sunucu payload'ındaki null product_id → ''.
-class CouponBalances extends Table {
-  TextColumn get customerId => text()();
-  TextColumn get productId => text().withDefault(const Constant(''))(); // '' = genel kupon
-  IntColumn get balanceQty => integer().withDefault(const Constant(0))();
-
-  @override
-  Set<Column> get primaryKey => {customerId, productId};
-}
-
 /// Kasa devri (FAZ 4) — APPEND-ONLY kalıcı mutabakat aynası. Kurye gün sonu kasayı patrona devreder.
 /// counted (sayılan) − expected (beklenen, anlık snapshot) = diff (kanıt olarak durur). Silme/güncelleme
 /// YOK; düzeltme yeni devir kaydıyla. id ile tekil — sunucudan geri gelen kaydı "yoksa ekle" ile uygular.
@@ -218,13 +210,105 @@ class CashHandovers extends Table {
 
 /// Sunucu `users` aynası (FAZ 4b Dilim 4 — team bloğu). PII ASGARİ: yalnız id/name/role/status;
 /// email/parola/telefon YOK (sunucu da göndermez). LWW/tombstone YOK — bu tablo salt sunucu-kaynaklı
-/// önbellektir (coupon_balances sınıfı): her `team` bloğunda TOPTAN değiştirilir (delete-all + insert).
+/// önbellektir: her `team` bloğunda TOPTAN değiştirilir (delete-all + insert).
 /// Kullanıcı istemciden ASLA push edilmez; atama hedefi ve atanan kurye adı çözümü için tutulur.
 class Users extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   TextColumn get role => text()(); // patron|operator|kurye
   TextColumn get status => text()(); // active|disabled
+
+  /// Kurye telefonu (tasarım: Kuryeler ekranı gösterir/düzenler). Bayinin KENDİ personel iletişim
+  /// bilgisidir; e-posta/parola hâlâ sunucuda kalır ve team bloğuna hiç girmez.
+  TextColumn get phone => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// İşletme profili (tasarım: "İşletme Profili") — cihazda TEK SATIR (id=1, sync_meta deseni).
+/// Sunucuda anahtar tenant_id'dir; istemci tek kiracı olduğu için tenant_id BURADA YOK (DECISIONS).
+/// Push payload'ında id GÖNDERİLMEZ — sunucu oturumdaki tenant'ı anahtar olarak kullanır, böylece
+/// iki cihazın çevrimdışı yazımı aynı satırda LWW ile birleşir (çakışıp reddedilemez).
+class TenantSettings extends Table {
+  IntColumn get id => integer().withDefault(const Constant(1))();
+  TextColumn get businessName => text().nullable()();
+  TextColumn get ownerName => text().nullable()();
+  TextColumn get phone => text().nullable()();
+  TextColumn get whatsapp => text().nullable()();
+  TextColumn get addressText => text().nullable()();
+  TextColumn get taxOffice => text().nullable()();
+  TextColumn get taxNumber => text().nullable()();
+  TextColumn get opensAt => text().nullable()();  // 'SS:DD'
+  TextColumn get closesAt => text().nullable()();
+  TextColumn get receiptNote => text().nullable()();
+  TextColumn get updatedOccurredAt => text().nullable()();
+  TextColumn get updatedDeviceId => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Muaf telefonlar (tasarım: "Muaf Telefonlar") — bu numaralar aradığında çağrı kartı ÇIKMAZ.
+/// `phone_last10` indeksi customer_phones ile aynı sözleşmedir: native taraf kartı çizmeden ÖNCE
+/// bu tabloyu salt-okunur sorgular, bu yüzden tablo cihazda BULUNMAK ZORUNDA.
+@TableIndex(name: 'idx_exempt_last10', columns: {#phoneLast10})
+class ExemptNumbers extends Table {
+  TextColumn get id => text()();
+  TextColumn get phoneE164 => text()();
+  TextColumn get phoneLast10 => text()();
+  TextColumn get label => text().nullable()();
+  TextColumn get updatedOccurredAt => text()();
+  TextColumn get updatedDeviceId => text().nullable()();
+  TextColumn get deletedAt => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Çağrı günlüğü (tasarım: "Son Aramalar"). direction: incoming|missed|outgoing.
+/// APPEND-ONLY DEĞİL: `outcome`/`customerId` çağrıdan sonra zenginleşir (karttan sipariş açılınca);
+/// para kaydı olmadığından kırmızı çizgi #2 kapsamı dışında — standart LWW + tombstone.
+@TableIndex(name: 'idx_call_logs_occurred', columns: {#occurredAt})
+class CallLogs extends Table {
+  TextColumn get id => text()();
+  TextColumn get customerId => text().nullable()(); // kayıtsız numarada null
+  TextColumn get phoneE164 => text()();
+  TextColumn get phoneLast10 => text()();
+  TextColumn get direction => text()();
+  TextColumn get outcome => text().nullable()();
+  TextColumn get relatedOrderId => text().nullable()();
+  TextColumn get occurredAt => text()();
+  TextColumn get deviceId => text().nullable()();
+  TextColumn get updatedOccurredAt => text()();
+  TextColumn get updatedDeviceId => text().nullable()();
+  TextColumn get deletedAt => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Gün sonu kapanış arşivi (tasarım: "Gün Sonu → Hesabı Kapat" + "Arşiv") — APPEND-ONLY ayna.
+/// scope: day (günün tamamı, userId null) | courier (kurye hesabı, userId dolu). Özet tutarlar
+/// kapatıldığı ANDAKİ gerçeği taşır; geç senkron arşivi değiştirmez. diffKurus fark KANITIdır.
+class DayClosings extends Table {
+  TextColumn get id => text()();
+  TextColumn get scope => text()();
+  TextColumn get userId => text().nullable()();
+  TextColumn get periodStart => text().nullable()();
+  IntColumn get deliveryCount => integer().withDefault(const Constant(0))();
+  IntColumn get totalCollectedKurus => integer().withDefault(const Constant(0))();
+  IntColumn get cashNakitKurus => integer().withDefault(const Constant(0))();
+  IntColumn get cashKartKurus => integer().withDefault(const Constant(0))();
+  IntColumn get cashHavaleKurus => integer().withDefault(const Constant(0))();
+  IntColumn get openCreditKurus => integer().withDefault(const Constant(0))();
+  IntColumn get expectedCashKurus => integer().withDefault(const Constant(0))();
+  IntColumn get countedCashKurus => integer().nullable()();
+  IntColumn get diffKurus => integer().withDefault(const Constant(0))();
+  TextColumn get cashHandoverId => text().nullable()();
+  TextColumn get note => text().nullable()();
+  TextColumn get occurredAt => text()();
+  TextColumn get deviceId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -283,6 +367,20 @@ class SyncMeta extends Table {
 
   /// API taban adresi (varsayılan üretim; geliştirmede login ekranından değiştirilebilir).
   TextColumn get apiBaseUrl => text().nullable()();
+
+  /// SUNUCU SAHİPLİ, salt-okunur önbellek (subscription bloğundan): tasarımdaki "Firma Kodu"
+  /// (değiştirilemez) ve "Oto Sırala (rota) · N hak" sayacı. İstemci bunları YAZAMAZ.
+  TextColumn get tenantCode => text().nullable()();
+  IntColumn get routeCredits => integer().withDefault(const Constant(0))();
+
+  /// Aylık oto-sıralama kotası (çekmecedeki "Aylık 50"). Kalan/kota oranı ilerleme çubuğunu
+  /// çizer; kota bilinmezse çubuk çizilemez, o yüzden ayrı alan olarak saklanır.
+  IntColumn get routeCreditsMonthly => integer().withDefault(const Constant(0))();
+
+  /// CİHAZ-YEREL tercihler (senkronlanmaz): izin sihirbazının tamamlanma damgası ve tema seçimi.
+  /// İzinler cihaza özgüdür — başka cihaza taşınmaları yanlış olurdu.
+  TextColumn get setupCompletedAt => text().nullable()();
+  TextColumn get themeMode => text().nullable()(); // koyu|acik
 
   @override
   Set<Column> get primaryKey => {id};

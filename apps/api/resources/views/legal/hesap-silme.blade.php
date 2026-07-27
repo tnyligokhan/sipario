@@ -34,7 +34,7 @@
             <p>
                 Onaylanan silme talebinde; bayi (abone) hesabınız (giriş bilgileri, kullanıcı ve cihaz
                 kayıtları) ile Sipario üzerinde tuttuğunuz iş verileriniz (müşteriler, siparişler,
-                veresiye defteri kayıtları, kuponlar) silinir. Kart bilgileri Sipario tarafından hiçbir
+                veresiye defteri kayıtları) silinir. Kart bilgileri Sipario tarafından hiçbir
                 zaman saklanmaz; ödeme bilgileri ödeme kuruluşu (iyzico) nezdindedir.
             </p>
 

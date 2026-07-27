@@ -19,6 +19,9 @@ class UserResource extends JsonResource
             'tenant_id' => $this->tenant_id,
             'name' => $this->name,
             'email' => $this->email,
+            // Giriş kimliği (tasarım `s-giris.jsx`). İstemci bunu "kim girdi" göstermek ve
+            // oturumu yeniden kurmak için saklar.
+            'username' => $this->username,
             'role' => $this->role->value,
         ];
         // password ASLA döndürülmez.
