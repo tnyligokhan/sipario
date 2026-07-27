@@ -349,9 +349,12 @@ class _DuzeltmeGovdeState extends State<_DuzeltmeGovde> {
         const SipFormEtiket('Tutar (₺)'),
         SipInput(
           controller: _tutar,
-          // Tasarım `inputMode="numeric"` + `replace(/\D/g,'')` (s-musteriler.jsx:188).
-          klavye: TextInputType.number,
-          girdiFiltreleri: [FilteringTextInputFormatter.digitsOnly],
+          // Tahsilat alanıyla AYNI: rakam + ayraç (tasarımın `replace(/\D/g,'')` filtresi —
+          // s-musteriler.jsx:188 — kalktı). Düzeltmenin tek işi defteri gerçekle EŞİTLEMEKTİR;
+          // tahsilat kuruş kabul ettiğine göre bakiyeler kuruşlu olur ve tam lira kısıtlı bir
+          // düzeltme kuruşluk sapmayı kapatamaz — yani işlevini kaybeder.
+          klavye: const TextInputType.numberWithOptions(decimal: true),
+          girdiFiltreleri: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]'))],
           ipucu: '0',
           stil: SipText.tutar(17),
           hata: _tutarHatasi != null,
