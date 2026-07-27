@@ -67,7 +67,7 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-27/2 — SAHA GERİ BİLDİRİMİ İKİ TUR, 10 MADDE KAPANDI: çağrı yönü · CallerId son sipariş · kart eylemleri · tutamaç tarafı · borçlu sekmesi · kurye süzgeci · kısmi ödeme · **senkron kilidi** · sesli giriş · kart kenar boşluğu; ayrıca UUIDv7 monotonluk hatası ve üç gizli taşma bulundu; Drift v10 · flutter analyze 0 · flutter test 500/500 · release APK derlendi)
+## Güncel durum (son güncelleme: 2026-07-27/3 — SAHA GERİ BİLDİRİMİ İKİ TUR (10 madde) + **FAZ 1 YEREL BİLDİRİMLER**; ayrıca UUIDv7 monotonluk hatası, üç gizli taşma ve release derlemesini kıran desugaring eksiği bulundu; Drift v10 · flutter analyze 0 · flutter test **622/622** · release APK derlendi, arm64 28,81 MB)
 
 ---
 
@@ -121,6 +121,39 @@ Bayi geri bildirimi, üç paralel ajanla (çağrı · liste · ödeme) kapatıld
 9. **Para alanları kuruşa açıldı** — teslim tahsilatı · borç tahsilatı · bakiye düzeltme ·
    serbest satır (2 yer). "Yarısı" çipi tam lira yuvarlar (kısayol), "Tamamı" çipi kuruşuyla
    doldurur (kesinlik iddiası). `digitsOnly` kalan tek yer barkod alanları — doğru kullanım.
+
+### FAZ 1 YEREL BİLDİRİMLER (aynı gün, kullanıcı onayıyla)
+
+**Push/Firebase YOK** — beş bildirimin hepsi cihazdaki veriden hesaplanıyor, offline-first çizgisiyle
+uyumlu ve KVKK açısından sessiz (bildirim cihazdan çıkmıyor). Mimari üç katman: **saf kural**
+(veri→taslak, DB yok saat yok) · **üretici** (defteri okur) · **servis** (gösterir/zamanlar).
+Kararların tamamı DECISIONS.md'nin sonundaki 12 satırda.
+
+- **Gün sonu özeti** (20:00) — kasaya giren para · teslimat · bugün yazılan veresiye. İlk iki rakam
+  gün sonu EKRANIYLA aynı fonksiyonlardan; iki yüzey farklı sayı konuşamaz.
+- **Borç eşiği** — VARSAYILAN KAPALI, bayi kendi eşiğini girince açılır (cirosu 2.000 ₺ olanla
+  200.000 ₺ olan aynı sınırı kullanamaz). Eşik GEÇİŞİNE bakar, seviyeye değil.
+- **Vadesi geçen borçlar** (Pazartesi 10:00) — **FIFO alacak yaşlandırma**: ödemeler en eski borcu
+  kapatır. İki basit alternatif de yanlış müşteriyi işaretliyordu.
+- **Gecikmiş müşteri** — ritim ORTANCA ile ölçülür (ortalama, tek tatilde kuralı sonsuza dek
+  köreltiyor), eşik müşterinin KENDİ değişkenliğine göre, 30 gün tavanlı.
+- **Rutin teslim günü** — aynı ritim analizinden; gecikmişle kesişmesi tanım gereği imkânsız.
+
+**Altyapı:** `flutter_local_notifications` + `timezone`; kategori başına kanal; sessiz saat
+22:00–08:00 (bildirim ATILMAZ, sabaha ERTELENİR); günlük bütçe (toplam 6 · kategori 2) ve bütçeye
+takılan bildirim İZ BIRAKIR; kilit ekranında bildirimler TAMAMEN gizli (ciro dahil — tezgâhta duran
+telefonda ciro hedefleme bilgisidir). Kurallar her açılışta anlık koşar (Xiaomi zamanlanmışı
+öldürürse yedek); kimlikler gün damgalı olduğu için tekrar güvenli.
+
+**Bu iş üç ayrı doğrulama kapısının birbirinin yerine geçmediğini gösterdi:** `analyze` import
+hatasını, `flutter test` bir çalışma-zamanı çökmesini (platform eklentisi yokken ayarlar ekranının
+tamamı düşüyordu — iOS'ta da düşerdi), `build apk --release` ise **desugaring eksiğini** yakaladı.
+622 test yeşilken release derlemesi düşüyordu; APK her tur derlenmeseydi Faz 1 "bitti" sanılacaktı.
+
+**Sürpriz kazanç:** APK derlenebildiği için DECISIONS'ta "tam mobil CI ile gelecek" diye askıda
+duran **birleştirilmiş manifest izin denetimi ilk kez koşuldu** — izinler kaynaktan değil
+`aapt2 dump badging` ile DERLENMİŞ APK'dan okundu. Kırmızı çizgi #6 üründe kanıtlandı: yasaklı
+SMS/Call Log grubundan tek izin yok, `SCHEDULE_EXACT_ALARM` da yok.
 
 ### İkinci tur geri bildirim (aynı gün, bayi 3 madde daha bildirdi)
 
@@ -195,6 +228,25 @@ Bayi geri bildirimi, üç paralel ajanla (çağrı · liste · ödeme) kapatıld
   baştan sona kontrol işi. Şimdi düzeltmek kart taşmaları için açılan payı geri kapatır.
 - **`SipIcons.mic` yok** — mikrofon path'i geçici olarak `customer_widgets.dart` içinde
   `kMikrofonIkonu` sabiti. `theme/icons.dart`a taşınmalı.
+- **FAZ 1 BİLDİRİM BORÇLARI** (hiçbiri Faz 1'i bloklamıyor):
+  · **Ana ekran, gecikmiş müşteri / rutin teslim listesini bildirimden BAĞIMSIZ göstermeli** —
+    Xiaomi zamanlanmışı öldürürse bilgi yine görünsün. `gecikmisMusteriler()` ve
+    `rutinGunuGelenler()` bunun için public bırakıldı; ana ekran bağlantısı yazılmadı.
+  · **Çok-müşterili bildirimlerde `yol` null** — gecikmiş/borçlu liste rotası Faz 1 sözlüğünde yok,
+    uydurulmadı. Rota eklenince tek satır değişir (Faz 2).
+  · **Desugaring + `androidx.window` cihazda DOĞRULANMADI.** `androidx.window` savunma amaçlı açıkça
+    eklendi ama ölçüldü: Flutter zaten 1.2.0'ı getiriyormuş, APK **0 bayt** büyümedi. Yani bu bir
+    sigorta DEĞİL, örtük bağımlılığın açık hâle getirilmesi. Cihazda açılışta çökme olursa sebep
+    başka yerde aranmalı.
+  · **Bildirim üreticileri her açılışta ayrı sorgu koşar** (paylaşılan önbellek YOK — bilinçli:
+    önbellek arka plandan dönüşte bayat kalır ve "zaten sipariş vermiş müşteriye gecikti demek"
+    kuralın tek kırmızı çizgisine çarpar). Ölçülebilir maliyet çıkarsa tek turluk paylaşım ~10 satır.
+  · **Eşik sabitleri SAHA VERİSİYLE DOĞRULANMADI** (4 teslimat · 0,4 taban · 30 gün tavan · MAD
+    yarısı). Hepsi tek yerde adlandırılmış sabitler. **Pilotun ilk haftasında "bu bildirim doğru
+    muydu" geri bildirimi toplanmalı.**
+  · Defterin tarih/aggregate süzgeci SQL'e taşınmalı — `gunSonuBildirimVerisi` ve
+    `bugunEsigiAsanlar` tüm defteri okuyup Dart'ta süzüyor (mevcut `kasaOzeti` deseni). Yıllara
+    yayılınca yavaşlar.
 - **Arayan kartı için `max-width` TASARIMDA TANIMSIZ** — tablet/yatay ekranda kart ekran − 32dp
   olacak, yani çok geniş. Ölçü kaynaktan çıkarılamadığı için uydurulmadı (depo kuralı); tasarım
   güncellenince ÜÇ yüzeye birden konmalı.
