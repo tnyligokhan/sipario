@@ -1,0 +1,111 @@
+# SAHA APK — tam otomatik güncelleme hattı (kullanıcı kararı 2026-07-28:
+# "sürekli APK paylaşmak istemiyorum, tam otomatik bir sistem istiyorum").
+#
+# Akış: dev'e mobil dokunuşlu her push → arm64 + evrensel APK derlenir, `saha` adlı
+# YUVARLANAN release'in varlıkları değiştirilir (tek release, çok sürüm ÇÖPÜ yok).
+# Uygulamanın saha kanalı açılışta surum.json'a bakar, yenisini görünce kendini günceller.
+# Bu yol tünelden ve API'den bağımsızdır — geliştirici makinesi kapalıyken de çalışır.
+#
+# GEÇİCİ ÖZELLİK: Play Store'a çıkınca bu hat kapanır; `magaza` flavor'ında güncelleme
+# kodu ve REQUEST_INSTALL_PACKAGES izni ZATEN yoktur (izin denetimi bunu kilitler).
+#
+# İmza: `saha` anahtarı (GitHub secrets). Yerel debug imzayla ÇAKIŞMAZ ama üstüne de
+# KURULAMAZ — sahadaki cihaza İLK kurulum da bu hattın ürettiği APK'yla yapılmalıdır.
+name: saha-apk
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/saha-apk.yml'
+  workflow_dispatch: {}
+
+# Üst üste push'ta eski derleme iptal — yalnız en günceli yayınlanır.
+concurrency:
+  group: saha-apk
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # release varlıklarını güncelleyebilmek için
+
+jobs:
+  derle-ve-yayinla:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # TAM geçmiş ŞART: versionCode = `git rev-list --count HEAD`
+          # (build.gradle.kts bunu üretir; sığ klonda sayı yanlış çıkar).
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.7'   # yerel geliştirme sürümüyle AYNI tutulur
+          channel: stable
+          cache: true
+
+      - name: İmza anahtarını aç
+        env:
+          B64: ${{ secrets.SAHA_KEYSTORE_B64 }}
+        run: |
+          printf '%s' "$B64" | base64 -d > /tmp/saha.jks
+          echo "SAHA_KEYSTORE_YOLU=/tmp/saha.jks" >> "$GITHUB_ENV"
+
+      - name: APK derle (saha flavor, arm64 + evrensel)
+        working-directory: apps/mobile
+        env:
+          SAHA_KEYSTORE_SIFRE: ${{ secrets.SAHA_KEYSTORE_SIFRE }}
+          SAHA_ANAHTAR_SIFRE: ${{ secrets.SAHA_ANAHTAR_SIFRE }}
+        run: |
+          flutter pub get
+          flutter build apk --release --flavor saha --dart-define=SIPARIO_KANAL=saha --split-per-abi
+          flutter build apk --release --flavor saha --dart-define=SIPARIO_KANAL=saha
+
+      - name: Sürümü APK'nın KENDİSİNDEN doğrula
+        run: |
+          CIKTI=apps/mobile/build/app/outputs/flutter-apk
+          ls -la "$CIKTI"
+          ARM=$(ls "$CIKTI"/*saha*arm64*release*.apk | head -1)
+          AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          BEKLENEN=$(git rev-list --count HEAD)
+          OKUNAN=$("$AAPT" dump badging "$ARM" | grep -oP "versionCode='\K[0-9]+")
+          echo "beklenen=$BEKLENEN okunan=$OKUNAN"
+          test "$BEKLENEN" = "$OKUNAN"   # gradle'ın yazdığına güvenme — APK'dan oku
+          # saha APK'sında kurulum izni OLMALI (güncelleme bununla çalışıyor):
+          "$AAPT" dump badging "$ARM" | grep -q REQUEST_INSTALL_PACKAGES
+
+      - name: surum.json üret ve saha release'ini güncelle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CIKTI=apps/mobile/build/app/outputs/flutter-apk
+          ARM=$(ls "$CIKTI"/*saha*arm64*release*.apk | head -1)
+          FAT=$(ls "$CIKTI"/*saha*release*.apk | grep -v -e arm64 -e armeabi -e x86 | head -1)
+          # Varlık adları SABİTLENİR — surum.json'daki indirme adresleri bu adlara bakar;
+          # flutter çıktı adı değişse bile uygulama tarafı etkilenmez.
+          cp "$ARM" saha-arm64.apk
+          cp "$FAT" saha-evrensel.apk
+          YAPIM=$(git rev-list --count HEAD)
+          SURUM=$(grep -m1 '^version:' apps/mobile/pubspec.yaml | sed 's/version: *//; s/+.*//' | tr -d ' ')
+          DEPO="${{ github.repository }}"
+          cat > surum.json <<JSON
+          {
+            "yapim": $YAPIM,
+            "surum": "$SURUM",
+            "apk_arm64": "https://github.com/$DEPO/releases/download/saha/saha-arm64.apk",
+            "apk_evrensel": "https://github.com/$DEPO/releases/download/saha/saha-evrensel.apk"
+          }
+          JSON
+          cat surum.json
+          # Yuvarlanan release: yoksa bir kez yaratılır, sonra yalnız varlıkları değişir.
+          gh release view saha >/dev/null 2>&1 || gh release create saha --prerelease \
+            --title "Saha sürümü (otomatik)" \
+            --notes "Bu release CI tarafından her dev push'unda güncellenir. Uygulamanın saha kanalı surum.json üzerinden kendini günceller."
+          gh release upload saha saha-arm64.apk saha-evrensel.apk surum.json --clobber
+          echo "Yayınlandı: $SURUM ($YAPIM)"
