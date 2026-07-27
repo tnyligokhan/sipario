@@ -71,13 +71,79 @@ android {
         versionName = flutter.versionName
     }
 
+    /**
+     * İKİ KANAL — aynı uygulama, iki dağıtım yolu.
+     *
+     * `saha`: pilot bayilere doğrudan APK ile gider ve UYGULAMA İÇİ GÜNCELLEME yapar.
+     *         Kurulum izni ve FileProvider YALNIZ bu kanalın manifest katmanındadır
+     *         (`src/saha/AndroidManifest.xml`) — ana manifest'e sızmaz.
+     * `magaza`: Play Store yolu. Güncelleme kodu davranış olarak KAPALI (Dart tarafı
+     *         `SIPARIO_KANAL` derleme sabitine bakar) ve `REQUEST_INSTALL_PACKAGES` izni
+     *         APK'sında BULUNMAZ — `scripts/check_permissions.sh` bunu kırmızıya çevirir.
+     *
+     * applicationId İKİSİNDE DE AYNI ve bu pazarlıksız: farklı olsaydı `saha` sürümünün
+     * güncellemesi kendi üstüne kurulamaz, iki ayrı uygulama olarak yan yana dururdu.
+     * Bu yüzden `applicationIdSuffix` KULLANILMIYOR.
+     */
+    flavorDimensions += "kanal"
+    productFlavors {
+        create("saha") { dimension = "kanal" }
+        create("magaza") { dimension = "kanal" }
+    }
+
+    /**
+     * SAHA İMZASI — CI sözleşmesi.
+     *
+     * CI şu ortam değişkenlerini verir: `SAHA_KEYSTORE_YOLU` · `SAHA_KEYSTORE_SIFRE` ·
+     * `SAHA_ANAHTAR_SIFRE` (alias sabit: `saha`). Değişken TANIMSIZSA imza yapılandırması hiç
+     * kurulmaz ve release bugünkü gibi debug anahtarıyla imzalanır — yerel derleme hiçbir sır
+     * istemez, geliştiricinin makinesinde akış değişmez.
+     *
+     * NEDEN ÖNEMLİ: uygulama içi güncelleme, yeni APK'nın eskisiyle AYNI anahtarla imzalanmasını
+     * ŞART koşar. İmza değişirse Android kurulumu "uygulama zaten var, imza uyuşmuyor" diye
+     * reddeder ve bayi uygulamayı elle silmek zorunda kalır — sahada veri kaybı riski.
+     */
+    val sahaKeystore = System.getenv("SAHA_KEYSTORE_YOLU")
+    if (!sahaKeystore.isNullOrBlank()) {
+        signingConfigs {
+            create("saha") {
+                storeFile = file(sahaKeystore)
+                storePassword = System.getenv("SAHA_KEYSTORE_SIFRE")
+                keyAlias = "saha"
+                keyPassword = System.getenv("SAHA_ANAHTAR_SIFRE")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Faz 6'da kendi imza anahtarımız gelecek.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (!sahaKeystore.isNullOrBlank()) {
+                signingConfigs.getByName("saha")
+            } else {
+                // Yerel derleme: anahtar yok, bugünkü davranış korunur.
+                // TODO: Faz 6'da mağaza anahtarı da gelecek.
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
+
+// ── ABI SAPMASI: DENENDİ, GERİ ALINDI — tekrar denemeyin ─────────────────────────────────────
+//
+// ÖLÇÜM (2026-07-28): `--split-per-abi` ile Flutter'ın gradle eklentisi versionCode'a ABI'ye
+// özel sapma ekliyor — v7a `+1000`, arm64 `+2000`, x86_64 `+4000`. Git sayacı 128 iken üretilen
+// APK'lar 1128 / 2128 / 4128 bildiriyor (aapt2 ile doğrulandı).
+//
+// `androidComponents.onVariants { it.versionCode.set(...) }` ile geri almayı DENEDİM: ETKİSİZ.
+// Flutter eklentisi eski `applicationVariants.all { output.versionCodeOverride = ... }` API'sini
+// `afterEvaluate` içinde uyguluyor ve bizim geç yazımımızı eziyor. Yeniden derleyip aapt ile
+// doğruladım, sapma aynen duruyor.
+//
+// SONUÇ — GÜNCELLEME KARŞILAŞTIRMASI `PackageInfo.buildNumber`A DAYANDIRILAMAZ: arm64 cihaz
+// kendini 2128, `surum.json`daki `yapim` alanını 128 görür, "zaten güncelim" deyip bir daha
+// ASLA güncellenmez. Sessiz ve teşhisi zor bir arıza olurdu.
+// Bu yüzden yapı numarası uygulamaya `--dart-define=SIPARIO_YAPIM=<git sayısı>` ile geçilir
+// (kanal bilgisiyle aynı mekanizma); tanımsızsa güncelleme kontrolü hiç koşmaz.
 
 dependencies {
     // Sürüm paketin kendi dokümanından ve örnek uygulamasından: 2.1.4. Rastgele seçilmedi —

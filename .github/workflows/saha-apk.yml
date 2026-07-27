@@ -63,17 +63,27 @@ jobs:
           SAHA_KEYSTORE_SIFRE: ${{ secrets.SAHA_KEYSTORE_SIFRE }}
           SAHA_ANAHTAR_SIFRE: ${{ secrets.SAHA_ANAHTAR_SIFRE }}
         run: |
+          # SIPARIO_YAPIM define'ı ŞART: --split-per-abi versionCode'a ABI sapması ekler
+          # (arm64 = 2000 + git sayısı). PackageInfo.buildNumber ile surum.json'daki yapim
+          # karşılaştırılsaydı arm64 cihaz kendini hep "güncel" sanır ve BİR DAHA
+          # GÜNCELLENMEZDİ. Uygulama kendi yapımını bu define'dan okur, sapmadan bağımsız.
+          YAPIM=$(git rev-list --count HEAD)
           flutter pub get
-          flutter build apk --release --flavor saha --dart-define=SIPARIO_KANAL=saha --split-per-abi
-          flutter build apk --release --flavor saha --dart-define=SIPARIO_KANAL=saha
+          flutter build apk --release --flavor saha \
+            --dart-define=SIPARIO_KANAL=saha --dart-define=SIPARIO_YAPIM="$YAPIM" --split-per-abi
+          flutter build apk --release --flavor saha \
+            --dart-define=SIPARIO_KANAL=saha --dart-define=SIPARIO_YAPIM="$YAPIM"
 
       - name: Sürümü APK'nın KENDİSİNDEN doğrula
         run: |
           CIKTI=apps/mobile/build/app/outputs/flutter-apk
           ls -la "$CIKTI"
-          ARM=$(ls "$CIKTI"/*saha*arm64*release*.apk | head -1)
+          # Dosya adları cagri raporuyla sabitlendi: app-<abi>-<flavor>-release.apk
+          ARM="$CIKTI/app-arm64-v8a-saha-release.apk"
           AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
-          BEKLENEN=$(git rev-list --count HEAD)
+          # --split-per-abi ABI sapması ekler: arm64 versionCode = 2000 + git sayısı.
+          # Sapma Flutter gradle eklentisinin içinde ve geri alınamıyor (denendi, ezildi).
+          BEKLENEN=$(( 2000 + $(git rev-list --count HEAD) ))
           OKUNAN=$("$AAPT" dump badging "$ARM" | grep -oP "versionCode='\K[0-9]+")
           echo "beklenen=$BEKLENEN okunan=$OKUNAN"
           test "$BEKLENEN" = "$OKUNAN"   # gradle'ın yazdığına güvenme — APK'dan oku
@@ -85,8 +95,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           CIKTI=apps/mobile/build/app/outputs/flutter-apk
-          ARM=$(ls "$CIKTI"/*saha*arm64*release*.apk | head -1)
-          FAT=$(ls "$CIKTI"/*saha*release*.apk | grep -v -e arm64 -e armeabi -e x86 | head -1)
+          # Dosya adları cagri raporuyla sabitlendi.
+          ARM="$CIKTI/app-arm64-v8a-saha-release.apk"
+          FAT="$CIKTI/app-saha-release.apk"
           # Varlık adları SABİTLENİR — surum.json'daki indirme adresleri bu adlara bakar;
           # flutter çıktı adı değişse bile uygulama tarafı etkilenmez.
           cp "$ARM" saha-arm64.apk
@@ -94,12 +105,15 @@ jobs:
           YAPIM=$(git rev-list --count HEAD)
           SURUM=$(grep -m1 '^version:' apps/mobile/pubspec.yaml | sed 's/version: *//; s/+.*//' | tr -d ' ')
           DEPO="${{ github.repository }}"
+          # boyut alanları: indirme bütünlüğü kontrolü — yarım inen APK kurulmaya çalışılmaz.
           cat > surum.json <<JSON
           {
             "yapim": $YAPIM,
             "surum": "$SURUM",
             "apk_arm64": "https://github.com/$DEPO/releases/download/saha/saha-arm64.apk",
-            "apk_evrensel": "https://github.com/$DEPO/releases/download/saha/saha-evrensel.apk"
+            "apk_evrensel": "https://github.com/$DEPO/releases/download/saha/saha-evrensel.apk",
+            "boyut_arm64": $(stat -c%s saha-arm64.apk),
+            "boyut_evrensel": $(stat -c%s saha-evrensel.apk)
           }
           JSON
           cat surum.json

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<paths>
+    <!--
+      İndirilen APK'nın durduğu tek yer: uygulamanın KENDİ önbellek dizini.
+
+      Neden önbellek: indirilen APK geçici bir dosyadır, kurulumdan sonra değeri yoktur ve
+      sistem yer darlığında kendisi silebilir. Harici depolamaya yazmak izin gerektirirdi;
+      kalıcı dizine yazmak ise bayinin telefonunda her güncellemede biriken ölü dosyalar
+      bırakırdı.
+
+      Yol DAR TUTULDU (`guncelleme/` alt dizini): FileProvider'ın paylaşabileceği alanı
+      olabildiğince küçük tutmak, yanlışlıkla başka bir dosyanın dışarı verilmesini imkânsız
+      kılar.
+    -->
+    <cache-path name="guncelleme" path="guncelleme/" />
+</paths>

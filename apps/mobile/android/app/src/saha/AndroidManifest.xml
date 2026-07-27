@@ -1,0 +1,35 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      SAHA KANALI — YALNIZ pilot bayilere doğrudan APK ile dağıtılan sürüm.
+
+      BU DOSYA `magaza` KANALINA HİÇ KARIŞMAZ: Android bu katmanı yalnız `saha` flavor'ı
+      derlenirken ana manifest'le birleştirir. `magaza` APK'sında ne bu izin ne bu provider
+      bulunur — `scripts/check_permissions.sh` magaza çıktısında bu izni görürse denetimi
+      KIRMIZIYA çevirir, yani "geçici özellik Play'e sızmasın" güvencesi koda gömülüdür.
+
+      REQUEST_INSTALL_PACKAGES: indirilen APK'yı sistemin kurulum ekranına verebilmek için.
+      Play'in KISITLI SMS/Call Log grubunda DEĞİLDİR (kırmızı çizgi #6 korunur) ama Play'in
+      kendi politikasında hassas bir izindir ve mağaza sürümünde bulunmasının hiçbir gerekçesi
+      yoktur — orada güncellemeyi Play yapar.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application>
+        <!--
+          İndirilen APK'yı kurucuya devretmenin TEK meşru yolu. Android 7'den beri `file://`
+          URI'si paylaşmak `FileUriExposedException` atar; kurucuya `content://` URI verilmek
+          zorunda. Yetki adı applicationId'den türetilir ki iki kanal aynı kimliği taşısa bile
+          çakışma olmasın (magaza'da bu provider zaten hiç yok).
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.guncelleme"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/saha_guncelleme_yollari" />
+        </provider>
+    </application>
+</manifest>
