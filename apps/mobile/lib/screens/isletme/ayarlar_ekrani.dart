@@ -10,6 +10,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../bildirim/bildirim_ayar_bolumu.dart';
 import '../../data/app_database.dart';
 import '../../repo/tenant_settings_repository.dart';
 import '../../theme/components/atoms.dart';
@@ -275,6 +276,10 @@ class _Govde extends StatelessWidget {
               onTap: state.widget.onOlcumler,
             ),
         ]),
+
+        // Bildirim bölümü kendi dosyasında (`lib/bildirim/bildirim_ayar_bolumu.dart`):
+        // izin durumu ve kategori anahtarları kendi durumunu yönetiyor.
+        const BildirimAyarBolumu(),
 
         const SipBolumBaslik('İşletme', ustBosluk: 18),
         AyarKarti(satirlar: [

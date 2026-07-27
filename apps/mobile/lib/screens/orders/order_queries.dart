@@ -81,22 +81,16 @@ Stream<List<OrderListItem>> watchOrders(AppDatabase db, OrderFilter filter, {Str
     case OrderFilter.teslim:
       q.where(db.orders.status.equals('delivered'));
     case OrderFilter.borclu:
-      // SAHA HATASI (2026-07-27): sekme yalnız "müşterinin bakiyesi borçta" diyordu ve HENÜZ
-      // TESLİM EDİLMEMİŞ siparişleri de listeliyordu. Teslim edilmemiş mal borç değildir —
-      // müşteri o siparişten dolayı hiçbir şey borçlanmamıştır; deftere borç, teslim anında
-      // yazılır (`OrderRepository.deliver` → debit). Sekme mantığı üç şartın kesişimidir:
-      //   1) sipariş TESLİM EDİLMİŞ (status = delivered),
-      //   2) o siparişe karşılık TAHSİL EDİLEN para, sipariş tutarının ALTINDA,
-      //   3) müşterinin defter bakiyesi hâlâ borçta (> 0) — tahsil edilmiş borç listede kalmasın.
+      // SAHA HATASI (2026-07-27): sekme yalnız "bakiyesi borçta" diyordu ve TESLİM EDİLMEMİŞ
+      // siparişleri de listeliyordu. Teslim edilmemiş mal borç değildir — deftere borç teslim
+      // anında yazılır (`deliver` → debit). Üç şartın kesişimi: teslim edilmiş · tahsilat tutarın
+      // altında · müşteri bakiyesi hâlâ borçta.
       //
-      // (2) neden `payment_type = 'veresiye'` DEĞİL: kısmi ödeme geldi (2026-07-27) — "50 ver
-      // kalanı yaz" teslimi `payment_type = 'nakit'` taşır ama geriye borç bırakır; ödeme tipine
-      // bakan bir sorgu o siparişi borçlu saymazdı. Doğru ölçüt defterin kendisidir: siparişe
-      // bağlı `payment` satırlarının toplamı (negatif yazılır) + sipariş tutarı > 0 ise ödenmemiş
-      // bakiye vardır. Ters kayıtla (düzeltme) iptal edilen bir tahsilat da toplamda kendiliğinden
-      // geri döner — append-only defterin doğal sonucu.
-      //
-      // Müşterisiz (tezgâh) sipariş kimseye borç yazmaz → müşteri join'i null, listeye girmez.
+      // İkinci şart neden `payment_type = 'veresiye'` DEĞİL: kısmi ödeme "50 ver kalanı yaz"
+      // teslimi `nakit` taşır ama borç bırakır; tipe bakan sorgu onu kaçırırdı. Ölçüt defterin
+      // kendisidir — siparişe bağlı `payment` toplamı (negatif) + tutar > 0 ise ödenmemiş bakiye
+      // var. Ters kayıtla iptal edilen tahsilat da toplamda kendiliğinden geri döner.
+      // Müşterisiz (tezgâh) sipariş kimseye borç yazmaz → join null, listeye girmez.
       final tahsilat = subqueryExpression<int>(
         db.selectOnly(db.ledgerEntries)
           ..addColumns([db.ledgerEntries.amountKurus.sum()])

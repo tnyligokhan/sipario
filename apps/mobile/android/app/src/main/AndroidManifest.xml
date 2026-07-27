@@ -55,6 +55,23 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!--
+      ZAMANLANMIŞ YEREL BİLDİRİMLER (Faz 1 — gün sonu özeti, rutin teslim günü …).
+
+      RECEIVE_BOOT_COMPLETED: cihaz yeniden başlatıldığında zamanlanmış bildirimler yeniden
+      kurulur; olmazsa bayi telefonu kapatıp açtığında akşam özeti sessizce kaybolur.
+      Play'in KISITLI SMS/Call Log grubunda DEĞİLDİR — kırmızı çizgi #6 korunur.
+
+      SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM BİLEREK ALINMIYOR: bildirimlerimiz alarm değil
+      hatırlatmadır; `AndroidScheduleMode.inexactAllowWhileIdle` ile birkaç dakikalık kayma
+      kabul edilir. Tam zamanlı alarm izni Android 14+ mağaza denetimine tabidir ve kırmızı
+      çizgi #6'nın ruhu gereği gerekmedikçe istenmez.
+
+      `flutter_local_notifications` paketi birleştirilmiş manifest'e yalnız VIBRATE ve
+      POST_NOTIFICATIONS ekler (paket manifest'i denetlendi) — ikisi de kısıtlı grupta değil.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!--
       Barkod okuma (ürün formu + POS kataloğu). Çalışma anı izni `mobile_scanner` ister.
       Kamera ZORUNLU DEĞİLDİR: cihazda kamera yoksa ya da izin verilmezse barkod alanı
       elle doldurulabilir kalır, o yüzden `uses-feature` required="false".
@@ -129,6 +146,26 @@
                 <action android:name="android.telecom.CallScreeningService"/>
             </intent-filter>
         </service>
+
+        <!--
+          Zamanlanmış bildirimi ateşleyen ve yeniden başlatmadan sonra yeniden kuran alıcılar.
+          `flutter_local_notifications` 16'dan beri bunları KENDİ manifest'inde beyan ETMİYOR;
+          beyan uygulamaya düştü (paket README). Eksik olursa zamanlanan bildirim hiç çıkmaz
+          ve hata da vermez — sessiz bir kayıp olurdu.
+        -->
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
 
         <meta-data
             android:name="flutterEmbedding"

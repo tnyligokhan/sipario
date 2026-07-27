@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'auth/session.dart';
+import 'bildirim/bildirim_servisi.dart';
 import 'data/app_database.dart';
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
@@ -69,6 +70,11 @@ class _SiparioAppState extends State<SiparioApp> {
     // aynı yerde, aynı desenle yüklenir. Beklenmez: sipariş listesi açılmadan çok önce biter,
     // okunamazsa varsayılan SAĞ kalır.
     tutamacDeposu.yukle();
+    // Bildirim altyapısı: kanalları kurar, saat dilimini bağlar, kayıtlı tercihleri okur.
+    // İZİN İSTEMEZ — izin, bayi Ayarlar'dan bildirimleri açtığında istenir; açılışta izin
+    // diyaloğu göstermek kurulum sürtünmesini artırır (BRIEF korku #3). Beklenmez: kurulum
+    // birkaç ms'dir ve başarısız olursa uygulama bildirimsiz çalışmaya devam eder.
+    bildirimAltyapisiniKur();
     // Açılış hatası SPINNER'DA BIRAKMAZ (2026-07-22 saha bulgusu: migration hatası isLoggedIn'i
     // hiç döndürmeyince iki cihaz sonsuz loading'de kaldı). Hata ekrana çıkar — sessiz kilit yok.
     _session.isLoggedIn().then((v) async {
