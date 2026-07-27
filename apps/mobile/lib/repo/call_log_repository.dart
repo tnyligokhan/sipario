@@ -34,9 +34,16 @@ class CallLogRepository {
       .watch();
 
   /// Çağrıyı kaydet. customerId verilmezse numaradan (son 10 hane) OTOMATİK çözülür.
+  ///
+  /// [id] verilirse kayıt ÜZERİNE YAZILIR (upsert). Native çağrı kuyruğu bunu kullanır: bir
+  /// çağrı kuyruğa iki kez düşebilir — zil anında "gelen", yanıtlanmadan biterse "cevapsız".
+  /// İkincisi yeni bir çağrı değil, aynı çağrının son hâlidir; deterministik id olmasa günlükte
+  /// tek çağrı iki satır olarak görünürdü. `call_logs` zaten LWW varlığıdır (append-only
+  /// DEĞİL — sonuç ve doğan sipariş de sonradan yazılır), üzerine yazmak sözleşmeye uygundur.
   Future<String> log({
     required String phoneE164,
     required CallDirection direction,
+    String? id,
     String? customerId,
     String? outcome,
     String? relatedOrderId,
@@ -46,13 +53,13 @@ class CallLogRepository {
     final at = occurredAtIso ?? correctedNowIso(meta.serverTimeOffsetMs);
     final lww = correctedNowIso(meta.serverTimeOffsetMs);
     final device = meta.deviceId;
-    final id = newId();
+    final kayitId = id ?? newId();
     final last10 = phoneLast10(phoneE164);
     final resolved = customerId ?? await _resolveCustomer(last10);
 
     await db.transaction(() async {
-      await db.into(db.callLogs).insert(CallLogsCompanion.insert(
-            id: id,
+      await db.into(db.callLogs).insertOnConflictUpdate(CallLogsCompanion.insert(
+            id: kayitId,
             customerId: Value(resolved),
             phoneE164: phoneE164,
             phoneLast10: last10,
@@ -67,13 +74,14 @@ class CallLogRepository {
       await enqueueOutbox(db,
           entityType: 'call_log',
           op: 'upsert',
-          entityId: id,
+          entityId: kayitId,
           occurredAt: lww,
           deviceId: device,
-          payload: _payload(id, resolved, phoneE164, last10, direction.wire, outcome, relatedOrderId, at));
+          payload: _payload(
+              kayitId, resolved, phoneE164, last10, direction.wire, outcome, relatedOrderId, at));
     });
 
-    return id;
+    return kayitId;
   }
 
   /// Çağrının sonucunu (ve varsa doğan siparişi) sonradan yaz — tasarımdaki "Sipariş alındı" satırı.

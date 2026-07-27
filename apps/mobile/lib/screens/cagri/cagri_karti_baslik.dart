@@ -12,23 +12,34 @@ import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import 'cagri_model.dart';
 
-/// CSS `.cagri-top` — nabızlı nokta + "GELEN ÇAĞRI" + süre + kapat düğmesi.
+/// CSS `.cagri-top` — nabızlı nokta + yön etiketi + süre + kapat düğmesi.
+///
+/// ETİKET [yon]'DEN GELİR: burada "GELEN ÇAĞRI" sabit yazıyordu ve kart giden çağrıda da
+/// gelen çağrı gösteriyordu (2026-07-27 saha bulgusu). Cevapsızda vurgu `danger`a döner ve
+/// nokta nabız atmaz — çağrı artık canlı değildir.
 class CagriUstSerit extends StatelessWidget {
-  const CagriUstSerit({super.key, this.baslangic, this.onKapat});
+  const CagriUstSerit({
+    super.key,
+    this.yon = AramaTipi.gelen,
+    this.baslangic,
+    this.onKapat,
+  });
 
+  final AramaTipi yon;
   final DateTime? baslangic;
   final VoidCallback? onKapat;
 
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
+    final vurgu = yon == AramaTipi.cevapsiz ? t.danger : t.accent;
     return Row(
       children: [
-        const CagriCanliNokta(),
+        CagriCanliNokta(renk: vurgu, nabiz: yon != AramaTipi.cevapsiz),
         const SizedBox(width: 7),
         Text(
-          'GELEN ÇAĞRI',
-          style: SipText.cagriCanli.copyWith(color: t.accent),
+          cagriYonEtiketi(yon),
+          style: SipText.cagriCanli.copyWith(color: vurgu),
         ),
         const Spacer(),
         SipIcon(SipIcons.clock, boyut: 12, kalinlik: 2, renk: t.muted),
@@ -55,8 +66,13 @@ class CagriUstSerit extends StatelessWidget {
 }
 
 /// CSS `.cagri-live i` — accent nokta, `puls` animasyonuyla genişleyen halka.
+/// Cevapsız çağrıda [nabiz] kapanır: biten bir çağrı "canlı" değildir.
 class CagriCanliNokta extends StatefulWidget {
-  const CagriCanliNokta({super.key});
+  const CagriCanliNokta({super.key, this.renk, this.nabiz = true});
+
+  /// Verilmezse tema vurgusu (accent). Cevapsızda `danger` geçilir.
+  final Color? renk;
+  final bool nabiz;
 
   @override
   State<CagriCanliNokta> createState() => _CagriCanliNoktaState();
@@ -67,7 +83,15 @@ class _CagriCanliNoktaState extends State<CagriCanliNokta>
   late final AnimationController _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 1400),
-  )..repeat(reverse: true);
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    // Nabız YOKSA denetleyici hiç başlatılmaz: sonsuz animasyon `pumpAndSettle`'ı kilitler ve
+    // cevapsız kartını gösteren testlerin ağacı oturur.
+    if (widget.nabiz) _c.repeat(reverse: true);
+  }
 
   @override
   void dispose() {
@@ -77,7 +101,7 @@ class _CagriCanliNoktaState extends State<CagriCanliNokta>
 
   @override
   Widget build(BuildContext context) {
-    final t = context.sip;
+    final renk = widget.renk ?? context.sip.accent;
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {
@@ -91,11 +115,11 @@ class _CagriCanliNoktaState extends State<CagriCanliNokta>
               width: 8,
               height: 8,
               decoration: BoxDecoration(
-                color: t.accent,
+                color: renk,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: t.accent.withValues(alpha: 0.15 - 0.11 * _c.value),
+                    color: renk.withValues(alpha: 0.15 - 0.11 * _c.value),
                     spreadRadius: hale,
                   ),
                 ],

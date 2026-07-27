@@ -5,6 +5,20 @@
 // Bakiye defterden yeniden hesaplanır (ledger_ops.recomputeCustomerBalance), biz yalnız YENİ
 // kayıt yazarız. Tahsilat `payment(−)`, düzeltme `correction(imzalı)`.
 // Para: kullanıcı yazımı ↔ kuruş dönüşümü YALNIZ money.dart (parseKurus) üzerinden.
+//
+// FAZLA TAHSİLAT SERBEST (2026-07-27, saha eksiği 5b): tahsilat açık borçtan fazla olabilir,
+// müşteri alacaklı duruma geçer. Eskiden reddediliyordu; sahada müşteri 500 ₺ borcuna 600 ₺
+// verdiğinde bayinin elinde iki kötü seçenek kalıyordu — ya 500 yazıp 100'ü kayıt dışı bırakmak,
+// ya da farkı `correction` ile işlemek. İkisi de KASAYI yanlış gösterir: kasa toplamı `payment`
+// satırlarından çıkar, `correction` oraya girmez. Kasaya giren para deftere girer; alacaklı
+// bakiye zaten modelde var (`credit`/`correction` onu üretebiliyordu).
+//
+// TAM LİRA GİRİŞİ KORUNUR (tasarım s-musteriler.jsx:88,157 + `ui_musteri_test.dart`): alan
+// `\D` süzer, ön dolgu aşağı yuvarlanır, "Yarısı" tam liraya yuvarlar. Bir ara kuruş yazımını
+// açmıştım — gerekçem "85,50 ₺ borç kuruşu kalmadan kapatılamıyor" idi; fazla tahsilat serbest
+// olunca bu gerekçe DÜŞTÜ (kullanıcı 86 yazar, 50 kuruş alacak kalır) ve değişiklik iki mevcut
+// sözleşme testini kırdı. Kasadan sayılan nakit tam liradır; teslim ekranı ise sistemin ürettiği
+// sipariş tutarını (kuruşlu olabilir) tahsil ettiği için orada kuruş YAZILABİLİR — ayrım bilinçli.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,6 +50,36 @@ Future<bool?> tahsilatSheet(
   );
 }
 
+/// SİPARİŞ DIŞI BORÇ TAHSİLATININ TEK GİRİŞ NOKTASI — çağıran yalnız müşteri kimliğini bilir.
+///
+/// [tahsilatSheet] açık bakiyeyi PARAMETRE olarak ister; bu da onu ancak müşteri kaydını elinde
+/// tutan ekranların (müşteri detayı) çağırabilmesi demekti. Sipariş listesindeki "Borçlu" sekmesi
+/// elinde `OrderListItem` tutar, `Customer` değil — bakiyeyi kendi başına okumak zorunda kalırdı
+/// ve iki ekran ayrı ayrı okuyunca "hangisi güncel" sorusu doğardı. Burası bakiyeyi ÇAĞRI ANINDA
+/// defter önbelleğinden okur (tek atış, akış değil: sheet açılmadan başlık ve tutar gerekiyor).
+///
+/// Müşteri bulunamazsa sheet AÇILMAZ ve `null` döner. `true` = tahsilat deftere yazıldı.
+Future<bool?> borcTahsilatiAc(
+  BuildContext context, {
+  required AppDatabase db,
+  required String customerId,
+}) async {
+  final musteri = await (db.select(db.customers)..where((t) => t.id.equals(customerId)))
+      .getSingleOrNull();
+  if (musteri == null || !context.mounted) return null;
+  return sipSheet<bool>(
+    context,
+    // Başlıkta müşterinin adı: borçlu listesinden gelen kullanıcı hangi kaydı işlediğini
+    // sheet'in içinde bir daha görmüyor (müşteri detayında olduğu gibi arkada duran ekran yok).
+    baslik: musteri.name,
+    govde: (ctx) => _TahsilatGovde(
+      db: db,
+      customerId: customerId,
+      bakiyeKurus: musteri.balanceKurus,
+    ),
+  );
+}
+
 /// Bakiye düzeltme sheet'i — imzalı tutar + ZORUNLU açıklama, deftere `correction` yazar.
 Future<bool?> duzeltmeSheet(
   BuildContext context, {
@@ -56,14 +100,28 @@ Future<bool?> duzeltmeSheet(
 
 /// Kuruşu tasarımın tam-lira yazımına çevirir (`Math.round(borc/100)` — s-musteriler.jsx:88).
 ///
-/// TEK SAPMA: yuvarlama YUKARI çıkıyorsa aşağı alınır. Sheet kendi doğrulamasında açık borçtan
-/// fazlasını reddediyor; 85,50 ₺ borçta "86" ön dolgusu formu gönderilemez hâle getirirdi
-/// (kullanıcı borcu hiç kapatamaz). 8550 → "85", 8540 → "85", 10000 → "100".
+/// TEK SAPMA: yuvarlama YUKARI çıkıyorsa aşağı alınır — 8550 → "85", 8540 → "85", 10000 → "100".
+/// Gerekçesi başta "sheet fazlasını reddediyor, 86 yazılırsa form gönderilemez" idi; fazla
+/// tahsilat artık serbest, ama aşağı yuvarlama yine DOĞRU varsayılan: ön dolgu kullanıcıya
+/// istemediği bir alacak kaydı yazdırmamalı (fazlası bilinçli bir dokunuşla girilir).
 String _tamLira(int borcKurus) {
   var lira = (borcKurus / 100).round();
   if (lira * 100 > borcKurus) lira = borcKurus ~/ 100;
   return lira.toString();
 }
+
+/// Tahsilat sonrası müşterinin bakiyesi (imzalı kuruş: + borç, − alacak).
+///
+/// Ekrandan AYRI saf fonksiyon — uyarı metninin dayanağı budur ve testi widget kurmadan yazılır.
+/// Defterin kendi hesabıyla aynı işi yapar: `payment` satırı bakiyeye `−tahsil` olarak girer.
+int tahsilatSonrasiBakiye(int bakiyeKurus, int tahsilKurus) => bakiyeKurus - tahsilKurus;
+
+/// Girilen tahsilat tutarının hata metni; geçerliyse `null`.
+///
+/// Açık borçtan FAZLASI hatadır SAYILMAZ (dosya başlığındaki karar) — yalnız uyarı doğurur.
+/// Tek kural: para gerçekten alınmış olmalı, yani tutar 0'dan büyük olmalı.
+String? tahsilatHatasi(int? tahsilKurus) =>
+    (tahsilKurus == null || tahsilKurus <= 0) ? 'Tutar girin' : null;
 
 class _TahsilatGovde extends StatefulWidget {
   const _TahsilatGovde({required this.db, required this.customerId, required this.bakiyeKurus});
@@ -95,22 +153,23 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
 
   Future<void> _kaydet() async {
     final kurus = parseKurus(_tutar.text);
-    if (kurus == null || kurus <= 0) {
-      setState(() => _hata = 'Tutar girin');
-      return;
-    }
-    if (kurus > _borc) {
-      setState(() => _hata = 'Tutar açık borçtan (${sipTutar(_borc)}) fazla olamaz');
+    final hata = tahsilatHatasi(kurus);
+    if (hata != null) {
+      setState(() => _hata = hata);
       return;
     }
     setState(() => _calisiyor = true);
-    await LedgerRepository(widget.db).tahsilat(widget.customerId, kurus, _odeme);
+    await LedgerRepository(widget.db).tahsilat(widget.customerId, kurus!, _odeme);
     if (mounted) Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
+    final girilen = parseKurus(_tutar.text);
+    // Fazla tahsilat REDDEDİLMEZ (dosya başlığı), ama sessiz de geçilmez: bakiyeyi eksiye
+    // düşüren tutar kullanıcıya söylenir — yanlış yazılmış bir hane böyle yakalanır.
+    final alacakKurus = girilen == null ? 0 : -tahsilatSonrasiBakiye(_borc, girilen);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -140,9 +199,9 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
             yukseklik: 56,
             hata: _hata != null,
             otomatikOdak: true,
-            onChanged: (_) {
-              if (_hata != null) setState(() => _hata = null);
-            },
+            // Her tuşta yeniden çizilir: "Tamamı" çipinin seçili görünmesi ve fazla-tahsilat
+            // uyarısı yazılan tutardan türer; yalnız hata varken çizmek ikisini de dondururdu.
+            onChanged: (_) => setState(() => _hata = null),
           ),
           if (_hata != null) SipHataSatiri(metin: _hata!),
           Padding(
@@ -152,7 +211,7 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
                 Expanded(
                   child: SipCip(
                     etiket: 'Tamamı · ${sipTutar(_borc)}',
-                    secili: parseKurus(_tutar.text) == _borc,
+                    secili: girilen == _borc,
                     onTap: () => setState(() {
                       _tutar.text = _tamLira(_borc);
                       _hata = null;
@@ -176,6 +235,13 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
               ],
             ),
           ),
+          if (alacakKurus > 0)
+            SipHataSatiri(
+              metin: 'Bu tahsilat açık borcu aşıyor — müşteri '
+                  '${sipTutar(alacakKurus)} alacaklı duruma geçecek.',
+              renk: t.warn,
+              ikon: SipIcons.info,
+            ),
           const SipFormEtiket('Ödeme tipi'),
           SipOdemeSecici(secili: _odeme, onSec: (k) => setState(() => _odeme = k)),
           const SizedBox(height: 18),

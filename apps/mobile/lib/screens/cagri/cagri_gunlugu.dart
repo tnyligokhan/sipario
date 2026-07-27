@@ -60,8 +60,14 @@ class AramaSatiri extends StatelessWidget {
       child: Row(
         children: [
           // CSS `.akt-ic` — 30'luk tam yuvarlak. Cevapsızda danger, diğerlerinde nötr.
+          // ÜÇ YÖN ÜÇ AYRI İKON: cevapsız çağrı da `phone` çiziyordu, yani gelenle arasındaki
+          // tek fark zeminin rengiydi (2026-07-27 saha bulgusu).
           SipIkonKutu(
-            ikon: arama.tip == AramaTipi.giden ? SipIcons.phoneCall : SipIcons.phone,
+            ikon: switch (arama.tip) {
+              AramaTipi.giden => SipIcons.phoneCall,
+              AramaTipi.cevapsiz => SipIcons.phoneOff,
+              AramaTipi.gelen => SipIcons.phone,
+            },
             cap: 30,
             ikonBoyut: 15,
             kalinlik: 2.4,
@@ -82,16 +88,37 @@ class AramaSatiri extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (alt.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 1),
-                    child: Text(
-                      alt, // CSS `.akt-s`
-                      style: SipText.yardimci.copyWith(color: t.muted),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                // CSS `.akt-s` — yön sözcüğü ayrı bir metindir, `alt`ın içine katılmaz:
+                // uzun sonuç metni kısaldığında ilk kaybolacak şey yön olurdu. Bayi listede
+                // "kim aramıştı" kadar "ben mi aradım" sorusuna da cevap arar.
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Row(
+                    children: [
+                      Text(
+                        aramaTipiSozcugu(arama.tip),
+                        style: SipText.yardimci.copyWith(
+                          color: cevapsiz ? t.danger : t.muted,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (alt.isNotEmpty) ...[
+                        Text(
+                          ' · ',
+                          style: SipText.yardimci.copyWith(color: t.muted),
+                        ),
+                        Flexible(
+                          child: Text(
+                            alt,
+                            style: SipText.yardimci.copyWith(color: t.muted),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
+                ),
               ],
             ),
           ),

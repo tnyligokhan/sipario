@@ -46,6 +46,12 @@ object CallerOverlay {
     @Volatile private var lastCustomer: CustomerLookup.Customer? = null
     @Volatile private var lastPhone: String? = null
 
+    /**
+     * Son çağrının YÖNÜ. Yeniden gösterim bunu `"in"` sabitiyle geçiyordu: bayi kendi aradığı
+     * müşteride, çağrı yanıtlandığı anda "GELEN ÇAĞRI" yazan bir kart görüyordu (2026-07-27).
+     */
+    @Volatile private var lastYon: CagriYonu = CagriYonu.GELEN
+
     /** Eski bir kapatma zamanlayıcısı yeni gösterilen kartı öldürmesin diye nesil sayacı. */
     private var generation = 0
 
@@ -66,13 +72,14 @@ object CallerOverlay {
         phone: String,
         t0: Long,
         simulated: Boolean,
-        direction: String = "in",
+        yon: CagriYonu = CagriYonu.GELEN,
     ) {
         val app = context.applicationContext
         val locked = (app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
 
         lastCustomer = customer
         lastPhone = phone
+        lastYon = yon
 
         main.post {
             val shown = if (locked) {
@@ -83,16 +90,16 @@ object CallerOverlay {
                 //    üstüne biner → keyguard örtüldüğü anda SAW overlay'i çağrı ekranının
                 //    ÜSTÜNDE görünür olur (MIUI'nin "Kilit ekranında göster" izni tam bunu açar).
                 // Overlay burada ölçüm YAZMAZ; yazsaydı tek çağrı iki kayıt üretirdi.
-                val fsi = showFullScreen(app, customer, phone, t0, simulated, direction)
+                val fsi = showFullScreen(app, customer, phone, t0, simulated, yon)
                 if (Settings.canDrawOverlays(app)) {
-                    showOverlay(app, customer, phone, t0, simulated, direction, locked = true, record = false)
+                    showOverlay(app, customer, phone, t0, simulated, yon, locked = true, record = false)
                 }
                 fsi
             } else {
                 Settings.canDrawOverlays(app) &&
-                    showOverlay(app, customer, phone, t0, simulated, direction, locked = false, record = true)
+                    showOverlay(app, customer, phone, t0, simulated, yon, locked = false, record = true)
             }
-            if (!shown) showNotification(app, customer, phone, t0, simulated, locked, direction)
+            if (!shown) showNotification(app, customer, phone, t0, simulated, locked, yon)
         }
     }
 
@@ -106,9 +113,12 @@ object CallerOverlay {
      *  - En son başlayan showWhenLocked Activity en üstte çizilir. Çağrı ekranından SONRA
      *    başlarsak onun üstüne çıkarız — rakip uygulamanın yanıt anında yaptığı tam bu.
      */
-    fun reshow(context: Context) {
+    fun reshow(context: Context, yon: CagriYonu? = null) {
         val phone = lastPhone ?: return
         val customer = lastCustomer
+        // Cevapsıza dönen çağrıda yön DEĞİŞİR; verilmezse çağrının kendi yönü korunur.
+        val etkinYon = yon ?: lastYon
+        lastYon = etkinYon
         val app = context.applicationContext
         val locked = (app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
         main.post {
@@ -120,13 +130,14 @@ object CallerOverlay {
                             Intent.FLAG_ACTIVITY_CLEAR_TOP
                     )
                     .putExtra(CallerActivity.EXTRA_PHONE, phone)
+                    .putExtra(CallerActivity.EXTRA_DIRECTION, etkinYon.kuyrukKodu)
                     .putExtra(CallerActivity.EXTRA_RECORD, false)
                 // Arka plandan başlatma muafiyeti: SYSTEM_ALERT_WINDOW iznimiz var.
                 runCatching { app.startActivity(i) }
                     .onFailure { Log.w(TAG, "yeniden gosterim reddedildi: ${it.javaClass.simpleName}") }
             } else {
                 if (!Settings.canDrawOverlays(app)) return@post
-                showOverlay(app, customer, phone, System.nanoTime(), simulated = false, direction = "in", locked = false, record = false)
+                showOverlay(app, customer, phone, System.nanoTime(), simulated = false, yon = etkinYon, locked = false, record = false)
             }
         }
     }
@@ -144,7 +155,7 @@ object CallerOverlay {
         phone: String,
         t0: Long,
         simulated: Boolean,
-        direction: String,
+        yon: CagriYonu,
     ): Boolean {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -162,7 +173,7 @@ object CallerOverlay {
             .putExtra(CallerActivity.EXTRA_PHONE, phone)
             .putExtra(CallerActivity.EXTRA_T0, t0)
             .putExtra(CallerActivity.EXTRA_SIMULATED, simulated)
-            .putExtra(CallerActivity.EXTRA_DIRECTION, direction)
+            .putExtra(CallerActivity.EXTRA_DIRECTION, yon.kuyrukKodu)
 
         val pi = PendingIntent.getActivity(
             context,
@@ -171,7 +182,7 @@ object CallerOverlay {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val notification = buildNotification(context, customer, phone)
+        val notification = buildNotification(context, customer, phone, yon)
             .setFullScreenIntent(pi, true)
             .build()
 
@@ -193,7 +204,7 @@ object CallerOverlay {
         phone: String,
         t0: Long,
         simulated: Boolean,
-        direction: String,
+        yon: CagriYonu,
         locked: Boolean,
         record: Boolean,
     ): Boolean {
@@ -203,7 +214,7 @@ object CallerOverlay {
         // overlay ile üst üste iki kart çıkmasın.
         CallerActivity.active?.finish()
 
-        val card = CallerCard.build(context, customer, phone)
+        val card = CallerCard.build(context, customer, phone, yon)
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -235,7 +246,7 @@ object CallerOverlay {
                             @Suppress("DEPRECATION")
                             card.viewTreeObserver.removeOnDrawListener(this)
                         }
-                        LatencyLog.record(context, ms, customer != null, simulated, "overlay", locked, direction)
+                        LatencyLog.record(context, ms, customer != null, simulated, "overlay", locked, yon.olcumKodu)
                     }
                 })
             }
@@ -297,16 +308,16 @@ object CallerOverlay {
         t0: Long,
         simulated: Boolean,
         locked: Boolean,
-        direction: String,
+        yon: CagriYonu,
     ) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         ensureChannel(nm)
         try {
-            nm.notify(NOTIFICATION_ID, buildNotification(context, customer, phone).build())
+            nm.notify(NOTIFICATION_ID, buildNotification(context, customer, phone, yon).build())
             val ms = (System.nanoTime() - t0) / 1_000_000
-            LatencyLog.record(context, ms, customer != null, simulated, "notification", locked, direction)
+            LatencyLog.record(context, ms, customer != null, simulated, "notification", locked, yon.olcumKodu)
         } catch (_: SecurityException) {
-            LatencyLog.record(context, -1, customer != null, simulated, "failed", locked, direction)
+            LatencyLog.record(context, -1, customer != null, simulated, "failed", locked, yon.olcumKodu)
         }
     }
 
@@ -314,6 +325,7 @@ object CallerOverlay {
         context: Context,
         customer: CustomerLookup.Customer?,
         phone: String,
+        yon: CagriYonu,
     ): Notification.Builder {
         val title = customer?.name ?: "Kayıtlı olmayan numara"
         val body = customer
@@ -321,11 +333,13 @@ object CallerOverlay {
             ?: phone
 
         // Kart çağrı ekranının altında kalırsa bilginin tamamını taşıyan tek yer bu
-        // bildirim olur; o yüzden genişletilmiş hali kartla aynı içeriği verir.
+        // bildirim olur; o yüzden genişletilmiş hali kartla aynı içeriği verir —
+        // son sipariş satırı dahil (kartta olan burada da olmalı).
         val big = customer?.let {
             buildString {
                 it.address?.takeIf(String::isNotBlank)?.let { a -> appendLine(a) }
                 appendLine(CallerCard.balanceLine(it.balanceKurus))
+                it.sonSiparis?.let { s -> appendLine(CallerCard.sonSiparisSatiri(s)) }
                 it.note?.takeIf(String::isNotBlank)?.let { n -> appendLine(n) }
             }.trimEnd()
         } ?: phone
@@ -334,6 +348,9 @@ object CallerOverlay {
             .setSmallIcon(android.R.drawable.sym_action_call)
             .setContentTitle(title)
             .setContentText(body)
+            // Yön bildirimde de görünür: kart çağrı ekranının altında kaldığında bayinin
+            // "bu benim aradığım numara mı" sorusuna cevap veren tek yüzey burasıdır.
+            .setSubText(yon.kisaEtiket)
             .setStyle(Notification.BigTextStyle().bigText(big))
             .setCategory(Notification.CATEGORY_CALL)
             // Kilit ekranında içerik gizlenmesin: kart çağrı ekranının altında kalırsa

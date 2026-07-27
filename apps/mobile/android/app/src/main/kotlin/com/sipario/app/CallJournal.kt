@@ -21,8 +21,15 @@ import java.util.TimeZone
  * Yan fayda: yazma işi tek `appendText` çağrısı — çağrı anındaki 1 saniyelik bütçeye
  * SQLite açmaktan çok daha ucuz.
  *
- * Biçim: satır başına `<iso8601-utc>|<yon>|<numara>`; `yon` ∈ incoming | outgoing | missed
- * (Dart tarafındaki `CallDirection.wire` ile aynı sözcükler).
+ * Biçim: satır başına `<iso8601-utc>|<yon>|<numara>|<anahtar>`; `yon` ∈ incoming | outgoing |
+ * missed (Dart tarafındaki `CallDirection.wire` ile aynı sözcükler).
+ *
+ * DÖRDÜNCÜ ALAN — ÇAĞRI ANAHTARI (2026-07-27): bir çağrı kuyruğa İKİ KEZ yazılabilir. Zil
+ * anında "incoming" yazılır (süreç konuşma ortasında ölse bile kayıt durur), çağrı
+ * yanıtlanmadan biterse aynı anahtarla "missed" yazılır. Dart tarafı anahtardan deterministik
+ * bir `call_logs.id` türetir; ikinci satır yeni bir çağrı değil, aynı çağrının güncellenmiş
+ * hâlidir. Alan OPSİYONELDİR: anahtarsız eski satırlar (sürüm yükseltmesinde kuyrukta kalmış
+ * olabilir) bugünkü gibi tek seferlik kayıt olarak işlenir.
  */
 object CallJournal {
 
@@ -35,16 +42,32 @@ object CallJournal {
     private const val MAX_BAYT = 64 * 1024L
     private const val TUTULAN_SATIR = 200
 
-    fun kaydet(context: Context, phone: String, yon: String) {
+    /**
+     * Çağrıyı kuyruğa ekler.
+     *
+     * [zamanIso] ÇAĞRININ BAŞLADIĞI andır, satırın yazıldığı an değil: cevapsız güncellemesi
+     * çağrı bittiğinde yazılır ve aynı çağrı günlükte 40 saniye ileri kaymamalıdır.
+     */
+    fun kaydet(context: Context, phone: String, yon: CagriYonu, anahtar: String, zamanIso: String) {
         val dosya = kuyrukDosyasi(context) ?: return
         runCatching {
             kirpGerekirse(dosya)
-            dosya.appendText("${simdiIso()}|$yon|${phone.filter(Char::isDigit)}\n")
+            val haneler = phone.filter(Char::isDigit)
+            dosya.appendText("$zamanIso|${yon.kuyrukKodu}|$haneler|$anahtar\n")
         }.onFailure {
             // Günlük bir kolaylıktır; yazılamaması çağrı kartını etkilemez.
             Log.w(TAG, "cagri kuyruga yazilamadi: ${it.javaClass.simpleName}")
         }
     }
+
+    /**
+     * Bir çağrı oturumunun anahtarı. Numara + başlangıç anı: aynı numaradan gelen iki ayrı
+     * çağrı ayrı kayıt olur, aynı çağrının iki satırı ise aynı kayda düşer.
+     *
+     * KVKK: anahtar kuyruk dosyasında durur (numara zaten aynı satırda), LOGA YAZILMAZ.
+     */
+    fun yeniAnahtar(phone: String): String =
+        "${CustomerLookup.last10(phone)}-${System.currentTimeMillis()}"
 
     private fun kuyrukDosyasi(context: Context): File? {
         val dizin = context.getDatabasePath(CustomerLookup.DB_NAME).parentFile ?: return null
@@ -63,7 +86,7 @@ object CallJournal {
      * tarafı kuyruğu boşaltırken sunucu saat farkını uygulayamaz (çağrı geçmişte oldu),
      * bu yüzden çağrı ANINDAKİ cihaz saati yazılır.
      */
-    private fun simdiIso(): String =
+    fun simdiIso(): String =
         SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
             .apply { timeZone = TimeZone.getTimeZone("UTC") }
             .format(Date())

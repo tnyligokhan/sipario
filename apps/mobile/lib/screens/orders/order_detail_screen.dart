@@ -293,18 +293,31 @@ class _Govde extends StatelessWidget {
     );
   }
 
+  /// Teslim + KISMİ ÖDEME: sheet ne kadar tahsil edildiğini döner, `deliver` alınan parayı
+  /// `payment` olarak yazar; kalan fark ödenmemiş `debit` olarak borçta durur (ayrı kayıt YOK).
   Future<void> _teslimEt(BuildContext context) async {
     final musteriId = order.customerId;
-    final odeme = await teslimSheetAc(
-      context,
-      toplamKurus: satirlarToplami(satirlar),
-      musteriVar: musteriId != null,
-    );
-    if (odeme == null || !context.mounted) return;
-
-    await OrderRepository(db).deliver(order.id, paymentType: odeme);
+    final toplam = satirlarToplami(satirlar);
+    // Teslimden ÖNCEKİ bakiye tek atış okunur: sheet yalnız sipariş tutarını görür, "fazla ödemede
+    // müşteri ne kadar alacaklı kalacak" sorusunu bu olmadan yanıtlayamaz (akış beklenemez).
+    final oncekiBakiye =
+        musteriId == null ? 0 : (await musteriOku(db, musteriId))?.balanceKurus ?? 0;
     if (!context.mounted) return;
-    SipToast.goster(context, 'Sipariş teslim edildi · ${odemeTipiEtiketi(odeme)}');
+
+    final sonuc = await teslimSheetAc(context,
+        toplamKurus: toplam,
+        musteriVar: musteriId != null,
+        oncekiBakiyeKurus: oncekiBakiye);
+    if (sonuc == null || !context.mounted) return;
+
+    await OrderRepository(db)
+        .deliver(order.id, paymentType: sonuc.odemeTipi, tahsilKurus: sonuc.tahsilKurus);
+    if (!context.mounted) return;
+
+    // Bayi teslim anında en çok "borç kaldı mı" diye merak eder — kısmi teslimde toast onu söyler.
+    final kalan = teslimBorcFarki(toplamKurus: toplam, tahsilKurus: sonuc.tahsilKurus);
+    final ek = kalan > 0 && sonuc.odemeTipi != 'veresiye' ? ' · ${sipTutar(kalan)} borç' : '';
+    SipToast.goster(context, 'Sipariş teslim edildi · ${odemeTipiEtiketi(sonuc.odemeTipi)}$ek');
     Navigator.of(context).maybePop();
   }
 

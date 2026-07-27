@@ -20,6 +20,36 @@ AramaTipi aramaTipiCoz(String? ham) => switch (ham) {
       _ => AramaTipi.gelen,
     };
 
+/// Çağrı günlüğü satırındaki yön sözcüğü ("Son Aramalar" listesi).
+String aramaTipiSozcugu(AramaTipi tip) => switch (tip) {
+      AramaTipi.gelen => 'Gelen',
+      AramaTipi.giden => 'Giden',
+      AramaTipi.cevapsiz => 'Cevapsız',
+    };
+
+/// Kartın üst şeridindeki yön etiketi — native `CagriYonu.etiket` aynası.
+///
+/// Buraya kadar gelmesi ZORUNLU: şerit "GELEN ÇAĞRI"yı sabit yazdığı sürece bayi kendi
+/// aradığı müşteride de gelen çağrı görüyordu (2026-07-27 saha bulgusu).
+String cagriYonEtiketi(AramaTipi tip) => switch (tip) {
+      AramaTipi.gelen => 'GELEN ÇAĞRI',
+      AramaTipi.giden => 'GİDEN ÇAĞRI',
+      AramaTipi.cevapsiz => 'CEVAPSIZ ÇAĞRI',
+    };
+
+/// Siparişin kartta okunan durumu. `orders.status` (`open|delivered|cancelled`) + kurye
+/// ataması → tek sözcük. Native karttaki `CallerCard.siparisDurumEtiketi` ile AYNI eşleme;
+/// iki kart aynı siparişte aynı sözcüğü yazmalı.
+///
+/// "Yolda", AÇIK bir siparişin kuryeye atanmış olmasıdır (DECISIONS: `assigned_user_id` bir
+/// önbellektir, kaynağı atama olaylarıdır). Liste rozetindeki kısaltmalar (Açık/Teslim/İptal)
+/// kullanılmaz: kart bir cümle okur, rozet değil.
+String siparisDurumEtiketi(String durum, {bool kuryede = false}) => switch (durum) {
+      'delivered' => 'Teslim edildi',
+      'cancelled' => 'İptal edildi',
+      _ => kuryede ? 'Yolda' : 'Hazırlanıyor',
+    };
+
 /// Numaranın son 10 hanesi. Türkiye'de aynı hat +905321234567 / 05321234567 / 5321234567
 /// biçimlerinde gelir; son 10 hane üçünde de aynıdır ve ülke içinde tekildir. Eşleşmenin
 /// TAMAMI (müşteri arama, muaf listesi) buna dayanır — native taraftaki `phone_last10` ile
@@ -84,6 +114,7 @@ class CagriKisi {
     this.not,
     this.sonHareket,
     this.sonHareketTuru = SonHareketTuru.siparis,
+    this.sonSiparisDurumu,
   });
 
   /// Kayıtsız numara için kısayol.
@@ -96,7 +127,8 @@ class CagriKisi {
         konumVar = false,
         not = null,
         sonHareket = null,
-        sonHareketTuru = SonHareketTuru.siparis;
+        sonHareketTuru = SonHareketTuru.siparis,
+        sonSiparisDurumu = null;
 
   /// Ham numara (gösterim için `sipTelefon` ile biçimlenir).
   final String numara;
@@ -122,6 +154,14 @@ class CagriKisi {
 
   /// [sonHareket] satırının ikonu.
   final SonHareketTuru sonHareketTuru;
+
+  /// Son SİPARİŞİN durumu — "Hazırlanıyor" · "Yolda" · "Teslim edildi" · "İptal edildi".
+  ///
+  /// NEDEN AYRI ALAN (2026-07-27 saha bulgusu): kart "Son sipariş: Damacana ×2 · 10:24" yazıyor
+  /// ama siparişin ne durumda olduğunu SÖYLEMİYORDU; bayi telefonda "yolda mı, çıktı mı"
+  /// sorusuna cevap veremiyordu. Durum, hareket satırının sonunda rozet olarak durur —
+  /// defter hareketinde (sipariş yoksa) null'dır, orada durum diye bir şey yoktur.
+  final String? sonSiparisDurumu;
 
   bool get kayitli => musteriId != null;
 

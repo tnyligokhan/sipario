@@ -6,6 +6,12 @@ import android.graphics.drawable.GradientDrawable
 import android.util.Log
 import android.view.View
 import android.widget.LinearLayout
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeParseException
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 
 /**
  * Arayan kartının İSKELETİ. Tek yerde tanımlı; hem kilitsiz ekrandaki overlay penceresi
@@ -35,7 +41,12 @@ object CallerCard {
     const val EXTRA_EYLEM = "sipario_cagri_eylem"
     const val EXTRA_NUMARA = "sipario_cagri_numara"
 
-    fun build(context: Context, customer: CustomerLookup.Customer?, phone: String): View {
+    fun build(
+        context: Context,
+        customer: CustomerLookup.Customer?,
+        phone: String,
+        yon: CagriYonu = CagriYonu.GELEN,
+    ): View {
         CallerTema.fontlariYukle(context)
         val p = CallerTema.palet(context)
 
@@ -58,7 +69,7 @@ object CallerCard {
             elevation = dp(context, 14).toFloat()
         }
 
-        kok.addView(CallerCardViews.ustSerit(context, p, kok))
+        kok.addView(CallerCardViews.ustSerit(context, p, kok, yon))
         kok.addView(CallerCardViews.kimSatiri(context, p, customer, phone))
 
         if (customer != null) {
@@ -122,6 +133,54 @@ object CallerCard {
     // ═══════════════════════════════════════════════════════════════════════════════════════
     // Dışarıya açık biçimleme (CallerOverlay bildirim metnini bunlarla kurar)
     // ═══════════════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * "Son sipariş: Yolda · 10:24" — kartın son sipariş satırı ve bildirimin aynı satırı.
+     *
+     * Bayi telefonda "siparişim nerede" sorusuna kartı okuyarak cevap verir; durum bu yüzden
+     * sipariş dökümünden ÖNCE gelir. Sözcükler cümle içinde okunacak biçimde uzun tutuldu
+     * (liste rozetindeki "Açık/Teslim/İptal" kısaltmaları kartta anlamı taşımıyordu).
+     */
+    fun sonSiparisSatiri(s: CustomerLookup.SonSiparis): String {
+        val saat = saatMetni(s.occurredAt)
+        val durum = siparisDurumEtiketi(s)
+        return if (saat.isEmpty()) "Son sipariş: $durum" else "Son sipariş: $durum · $saat"
+    }
+
+    /**
+     * `orders.status` + kurye ataması → bayinin telefonda söyleyeceği sözcük.
+     * "Yolda", `open` bir siparişin kuryeye ATANMIŞ olmasıdır (DECISIONS: `assigned_user_id`
+     * bir önbellektir, kaynağı atama olaylarıdır).
+     */
+    private fun siparisDurumEtiketi(s: CustomerLookup.SonSiparis): String = when (s.durum) {
+        "delivered" -> "Teslim edildi"
+        "cancelled" -> "İptal edildi"
+        else -> if (s.kuryede) "Yolda" else "Hazırlanıyor"
+    }
+
+    /**
+     * ISO8601 UTC → "10:24" · "Dün" · "Per" · "02.07". Dart `cagriSaatMetni` ile AYNI kurallar
+     * (iki kart aynı çağrıda aynı metni yazmalı). Okunamayan zaman boş döner; kart o zaman
+     * yalnız durumu yazar, " · " ayracı asılı kalmaz.
+     */
+    fun saatMetni(iso: String, bugun: LocalDate = LocalDate.now()): String = try {
+        val yerel = Instant.parse(iso).atZone(ZoneId.systemDefault())
+        val gun = yerel.toLocalDate()
+        val fark = ChronoUnit.DAYS.between(gun, bugun)
+        val saat = String.format(Locale.US, "%02d:%02d", yerel.hour, yerel.minute)
+        when {
+            // İleri tarihli kayıt (cihaz saati geri alınmış) saat gibi gösterilir — Dart tarafı
+            // da öyle yapar; "-3 gün" saçmalığından en az yanıltıcı olan bu.
+            fark <= 0L -> saat
+            fark == 1L -> "Dün"
+            fark < 7L -> gunAdlari[gun.dayOfWeek.value - 1]
+            else -> String.format(Locale.US, "%02d.%02d", gun.dayOfMonth, gun.monthValue)
+        }
+    } catch (e: DateTimeParseException) {
+        ""
+    }
+
+    private val gunAdlari = listOf("Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz")
 
     /** Pozitif bakiye müşterinin borcudur (veresiye); negatif bakiye onun alacağıdır. */
     fun balanceLine(kurus: Long): String = when {

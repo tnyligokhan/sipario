@@ -55,7 +55,8 @@ Future<CagriKisi> cagriKisiCoz(
         ..limit(1))
       .getSingleOrNull();
 
-  final (sonHareket, sonHareketTuru) = await _sonHareket(db, musteri.id, simdi: simdi);
+  final (sonHareket, sonHareketTuru, sonSiparisDurumu) =
+      await _sonHareket(db, musteri.id, simdi: simdi);
 
   return CagriKisi(
     numara: numara,
@@ -68,12 +69,16 @@ Future<CagriKisi> cagriKisiCoz(
     not: musteri.note,
     sonHareket: sonHareket,
     sonHareketTuru: sonHareketTuru,
+    sonSiparisDurumu: sonSiparisDurumu,
   );
 }
 
 /// Tasarımın öncelik sırası (s-cagri.jsx:41-42): SİPARİŞ varsa "Son sipariş: …", yoksa son
 /// defter hareketi "Son hareket: …". İkisi de yoksa satır hiç çizilmez (null).
-Future<(String?, SonHareketTuru)> _sonHareket(
+///
+/// Üçüncü değer siparişin DURUMUDUR ("Yolda", "Teslim edildi" …) ve yalnız sipariş yolunda
+/// dolar — defter hareketinin durumu yoktur.
+Future<(String?, SonHareketTuru, String?)> _sonHareket(
   AppDatabase db,
   String customerId, {
   DateTime? simdi,
@@ -99,6 +104,7 @@ Future<(String?, SonHareketTuru)> _sonHareket(
         saat: saat,
       ),
       SonHareketTuru.siparis,
+      siparisDurumEtiketi(siparis.status, kuryede: siparis.assignedUserId != null),
     );
   }
 
@@ -107,7 +113,7 @@ Future<(String?, SonHareketTuru)> _sonHareket(
         ..orderBy([(t) => OrderingTerm.desc(t.occurredAt), (t) => OrderingTerm.desc(t.id)])
         ..limit(1))
       .getSingleOrNull();
-  if (hareket == null) return (null, SonHareketTuru.siparis);
+  if (hareket == null) return (null, SonHareketTuru.siparis, null);
 
   final not = hareket.note?.trim();
   return (
@@ -118,6 +124,7 @@ Future<(String?, SonHareketTuru)> _sonHareket(
       saat: cagriSaatMetni(DateTime.tryParse(hareket.occurredAt), simdi: simdi),
     ),
     SonHareketTuru.defter,
+    null,
   );
 }
 

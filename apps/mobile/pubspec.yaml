@@ -32,6 +32,12 @@ dependencies:
   image_picker: ^1.1.2
   mobile_scanner: ^7.4.0
 
+  # Sipariş/müşteri kartındaki Ara · WhatsApp · Konum düğmeleri harici uygulama açar
+  # (tel: · whatsapp:// · geo:). Saha hatası 3: düğmeler duruyordu ama yalnız toast gösteriyordu.
+  # Native köprü yazmak yerine bu paket: iOS'ta da çalışır ve hedef uygulama yoksa çökmez,
+  # ActivityNotFoundException'ı yutup false döner (gerekçeyi biz Türkçe söyleriz).
+  url_launcher: ^6.3.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

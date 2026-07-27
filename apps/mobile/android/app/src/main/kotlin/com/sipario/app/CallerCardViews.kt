@@ -29,16 +29,25 @@ internal object CallerCardViews {
 
     private const val TAG = "SiparioCardViews"
 
-    /** CSS `.cagri-top` — nabızlı nokta + "GELEN ÇAĞRI" + süre + kapat düğmesi. */
-    fun ustSerit(context: Context, p: CallerTema.Palet, kok: View): View {
+    /**
+     * CSS `.cagri-top` — nabızlı nokta + yön etiketi + süre + kapat düğmesi.
+     *
+     * ETİKET [yon]'DEN GELİR (2026-07-27 saha bulgusu): burada "GELEN ÇAĞRI" SABİT yazıyordu,
+     * bu yüzden bayi kendi aradığı müşteride de "GELEN ÇAĞRI" görüyordu. Yön kartın en üst
+     * satırıdır; yanlış olması kartın söylediği her şeyi şüpheli hâle getirir.
+     *
+     * Cevapsız çağrıda nokta da nabız atmaz: çağrı artık "canlı" değildir.
+     */
+    fun ustSerit(context: Context, p: CallerTema.Palet, kok: View, yon: CagriYonu): View {
         val satir = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        satir.addView(canliNokta(context, p))
+        val vurgu = if (yon == CagriYonu.CEVAPSIZ) p.danger else p.accent
+        satir.addView(canliNokta(context, p, vurgu, nabiz = yon != CagriYonu.CEVAPSIZ))
         satir.addView(
-            yazi(context, "GELEN ÇAĞRI", 11f, p.accent, agirlik = 700, harfAralik = 0.12f)
+            yazi(context, yon.etiket, 11f, vurgu, agirlik = 700, harfAralik = 0.12f)
                 .apply { setPadding(dp(context, 7), 0, 0, 0) }
         )
         satir.addView(View(context).apply {
@@ -75,7 +84,12 @@ internal object CallerCardViews {
      * Animatör görünümden ayrılınca DURDURULUR: overlay penceresi kaldırıldığında
      * çalışmaya devam eden bir animatör pencereyi canlı tutar.
      */
-    private fun canliNokta(context: Context, p: CallerTema.Palet): View {
+    private fun canliNokta(
+        context: Context,
+        p: CallerTema.Palet,
+        renk: Int = p.accent,
+        nabiz: Boolean = true,
+    ): View {
         val cap = dp(context, 22)
         val kutu = FrameLayout(context).apply {
             layoutParams = LinearLayout.LayoutParams(cap, cap)
@@ -84,7 +98,7 @@ internal object CallerCardViews {
         val hale = View(context).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(p.accent)
+                setColor(renk)
             }
             alpha = 0.15f
             layoutParams = FrameLayout.LayoutParams(cap, cap, Gravity.CENTER)
@@ -92,7 +106,7 @@ internal object CallerCardViews {
         val nokta = View(context).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(p.accent)
+                setColor(renk)
             }
             layoutParams = FrameLayout.LayoutParams(
                 dp(context, 8), dp(context, 8), Gravity.CENTER,
@@ -101,7 +115,9 @@ internal object CallerCardViews {
         kutu.addView(hale)
         kutu.addView(nokta)
 
-        val nabiz = ObjectAnimator.ofPropertyValuesHolder(
+        if (!nabiz) return kutu
+
+        val animator = ObjectAnimator.ofPropertyValuesHolder(
             hale,
             PropertyValuesHolder.ofFloat(View.SCALE_X, 0.62f, 1f),
             PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.62f, 1f),
@@ -112,8 +128,8 @@ internal object CallerCardViews {
             repeatCount = ValueAnimator.INFINITE
         }
         kutu.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(v: View) = nabiz.start()
-            override fun onViewDetachedFromWindow(v: View) = nabiz.cancel()
+            override fun onViewAttachedToWindow(v: View) = animator.start()
+            override fun onViewDetachedFromWindow(v: View) = animator.cancel()
         })
         return kutu
     }
@@ -230,22 +246,45 @@ internal object CallerCardViews {
         return satir
     }
 
-    /** CSS `.cagri-bilgi` — adres ve müşteri notu. Hiçbiri yoksa satır kutusu hiç kurulmaz. */
+    /**
+     * CSS `.cagri-bilgi` — adres, SON SİPARİŞ ve müşteri notu. Hiçbiri yoksa kutu kurulmaz.
+     *
+     * SON SİPARİŞ SATIRI (2026-07-27 saha bulgusu): kart müşteriyi tanıyordu ama siparişinin
+     * durumunu hiç göstermiyordu — bayi telefonda "siparişiniz yolda" diyebilmek için
+     * uygulamayı açmak zorunda kalıyordu. Sıra tasarımın `.cagri-brow` sırasıdır: adres,
+     * hareket, uyarı notu.
+     */
     fun bilgiSatirlari(context: Context, p: CallerTema.Palet, c: CustomerLookup.Customer): View? {
         val adres = c.address?.takeIf { it.isNotBlank() }
         val not = c.note?.takeIf { it.isNotBlank() }
-        if (adres == null && not == null) return null
+        val sonSiparis = c.sonSiparis
+        if (adres == null && not == null && sonSiparis == null) return null
 
         val kutu = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = satirParams(context, ust = 13)
         }
+        var doluSatir = false
         if (adres != null) {
             kutu.addView(bilgiSatiri(context, p, R.drawable.sip_ic_pin, p.muted, adres, p.ink2, uyari = false, ustBosluk = 0))
+            doluSatir = true
+        }
+        if (sonSiparis != null) {
+            // İkon `sip_ic_book`: Flutter kartı burada kutu ikonu kullanıyor ama native tarafta
+            // `res/drawable/sip_ic_box.xml` YOK (bu ajanın sahibi olmadığı dizin) — defter ikonu
+            // en yakın anlamlı karşılık, eklendiğinde tek satırda değişir.
+            kutu.addView(
+                bilgiSatiri(
+                    context, p, R.drawable.sip_ic_book, p.muted,
+                    CallerCard.sonSiparisSatiri(sonSiparis), p.ink2,
+                    uyari = false, ustBosluk = if (doluSatir) 8 else 0,
+                )
+            )
+            doluSatir = true
         }
         if (not != null) {
             // CSS `.cagri-brow.warn` — sarı zeminli not satırı.
-            kutu.addView(bilgiSatiri(context, p, R.drawable.sip_ic_info, p.warn, not, p.warn, uyari = true, ustBosluk = if (adres != null) 8 else 0))
+            kutu.addView(bilgiSatiri(context, p, R.drawable.sip_ic_info, p.warn, not, p.warn, uyari = true, ustBosluk = if (doluSatir) 8 else 0))
         }
         return kutu
     }

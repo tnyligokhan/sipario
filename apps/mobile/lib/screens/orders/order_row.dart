@@ -6,7 +6,9 @@
 //   .srow-adres  → kenarlıklı adres kutusu (elle sıralama kipinde gizli)
 //   .srow-urunler→ "SİPARİŞ KALEMLERİ" başlığı + madde madde döküm
 //   .srow-not    → sarı not kutusu (elle kipinde gizli)
-//   .srow-acts   → Ara / WhatsApp / Konum (yalnız açık + telefonu olan siparişte, elle kipinde gizli)
+//   .srow-acts   → Ara / WhatsApp / Konum (müşterili + açık siparişte, elle kipinde gizli).
+//                  Şerit ve düğmelerin davranışı `musteri_eylemleri.dart`ta; telefon/konum yoksa
+//                  düğme PASİF çizilir ama gizlenmez (saha hatası 3).
 
 import 'package:flutter/material.dart';
 
@@ -15,6 +17,7 @@ import '../../theme/components/atoms.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import 'musteri_eylemleri.dart';
 import 'order_queries.dart';
 
 class SiparisSatiri extends StatelessWidget {
@@ -30,6 +33,7 @@ class SiparisSatiri extends StatelessWidget {
     this.onBildir,
     this.elle = false,
     this.tutamac,
+    this.tutamacSagda = true,
   });
 
   final OrderListItem item;
@@ -58,6 +62,14 @@ class SiparisSatiri extends StatelessWidget {
   /// `ReorderableListView`in verdiği sürükleme tutamacı sarmalayıcısı.
   final Widget Function(Widget child)? tutamac;
 
+  /// Tutamaç SAĞDA mı çizilsin (varsayılan) yoksa solda mı.
+  ///
+  /// Saha hatası 4: tasarım tutamacı sola koyuyordu, telefonu sağ eliyle tutan bayinin başparmağı
+  /// oraya yetişmiyor. Kullanıcı kararı: "çoğunluk sağ elini kullanıyor, ama sol elle kullananları
+  /// da göz ardı edemeyiz" → VARSAYILAN SAĞ, tercih sola alınabilir (elle sıralama bandındaki
+  /// anahtar). Tercihin cihazda KALICI saklanması henüz yok — bkz. [tutamacSagdaTercihi].
+  final bool tutamacSagda;
+
   bool get _acik => item.order.status == 'open';
 
   @override
@@ -85,7 +97,7 @@ class SiparisSatiri extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    if (elle) ...[
+                    if (elle && !tutamacSagda) ...[
                       _Tutamac(sarmala: tutamac),
                       const SizedBox(width: SipSpace.md),
                     ],
@@ -113,6 +125,10 @@ class SiparisSatiri extends StatelessWidget {
                       sipTutar(o.totalKurus),
                       style: SipText.satirTutarBuyuk.copyWith(color: t.ink),
                     ),
+                    if (elle && tutamacSagda) ...[
+                      const SizedBox(width: SipSpace.md),
+                      _Tutamac(sarmala: tutamac),
+                    ],
                   ],
                 ),
                 const SizedBox(height: SipSpace.md),
@@ -231,10 +247,14 @@ class SiparisSatiri extends StatelessWidget {
           ],
 
           // ── .srow-acts ────────────────────────────────────────────────────────────────────
-          if ((telefon ?? '').isNotEmpty && _acik && !elle) ...[
+          // Şerit MÜŞTERİLİ ve AÇIK siparişte çizilir; telefonu/konumu olmayan müşteride de
+          // çizilir ama düğmeler pasif görünür (hata 3: "yok" ile "bozuk" ayırt edilmeliydi).
+          // Tezgâh satışında (müşterisiz) hiç çizilmez — arayacak kimse yok.
+          if (o.customerId != null && _acik && !elle) ...[
             const SizedBox(height: SipSpace.md),
-            _EylemSeridi(
+            MusteriEylemSeridi(
               musteriAd: item.customerName ?? 'Müşteri',
+              telefon: telefon,
               adres: adres,
               onBildir: onBildir,
             ),
@@ -359,113 +379,3 @@ class _NotKutusu extends StatelessWidget {
   }
 }
 
-/// CSS `.srow-acts` — Ara · WhatsApp · Konum. Tasarımda üçü de yalnız bildirim gösterir
-/// (harici uygulama açma Faz 6'ya bırakıldı; ek bağımlılık girmiyoruz).
-class _EylemSeridi extends StatelessWidget {
-  const _EylemSeridi({required this.musteriAd, required this.adres, this.onBildir});
-
-  final String musteriAd;
-  final AdresBilgi? adres;
-  final ValueChanged<String>? onBildir;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    final konumVar = adres?.konumVar ?? false;
-    return Row(
-      children: [
-        Expanded(
-          child: _EylemDugmesi(
-            ikon: SipIcons.phone,
-            ikonRenk: t.accent,
-            etiket: 'Ara',
-            onTap: () => onBildir?.call('$musteriAd aranıyor…'),
-          ),
-        ),
-        const SizedBox(width: 7),
-        Expanded(
-          child: _EylemDugmesi(
-            ikon: SipIcons.wa,
-            ikonRenk: const Color(0xFF1FA855), // CSS `.srow-acts` WhatsApp yeşili (marka rengi)
-            ikonKalinlik: 1.9,
-            etiket: 'WhatsApp',
-            onTap: () => onBildir?.call('WhatsApp açılıyor…'),
-          ),
-        ),
-        const SizedBox(width: 7),
-        Expanded(
-          child: _EylemDugmesi(
-            ikon: SipIcons.pin,
-            ikonRenk: konumVar ? t.ok : t.muted,
-            etiket: 'Konum',
-            soluk: !konumVar,
-            kenarlik: konumVar ? t.okSoft : null,
-            onay: konumVar,
-            onTap: () => onBildir?.call(konumVar
-                ? 'Konum haritada açılıyor (${adres!.konumMetni})…'
-                : 'Konum kayıtlı değil — müşteri detayından alın'),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EylemDugmesi extends StatelessWidget {
-  const _EylemDugmesi({
-    required this.ikon,
-    required this.ikonRenk,
-    required this.etiket,
-    required this.onTap,
-    this.ikonKalinlik = 2.1,
-    this.soluk = false,
-    this.kenarlik,
-    this.onay = false,
-  });
-
-  final String ikon;
-  final Color ikonRenk;
-  final String etiket;
-  final VoidCallback onTap;
-  final double ikonKalinlik;
-  final bool soluk;
-  final Color? kenarlik;
-  final bool onay;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Opacity(
-      opacity: soluk ? 0.62 : 1,
-      child: SipDokun(
-        onTap: onTap,
-        zemin: t.surface2,
-        basiliZemin: t.line2,
-        radius: SipRadius.brHap,
-        kenarlik: kenarlik == null ? null : Border.all(color: kenarlik!),
-        child: SizedBox(
-          height: 38,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SipIcon(ikon, boyut: 15, kalinlik: ikonKalinlik, renk: ikonRenk),
-              const SizedBox(width: SipSpace.sm),
-              Flexible(
-                child: Text(
-                  etiket,
-                  style: SipText.metin(12, w: 700).copyWith(color: t.ink2),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (onay) ...[
-                const SizedBox(width: SipSpace.xs),
-                SipIcon(SipIcons.check, boyut: 11, kalinlik: 3, renk: t.ok),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

@@ -32,6 +32,7 @@ Future<CagriEylemi?> cagriKartiGoster(
   required CagriKisi kisi,
   Iterable<String> muafNumaralar = const [],
   DateTime? baslangic,
+  AramaTipi yon = AramaTipi.gelen,
 }) {
   if (numaraMuafMi(kisi.numara, muafNumaralar)) {
     return Future<CagriEylemi?>.value();
@@ -42,7 +43,7 @@ Future<CagriEylemi?> cagriKartiGoster(
     barrierLabel: 'Çağrı kartını kapat',
     barrierColor: Colors.transparent, // perde aşağıdaki BackdropFilter ile çizilir
     transitionDuration: const Duration(milliseconds: 280),
-    pageBuilder: (ctx, _, _) => _CagriPerde(kisi: kisi, baslangic: baslangic),
+    pageBuilder: (ctx, _, _) => _CagriPerde(kisi: kisi, baslangic: baslangic, yon: yon),
     transitionBuilder: (ctx, anim, _, child) {
       // CSS `cUp`: translateY(22) scale(.96) opacity .4 → 0/1/1
       final e = CurvedAnimation(
@@ -66,10 +67,15 @@ Future<CagriEylemi?> cagriKartiGoster(
 
 /// CSS `.cagri-overlay` — bulanık perde, kart dikey ortada, yanlardan 16 boşluk.
 class _CagriPerde extends StatelessWidget {
-  const _CagriPerde({required this.kisi, this.baslangic});
+  const _CagriPerde({
+    required this.kisi,
+    this.baslangic,
+    this.yon = AramaTipi.gelen,
+  });
 
   final CagriKisi kisi;
   final DateTime? baslangic;
+  final AramaTipi yon;
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +97,7 @@ class _CagriPerde extends StatelessWidget {
               onTap: () {},
               child: CagriKarti(
                 kisi: kisi,
+                yon: yon,
                 baslangic: baslangic,
                 onKapat: () => kapat(CagriEylemi.kapat),
                 onSiparis: () => kapat(CagriEylemi.siparis),
@@ -111,6 +118,7 @@ class CagriKarti extends StatelessWidget {
   const CagriKarti({
     super.key,
     required this.kisi,
+    this.yon = AramaTipi.gelen,
     this.baslangic,
     this.onKapat,
     this.onSiparis,
@@ -119,6 +127,9 @@ class CagriKarti extends StatelessWidget {
   });
 
   final CagriKisi kisi;
+
+  /// Çağrının yönü — üst şeritteki etiket buradan gelir.
+  final AramaTipi yon;
 
   /// Çağrının başladığı an; verilirse üst şeritte süre saniye saniye işler.
   final DateTime? baslangic;
@@ -147,7 +158,7 @@ class CagriKarti extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          CagriUstSerit(baslangic: baslangic, onKapat: onKapat),
+          CagriUstSerit(yon: yon, baslangic: baslangic, onKapat: onKapat),
           CagriKimSatiri(kisi: kisi),
           if (kisi.kayitli) ...[
             if (kisi.bakiyeKurus != 0) CagriBakiyeSeridi(kurus: kisi.bakiyeKurus),

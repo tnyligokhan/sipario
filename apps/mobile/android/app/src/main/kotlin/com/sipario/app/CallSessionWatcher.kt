@@ -29,7 +29,12 @@ object CallSessionWatcher {
     private val main = Handler(Looper.getMainLooper())
     private var running = false
 
-    fun start(context: Context) {
+    /**
+     * [oturum] çağrının kimliğini taşır: yanıtlanmadan biten bir GELEN çağrı cevapsızdır ve
+     * hem kartın başlığı hem çağrı günlüğü bunu göstermek zorundadır. Yönü bilmeden bu ayrım
+     * yapılamaz — yanıtlanmayan bir GİDEN çağrı cevapsız değildir, bayinin açılmayan aramasıdır.
+     */
+    fun start(context: Context, oturum: CagriOturumu) {
         if (running) return
         running = true
 
@@ -56,8 +61,20 @@ object CallSessionWatcher {
                 AudioManager.MODE_NORMAL -> if (sawCall) {
                     // Yanıtlanmadan NORMAL'e dönüş = cevapsız çağrı; kartı yine göster —
                     // bayi kimin aradığını kaçırmamalı.
-                    Log.i(TAG, "cagri bitti (yanitlandi=$answered), kart yeniden gosteriliyor")
-                    CallerOverlay.reshow(app)
+                    val cevapsiz = !answered && oturum.yon == CagriYonu.GELEN
+                    Log.i(TAG, "cagri bitti (yanitlandi=$answered, cevapsiz=$cevapsiz)")
+                    if (cevapsiz) {
+                        // Günlükteki "incoming" satırını AYNI anahtarla cevapsıza çevirir;
+                        // yeni bir çağrı satırı DEĞİL, aynı çağrının son hâli.
+                        CallJournal.kaydet(
+                            app,
+                            oturum.numara,
+                            CagriYonu.CEVAPSIZ,
+                            oturum.anahtar,
+                            oturum.baslangicIso,
+                        )
+                    }
+                    CallerOverlay.reshow(app, if (cevapsiz) CagriYonu.CEVAPSIZ else null)
                     running = false
                     return@Runnable
                 }

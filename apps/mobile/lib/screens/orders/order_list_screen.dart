@@ -6,8 +6,9 @@
 // sonra sipariş satırları. Elle sıralama kipinde satırlar sürüklenebilir hale gelir, adres/not/
 // eylem şeritleri gizlenir ve sıra `orders.sort_index` olarak KALICI yazılır.
 //
-// Satırın kendisi order_row.dart'ta, sorgular order_queries.dart'ta, seçim sheet'leri
-// order_sheets.dart'ta. Bu dosya yalnız DURUM ve akış birleştirmesi yapar.
+// Satırın kendisi order_row.dart'ta, sorgular order_queries.dart'ta, liste/bant/süzgeç parçaları
+// order_list_parts.dart'ta, seçim sheet'leri order_sheets.dart'ta. Bu dosya yalnız DURUM ve akış
+// birleştirmesi yapar.
 
 import 'dart:async';
 
@@ -23,11 +24,10 @@ import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
-import '../../theme/typography.dart';
 import '../team.dart';
 import 'order_detail_screen.dart';
+import 'order_list_parts.dart';
 import 'order_queries.dart';
-import 'order_row.dart';
 import 'order_sheets.dart';
 
 // Sorgu/biçim yardımcıları bu ekranın YÜZEYİNDEN de erişilebilir olmalı: mevcut testler ve
@@ -39,6 +39,7 @@ export 'order_queries.dart'
         OrderListItem,
         OrderSort,
         elleSiraYazimi,
+        kAtanmamisKurye,
         musteriKod,
         odemeTipiEtiketi,
         saatBicimi,
@@ -48,6 +49,9 @@ export 'order_queries.dart'
         siralamaEtiketi,
         watchOrderItemsSummary,
         watchOrders;
+
+export 'order_list_parts.dart'
+    show kTumKuryeler, kuryeSuzgeciGorunur, tutamacSagdaTercihi, watchKuryeSuzgecAdaylari;
 
 class OrderListScreen extends StatefulWidget {
   const OrderListScreen({
@@ -62,7 +66,12 @@ class OrderListScreen extends StatefulWidget {
   final AppDatabase db;
   final bool writable;
 
-  /// Oturumdaki kullanıcı — kuryeye atanmış siparişleri süzen sorgunun hedefi.
+  /// Oturumdaki kullanıcı.
+  ///
+  /// LİSTEYİ SÜZMEZ (2026-07-27): eskiden `watchOrders(assignedTo:)`e geçiliyordu ama sorgu o
+  /// parametreyi hiç kullanmıyordu — sessiz ölü bağdı. Artık `assignedTo` gerçek bir süzgeç ve
+  /// hedefini PATRON seçer; oturum kullanıcısını oraya bağlamak, kuryenin listesini haber
+  /// vermeden daraltırdı. Alan `home_shell` sözleşmesinde durduğu için korunuyor.
   final String? userId;
   final bool canAssign; // kurye çipine dokununca kurye değiştirilebilir mi (K2)
 
@@ -76,6 +85,17 @@ class OrderListScreen extends StatefulWidget {
 class _OrderListScreenState extends State<OrderListScreen> {
   OrderFilter _filtre = OrderFilter.acik;
   OrderSort _sirala = OrderSort.saat;
+
+  /// Kurye süzgeci (saha hatası 6). null = süzme yok. Adı ayrıca tutulur: üst başlıkta seçili
+  /// kuryeyi göstermek için ekip listesini yeniden sorgulamaya değmez.
+  String? _kuryeId;
+  String? _kuryeAdi;
+
+  /// Oturumdaki rol (`sync_meta.user_role`) — kurye süzgeci YALNIZ patrona görünür.
+  String? _rol;
+
+  /// Sürükle-bırak tutamacının tarafı (saha hatası 4). Varsayılan SAĞ.
+  bool _tutamacSagda = tutamacSagdaTercihi;
 
   /// Sürükleme sırasındaki İYİMSER sıra (sipariş id'leri). Boşken kalıcı `sort_index` geçerlidir.
   List<String> _elleSira = const [];
@@ -100,7 +120,14 @@ class _OrderListScreenState extends State<OrderListScreen> {
     _metaAbone = widget.db.watchSyncState().listen((meta) {
       // Oturum yoksa (token null) çevrimiçi eylem hiç sunulmaz.
       final yeni = meta.authToken == null ? null : meta.routeCredits;
-      if (mounted && yeni != _otoHak) setState(() => _otoHak = yeni);
+      // Rol de AKIŞTAN okunur (aynı gerekçe): giriş yanıtı ile senkron arasında değişebilir ve
+      // tek atış okuma "rol yok" görüp süzgeci sonsuza dek gizlerdi.
+      final rol = meta.userRole;
+      if (!mounted || (yeni == _otoHak && rol == _rol)) return;
+      setState(() {
+        _otoHak = yeni;
+        _rol = rol;
+      });
     });
   }
 
@@ -155,9 +182,26 @@ class _OrderListScreenState extends State<OrderListScreen> {
               initialData: 0,
               builder: (context, snap) => SipUst(
                 baslik: 'Siparişler',
-                alt: 'Bugün ${snap.data ?? 0} açık',
+                // Süzgeç açıkken kimin listesine bakıldığı BAŞLIKTA yazar: yoksa patron boş
+                // listeyi "sipariş yok" sanır, oysa yalnız o kuryede yoktur.
+                alt: 'Bugün ${snap.data ?? 0} açık'
+                    '${_kuryeId == null ? '' : ' · ${_kuryeAdi ?? 'Kurye'}'}',
                 onMenu: widget.onMenu,
                 sag: [
+                  // Kurye süzgeci — yalnız patron (K2 dışı bir GÖRÜNÜM kapısı; kurye kendi
+                  // işini görür, ona süzgeç gürültüdür). Elle sıralama kipinde gizlenir:
+                  // sıra yazarken listenin altından küme değişmemeli.
+                  if (kuryeSuzgeciGorunur(_rol) && !_elle) ...[
+                    SipIkonButon(
+                      ikon: SipIcons.truck,
+                      ikonBoyut: 20,
+                      zemin: _kuryeId == null ? t.surface : t.accentSoft,
+                      renk: _kuryeId == null ? t.ink : t.accent,
+                      etiket: 'Kuryeye göre süz',
+                      onTap: _kuryeSuzgeciAc,
+                    ),
+                    const SizedBox(width: SipSpace.md),
+                  ],
                   if (_elle)
                     SipMetinButon(etiket: 'Bitti', onTap: _elleBitir)
                   else
@@ -173,24 +217,13 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
             // ── .elle-bant ────────────────────────────────────────────────────────────────
             if (_elle)
-              Container(
-                margin: const EdgeInsets.fromLTRB(
-                    SipSpace.govde, 0, SipSpace.govde, SipSpace.lg),
-                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-                decoration:
-                    BoxDecoration(color: t.accentSoft, borderRadius: SipRadius.brHap),
-                child: Row(
-                  children: [
-                    SipIcon(SipIcons.info, boyut: 14, kalinlik: 2, renk: t.accent),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        'Tutamaçtan sürükleyip bırak, bitince “Bitti”ye bas.',
-                        style: SipText.metin(12, w: 600).copyWith(color: t.accent),
-                      ),
-                    ),
-                  ],
-                ),
+              ElleBant(
+                tutamacSagda: _tutamacSagda,
+                onTarafDegis: (sagda) => setState(() {
+                  _tutamacSagda = sagda;
+                  // Süreç ömrü boyunca hatırlanır (ekranlar arası); kalıcı saklama henüz yok.
+                  tutamacSagdaTercihi = sagda;
+                }),
               ),
 
             // ── .segtab ───────────────────────────────────────────────────────────────────
@@ -226,7 +259,10 @@ class _OrderListScreenState extends State<OrderListScreen> {
             stream: _telefonlar,
             initialData: const {},
             builder: (context, telSnap) => StreamBuilder<List<OrderListItem>>(
-              stream: watchOrders(widget.db, _filtre, assignedTo: widget.userId),
+              // `assignedTo` artık KURYE SÜZGECİDİR (saha hatası 6). Önceden oturumdaki
+              // kullanıcı geçiliyordu ama sorgu bu parametreyi hiç kullanmıyordu — sessiz
+              // ölü koddu. Kurye kendi işini "Açık" sekmesinde zaten görür.
+              stream: watchOrders(widget.db, _filtre, assignedTo: _kuryeId),
               builder: (context, snap) {
                 if (snap.hasError) return SipHataEkran(onTekrar: () => setState(() {}));
                 final ham = snap.data;
@@ -237,13 +273,14 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 // "Oto Sırala"nın kaynağı: kullanıcının GÖRDÜĞÜ küme. build sırasında
                 // setState ÇAĞRILMAZ — bu yalnız bir alan ataması, çizimi etkilemez.
                 _sonListe = liste;
-                return _Liste(
+                return SiparisListesi(
                   liste: liste,
                   satirlar: satirSnap.data ?? const {},
                   adresler: adresSnap.data ?? const {},
                   telefonlar: telSnap.data ?? const {},
                   ekip: ekipSnap.data ?? const [],
                   elle: _elle,
+                  tutamacSagda: _tutamacSagda,
                   onAc: _detayAc,
                   // Salt-okunur kipte de GEÇİLİR: çipe dokunan kullanıcı sessizlik değil
                   // gerekçe duyar (`_kuryeAc` kapıları tek yerde tutar).
@@ -264,9 +301,13 @@ class _OrderListScreenState extends State<OrderListScreen> {
   Widget _bos() => SipBosDurum(
         ikon: SipIcons.list,
         baslik: 'Sipariş yok',
-        aciklama: _filtre == OrderFilter.acik
-            ? 'Açık sipariş yok. Yeni sipariş için + tuşuna bas.'
-            : 'Bu filtrede sipariş bulunmuyor.',
+        // Süzgeç açıkken metin SÜZGECİ söyler: "sipariş yok" demek patronu yanıltırdı
+        // (sipariş var, o kuryede yok).
+        aciklama: _kuryeId != null
+            ? '${_kuryeAdi ?? 'Seçili kurye'} için bu filtrede sipariş yok.'
+            : _filtre == OrderFilter.acik
+                ? 'Açık sipariş yok. Yeni sipariş için + tuşuna bas.'
+                : 'Bu filtrede sipariş bulunmuyor.',
       );
 
   // ── Eylemler ────────────────────────────────────────────────────────────────────────────
@@ -280,6 +321,26 @@ class _OrderListScreenState extends State<OrderListScreen> {
         // Başlık zaten elimizde — sheet açılmadan önce ikinci bir sorgu atılmasın.
         baslik: item.customerName ?? 'Tezgâh satışı',
       );
+
+  /// "Kuryeye Göre" süzgeci (saha hatası 6 — patron hiçbir listede kuryeye göre süzemiyordu).
+  ///
+  /// Aday listesi tek atış okunur: sheet açılırken bir akış tikini beklemek, dokunma ile ekran
+  /// arasına gereksiz gecikme koyardı. Süzgeç yalnız GÖRÜNÜMÜ değiştirir, hiçbir kayıt yazmaz —
+  /// bu yüzden salt-okunur kipte de çalışır.
+  Future<void> _kuryeSuzgeciAc() async {
+    final adaylar = await watchKuryeSuzgecAdaylari(widget.db).first;
+    if (!mounted) return;
+    if (adaylar.isEmpty) {
+      SipToast.goster(context, 'Süzülecek kullanıcı yok — ekip henüz senkronlanmadı');
+      return;
+    }
+    final secim = await kuryeSuzgecSheet(context, adaylar: adaylar, seciliId: _kuryeId);
+    if (secim == null || !mounted) return;
+    setState(() {
+      _kuryeId = secim == kTumKuryeler ? null : secim;
+      _kuryeAdi = _kuryeId == null ? null : kuryeSuzgecEtiketi(_kuryeId, adaylar);
+    });
+  }
 
   Future<void> _kuryeAc(OrderListItem item) async {
     // Kapalı sipariş: tasarım dokunuşu YUTMAZ, nedenini söyler (s-siparisler.jsx:24).
@@ -426,79 +487,3 @@ class _OrderListScreenState extends State<OrderListScreen> {
   }
 }
 
-/// CSS `.sliste` — elle kipinde sürüklenebilir, normalde düz liste. İki kip AYNI satır
-/// bileşenini çizer (görsel ayrışmasın); fark yalnız tutamaç ve sürükleme tanıyıcısıdır.
-class _Liste extends StatelessWidget {
-  const _Liste({
-    required this.liste,
-    required this.satirlar,
-    required this.adresler,
-    required this.telefonlar,
-    required this.ekip,
-    required this.elle,
-    required this.onAc,
-    required this.onKuryeAc,
-    required this.onBildir,
-    required this.onSirala,
-  });
-
-  final List<OrderListItem> liste;
-  final Map<String, List<OrderLine>> satirlar;
-  final Map<String, AdresBilgi> adresler;
-  final Map<String, String> telefonlar;
-  final List<User> ekip;
-  final bool elle;
-  final ValueChanged<OrderListItem> onAc;
-  final ValueChanged<OrderListItem>? onKuryeAc;
-  final ValueChanged<String> onBildir;
-  final ValueChanged<List<OrderListItem>> onSirala;
-
-  static const _dolgu = EdgeInsets.fromLTRB(SipSpace.govde, 0, SipSpace.govde, 96);
-
-  Widget _satir(BuildContext context, int i, {Key? key}) {
-    final item = liste[i];
-    final musteriId = item.order.customerId;
-    return Padding(
-      key: key,
-      padding: EdgeInsets.only(top: i == 0 ? 0 : SipSpace.md),
-      child: SiparisSatiri(
-        item: item,
-        satirlar: satirlar[item.order.id] ?? const [],
-        kuryeAdi: kullaniciAdi(ekip, item.order.assignedUserId),
-        adres: musteriId == null ? null : adresler[musteriId],
-        telefon: musteriId == null ? null : telefonlar[musteriId],
-        elle: elle,
-        tutamac: elle
-            ? (child) => ReorderableDragStartListener(index: i, child: child)
-            : null,
-        onAc: () => onAc(item),
-        onKuryeAc: onKuryeAc == null ? null : () => onKuryeAc!(item),
-        onBildir: onBildir,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!elle) {
-      return ListView.builder(
-        padding: _dolgu,
-        itemCount: liste.length,
-        itemBuilder: (context, i) => _satir(context, i),
-      );
-    }
-    return ReorderableListView.builder(
-      padding: _dolgu,
-      buildDefaultDragHandles: false, // tutamaç tasarımda `.srow-grip`, satırın tamamı değil
-      itemCount: liste.length,
-      itemBuilder: (context, i) =>
-          _satir(context, i, key: ValueKey(liste[i].order.id)),
-      onReorder: (eski, yeni) {
-        final kopya = [...liste];
-        final tasinan = kopya.removeAt(eski);
-        kopya.insert(yeni > eski ? yeni - 1 : yeni, tasinan);
-        onSirala(kopya);
-      },
-    );
-  }
-}

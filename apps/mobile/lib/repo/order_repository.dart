@@ -87,17 +87,26 @@ class OrderRepository {
   }
 
   /// Teslimat parayı deftere düşürür (FAZ 3), teslim olayıyla AYNI transaction'da:
-  ///  - veresiye → debit(+total) (borç yazılır).
-  ///  - nakit/kart/havale → debit(+total) + payment(−total, ödeme tipiyle) (net borç 0, kasa dolu).
+  ///  - debit(+total) HER teslimde yazılır — satış her hâlükârda borç doğurur.
+  ///  - payment(−tahsil edilen, ödeme tipiyle) yalnız para alındıysa yazılır.
+  ///
+  /// KISMİ ÖDEME (2026-07-27, saha eksiği 7): [tahsilKurus] tahsil EDİLEN tutardır. Verilmezse
+  /// eski davranış korunur (veresiye → 0, diğerleri → tutarın tamamı). Tahsil sipariş tutarından
+  /// AZSA kalan fark AYRI BİR KAYIT DEĞİLDİR — ödenmemiş `debit`in kendisi borçtur ve bakiye zaten
+  /// `SUM(amount_kurus)`. FAZLAYSA (müşteri önceki borcunu da kapatıyor) payment olduğu gibi yazılır
+  /// ve bakiye eksiye (alacak) düşebilir: kasaya giren para deftere `payment` olarak girmezse gün
+  /// sonu kasa özeti yanlış çıkar. Veresiye (tahsil 0) ve peşin (tahsil = total) bu kuralın uç
+  /// noktalarıdır — yeni entry_type/olay/migration gerekmedi, append-only (kırmızı çizgi #2) aynen.
   ///
   /// TESLİM İDEMPOTENSİ (FAZ 4, DECISIONS): teslimden türeyen TÜM olayların client_event_id'si (ve
   /// ledger id'leri) sipariş id'sinden DETERMİNİSTİK uuid5 ile üretilir. İki cihaz aynı siparişi
   /// offline teslim edince AYNI id'ler → sunucu processed_events UNIQUE ile tek defter seti bırakır.
   /// Yerel çift-dokunma zaten teslim edilmiş siparişte erken döner (UI koruması; asıl garanti uuid5).
+  /// Kısmi ödeme bunu BOZMAZ: id'ler tutardan değil sipariş kimliğinden türüyor.
   ///
   /// collectedByUserId nakit atfıdır (kasa devri); verilmezse oturumdaki kullanıcıdan (syncMeta) alınır.
   Future<void> deliver(String orderId,
-      {required String paymentType, String? collectedByUserId}) async {
+      {required String paymentType, int? tahsilKurus, String? collectedByUserId}) async {
     final meta = await db.syncState();
     final at = correctedNowIso(meta.serverTimeOffsetMs);
     final device = meta.deviceId;
@@ -125,21 +134,26 @@ class OrderRepository {
       final total = lines.fold<int>(0, (s, l) => s + l.lineTotalKurus);
       final customerId = order.customerId;
 
-      switch (paymentType) {
-        case 'veresiye':
-          await writeLedgerEntry(db, entryType: 'debit', amountKurus: total,
-              id: deliveryEventId(orderId, 'debit'), clientEventId: deliveryEventId(orderId, 'debit'),
-              customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
-        case 'nakit':
-        case 'kart':
-        case 'havale':
-          await writeLedgerEntry(db, entryType: 'debit', amountKurus: total,
-              id: deliveryEventId(orderId, 'debit'), clientEventId: deliveryEventId(orderId, 'debit'),
-              customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
-          await writeLedgerEntry(db, entryType: 'payment', amountKurus: -total, paymentType: paymentType,
-              id: deliveryEventId(orderId, 'payment'), clientEventId: deliveryEventId(orderId, 'payment'),
-              collectedByUserId: collector,
-              customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
+      // Tahsil edilen. Çağıran söylemediyse eski kural: veresiye 0, diğerleri tutarın tamamı.
+      // ÜST SINIR YOK — sipariş tutarını aşan tahsilat meşrudur (müşteri önceki borcunu da
+      // kapatıyor). Alt sınır 0: negatif "tahsilat" diye bir şey yok, veresiye de tanımı gereği
+      // sıfır tahsilattır (aksi hâlde payment_type='veresiye' taşıyan bir ödeme satırı üretir ve
+      // sunucu onu haklı olarak reddeder — kasa yalnız nakit|kart|havale tanır).
+      final istenen = tahsilKurus ?? (paymentType == 'veresiye' ? 0 : total);
+      final alinan = (paymentType == 'veresiye' || istenen < 0) ? 0 : istenen;
+
+      // Satışın borcu: her teslimde, TAM tutarla.
+      await writeLedgerEntry(db, entryType: 'debit', amountKurus: total,
+          id: deliveryEventId(orderId, 'debit'), clientEventId: deliveryEventId(orderId, 'debit'),
+          customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
+
+      // Alınan para: yalnız gerçekten alındıysa. 0 tahsilatlı bir `payment` satırı kasayı
+      // kirletir ve defterde anlamı olmayan bir hareket bırakır.
+      if (alinan > 0) {
+        await writeLedgerEntry(db, entryType: 'payment', amountKurus: -alinan, paymentType: paymentType,
+            id: deliveryEventId(orderId, 'payment'), clientEventId: deliveryEventId(orderId, 'payment'),
+            collectedByUserId: collector,
+            customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
       }
     });
   }

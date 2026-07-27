@@ -53,22 +53,59 @@ class OrderListItem {
   final int customerBalanceKurus;
 }
 
+/// Kurye süzgecinde "kuryesi atanmamış siparişler" seçeneğinin id yerine geçen değeri.
+/// Gerçek bir kullanıcı id'si (UUIDv7) ile ÇAKIŞMAZ — uuid biçiminde değildir.
+const String kAtanmamisKurye = '__atanmamis__';
+
 /// Sipariş listesi sorgusu — müşteri adıyla birlikte, en yeni önce. Ekrandan bağımsız fonksiyon:
 /// sorgu mantığı saf async testle sınanır.
 /// SÖZLEŞME: testler doğrudan çağırır — imza/davranış DEĞİŞMEZ.
+///
+/// [assignedTo]: kurye süzgeci (saha hatası 6). null → süzme yok. [kAtanmamisKurye] → kuryesi
+/// olmayanlar. Diğer değerler kullanıcı id'sidir; PATRON da bir kurye gibi süzülebilir (kullanıcı
+/// kararı: "patronun kendisi de aslında bir kurye olarak görünmeli") — sorgu role bakmaz, yalnız
+/// `orders.assigned_user_id`e bakar, dolayısıyla bu kendiliğinden çalışır.
 Stream<List<OrderListItem>> watchOrders(AppDatabase db, OrderFilter filter, {String? assignedTo}) {
   final q = db.select(db.orders).join([
     leftOuterJoin(db.customers, db.customers.id.equalsExp(db.orders.customerId)),
   ]);
   q.where(db.orders.deletedAt.isNull());
+  if (assignedTo == kAtanmamisKurye) {
+    q.where(db.orders.assignedUserId.isNull());
+  } else if (assignedTo != null) {
+    q.where(db.orders.assignedUserId.equals(assignedTo));
+  }
   switch (filter) {
     case OrderFilter.acik:
       q.where(db.orders.status.equals('open'));
     case OrderFilter.teslim:
       q.where(db.orders.status.equals('delivered'));
     case OrderFilter.borclu:
-      // Tasarımdaki "Borçlu" sekmesi: siparişin müşterisinin defter bakiyesi borçtaysa.
-      // Müşterisiz (tezgâh) sipariş kimseye borç yazmaz → listeye girmez.
+      // SAHA HATASI (2026-07-27): sekme yalnız "müşterinin bakiyesi borçta" diyordu ve HENÜZ
+      // TESLİM EDİLMEMİŞ siparişleri de listeliyordu. Teslim edilmemiş mal borç değildir —
+      // müşteri o siparişten dolayı hiçbir şey borçlanmamıştır; deftere borç, teslim anında
+      // yazılır (`OrderRepository.deliver` → debit). Sekme mantığı üç şartın kesişimidir:
+      //   1) sipariş TESLİM EDİLMİŞ (status = delivered),
+      //   2) o siparişe karşılık TAHSİL EDİLEN para, sipariş tutarının ALTINDA,
+      //   3) müşterinin defter bakiyesi hâlâ borçta (> 0) — tahsil edilmiş borç listede kalmasın.
+      //
+      // (2) neden `payment_type = 'veresiye'` DEĞİL: kısmi ödeme geldi (2026-07-27) — "50 ver
+      // kalanı yaz" teslimi `payment_type = 'nakit'` taşır ama geriye borç bırakır; ödeme tipine
+      // bakan bir sorgu o siparişi borçlu saymazdı. Doğru ölçüt defterin kendisidir: siparişe
+      // bağlı `payment` satırlarının toplamı (negatif yazılır) + sipariş tutarı > 0 ise ödenmemiş
+      // bakiye vardır. Ters kayıtla (düzeltme) iptal edilen bir tahsilat da toplamda kendiliğinden
+      // geri döner — append-only defterin doğal sonucu.
+      //
+      // Müşterisiz (tezgâh) sipariş kimseye borç yazmaz → müşteri join'i null, listeye girmez.
+      final tahsilat = subqueryExpression<int>(
+        db.selectOnly(db.ledgerEntries)
+          ..addColumns([db.ledgerEntries.amountKurus.sum()])
+          ..where(db.ledgerEntries.relatedOrderId.equalsExp(db.orders.id) &
+              db.ledgerEntries.entryType.equals('payment')),
+      );
+      q.where(db.orders.status.equals('delivered'));
+      q.where((coalesce([tahsilat, const Constant(0)]) + db.orders.totalKurus)
+          .isBiggerThanValue(0));
       q.where(db.customers.balanceKurus.isBiggerThanValue(0));
     case OrderFilter.tumu:
       break;

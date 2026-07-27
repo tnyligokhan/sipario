@@ -77,6 +77,10 @@ class CagriBilgiSatirlari extends StatelessWidget {
 
     final son = kisi.sonHareket;
     if (son != null && son.isNotEmpty) {
+      // Siparişin DURUMU satırın sonunda rozet olarak durur (2026-07-27 saha bulgusu: kart
+      // son siparişi yazıyor ama "yolda mı, teslim mi" demiyordu). Rozet metnin İÇİNE
+      // katılmaz: uzun sipariş dökümü kısaldığında ilk kaybolacak şey durum olurdu.
+      final durum = kisi.sonSiparisDurumu;
       satirlar.add(
         _BilgiSatiri(
           ikon: kisi.sonHareketTuru == SonHareketTuru.defter
@@ -84,6 +88,13 @@ class CagriBilgiSatirlari extends StatelessWidget {
               : SipIcons.box,
           ikonRenk: t.muted,
           metin: son,
+          sag: durum == null || durum.isEmpty
+              ? null
+              : SipPil(
+                  etiket: durum,
+                  renk: _durumRenk(t, durum),
+                  zemin: _durumZemin(t, durum),
+                ),
         ),
       );
     }
@@ -117,6 +128,21 @@ class CagriBilgiSatirlari extends StatelessWidget {
     );
   }
 }
+
+/// Durum rozetinin rengi — `SipDurumPili` ile aynı dil: teslim `ok`, iptal sönük, açık/yolda
+/// `accent`. Eşleme metin üzerinden yapılır çünkü kart ham `status` değil, okunabilir sözcük
+/// taşır (native kart da aynı sözcüğü yazar).
+Color _durumRenk(SipTokens t, String durum) => switch (durum) {
+      'Teslim edildi' => t.ok,
+      'İptal edildi' => t.muted,
+      _ => t.accent,
+    };
+
+Color _durumZemin(SipTokens t, String durum) => switch (durum) {
+      'Teslim edildi' => t.okSoft,
+      'İptal edildi' => t.line,
+      _ => t.accentSoft,
+    };
 
 class _BilgiSatiri extends StatelessWidget {
   const _BilgiSatiri({
