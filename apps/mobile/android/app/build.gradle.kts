@@ -48,6 +48,13 @@ android {
     }
 }
 
+dependencies {
+    // Sürüm paketin kendi dokümanından ve örnek uygulamasından: 2.1.4. Rastgele seçilmedi —
+    // desugaring kütüphanesi AGP ile eşleşmek zorunda ve paket AGP 8.11.1'i asgari sayıyor
+    // (bizdeki sürüm de tam olarak 8.11.1, `settings.gradle.kts`).
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+
 flutter {
     source = "../.."
 }

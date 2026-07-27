@@ -8,6 +8,14 @@
 // açtığını sanıp hiç bildirim almamalı. Durum satırı sebebini yazar ve tek dokunuşla sistem
 // iznini yeniden ister.
 //
+// ── ÜÇ AYRI KAPI VAR, BİRİ DİĞERİNİ KANITLAMAZ (2026-07-27 dersi) ──────────────────────────
+// `flutter analyze` temiz → derlendiği anlamına gelmez.
+// `flutter test` yeşil → APK'nın derlendiği anlamına gelmez: bildirim paketi eklendiğinde 622
+// test geçiyordu ama release derlemesi `checkReleaseAarMetadata`da düşüyordu (core library
+// desugaring kapalıydı, bkz. `android/app/build.gradle.kts`). Yani Faz 1 "bitti" görünürken
+// telefona kurulacak APK yoktu. Bildirim/native tarafına dokunan her değişiklikten sonra
+// `flutter build apk --release` de koşulmalı.
+//
 // ── `flutter analyze` TEMİZ OLMASI ÇALIŞTIĞI ANLAMINA GELMEZ (2026-07-27 dersi) ────────────
 // Bu bölüm ayarlar ekranına eklendiğinde analiz temizdi ama `ui_isletme_ayarlar_test.dart`in
 // TAMAMI düştü: widget kurulurken gerçek bildirim servisi çağrılıyor, o da platform eklentisini
