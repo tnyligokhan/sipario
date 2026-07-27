@@ -146,6 +146,28 @@ String bildirimGunAnahtari(DateTime an) {
   return '$y-$a-$g';
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// `yol` sözlüğü — bildirime dokunulunca nereye gidilir
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// [BildirimTaslagi.yol] değerinin çözümü. Faz 1 sözlüğü: `gunsonu` · `musteri/<id>`.
+///
+/// TANINMAYAN YOL `null` DÖNER, İSTİSNA ATMAZ: sözlük büyüyecek (çok-müşterili liste rotası
+/// Faz 2'de gelecek) ve zamanlanmış eski bir bildirim, güncellenmiş uygulamada ya da tersi
+/// durumda bilinmeyen bir yol taşıyabilir. Bilinmeyen hedef bir hata değildir; çağıran
+/// kullanıcıyı bulunduğu yerde bırakır.
+///
+/// SAF ve burada duruyor çünkü sözlük SÖZLEŞMENİN parçası: taslağı üreten kural ile onu
+/// tüketen kabuk aynı tanıma bakmalı, iki yerde iki ayrı `split('/')` olmamalı.
+({String tur, String? id})? bildirimYoluCoz(String? yol) {
+  final ham = yol?.trim();
+  if (ham == null || ham.isEmpty) return null;
+  if (ham == 'gunsonu') return (tur: 'gunsonu', id: null);
+  final musteri = RegExp(r'^musteri/(.+)$').firstMatch(ham);
+  if (musteri != null) return (tur: 'musteri', id: musteri.group(1));
+  return null;
+}
+
 /// Bildirim altyapısının dış yüzü. Kural yazan taraf YALNIZ bunu görür.
 ///
 /// [goster] ve [zamanla] SESSİZCE ATLAYABİLİR: kategori kapalıysa, izin yoksa, günlük sınır

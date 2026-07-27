@@ -25,6 +25,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../auth/session.dart';
+import '../bildirim/bildirim_servisi.dart';
+import '../bildirim/bildirim_sozlesmesi.dart';
 import '../data/app_database.dart';
 import '../subscription/subscription_locked_screen.dart';
 import '../subscription/subscription_state.dart';
@@ -159,6 +161,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // zaten açıkken dokunulduğunda yaşam döngüsü olayı doğmaz; native dürtüyü gönderir.
     cagriEylemDurtusunuDinle(_nativeCagriEylemi);
     unawaited(_nativeCagriEylemi());
+    // Bildirime dokunuldu mu? Uygulama KAPALIYKEN dokunulmuşsa değer biz dinlemeye başlamadan
+    // ÖNCE düşmüş olur — bu yüzden dinleyiciyi kurmakla kalmayıp mevcut değeri de bir kez
+    // yokluyoruz (çağrı kartı köprüsünün `bekleyen` deseninin aynısı).
+    YerelBildirimServisi.dokunulanYol.addListener(_bildirimDokunusu);
+    _bildirimDokunusu();
     // Aktif kurye varlığı "tek kişilik bayi" kararının dayanağıdır (K2 kuryeVar).
     _kuryeSub = watchAktifKuryeler(widget.db).listen((k) {
       if (!mounted) return;
@@ -186,6 +193,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     _kuryeSub?.cancel();
     _metaSub?.cancel();
     cagriEylemDurtusunuBirak();
+    YerelBildirimServisi.dokunulanYol.removeListener(_bildirimDokunusu);
     SipToast.temizle();
     super.dispose();
   }
@@ -495,6 +503,42 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       writable: _yazilabilir,
       yetki: _yetki,
     ));
+  }
+
+  /// Bildirime dokunulduğunda gidilecek yer (Faz 1 sözlüğü: `gunsonu` · `musteri/<id>`).
+  ///
+  /// NEDEN BURADA: `yol` bildirim yükünde zaten taşınıyordu ama tüketen uç yoktu — bayi
+  /// bildirime dokunuyor, uygulama ana ekranda açılıyor ve "ne vardı?" diye arıyordu.
+  /// Taşınan bilgi kullanılmıyorsa taşınmıyor demektir.
+  ///
+  /// TANINMAYAN YOLDA SESSİZCE ANA EKRAN: sözlük ileride büyüyecek (bkz. çok-müşterili liste
+  /// rotası, Faz 2) ve eski sürüm yeni bir yolu görebilir. Bilinmeyen yol bir hata değil,
+  /// yalnız bilinmeyen bir hedeftir — patlamak yerine kullanıcıyı bulunduğu yerde bırakır.
+  Future<void> _bildirimYoluAc(String yol) async {
+    // Sözlüğün ÇÖZÜMÜ sözleşmede (`bildirimYoluCoz`): taslağı üreten kural ile onu tüketen
+    // kabuk aynı tanıma bakmalı, iki ayrı ayrıştırma olmamalı.
+    final hedef = bildirimYoluCoz(yol);
+    if (hedef == null) return;
+    if (hedef.tur == 'gunsonu') {
+      setState(() => _sekme = SipSekme.gunSonu);
+      return;
+    }
+    setState(() => _sekme = SipSekme.musteri);
+    await _git(CustomerDetailScreen(
+      db: widget.db,
+      customerId: hedef.id!,
+      writable: _yazilabilir,
+      yetki: _yetki,
+    ));
+  }
+
+  /// [YerelBildirimServisi.dokunulanYol] dinleyicisi. Değer tüketildikten sonra SIFIRLANIR:
+  /// aksi hâlde aynı yol, sonraki her dinleyici kurulumunda yeniden açılırdı.
+  void _bildirimDokunusu() {
+    final yol = YerelBildirimServisi.dokunulanYol.value;
+    if (yol == null || yol.isEmpty || !mounted) return;
+    YerelBildirimServisi.dokunulanYol.value = null;
+    unawaited(_bildirimYoluAc(yol));
   }
 
   Widget _govde(SipSekme sekme, RolYetkileri yetki) {

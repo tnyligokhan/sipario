@@ -65,6 +65,31 @@ void main() {
     });
   });
 
+  group('bildirimYoluCoz — dokunma sözlüğü', () {
+    test('Faz 1 sözlüğü çözülür', () {
+      expect(bildirimYoluCoz('gunsonu'), (tur: 'gunsonu', id: null));
+      expect(bildirimYoluCoz('musteri/m1'), (tur: 'musteri', id: 'm1'));
+      // Kimlikler UUID; içinde tire var, ilk `/`den sonrası olduğu gibi alınmalı.
+      expect(bildirimYoluCoz('musteri/019fa40a-986c-7000-adef-8f3953e64487'),
+          (tur: 'musteri', id: '019fa40a-986c-7000-adef-8f3953e64487'));
+    });
+
+    test('TANINMAYAN yol null döner, İSTİSNA ATMAZ', () {
+      // Sözlük Faz 2'de büyüyecek; zamanlanmış eski bir bildirim yeni bir yol taşıyabilir ya da
+      // tersi. Bilinmeyen hedef bir hata değil — kullanıcı bulunduğu yerde kalır.
+      expect(bildirimYoluCoz('musteriler?suzgec=gecikmis'), isNull);
+      expect(bildirimYoluCoz('siparis/s1'), isNull, reason: 'Faz 1de bağlı değil');
+      expect(bildirimYoluCoz('zort'), isNull);
+      expect(bildirimYoluCoz('musteri/'), isNull, reason: 'kimliksiz müşteri yolu');
+    });
+
+    test('boş ve null yol null döner', () {
+      expect(bildirimYoluCoz(null), isNull);
+      expect(bildirimYoluCoz(''), isNull);
+      expect(bildirimYoluCoz('   '), isNull);
+    });
+  });
+
   group('SessizSaatler — gece bildirim yok, ATILMAZ ertelenir', () {
     const s = SessizSaatler(); // 22:00 – 08:00
 

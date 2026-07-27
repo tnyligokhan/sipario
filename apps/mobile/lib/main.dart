@@ -3,8 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'dart:async' show unawaited;
+
 import 'auth/session.dart';
+import 'bildirim/bildirim_ayarlari.dart';
 import 'bildirim/bildirim_servisi.dart';
+import 'bildirim/bildirim_tetikleyici.dart';
+import 'bildirim/kurallar/musteri_ureticileri.dart';
+import 'bildirim/kurallar/para_ureticileri.dart';
+import 'repo/day_end_repository.dart';
 import 'data/app_database.dart';
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
@@ -79,6 +86,10 @@ class _SiparioAppState extends State<SiparioApp> {
     // hiç döndürmeyince iki cihaz sonsuz loading'de kaldı). Hata ekrana çıkar — sessiz kilit yok.
     _session.isLoggedIn().then((v) async {
       if (v) await _startSync();
+      // Bildirim kuralları YALNIZ oturum açıkken koşar: hepsi deftere bakar, oturumsuz cihazda
+      // defter boştur ve her kural zaten null dönerdi — gereksiz sorgu açılışı yavaşlatmasın.
+      // BEKLENMEZ: açılışı bloke etmemeli; taramanın kendisi hata yutar.
+      if (v) unawaited(_bildirimKurallariniKos());
       final sihirbaz = v && await kurulumGerekliMi(widget.db);
       if (mounted) {
         setState(() {
@@ -89,6 +100,29 @@ class _SiparioAppState extends State<SiparioApp> {
     }).catchError((Object e) {
       if (mounted) setState(() => _startupError = e.toString());
     });
+  }
+
+  /// Faz 1 bildirimlerinin BAĞLANDIĞI tek yer: beş kural üreticisi tetikleyiciye takılır.
+  ///
+  /// Üreticiler kural dosyalarının yanında yaşıyor (`kurallar/*_ureticileri.dart`) çünkü defteri
+  /// onlar okuyor; tetikleyici ne Drift'i ne kuralların içini tanıyor, yalnız NE ZAMAN
+  /// çağrılacaklarını biliyor. Bağlama burada, main'de: her iki tarafı da tanıyan tek yer burası.
+  ///
+  /// Altyapı kurulumu ÖNCE beklenir — kanallar ve saat dilimi hazır olmadan zamanlama yapılırsa
+  /// bildirim yanlış saate düşer.
+  Future<void> _bildirimKurallariniKos() async {
+    await bildirimAltyapisiniKur();
+    final gunSonuRepo = DayEndRepository(widget.db);
+    await BildirimTetikleyici(
+      servis: bildirimServisi,
+      // Anlık taramalar — açılışta koşar, kimlikleri gün damgalı olduğu için tekrar güvenli.
+      gecikmisMusteri: gecikmisMusteriUreticisi(widget.db),
+      rutinTeslim: rutinTeslimUreticisi(widget.db),
+      borcEsigi: borcEsigiUretici(gunSonuRepo, bildirimAyarlari),
+      // Zamanlananlar — akşam özeti ve haftalık vade taraması.
+      gunSonu: gunSonuOzetiUretici(gunSonuRepo),
+      vadesiGecen: vadesiGecenUretici(gunSonuRepo),
+    ).acilistaKos();
   }
 
   /// Sihirbaz kapandı (bitti ya da atlandı): damgala ve kabuğa geç. [tamamlandi] ise tasarımdaki
