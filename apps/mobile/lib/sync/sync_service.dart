@@ -5,12 +5,36 @@ import '../data/app_database.dart';
 import 'sync_api.dart';
 import 'sync_engine.dart';
 
+/// Turun neden düştüğü. Bant metni buna dayanır: "çevrimdışı" demek yalnız AĞ yokluğunda
+/// doğrudur. Oturum ölmüşse kayıtlar "bağlanınca" gönderilmeyecektir — kullanıcı beklemeyi değil
+/// yeniden giriş yapmayı bilmeli. Beklenmedik veri hatası da ağ sorunu değildir.
+enum SyncHataTuru {
+  yok,
+
+  /// Ağ yok / zaman aşımı / sunucuya ulaşılamıyor. Bekle, kendiliğinden gidecek.
+  ag,
+
+  /// 401/403 ya da yerelde token yok. BEKLEMEK ÇÖZMEZ; yeniden giriş gerekir.
+  oturum,
+
+  /// Beklenmedik yanıt (tip/şema hatası). Ne ağ ne oturum — kod/sürüm uyuşmazlığı.
+  veri,
+}
+
 /// Bir senkron turunun özeti (UI durum çubuğu için).
 class SyncOutcome {
-  const SyncOutcome({required this.ok, this.pushed = 0, this.error});
+  const SyncOutcome({
+    required this.ok,
+    this.pushed = 0,
+    this.error,
+    this.tur = SyncHataTuru.yok,
+  });
   final bool ok;
   final int pushed;
   final String? error;
+
+  /// [ok] false ise başarısızlığın CİNSİ. Bant hangi gerçeği yazacağını bundan öğrenir.
+  final SyncHataTuru tur;
 }
 
 /// Senkron servisini oturuma bağlar ve periyodik koşturur. Motor (SyncEngine) saf kalır;
@@ -19,23 +43,39 @@ class SyncOutcome {
 /// Hata felsefesi: senkron hatası UYGULAMAYI DURDURMAZ (kırmızı çizgi #3 — offline'da her şey
 /// çalışır); hata özetlenip durum akışına yazılır, sonraki tur yeniden dener (outbox zaten bekler).
 class SyncService {
-  SyncService(this.db) {
-    _engine = SyncEngine(
-      db,
-      HttpSyncApi(
-        // baseUrl her istekte değil KURULUŞTA okunur; login baseUrl'i değiştirirse restart()
-        // çağrılır (login ekranı zaten uygulamanın kökünü yeniden kurar).
-        baseUrl: _baseUrl ?? kDefaultApiBaseUrl,
-        tokenProvider: () async => (await db.syncState()).authToken,
-      ),
-    );
+  /// [api] YALNIZ TEST İÇİNDİR (üretimde null → HttpSyncApi kurulur). Bu enjeksiyon noktasının
+  /// olmaması, 2026-07-27'de sahada yakalanan "senkron takılıp kalıyor" arızasının hiçbir testle
+  /// yakalanamamış olmasının sebebiydi: servis kendi taşımasını içeride kuruyordu, dolayısıyla
+  /// "istek asılı kalırsa ne olur" sorusu hiç sorulamıyordu.
+  SyncService(this.db, {SyncApi? api}) : _testApi = api {
+    _engine = SyncEngine(db, api ?? _httpApi(_baseUrl ?? kDefaultApiBaseUrl));
   }
 
   final AppDatabase db;
+  final SyncApi? _testApi;
+
+  /// baseUrl her istekte değil KURULUŞTA okunur; login baseUrl'i değiştirirse [configure]
+  /// çağrılır (login ekranı zaten uygulamanın kökünü yeniden kurar).
+  SyncApi _httpApi(String baseUrl) => HttpSyncApi(
+        baseUrl: baseUrl,
+        tokenProvider: () async => (await db.syncState()).authToken,
+      );
   late SyncEngine _engine;
   String? _baseUrl;
   Timer? _timer;
-  bool _running = false;
+  StreamSubscription<void>? _tetikSub;
+
+  /// Devam eden tur (yoksa null). Eşzamanlı çağrılar AYNI tura bağlanır: hem çift tur koşmaz hem
+  /// de çağıran gerçek sonucu alır.
+  ///
+  /// ESKİDEN `bool _running` vardı ve meşgulken `SyncOutcome(ok: true)` dönüyordu — sahadan
+  /// bildirilen arızanın merkezi buydu. Zaman aşımı olmayan bir HTTP çağrısı asılı kalınca
+  /// `finally` HİÇ çalışmıyor, `_running` sonsuza dek `true` kalıyor ve 2 dakikalık zamanlayıcının
+  /// her turu `if (_running) return` ile sessizce yutuluyordu: senkron bir daha ilerlemiyor,
+  /// durum akışına hiçbir şey yazılmadığı için gösterge de son "başarısız" değerinde donuyordu.
+  /// Uygulamayı kapatıp açmak işe yarıyordu çünkü bu alan bellekteydi. Kalıcı çözüm ÜÇ katmanlı:
+  /// (1) taşımada zaman aşımı, (2) burada bayrak yerine future, (3) her yolda durum yayını.
+  Future<SyncOutcome>? _tur;
 
   final _status = StreamController<SyncOutcome>.broadcast();
 
@@ -46,37 +86,37 @@ class SyncService {
   Future<void> configure() async {
     final meta = await db.syncState();
     _baseUrl = Session.baseUrlOf(meta);
-    _engine = SyncEngine(
-      db,
-      HttpSyncApi(
-        baseUrl: _baseUrl!,
-        tokenProvider: () async => (await db.syncState()).authToken,
-      ),
-    );
+    _engine = SyncEngine(db, _testApi ?? _httpApi(_baseUrl!));
   }
 
   /// Tek senkron turu: önce push (bekleyen outbox), sonra pull (snapshot/delta).
-  /// Eşzamanlı çift çağrı tek tura indirgenir.
-  Future<SyncOutcome> syncNow() async {
-    if (_running) return const SyncOutcome(ok: true);
-    _running = true;
+  /// Eşzamanlı çift çağrı tek tura indirgenir ve İKİSİ DE o turun gerçek sonucunu alır.
+  Future<SyncOutcome> syncNow() => _tur ??= _turAt().whenComplete(() => _tur = null);
+
+  Future<SyncOutcome> _turAt() async {
+    SyncOutcome outcome;
     try {
       final token = (await db.syncState()).authToken;
-      if (token == null) return const SyncOutcome(ok: false, error: 'Oturum yok');
-
-      final pushed = await _engine.pushPending();
-      await _engine.pull();
-      final outcome = SyncOutcome(ok: true, pushed: pushed);
-      _status.add(outcome);
-      return outcome;
-    } on Exception catch (e) {
-      // Ağ hatası normal işleyiştir (bodrum/asansör): kısa özet, PII yok (URL/istisna tipi yeter).
-      final outcome = SyncOutcome(ok: false, error: e.runtimeType.toString());
-      _status.add(outcome);
-      return outcome;
-    } finally {
-      _running = false;
+      if (token == null) {
+        outcome =
+            const SyncOutcome(ok: false, error: 'Oturum yok', tur: SyncHataTuru.oturum);
+      } else {
+        final pushed = await _engine.pushPending();
+        await _engine.pull();
+        outcome = SyncOutcome(ok: true, pushed: pushed);
+      }
+    } catch (e) {
+      // `on Exception` DEĞİL — bilinçli. Sunucu beklenmedik bir tip/null yollarsa SyncEngine'deki
+      // `as String` / `as num` dönüşümleri TypeError atar ve TypeError bir Error'dur, Exception
+      // değildir: eski `on Exception catch` onu yakalamıyor, hata `syncNow`dan kaçıyor ve durum
+      // akışına HİÇBİR ŞEY yazılmıyordu — gösterge son bilinen değerinde donuyordu. Ağ hatası
+      // zaten normal işleyiştir (bodrum/asansör); kısa özet, PII yok (yalnız istisna tipi).
+      outcome = SyncOutcome(ok: false, error: e.runtimeType.toString(), tur: hataTuru(e));
     }
+    // HER yolda yayınlanır (başarı, ağ hatası, tip hatası, oturumsuzluk). Gösterge yalnız bu
+    // akıştan besleniyor; bir yolda sessiz kalmak "çevrimiçiyken çevrimdışı" demektir.
+    if (!_status.isClosed) _status.add(outcome);
+    return outcome;
   }
 
   /// Periyodik senkronu başlatır (varsayılan 2 dk — beklenen kopukluklar kısa, BRIEF).
@@ -87,9 +127,37 @@ class SyncService {
     unawaited(syncNow());
   }
 
+  /// Hatanın cinsini belirler (ekrandan AYRI saf fonksiyon — testi widget kurmadan yazılır).
+  ///
+  /// 401/403: sunucu bize ULAŞILDI ve "seni tanımıyorum" dedi. Bu bir ağ sorunu DEĞİLDİR ve
+  /// beklemekle geçmez; bandın "bağlanınca gönderilecek" demesi düpedüz yanlış bilgiydi.
+  /// Error (Exception değil): beklenmedik payload → tip hatası; ne ağ ne oturum.
+  static SyncHataTuru hataTuru(Object e) {
+    if (e is SyncApiException) {
+      return (e.statusCode == 401 || e.statusCode == 403)
+          ? SyncHataTuru.oturum
+          : SyncHataTuru.ag;
+    }
+    return e is Exception ? SyncHataTuru.ag : SyncHataTuru.veri;
+  }
+
+  /// Dış tetikleyici: ağ geri geldi / uygulama öne geldi gibi olaylarda tur açar. Zamanlayıcıya
+  /// EK'tir, yerine geçmez. Stream olarak alınır ki servis `connectivity_plus`a bağımlı olmasın —
+  /// motor saf kalır ve testler platform kanalı olmadan koşar.
+  void tetikleyiciBagla(Stream<void> tetik) {
+    _tetikSub?.cancel();
+    // onError YUTAR: tetik kaynağı bir platform eklentisi olabilir (connectivity_plus) ve o
+    // kanal widget testinde ya da desteklenmeyen bir platformda hata yayınlar. Tetik bir
+    // İYİLEŞTİRMEDİR — zamanlayıcı ve öne-gelme turu zaten senkronu ayakta tutar; kaynağının
+    // susması senkronu ya da uygulamayı DÜŞÜRMEMELİ.
+    _tetikSub = tetik.listen((_) => unawaited(syncNow()), onError: (Object _) {});
+  }
+
   void stop() {
     _timer?.cancel();
     _timer = null;
+    _tetikSub?.cancel();
+    _tetikSub = null;
   }
 
   void dispose() {

@@ -67,19 +67,23 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-27 — SAHA GERİ BİLDİRİMİ 7 MADDE KAPANDI: çağrı yönü · CallerId son sipariş · kart eylemleri · tutamaç tarafı · borçlu sekmesi · kurye süzgeci · kısmi ödeme; ayrıca UUIDv7 monotonluk hatası bulundu ve düzeltildi; Drift v10 · flutter analyze 0 · flutter test 473/473 · release APK derlendi)
+## Güncel durum (son güncelleme: 2026-07-27/2 — SAHA GERİ BİLDİRİMİ İKİ TUR, 10 MADDE KAPANDI: çağrı yönü · CallerId son sipariş · kart eylemleri · tutamaç tarafı · borçlu sekmesi · kurye süzgeci · kısmi ödeme · **senkron kilidi** · sesli giriş · kart kenar boşluğu; ayrıca UUIDv7 monotonluk hatası ve üç gizli taşma bulundu; Drift v10 · flutter analyze 0 · flutter test 500/500 · release APK derlendi)
 
 ---
 
 # 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-07-27 kapandı)
 
-**Bir cümlede:** Bayinin saha testinden gelen **7 maddelik geri bildirimin tamamı kapatıldı** ve
-bu sırada **testlerin yıllardır şansla gizlediği gerçek bir ürün hatası** (UUIDv7 monotonluğu)
-bulunup düzeltildi. Kritik yol hâlâ kodda değil, **proje sahibinin elindeki dışsal girdilerde**
-(anahtar, hesap, avukat, saha) — önceki vardiyanın 🔴 işleri aynen duruyor.
+**Bir cümlede:** Bayinin saha testinden **iki tur geri bildirim** geldi, **10 maddenin tamamı
+kapatıldı**; en kritiği kozmetik sanılan ama veri güvenilirliğini vuran **senkron kilidiydi**
+(uygulama çevrimiçiyken "çevrim dışı" diyor, yalnız kapatıp açınca senkronize oluyordu). Ayrıca
+**testlerin yıllardır şansla gizlediği bir ürün hatası** (UUIDv7 monotonluğu) ve **üç gizli
+yerleşim taşması** bulundu. Kritik yol hâlâ kodda değil, **proje sahibinin elindeki dışsal
+girdilerde** (anahtar, hesap, avukat, saha) — önceki vardiyanın 🔴 işleri aynen duruyor,
+üzerine **KVKK aydınlatma metni** borcu eklendi (sesli giriş).
 
-**Ölçüm (2026-07-27 kapanışı):** `flutter analyze` **0** · `flutter test` **473/473**
-(vardiya başında 455) · release APK derlendi · Kotlin `assembleDebug` ile derlendiği doğrulandı.
+**Ölçüm (2026-07-27 kapanışı):** `flutter analyze` **0** · `flutter test` **500/500**
+(vardiya başında 455) · release APK derlendi · Kotlin `:app:compileDebugKotlin` BUILD SUCCESSFUL.
+**HİÇBİRİ CİHAZDA DENENMEDİ** — saha kontrol listesi aşağıda.
 **API bu vardiyada HİÇ DEĞİŞMEDİ** ve değişmesi de gerekmedi — kısmi ödeme sunucu tarafında
 zaten geçerli: `ChangeApplier::validateLedgerEntry` yalnız işaret + `payment_type` enum'u
 denetliyor, bakiye filtresiz `SUM(amount_kurus)`. Son yeşil API koşumu 2026-07-26/3.
@@ -118,18 +122,84 @@ Bayi geri bildirimi, üç paralel ajanla (çağrı · liste · ödeme) kapatıld
    serbest satır (2 yer). "Yarısı" çipi tam lira yuvarlar (kısayol), "Tamamı" çipi kuruşuyla
    doldurur (kesinlik iddiası). `digitsOnly` kalan tek yer barkod alanları — doğru kullanım.
 
+### İkinci tur geri bildirim (aynı gün, bayi 3 madde daha bildirdi)
+
+10. 🔴 **SENKRON KİLİDİ — bu turun en kritik bulgusu.** Bayi: *"alakasız yerde çevrim dışı diyor,
+    kapatıp açınca senkronize ediyor, bu bize büyük sorun yaratır."* Haklıydı. Tek zincir:
+    istekte **zaman aşımı yoktu** (`package:http` sonsuz bekler; mobilde yarı-açık TCP olağan) →
+    asılı `await`te `finally` hiç çalışmadı → `bool _running` sonsuza dek `true` → 2 dk'lık her
+    tur sessizce yutuldu ve **yalan "başarılı"** döndü → gösterge son "başarısız"ta dondu →
+    ikisi de bellekte olduğu için yalnız uygulamayı öldürmek kurtardı. Düzeltme: 25 sn zaman
+    aşımı + bayrak yerine **turun kendisiyle birleştirme**. İKİNCİ ve bağımsız kilit yolu:
+    `on Exception` yakalaması `TypeError`ı (bir `Error`) yutuyordu — bu yol yeniden başlatmayla
+    DÜZELMEZ, sunucuya nullable kolon eklendiği gün kalıcı kilit üretirdi. Ayrıca senkron artık
+    **üç tetikleyiciyle** açılıyor (zamanlayıcı · öne gelme · ağın geri gelmesi); `connectivity_plus`
+    pubspec'te kayıtlıydı ama `lib/` içinde HİÇ kullanılmamıştı. Bant metni de üçe ayrıldı:
+    401/403'te artık "çevrimdışı" demiyor, **"oturum doğrulanmadı, yeniden girin"** diyor.
+11. **Sesli giriş eklendi** (`speech_to_text`) — ad · adres · bölge · not alanlarında mikrofon.
+    **TELEFONDA YOK, bilinçli:** Türkçe tanıma rakamları tutarsız döndürür, tek hane kayması
+    yanlış numara kaydeder ve o numara **arayan tanımayı kör eder**. Dil daima `tr`; cihazda
+    Türkçe yoksa mikrofon pasif + gerekçe. Tanınan metin alanın SONUNA eklenir, ezmez.
+12. **Arayan kartına yan boşluk** — kart kendi kenar payını veriyordu ama iki host da onu sessizce
+    çöpe atıyordu (`WindowManager.addView` params'ı değiştirir, `setContentView` `MATCH_PARENT`
+    dayatır). Boşluk artık PENCEREDEN veriliyor. Daralma **üç gizli taşmayı** açığa çıkardı:
+    üst şerit (31px), **bakiye şeridi (106px — 12.345,67 ₺ gibi olağan bir veresiyede tutar
+    yarım okunuyordu)** ve kart gövdesi (193px dikey — bayi "Sipariş Oluştur"u hiç göremiyordu).
+    Üçü de düzeltildi; "kim feda edilir" kuralı koda yazıldı (saat ikonu gider, yön sözcüğü kalır;
+    bakiye etiketi kısalır, tutar tam kalır).
+
 ## Bu vardiyada NE YAPILMADI (bilerek ya da bloklu)
 
-- **CİHAZDA HİÇ DENENMEDİ.** Hepsi test+derleme düzeyinde doğrulandı. Sahada gözle görülmesi
-  gerekenler: (a) giden/cevapsız çağrıda kartın başlığı — OEM'in `callDirection`'ı yanlışsa
-  logcat'te `onScreenCall: yon=<ham sayı>` tek çağrıda kanıtlar, düzeltme tek satır;
-  (b) WhatsApp/harita açılışı (MIUI gibi katmanlarda); (c) borçlu sekmesinin yeni sorgusu.
+- 🔴 **KVKK AYDINLATMA METNİ GÜNCELLENMELİ (proje sahibinde, avukat işi).** Sesli giriş, Android'in
+  `SpeechRecognizer`ını kullanır ve cihaza göre tanımayı BULUTTA yapabilir — yani dikte edilen
+  müşteri adı/adresi üçüncü tarafın sunucusundan geçebilir. Kırmızı çizgi #4 verinin nerede
+  SAKLANDIĞIYLA ilgilidir ve bu bir saklama değildir (Gboard'un sesle yazması zaten aynı yolu
+  kullanır, her bayide açıktır) — bu yüzden özellik engellenmedi. Ama metne *"sesli giriş
+  kullanıldığında ses verisi cihazın ses tanıma servisine gönderilir"* satırı eklenmeli ve
+  **Play Console "Veri güvenliği" formuna ses verisi satırı** girilmeli. `onDevice: true` ile
+  zorlamak denenmedi: Türkçe çevrimdışı modeli olmayan telefonlarda özellik hiç çalışmazdı.
+- **CİHAZDA HİÇ DENENMEDİ — SAHA KONTROL LİSTESİ.** Hepsi test+derleme düzeyinde doğrulandı.
+  Bayinin gözle bakması gerekenler:
+  1. **Senkron:** uçak modunu aç→kapat, bant ANINDA kalkmalı (ağ tetiği). Asıl senaryo: wifi↔mobil
+     veri geçişinde ya da captive portal'lı AVM wifi'sinde tur ortasını yakala — eskiden kalıcı
+     kilitleniyordu, şimdi 25 sn'de toparlamalı. Token'ı iptal et → bant "çevrimdışı" DEĞİL
+     "oturum doğrulanmadı" demeli.
+  2. **Çağrı kartı:** giden/cevapsız çağrıda başlık doğru mu (OEM'in `callDirection`'ı yanlışsa
+     logcat'te `onScreenCall: yon=<ham sayı>` tek çağrıda kanıtlar, düzeltme tek satır);
+     iki yanında boşluk var mı (kilitli VE kilitsiz); yan boşluğa dokununca kart KAPANMAMALI;
+     dört haneli borçlu müşteride (12.345,67 ₺) tutar tam okunuyor mu; yazı tipi "en büyük"te
+     üst şeritte önce saat ikonu kaybolmalı, yön sözcüğü tam kalmalı.
+  3. **Sesli giriş:** izin diyaloğu çıkıyor mu, reddedilince mikrofon soluk mu; `tr` yereli
+     cihazda var mı; uçak modunda "internet gerekiyor" mu diyor yoksa cihaz-içi model mi devrede.
+     **En olası saha hatası:** `<queries>` beyanı işe yaramazsa Android 11+'ta özellik sessizce
+     kapanır ve "cihazda ses tanıma yok" der.
+  4. **Önceki turdan:** WhatsApp/harita açılışı (MIUI gibi katmanlarda), borçlu sekmesinin
+     doğru listelemesi, tutamaç tercihinin uygulama kapanıp açılınca korunması.
 - **`orders.customer_id` indeksi eklenmedi** — hem native hem Dart son-sipariş sorgusu tam tablo
   taraması. Yılda ~18k satırda birkaç ms, ama sınırsız büyür. Şema sürümü + migration gerektirdiği
   için saha testi sürerken alınmadı. `order_lines.order_id` indeksi de eklenirse native kart
   kalem dökümünü taşıyabilir.
 - **Kotlin birim test altyapısı yok** (`build.gradle.kts`'te test kaynak kümesi + JUnit yok).
   `cagriYonuBelirle` ve kart yardımcıları saf fonksiyon olarak ayrıldı ama testleri yazılamadı.
+  **Bunun bedeli bu vardiyada görüldü:** kart kenar boşluğunun asıl bozuk olduğu iki yüzey
+  (overlay + kilit ekranı Activity'si) NATIVE olduğu için testle kilitlenemedi; yalnız üçüncü
+  yüzey (Flutter kartı) kilitlendi.
+- **Native arayan kartında DİKEY KAYDIRMA yok** — Flutter kartına eklendi, native'e bilerek
+  eklenmedi: `ScrollView` kartın "dokununca kapan" listener'ı ve pencere boyutlandırmasıyla
+  etkileşiyor, cihazsız doğrulanamaz. Risk aynen duruyor: çok uzun adres + uzun notta native
+  kartın eylem düğmeleri ekran dışında kalabilir. Sahada görülürse öncelik kazanır.
+- **`letterSpacing` em/px karışıklığı — TİPOGRAFİ DENETİMİ gerekiyor.** `SipText.cagriCanli`
+  `0.12` alıyor ama tasarım `.12em` diyor; Flutter'da bu alan **em değil logical pixel**, yani
+  1,32px olması gereken aralık 0,12px çiziliyor ve etiket tasarımdakinden dar duruyor. Aynı hata
+  `typography.dart`taki başka `ls:` değerlerinde de olabilir — tek satırlık düzeltme değil,
+  baştan sona kontrol işi. Şimdi düzeltmek kart taşmaları için açılan payı geri kapatır.
+- **`SipIcons.mic` yok** — mikrofon path'i geçici olarak `customer_widgets.dart` içinde
+  `kMikrofonIkonu` sabiti. `theme/icons.dart`a taşınmalı.
+- **Arayan kartı için `max-width` TASARIMDA TANIMSIZ** — tablet/yatay ekranda kart ekran − 32dp
+  olacak, yani çok geniş. Ölçü kaynaktan çıkarılamadığı için uydurulmadı (depo kuralı); tasarım
+  güncellenince ÜÇ yüzeye birden konmalı.
+- **`home_shell.dart` 581 satır** (500 sınırı). Sınırı bu vardiyadan ÖNCE aşmıştı (HEAD'de 560);
+  saha testi sürerken kabuk dosyasını parçalamak karşılıksız gerileme riski olduğu için ertelendi.
 - **Emanet/boş damacana takibi KARARI HÂLÂ BEKLİYOR** — üç seçenek sunuldu, cevap gelmedi.
   Karar verilmeden koda dokunma. Ayrıntı: iş #6.
 - **`YAPILACAKLAR.md` bayat** (2026-07-16). **Çelişki halinde BU BÖLÜM doğrudur.**

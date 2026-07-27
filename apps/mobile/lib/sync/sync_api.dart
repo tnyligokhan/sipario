@@ -136,13 +136,27 @@ class PullResponse {
 }
 
 /// HTTP taşıması. baseUrl ör. https://api.sipario.com.tr/api/v1 ; token sağlayıcı Sanctum bearer'ı.
+///
+/// ZAMAN AŞIMI ZORUNLUDUR (2026-07-27 saha arızası). `package:http`in varsayılanı SONSUZ bekler.
+/// Mobilde yarı-açık TCP olağandır: wifi→mobil veri geçişi, otel/AVM captive portal'ı, operatör
+/// NAT'ının bağlantıyı sessizce düşürmesi. Bu hâllerde soket ne kapanır ne veri gelir; istek
+/// dakikalarca (pratikte sonsuza dek) asılı kalır. Asılı istek yalnız o turu değil, `SyncService`
+/// meşgul bayrağını da kilitliyordu → senkron bir daha hiç ilerlemiyordu.
 class HttpSyncApi implements SyncApi {
-  HttpSyncApi({required this.baseUrl, required this.tokenProvider, http.Client? client})
-      : _client = client ?? http.Client();
+  HttpSyncApi({
+    required this.baseUrl,
+    required this.tokenProvider,
+    http.Client? client,
+    this.zamanAsimi = const Duration(seconds: 25),
+  }) : _client = client ?? http.Client();
 
   final String baseUrl;
   final Future<String?> Function() tokenProvider;
   final http.Client _client;
+
+  /// Tek isteğin üst sınırı. 25 sn: zayıf şebekede büyük snapshot sayfası inebilsin ama bayi
+  /// "takıldı" hissetmeden önce tur bitsin (zamanlayıcı periyodu 2 dk, üst üste binmez).
+  final Duration zamanAsimi;
 
   Future<Map<String, String>> _headers() async {
     final token = await tokenProvider();
@@ -155,11 +169,13 @@ class HttpSyncApi implements SyncApi {
 
   @override
   Future<PushResponse> push(List<Map<String, Object?>> events) async {
-    final res = await _client.post(
-      Uri.parse('$baseUrl/sync/push'),
-      headers: await _headers(),
-      body: jsonEncode({'events': events}),
-    );
+    final res = await _client
+        .post(
+          Uri.parse('$baseUrl/sync/push'),
+          headers: await _headers(),
+          body: jsonEncode({'events': events}),
+        )
+        .timeout(zamanAsimi);
     if (res.statusCode != 200) {
       throw SyncApiException('push', res.statusCode, res.body);
     }
@@ -168,10 +184,12 @@ class HttpSyncApi implements SyncApi {
 
   @override
   Future<PullResponse> pull({required int since, int limit = 500}) async {
-    final res = await _client.get(
-      Uri.parse('$baseUrl/sync/pull?since=$since&limit=$limit'),
-      headers: await _headers(),
-    );
+    final res = await _client
+        .get(
+          Uri.parse('$baseUrl/sync/pull?since=$since&limit=$limit'),
+          headers: await _headers(),
+        )
+        .timeout(zamanAsimi);
     if (res.statusCode != 200) {
       throw SyncApiException('pull', res.statusCode, res.body);
     }

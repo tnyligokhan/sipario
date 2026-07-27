@@ -1,3 +1,4 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -95,6 +96,17 @@ class _SiparioAppState extends State<SiparioApp> {
 
   Future<void> _startSync() async {
     await _sync.configure();
+    // AĞ TETİĞİ (2026-07-27 saha arızası). `connectivity_plus` pubspec'te baştan vardı ve
+    // `sync_engine.dart:9` "ağ tetiği (connectivity) ve zamanlayıcı bunları çağırır" diye YAZMIŞTI
+    // ama kod hiç yazılmamıştı — tetikleyici yalnız açılıştaki ilk tur ve 2 dakikalık
+    // zamanlayıcıydı. Kurye kapsama alanına girdiği ANDA siparişin gitmesi gerekiyor; iki dakika
+    // ya da uygulamayı öne getirmesi beklenmemeli. Sunucuya erişimi GARANTİ ETMEZ (captive portal
+    // "bağlı" der) — yanlış tetik artık en fazla bir zaman aşımına mal olur.
+    _sync.tetikleyiciBagla(
+      Connectivity()
+          .onConnectivityChanged
+          .where((durum) => !durum.contains(ConnectivityResult.none)),
+    );
     _sync.start();
   }
 

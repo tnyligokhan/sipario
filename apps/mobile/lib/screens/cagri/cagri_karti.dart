@@ -154,23 +154,31 @@ class CagriKarti extends StatelessWidget {
         color: t.surface,
         borderRadius: SipRadius.br3,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          CagriUstSerit(yon: yon, baslangic: baslangic, onKapat: onKapat),
-          CagriKimSatiri(kisi: kisi),
-          if (kisi.kayitli) ...[
-            if (kisi.bakiyeKurus != 0) CagriBakiyeSeridi(kurus: kisi.bakiyeKurus),
-            CagriBilgiSatirlari(kisi: kisi),
+      // KAYDIRILABİLİR (2026-07-27): kartın yüksekliği içeriğe göre büyüyor — uzun adres + uzun
+      // müşteri notu + son sipariş satırı + bakiye şeridi bir araya geldiğinde kart kısa bir
+      // telefonda ekranı aşıyordu (testte 640dp'de 193px taşma). Aşan içerik ÇİZİLMEZ: bayi
+      // "Sipariş Oluştur" düğmesini hiç göremezdi. İçerik sığdığında hiçbir şey değişmez —
+      // `SingleChildScrollView` kendini içeriğinin boyuna göre kurar, kaydırma yalnız gerektiğinde
+      // devreye girer. Kartın dikey konumu ve görünümü aynı kalır.
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CagriUstSerit(yon: yon, baslangic: baslangic, onKapat: onKapat),
+            CagriKimSatiri(kisi: kisi),
+            if (kisi.kayitli) ...[
+              if (kisi.bakiyeKurus != 0) CagriBakiyeSeridi(kurus: kisi.bakiyeKurus),
+              CagriBilgiSatirlari(kisi: kisi),
+            ],
+            CagriEylemler(
+              kisi: kisi,
+              onSiparis: onSiparis,
+              onDefter: onDefter,
+              onKaydet: onKaydet,
+            ),
           ],
-          CagriEylemler(
-            kisi: kisi,
-            onSiparis: onSiparis,
-            onDefter: onDefter,
-            onKaydet: onKaydet,
-          ),
-        ],
+        ),
       ),
     );
   }

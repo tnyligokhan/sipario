@@ -50,15 +50,24 @@ internal object CallerCardViews {
             yazi(context, yon.etiket, 11f, vurgu, agirlik = 700, harfAralik = 0.12f)
                 .apply { setPadding(dp(context, 7), 0, 0, 0) }
         )
-        satir.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(0, 0, 1f) // esnek boşluk
-        })
-
-        // CSS `.cagri-since` — tasarımda sabit "şimdi"; kart çizildiği an çağrı henüz yeni.
-        satir.addView(ikon(context, R.drawable.sip_ic_clock, 12, p.muted))
+        // CSS `.cagri-since { margin-left: auto }` — sağa yaslı süre, kalan alanın TAMAMINI alır.
+        //
+        // ESNEYEN PARÇA BUDUR (Flutter kartıyla aynı kural): şeritteki her şey sabit genişlikte
+        // olduğu için dar ekranda/büyük yazı tipinde taşan bir satırdı — sıkışacak eleman yoktu.
+        // Süre ("şimdi") tasarımda sabit bir dekorasyondur, bilgi taşımaz; ilk o feda edilir.
+        // Ağırlıklı çocuk kalan alan azaldıkça küçülür ve içeriği kırpılır; yön etiketi ile
+        // kapat düğmesi tam boylarını korur.
         satir.addView(
-            yazi(context, "şimdi", 11.5f, p.muted, agirlik = 600)
-                .apply { setPadding(dp(context, 4), 0, 0, 0) }
+            LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.END or Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                addView(ikon(context, R.drawable.sip_ic_clock, 12, p.muted))
+                addView(
+                    yazi(context, "şimdi", 11.5f, p.muted, agirlik = 600, tekSatir = true)
+                        .apply { setPadding(dp(context, 4), 0, 0, 0) }
+                )
+            }
         )
 
         // CSS `.sheet-x` — 34'lük yuvarlak nötr düğme.
@@ -234,12 +243,17 @@ internal object CallerCardViews {
             setPadding(dp(context, 15), dp(context, 12), dp(context, 15), dp(context, 12))
             layoutParams = satirParams(context, ust = 14)
         }
+        // ÖNCELİK SIRASI (Flutter kartıyla aynı): sıkışan ETİKETTİR, TUTAR DEĞİL. Ağırlık
+        // etiketin üstünde olduğu için tutar tam boyunu korur ve sağa yaslı kalır; etiket
+        // gerekirse "AÇIK BO…" diye kısalır. Yarım okunan bir borç rakamı, esnafın defteriyle
+        // tutmayan bir sayı demektir.
         satir.addView(
-            yazi(context, if (borc) "AÇIK BORÇ" else "ALACAĞI VAR", 11.5f, renk, agirlik = 700, harfAralik = 0.06f)
+            yazi(context, if (borc) "AÇIK BORÇ" else "ALACAĞI VAR", 11.5f, renk, agirlik = 700, harfAralik = 0.06f, tekSatir = true)
+                .apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    setPadding(0, 0, dp(context, 8), 0)
+                }
         )
-        satir.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(0, 0, 1f)
-        })
         satir.addView(
             yazi(context, para(kotlin.math.abs(kurus)), 20f, renk, agirlik = 800, baslik = true, tabular = true, harfAralik = -0.01f)
         )
@@ -381,7 +395,10 @@ internal object CallerCardViews {
                     .apply { setMargins(0, 0, dp(context, 7), 0) }
             }
         )
-        satir.addView(yazi(context, etiket, 14.5f, murekkep, agirlik = 700))
+        // tekSatir: kart iki yandan 16dp daraldı ve düğme yüksekliği 50dp'de SABİT. Sistem yazı
+        // tipi büyütülmüşse "Müşteri Olarak Kaydet" ikinci satıra taşıyor, ikinci satır da sabit
+        // yükseklikte kırpılıyordu — yarım harf yerine düzgün bir "…" daha okunur.
+        satir.addView(yazi(context, etiket, 14.5f, murekkep, agirlik = 700, tekSatir = true))
         return satir
     }
 

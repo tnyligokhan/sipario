@@ -37,14 +37,40 @@ class CagriUstSerit extends StatelessWidget {
       children: [
         CagriCanliNokta(renk: vurgu, nabiz: yon != AramaTipi.cevapsiz),
         const SizedBox(width: 7),
+        // Yön etiketi ESNEK DEĞİL: dar alanda kısalmaz, kırpılmaz. Kartın en üst satırıdır ve
+        // "CEVAPSIZ" yerine "CEVAP…" yazması madde 1'in kazanımını geri alırdı.
         Text(
           cagriYonEtiketi(yon),
           style: SipText.cagriCanli.copyWith(color: vurgu),
         ),
-        const Spacer(),
-        SipIcon(SipIcons.clock, boyut: 12, kalinlik: 2, renk: t.muted),
-        const SizedBox(width: SipSpace.xs),
-        CagriSure(baslangic: baslangic),
+        // CSS `.cagri-since { margin-left: auto }` — süre sağa yaslanır ve kalan alanı alır.
+        //
+        // ESNEYEN PARÇA BURASIDIR (2026-07-27): üst şerit dar kartta taşıyordu (testte 252px'te
+        // 31px). Şeritteki her şey sabit genişlikteydi, yani sıkışacak bir eleman yoktu. Süre
+        // ("şimdi") tasarımda SABİT bir dekorasyondur — bilgi taşımaz, ilk o feda edilir.
+        // `Clip.hardEdge`: yer kalmadığında sessizce kırpılır, kırmızı taşma şeridi çizilmez.
+        Expanded(
+          // `ConstraintsTransformBox`: iç satır genişlik kısıtı KALDIRILARAK ölçülür (yani asla
+          // "taştım" demez), sonra kalan alana kırpılır. `Flex`in kendi `clipBehavior`ı
+          // yetmiyordu — boyamayı kırpıyor ama taşma hatasını yine de atıyor; `OverflowBox` ise
+          // sınırsız yükseklikte kendi boyunu sonsuz yapıyor. Bu widget tam bu iş için var.
+          //
+          // Sağa yaslı hizalama sayesinde önce SAAT İKONU kaybolur, sözcük en son gider:
+          // ikon dekorasyon, "şimdi" bilgidir.
+          child: ConstraintsTransformBox(
+            constraintsTransform: ConstraintsTransformBox.maxWidthUnconstrained,
+            alignment: Alignment.centerRight,
+            clipBehavior: Clip.hardEdge,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SipIcon(SipIcons.clock, boyut: 12, kalinlik: 2, renk: t.muted),
+                const SizedBox(width: SipSpace.xs),
+                CagriSure(baslangic: baslangic),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(width: SipSpace.lg),
         // CSS `.sheet-x`
         SipDokun(

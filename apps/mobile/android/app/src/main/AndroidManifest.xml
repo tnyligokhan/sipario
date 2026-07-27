@@ -63,6 +63,20 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
+    <!--
+      SESLİ GİRİŞ (müşteri formu: ad · adres · bölge · not). Bayi isteği: esnafın klavye
+      toleransı düşük, ad ve adres yazmak formun en yavaş adımı.
+
+      RECORD_AUDIO Play'in KISITLI SMS/Call Log grubunda DEĞİLDİR — kırmızı çizgi #6 korunur.
+      Mikrofon grubu normal çalışma-anı izni olarak istenir ve kullanıcı reddederse özellik
+      pasifleşir, uygulama çalışmaya devam eder.
+
+      Mikrofon ZORUNLU DEĞİLDİR: mikrofonsuz cihazda form elle doldurulur, o yüzden
+      `uses-feature` required="false" (aksi hâlde Play böyle cihazlarda kurulumu engellerdi).
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
     <application
         android:label="Sipario"
         android:name="${applicationName}"
@@ -125,6 +139,14 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!--
+          Android 11+ paket görünürlüğü: bu beyan OLMADAN SpeechRecognizer cihazdaki tanıma
+          servisini GÖREMEZ ve sesli giriş "cihazda ses tanıma yok" diyerek sessizce kapanır.
+          `speech_to_text` paketinin kendi manifest'i BOŞTUR — beyan bize düşer.
+        -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>

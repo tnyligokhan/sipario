@@ -217,7 +217,10 @@ object CallerOverlay {
         val card = CallerCard.build(context, customer, phone, yon)
 
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
+            // MATCH_PARENT DEĞİL: kart ekran kenarına dayanıyordu (saha bildirimi 2026-07-27).
+            // Pencere iki yandan 16dp dar; yan şeritlerde hiç görünüm olmadığı için oradaki
+            // dokunuşlar alttaki çağrı ekranına düşmeye devam eder.
+            CallerCard.kartGenisligi(context),
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             // NOT_FOCUSABLE: altındaki çağrı ekranı kullanılabilir kalır, tuşları biz yutmayız.
@@ -226,6 +229,7 @@ object CallerOverlay {
         ).apply {
             // Ekranın ORTASI. Üstte sistemin heads-up çağrı bildirimi, altta tam ekran
             // çağrı arayüzünün Cevapla/Reddet düğmeleri var; ikisi de bizim değil.
+            // DİKEY konum değişmedi; istenen yalnız yan boşluktu.
             gravity = Gravity.CENTER
         }
 

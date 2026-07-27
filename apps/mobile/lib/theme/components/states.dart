@@ -345,8 +345,35 @@ class _SipPariltiState extends State<SipParilti>
 
 /// Ağ yokken ekranın en üstünde duran kırmızı bant. Offline-first sözü burada görünür kılınır:
 /// "kaydedilip bağlanınca gönderilecek" — kullanıcı veri kaybetmediğini bilmeli.
+/// Bandın anlattığı gerçek. Üçü AYRI durumdur ve tek metinle anlatılamaz (2026-07-27 saha
+/// arızası): oturum ölmüşken "bağlanınca gönderilecek" demek bayiyi boşuna bekletir — hiçbir şey
+/// gönderilmeyecektir, yeniden giriş yapması gerekir. Kullanıcıya ne yapacağını söylemeyen bir
+/// uyarı, uyarı değildir.
+enum SipBantTuru {
+  /// Ağa ulaşılamıyor. Offline-first sözü geçerli: yazmaya devam et, sonra gidecek.
+  cevrimdisi,
+
+  /// Sunucuya ULAŞILDI ve oturum reddedildi (401/403) ya da yerelde token yok.
+  oturum,
+
+  /// Beklenmedik yanıt — ne ağ ne oturum. Kullanıcı çözemez, verisi güvende.
+  hata,
+}
+
 class SipCevrimdisiBant extends StatelessWidget {
-  const SipCevrimdisiBant({super.key});
+  const SipCevrimdisiBant({super.key, this.tur = SipBantTuru.cevrimdisi});
+
+  final SipBantTuru tur;
+
+  /// Metin SÖZLEŞMEDİR (ui_temel_test.dart): `cevrimdisi` metni offline-first sözünü verir.
+  String get metin => switch (tur) {
+        SipBantTuru.cevrimdisi =>
+          'Çevrimdışı · değişiklikler kaydedilip bağlanınca gönderilecek',
+        SipBantTuru.oturum =>
+          'Oturum doğrulanmadı · kayıtlar gönderilemiyor, çıkış yapıp yeniden girin',
+        SipBantTuru.hata =>
+          'Senkron durdu · kayıtlarınız cihazda güvende, destekle görüşün',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -367,7 +394,7 @@ class SipCevrimdisiBant extends StatelessWidget {
           const SizedBox(width: 7),
           Flexible(
             child: Text(
-              'Çevrimdışı · değişiklikler kaydedilip bağlanınca gönderilecek',
+              metin,
               style: SipText.metin(11.5, w: 600)
                   .copyWith(color: const Color(0xFFFFFFFF)),
               textAlign: TextAlign.center,

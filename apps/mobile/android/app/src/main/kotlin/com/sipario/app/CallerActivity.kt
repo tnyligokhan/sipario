@@ -45,8 +45,12 @@ class CallerActivity : Activity() {
         // Aynı bilgiyi iki yerde görmek, hiç görmemekten iyidir.
 
         window.apply {
+            // Genişlik MATCH_PARENT DEĞİL: `setContentView(View)` karta MATCH_PARENT'lık düz bir
+            // `ViewGroup.LayoutParams` dayatır, yani kartın kendi kenar payı hiçbir zaman
+            // uygulanmıyordu ve kart ekran kenarına dayanıyordu (saha bildirimi 2026-07-27).
+            // Boşluğu pencere veriyor — overlay yoluyla AYNI ölçü, iki yüzey ayrışmasın.
             setLayout(
-                WindowManager.LayoutParams.MATCH_PARENT,
+                CallerCard.kartGenisligi(this@CallerActivity),
                 WindowManager.LayoutParams.WRAP_CONTENT,
             )
             setGravity(Gravity.CENTER)

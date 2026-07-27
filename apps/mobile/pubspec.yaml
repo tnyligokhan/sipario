@@ -38,6 +38,15 @@ dependencies:
   # ActivityNotFoundException'ı yutup false döner (gerekçeyi biz Türkçe söyleriz).
   url_launcher: ^6.3.2
 
+  # Müşteri formunda sesli giriş (ad · adres · bölge · not). Esnafın klavye toleransı düşük;
+  # bayi isteği "inputların yanında mikrofon işareti olabilir".
+  # NEDEN BU PAKET: bakımı süren tek olgun seçenek; Android SpeechRecognizer + iOS
+  # SFSpeechRecognizer'ı tek API'de veriyor, dil seçimi (tr_TR) ve izin akışı içinde.
+  # Elenenler: google_speech (bulut gRPC + API anahtarı — müşteri adı/adresi Google'a giderdi,
+  # kırmızı çizgi #4), vosk_flutter (gerçekten çevrimdışı ama ~50 MB model gömmek gerekir ve
+  # paket olgun değil), flutter_speech (terk edilmiş).
+  speech_to_text: ^7.4.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

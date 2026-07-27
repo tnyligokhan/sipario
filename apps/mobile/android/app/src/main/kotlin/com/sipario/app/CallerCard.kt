@@ -50,7 +50,15 @@ object CallerCard {
         CallerTema.fontlariYukle(context)
         val p = CallerTema.palet(context)
 
-        // CSS `.cagri-kart`: surface zemin, r3 köşe, 18/18/18/20 iç boşluk, yanlardan 16 boşluk.
+        // CSS `.cagri-kart`: surface zemin, r3 köşe, 18/18/18/20 iç boşluk, genişlik %100.
+        //
+        // YAN BOŞLUK BURADA DEĞİL, PENCEREDEDİR (2026-07-27 saha bulgusu). Burada bir zamanlar
+        // `LinearLayout.LayoutParams` ile 16dp kenar payı veriliyordu ama ikisi de SESSİZCE
+        // düşüyordu: `WindowManager.addView` görünümün layoutParams'ını kendi params'ıyla
+        // DEĞİŞTİRİR (ve `WindowManager.LayoutParams` bir MarginLayoutParams değildir, kenar
+        // payı diye bir alanı yoktur), `Activity.setContentView(View)` de MATCH_PARENT'lık düz
+        // bir `ViewGroup.LayoutParams` dayatır. Sonuç: kart iki uçta da ekran kenarına
+        // dayanıyordu. Boşluk artık pencere genişliğinden geliyor — bkz. [kartGenisligi].
         val kok = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
@@ -58,13 +66,6 @@ object CallerCard {
                 setColor(p.surface)
             }
             setPadding(dp(context, 18), dp(context, 18), dp(context, 18), dp(context, 20))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply {
-                val yan = dp(context, 16)
-                setMargins(yan, 0, yan, 0)
-            }
             // Tasarımda kart, düz yüzey kuralının tek istisnası: perde üstünde yüzer.
             elevation = dp(context, 14).toFloat()
         }
@@ -81,6 +82,33 @@ object CallerCard {
 
         kok.addView(CallerCardViews.eylemler(context, p, customer, phone))
         return kok
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    // Kartın penceresi
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Kartın iki yanındaki boşluk. Tasarımın kendi ölçüsü: `.cagri-overlay { padding: 0 16px }`
+     * (`design_handoff_sipario/_cozulmus/_sayfa.html:774`); kartın kendisi o kabın içinde
+     * `width: 100%`tür. Flutter kartı da aynı değeri `SipSpace.x3` ile uyguluyor.
+     */
+    const val YAN_BOSLUK_DP = 16
+
+    /**
+     * Kart penceresinin genişliği — ekran eksi iki yandan [YAN_BOSLUK_DP].
+     *
+     * Boşluğu KART yerine PENCERE veriyor olmamızın sebebi: yan şeritlerde hiç görünüm olmuyor,
+     * dolayısıyla oradaki dokunuşlar alttaki çağrı ekranına düşmeye devam ediyor (kilitli yolda
+     * `FLAG_NOT_TOUCH_MODAL` + `setFinishOnTouchOutside(false)` sözleşmesi bozulmasın). Şeffaf
+     * dolgulu bir sarmalayıcı görünüm koysaydık o şeritler dokunuşu yutardı.
+     *
+     * Alt sınır yalnız EMNİYETTİR (tasarım ölçüsü değil): `widthPixels` beklenmedik bir bağlamda
+     * 0 dönerse kart negatif genişlikle hiç çizilmesin.
+     */
+    fun kartGenisligi(context: Context): Int {
+        val ekran = context.resources.displayMetrics.widthPixels
+        return (ekran - 2 * dp(context, YAN_BOSLUK_DP)).coerceAtLeast(dp(context, 240))
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════════════

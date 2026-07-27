@@ -96,7 +96,16 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+/// Senkron hata cinsini bandın anlatacağı gerçeğe çevirir. Ekrandan AYRI saf fonksiyon: eşleme
+/// widget kurmadan test edilir ve tema katmanı `sync` paketine bağımlı olmaz (bağımlılık yönü
+/// ekran → tema + ekran → sync olarak kalır).
+SipBantTuru bantTuru(SyncHataTuru tur) => switch (tur) {
+      SyncHataTuru.oturum => SipBantTuru.oturum,
+      SyncHataTuru.veri => SipBantTuru.hata,
+      SyncHataTuru.ag || SyncHataTuru.yok => SipBantTuru.cevrimdisi,
+    };
+
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   /// Açılış sekmesi ANA EKRAN'dır (kullanıcı kararı, 2026-07-26).
   ///
   /// Tasarım `s-uygulama.jsx` `useState('siparis')` ile açıyor ve bir süre öyle duruldu;
@@ -132,6 +141,9 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void initState() {
     super.initState();
+    // Öne gelince senkron turu: tetikleyici YALNIZ açılıştaki ilk tur + 2 dk'lık zamanlayıcıydı,
+    // öne gelme hiçbir şey tetiklemiyordu ("ancak kapatıp açınca senkronize oluyor" — saha).
+    WidgetsBinding.instance.addObserver(this);
     // sync_meta AKIŞINA abone olunur, tek atış okunmaz. Bu satırın sunucu sahipli alanları
     // (abonelik, firma kodu, rota kontörü) hem senkronla hem ekranlardan (oto sıralama hakkı
     // düştüğünde) değişir; tek atış okuma çekmecedeki kartları bayat bırakıyordu — cihazda
@@ -163,7 +175,13 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(widget.sync.syncNow());
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _syncSub?.cancel();
     _kuryeSub?.cancel();
     _metaSub?.cancel();
@@ -309,7 +327,10 @@ class _HomeShellState extends State<HomeShell> {
             Column(
               children: [
                 if (_sonSenkron != null && !_sonSenkron!.ok)
-                  SafeArea(bottom: false, child: const SipCevrimdisiBant()),
+                  SafeArea(
+                    bottom: false,
+                    child: SipCevrimdisiBant(tur: bantTuru(_sonSenkron!.tur)),
+                  ),
                 if (_access == AccessLevel.grace)
                   const SafeArea(bottom: false, child: _GraceBandi()),
                 Expanded(child: _govde(sekme, yetki)),

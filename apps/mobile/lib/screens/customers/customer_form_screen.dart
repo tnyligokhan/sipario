@@ -4,6 +4,9 @@
 // Alanlar: ad · ÇOKLU telefon (en çok 3, ekle/sil) · adres + konum · bölge · not.
 // Telefon E.164'e normalize edilir; aynı numara başka müşteride varsa kayıt DURDURULUR
 // (arayan tanıma tek numaraya tek müşteri eşler — mükerrer kayıt sessizce kabul edilmez).
+//
+// SESLİ GİRİŞ (bayi isteği): ad · adres · bölge · not alanlarının yanında mikrofon var.
+// TELEFONDA MİKROFON YOK — gerekçe `_sesleYaz` üstünde.
 
 import 'package:flutter/material.dart';
 
@@ -84,6 +87,16 @@ class _MusteriFormuState extends State<_MusteriFormu> {
   final Map<int, String> _telHatalari = {};
   bool _calisiyor = false;
 
+  // ── Sesli giriş ────────────────────────────────────────────────────────────────────────
+  late final SesliGiris _ses = sesliGirisUret();
+
+  /// O an dinlenen alanın adı (aynı anda TEK alan dinlenir); null = dinleme yok.
+  String? _dinlenenAlan;
+
+  /// Son ses gerekçesi ve hangi alanın altında gösterileceği.
+  String? _sesMesaji;
+  String? _sesMesajAlani;
+
   bool get _duzenleme => widget.musteri != null;
 
   @override
@@ -107,6 +120,9 @@ class _MusteriFormuState extends State<_MusteriFormu> {
 
   @override
   void dispose() {
+    // Sheet kapanırken mikrofon AÇIK KALMAZ — sahipsiz bir kayıt oturumu bırakmak hem pil
+    // hem güven meselesi.
+    _ses.birak();
     _ad.dispose();
     for (final c in _teller) {
       c.dispose();
@@ -116,6 +132,66 @@ class _MusteriFormuState extends State<_MusteriFormu> {
     _not.dispose();
     super.dispose();
   }
+
+  /// Alanı sesle doldurur. Aynı mikrofona ikinci dokunuş dinlemeyi DURDURUR (kullanıcı kaydı
+  /// bitirmek için beklemek zorunda kalmasın), başka alanın mikrofonu öncekini kapatır.
+  ///
+  /// TELEFON ALANINDA ÇAĞRILMAZ. Gerekçe: Türkçe tanıma rakamları tutarsız döndürür ("beş yüz
+  /// otuz iki" / "532" / "5 32"); tek hane kayması yanlış numara kaydeder ve o numara ARAYAN
+  /// TANIMAYI kör eder — ürünün varlık sebebi. Risk simetrik değil: 10 haneyi klavyeden yazmak
+  /// birkaç saniye, yanlış numara ise sessizce kaybedilen bir müşteri. `normalizePhoneTR` sözel
+  /// çıktının çoğunu zaten reddeder ve kullanıcı hatayı uygulamaya yazardı.
+  Future<void> _sesleYaz(
+    String alan,
+    TextEditingController kontrol, {
+    VoidCallback? degisince,
+  }) async {
+    if (_dinlenenAlan != null) {
+      final ayniAlan = _dinlenenAlan == alan;
+      await _ses.durdur();
+      if (!mounted) return;
+      setState(() => _dinlenenAlan = null);
+      if (ayniAlan) return; // ikinci dokunuş = durdur
+    }
+    setState(() {
+      _dinlenenAlan = alan;
+      _sesMesaji = null;
+      _sesMesajAlani = null;
+    });
+
+    // Dinleme BAŞLARKENKİ metin taban alınır: her kısmi sonuçta yeniden birleştirilir, böylece
+    // konuşma sürerken alan büyür ama kullanıcının önceden yazdığı metin tekrarlanmaz/silinmez.
+    final taban = kontrol.text;
+    await _ses.dinle(
+      onMetin: (metin) {
+        final yeni = sesMetniBirlestir(taban, metin);
+        kontrol.value = TextEditingValue(
+          text: yeni,
+          selection: TextSelection.collapsed(offset: yeni.length),
+        );
+        // SipInput.onChanged YALNIZ kullanıcı yazınca tetiklenir; programatik yazımda alanın
+        // yan etkilerini (hata temizleme, konum sıfırlama) elle çağırmak zorundayız.
+        degisince?.call();
+      },
+      onBitis: (gerekce) {
+        if (!mounted) return;
+        setState(() {
+          _dinlenenAlan = null;
+          _sesMesaji = gerekce;
+          _sesMesajAlani = gerekce == null ? null : alan;
+        });
+      },
+    );
+  }
+
+  /// Adres metni değişti: alınmış konum artık o adrese ait değildir, aday listesi ve hata düşer.
+  /// Hem klavye hem sesli giriş bu tek yoldan geçer (iki kopya kural ayrışırdı).
+  void _adresDegisti() => setState(() {
+        _lat = null;
+        _lng = null;
+        _adaylar = null;
+        _adresHatasi = null;
+      });
 
   void _konumAl() {
     if (_adres.text.trim().isEmpty) {
@@ -191,6 +267,38 @@ class _MusteriFormuState extends State<_MusteriFormu> {
     if (mounted) Navigator.of(context).pop(true);
   }
 
+  /// Alan + yanında mikrofon + altında dinleme/gerekçe satırı. Mikrofon HER ZAMAN çizilir;
+  /// izin yoksa ya da cihazda Türkçe tanıma yoksa soluk görünür ve dokunuş nedenini söyler.
+  Widget _sesliAlan({
+    required String ad,
+    required TextEditingController kontrol,
+    required Widget alan,
+    VoidCallback? degisince,
+    bool ustHizala = false,
+  }) {
+    final t = context.sip;
+    final dinliyor = _dinlenenAlan == ad;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SesliAlanSatiri(
+          alan: alan,
+          ustHizala: ustHizala,
+          mikrofon: SesliGirisDugmesi(
+            dinliyor: dinliyor,
+            kapali: _ses.durum == SesDurumu.kapali,
+            alanAdi: ad,
+            onTap: () => _sesleYaz(ad, kontrol, degisince: degisince),
+          ),
+        ),
+        if (dinliyor)
+          SipHataSatiri(metin: 'Dinleniyor… konuşun', renk: t.accent, ikon: SipIcons.info),
+        if (_sesMesajAlani == ad && _sesMesaji != null)
+          SipHataSatiri(metin: _sesMesaji!, renk: t.warn, ikon: SipIcons.info),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
@@ -198,15 +306,22 @@ class _MusteriFormuState extends State<_MusteriFormu> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SipFormEtiket('Ad Soyad *', ustBosluk: SipSpace.md),
-        SipInput(
-          controller: _ad,
-          ipucu: 'Ör. Ayşe Kaya',
-          hata: _adHatasi != null,
-          buyukHarfKipi: TextCapitalization.words,
-          otomatikOdak: !_duzenleme,
-          onChanged: (_) {
+        _sesliAlan(
+          ad: 'Ad Soyad',
+          kontrol: _ad,
+          degisince: () {
             if (_adHatasi != null) setState(() => _adHatasi = null);
           },
+          alan: SipInput(
+            controller: _ad,
+            ipucu: 'Ör. Ayşe Kaya',
+            hata: _adHatasi != null,
+            buyukHarfKipi: TextCapitalization.words,
+            otomatikOdak: !_duzenleme,
+            onChanged: (_) {
+              if (_adHatasi != null) setState(() => _adHatasi = null);
+            },
+          ),
         ),
         if (_adHatasi != null) SipHataSatiri(metin: _adHatasi!),
         for (var i = 0; i < _teller.length; i++) ...[
@@ -264,21 +379,21 @@ class _MusteriFormuState extends State<_MusteriFormu> {
         if (_duzenleme)
           const SipFormEtiket('Adres')
         else
-          _AdresEtiketSatiri(
+          AdresEtiketSatiri(
             konumVar: _lat != null && _lng != null,
             koordinat: (_lat != null && _lng != null) ? konumMetni(_lat!, _lng!) : null,
             onKonumAl: _konumAl,
           ),
-        SipInput(
-          controller: _adres,
-          ipucu: 'Mahalle, sokak, no',
-          hata: _adresHatasi != null,
-          onChanged: (_) => setState(() {
-            _lat = null;
-            _lng = null;
-            _adaylar = null;
-            _adresHatasi = null;
-          }),
+        _sesliAlan(
+          ad: 'Adres',
+          kontrol: _adres,
+          degisince: _adresDegisti,
+          alan: SipInput(
+            controller: _adres,
+            ipucu: 'Mahalle, sokak, no',
+            hata: _adresHatasi != null,
+            onChanged: (_) => _adresDegisti(),
+          ),
         ),
         if (_adresHatasi != null) SipHataSatiri(metin: _adresHatasi!),
         if (!_duzenleme && _adaylar != null && _lat == null)
@@ -305,12 +420,25 @@ class _MusteriFormuState extends State<_MusteriFormu> {
             ),
           ),
         const SipFormEtiket('Bölge'),
-        SipInput(controller: _bolge, ipucu: 'Ör. Kepez', buyukHarfKipi: TextCapitalization.words),
+        _sesliAlan(
+          ad: 'Bölge',
+          kontrol: _bolge,
+          alan: SipInput(
+              controller: _bolge,
+              ipucu: 'Ör. Kepez',
+              buyukHarfKipi: TextCapitalization.words),
+        ),
         const SipFormEtiket('Not'),
-        SipInput(
-          controller: _not,
-          satirlar: 2,
-          ipucu: 'Zil, kapı kodu, özel durum…',
+        _sesliAlan(
+          ad: 'Not',
+          kontrol: _not,
+          // Çok satırlı kutu büyüdükçe mikrofon ortada asılı kalmasın.
+          ustHizala: true,
+          alan: SipInput(
+            controller: _not,
+            satirlar: 2,
+            ipucu: 'Zil, kapı kodu, özel durum…',
+          ),
         ),
         const SizedBox(height: SipSpace.x3),
         SipButon(
@@ -319,63 +447,6 @@ class _MusteriFormuState extends State<_MusteriFormu> {
           onTap: _kaydet,
         ),
       ],
-    );
-  }
-}
-
-/// CSS `.ym-lblrow` — "Adres" etiketi + sağda Konum Al bağlantısı / alınan konum çipi.
-class _AdresEtiketSatiri extends StatelessWidget {
-  const _AdresEtiketSatiri({
-    required this.konumVar,
-    required this.koordinat,
-    required this.onKonumAl,
-  });
-
-  final bool konumVar;
-  final String? koordinat;
-  final VoidCallback onKonumAl;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, SipSpace.x2, 0, SipSpace.sm),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text('ADRES', style: SipText.formEtiket.copyWith(color: t.muted)),
-          ),
-          if (konumVar)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SipIcon(SipIcons.check, boyut: 12, kalinlik: 2.8, renk: t.ok),
-                const SizedBox(width: 5),
-                Text(
-                  'Konum alındı · ${koordinat!}',
-                  style: SipText.metin(11.5, w: 700).copyWith(color: t.ok),
-                ),
-              ],
-            )
-          else
-            SipDokun(
-              onTap: onKonumAl,
-              radius: SipRadius.br1,
-              padding: const EdgeInsets.symmetric(horizontal: SipSpace.sm, vertical: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SipIcon(SipIcons.pin, boyut: 13, kalinlik: 2.2, renk: t.accent),
-                  const SizedBox(width: 5),
-                  Text(
-                    'Konum Al',
-                    style: SipText.metin(12, w: 800).copyWith(color: t.accent),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

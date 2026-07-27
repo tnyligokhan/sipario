@@ -30,11 +30,24 @@ class CagriBakiyeSeridi extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.baseline,
         textBaseline: TextBaseline.alphabetic,
         children: [
-          Text(
-            kurus > 0 ? 'AÇIK BORÇ' : 'ALACAĞI VAR',
-            style: SipText.cagriBakiyeEtiket.copyWith(color: renk),
+          // ÖNCELİK SIRASI (2026-07-27): dar kartta ya da büyük yazı tipinde şerit taşıyordu.
+          // Kırpılacak olan ETİKETTİR, TUTAR DEĞİL: "AÇIK BO…" hâlâ anlaşılır, yarım okunan bir
+          // borç rakamı esnafın defteriyle tutmayan bir sayı demektir (kırmızı çizgi #2'nin ruhu).
+          // `Expanded` (eski `Spacer`ın yerine): etiket kalan alanın tamamını alır, yani tutar
+          // eskisi gibi SAĞA yaslı kalır — görünüm değişmez, yalnız sıkışma yönü tanımlanmış olur.
+          Expanded(
+            // Etiketle tutar arasındaki boşluk BURADA, etiketin içinde: sabit bir `SizedBox`
+            // olsaydı etiket tamamen sıkışsa bile o 8px yerini korur ve tutarı taşırırdı.
+            child: Padding(
+              padding: const EdgeInsets.only(right: SipSpace.md),
+              child: Text(
+                kurus > 0 ? 'AÇIK BORÇ' : 'ALACAĞI VAR',
+                style: SipText.cagriBakiyeEtiket.copyWith(color: renk),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ),
-          const Spacer(),
           Text(
             sipTutar(kurus.abs()),
             style: SipText.cagriBakiyeDeger.copyWith(color: renk),
