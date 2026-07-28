@@ -16,12 +16,17 @@ import '../../data/outbox.dart';
 import '../../repo/customer_repository.dart';
 
 /// Formun topladığı alanlar. Telefonlar E.164 ("+905321112233"), para yok, konum opsiyonel.
+///
+/// BÖLGE YOK (kullanıcı kararı 2026-07-28: "gerek yok, tamamen kaldır"). Semt/ilçe adres
+/// metninin içinde yazılır; iki ayrı alan aynı bilgiyi iki kez soruyordu. `customer_addresses.
+/// region` kolonu şemada DURUYOR ama artık yazılmaz — senkronlanan bir kolonu düşürmek şema +
+/// senkron sözleşmesi değişikliğidir ve eski kayıtların verisini siler (kırmızı çizgi #2'nin
+/// ruhu). Kolon uykuda kalır; eski kayıtlardaki değer korunur, hiçbir ekranda gösterilmez.
 class MusteriFormVerisi {
   const MusteriFormVerisi({
     required this.ad,
     required this.telefonlar,
     this.adres,
-    this.bolge,
     this.not,
     this.lat,
     this.lng,
@@ -30,7 +35,6 @@ class MusteriFormVerisi {
   final String ad;
   final List<String> telefonlar;
   final String? adres;
-  final String? bolge;
   final String? not;
   final double? lat;
   final double? lng;
@@ -52,10 +56,10 @@ Future<String> musteriOlustur(AppDatabase db, MusteriFormVerisi v) {
     ],
     addresses: [
       if (adres != null && adres.isNotEmpty)
+        // region VERİLMEZ (null): yeni kayıtlarda bölge kolonu artık hiç doldurulmaz.
         AddressInput(
           addressText: adres,
           label: 'Ev',
-          region: v.bolge,
           lat: v.lat,
           lng: v.lng,
           isPrimary: true,
@@ -94,7 +98,9 @@ Future<void> musteriGuncelle(
   final girdi = AddressInput(
     addressText: adres,
     label: eskiAdres?.label ?? 'Ev',
-    region: v.bolge,
+    // Eski kaydın bölgesi KORUNUR, null'lanmaz. Alan ekrandan kalktı diye kayıttaki değeri
+    // ilgisiz bir düzenlemede silmek sessiz veri kaybı olurdu; kolon uykuda ama dolu kalır.
+    region: eskiAdres?.region,
     lat: v.lat,
     lng: v.lng,
     isPrimary: true,
@@ -102,7 +108,6 @@ Future<void> musteriGuncelle(
   if (eskiAdres == null) {
     await repo.addAddress(customerId, girdi);
   } else if (adres != eskiAdres.addressText ||
-      v.bolge != eskiAdres.region ||
       v.lat != eskiAdres.lat ||
       v.lng != eskiAdres.lng) {
     await repo.updateAddress(eskiAdres.id, customerId, girdi);

@@ -71,15 +71,12 @@ class CagriBilgiSatirlari extends StatelessWidget {
 
     final adres = kisi.adres;
     if (adres != null && adres.isNotEmpty) {
-      final bolge = kisi.bolge;
-      final metin = [adres, if (bolge != null && bolge != '—') bolge]
-          .where((x) => x.isNotEmpty)
-          .join(' — ');
+      // Bölge kaldırıldı (2026-07-28): adres metni tek başına gösterilir.
       satirlar.add(
         _BilgiSatiri(
           ikon: SipIcons.pin,
           ikonRenk: kisi.konumVar ? t.ok : t.muted,
-          metin: metin,
+          metin: adres,
           // Kayıtlı konum varsa satır sonunda yeşil onay (tasarımdaki `check`).
           sag: kisi.konumVar
               ? SipIcon(SipIcons.check, boyut: 12, kalinlik: 3, renk: t.ok)

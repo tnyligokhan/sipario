@@ -43,7 +43,6 @@ const _ahmet = CagriKisi(
   ad: 'Ahmet Yılmaz',
   bakiyeKurus: 34000,
   adres: 'Cumhuriyet Mah. 5. Sk. No:12/4',
-  bolge: 'Kepez',
   konumVar: true,
   not: 'Zil çalışmıyor, gelince arayın.',
   sonHareket: 'Son sipariş: Damacana 19 L ×2 · 10:24',
@@ -96,7 +95,8 @@ void main() {
       expect(find.text('340,00 ₺'), findsOneWidget);
 
       // Bilgi satırları: adres bölgeyle birleşir, not sarı satırda durur.
-      expect(find.text('Cumhuriyet Mah. 5. Sk. No:12/4 — Kepez'), findsOneWidget);
+      // Bölge kaldırıldı (2026-07-28): kartta adres metni tek başına yazar.
+      expect(find.text('Cumhuriyet Mah. 5. Sk. No:12/4'), findsOneWidget);
       expect(find.text('Son sipariş: Damacana 19 L ×2 · 10:24'), findsOneWidget);
       expect(find.text('Zil çalışmıyor, gelince arayın.'), findsOneWidget);
 
@@ -362,7 +362,6 @@ void main() {
       String telefon, {
       String? not,
       String? adres,
-      String? bolge,
       double? lat,
       double? lng,
     }) {
@@ -373,7 +372,7 @@ void main() {
         addresses: [
           if (adres != null)
             AddressInput(
-                addressText: adres, region: bolge, lat: lat, lng: lng, isPrimary: true),
+                addressText: adres, lat: lat, lng: lng, isPrimary: true),
         ],
       );
     }
@@ -384,7 +383,6 @@ void main() {
         '+905324152290',
         not: 'Zil çalışmıyor, gelince arayın.',
         adres: 'Cumhuriyet Mah. 5. Sk. No:12/4',
-        bolge: 'Kepez',
         lat: 36.8969,
         lng: 30.7133,
       );
@@ -398,7 +396,6 @@ void main() {
       expect(kisi.ad, 'Ahmet Yılmaz');
       expect(kisi.bakiyeKurus, 34000);
       expect(kisi.adres, 'Cumhuriyet Mah. 5. Sk. No:12/4');
-      expect(kisi.bolge, 'Kepez');
       expect(kisi.konumVar, isTrue);
       expect(kisi.not, 'Zil çalışmıyor, gelince arayın.');
       // Kartta gösterilen numara HAM gelen numaradır (eşleşme anahtarı değil).

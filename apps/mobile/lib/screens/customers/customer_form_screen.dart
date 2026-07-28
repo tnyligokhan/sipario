@@ -77,7 +77,6 @@ class _MusteriFormuState extends State<_MusteriFormu> {
   late final TextEditingController _ad;
   late final List<TextEditingController> _teller;
   late final TextEditingController _adres;
-  late final TextEditingController _bolge;
   late final TextEditingController _not;
 
   double? _lat;
@@ -120,7 +119,6 @@ class _MusteriFormuState extends State<_MusteriFormu> {
           TextEditingController(text: sipTelefon(p.phoneE164)),
     ];
     _adres = TextEditingController(text: widget.adres?.addressText ?? '');
-    _bolge = TextEditingController(text: widget.adres?.region ?? '');
     _not = TextEditingController(text: m?.note ?? '');
     _lat = widget.adres?.lat;
     _lng = widget.adres?.lng;
@@ -136,7 +134,6 @@ class _MusteriFormuState extends State<_MusteriFormu> {
       c.dispose();
     }
     _adres.dispose();
-    _bolge.dispose();
     _not.dispose();
     super.dispose();
   }
@@ -226,7 +223,7 @@ class _MusteriFormuState extends State<_MusteriFormu> {
 
     List<AdresAdayi> adaylar;
     try {
-      adaylar = await adresAdaylariGetir(widget.db, _adres.text, _bolge.text);
+      adaylar = await adresAdaylariGetir(widget.db, _adres.text);
     } on GeocodeException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -319,7 +316,6 @@ class _MusteriFormuState extends State<_MusteriFormu> {
       ad: ad,
       telefonlar: numaralar,
       adres: _adres.text.trim().isEmpty ? null : _adres.text.trim(),
-      bolge: _bolge.text.trim().isEmpty ? null : _bolge.text.trim(),
       not: _not.text.trim().isEmpty ? null : _not.text.trim(),
       lat: _lat,
       lng: _lng,
@@ -492,15 +488,9 @@ class _MusteriFormuState extends State<_MusteriFormu> {
               ],
             ),
           ),
-        const SipFormEtiket('Bölge'),
-        _sesliAlan(
-          ad: 'Bölge',
-          kontrol: _bolge,
-          alan: SipInput(
-              controller: _bolge,
-              ipucu: 'Ör. Kepez',
-              buyukHarfKipi: TextCapitalization.words),
-        ),
+        // BÖLGE ALANI KALDIRILDI (kullanıcı kararı 2026-07-28: "gerek yok, tamamen kaldır").
+        // Semt/ilçe zaten adres metninin içine yazılıyordu; iki alan aynı bilgiyi iki kez
+        // soruyor ve esnafın en yavaş adımını (yazmak) uzatıyordu.
         const SipFormEtiket('Not'),
         _sesliAlan(
           ad: 'Not',

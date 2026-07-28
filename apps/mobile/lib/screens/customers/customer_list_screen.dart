@@ -182,7 +182,7 @@ class _MusteriSatiri extends StatelessWidget {
     final c = satir.customer;
     final adres = satir.adres;
     final konumVar = adres?.lat != null && adres?.lng != null;
-    final adresMetni = adresGosterimi(adres?.addressText, adres?.region);
+    final adresMetni = adresGosterimi(adres?.addressText);
 
     return SipDokun(
       onTap: onAc,

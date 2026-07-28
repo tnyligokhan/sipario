@@ -59,7 +59,6 @@ void main() {
         addresses: [
           AddressInput(
             addressText: 'Lara Cad. no:12',
-            region: 'Muratpaşa',
             lat: konum ? 36.8969 : null,
             lng: konum ? 30.7133 : null,
             isPrimary: true,

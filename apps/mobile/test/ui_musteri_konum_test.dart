@@ -129,8 +129,8 @@ void main() {
   // ═════════════════════════════════════════════════════════════════════════════════════════
 
   group('Ekranlar', () {
-    /// Sahte bulucunun çağrıldığı argümanlar — ekranın bölgeyi gerçekten geçirdiğini kanıtlar.
-    late List<(String, String?)> aramalar;
+    /// Sahte bulucuya giden adres metinleri — servise NE gönderildiğini kanıtlar.
+    late List<String> aramalar;
 
     setUp(() {
       aramalar = [];
@@ -143,14 +143,14 @@ void main() {
     });
 
     void bulucuKur(List<AdresAdayi> sonuc) {
-      adresAdaylariGetir = (db, metin, bolge) async {
-        aramalar.add((metin, bolge));
+      adresAdaylariGetir = (db, metin) async {
+        aramalar.add(metin);
         return sonuc;
       };
     }
 
     void bulucuPatlat(String mesaj) {
-      adresAdaylariGetir = (db, metin, bolge) async => throw GeocodeException(mesaj);
+      adresAdaylariGetir = (db, metin) async => throw GeocodeException(mesaj);
     }
 
     Future<void> ekranaKoy(WidgetTester tester, Widget ekran) async {
@@ -195,15 +195,14 @@ void main() {
       await tester.enterText(find.byType(TextField).at(0), 'Konumlu Kişi');
       await tester.enterText(find.byType(TextField).at(1), '0532 111 22 33');
       await tester.enterText(find.byType(TextField).at(2), 'Bahçe Sk. no:5');
-      await tester.enterText(find.byType(TextField).at(3), 'Kepez');
       await tester.pump();
 
       await tester.tap(find.text('Konum Al'));
       await tester.pumpAndSettle();
 
-      // Ekran adres metnini VE bölgeyi geçirir — bölge ipucu olmadan "Bahçe Sk." yüzlerce yerde var.
-      expect(aramalar.single.$1, 'Bahçe Sk. no:5');
-      expect(aramalar.single.$2, 'Kepez');
+      // Servise giden TEK şey adres metnidir (bölge alanı 2026-07-28'de kaldırıldı; semt/ilçe
+      // artık adresin içine yazılır).
+      expect(aramalar.single, 'Bahçe Sk. no:5');
 
       // Konum OTOMATİK atanmaz: iki aday da listede, hiçbiri seçili değil.
       expect(find.text('Antalya, Kepez, Bahçe Sk.'), findsOneWidget);
@@ -228,7 +227,8 @@ void main() {
       expect(adres.lat, 36.8969);
       expect(adres.lng, 30.7133);
       expect(adres.addressText, 'Bahçe Sk. no:5', reason: 'adres metni adayla EZİLMEZ');
-      expect(adres.region, 'Kepez');
+      // Bölge alanı kalktı: yeni kayıtlarda region HİÇ doldurulmaz.
+      expect(adres.region, isNull);
 
       await kapat(tester);
     });
@@ -439,7 +439,7 @@ void main() {
       });
 
       await expectLater(
-        () => sunucudanAdresAdaylari(db, 'Bahçe Sk. no:5', 'Kepez'),
+        () => sunucudanAdresAdaylari(db, 'Bahçe Sk. no:5'),
         throwsA(isA<GeocodeException>()
             .having((e) => e.message, 'mesaj', contains('oturum gerekir'))),
       );
@@ -453,7 +453,7 @@ void main() {
 
       // Sunucu da reddederdi; buradan çıkmaması bir tur ağ ve bir tur kota tasarrufudur.
       await expectLater(
-        () => sunucudanAdresAdaylari(db, 'ab', null),
+        () => sunucudanAdresAdaylari(db, 'ab'),
         throwsA(isA<GeocodeException>()
             .having((e) => e.message, 'mesaj', contains('en az 3 karakter'))),
       );

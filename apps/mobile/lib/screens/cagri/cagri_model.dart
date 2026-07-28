@@ -109,7 +109,6 @@ class CagriKisi {
     this.ad,
     this.bakiyeKurus = 0,
     this.adres,
-    this.bolge,
     this.konumVar = false,
     this.not,
     this.sonHareket,
@@ -123,7 +122,6 @@ class CagriKisi {
         ad = null,
         bakiyeKurus = 0,
         adres = null,
-        bolge = null,
         konumVar = false,
         not = null,
         sonHareket = null,
@@ -140,7 +138,6 @@ class CagriKisi {
   final int bakiyeKurus;
 
   final String? adres;
-  final String? bolge;
 
   /// Adresin kayıtlı konumu var mı (tasarımda adres satırındaki yeşil onay).
   final bool konumVar;

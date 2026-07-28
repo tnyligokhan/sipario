@@ -142,7 +142,10 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('satır adresi "metin — bölge" olarak yazar', (tester) async {
+    testWidgets('satır adresi yalnız adres metnini yazar (bölge kaldırıldı)', (tester) async {
+      // 2026-07-28: Bölge alanı üründen çıktı. ESKİ kayıtlarda `region` dolu kalabilir —
+      // kolon uykuda durur ama hiçbir ekranda GÖSTERİLMEZ. Bu test onu da kilitliyor:
+      // dolu bir region satıra sızmamalı.
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await CustomerRepository(db).create(
@@ -155,7 +158,8 @@ void main() {
       });
 
       await ekranaKoy(tester, CustomerListScreen(db: db, writable: true));
-      expect(find.text('Bahçe Sk. no:5 — Kepez'), findsOneWidget);
+      expect(find.text('Bahçe Sk. no:5'), findsOneWidget);
+      expect(find.textContaining('Kepez'), findsNothing);
       await kapat(tester);
     });
 
@@ -488,18 +492,18 @@ void main() {
       await formuAc(tester, db);
 
       // Açılışta: ad · telefon · adres · bölge · not
-      expect(find.byType(TextField), findsNWidgets(5));
+      expect(find.byType(TextField), findsNWidgets(4));
       expect(find.text('+ Telefon ekle (1/3)'), findsOneWidget);
 
       await tester.tap(find.text('+ Telefon ekle (1/3)'));
       await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsNWidgets(6));
+      expect(find.byType(TextField), findsNWidgets(5));
       expect(find.text(trBuyuk('Telefon 2')), findsOneWidget);
       expect(find.text('+ Telefon ekle (2/3)'), findsOneWidget);
 
       await tester.tap(find.bySemanticsLabel('Telefonu sil'));
       await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsNWidgets(5));
+      expect(find.byType(TextField), findsNWidgets(4));
       expect(find.text(trBuyuk('Telefon 2')), findsNothing);
 
       await kapat(tester);
@@ -607,14 +611,19 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('bölge AYRI kolona (CustomerAddresses.region) yazılır', (tester) async {
+    testWidgets('formda BÖLGE ALANI YOK; adres tek başına kaydedilir', (tester) async {
+      // 2026-07-28 kullanıcı kararı: "Bölge'ye gerek yok, tamamen kaldır". Semt/ilçe adres
+      // metninin içine yazılır — iki alan aynı bilgiyi iki kez soruyordu.
       final db = AppDatabase(NativeDatabase.memory());
       await formuAc(tester, db);
 
+      expect(find.text(trBuyuk('Bölge')), findsNothing, reason: 'alan tamamen kalkmalı');
+      expect(find.bySemanticsLabel('Sesle yaz · Bölge'), findsNothing,
+          reason: 'kalkan alanın mikrofonu da kalkmalı');
+
       await tester.enterText(find.byType(TextField).at(0), 'Adresli Kişi');
       await tester.enterText(find.byType(TextField).at(1), '0532 999 88 77');
-      await tester.enterText(find.byType(TextField).at(2), 'Bahçe Sk. no:5');
-      await tester.enterText(find.byType(TextField).at(3), 'Kepez');
+      await tester.enterText(find.byType(TextField).at(2), 'Bahçe Sk. no:5, Kepez');
       await tester.pump();
       await kaydetVeBekle(tester, 'Müşteriyi Kaydet');
 
@@ -623,9 +632,10 @@ void main() {
         adres = await db.select(db.customerAddresses).getSingle();
       });
 
-      expect(adres.region, 'Kepez');
-      expect(adres.addressText, 'Bahçe Sk. no:5',
-          reason: 'bölge artık adres metnine gömülmez — kendi kolonunda durur');
+      expect(adres.addressText, 'Bahçe Sk. no:5, Kepez');
+      // Kolon şemada DURUYOR (senkronlanan bir kolonu düşürmek eski kayıtları siler) ama
+      // yeni kayıtlarda artık HİÇ doldurulmaz.
+      expect(adres.region, isNull);
 
       await kapat(tester);
     });
@@ -642,12 +652,14 @@ void main() {
     // trBuyuk/trKucuk paylaşılan katmanındır — sağlaması ui_temel_test.dart'ta durur, burada
     // tekrarlanmaz (iki kopya = biri düzeltilip diğeri unutulur).
 
-    test('adresGosterimi adres ile bölgeyi tasarımdaki gibi birleştirir', () {
-      expect(adresGosterimi('Bahçe Sk. no:5', 'Kepez'), 'Bahçe Sk. no:5 — Kepez');
-      expect(adresGosterimi('Bahçe Sk. no:5', null), 'Bahçe Sk. no:5');
-      expect(adresGosterimi('Bahçe Sk. no:5', '  '), 'Bahçe Sk. no:5');
-      expect(adresGosterimi('', 'Kepez'), 'Kepez');
-      expect(adresGosterimi(null, null), isNull);
+    // BÖLGE KALDIRILDI (2026-07-28): `adresGosterimi` artık yalnız adres metnini döner.
+    // Boş/whitespace `null` döner ki çağıran satırı hiç çizmesin — tek başına "—" gösterilmez.
+    test('adresGosterimi boş adresi null yapar, doluyu kırpar', () {
+      expect(adresGosterimi('Bahçe Sk. no:5'), 'Bahçe Sk. no:5');
+      expect(adresGosterimi('  Bahçe Sk. no:5  '), 'Bahçe Sk. no:5');
+      expect(adresGosterimi(''), isNull);
+      expect(adresGosterimi('   '), isNull);
+      expect(adresGosterimi(null), isNull);
     });
 
     test('tutarGirdisi kuruşu ayrıştırılabilir metne çevirir', () {

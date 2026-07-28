@@ -152,13 +152,20 @@ class CagriGunluguEkrani extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    return ColoredBox(
-      color: t.bg,
-      child: Column(
-        children: [
-          SipUst(baslik: 'Son Aramalar', onGeri: onGeri),
-          Expanded(child: _govde(context)),
-        ],
+    // Scaffold + SafeArea: bu ekran tam sayfa olarak PUSH ediliyor (Ayarlar → Çağrı Geçmişi).
+    // İkisi de yoktu; başlık durum çubuğunun ALTINA giriyordu ve liste altta gezinme
+    // çubuğunun altından taşıyordu (2026-07-28 saha bulgusu). Depodaki diğer tam sayfa
+    // ekranlar (day_end_screen, customer_detail) zaten bu deseni kullanıyor.
+    return Scaffold(
+      backgroundColor: t.bg,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            SipUst(baslik: 'Son Aramalar', onGeri: onGeri),
+            Expanded(child: _govde(context)),
+          ],
+        ),
       ),
     );
   }
@@ -175,6 +182,10 @@ class CagriGunluguEkrani extends StatelessWidget {
       );
     }
     return SipGovde(
+      // SafeArea `bottom: false` — liste gezinme çubuğunun ALTINA kayabilsin (kaydırırken
+      // içerik oradan geçer) ama SON satır onun altında KALMASIN diye alt boşluğa sistem
+      // payı eklenir. Sabit bir boşluk, jest çubuğu olan ve olmayan cihazlarda tutmaz.
+      altBosluk: SipSpace.x4 + MediaQuery.viewPaddingOf(context).bottom,
       children: [
         for (var i = 0; i < aramalar.length; i++) ...[
           if (i > 0) const SizedBox(height: SipSpace.sm),

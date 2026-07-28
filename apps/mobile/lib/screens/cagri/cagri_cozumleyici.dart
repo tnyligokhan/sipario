@@ -64,7 +64,6 @@ Future<CagriKisi> cagriKisiCoz(
     ad: musteri.name,
     bakiyeKurus: musteri.balanceKurus,
     adres: adres?.addressText,
-    bolge: adres?.region,
     konumVar: adres?.lat != null && adres?.lng != null,
     not: musteri.note,
     sonHareket: sonHareket,

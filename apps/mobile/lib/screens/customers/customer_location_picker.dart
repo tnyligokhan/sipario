@@ -58,15 +58,16 @@ String konumMetni(double lat, double lng) =>
 
 /// Adres metninden aday üreten TEK dikiş. Widget testleri bunu sahtesiyle değiştirir — ağ
 /// çağrısı ekranların içine gömülmez (`sesliGirisUret` / `uriAcici` deseninin aynısı).
-Future<List<AdresAdayi>> Function(AppDatabase db, String metin, String? bolge)
-    adresAdaylariGetir = sunucudanAdresAdaylari;
+Future<List<AdresAdayi>> Function(AppDatabase db, String metin) adresAdaylariGetir =
+    sunucudanAdresAdaylari;
 
 /// Gerçek uygulama yolu: kendi API'mize sorar, sonucu ekranın anladığı biçime çevirir.
-Future<List<AdresAdayi>> sunucudanAdresAdaylari(
-  AppDatabase db,
-  String metin,
-  String? bolge,
-) async {
+///
+/// BÖLGE İPUCU KALDIRILDI (kullanıcı kararı 2026-07-28: "Bölge'ye gerek yok"). Sağlayıcıya
+/// artık yalnız adres metni gider — semt/ilçe adres metninin İÇİNDE yazılmalı. Ölçüldü:
+/// "Sarampol Cad. No:10, Muratpasa" tek ve doğru adayı buluyor; ilçe hiç yazılmazsa Yandex
+/// aynı adlı sokakları başka illerde de önerebilir (aday satırında il görünür, kullanıcı seçer).
+Future<List<AdresAdayi>> sunucudanAdresAdaylari(AppDatabase db, String metin) async {
   final m = metin.trim();
   if (m.length < 3) {
     // Sunucu da reddeder; buradan hiç çıkmaması bir tur ağ ve bir tur kota tasarrufudur.
@@ -79,8 +80,8 @@ Future<List<AdresAdayi>> sunucudanAdresAdaylari(
     throw GeocodeException('Adres araması için oturum gerekir.');
   }
 
-  final adaylar = await GeocodeApi(baseUrl: Session.baseUrlOf(meta), token: token)
-      .ara(m, bolge: bolge);
+  final adaylar =
+      await GeocodeApi(baseUrl: Session.baseUrlOf(meta), token: token).ara(m);
 
   return [
     for (final a in adaylar)

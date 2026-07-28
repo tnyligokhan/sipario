@@ -14,14 +14,15 @@ import '../../theme/typography.dart';
 String tutarGirdisi(int kurus) =>
     '${kurus ~/ 100},${(kurus % 100).toString().padLeft(2, '0')}';
 
-/// Adres + bölgeyi tek gösterim metnine birleştirir — tasarım her yerde
-/// `[adres.metin, adres.bolge].join(' — ')` yazıyor (liste satırı ve detaydaki koyu kart).
-/// Bölge AYRI bir kolondur (`customer_addresses.region`); burada yalnız GÖSTERİM birleştirilir.
-String? adresGosterimi(String? adresMetni, String? bolge) {
+/// Adresin gösterim metni (liste satırı ve detaydaki koyu kart).
+///
+/// BÖLGE KALDIRILDI (kullanıcı kararı 2026-07-28: "gerek yok, tamamen kaldır"). Eskiden
+/// `[adres.metin, adres.bolge].join(' — ')` yazılıyordu; artık adres metni tek başına yeter —
+/// mahalle/semt zaten adresin içinde yazılıyor ve iki ayrı alan aynı bilgiyi iki kez soruyordu.
+/// Boş/whitespace adres `null` döner: çağıran satırı hiç çizmesin (boş "—" gösterilmez).
+String? adresGosterimi(String? adresMetni) {
   final a = adresMetni?.trim() ?? '';
-  final b = bolge?.trim() ?? '';
-  if (a.isEmpty) return b.isEmpty ? null : b;
-  return b.isEmpty ? a : '$a — $b';
+  return a.isEmpty ? null : a;
 }
 
 /// CSS `.kd-row` — sheet başındaki "etiket / büyük tutar" satırı.

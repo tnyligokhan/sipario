@@ -136,12 +136,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   /// `konumVar` kararı (lat VE lng dolu mu) burada değil `AdresBilgi`de yaşar, iki kopya olmasın.
   AdresBilgi? _adresBilgisi(CustomerAddressesData? adres) => adres == null
       ? null
-      : AdresBilgi(
-          metin: adres.addressText,
-          bolge: adres.region,
-          lat: adres.lat,
-          lng: adres.lng,
-        );
+      : AdresBilgi(metin: adres.addressText, lat: adres.lat, lng: adres.lng);
 
   /// Adresten konum: servis aday döner, doğrusunu KULLANICI seçer (otomatik atama yok).
   ///
@@ -158,7 +153,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     setState(() => _konumCalisiyor = true);
     final List<AdresAdayi> adaylar;
     try {
-      adaylar = await adresAdaylariGetir(widget.db, adres.addressText, adres.region);
+      adaylar = await adresAdaylariGetir(widget.db, adres.addressText);
     } on GeocodeException catch (e) {
       if (!mounted) return;
       setState(() => _konumCalisiyor = false);
@@ -276,7 +271,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 altBosluk: 104,
                 children: [
                   MusteriHeroKart(
-                    adres: adresGosterimi(adres?.addressText, adres?.region),
+                    adres: adresGosterimi(adres?.addressText),
                     // Telefonsuz müşteride tasarımın `.md-kart-tel`i BOŞ kalır (s-musteriler.jsx:106)
                     // — "Telefon yok" diye bir metin yazmaz.
                     telefon: tel,

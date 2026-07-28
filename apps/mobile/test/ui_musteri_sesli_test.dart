@@ -160,17 +160,17 @@ void main() {
   // Yerleşim — hangi alanda mikrofon var
   // ═════════════════════════════════════════════════════════════════════════════════════════
 
-  testWidgets('mikrofon ad · adres · bölge · not alanlarında var, TELEFONDA YOK',
-      (tester) async {
+  testWidgets('mikrofon ad · adres · not alanlarında var, TELEFONDA YOK', (tester) async {
+    // Bölge alanı 2026-07-28'de kaldırıldı; mikrofonu da onunla birlikte gitti.
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    for (final alan in ['Ad Soyad', 'Adres', 'Bölge', 'Not']) {
+    for (final alan in ['Ad Soyad', 'Adres', 'Not']) {
       expect(find.bySemanticsLabel('Sesle yaz · $alan'), findsOneWidget,
           reason: '$alan alanında mikrofon olmalı');
     }
     // Sesle rakam dikte etmek yanlış numara üretir ve arayan tanımayı kör eder — bilinçli yokluk.
-    expect(find.bySemanticsLabel(RegExp('Sesle yaz')), findsNWidgets(4),
+    expect(find.bySemanticsLabel(RegExp('Sesle yaz')), findsNWidgets(3),
         reason: 'telefon alanlarında mikrofon OLMAMALI');
 
     await kapat(tester);
