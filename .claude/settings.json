@@ -28,10 +28,7 @@
       "PowerShell(php -v)",
       "PowerShell(php -m *)"
     ],
-    "deny": [
-      "Read(./.env)",
-      "Read(./.env.*)"
-    ]
+    "deny": []
   },
   "hooks": {
     "PreToolUse": [
