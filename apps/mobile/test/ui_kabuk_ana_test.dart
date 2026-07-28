@@ -50,6 +50,7 @@ void main() {
           onMenu: () {},
           onSekme: (_) {},
           onYeniSiparis: () {},
+          onBorclular: () {},
           onArama: (_) {},
           onSiparisAc: (_) {},
         ),
@@ -62,13 +63,15 @@ void main() {
       // Dört kutunun etiketi (CSS .bento-k .bento-etiket)
       expect(find.text('Açık Sipariş'), findsOneWidget);
       expect(find.text('Bugün Kasa'), findsOneWidget);
-      expect(find.text('Açık Veresiye'), findsOneWidget);
+      // "Açık Veresiye" → "Borçlular" (kullanıcı kararı 2026-07-29): kutu artık borçluları
+      // listeleyen ekranı açıyor, müşteriler sekmesine gitmiyor.
+      expect(find.text('Borçlular'), findsOneWidget);
       expect(find.text('Son Arama'), findsOneWidget);
 
       // Rakam demo sabiti DEĞİL, watchAnaOzet'ten gelir: 3 sipariş − 1 teslim = 2 açık.
       expect(find.text('2'), findsOneWidget);
       expect(find.text('teslim bekliyor'), findsOneWidget);
-      // Borçlu müşterinin bakiyesi "Açık Veresiye" kutusuna düşer.
+      // Borçlu müşterinin bakiyesi "Borçlular" kutusuna düşer.
       expect(find.text('50,00 ₺'), findsOneWidget);
       expect(find.text('1 borçlu müşteri'), findsOneWidget);
 
@@ -78,6 +81,7 @@ void main() {
     testWidgets('bento kutusuna dokununca doğru sekmeye gidilir', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       final gidilen = <SipSekme>[];
+      var borclular = 0;
 
       await ekranaKoy(
         tester,
@@ -87,6 +91,7 @@ void main() {
           onMenu: () {},
           onSekme: gidilen.add,
           onYeniSiparis: () {},
+          onBorclular: () => borclular++,
           onArama: (_) {},
           onSiparisAc: (_) {},
         ),
@@ -94,19 +99,21 @@ void main() {
 
       await tester.tap(find.text('Açık Sipariş'));
       await tester.pump();
-      await tester.tap(find.text('Açık Veresiye'));
+      await tester.tap(find.text('Borçlular'));
       await tester.pump();
       await tester.tap(find.text('Bugün Kasa'));
       await tester.pump();
 
       // "Bugün Kasa" KOŞULSUZ gün sonuna gider (`s-ana.jsx:35`): Gün Sonu sekmesi artık
       // kuryede de açık (alt navigasyon 5 yuva, kullanıcı kararı 2026-07-26).
-      expect(gidilen, [SipSekme.siparis, SipSekme.musteri, SipSekme.gunSonu]);
+      // "Borçlular" bir SEKME DEĞİL ekran açar — sekme listesine girmemesi kuralın kendisidir.
+      expect(gidilen, [SipSekme.siparis, SipSekme.gunSonu]);
+      expect(borclular, 1);
 
       await kapat(tester);
     });
 
-    testWidgets('"Açık Veresiye" değeri 0 TL\'de de danger renginde yazılır', (tester) async {
+    testWidgets('"Borçlular" değeri 0 TL\'de de danger renginde yazılır', (tester) async {
       // Tasarım sınıfı KOŞULSUZ veriyor (`s-ana.jsx:42` `bento-v kucuk tabular eksi`). Kırmızı
       // burada alarm değil KATEGORİ rengi: kutu tahsil edilmemiş parayı sayar. Koşullu olsaydı
       // rakam veri yüklenirken nötrden kırmızıya atlıyordu.
@@ -120,15 +127,17 @@ void main() {
           onMenu: () {},
           onSekme: (_) {},
           onYeniSiparis: () {},
+          onBorclular: () {},
           onArama: (_) {},
           onSiparisAc: (_) {},
         ),
       );
 
-      expect(find.text('0 borçlu müşteri'), findsOneWidget);
-      // "Bugün Kasa" kutusu da 0,00 ₺ yazar — değer YALNIZ veresiye kutusunda aranır.
+      // Borçlu yokken alt satır sayı değil DURUM yazar (0 borçlu müşteri bir bilgi değil).
+      expect(find.text('tüm hesaplar temiz'), findsOneWidget);
+      // "Bugün Kasa" kutusu da 0,00 ₺ yazar — değer YALNIZ borç kutusunda aranır.
       final veresiyeKutusu = find.ancestor(
-        of: find.text('Açık Veresiye'),
+        of: find.text('Borçlular'),
         matching: find.byType(SipDokun),
       );
       final deger = tester.widget<Text>(
@@ -141,7 +150,7 @@ void main() {
         matching: find.text('0,00 ₺'),
       ));
       expect(kasaDegeri.style?.color, isNot(SipTokens.acik.danger),
-          reason: 'kırmızı kategori rengi yalnız veresiyeye ait');
+          reason: 'kırmızı kategori rengi yalnız borç kutusuna ait');
 
       await kapat(tester);
     });
@@ -175,6 +184,7 @@ void main() {
           onMenu: () {},
           onSekme: gidilen.add,
           onYeniSiparis: () {},
+          onBorclular: () {},
           onArama: (_) {},
           onSiparisAc: (id) => acilan = id,
         ),
@@ -208,6 +218,7 @@ void main() {
             onMenu: () {},
             onSekme: (_) {},
             onYeniSiparis: () {},
+            onBorclular: () {},
             onArama: yakalanan.add,
             onSiparisAc: (_) {},
           ),

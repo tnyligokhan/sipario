@@ -23,12 +23,17 @@ class AnaBento extends StatelessWidget {
     required this.ozet,
     required this.onSekme,
     required this.onArama,
+    required this.onBorclular,
   });
 
   final AppDatabase db;
   final AnaOzet ozet;
   final ValueChanged<SipSekme> onSekme;
   final ValueChanged<AramaKaydi> onArama;
+
+  /// "Borçlular" kutusu — borçlu müşteriler ekranını açar. Ekranı KABUK açar (yazma yetkisi
+  /// ve rol orada bilinir); bento yalnız niyeti bildirir.
+  final VoidCallback onBorclular;
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +75,12 @@ class AnaBento extends StatelessWidget {
             children: [
               Expanded(
                 child: _Kutu(
-                  etiket: 'Açık Veresiye',
+                  // "Açık Veresiye" → "Borçlular" (kullanıcı kararı 2026-07-29). Rakam aynı
+                  // (tahsil edilmemiş toplam) ama kutunun VAADİ değişti: dokununca müşteriler
+                  // sekmesine değil, yalnız borçluları ve ödenmemiş siparişlerini listeleyen
+                  // ekrana gider. Eski hedef bayiyi borcu olmayan yüzlerce kaydın arasına
+                  // bırakıyordu — kutuya dokunmanın tek sebebi "kim borçlu" sorusudur.
+                  etiket: 'Borçlular',
                   deger: sipTutar(o.acikVeresiyeKurus),
                   kucuk: true,
                   // KOŞULSUZ danger — tasarım sınıfı koşulsuz veriyor (`s-ana.jsx:42`
@@ -78,8 +88,10 @@ class AnaBento extends StatelessWidget {
                   // rengidir: bu kutu tahsil edilmemiş parayı sayar, tutarı ne olursa olsun.
                   // Koşullu yapılsaydı rakam veri yüklenirken nötrden kırmızıya atlıyordu.
                   eksi: true,
-                  alt: '${o.borcluMusteri} borçlu müşteri',
-                  onTap: () => onSekme(SipSekme.musteri),
+                  alt: o.borcluMusteri > 0
+                      ? '${o.borcluMusteri} borçlu müşteri'
+                      : 'tüm hesaplar temiz',
+                  onTap: onBorclular,
                 ),
               ),
               const SizedBox(width: SipSpace.lg),

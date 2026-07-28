@@ -4,9 +4,12 @@
 // (CSS `flex: 1 → 2`, geçiş .26s) ve etiketi görünür olur. Material `NavigationBar` KULLANILMAZ:
 // tasarımın hap gövdesi, ortadaki taşan FAB'ı ve genişleyen sekmesi onunla kurulamıyor.
 //
-// FAB TEK DOKUNUŞLA YENİ SİPARİŞE GİDER (`s-bilesenler.jsx:55` — className sabit, durum yok).
-// Bir ara sürümde CSS'teki `.fabpop*` ailesine bakılıp açılır menü + 45° dönüş uygulanmıştı;
-// o kuralları HİÇBİR JSX kullanmıyor (ölü CSS, kupon sınıflarıyla aynı kalıp) — kaldırıldı.
+// FAB İKİ SEÇENEKLİ BİR MENÜ AÇAR: "Müşteri Ekle" · "Sipariş Ekle" (kullanıcı kararı 2026-07-29).
+// Öncesinde tek dokunuşla doğrudan yeni siparişe gidiyordu (`s-bilesenler.jsx:55` — className
+// sabit, durum yok) ve müşteri ekleme YALNIZ Müşteriler ekranının "Yeni"sinde yaşıyordu; yeni
+// müşteri kaydı esnafın en sık ikinci işi ve onu bir sekme değişikliğinin arkasına koymak
+// kurulum sürtünmesini artırıyordu. Menü kabukta açılır — FAB yalnız niyeti bildirir, bu yüzden
+// geri çağrımın adı [onEkle]dir, "yeni sipariş" değil.
 //
 // YUVA SAYISI ROLE BAĞLI DEĞİLDİR: tasarımda `AltNav` her zaman 5 yuvadır, rol yalnız çekmecenin
 // YÖNETİM bölümünü etkiler. Gün Sonu yuvası kuryede de kalır (kullanıcı kararı, 2026-07-26);
@@ -26,15 +29,16 @@ class SipAltNav extends StatelessWidget {
     super.key,
     required this.aktif,
     required this.onSec,
-    required this.onYeniSiparis,
+    required this.onEkle,
   });
 
   final SipSekme aktif;
   final ValueChanged<SipSekme> onSec;
 
-  /// FAB'a dokunma. null ise FAB **çizilir ama pasiftir** (abonelik kilidi): tasarımın kilit
-  /// dalında da `AltNav` tam çizilir (`s-uygulama.jsx:87`), FAB'ı silmek yerleşimi atlatırdı.
-  final VoidCallback? onYeniSiparis;
+  /// FAB'a dokunma — ekleme menüsünü kabuk açar. null ise FAB **çizilir ama pasiftir**
+  /// (abonelik kilidi): tasarımın kilit dalında da `AltNav` tam çizilir (`s-uygulama.jsx:87`),
+  /// FAB'ı silmek yerleşimi atlatırdı.
+  final VoidCallback? onEkle;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +63,7 @@ class SipAltNav extends StatelessWidget {
             ),
           ),
           const SizedBox(width: SipSpace.sm),
-          _Fab(onTap: onYeniSiparis),
+          _Fab(onTap: onEkle),
           const SizedBox(width: SipSpace.sm),
           Expanded(
             child: _Grup(
@@ -176,7 +180,7 @@ class _Sekme extends StatelessWidget {
   }
 }
 
-/// CSS `.altnav-fab` — accent dolgulu daire, doğrudan yeni siparişe gider.
+/// CSS `.altnav-fab` — accent dolgulu daire; ekleme menüsünü açar (müşteri · sipariş).
 /// [onTap] null iken sönük ve dokunulamaz çizilir (yerleşim aynı kalır).
 class _Fab extends StatelessWidget {
   const _Fab({required this.onTap});
@@ -190,7 +194,7 @@ class _Fab extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: !pasif,
-      label: 'Yeni sipariş',
+      label: 'Yeni kayıt ekle',
       child: Opacity(
         opacity: pasif ? 0.4 : 1,
         child: GestureDetector(

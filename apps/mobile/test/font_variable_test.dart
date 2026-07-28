@@ -74,13 +74,36 @@ void main() {
       expect(kalin, greaterThan(ince), reason: 'wght ekseni uygulanmıyor.');
     });
 
-    test('eksen olmadan ağırlık ETKİSİZ kalır — bu testin dayanağı', () {
-      // Kontrol grubu: fontVariations verilmezse tek dosyalı değişken ailede 400 ile 800 aynı
-      // çıkar. Bu doğrulanmazsa yukarıdaki iki test bir şey kanıtlamıyor demektir.
-      const ornek = 'ÖRNEK 1.234,50 ₺';
-      final a = _genislik(ornek, stil(sipFontDisplay, 400, eksen: false));
-      final b = _genislik(ornek, stil(sipFontDisplay, 800, eksen: false));
-      expect(a, closeTo(b, 0.01));
+    test('SipText stilleri wght EKSENİNİ taşır — asıl güvence budur', () {
+      // ESKİ TESTİN YERİNE (2026-07-29). Burada bir "kontrol grubu" testi vardı:
+      // fontVariations verilmezse 400 ile 800 AYNI genişlikte çıkmalı, çıkmazsa yukarıdaki
+      // iki test bir şey kanıtlamıyor demekti. O varsayım ARTIK DOĞRU DEĞİL ve test bu
+      // yüzden kırmızıydı (kalite kapısını kilitleyip otomatik commit'i durduruyordu).
+      //
+      // ÖLÇÜLDÜ (Flutter 3.44.6, Sora.ttf, 40 punto, 'ÖRNEK 1.234,50 ₺'):
+      //     eksenli 400: 367,64   ·   eksenli 800: 379,72
+      //     eksensiz 400: 367,64  ·   eksensiz 800: 379,72   ·   eksensiz 100: 356,20
+      // Yani motor artık `fontWeight`i değişken fontun wght eksenine KENDİ eşliyor; dört
+      // ölçüm birebir aynı. Ürün tarafında bozuk bir şey yok — değişen çerçevedir.
+      //
+      // Ders: bir testin dayanağı ÇERÇEVENİN O ANKİ DAVRANIŞI ise, çerçeve güncellendiğinde
+      // ürün sağlamken test kırmızıya döner. Güvence artık DAVRANIŞA değil SÖZLEŞMEYE bakıyor:
+      // `fontVariations`ı kaldırmak eski motorlarda (ve mağazadaki eski cihazlarda) tipografiyi
+      // düzleştirir, o yüzden eksen stillerde AÇIKÇA durmak zorundadır.
+      final stiller = <String, TextStyle>{
+        'satirAd': SipText.satirAd,
+        'satirTel': SipText.satirTel,
+        'bentoDeger': SipText.bentoDeger,
+        'satirTutarBuyuk': SipText.satirTutarBuyuk,
+        'pil': SipText.pil,
+        'metin(13, w:700)': SipText.metin(13, w: 700),
+      };
+      stiller.forEach((ad, s) {
+        expect(s.fontVariations, isNotNull, reason: '$ad: wght ekseni yok');
+        final wght = s.fontVariations!.firstWhere((v) => v.axis == 'wght');
+        expect(wght.value, s.fontWeight!.value.toDouble(),
+            reason: '$ad: eksen değeri fontWeight ile uyuşmuyor');
+      });
     });
   });
 

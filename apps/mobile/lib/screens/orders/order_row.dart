@@ -25,6 +25,7 @@ class SiparisSatiri extends StatelessWidget {
     super.key,
     required this.item,
     required this.satirlar,
+    this.tahsilKurus = 0,
     this.kuryeAdi,
     this.adres,
     this.telefon,
@@ -40,6 +41,10 @@ class SiparisSatiri extends StatelessWidget {
 
   /// Siparişin aktif satırları (ürün dökümü).
   final List<OrderLine> satirlar;
+
+  /// Bu siparişe işlenmiş tahsilat toplamı (pozitif kuruş). Kalan borç pilinin dayanağı;
+  /// hesabı [siparisKalanBorcu] yapar. Verilmezse 0 — hiç tahsilat yok demektir.
+  final int tahsilKurus;
 
   /// Atanmış kuryenin adı. `null` ise kurye çipi HİÇ çizilmez — tek kişilik bayide kurye
   /// adımları görünmez (BRIEF, pazarlıksız).
@@ -77,6 +82,14 @@ class SiparisSatiri extends StatelessWidget {
     final t = context.sip;
     final o = item.order;
     final kod = musteriKod(o.customerId);
+    // Kalan borç — teslim edilmiş ve tamamı tahsil edilmemiş siparişte. Satırın sağındaki tutar
+    // siparişin BÜYÜKLÜĞÜDÜR, borcu değil; ikisi veresiye teslimde eşittir ama kısmi ödemede
+    // ayrışır ve bayi hangisine baktığını bilmek zorundadır (saha hatası 2026-07-29).
+    final kalanBorc = siparisKalanBorcu(
+      durum: o.status,
+      toplamKurus: o.totalKurus,
+      tahsilKurus: tahsilKurus,
+    );
 
     return SipDokun(
       onTap: elle ? null : onAc,
@@ -142,6 +155,7 @@ class SiparisSatiri extends StatelessWidget {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           SipDurumPili(durum: o.status),
+                          if (kalanBorc > 0) _BorcPili(kurus: kalanBorc),
                           if (kuryeAdi != null)
                             _KuryeCipi(
                               ad: kuryeAdi!,
@@ -283,6 +297,28 @@ class _Tutamac extends StatelessWidget {
     return Semantics(
       label: 'Sürükleyerek taşı',
       child: sarmala == null ? govde : sarmala!(govde),
+    );
+  }
+}
+
+/// Kalan borç pili — durum pilinin hemen yanında, tehlike renginde.
+///
+/// TUTARI YAZAR, yalnız "borçlu" demez: bayi listeye "kim ne kadar borçlu" sorusuyla bakar ve
+/// rakamsız bir rozet o soruyu her satırda bir dokunuş uzağa taşır. Etiket kısadır ("Borç"),
+/// çünkü daralan ekranda feda edilecek olan SÖZCÜKTÜR, tutar değil (çağrı kartı dersinin aynısı).
+class _BorcPili extends StatelessWidget {
+  const _BorcPili({required this.kurus});
+
+  final int kurus;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: SipSpace.lg, vertical: 3),
+      decoration: BoxDecoration(color: t.dangerSoft, borderRadius: SipRadius.brHap),
+      child: Text('Borç ${sipTutar(kurus)}',
+          style: SipText.pil.copyWith(color: t.danger)),
     );
   }
 }

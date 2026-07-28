@@ -46,6 +46,7 @@ import 'cagri/cagri_eylem_kanali.dart';
 import 'cagri/cagri_karti.dart';
 import 'cagri/cagri_kuyrugu.dart';
 import 'cagri/cagri_model.dart';
+import 'customers/borclular_ekrani.dart';
 import 'customers/customer_detail_screen.dart';
 import 'customers/customer_form_screen.dart' show musteriEkleSheet;
 import 'customers/customer_list_screen.dart';
@@ -56,6 +57,7 @@ import 'day_end_screen.dart';
 import 'orders/order_detail_screen.dart';
 import '../phase0/phase0_screen.dart';
 import 'orders/order_form_screen.dart';
+import 'orders/order_sheets.dart' show SecimSatiri;
 import 'orders/order_list_screen.dart';
 import 'products/product_list_screen.dart';
 import 'shell/alt_nav.dart';
@@ -399,7 +401,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                   onSec: _sekmeSec,
                   // Kilit kipinde FAB çizilir ama pasif (tasarım kilit dalında da AltNav'ı tam
                   // çizer); silinseydi hap navigasyon yeniden yerleşip atlıyordu.
-                  onYeniSiparis: _yazilabilir ? _yeniSiparis : null,
+                  onEkle: _yazilabilir ? _ekleMenusu : null,
                 ),
               ],
             ),
@@ -428,11 +430,52 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     );
   }
 
-  /// FAB'ın TEK işi budur (`s-bilesenler.jsx:55` → `s-uygulama.jsx:103`). Müşteri ekleme buradan
-  /// başlamaz: tasarımda yalnız Müşteriler ekranının "Yeni"sinden (`s-uygulama.jsx:91`) ve çağrı
-  /// kartının "Kaydet"inden (`:113`) açılır.
   void _yeniSiparis() =>
       _git(OrderFormScreen(db: widget.db, writable: _yazilabilir));
+
+  /// FAB menüsü (kullanıcı kararı 2026-07-29): "Müşteri Ekle" · "Sipariş Ekle".
+  ///
+  /// Eskiden FAB doğrudan sipariş formunu açıyordu ve müşteri ekleme yalnız Müşteriler
+  /// ekranının "Yeni"sinde yaşıyordu. Menü İKİ SATIRDIR, üçüncü bir şey EKLENMEZ: FAB'ın değeri
+  /// bir dokunuşla en sık iki işi başlatmasıdır, dolan bir menü onu bir alt menüye çevirir.
+  ///
+  /// Kapı `_yazilabilir` üzerinden ÇAĞIRANDA (FAB pasif çizilir); burada ikinci bir kontrol
+  /// yapılmaz — iki yerde ayrı koşul, ayrışabilen iki kural demektir.
+  Future<void> _ekleMenusu() async {
+    final secim = await sipSheet<String>(
+      context,
+      baslik: 'Yeni Ekle',
+      govde: (ctx) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SecimSatiri(
+            etiket: 'Müşteri Ekle',
+            ikon: SipIcons.user,
+            secili: false,
+            onTap: () => Navigator.of(ctx).pop('musteri'),
+          ),
+          SecimSatiri(
+            etiket: 'Sipariş Ekle',
+            ikon: SipIcons.list,
+            secili: false,
+            onTap: () => Navigator.of(ctx).pop('siparis'),
+          ),
+        ],
+      ),
+    );
+    if (secim == null || !mounted) return;
+    if (secim == 'siparis') return _yeniSiparis();
+    final eklendi = await musteriEkleSheet(context, db: widget.db);
+    if (eklendi == true && mounted) SipToast.goster(context, 'Müşteri kaydedildi');
+  }
+
+  /// "Borçlular" bento kutusu — yalnız borçlu müşterileri ve ödenmemiş siparişlerini listeler.
+  void _borclularAc() => _git(BorclularEkrani(
+        db: widget.db,
+        writable: _yazilabilir,
+        yetki: _yetki,
+        canAssign: _yetki.atama,
+      ));
 
   /// "Son aktivite" satırı: sekmeyi siparişe alır VE detayı açar (`s-uygulama.jsx:89`).
   /// Detay sheet'i sipariş katmanının yüzeyidir — buradan yalnız çağrılır.
@@ -611,6 +654,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           onYeniSiparis: _yeniSiparis,
           onArama: _aramaAc,
           onSiparisAc: _siparisAc,
+          onBorclular: _borclularAc,
           sonSenkron: _sonSenkron,
           sonSenkronAt: _sonSenkronAt,
         ),

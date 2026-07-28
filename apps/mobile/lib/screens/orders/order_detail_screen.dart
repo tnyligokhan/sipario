@@ -260,6 +260,10 @@ class _Govde extends StatelessWidget {
           ),
         ],
 
+        // Kalan borç — `.sd-odendi`nin karşılığı. Veresiye/kısmi teslimde ekranda borçtan tek
+        // kelime yoktu (saha hatası 2026-07-29); kutu yalnız borç varken çizilir.
+        SiparisBorcKutusu(db: db, order: order),
+
         // Sipariş DIŞI borç tahsilatı — teslim edilmiş siparişte de görünür (asıl kullanım anı
         // odur: veresiye teslim, sonra tahsilat). Gerekçeler `SiparisTahsilatButonu` başlığında.
         if (musteriId != null)

@@ -141,6 +141,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
   late final Stream<List<User>> _ekip = watchTeam(widget.db);
   late final Stream<Map<String, List<OrderLine>>> _satirlar =
       watchOrderLinesByOrder(widget.db);
+  late final Stream<Map<String, int>> _tahsilatlar = watchSiparisTahsilatlari(widget.db);
   late final Stream<Map<String, AdresBilgi>> _adresler = watchBirincilAdresler(widget.db);
   late final Stream<Map<String, String>> _telefonlar = watchBirincilTelefonlar(widget.db);
   late final Stream<int> _acikSayisi = watchAcikSiparisSayisi(widget.db);
@@ -247,13 +248,16 @@ class _OrderListScreenState extends State<OrderListScreen> {
       builder: (context, ekipSnap) => StreamBuilder<Map<String, List<OrderLine>>>(
         stream: _satirlar,
         initialData: const {},
-        builder: (context, satirSnap) => StreamBuilder<Map<String, AdresBilgi>>(
-          stream: _adresler,
+        builder: (context, satirSnap) => StreamBuilder<Map<String, int>>(
+          stream: _tahsilatlar,
           initialData: const {},
-          builder: (context, adresSnap) => StreamBuilder<Map<String, String>>(
-            stream: _telefonlar,
+          builder: (context, tahsilatSnap) => StreamBuilder<Map<String, AdresBilgi>>(
+            stream: _adresler,
             initialData: const {},
-            builder: (context, telSnap) => StreamBuilder<List<OrderListItem>>(
+            builder: (context, adresSnap) => StreamBuilder<Map<String, String>>(
+              stream: _telefonlar,
+              initialData: const {},
+              builder: (context, telSnap) => StreamBuilder<List<OrderListItem>>(
               // `assignedTo` artık KURYE SÜZGECİDİR (saha hatası 6). Önceden oturumdaki
               // kullanıcı geçiliyordu ama sorgu bu parametreyi hiç kullanmıyordu — sessiz
               // ölü koddu. Kurye kendi işini "Açık" sekmesinde zaten görür.
@@ -271,6 +275,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 return SiparisListesi(
                   liste: liste,
                   satirlar: satirSnap.data ?? const {},
+                  tahsilatlar: tahsilatSnap.data ?? const {},
                   adresler: adresSnap.data ?? const {},
                   telefonlar: telSnap.data ?? const {},
                   ekip: ekipSnap.data ?? const [],
@@ -284,6 +289,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                   onSirala: _yenidenSirala,
                 );
               },
+              ),
             ),
           ),
         ),

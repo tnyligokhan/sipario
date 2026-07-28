@@ -115,6 +115,72 @@ Stream<List<OrderListItem>> watchOrders(AppDatabase db, OrderFilter filter, {Str
       }).toList());
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Sipariş başına ÖDENMEMİŞ kalan (borç)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// orderId → o siparişe işlenmiş TAHSİLAT toplamı (POZİTİF kuruş).
+///
+/// SAHA HATASI (2026-07-29): "Borçlu" sekmesindeki satır siparişin TUTARINI yazıyordu, borcunu
+/// değil — veresiye teslim edilmiş bir siparişte ikisi aynı sayı olduğu için kimse fark etmemişti,
+/// ama kısmi ödemede satır 500 ₺ derken borç 200 ₺ oluyordu. Bayi kalan borcu ancak "Tahsilat Al"a
+/// dokununca görebiliyordu; borcu görmek için bir tahsilat akışına girmek zorunda kalmak yanlış.
+///
+/// NEDEN AYRI AKIŞ (watchOrders'a kolon olarak eklenmedi): korelasyonlu alt sorgu HER SEKMEDE her
+/// satır için koşardı. Bu akış defteri TEK taramada gruplayıp Dart tarafında eşler — `satirlar` /
+/// `adresler` / `telefonlar` akışlarının deseninin aynısı, ve `watchOrders` sözleşmesi (testler
+/// doğrudan çağırıyor) hiç değişmez.
+///
+/// Defterde `payment` satırları NEGATİFTİR (bakiyeyi düşürürler); burada işaret çevrilir çünkü
+/// çağıran "ne kadar tahsil edildi" sorusunu sorar. Ters kayıtla iptal edilen tahsilat toplamda
+/// kendiliğinden geri döner (append-only: silme yok, ters kayıt var).
+Stream<Map<String, int>> watchSiparisTahsilatlari(AppDatabase db) {
+  final toplam = db.ledgerEntries.amountKurus.sum();
+  final q = db.selectOnly(db.ledgerEntries)
+    ..addColumns([db.ledgerEntries.relatedOrderId, toplam])
+    ..where(db.ledgerEntries.entryType.equals('payment') &
+        db.ledgerEntries.relatedOrderId.isNotNull())
+    ..groupBy([db.ledgerEntries.relatedOrderId]);
+  return q.watch().map((rows) {
+    final map = <String, int>{};
+    for (final r in rows) {
+      final id = r.read(db.ledgerEntries.relatedOrderId);
+      if (id != null) map[id] = -(r.read(toplam) ?? 0);
+    }
+    return map;
+  });
+}
+
+/// Tek siparişin tahsilat toplamı (detay ekranı — liste akışını tek kayıt için kurmaya değmez).
+Stream<int> watchSiparisTahsilati(AppDatabase db, String orderId) {
+  final toplam = db.ledgerEntries.amountKurus.sum();
+  final q = db.selectOnly(db.ledgerEntries)
+    ..addColumns([toplam])
+    ..where(db.ledgerEntries.entryType.equals('payment') &
+        db.ledgerEntries.relatedOrderId.equals(orderId));
+  return q.watchSingleOrNull().map((r) => -(r?.read(toplam) ?? 0));
+}
+
+/// Bir siparişin ÖDENMEMİŞ kalanı. Saf fonksiyon — gösterimin dayanağı budur ve widget kurmadan
+/// test edilir.
+///
+/// İKİ KURAL:
+/// 1. TESLİM EDİLMEMİŞ sipariş borç DEĞİLDİR (2026-07-27 kararının aynısı: deftere borç teslim
+///    anında yazılır). Açık siparişte 0 döner — yoksa liste "borç" diyerek henüz doğmamış bir
+///    alacağı rapor ederdi. İptal edilen siparişte de 0.
+/// 2. FAZLA tahsilat bu siparişin borcunu eksiye çevirmez, 0 döner: fazlası müşterinin ÖNCEKİ
+///    borcunu kapatır ve o müşteri bakiyesinde görünür — siparişe "−50 ₺ borç" yazmak yanlış yerde
+///    doğru sayı göstermek olurdu.
+int siparisKalanBorcu({
+  required String durum,
+  required int toplamKurus,
+  required int tahsilKurus,
+}) {
+  if (durum != 'delivered') return 0;
+  final kalan = toplamKurus - tahsilKurus;
+  return kalan > 0 ? kalan : 0;
+}
+
 /// Sıralamayı listeye UYGULAR (sorgu değil — `watchOrders` sözleşmesine dokunmamak için Dart
 /// tarafında). `elle` kipinde önce kullanıcının SÜRÜKLEDİĞİ [elleSira] (sipariş id'leri) geçerlidir;
 /// o boşsa kalıcı `orders.sort_index` önbelleği okunur. İki kaynak KARIŞTIRILMAZ — biri konum

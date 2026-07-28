@@ -23,6 +23,10 @@
 # Ruflo hook'larının yeniden oluşturduğu artık
 .tab-navigation
 
+# Saha sunucusu script'inin indirdiği yardımcı ikililer (cloudflared ~50 MB).
+# Makineye özgüdür ve depo PUBLIC'tir — ikili dosya asla commit edilmez.
+scripts/.araclar/
+
 # İşletim sistemi / editör artıkları
 Thumbs.db
 Desktop.ini

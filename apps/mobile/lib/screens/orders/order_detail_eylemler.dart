@@ -16,6 +16,94 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../customers/customer_sheets.dart' show borcTahsilatiAc;
+import 'order_queries.dart';
+
+/// Teslim edilmiş siparişin ÖDENMEMİŞ kalanını söyleyen kutu — `.sd-odendi`nin borç eşi.
+///
+/// SAHA HATASI (2026-07-29): teslim edilmiş bir siparişte ekranda borçtan tek kelime yoktu.
+/// "Nakit ile ödendi" şeridi ödenmiş siparişte çıkıyor, veresiye/kısmi teslimde ise yerine
+/// HİÇBİR ŞEY gelmiyordu; bayi kalan borcu ancak "Tahsilat Al"a dokunup sheet'i açınca
+/// görebiliyordu — yani borcu ÖĞRENMEK için bir para yazma akışına girmek gerekiyordu.
+///
+/// İKİ SAYI AYRI YAZILIR ve karıştırılmaz: BU SİPARİŞTEN kalan borç ile MÜŞTERİNİN toplam borcu
+/// farklı büyüklüklerdir (müşterinin eski siparişlerinden borcu olabilir). Tahsilat toplam
+/// bakiyeden yapılır; ikisi eşit değilken tek sayı göstermek, hangisinin tahsil edileceği
+/// konusunda bayiyi yanıltırdı.
+class SiparisBorcKutusu extends StatelessWidget {
+  const SiparisBorcKutusu({
+    super.key,
+    required this.db,
+    required this.order,
+  });
+
+  final AppDatabase db;
+  final Order order;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    final musteriId = order.customerId;
+    return StreamBuilder<int>(
+      stream: watchSiparisTahsilati(db, order.id),
+      initialData: 0,
+      builder: (context, tahsilSnap) {
+        final kalan = siparisKalanBorcu(
+          durum: order.status,
+          toplamKurus: order.totalKurus,
+          tahsilKurus: tahsilSnap.data ?? 0,
+        );
+        if (kalan <= 0) return const SizedBox.shrink();
+        return StreamBuilder<Customer?>(
+          stream: musteriId == null ? const Stream.empty() : watchMusteri(db, musteriId),
+          builder: (context, musteriSnap) {
+            final bakiye = musteriSnap.data?.balanceKurus ?? 0;
+            return Padding(
+              padding: const EdgeInsets.only(top: SipSpace.lg),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: SipSpace.x2, vertical: 11),
+                decoration:
+                    BoxDecoration(color: t.dangerSoft, borderRadius: SipRadius.br2),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: SipIcon(SipIcons.wallet,
+                          boyut: 16, kalinlik: 2.4, renk: t.danger),
+                    ),
+                    const SizedBox(width: SipSpace.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Bu siparişten kalan borç ${sipTutar(kalan)}',
+                              style:
+                                  SipText.metin(13, w: 700).copyWith(color: t.danger)),
+                          // Toplam borç YALNIZ farklıysa yazılır: eşitken aynı sayıyı iki kez
+                          // göstermek kutuyu gürültüye çevirir.
+                          if (bakiye > 0 && bakiye != kalan)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                'Müşterinin toplam borcu ${sipTutar(bakiye)}',
+                                style: SipText.metin(12, w: 600)
+                                    .copyWith(color: t.danger),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
 
 /// Sipariş dışı borç tahsilatının sipariş detayındaki giriş noktası.
 ///
@@ -61,27 +149,38 @@ class SiparisTahsilatButonu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    return Padding(
-      padding: const EdgeInsets.only(top: SipSpace.lg),
-      child: SipDokun(
-        onTap: () => _ac(context),
-        zemin: t.surface2,
-        basiliZemin: t.line,
-        radius: SipRadius.br2,
-        olcekle: true,
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SipIcon(SipIcons.wallet, boyut: 16, kalinlik: 2.2, renk: t.ink2),
-              const SizedBox(width: 7),
-              Text('Tahsilat Al',
-                  style: SipText.metin(13.5, w: 700).copyWith(color: t.ink2)),
-            ],
+    // Düğmenin ÜSTÜNDE tahsil edilecek tutar yazar: eskiden rakamı görmenin tek yolu düğmeye
+    // basıp sheet'i açmaktı. Bakiye canlı akıştan okunur — düğme yine HER DURUMDA çizilir
+    // (borç yokken de), yalnız etiketi sayısızdır.
+    return StreamBuilder<Customer?>(
+      stream: watchMusteri(db, customerId),
+      builder: (context, snap) {
+        final bakiye = snap.data?.balanceKurus ?? 0;
+        return Padding(
+          padding: const EdgeInsets.only(top: SipSpace.lg),
+          child: SipDokun(
+            onTap: () => _ac(context),
+            zemin: t.surface2,
+            basiliZemin: t.line,
+            radius: SipRadius.br2,
+            olcekle: true,
+            child: SizedBox(
+              height: 44,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SipIcon(SipIcons.wallet, boyut: 16, kalinlik: 2.2, renk: t.ink2),
+                  const SizedBox(width: 7),
+                  Text(
+                    bakiye > 0 ? 'Tahsilat Al · ${sipTutar(bakiye)}' : 'Tahsilat Al',
+                    style: SipText.metin(13.5, w: 700).copyWith(color: t.ink2),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

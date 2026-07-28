@@ -36,6 +36,7 @@ class AnaEkran extends StatelessWidget {
     required this.onYeniSiparis,
     required this.onArama,
     required this.onSiparisAc,
+    required this.onBorclular,
     this.sonSenkron,
     this.sonSenkronAt,
   });
@@ -56,6 +57,10 @@ class AnaEkran extends StatelessWidget {
   /// (`s-uygulama.jsx:89` — `setTab('siparis')` + `setSipDetay(veri)`). Detay sheet'i sipariş
   /// katmanının işi; bu ekran yalnız kimliği devreder.
   final ValueChanged<String> onSiparisAc;
+
+  /// "Borçlular" bento kutusu — borçlu müşteriler ekranını kabuk açar (yazma yetkisi orada
+  /// bilinir; bu ekran yalnız niyeti devreder, `onArama`/`onSiparisAc` deseninin aynısı).
+  final VoidCallback onBorclular;
 
   final SyncOutcome? sonSenkron;
   final DateTime? sonSenkronAt;
@@ -90,6 +95,7 @@ class AnaEkran extends StatelessWidget {
                     ozet: o,
                     onSekme: onSekme,
                     onArama: onArama,
+                    onBorclular: onBorclular,
                   ),
                   const SizedBox(height: SipSpace.xl),
                   _Cta(onTap: onYeniSiparis),

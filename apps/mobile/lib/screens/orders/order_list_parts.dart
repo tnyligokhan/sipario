@@ -74,6 +74,7 @@ class SiparisListesi extends StatelessWidget {
     super.key,
     required this.liste,
     required this.satirlar,
+    this.tahsilatlar = const {},
     required this.adresler,
     required this.telefonlar,
     required this.ekip,
@@ -87,6 +88,11 @@ class SiparisListesi extends StatelessWidget {
 
   final List<OrderListItem> liste;
   final Map<String, List<OrderLine>> satirlar;
+
+  /// orderId → o siparişe işlenmiş tahsilat (pozitif kuruş). Eksik anahtar 0 sayılır —
+  /// akış henüz gelmemişken satır "borç yok" gösterir, uydurma bir rakam GÖSTERMEZ.
+  final Map<String, int> tahsilatlar;
+
   final Map<String, AdresBilgi> adresler;
   final Map<String, String> telefonlar;
   final List<User> ekip;
@@ -108,6 +114,7 @@ class SiparisListesi extends StatelessWidget {
       child: SiparisSatiri(
         item: item,
         satirlar: satirlar[item.order.id] ?? const [],
+        tahsilKurus: tahsilatlar[item.order.id] ?? 0,
         kuryeAdi: kullaniciAdi(ekip, item.order.assignedUserId),
         adres: musteriId == null ? null : adresler[musteriId],
         telefon: musteriId == null ? null : telefonlar[musteriId],

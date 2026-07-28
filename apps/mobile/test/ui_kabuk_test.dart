@@ -23,16 +23,16 @@ import 'support/kabuk_yardimcilari.dart';
 void main() {
   group('Alt navigasyon — s-bilesenler.jsx AltNav', () {
     /// Sekmeyi kendi durumunda tutan minik kabuk: içeriğin sekmeyle değiştiğini gösterir.
-    Widget navKabugu({VoidCallback? onYeniSiparis}) =>
-        _NavKabugu(onYeniSiparis: onYeniSiparis, baslangic: SipSekme.ana);
+    Widget navKabugu({VoidCallback? onEkle}) =>
+        _NavKabugu(onEkle: onEkle, baslangic: SipSekme.ana);
 
     testWidgets('dört sekme + FAB çizilir; seçili sekmenin etiketi görünür', (tester) async {
-      await ekranaKoy(tester, navKabugu(onYeniSiparis: () {}));
+      await ekranaKoy(tester, navKabugu(onEkle: () {}));
 
       for (final etiket in ['Ana', 'Müşteri', 'Sipariş', 'Gün Sonu']) {
         expect(semantikDugme(etiket), findsOneWidget, reason: '$etiket sekmesi yok');
       }
-      expect(semantikDugme('Yeni sipariş'), findsOneWidget, reason: 'FAB yok');
+      expect(semantikDugme('Yeni kayıt ekle'), findsOneWidget, reason: 'FAB yok');
 
       // CSS: yalnız SEÇİLİ sekme etiketini yazar (diğerleri ikon-only).
       expect(find.text('Ana'), findsOneWidget);
@@ -58,21 +58,21 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('FAB TEK DOKUNUŞLA yeni siparişe gider — açılır menü YOKTUR', (tester) async {
-      // Tasarımda `.altnav-fab`ın className'i sabittir ve doğrudan `onYeniSiparis`e bağlıdır
-      // (`s-bilesenler.jsx:55`). CSS'teki `.fabpop*` ailesi ve `.altnav-fab.on` dönüşü hiçbir
-      // JSX'in kullanmadığı ölü kurallardır; bir ara sürümde uygulanmıştı, kaldırıldı.
-      // Bu test o kararı kilitler: FAB bir daha menü açmasın.
+    testWidgets('FAB tek dokunuşta [onEkle]yi çağırır — menüyü KENDİ çizmez', (tester) async {
+      // Kullanıcı kararı (2026-07-29): FAB artık iki seçenek sunar (Müşteri Ekle · Sipariş Ekle).
+      // Menüyü KABUK açar, `AltNav` DEĞİL — navigasyon hangi ekranların var olduğunu bilmez ve
+      // yazma yetkisi (abonelik kilidi) orada durur. Bu test o sınırı kilitler: FAB'ın tek işi
+      // dokunuşu yukarı bildirmektir, sheet çizmek değil.
       var cagri = 0;
-      await ekranaKoy(tester, navKabugu(onYeniSiparis: () => cagri++));
+      await ekranaKoy(tester, navKabugu(onEkle: () => cagri++));
 
-      await tester.tap(semantikDugme('Yeni sipariş'));
+      await tester.tap(semantikDugme('Yeni kayıt ekle'));
       await tester.pumpAndSettle();
 
-      expect(cagri, 1, reason: 'ilk dokunuş doğrudan yeni siparişi açar');
-      expect(find.text('Yeni Sipariş'), findsNothing, reason: 'menü öğesi çizilmemeli');
-      expect(find.text('Yeni Müşteri'), findsNothing,
-          reason: 'müşteri ekleme FAB\'dan başlamaz (yalnız Müşteriler ekranı ve çağrı kartı)');
+      expect(cagri, 1, reason: 'dokunuş kabuğa bildirilir');
+      expect(find.text('Müşteri Ekle'), findsNothing,
+          reason: 'menü AltNav içinde çizilmez — kabuğun işi');
+      expect(find.text('Sipariş Ekle'), findsNothing);
 
       await kapat(tester);
     });
@@ -98,9 +98,9 @@ void main() {
       // hap navigasyonu yeniden yerleştirip yerleşimi atlatıyordu.
       await ekranaKoy(tester, navKabugu());
 
-      expect(semantikDugme('Yeni sipariş'), findsOneWidget,
+      expect(semantikDugme('Yeni kayıt ekle'), findsOneWidget,
           reason: 'salt-okunur kipte de çizilir');
-      await tester.tap(semantikDugme('Yeni sipariş'));
+      await tester.tap(semantikDugme('Yeni kayıt ekle'));
       await tester.pumpAndSettle();
       // Dokunma bir şey yapmaz: sekme değişmedi, ekran açılmadı.
       expect(find.text('gövde: ana'), findsOneWidget);
@@ -386,10 +386,10 @@ void main() {
 
 /// Alt navigasyonun sekme durumunu tutan test kabuğu — gövde metni sekmeyle değişir.
 class _NavKabugu extends StatefulWidget {
-  const _NavKabugu({required this.onYeniSiparis, required this.baslangic});
+  const _NavKabugu({required this.onEkle, required this.baslangic});
 
   /// null → FAB pasif (abonelik kilidi).
-  final VoidCallback? onYeniSiparis;
+  final VoidCallback? onEkle;
   final SipSekme baslangic;
 
   @override
@@ -409,7 +409,7 @@ class _NavKabuguState extends State<_NavKabugu> {
           SipAltNav(
             aktif: _aktif,
             onSec: (s) => setState(() => _aktif = s),
-            onYeniSiparis: widget.onYeniSiparis,
+            onEkle: widget.onEkle,
           ),
         ],
       ),

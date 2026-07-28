@@ -246,10 +246,14 @@ void main() {
       await tester.pumpWidget(sipKabuk(OrderDetailScreen(db: db, orderId: oid, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.text('Tahsilat Al'), findsOneWidget,
+      // Düğme TUTARI DA YAZAR (2026-07-29): eskiden borcu görmenin tek yolu düğmeye basıp
+      // sheet'i açmaktı — bayi rakamı öğrenmek için bir para yazma akışına giriyordu.
+      expect(find.text('Tahsilat Al · 200,00 ₺'), findsOneWidget,
           reason: 'teslim edilmiş siparişte de görünür — tahsilat sipariş durumundan bağımsız');
+      // Kalan borç ayrıca kutuda yazar (`.sd-odendi`nin borç eşi).
+      expect(find.text('Bu siparişten kalan borç 200,00 ₺'), findsOneWidget);
 
-      await tester.tap(find.text('Tahsilat Al'));
+      await tester.tap(find.textContaining('Tahsilat Al'));
       await akisiBekle(tester, ms: 300);
       expect(find.text('Veresiyeli Teslim'), findsWidgets, reason: 'sheet başlığı müşteri adı');
 
@@ -279,7 +283,7 @@ void main() {
       await tester.pumpWidget(sipKabuk(OrderDetailScreen(db: db, orderId: oid, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.text('Tahsilat Al'), findsNothing,
+      expect(find.textContaining('Tahsilat Al'), findsNothing,
           reason: 'tahsilatın muhatabı olan cari HİÇ yok — pasif düğme de yanıltıcı olurdu');
 
       await ekraniKapat(tester);
@@ -305,8 +309,8 @@ void main() {
       await akisiBekle(tester);
 
       // Düğme GÖRÜNÜR kalır ve kilidin sebebini söyler (Dilim 3 kararı: ana eylemler gizlenmez).
-      expect(find.text('Tahsilat Al'), findsOneWidget);
-      await tester.tap(find.text('Tahsilat Al'));
+      expect(find.text('Tahsilat Al · 500,00 ₺'), findsOneWidget);
+      await tester.tap(find.textContaining('Tahsilat Al'));
       await akisiBekle(tester, ms: 300);
 
       expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
