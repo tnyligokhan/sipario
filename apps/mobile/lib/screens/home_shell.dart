@@ -29,6 +29,7 @@ import '../bildirim/bildirim_servisi.dart';
 import '../bildirim/bildirim_sozlesmesi.dart';
 import '../data/app_database.dart';
 import '../guncelleme/guncelleme_banti.dart';
+import '../guncelleme/guncelleme_servisi.dart';
 import '../subscription/subscription_locked_screen.dart';
 import '../subscription/subscription_state.dart';
 import '../sync/sync_service.dart';
@@ -108,6 +109,21 @@ SipBantTuru bantTuru(SyncHataTuru tur) => switch (tur) {
       SyncHataTuru.ag || SyncHataTuru.yok => SipBantTuru.cevrimdisi,
     };
 
+/// Durum çubuğu ikonları BEYAZ mı çizilsin (koyu hero'nun üstündeler mi)?
+///
+/// Ana ekranın tepesi koyu bir hero'dur ve ikonlar orada beyaz olmalıdır. AMA üstte bir BANT
+/// varsa (çevrimdışı · grace · güncelleme) durum çubuğunun altındaki artık hero değil, o açık
+/// renkli banttır — beyaz ikonlar orada görünmez olur ve bayi saati/pili okuyamaz
+/// (2026-07-28 saha bulgusu: güncelleme bandı çıkınca bildirim çubuğu bozuluyordu).
+///
+/// Saf fonksiyon: widget kurmadan test edilir. Yeni bir bant eklendiğinde [bantVar]'a katılmalı.
+bool heroDurumCubugu({
+  required bool anaSekme,
+  required bool kilit,
+  required bool bantVar,
+}) =>
+    anaSekme && !kilit && !bantVar;
+
 class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   /// Açılış sekmesi ANA EKRAN'dır (kullanıcı kararı, 2026-07-26).
   ///
@@ -147,6 +163,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // Öne gelince senkron turu: tetikleyici YALNIZ açılıştaki ilk tur + 2 dk'lık zamanlayıcıydı,
     // öne gelme hiçbir şey tetiklemiyordu ("ancak kapatıp açınca senkronize oluyor" — saha).
     WidgetsBinding.instance.addObserver(this);
+    // Bant görünürlüğü durum çubuğu ikon rengini belirliyor — kabuk onu dinlemezse bant
+    // çıktığında ikonlar beyaz kalır ve açık zeminde okunmaz.
+    guncellemeServisi.durum.addListener(_guncellemeBandiDegisti);
     // sync_meta AKIŞINA abone olunur, tek atış okunmaz. Bu satırın sunucu sahipli alanları
     // (abonelik, firma kodu, rota kontörü) hem senkronla hem ekranlardan (oto sıralama hakkı
     // düştüğünde) değişir; tek atış okuma çekmecedeki kartları bayat bırakıyordu — cihazda
@@ -184,12 +203,19 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) unawaited(widget.sync.syncNow());
+    if (state != AppLifecycleState.resumed) return;
+    unawaited(widget.sync.syncNow());
+    // Güncelleme kontrolü de öne gelmede koşar. Yalnız açılışa bağlıydı ve saha bulgusu şuydu
+    // (2026-07-28): son kullanılanlardan kaydırmak süreci ÖLDÜRMÜYOR, `initState` bir daha
+    // koşmuyor ve bant ancak "zorla durdur"dan sonra çıkıyordu. Servis kendi aralığını
+    // (15 dk) tutar, bu yüzden her öne gelmede ağa çıkılmaz.
+    unawaited(guncellemeServisi.sessizKontrol());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    guncellemeServisi.durum.removeListener(_guncellemeBandiDegisti);
     _syncSub?.cancel();
     _kuryeSub?.cancel();
     _metaSub?.cancel();
@@ -321,13 +347,24 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   bool get _ustBantVar =>
       (_sonSenkron != null && !_sonSenkron!.ok) || _access == AccessLevel.grace;
 
+  /// Güncelleme bandı göründüğünde/kaybolduğunda kabuk YENİDEN ÇİZİLMELİ: durum çubuğu ikon
+  /// rengi bandın varlığına bakıyor. Bant kendi `ValueListenableBuilder`ıyla tazeleniyor ama
+  /// onu saran `AnnotatedRegion` kabuğun `build`inde — dinlemezse ikonlar bandın altında
+  /// beyaz kalırdı.
+  void _guncellemeBandiDegisti() {
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
     final yetki = _yetki;
     final sekme = _sekme;
-    // Ana ekranın üstü hero (koyu) — durum çubuğu ikonları orada beyaz olmalı.
-    final heroluEkran = sekme == SipSekme.ana && !_kilit;
+    final heroluEkran = heroDurumCubugu(
+      anaSekme: sekme == SipSekme.ana,
+      kilit: _kilit,
+      bantVar: _ustBantVar || guncellemeBandiGorunurMu(),
+    );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SipTheme.sistemCubuklari(t).copyWith(

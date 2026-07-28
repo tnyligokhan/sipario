@@ -92,6 +92,110 @@ void main() {
     });
   });
 
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  // TETİKLEYİCİ — "kapatıp açtım, gelmedi" (2026-07-28 saha bulgusu)
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  //
+  // Kontrol yalnız AÇILIŞTA koşuyordu. Son kullanılanlardan kaydırmak çoğu Android'de süreci
+  // ÖLDÜRMEZ — Dart isolate yaşar, `initState` bir daha koşmaz. Bandı görmek için "zorla
+  // durdur" gerekiyordu; hiçbir bayi bunu yapmaz. Senkron motoru bu dersi zaten öğrenmişti,
+  // güncelleme kontrolü ona bağlanmamıştı.
+  group('kontrolGerekli — ne zaman ağa çıkılır', () {
+    final t0 = DateTime(2026, 7, 28, 12);
+    const aralik = Duration(minutes: 15);
+
+    bool gerekli({
+      bool kapali = false,
+      GuncellemeDurumu durum = GuncellemeDurumu.yok,
+      DateTime? sonKontrol,
+      DateTime? simdi,
+      bool zorla = false,
+    }) =>
+        kontrolGerekli(
+          kapali: kapali,
+          durum: durum,
+          sonKontrol: sonKontrol,
+          simdi: simdi ?? t0,
+          aralik: aralik,
+          zorla: zorla,
+        );
+
+    test('ilk çağrıda çıkılır', () => expect(gerekli(), isTrue));
+
+    test('mağaza derlemesinde HİÇ çıkılmaz', () => expect(gerekli(kapali: true), isFalse));
+
+    test('bant zaten duruyorsa tekrar sorulmaz', () {
+      expect(gerekli(durum: GuncellemeDurumu.bulundu), isFalse);
+      expect(gerekli(durum: GuncellemeDurumu.iniyor), isFalse);
+    });
+
+    test('aralık dolmadan öne gelme ağa ÇIKMAZ (pil/veri)', () {
+      expect(gerekli(sonKontrol: t0.subtract(const Duration(minutes: 3))), isFalse);
+    });
+
+    test('aralık dolunca yeniden çıkılır', () {
+      expect(gerekli(sonKontrol: t0.subtract(const Duration(minutes: 15))), isTrue);
+      expect(gerekli(sonKontrol: t0.subtract(const Duration(hours: 2))), isTrue);
+    });
+
+    test('zorla aralığı atlar ama KAPALI kapısını atlamaz', () {
+      expect(gerekli(sonKontrol: t0, zorla: true), isTrue);
+      expect(gerekli(kapali: true, zorla: true), isFalse,
+          reason: 'mağaza derlemesi hiçbir koşulda ağa çıkmamalı');
+    });
+  });
+
+  group('Öne gelme tetikleyicisi kabuğa BAĞLI mı', () {
+    testWidgets('resumed olayı güncelleme kontrolünü çağırır', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      final once = guncellemeServisi.istekSayisi;
+
+      await _ekranaKoy(
+        tester,
+        HomeShell(
+          db: db,
+          session: Session(db),
+          sync: SyncService(db),
+          onLoggedOut: () {},
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      // ARIZANIN TA KENDİSİ: bu sayı düne kadar öne gelmede HİÇ artmıyordu; bant ancak
+      // "zorla durdur" sonrası açılışta çıkıyordu.
+      expect(guncellemeServisi.istekSayisi, greaterThan(once));
+
+      await _kapat(tester);
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  // DURUM ÇUBUĞU — bant çıkınca ikonlar beyaz kalmamalı (2026-07-28 saha bulgusu)
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  //
+  // Ana ekranın tepesi koyu hero'dur ve ikonlar orada BEYAZ olmalı. Bant araya girince durum
+  // çubuğunun altındaki artık hero değil, açık renkli banttır — beyaz ikon orada görünmez ve
+  // bayi saati/pili okuyamaz. Bu, kabuğun "hero ekranı" kararının bantları hiç hesaba
+  // katmamasından geliyordu.
+  group('heroDurumCubugu', () {
+    test('ana ekranda, bant yokken beyaz ikon İSTENİR', () {
+      expect(heroDurumCubugu(anaSekme: true, kilit: false, bantVar: false), isTrue);
+    });
+
+    test('BANT VARKEN beyaz ikon istenmez — asıl bulgu', () {
+      expect(heroDurumCubugu(anaSekme: true, kilit: false, bantVar: true), isFalse,
+          reason: 'açık renkli bandın üstünde beyaz ikon okunmaz');
+    });
+
+    test('ana ekran dışında ve kilitte zaten hero yoktur', () {
+      expect(heroDurumCubugu(anaSekme: false, kilit: false, bantVar: false), isFalse);
+      expect(heroDurumCubugu(anaSekme: true, kilit: true, bantVar: false), isFalse);
+    });
+  });
+
   group('Bant AÇIK derlemede', () {
     late GuncellemeServisi servis;
 

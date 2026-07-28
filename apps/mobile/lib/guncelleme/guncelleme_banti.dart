@@ -16,6 +16,18 @@ import '../theme/typography.dart';
 import 'guncelleme_servisi.dart';
 import 'guncelleme_sozlesmesi.dart';
 
+/// Bant O AN çiziliyor mu?
+///
+/// TEK TANIM: hem bandın kendisi hem de kabuk bunu okur. Kabuğun buna ihtiyacı var çünkü bant
+/// ekranın EN ÜSTÜNE giriyor ve ana ekranın koyu hero'su artık durum çubuğunun altında değil —
+/// ikonları beyaza zorlamak, açık renkli bandın üstünde onları görünmez yapar (2026-07-28 saha
+/// bulgusu). İki kopya koşul zamanla ayrışır ve ayrıştığı gün saat/pil okunmaz olur.
+bool guncellemeBandiGorunurMu({GuncellemeServisi? servis, bool? kapali}) {
+  if (kapali ?? guncellemeKapaliMi) return false;
+  final s = servis ?? guncellemeServisi;
+  return s.durum.value != GuncellemeDurumu.yok && s.bulunan.value != null;
+}
+
 class GuncellemeBanti extends StatelessWidget {
   const GuncellemeBanti({super.key, this.servis, this.kapali, this.ustBosluk = true});
 
@@ -45,11 +57,14 @@ class GuncellemeBanti extends StatelessWidget {
     return ValueListenableBuilder<GuncellemeDurumu>(
       valueListenable: s.durum,
       builder: (context, durum, _) {
-        if (durum == GuncellemeDurumu.yok) return const SizedBox.shrink();
         return ValueListenableBuilder<SurumBilgisi?>(
           valueListenable: s.bulunan,
           builder: (context, bilgi, _) {
-            if (bilgi == null) return const SizedBox.shrink();
+            // Görünürlük kararı kabukla ORTAK fonksiyondan gelir (durum çubuğu rengi aynı
+            // koşula bakıyor); burada ayrı bir `if` yazmak iki kopya kural demek olurdu.
+            if (!guncellemeBandiGorunurMu(servis: s, kapali: kapali) || bilgi == null) {
+              return const SizedBox.shrink();
+            }
             final bant = _Bant(servis: s, durum: durum, bilgi: bilgi);
             // SafeArea YALNIZ çizilen bandın etrafında: boş widget'ı sarmak, güncelleme
             // yokken her ekranın tepesinde hayalet bir boşluk bırakırdı.

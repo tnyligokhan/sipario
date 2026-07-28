@@ -20,6 +20,31 @@ const MethodChannel _kanal = MethodChannel('sipario/guncelleme');
 /// İndirme durumu — bant bunu dinler.
 enum GuncellemeDurumu { yok, bulundu, iniyor, kuruluyor, hata }
 
+/// Bu çağrıda gerçekten AĞA ÇIKILMALI mı?
+///
+/// Saf karar (kararlar `guncelleme_sozlesmesi.dart`ta yaşar; bu biri [GuncellemeDurumu]'na
+/// bağlı olduğu için burada — çevrimsel import'a değmez). Üç ayrı "hayır" var, üçü de farklı:
+///  • [kapali]: mağaza derlemesi / yapı numarası bilinmiyor → hiç sorulmaz.
+///  • [durum] `yok` değil: bant zaten duruyor → tekrar sormanın anlamı yok.
+///  • [sonKontrol] yakın: kontrol artık ÖNE GELMEDE de koşuyor ve öne gelme SIK olur; her
+///    seferinde ağa çıkmak pil/veri yakar, üstelik sürüm dakikada bir değişmez.
+///
+/// [sonKontrol] son DENEME zamanıdır (başarısız da olsa). Çevrimdışıyken her öne gelmede
+/// yeniden denemek hiçbir şey kazandırmaz; bir sonraki pencerede zaten denenir.
+bool kontrolGerekli({
+  required bool kapali,
+  required GuncellemeDurumu durum,
+  required DateTime? sonKontrol,
+  required DateTime simdi,
+  required Duration aralik,
+  bool zorla = false,
+}) {
+  if (kapali) return false;
+  if (durum != GuncellemeDurumu.yok) return false;
+  if (zorla || sonKontrol == null) return true;
+  return simdi.difference(sonKontrol) >= aralik;
+}
+
 /// Uygulamanın kullandığı servis (tekil). Testler kendi örneğini kurar.
 final GuncellemeServisi guncellemeServisi = GuncellemeServisi();
 
@@ -36,9 +61,49 @@ class GuncellemeServisi {
   /// 0..1 arası indirme ilerlemesi.
   final ValueNotifier<double> ilerleme = ValueNotifier<double>(0);
 
-  /// Açılışta çağrılır. `magaza` kanalında ya da yapı numarası bilinmiyorsa HİÇ AĞA ÇIKMAZ.
-  Future<void> sessizKontrol() async {
-    if (guncellemeKapaliMi) return;
+  /// En sık bu aralıkla ağa çıkılır (bkz. [sessizKontrol]).
+  static const Duration kontrolAraligi = Duration(minutes: 15);
+
+  /// Son DENEME zamanı (başarılı ya da değil). Başarısızlığı da saymak bilinçli: çevrimdışıyken
+  /// her öne gelmede tekrar denemek pil yakar ve hiçbir şey kazandırmaz.
+  DateTime? _sonKontrol;
+
+  /// [sessizKontrol]'ün kaç kez ÇAĞRILDIĞI (ağa çıkılmasa da artar). Yalnız teşhis/test içindir:
+  /// "tetikleyici bağlı mı" sorusunu ağ olmadan cevaplar.
+  int istekSayisi = 0;
+
+  /// Açılışta VE uygulama öne geldiğinde çağrılır. `magaza` kanalında ya da yapı numarası
+  /// bilinmiyorsa HİÇ AĞA ÇIKMAZ.
+  ///
+  /// ÖNE GELME TETİKLEYİCİSİ ŞART (2026-07-28 saha bulgusu): kontrol yalnız açılışta koşuyordu
+  /// ve bayi "uygulamayı kapatıp açtım" dediğinde aslında SÜREÇ ÖLMÜYOR — son kullanılanlardan
+  /// kaydırmak çoğu Android'de (özellikle Xiaomi/Samsung) uygulamayı bellekte bırakır, Dart
+  /// isolate'i yaşamaya devam eder ve `initState` bir daha koşmaz. Bandı görmek için "zorla
+  /// durdur" gerekiyordu; hiçbir bayi bunu yapmaz. Senkron motoru bu dersi zaten öğrenmişti
+  /// (üç tetikleyici: zamanlayıcı · öne gelme · ağın dönüşü) — güncelleme kontrolü ona bağlanmadan
+  /// kalmıştı.
+  ///
+  /// [zorla] aralığı atlar; [kapali] derleme sabitini geçersiz kılar (test yolu — varsayılan
+  /// `flutter test` altında kanal `magaza` olduğu için sabit hep "kapalı"dır ve bu metodun
+  /// hiçbir davranışı sınanamazdı).
+  Future<void> sessizKontrol({bool zorla = false, bool? kapali}) async {
+    // Kaç kez SORULDUĞU (ağa çıkılmasa bile). Tetikleyicinin bağlı olduğunu kanıtlar:
+    // asıl saha hatası kontrolün hiç ÇAĞRILMAMASIYDI, ağ yanıtıyla değil.
+    istekSayisi++;
+
+    final simdi = DateTime.now();
+    if (!kontrolGerekli(
+      kapali: kapali ?? guncellemeKapaliMi,
+      durum: durum.value,
+      sonKontrol: _sonKontrol,
+      simdi: simdi,
+      aralik: kontrolAraligi,
+      zorla: zorla,
+    )) {
+      return;
+    }
+    _sonKontrol = simdi;
+
     try {
       final istemci = _istemci ?? http.Client();
       final yanit = await istemci
