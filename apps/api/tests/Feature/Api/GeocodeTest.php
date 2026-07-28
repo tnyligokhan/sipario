@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Support\Geocoding\YandexGeocoder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
@@ -190,6 +191,85 @@ class GeocodeTest extends ApiTestCase
 
             return true;
         });
+    }
+
+    /**
+     * KAPI NUMARASI GERİ ÇEKİLMESİ — 2026-07-28 saha bulgusu, gerçek Yandex yanıtıyla ölçüldü:
+     *
+     *   "Şirinyalı Mah. 1497. Sk. No: 9 Muratpaşa/Antalya"  → found=0
+     *   "Şirinyalı Mah. 1497. Sok. Antalya"                 → found=1  (sokak VAR)
+     *
+     * Yandex Türkiye'de bina numarasını KATI eşleştiriyor: numara veritabanında yoksa sokağa
+     * düşmüyor, sıfır dönüyor. Kullanıcıya "bu adres bulunamadı" demek yanlış — adres doğru,
+     * eksik olan sağlayıcının bina verisi.
+     */
+    #[Test]
+    public function kapi_numarasi_bulunamayinca_sokaga_dusulur(): void
+    {
+        $this->yandexKur();
+        Http::fake(['geocode-maps.yandex.ru/*' => Http::sequence()
+            // 1) Tam sorgu: Yandex hiçbir şey bulamıyor.
+            ->push(['response' => ['GeoObjectCollection' => ['featureMember' => []]]])
+            // 2) Numarasız sorgu: sokak bulunuyor (Yandex "exact" diyor).
+            ->push($this->yandexYaniti('30.73490 36.86318', 'Türkiye, Antalya, Muratpaşa, Şirinyalı Mah., 1497. Sok.'))]);
+
+        $a = $this->makeTenant('a');
+        $yanit = $this->asToken($this->tokenFor($a['patron']))->postJson('/api/v1/geocode', [
+            'query' => 'Şirinyalı Mah. 1497. Sk. No: 9 Muratpaşa/Antalya',
+        ]);
+
+        $yanit->assertOk();
+        $yanit->assertJsonPath('results.0.lat', 36.86318);
+        // Kesinlik ZORLA düşürülür: kapı numarası artık sorgunun parçası değil. Yandex "exact"
+        // dese bile bunu "bina" diye sunmak, kuryenin güvendiği bir yalan olurdu.
+        $yanit->assertJsonPath('results.0.precision', 'sokak');
+
+        Http::assertSentCount(2);
+    }
+
+    #[Test]
+    public function numarasiz_adres_ikinci_kez_sorulmaz(): void
+    {
+        // Atılacak bir kapı numarası yoksa aynı metni tekrar sormak boşuna kota yakar.
+        $this->yandexKur();
+        Http::fake(['geocode-maps.yandex.ru/*' => Http::response([
+            'response' => ['GeoObjectCollection' => ['featureMember' => []]],
+        ])]);
+
+        $a = $this->makeTenant('a');
+        $this->asToken($this->tokenFor($a['patron']))
+            ->postJson('/api/v1/geocode', ['query' => 'Şirinyalı Mah., Muratpaşa'])
+            ->assertOk()
+            ->assertJsonPath('results', []);
+
+        Http::assertSentCount(1);
+    }
+
+    #[Test]
+    public function sokak_adindaki_sayi_KORUNUR(): void
+    {
+        // Türkiye'de sokaklar numaralıdır ("1497. Sok."). "Bütün sayıları at" demek sokağın
+        // kendisini silmek olurdu; yalnız AÇIKÇA kapı/daire olduğu yazan biçimler atılır.
+        $this->assertSame(
+            'Şirinyalı Mah. 1497. Sk. Muratpaşa/Antalya',
+            YandexGeocoder::kapiNumarasiniAt('Şirinyalı Mah. 1497. Sk. No: 9 Muratpaşa/Antalya')
+        );
+
+        // İlçe adı numaranın ardından geliyor ve KORUNMALI — yutulursa sorgu daha da bozulur.
+        $this->assertStringContainsString(
+            'Konyaaltı',
+            (string) YandexGeocoder::kapiNumarasiniAt('Atatürk Cad. No 7-B Kat 2 Konyaaltı')
+        );
+
+        // Daire/blok ekleri de atılır; "daire" için kısa alternatif ("d") önce eşleşip
+        // geriye "aire 5" bırakmamalı.
+        $this->assertSame(
+            'Lara Cad, Muratpaşa',
+            YandexGeocoder::kapiNumarasiniAt('Lara Cad. No:12/A Daire 5, Muratpaşa')
+        );
+
+        // Atılacak bir şey yoksa null (ikinci sorgu koşmasın).
+        $this->assertNull(YandexGeocoder::kapiNumarasiniAt('1497. Sok., Antalya'));
     }
 
     #[Test]
