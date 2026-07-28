@@ -39,10 +39,19 @@ class TenantSettingsRepository {
     String? opensAt,
     String? closesAt,
     String? receiptNote,
+    String? orderCodeDisplay,
   }) async {
     final meta = await db.syncState();
     final at = correctedNowIso(meta.serverTimeOffsetMs);
     final device = meta.deviceId;
+
+    // TUZAK (2026-07-29): bu yazım LWW upsert'tir — sunucu satırı gelen payload'la DEĞİŞTİRİR.
+    // Sipariş kodu tercihi işletme profili formuna ait DEĞİL (ayrı bir ekranda yaşıyor), ama
+    // payload'da eksik kalırsa sunucu onu varsayılana çeker: bayi adresini düzeltince kod
+    // tercihi sessizce geri dönerdi. Bu yüzden alan, açıkça verilmediyse MEVCUT değerden
+    // taşınır. Aynı disiplin ileride eklenecek her "form dışı" ayar için de geçerlidir.
+    final mevcut = await get();
+    final kodTercihi = orderCodeDisplay ?? mevcut?.orderCodeDisplay ?? 'musteri';
 
     final payload = <String, Object?>{
       'business_name': businessName,
@@ -55,6 +64,7 @@ class TenantSettingsRepository {
       'opens_at': opensAt,
       'closes_at': closesAt,
       'receipt_note': receiptNote,
+      'order_code_display': kodTercihi,
     };
 
     await db.transaction(() async {
@@ -70,6 +80,7 @@ class TenantSettingsRepository {
             opensAt: Value(opensAt),
             closesAt: Value(closesAt),
             receiptNote: Value(receiptNote),
+            orderCodeDisplay: Value(kodTercihi),
             updatedOccurredAt: Value(at),
             updatedDeviceId: Value(device),
           ));
@@ -83,5 +94,27 @@ class TenantSettingsRepository {
           deviceId: device,
           payload: payload);
     });
+  }
+
+  /// Yalnız sipariş kodu tercihini değiştirir; profilin geri kalanı OLDUĞU GİBİ taşınır.
+  ///
+  /// Ayrı bir metot çünkü tercih ayrı bir ekranda yaşıyor ve o ekran işletme profilinin
+  /// alanlarını (unvan, vergi no…) bilmez — bilseydi, o alanları eksik gönderip sunucudaki
+  /// profili boşaltma riski doğardı (LWW upsert satırı payload'la değiştirir).
+  Future<void> siparisKoduTercihiKaydet(String tercih) async {
+    final m = await get();
+    await save(
+      businessName: m?.businessName,
+      ownerName: m?.ownerName,
+      phone: m?.phone,
+      whatsapp: m?.whatsapp,
+      addressText: m?.addressText,
+      taxOffice: m?.taxOffice,
+      taxNumber: m?.taxNumber,
+      opensAt: m?.opensAt,
+      closesAt: m?.closesAt,
+      receiptNote: m?.receiptNote,
+      orderCodeDisplay: tercih,
+    );
   }
 }

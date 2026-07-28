@@ -75,6 +75,7 @@ class SiparisListesi extends StatelessWidget {
     required this.liste,
     required this.satirlar,
     this.tahsilatlar = const {},
+    this.kodTercihi = 'musteri',
     required this.adresler,
     required this.telefonlar,
     required this.ekip,
@@ -92,6 +93,9 @@ class SiparisListesi extends StatelessWidget {
   /// orderId → o siparişe işlenmiş tahsilat (pozitif kuruş). Eksik anahtar 0 sayılır —
   /// akış henüz gelmemişken satır "borç yok" gösterir, uydurma bir rakam GÖSTERMEZ.
   final Map<String, int> tahsilatlar;
+
+  /// Satır rozetinde hangi kod görünsün (`musteri` | `siparis`) — bayi ayarı.
+  final String kodTercihi;
 
   final Map<String, AdresBilgi> adresler;
   final Map<String, String> telefonlar;
@@ -115,6 +119,8 @@ class SiparisListesi extends StatelessWidget {
         item: item,
         satirlar: satirlar[item.order.id] ?? const [],
         tahsilKurus: tahsilatlar[item.order.id] ?? 0,
+        musteriCode: item.customerCode,
+        kodTercihi: kodTercihi,
         kuryeAdi: kullaniciAdi(ekip, item.order.assignedUserId),
         adres: musteriId == null ? null : adresler[musteriId],
         telefon: musteriId == null ? null : telefonlar[musteriId],

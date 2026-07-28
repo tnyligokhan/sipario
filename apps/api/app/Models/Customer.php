@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property string $tenant_id
  * @property string $name
  * @property string|null $note
+ * @property int|null $code
  * @property int $balance_kurus
  * @property Carbon $updated_occurred_at
  * @property string|null $updated_device_id
@@ -37,6 +38,7 @@ class Customer extends Model
         'tenant_id',
         'name',
         'note',
+        'code',
         'balance_kurus',
         'updated_occurred_at',
         'updated_device_id',
@@ -46,10 +48,32 @@ class Customer extends Model
     protected function casts(): array
     {
         return [
+            'code' => 'integer',
             'balance_kurus' => 'integer',
             'updated_occurred_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Müşteri kodu MODEL DÜZEYİNDE atanır, senkron uygulayıcısında değil.
+     *
+     * Gerekçe: müşteri üç ayrı yoldan doğuyor (senkron push · demo seeder · panel/konsol
+     * komutları). Kodu yalnız senkron yoluna koysaydık diğer iki yoldan doğan müşteriler
+     * kodsuz kalır ve bayi listede boşluk görürdü — üstelik bu boşluk yalnız SAHADA fark
+     * edilirdi. Tek kapı: `creating` olayı.
+     *
+     * Kod ZATEN VERİLMİŞSE dokunulmaz: geri-yükleme/aktarım senaryolarında var olan numarayı
+     * korumak gerekir.
+     */
+    protected static function booted(): void
+    {
+        // tenant_id KONTROL EDİLMEZ: kolon NOT NULL'dur ve set edilmeden gelen bir müşteri
+        // zaten kaydedilemez. Sessizce "kodsuz geç" demek, kaydı kurtarmaz — yalnız arızayı
+        // koddan veritabanı hatasına erteler ve arada kod atlanmış olur.
+        static::creating(function (self $m): void {
+            $m->code ??= \App\Support\SiraKodu::sonraki('customers', $m->tenant_id);
+        });
     }
 
     /** @return BelongsTo<Tenant, $this> */

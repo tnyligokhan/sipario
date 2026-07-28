@@ -14,6 +14,7 @@ import 'package:sipario/data/app_database.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/repo/product_repository.dart';
+import 'package:sipario/screens/orders/gecen_sure_pili.dart';
 import 'package:sipario/screens/orders/order_detail_screen.dart';
 import 'package:sipario/screens/orders/order_form_screen.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
@@ -52,17 +53,23 @@ void main() {
     await akisiBekle(tester);
 
     expect(find.text('Ayşe Yılmaz'), findsOneWidget);
-    // `.srow-kod` — müşteri kodu rozeti (gösterim; uuid rakamlarının son üçü).
-    expect(find.text(musteriKod(musteriId)!), findsOneWidget);
+    // `.srow-kod` — kod rozeti. 2026-07-29'a kadar burada UUID'den türetilmiş sahte bir
+    // "M-007" vardı; artık gerçek sıra kodu SUNUCUDAN gelir ve bu test yerel bir veritabanına
+    // koştuğu için kod YOKTUR → rozet hiç çizilmez (uydurma numara basılmaz kuralı).
+    expect(find.textContaining('M-'), findsNothing);
     // `.srow-urunler` — madde madde döküm, başlığıyla.
     expect(find.text('SİPARİŞ KALEMLERİ'), findsOneWidget);
     expect(find.text('Damacana 19 L ×2'), findsOneWidget);
     expect(find.text('Bardak su ×1'), findsOneWidget);
     // `.srow-amt` — sipariş toplamı.
     expect(find.text(sipTutar(2 * 4500 + 1250)), findsOneWidget);
-    // `.srow-alt` — durum pili.
-    expect(find.byType(SipDurumPili), findsOneWidget);
-    expect(find.text('Açık'), findsWidgets);
+    // `.srow-alt` — AÇIK siparişte durum pili yerine BEKLEME SÜRESİ pili (kullanıcı isteği
+    // 2026-07-29). "Açık" bilgisi zaten sekmenin adında; satırda merak edilen bekleme süresidir.
+    expect(find.byType(GecenSurePili), findsOneWidget);
+    expect(find.text('yeni'), findsOneWidget, reason: 'yeni açılan sipariş 1 dk altındadır');
+    expect(find.byType(SipDurumPili), findsNothing);
+    // Sekme etiketi olarak "Açık" hâlâ vardır — satırda yoktur.
+    expect(find.text('Açık'), findsOneWidget);
 
     await ekraniKapat(tester);
   });

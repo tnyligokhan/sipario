@@ -19,6 +19,15 @@ class Customers extends Table {
   TextColumn get name => text()();
   TextColumn get note => text().nullable()();
 
+  /// MÜŞTERİ KODU (100, 101, 102…) — kiracı içinde sıralı, SUNUCU atar (v11, 2026-07-29).
+  ///
+  /// Nullable ve istemci tarafından ÜRETİLMEZ: sıra numarası tek bir dağıtıcı ister. İki cihaz
+  /// çevrimdışıyken kendi numarasını üretseydi ikisi de aynı sayıyı alır, senkronda biri
+  /// değiştirilmek zorunda kalırdı — bayinin kâğıda yazdığı numara ertesi gün başka bir müşteriye
+  /// ait olurdu. Bu yüzden kod, senkron cevabıyla GELİR; henüz senkronlanmamış müşteride `null`
+  /// durur ve arayüz yerine nötr bir işaret çizer (uydurma numara YAZILMAZ).
+  IntColumn get code => integer().nullable()();
+
   /// OKUMA-MODELİ ÖNBELLEĞİ (DECISIONS: kaynak defterdir). Native arayan-tanıma bunu tek satır okur.
   IntColumn get balanceKurus => integer().withDefault(const Constant(0))();
 
@@ -97,6 +106,10 @@ class Products extends Table {
 class Orders extends Table {
   TextColumn get id => text()();
   TextColumn get customerId => text().nullable()();
+
+  /// SİPARİŞ KODU (#248) — kiracı içinde sıralı, SUNUCU atar (v11, 2026-07-29).
+  /// Gerekçe ve null davranışı `Customers.code` ile birebir aynıdır.
+  IntColumn get code => integer().nullable()();
 
   /// ÖNBELLEK — kaynak assigned/unassigned order_events (FAZ 4). Hangi kuryeye atandığı; en son
   /// atama olayından türer. Tek kişilik bayide UI'da hiç görünmez (BRIEF), sunucu her zaman destekler.
@@ -242,6 +255,13 @@ class TenantSettings extends Table {
   TextColumn get opensAt => text().nullable()();  // 'SS:DD'
   TextColumn get closesAt => text().nullable()();
   TextColumn get receiptNote => text().nullable()();
+
+  /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
+  /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
+  /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.
+  TextColumn get orderCodeDisplay =>
+      text().withDefault(const Constant('musteri'))();
+
   TextColumn get updatedOccurredAt => text().nullable()();
   TextColumn get updatedDeviceId => text().nullable()();
 

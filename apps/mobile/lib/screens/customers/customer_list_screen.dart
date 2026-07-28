@@ -17,6 +17,7 @@ import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../orders/order_queries.dart' show musteriKodu;
 import '../team.dart';
 import 'customer_detail_screen.dart';
 import 'customer_form_screen.dart';
@@ -200,11 +201,29 @@ class _MusteriSatiri extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  c.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: SipText.satirAd.copyWith(color: t.ink),
+                // KOD ADIN BAŞINDA (kullanıcı isteği 2026-07-29): bayi müşteriyi numarasıyla
+                // anıyor ("102 arıyor"). Kod ile ad AYNI satırda ve kod DARALMAZ: uzun bir adda
+                // kısalması gereken addır, kimliği taşıyan sayı değil.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    if (c.code != null) ...[
+                      Text(
+                        musteriKodu(c.code)!,
+                        style: SipText.satirAd.copyWith(color: t.muted),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Expanded(
+                      child: Text(
+                        c.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SipText.satirAd.copyWith(color: t.ink),
+                      ),
+                    ),
+                  ],
                 ),
                 if (satir.phone != null) ...[
                   const SizedBox(height: 3),

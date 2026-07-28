@@ -401,6 +401,65 @@ void main() {
     final entry = await (db.select(db.ledgerEntries)..where((t) => t.id.equals('v9-l1'))).getSingle();
     expect(entry.amountKurus, 18000);
   });
+
+  test(
+      'v10→v11 SIRA KODLARI: sahadaki cihaza müşteri/sipariş kodu ve kod tercihi kolonları '
+      'eklenir, veri AYNEN durur. Adım kendini-onarma kapısından ÖNCE koşar — kapı '
+      '`tenant_settings` varsa erken döner ve v10 damgalı bir cihazda o tablo ZATEN vardır '
+      '(koşul içine alınsaydı kolonlar sonsuza dek eksik kalır, senkronla gelen kod yazılacak '
+      'yer bulamazdı).', () async {
+    final file = File(p.join(
+      Directory.systemTemp.path,
+      'sipario_v10v11_${DateTime.now().microsecondsSinceEpoch}.db',
+    ));
+    if (file.existsSync()) file.deleteSync();
+
+    // 1) Güncel şemayla kur + korunması gereken veriyi yaz.
+    final v11 = AppDatabase(NativeDatabase(file));
+    await v11.into(v11.customers).insert(CustomersCompanion.insert(
+        id: 'v10-c1', name: 'Kodsuz Müşteri', balanceKurus: const Value(7500),
+        updatedOccurredAt: '2026-07-29T00:00:00.000Z'));
+    await v11.into(v11.orders).insert(OrdersCompanion.insert(
+        id: 'v10-o1', customerId: const Value('v10-c1'),
+        totalKurus: const Value(4500), occurredAt: '2026-07-29T00:00:00.000Z'));
+    await v11.close();
+
+    // 2) Dosyayı v10'a GERİ SAR: üç kolonu düşür, damgayı 10 yap. Gerçek bir v10 cihazının
+    //    diskteki hâli budur.
+    final raw = sqlite3.open(file.path);
+    raw.execute('ALTER TABLE customers DROP COLUMN code');
+    raw.execute('ALTER TABLE orders DROP COLUMN code');
+    raw.execute('ALTER TABLE tenant_settings DROP COLUMN order_code_display');
+    raw.execute('PRAGMA user_version = 10');
+    raw.close();
+
+    // 3) Yeniden aç → onUpgrade(from: 10, to: 11).
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(() async {
+      await db.close();
+      if (file.existsSync()) file.deleteSync();
+    });
+
+    // Kolonlar geri geldi ve YAZILABİLİR (senkron kodu buraya yazacak).
+    await (db.update(db.customers)..where((t) => t.id.equals('v10-c1')))
+        .write(const CustomersCompanion(code: Value(102)));
+    await (db.update(db.orders)..where((t) => t.id.equals('v10-o1')))
+        .write(const OrdersCompanion(code: Value(248)));
+
+    final cust = await (db.select(db.customers)..where((t) => t.id.equals('v10-c1'))).getSingle();
+    expect(cust.code, 102);
+    expect(cust.balanceKurus, 7500, reason: 'para verisi ezilmedi');
+    final order = await (db.select(db.orders)..where((t) => t.id.equals('v10-o1'))).getSingle();
+    expect(order.code, 248);
+    expect(order.totalKurus, 4500);
+
+    // Ayar kolonu VARSAYILANLA gelir: NOT NULL bir kolonu değersiz eklemek eski satırları
+    // okunamaz yapardı.
+    await db.into(db.tenantSettings).insertOnConflictUpdate(
+        const TenantSettingsCompanion(id: Value(1), businessName: Value('Öz Pınar')));
+    final ayar = await (db.select(db.tenantSettings)..where((t) => t.id.equals(1))).getSingle();
+    expect(ayar.orderCodeDisplay, 'musteri');
+  });
 }
 
 /// Dosyadaki gerçek tablo adları (sqlite_master). Kupon tablolarının YOKLUĞUNU kanıtlamak için

@@ -17,6 +17,7 @@ import '../../theme/components/atoms.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import 'gecen_sure_pili.dart';
 import 'musteri_eylemleri.dart';
 import 'order_queries.dart';
 
@@ -26,6 +27,8 @@ class SiparisSatiri extends StatelessWidget {
     required this.item,
     required this.satirlar,
     this.tahsilKurus = 0,
+    this.musteriCode,
+    this.kodTercihi = 'musteri',
     this.kuryeAdi,
     this.adres,
     this.telefon,
@@ -45,6 +48,14 @@ class SiparisSatiri extends StatelessWidget {
   /// Bu siparişe işlenmiş tahsilat toplamı (pozitif kuruş). Kalan borç pilinin dayanağı;
   /// hesabı [siparisKalanBorcu] yapar. Verilmezse 0 — hiç tahsilat yok demektir.
   final int tahsilKurus;
+
+  /// Siparişi veren müşterinin kodu (`customers.code`). Rozette gösterilebilmesi için satıra
+  /// TAŞINIR — sipariş kaydında müşteri kodu yoktur, iki tablo arasında kopyalamak da yanlış
+  /// olurdu (kod müşteriye aittir ve orada değişir).
+  final int? musteriCode;
+
+  /// Rozette hangi kod görünsün: `musteri` | `siparis` (bayi ayarı, `tenant_settings`).
+  final String kodTercihi;
 
   /// Atanmış kuryenin adı. `null` ise kurye çipi HİÇ çizilmez — tek kişilik bayide kurye
   /// adımları görünmez (BRIEF, pazarlıksız).
@@ -81,7 +92,11 @@ class SiparisSatiri extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.sip;
     final o = item.order;
-    final kod = musteriKod(o.customerId);
+    final kod = satirKodu(
+      tercih: kodTercihi,
+      musteriCode: musteriCode,
+      siparisCode: o.code,
+    );
     // Kalan borç — teslim edilmiş ve tamamı tahsil edilmemiş siparişte. Satırın sağındaki tutar
     // siparişin BÜYÜKLÜĞÜDÜR, borcu değil; ikisi veresiye teslimde eşittir ama kısmi ödemede
     // ayrışır ve bayi hangisine baktığını bilmek zorundadır (saha hatası 2026-07-29).
@@ -154,7 +169,14 @@ class SiparisSatiri extends StatelessWidget {
                         runSpacing: 6,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          SipDurumPili(durum: o.status),
+                          // AÇIK siparişte "Açık" yerine BEKLEME SÜRESİ (kullanıcı isteği
+                          // 2026-07-29): hangi sekmede olduğu zaten başlıkta yazar, merak
+                          // edilen siparişin ne kadardır beklediğidir. Teslim/iptalde durum
+                          // pili kalır — kapanmış bir siparişte geçen süre bir şey anlatmaz.
+                          if (_acik)
+                            GecenSurePili(occurredAt: o.occurredAt)
+                          else
+                            SipDurumPili(durum: o.status),
                           if (kalanBorc > 0) _BorcPili(kurus: kalanBorc),
                           if (kuryeAdi != null)
                             _KuryeCipi(

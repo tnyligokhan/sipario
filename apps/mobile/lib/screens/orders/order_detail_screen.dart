@@ -22,6 +22,7 @@ import '../../theme/typography.dart';
 import '../customers/customer_form_screen.dart' show musteriDuzenleSheet;
 import '../team.dart';
 import 'delivery_sheet.dart';
+import 'gecen_sure_pili.dart';
 import 'order_detail_eylemler.dart';
 import 'order_detail_parts.dart';
 import 'order_edit_sheet.dart';
@@ -385,7 +386,10 @@ class _Baslik extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    final kod = musteriKod(order.customerId);
+    // DETAYDA İKİ KOD DA GÖRÜNÜR — ayar yalnız LİSTEDEKİ dar alanı paylaştırır. Burada yer var
+    // ve bayi tam olarak "hangi sipariş, kimin" sorusunu sormak için bu ekrana giriyor; birini
+    // ayara feda etmek, tercihini değiştirmeden ulaşamayacağı bir bilgi yaratırdı.
+    final siparisKod = siparisKodu(order.code);
 
     return StreamBuilder<List<User>>(
       stream: watchTeam(db),
@@ -401,16 +405,23 @@ class _Baslik extends StatelessWidget {
                 runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  if (kod != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: t.accentSoft,
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                      child: Text(kod, style: SipText.siparisKod.copyWith(color: t.accent)),
+                  if (siparisKod != null) _KodRozeti(metin: siparisKod),
+                  // Müşteri kodu canlı okunur: müşteri kaydı senkronla sonradan kod alabilir
+                  // (çevrimdışı eklenmiş müşteri) ve detay açıkken tazelenmelidir.
+                  if (order.customerId != null)
+                    StreamBuilder<Customer?>(
+                      stream: watchMusteri(db, order.customerId!),
+                      builder: (context, mSnap) {
+                        final mKod = musteriKodu(mSnap.data?.code);
+                        return mKod == null
+                            ? const SizedBox.shrink()
+                            : _KodRozeti(metin: mKod, sonuk: true);
+                      },
                     ),
-                  SipDurumPili(durum: order.status),
+                  if (order.status == 'open')
+                    GecenSurePili(occurredAt: order.occurredAt)
+                  else
+                    SipDurumPili(durum: order.status),
                   if (kuryeAd != null)
                     SipDokun(
                       onTap: duzenlenebilir && canAssign ? () => _kuryeSec(context, ekip) : null,
@@ -472,5 +483,28 @@ class _Baslik extends StatelessWidget {
     await OrderRepository(db).assign(order.id, secili);
     if (!context.mounted) return;
     SipToast.goster(context, 'Kurye değiştirildi: ${kullaniciAdi(kuryeler, secili) ?? ''}');
+  }
+}
+
+/// Kod rozeti — sipariş kodu (#248) ve müşteri kodu (102) aynı kalıptan çizilir.
+/// [sonuk] ikinci kodu (müşteri) hafifletir: bu ekranın konusu SİPARİŞTİR, müşteri kodu bağlamdır.
+class _KodRozeti extends StatelessWidget {
+  const _KodRozeti({required this.metin, this.sonuk = false});
+
+  final String metin;
+  final bool sonuk;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: sonuk ? t.surface2 : t.accentSoft,
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Text(metin,
+          style: SipText.siparisKod.copyWith(color: sonuk ? t.muted : t.accent)),
+    );
   }
 }

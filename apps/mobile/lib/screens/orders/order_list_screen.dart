@@ -41,8 +41,11 @@ export 'order_queries.dart'
         OrderSort,
         elleSiraYazimi,
         kAtanmamisKurye,
-        musteriKod,
+        gecenSure,
+        musteriKodu,
         odemeTipiEtiketi,
+        satirKodu,
+        siparisKodu,
         saatBicimi,
         satirOzeti,
         serbestMi,
@@ -142,6 +145,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
   late final Stream<Map<String, List<OrderLine>>> _satirlar =
       watchOrderLinesByOrder(widget.db);
   late final Stream<Map<String, int>> _tahsilatlar = watchSiparisTahsilatlari(widget.db);
+  late final Stream<String> _kodTercihi = watchSiparisKoduTercihi(widget.db);
   late final Stream<Map<String, AdresBilgi>> _adresler = watchBirincilAdresler(widget.db);
   late final Stream<Map<String, String>> _telefonlar = watchBirincilTelefonlar(widget.db);
   late final Stream<int> _acikSayisi = watchAcikSiparisSayisi(widget.db);
@@ -248,7 +252,10 @@ class _OrderListScreenState extends State<OrderListScreen> {
       builder: (context, ekipSnap) => StreamBuilder<Map<String, List<OrderLine>>>(
         stream: _satirlar,
         initialData: const {},
-        builder: (context, satirSnap) => StreamBuilder<Map<String, int>>(
+        builder: (context, satirSnap) => StreamBuilder<String>(
+          stream: _kodTercihi,
+          initialData: 'musteri',
+          builder: (context, kodSnap) => StreamBuilder<Map<String, int>>(
           stream: _tahsilatlar,
           initialData: const {},
           builder: (context, tahsilatSnap) => StreamBuilder<Map<String, AdresBilgi>>(
@@ -276,6 +283,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                   liste: liste,
                   satirlar: satirSnap.data ?? const {},
                   tahsilatlar: tahsilatSnap.data ?? const {},
+                  kodTercihi: kodSnap.data ?? 'musteri',
                   adresler: adresSnap.data ?? const {},
                   telefonlar: telSnap.data ?? const {},
                   ekip: ekipSnap.data ?? const [],
@@ -291,6 +299,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
               },
               ),
             ),
+          ),
           ),
         ),
       ),

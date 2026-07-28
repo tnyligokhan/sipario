@@ -43,11 +43,15 @@ class OrderListItem {
   OrderListItem({
     required this.order,
     this.customerName,
+    this.customerCode,
     this.customerBalanceKurus = 0,
   });
 
   final Order order;
   final String? customerName;
+
+  /// Müşterinin sıra kodu (`customers.code`) — satır rozetinin bir seçeneği.
+  final int? customerCode;
 
   /// "Borçlu" sekmesinin dayanağı (müşteri defter bakiyesi önbelleği).
   final int customerBalanceKurus;
@@ -110,6 +114,7 @@ Stream<List<OrderListItem>> watchOrders(AppDatabase db, OrderFilter filter, {Str
         return OrderListItem(
           order: r.readTable(db.orders),
           customerName: musteri?.name,
+          customerCode: musteri?.code,
           customerBalanceKurus: musteri?.balanceKurus ?? 0,
         );
       }).toList());
@@ -244,6 +249,15 @@ Map<String, int> elleSiraYazimi(List<OrderListItem> siraliListe) {
   }
   return degisen;
 }
+
+/// Sipariş satırındaki kod tercihi (`tenant_settings.order_code_display`), canlı.
+///
+/// Ayar KİRACI düzeyindedir ve senkronla iner; cihaz-yerel olsaydı iki telefonlu bir bayide
+/// aynı liste iki farklı numara gösterirdi. Satır henüz senkronlanmamışsa varsayılan `musteri`.
+Stream<String> watchSiparisKoduTercihi(AppDatabase db) =>
+    (db.select(db.tenantSettings)..where((t) => t.id.equals(1)))
+        .watchSingleOrNull()
+        .map((r) => r?.orderCodeDisplay ?? 'musteri');
 
 /// Üst başlıktaki "Bugün N açık" sayacı (s-siparisler.jsx `Ust alt=`).
 Stream<int> watchAcikSiparisSayisi(AppDatabase db) =>
@@ -476,15 +490,60 @@ List<Product> katalogSuz(List<Product> tumu, String sorgu) {
 // Saf gösterim yardımcıları
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
-/// Müşteri kodu rozeti — s-siparisler.jsx `musteriKod`. Tasarım artan tamsayı id'den "M-007"
-/// üretiyordu; bizde id UUIDv7 olduğundan rakamlarının SON ÜÇÜ alınır (rozet kısa kalsın).
-/// Yalnız GÖSTERİMDİR — hiçbir yerde anahtar olarak kullanılmaz.
-String? musteriKod(String? customerId) {
-  if (customerId == null) return null;
-  final rakam = customerId.replaceAll(RegExp(r'\D'), '');
-  if (rakam.isEmpty) return 'M-000';
-  final son = rakam.length <= 3 ? rakam.padLeft(3, '0') : rakam.substring(rakam.length - 3);
-  return 'M-$son';
+/// Müşteri kodu rozeti — "102".
+///
+/// ESKİ HÂLİ (2026-07-29'a kadar): kod UUID'nin son üç RAKAMINDAN türetiliyordu ve "M-007"
+/// yazıyordu. Bu bir kimlik değil, bir SÜSTÜ: iki müşteri aynı üçlüyü alabiliyordu, sayı hiçbir
+/// sırayı anlatmıyordu ve bayi "102 numaralı abone" diyemiyordu. Artık kod sunucudan gelen
+/// gerçek sıra numarasıdır (`customers.code`).
+///
+/// Kod YOKSA null döner ve çağıran rozeti HİÇ çizmez — sıfır ya da "M-000" gibi uydurma bir
+/// numara basmak, senkronlanmamış bir müşteriyi var olmayan bir kodla anmak olurdu.
+String? musteriKodu(int? code) => code == null ? null : '$code';
+
+/// Sipariş kodu rozeti — "#248". Kullanıcı isteği: "her siparişin bir kodu olmalı #xxx gibi".
+String? siparisKodu(int? code) => code == null ? null : '#$code';
+
+/// Sipariş satırında hangi kod görünecek? Bayi tercihi (`tenant_settings.order_code_display`).
+///
+/// Tek karar noktası: liste satırı, sipariş detayı ve testler aynı fonksiyonu çağırır. Tanınmayan
+/// bir değer (eski/yeni istemci ayrışması) MÜŞTERİ koduna düşer — sunucudaki beyaz listenin aynısı.
+/// Seçilen kod yoksa (ör. tezgâh satışında müşteri kodu) DİĞERİNE düşülür: satırda hiç numara
+/// olmamasındansa var olan numara gösterilir.
+String? satirKodu({
+  required String tercih,
+  required int? musteriCode,
+  required int? siparisCode,
+}) {
+  final musteri = musteriKodu(musteriCode);
+  final siparis = siparisKodu(siparisCode);
+  return tercih == 'siparis' ? (siparis ?? musteri) : (musteri ?? siparis);
+}
+
+/// Açık siparişin ÜZERİNDEN GEÇEN süre — "12 dk" · "1 sa 5 dk" · "2 gün".
+///
+/// Kullanıcı isteği (2026-07-29): açık siparişte kartta "Açık" yazmak yerine siparişin kaç
+/// dakikadır beklediği görünsün. Gerekçe sahadan: "açık" bilgisi zaten listenin adında var
+/// (Açık sekmesi), asıl merak edilen BEKLEME SÜRESİDİR — geciken teslimat böyle fark edilir.
+///
+/// Kurallar:
+///  • 1 dakikadan yeni → "yeni" (0 dk yazmak siparişin daha girilmediğini düşündürür).
+///  • 60 dakikaya kadar dakika; sonrasında saat + dakika (ilk gün dakika ÖNEMLİDİR — 1 sa 5 dk
+///    ile 1 sa 55 dk arasındaki fark bayinin telefonla özür dileyip dilemeyeceğini belirler).
+///  • 24 saatten sonra gün (o noktada dakika gürültüdür).
+///  • İLERİ tarihli damga "yeni" sayılır: cihaz saati ileri kaymış olabilir ve "−3 dk" yazmak
+///    veriye güveni sarsar (senkron zaten sunucu saatiyle düzeltilmiş damga yazar).
+String gecenSure(String iso, {DateTime? simdi}) {
+  final t = DateTime.tryParse(iso);
+  if (t == null) return '';
+  final fark = (simdi ?? DateTime.now()).difference(t.toLocal());
+  if (fark.inMinutes < 1) return 'yeni';
+  if (fark.inMinutes < 60) return '${fark.inMinutes} dk';
+  if (fark.inHours < 24) {
+    final dk = fark.inMinutes % 60;
+    return dk == 0 ? '${fark.inHours} sa' : '${fark.inHours} sa $dk dk';
+  }
+  return '${fark.inDays} gün';
 }
 
 /// Teslim sheet'inde ÇİZİLEN ödeme karoları (tasarım `ODEME_TIPLERI`) — dördü de HER ZAMAN

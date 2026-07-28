@@ -71,6 +71,12 @@ class ProfileChangeApplier
             'opens_at' => $p['opens_at'] ?? null,
             'closes_at' => $p['closes_at'] ?? null,
             'receipt_note' => $p['receipt_note'] ?? null,
+            // Sipariş satırındaki kod tercihi (kullanıcı isteği 2026-07-29). BEYAZ LİSTE:
+            // tanınmayan bir değer varsayılana düşer — istemci sürümleri ayrışabilir ve
+            // sunucuya gelen serbest metin, kararı okuyan her yüzeyi bilinmeyen bir dala sokar.
+            'order_code_display' => in_array($p['order_code_display'] ?? null, ['musteri', 'siparis'], true)
+                ? $p['order_code_display']
+                : 'musteri',
             'updated_occurred_at' => $occurredAt,
             'updated_device_id' => $deviceId,
         ]);

@@ -39,7 +39,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.file() : super(_openOnDevice());
 
   @override
-  int get schemaVersion => 10; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı
+  int get schemaVersion => 11; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş)
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -56,6 +56,33 @@ class AppDatabase extends _$AppDatabase {
           // de `IF EXISTS`, tekrar koşmak bedelsiz ve hatasızdır.
           await m.database.customStatement('DROP TABLE IF EXISTS coupon_movements');
           await m.database.customStatement('DROP TABLE IF EXISTS coupon_balances');
+
+          // v11 — SIRA KODLARI (müşteri 102 · sipariş #248, 2026-07-29).
+          //
+          // KAPIDAN ÖNCE ve KOŞULSUZ, tam olarak v10'un gerekçesiyle: aşağıdaki kendini-onarma
+          // kapısı `tenant_settings` tablosunu görünce "şema güncel" sayıp ERKEN DÖNER. Sahadaki
+          // her cihazda o tablo zaten var (v8'den beri), yani `if (from < 11)` yazsaydık adım
+          // HİÇ koşmazdı ve kolonlar sonsuza dek eksik kalırdı — üstelik hata vermeden: senkron
+          // gelen `code` alanını yazacak kolonu bulamaz, kod hiç görünmezdi.
+          // Üçü de `_addColumnIfMissing`: tekrar koşmak bedelsiz.
+          //
+          // TABLO VARLIĞI ÖNCE SORULUR: bu adım koşulsuz olduğu için ÇOK ESKİ yollarda da
+          // koşar — v1 damgalı bir cihazda `orders`, v7'de `tenant_settings` HENÜZ YOKTUR
+          // (aşağıdaki `from < N` dallarında kurulurlar). O tablolar zaten GÜNCEL şemadan
+          // (`createTable`) doğacağı için kolon onlarda hazır gelir; burada atlamak doğru
+          // davranıştır. Hatayı yutmak yerine SORMAK: "no such table"ı da yutan bir yardımcı,
+          // adı yanlış yazılmış bir tabloyu sessizce görmezden gelirdi.
+          for (final (tablo, sql) in [
+            ('customers', 'ALTER TABLE customers ADD COLUMN code INTEGER'),
+            ('orders', 'ALTER TABLE orders ADD COLUMN code INTEGER'),
+            (
+              'tenant_settings',
+              "ALTER TABLE tenant_settings ADD COLUMN order_code_display TEXT NOT NULL "
+                  "DEFAULT 'musteri'"
+            ),
+          ]) {
+            if (await _tabloVar(m, tablo)) await _addColumnIfMissing(m, sql);
+          }
 
           // KENDİNİ ONARMA (2026-07-22 SAHA BULGUSU — iki gerçek cihazda yaşandı): Faz 0 ölçüm
           // ekranı sipario.db'yi sqflite `version: 1` ile açınca user_version damgası 1'e
@@ -218,6 +245,15 @@ class AppDatabase extends _$AppDatabase {
 
   /// ALTER'ı "duplicate column"a TOLERANSLI koşar (savunma derinliği — sürüm damgası harici
   /// bir açıcı tarafından ezilirse migration yeniden koşabilir; var olan kolon hata değildir).
+  /// Tablo bu veritabanında var mı? Migration adımları eski şemalarda da koştuğu için, henüz
+  /// doğmamış bir tabloya ALTER atmadan önce sorulur.
+  static Future<bool> _tabloVar(Migrator m, String ad) async {
+    final r = await m.database
+        .customSelect("SELECT 1 FROM sqlite_master WHERE type='table' AND name='$ad'")
+        .get();
+    return r.isNotEmpty;
+  }
+
   static Future<void> _addColumnIfMissing(Migrator m, String sql) async {
     try {
       await m.database.customStatement(sql);

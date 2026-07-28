@@ -36,6 +36,15 @@ class $CustomersTable extends Customers
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _codeMeta = const VerificationMeta('code');
+  @override
+  late final GeneratedColumn<int> code = GeneratedColumn<int>(
+    'code',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _balanceKurusMeta = const VerificationMeta(
     'balanceKurus',
   );
@@ -87,6 +96,7 @@ class $CustomersTable extends Customers
     id,
     name,
     note,
+    code,
     balanceKurus,
     updatedOccurredAt,
     updatedDeviceId,
@@ -121,6 +131,12 @@ class $CustomersTable extends Customers
       context.handle(
         _noteMeta,
         note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('code')) {
+      context.handle(
+        _codeMeta,
+        code.isAcceptableOrUnknown(data['code']!, _codeMeta),
       );
     }
     if (data.containsKey('balance_kurus')) {
@@ -179,6 +195,10 @@ class $CustomersTable extends Customers
         DriftSqlType.string,
         data['${effectivePrefix}note'],
       ),
+      code: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}code'],
+      ),
       balanceKurus: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}balance_kurus'],
@@ -209,6 +229,15 @@ class Customer extends DataClass implements Insertable<Customer> {
   final String name;
   final String? note;
 
+  /// MÜŞTERİ KODU (100, 101, 102…) — kiracı içinde sıralı, SUNUCU atar (v11, 2026-07-29).
+  ///
+  /// Nullable ve istemci tarafından ÜRETİLMEZ: sıra numarası tek bir dağıtıcı ister. İki cihaz
+  /// çevrimdışıyken kendi numarasını üretseydi ikisi de aynı sayıyı alır, senkronda biri
+  /// değiştirilmek zorunda kalırdı — bayinin kâğıda yazdığı numara ertesi gün başka bir müşteriye
+  /// ait olurdu. Bu yüzden kod, senkron cevabıyla GELİR; henüz senkronlanmamış müşteride `null`
+  /// durur ve arayüz yerine nötr bir işaret çizer (uydurma numara YAZILMAZ).
+  final int? code;
+
   /// OKUMA-MODELİ ÖNBELLEĞİ (DECISIONS: kaynak defterdir). Native arayan-tanıma bunu tek satır okur.
   final int balanceKurus;
   final String updatedOccurredAt;
@@ -218,6 +247,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     required this.id,
     required this.name,
     this.note,
+    this.code,
     required this.balanceKurus,
     required this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -230,6 +260,9 @@ class Customer extends DataClass implements Insertable<Customer> {
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || note != null) {
       map['note'] = Variable<String>(note);
+    }
+    if (!nullToAbsent || code != null) {
+      map['code'] = Variable<int>(code);
     }
     map['balance_kurus'] = Variable<int>(balanceKurus);
     map['updated_occurred_at'] = Variable<String>(updatedOccurredAt);
@@ -247,6 +280,7 @@ class Customer extends DataClass implements Insertable<Customer> {
       id: Value(id),
       name: Value(name),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      code: code == null && nullToAbsent ? const Value.absent() : Value(code),
       balanceKurus: Value(balanceKurus),
       updatedOccurredAt: Value(updatedOccurredAt),
       updatedDeviceId: updatedDeviceId == null && nullToAbsent
@@ -267,6 +301,7 @@ class Customer extends DataClass implements Insertable<Customer> {
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       note: serializer.fromJson<String?>(json['note']),
+      code: serializer.fromJson<int?>(json['code']),
       balanceKurus: serializer.fromJson<int>(json['balanceKurus']),
       updatedOccurredAt: serializer.fromJson<String>(json['updatedOccurredAt']),
       updatedDeviceId: serializer.fromJson<String?>(json['updatedDeviceId']),
@@ -280,6 +315,7 @@ class Customer extends DataClass implements Insertable<Customer> {
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'note': serializer.toJson<String?>(note),
+      'code': serializer.toJson<int?>(code),
       'balanceKurus': serializer.toJson<int>(balanceKurus),
       'updatedOccurredAt': serializer.toJson<String>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -291,6 +327,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     String? id,
     String? name,
     Value<String?> note = const Value.absent(),
+    Value<int?> code = const Value.absent(),
     int? balanceKurus,
     String? updatedOccurredAt,
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -299,6 +336,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     id: id ?? this.id,
     name: name ?? this.name,
     note: note.present ? note.value : this.note,
+    code: code.present ? code.value : this.code,
     balanceKurus: balanceKurus ?? this.balanceKurus,
     updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
     updatedDeviceId: updatedDeviceId.present
@@ -311,6 +349,7 @@ class Customer extends DataClass implements Insertable<Customer> {
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       note: data.note.present ? data.note.value : this.note,
+      code: data.code.present ? data.code.value : this.code,
       balanceKurus: data.balanceKurus.present
           ? data.balanceKurus.value
           : this.balanceKurus,
@@ -330,6 +369,7 @@ class Customer extends DataClass implements Insertable<Customer> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('note: $note, ')
+          ..write('code: $code, ')
           ..write('balanceKurus: $balanceKurus, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -343,6 +383,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     id,
     name,
     note,
+    code,
     balanceKurus,
     updatedOccurredAt,
     updatedDeviceId,
@@ -355,6 +396,7 @@ class Customer extends DataClass implements Insertable<Customer> {
           other.id == this.id &&
           other.name == this.name &&
           other.note == this.note &&
+          other.code == this.code &&
           other.balanceKurus == this.balanceKurus &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId &&
@@ -365,6 +407,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
   final Value<String> id;
   final Value<String> name;
   final Value<String?> note;
+  final Value<int?> code;
   final Value<int> balanceKurus;
   final Value<String> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -374,6 +417,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.note = const Value.absent(),
+    this.code = const Value.absent(),
     this.balanceKurus = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -384,6 +428,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     required String id,
     required String name,
     this.note = const Value.absent(),
+    this.code = const Value.absent(),
     this.balanceKurus = const Value.absent(),
     required String updatedOccurredAt,
     this.updatedDeviceId = const Value.absent(),
@@ -396,6 +441,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     Expression<String>? id,
     Expression<String>? name,
     Expression<String>? note,
+    Expression<int>? code,
     Expression<int>? balanceKurus,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -406,6 +452,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (note != null) 'note': note,
+      if (code != null) 'code': code,
       if (balanceKurus != null) 'balance_kurus': balanceKurus,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -418,6 +465,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     Value<String>? id,
     Value<String>? name,
     Value<String?>? note,
+    Value<int?>? code,
     Value<int>? balanceKurus,
     Value<String>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -428,6 +476,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
       id: id ?? this.id,
       name: name ?? this.name,
       note: note ?? this.note,
+      code: code ?? this.code,
       balanceKurus: balanceKurus ?? this.balanceKurus,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -447,6 +496,9 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     }
     if (note.present) {
       map['note'] = Variable<String>(note.value);
+    }
+    if (code.present) {
+      map['code'] = Variable<int>(code.value);
     }
     if (balanceKurus.present) {
       map['balance_kurus'] = Variable<int>(balanceKurus.value);
@@ -472,6 +524,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('note: $note, ')
+          ..write('code: $code, ')
           ..write('balanceKurus: $balanceKurus, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -2452,6 +2505,15 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _codeMeta = const VerificationMeta('code');
+  @override
+  late final GeneratedColumn<int> code = GeneratedColumn<int>(
+    'code',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _assignedUserIdMeta = const VerificationMeta(
     'assignedUserId',
   );
@@ -2553,6 +2615,7 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
   List<GeneratedColumn> get $columns => [
     id,
     customerId,
+    code,
     assignedUserId,
     status,
     totalKurus,
@@ -2584,6 +2647,12 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
       context.handle(
         _customerIdMeta,
         customerId.isAcceptableOrUnknown(data['customer_id']!, _customerIdMeta),
+      );
+    }
+    if (data.containsKey('code')) {
+      context.handle(
+        _codeMeta,
+        code.isAcceptableOrUnknown(data['code']!, _codeMeta),
       );
     }
     if (data.containsKey('assigned_user_id')) {
@@ -2668,6 +2737,10 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
         DriftSqlType.string,
         data['${effectivePrefix}customer_id'],
       ),
+      code: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}code'],
+      ),
       assignedUserId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}assigned_user_id'],
@@ -2717,6 +2790,10 @@ class Order extends DataClass implements Insertable<Order> {
   final String id;
   final String? customerId;
 
+  /// SİPARİŞ KODU (#248) — kiracı içinde sıralı, SUNUCU atar (v11, 2026-07-29).
+  /// Gerekçe ve null davranışı `Customers.code` ile birebir aynıdır.
+  final int? code;
+
   /// ÖNBELLEK — kaynak assigned/unassigned order_events (FAZ 4). Hangi kuryeye atandığı; en son
   /// atama olayından türer. Tek kişilik bayide UI'da hiç görünmez (BRIEF), sunucu her zaman destekler.
   final String? assignedUserId;
@@ -2736,6 +2813,7 @@ class Order extends DataClass implements Insertable<Order> {
   const Order({
     required this.id,
     this.customerId,
+    this.code,
     this.assignedUserId,
     required this.status,
     required this.totalKurus,
@@ -2752,6 +2830,9 @@ class Order extends DataClass implements Insertable<Order> {
     map['id'] = Variable<String>(id);
     if (!nullToAbsent || customerId != null) {
       map['customer_id'] = Variable<String>(customerId);
+    }
+    if (!nullToAbsent || code != null) {
+      map['code'] = Variable<int>(code);
     }
     if (!nullToAbsent || assignedUserId != null) {
       map['assigned_user_id'] = Variable<String>(assignedUserId);
@@ -2783,6 +2864,7 @@ class Order extends DataClass implements Insertable<Order> {
       customerId: customerId == null && nullToAbsent
           ? const Value.absent()
           : Value(customerId),
+      code: code == null && nullToAbsent ? const Value.absent() : Value(code),
       assignedUserId: assignedUserId == null && nullToAbsent
           ? const Value.absent()
           : Value(assignedUserId),
@@ -2813,6 +2895,7 @@ class Order extends DataClass implements Insertable<Order> {
     return Order(
       id: serializer.fromJson<String>(json['id']),
       customerId: serializer.fromJson<String?>(json['customerId']),
+      code: serializer.fromJson<int?>(json['code']),
       assignedUserId: serializer.fromJson<String?>(json['assignedUserId']),
       status: serializer.fromJson<String>(json['status']),
       totalKurus: serializer.fromJson<int>(json['totalKurus']),
@@ -2830,6 +2913,7 @@ class Order extends DataClass implements Insertable<Order> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'customerId': serializer.toJson<String?>(customerId),
+      'code': serializer.toJson<int?>(code),
       'assignedUserId': serializer.toJson<String?>(assignedUserId),
       'status': serializer.toJson<String>(status),
       'totalKurus': serializer.toJson<int>(totalKurus),
@@ -2845,6 +2929,7 @@ class Order extends DataClass implements Insertable<Order> {
   Order copyWith({
     String? id,
     Value<String?> customerId = const Value.absent(),
+    Value<int?> code = const Value.absent(),
     Value<String?> assignedUserId = const Value.absent(),
     String? status,
     int? totalKurus,
@@ -2857,6 +2942,7 @@ class Order extends DataClass implements Insertable<Order> {
   }) => Order(
     id: id ?? this.id,
     customerId: customerId.present ? customerId.value : this.customerId,
+    code: code.present ? code.value : this.code,
     assignedUserId: assignedUserId.present
         ? assignedUserId.value
         : this.assignedUserId,
@@ -2877,6 +2963,7 @@ class Order extends DataClass implements Insertable<Order> {
       customerId: data.customerId.present
           ? data.customerId.value
           : this.customerId,
+      code: data.code.present ? data.code.value : this.code,
       assignedUserId: data.assignedUserId.present
           ? data.assignedUserId.value
           : this.assignedUserId,
@@ -2904,6 +2991,7 @@ class Order extends DataClass implements Insertable<Order> {
     return (StringBuffer('Order(')
           ..write('id: $id, ')
           ..write('customerId: $customerId, ')
+          ..write('code: $code, ')
           ..write('assignedUserId: $assignedUserId, ')
           ..write('status: $status, ')
           ..write('totalKurus: $totalKurus, ')
@@ -2921,6 +3009,7 @@ class Order extends DataClass implements Insertable<Order> {
   int get hashCode => Object.hash(
     id,
     customerId,
+    code,
     assignedUserId,
     status,
     totalKurus,
@@ -2937,6 +3026,7 @@ class Order extends DataClass implements Insertable<Order> {
       (other is Order &&
           other.id == this.id &&
           other.customerId == this.customerId &&
+          other.code == this.code &&
           other.assignedUserId == this.assignedUserId &&
           other.status == this.status &&
           other.totalKurus == this.totalKurus &&
@@ -2951,6 +3041,7 @@ class Order extends DataClass implements Insertable<Order> {
 class OrdersCompanion extends UpdateCompanion<Order> {
   final Value<String> id;
   final Value<String?> customerId;
+  final Value<int?> code;
   final Value<String?> assignedUserId;
   final Value<String> status;
   final Value<int> totalKurus;
@@ -2964,6 +3055,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   const OrdersCompanion({
     this.id = const Value.absent(),
     this.customerId = const Value.absent(),
+    this.code = const Value.absent(),
     this.assignedUserId = const Value.absent(),
     this.status = const Value.absent(),
     this.totalKurus = const Value.absent(),
@@ -2978,6 +3070,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   OrdersCompanion.insert({
     required String id,
     this.customerId = const Value.absent(),
+    this.code = const Value.absent(),
     this.assignedUserId = const Value.absent(),
     this.status = const Value.absent(),
     this.totalKurus = const Value.absent(),
@@ -2993,6 +3086,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   static Insertable<Order> custom({
     Expression<String>? id,
     Expression<String>? customerId,
+    Expression<int>? code,
     Expression<String>? assignedUserId,
     Expression<String>? status,
     Expression<int>? totalKurus,
@@ -3007,6 +3101,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (customerId != null) 'customer_id': customerId,
+      if (code != null) 'code': code,
       if (assignedUserId != null) 'assigned_user_id': assignedUserId,
       if (status != null) 'status': status,
       if (totalKurus != null) 'total_kurus': totalKurus,
@@ -3023,6 +3118,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   OrdersCompanion copyWith({
     Value<String>? id,
     Value<String?>? customerId,
+    Value<int?>? code,
     Value<String?>? assignedUserId,
     Value<String>? status,
     Value<int>? totalKurus,
@@ -3037,6 +3133,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     return OrdersCompanion(
       id: id ?? this.id,
       customerId: customerId ?? this.customerId,
+      code: code ?? this.code,
       assignedUserId: assignedUserId ?? this.assignedUserId,
       status: status ?? this.status,
       totalKurus: totalKurus ?? this.totalKurus,
@@ -3058,6 +3155,9 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     }
     if (customerId.present) {
       map['customer_id'] = Variable<String>(customerId.value);
+    }
+    if (code.present) {
+      map['code'] = Variable<int>(code.value);
     }
     if (assignedUserId.present) {
       map['assigned_user_id'] = Variable<String>(assignedUserId.value);
@@ -3097,6 +3197,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     return (StringBuffer('OrdersCompanion(')
           ..write('id: $id, ')
           ..write('customerId: $customerId, ')
+          ..write('code: $code, ')
           ..write('assignedUserId: $assignedUserId, ')
           ..write('status: $status, ')
           ..write('totalKurus: $totalKurus, ')
@@ -6075,6 +6176,18 @@ class $TenantSettingsTable extends TenantSettings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _orderCodeDisplayMeta = const VerificationMeta(
+    'orderCodeDisplay',
+  );
+  @override
+  late final GeneratedColumn<String> orderCodeDisplay = GeneratedColumn<String>(
+    'order_code_display',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('musteri'),
+  );
   static const VerificationMeta _updatedOccurredAtMeta = const VerificationMeta(
     'updatedOccurredAt',
   );
@@ -6111,6 +6224,7 @@ class $TenantSettingsTable extends TenantSettings
     opensAt,
     closesAt,
     receiptNote,
+    orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
   ];
@@ -6198,6 +6312,15 @@ class $TenantSettingsTable extends TenantSettings
         ),
       );
     }
+    if (data.containsKey('order_code_display')) {
+      context.handle(
+        _orderCodeDisplayMeta,
+        orderCodeDisplay.isAcceptableOrUnknown(
+          data['order_code_display']!,
+          _orderCodeDisplayMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_occurred_at')) {
       context.handle(
         _updatedOccurredAtMeta,
@@ -6269,6 +6392,10 @@ class $TenantSettingsTable extends TenantSettings
         DriftSqlType.string,
         data['${effectivePrefix}receipt_note'],
       ),
+      orderCodeDisplay: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}order_code_display'],
+      )!,
       updatedOccurredAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}updated_occurred_at'],
@@ -6298,6 +6425,11 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
   final String? opensAt;
   final String? closesAt;
   final String? receiptNote;
+
+  /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
+  /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
+  /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.
+  final String orderCodeDisplay;
   final String? updatedOccurredAt;
   final String? updatedDeviceId;
   const TenantSetting({
@@ -6312,6 +6444,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     this.opensAt,
     this.closesAt,
     this.receiptNote,
+    required this.orderCodeDisplay,
     this.updatedOccurredAt,
     this.updatedDeviceId,
   });
@@ -6349,6 +6482,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     if (!nullToAbsent || receiptNote != null) {
       map['receipt_note'] = Variable<String>(receiptNote);
     }
+    map['order_code_display'] = Variable<String>(orderCodeDisplay);
     if (!nullToAbsent || updatedOccurredAt != null) {
       map['updated_occurred_at'] = Variable<String>(updatedOccurredAt);
     }
@@ -6391,6 +6525,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       receiptNote: receiptNote == null && nullToAbsent
           ? const Value.absent()
           : Value(receiptNote),
+      orderCodeDisplay: Value(orderCodeDisplay),
       updatedOccurredAt: updatedOccurredAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedOccurredAt),
@@ -6417,6 +6552,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       opensAt: serializer.fromJson<String?>(json['opensAt']),
       closesAt: serializer.fromJson<String?>(json['closesAt']),
       receiptNote: serializer.fromJson<String?>(json['receiptNote']),
+      orderCodeDisplay: serializer.fromJson<String>(json['orderCodeDisplay']),
       updatedOccurredAt: serializer.fromJson<String?>(
         json['updatedOccurredAt'],
       ),
@@ -6438,6 +6574,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       'opensAt': serializer.toJson<String?>(opensAt),
       'closesAt': serializer.toJson<String?>(closesAt),
       'receiptNote': serializer.toJson<String?>(receiptNote),
+      'orderCodeDisplay': serializer.toJson<String>(orderCodeDisplay),
       'updatedOccurredAt': serializer.toJson<String?>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
     };
@@ -6455,6 +6592,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     Value<String?> opensAt = const Value.absent(),
     Value<String?> closesAt = const Value.absent(),
     Value<String?> receiptNote = const Value.absent(),
+    String? orderCodeDisplay,
     Value<String?> updatedOccurredAt = const Value.absent(),
     Value<String?> updatedDeviceId = const Value.absent(),
   }) => TenantSetting(
@@ -6469,6 +6607,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     opensAt: opensAt.present ? opensAt.value : this.opensAt,
     closesAt: closesAt.present ? closesAt.value : this.closesAt,
     receiptNote: receiptNote.present ? receiptNote.value : this.receiptNote,
+    orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
     updatedOccurredAt: updatedOccurredAt.present
         ? updatedOccurredAt.value
         : this.updatedOccurredAt,
@@ -6495,6 +6634,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       receiptNote: data.receiptNote.present
           ? data.receiptNote.value
           : this.receiptNote,
+      orderCodeDisplay: data.orderCodeDisplay.present
+          ? data.orderCodeDisplay.value
+          : this.orderCodeDisplay,
       updatedOccurredAt: data.updatedOccurredAt.present
           ? data.updatedOccurredAt.value
           : this.updatedOccurredAt,
@@ -6518,6 +6660,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           ..write('opensAt: $opensAt, ')
           ..write('closesAt: $closesAt, ')
           ..write('receiptNote: $receiptNote, ')
+          ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
           ..write(')'))
@@ -6537,6 +6680,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     opensAt,
     closesAt,
     receiptNote,
+    orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
   );
@@ -6555,6 +6699,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           other.opensAt == this.opensAt &&
           other.closesAt == this.closesAt &&
           other.receiptNote == this.receiptNote &&
+          other.orderCodeDisplay == this.orderCodeDisplay &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId);
 }
@@ -6571,6 +6716,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
   final Value<String?> opensAt;
   final Value<String?> closesAt;
   final Value<String?> receiptNote;
+  final Value<String> orderCodeDisplay;
   final Value<String?> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
   const TenantSettingsCompanion({
@@ -6585,6 +6731,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.opensAt = const Value.absent(),
     this.closesAt = const Value.absent(),
     this.receiptNote = const Value.absent(),
+    this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
   });
@@ -6600,6 +6747,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.opensAt = const Value.absent(),
     this.closesAt = const Value.absent(),
     this.receiptNote = const Value.absent(),
+    this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
   });
@@ -6615,6 +6763,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Expression<String>? opensAt,
     Expression<String>? closesAt,
     Expression<String>? receiptNote,
+    Expression<String>? orderCodeDisplay,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
   }) {
@@ -6630,6 +6779,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       if (opensAt != null) 'opens_at': opensAt,
       if (closesAt != null) 'closes_at': closesAt,
       if (receiptNote != null) 'receipt_note': receiptNote,
+      if (orderCodeDisplay != null) 'order_code_display': orderCodeDisplay,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
     });
@@ -6647,6 +6797,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Value<String?>? opensAt,
     Value<String?>? closesAt,
     Value<String?>? receiptNote,
+    Value<String>? orderCodeDisplay,
     Value<String?>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
   }) {
@@ -6662,6 +6813,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       opensAt: opensAt ?? this.opensAt,
       closesAt: closesAt ?? this.closesAt,
       receiptNote: receiptNote ?? this.receiptNote,
+      orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
     );
@@ -6703,6 +6855,9 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     if (receiptNote.present) {
       map['receipt_note'] = Variable<String>(receiptNote.value);
     }
+    if (orderCodeDisplay.present) {
+      map['order_code_display'] = Variable<String>(orderCodeDisplay.value);
+    }
     if (updatedOccurredAt.present) {
       map['updated_occurred_at'] = Variable<String>(updatedOccurredAt.value);
     }
@@ -6726,6 +6881,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
           ..write('opensAt: $opensAt, ')
           ..write('closesAt: $closesAt, ')
           ..write('receiptNote: $receiptNote, ')
+          ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
           ..write(')'))
@@ -10938,6 +11094,7 @@ typedef $$CustomersTableCreateCompanionBuilder =
       required String id,
       required String name,
       Value<String?> note,
+      Value<int?> code,
       Value<int> balanceKurus,
       required String updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -10949,6 +11106,7 @@ typedef $$CustomersTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> name,
       Value<String?> note,
+      Value<int?> code,
       Value<int> balanceKurus,
       Value<String> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -10977,6 +11135,11 @@ class $$CustomersTableFilterComposer
 
   ColumnFilters<String> get note => $composableBuilder(
     column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get code => $composableBuilder(
+    column: $table.code,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11025,6 +11188,11 @@ class $$CustomersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get balanceKurus => $composableBuilder(
     column: $table.balanceKurus,
     builder: (column) => ColumnOrderings(column),
@@ -11063,6 +11231,9 @@ class $$CustomersTableAnnotationComposer
 
   GeneratedColumn<String> get note =>
       $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<int> get code =>
+      $composableBuilder(column: $table.code, builder: (column) => column);
 
   GeneratedColumn<int> get balanceKurus => $composableBuilder(
     column: $table.balanceKurus,
@@ -11114,6 +11285,7 @@ class $$CustomersTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> note = const Value.absent(),
+                Value<int?> code = const Value.absent(),
                 Value<int> balanceKurus = const Value.absent(),
                 Value<String> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -11123,6 +11295,7 @@ class $$CustomersTableTableManager
                 id: id,
                 name: name,
                 note: note,
+                code: code,
                 balanceKurus: balanceKurus,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -11134,6 +11307,7 @@ class $$CustomersTableTableManager
                 required String id,
                 required String name,
                 Value<String?> note = const Value.absent(),
+                Value<int?> code = const Value.absent(),
                 Value<int> balanceKurus = const Value.absent(),
                 required String updatedOccurredAt,
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -11143,6 +11317,7 @@ class $$CustomersTableTableManager
                 id: id,
                 name: name,
                 note: note,
+                code: code,
                 balanceKurus: balanceKurus,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -12112,6 +12287,7 @@ typedef $$OrdersTableCreateCompanionBuilder =
     OrdersCompanion Function({
       required String id,
       Value<String?> customerId,
+      Value<int?> code,
       Value<String?> assignedUserId,
       Value<String> status,
       Value<int> totalKurus,
@@ -12127,6 +12303,7 @@ typedef $$OrdersTableUpdateCompanionBuilder =
     OrdersCompanion Function({
       Value<String> id,
       Value<String?> customerId,
+      Value<int?> code,
       Value<String?> assignedUserId,
       Value<String> status,
       Value<int> totalKurus,
@@ -12155,6 +12332,11 @@ class $$OrdersTableFilterComposer
 
   ColumnFilters<String> get customerId => $composableBuilder(
     column: $table.customerId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get code => $composableBuilder(
+    column: $table.code,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12223,6 +12405,11 @@ class $$OrdersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get code => $composableBuilder(
+    column: $table.code,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get assignedUserId => $composableBuilder(
     column: $table.assignedUserId,
     builder: (column) => ColumnOrderings(column),
@@ -12285,6 +12472,9 @@ class $$OrdersTableAnnotationComposer
     column: $table.customerId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get code =>
+      $composableBuilder(column: $table.code, builder: (column) => column);
 
   GeneratedColumn<String> get assignedUserId => $composableBuilder(
     column: $table.assignedUserId,
@@ -12354,6 +12544,7 @@ class $$OrdersTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String?> customerId = const Value.absent(),
+                Value<int?> code = const Value.absent(),
                 Value<String?> assignedUserId = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> totalKurus = const Value.absent(),
@@ -12367,6 +12558,7 @@ class $$OrdersTableTableManager
               }) => OrdersCompanion(
                 id: id,
                 customerId: customerId,
+                code: code,
                 assignedUserId: assignedUserId,
                 status: status,
                 totalKurus: totalKurus,
@@ -12382,6 +12574,7 @@ class $$OrdersTableTableManager
               ({
                 required String id,
                 Value<String?> customerId = const Value.absent(),
+                Value<int?> code = const Value.absent(),
                 Value<String?> assignedUserId = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> totalKurus = const Value.absent(),
@@ -12395,6 +12588,7 @@ class $$OrdersTableTableManager
               }) => OrdersCompanion.insert(
                 id: id,
                 customerId: customerId,
+                code: code,
                 assignedUserId: assignedUserId,
                 status: status,
                 totalKurus: totalKurus,
@@ -13828,6 +14022,7 @@ typedef $$TenantSettingsTableCreateCompanionBuilder =
       Value<String?> opensAt,
       Value<String?> closesAt,
       Value<String?> receiptNote,
+      Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
       Value<String?> updatedDeviceId,
     });
@@ -13844,6 +14039,7 @@ typedef $$TenantSettingsTableUpdateCompanionBuilder =
       Value<String?> opensAt,
       Value<String?> closesAt,
       Value<String?> receiptNote,
+      Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
       Value<String?> updatedDeviceId,
     });
@@ -13909,6 +14105,11 @@ class $$TenantSettingsTableFilterComposer
 
   ColumnFilters<String> get receiptNote => $composableBuilder(
     column: $table.receiptNote,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get orderCodeDisplay => $composableBuilder(
+    column: $table.orderCodeDisplay,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13987,6 +14188,11 @@ class $$TenantSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get orderCodeDisplay => $composableBuilder(
+    column: $table.orderCodeDisplay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get updatedOccurredAt => $composableBuilder(
     column: $table.updatedOccurredAt,
     builder: (column) => ColumnOrderings(column),
@@ -14046,6 +14252,11 @@ class $$TenantSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get orderCodeDisplay => $composableBuilder(
+    column: $table.orderCodeDisplay,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get updatedOccurredAt => $composableBuilder(
     column: $table.updatedOccurredAt,
     builder: (column) => column,
@@ -14101,6 +14312,7 @@ class $$TenantSettingsTableTableManager
                 Value<String?> opensAt = const Value.absent(),
                 Value<String?> closesAt = const Value.absent(),
                 Value<String?> receiptNote = const Value.absent(),
+                Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
               }) => TenantSettingsCompanion(
@@ -14115,6 +14327,7 @@ class $$TenantSettingsTableTableManager
                 opensAt: opensAt,
                 closesAt: closesAt,
                 receiptNote: receiptNote,
+                orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
               ),
@@ -14131,6 +14344,7 @@ class $$TenantSettingsTableTableManager
                 Value<String?> opensAt = const Value.absent(),
                 Value<String?> closesAt = const Value.absent(),
                 Value<String?> receiptNote = const Value.absent(),
+                Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
               }) => TenantSettingsCompanion.insert(
@@ -14145,6 +14359,7 @@ class $$TenantSettingsTableTableManager
                 opensAt: opensAt,
                 closesAt: closesAt,
                 receiptNote: receiptNote,
+                orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
               ),

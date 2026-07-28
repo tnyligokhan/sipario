@@ -134,6 +134,10 @@ class SyncEngine {
               id: Value(_s(m['id'])),
               name: Value(_s(m['name'])),
               note: Value(_sN(m['note'])),
+              // Kodu SUNUCU üretir; istemci hiç göndermez (bkz. Customers.code). Eski sunucu
+              // sürümü alanı hiç göndermezse `null` yazılır ve arayüz kodsuz gösterir —
+              // uydurma bir numara asla yazılmaz.
+              code: Value(_iN(m['code'])),
               balanceKurus: Value(_i(m['balance_kurus'] ?? 0)),
               updatedOccurredAt: Value(_s(m['updated_occurred_at'])),
               updatedDeviceId: Value(_sN(m['updated_device_id'])),
@@ -184,6 +188,7 @@ class SyncEngine {
         await db.into(db.orders).insertOnConflictUpdate(OrdersCompanion(
               id: Value(_s(m['id'])),
               customerId: Value(_sN(m['customer_id'])),
+              code: Value(_iN(m['code'])), // sunucu atar (bkz. Orders.code)
               assignedUserId: Value(_sN(m['assigned_user_id'])),
               status: Value(_s(m['status'])),
               totalKurus: Value(_i(m['total_kurus'])),
@@ -252,6 +257,9 @@ class SyncEngine {
               opensAt: Value(_sN(m['opens_at'])),
               closesAt: Value(_sN(m['closes_at'])),
               receiptNote: Value(_sN(m['receipt_note'])),
+              // Sunucu alanı göndermezse (eski sürüm) varsayılana düşülür — `Value(null)`
+              // yazmak NOT NULL kolonu bozardı.
+              orderCodeDisplay: Value(_sN(m['order_code_display']) ?? 'musteri'),
               updatedOccurredAt: Value(_sN(m['updated_occurred_at'])),
               updatedDeviceId: Value(_sN(m['updated_device_id'])),
             ));

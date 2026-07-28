@@ -28,6 +28,7 @@ import '../customers/customer_detail_screen.dart';
 import '../customers/customer_form_screen.dart';
 import 'isletme_atomlari.dart';
 import 'isletme_profili_ekrani.dart';
+import 'siparis_kodu_ayari.dart';
 
 /// Uygulama sürümü — APK'nın KENDİSİNDEN okunur, elle yazılmaz.
 ///
@@ -326,6 +327,10 @@ class _Govde extends StatelessWidget {
               ),
             ),
           ),
+          // Sipariş satırındaki kod tercihi (kullanıcı isteği 2026-07-29: "isteyen firma
+          // siparişte müşteri kodu, isteyen firma sipariş kodu görsün"). KİRACI ayarıdır:
+          // senkronla iner, iki telefonlu bayide aynı liste iki farklı numara göstermez.
+          SiparisKoduSatiri(db: state.widget.db, writable: state.widget.writable),
         ]),
 
         // "Yönetim" bölümü (Kuryeler + Muaf telefonlar) KALDIRILDI: tasarım `s-ayarlar.jsx`
