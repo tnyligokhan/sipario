@@ -130,3 +130,39 @@ bool guncellemeVarMi({required int yerelYapim, required int uzakYapim}) =>
 /// "güncelleme bozuk" demesi demektir. Boyut karşılaştırması ucuz ve kesin.
 bool indirmeSaglamMi({required int inenBayt, required int beklenenBayt}) =>
     beklenenBayt <= 0 ? inenBayt > 0 : inenBayt == beklenenBayt;
+
+/// CDN ÖNBELLEĞİNİ ATLATAN adres — her isteğe benzersiz bir sorgu parametresi ekler.
+///
+/// SAHA HATASI (2026-07-29, ölçüldü): CI yeni sürümü yayınladıktan sonra `surum.json`u DÜZ
+/// adresinden çeken üç ardışık istek de ESKİ içeriği (`yapim: 149`) döndürdü; aynı adres bir
+/// sorgu parametresiyle istendiğinde yenisi (`yapim: 151`) geldi. Yanıt başlıkları sebebi
+/// açıkça yazıyordu:
+///     Cache-Control: no-cache · X-Cache: HIT, HIT · Age: 930
+///     Last-Modified: `yayından 9 saat ÖNCESİ`
+/// Yani kaynak "önbellekleme" dese bile araya giren CDN katmanı dosyayı tutuyor. Uygulama
+/// tarafında bunun sonucu sinsidir: derleme yayınlanmıştır, bant HİÇ düşmez ve hiçbir hata
+/// görünmez — bayi "güncelleme gelmiyor" der, günlükte tek satır yoktur.
+///
+/// NEDEN BAŞLIK YETMEZ: `Cache-Control: no-cache` isteğe konsa bile ara katmanın onu dinlediği
+/// garanti değildir (kaynak zaten onu gönderiyordu ve işe yaramadı). Benzersiz bir sorgu
+/// dizesi ise ÖNBELLEK ANAHTARINI değiştirir — ara katmanın seçimine bırakılmaz.
+///
+/// APK indirmesine de uygulanır: bayat bir APK'nın boyutu `surum.json`daki beklenen boyutla
+/// tutmazsa indirme sonsuza dek "bozuk" sayılıp silinirdi; tutarsa daha kötüsü olur ve ESKİ
+/// derleme "güncelleme" diye kurulurdu.
+///
+/// [damga] çağrının zamanıdır (saniye çözünürlüğü yeter — kontroller zaten 15 dakikada bir).
+Uri onbelleksizAdres(String adres, DateTime damga) {
+  final u = Uri.parse(adres);
+  return u.replace(queryParameters: {
+    ...u.queryParameters,
+    't': '${damga.millisecondsSinceEpoch ~/ 1000}',
+  });
+}
+
+/// Önbelleklemeyi ayrıca İSTEK BAŞLIĞIYLA da reddet. Tek başına yeterli değildir (bkz.
+/// [onbelleksizAdres]) ama uyumlu ara katmanlarda bedava kazanç.
+const Map<String, String> kOnbelleksizBasliklar = {
+  'Cache-Control': 'no-cache, no-store',
+  'Pragma': 'no-cache',
+};

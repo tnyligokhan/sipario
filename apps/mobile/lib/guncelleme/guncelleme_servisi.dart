@@ -106,8 +106,11 @@ class GuncellemeServisi {
 
     try {
       final istemci = _istemci ?? http.Client();
+      // Adres ÖNBELLEKSİZ istenir: düz adres, yayın yapıldıktan saatler sonra bile CDN'den
+      // eski içeriği döndürüyordu (ölçüldü — bkz. `onbelleksizAdres`). Bant düşmemesinin
+      // gerçek sebebi buydu ve hiçbir hata üretmiyordu.
       final yanit = await istemci
-          .get(Uri.parse(kSurumJsonAdresi))
+          .get(onbelleksizAdres(kSurumJsonAdresi, simdi), headers: kOnbelleksizBasliklar)
           .timeout(const Duration(seconds: 5));
       if (yanit.statusCode != 200) return;
       final bilgi = SurumBilgisi.cozumle(yanit.body);
@@ -189,7 +192,11 @@ class GuncellemeServisi {
   Future<File?> _indir(String url) async {
     final istemci = _istemci ?? http.Client();
     try {
-      final istek = http.Request('GET', Uri.parse(url));
+      // APK de önbelleksiz istenir: bayat bir paket ya boyut kontrolüne takılıp sonsuza dek
+      // "bozuk indirme" üretir ya da — boyutlar tesadüfen tutarsa — ESKİ derlemeyi
+      // "güncelleme" diye kurdurur. İkincisi teşhis edilemez.
+      final istek = http.Request('GET', onbelleksizAdres(url, DateTime.now()))
+        ..headers.addAll(kOnbelleksizBasliklar);
       final yanit = await istemci.send(istek).timeout(const Duration(seconds: 30));
       if (yanit.statusCode != 200) return null;
 

@@ -113,6 +113,41 @@ void main() {
     });
   });
 
+  group('onbelleksizAdres — CDN bayat cevap veriyordu (2026-07-29 saha hatası)', () {
+    // Ölçülen arıza: CI yeni sürümü yayınladıktan SONRA düz adresten yapılan üç ardışık istek
+    // de eski içeriği döndürdü (`X-Cache: HIT`, `Age: 930`); aynı adres benzersiz bir sorgu
+    // parametresiyle istendiğinde yenisi geldi. Bant düşmemesinin gerçek sebebi buydu ve
+    // hiçbir hata/kayıt üretmiyordu — bu yüzden kural burada çivileniyor.
+    final damga = DateTime.fromMillisecondsSinceEpoch(1790000000000); // sabit an
+
+    test('sorgu parametresi EKLENİR — önbellek anahtarı değişsin', () {
+      final u = onbelleksizAdres('https://ornek/saha/surum.json', damga);
+      expect(u.queryParameters['t'], isNotNull);
+      expect(u.path, '/saha/surum.json', reason: 'yol bozulmamalı');
+      expect(u.host, 'ornek');
+    });
+
+    test('farklı anlarda farklı adres üretir', () {
+      final a = onbelleksizAdres('https://ornek/x.json', damga);
+      final b = onbelleksizAdres(
+          'https://ornek/x.json', damga.add(const Duration(seconds: 30)));
+      expect(a, isNot(equals(b)));
+    });
+
+    test('adreste ZATEN sorgu varsa korunur', () {
+      // GitHub varlık adresleri bugün sorgusuz; ama imzalı/parametreli bir adrese geçilirse
+      // parametreyi düşürmek indirmeyi sessizce bozardı.
+      final u = onbelleksizAdres('https://ornek/x.apk?imza=abc', damga);
+      expect(u.queryParameters['imza'], 'abc');
+      expect(u.queryParameters['t'], isNotNull);
+    });
+
+    test('başlıklar da önbelleklemeyi reddeder', () {
+      expect(kOnbelleksizBasliklar['Cache-Control'], contains('no-cache'));
+      expect(kOnbelleksizBasliklar['Pragma'], 'no-cache');
+    });
+  });
+
   group('Kanal kapısı', () {
     test('define verilmeyen testte güncelleme KAPALI', () {
       // Test koşumunda `SIPARIO_KANAL`/`SIPARIO_YAPIM` tanımsızdır → magaza + 0.
