@@ -13,6 +13,7 @@ import 'bildirim/kurallar/musteri_ureticileri.dart';
 import 'bildirim/kurallar/para_ureticileri.dart';
 import 'repo/day_end_repository.dart';
 import 'data/app_database.dart';
+import 'guncelleme/guncelleme_servisi.dart';
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/orders/tutamac_deposu.dart';
@@ -82,6 +83,10 @@ class _SiparioAppState extends State<SiparioApp> {
     // diyaloğu göstermek kurulum sürtünmesini artırır (BRIEF korku #3). Beklenmez: kurulum
     // birkaç ms'dir ve başarısız olursa uygulama bildirimsiz çalışmaya devam eder.
     bildirimAltyapisiniKur();
+    // GEÇİCİ — uygulama içi güncelleme (yalnız `saha` kanalı; mağaza derlemesinde ağa hiç
+    // çıkmaz). Beklenmez ve hata yutar: kontrol açılışı ASLA bloklamaz, çevrimdışıyken
+    // hiçbir gecikme ya da uyarı üretmez (kırmızı çizgi #3).
+    unawaited(guncellemeServisi.sessizKontrol());
     // Açılış hatası SPINNER'DA BIRAKMAZ (2026-07-22 saha bulgusu: migration hatası isLoggedIn'i
     // hiç döndürmeyince iki cihaz sonsuz loading'de kaldı). Hata ekrana çıkar — sessiz kilit yok.
     _session.isLoggedIn().then((v) async {

@@ -94,6 +94,10 @@ class MainActivity : FlutterActivity() {
                 }
             }
 
+        // Uygulama içi güncelleme köprüsü (GEÇİCİ, yalnız `saha` kanalı — bkz. GuncellemeKoprusu).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, GuncellemeKoprusu.KANAL)
+            .setMethodCallHandler { call, result -> GuncellemeKoprusu.isle(this, call, result) }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {

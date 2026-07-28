@@ -67,7 +67,19 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-27/3 — SAHA GERİ BİLDİRİMİ İKİ TUR (10 madde) + **FAZ 1 YEREL BİLDİRİMLER**; ayrıca UUIDv7 monotonluk hatası, üç gizli taşma ve release derlemesini kıran desugaring eksiği bulundu; Drift v10 · flutter analyze 0 · flutter test **622/622** · release APK derlendi, arm64 28,81 MB)
+## Güncel durum (son güncelleme: 2026-07-28 — **TAM OTOMATİK SAHA DAĞITIMI KURULDU VE YAYINDA**: GitHub Actions her dev push'unda APK derleyip `saha` release'ini güncelliyor, uygulama kendini güncelliyor; ayrıca çağrı kartı+bildirim birlikte, bildirimde eylem düğmeleri, otomatik versiyonlama 0.9.0+git sayacı; flutter analyze 0 · flutter test **636/636** · CI uçtan uca yeşil, surum.json yayında)
+
+### ⚡ SAHA DAĞITIMI — YENİ ÇALIŞMA BİÇİMİ (2026-07-28)
+- **APK artık ELLE DAĞITILMAZ.** dev'e push → CI derler → `saha` release'i güncellenir →
+  bayinin uygulaması açılışta görür, kendini günceller. Kalıcı indirme adresi:
+  `https://github.com/tnyligokhan/sipario/releases/download/saha/saha-arm64.apk`
+- **İlk kurulum CI APK'sıyla yapılmalı** (imza değişti — elle derlenen debug APK'ların üstüne
+  CI güncellemesi kurulamaz; cihazdaki eski kurulum BİR KEZ silinip bu adresten kurulur).
+- **Derleme komutlarına HER ZAMAN `--flavor saha` ya da `--flavor magaza` verilir** —
+  flavor'sız `flutter build apk` içeriği belirsiz APK üretir (ayrıntı DECISIONS'ta).
+- İmza anahtarı: `~/.sipario-anahtar/` (depo DIŞI — depo public) + GitHub secrets.
+- Play Store'a çıkarken: `magaza` flavor'ı kullanılır, güncelleme kodu orada zaten ölü,
+  `check_permissions.sh` kurulum izninin magaza APK'sına sızmasını kırmızıyla engeller.
 
 ---
 
