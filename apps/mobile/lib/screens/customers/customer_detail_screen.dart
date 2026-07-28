@@ -15,7 +15,9 @@ import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
+import '../orders/musteri_eylemleri.dart';
 import '../orders/order_form_screen.dart';
+import '../orders/order_queries.dart';
 import '../team.dart';
 import 'customer_detail_cards.dart';
 import 'customer_form_ops.dart';
@@ -118,6 +120,28 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
   /// Adres araması ya da cihaz konumu okuması sürüyor (çip bu sırada dokunuş kabul etmez).
   bool _konumCalisiyor = false;
+
+  /// Ara / WhatsApp / Konum eylemini çalıştırır. Yardımcılar BAŞARIDA `null`, aksi hâlde
+  /// kullanıcıya gösterilecek Türkçe gerekçe döner — başarıda toast BASILMAZ: hedef uygulama
+  /// zaten öne gelir, üstüne bildirim göstermek gürültüdür.
+  ///
+  /// `mounted` kontrolü şart: kullanıcı harici uygulamaya geçerken bu ekran kapanmış olabilir.
+  Future<void> _eylem(Future<String?> Function() calistir) async {
+    final gerekce = await calistir();
+    if (gerekce == null || !mounted) return;
+    SipToast.goster(context, gerekce);
+  }
+
+  /// Yerel adres satırını eylem yardımcılarının anladığı biçime çevirir. Tek dönüşüm noktası:
+  /// `konumVar` kararı (lat VE lng dolu mu) burada değil `AdresBilgi`de yaşar, iki kopya olmasın.
+  AdresBilgi? _adresBilgisi(CustomerAddressesData? adres) => adres == null
+      ? null
+      : AdresBilgi(
+          metin: adres.addressText,
+          bolge: adres.region,
+          lat: adres.lat,
+          lng: adres.lng,
+        );
 
   /// Adresten konum: servis aday döner, doğrusunu KULLANICI seçer (otomatik atama yok).
   ///
@@ -259,19 +283,19 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     koordinat: koordinat,
                     onKonumAl: () => _konumAl(adres),
                     konumCalisiyor: _konumCalisiyor,
+                    // Ara · WhatsApp · Konum: sipariş satırıyla AYNI yardımcılardan geçer
+                    // (`musteri_eylemleri.dart`). İki kopya kural zamanla ayrışır — numarayı
+                    // orada +90'a çevirip burada ham bırakmak, WhatsApp'ın sessizce boş sayfa
+                    // açması demekti. Bu ekran 2026-07-27'de düzeltilen saha hatasının
+                    // ATLANMIŞ İKİZİYDİ: üç düğme de yalnız toast basıyordu.
+                    onAra: () => _eylem(() => musteriyiAra(telefonlar.firstOrNull?.phoneE164)),
+                    onWhatsapp: () => _eylem(() => whatsappAc(telefonlar.firstOrNull?.phoneE164)),
+                    onKonum: () => _eylem(
+                      () => konumuHaritadaAc(_adresBilgisi(adres), etiket: c.name),
+                    ),
                     // Adres yoksa güncellenecek kayıt da yok: çip tıklanmaz kalır (koordinatı
                     // sahipsiz bir adrese yazmak sessiz veri kaybı olurdu).
                     onKonumGuncelle: adres == null ? null : () => _konumGuncelle(adres),
-                    // Arama/WhatsApp/harita cihaz uygulamalarını açacak (url_launcher henüz
-                    // bağımlılıkta yok) — şimdilik tasarımdaki `ping` davranışı.
-                    onAra: () => SipToast.goster(context, '${c.name} aranıyor…'),
-                    onWhatsapp: () => SipToast.goster(context, 'WhatsApp açılıyor…'),
-                    onKonum: () => SipToast.goster(
-                      context,
-                      konumVar
-                          ? 'Konum haritada açılıyor ($koordinat)…'
-                          : 'Konum kayıtlı değil — önce Adresten Konum Al',
-                    ),
                   ),
                   MusteriBakiyeKarti(kurus: c.balanceKurus),
                   // Tasarımda ızgara İKİ eylemlidir (s-musteriler.jsx:118-121, inline
