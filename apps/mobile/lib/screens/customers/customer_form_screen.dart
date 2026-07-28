@@ -11,6 +11,8 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../konum/cihaz_konumu.dart';
+import '../../sync/geocode_api.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
@@ -81,6 +83,12 @@ class _MusteriFormuState extends State<_MusteriFormu> {
   double? _lat;
   double? _lng;
   List<AdresAdayi>? _adaylar;
+
+  /// Adres araması ya da cihaz konumu okuması sürüyor. Aynı anda tek iş; ikinci dokunuş yutulur
+  /// (iki paralel arama kotayı iki kez yakar ve hangi sonucun geldiği belirsizleşir).
+  bool _konumCalisiyor = false;
+
+  static const String _bulunamadiMesaji = konumBulunamadiMesaji;
 
   String? _adHatasi;
   String? _adresHatasi;
@@ -193,7 +201,12 @@ class _MusteriFormuState extends State<_MusteriFormu> {
         _adresHatasi = null;
       });
 
-  void _konumAl() {
+  /// Adresten konum: sunucu ADAY döner, doğrusunu KULLANICI seçer (otomatik atama yok).
+  ///
+  /// Sonuç boşsa bu bir ARIZA DEĞİLDİR — adres metni yetersizdir ve kullanıcıya öyle söylenir.
+  /// Ağ/servis arızası ise ayrı bir cümledir: ikisini "konum alınamadı" diye birleştirmek
+  /// kullanıcıyı yanlış işi yapmaya (aynı adresi tekrar tekrar denemeye) iter.
+  Future<void> _konumAl() async {
     if (_adres.text.trim().isEmpty) {
       setState(() {
         _adresHatasi = 'Önce adresi yazın';
@@ -201,12 +214,68 @@ class _MusteriFormuState extends State<_MusteriFormu> {
       });
       return;
     }
+    if (_konumCalisiyor) return;
+
     setState(() {
       _lat = null;
       _lng = null;
       _adresHatasi = null;
-      _adaylar = adresAdaylari(_adres.text, _bolge.text);
+      _adaylar = null;
+      _konumCalisiyor = true;
     });
+
+    List<AdresAdayi> adaylar;
+    try {
+      adaylar = await adresAdaylariGetir(widget.db, _adres.text, _bolge.text);
+    } on GeocodeException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _konumCalisiyor = false;
+        _adresHatasi = e.message;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _konumCalisiyor = false;
+      _adaylar = adaylar;
+      _adresHatasi = adaylar.isEmpty ? _bulunamadiMesaji : null;
+    });
+  }
+
+  /// Cihazın BULUNDUĞU noktayı yazar. Kayıt kapının önünde açıldığında en doğru yol budur;
+  /// adresten kodlama sokağı bulur, kapıyı bulmaz.
+  Future<void> _konumGuncelle() async {
+    if (_konumCalisiyor) return;
+    setState(() {
+      _adresHatasi = null;
+      _konumCalisiyor = true;
+    });
+
+    final CihazKonumu konum;
+    try {
+      konum = await cihazKonumuOku();
+    } on KonumHatasi catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _konumCalisiyor = false;
+        _adresHatasi = e.mesaj;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _konumCalisiyor = false;
+      _lat = konum.lat;
+      _lng = konum.lng;
+      _adaylar = null;
+    });
+    // Zayıf ölçüm SESSİZCE kaydedilmez: kurye "konum kayıtlı" yazısına güvenir.
+    if (!konum.guvenilir) {
+      SipToast.goster(context, konumDogrulukUyarisi(konum.dogrulukM));
+    }
   }
 
   Future<void> _kaydet() async {
@@ -383,6 +452,10 @@ class _MusteriFormuState extends State<_MusteriFormu> {
             konumVar: _lat != null && _lng != null,
             koordinat: (_lat != null && _lng != null) ? konumMetni(_lat!, _lng!) : null,
             onKonumAl: _konumAl,
+            calisiyor: _konumCalisiyor,
+            // Konum alındıktan sonra çipe dokunmak CİHAZ konumuyla günceller: kayıt çoğu zaman
+            // müşterinin kapısında açılır ve oradaki ölçüm adresten türetilenden iyidir.
+            onKonumGuncelle: _konumGuncelle,
           ),
         _sesliAlan(
           ad: 'Adres',

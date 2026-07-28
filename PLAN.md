@@ -51,6 +51,8 @@
 - **[Faz 4]** `dev→main` PR (#11) merge kararı insanda.
 - **[Faz 5]** iyzico **üretim** hesabı + API anahtarları (geliştirme sandbox anahtarlarıyla yürür); site domain TLS; e-arşiv fatura sağlayıcı entegrasyon bilgileri. **⚠️ GÜVENLİK:** anahtar entegre edilirken `IyzicoPaymentGateway::verify()` MUTLAKA iyzico'ya sunucu-sunucu geri-sorgu + IYZWSv2 imza doğrulaması yapmalı (kod fail-closed kuruldu; smoke-test YETMEZ — gövde-güven = bedava abonelik açığı). Sandbox'ta forged-body reddi + gerçek retrieve sınanmalı.
 - **[Faz 5c ortam]** `sipario_panel` DB rolü küme düzeyinde ELLE kuruldu (mevcut container); **CI/yeni makinede rol SQL'i elle koşulmalı** (Faz 1 sipario_app deseni). `.env`/`.env.example`'a `DB_PANEL_USERNAME=sipario_panel` + `DB_PANEL_PASSWORD=...` eklenmeli (config default'u var, testler yeşil; araç `.env*`'i koruyor).
+- **[KONUM — anahtar SENDE]** Yandex Geocoder anahtarı alındı (2026-07-28). Sunucuda `.env`'e eklenmeli: `GEOCODING_DRIVER=yandex` + `YANDEX_GEOCODER_KEY=<anahtar>`. Araç `.env*`'i koruduğu için ben yazamadım; `config/geocoding.php` varsayılanları hazır, anahtarsız kurulumda `NullGeocoder` bağlanır ve uç nokta dürüst bir "bu kurulumda tanımlı değil" der (dış çağrı YAPMAZ, testler yeşil). Google anahtarı gelince tek satır: `GEOCODING_DRIVER=google` + `GOOGLE_GEOCODER_KEY=...` — kod değişmez, mobil güncelleme gerekmez. İsteğe bağlı ayarlar: `GEOCODING_DAILY_LIMIT` (kiracı başına gün, vars. 300), `GEOCODING_CACHE_DAYS` (vars. 30), `YANDEX_GEOCODER_URL` (eski anahtarlar `.../1.x/` isteyebilir; varsayılan `/v1/`).
+- **[KONUM — KVKK]** Adres metni artık sınır dışına (Yandex) çıkıyor. Ad/telefon/müşteri kimliği ÇIKMIYOR (uç nokta kabul etmiyor, testle kilitli) ama **KVKK aydınlatma metnine "adres bilgisi coğrafi kodlama amacıyla yurt dışı sağlayıcıya aktarılır" satırı eklenmeli** — zaten bekleyen avukat işinin kapsamına giriyor.
 - **[Faz 6]** Apple + Google Play geliştirici hesapları + mağaza başvurusu; `USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı; KVKK aydınlatma + mesafeli satış/ön bilgilendirme metinlerinin **hukukça onayı**.
 - **[Faz 7]** Antalya'da 2–3 gerçek bayi + gerçek Android cihazlar (pilot).
 
@@ -67,7 +69,23 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-28 — **TAM OTOMATİK SAHA DAĞITIMI KURULDU VE YAYINDA**: GitHub Actions her dev push'unda APK derleyip `saha` release'ini güncelliyor, uygulama kendini güncelliyor; ayrıca çağrı kartı+bildirim birlikte, bildirimde eylem düğmeleri, otomatik versiyonlama 0.9.0+git sayacı; flutter analyze 0 · flutter test **636/636** · CI uçtan uca yeşil, surum.json yayında)
+## Güncel durum (son güncelleme: 2026-07-28 — **KONUM ALTYAPISI KURULDU**: adresten koordinat (Yandex Geocoder, sağlayıcı soyut — Google tek env satırı) + cihaz konumuyla "Konum Güncelle"; yer tutucu `adresAdaylari()` kaldırıldı. Öncesinde: tam otomatik saha dağıtımı yayında (GitHub Actions her dev push'unda APK derleyip `saha` release'ini günceller, uygulama kendini günceller), çağrı kartı+bildirim, otomatik versiyonlama 0.9.0+git sayacı. Ölçüm: `flutter analyze` 0 · `flutter test` **653/653** · `php artisan test` **237/237** · phpstan L6 **0** · release APK (saha+magaza) derlendi, izin denetimi temiz)
+
+### Konum özelliği — ne kuruldu (2026-07-28)
+
+**İki ayrı yol, karıştırılmamalı:**
+
+| Eylem | Nereden | Ne yapar |
+|-------|---------|----------|
+| **"Konum Al"** (konum yokken) | `POST /api/v1/geocode` → Yandex | Adres metninden ADAY listesi; doğrusunu KULLANICI seçer, otomatik atanmaz |
+| **"Konum Güncelle"** (konum varken çipe dokun) | cihaz GPS'i (`geolocator`) | Bulunulan noktayı yazar; adres metni/bölge/etiket DEĞİŞMEZ |
+
+- **Anahtar yalnız sunucuda.** İstemci sağlayıcıya hiç gitmez; APK'ya gömülen anahtar ilk kurulumda çıkarılır ve kota yakılırdı.
+- **Sağlayıcı soyut** (`App\Support\Geocoding\Geocoder`): `YandexGeocoder` · `GoogleGeocoder` · `NullGeocoder`. Geçiş = bir env satırı, uygulama güncellemesi değil.
+- **Önbellek global, 30 gün**: aynı mahalle ikinci kez sorulmaz; bir bayinin sorgusu diğerine bedava gelir (dönen veri kamuya açık coğrafi veridir, kiracı verisi değil).
+- **Kota kiracı başına**: dakikada 20, günde 300 (env). Bozuk bir istemci döngüsü yalnız kendi bayisini etkiler.
+- **Dikişler test edilebilir**: `adresAdaylariGetir` (ağ) ve `cihazKonumuOku` (GPS) — widget testleri platform kanalına/ağa hiç uzanmaz.
+- **Açık iş**: rota/sıralama için ayrı bir API kullanılacak (kullanıcı kararı); şu an `RouteOrderer` kendi en-yakın-komşusuyla çalışıyor ve dokunulmadı.
 
 ### ⚡ SAHA DAĞITIMI — YENİ ÇALIŞMA BİÇİMİ (2026-07-28)
 - **APK artık ELLE DAĞITILMAZ.** dev'e push → CI derler → `saha` release'i güncellenir →

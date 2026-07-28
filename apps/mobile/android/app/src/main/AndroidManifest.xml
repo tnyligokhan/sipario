@@ -94,6 +94,26 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
+    <!--
+      KONUM ("Konum Güncelle" — müşterinin kapısında ölçülen koordinat). Adresten coğrafi kodlama
+      sokağı bulur, kapıyı bulmaz; doğru pin ancak orada durup alınır.
+
+      YALNIZ ÖN PLAN. ACCESS_BACKGROUND_LOCATION İSTENMEZ: Play onu "kısıtlı izin" sayar ve ayrı
+      beyan formu + video incelemesi ister (kırmızı çizgi #6 ile aynı red riski). Kurye canlı
+      takibi bu sürümde yok, karşılığı da yok.
+
+      COARSE de beyan edilir: kullanıcı Android 12+ izin diyaloğunda "Yaklaşık"ı seçebilir; o
+      durumda FINE reddedilir ama COARSE ile ölçüm yine alınır (semt kesinliğinde, uyarısıyla).
+      Beyan edilmezse "Yaklaşık" seçen kullanıcıda özellik SESSİZCE hiç çalışmazdı.
+
+      Konum ZORUNLU DEĞİLDİR: GPS'siz cihazda ya da izin verilmediğinde adresten konum alma yolu
+      açık kalır, hiçbir iş akışı bloklanmaz (kırmızı çizgi #3).
+    -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+
     <application
         android:label="Sipario"
         android:name="${applicationName}"

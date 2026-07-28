@@ -2,11 +2,16 @@
 //
 // Tasarımın kuralı: konum adresten OTOMATİK atanmaz. Servis birden çok aday döner, doğrusunu
 // KULLANICI seçer — yanlış algılanan bir adres yüzünden kurye yanlış kapıya gitmesin.
-// Aşağıdaki [adresAdaylari] bir YER TUTUCU'dur (tasarımdaki mock'un birebir karşılığı); gerçek
-// coğrafi kodlama servisi geldiğinde yalnız bu fonksiyon değişir, ekranlar aynı kalır.
+//
+// Adaylar artık KENDİ SUNUCUMUZDAN gelir (`POST /geocode`), sağlayıcıya (Yandex/Google) doğrudan
+// gidilmez: anahtar APK'ya gömülemez, aynı adres ikinci kez sorulmamalı ve sağlayıcı değişimi
+// uygulama güncellemesi gerektirmemeli. Ekranlar bu dosyanın altındaki tek dikişten geçer.
 
 import 'package:flutter/material.dart';
 
+import '../../auth/session.dart';
+import '../../data/app_database.dart';
+import '../../sync/geocode_api.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
@@ -15,30 +20,71 @@ import '../../theme/typography.dart';
 
 /// Bir adres metni için önerilen konum. Koordinat GÖSTERİMİ daima 4 basamak (tasarım).
 class AdresAdayi {
-  const AdresAdayi({required this.metin, required this.lat, required this.lng});
+  const AdresAdayi({
+    required this.metin,
+    required this.lat,
+    required this.lng,
+    this.kesinlik = 'semt',
+  });
 
   final String metin;
   final double lat;
   final double lng;
 
+  /// 'bina' | 'sokak' | 'semt' — sunucunun sağlayıcıdan bağımsızlaştırdığı kademe.
+  final String kesinlik;
+
   String get koordinat => konumMetni(lat, lng);
+
+  /// Kapı kesinliği YOKSA kullanıcıya söylenir. "Sokak" kesinliğindeki bir pin kuryeyi doğru
+  /// sokağa götürür ama doğru kapıya götürmez; bunu sessizce "konum kayıtlı" saymak, kuryenin
+  /// güvendiği bir yanlış üretir.
+  String? get kesinlikNotu => switch (kesinlik) {
+        'bina' => null,
+        'sokak' => 'sokak yaklaşık',
+        _ => 'semt yaklaşık',
+      };
 }
+
+/// Sonuç boş dönünce gösterilen cümle. İKİ ekranda da AYNI metin: iki kopya zamanla ayrışır ve
+/// biri düzeltilip diğeri unutulur. "Bulunamadı" bir ARIZA değildir, kullanıcıya ne yapacağını
+/// söyler — bu yüzden hata rengiyle değil yönlendirmeyle yazılır.
+const String konumBulunamadiMesaji =
+    'Bu adres bulunamadı — mahalle ve sokak adını biraz daha açık yazın.';
 
 /// "36.8969, 30.7133" — hem aday satırında hem `.md-konum` çipinde aynı yazım.
 String konumMetni(double lat, double lng) =>
     '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
 
-/// Adres metninden aday üretir (yer tutucu servis — s-musteriler.jsx `adresAdaylari`).
-List<AdresAdayi> adresAdaylari(String metin, String? bolge) {
-  final b = (bolge == null || bolge.trim().isEmpty) ? 'Muratpaşa' : bolge.trim();
+/// Adres metninden aday üreten TEK dikiş. Widget testleri bunu sahtesiyle değiştirir — ağ
+/// çağrısı ekranların içine gömülmez (`sesliGirisUret` / `uriAcici` deseninin aynısı).
+Future<List<AdresAdayi>> Function(AppDatabase db, String metin, String? bolge)
+    adresAdaylariGetir = sunucudanAdresAdaylari;
+
+/// Gerçek uygulama yolu: kendi API'mize sorar, sonucu ekranın anladığı biçime çevirir.
+Future<List<AdresAdayi>> sunucudanAdresAdaylari(
+  AppDatabase db,
+  String metin,
+  String? bolge,
+) async {
   final m = metin.trim();
-  if (m.isEmpty) return const [];
-  final sokak = m.replaceAll(RegExp(r'no:?\s*\d+.*', caseSensitive: false), '').trim()
-      .replaceAll(RegExp(r',$'), '');
+  if (m.length < 3) {
+    // Sunucu da reddeder; buradan hiç çıkmaması bir tur ağ ve bir tur kota tasarrufudur.
+    throw GeocodeException('Adres en az 3 karakter olmalı.');
+  }
+
+  final meta = await db.syncState();
+  final token = meta.authToken;
+  if (token == null) {
+    throw GeocodeException('Adres araması için oturum gerekir.');
+  }
+
+  final adaylar = await GeocodeApi(baseUrl: Session.baseUrlOf(meta), token: token)
+      .ara(m, bolge: bolge);
+
   return [
-    AdresAdayi(metin: '$m, $b / Antalya', lat: 36.8969, lng: 30.7133),
-    AdresAdayi(metin: '$sokak Sk., $b / Antalya', lat: 36.9014, lng: 30.7221),
-    AdresAdayi(metin: '$m (yakın: $b Pazar Yeri), Antalya', lat: 36.8891, lng: 30.7042),
+    for (final a in adaylar)
+      AdresAdayi(metin: a.metin, lat: a.lat, lng: a.lng, kesinlik: a.kesinlik),
   ];
 }
 
@@ -126,9 +172,26 @@ class AdaySatiri extends StatelessWidget {
                   style: SipText.metin(13, w: 700, h: 1.35).copyWith(color: t.ink),
                 ),
                 const SizedBox(height: 1),
-                Text(
-                  aday.koordinat,
-                  style: SipText.tutar(11, w: 600).copyWith(color: t.muted),
+                Row(
+                  children: [
+                    Text(
+                      aday.koordinat,
+                      style: SipText.tutar(11, w: 600).copyWith(color: t.muted),
+                    ),
+                    // Kapı kesinliği olmayan aday UYARIYLA gösterilir — kullanıcı iki aday
+                    // arasında seçim yaparken hangisinin kapıyı bulduğunu bilmeli.
+                    if (aday.kesinlikNotu != null) ...[
+                      const SizedBox(width: SipSpace.sm),
+                      Flexible(
+                        child: Text(
+                          '· ${aday.kesinlikNotu!}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SipText.metin(11, w: 700).copyWith(color: t.warn),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),

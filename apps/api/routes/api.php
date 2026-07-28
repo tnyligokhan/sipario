@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceController;
+use App\Http\Controllers\Api\GeocodeController;
 use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\SyncController;
 use Illuminate\Support\Facades\Route;
@@ -39,5 +40,13 @@ Route::prefix('v1')->group(function () {
         // YAZMAZ. Yazma yine tek yüzeyden (sync push → sort_set) geçer, yukarıdaki kural bozulmaz.
         Route::post('/orders/auto-route', [RouteController::class, 'autoRoute'])
             ->name('api.orders.auto-route');
+
+        // "Adresten Konum Al" — serbest adres metnini ADAY koordinatlara çevirir; hiçbir şey
+        // YAZMAZ (seçilen koordinat yine sync push ile gider). Sağlayıcı anahtarı yalnız
+        // sunucuda durur. Ek `throttle:geocode`: bu uç nokta parayla ölçülür, kiracı başına
+        // dakikalık + günlük tavanı vardır (genel `throttle:api` yeterli değil).
+        Route::post('/geocode', [GeocodeController::class, 'search'])
+            ->middleware('throttle:geocode')
+            ->name('api.geocode.search');
     });
 });

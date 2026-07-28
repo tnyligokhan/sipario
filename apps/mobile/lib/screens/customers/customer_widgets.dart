@@ -237,11 +237,21 @@ class AdresEtiketSatiri extends StatelessWidget {
     required this.konumVar,
     required this.koordinat,
     required this.onKonumAl,
+    this.calisiyor = false,
+    this.onKonumGuncelle,
   });
 
   final bool konumVar;
   final String? koordinat;
   final VoidCallback onKonumAl;
+
+  /// Adres aranıyor ya da cihaz konumu okunuyor. Süresiz bekleyen bir düğme "bozuk" sayılır;
+  /// satır bu sırada ne diyeceğini söyler ve ikinci dokunuşu kabul etmez.
+  final bool calisiyor;
+
+  /// Cihazın BULUNDUĞU noktayı yazar (adresten kodlama sokağı bulur, kapıyı bulmaz).
+  /// null ise güncelleme affordance'ı hiç çizilmez.
+  final VoidCallback? onKonumGuncelle;
 
   @override
   Widget build(BuildContext context) {
@@ -253,17 +263,36 @@ class AdresEtiketSatiri extends StatelessWidget {
           Expanded(
             child: Text('ADRES', style: SipText.formEtiket.copyWith(color: t.muted)),
           ),
-          if (konumVar)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SipIcon(SipIcons.check, boyut: 12, kalinlik: 2.8, renk: t.ok),
-                const SizedBox(width: 5),
-                Text(
-                  'Konum alındı · ${koordinat!}',
-                  style: SipText.metin(11.5, w: 700).copyWith(color: t.ok),
+          // Flexible + ellipsis: koordinat + güncelle ikonu büyük yazı tipi ayarında satırı
+          // taşırmasın (taşma çizgili kırmızı bant demektir, saha telefonunda utanç verici).
+          if (calisiyor)
+            Text('Konum aranıyor…', style: SipText.metin(11.5, w: 700).copyWith(color: t.muted))
+          else if (konumVar)
+            Flexible(
+              child: SipDokun(
+                onTap: onKonumGuncelle,
+                radius: SipRadius.br1,
+                padding: const EdgeInsets.symmetric(horizontal: SipSpace.sm, vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SipIcon(SipIcons.check, boyut: 12, kalinlik: 2.8, renk: t.ok),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        'Konum alındı · ${koordinat!}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SipText.metin(11.5, w: 700).copyWith(color: t.ok),
+                      ),
+                    ),
+                    if (onKonumGuncelle != null) ...[
+                      const SizedBox(width: 5),
+                      SipIcon(SipIcons.sync, boyut: 12, kalinlik: 2.2, renk: t.accent),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             )
           else
             SipDokun(

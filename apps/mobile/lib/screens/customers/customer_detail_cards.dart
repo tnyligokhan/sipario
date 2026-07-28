@@ -23,6 +23,8 @@ class MusteriHeroKart extends StatelessWidget {
     required this.onAra,
     required this.onWhatsapp,
     required this.onKonum,
+    this.konumCalisiyor = false,
+    this.onKonumGuncelle,
   });
 
   /// Birincil adresin gösterim metni; null ise adres bloğu hiç çizilmez.
@@ -32,8 +34,16 @@ class MusteriHeroKart extends StatelessWidget {
   /// "36.8969, 30.7133" — null ise konum alınmamıştır.
   final String? koordinat;
 
-  /// Konum yokken çipe dokunulunca (adres varsa) çağrılır.
+  /// Konum yokken çipe dokunulunca (adres varsa) çağrılır — ADRESTEN aday arar.
   final VoidCallback onKonumAl;
+
+  /// Konum VARKEN çipe dokunulunca çağrılır — CİHAZIN bulunduğu noktayı yazar. Kurye kapının
+  /// önündeyken adresten türetilmiş yaklaşık pini gerçeğe oturtmanın tek yolu budur.
+  /// null ise kayıtlı çip tıklanmaz kalır (eski davranış).
+  final VoidCallback? onKonumGuncelle;
+
+  /// Adres aranıyor ya da cihaz konumu okunuyor.
+  final bool konumCalisiyor;
 
   final VoidCallback onAra;
   final VoidCallback onWhatsapp;
@@ -70,7 +80,13 @@ class MusteriHeroKart extends StatelessWidget {
                   ),
                 ],
               ),
-            if (adres != null) _KonumCipi(koordinat: koordinat, onKonumAl: onKonumAl),
+            if (adres != null)
+              _KonumCipi(
+                koordinat: koordinat,
+                onKonumAl: onKonumAl,
+                onKonumGuncelle: onKonumGuncelle,
+                calisiyor: konumCalisiyor,
+              ),
             Padding(
               padding: EdgeInsets.only(left: adres != null ? 26 : 0, top: SipSpace.md),
               child: Text(
@@ -97,10 +113,17 @@ class MusteriHeroKart extends StatelessWidget {
 
 /// CSS `.md-konum` — konum kayıtlıysa bilgi çipi, değilse UYARI renginde tıklanır çip.
 class _KonumCipi extends StatelessWidget {
-  const _KonumCipi({required this.koordinat, required this.onKonumAl});
+  const _KonumCipi({
+    required this.koordinat,
+    required this.onKonumAl,
+    required this.onKonumGuncelle,
+    required this.calisiyor,
+  });
 
   final String? koordinat;
   final VoidCallback onKonumAl;
+  final VoidCallback? onKonumGuncelle;
+  final bool calisiyor;
 
   @override
   Widget build(BuildContext context) {
@@ -110,7 +133,9 @@ class _KonumCipi extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerLeft,
         child: SipDokun(
-          onTap: varMi ? null : onKonumAl,
+          // Çalışırken dokunuş YUTULUR: iki paralel arama kotayı iki kez yakar ve hangi sonucun
+          // geldiği belirsizleşir.
+          onTap: calisiyor ? null : (varMi ? onKonumGuncelle : onKonumAl),
           zemin: varMi
               ? SipTokens.onHeroFill2
               // CSS: rgba(255,215,154,.14) — hero üstü uyarı tonu.
@@ -121,13 +146,26 @@ class _KonumCipi extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (varMi) ...[
+              if (calisiyor)
+                Text('Konum alınıyor…',
+                    style: SipText.metin(12, w: 600).copyWith(color: SipTokens.onHeroStrong))
+              else if (varMi) ...[
                 const SipIcon(SipIcons.check, boyut: 13, kalinlik: 2.6, renk: SipTokens.heroDot),
                 const SizedBox(width: SipSpace.sm),
                 Text('Konum kayıtlı · ',
                     style: SipText.metin(12, w: 600).copyWith(color: SipTokens.onHeroStrong)),
-                Text(koordinat!,
-                    style: SipText.tutar(12, w: 700).copyWith(color: SipTokens.onHeroStrong)),
+                Flexible(
+                  child: Text(koordinat!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: SipText.tutar(12, w: 700).copyWith(color: SipTokens.onHeroStrong)),
+                ),
+                // Kayıtlı konum artık DEĞİŞTİRİLEBİLİR: adresten türetilen pin sokağı bulur,
+                // kapıyı bulmaz — kurye kapının önünde bunu düzeltebilmeli.
+                if (onKonumGuncelle != null) ...[
+                  const SizedBox(width: SipSpace.sm),
+                  const SipIcon(SipIcons.sync, boyut: 12, kalinlik: 2.2, renk: SipTokens.onHeroMid),
+                ],
               ] else ...[
                 Text('Konum alınmamış — ',
                     style: SipText.metin(12, w: 600).copyWith(color: SipTokens.onHeroStrong)),

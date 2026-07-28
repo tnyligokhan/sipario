@@ -30,6 +30,7 @@ class RouteCoverageGuardTest extends TestCase
         'api.sync.push',
         'api.sync.pull',
         'api.orders.auto-route',
+        'api.geocode.search',
     ];
 
     #[Test]

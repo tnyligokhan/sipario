@@ -8,6 +8,8 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../konum/cihaz_konumu.dart';
+import '../../sync/geocode_api.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
@@ -114,17 +116,71 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     if (ok == true && mounted) SipToast.goster(context, 'Müşteri bilgileri güncellendi');
   }
 
+  /// Adres araması ya da cihaz konumu okuması sürüyor (çip bu sırada dokunuş kabul etmez).
+  bool _konumCalisiyor = false;
+
   /// Adresten konum: servis aday döner, doğrusunu KULLANICI seçer (otomatik atama yok).
+  ///
+  /// "Bulunamadı" ile "servis arızası" AYRI cümlelerdir: ilkinde kullanıcı adres metnini
+  /// düzeltmeli, ikincisinde beklemeli. Tek bir "konum alınamadı" onu yanlış işi yapmaya iter.
   Future<void> _konumAl(CustomerAddressesData? adres) async {
     if (adres == null) {
       SipToast.goster(context, 'Önce müşteriye adres ekleyin');
       return;
     }
     if (!_yazabilir()) return;
-    final secim = await konumSecSheet(context, adresAdaylari(adres.addressText, adres.region));
+    if (_konumCalisiyor) return;
+
+    setState(() => _konumCalisiyor = true);
+    final List<AdresAdayi> adaylar;
+    try {
+      adaylar = await adresAdaylariGetir(widget.db, adres.addressText, adres.region);
+    } on GeocodeException catch (e) {
+      if (!mounted) return;
+      setState(() => _konumCalisiyor = false);
+      SipToast.goster(context, e.message);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _konumCalisiyor = false);
+
+    if (adaylar.isEmpty) {
+      SipToast.goster(context, konumBulunamadiMesaji);
+      return;
+    }
+
+    final secim = await konumSecSheet(context, adaylar);
     if (secim == null) return;
     await konumKaydet(widget.db, adres, secim.lat, secim.lng);
     if (mounted) SipToast.goster(context, 'Konum kaydedildi');
+  }
+
+  /// Konumu CİHAZIN bulunduğu noktayla günceller. Adresten türetilen pin sokağı bulur, kapıyı
+  /// bulmaz; kurye ilk teslimatta kapının önünde bu düğmeye basınca pin gerçeğe oturur.
+  /// Adres metni, bölge ve etiket DEĞİŞMEZ — yalnız koordinat yazılır.
+  Future<void> _konumGuncelle(CustomerAddressesData adres) async {
+    if (!_yazabilir()) return;
+    if (_konumCalisiyor) return;
+
+    setState(() => _konumCalisiyor = true);
+    final CihazKonumu konum;
+    try {
+      konum = await cihazKonumuOku();
+    } on KonumHatasi catch (e) {
+      if (!mounted) return;
+      setState(() => _konumCalisiyor = false);
+      SipToast.goster(context, e.mesaj);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _konumCalisiyor = false);
+
+    await konumKaydet(widget.db, adres, konum.lat, konum.lng);
+    if (!mounted) return;
+    SipToast.goster(
+      context,
+      konum.guvenilir ? 'Konum güncellendi' : konumDogrulukUyarisi(konum.dogrulukM),
+    );
   }
 
   @override
@@ -202,6 +258,10 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     telefon: tel,
                     koordinat: koordinat,
                     onKonumAl: () => _konumAl(adres),
+                    konumCalisiyor: _konumCalisiyor,
+                    // Adres yoksa güncellenecek kayıt da yok: çip tıklanmaz kalır (koordinatı
+                    // sahipsiz bir adrese yazmak sessiz veri kaybı olurdu).
+                    onKonumGuncelle: adres == null ? null : () => _konumGuncelle(adres),
                     // Arama/WhatsApp/harita cihaz uygulamalarını açacak (url_launcher henüz
                     // bağımlılıkta yok) — şimdilik tasarımdaki `ping` davranışı.
                     onAra: () => SipToast.goster(context, '${c.name} aranıyor…'),

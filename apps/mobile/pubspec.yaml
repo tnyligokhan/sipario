@@ -54,6 +54,14 @@ dependencies:
   timezone: ^0.11.1
   package_info_plus: ^10.2.1
 
+  # "Konum Güncelle" — kuryenin/bayinin BULUNDUĞU noktayı müşterinin adresine yazar. Adresten
+  # kodlama (Yandex) kapının önünü değil sokağı bulur; doğru pin ancak orada durup alınır.
+  # NEDEN BU PAKET: izin akışı (reddedildi / kalıcı reddedildi / konum servisi kapalı) ayrı ayrı
+  # ayırt edilebiliyor — kullanıcıya "izin verin" ile "GPS'i açın" farkını söyleyebiliyoruz.
+  # SADECE ÖN PLAN konumu kullanılır; arka plan izni (ACCESS_BACKGROUND_LOCATION) İSTENMEZ —
+  # Play'in kısıtlı izin beyan formunu tetikler (kırmızı çizgi #6 ile aynı mantık) ve ihtiyaç yok.
+  geolocator: ^14.0.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

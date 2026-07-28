@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\Product;
 use App\Models\Tenant;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\ApiTestCase;
@@ -193,6 +194,43 @@ class TenantIsolationTest extends ApiTestCase
         $bKontor = $this->asOwner(fn () => Tenant::query()
             ->whereKey($b['tenant']->id)->value('route_credits'));
         $this->assertSame(0, (int) $bKontor);
+    }
+
+    #[Test]
+    public function geocode_kiraci_verisi_tasimaz_ve_kotayi_paylastirmaz(): void
+    {
+        // Matris satırı: `api.geocode.search`. Bu uç noktanın taşıdığı veri KİRACIYA AİT DEĞİLDİR
+        // (serbest adres metni → kamuya açık koordinat); sızacak bir satır yoktur. İzolasyonun
+        // burada anlamlı karşılığı İKİ tanedir ve ikisi de sınanır:
+        //  1. Uç nokta kiracıya ait hiçbir kimliği KABUL ETMEZ (ad/telefon/müşteri kimliği
+        //     doğrulamadan geçmez, sağlayıcıya taşınamaz — kırmızı çizgi #4).
+        //  2. Kota kiracı başınadır: A'nın günlük hakkını tüketmesi B'yi KİLİTLEMEZ. Aksi halde
+        //     tek bozuk istemci bütün bayilerin özelliğini kapatırdı.
+        config()->set('geocoding.driver', 'yandex');
+        config()->set('geocoding.yandex.api_key', 'test-anahtar');
+        config()->set('geocoding.daily_limit', 1);
+        Http::fake(['geocode-maps.yandex.ru/*' => Http::response([
+            'response' => ['GeoObjectCollection' => ['featureMember' => []]],
+        ])]);
+
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $tokenA = $this->tokenFor($a['patron']);
+        $tokenB = $this->tokenFor($b['patron']);
+
+        $this->asToken($tokenA)->postJson('/api/v1/geocode', [
+            'query' => 'Izolasyon Sk. no:'.Str::uuid(),
+        ])->assertOk();
+
+        // A hakkını bitirdi.
+        $this->asToken($tokenA)->postJson('/api/v1/geocode', [
+            'query' => 'Izolasyon Sk. no:'.Str::uuid(),
+        ])->assertStatus(429);
+
+        // B'nin hakkı ETKİLENMEDİ.
+        $this->asToken($tokenB)->postJson('/api/v1/geocode', [
+            'query' => 'Izolasyon Sk. no:'.Str::uuid(),
+        ])->assertOk();
     }
 
     #[Test]

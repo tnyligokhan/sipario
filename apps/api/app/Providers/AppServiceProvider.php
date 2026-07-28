@@ -4,6 +4,10 @@ namespace App\Providers;
 
 use App\Payment\IyzicoPaymentGateway;
 use App\Payment\PaymentGateway;
+use App\Support\Geocoding\Geocoder;
+use App\Support\Geocoding\GoogleGeocoder;
+use App\Support\Geocoding\NullGeocoder;
+use App\Support\Geocoding\YandexGeocoder;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -25,6 +29,43 @@ class AppServiceProvider extends ServiceProvider
 
             return new IyzicoPaymentGateway($cfg['api_key'], $cfg['secret_key'], $cfg['base_url']);
         });
+
+        // Coğrafi kodlama SOYUT (adres → koordinat): bugün Yandex, anahtar gelince Google.
+        // Sürücü env'den seçilir; anahtar yoksa NullGeocoder bağlanır ve HİÇ dış çağrı yapılmaz
+        // (CI ve yerel geliştirme gerçek servise çıkmaz). Testler bu bağı fake ile swap eder.
+        $this->app->singleton(Geocoder::class, fn () => $this->geocoderKur());
+    }
+
+    /**
+     * Yapılandırılmış sürücüyü kurar. Anahtarı olmayan sürücü Null'a DÜŞER — yanlış
+     * yapılandırma sessiz bir 500 değil, kullanıcıya dürüst bir "bu kurulumda tanımlı değil"
+     * mesajı üretir.
+     */
+    private function geocoderKur(): Geocoder
+    {
+        $timeout = max(1, (int) config('geocoding.timeout', 8));
+        $ulke = (string) config('geocoding.bias.country', 'tr');
+        $bbox = (string) config('geocoding.bias.bbox', '');
+
+        $surucu = match ((string) config('geocoding.driver', 'null')) {
+            'yandex' => new YandexGeocoder(
+                apiKey: (string) config('geocoding.yandex.api_key', ''),
+                baseUrl: (string) config('geocoding.yandex.base_url', ''),
+                timeout: $timeout,
+                lang: (string) config('geocoding.bias.lang', 'tr_TR'),
+                bbox: $bbox,
+            ),
+            'google' => new GoogleGeocoder(
+                apiKey: (string) config('geocoding.google.api_key', ''),
+                baseUrl: (string) config('geocoding.google.base_url', ''),
+                timeout: $timeout,
+                ulke: $ulke,
+                bbox: $bbox,
+            ),
+            default => new NullGeocoder,
+        };
+
+        return $surucu->hazirMi() ? $surucu : new NullGeocoder;
     }
 
     /**
@@ -64,5 +105,18 @@ class AppServiceProvider extends ServiceProvider
         // Çalınan bir token'ın istismar hızını ve genel DoS yüzeyini sınırlar.
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)
             ->by($request->user()?->id ?: $request->ip()));
+
+        // Coğrafi kodlama: PARAYLA ölçülen tek uç nokta. Sınır KİRACI başınadır (kullanıcı başına
+        // değil) — bir bayinin beş cihazı aynı kotayı paylaşır; aksi halde cihaz ekleyerek kota
+        // çoğaltılırdı. Günlük tavan, bozuk bir istemci döngüsünün bütün bayilerin özelliğini
+        // kapatmasını engeller: zarar isteği yapan bayide kalır.
+        RateLimiter::for('geocode', function (Request $request) {
+            $kimlik = (string) ($request->user()?->tenant_id ?: $request->ip());
+
+            return [
+                Limit::perMinute(20)->by('geo:dk:'.$kimlik),
+                Limit::perDay(max(1, (int) config('geocoding.daily_limit', 300)))->by('geo:gun:'.$kimlik),
+            ];
+        });
     }
 }
