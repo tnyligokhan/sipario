@@ -29,6 +29,67 @@ function progressSegment() {
   return '';
 }
 
+/**
+ * CI segmenti — ÖNBELLEKTEN okur, ağa ÇIKMAZ.
+ *
+ * Durum çubuğu her çizimde koşar; içine `gh`/`curl` koymak onu saniyelerce dondururdu. Bu
+ * yüzden ağ işini `ci-durum-yenile.cjs` KOPUK bir arka plan süreci olarak yapar ve buraya
+ * yalnız hazır sonuç düşer. Önbellek bayatsa (60 sn) tazeleme TETİKLENİR ama BEKLENMEZ:
+ * çubuk o an eski değeri gösterir, bir sonraki çizimde yenisi gelir.
+ *
+ * Kilit dosyası, tazelemenin üst üste binmesini engeller: ağ yavaşsa her çizimde yeni bir
+ * süreç doğar ve makine `gh` süreçleriyle dolardı (saha sunucusu script'inde yetim süreçlerle
+ * bir kez ödenen ders).
+ */
+function ciSegment() {
+  try {
+    const cache = path.join(dir, '.claude', 'ci-durum.json');
+    const kilit = path.join(dir, '.claude', 'ci-durum.kilit');
+    const simdi = Date.now();
+
+    let veri = null;
+    try {
+      veri = JSON.parse(fs.readFileSync(cache, 'utf8'));
+    } catch (_) {}
+
+    const bayat = !veri || simdi - (veri.ts || 0) > 60_000;
+    let kilitYasi = Infinity;
+    try {
+      kilitYasi = simdi - fs.statSync(kilit).mtimeMs;
+    } catch (_) {}
+
+    if (bayat && kilitYasi > 30_000) {
+      try {
+        fs.writeFileSync(kilit, String(simdi));
+        const { spawn } = require('child_process');
+        const cocuk = spawn(
+          process.execPath,
+          [path.join(dir, 'scripts', 'ci-durum-yenile.cjs')],
+          { detached: true, stdio: 'ignore', windowsHide: true },
+        );
+        cocuk.unref();
+      } catch (_) {}
+    }
+
+    if (!veri) return '';
+
+    const isaret = { success: '🟢', in_progress: '🟡', queued: '🟡', failure: '🔴' }[veri.kosum];
+    const parcalar = [];
+    if (isaret) parcalar.push(`${isaret} CI`);
+    // Telefonun göreceği yapım ile bu ağacın üreteceği yapım aynı mı? Asıl merak edilen soru
+    // "CI yeşil mi" değil, "değişikliğim telefona ulaştı mı"dır.
+    if (veri.yayindakiYapim != null && veri.yerelYapim != null) {
+      parcalar.push(
+        veri.yayindakiYapim >= veri.yerelYapim
+          ? `📱 ${veri.yayindakiYapim}`
+          : `📱 ${veri.yayindakiYapim}→${veri.yerelYapim}`,
+      );
+    }
+    return parcalar.join(' ');
+  } catch (_) {}
+  return '';
+}
+
 /** ruflo'nun statusline'ını çocuk süreç olarak koştur, stdin'i ilet, stdout'u yakala. */
 function rufloSegment() {
   try {
@@ -52,5 +113,5 @@ function rufloSegment() {
   }
 }
 
-const parts = [progressSegment(), rufloSegment()].filter(Boolean);
+const parts = [progressSegment(), ciSegment(), rufloSegment()].filter(Boolean);
 process.stdout.write(parts.join('  |  '));
