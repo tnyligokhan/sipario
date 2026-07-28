@@ -17,15 +17,29 @@ import 'guncelleme_servisi.dart';
 import 'guncelleme_sozlesmesi.dart';
 
 class GuncellemeBanti extends StatelessWidget {
-  const GuncellemeBanti({super.key, this.servis});
+  const GuncellemeBanti({super.key, this.servis, this.kapali, this.ustBosluk = true});
 
   /// Test/araç yolu — verilmezse uygulamanın tekil servisi.
   final GuncellemeServisi? servis;
 
+  /// Kill-switch. Verilmezse derleme sabitlerinden okunur ([guncellemeKapaliMi]).
+  ///
+  /// NEDEN ENJEKTE EDİLEBİLİR: sabit doğrudan okunsaydı bu widget varsayılan `flutter test`
+  /// altında (kanal `magaza`, yapım 0) HİÇBİR ZAMAN çizmezdi ve "bant gerçekten görünüyor mu"
+  /// sorusu test edilemezdi. Bandın aylarca ağaca hiç bağlanmamış olması tam da bu yüzden
+  /// fark edilmedi — kill-switch'i dışarı almak o boşluğu kapatır.
+  final bool? kapali;
+
+  /// Durum çubuğu boşluğunu bu bant mı eklesin? Üstünde başka bir bant (çevrimdışı/grace)
+  /// varsa `false` verilir: iki `SafeArea` üst üste gelince boşluk İKİ KEZ eklenir ve
+  /// bantların arasında koca bir delik açılır.
+  final bool ustBosluk;
+
   @override
   Widget build(BuildContext context) {
-    // Mağaza derlemesinde ağaçta bile yer tutmaz.
-    if (guncellemeKapaliMi) return const SizedBox.shrink();
+    // Mağaza derlemesinde ağaçta yer tutar ama HİÇBİR ŞEY çizmez (yükseklik sıfır) ve servis
+    // zaten ağa çıkmamıştır. Kabuk bu widget'ı koşulsuz mount eder; koşul buradadır.
+    if (kapali ?? guncellemeKapaliMi) return const SizedBox.shrink();
     final s = servis ?? guncellemeServisi;
 
     return ValueListenableBuilder<GuncellemeDurumu>(
@@ -36,7 +50,10 @@ class GuncellemeBanti extends StatelessWidget {
           valueListenable: s.bulunan,
           builder: (context, bilgi, _) {
             if (bilgi == null) return const SizedBox.shrink();
-            return _Bant(servis: s, durum: durum, bilgi: bilgi);
+            final bant = _Bant(servis: s, durum: durum, bilgi: bilgi);
+            // SafeArea YALNIZ çizilen bandın etrafında: boş widget'ı sarmak, güncelleme
+            // yokken her ekranın tepesinde hayalet bir boşluk bırakırdı.
+            return ustBosluk ? SafeArea(bottom: false, child: bant) : bant;
           },
         );
       },

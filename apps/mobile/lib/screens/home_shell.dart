@@ -28,6 +28,7 @@ import '../auth/session.dart';
 import '../bildirim/bildirim_servisi.dart';
 import '../bildirim/bildirim_sozlesmesi.dart';
 import '../data/app_database.dart';
+import '../guncelleme/guncelleme_banti.dart';
 import '../subscription/subscription_locked_screen.dart';
 import '../subscription/subscription_state.dart';
 import '../sync/sync_service.dart';
@@ -315,6 +316,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     widget.onLoggedOut();
   }
 
+  /// Güncelleme bandının ÜSTÜNDE çizilen bir bant var mı (çevrimdışı / grace)? Durum çubuğu
+  /// boşluğunu yalnız EN ÜSTTEKİ bant ekler.
+  bool get _ustBantVar =>
+      (_sonSenkron != null && !_sonSenkron!.ok) || _access == AccessLevel.grace;
+
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
@@ -341,6 +347,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                   ),
                 if (_access == AccessLevel.grace)
                   const SafeArea(bottom: false, child: _GraceBandi()),
+                // Güncelleme bandı — KOŞULSUZ mount edilir; kapalıyken (mağaza derlemesi ya da
+                // güncelleme yokken) kendisi hiçbir şey çizmez. Koşulu buraya yazmamak bilinçli:
+                // `if` ile sarılsaydı "ağaçta var mı" testi mağaza varsayılanında hep boş döner
+                // ve bandın bağlanmadığı yine fark edilmezdi (2026-07-28 saha bulgusu: servis
+                // güncellemeyi buluyordu ama hiçbir ekran onu çizmiyordu).
+                //
+                // En ALTTAKİ bant: çevrimdışı ve grace uyarıları daha acildir. Durum çubuğu
+                // boşluğunu yalnız üstünde başka bant yokken kendisi ekler.
+                GuncellemeBanti(ustBosluk: !_ustBantVar),
                 Expanded(child: _govde(sekme, yetki)),
                 SipAltNav(
                   aktif: sekme,
