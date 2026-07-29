@@ -16,6 +16,10 @@
 > **Genel proje: ~%78** (2026-07-17 DÜZELTME tabanı: eski %79 yalnız sunucu+veri katmanını sayıyordu —
 > UI eforu "4b · Saha UI" satırıyla panoya eklendi.)
 > **Faz 4: ~%92** · **Faz 5: ~%93** · **Faz 6: ~%22** · **4b UI: ✅ KAPANDI (Dilim 1+2+3+4)**
+> _(2026-07-29: pano YÜZDESİ DEĞİŞMEDİ ve bu bilinçli — vardiya yeni faz açmadı, mevcut ürünü
+> saha geri bildirimiyle düzeltti ve dört sessiz arızayı kapattı. Faz 4/5'in kalan yüzdeleri
+> hâlâ DIŞSAL girdilerde (iyzico anahtarı, mağaza hesapları, gerçek cihaz ölçümü, hukuk).
+> Bitmiş işi yeniden saymak paydayı şişirir; ürün olgunlaştı, faz sınırları oynamadı.)_
 > _(2026-07-21/3: **UI Dilim 4 BİTTİ — 4b TAMAMEN KAPANDI: kurye listesi sunucudan team bloğuyla,
 > Drift v7 users aynası, K2 rol-yetki matrisi, atama UI, kasa devri ekranı, tek-kişilik gizleme;
 > mobil 159/159 · API 174/174 · inceleme YEŞİL · APK derlendi · guzzle güvenlik yükseltmesi (4
@@ -71,7 +75,7 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-## Güncel durum (son güncelleme: 2026-07-28 — **KONUM ALTYAPISI KURULDU**: adresten koordinat (Yandex Geocoder, sağlayıcı soyut — Google tek env satırı) + cihaz konumuyla "Konum Güncelle"; yer tutucu `adresAdaylari()` kaldırıldı. Öncesinde: tam otomatik saha dağıtımı yayında (GitHub Actions her dev push'unda APK derleyip `saha` release'ini günceller, uygulama kendini günceller), çağrı kartı+bildirim, otomatik versiyonlama 0.9.0+git sayacı. Ölçüm: `flutter analyze` 0 · `flutter test` **653/653** · `php artisan test` **237/237** · phpstan L6 **0** · release APK (saha+magaza) derlendi, izin denetimi temiz)
+## Güncel durum (son güncelleme: 2026-07-29 — **SAHA GERİ BİLDİRİM TURU + DÖRT SESSİZ ARIZA KAPATILDI**: sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
 
 ### Konum özelliği — ne kuruldu (2026-07-28)
 
@@ -103,7 +107,99 @@
 
 ---
 
-# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-07-27 kapandı)
+# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-07-29 kapandı)
+
+**Bir cümlede:** Bayiden gelen 12 istek/şikâyetin tamamı kapatıldı; ama vardiyanın asıl değeri
+**dört SESSİZ arızayı** bulmasıydı — hiçbiri çökmüyor, hiçbiri günlüğe yazmıyor, yalnız *hiçbir şey
+olmuyordu*: (1) CDN yayından saatler sonra bile eski `surum.json`u veriyordu, yani **güncelleme
+bandı hiç düşmüyordu**; (2) migration'la atanan kodlar senkron **deltasına düşmediği için telefona
+hiç ulaşmıyordu**; (3) kalite kapısının API bölümü php PATH'te olmadığı için **aylardır sessizce
+atlanıyordu** ("yeşil" diyordu, pint/phpstan/testler hiç koşmamıştı); (4) sihirbazın "pil" adımı
+**otomatik başlatma** ekranını açıyor, pil kısıtlaması hiç kaldırılmıyordu.
+
+**Ölçüm (kapanış):** `dart analyze` **0** · `flutter test` **740/740** · `php artisan test`
+**247/247** · phpstan L6 **0** · pint temiz · Kotlin derlemesi başarılı.
+**CİHAZDA DENENMEDİ** — saha kontrol listesi aşağıda.
+
+## Bu vardiyada NE YAPILDI
+
+**Ürün (bayi istekleri):**
+1. **Borç görünürlüğü** — "Borçlu" sekmesinde satır siparişin TUTARINI yazıyordu, borcunu değil
+   (veresiye teslimde ikisi aynı olduğu için kimse fark etmemişti; kısmi ödemede ayrışıyor).
+   Satıra kalan borç pili, detaya borç kutusu, "Tahsilat Al · 250,00 ₺" eklendi.
+2. **Borçlular ekranı** — ana ekrandaki "Açık Veresiye" kutusu "Borçlular" oldu ve müşteriler
+   sekmesi yerine kendi ekranını açıyor: borçlu müşteriler + her birinin ödenmemiş siparişleri.
+3. **FAB iki seçenek** — "Müşteri Ekle" · "Sipariş Ekle".
+4. **Sıra kodları** — müşteri kodu (100, 101…) ve sipariş kodu (#248). **Sunucu atar**, istemci
+   üretmez; sipariş satırında hangisinin görüneceği bayi ayarı (`tenant_settings`).
+5. **Açık siparişte "Açık" yerine bekleme süresi** ("12 dk" · "1 sa 5 dk" · "2 gün").
+6. **Gün sonu yeniden yapılandırıldı** — eksen KAPSAM değil GÜN: geçmiş günler listesi
+   (`28.07 Salı · 2.100 ₺ · 18 teslimat`, kapatılmamış gün de listede), gün detayında kasa +
+   kurye kartları + **satılan ürün dökümü** + kapanış kayıtları. İstatistik arayüzü bunun üstüne oturur.
+7. **Aşağı çekerek yenile** (10 ekran) + ana ekranda güncelleme kontrolü ve "Sürüm güncel" çipi.
+8. **Selam dört kuşak** (Günaydın / Kolay gelsin / İyi akşamlar / İyi geceler).
+9. **Bento kutuları ortalandı.**
+10. **Müşteri DÜZENLEMEDE de "Konum Al"** (önceden yalnız yeni kayıtta vardı).
+11. **Sipariş detayına "Konum Güncelle"** — cihazın anlık konumunu teslimat adresine yazar.
+12. **Demo giriş `111/111/1111`** (geçici — aşağıda borç olarak duruyor).
+
+**Altyapı (bulunan arızalar):**
+- **CDN bayat cevap** — `surum.json` düz adresten istendiğinde `X-Cache: HIT`, yayından 9 saat
+  eski içerik. Artık hem `surum.json` hem APK **benzersiz sorgu parametresiyle** isteniyor.
+- **Migration senkrona düşmüyordu** — kodlar sunucuda doğru, telefonda hiç yok. Ayrı bir
+  migration delta üretti. **Kural: veriyi değiştiren her migration onu senkrona da düşürmeli.**
+- **Kalite kapısı** php'yi kendisi buluyor (PATH → Laragon → XAMPP); pint/phpstan/API testleri
+  artık gerçekten koşuyor. Kapının bulduğu 6 stil hatası düzeltildi.
+- **Font testi** çerçeve davranışına bağlıydı (Flutter 3.44.6 artık `fontWeight`i wght eksenine
+  kendi eşliyor) — kapıyı kilitliyordu; test davranışa değil SÖZLEŞMEYE bağlandı.
+- **`saha-sunucu.ps1`** araçlarını kendi buluyor (php/cloudflared), şemayı kuruyor, yetim
+  süreçleri komut satırı kalıbıyla temizliyor. `/ci` kısayolu + durum çubuğunda CI segmenti eklendi.
+
+## Bu vardiyada NE YAPILMADI / YARIM KALDI
+
+- 🔴 **`.env`'de coğrafi kodlama anahtarı YOK.** `GEOCODING_DRIVER=yandex` +
+  `YANDEX_GEOCODER_KEY=...` eklenmeden **"Konum Al" aday döndürmez** (NullGeocoder dürüstçe
+  "bu kurulumda tanımlı değil" der). Yeni eklenen **"Konum Güncelle" bundan bağımsız** — cihaz
+  GPS'i, sunucuya hiç gitmiyor. Araç `.env`'e yazamıyor, **proje sahibinde**.
+- 🔴 **Demo giriş bilgileri GEÇİCİ** (`111/111/1111`). Mağaza başvurusundan önce geri alınmalı;
+  tek değiştirme noktası `DemoSeeder` sabitleri. Ayrıntı "İnsan gerektiren işler" listesinde.
+- **Telefon en az yapım 156'yı almalı.** CDN düzeltmesi **kendini taşıyamaz**: 156'dan eski bir
+  pakette bu kod yok ve o cihaz bayat `surum.json` görmeye devam edebilir. Ayarlar'daki
+  `Sipario 0.9.0 (N)` satırına bak; N < 156 ise linkten **bir kez elle** kur.
+- **Emanet/boş damacana kararı HÂLÂ BEKLİYOR** (üç seçenek sunuldu, cevap gelmedi).
+- **`orders.customer_id` indeksi hâlâ yok**; `ui_dilim3_test.dart` 608 satır; `letterSpacing`
+  em/px tipografi denetimi; `SipIcons.mic` taşınmadı — hepsi önceki turdan devam.
+- **Kotlin birim testi altyapısı yok** — `OemBatteryGuide`'ın yeni pil/autostart ayrımı yalnız
+  Dart tarafından (kanala giden metot) kilitlendi; native intent çözümlemesi cihazda denenmeli.
+
+## Sonraki kişi NEREDEN devam etmeli
+
+1. **Cihazda doğrula** (aşağıdaki liste) — bu vardiyanın hiçbir maddesi cihazda denenmedi.
+2. **`.env` anahtarı** girilirse "Konum Al" akışı ilk kez uçtan uca çalışır.
+3. Kod tarafında sıradaki en değerli iş hâlâ **mobil CI** (SIRADAKİ İŞLER #5) — mobil testler
+   yalnız geliştirici makinesinde koşuyor.
+4. İstatistik arayüzü istenirse zemin hazır: `gun_arsivi.dart` ürün/kurye kırılımını zaten
+   hesaplıyor, haftalık/aylık toplamlar onun üstüne oturur.
+
+## SAHA KONTROL LİSTESİ (cihazda bakılacaklar)
+
+1. **Kodlar:** müşteri listesinde adın başında numara var mı; sipariş satırında ayara göre
+   `102` ya da `#248`; Ayarlar → İşletme → "Sipariş satırındaki kod" seçimi listeyi değiştiriyor mu.
+2. **Borç:** teslim edilmiş veresiye siparişte satırda "Borç 200,00 ₺" pili; kısmi ödemede
+   pil KALANI yazıyor mu (sipariş tutarını değil).
+3. **Gün sonu:** geçmişte tarihler görünüyor mu; kapatılmamış gün "kapatılmadı" rozetiyle
+   listede mi; gün detayında ürün dökümü kasa özetiyle tutuyor mu.
+4. **Yenileme:** her ekranda aşağı çekince gösterge dönüyor mu; ana ekranda çekince "Sürüm
+   güncel" çipi çıkıyor mu (çevrimdışıyken ÇIKMAMALI).
+5. **Sihirbaz:** "Arka planda çalışma" adımında **"Pil Ayarını Aç"** gerçekten pil ekranını,
+   **"Otomatik Başlatmayı Aç"** autostart listesini açıyor mu (asıl saha hatası buydu).
+6. **Konum:** müşteri düzenlemede "Konum Al" görünüyor mu; sipariş detayında "Konumu Kaydet"
+   dokununca müşteri kartında konum yeşile dönüyor mu.
+7. **Bekleme süresi:** açık siparişte dakika ilerliyor mu (uygulama açıkken ~1 dk bekle).
+
+---
+
+### VARDİYA 2026-07-27 (TARİHSEL — güncel devir notu yukarıdadır)
 
 **Bir cümlede:** Bayinin saha testinden **iki tur geri bildirim** geldi, **10 maddenin tamamı
 kapatıldı**; en kritiği kozmetik sanılan ama veri güvenilirliğini vuran **senkron kilidiydi**
