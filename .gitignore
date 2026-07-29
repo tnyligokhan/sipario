@@ -23,6 +23,13 @@
 # Ruflo hook'larının yeniden oluşturduğu artık
 .tab-navigation
 
+# SQLite yan dosyaları (-wal / -shm). Ruflo'nun `.swarm/*.db` ve `ruvector.db` dosyaları BİLEREK
+# izlenir, ama bu ikisi izlenmez: geçici yazma günlüğüdür, koşan her ajanla değişir (tek koşumda
+# 1,4 MB), ve checkout ile ana .db'nin yanına ESKİ bir WAL düşerse veritabanını bozabilir.
+# 2026-07-29'da bir ajan koşumu sırasında yanlışlıkla commit edildiler (d7deb94), sonra çıkarıldı.
+*.db-wal
+*.db-shm
+
 # Durum çubuğunun CI önbelleği — anlık, makineye özgü.
 .claude/ci-durum.json
 .claude/ci-durum.kilit

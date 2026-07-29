@@ -440,6 +440,45 @@ class GeocodeTest extends ApiTestCase
     }
 
     #[Test]
+    public function google_faturalandirma_reddi_onbelleklenmez(): void
+    {
+        // GERÇEK SENARYO (2026-07-29): Google anahtarı elde ama Cloud projesinde faturalandırma
+        // kapalı — her istek 200 + REQUEST_DENIED döner. Bu red ÖNBELLEĞE YAZILIRSA, faturalandırma
+        // açıldıktan sonra bile aynı adresler 30 GÜN boyunca arızalı cevabı yer ve "anahtarı açtım
+        // ama hâlâ çalışmıyor" denir. Arıza yolu Yandex 500 üzerinden zaten sınanıyor; Google'ın
+        // yolu FARKLIDIR (HTTP başarılı, hata gövdede) ve kendi kanıtını hak ediyor.
+        config()->set('geocoding.driver', 'google');
+        config()->set('geocoding.google.api_key', 'g-anahtar');
+        Http::fake(['maps.googleapis.com/*' => Http::sequence()
+            ->push(['status' => 'REQUEST_DENIED', 'error_message' => 'You must enable Billing on the Google Cloud Project'], 200)
+            ->push([
+                'status' => 'OK',
+                'results' => [[
+                    'formatted_address' => 'Bahçe Sk. No:5, Kepez/Antalya',
+                    'geometry' => [
+                        'location' => ['lat' => 36.8969, 'lng' => 30.7133],
+                        'location_type' => 'ROOFTOP',
+                    ],
+                ]],
+            ])]);
+
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $ilk = $this->asToken($token)->postJson('/api/v1/geocode', ['query' => 'Bahçe Sk. no:5']);
+        $ilk->assertStatus(503);
+        // Faturalandırma gerekçesi kullanıcıya SIZMAZ; bayi "Billing" kelimesini görmemeli.
+        $this->assertStringNotContainsString('Billing', (string) $ilk->json('message'));
+
+        $ikinci = $this->asToken($token)->postJson('/api/v1/geocode', ['query' => 'Bahçe Sk. no:5']);
+        $ikinci->assertOk();
+        $ikinci->assertJsonPath('results.0.precision', 'bina');
+
+        // Asıl iddia: ikinci istek önbellekten DEĞİL, gerçekten sağlayıcıdan geldi.
+        Http::assertSentCount(2);
+    }
+
+    #[Test]
     public function kisa_sorgu_reddedilir_ve_saglayiciya_gitmez(): void
     {
         $this->yandexKur();
