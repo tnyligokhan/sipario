@@ -60,6 +60,19 @@
 - **[KONUM — GOOGLE AÇILDI ✅ 2026-07-29]** Fatura hesabı bağlandı ve Google CANLI. Kullanılan anahtar **ikinci** anahtardır (proje `142583979849`); ilk anahtar (proje `42963591866`) faturasız kaldığı için terk edildi — o projeyi silmek/temizlemek istersen kod tarafında hiçbir bağı yok. **Kalan tek iş: anahtar kısıtlaması.** Cloud Console → Credentials → anahtar → **yalnız "Geocoding API"** + **sunucu IP'si**. Bu anahtar da sohbette düz metin geçti; kısıtlama pazarlıksız. ⚠️ **HTTP referrer SEÇME** — sunucu anahtarıdır, tarayıcıya hiç gitmez, referrer kuralı isteği reddeder.
 - **[KONUM — KAPI NUMARASI BORCU KAPANDI ✅]** Ölçüldü: `"Şirinyalı Mah. 1497. Sk. No: 9"` → Google **`ROOFTOP`, `partial=false`** ile kapıyı BULDU (36.86004,30.73569); Yandex aynı sorguda hâlâ sokağa düşüyor (36.86318,30.73490). Yani `kapiNumarasiniAt` geri çekilmesini ortak koda taşımaya **gerek yok** — Google'ın kendi davranışı yeterli. Borç kapandı.
 - **[KONUM — KVKK]** Adres metni sınır dışına çıkıyor ve artık **İKİ ülkeye birden**: Yandex (Rusya) + Google (ABD). Ad/telefon/müşteri kimliği ÇIKMIYOR (uç nokta kabul etmiyor, testle kilitli) ama **KVKK aydınlatma metnine "adres bilgisi coğrafi kodlama amacıyla yurt dışı sağlayıcılara aktarılır" satırı eklenmeli** — zaten bekleyen avukat işinin kapsamında. Metin sağlayıcı ADI vermemeli ya da ikisini de saymalı; sürücü bir env satırıyla değişiyor, tek isim yazmak metni bayatlatır.
+- **[YEREL VERİ ONARIMI — SENDE, tek seferlik]** Bu makinede **İKİ** "Merkez Su Bayii" var:
+  `slug=demo` (26 Tem · 14 müşteri, 20 sipariş, 32 defter kaydı, 73 çağrı, 6 cihaz — GERÇEK saha
+  verisi) ve `slug=111` (29 Tem 12:54 · yalnız patron, veri YOK — seeder yarıda kaldığı için doğan
+  kabuk). `111/111/1111` ile girince BOŞ olana giriliyor. Onarım: dolu bayiyi `111` kimliğine taşı,
+  kabuğu SİLME, park et. `apps/api` içinde `php artisan tinker` açıp sırayla:
+  ```php
+  DB::connection('pgsql_owner')->table('tenants')->where('slug','111')->update(['slug'=>'111-bos-20260729']);
+  DB::connection('pgsql_owner')->table('tenants')->where('slug','demo')->update(['slug'=>'111']);
+  DB::connection('pgsql_owner')->table('users')->where('username','demo')->update(['username'=>'111','password'=>Hash::make('1111')]);
+  ```
+  Sıra önemli: `slug` global tekildir, önce `111` boşaltılmalı. Sonra telefonda çıkış yap → yeniden
+  `111/111/1111` ile gir; cihaz zaten o bayide kayıtlı olduğu için çakışma da kalmaz.
+
 - **[Faz 6 · GERİ ALINACAK BORÇ]** **Demo hesabın giriş bilgileri GEÇİCİ olarak kısaltıldı** (2026-07-29, kullanıcı isteği: saha testinde giriş kolaylaşsın): `demo/demo/demo1234` → **`111/111/1111`**. Mağaza başvurusundan ÖNCE güçlü bir değere döndürülmeli — depo public, pilot sunucusu tünelle dışarı açık ve `1111` parolalı bir hesap incelemeden geçse bile üçüncü kişilere kapı bırakır. Değiştirme noktası TEK yerdedir: `DemoSeeder::DEMO_TENANT_CODE / DEMO_USERNAME / DEMO_PASSWORD`; `docs/magaza/inceleme-notlari.md` ve `scripts/saha-sunucu.ps1` oradan güncellenir. NOT: `1/1/1` YAPILAMADI — sunucu ve mobil doğrulaması firma kodu/kullanıcı adı için en az 3, parola için en az 4 karakter istiyor; kuralı gevşetmek kimlik kurallarında kalıcı bir delik açardı.
 - **[Faz 6]** Apple + Google Play geliştirici hesapları + mağaza başvurusu; `USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı; KVKK aydınlatma + mesafeli satış/ön bilgilendirme metinlerinin **hukukça onayı**.
 - **[Faz 7]** Antalya'da 2–3 gerçek bayi + gerçek Android cihazlar (pilot).
@@ -90,6 +103,20 @@
 > **(AÇIK GÖZLEM)** Yandex olmayan kapı numarasını sessizce başkasına çevirip "bina" diyebiliyor.
 > **Testler:** API **256/256** (+7) · mobil **744/744** (+4) · phpstan L6 **0** · pint temiz.
 > **Kalan tek iş İNSANDA:** anahtarı "Geocoding API" + sunucu IP'siyle kısıtla.
+>
+> **AYRICA — GİRİŞ ARIZASI BULUNDU VE KAPATILDI.** Bayi doğru parolayla giriş yapamıyor, ham
+> `SQLSTATE[23505] devices_pkey` görüyordu. Kök neden bir zincirdi: demo kimliği `demo`→`111`
+> değişince `DemoSeeder` eski bayiyi göremedi (idempotenslik `slug`a bağlıydı — yani DEĞİŞEN
+> alanın kendisine), ikinci bir bayi kurmaya başladı, global `users_email_unique` kısıtına
+> çarpıp yarıda kaldı ve **kabuk bayi** bıraktı (tenant + patron var, başka hiçbir şey yok);
+> `saha-sunucu.ps1` seeder hatasını `*> $null` ile yuttuğu için bu hiç görünmedi. Kullanıcı boş
+> bayiye girdi ve telefonun KALICI `device_id`si eski bayinin satırında olduğu için
+> `updateOrCreate` RLS altında satırı göremeyip INSERT'e düştü → birincil anahtar çakışması.
+> **Üç düzeltme:** giriş artık cihaz çakışmasında DÜŞMÜYOR (log'a yazılır, 200 döner, başka
+> bayinin satırına dokunulmaz) · `DemoSeeder` tek `DB::transaction` içinde koşuyor (kabuk bayi
+> imkânsız) · script seeder hatasını ekrana basıyor. **Ders: RLS altında `updateOrCreate`
+> idempotent DEĞİLDİR** — "önce ara, yoksa ekle" deseni aramanın satırı görebildiğini varsayar.
+> ⚠️ **YEREL VERİ ONARIMI SENDE** — aşağıdaki "İnsan gerektiren işler" listesinde.
 
 ## Güncel durum (son güncelleme: 2026-07-29 — **SAHA GERİ BİLDİRİM TURU + DÖRT SESSİZ ARIZA KAPATILDI**: sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
 

@@ -65,19 +65,34 @@ class DemoSeeder extends Seeder
                 return;
             }
 
-            $tenant = $this->bayi();
-            $f = new DemoFabrika($tenant->id);
-            $ekip = $this->ekip($f);
-            $urun = $this->katalog($f);
-            $musteri = $this->musteriler($f);
+            // TEK İŞLEM — YARIM BAYİ BIRAKMAK YASAK (2026-07-29'da bir kez ödendi).
+            //
+            // Olan şuydu: giriş kimliği `demo`dan `111`e çevrilince yukarıdaki "zaten var mı"
+            // kontrolü ESKİ bayiyi göremedi (kontrol `slug`a bakıyor, `slug` da değişen değerin
+            // ta kendisi) ve seeder ikinci bir bayi kurmaya başladı. `bayi()` geçti, `ekip()`
+            // ise GLOBAL `users_email_unique` kısıtına çarptı — takım e-postaları
+            // (`nazli@demo.sipario.test` vb.) eski bayide zaten duruyordu. Sonuç: tenant ve
+            // patron yazılmış, başka hiçbir şey yazılmamış bir KABUK bayi.
+            //
+            // Kabuğun zararı çökmesi değil, İKNA EDİCİ görünmesiydi: giriş çalışıyor, uygulama
+            // açılıyor, her ekran boş. Üstelik `slug=111` artık var olduğu için seeder bir daha
+            // asla koşmuyor ve kendini onaramıyordu. İşlem sarmalı bunu imkânsız kılar: hata
+            // ne olursa olsun ya bayinin TAMAMI yazılır ya da HİÇBİRİ.
+            DB::transaction(function () {
+                $tenant = $this->bayi();
+                $f = new DemoFabrika($tenant->id);
+                $ekip = $this->ekip($f);
+                $urun = $this->katalog($f);
+                $musteri = $this->musteriler($f);
 
-            $this->isletme($f);
-            $this->siparisler($f, $ekip, $urun, $musteri);
-            $this->defterHareketleri($f, $ekip, $musteri);
-            $this->cagriGunlugu($f, $musteri);
-            $this->gecmisKapanis($f, $ekip);
+                $this->isletme($f);
+                $this->siparisler($f, $ekip, $urun, $musteri);
+                $this->defterHareketleri($f, $ekip, $musteri);
+                $this->cagriGunlugu($f, $musteri);
+                $this->gecmisKapanis($f, $ekip);
 
-            $f->bakiyeTazele(...array_values($musteri));
+                $f->bakiyeTazele(...array_values($musteri));
+            });
 
             $this->command->info(
                 'Demo bayisi kuruldu — Firma Kodu: '.self::DEMO_TENANT_CODE

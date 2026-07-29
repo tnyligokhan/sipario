@@ -9,11 +9,13 @@ use App\Http\Resources\TenantResource;
 use App\Http\Resources\UserResource;
 use App\Models\Device;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
@@ -114,22 +116,46 @@ class AuthController extends Controller
      * Login çağrısındaki opsiyonel cihaz bloğunu idempotent kaydeder.
      * tenant_id gövdeden ALINMAZ — oturumdaki kullanıcının tenant'ıdır.
      *
+     * CİHAZ KAYDI GİRİŞİ ASLA DÜŞÜRMEZ (2026-07-29 saha hatası). `device_id` istemcide üretilir
+     * ve kurulum boyunca KALICIDIR; aynı telefon başka bir bayiye giriş yaptığında o kimlik
+     * başka bir kiracının satırında durur. `updateOrCreate` önce SELECT atar, RLS o satırı
+     * GİZLER, dolayısıyla "yok" sanıp INSERT'e geçer ve birincil anahtar çakışır —
+     * `SQLSTATE[23505] devices_pkey`. Kullanıcı, doğru parolayı girdiği hâlde ham bir SQL
+     * hatasıyla karşılaşıyordu; oysa kimlik doğrulama BAŞARILIYDI.
+     *
+     * Politika `DeviceController::store` ile AYNI: başka bayinin cihaz satırına DOKUNULMAZ
+     * (sahibini değiştirmek, o bayinin bildirim kaydını sessizce çalmak olurdu). Fark şu ki
+     * orası ayrı bir uç noktadır ve 409 döner; BURASI giriş yoludur ve cihaz bloğu OPSİYONELDİR
+     * — giriş başarılıysa cevap 200 olmalıdır. Durum sessizce yutulmaz, log'a yazılır.
+     *
      * @param  array<string, mixed>  $device
      */
     private function upsertDevice(User $user, array $device): void
     {
-        Device::updateOrCreate(
-            ['id' => $device['device_id']],
-            [
+        try {
+            Device::updateOrCreate(
+                ['id' => $device['device_id']],
+                [
+                    'tenant_id' => $user->tenant_id,
+                    'user_id' => $user->id,
+                    'platform' => $device['platform'],
+                    'model' => $device['model'] ?? null,
+                    'os_version' => $device['os_version'] ?? null,
+                    'app_version' => $device['app_version'] ?? null,
+                    'push_token' => $device['push_token'] ?? null,
+                    'last_seen_at' => now(),
+                ]
+            );
+        } catch (QueryException $e) {
+            // 23505 = unique_violation. BAŞKA hiçbir veritabanı hatası yutulmaz.
+            if ($e->getCode() !== '23505') {
+                throw $e;
+            }
+
+            Log::warning('Cihaz kaydi atlandi: device_id baska bir kiracida', [
                 'tenant_id' => $user->tenant_id,
                 'user_id' => $user->id,
-                'platform' => $device['platform'],
-                'model' => $device['model'] ?? null,
-                'os_version' => $device['os_version'] ?? null,
-                'app_version' => $device['app_version'] ?? null,
-                'push_token' => $device['push_token'] ?? null,
-                'last_seen_at' => now(),
-            ]
-        );
+            ]);
+        }
     }
 }

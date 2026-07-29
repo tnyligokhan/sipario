@@ -231,9 +231,27 @@ Veritabani semasi kurulamadi (php artisan migrate).
   Sik sebep: .env icindeki DB_OWNER_USERNAME/PASSWORD ile konteynerdeki roller uyusmuyor.
 "@
 }
-& $phpExe artisan db:seed --class=DemoSeeder --force *> $null
+# SESSIZ ARIZA (2026-07-29'da odendi): bu satir eskiden `*> $null` idi ve seeder'in CIKTISINI
+# de HATASINI da yutuyordu. Demo bayisi kurulurken global users_email_unique kisitina carpip
+# yarida kaldi; script yine "Sema ve demo verisi hazir." dedi. Sonuc: girisi calisan ama her
+# ekrani bos bir bayi ve teshis edilemeyen bir aksam. Ciktiyi TUTUYORUZ ve cikis kodunu
+# kontrol ediyoruz.
+#
+# OLUMCUL DEGIL, ama SESSIZ de degil: demo verisi kurulamasa bile sunucu ayaga kalkar
+# (mevcut bayiler calisir) - yalniz ekranda kirmizi bir uyari ve gercek sebep durur.
+$seedCikti = (& $phpExe artisan db:seed --class=DemoSeeder --force 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0) {
+  Yaz ""
+  Yaz "UYARI: Demo verisi kurulamadi (sunucu yine de aciliyor)."
+  Yaz "  Sebep:"
+  foreach ($satir in ($seedCikti -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 8)) {
+    Yaz ("    " + $satir)
+  }
+  Yaz ""
+} else {
+  Yaz "Sema ve demo verisi hazir."
+}
 Pop-Location
-Yaz "Sema ve demo verisi hazir."
 
 # ── 2) API sunucusu (gizli surec)
 $php = Start-Process -FilePath $phpExe `

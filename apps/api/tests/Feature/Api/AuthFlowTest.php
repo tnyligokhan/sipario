@@ -286,6 +286,38 @@ class AuthFlowTest extends ApiTestCase
     }
 
     #[Test]
+    public function baska_bayiye_kayitli_device_id_girisi_dusurmez(): void
+    {
+        // SAHA HATASI 2026-07-29: `device_id` istemcide üretilir ve kurulum boyunca KALICIDIR.
+        // Aynı telefon başka bir bayiye giriş yapınca o kimlik başka kiracının satırında durur;
+        // `updateOrCreate` önce SELECT atar, RLS satırı GİZLER, "yok" sanıp INSERT'e geçer ve
+        // birincil anahtar çakışır. Kullanıcı DOĞRU parolayı girdiği hâlde ham bir SQL hatası
+        // görüyordu — oysa kimlik doğrulama başarılıydı.
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $deviceId = (string) Str::uuid7();
+
+        // Telefon önce A bayisine giriş yapar — cihaz A'ya yazılır.
+        $this->postJson('/api/v1/auth/login', $this->girisGovdesi($a['tenant'], $a['patron']) + [
+            'device' => ['device_id' => $deviceId, 'platform' => 'android'],
+        ])->assertOk();
+
+        // AYNI telefon şimdi B bayisine giriş yapıyor.
+        $yanit = $this->postJson('/api/v1/auth/login', $this->girisGovdesi($b['tenant'], $b['patron']) + [
+            'device' => ['device_id' => $deviceId, 'platform' => 'android'],
+        ]);
+
+        // Giriş BAŞARILI olmalı: cihaz bloğu opsiyonel bir yan etkidir, kimlik doğrulama değil.
+        $yanit->assertOk();
+        $this->assertNotEmpty($yanit->json('token'));
+
+        // A'nın cihaz kaydına DOKUNULMAZ — sahibini değiştirmek, o bayinin bildirim
+        // kaydını sessizce çalmak olurdu (DeviceController::store ile aynı politika).
+        $device = $this->asOwner(fn () => Device::query()->find($deviceId));
+        $this->assertSame($a['tenant']->id, $device->tenant_id);
+    }
+
+    #[Test]
     public function hata_yanitlarinda_da_server_time_bulunur(): void
     {
         // AppendServerTime tüm JSON yanıtlara ekler; 401 gövdesinde de olmalı (istemci offset'i).
