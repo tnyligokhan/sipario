@@ -111,19 +111,29 @@ class SipGovde extends StatelessWidget {
     required this.children,
     this.controller,
     this.altBosluk = SipSpace.x4,
+    this.onYenile,
   });
 
   final List<Widget> children;
   final ScrollController? controller;
   final double altBosluk;
 
+  /// Aşağı çekerek yenile (kullanıcı isteği 2026-07-29). Verilmezse jest HİÇ kurulmaz —
+  /// yenilenecek bir şeyi olmayan bir ekranda dönen gösterge, iş yapıldığı yalanını söyler.
+  final Future<void> Function()? onYenile;
+
   @override
   Widget build(BuildContext context) {
-    return ListView(
+    final liste = ListView(
       controller: controller,
+      // İçerik kısa olsa da jest çalışmalı: yenileme en çok BOŞ ekranda (yeni kurulum,
+      // senkron gelmemiş cihaz) gerekiyor ve varsayılan fizik orada kaydırmayı kapatıyor.
+      physics: onYenile == null ? null : const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(SipSpace.govde, 0, SipSpace.govde, altBosluk),
       children: children,
     );
+    if (onYenile == null) return liste;
+    return RefreshIndicator(onRefresh: onYenile!, child: liste);
   }
 }
 

@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../sync/yenileme.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
@@ -33,7 +34,14 @@ class GunDetayEkrani extends StatefulWidget {
 }
 
 class _GunDetayEkraniState extends State<GunDetayEkrani> {
-  late final Future<GunDetayi> _detay = gunDetayi(widget.db, widget.gun);
+  late Future<GunDetayi> _detay = gunDetayi(widget.db, widget.gun);
+
+  /// Geçmiş bir gün de tazelenebilir olmalı: kuryenin telefonundaki teslimat ya da düzeltme
+  /// kaydı senkronla sonradan gelebilir ve o gün "kapanmış" olsa bile RAKAMI değişir.
+  Future<void> _yenile() async {
+    await yenile();
+    if (mounted) setState(() => _detay = gunDetayi(widget.db, widget.gun));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +67,7 @@ class _GunDetayEkraniState extends State<GunDetayEkrani> {
                   }
                   final d = snap.data;
                   if (d == null) return const SipIskelet(adet: 4);
-                  return _Govde(detay: d);
+                  return _Govde(detay: d, onYenile: _yenile);
                 },
               ),
             ),
@@ -71,14 +79,16 @@ class _GunDetayEkraniState extends State<GunDetayEkrani> {
 }
 
 class _Govde extends StatelessWidget {
-  const _Govde({required this.detay});
+  const _Govde({required this.detay, required this.onYenile});
 
   final GunDetayi detay;
+  final Future<void> Function() onYenile;
 
   @override
   Widget build(BuildContext context) {
     final d = detay;
     return SipGovde(
+      onYenile: onYenile,
       children: [
         const SipBolumBaslik('Kasa Özeti', ustBosluk: 18),
         DegerKarti(

@@ -20,6 +20,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/app_database.dart';
+import '../sync/yenileme.dart';
 import '../repo/day_closing_repository.dart';
 import '../theme/components/atoms.dart';
 import '../theme/components/overlays.dart';
@@ -84,6 +85,13 @@ class _DayEndScreenState extends State<DayEndScreen> {
       _gun = bugunTr();
       _gorunum = gunSonuGorunumu(widget.db, _gun, kuryeId: _kuryeId);
     });
+  }
+
+  /// Aşağı çekerek yenile: önce senkron (sunucudan yeni kayıt gelebilir), sonra ekranın
+  /// kendi future'ı. Sıra önemli — tersi olsaydı ekran senkrondan ÖNCEKİ veriyi hesaplardı.
+  Future<void> _yenile() async {
+    await yenile();
+    if (mounted) _tazele();
   }
 
   void _kapsamSec(String? kuryeId) {
@@ -211,6 +219,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
                               kapsamAdi: _kapsamAdi(kuryeler),
                               gunKapsami: _kuryeId == null,
                               ekip: kuryeler,
+                              onYenile: _yenile,
                             ),
                     ),
                     if (g != null)
@@ -238,9 +247,11 @@ class _Govde extends StatelessWidget {
     required this.kapsamAdi,
     required this.gunKapsami,
     required this.ekip,
+    required this.onYenile,
   });
 
   final AppDatabase db;
+  final Future<void> Function() onYenile;
   final GunSonuGorunumu gorunum;
 
   /// Seçili kapsamın adı ("Gün hesabı" ya da kurye adı).
@@ -264,6 +275,11 @@ class _Govde extends StatelessWidget {
     final kasa = g.kapsam.kasa;
 
     return SipGovde(
+      // Yenileme SENKRONU koşar VE ekranın kendi future'ını tazeler: gün sonu verisi
+      // `FutureBuilder`dan geliyor, yani senkron yeni satır yazsa bile ekran kendiliğinden
+      // yeniden hesaplamaz (akış tabanlı listelerin aksine). İkisinden biri eksik kalsaydı
+      // gösterge döner, hiçbir rakam değişmezdi.
+      onYenile: onYenile,
       children: [
         if (g.kapsamKapali)
           KapaliSerit(

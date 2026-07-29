@@ -8,6 +8,7 @@
 // Silme TOMBSTONE'dur (repo `deleted_at` yazar): senkronla diğer cihazlara yayılsın ve
 // çevrimdışı iki cihazın kararı çakışıp kaybolmasın.
 
+import '../../sync/yenileme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -116,6 +117,8 @@ class _Govde extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SipGovde(
+      // Aşağı çekerek yenile: liste sunucudan senkronla besleniyor (kullanıcı isteği 2026-07-29).
+      onYenile: yenile,
       children: [
         // CSS `.md-not` — ekranın ne yaptığını tek cümlede söyleyen uyarı bloğu. Tasarımda
         // (`s-muaf.jsx:21`) "Caller ID kartı açılmaz" KALIN yazılır: not okunmadan geçilince

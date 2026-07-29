@@ -16,7 +16,9 @@
 import 'package:flutter/material.dart';
 
 import '../data/app_database.dart';
+import '../guncelleme/guncelleme_servisi.dart';
 import '../sync/sync_service.dart';
+import '../sync/yenileme.dart';
 import '../theme/components/atoms.dart';
 import '../theme/icons.dart';
 import '../theme/tokens.dart';
@@ -65,10 +67,21 @@ class AnaEkran extends StatelessWidget {
   final SyncOutcome? sonSenkron;
   final DateTime? sonSenkronAt;
 
+  /// Saate göre selam (kullanıcı isteği 2026-07-29: dört kuşak).
+  ///
+  /// Kuşaklar su bayisinin gününe göre biçildi, saat diliminin ortasına değil:
+  ///  • 06–11 **Günaydın** — dükkân açılır, günün siparişleri girilir.
+  ///  • 12–17 **Kolay gelsin** — teslimatın en yoğun olduğu bant; "iyi günler" burada
+  ///    fazla resmî kalıyordu, esnaf birbirine "kolay gelsin" der.
+  ///  • 18–21 **İyi akşamlar** — son teslimatlar ve gün sonu kapanışı.
+  ///  • 22–05 **İyi geceler** — dükkân kapalı; uygulama bu saatte açılıyorsa ya gün sonu
+  ///    hesabı yapılıyordur ya da gece nöbeti vardır, ikisinde de "günaydın" yanlış olur.
   static String selam(DateTime simdi) {
-    if (simdi.hour < 12) return 'Günaydın';
-    if (simdi.hour < 18) return 'İyi günler';
-    return 'İyi akşamlar';
+    final s = simdi.hour;
+    if (s >= 6 && s < 12) return 'Günaydın';
+    if (s >= 12 && s < 18) return 'Kolay gelsin';
+    if (s >= 18 && s < 22) return 'İyi akşamlar';
+    return 'İyi geceler';
   }
 
   @override
@@ -86,7 +99,15 @@ class AnaEkran extends StatelessWidget {
             stream: watchAnaOzet(db),
             builder: (context, snap) {
               final o = snap.data ?? const AnaOzet();
-              return ListView(
+              return RefreshIndicator(
+                // Ana ekranda yenileme SENKRON + GÜNCELLEME kontrolü yapar (kullanıcı isteği
+                // 2026-07-29). Gösterge, gerçek turun bitişini bekler — hemen kapanan bir
+                // spinner "yapıldı" der ama hiçbir şeyi kanıtlamaz.
+                onRefresh: anaEkranYenile,
+                child: ListView(
+                // AlwaysScrollable: içerik kısa olsa da (yeni kurulum, boş liste) jest
+                // çalışmalı; aksi hâlde yenileme tam da en çok gerektiği kurulumda ölürdü.
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(
                     SipSpace.govde, SipSpace.x3, SipSpace.govde, SipSpace.x4),
                 children: [
@@ -102,6 +123,7 @@ class AnaEkran extends StatelessWidget {
                   SipBolumBaslik('Son aktivite', ustBosluk: SipSpace.x4),
                   _SonAktivite(db: db, onSiparisAc: onSiparisAc),
                 ],
+                ),
               );
             },
           ),
@@ -179,7 +201,16 @@ class _Hero extends StatelessWidget {
               ],
             ),
             const SizedBox(height: SipSpace.x3),
-            _SyncCipi(sonuc: sonSenkron, zaman: sonSenkronAt),
+            // İki çip yan yana; dar ekranda alt satıra sarar (Wrap) — hero'nun tek satırlık
+            // yüksekliği sabit değil ve taşan bir çip metni kırpardı.
+            Wrap(
+              spacing: SipSpace.sm,
+              runSpacing: SipSpace.sm,
+              children: [
+                _SyncCipi(sonuc: sonSenkron, zaman: sonSenkronAt),
+                const _SurumCipi(),
+              ],
+            ),
           ],
         ),
       ),
@@ -228,6 +259,52 @@ class _SyncCipi extends StatelessWidget {
           Text(metin, style: SipText.syncCip.copyWith(color: SipTokens.onHeroMid)),
         ],
       ),
+    );
+  }
+}
+
+/// "Sürüm güncel" çipi — YALNIZ sunucuya gerçekten ulaşılmış bir kontrolden sonra çizilir
+/// (kullanıcı isteği 2026-07-29: "gelmediyse senkron güncelin yanında sürüm güncel yazabilir").
+///
+/// ÜÇ DURUMDA HİÇ ÇİZİLMEZ ve üçü de bilinçli:
+///  • Henüz kontrol yapılmadıysa — hiç sorulmamış bir soruya "güncel" diye cevap vermek olurdu.
+///  • Çevrimdışı denemede — ulaşılamayan sunucu hakkında "güncelsiniz" demek yanlış bilgidir.
+///  • Güncelleme BULUNDUYSA — o durumu güncelleme bandı anlatır; iki yüzey çelişemez.
+/// Mağaza derlemesinde kontrol hiç koşmaz, dolayısıyla çip de hiç görünmez (kanal kapısı).
+class _SurumCipi extends StatelessWidget {
+  const _SurumCipi();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<DateTime?>(
+      valueListenable: guncellemeServisi.sonBasariliKontrol,
+      builder: (context, kontrol, _) {
+        if (kontrol == null) return const SizedBox.shrink();
+        return ValueListenableBuilder<GuncellemeDurumu>(
+          valueListenable: guncellemeServisi.durum,
+          builder: (context, durum, _) {
+            if (durum != GuncellemeDurumu.yok) return const SizedBox.shrink();
+            return Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: SipSpace.xl, vertical: SipSpace.sm),
+              decoration: const BoxDecoration(
+                color: SipTokens.onHeroFill,
+                borderRadius: SipRadius.brHap,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SipIcon(SipIcons.check,
+                      boyut: 12, kalinlik: 2.4, renk: SipTokens.onHeroMid),
+                  const SizedBox(width: 6),
+                  Text('Sürüm güncel',
+                      style: SipText.syncCip.copyWith(color: SipTokens.onHeroMid)),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

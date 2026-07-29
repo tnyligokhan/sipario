@@ -153,10 +153,16 @@ class _Kutu extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 108),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          // ORTALI DÜZEN (kullanıcı isteği 2026-07-29: "yazılar ve rakamlar çok dağınık").
+          // Sola dayalı hâlde her kutunun etiketi, rakamı ve alt satırı FARKLI uzunlukta
+          // olduğu için ızgara dört ayrı sol kenar üretiyordu; göz hangi rakamın hangi
+          // etikete ait olduğunu her seferinde yeniden kuruyordu. Ortalama, dört kutuyu
+          // tek bir dikey eksende topluyor.
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
               etiket,
+              textAlign: TextAlign.center,
               style: SipText.bentoEtiket
                   .copyWith(color: murekkep.withValues(alpha: 0.72)),
             ),
@@ -169,17 +175,22 @@ class _Kutu extends StatelessWidget {
               );
               if (tekSatir) {
                 return Text(deger,
-                    style: stil, maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false);
+                    style: stil,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    softWrap: false);
               }
               return FittedBox(
                 fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
+                alignment: Alignment.center,
                 child: Text(deger, style: stil, maxLines: 1),
               );
             }),
             const SizedBox(height: 2),
             Text(
               alt,
+              textAlign: TextAlign.center,
               style: SipText.bentoAlt.copyWith(
                 color: altEksi && !birincil
                     ? t.danger

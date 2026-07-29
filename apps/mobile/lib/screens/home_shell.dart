@@ -33,6 +33,7 @@ import '../guncelleme/guncelleme_servisi.dart';
 import '../subscription/subscription_locked_screen.dart';
 import '../subscription/subscription_state.dart';
 import '../sync/sync_service.dart';
+import '../sync/yenileme.dart';
 import '../theme/app_theme.dart';
 import '../theme/components/overlays.dart';
 import '../theme/components/states.dart';
@@ -193,6 +194,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() => _kuryeler = k);
     });
+    // "Aşağı çekerek yenile" beş ekranda kullanılıyor ve hepsi kabuk tarafından farklı
+    // yollardan kuruluyor (sekme · Navigator.push). Servisi her ekranın imzasına eklemek
+    // yerine bir kez bağlanır — `guncellemeServisi` tekilinin aynı deseni.
+    yenilemeyiBagla(widget.sync);
+
     _syncSub = widget.sync.status.listen((o) {
       if (!mounted) return;
       setState(() {

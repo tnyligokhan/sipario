@@ -55,6 +55,14 @@ class GuncellemeServisi {
 
   /// Bulunan sürüm; yoksa null. Bant bu iki bildirimi dinler.
   final ValueNotifier<SurumBilgisi?> bulunan = ValueNotifier<SurumBilgisi?>(null);
+
+  /// SUNUCUYA GERÇEKTEN ULAŞILAN son kontrolün anı (güncelleme bulunsun ya da bulunmasın).
+  ///
+  /// Ana ekran bunu "Sürüm güncel" çipini çizmek için okur. Yalnız `durum == yok` bakmak
+  /// YETMEZ: hiç kontrol yapılmamış bir uygulamada da durum `yok`tur ve çip, hiç sorulmamış
+  /// bir soruya "güncel" diye cevap vermiş olurdu. Çevrimdışı bir denemede de yazılmaz —
+  /// ulaşılamayan sunucu hakkında "güncelsiniz" demek yanlış bilgidir.
+  final ValueNotifier<DateTime?> sonBasariliKontrol = ValueNotifier<DateTime?>(null);
   final ValueNotifier<GuncellemeDurumu> durum =
       ValueNotifier<GuncellemeDurumu>(GuncellemeDurumu.yok);
 
@@ -115,6 +123,9 @@ class GuncellemeServisi {
       if (yanit.statusCode != 200) return;
       final bilgi = SurumBilgisi.cozumle(yanit.body);
       if (bilgi == null) return;
+      // Sunucuya ULAŞILDI ve cevap okundu — güncelleme çıkmasa da bu bir başarıdır ve
+      // ekranın "Sürüm güncel" diyebilmesinin tek dayanağıdır.
+      sonBasariliKontrol.value = simdi;
       if (!guncellemeVarMi(yerelYapim: kYapim, uzakYapim: bilgi.yapim)) return;
       bulunan.value = bilgi;
       durum.value = GuncellemeDurumu.bulundu;

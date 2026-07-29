@@ -6,6 +6,7 @@ import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../sync/yenileme.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
@@ -139,12 +140,18 @@ class SiparisListesi extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!elle) {
-      return ListView.builder(
-        padding: _dolgu,
-        itemCount: liste.length,
-        itemBuilder: (context, i) => _satir(context, i),
+      return RefreshIndicator(
+        onRefresh: yenile,
+        child: ListView.builder(
+          padding: _dolgu,
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: liste.length,
+          itemBuilder: (context, i) => _satir(context, i),
+        ),
       );
     }
+    // ELLE SIRALAMA kipinde yenileme YOK: aşağı çekme ile sürükleme aynı jesttir ve ikisi
+    // birlikte açıkken kullanıcı sırayı bozmadan listeyi kaydıramaz.
     return ReorderableListView.builder(
       padding: _dolgu,
       buildDefaultDragHandles: false, // tutamaç tasarımda `.srow-grip`, satırın tamamı değil

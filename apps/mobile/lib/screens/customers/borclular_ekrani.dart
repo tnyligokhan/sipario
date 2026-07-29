@@ -16,6 +16,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../sync/yenileme.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
@@ -230,9 +231,12 @@ class _Liste extends StatelessWidget {
             siparisSnap.data ?? const [],
             tahsilatSnap.data ?? const {},
           );
-          return ListView.builder(
+          return RefreshIndicator(
+            onRefresh: yenile,
+            child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(
                 SipSpace.govde, 0, SipSpace.govde, SipSpace.x5),
+            physics: const AlwaysScrollableScrollPhysics(),
             itemCount: liste.length,
             itemBuilder: (context, i) => Padding(
               padding: EdgeInsets.only(top: i == 0 ? 0 : SipSpace.md),
@@ -243,6 +247,7 @@ class _Liste extends StatelessWidget {
                 yetki: yetki,
                 canAssign: canAssign,
               ),
+            ),
             ),
           );
         },

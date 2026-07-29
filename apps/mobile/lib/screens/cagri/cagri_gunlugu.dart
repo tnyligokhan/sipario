@@ -18,6 +18,7 @@
 // gidilir, KAYITSIZSA çağrı kartı açılır. Karar çağırana ait; bu ekran yalnız [AramaKaydi]
 // döndürür, `lib/screens/customers` ya da çağrı kartını kendisi TANIMAZ.
 
+import '../../sync/yenileme.dart';
 import 'package:drift/drift.dart' show OrderingTerm, leftOuterJoin;
 import 'package:flutter/material.dart';
 
@@ -182,6 +183,8 @@ class CagriGunluguEkrani extends StatelessWidget {
       );
     }
     return SipGovde(
+      // Aşağı çekerek yenile: liste sunucudan senkronla besleniyor (kullanıcı isteği 2026-07-29).
+      onYenile: yenile,
       // SafeArea `bottom: false` — liste gezinme çubuğunun ALTINA kayabilsin (kaydırırken
       // içerik oradan geçer) ama SON satır onun altında KALMASIN diye alt boşluğa sistem
       // payı eklenir. Sabit bir boşluk, jest çubuğu olan ve olmayan cihazlarda tutmaz.

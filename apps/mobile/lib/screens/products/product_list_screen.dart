@@ -7,6 +7,7 @@
 // Ürün SİLİNMEZ, pasifleşir: geçmiş sipariş satırları ad/fiyatı kendi içinde taşıdığından
 // silme veriyi bozmaz ama katalog geçmişini yalanlar. Form `product_form_sheet.dart` içinde.
 
+import '../../sync/yenileme.dart';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show OrderingTerm;
@@ -103,6 +104,8 @@ class _Liste extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SipGovde(
+      // Aşağı çekerek yenile: liste sunucudan senkronla besleniyor (kullanıcı isteği 2026-07-29).
+      onYenile: yenile,
       children: [
         EkleSatiri(etiket: 'Yeni ürün ekle', onTap: () => _ac(context, null)),
         if (urunler.isEmpty)

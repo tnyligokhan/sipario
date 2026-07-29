@@ -10,6 +10,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../sync/yenileme.dart';
 import '../../data/outbox.dart' show phoneLast10;
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
@@ -130,13 +131,18 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                     );
                   }
                   if (rows.isEmpty) return _bosDurum();
-                  return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(SipSpace.govde, 2, SipSpace.govde, 104),
-                    itemCount: rows.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 7),
-                    itemBuilder: (context, i) => _MusteriSatiri(
-                      satir: rows[i],
-                      onAc: () => _ac(rows[i].customer),
+                  return RefreshIndicator(
+                    onRefresh: yenile,
+                    child: ListView.separated(
+                      padding:
+                          const EdgeInsets.fromLTRB(SipSpace.govde, 2, SipSpace.govde, 104),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: rows.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 7),
+                      itemBuilder: (context, i) => _MusteriSatiri(
+                        satir: rows[i],
+                        onAc: () => _ac(rows[i].customer),
+                      ),
                     ),
                   );
                 },

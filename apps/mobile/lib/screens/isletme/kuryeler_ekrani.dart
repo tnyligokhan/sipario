@@ -13,6 +13,7 @@
 //
 // Kurye SİLİNMEZ, pasifleşir: geçmiş atamalarda adının okunabilir kalması gerekir.
 
+import '../../sync/yenileme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -118,6 +119,8 @@ class _Liste extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SipGovde(
+      // Aşağı çekerek yenile: liste sunucudan senkronla besleniyor (kullanıcı isteği 2026-07-29).
+      onYenile: yenile,
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: SipSpace.xl),
