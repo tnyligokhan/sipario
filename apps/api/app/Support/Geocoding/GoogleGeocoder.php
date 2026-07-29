@@ -114,7 +114,8 @@ final class GoogleGeocoder implements Geocoder
                 lat: (float) $lat,
                 lng: (float) $lng,
                 kesinlik: $this->kesinlik(
-                    is_string($tip = data_get($sonuc, 'geometry.location_type')) ? $tip : ''
+                    is_string($tip = data_get($sonuc, 'geometry.location_type')) ? $tip : '',
+                    data_get($sonuc, 'partial_match') === true,
                 ),
             );
 
@@ -153,12 +154,26 @@ final class GoogleGeocoder implements Geocoder
         return $sol[1].','.$sol[0].'|'.$sag[1].','.$sag[0];
     }
 
-    private function kesinlik(string $tip): string
+    /**
+     * `location_type` → kesinlik. Yandex'teki kapı-numarası geri çekilmesinin Google karşılığı
+     * BURADADIR ve ikinci bir sorgu gerektirmez: Google numarayı bulamadığında sıfır sonuç
+     * dönmek yerine sokağı döner ve kaydı `partial_match: true` diye işaretler.
+     *
+     * O bayrak varken kesinlik en fazla `sokak`tır — `location_type` "ROOFTOP" dese bile.
+     * Google'ın "rooftop"u sorgunun TAMAMINI değil eşleşebildiği kadarını anlatır; istenen
+     * kapıyı değil sokağı bulmuşken bunu "bina" diye sunmak kuryenin güvendiği bir yalan
+     * olurdu (DECISIONS.md — kapı numarası kararıyla aynı gerekçe).
+     */
+    private function kesinlik(string $tip, bool $kismiEslesme): string
     {
-        return match ($tip) {
+        $kesinlik = match ($tip) {
             'ROOFTOP', 'RANGE_INTERPOLATED' => GeoAday::KESINLIK_BINA,
             'GEOMETRIC_CENTER' => GeoAday::KESINLIK_SOKAK,
             default => GeoAday::KESINLIK_SEMT,
         };
+
+        return ($kismiEslesme && $kesinlik === GeoAday::KESINLIK_BINA)
+            ? GeoAday::KESINLIK_SOKAK
+            : $kesinlik;
     }
 }

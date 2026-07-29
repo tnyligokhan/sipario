@@ -375,6 +375,37 @@ class GeocodeTest extends ApiTestCase
     }
 
     #[Test]
+    public function google_kismi_eslesmeyi_bina_diye_sunmaz(): void
+    {
+        // Yandex'te kapı numarası bulunamayınca sıfır sonuç gelir ve ikinci bir sorgu koşarız.
+        // Google aynı durumda sokağı döner ve kaydı `partial_match: true` diye işaretler —
+        // ama `location_type` yine "ROOFTOP" olabilir. Bayrağı yok sayarsak kuryeye
+        // "bina kesinliğinde" derdik; oysa istenen kapı DEĞİL, sokak bulundu.
+        config()->set('geocoding.driver', 'google');
+        config()->set('geocoding.google.api_key', 'g-anahtar');
+        Http::fake(['maps.googleapis.com/*' => Http::response([
+            'status' => 'OK',
+            'results' => [[
+                'formatted_address' => '1497. Sk., Muratpaşa/Antalya',
+                'partial_match' => true,
+                'geometry' => [
+                    'location' => ['lat' => 36.8600, 'lng' => 30.7300],
+                    'location_type' => 'ROOFTOP',
+                ],
+            ]],
+        ])]);
+
+        $a = $this->makeTenant('a');
+        $yanit = $this->asToken($this->tokenFor($a['patron']))
+            ->postJson('/api/v1/geocode', ['query' => '1497. Sk. No: 9 Muratpaşa/Antalya']);
+
+        $yanit->assertOk();
+        $yanit->assertJsonPath('results.0.precision', 'sokak');
+        // Aday DÜŞMEZ — yaklaşık olması onu değersiz yapmaz, yalnız dürüstçe etiketlenir.
+        $yanit->assertJsonPath('results.0.lat', 36.86);
+    }
+
+    #[Test]
     public function google_zero_results_ariza_degildir(): void
     {
         config()->set('geocoding.driver', 'google');
