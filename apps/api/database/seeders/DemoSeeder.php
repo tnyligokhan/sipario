@@ -20,7 +20,19 @@ use Illuminate\Support\Facades\DB;
  * konumsuz, açık · teslim · iptal, atanmış · atanmamış) en az bir kez geçmeli.
  *
  * GİRİŞ (tasarım `s-giris.jsx`: firma kodu + kullanıcı adı + parola):
- *   Firma Kodu `demo` · Kullanıcı Adı `demo` · Parola `demo1234`   (patron)
+ *   Firma Kodu `111` · Kullanıcı Adı `111` · Parola `1111`   (patron)
+ *
+ * ⚠️ GEÇİCİ — SAHA TESTİ KOLAYLIĞI (kullanıcı isteği 2026-07-29). Öncesi `demo/demo/demo1234`.
+ * MAĞAZA BAŞVURUSUNDAN ÖNCE GERİ ALINMALI: `docs/magaza/inceleme-notlari.md` incelemeciye bu
+ * bilgileri veriyor ve "1111" parolalı bir hesap, incelemeden geçse bile üçüncü kişilerin
+ * kolayca gireceği bir kapıdır (depo PUBLIC, saha sunucusu tünelle dışarı açık).
+ * PLAN.md "İnsan gerektiren işler" listesine borç olarak yazıldı.
+ *
+ * NEDEN `1/1/1` DEĞİL: `LoginRequest` firma kodu ve kullanıcı adı için `{3,}`, parola için
+ * `min:4` istiyor (mobil tarafta `login_screen.dart` aynı kuralı tekrarlıyor). Tek karakterli
+ * değerler doğrulamaya takılır ve giriş DENEMESİ bile yapılmaz. Kuralları gevşetmek ürünün
+ * kimlik kurallarına dokunmak olurdu — kolaylık için kalıcı bir kapı açılmaz; kuralları geçen
+ * en kısa değerler seçildi (3+3+4 dokunuş, hepsi aynı tuş).
  * Rol denemeleri için aynı parolayla: `nazli` (operator), `emre` / `hakan` (kurye).
  *
  * AKTİF + uzun valid_until (inceleme sırasında kilitlenmez). İDEMPOTENT: demo bayisi varsa
@@ -34,12 +46,15 @@ class DemoSeeder extends Seeder
 {
     public const DEMO_EMAIL = 'demo@sipario.com.tr';
 
-    /** Mağaza inceleme hesabının GİRİŞ kimliği (tasarım `s-giris.jsx`). */
-    public const DEMO_TENANT_CODE = 'demo';
+    /**
+     * Mağaza inceleme hesabının GİRİŞ kimliği (tasarım `s-giris.jsx`).
+     * ⚠️ GEÇİCİ değerler — gerekçe ve geri alma borcu sınıf başlığında.
+     */
+    public const DEMO_TENANT_CODE = '111';
 
-    public const DEMO_USERNAME = 'demo';
+    public const DEMO_USERNAME = '111';
 
-    public const DEMO_PASSWORD = 'demo1234';
+    public const DEMO_PASSWORD = '1111';
 
     public function run(): void
     {

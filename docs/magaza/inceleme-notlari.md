@@ -11,10 +11,17 @@ durumuna bağlı özellikleri video üzerinden anlayabilsin ve hassas izinlerin 
 
 Giriş ekranı **üç alan** ister (e-posta İSTEMEZ):
 
-- **Firma Kodu:** `demo`
-- **Kullanıcı Adı:** `demo`
-- **Şifre:** `demo1234`
+- **Firma Kodu:** `111`
+- **Kullanıcı Adı:** `111`
+- **Şifre:** `1111`
 - **Rol:** Patron (tam yetkili)
+
+> ⚠️ **BU DEĞERLER GEÇİCİDİR — BAŞVURUDAN ÖNCE DEĞİŞTİRİLMELİ.** Saha testinde giriş kolay
+> olsun diye 2026-07-29'da `demo/demo/demo1234` yerine kısaltıldı. Depo public ve pilot
+> sunucusu tünelle dışarı açık; `1111` parolalı bir hesap, incelemeden geçse bile üçüncü
+> kişilerin kolayca gireceği bir kapıdır. Değiştirme noktası TEK yerdedir:
+> `DemoSeeder::DEMO_TENANT_CODE / DEMO_USERNAME / DEMO_PASSWORD` — bu belge oradan
+> güncellenir. Borç `PLAN.md` "İnsan gerektiren işler" listesinde.
 
 > Firma kodu, işletmeyi tanımlayan koddur; kullanıcı adı o işletmedeki kişiyi. Saha
 > uygulamasında kurye/tezgâhtar hesaplarının çoğu zaman e-posta adresi olmadığı için giriş
@@ -78,7 +85,7 @@ Giriş ekranı **üç alan** ister (e-posta İSTEMEZ):
 
 ## Test adımları (incelemeci için önerilen akış)
 
-1. Demo hesapla giriş yap (Firma Kodu `demo` · Kullanıcı Adı `demo` · Şifre `demo1234`).
+1. Demo hesapla giriş yap (Firma Kodu `111` · Kullanıcı Adı `111` · Şifre `1111`).
 2. Müşteri listesinde 4 telefonlu müşteriyi ve bakiyelerini gör (2 veresiye borçlu, 1 nakit
    ödemiş, 1 hareketsiz).
 3. Sipariş/teslimat akışını dene (uçak modunu açıp kapatarak offline çalışmayı gözlemleyebilir).

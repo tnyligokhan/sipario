@@ -299,7 +299,7 @@ Yaz ""
 Yaz "     $adres/api/v1"
 Yaz ""
 if (-not $tunelOk) { Yaz "  UYARI: adres uretildi ama dogrulanamadi - yine de dene." ; Yaz "" }
-Yaz "  Giris: firma 'demo' - kullanici 'demo' - parola 'demo1234'"
+Yaz "  Giris: firma '111' - kullanici '111' - parola '1111'   (GECICI - saha testi kolayligi)"
 Yaz ""
 Yaz "  APK (sabit adres, degismez):"
 Yaz "     https://github.com/tnyligokhan/sipario/releases/download/saha/saha-arm64.apk"
