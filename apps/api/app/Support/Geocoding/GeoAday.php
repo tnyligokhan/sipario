@@ -22,10 +22,9 @@ final readonly class GeoAday
     public const KAYNAK_GOOGLE = 'google';
 
     /**
-     * [kaynak] adayı HANGİ sağlayıcının bulduğu. Tek sağlayıcılı kurulumda bilgi niteliğindedir;
-     * `coklu` sürücüde ise LİSTENİN ANLAMINI taşır — iki sağlayıcı aynı noktayı gösteriyorsa
-     * `'google+yandex'` olur ve bu, kullanıcıya "ikisi de burayı işaret etti" demenin yoludur.
-     * Kesinlik kademesi tek bir servisin kendine olan güvenidir; MUTABAKAT ondan güçlü bir sinyaldir.
+     * [kaynak] adayı HANGİ sağlayıcının bulduğu ('yandex' | 'google' | ''). Kademeli sürücüde
+     * listenin okunma biçimidir: kullanıcı "Google şunu buldu, Yandex bunu" diye görür ve
+     * doğrusunu KENDİSİ seçer (kullanıcı kararı 2026-07-29 — adaylar birleştirilmez).
      */
     public function __construct(
         public string $metin,
@@ -45,35 +44,6 @@ final readonly class GeoAday
             'precision' => $this->kesinlik,
             'source' => $this->kaynak,
         ];
-    }
-
-    /** Kesinlik kademesi sayıya: bina 3 > sokak 2 > semt 1. Karşılaştırma için. */
-    public function kesinlikDerecesi(): int
-    {
-        return match ($this->kesinlik) {
-            self::KESINLIK_BINA => 3,
-            self::KESINLIK_SOKAK => 2,
-            default => 1,
-        };
-    }
-
-    /**
-     * İki aday AYNI YERİ mi gösteriyor? Eşik 25 metre — bilinçli olarak DAR.
-     *
-     * Geniş bir eşik (ör. 100 m) iki sağlayıcının gerçekten ayrıştığı durumları "aynı" sayıp
-     * birini listeden silerdi; oysa kurye için 60 metre yanlış apartman demektir ve hangisinin
-     * doğru olduğuna kullanıcı bakarak karar vermeli. Bu yüzden yalnız pratikte AYNI nokta olan
-     * adaylar birleştirilir; ayrışanlar listede YAN YANA durur — zaten iki sağlayıcı kullanmanın
-     * sebebi budur.
-     */
-    public function ayniYerMi(self $digeri): bool
-    {
-        // Equirectangular yaklaşımı: Türkiye enlemlerinde ve 25 m ölçeğinde hatası ihmal edilebilir,
-        // haversine'in trigonometri maliyetine gerek yok.
-        $enlemMetre = ($this->lat - $digeri->lat) * 111_320.0;
-        $boylamMetre = ($this->lng - $digeri->lng) * 111_320.0 * cos(deg2rad($this->lat));
-
-        return sqrt($enlemMetre ** 2 + $boylamMetre ** 2) <= 25.0;
     }
 
     /**

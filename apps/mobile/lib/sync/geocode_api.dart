@@ -86,10 +86,10 @@ class GeoAday {
   /// demektir, kullanıcı adayı seçerken bunu görmeli.
   final String kesinlik;
 
-  /// Adayı hangi sağlayıcının bulduğu: 'yandex' | 'google' | 'google+yandex' | ''.
-  /// Sunucu iki sağlayıcıyı birden sorduğunda (`coklu` sürücü) artı işaretli değer MUTABAKAT
-  /// demektir — iki bağımsız servis aynı noktayı gösterdi. Eski sunucular bu alanı hiç
-  /// göndermez; o yüzden boş varsayılan ve alan YOKSA satır sessizce eski gibi çizilir.
+  /// Adayı hangi sağlayıcının bulduğu: 'yandex' | 'google' | ''. Kademeli sunucu sürücüsü
+  /// her adayı kendi sağlayıcı etiketiyle gönderir; kullanıcı "Google şunu, Yandex bunu buldu"
+  /// diye görüp doğrusunu seçer. Eski sunucular bu alanı hiç göndermez; o yüzden boş varsayılan
+  /// ve alan YOKSA satır sessizce eski gibi çizilir.
   final String kaynak;
 
   /// Tek kaydı çözer; alanı eksik/bozuksa null döner. Tek bozuk kayıt yüzünden bütün listeyi

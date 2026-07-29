@@ -4,10 +4,9 @@ namespace App\Providers;
 
 use App\Payment\IyzicoPaymentGateway;
 use App\Payment\PaymentGateway;
-use App\Support\Geocoding\CokluGeocoder;
-use App\Support\Geocoding\GeoAday;
 use App\Support\Geocoding\Geocoder;
 use App\Support\Geocoding\GoogleGeocoder;
+use App\Support\Geocoding\KademeliGeocoder;
 use App\Support\Geocoding\NullGeocoder;
 use App\Support\Geocoding\YandexGeocoder;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -68,12 +67,14 @@ class AppServiceProvider extends ServiceProvider
         $surucu = match ((string) config('geocoding.driver', 'null')) {
             'yandex' => $yandex(),
             'google' => $google(),
-            // İkisini birden sor, adayları birleştir, seçimi kullanıcıya bırak. Anahtarı olmayan
-            // sağlayıcıyı CokluGeocoder kendi eler; biri düşerse diğeri özelliği ayakta tutar.
-            'coklu' => new CokluGeocoder([
-                ['ad' => GeoAday::KAYNAK_YANDEX, 'geocoder' => $yandex()],
-                ['ad' => GeoAday::KAYNAK_GOOGLE, 'geocoder' => $google()],
-            ]),
+            // Kademeli: önce Google; Yandex yalnız Google kapıyı bulamayınca ve günlük tavana
+            // kadar. Sonuçlar birleştirilmez, seçim kullanıcıda. (`coklu` eski addır — birkaç
+            // saat yaşadı; alias bırakıldı ki eski bir .env sürücüyü sessizce null'a düşürmesin.)
+            'kademeli', 'coklu' => new KademeliGeocoder(
+                google: $google(),
+                yandex: $yandex(),
+                yandexGunlukTavan: (int) config('geocoding.yandex.daily_limit', 900),
+            ),
             default => new NullGeocoder,
         };
 

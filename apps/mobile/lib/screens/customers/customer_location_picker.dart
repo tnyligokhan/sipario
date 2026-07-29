@@ -35,26 +35,21 @@ class AdresAdayi {
   /// 'bina' | 'sokak' | 'semt' — sunucunun sağlayıcıdan bağımsızlaştırdığı kademe.
   final String kesinlik;
 
-  /// Adayı bulan sağlayıcı(lar): 'yandex' | 'google' | 'google+yandex' | ''.
+  /// Adayı bulan sağlayıcı: 'yandex' | 'google' | ''.
   final String kaynak;
 
   String get koordinat => konumMetni(lat, lng);
 
   /// Aday satırında gösterilecek kaynak etiketi; kaynak bilinmiyorsa `null` (eski sunucu).
   ///
-  /// MUTABAKAT ayrı yazılır ve sağlayıcı adlarını hiç anmaz: bayi için "Yandex" ile "Google"
-  /// arasındaki fark bir şey ifade etmez, ama "iki servis de aynı yeri gösterdi" bilgisi
-  /// doğrudan seçim kararını kolaylaştırır — listedeki en güvenilir aday odur.
+  /// Kullanıcı kararı (2026-07-29/2): sonuçlar BİRLEŞTİRİLMEZ — "Google şunu buldu, Yandex
+  /// bunu" diye ayrı satırlar görünür ve doğrusunu kullanıcı seçer. Etiket bu okumanın anahtarıdır.
   String? get kaynakNotu => switch (kaynak) {
         '' => null,
-        final k when k.contains('+') => 'iki servis de doğruladı',
         'yandex' => 'Yandex',
         'google' => 'Google',
         final k => k,
       };
-
-  /// Mutabakatlı aday vurgulu renkle çizilir (uyarı değil, GÜVEN sinyali).
-  bool get mutabakatVar => kaynak.contains('+');
 
   /// Kapı kesinliği YOKSA kullanıcıya söylenir. "Sokak" kesinliğindeki bir pin kuryeyi doğru
   /// sokağa götürür ama doğru kapıya götürmez; bunu sessizce "konum kayıtlı" saymak, kuryenin
@@ -221,16 +216,15 @@ class AdaySatiri extends StatelessWidget {
                   ],
                 ),
                 // Kaynak AYRI SATIRDA: koordinat satırına üçüncü bir parça eklemek dar
-                // ekranlarda taşırıyordu. Mutabakat `ok` rengiyle çizilir — bu bir uyarı
-                // değil GÜVEN sinyalidir ve kullanıcı listeye baktığında ilk onu görmeli.
+                // ekranlarda taşırıyordu. "Google" / "Yandex" etiketi kullanıcının seçim
+                // aracıdır — hangi servisin ne bulduğu ayrı satırlar hâlinde görünür.
                 if (aday.kaynakNotu != null) ...[
                   const SizedBox(height: 1),
                   Text(
                     aday.kaynakNotu!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: SipText.metin(11, w: 700)
-                        .copyWith(color: aday.mutabakatVar ? t.ok : t.muted),
+                    style: SipText.metin(11, w: 700).copyWith(color: t.muted),
                   ),
                 ],
               ],

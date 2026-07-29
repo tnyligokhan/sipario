@@ -11,13 +11,13 @@
  * bile değişmez (GeocodingServiceProvider driver'a bakıp bağlar).
  */
 return [
-    // yandex | google | coklu | null.
+    // yandex | google | kademeli | null. (`coklu` = `kademeli` için eski ad, alias olarak yaşar.)
     //
-    // `coklu` İKİSİNİ BİRDEN sorar ve adayları tek listede birleştirir (kullanıcı kararı
-    // 2026-07-29). Aynı noktayı gösteren adaylar `google+yandex` kaynağıyla tek satıra iner ve
-    // başa alınır — iki bağımsız servisin mutabakatı, tek servisin kendine güveninden güçlüdür.
-    // Anahtarı olmayan sağlayıcıyı CokluGeocoder kendi eler; biri arızalanırsa (kota, anahtar,
-    // faturalandırma) diğeri özelliği AYAKTA TUTAR, uç nokta ancak hepsi düşerse 503 verir.
+    // `kademeli` (kullanıcı kararı 2026-07-29): her sorgu önce GOOGLE'a gider; YANDEX yalnız
+    // Google bina kesinliğinde aday veremezse ve günlük tavana (aşağıda) kadar sorulur.
+    // Sonuçlar BİRLEŞTİRİLMEZ — her aday kendi sağlayıcı etiketiyle ayrı satırdır, doğrusunu
+    // kullanıcı seçer. Bir sağlayıcı arızalanırsa diğeri özelliği ayakta tutar; 503 ancak
+    // hiçbiri cevap veremezse döner.
     //
     // `null` sürücüsü hiç dış çağrı yapmaz, boş liste döner — anahtarsız ortamda (CI, yerel
     // geliştirme) uygulama çalışmayı SÜRDÜRÜR, sessizce patlamaz.
@@ -51,6 +51,10 @@ return [
         'api_key' => env('YANDEX_GEOCODER_KEY', ''),
         // Yandex'in güncel uç noktası v1'dir; eski (1.x) anahtarlar için env ile geri alınabilir.
         'base_url' => env('YANDEX_GEOCODER_URL', 'https://geocode-maps.yandex.ru/v1/'),
+        // GLOBAL günlük tavan (kiracı başına DEĞİL): Yandex'in 1000/gün limiti hesabın tamamına
+        // aittir. Kademeli sürücü tavana ulaşınca Yandex'i o gün susturur — Google çalışmaya
+        // devam eder, özellik düşmez. 900 = 1000'in altında bilinçli pay. 0 = sınırsız.
+        'daily_limit' => (int) env('YANDEX_DAILY_LIMIT', 900),
     ],
 
     'google' => [

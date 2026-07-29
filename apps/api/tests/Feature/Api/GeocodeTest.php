@@ -61,9 +61,9 @@ class GeocodeTest extends ApiTestCase
         config()->set('geocoding.yandex.api_key', 'test-anahtar');
     }
 
-    private function cokluKur(): void
+    private function kademeliKur(): void
     {
-        config()->set('geocoding.driver', 'coklu');
+        config()->set('geocoding.driver', 'kademeli');
         config()->set('geocoding.yandex.api_key', 'test-anahtar');
         config()->set('geocoding.google.api_key', 'g-anahtar');
     }
@@ -581,78 +581,78 @@ class GeocodeTest extends ApiTestCase
     }
 
     #[Test]
-    public function coklu_iki_saglayicinin_adaylarini_da_gosterir(): void
+    public function kademeli_google_kapiyi_bulunca_yandexe_hic_gidilmez(): void
     {
-        // Kullanıcı kararı 2026-07-29: ikisi birden sorulur, doğrusunu KULLANICI seçer.
-        // Ayrışan adaylar SİLİNMEZ — özelliğin varlık sebebi zaten karşılaştırma.
-        $this->cokluKur();
+        // Kotanın kalbi: Google BİNA kesinliğinde aday verdiyse Yandex'in günlük 1000'lik
+        // havuzuna dokunulmaz. Yandex'e istek GİTMEDİĞİNİ doğruluyoruz — "gitti ama sonucu
+        // atlandı" değil; kota istek ANINDA yanar.
+        $this->kademeliKur();
         Http::fake([
-            'geocode-maps.yandex.ru/*' => Http::response($this->yandexCoklu([
-                ['30.7133 36.8969', 'Bahçe Sk. 5, Kepez', 'exact'],
-            ])),
-            // ~80 m kuzeyde AYRI bir nokta: 25 m eşiğinin dışında, birleştirilmemeli.
             'maps.googleapis.com/*' => Http::response(
-                $this->googleYaniti(36.89762, 30.7133, 'Bahçe Sokak No:5, Kepez/Antalya')
+                $this->googleYaniti(36.8969, 30.7133, 'Bahçe Sokak No:5, Kepez/Antalya')
             ),
+            'geocode-maps.yandex.ru/*' => Http::response($this->yandexCoklu([
+                ['30.7133 36.8969', 'olmamalı', 'exact'],
+            ])),
         ]);
 
         $a = $this->makeTenant('a');
         $yanit = $this->asToken($this->tokenFor($a['patron']))
             ->postJson('/api/v1/geocode', ['query' => 'Bahçe Sk. no:5']);
+
+        $yanit->assertOk();
+        $this->assertCount(1, $yanit->json('results'));
+        $yanit->assertJsonPath('results.0.source', 'google');
+        Http::assertNotSent(fn ($istek) => str_contains($istek->url(), 'geocode-maps.yandex.ru'));
+    }
+
+    #[Test]
+    public function kademeli_google_kapi_bulamayinca_yandex_devreye_girer_ve_birlestirilmez(): void
+    {
+        // Google yalnız SOKAK bulabildi → kota tam bu an için saklanıyordu: Yandex de sorulur.
+        // İki aday AYNI koordinatta bile olsa BİRLEŞTİRİLMEZ (kullanıcı kararı 2026-07-29/2:
+        // "iki sonucu birleştirme; Google ve Yandex ayrı görünsün, doğrusunu ben seçeyim").
+        // Sıra da sözleşmedir: Google'ın adayları önce.
+        $this->kademeliKur();
+        Http::fake([
+            'maps.googleapis.com/*' => Http::response([
+                'status' => 'OK',
+                'results' => [[
+                    'formatted_address' => '1497. Sk., Muratpaşa/Antalya',
+                    'partial_match' => true,
+                    'geometry' => [
+                        'location' => ['lat' => 36.8621, 'lng' => 30.7355],
+                        'location_type' => 'GEOMETRIC_CENTER',
+                    ],
+                ]],
+            ]),
+            'geocode-maps.yandex.ru/*' => Http::response($this->yandexCoklu([
+                ['30.7355 36.8621', 'Şirinyalı Mah., 1497. Sok., Muratpaşa', 'street'],
+            ])),
+        ]);
+
+        $a = $this->makeTenant('a');
+        $yanit = $this->asToken($this->tokenFor($a['patron']))
+            ->postJson('/api/v1/geocode', ['query' => '1497. Sk. No: 9 Muratpaşa']);
 
         $yanit->assertOk();
         $sonuclar = $yanit->json('results');
-        $this->assertCount(2, $sonuclar, '80 m ayrı iki nokta tek satıra indirilmemeli');
-
-        $kaynaklar = array_column($sonuclar, 'source');
-        sort($kaynaklar);
-        $this->assertSame(['google', 'yandex'], $kaynaklar);
+        $this->assertCount(2, $sonuclar, 'aynı koordinat bile ayrı satır kalmalı — birleştirme yok');
+        $this->assertSame('google', $sonuclar[0]['source']);
+        $this->assertSame('yandex', $sonuclar[1]['source']);
     }
 
     #[Test]
-    public function coklu_ayni_noktada_mutabakati_birlestirip_basa_alir(): void
+    public function kademeli_google_bos_donerse_yandex_sorulur(): void
     {
-        // İki bağımsız servis aynı kapıyı gösteriyorsa bu, tek servisin kendine olan güveninden
-        // GÜÇLÜ bir sinyaldir: tek satıra iner, kaynağı `google+yandex` olur ve LİSTENİN BAŞINA
-        // geçer. Yandex'in ilk adayı bilerek mutabakatsız olan — sıralama gerçekten çalışmalı.
-        $this->cokluKur();
+        // "Sonuç yok" da bir kademe tetikleyicisidir: Google tanımadığı mahalleyi Yandex biliyor
+        // olabilir — iki sağlayıcı kullanmanın asıl sebebi bu tamamlayıcılık.
+        $this->kademeliKur();
         Http::fake([
-            'geocode-maps.yandex.ru/*' => Http::response($this->yandexCoklu([
-                ['30.7400 36.9100', 'Başka Sk., Muratpaşa', 'street'],
-                ['30.7133 36.8969', 'Bahçe Sk. 5, Kepez', 'exact'],
-            ])),
-            // Yandex'in İKİNCİ adayıyla ~1,5 m: aynı yer.
-            'maps.googleapis.com/*' => Http::response(
-                $this->googleYaniti(36.89691, 30.71331, 'Bahçe Sokak No:5, Kepez/Antalya')
-            ),
-        ]);
-
-        $a = $this->makeTenant('a');
-        $yanit = $this->asToken($this->tokenFor($a['patron']))
-            ->postJson('/api/v1/geocode', ['query' => 'Bahçe Sk. no:5']);
-
-        $yanit->assertOk();
-        $this->assertCount(2, $yanit->json('results'));
-        $yanit->assertJsonPath('results.0.source', 'google+yandex');
-        $yanit->assertJsonPath('results.0.precision', 'bina');
-        $yanit->assertJsonPath('results.1.source', 'yandex');
-    }
-
-    #[Test]
-    public function coklu_bir_saglayici_dusunce_digeriyle_calismaya_devam_eder(): void
-    {
-        // GERÇEK SENARYO: Google faturalandırması bağlanmamış (200 + REQUEST_DENIED). Bu, konum
-        // özelliğini DÜŞÜRMEMELİ — Yandex adayları normal dönmeli ve kullanıcı hiçbir hata
-        // görmemeli. İki sağlayıcı kararının asıl kazancı budur: yedeklilik.
-        $this->cokluKur();
-        Http::fake([
+            'maps.googleapis.com/*' => Http::response(['status' => 'ZERO_RESULTS', 'results' => []]),
             'geocode-maps.yandex.ru/*' => Http::response($this->yandexCoklu([
                 ['30.7133 36.8969', 'Bahçe Sk. 5, Kepez', 'exact'],
             ])),
-            'maps.googleapis.com/*' => Http::response([
-                'status' => 'REQUEST_DENIED',
-                'error_message' => 'You must enable Billing on the Google Cloud Project',
-            ], 200),
         ]);
 
         $a = $this->makeTenant('a');
@@ -662,19 +662,42 @@ class GeocodeTest extends ApiTestCase
         $yanit->assertOk();
         $this->assertCount(1, $yanit->json('results'));
         $yanit->assertJsonPath('results.0.source', 'yandex');
-        // Arıza gerekçesi kullanıcıya SIZMAZ (log'da durur).
+    }
+
+    #[Test]
+    public function kademeli_google_dusunce_yandex_ozelligi_ayakta_tutar(): void
+    {
+        // Google arızası (kota/anahtar/fatura) özelliği düşürmez: Yandex cevaplar, kullanıcı
+        // hiçbir hata görmez, sebep log'da durur.
+        $this->kademeliKur();
+        Http::fake([
+            'maps.googleapis.com/*' => Http::response([
+                'status' => 'REQUEST_DENIED',
+                'error_message' => 'You must enable Billing on the Google Cloud Project',
+            ], 200),
+            'geocode-maps.yandex.ru/*' => Http::response($this->yandexCoklu([
+                ['30.7133 36.8969', 'Bahçe Sk. 5, Kepez', 'exact'],
+            ])),
+        ]);
+
+        $a = $this->makeTenant('a');
+        $yanit = $this->asToken($this->tokenFor($a['patron']))
+            ->postJson('/api/v1/geocode', ['query' => 'Bahçe Sk. no:5']);
+
+        $yanit->assertOk();
+        $yanit->assertJsonPath('results.0.source', 'yandex');
         $this->assertStringNotContainsString('Billing', json_encode($yanit->json()) ?: '');
     }
 
     #[Test]
-    public function coklu_hepsi_dusunce_bulunamadi_demez_ariza_der(): void
+    public function kademeli_hepsi_dusunce_bulunamadi_demez_ariza_der(): void
     {
         // İkisi de düşünce boş liste dönmek YANLIŞ olurdu: kullanıcı var olan bir adresi
         // "bulunamadı" sanıp metnini düzeltmeye çalışarak vakit kaybederdi. 503 = "servis arızası".
-        $this->cokluKur();
+        $this->kademeliKur();
         Http::fake([
-            'geocode-maps.yandex.ru/*' => Http::response([], 500),
             'maps.googleapis.com/*' => Http::response(['status' => 'REQUEST_DENIED'], 200),
+            'geocode-maps.yandex.ru/*' => Http::response([], 500),
         ]);
 
         $a = $this->makeTenant('a');
@@ -685,18 +708,67 @@ class GeocodeTest extends ApiTestCase
     }
 
     #[Test]
-    public function coklu_anahtarsiz_saglayiciyi_eler_digerini_calistirir(): void
+    public function kademeli_yandex_gunluk_tavani_dolunca_yandex_susar_google_devam_eder(): void
     {
-        // Google anahtarı henüz yokken `coklu` seçilirse özellik ÇALIŞMALI: hazır olmayan
-        // sağlayıcı listeden düşer, Google'a HİÇ istek gitmez, Yandex normal çalışır.
-        config()->set('geocoding.driver', 'coklu');
-        config()->set('geocoding.yandex.api_key', 'test-anahtar');
-        config()->set('geocoding.google.api_key', '');
+        // Tavan GLOBAL'dir ve dolduğunda özellik DÜŞMEZ: Google'ın bulabildiği döner.
+        // İki AYRI adres soruluyor (önbellek karışmasın); ikisinde de Google sokakta kalıyor,
+        // yani ikisi de kademeyi tetikler — ama tavan 1 olduğu için Yandex yalnız İLKİNDE konuşur.
+        $this->kademeliKur();
+        config()->set('geocoding.yandex.daily_limit', 1);
         Http::fake([
+            'maps.googleapis.com/*' => Http::response([
+                'status' => 'OK',
+                'results' => [[
+                    'formatted_address' => 'Sokak, Muratpaşa/Antalya',
+                    'geometry' => [
+                        'location' => ['lat' => 36.8621, 'lng' => 30.7355],
+                        'location_type' => 'GEOMETRIC_CENTER',
+                    ],
+                ]],
+            ]),
             'geocode-maps.yandex.ru/*' => Http::response($this->yandexCoklu([
-                ['30.7133 36.8969', 'Bahçe Sk. 5, Kepez', 'exact'],
+                ['30.7300 36.8600', 'Yandex Aday', 'street'],
             ])),
-            'maps.googleapis.com/*' => Http::response($this->googleYaniti(36.9, 30.7, 'olmamalı')),
+        ]);
+
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $ilk = $this->asToken($token)->postJson('/api/v1/geocode', ['query' => 'Birinci Sk. no:1']);
+        $ilk->assertOk();
+        $this->assertCount(2, $ilk->json('results'), 'tavan doluncaya kadar yandex konuşur');
+
+        $ikinci = $this->asToken($token)->postJson('/api/v1/geocode', ['query' => 'İkinci Sk. no:2']);
+        $ikinci->assertOk();
+        $this->assertCount(1, $ikinci->json('results'), 'tavan doldu — yalnız google');
+        $this->assertSame('google', $ikinci->json('results.0.source'));
+
+        // Google 2 kez, Yandex 1 kez: tavan aşımı istek atıp sonucu atlamak DEĞİL, hiç sormamaktır.
+        Http::assertSentCount(3);
+    }
+
+    #[Test]
+    public function kademeli_yandex_anahtarsizsa_yalniz_google_calisir(): void
+    {
+        // Yandex anahtarı yoksa kademe hiç kurulmaz: Google sokakta kalsa bile Yandex'e istek
+        // GİTMEZ ve özellik Google'la çalışır.
+        config()->set('geocoding.driver', 'kademeli');
+        config()->set('geocoding.google.api_key', 'g-anahtar');
+        config()->set('geocoding.yandex.api_key', '');
+        Http::fake([
+            'maps.googleapis.com/*' => Http::response([
+                'status' => 'OK',
+                'results' => [[
+                    'formatted_address' => 'Sokak, Muratpaşa/Antalya',
+                    'geometry' => [
+                        'location' => ['lat' => 36.8621, 'lng' => 30.7355],
+                        'location_type' => 'GEOMETRIC_CENTER',
+                    ],
+                ]],
+            ]),
+            'geocode-maps.yandex.ru/*' => Http::response($this->yandexCoklu([
+                ['30.7300 36.8600', 'olmamalı', 'street'],
+            ])),
         ]);
 
         $a = $this->makeTenant('a');
@@ -704,8 +776,8 @@ class GeocodeTest extends ApiTestCase
             ->postJson('/api/v1/geocode', ['query' => 'Bahçe Sk. no:5']);
 
         $yanit->assertOk();
-        $yanit->assertJsonPath('results.0.source', 'yandex');
-        Http::assertNotSent(fn ($istek) => str_contains($istek->url(), 'maps.googleapis.com'));
+        $yanit->assertJsonPath('results.0.source', 'google');
+        Http::assertNotSent(fn ($istek) => str_contains($istek->url(), 'geocode-maps.yandex.ru'));
     }
 
     #[Test]
