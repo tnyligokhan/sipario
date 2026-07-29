@@ -23,8 +23,9 @@ import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import 'harita_sorgulari.dart';
 import 'order_detail_screen.dart';
-import 'order_queries.dart';
+import 'siparis_harita_ozet.dart';
 
 /// OSM karo adresi. Anahtar YOK — bu paketin seçilme gerekçesi de buydu (pubspec).
 const String kOsmKaroUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -134,15 +135,21 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
     );
   }
 
-  Future<void> _durakAc(HaritaDuragi durak) => siparisDetaySheetAc(
-        context,
-        db: widget.db,
-        orderId: durak.orderId,
-        writable: widget.writable,
-        canAssign: widget.canAssign,
-        // Başlık elimizde — sheet açılmadan ikinci bir sorgu atılmasın (liste ekranıyla aynı).
-        baslik: durak.baslik,
-      );
+  /// Pine dokunuldu: önce ÖZET, detay ondan sonra. Kurye haritada "burada ne var" sorusunu
+  /// haritayı kaybetmeden sorabilmeli; tam detay bir dokunuş uzakta durur.
+  Future<void> _durakAc(HaritaDuragi durak, int sira) async {
+    final secim = await durakOzetSheetAc(context, durak: durak, sira: sira);
+    if (secim != DurakOzetSonucu.detay || !mounted) return;
+    await siparisDetaySheetAc(
+      context,
+      db: widget.db,
+      orderId: durak.orderId,
+      writable: widget.writable,
+      canAssign: widget.canAssign,
+      // Başlık elimizde — sheet açılmadan ikinci bir sorgu atılmasın (liste ekranıyla aynı).
+      baslik: durak.baslik,
+    );
+  }
 }
 
 /// Koordinatsız açık siparişleri duyuran NÖTR bant. Hata değildir (kimse yanlış bir şey yapmadı),
@@ -192,7 +199,10 @@ class SiparisHaritaGorunumu extends StatelessWidget {
 
   final List<HaritaDuragi> duraklar;
   final LatLng? cihaz;
-  final void Function(HaritaDuragi durak) onDurak;
+
+  /// Dokunulan durak ve GÖRÜNEN numarası (1'den başlar) — özet sayfası başlığında aynı sayı
+  /// yazar, kullanıcı hangi pine dokunduğunu doğrulayabilsin.
+  final void Function(HaritaDuragi durak, int sira) onDurak;
 
   @override
   Widget build(BuildContext context) {
@@ -233,7 +243,7 @@ class SiparisHaritaGorunumu extends StatelessWidget {
                 child: DurakPini(
                   sira: i + 1,
                   baslik: duraklar[i].baslik,
-                  onTap: () => onDurak(duraklar[i]),
+                  onTap: () => onDurak(duraklar[i], i + 1),
                 ),
               ),
             if (cihaz != null)

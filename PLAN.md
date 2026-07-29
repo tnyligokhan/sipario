@@ -147,6 +147,14 @@
 > giriş + Kükürtlü başlangıçlı auto-route → engine:google, 6 açık sipariş. **TELEFONDA ZORUNLU:**
 > uygulama verisini temizle (ya da sil-kur) → 111/111/1111 — yoksa eski Antalya kayıtları zombi kalır.
 >
+> **2026-07-29 (beşinci iş) — ROTA YÖNÜ DÜZELTİLDİ + PİN ÖZET SAYFASI.** Saha raporu: "en uzak 1.
+> sırada". Kök neden: destination=origin DÖNGÜSÜNÜN yönü belirsiz — Google ters yönü seçebiliyor.
+> Düzeltme: hedef = başlangıca kuş uçuşu EN UZAK durak (ölçüm: 27,6 km → 20,0 km, yön sabit).
+> CİHAZDA doğrulandı (adb: gerçek GPS Kestel ±53 m; ekran sırası 5,8→8,3→11,8→13,9→15,9 km,
+> harita pinleri 1→5 aynı sıra, ekran görüntülü). Pin özeti: dokun → sheet (durak no + ad, adres,
+> kod rozeti, tutar, not; Yol Tarifi birincil · Ara telefon varsa · Sipariş Detayı). Testler:
+> API 273 · mobil 764. Kalan: order_queries harita bölümü ayrılıyor (ajanda), anahtar kısıtlaması sende.
+>
 ## Güncel durum (son güncelleme: 2026-07-29 — **SAHA GERİ BİLDİRİM TURU + DÖRT SESSİZ ARIZA KAPATILDI**: sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
 
 ### Konum özelliği — ne kuruldu (2026-07-28)
