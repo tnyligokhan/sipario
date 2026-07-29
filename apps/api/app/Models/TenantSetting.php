@@ -24,7 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $opens_at
  * @property string|null $closes_at
  * @property string|null $receipt_note
- * @property string $order_code_display  'musteri' | 'siparis' — sipariş satırında hangi kod görünür
+ * @property string $order_code_display 'musteri' | 'siparis' — sipariş satırında hangi kod görünür
  * @property Carbon $updated_occurred_at
  * @property string|null $updated_device_id
  * @property Carbon|null $created_at

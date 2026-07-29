@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SiraKodu;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -68,7 +69,7 @@ class Order extends Model
     protected static function booted(): void
     {
         static::creating(function (self $m): void {
-            $m->code ??= \App\Support\SiraKodu::sonraki('orders', $m->tenant_id);
+            $m->code ??= SiraKodu::sonraki('orders', $m->tenant_id);
         });
     }
 

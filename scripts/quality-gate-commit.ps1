@@ -146,12 +146,36 @@ if ($mobileChanged.Count -gt 0) {
 $apiChanged = @($staged | Where-Object { $_ -like 'apps/api/*' })
 if ($apiChanged.Count -gt 0) {
   $api = Join-Path $root 'apps/api'
-  $phpOk = (Get-Command php -ErrorAction SilentlyContinue) -and (Test-Path (Join-Path $api 'vendor'))
+
+  # PHP'yi KENDİMİZ buluruz — PATH bir sözleşme değildir (2026-07-29'da iki kez ödendi).
+  #
+  # SESSİZ ARIZA: bu makinede php PATH'te yok (Laragon/XAMPP altında kurulu) ve eski kod
+  # `Get-Command php` bulamayınca API bölümünün TAMAMINI "kurulum eksik" diye ATLIYORDU.
+  # Sonuç: pint · phpstan · php artisan test aylarca HİÇ koşmadı, kapı yine de "yeşil" dedi
+  # ve API değişiklikleri doğrulanmadan commit edildi. Kırmızıyı CI yakaladı (pint, 6 dosya) —
+  # yani kapının işini uzaktaki hat yapıyordu. Bir bekçinin sessizce devre dışı kalması,
+  # bekçinin hiç olmamasından KÖTÜDÜR: "yeşil" raporu güven üretir.
+  $phpExe = $null
+  $g = Get-Command php.exe -ErrorAction SilentlyContinue
+  if ($g) { $phpExe = $g.Source }
+  if (-not $phpExe -and (Test-Path 'C:\laragon\bin\php')) {
+    $aday = Get-ChildItem 'C:\laragon\bin\php' -Directory -ErrorAction SilentlyContinue |
+            Sort-Object Name -Descending |
+            ForEach-Object { Join-Path $_.FullName 'php.exe' } |
+            Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($aday) { $phpExe = $aday }
+  }
+  if (-not $phpExe -and (Test-Path 'C:\xampp\php\php.exe')) { $phpExe = 'C:\xampp\php\php.exe' }
+
+  $phpOk = $phpExe -and (Test-Path (Join-Path $api 'vendor'))
   if ($phpOk) {
     Push-Location $api
 
-    if (Test-Path 'vendor\bin\pint.bat') {
-      $out = (& 'vendor\bin\pint.bat' --test 2>&1 | Out-String)
+    # Araçlar .bat sarmalayıcılarıyla DEĞİL, bulunan php ile koşturulur: pint.bat/phpstan.bat
+    # içeride düz `php` çağırır ve PATH'te php yoksa "'php' is not recognized" ile düşer —
+    # yani sarmalayıcı, çözdüğümüz sorunu geri getirirdi.
+    if (Test-Path 'vendor\bin\pint') {
+      $out = (& $phpExe 'vendor\bin\pint' --test 2>&1 | Out-String)
       if ($LASTEXITCODE -ne 0) {
         $failed.Add('pint')
         $detail.Add((@($out.Trim() -split "`n") | Select-Object -Last 2) -join ' | ')
@@ -159,8 +183,8 @@ if ($apiChanged.Count -gt 0) {
       $ran.Add('pint')
     } else { $skipped.Add('pint (arac yok)') }
 
-    if (Test-Path 'vendor\bin\phpstan.bat') {
-      $out = (& 'vendor\bin\phpstan.bat' analyse --no-progress 2>&1 | Out-String)
+    if (Test-Path 'vendor\bin\phpstan') {
+      $out = (& $phpExe 'vendor\bin\phpstan' analyse --no-progress 2>&1 | Out-String)
       if ($LASTEXITCODE -ne 0) {
         $failed.Add('phpstan')
         $detail.Add((@($out.Trim() -split "`n") | Select-Object -Last 2) -join ' | ')
@@ -168,7 +192,7 @@ if ($apiChanged.Count -gt 0) {
       $ran.Add('phpstan')
     } else { $skipped.Add('phpstan (arac yok)') }
 
-    $out = (php artisan test 2>&1 | Out-String)
+    $out = (& $phpExe artisan test 2>&1 | Out-String)
     if ($LASTEXITCODE -ne 0) {
       $failed.Add('php-test')
       $detail.Add((@($out.Trim() -split "`n") | Select-Object -Last 2) -join ' | ')

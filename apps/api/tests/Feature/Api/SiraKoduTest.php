@@ -48,7 +48,7 @@ class SiraKoduTest extends ApiTestCase
     }
 
     #[Test]
-    public function istemci_kendi_kodunu_DAYATAMAZ(): void
+    public function istemci_kendi_kodunu_dayatamaz(): void
     {
         // Kod istemciden yazılabilir kolonlar listesinde YOKTUR. Olsaydı bir istemci hatası
         // (ya da kötü niyet) iki müşteriye aynı numarayı verdirebilir, kısmi unique indekse
@@ -64,7 +64,7 @@ class SiraKoduTest extends ApiTestCase
     }
 
     #[Test]
-    public function kod_ikinci_upsertte_DEGISMEZ(): void
+    public function kod_ikinci_upsertte_degismez(): void
     {
         // Müşteri adı değiştirildiğinde kodun yeniden atanması, bayinin kâğıda yazdığı
         // numarayı geçersiz kılardı. Kod yalnız OLUŞTURMADA verilir.
@@ -88,7 +88,7 @@ class SiraKoduTest extends ApiTestCase
     }
 
     #[Test]
-    public function kodlar_KIRACI_ICINDE_sayilir(): void
+    public function kodlar_kiraci_icinde_sayilir(): void
     {
         // Kırmızı çizgi #1: iki bayi birbirinin numarasını görmez ve ETKİLEMEZ. İkisi de
         // kendi 100'ünden başlar; ortak bir sayaç olsaydı bir bayinin yoğun günü diğerinin
@@ -108,7 +108,7 @@ class SiraKoduTest extends ApiTestCase
     }
 
     #[Test]
-    public function kod_senkron_yaniyla_istemciye_DONER(): void
+    public function kod_senkron_yaniyla_istemciye_doner(): void
     {
         // İstemci kodu kendisi üretmediği için tek öğrenme yolu senkrondur; payload'da
         // gelmezse mobil liste sonsuza dek kodsuz kalırdı.
@@ -122,6 +122,18 @@ class SiraKoduTest extends ApiTestCase
         $snap->assertOk();
         $this->assertSame(100, collect($snap->json('entities.customer'))->first()['code']);
         $this->assertSame(100, collect($snap->json('entities.order'))->first()['code']);
+
+        // DELTA da kodu taşımalı — ASIL SAHA HATASI BURADAYDI (2026-07-29): kurulu bir cihaz
+        // ilk snapshot'tan sonra YALNIZ delta çeker. Kod sunucuda doğru dursa bile deltaya
+        // düşmezse telefonda HİÇ görünmez ve hiçbir hata üretmez. Snapshot'ı sınamak yetmez.
+        $this->pushEvents($token, [$this->customerUpsert(['name' => 'Sonradan gelen'])])->assertOk();
+        $delta = $this->pullSince($token, 1);
+        $delta->assertOk();
+        $delta->assertJsonPath('mode', 'delta');
+        $kodlar = collect($delta->json('changes'))
+            ->where('entity_type', 'customer')
+            ->pluck('payload.code');
+        $this->assertTrue($kodlar->filter()->isNotEmpty(), 'delta yükünde kod YOK');
     }
 
     #[Test]

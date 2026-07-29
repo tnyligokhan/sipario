@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SiraKodu;
 use Database\Factories\CustomerFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -72,7 +73,7 @@ class Customer extends Model
         // zaten kaydedilemez. Sessizce "kodsuz geç" demek, kaydı kurtarmaz — yalnız arızayı
         // koddan veritabanı hatasına erteler ve arada kod atlanmış olur.
         static::creating(function (self $m): void {
-            $m->code ??= \App\Support\SiraKodu::sonraki('customers', $m->tenant_id);
+            $m->code ??= SiraKodu::sonraki('customers', $m->tenant_id);
         });
     }
 

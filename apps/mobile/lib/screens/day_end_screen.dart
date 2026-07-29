@@ -27,6 +27,7 @@ import '../theme/components/states.dart';
 import '../theme/icons.dart';
 import '../theme/tokens.dart';
 import '../theme/typography.dart';
+import 'isletme/gecmis_gunler_listesi.dart';
 import 'isletme/gun_kapatma_sheet.dart';
 import 'isletme/gun_sonu_kartlari.dart';
 import 'isletme/gun_sonu_ozet.dart';
@@ -205,6 +206,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
                       child: g == null
                           ? const SipGovde(children: [SipIskelet(adet: 3)])
                           : _Govde(
+                              db: widget.db,
                               gorunum: g,
                               kapsamAdi: _kapsamAdi(kuryeler),
                               gunKapsami: _kuryeId == null,
@@ -231,12 +233,14 @@ class _DayEndScreenState extends State<DayEndScreen> {
 
 class _Govde extends StatelessWidget {
   const _Govde({
+    required this.db,
     required this.gorunum,
     required this.kapsamAdi,
     required this.gunKapsami,
     required this.ekip,
   });
 
+  final AppDatabase db;
   final GunSonuGorunumu gorunum;
 
   /// Seçili kapsamın adı ("Gün hesabı" ya da kurye adı).
@@ -244,11 +248,15 @@ class _Govde extends StatelessWidget {
 
   final bool gunKapsami;
 
-  /// Arşiv satırlarındaki `user_id`leri ada çevirmek için (kayıtta yalnız kimlik durur).
+  /// Kapanış kayıtlarındaki `user_id`leri ada çevirmek için (kayıtta yalnız kimlik durur).
   final List<User> ekip;
 
-  String _arsivAdi(DayClosing k) =>
+  String _kapanisAdi(DayClosing k) =>
       k.userId == null ? 'Gün hesabı' : (kullaniciAdi(ekip, k.userId) ?? 'Kurye');
+
+  /// Bugüne düşen kapanış kayıtları (arşivin tamamı `gorunum.arsiv`de gelir).
+  List<DayClosing> get bugunKapanislari =>
+      gorunum.arsiv.where((k) => ayniTrGun(k.occurredAt, bugunTr())).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -286,22 +294,32 @@ class _Govde extends StatelessWidget {
           VeresiyeKarti(borc: g.ozet.borc),
         ],
 
-        if (g.arsiv.isNotEmpty) ...[
-          const SipBolumBaslik('Arşiv', ustBosluk: 18),
-          for (var i = 0; i < g.arsiv.length; i++)
+        // BUGÜNÜN kapanışları burada kalır (geçmiş listesi yalnız GEÇMİŞ günleri taşır).
+        // Kaldırılsaydı, kuryesinin devrini az önce kapatan patron farkı ancak ERTESİ GÜN
+        // görebilirdi — mutabakatın kanıtı kapatıldığı anda görünmek zorunda.
+        if (bugunKapanislari.isNotEmpty) ...[
+          const SipBolumBaslik('Bugünün Kapanışları', ustBosluk: 18),
+          for (var i = 0; i < bugunKapanislari.length; i++)
             Padding(
               padding: EdgeInsets.only(top: i == 0 ? 0 : 6),
               child: ArsivSatiri(
-                kapanis: g.arsiv[i],
-                kapsamAdi: _arsivAdi(g.arsiv[i]),
+                kapanis: bugunKapanislari[i],
+                kapsamAdi: _kapanisAdi(bugunKapanislari[i]),
                 onTap: () => arsivDetaySheet(
                   context,
-                  g.arsiv[i],
-                  kapsamAdi: _arsivAdi(g.arsiv[i]),
+                  bugunKapanislari[i],
+                  kapsamAdi: _kapanisAdi(bugunKapanislari[i]),
                 ),
               ),
             ),
         ],
+
+        // GEÇMİŞ — eksen artık GÜNDÜR (kullanıcı isteği 2026-07-29). Eskiden burada kapanış
+        // kayıtları düz liste hâlinde duruyordu ("Gün hesabı · Emre · Hakan" alt alta) ve
+        // satırlar tarihi değil KAPSAMI yazıyordu; bayi "28 Temmuz ne oldu" diye bakamıyordu.
+        // Kurye kırılımı ve ürün dökümü artık günün İÇİNDE.
+        const SipBolumBaslik('Geçmiş', ustBosluk: 18),
+        GecmisListesi(db: db),
       ],
     );
   }

@@ -147,7 +147,7 @@ final class YandexGeocoder implements Geocoder
         $parcalar = [];
         foreach (explode(',', $metin) as $p) {
             $p = trim(preg_replace('/\s+/u', ' ', $p) ?? $p);
-            $p = trim($p, " .-");
+            $p = trim($p, ' .-');
             if ($p !== '') {
                 $parcalar[] = $p;
             }

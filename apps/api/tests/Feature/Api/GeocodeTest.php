@@ -246,7 +246,7 @@ class GeocodeTest extends ApiTestCase
     }
 
     #[Test]
-    public function sokak_adindaki_sayi_KORUNUR(): void
+    public function sokak_adindaki_sayi_korunur(): void
     {
         // Türkiye'de sokaklar numaralıdır ("1497. Sok."). "Bütün sayıları at" demek sokağın
         // kendisini silmek olurdu; yalnız AÇIKÇA kapı/daire olduğu yazan biçimler atılır.
