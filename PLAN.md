@@ -57,8 +57,8 @@
 - **[Faz 5c ortam]** `sipario_panel` DB rolü küme düzeyinde ELLE kuruldu (mevcut container); **CI/yeni makinede rol SQL'i elle koşulmalı** (Faz 1 sipario_app deseni). `.env`/`.env.example`'a `DB_PANEL_USERNAME=sipario_panel` + `DB_PANEL_PASSWORD=...` eklenmeli (config default'u var, testler yeşil; araç `.env*`'i koruyor).
 - **[GÜNCELLEME — TEK SEFERLİK ELLE KURULUM GEREKİYOR]** Güncelleme bandı bağlanmamıştı (2026-07-28 bulgusu, düzeltildi). Ama düzeltme KENDİNİ TAŞIYAMAZ: telefondaki mevcut uygulamada bant kodu ağaçta olmadığı için hiçbir release ona bant gösteremez. **Bir kez elle** yeni CI APK'sını (`saha` release'indeki `saha-arm64.apk`) kurmak gerekiyor; ondan sonrası kendiliğinden yürür. Not: imza uyuşmazlığı çıkarsa (cihazdaki uygulama elle/debug imzalı kurulduysa) tek seferlik sil + kur — veri sunucudan geri gelir.
 - **[KONUM — SÜRÜCÜ ARTIK `coklu`: İKİ SAĞLAYICI BİRDEN]** Kullanıcı kararı 2026-07-29: *"hem Yandex hem Google gelsin, en doğrusunu kullanıcı seçsin."* `GEOCODING_DRIVER=coklu` — `CokluGeocoder` ikisini de sorar, adayları tek listede birleştirir, aynı noktayı (≤25 m) gösterenleri `google+yandex` kaynağıyla TEK satıra indirir ve **listenin başına alır** (iki bağımsız servisin mutabakatı, tek servisin kendine güveninden güçlü bir sinyaldir). Ayrışan adaylar SİLİNMEZ — karşılaştırma özelliğin varlık sebebi. Mobilde aday satırı kaynağı yazıyor: mutabakatta "iki servis de doğruladı" (yeşil), tekilde "Yandex"/"Google".
-- **[KONUM — GOOGLE FATURALANDIRMASI SENDE, TEK AÇIK İŞ]** Google **hâlâ listeye katılmıyor**: ödemeden SONRA da ölçüldü (2026-07-29), yanıt değişmedi — HTTP **200** + `status=REQUEST_DENIED` + _"You must enable Billing on the Google Cloud Project"_. **Bu kurulumu BOZMUYOR** ve acil değil: `CokluGeocoder` arızalanan sağlayıcıyı atlar, Yandex adayları normal döner, sebep yalnız log'a yazılır (canlı doğrulandı). Faturalandırma çözülünce Google **kendiliğinden** listeye katılır — `.env`'de değiştirilecek hiçbir şey yok. Çözerken: **ödeme yapmış olmak yetmez**, fatura hesabının **anahtarın ait olduğu projeye** bağlı olması gerekir (en sık hata: fatura A projesine bağlı, anahtar B projesinde — Cloud Console → APIs & Services → Credentials → anahtarın projesini gör → Billing → o projeye bağla). Ayrıca anahtarı **yalnız "Geocoding API" + sunucu IP'si** ile kısıtla (sohbette düz metin geçti; pazarlıksız). ⚠️ **HTTP referrer kısıtlaması SEÇME** — sunucu anahtarıdır, tarayıcıya hiç gitmez, referrer kuralı isteği reddeder.
-- **[KONUM — GOOGLE AÇILINCA ÖLÇÜLECEK BORÇ]** Kapı-numarası geri çekilmesi (`kapiNumarasiniAt` → ikinci sorgu → `sokagaIndir`) **yalnız `YandexGeocoder`da var**. Google'ın karşılığı ikinci sorgu değil `partial_match` bayrağıdır ve bağlandı (bayrak varken kesinlik en fazla `sokak`). Ama YETTİĞİ **doğrulanamadı** — faturalandırma kapalı olduğu için Google'dan gerçek yanıt alınamıyor. Google listeye katılır katılmaz ölç: `"Şirinyalı Mah. 1497. Sk. No: 9 Muratpaşa/Antalya"` (Yandex'te `found=0`, sokağa düşerek çözülüyor — canlı doğrulandı). Google da sokak adayı veriyorsa borç kapanır; `ZERO_RESULTS` diyorsa `kapiNumarasiniAt` ortak koda taşınıp `GoogleGeocoder::ara()`ya da bağlanmalı.
+- **[KONUM — GOOGLE AÇILDI ✅ 2026-07-29]** Fatura hesabı bağlandı ve Google CANLI. Kullanılan anahtar **ikinci** anahtardır (proje `142583979849`); ilk anahtar (proje `42963591866`) faturasız kaldığı için terk edildi — o projeyi silmek/temizlemek istersen kod tarafında hiçbir bağı yok. **Kalan tek iş: anahtar kısıtlaması.** Cloud Console → Credentials → anahtar → **yalnız "Geocoding API"** + **sunucu IP'si**. Bu anahtar da sohbette düz metin geçti; kısıtlama pazarlıksız. ⚠️ **HTTP referrer SEÇME** — sunucu anahtarıdır, tarayıcıya hiç gitmez, referrer kuralı isteği reddeder.
+- **[KONUM — KAPI NUMARASI BORCU KAPANDI ✅]** Ölçüldü: `"Şirinyalı Mah. 1497. Sk. No: 9"` → Google **`ROOFTOP`, `partial=false`** ile kapıyı BULDU (36.86004,30.73569); Yandex aynı sorguda hâlâ sokağa düşüyor (36.86318,30.73490). Yani `kapiNumarasiniAt` geri çekilmesini ortak koda taşımaya **gerek yok** — Google'ın kendi davranışı yeterli. Borç kapandı.
 - **[KONUM — KVKK]** Adres metni sınır dışına çıkıyor ve artık **İKİ ülkeye birden**: Yandex (Rusya) + Google (ABD). Ad/telefon/müşteri kimliği ÇIKMIYOR (uç nokta kabul etmiyor, testle kilitli) ama **KVKK aydınlatma metnine "adres bilgisi coğrafi kodlama amacıyla yurt dışı sağlayıcılara aktarılır" satırı eklenmeli** — zaten bekleyen avukat işinin kapsamında. Metin sağlayıcı ADI vermemeli ya da ikisini de saymalı; sürücü bir env satırıyla değişiyor, tek isim yazmak metni bayatlatır.
 - **[Faz 6 · GERİ ALINACAK BORÇ]** **Demo hesabın giriş bilgileri GEÇİCİ olarak kısaltıldı** (2026-07-29, kullanıcı isteği: saha testinde giriş kolaylaşsın): `demo/demo/demo1234` → **`111/111/1111`**. Mağaza başvurusundan ÖNCE güçlü bir değere döndürülmeli — depo public, pilot sunucusu tünelle dışarı açık ve `1111` parolalı bir hesap incelemeden geçse bile üçüncü kişilere kapı bırakır. Değiştirme noktası TEK yerdedir: `DemoSeeder::DEMO_TENANT_CODE / DEMO_USERNAME / DEMO_PASSWORD`; `docs/magaza/inceleme-notlari.md` ve `scripts/saha-sunucu.ps1` oradan güncellenir. NOT: `1/1/1` YAPILAMADI — sunucu ve mobil doğrulaması firma kodu/kullanıcı adı için en az 3, parola için en az 4 karakter istiyor; kuralı gevşetmek kimlik kurallarında kalıcı bir delik açardı.
 - **[Faz 6]** Apple + Google Play geliştirici hesapları + mağaza başvurusu; `USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı; KVKK aydınlatma + mesafeli satış/ön bilgilendirme metinlerinin **hukukça onayı**.
@@ -77,19 +77,19 @@
 | 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
-> **2026-07-29 (ikinci vardiya) — KONUM ARTIK İKİ SAĞLAYICIYLA ÇALIŞIYOR (`GEOCODING_DRIVER=coklu`).**
+> **2026-07-29 (ikinci vardiya) — KONUM İKİ SAĞLAYICIYLA CANLI (`GEOCODING_DRIVER=coklu`).**
 > Kullanıcı kararı: *"hem Yandex hem Google gelsin, en doğrusunu kullanıcı seçsin."* `CokluGeocoder`
-> ikisini birden sorar, adayları birleştirir, aynı noktayı gösterenleri `google+yandex` etiketiyle
-> tek satıra indirip başa alır; **biri düşerse diğeri özelliği ayakta tutar** ve 503 ancak hepsi
-> düşerse verilir. Mobilde aday satırı kaynağı yazıyor ("iki servis de doğruladı" / "Yandex" / "Google").
-> **Google henüz listeye katılmıyor:** ödemeden sonra da ölçüldü, hâlâ 200 + `REQUEST_DENIED` +
-> "enable Billing" — fatura hesabı anahtarın projesine bağlanmamış. Bu kurulumu BOZMUYOR; çözülünce
-> Google kendiliğinden katılır, `.env`'de değişecek bir şey yok. Kalan tek iş İNSANDA (yukarıdaki liste).
-> **Canlı ölçüm:** `CokluGeocoder` bağlı · Yandex adayları geliyor · Google eleniyor · özellik ayakta ·
-> arıza `laravel.log`'da. **Testler:** mobil **744/744** (+4) · API **254/254** (+5) · phpstan L6 **0** ·
-> pint temiz. Güvenlik denetimi (Ruflo `security-auditor`): anahtar sızıntısı **yok** — `.env` gitignore'da,
-> izlenen hiçbir dosyada Google anahtar öneki geçmiyor, mobil kod sağlayıcıya hiç değmiyor; arıza
-> gerekçesi log'da kalıyor, istemciye nötr 503 dönüyor.
+> ikisini birden sorar, adayları birleştirir, aynı noktayı (≤25 m) gösterenleri `google+yandex`
+> etiketiyle tek satıra indirip başa alır; **biri düşerse diğeri özelliği ayakta tutar**, 503 ancak
+> hepsi düşerse verilir. Mobilde aday satırı kaynağı yazıyor. **Google faturalandırması bağlandı ve
+> CANLI** (ikinci anahtar, proje `142583979849`). İki borç kapandı, iki yeni bulgu çıktı:
+> **(kapandı)** Google kapı numarasını buluyor → `kapiNumarasiniAt`ı ortak koda taşımaya gerek yok.
+> **(BULUNDU+DÜZELTİLDİ)** Google anlamsız sorguya `ZERO_RESULTS` değil `OK` + **"Türkiye"** dönüyordu
+> (ülke merkezi, Türkiye sınır kontrolünü geçiyordu) — bayi yanlışlıkla seçse konum Kırşehir'e
+> yazılırdı; ülke/il düzeyi adaylar artık eleniyor (testli, Yandex'e de aynı kural kondu).
+> **(AÇIK GÖZLEM)** Yandex olmayan kapı numarasını sessizce başkasına çevirip "bina" diyebiliyor.
+> **Testler:** API **256/256** (+7) · mobil **744/744** (+4) · phpstan L6 **0** · pint temiz.
+> **Kalan tek iş İNSANDA:** anahtarı "Geocoding API" + sunucu IP'siyle kısıtla.
 
 ## Güncel durum (son güncelleme: 2026-07-29 — **SAHA GERİ BİLDİRİM TURU + DÖRT SESSİZ ARIZA KAPATILDI**: sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
 
@@ -124,7 +124,20 @@
 
 Mobil tarafta aday satırı kaynağı yazıyor: mutabakatta **"iki servis de doğruladı"** (`ok` rengi — uyarı değil güven sinyali), tekilde "Yandex" / "Google". Alan eksikse (eski sunucu) satır sessizce eskisi gibi çizilir.
 
-**Canlı ölçüm (2026-07-29, gerçek istek):** `CokluGeocoder` bağlı · Yandex adayları geliyor · Google `REQUEST_DENIED` ile eleniyor ve **özellik ayakta kalıyor** · `"…1497. Sk. No: 9…"` sokağa düşerek çözülüyor · arıza `laravel.log`'da, kullanıcıda değil.
+### Canlı ölçüm — İKİ SAĞLAYICI AÇIKKEN (2026-07-29, gerçek istekler)
+
+| Sorgu | Yandex | Google | Yorum |
+|---|---|---|---|
+| `1497. Sk. No: 9` | **sokak** 36.86318,30.73490 | **bina** 36.86004,30.73569 | Google kapıyı buldu, Yandex bulamadı — **iki sağlayıcı kararının somut kazancı** |
+| `Aspendos Blv. No:75` | **bina** 36.88972,30.74301 | **bina** 36.88719,30.73194 | ⚠️ İkisi de "bina" diyor ama aralarında **~1 km** var |
+| `Tekelioğlu Cad. No: 999999` | **bina** "…**No:9**…" | **sokak** (partial_match) | ⚠️ Yandex olmayan numarayı **sessizce No:9'a çevirdi** ve "bina" dedi |
+| `zzzqqq bulunmayan adres` | — | — | Boş liste (Google'ın "Türkiye" adayı elendi) |
+
+**Üç ders, üçü de ölçümden çıktı:**
+
+1. **Sağlayıcılar birbirini tamamlıyor, doğrulamıyor.** Üç sorgunun HİÇBİRİNDE 25 m mutabakat oluşmadı; ikisi de kendinden emin, ikisi de farklı yeri gösteriyor. Seçimi kullanıcıya bırakmak süs değil, zorunluluk.
+2. **"bina" etiketi tek başına güven vermiyor.** Aspendos örneğinde iki servis de "bina" diyor ve 1 km ayrışıyorlar. Kullanıcı koordinata/metne bakarak seçmeli — bu yüzden aday satırı ikisini de gösteriyor.
+3. **Yandex olmayan kapı numarasını sessizce başka bir numaraya çevirebiliyor** (`No: 999999` → `No:9`, kesinlik "bina"). Bu, kesinlik alanının Yandex'te her zaman dürüst olmadığı anlamına gelir; Google aynı sorguda dürüstçe sokağa düştü. **Açık gözlem — düzeltilmedi:** yakalamak için dönen metindeki kapı numarasını sorgudakiyle karşılaştırmak gerekir. Tek sağlayıcıda bu sessiz bir yalandı; artık yanında Google'ın sokak adayı durduğu için kullanıcı farkı görebiliyor.
 
 ### ⚡ SAHA DAĞITIMI — YENİ ÇALIŞMA BİÇİMİ (2026-07-28)
 - **APK artık ELLE DAĞITILMAZ.** dev'e push → CI derler → `saha` release'i güncellenir →

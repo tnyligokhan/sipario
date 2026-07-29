@@ -109,6 +109,10 @@ final class GoogleGeocoder implements Geocoder
                 continue;
             }
 
+            if ($this->fazlaGenis($sonuc)) {
+                continue;
+            }
+
             $aday = new GeoAday(
                 metin: $metin,
                 lat: (float) $lat,
@@ -126,6 +130,37 @@ final class GoogleGeocoder implements Geocoder
         }
 
         return $adaylar;
+    }
+
+    /**
+     * Ülke/il düzeyindeki sonuç TESLİMAT ADRESİ DEĞİLDİR — listeye hiç girmez.
+     *
+     * ÖLÇÜLDÜ (2026-07-29, gerçek istek): `"zzzqqq bulunmayan adres 12345"` sorgusuna Google
+     * `ZERO_RESULTS` DEĞİL, `status=OK` ile **"Türkiye"** döndürüyor (`types=country/political`,
+     * 38.96,35.24 — ülkenin coğrafi merkezi, Kırşehir civarı). O koordinat Türkiye sınırları
+     * İÇİNDE olduğu için `turkiyedeMi()` süzgecinden geçiyor ve aday listesine giriyordu.
+     *
+     * Zararı somut: bayi anlamsız/eksik bir adres yazdığında listede "Türkiye" adayı belirir;
+     * yanlışlıkla seçilirse müşterinin konumu ülkenin ortasına yazılır ve kurye bir daha
+     * o kapıyı bulamaz. Üstelik hiçbir şey hata vermez — bu depoda en pahalıya mal olan
+     * arıza türü tam olarak budur (kod çalışır, sonuç yalandır).
+     *
+     * Yandex aynı sorguya boş liste döndüğü için bu tuzak tek sağlayıcıyla hiç görünmemişti.
+     *
+     * @param  mixed  $sonuc
+     */
+    private function fazlaGenis($sonuc): bool
+    {
+        /** @var mixed $tipler */
+        $tipler = data_get($sonuc, 'types');
+        if (! is_array($tipler)) {
+            return false;
+        }
+
+        // İl (`administrative_area_level_1`) de elenir: "Antalya" merkezine pin atmak bir
+        // teslimat adresi değildir. İlçe/mahalle (`locality` ve altı) KALIR — onlar `semt`
+        // kesinliğinde meşru bir yaklaşık cevaptır.
+        return array_intersect(['country', 'administrative_area_level_1'], $tipler) !== [];
     }
 
     /**

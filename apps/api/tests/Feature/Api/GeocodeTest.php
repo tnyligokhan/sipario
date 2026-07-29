@@ -520,6 +520,67 @@ class GeocodeTest extends ApiTestCase
     }
 
     #[Test]
+    public function google_ulke_duzeyindeki_adayi_listeye_koymaz(): void
+    {
+        // GERÇEK ÖLÇÜM (2026-07-29): Google anlamsız sorguya `ZERO_RESULTS` DEĞİL, `status=OK`
+        // ile "Türkiye" döndürüyor (types=country/political, 38.96,35.24 = ülke merkezi).
+        // O koordinat Türkiye sınırları İÇİNDE olduğu için `turkiyedeMi()` süzgecini geçiyordu.
+        // Bayi bu adayı yanlışlıkla seçerse müşterinin konumu Kırşehir civarına yazılır ve
+        // hiçbir şey hata vermez. Yandex aynı sorguda boş döndüğü için tuzak tek sağlayıcıyla
+        // hiç görünmemişti — iki sağlayıcıya geçmenin bulduğu ilk gerçek arıza.
+        config()->set('geocoding.driver', 'google');
+        config()->set('geocoding.google.api_key', 'g-anahtar');
+        Http::fake(['maps.googleapis.com/*' => Http::response([
+            'status' => 'OK',
+            'results' => [[
+                'formatted_address' => 'Türkiye',
+                'partial_match' => true,
+                'types' => ['country', 'political'],
+                'geometry' => [
+                    'location' => ['lat' => 38.963745, 'lng' => 35.243322],
+                    'location_type' => 'APPROXIMATE',
+                ],
+            ]],
+        ])]);
+
+        $a = $this->makeTenant('a');
+        $yanit = $this->asToken($this->tokenFor($a['patron']))
+            ->postJson('/api/v1/geocode', ['query' => 'zzzqqq bulunmayan adres 12345']);
+
+        // Boş liste DOĞRU cevaptır: "bu adres bulunamadı" der, kullanıcı metnini düzeltir.
+        $yanit->assertOk();
+        $yanit->assertJsonPath('results', []);
+    }
+
+    #[Test]
+    public function google_ilce_duzeyindeki_adayi_listede_tutar(): void
+    {
+        // Ülke/il elenir ama ilçe/mahalle KALIR: "semt" kesinliğinde meşru bir yaklaşık cevaptır
+        // ve kurye için hiç yoktan iyidir. Süzgeci fazla geniş kurmak özelliği köreltirdi.
+        config()->set('geocoding.driver', 'google');
+        config()->set('geocoding.google.api_key', 'g-anahtar');
+        Http::fake(['maps.googleapis.com/*' => Http::response([
+            'status' => 'OK',
+            'results' => [[
+                'formatted_address' => 'Muratpaşa, Antalya, Türkiye',
+                'types' => ['locality', 'political'],
+                'geometry' => [
+                    'location' => ['lat' => 36.8841, 'lng' => 30.7056],
+                    'location_type' => 'APPROXIMATE',
+                ],
+            ]],
+        ])]);
+
+        $a = $this->makeTenant('a');
+        $yanit = $this->asToken($this->tokenFor($a['patron']))
+            ->postJson('/api/v1/geocode', ['query' => 'Muratpaşa Antalya']);
+
+        $yanit->assertOk();
+        $this->assertCount(1, $yanit->json('results'));
+        $yanit->assertJsonPath('results.0.precision', 'semt');
+    }
+
+    #[Test]
     public function coklu_iki_saglayicinin_adaylarini_da_gosterir(): void
     {
         // Kullanıcı kararı 2026-07-29: ikisi birden sorulur, doğrusunu KULLANICI seçer.

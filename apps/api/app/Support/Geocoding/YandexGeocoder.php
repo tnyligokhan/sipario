@@ -219,6 +219,13 @@ final class YandexGeocoder implements Geocoder
                 continue;
             }
 
+            // Ülke/il düzeyindeki sonuç teslimat adresi değildir (GoogleGeocoder::fazlaGenis ile
+            // aynı kural). Yandex bu sorgularda pratikte boş dönüyor, ama kuralı TEK sağlayıcıya
+            // yazmak sonraki vardiyada "neden Google'da var Yandex'te yok" sorusu üretirdi.
+            if (in_array(data_get($meta, 'kind'), ['country', 'province'], true)) {
+                continue;
+            }
+
             $aday = new GeoAday(
                 metin: $this->kisalt($metin),
                 lat: (float) $parcalar[1],
