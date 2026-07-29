@@ -141,6 +141,12 @@
 > idempotent DEĞİLDİR** — "önce ara, yoksa ekle" deseni aramanın satırı görebildiğini varsayar.
 > ⚠️ **YEREL VERİ ONARIMI SENDE** — aşağıdaki "İnsan gerektiren işler" listesinde.
 
+> **2026-07-29 (dördüncü iş) — DEMO VERİSİ BURSA OLDU, ADRESLER GERÇEK.** DemoSeeder 11 müşteriyi
+> gerçek Bursa adresleriyle kuruyor (8 konumlu — koordinatlar canlı geocoder'dan, bina kesinliği;
+> 3 bilinçli konumsuz). Eski veri silinmeden yedeklendi (~/sipario-yedekler/). Canlı doğrulama:
+> giriş + Kükürtlü başlangıçlı auto-route → engine:google, 6 açık sipariş. **TELEFONDA ZORUNLU:**
+> uygulama verisini temizle (ya da sil-kur) → 111/111/1111 — yoksa eski Antalya kayıtları zombi kalır.
+>
 ## Güncel durum (son güncelleme: 2026-07-29 — **SAHA GERİ BİLDİRİM TURU + DÖRT SESSİZ ARIZA KAPATILDI**: sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
 
 ### Konum özelliği — ne kuruldu (2026-07-28)

@@ -109,7 +109,7 @@ class DemoSeeder extends Seeder
             'status' => TenantStatus::Active->value,
             'trial_ends_at' => now()->addDays(30),
             'valid_until' => now()->addYears(10),   // inceleme boyunca kilitlenmesin
-            'phone' => '02423441100',
+            'phone' => '02243441100',
             // Oto sıralama kontörü: incelemeci/geliştirici özelliği GERÇEKTEN deneyebilsin.
             // Kontörsüz hesapta düğme hiç çizilmez ve "özellik yok" sanılır.
             'route_credits' => 34,
@@ -174,36 +174,43 @@ class DemoSeeder extends Seeder
      * Konumu olan ve olmayan bilerek karışık: "Konum Al" akışı ve rota sıralamasındaki
      * "konumsuz sona alınır" kuralı ancak böyle görülebilir.
      *
+     * ADRESLER GERÇEK BURSA ADRESLERİDİR (kullanıcı kararı 2026-07-29: harita/rota gerçek
+     * adreslerle test edilebilsin) — KİŞİLER UYDURMADIR: bina herkese açık coğrafi veridir,
+     * ad/telefon eşleşmesi kurgudur, KVKK notu bozulmaz. Koordinatlar elle yazılmadı:
+     * her adres kademeli geocoder'dan (Google, bina kesinliği) geçirildi ve MAHALLE ADI
+     * Google'ın doğruladığı mahalleyle hizalandı — pin ile adres metni ayrışmasın diye.
+     * Kestel'deki durak bilerek uzak: rota sıralamasında "uzak uç" ancak böyle görünür.
+     *
      * @return array<string, Customer>
      */
     private function musteriler(DemoFabrika $f): array
     {
         return [
-            'ahmet' => $f->musteri('Ahmet Yılmaz', ['0532 415 22 90', '0242 344 11 05'],
-                'Cumhuriyet Mah. 5. Sk. No:12/4', 'Kepez', [36.9125, 30.6689],
+            'ahmet' => $f->musteri('Ahmet Yılmaz', ['0532 415 22 90', '0224 344 11 05'],
+                'Kuruçeşme Mah. Altıparmak Cad. No:35', 'Osmangazi', [40.189505, 29.053556],
                 'Zil çalışmıyor, gelince arayın.'),
             'selin' => $f->musteri('Selin Kaya', ['0533 220 78 41'],
-                'Bahçelievler Mah. 118. Sk. No:3', 'Muratpaşa', [36.8841, 30.7056]),
+                'Güneştepe Mah. Murat Cad. No:16', 'Osmangazi', [40.247485, 29.000490]),
             'murat' => $f->musteri('Murat Öz', ['0542 907 63 22'],
-                'Fener Mah. Deniz Cad. No:44/2', 'Lara', null,
+                'Fethiye Mah. Fethiye Cad. No:24', 'Nilüfer', null,
                 'Kapıda kart geçmiyor.', adresEtiketi: 'İş'),
             'hatice' => $f->musteri('Hatice Demir', ['0505 118 40 77'],
-                'Şirinyalı Mah. 42. Sk. No:9', 'Muratpaşa', [36.8790, 30.7290]),
+                'Konak Mah. Beşevler Cad. No:10', 'Nilüfer', [40.207184, 28.987925]),
             'ibrahim' => $f->musteri('İbrahim Şahin', ['0555 632 09 18'],
-                'Güzeloba Mah. 2312. Sk. No:1', 'Lara', [36.8632, 30.7809],
+                'Konak Mah. Lefkoşe Cad. No:8', 'Nilüfer', [40.210515, 28.992290],
                 'Sabah 9 öncesi aramayın.'),
             'zeynep' => $f->musteri('Zeynep Aydın', ['0544 771 30 62'],
-                'Liman Mah. Akdeniz Blv. No:88', 'Konyaaltı', [36.8608, 30.6284]),
+                'Soğukkuyu Mah. Sanayi Cad. No:44', 'Osmangazi', [40.214869, 29.003110]),
             'osman' => $f->musteri('Osman Çelik', ['0537 402 15 73'],
-                'Varsak Mah. 105. Cad. No:7', 'Kepez', null),
+                'Yavuzselim Mah. Yavuzselim Cad. No:19', 'Yıldırım', null),
             'elif' => $f->musteri('Elif Kurt', ['0546 018 92 34'],
-                'Hurma Mah. 356. Sk. No:22', 'Konyaaltı', [36.8672, 30.6047]),
+                'Mimar Sinan Mah. Mimar Sinan Cad. No:27', 'Yıldırım', [40.189777, 29.126583]),
             'huseyin' => $f->musteri('Hüseyin Arslan', ['0507 663 24 09'],
-                'Yeniköy Mah. 1. Sk. No:3', 'Döşemealtı', [37.0089, 30.6021]),
+                'Ahmet Vefik Paşa Mah. Bursa Cad. No:73', 'Kestel', [40.197389, 29.204809]),
             'serife' => $f->musteri('Şerife Yıldız', ['0538 145 77 26'],
-                'Meltem Mah. 3806. Sk. No:14', 'Muratpaşa', null),
-            'kadir' => $f->musteri('Kadir Doğan', ['0553 289 61 40', '0242 316 88 12'],
-                'Çağlayan Mah. 2039. Sk. No:6', 'Lara', [36.8564, 30.7601],
+                'Duaçınarı Mah. Ankara Cad. No:141', 'Yıldırım', null),
+            'kadir' => $f->musteri('Kadir Doğan', ['0553 289 61 40', '0224 316 88 12'],
+                'Kükürtlü Mah. Çekirge Cad. No:98', 'Osmangazi', [40.202091, 29.026937],
                 'Kapı kodu 1907.'),
         ];
     }
@@ -213,10 +220,10 @@ class DemoSeeder extends Seeder
         $f->isletmeProfili([
             'business_name' => 'Merkez Su Bayii',
             'owner_name' => 'Mehmet Usta',
-            'phone' => '0242 344 11 00',
+            'phone' => '0224 344 11 00',
             'whatsapp' => '0532 344 11 00',
-            'address_text' => 'Yeşilbahçe Mah. Portakal Çiçeği Blv. No:21/A, Muratpaşa / Antalya',
-            'tax_office' => 'Muratpaşa',
+            'address_text' => 'Kükürtlü Mah. Kükürtlü Cad. No:21/A, Osmangazi / Bursa',
+            'tax_office' => 'Osmangazi',
             'tax_number' => '1234567890',
             'opens_at' => '08:00',
             'closes_at' => '19:00',
@@ -321,7 +328,7 @@ class DemoSeeder extends Seeder
 
         // Muaf numaralar: bunlar aradığında çağrı kartı AÇILMAZ.
         $f->muaf('Emre Kurye', '0532 415 90 11');
-        $f->muaf('Tedarikçi · Su Fabrikası', '0242 999 10 20');
+        $f->muaf('Tedarikçi · Su Fabrikası', '0224 999 10 20');
     }
 
     /**
