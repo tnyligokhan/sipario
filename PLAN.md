@@ -147,6 +147,11 @@
 > giriş + Kükürtlü başlangıçlı auto-route → engine:google, 6 açık sipariş. **TELEFONDA ZORUNLU:**
 > uygulama verisini temizle (ya da sil-kur) → 111/111/1111 — yoksa eski Antalya kayıtları zombi kalır.
 >
+> **2026-07-29 (altıncı iş) — HARİTA STİLİ + KONTROLLER.** Karolar CARTO Positron (anahtarsız,
+> gri-minimal — OSM'in kırmızı yol/POI gürültüsü bitti, mor pinler öne çıktı; atıf çipi zorunlu ve
+> testli). Sağ altta: yakınlaş/uzaklaş · duraklara sığdır · konumum (taze okuma, hata sebebiyle
+> konuşur). Testler: mobil 769/769 · analyze 0. APK CI'dan çıkınca telefonda görülecek.
+>
 > **2026-07-29 (beşinci iş) — ROTA YÖNÜ DÜZELTİLDİ + PİN ÖZET SAYFASI.** Saha raporu: "en uzak 1.
 > sırada". Kök neden: destination=origin DÖNGÜSÜNÜN yönü belirsiz — Google ters yönü seçebiliyor.
 > Düzeltme: hedef = başlangıca kuş uçuşu EN UZAK durak (ölçüm: 27,6 km → 20,0 km, yön sabit).

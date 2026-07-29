@@ -577,6 +577,140 @@ void main() {
       await ekraniKapat(tester);
     });
 
+    // ───────────────────────────────────────────────────────────────────────────────────────
+    // Stil ve kontroller (kullanıcı isteği 2026-07-29: "harita stili uygulamaya yakın olmalı,
+    // gereksiz şeyler kaldırılmalı, harita butonları eklenmeli")
+    // ───────────────────────────────────────────────────────────────────────────────────────
+
+    /// Haritanın kamerası — kontrolcü `FlutterMap`e verildiği için testten okunabilir.
+    MapController kamera(WidgetTester tester) =>
+        tester.widget<FlutterMap>(find.byType(FlutterMap)).mapController!;
+
+    Future<AppDatabase> ikiDurak(WidgetTester tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await siparisEkle(db, ad: 'Ayşe Yılmaz', lat: 36.8841, lng: 30.7056, sira: 0);
+        await siparisEkle(db, ad: 'Mehmet Kaya', lat: 36.9200, lng: 30.7600, sira: 10);
+      });
+      return db;
+    }
+
+    testWidgets('karo katmanı CARTO Positron şablonunu kullanır', (tester) async {
+      // STİL SÖZLEŞMESİ: ham OSM karosu (kırmızı otoyollar, yol kodu etiketleri, POI seli)
+      // uygulamanın sade dilinin yanında gürültü gibi duruyordu ve mor pinler kayboluyordu.
+      genisYuzey(tester);
+      final db = await ikiDurak(tester);
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await akisiBekle(tester);
+
+      final katman = tester.widget<TileLayer>(find.byType(TileLayer));
+      expect(katman.urlTemplate,
+          'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
+      expect(katman.subdomains, ['a', 'b', 'c', 'd']);
+      // Atıf HUKUKİ ZORUNLULUK — kaldırılamaz, metni sözleşmedir.
+      expect(find.text('© OpenStreetMap katkıcıları · © CARTO'), findsOneWidget);
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('+ / − düğmeleri kamerayı yakınlaştırır ve uzaklaştırır', (tester) async {
+      genisYuzey(tester);
+      final db = await ikiDurak(tester);
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await akisiBekle(tester);
+
+      final onceki = kamera(tester).camera.zoom;
+      await tester.tap(find.bySemanticsLabel('Yakınlaş'));
+      await akisiBekle(tester);
+      expect(kamera(tester).camera.zoom, closeTo(onceki + 1, 0.001));
+
+      await tester.tap(find.bySemanticsLabel('Uzaklaş'));
+      await akisiBekle(tester);
+      expect(kamera(tester).camera.zoom, closeTo(onceki, 0.001));
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('"Duraklara sığdır" açılış kadrajına döndürür', (tester) async {
+      genisYuzey(tester);
+      final db = await ikiDurak(tester);
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await akisiBekle(tester);
+
+      final acilis = kamera(tester).camera;
+      final acilisZoom = acilis.zoom;
+      final acilisMerkez = acilis.center;
+
+      // Kullanıcı elle yakınlaşıp kayboldu…
+      await tester.tap(find.bySemanticsLabel('Yakınlaş'));
+      await akisiBekle(tester);
+      await tester.tap(find.bySemanticsLabel('Yakınlaş'));
+      await akisiBekle(tester);
+      expect(kamera(tester).camera.zoom, greaterThan(acilisZoom));
+
+      // …tek dokunuşla bütün duraklar yine kadrajda.
+      await tester.tap(find.bySemanticsLabel('Duraklara sığdır'));
+      await akisiBekle(tester);
+      expect(kamera(tester).camera.zoom, closeTo(acilisZoom, 0.001));
+      expect(kamera(tester).camera.center.latitude,
+          closeTo(acilisMerkez.latitude, 0.0001));
+      expect(kamera(tester).camera.center.longitude,
+          closeTo(acilisMerkez.longitude, 0.0001));
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('"Konumum" kamerayı cihaz konumuna taşır', (tester) async {
+      // Açılışta konum YOK (setUp hata fırlatıyor), düğmeye basınca gelir: düğmenin TAZE
+      // okuduğunun kanıtı bu — açılıştaki tek denemeyi tekrar kullansaydı hiçbir şey olmazdı.
+      genisYuzey(tester);
+      final db = await ikiDurak(tester);
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await akisiBekle(tester);
+      expect(find.byType(CihazPini), findsNothing);
+
+      cihazKonumuOku =
+          () async => const CihazKonumu(lat: 36.7000, lng: 30.5000, dogrulukM: 20);
+      await tester.tap(find.bySemanticsLabel('Konumum'));
+      await akisiBekle(tester, ms: 300);
+
+      expect(kamera(tester).camera.center.latitude, closeTo(36.7000, 0.0001));
+      expect(kamera(tester).camera.center.longitude, closeTo(30.5000, 0.0001));
+      expect(kamera(tester).camera.zoom, closeTo(15, 0.001));
+      // Pin de güncellenir: kamera oraya gitti ama kuryenin kendisi görünmeseydi eksik olurdu.
+      expect(find.byType(CihazPini), findsOneWidget);
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('konum alınamazsa "Konumum" sebebini söyler ve kamera OYNAMAZ', (tester) async {
+      // Sessiz kalan bir düğme "uygulama bozuk" dedirtir; sebep AYRI AYRI söylenir
+      // (`cihaz_konumu.dart` kuralı: "izin verilmedi" ile "GPS kapalı" farklı işler).
+      cihazKonumuOku = () async =>
+          throw const KonumHatasi('Konum servisi kapalı — telefonun konum ayarını açın.');
+
+      genisYuzey(tester);
+      final db = await ikiDurak(tester);
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await akisiBekle(tester);
+      final onceki = kamera(tester).camera;
+
+      await tester.tap(find.bySemanticsLabel('Konumum'));
+      await akisiBekle(tester, ms: 300);
+
+      expect(find.text('Konum servisi kapalı — telefonun konum ayarını açın.'), findsOneWidget);
+      expect(kamera(tester).camera.zoom, closeTo(onceki.zoom, 0.001));
+      expect(kamera(tester).camera.center.latitude, closeTo(onceki.center.latitude, 0.0001));
+      expect(find.byType(CihazPini), findsNothing);
+
+      await ekraniKapat(tester);
+    });
+
     testWidgets('sipariş listesinden harita düğmesiyle açılır', (tester) async {
       genisYuzey(tester);
       final db = AppDatabase(NativeDatabase.memory());
