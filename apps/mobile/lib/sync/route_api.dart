@@ -19,7 +19,13 @@ class RouteApi {
   final String token;
   final http.Client _client;
 
-  Future<AutoRouteResult> autoRoute(List<String> orderIds) async {
+  /// [baslangic] verilirse rota KURYENİN BULUNDUĞU noktadan başlar (`start`). Verilmezse gövdeye
+  /// hiç yazılmaz ve sunucu eski davranışını sürdürür (ilk duraktan sıralar) — alan opsiyoneldir,
+  /// çünkü konum her zaman alınamaz ve alınamadığında sıralamayı hiç yapmamak daha kötüdür.
+  Future<AutoRouteResult> autoRoute(
+    List<String> orderIds, {
+    ({double lat, double lng})? baslangic,
+  }) async {
     final http.Response resp;
     try {
       resp = await _client
@@ -30,7 +36,11 @@ class RouteApi {
               'Accept': 'application/json',
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode({'order_ids': orderIds}),
+            body: jsonEncode({
+              'order_ids': orderIds,
+              if (baslangic != null)
+                'start': {'lat': baslangic.lat, 'lng': baslangic.lng},
+            }),
           )
           .timeout(const Duration(seconds: 20));
     } on Exception {
@@ -49,6 +59,9 @@ class RouteApi {
       );
     }
 
+    // Sunucu ayrıca hangi motorun sıraladığını (`engine`) bildirebilir; İSTEMCİ BUNU OKUMAZ.
+    // Sözleşmeye almak, alanı göndermeyen eski sunucuya karşı gereksiz bir dallanma üretirdi ve
+    // kullanıcıya söylenecek bir şey değil (rota rotadır, motoru onun işi değil).
     return AutoRouteResult(
       sira: ((body['order'] as List?) ?? const []).cast<String>(),
       konumsuz: (body['without_location'] as num?)?.toInt() ?? 0,
@@ -65,6 +78,12 @@ class RouteApi {
     }
   }
 }
+
+/// Ekranların rota istemcisini kurduğu TEK dikiş (`adresAdaylariGetir` deseninin aynısı).
+/// Widget testleri bunu sahtesiyle değiştirir — `http.Client` ekranın içine gömülmez ve test
+/// ağa ASLA çıkmaz.
+RouteApi Function(String baseUrl, String token) rotaApiUret =
+    (baseUrl, token) => RouteApi(baseUrl: baseUrl, token: token);
 
 class AutoRouteResult {
   AutoRouteResult({required this.sira, required this.konumsuz, required this.kalanHak});

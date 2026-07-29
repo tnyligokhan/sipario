@@ -9,6 +9,9 @@ use App\Support\Geocoding\GoogleGeocoder;
 use App\Support\Geocoding\KademeliGeocoder;
 use App\Support\Geocoding\NullGeocoder;
 use App\Support\Geocoding\YandexGeocoder;
+use App\Support\Route\GoogleRoutesMotoru;
+use App\Support\Route\RotaMotoru;
+use App\Support\Route\YakinKomsuMotoru;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -35,6 +38,32 @@ class AppServiceProvider extends ServiceProvider
         // Sürücü env'den seçilir; anahtar yoksa NullGeocoder bağlanır ve HİÇ dış çağrı yapılmaz
         // (CI ve yerel geliştirme gerçek servise çıkmaz). Testler bu bağı fake ile swap eder.
         $this->app->singleton(Geocoder::class, fn () => $this->geocoderKur());
+
+        // Oto sıralama motoru SOYUT: Google Routes (gerçek yol ağı, paralı) ya da kuş uçuşu
+        // yakın komşu (bedava, saf). Sürücü env'den seçilir; anahtar yoksa yakın komşuya düşer.
+        $this->app->singleton(RotaMotoru::class, fn () => $this->rotaMotoruKur());
+    }
+
+    /**
+     * Yapılandırılmış rota motorunu kurar. Anahtarı olmayan ya da tanınmayan sürücü YAKIN
+     * KOMŞUYA düşer — Null'a değil: sıralama hiçbir koşulda kullanılamaz hâle gelmemeli.
+     * Yanlış bir env satırı en fazla "sıra biraz daha kaba" demektir, özellik kapanmaz.
+     */
+    private function rotaMotoruKur(): RotaMotoru
+    {
+        $yakinKomsu = new YakinKomsuMotoru;
+
+        if ((string) config('rota.surucu', RotaMotoru::YAKIN_KOMSU) !== RotaMotoru::GOOGLE) {
+            return $yakinKomsu;
+        }
+
+        $google = new GoogleRoutesMotoru(
+            apiKey: (string) config('rota.google.api_key', ''),
+            baseUrl: (string) config('rota.google.base_url', ''),
+            timeout: max(1, (int) config('rota.timeout', 8)),
+        );
+
+        return $google->hazirMi() ? $google : $yakinKomsu;
     }
 
     /**

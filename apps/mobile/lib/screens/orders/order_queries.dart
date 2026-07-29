@@ -266,6 +266,105 @@ Stream<int> watchAcikSiparisSayisi(AppDatabase db) =>
         .map((rows) => rows.length);
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
+// Harita — açık siparişlerin durakları
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// Haritadaki tek durak. Numarası YOK: sıra listenin kendisidir ([HaritaVerisi.duraklar]),
+/// pin numarasını ekran indeksten yazar — iki yerde ayrı sayı tutulursa ayrışırlar.
+class HaritaDuragi {
+  const HaritaDuragi({
+    required this.orderId,
+    required this.baslik,
+    required this.lat,
+    required this.lng,
+  });
+
+  final String orderId;
+
+  /// Müşteri adı (tezgâh satışında sabit metin) — pine dokununca açılan sheet'in başlığı.
+  final String baslik;
+
+  final double lat;
+  final double lng;
+}
+
+/// Haritanın tek okuması: çizilecek duraklar + haritaya GİREMEYEN açık sipariş sayısı.
+class HaritaVerisi {
+  const HaritaVerisi({required this.duraklar, required this.konumsuz});
+
+  /// Rota sırasında (oto sıralama sonrası `sort_index` bu sıradır).
+  final List<HaritaDuragi> duraklar;
+
+  /// Koordinatı olmadığı için haritada GÖRÜNMEYEN açık sipariş sayısı. Kullanıcıya söylenir:
+  /// "haritada 5 pin var" deyip 8 açık siparişten üçünü sessizce yutmak, kuryenin eksik rota
+  /// koşmasına yol açardı.
+  final int konumsuz;
+}
+
+/// Harita ekranının verisi — YALNIZ açık siparişler, müşterinin BİRİNCİL adresinin koordinatıyla.
+///
+/// Birincil adres kuralı `watchBirincilAdresler` ile AYNIDIR (isPrimary önce, sonra id): harita
+/// başka bir adresi seçseydi listedeki adres metni ile haritadaki pin farklı yerleri gösterirdi.
+/// Birincil adreste koordinat yoksa sipariş KONUMSUZ sayılır — ikincil adrese düşmek, kullanıcının
+/// listede gördüğü adresin dışında bir kapıya pin koymak olurdu.
+///
+/// Sıra: `siparisleriSirala(..., elle)` — yani kalıcı `sort_index`. Oto sıralamadan sonra bu sıra
+/// rotanın kendisidir; hiç sıralanmamış siparişler (sortIndex null) sona düşer.
+Stream<HaritaVerisi> watchHaritaDuraklari(AppDatabase db) {
+  final q = db.select(db.orders).join([
+    leftOuterJoin(db.customers, db.customers.id.equalsExp(db.orders.customerId)),
+    leftOuterJoin(
+      db.customerAddresses,
+      db.customerAddresses.customerId.equalsExp(db.orders.customerId) &
+          db.customerAddresses.deletedAt.isNull(),
+    ),
+  ]);
+  q.where(db.orders.deletedAt.isNull() & db.orders.status.equals('open'));
+  // İlk iki terim siparişlerin taban sırası (`watchOrders` ile aynı); son ikisi AYNI siparişin
+  // adres satırları arasında birincili öne alır — böylece her sipariş için ilk gelen satır
+  // birincil adrestir ve Dart tarafında ikinci bir karşılaştırma gerekmez.
+  q.orderBy([
+    OrderingTerm.desc(db.orders.occurredAt),
+    OrderingTerm.desc(db.orders.id),
+    OrderingTerm.desc(db.customerAddresses.isPrimary),
+    OrderingTerm.asc(db.customerAddresses.id),
+  ]);
+
+  return q.watch().map((rows) {
+    final siparisler = <String, OrderListItem>{};
+    final adresler = <String, CustomerAddressesData>{};
+    for (final r in rows) {
+      final o = r.readTable(db.orders);
+      siparisler.putIfAbsent(
+        o.id,
+        () => OrderListItem(order: o, customerName: r.readTableOrNull(db.customers)?.name),
+      );
+      final a = r.readTableOrNull(db.customerAddresses);
+      if (a != null) adresler.putIfAbsent(o.id, () => a);
+    }
+
+    final duraklar = <HaritaDuragi>[];
+    var konumsuz = 0;
+    for (final e in siparisleriSirala(siparisler.values.toList(), OrderSort.elle)) {
+      final a = adresler[e.order.id];
+      final lat = a?.lat;
+      final lng = a?.lng;
+      if (lat == null || lng == null) {
+        konumsuz++;
+        continue;
+      }
+      duraklar.add(HaritaDuragi(
+        orderId: e.order.id,
+        baslik: e.customerName ?? 'Tezgâh satışı',
+        lat: lat,
+        lng: lng,
+      ));
+    }
+    return HaritaVerisi(duraklar: duraklar, konumsuz: konumsuz);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
 // Sipariş kalemleri
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 

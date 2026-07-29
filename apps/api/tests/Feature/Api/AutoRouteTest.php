@@ -2,13 +2,12 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\Tenant;
-use App\Support\Provisioning;
 use App\Support\Route\RouteOrderer;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\ApiTestCase;
+use Tests\Feature\Api\Concerns\BuildsRouteStops;
 use Tests\Feature\Api\Concerns\BuildsSyncEvents;
 
 /**
@@ -19,6 +18,7 @@ use Tests\Feature\Api\Concerns\BuildsSyncEvents;
  */
 class AutoRouteTest extends ApiTestCase
 {
+    use BuildsRouteStops;
     use BuildsSyncEvents;
 
     /** Antalya'da gerçekçi koordinatlar; aralarındaki sıralama gözle de doğrulanabilir. */
@@ -175,56 +175,73 @@ class AutoRouteTest extends ApiTestCase
             ->assertUnauthorized();
     }
 
-    // ── yardımcılar ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Her ad için: müşteri + birincil adres (koordinatlı) + o müşteriye AÇIK bir sipariş.
-     * Hepsi normal senkron yüzeyinden (push) yazılır — test kurgusu üretim yolunu kullanır.
-     *
-     * @param  array<string, array{0: float, 1: float}>  $noktalar
-     * @return array<string, string> ad → sipariş kimliği
-     */
-    private function siparisleriKur(string $token, array $noktalar): array
+    #[Test]
+    public function cihaz_konumu_verilince_zincir_en_yakin_duraktan_baslar(): void
     {
-        $olaylar = [];
-        $siparisIdler = [];
+        // Ayırt edici kurgu: order_ids AYNI sırada gönderilir ([lara, kepez, muratpasa]).
+        //   start YOK  → ilk durak sabit  → lara → muratpaşa → kepez  (üstteki test bunu sabitler)
+        //   start Kepez'in dibinde → kepez → muratpaşa → lara — TAM TERSİ.
+        // Sıra ters dönüyorsa `start` gerçekten okunmuş ve motora geçmiş demektir.
+        $a = $this->makeTenant('a');
+        $this->setRouteCredits($a['tenant']->id, 5);
+        $token = $this->tokenFor($a['patron']);
 
-        foreach ($noktalar as $ad => [$lat, $lng]) {
-            $musteriId = (string) Str::uuid7();
-            $siparisId = (string) Str::uuid7();
-            $siparisIdler[$ad] = $siparisId;
+        $siparisler = $this->siparisleriKur($token, [
+            'lara' => self::LARA,
+            'kepez' => self::KEPEZ,
+            'muratpasa' => self::MURATPASA,
+        ]);
 
-            $olaylar[] = $this->customerUpsert(['id' => $musteriId, 'name' => 'Müşteri '.$ad]);
-            $olaylar[] = $this->event('customer_address', 'upsert', [
-                'id' => (string) Str::uuid7(),
-                'customer_id' => $musteriId,
-                'address_text' => $ad.' Mah. 1. Sk.',
-                'lat' => $lat,
-                'lng' => $lng,
-                'is_primary' => true,
-            ]);
-            $olaylar[] = $this->orderCreated(
-                [$this->line(['product_name' => 'Damacana', 'unit_price_kurus' => 4500, 'qty' => 1])],
-                ['id' => $siparisId, 'customer_id' => $musteriId],
-            );
-        }
+        $yanit = $this->asToken($token)->postJson('/api/v1/orders/auto-route', [
+            'order_ids' => [$siparisler['lara'], $siparisler['kepez'], $siparisler['muratpasa']],
+            'start' => ['lat' => 36.9200, 'lng' => 30.6600], // Kepez'in hemen kuzeybatısı
+        ]);
 
-        $this->pushEvents($token, $olaylar)->assertOk();
-
-        return $siparisIdler;
+        $yanit->assertOk();
+        $this->assertSame(
+            [$siparisler['kepez'], $siparisler['muratpasa'], $siparisler['lara']],
+            $yanit->json('order'),
+            'zincir cihaz konumuna en yakın duraktan başlamalı',
+        );
+        $this->assertSame(4, $yanit->json('route_credits'));
     }
 
-    private function setRouteCredits(string $tenantId, int $adet): void
+    #[Test]
+    public function gecersiz_baslangic_koordinati_422_verir_ve_kontor_yanmaz(): void
     {
-        Provisioning::asOwner(function () use ($tenantId, $adet) {
-            Tenant::query()->whereKey($tenantId)->update(['route_credits' => $adet]);
-        });
+        // Aralık dışı bir enlem sessizce kırpılsaydı kurye şehrin dışından başlayan bir sıra
+        // görürdü. Doğrulama controller'dan ÖNCE koştuğu için kontöre de hiç dokunulmaz.
+        $a = $this->makeTenant('a');
+        $this->setRouteCredits($a['tenant']->id, 9);
+        $token = $this->tokenFor($a['patron']);
+        $siparisler = $this->siparisleriKur($token, ['lara' => self::LARA]);
+
+        $this->asToken($token)->postJson('/api/v1/orders/auto-route', [
+            'order_ids' => array_values($siparisler),
+            'start' => ['lat' => 91, 'lng' => 30.7],
+        ])->assertStatus(422)->assertJsonValidationErrors('start.lat');
+
+        $this->assertSame(9, $this->routeCredits($a['tenant']->id));
     }
 
-    private function routeCredits(string $tenantId): int
+    #[Test]
+    public function baslangic_noktasi_saf_motorda_ilk_duragi_serbest_birakir(): void
     {
-        return (int) Provisioning::asOwner(
-            fn () => Tenant::query()->whereKey($tenantId)->value('route_credits')
+        // Birim düzeyi: `start` verilmediğinde ESKİ davranış (ilk durak sabit) birebir korunur —
+        // eski istemciler ve konum alınamayan cihazlar bu yolda kalır.
+        $duraklar = [
+            ['id' => 'lara', 'lat' => self::LARA[0], 'lng' => self::LARA[1]],
+            ['id' => 'kepez', 'lat' => self::KEPEZ[0], 'lng' => self::KEPEZ[1]],
+            ['id' => 'muratpasa', 'lat' => self::MURATPASA[0], 'lng' => self::MURATPASA[1]],
+        ];
+
+        $this->assertSame(
+            ['lara', 'muratpasa', 'kepez'],
+            RouteOrderer::sirala($duraklar)['order'],
+        );
+        $this->assertSame(
+            ['kepez', 'muratpasa', 'lara'],
+            RouteOrderer::sirala($duraklar, ['lat' => 36.92, 'lng' => 30.66])['order'],
         );
     }
 }

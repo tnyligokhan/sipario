@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
 import '../../auth/session.dart';
+import '../../konum/cihaz_konumu.dart';
 import '../../repo/order_repository.dart';
 import '../../sync/route_api.dart';
 import '../../theme/components/atoms.dart';
@@ -29,6 +30,7 @@ import 'order_detail_screen.dart';
 import 'order_list_parts.dart';
 import 'order_queries.dart';
 import 'order_sheets.dart';
+import 'siparis_harita.dart';
 import 'tutamac_deposu.dart';
 
 // Sorgu/biçim yardımcıları bu ekranın YÜZEYİNDEN de erişilebilir olmalı: mevcut testler ve
@@ -192,6 +194,18 @@ class _OrderListScreenState extends State<OrderListScreen> {
                     '${_kuryeId == null ? '' : ' · ${_kuryeAdi ?? 'Kurye'}'}',
                 onMenu: widget.onMenu,
                 sag: [
+                  // HARİTA — her zaman görünür. Bu ekran zaten yalnız açık siparişleri
+                  // gösteriyor; haritanın da göstereceği tam olarak o küme. Düğmeyi duruma
+                  // göre gizlemek, yeteneği bulunamaz kılardı (`.sr-oto` dersinin aynısı).
+                  SipIkonButon(
+                    ikon: SipIcons.pin,
+                    ikonBoyut: 20,
+                    zemin: t.surface,
+                    renk: t.ink,
+                    etiket: 'Haritada göster',
+                    onTap: _haritaAc,
+                  ),
+                  const SizedBox(width: SipSpace.md),
                   // Kurye süzgeci — yalnız patron (K2 dışı bir GÖRÜNÜM kapısı; kurye kendi
                   // işini görür, ona süzgeç gürültüdür). Elle sıralama kipinde gizlenir:
                   // sıra yazarken listenin altından küme değişmemeli.
@@ -332,6 +346,15 @@ class _OrderListScreenState extends State<OrderListScreen> {
         baslik: item.customerName ?? 'Tezgâh satışı',
       );
 
+  /// Harita ekranı — açık siparişlerin durakları, rota sırasında numaralı.
+  Future<void> _haritaAc() => Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => SiparisHaritaEkrani(
+          db: widget.db,
+          writable: widget.writable,
+          canAssign: widget.canAssign,
+        ),
+      ));
+
   /// "Kuryeye Göre" süzgeci (saha hatası 6 — patron hiçbir listede kuryeye göre süzemiyordu).
   ///
   /// Aday listesi tek atış okunur: sheet açılırken bir akış tikini beklemek, dokunma ile ekran
@@ -449,10 +472,27 @@ class _OrderListScreenState extends State<OrderListScreen> {
       return;
     }
 
-    final api = RouteApi(baseUrl: Session.baseUrlOf(meta), token: token);
+    // ROTA NEREDEN BAŞLAR: kuryenin BULUNDUĞU nokta. Konum alınamazsa (izin yok, GPS kapalı,
+    // kapalı alan) ya da ölçüm güvenilmezse (`guvenilir` kuralı — ±100 m üstü bir başlangıç
+    // noktası rotayı yanlış şehir köşesinden kurabilir) `start` HİÇ gönderilmez; sunucu eski
+    // davranışıyla ilk duraktan sıralar. Fark kullanıcıya SÖYLENİR (aşağıdaki toast eki):
+    // sessizce başka bir kipte sıralamak, kuryeye yanlış bir rotaya güvenmesini söylemek olurdu.
+    ({double lat, double lng})? baslangic;
+    try {
+      final konum = await cihazKonumuOku();
+      if (konum.guvenilir) baslangic = (lat: konum.lat, lng: konum.lng);
+    } on Object {
+      // Konum bir KOLAYLIKTIR, ön koşul değil: okunamadıysa sıralama yine yapılır.
+    }
+    if (!mounted) return;
+
+    final api = rotaApiUret(Session.baseUrlOf(meta), token);
     final AutoRouteResult sonuc;
     try {
-      sonuc = await api.autoRoute([for (final e in liste) e.order.id]);
+      sonuc = await api.autoRoute(
+        [for (final e in liste) e.order.id],
+        baslangic: baslangic,
+      );
     } on RouteException catch (e) {
       // Sunucu güncel hakkı bildirdiyse ÖNBELLEĞİ düzelt: "34 hak" yazan düğmeye basıp
       // "hakkınız kalmadı" duymak, sonra hâlâ 34 görmek kullanıcıyı ikinci kez yanıltırdı.
@@ -488,8 +528,11 @@ class _OrderListScreenState extends State<OrderListScreen> {
     // Koordinatsız duraklar sona atıldı — bunu SÖYLEMEK zorundayız, yoksa "sıraladım" demek
     // yanıltıcı olur (kullanıcı o siparişlerin neden sonda olduğunu anlamaz).
     final ek = sonuc.konumsuz > 0 ? ' · ${sonuc.konumsuz} sipariş konumsuz, sona alındı' : '';
+    // Hangi KİPTE sıralandığı da söylenir: kurye "benim konumumdan başladı" sanıp ilk durağa
+    // gitmemeyi seçebilir. Sessiz bozulma yasak — konum alınamadıysa cümlenin sonunda yazar.
+    final kip = baslangic == null ? ' · konum alınamadı, ilk duraktan' : '';
     SipToast.goster(
-        context, 'Rota otomatik sıralandı · ${sonuc.kalanHak} hak kaldı$ek');
+        context, 'Rota otomatik sıralandı · ${sonuc.kalanHak} hak kaldı$ek$kip');
   }
 
   /// Sürükle-bırak sonrası: önce İYİMSER sıra (ekran anında oturur), sonra kalıcı yazım.

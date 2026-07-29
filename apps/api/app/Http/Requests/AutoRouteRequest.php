@@ -10,6 +10,10 @@ use Illuminate\Foundation\Http\FormRequest;
  * Neden istemci gönderiyor: hangi siparişlerin ekranda olduğunu (kurye filtresi, "Açık"
  * sekmesi, o günün kapsamı) istemci bilir. Sunucu yine de kendi RLS'i altında doğrular —
  * başka bayinin siparişi listeye konsa sessizce düşer, sıralamaya girmez.
+ *
+ * `start` OPSİYONELDİR ve öyle kalmalı: konum izni reddedilmiş, GPS kapalı ya da eski sürüm
+ * bir istemci bu alanı gönderemez. Yoksa sıralama eski davranışla (ilk durak sabit) yapılır;
+ * özellik konum yüzünden ASLA kapanmaz.
  */
 class AutoRouteRequest extends FormRequest
 {
@@ -26,6 +30,15 @@ class AutoRouteRequest extends FormRequest
             // amaç sınırsız gövdeyle bellek şişirmeyi engellemek.
             'order_ids' => ['required', 'array', 'min:1', 'max:500'],
             'order_ids.*' => ['required', 'uuid'],
+
+            // Cihazın anlık konumu. `array:lat,lng` fazladan alanı REDDEDER — bu uç noktadan
+            // dışarıya (Google) koordinat çıkıyor; gövdeye ne girdiği sıkı tutulmalı.
+            // `nullable`: istemci konumu alamadığında alanı `null` yollayabilir, bu hata değildir.
+            'start' => ['sometimes', 'nullable', 'array:lat,lng'],
+            // Yarım koordinat yoktur: biri varsa ikisi de zorunlu. Aralık dışı değer 422'dir —
+            // sessizce kırpılsa kurye şehrin dışından başlayan bir sıra görürdü.
+            'start.lat' => ['required_with:start', 'numeric', 'between:-90,90'],
+            'start.lng' => ['required_with:start', 'numeric', 'between:-180,180'],
         ];
     }
 }

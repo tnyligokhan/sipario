@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\AutoRouteRequest;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Support\Route\RouteOrderer;
+use App\Support\Route\RotaException;
+use App\Support\Route\RotaMotoru;
+use App\Support\Route\YakinKomsuMotoru;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * "Oto Sırala (rota)" — tasarım `s-siparisler.jsx` sıralama sayfasındaki kontörlü eylem.
@@ -25,27 +28,29 @@ use Illuminate\Support\Facades\DB;
  */
 class RouteController extends Controller
 {
-    /** POST /api/v1/orders/auto-route */
-    public function autoRoute(AutoRouteRequest $request): JsonResponse
+    /**
+     * POST /api/v1/orders/auto-route
+     *
+     * ADIM SIRASI TESADÜF DEĞİL — her adımın gerekçesi var:
+     *  1. Duraklar: geçerli sipariş yoksa 422 ve kontör YANMAZ (boş işlem hak harcamaz).
+     *  2. Kontöre KİLİTSİZ ön bakış: sıfırsa erken 409. Hakkı olmayan bir isteğe paralı dış
+     *     servisi çalıştırmak parayı çöpe atmak olurdu.
+     *  3. Sıralama (gerekirse dış HTTP). Motor arızalanırsa yakın komşuya düşülür.
+     *  4. SONRA kilit + koşullu düşüm. Kritik: HTTP çağrısı satır kilidinin DIŞINDA kalmalı —
+     *     8 saniyelik bir dış istek boyunca `tenants` satırını kilitli tutmak, aynı bayinin
+     *     tüm eşzamanlı isteklerini o süre boyunca sıraya dizerdi.
+     */
+    public function autoRoute(AutoRouteRequest $request, RotaMotoru $motor): JsonResponse
     {
         /** @var User $user */
         $user = $request->user();
+        /** @var array<string, mixed> $dogrulanmis */
+        $dogrulanmis = $request->validated();
         /** @var list<string> $istenen */
-        $istenen = $request->validated()['order_ids'];
+        $istenen = $dogrulanmis['order_ids'];
 
-        // Kontör düşümü ile sıra hesabı AYNI transaction'da: hak düşüp sıra dönmemesi ya da
-        // sıra dönüp hak düşmemesi mümkün olmasın. `tenant` middleware'i isteği zaten bir
-        // transaction'a sarıyor; satır kilidi (FOR UPDATE) eşzamanlı iki cihazın aynı hakkı
-        // iki kez harcamasını engeller.
-        $tenant = Tenant::query()->lockForUpdate()->find($user->tenant_id);
+        $tenant = Tenant::query()->find($user->tenant_id);
         abort_if($tenant === null, 409, 'Hesabınızın kiracı bağlamı bulunamadı, destek alın.');
-
-        if ($tenant->route_credits <= 0) {
-            return response()->json([
-                'message' => 'Oto sıralama hakkınız kalmadı.',
-                'route_credits' => 0,
-            ], 409);
-        }
 
         $duraklar = $this->duraklar($istenen);
         if ($duraklar === []) {
@@ -57,15 +62,91 @@ class RouteController extends Controller
             ], 422);
         }
 
-        $sonuc = RouteOrderer::sirala($duraklar);
+        if ($tenant->route_credits <= 0) {
+            return response()->json([
+                'message' => 'Oto sıralama hakkınız kalmadı.',
+                'route_credits' => 0,
+            ], 409);
+        }
 
-        $tenant->decrement('route_credits');
+        [$sonuc, $engine] = $this->siralamayiKos($motor, $duraklar, $this->baslangic($dogrulanmis));
+
+        // Satır kilidi (FOR UPDATE) eşzamanlı iki cihazın aynı hakkı iki kez harcamasını
+        // engeller: kilidi kazanan düşürür, ikincisi taze değeri okur. Ön bakıştan bu ana kadar
+        // hak tükendiyse 409 — kontör EKSİYE DÜŞMEZ. (`tenant` middleware'i isteği zaten tek bir
+        // transaction'a sarıyor; kilit bu yüzden istek sonuna dek yaşar, o yüzden EN SONA konur.)
+        $kilitli = Tenant::query()->lockForUpdate()->find($user->tenant_id);
+        if ($kilitli === null || $kilitli->route_credits <= 0) {
+            return response()->json([
+                'message' => 'Oto sıralama hakkınız kalmadı.',
+                'route_credits' => 0,
+            ], 409);
+        }
+
+        // Kontör MOTOR FARK ETMEKSİZİN 1 düşer: ürün kuralı "1 sıralama = 1 kontör". Google'a
+        // düşüp yakın komşuya geri dönmüş olmak kullanıcının sorunu değildir; ikinci kez de yanmaz.
+        $kilitli->decrement('route_credits');
 
         return response()->json([
             'order' => $sonuc['order'],
             'without_location' => $sonuc['without_location'],
-            'route_credits' => $tenant->route_credits,
+            'route_credits' => $kilitli->route_credits,
+            'engine' => $engine,
         ]);
+    }
+
+    /**
+     * Yapılandırılmış motoru koşar; ARIZADA yakın komşuya düşer.
+     *
+     * Bu özellik ASLA 5xx vermez: yakın komşu saftır (ağ, anahtar, kota yok), her koşulda bir
+     * sıra üretir. Dış servisin ölmesi kullanıcının işini durdurmaz — sıra yalnız biraz daha
+     * kaba olur ve sebep log'a düşer (kullanıcıya "Billing"/"API key" gibi bir ayrıntı SIZMAZ).
+     *
+     * @param  list<array{id: string, lat: float|null, lng: float|null}>  $duraklar
+     * @param  array{lat: float, lng: float}|null  $baslangic
+     * @return array{0: array{order: list<string>, without_location: int}, 1: string}
+     */
+    private function siralamayiKos(RotaMotoru $motor, array $duraklar, ?array $baslangic): array
+    {
+        try {
+            return [$motor->sirala($duraklar, $baslangic), $motor->adi()];
+        } catch (RotaException $e) {
+            Log::warning('Rota motoru dustu, yakin komsuya dusuldu', [
+                'motor' => $motor->adi(),
+                'sebep' => $e->getMessage(),
+            ]);
+
+            $yedek = new YakinKomsuMotoru;
+
+            return [$yedek->sirala($duraklar, $baslangic), $yedek->adi()];
+        }
+    }
+
+    /**
+     * Cihazın anlık konumu. Doğrulama zaten aralığı sınadı; burada yalnız "iki alan da var mı"
+     * kontrolü kalır — `start` hiç gelmediğinde ya da `null` geldiğinde başlangıç UYDURULMAZ,
+     * motor eski davranışa (ilk durak sabit) döner.
+     *
+     * @param  array<string, mixed>  $dogrulanmis
+     * @return array{lat: float, lng: float}|null
+     */
+    private function baslangic(array $dogrulanmis): ?array
+    {
+        /** @var mixed $ham */
+        $ham = $dogrulanmis['start'] ?? null;
+        if (! is_array($ham) || ! isset($ham['lat'], $ham['lng'])) {
+            return null;
+        }
+
+        /** @var mixed $lat */
+        $lat = $ham['lat'];
+        /** @var mixed $lng */
+        $lng = $ham['lng'];
+        if (! is_numeric($lat) || ! is_numeric($lng)) {
+            return null;
+        }
+
+        return ['lat' => (float) $lat, 'lng' => (float) $lng];
     }
 
     /**
@@ -73,8 +154,8 @@ class RouteController extends Controller
      * listeye konsa sıfır satır döner ve sıralamaya hiç girmez.
      *
      * Konum müşterinin BİRİNCİL adresinden gelir; adresi ya da koordinatı olmayan sipariş
-     * `lat/lng = null` ile döner (RouteOrderer onları sona atar). İstemcinin gönderdiği SIRA
-     * korunur — en yakın komşu zinciri ilk duraktan başlar, o da bu sıradaki ilk siparştir.
+     * `lat/lng = null` ile döner (motorlar onları sona atar). İstemcinin gönderdiği SIRA korunur:
+     * `start` gelmediğinde zincir bu sıradaki ilk siparişten başlar.
      *
      * @param  list<string>  $istenen
      * @return list<array{id: string, lat: float|null, lng: float|null}>
