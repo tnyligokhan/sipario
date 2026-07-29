@@ -30,6 +30,10 @@
 *.db-wal
 *.db-shm
 
+# Ruflo'nun kendi aldığı zaman damgalı hafıza yedekleri. Her ajan koşumunda YENİ bir dosya
+# doğar; commit edilirlerse depo, hiç kimsenin okumayacağı yüzlerce ikili dosyayla şişer.
+.swarm/backups/
+
 # Durum çubuğunun CI önbelleği — anlık, makineye özgü.
 .claude/ci-durum.json
 .claude/ci-durum.kilit

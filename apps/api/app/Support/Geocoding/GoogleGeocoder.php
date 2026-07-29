@@ -117,6 +117,7 @@ final class GoogleGeocoder implements Geocoder
                     is_string($tip = data_get($sonuc, 'geometry.location_type')) ? $tip : '',
                     data_get($sonuc, 'partial_match') === true,
                 ),
+                kaynak: GeoAday::KAYNAK_GOOGLE,
             );
 
             if ($aday->turkiyedeMi()) {

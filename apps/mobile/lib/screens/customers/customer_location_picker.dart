@@ -25,6 +25,7 @@ class AdresAdayi {
     required this.lat,
     required this.lng,
     this.kesinlik = 'semt',
+    this.kaynak = '',
   });
 
   final String metin;
@@ -34,7 +35,26 @@ class AdresAdayi {
   /// 'bina' | 'sokak' | 'semt' — sunucunun sağlayıcıdan bağımsızlaştırdığı kademe.
   final String kesinlik;
 
+  /// Adayı bulan sağlayıcı(lar): 'yandex' | 'google' | 'google+yandex' | ''.
+  final String kaynak;
+
   String get koordinat => konumMetni(lat, lng);
+
+  /// Aday satırında gösterilecek kaynak etiketi; kaynak bilinmiyorsa `null` (eski sunucu).
+  ///
+  /// MUTABAKAT ayrı yazılır ve sağlayıcı adlarını hiç anmaz: bayi için "Yandex" ile "Google"
+  /// arasındaki fark bir şey ifade etmez, ama "iki servis de aynı yeri gösterdi" bilgisi
+  /// doğrudan seçim kararını kolaylaştırır — listedeki en güvenilir aday odur.
+  String? get kaynakNotu => switch (kaynak) {
+        '' => null,
+        final k when k.contains('+') => 'iki servis de doğruladı',
+        'yandex' => 'Yandex',
+        'google' => 'Google',
+        final k => k,
+      };
+
+  /// Mutabakatlı aday vurgulu renkle çizilir (uyarı değil, GÜVEN sinyali).
+  bool get mutabakatVar => kaynak.contains('+');
 
   /// Kapı kesinliği YOKSA kullanıcıya söylenir. "Sokak" kesinliğindeki bir pin kuryeyi doğru
   /// sokağa götürür ama doğru kapıya götürmez; bunu sessizce "konum kayıtlı" saymak, kuryenin
@@ -85,7 +105,13 @@ Future<List<AdresAdayi>> sunucudanAdresAdaylari(AppDatabase db, String metin) as
 
   return [
     for (final a in adaylar)
-      AdresAdayi(metin: a.metin, lat: a.lat, lng: a.lng, kesinlik: a.kesinlik),
+      AdresAdayi(
+        metin: a.metin,
+        lat: a.lat,
+        lng: a.lng,
+        kesinlik: a.kesinlik,
+        kaynak: a.kaynak,
+      ),
   ];
 }
 
@@ -194,6 +220,19 @@ class AdaySatiri extends StatelessWidget {
                     ],
                   ],
                 ),
+                // Kaynak AYRI SATIRDA: koordinat satırına üçüncü bir parça eklemek dar
+                // ekranlarda taşırıyordu. Mutabakat `ok` rengiyle çizilir — bu bir uyarı
+                // değil GÜVEN sinyalidir ve kullanıcı listeye baktığında ilk onu görmeli.
+                if (aday.kaynakNotu != null) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    aday.kaynakNotu!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: SipText.metin(11, w: 700)
+                        .copyWith(color: aday.mutabakatVar ? t.ok : t.muted),
+                  ),
+                ],
               ],
             ),
           ),

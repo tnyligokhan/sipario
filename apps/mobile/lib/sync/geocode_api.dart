@@ -75,6 +75,7 @@ class GeoAday {
     required this.lat,
     required this.lng,
     required this.kesinlik,
+    this.kaynak = '',
   });
 
   final String metin;
@@ -85,6 +86,12 @@ class GeoAday {
   /// demektir, kullanıcı adayı seçerken bunu görmeli.
   final String kesinlik;
 
+  /// Adayı hangi sağlayıcının bulduğu: 'yandex' | 'google' | 'google+yandex' | ''.
+  /// Sunucu iki sağlayıcıyı birden sorduğunda (`coklu` sürücü) artı işaretli değer MUTABAKAT
+  /// demektir — iki bağımsız servis aynı noktayı gösterdi. Eski sunucular bu alanı hiç
+  /// göndermez; o yüzden boş varsayılan ve alan YOKSA satır sessizce eski gibi çizilir.
+  final String kaynak;
+
   /// Tek kaydı çözer; alanı eksik/bozuksa null döner. Tek bozuk kayıt yüzünden bütün listeyi
   /// düşürmek kullanıcıyı boş yere adressiz bırakırdı.
   static GeoAday? ayristir(Object? ham) {
@@ -94,11 +101,13 @@ class GeoAday {
     final lng = ham['lng'];
     if (metin is! String || metin.isEmpty || lat is! num || lng is! num) return null;
     final kesinlik = ham['precision'];
+    final kaynak = ham['source'];
     return GeoAday(
       metin: metin,
       lat: lat.toDouble(),
       lng: lng.toDouble(),
       kesinlik: kesinlik is String ? kesinlik : 'semt',
+      kaynak: kaynak is String ? kaynak : '',
     );
   }
 }

@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Payment\IyzicoPaymentGateway;
 use App\Payment\PaymentGateway;
+use App\Support\Geocoding\CokluGeocoder;
+use App\Support\Geocoding\GeoAday;
 use App\Support\Geocoding\Geocoder;
 use App\Support\Geocoding\GoogleGeocoder;
 use App\Support\Geocoding\NullGeocoder;
@@ -47,21 +49,31 @@ class AppServiceProvider extends ServiceProvider
         $ulke = (string) config('geocoding.bias.country', 'tr');
         $bbox = (string) config('geocoding.bias.bbox', '');
 
+        $yandex = fn () => new YandexGeocoder(
+            apiKey: (string) config('geocoding.yandex.api_key', ''),
+            baseUrl: (string) config('geocoding.yandex.base_url', ''),
+            timeout: $timeout,
+            lang: (string) config('geocoding.bias.lang', 'tr_TR'),
+            bbox: $bbox,
+        );
+
+        $google = fn () => new GoogleGeocoder(
+            apiKey: (string) config('geocoding.google.api_key', ''),
+            baseUrl: (string) config('geocoding.google.base_url', ''),
+            timeout: $timeout,
+            ulke: $ulke,
+            bbox: $bbox,
+        );
+
         $surucu = match ((string) config('geocoding.driver', 'null')) {
-            'yandex' => new YandexGeocoder(
-                apiKey: (string) config('geocoding.yandex.api_key', ''),
-                baseUrl: (string) config('geocoding.yandex.base_url', ''),
-                timeout: $timeout,
-                lang: (string) config('geocoding.bias.lang', 'tr_TR'),
-                bbox: $bbox,
-            ),
-            'google' => new GoogleGeocoder(
-                apiKey: (string) config('geocoding.google.api_key', ''),
-                baseUrl: (string) config('geocoding.google.base_url', ''),
-                timeout: $timeout,
-                ulke: $ulke,
-                bbox: $bbox,
-            ),
+            'yandex' => $yandex(),
+            'google' => $google(),
+            // İkisini birden sor, adayları birleştir, seçimi kullanıcıya bırak. Anahtarı olmayan
+            // sağlayıcıyı CokluGeocoder kendi eler; biri düşerse diğeri özelliği ayakta tutar.
+            'coklu' => new CokluGeocoder([
+                ['ad' => GeoAday::KAYNAK_YANDEX, 'geocoder' => $yandex()],
+                ['ad' => GeoAday::KAYNAK_GOOGLE, 'geocoder' => $google()],
+            ]),
             default => new NullGeocoder,
         };
 

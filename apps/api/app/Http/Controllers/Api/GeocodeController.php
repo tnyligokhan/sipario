@@ -82,7 +82,7 @@ class GeocodeController extends Controller
      * Boş sonuç da önbelleklenir: bulunamayan adres tekrar tekrar sorulup kota yakmasın.
      * Arıza önbelleklenmez — istisna `remember`ı yarıda keser, bir sonraki deneme gerçekten gider.
      *
-     * @return list<array{text: string, lat: float, lng: float, precision: string}>
+     * @return list<array{text: string, lat: float, lng: float, precision: string, source: string}>
      */
     private function onbellekli(string $sorgu, int $enFazla): array
     {
@@ -90,7 +90,7 @@ class GeocodeController extends Controller
         $anahtar = 'geo:'.$surucu.':'.$enFazla.':'.sha1(mb_strtolower($sorgu, 'UTF-8'));
         $gun = max(1, (int) config('geocoding.cache_days', 30));
 
-        /** @var list<array{text: string, lat: float, lng: float, precision: string}> */
+        /** @var list<array{text: string, lat: float, lng: float, precision: string, source: string}> */
         return Cache::remember(
             $anahtar,
             now()->addDays($gun),

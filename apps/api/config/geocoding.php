@@ -11,8 +11,16 @@
  * bile değişmez (GeocodingServiceProvider driver'a bakıp bağlar).
  */
 return [
-    // yandex | google | null. `null` sürücüsü hiç dış çağrı yapmaz, boş liste döner —
-    // anahtarsız ortamda (CI, yerel geliştirme) uygulama çalışmayı SÜRDÜRÜR, sessizce patlamaz.
+    // yandex | google | coklu | null.
+    //
+    // `coklu` İKİSİNİ BİRDEN sorar ve adayları tek listede birleştirir (kullanıcı kararı
+    // 2026-07-29). Aynı noktayı gösteren adaylar `google+yandex` kaynağıyla tek satıra iner ve
+    // başa alınır — iki bağımsız servisin mutabakatı, tek servisin kendine güveninden güçlüdür.
+    // Anahtarı olmayan sağlayıcıyı CokluGeocoder kendi eler; biri arızalanırsa (kota, anahtar,
+    // faturalandırma) diğeri özelliği AYAKTA TUTAR, uç nokta ancak hepsi düşerse 503 verir.
+    //
+    // `null` sürücüsü hiç dış çağrı yapmaz, boş liste döner — anahtarsız ortamda (CI, yerel
+    // geliştirme) uygulama çalışmayı SÜRDÜRÜR, sessizce patlamaz.
     'driver' => env('GEOCODING_DRIVER', 'yandex'),
 
     // Aynı adres iki kez sorulmaz. Aday listesi kiracıdan bağımsızdır (kamuya açık coğrafi veri),

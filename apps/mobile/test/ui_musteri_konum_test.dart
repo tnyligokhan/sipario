@@ -61,6 +61,25 @@ void main() {
       expect(adaylar.last.kesinlik, 'semt');
     });
 
+    test('kaynak alanı çözülür; alan YOKSA boş kalır (eski sunucu)', () async {
+      final api = apiKur(MockClient((_) async => http.Response(
+            jsonEncode({
+              'results': [
+                {'text': 'Bahçe Sk. 5', 'lat': 36.8969, 'lng': 30.7133, 'source': 'google+yandex'},
+                {'text': 'Bahçe Sk.', 'lat': 36.9014, 'lng': 30.7221},
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          )));
+
+      final adaylar = await api.ara('Bahçe Sk. no:5');
+
+      expect(adaylar.first.kaynak, 'google+yandex');
+      // Alanı hiç göndermeyen sunucu bir ARIZA değildir: aday yine gösterilir, etiketi çizilmez.
+      expect(adaylar.last.kaynak, '');
+    });
+
     test('bölge yalnız DOLUYSA gövdeye konur', () async {
       late Map<String, dynamic> govde;
       final api = apiKur(MockClient((istek) async {
@@ -97,6 +116,33 @@ void main() {
         throwsA(isA<GeocodeException>()
             .having((e) => e.message, 'mesaj', contains('İnternete ulaşılamadı'))),
       );
+    });
+  });
+
+  group('AdresAdayi.kaynakNotu', () {
+    test('mutabakat sağlayıcı ADI vermez, "iki servis de doğruladı" der', () {
+      // Sunucu iki sağlayıcıyı birden sorduğunda (`coklu`) artı işareti MUTABAKAT demektir:
+      // iki bağımsız servis aynı noktayı gösterdi. Bayi için "Yandex" ile "Google" arasındaki
+      // fark bir şey ifade etmez; "ikisi de burayı gösterdi" doğrudan seçim kararını kolaylaştırır.
+      const mutabakat =
+          AdresAdayi(metin: 'x', lat: 36.9, lng: 30.7, kaynak: 'google+yandex');
+      expect(mutabakat.kaynakNotu, 'iki servis de doğruladı');
+      expect(mutabakat.mutabakatVar, isTrue);
+    });
+
+    test('tek sağlayıcı kendi adıyla görünür', () {
+      const y = AdresAdayi(metin: 'x', lat: 36.9, lng: 30.7, kaynak: 'yandex');
+      const g = AdresAdayi(metin: 'x', lat: 36.9, lng: 30.7, kaynak: 'google');
+      expect(y.kaynakNotu, 'Yandex');
+      expect(g.kaynakNotu, 'Google');
+      expect(y.mutabakatVar, isFalse);
+    });
+
+    test('kaynak BİLİNMİYORSA satır sessizce eski gibi çizilir', () {
+      // Eski sunucu `source` alanını hiç göndermez; bu, boş bir etiket çizmek için sebep değil.
+      const bilinmeyen = AdresAdayi(metin: 'x', lat: 36.9, lng: 30.7);
+      expect(bilinmeyen.kaynakNotu, isNull);
+      expect(bilinmeyen.mutabakatVar, isFalse);
     });
   });
 

@@ -168,7 +168,7 @@ final class YandexGeocoder implements Geocoder
     {
         return array_map(
             fn (GeoAday $a) => $a->kesinlik === GeoAday::KESINLIK_BINA
-                ? new GeoAday($a->metin, $a->lat, $a->lng, GeoAday::KESINLIK_SOKAK)
+                ? new GeoAday($a->metin, $a->lat, $a->lng, GeoAday::KESINLIK_SOKAK, $a->kaynak)
                 : $a,
             $adaylar
         );
@@ -227,6 +227,7 @@ final class YandexGeocoder implements Geocoder
                     is_string($p = data_get($meta, 'precision')) ? $p : '',
                     is_string($k = data_get($meta, 'kind')) ? $k : '',
                 ),
+                kaynak: GeoAday::KAYNAK_YANDEX,
             );
 
             if ($aday->turkiyedeMi()) {
