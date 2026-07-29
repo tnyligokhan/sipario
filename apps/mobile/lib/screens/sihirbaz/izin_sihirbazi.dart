@@ -77,11 +77,33 @@ class _IzinSihirbaziState extends State<IzinSihirbazi> with WidgetsBindingObserv
     if (state == AppLifecycleState.resumed) _tazele();
   }
 
+  /// Cihaza özgü EKRAN VARLIĞI (ör. `hasAutostartSettings`). İzin durumu değil, "bu telefonda
+  /// böyle bir ayar ekranı var mı" sorusudur; bir kez sorulur ve düğme buna göre çizilir.
+  final Map<String, bool> _ekranVar = {};
+
+  Future<void> _ekranlariSorgula() async {
+    for (final anahtar in {
+      for (final iz in _izinler)
+        if (iz.ikincilVarlikAnahtari != null) iz.ikincilVarlikAnahtari!,
+    }) {
+      try {
+        final v = await widget.channel.invokeMethod<bool>(anahtar);
+        if (!mounted) return;
+        setState(() => _ekranVar[anahtar] = v ?? false);
+      } on PlatformException {
+        // Eski APK / bilinmeyen metot: düğme çizilmez (var saymaktansa yok saymak güvenli).
+      } on MissingPluginException {
+        // Kanal yok (test/masaüstü) — aynı gerekçe.
+      }
+    }
+  }
+
   Future<void> _tazele() async {
     try {
       final s = await widget.channel.invokeMapMethod<String, dynamic>('status') ?? {};
       if (!mounted) return;
       setState(() => _status = s);
+      await _ekranlariSorgula();
     } on PlatformException {
       // Kanal yoksa (masaüstü/test) sihirbaz yine gezilebilir; izinler "verilmemiş" görünür.
     } on MissingPluginException {
@@ -108,6 +130,28 @@ class _IzinSihirbaziState extends State<IzinSihirbazi> with WidgetsBindingObserv
   void _geri() {
     if (_adim > 0) setState(() => _adim--);
   }
+
+  /// Adımın İKİNCİ ayar ekranını açar (ör. otomatik başlatma).
+  ///
+  /// Adımı "verildi" SAYMAZ: birincil eylem zaten o işi yapıyor ve iki düğmeden herhangi birine
+  /// dokunmayı "tamam" saymak, kullanıcının yalnız birini yaptığı durumu gizlerdi. Buradaki
+  /// dokunuş bir ayar ekranı açar, o kadar.
+  Future<void> _ikincilAyar(IzinAdimi iz) async {
+    final eylem = iz.ikincilEylem;
+    if (eylem == null) return;
+    try {
+      await widget.channel.invokeMethod(eylem);
+    } on PlatformException catch (e) {
+      if (mounted) SipToast.goster(context, 'Ayar ekranı açılamadı (${e.code})');
+    } on MissingPluginException {
+      // Kanal yok (test/masaüstü) — akış durmasın.
+    }
+  }
+
+  /// Bu adımın ikinci düğmesi ÇİZİLECEK Mİ? Hem tanımlı olmalı hem de cihazda o ekran bulunmalı.
+  bool _ikincilGorunur(IzinAdimi iz) =>
+      iz.ikincilEylem != null &&
+      (iz.ikincilVarlikAnahtari == null || _ekranVar[iz.ikincilVarlikAnahtari!] == true);
 
   Future<void> _izinIste(IzinAdimi iz) async {
     try {
@@ -291,7 +335,21 @@ class _IzinSihirbaziState extends State<IzinSihirbazi> with WidgetsBindingObserv
           children: verildi
               ? [SipButon(etiket: 'Devam', onTap: _ilerle)]
               : [
-                  SipButon(etiket: 'İzin Ver', onTap: () => _izinIste(iz)),
+                  SipButon(
+                    etiket: iz.birincilEtiket ?? 'İzin Ver',
+                    onTap: () => _izinIste(iz),
+                  ),
+                  // İkinci ayar ekranı (ör. otomatik başlatma) — bir adımın iki ayarı olabilir.
+                  // İKİNCİL görünümde: birincil eylem adımın asıl işidir, bu onun tamamlayıcısı.
+                  if (_ikincilGorunur(iz))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 9),
+                      child: SipButon(
+                        etiket: iz.ikincilEtiket ?? 'Diğer Ayar',
+                        tur: SipButonTuru.ikincil,
+                        onTap: () => _ikincilAyar(iz),
+                      ),
+                    ),
                   if (iz.zorunlu)
                     Padding(
                       padding: const EdgeInsets.only(top: 9),

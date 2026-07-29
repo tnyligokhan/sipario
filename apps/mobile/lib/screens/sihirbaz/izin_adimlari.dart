@@ -24,6 +24,10 @@ class IzinAdimi {
     required this.eylem,
     this.zorunlu = false,
     this.durumAnahtari,
+    this.birincilEtiket,
+    this.ikincilEylem,
+    this.ikincilEtiket,
+    this.ikincilVarlikAnahtari,
   });
 
   final String anahtar;
@@ -41,6 +45,22 @@ class IzinAdimi {
 
   /// `status` haritasındaki anahtar; null ise durum okunamaz (pil) ve kullanıcı ayarlardan verir.
   final String? durumAnahtari;
+
+  /// Birincil düğmenin metni; verilmezse "İzin Ver".
+  final String? birincilEtiket;
+
+  /// AYNI adımda açılacak İKİNCİ ayar ekranı (kanal metodu). Bir adımın iki ayarı olabilir:
+  /// MIUI'de arayan tanımayı iki ayrı mekanizma öldürüyor (pil kısıtlaması VE otomatik
+  /// başlatma) ve ikisi de bu adımın konusudur. Adım SAYISI değişmez — sabit altı adım kararı
+  /// (bkz. dosya başlığı) adım listesiyle ilgilidir, adımın içindeki düğmelerle değil.
+  final String? ikincilEylem;
+
+  final String? ikincilEtiket;
+
+  /// İkinci düğme YALNIZ bu kanal metodu `true` dönerse çizilir. Cihazda böyle bir ekran yoksa
+  /// (Pixel'de otomatik başlatma kavramı yok) düğme hiç görünmez — hiçbir yere gitmeyen bir
+  /// düğme, kullanıcıya "bir şeyi eksik yaptım" hissi bırakır.
+  final String? ikincilVarlikAnahtari;
 }
 
 /// Sihirbazın adımları — tasarım `s-sihirbaz.jsx:3-10` ile aynı sıra, aynı metin.
@@ -87,11 +107,22 @@ const List<IzinAdimi> izinAdimlari = [
     eylem: 'requestFullScreenIntent',
     durumAnahtari: 'canUseFullScreenIntent',
   ),
+  // SAHA HATASI (2026-07-29): adım "Pil optimizasyonu muafiyeti" diyordu ama açtığı ekran
+  // OEM'in OTOMATİK BAŞLATMA listesiydi (`openBestSettingsScreen` Xiaomi/Oppo/Vivo/Huawei'de
+  // autostart bileşenini açıyordu). Kullanıcı adı verilen ayarı bulamıyor, pil kısıtlaması da
+  // hiç kaldırılmıyordu. İkisi AYRI ayarlardır ve MIUI'de arayan tanımayı ikisi de öldürebilir:
+  // otomatik başlatma kapalıysa servis hiç uyanmaz, pil kısıtlaması ise uyanmış süreci keser.
+  // Adım artık ikisini de kapsıyor ve düğmeler ne açtıklarını YAZIYOR.
   IzinAdimi(
     anahtar: 'pil',
-    ad: 'Pil optimizasyonu muafiyeti',
-    neden: 'Uygulamanın arka planda kapatılmaması, çağrıları kaçırmaması için.',
+    ad: 'Arka planda çalışma',
+    neden: 'Telefon uygulamayı arka planda kapatırsa çağrı kartı çıkmaz. Bu ekranda iki ayar '
+        'var: pil kısıtlamasını kaldırın, cihazınızda varsa otomatik başlatmayı da açın.',
     ikon: SipIcons.bolt,
     eylem: 'openBatterySettings',
+    birincilEtiket: 'Pil Ayarını Aç',
+    ikincilEylem: 'openAutostartSettings',
+    ikincilEtiket: 'Otomatik Başlatmayı Aç',
+    ikincilVarlikAnahtari: 'hasAutostartSettings',
   ),
 ];

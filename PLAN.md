@@ -1449,3 +1449,10 @@ hesabı kuruldu; CI YEŞİL (167/167).
 2. Ağacın temiz olduğunu doğrula (`git status`) — otomatik commit hook'u genelde halleder
 3. `git push` gittiğinden emin ol (hook push'u başarısızsa söyler)
 4. Yarım kalan iş varsa PLAN.md'ye "yarım kaldı: ..." satırı bırak
+
+> **MAKİNE NOTU (2026-07-29):** Bu makinede varsayılan JDK **25**'tir (`Eclipse Adoptium jdk-25.0.3.9`, PATH'te)
+> ve Gradle 8.14'ün gömülü Kotlin derleyicisi bu sürüm dizgisini ayrıştıramıyor
+> (`java.lang.IllegalArgumentException: 25.0.3`). Doğrudan `gradlew` çağrıları bu yüzden düşer.
+> Çözüm: `$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"` (JDK 21) ile koş.
+> `flutter build apk` ETKİLENMEZ — Flutter zaten Android Studio'nun JBR'ını kullanıyor
+> (`flutter doctor -v` bunu yazar). CI de etkilenmez (kendi JDK'sını kurar).

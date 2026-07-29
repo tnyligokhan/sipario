@@ -153,10 +153,23 @@ class MainActivity : FlutterActivity() {
 
                     "batteryGuide" -> result.success(OemBatteryGuide.stepsFor(Build.MANUFACTURER))
 
+                    // ADI NE DİYORSA ONU AÇAR (2026-07-29 düzeltmesi): eskiden bu metot
+                    // OEM'in OTOMATİK BAŞLATMA ekranını açıyordu, yani sihirbazda "pil"
+                    // yazarken başka bir ayar geliyordu ve pil kısıtlaması hiç kaldırılmıyordu.
                     "openBatterySettings" -> {
-                        OemBatteryGuide.openBestSettingsScreen(this)
+                        OemBatteryGuide.openBatterySettings(this)
                         result.success(null)
                     }
+
+                    "openAutostartSettings" -> {
+                        OemBatteryGuide.openAutostartSettings(this)
+                        result.success(null)
+                    }
+
+                    // Sihirbaz ikinci düğmeyi YALNIZ böyle bir ekranı olan cihazda çizer:
+                    // Pixel'de "Otomatik başlatmayı aç" düğmesi hiçbir yere gitmezdi.
+                    "hasAutostartSettings" ->
+                        result.success(OemBatteryGuide.hasAutostartSettings(this))
 
                     "measurements" -> result.success(LatencyLog.readAllJson(this))
 
