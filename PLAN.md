@@ -57,7 +57,7 @@
 - **[Faz 5c ortam]** `sipario_panel` DB rolü küme düzeyinde ELLE kuruldu (mevcut container); **CI/yeni makinede rol SQL'i elle koşulmalı** (Faz 1 sipario_app deseni). `.env`/`.env.example`'a `DB_PANEL_USERNAME=sipario_panel` + `DB_PANEL_PASSWORD=...` eklenmeli (config default'u var, testler yeşil; araç `.env*`'i koruyor).
 - **[GÜNCELLEME — TEK SEFERLİK ELLE KURULUM GEREKİYOR]** Güncelleme bandı bağlanmamıştı (2026-07-28 bulgusu, düzeltildi). Ama düzeltme KENDİNİ TAŞIYAMAZ: telefondaki mevcut uygulamada bant kodu ağaçta olmadığı için hiçbir release ona bant gösteremez. **Bir kez elle** yeni CI APK'sını (`saha` release'indeki `saha-arm64.apk`) kurmak gerekiyor; ondan sonrası kendiliğinden yürür. Not: imza uyuşmazlığı çıkarsa (cihazdaki uygulama elle/debug imzalı kurulduysa) tek seferlik sil + kur — veri sunucudan geri gelir.
 - **[KONUM — SÜRÜCÜ `kademeli`: GOOGLE ÖNCE, YANDEX GEREKTİĞİNDE]** Kullanıcı kararı 2026-07-29/2 (ilk `coklu` tasarımını geri çevirdi: *"iki sonucu birleştirme; Google ve Yandex ayrı görünsün, doğrusunu ben seçeyim"* + kota gerçeği): her sorgu önce **Google**'a gider; **Yandex yalnız Google BİNA kesinliğinde aday veremezse** ve **günlük tavana kadar** sorulur (`YANDEX_DAILY_LIMIT=900`, global — 1000/gün limiti hesabın tamamına ait, yüz kullanıcı bir günde eritebilir). Sonuçlar **BİRLEŞTİRİLMEZ**: her aday "Google"/"Yandex" etiketiyle ayrı satır, seçim kullanıcıda. Tavan dolunca ya da bir sağlayıcı arızalanınca özellik düşmez; aynı adresin ikinci sorgusu 30 günlük önbellekten döner, kota yalnız ilk soruşta yanar. Bilinen bedel (konuşuldu): Google YANLIŞ binayı gösterirse kademe tetiklenmez, Yandex'in muhtemelen doğru adayı görünmez.
-- **[KONUM — GOOGLE AÇILDI ✅ 2026-07-29]** Fatura hesabı bağlandı ve Google CANLI. Kullanılan anahtar **ikinci** anahtardır (proje `142583979849`); ilk anahtar (proje `42963591866`) faturasız kaldığı için terk edildi — o projeyi silmek/temizlemek istersen kod tarafında hiçbir bağı yok. **Kalan tek iş: anahtar kısıtlaması.** Cloud Console → Credentials → anahtar → **yalnız "Geocoding API"** + **sunucu IP'si**. Bu anahtar da sohbette düz metin geçti; kısıtlama pazarlıksız. ⚠️ **HTTP referrer SEÇME** — sunucu anahtarıdır, tarayıcıya hiç gitmez, referrer kuralı isteği reddeder.
+- **[GOOGLE — İKİ API DE CANLI ✅ 2026-07-29; TEK KALAN İŞ ANAHTAR KISITLAMASI]** Geocoding API ve **Routes API** aynı projede (`142583979849`) etkin ve ölçülmüş durumda (auto-route canlı çağrısı `engine:"google"` döndü). Kullanılan anahtar ikinci anahtar; ilk anahtar (proje `42963591866`) terk edildi. **Yapılacak:** Cloud Console → Credentials → anahtarı **yalnız "Geocoding API" + "Routes API"** ve **sunucu IP'siyle** kısıtla. Anahtar sohbette düz metin geçti; kısıtlama pazarlıksız. ⚠️ HTTP referrer SEÇME — sunucu anahtarı, tarayıcıya hiç gitmez, referrer kuralı isteği reddeder.
 - **[KONUM — KAPI NUMARASI BORCU KAPANDI ✅]** Ölçüldü: `"Şirinyalı Mah. 1497. Sk. No: 9"` → Google **`ROOFTOP`, `partial=false`** ile kapıyı BULDU (36.86004,30.73569); Yandex aynı sorguda hâlâ sokağa düşüyor (36.86318,30.73490). Yani `kapiNumarasiniAt` geri çekilmesini ortak koda taşımaya **gerek yok** — Google'ın kendi davranışı yeterli. Borç kapandı.
 - **[KONUM — KVKK]** Adres metni sınır dışına çıkıyor ve artık **İKİ ülkeye birden**: Yandex (Rusya) + Google (ABD). Ad/telefon/müşteri kimliği ÇIKMIYOR (uç nokta kabul etmiyor, testle kilitli) ama **KVKK aydınlatma metnine "adres bilgisi coğrafi kodlama amacıyla yurt dışı sağlayıcılara aktarılır" satırı eklenmeli** — zaten bekleyen avukat işinin kapsamında. Metin sağlayıcı ADI vermemeli ya da ikisini de saymalı; sürücü bir env satırıyla değişiyor, tek isim yazmak metni bayatlatır.
 - **[YEREL VERİ ONARIMI — SENDE, tek seferlik]** Bu makinede **İKİ** "Merkez Su Bayii" var:
@@ -105,6 +105,24 @@
 > kalınca Yandex devrede (sayaç +1). **Testler:** API **259/259** · mobil **744/744** ·
 > phpstan L6 **0** · pint temiz. **Kalan iş İNSANDA:** anahtarı "Geocoding API" + sunucu
 > IP'siyle kısıtla.
+>
+> **OTO SIRALAMA v2 + HARİTA (2026-07-29, üçüncü iş — iki Ruflo ajanıyla paralel).** Kullanıcı
+> istedi: konuma en yakından uzağa mantıklı durak sistemi + açık siparişlerin pinli haritası.
+> Sunucu: `start` parametresi (zincir cihaz konumundan başlar; start yoksa eski davranış),
+> `RotaMotoru` soyutlaması — **Google Routes API sürücüsü** (`computeRoutes` +
+> `optimizeWaypointOrder`, gidiş-dönüş varsayımı, ≤25 ara durak, permütasyon KATI doğrulanır)
+> + yakın-komşu yedeği: Google düşerse özellik ASLA 5xx vermez, kontör iki kez yanmaz. Kilit
+> penceresinde HTTP yok. KVKK en dar yorum: Google'a yalnız KOORDİNAT gider (sipariş kimliği
+> bile gitmez), log'a koordinat yazılmaz. `phpunit.xml`'e test sürücüsü sabitlendi — yoksa her
+> test koşusu gerçek Routes'a çıkıp para yakardı. Mobil: `flutter_map 8.3.1` (SAF DART — native
+> eklenti değil, bilinçli: platform kanallı paketler bu depoda widget testlerini iki kez kırdı),
+> `siparis_harita.dart` ekranı (yalnız açık siparişler, `sort_index` sırasıyla NUMARALI pinler,
+> cihaz işareti, "N sipariş konumsuz" bandı, karo sağlayıcı test dikişi — testler ağa çıkmaz,
+> boş durumda FlutterMap hiç kurulmaz), sıralamada cihaz konumu `guvenilir` değilse `start`
+> gönderilmez + toast "konum alınamadı, ilk duraktan" der. Birincil adres kuralı sıkı: ikincile
+> düşülmez (liste/harita ayrışması olmasın). **Canlı ölçüm: auto-route `engine:"google"` döndü —
+> Routes API konsol etkinleştirmesi çalışıyor, gerçek yol optimizasyonu devrede.**
+> Ölçüm: API **268/268** (+9) · mobil **757/757** (+13) · analyze 0 · release APK derlendi (217s).
 >
 > **AYRICA — GİRİŞ ARIZASI BULUNDU VE KAPATILDI.** Bayi doğru parolayla giriş yapamıyor, ham
 > `SQLSTATE[23505] devices_pkey` görüyordu. Kök neden bir zincirdi: demo kimliği `demo`→`111`
