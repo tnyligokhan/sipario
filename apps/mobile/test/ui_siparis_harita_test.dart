@@ -203,6 +203,46 @@ void main() {
       await ekraniKapat(tester);
     });
 
+    testWidgets('"Tümü" sekmesinde KAPALI sipariş rotaya girmez ve bu SÖYLENİR', (tester) async {
+      // İnceleme bulgusu (2026-07-29): görünen kümenin tamamı gönderiliyordu; sunucu kapalıları
+      // cevaptan düşürüyor ve onlar SESSİZCE listenin sonuna iniyordu. Artık kapalılar hiç
+      // gönderilmez ve toast sayısını söyler — "sıraladım" derken kümenin bir kısmının yeniden
+      // konumlandığı kullanıcıdan gizlenmez.
+      konumSahtele(
+          () async => const CihazKonumu(lat: 36.8841, lng: 30.7056, dogrulukM: 12));
+      genisYuzey(tester);
+      late AppDatabase db;
+      late List<String> idler;
+      await tester.runAsync(() async {
+        (db, idler) = await kur();
+        // Üçüncü sipariş: oluştur ve TESLİM ET — "Tümü" sekmesinde görünür ama rotaya girmemeli.
+        final repo = OrderRepository(db);
+        final m3 = await CustomerRepository(db).create(name: 'Fatma Demir');
+        final kapaliId = await repo.create(customerId: m3, lines: [
+          LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 1),
+        ]);
+        await repo.deliver(kapaliId, paymentType: 'nakit');
+      });
+      final govdeler = rotayiSahtele(idler);
+
+      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
+      await akisiBekle(tester);
+      await tester.tap(find.text('Tümü'));
+      await akisiBekle(tester);
+      await otoSirala(tester);
+
+      // Gövdeye yalnız İKİ AÇIK sipariş girdi; kapalı olan hiç gönderilmedi.
+      expect(govdeler, hasLength(1));
+      expect(govdeler.single['order_ids'], unorderedEquals(idler));
+      expect(
+        find.text(
+            'Rota otomatik sıralandı · 33 hak kaldı · 1 kapalı sipariş rotaya girmedi'),
+        findsOneWidget,
+      );
+
+      await ekraniKapat(tester);
+    });
+
     testWidgets('GÜVENİLMEZ ölçüm başlangıç sayılmaz (±100 m üstü)', (tester) async {
       // ±800 m'lik bir "başlangıç", rotayı kuryenin bulunmadığı bir mahalleden kurabilir.
       // Kötü bir başlangıç, başlangıçsızdan daha zararlıdır — çünkü kimse şüphelenmez.

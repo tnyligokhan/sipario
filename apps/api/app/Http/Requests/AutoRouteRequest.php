@@ -29,7 +29,10 @@ class AutoRouteRequest extends FormRequest
             // Üst sınır bir bayinin bir günde makul olarak taşıyabileceğinin çok üstünde;
             // amaç sınırsız gövdeyle bellek şişirmeyi engellemek.
             'order_ids' => ['required', 'array', 'min:1', 'max:500'],
-            'order_ids.*' => ['required', 'uuid'],
+            // `distinct`: aynı kimlik iki kez gelirse durak ÇOĞALIRDI — RotaMotoru sözleşmesi
+            // "hiçbir durak kaybolmaz, çoğalmaz" der; sözleşmeyi kapıda korumak motorlarda
+            // tek tek savunmaktan ucuzdur (inceleme bulgusu 2026-07-29).
+            'order_ids.*' => ['required', 'uuid', 'distinct'],
 
             // Cihazın anlık konumu. `array:lat,lng` fazladan alanı REDDEDER — bu uç noktadan
             // dışarıya (Google) koordinat çıkıyor; gövdeye ne girdiği sıkı tutulmalı.

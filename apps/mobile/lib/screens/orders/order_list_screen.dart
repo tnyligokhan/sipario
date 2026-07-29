@@ -458,9 +458,17 @@ class _OrderListScreenState extends State<OrderListScreen> {
   /// Bu, uygulamanın TEK çevrimİÇİ zorunlu eylemidir. Başarısızlıkta mevcut sıra AYNEN kalır;
   /// yarım uygulanmış bir rota bırakmaz.
   Future<void> _otoSirala() async {
-    final liste = _sonListe;
+    // YALNIZ AÇIK siparişler rotaya girer — sunucu zaten öyle süzüyor. Eskiden görünen kümenin
+    // TAMAMI gönderiliyordu; "Tümü/Teslim/Borçlu" sekmesinde kapalı siparişler sunucu cevabından
+    // düşüyor ve SESSİZCE listenin sonuna gidiyordu (inceleme bulgusu 2026-07-29). Sessiz bozulma
+    // yasak: kapalılar hiç gönderilmez ve sayısı toast'ta söylenir.
+    final liste = [
+      for (final e in _sonListe)
+        if (e.order.status == 'open') e,
+    ];
+    final kapali = _sonListe.length - liste.length;
     if (liste.length < 2) {
-      SipToast.goster(context, 'Sıralanacak en az iki sipariş gerekir');
+      SipToast.goster(context, 'Sıralanacak en az iki açık sipariş gerekir');
       return;
     }
 
@@ -531,8 +539,11 @@ class _OrderListScreenState extends State<OrderListScreen> {
     // Hangi KİPTE sıralandığı da söylenir: kurye "benim konumumdan başladı" sanıp ilk durağa
     // gitmemeyi seçebilir. Sessiz bozulma yasak — konum alınamadıysa cümlenin sonunda yazar.
     final kip = baslangic == null ? ' · konum alınamadı, ilk duraktan' : '';
-    SipToast.goster(
-        context, 'Rota otomatik sıralandı · ${sonuc.kalanHak} hak kaldı$ek$kip');
+    // Görünen sekmedeki kapalı siparişler rotaya GİRMEDİ — bunu da söyleriz; onlar elle
+    // sıranın dışında kaldıkları için listenin sonuna iner ve kullanıcı sebebini bilmeli.
+    final disarida = kapali > 0 ? ' · $kapali kapalı sipariş rotaya girmedi' : '';
+    SipToast.goster(context,
+        'Rota otomatik sıralandı · ${sonuc.kalanHak} hak kaldı$ek$kip$disarida');
   }
 
   /// Sürükle-bırak sonrası: önce İYİMSER sıra (ekran anında oturur), sonra kalıcı yazım.

@@ -63,10 +63,13 @@ dependencies:
   geolocator: ^14.0.3
 
   # Sipariş haritası — açık siparişlerin pinleri, oto sıralama sonrası rota sırasıyla numaralı.
-  # NEDEN BU PAKET: SAF DART, native eklenti YOK (google_maps_flutter gibi API anahtarı + Play
-  # Services + iOS SDK gerektirmez). Karolar OSM'den gelir, anahtar yoktur, APK'ya gömülecek sır
-  # yoktur. Widget testinde de kurulabilir olması bunun doğrudan sonucu: karo sağlayıcı tek
-  # dikişten geçtiği için test ağa hiç çıkmaz.
+  # NEDEN BU PAKET: harita motoru SAF DART — google_maps_flutter gibi API anahtarı + Play
+  # Services + iOS SDK gerektirmez; karolar OSM'den gelir, APK'ya gömülecek sır yoktur ve widget
+  # testi karo sağlayıcı dikişi sayesinde ağa hiç çıkmaz. DÜRÜSTLÜK NOTU (inceleme 2026-07-29):
+  # "hiç native kod gelmedi" DENEMEZ — flutter_map'in path_provider bağımlılığı Android'e
+  # jni/jni_flutter native eklentilerini geçişli getirir. Fark şu: bunlar HARİTA ÇİZİMİNDE değil
+  # yalnız karo önbelleği yol çözümünde devrededir; harita widget'ı platform kanalına uzanmaz,
+  # widget testleri bu yüzden kırılmaz (bu depoda platform kanallı widget iki kez test kırdı).
   # latlong2 flutter_map'in koordinat tipidir (LatLng) — ayrı bir seçim değil, zorunlu eşlikçi.
   flutter_map: ^8.3.1
   latlong2: ^0.10.1

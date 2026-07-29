@@ -122,7 +122,10 @@
 > gönderilmez + toast "konum alınamadı, ilk duraktan" der. Birincil adres kuralı sıkı: ikincile
 > düşülmez (liste/harita ayrışması olmasın). **Canlı ölçüm: auto-route `engine:"google"` döndü —
 > Routes API konsol etkinleştirmesi çalışıyor, gerçek yol optimizasyonu devrede.**
-> Ölçüm: API **268/268** (+9) · mobil **757/757** (+13) · analyze 0 · release APK derlendi (217s).
+> İnceleme turu (bağımsız ajan) sonrası: `throttle:rota` (kiracı başına 5/dk — eşzamanlı yarışın
+> maliyet tavanı) · `order_ids distinct` · kapalı siparişler rotaya girmez + toast söyler ·
+> permütasyon/ağ-arızası/KVKK-katılık/429 testleri eklendi.
+> Ölçüm (son): API **273/273** (+14) · mobil **758/758** (+14) · analyze 0 · release APK derlendi.
 >
 > **AYRICA — GİRİŞ ARIZASI BULUNDU VE KAPATILDI.** Bayi doğru parolayla giriş yapamıyor, ham
 > `SQLSTATE[23505] devices_pkey` görüyordu. Kök neden bir zincirdi: demo kimliği `demo`→`111`

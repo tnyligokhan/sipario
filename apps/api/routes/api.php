@@ -38,7 +38,12 @@ Route::prefix('v1')->group(function () {
 
         // "Oto Sırala (rota)" — SIRA ÖNERİSİ döner ve sunucu-sahipli kontörü düşer; siparişlere
         // YAZMAZ. Yazma yine tek yüzeyden (sync push → sort_set) geçer, yukarıdaki kural bozulmaz.
+        // Ek `throttle:rota` (inceleme bulgusu 2026-07-29): kontör ön-bakışı KİLİTSİZ ve paralı
+        // Google çağrısı kilitten ÖNCE koşuyor — sınır olmasa 1 kontörlü bayinin 5 cihazı aynı
+        // anda basıp 1 kontöre karşılık 5 ücretli çağrı yakabilirdi. Geocode ile aynı çare:
+        // parayla ölçülen uç nokta kiracı başına ayrıca sınırlanır.
         Route::post('/orders/auto-route', [RouteController::class, 'autoRoute'])
+            ->middleware('throttle:rota')
             ->name('api.orders.auto-route');
 
         // "Adresten Konum Al" — serbest adres metnini ADAY koordinatlara çevirir; hiçbir şey

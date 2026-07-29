@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Support\Route\RotaMotoru;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
@@ -217,6 +218,114 @@ class RotaMotoruTest extends ApiTestCase
     }
 
     // ── yardımcılar ─────────────────────────────────────────────────────────────────────────
+
+    #[Test]
+    public function bozuk_permutasyon_yakin_komsuya_dusurur(): void
+    {
+        // İnceleme bulgusu (2026-07-29): dizinleriAyristir'ın katı doğrulaması "en pahalı arıza
+        // türü" diye işaretlenmişti ama hiçbir test onu TETİKLEMİYORDU. Tekrarlı dizin ([0,0])
+        // sessizce durak KAYBETTİRİRDİ: kurye bir müşteriye hiç uğramaz, hiçbir şey hata vermez.
+        // Doğru davranış: istisna → yakın komşuya düşüş → TAM permütasyonlu bir sıra.
+        Http::fake(['routes.googleapis.com/*' => Http::response([
+            'routes' => [['optimizedIntermediateWaypointIndex' => [0, 0]]],
+        ])]);
+
+        [$token, $tenantId, $siparisler] = $this->uckDurakKur(6);
+        $this->googleSurucusunuAc();
+
+        $yanit = $this->asToken($token)->postJson('/api/v1/orders/auto-route', [
+            'order_ids' => [$siparisler['lara'], $siparisler['kepez'], $siparisler['muratpasa']],
+        ]);
+
+        $yanit->assertOk();
+        $this->assertSame(RotaMotoru::YAKIN_KOMSU, $yanit->json('engine'));
+        // Sıra ne olursa olsun TAM permütasyon: üç sipariş de tam bir kez.
+        $sira = $yanit->json('order');
+        $this->assertCount(3, $sira);
+        $this->assertEqualsCanonicalizing(array_values($siparisler), $sira);
+        $this->assertSame(5, $this->routeCredits($tenantId), 'düşüşte de tek kontör yanar');
+    }
+
+    #[Test]
+    public function ag_arizasi_yakin_komsuya_dusurur(): void
+    {
+        // Kullanıcının en sık göreceği arıza: ağ yok/kesik. ConnectionException yolu da diğer
+        // arızalarla aynı sözleşmeye uymalı — 5xx yok, tek kontör, yakın komşu sırası.
+        Http::fake([
+            'routes.googleapis.com/*' => fn () => throw new ConnectionException('baglanti koptu'),
+        ]);
+
+        [$token, $tenantId, $siparisler] = $this->uckDurakKur(6);
+        $this->googleSurucusunuAc();
+
+        $yanit = $this->asToken($token)->postJson('/api/v1/orders/auto-route', [
+            'order_ids' => [$siparisler['lara'], $siparisler['kepez'], $siparisler['muratpasa']],
+        ]);
+
+        $yanit->assertOk();
+        $this->assertSame(RotaMotoru::YAKIN_KOMSU, $yanit->json('engine'));
+        $this->assertSame(5, $this->routeCredits($tenantId));
+    }
+
+    #[Test]
+    public function rota_ucu_kiraci_basina_dakikalik_sinira_tabidir(): void
+    {
+        // İnceleme bulgusu (2026-07-29): kontör ön-bakışı kilitsiz, paralı çağrı kilitten önce —
+        // eşzamanlı yarış tek kontöre karşılık N ücretli çağrı yakabilir. Maliyet tavanı bu
+        // sınırdır (geocode deseni). 5/dk; altıncı istek 429.
+        Http::fake(['routes.googleapis.com/*' => Http::response([
+            'routes' => [['optimizedIntermediateWaypointIndex' => [0, 1]]],
+        ])]);
+
+        [$token, , $siparisler] = $this->uckDurakKur(50);
+        $this->googleSurucusunuAc();
+        $govde = ['order_ids' => array_values($siparisler)];
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->asToken($token)->postJson('/api/v1/orders/auto-route', $govde)->assertOk();
+        }
+
+        $this->asToken($token)->postJson('/api/v1/orders/auto-route', $govde)->assertStatus(429);
+    }
+
+    #[Test]
+    public function ayni_siparis_iki_kez_gonderilirse_422(): void
+    {
+        // "distinct" kuralı: tekrar eden kimlik durak ÇOĞALTIRDI (RotaMotoru sözleşmesi ihlali)
+        // ve Google'a iki özdeş ara durak giderdi. Kapıda reddedilir, kontör YANMAZ.
+        [$token, $tenantId, $siparisler] = $this->uckDurakKur(6);
+
+        $this->asToken($token)->postJson('/api/v1/orders/auto-route', [
+            'order_ids' => [$siparisler['lara'], $siparisler['lara']],
+        ])->assertStatus(422);
+
+        $this->assertSame(6, $this->routeCredits($tenantId));
+    }
+
+    #[Test]
+    public function start_govdesindeki_fazladan_alan_reddedilir(): void
+    {
+        // KVKK gerekçesiyle konmuş kuralın (array:lat,lng) testi yoktu (inceleme bulgusu).
+        // Bu uç noktadan dışarıya koordinat çıkıyor; gövdeye sıkı bakılır: fazladan alan,
+        // eksik lng ve aralık dışı lng hepsi 422 ve kontör YANMAZ.
+        [$token, $tenantId, $siparisler] = $this->uckDurakKur(6);
+        $ids = ['order_ids' => array_values($siparisler)];
+
+        $this->asToken($token)->postJson(
+            '/api/v1/orders/auto-route',
+            $ids + ['start' => ['lat' => 36.9, 'lng' => 30.7, 'name' => 'Ayşe']]
+        )->assertStatus(422);
+        $this->asToken($token)->postJson(
+            '/api/v1/orders/auto-route',
+            $ids + ['start' => ['lat' => 36.9]]
+        )->assertStatus(422);
+        $this->asToken($token)->postJson(
+            '/api/v1/orders/auto-route',
+            $ids + ['start' => ['lat' => 36.9, 'lng' => 181]]
+        )->assertStatus(422);
+
+        $this->assertSame(6, $this->routeCredits($tenantId));
+    }
 
     /**
      * Bir bayi + üç koordinatlı açık sipariş (lara/kepez/muratpasa) + verilen kontör.

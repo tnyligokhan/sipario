@@ -148,7 +148,18 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)
             ->by($request->user()?->id ?: $request->ip()));
 
-        // Coğrafi kodlama: PARAYLA ölçülen tek uç nokta. Sınır KİRACI başınadır (kullanıcı başına
+        // Oto sıralama: geocode gibi PARAYLA ölçülür (Google Routes). Kontör toplam hakkı sınırlar
+        // ama EŞZAMANLILIĞI sınırlamaz — ön bakış kilitsiz olduğu için yarışan istekler tek
+        // kontöre karşılık birden çok ücretli çağrı yakabilirdi. Dakikalık kiracı sınırı bu
+        // yarışın maliyet tavanıdır; meşru kullanım (kurye sıralamayı arka arkaya iki kez basar)
+        // rahatça sığar.
+        RateLimiter::for('rota', function (Request $request) {
+            $kimlik = (string) ($request->user()?->tenant_id ?: $request->ip());
+
+            return [Limit::perMinute(5)->by('rota:dk:'.$kimlik)];
+        });
+
+        // Coğrafi kodlama: parayla ölçülen diğer uç nokta. Sınır KİRACI başınadır (kullanıcı başına
         // değil) — bir bayinin beş cihazı aynı kotayı paylaşır; aksi halde cihaz ekleyerek kota
         // çoğaltılırdı. Günlük tavan, bozuk bir istemci döngüsünün bütün bayilerin özelliğini
         // kapatmasını engeller: zarar isteği yapan bayide kalır.

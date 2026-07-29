@@ -14,9 +14,13 @@ use Illuminate\Support\Facades\Log;
  * bilir; aynı duraklar için belirgin daha kısa tur çıkarır.
  *
  * GİDİŞ-DÖNÜŞ VARSAYIMI: `destination = origin`. Dükkânın koordinatı şemada YOK, o yüzden
- * "bitiş noktası" uydurulmaz; kurye turu başladığı yere döner kabul edilir. Bu varsayım
- * SIRAYA yansır (Google son durağı başlangıca yakın seçmeye meyleder) ve gerçek kurye
- * davranışına en yakın olanıdır. Şemaya depo koordinatı girerse burası tek satırda değişir.
+ * "bitiş noktası" uydurulmaz. İki origin durumu için de aynı varsayım kullanılır ama gerekçesi
+ * farklıdır (inceleme notu 2026-07-29): origin İLK DURAK iken "tur başladığı yere döner" tam
+ * doğrudur; origin CİHAZ KONUMU iken kurye teslimat sonrası oraya değil dükkâna döner — yani
+ * varsayım yaklaşıktır ve Google son durağı kuryenin ŞU ANKİ konumuna yakın seçmeye meyleder.
+ * Yine de bilinçli tercih: yanlış bir "dükkân" uydurmaktan (ilk müşteri? şehir merkezi?) her
+ * koşulda daha az zararlıdır ve turun toplamını çok az etkiler. Şemaya depo koordinatı girerse
+ * burası tek satırda değişir.
  *
  * DIŞARIYA ÇIKAN TEK VERİ KOORDİNATTIR (kırmızı çizgi #4'ün en dar yorumu): müşteri adı,
  * telefonu, adres metni, hatta SİPARİŞ KİMLİĞİ bile gövdeye girmez. Sıra, gönderdiğimiz
