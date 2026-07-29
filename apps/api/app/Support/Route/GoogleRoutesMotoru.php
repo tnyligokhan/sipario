@@ -13,14 +13,16 @@ use Illuminate\Support\Facades\Log;
  * bölünmüş yol ya da tek yön varsa sürüş 4 km sürer. Google gerçek yol ağını ve tek yönleri
  * bilir; aynı duraklar için belirgin daha kısa tur çıkarır.
  *
- * GİDİŞ-DÖNÜŞ VARSAYIMI: `destination = origin`. Dükkânın koordinatı şemada YOK, o yüzden
- * "bitiş noktası" uydurulmaz. İki origin durumu için de aynı varsayım kullanılır ama gerekçesi
- * farklıdır (inceleme notu 2026-07-29): origin İLK DURAK iken "tur başladığı yere döner" tam
- * doğrudur; origin CİHAZ KONUMU iken kurye teslimat sonrası oraya değil dükkâna döner — yani
- * varsayım yaklaşıktır ve Google son durağı kuryenin ŞU ANKİ konumuna yakın seçmeye meyleder.
- * Yine de bilinçli tercih: yanlış bir "dükkân" uydurmaktan (ilk müşteri? şehir merkezi?) her
- * koşulda daha az zararlıdır ve turun toplamını çok az etkiler. Şemaya depo koordinatı girerse
- * burası tek satırda değişir.
+ * HEDEF = BAŞLANGICA EN UZAK DURAK — sahada ölçülen bir arızanın düzeltmesi (2026-07-29).
+ *
+ * İlk kurgu `destination = origin` (gidiş-dönüş) idi ve KUSURLUYDU: bir DÖNGÜNÜN iki yönü de
+ * toplamda eşdeğerdir, Google hangisini seçeceğine kendi karar verir — gerçek telefondan gelen
+ * istekte "en uzaktan başlayıp yakınlarla geri dönen" yönü seçti ve kurye EN UZAK durağı
+ * 1. sırada gördü. Gerçek ölçüm (Bursa, 5 durak, aynı origin): döngü kurgusu 27,6 km ve sıra
+ * uzağa gidip GERİ DÖNÜYOR; en-uzak-hedef kurgusu 20,0 km ve yakından uzağa akıyor. "En
+ * yakından en uzağa" bu özelliğin ürün tanımının kendisi olduğu için hedef, başlangıca kuş
+ * uçuşu EN UZAK duraktır — kuş uçuşu yalnız HEDEFİ seçer, aradaki sıra yine Google'ın gerçek
+ * yol ağıyla optimize edilir. Dükkân koordinatı şemada yok ve hâlâ UYDURULMAZ.
  *
  * DIŞARIYA ÇIKAN TEK VERİ KOORDİNATTIR (kırmızı çizgi #4'ün en dar yorumu): müşteri adı,
  * telefonu, adres metni, hatta SİPARİŞ KİMLİĞİ bile gövdeye girmez. Sıra, gönderdiğimiz
@@ -76,43 +78,83 @@ final class GoogleRoutesMotoru implements RotaMotoru
         // Başlangıç verilmediyse listenin ilk durağı origin olur ve sırada BAŞTA kalır
         // (yakın komşunun "ilk durak sabit" davranışıyla aynı sözleşme).
         $originIlkDurak = $baslangic === null;
-        $araDuraklar = $originIlkDurak ? array_slice($konumlu, 1) : $konumlu;
+        $havuz = $originIlkDurak ? array_slice($konumlu, 1) : $konumlu;
 
-        // Bir ara durak varken "en iyi sıra" tektir; sıfırken zaten sıralanacak şey yoktur.
-        // Google'a sormak sonucu değiştirmez, yalnız para ve saniye yakar.
-        if (count($araDuraklar) < 2) {
+        // Tek durak varken "en iyi sıra" tektir; sıfırken zaten sıralanacak şey yoktur.
+        if (count($havuz) < 2) {
             return $this->sonuc(array_column($konumlu, 'id'), $konumsuz);
         }
 
-        if (count($araDuraklar) > self::EN_FAZLA_ARA_DURAK) {
+        $origin = $baslangic ?? ['lat' => $konumlu[0]['lat'], 'lng' => $konumlu[0]['lng']];
+
+        // HEDEF = başlangıca kuş uçuşu en uzak durak (sınıf yorumundaki döngü-yönü arızası).
+        // Kalanlar ara duraktır; Google onların sırasını gerçek yol ağıyla optimize eder.
+        $uzak = $this->enUzakDizin($origin, $havuz);
+        $hedef = $havuz[$uzak];
+        $ara = array_values(array_filter($havuz, fn (int $k) => $k !== $uzak, ARRAY_FILTER_USE_KEY));
+
+        if (count($ara) > self::EN_FAZLA_ARA_DURAK) {
             // Sayı kişisel veri değildir; koordinat log'a GİRMEZ.
             Log::info('Google Routes atlandi: ara durak tavani asildi', [
-                'ara_durak' => count($araDuraklar),
+                'ara_durak' => count($ara),
                 'tavan' => self::EN_FAZLA_ARA_DURAK,
             ]);
 
-            throw RotaException::kapasiteAsildi(count($araDuraklar), self::EN_FAZLA_ARA_DURAK);
+            throw RotaException::kapasiteAsildi(count($ara), self::EN_FAZLA_ARA_DURAK);
         }
 
-        $origin = $baslangic ?? ['lat' => $konumlu[0]['lat'], 'lng' => $konumlu[0]['lng']];
-        $dizinler = $this->optimalDizinler($origin, $araDuraklar);
+        $onEk = $originIlkDurak ? [$konumlu[0]['id']] : [];
 
-        $sira = $originIlkDurak ? [$konumlu[0]['id']] : [];
+        // 0-1 ara durakta sıra tek olasılıktır (yakın önce, uzak hedef sona) — Google'a
+        // sormak sonucu değiştirmez, yalnız para ve saniye yakar.
+        if (count($ara) < 2) {
+            return $this->sonuc([...$onEk, ...array_column($ara, 'id'), $hedef['id']], $konumsuz);
+        }
+
+        $dizinler = $this->optimalDizinler($origin, $hedef, $ara);
+
+        $sira = $onEk;
         foreach ($dizinler as $dizin) {
-            $sira[] = $araDuraklar[$dizin]['id'];
+            $sira[] = $ara[$dizin]['id'];
         }
+        $sira[] = $hedef['id'];
 
         return $this->sonuc($sira, $konumsuz);
+    }
+
+    /**
+     * Başlangıca kuş uçuşu EN UZAK durağın dizini. Equirectangular karesel mesafe —
+     * RouteOrderer ile aynı yaklaşım: yalnız KARŞILAŞTIRMA için, karekök gereksiz.
+     *
+     * @param  array{lat: float, lng: float}  $origin
+     * @param  non-empty-list<array{id: string, lat: float, lng: float}>  $havuz
+     */
+    private function enUzakDizin(array $origin, array $havuz): int
+    {
+        $enUzak = 0;
+        $enBuyuk = -1.0;
+        foreach ($havuz as $k => $d) {
+            $dLat = ($d['lat'] - $origin['lat']) * 111_320.0;
+            $dLng = ($d['lng'] - $origin['lng']) * 111_320.0 * cos(deg2rad($origin['lat']));
+            $kare = $dLat ** 2 + $dLng ** 2;
+            if ($kare > $enBuyuk) {
+                $enBuyuk = $kare;
+                $enUzak = $k;
+            }
+        }
+
+        return $enUzak;
     }
 
     /**
      * Google'a sorar ve ara durakların optimal sırasını DİZİN listesi olarak döner.
      *
      * @param  array{lat: float, lng: float}  $origin
+     * @param  array{id: string, lat: float, lng: float}  $hedef
      * @param  list<array{id: string, lat: float, lng: float}>  $araDuraklar
      * @return list<int>
      */
-    private function optimalDizinler(array $origin, array $araDuraklar): array
+    private function optimalDizinler(array $origin, array $hedef, array $araDuraklar): array
     {
         $nokta = fn (float $lat, float $lng): array => [
             'location' => ['latLng' => ['latitude' => $lat, 'longitude' => $lng]],
@@ -120,8 +162,9 @@ final class GoogleRoutesMotoru implements RotaMotoru
 
         $govde = [
             'origin' => $nokta($origin['lat'], $origin['lng']),
-            // Gidiş-dönüş: kurye turu başladığı yere döner (dükkân koordinatı şemada yok).
-            'destination' => $nokta($origin['lat'], $origin['lng']),
+            // Hedef en uzak duraktır (sınıf yorumu) — destination=origin döngüsü yön belirsizliği
+            // yüzünden sahada "en uzak 1. sırada" arızası üretti.
+            'destination' => $nokta($hedef['lat'], $hedef['lng']),
             'intermediates' => array_map(
                 fn (array $d): array => $nokta($d['lat'], $d['lng']),
                 $araDuraklar

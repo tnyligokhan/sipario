@@ -31,12 +31,15 @@ class RotaMotoruTest extends ApiTestCase
 
     private const LARA = [36.8632, 30.7809];
 
+    /** Cihaz konumu (testlerde başlangıç): buradan kuş uçuşu en uzak durak LARA'dır. */
+    private const MERKEZ = ['lat' => 36.8969, 'lng' => 30.7133];
+
     #[Test]
     public function google_surucusu_donen_optimal_sirayi_uygular(): void
     {
-        // AYIRT EDİCİ KURGU: duraklar [lara, kepez, muratpasa] sırasıyla gönderilir.
-        //   yakın komşu bu girdide → lara, muratpaşa, kepez
-        //   Google'ın (sahte) cevabı [0, 1] → lara, KEPEZ, muratpaşa
+        // AYIRT EDİCİ KURGU: start=MERKEZ verilir; en uzak durak LARA hedeftir ve SONA sabitlenir,
+        // ara duraklar [kepez, muratpasa]. Google'ın (sahte) cevabı [0, 1] → kepez, muratpaşa, lara.
+        //   yakın komşu aynı girdide → muratpaşa, kepez, lara (merkeze en yakın muratpaşa'dır)
         // Yani sonuç NN'den farklıdır; sıra gerçekten Google'dan geliyor demektir.
         Http::fake(['routes.googleapis.com/*' => Http::response([
             'routes' => [['optimizedIntermediateWaypointIndex' => [0, 1]]],
@@ -47,12 +50,14 @@ class RotaMotoruTest extends ApiTestCase
 
         $yanit = $this->asToken($token)->postJson('/api/v1/orders/auto-route', [
             'order_ids' => [$siparisler['lara'], $siparisler['kepez'], $siparisler['muratpasa']],
+            'start' => self::MERKEZ,
         ]);
 
         $yanit->assertOk();
         $this->assertSame(
-            [$siparisler['lara'], $siparisler['kepez'], $siparisler['muratpasa']],
+            [$siparisler['kepez'], $siparisler['muratpasa'], $siparisler['lara']],
             $yanit->json('order'),
+            'ara duraklar Google sırasında, EN UZAK durak (lara) hedef olarak sonda',
         );
         $this->assertSame(RotaMotoru::GOOGLE, $yanit->json('engine'));
         $this->assertSame(5, $yanit->json('route_credits'), 'bir hak düşer');
@@ -78,14 +83,15 @@ class RotaMotoruTest extends ApiTestCase
 
         $yanit = $this->asToken($token)->postJson('/api/v1/orders/auto-route', [
             'order_ids' => [$siparisler['lara'], $siparisler['kepez'], $siparisler['muratpasa']],
+            'start' => self::MERKEZ,
         ]);
 
         $yanit->assertOk();
         $this->assertSame(RotaMotoru::YAKIN_KOMSU, $yanit->json('engine'));
         $this->assertSame(
-            [$siparisler['lara'], $siparisler['muratpasa'], $siparisler['kepez']],
+            [$siparisler['muratpasa'], $siparisler['kepez'], $siparisler['lara']],
             $yanit->json('order'),
-            'düşünce yakın komşu zinciri devralır',
+            'düşünce yakın komşu zinciri devralır (merkezden: muratpaşa → kepez → lara)',
         );
 
         // Kontör MOTOR FARK ETMEKSİZİN 1 düşer — Google'a gidip dönmüş olmak ikinci kez yakmaz.
@@ -111,6 +117,7 @@ class RotaMotoruTest extends ApiTestCase
 
         $yanit = $this->asToken($token)->postJson('/api/v1/orders/auto-route', [
             'order_ids' => [$siparisler['lara'], $siparisler['kepez'], $siparisler['muratpasa']],
+            'start' => self::MERKEZ,
         ]);
 
         $yanit->assertOk();
@@ -140,9 +147,9 @@ class RotaMotoruTest extends ApiTestCase
     #[Test]
     public function ara_durak_tavani_asilinca_googlea_istek_gitmez(): void
     {
-        // 27 durak → 26 ara durak; Google'ın `optimizeWaypointOrder` tavanı 25'tir. İstek
-        // gitseydi 400 ile geri dönerdi: parayı ve saniyeyi boşuna yakmak yerine burada durup
-        // yakın komşuya düşeriz. Kullanıcı yine bir sıra alır.
+        // 29 durak → origin (ilk durak) + hedef (en uzak) düşünce 27 ara durak kalır; Google'ın
+        // `optimizeWaypointOrder` tavanı 25'tir. İstek gitseydi 400 ile geri dönerdi: parayı ve
+        // saniyeyi boşuna yakmak yerine burada durup yakın komşuya düşeriz. Kullanıcı yine sıra alır.
         Http::fake();
 
         $a = $this->makeTenant('a');
@@ -150,7 +157,7 @@ class RotaMotoruTest extends ApiTestCase
         $token = $this->tokenFor($a['patron']);
 
         $noktalar = [];
-        for ($i = 0; $i < 27; $i++) {
+        for ($i = 0; $i < 29; $i++) {
             $noktalar['d'.$i] = [36.85 + $i * 0.002, 30.70 + $i * 0.002];
         }
         $siparisler = $this->siparisleriKur($token, $noktalar);
@@ -163,7 +170,7 @@ class RotaMotoruTest extends ApiTestCase
 
         $yanit->assertOk();
         $this->assertSame(RotaMotoru::YAKIN_KOMSU, $yanit->json('engine'));
-        $this->assertCount(27, (array) $yanit->json('order'), 'hiçbir durak kaybolmaz');
+        $this->assertCount(29, (array) $yanit->json('order'), 'hiçbir durak kaybolmaz');
         // Noktalar tek bir hat üzerinde artan sırada; yakın komşu gönderilen sırayı korur.
         $this->assertSame(array_values($siparisler), $yanit->json('order'));
         Http::assertNothingSent();
@@ -205,13 +212,19 @@ class RotaMotoruTest extends ApiTestCase
                 $this->assertStringNotContainsString($yasak, $ham);
             }
 
-            // Başlangıç cihaz konumu; gidiş-dönüş olduğu için varış da aynı noktadır.
+            // Başlangıç cihaz konumu; varış EN UZAK duraktır (lara) — gidiş-dönüş DEĞİL
+            // (döngü yönü belirsizliği sahada "en uzak 1. sırada" arızası üretmişti).
             $this->assertSame(
                 ['location' => ['latLng' => ['latitude' => 36.92, 'longitude' => 30.66]]],
                 $govde['origin'],
             );
-            $this->assertSame($govde['origin'], $govde['destination']);
-            $this->assertCount(3, (array) $govde['intermediates'], 'start verildi → tüm duraklar ara duraktır');
+            $this->assertSame(
+                ['location' => ['latLng' => ['latitude' => self::LARA[0], 'longitude' => self::LARA[1]]]],
+                $govde['destination'],
+                'hedef = başlangıca kuş uçuşu en uzak durak',
+            );
+            $this->assertNotSame($govde['origin'], $govde['destination']);
+            $this->assertCount(2, (array) $govde['intermediates'], 'en uzak durak hedefe ayrıldı, 2 ara kaldı');
 
             return true;
         });
@@ -235,6 +248,7 @@ class RotaMotoruTest extends ApiTestCase
 
         $yanit = $this->asToken($token)->postJson('/api/v1/orders/auto-route', [
             'order_ids' => [$siparisler['lara'], $siparisler['kepez'], $siparisler['muratpasa']],
+            'start' => self::MERKEZ,
         ]);
 
         $yanit->assertOk();
@@ -260,6 +274,7 @@ class RotaMotoruTest extends ApiTestCase
 
         $yanit = $this->asToken($token)->postJson('/api/v1/orders/auto-route', [
             'order_ids' => [$siparisler['lara'], $siparisler['kepez'], $siparisler['muratpasa']],
+            'start' => self::MERKEZ,
         ]);
 
         $yanit->assertOk();
