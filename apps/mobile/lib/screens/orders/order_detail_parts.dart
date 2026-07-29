@@ -4,15 +4,18 @@
 // Detay ekranından ayrı durur: her biri KENDİ akışına abone bağımsız bir bölüm, detayın iskeleti
 // ise yalnız sipariş + satır akışını birleştirir. Ayrıca detay dosyası 500 satır sınırını aşıyordu.
 
+import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../konum/cihaz_konumu.dart';
 import '../../repo/order_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../customers/customer_form_ops.dart' show konumKaydet;
 import '../team.dart';
 import 'order_parts.dart';
 import 'order_queries.dart';
@@ -121,14 +124,83 @@ class _NotBolumuState extends State<NotBolumu> {
   }
 }
 
-/// CSS `.sdx-adres` + `.sdx-konum` — adres metni ve konum durumu.
-/// "Konum Al" düğmesi ÇİZİLMEZ: tasarımda bir coğrafi kodlama servisinin aday listesini açıyordu;
-/// bizde böyle bir servis yok ve offline-first sözüyle çelişir. Konum müşteri detayından girilir.
-class AdresBolumu extends StatelessWidget {
-  const AdresBolumu({super.key, required this.db, required this.musteriId});
+/// CSS `.sdx-adres` + `.sdx-konum` — adres metni, konum durumu ve "Konum Güncelle".
+///
+/// "KONUM AL" (adresten kodlama) BURADA YOKTUR, "KONUM GÜNCELLE" (cihaz GPS'i) VARDIR — ikisi
+/// ayrı işlerdir (2026-07-28 kararı): kodlama sokağı bulur ve bir ADAY listesi döndürür, doğrusunu
+/// kullanıcı seçer; bu ekranda aday seçtirmek teslimatın ortasındaki kuryeyi bir karar ekranına
+/// sokardı. Cihaz konumu ise ÖLÇÜMDÜR ve tam bu anda en doğrudur.
+///
+/// Kullanıcı isteği (2026-07-29): "aktif bir siparişe tıkladığımızda çıkan menüde teslimat
+/// adresinin yakınında konum güncelle diye bir buton olmalı, anlık işlem yapan cihazın konumunu
+/// oraya kaydetmeli." Sahadaki değeri şudur: kurye kapıyı İLK KEZ bulduğunda oradadır; o an tek
+/// dokunuşla kaydedilen pin, bir daha hiçbir kuryenin aynı kapıyı aramamasını sağlar.
+class AdresBolumu extends StatefulWidget {
+  const AdresBolumu({
+    super.key,
+    required this.db,
+    required this.musteriId,
+    this.writable = true,
+  });
 
   final AppDatabase db;
   final String musteriId;
+
+  /// Salt-okunur kipte düğme çizilir ama yazmaz (sebebini söyler) — Dilim 3 kararı:
+  /// ana eylemler gizlenmez, kilit sebebini söyler.
+  final bool writable;
+
+  @override
+  State<AdresBolumu> createState() => _AdresBolumuState();
+}
+
+class _AdresBolumuState extends State<AdresBolumu> {
+  bool _calisiyor = false;
+
+  AppDatabase get db => widget.db;
+  String get musteriId => widget.musteriId;
+
+  /// Cihazın bulunduğu noktayı müşterinin BİRİNCİL adresine yazar.
+  ///
+  /// Adres metni/etiket DEĞİŞMEZ — bu akış yalnız koordinat ekler (`konumKaydet` sözleşmesi).
+  /// Zayıf ölçüm sessizce kaydedilmez: kurye "konum kayıtlı" yazısına güveniyor.
+  Future<void> _konumGuncelle() async {
+    if (_calisiyor) return;
+    if (!widget.writable) {
+      SipToast.goster(context, 'Salt-okunur kip: konum kaydedilemez.');
+      return;
+    }
+
+    // İki ayrı `where` AND ile birleşir; `&` operatörü drift'in tam import'unu gerektirir ve
+    // bu dosya yalnız `OrderingTerm` alıyor (ekran katmanı sözleşmesi).
+    final sorgu = db.select(db.customerAddresses)
+      ..where((t) => t.customerId.equals(musteriId))
+      ..where((t) => t.deletedAt.isNull())
+      ..orderBy([(t) => OrderingTerm.desc(t.isPrimary), (t) => OrderingTerm.asc(t.id)]);
+    final adresler = await sorgu.get();
+    if (!mounted) return;
+    if (adresler.isEmpty) {
+      SipToast.goster(context, 'Önce müşteriye adres ekleyin');
+      return;
+    }
+
+    setState(() => _calisiyor = true);
+    try {
+      final konum = await cihazKonumuOku();
+      await konumKaydet(db, adresler.first, konum.lat, konum.lng);
+      if (!mounted) return;
+      SipToast.goster(
+        context,
+        konum.guvenilir
+            ? 'Konum güncellendi'
+            : 'Konum güncellendi · ${konumDogrulukUyarisi(konum.dogrulukM)}',
+      );
+    } on KonumHatasi catch (e) {
+      if (mounted) SipToast.goster(context, e.mesaj);
+    } finally {
+      if (mounted) setState(() => _calisiyor = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +238,16 @@ class AdresBolumu extends StatelessWidget {
                           : 'Konum alınmamış',
                       style: SipText.metin(11, w: 700)
                           .copyWith(color: adres.konumVar ? t.ok : t.warn),
+                    ),
+                    const SizedBox(height: SipSpace.md),
+                    // Düğme HER İKİ durumda da çizilir: konumu olan bir adres de yanlış olabilir
+                    // (kodlamadan gelen "sokak" kesinliği) ve kurye kapının önündeyken onu
+                    // düzeltebilmeli. Metin duruma göre değişir — "Güncelle" ile "Kaydet"
+                    // farklı işler yapıyormuş gibi görünmesin diye tek eylem, tek ad.
+                    _KonumGuncelleButonu(
+                      calisiyor: _calisiyor,
+                      ilk: !adres.konumVar,
+                      onTap: _konumGuncelle,
                     ),
                   ],
                 ),
@@ -284,6 +366,55 @@ class _GecmisSatiri extends StatelessWidget {
             SipDurumPili(durum: order.status),
             const SizedBox(width: 9),
             Text(sipTutar(order.totalKurus), style: SipText.tutar(13).copyWith(color: t.ink)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "Konum Güncelle" — cihazın bulunduğu noktayı teslimat adresine yazar.
+///
+/// Çalışırken metin DEĞİŞİR ve dokunuş kabul edilmez: GPS okuması saniyeler sürebilir ve
+/// tepki vermeyen bir düğme sahada "bozuk" sayılıp üst üste dokunulur (her dokunuş yeni bir
+/// konum isteği açardı).
+class _KonumGuncelleButonu extends StatelessWidget {
+  const _KonumGuncelleButonu({
+    required this.calisiyor,
+    required this.ilk,
+    required this.onTap,
+  });
+
+  final bool calisiyor;
+
+  /// Adreste henüz konum yok — metin "Konumu Kaydet" olur; "Güncelle" olmayan bir şeyi
+  /// güncelliyormuş gibi okunurdu.
+  final bool ilk;
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SipDokun(
+        onTap: calisiyor ? null : onTap,
+        zemin: t.surface,
+        basiliZemin: t.line,
+        radius: SipRadius.brHap,
+        padding: const EdgeInsets.symmetric(horizontal: SipSpace.lg, vertical: 7),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SipIcon(calisiyor ? SipIcons.clock : SipIcons.pin,
+                boyut: 13, kalinlik: 2.2, renk: calisiyor ? t.muted : t.accent),
+            const SizedBox(width: 6),
+            Text(
+              calisiyor ? 'Konum alınıyor…' : (ilk ? 'Konumu Kaydet' : 'Konum Güncelle'),
+              style: SipText.metin(12, w: 800)
+                  .copyWith(color: calisiyor ? t.muted : t.accent),
+            ),
           ],
         ),
       ),

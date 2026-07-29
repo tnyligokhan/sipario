@@ -438,21 +438,25 @@ class _MusteriFormuState extends State<_MusteriFormu> {
               ),
             ),
           ),
-        // DÜZENLEMEDE KONUM ALMA YOK: tasarımın `MusteriDuzenle`si düz "Adres" etiketi + input
-        // gösteriyor (s-musteriler.jsx:353-354). Konum, detaydaki koyu karttaki "Konum Al"
-        // çipinden alınır. Yeni müşteride ise `YeniMusteri` (:272-277) çipi gösterir.
-        if (_duzenleme)
-          const SipFormEtiket('Adres')
-        else
-          AdresEtiketSatiri(
-            konumVar: _lat != null && _lng != null,
-            koordinat: (_lat != null && _lng != null) ? konumMetni(_lat!, _lng!) : null,
-            onKonumAl: _konumAl,
-            calisiyor: _konumCalisiyor,
-            // Konum alındıktan sonra çipe dokunmak CİHAZ konumuyla günceller: kayıt çoğu zaman
-            // müşterinin kapısında açılır ve oradaki ölçüm adresten türetilenden iyidir.
-            onKonumGuncelle: _konumGuncelle,
-          ),
+        // DÜZENLEMEDE DE KONUM ALINIR (kullanıcı isteği 2026-07-29: "müşteri bilgisi
+        // düzenlerken konum aldır çıkmıyor").
+        //
+        // ÖNCESİ: düzenleme kipi düz bir "Adres" etiketine düşüyordu — tasarımın
+        // `MusteriDuzenle`si öyle çiziyordu (s-musteriler.jsx:353-354) ve konumun tek yolu
+        // müşteri DETAYINDAKİ koyu karttı. Sahada bu tutmadı: adres yanlışsa bayi zaten
+        // düzenleme ekranını açıyor, adresi düzeltiyor ve konumu TAM ORADA almak istiyor;
+        // kaydedip detaya dönüp ikinci bir ekrandan almak fazladan üç dokunuş ve akış kesintisi.
+        // Tasarım dosyası ölçü/renk çatışmalarında bağlayıcıdır; bu bir ÜRÜN kararıdır ve
+        // sahibi kullanıcıdır.
+        AdresEtiketSatiri(
+          konumVar: _lat != null && _lng != null,
+          koordinat: (_lat != null && _lng != null) ? konumMetni(_lat!, _lng!) : null,
+          onKonumAl: _konumAl,
+          calisiyor: _konumCalisiyor,
+          // Konum alındıktan sonra çipe dokunmak CİHAZ konumuyla günceller: kayıt çoğu zaman
+          // müşterinin kapısında açılır ve oradaki ölçüm adresten türetilenden iyidir.
+          onKonumGuncelle: _konumGuncelle,
+        ),
         _sesliAlan(
           ad: 'Adres',
           kontrol: _adres,
@@ -465,7 +469,10 @@ class _MusteriFormuState extends State<_MusteriFormu> {
           ),
         ),
         if (_adresHatasi != null) SipHataSatiri(metin: _adresHatasi!),
-        if (!_duzenleme && _adaylar != null && _lat == null)
+        // Aday listesi DÜZENLEMEDE de çizilir — düğme açıldığı hâlde liste kapalı kalsaydı
+        // "Konum Al" sunucuya gider, adayları alır ve HİÇBİR ŞEY göstermezdi (bu depoda dört
+        // kez ödenen "kopmuş son halka" arızası: hata yok, sonuç da yok).
+        if (_adaylar != null && _lat == null)
           Padding(
             padding: const EdgeInsets.only(top: SipSpace.md),
             child: Column(

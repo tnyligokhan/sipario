@@ -238,7 +238,10 @@ class _Govde extends StatelessWidget {
                   )
                 : null,
           ),
-          AdresBolumu(db: db, musteriId: musteriId),
+          // `writable` (abonelik kilidi) geçilir, `_duzenlenebilir` DEĞİL: konum güncelleme
+          // KAPALI siparişte de anlamlıdır — kurye teslim ettikten sonra da kapının önündedir
+          // ve o pini bir sonraki teslimat için düzeltebilir.
+          AdresBolumu(db: db, musteriId: musteriId, writable: writable),
           GecmisBolumu(db: db, musteriId: musteriId, orderId: order.id),
         ],
 

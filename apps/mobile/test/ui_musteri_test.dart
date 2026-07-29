@@ -561,7 +561,7 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('düzenleme sheet\'inde Konum Al ve aday listesi YOK', (tester) async {
+    testWidgets('düzenleme sheet\'inde de Konum Al VAR', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       late Customer musteri;
       late List<CustomerPhone> telefonlar;
@@ -595,14 +595,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Değişiklikleri Kaydet'), findsOneWidget, reason: 'düzenleme sheet\'i açık');
-      // Tasarımın `MusteriDuzenle`si düz "Adres" etiketi + input gösterir (s-musteriler.jsx:353).
       expect(find.text(trBuyuk('Adres')), findsOneWidget);
-      expect(find.text('Konum Al'), findsNothing);
+      // KULLANICI KARARI DEĞİŞTİ (2026-07-29): "müşteri bilgisi düzenlerken konum aldır
+      // çıkmıyor". Önceki davranış tasarım dosyasını izliyordu (`MusteriDuzenle` düz etiket
+      // gösteriyordu, s-musteriler.jsx:353) ve konumun tek yolu müşteri DETAYIYDI. Sahada
+      // tutmadı: adres yanlışsa bayi zaten düzenleme ekranındadır ve konumu orada almak ister.
+      // Tasarım dosyası ölçü/renk çatışmalarında bağlayıcıdır; bu bir ÜRÜN kararıdır.
+      expect(find.text('Konum Al'), findsOneWidget);
 
       await kapat(tester);
     });
 
-    testWidgets('yeni müşteri sheet\'inde Konum Al DURUYOR (kontrast)', (tester) async {
+    testWidgets('yeni müşteri sheet\'inde de Konum Al DURUYOR', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       await formuAc(tester, db);
 
