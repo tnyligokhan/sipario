@@ -15,6 +15,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../data/app_database.dart';
@@ -43,8 +44,19 @@ import 'siparis_harita_ozet.dart';
 /// `{s}` alt alan adı (a–d), `{r}` retina ölçeği ("@2x"). `{r}` yalnız yüksek yoğunluklu
 /// ekranlarda doldurulur — `retinaMode` kapalıyken flutter_map onu BOŞ metinle değiştirir,
 /// yani düşük yoğunluklu cihazlarda ve testlerde adres kendiliğinden sade hâline döner.
-const String kHaritaKaroUrl =
+const String kHaritaKaroUrlAcik =
     'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
+/// KOYU temanın karosu — CARTO **Dark Matter**, Positron'un birebir karanlık kardeşi (aynı
+/// sunucu, aynı şartlar, yine ANAHTARSIZ). Saha bulgusu (2026-07-29): uygulama koyu temadayken
+/// haritanın bembeyaz açılması hem göz alıyor hem "bozuk" izlenimi veriyordu — karo stili artık
+/// temanın parlaklığını İZLER.
+const String kHaritaKaroUrlKoyu =
+    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+
+/// Temaya göre karo adresi. Seçim TEK yerde dursun: hem TileLayer hem testler bunu kullanır.
+String haritaKaroUrl({required bool koyu}) =>
+    koyu ? kHaritaKaroUrlKoyu : kHaritaKaroUrlAcik;
 
 /// Positron'un alt alan adları. OSM'in kendi sunucusunda subdomain KULLANILMAZ (flutter_map
 /// uyarır), CARTO'da ise beklenen kullanım budur.
@@ -54,9 +66,19 @@ const List<String> kHaritaAltAlanlar = ['a', 'b', 'c', 'd'];
 /// (`android/app/build.gradle.kts`) yazılır — uydurma bir ad, kotanın kime ait olduğunu gizler.
 const String kHaritaUygulamaAdi = 'com.sipario.app';
 
+/// Üretim karo sağlayıcısı — İPTAL EDİLEBİLİR indirme (saha bulgusu 2026-07-29: "harita çok
+/// kasıyor"). Varsayılan `NetworkTileProvider` bir karo istemeye başladıysa BİTİRİR: hızlı
+/// kaydırma/zoom'da görünürlükten çoktan çıkmış onlarca karo inip çözülmeye devam eder, kuyruk
+/// ana iş parçacığını boğar. `CancellableNetworkTileProvider` kadraj dışına düşen karonun
+/// isteğini ANINDA keser — flutter_map'in kendi belgelerinin performans için önerdiği yol.
+///
+/// Ayrı bir fonksiyon olarak duruyor ki "üretimin varsayılanı iptal edilebilir sağlayıcıdır"
+/// sözü dikişten bağımsız test edilebilsin (dikiş testlerde sahteyle değiştirilir).
+TileProvider varsayilanKaroSaglayici() => CancellableNetworkTileProvider();
+
 /// Karo sağlayıcının TEK dikişi. Üretimde ağdan indirir; widget testleri bunu sahtesiyle
 /// değiştirir ve test hiçbir zaman ağa çıkmaz (`adresAdaylariGetir` / `cihazKonumuOku` deseni).
-TileProvider Function() haritaKaroSaglayici = NetworkTileProvider.new;
+TileProvider Function() haritaKaroSaglayici = varsayilanKaroSaglayici;
 
 /// Açık siparişlerin haritası. Pin numaraları listedeki sırayı (oto sıralamadan sonra ROTA
 /// sırasını) taşır.
@@ -313,7 +335,11 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
           ),
           children: [
             TileLayer(
-              urlTemplate: kHaritaKaroUrl,
+              // Tema değişince şablon değişir; ValueKey katmanı KOMPLE değiştirir — eski stilin
+              // önbellekteki karoları yeni stille karışıp "yarı aydınlık yarı karanlık" bir
+              // yama haritası bırakmasın.
+              key: ValueKey(haritaKaroUrl(koyu: t.koyu)),
+              urlTemplate: haritaKaroUrl(koyu: t.koyu),
               subdomains: kHaritaAltAlanlar,
               userAgentPackageName: kHaritaUygulamaAdi,
               tileProvider: haritaKaroSaglayici(),

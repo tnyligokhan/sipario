@@ -16,6 +16,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -612,6 +613,33 @@ void main() {
       expect(find.text('© OpenStreetMap katkıcıları · © CARTO'), findsOneWidget);
 
       await ekraniKapat(tester);
+    });
+
+    testWidgets('KOYU temada karo Dark Matter şablonuna geçer', (tester) async {
+      // Saha bulgusu (2026-07-29): uygulama koyu temadayken harita bembeyaz açılıyordu —
+      // hem göz alıyor hem "bozuk" izlenimi veriyordu. Karo stili temayı İZLER; seçim
+      // `haritaKaroUrl(koyu:)` tek yerinde durur, bu test o sözleşmeyi kilitler.
+      genisYuzey(tester);
+      final db = await ikiDurak(tester);
+
+      await tester.pumpWidget(sipKabukKoyu(SiparisHaritaEkrani(db: db, writable: true)));
+      await akisiBekle(tester);
+
+      final katman = tester.widget<TileLayer>(find.byType(TileLayer));
+      expect(katman.urlTemplate,
+          'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+      // Atıf koyuda da durur — hukuki zorunluluk temayla pazarlık etmez.
+      expect(find.text('© OpenStreetMap katkıcıları · © CARTO'), findsOneWidget);
+
+      await ekraniKapat(tester);
+    });
+
+    test('üretim karo sağlayıcısının varsayılanı İPTAL EDİLEBİLİR indirmedir', () {
+      // Saha bulgusu (2026-07-29): "harita çok kasıyor". Kaydırmada görünürlükten çıkan
+      // karoların istekleri iptal edilmezse kuyruk ana iş parçacığını boğar. Dikişin
+      // varsayılanı ayrı fonksiyonda durur ki bu söz, testlerin dikişi sahteyle değiştirdiği
+      // durumdan bağımsız sınanabilsin.
+      expect(varsayilanKaroSaglayici(), isA<CancellableNetworkTileProvider>());
     });
 
     testWidgets('+ / − düğmeleri kamerayı yakınlaştırır ve uzaklaştırır', (tester) async {

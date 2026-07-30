@@ -18,6 +18,9 @@ void genisYuzey(WidgetTester tester) {
 /// Ekranı gerçek temayla sarar — `context.sip` jetonları uzantıdan gelsin.
 Widget sipKabuk(Widget ekran) => MaterialApp(theme: SipTheme.acik(), home: ekran);
 
+/// KOYU temalı kabuk — temaya bağlı davranışlar (ör. harita karo stili) ancak bununla sınanır.
+Widget sipKabukKoyu(Widget ekran) => MaterialApp(theme: SipTheme.koyu(), home: ekran);
+
 /// Drift akışları GERÇEK zamanda dolar; sahte zaman onları ilerletmez → `runAsync` ile beklenir.
 /// Ardından iki pump: biri akışın verisini ağaca işler, ikincisi sheet/geçiş animasyonlarını
 /// SONUNA taşır. İkincisi olmadan modal sheet hâlâ yukarı kayarken dokunma noktası ekranın

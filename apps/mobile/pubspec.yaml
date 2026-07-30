@@ -73,6 +73,11 @@ dependencies:
   # latlong2 flutter_map'in koordinat tipidir (LatLng) — ayrı bir seçim değil, zorunlu eşlikçi.
   flutter_map: ^8.3.1
   latlong2: ^0.10.1
+  # Saha bulgusu (2026-07-29): "harita çok kasıyor". Varsayılan sağlayıcı başladığı karo
+  # indirmesini bitirir; hızlı kaydırmada görünürlükten çıkmış onlarca karo inip çözülmeye devam
+  # eder ve kuyruk ana iş parçacığını boğar. Bu resmî tamamlayıcı, kadraj dışına düşen karonun
+  # isteğini ANINDA iptal eder (flutter_map belgelerinin performans önerisi).
+  flutter_map_cancellable_tile_provider: ^3.1.1
 
 dev_dependencies:
   flutter_test:

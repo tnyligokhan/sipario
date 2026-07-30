@@ -147,6 +147,12 @@
 > giriş + Kükürtlü başlangıçlı auto-route → engine:google, 6 açık sipariş. **TELEFONDA ZORUNLU:**
 > uygulama verisini temizle (ya da sil-kur) → 111/111/1111 — yoksa eski Antalya kayıtları zombi kalır.
 >
+> **2026-07-30 (yedinci iş) — HARİTA PERFORMANSI + DARK MOD.** Saha: "çok kasıyor" + "dark modda
+> renk değişmedi". Kasma: karo istekleri iptal edilemiyordu → `flutter_map_cancellable_tile_provider`
+> (kadraj dışı karo isteği anında kesilir). Dark: karo şablonu temayı izler (light_all ↔ dark_all,
+> ValueKey ile stil karışması yok, iki tema da testli). Ajan servisi arızalıydı (art arda 500),
+> lead doğrudan yazdı. Testler: 771/771 · analyze 0 · APK kapısı koşuldu.
+>
 > **2026-07-29 (altıncı iş) — HARİTA STİLİ + KONTROLLER.** Karolar CARTO Positron (anahtarsız,
 > gri-minimal — OSM'in kırmızı yol/POI gürültüsü bitti, mor pinler öne çıktı; atıf çipi zorunlu ve
 > testli). Sağ altta: yakınlaş/uzaklaş · duraklara sığdır · konumum (taze okuma, hata sebebiyle
