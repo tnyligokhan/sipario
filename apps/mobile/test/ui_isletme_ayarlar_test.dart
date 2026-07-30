@@ -5,6 +5,7 @@ import 'package:sipario/data/app_database.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/exempt_number_repository.dart';
 import 'package:sipario/repo/tenant_settings_repository.dart';
+import 'package:sipario/screens/cagri/arayan_tanima_ayari.dart';
 import 'package:sipario/screens/cagri/cagri_gunlugu.dart';
 import 'package:sipario/screens/customers/customer_detail_screen.dart';
 import 'package:sipario/screens/isletme/ayarlar_ekrani.dart';
@@ -22,6 +23,13 @@ import 'support/ekran_yardimcilari.dart';
 /// sınırını aşınca bölündü ve paylaşılan yardımcılar `support/ekran_yardimcilari.dart`a taşındı.
 /// Ekrandan bağımsız kurallar `isletme_kurallari_test.dart` içinde.
 void main() {
+  // Ayarlar ekranındaki arayan tanıma satırı gerçek deposuyla platform kanalına (sqflite
+  // dizini) uzanır; widget testinde bellek deposuyla değiştirilir ve geri alınır.
+  setUp(() {
+    final eski = arayanTanimaDeposu;
+    arayanTanimaDeposu = ArayanTanimaDeposu.bellek();
+    addTearDown(() => arayanTanimaDeposu = eski);
+  });
   // ═════════════════════════════════════════════════════════════════════════════════════════
   group('Muaf telefonlar', () {
     testWidgets('eklenen numara DB\'ye yazılır ve listede görünür', (tester) async {

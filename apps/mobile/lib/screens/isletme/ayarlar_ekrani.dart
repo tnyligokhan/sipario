@@ -20,6 +20,7 @@ import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../cagri/arayan_tanima_ayari.dart';
 import '../cagri/cagri_cozumleyici.dart';
 import '../cagri/cagri_gunlugu.dart';
 import '../cagri/cagri_karti.dart';
@@ -266,6 +267,9 @@ class _Govde extends StatelessWidget {
 
         const SipBolumBaslik('Arayan Tanıma', ustBosluk: 18),
         AyarKarti(satirlar: [
+          // AÇ/KAPA anahtarı EN ÜSTTE: bölümün diğer satırları (kurulum, geçmiş, deneme)
+          // özelliğin parçalarıdır; özelliğin kendisinin düğmesi hepsinden önce gelir.
+          const ArayanTanimaSatiri(),
           AyarSatiri(
             ikon: SipIcons.phone,
             baslik: 'Kurulum ve izinler',

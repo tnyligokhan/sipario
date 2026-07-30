@@ -71,13 +71,23 @@ class SiparioCallScreeningService : CallScreeningService() {
         )
         CallJournal.kaydet(this, oturum.numara, oturum.yon, oturum.anahtar, oturum.baslangicIso)
 
-        val customer = CustomerLookup.find(this, phone)
-        Log.i(tag, "rehber sorgusu bitti, eslesme=${customer != null}, yon=${yon.kuyrukKodu}")
-        CallerOverlay.show(this, customer, phone, t0, simulated = false, yon = yon)
+        // ARAYAN TANIMA ANAHTARI (Ayarlar, 2026-07-30): kapalıysa kart, bildirim ve yeniden
+        // gösterim ÜÇÜ BİRDEN susar — bildirim de müşteri bilgisi taşır, yalnız kartı susturmak
+        // ayarı yalancı yapardı. Günlük kaydı YUKARIDA kaldı ve izleyici yine başlar: Çağrı
+        // Geçmişi ayrı bir özelliktir, cevapsıza dönen çağrının güncellenmesi karta bağlanamaz.
+        // Kontrol rehber sorgusundan ÖNCE: kart çıkmayacaksa sorgu da gereksiz iştir.
+        val kartAcik = ArayanAyari.acikMi(this)
+        if (kartAcik) {
+            val customer = CustomerLookup.find(this, phone)
+            Log.i(tag, "rehber sorgusu bitti, eslesme=${customer != null}, yon=${yon.kuyrukKodu}")
+            CallerOverlay.show(this, customer, phone, t0, simulated = false, yon = yon)
+        } else {
+            Log.i(tag, "arayan tanima kapali, kart gosterilmiyor")
+        }
 
         // Yanıt ve kapanış anlarında kartı yeniden göstermek için (MIUI'de zil sırasında
         // çağrı ekranının altında kalıyoruz; asıl gösterim yanıt anında olur).
-        CallSessionWatcher.start(this, oturum)
+        CallSessionWatcher.start(this, oturum, kartGoster = kartAcik)
     }
 
     override fun onDestroy() {

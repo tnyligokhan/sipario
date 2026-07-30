@@ -166,6 +166,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   /// OTURUM YOKSA HİÇ BAŞLAMAZ — kapı [_metaUygula] içinde, akıştan okunan token'dadır.
   late final KonumBildirici _konumBildirici = KonumBildirici(widget.db);
 
+  /// Akıştan görülen SON oturum durumu (`_metaUygula` yazar). Yaşam döngüsü geri dönüşünde
+  /// sayacı başlatıp başlatmamaya bununla karar verilir — tek atış DB okuması yerine.
+  bool _oturumVar = false;
+
   @override
   void initState() {
     super.initState();
@@ -217,7 +221,22 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Konum sayacı ARKA PLANDA DURUR (inceleme bulgusu 2026-07-30): eskiden yalnız oturum
+    // kapanışı/dispose durduruyordu ve arka planda 30 sn'de bir boşuna uyanıyordu. Bugün OS
+    // arka planda konum vermediği için tur zaten düşüyordu — ama "arka planda bildirilmez"
+    // sözünün teminatı işletim sistemi değil BU KOD olmalı: biri ileride arka plan iznini
+    // eklerse takip kendiliğinden başlamamalı. `inactive`de DURDURULMAZ: bildirim perdesi ve
+    // izin diyaloğu gibi geçici örtüler de inactive üretir; her kapanışta yeniden başlatmak
+    // (`baslat()` anında bir tur atar) fazladan kalp atışı yağdırırdı.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _konumBildirici.durdur();
+    }
     if (state != AppLifecycleState.resumed) return;
+    // Öne gelişte sayaç oturum varsa geri döner; kapı yine akıştan gelen SON token'dadır
+    // (`_metaUygula` her meta değişiminde günceller — burada tek atış DB okuması yapılmaz).
+    if (_oturumVar) _konumBildirici.baslat();
     unawaited(widget.sync.syncNow());
     // Güncelleme kontrolü de öne gelmede koşar. Yalnız açılışa bağlıydı ve saha bulgusu şuydu
     // (2026-07-28): son kullanılanlardan kaydırmak süreci ÖLDÜRMÜYOR, `initState` bir daha
@@ -251,8 +270,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         meta.validUntilIso != null ? DateTime.tryParse(meta.validUntilIso!) : null;
     // Konum bildirimi OTURUMA bağlıdır: giriş yapılınca sayaç döner, çıkışta durur. Kabuğun
     // `initState`inde koşulsuz başlatılsaydı, oturumsuz açılan uygulamada (giriş ekranı arkası,
-    // testler) 30 sn'de bir boşuna uyanan bir zamanlayıcı kalırdı.
-    if (meta.authToken != null) {
+    // testler) 30 sn'de bir boşuna uyanan bir zamanlayıcı kalırdı. `_oturumVar` aynı kapının
+    // yaşam döngüsü tarafı: öne gelişte yeniden başlatma kararı bu son değeri okur.
+    _oturumVar = meta.authToken != null;
+    if (_oturumVar) {
       _konumBildirici.baslat();
     } else {
       _konumBildirici.durdur();

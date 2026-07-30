@@ -147,6 +147,28 @@
 > giriş + Kükürtlü başlangıçlı auto-route → engine:google, 6 açık sipariş. **TELEFONDA ZORUNLU:**
 > uygulama verisini temizle (ya da sil-kur) → 111/111/1111 — yoksa eski Antalya kayıtları zombi kalır.
 >
+> **2026-07-30 (dokuzuncu iş) — AYARLAR'A "ARAYAN TANIMA" AÇ/KAPA ANAHTARI.** Tercih düz dosyada
+> (`sipario_arayan.txt`, tema deseninin aynısı) çünkü kartı çizen Kotlin Flutter'sız okur; CİHAZ-YEREL,
+> varsayılan AÇIK, okunamazsa AÇIK. Kapalıyken kart+bildirim+yeniden gösterim susar ama çağrı GÜNLÜĞÜ
+> ve cevapsız düzeltmesi çalışır (`CallSessionWatcher kartGoster=false` ile yine başlar); Çağrı
+> Simülasyonu anahtardan etkilenmez (kasıtlı deneme). Dart: `ArayanTanimaDeposu` + satır (bölümün ilk
+> satırı, alt başlık seçili durumu yazar); Kotlin: `ArayanAyari.kt` + screening service kapısı.
+> Ölçüm: analyze 0 · mobil **798/798** (+6) · `compileSahaReleaseKotlin` BUILD SUCCESSFUL · APK kapısı koşuldu.
+>
+> **2026-07-30 (sekizinci iş) — CANLI KURYE KONUMU (patron haritada herkesi görür).** Google'SIZ:
+> Fleet Engine kurumsal/pahalı, Maps SDK gereksiz (CARTO var), Firebase gereksiz — kendi backend +
+> mevcut geolocator; YENİ ANAHTAR YOK. Sunucu: `courier_locations` (PK=user_id, kullanıcı başına TEK
+> satır — geçmiş tutulmaz, KVKK), RLS'li, `KonumDeposu` arayüzü + bind; `POST /locations/heartbeat`
+> (herkes, throttle:konum 6/dk) + `GET /locations/live` (YALNIZ patron, 403 testli; taze ≤3 dk,
+> >60 dk listeden düşer — karar sunucuda). Mobil: `KonumBildirici` 30 sn'de bir sessiz tur (dikiş:
+> `sessizKonumOku`; hatalar sessiz, koordinat loglanmaz, arka plan izni YOK — ve artık kod da durduruyor:
+> paused/hidden/detached'ta sayaç durur, resumed'da oturum varsa döner); patron haritasında kurye
+> katmanı (bike ikonu, ad, bayat=soluk "X dk önce", 25 sn tazeleme; rol akıştan, patron değilse API'ye
+> hiç çıkılmaz). Üç ajan: api-konumcu · mobil-konumcu · konum-denetci. Denetçi 2 kusuru kendisi düzeltti
+> (±0 m sahte kesinlik; tek bozuk alanın listeyi düşürmesi), kapıları bağımsız koştu: API **287/287** ·
+> mobil 792 · phpstan 0. Ortam dersi: paralel `artisan test` Postgres max_connections=100'ü doldurup
+> PanelTest'i ORTAMSAL kırmızıya boyayabiliyor — önce bağlantı sayısına bak.
+>
 > **2026-07-30 (yedinci iş) — HARİTA PERFORMANSI + DARK MOD.** Saha: "çok kasıyor" + "dark modda
 > renk değişmedi". Kasma: karo istekleri iptal edilemiyordu → `flutter_map_cancellable_tile_provider`
 > (kadraj dışı karo isteği anında kesilir). Dark: karo şablonu temayı izler (light_all ↔ dark_all,
@@ -166,7 +188,7 @@
 > kod rozeti, tutar, not; Yol Tarifi birincil · Ara telefon varsa · Sipariş Detayı). Testler:
 > API 273 · mobil 764. Kalan: order_queries harita bölümü ayrılıyor (ajanda), anahtar kısıtlaması sende.
 >
-## Güncel durum (son güncelleme: 2026-07-29 — **SAHA GERİ BİLDİRİM TURU + DÖRT SESSİZ ARIZA KAPATILDI**: sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
+## Güncel durum (son güncelleme: 2026-07-30 — **CANLI KURYE KONUMU + ARAYAN TANIMA ANAHTARI**: patron haritada tüm ekibin canlı konumunu görüyor (kendi backend, Google'sız, KVKK: tek satır/geçmiş yok/yalnız patron okur); Ayarlar'a arayan tanıma AÇ/KAPA anahtarı (düz dosya köprüsü, native taraf zil anında okur; günlük kapalıyken de doğru). Aynı gün öncesinde: harita performans+dark mod, harita stil+kontroller, rota yönü düzeltmesi+pin özeti, Bursa reseed, kademeli geocoder, giriş arızası. Ölçüm: `dart analyze` **0** · `flutter test` **798/798** · `php artisan test` **287/287** · phpstan L6 **0** · `compileSahaReleaseKotlin` **BUILD SUCCESSFUL** · release APK kapısı koşuldu. Eski not aşağıda tarihsel duruyor: 2026-07-29 — sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
 
 ### Konum özelliği — ne kuruldu (2026-07-28)
 

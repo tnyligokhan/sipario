@@ -172,8 +172,8 @@ void main() {
     });
 
     test('accuracy_m sayı değilse öğe düşmez, yalnız doğruluk bilinmez', () async {
-      // Ham `as num?` dönüşümü burada TypeError fırlatırdı; TypeError bir Exception DEĞİLDİR,
-      // yani çağıranın yakalayıcısını aşıp bütün listeyi (ve haritayı) götürürdü.
+      // Ham `as num?` dönüşümü burada TypeError fırlatır; hata öğe döngüsünün dışına taşarak
+      // BÜTÜN listeyi (ve haritadaki her pini) düşürürdü — oysa kural, yalnız bozuğun elenmesi.
       final liste = await tekOge({...kayit, 'accuracy_m': 'çok'});
       expect(liste, hasLength(1));
       expect(liste.single.dogrulukM, isNull);

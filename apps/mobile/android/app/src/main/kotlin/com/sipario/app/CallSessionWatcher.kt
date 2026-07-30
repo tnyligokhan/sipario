@@ -33,8 +33,14 @@ object CallSessionWatcher {
      * [oturum] çağrının kimliğini taşır: yanıtlanmadan biten bir GELEN çağrı cevapsızdır ve
      * hem kartın başlığı hem çağrı günlüğü bunu göstermek zorundadır. Yönü bilmeden bu ayrım
      * yapılamaz — yanıtlanmayan bir GİDEN çağrı cevapsız değildir, bayinin açılmayan aramasıdır.
+     *
+     * [kartGoster] false ise ([ArayanAyari] kapalı) yeniden gösterimler atlanır ama izleyici
+     * YİNE ÇALIŞIR: cevapsız çağrının günlükte cevapsıza çevrilmesi kartın değil geçmişin
+     * işidir ve anahtar kapalıyken de doğru kalmalıdır. Ayrıca izleyiciyi hiç başlatmamak,
+     * [CallerOverlay]'in bir ÖNCEKİ çağrıdan kalan `lastPhone`'unu ileride yanlış kartla
+     * diriltme riskini taşırdı — buradaki kapı o yolu da kapatır.
      */
-    fun start(context: Context, oturum: CagriOturumu) {
+    fun start(context: Context, oturum: CagriOturumu, kartGoster: Boolean = true) {
         if (running) return
         running = true
 
@@ -53,8 +59,10 @@ object CallSessionWatcher {
                     sawCall = true
                     if (!answered) {
                         answered = true
-                        Log.i(TAG, "cagri acildi, kart yeniden gosteriliyor")
-                        CallerOverlay.reshow(app)
+                        if (kartGoster) {
+                            Log.i(TAG, "cagri acildi, kart yeniden gosteriliyor")
+                            CallerOverlay.reshow(app)
+                        }
                     }
                 }
 
@@ -74,7 +82,9 @@ object CallSessionWatcher {
                             oturum.baslangicIso,
                         )
                     }
-                    CallerOverlay.reshow(app, if (cevapsiz) CagriYonu.CEVAPSIZ else null)
+                    if (kartGoster) {
+                        CallerOverlay.reshow(app, if (cevapsiz) CagriYonu.CEVAPSIZ else null)
+                    }
                     running = false
                     return@Runnable
                 }

@@ -69,8 +69,8 @@ class CanliKonum {
       lat: lat.toDouble(),
       lng: lng.toDouble(),
       // `is num` ile bakılır, ham `as num?` ile DEĞİL: sayı olmayan bir değer (bozuk sunucu,
-      // araya giren vekil) dönüşümde TypeError fırlatır — o hata bu öğeyi düşürmekle kalmaz,
-      // Exception olmadığı için çağıranın yakalayıcısını da aşıp bütün listeyi götürürdü.
+      // araya giren vekil) dönüşümde TypeError fırlatır ve bu hata öğe döngüsünün DIŞINA taşar —
+      // tek bozuk alan bütün listeyi düşürürdü, oysa buranın kuralı öğe bazında elemektir.
       dogrulukM: j['accuracy_m'] is num ? (j['accuracy_m'] as num).toDouble() : null,
       bildirilenIso: j['reported_at'] is String ? j['reported_at'] as String : '',
       // Alan hiç gelmezse TAZE sayılır: sunucu tazeliği bildirmiyorsa pinleri toptan soluk
