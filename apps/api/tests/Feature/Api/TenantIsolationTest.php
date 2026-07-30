@@ -234,6 +234,37 @@ class TenantIsolationTest extends ApiTestCase
     }
 
     #[Test]
+    public function canli_konum_listesi_baska_bayinin_kuryesini_gostermez(): void
+    {
+        // Matris satırları: `api.locations.heartbeat` + `api.locations.live`. Her iki bayinin
+        // kuryesi de kalp atışı gönderir; A'nın patronu YALNIZ kendi kuryesini görmelidir.
+        // Bu uç noktada sızıntı en ağır KVKK ihlali olurdu: başka bir işletmenin çalışanının
+        // anlık konumu.
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+
+        $this->asToken($this->tokenFor($a['kurye']))->postJson('/api/v1/locations/heartbeat', [
+            'lat' => 36.9125, 'lng' => 30.6689,
+        ])->assertNoContent();
+
+        $this->asToken($this->tokenFor($b['kurye']))->postJson('/api/v1/locations/heartbeat', [
+            'lat' => 41.0082, 'lng' => 28.9784,
+        ])->assertNoContent();
+
+        $yanit = $this->asToken($this->tokenFor($a['patron']))->getJson('/api/v1/locations/live');
+
+        $yanit->assertOk();
+        $ids = collect($yanit->json('locations'))->pluck('user_id')->all();
+        $this->assertSame([$a['kurye']->id], $ids, 'A yalnız kendi kuryesini görmeli.');
+
+        // B'nin kullanıcı kimliği ve koordinatı yanıtın HİÇBİR yerinde geçmez.
+        $govde = $yanit->getContent();
+        $this->assertIsString($govde);
+        $this->assertStringNotContainsString($b['kurye']->id, $govde);
+        $this->assertStringNotContainsString('28.9784', $govde);
+    }
+
+    #[Test]
     public function sync_push_baska_bayinin_customer_idsine_siparis_baglayamaz(): void
     {
         $a = $this->makeTenant('a');

@@ -9,6 +9,8 @@ use App\Support\Geocoding\GoogleGeocoder;
 use App\Support\Geocoding\KademeliGeocoder;
 use App\Support\Geocoding\NullGeocoder;
 use App\Support\Geocoding\YandexGeocoder;
+use App\Support\Konum\KonumDeposu;
+use App\Support\Konum\VeritabaniKonumDeposu;
 use App\Support\Route\GoogleRoutesMotoru;
 use App\Support\Route\RotaMotoru;
 use App\Support\Route\YakinKomsuMotoru;
@@ -42,6 +44,12 @@ class AppServiceProvider extends ServiceProvider
         // Oto sıralama motoru SOYUT: Google Routes (gerçek yol ağı, paralı) ya da kuş uçuşu
         // yakın komşu (bedava, saf). Sürücü env'den seçilir; anahtar yoksa yakın komşuya düşer.
         $this->app->singleton(RotaMotoru::class, fn () => $this->rotaMotoruKur());
+
+        // Canlı konum deposu SOYUT: bugün tek satırlık bir Postgres tablosu, ama veri uçucu ve
+        // yüksek yazma hızlı — yarın Redis'e taşınırsa değişen tek satır burasıdır, controller
+        // ve istemci sözleşmesi aynı kalır. Singleton DEĞİL (durumsuz, isteğe özgü bir bağlam
+        // taşımaz; konteyner her çözümde yenisini kursa da maliyeti yok).
+        $this->app->bind(KonumDeposu::class, VeritabaniKonumDeposu::class);
     }
 
     /**
@@ -171,5 +179,14 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perDay(max(1, (int) config('geocoding.daily_limit', 300)))->by('geo:gun:'.$kimlik),
             ];
         });
+
+        // Konum kalp atışı: parayla ölçülmez ama SÜREKLİdir — uygulama açık olduğu sürece
+        // düzenli çağrılır. Genel `throttle:api` (60/dk) burada fazla cömert: bozuk bir istemci
+        // döngüsü o payı tek başına yer ve aynı kullanıcının gerçek isteklerini (senkron, rota)
+        // 429'a düşürürdü. Sınır KULLANICI başınadır, kiracı başına DEĞİL: beş cihazlı bir bayide
+        // kiracı sınırı olsaydı beş kuryeden biri hakkı tüketip diğer dördünü haritadan silerdi.
+        RateLimiter::for('konum', fn (Request $request) => Limit::perMinute(
+            max(1, (int) config('konum.kalp_atisi_limit', 6))
+        )->by('konum:'.($request->user()?->id ?: $request->ip())));
     }
 }

@@ -30,6 +30,7 @@ import '../bildirim/bildirim_sozlesmesi.dart';
 import '../data/app_database.dart';
 import '../guncelleme/guncelleme_banti.dart';
 import '../guncelleme/guncelleme_servisi.dart';
+import '../konum/konum_bildirici.dart';
 import '../subscription/subscription_locked_screen.dart';
 import '../subscription/subscription_state.dart';
 import '../sync/sync_service.dart';
@@ -160,6 +161,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   late final TemaKontrol _tema =
       widget.tema ?? TemaKontrol(depo: TemaDeposu.bellek());
 
+  /// Sessiz konum kalp atışı. Kabuk uygulamanın AÇIK olduğu tek yaşam döngüsü noktası:
+  /// arka plan izni istenmediği için (verilmiş karar) sayacın ömrü bu ekranınkiyle aynıdır.
+  /// OTURUM YOKSA HİÇ BAŞLAMAZ — kapı [_metaUygula] içinde, akıştan okunan token'dadır.
+  late final KonumBildirici _konumBildirici = KonumBildirici(widget.db);
+
   @override
   void initState() {
     super.initState();
@@ -227,6 +233,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     _syncSub?.cancel();
     _kuryeSub?.cancel();
     _metaSub?.cancel();
+    _konumBildirici.durdur();
     cagriEylemDurtusunuBirak();
     YerelBildirimServisi.dokunulanYol.removeListener(_bildirimDokunusu);
     SipToast.temizle();
@@ -242,6 +249,14 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     );
     final gecerli =
         meta.validUntilIso != null ? DateTime.tryParse(meta.validUntilIso!) : null;
+    // Konum bildirimi OTURUMA bağlıdır: giriş yapılınca sayaç döner, çıkışta durur. Kabuğun
+    // `initState`inde koşulsuz başlatılsaydı, oturumsuz açılan uygulamada (giriş ekranı arkası,
+    // testler) 30 sn'de bir boşuna uyanan bir zamanlayıcı kalırdı.
+    if (meta.authToken != null) {
+      _konumBildirici.baslat();
+    } else {
+      _konumBildirici.durdur();
+    }
     final level = SubscriptionState.evaluate(
       estimatedServerNow: now,
       validUntil: gecerli,

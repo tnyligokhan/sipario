@@ -26,6 +26,7 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import 'harita_kontrolleri.dart';
+import 'harita_kurye_katmani.dart';
 import 'harita_sorgulari.dart';
 import 'order_detail_screen.dart';
 import 'siparis_harita_ozet.dart';
@@ -196,6 +197,10 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
       cihaz: _cihaz,
       onDurak: _durakAc,
       onKonumum: _konumumaGit,
+      // KOŞULSUZ verilir: rol kapısı katmanın İÇİNDEDİR (`harita_kurye_katmani.dart`). Burada
+      // `if (patron)` yazmak, rolü ikinci bir yerde daha yorumlamak ve özelliğin ağaca hiç
+      // bağlanmadığı hâli testlerden gizlemek olurdu.
+      kuryeKatmani: KuryeKatmani(db: widget.db),
     );
   }
 
@@ -260,10 +265,16 @@ class SiparisHaritaGorunumu extends StatefulWidget {
     required this.onDurak,
     this.cihaz,
     this.onKonumum,
+    this.kuryeKatmani,
   });
 
   final List<HaritaDuragi> duraklar;
   final LatLng? cihaz;
+
+  /// Canlı kurye pinleri — haritanın ÜSTÜNDE ayrı bir `FlutterMap` çocuğu olarak çizilir.
+  /// Widget olarak alınır ki bu görünüm ne `sync_meta`yı ne de konum API'sini tanısın:
+  /// duraklar ile kuryeler iki ayrı dünya, tek harita.
+  final Widget? kuryeKatmani;
 
   /// Dokunulan durak ve GÖRÜNEN numarası (1'den başlar) — özet sayfası başlığında aynı sayı
   /// yazar, kullanıcı hangi pine dokunduğunu doğrulayabilsin.
@@ -373,6 +384,9 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
                   ),
               ],
             ),
+            // Kurye pinleri duraklardan SONRA: hareket eden nokta, sabit duraklardan daha
+            // acil bir bilgidir ve üst üste düştüklerinde görünen o olmalı.
+            ?widget.kuryeKatmani,
           ],
         ),
         Positioned(

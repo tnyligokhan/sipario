@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\GeocodeController;
+use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\SyncController;
 use Illuminate\Support\Facades\Route;
@@ -53,5 +54,20 @@ Route::prefix('v1')->group(function () {
         Route::post('/geocode', [GeocodeController::class, 'search'])
             ->middleware('throttle:geocode')
             ->name('api.geocode.search');
+
+        // "Canlı kurye konumu". Kalp atışını HERKES gönderir (patron da sahadadır), listeyi
+        // YALNIZ patron okur. Ek `throttle:konum`: bu uç nokta uygulama açık olduğu sürece
+        // düzenli çağrılır — genel `throttle:api` (60/dk) bozuk bir istemci döngüsüne karşı
+        // fazla cömerttir ve o döngü kullanıcının GERÇEK isteklerinin hakkını yerdi. Kullanıcı
+        // başına 6/dk, meşru ~30 sn'lik aralığın üç katı pay bırakır (limit AppServiceProvider'da).
+        Route::post('/locations/heartbeat', [LocationController::class, 'heartbeat'])
+            ->middleware('throttle:konum')
+            ->name('api.locations.heartbeat');
+
+        // Yalnız patron: kuryenin diğer kuryeleri haritada görmesi için iş gerekçesi yok
+        // (KVKK veri minimizasyonu — verilmeyen yetki sızdırılamaz). Aksi rolde 403.
+        Route::get('/locations/live', [LocationController::class, 'live'])
+            ->middleware('role:patron')
+            ->name('api.locations.live');
     });
 });
