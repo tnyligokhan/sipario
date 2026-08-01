@@ -10,6 +10,7 @@ use App\Panel\Csv;
 use App\Panel\PanelCsvExportService;
 use App\Panel\PanelImportService;
 use App\Panel\PanelWriteService;
+use App\Panel\Telefon;
 use App\Support\Provisioning;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -138,6 +139,51 @@ class PanelCsvTest extends ApiTestCase
         $this->assertStringContainsString('okunamadı', $onizleme['satirlar'][2]['aciklama']);
         $this->assertStringContainsString('Telefon yok', $onizleme['satirlar'][3]['aciklama'],
             'Telefonsuz satır eklenir ama tekrar riski söylenmeli.');
+    }
+
+    #[Test]
+    public function kolon_tavanini_asan_satir_partiyi_dusurmez_kendisi_elenir(): void
+    {
+        // KRİTİK: `22001` (string_data_right_truncation) SyncService::CLIENT_DATA_SQLSTATES
+        // listesinde YOKTUR — yani olay bazında 'rejected' olmaz, beklenmedik hata sayılıp TÜM
+        // PARTİ geri alınır. Tek uzun bölge adı 300 satırlık aktarımı çöpe atardı. Sınırlar bu
+        // yüzden önizlemede uygulanıp satır numarasıyla raporlanıyor.
+        $a = $this->makeTenant('a');
+        $admin = $this->makeAdmin();
+
+        $uzunBolge = str_repeat('ü', 81);          // region varchar(80)
+        $uzunNumara = '+'.str_repeat('9', 40);      // phone_e164 varchar(32)
+
+        $sonuc = $this->import()->uygula($a['tenant']->id, $this->csv(
+            'Sorunsuz Bir;0532 111 22 33;Adres;Muratpaşa;',
+            'Uzun Bölge;0533 999 88 77;Adres;'.$uzunBolge.';',
+            'Uzun Numara;'.$uzunNumara.';Adres;Muratpaşa;',
+            'Sorunsuz İki;0534 777 66 55;Adres;Osmangazi;',
+        ), $admin->id);
+
+        $this->assertSame('applied', $sonuc['durum'], 'Parti DÜŞMEMELİ.');
+        $this->assertSame(2, $sonuc['eklenen'], 'Sağlam iki satır yazılmalı.');
+        $this->assertSame(2, $sonuc['hatali']);
+
+        $satirlar = collect($sonuc['hatalar'])->keyBy('satir');
+        $this->assertStringContainsString('Bölge çok uzun', $satirlar[3]['aciklama']);
+        $this->assertStringContainsString('Telefon okunamadı', $satirlar[4]['aciklama']);
+
+        $adlar = Provisioning::asOwner(fn () => Customer::query()->pluck('name')->all());
+        $this->assertEqualsCanonicalizing(['Sorunsuz Bir', 'Sorunsuz İki'], $adlar);
+    }
+
+    #[Test]
+    public function asiri_uzun_numara_kirpilmaz_okunamadi_denir(): void
+    {
+        // Kırpmak "numarayı okuduk" yalanı olurdu ve YANLIŞ bir numarayı müşteriye yapıştırırdı.
+        $this->assertNull(Telefon::e164('+'.str_repeat('9', 40)));
+        $this->assertNull(Telefon::e164(str_repeat('5', 40)));
+
+        // Sınırın hemen altındaki geçerli uluslararası numara HÂLÂ kabul edilir.
+        $sinirdaki = '+'.str_repeat('9', 31);   // '+' + 31 hane = 32 karakter
+        $this->assertSame($sinirdaki, Telefon::e164($sinirdaki));
+        $this->assertLessThanOrEqual(Telefon::E164_AZAMI, strlen((string) Telefon::e164($sinirdaki)));
     }
 
     #[Test]

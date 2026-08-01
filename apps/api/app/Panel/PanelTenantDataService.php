@@ -23,6 +23,9 @@ use Illuminate\Support\Facades\DB;
  */
 class PanelTenantDataService
 {
+    /** `customers.code` / `orders.code` int4'tür; bunun üstündeki sayı kod olarak SORULAMAZ. */
+    private const INT4_AZAMI = 2147483647;
+
     public function __construct(private readonly string $connection = 'pgsql_panel') {}
 
     /**
@@ -246,12 +249,15 @@ class PanelTenantDataService
         }
 
         $rakam = preg_replace('/\D/', '', $arama) ?? '';
+        $kod = $this->kodAdayi($rakam);
 
-        $q->where(function ($w) use ($arama, $rakam, $tenantId) {
+        $q->where(function ($w) use ($arama, $rakam, $kod, $tenantId) {
             $w->where('c.name', 'ilike', '%'.$arama.'%');
 
             if ($rakam !== '') {
-                $w->orWhere('c.code', '=', (int) $rakam);
+                if ($kod !== null) {
+                    $w->orWhere('c.code', '=', $kod);
+                }
                 $w->orWhereExists(function ($s) use ($rakam, $tenantId) {
                     $s->selectRaw('1')->from('customer_phones')
                         ->where('customer_phones.tenant_id', $tenantId)
@@ -261,6 +267,26 @@ class PanelTenantDataService
                 });
             }
         });
+    }
+
+    /**
+     * Rakam dizisi bir MÜŞTERİ KODU olabilir mi?
+     *
+     * `customers.code` int4'tür (üst sınır 2.147.483.647). Destek çağrısında arama kutusuna en sık
+     * yazılan şey TELEFON NUMARASIDIR ve 10 haneli bir numara bu aralığa SIĞMAZ: parametre int4
+     * kolonla karşılaştırılınca Postgres 22003 (`value out of range for type integer`) atar ve
+     * ekran 500 verir — yani panelin birincil destek akışı çöker. Aralığa sığmayan rakam dizisi
+     * zaten kod olamaz; o durumda yalnız telefon/ad araması koşar.
+     */
+    private function kodAdayi(string $rakam): ?int
+    {
+        if ($rakam === '' || strlen($rakam) > 10) {
+            return null;
+        }
+
+        $sayi = (int) $rakam;
+
+        return $sayi <= self::INT4_AZAMI ? $sayi : null;
     }
 
     /** @return Builder */

@@ -30,7 +30,13 @@ class UrunForm extends Form
     #[Validate('nullable|string|max:20')]
     public string $birim = 'adet';
 
-    #[Validate('nullable|string|max:64')]
+    /**
+     * 64 DEĞİL 32: `products.barcode` kolonu `varchar(32)`. Daha geniş bir sınır, kolonu aşan
+     * değeri Postgres'e taşır ve `22001` üretir — o kod `SyncService::CLIENT_DATA_SQLSTATES`
+     * listesinde olmadığı için olay bazında reddedilmez, partiyi düşürür. Sınır formda durmalı ki
+     * kullanıcı alanın altında hatayı görsün.
+     */
+    #[Validate('nullable|string|max:32')]
     public string $barkod = '';
 
     public function doldur(object $urun): void

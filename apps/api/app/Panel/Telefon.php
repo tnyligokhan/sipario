@@ -16,6 +16,15 @@ namespace App\Panel;
  */
 class Telefon
 {
+    /**
+     * `customer_phones.phone_e164` kolonunun genişliği. Bunu AŞAN bir değer üretmek, senkron
+     * partisini olduğu gibi düşürür: `SyncService::CLIENT_DATA_SQLSTATES` listesinde `22001`
+     * (string_data_right_truncation) YOKTUR, yani hata "istemci verisi hatası" sayılıp tek olay
+     * olarak reddedilmez — beklenmedik altyapı hatası kabul edilip TÜM parti geri alınır.
+     * CSV aktarımında bunun bedeli şudur: tek bozuk numara yüzünden 300 satırın hiçbiri yazılmaz.
+     */
+    public const E164_AZAMI = 32;
+
     /** Ham girdiyi E.164'e çevirir; anlamlı bir numara çıkmıyorsa null. */
     public static function e164(?string $ham): ?string
     {
@@ -28,7 +37,7 @@ class Telefon
         $rakam = preg_replace('/\D/', '', $ham) ?? '';
 
         if ($uluslararasi) {
-            return strlen($rakam) >= 10 ? '+'.$rakam : null;
+            return self::sonuc($rakam, 10);
         }
 
         // 0532…  →  90532…   |   90532… zaten ülke kodlu   |   532… (10 hane) → +90 eklenir
@@ -38,7 +47,26 @@ class Telefon
             $rakam = '90'.$rakam;
         }
 
-        return strlen($rakam) >= 12 ? '+'.$rakam : null;
+        return self::sonuc($rakam, 12);
+    }
+
+    /**
+     * Ortak çıkış kapısı: hem asgari uzunluğu hem KOLON TAVANINI uygular.
+     *
+     * Tavanı aşan girdi KIRPILMAZ, null döner — kırpmak "numarayı okuduk" yalanını söyler ve
+     * yanlış bir numarayı müşteriye yapıştırır (Yandex'in olmayan kapı numarasını sessizce
+     * başkasına çevirmesiyle aynı sınıf hata). null dönünce çağıran "telefon okunamadı" der,
+     * kullanıcı satırı düzeltir.
+     */
+    private static function sonuc(string $rakam, int $asgariHane): ?string
+    {
+        if (strlen($rakam) < $asgariHane) {
+            return null;
+        }
+
+        $e164 = '+'.$rakam;
+
+        return strlen($e164) <= self::E164_AZAMI ? $e164 : null;
     }
 
     /** Eşleşme anahtarı: son 10 hane (arayan tanıma ve dedup bunun üzerinden çalışır). */

@@ -54,9 +54,7 @@ class PanelImportService extends PanelSyncYazici
             throw new RuntimeException('Dosya boş görünüyor.');
         }
 
-        // Başlık satırı varsa atlanır: ilk hücre şablon başlığıysa (büyük/küçük harf duyarsız).
-        $ilkHucre = mb_strtolower($ham[0][0] ?? '');
-        $baslikVar = in_array($ilkHucre, ['ad', 'ad *', 'isim', 'müşteri', 'musteri'], true);
+        $baslikVar = $this->baslikMi($ham[0]); // yukarıdaki boşluk denetiminden sonra ilk satır kesin var
         if ($baslikVar) {
             array_shift($ham);
         }
@@ -159,6 +157,42 @@ class PanelImportService extends PanelSyncYazici
     }
 
     /**
+     * İlk satır BAŞLIK mı, yoksa veri mi?
+     *
+     * Dosya başlıksız da gelebilir (bilinçli: bayinin elindeki liste çoğu zaman çıplaktır), bu
+     * yüzden sezmek zorundayız. Sezgi eskiden yalnız İLK HÜCREYE bakıyordu ve şablonun başlıklarını
+     * kendi diline çeviren kullanıcıyı vuruyordu: "Müşteri Adı;Cep Telefonu;Açık Adres;Semt" satırı
+     * tanınmaz, VERİ sayılır ve listede "Müşteri Adı" diye bir müşteri belirirdi — üstelik sessizce,
+     * çünkü satır geçerli görünür (adı var, telefonu okunamaz ama telefon zorunlu değil).
+     *
+     * Bu yüzden satırın TAMAMINA bakılır: hücrelerden HERHANGİ BİRİ bilinen bir sütun adıysa satır
+     * başlıktır. Yanlış pozitif riski düşüktür — gerçek bir müşteri satırının bir hücresinin tam
+     * olarak "telefon" ya da "adres" olması pratikte olmaz; olsa bile kaybedilen tek bir satırdır ve
+     * özet sayılarda görünür. Ters yön (başlığı müşteri sanmak) ise sessiz ve kalıcı kirlilik yaratır.
+     *
+     * @param  list<string>  $satir
+     */
+    private function baslikMi(array $satir): bool
+    {
+        // Şablonun kendi sütunları + kullanıcıların sık yazdığı eşanlamlılar.
+        $bilinen = [
+            'ad', 'ad *', 'isim', 'müşteri', 'musteri', 'müşteri adı', 'musteri adi', 'ünvan', 'unvan',
+            'telefon', 'tel', 'cep', 'cep telefonu', 'gsm', 'numara',
+            'adres', 'açık adres', 'acik adres',
+            'bolge', 'bölge', 'semt', 'mahalle',
+            'not', 'notlar', 'açıklama', 'aciklama',
+        ];
+
+        foreach ($satir as $hucre) {
+            if (in_array(mb_strtolower(trim($hucre)), $bilinen, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Sonuç raporundaki SATIR NUMARALI hata listesi — "12 satır hatalı" tek başına işe yaramaz,
      * kullanıcı dosyayı düzeltmek için hangi satır olduğunu bilmelidir.
      *
@@ -197,7 +231,7 @@ class PanelImportService extends PanelSyncYazici
             'not' => trim($sutunlar[4] ?? ''),
         ];
 
-        $hata = $this->satirHatasi($ad, $telefonHam, $telefon);
+        $hata = $this->satirHatasi($ad, $telefonHam, $telefon, $temel['bolge']);
         if ($hata !== null) {
             return $temel + ['durum' => 'hatali', 'aciklama' => $hata];
         }
@@ -224,7 +258,17 @@ class PanelImportService extends PanelSyncYazici
         ];
     }
 
-    private function satirHatasi(string $ad, string $telefonHam, ?string $telefon): ?string
+    /**
+     * Satır doğrulaması. UZUNLUK SINIRLARI BURADA HAYATİ: kolon genişliğini aşan bir değer
+     * `push()`a giderse Postgres `22001` verir ve bu kod `SyncService::CLIENT_DATA_SQLSTATES`
+     * listesinde OLMADIĞI için tek olay reddedilmez — TÜM PARTİ geri alınır. Yani bir satırdaki
+     * uzun bir bölge adı, 300 satırlık aktarımın tamamını sessizce çöpe atar.
+     *
+     * Bu yüzden sınırlar kolonlardan DAR seçildi ve satır bazında, numarasıyla raporlanıyor:
+     * `customers.name` 160 · `customer_addresses.region` 80 · `customer_phones.phone_e164` 32
+     * (sonuncusu Telefon::e164 içinde uygulanır, orada null döner).
+     */
+    private function satirHatasi(string $ad, string $telefonHam, ?string $telefon, string $bolge): ?string
     {
         if ($ad === '') {
             return 'Ad boş.';
@@ -234,6 +278,9 @@ class PanelImportService extends PanelSyncYazici
         }
         if (mb_strlen($ad) > 120) {
             return 'Ad çok uzun (en fazla 120 karakter).';
+        }
+        if (mb_strlen($bolge) > 80) {
+            return 'Bölge çok uzun (en fazla 80 karakter).';
         }
         if ($telefonHam !== '' && $telefon === null) {
             return 'Telefon okunamadı: "'.$telefonHam.'"';
