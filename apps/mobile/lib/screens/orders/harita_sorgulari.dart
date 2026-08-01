@@ -80,7 +80,7 @@ class HaritaVerisi {
 /// Birincil adreste koordinat yoksa sipariş KONUMSUZ sayılır — ikincil adrese düşmek, kullanıcının
 /// listede gördüğü adresin dışında bir kapıya pin koymak olurdu.
 ///
-/// Sıra: `siparisleriSirala(..., elle)` — yani kalıcı `sort_index`. Oto sıralamadan sonra bu sıra
+/// Sıra: `siparisleriSirala(..., rota)` — yani kalıcı `sort_index`. Oto sıralamadan sonra bu sıra
 /// rotanın kendisidir; hiç sıralanmamış siparişler (sortIndex null) sona düşer.
 Stream<HaritaVerisi> watchHaritaDuraklari(AppDatabase db) {
   final q = db.select(db.orders).join([
@@ -138,7 +138,7 @@ Stream<HaritaVerisi> watchHaritaDuraklari(AppDatabase db) {
 
     final duraklar = <HaritaDuragi>[];
     var konumsuz = 0;
-    for (final e in siparisleriSirala(siparisler.values.toList(), OrderSort.elle)) {
+    for (final e in siparisleriSirala(siparisler.values.toList(), OrderSort.rota)) {
       final a = adresler[e.order.id];
       if (a?.lat == null || a?.lng == null) {
         konumsuz++;

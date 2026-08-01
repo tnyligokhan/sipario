@@ -4,7 +4,10 @@
 // tek yerde durur ki her testte yeniden keşfedilmesin.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sipario/konum/cihaz_konumu.dart';
+import 'package:sipario/screens/orders/siparis_harita.dart';
 import 'package:sipario/theme/app_theme.dart';
 
 /// Dar telefon değil UZUN bir yüzey: `ListView` tembel çizer, alttaki bölümler hiç kurulmaz ve
@@ -30,6 +33,32 @@ Future<void> akisiBekle(WidgetTester tester, {int ms = 150}) async {
   await tester.runAsync(() => Future<void>.delayed(Duration(milliseconds: ms)));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
+}
+
+/// Testte kullanılan karo sağlayıcı: her karo için TEK saydam görsel döner, hiçbir istek atmaz.
+/// `flutter_map` bu baytları kendi "yüklenemedi" yolu için de kullanıyor — geçerli bir PNG'dir.
+class SahteKaroSaglayici extends TileProvider {
+  @override
+  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) =>
+      MemoryImage(TileProvider.transparentImage);
+}
+
+/// Harita ekranının İKİ dikişini birden sahteler: karo sağlayıcı ve cihaz konumu. Test ağa ve
+/// platform kanalına ASLA çıkmaz; sızan bir sahte bir sonraki testte sessizce yanlış sonuç
+/// üretir, bu yüzden ikisi de `addTearDown` ile geri alınır.
+///
+/// [konum] verilmezse konum ALINAMAZ sayılır: eklentisiz ortamın gerçeği budur ve haritanın
+/// onsuz da çalıştığı her testte kanıtlanmış olur.
+void haritaDikisleriniSahtele({CihazKonumu? konum}) {
+  final eskiKaro = haritaKaroSaglayici;
+  haritaKaroSaglayici = SahteKaroSaglayici.new;
+  addTearDown(() => haritaKaroSaglayici = eskiKaro);
+
+  final eskiKonum = cihazKonumuOku;
+  cihazKonumuOku = konum == null
+      ? (() async => throw const KonumHatasi('Konum alınamadı'))
+      : (() async => konum);
+  addTearDown(() => cihazKonumuOku = eskiKonum);
 }
 
 /// Ekranı söküp abone akışları kapatır. DB BİLEREK kapatılmaz: akış abonelikli drift db'sini

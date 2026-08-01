@@ -5,11 +5,13 @@
 //     OPSİYONELDİR ve atama MEVCUT yoldan (`assign` → `assigned` olayı → outbox) yazılır —
 //     formun kendine ait bir yazma yolu YOKTUR.
 //
-//  B. "OTO SIRALA" SAHA HATASI: düğme, rotaya girecek açık sipariş kalmayan sekmelerde de ETKİN
-//     çiziliyor ve dokunulunca hata veriyordu. "Teslim"/"Borçlu" sekmeleri tanımı gereği KAPALI
-//     sipariş listeler, yani orada küme HER ZAMAN boştur — kullanıcı "sıralanacak sipariş yok"
-//     okuyup bir sekme ötede duran açık siparişlerini düşünüyordu. Gerekçe artık dokunmadan
-//     ÖNCE, düğmenin altında yazar.
+//  B. ARAÇ ŞERİDİ (2026-08-01): harita ve kurye süzgeci başlıktaki çıplak ikon düğmelerinden
+//     sekmelerin altındaki ETİKETLİ çiplere indi.
+//
+//  C. "OTO SIRALA" ARTIK HARİTADA. Düğme sıralama sheet'inin içindeydi; kullanıcı kontörlü bir
+//     isteği sonucunu göremeyeceği bir yerden tetikliyordu. Kapılar (salt-okunur · hak yok ·
+//     hak bilinmiyor · iki duraktan az) korundu, yeri değişti — ve gerekçe hâlâ DOKUNMADAN
+//     ÖNCE, düğmenin hemen üstünde yazar.
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
@@ -20,6 +22,7 @@ import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/repo/product_repository.dart';
 import 'package:sipario/screens/orders/order_form_screen.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
+import 'package:sipario/screens/orders/siparis_harita.dart';
 import 'package:sipario/theme/components/atoms.dart';
 
 import 'support/siparis_yardimci.dart';
@@ -152,13 +155,12 @@ void main() {
   });
 
   // ═════════════════════════════════════════════════════════════════════════════════════════
-  // B. "Oto Sırala" — küme yetersizken düğme PASİF ve gerekçe DOKUNMADAN ÖNCE yazar
+  // B. ARAÇ ŞERİDİ — "Harita" ve kurye süzgeci çipleri (2026-08-01 yeniden yerleşimi)
   // ═════════════════════════════════════════════════════════════════════════════════════════
 
-  group('OrderListScreen — Oto Sırala küme kapısı', () {
-    /// [teslim] adet kapalı + 2 açık sipariş. Oturum ve kontör senkronla gelmiş sayılır
-    /// (yoksa düğmenin kilit gerekçesi kontör olurdu, sınamak istediğimiz o değil).
-    Future<AppDatabase> kur({int teslim = 0, String rol = 'patron'}) async {
+  group('Sipariş listesi araç şeridi', () {
+    /// [acik] adet açık sipariş + bir aktif kurye. [rol] süzgeç çipinin görünürlüğünü belirler.
+    Future<AppDatabase> kur({int acik = 2, String rol = 'patron'}) async {
       final db = AppDatabase(NativeDatabase.memory());
       final musteri = CustomerRepository(db);
       final repo = OrderRepository(db);
@@ -168,120 +170,218 @@ void main() {
             role: 'kurye',
             status: 'active',
           ));
-      for (var i = 0; i < 2; i++) {
+      for (var i = 0; i < acik; i++) {
         final m = await musteri.create(name: 'Açık Müşteri $i');
         await repo.create(customerId: m, lines: [
           LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 1),
         ]);
       }
-      for (var i = 0; i < teslim; i++) {
-        final m = await musteri.create(name: 'Teslim Müşteri $i');
-        final id = await repo.create(customerId: m, lines: [
+      await (db.update(db.syncMeta)..where((t) => t.id.equals(1)))
+          .write(SyncMetaCompanion(userRole: Value(rol)));
+      return db;
+    }
+
+    testWidgets('patronda İKİ çip; süzgeç seçilince etiket kuryenin ADINI yazar',
+        (tester) async {
+      // Eski hâlde ikisi de başlıkta ÇIPLAK İKON düğmesiydi: ne yaptıklarını ancak dokunarak
+      // öğrenebiliyordunuz ve süzgecin açık olduğunu yalnız düğmenin rengi söylüyordu.
+      genisYuzey(tester);
+      late AppDatabase db;
+      await tester.runAsync(() async => db = await kur());
+
+      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
+      await akisiBekle(tester);
+
+      expect(find.text('Harita'), findsOneWidget);
+      expect(find.text('Kurye: Tümü'), findsOneWidget);
+      // Başlıkta TEK eylem kaldı — eski ikon düğmeleri şeride indi.
+      expect(find.bySemanticsLabel('Haritada göster'), findsNothing);
+      expect(find.bySemanticsLabel('Kuryeye göre süz'), findsNothing);
+
+      await tester.tap(find.text('Kurye: Tümü'));
+      await akisiBekle(tester);
+      await tester.tap(find.text('Kurye Ali'));
+      await akisiBekle(tester);
+
+      // Süzgecin DEĞERİ etiketin içinde yazar; renk tek başına "hangi kurye" demiyordu.
+      expect(find.text('Kurye: Kurye Ali'), findsOneWidget);
+      expect(find.text('Kurye: Tümü'), findsNothing);
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('KURYE rolünde süzgeç çipi çizilmez, "Harita" yine durur', (tester) async {
+      // Süzgeç yalnız patrona çıkar (kurye zaten kendi işini görür); harita HERKESİN işi.
+      genisYuzey(tester);
+      late AppDatabase db;
+      await tester.runAsync(() async => db = await kur(rol: 'kurye'));
+
+      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
+      await akisiBekle(tester);
+
+      expect(find.textContaining('Kurye:'), findsNothing);
+      expect(find.text('Harita'), findsOneWidget);
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('elle sıralama kipinde şeridin TAMAMI gizlenir', (tester) async {
+      // Sıra yazılırken listenin altından küme değişmemeli — süzgecin eski gizlenme kuralı
+      // artık şeridin tamamına uygulanır.
+      genisYuzey(tester);
+      late AppDatabase db;
+      await tester.runAsync(() async => db = await kur());
+
+      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
+      await akisiBekle(tester);
+      await tester.tap(find.text('Sırala'));
+      await akisiBekle(tester);
+      await tester.tap(find.text(siralamaEtiketi(OrderSort.elle)));
+      await akisiBekle(tester);
+
+      expect(find.text('Harita'), findsNothing);
+      expect(find.text('Kurye: Tümü'), findsNothing);
+      expect(find.text('Bitti'), findsOneWidget, reason: 'elle kipi gerçekten açık');
+
+      await ekraniKapat(tester);
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  // C. HARİTADAKİ "Oto Sırala" — kullanılamıyorsa PASİF ve gerekçe DOKUNMADAN ÖNCE yazar
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+
+  group('Harita — Oto Sırala kapıları', () {
+    setUp(haritaDikisleriniSahtele);
+
+    /// [durak] adet KOORDİNATLI açık sipariş. [hak] null → kontör hiç yazılmaz; [oturum] false
+    /// → token yok, yani kalan hak BİLİNEMEZ.
+    Future<AppDatabase> kur({int durak = 2, int? hak = 34, bool oturum = true}) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      final repo = OrderRepository(db);
+      for (var i = 0; i < durak; i++) {
+        final cid = await CustomerRepository(db).create(
+          name: 'Durak $i',
+          addresses: [
+            AddressInput(
+              addressText: '$i. Sokak',
+              lat: 36.88 + i * 0.01,
+              lng: 30.70 + i * 0.01,
+              isPrimary: true,
+            ),
+          ],
+        );
+        await repo.create(customerId: cid, lines: [
           LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 1),
         ]);
-        await repo.deliver(id, paymentType: 'nakit');
       }
       await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(
         SyncMetaCompanion(
-          authToken: const Value('test-token'),
-          routeCredits: const Value(34),
-          userRole: Value(rol),
+          authToken: Value(oturum ? 'test-token' : null),
+          routeCredits: Value(hak ?? 0),
         ),
       );
       return db;
     }
 
-    testWidgets('"Açık" sekmesinde düğme ETKİN — kilit gerekçesi yazmaz', (tester) async {
+    testWidgets('hak ve iki durak varken düğme ETKİN — gerekçe yazmaz', (tester) async {
       genisYuzey(tester);
       late AppDatabase db;
-      await tester.runAsync(() async => db = await kur(teslim: 1));
+      await tester.runAsync(() async => db = await kur());
 
-      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
-      await akisiBekle(tester);
-      await tester.tap(find.text('Sırala'));
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.text('Oto Sırala (rota) · 34 hak'), findsOneWidget);
+      expect(find.text('Oto Sırala · 34 hak'), findsOneWidget);
       expect(find.textContaining('en az iki açık sipariş'), findsNothing);
-      expect(find.textContaining('"Açık" sekmesine geçin'), findsNothing);
+      expect(find.textContaining('Salt-okunur'), findsNothing);
 
       await ekraniKapat(tester);
     });
 
-    testWidgets('"Teslim" sekmesinde düğme PASİF ve nedeni AÇIK sekmesini gösterir',
-        (tester) async {
-      // SAHA HATASI: burada düğme etkin çiziliyordu; dokunan kullanıcı "sıralanacak sipariş yok"
-      // duyuyor, oysa bir sekme ötede iki açık siparişi duruyordu. Sekme tanımı gereği KAPALI
-      // sipariş listeler — bu sekmede rota kümesi hiçbir zaman dolmaz.
+    testWidgets('SALT-OKUNUR kipte pasif ve gerekçesi yazar', (tester) async {
+      // Görünürlük ≠ kullanılabilirlik: düğme HEP çizilir, kontör yine yazar. Yeteneği gizlemek
+      // kullanıcıya onun yokluğunu öğretirdi.
       genisYuzey(tester);
       late AppDatabase db;
-      await tester.runAsync(() async => db = await kur(teslim: 2));
+      await tester.runAsync(() async => db = await kur());
 
-      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
-      await akisiBekle(tester);
-      await tester.tap(find.text('Teslim'));
-      await akisiBekle(tester);
-      await tester.tap(find.text('Sırala'));
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: false)));
       await akisiBekle(tester);
 
-      // Görünürlük ≠ kullanılabilirlik: düğme HEP çizilir, kontör yine yazar.
-      expect(find.text('Oto Sırala (rota) · 34 hak'), findsOneWidget);
-      expect(find.text('Rota yalnız açık siparişleri sıralar — "Açık" sekmesine geçin.'),
+      expect(find.text('Oto Sırala · 34 hak'), findsOneWidget);
+      expect(find.text('Salt-okunur kip: sıra kaydedilemez.'), findsOneWidget);
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('HAK BİTTİYSE pasif ve gerekçesi yazar', (tester) async {
+      genisYuzey(tester);
+      late AppDatabase db;
+      await tester.runAsync(() async => db = await kur(hak: 0));
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await akisiBekle(tester);
+
+      expect(find.text('Oto Sırala · 0 hak'), findsOneWidget);
+      expect(find.text('Oto sıralama hakkı kalmadı.'), findsOneWidget);
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('hak BİLİNMİYORKEN pasif ve etikette SAHTE KONTÖR yazmaz', (tester) async {
+      // Kontör sunucu sahiplidir; token yokken kalan hak bilinemez. Uydurma bir sayı yazmak,
+      // tıklayınca 409 yiyen bir düğme demekti.
+      genisYuzey(tester);
+      late AppDatabase db;
+      await tester.runAsync(() async => db = await kur(oturum: false));
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await akisiBekle(tester);
+
+      // TAM eşleşme: etikette " · N hak" eki YOK.
+      expect(find.text('Oto Sırala'), findsOneWidget);
+      expect(find.text('Hak bilgisi bekleniyor — ilk senkrondan sonra kullanılabilir.'),
           findsOneWidget);
 
-      // Pasif düğmeye dokunmak sheet'i KAPATMAZ (eylem hiç tetiklenmez).
-      await tester.tap(find.text('Oto Sırala (rota) · 34 hak'));
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('TEK durak varken pasif — rota iki noktadan başlar', (tester) async {
+      genisYuzey(tester);
+      late AppDatabase db;
+      await tester.runAsync(() async => db = await kur(durak: 1));
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
-      expect(find.text('Sıralama'), findsOneWidget);
+
+      expect(find.text('Rota için en az iki açık sipariş gerekir.'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
 
-    testWidgets('BOŞ sekmeye geçince önceki sekmenin kümesi taşınmaz', (tester) async {
-      // Görünen küme yalnız DOLU listede tazeleniyordu; boş bir sekmede eski liste elde kalıyor
-      // ve "Oto Sırala" kullanıcının BAKMADIĞI siparişleri sıralayabiliyordu (sessiz bozulma).
-      // Hiç teslim sipariş yok → "Teslim" sekmesi tamamen boş.
+    testWidgets('kontör ekran AÇILDIKTAN SONRA senkronla gelince düğme güncellenir',
+        (tester) async {
+      // CİHAZDA YAKALANAN GERİLEME (liste ekranında): kalan hak `initState`te TEK ATIŞ
+      // okunuyordu. Kontör giriş yanıtında GELMEZ, ilk senkron yazar — ekran girişten hemen
+      // sonra 0 görüp sonsuza dek "0 hak" gösteriyordu. Düğme haritaya taşındı, kural taşındı.
       genisYuzey(tester);
       late AppDatabase db;
-      await tester.runAsync(() async => db = await kur());
+      await tester.runAsync(() async => db = await kur(hak: 0));
 
-      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
-      await tester.tap(find.text('Teslim'));
-      await akisiBekle(tester);
+      expect(find.text('Oto Sırala · 0 hak'), findsOneWidget);
 
-      expect(find.text('Sipariş yok'), findsOneWidget, reason: 'sekme gerçekten boş');
-
-      await tester.tap(find.text('Sırala'));
-      await akisiBekle(tester);
-      expect(find.text('Rota yalnız açık siparişleri sıralar — "Açık" sekmesine geçin.'),
-          findsOneWidget,
-          reason: 'boş sekmede küme BOŞTUR — "Açık" sekmesinin iki siparişi burada sayılmaz');
-
-      await ekraniKapat(tester);
-    });
-
-    testWidgets('kurye süzgeci açıkken gerekçe SÜZGECİ söyler', (tester) async {
-      // Ölçülen saha durumu: demo bayideki açık siparişlerin HİÇBİRİ atanmamış. Patron kuryeye
-      // göre süzünce küme boşalıyor ve "sıralanacak sipariş yok" haksız bir cümle oluyor —
-      // sipariş var, seçili kuryede yok. Gerekçe süzgeci ve çıkış yolunu söylemeli.
-      genisYuzey(tester);
-      late AppDatabase db;
-      await tester.runAsync(() async => db = await kur());
-
-      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
-      await akisiBekle(tester);
-      await tester.tap(find.bySemanticsLabel('Kuryeye göre süz'));
-      await akisiBekle(tester);
-      await tester.tap(find.text('Kurye Ali'));
+      await tester.runAsync(() async {
+        await (db.update(db.syncMeta)..where((t) => t.id.equals(1)))
+            .write(const SyncMetaCompanion(routeCredits: Value(34)));
+      });
       await akisiBekle(tester);
 
-      await tester.tap(find.text('Sırala'));
-      await akisiBekle(tester);
-      expect(
-        find.text('Kurye Ali için en az iki açık sipariş yok — süzgeci kaldırın.'),
-        findsOneWidget,
-      );
+      expect(find.text('Oto Sırala · 34 hak'), findsOneWidget,
+          reason: 'kontör senkronla gelince düğme tazelenmeli — "0 hak"ta donmamalı');
+      expect(find.text('Oto sıralama hakkı kalmadı.'), findsNothing);
 
       await ekraniKapat(tester);
     });

@@ -6,7 +6,6 @@
 // dokunma akışları widget testine kalır. Widget testlerinde drift'in gerçek zamanı gerektiği
 // için `tester.runAsync` kullanılır ve akışa abone DB `close()` EDİLMEZ (abone stream hata atar).
 
-import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -773,115 +772,91 @@ void main() {
       expect(find.text(siralamaEtiketi(OrderSort.saat)), findsOneWidget);
       expect(find.text(siralamaEtiketi(OrderSort.elle)), findsNothing,
           reason: 'elle sıralama sort_set OLAYI yazar — salt-okunur kipte yasak');
-      // `.sr-oto` tasarımda HEP görünür; salt-okunur kipte PASİF olur ve nedeni yazılır.
-      // Görünürlük ≠ kullanılabilirlik: kapı korunur, yetenek gizlenmez.
-      expect(find.text('Oto Sırala (rota)'), findsOneWidget);
-      expect(find.text('Salt-okunur kip: sıra kaydedilemez.'), findsOneWidget);
+      // "Rota sırası" salt-okunur kipte de SUNULUR: seçmek hiçbir şey yazmaz, yalnız kalıcı
+      // sırayı gösterir. Elle kipinin kapısını ona da uygulamak, yazmayan bir görünümü
+      // gereksiz yere kilitlemek olurdu.
+      expect(find.text(siralamaEtiketi(OrderSort.rota)), findsOneWidget);
+      // Oto sıralama düğmesi ARTIK BU SHEET'TE DEĞİL (2026-08-01: haritaya taşındı).
+      expect(find.textContaining('Oto Sırala'), findsNothing);
 
       await ekraniKapat(tester);
     });
 
-    testWidgets('hak BİLİNMİYORKEN "Oto Sırala" pasif çizilir, sahte kontör yazmaz',
+    testWidgets('"Rota sırası" kalıcı sort_index sırasını TUTAMAÇSIZ gösterir',
         (tester) async {
-      // Kontör sunucu sahiplidir; token yokken kalan hak bilinemez. Düğmeyi hiç çizmemek
-      // yeteneği gizliyordu (kullanıcı böyle bir şeyin varlığını öğrenemiyordu); uydurma bir
-      // sayı yazmak ise tıklayınca 409 yiyen bir düğme demekti. Orta yol: düğme görünür,
-      // kontör YAZILMAZ, dokunma kapalı ve nedeni altında durur.
+      // Oto sıralamadan sonra ekran ELLE kipine düşüyordu; kullanıcı sonucu görmek isterken
+      // kendini bir düzenleme kipinde buluyordu ("oto sıralamadan sonra tekrar elle sıralama
+      // alanı geliyor, mantıksız"). "Rota sırası" aynı sırayı gösterir, hiçbir şey yazmaz.
       genisYuzey(tester);
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
-        final m = await CustomerRepository(db).create(name: 'Ayşe Yılmaz');
-        await OrderRepository(db).create(customerId: m, lines: [
+        final repo = OrderRepository(db);
+        // Yazılma sırası: Ayşe önce, Mehmet sonra → saat sırasında Mehmet üstte.
+        final m1 = await CustomerRepository(db).create(name: 'Ayşe Yılmaz');
+        final ilk = await repo.create(customerId: m1, lines: [
           LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 1),
         ]);
-      });
-
-      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
-      await akisiBekle(tester);
-      await tester.tap(find.text('Sırala'));
-      await akisiBekle(tester);
-
-      expect(find.text(siralamaEtiketi(OrderSort.elle)), findsOneWidget,
-          reason: 'elle sıralama çevrimdışı çalışır, o hep sunulur');
-      // TAM eşleşme: etikette " · N hak" eki YOK — kontör bilinmiyorken sayı yazılmaz.
-      expect(find.text('Oto Sırala (rota)'), findsOneWidget);
-      expect(find.text('Hak bilgisi bekleniyor — ilk senkrondan sonra kullanılabilir.'),
-          findsOneWidget);
-
-      // Pasif düğmeye dokunmak sheet'i kapatmaz (eylem hiç tetiklenmez).
-      await tester.tap(find.text('Oto Sırala (rota)'));
-      await akisiBekle(tester);
-      expect(find.text('Sıralama'), findsOneWidget);
-
-      await ekraniKapat(tester);
-    });
-
-    testWidgets('oturum ve hak varken "Oto Sırala (rota) · N hak" düğmesi çizilir',
-        (tester) async {
-      genisYuzey(tester);
-      final db = AppDatabase(NativeDatabase.memory());
-      await tester.runAsync(() async {
-        final m = await CustomerRepository(db).create(name: 'Ayşe Yılmaz');
-        await OrderRepository(db).create(customerId: m, lines: [
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        final m2 = await CustomerRepository(db).create(name: 'Mehmet Demir');
+        final ikinci = await repo.create(customerId: m2, lines: [
           LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 1),
         ]);
-        // Sunucu sahipli alanlar senkronla iner; testte doğrudan önbelleğe yazılır.
-        await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(
-          const SyncMetaCompanion(
-            authToken: Value('test-token'),
-            routeCredits: Value(34),
-            routeCreditsMonthly: Value(50),
-          ),
-        );
-      });
-
-      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
-      await akisiBekle(tester);
-      await tester.tap(find.text('Sırala'));
-      await akisiBekle(tester);
-
-      // Tasarım `.sr-oto`: "Oto Sırala (rota) · 34 hak"
-      expect(find.text('Oto Sırala (rota) · 34 hak'), findsOneWidget);
-
-      await ekraniKapat(tester);
-    });
-
-    testWidgets('kontör ekran AÇILDIKTAN SONRA senkronla gelince düğme güncellenir',
-        (tester) async {
-      // CİHAZDA YAKALANAN GERİLEME: kalan hak `initState`te TEK ATIŞ okunuyordu. Kontör giriş
-      // yanıtında GELMEZ, ilk senkron yazar — dolayısıyla ekran girişten hemen sonra 0 görüp
-      // sonsuza dek "0 hak" gösteriyordu (sunucuda 34 vardı). Artık akışa abone.
-      genisYuzey(tester);
-      final db = AppDatabase(NativeDatabase.memory());
-      await tester.runAsync(() async {
-        final m = await CustomerRepository(db).create(name: 'Ayşe Yılmaz');
-        await OrderRepository(db).create(customerId: m, lines: [
-          LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 1),
-        ]);
-        // Oturum var ama kontör HENÜZ gelmedi (senkron olmadı) → varsayılan 0.
-        await (db.update(db.syncMeta)..where((t) => t.id.equals(1)))
-            .write(const SyncMetaCompanion(authToken: Value('test-token')));
+        // Rota sırası saat sırasının TERSİ olsun ki gerçekten sort_index okunduğu görülsün.
+        await repo.setSortIndex(ilk, 0);
+        await repo.setSortIndex(ikinci, 10);
       });
 
       await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
       await akisiBekle(tester);
 
-      // Senkron GELİR ve sunucu sahipli alanı yazar — ekran açıkken.
-      await tester.runAsync(() async {
-        await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(
-          const SyncMetaCompanion(routeCredits: Value(34), routeCreditsMonthly: Value(50)),
-        );
-      });
-      await akisiBekle(tester);
+      // Saat sırasında en yeni (Mehmet) üstte.
+      expect(tester.getCenter(find.text('Mehmet Demir')).dy,
+          lessThan(tester.getCenter(find.text('Ayşe Yılmaz')).dy));
 
       await tester.tap(find.text('Sırala'));
       await akisiBekle(tester);
+      await tester.tap(find.text(siralamaEtiketi(OrderSort.rota)));
+      await akisiBekle(tester);
 
-      expect(find.text('Oto Sırala (rota) · 34 hak'), findsOneWidget,
-          reason: 'kontör senkronla gelince düğme tazelenmeli — "0 hak"ta donmamalı');
-      expect(find.textContaining('0 hak'), findsNothing);
+      // Rota sırasında sort_index geçerli → Ayşe üstte.
+      expect(tester.getCenter(find.text('Ayşe Yılmaz')).dy,
+          lessThan(tester.getCenter(find.text('Mehmet Demir')).dy));
+      // ASIL SÖZLEŞME: bu bir GÖRÜNÜM, düzenleme kipi değil.
+      expect(find.byType(ReorderableDragStartListener), findsNothing,
+          reason: 'rota görünümünde tutamaç YOKTUR — kullanıcı düzenlemek istemedi');
+      expect(find.text('Tutamaçtan sürükleyip bırak, bitince “Bitti”ye bas.'), findsNothing);
+      expect(find.text('Bitti'), findsNothing, reason: 'elle kipi açılmadı');
 
       await ekraniKapat(tester);
+    });
+
+    test('siparisleriSirala: rota kipi sürükleme sırasını GÖRMEZDEN gelir', () {
+      // `rota` yalnız gösterir: iyimser bir düzenleme durumu taşımaz. Elle kipi ise sürükleme
+      // sırası boşken aynı sort_index'ten başlar — rotanın üstünden ince ayar yapılabilsin.
+      Order o(String id, int? sira) => Order(
+            id: id,
+            status: 'open',
+            totalKurus: 0,
+            sortIndex: sira,
+            occurredAt: '2026-07-25T10:00:00Z',
+          );
+      final liste = [
+        OrderListItem(order: o('a', 20)),
+        OrderListItem(order: o('b', 0)),
+        OrderListItem(order: o('c', null)),
+        OrderListItem(order: o('d', 10)),
+      ];
+      expect(
+        siparisleriSirala(liste, OrderSort.rota, elleSira: ['c', 'a', 'd', 'b'])
+            .map((i) => i.order.id),
+        ['b', 'd', 'a', 'c'],
+        reason: 'sürükleme sırası verilse bile rota kalıcı sort_index\'i gösterir',
+      );
+      expect(
+        siparisleriSirala(liste, OrderSort.elle).map((i) => i.order.id),
+        siparisleriSirala(liste, OrderSort.rota).map((i) => i.order.id),
+        reason: 'elle kipi rotanın bıraktığı yerden başlar',
+      );
     });
   });
 }

@@ -12,14 +12,10 @@
 
 import 'dart:async';
 
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
-import '../../auth/session.dart';
-import '../../konum/cihaz_konumu.dart';
 import '../../repo/order_repository.dart';
-import '../../sync/route_api.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
@@ -30,6 +26,7 @@ import 'order_detail_screen.dart';
 import 'order_list_parts.dart';
 import 'order_queries.dart';
 import 'order_sheets.dart';
+import 'siparis_arac_seridi.dart';
 import 'siparis_harita.dart';
 import 'tutamac_deposu.dart';
 
@@ -104,19 +101,6 @@ class _OrderListScreenState extends State<OrderListScreen> {
   /// Sürükleme sırasındaki İYİMSER sıra (sipariş id'leri). Boşken kalıcı `sort_index` geçerlidir.
   List<String> _elleSira = const [];
 
-  /// Kalan oto-sıralama hakkı (sunucu sahipli, senkronla iner). null = HENÜZ BİLİNMİYOR →
-  /// `.sr-oto` düğmesi kontör YAZMADAN, PASİF çizilir. Uydurma bir sayı göstermek yasak:
-  /// kullanıcı "34 hakkım var" deyip tıkladığında sunucu 409 dönerse güven kaybolur.
-  int? _otoHak;
-
-  /// Ekranda o an gösterilen liste — "Oto Sırala" hangi siparişleri sıralayacağını buradan
-  /// okur (kurye filtresi ve seçili sekme dahil, kullanıcının GÖRDÜĞÜ küme).
-  ///
-  /// DAİMA tazelenir, boş/yükleniyor dallarında da. Eskiden yalnız DOLU listede yazılıyordu;
-  /// boş bir sekmeye geçince eski sekmenin listesi burada kalıyor ve "Oto Sırala" kullanıcının
-  /// BAKMADIĞI bir kümeyi sıralayabiliyordu (sessiz bozulma).
-  List<OrderListItem> _sonListe = const [];
-
   /// Sipariş akışı filtreye bağlı ama build'de YENİDEN KURULMAZ. `watchOrders` her çağrıda yeni
   /// bir Stream nesnesi döndürür; build'in içinde çağrılırsa StreamBuilder her setState'te akışı
   /// "değişmiş" sayar, aboneliği kopatıp `null` snapshot'a düşer ve liste bir kare iskelete iner.
@@ -134,45 +118,18 @@ class _OrderListScreenState extends State<OrderListScreen> {
     return _siparisAkisi!;
   }
 
-  /// Rotaya girebilecek küme: görünen listenin YALNIZ açık siparişleri (sunucu da böyle süzer).
-  List<OrderListItem> get _rotaKumesi => [
-        for (final e in _sonListe)
-          if (e.order.status == 'open') e,
-      ];
-
-  /// "Oto Sırala" neden kullanılamıyor? null = kullanılabilir. Üç dalın üçü de DOĞRU cümledir;
-  /// amaç "sipariş yok" gibi kullanıcının gördüğüyle çelişen bir şey söylememek — açık siparişi
-  /// VAR, bu ekranın süzgeci onları elemiştir ve nerede olduklarını söylemek bizim işimiz.
-  String? get _otoKumeNedeni {
-    if (_rotaKumesi.length >= 2) return null;
-    if (_kuryeId != null) {
-      return '${_kuryeAdi ?? 'Seçili kurye'} için en az iki açık sipariş yok — süzgeci kaldırın.';
-    }
-    if (_filtre != OrderFilter.acik) {
-      return 'Rota yalnız açık siparişleri sıralar — "Açık" sekmesine geçin.';
-    }
-    return 'Rota için en az iki açık sipariş gerekir.';
-  }
-
   StreamSubscription<SyncMetaData>? _metaAbone;
 
   @override
   void initState() {
     super.initState();
-    // AKIŞA abone olunur, tek atış okunmaz: kontör sunucu sahiplidir ve GİRİŞ YANITINDA
-    // GELMEZ — ilk senkron yazar. Tek atış okuma girişten hemen sonra 0 görür ve ekran
-    // sonsuza dek "0 hak" gösterir (cihazda bu hâliyle yakalandı).
+    // Rol AKIŞTAN okunur, tek atış değil: `sync_meta.user_role` giriş yanıtı ile senkron
+    // arasında değişebilir ve tek atış okuma "rol yok" görüp kurye süzgecini sonsuza dek
+    // gizlerdi (sunucu sahipli alan kuralı).
     _metaAbone = widget.db.watchSyncState().listen((meta) {
-      // Oturum yoksa (token null) çevrimiçi eylem hiç sunulmaz.
-      final yeni = meta.authToken == null ? null : meta.routeCredits;
-      // Rol de AKIŞTAN okunur (aynı gerekçe): giriş yanıtı ile senkron arasında değişebilir ve
-      // tek atış okuma "rol yok" görüp süzgeci sonsuza dek gizlerdi.
       final rol = meta.userRole;
-      if (!mounted || (yeni == _otoHak && rol == _rol)) return;
-      setState(() {
-        _otoHak = yeni;
-        _rol = rol;
-      });
+      if (!mounted || rol == _rol) return;
+      setState(() => _rol = rol);
     });
   }
 
@@ -234,33 +191,10 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 alt: 'Bugün ${snap.data ?? 0} açık'
                     '${_kuryeId == null ? '' : ' · ${_kuryeAdi ?? 'Kurye'}'}',
                 onMenu: widget.onMenu,
+                // Başlıkta TEK eylem kaldı (2026-08-01). Harita ile kurye süzgeci çıplak ikon
+                // düğmeleriydi; ne yaptıkları ancak dokununca anlaşılıyordu. İkisi de sekmelerin
+                // altındaki ETİKETLİ araç şeridine indi (`siparis_arac_seridi.dart`).
                 sag: [
-                  // HARİTA — her zaman görünür. Bu ekran zaten yalnız açık siparişleri
-                  // gösteriyor; haritanın da göstereceği tam olarak o küme. Düğmeyi duruma
-                  // göre gizlemek, yeteneği bulunamaz kılardı (`.sr-oto` dersinin aynısı).
-                  SipIkonButon(
-                    ikon: SipIcons.pin,
-                    ikonBoyut: 20,
-                    zemin: t.surface,
-                    renk: t.ink,
-                    etiket: 'Haritada göster',
-                    onTap: _haritaAc,
-                  ),
-                  const SizedBox(width: SipSpace.md),
-                  // Kurye süzgeci — yalnız patron (K2 dışı bir GÖRÜNÜM kapısı; kurye kendi
-                  // işini görür, ona süzgeç gürültüdür). Elle sıralama kipinde gizlenir:
-                  // sıra yazarken listenin altından küme değişmemeli.
-                  if (kuryeSuzgeciGorunur(_rol) && !_elle) ...[
-                    SipIkonButon(
-                      ikon: SipIcons.truck,
-                      ikonBoyut: 20,
-                      zemin: _kuryeId == null ? t.surface : t.accentSoft,
-                      renk: _kuryeId == null ? t.ink : t.accent,
-                      etiket: 'Kuryeye göre süz',
-                      onTap: _kuryeSuzgeciAc,
-                    ),
-                    const SizedBox(width: SipSpace.md),
-                  ],
                   if (_elle)
                     SipMetinButon(etiket: 'Bitti', onTap: _elleBitir)
                   else
@@ -283,14 +217,30 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
             // ── .segtab ───────────────────────────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  SipSpace.govde, 0, SipSpace.govde, SipSpace.xl),
+              padding: EdgeInsets.fromLTRB(SipSpace.govde, 0, SipSpace.govde,
+                  _elle ? SipSpace.xl : SipSpace.lg),
               child: SipSegment(
                 secenekler: [for (final f in sekmeler) _sekmeEtiketi(f)],
                 secili: sekmeler.indexOf(_filtre).clamp(0, sekmeler.length - 1),
                 onSec: (i) => setState(() => _filtre = sekmeler[i]),
               ),
             ),
+
+            // ── Araç şeridi — "Harita" + kurye süzgeci ────────────────────────────────────
+            // Elle kipinde TAMAMEN gizlenir: sıra yazılırken listenin altından küme
+            // değişmemeli (kurye süzgecinin eski gizlenme kuralının aynısı).
+            if (!_elle)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    SipSpace.govde, 0, SipSpace.govde, SipSpace.xl),
+                child: SiparisAracSeridi(
+                  onHarita: _haritaAc,
+                  // Süzgeç yalnız PATRONA çıkar (K2 dışı bir GÖRÜNÜM kapısı; kurye kendi işini
+                  // görür, ona süzgeç gürültüdür).
+                  onKurye: kuryeSuzgeciGorunur(_rol) ? _kuryeSuzgeciAc : null,
+                  kuryeAdi: _kuryeId == null ? null : (_kuryeAdi ?? 'Kurye'),
+                ),
+              ),
 
             Expanded(child: _govde()),
           ],
@@ -325,27 +275,16 @@ class _OrderListScreenState extends State<OrderListScreen> {
               // ölü koddu. Kurye kendi işini "Açık" sekmesinde zaten görür.
               stream: _siparisleriIzle(),
               builder: (context, snap) {
-                // "Oto Sırala"nın kaynağı: kullanıcının GÖRDÜĞÜ küme. build sırasında setState
-                // ÇAĞRILMAZ — bu yalnız bir alan ataması, çizimi etkilemez. Hata/yükleniyor/boş
-                // dallarında küme BİLİNMİYOR demektir; bayat listeyi taşımak yerine boşaltılır.
                 if (snap.hasError) {
-                  _sonListe = const [];
                   // "Tekrar dene" akışı YENİDEN KURMALI: artık akış önbellekli olduğu için
                   // boş bir setState aynı ölü akışa geri abone olurdu (düğme hiçbir şey yapmaz).
                   return SipHataEkran(onTekrar: () => setState(() => _siparisAkisi = null));
                 }
                 final ham = snap.data;
-                if (ham == null) {
-                  _sonListe = const [];
-                  return const SipIskelet(adet: 4);
-                }
-                if (ham.isEmpty) {
-                  _sonListe = const [];
-                  return _bos();
-                }
+                if (ham == null) return const SipIskelet(adet: 4);
+                if (ham.isEmpty) return _bos();
 
                 final liste = siparisleriSirala(ham, _sirala, elleSira: _elleSira);
-                _sonListe = liste;
                 return SiparisListesi(
                   liste: liste,
                   satirlar: satirSnap.data ?? const {},
@@ -399,14 +338,27 @@ class _OrderListScreenState extends State<OrderListScreen> {
         baslik: item.customerName ?? 'Tezgâh satışı',
       );
 
-  /// Harita ekranı — açık siparişlerin durakları, rota sırasında numaralı.
-  Future<void> _haritaAc() => Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => SiparisHaritaEkrani(
-          db: widget.db,
-          writable: widget.writable,
-          canAssign: widget.canAssign,
-        ),
-      ));
+  /// Harita ekranı — açık siparişlerin durakları, rota sırasında numaralı. "Oto Sırala" ORADA
+  /// durur; dönen `true`, orada sıra yazıldığını söyleyen SİNYALDİR.
+  ///
+  /// Oto sıralamadan sonra liste ELLE kipine ALINMAZ (2026-08-01 kullanıcı şikâyeti: "oto
+  /// sıralamadan sonra tekrar elle sıralama alanı geliyor, mantıksız"). Kullanıcı sonucu
+  /// görmek istiyordu, düzenlemek değil; `rota` kipi aynı sırayı tutamaçsız gösterir ve ince
+  /// ayar isteyen Sırala → "Elle sırala"yı kendisi seçer.
+  Future<void> _haritaAc() async {
+    final otoYapildi = await Navigator.of(context).push<bool>(MaterialPageRoute<bool>(
+      builder: (_) => SiparisHaritaEkrani(
+        db: widget.db,
+        writable: widget.writable,
+        canAssign: widget.canAssign,
+      ),
+    ));
+    if (otoYapildi != true || !mounted) return;
+    setState(() {
+      _sirala = OrderSort.rota;
+      _elleSira = const [];
+    });
+  }
 
   /// "Kuryeye Göre" süzgeci (saha hatası 6 — patron hiçbir listede kuryeye göre süzemiyordu).
   ///
@@ -462,17 +414,11 @@ class _OrderListScreenState extends State<OrderListScreen> {
       context,
       secili: _sirala,
       // Elle sıralama `sort_set` OLAYI yazar → salt-okunur kipte sunulmaz (yeni kayıt yasağı).
+      // "Rota sırası" için böyle bir kapı YOK: seçmek hiçbir şey yazmaz, kalıcı sırayı gösterir.
       secenekler: [
         for (final s in OrderSort.values)
           if (widget.writable || s != OrderSort.elle) s,
       ],
-      // Oto sıralama da sıra YAZAR. Düğme tasarımdaki gibi hep çizilir; salt-okunur kipte ve
-      // hak bilinmiyorken PASİF olur (sheet nedeni yazar) — kapı korunur, yetenek gizlenmez.
-      otoHak: _otoHak,
-      yazilabilir: widget.writable,
-      // Küme yetersizse düğme DOKUNULMADAN ÖNCE pasifleşir ve nedenini yazar.
-      otoKumeNedeni: _otoKumeNedeni,
-      onOtoSirala: _otoSirala,
     );
     if (secim == null || !mounted) return;
     setState(() {
@@ -494,112 +440,13 @@ class _OrderListScreenState extends State<OrderListScreen> {
     tutamacDeposu.yaz(sagda);
   }
 
+  /// Elle kipinden çıkış. Sıralama SAAT'e değil ROTAYA döner (2026-08-01): kullanıcı az önce
+  /// bir sıra kurmuştu; "Bitti"ye basınca listenin zaman sırasına atlaması, yaptığı işi gözünün
+  /// önünde bozmak olurdu. "Rota sırası" aynı sırayı tutamaçsız gösterir.
   void _elleBitir() => setState(() {
-        _sirala = OrderSort.saat;
+        _sirala = OrderSort.rota;
         _elleSira = const [];
       });
-
-  /// Sunucunun bildirdiği güncel kontörü ÖNBELLEĞE yazar. Tek doğru kaynak sunucudur; burada
-  /// yalnız onun söylediği sayı saklanır (istemci kendi kendine düşürmez). Akış aboneliği
-  /// ekranı, `home_shell` de çekmeceyi aynı satırdan tazeler.
-  Future<void> _hakkiYaz(int kalan) => (widget.db.update(widget.db.syncMeta)
-        ..where((t) => t.id.equals(1)))
-      .write(SyncMetaCompanion(routeCredits: Value(kalan)));
-
-  /// "Oto Sırala (rota)" — tasarım `.sr-oto`. Sunucudan SIRA ÖNERİSİ ister, kontörü sunucu
-  /// düşer; dönen sırayı normal yazma yolundan (`sort_set` olayı) kalıcılar ve ekranı rota
-  /// kipine alır — böylece kullanıcı sonucu görür ve isterse sürükleyip düzeltir.
-  ///
-  /// Bu, uygulamanın TEK çevrimİÇİ zorunlu eylemidir. Başarısızlıkta mevcut sıra AYNEN kalır;
-  /// yarım uygulanmış bir rota bırakmaz.
-  Future<void> _otoSirala() async {
-    // Kapalılar rotaya HİÇ gönderilmez (`_rotaKumesi`) ama görünen kümeden kaç tanesinin
-    // düştüğü toast'ta SÖYLENİR: "sıraladım" deyip listenin bir kısmını sessizce sona atmak
-    // yasak (inceleme bulgusu 2026-07-29).
-    final liste = _rotaKumesi;
-    final kapali = _sonListe.length - liste.length;
-    // EMNİYET AĞI: düğme küme yetersizken zaten pasif çizilir (`_otoKumeNedeni`), ama sheet
-    // açıkken senkron listeyi değiştirmiş olabilir. Mesaj düğmenin altındakiyle AYNI cümledir —
-    // kullanıcı iki farklı gerekçe duymaz.
-    final nedeni = _otoKumeNedeni;
-    if (nedeni != null) {
-      SipToast.goster(context, nedeni);
-      return;
-    }
-
-    final meta = await widget.db.syncState();
-    final token = meta.authToken;
-    if (!mounted) return;
-    if (token == null) {
-      SipToast.goster(context, 'Oto sıralama için oturum gerekir');
-      return;
-    }
-
-    // ROTA NEREDEN BAŞLAR: kuryenin BULUNDUĞU nokta. Konum alınamazsa (izin yok, GPS kapalı,
-    // kapalı alan) ya da ölçüm güvenilmezse (`guvenilir` kuralı — ±100 m üstü bir başlangıç
-    // noktası rotayı yanlış şehir köşesinden kurabilir) `start` HİÇ gönderilmez; sunucu eski
-    // davranışıyla ilk duraktan sıralar. Fark kullanıcıya SÖYLENİR (aşağıdaki toast eki):
-    // sessizce başka bir kipte sıralamak, kuryeye yanlış bir rotaya güvenmesini söylemek olurdu.
-    ({double lat, double lng})? baslangic;
-    try {
-      final konum = await cihazKonumuOku();
-      if (konum.guvenilir) baslangic = (lat: konum.lat, lng: konum.lng);
-    } on Object {
-      // Konum bir KOLAYLIKTIR, ön koşul değil: okunamadıysa sıralama yine yapılır.
-    }
-    if (!mounted) return;
-
-    final api = rotaApiUret(Session.baseUrlOf(meta), token);
-    final AutoRouteResult sonuc;
-    try {
-      sonuc = await api.autoRoute(
-        [for (final e in liste) e.order.id],
-        baslangic: baslangic,
-      );
-    } on RouteException catch (e) {
-      // Sunucu güncel hakkı bildirdiyse ÖNBELLEĞİ düzelt: "34 hak" yazan düğmeye basıp
-      // "hakkınız kalmadı" duymak, sonra hâlâ 34 görmek kullanıcıyı ikinci kez yanıltırdı.
-      // Yerel alana değil sync_meta'ya yazılır — çekmecedeki kart da aynı kaynağı okur.
-      if (e.kalanHak != null) await _hakkiYaz(e.kalanHak!);
-      if (!mounted) return;
-      SipToast.goster(context, e.message);
-      return;
-    }
-
-    // Dönen sırayı ekrandaki öğelere eşle; sunucunun tanımadığı kimlik varsa (silinmiş/kapanmış)
-    // sessizce düşer, kalanlar sırayı korur.
-    final indeks = {for (final e in liste) e.order.id: e};
-    final yeniSira = [
-      for (final id in sonuc.sira)
-        if (indeks[id] != null) indeks[id]!,
-    ];
-
-    final repo = OrderRepository(widget.db);
-    for (final girdi in elleSiraYazimi(yeniSira).entries) {
-      await repo.setSortIndex(girdi.key, girdi.value);
-    }
-    if (!mounted) return;
-
-    await _hakkiYaz(sonuc.kalanHak);
-    if (!mounted) return;
-
-    setState(() {
-      _sirala = OrderSort.elle;
-      _elleSira = [for (final e in yeniSira) e.order.id];
-    });
-
-    // Koordinatsız duraklar sona atıldı — bunu SÖYLEMEK zorundayız, yoksa "sıraladım" demek
-    // yanıltıcı olur (kullanıcı o siparişlerin neden sonda olduğunu anlamaz).
-    final ek = sonuc.konumsuz > 0 ? ' · ${sonuc.konumsuz} sipariş konumsuz, sona alındı' : '';
-    // Hangi KİPTE sıralandığı da söylenir: kurye "benim konumumdan başladı" sanıp ilk durağa
-    // gitmemeyi seçebilir. Sessiz bozulma yasak — konum alınamadıysa cümlenin sonunda yazar.
-    final kip = baslangic == null ? ' · konum alınamadı, ilk duraktan' : '';
-    // Görünen sekmedeki kapalı siparişler rotaya GİRMEDİ — bunu da söyleriz; onlar elle
-    // sıranın dışında kaldıkları için listenin sonuna iner ve kullanıcı sebebini bilmeli.
-    final disarida = kapali > 0 ? ' · $kapali kapalı sipariş rotaya girmedi' : '';
-    SipToast.goster(context,
-        'Rota otomatik sıralandı · ${sonuc.kalanHak} hak kaldı$ek$kip$disarida');
-  }
 
   /// Sürükle-bırak sonrası: önce İYİMSER sıra (ekran anında oturur), sonra kalıcı yazım.
   /// Yazma yolu repo → olay → outbox; `sort_index` yalnız türetilmiş önbellektir.

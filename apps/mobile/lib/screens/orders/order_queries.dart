@@ -26,14 +26,20 @@ import '../../data/app_database.dart';
 /// (bu vardiyanın dersi). Kuryeye atanmış işler gerekirse `assignedTo` parametresi duruyor.
 enum OrderFilter { acik, teslim, borclu, tumu }
 
-/// Sıralama seçenekleri — s-siparisler.jsx `SIRALA_SECENEK`.
-enum OrderSort { saat, tutar, ad, elle }
+/// Sıralama seçenekleri — s-siparisler.jsx `SIRALA_SECENEK` + `rota`.
+///
+/// `rota` 2026-08-01'de eklendi: oto sıralama bitince ekran ELLE kipine düşüyordu (tutamaçlar
+/// açılıyor, adres/not satırları gizleniyordu) — kullanıcı sadece sonucu görmek isterken kendini
+/// bir düzenleme kipinde buluyordu. `rota` aynı sırayı (kalıcı `sort_index`) YAZMADAN gösterir;
+/// düzeltmek isteyen `elle`yi kendisi seçer.
+enum OrderSort { saat, tutar, ad, rota, elle }
 
 /// Sıralama seçeneğinin sheet'te görünen etiketi (s-siparisler.jsx birebir).
 String siralamaEtiketi(OrderSort s) => switch (s) {
       OrderSort.saat => 'Saate göre (yeni üstte)',
       OrderSort.tutar => 'Tutara göre (büyük üstte)',
       OrderSort.ad => 'Müşteri adına göre (A→Z)',
+      OrderSort.rota => 'Rota sırası',
       OrderSort.elle => 'Elle sırala (sürükle-bırak)',
     };
 
@@ -213,6 +219,9 @@ int siparisKalanBorcu({
 /// o boşsa kalıcı `orders.sort_index` önbelleği okunur. İki kaynak KARIŞTIRILMAZ — biri konum
 /// (0,1,2…), diğeri seyrek sıra numarası; aynı karşılaştırmaya sokulursa sıra tutarsızlaşır.
 ///
+/// `rota` kipi `elle`nin SÜRÜKLEMESİZ hâlidir: daima kalıcı `sort_index`. Elle kipi bu yüzden
+/// rotanın üstünden ince ayar yapmaya açılır — sürükleme sırası boşken ikisi aynı sırayı verir.
+///
 /// Sıralama KARARLIDIR: anahtarı eşit olan satırlar geldikleri sırayı korur (`List.sort` kararlı
 /// değil — sipariş listesi her akış tikinde titrerdi).
 List<OrderListItem> siparisleriSirala(
@@ -231,6 +240,12 @@ List<OrderListItem> siparisleriSirala(
           (a, b) => (a.customerName ?? '￿')
               .toLowerCase()
               .compareTo((b.customerName ?? '￿').toLowerCase()));
+    case OrderSort.rota:
+      // Kalıcı rota sırası — sürükleme sırası GÖRMEZDEN GELİNİR: bu kip yalnız gösterir,
+      // iyimser bir düzenleme durumu taşımaz.
+      return _kararliSirala(
+          list,
+          (a, b) => (a.order.sortIndex ?? _sonda).compareTo(b.order.sortIndex ?? _sonda));
     case OrderSort.elle:
       final int? Function(OrderListItem) anahtar;
       if (elleSira.isNotEmpty) {

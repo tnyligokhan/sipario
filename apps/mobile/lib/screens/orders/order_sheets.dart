@@ -98,79 +98,32 @@ Future<String?> kuryeSecSheet(
 
 /// "Sıralama" sheet'i — CSS `.sr-*`. [secenekler] verilmezse tüm sıralama kipleri sunulur;
 /// salt-okunur kipte çağıran taraf `elle`yi listeden çıkarır (elle sıralama `sort_set` OLAYI
-/// yazar — yeni kayıt yasağına girer).
+/// yazar — yeni kayıt yasağına girer). `rota` için böyle bir kapı YOKTUR: rota seçmek hiçbir
+/// şey yazmaz, yalnız kalıcı sırayı gösterir.
 ///
-/// `.sr-oto` düğmesi HER ZAMAN çizilir (tasarım s-siparisler.jsx:144). Önceden [otoHak] null
-/// iken hiç çizilmiyordu; sonuç, ilk senkron gelmeden Sıralama sheet'ini açan kullanıcının
-/// böyle bir yeteneğin varlığını hiç görmemesiydi — "gizli özellik" en kötü kapıdır. Şimdi
-/// düğme görünür ama kullanılamadığı durumda PASİF + altında nedenini söyleyen nötr bir satır
-/// durur. Sahte sayı hâlâ YOK: hak bilinmiyorsa kontör yazılmaz, yalnız "Oto Sırala (rota)".
-/// [otoKumeNedeni]: görünen kümede rotaya girecek yeterli AÇIK sipariş yoksa çağıranın yazdığı
-/// gerekçe (saha hatası: "sıralanacak sipariş yok"). Kümeyi yalnız çağıran bilir — seçili sekme
-/// ve kurye süzgeci ondadır — ama düğmeyi PASİF çizme kararı burada, kontör/salt-okunur ile aynı
-/// yerde verilir. En DÜŞÜK öncelik: hak yoksa ya da kip salt-okunursa asıl engel odur.
+/// `.sr-oto` DÜĞMESİ BURADAN KALKTI (2026-08-01): oto sıralama HARİTA ekranının alt ortasındaki
+/// birincil eyleme taşındı. Gerekçe: eylem bir ROTA üretir ve rotanın saçma olup olmadığı ancak
+/// haritada anlaşılır — sonucu göremediğin bir yerden tetiklenen kontörlü bir eylem, kullanıcıyı
+/// "acaba iyi mi sıraladı" sorusuyla baş başa bırakıyordu. Kilit gerekçeleri (`otoKilitNedeni`)
+/// ve akışın kendisi `oto_siralama.dart`ta durur.
 Future<OrderSort?> siralamaSecSheet(
   BuildContext context, {
   required OrderSort secili,
   List<OrderSort>? secenekler,
-  int? otoHak,
-  bool yazilabilir = true,
-  String? otoKumeNedeni,
-  VoidCallback? onOtoSirala,
 }) {
-  // Neden pasif? Sıra tek yazma yüzeyinden (`sort_set` olayı) geçer → salt-okunur kipte yasak.
-  // Hak bilinmiyorsa (ilk senkron gelmedi / oturum yok) tıklamak 409 ile dönerdi.
-  //
-  // SAHA HATASI: küme yetersizken düğme ETKİN çiziliyor, dokunulunca hata veriyordu. "Teslim" ve
-  // "Borçlu" sekmeleri tanımı gereği KAPALI sipariş listeler; oralarda rota kümesi her zaman boş
-  // kalır, yani düğme her dokunuşta başarısız oluyordu. Kullanıcı "sıralanacak sipariş yok"
-  // okuyup bir sekme ötede duran açık siparişlerini düşünüyordu. Sebebi dokunmadan ÖNCE söyle.
-  final String? kilitNedeni = !yazilabilir
-      ? 'Salt-okunur kip: sıra kaydedilemez.'
-      : otoHak == null
-          ? 'Hak bilgisi bekleniyor — ilk senkrondan sonra kullanılabilir.'
-          : otoHak <= 0
-              ? 'Oto sıralama hakkı kalmadı.'
-              : otoKumeNedeni;
-
   return sipSheet<OrderSort>(
     context,
     baslik: 'Sıralama',
-    govde: (ctx) {
-      final t = ctx.sip;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final s in secenekler ?? OrderSort.values)
-            SecimSatiri(
-              etiket: siralamaEtiketi(s),
-              secili: s == secili,
-              onTap: () => Navigator.of(ctx).pop(s),
-            ),
-          const SizedBox(height: SipSpace.xs),
-          SipButon(
-            etiket: otoHak == null
-                ? 'Oto Sırala (rota)'
-                : 'Oto Sırala (rota) · $otoHak hak',
-            ikon: SipIcons.bolt,
-            onTap: kilitNedeni != null
-                ? null
-                : () {
-                    Navigator.of(ctx).pop();
-                    onOtoSirala?.call();
-                  },
+    govde: (ctx) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final s in secenekler ?? OrderSort.values)
+          SecimSatiri(
+            etiket: siralamaEtiketi(s),
+            secili: s == secili,
+            onTap: () => Navigator.of(ctx).pop(s),
           ),
-          if (kilitNedeni != null)
-            Padding(
-              padding: const EdgeInsets.only(top: SipSpace.md),
-              child: Text(
-                kilitNedeni,
-                textAlign: TextAlign.center,
-                style: SipText.metin(12, w: 600).copyWith(color: t.muted),
-              ),
-            ),
-        ],
-      );
-    },
+      ],
+    ),
   );
 }

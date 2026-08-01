@@ -29,20 +29,13 @@ import 'package:sipario/screens/orders/harita_sorgulari.dart';
 import 'package:sipario/screens/orders/musteri_eylemleri.dart';
 import 'package:sipario/screens/orders/order_detail_screen.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
+import 'package:sipario/screens/orders/order_sheets.dart';
 import 'package:sipario/screens/orders/siparis_harita.dart';
 import 'package:sipario/screens/orders/siparis_harita_ozet.dart';
 import 'package:sipario/sync/route_api.dart';
 import 'package:sipario/theme/components/atoms.dart';
 
 import 'support/siparis_yardimci.dart';
-
-/// Testte kullanılan karo sağlayıcı: her karo için TEK saydam görsel döner, hiçbir istek atmaz.
-/// `flutter_map` bu baytları kendi "yüklenemedi" yolu için de kullanıyor — geçerli bir PNG'dir.
-class SahteKaroSaglayici extends TileProvider {
-  @override
-  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) =>
-      MemoryImage(TileProvider.transparentImage);
-}
 
 void main() {
   // ═════════════════════════════════════════════════════════════════════════════════════════
@@ -101,16 +94,32 @@ void main() {
 
   // ═════════════════════════════════════════════════════════════════════════════════════════
   // A2. "Oto Sırala" ekran akışı — konum dikişi ile istek gövdesi arasındaki halka
+  //
+  // Düğme 2026-08-01'de sıralama sheet'inden HARİTAYA taşındı: eylem bir ROTA üretir ve
+  // rotanın saçma olup olmadığı ancak yeryüzünde anlaşılır. Akış aynı, tetiklendiği ekran
+  // farklı — testler de artık haritadan basıyor.
   // ═════════════════════════════════════════════════════════════════════════════════════════
 
   group('Oto sıralama cihaz konumundan başlar', () {
-    /// İki açık sipariş + oturum + kontör. Sunucunun tanıyacağı kimlikler dönebilsin diye
-    /// sipariş id'leri de döner.
+    /// İki KOORDİNATLI açık sipariş + oturum + kontör. Sunucunun tanıyacağı kimlikler
+    /// dönebilsin diye sipariş id'leri de döner.
     Future<(AppDatabase, List<String>)> kur() async {
       final db = AppDatabase(NativeDatabase.memory());
       final repo = OrderRepository(db);
-      final m1 = await CustomerRepository(db).create(name: 'Ayşe Yılmaz');
-      final m2 = await CustomerRepository(db).create(name: 'Mehmet Kaya');
+      final m1 = await CustomerRepository(db).create(
+        name: 'Ayşe Yılmaz',
+        addresses: [
+          AddressInput(
+              addressText: 'Bahçe Sk.', lat: 36.8841, lng: 30.7056, isPrimary: true),
+        ],
+      );
+      final m2 = await CustomerRepository(db).create(
+        name: 'Mehmet Kaya',
+        addresses: [
+          AddressInput(
+              addressText: 'Deniz Sk.', lat: 36.8900, lng: 30.7100, isPrimary: true),
+        ],
+      );
       final o1 = await repo.create(customerId: m1, lines: [
         LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 1),
       ]);
@@ -151,30 +160,24 @@ void main() {
       return govdeler;
     }
 
-    void konumSahtele(Future<CihazKonumu> Function() oku) {
-      final eski = cihazKonumuOku;
-      cihazKonumuOku = oku;
-      addTearDown(() => cihazKonumuOku = eski);
-    }
+    /// Karo dikişi + istenen konum. Konum verilmezse ALINAMAZ sayılır.
+    void haritayiKur({CihazKonumu? konum}) => haritaDikisleriniSahtele(konum: konum);
 
-    /// Sıralama sheet'ini açıp "Oto Sırala" düğmesine basar.
+    /// Haritadaki birincil eyleme basar.
     Future<void> otoSirala(WidgetTester tester) async {
-      await tester.tap(find.text('Sırala'));
-      await akisiBekle(tester);
-      await tester.tap(find.text('Oto Sırala (rota) · 34 hak'));
+      await tester.tap(find.text('Oto Sırala · 34 hak'));
       await akisiBekle(tester, ms: 400);
     }
 
     testWidgets('GÜVENİLİR konum alınırsa istek start ile gider', (tester) async {
-      konumSahtele(
-          () async => const CihazKonumu(lat: 36.8841, lng: 30.7056, dogrulukM: 12));
+      haritayiKur(konum: const CihazKonumu(lat: 36.8841, lng: 30.7056, dogrulukM: 12));
       genisYuzey(tester);
       late AppDatabase db;
       late List<String> idler;
       await tester.runAsync(() async => (db, idler) = await kur());
       final govdeler = rotayiSahtele(idler);
 
-      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
       await otoSirala(tester);
 
@@ -187,14 +190,14 @@ void main() {
     });
 
     testWidgets('konum OKUNAMAZSA istek startsız gider ve toast bunu söyler', (tester) async {
-      konumSahtele(() async => throw const KonumHatasi('Konum izni verilmedi'));
+      haritayiKur();
       genisYuzey(tester);
       late AppDatabase db;
       late List<String> idler;
       await tester.runAsync(() async => (db, idler) = await kur());
       final govdeler = rotayiSahtele(idler);
 
-      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
       await otoSirala(tester);
 
@@ -209,21 +212,27 @@ void main() {
       await ekraniKapat(tester);
     });
 
-    testWidgets('"Tümü" sekmesinde KAPALI sipariş rotaya girmez ve bu SÖYLENİR', (tester) async {
+    testWidgets('KAPALI sipariş rotaya HİÇ girmez — küme açık siparişlerin tamamıdır',
+        (tester) async {
       // İnceleme bulgusu (2026-07-29): görünen kümenin tamamı gönderiliyordu; sunucu kapalıları
-      // cevaptan düşürüyor ve onlar SESSİZCE listenin sonuna iniyordu. Artık kapalılar hiç
-      // gönderilmez ve toast sayısını söyler — "sıraladım" derken kümenin bir kısmının yeniden
-      // konumlandığı kullanıcıdan gizlenmez.
-      konumSahtele(
-          () async => const CihazKonumu(lat: 36.8841, lng: 30.7056, dogrulukM: 12));
+      // cevaptan düşürüyor ve onlar SESSİZCE listenin sonuna iniyordu. Küme artık EKRANIN
+      // gördüğü liste değil, doğrudan açık siparişlerdir (`otoSiralaKos` kendisi okur) —
+      // dolayısıyla ne sekme seçimi ne kurye süzgeci rotayı daraltabilir ve "N kapalı sipariş
+      // rotaya girmedi" cümlesine gerek kalmaz: kapalı sipariş kümeye zaten hiç girmez.
+      haritayiKur(konum: const CihazKonumu(lat: 36.8841, lng: 30.7056, dogrulukM: 12));
       genisYuzey(tester);
       late AppDatabase db;
       late List<String> idler;
       await tester.runAsync(() async {
         (db, idler) = await kur();
-        // Üçüncü sipariş: oluştur ve TESLİM ET — "Tümü" sekmesinde görünür ama rotaya girmemeli.
         final repo = OrderRepository(db);
-        final m3 = await CustomerRepository(db).create(name: 'Fatma Demir');
+        final m3 = await CustomerRepository(db).create(
+          name: 'Fatma Demir',
+          addresses: [
+            AddressInput(
+                addressText: 'Çınar Sk.', lat: 36.8700, lng: 30.7200, isPrimary: true),
+          ],
+        );
         final kapaliId = await repo.create(customerId: m3, lines: [
           LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 1),
         ]);
@@ -231,20 +240,14 @@ void main() {
       });
       final govdeler = rotayiSahtele(idler);
 
-      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
-      await akisiBekle(tester);
-      await tester.tap(find.text('Tümü'));
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
       await otoSirala(tester);
 
-      // Gövdeye yalnız İKİ AÇIK sipariş girdi; kapalı olan hiç gönderilmedi.
       expect(govdeler, hasLength(1));
       expect(govdeler.single['order_ids'], unorderedEquals(idler));
-      expect(
-        find.text(
-            'Rota otomatik sıralandı · 33 hak kaldı · 1 kapalı sipariş rotaya girmedi'),
-        findsOneWidget,
-      );
+      // Toast'ta kapalı eki YOK (tam eşleşme).
+      expect(find.text('Rota otomatik sıralandı · 33 hak kaldı'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -252,15 +255,14 @@ void main() {
     testWidgets('GÜVENİLMEZ ölçüm başlangıç sayılmaz (±100 m üstü)', (tester) async {
       // ±800 m'lik bir "başlangıç", rotayı kuryenin bulunmadığı bir mahalleden kurabilir.
       // Kötü bir başlangıç, başlangıçsızdan daha zararlıdır — çünkü kimse şüphelenmez.
-      konumSahtele(
-          () async => const CihazKonumu(lat: 36.8841, lng: 30.7056, dogrulukM: 800));
+      haritayiKur(konum: const CihazKonumu(lat: 36.8841, lng: 30.7056, dogrulukM: 800));
       genisYuzey(tester);
       late AppDatabase db;
       late List<String> idler;
       await tester.runAsync(() async => (db, idler) = await kur());
       final govdeler = rotayiSahtele(idler);
 
-      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
       await otoSirala(tester);
 
@@ -272,6 +274,56 @@ void main() {
 
       await ekraniKapat(tester);
     });
+
+    testWidgets('oto sıralamadan sonra LİSTE rota görünümüne geçer, elle kipi AÇILMAZ',
+        (tester) async {
+      // KULLANICI ŞİKÂYETİ (2026-08-01): "oto sıralamadan sonra tekrar elle sıralama alanı
+      // geliyor, mantıksız". Sonucu görmek isteyen kullanıcı kendini tutamaçlı bir düzenleme
+      // kipinde buluyordu. Haritadan dönüşteki sinyal (Navigator sonucu) listeyi yalnız
+      // GÖRÜNÜME alır; düzenlemek isteyen Sırala → "Elle sırala"yı kendisi seçer.
+      haritayiKur(konum: const CihazKonumu(lat: 36.8841, lng: 30.7056, dogrulukM: 12));
+      genisYuzey(tester);
+      late AppDatabase db;
+      late List<String> idler;
+      await tester.runAsync(() async => (db, idler) = await kur());
+      // Sunucu sırayı TERS döndürsün ki listedeki değişiklik gözle görülsün.
+      rotayiSahtele(idler.reversed.toList());
+
+      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
+      await akisiBekle(tester);
+      await tester.tap(find.text('Harita'));
+      await akisiBekle(tester, ms: 400);
+
+      await otoSirala(tester);
+      expect(find.text('Rota otomatik sıralandı · 33 hak kaldı'), findsOneWidget);
+
+      // İKİ TUR ŞART: geri dönüş `PopScope` üzerinden gidiyor (donanım geri tuşu da sonucu
+      // taşısın diye). İlk tur bekleyen mikro görevleri boşaltıp `pop`u başlatır, ikinci tur
+      // geçiş animasyonunu bitirip rotayı ağaçtan söker. Tek turda ekran hâlâ ağaçtadır.
+      await tester.tap(find.bySemanticsLabel('Geri'));
+      await akisiBekle(tester, ms: 500);
+      await akisiBekle(tester, ms: 500);
+
+      expect(find.byType(SiparisHaritaEkrani), findsNothing, reason: 'listeye dönüldü');
+      // Sıralama sheet'i seçili kipi işaretler — liste "Rota sırası"nda.
+      await tester.tap(find.text('Sırala'));
+      await akisiBekle(tester);
+      expect(
+        tester
+            .widget<SecimSatiri>(find.widgetWithText(SecimSatiri, 'Rota sırası'))
+            .secili,
+        isTrue,
+      );
+      await tester.tapAt(const Offset(10, 10)); // sheet'i kapat
+      await akisiBekle(tester, ms: 400);
+
+      // ASIL SÖZLEŞME: tutamaç ve elle bandı YOK.
+      expect(find.byType(ReorderableDragStartListener), findsNothing);
+      expect(find.text('Bitti'), findsNothing);
+      expect(find.text('Tutamaçtan sürükleyip bırak, bitince “Bitti”ye bas.'), findsNothing);
+
+      await ekraniKapat(tester);
+    });
   });
 
   // ═════════════════════════════════════════════════════════════════════════════════════════
@@ -279,17 +331,9 @@ void main() {
   // ═════════════════════════════════════════════════════════════════════════════════════════
 
   group('Sipariş haritası', () {
-    setUp(() {
-      final eskiKaro = haritaKaroSaglayici;
-      haritaKaroSaglayici = SahteKaroSaglayici.new;
-      addTearDown(() => haritaKaroSaglayici = eskiKaro);
-
-      // Cihaz konumu VARSAYILAN OLARAK alınamaz: eklentisiz ortamın gerçeği bu ve haritanın
-      // onsuz da çalıştığı her testte kanıtlanmış olur.
-      final eskiKonum = cihazKonumuOku;
-      cihazKonumuOku = () async => throw const KonumHatasi('Konum alınamadı');
-      addTearDown(() => cihazKonumuOku = eskiKonum);
-    });
+    // Cihaz konumu VARSAYILAN OLARAK alınamaz: eklentisiz ortamın gerçeği bu ve haritanın
+    // onsuz da çalıştığı her testte kanıtlanmış olur.
+    setUp(haritaDikisleriniSahtele);
 
     /// Bir müşteri + siparişi. [lat]/[lng] null ise adres konumsuzdur.
     Future<String> siparisEkle(
@@ -739,7 +783,9 @@ void main() {
       await ekraniKapat(tester);
     });
 
-    testWidgets('sipariş listesinden harita düğmesiyle açılır', (tester) async {
+    testWidgets('sipariş listesinden "Harita" çipiyle açılır', (tester) async {
+      // Çip 2026-08-01'de başlıktaki çıplak pin ikonunun yerini aldı: etiketi olmayan bir düğme
+      // ancak dokunarak öğrenilirdi.
       genisYuzey(tester);
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
@@ -749,7 +795,7 @@ void main() {
       await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
       await akisiBekle(tester);
 
-      await tester.tap(find.bySemanticsLabel('Haritada göster'));
+      await tester.tap(find.text('Harita'));
       await akisiBekle(tester, ms: 400);
 
       expect(find.byType(SiparisHaritaEkrani), findsOneWidget);

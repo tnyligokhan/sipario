@@ -108,6 +108,75 @@ class _Dugme extends StatelessWidget {
   }
 }
 
+/// Haritanın ALT ORTASINDAKİ birincil eylem — "Oto Sırala".
+///
+/// NEDEN BURADA (2026-08-01): eylem sıralama sheet'inin içinde duruyordu. Kullanıcı kontörlü bir
+/// isteği, sonucunu göremeyeceği bir yerden tetikliyor ve listede beliren "1, 2, 3"e bakıp
+/// rotanın mantıklı olup olmadığını kestiremiyordu. Haritada ise sıra ANINDA pinlere yazılır:
+/// düğmeye basan kişi sonucu bastığı ekranda görür.
+///
+/// Düğme HER ZAMAN çizilir; kullanılamıyorsa PASİF olur ve [neden] hemen ÜSTÜNDE yazar
+/// (görünürlük ≠ kullanılabilirlik — kapı korunur, yetenek gizlenmez). Gerekçe düğmenin ALTINA
+/// değil üstüne konur: altta karo atfı durur ve ikisi üst üste binerdi.
+class HaritaOtoDugmesi extends StatelessWidget {
+  const HaritaOtoDugmesi({
+    super.key,
+    required this.etiket,
+    required this.onTap,
+    this.neden,
+    this.yukleniyor = false,
+  });
+
+  final String etiket;
+  final VoidCallback onTap;
+
+  /// Kullanılamama gerekçesi. `null` = düğme etkin.
+  final String? neden;
+
+  /// İstek yolda: düğme pasifleşir ve dönen halka çizer. Kontörlü bir eylemde ikinci dokunuş
+  /// ikinci hak demektir — beklerken sessiz kalmak pahalıya patlar.
+  final bool yukleniyor;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    final kilitli = neden != null || yukleniyor;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (neden != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: SipSpace.md),
+            child: DecoratedBox(
+              // Atıf şeridiyle aynı yarı saydam yüzey: karoların üstüne doğrudan yazılan gri
+              // metin açık/koyu bölgelerde kayboluyordu.
+              decoration: BoxDecoration(
+                color: t.surface.withValues(alpha: 0.92),
+                borderRadius: SipRadius.brHap,
+              ),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: SipSpace.x2, vertical: 5),
+                child: Text(
+                  neden!,
+                  textAlign: TextAlign.center,
+                  style: SipText.metin(12, w: 600).copyWith(color: t.muted),
+                ),
+              ),
+            ),
+          ),
+        SipButon(
+          etiket: etiket,
+          ikon: SipIcons.bolt,
+          genisle: false,
+          yukleniyor: yukleniyor,
+          onTap: kilitli ? null : onTap,
+        ),
+      ],
+    );
+  }
+}
+
 /// Karo sağlayıcı atfı — HUKUKİ ZORUNLULUK, kaldırılamaz (OSM ODbL + CARTO kullanım şartları).
 ///
 /// Metin SÖZLEŞMEDİR. Sönük ve küçüktür ama okunur: yarı saydam bir yüzeyin üstünde durur, çünkü

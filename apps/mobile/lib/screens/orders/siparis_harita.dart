@@ -13,6 +13,8 @@
 //  • KARO YÜKLENEMEZSE (çevrimdışı) harita gri kalır, PİNLER YİNE ÇİZİLİR. Offline-first sözü
 //    burada da geçerli: internet yoksa özellik kapanmaz, zemin kaybolur.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
@@ -24,12 +26,17 @@ import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
-import '../../theme/typography.dart';
+import 'harita_isaretler.dart';
 import 'harita_kontrolleri.dart';
 import 'harita_kurye_katmani.dart';
 import 'harita_sorgulari.dart';
 import 'order_detail_screen.dart';
+import 'oto_siralama.dart';
 import 'siparis_harita_ozet.dart';
+
+// Pinler ve konumsuz bandı 500 satır sınırı için ayrı dosyaya taşındı; harita ekranının DIŞ
+// YÜZEYİ değişmez — çağıranlar ve testler onları hâlâ bu dosyadan tanır (sözleşme).
+export 'harita_isaretler.dart' show CihazPini, DurakPini, KonumsuzBant;
 
 /// Karo adresi — CARTO **Positron** (gri-minimal OSM tabanı), ANAHTARSIZ.
 ///
@@ -82,7 +89,7 @@ TileProvider varsayilanKaroSaglayici() => CancellableNetworkTileProvider();
 TileProvider Function() haritaKaroSaglayici = varsayilanKaroSaglayici;
 
 /// Açık siparişlerin haritası. Pin numaraları listedeki sırayı (oto sıralamadan sonra ROTA
-/// sırasını) taşır.
+/// sırasını) taşır ve "Oto Sırala" düğmesi de burada durur — sıra üretildiği ekranda görünür.
 class SiparisHaritaEkrani extends StatefulWidget {
   const SiparisHaritaEkrani({
     super.key,
@@ -93,7 +100,8 @@ class SiparisHaritaEkrani extends StatefulWidget {
 
   final AppDatabase db;
 
-  /// Pine dokununca açılan detay sheet'ine geçirilir — harita kendisi hiçbir kayıt yazmaz.
+  /// Pine dokununca açılan detay sheet'ine geçirilir; ayrıca "Oto Sırala" KAPISIDIR — sıra
+  /// `sort_set` olayı yazar, salt-okunur kipte düğme pasif çizilir ve gerekçesi yazar.
   final bool writable;
   final bool canAssign;
 
@@ -108,10 +116,39 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
   /// kuryenin nerede olduğu bir kolaylıktır, durakların yeri ise asıl iştir.
   LatLng? _cihaz;
 
+  /// Kalan oto-sıralama hakkı (sunucu sahipli, senkronla iner). null = HENÜZ BİLİNMİYOR →
+  /// düğme kontör YAZMADAN, PASİF çizilir. Uydurma bir sayı göstermek yasak: kullanıcı
+  /// "34 hakkım var" deyip tıkladığında sunucu 409 dönerse güven kaybolur.
+  int? _otoHak;
+  StreamSubscription<SyncMetaData>? _metaAbone;
+
+  /// İstek yolda mı — kontörlü eylemde ikinci dokunuş ikinci hak demektir.
+  bool _otoKosuyor = false;
+
+  /// Bu ekranda EN AZ BİR kez sıra yazıldı mı. Geri dönerken listeye sinyal olarak verilir;
+  /// liste bunu görünce "Rota sırası" kipine geçer. Sinyal Navigator sonucudur: iki ekran
+  /// arasında paylaşılan bir bayrak tutmak, ekranlardan biri kapandığında bayat kalırdı.
+  bool _otoYapildi = false;
+
   @override
   void initState() {
     super.initState();
     _cihazKonumunuDene();
+    // AKIŞA abone olunur, tek atış okunmaz: kontör sunucu sahiplidir ve GİRİŞ YANITINDA
+    // GELMEZ — ilk senkron yazar. Tek atış okuma girişten hemen sonra 0 görür ve ekran
+    // sonsuza dek "0 hak" gösterir (cihazda bu hâliyle yakalandı).
+    _metaAbone = widget.db.watchSyncState().listen((meta) {
+      // Oturum yoksa (token null) çevrimiçi eylem hiç sunulmaz.
+      final yeni = meta.authToken == null ? null : meta.routeCredits;
+      if (!mounted || yeni == _otoHak) return;
+      setState(() => _otoHak = yeni);
+    });
+  }
+
+  @override
+  void dispose() {
+    _metaAbone?.cancel();
+    super.dispose();
   }
 
   Future<void> _cihazKonumunuDene() async {
@@ -146,37 +183,72 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
     }
   }
 
+  /// "Oto Sırala" — akış `oto_siralama.dart`ta, burada yalnız kilit, bekleme ve toast var.
+  Future<void> _otoSirala() async {
+    if (_otoKosuyor) return;
+    setState(() => _otoKosuyor = true);
+    final sonuc = await otoSiralaKos(widget.db);
+    if (!mounted) return;
+    setState(() {
+      _otoKosuyor = false;
+      // Sıra yazıldıysa pinler AKIŞTAN kendiliğinden yeniden numaralanır; ekranın yapacağı
+      // tek şey listeye dönüşte verilecek sinyali işaretlemek.
+      if (sonuc.basarili) _otoYapildi = true;
+    });
+    SipToast.goster(context, sonuc.mesaj);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    return Scaffold(
-      backgroundColor: t.bg,
-      body: SafeArea(
-        bottom: false,
-        child: StreamBuilder<HaritaVerisi>(
-          stream: _veri,
-          builder: (context, snap) {
-            final veri = snap.data;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SipUst(
-                  baslik: 'Harita',
-                  alt: veri == null
-                      ? 'Yükleniyor'
-                      : '${veri.duraklar.length} durak · rota sırası',
-                  onGeri: () => Navigator.of(context).maybePop(),
-                ),
-                if (veri != null && veri.konumsuz > 0)
-                  KonumsuzBant(adet: veri.konumsuz),
-                Expanded(child: _govde(veri)),
-              ],
-            );
-          },
+    // Donanım geri tuşu da sonucu TAŞIMALI: `pop()` sonuçsuz dönseydi kullanıcı rotayı
+    // sıralayıp geri tuşuna bastığında liste hâlâ saat sırasında kalırdı.
+    return PopScope<bool>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.of(context).pop(_otoYapildi);
+      },
+      child: Scaffold(
+        backgroundColor: t.bg,
+        body: SafeArea(
+          bottom: false,
+          child: StreamBuilder<HaritaVerisi>(
+            stream: _veri,
+            builder: (context, snap) {
+              final veri = snap.data;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SipUst(
+                    baslik: 'Harita',
+                    alt: veri == null
+                        ? 'Yükleniyor'
+                        : '${veri.duraklar.length} durak · rota sırası',
+                    onGeri: () => Navigator.of(context).maybePop(),
+                  ),
+                  if (veri != null && veri.konumsuz > 0)
+                    KonumsuzBant(adet: veri.konumsuz),
+                  Expanded(child: _govde(veri)),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
   }
+
+  /// Alt ortadaki birincil eylem. Kontör bilinmiyorsa etikette SAYI YAZMAZ (sahte sayı yasağı).
+  Widget _otoDugmesi(int durakSayisi) => HaritaOtoDugmesi(
+        etiket: _otoHak == null ? 'Oto Sırala' : 'Oto Sırala · $_otoHak hak',
+        neden: otoKilitNedeni(
+          yazilabilir: widget.writable,
+          hak: _otoHak,
+          durakSayisi: durakSayisi,
+        ),
+        yukleniyor: _otoKosuyor,
+        onTap: _otoSirala,
+      );
 
   Widget _govde(HaritaVerisi? veri) {
     if (veri == null) return const SipIskelet(adet: 3);
@@ -197,6 +269,7 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
       cihaz: _cihaz,
       onDurak: _durakAc,
       onKonumum: _konumumaGit,
+      otoDugmesi: _otoDugmesi(veri.duraklar.length),
       // KOŞULSUZ verilir: rol kapısı katmanın İÇİNDEDİR (`harita_kurye_katmani.dart`). Burada
       // `if (patron)` yazmak, rolü ikinci bir yerde daha yorumlamak ve özelliğin ağaca hiç
       // bağlanmadığı hâli testlerden gizlemek olurdu.
@@ -221,39 +294,6 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
   }
 }
 
-/// Koordinatsız açık siparişleri duyuran NÖTR bant. Hata değildir (kimse yanlış bir şey yapmadı),
-/// bu yüzden danger değil sönük yüzey rengiyle çizilir — ama görünürdür.
-class KonumsuzBant extends StatelessWidget {
-  const KonumsuzBant({super.key, required this.adet});
-
-  final int adet;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(SipSpace.govde, 0, SipSpace.govde, SipSpace.md),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: SipSpace.xl, vertical: SipSpace.md),
-        decoration: BoxDecoration(color: t.surface2, borderRadius: SipRadius.br1),
-        child: Row(
-          children: [
-            SipIcon(SipIcons.info, boyut: 15, kalinlik: 2, renk: t.muted),
-            const SizedBox(width: SipSpace.md),
-            Expanded(
-              child: Text(
-                // Metin SÖZLEŞMEDİR (testler bu cümleyi arar).
-                '$adet sipariş konumsuz — haritada yok',
-                style: SipText.metin(12, w: 600).copyWith(color: t.ink2),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// Haritanın kendisi — karo katmanı + numaralı duraklar + (varsa) cihaz konumu.
 ///
 /// Ekranın DURUMUNDAN ayrı bir widget: böylece harita tek başına (sahte duraklarla) test
@@ -266,10 +306,15 @@ class SiparisHaritaGorunumu extends StatefulWidget {
     this.cihaz,
     this.onKonumum,
     this.kuryeKatmani,
+    this.otoDugmesi,
   });
 
   final List<HaritaDuragi> duraklar;
   final LatLng? cihaz;
+
+  /// Alt ORTADAKİ birincil eylem ("Oto Sırala"). Widget olarak alınır ki bu görünüm ne kontörü
+  /// ne de rota API'sini tanısın — çizim ile eylem ayrı kalır ([kuryeKatmani] ile aynı gerekçe).
+  final Widget? otoDugmesi;
 
   /// Canlı kurye pinleri — haritanın ÜSTÜNDE ayrı bir `FlutterMap` çocuğu olarak çizilir.
   /// Widget olarak alınır ki bu görünüm ne `sync_meta`yı ne de konum API'sini tanısın:
@@ -401,71 +446,19 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
         ),
         // Atıf SOL ALTTA: sağ alt kontrol sütununun altına girmez, dokunma hedeflerini kapatmaz.
         const Positioned(left: SipSpace.md, bottom: SipSpace.md, child: HaritaAtfi()),
+        // "Oto Sırala" ALT ORTADA. Yatay iç boşluk 64: sağdaki kontrol sütunu (12 + 40 çap)
+        // ile çakışmasın — ortalanmış düğme dar telefonda o sütunun altına girerdi.
+        if (widget.otoDugmesi != null)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: SipSpace.x4,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 64),
+              child: widget.otoDugmesi!,
+            ),
+          ),
       ],
-    );
-  }
-}
-
-/// Numaralı durak işaretçisi — accent zemin, accentInk rakam (tasarımın vurgu jetonları).
-class DurakPini extends StatelessWidget {
-  const DurakPini({
-    super.key,
-    required this.sira,
-    required this.baslik,
-    required this.onTap,
-  });
-
-  final int sira;
-
-  /// Erişilebilirlik etiketi: ekran okuyucu "3. durak · Ayşe Yılmaz" der. Sayı tek başına
-  /// haritada hangi müşteriyi işaret ettiğini söylemez.
-  final String baslik;
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Semantics(
-      button: true,
-      label: '$sira. durak · $baslik',
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: t.accent,
-            shape: BoxShape.circle,
-            // İnce açık halka: koyu karoların üstünde pin kaybolmasın.
-            border: Border.all(color: t.accentInk, width: 2),
-          ),
-          child: Text(
-            '$sira',
-            style: SipText.tutar(13, w: 800).copyWith(color: t.accentInk),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Cihazın bulunduğu nokta — duraklardan AYRI görünür (içi dolu küçük nokta, halkalı).
-/// Numarası yoktur: rota duraklardan oluşur, kurye bir durak değildir.
-class CihazPini extends StatelessWidget {
-  const CihazPini({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Semantics(
-      label: 'Bulunduğunuz konum',
-      child: Container(
-        decoration: BoxDecoration(
-          color: t.ok,
-          shape: BoxShape.circle,
-          border: Border.all(color: SipTokens.onHero, width: 3),
-        ),
-      ),
     );
   }
 }

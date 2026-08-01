@@ -336,18 +336,19 @@ void main() {
 
     await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
     await akisiBekle(tester);
-    expect(find.bySemanticsLabel('Kuryeye göre süz'), findsNothing);
+    // Süzgeç artık başlıkta ikon değil, araç şeridinde ETİKETLİ çip (2026-08-01).
+    expect(find.text('Kurye: Tümü'), findsNothing);
 
-    // Rol PATRONA döner (senkron yazar) — düğme belirir.
+    // Rol PATRONA döner (senkron yazar) — çip belirir.
     await tester.runAsync(() async {
       await (db.update(db.syncMeta)..where((t) => t.id.equals(1)))
           .write(const SyncMetaCompanion(userRole: Value('patron')));
     });
     await akisiBekle(tester);
-    expect(find.bySemanticsLabel('Kuryeye göre süz'), findsOneWidget);
+    expect(find.text('Kurye: Tümü'), findsOneWidget);
 
     // Süzgeci seç: listede yalnız o kuryenin işi kalır (burada hiç → boş durum süzgeci söyler).
-    await tester.tap(find.bySemanticsLabel('Kuryeye göre süz'));
+    await tester.tap(find.text('Kurye: Tümü'));
     await akisiBekle(tester);
     await tester.tap(find.text('Kurye Ali'));
     await akisiBekle(tester);
