@@ -135,9 +135,13 @@ class PanelImportEdgeTest extends ApiTestCase
         $a = $this->makeTenant('a');
         $admin = $this->makeAdmin();
 
+        // Aktarımın YAZDIĞI her sınırlı kolon burada zorlanır: ad (varchar 160), bölge (80),
+        // telefon (32). Adres ve not `text`tir — sınırsız, o yüzden yalnız partiyi düşürmediklerini
+        // görmek için duruyorlar. (`label` kolonları 20 karakterdir ama panel onlara hiç yazmaz.)
         $icerik = $this->csv([
             'ad;telefon;adres;bolge;not',
             'Normal Müşteri;0532 111 22 33;Normal Adres;Muratpaşa;',
+            str_repeat('U', 150).';0537 666 77 88;Adres;Kepez;',
             'Uzun Bölge;0533 222 33 44;Adres;'.str_repeat('B', 200).';',
             'Uzun Telefon;+'.str_repeat('9', 40).';Adres;Kepez;',
             'Uzun Adres;0535 444 55 66;'.str_repeat('A', 3000).';Kepez;',
@@ -162,6 +166,9 @@ class PanelImportEdgeTest extends ApiTestCase
         // Yazılan hiçbir değer kolon sınırını aşmamış olmalı (sessiz kırpma da kabul edilebilir bir
         // sonuçtur; kabul EDİLEMEZ olan, dosyanın tamamının çökmesidir).
         $this->asOwner(function () {
+            foreach (Customer::query()->get() as $musteri) {
+                $this->assertLessThanOrEqual(160, mb_strlen((string) $musteri->name));
+            }
             foreach (CustomerAddress::query()->get() as $adres) {
                 $this->assertLessThanOrEqual(80, mb_strlen((string) $adres->region));
             }
