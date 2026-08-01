@@ -454,11 +454,34 @@ class _Baslik extends StatelessWidget {
                           ],
                         ],
                       ),
+                    )
+                  // ATANMAMIŞ açık siparişte "Kurye ata" çipi (saha 2026-08-01: "açık siparişe
+                  // kurye ataması yapamıyorum"). Önceki karar çipi yalnız DOLUYKEN çiziyordu
+                  // ("kurye adı yoksa bu bayi atama kullanmıyor demektir") — ama form "sonra da
+                  // atanabilir" der oldu ve atanmamış siparişin hiçbir yüzeyinde atama yolu
+                  // kalmamıştı. Tek-kişilik ilkesi DURUYOR: [canAssign] `yetkiler().atama`dan
+                  // gelir (yönetici VE aktif kurye var) — kuryesiz bayide bu çip hiç çizilmez.
+                  else if (order.status == 'open' && duzenlenebilir && canAssign)
+                    SipDokun(
+                      onTap: () => _kuryeSec(context, ekip),
+                      zemin: t.surface2,
+                      basiliZemin: t.line,
+                      radius: SipRadius.brHap,
+                      kenarlik: Border.all(color: t.line2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: SipSpace.lg, vertical: SipSpace.xs),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SipIcon(SipIcons.truck, boyut: 13, kalinlik: 2.2, renk: t.muted),
+                          const SizedBox(width: 5),
+                          Text('Kurye ata',
+                              style: SipText.kuryeCip.copyWith(color: t.muted)),
+                          const SizedBox(width: 5),
+                          SipIcon(SipIcons.down, boyut: 12, kalinlik: 2.4, renk: t.muted),
+                        ],
+                      ),
                     ),
-                  // "Kuryeye ata" bağlantısı YOK: tasarımın `.sdx-head`inde kurye çipi HEP
-                  // doludur (s-siparisler.jsx:470). Kurye adı yoksa bu bayi atama kullanmıyor
-                  // demektir — o bayiye kurye kavramını burada hatırlatmayız (BRIEF: tek
-                  // kişilikte kurye adımları görünmez).
                 ],
               ),
             ),

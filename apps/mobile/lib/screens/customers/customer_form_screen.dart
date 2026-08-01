@@ -171,10 +171,13 @@ class _MusteriFormuState extends State<_MusteriFormu> {
       _sesMesajAlani = null;
     });
 
-    // Dinleme BAŞLARKENKİ metin taban alınır; tanınan her cümle onun SONUNA eklenir. Böylece hem
-    // kullanıcının elle yazdığı metin hem de önceki cümleler korunur (bkz. [DikteSurucusu]).
+    // Taban BOŞ verilir (kullanıcı kararı 2026-08-01): mikrofona basmak TEMİZ SAYFA açar —
+    // alanda ne varsa dikte onun YERİNE geçer. Eski kural ("dolu alanın sonuna ekle") sahada
+    // reddedildi: kullanıcı yanlış/yarım metni düzeltmek için mikrofona basıyor, eskisinin
+    // korunmasını değil gitmesini bekliyor. Oturum İÇİNDEKİ esler yine birikir ve hiçbir şey
+    // silinmez (bkz. [DikteSurucusu]) — silme yalnız DÜĞMEYE BASMA anında olur.
     await _dikte.basla(
-      taban: kontrol.text,
+      taban: '',
       yaz: (yeni) {
         kontrol.value = TextEditingValue(
           text: yeni,

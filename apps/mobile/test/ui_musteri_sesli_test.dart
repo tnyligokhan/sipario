@@ -224,12 +224,15 @@ void main() {
   // Dinleme akışı
   // ═════════════════════════════════════════════════════════════════════════════════════════
 
-  testWidgets('dokununca dinler, tanınan metin alana yazılır ve mevcut metni EZMEZ',
+  testWidgets('DOLU alanda mikrofon TEMİZ SAYFA açar — dikte eski metnin YERİNE geçer (Senaryo 1)',
       (tester) async {
+    // Kullanıcı kararı 2026-08-01: "ses butonuna bastığımda alanda yazı varsa SİLİNECEK,
+    // yerine yazacak; es verirsem yazılanı silmeyecek." Eski kural (dolu alanın sonuna ekle)
+    // sahada reddedildi — kullanıcı yanlış/yarım metni düzeltmek için mikrofona basıyor.
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    // Kullanıcı adın bir kısmını ELLE yazdı.
+    // Kullanıcı adın bir kısmını ELLE yazmıştı — mikrofonla baştan söyleyecek.
     await tester.enterText(find.byType(TextField).first, 'Ayşe');
     await tester.pump();
 
@@ -242,16 +245,50 @@ void main() {
 
     ses.soyle('Kaya');
     await kare(tester);
-    expect(find.text('Ayşe Kaya'), findsOneWidget, reason: 'elle yazılan metin korunmalı');
+    expect(find.text('Kaya'), findsOneWidget, reason: 'eski metin dikteyle DEĞİŞMELİ');
+    expect(find.text('Ayşe Kaya'), findsNothing,
+        reason: 'düğmeye basmak temiz sayfadır — eski metnin sonuna eklenmez');
 
-    // Kısmi sonuç büyüyünce alan TEKRARLAMAZ — taban sabit, tanınan metin değişir.
+    // Kısmi sonuç büyürken alan TEKRARLAMAZ; oturum içindeki büyüme silme değildir.
     ses.soyle('Kaya Yılmaz');
     await kare(tester);
-    expect(find.text('Ayşe Kaya Yılmaz'), findsOneWidget);
-    expect(find.text('Ayşe Kaya Kaya Yılmaz'), findsNothing);
+    expect(find.text('Kaya Yılmaz'), findsOneWidget);
+    expect(find.text('Kaya Kaya Yılmaz'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('DOLU alanda dikte + es: eski metin gider, esle söylenenler birikir (Senaryo 1 devamı)',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    await formuAc(tester, db);
+
+    // İndeks KULLANILMAZ (telefon satırı eklenince kayar); adres alanı ipucusuyla bulunur.
+    final adres = find.byWidgetPredicate(
+      (w) => w is TextField && w.decoration?.hintText == 'Mahalle, sokak, no',
+    );
+    await tester.enterText(adres, 'eski yanlış adres');
+    await tester.pump();
+
+    await tester.tap(find.bySemanticsLabel('Sesle yaz · Adres'));
+    await kare(tester);
+
+    ses.soyle('Atatürk caddesi', nihai: true);
+    await kare(tester);
+    expect(find.text('Atatürk caddesi'), findsOneWidget);
+    expect(find.textContaining('eski yanlış adres'), findsNothing,
+        reason: 'düğmeye basıldığı an eski içerik gitmeli');
+
+    // Es: motor sessizlikte kendi kapanır, oturum tazelenir — birikim SÜRER, silinmez.
+    ses.motorKendiKapandi();
+    await tester.pump(const Duration(milliseconds: 400));
+    ses.soyle('numara 12', nihai: true);
+    await kare(tester);
+    expect(find.text('Atatürk caddesi numara 12'), findsOneWidget,
+        reason: 'es vermek silmez — yalnız düğmeye basmak temiz sayfa açar');
+
+    await kapat(tester);
   });
 
   testWidgets('duraklamalı dikte: her cümle SONA eklenir, önceki SİLİNMEZ', (tester) async {

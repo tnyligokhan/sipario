@@ -147,6 +147,14 @@
 > giriş + Kükürtlü başlangıçlı auto-route → engine:google, 6 açık sipariş. **TELEFONDA ZORUNLU:**
 > uygulama verisini temizle (ya da sil-kur) → 111/111/1111 — yoksa eski Antalya kayıtları zombi kalır.
 >
+> **2026-08-01 (on birinci iş) — SESLİ DİKTE KURALI TERSİNE + "KURYE ATA" ÇİPİ (iki saha
+> düzeltmesi, lead doğrudan).** (a) Dikte: mikrofona basmak TEMİZ SAYFA açar — alandaki eski
+> metin diktenin yerine geçer; oturum içindeki esler birikmeye devam eder (iki senaryoyla tarif
+> edildi; eski "sonuna ekle" kuralı ve testi çevrildi). (b) Atanmamış AÇIK siparişte liste
+> satırına ve detaya soluk "Kurye ata" çipi — eskiden çip yalnız doluyken çiziliyordu ve
+> formun "sonra da atanabilir" vaadinin gideceği yüzey yoktu; tek-kişilik ilkesi
+> `yetkiler().atama` kapısıyla korunuyor. Ölçüm: analyze 0 · mobil **880/880**.
+>
 > **2026-08-01 (onuncu iş) — SEKİZ SAHA İSTEĞİ, 5 AJANLI SWARM.** ① Adres alanı 3 satır (dikte
 > sonu görünür) · ⑦ sesli dikte YENİDEN: kesinleşen cümleler birikir, alan silinmez, motor kendini
 > kapatınca oturum tazelenir · ⑧ barkoda fener (mevcut torch API, paket yok) · ③ çağrı kartında

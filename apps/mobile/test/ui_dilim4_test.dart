@@ -16,7 +16,7 @@ import 'package:sipario/sync/sync_engine.dart';
 import 'package:sipario/sync/sync_service.dart';
 import 'package:sipario/theme/components/atoms.dart';
 
-import 'support/ekran_yardimcilari.dart' show akislariBekle;
+import 'support/ekran_yardimcilari.dart' show akislariBekle, sheetAnimasyonu;
 import 'support/fake_sync_api.dart';
 
 /// Dilim 4 UI testleri: kurye + kasa devri. Sorgu/yetki mantığı ekrandan bağımsız fonksiyonlarda
@@ -259,17 +259,66 @@ void main() {
   // ağaç boşaltılıp sahte saat ilerletilir (bekleyen zamanlayıcılar sönsün — !timersPending).
   // ---------------------------------------------------------------------------
   group('ekran görünürlüğü (widget ilk-çizim)', () {
-    // ATAMA YÜZEYİ DEĞİŞTİ (2026-07-26): "Kuryeye ata" bağlantısı KALDIRILDI — tasarımın
-    // `.sdx-head`inde kurye çipi HEP doludur (s-siparisler.jsx:470), atanmamış hâl yoktur.
-    // Kurye adı yoksa o bayi atama kullanmıyor demektir ve ona kurye kavramı hatırlatılmaz
-    // (BRIEF: tek kişilikte kurye adımları görünmez). Sınanan sözleşme artık ÇİP:
-    //  • atanmamış → hiç çip yok (ve eski bağlantı da yok)
+    // ATAMA YÜZEYİ YİNE DEĞİŞTİ (2026-08-01, saha: "açık siparişe kurye ataması yapamıyorum"):
+    // 2026-07-26'da "Kuryeye ata" bağlantısı kaldırılmış, çip yalnız DOLUYKEN çizilir olmuştu.
+    // Ama sipariş formu "sonra da atanabilir" der oldu ve atanmamış açık siparişin HİÇBİR
+    // yüzeyinde atama yolu kalmamıştı. Yeni sözleşme:
+    //  • atanmamış + AÇIK + canAssign → SOLUK "Kurye ata" çipi; dokununca seçim sheet'i açılır
+    //    ve seçim atamayı yazar (tek kişilik ilkesi canAssign'da korunur: yetkiler().atama =
+    //    yönetici VE aktif kurye var — kuryesiz bayide çip hiç çizilmez)
+    //  • atanmamış + !canAssign → hiç çip yok (eski davranış)
     //  • atanmış + canAssign → çip kuryenin adıyla ve DOKUNULABİLİR (atama değişebilir)
     //  • atanmış + !canAssign → çip var, dokunma KAPALI (K2: kurye atama yapmaz)
     // BEKLEME: çip `assignedUserId`yi EKİP AKIŞINDAN çözüyor ve ekran İÇ İÇE dört akış dinliyor
     // (sipariş · satırlar · ekip · adresler). Tek 150 ms turu ekip akışına yetmiyordu: çip
     // `kuryeAd == null` sanıp hiç çizilmiyordu. Paylaşılan `akislariBekle` (4×80 ms) kullanılıyor.
-    testWidgets('sipariş detayı: atanmamış → kurye çipi de "Kuryeye ata" da YOK', (tester) async {
+    testWidgets('sipariş detayı: atanmamış + canAssign → "Kurye ata" çipi, seçim atamayı YAZAR',
+        (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      late String orderId;
+      await tester.runAsync(() async {
+        await addUser(db, 'k1', 'Emre', 'kurye');
+        orderId = await OrderRepository(db)
+            .create(lines: [LineInput(productName: 'D', unitPriceKurus: 100, qty: 1)]);
+      });
+
+      // UZUN yüzey ŞART: varsayılan 600 piksellik yüzeyde sheet'in satırı ekranın ALTINDA
+      // kalıyor ve dokunuş sessizce ıskalıyor (ölçüldü: hedef y=690) — siparis_yardimci dersi.
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(MaterialApp(
+          home: OrderDetailScreen(db: db, orderId: orderId, writable: true, canAssign: true)));
+      await akislariBekle(tester);
+
+      expect(find.text('Kurye ata'), findsOneWidget,
+          reason: 'atanmamış açık siparişte atama girişi olmalı — form "sonra da atanabilir" diyor');
+
+      await tester.tap(find.text('Kurye ata'));
+      // İKİ aşama: dokunuş önce GERÇEK drift sorgusunu bekler (watchAktifKuryeler.first) — sheet
+      // ancak sheetAnimasyonu'nun runAsync turunda AÇILIR; kayma animasyonunu bitirmek için
+      // AÇILIŞTAN SONRA ayrıca süreli pump gerekir, yoksa satır ağaçta var ama ekran dışında
+      // kalır ve dokunuş sessizce ıskalar (ölçüldü: hedef y=2490 > 2400).
+      await sheetAnimasyonu(tester);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text('Emre'), findsOneWidget, reason: 'seçim sheet\'i aktif kuryeleri listeler');
+
+      await tester.tap(find.text('Emre'));
+      await sheetAnimasyonu(tester);
+
+      final atanmis = await tester.runAsync(
+          () => (db.select(db.orders)..where((o) => o.id.equals(orderId))).getSingle());
+      expect(atanmis!.assignedUserId, 'k1',
+          reason: 'çipten yapılan seçim mevcut atama yolundan (assign → olay) yazılmalı');
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('sipariş detayı: atanmamış + canAssign=false → "Kurye ata" çipi YOK',
+        (tester) async {
+      // Tek kişilik bayi / kurye rolü: atama yetkisi olmayana kurye kavramı hatırlatılmaz.
       final db = AppDatabase(NativeDatabase.memory());
       late String orderId;
       await tester.runAsync(() async {
@@ -279,12 +328,10 @@ void main() {
       });
 
       await tester.pumpWidget(MaterialApp(
-          home: OrderDetailScreen(db: db, orderId: orderId, writable: true, canAssign: true)));
+          home: OrderDetailScreen(db: db, orderId: orderId, writable: true, canAssign: false)));
       await akislariBekle(tester);
 
-      expect(find.text('Kuryeye ata'), findsNothing, reason: 'bağlantı tasarımda yok');
-      expect(find.text('Emre'), findsNothing,
-          reason: 'atanmamış siparişte kurye çipi hiç çizilmez (boş çip hâli yok)');
+      expect(find.text('Kurye ata'), findsNothing);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));

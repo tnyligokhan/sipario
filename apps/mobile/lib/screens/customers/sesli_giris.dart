@@ -202,15 +202,14 @@ class SpeechSesliGiris implements SesliGiris {
       };
 }
 
-/// Tanınan metni alana yazarken kullanılan birleştirme.
+/// Tanınan metni birikime eklerken kullanılan birleştirme (araya tek boşluk, boş parça yutulur).
 ///
-/// KURAL: alan doluysa metin SONUNA eklenir, ÜZERİNE YAZILMAZ. Gerekçe: tanıma yanılabilir ve
-/// kullanıcının elle yazdığını sessizce silmek geri alınamaz bir kayıptır; fazladan kelimeyi
-/// silmek ise tek dokunuş. Bu, projenin "kayıt ezilmez, düzeltme eklenerek yapılır"
-/// disiplininin arayüz karşılığıdır.
-///
-/// [taban] dinleme BAŞLARKEN alanda duran metindir — her kısmi sonuçta yeniden birleştirilir,
-/// böylece konuşma sürerken alan büyür ama önceki içerik tekrarlanmaz.
+/// KAPSAM DEĞİŞTİ (kullanıcı kararı 2026-08-01): bu birleştirme artık yalnız DİKTE OTURUMUNUN
+/// KENDİ İÇİNDE çalışır — kesinleşen cümleler ve oturum devirleri birbirine eklenir. "Alandaki
+/// eski metnin sonuna ekle" ürün kuralı sahada REDDEDİLDİ ("butona bastığımda var olan
+/// silinecek"); ekran artık [DikteSurucusu.basla]'ya BOŞ taban verir, dikte alanın yerine
+/// geçer. Buradaki [taban] parametresi o eski kuralın kalıntısı değil, oturum devrinin
+/// taşıyıcısıdır.
 String sesMetniBirlestir(String taban, String taninan) {
   final t = taban.trimRight();
   final y = taninan.trim();
@@ -295,7 +294,9 @@ class DikteSurucusu {
   int _oturumSayaci = 0;
   bool _acik = false;
 
-  /// [taban] alanda dinleme başlarken duran metindir; tanınan her cümle onun SONUNA eklenir.
+  /// [taban] dikte birikiminin başlangıcıdır. Ekran BOŞ verir (kullanıcı kararı 2026-08-01:
+  /// mikrofona basmak temiz sayfa açar, alandaki eski metin dikteyle DEĞİŞİR); boş olmayan
+  /// taban yalnız "mevcut metnin sonuna ekle" isteyen olası başka bir çağıran içindir.
   /// [yaz] alana yazılacak TAM metni alır, [bitti] yalnız dinleme gerçekten sona erdiğinde
   /// (hata ya da üst sınır) çağrılır — ara oturum yenilemeleri ekrana yansımaz.
   Future<void> basla({

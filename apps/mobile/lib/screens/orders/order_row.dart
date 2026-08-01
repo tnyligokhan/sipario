@@ -57,8 +57,9 @@ class SiparisSatiri extends StatelessWidget {
   /// Rozette hangi kod görünsün: `musteri` | `siparis` (bayi ayarı, `tenant_settings`).
   final String kodTercihi;
 
-  /// Atanmış kuryenin adı. `null` ise kurye çipi HİÇ çizilmez — tek kişilik bayide kurye
-  /// adımları görünmez (BRIEF, pazarlıksız).
+  /// Atanmış kuryenin adı. `null` VE [onKuryeAc] verilmişse açık siparişte "Kurye ata" çipi
+  /// çizilir (saha 2026-08-01). Tek kişilik bayi ilkesi [onKuryeAc] üzerinden korunur: atama
+  /// yetkisi yoksa (yönetici değil YA DA aktif kurye yok) çağıran null geçer, çip hiç çizilmez.
   final String? kuryeAdi;
 
   final AdresBilgi? adres;
@@ -184,7 +185,15 @@ class SiparisSatiri extends StatelessWidget {
                               odeme: o.paymentType,
                               acik: _acik,
                               onTap: elle ? null : onKuryeAc,
-                            ),
+                            )
+                          // ATANMAMIŞ açık siparişte "Kurye ata" girişi (saha 2026-08-01: "açık
+                          // siparişe kurye ataması yapamıyorum"). Eskiden çip yalnız DOLUYKEN
+                          // çiziliyordu ve atanmamış siparişin HİÇBİR yüzeyinde atama yolu
+                          // kalmıyordu — form ise "sonra da atanabilir" diyordu. [onKuryeAc]
+                          // zaten `yetkiler().atama` kapısından geçer (yönetici VE aktif kurye
+                          // var), yani tek kişilik bayide bu çip HİÇ görünmez — eski ilke durur.
+                          else if (_acik && !elle && onKuryeAc != null)
+                            _KuryeAtaCipi(onTap: onKuryeAc!),
                         ],
                       ),
                     ),
@@ -389,6 +398,37 @@ class _KuryeCipi extends StatelessWidget {
             const SizedBox(width: 5),
             SipIcon(SipIcons.down, boyut: 12, kalinlik: 2.4, renk: t.muted),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Atanmamış açık siparişin "Kurye ata" çipi — [_KuryeCipi] ile aynı hap kalıbı, ama içerik
+/// SOLUK: bu bir durum değil davettir; dolu çiple aynı ağırlıkta çizilse "atanmış" sanılırdı.
+class _KuryeAtaCipi extends StatelessWidget {
+  const _KuryeAtaCipi({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return SipDokun(
+      onTap: onTap,
+      zemin: t.surface2,
+      basiliZemin: t.line,
+      radius: SipRadius.brHap,
+      kenarlik: Border.all(color: t.line2),
+      padding: const EdgeInsets.symmetric(horizontal: SipSpace.lg, vertical: SipSpace.xs),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SipIcon(SipIcons.truck, boyut: 13, kalinlik: 2.2, renk: t.muted),
+          const SizedBox(width: 5),
+          Text('Kurye ata', style: SipText.kuryeCip.copyWith(color: t.muted)),
+          const SizedBox(width: 5),
+          SipIcon(SipIcons.down, boyut: 12, kalinlik: 2.4, renk: t.muted),
         ],
       ),
     );
