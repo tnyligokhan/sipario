@@ -6,6 +6,7 @@ use App\Panel\PanelImportService;
 use App\Panel\PanelTenantDataService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -28,6 +29,8 @@ class CustomerImport extends Component
     /** Önizlemede ekrana çizilen azami satır (özet sayılar TÜM dosyayı kapsar). */
     private const ONIZLEME_TAVANI = 200;
 
+    /** Kilitli: toplu yazmanın hedef bayisi route'tan gelir, istemciden değiştirilemez. */
+    #[Locked]
     public string $tenantId;
 
     #[Validate('required|file|max:2048|mimes:csv,txt')]

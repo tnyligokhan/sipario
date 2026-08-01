@@ -14,6 +14,7 @@ use App\Panel\Csv;
 use App\Panel\PanelCsvExportService;
 use App\Panel\PanelExportService;
 use App\Panel\PanelImportService;
+use App\Panel\TenantAdminService;
 use App\Payment\SubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -83,10 +84,18 @@ Route::prefix('panel')->group(function () {
         Route::get('bayiler', TenantList::class)->name('panel.tenants');
         Route::get('tenants/{tenant}', TenantDetail::class)->name('panel.tenant');
 
-        // Veri export (Faz 5c-2): bayinin iş verisi JSON dump (panel SELECT, salt-okunur, cross-tenant filtreli).
-        Route::get('tenants/{tenant}/export', function (string $tenant, PanelExportService $export) {
+        /*
+         * Veri export (Faz 5c-2): bayinin iş verisi JSON dump (panel SELECT, salt-okunur, cross-tenant filtreli).
+         *
+         * Her indirme `panel_audit`e düşer (güvenlik incelemesi 5c-3): bu üç route panelin en
+         * yüksek hacimli kişisel veri çıkışıdır ve izsizdi. Günlüğe yalnız eylem türü + hedef bayi
+         * yazılır, indirilen değerler DEĞİL (panel_audit'in KVKK-nötr sözleşmesi).
+         */
+        Route::get('tenants/{tenant}/export', function (string $tenant, PanelExportService $export, TenantAdminService $admin) {
             $data = $export->export($tenant);
             abort_if($data === [], 404);
+
+            $admin->auditExport($tenant, 'json', Auth::guard('admin')->id());
 
             return response()->json($data)
                 ->header('Content-Disposition', 'attachment; filename="tenant-'.$tenant.'.json"');
@@ -97,12 +106,15 @@ Route::prefix('panel')->group(function () {
          * teknik bir taşıma aracıdır ve DURUR; ikisi farklı işlere hizmet eder. Hücreler
          * Csv::hucre'den geçer (formül enjeksiyonu).
          */
-        Route::get('tenants/{tenant}/csv/musteriler', function (string $tenant, PanelCsvExportService $csv) {
+        Route::get('tenants/{tenant}/csv/musteriler', function (string $tenant, PanelCsvExportService $csv, TenantAdminService $admin) {
+            $admin->auditExport($tenant, 'csv_musteriler', Auth::guard('admin')->id());
+
             return Csv::indirme($csv->musteriler($tenant), 'musteriler-'.$tenant.'.csv');
         })->name('panel.tenant.csv.musteriler');
 
-        Route::get('tenants/{tenant}/csv/siparisler', function (string $tenant, Request $request, PanelCsvExportService $csv) {
+        Route::get('tenants/{tenant}/csv/siparisler', function (string $tenant, Request $request, PanelCsvExportService $csv, TenantAdminService $admin) {
             $filtre = $request->only(['durum', 'baslangic', 'bitis']);
+            $admin->auditExport($tenant, 'csv_siparisler', Auth::guard('admin')->id());
 
             return Csv::indirme($csv->siparisler($tenant, $filtre), 'siparisler-'.$tenant.'.csv');
         })->name('panel.tenant.csv.siparisler');

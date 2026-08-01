@@ -166,6 +166,28 @@ class TenantAdminService
         });
     }
 
+    /**
+     * TOPLU DIŞA AKTARIM denetimi (güvenlik incelemesi 5c-3). Export route'ları bir bayinin TÜM
+     * müşteri adı/telefonu/adresini tek istekte indirir — panelin en yüksek hacimli kişisel veri
+     * çıkışıdır ve iz bırakmıyordu: müşteri ekleme gibi küçük bir eylem günlüğe düşerken tüm
+     * listenin indirilmesi görünmezdi. KVKK hesap verebilirliği bunun tersini ister.
+     *
+     * Günlüğe yalnız NE indirildiği yazılır (tür + hedef bayi), indirilen DEĞERLER değil —
+     * panel_audit'in KVKK-nötr sözleşmesi (kırmızı çizgi #4) korunur.
+     *
+     * `$adminId` guard'dan geldiği için mixed kabul edilir ve burada normalleştirilir; çağıran
+     * route'ların her birinde aynı dönüşümü tekrarlamak gerekmesin.
+     */
+    public function auditExport(string $tenantId, string $tur, mixed $adminId = null): void
+    {
+        $this->audit(
+            ($adminId === null || $adminId === '') ? null : (string) $adminId,
+            $tenantId,
+            'export',
+            $tur,
+        );
+    }
+
     // ------------------------------------------------------------------------------------
 
     private function find(string $tenantId): Tenant

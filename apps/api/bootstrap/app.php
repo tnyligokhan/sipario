@@ -37,6 +37,15 @@ return Application::configure(basePath: dirname(__DIR__))
             SecurityHeaders::class,
         ]);
 
+        // WEB yüzeyine de güvenlik başlıkları (güvenlik incelemesi 5c-3). F3'te başlıklar yalnız
+        // api'ye eklenmişti çünkü o sırada tarayıcı yüzeyi yoktu; 5c ile panel geldi ve panel
+        // ÇERÇEVEYE GÖMÜLEBİLİR durumdaydı. `X-Frame-Options: DENY` olmadan, oturumu açık bir
+        // admin'e görünmez bir iframe üzerinden bayi kilitletmek/patron şifresi sıfırlatmak
+        // (clickjacking) mümkündü — panelin eylemleri tek tıklık Livewire düğmeleridir.
+        $middleware->web(append: [
+            SecurityHeaders::class,
+        ]);
+
         // Panel (Faz 5c) oturumsuz istekleri panel login'e yönlendir; API yolları JSON 401 döner (değişmez).
         $middleware->redirectGuestsTo(
             fn (Request $request) => $request->is('panel*') ? route('panel.login') : null,

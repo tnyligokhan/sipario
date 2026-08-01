@@ -10,6 +10,7 @@ use App\Panel\PanelWriteService;
 use App\Panel\TenantAdminService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -33,6 +34,13 @@ class TenantDetail extends Component
     /** Geçerli sekmeler — bilinmeyen değer 'ozet'e düşer (URL'den elle sekme uydurulamaz). */
     public const SEKMELER = ['ozet', 'musteriler', 'siparisler', 'defter', 'urunler', 'denetim'];
 
+    /**
+     * `#[Locked]`: Livewire'da kilitlenmemiş her public alan İSTEMCİDEN değiştirilebilir. Hangi
+     * bayide çalışıldığı `mount`ta route'tan gelir ve sonradan değişmemelidir — bu alan
+     * yazma eylemlerinin (müşteri/ürün) hedefini belirler, yani bir SINIR taşır ve sınır
+     * istemcinin gönderdiği bir değere bağlanamaz.
+     */
+    #[Locked]
     public string $tenantId;
 
     #[Url(as: 'sekme')]
