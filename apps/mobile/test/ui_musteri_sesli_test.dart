@@ -11,8 +11,8 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
-import 'package:sipario/screens/customers/customer_form_ops.dart';
 import 'package:sipario/screens/customers/customer_form_screen.dart';
+import 'package:sipario/screens/customers/sesli_giris.dart';
 import 'package:sipario/theme/app_theme.dart';
 
 /// Sahte motor: ne zaman dinlediğini ve ne söylediğini test belirler.
@@ -27,7 +27,7 @@ class SahteSes implements SesliGiris {
 
   SesDurumu _durum = SesDurumu.bilinmiyor;
   String? _gerekce;
-  void Function(String metin)? _onMetin;
+  void Function(String metin, {required bool nihai})? _onMetin;
   void Function(String? gerekce)? _onBitis;
 
   int dinlemeSayisi = 0;
@@ -53,7 +53,7 @@ class SahteSes implements SesliGiris {
 
   @override
   Future<void> dinle({
-    required void Function(String metin) onMetin,
+    required void Function(String metin, {required bool nihai}) onMetin,
     required void Function(String? gerekce) onBitis,
   }) async {
     if (!await hazirla()) {
@@ -79,8 +79,19 @@ class SahteSes implements SesliGiris {
   @override
   void birak() => birakildi = true;
 
-  /// Test motoru: tanınan metni yayar (kısmi sonuç gibi).
-  void soyle(String metin) => _onMetin?.call(metin);
+  /// Test motoru: tanınan metni yayar. [nihai] verilmezse KISMİ sonuçtur (kullanıcı hâlâ
+  /// konuşuyor); `nihai: true` gerçek motorun bir cümleyi kesinleştirmesini taklit eder — ondan
+  /// SONRA motor sıfırdan sayar, yani bir sonraki parça öncekini İÇERMEZ.
+  void soyle(String metin, {bool nihai = false}) => _onMetin?.call(metin, nihai: nihai);
+
+  /// Test motoru: sessizlik sınırına takılan motorun KENDİ KENDİNE kapanışı (gerekçe yok).
+  /// Kullanıcı düğmeye dokunmamıştır — ekran dinlemeyi sürdürmelidir.
+  void motorKendiKapandi() {
+    _durum = SesDurumu.hazir;
+    _onBitis?.call(null);
+    _onMetin = null;
+    _onBitis = null;
+  }
 
   /// Test motoru: dinlemeyi gerekçeyle bitirir (ağ hatası, izin yok, anlaşılmadı…).
   void hataylaBitir(String gerekce) {
@@ -156,6 +167,39 @@ void main() {
     });
   });
 
+  group('DikteBirikimi', () {
+    test('kesinleşen cümleler ÜST ÜSTE değil YAN YANA birikir', () {
+      // Motor bir cümleyi kesinleştirdikten sonra SIFIRDAN sayar: ikinci parça birinciyi
+      // İÇERMEZ. Eski sürüm bunu bilmediği için her duraklamada alanı siliyordu.
+      final b = DikteBirikimi('');
+      expect(b.parca('Atatürk caddesi', nihai: true), 'Atatürk caddesi');
+      expect(b.parca('numara 12', nihai: true), 'Atatürk caddesi numara 12');
+      expect(b.parca('daire 3', nihai: true), 'Atatürk caddesi numara 12 daire 3');
+    });
+
+    test('kısmi parça yalnız KENDİ kuyruğunu değiştirir, birikime dokunmaz', () {
+      final b = DikteBirikimi('Lara');
+      expect(b.parca('Cad.', nihai: true), 'Lara Cad.');
+      expect(b.parca('no', nihai: false), 'Lara Cad. no');
+      expect(b.parca('no 12', nihai: false), 'Lara Cad. no 12',
+          reason: 'büyüyen kısmi sonuç tekrarlanmaz');
+      expect(b.parca('no 12', nihai: true), 'Lara Cad. no 12',
+          reason: 'kesinleşme kısmi metni ikinci kez eklememeli');
+    });
+
+    test('elle yazılan taban korunur', () {
+      final b = DikteBirikimi('Ayşe');
+      expect(b.parca('Kaya', nihai: true), 'Ayşe Kaya');
+    });
+
+    test('oturum kapanışı birikimi tabana geçirir — yeni oturum öncekini ezmez', () {
+      final b = DikteBirikimi('');
+      b.parca('bir', nihai: true);
+      b.oturumKapandi();
+      expect(b.parca('iki', nihai: true), 'bir iki');
+    });
+  });
+
   // ═════════════════════════════════════════════════════════════════════════════════════════
   // Yerleşim — hangi alanda mikrofon var
   // ═════════════════════════════════════════════════════════════════════════════════════════
@@ -210,6 +254,67 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('duraklamalı dikte: her cümle SONA eklenir, önceki SİLİNMEZ', (tester) async {
+    // 2026-07-31 saha şikâyeti: "her duraklamada yazılanı silip üstüne yazıyor; buton aktif
+    // olduğu sürece yanına yazmaya devam etmeli". Uzun adres tek nefeste söylenemez.
+    final db = AppDatabase(NativeDatabase.memory());
+    await formuAc(tester, db);
+
+    await tester.tap(find.bySemanticsLabel('Sesle yaz · Adres'));
+    await kare(tester);
+
+    ses.soyle('Atatürk caddesi', nihai: true);
+    await kare(tester);
+    expect(find.text('Atatürk caddesi'), findsOneWidget);
+
+    // 1. duraklama: motor sessizlik sınırında KENDİ kapanır — kullanıcı düğmeye DOKUNMADI.
+    ses.motorKendiKapandi();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Dinleniyor… konuşun'), findsOneWidget,
+        reason: 'kullanıcı kapatmadıkça düğme aktif kalmalı');
+    expect(ses.dinlemeSayisi, 2, reason: 'motor yeniden başlatılmalı');
+
+    // Motor yeni oturumda SIFIRDAN sayar: parça öncekini içermez.
+    ses.soyle('numara 12', nihai: true);
+    await kare(tester);
+    expect(find.text('Atatürk caddesi numara 12'), findsOneWidget);
+
+    // 2. duraklama.
+    ses.motorKendiKapandi();
+    await tester.pump(const Duration(milliseconds: 400));
+    ses.soyle('daire 3', nihai: true);
+    await kare(tester);
+
+    expect(find.text('Atatürk caddesi numara 12 daire 3'), findsOneWidget,
+        reason: 'iki duraklamanın üç parçası da alanda olmalı');
+    expect(ses.dinlemeSayisi, 3);
+
+    await kapat(tester);
+  });
+
+  testWidgets('otomatik devam SINIRSIZ değil — üst sınırda dinleme kendiliğinden biter',
+      (tester) async {
+    // Cebe giren telefonda sonsuza kadar açık kalan mikrofon hem pil hem güven meselesi.
+    final db = AppDatabase(NativeDatabase.memory());
+    await formuAc(tester, db);
+
+    await tester.tap(find.bySemanticsLabel('Sesle yaz · Not'));
+    await kare(tester);
+
+    for (var i = 0; i < 9; i++) {
+      ses.motorKendiKapandi();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    expect(ses.dinlemeSayisi, 9, reason: '1 ilk oturum + 8 yenileme');
+    expect(find.text('Dinleniyor… konuşun'), findsNothing, reason: 'sınırda dinleme biter');
+    // Sessizce sönen düğme, kullanıcının yazılmadığını sonradan fark etmesi demektir.
+    expect(find.text('Dinleme süresi doldu — devam etmek için mikrofona dokunun'),
+        findsOneWidget);
+
+    await kapat(tester);
+  });
+
   testWidgets('ikinci dokunuş dinlemeyi durdurur', (tester) async {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
@@ -224,6 +329,11 @@ void main() {
 
     expect(ses.durdurmaSayisi, 1);
     expect(find.text('Dinleniyor… konuşun'), findsNothing);
+
+    // Kullanıcının kapattığı mikrofon KAPALI kalır: otomatik devam YALNIZ motorun kendi
+    // kapanışında çalışır, kullanıcının kararını geri almaz.
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(ses.dinlemeSayisi, 1, reason: 'elle durdurma yeniden başlatmamalı');
 
     await kapat(tester);
   });

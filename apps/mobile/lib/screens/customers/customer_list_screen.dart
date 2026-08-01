@@ -23,6 +23,7 @@ import '../team.dart';
 import 'customer_detail_screen.dart';
 import 'customer_form_screen.dart';
 import 'customer_widgets.dart';
+import 'kara_liste.dart';
 
 class CustomerListScreen extends StatefulWidget {
   const CustomerListScreen({
@@ -221,7 +222,7 @@ class _MusteriSatiri extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                     ],
-                    Expanded(
+                    Flexible(
                       child: Text(
                         c.name,
                         maxLines: 1,
@@ -229,6 +230,13 @@ class _MusteriSatiri extends StatelessWidget {
                         style: SipText.satirAd.copyWith(color: t.ink),
                       ),
                     ),
+                    // Rozet ADIN HEMEN YANINDA (satır sonunda değil): bakiye çipiyle aynı
+                    // hizaya konsaydı uzun adlarda ondan uzaklaşır ve hangi müşteriye ait
+                    // olduğu bulanıklaşırdı. Ad `Flexible` — kısalması gereken addır, rozet değil.
+                    if (karaListede(c)) ...[
+                      const SizedBox(width: 6),
+                      const _KaraListeRozeti(),
+                    ],
                   ],
                 ),
                 if (satir.phone != null) ...[
@@ -262,6 +270,27 @@ class _MusteriSatiri extends StatelessWidget {
             SipBakiyeCipi(kurus: c.balanceKurus),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Liste satırındaki kara liste rozeti — küçük, kırmızı, metinli hap.
+///
+/// SALT İKON DEĞİL: yasak işareti tek başına "pasif", "kilitli" ya da "sessize alındı" diye de
+/// okunabilir. Kelime belirsizliği kapatır ve ekran okuyucuya da aynı şeyi söyler.
+class _KaraListeRozeti extends StatelessWidget {
+  const _KaraListeRozeti();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: t.dangerSoft, borderRadius: SipRadius.brHap),
+      child: Text(
+        karaListeRozeti,
+        style: SipText.metin(9, w: 800).copyWith(color: t.danger, letterSpacing: .3),
       ),
     );
   }

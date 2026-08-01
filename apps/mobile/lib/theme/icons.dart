@@ -74,8 +74,17 @@ abstract final class SipIcons {
   static const String batarya =
       'M3 7h13a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2z|M22 11v2|M5 10v4|M8 10v4|M11 10v4|M14 10v4';
 
+  /// Müşteri silme (tehlikeli eylem).
+  static const String trash =
+      'M3 6h18|M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6|M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2';
+
+  /// Kara liste (yasak işareti).
+  static const String ban = 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z|m4.9 4.9 14.2 14.2';
+
   /// Ad → path eşlemesi. Tasarımın `Icon name="..."` çağrılarıyla aynı anahtarlar.
   static const Map<String, String> hepsi = {
+    'trash': trash,
+    'ban': ban,
     'phone': phone,
     'phoneCall': phoneCall,
     'user': user,

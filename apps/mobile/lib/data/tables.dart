@@ -31,6 +31,14 @@ class Customers extends Table {
   /// OKUMA-MODELİ ÖNBELLEĞİ (DECISIONS: kaynak defterdir). Native arayan-tanıma bunu tek satır okur.
   IntColumn get balanceKurus => integer().withDefault(const Constant(0))();
 
+  /// KARA LİSTE damgası (null = kara listede değil) — v12.
+  ///
+  /// `deletedAt` İLE KARIŞTIRILMAMALI, ikisi ayrı karardır: silinen müşteri listeden DÜŞER,
+  /// kara listedeki müşteri listede KALIR ve rozetiyle görünür. Bayi ödemeyen müşteriyi gözden
+  /// kaybetmek istemez — tam tersine görünsün ki borcunu takip etsin; kısıtlanan tek şey ona
+  /// YENİ SİPARİŞ açmaktır.
+  TextColumn get blacklistedAt => text().nullable()();
+
   // LWW meta + tombstone
   TextColumn get updatedOccurredAt => text()();
   TextColumn get updatedDeviceId => text().nullable()();

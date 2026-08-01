@@ -139,6 +139,7 @@ class SyncEngine {
               // uydurma bir numara asla yazılmaz.
               code: Value(_iN(m['code'])),
               balanceKurus: Value(_i(m['balance_kurus'] ?? 0)),
+              blacklistedAt: Value(_sN(m['blacklisted_at'])),
               updatedOccurredAt: Value(_s(m['updated_occurred_at'])),
               updatedDeviceId: Value(_sN(m['updated_device_id'])),
               deletedAt: Value(_sN(m['deleted_at'])),

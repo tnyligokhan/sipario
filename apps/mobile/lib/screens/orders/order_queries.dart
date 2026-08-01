@@ -95,11 +95,17 @@ Stream<List<OrderListItem>> watchOrders(AppDatabase db, OrderFilter filter, {Str
       // kendisidir — siparişe bağlı `payment` toplamı (negatif) + tutar > 0 ise ödenmemiş bakiye
       // var. Ters kayıtla iptal edilen tahsilat da toplamda kendiliğinden geri döner.
       // Müşterisiz (tezgâh) sipariş kimseye borç yazmaz → join null, listeye girmez.
+      //
+      // `discount` de sayılır (kapıda iskonto, 2026-07-30): kırılan tutar tahsil EDİLMEMİŞTİR ama
+      // borç da DEĞİLDİR — bayi "borçlu gösterme" dediği için yazılmıştır. Yalnız `payment`a
+      // bakan sorgu, 420 ₺lik siparişten 400 alıp 20 kıran teslimi ilelebet "borçlu" gösterirdi;
+      // yani kullanıcının istediği şeyin tam tersini yapardı. İki tip de NEGATİFTİR, toplama
+      // aynı işaretle girer.
       final tahsilat = subqueryExpression<int>(
         db.selectOnly(db.ledgerEntries)
           ..addColumns([db.ledgerEntries.amountKurus.sum()])
           ..where(db.ledgerEntries.relatedOrderId.equalsExp(db.orders.id) &
-              db.ledgerEntries.entryType.equals('payment')),
+              db.ledgerEntries.entryType.isIn(siparisKapatanTipler)),
       );
       q.where(db.orders.status.equals('delivered'));
       q.where((coalesce([tahsilat, const Constant(0)]) + db.orders.totalKurus)
@@ -139,11 +145,17 @@ Stream<List<OrderListItem>> watchOrders(AppDatabase db, OrderFilter filter, {Str
 /// Defterde `payment` satırları NEGATİFTİR (bakiyeyi düşürürler); burada işaret çevrilir çünkü
 /// çağıran "ne kadar tahsil edildi" sorusunu sorar. Ters kayıtla iptal edilen tahsilat toplamda
 /// kendiliğinden geri döner (append-only: silme yok, ters kayıt var).
+///
+/// İSKONTO da (`discount`) bu toplama girer — bkz. [siparisKapatanTipler]. Çağıranların hepsi
+/// "bu siparişten borç kaldı mı" sorusunu sorar; kırılan tutar kalan borcun İÇİNDE sayılırsa
+/// kapıda iskonto yapılmış sipariş sonsuza kadar borçlu görünürdü. Kasa rakamları bu akıştan
+/// DEĞİL `DayEndRepository.kasaOzeti`den gelir — orası hâlâ yalnız `payment_type` taşıyan
+/// satırları toplar, yani iskonto kasaya sızmaz.
 Stream<Map<String, int>> watchSiparisTahsilatlari(AppDatabase db) {
   final toplam = db.ledgerEntries.amountKurus.sum();
   final q = db.selectOnly(db.ledgerEntries)
     ..addColumns([db.ledgerEntries.relatedOrderId, toplam])
-    ..where(db.ledgerEntries.entryType.equals('payment') &
+    ..where(db.ledgerEntries.entryType.isIn(siparisKapatanTipler) &
         db.ledgerEntries.relatedOrderId.isNotNull())
     ..groupBy([db.ledgerEntries.relatedOrderId]);
   return q.watch().map((rows) {
@@ -156,12 +168,18 @@ Stream<Map<String, int>> watchSiparisTahsilatlari(AppDatabase db) {
   });
 }
 
+/// Siparişin borcunu KAPATAN defter tipleri: alınan para (`payment`) ve kırılan tutar
+/// (`discount`). İkisi de negatiftir; ikisi de o siparişten geriye borç bırakmaz. Liste sorgusu,
+/// toplu akış ve tek-sipariş akışı AYNI listeyi kullanır — üç yerde ayrı ayrı yazılsaydı, biri
+/// güncellenmediğinde sipariş listesi ile detay ekranı farklı borç konuşurdu.
+const siparisKapatanTipler = ['payment', 'discount'];
+
 /// Tek siparişin tahsilat toplamı (detay ekranı — liste akışını tek kayıt için kurmaya değmez).
 Stream<int> watchSiparisTahsilati(AppDatabase db, String orderId) {
   final toplam = db.ledgerEntries.amountKurus.sum();
   final q = db.selectOnly(db.ledgerEntries)
     ..addColumns([toplam])
-    ..where(db.ledgerEntries.entryType.equals('payment') &
+    ..where(db.ledgerEntries.entryType.isIn(siparisKapatanTipler) &
         db.ledgerEntries.relatedOrderId.equals(orderId));
   return q.watchSingleOrNull().map((r) => -(r?.read(toplam) ?? 0));
 }
@@ -176,6 +194,10 @@ Stream<int> watchSiparisTahsilati(AppDatabase db, String orderId) {
 /// 2. FAZLA tahsilat bu siparişin borcunu eksiye çevirmez, 0 döner: fazlası müşterinin ÖNCEKİ
 ///    borcunu kapatır ve o müşteri bakiyesinde görünür — siparişe "−50 ₺ borç" yazmak yanlış yerde
 ///    doğru sayı göstermek olurdu.
+///
+/// [tahsilKurus] siparişi KAPATAN toplamdır ([siparisKapatanTipler]): alınan para + kapıda kırılan
+/// iskonto. İskonto edilmiş sipariş bu yüzden 0 borç yazar — kullanıcının "borçlu gösterme"
+/// dediği davranışın sayısal karşılığı burasıdır.
 int siparisKalanBorcu({
   required String durum,
   required int toplamKurus,

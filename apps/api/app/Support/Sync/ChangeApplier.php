@@ -98,8 +98,12 @@ class ChangeApplier
                 'updated_device_id' => $deviceId,
             ])->save();
 
-            return ['status' => 'applied', 'entity_id' => $id,
-                'changes' => [SyncPayload::change($type, $id, 'delete', $existing)]];
+            $changes = [SyncPayload::change($type, $id, 'delete', $existing)];
+            if ($type === 'customer') {
+                $changes = array_merge($changes, $this->cascadeCustomerDelete($id, $occurredAt, $deviceId));
+            }
+
+            return ['status' => 'applied', 'entity_id' => $id, 'changes' => $changes];
         }
 
         if ($op !== 'upsert') {
@@ -126,6 +130,48 @@ class ChangeApplier
 
         return ['status' => 'applied', 'entity_id' => $id,
             'changes' => [SyncPayload::change($type, $id, 'upsert', $model)]];
+    }
+
+    /**
+     * Müşteri silindiğinde telefon ve adres satırlarını da tombstone'la.
+     *
+     * NEDEN GEREKLİ: arayan tanıma `customer_phones` üzerinden çalışır ve müşteri satırına
+     * BAKMAZ (1 sn bütçesi, tek-satır okuma). Telefonlar canlı kalsaydı silinen müşteri gelen
+     * aramada kartıyla çıkmaya devam ederdi — özelliğin kullanıcı için ANLAMI budur ve silme
+     * onu karşılamazdı. Ayrıca `snapshot` telefonu müşterisiz gönderir, yeni kurulan cihazda
+     * öksüz satır kalırdı.
+     *
+     * Değişiklikler AYNI olayın change listesine eklenir: tek seq bloğu, tek transaction —
+     * iki cihaz aynı sonuca varır. LWW damgası müşterininkiyle aynı occurred_at/device_id'dir
+     * (silme tek bir karardır, parçalarının damgası ayrışmamalı).
+     *
+     * ZATEN SİLİNMİŞ satırlar atlanır: yoksa her tekrar silme gereksiz değişiklik üretirdi.
+     * Silme GERİ ALINMAZ (upsert bir tombstone'u diriltir ama telefonları diriltmez) — silme
+     * onaylı ve tek yönlü bir eylemdir, "geri al" bir ÜRÜN kararıdır, sessiz bir yan etki değil.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function cascadeCustomerDelete(string $customerId, string $occurredAt, ?string $deviceId): array
+    {
+        $changes = [];
+
+        foreach ([['customer_phone', CustomerPhone::class], ['customer_address', CustomerAddress::class]] as [$tip, $sinif]) {
+            $rows = $sinif::query()
+                ->where('customer_id', $customerId)
+                ->whereNull('deleted_at')
+                ->get();
+
+            foreach ($rows as $row) {
+                $row->forceFill([
+                    'deleted_at' => $occurredAt,
+                    'updated_occurred_at' => $occurredAt,
+                    'updated_device_id' => $deviceId,
+                ])->save();
+                $changes[] = SyncPayload::change($tip, (string) $row->getKey(), 'delete', $row);
+            }
+        }
+
+        return $changes;
     }
 
     /** @return class-string<Model> */
@@ -156,6 +202,17 @@ class ChangeApplier
             'customer' => [
                 'name' => SyncPayload::req($p, 'name'),
                 'note' => $p['note'] ?? null,
+                // KARA LİSTE: ayrı bir op DEĞİL, müşterinin bir ALANI. Gerekçe: kara listeye
+                // alma/çıkarma tam da LWW'nin çözdüğü şeydir (iki cihaz farklı yönde karar
+                // verirse son karar kazanır) — ayrı op yazmak aynı çakışma çözümünü ikinci kez
+                // kurmak olurdu.
+                //
+                // İSTEMCİ SÖZLEŞMESİ: müşteri upsert'i bu alanı HER ZAMAN taşımalıdır. Alan
+                // yoksa null yazılır, yani sadece adını düzenlemek kara listeyi SESSİZCE kaldırır.
+                // Bu, `note` ile aynı davranıştır (istemci satırın tamamını gönderir) ve bilinçli
+                // seçilmiştir: alanı "gönderilmediyse dokunma" yapmak, kara listeden ÇIKARMAYI
+                // ifade edilemez kılardı (null hem "bilmiyorum" hem "çıkar" olurdu).
+                'blacklisted_at' => $p['blacklisted_at'] ?? null,
             ],
             'customer_phone' => [
                 'customer_id' => SyncPayload::req($p, 'customer_id'),
@@ -316,7 +373,8 @@ class ChangeApplier
         $changes = [SyncPayload::change('ledger_entry', $id, 'upsert', $entry)];
 
         // Bakiye önbelleğini DEFTERDEN yeniden kur (DECISIONS: önbellek bozulursa defterden kurulur).
-        // Tüm entry_type'lar borç-deltası taşır (debit+, payment/credit−); filtresiz SUM net borcu verir.
+        // Tüm entry_type'lar borç-deltası taşır (debit+, payment/credit/discount−); filtresiz SUM
+        // net borcu verir — iskonto da bakiyeyi bu yoldan kapatır, ayrıcalıklı bir dalı yoktur.
         if ($customerId !== null) {
             /** @var Customer $customer */
             $customer = Customer::query()->findOrFail($customerId);
@@ -331,17 +389,22 @@ class ChangeApplier
 
     /**
      * İşaret tiple tutarlı olmalı (DECISIONS Faz 3 çift-satır): debit ≥ 0 (borç artışı),
-     * payment/credit ≤ 0 (borç azalışı), correction serbest (ters kayıt imzalı olabilir).
+     * payment/credit/discount ≤ 0 (borç azalışı), correction serbest (ters kayıt imzalı olabilir).
      *
-     * payment_type payment VE correction'da olabilir (debit/credit'te YASAK): kasa = "payment_type
-     * taşıyan kayıt = kasaya dokundu" invariant'ı (DECISIONS Faz 3). Yanlış tahsilatı ters çeviren
-     * correction, ters çevirdiği payment'ın tipini taşıyarak kasayı da düzeltir (bakiye + kasa birlikte).
+     * payment_type payment VE correction'da olabilir (debit/credit/discount'ta YASAK): kasa =
+     * "payment_type taşıyan kayıt = kasaya dokundu" invariant'ı (DECISIONS Faz 3). Yanlış tahsilatı
+     * ters çeviren correction, ters çevirdiği payment'ın tipini taşıyarak kasayı da düzeltir
+     * (bakiye + kasa birlikte).
+     *
+     * discount = KAPIDA KIRILAN tutar (2026-07-30). Borcu payment gibi düşürür ama kasaya HİÇ
+     * girmez; payment_type yasağı bunun teminatıdır ve aşağıdaki mevcut kural onu zaten kapsar —
+     * yeni tip kasa sorgularına kendiliğinden sızamaz.
      */
     private function validateLedgerEntry(string $entryType, int $amount, ?string $paymentType): void
     {
         $signOk = match ($entryType) {
             'debit' => $amount >= 0,
-            'payment', 'credit' => $amount <= 0,
+            'payment', 'credit', 'discount' => $amount <= 0,
             'correction' => true,
             default => throw new InvalidArgumentException("Geçersiz entry_type: {$entryType}"),
         };

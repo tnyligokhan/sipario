@@ -15,12 +15,27 @@
 // "peşin" deyip sonra elle bakiye düzeltmesiyle telafi edebiliyordu — ki `correction` KASAYA
 // girmez, kasa özeti yanlış çıkardı. Artık tek gerçek yazılır: ne alındıysa o.
 //
-// DEFTERE NE DÜŞER (mevcut çift-satır modelinin GENELLEMESİ, yeni kayıt tipi YOK):
-//   debit(+sipariş tutarı)  — satış her hâlükârda borç doğurur,
-//   payment(−tahsil edilen) — yalnız para alındıysa (tahsil > 0), ödeme tipiyle.
+// KAPIDA İSKONTO (kullanıcı isteği 2026-07-30: *"420 liralık siparişte 400 lira ödeme alınabilir;
+// 'borçlu gösterme' kutusu olması gerekiyor"*). Kısmi tahsilat zaten yazılabiliyordu ama TEK bir
+// anlamı vardı: kalan BORÇTUR. Sahada ikinci bir anlam var — bayi kapıda 20 ₺ kırıyor ve o 20 ₺
+// tahsil edilmeyecek, İSKONTODUR. İkisi aynı ekrandan doğduğu için ayrımı kullanıcı yapar:
+// tutar sipariş tutarının altına düşünce "Kalanı borç yazma (iskonto)" anahtarı belirir.
+//
+// İSKONTO NEDEN "TAHSİLAT" DEĞİL: kasa sayımı 400 ₺ görmeli, 420 değil. Kırılan 20 ₺ kasaya hiç
+// girmedi; onu `payment` yazmak gün sonunda sayılan nakitle defteri çeliştirirdi (bayi 20 ₺ eksik
+// sayar ve fark KANIT olarak kapanışa geçerdi — hem de her iskontoda). Bu yüzden iskonto AYRI bir
+// defter tipidir ve `payment_type` TAŞIMAZ: kasanın değişmezi zaten "payment_type taşıyan kayıt
+// kasaya dokundu"dur (DECISIONS Faz 3), yani kasa kodu TEK SATIR değişmeden doğru kalır.
+//
+// DEFTERE NE DÜŞER (mevcut çift-satır modelinin GENELLEMESİ):
+//   debit(+sipariş tutarı)   — satış her hâlükârda borç doğurur,
+//   payment(−tahsil edilen)  — yalnız para alındıysa (tahsil > 0), ödeme tipiyle,
+//   discount(−iskonto)       — yalnız kutu işaretliyse; ödeme tipi YOK, kasaya dokunmaz.
 // Kalan fark AYRI BİR KAYIT DEĞİLDİR: ödenmemiş `debit`in kendisi borçtur, bakiye zaten
 // `SUM(amount_kurus)`. Veresiye = tahsil 0 (yalnız debit), peşin = tahsil tutarın tamamı — ikisi
-// de bu kuralın uç noktası. Append-only (kırmızı çizgi #2) hiçbir noktada esnetilmiyor.
+// de bu kuralın uç noktası. İskonto da bakiyeyi kendi satırıyla kapatır, `debit`i DÜZELTMEZ:
+// append-only (kırmızı çizgi #2) hiçbir noktada esnetilmiyor — sipariş 420 ₺ satıldı, 400 ₺
+// tahsil edildi, 20 ₺ kırıldı; üçü de defterde ayrı ayrı okunur.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -31,13 +46,23 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../money.dart';
+import 'delivery_rules.dart';
 import 'order_queries.dart';
+
+// Saf kurallar (teslimOdemeTipi · teslimBorcFarki · teslimTahsilatHatasi · teslimIskonto*) ayrı
+// dosyada yaşar ama BURADAN da görünür: mevcut testler ve çağıranlar tek import'la çalışıyordu,
+// dosya 500 satır sınırı için bölünürken o sözleşme kırılmasın.
+export 'delivery_rules.dart';
 
 /// Teslim sheet'inin sonucu: hangi ödeme tipiyle, NE KADAR tahsil edildi.
 ///
 /// İkisi ayrı bilgidir — "nakit" tipi tutarın tamamının alındığı anlamına GELMEZ (kısmi ödeme).
 class TeslimSonucu {
-  const TeslimSonucu({required this.odemeTipi, required this.tahsilKurus});
+  const TeslimSonucu({
+    required this.odemeTipi,
+    required this.tahsilKurus,
+    this.iskontoKurus = 0,
+  });
 
   /// 'nakit' | 'kart' | 'havale' | 'veresiye'. Hiç para alınmadıysa DAİMA 'veresiye'
   /// (bkz. [teslimOdemeTipi]) — sipariş kaydı "nakit" deyip kasaya sıfır girmesin.
@@ -45,6 +70,10 @@ class TeslimSonucu {
 
   /// Tahsil edilen tutar (int kuruş, ≥ 0). 0 = tamamı veresiye.
   final int tahsilKurus;
+
+  /// Kırılan (borç YAZILMAYAN) tutar — pozitif kuruş, 0 = iskonto yok. [tahsilKurus] ile
+  /// KARIŞTIRILMAZ: biri kasaya giren para, diğeri hiç girmeyen ve borç da doğurmayan tutardır.
+  final int iskontoKurus;
 }
 
 /// Teslim sheet'ini açar; kullanıcı onaylarsa [TeslimSonucu] döner, `null` = vazgeçildi.
@@ -68,53 +97,6 @@ Future<TeslimSonucu?> teslimSheetAc(
         oncekiBakiyeKurus: oncekiBakiyeKurus,
       ),
     );
-
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-// Saf kurallar — ekrandan AYRI (widget kurmadan test edilir; sipariş ekranlarının deseni)
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-
-/// Kaydedilecek ödeme tipi. Hiç para alınmadıysa seçili karo ne olursa olsun kayıt VERESİYEDİR:
-/// `orders.payment_type` "nakit" derken defterde tek kuruş `payment` bulunmaması, gün sonu kasa
-/// özetiyle sipariş listesini birbirine düşürürdü.
-String teslimOdemeTipi(String secilen, int tahsilKurus) =>
-    tahsilKurus <= 0 ? 'veresiye' : secilen;
-
-/// Teslimden sonra müşterinin borcuna yazılacak İMZALI fark: + kalan borç, − fazla ödeme.
-/// Bu fark deftere ayrı satır olarak YAZILMAZ (debit − payment farkı zaten budur); yalnız
-/// ekranda ne olacağını söylemek için hesaplanır.
-int teslimBorcFarki({required int toplamKurus, required int tahsilKurus}) =>
-    toplamKurus - tahsilKurus;
-
-/// Girilen tahsilat tutarının hata metni; geçerliyse `null`.
-///
-/// Müşterili siparişte HER tutar geçerlidir — 0 (tamamı veresiye) de, sipariş tutarından fazlası
-/// da. Fazlası kasaya gerçekten giren paradır ve müşterinin ÖNCEKİ borcunu kapatır; reddetmek
-/// bayiyi "önce teslim et, sonra ayrı tahsilat gir" iki adımına zorlar ve saha o ikinci adımı
-/// atlar (para cebe girer, kayıt kaçar). Bakiyenin eksiye düşmesi modelde zaten mümkün.
-///
-/// Müşterisiz (tezgâh) siparişte tutar TAM olmalıdır: eksiğini yazacak da fazlasını alacak
-/// yazacak bir cari yok — veresiye karosunun müşterisizken kilitli olmasıyla aynı gerekçe.
-String? teslimTahsilatHatasi({
-  required int? tahsilKurus,
-  required int toplamKurus,
-  required bool musteriVar,
-}) {
-  if (tahsilKurus == null) return 'Tutarı okuyamadım — ör. 120 ya da 120,50 yazın';
-  if (!musteriVar && tahsilKurus != toplamKurus) {
-    return 'Tezgâh satışında sipariş tutarının tamamı tahsil edilir '
-        '(${sipTutar(toplamKurus)}) — eksiği yazılacak müşteri yok';
-  }
-  return null;
-}
-
-/// Kuruşu girdi kutusuna yazılabilir metne çevirir ("12050" → "120,50"). Binlik ayracı YOK:
-/// `parseKurus` "1.234"ü binlik sayar, geri okumada belirsizlik kalmasın.
-///
-/// `screens/customers/customer_widgets.dart`teki `tutarGirdisi` ile aynı kuraldır; oradan ödünç
-/// ALINMADI çünkü sipariş ekranları başka ajanların ekran dosyalarından sembol almıyor
-/// (order_queries.dart başlığındaki sözleşme). Asıl yeri `money.dart` — taşınması lead'e bildirildi.
-String _tutarGirdisi(int kurus) =>
-    '${kurus ~/ 100},${(kurus % 100).toString().padLeft(2, '0')}';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Sheet gövdesi
@@ -142,9 +124,14 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
   /// Ön dolgu sipariş tutarının TAMAMI: teslimlerin çoğu tam tahsilattır, kısmi olan istisnadır.
   /// İstisnayı yazmak bir alan düzenlemesi, kuralı yazmak sıfır dokunuş.
   late final TextEditingController _tutar =
-      TextEditingController(text: _tutarGirdisi(widget.toplamKurus));
+      TextEditingController(text: teslimTutarGirdisi(widget.toplamKurus));
 
   String? _hata;
+
+  /// "Kalanı borç yazma (iskonto)" — KAPALI başlar. Varsayılanın kapalı olması pazarlıksızdır:
+  /// açık gelseydi, kısmi ödemeyi bugünkü anlamıyla (kalan borç) yazan bayi tek dokunuşla
+  /// müşterisinin borcunu SİLMİŞ olurdu ve bunu ancak ay sonu hesabında fark ederdi.
+  bool _borcYazma = false;
 
   @override
   void dispose() {
@@ -161,12 +148,16 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
       final oncekiVeresiye = _odeme == 'veresiye';
       _odeme = tip;
       _hata = null;
+      // Ödeme tipi değişince iskonto niyeti SIFIRLANIR: karo değiştirmek tutarı da değiştiriyor
+      // (veresiyeye geçişte 0, dönüşte tam tutar) ve önceki tutara verilmiş "kırdım" kararının
+      // yeni tutara sessizce taşınması, kullanıcının görmediği bir iskonto yazardı.
+      _borcYazma = false;
       if (tip == 'veresiye') {
-        _tutar.text = _tutarGirdisi(0);
+        _tutar.text = teslimTutarGirdisi(0);
       } else if (oncekiVeresiye) {
         // Veresiyeden dönüşte alan tam tutara sıfırlanır: 0 kalsaydı "nakit" karosu seçili
         // görünürken kayıt yine veresiye düşerdi (teslimOdemeTipi), kullanıcı bunu görmezdi.
-        _tutar.text = _tutarGirdisi(widget.toplamKurus);
+        _tutar.text = teslimTutarGirdisi(widget.toplamKurus);
       }
     });
   }
@@ -185,8 +176,23 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
     Navigator.of(context).pop(TeslimSonucu(
       odemeTipi: teslimOdemeTipi(_odeme, tahsil!),
       tahsilKurus: tahsil,
+      iskontoKurus: _iskonto(tahsil),
     ));
   }
+
+  /// Anahtar GÖRÜNMÜYORSA iskonto da yoktur — görünürlük koşulu ile yazma koşulu TEK yerden
+  /// çıkar ki ekranda olmayan bir işaret deftere kayıt düşüremesin.
+  int _iskonto(int tahsil) => _iskontoSorulur(tahsil)
+      ? teslimIskontoKurus(
+          toplamKurus: widget.toplamKurus, tahsilKurus: tahsil, borcYazma: _borcYazma)
+      : 0;
+
+  /// Veresiye karosunda anahtar HİÇ çıkmaz: "tamamı borç" ile "kalanı borç yazma" birbirinin
+  /// zıddıdır ve orada tutar alanı 0'a kilitli olduğu için anahtar, tek dokunuşla siparişin
+  /// TAMAMINI kıran bir yol açardı.
+  bool _iskontoSorulur(int? tahsil) =>
+      _odeme != 'veresiye' &&
+      teslimIskontoSorulur(tahsilKurus: tahsil, toplamKurus: widget.toplamKurus);
 
   @override
   Widget build(BuildContext context) {
@@ -195,6 +201,8 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
     final fark = tahsil == null
         ? 0
         : teslimBorcFarki(toplamKurus: widget.toplamKurus, tahsilKurus: tahsil);
+    final iskontoSorulur = _iskontoSorulur(tahsil);
+    final iskonto = tahsil == null ? 0 : _iskonto(tahsil);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -284,7 +292,20 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
           const SizedBox(height: SipSpace.sm),
           _Uyari(metin: _hata!, renk: t.danger, zemin: t.dangerSoft, ikon: SipIcons.alert),
         ],
-        ..._uyarilar(t, tahsil: tahsil, fark: fark),
+        if (iskontoSorulur) ...[
+          const SizedBox(height: SipSpace.md),
+          // METİN SÖZLEŞMEDİR (ui_iskonto_test.dart): kullanıcının istediği kutu budur ve
+          // "iskonto" kelimesi parantez içinde DURUR — bayi kırma işlemini o adla biliyor,
+          // "borç yazma" ise ne olacağını anlatır. İkisi birden yazılmazsa kutu ya muhasebe
+          // terimi ya da belirsiz bir emir olurdu.
+          SipToggle(
+            etiket: 'Kalanı borç yazma (iskonto)',
+            altEtiket: 'İşaretlenirse ${sipTutar(fark)} kırılır; müşteri borçlu görünmez.',
+            acik: _borcYazma,
+            onDegis: (v) => setState(() => _borcYazma = v),
+          ),
+        ],
+        ..._uyarilar(t, tahsil: tahsil, fark: fark, iskonto: iskonto),
         const SizedBox(height: 18),
         SipButon(
           etiket: 'Teslim Et ve Kaydet',
@@ -297,8 +318,27 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
 
   /// Tutarın sonucunu SÖZLE anlatan şerit. Kısmi/fazla/veresiye üç ayrı gerçektir; hepsi aynı
   /// alandan doğduğu için kullanıcı ne kaydedeceğini alanın altında okur.
-  List<Widget> _uyarilar(SipTokens t, {required int? tahsil, required int fark}) {
+  List<Widget> _uyarilar(
+    SipTokens t, {
+    required int? tahsil,
+    required int fark,
+    required int iskonto,
+  }) {
     if (tahsil == null) return const [];
+    // İskonto varken kalan borç YOKTUR: şerit borcu değil KIRILAN tutarı anlatır, yoksa aynı
+    // ekranda "kalan borca yazılacak" ile "borç yazılmayacak" yan yana durur ve bayi hangisinin
+    // kaydedileceğini ekrandan okuyamaz.
+    if (iskonto > 0) {
+      return [
+        const SizedBox(height: SipSpace.xl),
+        _Uyari(
+          metin: 'İskonto — kalan ${sipTutar(iskonto)} borç yazılmayacak, sipariş kapanacak.',
+          renk: t.accent,
+          zemin: t.accentSoft,
+          ikon: SipIcons.check,
+        ),
+      ];
+    }
     final sonrakiBakiye = widget.oncekiBakiyeKurus + fark;
 
     if (tahsil == 0) {

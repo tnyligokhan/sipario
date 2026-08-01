@@ -50,6 +50,11 @@ String siparisDurumEtiketi(String durum, {bool kuryede = false}) => switch (duru
       _ => kuryede ? 'Yolda' : 'Hazırlanıyor',
     };
 
+/// Sipariş hâlâ bekliyor mu ("Hazırlanıyor"/"Yolda"). Kapanmış durumların dışında kalan her
+/// şey açıktır — tanınmayan `status` değeri de (kart bir siparişi yok saymaktansa açık sayar).
+/// Native `CallerCard.siparisAcikMi` aynası.
+bool siparisAcikMi(String durum) => durum != 'delivered' && durum != 'cancelled';
+
 /// Numaranın son 10 hanesi. Türkiye'de aynı hat +905321234567 / 05321234567 / 5321234567
 /// biçimlerinde gelir; son 10 hane üçünde de aynıdır ve ülke içinde tekildir. Eşleşmenin
 /// TAMAMI (müşteri arama, muaf listesi) buna dayanır — native taraftaki `phone_last10` ile
@@ -78,6 +83,8 @@ bool numaraMuafMi(String numara, Iterable<String> muafNumaralar) {
 /// Depoda ISO8601 UTC durur; burada CİHAZ SAATİNE çevrilir — bayi "10:24"ü kendi saatiyle
 /// okur. Bugün ise saat, dün ise "Dün", bu hafta ise gün adı, öncesi ise gün.ay.
 /// [simdi] yalnız test içindir; verilmezse şimdiki zaman.
+///
+/// AÇIK siparişin satırı bunu değil [cagriSiparisZamanMetni]'ni yazar (yaş).
 String cagriSaatMetni(DateTime? an, {DateTime? simdi}) {
   if (an == null) return '';
   final yerel = an.toLocal();
@@ -99,6 +106,48 @@ String cagriSaatMetni(DateTime? an, {DateTime? simdi}) {
 const List<String> _gunAdlari = [
   'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz',
 ];
+
+/// Son sipariş satırının zaman parçası. AÇIK siparişte mutlak saat değil YAŞ yazar
+/// ("23 dk önce"), kapanmış siparişte [cagriSaatMetni] davranışı aynen sürer.
+///
+/// Kullanıcı isteği (2026-07-30): kart "Son sipariş: Hazırlanıyor · 10:24" yazıyordu; bayi
+/// telefonda "ne zamandır bekliyor" sorusuna cevap verirken saati zihninden çıkarmak zorunda
+/// kalıyordu. Açık siparişin sorusu SÜREDİR, saat değil. Teslim/iptal edilmiş siparişte soru
+/// yeniden "ne zamandı"ya döner — orada saat kalır.
+///
+/// Sözcükler `order_queries.gecenSure` ("12 dk" · "1 sa 5 dk") ile AYNI, sonuna " önce"
+/// eklenmiştir: sipariş listesindeki bekleme süresi ile kart aynı siparişte aynı sayıyı aynı
+/// sözcüklerle söyler. 1 dakikadan yeni sipariş "az önce"dir (`kuryeSonGorulme`nin sözcüğü);
+/// "0 dk önce" siparişin henüz girilmediğini düşündürürdü.
+///
+/// 24 saati geçen açık siparişte dakika gürültüdür ve satır uzar; orada [cagriSaatMetni]
+/// devralır (Dün · gün adı · gün.ay).
+///
+/// İLERİ tarihli damga (cihaz saati geri alınmış) "az önce" sayılır — "−3 dk önce" yazmak
+/// veriye güveni sarsar; [cagriSaatMetni]'nin negatif gün farkındaki duruşunun aynısı.
+///
+/// Native `CallerCard.siparisZamanMetni` ile AYNI kurallar: zil anındaki Kotlin kartı ile
+/// buradaki Flutter kartı aynı siparişte aynı metni yazmak ZORUNDA (biri overlay'de, öteki
+/// uygulama önplandayken çizilir; farklı metin bayiye iki ayrı gerçek gösterirdi).
+/// [simdi] yalnız test içindir.
+String cagriSiparisZamanMetni(
+  DateTime? an, {
+  required bool acik,
+  DateTime? simdi,
+}) {
+  if (an == null) return '';
+  if (!acik) return cagriSaatMetni(an, simdi: simdi);
+
+  final ref = simdi ?? DateTime.now();
+  final fark = ref.toLocal().difference(an.toLocal());
+  if (fark.inMinutes < 1) return 'az önce';
+  if (fark.inMinutes < 60) return '${fark.inMinutes} dk önce';
+  if (fark.inHours < 24) {
+    final dk = fark.inMinutes % 60;
+    return dk == 0 ? '${fark.inHours} sa önce' : '${fark.inHours} sa $dk dk önce';
+  }
+  return cagriSaatMetni(an, simdi: simdi);
+}
 
 /// Çağrı kartında gösterilen kişi. `musteriId` null ise numara kayıtsızdır ve kart
 /// "Müşteri Olarak Kaydet" varyantına düşer.

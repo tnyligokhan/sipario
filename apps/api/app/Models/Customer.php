@@ -16,6 +16,8 @@ use Illuminate\Support\Carbon;
  *
  * balance_kurus OKUMA-MODELİ ÖNBELLEĞİdir (DECISIONS: kaynak ledger_entries). updated_occurred_at/
  * updated_device_id LWW meta'sıdır. deleted_at tombstone (fiziksel silme yok).
+ * blacklisted_at kara liste damgası (null = değil); silmeden BAĞIMSIZDIR — kara listedeki müşteri
+ * listede kalır, yalnız yeni sipariş alamaz.
  *
  * @property string $id
  * @property string $tenant_id
@@ -25,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property int $balance_kurus
  * @property Carbon $updated_occurred_at
  * @property string|null $updated_device_id
+ * @property Carbon|null $blacklisted_at
  * @property Carbon|null $deleted_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -43,6 +46,7 @@ class Customer extends Model
         'balance_kurus',
         'updated_occurred_at',
         'updated_device_id',
+        'blacklisted_at',
         'deleted_at',
     ];
 
@@ -52,6 +56,7 @@ class Customer extends Model
             'code' => 'integer',
             'balance_kurus' => 'integer',
             'updated_occurred_at' => 'datetime',
+            'blacklisted_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
     }

@@ -2,6 +2,8 @@
 // ÜÇ ADIM: müşteri seç → kalemler → özet. Ödeme tipi BURADA sorulmaz; teslim kapatılırken
 // sorulur (BRIEF: mal gidince para konuşulur) — sipariş girişi telefonda birkaç dokunuşta biter.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
@@ -13,8 +15,11 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../customers/customer_form_screen.dart' show musteriEkleSheet;
+import '../customers/kara_liste.dart';
+import '../team.dart';
 import 'order_parts.dart';
 import 'order_queries.dart';
+import 'order_sheets.dart';
 import 'pos_catalog.dart';
 
 export 'order_parts.dart' show LineDraft, toplamKurus;
@@ -56,6 +61,24 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   String? _uyari;
   int _uyariSayaci = 0;
 
+  /// Sipariş oluşturulurken SEÇİLEN kurye. null = atamasız kaydedilir (seçim ZORUNLU DEĞİL —
+  /// telefonu elinde tutan kullanıcı kimin götüreceğini o an bilmeyebilir; atama sipariş
+  /// detayından her zaman yapılabilir).
+  String? _kuryeId;
+  String? _kuryeAdi;
+
+  /// Atama hedefleri ve oturumdaki rol. İkisi de AKIŞTAN okunur, tek atış değil: `user_role`
+  /// sunucu sahiplidir ve giriş yanıtında GELMEZ, ilk senkron yazar — tek atış okuma "rol yok"
+  /// görüp satırı sonsuza dek gizlerdi (kontör dersinin aynısı, order_list_screen.dart).
+  List<User> _kuryeler = const [];
+  String? _rol;
+  StreamSubscription<SyncMetaData>? _metaAbone;
+  StreamSubscription<List<User>>? _kuryeAbone;
+
+  /// Kurye satırı KİME görünür: atama yetkisi olana (K2 — `yetkiler().atama` = yönetici VE
+  /// aktif kurye var). Kurye kendine iş atamaz; tek kişilik bayide satır hiç çizilmez.
+  bool get _atamaYetkisi => yetkiler(rol: _rol, kuryeVar: _kuryeler.isNotEmpty).atama;
+
   /// Adım 1'e geri dönülebilir mi? Müşteri dışarıdan verilmişse (müşteri detayından "Sipariş
   /// oluştur") seçim adımı hiç gösterilmez.
   bool get _musteriKilitli => widget.initialCustomerId != null;
@@ -67,19 +90,61 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       _adim = 2;
       _musteriYukle(widget.initialCustomerId!);
     }
+    _metaAbone = widget.db.watchSyncState().listen((meta) {
+      if (!mounted || meta.userRole == _rol) return;
+      setState(() => _rol = meta.userRole);
+    });
+    _kuryeAbone = watchAktifKuryeler(widget.db).listen((kuryeler) {
+      if (!mounted) return;
+      setState(() {
+        _kuryeler = kuryeler;
+        // Seçili kurye bu arada pasifleştiyse seçim DÜŞER. Var olmayan birine atanmış bir
+        // sipariş, atanmamış bir siparişten daha kötüdür: kimse üstlenmez ama liste atanmış
+        // görünür.
+        _kuryeAdi = kullaniciAdi(kuryeler, _kuryeId);
+        if (_kuryeId != null && _kuryeAdi == null) _kuryeId = null;
+      });
+    });
   }
 
   Future<void> _musteriYukle(String id) async {
     final c = await (widget.db.select(widget.db.customers)..where((t) => t.id.equals(id)))
         .getSingleOrNull();
-    if (mounted && c != null) setState(() => _musteri = c);
+    if (!mounted || c == null) return;
+    // Hazır müşteriyle açılan form (müşteri detayı, çağrı kartı). Detay ekranı kapıyı zaten
+    // tutuyor ama çağrı kartı köprüsü BAYAT bir istek gönderebilir: kart çizildikten sonra
+    // müşteri kara listeye alınmış olabilir. Burada durdurmak o yarışı kapatır.
+    if (karaListede(c)) {
+      SipToast.goster(context, karaListeSiparisMesaji(c.name));
+      Navigator.of(context).maybePop();
+      return;
+    }
+    setState(() => _musteri = c);
   }
 
   @override
   void dispose() {
+    _metaAbone?.cancel();
+    _kuryeAbone?.cancel();
     _arama.dispose();
     _not.dispose();
     super.dispose();
+  }
+
+  /// "Kurye Seç" — sipariş detayındaki sheet'in AYNISI, tek farkı "Atama yok" satırının da
+  /// sunulması (burada seçim opsiyoneldir ve geri alınabilmelidir).
+  Future<void> _kuryeSec() async {
+    final secim = await kuryeSecSheet(
+      context,
+      kuryeler: _kuryeler,
+      seciliId: _kuryeId,
+      atamasizEtiketi: 'Atama yok',
+    );
+    if (secim == null || !mounted) return; // sheet kapatıldı = vazgeçildi, seçim DEĞİŞMEZ
+    setState(() {
+      _kuryeId = secim == kAtanmamisKurye ? null : secim;
+      _kuryeAdi = kullaniciAdi(_kuryeler, _kuryeId);
+    });
   }
 
   int get _toplam => toplamKurus(_satirlar);
@@ -94,6 +159,12 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   }
 
   void _musteriSec(Customer c) {
+    // Formun İÇİNDEKİ seçim kapısı: kara listedeki müşteri listede görünmeye devam ettiği için
+    // (bilinçli — bayi borcunu takip etmeli) buradan seçilebilir. Ürün adımına geçmeden dur.
+    if (karaListede(c)) {
+      SipToast.goster(context, karaListeSiparisMesaji(c.name));
+      return;
+    }
     setState(() {
       _musteri = c;
       _adim = 2;
@@ -175,7 +246,8 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     if (_sepetBos || _kaydediyor) return;
     setState(() => _kaydediyor = true);
     try {
-      await OrderRepository(widget.db).create(
+      final repo = OrderRepository(widget.db);
+      final orderId = await repo.create(
         customerId: _musteri?.id,
         note: _not.text.trim().isEmpty ? null : _not.text.trim(),
         lines: _satirlar
@@ -189,6 +261,12 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
                 ))
             .toList(),
       );
+      // Atama MEVCUT yoldan yazılır: `assign` → `assigned` OLAYI → outbox → sync push. Formda
+      // ikinci bir yazma yolu YOK; `orders.assigned_user_id` yalnız o olayın önbelleğidir
+      // (DECISIONS). Sipariş kaydı ile atama iki ayrı olaydır ve öyle kalmalı — atama sonradan
+      // değişebilen bir karardır, siparişin doğuşuna gömülmez.
+      final kurye = _kuryeId;
+      if (kurye != null) await repo.assign(orderId, kurye);
       if (!mounted) return;
       SipToast.goster(context, 'Sipariş oluşturuldu');
       Navigator.of(context).maybePop(true);
@@ -513,6 +591,19 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
           ipucu: 'Kapı kodu, teslim saati, özel istek…',
           satirlar: 2,
         ),
+        // ── Kurye (OPSİYONEL) ───────────────────────────────────────────────────────────
+        // Saha isteği: siparişi girerken kimin götüreceği çoğu zaman zaten bellidir; onu
+        // atamak için kaydedip listeye dönüp detayı açmak üç fazladan dokunuştu. Satır formun
+        // SONUNDA durur — sipariş girişini uzatmaz, boş bırakılabilir ve atlanabilir.
+        if (_atamaYetkisi) ...[
+          const SdxSec('Kurye'),
+          SecimSatiri(
+            etiket: _kuryeAdi ?? 'Atama yok — sonra da atanabilir',
+            ikon: SipIcons.truck,
+            secili: _kuryeId != null,
+            onTap: _kuryeSec,
+          ),
+        ],
       ],
     );
   }

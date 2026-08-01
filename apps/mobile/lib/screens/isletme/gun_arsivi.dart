@@ -74,11 +74,16 @@ class GunDetayi {
     required this.kuryeler,
     required this.urunler,
     required this.kapanislar,
+    this.iskonto = 0,
   });
 
   final DateTime gun;
   final KasaOzeti kasa;
   final int teslimat;
+
+  /// O gün kapıda kırılan toplam (pozitif kuruş). [kasa]nın dışındadır — geçmiş bir günün
+  /// kasası ile o günün cirosu arasındaki farkı yalnız bu rakam açıklar.
+  final int iskonto;
   final List<KuryeGunu> kuryeler;
   final List<UrunSatisi> urunler;
   final List<DayClosing> kapanislar;
@@ -176,6 +181,7 @@ Future<GunDetayi> gunDetayi(AppDatabase db, DateTime gun) async {
     gun: gun,
     kasa: await repo.kasaOzeti(gun),
     teslimat: await repo.teslimatSayisi(gun),
+    iskonto: await repo.iskontoOzeti(gun),
     kuryeler: kuryeGunleri,
     urunler: await satilanUrunler(db, gun),
     kapanislar: gunKapanislari,

@@ -9,17 +9,20 @@ import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
 import '../../konum/cihaz_konumu.dart';
+import '../../repo/customer_repository.dart';
 import '../../sync/geocode_api.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
+import '../money.dart';
 import '../orders/musteri_eylemleri.dart';
 import '../orders/order_form_screen.dart';
 import '../orders/order_queries.dart';
 import '../team.dart';
 import 'customer_detail_cards.dart';
+import 'kara_liste.dart';
 import 'customer_form_ops.dart';
 import 'customer_form_screen.dart';
 import 'customer_ledger.dart';
@@ -102,9 +105,55 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
 
   void _siparis(Customer c) {
     if (!_yazabilir()) return;
+    // Kara liste kapısı: engel BURADA, forma girmeden durur. Kullanıcıyı ürün seçtirip son
+    // adımda reddetmek, yapılmış emeği çöpe atmaktır.
+    if (karaListede(c)) {
+      SipToast.goster(context, karaListeSiparisMesaji(c.name));
+      return;
+    }
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => OrderFormScreen(db: widget.db, initialCustomerId: c.id, writable: widget.writable),
     ));
+  }
+
+  /// Kara listeye al / çıkar. ONAY İSTEMEZ: tek dokunuşla geri alınabilir ve rozet sonucu
+  /// anında gösterir — geri alınabilir bir eylemi diyalogla yavaşlatmak bedelsiz değildir.
+  Future<void> _karaListe(Customer c) async {
+    if (!_yazabilir(izin: widget.yetki?.musteriYonetimi ?? true)) return;
+    final ekle = !karaListede(c);
+    await CustomerRepository(widget.db).karaListe(c.id, ekle: ekle);
+    if (!mounted) return;
+    SipToast.goster(context, ekle ? 'Müşteri kara listeye alındı' : 'Müşteri kara listeden çıkarıldı');
+  }
+
+  /// Müşteriyi sil (tombstone). Onay ŞART — ürün olarak geri alınamaz.
+  ///
+  /// BORÇ UYARISI: bakiyesi sıfır olmayan müşteride tutar diyaloğun içinde yazar. Silmek borcu
+  /// SİLMEZ (defter append-only'dir, gün sonu ve istatistikler değişmez) — ama müşteri listeden
+  /// düşeceği için bayi o borcu bir daha kendiliğinden görmez. Kullanıcının bilmesi gereken şey
+  /// budur: kaybolan para değil, TAKİP.
+  Future<void> _sil(Customer c) async {
+    if (!_yazabilir(izin: widget.yetki?.musteriYonetimi ?? true)) return;
+
+    final borc = c.balanceKurus;
+    final onay = await sipOnay(
+      context,
+      baslik: '${c.name} silinsin mi?',
+      mesaj: borc > 0
+          ? 'Müşteri listeden kaldırılacak. ${formatKurus(borc)} borcu var — '
+              'geçmiş kayıtlarda görünmeye devam eder ama listede takip edemezsiniz.'
+          : 'Müşteri listeden kaldırılacak. Geçmiş siparişleri ve defter kayıtları silinmez.',
+      onayEtiketi: 'Sil',
+      tehlike: true,
+    );
+    if (!onay || !mounted) return;
+
+    await CustomerRepository(widget.db).archive(c.id);
+    if (!mounted) return;
+    SipToast.goster(context, 'Müşteri silindi');
+    // Detay ekranı silinen müşteriyi göstermeye devam edemez: listeye dön. `maybePop` —
+    // sipariş iptalindeki desenin aynısı (yığında tek rota kalmışsa sessizce hiçbir şey yapmaz).
+    Navigator.of(context).maybePop();
   }
 
   Future<void> _duzenle(
@@ -292,6 +341,15 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     // sahipsiz bir adrese yazmak sessiz veri kaybı olurdu).
                     onKonumGuncelle: adres == null ? null : () => _konumGuncelle(adres),
                   ),
+                  // Rozet bakiyeden ÖNCE: "bu müşteriye sipariş açılamaz" bilgisi, para
+                  // bilgisinden önce okunmalı — bayi ekranı yukarıdan aşağı tarar.
+                  if (karaListede(c))
+                    SipDurumSeridi(
+                      metin: karaListeRozeti,
+                      ikon: SipIcons.ban,
+                      renk: context.sip.danger,
+                      zemin: context.sip.dangerSoft,
+                    ),
                   MusteriBakiyeKarti(kurus: c.balanceKurus),
                   // Tasarımda ızgara İKİ eylemlidir (s-musteriler.jsx:118-121, inline
                   // `gridTemplateColumns: '1fr 1fr'`). Bakiye düzeltmesinin yeri defter
@@ -316,6 +374,19 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     // kapıları `_duzeltme` içinde durur ve kullanıcıya toast'la söylenir.
                     onDuzelt: () => _duzeltme(c),
                   ),
+                  // Tehlikeli işlemler KURYEDE HİÇ ÇİZİLMEZ (diğer kapıların aksine).
+                  // Gerekçe: tahsilat/düzeltme kuryenin işinin bir parçası, yalnız bu cihazda
+                  // yetkisi yok — orada toast doğru cevaptır. Müşteriyi silmek ise kuryenin işi
+                  // DEĞİLDİR; düğmeyi gösterip reddetmek ona olmayan bir rol teklif eder.
+                  if (widget.yetki?.musteriYonetimi ?? true)
+                    MusteriTehlikeliEylemler(
+                      karaListede: karaListede(c),
+                      karaListeEtiketi:
+                          karaListede(c) ? karaListedenCikarEtiketi : karaListeyeEkleEtiketi,
+                      silEtiketi: musteriyiSilEtiketi,
+                      onKaraListe: () => _karaListe(c),
+                      onSil: () => _sil(c),
+                    ),
                 ],
               ),
             ),

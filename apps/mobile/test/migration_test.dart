@@ -460,6 +460,49 @@ void main() {
     final ayar = await (db.select(db.tenantSettings)..where((t) => t.id.equals(1))).getSingle();
     expect(ayar.orderCodeDisplay, 'musteri');
   });
+
+  test(
+      'v11→v12 KARA LİSTE: sahadaki cihaza `blacklisted_at` kolonu eklenir, veri AYNEN durur. '
+      'v10/v11 ile AYNI tuzak: adım kendini-onarma kapısından ÖNCE koşmalı — kapı '
+      '`tenant_settings` varsa erken döner ve v11 damgalı her cihazda o tablo ZATEN vardır. '
+      'Koşul içine alınsaydı senkronla gelen kara liste damgası yazılacak kolon bulamazdı ve '
+      'özellik sahada HİÇ görünmezdi (hata da vermeden).', () async {
+    final file = File(p.join(
+      Directory.systemTemp.path,
+      'sipario_v11v12_${DateTime.now().microsecondsSinceEpoch}.db',
+    ));
+    if (file.existsSync()) file.deleteSync();
+
+    // 1) Güncel şemayla kur + korunması gereken veriyi yaz.
+    final v12 = AppDatabase(NativeDatabase(file));
+    await v12.into(v12.customers).insert(CustomersCompanion.insert(
+        id: 'v11-c1', name: 'Eski Müşteri', balanceKurus: const Value(9900),
+        code: const Value(102), updatedOccurredAt: '2026-08-01T00:00:00.000Z'));
+    await v12.close();
+
+    // 2) Dosyayı v11'e GERİ SAR: kolonu düşür, damgayı 11 yap.
+    final raw = sqlite3.open(file.path);
+    raw.execute('ALTER TABLE customers DROP COLUMN blacklisted_at');
+    raw.execute('PRAGMA user_version = 11');
+    raw.close();
+
+    // 3) Yeniden aç → onUpgrade(from: 11, to: 12).
+    final db = AppDatabase(NativeDatabase(file));
+    addTearDown(() async {
+      await db.close();
+      if (file.existsSync()) file.deleteSync();
+    });
+
+    // Kolon geri geldi ve YAZILABİLİR (senkron damgayı buraya yazacak).
+    await (db.update(db.customers)..where((t) => t.id.equals('v11-c1')))
+        .write(const CustomersCompanion(blacklistedAt: Value('2026-08-01T10:00:00.000Z')));
+
+    final cust = await (db.select(db.customers)..where((t) => t.id.equals('v11-c1'))).getSingle();
+    expect(cust.blacklistedAt, '2026-08-01T10:00:00.000Z');
+    expect(cust.balanceKurus, 9900, reason: 'para verisi ezilmedi');
+    expect(cust.code, 102, reason: 'v11 kolonu duruyor');
+    expect(cust.name, 'Eski Müşteri');
+  });
 }
 
 /// Dosyadaki gerçek tablo adları (sqlite_master). Kupon tablolarının YOKLUĞUNU kanıtlamak için

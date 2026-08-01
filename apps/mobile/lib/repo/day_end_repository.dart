@@ -62,6 +62,30 @@ class DayEndRepository {
     return KasaOzeti(nakit: nakit, kart: kart, havale: havale);
   }
 
+  /// Gün içinde yazılan İSKONTO toplamı (POZİTİF kuruş; iskonto yoksa 0).
+  ///
+  /// KASADAN AYRI DURUR ve bu ayrım özelliğin bütün sebebidir (kullanıcı isteği 2026-07-30):
+  /// kapıda kırılan 20 ₺ kasaya HİÇ girmedi. `discount` satırları `payment_type` taşımadığı için
+  /// [kasaOzeti] onları zaten görmez — yani kasa sayımı iskontoyla şişmez ve gün sonu farkı KANIT
+  /// olmayı sürdürür. Ama rakam görünmez de olamaz: "420 ₺lik siparişten neden 400 girdi"
+  /// sorusunun cevabı gün sonunda okunabilmeli, yoksa bayi her iskontoda kasayı eksik sanır.
+  ///
+  /// [userId] verilirse yalnız O KULLANICININ verdiği iskontolar ([kasaOzeti] ile simetrik:
+  /// `collected_by_user_id` teslimi yapan kişidir).
+  Future<int> iskontoOzeti(DateTime localDate, {String? userId}) async {
+    final query = db.select(db.ledgerEntries)..where((t) => t.entryType.equals('discount'));
+    if (userId != null) {
+      query.where((t) => t.collectedByUserId.equals(userId));
+    }
+    final kayitlar = await query.get();
+    var toplam = 0;
+    for (final e in kayitlar) {
+      if (!_sameTrDay(e.occurredAt, localDate)) continue;
+      toplam += -e.amountKurus; // discount NEGATİF yazılır (borcu düşürür); ekran pozitif ister
+    }
+    return toplam;
+  }
+
   /// Gün içinde teslim edilen sipariş SAYISI (tasarım: "N teslimat"). [userId] verilirse yalnız
   /// o kuryeye atanmış siparişler. İptaller sayılmaz (status='delivered').
   Future<int> teslimatSayisi(DateTime localDate, {String? userId}) async {
@@ -97,6 +121,11 @@ class DayEndRepository {
   ///
   /// `veresiyeKurus` = günün `debit` toplamı − günün SİPARİŞ BAĞLI tahsilatı. Sipariş dışı
   /// tahsilat (eski borcun kapatılması) düşülmez: o, bugün yazılmış bir veresiyeyi kapatmaz.
+  ///
+  /// İSKONTO da düşülür ve bu DOĞRUDUR: `discount` negatiftir ve siparişe bağlıdır, yani aşağıdaki
+  /// döngüde kendiliğinden sayılır. Kırılan tutar bugün yazılmış bir veresiye DEĞİLDİR — bildirime
+  /// "20 ₺ veresiye" yazsaydık bayi hiç var olmayan bir alacağı takip ederdi. Kasa rakamı ise
+  /// [kasaOzeti]den gelir ve orası iskontoyu görmez; iki rakam da doğru kaynaktan çıkar.
   Future<GunSonuVerisi> gunSonuBildirimVerisi(DateTime localDate) async {
     final kasa = await kasaOzeti(localDate);
     final teslim = await teslimatSayisi(localDate);

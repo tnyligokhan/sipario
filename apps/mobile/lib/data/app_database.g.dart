@@ -57,6 +57,17 @@ class $CustomersTable extends Customers
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _blacklistedAtMeta = const VerificationMeta(
+    'blacklistedAt',
+  );
+  @override
+  late final GeneratedColumn<String> blacklistedAt = GeneratedColumn<String>(
+    'blacklisted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _updatedOccurredAtMeta = const VerificationMeta(
     'updatedOccurredAt',
   );
@@ -98,6 +109,7 @@ class $CustomersTable extends Customers
     note,
     code,
     balanceKurus,
+    blacklistedAt,
     updatedOccurredAt,
     updatedDeviceId,
     deletedAt,
@@ -145,6 +157,15 @@ class $CustomersTable extends Customers
         balanceKurus.isAcceptableOrUnknown(
           data['balance_kurus']!,
           _balanceKurusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('blacklisted_at')) {
+      context.handle(
+        _blacklistedAtMeta,
+        blacklistedAt.isAcceptableOrUnknown(
+          data['blacklisted_at']!,
+          _blacklistedAtMeta,
         ),
       );
     }
@@ -203,6 +224,10 @@ class $CustomersTable extends Customers
         DriftSqlType.int,
         data['${effectivePrefix}balance_kurus'],
       )!,
+      blacklistedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}blacklisted_at'],
+      ),
       updatedOccurredAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}updated_occurred_at'],
@@ -240,6 +265,14 @@ class Customer extends DataClass implements Insertable<Customer> {
 
   /// OKUMA-MODELİ ÖNBELLEĞİ (DECISIONS: kaynak defterdir). Native arayan-tanıma bunu tek satır okur.
   final int balanceKurus;
+
+  /// KARA LİSTE damgası (null = kara listede değil) — v12.
+  ///
+  /// `deletedAt` İLE KARIŞTIRILMAMALI, ikisi ayrı karardır: silinen müşteri listeden DÜŞER,
+  /// kara listedeki müşteri listede KALIR ve rozetiyle görünür. Bayi ödemeyen müşteriyi gözden
+  /// kaybetmek istemez — tam tersine görünsün ki borcunu takip etsin; kısıtlanan tek şey ona
+  /// YENİ SİPARİŞ açmaktır.
+  final String? blacklistedAt;
   final String updatedOccurredAt;
   final String? updatedDeviceId;
   final String? deletedAt;
@@ -249,6 +282,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     this.note,
     this.code,
     required this.balanceKurus,
+    this.blacklistedAt,
     required this.updatedOccurredAt,
     this.updatedDeviceId,
     this.deletedAt,
@@ -265,6 +299,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       map['code'] = Variable<int>(code);
     }
     map['balance_kurus'] = Variable<int>(balanceKurus);
+    if (!nullToAbsent || blacklistedAt != null) {
+      map['blacklisted_at'] = Variable<String>(blacklistedAt);
+    }
     map['updated_occurred_at'] = Variable<String>(updatedOccurredAt);
     if (!nullToAbsent || updatedDeviceId != null) {
       map['updated_device_id'] = Variable<String>(updatedDeviceId);
@@ -282,6 +319,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       code: code == null && nullToAbsent ? const Value.absent() : Value(code),
       balanceKurus: Value(balanceKurus),
+      blacklistedAt: blacklistedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(blacklistedAt),
       updatedOccurredAt: Value(updatedOccurredAt),
       updatedDeviceId: updatedDeviceId == null && nullToAbsent
           ? const Value.absent()
@@ -303,6 +343,7 @@ class Customer extends DataClass implements Insertable<Customer> {
       note: serializer.fromJson<String?>(json['note']),
       code: serializer.fromJson<int?>(json['code']),
       balanceKurus: serializer.fromJson<int>(json['balanceKurus']),
+      blacklistedAt: serializer.fromJson<String?>(json['blacklistedAt']),
       updatedOccurredAt: serializer.fromJson<String>(json['updatedOccurredAt']),
       updatedDeviceId: serializer.fromJson<String?>(json['updatedDeviceId']),
       deletedAt: serializer.fromJson<String?>(json['deletedAt']),
@@ -317,6 +358,7 @@ class Customer extends DataClass implements Insertable<Customer> {
       'note': serializer.toJson<String?>(note),
       'code': serializer.toJson<int?>(code),
       'balanceKurus': serializer.toJson<int>(balanceKurus),
+      'blacklistedAt': serializer.toJson<String?>(blacklistedAt),
       'updatedOccurredAt': serializer.toJson<String>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
       'deletedAt': serializer.toJson<String?>(deletedAt),
@@ -329,6 +371,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     Value<String?> note = const Value.absent(),
     Value<int?> code = const Value.absent(),
     int? balanceKurus,
+    Value<String?> blacklistedAt = const Value.absent(),
     String? updatedOccurredAt,
     Value<String?> updatedDeviceId = const Value.absent(),
     Value<String?> deletedAt = const Value.absent(),
@@ -338,6 +381,9 @@ class Customer extends DataClass implements Insertable<Customer> {
     note: note.present ? note.value : this.note,
     code: code.present ? code.value : this.code,
     balanceKurus: balanceKurus ?? this.balanceKurus,
+    blacklistedAt: blacklistedAt.present
+        ? blacklistedAt.value
+        : this.blacklistedAt,
     updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
     updatedDeviceId: updatedDeviceId.present
         ? updatedDeviceId.value
@@ -353,6 +399,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       balanceKurus: data.balanceKurus.present
           ? data.balanceKurus.value
           : this.balanceKurus,
+      blacklistedAt: data.blacklistedAt.present
+          ? data.blacklistedAt.value
+          : this.blacklistedAt,
       updatedOccurredAt: data.updatedOccurredAt.present
           ? data.updatedOccurredAt.value
           : this.updatedOccurredAt,
@@ -371,6 +420,7 @@ class Customer extends DataClass implements Insertable<Customer> {
           ..write('note: $note, ')
           ..write('code: $code, ')
           ..write('balanceKurus: $balanceKurus, ')
+          ..write('blacklistedAt: $blacklistedAt, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
           ..write('deletedAt: $deletedAt')
@@ -385,6 +435,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     note,
     code,
     balanceKurus,
+    blacklistedAt,
     updatedOccurredAt,
     updatedDeviceId,
     deletedAt,
@@ -398,6 +449,7 @@ class Customer extends DataClass implements Insertable<Customer> {
           other.note == this.note &&
           other.code == this.code &&
           other.balanceKurus == this.balanceKurus &&
+          other.blacklistedAt == this.blacklistedAt &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId &&
           other.deletedAt == this.deletedAt);
@@ -409,6 +461,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
   final Value<String?> note;
   final Value<int?> code;
   final Value<int> balanceKurus;
+  final Value<String?> blacklistedAt;
   final Value<String> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
   final Value<String?> deletedAt;
@@ -419,6 +472,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     this.note = const Value.absent(),
     this.code = const Value.absent(),
     this.balanceKurus = const Value.absent(),
+    this.blacklistedAt = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -430,6 +484,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     this.note = const Value.absent(),
     this.code = const Value.absent(),
     this.balanceKurus = const Value.absent(),
+    this.blacklistedAt = const Value.absent(),
     required String updatedOccurredAt,
     this.updatedDeviceId = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -443,6 +498,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     Expression<String>? note,
     Expression<int>? code,
     Expression<int>? balanceKurus,
+    Expression<String>? blacklistedAt,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
     Expression<String>? deletedAt,
@@ -454,6 +510,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
       if (note != null) 'note': note,
       if (code != null) 'code': code,
       if (balanceKurus != null) 'balance_kurus': balanceKurus,
+      if (blacklistedAt != null) 'blacklisted_at': blacklistedAt,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -467,6 +524,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     Value<String?>? note,
     Value<int?>? code,
     Value<int>? balanceKurus,
+    Value<String?>? blacklistedAt,
     Value<String>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
     Value<String?>? deletedAt,
@@ -478,6 +536,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
       note: note ?? this.note,
       code: code ?? this.code,
       balanceKurus: balanceKurus ?? this.balanceKurus,
+      blacklistedAt: blacklistedAt ?? this.blacklistedAt,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -503,6 +562,9 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     if (balanceKurus.present) {
       map['balance_kurus'] = Variable<int>(balanceKurus.value);
     }
+    if (blacklistedAt.present) {
+      map['blacklisted_at'] = Variable<String>(blacklistedAt.value);
+    }
     if (updatedOccurredAt.present) {
       map['updated_occurred_at'] = Variable<String>(updatedOccurredAt.value);
     }
@@ -526,6 +588,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
           ..write('note: $note, ')
           ..write('code: $code, ')
           ..write('balanceKurus: $balanceKurus, ')
+          ..write('blacklistedAt: $blacklistedAt, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
           ..write('deletedAt: $deletedAt, ')
@@ -11096,6 +11159,7 @@ typedef $$CustomersTableCreateCompanionBuilder =
       Value<String?> note,
       Value<int?> code,
       Value<int> balanceKurus,
+      Value<String?> blacklistedAt,
       required String updatedOccurredAt,
       Value<String?> updatedDeviceId,
       Value<String?> deletedAt,
@@ -11108,6 +11172,7 @@ typedef $$CustomersTableUpdateCompanionBuilder =
       Value<String?> note,
       Value<int?> code,
       Value<int> balanceKurus,
+      Value<String?> blacklistedAt,
       Value<String> updatedOccurredAt,
       Value<String?> updatedDeviceId,
       Value<String?> deletedAt,
@@ -11145,6 +11210,11 @@ class $$CustomersTableFilterComposer
 
   ColumnFilters<int> get balanceKurus => $composableBuilder(
     column: $table.balanceKurus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get blacklistedAt => $composableBuilder(
+    column: $table.blacklistedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11198,6 +11268,11 @@ class $$CustomersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get blacklistedAt => $composableBuilder(
+    column: $table.blacklistedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get updatedOccurredAt => $composableBuilder(
     column: $table.updatedOccurredAt,
     builder: (column) => ColumnOrderings(column),
@@ -11237,6 +11312,11 @@ class $$CustomersTableAnnotationComposer
 
   GeneratedColumn<int> get balanceKurus => $composableBuilder(
     column: $table.balanceKurus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get blacklistedAt => $composableBuilder(
+    column: $table.blacklistedAt,
     builder: (column) => column,
   );
 
@@ -11287,6 +11367,7 @@ class $$CustomersTableTableManager
                 Value<String?> note = const Value.absent(),
                 Value<int?> code = const Value.absent(),
                 Value<int> balanceKurus = const Value.absent(),
+                Value<String?> blacklistedAt = const Value.absent(),
                 Value<String> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
                 Value<String?> deletedAt = const Value.absent(),
@@ -11297,6 +11378,7 @@ class $$CustomersTableTableManager
                 note: note,
                 code: code,
                 balanceKurus: balanceKurus,
+                blacklistedAt: blacklistedAt,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
                 deletedAt: deletedAt,
@@ -11309,6 +11391,7 @@ class $$CustomersTableTableManager
                 Value<String?> note = const Value.absent(),
                 Value<int?> code = const Value.absent(),
                 Value<int> balanceKurus = const Value.absent(),
+                Value<String?> blacklistedAt = const Value.absent(),
                 required String updatedOccurredAt,
                 Value<String?> updatedDeviceId = const Value.absent(),
                 Value<String?> deletedAt = const Value.absent(),
@@ -11319,6 +11402,7 @@ class $$CustomersTableTableManager
                 note: note,
                 code: code,
                 balanceKurus: balanceKurus,
+                blacklistedAt: blacklistedAt,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
                 deletedAt: deletedAt,

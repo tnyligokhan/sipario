@@ -36,11 +36,15 @@ class KapsamOzeti {
     required this.kasa,
     required this.teslimat,
     required this.acikSiparis,
+    this.iskonto = 0,
   });
 
   final KasaOzeti kasa;
   final int teslimat;
   final int acikSiparis;
+
+  /// Kapıda kırılan toplam (pozitif kuruş). [kasa]nın İÇİNDE DEĞİLDİR — kasaya hiç girmedi.
+  final int iskonto;
 }
 
 /// KAPSAM özeti. [kuryeId] null ise gün geneli.
@@ -57,6 +61,7 @@ Future<KapsamOzeti> kapsamOzeti(
   return KapsamOzeti(
     kasa: await repo.kasaOzeti(localDate, userId: kuryeId),
     teslimat: await repo.teslimatSayisi(localDate, userId: kuryeId),
+    iskonto: await repo.iskontoOzeti(localDate, userId: kuryeId),
     acikSiparis: await acikSiparisSayisi(db, localDate, kuryeId: kuryeId),
   );
 }

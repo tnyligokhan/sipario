@@ -204,16 +204,19 @@ object CallerCard {
     // ═══════════════════════════════════════════════════════════════════════════════════════
 
     /**
-     * "Son sipariş: Yolda · 10:24" — kartın son sipariş satırı ve bildirimin aynı satırı.
+     * "Son sipariş: Hazırlanıyor · 23 dk önce" — kartın son sipariş satırı ve bildirimin
+     * aynı satırı.
      *
      * Bayi telefonda "siparişim nerede" sorusuna kartı okuyarak cevap verir; durum bu yüzden
      * sipariş dökümünden ÖNCE gelir. Sözcükler cümle içinde okunacak biçimde uzun tutuldu
      * (liste rozetindeki "Açık/Teslim/İptal" kısaltmaları kartta anlamı taşımıyordu).
+     *
+     * Satırın sonu AÇIK siparişte yaştır, kapanmışta saattir — [siparisZamanMetni].
      */
     fun sonSiparisSatiri(s: CustomerLookup.SonSiparis): String {
-        val saat = saatMetni(s.occurredAt)
+        val zaman = siparisZamanMetni(s.occurredAt, siparisAcikMi(s.durum))
         val durum = siparisDurumEtiketi(s)
-        return if (saat.isEmpty()) "Son sipariş: $durum" else "Son sipariş: $durum · $saat"
+        return if (zaman.isEmpty()) "Son sipariş: $durum" else "Son sipariş: $durum · $zaman"
     }
 
     /**
@@ -228,9 +231,59 @@ object CallerCard {
     }
 
     /**
+     * Sipariş hâlâ bekliyor mu ("Hazırlanıyor"/"Yolda"). Kapanmış durumların dışında kalan her
+     * şey açıktır — tanınmayan `status` değeri de. Dart `siparisAcikMi` aynası.
+     */
+    fun siparisAcikMi(durum: String): Boolean = durum != "delivered" && durum != "cancelled"
+
+    /**
+     * Son sipariş satırının zaman parçası. AÇIK siparişte mutlak saat değil YAŞ yazar
+     * ("23 dk önce"), kapanmış siparişte [saatMetni] davranışı aynen sürer.
+     *
+     * Kullanıcı isteği (2026-07-30): kart "Son sipariş: Hazırlanıyor · 10:24" yazıyordu; bayi
+     * telefonda "ne zamandır bekliyor" sorusuna cevap verirken saati zihninden çıkarmak
+     * zorunda kalıyordu. Açık siparişin sorusu SÜREDİR, saat değil. Teslim/iptal edilmiş
+     * siparişte soru yeniden "ne zamandı"ya döner — orada saat kalır.
+     *
+     * Sözcükler sipariş listesindeki bekleme süresiyle (Dart `order_queries.gecenSure`:
+     * "12 dk" · "1 sa 5 dk") AYNI, sonuna " önce" eklenmiştir; 1 dakikadan yeni sipariş
+     * "az önce"dir ("0 dk önce" siparişin henüz girilmediğini düşündürürdü). 24 saati geçen
+     * açık siparişte dakika gürültüdür, orada [saatMetni] devralır (Dün · gün adı · gün.ay).
+     *
+     * İLERİ tarihli damga (cihaz saati geri alınmış) "az önce" sayılır — "−3 dk önce" yazmak
+     * veriye güveni sarsar; [saatMetni]'nin negatif gün farkındaki duruşunun aynısı.
+     *
+     * Dart `cagriSiparisZamanMetni` ile AYNI kurallar (iki kart aynı çağrıda aynı metni
+     * yazmalı). Metin çizim anında DONAR: kart saniyeler yaşar, sayacı ilerletmek için
+     * zamanlayıcı kurmak 1 saniyelik açılış bütçesine yazılacak bir maliyet olurdu.
+     */
+    fun siparisZamanMetni(iso: String, acik: Boolean, simdi: Instant = Instant.now()): String {
+        val bugun = simdi.atZone(ZoneId.systemDefault()).toLocalDate()
+        if (!acik) return saatMetni(iso, bugun)
+        val an = try {
+            Instant.parse(iso)
+        } catch (e: DateTimeParseException) {
+            return ""
+        }
+        val dakika = ChronoUnit.MINUTES.between(an, simdi)
+        return when {
+            dakika < 1L -> "az önce"
+            dakika < 60L -> "$dakika dk önce"
+            dakika < 24L * 60L -> {
+                val saat = dakika / 60L
+                val dk = dakika % 60L
+                if (dk == 0L) "$saat sa önce" else "$saat sa $dk dk önce"
+            }
+            else -> saatMetni(iso, bugun)
+        }
+    }
+
+    /**
      * ISO8601 UTC → "10:24" · "Dün" · "Per" · "02.07". Dart `cagriSaatMetni` ile AYNI kurallar
      * (iki kart aynı çağrıda aynı metni yazmalı). Okunamayan zaman boş döner; kart o zaman
      * yalnız durumu yazar, " · " ayracı asılı kalmaz.
+     *
+     * AÇIK siparişte satır bunu değil [siparisZamanMetni]'ni yazar (yaş).
      */
     fun saatMetni(iso: String, bugun: LocalDate = LocalDate.now()): String = try {
         val yerel = Instant.parse(iso).atZone(ZoneId.systemDefault())

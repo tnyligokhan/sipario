@@ -106,8 +106,22 @@ class OrderRepository {
   /// Kısmi ödeme bunu BOZMAZ: id'ler tutardan değil sipariş kimliğinden türüyor.
   ///
   /// collectedByUserId nakit atfıdır (kasa devri); verilmezse oturumdaki kullanıcıdan (syncMeta) alınır.
+  ///
+  /// [iskontoKurus] KAPIDA KIRILAN tutardır (pozitif kuruş, kullanıcı isteği 2026-07-30: 420 ₺lik
+  /// siparişten 400 ₺ alınıp kalan 20 ₺ borç YAZILMAZ). Deftere kendi tipiyle düşer —
+  /// `discount(−iskonto)`, `payment_type` TAŞIMAZ:
+  ///  • bakiye: iskonto borcu kapatır, müşteri borçlu GÖRÜNMEZ (bakiye = SUM(amount_kurus)),
+  ///  • kasa: `payment_type` taşımadığı için `kasaOzeti` onu SAYMAZ — sayılan nakit 400 ₺ kalır.
+  /// İkisini tek `payment` satırında toplamak (420 tahsil edilmiş gibi yazmak) kasayı her
+  /// iskontoda şişirir ve gün sonu farkını KANIT olmaktan çıkarıp gürültüye çevirirdi.
+  ///
+  /// ÜST SINIR kalan borçtur (`total − alınan`): daha fazlası bakiyeyi eksiye çevirir, yani
+  /// "kırdım" derken müşteriyi alacaklı yapardı. Alt sınır 0.
   Future<void> deliver(String orderId,
-      {required String paymentType, int? tahsilKurus, String? collectedByUserId}) async {
+      {required String paymentType,
+      int? tahsilKurus,
+      int iskontoKurus = 0,
+      String? collectedByUserId}) async {
     final meta = await db.syncState();
     final at = correctedNowIso(meta.serverTimeOffsetMs);
     final device = meta.deviceId;
@@ -153,6 +167,20 @@ class OrderRepository {
       if (alinan > 0) {
         await writeLedgerEntry(db, entryType: 'payment', amountKurus: -alinan, paymentType: paymentType,
             id: deliveryEventId(orderId, 'payment'), clientEventId: deliveryEventId(orderId, 'payment'),
+            collectedByUserId: collector,
+            customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
+      }
+
+      // Kırılan tutar. `collected_by_user_id` iskontoyu KİMİN verdiği olarak yazılır (kasa devri
+      // yalnız payment_type='nakit' satırlarını topladığı için beklenen nakit ETKİLENMEZ) —
+      // patron gün detayında hangi kuryenin ne kadar kırdığını görebilsin.
+      final kalanBorc = total - alinan;
+      var iskonto = iskontoKurus < 0 ? 0 : iskontoKurus;
+      if (iskonto > kalanBorc) iskonto = kalanBorc;
+      if (iskonto > 0) {
+        await writeLedgerEntry(db, entryType: 'discount', amountKurus: -iskonto,
+            id: deliveryEventId(orderId, 'discount'),
+            clientEventId: deliveryEventId(orderId, 'discount'),
             collectedByUserId: collector,
             customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
       }

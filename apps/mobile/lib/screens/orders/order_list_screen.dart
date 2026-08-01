@@ -111,7 +111,48 @@ class _OrderListScreenState extends State<OrderListScreen> {
 
   /// Ekranda o an gösterilen liste — "Oto Sırala" hangi siparişleri sıralayacağını buradan
   /// okur (kurye filtresi ve seçili sekme dahil, kullanıcının GÖRDÜĞÜ küme).
+  ///
+  /// DAİMA tazelenir, boş/yükleniyor dallarında da. Eskiden yalnız DOLU listede yazılıyordu;
+  /// boş bir sekmeye geçince eski sekmenin listesi burada kalıyor ve "Oto Sırala" kullanıcının
+  /// BAKMADIĞI bir kümeyi sıralayabiliyordu (sessiz bozulma).
   List<OrderListItem> _sonListe = const [];
+
+  /// Sipariş akışı filtreye bağlı ama build'de YENİDEN KURULMAZ. `watchOrders` her çağrıda yeni
+  /// bir Stream nesnesi döndürür; build'in içinde çağrılırsa StreamBuilder her setState'te akışı
+  /// "değişmiş" sayar, aboneliği kopatıp `null` snapshot'a düşer ve liste bir kare iskelete iner.
+  /// Kontör/rol akışı tik attıkça bu oluyordu — ve o karede `_sonListe` bayat kalıyordu.
+  Stream<List<OrderListItem>>? _siparisAkisi;
+  OrderFilter? _akisFiltre;
+  String? _akisKurye;
+
+  Stream<List<OrderListItem>> _siparisleriIzle() {
+    if (_siparisAkisi == null || _akisFiltre != _filtre || _akisKurye != _kuryeId) {
+      _akisFiltre = _filtre;
+      _akisKurye = _kuryeId;
+      _siparisAkisi = watchOrders(widget.db, _filtre, assignedTo: _kuryeId);
+    }
+    return _siparisAkisi!;
+  }
+
+  /// Rotaya girebilecek küme: görünen listenin YALNIZ açık siparişleri (sunucu da böyle süzer).
+  List<OrderListItem> get _rotaKumesi => [
+        for (final e in _sonListe)
+          if (e.order.status == 'open') e,
+      ];
+
+  /// "Oto Sırala" neden kullanılamıyor? null = kullanılabilir. Üç dalın üçü de DOĞRU cümledir;
+  /// amaç "sipariş yok" gibi kullanıcının gördüğüyle çelişen bir şey söylememek — açık siparişi
+  /// VAR, bu ekranın süzgeci onları elemiştir ve nerede olduklarını söylemek bizim işimiz.
+  String? get _otoKumeNedeni {
+    if (_rotaKumesi.length >= 2) return null;
+    if (_kuryeId != null) {
+      return '${_kuryeAdi ?? 'Seçili kurye'} için en az iki açık sipariş yok — süzgeci kaldırın.';
+    }
+    if (_filtre != OrderFilter.acik) {
+      return 'Rota yalnız açık siparişleri sıralar — "Açık" sekmesine geçin.';
+    }
+    return 'Rota için en az iki açık sipariş gerekir.';
+  }
 
   StreamSubscription<SyncMetaData>? _metaAbone;
 
@@ -282,16 +323,28 @@ class _OrderListScreenState extends State<OrderListScreen> {
               // `assignedTo` artık KURYE SÜZGECİDİR (saha hatası 6). Önceden oturumdaki
               // kullanıcı geçiliyordu ama sorgu bu parametreyi hiç kullanmıyordu — sessiz
               // ölü koddu. Kurye kendi işini "Açık" sekmesinde zaten görür.
-              stream: watchOrders(widget.db, _filtre, assignedTo: _kuryeId),
+              stream: _siparisleriIzle(),
               builder: (context, snap) {
-                if (snap.hasError) return SipHataEkran(onTekrar: () => setState(() {}));
+                // "Oto Sırala"nın kaynağı: kullanıcının GÖRDÜĞÜ küme. build sırasında setState
+                // ÇAĞRILMAZ — bu yalnız bir alan ataması, çizimi etkilemez. Hata/yükleniyor/boş
+                // dallarında küme BİLİNMİYOR demektir; bayat listeyi taşımak yerine boşaltılır.
+                if (snap.hasError) {
+                  _sonListe = const [];
+                  // "Tekrar dene" akışı YENİDEN KURMALI: artık akış önbellekli olduğu için
+                  // boş bir setState aynı ölü akışa geri abone olurdu (düğme hiçbir şey yapmaz).
+                  return SipHataEkran(onTekrar: () => setState(() => _siparisAkisi = null));
+                }
                 final ham = snap.data;
-                if (ham == null) return const SipIskelet(adet: 4);
-                if (ham.isEmpty) return _bos();
+                if (ham == null) {
+                  _sonListe = const [];
+                  return const SipIskelet(adet: 4);
+                }
+                if (ham.isEmpty) {
+                  _sonListe = const [];
+                  return _bos();
+                }
 
                 final liste = siparisleriSirala(ham, _sirala, elleSira: _elleSira);
-                // "Oto Sırala"nın kaynağı: kullanıcının GÖRDÜĞÜ küme. build sırasında
-                // setState ÇAĞRILMAZ — bu yalnız bir alan ataması, çizimi etkilemez.
                 _sonListe = liste;
                 return SiparisListesi(
                   liste: liste,
@@ -417,6 +470,8 @@ class _OrderListScreenState extends State<OrderListScreen> {
       // hak bilinmiyorken PASİF olur (sheet nedeni yazar) — kapı korunur, yetenek gizlenmez.
       otoHak: _otoHak,
       yazilabilir: widget.writable,
+      // Küme yetersizse düğme DOKUNULMADAN ÖNCE pasifleşir ve nedenini yazar.
+      otoKumeNedeni: _otoKumeNedeni,
       onOtoSirala: _otoSirala,
     );
     if (secim == null || !mounted) return;
@@ -458,17 +513,17 @@ class _OrderListScreenState extends State<OrderListScreen> {
   /// Bu, uygulamanın TEK çevrimİÇİ zorunlu eylemidir. Başarısızlıkta mevcut sıra AYNEN kalır;
   /// yarım uygulanmış bir rota bırakmaz.
   Future<void> _otoSirala() async {
-    // YALNIZ AÇIK siparişler rotaya girer — sunucu zaten öyle süzüyor. Eskiden görünen kümenin
-    // TAMAMI gönderiliyordu; "Tümü/Teslim/Borçlu" sekmesinde kapalı siparişler sunucu cevabından
-    // düşüyor ve SESSİZCE listenin sonuna gidiyordu (inceleme bulgusu 2026-07-29). Sessiz bozulma
-    // yasak: kapalılar hiç gönderilmez ve sayısı toast'ta söylenir.
-    final liste = [
-      for (final e in _sonListe)
-        if (e.order.status == 'open') e,
-    ];
+    // Kapalılar rotaya HİÇ gönderilmez (`_rotaKumesi`) ama görünen kümeden kaç tanesinin
+    // düştüğü toast'ta SÖYLENİR: "sıraladım" deyip listenin bir kısmını sessizce sona atmak
+    // yasak (inceleme bulgusu 2026-07-29).
+    final liste = _rotaKumesi;
     final kapali = _sonListe.length - liste.length;
-    if (liste.length < 2) {
-      SipToast.goster(context, 'Sıralanacak en az iki açık sipariş gerekir');
+    // EMNİYET AĞI: düğme küme yetersizken zaten pasif çizilir (`_otoKumeNedeni`), ama sheet
+    // açıkken senkron listeyi değiştirmiş olabilir. Mesaj düğmenin altındakiyle AYNI cümledir —
+    // kullanıcı iki farklı gerekçe duymaz.
+    final nedeni = _otoKumeNedeni;
+    if (nedeni != null) {
+      SipToast.goster(context, nedeni);
       return;
     }
 

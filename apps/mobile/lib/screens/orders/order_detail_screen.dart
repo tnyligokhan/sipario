@@ -307,8 +307,9 @@ class _Govde extends StatelessWidget {
     );
   }
 
-  /// Teslim + KISMİ ÖDEME: sheet ne kadar tahsil edildiğini döner, `deliver` alınan parayı
-  /// `payment` olarak yazar; kalan fark ödenmemiş `debit` olarak borçta durur (ayrı kayıt YOK).
+  /// Teslim + KISMİ ÖDEME + İSKONTO: sheet ne kadar tahsil edildiğini VE ne kadar kırıldığını
+  /// döner. `deliver` alınan parayı `payment`, kırılanı `discount` olarak yazar; ikisinden de
+  /// artan fark ödenmemiş `debit` olarak borçta durur (kalan borç için ayrı kayıt YOK).
   Future<void> _teslimEt(BuildContext context) async {
     final musteriId = order.customerId;
     final toplam = satirlarToplami(satirlar);
@@ -324,13 +325,20 @@ class _Govde extends StatelessWidget {
         oncekiBakiyeKurus: oncekiBakiye);
     if (sonuc == null || !context.mounted) return;
 
-    await OrderRepository(db)
-        .deliver(order.id, paymentType: sonuc.odemeTipi, tahsilKurus: sonuc.tahsilKurus);
+    await OrderRepository(db).deliver(order.id,
+        paymentType: sonuc.odemeTipi,
+        tahsilKurus: sonuc.tahsilKurus,
+        iskontoKurus: sonuc.iskontoKurus);
     if (!context.mounted) return;
 
     // Bayi teslim anında en çok "borç kaldı mı" diye merak eder — kısmi teslimde toast onu söyler.
-    final kalan = teslimBorcFarki(toplamKurus: toplam, tahsilKurus: sonuc.tahsilKurus);
-    final ek = kalan > 0 && sonuc.odemeTipi != 'veresiye' ? ' · ${sipTutar(kalan)} borç' : '';
+    // İskontoda borç KALMAZ, o yüzden toast borcu değil kırılan tutarı yazar: aynı farkın iki ayrı
+    // anlamı var ve hangisinin kaydedildiği teslimden sonra da okunabilmeli.
+    final kalan = teslimBorcFarki(toplamKurus: toplam, tahsilKurus: sonuc.tahsilKurus) -
+        sonuc.iskontoKurus;
+    final ek = sonuc.iskontoKurus > 0
+        ? ' · ${sipTutar(sonuc.iskontoKurus)} iskonto'
+        : (kalan > 0 && sonuc.odemeTipi != 'veresiye' ? ' · ${sipTutar(kalan)} borç' : '');
     SipToast.goster(context, 'Sipariş teslim edildi · ${odemeTipiEtiketi(sonuc.odemeTipi)}$ek');
     Navigator.of(context).maybePop();
   }

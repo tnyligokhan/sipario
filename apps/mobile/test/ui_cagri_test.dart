@@ -351,6 +351,68 @@ void main() {
     });
   });
 
+  // Native karttaki `CallerCard.siparisZamanMetni` ile AYNI kurallar — iki kart aynı
+  // siparişte aynı metni yazmak zorunda (Kotlin tarafında birim test altyapısı yok,
+  // sözleşmeyi burası kilitler).
+  group('cagriSiparisZamanMetni — açık siparişte YAŞ, kapanmışta saat', () {
+    final simdi = DateTime(2026, 7, 26, 14, 30);
+    String yas(DateTime an) => cagriSiparisZamanMetni(an, acik: true, simdi: simdi);
+
+    test('1 dakikadan yeni sipariş "az önce"dir', () {
+      expect(yas(DateTime(2026, 7, 26, 14, 30)), 'az önce');
+      expect(yas(DateTime(2026, 7, 26, 14, 29, 1)), 'az önce');
+    });
+
+    test('60 dakikaya kadar dakika yazılır', () {
+      expect(yas(DateTime(2026, 7, 26, 14, 29)), '1 dk önce');
+      expect(yas(DateTime(2026, 7, 26, 14, 7)), '23 dk önce');
+      expect(yas(DateTime(2026, 7, 26, 13, 31)), '59 dk önce');
+    });
+
+    test('60 dakikadan sonra saat + dakika (gecikme dakikası ÖNEMLİDİR)', () {
+      expect(yas(DateTime(2026, 7, 26, 13, 30)), '1 sa önce');
+      expect(yas(DateTime(2026, 7, 26, 13, 25)), '1 sa 5 dk önce');
+      expect(yas(DateTime(2026, 7, 26, 12, 35)), '1 sa 55 dk önce');
+      expect(yas(DateTime(2026, 7, 25, 15, 0)), '23 sa 30 dk önce');
+    });
+
+    test('24 saati geçen açık siparişte gün gösterimine düşülür', () {
+      // Tam 24 saat: artık "Dün".
+      expect(yas(DateTime(2026, 7, 25, 14, 30)), 'Dün');
+      expect(yas(DateTime(2026, 7, 23, 8, 0)), 'Per');
+      expect(yas(DateTime(2026, 7, 2, 8, 0)), '02.07');
+    });
+
+    test('İLERİ tarihli damga "az önce" sayılır, "−3 dk önce" yazılmaz', () {
+      expect(yas(DateTime(2026, 7, 26, 14, 33)), 'az önce');
+      expect(yas(DateTime(2026, 7, 28, 9, 0)), 'az önce');
+    });
+
+    test('KAPANMIŞ siparişte cagriSaatMetni davranışı aynen sürer', () {
+      String kapali(DateTime an) =>
+          cagriSiparisZamanMetni(an, acik: false, simdi: simdi);
+
+      expect(kapali(DateTime(2026, 7, 26, 10, 24)), '10:24');
+      expect(kapali(DateTime(2026, 7, 26, 14, 7)), '14:07',
+          reason: 'teslim edilmiş siparişte 23 dakika önce olması bir şey değiştirmez');
+      expect(kapali(DateTime(2026, 7, 25, 22, 0)), 'Dün');
+      expect(kapali(DateTime(2026, 7, 2, 8, 0)), '02.07');
+    });
+
+    test('okunamayan zaman iki durumda da boş metin verir', () {
+      expect(cagriSiparisZamanMetni(null, acik: true, simdi: simdi), '');
+      expect(cagriSiparisZamanMetni(null, acik: false, simdi: simdi), '');
+    });
+
+    test('siparisAcikMi: yalnız teslim/iptal kapalıdır', () {
+      expect(siparisAcikMi('open'), isTrue);
+      expect(siparisAcikMi('delivered'), isFalse);
+      expect(siparisAcikMi('cancelled'), isFalse);
+      // Tanınmayan durum açık sayılır: kart bir siparişi yok saymaktansa yaşını yazar.
+      expect(siparisAcikMi('zort'), isTrue);
+    });
+  });
+
   group('cagriKisiCoz — kartın DÖRT varyantı deftere bağlanır', () {
     late AppDatabase db;
 
@@ -439,7 +501,7 @@ void main() {
       expect((await cagriKisiCoz(db, '0533 111 11 11')).kayitli, isFalse);
     });
 
-    test('SON SİPARİŞ satırı: "Son sipariş: {özet} · {saat}" ve kutu ikonu', () async {
+    test('SON SİPARİŞ satırı: "Son sipariş: {özet} · {yaş}" ve kutu ikonu', () async {
       final id = await musteriKur('Siparişli', '+905321112233');
       await LedgerRepository(db).borcEkle(id, 5000); // sipariş VARSA defter hareketi geri kalır
       // KATALOG satırı `productId` İLE kurulur: `×adet` yazımının koşulu bu (serbest satırın
@@ -458,9 +520,31 @@ void main() {
 
       expect(kisi.sonHareketTuru, SonHareketTuru.siparis);
       // Katalog kalemi "×adet" ile, serbest kalem adetsiz (s-veri.jsx `siparisOzet`).
+      // Sipariş AÇIK ve az önce girildi: satırın sonu saat değil yaştır.
       expect(
         kisi.sonHareket,
-        matches(RegExp(r'^Son sipariş: Damacana 19 L ×2 · Kapı tamiri · \d{2}:\d{2}$')),
+        'Son sipariş: Damacana 19 L ×2 · Kapı tamiri · az önce',
+      );
+      expect(kisi.sonSiparisDurumu, 'Hazırlanıyor');
+    });
+
+    test('TESLİM EDİLMİŞ siparişte satırın sonu SAAT olarak kalır', () async {
+      final id = await musteriKur('Teslimli', '+905321113344');
+      final urunId = await ProductRepository(db)
+          .create(name: 'Damacana 19 L', unitPriceKurus: 4500);
+      final siparisId = await OrderRepository(db).create(customerId: id, lines: [
+        LineInput(
+            productId: urunId, productName: 'Damacana 19 L', unitPriceKurus: 4500, qty: 1),
+      ]);
+      await OrderRepository(db).deliver(siparisId, paymentType: 'nakit');
+
+      final kisi = await cagriKisiCoz(db, '+905321113344');
+
+      expect(kisi.sonSiparisDurumu, 'Teslim edildi');
+      expect(
+        kisi.sonHareket,
+        matches(RegExp(r'^Son sipariş: Damacana 19 L ×1 · \d{2}:\d{2}$')),
+        reason: 'kapanmış siparişin sorusu "ne zamandı"dır, yaş değil',
       );
     });
 

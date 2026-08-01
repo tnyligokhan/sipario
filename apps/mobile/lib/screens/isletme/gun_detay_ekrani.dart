@@ -101,6 +101,15 @@ class _Govde extends StatelessWidget {
               deger: sipTutar(d.kasa.toplam),
               toplam: true,
             ),
+            // Gün sonu ekranıyla AYNI kural: iskonto toplamın ALTINDA ve yalnız varsa. Geçmiş
+            // günde bu satır daha da gereklidir — o günü kapatan kişi ortada olmayabilir ve
+            // "ciro 420 ama kasa 400" sorusunun cevabı başka hiçbir yerde yazmaz.
+            if (d.iskonto > 0)
+              DegerSatiri(
+                etiket: 'İskonto (kasaya girmedi)',
+                deger: sipTutar(d.iskonto),
+                degerRengi: context.sip.warn,
+              ),
           ],
         ),
 

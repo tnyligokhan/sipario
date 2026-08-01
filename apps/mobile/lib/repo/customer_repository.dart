@@ -63,7 +63,7 @@ class CustomerRepository {
           entityId: customerId,
           occurredAt: at,
           deviceId: device,
-          payload: {'id': customerId, 'name': name, 'note': note});
+          payload: _payload(customerId, name, note, null));
 
       for (final phone in phones) {
         await _insertPhone(customerId, phone, at, device);
@@ -77,12 +77,18 @@ class CustomerRepository {
   }
 
   /// Müşteri alanlarını düzenle (ad/not) — LWW meta tazelenir.
+  ///
+  /// KARA LİSTE DAMGASI OKUNUP GERİ GÖNDERİLİR: sunucu `customer` upsert'ini LWW ile TAM SATIR
+  /// olarak uygular, yani payload'da olmayan alan `null` yazılır. Damgayı taşımasaydık kara
+  /// listedeki bir müşterinin yalnız adını düzeltmek onu SESSİZCE kara listeden çıkarırdı.
   Future<void> rename(String customerId, {required String name, String? note}) async {
     final meta = await db.syncState();
     final at = correctedNowIso(meta.serverTimeOffsetMs);
     final device = meta.deviceId;
 
     await db.transaction(() async {
+      final mevcut = await (db.select(db.customers)..where((t) => t.id.equals(customerId)))
+          .getSingleOrNull();
       await (db.update(db.customers)..where((t) => t.id.equals(customerId))).write(
         CustomersCompanion(
           name: Value(name),
@@ -97,9 +103,52 @@ class CustomerRepository {
           entityId: customerId,
           occurredAt: at,
           deviceId: device,
-          payload: {'id': customerId, 'name': name, 'note': note});
+          payload: _payload(customerId, name, note, mevcut?.blacklistedAt));
     });
   }
+
+  /// Kara listeye al / listeden çıkar. [ekle] true ise damga şimdi, false ise temizlenir.
+  ///
+  /// SİLME DEĞİLDİR: müşteri listede kalır, yalnız yeni sipariş açılamaz. Ayrı bir senkron op'u
+  /// YOK — bu müşterinin bir ALANI ve çakışması tam da LWW'nin çözdüğü şeydir (iki cihaz ters
+  /// yönde karar verirse son karar kazanır).
+  Future<void> karaListe(String customerId, {required bool ekle}) async {
+    final meta = await db.syncState();
+    final at = correctedNowIso(meta.serverTimeOffsetMs);
+    final device = meta.deviceId;
+
+    await db.transaction(() async {
+      final mevcut = await (db.select(db.customers)..where((t) => t.id.equals(customerId)))
+          .getSingleOrNull();
+      if (mevcut == null) return;
+
+      final damga = ekle ? at : null;
+      await (db.update(db.customers)..where((t) => t.id.equals(customerId))).write(
+        CustomersCompanion(
+          blacklistedAt: Value(damga),
+          updatedOccurredAt: Value(at),
+          updatedDeviceId: Value(device),
+        ),
+      );
+      await enqueueOutbox(db,
+          entityType: 'customer',
+          op: 'upsert',
+          entityId: customerId,
+          occurredAt: at,
+          deviceId: device,
+          payload: _payload(customerId, mevcut.name, mevcut.note, damga));
+    });
+  }
+
+  /// `customer` upsert payload'ının TEK üretim noktası. Sunucu tarafı bunu tam satır olarak
+  /// uyguladığı için alan eklemek/unutmak sessiz veri kaybıdır — tek yerde tutulur.
+  static Map<String, Object?> _payload(
+    String id,
+    String name,
+    String? note,
+    String? blacklistedAt,
+  ) =>
+      {'id': id, 'name': name, 'note': note, 'blacklisted_at': blacklistedAt};
 
   /// Arşivle (tombstone). Silme fiziksel değildir; deleted_at işaretlenir + outbox delete.
   Future<void> archive(String customerId) async {

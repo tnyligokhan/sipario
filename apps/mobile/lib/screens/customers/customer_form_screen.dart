@@ -21,6 +21,7 @@ import '../../theme/typography.dart';
 import 'customer_form_ops.dart';
 import 'customer_location_picker.dart';
 import 'customer_widgets.dart';
+import 'sesli_giris.dart';
 
 /// Yeni müşteri sheet'i. [onTel] gelen çağrıdan geliyorsa ilk telefon alanı onunla açılır.
 /// `true` dönerse kayıt yapıldı.
@@ -97,6 +98,10 @@ class _MusteriFormuState extends State<_MusteriFormu> {
   // ── Sesli giriş ────────────────────────────────────────────────────────────────────────
   late final SesliGiris _ses = sesliGirisUret();
 
+  /// Motor oturumlarını, metin birikimini ve otomatik devamı yürütür — ekran yalnız HANGİ alanın
+  /// dinlendiğini bilir.
+  late final DikteSurucusu _dikte = DikteSurucusu(ses: _ses, canli: () => mounted);
+
   /// O an dinlenen alanın adı (aynı anda TEK alan dinlenir); null = dinleme yok.
   String? _dinlenenAlan;
 
@@ -153,9 +158,11 @@ class _MusteriFormuState extends State<_MusteriFormu> {
   }) async {
     if (_dinlenenAlan != null) {
       final ayniAlan = _dinlenenAlan == alan;
-      await _ses.durdur();
-      if (!mounted) return;
+      // Bant durdurmadan ÖNCE söner: sürücü motorun kapanışını otomatik devamdan ayırt eder,
+      // ekranın da aynı anda "artık dinlemiyoruz" demesi gerekir.
       setState(() => _dinlenenAlan = null);
+      await _dikte.durdur();
+      if (!mounted) return;
       if (ayniAlan) return; // ikinci dokunuş = durdur
     }
     setState(() {
@@ -164,21 +171,22 @@ class _MusteriFormuState extends State<_MusteriFormu> {
       _sesMesajAlani = null;
     });
 
-    // Dinleme BAŞLARKENKİ metin taban alınır: her kısmi sonuçta yeniden birleştirilir, böylece
-    // konuşma sürerken alan büyür ama kullanıcının önceden yazdığı metin tekrarlanmaz/silinmez.
-    final taban = kontrol.text;
-    await _ses.dinle(
-      onMetin: (metin) {
-        final yeni = sesMetniBirlestir(taban, metin);
+    // Dinleme BAŞLARKENKİ metin taban alınır; tanınan her cümle onun SONUNA eklenir. Böylece hem
+    // kullanıcının elle yazdığı metin hem de önceki cümleler korunur (bkz. [DikteSurucusu]).
+    await _dikte.basla(
+      taban: kontrol.text,
+      yaz: (yeni) {
         kontrol.value = TextEditingValue(
           text: yeni,
+          // İmleç SONA konur: alan çok satırlı ve dolduğunda kendi içinde kayar; imleci sonda
+          // tutmak yazılanın SONUNU görünür kılar (uzun adreste asıl dert budur).
           selection: TextSelection.collapsed(offset: yeni.length),
         );
         // SipInput.onChanged YALNIZ kullanıcı yazınca tetiklenir; programatik yazımda alanın
         // yan etkilerini (hata temizleme, konum sıfırlama) elle çağırmak zorundayız.
         degisince?.call();
       },
-      onBitis: (gerekce) {
+      bitti: (gerekce) {
         if (!mounted) return;
         setState(() {
           _dinlenenAlan = null;
@@ -461,8 +469,15 @@ class _MusteriFormuState extends State<_MusteriFormu> {
           ad: 'Adres',
           kontrol: _adres,
           degisince: _adresDegisti,
+          // ÇOK SATIRLI (2026-07-31 saha şikâyeti: "adres kaydı esnasında sesli yazdırırken
+          // uzun adresin sonu gözükmüyor"). Tek satırlık kutuda mahalle-sokak-no-tarif yan yana
+          // akıyor ve kullanıcı SÖYLEDİĞİNİN doğru yazıldığını göremiyordu; göremediğini de
+          // düzeltemiyordu. Üç satır tipik bir adresi bütün olarak gösterir, taşan kısımda ise
+          // imleç sonda tutulduğu için kutu kendi içinde sona kayar.
+          ustHizala: true,
           alan: SipInput(
             controller: _adres,
+            satirlar: 3,
             ipucu: 'Mahalle, sokak, no',
             hata: _adresHatasi != null,
             onChanged: (_) => _adresDegisti(),

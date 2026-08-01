@@ -39,7 +39,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.file() : super(_openOnDevice());
 
   @override
-  int get schemaVersion => 11; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş)
+  int get schemaVersion => 12; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -82,6 +82,16 @@ class AppDatabase extends _$AppDatabase {
             ),
           ]) {
             if (await _tabloVar(m, tablo)) await _addColumnIfMissing(m, sql);
+          }
+
+          // v12 — MÜŞTERİ KARA LİSTESİ (2026-08-01).
+          //
+          // v10/v11 ile AYNI SEBEPTEN kapıdan ÖNCE ve KOŞULSUZ: aşağıdaki kendini-onarma kapısı
+          // `tenant_settings`i görünce erken döner, `if (from < 12)` yazsaydık adım sahadaki
+          // hiçbir cihazda koşmazdı. Arıza sessiz olurdu: senkron `blacklisted_at`i yazacak
+          // kolonu bulamaz, kara liste hiç görünmezdi.
+          if (await _tabloVar(m, 'customers')) {
+            await _addColumnIfMissing(m, 'ALTER TABLE customers ADD COLUMN blacklisted_at TEXT');
           }
 
           // KENDİNİ ONARMA (2026-07-22 SAHA BULGUSU — iki gerçek cihazda yaşandı): Faz 0 ölçüm

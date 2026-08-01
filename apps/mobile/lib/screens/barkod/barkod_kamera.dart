@@ -11,6 +11,9 @@
 //
 // Çevrimdışı: `mobile_scanner` ML Kit'in PAKETE GÖMÜLÜ barkod modelini kullanır, çalışma
 // anında indirme yapmaz — depoda internet olmayabilir.
+//
+// FENER: görüntünün sağ üstünde AÇ/KAPA düğmesi (2026-07-31 saha isteği). Işık `mobile_scanner`
+// kontrolcüsünün KENDİ torch API'sinden gelir — yeni paket eklenmedi.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -68,6 +71,11 @@ class _KameraGovdeState extends State<_KameraGovde> {
   bool _dondu = false;
   String? _uyari;
 
+  /// Fener çalıştırılamadığında söylenen tek cümle. SESSİZ KALINMAZ: dokunulan ama hiçbir şey
+  /// yapmayan bir düğme kullanıcıya "uygulama bozuk" dedirtir (okunamayan kod uyarısıyla aynı
+  /// gerekçe).
+  static const String _fenerYokMesaji = 'Bu telefonda fener kullanılamıyor.';
+
   @override
   void dispose() {
     _kontrol.dispose();
@@ -86,6 +94,21 @@ class _KameraGovdeState extends State<_KameraGovde> {
     // Okundu ama ürün barkodu değil: sessiz kalmak "kamera bozuk" hissi verir.
     if (mounted) {
       setState(() => _uyari = 'Okunan kod ürün barkodu değil (en az 8 hane rakam).');
+    }
+  }
+
+  /// Feneri açar/kapatır (2026-07-31 saha isteği: "barkod okuma ekranına ışık düğmesi").
+  /// Depo rafı, kasa altı ve akşam servisi — barkodun okunduğu yerlerin çoğu loştur.
+  ///
+  /// ÇAĞRI TRY İÇİNDE: `toggleTorch` platform kanalına uzanır ve kamera henüz hazır değilken
+  /// (ya da eklentinin bulunmadığı widget testi/masaüstünde) fırlatır. Bu depoda try'ın DIŞINDA
+  /// kalan tek bir kanal çağrısı dosyanın TÜM testlerini düşürüyor — kanıtlı tuzak. Fener bir
+  /// KOLAYLIKTIR: çalışmasa da barkod okunmaya devam eder.
+  Future<void> _feneriDegistir() async {
+    try {
+      await _kontrol.toggleTorch();
+    } on Object {
+      if (mounted) setState(() => _uyari = _fenerYokMesaji);
     }
   }
 
@@ -112,7 +135,12 @@ class _KameraGovdeState extends State<_KameraGovde> {
                   child: SipIcon(SipIcons.barkod, boyut: 34, kalinlik: 1.5, renk: t.muted),
                 ),
               ),
-              overlayBuilder: (ctx, kisit) => const _NisanCizgisi(),
+              // Kaplama YALNIZ canlı görüntü varken çizilir (bu builder kamera açılamadığında
+              // hiç çağrılmaz) — elle girişin üstüne fener düğmesi düşmez.
+              overlayBuilder: (ctx, kisit) => _KameraKaplama(
+                kontrol: _kontrol,
+                onFener: _feneriDegistir,
+              ),
             ),
           ),
         ),
@@ -124,6 +152,103 @@ class _KameraGovdeState extends State<_KameraGovde> {
               .copyWith(color: _uyari == null ? t.muted : t.warn),
         ),
       ],
+    );
+  }
+}
+
+/// Canlı görüntünün üstündeki kaplama: nişan çizgisi + sağ üstte fener düğmesi.
+class _KameraKaplama extends StatelessWidget {
+  const _KameraKaplama({required this.kontrol, required this.onFener});
+
+  final MobileScannerController kontrol;
+  final VoidCallback onFener;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const _NisanCizgisi(),
+        Positioned(
+          top: SipSpace.md,
+          right: SipSpace.md,
+          // Fener durumu KONTROLCÜDEN okunur, ekranda ayrı bir bayrak tutulmaz: ışığı sistem de
+          // (pil koruması, kamera duraklatma) kapatabilir ve iki kaynak ayrışırsa düğme yalan
+          // söylerdi.
+          child: ValueListenableBuilder(
+            valueListenable: kontrol,
+            builder: (ctx, durum, _) => BarkodFenerDugmesi(
+              acik: durum.torchState == TorchState.on,
+              kullanilabilir: durum.torchState != TorchState.unavailable,
+              onTap: onFener,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Lucide `flashlight` (24×24). `SipIcons`a EKLENEMEDİ: `theme/icons.dart` bu ajanın dosyası
+/// değil (`kMikrofonIkonu` ile aynı gerekçe). Tema sahibi ekleyebildiğinde buradan silinip
+/// `SipIcons.fener` kullanılmalı — path birebir aynı.
+const String kFenerIkonu =
+    'M18 6c0 2-2 2-2 4v10a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V10c0-2-2-2-2-4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z'
+    '|M6 6h12|M12 12h2';
+
+/// Canlı görüntünün üstündeki fener düğmesi.
+///
+/// DURUM GÖRÜNÜR OLMAK ZORUNDA: fener açıkken düğme accent zeminle DOLAR ve ikon beyaza döner
+/// (sesli giriş mikrofonuyla aynı dil). Kapalıyken görüntünün üstünde okunabilsin diye koyu
+/// perde zemin + beyaz ikon kullanılır — kameranın önündeki sahne beyaz da olabilir siyah da.
+///
+/// PASİF ≠ GİZLİ: fenersiz cihazda düğme soluk çizilir ama dokunulabilir kalır ve dokunuş
+/// sebebini söyler (mikrofon düğmesiyle aynı desen).
+class BarkodFenerDugmesi extends StatelessWidget {
+  const BarkodFenerDugmesi({
+    super.key,
+    required this.acik,
+    required this.onTap,
+    this.kullanilabilir = true,
+  });
+
+  final bool acik;
+
+  /// Cihazda fener var mı — yoksa soluk çizilir.
+  final bool kullanilabilir;
+
+  final VoidCallback onTap;
+
+  /// DESIGN_SYSTEM dokunma hedefi alt sınırı.
+  static const double cap = 44;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return Semantics(
+      button: true,
+      label: acik ? 'Feneri kapat' : 'Feneri aç',
+      child: Opacity(
+        opacity: kullanilabilir ? 1 : 0.62,
+        child: SipDokun(
+          onTap: onTap,
+          zemin: acik ? t.accent : SipTokens.scrim,
+          basiliZemin: acik ? t.accent : SipTokens.onHeroFill2,
+          radius: SipRadius.brHap,
+          child: SizedBox.square(
+            dimension: cap,
+            child: Center(
+              child: SipIcon(
+                kFenerIkonu,
+                boyut: 20,
+                // Açıkken çizgi kalınlaşır: renk körü kullanıcı da "dolu" hâli ayırt etmeli.
+                kalinlik: acik ? 2.6 : 2.1,
+                renk: SipTokens.onHero,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

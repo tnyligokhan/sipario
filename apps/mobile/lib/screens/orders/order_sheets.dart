@@ -59,11 +59,18 @@ class SecimSatiri extends StatelessWidget {
 
 /// "Kurye Seç" sheet'i. Seçilen kullanıcının id'sini döner; `null` = vazgeçildi.
 /// AKTİF kurye yoksa hiç çağrılmaz (çağıran taraf çipi zaten çizmez — BRIEF tek kişilik gizleme).
+///
+/// [atamasizEtiketi] verilirse listenin BAŞINA "atama yok" satırı çizilir ve seçilince
+/// [kAtanmamisKurye] döner. Yeni sipariş formunda seçim OPSİYONELDİR: kullanıcı seçtiği kuryeden
+/// vazgeçebilmeli ve bunu ancak açık bir satırla yapabilir — sheet'i kapatmak "vazgeçtim"
+/// demektir, "atamayı kaldır" değil. Atama sheet'lerinde (sipariş detayı/liste) verilmez:
+/// oradaki atamayı kaldırma yolu ayrıdır (`unassign`).
 Future<String?> kuryeSecSheet(
   BuildContext context, {
   required List<User> kuryeler,
   required String? seciliId,
   String? baslik,
+  String? atamasizEtiketi,
 }) =>
     sipSheet<String>(
       context,
@@ -71,6 +78,13 @@ Future<String?> kuryeSecSheet(
       govde: (ctx) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (atamasizEtiketi != null)
+            SecimSatiri(
+              etiket: atamasizEtiketi,
+              ikon: SipIcons.user,
+              secili: seciliId == null,
+              onTap: () => Navigator.of(ctx).pop(kAtanmamisKurye),
+            ),
           for (final k in kuryeler)
             SecimSatiri(
               etiket: k.name,
@@ -91,23 +105,33 @@ Future<String?> kuryeSecSheet(
 /// böyle bir yeteneğin varlığını hiç görmemesiydi — "gizli özellik" en kötü kapıdır. Şimdi
 /// düğme görünür ama kullanılamadığı durumda PASİF + altında nedenini söyleyen nötr bir satır
 /// durur. Sahte sayı hâlâ YOK: hak bilinmiyorsa kontör yazılmaz, yalnız "Oto Sırala (rota)".
+/// [otoKumeNedeni]: görünen kümede rotaya girecek yeterli AÇIK sipariş yoksa çağıranın yazdığı
+/// gerekçe (saha hatası: "sıralanacak sipariş yok"). Kümeyi yalnız çağıran bilir — seçili sekme
+/// ve kurye süzgeci ondadır — ama düğmeyi PASİF çizme kararı burada, kontör/salt-okunur ile aynı
+/// yerde verilir. En DÜŞÜK öncelik: hak yoksa ya da kip salt-okunursa asıl engel odur.
 Future<OrderSort?> siralamaSecSheet(
   BuildContext context, {
   required OrderSort secili,
   List<OrderSort>? secenekler,
   int? otoHak,
   bool yazilabilir = true,
+  String? otoKumeNedeni,
   VoidCallback? onOtoSirala,
 }) {
   // Neden pasif? Sıra tek yazma yüzeyinden (`sort_set` olayı) geçer → salt-okunur kipte yasak.
   // Hak bilinmiyorsa (ilk senkron gelmedi / oturum yok) tıklamak 409 ile dönerdi.
+  //
+  // SAHA HATASI: küme yetersizken düğme ETKİN çiziliyor, dokunulunca hata veriyordu. "Teslim" ve
+  // "Borçlu" sekmeleri tanımı gereği KAPALI sipariş listeler; oralarda rota kümesi her zaman boş
+  // kalır, yani düğme her dokunuşta başarısız oluyordu. Kullanıcı "sıralanacak sipariş yok"
+  // okuyup bir sekme ötede duran açık siparişlerini düşünüyordu. Sebebi dokunmadan ÖNCE söyle.
   final String? kilitNedeni = !yazilabilir
       ? 'Salt-okunur kip: sıra kaydedilemez.'
       : otoHak == null
           ? 'Hak bilgisi bekleniyor — ilk senkrondan sonra kullanılabilir.'
           : otoHak <= 0
               ? 'Oto sıralama hakkı kalmadı.'
-              : null;
+              : otoKumeNedeni;
 
   return sipSheet<OrderSort>(
     context,

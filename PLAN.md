@@ -147,6 +147,22 @@
 > giriş + Kükürtlü başlangıçlı auto-route → engine:google, 6 açık sipariş. **TELEFONDA ZORUNLU:**
 > uygulama verisini temizle (ya da sil-kur) → 111/111/1111 — yoksa eski Antalya kayıtları zombi kalır.
 >
+> **2026-08-01 (onuncu iş) — SEKİZ SAHA İSTEĞİ, 5 AJANLI SWARM.** ① Adres alanı 3 satır (dikte
+> sonu görünür) · ⑦ sesli dikte YENİDEN: kesinleşen cümleler birikir, alan silinmez, motor kendini
+> kapatınca oturum tazelenir · ⑧ barkoda fener (mevcut torch API, paket yok) · ③ çağrı kartında
+> açık siparişin yaşı "Hazırlanıyor · 23 dk önce" (Kotlin+Dart iki ayna) · ④ sipariş formuna
+> opsiyonel kurye seçimi (mevcut atama yolu) · ⑤ "sıralanacak sipariş yok" kök nedeni: düğme
+> yanlış sekmede/süzgeçte de etkindi — artık gerekçeli pasif; boş sekmeye taşınan bayat liste ve
+> her build'de yeniden kurulan akış da düzeldi · ② müşteri silme (soft delete + telefon/adres
+> cascade tombstone — silinen müşteri çağrı kartında dirilmez) + kara liste (rozet + 3 noktada
+> sipariş engeli; ad düzenlemek damgayı ezmez) · ⑥ kapıda iskonto (defterde `discount` tipi;
+> kasa 400 görür, gün sonunda "İskonto (kasaya girmedi)" ayrı satır; sunucu doğrulaması kasaya
+> sızmayı kapatır). İki ajan oturum limitinde kesildi, SendMessage ile kaldıkları yerden devam.
+> Ölçüm (lead, donmuş ağaç): analyze 0 · mobil **878/878** (+80) · API **298/298** (+11) ·
+> phpstan 0 · pint temiz · `compileSahaReleaseKotlin` yeşil · release APK kapısı koşuldu.
+> KALAN BORÇ: native çağrı kartında kara liste rozeti yok (Flutter tarafı engelliyor, kart geç
+> söylüyor); order_queries 610 ve order_list/form 500 sınırı üstünde — bölme ayrı iş.
+>
 > **2026-07-30 (dokuzuncu iş) — AYARLAR'A "ARAYAN TANIMA" AÇ/KAPA ANAHTARI.** Tercih düz dosyada
 > (`sipario_arayan.txt`, tema deseninin aynısı) çünkü kartı çizen Kotlin Flutter'sız okur; CİHAZ-YEREL,
 > varsayılan AÇIK, okunamazsa AÇIK. Kapalıyken kart+bildirim+yeniden gösterim susar ama çağrı GÜNLÜĞÜ
@@ -188,7 +204,7 @@
 > kod rozeti, tutar, not; Yol Tarifi birincil · Ara telefon varsa · Sipariş Detayı). Testler:
 > API 273 · mobil 764. Kalan: order_queries harita bölümü ayrılıyor (ajanda), anahtar kısıtlaması sende.
 >
-## Güncel durum (son güncelleme: 2026-07-30 — **CANLI KURYE KONUMU + ARAYAN TANIMA ANAHTARI**: patron haritada tüm ekibin canlı konumunu görüyor (kendi backend, Google'sız, KVKK: tek satır/geçmiş yok/yalnız patron okur); Ayarlar'a arayan tanıma AÇ/KAPA anahtarı (düz dosya köprüsü, native taraf zil anında okur; günlük kapalıyken de doğru). Aynı gün öncesinde: harita performans+dark mod, harita stil+kontroller, rota yönü düzeltmesi+pin özeti, Bursa reseed, kademeli geocoder, giriş arızası. Ölçüm: `dart analyze` **0** · `flutter test` **798/798** · `php artisan test` **287/287** · phpstan L6 **0** · `compileSahaReleaseKotlin` **BUILD SUCCESSFUL** · release APK kapısı koşuldu. Eski not aşağıda tarihsel duruyor: 2026-07-29 — sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
+## Güncel durum (son güncelleme: 2026-08-01 — **SEKİZ SAHA İSTEĞİ KAPANDI** (5 ajanlı swarm): sesli dikte birikimli oldu, adres alanı büyüdü, barkoda fener, çağrı kartında sipariş yaşı, sipariş formuna kurye seçimi, oto sırala düğmesi gerekçeli-pasif (kök neden: yanlış sekmede etkin düğme), müşteri silme + kara liste (cascade tombstone + LWW damga koruması), kapıda iskonto (`discount` defter tipi, kasa değişmezi korunur). Ölçüm: analyze **0** · mobil **878/878** · API **298/298** · phpstan **0** · pint temiz · Kotlin saha-release yeşil · APK kapısı koşuldu. Önceki gün: 2026-07-30 — **CANLI KURYE KONUMU + ARAYAN TANIMA ANAHTARI**: patron haritada tüm ekibin canlı konumunu görüyor (kendi backend, Google'sız, KVKK: tek satır/geçmiş yok/yalnız patron okur); Ayarlar'a arayan tanıma AÇ/KAPA anahtarı (düz dosya köprüsü, native taraf zil anında okur; günlük kapalıyken de doğru). Aynı gün öncesinde: harita performans+dark mod, harita stil+kontroller, rota yönü düzeltmesi+pin özeti, Bursa reseed, kademeli geocoder, giriş arızası. Ölçüm: `dart analyze` **0** · `flutter test` **798/798** · `php artisan test` **287/287** · phpstan L6 **0** · `compileSahaReleaseKotlin` **BUILD SUCCESSFUL** · release APK kapısı koşuldu. Eski not aşağıda tarihsel duruyor: 2026-07-29 — sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
 
 ### Konum özelliği — ne kuruldu (2026-07-28)
 

@@ -302,6 +302,17 @@ class _Govde extends StatelessWidget {
               deger: sipTutar(kasa.toplam),
               toplam: true,
             ),
+            // İSKONTO TOPLAMIN ALTINDA DURUR ve yalnız varsa çizilir (kullanıcı isteği
+            // 2026-07-30). Üstünde dursaydı toplamın bir bileşeni gibi okunurdu; oysa kırılan
+            // para kasaya HİÇ girmedi — sayılan nakitle karşılaştırılan rakam üstteki toplamdır.
+            // Sıfırken hiç yazılmaz: iskontosuz günler çoğunluktur ve "İskonto 0,00 ₺" satırı her
+            // gün kasa kartına cevapsız bir soru eklerdi.
+            if (g.kapsam.iskonto > 0)
+              DegerSatiri(
+                etiket: 'İskonto (kasaya girmedi)',
+                deger: sipTutar(g.kapsam.iskonto),
+                degerRengi: context.sip.warn,
+              ),
           ],
         ),
 

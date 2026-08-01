@@ -95,7 +95,14 @@ Future<(String?, SonHareketTuru, String?)> _sonHareket(
           ..where((t) => t.orderId.equals(siparis.id) & t.deletedAt.isNull())
           ..orderBy([(t) => OrderingTerm.asc(t.id)]))
         .get();
-    final saat = cagriSaatMetni(DateTime.tryParse(siparis.occurredAt), simdi: simdi);
+    // AÇIK siparişte satırın sonu saat değil YAŞTIR ("23 dk önce"): bayi telefonda
+    // "ne zamandır bekliyor" sorusuna kartı okuyarak cevap verir. Kapanmış siparişte saat
+    // kalır — orada soru "ne zamandı"dır. Kural native kartla ortaktır (CallerCard.kt).
+    final saat = cagriSiparisZamanMetni(
+      DateTime.tryParse(siparis.occurredAt),
+      acik: siparisAcikMi(siparis.status),
+      simdi: simdi,
+    );
     return (
       cagriSonHareketMetni(
         onEk: 'Son sipariş',

@@ -293,6 +293,103 @@ class MusteriEylemi {
   final VoidCallback onTap;
 }
 
+/// TEHLİKELİ EYLEMLER — kara listeye alma/çıkarma ve müşteriyi silme.
+///
+/// NEDEN EN ALTTA VE AYRI BİR BAŞLIK ALTINDA: bu iki eylem hızlı eylem ızgarasının (Sipariş /
+/// Tahsilat) yanına konsaydı, günde onlarca kez basılan düğmelerin komşusu olurlardı. Ayırmak
+/// yanlış dokunuşu ucuzlatmaz — pahalılaştırır, kasten.
+///
+/// Silme onay ALIR (çağıran tarafta), kara liste almaz: kara liste tek dokunuşla geri alınabilir,
+/// silme ise ürün olarak geri alınamaz.
+class MusteriTehlikeliEylemler extends StatelessWidget {
+  const MusteriTehlikeliEylemler({
+    super.key,
+    required this.karaListede,
+    required this.karaListeEtiketi,
+    required this.silEtiketi,
+    required this.onKaraListe,
+    required this.onSil,
+  });
+
+  final bool karaListede;
+  final String karaListeEtiketi;
+  final String silEtiketi;
+  final VoidCallback onKaraListe;
+  final VoidCallback onSil;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return Padding(
+      padding: const EdgeInsets.only(top: SipSpace.x3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'TEHLİKELİ İŞLEMLER',
+            style: SipText.metin(10.5, w: 700).copyWith(color: t.muted, letterSpacing: .6),
+          ),
+          const SizedBox(height: SipSpace.md),
+          // Kara listeye ALMA uyarı, ÇIKARMA nötr renktedir: geri alma bir tehlike değildir ve
+          // kırmızı bir "çıkar" düğmesi kullanıcıya yanlış şeyi yaptığını söyler.
+          _TehlikeSatiri(
+            ikon: SipIcons.ban,
+            etiket: karaListeEtiketi,
+            renk: karaListede ? t.ink2 : t.warn,
+            onTap: onKaraListe,
+          ),
+          const SizedBox(height: SipSpace.sm),
+          _TehlikeSatiri(
+            ikon: SipIcons.trash,
+            etiket: silEtiketi,
+            renk: t.danger,
+            onTap: onSil,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TehlikeSatiri extends StatelessWidget {
+  const _TehlikeSatiri({
+    required this.ikon,
+    required this.etiket,
+    required this.renk,
+    required this.onTap,
+  });
+
+  final String ikon;
+  final String etiket;
+  final Color renk;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return SipDokun(
+      onTap: onTap,
+      zemin: t.surface,
+      radius: SipRadius.br2,
+      padding: const EdgeInsets.symmetric(horizontal: SipSpace.x2, vertical: 13),
+      child: Row(
+        children: [
+          SipIcon(ikon, boyut: 16, kalinlik: 2.2, renk: renk),
+          const SizedBox(width: SipSpace.md),
+          Expanded(
+            child: Text(
+              etiket,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: SipText.metin(13, w: 600).copyWith(color: renk),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AksiyonKutusu extends StatelessWidget {
   const _AksiyonKutusu({required this.eylem});
 
