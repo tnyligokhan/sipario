@@ -281,7 +281,53 @@
 
 ---
 
-# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-07-29 kapandı)
+# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-01 kapandı)
+
+**Bir cümlede:** Yönetim paneli "abonelik açma/kapama aracı"ndan **tam teşekküllü iç yönetim
+ürününe** büyüdü (5c-3) — kullanıcı kararıyla BRIEF'in "panel iş verisine dokunamaz" sınırı
+gevşetildi: panel artık bayinin verisini GÖRÜR (müşteri/sipariş/defter/ürün, salt-okunur),
+müşteri+ürün GİRER/DÜZENLER ve müşteri CSV toplu aktarır; **sipariş+para kayıtları panelden
+salt-okunur kaldı** (kırmızı çizgi 2). Dört ajanlık swarm ile yürüdü (araştırma→kod→test→güvenlik).
+
+**Ölçüm (kapanış):** `php artisan test` **421/421, 2213 doğrulama** · phpstan L6 **0** · pint
+temiz · çalışma ağacı temiz. Mobil DOKUNULMADI (panel tamamen sunucu tarafı). Ayrıntılı karar
+gerekçeleri DECISIONS.md sonunda (2026-08-01 blokları — 7 satır).
+
+## Bu vardiyada NE YAPILDI (özet)
+1. **Genel Bakış panosu** (`/panel`): aktif/deneme/kilitli dağılımı, ≤7 gün kalan denemeler,
+   3 gündür sipariş girmeyen bayiler (churn), 60 günlük yenileme takvimi (saf SVG, JS kütüphanesi yok).
+   Bayi listesi `/panel/bayiler`e taşındı.
+2. **Bayi detayı 6 sekme:** Özet · Müşteriler (arama+sayfalama+bakiye) · Siparişler · Defter ·
+   Ürünler · Denetim.
+3. **Panelden YAZMA (yalnız müşteri+ürün):** mobilin AYNI sync yolundan (`SyncService::push` →
+   `ChangeApplier`, RLS'li `pgsql` bağlantısı, sabit `PANEL_DEVICE_ID`) — cihaza düştüğü testli.
+   Abonelik kilidi paneli de bağlar. 'stale' kullanıcıya başarısızlık olarak görünür. Düzenleme
+   upsert DEĞİLDİR (bulunamayan id = hata). Müşteri pasifleştirme = kara liste (`blacklisted_at`).
+4. **CSV:** müşteri içe aktarma (şablon→önizleme→onay, telefon dedup, TR Excel toleransı: `;`,
+   BOM, Windows-1254) + müşteri/sipariş dışa aktarma (formül enjeksiyon kaçışlı, export'lar
+   artık panel_audit'e düşer).
+5. **Hesap yönetimi:** `superadmin`/`support` rolleri (kapı her Livewire eyleminin İÇİNDE),
+   `disabled_at` ile pasifleştirme (açık oturumu da düşürür), `php artisan panel:admin` komutu,
+   genel denetim günlüğü ekranı.
+6. **Testçi 2 üretim hatası buldu:** aramaya yapıştırılan 10 haneli telefon int4 taşırıp 500
+   veriyordu; çevrilmiş CSV başlığı veri sanılıyordu. +33 test. Form `max:` tavanları artık
+   şemayla otomatik karşılaştırılıyor (22001 sınıfı kapandı).
+7. **Güvenlik incelemesi 4 açık kapattı:** panel girişine kaba kuvvet sınırı (bileşen İÇİNDE —
+   route throttle Livewire'ı korumaz), export'lara KVKK denetim izi, `SecurityHeaders` web
+   grubuna, `$tenantId`'ye `#[Locked]`.
+
+## Bu vardiyada NE YAPILMADI / SIRADAKİ
+- **Landing page** — kullanıcının açıkça istediği SIRADAKİ iş; hiç başlanmadı.
+- Üretim/dev DB'de yeni migration koşulmalı (`2026_08_01_003001_add_admin_user_disabled_at`)
+  ve ilk admin `php artisan panel:admin` ile açılmalı (panel hesabı seed EDİLMEZ).
+- Panel gerçek tarayıcıda gözle görülmedi (testler headless) — 5 dakikalık smoke turu iyi olur.
+- Küçük raporlanan-ama-dokunulmayan pürüzler reviewer raporunda: bozuk UUID'de 500 (404 olmalı),
+  `UrunForm::$fiyat` üst sınırsız, `Csv::indirme` dosya adı sanitizasyonu (bugün yalnız UUID),
+  reddedilen yazma denemeleri denetime düşmüyor.
+
+---
+
+# (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-07-29 kapandı)
 
 **Bir cümlede:** Bayiden gelen 12 istek/şikâyetin tamamı kapatıldı; ama vardiyanın asıl değeri
 **dört SESSİZ arızayı** bulmasıydı — hiçbiri çökmüyor, hiçbiri günlüğe yazmıyor, yalnız *hiçbir şey
