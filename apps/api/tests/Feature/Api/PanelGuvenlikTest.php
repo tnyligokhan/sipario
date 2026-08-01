@@ -3,12 +3,18 @@
 namespace Tests\Feature\Api;
 
 use App\Livewire\Panel\Login;
+use App\Livewire\Panel\TenantDetail;
 use App\Models\AdminUser;
+use App\Models\Customer;
+use App\Models\Product;
+use App\Panel\PanelWriteService;
 use App\Support\Provisioning;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\ApiTestCase;
 use Tests\Feature\Api\Concerns\BuildsSyncEvents;
 
@@ -134,6 +140,93 @@ class PanelGuvenlikTest extends ApiTestCase
 
         $this->assertStringNotContainsString('Ayşe', $detay, 'Müşteri adı denetim kaydına yazılmamalı.');
         $this->assertSame('csv_musteriler', $detay);
+    }
+
+    // --- Düzenleme akışı upsert DEĞİLDİR (lead kararı) ----------------------------------
+
+    #[Test]
+    public function duzenlemede_bulunamayan_musteri_sessizce_yeni_kayit_yaratmaz(): void
+    {
+        // Eski davranış iki yalan söylüyordu: kullanıcıya "kaydedildi", denetime `customer_update` —
+        // oysa ortada düzenlenen bir kayıt yok, YENİ bir müşteri doğmuştu. Kopya kayıt sahada en
+        // pahalı kirliliktir ve sessizce oluşuyordu.
+        $a = $this->makeTenant('a');
+        $admin = $this->makeAdmin('hayalet@sipario.test');
+
+        try {
+            (new PanelWriteService('pgsql_panel'))->musteriKaydet($a['tenant']->id, [
+                'id' => (string) Str::uuid7(), 'ad' => 'Hayalet Müşteri',
+            ], $admin->id);
+            $this->fail('Bulunamayan id ile düzenleme BAŞARISIZ olmalıydı.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('bulunamadı', $e->getMessage());
+        }
+
+        $this->assertSame(0, Provisioning::asOwner(fn () => Customer::query()->count()),
+            'Bulunamayan id kopya müşteri yaratmamalı.');
+        $this->assertSame(0, DB::connection('pgsql_panel')->table('panel_audit')
+            ->where('action', 'customer_update')->count(),
+            'Yapılmamış bir düzenleme denetime yazılmamalı.');
+    }
+
+    #[Test]
+    public function duzenlemede_bulunamayan_urun_sessizce_yeni_kayit_yaratmaz(): void
+    {
+        // Ürün tarafında birebir aynı desen vardı; tek kardeşi düzeltip diğerini bırakmak
+        // kuralı yarım uygulamak olurdu.
+        $a = $this->makeTenant('a');
+        $admin = $this->makeAdmin('hayalet-urun@sipario.test');
+
+        try {
+            (new PanelWriteService('pgsql_panel'))->urunKaydet($a['tenant']->id, [
+                'id' => (string) Str::uuid7(), 'ad' => 'Hayalet Ürün', 'fiyat_kurus' => 1000,
+            ], $admin->id);
+            $this->fail('Bulunamayan id ile ürün düzenleme BAŞARISIZ olmalıydı.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('bulunamadı', $e->getMessage());
+        }
+
+        $this->assertSame(0, Provisioning::asOwner(fn () => Product::query()->count()));
+        $this->assertSame(0, DB::connection('pgsql_panel')->table('panel_audit')
+            ->where('action', 'product_update')->count());
+    }
+
+    #[Test]
+    public function ekranda_bulunamayan_kayit_hata_gosterir_500_vermez(): void
+    {
+        // Servis artık fırlatıyor; ekranın bunu KULLANICIYA çevirdiğini de görmek gerek —
+        // yoksa düzeltme 500 hatasına dönüşmüş olurdu.
+        $a = $this->makeTenant('a');
+        $admin = $this->makeAdmin('ekran-hayalet@sipario.test');
+        $this->actingAs($admin, 'admin');
+
+        Livewire::test(TenantDetail::class, ['tenant' => $a['tenant']->id])
+            ->call('sekmeSec', 'musteriler')
+            ->call('musteriFormAc')
+            ->set('musteriForm.musteriId', (string) Str::uuid7())
+            ->set('musteriForm.ad', 'Hayalet')
+            ->call('musteriKaydet')
+            ->assertOk()
+            ->assertSee('bulunamadı')
+            ->assertDontSee('Müşteri kaydedildi.');
+
+        $this->assertSame(0, Provisioning::asOwner(fn () => Customer::query()->count()));
+    }
+
+    #[Test]
+    public function aktarim_ekrani_olmayan_bayide_404_verir(): void
+    {
+        // Uydurma UUID ile sayfa açılıyor ve sayılar sıfır görünüyordu; kullanıcı boş bir bayiye
+        // baktığını sanıyordu. Bayi detayı zaten 404 veriyor — iki panel sayfası aynı adrese
+        // farklı cevap vermemeli.
+        $admin = $this->makeAdmin('aktarim404@sipario.test');
+        $this->actingAs($admin, 'admin');
+
+        $this->get(route('panel.tenant.import', (string) Str::uuid7()))->assertNotFound();
+
+        // Gerçek bayide sayfa açılmaya devam ediyor (kapı fazla dar değil).
+        $a = $this->makeTenant('a');
+        $this->get(route('panel.tenant.import', $a['tenant']->id))->assertOk();
     }
 
     // --- Tarayıcı güvenlik başlıkları ---------------------------------------------------

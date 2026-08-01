@@ -38,9 +38,18 @@ class PanelWriteService extends PanelSyncYazici
         }
 
         $sonuc = $this->rlsIcinde($tenantId, function () use ($tenantId, $veri, $ad) {
-            $id = $veri['id'] ?? null;
+            $istenen = $veri['id'] ?? null;
             /** @var Customer|null $mevcut */
-            $mevcut = $id !== null ? Customer::query()->find($id) : null;
+            $mevcut = $istenen !== null ? Customer::query()->find($istenen) : null;
+
+            // DÜZENLEME AKIŞI UPSERT DEĞİLDİR (lead kararı): id verilmiş ama kayıt yoksa (silinmiş
+            // ya da RLS altında görünmeyen bir kayıt) sessizce YENİ müşteri yaratmak iki yalan
+            // söylerdi — kullanıcıya "düzenledim", denetim günlüğüne `customer_update`. Kopya kayıt
+            // da sahada en pahalı kirliliktir. Bulunamayan id BAŞARISIZLIKTIR.
+            if ($istenen !== null && $mevcut === null) {
+                throw new RuntimeException('Düzenlenecek müşteri bulunamadı; sayfayı tazeleyip tekrar deneyin.');
+            }
+
             $id = $mevcut->id ?? (string) Str::uuid7();
 
             $telefonKaydi = $mevcut !== null ? $this->birincilKayit(CustomerPhone::class, $id) : null;
@@ -145,9 +154,15 @@ class PanelWriteService extends PanelSyncYazici
         }
 
         [$id, $push] = $this->rlsIcinde($tenantId, function () use ($tenantId, $veri, $ad, $fiyat) {
-            $id = $veri['id'] ?? null;
+            $istenen = $veri['id'] ?? null;
             /** @var Product|null $mevcut */
-            $mevcut = $id !== null ? Product::query()->find($id) : null;
+            $mevcut = $istenen !== null ? Product::query()->find($istenen) : null;
+
+            // Müşteri tarafıyla AYNI kural (lead kararı): düzenleme akışı upsert değildir.
+            if ($istenen !== null && $mevcut === null) {
+                throw new RuntimeException('Düzenlenecek ürün bulunamadı; sayfayı tazeleyip tekrar deneyin.');
+            }
+
             $id = $mevcut->id ?? (string) Str::uuid7();
 
             return [$id, $this->push($tenantId, [$this->olay('product', 'upsert', [

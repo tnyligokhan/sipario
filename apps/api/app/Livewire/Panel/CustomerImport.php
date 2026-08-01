@@ -4,6 +4,7 @@ namespace App\Livewire\Panel;
 
 use App\Panel\PanelImportService;
 use App\Panel\PanelTenantDataService;
+use App\Panel\TenantAdminService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -44,8 +45,16 @@ class CustomerImport extends Component
 
     public ?string $hata = null;
 
+    /**
+     * Var olmayan bayide 404 (lead kararı). Kapı olmadan uydurma bir UUID ile sayfa açılıyor,
+     * sayılar sıfır görünüyor ve kullanıcı boş bir bayiye bakıyorum sanıyordu; hata ancak
+     * aktarımı deneyince ("bu bayide kullanıcı yok") ortaya çıkıyordu. Bayi detayı zaten
+     * aynı kuralı uyguluyor — iki panel sayfası aynı adrese farklı cevap vermemeli.
+     */
     public function mount(string $tenant): void
     {
+        abort_if(app(TenantAdminService::class)->tenantDetail($tenant) === null, 404);
+
         $this->tenantId = $tenant;
     }
 

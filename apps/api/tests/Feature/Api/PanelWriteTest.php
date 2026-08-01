@@ -328,13 +328,22 @@ class PanelWriteTest extends ApiTestCase
         $bMusteri = $this->yazici()->musteriKaydet($b['tenant']->id, ['ad' => 'B Müşterisi'], $admin->id);
 
         // A bayisi bağlamında B'nin müşteri kimliğiyle düzenleme denemesi: RLS satırı göstermez →
-        // düzenleme değil YENİ KAYIT olur ve B'nin satırı DEĞİŞMEZ.
-        $deneme = $this->yazici()->musteriKaydet($a['tenant']->id, ['id' => $bMusteri['id'], 'ad' => 'Ele geçirildi'], $admin->id);
+        // düzenleme BAŞARISIZ olur (güvenlik incelemesi / lead kararı: düzenleme akışı upsert
+        // DEĞİLDİR). Eskiden bu yol sessizce A'da YENİ bir müşteri yaratıyordu — izolasyon yine
+        // korunuyordu ama panel "düzenledim" deyip kopya kayıt üretiyor, denetime de yanlış
+        // etiketi (`customer_update`) yazıyordu.
+        try {
+            $this->yazici()->musteriKaydet($a['tenant']->id, ['id' => $bMusteri['id'], 'ad' => 'Ele geçirildi'], $admin->id);
+            $this->fail('Başka bayinin kimliğiyle düzenleme BAŞARISIZ olmalıydı.');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('bulunamadı', $e->getMessage());
+        }
 
-        $this->assertNotSame($bMusteri['id'], $deneme['id'], 'Başka bayinin kimliği A bağlamında yeniden kullanılmamalı.');
         $this->assertSame('B Müşterisi', $this->musteriOku($bMusteri['id'])->name, "B'nin müşterisi panelden DEĞİŞTİRİLEMEMELİ.");
         $this->assertSame($b['tenant']->id, $this->musteriOku($bMusteri['id'])->tenant_id);
-        $this->assertSame($a['tenant']->id, $this->musteriOku($deneme['id'])->tenant_id);
+        $this->assertSame(0, Provisioning::asOwner(fn () => Customer::query()
+            ->where('tenant_id', $a['tenant']->id)->count()),
+            'Başarısız düzenleme A bayisinde kopya kayıt bırakmamalı.');
 
         // Kara liste yolu da uzanamaz (satır görünmediği için hata verir).
         $this->expectException(RuntimeException::class);
