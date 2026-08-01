@@ -192,16 +192,18 @@ class PanelTest extends ApiTestCase
     public function panel_oturumsuz_istek_login_e_yonlendirir(): void
     {
         $this->get('/panel')->assertRedirect(route('panel.login'));
+        $this->get('/panel/bayiler')->assertRedirect(route('panel.login'));
         $this->get('/panel/tenants/'.Str::uuid7())->assertRedirect(route('panel.login'));
     }
 
     #[Test]
     public function panel_admin_girisi_sonrasi_bayi_listesini_gorur(): void
     {
+        // 5c-3 · D1: `/panel` artık Genel Bakış panosu; tam bayi listesi `/panel/bayiler`de.
         $a = $this->makeTenant('a');
         $admin = $this->makeAdmin();
 
-        $this->actingAs($admin, 'admin')->get('/panel')
+        $this->actingAs($admin, 'admin')->get('/panel/bayiler')
             ->assertOk()
             ->assertSee($a['tenant']->name);
     }
@@ -215,7 +217,7 @@ class PanelTest extends ApiTestCase
             ->set('email', 'lw-admin@sipario.test')
             ->set('password', 'panel-secret')
             ->call('authenticate')
-            ->assertRedirect(route('panel.tenants'));
+            ->assertRedirect(route('panel.dashboard'));
 
         $this->assertTrue(Auth::guard('admin')->check(), 'Livewire login sonrası admin oturumu açık olmalı.');
     }

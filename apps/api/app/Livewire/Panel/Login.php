@@ -32,7 +32,11 @@ class Login extends Component
 
         session()->regenerate();
 
-        return redirect()->route('panel.tenants');
+        // Son giriş damgası (hesaplar ekranı bunu gösterir): kullanılmayan bir panel hesabı,
+        // kapatılması gerekeni gösteren en basit sinyaldir.
+        Auth::guard('admin')->user()?->forceFill(['last_login_at' => now()])->save();
+
+        return redirect()->route('panel.dashboard');
     }
 
     public function render(): mixed

@@ -1,12 +1,19 @@
 <?php
 
+use App\Livewire\Panel\AdminUsers;
+use App\Livewire\Panel\AuditLog;
+use App\Livewire\Panel\CustomerImport;
+use App\Livewire\Panel\Dashboard;
 use App\Livewire\Panel\Login;
 use App\Livewire\Panel\TenantDetail;
 use App\Livewire\Panel\TenantList;
 use App\Livewire\Site\Login as SiteLogin;
 use App\Livewire\Site\Register;
 use App\Livewire\Site\Subscribe;
+use App\Panel\Csv;
+use App\Panel\PanelCsvExportService;
 use App\Panel\PanelExportService;
+use App\Panel\PanelImportService;
 use App\Payment\SubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -70,7 +77,10 @@ Route::prefix('panel')->group(function () {
     })->name('panel.logout');
 
     Route::middleware('auth:admin')->group(function () {
-        Route::get('/', TenantList::class)->name('panel.tenants');
+        // Ana sayfa GENEL BAKIŞ panosudur (5c-3 · D1): "bugün kime bakmalıyım" sorusunu cevaplar.
+        // Tüm bayilerin listesi ayrı sayfaya taşındı — pano büyüdükçe liste onu boğuyordu.
+        Route::get('/', Dashboard::class)->name('panel.dashboard');
+        Route::get('bayiler', TenantList::class)->name('panel.tenants');
         Route::get('tenants/{tenant}', TenantDetail::class)->name('panel.tenant');
 
         // Veri export (Faz 5c-2): bayinin iş verisi JSON dump (panel SELECT, salt-okunur, cross-tenant filtreli).
@@ -81,5 +91,35 @@ Route::prefix('panel')->group(function () {
             return response()->json($data)
                 ->header('Content-Disposition', 'attachment; filename="tenant-'.$tenant.'.json"');
         })->name('panel.tenant.export');
+
+        /*
+         * CSV dışa aktarım (5c-3 · D4) — İNSANIN Excel'de açacağı iki liste. Yukarıdaki JSON dump
+         * teknik bir taşıma aracıdır ve DURUR; ikisi farklı işlere hizmet eder. Hücreler
+         * Csv::hucre'den geçer (formül enjeksiyonu).
+         */
+        Route::get('tenants/{tenant}/csv/musteriler', function (string $tenant, PanelCsvExportService $csv) {
+            return Csv::indirme($csv->musteriler($tenant), 'musteriler-'.$tenant.'.csv');
+        })->name('panel.tenant.csv.musteriler');
+
+        Route::get('tenants/{tenant}/csv/siparisler', function (string $tenant, Request $request, PanelCsvExportService $csv) {
+            $filtre = $request->only(['durum', 'baslangic', 'bitis']);
+
+            return Csv::indirme($csv->siparisler($tenant, $filtre), 'siparisler-'.$tenant.'.csv');
+        })->name('panel.tenant.csv.siparisler');
+
+        // Toplu müşteri aktarımı (5c-3 · D4): şablon indir → yükle → önizle → onayla.
+        Route::get('csv/musteri-sablonu', function (PanelImportService $import) {
+            return Csv::indirme($import->sablon(), 'musteri-sablonu.csv');
+        })->name('panel.csv.sablon');
+
+        Route::get('tenants/{tenant}/musteri-aktar', CustomerImport::class)->name('panel.tenant.import');
+
+        /*
+         * Yönetim (5c-3 · D5). Denetim günlüğü her iki role de açıktır (hesap verebilirliği
+         * güçlendirir); hesap yönetimi YALNIZ superadmin'e — kapı bileşenin içindedir
+         * (mount + her eylem), route seviyesinde bir middleware'e güvenilmiyor.
+         */
+        Route::get('denetim', AuditLog::class)->name('panel.audit');
+        Route::get('yoneticiler', AdminUsers::class)->name('panel.admins');
     });
 });
