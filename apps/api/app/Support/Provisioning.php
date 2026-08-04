@@ -107,6 +107,12 @@ class Provisioning
      *
      * Kota doluysa KotaDoluException fırlar ve KULLANICI YARATILMAZ (kontrol, INSERT'ten önce).
      *
+     * BAYAT NESNE TUZAĞI (duman testinde yakalandı): çağıran elindeki `Tenant` nesnesini geçer, ama o
+     * nesne bir ek paket tanımlamasından ÖNCE okunmuş olabilir ve `courier_limit` alanı eski kalır.
+     * Kota o zaman DB'deki gerçeğe değil çağıranın hafızasına göre kararlaşır — hem yeni hakkını
+     * kullanamayan bayi hem de tersi mümkün. Bu yüzden bayi ne verilirse verilsin BURADA, owner
+     * bağlamında, id'siyle yeniden okunur; kapı her zaman güncel satırı görür.
+     *
      * @throws KotaDoluException
      */
     public static function createCourier(
@@ -116,8 +122,10 @@ class Provisioning
         string $password,
         ?string $phone = null,
     ): User {
-        return self::asOwner(function () use ($tenant, $name, $username, $password, $phone) {
-            $bayi = $tenant instanceof Tenant ? $tenant : Tenant::query()->findOrFail($tenant);
+        $tenantId = $tenant instanceof Tenant ? $tenant->id : $tenant;
+
+        return self::asOwner(function () use ($tenantId, $name, $username, $password, $phone) {
+            $bayi = Tenant::query()->findOrFail($tenantId);
 
             (new KuryeKotasi('pgsql_owner'))->kontrolEt($bayi);
 

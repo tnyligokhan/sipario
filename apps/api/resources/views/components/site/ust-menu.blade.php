@@ -15,7 +15,7 @@
         ['site.destek', 'Destek'],
         ['site.iletisim', 'İletişim'],
     ];
-    $anaHref = \Illuminate\Support\Facades\Route::has('site.ana') ? route('site.ana') : url('/');
+    $anaHref = Route::has('site.ana') ? route('site.ana') : url('/');
 @endphp
 <header class="ust" x-data="{ kaydi: false, acik: false }"
     x-init="kaydi = window.scrollY > 12; window.addEventListener('scroll', () => kaydi = window.scrollY > 12, { passive: true })"

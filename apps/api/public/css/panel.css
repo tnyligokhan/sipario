@@ -171,3 +171,34 @@ textarea.girdi{resize:vertical;min-height:64px}
    kilitlenen firma; BRIEF'te tasarımda yok). Mevcut rozet paletinin --danger tonuyla,
    aynı desenle (durum-soft arka plan + durum renginde metin) eklendi. */
 .rozet.kilitli{background:var(--danger-soft);color:var(--danger)}
+
+/* Grafikler (x-panel.grafik-cubuk / grafik-cizgi / grafik-isi) — saf SVG, JS kütüphanesi
+   YOK. .chart/.chart-axis adları mevcut panelde (livewire/panel/dashboard.blade.php,
+   inline <style>) zaten aynı işi görüyor; burada aynı adlarla, kit tonlarıyla tanımlandı —
+   iki panel aynı görsel dili paylaşsın diye bilerek aynı isimler seçildi. */
+.grafik-cubuk,.grafik-cizgi,.grafik-isi{width:100%}
+.chart{width:100%;display:block}
+.chart-axis{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);text-align:center;margin-top:6px}
+.grafik-ozet{margin-top:8px;font-size:12px}
+.grafik-isi-serit{display:flex;gap:2px}
+.grafik-isi-hucre{flex:1;height:28px;border-radius:4px}
+
+/* Sayfalama (resources/views/vendor/pagination/panel-basit.blade.php). Mevcut panelde
+   ".pager" adında elle yazılmış farklı bir sayfalama zaten var (layouts/app.blade.php) —
+   isim çakışmasın diye ayrı ön ek. */
+.sayfalama{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sayfalama-sayilar{display:flex;gap:2px}
+.sayfalama-sayfa{min-width:32px;height:32px;padding:0 6px;border:1px solid var(--line-2);border-radius:var(--r1);background:var(--surface);font-weight:600;font-size:13px;cursor:pointer;color:var(--ink-2)}
+.sayfalama-sayfa:hover{background:var(--bg)}
+.sayfalama-sayfa.secili{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);cursor:default}
+.sayfalama-nokta{padding:0 4px;color:var(--muted);align-self:center}
+.sayfalama-ozet{margin-top:6px;font-size:12px;color:var(--muted)}
+
+/* Dosya seçici (x-panel.dosya-sec) — native input[type=file] tasarım diline uymuyor,
+   .btn görünümlü <label> tıklanır; gerçek input erişilebilir kalsın diye "sr-only"
+   deseniyle (yalnız ekran okuyucuya) gizlenir, display:none KULLANILMADI. */
+.dosya-sec{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dosya-sec-girdi{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.dosya-sec-ad{font-size:13px}
+.dosya-sec-durum{font-size:12px}
+.dosya-sec-hata{color:var(--danger);font-size:12px;width:100%}
