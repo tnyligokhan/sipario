@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Customer;
+use App\Models\Order;
 use App\Support\Sync\SyncService;
 use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Facades\DB;
@@ -192,6 +193,45 @@ class SyncPoisonPillTest extends ApiTestCase
         $this->asToken($token)->postJson('/api/v1/sync/push', ['events' => $tavanUstu])->assertStatus(422);
 
         $this->assertSame(0, $this->asOwner(fn () => Customer::query()->count()));
+    }
+
+    #[Test]
+    public function kolona_sigmayan_deger_partiyi_500_ile_dusurmez_kendisi_reddedilir(): void
+    {
+        // İKİNCİ ZEHİRLİ HAP (2026-08-05'te kapatıldı): kolon genişliğini/sayı aralığını aşan bir
+        // değer Postgres'te `22001`/`22003` üretir. Bu kodlar CLIENT_DATA_SQLSTATES'te YOKKEN
+        // "beklenmedik altyapı hatası" sayılıp yeniden fırlatılıyordu → TÜM parti geri alınıyor ve
+        // istek 500 dönüyordu. 500 istemcide GEÇİCİ hata sayılır: karantina yok, bisect yok, sonsuz
+        // retry — yani uzun bir müşteri adı, kupon olayıyla birebir aynı kalıcı kilidi üretiyordu.
+        // Panelde yapısal kapak vardı (form max'leri information_schema ile karşılaştırılır), mobil
+        // yazma yolunda yoktu; bu yüzden kapak sunucuda.
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        // 22001: customers.name varchar(160).
+        $uzunAd = $this->customerUpsert(['name' => str_repeat('a', 200)]);
+
+        // 22003: order_lines.qty int4 — 3 milyar int4'e sığmaz (bigint olan tutar sütunları değil,
+        // taşan ADET). Sipariş olayı savepoint içinde tamamen geri alınmalı.
+        $tasanAdet = $this->orderCreated([$this->line(['unit_price_kurus' => 4500, 'qty' => 3000000000])]);
+
+        $saglam = $this->customerUpsert(['name' => 'Sağlam Müşteri']);
+
+        $yanit = $this->pushEvents($token, [$uzunAd, $tasanAdet, $saglam]);
+
+        $yanit->assertOk(); // 500 DEĞİL.
+        $yanit->assertJsonPath('results.0.status', 'rejected');
+        $yanit->assertJsonPath('results.0.reason', 'invalid_data');
+        $yanit->assertJsonPath('results.1.status', 'rejected');
+        $yanit->assertJsonPath('results.1.reason', 'invalid_data');
+        $yanit->assertJsonPath('results.2.status', 'applied');
+
+        // Reddedilen olaylar hiçbir iz bırakmamalı (savepoint geri sarar), sağlam olan yazılmalı.
+        $adlar = $this->asOwner(fn () => Customer::query()->pluck('name')->all());
+        $this->assertSame(['Sağlam Müşteri'], $adlar);
+        $this->assertSame(0, $this->asOwner(fn () => Order::query()->count()),
+            'Taşan satır yüzünden reddedilen sipariş olayı yarım bir sipariş bırakmamalı.');
+        $yanit->assertJsonPath('current_seq', 1); // yalnız sağlam olay seq yaktı
     }
 
     #[Test]

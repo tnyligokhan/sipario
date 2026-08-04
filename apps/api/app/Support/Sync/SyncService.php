@@ -47,11 +47,39 @@ use InvalidArgumentException;
  */
 class SyncService
 {
-    /** Bir push isteğinde işlenecek azami olay (DoS + transaction süresi sınırı). */
+    /**
+     * Bir push isteğinde işlenecek azami olay (DoS + transaction süresi sınırı).
+     *
+     * ⚠️ İSTEMCİ SABİTİYLE BAĞLIDIR: `apps/mobile/lib/sync/sync_engine.dart` → `pushPending`ın
+     * `batchSize`ı (bugün 500) bu değeri AŞMAMALIDIR. Aşarsa parti zarf doğrulamasına takılır ve
+     * HER push kalıcı 422 döner — istemcinin bisect'i kuyruğu kurtarır ama her tur boşa gider.
+     * İki sabit AYRI DEPOLARDA yaşıyor ve birbirini göremiyor; tek korumamız bu yazılı bağ.
+     * Bu değeri DÜŞÜRMEK de aynı kapıdır: sahadaki eski istemciler eski batchSize ile gönderir.
+     */
     public const MAX_EVENTS = 500;
 
-    /** İstemci-kaynaklı (reddedilebilir) SQL durumları: geçersiz uuid, not-null, FK, unique, check. */
-    private const CLIENT_DATA_SQLSTATES = ['22P02', '23502', '23503', '23505', '23514'];
+    /**
+     * İstemci-kaynaklı (reddedilebilir) SQL durumları: geçersiz uuid, not-null, FK, unique, check,
+     * kolona sığmayan metin, aralık dışı sayı.
+     *
+     * BU LİSTE BİR BEYAZ LİSTEDİR ve dışında kalan her SQLSTATE partiyi 500'e düşürür. 500 istemci
+     * için GEÇİCİ hatadır — sonsuza dek yeniden denenir. Yani listede olmayan her istemci-kaynaklı
+     * hata bir ZEHİRLİ HAPtır: kuyruk asla boşalmaz, senkron kalıcı ölür ve tek "çözüm" uygulama
+     * verisini silmek olur — ki bu bekleyen sipariş/tahsilatı yok eder (kırmızı çizgi #3).
+     *
+     * `22001` (string_data_right_truncation) ve `22003` (numeric_value_out_of_range) 2026-08-05'te
+     * EKLENDİ. İkisi de tartışmasız istemci verisidir — altyapı arızası bu kodları üretemez; anlamı
+     * "gönderdiğin değer bu kolona sığmıyor"dur. Eskiden 500 veriyorlardı, yani uzun bir müşteri adı
+     * ya da taşan bir sayı bütün senkronu kilitliyordu. Bu depoda ikisi de daha önce ısırdı: panelde
+     * 10 haneli telefon `customers.code` (int4) taşırıp 500 vermişti (DECISIONS 2026-08-01) ve barkod
+     * `max:64` vs `varchar(32)` uyuşmazlığı tüm partiyi düşürmüştü. Panelde yapısal kapak var
+     * (form `max:`leri `information_schema` ile karşılaştırılıyor); MOBİL yazma yolunda yok — bu
+     * yüzden reddin sunucuda güvenli biçimde karşılanması gerekiyor.
+     *
+     * Yeni bir kısıt/kolon tipi eklerken sor: bu kod istemcinin GÖNDERDİĞİ veriden doğabilir mi?
+     * Cevap evetse buraya girmeli, yoksa bir sonraki zehirli hap odur.
+     */
+    private const CLIENT_DATA_SQLSTATES = ['22001', '22003', '22P02', '23502', '23503', '23505', '23514'];
 
     /**
      * Olay listesi BİLEREK `list<mixed>`tir: zarf doğrulaması elemanların biçimini GARANTİ ETMEZ

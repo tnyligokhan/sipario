@@ -82,6 +82,21 @@ if (-not $kilitAlindi) {
   exit 0
 }
 
+# MUTEX YETMEZ: mutex yalnizca BU BETIGIN kopyalarini birbirinden korur. Bir ajan kendi
+# terminalinden `php artisan test` kosarsa mutex'i tutmaz ve kanca onun ustune biner --
+# 2026-08-05 02:33'te tam bu yasandi (02:29 ajan kosumu + 02:33 kanca kosumu ayni anda).
+# Bu yuzden isletim sistemine de bakariz: baska bir `artisan test` sureci varsa atlanir.
+# Kendi cocuk sureclerimiz henuz dogmadigi icin bu kontrol kendini gormez.
+try {
+  $baskaKosum = @(Get-CimInstance Win32_Process -Filter "Name='php.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'artisan\s+test|phpunit' })
+  if ($baskaKosum.Count -gt 0) {
+    $mutex.ReleaseMutex()
+    Emit "Kalite kapisi ATLANDI: elle baslatilmis bir test kosumu suruyor ($($baskaKosum.Count) surec)."
+    exit 0
+  }
+} catch { }
+
 $failed  = New-Object System.Collections.Generic.List[string]
 $ran     = New-Object System.Collections.Generic.List[string]
 $skipped = New-Object System.Collections.Generic.List[string]
