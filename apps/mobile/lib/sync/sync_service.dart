@@ -11,13 +11,21 @@ import 'sync_engine.dart';
 enum SyncHataTuru {
   yok,
 
-  /// Ağ yok / zaman aşımı / sunucuya ulaşılamıyor. Bekle, kendiliğinden gidecek.
+  /// SUNUCUYA HİÇ ULAŞILAMADI: ağ yok, zaman aşımı, soket kapandı. "Çevrimdışı" demek YALNIZ
+  /// burada doğrudur. Bekle, kendiliğinden gidecek.
   ag,
 
   /// 401/403 ya da yerelde token yok. BEKLEMEK ÇÖZMEZ; yeniden giriş gerekir.
   oturum,
 
-  /// Beklenmedik yanıt (tip/şema hatası). Ne ağ ne oturum — kod/sürüm uyuşmazlığı.
+  /// Sunucuya ULAŞILDI ama o veremedi: 5xx (arıza) ya da geçici 4xx (408/425/429). Ağ sorunu
+  /// DEĞİLDİR — "çevrimdışısın" demek kullanıcıyı telefonunu/wifi'sini kurcalamaya yollardı —
+  /// ama kalıcı da değildir: otomatik yeniden denenir.
+  sunucu,
+
+  /// Sunucu bize ULAŞTI ve isteğimizi KALICI olarak geri çevirdi (401/403 dışı 4xx: 400/404/
+  /// 409/422…) ya da beklenmedik yanıt geldi (tip/şema hatası). Ne ağ ne oturum — kod/sürüm
+  /// uyuşmazlığı ya da bozuk kayıt. Kullanıcı bekleyerek çözemez.
   veri,
 }
 
@@ -26,11 +34,15 @@ class SyncOutcome {
   const SyncOutcome({
     required this.ok,
     this.pushed = 0,
+    this.karantina = 0,
     this.error,
     this.tur = SyncHataTuru.yok,
   });
   final bool ok;
   final int pushed;
+
+  /// Bu turda karantinaya alınan olay sayısı (kayıtlar SİLİNMEDİ, outbox'ta duruyor).
+  final int karantina;
   final String? error;
 
   /// [ok] false ise başarısızlığın CİNSİ. Bant hangi gerçeği yazacağını bundan öğrenir.
@@ -101,9 +113,22 @@ class SyncService {
         outcome =
             const SyncOutcome(ok: false, error: 'Oturum yok', tur: SyncHataTuru.oturum);
       } else {
-        final pushed = await _engine.pushPending();
+        final ozet = await _engine.pushPending();
+        // Pull, push kalıcı red yese DE koşar: gelen veriyi kullanıcıdan esirgemek için sebep yok
+        // (iki yön birbirinden bağımsız).
         await _engine.pull();
-        outcome = SyncOutcome(ok: true, pushed: pushed);
+        // Sunucu bir kaydı KALICI olarak reddettiyse tur "başarılı" sayılamaz — o sipariş/tahsilat
+        // bu telefonda var, sunucuda YOK. Sessiz kalmak, bu arızanın aylarca görünmemesinin ta
+        // kendisiydi. Cins `veri`: ne ağ ne oturum sorunu, sunucuya ulaşıldı ve geri çevrildi.
+        outcome = ozet.kaliciRed
+            ? SyncOutcome(
+                ok: false,
+                pushed: ozet.gonderildi,
+                karantina: ozet.karantina,
+                error: 'Sunucu bazı kayıtları kabul etmedi',
+                tur: SyncHataTuru.veri,
+              )
+            : SyncOutcome(ok: true, pushed: ozet.gonderildi, karantina: ozet.karantina);
       }
     } catch (e) {
       // `on Exception` DEĞİL — bilinçli. Sunucu beklenmedik bir tip/null yollarsa SyncEngine'deki
@@ -129,14 +154,22 @@ class SyncService {
 
   /// Hatanın cinsini belirler (ekrandan AYRI saf fonksiyon — testi widget kurmadan yazılır).
   ///
-  /// 401/403: sunucu bize ULAŞILDI ve "seni tanımıyorum" dedi. Bu bir ağ sorunu DEĞİLDİR ve
-  /// beklemekle geçmez; bandın "bağlanınca gönderilecek" demesi düpedüz yanlış bilgiydi.
-  /// Error (Exception değil): beklenmedik payload → tip hatası; ne ağ ne oturum.
+  /// TEMEL AYRIM: `SyncApiException` demek "sunucuya ULAŞTIK ve bir HTTP yanıtı aldık" demektir.
+  /// Ulaşılan bir sunucu için "Çevrimdışı" yazmak yalandır. Eskiden 401/403 dışındaki HER
+  /// `SyncApiException` `ag` sayılıyordu: 422 de, 500 de, 404 de "Çevrimdışı · bağlanınca
+  /// gönderilecek" diyordu. Bant böylece hem sunucuya ulaşıldığını gizliyor hem de asla
+  /// gerçekleşmeyecek bir söz veriyordu — 2026-08-05'te teşhis edilen kalıcı-çevrimdışı
+  /// arızasının aylarca görünmemesinin sebebi tam olarak buydu.
+  ///
+  /// • 401/403 → `oturum` (yeniden giriş gerekir, beklemek çözmez)
+  /// • kalıcı 4xx → `veri` (istek geri çevrildi; kullanıcı bekleyerek çözemez)
+  /// • 5xx + geçici 4xx → `sunucu` (ayakta ama veremiyor; otomatik yeniden denenir)
+  /// • diğer Exception (soket/zaman aşımı) → `ag`
+  /// • Error (Exception DEĞİL) → `veri` (beklenmedik payload → tip hatası)
   static SyncHataTuru hataTuru(Object e) {
     if (e is SyncApiException) {
-      return (e.statusCode == 401 || e.statusCode == 403)
-          ? SyncHataTuru.oturum
-          : SyncHataTuru.ag;
+      if (e.oturumHatasi) return SyncHataTuru.oturum;
+      return e.kaliciRed ? SyncHataTuru.veri : SyncHataTuru.sunucu;
     }
     return e is Exception ? SyncHataTuru.ag : SyncHataTuru.veri;
   }

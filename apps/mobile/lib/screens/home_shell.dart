@@ -110,9 +110,23 @@ class HomeShell extends StatefulWidget {
 /// ekran → tema + ekran → sync olarak kalır).
 SipBantTuru bantTuru(SyncHataTuru tur) => switch (tur) {
       SyncHataTuru.oturum => SipBantTuru.oturum,
+      SyncHataTuru.sunucu => SipBantTuru.sunucu,
       SyncHataTuru.veri => SipBantTuru.hata,
       SyncHataTuru.ag || SyncHataTuru.yok => SipBantTuru.cevrimdisi,
     };
+
+/// Bandın alt satırında yazacak SUNUCU ADI — taban adresin ana bilgisayar kısmı (varsa portuyla).
+///
+/// Tam URL yazılmaz: `https://…/api/v1` bandı iki katına çıkarır ve bayiye hiçbir şey katmaz;
+/// arızayı ayırt eden kısım ana bilgisayardır (tünel adresi her açılışta değişiyor). Şema
+/// çözülemezse ham metin döner — yanlış adresin kendisi zaten aranan kanıttır. Saf fonksiyon.
+String? bantAdresi(String? baseUrl) {
+  final ham = baseUrl?.trim();
+  if (ham == null || ham.isEmpty) return null;
+  final u = Uri.tryParse(ham);
+  if (u == null || u.host.isEmpty) return ham;
+  return u.hasPort ? '${u.host}:${u.port}' : u.host;
+}
 
 /// Durum çubuğu ikonları BEYAZ mı çizilsin (koyu hero'nun üstündeler mi)?
 ///
@@ -162,8 +176,16 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   StreamSubscription<List<User>>? _kuryeSub;
   StreamSubscription<KuryeIzinleri>? _izinSub;
   StreamSubscription<SyncMetaData>? _metaSub;
+  StreamSubscription<int>? _karantinaSub;
   SyncOutcome? _sonSenkron;
   DateTime? _sonSenkronAt;
+
+  /// Karantinadaki (sunucunun kabul etmediği) outbox kaydı sayısı — akıştan gelir, tur bitince
+  /// kaybolmaz. Sıfırdan büyükse bant durur.
+  int _karantina = 0;
+
+  /// Bandın alt satırında gösterilecek sunucu adresi (sync_meta akışından).
+  String? _apiAdres;
 
   late final TemaKontrol _tema =
       widget.tema ?? TemaKontrol(depo: TemaDeposu.bellek());
@@ -191,6 +213,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // düştüğünde) değişir; tek atış okuma çekmecedeki kartları bayat bırakıyordu — cihazda
     // "34 hak" gösterirken sunucuda 33 vardı. Drift akışı ilk değeri hemen yayar.
     _metaSub = widget.db.watchSyncState().listen((meta) => _metaUygula(meta));
+    // Karantina AKIŞTAN okunur, `SyncOutcome`dan değil: karantinaya alınan olay bir daha
+    // gönderilmediği için sonraki turlar temiz geçer — tur başına bir sayaca bakan bant, uyarıyı
+    // ilk turda kaybederdi. Kayıt cihazda durduğu SÜRECE uyarı da durmalı.
+    _karantinaSub = widget.db.watchKarantinaSayisi().listen((n) {
+      if (mounted) setState(() => _karantina = n);
+    });
     // Telefon çalarken Flutter motoru başlamadığından native, çağrıyı düz metin bir kuyruğa
     // yazar; DB'ye ancak burada geçer. Açılışta boşaltılmazsa ana ekrandaki "Son Arama" kutusu
     // bayi Ayarlar'a girene kadar BAYAT kalırdı (kutu dosyayı değil DB'yi okuyor).
@@ -268,6 +296,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     _kuryeSub?.cancel();
     _izinSub?.cancel();
     _metaSub?.cancel();
+    _karantinaSub?.cancel();
     _konumBildirici.durdur();
     cagriEylemDurtusunuBirak();
     sekmeYonlendirmeyiCoz();
@@ -319,6 +348,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       _tenantName = meta.tenantName;
       _userName = meta.userName;
       _validUntil = gecerli;
+      // Bandın adres satırı. `Session.baseUrlOf` varsayılana düşer → adres HER ZAMAN yazılır;
+      // "hiçbir adres yok" da bir bilgi olurdu ama gerçekte olmayan bir durum.
+      _apiAdres = bantAdresi(Session.baseUrlOf(meta));
       // Çekmecedeki "Oto sıralama bakiyesi" kartı (tasarım `.lst-kart`). Kota 0 ise sunucu
       // henüz bildirmemiş demektir → kart çizilmez (oran hesaplanamaz, uydurma çubuk çizmeyiz).
       _otoHak = meta.routeCreditsMonthly > 0 ? meta.routeCredits : null;
@@ -414,10 +446,20 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     widget.onLoggedOut();
   }
 
-  /// Güncelleme bandının ÜSTÜNDE çizilen bir bant var mı (çevrimdışı / grace)? Durum çubuğu
+  /// En üstteki senkron bandının türü — çizilecek bant yoksa null.
+  ///
+  /// ÖNCELİK canlı tur hatasındadır: o AN ne olduğunu anlatır ve genelde eylem gerektirir
+  /// (yeniden giriş / bekleme). Karantina uyarısı kalıcıdır, bir sonraki temiz turda zaten
+  /// görünür — iki bandı üst üste çizmek ise durum çubuğunu ve yerleşimi bozardı.
+  SipBantTuru? get _senkronBandi {
+    final o = _sonSenkron;
+    if (o != null && !o.ok) return bantTuru(o.tur);
+    return _karantina > 0 ? SipBantTuru.karantina : null;
+  }
+
+  /// Güncelleme bandının ÜSTÜNDE çizilen bir bant var mı (senkron / grace)? Durum çubuğu
   /// boşluğunu yalnız EN ÜSTTEKİ bant ekler.
-  bool get _ustBantVar =>
-      (_sonSenkron != null && !_sonSenkron!.ok) || _access == AccessLevel.grace;
+  bool get _ustBantVar => _senkronBandi != null || _access == AccessLevel.grace;
 
   /// Güncelleme bandı göründüğünde/kaybolduğunda kabuk YENİDEN ÇİZİLMELİ: durum çubuğu ikon
   /// rengi bandın varlığına bakıyor. Bant kendi `ValueListenableBuilder`ıyla tazeleniyor ama
@@ -449,10 +491,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           children: [
             Column(
               children: [
-                if (_sonSenkron != null && !_sonSenkron!.ok)
+                if (_senkronBandi != null)
                   SafeArea(
                     bottom: false,
-                    child: SipCevrimdisiBant(tur: bantTuru(_sonSenkron!.tur)),
+                    child: SipCevrimdisiBant(tur: _senkronBandi!, adres: _apiAdres),
                   ),
                 if (_access == AccessLevel.grace)
                   const SafeArea(bottom: false, child: _GraceBandi()),

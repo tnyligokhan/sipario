@@ -278,6 +278,22 @@ class AppDatabase extends _$AppDatabase {
   Stream<SyncMetaData> watchSyncState() =>
       (select(syncMeta)..where((t) => t.id.equals(1))).watchSingle();
 
+  /// KARANTİNADAKİ giden-kutusu kayıtlarının sayısı (akış).
+  ///
+  /// Sunucunun kalıcı olarak kabul etmediği olaylar SİLİNMEZ (BRIEF kırmızı çizgi #3) — ama
+  /// sessizce durmaları da kabul edilemez: o sipariş/tahsilat bu telefonda VAR, sunucuda YOK.
+  /// Bandın karantina satırı bu akıştan beslenir; sayı sıfırlanana kadar (destek kaydı elden
+  /// geçirene kadar) bant durur. TUR BAŞINA bir sayaç yetmezdi: karantinaya alınan olay bir
+  /// daha gönderilmediği için sonraki turlar temiz geçer ve uyarı ilk turda kaybolurdu.
+  Stream<int> watchKarantinaSayisi() {
+    final sayac = outbox.id.count();
+    return (selectOnly(outbox)
+          ..addColumns([sayac])
+          ..where(outbox.status.equals('rejected')))
+        .watchSingle()
+        .map((r) => r.read(sayac) ?? 0);
+  }
+
   /// ALTER'ı "duplicate column"a TOLERANSLI koşar (savunma derinliği — sürüm damgası harici
   /// bir açıcı tarafından ezilirse migration yeniden koşabilir; var olan kolon hata değildir).
   /// Tablo bu veritabanında var mı? Migration adımları eski şemalarda da koştuğu için, henüz

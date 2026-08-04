@@ -13,17 +13,41 @@ abstract interface class SyncApi {
 }
 
 class EventResult {
-  EventResult({required this.clientEventId, required this.status, this.entityId, this.serverSeq});
+  EventResult({
+    required this.clientEventId,
+    required this.status,
+    this.entityId,
+    this.serverSeq,
+    this.reason,
+  });
   final String clientEventId;
   final String status; // applied|duplicate|stale|noop|rejected
   final String? entityId;
   final int? serverSeq;
+
+  /// Reddin SEBEBİ — opsiyonel. Sunucu per-olay doğrulamaya geçiyor: tek bozuk olay `rejected`
+  /// dönecek, parti 200 geçecek. Sebep alanının SUNUCUDAKİ ADI henüz kesinleşmediği için üç aday
+  /// anahtar da toleranslı okunur; gelmezse null (istemci sebepsiz de doğru çalışır).
+  /// Değer `outbox.last_error`a yazılır — destek ekibi karantinadaki kaydı bununla teşhis eder.
+  final String? reason;
+
+  /// Anahtarı SIRAYLA dener ve YALNIZ dolu String kabul eder. `as String?` yazmak, sunucu bir
+  /// nesne/dizi gönderdiğinde TypeError atardı ve tüm senkron turu düşerdi — sebep alanı bir
+  /// KOLAYLIKTIR, senkronu düşürmeye yetkisi yoktur.
+  static String? _sebep(Map<String, dynamic> j) {
+    for (final k in const ['reason', 'error', 'message']) {
+      final v = j[k];
+      if (v is String && v.isNotEmpty) return v;
+    }
+    return null;
+  }
 
   factory EventResult.fromJson(Map<String, dynamic> j) => EventResult(
         clientEventId: j['client_event_id'] as String,
         status: j['status'] as String,
         entityId: j['entity_id'] as String?,
         serverSeq: (j['server_seq'] as num?)?.toInt(),
+        reason: _sebep(j),
       );
 }
 
@@ -197,11 +221,29 @@ class HttpSyncApi implements SyncApi {
   }
 }
 
+/// HTTP durumunun ÜÇ CİNSİ — hem bant metni hem karantina kararı buradan okunur. Tek yerde
+/// tanımlıdır ki ikisi ayrışmasın: "bandın ağ dediğine motorun kalıcı red demesi" tam olarak
+/// 2026-08-05'te teşhis edilen arızanın kılığıdır.
 class SyncApiException implements Exception {
   SyncApiException(this.op, this.statusCode, this.body);
   final String op;
   final int statusCode;
   final String body;
+
+  /// Sunucu bize ULAŞTI ve "seni tanımıyorum" dedi (401/403). Beklemek çözmez, yeniden giriş
+  /// gerekir. Karantinaya ALINMAZ: kayıt bozuk değil, oturum bozuk.
+  bool get oturumHatasi => statusCode == 401 || statusCode == 403;
+
+  /// GEÇİCİ: sunucu ayakta ama şu an veremiyor — 5xx (arıza), 408 (istek zaman aşımı),
+  /// 425 (çok erken), 429 (çok fazla istek). Tekrar denemek DOĞRU davranıştır; bu yüzden
+  /// karantinaya ALINMAZ ve motor bu hatayı yukarı fırlatır (tur düşer, sonraki tur dener).
+  bool get gecici =>
+      statusCode >= 500 || statusCode == 408 || statusCode == 425 || statusCode == 429;
+
+  /// KALICI RED: sunucuya ulaşıldı ve isteğimiz "böyle olmaz" diye geri çevrildi
+  /// (400/404/409/413/422…). Aynı partiyi sonsuza dek yollamak kuyruğu kilitler — karantina
+  /// yolu YALNIZ bu cinste açılır.
+  bool get kaliciRed => statusCode >= 400 && statusCode < 500 && !oturumHatasi && !gecici;
 
   @override
   String toString() => 'SyncApiException($op: HTTP $statusCode)';

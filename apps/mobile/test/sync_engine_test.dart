@@ -24,8 +24,9 @@ void main() {
     final repo = CustomerRepository(db);
     await repo.create(name: 'Ahmet', phones: [PhoneInput(phoneE164: '+905321112233')]);
 
-    final pushed = await engine.pushPending();
-    expect(pushed, 2); // customer + phone
+    final ozet = await engine.pushPending();
+    expect(ozet.gonderildi, 2); // customer + phone
+    expect(ozet.kaliciRed, isFalse);
 
     // Sunucuya iki olay gitti.
     expect(api.pushedBatches.single, hasLength(2));
@@ -35,7 +36,7 @@ void main() {
     expect(outbox.every((o) => o.status == 'acked'), isTrue);
 
     // İkinci pushPending gönderecek bir şey bulamaz.
-    expect(await engine.pushPending(), 0);
+    expect((await engine.pushPending()).gonderildi, 0);
   });
 
   test('pushPending server_time offset yazar', () async {

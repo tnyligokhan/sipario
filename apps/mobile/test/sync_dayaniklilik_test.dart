@@ -22,8 +22,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sipario/data/app_database.dart';
+import 'package:sipario/screens/home_shell.dart' show bantTuru;
 import 'package:sipario/sync/sync_api.dart';
 import 'package:sipario/sync/sync_service.dart';
+import 'package:sipario/theme/components/states.dart';
 
 /// Davranışı test başına ayarlanabilen sahte taşıma. `FakeSyncApi` yalnız mutlu yolu kurar;
 /// burada arızayı taklit etmek gerekiyor (fırlat / asılı kal / düzel).
@@ -230,14 +232,67 @@ void main() {
   });
 
   group('Hata CİNSİ — bant doğru gerçeği anlatsın', () {
-    test('401/403 OTURUM, diğer HTTP ve ağ hataları AĞ, Error ise VERİ', () {
+    // SÖZLEŞME DEĞİŞTİ (2026-08-05): 401/403 dışındaki HER `SyncApiException` `ag` sayılıyordu,
+    // yani 422 de 500 de "Çevrimdışı · bağlanınca gönderilecek" diyordu. `SyncApiException`
+    // demek "sunucuya ULAŞTIK" demektir; ulaşılan bir sunucu için çevrimdışı yazmak yalandır ve
+    // kalıcı-çevrimdışı arızasının aylarca görünmemesinin sebebi tam olarak buydu.
+    test('401/403 OTURUM, kalıcı 4xx VERİ, 5xx/geçici 4xx SUNUCU, soket AĞ, Error VERİ', () {
       expect(SyncService.hataTuru(SyncApiException('pull', 401, '')), SyncHataTuru.oturum);
       expect(SyncService.hataTuru(SyncApiException('push', 403, '')), SyncHataTuru.oturum);
-      expect(SyncService.hataTuru(SyncApiException('pull', 500, '')), SyncHataTuru.ag,
-          reason: 'sunucu hatası oturumu geçersiz kılmaz — beklemek çözebilir');
-      expect(SyncService.hataTuru(TimeoutException('x')), SyncHataTuru.ag);
+
+      expect(SyncService.hataTuru(SyncApiException('push', 422, '')), SyncHataTuru.veri,
+          reason: 'sunucu bize ULAŞTI ve isteği geri çevirdi — "çevrimdışı" demek yalan');
+      expect(SyncService.hataTuru(SyncApiException('pull', 404, '')), SyncHataTuru.veri);
+      expect(SyncService.hataTuru(SyncApiException('push', 400, '')), SyncHataTuru.veri);
+
+      expect(SyncService.hataTuru(SyncApiException('pull', 500, '')), SyncHataTuru.sunucu,
+          reason: 'sunucu arızası oturumu geçersiz kılmaz ve ağ sorunu DEĞİLDİR — '
+              'beklemek çözer ama bandın "çevrimdışısın" demesi kullanıcıyı wifi kurcalamaya '
+              'yollardı');
+      expect(SyncService.hataTuru(SyncApiException('push', 429, '')), SyncHataTuru.sunucu,
+          reason: '429 geçicidir — karantina değil, bekleme');
+      expect(SyncService.hataTuru(SyncApiException('push', 408, '')), SyncHataTuru.sunucu);
+
+      expect(SyncService.hataTuru(TimeoutException('x')), SyncHataTuru.ag,
+          reason: 'sunucuya HİÇ ulaşılamadı — çevrimdışı YALNIZ burada doğru');
       expect(SyncService.hataTuru(ArgumentError('x')), SyncHataTuru.veri,
           reason: 'Error = beklenmedik payload; ne ağ ne oturum');
+    });
+
+    test('422 turu bandı VERİ cinsine düşürür — "Çevrimdışı" METNİ ÇIKMAZ', () async {
+      final db = await _oturumluDb();
+      addTearDown(db.close);
+      // pull'dan gelen 422: push'un karantina yolu devrede değil, tur düşer.
+      final api = _ArizaliApi()
+        ..davranis = (n) => n == 1 ? SyncApiException('pull', 422, '') : null;
+      final sync = SyncService(db, api: api);
+      addTearDown(sync.dispose);
+
+      final sonuc = await sync.syncNow();
+      expect(sonuc.ok, isFalse);
+      expect(sonuc.tur, SyncHataTuru.veri);
+      expect(bantTuru(sonuc.tur), SipBantTuru.hata);
+      expect(SipCevrimdisiBant(tur: bantTuru(sonuc.tur)).metin, isNot(contains('Çevrimdışı')),
+          reason: 'sunucuya ulaşıldı; "çevrimdışı" demek arızayı GİZLER');
+      expect(SipCevrimdisiBant(tur: bantTuru(sonuc.tur)).metin,
+          isNot(contains('bağlanınca gönderilecek')),
+          reason: 'tutulamayacak söz verilmez — bağlantı zaten var');
+    });
+
+    test('500 turu SUNUCU bandına düşer; "çevrimdışı" da "destekle görüşün" de demez', () async {
+      final db = await _oturumluDb();
+      addTearDown(db.close);
+      final api = _ArizaliApi()
+        ..davranis = (n) => n == 1 ? SyncApiException('pull', 500, '') : null;
+      final sync = SyncService(db, api: api);
+      addTearDown(sync.dispose);
+
+      final sonuc = await sync.syncNow();
+      expect(sonuc.tur, SyncHataTuru.sunucu);
+      final metin = SipCevrimdisiBant(tur: bantTuru(sonuc.tur)).metin;
+      expect(metin, isNot(contains('Çevrimdışı')));
+      expect(metin, contains('otomatik'),
+          reason: '5xx geçicidir — kullanıcıdan bir eylem beklenmez');
     });
 
     test('401 turu bandı OTURUM cinsine düşürür (yanlış "bağlanınca gönderilecek" sözü verilmez)',

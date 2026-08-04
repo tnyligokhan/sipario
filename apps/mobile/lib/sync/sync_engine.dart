@@ -11,54 +11,185 @@ import 'sync_api.dart';
 /// Çakışma (istemci tarafı): pull bir varlık değişikliği getirdiğinde, o varlık için GÖNDERİLMEMİŞ
 /// (pending) daha yeni occurred_at'li bir outbox düzenlemesi varsa YERELİ KORU (o push sunucuda
 /// kazanacak). Defter/olay tabloları append: id/client_event_id ile "yoksa ekle" — asla ezme.
+/// Bir push turunun özeti. Düz `int` YETMİYORDU: turun dürüst olabilmesi için servisin
+/// "sunucu bir şeyi KALICI olarak reddetti mi" sorusunu da sorabilmesi gerekiyor — yoksa parti
+/// reddedilen bir tur, kuyruk kilitlenmiş olmasına rağmen "başarılı" görünür.
+class PushOzeti {
+  const PushOzeti({this.gonderildi = 0, this.karantina = 0, this.kaliciRed = false});
+
+  /// Sunucunun YANITLADIĞI olay sayısı (acked ya da rejected işaretlenenler).
+  final int gonderildi;
+
+  /// BU TURDA karantinaya alınan olay sayısı. Karantina SİLME DEĞİLDİR: kayıt outbox'ta
+  /// `rejected` olarak durur, veri kaybı yoktur (BRIEF kırmızı çizgi #3).
+  final int karantina;
+
+  /// Parti ya da olay düzeyinde KALICI 4xx görüldü mü? Bant bunu `veri` cinsiyle anlatır;
+  /// "çevrimdışı" demek yalan olurdu — sunucuya ULAŞILDI.
+  final bool kaliciRed;
+}
+
+/// Tek push turunun değişen durumu (bütçe + sayaçlar). İkili arama özyinelemeli olduğu için
+/// sayaçların çağrılar arasında taşınması gerekiyor; alan olarak `SyncEngine`e koymak servisi
+/// turlar arası sızdırırdı.
+class _PushTuru {
+  _PushTuru(this._butce);
+  int _butce;
+  int gonderildi = 0;
+  int karantina = 0;
+  bool kaliciRed = false;
+
+  /// Bölme bütçesinden bir istek düşer; bütçe bittiyse false (kalan olaylar PENDING kalır).
+  bool istekAl() => _butce-- > 0;
+}
+
 class SyncEngine {
   SyncEngine(this.db, this.api);
   final AppDatabase db;
   final SyncApi api;
 
-  /// Bekleyen outbox olaylarını gönderir. Sonuç: sunucunun yanıtladığı olay sayısı.
-  /// applied/duplicate/stale/noop → acked (retry durur). rejected → rejected (elle inceleme).
-  Future<int> pushPending({int batchSize = 500}) async {
+  /// KARANTİNA EŞİĞİ: bir olay TEK BAŞINA bu kadar kez kalıcı 4xx yerse artık gönderilmez.
+  ///
+  /// 1 DEĞİL, bilerek: parti düzeyindeki bir 4xx her zaman "bu olay bozuk" demek değildir.
+  /// ZARF hatası (dizi değil / boş / çok büyük) ya da sunucudaki bir dağıtım hatası tek olaylık
+  /// partiyi de reddeder — eşiksiz bir karantina, masum bir siparişi ilk aksilikte gönderilmez
+  /// yapardı. 3 tur ≈ 6 dakika (zamanlayıcı 2 dk): sunucu tarafı düzelirse kayıt kendiliğinden
+  /// akar, düzelmezse kuyruk yine de kilitli kalmaz.
+  static const int karantinaEsigi = 3;
+
+  /// İKİLİ ARAMA BÜTÇESİ: parti reddedilince bir turda atılacak azami EK istek. 500 olayda tek
+  /// suçluyu daraltmak ~2·log2(500) ≈ 18 istek eder; 24 buna yer bırakır ama zayıf şebekede
+  /// turu saatlerce sürdürmez. Bütçe biterse kalan olaylar PENDING kalır (kayıp yok) ve sonraki
+  /// tur kaldığı yerden devam eder.
+  static const int _bolmeButcesi = 24;
+
+  /// Bekleyen outbox olaylarını gönderir.
+  ///
+  /// applied/duplicate/stale/noop → acked (retry durur). rejected → karantina (elle inceleme).
+  ///
+  /// PARTİ DÜZEYİNDE KALICI 4xx (sunucu bize ULAŞTI ve "bunu kabul etmiyorum" dedi) artık turu
+  /// düşürmez: parti İKİYE BÖLÜNEREK suçlu daraltılır. Kabul edilen yarı aynı turda akar — tek
+  /// bozuk olay bütün kuyruğu rehin alamaz. Suçlu tek olaya inince deneme sayısı artar ve
+  /// [karantinaEsigi]'nde kayıt `rejected` olur; SİLİNMEZ.
+  ///
+  /// NEDEN İKİLİ ARAMA (tek tek gönderme ya da "hepsini karantinaya al" değil): tek tek göndermek
+  /// 500 olayda 500 istek eder ve zayıf şebekede tur hiç bitmez; partiyi toptan karantinaya almak
+  /// ise 499 masum kaydı cezalandırırdı. Bölme, suçluyu ~log₂n istekte bulur ve masum olayları
+  /// AYNI turda teslim eder. Ek bir armağanı da var: hata "parti çok büyük" cinsindense bölme
+  /// onu kendiliğinden çözer.
+  Future<PushOzeti> pushPending({int batchSize = 500}) async {
     final pending = await (db.select(db.outbox)
           ..where((t) => t.status.equals('pending'))
           ..orderBy([(t) => OrderingTerm.asc(t.id)])
           ..limit(batchSize))
         .get();
-    if (pending.isEmpty) return 0;
+    if (pending.isEmpty) return const PushOzeti();
 
-    final events = pending
-        .map((r) => <String, Object?>{
-              'client_event_id': r.clientEventId,
-              'entity_type': r.entityType,
-              'op': r.op,
-              'occurred_at': r.occurredAt,
-              'device_id': r.deviceId,
-              'payload': jsonDecode(r.payload),
-            })
-        .toList();
+    final tur = _PushTuru(_bolmeButcesi);
+    await _partiGonder(pending, tur);
+    return PushOzeti(
+      gonderildi: tur.gonderildi,
+      karantina: tur.karantina,
+      kaliciRed: tur.kaliciRed,
+    );
+  }
 
-    final resp = await api.push(events);
+  /// [rows] partisini gönderir; parti KALICI 4xx alırsa ikiye bölerek suçluyu daraltır.
+  Future<void> _partiGonder(List<OutboxData> rows, _PushTuru tur) async {
+    if (rows.isEmpty) return;
+
+    final PushResponse resp;
+    try {
+      resp = await api.push([for (final r in rows) _olay(r)]);
+    } on SyncApiException catch (e) {
+      // GEÇİCİ (5xx/408/425/429) ve OTURUM (401/403) hataları KARANTİNAYA ALINMAZ: sunucu
+      // "bu kayıt bozuk" demiyor, "şu an olmaz" ya da "seni tanımıyorum" diyor. Yukarı fırlar →
+      // tur düşer, bant gerçeği söyler, sonraki tur AYNI partiyi yeniden dener.
+      if (!e.kaliciRed) rethrow;
+      tur.kaliciRed = true;
+
+      if (rows.length == 1) {
+        await _redDenemesiIsle(rows.single, e, tur);
+        return;
+      }
+      final orta = rows.length ~/ 2;
+      if (tur.istekAl()) await _partiGonder(rows.sublist(0, orta), tur);
+      if (tur.istekAl()) await _partiGonder(rows.sublist(orta), tur);
+      return;
+    }
+
     await _applyServerTime(resp.serverTime);
     await _applySubscription(resp.subscription);
     await _applyTeam(resp.team);
+    await _sonuclariIsle(rows, resp, tur);
+  }
 
+  /// Outbox satırını sunucunun beklediği olay zarfına çevirir.
+  Map<String, Object?> _olay(OutboxData r) => <String, Object?>{
+        'client_event_id': r.clientEventId,
+        'entity_type': r.entityType,
+        'op': r.op,
+        'occurred_at': r.occurredAt,
+        'device_id': r.deviceId,
+        'payload': jsonDecode(r.payload),
+      };
+
+  /// Sunucunun per-olay sonuçlarını outbox'a işler (parti 200 geçti).
+  Future<void> _sonuclariIsle(List<OutboxData> rows, PushResponse resp, _PushTuru tur) async {
     final byId = {for (final res in resp.results) res.clientEventId: res};
+    var yanitlanan = 0;
+    var reddedilen = 0;
+
     await db.transaction(() async {
-      for (final row in pending) {
+      for (final row in rows) {
         final res = byId[row.clientEventId];
         if (res == null) continue; // sunucu yanıtlamadıysa pending kalsın (sonraki retry)
+        yanitlanan++;
         final rejected = res.status == 'rejected';
+        if (rejected) reddedilen++;
         await (db.update(db.outbox)..where((t) => t.id.equals(row.id))).write(
           OutboxCompanion(
             status: Value(rejected ? 'rejected' : 'acked'),
             attempts: Value(row.attempts + 1),
-            lastError: Value(rejected ? 'sunucu reddetti' : null),
+            // Sunucu per-olay bir SEBEP gönderiyorsa saklanır — destek ekibi karantinadaki
+            // kaydı bununla teşhis eder. Gelmezse genel metin (eski sözleşme korunur).
+            lastError: Value(rejected ? (res.reason ?? 'sunucu reddetti') : null),
           ),
         );
       }
     });
 
-    return pending.length;
+    tur.gonderildi += yanitlanan;
+    tur.karantina += reddedilen;
+    // Per-olay red de KALICI reddir: bant bunu "çevrimdışı" diye değil, ne olduğunu söyleyerek
+    // anlatmalı. Yoksa gönderilmemiş bir sipariş sessizce cihazda kalırdı.
+    if (reddedilen > 0) tur.kaliciRed = true;
+  }
+
+  /// TEK olaylık parti kalıcı 4xx yedi → suçlu bu olaydır (ya da bir zarf hatası vardır).
+  /// Deneme sayısı artar; [karantinaEsigi]'ne gelince KARANTİNA.
+  ///
+  /// ⚠️ KARANTİNA SİLME DEĞİLDİR (BRIEF kırmızı çizgi #3): satır outbox'ta `rejected` olarak
+  /// DURUR, payload'ı dokunulmamıştır, `last_error` neden reddedildiğini söyler. Tek değişen,
+  /// artık `pending` seçkisine girmemesi — yani kuyruğun geri kalanını kilitlememesi.
+  Future<void> _redDenemesiIsle(OutboxData row, SyncApiException e, _PushTuru tur) async {
+    final deneme = row.attempts + 1;
+    final karantina = deneme >= karantinaEsigi;
+    if (karantina) tur.karantina++;
+    await (db.update(db.outbox)..where((t) => t.id.equals(row.id))).write(
+      OutboxCompanion(
+        status: Value(karantina ? 'rejected' : 'pending'),
+        attempts: Value(deneme),
+        lastError: Value('HTTP ${e.statusCode} · ${_kisaGovde(e.body)}'),
+      ),
+    );
+  }
+
+  /// Sunucu gövdesinin saklanan kısmı. KIRPILIR: bir doğrulama hatası bütün payload'ı geri
+  /// yankılayabilir ve outbox satırını şişirir; teşhis için ilk satır zaten yeter.
+  static String _kisaGovde(String body) {
+    final tek = body.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return tek.length <= 200 ? tek : '${tek.substring(0, 200)}…';
   }
 
   /// Sunucudaki değişiklikleri çeker ve yerele uygular. İlk çağrı snapshot, sonrası delta.

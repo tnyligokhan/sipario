@@ -360,56 +360,99 @@ class _SipPariltiState extends State<SipParilti>
 /// gönderilmeyecektir, yeniden giriş yapması gerekir. Kullanıcıya ne yapacağını söylemeyen bir
 /// uyarı, uyarı değildir.
 enum SipBantTuru {
-  /// Ağa ulaşılamıyor. Offline-first sözü geçerli: yazmaya devam et, sonra gidecek.
+  /// SUNUCUYA HİÇ ULAŞILAMADI. Offline-first sözü geçerli: yazmaya devam et, sonra gidecek.
   cevrimdisi,
 
   /// Sunucuya ULAŞILDI ve oturum reddedildi (401/403) ya da yerelde token yok.
   oturum,
 
-  /// Beklenmedik yanıt — ne ağ ne oturum. Kullanıcı çözemez, verisi güvende.
+  /// Sunucuya ULAŞILDI ama o veremedi (5xx / 429). Geçici — kendi kendine düzelir.
+  sunucu,
+
+  /// Sunucu isteğimizi KALICI olarak geri çevirdi (4xx) ya da beklenmedik yanıt geldi.
+  /// Ne ağ ne oturum. Kullanıcı çözemez, verisi güvende.
   hata,
+
+  /// Bir ya da daha çok kayıt KARANTİNADA: sunucu kabul etmedi, kayıt cihazda DURUYOR ve
+  /// sunucuya hiç ulaşmadı. Senkronun geri kalanı çalışıyor olabilir — bu bant o yüzden ayrıdır:
+  /// "çevrimdışı" da "senkron durdu" da yanlış olurdu.
+  karantina,
 }
 
 class SipCevrimdisiBant extends StatelessWidget {
-  const SipCevrimdisiBant({super.key, this.tur = SipBantTuru.cevrimdisi});
+  const SipCevrimdisiBant({super.key, this.tur = SipBantTuru.cevrimdisi, this.adres});
 
   final SipBantTuru tur;
 
-  /// Metin SÖZLEŞMEDİR (ui_temel_test.dart): `cevrimdisi` metni offline-first sözünü verir.
+  /// Konuşulan SUNUCUNUN adı (adresin ana bilgisayar kısmı, gerekirse portuyla). Null ise satır
+  /// hiç çizilmez.
+  ///
+  /// NEDEN BANTTA: saha gerçeği, sunucu adresinin her açılışta değişen bir tünel olabilmesi ve
+  /// bayinin yanlış adresle kalabilmesidir. Bant hangi adrese ulaşmaya çalıştığını yazmadığı
+  /// sürece bu arıza telefonu inceleyen birini gerektiriyordu; yazınca beş saniyede kendi kendini
+  /// teşhis ediyor.
+  final String? adres;
+
+  /// Metin SÖZLEŞMEDİR (ui_temel_test.dart): `cevrimdisi` metni offline-first sözünü verir,
+  /// DİĞERLERİ VERMEZ — verilemeyecek bir söz vermek bayiyi boşuna bekletir.
   String get metin => switch (tur) {
         SipBantTuru.cevrimdisi =>
           'Çevrimdışı · değişiklikler kaydedilip bağlanınca gönderilecek',
         SipBantTuru.oturum =>
           'Oturum doğrulanmadı · kayıtlar gönderilemiyor, çıkış yapıp yeniden girin',
+        SipBantTuru.sunucu =>
+          'Sunucu yanıt veremiyor · kayıtlar cihazda, otomatik yeniden denenecek',
         SipBantTuru.hata =>
-          'Senkron durdu · kayıtlarınız cihazda güvende, destekle görüşün',
+          'Sunucu kayıtları kabul etmiyor · veriler cihazda güvende, destekle görüşün',
+        SipBantTuru.karantina =>
+          'Bazı kayıtlar gönderilemedi · cihazda duruyor, destekle görüşün',
       };
 
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
+    final adresi = adres;
     return Container(
       width: double.infinity,
       color: t.danger,
       padding: const EdgeInsets.symmetric(horizontal: SipSpace.x2, vertical: 7),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const SipIcon(
-            SipIcons.sync,
-            boyut: 15,
-            kalinlik: 2.2,
-            renk: Color(0xFFFFFFFF),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SipIcon(
+                SipIcons.sync,
+                boyut: 15,
+                kalinlik: 2.2,
+                renk: Color(0xFFFFFFFF),
+              ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  metin,
+                  style: SipText.metin(11.5, w: 600)
+                      .copyWith(color: const Color(0xFFFFFFFF)),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 7),
-          Flexible(
-            child: Text(
-              metin,
-              style: SipText.metin(11.5, w: 600)
-                  .copyWith(color: const Color(0xFFFFFFFF)),
-              textAlign: TextAlign.center,
+          // Adres satırı: küçük ve soluk — asıl mesajı bastırmaz ama arıza anında tek bakışta
+          // okunur. Tek satır + üç nokta: uzun tünel adresleri bandı büyütmemeli.
+          if (adresi != null && adresi.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                'sunucu: $adresi',
+                style: SipText.metin(10, w: 500)
+                    .copyWith(color: const Color(0xCCFFFFFF)),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
         ],
       ),
     );

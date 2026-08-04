@@ -20,16 +20,27 @@ use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
 /**
  * Senkron çekirdeği (DECISIONS senkron). İki yüzey: push (tek yazma) ve pull (tek okuma).
  *
  * PUSH: tenant_sync_state satırını FOR UPDATE ile kilitler (seq atama sırası = commit sırası →
- * kayıp-güncelleme sınıfı kapanır, korku #2). Her olay için (tenant_id, client_event_id) idempotency
+ * kayıp-güncelleme sınıfı kapanır, korku #2). Her olay ÖNCE `EventValidator` ile içerik doğrulamasından
+ * geçer (biçimsel olarak bozuk olay hiçbir DB satırına dokunmadan 'rejected' döner — zarf doğrulaması
+ * isteğin kendisinde, bkz. SyncPushRequest); ardından (tenant_id, client_event_id) idempotency
  * kontrolü; yeni olay ChangeApplier'a verilir, ürettiği her değişikliğe monoton seq atanıp sync_changes'e
  * yazılır. Olay bazında savepoint: bir olay istemci-kaynaklı hatayla reddedilirse yalnız o geri alınır,
  * parti bozulmaz (Postgres'te hatalı statement transaction'ı zehirler; savepoint bunu izole eder).
+ *
+ * `results` SÖZLEŞMESİ — gönderilen HER olay için tam bir girdi, GÖNDERİLEN SIRADA:
+ * `index` (dizideki konum; bozuk/eksik kimlikte istemcinin tek sağlam eşleme anahtarı),
+ * `client_event_id` (geçersiz olsa bile HAM geri yansıtılır), `status` (applied|stale|noop|duplicate|
+ * locked|rejected), `entity_id`, `server_seq`, `reason` (makine okunur sebep KODU — yalnız rejected/
+ * locked'da dolu; kodların listesi ve metinleri EventValidator::message'ta), `message` (insan metni,
+ * KVKK-güvenli). `index`+`reason` 2026-08-05'te EKLENDİ; eski istemci bilmediği alanı yok sayar ve
+ * `status == 'rejected'` yolunu bugünkü gibi işler.
  *
  * PULL: since=0 tam snapshot (canlı satırlar), since>0 sync_changes'ten seq sıralı delta. Redelivery
  * zararsızdır (istemci upsert idempotent) — snapshot/delta sınırındaki olası tekrar veri kaybettirmez.
@@ -43,7 +54,10 @@ class SyncService
     private const CLIENT_DATA_SQLSTATES = ['22P02', '23502', '23503', '23505', '23514'];
 
     /**
-     * @param  list<array<string, mixed>>  $events
+     * Olay listesi BİLEREK `list<mixed>`tir: zarf doğrulaması elemanların biçimini GARANTİ ETMEZ
+     * (etseydi tek bozuk eleman tüm partiyi 422 yapardı — düzeltilen arıza tam buydu).
+     *
+     * @param  list<mixed>  $events
      * @return array{results: list<array<string, mixed>>, current_seq: int, subscription: array<string, mixed>, team: list<array<string, mixed>>}
      */
     public function push(User $user, array $events): array
@@ -68,8 +82,28 @@ class SyncService
                 ->where('tenant_id', $tenantId)->lockForUpdate()->value('last_seq') ?? 0);
 
             $results = [];
-            foreach ($events as $event) {
-                $clientEventId = (string) ($event['client_event_id'] ?? '');
+            $index = -1;
+            foreach ($events as $raw) {
+                $index++;
+                $clientEventId = EventValidator::clientEventId($raw);
+
+                // OLAY İÇERİĞİ DOĞRULAMASI — her şeyden ÖNCE ve DB'ye dokunmadan. Sırası kritik:
+                // geçersiz client_event_id ile aşağıdaki processed_events sorgusu 22P02 verirdi ve o
+                // hata savepoint DIŞINDA olduğu için TÜM transaction'ı zehirlerdi (500 + kuyruk kilidi).
+                if (! is_array($raw)) {
+                    $results[] = $this->rejected($index, $clientEventId, 'invalid_event', null);
+
+                    continue;
+                }
+                /** @var array<string, mixed> $event */
+                $event = $raw;
+
+                $reason = EventValidator::reason($event);
+                if ($reason !== null) {
+                    $results[] = $this->rejected($index, $clientEventId, $reason, $event);
+
+                    continue;
+                }
 
                 $processed = DB::selectOne(
                     'SELECT entity_id, result_seq FROM processed_events WHERE tenant_id = ? AND client_event_id = ?',
@@ -77,10 +111,12 @@ class SyncService
                 );
                 if ($processed !== null) {
                     $results[] = [
+                        'index' => $index,
                         'client_event_id' => $clientEventId,
                         'status' => 'duplicate',
                         'entity_id' => $processed->entity_id,
                         'server_seq' => $processed->result_seq !== null ? (int) $processed->result_seq : null,
+                        'reason' => null,
                     ];
 
                     continue;
@@ -91,23 +127,25 @@ class SyncService
                 // 'locked' reddi processed_events'e YAZILMAZ (rejected'tan farklı: geçici; abonelik
                 // yenilenince AYNI olay retry'da uygulanabilir) ve seq'i ilerletmez.
                 if ($locked && $lockedAt !== null && $this->lockedOut($event, $lockedAt)) {
-                    $results[] = $this->locked($clientEventId);
+                    $results[] = $this->locked($index, $clientEventId);
 
                     continue;
                 }
 
                 try {
-                    [$lastSeq, $result] = $this->applyOne($tenantId, $event, $lastSeq, $applier);
+                    [$lastSeq, $result] = $this->applyOne($tenantId, $event, $lastSeq, $applier, $index);
                     $results[] = $result;
                 } catch (InvalidArgumentException $e) {
-                    $results[] = $this->rejected($clientEventId, $e->getMessage());
+                    $results[] = $this->rejected($index, $clientEventId, 'domain_rejected', $event, $e->getMessage());
                 } catch (QueryException $e) {
                     if (! in_array((string) $e->getCode(), self::CLIENT_DATA_SQLSTATES, true)) {
                         throw $e; // beklenmedik altyapı hatası → partiyi geri al
                     }
-                    $results[] = $this->rejected($clientEventId, 'Kayıt reddedildi (geçersiz veri).');
+                    $results[] = $this->rejected($index, $clientEventId, 'invalid_data', $event);
                 }
             }
+
+            $this->logRejections($results);
 
             DB::update(
                 'UPDATE tenant_sync_state SET last_seq = ?, updated_at = now() WHERE tenant_id = ?',
@@ -130,9 +168,9 @@ class SyncService
      * @param  array<string, mixed>  $event
      * @return array{0: int, 1: array<string, mixed>}
      */
-    private function applyOne(string $tenantId, array $event, int $lastSeq, ChangeApplier $applier): array
+    private function applyOne(string $tenantId, array $event, int $lastSeq, ChangeApplier $applier, int $index): array
     {
-        return DB::transaction(function () use ($tenantId, $event, $lastSeq, $applier) {
+        return DB::transaction(function () use ($tenantId, $event, $lastSeq, $applier, $index) {
             $applied = $applier->apply($tenantId, $event);
 
             $occurredAt = $event['occurred_at'] ?? null;
@@ -164,10 +202,12 @@ class SyncService
             );
 
             return [$lastSeq, [
+                'index' => $index,
                 'client_event_id' => (string) ($event['client_event_id'] ?? ''),
                 'status' => $applied['status'],
                 'entity_id' => $applied['entity_id'],
                 'server_seq' => $seqForEvent,
+                'reason' => null,
             ]];
         });
     }
@@ -253,17 +293,65 @@ class SyncService
     }
 
     /**
-     * @return array{client_event_id: string, status: string, entity_id: null, server_seq: null, message: string}
+     * Reddedilen olayın sonucu + sunucu günlüğü.
+     *
+     * `reason` MAKİNE OKUNUR sebep kodudur (istemci karantina/günlük için okur), `message` insan
+     * metnidir. İkisi de mevcut sözleşmeye EKTİR; `status` ve diğer alanlar değişmedi, eski istemci
+     * bilmediği alanları yok sayar ve `status == 'rejected'` yolunu bugünkü gibi işler.
+     *
+     * KVKK: günlüğe YALNIZ client_event_id, entity_type, op ve sebep KODU düşer — payload içeriği,
+     * tutar, ad/telefon ve serbest metin mesaj ASLA yazılmaz.
+     *
+     * @param  array<string, mixed>|null  $event
+     * @return array{index: int, client_event_id: string, status: string, entity_id: null, server_seq: null, reason: string, message: string}
      */
-    private function rejected(string $clientEventId, string $message): array
+    private function rejected(int $index, string $clientEventId, string $reason, ?array $event, ?string $message = null): array
     {
+        Log::warning('sync.event_rejected', [
+            'client_event_id' => self::gunlukIcin($clientEventId),
+            'entity_type' => self::gunlukIcin($event['entity_type'] ?? null),
+            'op' => self::gunlukIcin($event['op'] ?? null),
+            'reason' => $reason,
+        ]);
+
         return [
+            'index' => $index,
             'client_event_id' => $clientEventId,
             'status' => 'rejected',
             'entity_id' => null,
             'server_seq' => null,
-            'message' => $message,
+            'reason' => $reason,
+            'message' => $message ?? EventValidator::message($reason),
         ];
+    }
+
+    /**
+     * Parti özeti: kaç olay, hangi sebeplerle reddedildi. Tek satırdır ve filoya yayılmış bir
+     * zehirli hap (ör. artık desteklenmeyen bir entity_type) burada toplu olarak görünür.
+     *
+     * @param  list<array<string, mixed>>  $results
+     */
+    private function logRejections(array $results): void
+    {
+        /** @var array<string, int> $sebepler */
+        $sebepler = [];
+        foreach ($results as $sonuc) {
+            $reason = $sonuc['reason'] ?? null;
+            if (($sonuc['status'] ?? null) !== 'rejected' || ! is_string($reason)) {
+                continue;
+            }
+            $sebepler[$reason] = ($sebepler[$reason] ?? 0) + 1;
+        }
+
+        if ($sebepler !== []) {
+            Log::warning('sync.push_rejected', ['count' => array_sum($sebepler), 'reasons' => $sebepler]);
+        }
+    }
+
+    /** Günlüğe yazılabilir kısa metin: skaler değilse boş, uzunsa kırpılır (günlük şişirme/enjeksiyon). */
+    private static function gunlukIcin(mixed $value): string
+    {
+        return is_scalar($value) ? mb_substr((string) $value, 0, 40) : '';
     }
 
     /**
@@ -316,15 +404,19 @@ class SyncService
      * 'locked' sonucu: 'rejected'tan FARKLI (geçici; abonelik yenilenince retry uygulanabilir).
      * processed_events'e YAZILMAZ, seq'i ilerletmez. Mesaj nötr (PII yok, KVKK).
      *
-     * @return array{client_event_id: string, status: string, entity_id: null, server_seq: null, message: string}
+     * @return array{index: int, client_event_id: string, status: string, entity_id: null, server_seq: null, reason: string, message: string}
      */
-    private function locked(string $clientEventId): array
+    private function locked(int $index, string $clientEventId): array
     {
         return [
+            'index' => $index,
             'client_event_id' => $clientEventId,
             'status' => 'locked',
             'entity_id' => null,
             'server_seq' => null,
+            // 'locked' bir REDDETME DEĞİLDİR (geçici); sebep alanı yalnız sonuç şeklini tekdüze
+            // tutmak ve istemcinin ayrımı kod üzerinden yapabilmesi için doldurulur.
+            'reason' => 'subscription_locked',
             'message' => 'Aboneliğiniz sona erdi. Yeni kayıt kilitli.',
         ];
     }
