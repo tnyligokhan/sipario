@@ -292,20 +292,35 @@ alındı — **yönetim paneli SIFIRDAN yazıldı** ve **sipario.com.tr sitesi b
 pint temiz · Blade derlemesi temiz · 12 yeni migration — **üretim/dev DB'de koşulmalı**.
 Mobil tarafa HİÇ DOKUNULMADI. Karar gerekçeleri DECISIONS.md sonunda (8 satır).
 
-## ⚠️ ÖNCE BUNU OKU — TAM SUITE'İ NASIL KOŞACAKSIN
+## ⚠️ ÖNCE BUNU OKU — TAM SUITE'İ **ARKA PLANDA** KOŞ
 
-**Suite ~9 dakika (550 sn) sürüyor. Bash aracının varsayılan zaman aşımı 2 dakika.**
-Varsayılana bırakırsan koşu 120. saniyede **arka plana düşer ama ÖLMEZ**; yeniden denersen
-**ikinci bir tam koşu** başlar, iki `migrate:fresh` çakışır ve suite
-`relation "admin_users" does not exist` ile ~130 sahte kırık verir.
+**Suite ~575–600 sn sürüyor. Bash aracının AZAMİ zaman aşımı 600000 ms (10 dk).**
+Yani suite tavanın bir tık altında koşuyor ve **ön planda koşmak yazı-turadır**: 575 sn'de
+sığar, 599 sn'de sığmaz. Sığmadığında koşu **arka plana düşer ama ÖLMEZ**; yeniden denersen
+ikinci bir tam koşu başlar, iki `migrate:fresh` çakışır ve suite ~130 **sahte** kırık verir
+(`relation "admin_users" does not exist`, "beklenen 200 gelen 401", "kayıt bulunamadı").
 
-`php artisan test` koşarken **zaman aşımını açıkça `900000` ms ver.**
+**DOĞRU YOL — Bash aracını `run_in_background: true` ile kullan:**
+```
+php artisan test > /tmp/sipario-suite.log 2>&1; echo "EXIT=$?"; tail -20 /tmp/sipario-suite.log
+```
+Zaman aşımına hiç takılmaz, bitince bildirim gelir.
 
-Bu, PLAN'daki eski "paralel artisan test" tuzağının GERÇEK mekanizmasıdır ve bugüne kadar
-yanlış kaydedilmişti. Bu vardiyada üç ayrı teşhis yapıldı, ikisi eksikti: "başka ajan koşuyor"
-(yanlış), "kendi phpunit çocuğunu görüyorsun" (kısmen doğru — `artisan test` DAİMA 2 `php.exe`
-üretir: kendisi + `phpunit` çocuğu), ve asıl sebep olan zaman aşımı. **Kural: koşmadan önce
-`Get-Process php` boş olmalı; 4 süreç görürsen iki koşu var demektir — bekle, öldürme.**
+**Sahte kırığı gerçek regresyondan ayırt etme kuralı:** koşuyu tekrarla ve kırılan test
+İSİMLERİNİ karşılaştır. Deterministik bir regresyon her koşuda **AYNI** testleri kırar.
+Farklı isimler (özellikle dokunmadığın modüller: `SyncTest`, `AuthFlowTest`, `GeocodeTest`)
++ aynı sayı = **ORTAM**, kod değil. Bu ayrım bu vardiyada bir güvenlik iyileştirmesinin
+haksız yere geri alınmasını önledi.
+
+**Koşmadan önce `Get-Process php` BOŞ olmalı.** Bir koşu = **2** `php.exe`
+(`artisan test` + onun `phpunit` çocuğu — `collision/TestCommand.php:162`). **4 görürsen iki
+koşu var demektir: BEKLE, ÖLDÜRME.**
+
+_Bu, PLAN'daki eski "paralel artisan test → bağlantı tavanı" tuzağının GERÇEK mekanizmasıdır
+ve bugüne kadar yanlış kaydedilmişti. Bu vardiyada üç ayrı teşhis yapıldı, ikisi yanlıştı:
+"başka bir ajan koşuyor" (yanlış), "kendi phpunit çocuğunu iki koşu sanıyorsun" (kısmen doğru
+ama eksik). Lead ayrıca "zaman aşımını 900000 ver" diye **imkânsız** bir talimat verdi — araç
+600000'de tavanlıyor. Kaybedilen süre: ~2 saat._
 
 ## Bu vardiyada NE YAPILDI
 
@@ -353,6 +368,15 @@ altında 8 servis, `TenantStatus::Cancelled`.
 - **12 migration üretim/dev DB'de KOŞULMADI** (yalnız test DB'sinde). Önceki turdan bekleyenler
   de olabilir.
 - **Hiçbir ekran gerçek tarayıcıda görülmedi.** Testler headless; bir smoke turu şart.
+  **CSP sıkılaştırması bu boşluğu kritik kılıyor:** `csp_safe` açık ve Alpine artık HTML
+  içindeki ifadelerde globallere izin vermiyor; kaçan bir ifade **sessizce** ölür (konsola
+  düşer, düğme hiçbir şey yapmaz). Tarayıcıda mutlaka denenecekler:
+  (a) panelde **"Ödeme Ekle" modalında firma kombosu** seçim yapıyor mu,
+  (b) sitede **IBAN ve firma kodu "Kopyala"** düğmeleri gerçekten kopyalıyor mu,
+  (c) **iletişim formu** `mailto:` açıyor mu, (d) **Destek SSS araması** süzüyor mu,
+  (e) panel ve site **toast**'ları görünüyor mu, (f) üst menü mobilde açılıp kapanıyor mu.
+  Alpine ifadeleri Node'da gerçek CSP değerlendiricisiyle sınandı (eski hâlin kırıldığı da
+  kanıtlandı) ama DOM/reaktivite katmanı ölçülemedi.
 - **Mobil tarafa dokunulmadı** — `flutter test` bu vardiyada hiç koşulmadı.
 - **Site canlıya çıkamaz** (aşağıdaki insan kararları olmadan).
 
@@ -387,7 +411,8 @@ söylemiyor"du._
 
 ## BİLİNEN TUZAKLAR (bu vardiyada öğrenilenler)
 
-1. 🔴 **Tam suite = 900 sn zaman aşımı.** Yukarıdaki ilk bölüm.
+1. 🔴 **Tam suite'i ARKA PLANDA koş.** Yukarıdaki ilk bölüm — süre tavana bir tık altında,
+   ön planda koşmak yazı-turadır ve kaybedince ~130 sahte kırık üretir.
 2. **Yeni tenant-scope route = İKİ zorunlu adım** (`RouteCoverageGuardTest` listesi +
    `TenantIsolationTest` senaryosu). Kural eskiden beri yazılıydı, bu vardiyada LEAD ihlal etti.
 3. **İkinci kopya sessizce ayrışır.** Gün sınırı sekiz ekranda, arama katlaması iki dosyada
