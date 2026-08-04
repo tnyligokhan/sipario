@@ -93,7 +93,7 @@ class PanelAdminService
      *
      * @return array{admin: AdminUser, parola: string}
      */
-    public function parolaSifirla(string $email, ?string $adminId): array
+    public function parolaSifirla(string $email, ?string $adminId, ?string $parola = null): array
     {
         $email = mb_strtolower(trim($email));
 
@@ -104,7 +104,14 @@ class PanelAdminService
             throw new RuntimeException('Bu e-postayla kayıtlı panel hesabı yok.');
         }
 
-        $parola = Str::password(20);
+        // Parola verilebilir (üretilen 20 karakterlik dizi elle yazılamaz — kurtarma anında
+        // klavyeyle girilebilen bir parola gerçek bir ihtiyaçtır). Verilmezse güçlüsü üretilir.
+        // Alt sınır `panel:admin`in `--parola` kuralıyla AYNI: 12 karakter.
+        if ($parola !== null && mb_strlen($parola) < 12) {
+            throw new RuntimeException('Parola en az 12 karakter olmalı.');
+        }
+
+        $parola ??= Str::password(20);
 
         $admin->forceFill(['password' => $parola])->save(); // 'hashed' cast bcrypt'ler
 

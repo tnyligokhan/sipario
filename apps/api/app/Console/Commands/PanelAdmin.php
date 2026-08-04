@@ -108,7 +108,9 @@ class PanelAdmin extends Command
         }
 
         try {
-            ['admin' => $admin, 'parola' => $parola] = $service->parolaSifirla($email, null);
+            ['admin' => $admin, 'parola' => $parola] = $service->parolaSifirla(
+                $email, null, $this->option('parola') ? (string) $this->option('parola') : null
+            );
         } catch (Throwable $e) {
             $this->error('Parola sıfırlanamadı: '.$e->getMessage());
 
