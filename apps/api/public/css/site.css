@@ -299,6 +299,10 @@ body{font-size:16.5px}
 .t-ust-m{flex:1;min-width:0;display:flex;flex-direction:column}
 .t-ust-m b{font:700 19px/1.1 'Sora',sans-serif;letter-spacing:-.02em}
 .t-ust-m small{font-size:11.5px;font-weight:500;color:var(--a-mut);margin-top:2px}
+/* .t-ust-m.tek: kaynakta tanımsızdı. "tek" = başlığın solunda .t-ust-ik yok (TelSiparis), sadece
+   sağda bir ikon olabilir — dar 412px maket genişliğinde başlık iki satıra bölünmesin diye "tek
+   satır" davranışını uyguluyoruz; taşarsa kırpılır (uzun sipariş özetlerinde düzeni korur). */
+.t-ust-m.tek b,.t-ust-m.tek small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* Müşteri detayı */
 .t-md-bal{background:#17141F;color:#fff;border-radius:22px;padding:22px 18px 18px;text-align:center;display:flex;flex-direction:column;align-items:center}
@@ -409,6 +413,10 @@ main.ic{padding-top:74px}
 /* ── Alt bilgi ── */
 .alt{padding:76px 0 34px}
 .alt-ust{display:grid;grid-template-columns:320px 1fr;gap:56px;padding-bottom:48px;border-bottom:1px solid var(--cizgi)}
+/* .alt-marka: kaynak _style.css'te tanımsızdı (JSX'te sınıf var, kural yok). Sütun içinde marka +
+   slogan + rozetler dikey öbek olarak akıyor — bu tasarımdaki aynı örüntüyü (bkz. .hero-sol,
+   .il-sol) izleyerek dolduruldu; sıkıştırılmış/gerilmiş görünmeyi önler. */
+.alt-marka{display:flex;flex-direction:column;align-items:flex-start}
 .alt-slogan{font-size:15.5px;line-height:1.6;color:var(--murekkep-2);margin-top:20px;max-width:34ch}
 .alt-rzt{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
 .alt-baglanti{display:grid;grid-template-columns:repeat(4,1fr);gap:28px}
@@ -546,6 +554,10 @@ main.ic{padding-top:74px}
 .ilerle{list-style:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:30px}
 .ilerle-adim{display:flex;align-items:center;gap:9px;padding:8px 14px 8px 8px;border-radius:999px;background:var(--kagit-2);font:700 13.5px var(--g);color:var(--sonuk)}
 .ilerle-no{width:24px;height:24px;border-radius:999px;background:var(--cizgi-2);color:var(--yuzey);display:flex;align-items:center;justify-content:center;font:800 12px var(--d);flex-shrink:0}
+/* .ilerle-ad: kaynakta tanımsızdı. .ilerle-adim bir hap/pill (border-radius:999px, tek satır
+   padding) — adım adı sarmalanırsa hapın şekli bozulur; sınıf adının işaret ettiği "tek satır
+   adım adı" davranışını uyguluyoruz. Renk zaten .ilerle-adim.on/.ok'tan miras alınıyor. */
+.ilerle-ad{white-space:nowrap}
 .ilerle-adim.on{background:var(--mor-sis);color:var(--mor)}
 .ilerle-adim.on .ilerle-no{background:var(--mor);color:#fff}
 .ilerle-adim.ok{color:var(--yesil);background:var(--yesil-sis)}
