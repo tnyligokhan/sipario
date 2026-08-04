@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BillingPeriod;
 use App\Enums\TenantStatus;
 use Database\Factories\TenantFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -27,6 +28,11 @@ use Illuminate\Support\Carbon;
  * @property string|null $phone
  * @property int $route_credits
  * @property int $route_credits_monthly
+ * @property string|null $contact_name
+ * @property string|null $city
+ * @property string|null $district
+ * @property int $courier_limit
+ * @property BillingPeriod|null $billing_period
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -46,6 +52,11 @@ class Tenant extends Model
         'phone',
         'route_credits',
         'route_credits_monthly',
+        'contact_name',
+        'city',
+        'district',
+        'courier_limit',
+        'billing_period',
     ];
 
     protected function casts(): array
@@ -58,6 +69,8 @@ class Tenant extends Model
             'modules' => 'array',
             'route_credits' => 'integer',
             'route_credits_monthly' => 'integer',
+            'courier_limit' => 'integer',
+            'billing_period' => BillingPeriod::class,
         ];
     }
 
@@ -71,5 +84,25 @@ class Tenant extends Model
     public function devices(): HasMany
     {
         return $this->hasMany(Device::class);
+    }
+
+    /**
+     * Panelden tutulan satış/destek notları (append-only). Bayiye GÖSTERİLMEZ.
+     *
+     * @return HasMany<TenantNote, $this>
+     */
+    public function notes(): HasMany
+    {
+        return $this->hasMany(TenantNote::class)->orderByDesc('created_at');
+    }
+
+    /**
+     * Bayiye tanımlanmış ek paketler (append-only).
+     *
+     * @return HasMany<AddonGrant, $this>
+     */
+    public function grants(): HasMany
+    {
+        return $this->hasMany(AddonGrant::class)->orderByDesc('granted_on');
     }
 }

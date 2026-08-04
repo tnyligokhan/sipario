@@ -6,13 +6,28 @@
  * ÜRETİM anahtarı insan/PLAN işidir, sandbox varsayılanı boş (Fake ile test edilir).
  */
 return [
-    // Yıllık abonelik fiyatı (kuruş). Örn. 1200,00 TL = 120000 kuruş. Env ile üretimde değişir.
-    'price_kurus' => (int) env('SUBSCRIPTION_PRICE_KURUS', 120000),
+    /*
+     * 2026-08-04'TEN İTİBAREN BU BLOK YALNIZ YEDEKTİR. Fiyat, deneme süresi ve kotaların TEK DOĞRU
+     * KAYNAĞI `plans` tablosudur (panelden düzenlenir; App\Abonelik\PlanDeposu okur). Buradaki
+     * değerler yalnız plan satırı okunamadığında devreye girer — o durum ARIZAdır ama sitenin
+     * "0 ₺" gösterip bedava abonelik açmasından iyidir.
+     */
+
+    // Aylık / yıllık abonelik fiyatı (kuruş). Tohum: 599 ₺/ay · 5.988 ₺/yıl (ayda 499 ₺).
+    'price_monthly_kurus' => (int) env('SUBSCRIPTION_PRICE_MONTHLY_KURUS', 59900),
+    'price_yearly_kurus' => (int) env('SUBSCRIPTION_PRICE_YEARLY_KURUS', 598800),
+
+    // ESKİ ANAHTAR (yıllık) — geriye dönük uyumluluk için duruyor; yeni kod price_yearly_kurus okur.
+    'price_kurus' => (int) env('SUBSCRIPTION_PRICE_KURUS', 598800),
     'currency' => env('SUBSCRIPTION_CURRENCY', 'TRY'),
 
     // Abonelik/deneme süreleri (gün). valid_until bu kadar ileri alınır.
     'period_days' => (int) env('SUBSCRIPTION_PERIOD_DAYS', 365),
     'trial_days' => (int) env('SUBSCRIPTION_TRIAL_DAYS', 30),
+
+    // Plan kapsamındaki kotalar — yeni bayinin tenants kolonlarına tohumlanır.
+    'route_credits_monthly' => (int) env('SUBSCRIPTION_ROUTE_CREDITS_MONTHLY', 50),
+    'courier_limit' => (int) env('SUBSCRIPTION_COURIER_LIMIT', 3),
 
     // Hukuk metni SÜRÜMLERİ (5d ile örtüşür; tam metin insan/hukuk onayı — PLACEHOLDER). Kabul edilen
     // sürüm + zaman subscription_payments'a yazılır (KVKK: kart verisi ASLA; yalnız onay sürümü + zaman).

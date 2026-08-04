@@ -48,13 +48,10 @@ class TenantSeeder extends Seeder
             'username' => 'operator',
             'password' => $password,
         ]);
-        User::factory()->kurye()->create([
-            'tenant_id' => $tenant->id,
-            'name' => strtoupper($prefix).' Kurye',
-            'email' => "{$prefix}-kurye@sipario.test",
-            'username' => 'kurye',
-            'password' => $password,
-        ]);
+        // Kurye TEK MEŞRU YOLDAN açılır: Provisioning::createCourier kota kapısından geçer
+        // (App\Abonelik\KuryeKotasi). Seeder'ın kapıyı atlaması, kotanın çalıştığı yanılsamasını
+        // üretirdi. Bayi başına 1 kurye, hak 3 → kapı açık.
+        Provisioning::createCourier($tenant, strtoupper($prefix).' Kurye', 'kurye', $password);
 
         Device::factory()->count(2)->create(['tenant_id' => $tenant->id]);
     }

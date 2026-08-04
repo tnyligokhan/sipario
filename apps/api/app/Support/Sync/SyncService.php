@@ -2,7 +2,6 @@
 
 namespace App\Support\Sync;
 
-use App\Enums\TenantStatus;
 use App\Models\CallLog;
 use App\Models\CashHandover;
 use App\Models\Customer;
@@ -278,7 +277,11 @@ class SyncService
     private function resolveLock(Tenant $tenant, Carbon $now): array
     {
         $expired = $tenant->valid_until !== null && $tenant->valid_until->lessThan($now);
-        $statusLocked = in_array($tenant->status, [TenantStatus::Locked, TenantStatus::Suspended], true);
+        // 'cancelled' (bayi bıraktı) locked/suspended ile AYNI kefede: yeni yazım kapalı, bekleyen
+        // offline kayıtlar yine akar, veri silinmez (BRIEF kırmızı çizgi #5). Enum'a durum eklerken
+        // bu listeyi güncellememek, iptal etmiş bir bayinin valid_until'ı ileride kaldığı sürece
+        // yazmaya devam etmesi demekti — hiçbir yerde patlamayan, yalnız yanlış olan bir arıza.
+        $statusLocked = $tenant->status->writesLocked();
 
         if (! $statusLocked && ! $expired) {
             return [false, null];
@@ -330,7 +333,7 @@ class SyncService
      * Abonelik durumu yayını (DECISIONS: tek doğru kaynak sunucu). İstemci önbellekler + ileri-sadece
      * saatle grace hesaplar. server_time = kilit kararında kullanılan $now (tutarlı kaynak).
      *
-     * @return array{status: string, valid_until: string|null, locked_at: string|null, modules: array<string, mixed>, tenant_code: string, route_credits: int, route_credits_monthly: int, server_time: string}
+     * @return array{status: string, valid_until: string|null, locked_at: string|null, modules: array<string, mixed>, tenant_code: string, route_credits: int, route_credits_monthly: int, courier_limit: int, server_time: string}
      */
     private function subscriptionPayload(Tenant $tenant, Carbon $now): array
     {
@@ -347,6 +350,14 @@ class SyncService
             'tenant_code' => $tenant->slug,
             'route_credits' => $tenant->route_credits,
             'route_credits_monthly' => $tenant->route_credits_monthly,
+            // courier_limit = açılabilecek kurye hesabı kotası (2026-08-04, ek paketlerle birlikte
+            // sunucuda ZORLANIR hâle geldi — App\Abonelik\KuryeKotasi). route_credits_monthly ile
+            // birebir aynı kanal ve aynı gerekçe: sunucu-sahipli, istemcinin YAZAMAYACAĞI bir kota
+            // tam durum olarak her senkronda iner. Mobilde kurye açma ucu bugün YOK; alan, kotayı
+            // gösterecek ekran (ya da web istemcisi) geldiğinde hazır olsun diye şimdi yayınlanıyor —
+            // sunucudaki doğru değer istemciye ULAŞMIYORSA yoktur (migration 802'nin dersi).
+            // Fiyat/paket/dönem BİLİNÇLİ OLARAK YAYINLANMAZ: mağaza kuralı (BRIEF, pazarlıksız).
+            'courier_limit' => $tenant->courier_limit,
             'server_time' => $now->utc()->toIso8601String(),
         ];
     }

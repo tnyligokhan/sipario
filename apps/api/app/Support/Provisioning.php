@@ -2,6 +2,9 @@
 
 namespace App\Support;
 
+use App\Abonelik\KotaDoluException;
+use App\Abonelik\KuryeKotasi;
+use App\Abonelik\PlanDeposu;
 use App\Enums\TenantStatus;
 use App\Enums\UserRole;
 use App\Models\Tenant;
@@ -55,9 +58,14 @@ class Provisioning
         string $patronUsername = 'patron',
     ): array {
         return self::asOwner(function () use ($tenantName, $patronEmail, $patronPassword, $patronName, $patronUsername) {
+            // Deneme süresi ve kotalar PLANDAN okunur (App\Abonelik\PlanDeposu): panelden
+            // "Deneme süresi 45 gün" denince yeni bayiler O GÜN 45 gün almalı, bir deploy sonra
+            // değil. Plan satırı yoksa config yedeği devreye girer (30 gün / 50 hak / 3 kurye).
+            $plan = new PlanDeposu('pgsql_owner');
+
             // valid_until = trial_ends_at (FAZ 5a): tek enforcement çıpası; trial_ends_at yalnız
-            // "deneme miydi" bilgisi. Ödeme onayında valid_until = now+1yıl'a uzar (5b).
-            $trialEnds = now()->addDays(30);
+            // "deneme miydi" bilgisi. Ödeme onayında valid_until dönem kadar uzar (5b).
+            $trialEnds = now()->addDays($plan->denemeGun());
             $tenant = Tenant::create([
                 'name' => $tenantName,
                 // Firma kodu ZORUNLU (giriş ekranının ilk alanı). Addan türetilir; çakışırsa
@@ -66,6 +74,8 @@ class Provisioning
                 'status' => TenantStatus::Trial->value,
                 'trial_ends_at' => $trialEnds,
                 'valid_until' => $trialEnds,
+                'route_credits_monthly' => $plan->rotaKontoruAylik(),
+                'courier_limit' => $plan->kuryeLimiti(),
             ]);
 
             $patron = User::create([
@@ -83,6 +93,46 @@ class Provisioning
             DB::table('tenant_sync_state')->insertOrIgnore(['tenant_id' => $tenant->id, 'last_seq' => 0]);
 
             return ['tenant' => $tenant, 'patron' => $patron];
+        });
+    }
+
+    /**
+     * KURYE HESABI AÇMANIN TEK MEŞRU YOLU — kota kapısından (App\Abonelik\KuryeKotasi) geçer.
+     *
+     * NEDEN BURADA: kurye açmak da tenant açmak gibi kiracı-ÜSTÜ bir provizyon eylemidir ve owner
+     * bağlamı ister (panel rolünün `users`ta UPDATE/INSERT'i yoktur; RLS altındaki bir bağlantıda
+     * ise kota sayımı oturum bağlamına bağlı kalırdı). Kapının servis içinde değil BURADA çağrılması
+     * bilinçli: kotayı hesabı YARATAN yolun kendisi zorlamazsa, yarın açılacak ikinci bir yol kapıyı
+     * atlayabilir ve bunu kimse fark etmez.
+     *
+     * Kota doluysa KotaDoluException fırlar ve KULLANICI YARATILMAZ (kontrol, INSERT'ten önce).
+     *
+     * @throws KotaDoluException
+     */
+    public static function createCourier(
+        Tenant|string $tenant,
+        string $name,
+        string $username,
+        string $password,
+        ?string $phone = null,
+    ): User {
+        return self::asOwner(function () use ($tenant, $name, $username, $password, $phone) {
+            $bayi = $tenant instanceof Tenant ? $tenant : Tenant::query()->findOrFail($tenant);
+
+            (new KuryeKotasi('pgsql_owner'))->kontrolEt($bayi);
+
+            return User::create([
+                'tenant_id' => $bayi->id,
+                'name' => $name,
+                // E-posta tenant-üstü TEKİLdir; kurye hesabı mobilde firma kodu + kullanıcı adıyla
+                // girer, e-posta yalnız teknik bir zorunluluktur.
+                'email' => mb_strtolower($username).'@'.$bayi->slug.'.sipario.local',
+                'username' => mb_strtolower($username),
+                'password' => $password, // 'hashed' cast'i bcrypt'ler
+                'role' => UserRole::Kurye->value,
+                'status' => 'active',
+                'phone' => $phone,
+            ]);
         });
     }
 

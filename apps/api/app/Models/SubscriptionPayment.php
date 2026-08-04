@@ -22,6 +22,10 @@ use Illuminate\Support\Carbon;
  * @property string|null $consent_version
  * @property Carbon|null $consented_at
  * @property Carbon $occurred_at
+ * @property string|null $covers_period
+ * @property string|null $period
+ * @property string|null $note
+ * @property string|null $recorded_by_admin_id
  * @property Carbon|null $created_at
  */
 class SubscriptionPayment extends Model
@@ -41,7 +45,15 @@ class SubscriptionPayment extends Model
         'consent_version',
         'consented_at',
         'occurred_at',
+        // Elle ödeme (IBAN/elden) alanları — 005009. Tablo APPEND-ONLY kalır.
+        'covers_period',
+        'period',
+        'note',
+        'recorded_by_admin_id',
     ];
+
+    /** Ek paket geliri: aboneliği UZATMAZ, yalnız gelir raporuna girer. */
+    public const PERIOD_ADDON = 'addon';
 
     protected function casts(): array
     {

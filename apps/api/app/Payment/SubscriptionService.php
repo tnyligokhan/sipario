@@ -2,6 +2,8 @@
 
 namespace App\Payment;
 
+use App\Abonelik\PlanDeposu;
+use App\Enums\BillingPeriod;
 use App\Enums\TenantStatus;
 use App\Models\SubscriptionPayment;
 use App\Models\Tenant;
@@ -20,6 +22,11 @@ use Illuminate\Support\Facades\DB;
  *
  * Callback İDEMPOTENT: aynı provider_ref success iki kez → tek aktivasyon (kontrol + partial unique index).
  * KVKK: kart verisi hiçbir yere yazılmaz; yalnız onay sürümü + zaman.
+ *
+ * 2026-08-04 — iyzico ERTELENDİ (OKU-BENI.md kararı): varsayılan tahsilat IBAN/havale + elden ve
+ * ELLE ONAYA döner (App\Abonelik\OdemeKayitServisi + OdemeBildirimServisi). Buradaki gateway yolu
+ * SİLİNMEZ: kart tahsilatı açıldığında tek satırlık bir bağlama işidir; silinirse yeniden yazılır.
+ * Fiyat artık `plans` tablosundan okunur (PlanDeposu), config yalnız yedektir.
  */
 class SubscriptionService
 {
@@ -54,17 +61,26 @@ class SubscriptionService
      * Ödeme başlat: TÜM hukuk onayları ZORUNLU (işaretsiz → ConsentRequiredException, ödeme başlamaz)
      * → gateway.initiate → subscription_payments 'initiated' (onay sürümü + zaman ile). PaymentInitiation döner.
      *
+     * FİYAT ARTIK PLANDAN GELİR (App\Abonelik\PlanDeposu → `plans` tablosu); config yalnız yedektir.
+     * `$period` varsayılanı YILLIK: BRIEF "yıllık peşin tahsilat esastır" der, aylık seçenek sonradan
+     * eklendi. Varsayılanı değiştirmek, dönem geçmeyen mevcut çağıranın (site Subscribe bileşeni)
+     * tahsilatını sessizce 1/12'ye düşürürdü.
+     *
      * @param  array<string, mixed>  $consents
      */
-    public function startCheckout(string $tenantId, string $buyerEmail, array $consents): PaymentInitiation
-    {
+    public function startCheckout(
+        string $tenantId,
+        string $buyerEmail,
+        array $consents,
+        BillingPeriod $period = BillingPeriod::Yearly,
+    ): PaymentInitiation {
         $this->assertConsents($consents);
 
-        $amount = (int) config('subscription.price_kurus');
+        $amount = (new PlanDeposu(self::CONN))->donemKurus($period);
         $currency = (string) config('subscription.currency');
 
         $init = $this->gateway->initiate(new PaymentInitiationRequest($tenantId, $amount, $currency, $buyerEmail));
-        $this->record($tenantId, $amount, $currency, $init->providerRef, 'initiated', $this->consentVersion());
+        $this->record($tenantId, $amount, $currency, $init->providerRef, 'initiated', $this->consentVersion(), $period);
 
         return $init;
     }
@@ -93,34 +109,49 @@ class SubscriptionService
             return $result; // bilinmeyen ref → aktivasyon yok
         }
 
+        // Dönem 'initiated' satırından okunur: checkout'ta hangi dönem seçildiyse aktivasyon da onu
+        // uzatır. Eski (5b) satırlarda kolon boştur → yıllık kabul edilir (o akış yalnız yıllıktı).
+        $period = BillingPeriod::tryFrom((string) $initiated->period) ?? BillingPeriod::Yearly;
+
         if (! $result->success) {
             $this->record($initiated->tenant_id, $initiated->amount_kurus, $initiated->currency,
-                $result->providerRef, 'failed', null);
+                $result->providerRef, 'failed', null, $period);
 
             return $result;
         }
 
-        DB::connection(self::CONN)->transaction(function () use ($initiated, $result) {
+        DB::connection(self::CONN)->transaction(function () use ($initiated, $result, $period) {
             $this->record($initiated->tenant_id, $initiated->amount_kurus, $initiated->currency,
-                $result->providerRef, 'success', $initiated->consent_version);
-            $this->activate($initiated->tenant_id);
+                $result->providerRef, 'success', $initiated->consent_version, $period);
+            $this->activate($initiated->tenant_id, $period);
         });
 
         return $result;
     }
 
-    /** Abonelik aktivasyonu (SUNUCU — tek doğru kaynak): valid_until ileri, status=active, kilit temizle. */
-    private function activate(string $tenantId): void
+    /**
+     * Abonelik aktivasyonu (SUNUCU — tek doğru kaynak): valid_until ileri, status=active, kilit temizle.
+     *
+     * Taban `valid_until > now ? valid_until : now` (OdemeKayitServisi ile AYNI kural): süresi
+     * dolmadan yenileyen bayinin kalan günleri yanmaz. Eski davranış her hâlde now'dan başlıyordu ve
+     * erken ödeyeni cezalandırıyordu.
+     */
+    private function activate(string $tenantId, BillingPeriod $period): void
     {
         $tenant = Tenant::on(self::CONN)->findOrFail($tenantId);
+        $taban = ($tenant->valid_until !== null && $tenant->valid_until->greaterThan(now()))
+            ? $tenant->valid_until
+            : now();
+
         $tenant->forceFill([
             'status' => TenantStatus::Active->value,
-            'valid_until' => now()->addDays((int) config('subscription.period_days')),
+            'billing_period' => $period->value,
+            'valid_until' => $period->uzat($taban),
             'locked_at' => null,
         ])->save();
     }
 
-    private function record(string $tenantId, int $amount, string $currency, string $ref, string $status, ?string $consentVersion): void
+    private function record(string $tenantId, int $amount, string $currency, string $ref, string $status, ?string $consentVersion, BillingPeriod $period): void
     {
         SubscriptionPayment::on(self::CONN)->create([
             'tenant_id' => $tenantId,
@@ -129,6 +160,7 @@ class SubscriptionService
             'provider' => 'iyzico',
             'provider_ref' => $ref,
             'status' => $status,
+            'period' => $period->value,
             'consent_version' => $consentVersion,
             'consented_at' => $consentVersion !== null ? now() : null,
             'occurred_at' => now(),

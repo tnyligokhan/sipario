@@ -2,6 +2,9 @@
 
 namespace Database\Seeders\Demo;
 
+use App\Abonelik\KotaDoluException;
+use App\Abonelik\KuryeKotasi;
+use App\Enums\UserRole;
 use App\Models\CallLog;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
@@ -34,6 +37,14 @@ class DemoFabrika
 
     // ── Kullanıcılar ────────────────────────────────────────────────────────────────────────
 
+    /**
+     * Demo kullanıcısı. AKTİF KURYE açarken kota kapısından geçer (App\Abonelik\KuryeKotasi):
+     * demo verisinin ürünün kendi kurallarını çiğnemesi, kuralın gerçekten çalıştığı yanılsamasını
+     * üretirdi. Demo bayisi 3 kurye hakkına sahiptir ve 2 aktif + 1 pasif kurye kurar — pasif olan
+     * kotadan düşmez, o yüzden kapı açık kalır (ve bu, kotanın doğru saydığının kanıtıdır).
+     *
+     * @throws KotaDoluException
+     */
     public function kullanici(
         string $ad,
         string $kullaniciAdi,
@@ -42,6 +53,10 @@ class DemoFabrika
         ?string $telefon = null,
         string $durum = 'active',
     ): User {
+        if ($rol === UserRole::Kurye->value && $durum === 'active') {
+            (new KuryeKotasi('pgsql_owner'))->bayiKontrolEt($this->tenantId);
+        }
+
         $u = new User;
         $u->forceFill([
             'id' => (string) Str::uuid7(),
