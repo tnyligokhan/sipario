@@ -15,19 +15,39 @@ import 'sync_api.dart';
 /// "sunucu bir şeyi KALICI olarak reddetti mi" sorusunu da sorabilmesi gerekiyor — yoksa parti
 /// reddedilen bir tur, kuyruk kilitlenmiş olmasına rağmen "başarılı" görünür.
 class PushOzeti {
-  const PushOzeti({this.gonderildi = 0, this.karantina = 0, this.kaliciRed = false});
+  const PushOzeti({
+    this.gonderildi = 0,
+    this.karantina = 0,
+    this.beklemede = 0,
+    this.kaliciRed = false,
+  });
 
-  /// Sunucunun YANITLADIĞI olay sayısı (acked ya da rejected işaretlenenler).
+  /// Sunucunun NİHAİ karar verdiği olay sayısı (acked ya da rejected işaretlenenler).
   final int gonderildi;
 
   /// BU TURDA karantinaya alınan olay sayısı. Karantina SİLME DEĞİLDİR: kayıt outbox'ta
   /// `rejected` olarak durur, veri kaybı yoktur (BRIEF kırmızı çizgi #3).
   final int karantina;
 
-  /// Parti ya da olay düzeyinde KALICI 4xx görüldü mü? Bant bunu `veri` cinsiyle anlatır;
-  /// "çevrimdışı" demek yalan olurdu — sunucuya ULAŞILDI.
+  /// Sunucunun BİLEREK uygulamadığı ve `pending` bırakılan olay sayısı (`locked` ve bilinmeyen
+  /// durumlar). Kaybolmadılar, SIRADALAR — abonelik yenilenince/istemci güncellenince akarlar.
+  final int beklemede;
+
+  /// Parti ya da olay düzeyinde KALICI red görüldü mü? Bant bunu `veri` cinsiyle anlatır;
+  /// "çevrimdışı" demek yalan olurdu — sunucuya ULAŞILDI. `locked` BURAYA GİRMEZ: o bir red
+  /// değil, ertelemedir.
   final bool kaliciRed;
 }
+
+/// Sunucu durum dizesinin outbox'taki karşılığı. BEYAZ LİSTE: bilinen durumlar tek tek eşlenir,
+/// tanınmayan her şey `beklet`e düşer.
+///
+/// NEDEN BEYAZ LİSTE: eski kod "`rejected` değilse `acked`" diyordu ve sunucunun sonradan
+/// eklediği `locked` sessizce ACKED olup outbox'tan düşüyordu — abonelik kilitliyken yazılan
+/// sipariş/tahsilat, abonelik yenilense bile bir daha ASLA gönderilmiyordu. Kara liste mantığı
+/// her yeni sunucu durumunda aynı veri kaybını üretir; beyaz liste en kötü ihtimalle bir kaydı
+/// fazladan tekrar gönderir (idempotency zaten `client_event_id`de).
+enum _Karar { onayla, karantina, beklet }
 
 /// Tek push turunun değişen durumu (bütçe + sayaçlar). İkili arama özyinelemeli olduğu için
 /// sayaçların çağrılar arasında taşınması gerekiyor; alan olarak `SyncEngine`e koymak servisi
@@ -37,6 +57,7 @@ class _PushTuru {
   int _butce;
   int gonderildi = 0;
   int karantina = 0;
+  int beklemede = 0;
   bool kaliciRed = false;
 
   /// Bölme bütçesinden bir istek düşer; bütçe bittiyse false (kalan olaylar PENDING kalır).
@@ -66,6 +87,7 @@ class SyncEngine {
   /// Bekleyen outbox olaylarını gönderir.
   ///
   /// applied/duplicate/stale/noop → acked (retry durur). rejected → karantina (elle inceleme).
+  /// locked ve BİLİNMEYEN durumlar → pending KALIR (bkz. [_kararVer]) — silinmez, sıradadır.
   ///
   /// PARTİ DÜZEYİNDE KALICI 4xx (sunucu bize ULAŞTI ve "bunu kabul etmiyorum" dedi) artık turu
   /// düşürmez: parti İKİYE BÖLÜNEREK suçlu daraltılır. Kabul edilen yarı aynı turda akar — tek
@@ -90,6 +112,7 @@ class SyncEngine {
     return PushOzeti(
       gonderildi: tur.gonderildi,
       karantina: tur.karantina,
+      beklemede: tur.beklemede,
       kaliciRed: tur.kaliciRed,
     );
   }
@@ -134,35 +157,93 @@ class SyncEngine {
         'payload': jsonDecode(r.payload),
       };
 
+  /// Sunucu durumunu outbox kararına çevirir — BEYAZ LİSTE (bkz. [_Karar]).
+  static _Karar _kararVer(String status) => switch (status) {
+        // Sunucu olayı NİHAİ olarak sonuçlandırdı; tekrar göndermenin anlamı yok.
+        'applied' || 'noop' || 'duplicate' || 'stale' => _Karar.onayla,
+
+        // Olay içeriği kalıcı olarak geri çevrildi — elle inceleme (kayıt SİLİNMEZ).
+        'rejected' => _Karar.karantina,
+
+        // ⚠️ `locked`: abonelik kilitliyken sunucu olayı BİLEREK uygulamıyor — `processed_events`e
+        // yazmıyor, seq ilerletmiyor; "abonelik yenilenince aynı olay retry'da uygulanabilir"
+        // diye tasarlanmış. Bunu `acked` saymak (eski davranış) o retry'ı ASLA gerçekleştirmiyor
+        // ve kilitliyken yazılan sipariş/tahsilat sessizce yok oluyordu — BRIEF kırmızı çizgi #3
+        // ("hiçbir kayıt kaybolmaz") ve #5 ("veri rehin alınmaz, kilitlense bile silinmez")
+        // birlikte ihlal ediliyordu.
+        'locked' => _Karar.beklet,
+
+        // BİLİNMEYEN DURUM → beklet. Sunucu yarın yeni bir durum eklerse eski istemci onu
+        // sessizce silmemeli; en kötü ihtimalle bir kayıt fazladan gönderilir (idempotency
+        // `client_event_id`de zaten var). Bugünkü arızanın kök deseni tam olarak buydu.
+        _ => _Karar.beklet,
+      };
+
+  /// `last_error`a yazılacak metin: İNSAN mesajı önce (destek onu okuyacak, KVKK-güvenli),
+  /// makine kodu parantez içinde (triyaj/aramada lazım).
+  static String? _sebepMetni(EventResult res) {
+    final mesaj = res.message;
+    final kod = res.reason;
+    if (mesaj != null && kod != null) return '$mesaj ($kod)';
+    return mesaj ?? kod;
+  }
+
   /// Sunucunun per-olay sonuçlarını outbox'a işler (parti 200 geçti).
+  ///
+  /// EŞLEME: birincil anahtar `client_event_id`. O bozuk/eksik gelirse (`missing_client_event_id`
+  /// / `invalid_client_event_id` sunucunun red kodları arasında) `index` devreye girer — sonuçlar
+  /// gönderdiğimiz olaylarla birebir ve aynı sıradadır. İkisi de tutmazsa satıra DOKUNULMAZ ve
+  /// `pending` kalır (sonraki tur yeniden dener) — asla "herhâlde gitmiştir" varsayılmaz.
   Future<void> _sonuclariIsle(List<OutboxData> rows, PushResponse resp, _PushTuru tur) async {
-    final byId = {for (final res in resp.results) res.clientEventId: res};
-    var yanitlanan = 0;
+    final byId = <String, EventResult>{};
+    final byIndex = <int, EventResult>{};
+    for (final res in resp.results) {
+      final cid = res.clientEventId;
+      if (cid != null) byId[cid] = res;
+      final i = res.index;
+      if (i != null) byIndex[i] = res;
+    }
+
+    var onaylanan = 0;
     var reddedilen = 0;
+    var bekleyen = 0;
 
     await db.transaction(() async {
-      for (final row in rows) {
-        final res = byId[row.clientEventId];
+      for (var i = 0; i < rows.length; i++) {
+        final row = rows[i];
+        final res = byId[row.clientEventId] ?? byIndex[i];
         if (res == null) continue; // sunucu yanıtlamadıysa pending kalsın (sonraki retry)
-        yanitlanan++;
-        final rejected = res.status == 'rejected';
-        if (rejected) reddedilen++;
+
+        final karar = _kararVer(res.status);
+        if (karar == _Karar.beklet) {
+          bekleyen++;
+          // KAYIT PENDING KALIR ve `attempts` ARTMAZ — geçici/oturum hatalarındaki kuralın
+          // aynısı: bu bir başarısızlık değil, ertelemedir. Karantina eşiğine yaklaştırmak,
+          // uzun süre kilitli kalan bir bayinin kayıtlarını sonunda karantinaya sürüklerdi.
+          // Sebep yine de yazılır: destek "neden bekliyor" sorusunu cihazdan yanıtlayabilsin.
+          await (db.update(db.outbox)..where((t) => t.id.equals(row.id)))
+              .write(OutboxCompanion(lastError: Value(_sebepMetni(res))));
+          continue;
+        }
+
+        final red = karar == _Karar.karantina;
+        red ? reddedilen++ : onaylanan++;
         await (db.update(db.outbox)..where((t) => t.id.equals(row.id))).write(
           OutboxCompanion(
-            status: Value(rejected ? 'rejected' : 'acked'),
+            status: Value(red ? 'rejected' : 'acked'),
             attempts: Value(row.attempts + 1),
-            // Sunucu per-olay bir SEBEP gönderiyorsa saklanır — destek ekibi karantinadaki
-            // kaydı bununla teşhis eder. Gelmezse genel metin (eski sözleşme korunur).
-            lastError: Value(rejected ? (res.reason ?? 'sunucu reddetti') : null),
+            lastError: Value(red ? (_sebepMetni(res) ?? 'sunucu reddetti') : null),
           ),
         );
       }
     });
 
-    tur.gonderildi += yanitlanan;
+    tur.gonderildi += onaylanan + reddedilen;
     tur.karantina += reddedilen;
+    tur.beklemede += bekleyen;
     // Per-olay red de KALICI reddir: bant bunu "çevrimdışı" diye değil, ne olduğunu söyleyerek
     // anlatmalı. Yoksa gönderilmemiş bir sipariş sessizce cihazda kalırdı.
+    // `beklet` kararı BURAYA GİRMEZ — o kayıtlar sırada, kaybolmuş değil.
     if (reddedilen > 0) tur.kaliciRed = true;
   }
 

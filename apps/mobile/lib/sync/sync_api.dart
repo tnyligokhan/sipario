@@ -19,35 +19,46 @@ class EventResult {
     this.entityId,
     this.serverSeq,
     this.reason,
+    this.message,
+    this.index,
   });
-  final String clientEventId;
-  final String status; // applied|duplicate|stale|noop|rejected
+
+  /// NULLABLE, bilerek: sunucunun red kodları arasında `missing_client_event_id` ve
+  /// `invalid_client_event_id` var — yani sunucu bu alanı boş/bozuk yankılayabilir. `as String`
+  /// yazmak o durumda TypeError atar ve TÜM senkron turunu düşürürdü. Boşsa eşleme [index] ile
+  /// yapılır (bkz. SyncEngine).
+  final String? clientEventId;
+
+  /// applied|duplicate|stale|noop|rejected|locked — motor bunu BEYAZ LİSTEYLE yorumlar.
+  final String status;
   final String? entityId;
   final int? serverSeq;
 
-  /// Reddin SEBEBİ — opsiyonel. Sunucu per-olay doğrulamaya geçiyor: tek bozuk olay `rejected`
-  /// dönecek, parti 200 geçecek. Sebep alanının SUNUCUDAKİ ADI henüz kesinleşmediği için üç aday
-  /// anahtar da toleranslı okunur; gelmezse null (istemci sebepsiz de doğru çalışır).
-  /// Değer `outbox.last_error`a yazılır — destek ekibi karantinadaki kaydı bununla teşhis eder.
+  /// Gönderdiğimiz olay dizisindeki KONUM (0'dan). Sonuçlar olaylarla birebir ve aynı sıradadır;
+  /// [clientEventId] bozuk/eksik geldiğinde tek sağlam eşleme anahtarı budur. Eşleşmeyen satır
+  /// sonsuza dek `pending` kalırdı.
+  final int? index;
+
+  /// Reddin MAKİNE KODU (`unknown_entity_type`, `subscription_locked`, …). Sunucu sözleşmesi:
+  /// applied/stale/noop/duplicate → null; rejected/locked → dolu string.
   final String? reason;
 
-  /// Anahtarı SIRAYLA dener ve YALNIZ dolu String kabul eder. `as String?` yazmak, sunucu bir
-  /// nesne/dizi gönderdiğinde TypeError atardı ve tüm senkron turu düşerdi — sebep alanı bir
-  /// KOLAYLIKTIR, senkronu düşürmeye yetkisi yoktur.
-  static String? _sebep(Map<String, dynamic> j) {
-    for (final k in const ['reason', 'error', 'message']) {
-      final v = j[k];
-      if (v is String && v.isNotEmpty) return v;
-    }
-    return null;
-  }
+  /// İnsan metni — KVKK-güvenli ve kullanıcıya gösterilebilir. Destek `outbox.last_error`da
+  /// bunu okur; kod parantez içinde yanına yazılır.
+  final String? message;
+
+  /// YALNIZ dolu String kabul eder. Sunucu beklenmedik bir tip yollarsa (nesne/sayı) alan null
+  /// sayılır — sebep bir KOLAYLIKTIR, senkron turunu düşürmeye yetkisi yoktur.
+  static String? _metin(Object? v) => v is String && v.isNotEmpty ? v : null;
 
   factory EventResult.fromJson(Map<String, dynamic> j) => EventResult(
-        clientEventId: j['client_event_id'] as String,
+        clientEventId: _metin(j['client_event_id']),
         status: j['status'] as String,
         entityId: j['entity_id'] as String?,
         serverSeq: (j['server_seq'] as num?)?.toInt(),
-        reason: _sebep(j),
+        index: (j['index'] as num?)?.toInt(),
+        reason: _metin(j['reason']),
+        message: _metin(j['message']),
       );
 }
 

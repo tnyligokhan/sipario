@@ -304,9 +304,10 @@ void main() {
       expect(api.pushedBatches, hasLength(1), reason: 'parti 200 geçtiği için BÖLME gerekmez');
     });
 
-    test('sunucunun sebep alanı outbox.last_error\'a yazılır (yoksa genel metin)', () async {
-      await _olayEkle(db, 'sebepli');
-      await _olayEkle(db, 'sebepsiz');
+    test('last_error: insan mesajı önce, makine kodu parantezde (yoksa genel metin)', () async {
+      await _olayEkle(db, 'tam');
+      await _olayEkle(db, 'yalin');
+      await _olayEkle(db, 'sessiz');
       final api = FakeSyncApi()
         ..pushHandler = (events) => PushResponse(
               currentSeq: events.length,
@@ -315,28 +316,223 @@ void main() {
                   EventResult(
                     clientEventId: e['client_event_id'] as String,
                     status: 'rejected',
-                    reason: e['client_event_id'] == 'sebepli' ? 'entity_type bilinmiyor' : null,
+                    reason: e['client_event_id'] == 'sessiz' ? null : 'unknown_entity_type',
+                    message: e['client_event_id'] == 'tam'
+                        ? 'Bu kayıt türü artık desteklenmiyor.'
+                        : null,
                   ),
               ],
             );
 
       await SyncEngine(db, api).pushPending();
 
-      expect((await _satir(db, 'sebepli')).lastError, 'entity_type bilinmiyor');
-      expect((await _satir(db, 'sebepsiz')).lastError, 'sunucu reddetti');
+      expect((await _satir(db, 'tam')).lastError,
+          'Bu kayıt türü artık desteklenmiyor. (unknown_entity_type)',
+          reason: 'destek insan metnini okur, kod triyaj için yanında durur');
+      expect((await _satir(db, 'yalin')).lastError, 'unknown_entity_type');
+      expect((await _satir(db, 'sessiz')).lastError, 'sunucu reddetti');
     });
 
-    test('sebep alanı String değilse senkron DÜŞMEZ (adı henüz kesinleşmedi)', () {
-      // Sunucu `reason`ı nesne olarak gönderirse `as String?` TypeError atar ve TÜM tur düşerdi.
+    test('sözleşme: reason/message/index okunur, bozuk tipler turu DÜŞÜRMEZ', () {
+      final tam = EventResult.fromJson({
+        'index': 0,
+        'client_event_id': 'CE-1',
+        'status': 'rejected',
+        'entity_id': null,
+        'server_seq': null,
+        'reason': 'unknown_entity_type',
+        'message': 'Bu kayıt türü artık desteklenmiyor.',
+      });
+      expect(tam.index, 0);
+      expect(tam.reason, 'unknown_entity_type');
+      expect(tam.message, 'Bu kayıt türü artık desteklenmiyor.');
+
+      // Sunucu beklenmedik bir tip yollarsa `as String` TypeError atar ve TÜM tur düşerdi.
       // Sebep bir KOLAYLIKTIR; senkronu düşürmeye yetkisi yok.
-      final res = EventResult.fromJson({
-        'client_event_id': 'x',
+      final bozuk = EventResult.fromJson({
+        'index': 3,
+        'client_event_id': null, // missing_client_event_id senaryosu
         'status': 'rejected',
         'reason': {'kod': 42},
-        'message': 'okunabilir sebep',
       });
-      expect(res.reason, 'okunabilir sebep');
-      expect(res.status, 'rejected');
+      expect(bozuk.clientEventId, isNull);
+      expect(bozuk.reason, isNull);
+      expect(bozuk.index, 3);
+    });
+
+    test('index ile eşleme: client_event_id bozuk gelse bile DOĞRU satır işaretlenir', () async {
+      await _olayEkle(db, 'a');
+      await _olayEkle(db, 'b');
+      await _olayEkle(db, 'c');
+      // Sunucu kimlikleri bozuk/eksik yankılıyor — geriye tek sağlam anahtar `index` kalıyor.
+      final api = FakeSyncApi()
+        ..pushHandler = (events) => PushResponse(
+              currentSeq: events.length,
+              results: [
+                for (var i = 0; i < events.length; i++)
+                  EventResult(
+                    clientEventId: null,
+                    index: i,
+                    status: i == 1 ? 'rejected' : 'applied',
+                    reason: i == 1 ? 'invalid_payload' : null,
+                  ),
+              ],
+            );
+
+      await SyncEngine(db, api).pushPending();
+
+      expect(await _durumlar(db), {'a': 'acked', 'b': 'rejected', 'c': 'acked'},
+          reason: 'index olmadan üç satır da sonsuza dek pending kalırdı');
+    });
+
+    test('ne kimlik ne index tutarsa satıra DOKUNULMAZ (pending kalır)', () async {
+      await _olayEkle(db, 'a');
+      final api = FakeSyncApi()
+        ..pushHandler = (events) => PushResponse(
+              currentSeq: 1,
+              results: [EventResult(clientEventId: 'baska-bir-kimlik', status: 'applied')],
+            );
+
+      final ozet = await SyncEngine(db, api).pushPending();
+
+      expect((await _satir(db, 'a')).status, 'pending',
+          reason: '"herhâlde gitmiştir" varsayımı bir kaydı yok ederdi');
+      expect(ozet.gonderildi, 0);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════════════════════
+  // KİLİTLİ ABONELİK — 🔴 veri kaybı arızası (sync-sunucu bildirdi, 2026-08-05)
+  // ═══════════════════════════════════════════════════════════════════════════════════════════
+  //
+  // Eski kod "`rejected` değilse `acked`" diyordu; sunucunun `locked` durumu bu kefeye düşüyor
+  // ve outbox'tan siliniyordu. Sunucu `locked`ı BİLEREK geçici tutuyor (processed_events'e
+  // yazmıyor, seq ilerletmiyor) — "abonelik yenilenince retry'da uygulanır" diye. İstemci
+  // ackledigi için o retry hiç olmuyordu: abonelik kilitliyken yazılan sipariş/tahsilat,
+  // abonelik yenilense bile bir daha ASLA gönderilmiyordu.
+  // BRIEF #3 (hiçbir kayıt kaybolmaz) + #5 (veri rehin alınmaz) birlikte ihlal.
+  group('locked — kayıt SİLİNMEZ, sıradadır', () {
+    PushResponse Function(List<Map<String, Object?>>) kilitliYanit() =>
+        (events) => PushResponse(
+              currentSeq: 0,
+              results: [
+                for (final e in events)
+                  EventResult(
+                    clientEventId: e['client_event_id'] as String,
+                    status: 'locked',
+                    reason: 'subscription_locked',
+                    message: 'Aboneliğiniz kilitli.',
+                  ),
+              ],
+            );
+
+    test('locked → outbox PENDING kalır, attempts ARTMAZ, satır silinmez', () async {
+      await _olayEkle(db, 'kilitli-siparis');
+      final api = FakeSyncApi()..pushHandler = kilitliYanit();
+
+      final ozet = await SyncEngine(db, api).pushPending();
+
+      final satir = await _satir(db, 'kilitli-siparis');
+      expect(satir.status, 'pending',
+          reason: 'ARIZANIN TA KENDİSİ: eskiden `acked` oluyordu ve kayıt sonsuza dek kayboldu');
+      expect(satir.attempts, 0,
+          reason: 'erteleme başarısızlık değildir — uzun kilit kaydı karantinaya sürüklemesin');
+      expect(await db.select(db.outbox).get(), hasLength(1));
+      expect(satir.payload, isNotEmpty);
+      expect(satir.lastError, 'Aboneliğiniz kilitli. (subscription_locked)',
+          reason: 'destek "neden bekliyor" sorusunu cihazdan yanıtlayabilmeli');
+
+      expect(ozet.beklemede, 1);
+      expect(ozet.karantina, 0);
+      expect(ozet.gonderildi, 0, reason: 'sunucu NİHAİ karar vermedi');
+      expect(ozet.kaliciRed, isFalse, reason: 'locked bir red değil, ertelemedir');
+      expect(await db.watchKarantinaSayisi().first, 0,
+          reason: 'karantina bandı GÖSTERİLMEZ — bu kayıtlar kaybolmadı, sırada');
+    });
+
+    test('abonelik açılınca AYNI olay yeniden gönderilir ve applied olur', () async {
+      await _olayEkle(db, 'kilitli-siparis');
+      final api = FakeSyncApi()..pushHandler = kilitliYanit();
+      final engine = SyncEngine(db, api);
+
+      await engine.pushPending();
+      await engine.pushPending(); // kilit sürerken turlar boşuna geçmez, kayıt bekler
+      expect((await _satir(db, 'kilitli-siparis')).status, 'pending');
+
+      api.pushHandler = null; // abonelik yenilendi → sunucu artık uyguluyor
+      final ozet = await engine.pushPending();
+
+      expect((await _satir(db, 'kilitli-siparis')).status, 'acked',
+          reason: 'PLAN.md sözü: bekleyen kayıtlar sunucuya AKAR');
+      expect(ozet.gonderildi, 1);
+      expect(api.pushedBatches, hasLength(3),
+          reason: 'olay her turda yeniden gönderildi — vazgeçilmedi');
+    });
+
+    test('kilitli olaylar kuyruğun geri kalanını da kilitlemez', () async {
+      await _olayEkle(db, 'kilitli');
+      await _olayEkle(db, 'normal');
+      final api = FakeSyncApi()
+        ..pushHandler = (events) => PushResponse(
+              currentSeq: events.length,
+              results: [
+                for (final e in events)
+                  EventResult(
+                    clientEventId: e['client_event_id'] as String,
+                    status: e['client_event_id'] == 'kilitli' ? 'locked' : 'applied',
+                    reason: e['client_event_id'] == 'kilitli' ? 'subscription_locked' : null,
+                  ),
+              ],
+            );
+
+      await SyncEngine(db, api).pushPending();
+
+      expect(await _durumlar(db), {'kilitli': 'pending', 'normal': 'acked'});
+    });
+  });
+
+  group('BEYAZ LİSTE — bilinmeyen durum sessizce SİLİNMEZ', () {
+    for (final durum in ['applied', 'noop', 'duplicate', 'stale']) {
+      test('$durum → acked (nihai karar, tekrar göndermenin anlamı yok)', () async {
+        await _olayEkle(db, 'olay');
+        final api = FakeSyncApi()
+          ..pushHandler = (events) => PushResponse(
+                currentSeq: 1,
+                results: [
+                  EventResult(
+                    clientEventId: events.single['client_event_id'] as String,
+                    status: durum,
+                  ),
+                ],
+              );
+
+        await SyncEngine(db, api).pushPending();
+        expect((await _satir(db, 'olay')).status, 'acked');
+      });
+    }
+
+    test('sunucunun yarın ekleyeceği bilinmeyen durum → PENDING kalır', () async {
+      await _olayEkle(db, 'olay');
+      final api = FakeSyncApi()
+        ..pushHandler = (events) => PushResponse(
+              currentSeq: 0,
+              results: [
+                EventResult(
+                  clientEventId: events.single['client_event_id'] as String,
+                  status: 'deferred_for_review', // bugün var olmayan bir durum
+                  reason: 'yeni_sunucu_durumu',
+                ),
+              ],
+            );
+
+      final ozet = await SyncEngine(db, api).pushPending();
+
+      expect((await _satir(db, 'olay')).status, 'pending',
+          reason: 'kara liste ("rejected değilse acked") her yeni sunucu durumunda aynı veri '
+              'kaybını üretir; beyaz liste en kötü ihtimalle bir kaydı fazladan gönderir');
+      expect((await _satir(db, 'olay')).attempts, 0);
+      expect(ozet.beklemede, 1);
+      expect(ozet.kaliciRed, isFalse);
     });
   });
 
