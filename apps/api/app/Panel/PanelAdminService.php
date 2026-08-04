@@ -81,6 +81,40 @@ class PanelAdminService
     }
 
     /**
+     * Var olan hesaba YENİ parola üretir ve bir kez döndürür (kurtarma yolu — konsoldan çağrılır).
+     *
+     * Panelde parola sıfırlama EKRANI bilinçli olarak yoktur: e-posta gönderimi panelin bağımlılığı
+     * değildir ve "sıfırlama bağlantısı" akışı, BYPASSRLS bir hesap için yeni bir saldırı yüzeyi
+     * açardı. Kurtarma bu yüzden konsola, yani sunucuya fiziksel/SSH erişimi olana bırakılmıştır.
+     *
+     * PASİF HESAPLAR DA SIFIRLANABİLİR (`withoutGlobalScope`): parola sıfırlamak hesabı açmaz,
+     * yalnız kimliği tazeler — pasif hesap sıfırlandıktan sonra da giremez. Kapsamı burada
+     * uygulasaydık pasifleştirilmiş bir hesabın parolası "bulunamadı" hatasına düşerdi.
+     *
+     * @return array{admin: AdminUser, parola: string}
+     */
+    public function parolaSifirla(string $email, ?string $adminId): array
+    {
+        $email = mb_strtolower(trim($email));
+
+        $admin = AdminUser::on($this->connection)->withoutGlobalScope('aktif')
+            ->where('email', $email)->first();
+
+        if (! $admin instanceof AdminUser) {
+            throw new RuntimeException('Bu e-postayla kayıtlı panel hesabı yok.');
+        }
+
+        $parola = Str::password(20);
+
+        $admin->forceFill(['password' => $parola])->save(); // 'hashed' cast bcrypt'ler
+
+        // Denetime yalnız OLAY yazılır, parola DEĞERİ asla (panel_audit'in KVKK-nötr sözleşmesi).
+        $this->audit($adminId, 'admin_password_reset', 'admin:'.$admin->id);
+
+        return ['admin' => $admin, 'parola' => $parola];
+    }
+
+    /**
      * Hesabı pasifleştir / yeniden aç. Kendi hesabını pasifleştirmek ENGELLENİR: son superadmin
      * kendini kapatırsa panele girilebilecek hesap kalmaz ve kurtarma yolu konsol komutudur —
      * kullanıcıyı kendi ayağına sıkmaktan korumak burada ucuz.

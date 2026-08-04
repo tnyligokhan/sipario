@@ -64,6 +64,63 @@ class PanelAdminTest extends ApiTestCase
     }
 
     #[Test]
+    public function parola_sifirlanir_yeni_parola_calisir_eskisi_calismaz_ve_denetime_deger_yazilmaz(): void
+    {
+        // KURTARMA YOLU: `panel:admin` komutu parolayı bir kez basıp saklamaz, dolayısıyla parolasını
+        // kaybeden yöneticinin gidecek başka yeri yoktur (panelde sıfırlama ekranı bilinçli yok).
+        $super = $this->admin();
+
+        $sonuc = $this->service()->parolaSifirla('super@sipario.test', $super->id);
+
+        $this->assertSame($super->id, $sonuc['admin']->id, 'Yeni hesap AÇILMAMALI, var olan tazelenmeli.');
+        $this->assertSame('superadmin', $sonuc['admin']->role, 'Sıfırlama rolü değiştirmemeli.');
+
+        $this->app['auth']->forgetGuards();
+        $this->assertTrue(
+            Auth::guard('admin')->attempt(['email' => 'super@sipario.test', 'password' => $sonuc['parola']]),
+            'Yeni parola İÇERİ ALMALI.'
+        );
+
+        $this->app['auth']->forgetGuards();
+        $this->assertFalse(
+            Auth::guard('admin')->attempt(['email' => 'super@sipario.test', 'password' => 'panel-secret']),
+            'Eski parola artık ÇALIŞMAMALI.'
+        );
+
+        $detay = DB::connection('pgsql_panel')->table('panel_audit')
+            ->where('action', 'admin_password_reset')->value('detail');
+        $this->assertStringContainsString('admin:'.$super->id, (string) $detay);
+        $this->assertStringNotContainsString($sonuc['parola'], (string) $detay, 'Parola denetime YAZILMAMALI.');
+    }
+
+    #[Test]
+    public function kayitsiz_e_postanin_parolasi_sifirlanamaz(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->service()->parolaSifirla('yok@sipario.test', null);
+    }
+
+    #[Test]
+    public function pasif_hesabin_parolasi_sifirlanabilir_ama_hesap_acilmaz(): void
+    {
+        // Sıfırlama KİMLİĞİ tazeler, yetkiyi geri vermez: `withoutGlobalScope` olmasaydı pasif
+        // hesap "kayıt yok" hatasına düşerdi; olduğu gibi bırakırsak da pasiflik delinmiş olurdu.
+        $super = $this->admin();
+        $destek = $this->admin('support', 'pasif@sipario.test');
+        $this->service()->aktiflik($destek->id, false, $super->id);
+
+        $sonuc = $this->service()->parolaSifirla('pasif@sipario.test', $super->id);
+
+        $this->assertTrue($sonuc['admin']->pasifMi(), 'Sıfırlama hesabı AÇMAMALI.');
+
+        $this->app['auth']->forgetGuards();
+        $this->assertFalse(
+            Auth::guard('admin')->attempt(['email' => 'pasif@sipario.test', 'password' => $sonuc['parola']]),
+            'Pasif hesap yeni parolayla da GİREMEMELİ.'
+        );
+    }
+
+    #[Test]
     public function ayni_eposta_ikinci_kez_eklenemez(): void
     {
         $super = $this->admin();

@@ -88,6 +88,34 @@ class PanelGuvenlikTest extends ApiTestCase
         $this->assertTrue(Auth::guard('admin')->check(), 'Doğru parola sınıra takılmamalı.');
     }
 
+    // --- E-posta normalizasyonu ---------------------------------------------------------
+
+    #[Test]
+    public function giris_e_postayi_normalize_eder_buyuk_harf_ve_bosluk_kapiyi_kapatmaz(): void
+    {
+        // GERÇEK OLAY: tek superadmin hesabı doğru parolayla "Giriş bilgileri hatalı." alıyordu.
+        // Hesabı açan iki yol da e-postayı küçülterek saklar, giriş ise HAM değerle sorguluyordu;
+        // Postgres'te `=` harf duyarlı olduğu için tarayıcının büyüttüğü ilk harf yetiyordu.
+        // Ekran numaralandırmayı önlemek için nötr konuştuğundan hata kullanıcıya "parolam yanlış"
+        // gibi görünüyor — bu yüzden düzeltme testle kilitlenmeli.
+        $this->makeAdmin('normal@sipario.test');
+
+        foreach (['Normal@sipario.test', 'NORMAL@SIPARIO.TEST', '  normal@sipario.test  '] as $varyant) {
+            Auth::guard('admin')->logout();
+
+            Livewire::test(Login::class)
+                ->set('email', $varyant)
+                ->set('password', 'panel-secret')
+                ->call('authenticate')
+                ->assertRedirect(route('panel.dashboard'));
+
+            $this->assertTrue(
+                Auth::guard('admin')->check(),
+                "[$varyant] doğru parolayla içeri almalıydı."
+            );
+        }
+    }
+
     // --- Toplu kişisel veri çıkışının denetim izi (KVKK) --------------------------------
 
     #[Test]

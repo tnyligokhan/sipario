@@ -40,6 +40,18 @@ class Login extends Component
 
     public function authenticate(): mixed
     {
+        // E-POSTA HER ŞEYDEN ÖNCE NORMALİZE EDİLİR ve sırası önemlidir. Hesabı açan iki yol da
+        // (`panel:admin` komutu ve `PanelAdminService::ekle`) e-postayı `mb_strtolower(trim(...))`
+        // ile saklar; giriş ham değerle çalışırsa iki ayrı yerden kırılırdı:
+        //   1. Postgres'te `=` harf duyarlıdır — tarayıcının büyüttüğü ilk harf ("Gokhan@...")
+        //      DOĞRU PAROLAYLA "Giriş bilgileri hatalı." verirdi.
+        //   2. `email` doğrulama kuralı baştaki/sondaki boşluğu reddeder — kopyala-yapıştırla
+        //      kaçan tek boşluk kullanıcıyı sorguya bile ulaştırmazdı.
+        // Ekran (kullanıcı numaralandırmasını önlemek için) bilerek nötr konuştuğundan bu hatanın
+        // kullanıcı tarafından teşhis edilmesi mümkün değildi; normalizasyon bu yüzden şart.
+        // Alana geri yazılır ki doğrulama, hız sınırı anahtarı ve sorgu aynı değeri görsün.
+        $this->email = Str::lower(trim($this->email));
+
         $this->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],

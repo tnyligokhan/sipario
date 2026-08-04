@@ -24,10 +24,11 @@ use Throwable;
 class PanelAdmin extends Command
 {
     protected $signature = 'panel:admin
-                            {name : Yöneticinin adı}
+                            {name : Yöneticinin adı (--sifirla ile yok sayılır)}
                             {email : E-posta (giriş kimliği)}
                             {--rol=superadmin : superadmin | support}
-                            {--parola= : Verilmezse güçlü bir parola üretilir}';
+                            {--parola= : Verilmezse güçlü bir parola üretilir}
+                            {--sifirla : Var olan hesabın parolasını sıfırlar (yeni hesap açmaz)}';
 
     protected $description = 'Panel yönetici hesabı oluşturur (ilk kurulum / kurtarma). Parolayı bir kez basar.';
 
@@ -35,6 +36,14 @@ class PanelAdmin extends Command
     {
         $rol = (string) $this->option('rol');
         $email = mb_strtolower(trim((string) $this->argument('email')));
+
+        // KURTARMA: parolasını kaybeden var olan hesap. Bu dalın olması komutun kendi sözleşmesiydi
+        // ("son superadmin kilitlendiğinde de kullanılır") ama kod yalnız YENİ hesap açabiliyordu:
+        // e-posta kayıtlıysa hata verip çıkıyordu, yani kilitlenen kişinin gidecek yeri yoktu.
+        // Panelde sıfırlama ekranı bilinçli olarak yok (bkz. PanelAdminService::parolaSifirla).
+        if ($this->option('sifirla')) {
+            return $this->sifirla($service, $email);
+        }
 
         $validator = Validator::make([
             'name' => $this->argument('name'),
@@ -83,6 +92,40 @@ class PanelAdmin extends Command
         $this->line('  e-posta : '.$admin->email);
         $this->line('  rol     : '.(PanelAdminService::ROLLER[$rol] ?? $rol));
         $this->line('  parola  : '.$parola);
+        $this->newLine();
+        $this->warn('Parola BİR KEZ gösterildi ve hiçbir yere kaydedilmedi. Şimdi güvenli bir yere alın.');
+
+        return self::SUCCESS;
+    }
+
+    /** `--sifirla` dalı: var olan hesaba yeni parola üretir, hesabın kimliğini/rolünü değiştirmez. */
+    private function sifirla(PanelAdminService $service, string $email): int
+    {
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->error('Geçerli bir e-posta verin.');
+
+            return self::FAILURE;
+        }
+
+        try {
+            ['admin' => $admin, 'parola' => $parola] = $service->parolaSifirla($email, null);
+        } catch (Throwable $e) {
+            $this->error('Parola sıfırlanamadı: '.$e->getMessage());
+
+            return self::FAILURE;
+        }
+
+        $this->info('Panel parolası sıfırlandı.');
+        $this->line('  e-posta : '.$admin->email);
+        $this->line('  rol     : '.(PanelAdminService::ROLLER[$admin->role] ?? $admin->role));
+        $this->line('  parola  : '.$parola);
+
+        // Pasif hesabın parolasını sıfırlamak onu AÇMAZ; kullanıcı boşuna denemesin diye söyle.
+        if ($admin->pasifMi()) {
+            $this->newLine();
+            $this->warn('DİKKAT: Bu hesap PASİF. Parola tazelendi ama hesap açılmadan giriş yapılamaz.');
+        }
+
         $this->newLine();
         $this->warn('Parola BİR KEZ gösterildi ve hiçbir yere kaydedilmedi. Şimdi güvenli bir yere alın.');
 
