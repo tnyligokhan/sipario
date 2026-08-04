@@ -365,22 +365,28 @@ class SyncService
      *
      * `phone` BİLİNÇLİ EKLENDİ (tasarım: Kuryeler ekranı telefonu gösterir ve düzenler). PII-asgari
      * kuralının amacı MÜŞTERİ verisini ve kimlik bilgisini kısmaktı; kurye telefonu bayinin KENDİ
-     * personel iletişim bilgisidir, patron girer ve kuryeyi aramak için gerekir. Kimlik yüzeyi
-     * (email/parola/rol) hâlâ payload DIŞINDA.
+     * personel iletişim bilgisidir, patron girer ve kuryeyi aramak için gerekir.
      *
-     * @return list<array{id: string, name: string, role: string, status: string, phone: string|null}>
+     * `username` de BİLİNÇLİ EKLENDİ (kullanıcı isteği 2026-08-04: kuryenin giriş bilgileri
+     * uygulamadan düzenlenebilsin). Kullanıcı adı bir SIR DEĞİLDİR — patron onu kuryeye zaten
+     * kendisi söyler ve unuttuğunda soracağı yer burasıdır. Kimlik yüzeyinin gizli yarısı
+     * (e-posta, parola hash'i) payload DIŞINDA kalmaya devam eder; parola hiçbir yönde,
+     * hiçbir biçimde okunmaz — yalnız YAZILIR (TeamController::credentials).
+     *
+     * @return list<array{id: string, name: string, role: string, status: string, phone: string|null, username: string}>
      */
     private function teamPayload(): array
     {
         return User::query()
             ->orderBy('name')
-            ->get(['id', 'name', 'role', 'status', 'phone'])
+            ->get(['id', 'name', 'role', 'status', 'phone', 'username'])
             ->map(fn (User $u) => [
                 'id' => (string) $u->id,
                 'name' => (string) $u->name,
                 'role' => $u->role->value,
                 'status' => (string) $u->status,
                 'phone' => $u->phone,
+                'username' => (string) $u->username,
             ])
             ->all();
     }

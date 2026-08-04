@@ -82,11 +82,16 @@ class TeslimSonucu {
 ///
 /// [oncekiBakiyeKurus] müşterinin teslimden ÖNCEKİ defter bakiyesidir (imzalı: + borç). Yalnız
 /// uyarı metnini zenginleştirir; verilmezse akış aynen çalışır.
+/// [iskontoYetkisi] false ise "Kalanı borç yazma (iskonto)" anahtarı HİÇ çizilmez ve deftere
+/// iskonto düşemez (kullanıcı isteği 2026-08-04 — bayi kuryenin para kırmasını kapatabilmeli).
+/// Kısmi tahsilat yine yapılabilir: eksik kalan tutar BORÇ olur, kırılmaz. İkisi ayrı kararlardır
+/// ve kuryenin para tahsil etme yeteneğini kısmak bu anahtarın işi değildir.
 Future<TeslimSonucu?> teslimSheetAc(
   BuildContext context, {
   required int toplamKurus,
   required bool musteriVar,
   int oncekiBakiyeKurus = 0,
+  bool iskontoYetkisi = true,
 }) =>
     sipSheet<TeslimSonucu>(
       context,
@@ -95,6 +100,7 @@ Future<TeslimSonucu?> teslimSheetAc(
         toplamKurus: toplamKurus,
         musteriVar: musteriVar,
         oncekiBakiyeKurus: oncekiBakiyeKurus,
+        iskontoYetkisi: iskontoYetkisi,
       ),
     );
 
@@ -107,11 +113,13 @@ class _TeslimGovde extends StatefulWidget {
     required this.toplamKurus,
     required this.musteriVar,
     required this.oncekiBakiyeKurus,
+    required this.iskontoYetkisi,
   });
 
   final int toplamKurus;
   final bool musteriVar;
   final int oncekiBakiyeKurus;
+  final bool iskontoYetkisi;
 
   @override
   State<_TeslimGovde> createState() => _TeslimGovdeState();
@@ -190,7 +198,10 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
   /// Veresiye karosunda anahtar HİÇ çıkmaz: "tamamı borç" ile "kalanı borç yazma" birbirinin
   /// zıddıdır ve orada tutar alanı 0'a kilitli olduğu için anahtar, tek dokunuşla siparişin
   /// TAMAMINI kıran bir yol açardı.
+  /// Yetki kapalıysa anahtar hiç sorulmaz — ve yukarıdaki `_iskonto` "görünmüyorsa yazılmaz"
+  /// kuralı sayesinde deftere de düşemez. Tek kapı, iki sonuç.
   bool _iskontoSorulur(int? tahsil) =>
+      widget.iskontoYetkisi &&
       _odeme != 'veresiye' &&
       teslimIskontoSorulur(tahsilKurus: tahsil, toplamKurus: widget.toplamKurus);
 

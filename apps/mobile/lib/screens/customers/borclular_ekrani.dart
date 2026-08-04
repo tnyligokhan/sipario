@@ -23,10 +23,13 @@ import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../isletme/iban.dart' show ibanNormal;
+import '../orders/musteri_eylemleri.dart' show whatsappAc;
 import '../orders/order_detail_screen.dart' show siparisDetaySheetAc;
 import '../orders/order_queries.dart'
-    show saatBicimi, siparisKalanBorcu, watchSiparisTahsilatlari;
+    show saatBicimi, siparisKalanBorcu, watchBirincilTelefonlar, watchSiparisTahsilatlari;
 import '../team.dart';
+import 'borc_hatirlatma.dart';
 import 'customer_detail_screen.dart';
 import 'customer_sheets.dart' show borcTahsilatiAc;
 
@@ -225,36 +228,57 @@ class _Liste extends StatelessWidget {
       builder: (context, siparisSnap) => StreamBuilder<Map<String, int>>(
         stream: watchSiparisTahsilatlari(db),
         initialData: const {},
-        builder: (context, tahsilatSnap) {
-          final liste = borcluListesiKur(
-            musteriler,
-            siparisSnap.data ?? const [],
-            tahsilatSnap.data ?? const {},
-          );
-          return RefreshIndicator(
-            onRefresh: yenile,
-            child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(
-                SipSpace.govde, 0, SipSpace.govde, SipSpace.x5),
-            physics: const AlwaysScrollableScrollPhysics(),
-            itemCount: liste.length,
-            itemBuilder: (context, i) => Padding(
-              padding: EdgeInsets.only(top: i == 0 ? 0 : SipSpace.md),
-              child: _BorcluKarti(
-                db: db,
-                veri: liste[i],
-                writable: writable,
-                yetki: yetki,
-                canAssign: canAssign,
-              ),
-            ),
-            ),
-          );
-        },
+        builder: (context, tahsilatSnap) => StreamBuilder<Map<String, String>>(
+          // Hatırlatma müşterinin BİRİNCİL telefonuna gider (kart telefon alanı taşımaz —
+          // numaralar ayrı tabloda ve bir müşterinin birden çok numarası olabilir).
+          stream: watchBirincilTelefonlar(db),
+          initialData: const {},
+          builder: (context, telefonSnap) => StreamBuilder<TenantSetting?>(
+            // IBAN + işletme adı mesajın içine girer; ikisi de işletme profilinden gelir ve
+            // bayi Ayarlar'da düzenleyince bu ekran ANINDA doğru metni kurmalı (tek atış okuma
+            // bayat kalırdı — "IBAN tanımlı değil" diyen bir düğme, IBAN girildikten sonra da
+            // aynı şeyi söylerdi).
+            stream: watchIsletmeProfili(db),
+            builder: (context, ayarSnap) {
+              final liste = borcluListesiKur(
+                musteriler,
+                siparisSnap.data ?? const [],
+                tahsilatSnap.data ?? const {},
+              );
+              final ayar = ayarSnap.data;
+              return RefreshIndicator(
+                onRefresh: yenile,
+                child: ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(
+                      SipSpace.govde, 0, SipSpace.govde, SipSpace.x5),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: liste.length,
+                  itemBuilder: (context, i) => Padding(
+                    padding: EdgeInsets.only(top: i == 0 ? 0 : SipSpace.md),
+                    child: _BorcluKarti(
+                      db: db,
+                      veri: liste[i],
+                      writable: writable,
+                      yetki: yetki,
+                      canAssign: canAssign,
+                      telefon: (telefonSnap.data ?? const {})[liste[i].musteri.id],
+                      iban: ayar?.iban,
+                      isletmeAdi: ayar?.businessName,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
 }
+
+/// İşletme profili satırı (cihazda TEK SATIR, id=1) — hatırlatma metni buradan beslenir.
+Stream<TenantSetting?> watchIsletmeProfili(AppDatabase db) =>
+    (db.select(db.tenantSettings)..where((t) => t.id.equals(1))).watchSingleOrNull();
 
 /// Bir borçlunun kartı: ad + toplam borç · ödenmemiş siparişleri · "Tahsilat Al".
 class _BorcluKarti extends StatelessWidget {
@@ -264,6 +288,9 @@ class _BorcluKarti extends StatelessWidget {
     required this.writable,
     required this.yetki,
     required this.canAssign,
+    this.telefon,
+    this.iban,
+    this.isletmeAdi,
   });
 
   final AppDatabase db;
@@ -271,6 +298,13 @@ class _BorcluKarti extends StatelessWidget {
   final bool writable;
   final RolYetkileri? yetki;
   final bool canAssign;
+
+  /// Müşterinin birincil telefonu (E.164). Yoksa hatırlatma gönderilemez.
+  final String? telefon;
+
+  /// Bayinin IBAN'ı ve unvanı — mesajın içine girer (İşletme Profili'nden).
+  final String? iban;
+  final String? isletmeAdi;
 
   Future<void> _musteriAc(BuildContext context) => Navigator.of(context).push(
         MaterialPageRoute(
@@ -290,6 +324,29 @@ class _BorcluKarti extends StatelessWidget {
     }
     final ok = await borcTahsilatiAc(context, db: db, customerId: veri.musteri.id);
     if (ok == true && context.mounted) SipToast.goster(context, 'Tahsilat kaydedildi');
+  }
+
+  /// Tek tuşla WhatsApp hatırlatması (kullanıcı isteği 2026-08-04).
+  ///
+  /// Ön koşullar SESSİZCE DEĞİL, dokunuşta söylenir (tasarımın "dokunuşu yutma" ilkesi): eksik
+  /// telefon ve tanımsız IBAN iki AYRI sorundur ve çözümleri de ayrıdır — tek bir soluk düğme
+  /// bayiye hangisini düzelteceğini söylemezdi.
+  ///
+  /// SALT-OKUNUR KİP ENGELLEMEZ: bu bir YAZMA değil, mesaj hazırlama eylemidir. Abonelik bittiğinde
+  /// bile bayi alacağını isteyebilmeli — kilit yeni kayıt girişini durdurur, tahsilatı değil.
+  Future<void> _hatirlat(BuildContext context) async {
+    if (ibanNormal(iban) == null) {
+      SipToast.goster(context, 'Önce Ayarlar → İşletme Profili\'nden IBAN tanımlayın');
+      return;
+    }
+    final mesaj = borcHatirlatmaMesaji(
+      musteriAd: veri.musteri.name,
+      borcKurus: veri.borcKurus,
+      iban: iban,
+      isletmeAdi: isletmeAdi,
+    );
+    final gerekce = await whatsappAc(telefon, mesaj: mesaj);
+    if (gerekce != null && context.mounted) SipToast.goster(context, gerekce);
   }
 
   @override
@@ -356,24 +413,66 @@ class _BorcluKarti extends StatelessWidget {
             ),
 
           const SizedBox(height: SipSpace.md),
-          SipDokun(
-            onTap: () => _tahsilat(context),
-            zemin: t.surface2,
-            basiliZemin: t.line,
-            radius: SipRadius.br2,
-            olcekle: true,
-            child: SizedBox(
-              height: 40,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SipIcon(SipIcons.wallet, boyut: 15, kalinlik: 2.2, renk: t.ink2),
-                  const SizedBox(width: 7),
-                  Text('Tahsilat Al · ${sipTutar(veri.borcKurus)}',
-                      style: SipText.metin(13, w: 700).copyWith(color: t.ink2)),
-                ],
+          Row(
+            children: [
+              Expanded(
+                child: SipDokun(
+                  onTap: () => _tahsilat(context),
+                  zemin: t.surface2,
+                  basiliZemin: t.line,
+                  radius: SipRadius.br2,
+                  olcekle: true,
+                  child: SizedBox(
+                    height: 40,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SipIcon(SipIcons.wallet, boyut: 15, kalinlik: 2.2, renk: t.ink2),
+                        const SizedBox(width: 7),
+                        Flexible(
+                          child: Text('Tahsilat Al · ${sipTutar(veri.borcKurus)}',
+                              style: SipText.metin(13, w: 700).copyWith(color: t.ink2),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: SipSpace.sm),
+              // "Hatırlat" — WhatsApp'ı hazır metinle açar. Ön koşulu (IBAN/telefon) eksik olsa
+              // da ÇİZİLİR ve dokunulabilir kalır: sebebini söyleyen bir düğme, sessizce yok olan
+              // ya da açıklamasız soluk duran bir düğmeden iyidir.
+              Semantics(
+                button: true,
+                label: 'Hatırlat',
+                child: SipDokun(
+                  onTap: () => _hatirlat(context),
+                  zemin: t.surface2,
+                  basiliZemin: t.line,
+                  radius: SipRadius.br2,
+                  olcekle: true,
+                  child: SizedBox(
+                    height: 40,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 13),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // WhatsApp yeşili — marka rengi, jetonlaştırılmaz (eylem şeridiyle aynı).
+                          SipIcon(SipIcons.wa,
+                              boyut: 15, kalinlik: 1.9, renk: const Color(0xFF1FA855)),
+                          const SizedBox(width: 7),
+                          Text('Hatırlat',
+                              style: SipText.metin(13, w: 700).copyWith(color: t.ink2)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\GeocodeController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\SyncController;
+use App\Http\Controllers\Api\TeamController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -63,6 +64,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/locations/heartbeat', [LocationController::class, 'heartbeat'])
             ->middleware('throttle:konum')
             ->name('api.locations.heartbeat');
+
+        // Ekip üyesinin GİRİŞ BİLGİLERİ (kullanıcı adı/parola). Senkron yolundan AYRI ve
+        // bilinçli olarak ONLINE: kimlik yüzeyi offline kuyruğa açılmaz (ayrıntı controller'da).
+        // `role:patron` şart — kurye kendi ya da arkadaşının parolasını değiştiremez.
+        Route::patch('/team/{user}/credentials', [TeamController::class, 'credentials'])
+            ->middleware('role:patron')
+            ->name('api.team.credentials');
 
         // Yalnız patron: kuryenin diğer kuryeleri haritada görmesi için iş gerekçesi yok
         // (KVKK veri minimizasyonu — verilmeyen yetki sızdırılamaz). Aksi rolde 403.

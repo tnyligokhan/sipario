@@ -5805,6 +5805,18 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _usernameMeta = const VerificationMeta(
+    'username',
+  );
+  @override
+  late final GeneratedColumn<String> username = GeneratedColumn<String>(
+    'username',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _phoneMeta = const VerificationMeta('phone');
   @override
   late final GeneratedColumn<String> phone = GeneratedColumn<String>(
@@ -5815,7 +5827,14 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     requiredDuringInsert: false,
   );
   @override
-  List<GeneratedColumn> get $columns => [id, name, role, status, phone];
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    role,
+    status,
+    username,
+    phone,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -5857,6 +5876,12 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     } else if (isInserting) {
       context.missing(_statusMeta);
     }
+    if (data.containsKey('username')) {
+      context.handle(
+        _usernameMeta,
+        username.isAcceptableOrUnknown(data['username']!, _usernameMeta),
+      );
+    }
     if (data.containsKey('phone')) {
       context.handle(
         _phoneMeta,
@@ -5888,6 +5913,10 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         DriftSqlType.string,
         data['${effectivePrefix}status'],
       )!,
+      username: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}username'],
+      )!,
       phone: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}phone'],
@@ -5907,6 +5936,12 @@ class User extends DataClass implements Insertable<User> {
   final String role;
   final String status;
 
+  /// Kullanıcının GİRİŞ ADI (kullanıcı isteği 2026-08-04 — Kuryeler ekranı gösterir ve düzenler).
+  /// Sır değildir: patron kuryeye zaten kendisi söyler, unuttuğunda soracağı yer burasıdır.
+  /// PAROLA BURADA YOK ve hiç olmayacak — parola yalnız YAZILIR (`/team/{id}/credentials`),
+  /// hiçbir yönde okunmaz. Eski sunucu alanı göndermezse boş kalır.
+  final String username;
+
   /// Kurye telefonu (tasarım: Kuryeler ekranı gösterir/düzenler). Bayinin KENDİ personel iletişim
   /// bilgisidir; e-posta/parola hâlâ sunucuda kalır ve team bloğuna hiç girmez.
   final String? phone;
@@ -5915,6 +5950,7 @@ class User extends DataClass implements Insertable<User> {
     required this.name,
     required this.role,
     required this.status,
+    required this.username,
     this.phone,
   });
   @override
@@ -5924,6 +5960,7 @@ class User extends DataClass implements Insertable<User> {
     map['name'] = Variable<String>(name);
     map['role'] = Variable<String>(role);
     map['status'] = Variable<String>(status);
+    map['username'] = Variable<String>(username);
     if (!nullToAbsent || phone != null) {
       map['phone'] = Variable<String>(phone);
     }
@@ -5936,6 +5973,7 @@ class User extends DataClass implements Insertable<User> {
       name: Value(name),
       role: Value(role),
       status: Value(status),
+      username: Value(username),
       phone: phone == null && nullToAbsent
           ? const Value.absent()
           : Value(phone),
@@ -5952,6 +5990,7 @@ class User extends DataClass implements Insertable<User> {
       name: serializer.fromJson<String>(json['name']),
       role: serializer.fromJson<String>(json['role']),
       status: serializer.fromJson<String>(json['status']),
+      username: serializer.fromJson<String>(json['username']),
       phone: serializer.fromJson<String?>(json['phone']),
     );
   }
@@ -5963,6 +6002,7 @@ class User extends DataClass implements Insertable<User> {
       'name': serializer.toJson<String>(name),
       'role': serializer.toJson<String>(role),
       'status': serializer.toJson<String>(status),
+      'username': serializer.toJson<String>(username),
       'phone': serializer.toJson<String?>(phone),
     };
   }
@@ -5972,12 +6012,14 @@ class User extends DataClass implements Insertable<User> {
     String? name,
     String? role,
     String? status,
+    String? username,
     Value<String?> phone = const Value.absent(),
   }) => User(
     id: id ?? this.id,
     name: name ?? this.name,
     role: role ?? this.role,
     status: status ?? this.status,
+    username: username ?? this.username,
     phone: phone.present ? phone.value : this.phone,
   );
   User copyWithCompanion(UsersCompanion data) {
@@ -5986,6 +6028,7 @@ class User extends DataClass implements Insertable<User> {
       name: data.name.present ? data.name.value : this.name,
       role: data.role.present ? data.role.value : this.role,
       status: data.status.present ? data.status.value : this.status,
+      username: data.username.present ? data.username.value : this.username,
       phone: data.phone.present ? data.phone.value : this.phone,
     );
   }
@@ -5997,13 +6040,14 @@ class User extends DataClass implements Insertable<User> {
           ..write('name: $name, ')
           ..write('role: $role, ')
           ..write('status: $status, ')
+          ..write('username: $username, ')
           ..write('phone: $phone')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, role, status, phone);
+  int get hashCode => Object.hash(id, name, role, status, username, phone);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6012,6 +6056,7 @@ class User extends DataClass implements Insertable<User> {
           other.name == this.name &&
           other.role == this.role &&
           other.status == this.status &&
+          other.username == this.username &&
           other.phone == this.phone);
 }
 
@@ -6020,6 +6065,7 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<String> name;
   final Value<String> role;
   final Value<String> status;
+  final Value<String> username;
   final Value<String?> phone;
   final Value<int> rowid;
   const UsersCompanion({
@@ -6027,6 +6073,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.name = const Value.absent(),
     this.role = const Value.absent(),
     this.status = const Value.absent(),
+    this.username = const Value.absent(),
     this.phone = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -6035,6 +6082,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     required String name,
     required String role,
     required String status,
+    this.username = const Value.absent(),
     this.phone = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -6046,6 +6094,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<String>? name,
     Expression<String>? role,
     Expression<String>? status,
+    Expression<String>? username,
     Expression<String>? phone,
     Expression<int>? rowid,
   }) {
@@ -6054,6 +6103,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       if (name != null) 'name': name,
       if (role != null) 'role': role,
       if (status != null) 'status': status,
+      if (username != null) 'username': username,
       if (phone != null) 'phone': phone,
       if (rowid != null) 'rowid': rowid,
     });
@@ -6064,6 +6114,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     Value<String>? name,
     Value<String>? role,
     Value<String>? status,
+    Value<String>? username,
     Value<String?>? phone,
     Value<int>? rowid,
   }) {
@@ -6072,6 +6123,7 @@ class UsersCompanion extends UpdateCompanion<User> {
       name: name ?? this.name,
       role: role ?? this.role,
       status: status ?? this.status,
+      username: username ?? this.username,
       phone: phone ?? this.phone,
       rowid: rowid ?? this.rowid,
     );
@@ -6092,6 +6144,9 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
+    if (username.present) {
+      map['username'] = Variable<String>(username.value);
+    }
     if (phone.present) {
       map['phone'] = Variable<String>(phone.value);
     }
@@ -6108,6 +6163,7 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('name: $name, ')
           ..write('role: $role, ')
           ..write('status: $status, ')
+          ..write('username: $username, ')
           ..write('phone: $phone, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -6239,6 +6295,88 @@ class $TenantSettingsTable extends TenantSettings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _ibanMeta = const VerificationMeta('iban');
+  @override
+  late final GeneratedColumn<String> iban = GeneratedColumn<String>(
+    'iban',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _courierCanCustomersMeta =
+      const VerificationMeta('courierCanCustomers');
+  @override
+  late final GeneratedColumn<bool> courierCanCustomers = GeneratedColumn<bool>(
+    'courier_can_customers',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_customers" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _courierCanOrdersMeta = const VerificationMeta(
+    'courierCanOrders',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanOrders = GeneratedColumn<bool>(
+    'courier_can_orders',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_orders" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _courierCanCollectMeta = const VerificationMeta(
+    'courierCanCollect',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanCollect = GeneratedColumn<bool>(
+    'courier_can_collect',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_collect" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _courierCanDiscountMeta =
+      const VerificationMeta('courierCanDiscount');
+  @override
+  late final GeneratedColumn<bool> courierCanDiscount = GeneratedColumn<bool>(
+    'courier_can_discount',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_discount" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _courierCanDayEndMeta = const VerificationMeta(
+    'courierCanDayEnd',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanDayEnd = GeneratedColumn<bool>(
+    'courier_can_day_end',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_day_end" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _orderCodeDisplayMeta = const VerificationMeta(
     'orderCodeDisplay',
   );
@@ -6287,6 +6425,12 @@ class $TenantSettingsTable extends TenantSettings
     opensAt,
     closesAt,
     receiptNote,
+    iban,
+    courierCanCustomers,
+    courierCanOrders,
+    courierCanCollect,
+    courierCanDiscount,
+    courierCanDayEnd,
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
@@ -6375,6 +6519,57 @@ class $TenantSettingsTable extends TenantSettings
         ),
       );
     }
+    if (data.containsKey('iban')) {
+      context.handle(
+        _ibanMeta,
+        iban.isAcceptableOrUnknown(data['iban']!, _ibanMeta),
+      );
+    }
+    if (data.containsKey('courier_can_customers')) {
+      context.handle(
+        _courierCanCustomersMeta,
+        courierCanCustomers.isAcceptableOrUnknown(
+          data['courier_can_customers']!,
+          _courierCanCustomersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_orders')) {
+      context.handle(
+        _courierCanOrdersMeta,
+        courierCanOrders.isAcceptableOrUnknown(
+          data['courier_can_orders']!,
+          _courierCanOrdersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_collect')) {
+      context.handle(
+        _courierCanCollectMeta,
+        courierCanCollect.isAcceptableOrUnknown(
+          data['courier_can_collect']!,
+          _courierCanCollectMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_discount')) {
+      context.handle(
+        _courierCanDiscountMeta,
+        courierCanDiscount.isAcceptableOrUnknown(
+          data['courier_can_discount']!,
+          _courierCanDiscountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_day_end')) {
+      context.handle(
+        _courierCanDayEndMeta,
+        courierCanDayEnd.isAcceptableOrUnknown(
+          data['courier_can_day_end']!,
+          _courierCanDayEndMeta,
+        ),
+      );
+    }
     if (data.containsKey('order_code_display')) {
       context.handle(
         _orderCodeDisplayMeta,
@@ -6455,6 +6650,30 @@ class $TenantSettingsTable extends TenantSettings
         DriftSqlType.string,
         data['${effectivePrefix}receipt_note'],
       ),
+      iban: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}iban'],
+      ),
+      courierCanCustomers: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_customers'],
+      )!,
+      courierCanOrders: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_orders'],
+      )!,
+      courierCanCollect: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_collect'],
+      )!,
+      courierCanDiscount: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_discount'],
+      )!,
+      courierCanDayEnd: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_day_end'],
+      )!,
       orderCodeDisplay: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}order_code_display'],
@@ -6489,6 +6708,21 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
   final String? closesAt;
   final String? receiptNote;
 
+  /// Bayinin KENDİ IBAN'ı (kullanıcı isteği 2026-08-04) — borçluya gönderilen WhatsApp
+  /// hatırlatmasında geçer. Boşluksuz ve BÜYÜK harf saklanır (sunucu da normalleştirir);
+  /// null = tanımlı değil, hatırlatma düğmesi o zaman nedenini söyleyip durur.
+  final String? iban;
+
+  /// KURYE YETKİLERİ (kullanıcı isteği 2026-08-04) — bayinin açıp kapattığı beş anahtar.
+  /// KİRACI düzeyindedir (kurye başına değil): 1–3 kişilik bayide kişi bazlı yetki, her yeni
+  /// kuryede unutulan bir kurulum adımı doğururdu. Varsayılanlar sunucudakiyle AYNI olmalı —
+  /// senkron gelmeden önce ekran bir kare boyunca bu değerleri gösterir.
+  final bool courierCanCustomers;
+  final bool courierCanOrders;
+  final bool courierCanCollect;
+  final bool courierCanDiscount;
+  final bool courierCanDayEnd;
+
   /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
   /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
   /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.
@@ -6507,6 +6741,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     this.opensAt,
     this.closesAt,
     this.receiptNote,
+    this.iban,
+    required this.courierCanCustomers,
+    required this.courierCanOrders,
+    required this.courierCanCollect,
+    required this.courierCanDiscount,
+    required this.courierCanDayEnd,
     required this.orderCodeDisplay,
     this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -6545,6 +6785,14 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     if (!nullToAbsent || receiptNote != null) {
       map['receipt_note'] = Variable<String>(receiptNote);
     }
+    if (!nullToAbsent || iban != null) {
+      map['iban'] = Variable<String>(iban);
+    }
+    map['courier_can_customers'] = Variable<bool>(courierCanCustomers);
+    map['courier_can_orders'] = Variable<bool>(courierCanOrders);
+    map['courier_can_collect'] = Variable<bool>(courierCanCollect);
+    map['courier_can_discount'] = Variable<bool>(courierCanDiscount);
+    map['courier_can_day_end'] = Variable<bool>(courierCanDayEnd);
     map['order_code_display'] = Variable<String>(orderCodeDisplay);
     if (!nullToAbsent || updatedOccurredAt != null) {
       map['updated_occurred_at'] = Variable<String>(updatedOccurredAt);
@@ -6588,6 +6836,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       receiptNote: receiptNote == null && nullToAbsent
           ? const Value.absent()
           : Value(receiptNote),
+      iban: iban == null && nullToAbsent ? const Value.absent() : Value(iban),
+      courierCanCustomers: Value(courierCanCustomers),
+      courierCanOrders: Value(courierCanOrders),
+      courierCanCollect: Value(courierCanCollect),
+      courierCanDiscount: Value(courierCanDiscount),
+      courierCanDayEnd: Value(courierCanDayEnd),
       orderCodeDisplay: Value(orderCodeDisplay),
       updatedOccurredAt: updatedOccurredAt == null && nullToAbsent
           ? const Value.absent()
@@ -6615,6 +6869,14 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       opensAt: serializer.fromJson<String?>(json['opensAt']),
       closesAt: serializer.fromJson<String?>(json['closesAt']),
       receiptNote: serializer.fromJson<String?>(json['receiptNote']),
+      iban: serializer.fromJson<String?>(json['iban']),
+      courierCanCustomers: serializer.fromJson<bool>(
+        json['courierCanCustomers'],
+      ),
+      courierCanOrders: serializer.fromJson<bool>(json['courierCanOrders']),
+      courierCanCollect: serializer.fromJson<bool>(json['courierCanCollect']),
+      courierCanDiscount: serializer.fromJson<bool>(json['courierCanDiscount']),
+      courierCanDayEnd: serializer.fromJson<bool>(json['courierCanDayEnd']),
       orderCodeDisplay: serializer.fromJson<String>(json['orderCodeDisplay']),
       updatedOccurredAt: serializer.fromJson<String?>(
         json['updatedOccurredAt'],
@@ -6637,6 +6899,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       'opensAt': serializer.toJson<String?>(opensAt),
       'closesAt': serializer.toJson<String?>(closesAt),
       'receiptNote': serializer.toJson<String?>(receiptNote),
+      'iban': serializer.toJson<String?>(iban),
+      'courierCanCustomers': serializer.toJson<bool>(courierCanCustomers),
+      'courierCanOrders': serializer.toJson<bool>(courierCanOrders),
+      'courierCanCollect': serializer.toJson<bool>(courierCanCollect),
+      'courierCanDiscount': serializer.toJson<bool>(courierCanDiscount),
+      'courierCanDayEnd': serializer.toJson<bool>(courierCanDayEnd),
       'orderCodeDisplay': serializer.toJson<String>(orderCodeDisplay),
       'updatedOccurredAt': serializer.toJson<String?>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -6655,6 +6923,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     Value<String?> opensAt = const Value.absent(),
     Value<String?> closesAt = const Value.absent(),
     Value<String?> receiptNote = const Value.absent(),
+    Value<String?> iban = const Value.absent(),
+    bool? courierCanCustomers,
+    bool? courierCanOrders,
+    bool? courierCanCollect,
+    bool? courierCanDiscount,
+    bool? courierCanDayEnd,
     String? orderCodeDisplay,
     Value<String?> updatedOccurredAt = const Value.absent(),
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -6670,6 +6944,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     opensAt: opensAt.present ? opensAt.value : this.opensAt,
     closesAt: closesAt.present ? closesAt.value : this.closesAt,
     receiptNote: receiptNote.present ? receiptNote.value : this.receiptNote,
+    iban: iban.present ? iban.value : this.iban,
+    courierCanCustomers: courierCanCustomers ?? this.courierCanCustomers,
+    courierCanOrders: courierCanOrders ?? this.courierCanOrders,
+    courierCanCollect: courierCanCollect ?? this.courierCanCollect,
+    courierCanDiscount: courierCanDiscount ?? this.courierCanDiscount,
+    courierCanDayEnd: courierCanDayEnd ?? this.courierCanDayEnd,
     orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
     updatedOccurredAt: updatedOccurredAt.present
         ? updatedOccurredAt.value
@@ -6697,6 +6977,22 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       receiptNote: data.receiptNote.present
           ? data.receiptNote.value
           : this.receiptNote,
+      iban: data.iban.present ? data.iban.value : this.iban,
+      courierCanCustomers: data.courierCanCustomers.present
+          ? data.courierCanCustomers.value
+          : this.courierCanCustomers,
+      courierCanOrders: data.courierCanOrders.present
+          ? data.courierCanOrders.value
+          : this.courierCanOrders,
+      courierCanCollect: data.courierCanCollect.present
+          ? data.courierCanCollect.value
+          : this.courierCanCollect,
+      courierCanDiscount: data.courierCanDiscount.present
+          ? data.courierCanDiscount.value
+          : this.courierCanDiscount,
+      courierCanDayEnd: data.courierCanDayEnd.present
+          ? data.courierCanDayEnd.value
+          : this.courierCanDayEnd,
       orderCodeDisplay: data.orderCodeDisplay.present
           ? data.orderCodeDisplay.value
           : this.orderCodeDisplay,
@@ -6723,6 +7019,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           ..write('opensAt: $opensAt, ')
           ..write('closesAt: $closesAt, ')
           ..write('receiptNote: $receiptNote, ')
+          ..write('iban: $iban, ')
+          ..write('courierCanCustomers: $courierCanCustomers, ')
+          ..write('courierCanOrders: $courierCanOrders, ')
+          ..write('courierCanCollect: $courierCanCollect, ')
+          ..write('courierCanDiscount: $courierCanDiscount, ')
+          ..write('courierCanDayEnd: $courierCanDayEnd, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
@@ -6743,6 +7045,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     opensAt,
     closesAt,
     receiptNote,
+    iban,
+    courierCanCustomers,
+    courierCanOrders,
+    courierCanCollect,
+    courierCanDiscount,
+    courierCanDayEnd,
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
@@ -6762,6 +7070,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           other.opensAt == this.opensAt &&
           other.closesAt == this.closesAt &&
           other.receiptNote == this.receiptNote &&
+          other.iban == this.iban &&
+          other.courierCanCustomers == this.courierCanCustomers &&
+          other.courierCanOrders == this.courierCanOrders &&
+          other.courierCanCollect == this.courierCanCollect &&
+          other.courierCanDiscount == this.courierCanDiscount &&
+          other.courierCanDayEnd == this.courierCanDayEnd &&
           other.orderCodeDisplay == this.orderCodeDisplay &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId);
@@ -6779,6 +7093,12 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
   final Value<String?> opensAt;
   final Value<String?> closesAt;
   final Value<String?> receiptNote;
+  final Value<String?> iban;
+  final Value<bool> courierCanCustomers;
+  final Value<bool> courierCanOrders;
+  final Value<bool> courierCanCollect;
+  final Value<bool> courierCanDiscount;
+  final Value<bool> courierCanDayEnd;
   final Value<String> orderCodeDisplay;
   final Value<String?> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -6794,6 +7114,12 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.opensAt = const Value.absent(),
     this.closesAt = const Value.absent(),
     this.receiptNote = const Value.absent(),
+    this.iban = const Value.absent(),
+    this.courierCanCustomers = const Value.absent(),
+    this.courierCanOrders = const Value.absent(),
+    this.courierCanCollect = const Value.absent(),
+    this.courierCanDiscount = const Value.absent(),
+    this.courierCanDayEnd = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -6810,6 +7136,12 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.opensAt = const Value.absent(),
     this.closesAt = const Value.absent(),
     this.receiptNote = const Value.absent(),
+    this.iban = const Value.absent(),
+    this.courierCanCustomers = const Value.absent(),
+    this.courierCanOrders = const Value.absent(),
+    this.courierCanCollect = const Value.absent(),
+    this.courierCanDiscount = const Value.absent(),
+    this.courierCanDayEnd = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -6826,6 +7158,12 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Expression<String>? opensAt,
     Expression<String>? closesAt,
     Expression<String>? receiptNote,
+    Expression<String>? iban,
+    Expression<bool>? courierCanCustomers,
+    Expression<bool>? courierCanOrders,
+    Expression<bool>? courierCanCollect,
+    Expression<bool>? courierCanDiscount,
+    Expression<bool>? courierCanDayEnd,
     Expression<String>? orderCodeDisplay,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -6842,6 +7180,14 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       if (opensAt != null) 'opens_at': opensAt,
       if (closesAt != null) 'closes_at': closesAt,
       if (receiptNote != null) 'receipt_note': receiptNote,
+      if (iban != null) 'iban': iban,
+      if (courierCanCustomers != null)
+        'courier_can_customers': courierCanCustomers,
+      if (courierCanOrders != null) 'courier_can_orders': courierCanOrders,
+      if (courierCanCollect != null) 'courier_can_collect': courierCanCollect,
+      if (courierCanDiscount != null)
+        'courier_can_discount': courierCanDiscount,
+      if (courierCanDayEnd != null) 'courier_can_day_end': courierCanDayEnd,
       if (orderCodeDisplay != null) 'order_code_display': orderCodeDisplay,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -6860,6 +7206,12 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Value<String?>? opensAt,
     Value<String?>? closesAt,
     Value<String?>? receiptNote,
+    Value<String?>? iban,
+    Value<bool>? courierCanCustomers,
+    Value<bool>? courierCanOrders,
+    Value<bool>? courierCanCollect,
+    Value<bool>? courierCanDiscount,
+    Value<bool>? courierCanDayEnd,
     Value<String>? orderCodeDisplay,
     Value<String?>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -6876,6 +7228,12 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       opensAt: opensAt ?? this.opensAt,
       closesAt: closesAt ?? this.closesAt,
       receiptNote: receiptNote ?? this.receiptNote,
+      iban: iban ?? this.iban,
+      courierCanCustomers: courierCanCustomers ?? this.courierCanCustomers,
+      courierCanOrders: courierCanOrders ?? this.courierCanOrders,
+      courierCanCollect: courierCanCollect ?? this.courierCanCollect,
+      courierCanDiscount: courierCanDiscount ?? this.courierCanDiscount,
+      courierCanDayEnd: courierCanDayEnd ?? this.courierCanDayEnd,
       orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -6918,6 +7276,24 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     if (receiptNote.present) {
       map['receipt_note'] = Variable<String>(receiptNote.value);
     }
+    if (iban.present) {
+      map['iban'] = Variable<String>(iban.value);
+    }
+    if (courierCanCustomers.present) {
+      map['courier_can_customers'] = Variable<bool>(courierCanCustomers.value);
+    }
+    if (courierCanOrders.present) {
+      map['courier_can_orders'] = Variable<bool>(courierCanOrders.value);
+    }
+    if (courierCanCollect.present) {
+      map['courier_can_collect'] = Variable<bool>(courierCanCollect.value);
+    }
+    if (courierCanDiscount.present) {
+      map['courier_can_discount'] = Variable<bool>(courierCanDiscount.value);
+    }
+    if (courierCanDayEnd.present) {
+      map['courier_can_day_end'] = Variable<bool>(courierCanDayEnd.value);
+    }
     if (orderCodeDisplay.present) {
       map['order_code_display'] = Variable<String>(orderCodeDisplay.value);
     }
@@ -6944,6 +7320,12 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
           ..write('opensAt: $opensAt, ')
           ..write('closesAt: $closesAt, ')
           ..write('receiptNote: $receiptNote, ')
+          ..write('iban: $iban, ')
+          ..write('courierCanCustomers: $courierCanCustomers, ')
+          ..write('courierCanOrders: $courierCanOrders, ')
+          ..write('courierCanCollect: $courierCanCollect, ')
+          ..write('courierCanDiscount: $courierCanDiscount, ')
+          ..write('courierCanDayEnd: $courierCanDayEnd, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
@@ -13906,6 +14288,7 @@ typedef $$UsersTableCreateCompanionBuilder =
       required String name,
       required String role,
       required String status,
+      Value<String> username,
       Value<String?> phone,
       Value<int> rowid,
     });
@@ -13915,6 +14298,7 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> role,
       Value<String> status,
+      Value<String> username,
       Value<String?> phone,
       Value<int> rowid,
     });
@@ -13944,6 +14328,11 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<String> get status => $composableBuilder(
     column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get username => $composableBuilder(
+    column: $table.username,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13982,6 +14371,11 @@ class $$UsersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get username => $composableBuilder(
+    column: $table.username,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get phone => $composableBuilder(
     column: $table.phone,
     builder: (column) => ColumnOrderings(column),
@@ -14008,6 +14402,9 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get username =>
+      $composableBuilder(column: $table.username, builder: (column) => column);
 
   GeneratedColumn<String> get phone =>
       $composableBuilder(column: $table.phone, builder: (column) => column);
@@ -14045,6 +14442,7 @@ class $$UsersTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> role = const Value.absent(),
                 Value<String> status = const Value.absent(),
+                Value<String> username = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UsersCompanion(
@@ -14052,6 +14450,7 @@ class $$UsersTableTableManager
                 name: name,
                 role: role,
                 status: status,
+                username: username,
                 phone: phone,
                 rowid: rowid,
               ),
@@ -14061,6 +14460,7 @@ class $$UsersTableTableManager
                 required String name,
                 required String role,
                 required String status,
+                Value<String> username = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UsersCompanion.insert(
@@ -14068,6 +14468,7 @@ class $$UsersTableTableManager
                 name: name,
                 role: role,
                 status: status,
+                username: username,
                 phone: phone,
                 rowid: rowid,
               ),
@@ -14106,6 +14507,12 @@ typedef $$TenantSettingsTableCreateCompanionBuilder =
       Value<String?> opensAt,
       Value<String?> closesAt,
       Value<String?> receiptNote,
+      Value<String?> iban,
+      Value<bool> courierCanCustomers,
+      Value<bool> courierCanOrders,
+      Value<bool> courierCanCollect,
+      Value<bool> courierCanDiscount,
+      Value<bool> courierCanDayEnd,
       Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -14123,6 +14530,12 @@ typedef $$TenantSettingsTableUpdateCompanionBuilder =
       Value<String?> opensAt,
       Value<String?> closesAt,
       Value<String?> receiptNote,
+      Value<String?> iban,
+      Value<bool> courierCanCustomers,
+      Value<bool> courierCanOrders,
+      Value<bool> courierCanCollect,
+      Value<bool> courierCanDiscount,
+      Value<bool> courierCanDayEnd,
       Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -14189,6 +14602,36 @@ class $$TenantSettingsTableFilterComposer
 
   ColumnFilters<String> get receiptNote => $composableBuilder(
     column: $table.receiptNote,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iban => $composableBuilder(
+    column: $table.iban,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanCustomers => $composableBuilder(
+    column: $table.courierCanCustomers,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanOrders => $composableBuilder(
+    column: $table.courierCanOrders,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanCollect => $composableBuilder(
+    column: $table.courierCanCollect,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanDiscount => $composableBuilder(
+    column: $table.courierCanDiscount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanDayEnd => $composableBuilder(
+    column: $table.courierCanDayEnd,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14272,6 +14715,36 @@ class $$TenantSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get iban => $composableBuilder(
+    column: $table.iban,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanCustomers => $composableBuilder(
+    column: $table.courierCanCustomers,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanOrders => $composableBuilder(
+    column: $table.courierCanOrders,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanCollect => $composableBuilder(
+    column: $table.courierCanCollect,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanDiscount => $composableBuilder(
+    column: $table.courierCanDiscount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanDayEnd => $composableBuilder(
+    column: $table.courierCanDayEnd,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get orderCodeDisplay => $composableBuilder(
     column: $table.orderCodeDisplay,
     builder: (column) => ColumnOrderings(column),
@@ -14336,6 +14809,34 @@ class $$TenantSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get iban =>
+      $composableBuilder(column: $table.iban, builder: (column) => column);
+
+  GeneratedColumn<bool> get courierCanCustomers => $composableBuilder(
+    column: $table.courierCanCustomers,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanOrders => $composableBuilder(
+    column: $table.courierCanOrders,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanCollect => $composableBuilder(
+    column: $table.courierCanCollect,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanDiscount => $composableBuilder(
+    column: $table.courierCanDiscount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanDayEnd => $composableBuilder(
+    column: $table.courierCanDayEnd,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get orderCodeDisplay => $composableBuilder(
     column: $table.orderCodeDisplay,
     builder: (column) => column,
@@ -14396,6 +14897,12 @@ class $$TenantSettingsTableTableManager
                 Value<String?> opensAt = const Value.absent(),
                 Value<String?> closesAt = const Value.absent(),
                 Value<String?> receiptNote = const Value.absent(),
+                Value<String?> iban = const Value.absent(),
+                Value<bool> courierCanCustomers = const Value.absent(),
+                Value<bool> courierCanOrders = const Value.absent(),
+                Value<bool> courierCanCollect = const Value.absent(),
+                Value<bool> courierCanDiscount = const Value.absent(),
+                Value<bool> courierCanDayEnd = const Value.absent(),
                 Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -14411,6 +14918,12 @@ class $$TenantSettingsTableTableManager
                 opensAt: opensAt,
                 closesAt: closesAt,
                 receiptNote: receiptNote,
+                iban: iban,
+                courierCanCustomers: courierCanCustomers,
+                courierCanOrders: courierCanOrders,
+                courierCanCollect: courierCanCollect,
+                courierCanDiscount: courierCanDiscount,
+                courierCanDayEnd: courierCanDayEnd,
                 orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -14428,6 +14941,12 @@ class $$TenantSettingsTableTableManager
                 Value<String?> opensAt = const Value.absent(),
                 Value<String?> closesAt = const Value.absent(),
                 Value<String?> receiptNote = const Value.absent(),
+                Value<String?> iban = const Value.absent(),
+                Value<bool> courierCanCustomers = const Value.absent(),
+                Value<bool> courierCanOrders = const Value.absent(),
+                Value<bool> courierCanCollect = const Value.absent(),
+                Value<bool> courierCanDiscount = const Value.absent(),
+                Value<bool> courierCanDayEnd = const Value.absent(),
                 Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -14443,6 +14962,12 @@ class $$TenantSettingsTableTableManager
                 opensAt: opensAt,
                 closesAt: closesAt,
                 receiptNote: receiptNote,
+                iban: iban,
+                courierCanCustomers: courierCanCustomers,
+                courierCanOrders: courierCanOrders,
+                courierCanCollect: courierCanCollect,
+                courierCanDiscount: courierCanDiscount,
+                courierCanDayEnd: courierCanDayEnd,
                 orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,

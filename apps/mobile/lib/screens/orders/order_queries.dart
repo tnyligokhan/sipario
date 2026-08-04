@@ -13,6 +13,11 @@
 import 'package:drift/drift.dart';
 
 import '../../data/app_database.dart';
+// Gün sınırı (TR, sabit +03:00) TEK yerde tanımlıdır ve gün sonu ekranı da onu kullanır;
+// ikinci bir kopya, aynı güne farklı sipariş sayan iki ekran demekti.
+import '../isletme/gun_sonu_ozet.dart' show ayniTrGun;
+
+export '../isletme/gun_sonu_ozet.dart' show bugunTr;
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Sipariş listesi
@@ -75,7 +80,21 @@ const String kAtanmamisKurye = '__atanmamis__';
 /// olmayanlar. Diğer değerler kullanıcı id'sidir; PATRON da bir kurye gibi süzülebilir (kullanıcı
 /// kararı: "patronun kendisi de aslında bir kurye olarak görünmeli") — sorgu role bakmaz, yalnız
 /// `orders.assigned_user_id`e bakar, dolayısıyla bu kendiliğinden çalışır.
-Stream<List<OrderListItem>> watchOrders(AppDatabase db, OrderFilter filter, {String? assignedTo}) {
+/// [gun]: TR takvim günü süzgeci (kullanıcı isteği 2026-08-04 — "teslim edilen siparişlerde ileri
+/// geri yapılabilen tarih olmalı, bütün siparişleri görmek veri olarak yorucu"). null → süzme yok.
+///
+/// NEDEN SQL'DE DEĞİL DART'TA SÜZÜLÜYOR: gün sınırı bu üründe SABİT +03:00'tür (`ayniTrGun`) ve
+/// `occurred_at` bir METİNDİR. Metin üzerinde aralık karşılaştırması, bütün satırların aynı ISO
+/// biçiminde ('…Z') yazıldığını varsayardı; sunucudan offsetli ('+03:00') bir damga geldiği gün
+/// sorgu SESSİZCE yanlış gün döndürürdü. Daha önemlisi: gün sonu ekranı ile sipariş listesi AYNI
+/// güne aynı siparişleri saymak zorunda — iki ayrı gün-sınırı kodu, er geç ayrışan iki rakam
+/// demektir ve bayinin defteriyle tutmayan her rakam ürüne olan güveni bitirir (BRIEF korku #2).
+Stream<List<OrderListItem>> watchOrders(
+  AppDatabase db,
+  OrderFilter filter, {
+  String? assignedTo,
+  DateTime? gun,
+}) {
   final q = db.select(db.orders).join([
     leftOuterJoin(db.customers, db.customers.id.equalsExp(db.orders.customerId)),
   ]);
@@ -121,7 +140,9 @@ Stream<List<OrderListItem>> watchOrders(AppDatabase db, OrderFilter filter, {Str
       break;
   }
   q.orderBy([OrderingTerm.desc(db.orders.occurredAt), OrderingTerm.desc(db.orders.id)]);
-  return q.watch().map((rows) => rows.map((r) {
+  return q.watch().map((rows) => rows
+      .where((r) => gun == null || ayniTrGun(r.readTable(db.orders).occurredAt, gun))
+      .map((r) {
         final musteri = r.readTableOrNull(db.customers);
         return OrderListItem(
           order: r.readTable(db.orders),

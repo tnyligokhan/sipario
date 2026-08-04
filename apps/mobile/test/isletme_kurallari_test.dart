@@ -416,8 +416,9 @@ void main() {
   });
 
   group('Kurye formu doğrulaması', () {
-    const emre = User(id: 'k1', name: 'Emre', role: 'kurye', status: 'active');
-    const ali = User(id: 'k2', name: 'Ali', role: 'kurye', status: 'disabled');
+    const emre =
+        User(id: 'k1', name: 'Emre', role: 'kurye', status: 'active', username: 'emre');
+    const ali = User(id: 'k2', name: 'Ali', role: 'kurye', status: 'disabled', username: 'ali');
 
     test('geçerli form hata üretmez', () {
       expect(
@@ -425,6 +426,45 @@ void main() {
             ad: 'Emre', telefon: '', aktif: true, duzenlenenId: 'k1', tumKuryeler: [emre, ali]),
         isEmpty,
       );
+    });
+
+    // GİRİŞ BİLGİLERİ (2026-08-04) — kurallar sunucudakiyle aynı; buradaki kapı, bayiyi bir ağ
+    // turu bekletip sonra hayal kırıklığına uğratmamak için var.
+    test('kullanıcı adı boş bırakılabilir ama bozuk girilemez', () {
+      Map<String, String> ile(String? k) => kuryeFormHatalari(
+          ad: 'Emre',
+          telefon: '',
+          aktif: true,
+          duzenlenenId: 'k1',
+          tumKuryeler: [emre],
+          kullaniciAdi: k);
+
+      // Boş = "dokunma". Eski bir sunucudan gelen ayna kaydında bu alan boştur ve o cihazda
+      // kuryenin ADINI düzenlemek de kilitlenmemeli.
+      expect(ile(''), isEmpty);
+      expect(ile('   '), isEmpty);
+
+      expect(ile('ab'), contains('kullaniciAdi'), reason: '3 karakterden kısa');
+      expect(ile('boşluk var'), contains('kullaniciAdi'));
+      expect(ile('emre@bayi'), contains('kullaniciAdi'), reason: '@ izinli karakter değil');
+      expect(ile('emre.usta_2-x'), isEmpty);
+      // Büyük harf REDDEDİLMEZ: kaydederken küçültülür (sunucu da öyle yapar).
+      expect(ile('EMRE'), isEmpty);
+    });
+
+    test('parola boş bırakılabilir ama 4 karakterden kısa olamaz', () {
+      Map<String, String> ile(String? p) => kuryeFormHatalari(
+          ad: 'Emre',
+          telefon: '',
+          aktif: true,
+          duzenlenenId: 'k1',
+          tumKuryeler: [emre],
+          parola: p);
+
+      // Boş alan bir parola DEĞİLDİR — formu her açan kuryenin parolasını sıfırlamamalı.
+      expect(ile(''), isEmpty);
+      expect(ile('123'), contains('parola'));
+      expect(ile('1111'), isEmpty);
     });
 
     test('ad kısa ya da mükerrer olamaz (Türkçe harf duyarlı)', () {
@@ -435,7 +475,8 @@ void main() {
       );
 
       // trKucuk: 'İ' → 'i'. Dart'ın yerelden bağımsız toLowerCase()i 'i̇' üretip eşleşmeyi kaçırırdı.
-      const ismet = User(id: 'k3', name: 'İsmet', role: 'kurye', status: 'active');
+      const ismet =
+          User(id: 'k3', name: 'İsmet', role: 'kurye', status: 'active', username: 'ismet');
       expect(
         kuryeFormHatalari(
             ad: 'İSMET', telefon: '', aktif: true, duzenlenenId: 'k1', tumKuryeler: [ismet]),

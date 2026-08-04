@@ -81,10 +81,15 @@ abstract final class SipIcons {
   /// Kara liste (yasak işareti).
   static const String ban = 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z|m4.9 4.9 14.2 14.2';
 
+  /// Gün gezinmesi (teslim sekmesindeki tarih şeridi).
+  static const String takvim =
+      'M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z|M16 2v4|M8 2v4|M3 10h18';
+
   /// Ad → path eşlemesi. Tasarımın `Icon name="..."` çağrılarıyla aynı anahtarlar.
   static const Map<String, String> hepsi = {
     'trash': trash,
     'ban': ban,
+    'takvim': takvim,
     'phone': phone,
     'phoneCall': phoneCall,
     'user': user,

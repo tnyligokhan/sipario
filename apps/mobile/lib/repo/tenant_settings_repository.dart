@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../data/app_database.dart';
 import '../data/ids.dart';
 import '../data/outbox.dart';
+import '../screens/team.dart' show KuryeIzinleri, kuryeIzinleriOku;
 
 /// İşletme profili (tasarım: "İşletme Profili"). Cihazda TEK SATIR (id=1); sunucuda anahtar
 /// tenant_id'dir ve payload'a id KONMAZ — iki cihazın çevrimdışı yazımı aynı satırda LWW ile
@@ -39,7 +40,9 @@ class TenantSettingsRepository {
     String? opensAt,
     String? closesAt,
     String? receiptNote,
+    String? iban,
     String? orderCodeDisplay,
+    KuryeIzinleri? kuryeIzin,
   }) async {
     final meta = await db.syncState();
     final at = correctedNowIso(meta.serverTimeOffsetMs);
@@ -52,6 +55,10 @@ class TenantSettingsRepository {
     // taşınır. Aynı disiplin ileride eklenecek her "form dışı" ayar için de geçerlidir.
     final mevcut = await get();
     final kodTercihi = orderCodeDisplay ?? mevcut?.orderCodeDisplay ?? 'musteri';
+    // Kurye yetkileri de "form dışı ayar"dır (2026-08-04) ve yukarıdaki TUZAĞIN aynısına tabidir:
+    // işletme profili formu bu anahtarları bilmez; payload'da eksik kalırsa sunucu onları
+    // VARSAYILANA çeker ve bayi adresini düzeltince kapattığı iskonto yetkisi sessizce geri açılır.
+    final izin = kuryeIzin ?? kuryeIzinleriOku(mevcut);
 
     final payload = <String, Object?>{
       'business_name': businessName,
@@ -64,6 +71,12 @@ class TenantSettingsRepository {
       'opens_at': opensAt,
       'closes_at': closesAt,
       'receipt_note': receiptNote,
+      'iban': iban,
+      'courier_can_customers': izin.musteri,
+      'courier_can_orders': izin.siparis,
+      'courier_can_collect': izin.tahsilat,
+      'courier_can_discount': izin.iskonto,
+      'courier_can_day_end': izin.gunSonu,
       'order_code_display': kodTercihi,
     };
 
@@ -80,6 +93,12 @@ class TenantSettingsRepository {
             opensAt: Value(opensAt),
             closesAt: Value(closesAt),
             receiptNote: Value(receiptNote),
+            iban: Value(iban),
+            courierCanCustomers: Value(izin.musteri),
+            courierCanOrders: Value(izin.siparis),
+            courierCanCollect: Value(izin.tahsilat),
+            courierCanDiscount: Value(izin.iskonto),
+            courierCanDayEnd: Value(izin.gunSonu),
             orderCodeDisplay: Value(kodTercihi),
             updatedOccurredAt: Value(at),
             updatedDeviceId: Value(device),
@@ -94,6 +113,29 @@ class TenantSettingsRepository {
           deviceId: device,
           payload: payload);
     });
+  }
+
+  /// Yalnız KURYE YETKİLERİNİ değiştirir; profilin geri kalanı olduğu gibi taşınır
+  /// (kullanıcı isteği 2026-08-04). Gerekçe `siparisKoduTercihiKaydet` ile birebir aynı:
+  /// yetki ekranı işletme profilinin alanlarını (unvan, vergi no, IBAN…) bilmez ve bilseydi
+  /// onları eksik gönderip sunucudaki profili boşaltma riski doğardı.
+  Future<void> kuryeIzinleriKaydet(KuryeIzinleri izin) async {
+    final m = await get();
+    await save(
+      businessName: m?.businessName,
+      ownerName: m?.ownerName,
+      phone: m?.phone,
+      whatsapp: m?.whatsapp,
+      addressText: m?.addressText,
+      taxOffice: m?.taxOffice,
+      taxNumber: m?.taxNumber,
+      opensAt: m?.opensAt,
+      closesAt: m?.closesAt,
+      receiptNote: m?.receiptNote,
+      iban: m?.iban,
+      orderCodeDisplay: m?.orderCodeDisplay,
+      kuryeIzin: izin,
+    );
   }
 
   /// Yalnız sipariş kodu tercihini değiştirir; profilin geri kalanı OLDUĞU GİBİ taşınır.
@@ -114,6 +156,7 @@ class TenantSettingsRepository {
       opensAt: m?.opensAt,
       closesAt: m?.closesAt,
       receiptNote: m?.receiptNote,
+      iban: m?.iban,
       orderCodeDisplay: tercih,
     );
   }

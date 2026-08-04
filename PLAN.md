@@ -220,7 +220,7 @@
 > kod rozeti, tutar, not; Yol Tarifi birincil · Ara telefon varsa · Sipariş Detayı). Testler:
 > API 273 · mobil 764. Kalan: order_queries harita bölümü ayrılıyor (ajanda), anahtar kısıtlaması sende.
 >
-## Güncel durum (son güncelleme: 2026-08-01/2 — **ROTA/HARİTA UX YENİDEN YERLEŞTİ** (Oto Sırala haritada, 'Rota sırası' görünümü, araç şeridi) + dikte kuralı tersine + 'Kurye ata' çipi. Ölçüm: analyze **0** · mobil **885/885** · API **298/298**. Aynı gün öncesinde — **SEKİZ SAHA İSTEĞİ KAPANDI** (5 ajanlı swarm): sesli dikte birikimli oldu, adres alanı büyüdü, barkoda fener, çağrı kartında sipariş yaşı, sipariş formuna kurye seçimi, oto sırala düğmesi gerekçeli-pasif (kök neden: yanlış sekmede etkin düğme), müşteri silme + kara liste (cascade tombstone + LWW damga koruması), kapıda iskonto (`discount` defter tipi, kasa değişmezi korunur). Ölçüm: analyze **0** · mobil **878/878** · API **298/298** · phpstan **0** · pint temiz · Kotlin saha-release yeşil · APK kapısı koşuldu. Önceki gün: 2026-07-30 — **CANLI KURYE KONUMU + ARAYAN TANIMA ANAHTARI**: patron haritada tüm ekibin canlı konumunu görüyor (kendi backend, Google'sız, KVKK: tek satır/geçmiş yok/yalnız patron okur); Ayarlar'a arayan tanıma AÇ/KAPA anahtarı (düz dosya köprüsü, native taraf zil anında okur; günlük kapalıyken de doğru). Aynı gün öncesinde: harita performans+dark mod, harita stil+kontroller, rota yönü düzeltmesi+pin özeti, Bursa reseed, kademeli geocoder, giriş arızası. Ölçüm: `dart analyze` **0** · `flutter test` **798/798** · `php artisan test` **287/287** · phpstan L6 **0** · `compileSahaReleaseKotlin` **BUILD SUCCESSFUL** · release APK kapısı koşuldu. Eski not aşağıda tarihsel duruyor: 2026-07-29 — sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
+## Güncel durum (son güncelleme: 2026-08-04 — **ALTI SAHA İSTEĞİ + SAHA SUNUCUSU 530 ARIZASI**. Kurye yönetimi büyüdü: giriş bilgileri (kullanıcı adı/parola) uygulamadan düzenlenebiliyor (`PATCH /team/{user}/credentials`, çevrimiçi, yalnız patron, parola değişince oturumlar düşer) ve **5 anahtarlı kurye yetki sistemi** geldi (müşteri/sipariş/tahsilat açık · gün sonu/iskonto kapalı doğar; kiracı düzeyinde, çağrı yerlerine bağlı). Borçlulara **tek tuşla WhatsApp hatırlatması** (IBAN Ayarlar→İşletme Profili'nde, mod-97 denetimli; mesaj hazırlanır, gönderilmez). Teslim sekmesine **gün gezinmesi**. Sipariş kaydı artık **siparişler ekranına** dönüyor. Müşteri kodu doğrulandı (çalışıyor, kod değişikliği yok). Altyapı: `saha-sunucu.ps1` tünel adresini DOĞRULUYOR ve QUIC engellenmişse http2 ile yeniden deniyor — bayinin gördüğü HTTP 530'un kök nedeni buydu ve script "hazır" deyip yeşil yanıyordu. Ölçüm: API **433/433** · mobil **906/906** · analyze **0** · phpstan **0** · pint temiz. Eski not aşağıda tarihsel duruyor: 2026-08-01/2 — **ROTA/HARİTA UX YENİDEN YERLEŞTİ** (Oto Sırala haritada, 'Rota sırası' görünümü, araç şeridi) + dikte kuralı tersine + 'Kurye ata' çipi. Ölçüm: analyze **0** · mobil **885/885** · API **298/298**. Aynı gün öncesinde — **SEKİZ SAHA İSTEĞİ KAPANDI** (5 ajanlı swarm): sesli dikte birikimli oldu, adres alanı büyüdü, barkoda fener, çağrı kartında sipariş yaşı, sipariş formuna kurye seçimi, oto sırala düğmesi gerekçeli-pasif (kök neden: yanlış sekmede etkin düğme), müşteri silme + kara liste (cascade tombstone + LWW damga koruması), kapıda iskonto (`discount` defter tipi, kasa değişmezi korunur). Ölçüm: analyze **0** · mobil **878/878** · API **298/298** · phpstan **0** · pint temiz · Kotlin saha-release yeşil · APK kapısı koşuldu. Önceki gün: 2026-07-30 — **CANLI KURYE KONUMU + ARAYAN TANIMA ANAHTARI**: patron haritada tüm ekibin canlı konumunu görüyor (kendi backend, Google'sız, KVKK: tek satır/geçmiş yok/yalnız patron okur); Ayarlar'a arayan tanıma AÇ/KAPA anahtarı (düz dosya köprüsü, native taraf zil anında okur; günlük kapalıyken de doğru). Aynı gün öncesinde: harita performans+dark mod, harita stil+kontroller, rota yönü düzeltmesi+pin özeti, Bursa reseed, kademeli geocoder, giriş arızası. Ölçüm: `dart analyze` **0** · `flutter test` **798/798** · `php artisan test` **287/287** · phpstan L6 **0** · `compileSahaReleaseKotlin` **BUILD SUCCESSFUL** · release APK kapısı koşuldu. Eski not aşağıda tarihsel duruyor: 2026-07-29 — sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
 
 ### Konum özelliği — ne kuruldu (2026-07-28)
 
@@ -281,7 +281,63 @@
 
 ---
 
-# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-01 kapandı)
+# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-04 kapandı)
+
+**Bir cümlede:** Altı saha isteği kapatıldı — kurye yönetimi ciddi biçimde büyüdü (giriş
+bilgileri düzenlenebilir + 5 anahtarlı yetki sistemi), borçluya tek tuşla WhatsApp/IBAN
+hatırlatması geldi, teslim sekmesine gün gezinmesi eklendi, sipariş kaydı artık siparişler
+ekranına dönüyor; ayrıca **saha sunucusunun HTTP 530 arızası** teşhis edilip kalıcı olarak
+düzeltildi.
+
+**Ölçüm (kapanış):** `php artisan test` **433/433** (2266 doğrulama, +12) · `flutter test`
+**906/906** (+21) · `dart analyze` **0** · phpstan L6 **0** · pint temiz · migration 2 yeni
+(`iban`, `courier_permissions`) — **üretim/dev DB'de koşulmalı**.
+Karar gerekçeleri DECISIONS.md sonunda (6 satır).
+
+## Bu vardiyada NE YAPILDI
+
+1. **SAHA SUNUCUSU HTTP 530 — kök neden bulundu ve kapatıldı.** `SUNUCU-BASLAT`'ın verdiği
+   adres 530 (Cloudflare Error 1033) veriyordu. Yerel taraf sağlamdı; cloudflared varsayılan
+   **QUIC (UDP 7844)** ile bağlanamıyordu. Sinsi olan: **adres YİNE DE üretiliyor** (adres
+   Cloudflare API'sinden gelir, port 443) — script "hazır" deyip yeşil yanıyor, bayi adrese
+   giriyor ve arkasında tünel olmadığı için 530 görüyordu. Ölçüldü: aynı makinede varsayılan
+   protokol FAIL, `--protocol http2` → `Registered tunnel connection`, giriş isteği 200.
+   `saha-sunucu.ps1` artık adresi DOĞRULUYOR ve doğrulanamazsa http2 ile YENİDEN deniyor
+   (eski "yine de dene" uyarısı kaldırıldı).
+2. **Kurye giriş bilgileri** (`PATCH /team/{user}/credentials`) — Kuryeler ekranındaki forma
+   "Giriş Bilgileri" bölümü. Senkron yolundan AYRI ve çevrimiçi; yalnız patron, yalnız
+   kurye/operatör hedefi. Parola değişince hedefin tüm oturumları düşer, kullanıcı adı
+   değişimi oturumu düşürmez. `team` bloğuna `username` eklendi (parola hiçbir yönde okunmaz).
+3. **Kurye yetkileri — 5 on/off anahtar** (Kuryeler ekranının üstünde): müşteri düzenleme ·
+   sipariş açma · tahsilat (açık doğar) · gün sonu · kapıda iskonto (kapalı doğar). Kiracı
+   düzeyinde, yalnız kurye rolünü etkiler. Anahtarlar çağrı yerlerine BAĞLANDI (FAB menüsü,
+   çağrı kartı, müşteri listesi, teslim sheet'i).
+4. **Borçlulara WhatsApp hatırlatması** — kartta "Hatırlat" düğmesi; IBAN Ayarlar → İşletme
+   Profili → Tahsilat bölümünde (mod-97 denetimli). Mesaj HAZIRLANIR, gönderilmez.
+5. **Teslim sekmesine gün gezinmesi** — "‹ Bugün · 4 Ağustos ›"; etikete dokunmak bugüne döner.
+   Yalnız Teslim sekmesinde (gerekçe DECISIONS'ta).
+6. **Sipariş kaydı sonrası yönlendirme** — form kapanınca siparişler sekmesine gidilir ve
+   üstteki push'lar kapanır (müşteri kartından girilen sipariş artık "kaybolmuyor").
+7. **Müşteri kodu doğrulandı** (kod değişikliği YOK) — sunucu atıyor, snapshot+delta ile
+   telefona düşüyor, SiraKoduTest 7/7 yeşil.
+
+## Bu vardiyada NE YAPILMADI / SIRADAKİ
+
+- **Landing page** — önceki devir notunun "sıradaki iş"i; bu vardiyada da başlanmadı
+  (saha istekleri öne alındı). Hâlâ sıradaki en büyük açık iş.
+- **Migration koşulmalı**: `2026_08_04_004001_add_tenant_iban` +
+  `2026_08_04_004002_add_courier_permissions` (yerelde koşuldu, üretim/dev'de bekliyor).
+  Ayrıca önceki turdan `2026_08_01_003001_add_admin_user_disabled_at` hâlâ bekliyor olabilir.
+- **Cihazda denenmedi** — bu vardiyanın hiçbir maddesi gerçek telefonda görülmedi.
+  Saha kontrol listesi: (a) Kuryeler ekranında yetki anahtarları + giriş bilgileri formu,
+  (b) borçlu kartında "Hatırlat" → WhatsApp hazır metinle açılıyor mu, (c) Teslim sekmesinde
+  gün okları, (d) müşteri kartından sipariş girince siparişler ekranına dönüyor mu.
+- **Kurye yetkilerinin widget testi yok** — saf karar matrisi testli (`kurye_yetkileri_test.dart`)
+  ama "anahtar kapalıyken FAB menüsünde satır çizilmiyor" gibi ekran davranışları sınanmadı.
+
+---
+
+# (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-01 kapandı)
 
 **Bir cümlede:** Yönetim paneli "abonelik açma/kapama aracı"ndan **tam teşekküllü iç yönetim
 ürününe** büyüdü (5c-3) — kullanıcı kararıyla BRIEF'in "panel iş verisine dokunamaz" sınırı

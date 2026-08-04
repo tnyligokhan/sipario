@@ -11,9 +11,12 @@ use Tests\Feature\Api\Concerns\BuildsSyncEvents;
 /**
  * 4b Dilim 4 — sync yanıtındaki `team` bloğu (K1). Bayinin kullanıcıları mobil önbelleğe iner
  * (atama hedefi + atanan kurye adı çözümü). İki güvence sürekli kanıtlanır:
- *  - PII ASGARİ (kırmızı çizgi #4): yalnız {id,name,role,status,phone} — email/parola/last_login_at
- *    SIZMAZ. `phone` tasarım gereği (Kuryeler ekranı) EKLENDİ: bayinin KENDİ personel iletişim
- *    bilgisidir, müşteri verisi ya da kimlik bilgisi değildir; kimlik yüzeyi hâlâ payload dışında.
+ *  - PII ASGARİ (kırmızı çizgi #4): yalnız {id,name,role,status,phone,username} — e-posta, PAROLA
+ *    ve last_login_at SIZMAZ. `phone` tasarım gereği (Kuryeler ekranı) eklendi: bayinin KENDİ
+ *    personel iletişim bilgisidir. `username` de 2026-08-04'te eklendi (patron kuryenin giriş
+ *    adını görüp düzenleyebilsin) — kullanıcı adı bir sır değildir, patron onu kuryeye zaten
+ *    kendisi söyler. Kimlik yüzeyinin GİZLİ yarısı (e-posta, parola hash'i) hâlâ payload dışında;
+ *    parola hiçbir yönde OKUNMAZ, yalnız yazılır (`/team/{id}/credentials`).
  *  - KİRACI İZOLASYONU (kırmızı çizgi #1): A'nın team'inde B'nin hiçbir kullanıcısı YOK (RLS).
  */
 class SyncTeamTest extends ApiTestCase
@@ -35,13 +38,14 @@ class SyncTeamTest extends ApiTestCase
             array_column($team, 'role')
         );
 
-        // PII kanıtı: her eleman TAM OLARAK {id,name,role,status,phone} — başka anahtar yok.
-        // Bu katı eşitlik kasıtlıdır: yeni bir kolon payload'a sızarsa test kırmızı yanar.
+        // PII kanıtı: her eleman TAM OLARAK {id,name,role,status,phone,username} — başka anahtar
+        // yok. Bu katı eşitlik kasıtlıdır: yeni bir kolon payload'a sızarsa test kırmızı yanar.
         foreach ($team as $member) {
             $this->assertEqualsCanonicalizing(
-                ['id', 'name', 'role', 'status', 'phone'],
+                ['id', 'name', 'role', 'status', 'phone', 'username'],
                 array_keys($member)
             );
+            $this->assertArrayNotHasKey('password', $member);
             $this->assertArrayNotHasKey('email', $member);
             $this->assertArrayNotHasKey('password', $member);
             $this->assertArrayNotHasKey('last_login_at', $member);

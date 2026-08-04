@@ -239,6 +239,12 @@ class Users extends Table {
   TextColumn get role => text()(); // patron|operator|kurye
   TextColumn get status => text()(); // active|disabled
 
+  /// Kullanıcının GİRİŞ ADI (kullanıcı isteği 2026-08-04 — Kuryeler ekranı gösterir ve düzenler).
+  /// Sır değildir: patron kuryeye zaten kendisi söyler, unuttuğunda soracağı yer burasıdır.
+  /// PAROLA BURADA YOK ve hiç olmayacak — parola yalnız YAZILIR (`/team/{id}/credentials`),
+  /// hiçbir yönde okunmaz. Eski sunucu alanı göndermezse boş kalır.
+  TextColumn get username => text().withDefault(const Constant(''))();
+
   /// Kurye telefonu (tasarım: Kuryeler ekranı gösterir/düzenler). Bayinin KENDİ personel iletişim
   /// bilgisidir; e-posta/parola hâlâ sunucuda kalır ve team bloğuna hiç girmez.
   TextColumn get phone => text().nullable()();
@@ -263,6 +269,21 @@ class TenantSettings extends Table {
   TextColumn get opensAt => text().nullable()();  // 'SS:DD'
   TextColumn get closesAt => text().nullable()();
   TextColumn get receiptNote => text().nullable()();
+
+  /// Bayinin KENDİ IBAN'ı (kullanıcı isteği 2026-08-04) — borçluya gönderilen WhatsApp
+  /// hatırlatmasında geçer. Boşluksuz ve BÜYÜK harf saklanır (sunucu da normalleştirir);
+  /// null = tanımlı değil, hatırlatma düğmesi o zaman nedenini söyleyip durur.
+  TextColumn get iban => text().nullable()();
+
+  /// KURYE YETKİLERİ (kullanıcı isteği 2026-08-04) — bayinin açıp kapattığı beş anahtar.
+  /// KİRACI düzeyindedir (kurye başına değil): 1–3 kişilik bayide kişi bazlı yetki, her yeni
+  /// kuryede unutulan bir kurulum adımı doğururdu. Varsayılanlar sunucudakiyle AYNI olmalı —
+  /// senkron gelmeden önce ekran bir kare boyunca bu değerleri gösterir.
+  BoolColumn get courierCanCustomers => boolean().withDefault(const Constant(true))();
+  BoolColumn get courierCanOrders => boolean().withDefault(const Constant(true))();
+  BoolColumn get courierCanCollect => boolean().withDefault(const Constant(true))();
+  BoolColumn get courierCanDiscount => boolean().withDefault(const Constant(false))();
+  BoolColumn get courierCanDayEnd => boolean().withDefault(const Constant(false))();
 
   /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
   /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı

@@ -17,8 +17,10 @@ import '../../sync/yenileme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../auth/session.dart';
 import '../../data/app_database.dart';
 import '../../repo/courier_repository.dart';
+import '../../sync/team_api.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
@@ -26,9 +28,35 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import 'isletme_atomlari.dart';
+import 'kurye_yetki_bolumu.dart';
 
 /// Salt-okunur kip uyarısı — ürün/muaf ekranlarındaki eşdeğerleriyle aynı dil.
 const String kuryeSaltOkunurUyarisi = 'Salt-okunur kip: kurye kaydı değiştirilemez.';
+
+/// Kimlik güncelleme dikişi — testler bunu sahteler (ağa ve platform kanalına çıkmadan
+/// formun davranışı sınanabilsin). `uriAcici` / `sessizKonumOku` desenlerinin aynısı.
+Future<bool> Function({
+  required AppDatabase db,
+  required String userId,
+  String? username,
+  String? password,
+}) kuryeKimligiGuncelle = _sunucudaKimlikGuncelle;
+
+Future<bool> _sunucudaKimlikGuncelle({
+  required AppDatabase db,
+  required String userId,
+  String? username,
+  String? password,
+}) async {
+  final meta = await db.syncState();
+  final token = meta.authToken;
+  if (token == null) {
+    throw TeamApiException('Oturum bulunamadı — çıkış yapıp yeniden girin.');
+  }
+
+  return TeamApi(baseUrl: Session.baseUrlOf(meta), token: token)
+      .kimlikGuncelle(userId, username: username, password: password);
+}
 
 class KuryelerEkrani extends StatelessWidget {
   const KuryelerEkrani({
@@ -107,13 +135,47 @@ class _Liste extends StatelessWidget {
     }
     final sonuc = await kuryeFormuAc(context, kurye: kurye, tumKuryeler: kuryeler);
     if (sonuc == null || !context.mounted) return;
+
+    // SIRA ÖNEMLİ — önce profil (çevrimdışı çalışır, outbox'a düşer), sonra kimlik (ONLINE).
+    // Tersi olsaydı ağ hatası profil düzenlemesini de yutardı; oysa ad/telefon değişikliğinin
+    // internete ihtiyacı yok ve kaybolmaması gerekiyor (kırmızı çizgi #3).
     await repo.updateProfile(
       kurye.id,
       name: sonuc.ad,
       phone: sonuc.telefon,
       isActive: sonuc.aktif,
     );
-    if (context.mounted) SipToast.goster(context, 'Kurye kaydedildi');
+    if (!context.mounted) return;
+
+    // Değişmeyen alan GÖNDERİLMEZ: aynı kullanıcı adını yeniden yollamak sunucudaki tekillik
+    // denetimini boşuna çalıştırır, boş bir parola alanı da "parolayı değiştir" niyeti değildir.
+    // İkisi de değişmediyse ağa HİÇ çıkılmaz — kurye kaydı çevrimdışı da düzenlenebilmeli.
+    final yeniAd = (sonuc.kullaniciAdi.isEmpty || sonuc.kullaniciAdi == kurye.username)
+        ? null
+        : sonuc.kullaniciAdi;
+    if (yeniAd == null && sonuc.parola == null) {
+      SipToast.goster(context, 'Kurye kaydedildi');
+      return;
+    }
+
+    try {
+      final oturumDustu = await kuryeKimligiGuncelle(
+        db: repo.db,
+        userId: kurye.id,
+        username: yeniAd,
+        password: sonuc.parola,
+      );
+      if (!context.mounted) return;
+      SipToast.goster(
+        context,
+        oturumDustu
+            ? 'Giriş bilgileri güncellendi — kuryenin oturumu kapandı, yeni parolayla girmeli'
+            : 'Kurye kaydedildi',
+      );
+    } on TeamApiException catch (e) {
+      // Profil ZATEN kaydedildi; yalnız kimlik kısmı başarısız oldu ve kullanıcı bunu bilmeli.
+      if (context.mounted) SipToast.goster(context, e.mesaj);
+    }
   }
 
   @override
@@ -130,6 +192,11 @@ class _Liste extends StatelessWidget {
                 'Buradan ad, telefon ve aktiflik düzenlenir; kurye silinmez, pasife alınır.',
           ),
         ),
+
+        // YETKİLER — kullanıcı isteği 2026-08-04. Listenin ÜSTÜNDE duruyor çünkü "kuryelerim ne
+        // yapabilir" sorusu kişilerden önce gelir ve ayar TÜM kuryeler için ortaktır (kişi bazlı
+        // değil — gerekçe migration 004002'de).
+        KuryeYetkiBolumu(db: repo.db, writable: writable),
         // Boş durum ÇİZİLMEZ (tasarımda yok): liste boşken üstteki not zaten hem neden boş
         // olduğunu hem nereden doldurulacağını söylüyor; ikisi arka arkaya aynı cümleydi.
         Column(
@@ -184,7 +251,13 @@ class _KuryeSatiri extends StatelessWidget {
 
 @immutable
 class KuryeGirdisi {
-  const KuryeGirdisi({required this.ad, required this.telefon, required this.aktif});
+  const KuryeGirdisi({
+    required this.ad,
+    required this.telefon,
+    required this.aktif,
+    required this.kullaniciAdi,
+    this.parola,
+  });
 
   final String ad;
 
@@ -192,6 +265,14 @@ class KuryeGirdisi {
   final String? telefon;
 
   final bool aktif;
+
+  /// Kuryenin GİRİŞ ADI (2026-08-04). Profil alanlarından farklı bir yoldan gider
+  /// (`/team/{id}/credentials`) — senkron değil, çevrimiçi.
+  final String kullaniciAdi;
+
+  /// Yeni parola; null = "parolaya dokunma". Boş alan bir parola DEĞİLDİR ve asla gönderilmez —
+  /// aksi hâlde formu her açan, kuryenin parolasını farkında olmadan sıfırlardı.
+  final String? parola;
 }
 
 Future<KuryeGirdisi?> kuryeFormuAc(
@@ -221,6 +302,13 @@ class _KuryeFormuState extends State<_KuryeFormu> {
   late final TextEditingController _telefon =
       TextEditingController(text: widget.kurye.phone ?? '');
 
+  late final TextEditingController _kullaniciAdi =
+      TextEditingController(text: widget.kurye.username);
+
+  /// Yeni parola alanı — HER ZAMAN BOŞ açılır ve mevcut parolayı GÖSTERMEZ (gösteremez de:
+  /// sunucu yalnız hash tutar ve hiçbir yüzeye vermez). Boş bırakılırsa parolaya dokunulmaz.
+  final TextEditingController _parola = TextEditingController();
+
   late bool _aktif = kuryeAktifMi(widget.kurye);
 
   Map<String, String> _hata = const {};
@@ -229,6 +317,8 @@ class _KuryeFormuState extends State<_KuryeFormu> {
   void dispose() {
     _ad.dispose();
     _telefon.dispose();
+    _kullaniciAdi.dispose();
+    _parola.dispose();
     super.dispose();
   }
 
@@ -243,16 +333,21 @@ class _KuryeFormuState extends State<_KuryeFormu> {
       aktif: _aktif,
       duzenlenenId: widget.kurye.id,
       tumKuryeler: widget.tumKuryeler,
+      kullaniciAdi: _kullaniciAdi.text,
+      parola: _parola.text,
     );
     if (hatalar.isNotEmpty) {
       setState(() => _hata = hatalar);
       return;
     }
     final tel = _telefon.text.trim();
+    final parola = _parola.text;
     Navigator.of(context).pop(KuryeGirdisi(
       ad: _ad.text.trim(),
       telefon: tel.isEmpty ? null : tel,
       aktif: _aktif,
+      kullaniciAdi: _kullaniciAdi.text.trim().toLowerCase(),
+      parola: parola.isEmpty ? null : parola,
     ));
   }
 
@@ -293,6 +388,36 @@ class _KuryeFormuState extends State<_KuryeFormu> {
         ),
         if (_hata['aktif'] != null) AlanNotu(_hata['aktif']!),
 
+        // ── GİRİŞ BİLGİLERİ (kullanıcı isteği 2026-08-04) ──────────────────────────────────
+        // Ad/telefon/aktiflik çevrimdışı kaydedilir; BU İKİSİ çevrimiçi ister ve bunu kullanıcıya
+        // önceden söylüyoruz — kaydet'e basıp hata almak, baştan bilmekten kötüdür.
+        const SipBolumBaslik('Giriş Bilgileri', ustBosluk: 20),
+        const SipFormEtiket('KULLANICI ADI', ustBosluk: 2),
+        SipInput(
+          controller: _kullaniciAdi,
+          ipucu: 'Ör. emre',
+          hata: _hata.containsKey('kullaniciAdi'),
+          girdiFiltreleri: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._-]'))],
+          onChanged: (_) => _temizle(),
+        ),
+        if (_hata['kullaniciAdi'] != null) AlanNotu(_hata['kullaniciAdi']!),
+
+        const SipFormEtiket('YENİ PAROLA'),
+        SipInput(
+          controller: _parola,
+          ipucu: 'Değiştirmeyecekseniz boş bırakın',
+          hata: _hata.containsKey('parola'),
+          onChanged: (_) => _temizle(),
+        ),
+        if (_hata['parola'] != null)
+          AlanNotu(_hata['parola']!)
+        else
+          const AlanNotu(
+            'Parola değiştirilirse kuryenin açık oturumu kapanır ve yeni parolayla girmesi '
+            'gerekir. Giriş bilgileri yalnız internet varken değiştirilebilir.',
+            tur: AlanNotuTuru.bilgi,
+          ),
+
         const SizedBox(height: SipSpace.x3),
         SipButon(etiket: 'Kaydet', onTap: _kaydet),
       ],
@@ -304,12 +429,19 @@ class _KuryeFormuState extends State<_KuryeFormu> {
 ///
 /// Son aktif kurye pasife alınamaz: atama hedefi kalmazsa sipariş ekranı kilitlenir ve
 /// kullanıcı buraya dönüp neyin bozulduğunu anlayamaz.
+/// [kullaniciAdi] / [parola]: giriş bilgileri (2026-08-04). Kurallar SUNUCUDAKİYLE aynıdır
+/// (`^[a-z0-9._-]{3,60}$`, parola ≥4) — burada tekrarlanmalarının sebebi kopya değil, KAPI:
+/// aynı hatayı ağ turundan sonra almak, bayiyi bekletip sonra hayal kırıklığına uğratır.
+/// Tekillik kontrolü SUNUCUDA kalır: yerel `users` aynası pasif/başka rol kullanıcıları
+/// eksik gösterebilir ve burada verilecek "bu ad boşta" kararı yanlış olabilirdi.
 Map<String, String> kuryeFormHatalari({
   required String ad,
   required String telefon,
   required bool aktif,
   required String duzenlenenId,
   required List<User> tumKuryeler,
+  String? kullaniciAdi,
+  String? parola,
 }) {
   final hatalar = <String, String>{};
   final temizAd = ad.trim();
@@ -328,6 +460,23 @@ Map<String, String> kuryeFormHatalari({
 
   if (!aktif && !digerleri.any(kuryeAktifMi)) {
     hatalar['aktif'] = 'Son aktif kurye pasif yapılamaz — sipariş atanacak kimse kalmaz';
+  }
+
+  // Kullanıcı adı BOŞ bırakılabilir ve bu bilinçli: `users` aynası eski bir sunucudan gelmişse
+  // alan boş olur (kolon varsayılanı ''). Boş alanı hata saymak, o cihazda kurye kaydının
+  // ad/telefon düzenlemesini de kilitlerdi — kimlikle ilgisi olmayan bir işi.
+  // Boş = "kullanıcı adına dokunma"; DOLU ise sunucunun kuralını geçmek zorunda.
+  if (kullaniciAdi != null && kullaniciAdi.trim().isNotEmpty) {
+    final k = kullaniciAdi.trim().toLowerCase();
+    if (!RegExp(r'^[a-z0-9._-]{3,60}$').hasMatch(k)) {
+      hatalar['kullaniciAdi'] =
+          'Kullanıcı adı en az 3 karakter; harf, rakam, nokta, tire ve alt çizgi kullanılabilir';
+    }
+  }
+
+  // Parola BOŞ bırakılabilir ("değiştirme"); doluysa sunucunun alt sınırını geçmeli.
+  if (parola != null && parola.isNotEmpty && parola.length < 4) {
+    hatalar['parola'] = 'Parola en az 4 karakter olmalı';
   }
 
   return hatalar;

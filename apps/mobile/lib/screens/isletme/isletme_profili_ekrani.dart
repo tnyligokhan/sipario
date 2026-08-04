@@ -17,7 +17,10 @@ import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import 'iban.dart';
 import 'isletme_atomlari.dart';
+
+export 'iban.dart' show ibanNormal, ibanOkunur;
 
 /// Salt-okunur kip uyarısı — diğer işletme ekranlarıyla aynı dil.
 const String profilSaltOkunurUyarisi = 'Salt-okunur kip: işletme profili değiştirilemez.';
@@ -111,6 +114,7 @@ class _FormState extends State<_Form> {
     'acilis': TextEditingController(text: widget.veri.satir?.opensAt ?? '08:00'),
     'kapanis': TextEditingController(text: widget.veri.satir?.closesAt ?? '19:00'),
     'fisNotu': TextEditingController(text: widget.veri.satir?.receiptNote ?? ''),
+    'iban': TextEditingController(text: ibanOkunur(widget.veri.satir?.iban)),
   };
 
   Map<String, String> _hata = const {};
@@ -157,6 +161,9 @@ class _FormState extends State<_Form> {
       opensAt: _metin('acilis'),
       closesAt: _metin('kapanis'),
       receiptNote: _bosNull('fisNotu'),
+      // Saklama biçimi TEK: boşluksuz, büyük harf. Bayi okunaklı olsun diye boşluklu yazar;
+      // mesaja ve sunucuya giden değer normalleştirilmiş olmalı (sunucu da aynısını yapar).
+      iban: ibanNormal(_metin('iban')),
     );
     if (!mounted) return;
     setState(() => _kaydediyor = false);
@@ -225,6 +232,18 @@ class _FormState extends State<_Form> {
           tur: AlanNotuTuru.bilgi,
         ),
 
+        // TAHSİLAT (kullanıcı isteği 2026-08-04): borçluya WhatsApp'tan gönderilen hatırlatma
+        // mesajı bu IBAN'ı taşır. Alan boşken düğme çalışmaz ve nedenini söyler — bu yüzden
+        // notu "boş bırakılabilir" değil, NE İŞE YARADIĞI yazar.
+        const SipBolumBaslik('Tahsilat', ustBosluk: 20),
+        _alan('iban', 'IBAN', 'TR00 0000 0000 0000 0000 0000 00',
+            ustBosluk: 2, filtreler: [_IbanBicimi()], stilTutar: true),
+        if (_hata['iban'] == null)
+          const AlanNotu(
+            'Borçlulara gönderilen WhatsApp hatırlatmasında bu IBAN yazar.',
+            tur: AlanNotuTuru.bilgi,
+          ),
+
         // Bölüm başlığından SONRA doğrudan alan gelir (tasarım `s-isletme.jsx:71-72`): araya
         // "FİŞ NOTU" etiketi koymak aynı şeyi iki kez söylemekti.
         const SipBolumBaslik('Fiş Alt Notu', ustBosluk: 20),
@@ -250,6 +269,8 @@ class _FormState extends State<_Form> {
     bool telefon = false,
     int satirlar = 1,
     double ustBosluk = 14,
+    List<TextInputFormatter>? filtreler,
+    bool stilTutar = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -260,12 +281,32 @@ class _FormState extends State<_Form> {
           ipucu: ipucu,
           satirlar: satirlar,
           klavye: telefon ? TextInputType.phone : null,
-          stil: telefon ? SipText.tutar(15, w: 500) : null,
+          girdiFiltreleri: filtreler,
+          stil: (telefon || stilTutar) ? SipText.tutar(15, w: 500) : null,
           hata: _hata.containsKey(anahtar),
           onChanged: (_) => _temizle(),
         ),
         if (_hata[anahtar] != null) AlanNotu(_hata[anahtar]!),
       ],
+    );
+  }
+}
+
+/// IBAN alanı biçimlendirici: harfleri büyütür, IBAN'da yeri olmayan karakterleri düşürür.
+///
+/// Boşluğa İZİN VERİLİR (silinmez): bayi hesabını bankadan gördüğü gibi "TR12 3456 …" yazar ve
+/// kendi yazdığını okuyabilmelidir. Boşluk yalnız KAYDEDERKEN atılır — saklama biçimi tektir.
+class _IbanBicimi extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue eski, TextEditingValue yeni) {
+    final temiz = yeni.text.toUpperCase().replaceAll(RegExp(r'[^0-9A-Z ]'), '');
+    if (temiz == yeni.text) return yeni;
+    // İmleç, düşen karakter sayısı kadar geri alınır; yoksa kullanıcı yazdıkça imleç sona atlar.
+    final fark = yeni.text.length - temiz.length;
+    final konum = (yeni.selection.baseOffset - fark).clamp(0, temiz.length);
+    return TextEditingValue(
+      text: temiz,
+      selection: TextSelection.collapsed(offset: konum),
     );
   }
 }
@@ -399,6 +440,11 @@ Map<String, String> isletmeProfilHatalari(Map<String, String> alanlar) {
   if (!_saatGecerli(al('acilis')) || !_saatGecerli(al('kapanis'))) {
     hatalar['saat'] = 'Saatleri SS:DD biçiminde girin';
   }
+
+  // IBAN boş bırakılabilir (zorunlu alan değil); DOLU ise mod-97 sağlamasını geçmek ZORUNDA.
+  // Yanlış IBAN sessiz bir hatadır: mesaj gider, para gelmez, kimse nedenini bilmez.
+  final ibanHata = ibanHatasi(al('iban'));
+  if (ibanHata != null) hatalar['iban'] = ibanHata;
 
   return hatalar;
 }

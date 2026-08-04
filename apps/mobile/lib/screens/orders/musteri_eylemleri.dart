@@ -54,11 +54,29 @@ Uri telUri(String e164) => Uri(scheme: 'tel', path: e164);
 
 /// WhatsApp — önce uygulamanın kendi şeması, olmazsa `wa.me` (tarayıcı üzerinden uygulamayı açar).
 /// Sıra önemlidir: `wa.me` WhatsApp yüklüyken de tarayıcı üzerinden dolaşır.
-List<Uri> whatsappUriler(String e164) {
+///
+/// [mesaj] verilirse sohbet HAZIR METİNLE açılır — ama GÖNDERMEZ. WhatsApp'ın `text` parametresi
+/// metni giriş kutusuna koyar, gönderme tuşuna kullanıcı basar. Bu bilinçli ve doğru: bayi
+/// mesajı görmeden müşterisine para isteyen bir metin gitmemeli (üstelik otomatik gönderim
+/// WhatsApp'ın kendi arayüzünde zaten mümkün değildir).
+///
+/// Metin `Uri` yapıcısının `queryParameters`ıyla kodlanır: Türkçe harfler, satır sonu ve `&`
+/// elle kaçırılmaya çalışılırsa (eski `?text=` birleştirmesi) mesaj sessizce kırpılır.
+List<Uri> whatsappUriler(String e164, {String? mesaj}) {
   final sade = e164.replaceAll(RegExp(r'\D'), ''); // wa.me "+" kabul etmez
+  final metin = (mesaj ?? '').trim();
+  final sorgu = metin.isEmpty ? null : {'text': metin};
   return [
-    Uri.parse('whatsapp://send?phone=$sade'),
-    Uri.parse('https://wa.me/$sade'),
+    Uri(scheme: 'whatsapp', host: 'send', queryParameters: {
+      'phone': sade,
+      ...?sorgu,
+    }),
+    Uri(
+      scheme: 'https',
+      host: 'wa.me',
+      path: '/$sade',
+      queryParameters: sorgu,
+    ),
   ];
 }
 
@@ -112,10 +130,12 @@ Future<String?> musteriyiAra(String? telefon) async {
   return await uriAc([telUri(n)]) ? null : 'Telefon uygulaması açılamadı';
 }
 
-Future<String?> whatsappAc(String? telefon) async {
+Future<String?> whatsappAc(String? telefon, {String? mesaj}) async {
   final n = telefonE164(telefon);
   if (n == null) return 'Müşterinin kayıtlı telefonu yok';
-  return await uriAc(whatsappUriler(n)) ? null : 'WhatsApp açılamadı — telefonda yüklü değil';
+  return await uriAc(whatsappUriler(n, mesaj: mesaj))
+      ? null
+      : 'WhatsApp açılamadı — telefonda yüklü değil';
 }
 
 Future<String?> konumuHaritadaAc(AdresBilgi? adres, {String? etiket}) async {

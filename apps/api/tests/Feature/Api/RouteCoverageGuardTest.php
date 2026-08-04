@@ -33,6 +33,7 @@ class RouteCoverageGuardTest extends TestCase
         'api.geocode.search',
         'api.locations.heartbeat',
         'api.locations.live',
+        'api.team.credentials',
     ];
 
     #[Test]

@@ -24,6 +24,12 @@ use Illuminate\Support\Carbon;
  * @property string|null $opens_at
  * @property string|null $closes_at
  * @property string|null $receipt_note
+ * @property string|null $iban Bayinin KENDİ hesabı — borç hatırlatma mesajında geçer
+ * @property bool $courier_can_customers
+ * @property bool $courier_can_orders
+ * @property bool $courier_can_collect
+ * @property bool $courier_can_discount
+ * @property bool $courier_can_day_end
  * @property string $order_code_display 'musteri' | 'siparis' — sipariş satırında hangi kod görünür
  * @property Carbon $updated_occurred_at
  * @property string|null $updated_device_id
@@ -50,15 +56,40 @@ class TenantSetting extends Model
         'opens_at',
         'closes_at',
         'receipt_note',
+        'iban',
+        'courier_can_customers',
+        'courier_can_orders',
+        'courier_can_collect',
+        'courier_can_discount',
+        'courier_can_day_end',
         'order_code_display',
         'updated_occurred_at',
         'updated_device_id',
+    ];
+
+    /**
+     * Bayinin açıp kapatabildiği kurye yetkileri → varsayılan (migration 004002 ile aynı liste).
+     * Uygulayıcı bu diziyi dolaşır; yeni bir yetki eklendiğinde TEK yer değişir.
+     *
+     * @var array<string, bool>
+     */
+    public const KURYE_IZINLERI = [
+        'courier_can_customers' => true,
+        'courier_can_orders' => true,
+        'courier_can_collect' => true,
+        'courier_can_discount' => false,
+        'courier_can_day_end' => false,
     ];
 
     protected function casts(): array
     {
         return [
             'updated_occurred_at' => 'datetime',
+            'courier_can_customers' => 'boolean',
+            'courier_can_orders' => 'boolean',
+            'courier_can_collect' => 'boolean',
+            'courier_can_discount' => 'boolean',
+            'courier_can_day_end' => 'boolean',
         ];
     }
 

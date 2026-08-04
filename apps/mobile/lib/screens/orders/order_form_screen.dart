@@ -16,6 +16,8 @@ import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../customers/customer_form_screen.dart' show musteriEkleSheet;
 import '../customers/kara_liste.dart';
+import '../shell/alt_nav.dart' show SipSekme;
+import '../shell/sekme_yonlendirme.dart';
 import '../team.dart';
 import 'order_parts.dart';
 import 'order_queries.dart';
@@ -269,7 +271,11 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       if (kurye != null) await repo.assign(orderId, kurye);
       if (!mounted) return;
       SipToast.goster(context, 'Sipariş oluşturuldu');
-      Navigator.of(context).maybePop(true);
+      // İş bitti: kullanıcı formun geldiği yere değil, SONUCUN göründüğü yere gitmeli.
+      // Eskiden yalnız form kapanıyordu; müşteri kartından girilen sipariş kaydedilince karta
+      // dönülüyor ve yeni kayıt hiçbir yüzeyde görünmüyordu (kullanıcı isteği 2026-08-04).
+      // Kabuk bağlı değilse (widget testleri, önizleme) eski davranış aynen korunur.
+      if (!sekmeyeGit(SipSekme.siparis)) Navigator.of(context).maybePop(true);
     } finally {
       if (mounted) setState(() => _kaydediyor = false);
     }

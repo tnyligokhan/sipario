@@ -132,12 +132,17 @@ class AktifToggle extends StatelessWidget {
     required this.etiket,
     required this.onDegis,
     this.ustBosluk = 16,
+    this.altEtiket,
   });
 
   final bool acik;
   final String etiket;
   final ValueChanged<bool> onDegis;
   final double ustBosluk;
+
+  /// İkinci satır: anahtarın SONUCUNU anlatan kısa cümle (kurye yetkileri, 2026-08-04).
+  /// null iken hiç çizilmez — tek satırlık eski kullanımlar aynen kalır.
+  final String? altEtiket;
 
   @override
   Widget build(BuildContext context) {
@@ -155,9 +160,23 @@ class AktifToggle extends StatelessWidget {
             SipKnob(acik: acik),
             const SizedBox(width: 11),
             Expanded(
-              child: Text(
-                etiket,
-                style: SipText.metin(13, w: 600).copyWith(color: t.ink2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    etiket,
+                    style: SipText.metin(13, w: 600).copyWith(color: t.ink2),
+                  ),
+                  if (altEtiket != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        altEtiket!,
+                        style: SipText.metin(11.5, w: 600).copyWith(color: t.muted),
+                      ),
+                    ),
+                ],
               ),
             ),
           ],

@@ -317,12 +317,16 @@ class _Govde extends StatelessWidget {
     // müşteri ne kadar alacaklı kalacak" sorusunu bu olmadan yanıtlayamaz (akış beklenemez).
     final oncekiBakiye =
         musteriId == null ? 0 : (await musteriOku(db, musteriId))?.balanceKurus ?? 0;
+    // İskonto yetkisi EYLEM ANINDA okunur (2026-08-04): bu sheet kabuktan bağımsız açılıyor ve
+    // yetkileri taşımıyor; patron ayarı az önce kapatmış olabilir.
+    final yetki = await oturumYetkileri(db);
     if (!context.mounted) return;
 
     final sonuc = await teslimSheetAc(context,
         toplamKurus: toplam,
         musteriVar: musteriId != null,
-        oncekiBakiyeKurus: oncekiBakiye);
+        oncekiBakiyeKurus: oncekiBakiye,
+        iskontoYetkisi: yetki.iskonto);
     if (sonuc == null || !context.mounted) return;
 
     await OrderRepository(db).deliver(order.id,

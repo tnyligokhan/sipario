@@ -279,31 +279,71 @@ API acilamadi (php artisan serve).
 Yaz "API hazir."
 
 # ── 3) Tunel
-Yaz "Tunel aciliyor..."
-$cf = Start-Process -FilePath $cfExe -ArgumentList "tunnel","--url","http://127.0.0.1:8000","--no-autoupdate" `
-  -WindowStyle Hidden -RedirectStandardError $log -PassThru
-$adres = $null
-for ($i = 0; $i -lt 40; $i++) {
-  Start-Sleep -Seconds 2
-  $bul = Select-String -Path $log -Pattern "https://[a-z0-9-]+\.trycloudflare\.com" -ErrorAction SilentlyContinue |
-         Select-Object -First 1
-  if ($bul) { $adres = $bul.Matches[0].Value; break }
+#
+# NEDEN PROTOKOL YEDEGI VAR (2026-08-04 saha arizasi - bayi HTTP 530 gordu):
+# cloudflared varsayilan olarak QUIC (UDP 7844) ile baglanir. Bu makinenin agi UDP
+# 7844'u kesiyordu. Sinsi olan su: ADRES YINE DE URETILIYOR - adres Cloudflare'in
+# API'sinden gelir (port 443, acik), tunelin kendisiyle ilgisi yoktur. Yani script
+# adresi yakaliyor, "hazir" deyip yesil yaniyor, bayi adrese giriyor ve Cloudflare
+# "adres var ama arkasinda kimse yok" anlamina gelen HTTP 530 (Error 1033) donduruyor.
+# Yerelde her sey saglam gorundugu icin teshis edilmesi zor bir arizaydi.
+#
+# Olculdu (ayni makine, ayni an): varsayilan protokol -> "Failed to dial a quic
+# connection ... timeout", tunel HIC kurulmadi; "--protocol http2" -> "Registered
+# tunnel connection ... protocol=http2", giris istegi 200 dondu. QUIC engellenen
+# aglarda (Turkiye'de yaygin) TCP tabanli http2 calisir.
+#
+# Kural: ADRES ALMAK YETMEZ. Tunelin ucundan API'ye gercekten ulasildigi dogrulanir;
+# dogrulanamazsa http2 ile YENIDEN denenir. Sessiz "yine de dene" uyarisi kaldirildi.
+function Baslat-Tunel($cfExe, $log, $protokol) {
+  Remove-Item $log -Force -ErrorAction SilentlyContinue
+  $argumanlar = @("tunnel", "--url", "http://127.0.0.1:8000", "--no-autoupdate")
+  if ($protokol) { $argumanlar += @("--protocol", $protokol) }
+  $surec = Start-Process -FilePath $cfExe -ArgumentList $argumanlar `
+    -WindowStyle Hidden -RedirectStandardError $log -PassThru
+
+  $adres = $null
+  for ($i = 0; $i -lt 40; $i++) {
+    Start-Sleep -Seconds 2
+    $bul = Select-String -Path $log -Pattern "https://[a-z0-9-]+\.trycloudflare\.com" -ErrorAction SilentlyContinue |
+           Select-Object -First 1
+    if ($bul) { $adres = $bul.Matches[0].Value; break }
+  }
+  if (-not $adres) {
+    Stop-Process -Id $surec.Id -Force -ErrorAction SilentlyContinue
+    return @{ Surec = $null; Adres = $null; Ok = $false }
+  }
+
+  # Tunelin ucundan gercekten API'ye ulasildigini dogrula (422 = form hatasi = uc nokta canli).
+  # 530 burada yakalanir: adres cevap verir ama Cloudflare origin'e ulasamaz.
+  $ok = $false
+  for ($i = 0; $i -lt 10; $i++) {
+    $kod = & curl.exe -s -o NUL -w "%{http_code}" --max-time 15 -X POST "$adres/api/v1/auth/login" -H "Accept: application/json" 2>$null
+    if ($kod -eq "422") { $ok = $true; break }
+    Start-Sleep -Seconds 2
+  }
+  return @{ Surec = $surec; Adres = $adres; Ok = $ok }
 }
+
+Yaz "Tunel aciliyor..."
+$t = Baslat-Tunel $cfExe $log $null
+if (-not $t.Ok) {
+  Yaz "Tunel dogrulanamadi (QUIC/UDP engellenmis olabilir) - TCP (http2) ile yeniden deneniyor..."
+  if ($t.Surec) { Stop-Process -Id $t.Surec.Id -Force -ErrorAction SilentlyContinue }
+  $t = Baslat-Tunel $cfExe $log "http2"
+  if ($t.Ok) { Yaz "http2 ile baglanti kuruldu." }
+}
+$cf      = $t.Surec
+$adres   = $t.Adres
+$tunelOk = $t.Ok
+
 if (-not $adres) {
   # IKISI de kapatilir: eskiden yalniz php durduruluyordu ve arkada sahipsiz bir
   # cloudflared kaliyordu (bir sonraki calistirmada 0. adim onu temizliyordu ama
   # o ana kadar bosuna calisir ve gunlugu kirletirdi).
   Kapat-Sunucu $php
-  Stop-Process -Id $cf.Id -Force -ErrorAction SilentlyContinue
+  if ($cf) { Stop-Process -Id $cf.Id -Force -ErrorAction SilentlyContinue }
   Dur "Tunel adresi alinamadi. Internet baglantisini kontrol et. (Gunluk: $log)"
-}
-
-# Tunelin ucundan gercekten API'ye ulasildigini dogrula (422 = form hatasi = uc nokta canli)
-$tunelOk = $false
-for ($i = 0; $i -lt 10; $i++) {
-  $kod = & curl.exe -s -o NUL -w "%{http_code}" --max-time 15 -X POST "$adres/api/v1/auth/login" -H "Accept: application/json" 2>$null
-  if ($kod -eq "422") { $tunelOk = $true; break }
-  Start-Sleep -Seconds 2
 }
 
 # ── 4) Ozet

@@ -258,6 +258,14 @@ class SyncEngine {
               opensAt: Value(_sN(m['opens_at'])),
               closesAt: Value(_sN(m['closes_at'])),
               receiptNote: Value(_sN(m['receipt_note'])),
+              iban: Value(_sN(m['iban'])),
+              // Kurye yetkileri — sunucu alanı göndermezse (eski sürüm) varsayılana düşülür;
+              // NOT NULL kolona `Value(null)` yazmak satırı bozardı (order_code_display dersi).
+              courierCanCustomers: Value(_bV(m['courier_can_customers'], true)),
+              courierCanOrders: Value(_bV(m['courier_can_orders'], true)),
+              courierCanCollect: Value(_bV(m['courier_can_collect'], true)),
+              courierCanDiscount: Value(_bV(m['courier_can_discount'], false)),
+              courierCanDayEnd: Value(_bV(m['courier_can_day_end'], false)),
               // Sunucu alanı göndermezse (eski sürüm) varsayılana düşülür — `Value(null)`
               // yazmak NOT NULL kolonu bozardı.
               orderCodeDisplay: Value(_sN(m['order_code_display']) ?? 'musteri'),
@@ -401,6 +409,9 @@ class SyncEngine {
               role: _s(u['role']),
               status: _s(u['status']),
               phone: Value(_sN(u['phone'])),
+              // Eski sunucu `username` göndermezse boş kalır (kolon NOT NULL, varsayılan '') —
+              // Kuryeler ekranı o durumda giriş adını "—" gösterir, uydurmaz.
+              username: Value(_sN(u['username']) ?? ''),
             ));
       }
     });
@@ -424,4 +435,11 @@ class SyncEngine {
   static String _s(dynamic v) => v as String;
   static String? _sN(dynamic v) => v as String?;
   static bool _b(dynamic v) => v == true || v == 1;
+
+  /// Varsayılanlı boolean: alan YOKSA (eski sunucu sürümü) [varsayilan] kullanılır.
+  ///
+  /// `_b` burada YETMEZ: o, gelmeyen alanı `false` sayar. Varsayılanı `true` olan bir yetki
+  /// (ör. kurye tahsilat alabilir) eski bir sunucuya bağlandığında sessizce KAPANIRDI —
+  /// kurye sahada işini yapamaz, kimse de nedenini bilmezdi.
+  static bool _bV(dynamic v, bool varsayilan) => v == null ? varsayilan : _b(v);
 }

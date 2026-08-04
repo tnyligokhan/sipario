@@ -28,6 +28,7 @@ import 'order_queries.dart';
 import 'order_sheets.dart';
 import 'siparis_arac_seridi.dart';
 import 'siparis_harita.dart';
+import 'siparis_tarih_seridi.dart';
 import 'tutamac_deposu.dart';
 
 // Sorgu/biçim yardımcıları bu ekranın YÜZEYİNDEN de erişilebilir olmalı: mevcut testler ve
@@ -108,12 +109,27 @@ class _OrderListScreenState extends State<OrderListScreen> {
   Stream<List<OrderListItem>>? _siparisAkisi;
   OrderFilter? _akisFiltre;
   String? _akisKurye;
+  DateTime? _akisGun;
+
+  /// TESLİM sekmesinin gün süzgeci (kullanıcı isteği 2026-08-04). Yalnız o sekmede uygulanır —
+  /// gerekçesi `siparis_tarih_seridi.dart` başlığında. Sekmeler arasında gidip gelirken seçili
+  /// gün KORUNUR: bayi dünün teslimatına bakıp açık işlere göz atıp geri döndüğünde kendini
+  /// yeniden bugünde bulmamalı.
+  DateTime _teslimGunu = bugunTr();
+
+  /// Süzgecin gerçekten uygulanacağı gün; teslim dışı sekmelerde null (süzme yok).
+  DateTime? get _aktifGun => _filtre == OrderFilter.teslim ? _teslimGunu : null;
 
   Stream<List<OrderListItem>> _siparisleriIzle() {
-    if (_siparisAkisi == null || _akisFiltre != _filtre || _akisKurye != _kuryeId) {
+    final gun = _aktifGun;
+    if (_siparisAkisi == null ||
+        _akisFiltre != _filtre ||
+        _akisKurye != _kuryeId ||
+        _akisGun != gun) {
       _akisFiltre = _filtre;
       _akisKurye = _kuryeId;
-      _siparisAkisi = watchOrders(widget.db, _filtre, assignedTo: _kuryeId);
+      _akisGun = gun;
+      _siparisAkisi = watchOrders(widget.db, _filtre, assignedTo: _kuryeId, gun: gun);
     }
     return _siparisAkisi!;
   }
@@ -225,6 +241,20 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 onSec: (i) => setState(() => _filtre = sekmeler[i]),
               ),
             ),
+
+            // ── Gün gezinmesi — YALNIZ "Teslim" sekmesinde ────────────────────────────────
+            // Elle sıralama kipinde gizlenir (araç şeridiyle aynı gerekçe: sıra yazılırken
+            // listenin altından küme değişmemeli). Teslim sekmesinde elle sıralama zaten
+            // anlamsız ama kapı burada da kapalı tutulur — kip kararı tek yerde okunmalı.
+            if (!_elle && _filtre == OrderFilter.teslim)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    SipSpace.govde, 0, SipSpace.govde, SipSpace.xl),
+                child: SiparisTarihSeridi(
+                  gun: _teslimGunu,
+                  onDegis: (g) => setState(() => _teslimGunu = g),
+                ),
+              ),
 
             // ── Araç şeridi — "Harita" + kurye süzgeci ────────────────────────────────────
             // Elle kipinde TAMAMEN gizlenir: sıra yazılırken listenin altından küme

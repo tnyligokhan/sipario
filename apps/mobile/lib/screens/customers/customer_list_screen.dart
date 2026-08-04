@@ -66,6 +66,13 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
       SipToast.goster(context, 'Salt-okunur kip: yeni kayıt eklenemez.');
       return;
     }
+    // Kurye yetkisi (2026-08-04). Ekranın "Yeni" düğmesi burada GİZLENMEZ (listeye giriş
+    // yetkiden bağımsız) ama eylem durur ve sebebini söyler — kabuğun FAB menüsünde satır
+    // zaten hiç çizilmiyor, yani bu yol ikinci kapıdır.
+    if (!(widget.yetki?.musteriDuzenleme ?? true)) {
+      SipToast.goster(context, 'Bu hesap müşteri ekleyemez — bayi yetkisi kapalı.');
+      return;
+    }
     final eklendi = await musteriEkleSheet(context, db: widget.db);
     if (eklendi == true && mounted) SipToast.goster(context, 'Müşteri kaydedildi');
   }

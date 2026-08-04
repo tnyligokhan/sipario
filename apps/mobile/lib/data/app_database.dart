@@ -39,7 +39,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.file() : super(_openOnDevice());
 
   @override
-  int get schemaVersion => 12; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi
+  int get schemaVersion => 13; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -92,6 +92,31 @@ class AppDatabase extends _$AppDatabase {
           // kolonu bulamaz, kara liste hiç görünmezdi.
           if (await _tabloVar(m, 'customers')) {
             await _addColumnIfMissing(m, 'ALTER TABLE customers ADD COLUMN blacklisted_at TEXT');
+          }
+
+          // v13 — IBAN (2026-08-04). Borç hatırlatma mesajının içinde geçer.
+          //
+          // v10/v11/v12 ile AYNI SEBEPTEN kapıdan ÖNCE ve KOŞULSUZ: aşağıdaki kendini-onarma
+          // kapısı `tenant_settings`i görünce erken döner, `if (from < 13)` yazsaydık adım
+          // sahadaki hiçbir cihazda koşmazdı. Arıza yine SESSİZ olurdu: senkron `iban`ı yazacak
+          // kolonu bulamaz, bayi Ayarlar'da IBAN'ını girer, "kaydedildi" görür ve hatırlatma
+          // düğmesi ısrarla "IBAN tanımlı değil" demeye devam ederdi.
+          if (await _tabloVar(m, 'tenant_settings')) {
+            await _addColumnIfMissing(m, 'ALTER TABLE tenant_settings ADD COLUMN iban TEXT');
+
+            // v13 — KURYE YETKİLERİ (aynı sürüm, aynı kapı). Varsayılanlar sunucudaki
+            // migration 004002 ile birebir aynıdır; ayrışırlarsa senkron gelene kadar geçen
+            // ilk karede ekran YANLIŞ yetkiyi gösterir (ve kurye kapalı sanılan bir düğmeye
+            // basabilir).
+            for (final sql in [
+              'ALTER TABLE tenant_settings ADD COLUMN courier_can_customers INTEGER NOT NULL DEFAULT 1',
+              'ALTER TABLE tenant_settings ADD COLUMN courier_can_orders INTEGER NOT NULL DEFAULT 1',
+              'ALTER TABLE tenant_settings ADD COLUMN courier_can_collect INTEGER NOT NULL DEFAULT 1',
+              'ALTER TABLE tenant_settings ADD COLUMN courier_can_discount INTEGER NOT NULL DEFAULT 0',
+              'ALTER TABLE tenant_settings ADD COLUMN courier_can_day_end INTEGER NOT NULL DEFAULT 0',
+            ]) {
+              await _addColumnIfMissing(m, sql);
+            }
           }
 
           // KENDİNİ ONARMA (2026-07-22 SAHA BULGUSU — iki gerçek cihazda yaşandı): Faz 0 ölçüm

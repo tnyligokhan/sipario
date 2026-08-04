@@ -64,6 +64,7 @@ import 'orders/order_list_screen.dart';
 import 'products/product_list_screen.dart';
 import 'shell/alt_nav.dart';
 import 'shell/cekmece.dart';
+import 'shell/sekme_yonlendirme.dart';
 import 'sihirbaz/izin_sihirbazi.dart';
 import 'team.dart';
 
@@ -152,8 +153,14 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   List<User> _kuryeler = const [];
 
+  /// Bayinin açıp kapattığı kurye yetkileri (2026-08-04). Ayar satırı senkronla iner ve bayi
+  /// Kuryeler ekranından değiştirir; AKIŞTAN okunur çünkü tek atış okuma, ayar değiştikten
+  /// sonra kuryenin ekranını bir sonraki açılışa kadar eski yetkiyle bırakırdı.
+  KuryeIzinleri _kuryeIzin = KuryeIzinleri.varsayilan;
+
   StreamSubscription<SyncOutcome>? _syncSub;
   StreamSubscription<List<User>>? _kuryeSub;
+  StreamSubscription<KuryeIzinleri>? _izinSub;
   StreamSubscription<SyncMetaData>? _metaSub;
   SyncOutcome? _sonSenkron;
   DateTime? _sonSenkronAt;
@@ -204,10 +211,18 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() => _kuryeler = k);
     });
+    _izinSub = watchKuryeIzinleri(widget.db).listen((i) {
+      if (!mounted) return;
+      setState(() => _kuryeIzin = i);
+    });
     // "Aşağı çekerek yenile" beş ekranda kullanılıyor ve hepsi kabuk tarafından farklı
     // yollardan kuruluyor (sekme · Navigator.push). Servisi her ekranın imzasına eklemek
     // yerine bir kez bağlanır — `guncellemeServisi` tekilinin aynı deseni.
     yenilemeyiBagla(widget.sync);
+    // Bitmiş bir işin sonucunu doğru sekmede göstermek için (ör. sipariş kaydı → siparişler).
+    // Aynı gerekçe, aynı desen: yönlendirmeyi zincirin dört halkasından geri taşımak yerine
+    // kabuk kendini bir kez bağlar (`sekme_yonlendirme.dart` başlığındaki not).
+    sekmeYonlendirmeyiBagla(_sekmeyeYonlendir);
 
     _syncSub = widget.sync.status.listen((o) {
       if (!mounted) return;
@@ -251,12 +266,25 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     guncellemeServisi.durum.removeListener(_guncellemeBandiDegisti);
     _syncSub?.cancel();
     _kuryeSub?.cancel();
+    _izinSub?.cancel();
     _metaSub?.cancel();
     _konumBildirici.durdur();
     cagriEylemDurtusunuBirak();
+    sekmeYonlendirmeyiCoz();
     YerelBildirimServisi.dokunulanYol.removeListener(_bildirimDokunusu);
     SipToast.temizle();
     super.dispose();
+  }
+
+  /// Bir iş bittiğinde (ör. sipariş kaydı) kabuğu hedef sekmeye alır ve ÜSTÜNDEKİ push'ları
+  /// kapatır. `popUntil` şart: müşteri kartından açılan formda yalnız sekmeyi değiştirmek,
+  /// altta duran siparişler sekmesini kullanıcıya hiç göstermezdi (üstte kart durmaya devam
+  /// ederdi) — ve geri tuşu onu yeni bitirdiği forma değil ama bitirdiği işin BAŞLANGICINA
+  /// döndürürdü.
+  void _sekmeyeYonlendir(SipSekme sekme) {
+    if (!mounted) return;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    _sekmeSec(sekme);
   }
 
   /// sync_meta satırından rol/abonelik/kontör türevlerini hesaplayıp duruma yazar.
@@ -302,7 +330,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   bool get _kilit => _access == AccessLevel.readOnly;
 
   RolYetkileri get _yetki =>
-      yetkiler(rol: _userRole, kuryeVar: _kuryeler.isNotEmpty);
+      yetkiler(rol: _userRole, kuryeVar: _kuryeler.isNotEmpty, izin: _kuryeIzin);
 
   /// ÇEKMECE başlığı: işletme (firma) adı — tasarım `s-bilesenler.jsx:100` `{isletme.ad}`.
   String get _isletmeAdi => _tenantName ?? 'Sipario';
@@ -484,24 +512,36 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   /// Kapı `_yazilabilir` üzerinden ÇAĞIRANDA (FAB pasif çizilir); burada ikinci bir kontrol
   /// yapılmaz — iki yerde ayrı koşul, ayrışabilen iki kural demektir.
   Future<void> _ekleMenusu() async {
+    // KURYE YETKİLERİ (2026-08-04): bayi kapattıysa satır HİÇ ÇİZİLMEZ — gizlemek burada
+    // doğrudur çünkü yetki kalıcı olarak kapalıdır; her dokunuşta aynı reddi okutmak gürültü
+    // olurdu (BRIEF'in "tek kişilik bayide o adım hiç görünmesin" ilkesinin aynısı). İkisi de
+    // kapalıysa menü hiç açılmaz, tek bir cümleyle sebep söylenir.
+    final yetki = _yetki;
+    if (!yetki.musteriDuzenleme && !yetki.siparisAcma) {
+      SipToast.goster(context, 'Bu hesap yeni kayıt ekleyemez — bayi yetkisi kapalı.');
+      return;
+    }
+
     final secim = await sipSheet<String>(
       context,
       baslik: 'Yeni Ekle',
       govde: (ctx) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SecimSatiri(
-            etiket: 'Müşteri Ekle',
-            ikon: SipIcons.user,
-            secili: false,
-            onTap: () => Navigator.of(ctx).pop('musteri'),
-          ),
-          SecimSatiri(
-            etiket: 'Sipariş Ekle',
-            ikon: SipIcons.list,
-            secili: false,
-            onTap: () => Navigator.of(ctx).pop('siparis'),
-          ),
+          if (yetki.musteriDuzenleme)
+            SecimSatiri(
+              etiket: 'Müşteri Ekle',
+              ikon: SipIcons.user,
+              secili: false,
+              onTap: () => Navigator.of(ctx).pop('musteri'),
+            ),
+          if (yetki.siparisAcma)
+            SecimSatiri(
+              etiket: 'Sipariş Ekle',
+              ikon: SipIcons.list,
+              secili: false,
+              onTap: () => Navigator.of(ctx).pop('siparis'),
+            ),
         ],
       ),
     );
@@ -561,6 +601,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       case CagriEylemi.siparis:
         if (!_yazilabilir) {
           SipToast.goster(context, 'Salt-okunur kip: yeni sipariş oluşturulamaz.');
+          return;
+        }
+        // Çağrı kartı native taraftan da gelebilir ve yetkiyi bilmez; kapı BURADA (2026-08-04).
+        if (!_yetki.siparisAcma) {
+          SipToast.goster(context, 'Bu hesap sipariş oluşturamaz — bayi yetkisi kapalı.');
           return;
         }
         setState(() => _sekme = SipSekme.siparis);

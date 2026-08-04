@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\Product;
 use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
@@ -262,6 +263,36 @@ class TenantIsolationTest extends ApiTestCase
         $this->assertIsString($govde);
         $this->assertStringNotContainsString($b['kurye']->id, $govde);
         $this->assertStringNotContainsString('28.9784', $govde);
+    }
+
+    #[Test]
+    public function baska_bayinin_kuryesinin_giris_bilgileri_degistirilemez(): void
+    {
+        // Matris satırı: `api.team.credentials` (2026-08-04). Bu uç noktada sızıntı, kiracı
+        // izolasyonunun EN AĞIR biçimidir: A'nın patronu B'nin kuryesinin parolasını
+        // değiştirebilseydi, B'nin hesabını ele geçirir ve B'nin bütün iş verisine erişirdi.
+        // RLS zaten satırı gizler; test bunun 404'e çevrildiğini ve parolanın DEĞİŞMEDİĞİNİ
+        // kanıtlar ("bulunamadı" cevabı, "denendi ama olmadı" ile karıştırılmamalı).
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+
+        $eskiHash = $this->asOwner(fn () => User::query()->findOrFail($b['kurye']->id)->password);
+
+        $this->asToken($this->tokenFor($a['patron']))
+            ->patchJson("/api/v1/team/{$b['kurye']->id}/credentials", ['password' => 'yeni1234'])
+            ->assertNotFound();
+
+        $this->assertSame(
+            $eskiHash,
+            $this->asOwner(fn () => User::query()->findOrFail($b['kurye']->id)->password),
+            'B kuryesinin parolası A tarafından değiştirilememeli.'
+        );
+
+        // Kullanıcı adı da aynı kapıya tabidir; ayrıca B'nin adı A'nın tekillik kontrolüne
+        // takılmamalı (tekillik BAYİ İÇİNDEDİR — aynı ad iki bayide meşrudur).
+        $this->asToken($this->tokenFor($a['patron']))
+            ->patchJson("/api/v1/team/{$b['kurye']->id}/credentials", ['username' => 'devralindi'])
+            ->assertNotFound();
     }
 
     #[Test]

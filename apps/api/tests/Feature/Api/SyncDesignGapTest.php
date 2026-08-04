@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\CallLog;
+use App\Models\Customer;
 use App\Models\DayClosing;
 use App\Models\ExemptNumber;
 use App\Models\TenantSetting;
@@ -76,6 +77,66 @@ class SyncDesignGapTest extends ApiTestCase
         $rows = $this->asOwner(fn () => TenantSetting::query()->get());
         $this->assertCount(1, $rows, 'İki yazım tek satırda birleşmeli.');
         $this->assertSame('Cihaz 1', $rows[0]->business_name, 'Son yazan kazanır.');
+    }
+
+    #[Test]
+    public function iban_normallestirilerek_saklanir_ve_deltada_geri_gelir(): void
+    {
+        // IBAN borçluya gönderilen WhatsApp hatırlatmasının içine girer (kullanıcı isteği
+        // 2026-08-04). İki şey sınanıyor: (1) saklama biçimi TEK — bayi "tr12 3456 …" yazsa da
+        // boşluksuz/büyük harf saklanır, yoksa aynı hesap iki cihazda iki farklı metin olurdu;
+        // (2) alan DELTAYA düşer — kurulu bir cihaz yalnız delta çeker ve sıra kodları vardiyasının
+        // dersi tam buydu: sunucuda doğru duran bir alan deltaya düşmezse telefonda HİÇ görünmez.
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $this->pushEvents($token, [$this->tenantSettingsUpsert([
+            'business_name' => 'Aspendos Su',
+            'iban' => ' tr33 0006 1005 1978 6457 8413 26 ',
+        ])])->assertJsonPath('results.0.status', 'applied');
+
+        $this->assertSame(
+            'TR330006100519786457841326',
+            $this->asOwner(fn () => TenantSetting::query()->firstOrFail()->iban)
+        );
+
+        $this->pushEvents($token, [$this->tenantSettingsUpsert(
+            ['business_name' => 'Aspendos Su', 'iban' => 'TR330006100519786457841326'],
+            ['occurred_at' => now()->addMinute()->toIso8601String()],
+        )])->assertOk();
+
+        $delta = $this->pullSince($token, 1);
+        $delta->assertJsonPath('mode', 'delta');
+        $ibanlar = collect($delta->json('changes'))
+            ->where('entity_type', 'tenant_settings')
+            ->pluck('payload.iban')
+            ->filter();
+        $this->assertTrue($ibanlar->isNotEmpty(), 'delta yükünde iban YOK');
+    }
+
+    #[Test]
+    public function asiri_uzun_iban_reddedilir_ve_parti_bozulmaz(): void
+    {
+        // Kolon 34 karakter. Sınıra dayanıp 22001 almak TÜM partiyi düşürürdü (panel test
+        // vardiyasının dersi); uygulayıcı önce kendisi reddeder, savepoint yalnız BU olayı
+        // 'rejected' işaretler ve aynı partideki diğer olay yazılır. Kırpma YOK: yarım bir IBAN
+        // müşteriyi yanlış hesaba yönlendirirdi.
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $yanit = $this->pushEvents($token, [
+            $this->tenantSettingsUpsert(['iban' => str_repeat('T', 35)]),
+            $this->customerUpsert(['name' => 'Aynı partide, sağlam kayıt']),
+        ]);
+
+        $yanit->assertOk()
+            ->assertJsonPath('results.0.status', 'rejected')
+            ->assertJsonPath('results.1.status', 'applied');
+
+        $this->assertSame(
+            'Aynı partide, sağlam kayıt',
+            $this->asOwner(fn () => Customer::query()->firstOrFail()->name)
+        );
     }
 
     // ----------------------------------------------------------------------------------
