@@ -223,7 +223,12 @@ class PanelAdminTest extends ApiTestCase
         $destek = $this->admin('support', 'destek@sipario.test');
         $this->actingAs($destek, 'admin');
 
-        foreach (['extendTrial', 'activate', 'lock', 'unlock', 'suspend', 'resetPassword'] as $eylem) {
+        // panel yeniden yazımı (2026-08-04): `extendTrial` public eylemi KALDIRILDI, yerine
+        // önizlemeli modal geldi — deneme uzatmanın tek girişi artık `uzatKaydet`. Kapının
+        // KENDİSİ değişmedi; yalnız eylemin adı değişti, o yüzden iddia korunup ad güncellendi.
+        // `iptalEt` de bu vardiyada eklendi ve aynı superadmin kapısına tabi — listeye alındı,
+        // yoksa yeni bir abonelik eylemi kapı testi görmeden yaşardı.
+        foreach (['uzatKaydet', 'iptalEt', 'activate', 'lock', 'unlock', 'suspend', 'resetPassword'] as $eylem) {
             Livewire::test(TenantDetail::class, ['tenant' => $a['tenant']->id])
                 ->call($eylem)
                 ->assertForbidden();

@@ -22,6 +22,8 @@ use Illuminate\Support\Carbon;
  * @property string $status pending | matched | rejected
  * @property string|null $subscription_payment_id
  * @property string|null $note
+ * @property string|null $consent_version
+ * @property Carbon|null $consented_at
  * @property Carbon|null $created_at
  * @property Carbon|null $resolved_at
  * @property string|null $resolved_by_admin_id
@@ -48,6 +50,9 @@ class PaymentNotification extends Model
         'status',
         'subscription_payment_id',
         'note',
+        // Hukuki onay — subscription_payments'takiyle BİREBİR aynı çift (005012).
+        'consent_version',
+        'consented_at',
         'resolved_at',
         'resolved_by_admin_id',
     ];
@@ -57,6 +62,7 @@ class PaymentNotification extends Model
         return [
             'amount_kurus' => 'integer',
             'declared_on' => 'date',
+            'consented_at' => 'datetime',
             'created_at' => 'datetime',
             'resolved_at' => 'datetime',
         ];

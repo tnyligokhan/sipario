@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
@@ -63,5 +64,16 @@ class SubscriptionPayment extends Model
             'occurred_at' => 'datetime',
             'created_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Ödemenin bayisi. Panelin ödeme listesi firma ADINI gösterir ve firma adına göre süzer;
+     * ilişki olmadan ekran ya N+1 sorgu atardı ya da tüm bayileri belleğe çekip eşlerdi.
+     *
+     * @return BelongsTo<Tenant, $this>
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
     }
 }

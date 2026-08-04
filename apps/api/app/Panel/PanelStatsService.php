@@ -61,6 +61,35 @@ class PanelStatsService
         return $out;
     }
 
+    /**
+     * Sipariş girme saati dağılımı — TÜM bayiler (panel Genel Bakış panosu için).
+     *
+     * `orderHourDistribution()`in cross-tenant kardeşi. Tek bayilik sürüm "bu bayi bizi bırakıyor mu"
+     * sorusunu cevaplar; bu sürüm "ürün genel olarak ne zaman kullanılıyor" sorusunu. İkincisi bir
+     * bayi hakkında değil ÜRÜN hakkında bilgidir: dağılım akşama yığılıyorsa arayan tanıma gün içinde
+     * çalışmıyor demektir ve bu tek tek bayilere bakarak görülmez.
+     *
+     * Cross-tenant okuma bilinçlidir ve panel rolünün salt-okunur SELECT'iyle sınırlıdır
+     * (`PanelDashboardService` ile aynı sözleşme). Kişisel veri dönmez — yalnız saat ve adet.
+     *
+     * @return array<int, int> saat (0-23) => adet
+     */
+    public function saatDagilimiTum(int $days = 30): array
+    {
+        $rows = DB::connection($this->connection)->table('orders')
+            ->whereNull('deleted_at')
+            ->where('occurred_at', '>=', now()->subDays($days))
+            ->selectRaw("EXTRACT(HOUR FROM occurred_at AT TIME ZONE 'Etc/GMT-3')::int as h, count(*) as c")
+            ->groupBy('h')->get();
+
+        $out = array_fill(0, 24, 0);
+        foreach ($rows as $r) {
+            $out[(int) $r->h] = (int) $r->c;
+        }
+
+        return $out;
+    }
+
     /** Kurulumdan (tenant.created_at) ilk siparişe kadar geçen dakika; sipariş yoksa null (churn: hiç başlamadı). */
     public function minutesToFirstOrder(string $tenantId): ?int
     {

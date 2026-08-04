@@ -5,6 +5,7 @@ namespace App\Livewire\Panel;
 use App\Panel\PanelAdminService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use RuntimeException;
@@ -14,7 +15,8 @@ use RuntimeException;
  * açılmasın) hem her eylemde (istek doğrudan gönderilebilir) uygulanır; yalnız düğmeyi gizlemek
  * yetki denetimi değildir.
  */
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.panel')]
+#[Title('Panel Hesapları')]
 class AdminUsers extends Component
 {
     #[Validate('required|string|min:2|max:160')]

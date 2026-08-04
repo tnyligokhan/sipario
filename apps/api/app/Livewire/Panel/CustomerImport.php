@@ -6,8 +6,10 @@ use App\Panel\PanelImportService;
 use App\Panel\PanelTenantDataService;
 use App\Panel\TenantAdminService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -22,7 +24,8 @@ use RuntimeException;
  * `uygula()` onu yeniden okur. 2 MB'lık bir CSV'yi Livewire durumunda taşımak her tıklamada
  * ağdan geçerdi — ve o içerik zaten müşteri verisidir.
  */
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.panel')]
+#[Title('Müşteri Toplu Aktarım')]
 class CustomerImport extends Component
 {
     use WithFileUploads;
@@ -53,6 +56,10 @@ class CustomerImport extends Component
      */
     public function mount(string $tenant): void
     {
+        // BOZUK UUID DE 404: `tenants.id` uuid kolonudur, biçimsiz metinle sorgulamak `22P02`
+        // üretir ve kullanıcıya 500 döner. Yanlış yapıştırılmış bir kimlik arıza değil, olmayan
+        // kayıttır — bayi detayı da aynı cevabı verir.
+        abort_unless(Str::isUuid($tenant), 404);
         abort_if(app(TenantAdminService::class)->tenantDetail($tenant) === null, 404);
 
         $this->tenantId = $tenant;

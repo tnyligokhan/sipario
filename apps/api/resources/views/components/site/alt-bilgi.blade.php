@@ -70,18 +70,44 @@
                 </div>
             </div>
         </div>
+        @php
+            /*
+             * Künye TEK KAYNAKTAN okunur: config('subscription.company'). Ödeme ekranı, hesap
+             * paneli ve mesafeli satış sözleşmesi de aynı bloğu okur — ikinci bir kopya çıkarsa
+             * biri bayatlar ve bayi yanlış hesaba para gönderir.
+             *
+             * `$gercek`: değer köşeli parantezle başlıyorsa HENÜZ YER TUTUCUdur. Yer tutucunun
+             * üzerine `tel:`/`mailto:` basmak, tıklanınca hiçbir yere gitmeyen bir bağlantı
+             * üretir — görünürde çalışan, gerçekte bozuk. Yer tutucu düz metin olarak basılır.
+             * (Aynı kural sitenin iletişim/destek kanallarında da uygulanıyor.)
+             */
+            $sirket = config('subscription.company');
+            $gercek = fn (?string $d) => is_string($d) && $d !== '' && ! str_starts_with($d, '[');
+        @endphp
         <div class="alt-kunye">
             <div class="alt-k-blok">
                 <span class="mn k">Ünvan</span>
-                <p>[Şirket unvanı]<br>[açık adres]</p>
+                <p>{{ $sirket['title'] }}<br>{{ $sirket['address'] }}</p>
             </div>
             <div class="alt-k-blok">
                 <span class="mn k">Kayıt</span>
-                <p>MERSİS [MERSİS no]<br>[Vergi no / VKN]</p>
+                <p>MERSİS {{ $sirket['mersis'] }}<br>{{ $sirket['tax_office'] }}</p>
             </div>
             <div class="alt-k-blok">
                 <span class="mn k">İletişim</span>
-                <p><a href="tel:[telefon]">[telefon]</a><br><a href="mailto:[e-posta]">[e-posta]</a></p>
+                <p>
+                    @if ($gercek($sirket['phone']))
+                        <a href="tel:{{ preg_replace('/\s+/', '', $sirket['phone']) }}">{{ $sirket['phone'] }}</a>
+                    @else
+                        {{ $sirket['phone'] }}
+                    @endif
+                    <br>
+                    @if ($gercek($sirket['email']))
+                        <a href="mailto:{{ $sirket['email'] }}">{{ $sirket['email'] }}</a>
+                    @else
+                        {{ $sirket['email'] }}
+                    @endif
+                </p>
             </div>
             <div class="alt-k-blok">
                 <span class="mn k">Ödeme</span>
@@ -89,8 +115,14 @@
             </div>
         </div>
         <div class="alt-son">
-            <span class="kucuk">© {{ date('Y') }} [Şirket unvanı]. Tüm hakları saklıdır.</span>
-            <span class="kucuk">Hafta içi 09:00 – 19:00</span>
+            <span class="kucuk">© {{ date('Y') }} {{ $sirket['title'] }}. Tüm hakları saklıdır.</span>
+            {{--
+                "Rakamlar örnektir" notu tasarımda VARDI ve kaldırılmamalı: sitedeki kullanım
+                sayıları, yorumlar ve süreler hâlâ TEMSİLİ (bkz. site/parca/_temsili-veri.php).
+                Gerçek rakamlarla değiştirildikleri gün bu cümle de kaldırılır — ikisi birlikte
+                yaşar, biri diğeri olmadan yanlış olur.
+            --}}
+            <span class="kucuk">{{ $sirket['hours'] }} · Bu sayfadaki rakamlar örnektir.</span>
         </div>
     </div>
 </footer>

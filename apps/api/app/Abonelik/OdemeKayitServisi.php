@@ -6,6 +6,9 @@ use App\Enums\BillingPeriod;
 use App\Enums\TenantStatus;
 use App\Models\SubscriptionPayment;
 use App\Models\Tenant;
+use App\Support\TurkceArama;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -132,22 +135,121 @@ class OdemeKayitServisi extends AbonelikServisi
     }
 
     /**
-     * Tüm ödemeler (panelin "Ödemeler" ekranı). $ay verilirse 'YYYY-MM' süzgeci uygulanır (TR günü:
-     * PanelStatsService ile aynı sabit +03:00, DST yok).
+     * Tüm ödemeler (küçük listeler / dışa aktarım). $ay verilirse 'YYYY-MM' süzgeci uygulanır
+     * (TR günü: PanelStatsService ile aynı sabit +03:00, DST yok).
+     *
+     * EKRANLAR İÇİN `odemelerSayfali()` KULLANIN: buradaki `$limit` bir TAVANdır ve aşıldığında
+     * SESSİZCE kırpar — "Tüm aylar" seçili bir panelde 501. ödeme hiç görünmez ve kimse fark etmez.
      *
      * @return Collection<int, SubscriptionPayment>
      */
     public function odemeler(?string $ay = null, int $limit = 500): Collection
     {
+        return $this->odemeSorgusu($ay, null)->limit($limit)->get();
+    }
+
+    /**
+     * ÖDEME LİSTESİ — sayfalı (panelin "Ödemeler" ekranı).
+     *
+     * NEDEN VAR (2026-08-04, `panel-para` bulgusu): ekran `odemeler()`in 500 satırını çekip
+     * BELLEKTE süzüyor ve sayfalıyordu. İki arızası vardı: (a) 500'ü aşan kayıt sessizce kayboluyor,
+     * (b) firma araması yalnız o 500 satırın içinde çalışıyor — yani eski bir bayiyi aratınca
+     * "kayıt yok" diyor. Sayfalama ve süzme SORGUYA indi.
+     *
+     * Bayi kaydı EAGER YÜKLENİR (`with('tenant')`): ekran firma adını gösteriyor; ilişkisiz hâlde ya
+     * N+1 sorgu ya da tüm bayi tablosunun belleğe çekilmesi gerekirdi.
+     *
+     * FİRMA ARAMASI Türkçe harf katlamasından ve joker kaçışından geçer; kural ve gerekçeleri
+     * {@see TurkceArama}'dadır ve BURAYA TEKRARLANMAZ — kuralın kendisi tek kaynağa çekilirken
+     * anlatısının iki dosyada kalması, aynı ayrışmayı yorum düzeyinde yeniden üretirdi.
+     *
+     * @param  string|null  $ay  'YYYY-MM' (TR ayı) — null ise tüm aylar
+     * @param  string|null  $firmaArama  bayi adında geçen metin
+     * @param  string  $pageName  sayfa parametresinin adı (Livewire ekranı kendi adını verir)
+     * @return LengthAwarePaginator<int, SubscriptionPayment>
+     */
+    public function odemelerSayfali(
+        ?string $ay = null,
+        ?string $firmaArama = null,
+        int $perPage = 25,
+        string $pageName = 'page',
+    ): LengthAwarePaginator {
+        return $this->odemeSorgusu($ay, $firmaArama)
+            ->with('tenant')
+            ->paginate(perPage: $perPage, pageName: $pageName);
+    }
+
+    /**
+     * Süzgeçle eşleşen TÜM kayıtların sayısı ve toplamı — sayfa başlığındaki "N kayıt · toplam X".
+     *
+     * Ayrı bir metot, çünkü sayfalı sonuçtan toplam ÇIKARILAMAZ: paginator yalnız o sayfanın
+     * satırlarını taşır ve `sum()` almak "bu sayfadaki toplam"ı gösterip kullanıcıyı yanıltırdı.
+     * `total()` adedi verir ama tutarı vermez.
+     *
+     * @return array{adet: int, toplam_kurus: int}
+     */
+    public function odemeOzeti(?string $ay = null, ?string $firmaArama = null): array
+    {
+        $satir = $this->odemeSorgusu($ay, $firmaArama)
+            ->reorder()
+            ->selectRaw('count(*) as adet, coalesce(sum(amount_kurus), 0) as toplam')
+            ->first();
+
+        return [
+            'adet' => (int) ($satir->adet ?? 0),
+            'toplam_kurus' => (int) ($satir->toplam ?? 0),
+        ];
+    }
+
+    /**
+     * Ödeme GÖRMÜŞ aylar, yeniden eskiye ('YYYY-MM'). Ay süzgecinin seçenekleri budur.
+     *
+     * NEDEN GelirGiderRaporu'ndan DEĞİL: orası gelir VE gideri birleştirir; masraf girilmiş ama
+     * ödeme alınmamış bir ay da listelenir. Ekran bu yüzden `aylikOzet()` çıktısını `gelir_kurus>0`
+     * ile süzmek zorunda kalmıştı — çalışan ama niyeti okunmayan bir kullanım. Süzgeç ödemelerin
+     * üzerinde olduğuna göre listesi de burada durmalı. Ay sınırı yine sabit +03:00 — ekranda
+     * ikinci bir zaman-dilimi hesabı YOK.
+     *
+     * @return list<string>
+     */
+    public function aylar(): array
+    {
+        /** @var list<string> $aylar */
+        $aylar = SubscriptionPayment::on($this->connection)
+            ->where('status', 'success')
+            ->selectRaw("distinct to_char(occurred_at AT TIME ZONE 'Etc/GMT-3', 'YYYY-MM') as ay")
+            ->orderByDesc('ay')
+            ->pluck('ay')
+            ->all();
+
+        return $aylar;
+    }
+
+    /**
+     * Liste sorgusunun TEK kaynağı: süzgeç kuralları (başarılı kayıtlar, TR ay sınırı, Türkçe firma
+     * araması) sayfalı/sayfasız/özet üç yolda da AYNI olmak zorunda — kopyalansaydı biri güncellenip
+     * diğeri unutulur ve başlıktaki toplam listeyle tutmazdı.
+     *
+     * @return Builder<SubscriptionPayment>
+     */
+    private function odemeSorgusu(?string $ay, ?string $firmaArama): Builder
+    {
         $q = SubscriptionPayment::on($this->connection)
             ->where('status', 'success')
-            ->orderByDesc('occurred_at')
-            ->limit($limit);
+            ->orderByDesc('occurred_at');
 
-        if ($ay !== null) {
+        if ($ay !== null && $ay !== '') {
             $q->whereRaw("to_char(occurred_at AT TIME ZONE 'Etc/GMT-3', 'YYYY-MM') = ?", [$ay]);
         }
 
-        return $q->get();
+        $arama = trim((string) $firmaArama);
+        if ($arama !== '') {
+            $q->whereHas('tenant', fn (Builder $t) => $t->whereRaw(
+                TurkceArama::sutun('name')." LIKE ? ESCAPE '".TurkceArama::KACIS."'",
+                [TurkceArama::desen($arama)],
+            ));
+        }
+
+        return $q;
     }
 }

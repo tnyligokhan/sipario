@@ -34,6 +34,16 @@ class RouteCoverageGuardTest extends TestCase
         'api.locations.heartbeat',
         'api.locations.live',
         'api.team.credentials',
+
+        /*
+         * Matristeki ilk TARAYICI route'u (2026-08-04): bayinin hesap paneli. Yukarıdakiler
+         * bearer token'lı API uçları, bu oturum çerezli bir Livewire ekranı — kimlik farklı
+         * taşınıyor ama `tenant` middleware'i taşıdığı için kural aynı ve bekçi onu da sayıyor.
+         *
+         * Kapsayan senaryolar: `TenantIsolationTest::hesap_paneli_baska_bayinin_kimligine_gecirilemez`
+         * (istemci `#[Locked] $bayiId`i yazamaz) ve `..._yalnizca_kendi_bayisinin_verisini_gosterir`.
+         */
+        'site.hesap',
     ];
 
     #[Test]

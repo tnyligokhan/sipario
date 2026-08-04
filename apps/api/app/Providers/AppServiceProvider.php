@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\ResolveTenantContext;
 use App\Payment\IyzicoPaymentGateway;
 use App\Payment\PaymentGateway;
 use App\Support\Geocoding\Geocoder;
@@ -19,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -124,6 +126,24 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiters();
+
+        /*
+         * KİRACI BAĞLAMI LIVEWIRE'IN İKİNCİ İSTEĞİNDE DE KURULMALI.
+         *
+         * Livewire ilk GET'ten sonra `/livewire/update`e gider ve orada route'un middleware'ini
+         * yeniden çalıştırmaz — yalnız KENDİ kalıcı listesini uygular. O listede
+         * `Illuminate\Auth\Middleware\Authenticate` VAR ama kiracı bağlamını kuran middleware YOK.
+         * İkisi ayrışınca `auth:web` kullanıcıyı `users` üzerinden yüklemeye çalışır, RLS FORCE
+         * yüzünden sıfır satır görür ve hesap panelindeki HER eylem AuthenticationException ile
+         * düşer — sayfa açılır, hiçbir düğme çalışmaz.
+         *
+         * Bu, 5c-3'te panelde öğrenilen dersin ("route middleware'i Livewire'ı korumaz") ters
+         * yönüdür: burada route middleware'i Livewire'a ULAŞMIYOR.
+         *
+         * Panel (`auth:admin`) etkilenmez — `admin_users` ayrı bir provider'dır ve RLS'e tabi
+         * değildir; bu satır yalnız bayinin hesap panelini ayakta tutar.
+         */
+        Livewire::addPersistentMiddleware(ResolveTenantContext::class);
     }
 
     /**

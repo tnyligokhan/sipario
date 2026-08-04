@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Livewire\Site\Hesap;
 use App\Models\CashHandover;
 use App\Models\Customer;
 use App\Models\Device;
@@ -13,6 +14,8 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
+use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\ApiTestCase;
 use Tests\Feature\Api\Concerns\BuildsSyncEvents;
@@ -535,5 +538,53 @@ class TenantIsolationTest extends ApiTestCase
 
         $count = $this->asOwner(fn () => LedgerEntry::query()->where('customer_id', $custB['payload']['id'])->count());
         $this->assertSame(0, $count, 'B için hiçbir defter kaydı oluşmamalı (cross-tenant collected_by reddi).');
+    }
+
+    /*
+     * WEB YÜZEYİ — bayinin hesap paneli (`site.hesap`, 2026-08-04).
+     *
+     * Matristeki ilk TARAYICI route'u: yukarıdakilerin hepsi bearer token'lı API uçları, bu ise
+     * oturum çerezli bir Livewire ekranı. Kimlik farklı taşınıyor ama kural aynı ve bu yüzden
+     * matrise girmesi ZORUNLU: `tenant` middleware'i taşıyan her route izolasyon kanıtı almalı
+     * (RouteCoverageGuardTest bunu build'de zorluyor — bu iki test o yüzden birlikte yazıldı).
+     *
+     * Tehdit modeli burada API'dekinden FARKLI: saldırgan bir id'yi URL'e koyamaz (route parametre
+     * almaz), ama Livewire bileşeninin PUBLIC ÖZELLİĞİNİ istemciden değiştirmeyi deneyebilir.
+     * `$bayiId` bu yüzden `#[Locked]` ve iki test bunu iki ayrı yönden kanıtlıyor.
+     */
+
+    #[Test]
+    public function hesap_paneli_baska_bayinin_kimligine_gecirilemez(): void
+    {
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+
+        session(['subscription_tenant_id' => $a['tenant']->id]);
+
+        // Sınıf adı bu Livewire sürümünde `Livewire\Exceptions\...` DEĞİL; yanlış namespace ile
+        // yazılan bir beklenti "Class does not exist" hatasına düşer ve test SESSİZCE hiç koşmaz
+        // (bu vardiyada `SiteHesapTest`te tam bu yaşandı — kırmızı çizgi #1'i koruyan iki test
+        // aylarca koşmuş gibi görünüp hiç koşmamıştı). Tam yol o yüzden burada yazılı.
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+
+        // B'nin GERÇEK, geçerli tenant id'si — ama `#[Locked]` istemcinin onu yazmasını reddeder.
+        Livewire::actingAs($a['patron'], 'web')
+            ->test(Hesap::class)
+            ->set('bayiId', $b['tenant']->id);
+    }
+
+    #[Test]
+    public function hesap_paneli_yalnizca_kendi_bayisinin_verisini_gosterir(): void
+    {
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+
+        session(['subscription_tenant_id' => $a['tenant']->id]);
+
+        Livewire::actingAs($a['patron'], 'web')
+            ->test(Hesap::class)
+            ->assertSet('bayiId', $a['tenant']->id)
+            ->assertSee($a['tenant']->name)
+            ->assertDontSee($b['tenant']->name);
     }
 }

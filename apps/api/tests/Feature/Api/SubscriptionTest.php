@@ -187,10 +187,12 @@ class SubscriptionTest extends ApiTestCase
     #[Test]
     public function kayit_ekrani_gorunur_ve_abonelik_oturumsuz_reddeder(): void
     {
-        $this->get('/kayit')->assertOk()->assertSee('Üyelik');
+        // tasarım 12-sw-giris · KayitSayfa: ekran başlığı "Üyelik" → "İşletmenizi açalım."
+        $this->get('/kayit')->assertOk()->assertSee('İşletmenizi açalım.');
         $this->get('/giris')->assertOk()->assertSee('Giriş');
-        // Oturumda tenant yoksa /abonelik 403 (önce üyelik/giriş).
-        $this->get('/abonelik')->assertForbidden();
+        // tasarım 13-sw-odeme: oturumsuz ödeme ekranı 403 DEĞİL, girişe yönlenir — fiyat
+        // sayfasından gelen misafir bir hata değil, henüz giriş yapmamış bir müşteridir.
+        $this->get('/abonelik')->assertRedirect(route('subscription.login'));
     }
 
     #[Test]
@@ -202,7 +204,9 @@ class SubscriptionTest extends ApiTestCase
             ->set('email', $a['patron']->email)
             ->set('password', 'password')
             ->call('authenticate')
-            ->assertRedirect(route('subscription.subscribe'));
+            // tasarım 12-sw-giris: giriş sonrası hedef /abonelik → /hesap (bayi önce hesabını
+            // görür; ödemeye oradan ya da fiyat sayfasından girer).
+            ->assertRedirect(route('site.hesap'));
 
         $this->assertSame($a['tenant']->id, session('subscription_tenant_id'), 'Login web session tenant bağlamını kurmalı.');
         // Session kurulunca /abonelik erişilebilir (Subscribe.mount yalnız session'a bakar).
@@ -249,7 +253,9 @@ class SubscriptionTest extends ApiTestCase
             ->set('email', $a['patron']->email)
             ->set('password', 'password')
             ->call('authenticate')
-            ->assertRedirect(route('subscription.subscribe'));
+            // tasarım 12-sw-giris: giriş sonrası hedef /abonelik → /hesap. Kural DEĞİŞMEDİ —
+            // süresi dolmuş bayi hâlâ girebiliyor; yalnız indiği sayfa değişti.
+            ->assertRedirect(route('site.hesap'));
 
         $this->assertSame($a['tenant']->id, session('subscription_tenant_id'),
             'Süresi dolmuş bayi ödeme için giriş yapabilmeli (billing sitesi).');

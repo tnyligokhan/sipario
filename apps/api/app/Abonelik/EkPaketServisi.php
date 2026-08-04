@@ -7,6 +7,7 @@ use App\Models\AddonPackage;
 use App\Models\SubscriptionPayment;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -108,9 +109,27 @@ class EkPaketServisi extends AbonelikServisi
     /**
      * FİRMAYA TANIMLA — paketi bayinin hesabına işler, kotayı büyütür, (bedelsiz değilse) gelir yazar.
      *
+     * İDEMPOTENS — `$grantId` (2026-08-04, `panel-para` bulgusu). Anahtarsız hâlde grant kimliği
+     * transaction'ın İÇİNDE üretiliyordu, yani gerçekten paralel iki istek İKİ grant + İKİ gelir
+     * satırı yazıp kotayı İKİ KEZ artırıyordu. Bunun ödemeden daha kötü yanı GERİ ALINAMAMASIydı:
+     * `addon_grants` append-only (UPDATE/DELETE revoke) ve `route_credits`/`courier_limit` elle
+     * düzeltilmek zorunda kalırdı. `OdemeKayitServisi::kaydet()`in `providerRef`i ile aynı sözleşme:
+     * anahtar ÇAĞIRANDAdır (panelde modal AÇILIRKEN üretilir), verilmezse her çağrı benzersizdir.
+     *
+     * ÜÇ KATLI KORUMA:
+     *   1. `tenants` satırı `lockForUpdate` ile kilitli → aynı bayiye gelen ikinci çağrı bekler ve
+     *      ön kontrolde birincinin işlenmiş satırını GÖRÜR.
+     *   2. Ön kontrol: `$grantId` zaten varsa mevcut satır döner — yeni satır YOK, kota artışı YOK.
+     *   3. `addon_grants.id` BİRİNCİL ANAHTARdır; ayrı bir tekil indekse gerek yok. Yarışın kaybeden
+     *      tarafı 23505 alır, transaction TAMAMEN geri alınır (kota artışı dahil) ve kazananın satırı
+     *      okunup döndürülür. Yakalama transaction'ın DIŞINDA: Postgres'te hatalı bir statement
+     *      transaction'ı zehirler, içeride yapılacak bir SELECT "current transaction is aborted"
+     *      ile düşerdi.
+     *
      * @param  string  $collectionMethod  'iban' | 'elden' | 'bedelsiz'
      * @param  int|null  $amountKurus  null → paketin liste fiyatı. 'bedelsiz' ise HER HÂLDE 0
      *                                 (DB CHECK de bunu zorlar; tasarımda tutar alanı pasifleşir).
+     * @param  string|null  $grantId  idempotens anahtarı (UUID). null → her çağrı yeni tanımlamadır.
      */
     public function tanimla(
         string $tenantId,
@@ -120,6 +139,7 @@ class EkPaketServisi extends AbonelikServisi
         ?Carbon $grantedOn = null,
         ?string $note = null,
         ?string $adminId = null,
+        ?string $grantId = null,
     ): AddonGrant {
         if (! in_array($collectionMethod, ['iban', 'elden', 'bedelsiz'], true)) {
             throw new GecersizTutarException('Tahsilat yolu IBAN, elden veya bedelsiz olmalıdır.');
@@ -127,18 +147,53 @@ class EkPaketServisi extends AbonelikServisi
 
         $grantedOn ??= now();
 
-        return $this->db()->transaction(function () use ($tenantId, $paketId, $collectionMethod, $amountKurus, $grantedOn, $note, $adminId) {
+        try {
+            return $this->tanimlamaYaz($tenantId, $paketId, $collectionMethod, $amountKurus, $grantedOn, $note, $adminId, $grantId);
+        } catch (QueryException $e) {
+            // 23505 = unique_violation (birincil anahtar). Yarışın kaybeden tarafı: transaction geri
+            // alındı, kazananın satırını döndür. Anahtar verilmemişse çakışma bizim hatamız değildir
+            // (uuid7 çakışmaz) → hatayı gizleme.
+            if ((string) $e->getCode() === '23505' && $grantId !== null) {
+                $mevcut = AddonGrant::on($this->connection)->find($grantId);
+                if ($mevcut !== null) {
+                    return $mevcut;
+                }
+            }
+            throw $e;
+        }
+    }
+
+    private function tanimlamaYaz(
+        string $tenantId,
+        string $paketId,
+        string $collectionMethod,
+        ?int $amountKurus,
+        Carbon $grantedOn,
+        ?string $note,
+        ?string $adminId,
+        ?string $grantId,
+    ): AddonGrant {
+        return $this->db()->transaction(function () use ($tenantId, $paketId, $collectionMethod, $amountKurus, $grantedOn, $note, $adminId, $grantId) {
             /** @var AddonPackage $paket */
             $paket = AddonPackage::on($this->connection)->findOrFail($paketId);
             /** @var Tenant $tenant */
             $tenant = Tenant::on($this->connection)->lockForUpdate()->findOrFail($tenantId);
+
+            // Kilit ALINDIKTAN SONRA bakılır: aynı bayiye gelen ikinci çağrı burada birincinin
+            // işlenmiş satırını görür. Kilitten önce bakmak, iki çağrının da "yok" görmesi demekti.
+            if ($grantId !== null) {
+                $mevcut = AddonGrant::on($this->connection)->find($grantId);
+                if ($mevcut !== null) {
+                    return $mevcut;
+                }
+            }
 
             $tutar = $collectionMethod === 'bedelsiz' ? 0 : ($amountKurus ?? $paket->price_kurus);
             if ($tutar < 0) {
                 throw new GecersizTutarException('Tanımlama tutarı negatif olamaz.');
             }
 
-            $grantId = (string) Str::uuid7();
+            $grantId ??= (string) Str::uuid7();
 
             /** @var AddonGrant $grant */
             $grant = AddonGrant::on($this->connection)->create([

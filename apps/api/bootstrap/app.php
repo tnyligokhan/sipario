@@ -46,10 +46,22 @@ return Application::configure(basePath: dirname(__DIR__))
             SecurityHeaders::class,
         ]);
 
-        // Panel (Faz 5c) oturumsuz istekleri panel login'e yönlendir; API yolları JSON 401 döner (değişmez).
-        $middleware->redirectGuestsTo(
-            fn (Request $request) => $request->is('panel*') ? route('panel.login') : null,
-        );
+        /*
+         * Oturumsuz istekleri DOĞRU giriş ekranına yolla. İki AYRI kimlik dünyası var ve
+         * karıştırılmamalı: panel BİZE ait (admin guard), hesap sayfası BAYİYE ait (web guard).
+         *
+         * `hesap` satırı olmadan oturumu düşen bayi 500 görürdü: null dönünce Laravel `route('login')`
+         * adını arar, bu projede öyle bir route YOKTUR ve `RouteNotFoundException` fırlar.
+         *
+         * API yolları hâlâ null döner → JSON 401 (mobil istemcinin beklediği davranış, değişmedi).
+         */
+        $middleware->redirectGuestsTo(function (Request $request): ?string {
+            if ($request->is('panel*')) {
+                return route('panel.login');
+            }
+
+            return $request->is('hesap*') ? route('subscription.login') : null;
+        });
 
         // Abonelik callback (Faz 5b) iyzico DIŞ POST'udur → CSRF muaf (imza/idempotensi ile korunur).
         $middleware->validateCsrfTokens(except: ['abonelik/callback']);

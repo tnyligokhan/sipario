@@ -28,7 +28,20 @@ abstract class ApiTestCase extends TestCase
     /** Şema süreç başına yalnız bir kez kurulur (migrate:fresh pahalıdır). */
     private static bool $migrated = false;
 
-    /** Testler arası owner ile boşaltılan tablolar (FK'ler CASCADE ile çözülür). */
+    /**
+     * Testler arası owner ile boşaltılan tablolar (FK'ler CASCADE ile çözülür).
+     *
+     * BİLİNÇLİ DIŞARIDA BIRAKILANLAR (2026-08-04, test-koşum vardiyası): `addon_grants`,
+     * `tenant_notes`, `payment_notifications` buraya YAZILMAZ — `tenants` FK'sı zaten var
+     * (cascadeOnDelete), TRUNCATE ... CASCADE onları otomatik boşaltır. `plans` / `addon_packages`
+     * / `expenses` ise tenant_id TAŞIMAZ (şirket verisi, bkz. migration 005001/005002/005004),
+     * CASCADE'e hiç girmezler ve BURAYA DA EKLENMEMELİ: `plans` migration'ın tek satır tohumunu
+     * taşır (tek satır kısıtı — TRUNCATE sonrası kimse yeniden eklemez, `PlanDeposu` sessizce
+     * config yedeğine düşer ve TÜM testlerin varsayılan plan değerleri değişir). `addon_packages`/
+     * `expenses` yalnız kendilerini kullanan iki dosyada (`PanelPaketGelirEkraniTest`,
+     * `PanelOdemeEkraniTest`) TRUNCATE + bilinen tohumla yeniden kurulur — global listeye eklemek
+     * gereksiz, her testte iki tabloyu daha boşaltıp hiç kullanmayan yüzlerce test için maliyet.
+     */
     private const TABLES = ['personal_access_tokens', 'devices', 'users', 'tenants', 'admin_users', 'panel_audit', 'subscription_payments'];
 
     protected function setUp(): void

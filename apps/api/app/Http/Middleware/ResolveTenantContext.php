@@ -28,20 +28,36 @@ class ResolveTenantContext
         $bearer = $request->bearerToken();
 
         return DB::transaction(function () use ($request, $next, $bearer) {
-            if ($bearer !== null) {
-                $token = PersonalAccessToken::findToken($bearer);
+            $tenantId = $bearer !== null
+                ? PersonalAccessToken::findToken($bearer)?->tenant_id
+                : null;
 
-                if ($token !== null && $token->tenant_id !== null) {
-                    // set_config parametre alır (SET LOCAL bind kabul etmez) → enjeksiyon güvenli,
-                    // üçüncü arg true = LOCAL (transaction ömrü).
-                    DB::statement(
-                        "SELECT set_config('app.tenant_id', ?, true)",
-                        [$token->tenant_id]
-                    );
-                }
+            /*
+             * WEB OTURUMU DÜŞÜŞÜ (bayinin hesap paneli). Mobil istemci kimliğini bearer token ile
+             * taşır; tarayıcıdaki patron ise oturum çerezi ile. `users` tablosunda RLS FORCE açık
+             * olduğu için `auth:web` kullanıcıyı yüklemeye çalıştığında app.tenant_id kurulmamışsa
+             * SIFIR SATIR görür — istek sessizce "misafir" sayılır ve giriş yapmış bayi hesap
+             * sayfasına hiç giremez. Yani bu satır olmadan `auth:web` bu mimaride ÇALIŞAMAZ.
+             *
+             * Değer güvenilirdir: oturuma yalnız parola doğrulandıktan SONRA yazılır (Site\Login,
+             * Site\Register) ve oturum sunucu tarafında imzalıdır — istemci kendi tenant'ını
+             * seçemez. Token yolu her zaman önceliklidir; ikisi birden varsa token kazanır.
+             */
+            if ($tenantId === null && $request->hasSession()) {
+                $oturumdaki = $request->session()->get('subscription_tenant_id');
+                $tenantId = is_string($oturumdaki) && $oturumdaki !== '' ? $oturumdaki : null;
             }
 
-            // Token geçersiz/yoksa app.tenant_id set edilmez → RLS sıfır satır → auth:sanctum 401 döner.
+            if ($tenantId !== null) {
+                // set_config parametre alır (SET LOCAL bind kabul etmez) → enjeksiyon güvenli,
+                // üçüncü arg true = LOCAL (transaction ömrü).
+                DB::statement(
+                    "SELECT set_config('app.tenant_id', ?, true)",
+                    [$tenantId]
+                );
+            }
+
+            // Kimlik yoksa app.tenant_id set edilmez → RLS sıfır satır → auth 401/misafir.
             return $next($request);
         });
     }

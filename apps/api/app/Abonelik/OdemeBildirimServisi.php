@@ -34,6 +34,18 @@ class OdemeBildirimServisi extends AbonelikServisi
      *
      * `declaredOn` GELECEKTE OLAMAZ: "yarın göndereceğim" bir beyan değildir ve bekleyen listeyi
      * kirletir.
+     *
+     * HUKUKİ ONAY: `$consentVersion` kabul edilen metin sürümleridir ve `consent_version` kolonuna
+     * yazılır — `note` içine METİN olarak GÖMÜLMEZ (bkz. migration 005012). Bu servis onayı
+     * DOĞRULAMAZ; doğrulama `SubscriptionService::manuelCheckout()`ta yapılır ve ÜÇ onay eksikse
+     * `ConsentRequiredException` ile buraya hiç gelinmez. Ayrımın sebebi: onay kuralı (hangi
+     * metinler, hangi sürüm) bir ÖDEME AKIŞI kararıdır ve zaten `startCheckout` ile paylaşılan
+     * `assertConsents`/`consentVersion` yardımcılarında yaşar; iki yerde iki kopya kural tutmak,
+     * biri güncellenince diğerinin sessizce eskimesi demekti.
+     *
+     * `$consentedAt` verilmezse sürüm varken `now()` olur; sürüm yoksa damga da NULL'a normalize
+     * edilir — `SubscriptionService::record()`taki satırın aynısı. DB CHECK ikisinin ayrışmasını
+     * zaten reddeder; buradaki normalizasyon o hatanın kullanıcıya 23514 olarak çıkmasını önler.
      */
     public function olustur(
         string $tenantId,
@@ -42,6 +54,8 @@ class OdemeBildirimServisi extends AbonelikServisi
         ?string $referenceCode = null,
         ?Carbon $declaredOn = null,
         ?string $note = null,
+        ?string $consentVersion = null,
+        ?Carbon $consentedAt = null,
     ): PaymentNotification {
         if ($amountKurus <= 0) {
             throw new GecersizTutarException('Bildirilen tutar sıfırdan büyük olmalıdır.');
@@ -69,6 +83,8 @@ class OdemeBildirimServisi extends AbonelikServisi
             'declared_on' => $declaredOn->toDateString(),
             'status' => PaymentNotification::STATUS_PENDING,
             'note' => $note,
+            'consent_version' => $consentVersion,
+            'consented_at' => $consentVersion !== null ? ($consentedAt ?? now()) : null,
         ]);
 
         return $bildirim;

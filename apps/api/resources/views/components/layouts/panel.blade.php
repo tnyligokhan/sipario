@@ -24,6 +24,8 @@
 <body>
     {{ $slot }}
     <x-panel.tost />
+    {{-- bkz. layouts/site.blade.php — sıra ve gerekçe aynı; panel `satirLink` bileşenini kullanır. --}}
+    <script src="{{ asset('js/alpine.js') }}"></script>
     @livewireScripts
 </body>
 </html>

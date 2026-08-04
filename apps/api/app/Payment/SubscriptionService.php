@@ -2,13 +2,17 @@
 
 namespace App\Payment;
 
+use App\Abonelik\OdemeBildirimServisi;
 use App\Abonelik\PlanDeposu;
 use App\Enums\BillingPeriod;
 use App\Enums\TenantStatus;
+use App\Models\PaymentNotification;
 use App\Models\SubscriptionPayment;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\DuplicateSlugException;
 use App\Support\Provisioning;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -41,10 +45,29 @@ class SubscriptionService
      * Public üyelik → trial tenant + patron user (valid_until = now+trial, status=trial). KVKK onayı
      * ZORUNLU. Email GLOBAL tekil (çakışma → nötr DuplicateEmailException). Tenant yaratma owner ile.
      *
+     * `$phone` ARTIK GERÇEKTEN KULLANILIYOR: imzada baştan beri vardı ama `createTenantWithPatron`a
+     * geçirilmiyordu, yani kayıt ekranının topladığı telefon sessizce düşüyordu.
+     *
+     * `$slug` (kullanıcının seçtiği firma kodu) ve `$patronAdi` (yetkilinin adı) opsiyoneldir;
+     * verilmezse eski davranış aynen sürer (kod addan türer, ad 'Patron' kalır). Verildiklerinde
+     * hepsi TEK transaction'da yazılır — öncesinde kayıt ekranı bunları tenant yaratıldıktan SONRA
+     * ayrı bir owner UPDATE'iyle düzeltiyordu ve bayi bir an yanlış kodla yaşıyordu.
+     *
      * @return array{tenant: Tenant, patron: User}
+     *
+     * @throws ConsentRequiredException
+     * @throws DuplicateEmailException
+     * @throws DuplicateSlugException istenen firma kodu başka bir bayide
      */
-    public function register(string $name, string $email, string $password, ?string $phone, bool $kvkkConsent): array
-    {
+    public function register(
+        string $name,
+        string $email,
+        string $password,
+        ?string $phone,
+        bool $kvkkConsent,
+        ?string $slug = null,
+        ?string $patronAdi = null,
+    ): array {
         if (! $kvkkConsent) {
             throw new ConsentRequiredException('KVKK aydınlatma onayı gerekli.');
         }
@@ -54,7 +77,14 @@ class SubscriptionService
             throw new DuplicateEmailException('Bu e-posta ile devam edilemiyor.');
         }
 
-        return Provisioning::createTenantWithPatron($name, $email, $password);
+        return Provisioning::createTenantWithPatron(
+            tenantName: $name,
+            patronEmail: $email,
+            patronPassword: $password,
+            patronName: $patronAdi,
+            slug: $slug,
+            phone: $phone,
+        );
     }
 
     /**
@@ -83,6 +113,56 @@ class SubscriptionService
         $this->record($tenantId, $amount, $currency, $init->providerRef, 'initiated', $this->consentVersion(), $period);
 
         return $init;
+    }
+
+    /**
+     * ELLE TAHSİLAT CHECKOUT'U (havale/EFT + elden) — `startCheckout`un ödeme sağlayıcısız ikizi.
+     *
+     * NEDEN AYRI BİR GİRİŞ: `startCheckout`un İLK işi `gateway->initiate()`tir ve iyzico ERTELENDİĞİ
+     * için anahtarsız yapılandırmada orada `RuntimeException` atar — üstelik onay kaydı o çağrıdan
+     * SONRA düştüğü için hiçbir şey kaydedilmeden hata alınır. Yani elle tahsilatta o yol TIKALI.
+     * Site ajanı bu yüzden onay kuralını bileşene KOPYALAMAK ve kabul edilen sürümleri `note`
+     * alanına METİN olarak yazmak zorunda kalmıştı; ikisi de yanlıştı.
+     *
+     * `startCheckout`un İKİ SÖZLEŞMESİ burada AYNEN geçerlidir ve AYNI yardımcılardan okunur:
+     *   1. ÜÇ hukuk onayı da zorunlu → `assertConsents()` (eksikse `ConsentRequiredException`,
+     *      hiçbir satır yazılmaz).
+     *   2. Kabul edilen SÜRÜMLER kaydedilir → `consentVersion()`, artık `payment_notifications`ın
+     *      BİRİNCİ SINIF `consent_version`/`consented_at` kolonlarına (migration 005012).
+     * Tek fark ödeme sağlayıcısına ÇIKILMAMASIDIR: burada tahsilat bir BEYANdır.
+     *
+     * BEYAN ABONELİĞİ UZATMAZ. Bu metot yalnız bekleyen bir iddia yazar; `valid_until` ancak panel
+     * operatörü ekstrede parayı görüp `OdemeBildirimServisi::eslestir()` dediğinde ilerler.
+     *
+     * TUTAR ÇAĞIRANDAN GELİR (plandan okunmaz): sepette abonelik de olabilir, tek seferlik bir ek
+     * paket de. Çağıran onu zaten sunucuda hesaplar; burada plandan yeniden türetmek, ek paket
+     * satışında yanlış tutarı beyan etmek olurdu.
+     *
+     * @param  array<string, mixed>  $consents
+     *
+     * @throws ConsentRequiredException
+     */
+    public function manuelCheckout(
+        string $tenantId,
+        int $amountKurus,
+        string $method,
+        array $consents,
+        ?string $referenceCode = null,
+        ?Carbon $declaredOn = null,
+        ?string $note = null,
+    ): PaymentNotification {
+        $this->assertConsents($consents);
+
+        return (new OdemeBildirimServisi(self::CONN))->olustur(
+            tenantId: $tenantId,
+            amountKurus: $amountKurus,
+            method: $method,
+            referenceCode: $referenceCode,
+            declaredOn: $declaredOn,
+            note: $note,
+            consentVersion: $this->consentVersion(),
+            consentedAt: now(),
+        );
     }
 
     /**

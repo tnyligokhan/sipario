@@ -175,8 +175,10 @@ class PanelDashboardTest extends ApiTestCase
 
         $this->actingAs($admin, 'admin')->get('/panel')
             ->assertOk()
-            ->assertSee('Genel Bakış')
-            ->assertSee('Churn riski')
+            // tasarım 06-Dashboard.jsx: sayfa başlığı "Genel Bakış" → "Dashboard"
+            ->assertSee('Dashboard')
+            // panel yeniden yazımı: churn kartı başlığı "Churn riski" → "3 gündür sipariş girmeyen bayiler"
+            ->assertSee('3 gündür sipariş girmeyen bayiler')
             ->assertSee($riskli['tenant']->name);
     }
 

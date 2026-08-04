@@ -48,6 +48,36 @@ return [
         'kvkk-aydinlatma' => ['title' => 'KVKK Aydınlatma Metni ve Açık Rıza', 'version_key' => 'kvkk_version'],
     ],
 
+    /*
+     * ŞİRKET KÜNYESİ — bizim (satıcının) bilgileri. Havale talimatında, e-arşiv faturada, sitenin
+     * alt bilgisinde ve mesafeli satış sözleşmesinde AYNI kaynaktan okunur; ikinci bir kopya
+     * çıkarsa biri bayatlar ve bayi yanlış hesaba para gönderir.
+     *
+     * ⚠️ DEĞERLER HENÜZ GERÇEK DEĞİL — köşeli parantezli yer tutucular BİLEREK böyle. Ekranlarda
+     * "[Şirket IBAN]" görünmesi, uydurma bir IBAN'ın gerçekmiş gibi görünmesinden İYİDİR: birinciyi
+     * kimse kullanmaz, ikincisi paranın kaybolmasıdır. Şirket kurulup banka hesabı açılınca env'den
+     * doldurulur; kod değişmez.
+     *
+     * BAYİNİN IBAN'IYLA KARIŞTIRMA: `tenants.iban` bayinin KENDİ müşterilerinden tahsilat yaptığı
+     * hesaptır (borç hatırlatma mesajlarında kullanılır). Abonelik tahsilatında onu kullanmak,
+     * bayinin parasını bize yönlendirmek olurdu.
+     */
+    'company' => [
+        'title' => env('COMPANY_TITLE', '[Şirket unvanı]'),
+        'address' => env('COMPANY_ADDRESS', '[Şirket adresi]'),
+        'mersis' => env('COMPANY_MERSIS', '[MERSİS no]'),
+        'tax_office' => env('COMPANY_TAX_OFFICE', '[Vergi dairesi ve no]'),
+        'iban' => env('COMPANY_IBAN', '[Şirket IBAN]'),
+        'bank' => env('COMPANY_BANK', '[Şirket bankası]'),
+        'phone' => env('COMPANY_PHONE', '[Telefon]'),
+        'email' => env('COMPANY_EMAIL', 'destek@sipario.com.tr'),
+        // Destek kutusu: bayinin dışa aktarım/iptal gibi talepleri buraya düşer (BRIEF: "veri
+        // rehin alınmaz" kapısı destek kanalından yürür). Genel e-postadan AYRI bir anahtar —
+        // yarın bir talep kuyruğuna bağlanırsa kurumsal adres değişmeden yönü değişir.
+        'support_email' => env('COMPANY_SUPPORT_EMAIL', env('COMPANY_EMAIL', 'destek@sipario.com.tr')),
+        'hours' => env('COMPANY_HOURS', 'Hafta içi 09:00 – 19:00'),
+    ],
+
     // iyzico (sandbox). SDK/HTTP entegrasyonu IyzicoPaymentGateway'de; anahtarlar env'den.
     'iyzico' => [
         'api_key' => env('IYZICO_API_KEY', ''),

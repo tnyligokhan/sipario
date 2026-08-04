@@ -1,46 +1,62 @@
-<div class="card">
-    <h2>Defter</h2>
-    <p class="hint">SALT-OKUNUR — defter append-only'dir; panelden para kaydı girilmez/silinmez.</p>
+{{-- Defter sekmesi — SALT-OKUNUR, append-only. Mevcut işlev korundu, tasarım diline geçirildi. --}}
+@use('App\Livewire\Panel\Concerns\Bicim')
+<div class="dikey">
+    <x-panel.kart baslik="Defter" ikon="belge" :adet="$defter->total().' kayıt'">
+        <div class="modal-bilgi" style="margin:14px 18px">
+            <x-panel.ikon ad="bilgi" boy="15" />
+            <span>SALT-OKUNUR — defter append-only'dir; panelden para kaydı girilmez/silinmez.</span>
+        </div>
 
-    <p>
-        @foreach ($defterOzet as $o)
-            <span class="status">{{ $o->entry_type }}: {{ $o->adet }} kayıt / <x-kurus :value="$o->toplam" /></span>
-        @endforeach
-        @if ($defterOzet->isEmpty())<span class="hint">Hiç defter kaydı yok.</span>@endif
-    </p>
+        @if ($defterOzet->isEmpty())
+            <x-panel.bos metin="Hiç defter kaydı yok." />
+        @else
+            <div class="bilgi-satirlar">
+                @foreach ($defterOzet as $o)
+                    <x-panel.bilgi-satir :k="$o->entry_type">
+                        <span class="tab">{{ $o->adet }} kayıt · <x-kurus :value="$o->toplam" /></span>
+                    </x-panel.bilgi-satir>
+                @endforeach
+            </div>
+        @endif
 
-    <p>
-        <label>Tip:
-            <select wire:model.live="defterTip" wire:change="defterSuzgeciUygula">
-                <option value="">hepsi</option>
-                <option value="debit">borç (debit)</option>
-                <option value="payment">tahsilat (payment)</option>
-                <option value="credit">alacak (credit)</option>
-                <option value="discount">iskonto (discount)</option>
-                <option value="correction">düzeltme (correction)</option>
-            </select>
-        </label>
-    </p>
+        <div class="aksiyonlar" style="border-bottom:1px solid var(--line)">
+            <x-panel.alan label="Tip">
+                <select class="girdi" wire:model.live="defterTip" wire:change="defterSuzgeciUygula">
+                    <option value="">hepsi</option>
+                    <option value="debit">borç (debit)</option>
+                    <option value="payment">tahsilat (payment)</option>
+                    <option value="credit">alacak (credit)</option>
+                    <option value="discount">iskonto (discount)</option>
+                    <option value="correction">düzeltme (correction)</option>
+                </select>
+            </x-panel.alan>
+        </div>
 
-    <table>
-        <thead>
-            <tr><th>Tarih</th><th>Müşteri</th><th>Tip</th><th>Tutar</th><th>Ödeme</th><th>Not</th></tr>
-        </thead>
-        <tbody>
-            @forelse ($defter as $d)
-                <tr>
-                    <td>{{ \Illuminate\Support\Carbon::parse($d->occurred_at)->format('d.m.Y H:i') }}</td>
-                    <td>{{ $d->musteri ?? '—' }}</td>
-                    <td><span class="status">{{ $d->entry_type }}</span></td>
-                    <td><x-kurus :value="$d->amount_kurus" /></td>
-                    <td>{{ $d->payment_type ?? '—' }}</td>
-                    <td>{{ $d->note ?? '—' }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="6">Defter kaydı bulunamadı.</td></tr>
-            @endforelse
-        </tbody>
-    </table>
+        @if ($defter->isEmpty())
+            <x-panel.bos ikon="ara" metin="Defter kaydı bulunamadı." />
+        @else
+            <x-panel.tablo>
+                <thead>
+                    <tr>
+                        <th>Tarih</th><th>Müşteri</th><th>Tip</th>
+                        <th class="sag">Tutar</th><th>Ödeme</th><th>Not</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($defter as $d)
+                        <tr>
+                            <td class="tab">{{ Bicim::tarihSaat($d->occurred_at) }}</td>
+                            <td class="kalin">{{ $d->musteri ?? '—' }}</td>
+                            <td class="soluk">{{ $d->entry_type }}</td>
+                            <td class="sag kalin tab"><x-kurus :value="$d->amount_kurus" /></td>
+                            <td class="soluk">{{ $d->payment_type ?? '—' }}</td>
+                            <td class="soluk">{{ $d->note ?? '—' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </x-panel.tablo>
+        @endif
+    </x-panel.kart>
 
-    @include('livewire.panel.tenant.sayfalama', ['sayfalayici' => $defter, 'ad' => 'dsayfa'])
+    {{ $defter->links('vendor.pagination.panel-basit') }}
 </div>

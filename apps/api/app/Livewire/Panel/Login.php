@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
@@ -25,7 +26,8 @@ use Livewire\Component;
  * kuvvet, (2) yayılı — tek IP'den birçok hesabı deneme. Anahtarlar sha1'lenir: e-posta doğrudan
  * önbellek anahtarına girerse uzun/garip girdi anahtarı bozabilirdi.
  */
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.panel')]
+#[Title('Yönetim Paneli')]
 class Login extends Component
 {
     /** Aynı e-posta + IP için dakikadaki azami başarısız deneme. */

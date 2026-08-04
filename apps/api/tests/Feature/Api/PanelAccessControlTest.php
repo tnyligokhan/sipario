@@ -270,13 +270,22 @@ class PanelAccessControlTest extends ApiTestCase
         }
         sort($adlar);
 
+        // 2026-08-04 eklendi: panel.finance (GelirGider) · panel.notifications (Bildirimler,
+        // havale bildirimi eşleştirme) · panel.packages (Paketler, ek paket kataloğu+tanımlama).
+        // Üçü de ABONELİK/ŞİRKET verisine (plans/addon_*/expenses/payment_notifications/
+        // subscription_payments) dokunur — customers/orders/order_lines/ledger_entries/
+        // cash_handovers/products'a hiçbir yazma çağrısı yok (grep doğrulandı); kırmızı çizgi #2 delinmedi.
         $this->assertSame([
             'panel.admins',
             'panel.audit',
             'panel.csv.sablon',
             'panel.dashboard',
+            'panel.finance',
             'panel.login',
             'panel.logout',
+            'panel.notifications',
+            'panel.packages',
+            'panel.payments',
             'panel.tenant',
             'panel.tenant.csv.musteriler',
             'panel.tenant.csv.siparisler',

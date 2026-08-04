@@ -202,3 +202,28 @@ textarea.girdi{resize:vertical;min-height:64px}
 .dosya-sec-ad{font-size:13px}
 .dosya-sec-durum{font-size:12px}
 .dosya-sec-hata{color:var(--danger);font-size:12px;width:100%}
+
+/* Alan altı doğrulama hatası (para ekranlarının modalları). Kaynakta yoktu: prototipte
+   sunucu doğrulaması olmadığı için hiçbir alanın altında hata satırı yok. Tonlar mevcut
+   .dosya-sec-hata kuralından alındı (aynı iş, aynı görünüm); .alan zaten flex-column +
+   gap:6 olduğu için satır girdinin altına kendiliğinden oturur, ek boşluk gerekmiyor. */
+.alan-hata{color:var(--danger);font-size:12px}
+
+/* .modal-bilgi'nin TEHLİKE tonu — geri alınamaz bir eylemin uyarısı (bildirim reddi) ve
+   servisin reddettiği gönderimlerin mesajı için. Ayrı bir kutu sınıfı yazmak yerine
+   değiştirici seçildi: yapı ve yerleşim birebir aynı, yalnız renk ailesi değişiyor. */
+.modal-bilgi.tehlike{background:var(--danger-soft);color:var(--danger)}
+.modal-bilgi.tehlike svg{color:var(--danger)}
+
+/* .link-btn'in tehlike tonu (bildirim reddi). .btn.tehlike zaten aynı deseni taşıyor, adlandırma
+   ondan alındı. :hover ayrıca yazılıyor çünkü genel ".link-btn:hover{color:var(--accent-koyu)}"
+   kuralı aksi hâlde imleç üstündeyken kırmızıyı mora çevirirdi. */
+.link-btn.tehlike,.link-btn.tehlike:hover{color:var(--danger)}
+
+/* Net değerin işaret rengi TABLODA. Anlam ve renkler .skart-v.eksi/.arti ile AYNI (gelir-gider
+   neti hem istatistik kartında hem aylık özet tablosunda görünür); ad bilerek tekrar kullanıldı,
+   yeni bir sözcük uydurulmadı. İkisi de var(--danger)/var(--ok) okuduğu için palet değişince
+   birlikte değişirler — satır içi stil bırakmanın asıl riski buydu. .tablo'ya kapsandı ki
+   ".eksi" adı sayfanın geri kalanına sızmasın. */
+.tablo .eksi{color:var(--danger)}
+.tablo .arti{color:var(--ok)}

@@ -2,43 +2,67 @@
 
 namespace App\Livewire\Panel;
 
-use App\Livewire\Panel\Forms\MusteriForm;
-use App\Livewire\Panel\Forms\UrunForm;
+use App\Abonelik\EkPaketServisi;
+use App\Abonelik\KotaDoluException;
+use App\Abonelik\KuryeKotasi;
+use App\Abonelik\OdemeKayitServisi;
+use App\Abonelik\PlanDeposu;
+use App\Abonelik\TenantNotServisi;
+use App\Livewire\Panel\Concerns\BayiIsVerisi;
+use App\Livewire\Panel\Concerns\Bicim;
+use App\Models\Tenant;
 use App\Panel\PanelStatsService;
 use App\Panel\PanelTenantDataService;
 use App\Panel\PanelWriteService;
 use App\Panel\TenantAdminService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use RuntimeException;
+use Throwable;
 
 /**
- * Bayi detayı — SEKMELİ (5c-3 · D2). Özet · Müşteriler · Siparişler · Defter · Ürünler · Denetim.
+ * ÜYE DETAYI (tasarım `07-Uyeler.jsx` · UyeDetay) — SEKMELİ:
+ * Özet · Müşteriler · Siparişler · Defter · Ürünler · Denetim.
  *
- * Abonelik/durum eylemleri TenantAdminService'e delege edilir (tenants UPDATE panel bağlantısıyla).
- * İş verisi sekmeleri PanelTenantDataService ile SALT-OKUNUR okunur; müşteri/ürün YAZMA eylemleri
- * ayrı bileşendedir (D3) — bu bileşen iş verisine yazmaz.
+ * Tasarımın iki sütunlu düzeni "Özet" sekmesidir; BRIEF md. 3'ün zorunlu yetenekleri (modül
+ * aç/kapa, patron parolası, cihazlar, dışa/içe aktarım, kurye açma, kullanım istatistikleri)
+ * aynı sekmenin ALTINA, aynı kart diliyle eklenmiştir.
  *
- * render() YALNIZ AÇIK SEKMENİN sorgusunu koşar: altı sekmenin verisini her turda çekmek, bir
- * sayfalama düğmesine basıldığında görünmeyen beş listeyi de yeniden sorgulamak olurdu.
+ * Abonelik/durum eylemleri TenantAdminService'e, müşteri/ürün yazımı PanelWriteService'e delege
+ * edilir; iş verisi sekmeleri PanelTenantDataService ile SALT-OKUNUR okunur.
+ *
+ * render() YALNIZ AÇIK SEKMENİN sorgusunu koşar: altısını her turda çekmek, bir sayfalama
+ * düğmesine basıldığında görünmeyen beş listeyi de yeniden sorgulamak olurdu.
  */
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.panel')]
+#[Title('Üye Detayı')]
 class TenantDetail extends Component
 {
-    use WithPagination;
+    // İŞ VERİSİ sekmelerinin süzgeçleri ve müşteri/ürün yazma yüzeyi ayrı dosyada: oradaki her
+    // eylem DESTEK rolüne de açıktır, burada kalan her eylem superadmin kapılıdır. Bölme çizgisi
+    // yetki sınırının aynısıdır (bkz. BayiIsVerisi belge başlığı).
+    use BayiIsVerisi, WithPagination;
 
     /** Geçerli sekmeler — bilinmeyen değer 'ozet'e düşer (URL'den elle sekme uydurulamaz). */
     public const SEKMELER = ['ozet', 'musteriler', 'siparisler', 'defter', 'urunler', 'denetim'];
 
+    /** Bayi bazında açılıp kapanabilen opsiyonel modüller (BRIEF md. 3). */
+    public const MODULLER = ['empty_tracking' => 'Boş/emanet takibi'];
+
+    /** Salt-okunur panel bağlantısı; yazan servisler kendi (owner) bağlantısını kullanır. */
+    private const BAGLANTI = 'pgsql_panel';
+
     /**
-     * `#[Locked]`: Livewire'da kilitlenmemiş her public alan İSTEMCİDEN değiştirilebilir. Hangi
-     * bayide çalışıldığı `mount`ta route'tan gelir ve sonradan değişmemelidir — bu alan
-     * yazma eylemlerinin (müşteri/ürün) hedefini belirler, yani bir SINIR taşır ve sınır
-     * istemcinin gönderdiği bir değere bağlanamaz.
+     * `#[Locked]`: kilitlenmemiş her public alan İSTEMCİDEN değiştirilebilir. Bu alan yazma
+     * eylemlerinin hedefini belirler — bir SINIR taşır, istemcinin değerine bağlanamaz.
      */
     #[Locked]
     public string $tenantId;
@@ -46,39 +70,33 @@ class TenantDetail extends Component
     #[Url(as: 'sekme')]
     public string $sekme = 'ozet';
 
-    public int $extendDays = 14;
-
     /** Şifre sıfırlama sonrası admin'e BİR KEZ gösterilir (kalıcı saklanmaz). */
     public ?string $newPassword = null;
 
-    public string $musteriArama = '';
+    // --- Deneme uzatma modalı (tasarım · DenemeUzatModal) --------------------------------
 
-    public bool $musteriSilinmisler = false;
+    public bool $uzatAcik = false;
 
-    /** Satır detayı açık olan müşteri (bakiye + son siparişler); null = kapalı. */
-    public ?string $acikMusteri = null;
+    public int $uzatGun = 7;
 
-    public string $siparisDurum = '';
+    /** Boşsa hızlı seçim (uzatGun) geçerlidir; doluysa özel tarih onu ezer. */
+    public string $uzatOzelTarih = '';
 
-    public string $siparisBaslangic = '';
+    // --- Not ekleme (tasarım · Notlar kartı) ---------------------------------------------
 
-    public string $siparisBitis = '';
+    public string $yeniNot = '';
 
-    public string $defterTip = '';
+    // --- Kurye hesabı açma (BRIEF md. 3; bugün başka hiçbir yolu yok) ---------------------
 
-    public string $urunArama = '';
+    public bool $kuryeAcik = false;
 
-    public bool $urunSilinmisler = false;
+    public string $kuryeAd = '';
 
-    // --- Yazma (D3) ---------------------------------------------------------------------
+    public string $kuryeKullanici = '';
 
-    public MusteriForm $musteriForm;
+    public string $kuryeParola = '';
 
-    public UrunForm $urunForm;
-
-    public bool $musteriFormAcik = false;
-
-    public bool $urunFormAcik = false;
+    public string $kuryeTelefon = '';
 
     /**
      * Kullanıcıya gösterilecek sonuç.
@@ -87,235 +105,275 @@ class TenantDetail extends Component
      */
     public ?array $bildirim = null;
 
+    /**
+     * BOZUK UUID 404 VERİR, 500 DEĞİL: `tenants.id` uuid kolonudur, biçimsiz metinle sorgulamak
+     * `22P02` üretir. Yanlış yapıştırılmış bir kimlik arıza değil, olmayan kayıttır.
+     */
     public function mount(string $tenant): void
     {
+        abort_unless(Str::isUuid($tenant), 404);
+        abort_if(app(TenantAdminService::class)->tenantDetail($tenant) === null, 404);
+
         $this->tenantId = $tenant;
     }
+
+    // --- Sekmeler ------------------------------------------------------------------------
 
     public function sekmeSec(string $sekme): void
     {
         $this->sekme = in_array($sekme, self::SEKMELER, true) ? $sekme : 'ozet';
+        $this->sekmeSifirla();
+    }
+
+    /** Çipler `$set('sekme', ...)` ile yazar; o yol `sekmeSec`i çağırmaz, bu kanca çağırır. */
+    public function updatedSekme(string $deger): void
+    {
+        $this->sekme = in_array($deger, self::SEKMELER, true) ? $deger : 'ozet';
+        $this->sekmeSifirla();
+    }
+
+    private function sekmeSifirla(): void
+    {
         $this->acikMusteri = null;
         $this->formlariKapat();
-        $this->resetPage('msayfa');
-        $this->resetPage('ssayfa');
-        $this->resetPage('dsayfa');
-        $this->resetPage('usayfa');
-        $this->resetPage('ksayfa');
-    }
-
-    /** Süzgeç değişince sayfa 1'e döner — yoksa 5. sayfada daralan liste boş görünürdü. */
-    public function updatedMusteriArama(): void
-    {
-        $this->resetPage('msayfa');
-    }
-
-    public function updatedUrunArama(): void
-    {
-        $this->resetPage('usayfa');
-    }
-
-    public function siparisSuzgeciUygula(): void
-    {
-        $this->resetPage('ssayfa');
-    }
-
-    public function defterSuzgeciUygula(): void
-    {
-        $this->resetPage('dsayfa');
-    }
-
-    public function musteriAc(string $id): void
-    {
-        $this->acikMusteri = ($this->acikMusteri === $id) ? null : $id;
-    }
-
-    // --- Müşteri / ürün yazma (D3) ------------------------------------------------------
-
-    public function musteriFormAc(?string $id = null): void
-    {
-        $this->musteriForm->reset();
-        $this->bildirim = null;
-
-        if ($id !== null) {
-            $detay = app(PanelTenantDataService::class)->customerDetail($this->tenantId, $id);
-            if ($detay === null) {
-                $this->bildirim = ['tur' => 'hata', 'mesaj' => 'Müşteri bulunamadı.'];
-
-                return;
-            }
-            $this->musteriForm->doldur($detay['musteri'], $detay['telefonlar']->first(), $detay['adresler']->first());
+        foreach (['msayfa', 'ssayfa', 'dsayfa', 'usayfa', 'ksayfa'] as $sayfa) {
+            $this->resetPage($sayfa);
         }
-
-        $this->musteriFormAcik = true;
     }
 
-    public function musteriKaydet(): void
-    {
-        $this->musteriForm->validate();
-
-        $this->yazmayiCalistir(function () {
-            $sonuc = app(PanelWriteService::class)
-                ->musteriKaydet($this->tenantId, $this->musteriForm->veri(), $this->adminId());
-
-            if ($sonuc['durum'] === 'applied') {
-                $this->musteriFormAcik = false;
-                $this->musteriForm->reset();
-            }
-
-            return $sonuc;
-        }, 'Müşteri kaydedildi.');
-    }
-
-    public function musteriKaraListe(string $id, bool $karaListe): void
-    {
-        $this->yazmayiCalistir(
-            fn () => app(PanelWriteService::class)->musteriKaraListe($this->tenantId, $id, $karaListe, $this->adminId()),
-            $karaListe ? 'Müşteri kara listeye alındı.' : 'Müşteri kara listeden çıkarıldı.',
-        );
-    }
-
-    public function urunFormAc(?string $id = null): void
-    {
-        $this->urunForm->reset();
-        $this->bildirim = null;
-
-        if ($id !== null) {
-            $urun = app(PanelTenantDataService::class)->product($this->tenantId, $id);
-            if ($urun === null) {
-                $this->bildirim = ['tur' => 'hata', 'mesaj' => 'Ürün bulunamadı.'];
-
-                return;
-            }
-            $this->urunForm->doldur($urun);
-        }
-
-        $this->urunFormAcik = true;
-    }
-
-    public function urunKaydet(): void
-    {
-        $this->urunForm->validate();
-
-        if ($this->urunForm->fiyatKurus() < 0) {
-            $this->addError('urunForm.fiyat', 'Fiyat negatif olamaz.');
-
-            return;
-        }
-
-        $this->yazmayiCalistir(function () {
-            $sonuc = app(PanelWriteService::class)
-                ->urunKaydet($this->tenantId, $this->urunForm->veri(), $this->adminId());
-
-            if ($sonuc['durum'] === 'applied') {
-                $this->urunFormAcik = false;
-                $this->urunForm->reset();
-            }
-
-            return $sonuc;
-        }, 'Ürün kaydedildi.');
-    }
-
-    public function urunAktiflik(string $id, bool $aktif): void
-    {
-        $this->yazmayiCalistir(
-            fn () => app(PanelWriteService::class)->urunAktiflik($this->tenantId, $id, $aktif, $this->adminId()),
-            $aktif ? 'Ürün etkinleştirildi.' : 'Ürün pasifleştirildi.',
-        );
-    }
-
+    /** Açık HER katmanı kapatır — sekme değişince ekranda asılı kalan bir form/modal kalmasın. */
     public function formlariKapat(): void
     {
-        $this->musteriFormAcik = false;
-        $this->urunFormAcik = false;
+        $this->isVerisiFormlariniKapat();
+        $this->uzatAcik = false;
+        $this->kuryeAcik = false;
         $this->bildirim = null;
+    }
+
+    // --- Deneme uzatma (tasarım · DenemeUzatModal) ---------------------------------------
+
+    public function uzatAc(): void
+    {
+        $this->superadminZorunlu('extend_trial');
+        $this->reset(['uzatGun', 'uzatOzelTarih']);
+        $this->bildirim = null;
+        $this->uzatAcik = true;
+    }
+
+    public function uzatKapat(): void
+    {
+        $this->uzatAcik = false;
+    }
+
+    public function hizliGun(int $gun): void
+    {
+        $this->uzatGun = $gun;
+        $this->uzatOzelTarih = '';
     }
 
     /**
-     * Yazma eylemlerinin ortak kabuğu: sonucu KULLANICIYA DÜRÜSTÇE bildirir.
-     *
-     * Kritik nokta 'applied' dışındaki durumlardır — kilitli bayi ('locked') ve daha yeni bir
-     * yazımın üstüne yazma ('stale') sessiz kalırsa panel "kaydettim" der ama hiçbir şey yazılmaz.
-     *
-     * @param  callable():array{durum: string, mesaj: string|null}  $is
+     * Yeni bitişin ÖNİZLEMESİ. Taban `TenantAdminService::extendTrial`inkiyle BİREBİR aynıdır —
+     * ekranda başka, kayıtta başka bir tarih çıkarsa modal yalan söylemiş olur.
      */
-    private function yazmayiCalistir(callable $is, string $basariMesaji): void
+    public function uzatOnizleme(): ?Carbon
     {
-        try {
-            $sonuc = $is();
-        } catch (RuntimeException $e) {
-            $this->bildirim = ['tur' => 'hata', 'mesaj' => $e->getMessage()];
+        $taban = $this->uzatTabani();
+
+        if (trim($this->uzatOzelTarih) !== '') {
+            try {
+                return Carbon::parse($this->uzatOzelTarih)->endOfDay();
+            } catch (Throwable) {
+                return null;
+            }
+        }
+
+        return $taban->copy()->addDays(max($this->uzatGun, 0));
+    }
+
+    public function uzatKaydet(): void
+    {
+        $this->superadminZorunlu('extend_trial');
+
+        $hedef = $this->uzatOnizleme();
+        if ($hedef === null) {
+            $this->bildirim = ['tur' => 'hata', 'mesaj' => 'Tarih anlaşılamadı; gün/ay/yıl seçin.'];
+            $this->denetle('extend_trial', 'gecersiz_tarih');
 
             return;
         }
 
-        $this->bildirim = $sonuc['durum'] === 'applied'
-            ? ['tur' => 'ok', 'mesaj' => $basariMesaji]
-            : ['tur' => 'hata', 'mesaj' => $sonuc['mesaj'] ?? 'Kayıt uygulanamadı ('.$sonuc['durum'].').'];
+        // Servis GÜN sayısı alır; özel tarih o gün sayısına çevrilir. Geçmişe (ya da mevcut bitişin
+        // gerisine) uzatma sessizce süre KISALTMAK olurdu — reddedilir ve denetime düşer.
+        $gun = (int) ceil($this->uzatTabani()->diffInDays($hedef, false));
+        if ($gun <= 0) {
+            $this->bildirim = ['tur' => 'hata', 'mesaj' => 'Yeni tarih mevcut deneme bitişinden sonra olmalı.'];
+            $this->denetle('extend_trial', 'gerileten_tarih');
+
+            return;
+        }
+
+        $bayi = $this->service()->extendTrial($this->tenantId, $gun, $this->adminId());
+        $this->uzatAcik = false;
+        $this->bildirim = null;
+        $this->dispatch('tost', mesaj: 'Deneme '.Bicim::tarihKisa($bayi->trial_ends_at).' tarihine uzatıldı');
     }
 
-    // --- Abonelik / durum eylemleri (5c-1'den; iş verisine dokunmaz) ---------------------
-    //
-    // HEPSİ YALNIZ SUPERADMIN (5c-3 · D5). Ayrımın mantığı: destek ekibi bayinin işini yapmasına
-    // yardım edebilmeli (müşteri/ürün girişi, CSV aktarımı — geri alınabilir ve denetlenir) ama
-    // bayinin ABONELİĞİNE, kilidine ya da patron şifresine dokunamamalı; bunlar parasal ve
-    // erişimsel kararlardır. Kapı her eylemin İÇİNDEDİR: Blade'de düğmeyi gizlemek yetki denetimi
-    // değildir, Livewire eylemi doğrudan da çağrılabilir.
-
-    public function extendTrial(): void
+    private function uzatTabani(): Carbon
     {
-        $this->superadminZorunlu();
-        $this->service()->extendTrial($this->tenantId, $this->extendDays, $this->adminId());
+        $bitis = $this->bayi()->trial_ends_at;
+
+        return ($bitis !== null && $bitis->greaterThan(now())) ? $bitis->copy() : now();
     }
+
+    // --- Notlar (tasarım · Notlar kartı) -------------------------------------------------
+
+    public function notEkle(): void
+    {
+        $metin = trim($this->yeniNot);
+        if ($metin === '') {
+            return;
+        }
+
+        // Not YAZMA eylemidir ama abonelik kararı değildir: destek ekibi de not düşebilmeli
+        // (telefonda konuşan kişi odur). Yetki ayrımı parasal/erişimsel eylemlerdedir.
+        app(TenantNotServisi::class)->ekle($this->tenantId, $metin, $this->adminId());
+        $this->yeniNot = '';
+        $this->dispatch('tost', mesaj: 'Not eklendi');
+    }
+
+    // --- Abonelik / durum eylemleri ------------------------------------------------------
+    // HEPSİ YALNIZ SUPERADMIN ve kapı her eylemin İÇİNDEDİR: düğmeyi gizlemek yetki denetimi
+    // değildir, Livewire eylemi doğrudan da çağrılabilir. Deneme uzatma burada YOK, modaldadır
+    // (`uzatKaydet`) — tek giriş noktası önizlemeli olandır.
 
     public function activate(): void
     {
-        $this->superadminZorunlu();
+        $this->superadminZorunlu('activate');
         $this->service()->activateSubscription($this->tenantId, 365, $this->adminId());
+        $this->dispatch('tost', mesaj: 'Abonelik 1 yıl kaydedildi');
     }
 
     public function lock(): void
     {
-        $this->superadminZorunlu();
+        $this->superadminZorunlu('lock');
         $this->service()->lock($this->tenantId, $this->adminId());
+        $this->dispatch('tost', mesaj: 'Bayi kilitlendi');
     }
 
     public function unlock(): void
     {
-        $this->superadminZorunlu();
+        $this->superadminZorunlu('unlock');
         $this->service()->unlock($this->tenantId, $this->adminId());
+        $this->dispatch('tost', mesaj: 'Üyelik aktifleştirildi');
     }
 
     public function suspend(): void
     {
-        $this->superadminZorunlu();
+        $this->superadminZorunlu('suspend');
         $this->service()->suspend($this->tenantId, $this->adminId());
+        $this->dispatch('tost', mesaj: 'Üyelik askıya alındı');
     }
 
-    /** Opsiyonel modül aç/kapa (FAZ 5c-2). Mevcut durumu tersine çevirir. */
+    /**
+     * İPTAL (BAYİ BIRAKTI) — `suspended` ile bilerek ayrıdır: askıdaki bayi hâlâ müşteridir,
+     * iptal churn sayacına girer (bkz. TenantStatus). Panelde `cancelled`a geçmenin tek yolu.
+     */
+    public function iptalEt(): void
+    {
+        $this->superadminZorunlu('cancel');
+        $this->service()->cancel($this->tenantId, $this->adminId());
+        $this->dispatch('tost', mesaj: 'Üyelik iptal edildi');
+    }
+
+    /** Opsiyonel modül aç/kapa (BRIEF md. 3). Mevcut durumu tersine çevirir. */
     public function toggleModule(string $module): void
     {
-        $this->superadminZorunlu();
-        $detail = $this->service()->tenantDetail($this->tenantId);
-        $current = (bool) ($detail['tenant']->modules[$module] ?? false);
-        $this->service()->setModule($this->tenantId, $module, ! $current, $this->adminId());
+        $this->superadminZorunlu('set_module');
+
+        if (! array_key_exists($module, self::MODULLER)) {
+            $this->denetle('set_module', 'bilinmeyen_modul');
+
+            return;
+        }
+
+        $mevcut = (bool) ($this->bayi()->modules[$module] ?? false);
+        $this->service()->setModule($this->tenantId, $module, ! $mevcut, $this->adminId());
     }
 
-    /** Patron şifre sıfırlama (FAZ 5c-2). Yeni parola BİR KEZ gösterilir (owner ile üretilir). */
+    /** Patron şifre sıfırlama (BRIEF md. 3). Yeni parola BİR KEZ gösterilir. */
     public function resetPassword(): void
     {
-        $this->superadminZorunlu();
+        $this->superadminZorunlu('reset_password');
         $this->newPassword = $this->service()->resetPatronPassword($this->tenantId, $this->adminId());
     }
+
+    // --- Kurye hesabı açma ---------------------------------------------------------------
+
+    public function kuryeAc(): void
+    {
+        $this->superadminZorunlu('create_courier');
+        $this->reset(['kuryeAd', 'kuryeKullanici', 'kuryeParola', 'kuryeTelefon']);
+        $this->bildirim = null;
+        $this->kuryeAcik = true;
+    }
+
+    public function kuryeKapat(): void
+    {
+        $this->kuryeAcik = false;
+    }
+
+    /**
+     * Kota kapısı `KuryeKotasi`dir ve burada TEKRARLANMAZ — yalnız istisnası anlaşılır bir cümleye
+     * çevrilir; iki yerde denetlemek ikisinin ayrı düşmesi riskini yaratırdı.
+     *
+     * `max:` tavanları DB şemasıyla birebir (users.name 120 · username 60 + CHECK
+     * `^[a-z0-9._-]{3,60}$` · phone 20): formda durmayan sınır Postgres'te `22001`e dönüşür.
+     */
+    public function kuryeKaydet(): void
+    {
+        $this->superadminZorunlu('create_courier');
+
+        $this->validate([
+            'kuryeAd' => ['required', 'string', 'min:2', 'max:120'],
+            'kuryeKullanici' => ['required', 'string', 'regex:/^[a-z0-9._-]{3,60}$/'],
+            'kuryeParola' => ['required', 'string', 'min:8', 'max:72'],
+            'kuryeTelefon' => ['nullable', 'string', 'max:20'],
+        ], [
+            'kuryeKullanici.regex' => 'Kullanıcı adı yalnız küçük harf, rakam, nokta, tire ve alt çizgi içerebilir (3-60 karakter).',
+        ]);
+
+        try {
+            $this->service()->createCourier(
+                $this->tenantId,
+                trim($this->kuryeAd),
+                trim($this->kuryeKullanici),
+                $this->kuryeParola,
+                trim($this->kuryeTelefon) !== '' ? trim($this->kuryeTelefon) : null,
+                $this->adminId(),
+            );
+        } catch (KotaDoluException $e) {
+            $this->bildirim = ['tur' => 'hata', 'mesaj' => 'Kurye hesabı kotası dolu ('
+                .$e->kullanilan.'/'.$e->limit.'). Ek kurye paketi tanımlayarak kotayı büyütebilirsiniz.'];
+            $this->denetle('create_courier', 'kota_dolu');
+
+            return;
+        } catch (RuntimeException $e) {
+            $this->bildirim = ['tur' => 'hata', 'mesaj' => $e->getMessage()];
+            $this->denetle('create_courier', 'hata');
+
+            return;
+        }
+
+        $this->kuryeAcik = false;
+        $this->reset(['kuryeAd', 'kuryeKullanici', 'kuryeParola', 'kuryeTelefon']);
+        $this->dispatch('tost', mesaj: 'Kurye hesabı açıldı');
+    }
+
+    // --- Görüntüleme ---------------------------------------------------------------------
 
     public function superadminMi(): bool
     {
         return Auth::guard('admin')->user()?->isSuperadmin() === true;
-    }
-
-    private function superadminZorunlu(): void
-    {
-        abort_unless($this->superadminMi(), 403);
     }
 
     public function render(): mixed
@@ -333,6 +391,7 @@ class TenantDetail extends Component
             'detail' => $detail,
             'sayilar' => $data->sayilar($this->tenantId),
             'superadmin' => $this->superadminMi(),
+            'moduller' => self::MODULLER,
         ] + $this->sekmeVerisi($data));
     }
 
@@ -369,14 +428,51 @@ class TenantDetail extends Component
     private function ozetVerisi(): array
     {
         $stats = app(PanelStatsService::class);
+        $plan = new PlanDeposu(self::BAGLANTI);
+        $bayi = $this->bayi();
 
         return [
-            'dailyOrders' => $stats->dailyOrders($this->tenantId),
-            'hourDistribution' => $stats->orderHourDistribution($this->tenantId),
-            'minutesToFirstOrder' => $stats->minutesToFirstOrder($this->tenantId),
-            'activeDevices' => $stats->activeDeviceCount($this->tenantId),
-            'devices' => $stats->devices($this->tenantId),
+            'plan' => $plan->plan(),
+            'aylikKurus' => $plan->aylikKurus(),
+            'yillikKurus' => $plan->yillikKurus(),
+            'odemeler' => (new OdemeKayitServisi(self::BAGLANTI))->bayiOdemeleri($this->tenantId),
+            'notlar' => (new TenantNotServisi(self::BAGLANTI))->liste($this->tenantId),
+            'tanimlamalar' => (new EkPaketServisi(self::BAGLANTI))->tanimlamalar($this->tenantId),
+            'kuryeKota' => (new KuryeKotasi(self::BAGLANTI))->kullanim($bayi),
+            'gunlukSiparis' => $stats->dailyOrders($this->tenantId),
+            'saatDagilimi' => $stats->orderHourDistribution($this->tenantId),
+            'ilkSiparisDakika' => $stats->minutesToFirstOrder($this->tenantId),
+            'aktifCihaz' => $stats->activeDeviceCount($this->tenantId),
+            'cihazlar' => $stats->devices($this->tenantId),
         ];
+    }
+
+    // --- Ortak ---------------------------------------------------------------------------
+
+    /**
+     * REDDEDİLEN DENEMENİN denetim kaydı (`<eylem>_denied`) — `BayiIsVerisi` de bunu kullanır.
+     * Sebep KISA ve KATEGORİKtir ('yetkisiz', 'kota_dolu', 'stale'); kullanıcı girdisi ya da tutar
+     * GEÇMEZ, panel_audit KVKK-nötr kalır (kırmızı çizgi #4).
+     */
+    protected function denetle(string $eylem, string $sebep): void
+    {
+        $this->service()->auditRed($eylem, $this->tenantId, $sebep, $this->adminId());
+    }
+
+    private function bayi(): Tenant
+    {
+        return Tenant::on(self::BAGLANTI)->findOrFail($this->tenantId);
+    }
+
+    /** Yetki reddi de iz bırakır: 403 sessizse "kim neyi denedi" görünmez olur. */
+    private function superadminZorunlu(string $eylem): void
+    {
+        if ($this->superadminMi()) {
+            return;
+        }
+
+        $this->denetle($eylem, 'yetkisiz');
+        abort(403);
     }
 
     private function service(): TenantAdminService
@@ -384,7 +480,7 @@ class TenantDetail extends Component
         return app(TenantAdminService::class);
     }
 
-    private function adminId(): ?string
+    protected function adminId(): ?string
     {
         $id = Auth::guard('admin')->id();
 

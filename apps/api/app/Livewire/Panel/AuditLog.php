@@ -4,6 +4,7 @@ namespace App\Livewire\Panel;
 
 use App\Panel\PanelAdminService;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -14,7 +15,8 @@ use Livewire\WithPagination;
  * hesap verebilirliği zayıflatmaz, güçlendirir. Günlük zaten DEĞER taşımaz — yalnız eylem türü ve
  * hedef kimlik (KVKK, kırmızı çizgi #4).
  */
-#[Layout('components.layouts.app')]
+#[Layout('components.layouts.panel')]
+#[Title('Denetim Günlüğü')]
 class AuditLog extends Component
 {
     use WithPagination;
