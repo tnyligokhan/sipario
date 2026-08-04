@@ -52,6 +52,36 @@ git add -A 2>$null | Out-Null
 $staged = @(git diff --cached --name-only 2>$null)
 if ($staged.Count -eq 0) { exit 0 }
 
+# --- TEK KOSUM KILIDI (2026-08-05) ---------------------------------------------------------
+#
+# NEDEN VAR: bu betik `Stop` hook'una baglidir, yani HER AJAN turunu bitirdiginde ateslenir.
+# Icinde `php artisan test` (~10 dk) ve `flutter test` vardir. Birden fazla ajan calisirken
+# ayni anda 2-3 tam suite kosuyor, iki `migrate:fresh` birbirinin semasini dusuruyor ve suite
+# ~130 SAHTE kirik veriyordu ("relation admin_users does not exist", 401, "0 kayit").
+#
+# Bu, 2026-08-04 gecesi dort ajanin ve lead'in ~3 saatini yedi: herkes kirmizinin kendi kodundan
+# geldigini sandi, "baska bir ajan test kosuyor" sanildi, sonra "kendi phpunit cocugunu goruyorsun"
+# denildi -- ucu de eksikti. Gercek sebep BU KANCANIN KENDISIYDI ve kimse ona bakmadi cunku
+# commit mesajlari "kalite kapisi yesil" diyordu.
+#
+# `flutter test` tarafinda ayni carpisma `sqlite3.dll` native asset yarisina donusuyor
+# (PathExistsException) -- hafizadaki "esizamanli flutter test" tuzaginin da kaynagi budur.
+#
+# DAVRANIS: kilidi alamayan kosum SESSIZCE cikar (exit 0). Kaybetmek zararsizdir -- kazanan kosum
+# ayni agaci zaten kontrol edip commit'liyor; bu turda commit'lenmeyen degisiklik varsa bir
+# sonraki Stop onu toplar. Kilit BEKLEMEZ: beklemek Claude'u dakikalarca askida birakirdi.
+# KILIT DEGIL MUTEX: kilit DOSYASI her cikis yolunda silinmek zorundadir ve bu betikte bir
+# dusan tek `exit 0` var; biri unutulursa kapi 25 dk boyunca kendini kilitler. Mutex'i ise
+# isletim sistemi surec olunce KENDILIGINDEN birakir -- cokme, kill, timeout hicbiri bayat
+# kilit birakmaz. Bekleme YOK (`WaitOne(0)`): kaybeden hemen cikar.
+$mutex = New-Object System.Threading.Mutex($false, 'Global\SiparioKaliteKapisi')
+$kilitAlindi = $false
+try { $kilitAlindi = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $kilitAlindi = $true }
+if (-not $kilitAlindi) {
+  Emit 'Kalite kapisi ATLANDI: baska bir kosum suruyor (eszamanli suite = sahte kirmizi).'
+  exit 0
+}
+
 $failed  = New-Object System.Collections.Generic.List[string]
 $ran     = New-Object System.Collections.Generic.List[string]
 $skipped = New-Object System.Collections.Generic.List[string]
