@@ -128,6 +128,32 @@ class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiters();
 
         /*
+         * LIVEWIRE'IN ALPINE PAKETİNİ CSP-GÜVENLİ SÜRÜME AL (2026-08-04, `csp_safe` sıkılaştırması).
+         *
+         * `config('livewire.csp_safe')` yayın (publish) edilmiş bir dosya değil — vendor'ın kendi
+         * varsayılanı `false`. Burada, tam paket config'i (`config/livewire.php`, ~400 satır)
+         * kopyalamak yerine TEK anahtarı ezmek tercih edildi: gelecekteki bir Livewire sürümü
+         * varsayılan dosyayı değiştirirse, yayınlanmış bir kopya o değişikliği SESSİZCE görmezden
+         * gelirdi; bu satır her zaman en güncel paket config'inin ÜSTÜNE biner.
+         *
+         * `boot()` İÇİNDE olması ZORUNLU: Laravel tüm sağlayıcıların `register()`ını bitirdikten
+         * SONRA `boot()`lara geçer, ve Livewire'ın kendi `register()`ı `mergeConfigFrom()` ile
+         * varsayılan değeri BURADAN önce yazar — `register()`da yazsaydım hangi sağlayıcının önce
+         * çalıştığına bağlı bir yarış olurdu.
+         *
+         * `@livewireScripts` artık `livewire.csp.js`i basar: bu paket `new Function`/`eval`
+         * içermez (ölçüldü — normal `livewire.js`de bir tane var, CSP sürümünde sıfır) ve
+         * `SecurityHeaders::script-src`ten `'unsafe-eval'` bu yüzden kaldırılabildi. Bedeli: Alpine'ın
+         * kendi sandbox'lı öznitelik değerlendiricisi HTML içindeki ifadelerde globallere
+         * (`window`, `navigator`, `setTimeout`, ...) ve obje-içi kısaltılmış metot/getter tanımına
+         * izin vermez — bu depodaki her ihlal `public/js/alpine.js`teki gerçek `Alpine.data()`
+         * bileşenlerine taşındı (bkz. o dosyanın belge başlığı: hangi ekranın hangi mantığı taşıdığı
+         * tek tek yazılı, Alpine'ın gerçek CSP değerlendiricisi Node'da izole çalıştırılıp hem eski
+         * ifadelerin kırıldığı hem yenilerinin çalıştığı ölçüldü).
+         */
+        config(['livewire.csp_safe' => true]);
+
+        /*
          * KİRACI BAĞLAMI LIVEWIRE'IN İKİNCİ İSTEĞİNDE DE KURULMALI.
          *
          * Livewire ilk GET'ten sonra `/livewire/update`e gider ve orada route'un middleware'ini

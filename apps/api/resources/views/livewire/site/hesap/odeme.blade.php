@@ -30,9 +30,8 @@
             </div>
         </div>
         <div class="dg-grup" style="margin-top:20px"
-            x-data="{ bilgi: @js('Alıcı ünvanı: '.$sirket['unvan'].' | Banka: '.$sirket['banka'].' | IBAN: '.$sirket['iban']) }">
-            <button type="button" class="dg dg-c"
-                @click="navigator.clipboard?.writeText(bilgi); window.dispatchEvent(new CustomEvent('bildir', { detail: 'Hesap bilgileri kopyalandı' }))">
+            x-data="kopyalaKutusu(@js('Alıcı ünvanı: '.$sirket['unvan'].' | Banka: '.$sirket['banka'].' | IBAN: '.$sirket['iban']))">
+            <button type="button" class="dg dg-c" @click="kopyala('Hesap bilgileri kopyalandı')">
                 <x-site.ikon ad="kopyala" boy="17" kalin="2.1" />Bilgileri kopyala
             </button>
             <a class="dg dg-d" href="{{ $this->odemeUrl() }}">

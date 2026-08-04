@@ -51,7 +51,8 @@
                                  yalnız fare kolaylığıdır, tek erişim yolu değil. --}}
                             <tr
                                 class="satir-tik"
-                                x-on:click="window.location = @js(route('panel.tenant', $uye->id))"
+                                x-data="satirLink(@js(route('panel.tenant', $uye->id)))"
+                                x-on:click="git()"
                             >
                                 <td>
                                     <div class="kalin">{{ $uye->name }}</div>

@@ -5,13 +5,8 @@
     3.2 saniye sonra kendiliğinden kaybolur; art arda gelen olaylar zamanlayıcıyı sıfırlar.
 --}}
 <div
-    x-data="{ acik: false, mesaj: '', zamanlayici: null }"
-    x-on:tost.window="
-        mesaj = $event.detail.mesaj;
-        acik = true;
-        clearTimeout(zamanlayici);
-        zamanlayici = setTimeout(() => acik = false, 3200);
-    "
+    x-data="tostKutusu"
+    x-on:tost.window="goster($event.detail.mesaj)"
     x-show="acik"
     x-transition
     x-cloak

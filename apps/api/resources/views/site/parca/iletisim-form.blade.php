@@ -14,31 +14,13 @@
     prop'u ise sunucu tarafı bir değer bekliyor.
 --}}
 @php($hedef = $sw['destekEposta'])
-<div class="il-sag" x-data="{
-    f: { ad: '', isletme: '', telefon: '', konu: 'Demo talebi', mesaj: '' },
-    h: { ad: null, telefon: null },
-    hedef: @js($hedef),
-    dogrula() {
-        this.h.ad = this.f.ad.trim() ? null : 'Adınızı girin';
-        this.h.telefon = !this.f.telefon.trim()
-            ? 'Size ulaşabileceğimiz bir numara girin'
-            : (this.f.telefon.replace(/\D/g, '').length < 10 ? 'Numara eksik görünüyor' : null);
-        return !this.h.ad && !this.h.telefon;
-    },
-    gonder() {
-        if (!this.hedef || !this.dogrula()) return;
-        const govde = [
-            'Ad soyad: ' + this.f.ad,
-            'İşletme: ' + (this.f.isletme || '—'),
-            'Telefon: ' + this.f.telefon,
-            '',
-            this.f.mesaj,
-        ].join('\n');
-        window.location.href = 'mailto:' + this.hedef
-            + '?subject=' + encodeURIComponent('Sipario · ' + this.f.konu)
-            + '&amp;body=' + encodeURIComponent(govde);
-    },
-}">
+{{--
+    x-data mantığı public/js/alpine.js'teki `iletisimForm` bileşenine taşındı (csp_safe
+    sıkılaştırması, 2026-08-04): CSP altında Alpine'ın öznitelik değerlendiricisi ne obje içi
+    kısaltılmış metot tanımını (`dogrula() {...}`) ne de düzenli ifadeyi (`/\D/g`) çözebiliyor,
+    `window.location.href` gibi çıplak globallere de erişemiyor. Davranış AYNEN korundu.
+--}}
+<div class="il-sag" x-data="iletisimForm(@js($hedef))">
     <x-site.pano etiket="Bize yazın" class="il-form">
         <form @submit.prevent="gonder()" novalidate>
             <div class="alan">

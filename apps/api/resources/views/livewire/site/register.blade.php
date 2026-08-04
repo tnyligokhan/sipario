@@ -19,10 +19,9 @@
         aciklama="Deneme süreniz bugün başladı. Aşağıdaki firma kodunu ekibinize verin — mobil uygulamaya bu kodla girecekler.">
 
         <x-site.pano etiket="Firma kodunuz" class="kod-pano"
-            x-data="{ kod: @js($olusanKod) }">
+            x-data="kopyalaKutusu(@js($olusanKod))">
             <x-slot:sag>
-                <button type="button" class="dg dg-d gk"
-                    @click="navigator.clipboard?.writeText(kod); window.dispatchEvent(new CustomEvent('bildir', { detail: 'Firma kodu kopyalandı' }))">
+                <button type="button" class="dg dg-d gk" @click="kopyala('Firma kodu kopyalandı')">
                     <x-site.ikon ad="kopyala" boy="15" kalin="2" />Kopyala
                 </button>
             </x-slot:sag>

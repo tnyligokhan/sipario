@@ -18,21 +18,12 @@
         $aranabilir[$g['g']] = array_map(fn ($x) => $kucult($x['s'].' '.$x['c']), $g['l']);
     }
 @endphp
-<section class="blm kagit2" x-data="{
-    q: '',
-    g: 'hepsi',
-    acik: null,
-    gruplar: @js($aranabilir),
-    ara() { return this.q.trim().toLocaleLowerCase('tr-TR'); },
-    esles(m) { const a = this.ara(); return a === '' || m.includes(a); },
-    grupta(g) { return this.g === 'hepsi' || this.g === g; },
-    grupVar(g) { return this.grupta(g) && this.gruplar[g].some(m => this.esles(m)); },
-    bulunan() {
-        let n = 0;
-        for (const g in this.gruplar) { if (this.grupta(g)) n += this.gruplar[g].filter(m => this.esles(m)).length; }
-        return n;
-    },
-}">
+{{--
+    x-data mantığı public/js/alpine.js'teki `sssArama` bileşenine taşındı (csp_safe sıkılaştırması,
+    2026-08-04): CSP altında Alpine'ın öznitelik değerlendiricisi obje içi kısaltılmış metot tanımını
+    (`ara() {...}` vb.) çözemiyor.
+--}}
+<section class="blm kagit2" x-data="sssArama(@js($aranabilir))">
     <div class="kap">
         <x-site.blm-bas kulak="Sık sorulanlar" baslik="Aradığınızı yazın." />
 

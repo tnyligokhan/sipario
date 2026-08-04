@@ -28,22 +28,18 @@ use Symfony\Component\HttpFoundation\Response;
  * yeterli; SİTE (herkese açık, Alpine kopyala-yapıştır düğmeleri `navigator`/`window` globaline
  * erişiyor) ile PANEL (iç araç, ölçülen CSS'inde `data:` URI YOK) arasında da gerçek bir fark var.
  *
- *  - `script-src 'self' 'nonce-…'`: yalnız NONCE'lu (ya da bizim yerel dosyalarımızdan gelen)
- *    script'ler çalışır — HTML enjeksiyonuyla sızan bir `<script src="evil.tld">` ya da satır içi
- *    `<script>` NONCE'suz olduğu için yürümez. Nonce her istekte `Vite::useCspNonce()` ile üretilir;
- *    Livewire 4 bunu KENDİLİĞİNDEN okur (`@livewireScripts`/`@livewireStyles` etiketlerine ekler,
- *    ayrı bir entegrasyon gerekmez).
- *  - `'unsafe-eval'` BİLİNÇLİ TUTULDU (ideal değil, ama ÖLÇÜLMÜŞ bir kırılmayı önlüyor): Livewire'ın
- *    `csp_safe` modu (Alpine'ın eval'siz CSP derlemesi, `livewire.csp.js` — `grep` ile doğrulandı:
- *    `new Function(`/`eval(` SIFIR) üç yerde KIRARDI — `livewire/site/{odeme,register,subscribe}
- *    .blade.php`taki "kopyala" düğmeleri `@click="navigator.clipboard?.writeText(...); window
- *    .dispatchEvent(...)"` yazıyor ve Alpine'ın CSP değerlendiricisi `globalThis`in HER üyesini
- *    (`navigator`, `window`, ...) karaliste tutup "Accessing global variables is prohibited in the
- *    CSP build" fırlatıyor (kaynak: `livewire.csp.js`, `checkForDangerousValues`). Bu üç düğme IBAN/
- *    firma kodu kopyalama gibi gerçek işlevdir — sessizce kırmak "yalnız satır ekle" bir güvenlik
- *    görevinin sınırını aşardı. Doğru çözüm o üç `@click` ifadesini `Alpine.data(...)` içindeki bir
- *    METODA taşımaktır (ifade o zaman yalnız `kopyala(...)` çağırır, `navigator`/`window`'a asla
- *    DEĞER olarak dokunmaz) — bu, uygulama kodunu değiştirir ve SONRAKİ İŞ olarak bırakıldı.
+ *  - `script-src 'self' 'nonce-…'`: `'unsafe-eval'` YOK (2026-08-04, ikinci tur — csp_safe
+ *    sıkılaştırması). Yalnız NONCE'lu (ya da bizim yerel dosyalarımızdan gelen) script'ler çalışır —
+ *    HTML enjeksiyonuyla sızan bir `<script src="evil.tld">` ya da satır içi `<script>` NONCE'suz
+ *    olduğu için yürümez; `csp_safe` (bkz. `AppServiceProvider::boot()`) `@livewireScripts`e
+ *    `eval`/`new Function` içermeyen `livewire.csp.js`i bastırır, o yüzden `'unsafe-eval'`e artık
+ *    gerek yok. Nonce her istekte `Vite::useCspNonce()` ile üretilir; Livewire 4 bunu KENDİLİĞİNDEN
+ *    okur (`@livewireScripts`/`@livewireStyles` etiketlerine ekler, ayrı bir entegrasyon gerekmez).
+ *    `public/js/alpine.js`teki globalle konuşan HER Alpine mantığı (kopyala düğmeleri, toast,
+ *    üst menü kaydırma, panel satır tıklaması/firma kombosu, SSS arama, iletişim formu) gerçek
+ *    `Alpine.data()` bileşenlerine taşındı — o dosyanın belge başlığında hangisinin nereden
+ *    taşındığı ve doğrulamanın nasıl yapıldığı (Alpine'ın CSP değerlendiricisi Node'da izole
+ *    çalıştırılıp eski/yeni ifadeler ölçüldü) tek tek yazılı.
  *  - `style-src 'self' 'unsafe-inline'`: 54 görünüm dosyasında (grafik çubuk/çizgi/ısı haritası
  *    genişlikleri, ikon rengi, modal genişliği gibi VERİDEN türeyen değerler) satır içi `style="…"`
  *    kullanılıyor — nonce yalnız `<style>` ETİKETİNİ kapsar, `style=""` ÖZNİTELİĞİNİ kapsamaz (CSP3
@@ -83,13 +79,13 @@ class SecurityHeaders
 
     /** İç yönetim paneli — ölçülen `panel.css`te `data:` URI yok, `img-src` bu yüzden dar. */
     private const PANEL_CSP_TEMPLATE =
-        "default-src 'self'; script-src 'self' 'nonce-%1\$s' 'unsafe-eval'; ".
+        "default-src 'self'; script-src 'self' 'nonce-%1\$s'; ".
         "style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; ".
         "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'";
 
     /** Herkese açık site — onay kutusu SVG'si `data:` URI olarak geliyor, `img-src` bu yüzden geniş. */
     private const SITE_CSP_TEMPLATE =
-        "default-src 'self'; script-src 'self' 'nonce-%1\$s' 'unsafe-eval'; ".
+        "default-src 'self'; script-src 'self' 'nonce-%1\$s'; ".
         "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; ".
         "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'";
 

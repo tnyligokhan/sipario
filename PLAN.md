@@ -220,7 +220,7 @@
 > kod rozeti, tutar, not; Yol Tarifi birincil · Ara telefon varsa · Sipariş Detayı). Testler:
 > API 273 · mobil 764. Kalan: order_queries harita bölümü ayrılıyor (ajanda), anahtar kısıtlaması sende.
 >
-## Güncel durum (son güncelleme: 2026-08-04 — **PANEL GİRİŞ ARIZASI KAPANDI**: panel girişi e-postayı normalize etmiyordu; hesabı açan iki yol da küçülterek saklarken giriş HAM değerle sorguladığı için tarayıcının büyüttüğü ilk harf DOĞRU PAROLAYLA "Giriş bilgileri hatalı." veriyordu (sondaki boşluk ise `email` kuralına takılıyordu). Ekran numaralandırmaya karşı bilerek nötr konuştuğundan kullanıcı teşhis edemiyordu. Ayrıca `panel:admin --sifirla` eklendi: komut kendi açıklamasında "kurtarma yolu" diyordu ama var olan hesabı sıfırlayamıyordu — parola bir kez basılıp saklanmadığı için kilitlenen yöneticinin gidecek yeri yoktu. Ölçüm: API **437/437** (+4 test) · pint temiz. Öncesinde — **ALTI SAHA İSTEĞİ + SAHA SUNUCUSU 530 ARIZASI**. Kurye yönetimi büyüdü: giriş bilgileri (kullanıcı adı/parola) uygulamadan düzenlenebiliyor (`PATCH /team/{user}/credentials`, çevrimiçi, yalnız patron, parola değişince oturumlar düşer) ve **5 anahtarlı kurye yetki sistemi** geldi (müşteri/sipariş/tahsilat açık · gün sonu/iskonto kapalı doğar; kiracı düzeyinde, çağrı yerlerine bağlı). Borçlulara **tek tuşla WhatsApp hatırlatması** (IBAN Ayarlar→İşletme Profili'nde, mod-97 denetimli; mesaj hazırlanır, gönderilmez). Teslim sekmesine **gün gezinmesi**. Sipariş kaydı artık **siparişler ekranına** dönüyor. Müşteri kodu doğrulandı (çalışıyor, kod değişikliği yok). Altyapı: `saha-sunucu.ps1` tünel adresini DOĞRULUYOR ve QUIC engellenmişse http2 ile yeniden deniyor — bayinin gördüğü HTTP 530'un kök nedeni buydu ve script "hazır" deyip yeşil yanıyordu. Ölçüm: API **433/433** · mobil **906/906** · analyze **0** · phpstan **0** · pint temiz. Eski not aşağıda tarihsel duruyor: 2026-08-01/2 — **ROTA/HARİTA UX YENİDEN YERLEŞTİ** (Oto Sırala haritada, 'Rota sırası' görünümü, araç şeridi) + dikte kuralı tersine + 'Kurye ata' çipi. Ölçüm: analyze **0** · mobil **885/885** · API **298/298**. Aynı gün öncesinde — **SEKİZ SAHA İSTEĞİ KAPANDI** (5 ajanlı swarm): sesli dikte birikimli oldu, adres alanı büyüdü, barkoda fener, çağrı kartında sipariş yaşı, sipariş formuna kurye seçimi, oto sırala düğmesi gerekçeli-pasif (kök neden: yanlış sekmede etkin düğme), müşteri silme + kara liste (cascade tombstone + LWW damga koruması), kapıda iskonto (`discount` defter tipi, kasa değişmezi korunur). Ölçüm: analyze **0** · mobil **878/878** · API **298/298** · phpstan **0** · pint temiz · Kotlin saha-release yeşil · APK kapısı koşuldu. Önceki gün: 2026-07-30 — **CANLI KURYE KONUMU + ARAYAN TANIMA ANAHTARI**: patron haritada tüm ekibin canlı konumunu görüyor (kendi backend, Google'sız, KVKK: tek satır/geçmiş yok/yalnız patron okur); Ayarlar'a arayan tanıma AÇ/KAPA anahtarı (düz dosya köprüsü, native taraf zil anında okur; günlük kapalıyken de doğru). Aynı gün öncesinde: harita performans+dark mod, harita stil+kontroller, rota yönü düzeltmesi+pin özeti, Bursa reseed, kademeli geocoder, giriş arızası. Ölçüm: `dart analyze` **0** · `flutter test` **798/798** · `php artisan test` **287/287** · phpstan L6 **0** · `compileSahaReleaseKotlin` **BUILD SUCCESSFUL** · release APK kapısı koşuldu. Eski not aşağıda tarihsel duruyor: 2026-07-29 — sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
+## Güncel durum (son güncelleme: 2026-08-04/2 — **TASARIM ENTEGRASYONU: PANEL SIFIRDAN + SİTE BAŞTAN**. `design_handoff_web_and_yonetim_paneli/` altındaki iki paket açıldı (paketlenmiş React; 26 modül + 71 KB CSS `_kaynak/` altına çıkarıldı) ve Blade+Livewire+Alpine ile hayata geçirildi — React DEĞİL, gerekçe DECISIONS'ta. **Yönetim paneli sıfırdan yazıldı** (10 ekran; tasarımın 5'i + BRIEF'in zorunlu kıldığı iş verisi sekmeleri/dışa aktarım/modül/parola/cihaz/churn + tasarımda olmayan havale kuyruğu ve kurye açma). **Site baştan kuruldu**: pazarlama sayfaları + 3 adımlı işletme açma + parola sıfırlama/yenileme + **IBAN ödeme akışı** + **bayinin hesap paneli**. Abonelik modeli: aylık+yıllık, deneme 30 gün, fiyat DB'de ve panelden düzenlenebilir; **havale beyanı ≠ ödeme** (beyan abonelik UZATMAZ, panel eşleştirir); hukuk onayları kolonlarda (`consent_version`/`consented_at`, DB CHECK'li). 12 migration · 6 model · 8 servis · CSP başlığı (üç ayrı politika, `csp_safe`). **Ondört sessiz arıza bulundu** — hiçbiri çökmüyordu: hesap paneli `auth:web`+RLS yüzünden hiç çalışamazdı, panel düğmeleri Livewire kalıcı middleware eksikliğinden ölüydü, aramaya tek harf yazınca 500, `"izmir"` `İZMİR`'i bulamıyordu, `%` tüm bayileri getiriyordu, sekiz ekran UTC saatiyle yanlış gün basıyordu, ek paket kotası paralel istekte iki kez artıyordu (geri alınamaz), iptal eden bayi yazmaya devam edebiliyordu, erken yenileyen kalan günlerini kaybediyordu, ve kırmızı çizgi #1'i koruduğu sanılan iki test namespace hatası yüzünden HİÇ KOŞMUYORDU. Ölçüm: **593/593** (2966 doğrulama) · phpstan L6 **0** · pint temiz. **Mobil tarafa dokunulmadı.** Öncesinde — **PANEL GİRİŞ ARIZASI KAPANDI**: panel girişi e-postayı normalize etmiyordu; hesabı açan iki yol da küçülterek saklarken giriş HAM değerle sorguladığı için tarayıcının büyüttüğü ilk harf DOĞRU PAROLAYLA "Giriş bilgileri hatalı." veriyordu (sondaki boşluk ise `email` kuralına takılıyordu). Ekran numaralandırmaya karşı bilerek nötr konuştuğundan kullanıcı teşhis edemiyordu. Ayrıca `panel:admin --sifirla` eklendi: komut kendi açıklamasında "kurtarma yolu" diyordu ama var olan hesabı sıfırlayamıyordu — parola bir kez basılıp saklanmadığı için kilitlenen yöneticinin gidecek yeri yoktu. Ölçüm: API **437/437** (+4 test) · pint temiz. Öncesinde — **ALTI SAHA İSTEĞİ + SAHA SUNUCUSU 530 ARIZASI**. Kurye yönetimi büyüdü: giriş bilgileri (kullanıcı adı/parola) uygulamadan düzenlenebiliyor (`PATCH /team/{user}/credentials`, çevrimiçi, yalnız patron, parola değişince oturumlar düşer) ve **5 anahtarlı kurye yetki sistemi** geldi (müşteri/sipariş/tahsilat açık · gün sonu/iskonto kapalı doğar; kiracı düzeyinde, çağrı yerlerine bağlı). Borçlulara **tek tuşla WhatsApp hatırlatması** (IBAN Ayarlar→İşletme Profili'nde, mod-97 denetimli; mesaj hazırlanır, gönderilmez). Teslim sekmesine **gün gezinmesi**. Sipariş kaydı artık **siparişler ekranına** dönüyor. Müşteri kodu doğrulandı (çalışıyor, kod değişikliği yok). Altyapı: `saha-sunucu.ps1` tünel adresini DOĞRULUYOR ve QUIC engellenmişse http2 ile yeniden deniyor — bayinin gördüğü HTTP 530'un kök nedeni buydu ve script "hazır" deyip yeşil yanıyordu. Ölçüm: API **433/433** · mobil **906/906** · analyze **0** · phpstan **0** · pint temiz. Eski not aşağıda tarihsel duruyor: 2026-08-01/2 — **ROTA/HARİTA UX YENİDEN YERLEŞTİ** (Oto Sırala haritada, 'Rota sırası' görünümü, araç şeridi) + dikte kuralı tersine + 'Kurye ata' çipi. Ölçüm: analyze **0** · mobil **885/885** · API **298/298**. Aynı gün öncesinde — **SEKİZ SAHA İSTEĞİ KAPANDI** (5 ajanlı swarm): sesli dikte birikimli oldu, adres alanı büyüdü, barkoda fener, çağrı kartında sipariş yaşı, sipariş formuna kurye seçimi, oto sırala düğmesi gerekçeli-pasif (kök neden: yanlış sekmede etkin düğme), müşteri silme + kara liste (cascade tombstone + LWW damga koruması), kapıda iskonto (`discount` defter tipi, kasa değişmezi korunur). Ölçüm: analyze **0** · mobil **878/878** · API **298/298** · phpstan **0** · pint temiz · Kotlin saha-release yeşil · APK kapısı koşuldu. Önceki gün: 2026-07-30 — **CANLI KURYE KONUMU + ARAYAN TANIMA ANAHTARI**: patron haritada tüm ekibin canlı konumunu görüyor (kendi backend, Google'sız, KVKK: tek satır/geçmiş yok/yalnız patron okur); Ayarlar'a arayan tanıma AÇ/KAPA anahtarı (düz dosya köprüsü, native taraf zil anında okur; günlük kapalıyken de doğru). Aynı gün öncesinde: harita performans+dark mod, harita stil+kontroller, rota yönü düzeltmesi+pin özeti, Bursa reseed, kademeli geocoder, giriş arızası. Ölçüm: `dart analyze` **0** · `flutter test` **798/798** · `php artisan test` **287/287** · phpstan L6 **0** · `compileSahaReleaseKotlin` **BUILD SUCCESSFUL** · release APK kapısı koşuldu. Eski not aşağıda tarihsel duruyor: 2026-07-29 — sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
 
 ### Konum özelliği — ne kuruldu (2026-07-28)
 
@@ -281,7 +281,130 @@
 
 ---
 
-# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-04 kapandı)
+# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-04/2 kapandı)
+
+**Bir cümlede:** `design_handoff_web_and_yonetim_paneli/` altındaki iki tasarım paketi sisteme
+alındı — **yönetim paneli SIFIRDAN yazıldı** ve **sipario.com.tr sitesi baştan kuruldu**
+(pazarlama sayfaları + kayıt/giriş/parola + **IBAN ödeme akışı** + **bayinin hesap paneli**);
+9 ajanlı swarm ile yürüdü.
+
+**Ölçüm (kapanış):** `php artisan test` **593/593** (2966 doğrulama) · phpstan L6 **0** ·
+pint temiz · Blade derlemesi temiz · 12 yeni migration — **üretim/dev DB'de koşulmalı**.
+Mobil tarafa HİÇ DOKUNULMADI. Karar gerekçeleri DECISIONS.md sonunda (8 satır).
+
+## ⚠️ ÖNCE BUNU OKU — TAM SUITE'İ NASIL KOŞACAKSIN
+
+**Suite ~9 dakika (550 sn) sürüyor. Bash aracının varsayılan zaman aşımı 2 dakika.**
+Varsayılana bırakırsan koşu 120. saniyede **arka plana düşer ama ÖLMEZ**; yeniden denersen
+**ikinci bir tam koşu** başlar, iki `migrate:fresh` çakışır ve suite
+`relation "admin_users" does not exist` ile ~130 sahte kırık verir.
+
+`php artisan test` koşarken **zaman aşımını açıkça `900000` ms ver.**
+
+Bu, PLAN'daki eski "paralel artisan test" tuzağının GERÇEK mekanizmasıdır ve bugüne kadar
+yanlış kaydedilmişti. Bu vardiyada üç ayrı teşhis yapıldı, ikisi eksikti: "başka ajan koşuyor"
+(yanlış), "kendi phpunit çocuğunu görüyorsun" (kısmen doğru — `artisan test` DAİMA 2 `php.exe`
+üretir: kendisi + `phpunit` çocuğu), ve asıl sebep olan zaman aşımı. **Kural: koşmadan önce
+`Get-Process php` boş olmalı; 4 süreç görürsen iki koşu var demektir — bekle, öldürme.**
+
+## Bu vardiyada NE YAPILDI
+
+**Tasarım paketleri açıldı.** İki `.html` dosyası paketlenmiş React uygulamasıydı (1,7 MB blob);
+26 kaynak modül + 71 KB CSS çıkarılıp `design_handoff_web_and_yonetim_paneli/_kaynak/` altına
+kondu (`OKU-BENI.md` çelişki tablosunu ve taşınmayacakları anlatıyor).
+
+**Stack: Blade + Livewire 3 + Alpine, React DEĞİL.** Gerekçe DECISIONS'ta. CSS birebir taşındı,
+sınıf adları sözleşme; fontlar paketten çıkarılıp yerelleştirildi (Google Fonts'a çıkılmıyor).
+
+**Yönetim paneli (sıfırdan):** Giriş · Dashboard · Üyeler · Üye Detayı · Ödemeler · Paketler ·
+Gelir-Gider · **Havale Bildirimleri** (tasarımda yok, eklendi) · Denetim · Hesaplar.
+Tasarımda olmayan ama BRIEF'in zorunlu kıldığı her şey korundu ve yeni dile taşındı: iş verisi
+sekmeleri, CSV içe/dışa aktarma + JSON dump, modül aç/kapa, patron parola sıfırlama, cihaz
+listesi, churn/kullanım grafikleri (saf SVG), **kurye hesabı açma** (bugüne kadar hiç yoktu).
+
+**Site (baştan):** ana · özellikler · fiyatlar · destek · iletişim · yasal · giriş · 3 adımlı
+işletme açma · parola sıfırlama+yenileme · ödeme akışı · hesap paneli (6 bölüm).
+
+**Veri katmanı:** 12 migration (`plans` · `addon_packages` · `addon_grants` · `expenses` ·
+`tenant_notes` · `payment_notifications` + alterler + GRANT/RLS), 6 model, `app/Abonelik/`
+altında 8 servis, `TenantStatus::Cancelled`.
+
+## BULUNAN GERÇEK ARIZALAR (hiçbiri çökmüyordu, hiçbiri günlüğe yazmıyordu)
+
+| Arıza | Etkisi |
+|---|---|
+| `auth:web` + `users` RLS FORCE | Bayinin hesap paneli **hiç çalışamazdı** (500) |
+| Livewire kalıcı middleware eksik | Panel açılır, **hiçbir düğme çalışmazdı** (`/livewire/update` route middleware'ini yeniden koşmaz) |
+| `TenantList` `ESCAPE '\'` | Aramaya **tek harf** yazınca 500 (PDO ters bölüyü kaçış sanıp `?`leri yutuyor) |
+| `lower()` Türkçe harmanlamada | `lower('I')`='ı', `lower('İ')`='i' → `"izmir"` araması `İZMİR`'i **bulamıyordu** |
+| Firma aramasında joker kaçışı yok | `%` yazan kullanıcı **tüm bayileri** getiriyordu |
+| `app.timezone` UTC ↔ +03:00 | **Sekiz ekran** yanlış saat/gün basıyordu ("Kilit anı" dahil) |
+| Üç modalda UTC varsayılan tarih | Ayın ilk gecesinde tahsilat **yanlış dönemi** kapatıyordu |
+| Pano başlığı UTC | Gece 00:00–03:00 arası **bir önceki günü** yazıyordu |
+| `EkPaketServisi` idempotens yok | Paralel istek kotayı **iki kez** artırıyordu — append-only, **geri alınamaz** |
+| `cancelled` bayi kilidi | İptal eden bayi **yazmaya devam edebiliyordu** (`resolveLock` sabit listeydi) |
+| `activate()` tabanı `now()` | Erken yenileyen bayi **kalan günlerini kaybediyordu** |
+| Firma kodu çakışması | **Sessizce yutuluyordu**, bayi kodunu alamadığını bilmiyordu |
+| `CannotUpdateLockedPropertyException` namespace'i | Kırmızı çizgi #1'i koruyan **iki test hiç koşmuyordu** ("Class does not exist") |
+| `site.hesap` izolasyon testi yok | `RouteCoverageGuardTest` build'i kırdı — **kural PLAN'da yazılıydı, lead yine de düştü** |
+
+## Bu vardiyada NE YAPILMADI / SIRADAKİ
+
+- **12 migration üretim/dev DB'de KOŞULMADI** (yalnız test DB'sinde). Önceki turdan bekleyenler
+  de olabilir.
+- **Hiçbir ekran gerçek tarayıcıda görülmedi.** Testler headless; bir smoke turu şart.
+- **Mobil tarafa dokunulmadı** — `flutter test` bu vardiyada hiç koşulmadı.
+- **Site canlıya çıkamaz** (aşağıdaki insan kararları olmadan).
+
+## İNSAN KARARI BEKLEYEN — YAYINA ENGEL
+
+1. **🔴 İADE SÜRESİ ÇELİŞKİSİ:** site "14 gün koşulsuz iade, sebep sormuyoruz" diyor;
+   `legal/docs/iptal-iade.blade.php` "m.15/1-ğ uyarınca cayma hakkı KULLANILAMAYABİLİR, avukat
+   onayı bekleniyor" diyor. **İkisi aynı anda yayında olamaz** — biri yanlış beyandır.
+2. **🔴 ŞİRKET KÜNYESİ:** unvan · adres · MERSİS · vergi dairesi · **IBAN** · banka · telefon.
+   Hepsi `config/subscription.php` → `company` bloğunda `[köşeli parantez]` yer tutucu.
+   Verildiğinde ödeme ekranı + footer + mesafeli satış sözleşmesi TEK noktadan dolar.
+   ⚠️ `tenants.iban` BAYİNİN kendi tahsilat hesabıdır — abonelik tahsilatında KULLANILAMAZ.
+3. **`destek@sipario.com.tr` gerçekten açık mı?** Config varsayılanı o olduğu için iletişim
+   formunun "Gönder" düğmesi CANLI. Açık değilse `COMPANY_SUPPORT_EMAIL="[destek e-postası]"`
+   yeter — düğme kendiliğinden pasifleşir.
+4. **Temsili veri:** `site/parca/_temsili-veri.php` — "1.240 işletme", "%31 daha az kayıp", üç
+   müşteri yorumu, "%90'ı bunu seçiyor". Diziyi boşaltmak bölümleri düzen bozmadan düşürür.
+5. **Kurumsal "1.499 ₺'den başlar"** — sunucuda karşılığı yok, doğrulanamaz fiyat vaadi.
+6. **"Kullanım koşulları" belgesi yok** — kayıt onayında tasarım onu sayıyordu; `legal_docs`ta
+   slug olmadığı için "ön bilgilendirme formu" yazıldı.
+
+## TÜNEL — karar bekliyor (A/B/C)
+Cloudflare quick tunnel her açılışta YENİ adres üretiyor; uygulama adresi yalnız GİRİŞTE
+kaydediyor → sunucu her açıldığında telefona **elle** adres girmek gerekiyor.
+**A)** Adlandırılmış tünel (`api.sipario.com.tr` zaten uygulamanın varsayılanı) — kökten çözer.
+**B)** Script adresi `saha` sürümüne yayınlasın, uygulama `onbelleksizAdres()` ile çeksin
+(mekanizma ZATEN YAZILI).
+**C)** Küçük yamalar: çekmeceye "Sunucu adresi" alanı (bugün değiştirmek için ÇIKIŞ gerekiyor) ·
+çevrimdışı bandı hangi adrese ulaşamadığını yazsın · script adresi dosyaya yazıp QR bassın.
+_C, hangisi seçilirse seçilsin değerli: bugünkü arıza tam olarak "uygulama gerçek sebebi
+söylemiyor"du._
+
+## BİLİNEN TUZAKLAR (bu vardiyada öğrenilenler)
+
+1. 🔴 **Tam suite = 900 sn zaman aşımı.** Yukarıdaki ilk bölüm.
+2. **Yeni tenant-scope route = İKİ zorunlu adım** (`RouteCoverageGuardTest` listesi +
+   `TenantIsolationTest` senaryosu). Kural eskiden beri yazılıydı, bu vardiyada LEAD ihlal etti.
+3. **İkinci kopya sessizce ayrışır.** Gün sınırı sekiz ekranda, arama katlaması iki dosyada
+   ayrışmıştı. Tek kaynaklar: `Bicim` (tarih/saat/gün) ve `App\Support\TurkceArama` (arama).
+   Yeni bir tarih/arama kodu yazmadan önce bunlara bak.
+4. **Route'u sınıftan ÖNCE açma.** `RouteAction::makeInvokable` patlar ve bu yalnız o ekranı
+   değil, uygulamayı önyükleyen HER kalite kapısını (phpstan dahil) kırar.
+5. **Import'u ÖNCE ekle.** Bu vardiyada iki ajan bir dosyayı bölerken/çağrı değiştirirken
+   kesildi ve `use` satırı eksik kaldığı için ağacı kırmızı bıraktı.
+6. **`grep` sayısı doğrulama değildir.** Lead `tanimla()`nın idempotens parametresi aldığını
+   grep eşleşmesiyle "doğruladı"; eşleşme yerel bir değişkendendi ve iş yapılmamıştı.
+7. **Livewire yetki kapısı bileşenin İÇİNDE** (route middleware `/livewire/update`i korumaz) —
+   ve tersi de doğru: **route middleware Livewire'a ULAŞMAZ**, kalıcı listeye eklenmesi gerekir.
+
+---
+
+# (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-04 kapandı)
 
 **Bir cümlede:** Altı saha isteği kapatıldı — kurye yönetimi ciddi biçimde büyüdü (giriş
 bilgileri düzenlenebilir + 5 anahtarlı yetki sistemi), borçluya tek tuşla WhatsApp/IBAN

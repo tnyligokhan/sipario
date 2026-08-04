@@ -100,10 +100,10 @@
                         <p class="od-kucuk">Tahsilat yapıldığı anda hesabınız açılır ve e-arşiv faturanız e-posta ile gönderilir.</p>
                     </div>
                 @else
-                    <div class="od-form" x-data="{ bilgi: @js(
+                    <div class="od-form" x-data="kopyalaKutusu(@js(
                         'Alıcı ünvanı: '.$sirket['unvan'].' | Banka: '.$sirket['banka']
                         .' | IBAN: '.$sirket['iban'].' | Referans: '.$referans
-                    ) }">
+                    ))">
                         <x-site.kutu tur="sari" ikon="bilgi">
                             Havale/EFT ödemelerinde hesabınız, dekont bize ulaştıktan sonra <b>aynı iş günü içinde</b> açılır. Açıklama alanına referans kodunu yazmayı unutmayın.
                         </x-site.kutu>
@@ -116,8 +116,7 @@
                         </x-site.pano>
 
                         <div class="dg-grup" style="margin-top:20px">
-                            <button type="button" class="dg dg-c"
-                                @click="navigator.clipboard?.writeText(bilgi); window.dispatchEvent(new CustomEvent('bildir', { detail: 'Hesap bilgileri kopyalandı' }))">
+                            <button type="button" class="dg dg-c" @click="kopyala('Hesap bilgileri kopyalandı')">
                                 <x-site.ikon ad="kopyala" boy="17" kalin="2.1" />Bilgileri kopyala
                             </button>
                             <button type="button" class="dg dg-c" wire:click="bilgileriPostala" wire:loading.attr="disabled">

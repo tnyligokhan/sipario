@@ -17,22 +17,15 @@
         'il' => is_array($f) ? ($f['il'] ?? '') : ($f->il ?? ''),
     ])->values();
 @endphp
+{{--
+    x-data mantığı public/js/alpine.js'teki `firmaCombo` bileşenine taşındı (csp_safe sıkılaştırması,
+    2026-08-04): CSP altında Alpine'ın öznitelik değerlendiricisi obje içi kısaltılmış metot/getter
+    tanımını (`sec(f) {...}`, `get eslesen() {...}`) çözemiyor. `model` parametre olarak geçiyor
+    çünkü bu bileşen iki farklı wire:model hedefiyle kullanılıyor (form.firmaId / tanimlaForm.firmaId).
+--}}
 <div
     class="combo"
-    x-data="{
-        acik: false,
-        metin: '',
-        liste: @js($liste),
-        get eslesen() {
-            const a = this.metin.toLocaleLowerCase('tr');
-            return this.liste.filter(f => f.ad.toLocaleLowerCase('tr').includes(a));
-        },
-        sec(f) {
-            this.metin = f.ad;
-            this.acik = false;
-            $wire.set('{{ $model }}', f.id);
-        },
-    }"
+    x-data="firmaCombo(@js($liste), @js($model))"
 >
     <input
         type="text"

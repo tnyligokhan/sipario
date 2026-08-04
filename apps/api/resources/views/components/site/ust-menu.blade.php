@@ -17,9 +17,7 @@
     ];
     $anaHref = Route::has('site.ana') ? route('site.ana') : url('/');
 @endphp
-<header class="ust" x-data="{ kaydi: false, acik: false }"
-    x-init="kaydi = window.scrollY > 12; window.addEventListener('scroll', () => kaydi = window.scrollY > 12, { passive: true })"
-    :class="{ kaydi: kaydi, acik: acik }">
+<header class="ust" x-data="ustMenu" :class="{ kaydi: kaydi, acik: acik }">
     <div class="kap ust-ic">
         <a class="ust-marka" href="{{ $anaHref }}" aria-label="Sipario ana sayfa">
             <x-site.marka :koyu="$koyu" />
