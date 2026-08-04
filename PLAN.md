@@ -335,6 +335,44 @@ Karar gerekçeleri DECISIONS.md sonunda (6 satır).
 - **Kurye yetkilerinin widget testi yok** — saf karar matrisi testli (`kurye_yetkileri_test.dart`)
   ama "anahtar kapalıyken FAB menüsünde satır çizilmiyor" gibi ekran davranışları sınanmadı.
 
+## Sonraki kişi NEREDEN devam etmeli
+
+1. **Migration'ları koş** (aşağıdaki tuzak #1) — yoksa IBAN ve kurye yetkileri sunucuda YOK ve
+   senkron partisi hata verir.
+2. **Cihazda doğrula** — yukarıdaki dört maddelik saha listesi.
+3. **Landing page** — iki vardiyadır sıradaki iş olarak duruyor, hiç başlanmadı.
+4. Kod tarafında kalan en değerli iş hâlâ **mobil CI** (mobil testler yalnız geliştirici
+   makinesinde koşuyor).
+
+## BİLİNEN TUZAKLAR (bu vardiyada öğrenilenler + duranlar)
+
+1. 🔴 **İki yeni migration koşulmadı** (`add_tenant_iban`, `add_courier_permissions`). Bu
+   vardiyanın kodu o kolonları YAZIYOR: kolonlar yoksa `tenant_settings` push'u reddedilir ve
+   bayi "işletme profili kaydedilmiyor" der. Yerelde koşuldu, üretim/dev'de bekliyor.
+2. **Cloudflared QUIC tuzağı (yeni öğrenildi):** tünel adresi üretilmesi tünelin KURULDUĞU
+   anlamına GELMEZ — adres Cloudflare API'sinden gelir (443), tünel 7844'ten. UDP 7844 engelli
+   bir ağda adres alınır, bayi HTTP 530 görür. Script artık doğruluyor ve http2'ye düşüyor;
+   ama **elle `cloudflared tunnel --url` çalıştıran biri aynı tuzağa düşer** — `--protocol http2`
+   eklemeli. Teşhis: `%TEMP%\sipario-tunel.log` içinde "Registered tunnel connection" var mı.
+3. **`teamPayload` PII sözleşmesi katı testli:** `SyncTeamTest` team bloğundaki anahtar kümesini
+   TAM eşitlikle kontrol eder. Yeni bir kolon eklerseniz test kırılır — bu kasıtlıdır, testi
+   düzeltmeden önce "bu alan gerçekten telefona inmeli mi" diye sorun.
+4. **Yeni tenant-scope route = iki zorunlu adım:** `RouteCoverageGuardTest`'in listesine EKLE +
+   `TenantIsolationTest`'e cross-tenant senaryosu YAZ. Bu vardiyada `/team/{user}/credentials`
+   eklenince ikisi de kırmızı yandı (doğru davranış).
+5. **`TenantSettingsRepository.save` satırın TAMAMINI yazar (LWW upsert).** Yalnız bir alanı
+   değiştiren her yeni ekran, geri kalan alanları MEVCUT değerinden taşımak zorunda — yoksa
+   bayi bir anahtara dokununca IBAN'ı/vergi no'su boşalır. Bu vardiyada iki yardımcı bu yüzden
+   var: `siparisKoduTercihiKaydet` ve `kuryeIzinleriKaydet`.
+6. **Drift `withDefault` kolon = data class'ta ZORUNLU alan.** `users.username` eklenince
+   `isletme_kurallari_test.dart` derlenmedi (3 `User(...)` çağrısı). Yeni kolon eklerken
+   `dart analyze test/` de koşulmalı — `dart analyze lib` bunu görmez.
+7. **Gün sınırı TEK yerde:** `ayniTrGun` / `bugunTr` (sabit +03:00, `gun_sonu_ozet.dart`).
+   Sipariş listesinin gün süzgeci bilerek SQL'de değil Dart'ta koşuyor; ikinci bir gün-sınırı
+   kopyası, gün sonu ekranıyla sipariş listesinin farklı sayı göstermesi demektir.
+8. **Demo giriş `111/111/1111` hâlâ geçici** ve mağaza başvurusundan önce geri alınmalı
+   (önceki vardiyalardan devreden borç, "İnsan gerektiren işler" listesinde).
+
 ---
 
 # (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-01 kapandı)
