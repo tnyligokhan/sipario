@@ -116,16 +116,23 @@ class SyncService {
         final ozet = await _engine.pushPending();
         // Pull, push kalıcı red yese DE koşar: gelen veriyi kullanıcıdan esirgemek için sebep yok
         // (iki yön birbirinden bağımsız).
-        await _engine.pull();
+        final atlanan = await _engine.pull();
         // Sunucu bir kaydı KALICI olarak reddettiyse tur "başarılı" sayılamaz — o sipariş/tahsilat
         // bu telefonda var, sunucuda YOK. Sessiz kalmak, bu arızanın aylarca görünmemesinin ta
         // kendisiydi. Cins `veri`: ne ağ ne oturum sorunu, sunucuya ulaşıldı ve geri çevrildi.
-        outcome = ozet.kaliciRed
+        //
+        // AYNI KEFEDE: pull'un AYRIŞTIRAMADIĞI satırlar (sürüm çarpıklığı — sunucu şeması ilerledi,
+        // bu build o yükü okuyamıyor). Motor artık o satırı atlayıp kuyruğu açık tutuyor; kuyruğu
+        // kurtarmanın bedeli SESSİZLİK olamaz — cins yine `veri`, çünkü çare beklemek değil
+        // uygulamayı güncellemektir.
+        outcome = ozet.kaliciRed || atlanan > 0
             ? SyncOutcome(
                 ok: false,
                 pushed: ozet.gonderildi,
                 karantina: ozet.karantina,
-                error: 'Sunucu bazı kayıtları kabul etmedi',
+                error: ozet.kaliciRed
+                    ? 'Sunucu bazı kayıtları kabul etmedi'
+                    : 'Sunucudan gelen bazı kayıtlar okunamadı',
                 tur: SyncHataTuru.veri,
               )
             : SyncOutcome(ok: true, pushed: ozet.gonderildi, karantina: ozet.karantina);

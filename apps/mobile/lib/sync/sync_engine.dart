@@ -143,6 +143,8 @@ class SyncEngine {
 
     await _applyServerTime(resp.serverTime);
     await _applySubscription(resp.subscription);
+    // Atlanan ekip elemanı burada SAYILMAZ: push özeti gönderilen OLAYLARIN kaderini anlatır,
+    // yanına iliştirilen önbellek bloğunun değil. Aynı liste pull turunda da iner ve orada sayılır.
     await _applyTeam(resp.team);
     await _sonuclariIsle(rows, resp, tur);
   }
@@ -648,23 +650,35 @@ class SyncEngine {
   /// listesi kaybolur ve kurye adımları yanlışlıkla gizlenir (KRİTİK, architect §7). team boş
   /// liste ([]) ise tablo boşaltılır (bayinin gerçekten kullanıcısı yok/hepsi başka tenant değil).
   /// LWW/tombstone yok: sunucu tam listeyi her seferinde verir → delete-all + insert-all.
-  Future<void> _applyTeam(List<Map<String, dynamic>>? team) async {
-    if (team == null) return;
+  /// Bozuk BİR eleman listenin tamamını düşürmez (2026-08-05): eskiden `_s` cast'i TypeError
+  /// atınca transaction geri alınır ve hata `pull`/`push` turunun TAMAMINI düşürürdü — üstelik
+  /// `team` her iki yanıtta da geldiği için senkron her yönde ölürdü. Artık atlanan eleman
+  /// sayılır ve turun sonucuna yansır; ekip listesinin geri kalanı yazılır.
+  ///
+  /// @return atlanan eleman sayısı
+  Future<int> _applyTeam(List<Map<String, dynamic>>? team) async {
+    if (team == null) return 0;
+    var atlanan = 0;
     await db.transaction(() async {
       await db.delete(db.users).go();
       for (final u in team) {
-        await db.into(db.users).insert(UsersCompanion.insert(
-              id: _s(u['id']),
-              name: _s(u['name']),
-              role: _s(u['role']),
-              status: _s(u['status']),
-              phone: Value(_sN(u['phone'])),
-              // Eski sunucu `username` göndermezse boş kalır (kolon NOT NULL, varsayılan '') —
-              // Kuryeler ekranı o durumda giriş adını "—" gösterir, uydurmaz.
-              username: Value(_sN(u['username']) ?? ''),
-            ));
+        final ok = await _guvenliUygula(() async {
+          await db.into(db.users).insert(UsersCompanion.insert(
+                id: _s(u['id']),
+                name: _s(u['name']),
+                role: _s(u['role']),
+                status: _s(u['status']),
+                phone: Value(_sN(u['phone'])),
+                // Eski sunucu `username` göndermezse boş kalır (kolon NOT NULL, varsayılan '') —
+                // Kuryeler ekranı o durumda giriş adını "—" gösterir, uydurmaz.
+                username: Value(_sN(u['username']) ?? ''),
+              ));
+        });
+        if (!ok) atlanan++;
       }
     });
+
+    return atlanan;
   }
 
   /// server_time'dan saat offset'i türet (DECISIONS: istemci offset tutar).

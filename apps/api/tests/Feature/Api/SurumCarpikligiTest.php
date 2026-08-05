@@ -3,8 +3,11 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Customer;
+use App\Models\CustomerPhone;
+use App\Models\Product;
 use App\Models\TenantSetting;
 use App\Models\User;
+use App\Support\Sync\SyncService;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\ApiTestCase;
@@ -189,6 +192,94 @@ class SurumCarpikligiTest extends ApiTestCase
         ])])->assertJsonPath('results.0.status', 'applied');
 
         $this->assertNull($this->asOwner(fn () => Customer::query()->findOrFail($id)->blacklisted_at));
+    }
+
+    #[Test]
+    public function eski_istemci_urunun_bilmedigi_alanlarini_silmez(): void
+    {
+        // Aynı kural TÜM basit varlıklarda geçerli olmalı — kural varlık başına yazılsaydı bir
+        // sonraki kolonu ekleyen kişi birini atlardı.
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+        $id = (string) Str::uuid7();
+
+        $this->pushEvents($token, [$this->event('product', 'upsert', [
+            'id' => $id, 'name' => '19L Damacana', 'unit_price_kurus' => 4500,
+            'barcode' => '8690000000001', 'image_url' => 'https://x/y.jpg', 'is_active' => false,
+        ], ['occurred_at' => now()->subMinute()->toIso8601String()])])
+            ->assertJsonPath('results.0.status', 'applied');
+
+        // ESKİ build: yalnız ad + fiyat bilir.
+        $this->pushEvents($token, [
+            $this->event('product', 'upsert', ['id' => $id, 'name' => '19L Damacana Yeni', 'unit_price_kurus' => 5000]),
+        ])->assertJsonPath('results.0.status', 'applied');
+
+        $urun = $this->asOwner(fn () => Product::query()->findOrFail($id));
+        $this->assertSame(5000, $urun->unit_price_kurus);
+        $this->assertSame('8690000000001', $urun->barcode, 'Barkod silindi.');
+        $this->assertSame('https://x/y.jpg', $urun->image_url, 'Görsel bağlantısı silindi.');
+        $this->assertFalse($urun->is_active, 'Pasif ürün sessizce aktifleştirildi.');
+    }
+
+    #[Test]
+    public function tureyen_kolon_koruma_filtresine_takilmaz(): void
+    {
+        // `phone_last10` payload'da OLMAYABİLİR (istemci göndermezse sunucu türetir) ama korunacak
+        // bir alan DEĞİLDİR: numara değişince eşleşme anahtarı da değişmeli. Filtre bunu düşürseydi
+        // arayan tanıma ESKİ numarayla eşleşmeye devam eder, yanlış müşteri kartını açardı.
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+        $musteriId = (string) Str::uuid7();
+        $telefonId = (string) Str::uuid7();
+
+        $this->pushEvents($token, [
+            $this->customerUpsert(['id' => $musteriId, 'name' => 'Ahmet']),
+            $this->event('customer_phone', 'upsert', [
+                'id' => $telefonId, 'customer_id' => $musteriId, 'phone_e164' => '+905321112233',
+            ], ['occurred_at' => now()->subMinute()->toIso8601String()]),
+        ])->assertJsonPath('results.1.status', 'applied');
+
+        // Numara değişti; istemci last10'u göndermiyor.
+        $this->pushEvents($token, [
+            $this->event('customer_phone', 'upsert', [
+                'id' => $telefonId, 'customer_id' => $musteriId, 'phone_e164' => '+905339998877',
+            ]),
+        ])->assertJsonPath('results.0.status', 'applied');
+
+        $telefon = $this->asOwner(fn () => CustomerPhone::query()->findOrFail($telefonId));
+        $this->assertSame('+905339998877', $telefon->phone_e164);
+        $this->assertSame('5339998877', $telefon->phone_last10, 'Eşleşme anahtarı eski numarada dondu.');
+    }
+
+    // ----------------------------------------------------------------------------------
+    // E) Sürüm çarpıklığı korumaları — iki uçtaki sabitlerin bağı
+    // ----------------------------------------------------------------------------------
+
+    #[Test]
+    public function mobil_batch_size_sunucunun_max_eventsini_asmaz(): void
+    {
+        // `SyncService::MAX_EVENTS` docblock'u bu bağı YAZIYOR ama hiçbir şey ZORLAMIYORDU:
+        // "İki sabit AYRI DEPOLARDA yaşıyor ve birbirini göremiyor; tek korumamız bu yazılı bağ."
+        // Oysa aynı MONOREPO'dalar — bağ makineyle zorlanabilir ve zorlanmalıdır. Bağ koparsa
+        // (mobil batchSize büyür ya da sunucu MAX_EVENTS küçülür) HER push kalıcı 422 alır:
+        // istemcinin ikili araması kuyruğu kilitlenmekten kurtarır ama her tur boşa gider.
+        $yol = base_path('../mobile/lib/sync/sync_engine.dart');
+        if (! is_file($yol)) {
+            $this->markTestSkipped('Mobil kaynak bu ağaçta yok (yalnız API dağıtımı).');
+        }
+
+        $kaynak = (string) file_get_contents($yol);
+        $this->assertSame(
+            1,
+            preg_match('/pushPending\(\{int batchSize = (\d+)\}\)/', $kaynak, $m),
+            'pushPending imzası değişmiş — bu bekçi artık bağı GÖREMİYOR; deseni güncelle.'
+        );
+
+        $this->assertLessThanOrEqual(
+            SyncService::MAX_EVENTS,
+            (int) $m[1],
+            'Mobil batchSize sunucunun MAX_EVENTS sınırını aşıyor: her push 422 alır.'
+        );
     }
 
     #[Test]

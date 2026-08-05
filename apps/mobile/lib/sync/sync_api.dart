@@ -30,6 +30,12 @@ class EventResult {
   final String? clientEventId;
 
   /// applied|duplicate|stale|noop|rejected|locked — motor bunu BEYAZ LİSTEYLE yorumlar.
+  ///
+  /// OKUNAMAYAN DEĞER BOŞ DİZEYE düşer, `as String` DEĞİL (2026-08-05): boş dize beyaz listede
+  /// yoktur → `_Karar.beklet` → satır `pending` kalır ve sonraki tur yeniden dener. `as String`
+  /// yazmak, sunucu bu alanı bir gün boş/farklı tipte yollarsa TÜM push turunu TypeError ile
+  /// düşürür ve partideki HİÇBİR satır işlenmezdi. Beyaz liste felsefesinin ("tanımadığın durumu
+  /// bekletirsin") ayrıştırıcı tarafındaki karşılığıdır.
   final String status;
   final String? entityId;
   final int? serverSeq;
@@ -53,7 +59,7 @@ class EventResult {
 
   factory EventResult.fromJson(Map<String, dynamic> j) => EventResult(
         clientEventId: _metin(j['client_event_id']),
-        status: j['status'] as String,
+        status: _metin(j['status']) ?? '',
         entityId: j['entity_id'] as String?,
         serverSeq: (j['server_seq'] as num?)?.toInt(),
         index: (j['index'] as num?)?.toInt(),
@@ -100,8 +106,14 @@ class SubscriptionInfo {
 
 /// Ekip listesi (FAZ 4b Dilim 4). NULLABLE: eski sunucu `team` göndermezse null → istemci yerel
 /// önbelleği KORUR (silmez). Anahtar List DEĞİLSE null (savunmacı). Eleman: {id,name,role,status}.
-List<Map<String, dynamic>>? _parseTeam(dynamic v) =>
-    v is List ? v.map((e) => (e as Map).cast<String, dynamic>()).toList() : null;
+///
+/// Map OLMAYAN eleman ATLANIR, `as Map` DEĞİL (2026-08-05): tek bozuk eleman bu ayrıştırıcıda
+/// TypeError atsaydı TÜM yanıt (push ya da pull) çözülemez, tur düşer ve senkron her yönde
+/// kilitlenirdi. `[]` ile `null` ayrımı korunur — boş liste hâlâ "bu bayide kullanıcı yok"
+/// demektir, yokluk ise "sunucu göndermedi".
+List<Map<String, dynamic>>? _parseTeam(dynamic v) => v is List
+    ? v.whereType<Map<dynamic, dynamic>>().map((e) => e.cast<String, dynamic>()).toList()
+    : null;
 
 class PushResponse {
   PushResponse(
