@@ -20,7 +20,6 @@ use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
 /**
@@ -173,7 +172,7 @@ class SyncService
                 }
             }
 
-            $this->logRejections($results);
+            SyncRejectionLog::batch($results);
 
             DB::update(
                 'UPDATE tenant_sync_state SET last_seq = ?, updated_at = now() WHERE tenant_id = ?',
@@ -321,26 +320,17 @@ class SyncService
     }
 
     /**
-     * Reddedilen olayın sonucu + sunucu günlüğü.
+     * Reddedilen olayın sonucu + sunucu günlüğü (KVKK sözleşmesi SyncRejectionLog'da).
      *
      * `reason` MAKİNE OKUNUR sebep kodudur (istemci karantina/günlük için okur), `message` insan
-     * metnidir. İkisi de mevcut sözleşmeye EKTİR; `status` ve diğer alanlar değişmedi, eski istemci
-     * bilmediği alanları yok sayar ve `status == 'rejected'` yolunu bugünkü gibi işler.
-     *
-     * KVKK: günlüğe YALNIZ client_event_id, entity_type, op ve sebep KODU düşer — payload içeriği,
-     * tutar, ad/telefon ve serbest metin mesaj ASLA yazılmaz.
+     * metnidir. İkisi de mevcut sözleşmeye EKTİR: eski istemci bilmediği alanı yok sayar.
      *
      * @param  array<string, mixed>|null  $event
      * @return array{index: int, client_event_id: string, status: string, entity_id: null, server_seq: null, reason: string, message: string}
      */
     private function rejected(int $index, string $clientEventId, string $reason, ?array $event, ?string $message = null): array
     {
-        Log::warning('sync.event_rejected', [
-            'client_event_id' => self::gunlukIcin($clientEventId),
-            'entity_type' => self::gunlukIcin($event['entity_type'] ?? null),
-            'op' => self::gunlukIcin($event['op'] ?? null),
-            'reason' => $reason,
-        ]);
+        SyncRejectionLog::event($clientEventId, $event['entity_type'] ?? null, $event['op'] ?? null, $reason);
 
         return [
             'index' => $index,
@@ -351,35 +341,6 @@ class SyncService
             'reason' => $reason,
             'message' => $message ?? EventValidator::message($reason),
         ];
-    }
-
-    /**
-     * Parti özeti: kaç olay, hangi sebeplerle reddedildi. Tek satırdır ve filoya yayılmış bir
-     * zehirli hap (ör. artık desteklenmeyen bir entity_type) burada toplu olarak görünür.
-     *
-     * @param  list<array<string, mixed>>  $results
-     */
-    private function logRejections(array $results): void
-    {
-        /** @var array<string, int> $sebepler */
-        $sebepler = [];
-        foreach ($results as $sonuc) {
-            $reason = $sonuc['reason'] ?? null;
-            if (($sonuc['status'] ?? null) !== 'rejected' || ! is_string($reason)) {
-                continue;
-            }
-            $sebepler[$reason] = ($sebepler[$reason] ?? 0) + 1;
-        }
-
-        if ($sebepler !== []) {
-            Log::warning('sync.push_rejected', ['count' => array_sum($sebepler), 'reasons' => $sebepler]);
-        }
-    }
-
-    /** Günlüğe yazılabilir kısa metin: skaler değilse boş, uzunsa kırpılır (günlük şişirme/enjeksiyon). */
-    private static function gunlukIcin(mixed $value): string
-    {
-        return is_scalar($value) ? mb_substr((string) $value, 0, 40) : '';
     }
 
     /**
