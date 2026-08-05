@@ -606,6 +606,20 @@ main.ic{padding-top:74px}
 .alt-baglanti{grid-template-columns:1fr}
 .hero-guvence{gap:8px 16px}
 .dg.dev{width:100%}
+/* .guvence-grid kaynakta yarı yolda kalmıştı: 1080'de 4→2 sütuna iniyor, sonra hiç ele alınmıyor.
+   Diğer tüm kart ızgaraları (.kanit-grid, .dert-grid, .adim-grid, .yorum-grid) dar ekranda tek
+   sütuna düşüyor — güvence kartları da aynı türden; 2 sütun bu genişlikte sıkışık kalıyordu. */
+.guvence-grid{grid-template-columns:1fr}
+}
+
+/* Kaynak tasarımın en dar kırılması 560px'te bitiyor; gerçek telefonlar 360-430px. Telefon maketi
+   .t-cerceve = 412px × --s + 18px dolgu, yani hero'da (--s:.72) 314,6px. 320px görünümde .kap
+   dolgusu düşünce 280px alan kalıyor → maket sağdan kırpılıyordu (.hero{overflow:hidden} sayfayı
+   yatay kaydırmaktan koruyor ama kırpmayı gizlemiyor). --s satır içi stille geldiği için !important
+   şart. .62 tasarımın kendi ölçek sözlüğünden (oz-split ile aynı) ve 320px'te 6,6px pay bırakıyor.
+   Zaten küçük olan maketlere (ozellik-hero .56, ozellik-split .62) dokunmuyoruz — büyütmemek için. */
+@media(max-width:400px){
+.hero-sag .t-cerceve,.tur-tel .t-cerceve{--s:.62!important}
 }
 
 

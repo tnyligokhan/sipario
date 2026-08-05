@@ -6,6 +6,9 @@
     <div class="kap">
         <x-site.blm-bas kulak="Karşılaştırma" baslik="İki plan yan yana." />
         <x-site.pano ince :ic="false" class="krs">
+            {{-- .krs'te overflow:hidden var: tablo dar ekranda taşarsa kaydırılamadan KIRPILIRDI.
+                 .tbl-sar (overflow-x:auto) fatura tablosundaki mevcut desen — sığdığında görsel fark sıfır. --}}
+            <div class="tbl-sar">
             <table class="tbl krs-tbl">
                 <caption class="gizli">Sipario ve Kurumsal planlarının karşılaştırması</caption>
                 <thead>
@@ -35,6 +38,7 @@
                     @endforeach
                 </tbody>
             </table>
+            </div>
         </x-site.pano>
     </div>
 </section>

@@ -46,6 +46,10 @@ return [
         'on-bilgilendirme' => ['title' => 'Ön Bilgilendirme Formu', 'version_key' => 'preinfo_version'],
         'iptal-iade' => ['title' => 'İptal ve İade Koşulları', 'version_key' => 'preinfo_version'],
         'kvkk-aydinlatma' => ['title' => 'KVKK Aydınlatma Metni ve Açık Rıza', 'version_key' => 'kvkk_version'],
+        // Tasarımın alt bilgisi 4 yasal bağlantı içeriyor; bu belge olmadan sütun 3'te kalıyordu
+        // ve ızgara altı tırtıklıydı (piksel denetimi 2026-08-05). Metin PLACEHOLDER — hukuk onayı
+        // diğer belgelerle aynı pakette (SENİN SIRAN listesinde).
+        'cerez-politikasi' => ['title' => 'Çerez Politikası', 'version_key' => 'kvkk_version'],
     ],
 
     /*
