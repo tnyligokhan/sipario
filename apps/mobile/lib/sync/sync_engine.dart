@@ -82,6 +82,11 @@ class SyncEngine {
   /// suçluyu daraltmak ~2·log2(500) ≈ 18 istek eder; 24 buna yer bırakır ama zayıf şebekede
   /// turu saatlerce sürdürmez. Bütçe biterse kalan olaylar PENDING kalır (kayıp yok) ve sonraki
   /// tur kaldığı yerden devam eder.
+  ///
+  /// ⚠️ BÖLME YALNIZ KALICI 4xx'TE: zaman aşımı ve 5xx'te bölmek, ulaşılamayan bir sunucuya
+  /// log₂n kat daha fazla istek atmak — kararsız şebekede istek fırtınası — olurdu. O hatalar
+  /// `_partiGonder`de `rethrow` edilir ve tur düşer; kayıtlar sırada bekler
+  /// (`sync_zaman_asimi_test.dart` bu ayrımı iki yönlü kilitler).
   static const int _bolmeButcesi = 24;
 
   /// Bekleyen outbox olaylarını gönderir.
@@ -99,7 +104,13 @@ class SyncEngine {
   /// ise 499 masum kaydı cezalandırırdı. Bölme, suçluyu ~log₂n istekte bulur ve masum olayları
   /// AYNI turda teslim eder. Ek bir armağanı da var: hata "parti çok büyük" cinsindense bölme
   /// onu kendiliğinden çözer.
-  Future<PushOzeti> pushPending({int batchSize = 500}) async {
+  ///
+  /// [batchSize] SUNUCU TAVANINDAN KÜÇÜKTÜR, bilerek: `SyncService::MAX_EVENTS` 500'dür ve bu
+  /// değer eskiden de 500'dü — yani SIFIR PAY vardı. Tam sınırda çalışan bir sözleşmede tek
+  /// olaylık bir sapma (ileride eklenecek bir sentetik olay, ya da sunucunun tavanı düşürmesi)
+  /// HER push'u kalıcı 422 yapardı; istemcinin bölmesi kuyruğu kurtarır ama her tur boşa giderdi.
+  /// 400 o payı açar; bağı `SurumCarpikligiTest` makineyle zorlar.
+  Future<PushOzeti> pushPending({int batchSize = 400}) async {
     final pending = await (db.select(db.outbox)
           ..where((t) => t.status.equals('pending'))
           ..orderBy([(t) => OrderingTerm.asc(t.id)])
