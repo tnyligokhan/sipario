@@ -35,7 +35,11 @@
         ? '<span class="donem-rzt">'.e($fiyat['hediyeAy'].' ay hediye').'</span>'
         : '';
 @endphp
-<section class="blm fiyat-hero" x-data="{ donem: 'yil', m: @js($donemMetin) }">
+{{-- `m` yükü `application/json` kanalıyla geçiyor: @js(dizi) `JSON.parse('…')` üretir, CSP
+     değerlendiricisi `JSON`u çözemez — anahtar ölür ve Aylık'ta YILLIK rakam kalırdı (yanlış fiyat).
+     Bkz. alpine.js başlığı 3. kural · donemAnahtar. --}}
+<section class="blm fiyat-hero" x-data="donemAnahtar">
+    <script type="application/json">@json($donemMetin)</script>
     <div class="kap">
         <div class="blm-bas fiyat-bas">
             <span class="blm-kulak mn"><i></i>Fiyatlandırma</span>

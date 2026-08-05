@@ -17,7 +17,12 @@
 <div
     x-data
     x-on:keydown.escape.window="$refs.panelModalKapat.click()"
-    x-on:mousedown="if ($event.target === $event.currentTarget) $refs.panelModalKapat.click()"
+    {{-- `.self` = "hedef, dinleyicinin bağlı olduğu öğenin KENDİSİ" — eski `if ($event.target ===
+         $event.currentTarget)` biçimi csp_safe ayrıştırıcısında ölüyordu: parser yalnız İFADE çözer,
+         `if` DEYİMİ "Unexpected token: $refs" fırlatır ve dış tıklamayla kapatma sessizce çalışmaz
+         (canlıda ölçüldü, 2026-08-05). Koşulu Alpine çekirdeğinin değiştiricisine devretmek ifadeyi
+         ayrıştırıcının çözebildiği düz çağrıya indirger. --}}
+    x-on:mousedown.self="$refs.panelModalKapat.click()"
     class="modal-arka"
 >
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="panel-modal-baslik">

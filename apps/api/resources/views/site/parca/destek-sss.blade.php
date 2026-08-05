@@ -23,7 +23,10 @@
     2026-08-04): CSP altında Alpine'ın öznitelik değerlendiricisi obje içi kısaltılmış metot tanımını
     (`ara() {...}` vb.) çözemiyor.
 --}}
-<section class="blm kagit2" x-data="sssArama(@js($aranabilir))">
+{{-- Yük `@js()` ile DEĞİL `application/json` kanalıyla geçiyor: @js(dizi) `JSON.parse('…')` üretir,
+     CSP değerlendiricisi `JSON`u çözemez ve bileşen hiç kurulmaz. Bkz. alpine.js başlığı, 3. kural. --}}
+<section class="blm kagit2" x-data="sssArama">
+    <script type="application/json">@json($aranabilir)</script>
     <div class="kap">
         <x-site.blm-bas kulak="Sık sorulanlar" baslik="Aradığınızı yazın." />
 

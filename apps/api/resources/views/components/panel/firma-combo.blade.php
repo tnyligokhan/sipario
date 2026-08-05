@@ -25,8 +25,12 @@
 --}}
 <div
     class="combo"
-    x-data="firmaCombo(@js($liste), @js($model))"
+    x-data="firmaCombo(@js($model))"
 >
+    {{-- `$liste` DİZİ olduğu için argüman geçemez: @js(dizi) `JSON.parse('…')` üretir, CSP
+         değerlendiricisi `JSON`u çözemez, bileşen hiç kurulmazdı. `$model` düz dize — güvenli.
+         Bkz. public/js/alpine.js başlığı, 3. kural. --}}
+    <script type="application/json">@json($liste)</script>
     <input
         type="text"
         class="girdi"

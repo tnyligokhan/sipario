@@ -11,6 +11,17 @@
  *  - `;` ile ayrılmış birden çok deyim, ok fonksiyonu (`() => ...`), obje içi KISALTILMIŞ metot/getter
  *    tanımı (`sec(f) {...}`, `get eslesen() {...}`) ve düzenli ifade (`/\D/g`) da DESTEKLENMEZ —
  *    değerlendiricinin (Evaluator) düğüm anahtarında bunlara karşılık gelen bir dal yok.
+ *  - ⚠️ `@js(dizi/nesne)` DE BURAYA GİRER: Blade bunu `JSON.parse('…')` olarak basar ve `JSON` de
+ *    çıplak bir globaldir → `Undefined variable: JSON` → x-data hiç kurulmaz, o ağaçtaki BÜTÜN
+ *    x-show/x-text/x-model bağları sessizce ölür (yalnız görünüm bozulmaz — yanlış veri gösterir;
+ *    fiyat anahtarı aylık dönemde yıllık rakamı göstererek tam bunu yaptı). `@js(dize/sayı/bool)`
+ *    ETKİLENMEZ: onlar düz literale derlenir.
+ *
+ * KURAL — öznitelik ifadesinde YALNIZ literal ve dize/sayı/bool argümanlı bileşen çağrısı bulunur.
+ * Dizi/nesne yükü DAİMA `<script type="application/json">` kanalıyla taşınır: bileşen kökünün
+ * doğrudan çocuğu olarak basılır, `init()` içinde `jsonKanal(this.$el)` ile çözülür. Blade'in
+ * `@json`u varsayılan HEX_TAG/QUOT/AMP/APOS bayraklarıyla kaçışladığı için `</script>` enjeksiyonu
+ * mümkün değildir.
  *
  * Bu dosya, yukarıdaki sınırların HERHANGİ birine çarpan mantığı gerçek bir JS metoduna/bileşenine
  * taşır — HTML özniteliği artık yalnız bu metodu ÇAĞIRIR (basit CallExpression/MemberExpression),
@@ -27,6 +38,16 @@
  * betiğin script etiketi `@livewireScripts`ten (Alpine'ı içeren asıl paket) ÖNCE durmalıdır ki
  * dinleyici Alpine başlamadan kayıtlı olsun (bkz. layout dosyaları).
  */
+/**
+ * Bileşen köküne gömülü `<script type="application/json">` yükünü çözer.
+ * `:scope >` ile YALNIZ doğrudan çocuğa bakar — iç içe bileşenlerde yanlış kanalı okumasın.
+ * JSON.parse burada serbesttir: bu dosya sıradan tarayıcı JS'i, Alpine'ın sandbox'ına uğramaz.
+ */
+function jsonKanal(el) {
+    const s = el.querySelector(':scope > script[type="application/json"]');
+    return s ? JSON.parse(s.textContent) : null;
+}
+
 document.addEventListener('alpine:init', () => {
     /**
      * Kısa ömürlü toast — components/site/bildirim.blade.php.
@@ -122,12 +143,19 @@ document.addEventListener('alpine:init', () => {
      * component nesnesine metotları ÇAĞRILDIĞINDA bağlar, bu yüzden `$wire.set(...)` burada
      * `this.$wire.set(...)`e çevrildi (davranış AYNI, yalnız erişim yolu farklı).
      * Eskiden: x-data="{ ..., sec(f) { ...; $wire.set('{{ $model }}', f.id); } }"
-     * Şimdi:   x-data="firmaCombo(@js($liste), @js($model))"
+     * Sonra:   x-data="firmaCombo(@js($liste), @js($model))" — $liste DİZİ olduğu için bu da
+     *          ÖLÜYDÜ (bkz. başlıktaki 3. kural: @js(dizi) → JSON.parse → Undefined variable).
+     * Şimdi:   x-data="firmaCombo(@js($model))" + liste `application/json` kanalında.
      */
-    Alpine.data('firmaCombo', (liste, model) => ({
+    Alpine.data('firmaCombo', (model) => ({
         acik: false,
         metin: '',
-        liste,
+        liste: [],
+        init() {
+            // `liste` DİZİ olduğu için argüman olarak geçemez (bkz. başlıktaki 3. kural).
+            // `model` düz dize — tırnaklı literale derlenir, argüman olarak güvenli.
+            this.liste = jsonKanal(this.$el) ?? [];
+        },
         get eslesen() {
             const a = this.metin.toLocaleLowerCase('tr');
             return this.liste.filter((f) => f.ad.toLocaleLowerCase('tr').includes(a));
@@ -145,13 +173,18 @@ document.addEventListener('alpine:init', () => {
      * Eskiden: x-data="{ ..., ara() {...}, esles(m) {...}, grupta(g) {...}, grupVar(g) {...},
      *                     bulunan() {...} }" (obje içi kısaltılmış metotlar — CSP ayrıştırıcısı
      *                     bunları çözemez, `FunctionExpression` düğümü için bir dal yok).
-     * Şimdi:   x-data="sssArama(@js($aranabilir))"
+     * Sonra:   x-data="sssArama(@js($aranabilir))" — bu da ÖLÜYDÜ, bkz. başlıktaki 3. kural:
+     *          `@js(dizi)` → `JSON.parse('…')` → `Undefined variable: JSON`, bileşen hiç kurulmaz.
+     * Şimdi:   x-data="sssArama" + yük `application/json` kanalında (jsonKanal ile okunur).
      */
-    Alpine.data('sssArama', (aranabilir) => ({
+    Alpine.data('sssArama', () => ({
         q: '',
         g: 'hepsi',
         acik: null,
-        gruplar: aranabilir,
+        gruplar: {},
+        init() {
+            this.gruplar = jsonKanal(this.$el) ?? {};
+        },
         ara() {
             return this.q.trim().toLocaleLowerCase('tr-TR');
         },
@@ -212,6 +245,23 @@ document.addEventListener('alpine:init', () => {
             window.location.href = 'mailto:' + this.hedef
                 + '?subject=' + encodeURIComponent('Sipario · ' + this.f.konu)
                 + '&amp;body=' + encodeURIComponent(govde);
+        },
+    }));
+
+    /**
+     * Fiyat dönem anahtarı (Aylık/Yıllık) — site/parca/fiyat-planlar.blade.php.
+     * Eskiden: x-data="{ donem: 'yil', m: @js($donemMetin) }" — `@js()` DİZİ/OBJE için
+     * `JSON.parse('…')` üretir ve CSP değerlendiricisi `JSON`u çözemez (bkz. sssArama'daki not),
+     * yani anahtar sessizce ölüydü: `donem` tıklamayla sonradan doğuyordu ama `m` hiç oluşmuyordu,
+     * bu yüzden Aylık'a basınca rakam yıllık değerde KALIYORDU (yanlış fiyat gösterimi).
+     * Şimdi: yük `application/json` kanalında. `donem` varsayılanı 'yil' — JS hiç çalışmasa bile
+     * sunucunun bastığı yıllık görünüm doğru kalsın diye (x-text'lerin içindeki statik değerler).
+     */
+    Alpine.data('donemAnahtar', () => ({
+        donem: 'yil',
+        m: {},
+        init() {
+            this.m = jsonKanal(this.$el) ?? {};
         },
     }));
 
