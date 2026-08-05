@@ -354,4 +354,94 @@ void main() {
       await kapat(tester);
     });
   });
+
+  group('Senkron çipi — hatanın CİNSİNİ söyler', () {
+    // Cihaz doğrulamasında yakalandı (2026-08-05): bant "Sunucu yanıt veremiyor" derken çip
+    // AYNI ekranda "Bağlantı yok" diyordu — o an bağlantı vardı. Çip tüm hataları tek metne
+    // indirgiyordu; aynı ekranın iki farklı hikâye anlatması kullanıcıyı telefonunu
+    // kurcalamaya yollar. Çip kısa kalır ama bandın AYRIMLARINI paylaşır.
+
+    Future<void> cipiKur(WidgetTester tester, AppDatabase db, SyncOutcome sonuc) => ekranaKoy(
+          tester,
+          AnaEkran(
+            db: db,
+            sahipAdi: 'Mehmet Usta',
+            onMenu: () {},
+            onSekme: (_) {},
+            onYeniSiparis: () {},
+            onBorclular: () {},
+            onArama: (_) {},
+            onSiparisAc: (_) {},
+            sonSenkron: sonuc,
+          ),
+        );
+
+    testWidgets('sunucu hatasında "Bağlantı yok" GEÇMEZ', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      await cipiKur(
+        tester,
+        db,
+        const SyncOutcome(ok: false, error: '5xx', tur: SyncHataTuru.sunucu),
+      );
+
+      expect(find.text('Bağlantı yok · tekrar denenecek'), findsNothing,
+          reason: 'sunucuya ULAŞILDI — "bağlantı yok" demek yalan');
+      expect(find.text('Sunucu yanıt vermiyor · tekrar denenecek'), findsOneWidget);
+
+      await kapat(tester);
+    });
+
+    testWidgets('veri hatasında bekleme sözü VERİLMEZ', (tester) async {
+      // `veri` beklemekle geçmez; "tekrar denenecek" yazmak tutulamayacak bir sözdür.
+      final db = AppDatabase(NativeDatabase.memory());
+      await cipiKur(
+        tester,
+        db,
+        const SyncOutcome(ok: false, error: 'red', tur: SyncHataTuru.veri),
+      );
+
+      expect(find.text('Kayıtlar gönderilemiyor · destekle görüşün'), findsOneWidget);
+      expect(find.textContaining('tekrar denenecek'), findsNothing);
+
+      await kapat(tester);
+    });
+
+    testWidgets('ağ hatasında metin DEĞİŞMEDİ (doğru olduğu tek hâl)', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      await cipiKur(
+        tester,
+        db,
+        const SyncOutcome(ok: false, error: 'ağ', tur: SyncHataTuru.ag),
+      );
+
+      expect(find.text('Bağlantı yok · tekrar denenecek'), findsOneWidget);
+
+      await kapat(tester);
+    });
+
+    testWidgets('başarılı tur ve ilk açılış metinleri KORUNDU', (tester) async {
+      // Ekran metni sözleşmedir: bu iki metne dokunulmadı.
+      final db = AppDatabase(NativeDatabase.memory());
+      await cipiKur(tester, db, const SyncOutcome(ok: true));
+      expect(find.textContaining('Senkron güncel'), findsOneWidget);
+      await kapat(tester);
+
+      final db2 = AppDatabase(NativeDatabase.memory());
+      await ekranaKoy(
+        tester,
+        AnaEkran(
+          db: db2,
+          sahipAdi: 'Mehmet Usta',
+          onMenu: () {},
+          onSekme: (_) {},
+          onYeniSiparis: () {},
+          onBorclular: () {},
+          onArama: (_) {},
+          onSiparisAc: (_) {},
+        ),
+      );
+      expect(find.text('Senkron bekleniyor'), findsOneWidget);
+      await kapat(tester);
+    });
+  });
 }

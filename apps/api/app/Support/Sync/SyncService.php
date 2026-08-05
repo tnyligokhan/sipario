@@ -50,10 +50,15 @@ class SyncService
      * Bir push isteğinde işlenecek azami olay (DoS + transaction süresi sınırı).
      *
      * ⚠️ İSTEMCİ SABİTİYLE BAĞLIDIR: `apps/mobile/lib/sync/sync_engine.dart` → `pushPending`ın
-     * `batchSize`ı (bugün 500) bu değeri AŞMAMALIDIR. Aşarsa parti zarf doğrulamasına takılır ve
+     * `batchSize`ı (bugün 400) bu değeri AŞMAMALIDIR. Aşarsa parti zarf doğrulamasına takılır ve
      * HER push kalıcı 422 döner — istemcinin bisect'i kuyruğu kurtarır ama her tur boşa gider.
-     * İki sabit AYRI DEPOLARDA yaşıyor ve birbirini göremiyor; tek korumamız bu yazılı bağ.
      * Bu değeri DÜŞÜRMEK de aynı kapıdır: sahadaki eski istemciler eski batchSize ile gönderir.
+     *
+     * Bağ 2026-08-05'te İKİ ucundan da sağlamlaştırıldı: (1) istemci 500 yerine 400 gönderiyor,
+     * yani sözleşme artık tam sınırda değil — 100 olaylık payı var; (2) bağ artık YAZILI DEĞİL,
+     * ZORLANIYOR: `SurumCarpikligiTest` mobil kaynaktan `batchSize`ı okuyup bu sabitle
+     * karşılaştırır. (Eski yorum "iki sabit ayrı depolarda, birbirini göremiyor" diyordu — oysa
+     * aynı monorepo'dalar ve bekçi bunu görebiliyor.)
      */
     public const MAX_EVENTS = 500;
 

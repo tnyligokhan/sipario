@@ -89,7 +89,7 @@ void main() {
       await _kuyrugaEkle(db, 'm-1', '01');
       await _kuyrugaEkle(db, 'm-2', '02');
 
-      final api = _SiraliApi((_, __) => TimeoutException('yarı-açık bağlantı'));
+      final api = _SiraliApi((_, _) => TimeoutException('yarı-açık bağlantı'));
       final sync = SyncService(db, api: api);
       addTearDown(sync.dispose);
 
@@ -116,7 +116,7 @@ void main() {
         await _kuyrugaEkle(db, 'm-$i', i.toString().padLeft(2, '0'));
       }
 
-      final api = _SiraliApi((_, __) => TimeoutException('yarı-açık bağlantı'));
+      final api = _SiraliApi((_, _) => TimeoutException('yarı-açık bağlantı'));
 
       await expectLater(
         SyncEngine(db, api).pushPending(),

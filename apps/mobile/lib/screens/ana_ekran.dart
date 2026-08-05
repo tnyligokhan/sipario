@@ -225,6 +225,26 @@ class _SyncCipi extends StatelessWidget {
   final SyncOutcome? sonuc;
   final DateTime? zaman;
 
+  /// Başarısız turun çipteki KISA karşılığı — bandın (`SipBant`) uzun metinlerinin özeti,
+  /// AYNI ayrımlarla.
+  ///
+  /// NEDEN AYRIŞTIRILDI (2026-08-05, cihaz doğrulaması): çip bütün hataları
+  /// "Bağlantı yok · tekrar denenecek"e indirgiyordu. Cihaz testinde bant doğru şekilde
+  /// "Sunucu yanıt veremiyor" derken çip aynı ekranda "Bağlantı yok" dedi — o an bağlantı
+  /// VARDI. Bu, bandın dün kapatılan günahının (ulaşılan sunucuya "çevrimdışı" demek) çipteki
+  /// kopyasıydı ve daha kötüsü: aynı ekran iki farklı hikâye anlatıyordu, yani kullanıcı
+  /// hangisine inanacağını bilemiyordu.
+  ///
+  /// "Tekrar denenecek" YALNIZ kendiliğinden düzelecek hâllerde yazılır (`ag`/`sunucu`);
+  /// `veri` ve `oturum` beklemekle geçmez, kullanıcı eylemi gerekir — oraya söz verilmez.
+  static String _hataMetni(SyncHataTuru tur) => switch (tur) {
+        SyncHataTuru.sunucu => 'Sunucu yanıt vermiyor · tekrar denenecek',
+        SyncHataTuru.veri => 'Kayıtlar gönderilemiyor · destekle görüşün',
+        SyncHataTuru.oturum => 'Oturum doğrulanmadı',
+        // `ag` ve `yok`: gerçekten ulaşılamadı — "çevrimdışı" demenin doğru olduğu TEK hâl.
+        SyncHataTuru.ag || SyncHataTuru.yok => 'Bağlantı yok · tekrar denenecek',
+      };
+
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
@@ -235,7 +255,7 @@ class _SyncCipi extends StatelessWidget {
             '${zaman!.minute.toString().padLeft(2, '0')}';
     final metin = sonuc == null
         ? 'Senkron bekleniyor'
-        : (ok ? 'Senkron güncel$saat' : 'Bağlantı yok · tekrar denenecek');
+        : (ok ? 'Senkron güncel$saat' : _hataMetni(sonuc!.tur));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: SipSpace.xl, vertical: SipSpace.sm),
       decoration: const BoxDecoration(
