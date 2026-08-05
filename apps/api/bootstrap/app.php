@@ -18,6 +18,25 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        /*
+         * YALNIZ LOOPBACK'TEN GELEN X-Forwarded-* BAŞLIKLARINA GÜVEN (2026-08-05).
+         *
+         * Saha sunucusu tarayıcıya cloudflared tüneliyle (HTTPS) çıkar; cloudflared yerelde koşar
+         * ve 127.0.0.1:8000'e DÜZ HTTP ile bağlanıp gerçek şemayı `X-Forwarded-Proto: https` ile
+         * söyler. Bu satır olmadan Laravel o başlığı YOK SAYAR ve `asset()`/`route()` her mutlak
+         * URL'i `http://` üretir. Sonuç: HTTPS sayfada HTTP stylesheet = AKTİF KARIŞIK İÇERİK —
+         * mobil Chrome bunu istisnasız engeller (izin verme seçeneği de yoktur) ve site tünelden
+         * açan herkese TAMAMEN STİLSİZ görünür. Sahada birebir yaşandı: kullanıcı "büyük sorunlar
+         * var" dedi, sayfa çıplak HTML'di; masaüstünde `http://127.0.0.1:8000` ile bakan herkes
+         * ise hiçbir şey görmedi (şema uyuşuyor, karışık içerik doğmuyor).
+         *
+         * Güven kapsamı BİLİNÇLİ dar: yalnız loopback. cloudflared'in tek meşru sıçrama noktası
+         * localhost'tur; '*' güvenmek, LAN'dan doğrudan gelen bir isteğin sahte X-Forwarded-*
+         * başlıklarıyla şema/istemci-IP yalanı söyleyebilmesi demektir (hız sınırı anahtarları
+         * istemci IP'sinden türetiliyor — bkz. AppServiceProvider::limitler).
+         */
+        $middleware->trustProxies(at: ['127.0.0.1', '::1']);
+
         $middleware->alias([
             'tenant' => ResolveTenantContext::class,
             'role' => EnsureRole::class,
