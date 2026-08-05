@@ -23,8 +23,19 @@
                 @endforeach
             </ul>
         </div>
-        <div class="hero-sag">
-            <x-site.telefon ekran="ana" :oran="0.72" cagri />
+        {{--
+            Kendi kendine oynayan gösterim (kaynak: 07-sw-telefon.jsx · TelefonCanli). React'te tek
+            maket prop değiştirerek yeniden render ediliyordu; burada üç kare önceden basılıp `x-show`
+            ile değiştiriliyor — ana-tur bölümündeki sekmeli maketlerle aynı desen, ilk kare
+            x-cloak'suz ki Alpine yüklenmeden de sakin ekran görünsün (JS yoksa donuk ama DOĞRU kare).
+            Zamanlayıcı public/js/alpine.js · `heroDongu` içinde (csp_safe: setTimeout HTML'de yasak).
+        --}}
+        <div class="hero-sag" x-data="heroDongu">
+            <div x-show="kare === 0"><x-site.telefon ekran="ana" :oran="0.72" /></div>
+            <div x-show="kare === 1" x-cloak><x-site.telefon ekran="ana" :oran="0.72" cagri /></div>
+            <div x-show="kare === 2" x-cloak>
+                <x-site.telefon ekran="ana" :oran="0.72" bildirim="Sipariş #1043 oluşturuldu" ciro="12.570" :acik="8" />
+            </div>
         </div>
     </div>
     <div class="hero-serit">

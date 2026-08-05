@@ -214,4 +214,33 @@ document.addEventListener('alpine:init', () => {
                 + '&amp;body=' + encodeURIComponent(govde);
         },
     }));
+
+    /**
+     * Hero telefonunun kendi kendine oynayan gösterimi — site/parca/ana-hero.blade.php.
+     * Kaynak: _kaynak/web/07-sw-telefon.jsx · `TelefonCanli` (React'te useState + useEffect).
+     * Kareler ve süreler ORADAN birebir: 0 sakin (2200ms) → 1 çağrı gelir (4200ms) → 2 sipariş
+     * oluştu bildirimi + ciro/açık sipariş artar (3000ms) → başa. Toplam döngü 9,4 sn.
+     *
+     * Zamanlayıcı BURADA yaşamak zorunda: `csp_safe` altında Alpine'ın öznitelik değerlendiricisi
+     * `setTimeout` gibi çıplak globalleri "Undefined variable" ile sessizce düşürür. HTML yalnız
+     * `x-data="heroDongu"` der. `destroy()` Alpine bileşeni sökerken zamanlayıcıyı temizler —
+     * aksi halde geri sayım DOM'dan kopmuş bir bileşene yazmaya devam ederdi.
+     */
+    Alpine.data('heroDongu', () => ({
+        kare: 0,
+        zamanlayici: null,
+        sureler: [2200, 4200, 3000],
+        init() {
+            this.sirala();
+        },
+        sirala() {
+            this.zamanlayici = setTimeout(() => {
+                this.kare = (this.kare + 1) % 3;
+                this.sirala();
+            }, this.sureler[this.kare]);
+        },
+        destroy() {
+            clearTimeout(this.zamanlayici);
+        },
+    }));
 });

@@ -46,7 +46,14 @@
 
         <x-site.pano ince class="sss-bos" x-show="bulunan() === 0" x-cloak>
             <span class="h3">“<span x-text="q"></span>” için sonuç yok.</span>
-            <p class="gvd">Aradığınızı bulamadıysanız yazmayın, arayın — {{ $sw['kanal'][0]['deger'] }}.</p>
+            {{-- Cümlenin tamamı telefona bağlı: "yazmayın, arayın — [Telefon]." yer tutucuyla
+                 basılırsa kullanıcıya ham şablon değişkeni gösterir. `href` zaten _veri.php'de
+                 `bos()` süzgecinden geçiyor (yer tutucuysa null) — ayrı bir kontrol icat etmeye
+                 gerek yok. Numara gerçekse cümle AYNEN çıkar; değilse hiç çıkmaz: kart üstte
+                 "… için sonuç yok" diyor, altta "Bize ulaşın" düğmesi zaten var (ölü tekrar yok). --}}
+            @if ($sw['kanal'][0]['href'])
+                <p class="gvd">Aradığınızı bulamadıysanız yazmayın, arayın — {{ $sw['kanal'][0]['deger'] }}.</p>
+            @endif
             <a class="dg dg-a" href="{{ route('site.iletisim') }}">Bize ulaşın</a>
         </x-site.pano>
 

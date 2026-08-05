@@ -89,7 +89,10 @@ a:hover{color:var(--mor-2)}
 .gece .blm-kulak i{background:#B3A6FF}
 
 /* ── Düğmeler ── */
-.dg{display:inline-flex;align-items:center;justify-content:center;gap:9px;height:54px;padding:0 26px;border-radius:var(--rs);font:700 15.5px var(--g);letter-spacing:-.01em;white-space:nowrap;transition:background .14s,color .14s,box-shadow .14s,transform .08s}
+/* text-decoration:none — kaynakta .dg'ler <button>'dı (tarayıcı varsayılanı zaten none). Bizde
+   gerçek gezinme için <a> oldular ve alt çizgi geri geldi; sıfırlama kaynakta gereksiz olduğu için
+   yoktu. Düğme görünen şey altı çizili görünmemeli. */
+.dg{display:inline-flex;align-items:center;justify-content:center;gap:9px;height:54px;padding:0 26px;border-radius:var(--rs);font:700 15.5px var(--g);letter-spacing:-.01em;white-space:nowrap;text-decoration:none;transition:background .14s,color .14s,box-shadow .14s,transform .08s}
 .dg:active{transform:translateY(1px)}
 .dg-a{background:var(--mor);color:#fff}
 .dg-a:hover{background:var(--mor-2);color:#fff}
@@ -610,6 +613,12 @@ main.ic{padding-top:74px}
 .sekme{flex-shrink:0}
 .alt-kunye{grid-template-columns:1fr}
 .sss-govde{padding-right:12px}
+/* Alt bilgi bağlantıları masaüstünde 24px yüksek — fareyle sorun değil, parmakla değil (WCAG/Material
+   asgarisi 44px; ölçüldü: "İletişim" 47x24, "Kurulum" 56x24). Kaynak bu bölümü hiç mobilleştirmediği
+   için karşılığı yoktu. Dokunma alanını 44px'e çıkarırken satır aralığı (gap) 13→6 düşürülüyor ki
+   alt bilgi tek sütuna indiği yerde gereksiz uzamasın. Masaüstü görünümü değişmez. */
+.alt-sutun{gap:6px}
+.alt-sutun a,.alt-sutun button{min-height:44px;display:flex;align-items:center}
 }
 @media(max-width:560px){
 .alt-baglanti{grid-template-columns:1fr}
