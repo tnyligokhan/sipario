@@ -30,6 +30,7 @@
         ['Mesafeli satış sözleşmesi', 'legal.show', 'mesafeli-satis'],
         ['İptal ve iade', 'legal.show', 'iptal-iade'],
         ['Gizlilik ve KVKK', 'legal.show', 'kvkk-aydinlatma'],
+        ['Çerez politikası', 'legal.show', 'cerez-politikasi'],
     ];
 @endphp
 <footer class="alt gece">

@@ -16,7 +16,9 @@
         </x-site.alan>
 
         <div class="alan" x-data="{ gor: false }">
-            <label class="etk" for="g-parola">Parola</label>
+            {{-- "Parolamı unuttum" etiket satırında sağa dayalı (.etk flex + .etk small{margin-left:auto}) —
+                 kaynakta Alan'ın `not` yuvası bu işi görüyor; burada alan elle yazıldığı için doğrudan. --}}
+            <label class="etk" for="g-parola">Parola<small><a class="kimlik-link" href="{{ route('site.parola') }}">Parolamı unuttum</a></small></label>
             <div class="gir-sarma">
                 <input id="g-parola" class="gir @error('password') yanlis @enderror"
                     :type="gor ? 'text' : 'password'" type="password"
@@ -29,9 +31,6 @@
             @error('password')
                 <span class="hata"><x-site.ikon ad="uyari" boy="14" kalin="2.3" />{{ $message }}</span>
             @enderror
-            <span class="yardim">
-                <a class="kimlik-link" href="{{ route('site.parola') }}">Parolamı unuttum</a>
-            </span>
         </div>
 
         <button class="dg dg-a tam" type="submit" style="margin-top:24px" wire:loading.attr="disabled">
