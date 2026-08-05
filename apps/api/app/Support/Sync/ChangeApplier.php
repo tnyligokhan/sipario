@@ -43,6 +43,19 @@ class ChangeApplier
     ];
 
     /**
+     * Payload'da KARŞILIĞI OLMAYAN, başka bir alandan/olay zarfından hesaplanan kolonlar. Sürüm
+     * çarpıklığı filtresi (SyncPayload::gonderilenler) bunları düşürmez — düşürseydi numara
+     * güncellenirken `phone_last10` eski değerde donar, arayan tanıma yanlış müşteriyi açardı.
+     *
+     * @var array<string, list<string>>
+     */
+    private const TUREYEN_KOLONLAR = [
+        'customer_phone' => ['phone_last10'],
+        'exempt_number' => ['phone_last10'],
+        'call_log' => ['phone_last10', 'occurred_at', 'device_id'],
+    ];
+
+    /**
      * @param  array<string, mixed>  $event
      * @return array{status: string, entity_id: string, changes: list<array<string, mixed>>}
      */
@@ -115,6 +128,13 @@ class ChangeApplier
 
         if ($existing !== null && ! $this->lwwWins($existing, $occurredAt, $deviceId)) {
             return ['status' => 'stale', 'entity_id' => $id, 'changes' => []];
+        }
+
+        // SÜRÜM ÇARPIKLIĞI: mevcut satırda, payload'da HİÇ GEÇMEYEN kolonlar korunur (bkz.
+        // SyncPayload::gonderilenler). YENİ satırda filtre YOK — korunacak bir değer yoktur ve
+        // NOT NULL kolonların varsayılanı yazılmalıdır.
+        if ($existing !== null) {
+            $cols = SyncPayload::gonderilenler($cols, $payload, self::TUREYEN_KOLONLAR[$type] ?? []);
         }
 
         /** @var Model $model */
@@ -207,11 +227,14 @@ class ChangeApplier
                 // verirse son karar kazanır) — ayrı op yazmak aynı çakışma çözümünü ikinci kez
                 // kurmak olurdu.
                 //
-                // İSTEMCİ SÖZLEŞMESİ: müşteri upsert'i bu alanı HER ZAMAN taşımalıdır. Alan
-                // yoksa null yazılır, yani sadece adını düzenlemek kara listeyi SESSİZCE kaldırır.
-                // Bu, `note` ile aynı davranıştır (istemci satırın tamamını gönderir) ve bilinçli
-                // seçilmiştir: alanı "gönderilmediyse dokunma" yapmak, kara listeden ÇIKARMAYI
-                // ifade edilemez kılardı (null hem "bilmiyorum" hem "çıkar" olurdu).
+                // İSTEMCİ SÖZLEŞMESİ (2026-08-05'te DÜZELTİLDİ): anahtar payload'da VARSA yazılır
+                // — null göndermek kara listeden ÇIKARMAK demektir ve bu ifade edilebilir kalır.
+                // Anahtar HİÇ YOKSA mevcut değer korunur (SyncPayload::gonderilenler).
+                //
+                // Eski davranış "alan yoksa null yaz"dı ve gerekçesi "null hem bilmiyorum hem
+                // çıkar olurdu" idi; ayrımı anahtarın VARLIĞINA bağlamak o ikilemi çözer. Eski
+                // hâliyle, `blacklisted_at`i bilmeyen bir build (2026-08-01 öncesi) müşterinin
+                // adını düzeltince kara listeyi sessizce kaldırıyordu.
                 'blacklisted_at' => $p['blacklisted_at'] ?? null,
             ],
             'customer_phone' => [

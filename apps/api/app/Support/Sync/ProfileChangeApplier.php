@@ -58,32 +58,24 @@ class ProfileChangeApplier
             return ['status' => 'stale', 'entity_id' => $tenantId, 'changes' => []];
         }
 
+        $cols = self::ayarKolonlari($p);
+
+        // SÜRÜM ÇARPIKLIĞI KAPISI (2026-08-05). Bu satır en hızlı EVRİLEN senkron varlığıdır —
+        // `order_code_display` (07-29), `iban` ve beş kurye yetkisi (08-04) art arda eklendi.
+        // Her eklemede, o kolonu bilmeyen sahadaki build'in ilk profil yazımı yeni değerleri
+        // siliyordu: IBAN boşalıyor, KAPATILMIŞ iskonto yetkisi geri açılıyor, kod tercihi
+        // varsayılana dönüyordu. Artık payload'da HİÇ GEÇMEYEN anahtar mevcut değerini korur;
+        // açıkça null/false gönderilen anahtar yazılır (bkz. SyncPayload::gonderilenler).
+        //
+        // YENİ satırda filtre YOK: korunacak değer yoktur ve kurye yetkileri NOT NULL'dur —
+        // varsayılanları yazılmalıdır.
+        if ($existing !== null) {
+            $cols = SyncPayload::gonderilenler($cols, $p);
+        }
+
         $settings = $existing ?? new TenantSetting;
-        $settings->forceFill([
+        $settings->forceFill($cols + [
             'tenant_id' => $tenantId,
-            'business_name' => $p['business_name'] ?? null,
-            'owner_name' => $p['owner_name'] ?? null,
-            'phone' => $p['phone'] ?? null,
-            'whatsapp' => $p['whatsapp'] ?? null,
-            'address_text' => $p['address_text'] ?? null,
-            'tax_office' => $p['tax_office'] ?? null,
-            'tax_number' => $p['tax_number'] ?? null,
-            'opens_at' => $p['opens_at'] ?? null,
-            'closes_at' => $p['closes_at'] ?? null,
-            'receipt_note' => $p['receipt_note'] ?? null,
-            'iban' => self::iban($p['iban'] ?? null),
-            // Kurye yetkileri (kullanıcı isteği 2026-08-04). Alan GELMEZSE varsayılana düşülür,
-            // mevcut değer korunmaz — bu satır bir LWW UPSERT'tir ve sözleşmesi "gelen payload
-            // satırı DEĞİŞTİRİR"dir (order_code_display ile aynı disiplin: eksik alanı mevcut
-            // değerden taşımak, iki cihazın çevrimdışı yazımını sessizce birleştirir ve son
-            // yazanın ne yazdığı belirsizleşirdi). İstemci tarafı zaten tam satır gönderir.
-            ...self::kuryeIzinleri($p),
-            // Sipariş satırındaki kod tercihi (kullanıcı isteği 2026-07-29). BEYAZ LİSTE:
-            // tanınmayan bir değer varsayılana düşer — istemci sürümleri ayrışabilir ve
-            // sunucuya gelen serbest metin, kararı okuyan her yüzeyi bilinmeyen bir dala sokar.
-            'order_code_display' => in_array($p['order_code_display'] ?? null, ['musteri', 'siparis'], true)
-                ? $p['order_code_display']
-                : 'musteri',
             'updated_occurred_at' => $occurredAt,
             'updated_device_id' => $deviceId,
         ]);
@@ -95,12 +87,49 @@ class ProfileChangeApplier
     }
 
     /**
+     * İstemciden yazılabilir profil kolonları — anahtarlar KOLON ADIYLA birebir eşleşir; sürüm
+     * çarpıklığı filtresi (SyncPayload::gonderilenler) bu eşleşmeye dayanır, bozulursa koruma
+     * sessizce çalışmaz olur. Türeyen/serbest adlı kolon YOKTUR.
+     *
+     * @param  array<string, mixed>  $p
+     * @return array<string, mixed>
+     */
+    private static function ayarKolonlari(array $p): array
+    {
+        return [
+            'business_name' => $p['business_name'] ?? null,
+            'owner_name' => $p['owner_name'] ?? null,
+            'phone' => $p['phone'] ?? null,
+            'whatsapp' => $p['whatsapp'] ?? null,
+            'address_text' => $p['address_text'] ?? null,
+            'tax_office' => $p['tax_office'] ?? null,
+            'tax_number' => $p['tax_number'] ?? null,
+            'opens_at' => $p['opens_at'] ?? null,
+            'closes_at' => $p['closes_at'] ?? null,
+            'receipt_note' => $p['receipt_note'] ?? null,
+            'iban' => self::iban($p['iban'] ?? null),
+            ...self::kuryeIzinleri($p),
+            // Sipariş satırındaki kod tercihi (kullanıcı isteği 2026-07-29). BEYAZ LİSTE:
+            // tanınmayan bir değer varsayılana düşer — istemci sürümleri ayrışabilir ve
+            // sunucuya gelen serbest metin, kararı okuyan her yüzeyi bilinmeyen bir dala sokar.
+            // (Anahtar HİÇ gelmediğinde varsayılana düşmez, KORUNUR — üstteki filtre kapsar.)
+            'order_code_display' => in_array($p['order_code_display'] ?? null, ['musteri', 'siparis'], true)
+                ? $p['order_code_display']
+                : 'musteri',
+        ];
+    }
+
+    /**
      * Kurye yetki anahtarları — payload'dan yalnız BİLİNEN anahtarlar okunur, gerisi atılır.
      *
      * Değer `filter_var(..., FILTER_VALIDATE_BOOL)` ile okunur çünkü istemciler bir booleanı üç
      * ayrı biçimde gönderebilir (true / "true" / 1) ve PHP'nin gevşek dönüşümü `"false"` metnini
      * TRUE sayardı — yani "kapalı" diye gönderilen bir yetki AÇIK yazılırdı. Tanınmayan/eksik
      * değer VARSAYILANA düşer; yetki alanında "belirsiz" diye bir durum olamaz.
+     *
+     * NOT: buradaki "eksik", anahtar VAR ama değeri okunamadı demektir. Anahtarın HİÇ olmaması
+     * ayrı bir hâldir ve varsayılana değil MEVCUT değere düşer (bkz. applySettings'teki filtre) —
+     * yoksa yetkiyi bilmeyen eski bir build bayinin kapattığı yetkiyi geri açardı.
      *
      * @param  array<string, mixed>  $p
      * @return array<string, bool>
@@ -174,7 +203,10 @@ class ProfileChangeApplier
 
         $user->forceFill([
             'name' => (string) ($p['name'] ?? $user->name),
-            'phone' => $p['phone'] ?? null,
+            // `name`/`status` ile SİMETRİK (2026-08-05): anahtar gelmediyse mevcut değer korunur.
+            // Eskiden `?? null` idi ve tek asimetrik alandı — `phone`u bilmeyen bir yüzeyin profil
+            // yazımı kuryenin telefonunu siliyordu. Açıkça null gönderilirse yine temizlenir.
+            'phone' => array_key_exists('phone', $p) ? $p['phone'] : $user->phone,
             'status' => $status,
             'updated_occurred_at' => $occurredAt,
             'updated_device_id' => $deviceId,

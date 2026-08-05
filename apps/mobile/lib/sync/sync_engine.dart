@@ -275,46 +275,84 @@ class SyncEngine {
 
   /// Sunucudaki değişiklikleri çeker ve yerele uygular. İlk çağrı snapshot, sonrası delta.
   /// has_more olduğu sürece sayfalar (maxPages emniyet sınırı).
-  Future<void> pull({int limit = 500, int maxPages = 100}) async {
+  ///
+  /// DÖNÜŞ: bu çağrıda AYRIŞTIRILAMADIĞI için ATLANAN satır sayısı. Sıfırdan büyükse tur
+  /// "başarılı" sayılmamalıdır (bkz. [SyncService]) — kuyruğu açık tutmanın bedeli sessiz veri
+  /// kaybı olamaz.
+  Future<int> pull({int limit = 500, int maxPages = 100}) async {
+    var atlanan = 0;
     for (var page = 0; page < maxPages; page++) {
       final meta = await db.syncState();
       final resp = await api.pull(since: meta.lastPulledSeq, limit: limit);
       await _applyServerTime(resp.serverTime);
       await _applySubscription(resp.subscription);
-      await _applyTeam(resp.team);
+      atlanan += await _applyTeam(resp.team);
 
-      if (resp.mode == 'snapshot') {
-        await _applySnapshot(resp);
-      } else {
-        await _applyDelta(resp);
-      }
+      atlanan += resp.mode == 'snapshot' ? await _applySnapshot(resp) : await _applyDelta(resp);
       if (!resp.hasMore) break;
+    }
+
+    return atlanan;
+  }
+
+  /// SÜRÜM ÇARPIKLIĞI KAPISI (2026-08-05) — pull yönünün zehirli hap koruması.
+  ///
+  /// Tek bir satırın ayrıştırılması, SAYFANIN geri kalanını ve `lastPulledSeq` ilerlemesini
+  /// rehin alamaz. Eskiden alıyordu: satır ayrıştırıcıları null-güvensiz cast kullanır
+  /// (`m['name'] as String`) ve sayfa TEK transaction'da uygulanırdı. Sunucu bir migration'la
+  /// bir kolonu nullable yaptığında ya da tek satırda beklenmedik bir tip gönderdiğinde TypeError
+  /// transaction'ı düşürür, cursor İLERLEMEZ ve sonraki tur aynı sayfayı çekip aynı yerde düşerdi
+  /// — senkron kalıcı ölür, tek "çözüm" uygulama verisini silmek olurdu (kırmızı çizgi #3).
+  ///
+  /// Push yönünde bu sınıf zaten kapalıydı (sunucuda olay bazında savepoint, istemcide ikili
+  /// arama). Bu, aynı disiplinin okuma yönündeki karşılığıdır: kayıp SATIRA hapsedilir.
+  ///
+  /// `Object` yakalanır, `Exception` değil: buradaki tehlike TypeError'dur ve o bir Error'dur.
+  Future<bool> _guvenliUygula(Future<void> Function() is_) async {
+    try {
+      await is_();
+
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
-  Future<void> _applySnapshot(PullResponse resp) async {
+  Future<int> _applySnapshot(PullResponse resp) async {
+    var atlanan = 0;
     await db.transaction(() async {
       for (final entry in resp.entities.entries) {
         for (final row in entry.value) {
-          await _applyEntity(entry.key, row);
+          if (!await _guvenliUygula(() => _applyEntity(entry.key, row))) atlanan++;
         }
       }
       await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(
         SyncMetaCompanion(lastPulledSeq: Value(resp.cursor), snapshotDone: const Value(true)),
       );
     });
+
+    return atlanan;
   }
 
-  Future<void> _applyDelta(PullResponse resp) async {
+  Future<int> _applyDelta(PullResponse resp) async {
+    var atlanan = 0;
     await db.transaction(() async {
       for (final change in resp.changes) {
-        final type = change['entity_type'] as String;
-        final payload = (change['payload'] as Map).cast<String, dynamic>();
-        await _applyEntity(type, payload, checkConflict: true, changeOccurredAt: change['occurred_at'] as String?);
+        // Zarfın kendisi de (entity_type/payload) satır bazında korunur: bozuk bir zarf da
+        // yalnız kendi satırını düşürmeli.
+        final ok = await _guvenliUygula(() async {
+          final type = change['entity_type'] as String;
+          final payload = (change['payload'] as Map).cast<String, dynamic>();
+          await _applyEntity(type, payload,
+              checkConflict: true, changeOccurredAt: change['occurred_at'] as String?);
+        });
+        if (!ok) atlanan++;
       }
       await (db.update(db.syncMeta)..where((t) => t.id.equals(1)))
           .write(SyncMetaCompanion(lastPulledSeq: Value(resp.cursor)));
     });
+
+    return atlanan;
   }
 
   /// LWW varlıkları için çakışma kuralı uygulanan tipler.
