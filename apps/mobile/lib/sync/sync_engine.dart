@@ -309,6 +309,25 @@ class SyncEngine {
   /// Push yönünde bu sınıf zaten kapalıydı (sunucuda olay bazında savepoint, istemcide ikili
   /// arama). Bu, aynı disiplinin okuma yönündeki karşılığıdır: kayıp SATIRA hapsedilir.
   ///
+  /// NEDEN "ATLA" SEÇİLDİ (alternatifleri elendi):
+  ///  • "Turu düşür" = eski davranış = KALICI ÖLÜM. Cursor ilerlemediği için sonraki tur aynı
+  ///    sayfayı çeker; bu, atlamaktan tartışmasız daha kötüdür.
+  ///  • "Snapshot'a dön" = onarmaz: snapshot da AYNI ayrıştırıcıdan geçer, aynı satırda yine
+  ///    düşer — üstelik her turda tam snapshot çekerek şebekeyi yakar.
+  ///  • "Yerel karantina kaydına yaz" = doğru yol ama `sync_meta` şema sürümü + onu gösterecek
+  ///    bir yüzey ister; bugün ikisi de yok.
+  ///
+  /// ATLAMAK KALICI KAYIP DEĞİLDİR: sunucunun delta yükü DEĞİŞEN ALANLAR değil satırın TAM
+  /// DURUMUdur (`SyncPayload::change` → `attributesToArray()`), yani o varlığa yapılan HERHANGİ
+  /// bir sonraki güncelleme kaçan satırı eksiksiz indirir (sync_surum_carpikligi_test bunu kilitler).
+  ///
+  /// ⚠️ BİLİNEN BOŞLUK (kapatılmadı, bilinçli): cursor ilerlediği için atlanan satır BİR DAHA
+  /// gelmez. Dolayısıyla (a) `veri` cinsinden tur hatası yalnız O turda yanar, kalıcı bir "eksiğin
+  /// var" işareti yoktur; (b) bir daha HİÇ dokunulmayan varlığın kaçan güncellemesi, uygulama
+  /// güncellense bile geri gelmez — `logout` `lastPulledSeq`e bilerek dokunmaz (offline-first),
+  /// yani çıkış+giriş de snapshot'a döndürmez. Gerçek kapağı: atlanan en erken seq'i `sync_meta`ya
+  /// yazmak ve uygulama sürümü değiştiğinde cursor'u oraya geri sarmak — şema sürümü işi.
+  ///
   /// `Object` yakalanır, `Exception` değil: buradaki tehlike TypeError'dur ve o bir Error'dur.
   Future<bool> _guvenliUygula(Future<void> Function() is_) async {
     try {

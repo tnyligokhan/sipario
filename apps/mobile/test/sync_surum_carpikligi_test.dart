@@ -167,6 +167,69 @@ void main() {
     });
   });
 
+  group('atlanan satırın İYİLEŞME YOLU', () {
+    test('varlığın bir sonraki güncellemesi kaybı ONARIR (delta = tam durum)', () async {
+      // "Atla + cursor ilerlet" kararının dayanağı budur: sunucunun delta yükü DEĞİŞEN ALANLAR
+      // değil, satırın TAM DURUMUdur (`SyncPayload::change` → `attributesToArray()`). Yani
+      // kaçırılan satır, o varlığa yapılan HERHANGİ bir sonraki güncellemede eksiksiz iner —
+      // kayıp kalıcı değil, GECİKMELİdir.
+      final db = await _oturumluDb();
+      addTearDown(db.close);
+
+      final api = FakeSyncApi()
+        ..pullQueue.add(PullResponse(
+          mode: 'delta',
+          cursor: 42,
+          hasMore: false,
+          currentSeq: 42,
+          // Bu turda satır okunamıyor (bu build alanı bilmiyor).
+          changes: [_degisiklik('customer', {..._saglamMusteri('m-7', 'x'), 'name': null})],
+        ))
+        ..pullQueue.add(PullResponse(
+          mode: 'delta',
+          cursor: 43,
+          hasMore: false,
+          currentSeq: 43,
+          // Bayi aynı müşteriye dokundu → sunucu TAM satırı yeniden yayınladı.
+          changes: [_degisiklik('customer', _saglamMusteri('m-7', 'Sonunda İndi'))],
+        ));
+
+      final motor = SyncEngine(db, api);
+      expect(await motor.pull(), 1);
+      expect(await motor.pull(), 0);
+
+      final musteri = (await db.select(db.customers).get()).singleWhere((m) => m.id == 'm-7');
+      expect(musteri.name, 'Sonunda İndi',
+          reason: 'delta tam durum taşıdığı için kaçan satır bir sonraki dokunuşta onarılmalı');
+    });
+
+    test('atlanan satır BİR KEZ görülür — cursor ilerlediği için tekrar GELMEZ', () async {
+      // Bunun sonucu önemli ve raporlanmalı: `veri` cinsinden tur hatası YALNIZ o turda yanar,
+      // sonraki tur temizdir. Yani bant kalıcı bir "eksiğin var" işareti TAŞIMAZ — kaçan satırın
+      // görünürlüğü tek tura hapsolur. Bu testin işi o davranışı yazılı kılmak.
+      final db = await _oturumluDb();
+      addTearDown(db.close);
+
+      final api = FakeSyncApi()
+        ..pullQueue.add(PullResponse(
+          mode: 'delta',
+          cursor: 42,
+          hasMore: false,
+          currentSeq: 42,
+          changes: [_degisiklik('customer', {..._saglamMusteri('m-8', 'x'), 'name': null})],
+        ));
+
+      final sync = SyncService(db, api: api);
+      addTearDown(sync.dispose);
+
+      expect((await sync.syncNow()).ok, isFalse);
+      // İkinci tur: FakeSyncApi kuyruğu boş → `since=42`'den itibaren boş delta. Bozuk satır
+      // BİR DAHA gelmez; tur temiz.
+      expect((await sync.syncNow()).ok, isTrue,
+          reason: 'cursor ilerlediği için aynı satır tekrar çekilmez');
+    });
+  });
+
   group('team bloğu — bozuk bir kullanıcı satırı TÜM turu düşürmez', () {
     test('geçersiz eleman atlanır, sağlam ekip yazılır', () async {
       final db = await _oturumluDb();

@@ -111,9 +111,18 @@ class SubscriptionInfo {
 /// TypeError atsaydı TÜM yanıt (push ya da pull) çözülemez, tur düşer ve senkron her yönde
 /// kilitlenirdi. `[]` ile `null` ayrımı korunur — boş liste hâlâ "bu bayide kullanıcı yok"
 /// demektir, yokluk ise "sunucu göndermedi".
-List<Map<String, dynamic>>? _parseTeam(dynamic v) => v is List
+List<Map<String, dynamic>>? _parseTeam(dynamic v) => v is List ? _mapListesi(v) : null;
+
+/// Bir JSON dizisini Map listesine çevirir; List OLMAYAN girdi boş liste, Map OLMAYAN eleman
+/// ATLANIR (2026-08-05).
+///
+/// NEDEN: `(e as Map)` yazan her ayrıştırıcıda tek bozuk eleman TypeError atar ve o hata ZARFI
+/// çözülemez kılar — yani `results`/`changes`/`entities`/`team` içindeki bir satır yüzünden TÜM
+/// tur düşer. Motor artık satır bazında izole ediyor ama izolasyon ancak zarf ÇÖZÜLEBİLİRSE
+/// devreye girer; bu, o kapının ayrıştırıcı tarafındaki eşidir.
+List<Map<String, dynamic>> _mapListesi(dynamic v) => v is List
     ? v.whereType<Map<dynamic, dynamic>>().map((e) => e.cast<String, dynamic>()).toList()
-    : null;
+    : const [];
 
 class PushResponse {
   PushResponse(
@@ -125,9 +134,7 @@ class PushResponse {
   final List<Map<String, dynamic>>? team;
 
   factory PushResponse.fromJson(Map<String, dynamic> j) => PushResponse(
-        results: ((j['results'] as List?) ?? [])
-            .map((e) => EventResult.fromJson(e as Map<String, dynamic>))
-            .toList(),
+        results: _mapListesi(j['results']).map(EventResult.fromJson).toList(),
         currentSeq: (j['current_seq'] as num?)?.toInt() ?? 0,
         serverTime: j['server_time'] as String?,
         subscription: j['subscription'] is Map
@@ -162,6 +169,9 @@ class PullResponse {
   factory PullResponse.fromJson(Map<String, dynamic> j) {
     final rawEntities = (j['entities'] as Map<String, dynamic>?) ?? const {};
     return PullResponse(
+      // `mode` BİLEREK zorunlu: snapshot mı delta mı olduğunu bilmeden yükü uygulamak veriyi
+      // BOZAR (snapshot'ı delta sanmak tam durumu kısmi sayar). Burada fırlatmak doğrudur —
+      // ama bu yüzden `mode` sözleşmede "asla kaldırılamaz" alandır (bkz. SyncPayload docblock'u).
       mode: j['mode'] as String,
       cursor: (j['cursor'] as num?)?.toInt() ?? 0,
       hasMore: (j['has_more'] as bool?) ?? false,
@@ -171,13 +181,8 @@ class PullResponse {
           ? SubscriptionInfo.fromJson((j['subscription'] as Map).cast<String, dynamic>())
           : null,
       team: _parseTeam(j['team']),
-      changes: ((j['changes'] as List?) ?? [])
-          .map((e) => (e as Map).cast<String, dynamic>())
-          .toList(),
-      entities: rawEntities.map((k, v) => MapEntry(
-            k,
-            ((v as List?) ?? []).map((e) => (e as Map).cast<String, dynamic>()).toList(),
-          )),
+      changes: _mapListesi(j['changes']),
+      entities: rawEntities.map((k, v) => MapEntry(k, _mapListesi(v))),
     );
   }
 }
