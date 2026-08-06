@@ -113,7 +113,13 @@ void main() {
 
     test('tek kişilik bayide beklenen = günün tüm nakdi', () async {
       // Hiç kurye yok: kuryelerde kalan 0 → bugünkü doğru davranış korunuyor.
+      // Patron OTURUM AÇMIŞ durumdadır (gerçek kurulum): `sync_meta.user_role` onu kurye
+      // olmadığını POZİTİF olarak söyler, `users` aynası henüz inmemiş olsa bile.
+      await db.syncState();
+      await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(
+          const SyncMetaCompanion(userId: Value('patron-1'), userRole: Value('patron')));
       await nakit(7500, kuryeId: 'patron-1', at: oncekiIso());
+
       final on = await DayClosingRepository(db).onizle(ClosingScope.day, localDate: bugun);
       expect(on.dusulenKurus, 0);
       expect(on.expectedCashKurus, 7500);
