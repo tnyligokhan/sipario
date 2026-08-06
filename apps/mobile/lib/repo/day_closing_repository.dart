@@ -111,14 +111,27 @@ class DayClosingRepository {
     // Bu yüzden gün kapsamı kuryelerin O GÜNKÜ NET DEĞİŞİMİNİ düşer.
     final dusulen = handover?.teslimEdilenKurus ??
         await _handovers.kuryelerinGunlukNetDegisimi(date);
-    final cerceveNakit = handover?.toplananKurus ?? kasa.nakit;
+
+    // KAYDA DONACAK KASA, beklenen nakitle AYNI ÇERÇEVEDEN gelmek ZORUNDA (üçüncü inceleme #2).
+    // Kurye kapsamında `kasa` GÜN nakdini, `expectedCashKurus` PENCERE nakdini taşıyordu; arşiv
+    // detayı ikisini yan yana basınca "Toplam Tahsilat 3.000 · Beklenen nakit 8.000" gibi kendi
+    // içinde AÇIKLANAMAZ bir kayıt donuyordu — ve kayıt append-only.
+    //
+    // Kart/havale GÜN çerçevesinde kalır ve bu bilinçli bir SINIRDIR: devir yalnız NAKİT
+    // üzerinedir (`CashHandoverRepository` kart penceresi hesaplamaz), kart fiziksel kasa da
+    // değildir. Yine de `toplam == nakit + kart + havale` kimliği kayıt içinde TUTAR, çünkü
+    // toplam bu nesneden türer — arşivi okuyan üç sayıyı toplayıp dördüncüyü bulabilir.
+    final cerceveKasa = handover == null
+        ? kasa
+        : KasaOzeti(nakit: handover.toplananKurus, kart: kasa.kart, havale: kasa.havale);
 
     return ClosingOnizleme(
       kasa: kasa,
+      cerceveKasa: cerceveKasa,
       deliveryCount: teslimat,
       openCreditKurus: borc.toplamAcikBorc,
       expectedCashKurus: handover?.expectedKurus ?? (kasa.nakit - dusulen),
-      gunNakitKurus: cerceveNakit,
+      gunNakitKurus: cerceveKasa.nakit,
       dusulenKurus: dusulen,
       dusulenKalem: courierId != null
           ? DusulenKalem.teslimEdilen
@@ -138,6 +151,17 @@ class DayClosingRepository {
   /// bloğun DIŞINDA ve ÖNCESİNDE çağırıyordu; arada süreç ölürse kapanışa bağlanmamış bir devir
   /// kalıyordu ve `araTahsilatlar` onu ARA TAHSİLAT sayıyordu — kurye hesabı kapanmamış görünür,
   /// ara tahsilat toplamı şişerdi. Kayıtların ikisi de olur ya da hiçbiri olmaz.
+  ///
+  /// KAPANMIŞ KAPSAM REDDEDİLİR ([StateError]) — `araTahsilat()`taki kapının AYNISI (üçüncü
+  /// inceleme #1). Ekran kapanmış kapsamda düğmeyi zaten gizler; bu İKİNCİ kapı, çünkü sheet
+  /// açıkken senkron başka bir cihazdan gelen kapanışı indirebilir ve ekranın bildiği durum o an
+  /// bayattır. İkinci kapanış aynı kurye/gün için İKİ `day_closings` + İKİ `cash_handovers`
+  /// yazardı; `teslimEdilenNakit` ikisini birden sayınca gün kapsamında beklenen 10.000 yerine
+  /// 20.000 çıkar, patron kasasını sayınca "EKSİK 10.000" görür ve bu append-only olarak DONARDI.
+  ///
+  /// SINIR: bu kapı YEREL bir kapıdır ve cihazlar arası yarışı TAMAMEN kapatmaz — iki cihaz
+  /// birbirinden habersiz aynı anda kapatırsa ikisi de yerelde geçer, sunucu iki olayı da alır.
+  /// Tam çözüm sunucuda `(scope, user_id, gün)` TEKİLLİĞİ ister; o borç kayıtlıdır.
   Future<String> kapat({
     required ClosingScope scope,
     String? userId,
@@ -154,6 +178,19 @@ class DayClosingRepository {
       throw ArgumentError('Gün kapanışında userId olamaz');
     }
 
+    final bugun = await bugunTrDuzeltilmis(db);
+    final gun = localDate ?? bugun;
+
+    // KAPI, KAPATILAN GÜNE sorulur ("bugün"e değil): geçmiş bir günü kapatan çağrı da o günün
+    // kapanışına takılmalı, yoksa dün iki kez kapatılabilirdi.
+    if (await kapaliMi(ClosingScope.day, localDate: gun)) {
+      throw StateError('Gün hesabı kapandı; yeniden kapatılamaz.');
+    }
+    if (scope == ClosingScope.courier &&
+        await kapaliMi(ClosingScope.courier, userId: userId, localDate: gun)) {
+      throw StateError('Bu kuryenin hesabı kapandı; yeniden kapatılamaz.');
+    }
+
     final on = await onizle(scope, userId: userId, localDate: localDate);
     final meta = await db.syncState();
     final device = meta.deviceId;
@@ -163,7 +200,6 @@ class DayClosingRepository {
     // GÖRÜNMEZ — gün kapalı sayılmaz, arşivde yanlış güne düşer. Damga o günün SON anıdır:
     // olayın gerçek yazım anı `device_id` + outbox sırasında zaten duruyor, kaybolmuyor.
     final simdi = correctedNowIso(meta.serverTimeOffsetMs);
-    final bugun = await bugunTrDuzeltilmis(db);
     final at = (localDate != null && localDate.isBefore(bugun))
         ? trGunBasiUtc(localDate)
             .add(const Duration(days: 1, milliseconds: -1))
@@ -195,10 +231,11 @@ class DayClosingRepository {
         'user_id': userId,
         'period_start': on.periodStartIso,
         'delivery_count': on.deliveryCount,
-        'total_collected_kurus': on.kasa.toplam,
-        'cash_nakit_kurus': on.kasa.nakit,
-        'cash_kart_kurus': on.kasa.kart,
-        'cash_havale_kurus': on.kasa.havale,
+        // KAPSAMIN KENDİ ÇERÇEVESİ — `expected_cash_kurus` ile aynı yerden (bkz. [onizle]).
+        'total_collected_kurus': on.cerceveKasa.toplam,
+        'cash_nakit_kurus': on.cerceveKasa.nakit,
+        'cash_kart_kurus': on.cerceveKasa.kart,
+        'cash_havale_kurus': on.cerceveKasa.havale,
         'open_credit_kurus': on.openCreditKurus,
         'expected_cash_kurus': on.expectedCashKurus,
         'counted_cash_kurus': countedCashKurus,
@@ -213,10 +250,10 @@ class DayClosingRepository {
             userId: Value(userId),
             periodStart: Value(on.periodStartIso),
             deliveryCount: Value(on.deliveryCount),
-            totalCollectedKurus: Value(on.kasa.toplam),
-            cashNakitKurus: Value(on.kasa.nakit),
-            cashKartKurus: Value(on.kasa.kart),
-            cashHavaleKurus: Value(on.kasa.havale),
+            totalCollectedKurus: Value(on.cerceveKasa.toplam),
+            cashNakitKurus: Value(on.cerceveKasa.nakit),
+            cashKartKurus: Value(on.cerceveKasa.kart),
+            cashHavaleKurus: Value(on.cerceveKasa.havale),
             openCreditKurus: Value(on.openCreditKurus),
             expectedCashKurus: Value(on.expectedCashKurus),
             countedCashKurus: Value(countedCashKurus),
@@ -246,6 +283,7 @@ class DayClosingRepository {
 class ClosingOnizleme {
   ClosingOnizleme({
     required this.kasa,
+    required this.cerceveKasa,
     required this.deliveryCount,
     required this.openCreditKurus,
     required this.expectedCashKurus,
@@ -254,7 +292,18 @@ class ClosingOnizleme {
     this.dusulenKalem = DusulenKalem.kuryelerdeKalan,
     this.periodStartIso,
   });
+
+  /// GÜN çerçevesindeki kasa (takvim günü, kapsam süzgeçli). Ekranın "bugün ne toplandı"
+  /// kartlarının kaynağı; kurye kapsamında bu rakam kuryenin PENCERESİ değildir.
   final KasaOzeti kasa;
+
+  /// KAPSAMIN KENDİ çerçevesindeki kasa — kayda donan rakamlar bundan yazılır.
+  ///
+  /// Gün kapsamında [kasa] ile AYNIDIR. Kurye kapsamında `nakit` PENCEREden gelir (son kurye
+  /// kapanışından beri toplanan), böylece kayıt `expected_cash_kurus` ile aynı çerçeveyi konuşur.
+  /// Kart/havale gün çerçevesinde kalır — devir yalnız nakit üzerinedir (bkz. [onizle] notu).
+  final KasaOzeti cerceveKasa;
+
   final int deliveryCount;
   final int openCreditKurus;
 

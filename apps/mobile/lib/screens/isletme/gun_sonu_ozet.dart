@@ -23,6 +23,9 @@ export '../../data/tr_gun.dart' show bugunTrDuzeltilmis;
 DateTime bugunTr({DateTime? now}) => trGunu(now ?? DateTime.now());
 
 /// Gün geneli özet: kasa + açık borç.
+///
+/// ⚠️ [GunSonuGorunumu] BUNU TAŞIMAZ (bkz. [GunBorcOzeti]). Serbest bir read-model olarak durur:
+/// gün genelinin kasasını tek çağrıda isteyen saf çağrılar (testler, raporlama) içindir.
 class GunSonuOzet {
   GunSonuOzet({required this.kasa, required this.borc});
   final KasaOzeti kasa;
@@ -34,6 +37,22 @@ Future<GunSonuOzet> gunSonuOzeti(AppDatabase db, DateTime localDate) async {
   final kasa = await repo.kasaOzeti(localDate);
   final borc = await repo.borcDurumu();
   return GunSonuOzet(kasa: kasa, borc: borc);
+}
+
+/// [GunSonuGorunumu.ozet]in tipi: yalnız BORÇ taşır, gün geneli kasa TAŞIMAZ.
+///
+/// NEDEN AYRI BİR TİP (üçüncü inceleme #3b): burada bir zamanlar [GunSonuOzet] duruyordu ve
+/// `ozet.kasa` GÜN GENELİ bir [KasaOzeti]ydi — hiçbir yerde çizilmiyordu ama `kapsam.kasa`nın bir
+/// tanımlayıcı yanında bekliyordu. `g.ozet.kasa` yazmak DERLENİYOR ve kurye sekmesinin başlığının
+/// altına sessizce GÜN toplamlarını basıyordu: yanlış rakam, doğru görünen bir yerde. Kapsamın
+/// kasası TEK yerden gelmeli — [GunSonuGorunumu.kapsam]. Tipi daraltmak o yazımı derleme
+/// zamanında imkânsız kılar; yorum kılmazdı.
+///
+/// Alan adı `ozet` KALDI (ekran `g.ozet.borc` yazıyor): tuzağı kapatmak için ekranların
+/// değişmesi gerekmiyordu.
+class GunBorcOzeti {
+  GunBorcOzeti({required this.borc});
+  final BorcDurumu borc;
 }
 
 /// Seçili kapsamın (gün ya da tek kurye) kasa özeti + teslimat sayısı + açık sipariş sayısı.
@@ -100,14 +119,13 @@ bool ayniTrGun(String iso, DateTime localDate) => ayniTrGunIso(iso, localDate);
 // Ekranın tek atışta ihtiyaç duyduğu her şey
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
-/// Özet + kapsam + kilit durumu + arşiv. Tek future ile yüklenir; kapatma sonrası tazelenir.
+/// Özet + kapsam + kilit durumu. Tek future ile yüklenir; kapatma sonrası tazelenir.
 class GunSonuGorunumu {
   GunSonuGorunumu({
     required this.ozet,
     required this.kapsam,
     required this.gunKapali,
     required this.kapsamKapali,
-    required this.arsiv,
     this.acikKuryeAdlari = const [],
     this.gunEngeli = false,
     this.araTahsilatlar = const [],
@@ -117,16 +135,15 @@ class GunSonuGorunumu {
     this.senkron = const SenkronTazeligi(),
   });
 
-  final GunSonuOzet ozet;
+  /// Gün geneli BORÇ (yalnız borç — bkz. [GunBorcOzeti]).
+  final GunBorcOzeti ozet;
+
   final KapsamOzeti kapsam;
 
   /// Gün hesabı kapatıldıysa artık HİÇBİR kapsam açılmaz (tasarım: "tüm hesaplar kilitli").
   final bool gunKapali;
 
   final bool kapsamKapali;
-
-  /// Arşiv (yeni üstte) — APPEND-ONLY; kayıt silinmez, düzeltme yeni kapanışla yapılır.
-  final List<DayClosing> arsiv;
 
   /// Bugün hesabı HENÜZ KAPANMAMIŞ aktif kuryelerin adları (ada göre sıralı).
   /// Tasarımdaki `acikKuryeler` — gün engelinin metnini bu liste yazar.
@@ -143,7 +160,13 @@ class GunSonuGorunumu {
   /// buraya GİRMEZ — onlar hesabı kapatırken teslim edilen kasadır, gün içi tahsilat değil.
   final List<AraTahsilatKaydi> araTahsilatlar;
 
-  /// O güne düşen kapanış kayıtları (yeni üstte). [arsiv] tüm geçmişi taşır; bu, seçili günü.
+  /// O güne düşen kapanış kayıtları (yeni üstte).
+  ///
+  /// Burada bir zamanlar bir de `arsiv` (tüm geçmiş, 50 satır) duruyordu: her yüklemede,
+  /// her kapsam değişiminde ve her yenilemede `watchArchive().first` ile çekiliyor ve `lib`
+  /// ile `test` genelinde HİÇ okunmuyordu. Arşivi gerçekten çizen ekran onu kendi
+  /// `DayClosingRepository.watchArchive()` akışından alır — görünüm nesnesinin taşıması
+  /// gereken tek liste SEÇİLİ GÜNÜNKÜDÜR.
   final List<DayClosing> gunKapanislari;
 
   /// Ara tahsilat düğmesi ÇİZİLEBİLİR mi (aktif kurye var + gün henüz kapanmadı + gün bugün).
@@ -192,11 +215,10 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
   final bugun = localDate == await bugunTrDuzeltilmis(db);
 
   return GunSonuGorunumu(
-    ozet: await gunSonuOzeti(db, localDate),
+    ozet: GunBorcOzeti(borc: await DayEndRepository(db).borcDurumu()),
     kapsam: await kapsamOzeti(db, localDate, kuryeId: kuryeId),
     gunKapali: gunKapali,
     kapsamKapali: gunKapali || kuryeKapali,
-    arsiv: await kapanislar.watchArchive().first,
     gunKapanislari: await kapanislar.gununKapanislari(localDate),
     araTahsilatlar:
         await CashHandoverRepository(db).araTahsilatlar(localDate, kuryeId: kuryeId),

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
+import 'package:sipario/data/tr_gun.dart';
 import 'package:sipario/repo/cash_handover_repository.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/day_closing_repository.dart';
@@ -296,21 +297,25 @@ void main() {
   group('Arşiv zaman etiketi (gunSaatBicimi)', () {
     // Arşiv çok günlüdür; yalnız saat basılınca iki farklı günün kapanışı aynı görünüyordu.
     // TR +03:00 sabit offset — gün sınırı kuralıyla aynı.
-    final simdi = DateTime.utc(2026, 7, 26, 15, 5); // TR 18:05
+    //
+    // REFERANS GÜN ARTIK PARAMETREDİR (inceleme bulgusu 2026-08-06): imza `{DateTime? simdi}`
+    // iken boş bırakılan çağrılar CİHAZ saatine düşüyordu, oysa kaydın GÜNÜ düzeltilmiş saatten
+    // çıkıyor. Çağıran artık düzeltilmiş TR takvim gününü VERMEK ZORUNDA.
+    final bugun = trGunu(DateTime.utc(2026, 7, 26, 15, 5)); // TR 26.07, saat 18:05
 
     test('bugün / dün / öncesi ayrı biçimlenir', () {
-      expect(gunSaatBicimi('2026-07-26T15:05:00Z', simdi: simdi), 'Bugün 18:05');
-      expect(gunSaatBicimi('2026-07-25T06:20:00Z', simdi: simdi), 'Dün 09:20');
-      expect(gunSaatBicimi('2026-07-20T15:05:00Z', simdi: simdi), '20.07 18:05');
+      expect(gunSaatBicimi('2026-07-26T15:05:00Z', bugun: bugun), 'Bugün 18:05');
+      expect(gunSaatBicimi('2026-07-25T06:20:00Z', bugun: bugun), 'Dün 09:20');
+      expect(gunSaatBicimi('2026-07-20T15:05:00Z', bugun: bugun), '20.07 18:05');
     });
 
     test('TR gün sınırı: UTC 22:30 ERTESİ gündür (yerel 01:30)', () {
-      expect(gunSaatBicimi('2026-07-25T22:30:00Z', simdi: simdi), 'Bugün 01:30',
+      expect(gunSaatBicimi('2026-07-25T22:30:00Z', bugun: bugun), 'Bugün 01:30',
           reason: 'UTC günü 25 ama TR günü 26 — kapanış TR gününe göre okunur');
     });
 
     test('çözülemeyen değer olduğu gibi döner (uydurma tarih basılmaz)', () {
-      expect(gunSaatBicimi('bozuk', simdi: simdi), 'bozuk');
+      expect(gunSaatBicimi('bozuk', bugun: bugun), 'bozuk');
     });
   });
 

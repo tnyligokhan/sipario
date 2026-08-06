@@ -82,10 +82,21 @@ class _DayEndScreenState extends State<DayEndScreen> {
   /// saat 23:40'ta `bugunTr()` YARINI verir, oysa kayıt BUGÜNE düşer; ekran bir günün rakamlarını
   /// gösterirken kapanış başka bir güne yazılırdı.
   ///
-  /// Gün bir ALAN OLARAK TUTULMAZ: her okuyan onu kendi anında çözer (burada ve [_kapat] içinde).
-  /// Saklansaydı, akşamdan beri açık duran bir ekran gece yarısından sonra dünün gününü taşırdı.
-  Future<GunSonuGorunumu> _yukle() async =>
-      gunSonuGorunumu(widget.db, await bugunTrDuzeltilmis(widget.db), kuryeId: _kuryeId);
+  /// Gün bir KARAR ALANI OLARAK TUTULMAZ: para yazan her akış onu kendi anında yeniden çözer
+  /// (burada ve [_kapat] içinde). Saklansaydı, akşamdan beri açık duran bir ekran gece yarısından
+  /// sonra dünün gününe kayıt yazardı.
+  Future<GunSonuGorunumu> _yukle() async {
+    final gun = await bugunTrDuzeltilmis(widget.db);
+    // GÖSTERİM için son çözülen gün saklanır: arşiv satırlarındaki "Bugün/Dün" kelimesi buna
+    // göre yazılır. Yazma kararı vermez — yalnız kelime seçer, o yüzden bir kare bayat kalması
+    // zararsızdır (gövde zaten ancak bu future çözüldükten SONRA çiziliyor).
+    _bugun = gun;
+    return gunSonuGorunumu(widget.db, gun, kuryeId: _kuryeId);
+  }
+
+  /// "Bugün/Dün" etiketlerinin referans günü. Cihaz saatiyle başlar, ilk yükleme onu düzeltilmiş
+  /// güne çevirir.
+  DateTime _bugun = bugunTr();
 
   void _tazele() {
     setState(() {
@@ -137,6 +148,38 @@ class _DayEndScreenState extends State<DayEndScreen> {
     return _kuryeId == widget.kullaniciId;
   }
 
+  /// KURYE KAPSAMINDA SHEET İLE EKRAN AYNI ARALIĞI KONUŞMAYABİLİR — bunu söyleyen satırın metni.
+  ///
+  /// Sheet'lerin rakamları o kuryenin PENCERESİNDEN gelir (son hesap kapanışından beri; kapanışı
+  /// yoksa alttan açık), ekrandaki kasa kartı ve ara tahsilat kartı ise TAKVİM GÜNÜNDEN. Hiç
+  /// kapanış yapmamış bir kurye dün 5.000, bugün 3.000 topladıysa ekran 3.000, sheet 8.000 der ve
+  /// bir tur boyunca bu ikisinin arasını açıklayan HİÇBİR satır yoktu — bayi hangisinin doğru
+  /// olduğunu soramıyordu.
+  ///
+  /// KARŞILAŞTIRMA, HESAP DEĞİLDİR: burada hiçbir para türetilmiyor, iki çerçevenin AYNI parayı
+  /// kapsayıp kapsamadığı soruluyor. Rakamların ikisi de repo'dan geliyor. Çakışıyorlarsa (çoğu
+  /// gün böyle) satır çizilmez — açıklanacak bir fark yokken yazılan uyarı gürültüdür.
+  ///
+  /// TEK METİN VAR, çünkü tek hâl ULAŞILABİLİR: pencere ancak kuryenin BUGÜNKÜ bir kapanışıyla
+  /// günün içinden başlayabilirdi, ama o kapanış kapsamı KİLİTLER (`kapsamKapali`) ve o hâlde ne
+  /// kapatma ne ara tahsilat sheet'i açılır. Yani ayrışma her zaman "pencere geriye sarkıyor"
+  /// yönündedir. İkinci bir dal yazmak, hiç oluşamayacak bir hâl için test edilemeyen kopya
+  /// yazmak olurdu.
+  Future<String?> _cerceveNotu(
+    GunSonuGorunumu g,
+    String kuryeId,
+    DateTime gun, {
+    required int pencereNakit,
+    required int pencereTeslim,
+  }) async {
+    final gunTeslim =
+        await CashHandoverRepository(widget.db).teslimEdilenNakit(gun, kuryeId: kuryeId);
+    if (pencereNakit == g.kapsam.kasa.nakit && pencereTeslim == gunTeslim) return null;
+    // Metin FORMÜL İDDİA ETMEZ (beklenen nakdin tanımı repo'nundur ve bu vardiyada iki kez
+    // değişti) — yalnız hangi ARALIĞIN kapsandığını söyler.
+    return 'Önceki günden devreden nakit dahil — ekrandaki gün toplamıyla aynı aralık değil.';
+  }
+
   Future<void> _araTahsilat(List<User> kuryeler, GunSonuGorunumu g) async {
     if (!_araTahsilatAlabilir(g)) return; // düğme zaten çizilmedi; çift kapı (K2 pazarlıksız)
     final kuryeId = _kuryeId!;
@@ -148,12 +191,20 @@ class _DayEndScreenState extends State<DayEndScreen> {
     // sessizce ayrışır, sheet'te yazan tutar kayda geçenden farklı olurdu.
     final repo = CashHandoverRepository(widget.db);
     final onizleme = await repo.onizle(kuryeId);
+    final not = await _cerceveNotu(
+      g,
+      kuryeId,
+      _bugun,
+      pencereNakit: onizleme.toplananKurus,
+      pencereTeslim: onizleme.teslimEdilenKurus,
+    );
     if (!mounted) return;
 
     final sonuc = await araTahsilatSheet(
       context,
       kuryeAdi: kuryeAdi,
       beklenen: onizleme.expectedKurus,
+      cerceveNotu: not,
       senkron: g.senkron,
     );
     if (sonuc == null || !mounted) return;
@@ -205,6 +256,17 @@ class _DayEndScreenState extends State<DayEndScreen> {
     final gun = await bugunTrDuzeltilmis(widget.db);
     final onizleme = await DayClosingRepository(widget.db)
         .onizle(scope, userId: _kuryeId, localDate: gun);
+    // Çerçeve satırı YALNIZ kurye kapsamındadır: gün kapsamında sheet de ekran da TAKVİM GÜNÜ
+    // konuşur, açıklanacak bir aralık farkı yoktur.
+    final not = _kuryeId == null
+        ? null
+        : await _cerceveNotu(
+            g,
+            _kuryeId!,
+            gun,
+            pencereNakit: onizleme.gunNakitKurus,
+            pencereTeslim: onizleme.dusulenKurus,
+          );
     if (!mounted) return;
 
     final sonuc = await gunKapatmaSheet(
@@ -245,6 +307,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
             : 'Kuryelerde kalan',
       },
       ortaTutar: onizleme.dusulenKurus,
+      cerceveNotu: not,
       // TAZELİK HER İKİ KAPSAMA DA geçilir (lead kararı 2026-08-06): kurye kendi telefonundan
       // da ara tahsilat teslim edebildiği için "günü kapatan cihaz zaten tahsilatı alan
       // cihazdır" varsayımı tutmuyor — risk simetrik. Gürültü ayarı sheet'in içinde: gün
@@ -361,6 +424,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
                               kapsamAdi: _kapsamAdi(kuryeler),
                               gunKapsami: _kuryeId == null,
                               ekip: kuryeler,
+                              bugun: _bugun,
                               onYenile: _yenile,
                             ),
                     ),

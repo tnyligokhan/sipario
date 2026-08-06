@@ -4,31 +4,28 @@
 // Hiçbir tabloya YAZMAZ; yalnız Drift'ten türetir ve `watch()` ile canlı kalır (sipariş teslim
 // edilince bento kendiliğinden güncellenir).
 //
-// GÜN SINIRI: DayEndRepository ile AYNI kural — sabit +03:00 (Türkiye, 2016'dan beri DST yok).
-// TR gece yarısının UTC karşılığı hesaplanıp sınır olarak SQL'e verilir; `datetime()` ile
-// karşılaştırılır ki sunucudan gelen farklı ISO yazımları (Z'li / Z'siz / kesirli saniye) da
-// doğru düşsün.
+// GÜN SINIRI KURALI BU DOSYADA YAŞAMAZ: `data/tr_gun.dart`taki TEK tanıma delege edilir.
+// Burada bir zamanlar kendi `+3` sabiti ve kendi `bugunTrGunu()`sü vardı; kural toplandığında bu
+// dosya atlanmıştı ve sonuç şuydu (inceleme bulgusu, 2026-08-06): telefon 40 dk ileriyken 23:40'ta
+// bento "Bugün Kasa 0,00 ₺" derken, kutuya dokununca açılan Gün Özeti "Toplam Tahsilat 12.000 ₺"
+// diyordu. Aynı büyüklük, farklı gün kaynağı, bir dokunuş arayla iki farklı gerçek.
+// TR gece yarısının UTC karşılığı sınır olarak SQL'e verilir; `datetime()` ile karşılaştırılır ki
+// sunucudan gelen farklı ISO yazımları (Z'li / Z'siz / kesirli saniye) da doğru düşsün.
+
+import 'dart:async';
 
 import 'package:drift/drift.dart';
 
 import '../../data/app_database.dart';
-
-const Duration _trOffset = Duration(hours: 3);
+import '../../data/tr_gun.dart';
 
 /// Verilen TR takvim gününün [başlangıç, bitiş) UTC ISO sınırları.
 ({String bas, String son}) trGunSiniri(DateTime trGun) {
-  final geceYarisi = DateTime.utc(trGun.year, trGun.month, trGun.day);
-  final bas = geceYarisi.subtract(_trOffset);
+  final bas = trGunBasiUtc(trGun);
   return (
     bas: bas.toIso8601String(),
     son: bas.add(const Duration(days: 1)).toIso8601String(),
   );
-}
-
-/// Bugünün TR takvim günü (yerel saatten bağımsız — cihaz saati yanlış olsa da gün TR'ye göre).
-DateTime bugunTrGunu([DateTime? simdi]) {
-  final tr = (simdi ?? DateTime.now()).toUtc().add(_trOffset);
-  return DateTime.utc(tr.year, tr.month, tr.day);
 }
 
 /// Ana ekran bento kutularının dört rakamı + yanlarındaki alt bilgiler.
@@ -63,8 +60,54 @@ class AnaOzet {
 
 /// Bento rakamlarının canlı akışı. Sipariş/defter/müşteri tablolarından herhangi biri değişince
 /// yeniden yayar.
-Stream<AnaOzet> watchAnaOzet(AppDatabase db, {DateTime? gun}) {
-  final s = trGunSiniri(gun ?? bugunTrGunu());
+///
+/// [gun] verilmezse gün DÜZELTİLMİŞ SUNUCU SAATİNDEN türer — cihaz saatinden DEĞİL. Kayıtlar
+/// `correctedNowIso(serverTimeOffsetMs)` ile damgalanıyor; bento'nun günü de aynı saatten gelmek
+/// ZORUNDA, yoksa aynı parayı iki yüzey iki farklı güne yazar.
+Stream<AnaOzet> watchAnaOzet(AppDatabase db, {DateTime? gun}) =>
+    gun != null ? _watchGun(db, gun) : _duzeltilmisGunAkisi(db);
+
+/// Düzeltilmiş günü İZLER ve gün değiştikçe sorguyu yeniden kurar.
+///
+/// NEDEN AKIŞ, TEK ATIŞ DEĞİL: `serverTimeOffsetMs` SUNUCU SAHİPLİ bir alandır ve ilk senkronla
+/// iner. Açılışta bir kez okunsaydı, saati yanlış kurulmuş bir telefonda bento gün boyu yanlış
+/// günün kasasını gösterir, offset indiğinde de kimse ona haber vermezdi (bu depoda yaşanmış bir
+/// arıza sınıfı: kontör "0 hak" görünüyordu, sunucuda 34 vardı). Yan fayda: gece yarısını geçen
+/// bir ekran, sonraki senkron turunda kendiliğinden yeni güne döner.
+Stream<AnaOzet> _duzeltilmisGunAkisi(AppDatabase db) {
+  final gunler = db
+      .watchSyncState()
+      .map((m) =>
+          trGunu(DateTime.now().toUtc().add(Duration(milliseconds: m.serverTimeOffsetMs))))
+      .distinct();
+
+  // "switchMap" elle yazılır (depoda rxdart yok): gün değişince ESKİ sorgu akışı kapatılır.
+  // `asyncExpand` burada ÇALIŞMAZ — iç akış sonsuzdur, dış olayı hiç sıraya alamaz ve ikinci gün
+  // asla gelmez. `distinct()` sayesinde sync_meta'nın her yazımında (lastPulledSeq…) yeniden
+  // abone olunmaz; yalnız GÜN değiştiğinde olunur.
+  StreamSubscription<DateTime>? disAbone;
+  StreamSubscription<AnaOzet>? icAbone;
+  late final StreamController<AnaOzet> kanal;
+  kanal = StreamController<AnaOzet>(
+    onListen: () {
+      disAbone = gunler.listen(
+        (g) {
+          icAbone?.cancel();
+          icAbone = _watchGun(db, g).listen(kanal.add, onError: kanal.addError);
+        },
+        onError: kanal.addError,
+      );
+    },
+    onCancel: () async {
+      await icAbone?.cancel();
+      await disAbone?.cancel();
+    },
+  );
+  return kanal.stream;
+}
+
+Stream<AnaOzet> _watchGun(AppDatabase db, DateTime gun) {
+  final s = trGunSiniri(gun);
   final v = [
     Variable<String>(s.bas),
     Variable<String>(s.son),
@@ -186,6 +229,6 @@ String odemeEtiketi(String? tip) => switch (tip) {
 String sipSaat(String iso) {
   final t = DateTime.tryParse(iso);
   if (t == null) return '';
-  final tr = t.toUtc().add(_trOffset);
+  final tr = t.toUtc().add(kTrOffset);
   return '${tr.hour.toString().padLeft(2, '0')}:${tr.minute.toString().padLeft(2, '0')}';
 }

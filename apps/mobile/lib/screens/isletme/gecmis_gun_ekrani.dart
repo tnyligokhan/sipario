@@ -217,6 +217,9 @@ class _GecmisGunEkraniState extends State<GecmisGunEkrani> {
                         gunKapsami: _kuryeId == null,
                         ekip: kuryeler,
                         urunler: _urunler,
+                        // "Bugün/Dün" etiketi de düzeltilmiş günden okunur: `_bugun` zaten
+                        // [initState] içinde `bugunTrDuzeltilmis` ile tazeleniyor.
+                        bugun: _bugun,
                         onYenile: _yenile,
                       );
                     },
@@ -249,6 +252,7 @@ class _Govde extends StatelessWidget {
     required this.gunKapsami,
     required this.ekip,
     required this.urunler,
+    required this.bugun,
     required this.onYenile,
   });
 
@@ -261,6 +265,11 @@ class _Govde extends StatelessWidget {
   final bool gunKapsami;
   final List<User> ekip;
   final Future<List<UrunSatisi>> urunler;
+
+  /// "Bugün/Dün" kelimesinin referans günü (DÜZELTİLMİŞ saatten). Geçmiş bir güne bakarken bile
+  /// gerekir: arşiv satırı o günün kapanışını "Dün 18:05" diye yazar ve o "dün" BUGÜNE göredir.
+  final DateTime bugun;
+
   final Future<void> Function() onYenile;
 
   String _kapanisAdi(DayClosing k) =>
@@ -359,10 +368,12 @@ class _Govde extends StatelessWidget {
                 child: ArsivSatiri(
                   kapanis: kapanislar[i],
                   kapsamAdi: _kapanisAdi(kapanislar[i]),
+                  bugun: bugun,
                   onTap: () => arsivDetaySheet(
                     context,
                     kapanislar[i],
                     kapsamAdi: _kapanisAdi(kapanislar[i]),
+                    bugun: bugun,
                   ),
                 ),
               ),

@@ -11,6 +11,15 @@ import 'app_database.dart';
 /// `CashHandoverRepository`, `DayClosingRepository`, `gun_sonu_ozet`). Kopyalardan birini
 /// güncellemeyi unutmak, iki ekranın farklı gün konuşması demekti — ve hiçbir test bunu
 /// yakalamazdı, çünkü her kopya kendi içinde tutarlı kalırdı.
+///
+/// ⚠️ TOPLANMA BİTMEDİ — "tek yer" bugün yalnız VERİ/REPO katmanı için doğrudur. Ekran
+/// katmanında `+3` hâlâ ELLE yazılı üç kopya var (üçüncü inceleme #5):
+///   • `screens/isletme/gun_kapatma_sheet.dart` → `_trAn()`
+///   • `screens/isletme/gun_sonu_kartlari.dart` → `araTahsilatSaati()`
+///   • `screens/shell/ana_ozet.dart` → `_trOffset` sabiti ve kullanıldığı yer
+/// Üçü de SAATİ/ANI biçimlendirir, gün sınırı kararı vermez — yani bugünkü riski "iki ekran
+/// farklı gün konuşur" değil, "kural değişirse üç yer geride kalır". Bu satırların iddiası
+/// gerçeğe uydurulmuştur: burası kuralın KAYNAĞIdır, henüz TEK KULLANICISI değil.
 
 const Duration kTrOffset = Duration(hours: 3);
 

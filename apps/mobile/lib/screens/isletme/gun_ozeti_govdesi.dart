@@ -28,11 +28,15 @@ class GunOzetiGovdesi extends StatelessWidget {
     required this.kapsamAdi,
     required this.gunKapsami,
     required this.ekip,
+    required this.bugun,
     required this.onYenile,
   });
 
   final Future<void> Function() onYenile;
   final GunSonuGorunumu gorunum;
+
+  /// "Bugün/Dün" etiketlerinin referans günü — ekran onu DÜZELTİLMİŞ saatten çözer.
+  final DateTime bugun;
 
   /// Seçili kapsamın adı ("Gün hesabı" ya da kurye adı).
   final String kapsamAdi;
@@ -120,10 +124,12 @@ class GunOzetiGovdesi extends StatelessWidget {
               child: ArsivSatiri(
                 kapanis: g.gunKapanislari[i],
                 kapsamAdi: _kapanisAdi(g.gunKapanislari[i]),
+                bugun: bugun,
                 onTap: () => arsivDetaySheet(
                   context,
                   g.gunKapanislari[i],
                   kapsamAdi: _kapanisAdi(g.gunKapanislari[i]),
+                  bugun: bugun,
                 ),
               ),
             ),

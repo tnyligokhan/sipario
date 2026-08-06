@@ -15,11 +15,9 @@
 // Yalnız varlığı sınamak yetmiyordu — üst satır bir tur boyunca yanlış etiketle durdu ve suite
 // yeşil geçti, çünkü o etiketi hiçbir iddia tutmuyordu.
 
-import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
-import 'package:sipario/data/tr_gun.dart';
 import 'package:sipario/repo/cash_handover_repository.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/day_closing_repository.dart';
@@ -29,25 +27,6 @@ import 'package:sipario/theme/components/atoms.dart';
 
 import 'support/ara_tahsilat_yardimcilari.dart';
 import 'support/ekran_yardimcilari.dart';
-
-/// Bir kuryenin şimdiye kadar yazılmış tahsilatlarını DÜNE kaydırır — "dün topladı" senaryosu.
-///
-/// Repo damgayı `correctedNowIso` ile KENDİ koyar (istemci saatini uydurmaz, doğru tasarım), bu
-/// yüzden geçmişe kayıt yazmanın tek yolu oluşturduktan sonra damgayı geri almaktır. Sipariş VE
-/// onun defter satırı BİRLİKTE kaydırılır: ayrı günlerde kalırlarsa teslimat bir güne, tahsilat
-/// başka güne düşer ve test gerçekte olmayan bir durumu sınar.
-///
-/// DAMGA GÜNÜN ORTASINA KIRPILIR, "şimdi − 24 saat" DEĞİL: gün sınırına yakın saatlerde koşan bir
-/// test yazı-turaya döner ve bu depoda daha önce döndü.
-Future<void> duneKaydir(AppDatabase db, {required String kuryeId}) async {
-  final b = await bugunTrDuzeltilmis(db);
-  final dun = DateTime(b.year, b.month, b.day - 1); // ay başında da doğru (constructor normalize eder)
-  final damga = trGunBasiUtc(dun).add(const Duration(hours: 12)).toIso8601String();
-  await (db.update(db.orders)..where((t) => t.assignedUserId.equals(kuryeId)))
-      .write(OrdersCompanion(occurredAt: Value(damga)));
-  await (db.update(db.ledgerEntries)..where((t) => t.collectedByUserId.equals(kuryeId)))
-      .write(LedgerEntriesCompanion(occurredAt: Value(damga)));
-}
 
 void main() {
   group('Kapanış sheet\'i — beklenen nakit KALAN nakittir', () {
@@ -289,6 +268,117 @@ void main() {
       expect(find.text('Topladığı'), findsNothing);
       expect(find.text('Beklenen nakit'), findsOneWidget);
       expect(find.text(sipTutar(on.expectedCashKurus)), findsWidgets);
+
+      await kapat(tester);
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  // ÇERÇEVE NOTU — sheet PENCERE konuşur, ekran GÜN
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  //
+  // Kurye kapsamında iki farklı çerçeve yan yana duruyor ve arayı açıklayan HİÇBİR satır yoktu:
+  //  • EKRAN (kasa kartı, ara tahsilat kartı) → TAKVİM GÜNÜ
+  //  • SHEET (topladığı · teslim edilen · beklenen) → PENCERE (son hesap kapanışından beri)
+  // Bayi "3.000 mü 8.000 mi doğru" diye soruyor ve uygulama cevap vermiyordu.
+  //
+  // Satır YALNIZ ayrıştıklarında çizilir; çakışan günlerde (çoğunluk) gürültü yapmaz.
+  group('Çerçeve notu — iki çerçeve ayrışınca ekran bunu SÖYLER', () {
+    const cerceveSatiri =
+        'Önceki günden devreden nakit dahil — ekrandaki gün toplamıyla aynı aralık değil.';
+
+    testWidgets('EKSEN 1 — kasa kartı GÜNÜ, sheet PENCEREYİ yazarken satır çizilir',
+        (tester) async {
+      // Hiç kapanış yapmamış kurye: dün 50 ₺ topladı (para cebinde kaldı), bugün 30 ₺ topladı.
+      // Ekran "Nakit 30,00 ₺" der, sheet "Topladığı 80,00 ₺" — ikisi de kendi çerçevesinde doğru.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 5000);
+        await duneKaydir(db, kuryeId: 'k1');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 3000, musteri: 'Veli');
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await kapsamaGec(tester, 'Emre');
+      await dokun(tester, find.text('Hesabı Kapat'));
+      await sheetAnimasyonu(tester);
+
+      final on = await tester.runAsync(
+        () => DayClosingRepository(db).onizle(ClosingScope.courier, userId: 'k1'),
+      );
+      expect(on!.gunNakitKurus, 8000, reason: 'pencere dünü de kapsar (kapanış yok)');
+
+      // İKİ RAKAM AYNI ANDA EKRANDA: sheet'in 80,00 ₺'si ile arkadaki kasa kartının 30,00 ₺'si.
+      // Testin asıl konusu bu yan yanalık — açıklama satırı tam olarak bunun için var.
+      expect(find.text(sipTutar(8000)), findsWidgets);
+      expect(find.text(sipTutar(3000)), findsWidgets, reason: 'arkadaki kasa kartı GÜNÜ yazar');
+      expect(find.text(cerceveSatiri), findsOneWidget);
+
+      await kapat(tester);
+    });
+
+    testWidgets('EKSEN 2 — ara tahsilat kartı BOŞken sheet "Teslim edilen" yazarsa satır çizilir',
+        (tester) async {
+      // Lead senaryosu: kurye dün 50 ₺ topladı, patron dün 20 ₺ ara tahsilat aldı, bugün hesap
+      // kapatılıyor. BUGÜNÜN kartında hiç ara tahsilat yok (kart gün süzgeçli) ama sheet
+      // "Teslim edilen 20,00 ₺" diyor (pencere düne sarkıyor). Uydurma değil, farklı çerçeve.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 5000);
+        await CashHandoverRepository(db)
+            .araTahsilat(fromUserId: 'k1', countedCashKurus: 2000);
+        await duneKaydir(db, kuryeId: 'k1', devirlerDe: true);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await kapsamaGec(tester, 'Emre');
+
+      // Kart GÜN süzgeçli: bugün hiç ara tahsilat yok, bölüm hiç çizilmiyor.
+      expect(find.text('Ara Tahsilatlar'), findsNothing);
+
+      await dokun(tester, find.text('Hesabı Kapat'));
+      await sheetAnimasyonu(tester);
+
+      final on = await tester.runAsync(
+        () => DayClosingRepository(db).onizle(ClosingScope.courier, userId: 'k1'),
+      );
+      expect(on!.dusulenKurus, 2000, reason: 'pencerede dün teslim edilen para');
+
+      expect(find.text('Teslim edilen'), findsOneWidget);
+      expect(find.text('− ${sipTutar(2000)}'), findsOneWidget);
+      expect(find.text(cerceveSatiri), findsOneWidget);
+
+      await kapat(tester);
+    });
+
+    testWidgets('ÇAKIŞAN GÜNDE satır ÇİZİLMEZ — çoğu gün böyle geçer, gürültü yapılmaz',
+        (tester) async {
+      // Kuryenin tüm hareketi BUGÜN: pencere ile gün aynı parayı kapsıyor, açıklanacak bir fark
+      // yok. Koşulsuz çizilen bir uyarı, her akşam okunmayı bırakacak bir satır olurdu.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+        await CashHandoverRepository(db)
+            .araTahsilat(fromUserId: 'k1', countedCashKurus: 6000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await kapsamaGec(tester, 'Emre');
+
+      // Kart bugünün tahsilatını gösteriyor — sheet'le aynı parayı konuşuyorlar.
+      expect(find.text('Ara Tahsilatlar'), findsOneWidget);
+
+      await dokun(tester, find.text('Hesabı Kapat'));
+      await sheetAnimasyonu(tester);
+
+      expect(find.text('Topladığı'), findsOneWidget, reason: 'üçlü yine çizilir');
+      expect(find.text(cerceveSatiri), findsNothing);
+      // Metnin PARÇASI da geçmemeli — satır kısaltılarak geri gelirse bu iddia onu yakalar.
+      // ("devreden" tek başına aranamaz: not alanının ipucu metni de o kelimeyi taşıyor.)
+      expect(find.textContaining('aynı aralık değil'), findsNothing);
 
       await kapat(tester);
     });

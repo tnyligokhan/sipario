@@ -436,8 +436,16 @@ class HandoverOnizleme {
   final int teslimEdilenKurus;
 }
 
-/// Gün içinde alınmış TEK bir ara tahsilat (salt-okunur görünüm). Ekran "kim · ne zaman · sayılan
-/// · beklenen · fark" satırını bundan çizer; kayıt append-only `cash_handovers` satırıdır.
+/// Gün içinde alınmış TEK bir ara tahsilat (salt-okunur görünüm); kayıt append-only
+/// `cash_handovers` satırıdır.
+///
+/// EKRAN BUGÜN YALNIZ "kim · ne zaman · sayılan" BASIYOR (`AraTahsilatKarti`). [expectedCashKurus]
+/// ve [diffKurus] doldurulur ama HİÇBİR YERDE ÇİZİLMEZ — bu doc bir zamanlar "ekran beklenen ve
+/// farkı da çizer" diyordu ve o cümle bir sonraki okuyucuyu "kanıt görünür" sanmaya götürürdü.
+///
+/// ALANLAR YİNE DE KALIR: BRIEF'in kuralı "eksik para KANIT olarak GÖRÜNÜR kalmalı" ve ara
+/// tahsilat farkı şu an hiçbir ekranda görünmüyor — yani eksik olan alan değil, o alanı basan
+/// satır. Silmek, boşluğu kapatmak yerine kalıcılaştırmak olurdu.
 class AraTahsilatKaydi {
   AraTahsilatKaydi({
     required this.id,

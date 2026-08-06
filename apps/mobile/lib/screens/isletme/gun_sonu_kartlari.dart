@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../data/tr_gun.dart';
 import '../../repo/cash_handover_repository.dart';
 import '../../repo/day_end_repository.dart';
 import '../../theme/components/atoms.dart';
@@ -91,17 +92,36 @@ class AraTahsilatKarti extends StatelessWidget {
       satirlar: [
         for (final k in kayitlar)
           DegerSatiri(
-            etiket: kuryeAdiYaz && k.kuryeAdi.isNotEmpty
-                ? '${k.kuryeAdi} · ${araTahsilatSaati(k.occurredAt)}'
-                : araTahsilatSaati(k.occurredAt),
+            // FARK ETİKETE EKLENİR, ayrı satıra değil: sağdaki tutar SAYILAN paradır ve bu kartın
+            // ritmi "kim · saat · sayılan"dır. İkinci bir satır açmak, her tahsilatı iki kez
+            // okunan bir bloğa çevirirdi. Sıfır farkta hiç yazılmaz — iskonto satırındaki desenin
+            // aynısı: farksız tahsilat çoğunluktur ve "fark 0,00 ₺" her satıra cevapsız bir soru
+            // eklerdi.
+            etiket: [
+              if (kuryeAdiYaz && k.kuryeAdi.isNotEmpty) k.kuryeAdi,
+              araTahsilatSaati(k.occurredAt),
+              ?araTahsilatFarki(k.diffKurus),
+            ].join(' · '),
             deger: sipTutar(k.countedCashKurus),
           ),
         // Toplam satırı TEK kayıtta da çizilir — okuyan kişi satırları kafasında toplamasın.
         //
-        // ⚠️ BU SAYI KAPANIŞ SHEET'İNDEKİ "Gün içinde alınan" DEĞİLDİR ve ona eşit olmak zorunda
-        // da değildir. Burası ARA tahsilatları sayar (kapanışa bağlanmamış devirler); oradaki
-        // rakam ARA + KAPANIŞ devirlerinin toplamıdır. Bir kurye hesabını kapatıp kasayı teslim
-        // ettiğinde sheet'teki sayı büyür, buradaki DEĞİŞMEZ.
+        // ⚠️ BU SAYI KAPANIŞ SHEET'İNDEKİ ORTA SATIR DEĞİLDİR ve ona eşit olmak zorunda da
+        // değildir. İKİ AYRI EKSENDE ayrışırlar ve ikisi de bilinçlidir:
+        //
+        //  1. KÜME EKSENİ (ara vs ara+kapanış): burası yalnız ARA tahsilatları sayar (kapanışa
+        //     bağlanmamış devirler); sheet'in düştüğü rakam ARA + KAPANIŞ devirlerini birlikte
+        //     kapsar. Bir kurye hesabını kapatıp kasayı teslim ettiğinde sheet'teki sayı büyür,
+        //     buradaki DEĞİŞMEZ.
+        //
+        //  2. ÇERÇEVE EKSENİ (gün vs pencere): bu kart TAKVİM GÜNÜ süzgeçlidir; kurye kapsamında
+        //     sheet'in rakamları o kuryenin PENCERESİNDEN gelir (son hesap kapanışından beri,
+        //     kapanışı yoksa alttan açık). Emre iki gün önce kapatmış ve dün patron 2.000 almışsa,
+        //     BUGÜNÜN kartında hiç ara tahsilat yoktur ama sheet "Teslim edilen 2.000" der. Fark
+        //     uydurma değildir: kart günü anlatır, sheet cebi.
+        //
+        // Bu eksen bir tur boyunca hiçbir yerde AÇIKLANMIYORDU; artık çakışmadıkları günlerde
+        // sheet'e kısa bir çerçeve satırı çizilir (`_DayEndScreenState._cerceveNotu`).
         //
         // Ayrım bilinçli: bu kart kullanıcıya OLAYLARI anlatır ("saat 14:30'da Emre'den 60 ₺
         // aldım"), sheet'teki sayı ise ARİTMETİĞİ kapatır (gün nakdi − teslim edilen = beklenen).
@@ -117,19 +137,46 @@ class AraTahsilatKarti extends StatelessWidget {
   }
 }
 
-/// UTC damgadan TR saati ("14:30"). Gün sınırı kuralıyla aynı sabit +03:00 kaydırması —
-/// iki farklı saat tanımı, aynı tahsilatı iki farklı güne düşürürdü.
+/// UTC damgadan TR saati ("14:30"). Kaydırma `data/tr_gun.dart`taki TEK sabitten gelir —
+/// elle yazılmış ikinci bir "+3", aynı tahsilatı iki farklı güne düşürmenin kısa yoludur.
 String araTahsilatSaati(DateTime utc) {
-  final tr = utc.toUtc().add(const Duration(hours: 3));
+  final tr = utc.toUtc().add(kTrOffset);
   return '${tr.hour.toString().padLeft(2, '0')}:${tr.minute.toString().padLeft(2, '0')}';
 }
 
+/// Bir ara tahsilattaki FARKIN kart satırına yazılan hâli; fark sıfırsa null (satır yazılmaz).
+///
+/// BRIEF: "Para kayıtları düzeltilmez, telafi kaydıyla düzeltilir — eksik para KANIT olarak
+/// görünür kalmalıdır." `expectedCashKurus`/`diffKurus` kayda yazılıyor ve testleniyordu ama
+/// HİÇBİR EKRANDA basılmıyordu: bir ara tahsilattaki −3.000'lik fark hiçbir yerde görünmüyordu.
+///
+/// TON, ARA TAHSİLAT SHEET'İNİN TONUDUR ve bilinçlidir: burada "EKSİK" damgası YOKTUR. Ara
+/// tahsilatta tutar SERBESTTİR (patron para üstü için kuryede para bırakabilir); her farka arıza
+/// damgası basmak normal işi hatalı gösterirdi. Fark GÖSTERİLİR, "hata" diye ADLANDIRILMAZ.
+String? araTahsilatFarki(int diffKurus) => switch (diffKurus) {
+      < 0 => 'kuryede kalan ${sipTutar(-diffKurus)}',
+      > 0 => 'beklenenden fazla ${sipTutar(diffKurus)}',
+      _ => null,
+    };
+
 /// CSS `.gs-arow` — arşiv satırı. [kapsamAdi] gün hesabında "Gün hesabı", kuryede kuryenin adı.
 class ArsivSatiri extends StatelessWidget {
-  const ArsivSatiri({super.key, required this.kapanis, required this.kapsamAdi, this.onTap});
+  const ArsivSatiri({
+    super.key,
+    required this.kapanis,
+    required this.kapsamAdi,
+    required this.bugun,
+    this.onTap,
+  });
 
   final DayClosing kapanis;
   final String kapsamAdi;
+
+  /// "Bugün/Dün" kelimesinin referans günü — DÜZELTİLMİŞ saatten gelmeli (`bugunTrDuzeltilmis`).
+  /// Kaydın GÜNÜ düzeltilmiş saatten çıkıyor; etiketi cihaz saatinden çıkarmak, telefonu ileri
+  /// kurulmuş bayiye bugün kapattığı hesabın altında "Dün 09:20" okuturdu.
+  final DateTime bugun;
+
   final VoidCallback? onTap;
 
   @override
@@ -166,7 +213,7 @@ class ArsivSatiri extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
                   child: Text(
-                    '${gunSaatBicimi(k.occurredAt)} · ${k.deliveryCount} teslimat'
+                    '${gunSaatBicimi(k.occurredAt, bugun: bugun)} · ${k.deliveryCount} teslimat'
                     '${farkli ? ' · fark ${sipTutar(k.diffKurus)}' : ''}',
                     style: SipText.yardimci.copyWith(color: t.muted),
                   ),

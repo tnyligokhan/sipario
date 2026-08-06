@@ -39,10 +39,16 @@ class AraTahsilatSonucu {
 /// Kuryeden gün içi tahsilat. [beklenen] o kuryede olması beklenen nakittir (kuruş) ve ÇAĞIRAN
 /// taraf `CashHandoverRepository.onizle()`den alır — sheet hiçbir para formülü yazmaz, tanımın
 /// nasıl kurulduğunu da BİLMEZ (repo tanımı 2026-08-06'da kümülatife döndü, bu dosya değişmedi).
+///
+/// [cerceveNotu] da çağırandan gelir: buradaki beklenen tutar kuryenin PENCERE çerçevesindendir
+/// (son hesap kapanışından beri), arkasındaki ekran ise GÜN konuşur. İkisi aynı parayı
+/// kapsamadığında bayi yan yana iki farklı rakam görüyordu. Metin ÇERÇEVEYİ söyler, formül değil;
+/// null ise (çoğu gün) hiç çizilmez.
 Future<AraTahsilatSonucu?> araTahsilatSheet(
   BuildContext context, {
   required String kuryeAdi,
   required int beklenen,
+  String? cerceveNotu,
   SenkronTazeligi? senkron,
 }) {
   return sipSheet<AraTahsilatSonucu>(
@@ -51,6 +57,7 @@ Future<AraTahsilatSonucu?> araTahsilatSheet(
     govde: (ctx) => _AraTahsilatGovdesi(
       kuryeAdi: kuryeAdi,
       beklenen: beklenen,
+      cerceveNotu: cerceveNotu,
       senkron: senkron,
     ),
   );
@@ -60,11 +67,15 @@ class _AraTahsilatGovdesi extends StatefulWidget {
   const _AraTahsilatGovdesi({
     required this.kuryeAdi,
     required this.beklenen,
+    required this.cerceveNotu,
     required this.senkron,
   });
 
   final String kuryeAdi;
   final int beklenen;
+
+  /// Sheet'in çerçevesi ekranınkiyle çakışmıyorsa bunu söyleyen kısa satır; null ise çizilmez.
+  final String? cerceveNotu;
 
   /// null ise tazelik şeridi çizilmez.
   final SenkronTazeligi? senkron;
@@ -132,6 +143,10 @@ class _AraTahsilatGovdesiState extends State<_AraTahsilatGovdesi> {
             ],
           ),
         ),
+
+        // ÇERÇEVE NOTU RAKAMIN ALTINDA: üstteki tutarın hangi aralığı kapsadığını söyler.
+        if (widget.cerceveNotu != null)
+          AlanNotu(widget.cerceveNotu!, tur: AlanNotuTuru.bilgi),
 
         const SipFormEtiket('ALINAN NAKİT (₺)', ustBosluk: 2),
         SipInput(

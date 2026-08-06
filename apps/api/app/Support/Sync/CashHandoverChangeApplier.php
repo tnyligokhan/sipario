@@ -32,7 +32,28 @@ class CashHandoverChangeApplier
         $payload = (array) ($event['payload'] ?? []);
         $id = (string) SyncPayload::req($payload, 'id');
         if (CashHandover::query()->find($id) !== null) {
-            throw new InvalidArgumentException('Bu kasa devri kaydı zaten var');
+            // AYNI ID YENİDEN GELDİ → 'duplicate' (SESSİZ YAKINSAMA), red DEĞİL.
+            //
+            // ASIL KAPAK BURASIDIR, `day_closings`te değil. İki cihaz aynı kuryenin aynı gününü
+            // kapattığında kapanış sunucuya İKİ AYRI OLAY olarak gider (devir önce, arşiv sonra —
+            // AraTahsilatSyncTest bu sırayı yazar) ve her olay kendi savepoint'indedir. Tekilliği
+            // yalnız `day_closings`e koymak devri commit edip arşivi reddederdi: ortada SAHİPSİZ
+            // bir devir kalır, o da "kapanışa bağlı olmayan devir" tanımı gereği ARA TAHSİLATA
+            // terfi eder ve çift sayılan para (`teslimEdilenNakit`) hiç düzelmezdi. Para hatası
+            // ekran özetinde değil PARANIN DEFTERİNDE kapanır.
+            //
+            // Kapanış devrinin id'si de kapanışla aynı çekirdekten TÜRETİLİR, yani aynı id = aynı
+            // mantıksal devir.
+            //
+            // NEDEN RED DEĞİL: `rejected` istemcide KARANTİNAdır; iyi huylu bir tekrar elle
+            // incelemeye kalırdı. 'duplicate' → `acked`, kayıp yok (kayıt zaten sunucuda).
+            //
+            // ⚠️ BEDELİ AÇIK VE KABUL EDİLDİ (lead kararı 2026-08-06): İKİNCİ denemenin SAYILAN
+            // tutarı kayda GEÇMEZ — ilk mutabakat kazanır.
+            //
+            // ARA TAHSİLATLAR ETKİLENMEZ: id'leri türetilmez (rastgele kalır), yani "gün içinde
+            // çok kez kasa devri" serbestliği korunur — kısıt yalnız KAPANIŞ devrindedir.
+            return ['status' => 'duplicate', 'entity_id' => $id, 'changes' => []];
         }
 
         $fromUserId = (string) SyncPayload::req($payload, 'from_user_id');

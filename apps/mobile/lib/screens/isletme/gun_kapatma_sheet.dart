@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/app_database.dart';
+import '../../data/tr_gun.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
@@ -55,6 +56,11 @@ class KapatmaSonucu {
 ///
 /// [ortaTutar] sıfırsa orta satır (ve onunla birlikte üst satır) HİÇ çizilmez: düşülecek bir şey
 /// yokken üçlü açıklamaya gerek yoktur ve "− 0,00 ₺" her akşam cevapsız bir soru olurdu.
+///
+/// [cerceveNotu] de aynı disiplinle ÇAĞIRANDAN gelir: bu sheet'in rakamları kurye kapsamında
+/// PENCERE çerçevesindendir, arkasındaki ekran ise GÜN konuşur. İkisinin aynı parayı kapsamadığı
+/// günlerde bayi yan yana iki farklı rakam görüyor ve arayı açıklayan hiçbir satır yoktu. Metin
+/// FORMÜL İDDİA ETMEZ, yalnız ÇERÇEVEYİ söyler; null ise (çoğu gün) hiç çizilmez.
 Future<KapatmaSonucu?> gunKapatmaSheet(
   BuildContext context, {
   required String kapsamAdi,
@@ -65,6 +71,7 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
   String ustEtiket = 'Günün nakdi',
   String? ortaEtiket,
   int ortaTutar = 0,
+  String? cerceveNotu,
   SenkronTazeligi? senkron,
 }) {
   return sipSheet<KapatmaSonucu>(
@@ -79,6 +86,7 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
       ustEtiket: ustEtiket,
       ortaEtiket: ortaEtiket,
       ortaTutar: ortaTutar,
+      cerceveNotu: cerceveNotu,
       senkron: senkron,
     ),
   );
@@ -94,6 +102,7 @@ class _KapatmaGovdesi extends StatefulWidget {
     required this.ustEtiket,
     required this.ortaEtiket,
     required this.ortaTutar,
+    required this.cerceveNotu,
     required this.senkron,
   });
 
@@ -105,6 +114,9 @@ class _KapatmaGovdesi extends StatefulWidget {
   final String ustEtiket;
   final String? ortaEtiket;
   final int ortaTutar;
+
+  /// Sheet'in çerçevesi ekranınkiyle çakışmıyorsa bunu söyleyen kısa satır; null ise çizilmez.
+  final String? cerceveNotu;
 
   /// null ise tazelik şeridi hiç çizilmez (çağıran o kapsamda göstermemeye karar vermiştir).
   final SenkronTazeligi? senkron;
@@ -209,6 +221,11 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
           ),
         ),
 
+        // ÇERÇEVE NOTU RAKAMLARIN ALTINDA: yukarıdaki üç sayının hangi aralığı kapsadığını
+        // söyler. Üstüne konsaydı bayi henüz hangi rakamdan söz edildiğini bilmeden okurdu.
+        if (widget.cerceveNotu != null)
+          AlanNotu(widget.cerceveNotu!, tur: AlanNotuTuru.bilgi),
+
         const SipFormEtiket('SAYILAN NAKİT (₺)', ustBosluk: 2),
         // CSS `.kd-input` — 56 yüksek, 22 punto rakam.
         SipInput(
@@ -296,22 +313,25 @@ class FarkSeridi extends StatelessWidget {
 
 /// Arşivlenmiş kapanışı kuruşu kuruşuna geri okur. [kapsamAdi] gün hesabında "Gün hesabı",
 /// kurye kapanışında kuryenin adıdır (kayıtta yalnız `user_id` durur, ad `users` aynasından çözülür).
+/// [bugun] "Bugün/Dün" şeridinin referans günüdür — DÜZELTİLMİŞ saatten gelmeli.
 Future<void> arsivDetaySheet(
   BuildContext context,
   DayClosing k, {
   required String kapsamAdi,
+  required DateTime bugun,
 }) {
   return sipSheet<void>(
     context,
     baslik: '$kapsamAdi · Arşiv',
-    govde: (ctx) => _ArsivDetay(kapanis: k),
+    govde: (ctx) => _ArsivDetay(kapanis: k, bugun: bugun),
   );
 }
 
 class _ArsivDetay extends StatelessWidget {
-  const _ArsivDetay({required this.kapanis});
+  const _ArsivDetay({required this.kapanis, required this.bugun});
 
   final DayClosing kapanis;
+  final DateTime bugun;
 
   @override
   Widget build(BuildContext context) {
@@ -324,7 +344,8 @@ class _ArsivDetay extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         KapaliSerit(
-          metin: '${gunSaatBicimi(k.occurredAt)} · kapatıldı · ${k.deliveryCount} teslimat',
+          metin: '${gunSaatBicimi(k.occurredAt, bugun: bugun)} · kapatıldı · '
+              '${k.deliveryCount} teslimat',
           ikon: SipIcons.lock,
         ),
         const SizedBox(height: SipSpace.xl),
@@ -416,15 +437,23 @@ int? kurusaCevir(String metin) {
 /// ISO8601 → "Bugün 18:05" · "Dün 09:20" · "24.07 18:05" (tasarım `s-gunsonu.jsx:85` `{a.tarih}`).
 ///
 /// Arşiv birden çok günün kapanışını taşır; yalnız saat basılınca (eski `saatBicimiKisa`)
-/// satırlar birbirinden ayırt edilemiyordu. TR +03:00 sabit offset — gün sınırı kuralıyla aynı.
-/// [simdi] yalnız test içindir.
-String gunSaatBicimi(String iso, {DateTime? simdi}) {
+/// satırlar birbirinden ayırt edilemiyordu.
+///
+/// [bugun] ZORUNLUDUR ve DÜZELTİLMİŞ saatten gelen TR takvim günü olmalıdır
+/// (`bugunTrDuzeltilmis`). Eskiden imza `{DateTime? simdi}` idi ve boş bırakılınca CİHAZ saatine
+/// düşüyordu: kaydın GÜNÜ düzeltilmiş saatten, "Bugün/Dün" kelimesi cihaz saatinden çıkıyordu —
+/// telefonu ileri kurulmuş bayi, bugün kapattığı hesabın altında "Dün 09:20" okuyordu. Varsayılan
+/// bırakmıyoruz: sessiz bir yedek, bu kusurun tam olarak nasıl doğduğudur; parametre zorunlu
+/// olunca her çağrı yerini derleyici sorar.
+String gunSaatBicimi(String iso, {required DateTime bugun}) {
   final t = DateTime.tryParse(iso);
   if (t == null) return iso;
-  final tr = _trAn(t);
-  final ref = _trAn(simdi ?? DateTime.now());
-  final fark = DateTime(ref.year, ref.month, ref.day)
-      .difference(DateTime(tr.year, tr.month, tr.day))
+  final tr = t.toUtc().add(kTrOffset); // yalnız SAAT için; gün kararı `trGunu`nun
+  final gun = trGunu(t);
+  // Fark UTC üzerinden ölçülür: yerel takvimde gün uzunluğu DST'yle 23/25 saate kayabilir ve
+  // `inDays` 23 saatlik bir farkı 0 sayardı. Türkiye'de DST yok ama test makinesinde olabilir.
+  final fark = DateTime.utc(bugun.year, bugun.month, bugun.day)
+      .difference(DateTime.utc(gun.year, gun.month, gun.day))
       .inDays;
   final saat = '${_iki(tr.hour)}:${_iki(tr.minute)}';
   // İleri tarihli kayıt (cihaz saati geri alınmış) gün.ay ile basılır — "-3 gün" saçmalığı yok.
@@ -432,8 +461,5 @@ String gunSaatBicimi(String iso, {DateTime? simdi}) {
   if (fark == 1) return 'Dün $saat';
   return '${_iki(tr.day)}.${_iki(tr.month)} $saat';
 }
-
-/// Kapanış zamanları TR gününe göre okunur (gün sınırı kuralı: sabit +03:00).
-DateTime _trAn(DateTime t) => t.toUtc().add(const Duration(hours: 3));
 
 String _iki(int n) => n.toString().padLeft(2, '0');

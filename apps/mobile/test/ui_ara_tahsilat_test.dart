@@ -271,6 +271,56 @@ void main() {
       );
     });
 
+    testWidgets('ÇERÇEVE AYRIŞINCA sheet bunu söyler — beklenen tutar düne sarkıyor',
+        (tester) async {
+      // Sheet'in "Kuryede beklenen nakit"i PENCERE çerçevesindendir (hiç kapanış yoksa alttan
+      // açık), arkadaki kasa kartı ise TAKVİM GÜNÜNÜ yazar. Emre dün 50 ₺ topladı ve cebinde
+      // tuttu, bugün 30 ₺ topladı: ekran 30,00 ₺ der, sheet 80,00 ₺. İkisi de doğru, ama arayı
+      // açıklayan hiçbir satır YOKTU ve bayi hangisine güveneceğini soramıyordu.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 5000);
+        await duneKaydir(db, kuryeId: 'k1');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 3000, musteri: 'Veli');
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await kapsamaGec(tester, 'Emre');
+      await dokun(tester, find.text('Ara Tahsilat'));
+      await sheetAnimasyonu(tester);
+
+      expect(find.text('Kuryede beklenen nakit'), findsOneWidget);
+      expect(find.text(sipTutar(8000)), findsWidgets, reason: 'sheet PENCEREYİ yazar');
+      expect(find.text(sipTutar(3000)), findsWidgets, reason: 'arkadaki kasa kartı GÜNÜ yazar');
+      expect(
+        find.text(
+            'Önceki günden devreden nakit dahil — ekrandaki gün toplamıyla aynı aralık değil.'),
+        findsOneWidget,
+      );
+
+      await kapat(tester);
+    });
+
+    testWidgets('YALNIZ BUGÜNÜN parasında çerçeve satırı çizilmez', (tester) async {
+      // Çoğunluk gün böyle geçer; koşulsuz bir uyarı satırı okunmayı bırakırdı.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await kapsamaGec(tester, 'Emre');
+      await dokun(tester, find.text('Ara Tahsilat'));
+      await sheetAnimasyonu(tester);
+
+      expect(find.text('Kuryede beklenen nakit'), findsOneWidget);
+      expect(find.textContaining('aynı aralık değil'), findsNothing);
+
+      await kapat(tester);
+    });
+
     testWidgets('sayım GİRİLMEDEN kaydedilemez', (tester) async {
       // Sayılmamış bir para transferi kaydı, kimsenin doğrulayamayacağı bir rakam olurdu.
       final db = AppDatabase(NativeDatabase.memory());
@@ -287,6 +337,81 @@ void main() {
       final dugme =
           tester.widget<SipButon>(find.widgetWithText(SipButon, 'Tahsilatı Al'));
       expect(dugme.onTap, isNull, reason: 'boş sayımla tahsilat kaydedilmez');
+
+      await kapat(tester);
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  // ARA TAHSİLAT FARKI — kanıt ekranda görünür
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  //
+  // BRIEF: "Para kayıtları düzeltilmez, telafi kaydıyla düzeltilir — eksik para KANIT olarak
+  // görünür kalmalıdır." `expectedCashKurus`/`diffKurus` kayda yazılıyor ve testleniyordu ama
+  // hiçbir ekranda BASILMIYORDU: bir ara tahsilattaki −30 ₺'lik fark hiçbir yerde görünmüyordu.
+  //
+  // TON: fark GÖSTERİLİR, "hata" diye ADLANDIRILMAZ. Ara tahsilatta tutar serbesttir (patron para
+  // üstü için kuryede para bırakabilir) — sheet'te "EKSİK" damgası olmamasının sebebi de budur ve
+  // kart o kararı bozmaz.
+  group('Ara tahsilat kartı — fark satırı', () {
+    testWidgets('FARK VARSA kart satırında yazar, "eksik/hata" denmez', (tester) async {
+      // Emre 90 ₺ topladı, patron 60 ₺ aldı → 30 ₺ kuryede kaldı (fark −30 ₺).
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+        await CashHandoverRepository(db)
+            .araTahsilat(fromUserId: 'k1', countedCashKurus: 6000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+
+      expect(find.text('Ara Tahsilatlar'), findsOneWidget);
+      expect(find.textContaining('kuryede kalan ${sipTutar(3000)}'), findsOneWidget);
+      // Sağdaki tutar SAYILAN paradır; fark onun yerine geçmez.
+      expect(find.text(sipTutar(6000)), findsWidgets);
+      // Ara tahsilat bir MUTABAKAT DEĞİLDİR: arıza dili bu karta girmez.
+      expect(find.textContaining('EKSİK'), findsNothing);
+      expect(find.textContaining('hata'), findsNothing);
+
+      await kapat(tester);
+    });
+
+    testWidgets('BEKLENENDEN FAZLA alındıysa yön DEĞİŞİR', (tester) async {
+      // Kurye önceki dönemden para taşıyor olabilir; fark artı yönde de bilgidir, gizlenmez.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 5000);
+        await CashHandoverRepository(db)
+            .araTahsilat(fromUserId: 'k1', countedCashKurus: 6000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+
+      expect(find.textContaining('beklenenden fazla ${sipTutar(1000)}'), findsOneWidget);
+      expect(find.textContaining('kuryede kalan'), findsNothing,
+          reason: 'ters yönlü kelime, ters yönlü rakama yapıştırılmaz');
+
+      await kapat(tester);
+    });
+
+    testWidgets('FARK SIFIRSA satıra hiçbir şey eklenmez', (tester) async {
+      // İskonto satırındaki desenin aynısı: farksız tahsilat çoğunluktur ve "fark 0,00 ₺" her
+      // satıra cevapsız bir soru eklerdi.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+        await CashHandoverRepository(db)
+            .araTahsilat(fromUserId: 'k1', countedCashKurus: 9000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+
+      expect(find.text('Ara Tahsilatlar'), findsOneWidget);
+      expect(find.textContaining('kuryede kalan'), findsNothing);
+      expect(find.textContaining('beklenenden fazla'), findsNothing);
 
       await kapat(tester);
     });

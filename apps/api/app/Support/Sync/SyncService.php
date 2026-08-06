@@ -233,7 +233,10 @@ class SyncService
                 $seqForEvent ??= $lastSeq;
             }
 
-            // Idempotency defteri: applied/stale/noop hepsinde yazılır → retry çift-uygulamaz.
+            // Idempotency defteri: applied/stale/noop/duplicate hepsinde yazılır → retry
+            // çift-uygulamaz. ('duplicate' uygulayıcıdan da gelebilir: aynı id yeniden
+            // gönderildiğinde append tabloları — day_closings / cash_handovers — kaydı ikinci kez
+            // yazmak yerine sessizce yakınsar; bkz. DayClosingChangeApplier.)
             DB::insert(
                 'INSERT INTO processed_events (tenant_id, client_event_id, entity_type, entity_id, result_seq)
                  VALUES (?, ?, ?, ?, ?)',

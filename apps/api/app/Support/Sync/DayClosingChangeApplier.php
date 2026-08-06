@@ -35,7 +35,27 @@ class DayClosingChangeApplier
         $payload = (array) ($event['payload'] ?? []);
         $id = (string) SyncPayload::req($payload, 'id');
         if (DayClosing::query()->find($id) !== null) {
-            throw new InvalidArgumentException('Bu kapanış kaydı zaten var');
+            // AYNI ID YENİDEN GELDİ → 'duplicate' (SESSİZ YAKINSAMA), red DEĞİL.
+            //
+            // Kapanışın id'si (tenant|scope|user_id|TR gün) çekirdeğinden TÜRETİLİR (teslim
+            // idempotensiyle aynı uuid5 kalıbı), yani aynı id = aynı MANTIKSAL olay. İki cihaz
+            // aynı kuryenin aynı gününü kapatırsa ikincisi buraya düşer.
+            //
+            // NEDEN RED DEĞİL: `rejected` istemcide KARANTİNAdır (outbox satırı elle incelemeye
+            // kalır). İki kişinin aynı hesabı kapatması nadir bir OPERASYON hatasıdır, kötü niyet
+            // değil; iyi huylu bir tekrarın kuyruğu rehin alması bu deponun çıktığı hata sınıfıdır.
+            // 'duplicate' istemcide `acked` olur: satır temizlenir, veri kaybı yoktur (kayıt zaten
+            // sunucuda duruyor) ve parti akmaya devam eder.
+            //
+            // ⚠️ BEDELİ AÇIK VE KABUL EDİLDİ (lead kararı 2026-08-06): İKİNCİ denemenin SAYILAN
+            // tutarı kayda GEÇMEZ — ilk mutabakat kazanır. İki cihaz farklı sayım girmişse
+            // ikincisi sessizce düşer. Kayıt append-only olduğu için düzeltmenin yolu yenisini
+            // yazmak değil, ilkini okumaktır; ikinci sayımı da saklamak "aynı gün iki kapanış"
+            // demek olurdu ve düzeltilen para hatası tam olarak buydu.
+            //
+            // ARA TAHSİLAT BU YOLDAN ETKİLENMEZ: onların id'si türetilmez (rastgele kalır), yani
+            // gün içinde çok kez devir alınabilmesi bozulmaz — kısıt yalnız KAPANIŞ devrindedir.
+            return ['status' => 'duplicate', 'entity_id' => $id, 'changes' => []];
         }
 
         $scope = (string) SyncPayload::req($payload, 'scope');
