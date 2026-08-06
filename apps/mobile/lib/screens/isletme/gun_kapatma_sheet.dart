@@ -30,24 +30,28 @@ class KapatmaSonucu {
 ///
 /// [beklenen] kasada olması gereken nakittir; sayılan tutar bununla karşılaştırılır.
 ///
-/// ══ SHEET HİÇBİR FORMÜL BİLMEZ (lead kararı 2026-08-06) ═══════════════════════════════════
+/// ══ SHEET HİÇBİR FORMÜL VE HİÇBİR ANLAM BİLMEZ (lead kararı 2026-08-06) ════════════════════
 /// Üçlü şöyle çizilir ve tek kuralı vardır: **üst − orta == alt**.
-///   • üst  = [tamNakit]      "Günün nakdi"
-///   • orta = [ortaTutar]     adı [ortaEtiket] ile ÇAĞIRANDAN gelir
-///   • alt  = [beklenen]      "Beklenen nakit"
+///   • üst  = [tamNakit]   adı [ustEtiket] ile ÇAĞIRANDAN gelir
+///   • orta = [ortaTutar]  adı [ortaEtiket] ile ÇAĞIRANDAN gelir
+///   • alt  = [beklenen]   "Beklenen nakit"
 ///
-/// ORTA SATIRIN ADI NEDEN PARAMETRE: iki kapsamda ZIT YÖNLÜ iki büyüklüktür.
-///   • Gün hesabı → "Kuryelerde kalan" (henüz TESLİM EDİLMEMİŞ para)
-///   • Kurye hesabı → "Gün içinde alınan" (TESLİM EDİLMİŞ para)
-/// Bunu tek bir alan adıyla taşıyıp anlamını `gunHesabi` bayrağına göre değiştirmek, bu vardiyada
-/// dört kez yakalanan hatanın tam kalıbıdır ("anlamı değişen sayıyı eski kabıyla taşımak") ve
-/// üstelik sheet'in içine hiçbir testin doğrudan konusu olmayan gizli bir kural gömerdi.
+/// İKİ ETİKET DE NEDEN PARAMETRE: her ikisi de kapsama göre BAŞKA BİR ŞEYİ ölçüyor.
+///   • orta → gün hesabında "Kuryelerde kalan" (henüz teslim EDİLMEMİŞ), kurye hesabında
+///     "Teslim edilen" (teslim EDİLMİŞ) — zıt yönlü iki büyüklük.
+///   • üst → gün hesabında günün tamamı, kurye hesabında o kuryenin PENCERE nakdi (son
+///     kapanışından beri topladığı). Kurye o gün bir kez kapatıp yeniden çalışmışsa ikisi
+///     AYNI DEĞİLDİR ve orada "Günün nakdi" yazmak yanlış olur.
+///
+/// Bu etiketleri sheet'in `gunHesabi` bayrağından çıkarması, bu vardiyada ALTI kez yakalanan
+/// hatanın tam kalıbıdır: anlamı değişen sayıyı eski kelimesiyle taşımak. Kopyayı çağıran verir,
+/// çünkü anlamı bilen odur.
 ///
 /// Sayıların hepsi REPO'DAN gelir; sheet ne toplar ne çıkarır. Kimlik tutmuyorsa çizim değil VERİ
 /// hatalıdır — o yüzden kural testle kilitlenir, kodda `assert` ile değil.
 ///
-/// [ortaEtiket] null ya da [ortaTutar] sıfırsa orta satır HİÇ çizilmez: tek kişilik bayide ve
-/// kuryesi hesabını kapatmış bayide "− 0,00 ₺" her akşam cevapsız bir soru olurdu.
+/// [ortaTutar] sıfırsa orta satır (ve onunla birlikte üst satır) HİÇ çizilmez: düşülecek bir şey
+/// yokken üçlü açıklamaya gerek yoktur ve "− 0,00 ₺" her akşam cevapsız bir soru olurdu.
 Future<KapatmaSonucu?> gunKapatmaSheet(
   BuildContext context, {
   required String kapsamAdi,
@@ -55,6 +59,7 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
   required int beklenen,
   required int teslimat,
   int tamNakit = 0,
+  String ustEtiket = 'Günün nakdi',
   String? ortaEtiket,
   int ortaTutar = 0,
   SenkronTazeligi? senkron,
@@ -68,6 +73,7 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
       beklenen: beklenen,
       teslimat: teslimat,
       tamNakit: tamNakit,
+      ustEtiket: ustEtiket,
       ortaEtiket: ortaEtiket,
       ortaTutar: ortaTutar,
       senkron: senkron,
@@ -82,6 +88,7 @@ class _KapatmaGovdesi extends StatefulWidget {
     required this.beklenen,
     required this.teslimat,
     required this.tamNakit,
+    required this.ustEtiket,
     required this.ortaEtiket,
     required this.ortaTutar,
     required this.senkron,
@@ -92,6 +99,7 @@ class _KapatmaGovdesi extends StatefulWidget {
   final int beklenen;
   final int teslimat;
   final int tamNakit;
+  final String ustEtiket;
   final String? ortaEtiket;
   final int ortaTutar;
 
@@ -154,7 +162,7 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
         if (widget.ortaEtiket != null && widget.ortaTutar != 0) ...[
           DegerKarti(
             satirlar: [
-              DegerSatiri(etiket: 'Günün nakdi', deger: sipTutar(widget.tamNakit)),
+              DegerSatiri(etiket: widget.ustEtiket, deger: sipTutar(widget.tamNakit)),
               DegerSatiri(
                 etiket: widget.ortaEtiket!,
                 deger: '− ${sipTutar(widget.ortaTutar)}',

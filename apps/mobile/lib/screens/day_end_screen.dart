@@ -31,9 +31,9 @@ import '../theme/tokens.dart';
 import 'isletme/ara_tahsilat_sheet.dart';
 import 'isletme/gecmis_gun_ekrani.dart';
 import 'isletme/gun_kapatma_sheet.dart';
+import 'isletme/gun_ozeti_govdesi.dart';
 import 'isletme/gun_sonu_kartlari.dart';
 import 'isletme/gun_sonu_ozet.dart';
-import 'isletme/isletme_atomlari.dart';
 import 'team.dart';
 
 // Veri katmanı bu ekranın genel yüzeyinin parçası olarak kalır: testler ve kabuk `bugunTr` /
@@ -214,15 +214,23 @@ class _DayEndScreenState extends State<DayEndScreen> {
       beklenen: onizleme.expectedCashKurus,
       tamNakit: onizleme.gunNakitKurus,
       teslimat: onizleme.deliveryCount,
-      // ORTA SATIRIN DEĞERİ TEK ALANDAN (`dusulenKurus`) gelir — ekran hangisini seçeceğine
-      // karar vermez, çünkü seçtirmek yanlışını seçme fırsatı vermektir. Ama o sayının ADI
-      // kapsama göre değişir ve adı ekran koyar:
-      //
-      // KURYE hesabı → düşülen, kuryenin TESLİM ETTİĞİ paradır; kalan onun cebindedir.
-      // GÜN hesabı → devir bir İÇ TRANSFERDİR (para kuryeden patrona geçer, işletmeden ÇIKMAZ),
-      // dolayısıyla düşülen teslim edilen değil KURYELERDE KALAN paradır. Burada "Teslim edilen"
-      // yazmak düpedüz yanlış olurdu: kurye 10.000 toplayıp hepsini verdiğinde düşülen 0'dır.
-      ortaEtiket: _kuryeId == null ? 'Kuryelerde kalan' : 'Teslim edilen',
+      // ETİKETLER KAPSAMDAN DEĞİL, VERİDEN TÜRER. `_kuryeId == null` diye çıkarım yapmıyoruz:
+      // düşülen tutarın ne olduğunu repo `dusulenKalem` ile SÖYLÜYOR. Çıkarım yapsaydık, tanım
+      // bir daha değiştiğinde (bu vardiyada üç kez değişti) ekran sessizce eski anlamı yazmaya
+      // devam ederdi; enum ise yeni bir değer eklendiği an derlemeyi kırar.
+      ustEtiket: switch (onizleme.dusulenKalem) {
+        // Kurye kapsamında üst satır günün tamamı DEĞİL, o kuryenin PENCERE nakdidir (son
+        // kapanışından beri topladığı). Kurye gün içinde bir kez kapatıp yeniden çalışmışsa
+        // "Günün nakdi" yazmak yanlış olur — kimlik ancak aynı çerçevede tutar.
+        DusulenKalem.teslimEdilen => 'Topladığı',
+        DusulenKalem.kuryelerdeKalan => 'Günün nakdi',
+      },
+      // "Teslim edilen" EDİLGEN biçimdedir ve bilinçlidir: bu sheet'i kurye de patron da açıyor,
+      // edilgen biçim ikisinde de doğru okunuyor ("aldığım"/"verdiğim" ayrımına düşmüyor).
+      ortaEtiket: switch (onizleme.dusulenKalem) {
+        DusulenKalem.teslimEdilen => 'Teslim edilen',
+        DusulenKalem.kuryelerdeKalan => 'Kuryelerde kalan',
+      },
       ortaTutar: onizleme.dusulenKurus,
       // TAZELİK HER İKİ KAPSAMA DA geçilir (lead kararı 2026-08-06): kurye kendi telefonundan
       // da ara tahsilat teslim edebildiği için "günü kapatan cihaz zaten tahsilatı alan
@@ -335,7 +343,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
                     Expanded(
                       child: g == null
                           ? const SipGovde(children: [SipIskelet(adet: 3)])
-                          : _Govde(
+                          : GunOzetiGovdesi(
                               gorunum: g,
                               kapsamAdi: _kapsamAdi(kuryeler),
                               gunKapsami: _kuryeId == null,
@@ -371,109 +379,3 @@ class _DayEndScreenState extends State<DayEndScreen> {
   }
 }
 
-class _Govde extends StatelessWidget {
-  const _Govde({
-    required this.gorunum,
-    required this.kapsamAdi,
-    required this.gunKapsami,
-    required this.ekip,
-    required this.onYenile,
-  });
-
-  final Future<void> Function() onYenile;
-  final GunSonuGorunumu gorunum;
-
-  /// Seçili kapsamın adı ("Gün hesabı" ya da kurye adı).
-  final String kapsamAdi;
-
-  final bool gunKapsami;
-
-  /// Kapanış kayıtlarındaki `user_id`leri ada çevirmek için (kayıtta yalnız kimlik durur).
-  final List<User> ekip;
-
-  String _kapanisAdi(DayClosing k) =>
-      k.userId == null ? 'Gün hesabı' : (kullaniciAdi(ekip, k.userId) ?? 'Kurye');
-
-  @override
-  Widget build(BuildContext context) {
-    final g = gorunum;
-    final kasa = g.kapsam.kasa;
-
-    return SipGovde(
-      // Yenileme SENKRONU koşar VE ekranın kendi future'ını tazeler: gün sonu verisi
-      // `FutureBuilder`dan geliyor, yani senkron yeni satır yazsa bile ekran kendiliğinden
-      // yeniden hesaplamaz (akış tabanlı listelerin aksine). İkisinden biri eksik kalsaydı
-      // gösterge döner, hiçbir rakam değişmezdi.
-      onYenile: onYenile,
-      children: [
-        if (g.kapsamKapali)
-          KapaliSerit(
-            metin: g.gunKapali
-                ? 'Günün hesabı kapatıldı — tüm hesaplar kilitli.'
-                : '$kapsamAdi hesabı kapatıldı ve arşivlendi.',
-          ),
-
-        SipBolumBaslik(
-          gunKapsami ? 'Kasa Özeti' : 'Kasa Özeti · $kapsamAdi',
-          ustBosluk: 18,
-        ),
-        DegerKarti(
-          satirlar: [
-            DegerSatiri(etiket: 'Nakit', deger: sipTutar(kasa.nakit)),
-            DegerSatiri(etiket: 'Kart', deger: sipTutar(kasa.kart)),
-            DegerSatiri(etiket: 'Havale', deger: sipTutar(kasa.havale)),
-            DegerSatiri(
-              etiket: 'Toplam Tahsilat · ${g.kapsam.teslimat} teslimat',
-              deger: sipTutar(kasa.toplam),
-              toplam: true,
-            ),
-            // İSKONTO TOPLAMIN ALTINDA DURUR ve yalnız varsa çizilir (kullanıcı isteği
-            // 2026-07-30). Üstünde dursaydı toplamın bir bileşeni gibi okunurdu; oysa kırılan
-            // para kasaya HİÇ girmedi — sayılan nakitle karşılaştırılan rakam üstteki toplamdır.
-            // Sıfırken hiç yazılmaz: iskontosuz günler çoğunluktur ve "İskonto 0,00 ₺" satırı her
-            // gün kasa kartına cevapsız bir soru eklerdi.
-            if (g.kapsam.iskonto > 0)
-              DegerSatiri(
-                etiket: 'İskonto (kasaya girmedi)',
-                deger: sipTutar(g.kapsam.iskonto),
-                degerRengi: context.sip.warn,
-              ),
-          ],
-        ),
-
-        // ARA TAHSİLATLAR kasa kartının HEMEN ALTINDA durur (kullanıcı kararı 2026-08-06):
-        // yukarıdaki nakit rakamı ile akşam sayılacak para arasındaki farkı açıklayan tek şey
-        // budur. Araya başka bölüm girseydi bayi ikisini yan yana okuyamazdı.
-        if (g.araTahsilatlar.isNotEmpty) ...[
-          const SipBolumBaslik('Ara Tahsilatlar', ustBosluk: 18),
-          AraTahsilatKarti(kayitlar: g.araTahsilatlar, kuryeAdiYaz: gunKapsami),
-        ],
-
-        if (gunKapsami) ...[
-          const SipBolumBaslik('Açık Veresiye', ustBosluk: 18),
-          VeresiyeKarti(borc: g.ozet.borc),
-        ],
-
-        // BUGÜNÜN kapanışları burada kalır (Geçmiş ekranı yalnız GEÇMİŞ günleri taşır).
-        // Kaldırılsaydı, kuryesinin devrini az önce kapatan patron farkı ancak ERTESİ GÜN
-        // görebilirdi — mutabakatın kanıtı kapatıldığı anda görünmek zorunda.
-        if (g.gunKapanislari.isNotEmpty) ...[
-          const SipBolumBaslik('Bugünün Kapanışları', ustBosluk: 18),
-          for (var i = 0; i < g.gunKapanislari.length; i++)
-            Padding(
-              padding: EdgeInsets.only(top: i == 0 ? 0 : 6),
-              child: ArsivSatiri(
-                kapanis: g.gunKapanislari[i],
-                kapsamAdi: _kapanisAdi(g.gunKapanislari[i]),
-                onTap: () => arsivDetaySheet(
-                  context,
-                  g.gunKapanislari[i],
-                  kapsamAdi: _kapanisAdi(g.gunKapanislari[i]),
-                ),
-              ),
-            ),
-        ],
-      ],
-    );
-  }
-}

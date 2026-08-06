@@ -322,7 +322,7 @@ void main() {
       expect((await kapanislar.gununKapanislari(dun)), hasLength(1));
     });
 
-    test('YENİ KİMLİK: gün beklenen + kuryelerde kalan == günün nakdi', () async {
+    test('YENİ KİMLİK: gün beklenen + kuryelerin günlük net değişimi == günün nakdi', () async {
       await kurye('k1', 'Emre');
       await kurye('k2', 'Deniz');
       await nakit(9000, kuryeId: 'k1', at: oncekiIso());
@@ -332,7 +332,7 @@ void main() {
       final on = await DayClosingRepository(db).onizle(ClosingScope.day, localDate: bugun);
       expect(on.expectedCashKurus + on.dusulenKurus, on.gunNakitKurus);
       expect(on.gunNakitKurus, 13000);
-      expect(on.dusulenKurus, 7000, reason: 'k1 3.000 + k2 4.000');
+      expect(on.dusulenKurus, 7000, reason: 'k1 3.000 + k2 4.000 hâlâ kuryelerde');
       expect(on.expectedCashKurus, 6000, reason: 'patronun aldığı ara tahsilat');
       expect(on.dusulenKalem, DusulenKalem.kuryelerdeKalan);
     });
@@ -376,20 +376,135 @@ void main() {
       expect(kapandiktanSonra.expectedCashKurus, 9000);
     });
 
-    test('üç sayı ARİTMETİK OLARAK kapanır: çerçeve nakdi − düşülen = beklenen', () async {
-      // Ekran farkı açıklayabilsin diye üçü birden taşınıyor; kapanmayan bir üçlü, patronun
-      // toplamdan küçük bir rakam görüp sebebini soramaması demekti.
-      await kurye('k1', 'Emre');
-      await nakit(9000, kuryeId: 'k1', at: oncekiIso());
-      await CashHandoverRepository(db).araTahsilat(fromUserId: 'k1', countedCashKurus: 6000);
-
-      final kapanislar = DayClosingRepository(db);
-      for (final on in [
-        await kapanislar.onizle(ClosingScope.day, localDate: bugun),
-        await kapanislar.onizle(ClosingScope.courier, userId: 'k1', localDate: bugun),
-      ]) {
-        expect(on.gunNakitKurus - on.dusulenKurus, on.expectedCashKurus);
+    // Üçlü kimliği (`gunNakit − dusulen == expected`) TEK BAŞINA ölçmek VAKUMDUR: iki alan da
+    // aynı iki değişkenden dolduruluyor, yani kimlik çıkarmanın kendisi ve hiçbir senaryoda
+    // kırılamaz. #1 tam da o kimlik yeşilken oluştu. Bu yüzden aşağıdaki testler beklenen'i
+    // BAĞIMSIZ yoldan türetiyor:
+    //   beklenen = patronun bugün DOĞRUDAN topladığı + bugün alınan devirlerin SAYILAN toplamı
+    // yani "bugün kasaya fiilen giren para".
+    group('bağımsız türetme: bugün kasaya fiilen giren para', () {
+      /// Repo'dan TAMAMEN ayrı yol: defteri ve devirleri elle toplar.
+      Future<int> beklenenBagimsiz(DateTime gun, {Set<String> kuryeler = const {}}) async {
+        var patronunTopladigi = 0;
+        for (final e in await db.select(db.ledgerEntries).get()) {
+          if (e.paymentType != 'nakit' || !ayniTrGun(e.occurredAt, gun)) continue;
+          final k = e.collectedByUserId;
+          if (k != null && kuryeler.contains(k)) continue; // kurye topladı, kasaya girmedi
+          patronunTopladigi += -e.amountKurus;
+        }
+        var devirler = 0;
+        for (final h in await db.select(db.cashHandovers).get()) {
+          if (ayniTrGun(h.occurredAt, gun)) devirler += h.countedCashKurus;
+        }
+        return patronunTopladigi + devirler;
       }
+
+      test('kurye hepsini teslim etti (6.000 ara + 4.000 kapanış)', () async {
+        await kurye('k1', 'Emre');
+        await nakit(10000, kuryeId: 'k1', at: oncekiIso());
+        final devirler = CashHandoverRepository(db);
+        await devirler.araTahsilat(fromUserId: 'k1', countedCashKurus: 6000);
+        await DayClosingRepository(db).kapat(
+          scope: ClosingScope.courier,
+          userId: 'k1',
+          countedCashKurus: 4000,
+          alsoHandover: true,
+          localDate: bugun,
+        );
+
+        final on = await DayClosingRepository(db).onizle(ClosingScope.day, localDate: bugun);
+        expect(on.expectedCashKurus, await beklenenBagimsiz(bugun, kuryeler: {'k1'}));
+        expect(on.expectedCashKurus, 10000);
+      });
+
+      test('kurye 4.000 elinde tutuyor', () async {
+        await kurye('k1', 'Emre');
+        await nakit(10000, kuryeId: 'k1', at: oncekiIso());
+        await CashHandoverRepository(db).araTahsilat(fromUserId: 'k1', countedCashKurus: 6000);
+
+        final on = await DayClosingRepository(db).onizle(ClosingScope.day, localDate: bugun);
+        expect(on.expectedCashKurus, await beklenenBagimsiz(bugun, kuryeler: {'k1'}));
+        expect(on.expectedCashKurus, 6000);
+      });
+
+      test('DÜNDEN 5.000 taşıyan kurye bugün 3.000 topladı, teslim yok → 0 (negatif YOK)',
+          () async {
+        // İkinci incelemenin bulduğu hata: stok düşülünce 3.000 − 8.000 = −5.000 çıkıyordu ve
+        // patronun kasasında 0 varken ekran FAZLA 5.000 yazıyordu.
+        await kurye('k1', 'Emre');
+        final dun = bugun.subtract(const Duration(days: 1));
+        await nakit(5000,
+            kuryeId: 'k1',
+            at: gunBasiUtc(dun).add(const Duration(hours: 20)).toIso8601String());
+        await nakit(3000, kuryeId: 'k1', at: oncekiIso());
+
+        final on = await DayClosingRepository(db).onizle(ClosingScope.day, localDate: bugun);
+        expect(on.expectedCashKurus, await beklenenBagimsiz(bugun, kuryeler: {'k1'}));
+        expect(on.expectedCashKurus, 0, reason: 'bugün kasaya hiç para girmedi');
+        expect(on.dusulenKurus, 3000, reason: 'yalnız BUGÜNKÜ birikim; dünkü stok değil');
+        // Kurye kapsamı STOKU gösterir ve göstermelidir — iki kapsam iki farklı soru.
+        final kuryeKapsam = await DayClosingRepository(db)
+            .onizle(ClosingScope.courier, userId: 'k1', localDate: bugun);
+        expect(kuryeKapsam.expectedCashKurus, 8000, reason: 'cebinde gerçekten 8.000 var');
+      });
+
+      test('DÜNÜN parasını bu sabah teslim etti, bugün hiç toplamadı → 5.000', () async {
+        // Orta terim NEGATİF olur (−5.000) ve kimlik yine tutar.
+        await kurye('k1', 'Emre');
+        final dun = bugun.subtract(const Duration(days: 1));
+        await nakit(5000,
+            kuryeId: 'k1',
+            at: gunBasiUtc(dun).add(const Duration(hours: 20)).toIso8601String());
+        await CashHandoverRepository(db).araTahsilat(fromUserId: 'k1', countedCashKurus: 5000);
+
+        final on = await DayClosingRepository(db).onizle(ClosingScope.day, localDate: bugun);
+        expect(on.expectedCashKurus, await beklenenBagimsiz(bugun, kuryeler: {'k1'}));
+        expect(on.gunNakitKurus, 0, reason: 'bugün hiç tahsilat yapılmadı');
+        expect(on.dusulenKurus, -5000, reason: 'net değişim EKSİ — kırpma yok');
+        expect(on.expectedCashKurus, 5000, reason: 'kasaya dünün parası girdi');
+      });
+
+      test('kurye HİÇ kapanış yapmadan 3 gün artık para tutuyor: sapma BİRİKMİYOR', () async {
+        // Sinsi varyant: stok her gün büyür, gün beklenen her akşam biraz daha eksik gösterirdi.
+        await kurye('k1', 'Emre');
+        for (var i = 3; i >= 1; i--) {
+          final g = bugun.subtract(Duration(days: i));
+          await nakit(10000,
+              kuryeId: 'k1',
+              at: gunBasiUtc(g).add(const Duration(hours: 10)).toIso8601String());
+          // Her gün 9.000 teslim, 1.000 para üstü için kuryede kalıyor.
+          await db.into(db.cashHandovers).insert(CashHandoversCompanion.insert(
+                id: 'devir-$i',
+                fromUserId: 'k1',
+                countedCashKurus: 9000,
+                expectedCashKurus: 9000,
+                diffKurus: 0,
+                occurredAt:
+                    gunBasiUtc(g).add(const Duration(hours: 20)).toIso8601String(),
+              ));
+
+          final on = await DayClosingRepository(db).onizle(ClosingScope.day, localDate: g);
+          expect(on.expectedCashKurus, await beklenenBagimsiz(g, kuryeler: {'k1'}),
+              reason: '$i gün önce');
+          expect(on.expectedCashKurus, 9000, reason: 'her gün kasaya 9.000 girdi — sapma yok');
+          expect(on.dusulenKurus, 1000, reason: 'o günün birikimi; biriken stok DEĞİL');
+        }
+        // Stok gerçekten birikti ve KURYE kapsamında görünüyor.
+        final kuryeKapsam = await DayClosingRepository(db)
+            .onizle(ClosingScope.courier, userId: 'k1', localDate: bugun);
+        expect(kuryeKapsam.expectedCashKurus, 3000, reason: '3 gün × 1.000');
+      });
+
+      test('tek kişilik bayi: beklenen = günün tüm nakdi', () async {
+        await db.syncState();
+        await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(
+            const SyncMetaCompanion(userId: Value('p1'), userRole: Value('patron')));
+        await nakit(7500, kuryeId: 'p1', at: oncekiIso());
+
+        final on = await DayClosingRepository(db).onizle(ClosingScope.day, localDate: bugun);
+        expect(on.expectedCashKurus, await beklenenBagimsiz(bugun));
+        expect(on.expectedCashKurus, 7500);
+      });
     });
 
     test('gece toplanan kasa ertesi sabah teslim edilir: beklenen NEGATİFE düşmez', () async {

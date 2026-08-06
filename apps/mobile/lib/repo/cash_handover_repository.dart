@@ -4,6 +4,7 @@ import '../data/app_database.dart';
 import '../data/ids.dart';
 import '../data/outbox.dart';
 import '../data/tr_gun.dart';
+import 'day_end_repository.dart';
 
 /// Kasa devri yerel iş akışı (FAZ 4). Kurye kasayı patrona devreder: SAYILAN nakit + sistemin
 /// BEKLEDİĞİ nakit (anlık snapshot) + fark, kalıcı append-only kayıt olur (cash_handovers) + outbox,
@@ -33,8 +34,9 @@ import '../data/tr_gun.dart';
 /// kaldırmak izi yok eder.
 ///
 /// İŞARET KURALI `DayEndRepository.kasaOzeti` ile AYNIDIR: payment(−)→kasaya giren(+), nakit
-/// correction(+)→çıkan(−). `kasaOzeti` YENİDEN KULLANILAMIYOR çünkü o TAKVİM GÜNÜNE göre süzüyor,
-/// buradaki pencere ise son kapanıştan başlıyor ve gün sınırını aşabiliyor (#2). Kural değişirse
+/// correction(+)→çıkan(−). Gün bazlı okumalar (`kuryelerinGunlukNetDegisimi`) doğrudan
+/// `kasaOzeti`yi ÇAĞIRIR. Yalnız PENCERE bazlı okuma ([_pencerede]) kuralı tekrarlar, çünkü
+/// `kasaOzeti` takvim gününe göre süzüyor ve pencere gün sınırını aşabiliyor. Kural değişirse
 /// İKİ YERİ birden güncelle — bilinçli, kayıtlı bir tekrar.
 class CashHandoverRepository {
   CashHandoverRepository(this.db);
@@ -170,29 +172,57 @@ class CashHandoverRepository {
     );
   }
 
-  /// Kuryelerin cebinde kalan nakit toplamı (gün kapsamı için, inceleme #1).
+  /// Kuryelerin cebindeki paranın [gun] İÇİNDEKİ NET DEĞİŞİMİ (gün kapsamı için).
   ///
-  /// Her kuryenin kendi kapsam hesabının TOPLAMIDIR — gün kapsamı kendi ayrı formülünü yazmaz,
-  /// türetme tek yerde kalır.
+  ///   `Σ (kuryenin O GÜN topladığı nakit − o gün teslim ettiği sayılan nakit)`
+  ///
+  /// AKIŞ'tır, STOK değil — ve ayrım bu fonksiyonun bütün sebebidir (ikinci inceleme bulgusu).
+  /// Gün kapsamı `kasa.nakit` ile çalışır ve o bir AKIŞtır (takvim günü). Buradan kuryenin
+  /// ALTTAN AÇIK penceresindeki stoku (ömür boyu birikmiş kalan) düşülürse iki farklı çerçeve
+  /// karışır: Emre dün 5.000 taşıyıp bugün 3.000 toplarsa "3.000 − 8.000 = −5.000" çıkar,
+  /// patronun kasasında 0 varken ekran FAZLA 5.000 yazar ve bu arşive KALICI donar. Kurye hiç
+  /// "hesabı kapat" kullanmadan her gün biraz para tutarsa — ki kümülatif tanımın gerekçesi tam
+  /// olarak buydu — stok her gün büyür ve sapma sinsice artar.
+  ///
+  /// NEGATİF OLABİLİR ve bu DOĞRUDUR: kurye dünün parasını bugün teslim ederse net değişim
+  /// eksidir, yani kasaya günün nakdinden FAZLASI girer. Kırpma YOK.
+  ///
+  /// KURYE KAPSAMI BUNU KULLANMAZ: orada alttan açık pencere (stok) doğrudur — kuryenin cebindeki
+  /// gerçek para odur. İki kapsam iki farklı soru sorar.
   ///
   /// KÜME `users` AYNASINDAN DEĞİL, DEFTERDEN TÜRER (inceleme B — bağlayıcı): `users` sunucu
   /// kaynaklı bir önbellektir ve GEÇ İNEBİLİR; `status='active'` süzgeci ise gün içinde pasife
-  /// alınmış kuryeyi düşürürdü. Kümeden düşen kuryenin üzerindeki para "kuryelerde kalan"a
-  /// girmez, gün beklentisi ŞİŞER ve patron her akşam açıklayamadığı bir EKSİK görür. Kanıt
-  /// defterdedir: o gün fiilen para toplayan `collected_by_user_id`ler + devir yapan
-  /// `from_user_id`ler.
+  /// alınmış kuryeyi düşürürdü. Kanıt defterdedir: o gün fiilen para toplayan
+  /// `collected_by_user_id`ler + devir yapan `from_user_id`ler.
   ///
-  /// DIŞLAMA POZİTİF BİLGİYE DAYANIR: bir toplayıcı, ancak `users` aynası "bu kişi kurye DEĞİL"
-  /// diyorsa (ya da oturumdaki kullanıcı kurye değilse) kümeden çıkar. Aynada hiç olmayan
-  /// toplayıcı KURYE SAYILIR — geç inen ayna yüzünden parayı kasada sanmaktansa kuryede saymak
-  /// güvenli taraftır (patron eksik değil, kuryede bekleyen para görür).
+  /// DIŞLAMA POZİTİF BİLGİYE DAYANIR: bir toplayıcı, ancak `users` aynası (ya da oturum) "bu kişi
+  /// kurye DEĞİL" diyorsa kümeden çıkar. Aynada hiç olmayan toplayıcı KURYE SAYILIR. Yanlış
+  /// kuryeleştirmenin yönü: düşülen büyür → beklenen DÜŞER → patron FAZLA görür. Yanlış
+  /// kasalaştırmanın yönü ise EKSİK. İkisinden birini seçmek zorundayız; aynanın geç inmesi bu
+  /// depoda yaşanmış bir arıza sınıfı olduğu için "aynada yoksa kurye" tarafını seçiyoruz —
+  /// kurye kümesi zaten defterden doğrulanıyor, patron/operatör ise oturumdan biliniyor.
   ///
   /// TOPLAYICISI NULL nakit (inceleme E) kümeye GİRMEZ ve bu BİLİNÇLİ: atfı olmayan para
   /// "kuryede" sayılamaz, kasada sayılır. Böyle bir kayıt yalnız oturum kurulmadan yazılabilir
   /// (giriş `sync_meta.user_id`yi her zaman doldurur, `logout` silmez) — yani pratikte patronun
   /// kendi cihazıdır. Yine de o parayı fiilen bir kurye taşıyorsa gün sayımı EKSİK gösterir;
   /// eksik GÖRÜNÜR bir sinyaldir, sessizce yutulmaz.
-  Future<int> kuryelerdeKalanNakit(DateTime gun) async {
+  Future<int> kuryelerinGunlukNetDegisimi(DateTime gun) async {
+    final adaylar = await _gunlukKuryeAdaylari(gun);
+    if (adaylar.isEmpty) return 0;
+
+    final dayEnd = DayEndRepository(db);
+    var toplam = 0;
+    for (final id in adaylar) {
+      final toplanan = (await dayEnd.kasaOzeti(gun, userId: id)).nakit;
+      final teslim = await teslimEdilenNakit(gun, kuryeId: id);
+      toplam += toplanan - teslim;
+    }
+    return toplam;
+  }
+
+  /// [gun] içinde para taşımış KURYE adayları (bkz. [kuryelerinGunlukNetDegisimi] notu).
+  Future<Set<String>> _gunlukKuryeAdaylari(DateTime gun) async {
     final adaylar = <String>{};
 
     final hareketler = await (db.select(db.ledgerEntries)
@@ -202,25 +232,22 @@ class CashHandoverRepository {
       if (ayniTrGunIso(e.occurredAt, gun)) adaylar.add(e.collectedByUserId!);
     }
     // Devir yapan kişi tanım gereği kuryedir; o gün hiç tahsilat yapmamış olsa bile kümededir
-    // (dünden devrettiği kasa bugün teslim edilmiş olabilir).
+    // (dünden taşıdığı kasa bugün teslim edilmiş olabilir — net değişimi NEGATİF olur).
     for (final h in await db.select(db.cashHandovers).get()) {
       if (ayniTrGunIso(h.occurredAt, gun)) adaylar.add(h.fromUserId);
     }
-    if (adaylar.isEmpty) return 0;
+    if (adaylar.isEmpty) return adaylar;
 
     final aynadakiRoller = {
       for (final u in await (db.select(db.users)..where((t) => t.id.isIn(adaylar))).get())
         u.id: u.role,
     };
     final meta = await db.syncState();
-
-    var toplam = 0;
-    for (final id in adaylar) {
+    adaylar.removeWhere((id) {
       final rol = aynadakiRoller[id] ?? (id == meta.userId ? meta.userRole : null);
-      if (rol != null && rol != 'kurye') continue; // pozitif olarak kurye DEĞİL
-      toplam += (await onizle(id, localDate: gun)).expectedKurus;
-    }
-    return toplam;
+      return rol != null && rol != 'kurye'; // pozitif olarak kurye DEĞİL
+    });
+    return adaylar;
   }
 
   /// Kuryenin mutabakat PENCERESİ: [gun]un sonundan önceki SON kurye kapanışından o günün sonuna.

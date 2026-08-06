@@ -17,7 +17,9 @@ enum ClosingScope { day, courier }
 /// `teslimEdilenKurus`... hepsi "bağlama göre doğru" sayılardı ve yanlış bağlamda kullanıldılar.
 /// Sayının yanında ne olduğunu söyleyen bir etiket taşımak, o hatayı derleme zamanına çeker.
 enum DusulenKalem {
-  /// GÜN kapsamı: henüz teslim edilmemiş, hâlâ kuryelerin cebindeki para.
+  /// GÜN kapsamı: kuryelerin cebindeki paranın O GÜNKÜ NET DEĞİŞİMİ — yani bugün toplayıp henüz
+  /// teslim etmedikleri. NEGATİF olabilir: kurye dünün parasını bugün teslim ettiyse kasaya
+  /// günün nakdinden fazlası girer. Ekran işareti buna göre göstermeli.
   kuryelerdeKalan,
 
   /// KURYE kapsamı: o kuryenin bu pencerede patrona teslim ettiği para.
@@ -71,17 +73,23 @@ class DayClosingRepository {
   /// Her kapanış olayının sorduğu soru aynıdır: **"ŞİMDİ kasaya girecek para ne kadar?"** Ama
   /// cevabın şekli kapsama göre değişir ve bu ayrım İNCELEME #1'in düzelttiği hatadır:
   ///
-  ///  • **KURYE kapsamı** — beklenen = kuryenin cebinde kalan (`CashHandoverRepository.onizle`).
-  ///  • **GÜN kapsamı** — beklenen = günün nakdi − KURYELERDE KALAN.
+  ///  • **KURYE kapsamı** — beklenen = kuryenin cebindeki STOK: son kapanışından beri topladığı
+  ///    eksi teslim ettiği (`CashHandoverRepository.onizle`, alttan açık pencere).
+  ///  • **GÜN kapsamı** — beklenen = günün nakdi − kuryelerin O GÜNKÜ NET DEĞİŞİMİ.
   ///
   /// Gün kapsamında devir bir **İÇ TRANSFERDİR**: para kuryeden patrona geçer, işletmeden ÇIKMAZ.
   /// Teslim edilenleri düşmek işaretini kaybediyordu — kurye 10.000 toplayıp hepsini verdiğinde
   /// ekran "beklenen 0" derken patronun kasasında 10.000 vardı ve sayım "FAZLA 10.000" yazıyordu.
-  /// Patron gün sonunda KASASINI sayar; kasada olması gereken = toplanan − hâlâ kuryelerin cebinde
-  /// olan. Tek kişilik bayide kuryelerde kalan 0'dır → beklenen günün tüm nakdi olur (doğru).
+  /// Patron gün sonunda KASASINI sayar.
   ///
-  /// Gün kapsamı KENDİ FORMÜLÜNÜ YAZMAZ: kuryelerde kalan, her kuryenin kurye-kapsamı değerinin
-  /// toplamıdır — türetme tek yerde durur.
+  /// İKİ ÇERÇEVE KARIŞTIRILAMAZ (ikinci inceleme): `kasa.nakit` bir AKIŞtır (takvim günü), kurye
+  /// kapsamının değeri ise bir STOKtur (ömür boyu birikmiş). Gün kapsamı stoku düşerse, dünden
+  /// para taşıyan kurye yüzünden beklenen negatife düşer ve arşive KALICI donar. Bu yüzden gün
+  /// kapsamı akışa akış düşer: kuryelerin O GÜN topladığı eksi o gün teslim ettiği.
+  ///
+  /// Eşdeğer ve daha okunur ifadesi (testler bunu BAĞIMSIZ yoldan doğrular):
+  /// `beklenen = patronun bugün doğrudan topladığı + bugün alınan devirlerin SAYILAN toplamı`
+  /// — yani "bugün kasaya fiilen giren para".
   ///
   /// Üç sayı ARİTMETİK OLARAK KAPANIR ve ekran farkı açıklayabilsin diye üçü de taşınır:
   /// `gunNakitKurus − dusulenKurus == expectedCashKurus`. Kapanmayan bir üçlü, patronun toplamdan
@@ -96,10 +104,13 @@ class DayClosingRepository {
 
     final handover =
         courierId != null ? await _handovers.onizle(courierId, localDate: date) : null;
-    // Kurye kapsamında üçlü PENCEREDEN gelir (kimlik ancak aynı çerçevede tutar); gün kapsamında
-    // GÜNDEN. Kurye o gün hiç kapatmamışsa pencere = günün tamamıdır, yani ikisi çakışır.
-    final dusulen =
-        handover?.teslimEdilenKurus ?? await _handovers.kuryelerdeKalanNakit(date);
+    // ÇERÇEVELER AYRI ve ikisi de kendi içinde tutarlı:
+    //  • KURYE kapsamı → PENCERE (son kapanıştan beri; kuryenin cebindeki gerçek STOK).
+    //  • GÜN kapsamı  → TAKVİM GÜNÜ (akış). Kuryelerin STOKUNU düşmek iki çerçeveyi karıştırırdı:
+    //    dünden para taşıyan kurye yüzünden beklenen negatife düşer ve arşive kalıcı donardı.
+    // Bu yüzden gün kapsamı kuryelerin O GÜNKÜ NET DEĞİŞİMİNİ düşer.
+    final dusulen = handover?.teslimEdilenKurus ??
+        await _handovers.kuryelerinGunlukNetDegisimi(date);
     final cerceveNakit = handover?.toplananKurus ?? kasa.nakit;
 
     return ClosingOnizleme(

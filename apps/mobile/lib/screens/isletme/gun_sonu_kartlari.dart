@@ -68,9 +68,19 @@ class VeresiyeKarti extends StatelessWidget {
 ///
 /// Sıra ESKİDEN YENİYEDİR (repo öyle döner): bu bir arşiv değil, günün akışıdır.
 class AraTahsilatKarti extends StatelessWidget {
-  const AraTahsilatKarti({super.key, required this.kayitlar, this.kuryeAdiYaz = true});
+  const AraTahsilatKarti({
+    super.key,
+    required this.kayitlar,
+    required this.toplamKurus,
+    this.kuryeAdiYaz = true,
+  });
 
   final List<AraTahsilatKaydi> kayitlar;
+
+  /// Toplam REPO'DAN gelir (`GunSonuGorunumu.araTahsilatToplamiKurus`), kart listeyi KENDİ
+  /// toplamaz. Bugün ikisi aynı sonucu verirdi; ama bir tur önce ekranda tam olarak iki para
+  /// rakamı çelişti ve o zaman da "ikisi zaten aynı" sanılıyordu. Tek kaynak, bedava sigorta.
+  final int toplamKurus;
 
   /// Kurye kapsamında ad HER SATIRDA tekrarlanmaz — kimin olduğu zaten başlıkta yazıyor.
   final bool kuryeAdiYaz;
@@ -99,7 +109,7 @@ class AraTahsilatKarti extends StatelessWidget {
         // kelimeyle anılır ve bayi hangisinin doğru olduğunu sorardı.
         DegerSatiri(
           etiket: 'Ara tahsilat toplamı · ${kayitlar.length} tahsilat',
-          deger: sipTutar(kayitlar.fold<int>(0, (s, k) => s + k.countedCashKurus)),
+          deger: sipTutar(toplamKurus),
           toplam: true,
         ),
       ],

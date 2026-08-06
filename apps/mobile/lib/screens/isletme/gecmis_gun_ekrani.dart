@@ -344,7 +344,11 @@ class _Govde extends StatelessWidget {
           // yazıyor ama kapanışta 7.000 sayılmış" sorusunun cevabı başka hiçbir yerde yazmaz.
           if (g.araTahsilatlar.isNotEmpty) ...[
             const SipBolumBaslik('Ara Tahsilatlar', ustBosluk: 18),
-            AraTahsilatKarti(kayitlar: g.araTahsilatlar, kuryeAdiYaz: gunKapsami),
+            AraTahsilatKarti(
+            kayitlar: g.araTahsilatlar,
+            toplamKurus: g.araTahsilatToplamiKurus,
+            kuryeAdiYaz: gunKapsami,
+          ),
           ],
 
           if (kapanislar.isNotEmpty) ...[
