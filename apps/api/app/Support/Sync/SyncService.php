@@ -80,10 +80,18 @@ class SyncService
      * (form `max:`leri `information_schema` ile karşılaştırılıyor); MOBİL yazma yolunda yok — bu
      * yüzden reddin sunucuda güvenli biçimde karşılanması gerekiyor.
      *
+     * `22007`/`22008` (geçersiz tarih biçimi / taşma) 2026-08-06'da EKLENDİ: `EventValidator` damgayı
+     * `Carbon::parse` ile doğrular, Postgres daha katıdır ve ARADA kalan değerler vardır (ölçüldü:
+     * `'next monday'`, `'+1 day'` → 22007; `'1754467200'` → 22008). Böyle bir damga doğrulamadan
+     * geçip `sync_changes` INSERT'ünde patlıyor ve listede olmadığı için TÜM partiyi 500'e
+     * düşürüyordu. Asıl kapı `applyOne`daki `SyncPayload::zaman()`tir; bu İKİNCİ katmandır.
+     *
      * Yeni bir kısıt/kolon tipi eklerken sor: bu kod istemcinin GÖNDERDİĞİ veriden doğabilir mi?
      * Cevap evetse buraya girmeli, yoksa bir sonraki zehirli hap odur.
      */
-    private const CLIENT_DATA_SQLSTATES = ['22001', '22003', '22P02', '23502', '23503', '23505', '23514'];
+    private const CLIENT_DATA_SQLSTATES = [
+        '22001', '22003', '22007', '22008', '22P02', '23502', '23503', '23505', '23514',
+    ];
 
     /**
      * Olay listesi BİLEREK `list<mixed>`tir: zarf doğrulaması elemanların biçimini GARANTİ ETMEZ
@@ -205,7 +213,9 @@ class SyncService
         return DB::transaction(function () use ($tenantId, $event, $lastSeq, $applier, $index) {
             $applied = $applier->apply($tenantId, $event);
 
-            $occurredAt = $event['occurred_at'] ?? null;
+            // HAM SQL yolu (Eloquent cast'i yok): varlık tablosu Carbon'la, bu kolon Postgres'le
+            // çözülüyordu — iki ayrıştırıcı, aradaki fark zehirli hap kapısı (bkz. yukarıda 22007).
+            $occurredAt = SyncPayload::zaman($event['occurred_at'] ?? null);
             $deviceId = $event['device_id'] ?? null;
             $seqForEvent = null;
 

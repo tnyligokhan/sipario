@@ -84,9 +84,14 @@ class HatirlatmaSablonuAlani extends StatelessWidget {
         ),
         if (hata != null) AlanNotu(hata!),
         _CipSeridi(onSec: _ekle, onVarsayilan: _varsayilaniYukle),
+        // "KENDİ SATIRINA koyun" uyarısı bilinçli (inceleme notu 2026-08-06): IBAN + alıcı adı
+        // ÇOK SATIRLI bir bloktur, satır içinde kullanılırsa devamındaki metin bloğun altına
+        // düşer. Blok tek satıra sıkıştırılmıyor — IBAN'ın dörderli gruplar hâlinde kendi
+        // satırında durması, müşterinin bankadaki biçimle karşılaştırmasının tek güvencesi.
         const AlanNotu(
           'Çiplere dokununca imlecin olduğu yere eklenir. IBAN ve alıcı adı sabittir; '
-          'metnin içinde değiştirilemez, yalnız yeri seçilir.',
+          'metnin içinde değiştirilemez, yalnız yeri seçilir — birkaç satır kapladığı için '
+          'kendi satırına koyun.',
           tur: AlanNotuTuru.bilgi,
         ),
       ],

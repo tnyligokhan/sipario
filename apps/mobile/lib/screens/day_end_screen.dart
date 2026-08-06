@@ -74,17 +74,22 @@ class _DayEndScreenState extends State<DayEndScreen> {
   /// null = "Tümü"; aksi hâlde kuryenin kullanıcı kimliği.
   late String? _kuryeId = widget.rol == 'kurye' ? widget.kullaniciId : null;
 
-  late DateTime _gun = bugunTr();
-
   // İlk yükleme de kapsamı taşır: ön seçim varken `kuryeId` geçilmezse ekran bir kare boyunca
   // gün toplamlarını kurye kapsamı etiketiyle gösteriyordu.
-  late Future<GunSonuGorunumu> _gorunum =
-      gunSonuGorunumu(widget.db, _gun, kuryeId: _kuryeId);
+  late Future<GunSonuGorunumu> _gorunum = _yukle();
+
+  /// Gün, DÜZELTİLMİŞ sunucu saatinden çözülür — cihaz saatinden DEĞİL. Telefon 40 dk ileriyken
+  /// saat 23:40'ta `bugunTr()` YARINI verir, oysa kayıt BUGÜNE düşer; ekran bir günün rakamlarını
+  /// gösterirken kapanış başka bir güne yazılırdı.
+  ///
+  /// Gün bir ALAN OLARAK TUTULMAZ: her okuyan onu kendi anında çözer (burada ve [_kapat] içinde).
+  /// Saklansaydı, akşamdan beri açık duran bir ekran gece yarısından sonra dünün gününü taşırdı.
+  Future<GunSonuGorunumu> _yukle() async =>
+      gunSonuGorunumu(widget.db, await bugunTrDuzeltilmis(widget.db), kuryeId: _kuryeId);
 
   void _tazele() {
     setState(() {
-      _gun = bugunTr();
-      _gorunum = gunSonuGorunumu(widget.db, _gun, kuryeId: _kuryeId);
+      _gorunum = _yukle();
     });
   }
 
@@ -98,7 +103,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
   void _kapsamSec(String? kuryeId) {
     setState(() {
       _kuryeId = kuryeId;
-      _gorunum = gunSonuGorunumu(widget.db, _gun, kuryeId: _kuryeId);
+      _gorunum = _yukle();
     });
   }
 
@@ -194,8 +199,12 @@ class _DayEndScreenState extends State<DayEndScreen> {
     //
     // Yani buradaki kural sadece üslup değil: bu ekranda para formülü yazmak, sessizce yalan
     // bir arşiv kaydı üretmenin en kısa yoludur.
+    // GÜN, YAZMA ANINDA yeniden okunur (`_gun` alanına güvenilmez): ekran akşamdan beri açık
+    // durmuş ve gece yarısını geçmiş olabilir. Damga DÜZELTİLMİŞ sunucu saatinden gelir — cihaz
+    // saati 40 dk ileriyken 23:40'ta `bugunTr()` yarını verir ve kapanış yanlış güne yazılırdı.
+    final gun = await bugunTrDuzeltilmis(widget.db);
     final onizleme = await DayClosingRepository(widget.db)
-        .onizle(scope, userId: _kuryeId, localDate: _gun);
+        .onizle(scope, userId: _kuryeId, localDate: gun);
     if (!mounted) return;
 
     final sonuc = await gunKapatmaSheet(
@@ -204,8 +213,17 @@ class _DayEndScreenState extends State<DayEndScreen> {
       gunHesabi: _kuryeId == null,
       beklenen: onizleme.expectedCashKurus,
       tamNakit: onizleme.gunNakitKurus,
-      teslimEdilen: onizleme.teslimEdilenKurus,
       teslimat: onizleme.deliveryCount,
+      // ORTA SATIRIN DEĞERİ TEK ALANDAN (`dusulenKurus`) gelir — ekran hangisini seçeceğine
+      // karar vermez, çünkü seçtirmek yanlışını seçme fırsatı vermektir. Ama o sayının ADI
+      // kapsama göre değişir ve adı ekran koyar:
+      //
+      // KURYE hesabı → düşülen, kuryenin TESLİM ETTİĞİ paradır; kalan onun cebindedir.
+      // GÜN hesabı → devir bir İÇ TRANSFERDİR (para kuryeden patrona geçer, işletmeden ÇIKMAZ),
+      // dolayısıyla düşülen teslim edilen değil KURYELERDE KALAN paradır. Burada "Teslim edilen"
+      // yazmak düpedüz yanlış olurdu: kurye 10.000 toplayıp hepsini verdiğinde düşülen 0'dır.
+      ortaEtiket: _kuryeId == null ? 'Kuryelerde kalan' : 'Teslim edilen',
+      ortaTutar: onizleme.dusulenKurus,
       // TAZELİK HER İKİ KAPSAMA DA geçilir (lead kararı 2026-08-06): kurye kendi telefonundan
       // da ara tahsilat teslim edebildiği için "günü kapatan cihaz zaten tahsilatı alan
       // cihazdır" varsayımı tutmuyor — risk simetrik. Gürültü ayarı sheet'in içinde: gün
@@ -223,7 +241,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
       countedCashKurus: sonuc.sayilan,
       note: sonuc.not.isEmpty ? null : sonuc.not,
       alsoHandover: _kuryeId != null,
-      localDate: _gun,
+      localDate: gun,
     );
     if (!mounted) return;
 

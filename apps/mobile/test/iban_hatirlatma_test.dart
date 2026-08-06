@@ -250,6 +250,69 @@ void main() {
       }
     });
 
+    test('şablonun TAMAMI boşa çözülürse BOŞ mesaj değil, varsayılan gönderilir', () {
+      // İnceleme bulgusu 2026-08-06: aksi hâlde WhatsApp boş bir metin kutusuyla açılıyordu.
+      final bosSablon = borcHatirlatmaMesaji(
+        musteriAd: 'Ayşe',
+        borcKurus: 5000,
+        sablon: '*ibanodemebilgileri*', // IBAN tanımsız → şablon tamamen boşalır
+      );
+      expect(bosSablon, isNotEmpty);
+      expect(bosSablon, borcHatirlatmaMesaji(musteriAd: 'Ayşe', borcKurus: 5000));
+
+      // Aynı sınıf: tek yer tutucu müşteri adı ve ad boş.
+      final adsiz = borcHatirlatmaMesaji(musteriAd: '  ', borcKurus: 5000, sablon: '*musteriadi*');
+      expect(adsiz, isNotEmpty);
+      expect(adsiz, contains('Teşekkür ederiz.'));
+    });
+
+    test('satır İÇİNDE boşa çözülen yer tutucu ASILI ETİKET bırakmaz', () {
+      // İnceleme bulgusu 2026-08-06: "Ödeme: *ibanodemebilgileri*" IBAN yokken "Ödeme:" diye
+      // anlamsız bir satır bırakıyordu. Etiket yalnız o değeri tanıtmak için yazılmıştır.
+      final mesaj = borcHatirlatmaMesaji(
+        musteriAd: 'Ayşe',
+        borcKurus: 5000,
+        sablon: 'Merhaba.\nÖdeme: *ibanodemebilgileri*\nTeşekkürler.',
+      );
+      expect(mesaj, 'Merhaba.\nTeşekkürler.');
+      expect(mesaj, isNot(contains('Ödeme:')));
+    });
+
+    test('satırdaki yer tutuculardan BİRİ değer getiriyorsa satır DURUR, boşluk sadeleşir', () {
+      // Kritik denge: "hepsi boşsa düş" kuralı, TUTAR taşıyan bir satırı düşürmemeli — yoksa
+      // mesajdan para rakamı sessizce kaybolurdu.
+      final mesaj = borcHatirlatmaMesaji(
+        musteriAd: 'Ayşe',
+        borcKurus: 5000,
+        sablon: '*isletmeadi* olarak *siparistutar* bekliyoruz.',
+      );
+      expect(mesaj, 'olarak 50,00 ₺ bekliyoruz.');
+      expect(mesaj, contains('50,00'));
+    });
+
+    test('TEK GEÇİŞ: çözülen değer ikinci kez taranmaz (iki yön de simetrik)', () {
+      // İnceleme bulgusu 2026-08-06: sırayla replaceAll, müşteri adı `*isletmeadi*` olduğunda
+      // onu işletme adına çeviriyordu; ters yön çevrilmiyordu. Davranış Map sırasına bağlıydı.
+      expect(
+        borcHatirlatmaMesaji(
+          musteriAd: '*isletmeadi*',
+          borcKurus: 5000,
+          isletmeAdi: 'Merkez Su',
+          sablon: '*musteriadi*',
+        ),
+        '*isletmeadi*',
+      );
+      expect(
+        borcHatirlatmaMesaji(
+          musteriAd: 'Ayşe',
+          borcKurus: 5000,
+          isletmeAdi: '*musteriadi*',
+          sablon: '*isletmeadi*',
+        ),
+        '*musteriadi*',
+      );
+    });
+
     test('şablon uzunluk sınırı formda söylenir (sunucu sınırıyla aynı)', () {
       const temel = {
         'ad': 'Merkez Su',
@@ -325,6 +388,49 @@ void main() {
       final uriler = whatsappUriler('+905321112233');
       expect(uriler.first.queryParameters.containsKey('text'), isFalse);
       expect(uriler.last.queryParameters.containsKey('text'), isFalse);
+    });
+
+    test('BOŞLUK %20 kodlanır, "+" DEĞİL — Android ayrıştırıcısı "+"ı boşluğa çevirmez', () {
+      // İnceleme bulgusu 2026-08-06. `Uri(queryParameters:)` boşluğu form kuralıyla `+` yazardı;
+      // WhatsApp `whatsapp://send`i `Uri.getQueryParameter` ile okur ve o API yalnız
+      // percent-decode yapar → müşteriye "Sayın+Ahmet,+merhaba." giderdi.
+      final uriler = whatsappUriler('+905321112233', mesaj: 'Sayın Ahmet, merhaba.');
+
+      for (final u in uriler) {
+        expect(u.toString(), contains('Say%C4%B1n%20Ahmet'));
+        expect(u.toString(), isNot(contains('+')),
+            reason: 'kodlanmış metinde "+" HİÇ bulunmamalı');
+        // Kodlama doğru olduğu için ayrıştırma geri döndüğünde metin BOZULMAMIŞ olmalı.
+        expect(u.queryParameters['text'], 'Sayın Ahmet, merhaba.');
+      }
+    });
+
+    test('özel karakterler kaçırılır: satır sonu · & · # · ₺ · literal +', () {
+      // Eski elle `?text=` birleştirmesi bunları kaçıramadığı için mesajı SESSİZCE kırpıyordu;
+      // `encodeComponent` hepsini kodlar, yani elle kurma o tuzağı geri getirmez.
+      const metin = 'A\nB & C # D ₺ E+F';
+      final uriler = whatsappUriler('+905321112233', mesaj: metin);
+
+      for (final u in uriler) {
+        final ham = u.toString();
+        expect(ham, contains('%0A'), reason: 'satır sonu');
+        expect(ham, contains('%26'), reason: '& — kaçırılmazsa sonraki parametre sanılır');
+        expect(ham, contains('%23'), reason: '# — kaçırılmazsa fragment başlatır, metin KIRPILIR');
+        expect(ham, contains('%E2%82%BA'), reason: '₺');
+        expect(ham, contains('%2B'), reason: 'literal + kendisi olarak kalmalı');
+        // Tur bitişi: ne yazdıysak onu okuyoruz.
+        expect(u.queryParameters['text'], metin);
+      }
+    });
+
+    test('numara ve şema korunur (elle kurma URI iskeletini bozmadı)', () {
+      final uriler = whatsappUriler('+905321112233', mesaj: 'x y');
+      expect(uriler.first.scheme, 'whatsapp');
+      expect(uriler.first.host, 'send');
+      expect(uriler.first.queryParameters['phone'], '905321112233');
+      expect(uriler.last.scheme, 'https');
+      expect(uriler.last.host, 'wa.me');
+      expect(uriler.last.path, '/905321112233');
     });
   });
 

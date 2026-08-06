@@ -178,6 +178,131 @@ class SyncZamanNormalizasyonuTest extends ApiTestCase
     }
 
     #[Test]
+    public function ayni_saniye_icinde_daha_eski_yazim_yeniyi_ezemez(): void
+    {
+        // AÇIK BORÇ — bu test BİLEREK "incomplete" bırakıldı (2026-08-06). Kapatılması ŞEMA
+        // değişikliği gerektiriyor, uygulama katmanında çözülemiyor.
+        //
+        // LWW damgası saniye-altını TAŞIYAMIYOR ve kırpma İKİ KATMANDA birden oluyor:
+        //  1. Eloquent'in varsayılan `$dateFormat`'ı `Y-m-d H:i:s` — mikrosaniyeyi düşürüyor.
+        //  2. DAHA BASKINI: kolonların hepsi `timestamptz(0)` (ölçüldü — `information_schema`
+        //     `datetime_precision = 0`, 18 kolonun tamamında). Postgres saniyeye YUVARLIYOR;
+        //     yani cast kaldırılıp ham dize yazılsa bile saniye-altı veritabanına HİÇ girmiyor.
+        //
+        // Sonuç: aynı saniyeye düşen iki yazımda `lwwWins` damgada beraberliğe düşüp `device_id`
+        // karşılaştırmasına iniyor. Ayrım DETERMİNİSTİKTİR (DECISIONS: "eşitlikte device_id ile
+        // deterministik ayrım") ama SEMANTİK DEĞİLDİR: kazanan, daha yeni olan değil, kimliği
+        // büyük olandır — yani çevrimdışı bir cihazın daha eski yazımı daha yenisini ezebilir.
+        //
+        // Bu taviz depoda zaten biliniyor ve panel tarafında BİLİNÇLİ olarak aşılıyor:
+        // `PanelSyncYazici::damga()` sentetik bir PANEL_DEVICE_ID + "kendi damgasını bir saniye
+        // ileri alma" hilesi kullanıyor (aynı hile `Livewire\Site\Ekip`te de var). Mobil senkron
+        // yolunda böyle bir kapak YOK.
+        //
+        // Kapatma yolu: `ALTER COLUMN ... TYPE timestamptz(6)` — 18 kolon, üretim verisi ve
+        // "değer değiştiren migration `sync_changes`e delta düşürmeli" kuralı (SyncPayload şema
+        // evrimi sözleşmesi). Geniş yarıçaplı; vardiya sonu işi değil.
+        //
+        // Düzeltme geldiğinde tek yapılacak şey aşağıdaki satırı silmektir; testin gövdesi zaten
+        // doğru kazananı bekliyor.
+        $this->markTestIncomplete(
+            'LWW saniye-altı ayrımı yok: kolonlar timestamptz(0), kapatmak migration ister.'
+        );
+
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+        $musteriId = (string) Str::uuid7();
+        $cihazA = (string) Str::uuid7();
+        $cihazB = (string) Str::uuid7();
+
+        // Cihaz A saniyenin GEÇ anında (09:00:00.900) yeni adı yazar.
+        $yeni = $this->customerUpsert(
+            ['id' => $musteriId, 'name' => 'Yeni Ad'],
+            ['occurred_at' => '2026-08-06T09:00:00.900000Z', 'device_id' => $cihazA]
+        );
+        $this->pushEvents($token, [$yeni])->assertJsonPath('results.0.status', 'applied');
+
+        // Cihaz B çevrimdışıyken saniyenin ERKEN anında (09:00:00.100) yazmıştı; şimdi senkronluyor.
+        $eski = $this->customerUpsert(
+            ['id' => $musteriId, 'name' => 'Eski Ad'],
+            ['occurred_at' => '2026-08-06T09:00:00.100000Z', 'device_id' => $cihazB]
+        );
+        $this->pushEvents($token, [$eski])->assertJsonPath('results.0.status', 'stale');
+
+        $row = $this->asOwner(fn () => Customer::query()->find($musteriId));
+        $this->assertNotNull($row);
+        $this->assertSame('Yeni Ad', $row->name, 'Daha eski yazım yeniyi ezmemeli.');
+        $this->assertSame(
+            '2026-08-06 09:00:00.900000',
+            $row->updated_occurred_at->utc()->format('Y-m-d H:i:s.u'),
+            'Mikrosaniye saklanmalı — kırpılırsa LWW aynı saniye içinde ayrım yapamaz.'
+        );
+    }
+
+    #[Test]
+    public function goreli_damgali_olay_partiyi_dusurmez(): void
+    {
+        // ZEHİRLİ HAP KAPISI: `EventValidator` damgayı `Carbon::parse` ile doğrular, Postgres daha
+        // katıdır. Ölçüldü — `'next monday'` Carbon'da çözülür ama `timestamptz`'e yazılırken 22007
+        // verir. Normalizasyondan önce bu ham dize `sync_changes` INSERT'üne gidiyor, 22007 beyaz
+        // listede olmadığı için TÜM PARTİ 500'e düşüyordu: istemci hiçbir olayı işaretleyemez,
+        // aynı partiyi sonsuza dek yeniden yollar, kuyruk kalıcı kilitlenirdi.
+        //
+        // Artık damga sınırda UTC'ye çözülüyor; olay uygulanıyor ve partinin geri kalanı AKIYOR.
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $once = $this->customerUpsert(['name' => 'Once Gelen']);
+        $goreli = $this->cashHandover([
+            'from_user_id' => $a['kurye']->id,
+            'counted_cash_kurus' => 100,
+            'expected_cash_kurus' => 100,
+            'diff_kurus' => 0,
+        ], ['occurred_at' => 'next monday']);
+        $sonra = $this->customerUpsert(['name' => 'Sonra Gelen']);
+
+        $yanit = $this->pushEvents($token, [$once, $goreli, $sonra]);
+        $yanit->assertOk();
+        $yanit->assertJsonPath('results.0.status', 'applied');
+        $yanit->assertJsonPath('results.1.status', 'applied');
+        // Üçüncü olayın da uygulanmış olması partinin göreli damgadan sonra AKTIĞINI gösterir.
+        $yanit->assertJsonPath('results.2.status', 'applied');
+
+        // Kuyruk gerçekten ilerledi mi: partinin üç olayı da yazıldı.
+        $this->assertSame(2, $this->asOwner(fn () => Customer::query()->count()));
+        $this->assertSame(1, $this->asOwner(fn () => CashHandover::query()->count()));
+    }
+
+    #[Test]
+    public function bozuk_payload_damgasi_yalniz_o_olayi_reddeder(): void
+    {
+        // `period_start` bir PAYLOAD alanıdır; `EventValidator`'ın damga kapısından GEÇMEZ.
+        // Çözülemeyen değer `zaman()`ten olduğu gibi çıkar (doğrulama kapısı değildir) ve
+        // Carbon'un `InvalidFormatException`'ı — ki `InvalidArgumentException` alt sınıfıdır —
+        // SyncService tarafından per-olay yakalanır. Parti düşmemeli.
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $bozuk = $this->cashHandover([
+            'from_user_id' => $a['kurye']->id,
+            'counted_cash_kurus' => 100,
+            'expected_cash_kurus' => 100,
+            'diff_kurus' => 0,
+            'period_start' => 'abc',
+        ]);
+        $saglam = $this->customerUpsert(['name' => 'Saglam Kayit']);
+
+        $yanit = $this->pushEvents($token, [$bozuk, $saglam]);
+        $yanit->assertOk();
+        // İkinci olayın uygulanması, bozuk damganın partiyi rehin ALMADIĞINI gösterir.
+        $yanit->assertJsonPath('results.1.status', 'applied');
+
+        $this->assertSame(1, $this->asOwner(fn () => Customer::query()->count()));
+        $this->assertSame(0, $this->asOwner(fn () => CashHandover::query()->count()),
+            'Bozuk damgalı devir yazılmamalı.');
+    }
+
+    #[Test]
     public function damgasiz_alanin_davranisi_degismedi(): void
     {
         // Normalizasyon bir DOĞRULAMA KAPISI DEĞİLDİR: null yine null kalır, olay reddedilmez.

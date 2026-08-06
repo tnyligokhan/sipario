@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../bildirim/kurallar/para_kurallari.dart';
 import '../data/app_database.dart';
+import '../data/tr_gun.dart';
 
 /// Gün sonu SALT-OKUNUR read-model (FAZ 3). Hiçbir tabloya YAZMAZ (kalıcı durum üretmez); tüm veriyi
 /// yerel Drift'ten türetir. Kasa özeti + borç durumu. Kurye kasa DEVRİ (kalıcı mutabakat) ve atama
@@ -13,24 +14,16 @@ class DayEndRepository {
   DayEndRepository(this.db);
   final AppDatabase db;
 
-  static const _trOffset = Duration(hours: 3);
-
-  /// Şu ANIN TR takvim günü (saat sıfırlanmış). Gün sınırının TEK tanımı burada durur; bildirim
-  /// üreticileri de bunu kullanır ki bildirim ile gün sonu ekranı aynı günü konuşsun.
-  /// (`screens/isletme/gun_sonu_ozet.dart`teki `bugunTr` ekran katmanınındır; arka plan kodu
-  /// ekran dosyasına bağımlanmasın diye kopyalanmadı, kural burada tanımlandı.)
-  static DateTime bugunTr({DateTime? simdi}) {
-    final tr = (simdi ?? DateTime.now()).toUtc().add(_trOffset);
-    return DateTime(tr.year, tr.month, tr.day);
-  }
+  /// Şu ANIN TR takvim günü. Gün sınırı kuralı artık `data/tr_gun.dart`ta TEK yerde durur (#9).
+  ///
+  /// DİKKAT: [simdi] verilmezse CİHAZ saati kullanılır. Para hesabının gün sınırı için
+  /// `bugunTrDuzeltilmis(db)` tercih edilmeli — cihaz saati yanlışken ekran ile defter farklı
+  /// gün konuşur (#4). Bu imza, saat düzeltmesine erişimi olmayan saf çağrılar (bildirim
+  /// kuralları, testler) için sync kalıyor.
+  static DateTime bugunTr({DateTime? simdi}) => trGunu(simdi ?? DateTime.now());
 
   /// occurred_at (UTC ISO) verilen TR yerel takvim gününe mi düşüyor?
-  static bool _sameTrDay(String iso, DateTime localDate) {
-    final t = DateTime.tryParse(iso);
-    if (t == null) return false;
-    final tr = t.toUtc().add(_trOffset);
-    return tr.year == localDate.year && tr.month == localDate.month && tr.day == localDate.day;
-  }
+  static bool _sameTrDay(String iso, DateTime localDate) => ayniTrGunIso(iso, localDate);
 
   /// Kasa özeti: gün içinde KASAYA DOKUNAN kayıtlar ödeme tipine göre. İnvariant (DECISIONS Faz 3):
   /// "payment_type taşıyan kayıt = kasaya dokundu" — payment (tahsilat, −) VE payment_type'lı

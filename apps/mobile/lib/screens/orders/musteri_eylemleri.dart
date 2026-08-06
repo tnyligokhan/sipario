@@ -60,23 +60,34 @@ Uri telUri(String e164) => Uri(scheme: 'tel', path: e164);
 /// mesajı görmeden müşterisine para isteyen bir metin gitmemeli (üstelik otomatik gönderim
 /// WhatsApp'ın kendi arayüzünde zaten mümkün değildir).
 ///
-/// Metin `Uri` yapıcısının `queryParameters`ıyla kodlanır: Türkçe harfler, satır sonu ve `&`
-/// elle kaçırılmaya çalışılırsa (eski `?text=` birleştirmesi) mesaj sessizce kırpılır.
+/// Metin `Uri.encodeComponent` ile kodlanır ve sorgu ELLE kurulur — `Uri(queryParameters:)`
+/// KULLANILMAZ (inceleme bulgusu 2026-08-06, ölçüldü).
+///
+/// NEDEN: `queryParameters` boşluğu `application/x-www-form-urlencoded` kuralıyla `+` yazar
+/// (`text=a+b`). O kural FORM GÖNDERİMİ içindir; genel URI ayrıştırıcıları `+`ı boşluğa
+/// ÇEVİRMEK ZORUNDA DEĞİLDİR — Android'in `Uri.getQueryParameter`ı yalnız percent-decode yapar
+/// ve WhatsApp `whatsapp://send` şemasını o yoldan okur. Sonuç: müşteriye
+/// "Sayın+Ahmet,+merhaba." gider. Bu dosyanın koruduğu şey tam olarak metnin MÜŞTERİYE GÖRÜNEN
+/// hâlidir; bayi kendi müşterisinin gözünde küçük düşerdi.
+///
+/// `%20` bu belirsizliği taşımaz: HER İKİ ayrıştırıcı da onu boşluk olarak çözer.
+///
+/// ESKİ TUZAĞI GERİ GETİRMEZ: bir zamanlar `?text=` metinle ELLE birleştiriliyordu ve `&`, `#`,
+/// satır sonu, Türkçe harfler kaçırılmadığı için mesaj sessizce KIRPILIYORDU.
+/// `Uri.encodeComponent` bunların hepsini kodlar (` `→`%20`, `&`→`%26`, `#`→`%23`, `+`→`%2B`,
+/// `\n`→`%0A`, `₺`→`%E2%82%BA`) — kırpılma kaynağı ortadan kalkar. Buradaki elle kurma, o eski
+/// hatanın tekrarı DEĞİLDİR; lütfen `queryParameters`a geri çevirmeyin.
 List<Uri> whatsappUriler(String e164, {String? mesaj}) {
   final sade = e164.replaceAll(RegExp(r'\D'), ''); // wa.me "+" kabul etmez
   final metin = (mesaj ?? '').trim();
-  final sorgu = metin.isEmpty ? null : {'text': metin};
+  final metinParcasi = metin.isEmpty ? '' : 'text=${Uri.encodeComponent(metin)}';
+
   return [
-    Uri(scheme: 'whatsapp', host: 'send', queryParameters: {
-      'phone': sade,
-      ...?sorgu,
-    }),
-    Uri(
-      scheme: 'https',
-      host: 'wa.me',
-      path: '/$sade',
-      queryParameters: sorgu,
-    ),
+    Uri.parse('whatsapp://send?phone=$sade'
+        '${metinParcasi.isEmpty ? '' : '&$metinParcasi'}'),
+    // Mesaj yoksa `?` HİÇ yazılmaz: boş bir sorgu, bağlantıyı okuyan gözde "eksik parametre"
+    // izlenimi bırakır ve testler `text` anahtarının yokluğunu sınıyor.
+    Uri.parse('https://wa.me/$sade${metinParcasi.isEmpty ? '' : '?$metinParcasi'}'),
   ];
 }
 

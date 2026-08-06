@@ -3,55 +3,66 @@ import 'package:drift/drift.dart';
 import '../data/app_database.dart';
 import '../data/ids.dart';
 import '../data/outbox.dart';
-import 'day_end_repository.dart';
+import '../data/tr_gun.dart';
 
 /// Kasa devri yerel iş akışı (FAZ 4). Kurye kasayı patrona devreder: SAYILAN nakit + sistemin
 /// BEKLEDİĞİ nakit (anlık snapshot) + fark, kalıcı append-only kayıt olur (cash_handovers) + outbox,
 /// tek transaction (offline-first atomiklik). Silme/UPDATE YOK; düzeltme yeni devir kaydıyla.
 ///
-/// BEKLENEN NAKİT — TEK TANIM (kullanıcı kararı 2026-08-06):
-///   **Beklenen nakit = kapsamın o gün topladığı nakit − o gün teslim ettiği sayılan nakit.
-///   Kapsam kurye de olsa gün de olsa aynı formül; devrin ARA mı KAPANIŞ mı olduğu hesaba GİRMEZ.**
+/// KURYEDEN BEKLENEN NAKİT — TEK TANIM (kullanıcı kararı 2026-08-06 + inceleme #2):
+///   **beklenen = kuryenin PENCEREDE topladığı nakit − pencerede teslim ettiği sayılan nakit.**
+/// Yani rakam, kuryenin cebinde FİİLEN ne varsa odur. Devrin ARA mı KAPANIŞ mı olduğu hesaba
+/// GİRMEZ — cep, paranın hangi gerekçeyle çıktığını bilmez.
 ///
-/// Her kapanış/tahsilat olayının sorduğu soru aynıdır: "ŞİMDİ kasaya girecek para ne kadar?"
-/// Cebe konan paranın hangi gerekçeyle çıktığını cep bilmez — aynı fiziksel olayı gerekçesine göre
-/// iki türlü saymak, iki ekranın farklı rakam konuşması demekti.
+/// NEDEN KÜMÜLATİF: eskiden pencere `period_start`tı (SON DEVİR). Patron beklenenin tamamını
+/// almazsa — 90 toplandı, 60 alındı, 30 para üstü için kuryede BİLEREK bırakıldı — pencere o
+/// devre kayıyor ve akşam beklenen 0 çıkıyordu; kurye o 30'u verince ekran "FAZLA 30" yazıyordu.
+/// Kümülatif tanımda kuryede kalan DEVREDER: akşam beklenen 30, fark 0.
 ///
-/// NEDEN DEĞİŞTİ: eskiden beklenen `period_start`tan (son devirden) beri toplanandı. Patron ara
-/// tahsilatta beklenenin tamamını almazsa — 90 toplandı, 60 alındı, 30 para üstü için kuryede
-/// BİLEREK bırakıldı — pencere o devre kayıyor ve akşam beklenen 0 çıkıyordu; kurye o 30'u
-/// verince ekran "FAZLA 30" yazıyordu. Veri kaybı yoktu ama okunuşu tersti. Kümülatif tanımda
-/// kuryede kalan DEVREDER: akşam beklenen 30, fark 0.
+/// PENCERE = O KURYENİN SON KAPANIŞI (`day_closings`, scope=courier), yoksa günün TR başlangıcı.
+/// Takvim gününe demirlemek YANLIŞTI (inceleme #2): kurye gece topladığı kasayı ertesi sabah
+/// verirse "bugün toplanan 0 − bugün teslim edilen 5.000 = −5.000" çıkıyor ve kayda `diff +5.000`
+/// KALICI olarak donuyordu. Cep gece yarısında boşalmaz. Bu tanımda beklenen matematiksel olarak
+/// negatife DÜŞEMEZ: teslim, ancak aynı pencerede toplanmış paradan yapılabilir.
+/// Kırpma (`max(0, …)`) YOK — o, yanlış rakamı gizlerdi; tanımın kendisi doğru.
 ///
 /// Kart/havale fiziksel kasa değildir — devir yalnız NAKİT üzerinedir.
 ///
-/// GÜNLÜK SIFIRLAMA KORUNUR (TR +03:00): dünden devreden nakit taşınmaz.
-///
 /// `period_start` KAYITTA KALIR ve SİLİNMEMELİDİR: hangi pencerenin mutabakatı olduğunu söyleyen
-/// DENETİM İZİDİR (kayıt append-only, sonradan sorulacak soruların cevabı orada). Yalnız BEKLENEN
-/// HESABI ondan türemeyi bıraktı — "kullanılmıyor" sanıp kaldırmak izi yok eder.
+/// DENETİM İZİDİR. Yalnız BEKLENEN HESABI ondan türemeyi bıraktı — "kullanılmıyor" sanıp
+/// kaldırmak izi yok eder.
 ///
-/// PARALEL HESAP YASAĞI: toplanan nakit [DayEndRepository.kasaOzeti]den gelir — ekranın gösterdiği
-/// kasa ile devrin beklediği nakit AYNI koddan çıkmak zorunda.
+/// İŞARET KURALI `DayEndRepository.kasaOzeti` ile AYNIDIR: payment(−)→kasaya giren(+), nakit
+/// correction(+)→çıkan(−). `kasaOzeti` YENİDEN KULLANILAMIYOR çünkü o TAKVİM GÜNÜNE göre süzüyor,
+/// buradaki pencere ise son kapanıştan başlıyor ve gün sınırını aşabiliyor (#2). Kural değişirse
+/// İKİ YERİ birden güncelle — bilinçli, kayıtlı bir tekrar.
 class CashHandoverRepository {
-  CashHandoverRepository(this.db) : _dayEnd = DayEndRepository(db);
+  CashHandoverRepository(this.db);
   final AppDatabase db;
-  final DayEndRepository _dayEnd;
 
-  static const _trOffset = Duration(hours: 3);
-
+  /// [localDate] verilmezse DÜZELTİLMİŞ saatle bugün (#4).
+  ///
+  /// [occurredAtIso] YALNIZ `DayClosingRepository.kapat()` içindir: kapanış ile ona bağlanan devir
+  /// AYNI damgayı taşımak ZORUNDA. Devir bir milisaniye SONRA damgalanırsa, kapanışın açtığı YENİ
+  /// pencerenin içine düşer ve o kuryenin beklenen nakdi −(teslim edilen) çıkar. Pencere sınırı
+  /// HARİÇ olduğu için (`isAfter`), aynı damga devri kapanan pencerede bırakır — doğrusu budur:
+  /// o para kapanan dönemin parasıdır.
   Future<String> devret({
     required String fromUserId,
     String? toUserId,
     required int countedCashKurus,
     String? note,
+    DateTime? localDate,
+    String? occurredAtIso,
   }) async {
     final meta = await db.syncState();
-    final at = correctedNowIso(meta.serverTimeOffsetMs);
+    final at = occurredAtIso ?? correctedNowIso(meta.serverTimeOffsetMs);
     final device = meta.deviceId;
     final id = newId();
 
-    final on = await onizle(fromUserId);
+    // localDate GEÇİRİLİR (inceleme #5): `kapat(localDate: X)` önizlemeyi X için hesaplayıp
+    // devri bugüne göre yazsaydı, kapanışa donan beklenen ile devre yazılan beklenen ayrışırdı.
+    final on = await onizle(fromUserId, localDate: localDate);
     final periodStart = on.periodStartIso;
     final expected = on.expectedKurus;
     final diff = countedCashKurus - expected;
@@ -101,8 +112,8 @@ class CashHandoverRepository {
   /// şemada `kind` kolonu olmadığı için ARA olan, `day_closings.cash_handover_id` ile HİÇBİR
   /// kapanışa bağlanmamış devirdir ([araTahsilatlar]).
   ///
-  /// period_start sayesinde gün içinde defalarca çağrılabilir: her ara tahsilat bir öncekinden beri
-  /// toplananı kapsar, sayım serbesttir (patron sayar, fark KANIT olarak kaydedilir).
+  /// Gün içinde defalarca çağrılabilir: her ara tahsilat kuryenin cebinde O AN ne varsa onu
+  /// kapsar, sayım serbesttir (patron sayar, fark KANIT olarak kaydedilir).
   ///
   /// KAPANMIŞ KAPSAMA YAZMAZ ([StateError] atar). Ekran düğmeyi zaten gizliyor; bu İKİNCİ kapı,
   /// çünkü kapanış "o anın gerçeğini dondurur" — kapandıktan sonra o güne düşen yeni bir devir
@@ -127,11 +138,11 @@ class CashHandoverRepository {
 
   /// Bugün kapanmış bir kapsam ara tahsilatı engelliyorsa hata metni, engel yoksa null.
   Future<String?> _kapaliKapsamEngeli(String fromUserId) async {
-    final bugun = _trBugun();
+    final bugun = await bugunTrDuzeltilmis(db);
     final kapanislar = await db.select(db.dayClosings).get();
     for (final k in kapanislar) {
       final t = DateTime.tryParse(k.occurredAt);
-      if (t == null || !_ayniTrGun(t, bugun)) continue;
+      if (t == null || !ayniTrGunAn(t, bugun)) continue;
       if (k.scope == 'day') return 'Gün hesabı kapandı; ara tahsilat alınamaz.';
       if (k.scope == 'courier' && k.userId == fromUserId) {
         return 'Bu kuryenin hesabı kapandı; ara tahsilat alınamaz.';
@@ -144,17 +155,138 @@ class CashHandoverRepository {
   /// yazdığı beklenen AYNI koddan çıksın diye public. Yalnız OKUR (yazma yok). devret() submit anında
   /// bunu YENİDEN çağırır → "anlık snapshot" tanımı korunur (ekranda gösterilen ile yazılan arasında
   /// süre geçse de kayıt submit anındaki değeri tutar).
-  /// [localDate] verilmezse BUGÜN. Geçmiş gün de sorulabilir: formül gün bazlı olduğu için
-  /// geçmişe sarılabilir (eski `period_start` tabanlı hesap sarılamıyordu — dünün ekranı bugünün
-  /// son devrine göre değişirdi).
+  /// [localDate] verilmezse DÜZELTİLMİŞ saatle bugün. Pencerenin BİTİŞİ o günün sonudur; geçmiş
+  /// gün sorulduğunda sonraki hareketler girmez.
   Future<HandoverOnizleme> onizle(String fromUserId, {DateTime? localDate}) async {
-    final gun = localDate ?? _trBugun();
-    final toplanan = (await _dayEnd.kasaOzeti(gun, userId: fromUserId)).nakit;
-    final teslimEdilen = await teslimEdilenNakit(gun, kuryeId: fromUserId);
+    final gun = localDate ?? await bugunTrDuzeltilmis(db);
+    final pencere = await _pencere(fromUserId, gun);
+    final toplanan = await _pencerede(fromUserId, pencere);
+    final teslimEdilen = await _teslimEdilen(kuryeId: fromUserId, pencere: pencere);
     return HandoverOnizleme(
       periodStartIso: await _periodStart(fromUserId),
       expectedKurus: toplanan - teslimEdilen,
+      toplananKurus: toplanan,
+      teslimEdilenKurus: teslimEdilen,
     );
+  }
+
+  /// Kuryelerin cebinde kalan nakit toplamı (gün kapsamı için, inceleme #1).
+  ///
+  /// Her kuryenin kendi kapsam hesabının TOPLAMIDIR — gün kapsamı kendi ayrı formülünü yazmaz,
+  /// türetme tek yerde kalır.
+  ///
+  /// KÜME `users` AYNASINDAN DEĞİL, DEFTERDEN TÜRER (inceleme B — bağlayıcı): `users` sunucu
+  /// kaynaklı bir önbellektir ve GEÇ İNEBİLİR; `status='active'` süzgeci ise gün içinde pasife
+  /// alınmış kuryeyi düşürürdü. Kümeden düşen kuryenin üzerindeki para "kuryelerde kalan"a
+  /// girmez, gün beklentisi ŞİŞER ve patron her akşam açıklayamadığı bir EKSİK görür. Kanıt
+  /// defterdedir: o gün fiilen para toplayan `collected_by_user_id`ler + devir yapan
+  /// `from_user_id`ler.
+  ///
+  /// DIŞLAMA POZİTİF BİLGİYE DAYANIR: bir toplayıcı, ancak `users` aynası "bu kişi kurye DEĞİL"
+  /// diyorsa (ya da oturumdaki kullanıcı kurye değilse) kümeden çıkar. Aynada hiç olmayan
+  /// toplayıcı KURYE SAYILIR — geç inen ayna yüzünden parayı kasada sanmaktansa kuryede saymak
+  /// güvenli taraftır (patron eksik değil, kuryede bekleyen para görür).
+  ///
+  /// TOPLAYICISI NULL nakit (inceleme E) kümeye GİRMEZ ve bu BİLİNÇLİ: atfı olmayan para
+  /// "kuryede" sayılamaz, kasada sayılır. Böyle bir kayıt yalnız oturum kurulmadan yazılabilir
+  /// (giriş `sync_meta.user_id`yi her zaman doldurur, `logout` silmez) — yani pratikte patronun
+  /// kendi cihazıdır. Yine de o parayı fiilen bir kurye taşıyorsa gün sayımı EKSİK gösterir;
+  /// eksik GÖRÜNÜR bir sinyaldir, sessizce yutulmaz.
+  Future<int> kuryelerdeKalanNakit(DateTime gun) async {
+    final adaylar = <String>{};
+
+    final hareketler = await (db.select(db.ledgerEntries)
+          ..where((t) => t.paymentType.equals('nakit') & t.collectedByUserId.isNotNull()))
+        .get();
+    for (final e in hareketler) {
+      if (ayniTrGunIso(e.occurredAt, gun)) adaylar.add(e.collectedByUserId!);
+    }
+    // Devir yapan kişi tanım gereği kuryedir; o gün hiç tahsilat yapmamış olsa bile kümededir
+    // (dünden devrettiği kasa bugün teslim edilmiş olabilir).
+    for (final h in await db.select(db.cashHandovers).get()) {
+      if (ayniTrGunIso(h.occurredAt, gun)) adaylar.add(h.fromUserId);
+    }
+    if (adaylar.isEmpty) return 0;
+
+    final aynadakiRoller = {
+      for (final u in await (db.select(db.users)..where((t) => t.id.isIn(adaylar))).get())
+        u.id: u.role,
+    };
+    final meta = await db.syncState();
+
+    var toplam = 0;
+    for (final id in adaylar) {
+      final rol = aynadakiRoller[id] ?? (id == meta.userId ? meta.userRole : null);
+      if (rol != null && rol != 'kurye') continue; // pozitif olarak kurye DEĞİL
+      toplam += (await onizle(id, localDate: gun)).expectedKurus;
+    }
+    return toplam;
+  }
+
+  /// Kuryenin mutabakat PENCERESİ: [gun]un sonundan önceki SON kurye kapanışından o günün sonuna.
+  ///
+  /// HİÇ KAPANIŞI YOKSA PENCERE ALTTAN AÇIKTIR (gün başı DEĞİL). İnceleme #2 fallback olarak
+  /// "bugünün TR gün başı" öneriyordu ama o, kapatmaya çalıştığı hatanın ta kendisini üretir:
+  /// dün 23:00'te toplanıp bugün 09:00'da teslim edilen kasada "bugün toplanan 0 − teslim edilen
+  /// 5.000 = −5.000" çıkardı. Hiç kapanış yapmamış kurye HİÇ mutabakat yapmamıştır; o güne kadar
+  /// topladığının teslim etmediği kısmı hâlâ cebindedir. Alttan açık pencere, incelemenin
+  /// istediği garantiyi ("beklenen negatife düşemez") gerçekten sağlar: teslim, ancak aynı
+  /// pencerede toplanmış paradan yapılabilir.
+  Future<_Pencere> _pencere(String fromUserId, DateTime gun) async {
+    final bitis = trGunBasiUtc(gun).add(const Duration(days: 1));
+    final kapanislar = await (db.select(db.dayClosings)
+          ..where((t) => t.scope.equals('courier') & t.userId.equals(fromUserId)))
+        .get();
+
+    DateTime? sonKapanis;
+    for (final k in kapanislar) {
+      final t = DateTime.tryParse(k.occurredAt)?.toUtc();
+      if (t == null || !t.isBefore(bitis)) continue;
+      if (sonKapanis == null || t.isAfter(sonKapanis)) sonKapanis = t;
+    }
+    return _Pencere(baslangic: sonKapanis, bitis: bitis);
+  }
+
+  /// Penceredeki NAKİT kasa katkısı (payment(−)→giren(+); nakit correction(+)→çıkan(−)).
+  Future<int> _pencerede(String fromUserId, _Pencere pencere) async {
+    final satirlar = await (db.select(db.ledgerEntries)
+          ..where((t) => t.paymentType.equals('nakit') & t.collectedByUserId.equals(fromUserId)))
+        .get();
+    var toplam = 0;
+    for (final e in satirlar) {
+      final t = DateTime.tryParse(e.occurredAt)?.toUtc();
+      if (t == null || !pencere.icinde(t)) continue;
+      toplam += -e.amountKurus;
+    }
+    return toplam;
+  }
+
+  /// [gun] TR gününde teslim edilen nakdin SAYILAN toplamı. [kuryeId] verilmezse tüm kuryeler.
+  ///
+  /// ARA ve KAPANIŞ devirleri BİRLİKTE sayılır — [araTahsilatlar]dan farkı budur ve bilinçlidir:
+  /// orası EKRANIN gösterdiği listedir (ara tahsilatı kapanıştan ayırmak kullanıcı için anlamlı),
+  /// burası ise CEPTEKİ parayı ölçer ve cep, paranın hangi gerekçeyle çıktığını bilmez. Ayrımı
+  /// hesaba sokmak, aynı fiziksel olayı gerekçesine göre iki türlü saymak olurdu.
+  ///
+  /// `counted` kullanılır, `expected` DEĞİL: kuryenin cebinden fiilen çıkan para sayılan paradır.
+  Future<int> teslimEdilenNakit(DateTime gun, {String? kuryeId}) =>
+      _teslimEdilen(kuryeId: kuryeId, gun: gun);
+
+  /// [pencere] verilirse o aralık, yoksa [gun]ün tamamı süzgeç olur.
+  Future<int> _teslimEdilen({String? kuryeId, DateTime? gun, _Pencere? pencere}) async {
+    final sorgu = db.select(db.cashHandovers);
+    if (kuryeId != null) {
+      sorgu.where((t) => t.fromUserId.equals(kuryeId));
+    }
+    final satirlar = await sorgu.get();
+    var toplam = 0;
+    for (final r in satirlar) {
+      final t = DateTime.tryParse(r.occurredAt)?.toUtc();
+      if (t == null) continue;
+      if (!(pencere?.icinde(t) ?? ayniTrGunAn(t, gun!))) continue;
+      toplam += r.countedCashKurus;
+    }
+    return toplam;
   }
 
   /// fromUserId'nin son devir occurred_at'i; yoksa bugünün TR gün başı (UTC ISO).
@@ -166,31 +298,7 @@ class CashHandoverRepository {
           ..orderBy([(t) => OrderingTerm.desc(t.occurredAt)])
           ..limit(1))
         .getSingleOrNull();
-    return last?.occurredAt ?? _trDayStartUtcIso();
-  }
-
-  /// [gun] içinde patrona teslim edilen nakdin SAYILAN toplamı. [kuryeId] verilirse yalnız o
-  /// kuryeden alınanlar; verilmezse GÜN kapsamı (tüm kuryeler).
-  ///
-  /// ARA ve KAPANIŞ devirleri BİRLİKTE sayılır — [araTahsilatlar]dan farkı budur ve bilinçlidir:
-  /// orası EKRANIN gösterdiği listedir (ara tahsilatı kapanıştan ayırmak kullanıcı için anlamlı),
-  /// burası ise CEPTEKİ parayı ölçer ve cep, paranın hangi gerekçeyle çıktığını bilmez. Ayrımı
-  /// hesaba sokmak, aynı fiziksel olayı gerekçesine göre iki türlü saymak olurdu.
-  ///
-  /// `counted` kullanılır, `expected` DEĞİL: kuryenin cebinden fiilen çıkan para sayılan paradır.
-  Future<int> teslimEdilenNakit(DateTime gun, {String? kuryeId}) async {
-    final sorgu = db.select(db.cashHandovers);
-    if (kuryeId != null) {
-      sorgu.where((t) => t.fromUserId.equals(kuryeId));
-    }
-    final satirlar = await sorgu.get();
-    var toplam = 0;
-    for (final r in satirlar) {
-      final t = DateTime.tryParse(r.occurredAt);
-      if (t == null || !_ayniTrGun(t, gun)) continue;
-      toplam += r.countedCashKurus;
-    }
-    return toplam;
+    return last?.occurredAt ?? trGunBasiUtc(await bugunTrDuzeltilmis(db)).toIso8601String();
   }
 
   // ═════════════════════════════════════════════════════════════════════════════════════════
@@ -222,7 +330,7 @@ class CashHandoverRepository {
     for (final r in satirlar) {
       if (kapanisaBagli.contains(r.id)) continue;
       final t = DateTime.tryParse(r.occurredAt);
-      if (t == null || !_ayniTrGun(t, localDate)) continue;
+      if (t == null || !ayniTrGunAn(t, localDate)) continue;
       sonuc.add(AraTahsilatKaydi(
         id: r.id,
         fromUserId: r.fromUserId,
@@ -258,33 +366,47 @@ class CashHandoverRepository {
     return rows.map((r) => r.cashHandoverId!).toSet();
   }
 
-  /// UTC zaman damgası verilen TR yerel takvim gününe mi düşüyor? (`DayEndRepository` ile aynı
-  /// +03:00 kaydırması — iki farklı gün tanımı rakamları sessizce ayrıştırırdı.)
-  static bool _ayniTrGun(DateTime t, DateTime localDate) {
-    final tr = t.toUtc().add(_trOffset);
-    return tr.year == localDate.year && tr.month == localDate.month && tr.day == localDate.day;
-  }
+}
 
-  /// Şu ANIN TR takvim günü (saat sıfırlanmış) — `DayEndRepository.bugunTr` ile aynı tanım.
-  static DateTime _trBugun() {
-    final tr = DateTime.now().toUtc().add(_trOffset);
-    return DateTime(tr.year, tr.month, tr.day);
-  }
+/// Kuryenin mutabakat penceresi: `(baslangic, bitis)`. [baslangic] null ise ALTTAN AÇIK —
+/// kurye hiç kapanış yapmamıştır, yani hiç mutabakat yapmamıştır.
+class _Pencere {
+  const _Pencere({required this.baslangic, required this.bitis});
+  final DateTime? baslangic;
+  final DateTime bitis;
 
-  /// Bugünün TR (+03:00) gün başının UTC ISO karşılığı (occurred_at UTC ISO ile karşılaştırılır).
-  static String _trDayStartUtcIso() {
-    final tr = DateTime.now().toUtc().add(_trOffset);
-    final trMidnight = DateTime.utc(tr.year, tr.month, tr.day); // TR 00:00 (saat değeri olarak)
-    return trMidnight.subtract(_trOffset).toIso8601String(); // gerçek UTC'ye geri al
+  /// [baslangic] HARİÇTİR (`isAfter`): kapanış ANINDA yazılan devir (`kapat(alsoHandover: true)`)
+  /// kapanışla AYNI damgayı taşır ve yeni pencereye DEĞİL kapanan pencereye aittir. Dahil
+  /// olsaydı kapanış sonrası beklenen −(teslim edilen) çıkardı.
+  bool icinde(DateTime t) {
+    final alt = baslangic;
+    return (alt == null || t.isAfter(alt)) && t.isBefore(bitis);
   }
 }
 
 /// Devir önizleme değeri (salt-okunur): mutabakat dönemi başı + o dönemde kuryenin topladığı
 /// beklenen nakit. Ekran gösterir, devret() aynı hesabı kayda yazar.
 class HandoverOnizleme {
-  HandoverOnizleme({required this.periodStartIso, required this.expectedKurus});
+  HandoverOnizleme({
+    required this.periodStartIso,
+    required this.expectedKurus,
+    this.toplananKurus = 0,
+    this.teslimEdilenKurus = 0,
+  });
+
+  /// Denetim izi — hesaba GİRMEZ (bkz. sınıf notu).
   final String periodStartIso;
+
+  /// Kuryenin cebinde kalan = [toplananKurus] − [teslimEdilenKurus].
   final int expectedKurus;
+
+  /// PENCEREDE toplanan nakit (son kapanıştan beri). Ekran üçlüsünün ilk sayısı; kimliğin
+  /// tutması için gün toplamı DEĞİL pencere toplamı taşınır — kurye gün içinde bir kez
+  /// kapatmışsa günün tamamı artık onun çerçevesi değildir.
+  final int toplananKurus;
+
+  /// PENCEREDE teslim edilen sayılan nakit (ara + kapanış devirleri birlikte).
+  final int teslimEdilenKurus;
 }
 
 /// Gün içinde alınmış TEK bir ara tahsilat (salt-okunur görünüm). Ekran "kim · ne zaman · sayılan

@@ -6,16 +6,21 @@
 // (paralel hesap yasağı — DECISIONS Dilim 4).
 
 import '../../data/app_database.dart';
+import '../../data/tr_gun.dart';
 import '../../repo/cash_handover_repository.dart';
 import '../../repo/day_closing_repository.dart';
 import '../../repo/day_end_repository.dart';
 
-/// Bugünün TR takvim günü (00:00). Cihaz saat diliminden bağımsız — DayEndRepository +03:00
-/// offset'iyle tutarlı (occurred_at +3s kaydırılıp gün karşılaştırılır).
-DateTime bugunTr({DateTime? now}) {
-  final tr = (now ?? DateTime.now()).toUtc().add(const Duration(hours: 3));
-  return DateTime(tr.year, tr.month, tr.day);
-}
+export '../../data/tr_gun.dart' show bugunTrDuzeltilmis;
+
+/// Bugünün TR takvim günü (00:00). Kural `data/tr_gun.dart`ta TEK yerde durur (#9).
+///
+/// ⚠️ CİHAZ SAATİNDEN türer. Para hesabının gün sınırı için [bugunTrDuzeltilmis] KULLANILMALI:
+/// telefon 40 dk ileriyken saat 23:40'ta bu fonksiyon YARINI döndürür ama kayıt (düzeltilmiş
+/// saatle yazıldığı için) BUGÜNE düşer — ekran ile defter farklı gün konuşur (#4). Repo katmanı
+/// artık düzeltilmiş saati kullanıyor; bu imza yalnız saat düzeltmesine erişimi olmayan sync
+/// çağrılar için duruyor.
+DateTime bugunTr({DateTime? now}) => trGunu(now ?? DateTime.now());
 
 /// Gün geneli özet: kasa + açık borç.
 class GunSonuOzet {
@@ -87,12 +92,9 @@ Future<int> acikSiparisSayisi(
 }
 
 /// occurred_at (UTC ISO) verilen TR yerel takvim gününe mi düşüyor?
-bool ayniTrGun(String iso, DateTime localDate) {
-  final t = DateTime.tryParse(iso);
-  if (t == null) return false;
-  final tr = t.toUtc().add(const Duration(hours: 3));
-  return tr.year == localDate.year && tr.month == localDate.month && tr.day == localDate.day;
-}
+/// Kural `data/tr_gun.dart`ta TEK yerde durur (#9); bu ad `order_queries.dart` da dahil çağrı
+/// yerlerini kırmamak için korunuyor.
+bool ayniTrGun(String iso, DateTime localDate) => ayniTrGunIso(iso, localDate);
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Ekranın tek atışta ihtiyaç duyduğu her şey
@@ -155,15 +157,13 @@ class GunSonuGorunumu {
   /// inmemiş olabilir.
   final SenkronTazeligi senkron;
 
-  /// Gün içinde alınan ARA tahsilatların SAYILAN toplamı (kuruş) — özet kartının listesiyle
-  /// aynı kümedir (kapanış devirleri hariç).
-  ///
-  /// BEKLENEN/KALAN NAKDİ BURADAN TÜRETME. O rakam `DayClosingRepository.onizle()`den gelir ve
-  /// kapanış devirlerini de düşer; buradaki çıkarma kurye kapsamında YANLIŞ sonuç verirdi.
-  /// (Bir zamanlar burada `kalanNakitKurus` diye bir getter vardı; kapanış sheet'ini onunla
-  /// beslemek sheet'te yazan tutarla arşive donan tutarı ayrıştırıyordu — kaldırıldı.)
-  int get araTahsilatKurus =>
-      araTahsilatlar.fold<int>(0, (s, a) => s + a.countedCashKurus);
+  // PARA TÜRETEN GETTER YOK — bilinçli (inceleme #7).
+  //
+  // Burada bir zamanlar `kalanNakitKurus` ve `araTahsilatKurus` vardı. İkisi de "toplamı ekranda
+  // hazır bulundurmak" için eklenmişti ama ikisi de kapanış aritmetiğine YAKIN durup ondan FARKLI
+  // hesaplıyordu; `kalanNakitKurus` kapanış sheet'ini bir kez fiilen yanlış besledi. Kapanışın
+  // rakamları TEK yerden gelir: `DayClosingRepository.onizle()` → `gunNakitKurus` ·
+  // `dusulenKurus` · `expectedCashKurus`. Liste toplamı gerekiyorsa çağrı yerinde topla.
 }
 
 /// Seçili GÜNÜN tam görünümü. [localDate] GEÇMİŞ bir gün olabilir — tüm süzgeçler bu tarihi
@@ -184,7 +184,7 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
 
   final acikKuryeler = await acikKuryeAdlari(db, localDate);
   final aktifSayi = await _aktifKuryeSayisi(db);
-  final bugun = localDate == bugunTr();
+  final bugun = localDate == await bugunTrDuzeltilmis(db);
 
   return GunSonuGorunumu(
     ozet: await gunSonuOzeti(db, localDate),

@@ -28,16 +28,26 @@ class KapatmaSonucu {
 
 /// Hesabı kapat · kasa devri.
 ///
-/// [beklenen] KÜMÜLATİF KALAN nakittir (kullanıcı kararı 2026-08-06): günün nakdinden gün içinde
-/// TESLİM EDİLEN sayılan nakit düşülmüş hâli — devrin ara mı kapanış mı olduğu hesaba girmez.
-/// Sayılan tutar bununla karşılaştırılır; kasada fiilen duran para budur.
+/// [beklenen] kasada olması gereken nakittir; sayılan tutar bununla karşılaştırılır.
 ///
-/// [tamNakit] ve [teslimEdilen] YALNIZ AÇIKLAMA İÇİNDİR ve gün içinde para alındıysa ayrı
-/// satırlarda yazılır. Olmasalardı bayi beklenen nakdin neden düştüğünü göremezdi; ekran ona
-/// açıklanamayan bir eksik gösterirdi ve mutabakata olan güven biterdi.
+/// ══ SHEET HİÇBİR FORMÜL BİLMEZ (lead kararı 2026-08-06) ═══════════════════════════════════
+/// Üçlü şöyle çizilir ve tek kuralı vardır: **üst − orta == alt**.
+///   • üst  = [tamNakit]      "Günün nakdi"
+///   • orta = [ortaTutar]     adı [ortaEtiket] ile ÇAĞIRANDAN gelir
+///   • alt  = [beklenen]      "Beklenen nakit"
 ///
-/// ÜÇÜ DE REPO'DAN GELİR ve aralarındaki bağıntı repo'nun sözleşmesidir
-/// (`gunNakitKurus − teslimEdilenKurus == expectedCashKurus`). Sheet hiçbirini çıkarmaz.
+/// ORTA SATIRIN ADI NEDEN PARAMETRE: iki kapsamda ZIT YÖNLÜ iki büyüklüktür.
+///   • Gün hesabı → "Kuryelerde kalan" (henüz TESLİM EDİLMEMİŞ para)
+///   • Kurye hesabı → "Gün içinde alınan" (TESLİM EDİLMİŞ para)
+/// Bunu tek bir alan adıyla taşıyıp anlamını `gunHesabi` bayrağına göre değiştirmek, bu vardiyada
+/// dört kez yakalanan hatanın tam kalıbıdır ("anlamı değişen sayıyı eski kabıyla taşımak") ve
+/// üstelik sheet'in içine hiçbir testin doğrudan konusu olmayan gizli bir kural gömerdi.
+///
+/// Sayıların hepsi REPO'DAN gelir; sheet ne toplar ne çıkarır. Kimlik tutmuyorsa çizim değil VERİ
+/// hatalıdır — o yüzden kural testle kilitlenir, kodda `assert` ile değil.
+///
+/// [ortaEtiket] null ya da [ortaTutar] sıfırsa orta satır HİÇ çizilmez: tek kişilik bayide ve
+/// kuryesi hesabını kapatmış bayide "− 0,00 ₺" her akşam cevapsız bir soru olurdu.
 Future<KapatmaSonucu?> gunKapatmaSheet(
   BuildContext context, {
   required String kapsamAdi,
@@ -45,7 +55,8 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
   required int beklenen,
   required int teslimat,
   int tamNakit = 0,
-  int teslimEdilen = 0,
+  String? ortaEtiket,
+  int ortaTutar = 0,
   SenkronTazeligi? senkron,
 }) {
   return sipSheet<KapatmaSonucu>(
@@ -57,7 +68,8 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
       beklenen: beklenen,
       teslimat: teslimat,
       tamNakit: tamNakit,
-      teslimEdilen: teslimEdilen,
+      ortaEtiket: ortaEtiket,
+      ortaTutar: ortaTutar,
       senkron: senkron,
     ),
   );
@@ -70,7 +82,8 @@ class _KapatmaGovdesi extends StatefulWidget {
     required this.beklenen,
     required this.teslimat,
     required this.tamNakit,
-    required this.teslimEdilen,
+    required this.ortaEtiket,
+    required this.ortaTutar,
     required this.senkron,
   });
 
@@ -79,7 +92,8 @@ class _KapatmaGovdesi extends StatefulWidget {
   final int beklenen;
   final int teslimat;
   final int tamNakit;
-  final int teslimEdilen;
+  final String? ortaEtiket;
+  final int ortaTutar;
 
   /// null ise tazelik şeridi hiç çizilmez (çağıran o kapsamda göstermemeye karar vermiştir).
   final SenkronTazeligi? senkron;
@@ -130,25 +144,20 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
             tur: AlanNotuTuru.uyari,
           ),
 
-        // GÜN İÇİNDE PARA ALINDIYSA HESABIN TAMAMI YAZILIR (günün nakdi → düşülen → kalan).
-        // Yalnız "beklenen nakit" yazsaydık, cirosunun 12.000 olduğunu bilen bayi 7.000'lik bir
-        // beklenti görüp uygulamanın yanıldığını düşünürdü — ve BRIEF'in kırmızı çizgisi tam
-        // burada kırılırdı: "rakamlar bayinin elle tuttuğu defterle tutmazsa ürüne güven ölür".
-        // Hiç para alınmamışsa bu iki satır ÇİZİLMEZ; çoğunluk gün böyle geçer ve "− 0,00 ₺"
-        // her akşam cevapsız bir soru olurdu.
+        // ARADAKİ FARK VARSA HESABIN TAMAMI YAZILIR (üst → orta → alt). Yalnız "beklenen nakit"
+        // yazsaydık, cirosunun 12.000 olduğunu bilen bayi 7.000'lik bir beklenti görüp
+        // uygulamanın yanıldığını düşünürdü — BRIEF'in kırmızı çizgisi tam burada kırılırdı:
+        // "rakamlar bayinin elle tuttuğu defterle tutmazsa ürüne güven ölür".
         //
-        // ETİKET "ARA TAHSİLAT" DEMEZ (kullanıcı kararı 2026-08-06): bu toplam artık ARA ve
-        // KAPANIŞ devirlerinin İKİSİNİ birden kapsıyor — bir kurye kendi hesabını kapatıp kasayı
-        // teslim ettiğinde o para da buraya girer. "Ara tahsilat" yazmak, neyin toplandığını
-        // YANLIŞ iddia eden bir formül cümlesi olurdu; etiket neyi topladığını değil, ne
-        // olduğunu söyler.
-        if (widget.teslimEdilen != 0) ...[
+        // Orta satırın ADI çağırandan gelir (dosya başındaki gerekçe): gün hesabında
+        // "Kuryelerde kalan", kurye hesabında "Gün içinde alınan" — zıt yönlü iki büyüklük.
+        if (widget.ortaEtiket != null && widget.ortaTutar != 0) ...[
           DegerKarti(
             satirlar: [
               DegerSatiri(etiket: 'Günün nakdi', deger: sipTutar(widget.tamNakit)),
               DegerSatiri(
-                etiket: 'Gün içinde alınan',
-                deger: '− ${sipTutar(widget.teslimEdilen)}',
+                etiket: widget.ortaEtiket!,
+                deger: '− ${sipTutar(widget.ortaTutar)}',
                 degerRengi: t.ink2,
               ),
             ],

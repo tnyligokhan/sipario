@@ -69,9 +69,29 @@ class GecmisGunEkrani extends StatefulWidget {
 }
 
 class _GecmisGunEkraniState extends State<GecmisGunEkrani> {
-  late final DateTime _bugun = widget.bugun ?? bugunTr();
+  /// İleri okun sınırı. Cihaz saatiyle başlar, sonra DÜZELTİLMİŞ sunucu saatiyle tazelenir
+  /// ([initState]) — telefon ileri kurulmuşsa ok bir gün fazla açılır ve bayi boş bir güne bakıp
+  /// "veri mi kayboldu" diye düşünürdü. İlk kareyi beklemiyoruz: bu ekran SALT OKUNURDUR, yanlış
+  /// bir sınır en fazla bir kare sürer ve hiçbir kayda dokunmaz.
+  late DateTime _bugun = widget.bugun ?? bugunTr();
 
   late DateTime _gun = _bugun.subtract(const Duration(days: 1));
+
+  @override
+  void initState() {
+    super.initState();
+    // Test dikişi verilmişse ona saygı duyulur; aksi hâlde gün sınırı düzeltilir.
+    if (widget.bugun != null) return;
+    bugunTrDuzeltilmis(widget.db).then((duzeltilmis) {
+      if (!mounted || duzeltilmis == _bugun) return;
+      setState(() {
+        _bugun = duzeltilmis;
+        _gun = duzeltilmis.subtract(const Duration(days: 1));
+        _veri = _yukle();
+        _urunler = satilanUrunler(widget.db, _gun);
+      });
+    });
+  }
 
   /// null = "Tümü"; aksi hâlde kuryenin kullanıcı kimliği.
   late String? _kuryeId = widget.rol == 'kurye' ? widget.kullaniciId : null;

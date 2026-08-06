@@ -3,11 +3,26 @@ import 'package:drift/drift.dart';
 import '../data/app_database.dart';
 import '../data/ids.dart';
 import '../data/outbox.dart';
+import '../data/tr_gun.dart';
 import 'cash_handover_repository.dart';
 import 'day_end_repository.dart';
 
 /// Kapanış kapsamı: günün tamamı ya da tek kurye (tasarım: "Tümü" sekmesi vs kurye sekmesi).
 enum ClosingScope { day, courier }
+
+/// [ClosingOnizleme.dusulenKurus]un NE OLDUĞU. Anlam DEĞERLE BİRLİKTE taşınır; ekran kapsamdan
+/// çıkarım YAPMAZ.
+///
+/// Bu vardiyada dört kez ısırılan kalıp tam olarak buydu: `kalanNakitKurus`, `araTahsilatKurus`,
+/// `teslimEdilenKurus`... hepsi "bağlama göre doğru" sayılardı ve yanlış bağlamda kullanıldılar.
+/// Sayının yanında ne olduğunu söyleyen bir etiket taşımak, o hatayı derleme zamanına çeker.
+enum DusulenKalem {
+  /// GÜN kapsamı: henüz teslim edilmemiş, hâlâ kuryelerin cebindeki para.
+  kuryelerdeKalan,
+
+  /// KURYE kapsamı: o kuryenin bu pencerede patrona teslim ettiği para.
+  teslimEdilen,
+}
 
 /// Gün sonu KAPANIŞI (tasarım: "Hesabı Kapat · Kasa Devri" + "Arşiv") — APPEND-ONLY.
 ///
@@ -27,8 +42,6 @@ class DayClosingRepository {
   final DayEndRepository _dayEnd;
   final CashHandoverRepository _handovers;
 
-  static const _trOffset = Duration(hours: 3);
-
   /// Arşiv listesi (yeni üstte).
   Stream<List<DayClosing>> watchArchive({int limit = 50}) => (db.select(db.dayClosings)
         ..orderBy([(t) => OrderingTerm.desc(t.occurredAt)])
@@ -37,7 +50,7 @@ class DayClosingRepository {
 
   /// Bu kapsam bugün kapatıldı mı? (Kapatılmışsa ekran kilitlenir — tasarım.)
   Future<bool> kapaliMi(ClosingScope scope, {String? userId, DateTime? localDate}) async {
-    final date = localDate ?? _trToday();
+    final date = localDate ?? await bugunTrDuzeltilmis(db);
     final rows = await (db.select(db.dayClosings)..where((t) => t.scope.equals(scope.name))).get();
     return rows.any((r) =>
         r.userId == (scope == ClosingScope.courier ? userId : null) && _sameTrDay(r.occurredAt, date));
@@ -55,39 +68,50 @@ class DayClosingRepository {
   /// Kapanış ÖNİZLEMESİ — ekranın gösterdiği rakamlar. `kapat()` submit anında bunu YENİDEN çağırır,
   /// böylece gösterilen ile yazılan aynı koddan çıkar (devir önizlemesiyle aynı desen).
   ///
-  /// TEK TANIM (kullanıcı kararı 2026-08-06):
-  /// **Beklenen nakit = kapsamın o gün topladığı nakit − o gün teslim ettiği sayılan nakit.
-  /// Kapsam kurye de olsa gün de olsa aynı formül; devrin ARA mı KAPANIŞ mı olduğu hesaba GİRMEZ.**
+  /// Her kapanış olayının sorduğu soru aynıdır: **"ŞİMDİ kasaya girecek para ne kadar?"** Ama
+  /// cevabın şekli kapsama göre değişir ve bu ayrım İNCELEME #1'in düzelttiği hatadır:
   ///
-  /// Her kapanış/tahsilat olayının sorduğu soru aynıdır: "ŞİMDİ kasaya girecek para ne kadar?"
-  /// Gün kapanışında sayılacak para "gün boyunca toplanan" değil, "henüz teslim edilmemiş olan"dır.
+  ///  • **KURYE kapsamı** — beklenen = kuryenin cebinde kalan (`CashHandoverRepository.onizle`).
+  ///  • **GÜN kapsamı** — beklenen = günün nakdi − KURYELERDE KALAN.
+  ///
+  /// Gün kapsamında devir bir **İÇ TRANSFERDİR**: para kuryeden patrona geçer, işletmeden ÇIKMAZ.
+  /// Teslim edilenleri düşmek işaretini kaybediyordu — kurye 10.000 toplayıp hepsini verdiğinde
+  /// ekran "beklenen 0" derken patronun kasasında 10.000 vardı ve sayım "FAZLA 10.000" yazıyordu.
+  /// Patron gün sonunda KASASINI sayar; kasada olması gereken = toplanan − hâlâ kuryelerin cebinde
+  /// olan. Tek kişilik bayide kuryelerde kalan 0'dır → beklenen günün tüm nakdi olur (doğru).
+  ///
+  /// Gün kapsamı KENDİ FORMÜLÜNÜ YAZMAZ: kuryelerde kalan, her kuryenin kurye-kapsamı değerinin
+  /// toplamıdır — türetme tek yerde durur.
   ///
   /// Üç sayı ARİTMETİK OLARAK KAPANIR ve ekran farkı açıklayabilsin diye üçü de taşınır:
-  /// `gunNakitKurus − teslimEdilenKurus == expectedCashKurus`. Kapanmayan bir üçlü, patronun
-  /// toplamdan küçük bir rakam görüp sebebini soramaması demekti.
+  /// `gunNakitKurus − dusulenKurus == expectedCashKurus`. Kapanmayan bir üçlü, patronun toplamdan
+  /// küçük bir rakam görüp sebebini soramaması demekti.
   Future<ClosingOnizleme> onizle(ClosingScope scope, {String? userId, DateTime? localDate}) async {
-    final date = localDate ?? _trToday();
+    final date = localDate ?? await bugunTrDuzeltilmis(db);
     final courierId = scope == ClosingScope.courier ? userId : null;
 
     final kasa = await _dayEnd.kasaOzeti(date, userId: courierId);
     final teslimat = await _dayEnd.teslimatSayisi(date, userId: courierId);
     final borc = await _dayEnd.borcDurumu();
-    final teslimEdilen = await _handovers.teslimEdilenNakit(date, kuryeId: courierId);
 
-    // Kurye kapsamı hesabı `CashHandoverRepository`den ALIR (kendi başına tekrarlamaz): devrin
-    // kayda yazdığı `expected_cash_kurus` ile ekranın gösterdiği rakam aynı koddan çıkmak zorunda.
-    // Gün kapsamında aynı formül burada, kurye süzgeci olmadan uygulanır.
     final handover =
         courierId != null ? await _handovers.onizle(courierId, localDate: date) : null;
-    final expected = handover?.expectedKurus ?? (kasa.nakit - teslimEdilen);
+    // Kurye kapsamında üçlü PENCEREDEN gelir (kimlik ancak aynı çerçevede tutar); gün kapsamında
+    // GÜNDEN. Kurye o gün hiç kapatmamışsa pencere = günün tamamıdır, yani ikisi çakışır.
+    final dusulen =
+        handover?.teslimEdilenKurus ?? await _handovers.kuryelerdeKalanNakit(date);
+    final cerceveNakit = handover?.toplananKurus ?? kasa.nakit;
 
     return ClosingOnizleme(
       kasa: kasa,
       deliveryCount: teslimat,
       openCreditKurus: borc.toplamAcikBorc,
-      expectedCashKurus: expected,
-      gunNakitKurus: kasa.nakit,
-      teslimEdilenKurus: teslimEdilen,
+      expectedCashKurus: handover?.expectedKurus ?? (kasa.nakit - dusulen),
+      gunNakitKurus: cerceveNakit,
+      dusulenKurus: dusulen,
+      dusulenKalem: courierId != null
+          ? DusulenKalem.teslimEdilen
+          : DusulenKalem.kuryelerdeKalan,
       periodStartIso: handover?.periodStartIso,
     );
   }
@@ -97,6 +121,12 @@ class DayClosingRepository {
   /// [alsoHandover] true ve kurye kapsamı ise AYNI transaction'da bir kasa devri de yazılır ve
   /// kapanışa bağlanır: tasarımda "Hesabı Kapat" ile "Kasa Devri" tek ekrandır. Para mutabakatının
   /// defteri cash_handovers olarak KALIR; day_closings o anın ekran özetidir.
+  ///
+  /// ATOMİKLİK GERÇEKTİR (inceleme #3): devir çağrısı transaction'ın İÇİNDEDİR (drift iç içe
+  /// `transaction`ı savepoint'e çevirir). Eskiden doc "aynı transaction" diyor ama kod devri
+  /// bloğun DIŞINDA ve ÖNCESİNDE çağırıyordu; arada süreç ölürse kapanışa bağlanmamış bir devir
+  /// kalıyordu ve `araTahsilatlar` onu ARA TAHSİLAT sayıyordu — kurye hesabı kapanmamış görünür,
+  /// ara tahsilat toplamı şişerdi. Kayıtların ikisi de olur ya da hiçbiri olmaz.
   Future<String> kapat({
     required ClosingScope scope,
     String? userId,
@@ -120,35 +150,41 @@ class DayClosingRepository {
     final id = newId();
     final diff = countedCashKurus == null ? 0 : countedCashKurus - on.expectedCashKurus;
 
-    String? handoverId;
-    if (alsoHandover && scope == ClosingScope.courier && countedCashKurus != null) {
-      handoverId = await _handovers.devret(
-        fromUserId: userId!,
-        toUserId: toUserId,
-        countedCashKurus: countedCashKurus,
-        note: note,
-      );
-    }
-
-    final payload = <String, Object?>{
-      'id': id,
-      'scope': scope.name,
-      'user_id': userId,
-      'period_start': on.periodStartIso,
-      'delivery_count': on.deliveryCount,
-      'total_collected_kurus': on.kasa.toplam,
-      'cash_nakit_kurus': on.kasa.nakit,
-      'cash_kart_kurus': on.kasa.kart,
-      'cash_havale_kurus': on.kasa.havale,
-      'open_credit_kurus': on.openCreditKurus,
-      'expected_cash_kurus': on.expectedCashKurus,
-      'counted_cash_kurus': countedCashKurus,
-      'diff_kurus': diff,
-      'cash_handover_id': handoverId,
-      'note': note,
-    };
-
     await db.transaction(() async {
+      // Devir ÖNCE yazılır (kapanış ona `cash_handover_id` ile bağlanacak) ama AYNI transaction
+      // içinde: yarım kalma durumu artık yok.
+      String? handoverId;
+      if (alsoHandover && scope == ClosingScope.courier && countedCashKurus != null) {
+        handoverId = await _handovers.devret(
+          fromUserId: userId!,
+          toUserId: toUserId,
+          countedCashKurus: countedCashKurus,
+          note: note,
+          localDate: localDate,
+          // Kapanışla AYNI damga: devir bir ms sonra damgalanırsa kapanışın AÇTIĞI pencerenin
+          // içine düşer ve o kuryenin beklenen nakdi −(teslim edilen) çıkar.
+          occurredAtIso: at,
+        );
+      }
+
+      final payload = <String, Object?>{
+        'id': id,
+        'scope': scope.name,
+        'user_id': userId,
+        'period_start': on.periodStartIso,
+        'delivery_count': on.deliveryCount,
+        'total_collected_kurus': on.kasa.toplam,
+        'cash_nakit_kurus': on.kasa.nakit,
+        'cash_kart_kurus': on.kasa.kart,
+        'cash_havale_kurus': on.kasa.havale,
+        'open_credit_kurus': on.openCreditKurus,
+        'expected_cash_kurus': on.expectedCashKurus,
+        'counted_cash_kurus': countedCashKurus,
+        'diff_kurus': diff,
+        'cash_handover_id': handoverId,
+        'note': note,
+      };
+
       await db.into(db.dayClosings).insert(DayClosingsCompanion.insert(
             id: id,
             scope: scope.name,
@@ -180,17 +216,8 @@ class DayClosingRepository {
     return id;
   }
 
-  static DateTime _trToday() {
-    final tr = DateTime.now().toUtc().add(_trOffset);
-    return DateTime(tr.year, tr.month, tr.day);
-  }
-
-  static bool _sameTrDay(String iso, DateTime localDate) {
-    final t = DateTime.tryParse(iso);
-    if (t == null) return false;
-    final tr = t.toUtc().add(_trOffset);
-    return tr.year == localDate.year && tr.month == localDate.month && tr.day == localDate.day;
-  }
+  /// Gün sınırı kuralı `data/tr_gun.dart`ta TEK yerde durur (#9).
+  static bool _sameTrDay(String iso, DateTime localDate) => ayniTrGunIso(iso, localDate);
 }
 
 /// Kapanış önizlemesi (salt-okunur): ekranın gösterdiği ve kayda donacak rakamlar.
@@ -201,7 +228,8 @@ class ClosingOnizleme {
     required this.openCreditKurus,
     required this.expectedCashKurus,
     required this.gunNakitKurus,
-    this.teslimEdilenKurus = 0,
+    this.dusulenKurus = 0,
+    this.dusulenKalem = DusulenKalem.kuryelerdeKalan,
     this.periodStartIso,
   });
   final KasaOzeti kasa;
@@ -218,12 +246,18 @@ class ClosingOnizleme {
   /// aksi hâlde farkı ekran kendi çıkarır ve iki yerde iki formül olurdu.
   final int gunNakitKurus;
 
-  /// Gün içinde patrona TESLİM EDİLEN nakdin SAYILAN toplamı — ara tahsilat ve kapanış devirleri
-  /// BİRLİKTE. `gunNakitKurus − teslimEdilenKurus == expectedCashKurus` her zaman tutar.
+  /// [gunNakitKurus]tan DÜŞÜLEN tutar. `gunNakitKurus − dusulenKurus == expectedCashKurus`
+  /// her zaman, her kapsamda tutar — ama NE OLDUĞU kapsama göre değişir ve ekran etiketi buna
+  /// göre seçilmelidir:
+  ///  • **kurye kapsamı** → o kuryenin gün içinde TESLİM ETTİĞİ sayılan nakit ("Teslim edilen")
+  ///  • **gün kapsamı** → KURYELERDE KALAN nakit ("Kuryelerde kalan")
   ///
-  /// Ekranın "gün içi ara tahsilatlar" LİSTESİ bundan dar bir kümedir (kapanış devirleri hariç) —
-  /// o liste kullanıcıya olayları anlatır, bu sayı ise aritmetiği kapatır. İkisini karıştırma.
-  final int teslimEdilenKurus;
+  /// Tek alan tutuluyor çünkü kimliği kapatan sayı BUDUR; iki ayrı alan olsaydı ekran yanlışını
+  /// seçebilirdi (bu vardiyada `kalanNakitKurus` tam olarak böyle yanılttı).
+  ///
+  /// Ekranın "gün içi ara tahsilatlar" LİSTESİ bundan farklı bir kümedir — o liste kullanıcıya
+  /// olayları anlatır, bu sayı aritmetiği kapatır. İkisini karıştırma.
+  final int dusulenKurus;
 
   final String? periodStartIso;
 }
