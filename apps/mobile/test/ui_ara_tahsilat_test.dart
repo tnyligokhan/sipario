@@ -251,7 +251,11 @@ void main() {
 
       // Özet kartı ara tahsilatı gösterir.
       expect(find.text('Ara Tahsilatlar'), findsOneWidget);
-      expect(find.textContaining('Alınan toplam · 1 tahsilat'), findsOneWidget);
+      // Etiket "ara tahsilat" der: özet kartındaki bu toplam DAR kümedir (kapanışa bağlanmamış
+      // devirler), kapanış sheet'indeki "Gün içinde alınan" ise ara + kapanış devirlerini
+      // kapsar. İki farklı rakamı aynı kelimeyle anmak, bayiye hangisinin doğru olduğunu
+      // sordururdu.
+      expect(find.textContaining('Ara tahsilat toplamı · 1 tahsilat'), findsOneWidget);
 
       await kapat(tester);
     });

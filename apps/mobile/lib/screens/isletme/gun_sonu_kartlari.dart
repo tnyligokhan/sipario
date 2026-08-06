@@ -86,10 +86,19 @@ class AraTahsilatKarti extends StatelessWidget {
                 : araTahsilatSaati(k.occurredAt),
             deger: sipTutar(k.countedCashKurus),
           ),
-        // Toplam satırı TEK kayıtta da çizilir: kapanış sheet'indeki "alınan ara tahsilat"
-        // rakamıyla göz göze karşılaştırılan sayı budur.
+        // Toplam satırı TEK kayıtta da çizilir — okuyan kişi satırları kafasında toplamasın.
+        //
+        // ⚠️ BU SAYI KAPANIŞ SHEET'İNDEKİ "Gün içinde alınan" DEĞİLDİR ve ona eşit olmak zorunda
+        // da değildir. Burası ARA tahsilatları sayar (kapanışa bağlanmamış devirler); oradaki
+        // rakam ARA + KAPANIŞ devirlerinin toplamıdır. Bir kurye hesabını kapatıp kasayı teslim
+        // ettiğinde sheet'teki sayı büyür, buradaki DEĞİŞMEZ.
+        //
+        // Ayrım bilinçli: bu kart kullanıcıya OLAYLARI anlatır ("saat 14:30'da Emre'den 60 ₺
+        // aldım"), sheet'teki sayı ise ARİTMETİĞİ kapatır (gün nakdi − teslim edilen = beklenen).
+        // Etiket o yüzden "ara tahsilat" der — "alınan toplam" deseydi iki farklı rakam aynı
+        // kelimeyle anılır ve bayi hangisinin doğru olduğunu sorardı.
         DegerSatiri(
-          etiket: 'Alınan toplam · ${kayitlar.length} tahsilat',
+          etiket: 'Ara tahsilat toplamı · ${kayitlar.length} tahsilat',
           deger: sipTutar(kayitlar.fold<int>(0, (s, k) => s + k.countedCashKurus)),
           toplam: true,
         ),
