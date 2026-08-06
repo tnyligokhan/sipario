@@ -84,6 +84,44 @@ const _deliverNamespace = '7a5b3c1d-9e0f-4a2b-8c6d-1f3e5a7b9c0d';
 String deliveryEventId(String orderId, String tag) =>
     _uuid.v5(_deliverNamespace, 'sipario:deliver-$tag:$orderId');
 
+/// Gün sonu KAPANIŞI idempotens namespace'i. Bir kez seçilir, mağazada DEĞİŞMEZ — değişirse aynı
+/// kapanışın iki cihazdaki uuid5'leri ayrışır ve idempotensi kırılır.
+const _kapanisNamespace = 'b4c17e28-6d3f-4a91-8e52-0c7d9f1a3b6e';
+
+/// Kapanış olaylarının DETERMİNİSTİK kimliği (üçüncü inceleme ①-b).
+///
+/// `kapaliMi` kapısı TEK CİHAZI kapatır. İki cihaz birbirinden habersiz aynı kurye/günü kapatırsa
+/// ikisi de yerelde geçer ve İKİ `day_closings` + İKİ `cash_handovers` doğardı;
+/// `teslimEdilenNakit` ikisini birden sayınca gün beklentisi iki katına çıkar ve patron olmayan
+/// bir eksiği arar. Aynı çekirdek aynı id'yi verdiği için ikinci kayıt her katmanda AYNI satırdır:
+/// sunucu 'duplicate' döner (mobilde `acked`), yerel senkron uygulayıcısı da "yoksa ekle, asla
+/// ezme" kuralıyla atlar.
+///
+/// ⚠️ BİLİNÇLİ BEDEL: ikinci denemenin SAYILAN tutarı hiçbir yere geçmez — İLK mutabakat kalır.
+/// Sonraki vardiya "ikinci sayım neden kayboldu" diye aramasın: kayboldu değil, REDDEDİLDİ.
+/// Sayımı düzeltmenin yolu append-only kuralının kendisidir (yeni bir devir kaydı).
+///
+/// [tenantCode] ÇEKİRDEĞE ZORUNLU GİRER: sunucuda `day_closings.id` ve `cash_handovers.id`
+/// PRIMARY KEY'dir ve tenant'a göre değil GLOBAL tekildir. Kiracı ayracı olmadan `scope='day'`
+/// çekirdeği (`day|-|2026-08-06`) TÜM bayilerde aynı uuid'yi üretirdi ve ikinci bayinin kapanışı
+/// 'duplicate' sayılıp SESSİZCE düşerdi. (Kurye kapsamında `userId` zaten global tekil bir uuid,
+/// ama kuralı kapsama göre ikiye bölmüyoruz.)
+///
+/// [userId] null ise (gün kapsamı) çekirdeğe `-` girer; `scope` de çekirdekte olduğu için gün ve
+/// kurye kapsamları zaten çakışamaz, yer tutucu yalnız çekirdeği okunur kılar.
+///
+/// [tag] aynı kapanıştan doğan farklı kayıtları ayırır: 'closing' (arşiv satırı), 'handover'
+/// (kapanışa bağlı kasa devri). ARA TAHSİLATLAR BURAYA GİRMEZ — bkz. `CashHandoverRepository`.
+String kapanisOlayId({
+  required String tenantCode,
+  required String scope,
+  required String? userId,
+  required String gunAnahtari,
+  required String tag,
+}) =>
+    _uuid.v5(_kapanisNamespace,
+        'sipario:closing-$tag:$tenantCode|$scope|${userId ?? '-'}|$gunAnahtari');
+
 /// Düzeltilmiş sunucu saati (DECISIONS: sunucu her yanıtta saatini döner, istemci offset tutar;
 /// occurred_at bu düzeltilmiş saatle yazılır — esnafın telefon saati yanlış olabilir).
 String correctedNowIso(int serverOffsetMs) =>

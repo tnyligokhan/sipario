@@ -45,6 +45,17 @@ bool ayniTrGunIso(String iso, DateTime gun) {
 DateTime trGunBasiUtc(DateTime gun) =>
     DateTime.utc(gun.year, gun.month, gun.day).subtract(kTrOffset);
 
+/// TR takvim gününün METİN ANAHTARI ("2026-08-06"). Deterministik kimlik çekirdeklerinde kullanılır
+/// (`kapanisOlayId`), bu yüzden BİÇİMİ SÖZLEŞMEDİR: değişirse iki cihaz aynı kapanış için farklı
+/// id üretir ve idempotensi sessizce ölür.
+///
+/// [trGun] ZATEN bir TR takvim günü olmalı ([trGunu] / [bugunTrDuzeltilmis] çıktısı). Buraya ham
+/// bir AN verilirse gün kaymış olabilir — dönüşümü burada tekrarlamıyoruz, çünkü çağıranların
+/// hepsinin elinde gün zaten var ve ikinci bir kaydırma sessizce bir gün ileri/geri atardı.
+String trGunAnahtari(DateTime trGun) => '${trGun.year.toString().padLeft(4, '0')}-'
+    '${trGun.month.toString().padLeft(2, '0')}-'
+    '${trGun.day.toString().padLeft(2, '0')}';
+
 /// Bugünün TR günü — DÜZELTİLMİŞ SUNUCU SAATİNDEN (inceleme bulgusu #4, 2026-08-06).
 ///
 /// Kayıtlar `correctedNowIso(serverTimeOffsetMs)` ile yazılıyor; gün sınırı da aynı saatten

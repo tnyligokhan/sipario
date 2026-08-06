@@ -49,6 +49,14 @@ class CashHandoverRepository {
   /// pencerenin içine düşer ve o kuryenin beklenen nakdi −(teslim edilen) çıkar. Pencere sınırı
   /// HARİÇ olduğu için (`isAfter`), aynı damga devri kapanan pencerede bırakır — doğrusu budur:
   /// o para kapanan dönemin parasıdır.
+  ///
+  /// [id] de YALNIZ `kapat()` içindir ve DETERMİNİSTİK gelir (`kapanisOlayId(... tag:'handover')`):
+  /// iki cihaz aynı kapanışı yazarsa devir de tek satır olsun diye. Verilmezse rastgele UUIDv7.
+  ///
+  /// ⚠️ [araTahsilat] BURAYA ASLA id GEÇMEZ ve bu PAZARLIKSIZDIR: gün içinde aynı kuryeden defalarca
+  /// tahsilat alınabilmeli. Deterministik id ara tahsilata sızsaydı ikinci tahsilat aynı satır
+  /// sayılıp SESSİZCE yutulurdu — özelliğin tamamı ölürdü, üstelik hata "para kaybolmuş" diye
+  /// görünürdü.
   Future<String> devret({
     required String fromUserId,
     String? toUserId,
@@ -56,11 +64,12 @@ class CashHandoverRepository {
     String? note,
     DateTime? localDate,
     String? occurredAtIso,
+    String? id,
   }) async {
     final meta = await db.syncState();
     final at = occurredAtIso ?? correctedNowIso(meta.serverTimeOffsetMs);
     final device = meta.deviceId;
-    final id = newId();
+    final devirId = id ?? newId();
 
     // localDate GEÇİRİLİR (inceleme #5): `kapat(localDate: X)` önizlemeyi X için hesaplayıp
     // devri bugüne göre yazsaydı, kapanışa donan beklenen ile devre yazılan beklenen ayrışırdı.
@@ -71,7 +80,7 @@ class CashHandoverRepository {
 
     await db.transaction(() async {
       await db.into(db.cashHandovers).insert(CashHandoversCompanion.insert(
-            id: id,
+            id: devirId,
             fromUserId: fromUserId,
             toUserId: Value(toUserId),
             countedCashKurus: countedCashKurus,
@@ -85,11 +94,11 @@ class CashHandoverRepository {
       await enqueueOutbox(db,
           entityType: 'cash_handover',
           op: 'handover',
-          entityId: id,
+          entityId: devirId,
           occurredAt: at,
           deviceId: device,
           payload: {
-            'id': id,
+            'id': devirId,
             'from_user_id': fromUserId,
             'to_user_id': toUserId,
             'counted_cash_kurus': countedCashKurus,
@@ -100,7 +109,7 @@ class CashHandoverRepository {
           });
     });
 
-    return id;
+    return devirId;
   }
 
   /// ARA TAHSİLAT (kullanıcı kararı 2026-08-06): gün içinde kuryede çok para birikmesin diye patron
