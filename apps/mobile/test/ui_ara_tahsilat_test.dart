@@ -1,0 +1,288 @@
+// ARA TAHSİLAT + KALAN NAKİT (kullanıcı kararı 2026-08-06).
+//
+// "Ara tahsilat: sayımlı serbest tutar, gün açık kalır · kapanışta beklenen = KALAN nakit ·
+// patron her kuryeden alır, kurye yalnız kendi kasasını · tek kişilik bayide hiç görünmez."
+//
+// Burada çivilenen kararlar:
+//  1. Ekranın adı "Gün Özeti"dir (iç tanımlayıcılar `gunSonu` / `day_end_*` DEĞİŞMEZ).
+//  2. Ara tahsilat düğmesi YETKİ + KAPSAM + KİLİT üçlü kapısından geçer; kapı kapalıysa düğme
+//     PASİF değil HİÇ ÇİZİLMEZ.
+//  3. Tahsilat sonrası gün AÇIK kalır (kapanış kaydı yazılmaz) ve özet satırı belirir.
+//  4. Kapanış sheet'inde beklenen nakit KALAN nakittir; günün tam nakdi ve alınan ara tahsilat
+//     AYRI satırlarda yazılır — yoksa bayi her gün açıklanamayan bir eksik görürdü.
+
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sipario/data/app_database.dart';
+import 'package:sipario/repo/cash_handover_repository.dart';
+import 'package:sipario/repo/customer_repository.dart';
+import 'package:sipario/repo/day_closing_repository.dart';
+import 'package:sipario/repo/order_repository.dart';
+import 'package:sipario/screens/day_end_screen.dart';
+import 'package:sipario/theme/components/atoms.dart';
+
+import 'support/ekran_yardimcilari.dart';
+
+/// Kuryenin NAKİT tahsil ettiği bir teslimat — ara tahsilatın beklediği para budur.
+Future<void> nakitTeslim(
+  AppDatabase db, {
+  required String kuryeId,
+  required int tutarKurus,
+  String musteri = 'Ayşe',
+}) async {
+  final cid = await CustomerRepository(db).create(name: musteri);
+  final oid = await OrderRepository(db).create(
+    customerId: cid,
+    lines: [LineInput(productName: 'Damacana', unitPriceKurus: tutarKurus, qty: 1)],
+  );
+  await OrderRepository(db).assign(oid, kuryeId);
+  await OrderRepository(db)
+      .deliver(oid, paymentType: 'nakit', collectedByUserId: kuryeId);
+}
+
+/// Kurye kapsamına geçer (segmentteki kurye adına dokunur).
+Future<void> kapsamaGec(WidgetTester tester, String kuryeAdi) async {
+  await tester.tap(find.text(kuryeAdi));
+  await akislariBekle(tester, tur: 6);
+}
+
+void main() {
+  group('Adlandırma — "Gün Sonu" → "Gün Özeti"', () {
+    testWidgets('ekran başlığı "Gün Özeti" yazar', (tester) async {
+      // Metin SÖZLEŞMEDİR: kullanıcıya görünen her yerde ad değişti, iç tanımlayıcılar
+      // (`gunSonu` yetki anahtarı, `day_end_*` tabloları, dosya/sınıf adları) DEĞİŞMEDİ.
+      final db = AppDatabase(NativeDatabase.memory());
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+
+      expect(find.text('Gün Özeti'), findsWidgets);
+      expect(find.text('Gün Sonu'), findsNothing);
+
+      await kapat(tester);
+    });
+
+    testWidgets('başlıkta "Geçmiş" düğmesi durur — gövdede geçmiş listesi YOK', (tester) async {
+      // Geçmiş ayrı ekrana taşındı: bu ekranın işi BUGÜNDÜR ve geçmiş listesi onu her açılışta
+      // aşağı itiyordu.
+      final db = AppDatabase(NativeDatabase.memory());
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+
+      expect(find.text('Geçmiş'), findsOneWidget, reason: 'başlıktaki düğme');
+      expect(find.textContaining('Henüz geçmiş gün yok'), findsNothing,
+          reason: 'gövdedeki geçmiş listesi kaldırıldı');
+
+      await kapat(tester);
+    });
+  });
+
+  group('Ara tahsilat — yetki kapıları (K2)', () {
+    testWidgets('TEK KİŞİLİK bayide düğme HİÇ çizilmez', (tester) async {
+      // Aktif kurye yoksa "kuryeden ara tahsilat" diye bir kavram yoktur — patron parayı zaten
+      // cebinde taşır. Pasif bir düğme, olmayan bir iş akışını varmış gibi gösterirdi.
+      final db = AppDatabase(NativeDatabase.memory());
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+
+      expect(find.text('Ara Tahsilat'), findsNothing);
+      expect(find.text('Günü Kapat'), findsOneWidget, reason: 'kapatma yine durur');
+
+      await kapat(tester);
+    });
+
+    testWidgets('GÜN kapsamında düğme çizilmez — para kuryeden alınır', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+
+      // Açılış kapsamı "Tümü" (gün hesabı).
+      expect(find.text('Ara Tahsilat'), findsNothing,
+          reason: 'gün hesabından ara tahsilat alınmaz');
+
+      await kapat(tester);
+    });
+
+    testWidgets('PATRON kurye kapsamında düğmeyi görür', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await kapsamaGec(tester, 'Emre');
+
+      expect(find.text('Ara Tahsilat'), findsOneWidget);
+
+      await kapat(tester);
+    });
+
+    testWidgets('KURYE kendi kapsamında düğmeyi görür', (tester) async {
+      // Kurye kendi kasasını patrona devrediyor — kendi kasasının kanıtı odur.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'));
+
+      expect(find.text('Ara Tahsilat'), findsOneWidget,
+          reason: 'kurye kendi kapsamında açılır');
+
+      await kapat(tester);
+    });
+
+    testWidgets('KURYE başkasının kapsamını göremez — düğme de yok', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await kuryeEkle(db, id: 'k2', ad: 'Hakan');
+        await nakitTeslim(db, kuryeId: 'k2', tutarKurus: 9000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'));
+
+      expect(find.text('Hakan'), findsNothing,
+          reason: 'segmentte başka kurye listelenmez (K2)');
+
+      await kapat(tester);
+    });
+
+    testWidgets('KAPATILMIŞ kapsamda ara tahsilat alınamaz', (tester) async {
+      // Kapanmış bir hesaba sonradan para eklemek mutabakatı bozar.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+        await DayClosingRepository(db).kapat(
+          scope: ClosingScope.courier,
+          userId: 'k1',
+          countedCashKurus: 9000,
+        );
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'));
+
+      expect(find.text('Ara Tahsilat'), findsNothing);
+      expect(find.textContaining('kapatıldı'), findsWidgets);
+
+      await kapat(tester);
+    });
+  });
+
+  group('Ara tahsilat — akış', () {
+    testWidgets('tahsilat alınır, gün AÇIK kalır, özet satırı belirir', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await kapsamaGec(tester, 'Emre');
+
+      await dokun(tester, find.text('Ara Tahsilat'));
+      await sheetAnimasyonu(tester);
+
+      expect(find.text('Son devirden beri beklenen'), findsOneWidget);
+      expect(find.text(sipTutar(9000)), findsWidgets);
+
+      await tester.enterText(find.byType(TextField).first, '60');
+      await akislariBekle(tester);
+
+      // Kuryede kalan = 90 − 60 = 30 ₺. Bu bir "EKSİK" damgası DEĞİLDİR: ara tahsilatta sayılan
+      // tutar serbesttir (patron para üstü için kuryede para bırakabilir).
+      expect(find.text('KURYEDE KALAN'), findsOneWidget);
+      expect(find.text('EKSİK'), findsNothing, reason: 'ara tahsilat bir mutabakat değildir');
+
+      await dokun(tester, find.text('Tahsilatı Al'));
+      await akislariBekle(tester, tur: 8);
+
+      // Gün AÇIK kaldı: kapanış kaydı yazılmadı, kapatma düğmesi hâlâ orada.
+      final kapanmaSayisi = await tester
+          .runAsync(() => DayClosingRepository(db).watchArchive().first);
+      expect(kapanmaSayisi, isEmpty, reason: 'ara tahsilat KAPANIŞ yazmaz');
+      expect(find.text('Hesabı Kapat'), findsOneWidget);
+
+      // Özet kartı ara tahsilatı gösterir.
+      expect(find.text('Ara Tahsilatlar'), findsOneWidget);
+      expect(find.textContaining('Alınan toplam · 1 tahsilat'), findsOneWidget);
+
+      await kapat(tester);
+    });
+
+    testWidgets('sayım GİRİLMEDEN kaydedilemez', (tester) async {
+      // Sayılmamış bir para transferi kaydı, kimsenin doğrulayamayacağı bir rakam olurdu.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await kapsamaGec(tester, 'Emre');
+      await dokun(tester, find.text('Ara Tahsilat'));
+      await sheetAnimasyonu(tester);
+
+      final dugme =
+          tester.widget<SipButon>(find.widgetWithText(SipButon, 'Tahsilatı Al'));
+      expect(dugme.onTap, isNull, reason: 'boş sayımla tahsilat kaydedilmez');
+
+      await kapat(tester);
+    });
+  });
+
+  group('Kapanış sheet\'i — beklenen nakit KALAN nakittir', () {
+    testWidgets('günün nakdi ve alınan ara tahsilat AYRI satırlarda yazılır', (tester) async {
+      // Bu üç satır olmasaydı bayi "ciro 90 ₺ ama uygulama 30 ₺ bekliyor" der ve mutabakata
+      // güvenmeyi bırakırdı.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+        await CashHandoverRepository(db)
+            .araTahsilat(fromUserId: 'k1', countedCashKurus: 6000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await kapsamaGec(tester, 'Emre');
+
+      await dokun(tester, find.text('Hesabı Kapat'));
+      await sheetAnimasyonu(tester);
+
+      expect(find.text('Günün nakdi'), findsOneWidget);
+      expect(find.text('Alınan ara tahsilat'), findsOneWidget);
+      expect(find.text('− ${sipTutar(6000)}'), findsOneWidget);
+      // Beklenen artık KALAN: 90 − 60 = 30 ₺.
+      expect(find.text(sipTutar(3000)), findsWidgets);
+
+      await kapat(tester);
+    });
+
+    testWidgets('ara tahsilat YOKSA açıklama satırları çizilmez', (tester) async {
+      // Çoğunluk gün böyle geçer; "− 0,00 ₺" her gün cevapsız bir soru olurdu.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await kapsamaGec(tester, 'Emre');
+      await dokun(tester, find.text('Hesabı Kapat'));
+      await sheetAnimasyonu(tester);
+
+      expect(find.text('Günün nakdi'), findsNothing);
+      expect(find.text('Alınan ara tahsilat'), findsNothing);
+      expect(find.text('Beklenen nakit (Emre)'), findsOneWidget);
+
+      await kapat(tester);
+    });
+  });
+}

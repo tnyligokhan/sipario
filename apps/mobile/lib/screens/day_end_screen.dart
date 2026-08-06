@@ -151,32 +151,52 @@ class _DayEndScreenState extends State<DayEndScreen> {
     );
     if (sonuc == null || !mounted) return;
 
-    // Gün AÇIK kalır: `araTahsilat` kapanış yazmaz (bkz. repo'daki gerekçe).
-    await repo.araTahsilat(
-      fromUserId: kuryeId,
-      toUserId: widget.kullaniciId,
-      countedCashKurus: sonuc.sayilan,
-      note: sonuc.not.isEmpty ? null : sonuc.not,
-    );
+    // ÜÇÜNCÜ KAPI repoda: kapsam kapalıysa `araTahsilat` StateError atar. Ekran kapıyı zaten
+    // tutuyor (düğme çizilmiyor), ama sheet açıkken senkron başka bir cihazdan gelen kapanışı
+    // indirebilir — o an ekranın bildiği durum bayattır. Mesaj repo'dan geldiği gibi basılır:
+    // kullanıcıya "bir şeyler ters gitti" demek, tam olarak NE olduğunu bilirken bilgi saklamaktır.
+    try {
+      // Gün AÇIK kalır: `araTahsilat` kapanış yazmaz (bkz. repo'daki gerekçe).
+      await repo.araTahsilat(
+        fromUserId: kuryeId,
+        toUserId: widget.kullaniciId,
+        countedCashKurus: sonuc.sayilan,
+        note: sonuc.not.isEmpty ? null : sonuc.not,
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      SipToast.goster(context, e.message);
+      _tazele(); // ekranı gerçeğe döndür: kapanmış kapsam artık kilitli görünsün
+      return;
+    }
     if (!mounted) return;
 
     SipToast.goster(context, '$kuryeAdi · ${sipTutar(sonuc.sayilan)} tahsil edildi');
     _tazele();
   }
 
-  Future<void> _kapat(List<User> kuryeler, GunSonuGorunumu g) async {
+  Future<void> _kapat(List<User> kuryeler) async {
     if (!_kapatabilir) return; // düğme zaten kapalı; çift kapı (K2 pazarlıksız)
     final kapsamAdi = _kapsamAdi(kuryeler);
+    final scope = _kuryeId == null ? ClosingScope.day : ClosingScope.courier;
+
+    // ÜÇ RAKAM DA REPO'DAN GELİR — ekran hiçbirini çıkarmaz. `GunSonuGorunumu.kalanNakitKurus`
+    // burada KULLANILMAZ: o, günün nakdinden ara tahsilatı düşen genel formüldür ve KURYE
+    // kapsamında yanlıştır. Kurye kapanışında beklenen, `period_start`tan (kuryenin son devri)
+    // türer ve ara tahsilatı ZATEN dışarıda bırakır; ikisini üst üste koymak aynı parayı iki kez
+    // düşürür ve sheet'te yazan tutar arşive donan tutardan ayrışırdı (paralel hesap yasağı).
+    final onizleme = await DayClosingRepository(widget.db)
+        .onizle(scope, userId: _kuryeId, localDate: _gun);
+    if (!mounted) return;
+
     final sonuc = await gunKapatmaSheet(
       context,
       kapsamAdi: kapsamAdi,
       gunHesabi: _kuryeId == null,
-      // BEKLENEN ARTIK KALAN NAKİTTİR (kullanıcı kararı 2026-08-06): gün içinde alınan ara
-      // tahsilatlar kasadan çıkmıştır ve onları saymak isteyen bir kapanış her gün eksik verirdi.
-      beklenen: g.kalanNakitKurus,
-      tamNakit: g.kapsam.kasa.nakit,
-      araTahsilat: g.araTahsilatKurus,
-      teslimat: g.kapsam.teslimat,
+      beklenen: onizleme.expectedCashKurus,
+      tamNakit: onizleme.gunNakitKurus,
+      araTahsilat: onizleme.araTahsilatKurus,
+      teslimat: onizleme.deliveryCount,
     );
     if (sonuc == null || !mounted) return;
 
@@ -184,7 +204,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
     // çağırır, böylece arşive donan tutar ekranın gösterdiğiyle aynı koddan çıkar.
     // Fark ≠ 0 kapatmayı ENGELLEMEZ (BRIEF: eksik para görünür kalmalı) — kanıt olarak yazılır.
     await DayClosingRepository(widget.db).kapat(
-      scope: _kuryeId == null ? ClosingScope.day : ClosingScope.courier,
+      scope: scope,
       userId: _kuryeId,
       countedCashKurus: sonuc.sayilan,
       note: sonuc.not.isEmpty ? null : sonuc.not,
@@ -301,7 +321,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
                         gunEngeli: g.gunEngeli,
                         acikKuryeAdlari: g.acikKuryeAdlari,
                         toplam: g.kapsam.kasa.toplam,
-                        onKapat: () => _kapat(kuryeler, g),
+                        onKapat: () => _kapat(kuryeler),
                         // null → düğme HİÇ çizilmez (tek kişilik bayi, gün kapsamı, yetkisiz
                         // kullanıcı ya da kapatılmış kapsam).
                         onAraTahsilat: _araTahsilatAlabilir(g)

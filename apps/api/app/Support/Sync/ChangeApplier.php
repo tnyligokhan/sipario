@@ -90,7 +90,9 @@ class ChangeApplier
         $op = (string) ($event['op'] ?? '');
         /** @var array<string, mixed> $payload */
         $payload = (array) ($event['payload'] ?? []);
-        $occurredAt = (string) ($event['occurred_at'] ?? '');
+        // UTC'ye normalize: aşağıdaki `updated_occurred_at` ve `deleted_at` yazımlarının hepsi
+        // buradan türer (bkz. SyncPayload::zaman — offset'li damga 3 saat kayıyordu).
+        $occurredAt = SyncPayload::zaman((string) ($event['occurred_at'] ?? ''));
         $deviceId = $event['device_id'] ?? null;
 
         $id = (string) ($payload['id'] ?? throw new InvalidArgumentException('payload.id gerekli'));
@@ -235,7 +237,7 @@ class ChangeApplier
                 // çıkar olurdu" idi; ayrımı anahtarın VARLIĞINA bağlamak o ikilemi çözer. Eski
                 // hâliyle, `blacklisted_at`i bilmeyen bir build (2026-08-01 öncesi) müşterinin
                 // adını düzeltince kara listeyi sessizce kaldırıyordu.
-                'blacklisted_at' => $p['blacklisted_at'] ?? null,
+                'blacklisted_at' => SyncPayload::zaman($p['blacklisted_at'] ?? null),
             ],
             'customer_phone' => [
                 'customer_id' => SyncPayload::req($p, 'customer_id'),
@@ -277,7 +279,7 @@ class ChangeApplier
                 'related_order_id' => $p['related_order_id'] ?? null,
                 // Çağrının GERÇEKLEŞTİĞİ an; LWW'nin updated_occurred_at'inden ayrıdır (sonuç sonradan
                 // yazılınca LWW damgası ilerler ama çağrı saati sabit kalmalı).
-                'occurred_at' => (string) ($p['occurred_at'] ?? $event['occurred_at'] ?? ''),
+                'occurred_at' => SyncPayload::zaman((string) ($p['occurred_at'] ?? $event['occurred_at'] ?? '')),
                 'device_id' => $event['device_id'] ?? null,
             ],
             default => throw new InvalidArgumentException("Bilinmeyen varlık: {$type}"),
@@ -388,7 +390,7 @@ class ChangeApplier
             'related_order_id' => $relatedOrderId,
             'reverses_entry_id' => $reversesEntryId,
             'note' => $payload['note'] ?? null,
-            'occurred_at' => (string) ($event['occurred_at'] ?? ''),
+            'occurred_at' => SyncPayload::zaman((string) ($event['occurred_at'] ?? '')),
             'device_id' => $event['device_id'] ?? null,
             'client_event_id' => (string) ($event['client_event_id'] ?? ''),
         ])->save();

@@ -95,8 +95,10 @@ BildirimTaslagi? gunSonuOzeti(GunSonuVerisi v) {
   if (v.bosGun) return null;
   return BildirimTaslagi(
     kategori: BildirimKategori.gunSonuOzeti,
-    // Nötr başlık: rakamlar kilit ekranında görünmesin.
-    baslik: 'Gün sonu özeti',
+    // Nötr başlık: rakamlar kilit ekranında görünmesin. Ad EKRANLA AYNI olmak zorunda
+    // (kullanıcı kararı 2026-08-06): çekmece "Gün Özeti" derken bildirim başka bir ad söylerse
+    // bayi iki ayrı özellik olduğunu sanar. Kanal kimliği (`wire`) DEĞİŞMEDİ.
+    baslik: 'Gün özeti',
     govde: 'Bugün ${sipTutar(v.tahsilatKurus)} tahsil edildi · '
         '${v.teslimatSayisi} teslim · ${sipTutar(v.veresiyeKurus)} veresiye yazıldı',
     // Günde TEK özet: ayırt edici TR takvim günü. İki kez tetiklense (yeniden başlatma,

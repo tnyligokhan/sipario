@@ -54,8 +54,8 @@ class CashHandoverChangeApplier
             'counted_cash_kurus' => (int) SyncPayload::req($payload, 'counted_cash_kurus'),
             'expected_cash_kurus' => (int) SyncPayload::req($payload, 'expected_cash_kurus'),
             'diff_kurus' => (int) SyncPayload::req($payload, 'diff_kurus'),
-            'period_start' => $payload['period_start'] ?? null,
-            'occurred_at' => (string) ($event['occurred_at'] ?? ''),
+            'period_start' => SyncPayload::zaman($payload['period_start'] ?? null),
+            'occurred_at' => SyncPayload::zaman((string) ($event['occurred_at'] ?? '')),
             'device_id' => $event['device_id'] ?? null,
             'note' => $payload['note'] ?? null,
         ])->save();

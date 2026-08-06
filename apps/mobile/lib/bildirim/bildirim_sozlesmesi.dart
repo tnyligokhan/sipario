@@ -49,8 +49,13 @@ enum BildirimKategori {
       };
 
   /// Sistem bildirim ayarlarında ve uygulamanın Ayarlar ekranında görünen ad.
+  ///
+  /// ETİKET SERBESTTİR, [wire] DEĞİL: Android kanalın ADINI kimlik sabit kaldığı sürece
+  /// günceller (`AndroidNotificationChannel(k.wire, k.ad)` — ilk argüman kimlik). Bu yüzden
+  /// "Gün sonu özeti" → "Gün özeti" adlandırması (kullanıcı kararı 2026-08-06) bayinin sistemden
+  /// kıstığı kanalı öksüz BIRAKMAZ. `wire` değerine aynı gerekçeyle DOKUNULMADI.
   String get ad => switch (this) {
-        BildirimKategori.gunSonuOzeti => 'Gün sonu özeti',
+        BildirimKategori.gunSonuOzeti => 'Gün özeti',
         BildirimKategori.borcEsigi => 'Borç eşiği',
         BildirimKategori.vadesiGecenBorc => 'Vadesi geçen borç',
         BildirimKategori.musteriGecikti => 'Müşteri gecikti',

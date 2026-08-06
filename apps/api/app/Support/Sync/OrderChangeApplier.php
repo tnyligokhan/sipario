@@ -69,7 +69,7 @@ class OrderChangeApplier
             'total_kurus' => 0,
             'payment_type' => $o['payment_type'] ?? null,
             'note' => $o['note'] ?? null,
-            'occurred_at' => (string) ($event['occurred_at'] ?? ''),
+            'occurred_at' => SyncPayload::zaman((string) ($event['occurred_at'] ?? '')),
             'created_device_id' => $event['device_id'] ?? null,
             'deleted_at' => null,
         ])->save();
@@ -127,7 +127,7 @@ class OrderChangeApplier
         if ($line === null) {
             throw new InvalidArgumentException('Satır bulunamadı');
         }
-        $occurredAt = (string) ($event['occurred_at'] ?? '');
+        $occurredAt = SyncPayload::zaman((string) ($event['occurred_at'] ?? ''));
         $line->forceFill(['deleted_at' => $occurredAt])->save();
         $orderEvent = $this->appendOrderEvent($tenantId, $order->id, 'line_removed', $event, $payload);
         $this->recomputeOrder($order);
@@ -280,7 +280,7 @@ class OrderChangeApplier
             'event_type' => $type,
             'payload' => $payload,
             'client_event_id' => (string) ($event['client_event_id'] ?? ''),
-            'occurred_at' => (string) ($event['occurred_at'] ?? ''),
+            'occurred_at' => SyncPayload::zaman((string) ($event['occurred_at'] ?? '')),
             'device_id' => $event['device_id'] ?? null,
         ])->save();
 

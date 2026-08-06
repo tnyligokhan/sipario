@@ -69,7 +69,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
     yaz: _tahsilatYaz,
   ),
   KuryeYetkiSatiri(
-    etiket: 'Gün sonu özetini görebilir',
+    // Yalnız ETİKET değişti (kullanıcı kararı 2026-08-06); anahtarlar (`gunSonu`,
+    // `courierCanDayEnd`, `courier_can_day_end`) sözleşmedir ve DEĞİŞMEZ.
+    etiket: 'Gün özetini görebilir',
     aciklama: 'Günün kasa ve teslimat toplamları. Kapalıyken kendi kasa devrini yine yapar.',
     oku: _gunSonuOku,
     yaz: _gunSonuYaz,

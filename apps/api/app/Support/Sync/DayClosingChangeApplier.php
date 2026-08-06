@@ -67,7 +67,7 @@ class DayClosingChangeApplier
             'tenant_id' => $tenantId,
             'scope' => $scope,
             'user_id' => $userId,
-            'period_start' => $payload['period_start'] ?? null,
+            'period_start' => SyncPayload::zaman($payload['period_start'] ?? null),
             'delivery_count' => (int) ($payload['delivery_count'] ?? 0),
             'total_collected_kurus' => (int) ($payload['total_collected_kurus'] ?? 0),
             'cash_nakit_kurus' => (int) ($payload['cash_nakit_kurus'] ?? 0),
@@ -80,7 +80,7 @@ class DayClosingChangeApplier
             'diff_kurus' => (int) ($payload['diff_kurus'] ?? 0),
             'cash_handover_id' => $handoverId,
             'note' => $payload['note'] ?? null,
-            'occurred_at' => (string) ($event['occurred_at'] ?? ''),
+            'occurred_at' => SyncPayload::zaman((string) ($event['occurred_at'] ?? '')),
             'device_id' => $event['device_id'] ?? null,
         ])->save();
 

@@ -373,6 +373,71 @@ void main() {
     });
   });
 
+  // Çevrimdışı kurye BİLİNÇLİ BORÇ olarak kabul edildi (lead kararı 2026-08-06): kapanış
+  // çevrimiçi-zorunlu yapılmıyor, bunun yerine tazelik GÖRÜNÜR kılınıyor. Gösterge yalan
+  // söylerse hiç göstergesizlikten kötüdür — ölçtüğü şey burada kilitleniyor.
+  group('senkron tazeliği', () {
+    /// Sunucudan son yanıtın geldiği anı kurar. `SyncEngine.pull()` her turda tam olarak bu iki
+    /// alanı yazar (`_applyServerTime`); test o durumu taklit ediyor.
+    Future<void> sonTemas(DateTime an, {int offsetMs = 0}) async {
+      await db.syncState();
+      await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(SyncMetaCompanion(
+        lastServerTimeIso: Value(an.toUtc().toIso8601String()),
+        serverTimeOffsetMs: Value(offsetMs),
+      ));
+    }
+
+    test('hiç senkron olmamış cihaz BAYAT sayılır', () async {
+      final t = await senkronTazeligi(db);
+      expect(t.hicTemasYok, isTrue);
+      expect(t.gecenSure, isNull);
+      expect(t.bayat, isTrue, reason: 'bilinmezlik tazelik değildir');
+    });
+
+    test('geçen süre son temastan ölçülür', () async {
+      final simdi = DateTime.utc(2026, 8, 6, 12);
+      await sonTemas(simdi.subtract(const Duration(minutes: 3)));
+
+      final t = await senkronTazeligi(db, simdi: simdi);
+      expect(t.gecenSure, const Duration(minutes: 3));
+      expect(t.bayat, isFalse, reason: '3 dk < 10 dk eşiği; bir-iki tur kaçmış olabilir');
+    });
+
+    test('eşiği aşan kopukluk bayat', () async {
+      final simdi = DateTime.utc(2026, 8, 6, 12);
+      await sonTemas(simdi.subtract(const Duration(minutes: 25)));
+      expect((await senkronTazeligi(db, simdi: simdi)).bayat, isTrue);
+    });
+
+    test('cihaz saati yanlışsa DÜZELTİLMİŞ saatle ölçülür', () async {
+      // Telefon 2 saat geri kalmış (offset +2sa). Son temas sunucu saatiyle 12:00'de oldu;
+      // cihaz şimdi 10:05 sanıyor. Ham çıkarma "−1sa 55dk" verirdi; doğru cevap 5 dakika.
+      final cihazSimdi = DateTime.utc(2026, 8, 6, 10, 5);
+      await sonTemas(DateTime.utc(2026, 8, 6, 12), offsetMs: const Duration(hours: 2).inMilliseconds);
+
+      final t = await senkronTazeligi(db, simdi: cihazSimdi);
+      expect(t.gecenSure, const Duration(minutes: 5));
+      expect(t.bayat, isFalse);
+    });
+
+    test('cihaz saati geriye atlarsa negatif değil SIFIR', () async {
+      final simdi = DateTime.utc(2026, 8, 6, 12);
+      await sonTemas(simdi.add(const Duration(minutes: 7))); // gelecekten damga
+      final t = await senkronTazeligi(db, simdi: simdi);
+      expect(t.gecenSure, Duration.zero,
+          reason: '"−7 dk önce" yazmak, bilmediğimizi bildiğimiz sanmaktır');
+      expect(t.bayat, isFalse);
+    });
+
+    test('görünüm modeli tazeliği taşır', () async {
+      await kurye('k1', 'Emre');
+      await sonTemas(DateTime.now().toUtc().subtract(const Duration(minutes: 40)));
+      final gorunum = await gunSonuGorunumu(db, bugun);
+      expect(gorunum.senkron.bayat, isTrue,
+          reason: 'sheet ekstra çağrı yapmadan uyarıyı çizebilmeli');
+    });
+  });
+
   // ═══════════════════════════════════════════════════════════════════════════════════════════
   // İKİ CİHAZ: patron kendi telefonundan ara tahsilat alır, KURYENİN telefonu ne görür?
   //

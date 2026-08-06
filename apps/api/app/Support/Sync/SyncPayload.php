@@ -3,7 +3,9 @@
 namespace App\Support\Sync;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * Senkron uygulayıcılarının paylaştığı saf yardımcılar: değişiklik betimleyicisi üretimi, zorunlu
@@ -86,6 +88,40 @@ final class SyncPayload
     public static function req(array $arr, string $key): mixed
     {
         return $arr[$key] ?? throw new InvalidArgumentException("payload.{$key} gerekli");
+    }
+
+    /**
+     * SENKRON SINIRINDA ZAMAN NORMALİZASYONU — istemci damgasını UTC'ye çevirir (2026-08-06).
+     *
+     * NEDEN: Eloquent'in `datetime` cast'i timestamptz kolonuna varsayılan `Y-m-d H:i:s` biçimiyle
+     * yazar, yani OFFSET'İ DÜŞÜRÜR. `'2026-08-06T12:00:00+03:00'` veritabanına `2026-08-06 12:00:00`
+     * olarak gider ve Postgres onu UTC sanar — damga 3 saat İLERİ kayar (tinker ile ölçüldü).
+     * Türkiye +03:00 ve `occurred_at` GÜN SINIRINI belirlediği için kayan damga bir para kaydını
+     * YANLIŞ GÜNE düşürür; kapanış arşivi append-only olduğundan bir daha da düzelmez.
+     *
+     * Bugün sessiz kalmasının TEK sebebi mobilin `correctedNowIso`'sunun 'Z' üretmesidir — sözleşme
+     * buna dayanmamalı: offset'li yazan tek bir istemci/araç yeter.
+     *
+     * NEDEN BURADA: senkron sınırı tek kapıdır (bu depoda kural "girdiyi sistem sınırında doğrula").
+     * Modellerde `$dateFormat` değiştirmek düzeltmeyi N modele dağıtır ve yeni bir model eklendiği
+     * gün sessizce geri kayar. Ham SQL yolu (`SyncService`'in `sync_changes` INSERT'ü) zaten
+     * doğruydu — kayma yalnız Eloquent yazımlarındaydı; bu yardımcı ikisini AYNI yoruma getirir.
+     *
+     * DOĞRULAMA YAPMAZ: null / boş / çözülemeyen değer OLDUĞU GİBİ geri döner. Reddetme kapısı
+     * `EventValidator`'dır; burada bir olayı düşürmek para kaydını sessizce yok etmek olurdu.
+     * Mikrosaniye korunur — LWW eşitlik kararı damganın altındaki hassasiyete bakabilir.
+     */
+    public static function zaman(mixed $value): mixed
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return $value;
+        }
+
+        try {
+            return Carbon::parse($value)->utc()->format('Y-m-d\TH:i:s.uP');
+        } catch (Throwable) {
+            return $value;
+        }
     }
 
     /**

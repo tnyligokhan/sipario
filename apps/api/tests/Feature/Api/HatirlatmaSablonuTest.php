@@ -162,6 +162,10 @@ class HatirlatmaSablonuTest extends ApiTestCase
 
         Livewire::actingAs($patron, 'web')->test(Hesap::class)
             ->call('bolumSec', 'isletme')
+            // Alanlar EKRANA BAĞLI mı: formda özellik olup görünümde alan olmaması sessiz bir
+            // arızadır (bayi hiç düzenleyemez, kod "var" görünür).
+            ->assertSeeHtml('wire:model="isletme.ibanAliciAdi"')
+            ->assertSeeHtml('wire:model="isletme.hatirlatmaSablonu"')
             ->set('isletme.ibanAliciAdi', 'Mehmet Yılmaz')
             ->set('isletme.hatirlatmaSablonu', self::SABLON)
             ->call('isletmeKaydet')

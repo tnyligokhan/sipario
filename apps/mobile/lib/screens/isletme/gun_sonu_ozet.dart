@@ -111,6 +111,7 @@ class GunSonuGorunumu {
     this.araTahsilatlar = const [],
     this.gunKapanislari = const [],
     this.araTahsilatMumkun = false,
+    this.senkron = const SenkronTazeligi(),
   });
 
   final GunSonuOzet ozet;
@@ -148,6 +149,11 @@ class GunSonuGorunumu {
   /// kavram YOKTUR (patron parayı zaten cebinde taşır) ve bu koşulu her ekranın kendi başına
   /// türetmesi, koşul değiştiğinde bir ekranın geride kalması demekti.
   final bool araTahsilatMumkun;
+
+  /// Cihazın sunucuyla son teması. Kapanış/ara tahsilat sheet'i bunu gösterir: bu ekrandaki
+  /// beklenen nakit YEREL veriden çıkar ve başka bir cihazda alınmış bir ara tahsilat henüz
+  /// inmemiş olabilir.
+  final SenkronTazeligi senkron;
 
   /// Gün içinde alınan ara tahsilatların SAYILAN toplamı (kuruş).
   int get araTahsilatKurus =>
@@ -191,11 +197,76 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
     // Geçmiş gün için de FALSE: dünün kasasını bugün "ara" tahsilat diye almak, parayı dünün
     // hesabına yazmak olurdu.
     araTahsilatMumkun: bugun && !gunKapali && aktifSayi > 0,
+    senkron: await senkronTazeligi(db),
     acikKuryeAdlari: acikKuryeler,
     gunEngeli: kuryeId == null &&
         !gunKapali &&
         acikKuryeler.isNotEmpty &&
         acikKuryeler.length < aktifSayi,
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Senkron tazeliği (kullanıcı kararı 2026-08-06 · lead onayı: çevrimdışı kurye = BİLİNÇLİ BORÇ)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// Kopukluğun "kısa" sayılmaktan çıktığı süre. Tur aralığı 2 dakikadır (`SyncService.start`);
+/// beş tur üst üste kaçmışsa bu artık bodrumda geçen bir dakika değildir.
+const Duration kSenkronBayatlikEsigi = Duration(minutes: 10);
+
+/// Cihazın sunucuyla EN SON TEMASI. Kurye kapanışı/ara tahsilat sheet'i bunu gösterir.
+///
+/// NEDEN GEREKLİ: beklenen nakit YEREL `cash_handovers`tan hesaplanır. Patron kendi telefonundan
+/// ara tahsilat alır ve kuryenin telefonu çevrimdışıysa, kurye ekranında ŞİŞİK bir beklenen tutar
+/// görür; kendi hesabını o hâlde kapatırsa arşive gerçek dışı bir rakam donar (append-only →
+/// kalıcı). Kapanışı sunucu doğrulamasına bağlamak onu çevrimiçi-zorunlu yapardı ve BRIEF'in
+/// "internetsiz TAM çalışır" çizgisini keserdi; bunun yerine borç BİLİNÇLİ tutulup kullanıcıya
+/// GÖRÜNÜR kılınıyor.
+///
+/// NEYİ ÖLÇTÜĞÜ (etiket bundan fazlasını İDDİA ETMEMELİ): kaynak `sync_meta.lastServerTimeIso`,
+/// yani sunucudan alınan SON YANITTAKİ sunucu saati. `SyncEngine.pull()` bunu her turda yazar ve
+/// `AppendServerTime` middleware'i her API yanıtına `server_time` eklediği için pull turu da
+/// besler (push'un tek başına yetmediği yer burasıydı: boş kuyrukta push HTTP'ye hiç çıkmaz).
+///
+/// Bu "SON TEMAS"tır, "son EKSİKSİZ uygulanmış tur" DEĞİL: damga satırlar uygulanmadan ÖNCE
+/// yazılır, yani bazı satırlar ayrıştırılamayıp atlanmışsa tur başarısız sayılsa bile bu değer
+/// ilerler. Eksiksizliği ölçmek kalıcı bir alan ister (şema işi). Ekranda "son senkron" değil
+/// "sunucuya son ulaşma" dili kullanılmalı — tazelik göstergesinin yalanı, göstergesizlikten
+/// kötüdür.
+class SenkronTazeligi {
+  const SenkronTazeligi({this.sonTemasUtc, this.gecenSure});
+
+  /// Sunucu saatiyle son temas anı (UTC). Hiç senkron olmadıysa null.
+  final DateTime? sonTemasUtc;
+
+  /// O andan beri geçen süre. Hiç senkron olmadıysa null.
+  final Duration? gecenSure;
+
+  /// Cihaz sunucuya HİÇ ulaşmadı (yeni kurulum ya da kalıcı çevrimdışı).
+  bool get hicTemasYok => sonTemasUtc == null;
+
+  /// Uyarı gösterilmeli mi? Hiç temas olmaması da bayattır — bilinmezlik, tazelik değildir.
+  bool get bayat => gecenSure == null || gecenSure! >= kSenkronBayatlikEsigi;
+}
+
+/// [SenkronTazeligi] okur. [simdi] test içindir; verilmezse cihaz saati kullanılır.
+///
+/// Geçen süre DÜZELTİLMİŞ saatle ölçülür (`serverTimeOffsetMs`): esnafın telefon saati yanlış
+/// olabilir ve offset son temasla AYNI anda hesaplandığı için ikisinin farkı gerçek geçen süreyi
+/// verir. Sonuç negatife düşerse SIFIRA kırpılır — cihaz saati geriye atlamışsa "−3 dk önce"
+/// yazmak, bilmediğimizi bildiğimiz sanmaktır.
+Future<SenkronTazeligi> senkronTazeligi(AppDatabase db, {DateTime? simdi}) async {
+  final meta = await db.syncState();
+  final iso = meta.lastServerTimeIso;
+  final sonTemas = iso == null ? null : DateTime.tryParse(iso);
+  if (sonTemas == null) return const SenkronTazeligi();
+
+  final duzeltilmisSimdi =
+      (simdi ?? DateTime.now()).toUtc().add(Duration(milliseconds: meta.serverTimeOffsetMs));
+  final gecen = duzeltilmisSimdi.difference(sonTemas.toUtc());
+  return SenkronTazeligi(
+    sonTemasUtc: sonTemas.toUtc(),
+    gecenSure: gecen.isNegative ? Duration.zero : gecen,
   );
 }
 
