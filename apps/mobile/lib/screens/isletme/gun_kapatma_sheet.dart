@@ -13,7 +13,9 @@ import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import 'gun_sonu_ozet.dart' show SenkronTazeligi;
 import 'isletme_atomlari.dart';
+import 'senkron_seridi.dart';
 
 /// Kapatma sheet'inin sonucu: sayılan nakit (girilmediyse null) + not.
 @immutable
@@ -40,6 +42,7 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
   required int teslimat,
   int tamNakit = 0,
   int araTahsilat = 0,
+  SenkronTazeligi? senkron,
 }) {
   return sipSheet<KapatmaSonucu>(
     context,
@@ -51,6 +54,7 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
       teslimat: teslimat,
       tamNakit: tamNakit,
       araTahsilat: araTahsilat,
+      senkron: senkron,
     ),
   );
 }
@@ -63,6 +67,7 @@ class _KapatmaGovdesi extends StatefulWidget {
     required this.teslimat,
     required this.tamNakit,
     required this.araTahsilat,
+    required this.senkron,
   });
 
   final String kapsamAdi;
@@ -71,6 +76,9 @@ class _KapatmaGovdesi extends StatefulWidget {
   final int teslimat;
   final int tamNakit;
   final int araTahsilat;
+
+  /// null ise tazelik şeridi hiç çizilmez (çağıran o kapsamda göstermemeye karar vermiştir).
+  final SenkronTazeligi? senkron;
 
   @override
   State<_KapatmaGovdesi> createState() => _KapatmaGovdesiState();
@@ -102,6 +110,16 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // TAZELİK EN ÜSTTE: rakamları okumadan ÖNCE görünmeli. Altına konsaydı, bayi tutarı
+        // okuyup sayıma başladıktan sonra "bu rakam eksik olabilir" uyarısıyla karşılaşırdı.
+        if (widget.senkron != null)
+          SenkronTazeligiSeridi(
+            tazelik: widget.senkron!,
+            // Gün kapanışında YALNIZ bayatken konuşur; kurye kapanışında taze durumu da
+            // soluk bir satırla söyler (gerekçe widget'ın içinde).
+            yalnizBayatta: widget.gunHesabi,
+          ),
+
         if (widget.teslimat == 0)
           const AlanNotu(
             'Bu hesapta bugün hiç teslimat yok — yine de kapatabilirsiniz.',

@@ -37,7 +37,9 @@ class ProfileChangeApplier
 
         /** @var array<string, mixed> $payload */
         $payload = (array) ($event['payload'] ?? []);
-        $occurredAt = (string) ($event['occurred_at'] ?? '');
+        // UTC'ye normalize: `updated_occurred_at` yazımları ve LWW karşılaştırması buradan türer
+        // (bkz. SyncPayload::zaman — offset'li damga timestamptz'e 3 saat kaymış yazılıyordu).
+        $occurredAt = (string) SyncPayload::zaman((string) ($event['occurred_at'] ?? ''));
         $deviceId = $event['device_id'] ?? null;
 
         return $type === 'tenant_settings'

@@ -191,11 +191,11 @@ void main() {
       });
 
       await tester.pumpWidget(MaterialApp(home: DayEndScreen(db: db)));
-      // İKİ tur bekleme ŞART: `gunSonuGorunumu` 2026-07-26'da kurye kapanış sorgularını da
-      // (`acikKuryeAdlari` + aktif kurye sayısı) bekliyor, tek 150 ms'de future tamamlanmıyor
-      // ve ekran hâlâ İSKELET çiziyor — aranan tutar hiç bulunmuyordu. Dosyadaki DÖRT gün-sonu
-      // testinin hepsi aynı kırılganlığı taşıyordu; biri düşünce dördü birlikte düzeltildi.
-      for (var i = 0; i < 2; i++) {
+      // DÖRT tur bekleme ŞART: `gunSonuGorunumu` kurye kapanış sorgularını (`acikKuryeAdlari` +
+      // aktif kurye sayısı) VE 2026-08-06'da eklenen ara tahsilat / o-günün-kapanışları sorgularını
+      // da bekliyor; tek 150 ms'de future tamamlanmıyor ve ekran hâlâ İSKELET çiziyor — aranan
+      // tutar hiç bulunmuyordu. Dosyadaki DÖRT gün-özeti testi aynı kırılganlığı taşıyor.
+      for (var i = 0; i < 4; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
         await tester.pump();
       }
@@ -212,11 +212,11 @@ void main() {
     testWidgets('mağaza-kuralı ihlali yok (satın alma/abonelik metni)', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       await tester.pumpWidget(MaterialApp(home: DayEndScreen(db: db)));
-      // İKİ tur bekleme ŞART: `gunSonuGorunumu` 2026-07-26'da kurye kapanış sorgularını da
-      // (`acikKuryeAdlari` + aktif kurye sayısı) bekliyor, tek 150 ms'de future tamamlanmıyor
-      // ve ekran hâlâ İSKELET çiziyor — aranan tutar hiç bulunmuyordu. Dosyadaki DÖRT gün-sonu
-      // testinin hepsi aynı kırılganlığı taşıyordu; biri düşünce dördü birlikte düzeltildi.
-      for (var i = 0; i < 2; i++) {
+      // DÖRT tur bekleme ŞART: `gunSonuGorunumu` kurye kapanış sorgularını (`acikKuryeAdlari` +
+      // aktif kurye sayısı) VE 2026-08-06'da eklenen ara tahsilat / o-günün-kapanışları sorgularını
+      // da bekliyor; tek 150 ms'de future tamamlanmıyor ve ekran hâlâ İSKELET çiziyor — aranan
+      // tutar hiç bulunmuyordu. Dosyadaki DÖRT gün-özeti testi aynı kırılganlığı taşıyor.
+      for (var i = 0; i < 4; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
         await tester.pump();
       }
@@ -240,11 +240,11 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
 
       await tester.pumpWidget(MaterialApp(home: DayEndScreen(db: db)));
-      // İKİ tur bekleme ŞART: `gunSonuGorunumu` 2026-07-26'da kurye kapanış sorgularını da
-      // (`acikKuryeAdlari` + aktif kurye sayısı) bekliyor, tek 150 ms'de future tamamlanmıyor
-      // ve ekran hâlâ İSKELET çiziyor — aranan tutar hiç bulunmuyordu. Dosyadaki DÖRT gün-sonu
-      // testinin hepsi aynı kırılganlığı taşıyordu; biri düşünce dördü birlikte düzeltildi.
-      for (var i = 0; i < 2; i++) {
+      // DÖRT tur bekleme ŞART: `gunSonuGorunumu` kurye kapanış sorgularını (`acikKuryeAdlari` +
+      // aktif kurye sayısı) VE 2026-08-06'da eklenen ara tahsilat / o-günün-kapanışları sorgularını
+      // da bekliyor; tek 150 ms'de future tamamlanmıyor ve ekran hâlâ İSKELET çiziyor — aranan
+      // tutar hiç bulunmuyordu. Dosyadaki DÖRT gün-özeti testi aynı kırılganlığı taşıyor.
+      for (var i = 0; i < 4; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
         await tester.pump();
       }
@@ -285,11 +285,11 @@ void main() {
       });
 
       await tester.pumpWidget(MaterialApp(home: DayEndScreen(db: db)));
-      // İKİ tur bekleme ŞART: `gunSonuGorunumu` 2026-07-26'da kurye kapanış sorgularını da
-      // (`acikKuryeAdlari` + aktif kurye sayısı) bekliyor, tek 150 ms'de future tamamlanmıyor
-      // ve ekran hâlâ İSKELET çiziyor — aranan tutar hiç bulunmuyordu. Dosyadaki DÖRT gün-sonu
-      // testinin hepsi aynı kırılganlığı taşıyordu; biri düşünce dördü birlikte düzeltildi.
-      for (var i = 0; i < 2; i++) {
+      // DÖRT tur bekleme ŞART: `gunSonuGorunumu` kurye kapanış sorgularını (`acikKuryeAdlari` +
+      // aktif kurye sayısı) VE 2026-08-06'da eklenen ara tahsilat / o-günün-kapanışları sorgularını
+      // da bekliyor; tek 150 ms'de future tamamlanmıyor ve ekran hâlâ İSKELET çiziyor — aranan
+      // tutar hiç bulunmuyordu. Dosyadaki DÖRT gün-özeti testi aynı kırılganlığı taşıyor.
+      for (var i = 0; i < 4; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
         await tester.pump();
       }

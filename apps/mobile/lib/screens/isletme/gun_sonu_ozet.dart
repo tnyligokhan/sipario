@@ -155,14 +155,15 @@ class GunSonuGorunumu {
   /// inmemiş olabilir.
   final SenkronTazeligi senkron;
 
-  /// Gün içinde alınan ara tahsilatların SAYILAN toplamı (kuruş).
+  /// Gün içinde alınan ARA tahsilatların SAYILAN toplamı (kuruş) — özet kartının listesiyle
+  /// aynı kümedir (kapanış devirleri hariç).
+  ///
+  /// BEKLENEN/KALAN NAKDİ BURADAN TÜRETME. O rakam `DayClosingRepository.onizle()`den gelir ve
+  /// kapanış devirlerini de düşer; buradaki çıkarma kurye kapsamında YANLIŞ sonuç verirdi.
+  /// (Bir zamanlar burada `kalanNakitKurus` diye bir getter vardı; kapanış sheet'ini onunla
+  /// beslemek sheet'te yazan tutarla arşive donan tutarı ayrıştırıyordu — kaldırıldı.)
   int get araTahsilatKurus =>
       araTahsilatlar.fold<int>(0, (s, a) => s + a.countedCashKurus);
-
-  /// Kapanışta sayılması beklenen KALAN nakit = kapsamın günlük nakdi − alınan ara tahsilatlar.
-  /// Negatife düşebilir (patron beklenenden fazlasını saymış olabilir) ve bu bilgi KANITTIR,
-  /// kırpılmaz.
-  int get kalanNakitKurus => kapsam.kasa.nakit - araTahsilatKurus;
 }
 
 /// Seçili GÜNÜN tam görünümü. [localDate] GEÇMİŞ bir gün olabilir — tüm süzgeçler bu tarihi

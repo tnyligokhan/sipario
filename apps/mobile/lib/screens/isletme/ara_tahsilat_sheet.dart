@@ -22,7 +22,9 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import 'gun_kapatma_sheet.dart' show kurusaCevir;
+import 'gun_sonu_ozet.dart' show SenkronTazeligi;
 import 'isletme_atomlari.dart';
+import 'senkron_seridi.dart';
 
 /// Ara tahsilat sheet'inin sonucu: sayılan nakit + not. Sayım ZORUNLUDUR (null ile kapanmaz) —
 /// sayılmamış bir para transferi kaydı, kimsenin doğrulayamayacağı bir rakam olurdu.
@@ -34,25 +36,38 @@ class AraTahsilatSonucu {
   final String not;
 }
 
-/// Kuryeden gün içi tahsilat. [beklenen] son devirden beri o kuryenin topladığı nakit (kuruş);
-/// `CashHandoverRepository.onizle()` ile ÇAĞIRAN taraf hesaplar — sheet hiçbir para formülü yazmaz.
+/// Kuryeden gün içi tahsilat. [beklenen] o kuryede olması beklenen nakittir (kuruş) ve ÇAĞIRAN
+/// taraf `CashHandoverRepository.onizle()`den alır — sheet hiçbir para formülü yazmaz, tanımın
+/// nasıl kurulduğunu da BİLMEZ (repo tanımı 2026-08-06'da kümülatife döndü, bu dosya değişmedi).
 Future<AraTahsilatSonucu?> araTahsilatSheet(
   BuildContext context, {
   required String kuryeAdi,
   required int beklenen,
+  SenkronTazeligi? senkron,
 }) {
   return sipSheet<AraTahsilatSonucu>(
     context,
     baslik: 'Ara Tahsilat · $kuryeAdi',
-    govde: (ctx) => _AraTahsilatGovdesi(kuryeAdi: kuryeAdi, beklenen: beklenen),
+    govde: (ctx) => _AraTahsilatGovdesi(
+      kuryeAdi: kuryeAdi,
+      beklenen: beklenen,
+      senkron: senkron,
+    ),
   );
 }
 
 class _AraTahsilatGovdesi extends StatefulWidget {
-  const _AraTahsilatGovdesi({required this.kuryeAdi, required this.beklenen});
+  const _AraTahsilatGovdesi({
+    required this.kuryeAdi,
+    required this.beklenen,
+    required this.senkron,
+  });
 
   final String kuryeAdi;
   final int beklenen;
+
+  /// null ise tazelik şeridi çizilmez.
+  final SenkronTazeligi? senkron;
 
   @override
   State<_AraTahsilatGovdesi> createState() => _AraTahsilatGovdesiState();
@@ -83,9 +98,14 @@ class _AraTahsilatGovdesiState extends State<_AraTahsilatGovdesi> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Tazelik EN ÜSTTE: beklenen tutar okunmadan önce görünmeli — bu sheet'te de rakam
+        // yerel `cash_handovers`tan çıkıyor ve başka telefondan alınmış bir tahsilat inmemiş
+        // olabilir (o zaman beklenen ŞİŞİK görünür).
+        if (widget.senkron != null) SenkronTazeligiSeridi(tazelik: widget.senkron!),
+
         if (widget.beklenen == 0)
           const AlanNotu(
-            'Son devirden beri bu kuryede nakit görünmüyor — yine de tahsilat kaydedebilirsiniz.',
+            'Bu kuryede şu an nakit görünmüyor — yine de tahsilat kaydedebilirsiniz.',
             tur: AlanNotuTuru.uyari,
           ),
 
@@ -96,7 +116,11 @@ class _AraTahsilatGovdesiState extends State<_AraTahsilatGovdesi> {
             children: [
               Expanded(
                 child: Text(
-                  'Son devirden beri beklenen',
+                  // FORMÜL İDDİA ETMEZ. Eskiden "Son devirden beri beklenen" yazıyordu; beklenen
+                  // nakdin tanımı repo'da değişebilir (2026-08-06: kümülatif tanıma geçildi) ve
+                  // ekranda donmuş bir formül cümlesi, değiştiği gün SESSİZCE yalan söylerdi.
+                  // Etiket rakamın NE OLDUĞUNU söyler, NASIL hesaplandığını değil.
+                  'Kuryede beklenen nakit',
                   style: SipText.gsSatirEtiket.copyWith(color: t.ink2),
                 ),
               ),

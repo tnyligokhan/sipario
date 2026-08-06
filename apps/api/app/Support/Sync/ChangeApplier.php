@@ -92,7 +92,7 @@ class ChangeApplier
         $payload = (array) ($event['payload'] ?? []);
         // UTC'ye normalize: aşağıdaki `updated_occurred_at` ve `deleted_at` yazımlarının hepsi
         // buradan türer (bkz. SyncPayload::zaman — offset'li damga 3 saat kayıyordu).
-        $occurredAt = SyncPayload::zaman((string) ($event['occurred_at'] ?? ''));
+        $occurredAt = (string) SyncPayload::zaman((string) ($event['occurred_at'] ?? ''));
         $deviceId = $event['device_id'] ?? null;
 
         $id = (string) ($payload['id'] ?? throw new InvalidArgumentException('payload.id gerekli'));

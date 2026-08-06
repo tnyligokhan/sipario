@@ -3,18 +3,36 @@ import 'package:drift/drift.dart';
 import '../data/app_database.dart';
 import '../data/ids.dart';
 import '../data/outbox.dart';
+import 'day_end_repository.dart';
 
-/// Kasa devri yerel iş akışı (FAZ 4). Kurye gün sonu kasayı patrona devreder: SAYILAN nakit + sistemin
+/// Kasa devri yerel iş akışı (FAZ 4). Kurye kasayı patrona devreder: SAYILAN nakit + sistemin
 /// BEKLEDİĞİ nakit (anlık snapshot) + fark, kalıcı append-only kayıt olur (cash_handovers) + outbox,
 /// tek transaction (offline-first atomiklik). Silme/UPDATE YOK; düzeltme yeni devir kaydıyla.
 ///
-/// Beklenen nakit = period_start'tan beri collected_by=fromUserId olan NAKİT payment'ların kasa
-/// katkısı (−amount_kurus toplamı; payment(−)→giren(+), nakit correction(+)→çıkan(−)). Kart/havale
-/// fiziksel kasa değildir — devir yalnız NAKİT üzerinedir. period_start = fromUserId'nin son devri
-/// yoksa bugünün TR (+03:00) gün başı.
+/// BEKLENEN NAKİT = KÜMÜLATİF KALAN (kullanıcı kararı 2026-08-06):
+///   o kuryenin BUGÜN topladığı nakit − o kuryenin BUGÜN teslim ettiği `counted_cash_kurus` toplamı.
+/// Yani rakam, kuryenin cebinde FİİLEN ne varsa odur.
+///
+/// NEDEN DEĞİŞTİ: eskiden beklenen `period_start`tan (son devirden) beri toplanandı. Patron ara
+/// tahsilatta beklenenin tamamını almazsa — 90 toplandı, 60 alındı, 30 para üstü için kuryede
+/// BİLEREK bırakıldı — pencere o devre kayıyor ve akşam beklenen 0 çıkıyordu; kurye o 30'u
+/// verince ekran "FAZLA 30" yazıyordu. Veri kaybı yoktu ama okunuşu tersti. Kümülatif tanımda
+/// kuryede kalan DEVREDER: akşam beklenen 30, fark 0.
+///
+/// Kart/havale fiziksel kasa değildir — devir yalnız NAKİT üzerinedir.
+///
+/// GÜNLÜK SIFIRLAMA KORUNUR (TR +03:00): dünden devreden nakit taşınmaz.
+///
+/// `period_start` KAYITTA KALIR ve SİLİNMEMELİDİR: hangi pencerenin mutabakatı olduğunu söyleyen
+/// DENETİM İZİDİR (kayıt append-only, sonradan sorulacak soruların cevabı orada). Yalnız BEKLENEN
+/// HESABI ondan türemeyi bıraktı — "kullanılmıyor" sanıp kaldırmak izi yok eder.
+///
+/// PARALEL HESAP YASAĞI: toplanan nakit [DayEndRepository.kasaOzeti]den gelir — ekranın gösterdiği
+/// kasa ile devrin beklediği nakit AYNI koddan çıkmak zorunda.
 class CashHandoverRepository {
-  CashHandoverRepository(this.db);
+  CashHandoverRepository(this.db) : _dayEnd = DayEndRepository(db);
   final AppDatabase db;
+  final DayEndRepository _dayEnd;
 
   static const _trOffset = Duration(hours: 3);
 
@@ -122,13 +140,22 @@ class CashHandoverRepository {
   /// yazdığı beklenen AYNI koddan çıksın diye public. Yalnız OKUR (yazma yok). devret() submit anında
   /// bunu YENİDEN çağırır → "anlık snapshot" tanımı korunur (ekranda gösterilen ile yazılan arasında
   /// süre geçse de kayıt submit anındaki değeri tutar).
-  Future<HandoverOnizleme> onizle(String fromUserId) async {
-    final periodStart = await _periodStart(fromUserId);
-    final expected = await _expectedCash(fromUserId, periodStart);
-    return HandoverOnizleme(periodStartIso: periodStart, expectedKurus: expected);
+  /// [localDate] verilmezse BUGÜN. Geçmiş gün de sorulabilir: formül gün bazlı olduğu için
+  /// geçmişe sarılabilir (eski `period_start` tabanlı hesap sarılamıyordu — dünün ekranı bugünün
+  /// son devrine göre değişirdi).
+  Future<HandoverOnizleme> onizle(String fromUserId, {DateTime? localDate}) async {
+    final gun = localDate ?? _trBugun();
+    final toplanan = (await _dayEnd.kasaOzeti(gun, userId: fromUserId)).nakit;
+    final teslimEdilen = await _teslimEdilenNakit(fromUserId, gun);
+    return HandoverOnizleme(
+      periodStartIso: await _periodStart(fromUserId),
+      expectedKurus: toplanan - teslimEdilen,
+    );
   }
 
-  /// fromUserId'nin son devir occurred_at'i (mutabakat sınırı); yoksa bugünün TR gün başı (UTC ISO).
+  /// fromUserId'nin son devir occurred_at'i; yoksa bugünün TR gün başı (UTC ISO).
+  ///
+  /// Yalnız KAYDA yazılır (denetim izi) — beklenen nakit ARTIK bundan türemez. Bkz. sınıf notu.
   Future<String> _periodStart(String fromUserId) async {
     final last = await (db.select(db.cashHandovers)
           ..where((t) => t.fromUserId.equals(fromUserId))
@@ -138,19 +165,24 @@ class CashHandoverRepository {
     return last?.occurredAt ?? _trDayStartUtcIso();
   }
 
-  /// period_start'tan beri kuryenin (collected_by) topladığı NAKİT kasa katkısı.
-  Future<int> _expectedCash(String fromUserId, String periodStartIso) async {
-    final rows = await (db.select(db.ledgerEntries)
-          ..where((t) => t.paymentType.equals('nakit') & t.collectedByUserId.equals(fromUserId)))
+  /// Kuryenin [gun] içinde teslim ettiği nakdin SAYILAN toplamı.
+  ///
+  /// ARA ve KAPANIŞ devirleri BİRLİKTE sayılır — [araTahsilatlar]dan farkı budur ve bilinçlidir:
+  /// orası EKRANIN gösterdiği listedir (ara tahsilatı kapanıştan ayırmak kullanıcı için anlamlı),
+  /// burası ise CEPTEKİ parayı ölçer ve cep, paranın hangi gerekçeyle çıktığını bilmez.
+  ///
+  /// `counted` kullanılır, `expected` DEĞİL: kuryenin cebinden fiilen çıkan para sayılan paradır.
+  Future<int> _teslimEdilenNakit(String fromUserId, DateTime gun) async {
+    final satirlar = await (db.select(db.cashHandovers)
+          ..where((t) => t.fromUserId.equals(fromUserId)))
         .get();
-    final start = DateTime.tryParse(periodStartIso);
-    var sum = 0;
-    for (final e in rows) {
-      final t = DateTime.tryParse(e.occurredAt);
-      if (start != null && t != null && t.isBefore(start)) continue;
-      sum += -e.amountKurus; // payment(−)→kasaya giren(+); nakit correction(+)→çıkan(−)
+    var toplam = 0;
+    for (final r in satirlar) {
+      final t = DateTime.tryParse(r.occurredAt);
+      if (t == null || !_ayniTrGun(t, gun)) continue;
+      toplam += r.countedCashKurus;
     }
-    return sum;
+    return toplam;
   }
 
   // ═════════════════════════════════════════════════════════════════════════════════════════

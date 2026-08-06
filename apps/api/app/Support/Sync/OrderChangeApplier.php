@@ -127,7 +127,7 @@ class OrderChangeApplier
         if ($line === null) {
             throw new InvalidArgumentException('Satır bulunamadı');
         }
-        $occurredAt = SyncPayload::zaman((string) ($event['occurred_at'] ?? ''));
+        $occurredAt = (string) SyncPayload::zaman((string) ($event['occurred_at'] ?? ''));
         $line->forceFill(['deleted_at' => $occurredAt])->save();
         $orderEvent = $this->appendOrderEvent($tenantId, $order->id, 'line_removed', $event, $payload);
         $this->recomputeOrder($order);

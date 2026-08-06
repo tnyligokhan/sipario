@@ -9,9 +9,16 @@
 // alt alta) ve bir güne dokunmak `GunDetayEkrani`ni açıyordu. İki katman (liste → detay) yerine
 // tek katman (gezinme) kaldı: bayi listede tarih aramıyor, "dün ne oldu" diye soruyor.
 //
-// GEZİNME ŞERİDİ ORTAKTIR: `SiparisTarihSeridi` teslim sekmesinden İMPORT edilir, kopyalanmaz.
-// İkinci bir şerit yazmak iki gezinmenin zamanla ayrışmasına yol açardı (biri "Dün" yazarken
-// diğeri "03.08"). İleri okun bugünü geçmeme kuralı da o dosyada TEK yerde tanımlı.
+// GEZİNME ŞERİDİ ORTAKTIR: `SiparisTarihSeridi` teslim sekmesinden (`../orders/`) İMPORT edilir,
+// kopyalanmaz. İkinci bir şerit yazmak iki gezinmenin zamanla ayrışmasına yol açardı (biri "Dün"
+// yazarken diğeri "03.08"). İleri okun bugünü geçmeme kuralı da o dosyada TEK yerde tanımlı.
+//
+// PEKİ NEDEN ORTAK BİR KLASÖRE TAŞINMADI? Taşımak `orders/` dosyalarını (import satırları, sınıf
+// adı) değiştirmek demekti ve bu tur o dosyalar başka bir sahibindeydi — paralel çalışan iki
+// ajanın aynı dosyaya yazması çakışma üretir. `isletme` → `orders` yönünde TEK YÖNLÜ bir import
+// doğuyor; kabul edildi (lead onayı 2026-08-06). Şerit üçüncü bir ekranda daha gerekirse taşıma
+// zamanı gelmiş demektir — İKİ kullanıcı taşımayı haklı çıkarmıyor, ÜÇ çıkarır.
+// BU SATIRLAR UYARIDIR: sonraki vardiya bunu "yanlış katman bağımlılığı" sanıp kopyalamasın.
 //
 // DÜNDE AÇILIR, bugünde değil: bugünün özeti zaten bir önceki ekrandır ve bu ekranın sorusu
 // geçmiştir. Bugüne dönmek yine mümkün (şeridin ortasına dokunmak ya da ileri ok).

@@ -137,9 +137,10 @@ class _DayEndScreenState extends State<DayEndScreen> {
     final kuryeId = _kuryeId!;
     final kuryeAdi = _kapsamAdi(kuryeler);
 
-    // Beklenen tutar REPO'DAN gelir, ekranın kasa kartından DEĞİL: ara tahsilat "son devirden
-    // beri" toplananı kapsar, gün başından beri toplananı değil. İkinci bir tahsilatta bu iki
-    // rakam ayrışır ve ekranın kendi toplamını kullanmak parayı iki kez saydırırdı.
+    // Beklenen tutar REPO'DAN gelir, ekranın kasa kartından DEĞİL. Kasa kartı günün TOPLAM
+    // nakdini gösterir; kuryede fiilen kalan tutar ondan farklıdır ve tanımı repo'nundur
+    // (2026-08-06'da kümülatife döndü). Ekran kendi çıkarmasını yapsaydı her tanım değişikliğinde
+    // sessizce ayrışır, sheet'te yazan tutar kayda geçenden farklı olurdu.
     final repo = CashHandoverRepository(widget.db);
     final onizleme = await repo.onizle(kuryeId);
     if (!mounted) return;
@@ -148,6 +149,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
       context,
       kuryeAdi: kuryeAdi,
       beklenen: onizleme.expectedKurus,
+      senkron: g.senkron,
     );
     if (sonuc == null || !mounted) return;
 
@@ -175,7 +177,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
     _tazele();
   }
 
-  Future<void> _kapat(List<User> kuryeler) async {
+  Future<void> _kapat(List<User> kuryeler, GunSonuGorunumu g) async {
     if (!_kapatabilir) return; // düğme zaten kapalı; çift kapı (K2 pazarlıksız)
     final kapsamAdi = _kapsamAdi(kuryeler);
     final scope = _kuryeId == null ? ClosingScope.day : ClosingScope.courier;
@@ -197,6 +199,11 @@ class _DayEndScreenState extends State<DayEndScreen> {
       tamNakit: onizleme.gunNakitKurus,
       araTahsilat: onizleme.araTahsilatKurus,
       teslimat: onizleme.deliveryCount,
+      // TAZELİK HER İKİ KAPSAMA DA geçilir (lead kararı 2026-08-06): kurye kendi telefonundan
+      // da ara tahsilat teslim edebildiği için "günü kapatan cihaz zaten tahsilatı alan
+      // cihazdır" varsayımı tutmuyor — risk simetrik. Gürültü ayarı sheet'in içinde: gün
+      // kapsamında şerit yalnız BAYATKEN çizilir.
+      senkron: g.senkron,
     );
     if (sonuc == null || !mounted) return;
 
@@ -321,7 +328,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
                         gunEngeli: g.gunEngeli,
                         acikKuryeAdlari: g.acikKuryeAdlari,
                         toplam: g.kapsam.kasa.toplam,
-                        onKapat: () => _kapat(kuryeler),
+                        onKapat: () => _kapat(kuryeler, g),
                         // null → düğme HİÇ çizilmez (tek kişilik bayi, gün kapsamı, yetkisiz
                         // kullanıcı ya da kapatılmış kapsam).
                         onAraTahsilat: _araTahsilatAlabilir(g)

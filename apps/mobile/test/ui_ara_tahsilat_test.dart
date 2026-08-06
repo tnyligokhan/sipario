@@ -20,6 +20,7 @@ import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/day_closing_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/screens/day_end_screen.dart';
+import 'package:sipario/screens/isletme/gun_sonu_ozet.dart';
 import 'package:sipario/theme/components/atoms.dart';
 
 import 'support/ekran_yardimcilari.dart';
@@ -78,6 +79,37 @@ void main() {
   });
 
   group('Ara tahsilat — yetki kapıları (K2)', () {
+    test('TEK KİŞİLİK bayide `araTahsilatMumkun` FALSE — bayrağın kendisi', () async {
+      // Ekranın kapısı bu bayrağa DOĞRUDAN bağlı. "Segmentte kurye yok → _kuryeId hep null"
+      // zinciri dolaylıdır ve segment bir gün değişince sessizce kırılırdı; o yüzden hem bayrağı
+      // hem sonucunu ayrı ayrı kilitliyoruz.
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      final g = await gunSonuGorunumu(db, bugunTr());
+      expect(g.araTahsilatMumkun, isFalse, reason: 'aktif kurye yok');
+    });
+
+    test('AKTİF KURYE varken `araTahsilatMumkun` TRUE olur', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await kuryeEkle(db, id: 'k1', ad: 'Emre');
+
+      final g = await gunSonuGorunumu(db, bugunTr());
+      expect(g.araTahsilatMumkun, isTrue);
+    });
+
+    test('GÜN kapandıysa `araTahsilatMumkun` FALSE olur', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await kuryeEkle(db, id: 'k1', ad: 'Emre');
+      await DayClosingRepository(db)
+          .kapat(scope: ClosingScope.day, countedCashKurus: 0);
+
+      final g = await gunSonuGorunumu(db, bugunTr());
+      expect(g.araTahsilatMumkun, isFalse);
+    });
+
     testWidgets('TEK KİŞİLİK bayide düğme HİÇ çizilmez', (tester) async {
       // Aktif kurye yoksa "kuryeden ara tahsilat" diye bir kavram yoktur — patron parayı zaten
       // cebinde taşır. Pasif bir düğme, olmayan bir iş akışını varmış gibi gösterirdi.
@@ -190,7 +222,12 @@ void main() {
       await dokun(tester, find.text('Ara Tahsilat'));
       await sheetAnimasyonu(tester);
 
-      expect(find.text('Son devirden beri beklenen'), findsOneWidget);
+      // ETİKET FORMÜL İDDİA ETMEZ: beklenen nakdin tanımı repo'nundur ve değişebilir
+      // (2026-08-06'da kümülatife döndü). Ekran metni "nasıl hesaplandığını" söylerse, tanım
+      // değiştiği gün sessizce yalan söyler.
+      expect(find.text('Kuryede beklenen nakit'), findsOneWidget);
+      expect(find.textContaining('Son devirden beri'), findsNothing);
+      // İlk tahsilatta beklenen, günün toplanan nakdine eşittir — her iki tanımda da 90 ₺.
       expect(find.text(sipTutar(9000)), findsWidgets);
 
       await tester.enterText(find.byType(TextField).first, '60');
@@ -215,6 +252,32 @@ void main() {
       expect(find.textContaining('Alınan toplam · 1 tahsilat'), findsOneWidget);
 
       await kapat(tester);
+    });
+
+    test('KAPANMIŞ kapsamda repo StateError atar — ekranın arkasındaki kapı', () async {
+      // Ekran düğmeyi zaten çizmiyor, ama sheet açıkken senkron başka bir cihazdan kapanış
+      // indirebilir. O an ekranın bildiği durum bayattır; son sözü repo söyler.
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await kuryeEkle(db, id: 'k1', ad: 'Emre');
+      await kuryeEkle(db, id: 'k2', ad: 'Hakan');
+      await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+      await DayClosingRepository(db).kapat(
+        scope: ClosingScope.courier,
+        userId: 'k1',
+        countedCashKurus: 9000,
+      );
+
+      await expectLater(
+        CashHandoverRepository(db).araTahsilat(fromUserId: 'k1', countedCashKurus: 1000),
+        throwsA(isA<StateError>()),
+      );
+
+      // DİĞER kurye serbest kalır: bir kuryenin hesabının kapanması ötekini kilitlemez.
+      await expectLater(
+        CashHandoverRepository(db).araTahsilat(fromUserId: 'k2', countedCashKurus: 1000),
+        completes,
+      );
     });
 
     testWidgets('sayım GİRİLMEDEN kaydedilemez', (tester) async {
@@ -258,9 +321,20 @@ void main() {
 
       expect(find.text('Günün nakdi'), findsOneWidget);
       expect(find.text('Alınan ara tahsilat'), findsOneWidget);
+      // Bu iki rakam elle doğrulanabilir: gün boyu 90 ₺ nakit girdi, 60 ₺'si alındı.
+      expect(find.text(sipTutar(9000)), findsWidgets);
       expect(find.text('− ${sipTutar(6000)}'), findsOneWidget);
-      // Beklenen artık KALAN: 90 − 60 = 30 ₺.
-      expect(find.text(sipTutar(3000)), findsWidgets);
+
+      // BEKLENEN NAKİT ELLE TÜRETİLMEZ — ve bilerek "90 − 60 = 30" yazmıyoruz. Kurye kapsamında
+      // beklenen `period_start`tan (kuryenin SON devri) doğar; ara tahsilat da bir devirdir, yani
+      // sınır ileri kayar. Buradaki iddia rakamın DEĞERİ değil, EKRANIN REPO'YU BASTIĞIDIR:
+      // kendi çıkarmasını yapsaydı sheet'te yazan tutar arşive donan tutardan ayrışırdı.
+      final onizleme = await tester.runAsync(
+        () => DayClosingRepository(db).onizle(ClosingScope.courier, userId: 'k1'),
+      );
+      expect(find.text(sipTutar(onizleme!.expectedCashKurus)), findsWidgets);
+      expect(onizleme.gunNakitKurus, 9000);
+      expect(onizleme.araTahsilatKurus, 6000);
 
       await kapat(tester);
     });

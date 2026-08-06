@@ -99,25 +99,35 @@ void main() {
     });
   });
 
-  group('gunDetayi — kurye kırılımı', () {
-    test('o gün işi OLMAYAN kurye kartı çizilmez', () async {
+  group('İZİNLİ KURYE — kapsam boş, gün dolu', () {
+    // ESKİDEN `gunDetayi()` kurye kartları üretir, o gün işi olmayan kuryenin kartını çizmezdi
+    // ("izinli kuryenin sıfırlarla dolu kartı ekranı uzatır"). Kurye kırılımı artık KAPSAM
+    // SEGMENTİNDE; aynı kural boş-durum cümlesine dönüştü. Sıfırlarla dolu bir kasa kartı
+    // çizmek, o kuryenin çalışıp kasayı boş getirdiği izlenimini verirdi.
+    testWidgets('kasa kartı değil, "bu gün çalışmamış" cümlesi çizilir', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
-      await db.into(db.users).insert(UsersCompanion.insert(
-          id: 'k1', name: 'Emre', role: 'kurye', status: 'active'));
-      await db.into(db.users).insert(UsersCompanion.insert(
-          id: 'k2', name: 'Hakan', role: 'kurye', status: 'active'));
-      await gunEkle(db, dun,
-          urun: 'Damacana', adet: 2, birimKurus: 4500, kuryeId: 'k1');
+      await tester.runAsync(() async {
+        await db.into(db.users).insert(UsersCompanion.insert(
+            id: 'k1', name: 'Emre', role: 'kurye', status: 'active'));
+        await db.into(db.users).insert(UsersCompanion.insert(
+            id: 'k2', name: 'Hakan', role: 'kurye', status: 'active'));
+        // İş YALNIZ Emre'de; Hakan izinli.
+        await gunEkle(db, dun,
+            urun: 'Damacana', adet: 2, birimKurus: 4500, kuryeId: 'k1');
+      });
 
-      final d = await gunDetayi(db, dun);
+      await ekranaKoy(tester, GecmisGunEkrani(db: db, bugun: bugun));
+      await akislariBekle(tester, tur: 6);
+      await tester.tap(find.text('Hakan'));
+      await akislariBekle(tester, tur: 6);
 
-      expect(d.kuryeler.map((k) => k.ad), ['Emre'],
-          reason: 'izinli kuryenin sıfırlarla dolu kartı ekranı uzatır');
-      expect(d.kuryeler.single.teslimat, 1);
-      expect(d.kuryeler.single.farkKurus, isNull,
-          reason: 'sayım yapılmadıysa "fark 0" YAZILMAZ — mutabık göstermek olurdu');
+      expect(find.text('Hakan bu gün çalışmamış'), findsOneWidget);
+      expect(find.text('Kasa Özeti · Hakan'), findsNothing,
+          reason: 'sıfırlarla dolu kart, çalışıp kasayı boş getirmiş gibi okunurdu');
+      // GÜNÜN kendisi boş DEĞİL — iki boşluk ayrı cümlelerdir.
+      expect(find.text('Bu güne ait hareket yok'), findsNothing);
 
-      await db.close();
+      await kapat(tester);
     });
   });
 

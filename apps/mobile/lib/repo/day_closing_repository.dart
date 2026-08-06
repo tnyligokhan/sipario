@@ -67,15 +67,16 @@ class DayClosingRepository {
     final borc = await _dayEnd.borcDurumu();
     final araTahsilat = await _handovers.araTahsilatToplami(date, kuryeId: courierId);
 
-    // period_start CANLI bir mutabakat sınırıdır (kullanıcının SON devri) ve geçmişe sarılamaz:
-    // dünün ekranını bugünün son devriyle hesaplarsak dünkü rakam bugün değişir. Geçmiş gün
-    // sorulduğunda tek doğru okuma O GÜNÜN defteridir → her iki kapsamda da kalan-nakit formülü.
-    final gecmisGun = date.isBefore(_trToday());
+    // İKİ KAPSAM AYNI TANIMI PAYLAŞIR (kullanıcı kararı 2026-08-06): beklenen = o kapsamın günlük
+    // nakdi − o kapsamın gün içinde TESLİM ETTİĞİ sayılan nakit. Kurye kapsamı bunu
+    // `CashHandoverRepository`den alır (devrin kayda yazdığı rakamla aynı koddan çıksın diye), gün
+    // kapsamı burada hesaplar. Eskiden kurye kapsamı `period_start` penceresini kullanıyordu ve iki
+    // kapsam ıraksıyordu — paralel hesap yasağının sessiz bir ihlaliydi.
+    //
+    // Ara tahsilat BİR KEZ düşer: kurye kapsamında düşme işi `onizle` içinde yapılır, burada
+    // TEKRARLANMAZ — çifte sayma tam orada olurdu.
     final handover =
-        (courierId != null && !gecmisGun) ? await _handovers.onizle(courierId) : null;
-
-    // Kurye kapsamında beklenen ZATEN kalan nakittir: `period_start` = o kuryenin son devri, yani
-    // ara tahsilattan sonrası. Ara tahsilatı BİR DAHA düşmüyoruz — çifte sayma tam burada olurdu.
+        courierId != null ? await _handovers.onizle(courierId, localDate: date) : null;
     final expected = handover?.expectedKurus ?? (kasa.nakit - araTahsilat);
 
     return ClosingOnizleme(
@@ -205,7 +206,9 @@ class ClosingOnizleme {
   final int deliveryCount;
   final int openCreditKurus;
 
-  /// ŞİMDİ sayılması beklenen nakit = KALAN nakit (günün nakdi − alınan ara tahsilatlar).
+  /// ŞİMDİ sayılması beklenen nakit = KÜMÜLATİF KALAN: kapsamın günlük nakdi − o gün TESLİM
+  /// EDİLEN sayılan nakit. Kuryede bilerek bırakılan para (para üstü) devreder ve akşam yine
+  /// burada görünür — "fazla para" diye okunmaz.
   final int expectedCashKurus;
 
   /// Kapsamın gün BOYUNCA topladığı nakdin tamamı. [expectedCashKurus] ile birlikte taşınır ki

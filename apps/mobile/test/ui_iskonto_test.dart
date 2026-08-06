@@ -25,7 +25,7 @@ import 'package:sipario/repo/day_end_repository.dart';
 import 'package:sipario/repo/ledger_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/screens/day_end_screen.dart';
-import 'package:sipario/screens/isletme/gun_arsivi.dart';
+import 'package:sipario/screens/isletme/gun_sonu_ozet.dart';
 import 'package:sipario/screens/orders/delivery_sheet.dart';
 import 'package:sipario/screens/orders/order_queries.dart';
 
@@ -267,13 +267,17 @@ void main() {
           reason: 'iskonto edilen 20 ₺ bugün yazılmış bir veresiye DEĞİLDİR');
     });
 
-    test('gün arşivi (geçmiş gün dökümü) iskontoyu taşır', () async {
+    test('geçmiş gün dökümü iskontoyu taşır', () async {
+      // ESKİDEN `gunDetayi()` sorulurdu; o fonksiyon Geçmiş ekranı gün gezinmesine dönüşünce
+      // (2026-08-06) çağransız kaldı ve silindi. Aynı soruyu ÜRÜNÜN KULLANDIĞI yoldan soruyoruz:
+      // Geçmiş ekranı kapsamlı özeti `gunSonuGorunumu`ndan alıyor. Ölü bir API'yi ayakta tutan
+      // test, sınadığını sandığı şeyi artık sınamıyor demektir.
       final (db, _, _) = await teslimEt();
       addTearDown(db.close);
 
-      final detay = await gunDetayi(db, DayEndRepository.bugunTr());
-      expect(detay.iskonto, _iskonto);
-      expect(detay.kasa.toplam, _tahsil, reason: 'arşiv de kasayı şişirmez');
+      final g = await gunSonuGorunumu(db, DayEndRepository.bugunTr());
+      expect(g.kapsam.iskonto, _iskonto);
+      expect(g.kapsam.kasa.toplam, _tahsil, reason: 'geçmiş gün dökümü de kasayı şişirmez');
     });
 
     test('iskontolu sipariş "Borçlu" sekmesinde ÇIKMAZ', () async {

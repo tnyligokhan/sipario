@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\DayClosing;
 use App\Models\LedgerEntry;
 use App\Models\Order;
+use App\Models\TenantSetting;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\ApiTestCase;
@@ -154,6 +155,26 @@ class SyncZamanNormalizasyonuTest extends ApiTestCase
         $defterRow = $this->asOwner(fn () => LedgerEntry::query()->find($defter['payload']['id']));
         $this->assertNotNull($defterRow);
         $this->assertSame($beklenen, $defterRow->occurred_at->utc()->format('Y-m-d H:i:s'));
+    }
+
+    #[Test]
+    public function isletme_profili_damgasi_da_normalize_edilir(): void
+    {
+        // `tenant_settings` ayrı bir uygulayıcıdan (ProfileChangeApplier) geçer; normalizasyon
+        // orada eksik kalsaydı depoda İKİ zaman yorumu olurdu — profilin LWW damgası kayar,
+        // ayarları kimin kazandığı sessizce değişirdi.
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $ayar = $this->tenantSettingsUpsert(
+            ['business_name' => 'Zaman Su Bayii'],
+            ['occurred_at' => '2026-08-06T12:00:00+03:00']
+        );
+        $this->pushEvents($token, [$ayar])->assertJsonPath('results.0.status', 'applied');
+
+        $row = $this->asOwner(fn () => TenantSetting::query()->find($a['tenant']->id));
+        $this->assertNotNull($row);
+        $this->assertSame('2026-08-06 09:00:00', $row->updated_occurred_at->utc()->format('Y-m-d H:i:s'));
     }
 
     #[Test]
