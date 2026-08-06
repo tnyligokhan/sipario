@@ -298,7 +298,22 @@ class DemoSeeder extends Seeder
             zaman: now()->subHours(2), tahsilEden: $ekip['emre'], not: 'Kısmi tahsilat');
 
         // Murat fazla ödeme yaptı → ALACAKLI duruma geçer (eksi bakiye, tasarımda yeşil "Alacak").
-        $f->defter($m['murat'], 'credit', -12000, odeme: 'havale',
+        //
+        // TİP `payment`, `credit` DEĞİL (2026-08-06 düzeltmesi). Eskiden `credit` + `payment_type`
+        // yazılıyordu ve bu şekil senkron yolunda YASAKTIR (`ChangeApplier::validateLedgerEntry`:
+        // "payment_type yalnız payment/correction kaydında olabilir"); seeder Eloquent'le doğrudan
+        // yazdığı için o kapıya hiç uğramıyor ve iki katman neyin meşru olduğunda ayrışıyordu.
+        //
+        // Doğrusu ürünün kendi cevabıdır: `OrderRepository.deliver` sipariş tutarını AŞAN tahsilatı
+        // da `payment` yazar ve gerekçesini yazar — kasaya giren para deftere `payment` olarak
+        // girmezse gün sonu kasa özeti eksik çıkar. `credit` ise para hareketi DEĞİL, borç azaltma
+        // JESTİdir (manuel alacak/indirim); `LedgerRepository.alacak()` imzasında `paymentType`
+        // bulunmaması bunun kanıtıdır. Havale hesaba fiilen geçti → `payment`.
+        //
+        // Demo niyeti KORUNUR: tutar yine negatif, Murat yine ALACAKLI görünür (yeşil bakiye).
+        // Değişen yalnız hareketin tipi. `collected_by_user_id` NULL kalır ve doğrusu budur —
+        // havaleyi bir kurye taşımaz, para doğrudan hesaba girer.
+        $f->defter($m['murat'], 'payment', -12000, odeme: 'havale',
             zaman: now()->subHours(5), not: 'Fazla ödeme');
 
         // Kadir'e yanlış yazılan tutar DÜZELTİLİR: orijinal satır silinmez, ters kayıt eklenir.

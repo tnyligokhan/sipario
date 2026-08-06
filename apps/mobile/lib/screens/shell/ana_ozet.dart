@@ -98,9 +98,26 @@ Stream<AnaOzet> _duzeltilmisGunAkisi(AppDatabase db) {
         onError: kanal.addError,
       );
     },
+    // İKİ ABONELİK DE AYNI TURDA DÜŞÜRÜLÜR — arka arkaya `await` YOK.
+    //
+    // Eskiden `await icAbone?.cancel(); await disAbone?.cancel();` yazıyordu ve aradaki TEK bir
+    // async boşluk, dış aboneliğin iptalini widget testinin son `pump`ından SONRAYA atıyordu.
+    // Drift, bir sorgu akışının son dinleyicisi gidince önbelleği bir olay turu daha canlı
+    // tutmak için sıfır süreli bir `Timer` kurar (`StreamQueryStore.markAsClosed`); o timer
+    // sahte zamanı ilerleten kimse kalmadığı için "A Timer is still pending" ile dört testi
+    // düşürüyordu (`ui_dilim4`, HomeShell menü grubu). Susturulacak bir gürültü değildi:
+    // test, aboneliğin ağaç yıkıldıktan sonra kapandığını doğru biçimde bildiriyordu.
+    //
+    // Liste literali iki `cancel()`i de kurulurken SENKRON çağırır; `Future.wait` yalnız
+    // bitişlerini bekler.
     onCancel: () async {
-      await icAbone?.cancel();
-      await disAbone?.cancel();
+      final bekleyen = <Future<void>>[
+        if (icAbone != null) icAbone!.cancel(),
+        if (disAbone != null) disAbone!.cancel(),
+      ];
+      icAbone = null;
+      disAbone = null;
+      await Future.wait(bekleyen);
     },
   );
   return kanal.stream;

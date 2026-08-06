@@ -12,11 +12,14 @@ import 'package:sipario/screens/isletme/gun_sonu_ozet.dart';
 
 /// KAPANIŞ BÜTÜNLÜĞÜ (üçüncü bağımsız inceleme, 2026-08-06).
 ///
-/// Üç kusur da AYNI aileden: append-only bir kayda YANLIŞ bir para rakamı donuyor ve aylar sonra
-/// kimse açıklayamıyor. Bu dosya o üç yolu kilitler:
+/// Kusurların hepsi AYNI aileden: append-only bir kayda YANLIŞ bir para rakamı donuyor ve aylar
+/// sonra kimse açıklayamıyor. Bu dosya o yolları kilitler:
 ///   ① kapanmış kapsam YENİDEN kapatılamaz (çift kapanış → beklenen iki katına çıkıyordu),
 ///   ② kurye kapanış kaydı kendi içinde TUTARLI (kasa rakamı beklenen nakitle aynı çerçeveden),
 ///   ④ `correction` ters çevirdiği satırın ATFINI devralır (düzeltmeyi yazan kişinin değil).
+///
+/// ①'in İKİNCİ YARISI — kapının bağlamadığı CİHAZLAR ARASI yarış ve onu kapatan deterministik
+/// kimlik — `kapanis_kimlik_test.dart`ta durur (500 satır sınırı).
 void main() {
   late AppDatabase db;
   setUp(() => db = AppDatabase(NativeDatabase.memory()));

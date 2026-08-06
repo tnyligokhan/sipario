@@ -139,6 +139,8 @@ class CashHandoverRepository {
   }) async {
     final engel = await _kapaliKapsamEngeli(fromUserId);
     if (engel != null) throw StateError(engel);
+    // `id` GEÇİLMEZ — kayıt RASTGELE id alır. Kapanışın deterministik id'si buraya sızarsa günün
+    // ikinci ara tahsilatı aynı satır sayılıp sessizce yutulur (bkz. [devret] uyarısı).
     return devret(
       fromUserId: fromUserId,
       toUserId: toUserId,

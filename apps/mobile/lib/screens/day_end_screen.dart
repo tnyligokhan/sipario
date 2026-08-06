@@ -319,14 +319,28 @@ class _DayEndScreenState extends State<DayEndScreen> {
     // Kapanış rakamları burada YENİDEN hesaplanmaz: repo submit anında kendi önizlemesini
     // çağırır, böylece arşive donan tutar ekranın gösterdiğiyle aynı koddan çıkar.
     // Fark ≠ 0 kapatmayı ENGELLEMEZ (BRIEF: eksik para görünür kalmalı) — kanıt olarak yazılır.
-    await DayClosingRepository(widget.db).kapat(
-      scope: scope,
-      userId: _kuryeId,
-      countedCashKurus: sonuc.sayilan,
-      note: sonuc.not.isEmpty ? null : sonuc.not,
-      alsoHandover: _kuryeId != null,
-      localDate: gun,
-    );
+    //
+    // ÜÇÜNCÜ KAPI REPODA (ara tahsilattaki desenin aynısı): kapanmış kapsam `StateError` atar.
+    // Ekran düğmeyi zaten kapatıyor, ama sheet AÇIKKEN senkron başka bir cihazdan gelen kapanışı
+    // indirebilir — o an ekranın bildiği durum bayattır. Yakalamasaydık kullanıcı, sayımını
+    // girip "Kapat"a bastıktan sonra hiçbir açıklama görmeden çöken bir ekranla kalırdı. Mesaj
+    // repo'dan geldiği gibi basılır: NE olduğunu bilirken "bir şeyler ters gitti" demek bilgi
+    // saklamaktır.
+    try {
+      await DayClosingRepository(widget.db).kapat(
+        scope: scope,
+        userId: _kuryeId,
+        countedCashKurus: sonuc.sayilan,
+        note: sonuc.not.isEmpty ? null : sonuc.not,
+        alsoHandover: _kuryeId != null,
+        localDate: gun,
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      SipToast.goster(context, e.message);
+      _tazele(); // ekranı gerçeğe döndür: kapanmış kapsam artık kilitli görünsün
+      return;
+    }
     if (!mounted) return;
 
     SipToast.goster(

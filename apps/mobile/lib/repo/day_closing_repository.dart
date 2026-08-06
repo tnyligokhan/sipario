@@ -220,7 +220,19 @@ class DayClosingRepository {
             .add(const Duration(days: 1, milliseconds: -1))
             .toIso8601String()
         : simdi;
-    final id = newId();
+    // Çekirdek KAPATILAN GÜNE demirlenir (`gun`), "şimdi"ye değil: dünü kapatan iki cihaz da aynı
+    // id'yi üretmeli. Gün metni `tr_gun.dart`taki tek tanımdan gelir — burada elle +3 YOK.
+    final tenant = meta.tenantCode;
+    String? olayId(String tag) => tenant == null
+        ? null
+        : kapanisOlayId(
+            tenantCode: tenant,
+            scope: scope.name,
+            userId: userId,
+            gunAnahtari: trGunAnahtari(gun),
+            tag: tag,
+          );
+    final id = olayId('closing') ?? newId();
     final diff = countedCashKurus == null ? 0 : countedCashKurus - on.expectedCashKurus;
 
     await db.transaction(() async {
@@ -234,6 +246,8 @@ class DayClosingRepository {
           countedCashKurus: countedCashKurus,
           note: note,
           localDate: localDate,
+          // Kapanışla AYNI çekirdek, FARKLI etiket: iki kayıt ayrı ama ikisi de tek kapanışa aittir.
+          id: olayId('handover'),
           // Kapanışla AYNI damga: devir bir ms sonra damgalanırsa kapanışın AÇTIĞI pencerenin
           // içine düşer ve o kuryenin beklenen nakdi −(teslim edilen) çıkar.
           occurredAtIso: at,
