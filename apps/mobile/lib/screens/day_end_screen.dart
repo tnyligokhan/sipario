@@ -227,9 +227,22 @@ class _DayEndScreenState extends State<DayEndScreen> {
       },
       // "Teslim edilen" EDİLGEN biçimdedir ve bilinçlidir: bu sheet'i kurye de patron da açıyor,
       // edilgen biçim ikisinde de doğru okunuyor ("aldığım"/"verdiğim" ayrımına düşmüyor).
+      //
+      // GÜN KAPSAMINDA İŞARET KELİMEYİ DE DEĞİŞTİRİR. Düşülen tutar orada kuryelerin O GÜNKÜ NET
+      // DEĞİŞİMİDİR ve negatif olabilir: kurye dünden taşıdığı nakdi bugün teslim ettiyse kasaya
+      // günün kendi nakdinden FAZLASI girer. "Kuryelerde kalan: + 5.000 ₺" cümlesi o durumda
+      // düpedüz yalandır — o para kuryede KALMADI, tam tersine kuryeden GELDİ. İşareti düzeltip
+      // kelimeyi bırakmak, bu vardiyanın altı kez ısırdığı hatanın aynısı olurdu: anlamı değişen
+      // sayıyı eski kelimesiyle taşımak.
+      //
+      // KURYE kapsamında böyle bir dal YOK ve olmamalı: teslim ancak AYNI pencerede toplanmış
+      // paradan yapılabilir (`_pencere` alttan açıktır), yani orada negatif matematiksel olarak
+      // imkânsızdır. Dal açsaydık, hiç oluşamayacak bir hâl için test edilemeyen kopya yazardık.
       ortaEtiket: switch (onizleme.dusulenKalem) {
         DusulenKalem.teslimEdilen => 'Teslim edilen',
-        DusulenKalem.kuryelerdeKalan => 'Kuryelerde kalan',
+        DusulenKalem.kuryelerdeKalan => onizleme.dusulenKurus < 0
+            ? 'Kuryelerden devir'
+            : 'Kuryelerde kalan',
       },
       ortaTutar: onizleme.dusulenKurus,
       // TAZELİK HER İKİ KAPSAMA DA geçilir (lead kararı 2026-08-06): kurye kendi telefonundan

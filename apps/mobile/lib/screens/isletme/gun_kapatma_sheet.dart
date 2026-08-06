@@ -43,6 +43,9 @@ class KapatmaSonucu {
 ///     kapanışından beri topladığı). Kurye o gün bir kez kapatıp yeniden çalışmışsa ikisi
 ///     AYNI DEĞİLDİR ve orada "Günün nakdi" yazmak yanlış olur.
 ///
+/// [ortaTutar] NEGATİF OLABİLİR ve o zaman satır "+ tutar" olarak çizilir (gerekçe çizim
+/// yerinde). Kimlik yine aynıdır: üst − (−x) == üst + x. Etiketi de çağıran değiştirir.
+///
 /// Bu etiketleri sheet'in `gunHesabi` bayrağından çıkarması, bu vardiyada ALTI kez yakalanan
 /// hatanın tam kalıbıdır: anlamı değişen sayıyı eski kelimesiyle taşımak. Kopyayı çağıran verir,
 /// çünkü anlamı bilen odur.
@@ -165,7 +168,17 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
               DegerSatiri(etiket: widget.ustEtiket, deger: sipTutar(widget.tamNakit)),
               DegerSatiri(
                 etiket: widget.ortaEtiket!,
-                deger: '− ${sipTutar(widget.ortaTutar)}',
+                // İŞARET DEĞERDEN TÜRER, SABİT DEĞİLDİR. [ortaTutar] gün kapsamında NEGATİF
+                // olabilir (kurye dünden taşıdığı nakdi bugün teslim ettiyse kasaya günün kendi
+                // nakdinden FAZLASI girer). Sabit "−" ile basıldığında ekran "− -5.000,00 ₺"
+                // yazıyordu: hem bozuk hem yanlış yönlü. `sipTutar` negatifi kendi başına "−"
+                // ile basar; o yüzden mutlak değer verilir ve işareti burası koyar.
+                //
+                // Sheet yine hiçbir ANLAM bilmiyor: işaret aritmetiktir (üst − orta == alt),
+                // kelime değil. Negatifte ETİKETİN de değişmesi gerekir ("kalan" demesin) ama o
+                // karar ÇAĞIRANINDIR — anlamı bilen odur.
+                deger: '${widget.ortaTutar < 0 ? '+' : '−'} '
+                    '${sipTutar(widget.ortaTutar.abs())}',
                 degerRengi: t.ink2,
               ),
             ],

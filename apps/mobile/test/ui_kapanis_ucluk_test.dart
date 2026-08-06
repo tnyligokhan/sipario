@@ -15,9 +15,11 @@
 // Yalnız varlığı sınamak yetmiyordu — üst satır bir tur boyunca yanlış etiketle durdu ve suite
 // yeşil geçti, çünkü o etiketi hiçbir iddia tutmuyordu.
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
+import 'package:sipario/data/tr_gun.dart';
 import 'package:sipario/repo/cash_handover_repository.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/day_closing_repository.dart';
@@ -27,6 +29,25 @@ import 'package:sipario/theme/components/atoms.dart';
 
 import 'support/ara_tahsilat_yardimcilari.dart';
 import 'support/ekran_yardimcilari.dart';
+
+/// Bir kuryenin şimdiye kadar yazılmış tahsilatlarını DÜNE kaydırır — "dün topladı" senaryosu.
+///
+/// Repo damgayı `correctedNowIso` ile KENDİ koyar (istemci saatini uydurmaz, doğru tasarım), bu
+/// yüzden geçmişe kayıt yazmanın tek yolu oluşturduktan sonra damgayı geri almaktır. Sipariş VE
+/// onun defter satırı BİRLİKTE kaydırılır: ayrı günlerde kalırlarsa teslimat bir güne, tahsilat
+/// başka güne düşer ve test gerçekte olmayan bir durumu sınar.
+///
+/// DAMGA GÜNÜN ORTASINA KIRPILIR, "şimdi − 24 saat" DEĞİL: gün sınırına yakın saatlerde koşan bir
+/// test yazı-turaya döner ve bu depoda daha önce döndü.
+Future<void> duneKaydir(AppDatabase db, {required String kuryeId}) async {
+  final b = await bugunTrDuzeltilmis(db);
+  final dun = DateTime(b.year, b.month, b.day - 1); // ay başında da doğru (constructor normalize eder)
+  final damga = trGunBasiUtc(dun).add(const Duration(hours: 12)).toIso8601String();
+  await (db.update(db.orders)..where((t) => t.assignedUserId.equals(kuryeId)))
+      .write(OrdersCompanion(occurredAt: Value(damga)));
+  await (db.update(db.ledgerEntries)..where((t) => t.collectedByUserId.equals(kuryeId)))
+      .write(LedgerEntriesCompanion(occurredAt: Value(damga)));
+}
 
 void main() {
   group('Kapanış sheet\'i — beklenen nakit KALAN nakittir', () {
@@ -147,6 +168,9 @@ void main() {
       expect(find.text('Kuryelerde kalan'), findsOneWidget);
       expect(find.text('Teslim edilen'), findsNothing,
           reason: 'gün kapsamında bu sayı teslim edilen DEĞİL, kalan paradır');
+      // İŞARETE GÖRE DALLANAN ETİKETİN POZİTİF UCU: düşülen artı olduğunda para kuryede
+      // KALMIŞTIR; "devir" kelimesi yalnız negatif hâle (dünden gelen paraya) aittir.
+      expect(find.text('Kuryelerden devir'), findsNothing);
       expect(find.text('Beklenen nakit'), findsOneWidget);
 
       // ÜÇLÜ ARİTMETİK OLARAK KAPANIR — repo'nun sözleşmesi. Test bunu ELLE çıkarmaz, üçünü
@@ -206,6 +230,65 @@ void main() {
       expect(find.text('Topladığı'), findsNothing);
       expect(find.text('Teslim edilen'), findsNothing);
       expect(find.text('Beklenen nakit (Emre)'), findsOneWidget);
+
+      await kapat(tester);
+    });
+
+    testWidgets('KURYE DÜNÜN PARASINI BUGÜN TESLİM ETTİYSE orta satır ARTI yazar',
+        (tester) async {
+      // BU SENARYO BUGÜNE KADAR HİÇ OLUŞMADI ve tam olarak bu yüzden riskliydi: `dusulenKurus`
+      // gün kapsamında kuryelerin O GÜNKÜ NET DEĞİŞİMİDİR ve NEGATİF olabilir. Emre dün 50 ₺
+      // topladı (kapanış YOK, para cebinde kaldı), bugün hiç toplamadı ve dünün parasını bugün
+      // teslim etti. Kasaya günün KENDİ nakdinden (0 ₺) fazlası girdi.
+      //
+      // Ekran eskiden sabit "−" basıyordu ve "− −50,00 ₺" yazıyordu: hem bozuk hem ters yönlü.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 5000);
+        await duneKaydir(db, kuryeId: 'k1');
+        // Dünün kasası BUGÜN patrona geçer. Kuryenin mutabakat penceresi alttan açık olduğu için
+        // (hiç kapanışı yok) tahsilat beklenenle birebir tutar — fark üretmiyoruz, işaret sınanıyor.
+        await CashHandoverRepository(db)
+            .araTahsilat(fromUserId: 'k1', countedCashKurus: 5000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await dokun(tester, find.text('Günü Kapat'));
+      await sheetAnimasyonu(tester);
+
+      // ÜÇLÜ KİMLİĞİ NEGATİFTE DE KAPANIR: üst − orta == alt, yani 0 − (−50) = 50.
+      final on = await tester.runAsync(
+        () => DayClosingRepository(db).onizle(ClosingScope.day),
+      );
+      expect(on!.gunNakitKurus, 0, reason: 'bugün hiç nakit toplanmadı');
+      expect(on.dusulenKurus, -5000,
+          reason: 'bugün toplanan 0 − bugün teslim edilen 50 ₺ = −50 ₺');
+      expect(on.expectedCashKurus, 5000,
+          reason: 'dünün parası BUGÜN patronun kasasına girdi; akşam onu sayacak');
+      expect(on.gunNakitKurus - on.dusulenKurus, on.expectedCashKurus);
+
+      // İŞARET DEĞERDEN TÜRER: negatif düşülen ekranda ARTI ile çizilir.
+      expect(find.text('+ ${sipTutar(on.dusulenKurus.abs())}'), findsOneWidget);
+      // ESKİ KUSURUN TAM METNİ — sabit "−" + kendi işaretini basan `sipTutar`.
+      expect(find.text('− ${sipTutar(on.dusulenKurus)}'), findsNothing,
+          reason: 'çift işaret ("− −50,00 ₺") hem bozuk hem ters yönlüdür');
+      expect(find.textContaining('− −'), findsNothing);
+
+      // ETİKET DE DEĞİŞİR — asıl iş bu. "Kuryelerde kalan: + 50 ₺" cümlesi yalandır: o para
+      // kuryede KALMADI, tam tersine kuryeden GELDİ. İşareti düzeltip kelimeyi bırakmak, anlamı
+      // değişen sayıyı eski kelimesiyle taşımak olurdu.
+      expect(find.text('Kuryelerden devir'), findsOneWidget);
+      expect(find.text('Kuryelerde kalan'), findsNothing,
+          reason: 'negatifte o para kuryede kalmadı, kuryeden geldi');
+      expect(find.text('Teslim edilen'), findsNothing,
+          reason: 'gün kapsamının kelimesi kurye kapsamınınkine kaymamalı');
+
+      // Üst ve alt satır yerinde: gün kapsamının çerçevesi değişmedi.
+      expect(find.text('Günün nakdi'), findsOneWidget);
+      expect(find.text('Topladığı'), findsNothing);
+      expect(find.text('Beklenen nakit'), findsOneWidget);
+      expect(find.text(sipTutar(on.expectedCashKurus)), findsWidgets);
 
       await kapat(tester);
     });

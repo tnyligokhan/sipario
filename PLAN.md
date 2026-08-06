@@ -281,7 +281,7 @@
 
 ---
 
-# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-05/4 · sahadan 10 maddelik site listesi — HEPSİ KAPANDI)
+# (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-05/4 · sahadan 10 maddelik site listesi — HEPSİ KAPANDI)
 
 **Ölçüm:** API **643/643** (3197 iddia) · `pint` temiz · `view:cache` yeşil · 7 site sayfası +
 `/hesap` panelinde konsol hatası **sıfır**. 5 ajanlı swarm (gezinme · hesap · ekip · fiyat · stil).
