@@ -352,8 +352,23 @@ class SyncDesignGapTest extends ApiTestCase
     #[Test]
     public function ayni_kapanis_kimligi_ikinci_kez_yazilamaz(): void
     {
-        // Append arşiv: aynı id'yi FARKLI bir olayla yeniden göndermek satırı EZEMEZ. (Aynı
-        // client_event_id ile retry ayrı bir yoldur — idempotency 'duplicate' döner, SyncTest kanıtlar.)
+        // Append arşiv: aynı id'yi FARKLI bir olayla yeniden göndermek satırı EZEMEZ. KORUNAN
+        // DEĞİŞMEZ BUDUR — satır tek kalır ve İLK kayıt kazanır; durum dizesi onun göstergesidir.
+        //
+        // DURUM 'rejected' → 'duplicate' OLDU (2026-08-06, inceleme #①). Kapanış kimliği artık
+        // (tenant|scope|user_id|TR gün) çekirdeğinden TÜRETİLİYOR, yani aynı id = aynı MANTIKSAL
+        // olay: patron ile kurye aynı hesabı ayrı cihazlardan kapatırsa ikinci deneme buraya düşer.
+        // Bunu `rejected` saymak istemcide KARANTİNA demekti (outbox satırı elle incelemeye kalır)
+        // ve iyi huylu bir operasyon tekrarının kuyruğu rehin alması bu deponun çıktığı hata
+        // sınıfıdır. 'duplicate' istemcide `acked` olur, kayıp yoktur (kayıt zaten sunucuda).
+        //
+        // ⚠️ BİLİNÇLİ BEDEL: İKİNCİ denemenin değerleri kayda GEÇMEZ — aşağıdaki 999 düşer, ilk
+        // mutabakat (3) kalır. Sonraki vardiya "eskiden rejected'dı, geri alalım" demesin: red
+        // sessiz yakınsamadan daha güvenli DEĞİL, yalnız daha gürültülü.
+        //
+        // (Aynı client_event_id ile retry AYRI bir yoldur — `processed_events` onu daha erken,
+        // applier'a hiç girmeden yakalar; o da 'duplicate' döner. İkisi aynı sonuca farklı
+        // kapıdan varır.)
         $a = $this->makeTenant('a');
         $token = $this->tokenFor($a['patron']);
 
@@ -361,8 +376,12 @@ class SyncDesignGapTest extends ApiTestCase
         $this->pushEvents($token, [$this->dayClosing(['id' => $id, 'delivery_count' => 3])])
             ->assertJsonPath('results.0.status', 'applied');
         $this->pushEvents($token, [$this->dayClosing(['id' => $id, 'delivery_count' => 999])])
-            ->assertJsonPath('results.0.status', 'rejected');
+            ->assertJsonPath('results.0.status', 'duplicate')
+            ->assertJsonPath('results.0.entity_id', $id);
 
+        // ASIL DEĞİŞMEZ: tek satır, ilk değerlerle.
+        $this->assertSame(1, $this->asOwner(fn () => DayClosing::query()->count()),
+            'İkinci kimlik ikinci satır YAZMAMALI.');
         $row = $this->asOwner(fn () => DayClosing::query()->findOrFail($id));
         $this->assertSame(3, $row->delivery_count, 'Arşiv kaydı ezilmemeli.');
     }

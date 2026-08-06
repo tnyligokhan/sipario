@@ -332,6 +332,21 @@ düzeltilen kusurdu.
 - **Gün sınırı cihaz saatinden kesiliyordu**, kayıtlar düzeltilmiş saatten. `lib/data/tr_gun.dart`ta
   tek tanıma indi; ekranlar + bildirim üreticileri düzeltilmiş saate geçti.
 
+## ÜÇÜNCÜ İNCELEME TURU — altı bulgu daha, hepsi kapandı
+İlk iki tur gerçek kusur bulmuştu; üçüncü tur **henüz hiç incelenmemiş son değişikliklerin üstüne** koşuldu ve yine buldu:
+1. **`kapat()` kapanmış kapsamı reddetmiyordu.** Ara tahsilat yolunda bu kapı VARDI (gerekçesi bile "sheet açıkken başka cihazdan kapanış inebilir" diyor), kapanış yolunda YOKTU. Sonuç: aynı para iki kez sayılıyor, gün beklenen 10.000 yerine 20.000 çıkıyor, patron "EKSİK 10.000" görüp arşive donduruyordu. **Çift kapak:** istemcide `kapaliMi` kapısı + **deterministik id** (`uuid5(tenant|scope|user_id|TR gün)`; bağlı devir aynı çekirdekten ayrı etiketle, **ara tahsilatlar RASTGELE id'de KALIR** — yoksa gün içinde çok tahsilat özelliği ölür).
+   ⚠️ **Sunucuya tekillik indeksi konması DEĞERLENDİRİLDİ ve REDDEDİLDİ:** kapanış sunucuya İKİ AYRI OLAY olarak gidiyor; indeks yalnız arşiv satırını reddeder, para hatasına dokunmaz ve sahipsiz kalan devir sistemin kendi kuralıyla **hayalet bir ARA TAHSİLATA terfi eder**. Okuma tarafını daha da bozardı.
+   Sunucuda uygulayıcılar artık aynı id'de fırlatmıyor, **`'duplicate'`** dönüyor (mobilde `acked`). **Bilinçli bedel: ikinci denemenin SAYILAN tutarı kayda geçmez, ilk mutabakat kalır.**
+2. **`ana_ozet.dart` kendi gün sınırını tutuyordu** (ham `DateTime.now()`) — bento "Bugün Kasa 0,00 ₺" derken bir dokunuş ötedeki Gün Özeti "12.000 ₺" diyebiliyordu. `tr_gun.dart`a bağlandı; gün artık **akıştan** türüyor (`watchSyncState` → offset), gece yarısını geçen ekran kendiliğinden yeni güne dönüyor.
+3. **Kurye kapanışı ARŞİVE tutarsız rakam donduruyordu** (`cash_nakit_kurus` GÜN, `expected_cash_kurus` PENCERE). `ClosingOnizleme.cerceveKasa` ile kayıt kendi içinde tutarlı; `toplam == nakit+kart+havale` kimliği korunuyor. Ekranda ayrıca çerçeve notu: *"Önceki günden devreden nakit dahil — ekrandaki gün toplamıyla aynı aralık değil"* (çerçeveler çakışıyorsa çizilmez).
+4. **Ara tahsilat FARKI hiçbir ekranda görünmüyordu** — BRIEF'in "eksik para KANIT olarak görünür kalmalı" kuralı. Kart satırına eklendi ("Emre · 14:30 · kuryede kalan 30,00 ₺"), sıfırsa yazılmıyor; sheet'in tonu korundu (arıza dili YOK — ara tahsilatta tutar serbesttir).
+5. **Ölü ama TUZAKLI iki alan** temizlendi: `GunSonuGorunumu.arsiv` (her yüklemede 50 satır çekiyordu, sıfır okuyucu) ve `ozet.kasa` (tipi daraltılarak `g.ozet.kasa` artık DERLENMİYOR — ekranlara dokunmadan kapatmanın yolu buydu).
+6. **`duzeltme()` yanlış kişiye atfediyordu:** ters kayıt yazanın üstüne yazılıyordu. Patron kuryenin 2.000'ini ters çevirince gün beklenen −2.000 ("FAZLA"), kuryenin kapanışında ise **hiç var olmamış 2.000'lik EKSİK** ona donuyordu. Atıf artık ters çevrilen satırdan devralınıyor; sunucuda ayrıca **çelişkiyi REDDEDEN** dar bir kapı var (sunucunun beyanı yeniden YAZMASI reddedildi — "counted/expected/diff istemci snapshot'ıdır" güven modelini kırardı).
+
+**Yan kazançlar:** `day_closings` panel export'una eklendi (`cash_handovers` vardı, kapanış arşivi YOKTU — "veri rehin alınmaz" taahhüdünde boşluktu) · `DemoSeeder` `credit`+`payment_type` yazıyordu, ürünün kendi yolu (`payment`) ile uyumlandı · `ledger_entries`e `payment_type` kapsam CHECK'i eklendi (**`NOT VALID`** — ölçüldü: dev DB'de kuralı ihlal eden 1 satır vardı, düz CHECK migration'ı patlatırdı ve append-only satır düzeltilemezdi).
+
+**Kiracı çakışması ÖLÇÜLDÜ ve güvenli çıktı:** `day_closings.id` GLOBAL primary key; deterministik çekirdeğe `tenantCode` konmasaydı `scope='day'` tüm bayilerde çakışırdı. Başka kiracının aynı id'si RLS sayesinde `find()`e görünmüyor → `'duplicate'` DEĞİL, PK ihlaliyle **görünür** red. Testte yalnız sonuç değil MEKANİZMA da (`invalid_data`) kilitlendi; RLS düşerse test kırmızı yanar.
+
 ## SIRADAKİ İŞLER (öncelik sırasıyla)
 1. **CİHAZDA DOĞRULAMA** — bu turda hiç yapılmadı. Özellikle: ara tahsilat akışı, gün gezinmesi,
    WhatsApp mesajının müşteriye giden hâli (kodlama düzeltmesi Dart tarafında ölçüldü, GERÇEK CİHAZDA
@@ -355,6 +370,11 @@ düzeltilen kusurdu.
 - **Tam tablo taramaları** (`kasaOzeti`, `teslimEdilenNakit`, `araTahsilatlar`, `gunKayitVarMi`…) tüm
   tabloyu çekip Dart'ta süzüyor. Bugün sorun değil, iki yıllık defterde olacak.
 - **`SyncService.php` 500 satır sınırında** — bir sonraki ekleme bölmeyi gerektirir.
+- **`ChangeApplier.php` 499 satır** — `applyLedger`ı `OrderChangeApplier` deseninde bir `LedgerChangeApplier`a ayırmak doğru hamle; hot path olduğu için bu vardiyada başlatılmadı.
+- **"İki cihaz aynı gün için FARKLI tutar saydı" bilgisi hiçbir yere düşmüyor.** Deterministik id ile ikinci deneme sessizce yakınsıyor; kayıp veri yok (ilk mutabakat duruyor) ama farklı sayım bilgisi kayboluyor. İstemcideki `kapaliMi` kapısı bu yolu nadirleştiriyor; kalıcı çözüm bir uyarı/log satırı.
+- **`ledger_entries_payment_type_scope_check` `NOT VALID`** — dev DB'de kuralı ihlal eden 1 eski demo satırı var. O satır temizlenince (`migrate:fresh` + reseed) `VALIDATE CONSTRAINT` ile tam kısıta yükseltilebilir; kontrol sorgusu migration yorumunda hazır.
+- **④ kapısı (correction atfı) DB'ye indirilemez** — başka satıra bakıyor, CHECK yapamaz. Eloquent'le doğrudan yazan bir yol açılırsa (seeder deseni) kapı atlanır.
+- **Bu turun migration'ları dev DB'ye UYGULANMADI** (`004004` panel grant, `004005` payment_type kapsam CHECK'i). Test DB'sine koşum sırasında uygulandı; dev/saha ortamında elle `php artisan migrate` gerekiyor.
 
 ## BU VARDİYANIN KALICI DERSİ (DECISIONS'ta uzun hâli)
 **Anlamı değişen sayıyı eski kelimesiyle taşımak** — aynı hata sınıfı bir vardiyada YEDİ kez tekrarlandı
