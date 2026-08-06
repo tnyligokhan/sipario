@@ -159,9 +159,24 @@ class DayClosingRepository {
   /// yazardı; `teslimEdilenNakit` ikisini birden sayınca gün kapsamında beklenen 10.000 yerine
   /// 20.000 çıkar, patron kasasını sayınca "EKSİK 10.000" görür ve bu append-only olarak DONARDI.
   ///
-  /// SINIR: bu kapı YEREL bir kapıdır ve cihazlar arası yarışı TAMAMEN kapatmaz — iki cihaz
-  /// birbirinden habersiz aynı anda kapatırsa ikisi de yerelde geçer, sunucu iki olayı da alır.
-  /// Tam çözüm sunucuda `(scope, user_id, gün)` TEKİLLİĞİ ister; o borç kayıtlıdır.
+  /// CİHAZLAR ARASI YARIŞI DETERMİNİSTİK ID KAPATIR (üçüncü inceleme ①-b). Yukarıdaki kapı yalnız
+  /// TEK cihazı bağlar; iki cihaz birbirinden habersiz kapatırsa ikisi de yerelde geçer. Bu yüzden
+  /// hem kapanışın hem ona bağlı devrin id'si `kapanisOlayId()` ile `tenant|scope|user|TR gün`
+  /// çekirdeğinden türer: aynı kapanış her cihazda AYNI satırdır.
+  ///
+  /// Sunucu tarafında tekillik İNDEKSİ denendi ve reddedildi — ölçüldü: kapanış sunucuya İKİ AYRI
+  /// olay olarak gidiyor, indeks yalnız arşiv satırını reddediyor, para hatası aynen kalıyor ve
+  /// sahipsiz kalan devir sistemin kendi kuralıyla ("kapanışa bağlı olmayan devir ARA tahsilattır")
+  /// hayalet bir ARA TAHSİLATA terfi ediyordu. Deterministik id ikisini birden kapatır.
+  ///
+  /// ⚠️ BİLİNÇLİ BEDEL: ikinci denemenin SAYILAN tutarı hiçbir yere geçmez, İLK mutabakat kalır —
+  /// sunucu 'duplicate' döner (mobilde `acked`, kuyruk kilitlenmez), yerel senkron uygulayıcısı da
+  /// "yoksa ekle, asla ezme" der. İkinci sayım KAYBOLMADI, REDDEDİLDİ.
+  ///
+  /// `tenantCode` (sunucu sahipli, senkronla iner) HENÜZ İNMEMİŞSE id rastgeleye düşer ve bu
+  /// bilinçli: kiracı ayracı olmadan `scope='day'` çekirdeği tüm bayilerde aynı uuid'yi üretirdi ve
+  /// sunucuda `day_closings.id` GLOBAL primary key olduğu için ikinci bayinin kapanışı sessizce
+  /// düşerdi. Koruma kaybı bugünkü davranışa dönmektir; kiracı çakışması VERİ KAYBIDIR.
   Future<String> kapat({
     required ClosingScope scope,
     String? userId,
