@@ -9,9 +9,13 @@ import 'day_end_repository.dart';
 /// BEKLEDİĞİ nakit (anlık snapshot) + fark, kalıcı append-only kayıt olur (cash_handovers) + outbox,
 /// tek transaction (offline-first atomiklik). Silme/UPDATE YOK; düzeltme yeni devir kaydıyla.
 ///
-/// BEKLENEN NAKİT = KÜMÜLATİF KALAN (kullanıcı kararı 2026-08-06):
-///   o kuryenin BUGÜN topladığı nakit − o kuryenin BUGÜN teslim ettiği `counted_cash_kurus` toplamı.
-/// Yani rakam, kuryenin cebinde FİİLEN ne varsa odur.
+/// BEKLENEN NAKİT — TEK TANIM (kullanıcı kararı 2026-08-06):
+///   **Beklenen nakit = kapsamın o gün topladığı nakit − o gün teslim ettiği sayılan nakit.
+///   Kapsam kurye de olsa gün de olsa aynı formül; devrin ARA mı KAPANIŞ mı olduğu hesaba GİRMEZ.**
+///
+/// Her kapanış/tahsilat olayının sorduğu soru aynıdır: "ŞİMDİ kasaya girecek para ne kadar?"
+/// Cebe konan paranın hangi gerekçeyle çıktığını cep bilmez — aynı fiziksel olayı gerekçesine göre
+/// iki türlü saymak, iki ekranın farklı rakam konuşması demekti.
 ///
 /// NEDEN DEĞİŞTİ: eskiden beklenen `period_start`tan (son devirden) beri toplanandı. Patron ara
 /// tahsilatta beklenenin tamamını almazsa — 90 toplandı, 60 alındı, 30 para üstü için kuryede
@@ -146,7 +150,7 @@ class CashHandoverRepository {
   Future<HandoverOnizleme> onizle(String fromUserId, {DateTime? localDate}) async {
     final gun = localDate ?? _trBugun();
     final toplanan = (await _dayEnd.kasaOzeti(gun, userId: fromUserId)).nakit;
-    final teslimEdilen = await _teslimEdilenNakit(fromUserId, gun);
+    final teslimEdilen = await teslimEdilenNakit(gun, kuryeId: fromUserId);
     return HandoverOnizleme(
       periodStartIso: await _periodStart(fromUserId),
       expectedKurus: toplanan - teslimEdilen,
@@ -165,17 +169,21 @@ class CashHandoverRepository {
     return last?.occurredAt ?? _trDayStartUtcIso();
   }
 
-  /// Kuryenin [gun] içinde teslim ettiği nakdin SAYILAN toplamı.
+  /// [gun] içinde patrona teslim edilen nakdin SAYILAN toplamı. [kuryeId] verilirse yalnız o
+  /// kuryeden alınanlar; verilmezse GÜN kapsamı (tüm kuryeler).
   ///
   /// ARA ve KAPANIŞ devirleri BİRLİKTE sayılır — [araTahsilatlar]dan farkı budur ve bilinçlidir:
   /// orası EKRANIN gösterdiği listedir (ara tahsilatı kapanıştan ayırmak kullanıcı için anlamlı),
-  /// burası ise CEPTEKİ parayı ölçer ve cep, paranın hangi gerekçeyle çıktığını bilmez.
+  /// burası ise CEPTEKİ parayı ölçer ve cep, paranın hangi gerekçeyle çıktığını bilmez. Ayrımı
+  /// hesaba sokmak, aynı fiziksel olayı gerekçesine göre iki türlü saymak olurdu.
   ///
   /// `counted` kullanılır, `expected` DEĞİL: kuryenin cebinden fiilen çıkan para sayılan paradır.
-  Future<int> _teslimEdilenNakit(String fromUserId, DateTime gun) async {
-    final satirlar = await (db.select(db.cashHandovers)
-          ..where((t) => t.fromUserId.equals(fromUserId)))
-        .get();
+  Future<int> teslimEdilenNakit(DateTime gun, {String? kuryeId}) async {
+    final sorgu = db.select(db.cashHandovers);
+    if (kuryeId != null) {
+      sorgu.where((t) => t.fromUserId.equals(kuryeId));
+    }
+    final satirlar = await sorgu.get();
     var toplam = 0;
     for (final r in satirlar) {
       final t = DateTime.tryParse(r.occurredAt);

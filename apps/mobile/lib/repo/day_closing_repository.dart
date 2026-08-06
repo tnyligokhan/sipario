@@ -55,9 +55,16 @@ class DayClosingRepository {
   /// Kapanış ÖNİZLEMESİ — ekranın gösterdiği rakamlar. `kapat()` submit anında bunu YENİDEN çağırır,
   /// böylece gösterilen ile yazılan aynı koddan çıkar (devir önizlemesiyle aynı desen).
   ///
-  /// KALAN NAKİT (kullanıcı kararı 2026-08-06): gün içinde alınan ara tahsilatlar patronun elinde
-  /// zaten var; gün kapanışında sayılacak olan yalnız KALANdır. Bu yüzden gün kapsamında beklenen
-  /// nakit = günün nakdi − o güne düşen ara tahsilatların SAYILAN toplamı.
+  /// TEK TANIM (kullanıcı kararı 2026-08-06):
+  /// **Beklenen nakit = kapsamın o gün topladığı nakit − o gün teslim ettiği sayılan nakit.
+  /// Kapsam kurye de olsa gün de olsa aynı formül; devrin ARA mı KAPANIŞ mı olduğu hesaba GİRMEZ.**
+  ///
+  /// Her kapanış/tahsilat olayının sorduğu soru aynıdır: "ŞİMDİ kasaya girecek para ne kadar?"
+  /// Gün kapanışında sayılacak para "gün boyunca toplanan" değil, "henüz teslim edilmemiş olan"dır.
+  ///
+  /// Üç sayı ARİTMETİK OLARAK KAPANIR ve ekran farkı açıklayabilsin diye üçü de taşınır:
+  /// `gunNakitKurus − teslimEdilenKurus == expectedCashKurus`. Kapanmayan bir üçlü, patronun
+  /// toplamdan küçük bir rakam görüp sebebini soramaması demekti.
   Future<ClosingOnizleme> onizle(ClosingScope scope, {String? userId, DateTime? localDate}) async {
     final date = localDate ?? _trToday();
     final courierId = scope == ClosingScope.courier ? userId : null;
@@ -65,19 +72,14 @@ class DayClosingRepository {
     final kasa = await _dayEnd.kasaOzeti(date, userId: courierId);
     final teslimat = await _dayEnd.teslimatSayisi(date, userId: courierId);
     final borc = await _dayEnd.borcDurumu();
-    final araTahsilat = await _handovers.araTahsilatToplami(date, kuryeId: courierId);
+    final teslimEdilen = await _handovers.teslimEdilenNakit(date, kuryeId: courierId);
 
-    // İKİ KAPSAM AYNI TANIMI PAYLAŞIR (kullanıcı kararı 2026-08-06): beklenen = o kapsamın günlük
-    // nakdi − o kapsamın gün içinde TESLİM ETTİĞİ sayılan nakit. Kurye kapsamı bunu
-    // `CashHandoverRepository`den alır (devrin kayda yazdığı rakamla aynı koddan çıksın diye), gün
-    // kapsamı burada hesaplar. Eskiden kurye kapsamı `period_start` penceresini kullanıyordu ve iki
-    // kapsam ıraksıyordu — paralel hesap yasağının sessiz bir ihlaliydi.
-    //
-    // Ara tahsilat BİR KEZ düşer: kurye kapsamında düşme işi `onizle` içinde yapılır, burada
-    // TEKRARLANMAZ — çifte sayma tam orada olurdu.
+    // Kurye kapsamı hesabı `CashHandoverRepository`den ALIR (kendi başına tekrarlamaz): devrin
+    // kayda yazdığı `expected_cash_kurus` ile ekranın gösterdiği rakam aynı koddan çıkmak zorunda.
+    // Gün kapsamında aynı formül burada, kurye süzgeci olmadan uygulanır.
     final handover =
         courierId != null ? await _handovers.onizle(courierId, localDate: date) : null;
-    final expected = handover?.expectedKurus ?? (kasa.nakit - araTahsilat);
+    final expected = handover?.expectedKurus ?? (kasa.nakit - teslimEdilen);
 
     return ClosingOnizleme(
       kasa: kasa,
@@ -85,7 +87,7 @@ class DayClosingRepository {
       openCreditKurus: borc.toplamAcikBorc,
       expectedCashKurus: expected,
       gunNakitKurus: kasa.nakit,
-      araTahsilatKurus: araTahsilat,
+      teslimEdilenKurus: teslimEdilen,
       periodStartIso: handover?.periodStartIso,
     );
   }
@@ -199,7 +201,7 @@ class ClosingOnizleme {
     required this.openCreditKurus,
     required this.expectedCashKurus,
     required this.gunNakitKurus,
-    this.araTahsilatKurus = 0,
+    this.teslimEdilenKurus = 0,
     this.periodStartIso,
   });
   final KasaOzeti kasa;
@@ -212,12 +214,16 @@ class ClosingOnizleme {
   final int expectedCashKurus;
 
   /// Kapsamın gün BOYUNCA topladığı nakdin tamamı. [expectedCashKurus] ile birlikte taşınır ki
-  /// ekran "gün 10.000 · ara tahsilat 4.000 · şimdi 6.000" üçlüsünü tek kaynaktan yazabilsin —
+  /// ekran "gün 10.000 · teslim edilen 4.000 · şimdi 6.000" üçlüsünü tek kaynaktan yazabilsin —
   /// aksi hâlde farkı ekran kendi çıkarır ve iki yerde iki formül olurdu.
   final int gunNakitKurus;
 
-  /// Gün içinde alınmış ara tahsilatların SAYILAN toplamı.
-  final int araTahsilatKurus;
+  /// Gün içinde patrona TESLİM EDİLEN nakdin SAYILAN toplamı — ara tahsilat ve kapanış devirleri
+  /// BİRLİKTE. `gunNakitKurus − teslimEdilenKurus == expectedCashKurus` her zaman tutar.
+  ///
+  /// Ekranın "gün içi ara tahsilatlar" LİSTESİ bundan dar bir kümedir (kapanış devirleri hariç) —
+  /// o liste kullanıcıya olayları anlatır, bu sayı ise aritmetiği kapatır. İkisini karıştırma.
+  final int teslimEdilenKurus;
 
   final String? periodStartIso;
 }

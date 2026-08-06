@@ -70,7 +70,7 @@ void main() {
 
       final on = await DayClosingRepository(db).onizle(ClosingScope.day, localDate: bugun);
       expect(on.gunNakitKurus, 10000, reason: 'günün nakdi ara tahsilatla KÜÇÜLMEZ');
-      expect(on.araTahsilatKurus, 4000);
+      expect(on.teslimEdilenKurus, 4000);
       expect(on.expectedCashKurus, 6000,
           reason: 'gün kapanışında sayılacak olan yalnız KALAN nakit');
     });
@@ -92,7 +92,7 @@ void main() {
       expect(kuryeKapsam.expectedCashKurus, 6000,
           reason: 'period_start zaten ara tahsilat sonrasını kapsar — bir daha düşülmemeli');
       expect(kuryeKapsam.gunNakitKurus, 10000);
-      expect(kuryeKapsam.araTahsilatKurus, 4000);
+      expect(kuryeKapsam.teslimEdilenKurus, 4000);
       expect(kuryeKapsam.periodStartIso, isNotNull, reason: 'kurye kapsamı mutabakat sınırı taşır');
     });
 
@@ -194,7 +194,7 @@ void main() {
       final on = await DayClosingRepository(db)
           .onizle(ClosingScope.courier, userId: 'k1', localDate: bugun);
       expect(on.expectedCashKurus, 0);
-      expect(on.araTahsilatKurus, 9000);
+      expect(on.teslimEdilenKurus, 9000);
     });
 
     test('tek kuryeli bayide GÜN ve KURYE kapsamı aynı rakama varır', () async {
@@ -210,6 +210,47 @@ void main() {
           await kapanislar.onizle(ClosingScope.courier, userId: 'k1', localDate: bugun);
       expect(kuryeKapsam.expectedCashKurus, gun.expectedCashKurus);
       expect(gun.expectedCashKurus, 3000);
+    });
+
+    test('gün kapsamı KAPANIŞ devrini de düşer (ara/kapanış ayrımı hesaba girmez)', () async {
+      // Asimetri kapatıldı (lead kararı 2026-08-06): kapanış devri de ALINMIŞ bir tahsilattır.
+      // Aynı fiziksel olayı gerekçesine göre iki türlü saymak, iki ekranın farklı rakam
+      // konuşması demekti.
+      await kurye('k1', 'Emre');
+      await nakit(9000, kuryeId: 'k1', at: oncekiIso());
+
+      final kapanislar = DayClosingRepository(db);
+      await kapanislar.kapat(
+        scope: ClosingScope.courier,
+        userId: 'k1',
+        countedCashKurus: 9000,
+        alsoHandover: true,
+        localDate: bugun,
+      );
+
+      final gun = await kapanislar.onizle(ClosingScope.day, localDate: bugun);
+      expect(gun.teslimEdilenKurus, 9000, reason: 'kapanış devri de teslim edilmiş nakittir');
+      expect(gun.expectedCashKurus, 0,
+          reason: 'ESKİ kod 9.000 derdi — kurye zaten teslim etmişken patrondan bir daha isterdi');
+      // Ekranın gün içi ARA TAHSİLAT listesi dar küme olmayı sürdürür: kullanıcıya olayları
+      // anlatır, aritmetiği kapatan sayı `teslimEdilenKurus`tur.
+      expect(await CashHandoverRepository(db).araTahsilatlar(bugun), isEmpty);
+    });
+
+    test('üç sayı ARİTMETİK OLARAK kapanır: gün − teslim = beklenen', () async {
+      // Ekran farkı açıklayabilsin diye üçü birden taşınıyor; kapanmayan bir üçlü, patronun
+      // toplamdan küçük bir rakam görüp sebebini soramaması demekti.
+      await kurye('k1', 'Emre');
+      await nakit(9000, kuryeId: 'k1', at: oncekiIso());
+      await CashHandoverRepository(db).araTahsilat(fromUserId: 'k1', countedCashKurus: 6000);
+
+      final kapanislar = DayClosingRepository(db);
+      for (final on in [
+        await kapanislar.onizle(ClosingScope.day, localDate: bugun),
+        await kapanislar.onizle(ClosingScope.courier, userId: 'k1', localDate: bugun),
+      ]) {
+        expect(on.gunNakitKurus - on.teslimEdilenKurus, on.expectedCashKurus);
+      }
     });
 
     test('period_start kayda YAZILMAYA devam eder (denetim izi)', () async {
@@ -606,7 +647,7 @@ void main() {
 
       final on = await DayClosingRepository(db).onizle(ClosingScope.day, localDate: bugun);
       expect(on.gunNakitKurus, 10000);
-      expect(on.araTahsilatKurus, 10000);
+      expect(on.teslimEdilenKurus, 10000);
       expect(on.expectedCashKurus, 0, reason: 'kalan nakit senkron gelen devirle düşer');
     });
 

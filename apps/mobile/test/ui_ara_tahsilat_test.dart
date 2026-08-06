@@ -8,8 +8,10 @@
 //  2. Ara tahsilat düğmesi YETKİ + KAPSAM + KİLİT üçlü kapısından geçer; kapı kapalıysa düğme
 //     PASİF değil HİÇ ÇİZİLMEZ.
 //  3. Tahsilat sonrası gün AÇIK kalır (kapanış kaydı yazılmaz) ve özet satırı belirir.
-//  4. Kapanış sheet'inde beklenen nakit KALAN nakittir; günün tam nakdi ve alınan ara tahsilat
-//     AYRI satırlarda yazılır — yoksa bayi her gün açıklanamayan bir eksik görürdü.
+//  4. Kapanış sheet'i ÜÇ SAYIYI birlikte gösterir: günün nakdi · gün içinde alınan · beklenen.
+//     Yoksa bayi her gün açıklanamayan bir eksik görürdü (BRIEF: rakamlar elle tutulan defterle
+//     tutmazsa ürüne güven ölür). "Gün içinde alınan" ARA ve KAPANIŞ devirlerini BİRLİKTE kapsar
+//     ve etiketi bunu iddia etmez — ara tahsilat hiç alınmamış bir günde de çizilir.
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -302,9 +304,9 @@ void main() {
   });
 
   group('Kapanış sheet\'i — beklenen nakit KALAN nakittir', () {
-    testWidgets('günün nakdi ve alınan ara tahsilat AYRI satırlarda yazılır', (tester) async {
+    testWidgets('günün nakdi · gün içinde alınan · beklenen — üçü de yazılır', (tester) async {
       // Bu üç satır olmasaydı bayi "ciro 90 ₺ ama uygulama 30 ₺ bekliyor" der ve mutabakata
-      // güvenmeyi bırakırdı.
+      // güvenmeyi bırakırdı (BRIEF: rakamlar elle tutulan defterle tutmazsa ürüne güven ölür).
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await kuryeEkle(db, id: 'k1', ad: 'Emre');
@@ -320,27 +322,72 @@ void main() {
       await sheetAnimasyonu(tester);
 
       expect(find.text('Günün nakdi'), findsOneWidget);
-      expect(find.text('Alınan ara tahsilat'), findsOneWidget);
+      expect(find.text('Gün içinde alınan'), findsOneWidget);
       // Bu iki rakam elle doğrulanabilir: gün boyu 90 ₺ nakit girdi, 60 ₺'si alındı.
       expect(find.text(sipTutar(9000)), findsWidgets);
       expect(find.text('− ${sipTutar(6000)}'), findsOneWidget);
 
-      // BEKLENEN NAKİT ELLE TÜRETİLMEZ — ve bilerek "90 − 60 = 30" yazmıyoruz. Kurye kapsamında
-      // beklenen `period_start`tan (kuryenin SON devri) doğar; ara tahsilat da bir devirdir, yani
-      // sınır ileri kayar. Buradaki iddia rakamın DEĞERİ değil, EKRANIN REPO'YU BASTIĞIDIR:
-      // kendi çıkarmasını yapsaydı sheet'te yazan tutar arşive donan tutardan ayrışırdı.
+      // BEKLENEN NAKİT ELLE TÜRETİLMEZ — bilerek "90 − 60 = 30" yazmıyoruz. Beklenen nakdin
+      // tanımı repo'nundur ve bu turda İKİ KEZ değişti (period_start penceresi → kümülatif kalan
+      // → tüm devirleri kapsayan kümülatif). Buradaki iddia rakamın DEĞERİ değil, EKRANIN
+      // REPO'YU BASTIĞIDIR: ekran kendi çıkarmasını yapsaydı sheet'te yazan tutar arşive donan
+      // tutardan ayrışır ve kayıt append-only olduğu için o fark kalıcı olurdu.
       final onizleme = await tester.runAsync(
         () => DayClosingRepository(db).onizle(ClosingScope.courier, userId: 'k1'),
       );
       expect(find.text(sipTutar(onizleme!.expectedCashKurus)), findsWidgets);
       expect(onizleme.gunNakitKurus, 9000);
-      expect(onizleme.araTahsilatKurus, 6000);
+      expect(onizleme.teslimEdilenKurus, 6000);
 
       await kapat(tester);
     });
 
-    testWidgets('ara tahsilat YOKSA açıklama satırları çizilmez', (tester) async {
-      // Çoğunluk gün böyle geçer; "− 0,00 ₺" her gün cevapsız bir soru olurdu.
+    testWidgets('KURYE HESABI KAPANDIKTAN SONRA gün kapanışı da düşer', (tester) async {
+      // ASİMETRİ DÜZELTMESİ (kullanıcı kararı 2026-08-06): kurye kapsamı ARA + KAPANIŞ
+      // devirlerinin ikisini de düşerken gün kapsamı yalnız ARA tahsilatı düşüyordu. Kurye
+      // hesabını kapatıp 90 ₺ teslim ettikten sonra gün kapanışı hâlâ 90 ₺ bekliyordu — patron
+      // eline geçmiş bir parayı ikinci kez sayması gerektiğini sanırdı.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+        // Kurye kendi hesabını kapatır ve kasayı TAM teslim eder (ara tahsilat YOK).
+        await DayClosingRepository(db).kapat(
+          scope: ClosingScope.courier,
+          userId: 'k1',
+          countedCashKurus: 9000,
+          alsoHandover: true,
+        );
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await dokun(tester, find.text('Günü Kapat'));
+      await sheetAnimasyonu(tester);
+
+      // ÜÇ SATIR DA GÖRÜNÜR — ara tahsilat hiç alınmamış olsa bile. Eski koşul "ara tahsilat > 0"
+      // olsaydı bu sheet açıklamasız açılır ve patron 90 ₺ nakit girmiş bir günde 0 ₺ beklentiyi
+      // hiçbir yerde okuyamazdı.
+      expect(find.text('Günün nakdi'), findsOneWidget);
+      expect(find.text('Gün içinde alınan'), findsOneWidget);
+      expect(find.text('Beklenen nakit'), findsOneWidget);
+
+      // Bağıntı repo'nun sözleşmesi: gün nakdi − teslim edilen == beklenen. Testte de ekranda da
+      // ELLE ÇIKARILMAZ; üçü birlikte okunup tutarlılıkları doğrulanır.
+      final onizleme = await tester.runAsync(
+        () => DayClosingRepository(db).onizle(ClosingScope.day),
+      );
+      expect(onizleme!.gunNakitKurus, 9000);
+      expect(onizleme.teslimEdilenKurus, 9000,
+          reason: 'KAPANIŞ devri de teslim edilen paradır');
+      expect(onizleme.expectedCashKurus, 0,
+          reason: 'kurye kasayı zaten verdi; patron aynı parayı ikinci kez saymaz');
+      expect(find.text('− ${sipTutar(onizleme.teslimEdilenKurus)}'), findsOneWidget);
+
+      await kapat(tester);
+    });
+
+    testWidgets('gün içinde HİÇ para alınmadıysa açıklama satırları çizilmez', (tester) async {
+      // Çoğunluk gün böyle geçer; "− 0,00 ₺" her akşam cevapsız bir soru olurdu.
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await kuryeEkle(db, id: 'k1', ad: 'Emre');
@@ -353,7 +400,7 @@ void main() {
       await sheetAnimasyonu(tester);
 
       expect(find.text('Günün nakdi'), findsNothing);
-      expect(find.text('Alınan ara tahsilat'), findsNothing);
+      expect(find.text('Gün içinde alınan'), findsNothing);
       expect(find.text('Beklenen nakit (Emre)'), findsOneWidget);
 
       await kapat(tester);

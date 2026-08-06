@@ -28,12 +28,16 @@ class KapatmaSonucu {
 
 /// Hesabı kapat · kasa devri.
 ///
-/// [beklenen] KALAN nakittir (kullanıcı kararı 2026-08-06): günün nakdinden gün içinde alınan ara
-/// tahsilatlar düşülmüş hâli. Sayılan tutar bununla karşılaştırılır — kasada duran para budur.
+/// [beklenen] KÜMÜLATİF KALAN nakittir (kullanıcı kararı 2026-08-06): günün nakdinden gün içinde
+/// TESLİM EDİLEN sayılan nakit düşülmüş hâli — devrin ara mı kapanış mı olduğu hesaba girmez.
+/// Sayılan tutar bununla karşılaştırılır; kasada fiilen duran para budur.
 ///
-/// [tamNakit] ve [araTahsilat] YALNIZ AÇIKLAMA İÇİNDİR ve ara tahsilat varsa ayrı satırlarda
-/// yazılır. Olmasalardı bayi her ara tahsilat aldığı gün beklenen nakdin neden düştüğünü
-/// göremezdi; ekran ona açıklanamayan bir eksik gösterirdi ve mutabakata olan güven biterdi.
+/// [tamNakit] ve [teslimEdilen] YALNIZ AÇIKLAMA İÇİNDİR ve gün içinde para alındıysa ayrı
+/// satırlarda yazılır. Olmasalardı bayi beklenen nakdin neden düştüğünü göremezdi; ekran ona
+/// açıklanamayan bir eksik gösterirdi ve mutabakata olan güven biterdi.
+///
+/// ÜÇÜ DE REPO'DAN GELİR ve aralarındaki bağıntı repo'nun sözleşmesidir
+/// (`gunNakitKurus − teslimEdilenKurus == expectedCashKurus`). Sheet hiçbirini çıkarmaz.
 Future<KapatmaSonucu?> gunKapatmaSheet(
   BuildContext context, {
   required String kapsamAdi,
@@ -41,7 +45,7 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
   required int beklenen,
   required int teslimat,
   int tamNakit = 0,
-  int araTahsilat = 0,
+  int teslimEdilen = 0,
   SenkronTazeligi? senkron,
 }) {
   return sipSheet<KapatmaSonucu>(
@@ -53,7 +57,7 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
       beklenen: beklenen,
       teslimat: teslimat,
       tamNakit: tamNakit,
-      araTahsilat: araTahsilat,
+      teslimEdilen: teslimEdilen,
       senkron: senkron,
     ),
   );
@@ -66,7 +70,7 @@ class _KapatmaGovdesi extends StatefulWidget {
     required this.beklenen,
     required this.teslimat,
     required this.tamNakit,
-    required this.araTahsilat,
+    required this.teslimEdilen,
     required this.senkron,
   });
 
@@ -75,7 +79,7 @@ class _KapatmaGovdesi extends StatefulWidget {
   final int beklenen;
   final int teslimat;
   final int tamNakit;
-  final int araTahsilat;
+  final int teslimEdilen;
 
   /// null ise tazelik şeridi hiç çizilmez (çağıran o kapsamda göstermemeye karar vermiştir).
   final SenkronTazeligi? senkron;
@@ -126,17 +130,25 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
             tur: AlanNotuTuru.uyari,
           ),
 
-        // ARA TAHSİLAT ALINMIŞSA HESABIN TAMAMI YAZILIR (günün nakdi → düşülen → kalan).
+        // GÜN İÇİNDE PARA ALINDIYSA HESABIN TAMAMI YAZILIR (günün nakdi → düşülen → kalan).
         // Yalnız "beklenen nakit" yazsaydık, cirosunun 12.000 olduğunu bilen bayi 7.000'lik bir
-        // beklenti görüp uygulamanın yanıldığını düşünürdü. Sıfır ara tahsilatta bu iki satır
-        // ÇİZİLMEZ — çoğunluk gün böyle geçer ve "− 0,00 ₺" cevapsız bir soru olurdu.
-        if (widget.araTahsilat != 0) ...[
+        // beklenti görüp uygulamanın yanıldığını düşünürdü — ve BRIEF'in kırmızı çizgisi tam
+        // burada kırılırdı: "rakamlar bayinin elle tuttuğu defterle tutmazsa ürüne güven ölür".
+        // Hiç para alınmamışsa bu iki satır ÇİZİLMEZ; çoğunluk gün böyle geçer ve "− 0,00 ₺"
+        // her akşam cevapsız bir soru olurdu.
+        //
+        // ETİKET "ARA TAHSİLAT" DEMEZ (kullanıcı kararı 2026-08-06): bu toplam artık ARA ve
+        // KAPANIŞ devirlerinin İKİSİNİ birden kapsıyor — bir kurye kendi hesabını kapatıp kasayı
+        // teslim ettiğinde o para da buraya girer. "Ara tahsilat" yazmak, neyin toplandığını
+        // YANLIŞ iddia eden bir formül cümlesi olurdu; etiket neyi topladığını değil, ne
+        // olduğunu söyler.
+        if (widget.teslimEdilen != 0) ...[
           DegerKarti(
             satirlar: [
               DegerSatiri(etiket: 'Günün nakdi', deger: sipTutar(widget.tamNakit)),
               DegerSatiri(
-                etiket: 'Alınan ara tahsilat',
-                deger: '− ${sipTutar(widget.araTahsilat)}',
+                etiket: 'Gün içinde alınan',
+                deger: '− ${sipTutar(widget.teslimEdilen)}',
                 degerRengi: t.ink2,
               ),
             ],

@@ -182,11 +182,18 @@ class _DayEndScreenState extends State<DayEndScreen> {
     final kapsamAdi = _kapsamAdi(kuryeler);
     final scope = _kuryeId == null ? ClosingScope.day : ClosingScope.courier;
 
-    // ÜÇ RAKAM DA REPO'DAN GELİR — ekran hiçbirini çıkarmaz. `GunSonuGorunumu.kalanNakitKurus`
-    // burada KULLANILMAZ: o, günün nakdinden ara tahsilatı düşen genel formüldür ve KURYE
-    // kapsamında yanlıştır. Kurye kapanışında beklenen, `period_start`tan (kuryenin son devri)
-    // türer ve ara tahsilatı ZATEN dışarıda bırakır; ikisini üst üste koymak aynı parayı iki kez
-    // düşürür ve sheet'te yazan tutar arşive donan tutardan ayrışırdı (paralel hesap yasağı).
+    // ÜÇ RAKAM DA REPO'DAN GELİR — ekran hiçbirini çıkarmaz, çıkarmamalı da.
+    //
+    // TARİHÇE (2026-08-06, iki kez ısırdı): önce burada görünüm modelinin "günün nakdi − ara
+    // tahsilat" getter'ı kullanılıyordu. O formül GÜN kapsamında doğru, KURYE kapsamında
+    // yanlıştı — kurye kapanışı beklenen tutarı kendi mutabakat penceresinden türetiyordu ve
+    // ikisini üst üste koymak aynı parayı iki kez düşürüyordu. Sheet'te yazan tutar arşive
+    // donan tutardan AYRIŞACAKTI ve kayıtlar append-only olduğu için o fark kalıcı olurdu.
+    // Getter o yüzden repo'dan tamamen kaldırıldı; beklenen nakdin tanımı artık tek yerde
+    // (`DayClosingRepository.onizle`) yaşıyor ve iki kapsam onu paylaşıyor.
+    //
+    // Yani buradaki kural sadece üslup değil: bu ekranda para formülü yazmak, sessizce yalan
+    // bir arşiv kaydı üretmenin en kısa yoludur.
     final onizleme = await DayClosingRepository(widget.db)
         .onizle(scope, userId: _kuryeId, localDate: _gun);
     if (!mounted) return;
@@ -197,7 +204,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
       gunHesabi: _kuryeId == null,
       beklenen: onizleme.expectedCashKurus,
       tamNakit: onizleme.gunNakitKurus,
-      araTahsilat: onizleme.araTahsilatKurus,
+      teslimEdilen: onizleme.teslimEdilenKurus,
       teslimat: onizleme.deliveryCount,
       // TAZELİK HER İKİ KAPSAMA DA geçilir (lead kararı 2026-08-06): kurye kendi telefonundan
       // da ara tahsilat teslim edebildiği için "günü kapatan cihaz zaten tahsilatı alan
