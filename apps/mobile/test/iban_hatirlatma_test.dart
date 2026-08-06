@@ -1,5 +1,7 @@
+import 'package:flutter/widgets.dart' show TextEditingValue, TextSelection;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/screens/customers/borc_hatirlatma.dart';
+import 'package:sipario/screens/isletme/hatirlatma_sablonu_alani.dart' show jetonEkle;
 import 'package:sipario/screens/isletme/iban.dart';
 import 'package:sipario/screens/isletme/isletme_profili_ekrani.dart' show isletmeProfilHatalari;
 import 'package:sipario/screens/orders/musteri_eylemleri.dart' show whatsappUriler;
@@ -91,6 +93,213 @@ void main() {
       );
       expect(mesaj, contains('IBAN'));
       expect(mesaj, isNot(contains('Alıcı:')));
+    });
+
+    test('VARSAYILAN METİN BİREBİR — şablona dokunmayan bayide bir karakter bile değişmez', () {
+      // Bu beklenti 2026-08-06 şablon çalışmasının kilididir: düzenlenebilirlik, hiçbir şey
+      // yapmayan bayinin gönderdiği metni DEĞİŞTİRMEMELİ.
+      expect(
+        borcHatirlatmaMesaji(
+          musteriAd: 'Ahmet Yılmaz',
+          borcKurus: 25000,
+          iban: 'TR330006100519786457841326',
+          isletmeAdi: 'Merkez Su Bayii',
+        ),
+        'Sayın Ahmet Yılmaz, merhaba.\n'
+        'Merkez Su Bayii olarak hesabınızda 250,00 ₺ tutarında ödenmemiş bakiye görünüyor.\n'
+        '\n'
+        'Ödeme için IBAN:\n'
+        'TR33 0006 1005 1978 6457 8413 26\n'
+        'Alıcı: Merkez Su Bayii\n'
+        '\n'
+        'Teşekkür ederiz.',
+      );
+    });
+
+    test('bayiye sunulan varsayılan ŞABLON, varsayılan metinle aynı sonucu verir', () {
+      // "Varsayılanı yükle" düğmesi alanı bu metinle doldurur. Değerlendirmesi varsayılandan
+      // ayrışsaydı bayi düzenlemeye başladığı anda mesajı sessizce değişirdi.
+      const ad = 'Ahmet Yılmaz';
+      const iban = 'TR330006100519786457841326';
+      const isletme = 'Merkez Su Bayii';
+
+      expect(
+        borcHatirlatmaMesaji(
+          musteriAd: ad,
+          borcKurus: 25000,
+          iban: iban,
+          isletmeAdi: isletme,
+          sablon: varsayilanHatirlatmaSablonu,
+        ),
+        borcHatirlatmaMesaji(
+          musteriAd: ad,
+          borcKurus: 25000,
+          iban: iban,
+          isletmeAdi: isletme,
+        ),
+      );
+    });
+  });
+
+  group('IBAN alıcı adı', () {
+    test('ayrı alan doluysa alıcı satırına O yazılır (işletme adı değil)', () {
+      // Hesap sahibi çoğu zaman ŞAHIS adıdır; banka uygulaması havalede ad soyad ister.
+      final mesaj = borcHatirlatmaMesaji(
+        musteriAd: 'Ayşe',
+        borcKurus: 5000,
+        iban: 'TR330006100519786457841326',
+        isletmeAdi: 'Merkez Su Bayii',
+        ibanAliciAdi: 'Mehmet Yılmaz',
+      );
+      expect(mesaj, contains('Alıcı: Mehmet Yılmaz'));
+      expect(mesaj, isNot(contains('Alıcı: Merkez Su Bayii')));
+      // İşletme adı GÖVDEDE durmaya devam eder — alıcı adı onun yerine geçmez.
+      expect(mesaj, contains('Merkez Su Bayii olarak hesabınızda'));
+    });
+
+    test('alıcı adı boşsa işletme adına düşülür — güncelleme kimseye satır kaybettirmez', () {
+      for (final bos in [null, '', '   ']) {
+        expect(
+          borcHatirlatmaMesaji(
+            musteriAd: 'Ayşe',
+            borcKurus: 5000,
+            iban: 'TR330006100519786457841326',
+            isletmeAdi: 'Merkez Su Bayii',
+            ibanAliciAdi: bos,
+          ),
+          contains('Alıcı: Merkez Su Bayii'),
+        );
+      }
+    });
+
+    test('ödeme bloğu IBAN yokken BOŞ dizedir', () {
+      expect(ibanOdemeBlogu(iban: null, aliciAdi: 'Mehmet Yılmaz'), '');
+      expect(ibanOdemeBlogu(iban: '  ', isletmeAdi: 'Merkez'), '');
+    });
+  });
+
+  group('Düzenlenebilir hatırlatma şablonu', () {
+    const iban = 'TR330006100519786457841326';
+
+    test('yer tutucular çözülür; IBAN bloğu SABİT içerik olarak yerleşir', () {
+      final mesaj = borcHatirlatmaMesaji(
+        musteriAd: 'Ahmet',
+        borcKurus: 25000,
+        iban: iban,
+        isletmeAdi: 'Merkez Su',
+        ibanAliciAdi: 'Mehmet Yılmaz',
+        sablon: 'Sayın *musteriadi*, *siparistutar* ödemeniz bize ulaşmadı.\n'
+            'Hesap bilgilerimiz:\n*ibanodemebilgileri*\n*isletmeadi*',
+      );
+
+      expect(
+        mesaj,
+        'Sayın Ahmet, 250,00 ₺ ödemeniz bize ulaşmadı.\n'
+        'Hesap bilgilerimiz:\n'
+        'Ödeme için IBAN:\n'
+        'TR33 0006 1005 1978 6457 8413 26\n'
+        'Alıcı: Mehmet Yılmaz\n'
+        'Merkez Su',
+      );
+    });
+
+    test('BİLİNMEYEN yıldızlı diziler OLDUĞU GİBİ kalır (WhatsApp\'ta yıldız = kalın yazı)', () {
+      final mesaj = borcHatirlatmaMesaji(
+        musteriAd: 'Ahmet',
+        borcKurus: 5000,
+        iban: iban,
+        sablon: '*Önemli*: *musteriadi* için *bilinmeyenalan* kaldı.',
+      );
+
+      expect(mesaj, '*Önemli*: Ahmet için *bilinmeyenalan* kaldı.');
+    });
+
+    test('IBAN tanımlı değilse blok boşalır ve ETRAFINDA çift boş satır kalmaz', () {
+      final mesaj = borcHatirlatmaMesaji(
+        musteriAd: 'Ayşe',
+        borcKurus: 5000,
+        isletmeAdi: 'Merkez Su',
+        sablon: varsayilanHatirlatmaSablonu,
+      );
+
+      expect(
+        mesaj,
+        'Sayın Ayşe, merhaba.\n'
+        'Merkez Su olarak hesabınızda 50,00 ₺ tutarında ödenmemiş bakiye görünüyor.\n'
+        '\n'
+        'Teşekkür ederiz.',
+      );
+      expect(mesaj, isNot(contains('\n\n\n')));
+    });
+
+    test('bayinin KENDİ boş satırları korunur — yutma yalnız boşalan yer tutucunun etrafındadır', () {
+      final mesaj = borcHatirlatmaMesaji(
+        musteriAd: 'Ayşe',
+        borcKurus: 5000,
+        sablon: 'Bir\n\nİki\n\n*ibanodemebilgileri*\n\nÜç',
+      );
+      expect(mesaj, 'Bir\n\nİki\n\nÜç');
+    });
+
+    test('şablon boşaltılırsa varsayılana döner', () {
+      for (final bos in [null, '', '   \n  ']) {
+        expect(
+          borcHatirlatmaMesaji(musteriAd: 'Ayşe', borcKurus: 5000, sablon: bos),
+          borcHatirlatmaMesaji(musteriAd: 'Ayşe', borcKurus: 5000),
+        );
+      }
+    });
+
+    test('şablon uzunluk sınırı formda söylenir (sunucu sınırıyla aynı)', () {
+      const temel = {
+        'ad': 'Merkez Su',
+        'sahip': 'Mehmet Usta',
+        'telefon': '02421112233',
+        'acilis': '08:00',
+        'kapanis': '19:00',
+      };
+      // Sınır SUNUCUDAKİ kolonla aynı; formda söylenmezse hata senkron partisine kaçar.
+      expect(
+        isletmeProfilHatalari({...temel, 'sablon': 'ş' * hatirlatmaSablonuAzamiUzunluk}),
+        isNot(contains('sablon')),
+      );
+      expect(
+        isletmeProfilHatalari({...temel, 'sablon': 'ş' * (hatirlatmaSablonuAzamiUzunluk + 1)}),
+        contains('sablon'),
+      );
+    });
+  });
+
+  group('Yer tutucu çipi imlece ekler', () {
+    test('imleç konumuna eklenir ve imleç eklenen dizinin sonuna taşınır', () {
+      final sonuc = jetonEkle(
+        const TextEditingValue(
+          text: 'Sayın , merhaba.',
+          selection: TextSelection.collapsed(offset: 6),
+        ),
+        '*musteriadi*',
+      );
+
+      expect(sonuc.text, 'Sayın *musteriadi*, merhaba.');
+      expect(sonuc.selection.baseOffset, 18);
+    });
+
+    test('SEÇİLİ metin varsa onun YERİNE geçer', () {
+      final sonuc = jetonEkle(
+        const TextEditingValue(
+          text: 'Sayın XXX, merhaba.',
+          selection: TextSelection(baseOffset: 6, extentOffset: 9),
+        ),
+        '*musteriadi*',
+      );
+      expect(sonuc.text, 'Sayın *musteriadi*, merhaba.');
+    });
+
+    test('alan hiç odaklanmadıysa (seçim geçersiz) SONA eklenir, başa değil', () {
+      // `baseOffset` −1'dir; 0 kabul etmek jetonu bayinin cümlesinin BAŞINA sıkıştırırdı.
+      final sonuc = jetonEkle(const TextEditingValue(text: 'Merhaba'), '*musteriadi*');
+      expect(sonuc.text, 'Merhaba*musteriadi*');
+      expect(sonuc.selection.baseOffset, 'Merhaba*musteriadi*'.length);
     });
   });
 

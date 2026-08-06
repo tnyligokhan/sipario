@@ -6304,6 +6304,28 @@ class $TenantSettingsTable extends TenantSettings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _ibanOwnerNameMeta = const VerificationMeta(
+    'ibanOwnerName',
+  );
+  @override
+  late final GeneratedColumn<String> ibanOwnerName = GeneratedColumn<String>(
+    'iban_owner_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reminderTemplateMeta = const VerificationMeta(
+    'reminderTemplate',
+  );
+  @override
+  late final GeneratedColumn<String> reminderTemplate = GeneratedColumn<String>(
+    'reminder_template',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _courierCanCustomersMeta =
       const VerificationMeta('courierCanCustomers');
   @override
@@ -6426,6 +6448,8 @@ class $TenantSettingsTable extends TenantSettings
     closesAt,
     receiptNote,
     iban,
+    ibanOwnerName,
+    reminderTemplate,
     courierCanCustomers,
     courierCanOrders,
     courierCanCollect,
@@ -6523,6 +6547,24 @@ class $TenantSettingsTable extends TenantSettings
       context.handle(
         _ibanMeta,
         iban.isAcceptableOrUnknown(data['iban']!, _ibanMeta),
+      );
+    }
+    if (data.containsKey('iban_owner_name')) {
+      context.handle(
+        _ibanOwnerNameMeta,
+        ibanOwnerName.isAcceptableOrUnknown(
+          data['iban_owner_name']!,
+          _ibanOwnerNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_template')) {
+      context.handle(
+        _reminderTemplateMeta,
+        reminderTemplate.isAcceptableOrUnknown(
+          data['reminder_template']!,
+          _reminderTemplateMeta,
+        ),
       );
     }
     if (data.containsKey('courier_can_customers')) {
@@ -6654,6 +6696,14 @@ class $TenantSettingsTable extends TenantSettings
         DriftSqlType.string,
         data['${effectivePrefix}iban'],
       ),
+      ibanOwnerName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}iban_owner_name'],
+      ),
+      reminderTemplate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reminder_template'],
+      ),
       courierCanCustomers: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}courier_can_customers'],
@@ -6713,6 +6763,22 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
   /// null = tanımlı değil, hatırlatma düğmesi o zaman nedenini söyleyip durur.
   final String? iban;
 
+  /// IBAN ALICI ADI (kullanıcı isteği 2026-08-06) — hesap sahibinin AD SOYADI.
+  ///
+  /// NEDEN AYRI ALAN: hesap sahibi çoğu zaman ŞAHIS adıdır ("Mehmet Yılmaz"), işletme adıyla
+  /// ("Merkez Su Bayii") aynı değildir; banka uygulaması havale ekranında ad soyad ister ve
+  /// işletme adını yazan müşteri işlemi tamamlayamaz. Boşsa mesajda işletme adına DÜŞÜLÜR —
+  /// güncelleme öncesi davranış budur, hiçbir bayi "Alıcı" satırını bu sürümle kaybetmemeli.
+  final String? ibanOwnerName;
+
+  /// BORÇ HATIRLATMA ŞABLONU (kullanıcı isteği 2026-08-06) — bayinin kendi mesaj metni.
+  ///
+  /// null/boş = VARSAYILAN metin (`borc_hatirlatma.dart`). Varsayılanı buraya kopyalamak,
+  /// metni ileride iyileştirdiğimizde şablona hiç dokunmamış bayilerde eski metni dondururdu.
+  /// Yer tutucular (`*musteriadi*`, `*siparistutar*`, `*ibanodemebilgileri*` …) gönderim anında
+  /// çözülür; IBAN ve alıcı adı SABİT bloktur, metnin içinde düzenlenemez.
+  final String? reminderTemplate;
+
   /// KURYE YETKİLERİ (kullanıcı isteği 2026-08-04) — bayinin açıp kapattığı beş anahtar.
   /// KİRACI düzeyindedir (kurye başına değil): 1–3 kişilik bayide kişi bazlı yetki, her yeni
   /// kuryede unutulan bir kurulum adımı doğururdu. Varsayılanlar sunucudakiyle AYNI olmalı —
@@ -6742,6 +6808,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     this.closesAt,
     this.receiptNote,
     this.iban,
+    this.ibanOwnerName,
+    this.reminderTemplate,
     required this.courierCanCustomers,
     required this.courierCanOrders,
     required this.courierCanCollect,
@@ -6787,6 +6855,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     }
     if (!nullToAbsent || iban != null) {
       map['iban'] = Variable<String>(iban);
+    }
+    if (!nullToAbsent || ibanOwnerName != null) {
+      map['iban_owner_name'] = Variable<String>(ibanOwnerName);
+    }
+    if (!nullToAbsent || reminderTemplate != null) {
+      map['reminder_template'] = Variable<String>(reminderTemplate);
     }
     map['courier_can_customers'] = Variable<bool>(courierCanCustomers);
     map['courier_can_orders'] = Variable<bool>(courierCanOrders);
@@ -6837,6 +6911,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           ? const Value.absent()
           : Value(receiptNote),
       iban: iban == null && nullToAbsent ? const Value.absent() : Value(iban),
+      ibanOwnerName: ibanOwnerName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ibanOwnerName),
+      reminderTemplate: reminderTemplate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderTemplate),
       courierCanCustomers: Value(courierCanCustomers),
       courierCanOrders: Value(courierCanOrders),
       courierCanCollect: Value(courierCanCollect),
@@ -6870,6 +6950,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       closesAt: serializer.fromJson<String?>(json['closesAt']),
       receiptNote: serializer.fromJson<String?>(json['receiptNote']),
       iban: serializer.fromJson<String?>(json['iban']),
+      ibanOwnerName: serializer.fromJson<String?>(json['ibanOwnerName']),
+      reminderTemplate: serializer.fromJson<String?>(json['reminderTemplate']),
       courierCanCustomers: serializer.fromJson<bool>(
         json['courierCanCustomers'],
       ),
@@ -6900,6 +6982,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       'closesAt': serializer.toJson<String?>(closesAt),
       'receiptNote': serializer.toJson<String?>(receiptNote),
       'iban': serializer.toJson<String?>(iban),
+      'ibanOwnerName': serializer.toJson<String?>(ibanOwnerName),
+      'reminderTemplate': serializer.toJson<String?>(reminderTemplate),
       'courierCanCustomers': serializer.toJson<bool>(courierCanCustomers),
       'courierCanOrders': serializer.toJson<bool>(courierCanOrders),
       'courierCanCollect': serializer.toJson<bool>(courierCanCollect),
@@ -6924,6 +7008,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     Value<String?> closesAt = const Value.absent(),
     Value<String?> receiptNote = const Value.absent(),
     Value<String?> iban = const Value.absent(),
+    Value<String?> ibanOwnerName = const Value.absent(),
+    Value<String?> reminderTemplate = const Value.absent(),
     bool? courierCanCustomers,
     bool? courierCanOrders,
     bool? courierCanCollect,
@@ -6945,6 +7031,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     closesAt: closesAt.present ? closesAt.value : this.closesAt,
     receiptNote: receiptNote.present ? receiptNote.value : this.receiptNote,
     iban: iban.present ? iban.value : this.iban,
+    ibanOwnerName: ibanOwnerName.present
+        ? ibanOwnerName.value
+        : this.ibanOwnerName,
+    reminderTemplate: reminderTemplate.present
+        ? reminderTemplate.value
+        : this.reminderTemplate,
     courierCanCustomers: courierCanCustomers ?? this.courierCanCustomers,
     courierCanOrders: courierCanOrders ?? this.courierCanOrders,
     courierCanCollect: courierCanCollect ?? this.courierCanCollect,
@@ -6978,6 +7070,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           ? data.receiptNote.value
           : this.receiptNote,
       iban: data.iban.present ? data.iban.value : this.iban,
+      ibanOwnerName: data.ibanOwnerName.present
+          ? data.ibanOwnerName.value
+          : this.ibanOwnerName,
+      reminderTemplate: data.reminderTemplate.present
+          ? data.reminderTemplate.value
+          : this.reminderTemplate,
       courierCanCustomers: data.courierCanCustomers.present
           ? data.courierCanCustomers.value
           : this.courierCanCustomers,
@@ -7020,6 +7118,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           ..write('closesAt: $closesAt, ')
           ..write('receiptNote: $receiptNote, ')
           ..write('iban: $iban, ')
+          ..write('ibanOwnerName: $ibanOwnerName, ')
+          ..write('reminderTemplate: $reminderTemplate, ')
           ..write('courierCanCustomers: $courierCanCustomers, ')
           ..write('courierCanOrders: $courierCanOrders, ')
           ..write('courierCanCollect: $courierCanCollect, ')
@@ -7033,7 +7133,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     businessName,
     ownerName,
@@ -7046,6 +7146,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     closesAt,
     receiptNote,
     iban,
+    ibanOwnerName,
+    reminderTemplate,
     courierCanCustomers,
     courierCanOrders,
     courierCanCollect,
@@ -7054,7 +7156,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -7071,6 +7173,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           other.closesAt == this.closesAt &&
           other.receiptNote == this.receiptNote &&
           other.iban == this.iban &&
+          other.ibanOwnerName == this.ibanOwnerName &&
+          other.reminderTemplate == this.reminderTemplate &&
           other.courierCanCustomers == this.courierCanCustomers &&
           other.courierCanOrders == this.courierCanOrders &&
           other.courierCanCollect == this.courierCanCollect &&
@@ -7094,6 +7198,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
   final Value<String?> closesAt;
   final Value<String?> receiptNote;
   final Value<String?> iban;
+  final Value<String?> ibanOwnerName;
+  final Value<String?> reminderTemplate;
   final Value<bool> courierCanCustomers;
   final Value<bool> courierCanOrders;
   final Value<bool> courierCanCollect;
@@ -7115,6 +7221,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.closesAt = const Value.absent(),
     this.receiptNote = const Value.absent(),
     this.iban = const Value.absent(),
+    this.ibanOwnerName = const Value.absent(),
+    this.reminderTemplate = const Value.absent(),
     this.courierCanCustomers = const Value.absent(),
     this.courierCanOrders = const Value.absent(),
     this.courierCanCollect = const Value.absent(),
@@ -7137,6 +7245,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.closesAt = const Value.absent(),
     this.receiptNote = const Value.absent(),
     this.iban = const Value.absent(),
+    this.ibanOwnerName = const Value.absent(),
+    this.reminderTemplate = const Value.absent(),
     this.courierCanCustomers = const Value.absent(),
     this.courierCanOrders = const Value.absent(),
     this.courierCanCollect = const Value.absent(),
@@ -7159,6 +7269,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Expression<String>? closesAt,
     Expression<String>? receiptNote,
     Expression<String>? iban,
+    Expression<String>? ibanOwnerName,
+    Expression<String>? reminderTemplate,
     Expression<bool>? courierCanCustomers,
     Expression<bool>? courierCanOrders,
     Expression<bool>? courierCanCollect,
@@ -7181,6 +7293,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       if (closesAt != null) 'closes_at': closesAt,
       if (receiptNote != null) 'receipt_note': receiptNote,
       if (iban != null) 'iban': iban,
+      if (ibanOwnerName != null) 'iban_owner_name': ibanOwnerName,
+      if (reminderTemplate != null) 'reminder_template': reminderTemplate,
       if (courierCanCustomers != null)
         'courier_can_customers': courierCanCustomers,
       if (courierCanOrders != null) 'courier_can_orders': courierCanOrders,
@@ -7207,6 +7321,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Value<String?>? closesAt,
     Value<String?>? receiptNote,
     Value<String?>? iban,
+    Value<String?>? ibanOwnerName,
+    Value<String?>? reminderTemplate,
     Value<bool>? courierCanCustomers,
     Value<bool>? courierCanOrders,
     Value<bool>? courierCanCollect,
@@ -7229,6 +7345,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       closesAt: closesAt ?? this.closesAt,
       receiptNote: receiptNote ?? this.receiptNote,
       iban: iban ?? this.iban,
+      ibanOwnerName: ibanOwnerName ?? this.ibanOwnerName,
+      reminderTemplate: reminderTemplate ?? this.reminderTemplate,
       courierCanCustomers: courierCanCustomers ?? this.courierCanCustomers,
       courierCanOrders: courierCanOrders ?? this.courierCanOrders,
       courierCanCollect: courierCanCollect ?? this.courierCanCollect,
@@ -7279,6 +7397,12 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     if (iban.present) {
       map['iban'] = Variable<String>(iban.value);
     }
+    if (ibanOwnerName.present) {
+      map['iban_owner_name'] = Variable<String>(ibanOwnerName.value);
+    }
+    if (reminderTemplate.present) {
+      map['reminder_template'] = Variable<String>(reminderTemplate.value);
+    }
     if (courierCanCustomers.present) {
       map['courier_can_customers'] = Variable<bool>(courierCanCustomers.value);
     }
@@ -7321,6 +7445,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
           ..write('closesAt: $closesAt, ')
           ..write('receiptNote: $receiptNote, ')
           ..write('iban: $iban, ')
+          ..write('ibanOwnerName: $ibanOwnerName, ')
+          ..write('reminderTemplate: $reminderTemplate, ')
           ..write('courierCanCustomers: $courierCanCustomers, ')
           ..write('courierCanOrders: $courierCanOrders, ')
           ..write('courierCanCollect: $courierCanCollect, ')
@@ -14508,6 +14634,8 @@ typedef $$TenantSettingsTableCreateCompanionBuilder =
       Value<String?> closesAt,
       Value<String?> receiptNote,
       Value<String?> iban,
+      Value<String?> ibanOwnerName,
+      Value<String?> reminderTemplate,
       Value<bool> courierCanCustomers,
       Value<bool> courierCanOrders,
       Value<bool> courierCanCollect,
@@ -14531,6 +14659,8 @@ typedef $$TenantSettingsTableUpdateCompanionBuilder =
       Value<String?> closesAt,
       Value<String?> receiptNote,
       Value<String?> iban,
+      Value<String?> ibanOwnerName,
+      Value<String?> reminderTemplate,
       Value<bool> courierCanCustomers,
       Value<bool> courierCanOrders,
       Value<bool> courierCanCollect,
@@ -14607,6 +14737,16 @@ class $$TenantSettingsTableFilterComposer
 
   ColumnFilters<String> get iban => $composableBuilder(
     column: $table.iban,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ibanOwnerName => $composableBuilder(
+    column: $table.ibanOwnerName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reminderTemplate => $composableBuilder(
+    column: $table.reminderTemplate,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14720,6 +14860,16 @@ class $$TenantSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ibanOwnerName => $composableBuilder(
+    column: $table.ibanOwnerName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reminderTemplate => $composableBuilder(
+    column: $table.reminderTemplate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get courierCanCustomers => $composableBuilder(
     column: $table.courierCanCustomers,
     builder: (column) => ColumnOrderings(column),
@@ -14812,6 +14962,16 @@ class $$TenantSettingsTableAnnotationComposer
   GeneratedColumn<String> get iban =>
       $composableBuilder(column: $table.iban, builder: (column) => column);
 
+  GeneratedColumn<String> get ibanOwnerName => $composableBuilder(
+    column: $table.ibanOwnerName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reminderTemplate => $composableBuilder(
+    column: $table.reminderTemplate,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get courierCanCustomers => $composableBuilder(
     column: $table.courierCanCustomers,
     builder: (column) => column,
@@ -14898,6 +15058,8 @@ class $$TenantSettingsTableTableManager
                 Value<String?> closesAt = const Value.absent(),
                 Value<String?> receiptNote = const Value.absent(),
                 Value<String?> iban = const Value.absent(),
+                Value<String?> ibanOwnerName = const Value.absent(),
+                Value<String?> reminderTemplate = const Value.absent(),
                 Value<bool> courierCanCustomers = const Value.absent(),
                 Value<bool> courierCanOrders = const Value.absent(),
                 Value<bool> courierCanCollect = const Value.absent(),
@@ -14919,6 +15081,8 @@ class $$TenantSettingsTableTableManager
                 closesAt: closesAt,
                 receiptNote: receiptNote,
                 iban: iban,
+                ibanOwnerName: ibanOwnerName,
+                reminderTemplate: reminderTemplate,
                 courierCanCustomers: courierCanCustomers,
                 courierCanOrders: courierCanOrders,
                 courierCanCollect: courierCanCollect,
@@ -14942,6 +15106,8 @@ class $$TenantSettingsTableTableManager
                 Value<String?> closesAt = const Value.absent(),
                 Value<String?> receiptNote = const Value.absent(),
                 Value<String?> iban = const Value.absent(),
+                Value<String?> ibanOwnerName = const Value.absent(),
+                Value<String?> reminderTemplate = const Value.absent(),
                 Value<bool> courierCanCustomers = const Value.absent(),
                 Value<bool> courierCanOrders = const Value.absent(),
                 Value<bool> courierCanCollect = const Value.absent(),
@@ -14963,6 +15129,8 @@ class $$TenantSettingsTableTableManager
                 closesAt: closesAt,
                 receiptNote: receiptNote,
                 iban: iban,
+                ibanOwnerName: ibanOwnerName,
+                reminderTemplate: reminderTemplate,
                 courierCanCustomers: courierCanCustomers,
                 courierCanOrders: courierCanOrders,
                 courierCanCollect: courierCanCollect,

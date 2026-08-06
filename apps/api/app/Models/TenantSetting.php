@@ -25,6 +25,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $closes_at
  * @property string|null $receipt_note
  * @property string|null $iban Bayinin KENDİ hesabı — borç hatırlatma mesajında geçer
+ * @property string|null $iban_owner_name Hesap sahibinin ad soyadı; boşsa istemci işletme adına düşer
+ * @property string|null $reminder_template Bayinin kendi hatırlatma metni; null = varsayılan (istemcide)
  * @property bool $courier_can_customers
  * @property bool $courier_can_orders
  * @property bool $courier_can_collect
@@ -57,6 +59,8 @@ class TenantSetting extends Model
         'closes_at',
         'receipt_note',
         'iban',
+        'iban_owner_name',
+        'reminder_template',
         'courier_can_customers',
         'courier_can_orders',
         'courier_can_collect',

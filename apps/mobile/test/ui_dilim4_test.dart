@@ -25,7 +25,7 @@ import 'support/fake_sync_api.dart';
 /// düz Future sorgular da asılır); db widget-testte close edilmez; test sonunda ağaç boşaltılır.
 ///
 /// NOT (2026-07-26): AYRI `CashHandoverScreen` KALDIRILDI — tasarımda `kasaDevri` rotası yok, devir
-/// Gün Sonu'nun "Hesabı Kapat · Kasa Devri" sheet'inin içindedir. `CashHandoverRepository` ve
+/// Gün Özeti'nin "Hesabı Kapat · Kasa Devri" sheet'inin içindedir. `CashHandoverRepository` ve
 /// `cash_handovers` tablosu YERİNDE: kurye kapanışı devri yazmaya devam ediyor
 /// (`DayClosingRepository.kapat(alsoHandover: true)`), o yüzden repo testleri burada KALDI —
 /// yalnız ekranın kendi görünüm testleri gitti.
@@ -413,7 +413,7 @@ void main() {
     }
 
     // CİHAZDA YAKALANAN GERİLEME (2026-07-26): kabuk `onMenu`yu YALNIZ ana ekrana geçiyordu.
-    // Diğer üç sekmede hamburger hiç çizilmiyordu (Gün Sonu'nda yerine işlevsiz bir geri oku
+    // Diğer üç sekmede hamburger hiç çizilmiyordu (Gün Özeti'nde yerine işlevsiz bir geri oku
     // vardı) — yani çekmece, dolayısıyla Ürünler/Kuryeler/Muaf/Ayarlar/çıkış, o sekmelerdeyken
     // ERİŞİLEMEZDİ. Tasarımda (s-uygulama.jsx) dört ana ekranın dördü de `onMenu` alır.
     testWidgets('çekmece DÖRT sekmenin hepsinden açılabilir', (tester) async {
@@ -478,9 +478,9 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
     });
 
-    // AYRI KASA DEVRİ EKRANI KALDIRILDI (2026-07-26): çekmecedeki satır artık Gün Sonu sekmesine
+    // AYRI KASA DEVRİ EKRANI KALDIRILDI (2026-07-26): çekmecedeki satır artık Gün Özeti sekmesine
     // gider ve rolüne göre ETİKETLENİR — kuryede "Kasa Devri" (kendi işinin adı), yöneticide
-    // tasarımın birleşik etiketi "Gün Sonu & Kasa Devri". Bu testler kabuğun tamamı üzerinden
+    // tasarımın birleşik etiketi "Gün Özeti & Kasa Devri". Bu testler kabuğun tamamı üzerinden
     // (HomeShell) bakar; çekmecenin kendi sözleşmesi test/ui_kabuk_test.dart'ta.
     testWidgets('kurye kabuğu: Ürünler/Gün sonu YOK, satır "Kasa Devri" adıyla VAR',
         (tester) async {
@@ -522,7 +522,7 @@ void main() {
     testWidgets('patron kabuğu + aktif kurye VAR: etiket kuryeVar\'a göre DEĞİŞMEZ',
         (tester) async {
       // Eski davranış: kasa devri girişi yöneticide yalnız aktif kurye varken açılıyordu. Artık
-      // ayrı ekran yok — satır Gün Sonu'na gidiyor ve yönetici onu her hâlde görüyor.
+      // ayrı ekran yok — satır Gün Özeti'ne gidiyor ve yönetici onu her hâlde görüyor.
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await setUser(db, id: 'p', role: 'patron');

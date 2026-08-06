@@ -69,6 +69,8 @@ class SurumCarpikligiTest extends ApiTestCase
         $this->pushEvents($token, [$this->tenantSettingsUpsert([
             'business_name' => 'Aspendos Su',
             'iban' => 'TR330006100519786457841326',
+            'iban_owner_name' => 'Mehmet Yılmaz',
+            'reminder_template' => 'Sayın *musteriadi*, *siparistutar* bekliyoruz.',
             'courier_can_discount' => true,
             'courier_can_day_end' => true,
             'courier_can_collect' => false,
@@ -90,6 +92,11 @@ class SurumCarpikligiTest extends ApiTestCase
         // GÖNDERMEDİĞİ alanlar KORUNMALI — bu satırlar kırmızıysa "migration + eski istemci =
         // sessiz veri kaybı" sınıfı açıktır.
         $this->assertSame('TR330006100519786457841326', $satir->iban, 'Eski istemci IBAN\'ı sildi.');
+        // v14 kolonları (2026-08-06). Kaybolmaları en görünür arıza olurdu: bayi kendi yazdığı
+        // hatırlatma metnini bir gün açıp bakınca varsayılana dönmüş bulurdu.
+        $this->assertSame('Mehmet Yılmaz', $satir->iban_owner_name, 'Eski istemci IBAN alıcı adını sildi.');
+        $this->assertSame('Sayın *musteriadi*, *siparistutar* bekliyoruz.', $satir->reminder_template,
+            'Eski istemci bayinin mesaj şablonunu sildi.');
         $this->assertTrue($satir->courier_can_discount, 'Eski istemci iskonto yetkisini varsayılana çekti.');
         $this->assertTrue($satir->courier_can_day_end, 'Eski istemci gün sonu yetkisini varsayılana çekti.');
         $this->assertFalse($satir->courier_can_collect, 'Eski istemci KAPATILMIŞ tahsilat yetkisini geri açtı.');

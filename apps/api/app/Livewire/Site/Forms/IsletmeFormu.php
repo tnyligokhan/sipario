@@ -67,6 +67,17 @@ class IsletmeFormu extends Form
 
     public string $il = '';
 
+    /**
+     * Tahsilat hatırlatması alanları (kullanıcı isteği 2026-08-06). IBAN'ın KENDİSİ burada YOK:
+     * mod-97 denetimi mobilde yaşıyor ve yanlış IBAN sessiz bir hatadır — denetimsiz bir web
+     * alanı, bayinin hesap numarasını kontrolsüz değiştirebileceği ikinci bir kapı açardı.
+     * Buradan düzenlenen ikisi serbest metindir; yanlış yazılırsa mesaj çirkin olur, para
+     * kaybolmaz.
+     */
+    public string $ibanAliciAdi = '';
+
+    public string $hatirlatmaSablonu = '';
+
     /** Kaydetme sırasında sabitlenen bayi (doğrulama kuralları bunun kimliğini dışlar). */
     private string $bayiId = '';
 
@@ -87,6 +98,8 @@ class IsletmeFormu extends Form
         $this->adres = $ayar === null ? '' : (string) ($ayar->address_text ?? '');
         $this->ilce = (string) ($bayi->district ?? '');
         $this->il = (string) ($bayi->city ?? '');
+        $this->ibanAliciAdi = $ayar === null ? '' : (string) ($ayar->iban_owner_name ?? '');
+        $this->hatirlatmaSablonu = $ayar === null ? '' : (string) ($ayar->reminder_template ?? '');
     }
 
     /**
@@ -153,15 +166,20 @@ class IsletmeFormu extends Form
         // TAM SATIR: mevcut değerler taşınır, üstüne yalnız bu formun alanları yazılır.
         $payload = $mevcut === null ? [] : $mevcut->only([
             'business_name', 'owner_name', 'phone', 'whatsapp', 'address_text', 'tax_office',
-            'tax_number', 'opens_at', 'closes_at', 'receipt_note', 'iban', 'courier_can_customers',
-            'courier_can_orders', 'courier_can_collect', 'courier_can_discount', 'courier_can_day_end',
-            'order_code_display',
+            'tax_number', 'opens_at', 'closes_at', 'receipt_note', 'iban', 'iban_owner_name',
+            'reminder_template', 'courier_can_customers', 'courier_can_orders', 'courier_can_collect',
+            'courier_can_discount', 'courier_can_day_end', 'order_code_display',
         ]);
         $payload['business_name'] = $this->bosNull($this->unvan) ?? $payload['business_name'] ?? null;
         $payload['tax_number'] = $this->bosNull($this->vkn);
         $payload['tax_office'] = $this->bosNull($this->daire);
         $payload['address_text'] = $this->bosNull($this->adres);
         $payload['owner_name'] = $this->bosNull($this->yetkili) ?? $payload['owner_name'] ?? null;
+        // Boş bırakmak GERÇEK bir niyettir ve korunmalı: alıcı adı boşsa mobil işletme adına
+        // düşer, şablon boşsa varsayılan metin kurulur. Bu yüzden `?? mevcut` düşülmez —
+        // bayi web'den temizleyebilmeli.
+        $payload['iban_owner_name'] = $this->bosNull($this->ibanAliciAdi);
+        $payload['reminder_template'] = $this->bosNull($this->hatirlatmaSablonu);
 
         $sonuc = $this->push($bayi->id, $patron->id, [
             'client_event_id' => (string) Str::uuid7(),
@@ -271,6 +289,10 @@ class IsletmeFormu extends Form
             'adres' => ['nullable', 'string', 'max:500'],
             'ilce' => ['nullable', 'string', 'max:60'],
             'il' => ['nullable', 'string', 'max:60'],
+            // Sınırlar kolonlarla (ve ProfileChangeApplier'ın kapısıyla) BİREBİR aynı: burada
+            // gevşek bir kural, hatayı formdan alıp senkron partisinin içine taşırdı.
+            'ibanAliciAdi' => ['nullable', 'string', 'max:120'],
+            'hatirlatmaSablonu' => ['nullable', 'string', 'max:1000'],
         ];
     }
 
@@ -289,6 +311,8 @@ class IsletmeFormu extends Form
             'eposta.email' => 'Geçerli bir e-posta girin',
             'eposta.unique' => 'Bu e-posta ile devam edilemiyor.',
             'vkn.regex' => 'VKN 10, TCKN 11 hane olmalı',
+            'ibanAliciAdi.max' => 'Alıcı adı en fazla 120 karakter olabilir',
+            'hatirlatmaSablonu.max' => 'Mesaj en fazla 1000 karakter olabilir',
         ];
     }
 }

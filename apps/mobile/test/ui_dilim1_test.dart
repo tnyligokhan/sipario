@@ -201,8 +201,11 @@ void main() {
     Future<List<String>> namesFor(String query) async =>
         (await watchCustomers(db, query).first).map((c) => c.name).toList();
 
-    test('boş sorgu tüm arşivsizleri ada göre sıralı döner', () async {
-      expect(await namesFor(''), ['Ayşe Yılmaz', 'Mehmet Demir']);
+    test('boş sorgu tüm arşivsizleri EN SON KAYDEDİLEN ÜSTTE döner', () async {
+      // Sıra 2026-08-06'da ADA GÖREden kayıt sırasına çevrildi (Türkçe harfler BINARY
+      // collation'da ASCII'den sonra dizildiği için liste rasgele görünüyordu). Kurulumda
+      // 'Mehmet Demir' sonra eklendiği için o üstte. Ayrıntılı kilit: musteri_siralama_test.dart.
+      expect(await namesFor(''), ['Mehmet Demir', 'Ayşe Yılmaz']);
     });
 
     test('ada göre arama filtreler', () async {

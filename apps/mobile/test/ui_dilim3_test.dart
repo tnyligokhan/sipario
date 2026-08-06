@@ -116,7 +116,7 @@ void main() {
     test('kasa/borç defterden türer ve tutar', () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
-      final cid = await CustomerRepository(db).create(name: 'Gün Özeti');
+      final cid = await CustomerRepository(db).create(name: 'Gün Sonu');
       final orders = OrderRepository(db);
 
       // Nakit teslim: debit +9000, payment −9000 (nakit).
@@ -229,7 +229,7 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
     });
 
-    testWidgets('AppBar yok; ekran başlığı "Gün Sonu" görünür', (tester) async {
+    testWidgets('AppBar yok; ekran başlığı "Gün Özeti" görünür', (tester) async {
       // SİPARİO 3.0: AppBar hiçbir ekranda kullanılmaz — başlık `SipUst` ile çizilir.
       //
       // Başlığın TAM stilini burada sınamıyoruz. Stil kimliği (`baslik.style == SipText.x`)

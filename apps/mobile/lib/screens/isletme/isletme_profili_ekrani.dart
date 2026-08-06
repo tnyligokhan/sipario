@@ -17,6 +17,8 @@ import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../customers/borc_hatirlatma.dart' show hatirlatmaSablonuAzamiUzunluk;
+import 'hatirlatma_sablonu_alani.dart';
 import 'iban.dart';
 import 'isletme_atomlari.dart';
 
@@ -115,6 +117,8 @@ class _FormState extends State<_Form> {
     'kapanis': TextEditingController(text: widget.veri.satir?.closesAt ?? '19:00'),
     'fisNotu': TextEditingController(text: widget.veri.satir?.receiptNote ?? ''),
     'iban': TextEditingController(text: ibanOkunur(widget.veri.satir?.iban)),
+    'ibanAlici': TextEditingController(text: widget.veri.satir?.ibanOwnerName ?? ''),
+    'sablon': TextEditingController(text: widget.veri.satir?.reminderTemplate ?? ''),
   };
 
   Map<String, String> _hata = const {};
@@ -164,6 +168,10 @@ class _FormState extends State<_Form> {
       // Saklama biçimi TEK: boşluksuz, büyük harf. Bayi okunaklı olsun diye boşluklu yazar;
       // mesaja ve sunucuya giden değer normalleştirilmiş olmalı (sunucu da aynısını yapar).
       iban: ibanNormal(_metin('iban')),
+      ibanOwnerName: _bosNull('ibanAlici'),
+      // Boş şablon null yazılır: "varsayılana dön" bu demektir ve varsayılan metin ileride
+      // iyileşirse şablona hiç dokunmamış bayi o iyileşmeyi alır.
+      reminderTemplate: _bosNull('sablon'),
     );
     if (!mounted) return;
     setState(() => _kaydediyor = false);
@@ -238,11 +246,22 @@ class _FormState extends State<_Form> {
         const SipBolumBaslik('Tahsilat', ustBosluk: 20),
         _alan('iban', 'IBAN', 'TR00 0000 0000 0000 0000 0000 00',
             ustBosluk: 2, filtreler: [_IbanBicimi()], stilTutar: true),
+        // ALICI ADI IBAN'IN HEMEN ALTINDA (kullanıcı isteği 2026-08-06): hesap sahibi çoğu zaman
+        // ŞAHIS adıdır ve işletme adıyla aynı değildir; banka uygulaması havale ekranında ad
+        // soyad ister, müşteri "Merkez Su Bayii" yazınca işlemi tamamlayamaz. Boş bırakılırsa
+        // mesaj eskisi gibi işletme adını yazar — kimse "Alıcı" satırını bu sürümle kaybetmez.
+        _alan('ibanAlici', 'IBAN ALICI ADI', 'Hesap sahibi — ad soyad'),
         if (_hata['iban'] == null)
           const AlanNotu(
-            'Borçlulara gönderilen WhatsApp hatırlatmasında bu IBAN yazar.',
+            'Borçlulara gönderilen WhatsApp hatırlatmasında bu IBAN ve alıcı adı yazar.',
             tur: AlanNotuTuru.bilgi,
           ),
+
+        HatirlatmaSablonuAlani(
+          controller: _alanlar['sablon']!,
+          hata: _hata['sablon'],
+          onDegis: _temizle,
+        ),
 
         // Bölüm başlığından SONRA doğrudan alan gelir (tasarım `s-isletme.jsx:71-72`): araya
         // "FİŞ NOTU" etiketi koymak aynı şeyi iki kez söylemekti.
@@ -445,6 +464,15 @@ Map<String, String> isletmeProfilHatalari(Map<String, String> alanlar) {
   // Yanlış IBAN sessiz bir hatadır: mesaj gider, para gelmez, kimse nedenini bilmez.
   final ibanHata = ibanHatasi(al('iban'));
   if (ibanHata != null) hatalar['iban'] = ibanHata;
+
+  // Şablon uzunluğu SUNUCUDAKİ kolonla aynı sınırdadır ve hata BURADA söylenir: sınır yalnız
+  // sunucuda olsaydı aşan değer senkron partisinde reddedilir, bayi kaydettiğini sanıp günler
+  // sonra "mesajım eski" derdi.
+  final sablon = al('sablon');
+  if (sablon.length > hatirlatmaSablonuAzamiUzunluk) {
+    hatalar['sablon'] =
+        'Mesaj çok uzun ($hatirlatmaSablonuAzamiUzunluk karakter sınırı, şu an ${sablon.length})';
+  }
 
   return hatalar;
 }

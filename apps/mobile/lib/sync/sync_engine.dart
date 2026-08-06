@@ -541,6 +541,11 @@ class SyncEngine {
               closesAt: Value(_sN(m['closes_at'])),
               receiptNote: Value(_sN(m['receipt_note'])),
               iban: Value(_sN(m['iban'])),
+              // IBAN alıcı adı + hatırlatma şablonu (v14). Nullable — sunucu alanı hiç
+              // göndermezse (eski sürüm) null yazılır ve mesaj kurulumu eski davranışına
+              // düşer: alıcı satırına işletme adı, gövdeye varsayılan metin.
+              ibanOwnerName: Value(_sN(m['iban_owner_name'])),
+              reminderTemplate: Value(_sN(m['reminder_template'])),
               // Kurye yetkileri — sunucu alanı göndermezse (eski sürüm) varsayılana düşülür;
               // NOT NULL kolona `Value(null)` yazmak satırı bozardı (order_code_display dersi).
               courierCanCustomers: Value(_bV(m['courier_can_customers'], true)),

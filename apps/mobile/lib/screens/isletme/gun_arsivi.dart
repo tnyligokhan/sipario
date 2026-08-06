@@ -1,13 +1,10 @@
-// GEÇMİŞ GÜNLER — gün listesi ve gün detayı (kullanıcı isteği 2026-07-29).
+// GEÇMİŞ GÜN VERİSİ — ürün dökümü + tarih biçimleri (`gecmis_gun_ekrani.dart`ın veri katmanı).
 //
-// ÖNCEKİ HÂLİ: "Arşiv" bölümü KAPANIŞ KAYITLARINI düz liste olarak gösteriyordu ("Gün hesabı",
-// "Emre", "Hakan" alt alta, hepsi aynı görünümde). İki sorun vardı:
-//  1. Satırlar tarihi değil KAPSAMI yazıyordu; bayi "28 Temmuz ne oldu" diye bakamıyordu.
-//  2. Kapatılmamış bir gün arşivde HİÇ görünmüyordu — bayi kapatmayı unutursa o günün cirosu
-//     uygulamada okunamaz hâle geliyordu (kullanıcı kararı: hareket olan her gün listelenmeli).
-//
-// YENİ EKSEN GÜNDÜR: liste bir gün = bir satır; kurye kırılımı ve ürün dökümü o günün İÇİNDE
-// durur. Kapatma eylemi ekranın tepesindeki BUGÜN kartında kalır — esnafın günlük işi odur.
+// GEÇMİŞE ERİŞİM ARTIK GÜN GEZİNMESİYLEDİR (kullanıcı kararı 2026-08-06): eskiden burada
+// "hareket olan günler" listesi (`gecmisGunler`) ve bir gün satırına dokununca açılan detay
+// ekranı vardı. Liste + detay iki katmanı, ‹ › oklarıyla tek katmana indi — bayi listede tarih
+// aramıyor, "dün ne oldu" diye soruyor. Liste üreten fonksiyon o yüzden silindi; günün özeti
+// artık `gun_sonu_ozet.dart`taki `gunSonuGorunumu`ndan gelir ve KAPSAM da alır.
 //
 // SAF VERİ KATMANI: ekran hiçbir para formülü yazmaz. Kasa ve teslimat rakamları
 // `DayEndRepository`den gelir (paralel hesap yasağı — arşive donan tutarla ekrandaki tutar aynı
@@ -17,27 +14,6 @@ import '../../data/app_database.dart';
 import '../../repo/day_closing_repository.dart';
 import '../../repo/day_end_repository.dart';
 import 'gun_sonu_ozet.dart';
-
-/// Geçmiş listesinin bir satırı.
-class GunSatiri {
-  GunSatiri({
-    required this.gun,
-    required this.tahsilat,
-    required this.teslimat,
-    required this.kapatildi,
-  });
-
-  final DateTime gun;
-
-  /// O gün kasaya giren toplam (nakit+kart+havale).
-  final int tahsilat;
-
-  final int teslimat;
-
-  /// Gün hesabı kapatılmış mı? Kapatılmamış gün listede KALIR ama işaretlenir — bayi bir günü
-  /// kapatmayı unuttuğunda o günün kaybolması, en çok ihtiyaç duyulan anda veriyi gizlerdi.
-  final bool kapatildi;
-}
 
 /// O gün satılan bir ürün (teslim edilmiş siparişlerden).
 class UrunSatisi {
@@ -90,67 +66,6 @@ class GunDetayi {
 
   int get satilanAdet => urunler.fold<int>(0, (s, u) => s + u.adet);
   int get urunTutari => urunler.fold<int>(0, (s, u) => s + u.tutar);
-}
-
-/// HAREKET OLAN günler (bugün HARİÇ), yeni üstte.
-///
-/// "Hareket" iki kaynaktan gelir ve BİRLEŞTİRİLİR: teslim edilmiş sipariş (teslimat sayısı) ve
-/// kasaya giren ödeme (tahsilat). Yalnız birine bakmak gün düşürürdü — bir gün teslimat yapılıp
-/// parası ertesi gün tahsil edilebilir, ya da eski bir borç teslimatsız bir günde kapanabilir.
-///
-/// TEK GEÇİŞ: defter ve siparişler bir kez okunup Dart'ta gruplanır. Her gün için ayrı sorgu
-/// atmak (gün sayısı × tablo taraması) yıllara yayılmış bir defterde ekranı dakikalara çıkarırdı.
-Future<List<GunSatiri>> gecmisGunler(AppDatabase db, {DateTime? bugun}) async {
-  final bugunTarih = bugun ?? bugunTr();
-
-  final odemeler = await (db.select(db.ledgerEntries)
-        ..where((t) => t.paymentType.isNotNull()))
-      .get();
-  // İki ayrı `where` AND ile birleşir — bu dosya `package:drift`i import etmiyor (ekran
-  // katmanı sözleşmesi: `&` operatörü oradan gelir, `gun_sonu_ozet.dart`taki aynı tercih).
-  final teslimSorgusu = db.select(db.orders)
-    ..where((t) => t.deletedAt.isNull())
-    ..where((t) => t.status.equals('delivered'));
-  final teslimler = await teslimSorgusu.get();
-
-  final tahsilat = <DateTime, int>{};
-  final teslimat = <DateTime, int>{};
-
-  for (final e in odemeler) {
-    final g = trGunu(e.occurredAt);
-    if (g == null || !g.isBefore(bugunTarih)) continue;
-    // payment(−) kasaya girer(+); ters correction(+) kasadan çıkar(−) — `kasaOzeti` ile aynı işaret.
-    tahsilat[g] = (tahsilat[g] ?? 0) + -e.amountKurus;
-  }
-  for (final o in teslimler) {
-    final g = trGunu(o.occurredAt);
-    if (g == null || !g.isBefore(bugunTarih)) continue;
-    teslimat[g] = (teslimat[g] ?? 0) + 1;
-  }
-
-  final gunler = {...tahsilat.keys, ...teslimat.keys}.toList()
-    ..sort((a, b) => b.compareTo(a)); // yeni üstte
-
-  final kapanislar = DayClosingRepository(db);
-  final satirlar = <GunSatiri>[];
-  for (final g in gunler) {
-    satirlar.add(GunSatiri(
-      gun: g,
-      tahsilat: tahsilat[g] ?? 0,
-      teslimat: teslimat[g] ?? 0,
-      kapatildi: await kapanislar.kapaliMi(ClosingScope.day, localDate: g),
-    ));
-  }
-  return satirlar;
-}
-
-/// ISO damgasından TR yerel takvim günü (00:00). `ayniTrGun` ile AYNI kaydırmayı kullanır —
-/// iki farklı gün tanımı, gün sonu rakamlarını sessizce ayrıştırırdı.
-DateTime? trGunu(String iso) {
-  final t = DateTime.tryParse(iso);
-  if (t == null) return null;
-  final tr = t.toUtc().add(const Duration(hours: 3));
-  return DateTime(tr.year, tr.month, tr.day);
 }
 
 /// Bir günün tam dökümü: kasa · kurye kırılımı · satılan ürünler · kapanış kayıtları.
@@ -242,12 +157,7 @@ Future<List<User>> _aktifKuryeler(AppDatabase db) async {
   return satirlar;
 }
 
-/// "28.07 Pazartesi" — liste satırının başlığı. Yıl YAZILMAZ: arşiv yeni günlerle başlar ve
-/// yıl her satırda gürültüdür; gün detayının başlığında tam tarih durur.
-String gunBasligi(DateTime g) =>
-    '${_ikiHane(g.day)}.${_ikiHane(g.month)} ${_gunAdi(g)}';
-
-/// "28 Temmuz 2026, Pazartesi" — detay başlığı.
+/// "28 Temmuz 2026, Pazartesi" — Geçmiş ekranının başlık altı.
 String gunTamBasligi(DateTime g) => '${g.day} ${_aylar[g.month - 1]} ${g.year}, ${_gunAdi(g)}';
 
 const _aylar = [
@@ -260,5 +170,3 @@ const _gunler = [
 ];
 
 String _gunAdi(DateTime g) => _gunler[g.weekday - 1];
-
-String _ikiHane(int n) => n.toString().padLeft(2, '0');

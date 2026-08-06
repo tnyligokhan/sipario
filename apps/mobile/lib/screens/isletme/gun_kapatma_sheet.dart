@@ -24,13 +24,22 @@ class KapatmaSonucu {
   final String not;
 }
 
-/// Hesabı kapat · kasa devri. [beklenen] o kapsamın beklenen nakiti (kuruş).
+/// Hesabı kapat · kasa devri.
+///
+/// [beklenen] KALAN nakittir (kullanıcı kararı 2026-08-06): günün nakdinden gün içinde alınan ara
+/// tahsilatlar düşülmüş hâli. Sayılan tutar bununla karşılaştırılır — kasada duran para budur.
+///
+/// [tamNakit] ve [araTahsilat] YALNIZ AÇIKLAMA İÇİNDİR ve ara tahsilat varsa ayrı satırlarda
+/// yazılır. Olmasalardı bayi her ara tahsilat aldığı gün beklenen nakdin neden düştüğünü
+/// göremezdi; ekran ona açıklanamayan bir eksik gösterirdi ve mutabakata olan güven biterdi.
 Future<KapatmaSonucu?> gunKapatmaSheet(
   BuildContext context, {
   required String kapsamAdi,
   required bool gunHesabi,
   required int beklenen,
   required int teslimat,
+  int tamNakit = 0,
+  int araTahsilat = 0,
 }) {
   return sipSheet<KapatmaSonucu>(
     context,
@@ -40,6 +49,8 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
       gunHesabi: gunHesabi,
       beklenen: beklenen,
       teslimat: teslimat,
+      tamNakit: tamNakit,
+      araTahsilat: araTahsilat,
     ),
   );
 }
@@ -50,12 +61,16 @@ class _KapatmaGovdesi extends StatefulWidget {
     required this.gunHesabi,
     required this.beklenen,
     required this.teslimat,
+    required this.tamNakit,
+    required this.araTahsilat,
   });
 
   final String kapsamAdi;
   final bool gunHesabi;
   final int beklenen;
   final int teslimat;
+  final int tamNakit;
+  final int araTahsilat;
 
   @override
   State<_KapatmaGovdesi> createState() => _KapatmaGovdesiState();
@@ -92,6 +107,24 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
             'Bu hesapta bugün hiç teslimat yok — yine de kapatabilirsiniz.',
             tur: AlanNotuTuru.uyari,
           ),
+
+        // ARA TAHSİLAT ALINMIŞSA HESABIN TAMAMI YAZILIR (günün nakdi → düşülen → kalan).
+        // Yalnız "beklenen nakit" yazsaydık, cirosunun 12.000 olduğunu bilen bayi 7.000'lik bir
+        // beklenti görüp uygulamanın yanıldığını düşünürdü. Sıfır ara tahsilatta bu iki satır
+        // ÇİZİLMEZ — çoğunluk gün böyle geçer ve "− 0,00 ₺" cevapsız bir soru olurdu.
+        if (widget.araTahsilat != 0) ...[
+          DegerKarti(
+            satirlar: [
+              DegerSatiri(etiket: 'Günün nakdi', deger: sipTutar(widget.tamNakit)),
+              DegerSatiri(
+                etiket: 'Alınan ara tahsilat',
+                deger: '− ${sipTutar(widget.araTahsilat)}',
+                degerRengi: t.ink2,
+              ),
+            ],
+          ),
+          const SizedBox(height: SipSpace.md),
+        ],
 
         // CSS `.kd-row`
         Padding(

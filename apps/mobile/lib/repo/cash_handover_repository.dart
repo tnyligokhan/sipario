@@ -81,18 +81,42 @@ class CashHandoverRepository {
   ///
   /// period_start sayesinde gün içinde defalarca çağrılabilir: her ara tahsilat bir öncekinden beri
   /// toplananı kapsar, sayım serbesttir (patron sayar, fark KANIT olarak kaydedilir).
+  ///
+  /// KAPANMIŞ KAPSAMA YAZMAZ ([StateError] atar). Ekran düğmeyi zaten gizliyor; bu İKİNCİ kapı,
+  /// çünkü kapanış "o anın gerçeğini dondurur" — kapandıktan sonra o güne düşen yeni bir devir
+  /// arşivi sessizce yalancı çıkarırdı. Kapı [devret]'e DEĞİL buraya konur: kurye kapanışı
+  /// (`kapat(alsoHandover: true)`) kapanış satırını yazmadan önce [devret] çağırır, oraya kapı
+  /// koysaydık kendi kendini engellerdi.
   Future<String> araTahsilat({
     required String fromUserId,
     String? toUserId,
     required int countedCashKurus,
     String? note,
-  }) =>
-      devret(
-        fromUserId: fromUserId,
-        toUserId: toUserId,
-        countedCashKurus: countedCashKurus,
-        note: note,
-      );
+  }) async {
+    final engel = await _kapaliKapsamEngeli(fromUserId);
+    if (engel != null) throw StateError(engel);
+    return devret(
+      fromUserId: fromUserId,
+      toUserId: toUserId,
+      countedCashKurus: countedCashKurus,
+      note: note,
+    );
+  }
+
+  /// Bugün kapanmış bir kapsam ara tahsilatı engelliyorsa hata metni, engel yoksa null.
+  Future<String?> _kapaliKapsamEngeli(String fromUserId) async {
+    final bugun = _trBugun();
+    final kapanislar = await db.select(db.dayClosings).get();
+    for (final k in kapanislar) {
+      final t = DateTime.tryParse(k.occurredAt);
+      if (t == null || !_ayniTrGun(t, bugun)) continue;
+      if (k.scope == 'day') return 'Gün hesabı kapandı; ara tahsilat alınamaz.';
+      if (k.scope == 'courier' && k.userId == fromUserId) {
+        return 'Bu kuryenin hesabı kapandı; ara tahsilat alınamaz.';
+      }
+    }
+    return null;
+  }
 
   /// Devir ÖNİZLEMESİ (FAZ 4b Dilim 4): ekranın gösterdiği "beklenen nakit" ile devret()'in kayda
   /// yazdığı beklenen AYNI koddan çıksın diye public. Yalnız OKUR (yazma yok). devret() submit anında
@@ -199,6 +223,12 @@ class CashHandoverRepository {
   static bool _ayniTrGun(DateTime t, DateTime localDate) {
     final tr = t.toUtc().add(_trOffset);
     return tr.year == localDate.year && tr.month == localDate.month && tr.day == localDate.day;
+  }
+
+  /// Şu ANIN TR takvim günü (saat sıfırlanmış) — `DayEndRepository.bugunTr` ile aynı tanım.
+  static DateTime _trBugun() {
+    final tr = DateTime.now().toUtc().add(_trOffset);
+    return DateTime(tr.year, tr.month, tr.day);
   }
 
   /// Bugünün TR (+03:00) gün başının UTC ISO karşılığı (occurred_at UTC ISO ile karşılaştırılır).

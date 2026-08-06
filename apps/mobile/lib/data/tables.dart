@@ -275,6 +275,22 @@ class TenantSettings extends Table {
   /// null = tanımlı değil, hatırlatma düğmesi o zaman nedenini söyleyip durur.
   TextColumn get iban => text().nullable()();
 
+  /// IBAN ALICI ADI (kullanıcı isteği 2026-08-06) — hesap sahibinin AD SOYADI.
+  ///
+  /// NEDEN AYRI ALAN: hesap sahibi çoğu zaman ŞAHIS adıdır ("Mehmet Yılmaz"), işletme adıyla
+  /// ("Merkez Su Bayii") aynı değildir; banka uygulaması havale ekranında ad soyad ister ve
+  /// işletme adını yazan müşteri işlemi tamamlayamaz. Boşsa mesajda işletme adına DÜŞÜLÜR —
+  /// güncelleme öncesi davranış budur, hiçbir bayi "Alıcı" satırını bu sürümle kaybetmemeli.
+  TextColumn get ibanOwnerName => text().nullable()();
+
+  /// BORÇ HATIRLATMA ŞABLONU (kullanıcı isteği 2026-08-06) — bayinin kendi mesaj metni.
+  ///
+  /// null/boş = VARSAYILAN metin (`borc_hatirlatma.dart`). Varsayılanı buraya kopyalamak,
+  /// metni ileride iyileştirdiğimizde şablona hiç dokunmamış bayilerde eski metni dondururdu.
+  /// Yer tutucular (`*musteriadi*`, `*siparistutar*`, `*ibanodemebilgileri*` …) gönderim anında
+  /// çözülür; IBAN ve alıcı adı SABİT bloktur, metnin içinde düzenlenemez.
+  TextColumn get reminderTemplate => text().nullable()();
+
   /// KURYE YETKİLERİ (kullanıcı isteği 2026-08-04) — bayinin açıp kapattığı beş anahtar.
   /// KİRACI düzeyindedir (kurye başına değil): 1–3 kişilik bayide kişi bazlı yetki, her yeni
   /// kuryede unutulan bir kurulum adımı doğururdu. Varsayılanlar sunucudakiyle AYNI olmalı —

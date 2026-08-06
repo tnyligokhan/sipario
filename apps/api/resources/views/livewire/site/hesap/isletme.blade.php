@@ -43,6 +43,28 @@
             </x-site.alan>
         </x-site.pano>
 
+        {{--
+            Tahsilat hatırlatması — borçluya mobil uygulamadan gönderilen WhatsApp mesajı.
+
+            IBAN'IN KENDİSİ BURADA YOK (bilinçli): mod-97 denetimi mobilde yaşıyor ve yanlış IBAN
+            SESSİZ bir hatadır — para gelmez, kimse nedenini bilmez. Denetimsiz bir web alanı,
+            bayinin hesap numarasını kontrolsüz değiştirebileceği ikinci bir kapı açardı. Aşağıdaki
+            iki alan serbest metindir: yanlış yazılırsa mesaj çirkin olur, para kaybolmaz.
+        --}}
+        <x-site.pano etiket="Tahsilat hatırlatması">
+            <x-site.alan etiket="IBAN alıcı adı" :hata="$errors->first('isletme.ibanAliciAdi')" id="t-o"
+                ipucu="Hesap sahibinin ad soyadı. Banka uygulaması havalede ad soyad ister; boş bırakırsanız işletme adınız yazılır.">
+                <input id="t-o" class="gir @error('isletme.ibanAliciAdi') yanlis @enderror"
+                    maxlength="120" wire:model="isletme.ibanAliciAdi">
+            </x-site.alan>
+
+            <x-site.alan etiket="Hatırlatma mesajı" :hata="$errors->first('isletme.hatirlatmaSablonu')" id="t-s"
+                ipucu="Boş bırakılırsa varsayılan mesaj gönderilir. Yer tutucular: *musteriadi* · *isletmeadi* · *siparistutar* · *ibanodemebilgileri* (IBAN ve alıcı adı — sabittir, yalnız yeri seçilir).">
+                <textarea id="t-s" class="gir @error('isletme.hatirlatmaSablonu') yanlis @enderror"
+                    rows="6" maxlength="1000" wire:model="isletme.hatirlatmaSablonu"></textarea>
+            </x-site.alan>
+        </x-site.pano>
+
         <x-site.pano etiket="Fatura bilgileri">
             <x-site.kutu tur="mor" ikon="bilgi">
                 Buradaki bilgiler e-arşiv faturanızda görünür. Değişiklik sonraki faturadan itibaren geçerli olur.

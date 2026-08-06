@@ -104,7 +104,7 @@ void main() {
       await tester.tap(find.text('Bugün Kasa'));
       await tester.pump();
 
-      // "Bugün Kasa" KOŞULSUZ gün sonuna gider (`s-ana.jsx:35`): Gün Sonu sekmesi artık
+      // "Bugün Kasa" KOŞULSUZ gün sonuna gider (`s-ana.jsx:35`): Gün Özeti sekmesi artık
       // kuryede de açık (alt navigasyon 5 yuva, kullanıcı kararı 2026-07-26).
       // "Borçlular" bir SEKME DEĞİL ekran açar — sekme listesine girmemesi kuralın kendisidir.
       expect(gidilen, [SipSekme.siparis, SipSekme.gunSonu]);

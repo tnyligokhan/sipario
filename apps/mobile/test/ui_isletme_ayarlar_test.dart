@@ -111,6 +111,67 @@ void main() {
       await kapat(tester);
     });
 
+    testWidgets('IBAN alıcı adı ve mesaj şablonu görünür, kaydedilir; çip imlece jeton ekler',
+        (tester) async {
+      // Kullanıcı isteği 2026-08-06. Alanlar `_alan` sırasına göre: … iban(9) · ibanAlici(10) ·
+      // sablon(11) · fisNotu(12).
+      final db = AppDatabase(NativeDatabase.memory());
+      final repo = TenantSettingsRepository(db);
+
+      await ekranaKoy(tester, IsletmeProfiliEkrani(db: db));
+
+      // Alanların VARLIĞI etiketleriyle kanıtlanır: alan sırasına dayanan bir test, araya bir
+      // alan eklendiğinde sessizce başka bir alanı sınamaya başlardı.
+      expect(find.text('IBAN ALICI ADI'), findsOneWidget);
+      expect(find.text('Hatırlatma Mesajı'), findsOneWidget);
+      // Bayi yer tutucuları EZBERLEMEK zorunda kalmamalı — ekranda dururlar.
+      expect(find.text('Müşteri adı'), findsOneWidget);
+      expect(find.text('IBAN + alıcı'), findsOneWidget);
+
+      final alanlar = find.byType(TextField);
+      await tester.enterText(alanlar.at(0), 'Merkez Bayi');
+      await tester.enterText(alanlar.at(1), 'Gökhan Tonyalı');
+      await tester.enterText(alanlar.at(2), '0242 111 22 33');
+      await tester.enterText(alanlar.at(10), 'Mehmet Yılmaz');
+      await tester.enterText(alanlar.at(11), 'Sayın ');
+      await tester.pump();
+
+      // Çip: imleç (enterText sonrası metnin SONUNDA) konumuna jeton eklenir.
+      await dokun(tester, find.text('Müşteri adı'));
+      expect(tester.widget<TextField>(alanlar.at(11)).controller!.text, 'Sayın *musteriadi*');
+
+      await dokun(tester, find.text('Kaydet'));
+
+      final satir = await tester.runAsync(() => repo.get());
+      expect(satir!.ibanOwnerName, 'Mehmet Yılmaz');
+      expect(satir.reminderTemplate, 'Sayın *musteriadi*');
+
+      await kapat(tester);
+    });
+
+    testWidgets('şablonu boş bırakmak varsayılana döner — null yazılır, boş dize değil',
+        (tester) async {
+      // null ile boş dize AYRI şeyler olsaydı, boşaltılan şablon "özel metin var ama boş" diye
+      // okunur ve borçluya BOŞ bir WhatsApp mesajı hazırlanırdı.
+      final db = AppDatabase(NativeDatabase.memory());
+      final repo = TenantSettingsRepository(db);
+
+      await ekranaKoy(tester, IsletmeProfiliEkrani(db: db));
+
+      final alanlar = find.byType(TextField);
+      await tester.enterText(alanlar.at(0), 'Merkez Bayi');
+      await tester.enterText(alanlar.at(1), 'Gökhan Tonyalı');
+      await tester.enterText(alanlar.at(2), '0242 111 22 33');
+      await tester.pump();
+      await dokun(tester, find.text('Kaydet'));
+
+      final satir = await tester.runAsync(() => repo.get());
+      expect(satir!.reminderTemplate, isNull);
+      expect(satir.ibanOwnerName, isNull);
+
+      await kapat(tester);
+    });
+
     testWidgets('zorunlu alanlar yıldızlı; fiş notunda ikinci etiket yok', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 

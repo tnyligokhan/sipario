@@ -41,6 +41,8 @@ class TenantSettingsRepository {
     String? closesAt,
     String? receiptNote,
     String? iban,
+    String? ibanOwnerName,
+    String? reminderTemplate,
     String? orderCodeDisplay,
     KuryeIzinleri? kuryeIzin,
   }) async {
@@ -72,6 +74,8 @@ class TenantSettingsRepository {
       'closes_at': closesAt,
       'receipt_note': receiptNote,
       'iban': iban,
+      'iban_owner_name': ibanOwnerName,
+      'reminder_template': reminderTemplate,
       'courier_can_customers': izin.musteri,
       'courier_can_orders': izin.siparis,
       'courier_can_collect': izin.tahsilat,
@@ -94,6 +98,8 @@ class TenantSettingsRepository {
             closesAt: Value(closesAt),
             receiptNote: Value(receiptNote),
             iban: Value(iban),
+            ibanOwnerName: Value(ibanOwnerName),
+            reminderTemplate: Value(reminderTemplate),
             courierCanCustomers: Value(izin.musteri),
             courierCanOrders: Value(izin.siparis),
             courierCanCollect: Value(izin.tahsilat),
@@ -133,6 +139,8 @@ class TenantSettingsRepository {
       closesAt: m?.closesAt,
       receiptNote: m?.receiptNote,
       iban: m?.iban,
+      ibanOwnerName: m?.ibanOwnerName,
+      reminderTemplate: m?.reminderTemplate,
       orderCodeDisplay: m?.orderCodeDisplay,
       kuryeIzin: izin,
     );
@@ -157,6 +165,8 @@ class TenantSettingsRepository {
       closesAt: m?.closesAt,
       receiptNote: m?.receiptNote,
       iban: m?.iban,
+      ibanOwnerName: m?.ibanOwnerName,
+      reminderTemplate: m?.reminderTemplate,
       orderCodeDisplay: tercih,
     );
   }

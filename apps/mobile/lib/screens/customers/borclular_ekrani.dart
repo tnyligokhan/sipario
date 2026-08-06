@@ -264,6 +264,8 @@ class _Liste extends StatelessWidget {
                       telefon: (telefonSnap.data ?? const {})[liste[i].musteri.id],
                       iban: ayar?.iban,
                       isletmeAdi: ayar?.businessName,
+                      ibanAliciAdi: ayar?.ibanOwnerName,
+                      sablon: ayar?.reminderTemplate,
                     ),
                   ),
                 ),
@@ -291,6 +293,8 @@ class _BorcluKarti extends StatelessWidget {
     this.telefon,
     this.iban,
     this.isletmeAdi,
+    this.ibanAliciAdi,
+    this.sablon,
   });
 
   final AppDatabase db;
@@ -305,6 +309,11 @@ class _BorcluKarti extends StatelessWidget {
   /// Bayinin IBAN'ı ve unvanı — mesajın içine girer (İşletme Profili'nden).
   final String? iban;
   final String? isletmeAdi;
+
+  /// Hesap sahibinin ad soyadı (boşsa işletme adına düşülür) ve bayinin kendi mesaj şablonu
+  /// (boşsa varsayılan metin) — ikisi de İşletme Profili'nden gelir.
+  final String? ibanAliciAdi;
+  final String? sablon;
 
   Future<void> _musteriAc(BuildContext context) => Navigator.of(context).push(
         MaterialPageRoute(
@@ -344,6 +353,8 @@ class _BorcluKarti extends StatelessWidget {
       borcKurus: veri.borcKurus,
       iban: iban,
       isletmeAdi: isletmeAdi,
+      ibanAliciAdi: ibanAliciAdi,
+      sablon: sablon,
     );
     final gerekce = await whatsappAc(telefon, mesaj: mesaj);
     if (gerekce != null && context.mounted) SipToast.goster(context, gerekce);

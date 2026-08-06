@@ -21,14 +21,15 @@ import 'package:flutter/material.dart';
 
 import '../data/app_database.dart';
 import '../sync/yenileme.dart';
+import '../repo/cash_handover_repository.dart';
 import '../repo/day_closing_repository.dart';
 import '../theme/components/atoms.dart';
 import '../theme/components/overlays.dart';
 import '../theme/components/states.dart';
 import '../theme/icons.dart';
 import '../theme/tokens.dart';
-import '../theme/typography.dart';
-import 'isletme/gecmis_gunler_listesi.dart';
+import 'isletme/ara_tahsilat_sheet.dart';
+import 'isletme/gecmis_gun_ekrani.dart';
 import 'isletme/gun_kapatma_sheet.dart';
 import 'isletme/gun_sonu_kartlari.dart';
 import 'isletme/gun_sonu_ozet.dart';
@@ -117,6 +118,52 @@ class _DayEndScreenState extends State<DayEndScreen> {
     return _kuryeId != null && _kuryeId == widget.kullaniciId;
   }
 
+  /// Seçili kapsamdan ARA TAHSİLAT alma yetkisi (K2) — [_kapatabilir]in kardeşi, ama üç ek koşul:
+  ///  • Kapsam bir KURYE olmalı: ara tahsilat kuryenin cebindeki nakdi almaktır, "gün hesabından"
+  ///    para alınmaz (patron zaten kendi kasasını taşır).
+  ///  • Kapsam kapalıysa alınmaz — kapanmış bir hesaba sonradan para eklemek mutabakatı bozar.
+  ///  • [GunSonuGorunumu.araTahsilatMumkun]: aktif kurye var mı, gün açık mı, gün BUGÜN mü.
+  ///
+  /// Yönetici her kuryeden alır; kurye YALNIZ kendi kapsamında (kendi kasasını patrona
+  /// devrediyor). Başkasının kapsamı ona kapalı — segmentte zaten göremez, burası ikinci kapı.
+  bool _araTahsilatAlabilir(GunSonuGorunumu g) {
+    if (!g.araTahsilatMumkun || g.kapsamKapali || _kuryeId == null) return false;
+    if (yetkiler(rol: widget.rol, kuryeVar: true).gunSonu) return true;
+    return _kuryeId == widget.kullaniciId;
+  }
+
+  Future<void> _araTahsilat(List<User> kuryeler, GunSonuGorunumu g) async {
+    if (!_araTahsilatAlabilir(g)) return; // düğme zaten çizilmedi; çift kapı (K2 pazarlıksız)
+    final kuryeId = _kuryeId!;
+    final kuryeAdi = _kapsamAdi(kuryeler);
+
+    // Beklenen tutar REPO'DAN gelir, ekranın kasa kartından DEĞİL: ara tahsilat "son devirden
+    // beri" toplananı kapsar, gün başından beri toplananı değil. İkinci bir tahsilatta bu iki
+    // rakam ayrışır ve ekranın kendi toplamını kullanmak parayı iki kez saydırırdı.
+    final repo = CashHandoverRepository(widget.db);
+    final onizleme = await repo.onizle(kuryeId);
+    if (!mounted) return;
+
+    final sonuc = await araTahsilatSheet(
+      context,
+      kuryeAdi: kuryeAdi,
+      beklenen: onizleme.expectedKurus,
+    );
+    if (sonuc == null || !mounted) return;
+
+    // Gün AÇIK kalır: `araTahsilat` kapanış yazmaz (bkz. repo'daki gerekçe).
+    await repo.araTahsilat(
+      fromUserId: kuryeId,
+      toUserId: widget.kullaniciId,
+      countedCashKurus: sonuc.sayilan,
+      note: sonuc.not.isEmpty ? null : sonuc.not,
+    );
+    if (!mounted) return;
+
+    SipToast.goster(context, '$kuryeAdi · ${sipTutar(sonuc.sayilan)} tahsil edildi');
+    _tazele();
+  }
+
   Future<void> _kapat(List<User> kuryeler, GunSonuGorunumu g) async {
     if (!_kapatabilir) return; // düğme zaten kapalı; çift kapı (K2 pazarlıksız)
     final kapsamAdi = _kapsamAdi(kuryeler);
@@ -124,7 +171,11 @@ class _DayEndScreenState extends State<DayEndScreen> {
       context,
       kapsamAdi: kapsamAdi,
       gunHesabi: _kuryeId == null,
-      beklenen: g.kapsam.kasa.nakit,
+      // BEKLENEN ARTIK KALAN NAKİTTİR (kullanıcı kararı 2026-08-06): gün içinde alınan ara
+      // tahsilatlar kasadan çıkmıştır ve onları saymak isteyen bir kapanış her gün eksik verirdi.
+      beklenen: g.kalanNakitKurus,
+      tamNakit: g.kapsam.kasa.nakit,
+      araTahsilat: g.araTahsilatKurus,
       teslimat: g.kapsam.teslimat,
     );
     if (sonuc == null || !mounted) return;
@@ -193,6 +244,25 @@ class _DayEndScreenState extends State<DayEndScreen> {
                       onGeri: widget.onMenu == null
                           ? () => Navigator.of(context).maybePop()
                           : null,
+                      // GEÇMİŞ AYRI EKRANDIR (kullanıcı kararı 2026-08-06). Eskiden gövdenin
+                      // dibinde bir liste olarak duruyordu; bu ekranın işi BUGÜNDÜR ve geçmiş
+                      // onu her açılışta aşağı itiyordu. İkon TEK BAŞINA çizilmez — metinsiz bir
+                      // takvim, günlük işini yapan bayiye ne açacağını söylemiyordu.
+                      sag: [
+                        SipMetinButon(
+                          etiket: 'Geçmiş',
+                          ikon: SipIcons.takvim,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => GecmisGunEkrani(
+                                db: widget.db,
+                                rol: widget.rol,
+                                kullaniciId: widget.kullaniciId,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     // Kapsam segmenti HER ZAMAN çizilir — tek kurye (ya da hiç kurye) varken de
                     // "Tümü" görünür (tasarım `s-gunsonu.jsx:37-41` şeridi koşulsuzdur). Segment
@@ -214,7 +284,6 @@ class _DayEndScreenState extends State<DayEndScreen> {
                       child: g == null
                           ? const SipGovde(children: [SipIskelet(adet: 3)])
                           : _Govde(
-                              db: widget.db,
                               gorunum: g,
                               kapsamAdi: _kapsamAdi(kuryeler),
                               gunKapsami: _kuryeId == null,
@@ -223,11 +292,21 @@ class _DayEndScreenState extends State<DayEndScreen> {
                             ),
                     ),
                     if (g != null)
-                      _AltCubuk(
-                        gorunum: g,
+                      GunOzetiAltCubugu(
+                        kapsamKapali: g.kapsamKapali,
+                        gunKapali: g.gunKapali,
                         kuryeAdi: _kuryeId == null ? null : _kapsamAdi(kuryeler),
                         kapatabilir: _kapatabilir,
+                        acikSiparis: g.kapsam.acikSiparis,
+                        gunEngeli: g.gunEngeli,
+                        acikKuryeAdlari: g.acikKuryeAdlari,
+                        toplam: g.kapsam.kasa.toplam,
                         onKapat: () => _kapat(kuryeler, g),
+                        // null → düğme HİÇ çizilmez (tek kişilik bayi, gün kapsamı, yetkisiz
+                        // kullanıcı ya da kapatılmış kapsam).
+                        onAraTahsilat: _araTahsilatAlabilir(g)
+                            ? () => _araTahsilat(kuryeler, g)
+                            : null,
                       ),
                   ],
                 );
@@ -242,7 +321,6 @@ class _DayEndScreenState extends State<DayEndScreen> {
 
 class _Govde extends StatelessWidget {
   const _Govde({
-    required this.db,
     required this.gorunum,
     required this.kapsamAdi,
     required this.gunKapsami,
@@ -250,7 +328,6 @@ class _Govde extends StatelessWidget {
     required this.onYenile,
   });
 
-  final AppDatabase db;
   final Future<void> Function() onYenile;
   final GunSonuGorunumu gorunum;
 
@@ -264,10 +341,6 @@ class _Govde extends StatelessWidget {
 
   String _kapanisAdi(DayClosing k) =>
       k.userId == null ? 'Gün hesabı' : (kullaniciAdi(ekip, k.userId) ?? 'Kurye');
-
-  /// Bugüne düşen kapanış kayıtları (arşivin tamamı `gorunum.arsiv`de gelir).
-  List<DayClosing> get bugunKapanislari =>
-      gorunum.arsiv.where((k) => ayniTrGun(k.occurredAt, bugunTr())).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -316,118 +389,39 @@ class _Govde extends StatelessWidget {
           ],
         ),
 
+        // ARA TAHSİLATLAR kasa kartının HEMEN ALTINDA durur (kullanıcı kararı 2026-08-06):
+        // yukarıdaki nakit rakamı ile akşam sayılacak para arasındaki farkı açıklayan tek şey
+        // budur. Araya başka bölüm girseydi bayi ikisini yan yana okuyamazdı.
+        if (g.araTahsilatlar.isNotEmpty) ...[
+          const SipBolumBaslik('Ara Tahsilatlar', ustBosluk: 18),
+          AraTahsilatKarti(kayitlar: g.araTahsilatlar, kuryeAdiYaz: gunKapsami),
+        ],
+
         if (gunKapsami) ...[
           const SipBolumBaslik('Açık Veresiye', ustBosluk: 18),
           VeresiyeKarti(borc: g.ozet.borc),
         ],
 
-        // BUGÜNÜN kapanışları burada kalır (geçmiş listesi yalnız GEÇMİŞ günleri taşır).
+        // BUGÜNÜN kapanışları burada kalır (Geçmiş ekranı yalnız GEÇMİŞ günleri taşır).
         // Kaldırılsaydı, kuryesinin devrini az önce kapatan patron farkı ancak ERTESİ GÜN
         // görebilirdi — mutabakatın kanıtı kapatıldığı anda görünmek zorunda.
-        if (bugunKapanislari.isNotEmpty) ...[
+        if (g.gunKapanislari.isNotEmpty) ...[
           const SipBolumBaslik('Bugünün Kapanışları', ustBosluk: 18),
-          for (var i = 0; i < bugunKapanislari.length; i++)
+          for (var i = 0; i < g.gunKapanislari.length; i++)
             Padding(
               padding: EdgeInsets.only(top: i == 0 ? 0 : 6),
               child: ArsivSatiri(
-                kapanis: bugunKapanislari[i],
-                kapsamAdi: _kapanisAdi(bugunKapanislari[i]),
+                kapanis: g.gunKapanislari[i],
+                kapsamAdi: _kapanisAdi(g.gunKapanislari[i]),
                 onTap: () => arsivDetaySheet(
                   context,
-                  bugunKapanislari[i],
-                  kapsamAdi: _kapanisAdi(bugunKapanislari[i]),
+                  g.gunKapanislari[i],
+                  kapsamAdi: _kapanisAdi(g.gunKapanislari[i]),
                 ),
               ),
             ),
         ],
-
-        // GEÇMİŞ — eksen artık GÜNDÜR (kullanıcı isteği 2026-07-29). Eskiden burada kapanış
-        // kayıtları düz liste hâlinde duruyordu ("Gün hesabı · Emre · Hakan" alt alta) ve
-        // satırlar tarihi değil KAPSAMI yazıyordu; bayi "28 Temmuz ne oldu" diye bakamıyordu.
-        // Kurye kırılımı ve ürün dökümü artık günün İÇİNDE.
-        const SipBolumBaslik('Geçmiş', ustBosluk: 18),
-        GecmisListesi(db: db),
       ],
     );
-  }
-}
-
-/// CSS `.ys-alt` — kapatma engeli · toplam · kapat düğmesi (ya da `.gs-alt-kapali`).
-class _AltCubuk extends StatelessWidget {
-  const _AltCubuk({
-    required this.gorunum,
-    required this.kuryeAdi,
-    required this.kapatabilir,
-    required this.onKapat,
-  });
-
-  final GunSonuGorunumu gorunum;
-
-  /// null ise gün hesabı kapsamı.
-  final String? kuryeAdi;
-
-  /// K2: kurye gün hesabını (ve başkasının hesabını) kapatamaz. false ise düğme kapalı çizilir
-  /// ve NEDENİ yazılır — sessizce devre dışı bir düğme kullanıcıya hiçbir şey söylemiyordu.
-  final bool kapatabilir;
-
-  final VoidCallback onKapat;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    final g = gorunum;
-
-    if (g.kapsamKapali) {
-      return AltCubuk(children: [
-        SizedBox(
-          width: double.infinity,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SipIcon(SipIcons.check, boyut: 17, kalinlik: 2.6, renk: t.ok),
-              const SizedBox(width: SipSpace.md),
-              Flexible(
-                child: Text(
-                  g.gunKapali
-                      ? 'Gün kapatıldı — arşivde'
-                      : '$kuryeAdi hesabı kapatıldı — arşivde',
-                  style: SipText.metin(13.5, w: 800).copyWith(color: t.ok),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ]);
-    }
-
-    // ÜÇ bağımsız kapı, en temelden başlayarak: rol (bu kapsamı kapatma yetkisi), açık sipariş
-    // (her kapsamda) ve yarım kalmış kurye devri (yalnız gün hesabında).
-    final engel = !kapatabilir || g.kapsam.acikSiparis > 0 || g.gunEngeli;
-    return AltCubuk(children: [
-      if (engel)
-        SizedBox(
-          width: double.infinity,
-          child: KapatmaEngeli(
-            rolEngeli: !kapatabilir,
-            acikSiparis: kapatabilir ? g.kapsam.acikSiparis : 0,
-            acikKuryeler:
-                !kapatabilir || g.kapsam.acikSiparis > 0 ? const [] : g.acikKuryeAdlari,
-          ),
-        ),
-      SizedBox(
-        width: 150,
-        child: AltCubukToplam(
-          etiket: kuryeAdi == null ? 'Bugün tahsilat' : '$kuryeAdi · tahsilat',
-          deger: sipTutar(g.kapsam.kasa.toplam),
-        ),
-      ),
-      SipButon(
-        etiket: kuryeAdi == null ? 'Günü Kapat' : 'Hesabı Kapat',
-        ikon: SipIcons.lock,
-        genisle: false,
-        yatayPadding: SipSpace.x5,
-        onTap: engel ? null : onKapat,
-      ),
-    ]);
   }
 }

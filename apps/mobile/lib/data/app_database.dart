@@ -39,7 +39,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.file() : super(_openOnDevice());
 
   @override
-  int get schemaVersion => 13; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN
+  int get schemaVersion => 14; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN · v14 IBAN alıcı adı + hatırlatma şablonu
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -114,6 +114,22 @@ class AppDatabase extends _$AppDatabase {
               'ALTER TABLE tenant_settings ADD COLUMN courier_can_collect INTEGER NOT NULL DEFAULT 1',
               'ALTER TABLE tenant_settings ADD COLUMN courier_can_discount INTEGER NOT NULL DEFAULT 0',
               'ALTER TABLE tenant_settings ADD COLUMN courier_can_day_end INTEGER NOT NULL DEFAULT 0',
+            ]) {
+              await _addColumnIfMissing(m, sql);
+            }
+
+            // v14 — IBAN ALICI ADI + HATIRLATMA ŞABLONU (2026-08-06). İkisi de nullable metin:
+            // null = "tanımlı değil" ve mesaj kurulumu o hâlde ESKİ davranışına düşer (alıcı
+            // satırına işletme adı yazılır, şablon varsayılandır). Bu yüzden mevcut satırlara
+            // değer TAŞINMAZ; boş gelmeleri doğru başlangıçtır.
+            //
+            // v10..v13 ile AYNI SEBEPTEN aynı kapının içinde ve `from < 14` KOŞULU OLMADAN:
+            // aşağıdaki kendini-onarma kapısı `tenant_settings`i görünce erken döner ve sahadaki
+            // her cihazda o tablo zaten vardır. Arıza yine sessiz olurdu: bayi alıcı adını yazar,
+            // "kaydedildi" görür, mesajda hiç görünmezdi.
+            for (final sql in [
+              'ALTER TABLE tenant_settings ADD COLUMN iban_owner_name TEXT',
+              'ALTER TABLE tenant_settings ADD COLUMN reminder_template TEXT',
             ]) {
               await _addColumnIfMissing(m, sql);
             }

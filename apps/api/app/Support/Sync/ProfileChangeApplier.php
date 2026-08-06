@@ -108,6 +108,12 @@ class ProfileChangeApplier
             'closes_at' => $p['closes_at'] ?? null,
             'receipt_note' => $p['receipt_note'] ?? null,
             'iban' => self::iban($p['iban'] ?? null),
+            // IBAN alıcı adı + hatırlatma şablonu (kullanıcı isteği 2026-08-06). Uzunluk kapısı
+            // `iban` ile AYNI gerekçeyle burada: kolon sınırına dayanıp 22001 almak TÜM senkron
+            // partisini düşürürdü, buradan fırlayan istisna yalnız BU olayı 'rejected' işaretler.
+            // Kırpma YOK — yarım kalmış bir mesaj metni bayinin müşterisine yarım gider.
+            'iban_owner_name' => self::sinirliMetin($p['iban_owner_name'] ?? null, 120, 'iban_owner_name'),
+            'reminder_template' => self::sinirliMetin($p['reminder_template'] ?? null, 1000, 'reminder_template'),
             ...self::kuryeIzinleri($p),
             // Sipariş satırındaki kod tercihi (kullanıcı isteği 2026-07-29). BEYAZ LİSTE:
             // tanınmayan bir değer varsayılana düşer — istemci sürümleri ayrışabilir ve
@@ -174,6 +180,34 @@ class ProfileChangeApplier
         }
         if (mb_strlen($s) > 34) {
             throw new InvalidArgumentException('iban 34 karakterden uzun olamaz');
+        }
+
+        return $s;
+    }
+
+    /**
+     * Serbest metin kolonu için uzunluk kapısı. Boş metin `null`dur — "girilmedi" ile "boşaltıldı"
+     * bu alanlarda aynı şeydir ve boş dizeyle null'ın iki ayrı durum olması, istemcideki
+     * "varsayılana dön" kararını (şablon boşsa varsayılan metin) belirsizleştirirdi.
+     *
+     * SINIR AŞILIRSA REDDEDİLİR, KIRPILMAZ: yarım kalmış bir hatırlatma metni bayinin müşterisine
+     * yarım gider ve bayi bunu ancak müşteri sorunca öğrenir. Sessiz "en iyi çaba" bu alanda da
+     * kabul edilemez (IBAN'ın 34 hane kapısıyla aynı çizgi).
+     *
+     * YER TUTUCU DENETİMİ YOK (bilinçli): bilinmeyen `*...*` dizileri istemcide OLDUĞU GİBİ kalır —
+     * WhatsApp'ta yıldız kalın yazı demektir ve bayinin kendi vurgusunu reddetmek metnini bozardı.
+     */
+    private static function sinirliMetin(mixed $ham, int $azami, string $alan): ?string
+    {
+        if ($ham === null) {
+            return null;
+        }
+        $s = trim((string) $ham);
+        if ($s === '') {
+            return null;
+        }
+        if (mb_strlen($s) > $azami) {
+            throw new InvalidArgumentException("{$alan} {$azami} karakterden uzun olamaz");
         }
 
         return $s;

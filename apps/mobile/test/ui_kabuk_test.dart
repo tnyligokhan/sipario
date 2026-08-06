@@ -171,9 +171,9 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('kuryenin dördüncü MENÜ satırı "Kasa Devri" ve Gün Sonu sekmesine gider',
+    testWidgets('kuryenin dördüncü MENÜ satırı "Kasa Devri" ve Gün Özeti sekmesine gider',
         (tester) async {
-      // Kasa devri EKRANI kaldırıldı; satırın hedefi Gün Sonu sekmesidir. Kuryede satır
+      // Kasa devri EKRANI kaldırıldı; satırın hedefi Gün Özeti sekmesidir. Kuryede satır
       // adıyla kendi işini söyler, yöneticide tasarımın birleşik etiketi kalır — iki satır
       // aynı yere gitmesin diye tek satır role göre etiketlenir.
       final gidilen = <SipSekme>[];
