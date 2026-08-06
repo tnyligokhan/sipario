@@ -8,10 +8,15 @@
 //  2. Ara tahsilat düğmesi YETKİ + KAPSAM + KİLİT üçlü kapısından geçer; kapı kapalıysa düğme
 //     PASİF değil HİÇ ÇİZİLMEZ.
 //  3. Tahsilat sonrası gün AÇIK kalır (kapanış kaydı yazılmaz) ve özet satırı belirir.
-//  4. Kapanış sheet'i ÜÇ SAYIYI birlikte gösterir: günün nakdi · gün içinde alınan · beklenen.
-//     Yoksa bayi her gün açıklanamayan bir eksik görürdü (BRIEF: rakamlar elle tutulan defterle
-//     tutmazsa ürüne güven ölür). "Gün içinde alınan" ARA ve KAPANIŞ devirlerini BİRLİKTE kapsar
-//     ve etiketi bunu iddia etmez — ara tahsilat hiç alınmamış bir günde de çizilir.
+//  4. Kapanış sheet'i ÜÇ SAYIYI birlikte gösterir ve `üst − orta == alt` her zaman tutar. Yoksa
+//     bayi açıklanamayan bir eksik görürdü (BRIEF: rakamlar elle tutulan defterle tutmazsa ürüne
+//     güven ölür).
+//  5. ORTA SATIRIN ADI KAPSAMA GÖRE DEĞİŞİR, çünkü zıt yönlü iki büyüklüktür:
+//     • kurye kapsamı → "Teslim edilen" (kuryenin verdiği para)
+//     • gün kapsamı  → "Kuryelerde kalan" (henüz VERİLMEMİŞ para)
+//     Gün kapsamında devir bir İÇ TRANSFERDİR — para kuryeden patrona geçer, işletmeden çıkmaz;
+//     o yüzden düşülen teslim edilen değil, kalandır. Değer tek alandan (`dusulenKurus`) gelir,
+//     adı ekran koyar: seçtirmek, yanlışını seçme fırsatı vermek olurdu.
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -251,10 +256,10 @@ void main() {
 
       // Özet kartı ara tahsilatı gösterir.
       expect(find.text('Ara Tahsilatlar'), findsOneWidget);
-      // Etiket "ara tahsilat" der: özet kartındaki bu toplam DAR kümedir (kapanışa bağlanmamış
-      // devirler), kapanış sheet'indeki "Gün içinde alınan" ise ara + kapanış devirlerini
-      // kapsar. İki farklı rakamı aynı kelimeyle anmak, bayiye hangisinin doğru olduğunu
-      // sordururdu.
+      // Etiket "ara tahsilat" der ve DEMEK ZORUNDA: bu toplam kapanışa bağlanmamış devirleri
+      // sayar, kapanış sheet'indeki orta satır ise bambaşka bir büyüklüktür (kurye kapsamında
+      // teslim edilen, gün kapsamında kuryelerde kalan). Üçünü de "alınan" diye anmak, bayiye
+      // birbirini tutmayan üç rakam gösterip hangisinin doğru olduğunu sordururdu.
       expect(find.textContaining('Ara tahsilat toplamı · 1 tahsilat'), findsOneWidget);
 
       await kapat(tester);

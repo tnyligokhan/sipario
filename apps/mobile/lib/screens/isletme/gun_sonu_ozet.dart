@@ -113,6 +113,7 @@ class GunSonuGorunumu {
     this.araTahsilatlar = const [],
     this.gunKapanislari = const [],
     this.araTahsilatMumkun = false,
+    this.araTahsilatToplamiKurus = 0,
     this.senkron = const SenkronTazeligi(),
   });
 
@@ -157,13 +158,17 @@ class GunSonuGorunumu {
   /// inmemiş olabilir.
   final SenkronTazeligi senkron;
 
-  // PARA TÜRETEN GETTER YOK — bilinçli (inceleme #7).
-  //
-  // Burada bir zamanlar `kalanNakitKurus` ve `araTahsilatKurus` vardı. İkisi de "toplamı ekranda
-  // hazır bulundurmak" için eklenmişti ama ikisi de kapanış aritmetiğine YAKIN durup ondan FARKLI
-  // hesaplıyordu; `kalanNakitKurus` kapanış sheet'ini bir kez fiilen yanlış besledi. Kapanışın
-  // rakamları TEK yerden gelir: `DayClosingRepository.onizle()` → `gunNakitKurus` ·
-  // `dusulenKurus` · `expectedCashKurus`. Liste toplamı gerekiyorsa çağrı yerinde topla.
+  /// [araTahsilatlar] LİSTESİNİN toplamı — REPO hesaplar, ekran kendi listesini toplamaz.
+  ///
+  /// ⚠️ BU KAPANIŞ ARİTMETİĞİ DEĞİLDİR ve oraya sokulamaz. Özet kartındaki "Ara tahsilat
+  /// toplamı · N tahsilat" satırı içindir; kapanış devirleri bu kümede YOKTUR. Kapanışın üç
+  /// sayısı TEK yerden gelir: `DayClosingRepository.onizle()` → `gunNakitKurus` · `dusulenKurus`
+  /// (+`dusulenKalem`) · `expectedCashKurus`.
+  ///
+  /// Getter DEĞİL alan olmasının sebebi: bir zamanlar buradaki türetilmiş getter'lar
+  /// (`kalanNakitKurus`, `araTahsilatKurus`) kapanış aritmetiğine yakın durup ondan farklı
+  /// hesaplıyordu ve sheet'i bir kez fiilen yanlış besledi (inceleme #7).
+  final int araTahsilatToplamiKurus;
 }
 
 /// Seçili GÜNÜN tam görünümü. [localDate] GEÇMİŞ bir gün olabilir — tüm süzgeçler bu tarihi
@@ -195,6 +200,8 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
     gunKapanislari: await kapanislar.gununKapanislari(localDate),
     araTahsilatlar:
         await CashHandoverRepository(db).araTahsilatlar(localDate, kuryeId: kuryeId),
+    araTahsilatToplamiKurus:
+        await CashHandoverRepository(db).araTahsilatToplami(localDate, kuryeId: kuryeId),
     // Geçmiş gün için de FALSE: dünün kasasını bugün "ara" tahsilat diye almak, parayı dünün
     // hesabına yazmak olurdu.
     araTahsilatMumkun: bugun && !gunKapali && aktifSayi > 0,

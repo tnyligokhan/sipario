@@ -145,8 +145,19 @@ class DayClosingRepository {
 
     final on = await onizle(scope, userId: userId, localDate: localDate);
     final meta = await db.syncState();
-    final at = correctedNowIso(meta.serverTimeOffsetMs);
     final device = meta.deviceId;
+
+    // GEÇMİŞ GÜN KAPANIŞI O GÜNE DAMGALANIR (inceleme F3). `kapaliMi` ve `gununKapanislari`
+    // `occurred_at`in TR gününe bakıyor; kaydı "şimdi"ye damgalarsak dünü kapatan kapanış dünde
+    // GÖRÜNMEZ — gün kapalı sayılmaz, arşivde yanlış güne düşer. Damga o günün SON anıdır:
+    // olayın gerçek yazım anı `device_id` + outbox sırasında zaten duruyor, kaybolmuyor.
+    final simdi = correctedNowIso(meta.serverTimeOffsetMs);
+    final bugun = await bugunTrDuzeltilmis(db);
+    final at = (localDate != null && localDate.isBefore(bugun))
+        ? trGunBasiUtc(localDate)
+            .add(const Duration(days: 1, milliseconds: -1))
+            .toIso8601String()
+        : simdi;
     final id = newId();
     final diff = countedCashKurus == null ? 0 : countedCashKurus - on.expectedCashKurus;
 
@@ -247,17 +258,18 @@ class ClosingOnizleme {
   final int gunNakitKurus;
 
   /// [gunNakitKurus]tan DÜŞÜLEN tutar. `gunNakitKurus − dusulenKurus == expectedCashKurus`
-  /// her zaman, her kapsamda tutar — ama NE OLDUĞU kapsama göre değişir ve ekran etiketi buna
-  /// göre seçilmelidir:
-  ///  • **kurye kapsamı** → o kuryenin gün içinde TESLİM ETTİĞİ sayılan nakit ("Teslim edilen")
-  ///  • **gün kapsamı** → KURYELERDE KALAN nakit ("Kuryelerde kalan")
+  /// her zaman, her kapsamda tutar. NE OLDUĞUNU [dusulenKalem] söyler — ekran kapsamdan çıkarım
+  /// yapmaz, etiketi o enum'dan seçer.
   ///
-  /// Tek alan tutuluyor çünkü kimliği kapatan sayı BUDUR; iki ayrı alan olsaydı ekran yanlışını
+  /// Tek sayı tutuluyor çünkü kimliği kapatan sayı BUDUR; iki ayrı alan olsaydı ekran yanlışını
   /// seçebilirdi (bu vardiyada `kalanNakitKurus` tam olarak böyle yanılttı).
   ///
   /// Ekranın "gün içi ara tahsilatlar" LİSTESİ bundan farklı bir kümedir — o liste kullanıcıya
   /// olayları anlatır, bu sayı aritmetiği kapatır. İkisini karıştırma.
   final int dusulenKurus;
+
+  /// [dusulenKurus]un anlamı. Ekran etiketi BUNDAN seçer.
+  final DusulenKalem dusulenKalem;
 
   final String? periodStartIso;
 }
