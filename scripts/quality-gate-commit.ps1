@@ -50,11 +50,20 @@ function Emit([string]$msg) {
 # oluyor: `git add`e bile varilmadigi icin agac TERTEMIZ gorunuyor, hata da yok. Sessiz asilma.
 # 2 saniye fazlasiyla yeter (yuk birkac yuz bayt); gelmezse payload'siz devam ederiz, cunku
 # payload YALNIZ sonsuz dongu korumasi icin okunuyor.
+#
+# `[Console]::In.ReadToEndAsync()` DENENDI VE ISE YARAMADI: PowerShell 5.1'de `Console.In` bir
+# SyncTextReader'dir ve async metotlari CAGIRAN IS PARCACIGINDA SENKRON kosar — yani `Wait(2000)`
+# satirina hic varilmaz. Olculdu: boru 90sn acik tutuldu, betik 36sn'de hala donmemisti.
+# Cozum ham akista: FileStream.ReadAsync gercekten geri donuyor ve zaman asimi tutuyor.
 $raw = ''
 if ([Console]::IsInputRedirected) {
   try {
-    $okuma = [Console]::In.ReadToEndAsync()
-    if ($okuma.Wait(2000)) { $raw = $okuma.Result }
+    $akis = [Console]::OpenStandardInput()
+    $tampon = New-Object byte[] 65536
+    $okuma = $akis.ReadAsync($tampon, 0, $tampon.Length)
+    if ($okuma.Wait(2000) -and $okuma.Result -gt 0) {
+      $raw = [System.Text.Encoding]::UTF8.GetString($tampon, 0, $okuma.Result)
+    }
   } catch { }
 }
 if ($raw) {
