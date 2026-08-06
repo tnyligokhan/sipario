@@ -347,10 +347,37 @@ düzeltilen kusurdu.
 
 **Kiracı çakışması ÖLÇÜLDÜ ve güvenli çıktı:** `day_closings.id` GLOBAL primary key; deterministik çekirdeğe `tenantCode` konmasaydı `scope='day'` tüm bayilerde çakışırdı. Başka kiracının aynı id'si RLS sayesinde `find()`e görünmüyor → `'duplicate'` DEĞİL, PK ihlaliyle **görünür** red. Testte yalnız sonuç değil MEKANİZMA da (`invalid_data`) kilitlendi; RLS düşerse test kırmızı yanar.
 
+## ✅ CİHAZDA DOĞRULANDI (2026-08-06 · SM-S721B, kablosuz adb, yapım **2292**)
+Kurulum CI APK'sıyla (`saha-arm64`, git sayısı 292) veri kaybı olmadan üstüne yapıldı.
+- **Müşteri sırası:** 115→114→113→112→111→110→109, kayıt sırası tersten. ✓
+- **Gün Özeti:** başlık + çekmece + alt sekme + bildirim ayarı hepsi "Gün özeti" diyor. ✓
+- **Ana ekran ↔ Gün Özeti çapraz kontrolü:** ikisi de aynı günü konuşuyor (ikisi de 0,00 ₺). ✓
+- **Geçmiş ekranı:** dünde açılıyor, gün şeridi çalışıyor, **ileri ok bugünde soluklaşıp duruyor**,
+  kapatılmamış günde uyarı bandı, boş günde "Bu güne ait hareket yok", kurye kapsamı süzüyor. ✓
+- **Ara tahsilat (GERÇEK KAYIT yazıldı, kullanıcı onayıyla):** Emre Kurye'den 300 ₺ alındı
+  (beklenen 345 ₺) → sheet canlı **"KURYEDE KALAN 45,00 ₺"** gösterdi, kayıt oluştu, **gün AÇIK kaldı**,
+  özet kartında `18:48 · kuryede kalan 45,00 ₺ → 300,00 ₺` satırı belirdi. Not: "cihaz dogrulama testi".
+- **⭐ NİHAİ TANIM CANLI KANITLANDI:** ardından gün kapanışı sheet'i
+  `Günün nakdi 0,00 ₺ · Kuryelerden devir **+ 300,00 ₺** · Beklenen nakit **300,00 ₺**` yazdı —
+  yani orta terim NEGATİFE düştü, **işaret `+`'ya ve etiket "Kuryelerden devir"e** çevrildi.
+  Reddedilen üç tanım bu senaryoda sırasıyla "FAZLA 300", "−300" ve "−45" derdi; yalnız nihai tanım
+  doğru rakamı verdi. (Kapanış SUBMIT EDİLMEDİ, gün açık bırakıldı.)
+- **Tazelik satırı:** "Sunucuya son ulaşma: 1 dk önce" — dürüst dil, "veriler güncel" demiyor. ✓
+- **Çerçeve notu:** kasa kartı Emre için 0,00 ₺ gösterirken sheet 345,00 ₺ beklerken altında
+  *"Önceki günden devreden nakit dahil — ekrandaki gün toplamıyla aynı aralık değil"* çizildi. ✓
+- **İşletme Profili:** IBAN Alıcı Adı alanı + Hatırlatma Mesajı alanı + 4 yer tutucu çipi +
+  "Varsayılanı yükle" (varsayılan şablon birebir yüklendi) + "IBAN ve alıcı adı sabittir" açıklaması. ✓
+- **⭐ WhatsApp kodlaması (ajanın "cihazda ölçemedim" dediği TEK yer):** mesaj WhatsApp yazı kutusuna
+  **boşluklarla** düştü, `+` YOK; `₺` doğru basıldı; alıcı adı boş olduğu için "Alıcı: Merkez Su Bayii"
+  olarak işletme adına düştü. **MESAJ GÖNDERİLMEDİ.** ✓
+
+⚠️ **Demo bayinin defterinde kalıcı bir kasa devri kaydı var** (300 ₺, Emre Kurye, 6 Ağustos 18:48,
+notu "cihaz dogrulama testi"). Append-only olduğu için silinemez; gerekirse telafi kaydıyla düzeltilir.
+
 ## SIRADAKİ İŞLER (öncelik sırasıyla)
-1. **CİHAZDA DOĞRULAMA** — bu turda hiç yapılmadı. Özellikle: ara tahsilat akışı, gün gezinmesi,
-   WhatsApp mesajının müşteriye giden hâli (kodlama düzeltmesi Dart tarafında ölçüldü, GERÇEK CİHAZDA
-   ölçülmedi), yeni şablon alanları.
+1. **Kalan cihaz doğrulamaları:** kurye ROLÜYLE giriş (kurye kendi kasasını teslim edebiliyor mu,
+   başkasının kapsamını göremiyor mu) · gün kapanışının SUBMIT edilmesi ve arşiv satırının okunması ·
+   iki cihazlı senaryo (deterministik id yakınsaması) · şablonun düzenlenip kaydedilmesi.
 2. **`order_list_screen.dart:118`** hâlâ cihaz saatiyle gün seçiyor (`bugunTr()`). Para yazmıyor ama
    teslim sekmesinin gün gezinmesini kaydırır — düzeltilmiş saate geçmeli, iş bölünmüş kalmasın.
 3. **LWW saniye-altı borcu** (aşağıda) — şema işi, ayrı vardiya.
