@@ -50,21 +50,26 @@ function Emit([string]$msg) {
 # oluyor: `git add`e bile varilmadigi icin agac TERTEMIZ gorunuyor, hata da yok. Sessiz asilma.
 # 2 saniye fazlasiyla yeter (yuk birkac yuz bayt); gelmezse payload'siz devam ederiz, cunku
 # payload YALNIZ sonsuz dongu korumasi icin okunuyor.
+# !!! ELLE KOSARKEN: `... -File scripts/quality-gate-commit.ps1 < /dev/null` YAZ !!!
 #
-# `[Console]::In.ReadToEndAsync()` DENENDI VE ISE YARAMADI: PowerShell 5.1'de `Console.In` bir
-# SyncTextReader'dir ve async metotlari CAGIRAN IS PARCACIGINDA SENKRON kosar — yani `Wait(2000)`
-# satirina hic varilmaz. Olculdu: boru 90sn acik tutuldu, betik 36sn'de hala donmemisti.
-# Cozum ham akista: FileStream.ReadAsync gercekten geri donuyor ve zaman asimi tutuyor.
+# Asagidaki okuma, stdin YONLENDIRILMIS ama KAPATILMAMISSA sonsuza kadar bekler (EOF gelmez).
+# Belirti yaniltici: `git add`e bile varilmadigi icin agac TERTEMIZ gorunur, hata cikmaz, betik
+# oylece asili kalir ve 600sn'de sessizce oldurulur — "kanca hicbir sey yapmadi" denir.
+#
+# URETIMDE ISIRMAZ: Claude Code payload'i yazip stdin'i KAPATIR, okuma aninda doner (olculdu: 1sn).
+# Yalniz elle/boru hattiyla kosarken carpiyor — bu satirlarin yazilma sebebi de o oldu.
+#
+# ZAMAN ASIMI EKLEME DENENDI, IKISI DE TUTMADI (2026-08-06, olculdu; tekrar denemeyin):
+#   - `[Console]::In.ReadToEndAsync().Wait(2000)`: PS 5.1'de `Console.In` bir SyncTextReader'dir,
+#     async metotlari CAGIRAN IS PARCACIGINDA SENKRON kosar; `Wait` satirina hic varilmaz.
+#   - `[Console]::OpenStandardInput().ReadAsync(...).Wait(2000)`: Windows'ta konsol stdin borusu
+#     overlapped I/O ile acilmadigi icin bu da senkron blokluyor.
+#   Olcum yontemi: `sleep 90 | powershell -File <bu betik>` ve sureci disaridan yoklamak.
+#   (`sleep N | powershell ...` sonrasini `time` ile olcmek YANILTIR: kabuk boru hattinin
+#    TAMAMINI bekler, powershell 2sn'de cikmis olsa bile sure N cikar.)
 $raw = ''
 if ([Console]::IsInputRedirected) {
-  try {
-    $akis = [Console]::OpenStandardInput()
-    $tampon = New-Object byte[] 65536
-    $okuma = $akis.ReadAsync($tampon, 0, $tampon.Length)
-    if ($okuma.Wait(2000) -and $okuma.Result -gt 0) {
-      $raw = [System.Text.Encoding]::UTF8.GetString($tampon, 0, $okuma.Result)
-    }
-  } catch { }
+  try { $raw = [Console]::In.ReadToEnd() } catch { }
 }
 if ($raw) {
   try {
