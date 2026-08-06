@@ -43,9 +43,19 @@ function Emit([string]$msg) {
 }
 
 # --- stdin + sonsuz dongu korumasi ---
+# STDIN OKUMASI ZAMAN SINIRLI OLMAK ZORUNDA (2026-08-06, elle kosarken yakalandi).
+# `ReadToEnd()` stdin YONLENDIRILMIS ama KAPATILMAMISSA sonsuza kadar bekler: EOF hic gelmez.
+# Claude Code hook'u JSON'i yazip kapattigi icin uretimde isirmiyor, ama betigi elle ya da baska
+# bir sarmalayicidan kosan herkes bu duvara carpiyor — ve belirti "kanca hicbir sey yapmadi"
+# oluyor: `git add`e bile varilmadigi icin agac TERTEMIZ gorunuyor, hata da yok. Sessiz asilma.
+# 2 saniye fazlasiyla yeter (yuk birkac yuz bayt); gelmezse payload'siz devam ederiz, cunku
+# payload YALNIZ sonsuz dongu korumasi icin okunuyor.
 $raw = ''
 if ([Console]::IsInputRedirected) {
-  try { $raw = [Console]::In.ReadToEnd() } catch { }
+  try {
+    $okuma = [Console]::In.ReadToEndAsync()
+    if ($okuma.Wait(2000)) { $raw = $okuma.Result }
+  } catch { }
 }
 if ($raw) {
   try {
