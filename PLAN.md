@@ -326,6 +326,19 @@ gerekçeleri DECISIONS.md sonunda iki uzun satırda.
 - Kapsam dışı bırakılanlar: operatör hesabı AÇMA (koltuk kotası yok), web'den kurye parolası sıfırlama.
 - Yalıtık test DB'leri duruyor: `sipario_test_hesap`, `sipario_test_ekip` (silinebilir).
 
+## OTOMATİK COMMIT ZİNCİRİ ONARILDI (2026-08-06)
+Kapı commit'e HİÇ ulaşamıyordu: pint 2sn + phpstan 3sn + `artisan test` **599sn** = 604sn, kanca
+timeout'u **600sn** — zaman aşımı dört saniyeyle kaybediliyordu ve süre dalgalandığı için bazen
+geçip bazen geçmiyordu. Yavaş/hızlı ayrımı yapıldı: kancada yalnız sır taraması · pint · phpstan ·
+dart analyze kaldı (**~4sn**, commit+push artık her turda tamamlanıyor); tam suite'ler CI'da.
+`api-ci.yml` zaten her push'ta koşuyordu (yerel koşum tekrardı, üstelik CI'daki daha güçlü);
+mobilde `flutter test` TEK bekçiydi, o yüzden `saha-apk.yml`e `test` işi eklendi ve derleme ona
+`needs: test` ile bağlandı — **test kırmızıysa APK üretilmez, telefona bozuk sürüm gitmez**.
+**Onarım anında iki gizli kusur yakalandı** (bozuk kapının kaçırdıkları): pint ihlali
+`SiteGezinmeTest.php` · phpstan generic tipi `Hesap::$katalog`. İkisi de düzeltildi, CI yeşil.
+⚠️ Betiği ELLE koşarken `< /dev/null` şart — stdin açık kalırsa sonsuza kadar asılır (gerekçe ve
+denenip tutmayan iki zaman aşımı yolu betiğin başında yazılı).
+
 ## TESTLE KİLİTLENEN KARARLAR (sessizce geri kaymasınlar diye)
 `SiteGezinmeTest` (10) · `SiteIcerikTest` (5, **mutasyonla kanıtlandı**: süzgeç devre dışı bırakılınca
 tam olarak yakalaması gereken 2 regresyonu yakaladı) · `SiteHesapTest` (24) · `SiteEkipTest` (16).
