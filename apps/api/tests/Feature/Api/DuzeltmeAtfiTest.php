@@ -2,7 +2,10 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Device;
 use App\Models\LedgerEntry;
+use App\Models\Tenant;
+use App\Models\User;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\ApiTestCase;
 use Tests\Feature\Api\Concerns\BuildsSyncEvents;
@@ -32,7 +35,7 @@ class DuzeltmeAtfiTest extends ApiTestCase
     /**
      * Kuryenin aldığı nakit tahsilatı yazar ve id'sini döner (ters çevrilecek satır).
      *
-     * @param  array{tenant: \App\Models\Tenant, patron: \App\Models\User, kurye: \App\Models\User, device: \App\Models\Device}  $a
+     * @param  array{tenant: Tenant, patron: User, kurye: User, device: Device}  $a
      */
     private function kuryeninTahsilati(string $token, array $a, string $musteriId): string
     {
