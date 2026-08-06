@@ -21,8 +21,14 @@ use Tests\Feature\Api\Concerns\BuildsSyncEvents;
  * kurye hiç var olmamış paradan sorumlu tutulur.
  *
  * SUNUCU ATFI YENİDEN YAZMAZ, ÇELİŞKİYİ REDDEDER. Yeniden yazmak "counted/expected/diff İSTEMCİ
- * SNAPSHOT'ıdır, sunucu yeniden hesaplamaz" güven modelini kırardı ve arızayı başka kapıdan geri
- * getirirdi (sunucu ile istemci ayrışır, aradaki pencerede donan kapanış yalanı kalıcılaştırır).
+ * SNAPSHOT'ıdır, sunucu yeniden hesaplamaz" güven modelini kırardı (DECISIONS Faz 4) ve arızayı
+ * başka kapıdan geri getirirdi: sunucudaki kayıt ile istemcideki ayrışır, bir sonraki pull'a kadar
+ * iki cihaz farklı rakam konuşur ve o aralıkta donan bir kapanış yalanı kalıcılaştırır. Üstelik
+ * istemci yanlış satırı işaret ederse sunucu YANLIŞ kuryeye para yazmış olurdu.
+ *
+ * KAPI UYGULAMA KATMANINDA KALMAK ZORUNDA — `payment_type` kapsam kuralının aksine (o 2026-08-06'da
+ * DB'ye bir CHECK olarak indi) bu kural BAŞKA BİR SATIRA bakmayı gerektiriyor ve CHECK bunu yapamaz.
+ * Sonucu: Eloquent'le doğrudan yazan bir yol açılırsa (seeder deseni) kapı yine atlanır.
  *
  * KAPSAM DAR ve testler tam olarak bu sınırı çiziyor: yalnız `correction` + `payment_type` dolu +
  * `reverses_entry_id` dolu. Kasaya dokunmayan düzeltme ve serbest düzeltme kapıya HİÇ uğramaz —

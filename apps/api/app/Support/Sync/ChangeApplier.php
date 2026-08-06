@@ -383,26 +383,16 @@ class ChangeApplier
         }
 
         // KASAYA DOKUNAN DÜZELTME, TERS ÇEVİRDİĞİ KAYDIN NAKİT ATFINI TAŞIMALI (inceleme #⑥).
+        // Atıf düzeltmeyi YAZAN kişiye kayarsa gün beklenen negatife düşer ve kurye hiç var olmamış
+        // paradan "EKSİK" sorumlu tutulur — ikisi de append-only DONAR (senaryo: DuzeltmeAtfiTest).
         //
-        // ARIZA: atıf düzeltmeyi YAZAN kişiye kayarsa para iki çerçevede birden yanlış yere düşer.
-        // Kurye 100,00 topladı, patron kendi telefonundan hatalı 20,00'ı ters çevirdi: günün nakdi
-        // 80,00'a iner ama kuryenin günlük net değişimi 100,00 kalır → gün beklenen −20,00, patron
-        // kasadaki 0'ı sayınca "FAZLA 20,00"; kurye kapsamında beklenen 100,00 iken cebinde 80,00
-        // → "EKSİK 20,00". İkisi de append-only DONAR, kurye olmayan paradan sorumlu tutulur.
+        // SUNUCU ATFI YENİDEN YAZMAZ, ÇELİŞKİYİ REDDEDER (lead kararı 2026-08-06): atıf da bir
+        // İSTEMCİ BEYANIDIR ve sunucu para kaydını yeniden hesaplamaz (DECISIONS Faz 4). Sunucunun
+        // işi beyanı düzeltmek değil, kendi içinde çelişeni reddetmektir.
         //
-        // SUNUCU ATFI YENİDEN YAZMAZ, ÇELİŞKİYİ REDDEDER (lead kararı 2026-08-06). Atıf da bir
-        // İSTEMCİ BEYANIDIR ve sunucu para kaydını yeniden hesaplamaz (DECISIONS Faz 4); sessizce
-        // düzeltseydi sunucu ile istemci ayrışır, aradaki pencerede donan bir kapanış yalanı
-        // kalıcılaştırırdı — arızayı başka kapıdan geri getirirdi. Üstelik istemci yanlış satırı
-        // işaret ederse sunucu YANLIŞ kuryeye para yazardı. Sunucunun işi beyanı düzeltmek değil,
-        // kendi içinde çelişen beyanı reddetmektir (bu sınıfın geri kalanı zaten öyle yapıyor).
-        //
-        // KAPSAM DAR: `payment_type` yoksa kayıt kasaya dokunmaz (bakiye düzeltmesi — arıza doğmaz,
-        // kapı meşru düzeltmeleri reddederdi); `reverses_entry_id` yoksa karşılaştıracak kaynak
-        // yoktur. NULL atıf da bir beyandır: atıfsız satırın düzeltmesi de atıfsız olmalı.
-        //
-        // DB KISITINA TAŞINAMAZ (`payment_type` kapsam kuralının aksine): kural BAŞKA BİR SATIRA
-        // bakmayı gerektirir, CHECK bunu yapamaz — bu kapı uygulama katmanında kalmak zorunda.
+        // KAPSAM DAR: `payment_type` yoksa kayıt kasaya dokunmaz (kapı meşru bakiye düzeltmelerini
+        // reddederdi); `reverses_entry_id` yoksa karşılaştıracak kaynak yoktur. NULL atıf da bir
+        // beyandır. DB kısıtına TAŞINAMAZ: kural başka bir satıra bakar, CHECK bunu yapamaz.
         if ($entryType === 'correction' && $paymentType !== null && $reversed !== null
             && $collectedByUserId !== $reversed->collected_by_user_id) {
             throw new InvalidArgumentException(
