@@ -346,6 +346,31 @@ class _AltSatir extends StatelessWidget {
 /// Liste satırının verisi: müşteri + görüntü telefonu + birincil adres.
 typedef CustomerRow = ({Customer customer, String? phone, CustomerAddressesData? adres});
 
+/// LİSTENİN TEK SIRA KURALI: "en son kaydedilen en üstte" (kullanıcı isteği 2026-08-06).
+///
+/// ESKİDEN ADA GÖREYDİ ve kullanıcıya RASGELE görünüyordu: SQLite'ın varsayılan BINARY
+/// collation'ı baytları karşılaştırır, Türkçe harfler (Ç Ğ İ Ö Ş Ü) çok baytlı UTF-8'dir ve
+/// TÜM ASCII harflerden SONRA sıralanır — "Şükrü" listenin dibine, "Zeynep"in bile altına düşer.
+/// Kullanıcı zaten alfabe aramıyor; az önce kaydettiğini arıyor.
+///
+/// Terimler:
+///  1. `code IS NULL DESC` → kodu olmayan müşteri EN ÜSTTE. Kodu sunucu atar; kodsuz kayıt =
+///     henüz senkronlanmamış = en yeni. (`NULLS FIRST` yerine bu ifade — sqlite sürümünden
+///     bağımsız çalışır.)
+///  2. `code DESC` → kod kiracı içinde artan sayaçtır (100, 101, …); büyük kod yeni müşteridir.
+///  3. `rowid DESC` → kodsuz gruptaki ayırıcı: yerel INSERT sırası, yani tam olarak "kaydetme
+///     sırası". Deterministiktir (aynı milisaniyede üretilen iki UUIDv7'nin sırası değildir).
+///
+/// `updated_occurred_at` BİLEREK KULLANILMADI: her düzenlemede (ad düzeltme, kara liste, adres)
+/// tazeleniyor — tek başına "kayıt sırası" DEĞİLDİR; adı düzeltilen üç yıllık müşteri listenin
+/// başına fırlardı. `rowid` UPDATE'te değişmez; senkron da satırları `insertOnConflictUpdate`
+/// (yani `INSERT OR REPLACE` DEĞİL) ile yazdığından rowid korunur.
+final List<OrderClauseGenerator<$CustomersTable>> _enYeniOnce = [
+  (t) => OrderingTerm.desc(t.code.isNull()),
+  (t) => OrderingTerm.desc(t.code),
+  (t) => OrderingTerm.desc(t.rowId),
+];
+
 /// Liste akışı. Telefon ve adres LEFT JOIN'dir — ikisi de olmayan müşteri de listede kalır.
 /// Sorguda 3+ rakam varsa telefon araması (son-10 normalizasyonu — arayan tanımanın kuralı),
 /// yoksa ad araması.
@@ -382,8 +407,11 @@ Stream<List<CustomerRow>> watchCustomerRows(AppDatabase db, String query) {
     }
   }
 
+  // isPrimary terimleri SİLİNEMEZ ve sıra kuralının ARDINDA kalmak zorundadır: aşağıdaki
+  // tekilleştirme "ilk gelen satır kazanır" der, yani müşterinin hangi telefon/adresinin
+  // görüneceğini bu iki terim seçer. Önlerine geçselerdi yanlış telefon çizilirdi.
   sel.orderBy([
-    OrderingTerm.asc(db.customers.name),
+    ..._enYeniOnce.map((f) => f(db.customers)),
     OrderingTerm.desc(db.customerPhones.isPrimary),
     OrderingTerm.desc(db.customerAddresses.isPrimary),
   ]);
@@ -415,15 +443,16 @@ Stream<int> watchDebtCount(AppDatabase db) {
   return q.watchSingle().map((r) => r.read(count) ?? 0);
 }
 
-/// Müşteri listesi sorgusu (arşivsizler, ada göre sıralı). Liste ekranı artık
-/// [watchCustomerRows]'u kullanır; bu fonksiyon KORUNDU çünkü arama/normalizasyon sözleşmesi
-/// doğrudan onun üzerinden test ediliyor.
+/// Müşteri listesi sorgusu (arşivsizler, en son kaydedilen en üstte — bkz. [_enYeniOnce]).
+/// Liste ekranı artık [watchCustomerRows]'u kullanır; bu fonksiyon KORUNDU çünkü
+/// arama/normalizasyon sözleşmesi doğrudan onun üzerinden test ediliyor. Sıra kuralı ikisinde
+/// AYNI olmalı — arama sonucu da aynı mantıkla dizilir.
 Stream<List<Customer>> watchCustomers(AppDatabase db, String query) {
   final q = query.trim();
   if (q.isEmpty) {
     return (db.select(db.customers)
           ..where((t) => t.deletedAt.isNull())
-          ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+          ..orderBy(_enYeniOnce))
         .watch();
   }
 
@@ -433,7 +462,7 @@ Stream<List<Customer>> watchCustomers(AppDatabase db, String query) {
       innerJoin(db.customerPhones, db.customerPhones.customerId.equalsExp(db.customers.id)),
     ])
       ..where(db.customers.deletedAt.isNull() & db.customerPhones.phoneLast10.like('%$digits%'))
-      ..orderBy([OrderingTerm.asc(db.customers.name)]);
+      ..orderBy(_enYeniOnce.map((f) => f(db.customers)).toList());
     return join.watch().map((rows) =>
         {for (final r in rows) r.readTable(db.customers).id: r.readTable(db.customers)}
             .values
@@ -442,7 +471,7 @@ Stream<List<Customer>> watchCustomers(AppDatabase db, String query) {
 
   return (db.select(db.customers)
         ..where((t) => t.deletedAt.isNull() & t.name.like('%$q%'))
-        ..orderBy([(t) => OrderingTerm.asc(t.name)]))
+        ..orderBy(_enYeniOnce))
       .watch();
 }
 

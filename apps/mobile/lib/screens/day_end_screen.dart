@@ -187,7 +187,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     SipUst(
-                      baslik: 'Gün Sonu',
+                      baslik: 'Gün Özeti',
                       alt: 'Bugün',
                       onMenu: widget.onMenu,
                       onGeri: widget.onMenu == null

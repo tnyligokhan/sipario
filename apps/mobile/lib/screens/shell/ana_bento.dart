@@ -60,7 +60,7 @@ class AnaBento extends StatelessWidget {
                   deger: sipTutar(o.bugunTahsilatKurus),
                   kucuk: true,
                   alt: '${o.bugunTeslim} teslimat',
-                  // Tasarım koşulsuz gün sonuna gider (`s-ana.jsx:35`). Gün Sonu sekmesi artık
+                  // Tasarım koşulsuz gün sonuna gider (`s-ana.jsx:35`). Gün Özeti sekmesi artık
                   // kuryede de açık (alt navigasyon 5 yuva) — rol dalı gerekmiyor.
                   onTap: () => onSekme(SipSekme.gunSonu),
                 ),

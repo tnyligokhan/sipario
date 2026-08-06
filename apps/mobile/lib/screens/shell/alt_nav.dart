@@ -1,6 +1,6 @@
 // Alt navigasyon — s-bilesenler.jsx `AltNav` + Sipario.html `.altnav*`.
 //
-// Hero zeminli hap; 5 yuva: Ana · Müşteri · [FAB] · Sipariş · Gün Sonu. Seçili sekme genişler
+// Hero zeminli hap; 5 yuva: Ana · Müşteri · [FAB] · Sipariş · Gün Özeti. Seçili sekme genişler
 // (CSS `flex: 1 → 2`, geçiş .26s) ve etiketi görünür olur. Material `NavigationBar` KULLANILMAZ:
 // tasarımın hap gövdesi, ortadaki taşan FAB'ı ve genişleyen sekmesi onunla kurulamıyor.
 //
@@ -12,7 +12,7 @@
 // geri çağrımın adı [onEkle]dir, "yeni sipariş" değil.
 //
 // YUVA SAYISI ROLE BAĞLI DEĞİLDİR: tasarımda `AltNav` her zaman 5 yuvadır, rol yalnız çekmecenin
-// YÖNETİM bölümünü etkiler. Gün Sonu yuvası kuryede de kalır (kullanıcı kararı, 2026-07-26);
+// YÖNETİM bölümünü etkiler. Gün Özeti yuvası kuryede de kalır (kullanıcı kararı, 2026-07-26);
 // sağ grup tek sekmeye düşünce hap navigasyonun simetrisi de bozuluyordu.
 
 import 'package:flutter/material.dart';
@@ -129,7 +129,10 @@ class _Sekme extends StatelessWidget {
         SipSekme.ana => (ikon: SipIcons.home, etiket: 'Ana'),
         SipSekme.musteri => (ikon: SipIcons.users, etiket: 'Müşteri'),
         SipSekme.siparis => (ikon: SipIcons.list, etiket: 'Sipariş'),
-        SipSekme.gunSonu => (ikon: SipIcons.wallet, etiket: 'Gün Sonu'),
+        // Etiket "Gün Özeti"dir ama enum adı `gunSonu` KALIR: bu bir sözleşme anahtarı
+        // (yetki `gunSonu`, `day_end_*` tabloları) ve adlandırma değişikliği kullanıcıya
+        // görünen metinle sınırlıdır (kullanıcı kararı 2026-08-06).
+        SipSekme.gunSonu => (ikon: SipIcons.wallet, etiket: 'Gün Özeti'),
       };
 
   @override

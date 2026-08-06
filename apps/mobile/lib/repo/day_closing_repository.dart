@@ -43,8 +43,21 @@ class DayClosingRepository {
         r.userId == (scope == ClosingScope.courier ? userId : null) && _sameTrDay(r.occurredAt, date));
   }
 
+  /// [localDate] TR gününe düşen kapanış kayıtları (yeni üstte). Arşivin GÜN SÜZGEÇLİ hâli —
+  /// geçmiş gün ekranı "o gün kim kapattı" sorusunu tüm arşivi taramadan sorabilsin diye.
+  Future<List<DayClosing>> gununKapanislari(DateTime localDate) async {
+    final rows = await (db.select(db.dayClosings)
+          ..orderBy([(t) => OrderingTerm.desc(t.occurredAt)]))
+        .get();
+    return rows.where((r) => _sameTrDay(r.occurredAt, localDate)).toList();
+  }
+
   /// Kapanış ÖNİZLEMESİ — ekranın gösterdiği rakamlar. `kapat()` submit anında bunu YENİDEN çağırır,
   /// böylece gösterilen ile yazılan aynı koddan çıkar (devir önizlemesiyle aynı desen).
+  ///
+  /// KALAN NAKİT (kullanıcı kararı 2026-08-06): gün içinde alınan ara tahsilatlar patronun elinde
+  /// zaten var; gün kapanışında sayılacak olan yalnız KALANdır. Bu yüzden gün kapsamında beklenen
+  /// nakit = günün nakdi − o güne düşen ara tahsilatların SAYILAN toplamı.
   Future<ClosingOnizleme> onizle(ClosingScope scope, {String? userId, DateTime? localDate}) async {
     final date = localDate ?? _trToday();
     final courierId = scope == ClosingScope.courier ? userId : null;
@@ -52,19 +65,27 @@ class DayClosingRepository {
     final kasa = await _dayEnd.kasaOzeti(date, userId: courierId);
     final teslimat = await _dayEnd.teslimatSayisi(date, userId: courierId);
     final borc = await _dayEnd.borcDurumu();
+    final araTahsilat = await _handovers.araTahsilatToplami(date, kuryeId: courierId);
 
-    // Beklenen nakit: kurye kapanışında devir mutabakatının AYNI hesabı (period_start'tan beri
-    // o kuryenin topladığı nakit); gün kapanışında günün nakit kasası.
-    final expected = courierId != null
-        ? (await _handovers.onizle(courierId)).expectedKurus
-        : kasa.nakit;
+    // period_start CANLI bir mutabakat sınırıdır (kullanıcının SON devri) ve geçmişe sarılamaz:
+    // dünün ekranını bugünün son devriyle hesaplarsak dünkü rakam bugün değişir. Geçmiş gün
+    // sorulduğunda tek doğru okuma O GÜNÜN defteridir → her iki kapsamda da kalan-nakit formülü.
+    final gecmisGun = date.isBefore(_trToday());
+    final handover =
+        (courierId != null && !gecmisGun) ? await _handovers.onizle(courierId) : null;
+
+    // Kurye kapsamında beklenen ZATEN kalan nakittir: `period_start` = o kuryenin son devri, yani
+    // ara tahsilattan sonrası. Ara tahsilatı BİR DAHA düşmüyoruz — çifte sayma tam burada olurdu.
+    final expected = handover?.expectedKurus ?? (kasa.nakit - araTahsilat);
 
     return ClosingOnizleme(
       kasa: kasa,
       deliveryCount: teslimat,
       openCreditKurus: borc.toplamAcikBorc,
       expectedCashKurus: expected,
-      periodStartIso: courierId != null ? (await _handovers.onizle(courierId)).periodStartIso : null,
+      gunNakitKurus: kasa.nakit,
+      araTahsilatKurus: araTahsilat,
+      periodStartIso: handover?.periodStartIso,
     );
   }
 
@@ -176,11 +197,24 @@ class ClosingOnizleme {
     required this.deliveryCount,
     required this.openCreditKurus,
     required this.expectedCashKurus,
+    required this.gunNakitKurus,
+    this.araTahsilatKurus = 0,
     this.periodStartIso,
   });
   final KasaOzeti kasa;
   final int deliveryCount;
   final int openCreditKurus;
+
+  /// ŞİMDİ sayılması beklenen nakit = KALAN nakit (günün nakdi − alınan ara tahsilatlar).
   final int expectedCashKurus;
+
+  /// Kapsamın gün BOYUNCA topladığı nakdin tamamı. [expectedCashKurus] ile birlikte taşınır ki
+  /// ekran "gün 10.000 · ara tahsilat 4.000 · şimdi 6.000" üçlüsünü tek kaynaktan yazabilsin —
+  /// aksi hâlde farkı ekran kendi çıkarır ve iki yerde iki formül olurdu.
+  final int gunNakitKurus;
+
+  /// Gün içinde alınmış ara tahsilatların SAYILAN toplamı.
+  final int araTahsilatKurus;
+
   final String? periodStartIso;
 }

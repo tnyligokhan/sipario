@@ -6,6 +6,7 @@
 // (paralel hesap yasağı — DECISIONS Dilim 4).
 
 import '../../data/app_database.dart';
+import '../../repo/cash_handover_repository.dart';
 import '../../repo/day_closing_repository.dart';
 import '../../repo/day_end_repository.dart';
 
@@ -107,6 +108,9 @@ class GunSonuGorunumu {
     required this.arsiv,
     this.acikKuryeAdlari = const [],
     this.gunEngeli = false,
+    this.araTahsilatlar = const [],
+    this.gunKapanislari = const [],
+    this.araTahsilatMumkun = false,
   });
 
   final GunSonuOzet ozet;
@@ -130,8 +134,35 @@ class GunSonuGorunumu {
   /// kapanmışsa da engel yoktur. Engel yalnız YARIM KALMIŞ devirde çıkar — kapanan gün
   /// açık bir kurye kasasını mutabakatsız bırakırdı.
   final bool gunEngeli;
+
+  /// O güne düşen ARA tahsilatlar (eskiden yeniye), kapsamla sınırlı. Kapanışa bağlı devirler
+  /// buraya GİRMEZ — onlar hesabı kapatırken teslim edilen kasadır, gün içi tahsilat değil.
+  final List<AraTahsilatKaydi> araTahsilatlar;
+
+  /// O güne düşen kapanış kayıtları (yeni üstte). [arsiv] tüm geçmişi taşır; bu, seçili günü.
+  final List<DayClosing> gunKapanislari;
+
+  /// Ara tahsilat düğmesi ÇİZİLEBİLİR mi (aktif kurye var + gün henüz kapanmadı + gün bugün).
+  ///
+  /// Kararı burada veriyoruz, ekranda değil: tek kişilik bayide "kuryeden ara tahsilat" diye bir
+  /// kavram YOKTUR (patron parayı zaten cebinde taşır) ve bu koşulu her ekranın kendi başına
+  /// türetmesi, koşul değiştiğinde bir ekranın geride kalması demekti.
+  final bool araTahsilatMumkun;
+
+  /// Gün içinde alınan ara tahsilatların SAYILAN toplamı (kuruş).
+  int get araTahsilatKurus =>
+      araTahsilatlar.fold<int>(0, (s, a) => s + a.countedCashKurus);
+
+  /// Kapanışta sayılması beklenen KALAN nakit = kapsamın günlük nakdi − alınan ara tahsilatlar.
+  /// Negatife düşebilir (patron beklenenden fazlasını saymış olabilir) ve bu bilgi KANITTIR,
+  /// kırpılmaz.
+  int get kalanNakitKurus => kapsam.kasa.nakit - araTahsilatKurus;
 }
 
+/// Seçili GÜNÜN tam görünümü. [localDate] GEÇMİŞ bir gün olabilir — tüm süzgeçler bu tarihi
+/// kullanır, hiçbiri "bugün" varsaymaz. Tek istisna [GunSonuOzet.borc]: müşteri bakiyeleri ANLIK
+/// durumdur (`customers.balance_kurus`), geçmişe sarılamaz; geçmiş gün ekranı borç kartını
+/// göstermemelidir.
 Future<GunSonuGorunumu> gunSonuGorunumu(
   AppDatabase db,
   DateTime localDate, {
@@ -146,6 +177,7 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
 
   final acikKuryeler = await acikKuryeAdlari(db, localDate);
   final aktifSayi = await _aktifKuryeSayisi(db);
+  final bugun = localDate == bugunTr();
 
   return GunSonuGorunumu(
     ozet: await gunSonuOzeti(db, localDate),
@@ -153,12 +185,35 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
     gunKapali: gunKapali,
     kapsamKapali: gunKapali || kuryeKapali,
     arsiv: await kapanislar.watchArchive().first,
+    gunKapanislari: await kapanislar.gununKapanislari(localDate),
+    araTahsilatlar:
+        await CashHandoverRepository(db).araTahsilatlar(localDate, kuryeId: kuryeId),
+    // Geçmiş gün için de FALSE: dünün kasasını bugün "ara" tahsilat diye almak, parayı dünün
+    // hesabına yazmak olurdu.
+    araTahsilatMumkun: bugun && !gunKapali && aktifSayi > 0,
     acikKuryeAdlari: acikKuryeler,
     gunEngeli: kuryeId == null &&
         !gunKapali &&
         acikKuryeler.isNotEmpty &&
         acikKuryeler.length < aktifSayi,
   );
+}
+
+/// [localDate] gününde HİÇ kayıt var mı? (sipariş · kasaya dokunan defter hareketi · kapanış ·
+/// kasa devri). Geçmiş gün ekranı boş durumu buna göre çizer — "0 ₺" ile "o gün çalışılmadı"
+/// aynı şey değildir ve sıfırlarla dolu bir kart bayiyi kasa eksik sandırır.
+Future<bool> gunKayitVarMi(AppDatabase db, DateTime localDate) async {
+  final siparisler = await (db.select(db.orders)..where((t) => t.deletedAt.isNull())).get();
+  if (siparisler.any((o) => ayniTrGun(o.occurredAt, localDate))) return true;
+
+  final hareketler = await db.select(db.ledgerEntries).get();
+  if (hareketler.any((e) => ayniTrGun(e.occurredAt, localDate))) return true;
+
+  final kapanislar = await DayClosingRepository(db).gununKapanislari(localDate);
+  if (kapanislar.isNotEmpty) return true;
+
+  final devirler = await db.select(db.cashHandovers).get();
+  return devirler.any((h) => ayniTrGun(h.occurredAt, localDate));
 }
 
 /// Aktif kuryelerden bugün hesabı KAPANMAMIŞ olanların adları.

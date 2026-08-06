@@ -11,7 +11,7 @@
 //    erişilebilir kalır (mevcut veri okunabilir), FAB çizilir ama pasiftir.
 //
 // NAVİGASYON ROLE BAĞLI DEĞİLDİR: tasarımda `AltNav` 5 yuvadır ve `Cekmece`nin MENÜ bölümü 4
-// satırdır — rol yalnız YÖNETİM bölümünü etkiler (`s-bilesenler.jsx:106`). Gün Sonu sekmesi
+// satırdır — rol yalnız YÖNETİM bölümünü etkiler (`s-bilesenler.jsx:106`). Gün Özeti sekmesi
 // kuryede de açıktır (kullanıcı kararı, 2026-07-26): kurye kendi kasa devrini oradan görür,
 // `yetki.gunSonu` artık sekme değil YETKİ sorusudur (gün kapatma gibi eylemler o ekranın işi).
 //

@@ -437,7 +437,7 @@ void main() {
       // Sekmelere METİNLE dokunulamaz: tasarımda yalnız SEÇİLİ sekmenin etiketi görünür
       // (CSS `.altnav-b span { display: none }`), diğerleri sadece ikon. Erişilebilirlik
       // etiketi ise her zaman var — dokunuş oradan.
-      for (final sekme in ['Ana', 'Müşteri', 'Sipariş', 'Gün Sonu']) {
+      for (final sekme in ['Ana', 'Müşteri', 'Sipariş', 'Gün Özeti']) {
         if (sekme != 'Ana') {
           await tester.tap(find.bySemanticsLabel(sekme).last);
           await tester.pump();
@@ -493,7 +493,7 @@ void main() {
       await pumpShell(tester, db);
 
       expect(find.text('Ürünler'), findsNothing);
-      expect(find.text('Gün Sonu & Kasa Devri'), findsNothing,
+      expect(find.text('Gün Özeti & Kasa Devri'), findsNothing,
           reason: 'kuryede birleşik yönetici etiketi kullanılmaz');
       expect(find.text('Kasa Devri'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -511,7 +511,7 @@ void main() {
       await pumpShell(tester, db);
 
       expect(find.text('Ürünler'), findsOneWidget);
-      expect(find.text('Gün Sonu & Kasa Devri'), findsOneWidget);
+      expect(find.text('Gün Özeti & Kasa Devri'), findsOneWidget);
       expect(find.text('Kasa Devri'), findsNothing,
           reason: 'kuryeye özgü etiket yöneticide çizilmez — tek satır, tek hedef');
       await tester.pumpWidget(const SizedBox.shrink());
@@ -533,7 +533,7 @@ void main() {
       await pumpShell(tester, db);
 
       expect(find.text('Ürünler'), findsOneWidget);
-      expect(find.text('Gün Sonu & Kasa Devri'), findsOneWidget);
+      expect(find.text('Gün Özeti & Kasa Devri'), findsOneWidget);
       expect(find.text('Kasa Devri'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));

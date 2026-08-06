@@ -29,7 +29,7 @@ void main() {
     testWidgets('dört sekme + FAB çizilir; seçili sekmenin etiketi görünür', (tester) async {
       await ekranaKoy(tester, navKabugu(onEkle: () {}));
 
-      for (final etiket in ['Ana', 'Müşteri', 'Sipariş', 'Gün Sonu']) {
+      for (final etiket in ['Ana', 'Müşteri', 'Sipariş', 'Gün Özeti']) {
         expect(semantikDugme(etiket), findsOneWidget, reason: '$etiket sekmesi yok');
       }
       expect(semantikDugme('Yeni kayıt ekle'), findsOneWidget, reason: 'FAB yok');
@@ -83,10 +83,10 @@ void main() {
       // navigasyonun simetrisi de bozuluyordu.
       await ekranaKoy(tester, navKabugu());
 
-      expect(semantikDugme('Gün Sonu'), findsOneWidget);
+      expect(semantikDugme('Gün Özeti'), findsOneWidget);
       expect(semantikDugme('Sipariş'), findsOneWidget);
 
-      await tester.tap(semantikDugme('Gün Sonu'));
+      await tester.tap(semantikDugme('Gün Özeti'));
       await tester.pumpAndSettle();
       expect(find.text('gövde: gunSonu'), findsOneWidget);
 
@@ -143,7 +143,7 @@ void main() {
 
       // MENÜ dördüncü satırı: yöneticide tasarımdaki birleşik etiket, AYRI kasa devri satırı YOK
       // (kullanıcı kararı 2026-07-26 — yöneticiden kalkıyor).
-      expect(find.text('Gün Sonu & Kasa Devri'), findsOneWidget);
+      expect(find.text('Gün Özeti & Kasa Devri'), findsOneWidget);
       expect(find.text('Kasa Devri'), findsNothing);
 
       await kapat(tester);
@@ -180,7 +180,7 @@ void main() {
       await ekranaKoy(tester, cekmece('kurye', onTab: gidilen.add));
 
       expect(find.text('Kasa Devri'), findsOneWidget);
-      expect(find.text('Gün Sonu & Kasa Devri'), findsNothing);
+      expect(find.text('Gün Özeti & Kasa Devri'), findsNothing);
 
       await tester.tap(find.text('Kasa Devri'));
       await tester.pump();

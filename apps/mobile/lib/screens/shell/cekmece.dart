@@ -7,9 +7,9 @@
 // çizilmez (koşullu görünürlük değil, hiç render edilmez).
 //
 // MENÜ bölümü DAİMA dört satırdır (`s-bilesenler.jsx:77-82`). Dördüncü satırın yalnız ETİKETİ
-// role göre değişir: yöneticide tasarımdaki "Gün Sonu & Kasa Devri", kuryede "Kasa Devri".
+// role göre değişir: yöneticide "Gün Özeti & Kasa Devri", kuryede "Kasa Devri".
 // Gerekçe: kullanıcı kararı (2026-07-26) kasa devri satırının yalnız kuryede kalmasıydı; ayrı
-// bir satır olarak bırakılsaydı kuryede iki satır AYNI yere (Gün Sonu sekmesi) gidecekti —
+// bir satır olarak bırakılsaydı kuryede iki satır AYNI yere (Gün Özeti sekmesi) gidecekti —
 // kasa devri ekranı kaldırıldığından ayrı bir hedefi kalmadı.
 
 import 'package:flutter/material.dart';
@@ -156,7 +156,7 @@ class _Panel extends StatelessWidget {
                   // etiket. İkisi de AYNI sekmeye gider (dosya başındaki gerekçe).
                   _Satir(
                     ikon: c._kurye ? SipIcons.hand : SipIcons.wallet,
-                    etiket: c._kurye ? 'Kasa Devri' : 'Gün Sonu & Kasa Devri',
+                    etiket: c._kurye ? 'Kasa Devri' : 'Gün Özeti & Kasa Devri',
                     secili: c.aktif == SipSekme.gunSonu,
                     onTap: () => c.onTab(SipSekme.gunSonu),
                   ),

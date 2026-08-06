@@ -116,7 +116,7 @@ void main() {
     test('kasa/borç defterden türer ve tutar', () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
-      final cid = await CustomerRepository(db).create(name: 'Gün Sonu');
+      final cid = await CustomerRepository(db).create(name: 'Gün Özeti');
       final orders = OrderRepository(db);
 
       // Nakit teslim: debit +9000, payment −9000 (nakit).
@@ -251,7 +251,7 @@ void main() {
 
       expect(find.byType(AppBar), findsNothing,
           reason: 'SİPARİO 3.0 tasarımında AppBar yok; başlık SipUst ile çizilir');
-      expect(find.text('Gün Sonu'), findsWidgets);
+      expect(find.text('Gün Özeti'), findsWidgets);
 
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpWidget(const SizedBox.shrink());
