@@ -169,26 +169,37 @@ void main() {
       expect(row.diffKurus, -500, reason: '9500 sayıldı − 10000 beklendi = −500 (eksik para kanıt)');
     });
 
-    test('ikinci devir yalnız önceki devirden BERİ olan nakiti sayar (period_start)', () async {
-      // Zaman damgaları AÇIK (saatlik aralık): 1. devir "şimdi"; ondan ÖNCEKİ nakit 2. devre girmez,
-      // SONRAKİ girer. Alt-milisaniye zamanlamaya bağımlı değil (sağlam).
+    test('ikinci devir devredilmiş nakiti bir daha beklemez (kümülatif kalan)', () async {
+      // Beklenen nakit = BUGÜN toplanan − BUGÜN teslim edilen (kullanıcı kararı 2026-08-06).
+      // Eskiden `period_start` penceresiydi; bu test o zamandan kalma ve rakamı aynı çıkıyor,
+      // ama artık BAŞKA bir sebeple: 4.000 "pencerenin dışında" değil, "zaten teslim edilmiş".
+      //
+      // DAMGALAR GÜN İÇİNE KIRPILIYOR: formül gün bazlı olduğu için ±saat kaydırma, test gece
+      // yarısına yakın koşarsa kayıtları komşu güne taşır ve testi yazı-turaya çevirirdi.
       final custId = await CustomerRepository(db).create(name: 'İki Devir');
       final handovers = CashHandoverRepository(db);
-      final oldIso = DateTime.now().toUtc().subtract(const Duration(hours: 2)).toIso8601String();
 
-      // 1. devirden ÖNCE toplanan nakit (2 saat önce).
+      final simdi = DateTime.now().toUtc();
+      final tr = simdi.add(const Duration(hours: 3));
+      final gunBasi = DateTime.utc(tr.year, tr.month, tr.day).subtract(const Duration(hours: 3));
+      final gunSonu = gunBasi.add(const Duration(hours: 24, seconds: -1));
+      DateTime kirp(DateTime t) => t.isBefore(gunBasi) ? gunBasi : (t.isAfter(gunSonu) ? gunSonu : t);
+
+      // 1. devirden ÖNCE toplanan nakit.
       await writeLedgerEntry(db, entryType: 'payment', amountKurus: -4000, paymentType: 'nakit',
-          collectedByUserId: 'kurye-1', customerId: custId, occurredAt: oldIso);
+          collectedByUserId: 'kurye-1', customerId: custId,
+          occurredAt: kirp(simdi.subtract(const Duration(hours: 2))).toIso8601String());
       await handovers.devret(fromUserId: 'kurye-1', countedCashKurus: 4000); // 1. devir "şimdi"
 
-      // 1. devirden SONRA toplanan nakit (1 saat sonra).
-      final newIso = DateTime.now().toUtc().add(const Duration(hours: 1)).toIso8601String();
+      // 1. devirden SONRA toplanan nakit.
       await writeLedgerEntry(db, entryType: 'payment', amountKurus: -6000, paymentType: 'nakit',
-          collectedByUserId: 'kurye-1', customerId: custId, occurredAt: newIso);
+          collectedByUserId: 'kurye-1', customerId: custId,
+          occurredAt: kirp(simdi.add(const Duration(hours: 1))).toIso8601String());
       final id2 = await handovers.devret(fromUserId: 'kurye-1', countedCashKurus: 6000);
 
       final row2 = await (db.select(db.cashHandovers)..where((t) => t.id.equals(id2))).getSingle();
-      expect(row2.expectedCashKurus, 6000, reason: 'yalnız 1. devirden beri toplanan nakit (önceki 4000 hariç)');
+      expect(row2.expectedCashKurus, 6000,
+          reason: 'gün toplamı 10.000 − teslim edilen 4.000; devredilen para iki kez beklenmez');
       expect(row2.diffKurus, 0);
     });
 
