@@ -9,6 +9,32 @@
 #  - Sonsuz dongu korumasi: stop_hook_active geldiyse hic calismadan cikilir.
 #
 # Not: Bu dosya sir taramasinin kendisinden HARIC tutulur (regex kaliplarini iceriyor).
+#
+# ============ SURE BUTCESI — NEDEN TAM SUITE BURADA KOSMUYOR (2026-08-06) ============
+#
+# ARIZA: kapi commit'e HIC ULASAMIYORDU ve kimse sebebini bilmiyordu. Vardiya sonunda 36 dosya
+# commit'siz kaldi; kullanici elle "pushla" demek zorunda kaldi. Belirti sinsiydi: dosyalar
+# SAHNELENMIS halde duruyordu (git add -A satir 51'de kosmustu) ama commit yoktu.
+#
+# OLCUM (2026-08-06, bu makinede): pint 2sn + phpstan 3sn + `php artisan test` 599sn = 604sn.
+# Bu kancanin `.claude/settings.json`daki timeout'u 600sn. Yani kapi zaman asimini DORT SANIYEYLE
+# kaybediyordu. Sure test sayisiyla dalgalandigi icin bazen geciyor bazen gecmiyordu — yazi-tura.
+# `flutter test` de eklendiginde (mobil dokunusu varsa) kayip garantiye doner.
+#
+# KARAR: YAVAS kontroller bu kancadan CIKARILDI, HIZLI olanlar kaldi.
+#   Burada (bloklayan, ~25sn): sir taramasi · pint · phpstan · dart analyze
+#   CI'da (bloklamayan):       api-ci.yml (tam API suite, gercek Postgres + RLS)
+#                              saha-apk.yml `test` isi (flutter test) -> APK'yi KAPILAR
+#
+# NEDEN GUVENLI: api-ci.yml zaten `apps/api/**` dokunan HER push'ta tam suite'i kosuyordu, yani
+# yerel kosum ZATEN TEKRARDI — ve CI'daki daha guclu (RLS rolleri gercekten kuruluyor). Mobil
+# tarafta ise `flutter test` TEK bekciydi ve kaldirilmasi bozuk bir APK'nin dogrudan telefona
+# gitmesi demek olurdu; bu yuzden ayni turda saha-apk.yml'e `test` isi eklendi ve derleme ona
+# `needs:` ile bagli — test kirmiziysa APK URETILMEZ.
+#
+# BU KANCANIN ISI ARTIK: sir sizdirmayi ve bicim/tip hatasini durdurmak, sonra commit + push.
+# Testin dogru yeri, gercek servislerin oldugu ve kimseyi bekletmeyen yerdir: CI.
+# Buraya tekrar `artisan test` / `flutter test` EKLEME — ayni arizayi geri getirirsin.
 
 $ErrorActionPreference = 'Continue'
 
@@ -174,12 +200,9 @@ if ($mobileChanged.Count -gt 0) {
     }
     $ran.Add('dart-analyze')
 
-    $out = (flutter test 2>&1 | Out-String)
-    if ($LASTEXITCODE -ne 0) {
-      $failed.Add('flutter-test')
-      $detail.Add((@($out.Trim() -split "`n") | Select-Object -Last 2) -join ' | ')
-    }
-    $ran.Add('flutter-test')
+    # `flutter test` BURADA KOSMUYOR — bkz. dosya basindaki "SURE BUTCESI" notu.
+    # Mobil testler CI'da: .github/workflows/saha-apk.yml icindeki `test` isi.
+    # O is KIRMIZIYSA APK DERLENMEZ, yani telefona bozuk surum GITMEZ (`needs: test`).
 
     Pop-Location
   } else {
@@ -237,12 +260,9 @@ if ($apiChanged.Count -gt 0) {
       $ran.Add('phpstan')
     } else { $skipped.Add('phpstan (arac yok)') }
 
-    $out = (& $phpExe artisan test 2>&1 | Out-String)
-    if ($LASTEXITCODE -ne 0) {
-      $failed.Add('php-test')
-      $detail.Add((@($out.Trim() -split "`n") | Select-Object -Last 2) -join ' | ')
-    }
-    $ran.Add('php-test')
+    # `php artisan test` BURADA KOSMUYOR — bkz. dosya basindaki "SURE BUTCESI" notu.
+    # API testleri CI'da: .github/workflows/api-ci.yml, push'ta gercek Postgres + RLS ile
+    # (yereldeki kosumdan DAHA guclu: RLS rolleri gercekten kuruluyor, izolasyon sinaniyor).
 
     Pop-Location
   } else {
@@ -267,9 +287,14 @@ if (Test-Path 'DECISIONS.md') {
   if ($lastDecision.Length -gt 220) { $lastDecision = $lastDecision.Substring(0, 217) + '...' }
 }
 
-$ozet = "otomatik($branch): $($staged.Count) dosya, kalite kapisi yesil"
-$govde = "Kapi: " + (($ran | Select-Object -Unique) -join ', ')
+# MESAJ DURUST OLMAK ZORUNDA: eskiden "kalite kapisi yesil" yaziyordu ve bu, tam suite'in
+# kostugu izlenimini veriyordu. Kendi basarisini raporlayan arac supheli listesinden duser —
+# 2026-08-04'te tam bu yuzden kimse kancadan suphelenmedi. Artik yalnizca GERCEKTEN kosanlar
+# yazilir ve testlerin CI'da oldugu acikca belirtilir.
+$ozet = "otomatik($branch): $($staged.Count) dosya, hizli kapi yesil"
+$govde = "Hizli kapi: " + (($ran | Select-Object -Unique) -join ', ')
 if ($skipped.Count -gt 0) { $govde += " | atlanan: " + (($skipped | Select-Object -Unique) -join ', ') }
+$govde += "`nTestler CI'da: api-ci (apps/api) · saha-apk/test (apps/mobile)"
 $msg = $ozet + "`n`n" + $govde
 if ($lastDecision) { $msg += "`nSon karar: " + $lastDecision }
 
@@ -287,7 +312,7 @@ if (-not $commitOk) {
 $hash = (git rev-parse --short HEAD 2>$null | Out-String).Trim()
 git push origin $branch 2>&1 | Out-Null
 if ($LASTEXITCODE -eq 0) {
-  Emit ("Otomatik commit + push: $hash ($branch). Kapi: " + (($ran | Select-Object -Unique) -join ', '))
+  Emit ("Otomatik commit + push: $hash ($branch). Hizli kapi: " + (($ran | Select-Object -Unique) -join ', ') + ". Testler CI'da kosuyor.")
 } else {
   Emit ("Otomatik commit yerel kaldi: $hash - push BASARISIZ (baglanti/kimlik?). Sonraki push'ta gider.")
 }

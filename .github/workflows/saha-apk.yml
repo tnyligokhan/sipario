@@ -30,7 +30,45 @@ permissions:
   contents: write   # release varlıklarını güncelleyebilmek için
 
 jobs:
+  # TESTLER DERLEMEDEN ÖNCE — bu iş 2026-08-06'da eklendi ve boşluğu kapatıyor.
+  #
+  # ÖNCESİNDE: mobil testler YALNIZ yerel `Stop` kancasında koşuyordu ve o kanca zaman aşımına
+  # takılıp commit'e bile ulaşamıyordu (ölçüm: pint+phpstan+artisan test = 604sn, timeout 600sn).
+  # Yani tek bekçi hem yavaş hem güvenilmezdi; kancadan çıkarılınca mobil tarafta HİÇ test
+  # kalmayacaktı ve bu hat bozuk bir APK'yı doğrudan sahadaki telefona yollardı — güncelleme
+  # kendiliğinden iniyor, kimse "kurma" demiyor.
+  #
+  # Bu iş KIRMIZIYSA `derle-ve-yayinla` hiç başlamaz (`needs: test`), yani release varlıkları
+  # ellenmez ve telefondaki sürüm olduğu gibi kalır. Testin doğru yeri burası: kimseyi
+  # bekletmiyor ve geliştirici makinesi kapalıyken de koşuyor.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.7'   # derleme işiyle AYNI sürüm; ayrışırsa test yalan söyler
+          channel: stable
+          cache: true
+
+      - name: Bağımlılıklar
+        working-directory: apps/mobile
+        run: flutter pub get
+
+      # `dart analyze`, `flutter analyze` DEĞİL: yerel kancada da öyle (Türkçe karakterli yol
+      # flutter analyze'in LSP kanalını kırıyordu). Aynı aracı kullanmak, CI ile yerelin aynı
+      # şeyi ölçmesini sağlar.
+      - name: Analiz
+        working-directory: apps/mobile
+        run: dart analyze
+
+      - name: Testler
+        working-directory: apps/mobile
+        run: flutter test
+
   derle-ve-yayinla:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
