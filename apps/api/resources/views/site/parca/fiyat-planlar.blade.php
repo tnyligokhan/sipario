@@ -1,18 +1,19 @@
 {{--
-    Fiyatlandırma · hero + dönem anahtarı + iki plan kartı (11-sw-fiyat.jsx · FiyatSayfa üst bloğu,
+    Fiyatlandırma · hero + dönem anahtarı + TEK plan kartı (11-sw-fiyat.jsx · FiyatSayfa üst bloğu,
     DonemAnahtar, PlanKart).
+
+    TEK PAKET (2026-08-05): tasarımın ikinci kartı ("Kurumsal · 1.499 ₺'den başlar") kaldırıldı —
+    `plans` tablosu tek satırlıdır, Kurumsal diye satılan bir plan yoktur. Izgara `tek` değiştirici
+    sınıfıyla tek sütuna düşer — kuralı `public/css/site.css` tanımlar.
 
     Dönem anahtarı Alpine ile. Sunucu YILLIK dönemi basar (tasarımın açılış durumu); JavaScript
     kapalıysa sayfa yıllık fiyatla okunur kalır — sayı ekranda, boş kutu değil.
 
     "2 ay hediye" HESAPLANIR (bkz. _kur.php): panelden fiyat değişince rozet kendini düzeltir,
     kazanç bir aydan azsa hiç basılmaz.
-
-    Vurgulu karttaki oran rozeti TEMSİLİDİR — bkz. site/parca/_temsili-veri.php.
 --}}
 @php
     $p = $sw['plan']['sipario'];
-    $q = $sw['plan']['kurumsal'];
     // Alpine'in dönem anahtarında kullanacağı, sunucuda biçimlenmiş metinler.
     $donemMetin = [
         'yil' => [
@@ -56,13 +57,8 @@
                 @click="donem = 'ay'" :aria-pressed="donem === 'ay'" aria-pressed="false">Aylık</button>
         </div>
 
-        <div class="plan-grid">
-            <x-site.pano class="plan plan-vurgu" etiket="Standart plan" genis-ic>
-                @if (! empty($tmsl['planRozet']))
-                    <x-slot:sag>
-                        <x-site.rozet tur="mor" nokta>{{ $tmsl['planRozet'] }}</x-site.rozet>
-                    </x-slot:sag>
-                @endif
+        <div class="plan-grid tek">
+            <x-site.pano class="plan plan-vurgu" etiket="Tek plan" genis-ic>
                 <div class="plan-bas">
                     <span class="h2">{{ $p['ad'] }}</span>
                     <p class="gvd">{{ $p['ozet'] }}</p>
@@ -83,39 +79,22 @@
                 <a class="dg dg-a tam" href="{{ route('subscription.register') }}">{{ $p['cta'] }}</a>
                 <span class="kucuk fo-alt">{{ $p['ctaAlt'] }}</span>
             </x-site.pano>
-
-            {{-- Kurumsal: self-servis satın alma YOK, CTA iletişime gider (tasarımın davranışı). --}}
-            <x-site.pano class="plan" ince etiket="Çok şubeli" genis-ic>
-                <div class="plan-bas">
-                    <span class="h2">{{ $q['ad'] }}</span>
-                    <p class="gvd">{{ $q['ozet'] }}</p>
-                </div>
-                <div class="plan-fiyat">
-                    <span class="rakam kucuk-rakam">{{ $q['ozelFiyat'] }}</span>
-                </div>
-                <p class="kucuk plan-not">Şube ve kullanıcı sayısına göre belirlenir. Kendi sunucunuzda kurulum ve yerinde eğitim dahildir.</p>
-                <ul class="plan-liste">
-                    @foreach ($q['kapsam'] as $x)
-                        <li>
-                            <x-site.ikon ad="onay" boy="16" kalin="2.6" renk="var(--yesil)" />
-                            <span><b>{{ $x['t'] }}</b>@if($x['a'])<small>{{ $x['a'] }}</small>@endif</span>
-                        </li>
-                    @endforeach
-                </ul>
-                <a class="dg dg-c tam" href="{{ route('site.iletisim') }}">{{ $q['cta'] }}</a>
-                <span class="kucuk fo-alt">{{ $q['ctaAlt'] }}</span>
-            </x-site.pano>
         </div>
 
         {{--
-            Ek kurye notu KATALOĞA GÖRE yazıldı. Tasarım "99 ₺/ay" diyordu; katalogda (addon_packages)
-            böyle bir kalem yok ve ek paket bir SÜRE değil KAPASİTE satışıdır — EkPaketServisi kotayı
-            KALICI artırır, aylık yenilemez. Rakam ve periyot ikisi birden düzeltildi.
+            Ek kurye notu KATALOĞA GÖRE yazılır (addon_packages · type=courier · aktif olanlar).
+            Tasarım "99 ₺/ay" diyordu; katalogda böyle bir kalem yok ve ek paket bir SÜRE değil
+            KAPASİTE satışıdır — EkPaketServisi kotayı KALICI artırır, aylık yenilemez. Rakam ve
+            periyot ikisi birden düzeltildi. Katalog boşsa bölüm HİÇ basılmaz — fiyat uydurulmaz.
+            Aynı paketleri hesap panelindeki "Ek paket" ekranı da aynı servisten okur.
         --}}
-        @if ($fiyat['ekKuryeKisa'] !== null)
+        @if (! empty($fiyat['kuryePaketleri']))
             <div class="fiyat-ek">
                 <x-site.kutu tur="mor" ikon="bilgi">
-                    <b>Ek kurye hesabı {{ $fiyat['ekKuryeKisa'] }}.</b> Sipario planı {{ $fiyat['kurye'] }} kurye hesabı içerir; daha fazlası ek paketle eklenir. Aylık ücret değildir — tek seferlik ödersiniz, hesap hakkınız kalıcı olarak artar.
+                    <b>Plana {{ $fiyat['kurye'] }} kurye hesabı dahil.</b>
+                    Daha fazlası ek paketle eklenir:
+                    {{ collect($fiyat['kuryePaketleri'])->map(fn ($k) => '+'.$k['adet'].' kurye '.$k['fiyat'])->join(' · ') }}.
+                    Aylık ücret değildir — tek seferlik ödersiniz, hesap hakkınız kalıcı olarak artar.
                 </x-site.kutu>
             </div>
         @endif

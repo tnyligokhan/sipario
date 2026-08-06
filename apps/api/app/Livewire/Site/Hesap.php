@@ -77,7 +77,16 @@ class Hesap extends Component
     public const BOLUMLER = [
         'genel' => 'Genel bakış',
         'abonelik' => 'Abonelik',
-        'hak' => 'Oto-sıralama',
+        // Anahtar `hak` KORUNDU (etiket değişti): `bolumSec('hak')` çağrıları, kısayollar ve
+        // `?bolum=hak` bağlantıları bu anahtara bağlı. Bölüm artık iki kotayı da (oto-sıralama
+        // hakkı + kurye hesabı) ve ikisinin ek paketlerini kapsıyor.
+        'hak' => 'Kullanım ve ek paketler',
+        // `ekip` gömülü bir Livewire bileşenidir (`Site\Ekip`) ve bayiyi/yetkiyi KENDİSİ çözer;
+        // partial ona parametre GEÇMEZ. Sebep bileşenin kendi başlığında: bu panele oturum
+        // anahtarıyla da girilebiliyor (ödeme akışının ortasındaki, henüz giriş yapmamış bayi) ve
+        // kimlik YARATAN bir yüzey o kapıdan açılamaz. Sıra bilinçli: hesap yönetimi üstte, para
+        // işleri (fatura/ödeme) altta.
+        'ekip' => 'Ekip',
         'fatura' => 'Faturalar',
         'odeme' => 'Ödeme yöntemi',
         'isletme' => 'İşletme bilgileri',
@@ -97,6 +106,15 @@ class Hesap extends Component
 
         $this->bayiId = $id;
         $this->isletme->doldur($this->bayi());
+
+        // `?bolum=` — ödeme ekranındaki "Vazgeç" bayiyi GELDİĞİ sekmeye geri getirebilsin diye.
+        // Değer `BOLUMLER` anahtarlarıyla sınırlıdır; tanınmayan değer sessizce yok sayılır ve
+        // 'genel' açılır (bölüm adı bir görünüm dosyası yoluna dönüştüğü için burası kapalı liste
+        // olmak zorunda — `bolumSec()` ile aynı kapı).
+        $istenen = (string) request()->query('bolum', '');
+        if (isset(self::BOLUMLER[$istenen])) {
+            $this->bolum = $istenen;
+        }
 
         return null;
     }
@@ -319,9 +337,37 @@ class Hesap extends Component
     #[Computed]
     public function hakPaketleri(): Collection
     {
-        return (new EkPaketServisi)->paketler(true)
-            ->where('type', AddonPackage::TYPE_CREDITS)
-            ->values();
+        return $this->paketler(AddonPackage::TYPE_CREDITS);
+    }
+
+    /**
+     * Satıştaki EK KURYE paketleri. Aynı katalog, aynı kural: fiyat `addon_packages`tan gelir.
+     * Kota artışı `EkPaketServisi::tanimla()`da olur (`tenants.courier_limit` += adet) ve orada
+     * gelir kaydıyla TEK transaction'dadır — bu ekranın tek işi paketi göstermek ve ödemeye
+     * götürmektir; kota buradan büyümez.
+     *
+     * @return Collection<int, AddonPackage>
+     */
+    #[Computed]
+    public function kuryePaketleri(): Collection
+    {
+        return $this->paketler(AddonPackage::TYPE_COURIER);
+    }
+
+    /** Satıştaki paketlerin istek içi belleği — iki bölüm de aynı sayfada çiziliyor. */
+    private ?Collection $katalog = null;
+
+    /**
+     * Katalog TEK sorgudan süzülür: `hakPaketleri` ve `kuryePaketleri` aynı çizimde okunuyor,
+     * ayrı ayrı sorgulamak aynı tabloya iki gidiş olurdu.
+     *
+     * @return Collection<int, AddonPackage>
+     */
+    private function paketler(string $tur): Collection
+    {
+        $this->katalog ??= (new EkPaketServisi)->paketler(true);
+
+        return $this->katalog->where('type', $tur)->values();
     }
 
     // ── Kurulum kontrol listesi (deneme) ─────────────────────────────────────
@@ -414,11 +460,20 @@ class Hesap extends Component
         return new PlanDeposu('pgsql_owner');
     }
 
-    /** Ödeme ekranına giden bağlantı (dönem ya da ek paket seçili). */
-    public function odemeUrl(?string $donem = null, ?string $paketId = null): string
+    /**
+     * Ödeme ekranına giden bağlantı (dönem ya da ek paket seçili).
+     *
+     * `geri`: ödeme ekranındaki "Vazgeç"in nereye döneceğini söyleyen ANAHTARdır, URL DEĞİL.
+     * Bir URL (ya da `Referer`) taşısaydık, bağlantıyı kuran herkes bayiyi ödeme sayfasından
+     * istediği yere gönderebilirdi — açık yönlendirme. Anahtarı rotaya çeviren kapalı liste
+     * `Subscribe::GERI_HEDEFLERI`dir; liste dışı/eksik değer varsayılana düşer.
+     */
+    public function odemeUrl(?string $donem = null, ?string $paketId = null, ?string $geri = null): string
     {
-        return $paketId !== null
-            ? route('subscription.subscribe', ['tur' => 'paket', 'paket' => $paketId])
-            : route('subscription.subscribe', ['tur' => 'plan', 'donem' => $donem ?? $this->donem()->value]);
+        $sepet = $paketId !== null
+            ? ['tur' => 'paket', 'paket' => $paketId]
+            : ['tur' => 'plan', 'donem' => $donem ?? $this->donem()->value];
+
+        return route('subscription.subscribe', $geri === null ? $sepet : $sepet + ['geri' => $geri]);
     }
 }

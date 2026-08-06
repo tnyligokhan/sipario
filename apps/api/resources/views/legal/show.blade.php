@@ -44,9 +44,18 @@
                         @include('legal.docs.'.$slug)
                     </x-site.pano>
 
-                    <p class="kucuk" style="margin-top:18px">
-                        <a href="{{ route('subscription.subscribe') }}">← Aboneliğe dön</a>
-                    </p>
+                    {{--
+                        Hedef ANA SAYFA, "aboneliğe dön" DEĞİL (2026-08-05). İki sebep, ikisi de ölçüldü:
+                        (1) Bu belgeler kayıt ve ödeme ekranlarından `target="_blank"` ile YENİ SEKMEDE
+                        açılıyor (register.blade.php:98-100, partials/odeme-onaylar.blade.php:13/20/27) —
+                        yeni sekmede "geri dön" diye bir yer yoktur; bağlantı geri götürmez, o sekmeyi
+                        ödeme akışına SOKAR. (2) Belgeler alt bilgiden de erişiliyor: çerez politikasını
+                        okuyan ziyaretçiyi "dön" diyerek ödemeye yollamak yanlış yönlendirmedir.
+                        Düğme biçimi `/parola` ekranındaki "Girişe dön" ile aynı desendir.
+                    --}}
+                    <div style="margin-top:18px">
+                        <a class="dg dg-d" href="{{ route('site.ana') }}">← Ana sayfaya dön</a>
+                    </div>
                 </div>
             </div>
         </div>

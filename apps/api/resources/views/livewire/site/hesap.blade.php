@@ -59,7 +59,9 @@
                 @foreach (\App\Livewire\Site\Hesap::BOLUMLER as $anahtar => $ad)
                     <button type="button" class="hs-l {{ $bolum === $anahtar ? 'on' : '' }}"
                         wire:click="bolumSec('{{ $anahtar }}')">
-                        <x-site.ikon :ad="['genel' => 'grafik', 'abonelik' => 'rozet', 'hak' => 'simsek', 'fatura' => 'belge', 'odeme' => 'kart', 'isletme' => 'bina'][$anahtar]"
+                        {{-- Harita BOLUMLER ile birlikte büyür: eksik anahtar burada "Undefined
+                             array key" ile patlar, sessizce ikonsuz kalmaz. --}}
+                        <x-site.ikon :ad="['genel' => 'grafik', 'abonelik' => 'rozet', 'hak' => 'simsek', 'ekip' => 'kurye', 'fatura' => 'belge', 'odeme' => 'kart', 'isletme' => 'bina'][$anahtar]"
                             boy="18" kalin="2" />{{ $ad }}
                     </button>
                 @endforeach

@@ -50,6 +50,8 @@ return function (PlanDeposu $planlar, EkPaketServisi $ekPaketler): array {
         ->where('type', AddonPackage::TYPE_CREDITS)
         ->sortBy('quantity')
         ->map(fn (AddonPackage $p) => [
+            // id: ödeme ekranına ?tur=paket&paket=<id> ile geçilir (Subscribe::mount).
+            'id' => $p->id,
             'adet' => $p->quantity,
             'fiyat' => $tl($p->price_kurus),
             'birim' => number_format($p->price_kurus / 100 / max(1, $p->quantity), 2, ',', '.').' ₺',
@@ -68,6 +70,13 @@ return function (PlanDeposu $planlar, EkPaketServisi $ekPaketler): array {
      * SÜRE değil KAPASİTE satışıdır (EkPaketServisi: kota artışı kalıcıdır, aylık yenilenmez).
      * Katalog esas alındı — tek kurye ekleyen en küçük paket okunur.
      */
+    $kuryePaketleri = $satistaki
+        ->where('type', AddonPackage::TYPE_COURIER)
+        ->sortBy('quantity')
+        ->map(fn (AddonPackage $p) => ['adet' => $p->quantity, 'fiyat' => $tl($p->price_kurus)])
+        ->values()
+        ->all();
+
     $kuryePaketi = $satistaki
         ->where('type', AddonPackage::TYPE_COURIER)
         ->sortBy('quantity')
@@ -99,6 +108,8 @@ return function (PlanDeposu $planlar, EkPaketServisi $ekPaketler): array {
         'kurye' => $kurye,
         'ekKuryeTl' => $ekKuryeTl,
         'ekKuryeKisa' => $ekKuryeKisa ?? '—',
+        // Katalogda kurye paketi VAR MI: fiyata bağlı cümleler yoksa hiç kurulmasın (uydurma fiyat yok).
+        'ekKuryeVar' => $ekKuryeKisa !== null,
         'kunye' => $kunye,
         'bos' => $bos,
     ]);
@@ -107,6 +118,13 @@ return function (PlanDeposu $planlar, EkPaketServisi $ekPaketler): array {
         'sw' => $sw,
         // Ham künye: iletişim sayfasının "Merkez" panosu bunu doğrudan basar.
         'kunye' => $kunye,
+        /*
+         * Yer tutucu süzgeci GÖRÜNÜMLERE de açık: künyeyi ham basan tek yer iletişim sayfası ve
+         * orada da "[Şirket unvanı]" gibi kırık kutular ekrana çıkmamalı (alt bilgide aynı karar
+         * uygulandı). Tanımı ikinci kez yazmak yerine buradan geçiyor — süzgeç değişirse iki yer
+         * birden değişsin.
+         */
+        'bos' => $bos,
         // ⚠️ TEMSİLİ (uydurma) veri — dosyanın başındaki uyarıyı okuyun.
         'tmsl' => require __DIR__.'/_temsili-veri.php',
         'tl' => $tl,
@@ -121,6 +139,8 @@ return function (PlanDeposu $planlar, EkPaketServisi $ekPaketler): array {
             'ekKuryeTl' => $ekKuryeTl,
             'ekKuryeKisa' => $ekKuryeKisa,
             'ekKuryeAdet' => $kuryePaketi?->quantity,
+            // Satıştaki BÜTÜN kurye paketleri (ana sayfa + fiyat sayfası aynı listeyi basar).
+            'kuryePaketleri' => $kuryePaketleri,
             'kontorPaketleri' => $kontorPaketleri,
         ],
     ];

@@ -68,6 +68,28 @@ Route::get('parola/yenile/{token}', ParolaYenile::class)->name('site.parola.yeni
  * ve öncelik listesinde zaten auth'tan öne alınmıştır.
  */
 Route::get('hesap', Hesap::class)->middleware(['tenant', 'auth:web'])->name('site.hesap');
+
+/*
+ * Bayinin çıkışı — POST, GET DEĞİL. Üst menüdeki çıkış düğmesi buraya form + @csrf ile gelir;
+ * GET olsaydı önceden getirme (prefetch) ya da üçüncü taraf bir sayfadaki <img> ile İSTEMSİZ
+ * tetiklenebilirdi — kullanıcıyı sebepsiz oturumdan atan bir CSRF yüzeyi.
+ *
+ * `tenant` middleware'i BİLEREK YOK: SessionGuard::logout() oturum verisini kullanıcıyı
+ * YÜKLEYEBİLMESİNDEN BAĞIMSIZ olarak temizler, yani RLS bağlamı kurulmadan da doğru çalışır.
+ * (Bu sayfaların kullanıcıyı hiç okuyamadığı zaten ölçüldü — bkz. components/layouts/site.blade.php.)
+ * Takarsak RouteCoverageGuardTest her `tenant`lı rotadan izolasyon senaryosu ister; çıkış için
+ * ödenecek bedel değil.
+ *
+ * `auth:web` de YOK ve bu da kasıtlı: oturumu zaten düşmüş biri çıkışa basınca giriş ekranına
+ * fırlatılmasın. İşlem idempotenttir — gövde `Hesap::cikis()` ile birebir aynıdır.
+ */
+Route::post('cikis', function () {
+    Auth::guard('web')->logout();
+    session()->invalidate();
+    session()->regenerateToken();
+
+    return redirect()->route('site.ana');
+})->name('site.cikis');
 Route::post('abonelik/callback', function (Request $request, SubscriptionService $service) {
     $service->handleCallback($request->all());
 

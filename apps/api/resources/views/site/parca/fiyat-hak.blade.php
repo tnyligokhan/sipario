@@ -5,8 +5,11 @@
     satıştan çekilen paket burada da görünmez. "En avantajlı" rozeti hak başına en ucuz pakete
     hesaplanarak verilir (bkz. _kur.php).
 
-    "Satın al" hesap paneline giriş üzerinden yürür; site.hesap oturum ister ve misafirde
-    yönlendirme hedefi tanımlı değil, o yüzden doğrudan giriş sayfasına bağlanıyor.
+    "Satın al" doğrudan ödeme ekranına gider: `?tur=paket&paket=<id>&geri=fiyatlar`. Sepeti sunucu
+    kurar (Subscribe::mount) — tutar İSTEMCİDEN ALINMAZ, satışta olmayan/bilinmeyen paket sessizce
+    aboneliğe düşer, uydurma tutar oluşmaz. Misafir kullanıcıyı da Subscribe kendisi girişe
+    yönlendirir ("fiyat sayfasından gelen misafir bir hata değil"), o yüzden burada oturum
+    kontrolü yapmıyoruz. `geri=fiyatlar` → "Vazgeç" bu sayfaya döner.
 --}}
 @if (! empty($fiyat['kontorPaketleri']))
     <section class="blm kagit2">
@@ -21,7 +24,8 @@
                         <span class="hak-l mn">hak</span>
                         <span class="hak-f">{{ $h['fiyat'] }}</span>
                         <span class="kucuk">hak başına {{ $h['birim'] }}</span>
-                        <a class="dg dg-c tam gk" href="{{ route('subscription.login') }}">Satın al</a>
+                        <a class="dg dg-c tam gk"
+                            href="{{ route('subscription.subscribe', ['tur' => 'paket', 'paket' => $h['id'], 'geri' => 'fiyatlar']) }}">Satın al</a>
                     </div>
                 @endforeach
             </div>

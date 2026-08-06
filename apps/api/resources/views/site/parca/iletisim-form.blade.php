@@ -6,9 +6,10 @@
     KULLANILMADI — hiçbir yere gitmeyen bir formda o ekranı göstermek kullanıcıya yalan söylemektir.
 
     Bunun yerine: doğrulama istemcide çalışır (kaynaktaki kurallarla birebir), "Gönder" düğmesi
-    alanları hazır bir `mailto:` mesajına çevirir. Destek e-posta adresi HENÜZ BELLİ OLMADIĞI için
-    (site/parca/_veri.php · destekEposta = null) düğme şu an PASİF ve altında gerekçesi yazılı.
-    Adres girildiği an düğme kendiliğinden canlanır; başka değişiklik gerekmez.
+    alanları hazır bir `mailto:` mesajına çevirir. Hedef adres `destekEposta` (site/parca/_veri.php)
+    — config'deki `support_email` köşeli parantezli yer tutucuysa null döner, düğme PASİF kalır ve
+    altında gerekçesi yazar; gerçek adres girildiği an kendiliğinden canlanır. Bugün adres gerçek
+    (`destek@sipario.com.tr`), yani AKTİF dal çalışıyor — pasif dal yer tutucuya karşı sigortadır.
 
     Alan işaretlemesi x-site.alan yerine elle yazıldı: hata metnini Alpine sürüyor, bileşenin `hata`
     prop'u ise sunucu tarafı bir değer bekliyor.
@@ -49,7 +50,12 @@
             <div class="alan">
                 <label class="etk" for="il-konu">Konu</label>
                 <select id="il-konu" class="gir" x-model="f.konu">
-                    @foreach (['Demo talebi', 'Kurumsal teklif', 'Fiyat ve paket sorusu', 'Teknik destek', 'Fatura / ödeme', 'Diğer'] as $k)
+                    {{-- "Kurumsal teklif" → "Çok şubeli işletme" (2026-08-05): Kurumsal diye bir
+                         PLAN kalmadı ama bu bir plan adı değil, bir TALEP türü — çok şubeli bayi
+                         gerçek bir satış kanalı ve o talep bize hâlâ geliyor. Seçeneği silmek
+                         talebin kendisini görünmez yapardı; adı gerçeği söyleyecek şekilde
+                         değiştirildi. --}}
+                    @foreach (['Demo talebi', 'Çok şubeli işletme', 'Fiyat ve paket sorusu', 'Teknik destek', 'Fatura / ödeme', 'Diğer'] as $k)
                         <option>{{ $k }}</option>
                     @endforeach
                 </select>
@@ -65,8 +71,12 @@
                 <button class="dg dg-a tam" type="submit">Gönder, beni arayın</button>
                 <p class="od-kucuk">“Gönder”e bastığınızda e-posta uygulamanız hazırlanmış bir mesajla açılır; göndermeden önce okuyabilirsiniz. Bilgileriniz yalnızca bu talebe dönmek için kullanılır. <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">KVKK aydınlatma metni</a>.</p>
             @else
+                {{-- "Soldaki kanallardan ulaşın" cümlesi KOŞULLU: hedef adres yer tutucuysa e-posta
+                     kanalı da süzülüp listeden düşer (ikisi de `support_email`ten besleniyor), telefon
+                     ve WhatsApp zaten yer tutucu. O durumda solda hiç kanal kalmayabilir ve okuyucuyu
+                     olmayan bir yere göndermiş oluruz. --}}
                 <button class="dg dg-a tam" type="button" disabled>Gönder, beni arayın</button>
-                <p class="od-kucuk">Form gönderimi henüz açık değil — destek adresimiz kesinleşmedi. Bu arada soldaki kanallardan bize ulaşabilirsiniz. Bilgileriniz yalnızca bu talebe dönmek için kullanılır. <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">KVKK aydınlatma metni</a>.</p>
+                <p class="od-kucuk">Form gönderimi henüz açık değil — destek adresimiz kesinleşmedi.@if (! empty($sw['kanal'])) Bu arada soldaki kanallardan bize ulaşabilirsiniz.@endif Bilgileriniz yalnızca bu talebe dönmek için kullanılır. <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">KVKK aydınlatma metni</a>.</p>
             @endif
         </form>
     </x-site.pano>

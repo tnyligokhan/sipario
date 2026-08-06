@@ -26,7 +26,14 @@
                 <button type="button" class="dg dg-a" wire:click="bolumSec('abonelik')">
                     Aboneliği başlat<x-site.ikon ad="ok" boy="18" kalin="2.2" />
                 </button>
-                <a class="dg dg-d" href="{{ route('site.fiyatlar') }}">Planları karşılaştır</a>
+                {{--
+                    "Planları karşılaştır" KALDIRILDI (2026-08-05, `fiyat` ajanının bildirimi):
+                    tek pakete geçiş kararıyla karşılaştırılacak ikinci plan kalmadı ve /fiyatlar
+                    artık gizli (rota duruyor, `noindex`, menüden çıktı). Düğme bayiyi gizlenmiş
+                    bir sayfaya, üstelik tutamayacağı bir vaatle götürüyordu. Yerine gerçekten
+                    karşılığı olan ve menüde duran bir hedef kondu.
+                --}}
+                <a class="dg dg-d" href="{{ route('site.ozellikler') }}">Neler dahil?</a>
             </div>
         </x-site.pano>
 
@@ -91,15 +98,20 @@
                     alt="{{ $hak['kalan'] }} hak kaldı · aylık kota {{ $bayi->route_credits_monthly }}" />
             </x-site.pano>
             <x-site.pano etiket="Kullanıcılar">
+                {{-- Kurye limiti de artık satın alınabilir (ek kurye paketi) — kotanın yanında
+                     yönetim kapısı olmalı; yoksa limite takılan bayi çıkış yolunu göremiyor. --}}
+                <x-slot:sag>
+                    <button type="button" class="dg dg-d gk" wire:click="bolumSec('hak')">Yönet</button>
+                </x-slot:sag>
                 <x-site.kota etiket="Kurye hesabı" :kullanilan="$kurye['kullanilan']" :toplam="$kurye['limit']"
-                    renk="var(--yesil)" alt="Planınız {{ $kurye['limit'] }} kurye içerir" />
+                    renk="var(--yesil)" alt="{{ $kurye['kalan'] }} hesap açabilirsiniz · limitiniz {{ $kurye['limit'] }} kurye" />
             </x-site.pano>
         </div>
 
         <x-site.pano etiket="Kısayollar" :ic="false">
             <div class="hb-kisa">
                 @foreach ([['kart', 'Ödeme bilgilerini gör', 'odeme'], ['belge', 'Ödeme geçmişini gör', 'fatura'],
-                    ['simsek', 'Ek oto-sıralama hakkı al', 'hak'], ['bina', 'Fatura bilgilerini düzenle', 'isletme']] as [$ik, $etiket, $hedef])
+                    ['simsek', 'Ek hak veya kurye al', 'hak'], ['bina', 'Fatura bilgilerini düzenle', 'isletme']] as [$ik, $etiket, $hedef])
                     <button type="button" class="hb-k" wire:click="bolumSec('{{ $hedef }}')">
                         <span class="hb-k-ik"><x-site.ikon :ad="$ik" boy="19" kalin="2" renk="var(--mor)" /></span>
                         <span>{{ $etiket }}</span>

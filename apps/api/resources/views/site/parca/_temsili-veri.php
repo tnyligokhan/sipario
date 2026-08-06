@@ -23,9 +23,9 @@
  *  Alt bilgideki "Bu sayfadaki rakamlar örnektir" notu bu dosya durduğu sürece KORUNMALIDIR.
  *
  *  Kullanıldığı yerler:
- *    kanit  → site/parca/ana-kanit.blade.php          (ana sayfa · 2. bölüm)
- *    yorum  → site/parca/ana-yorum.blade.php          (ana sayfa · 7. bölüm)
- *    rozet  → site/parca/ana-fiyat-ozet.blade.php + site/parca/fiyat-planlar.blade.php
+ *    kanit      → site/parca/ana-kanit.blade.php      (ana sayfa · 2. bölüm)
+ *    yorum      → site/parca/ana-yorum.blade.php      (ana sayfa · 7. bölüm)
+ *    planRozet  → KULLANILMIYOR (tek plana geçişte kaldırıldı — aşağıdaki nota bakın)
  *
  * ============================================================================================
  */
@@ -45,6 +45,11 @@ return [
         ['s' => 'İki kuryeyle çalışıyoruz. Sıralamayı uygulama kuruyor, günde bir tur azaldı.', 'k' => 'Serkan Demir', 'r' => 'Demir Market · İzmir', 'm' => '5 ay Sipario kullanıyor'],
     ],
 
-    // Plan kartının rozeti. UYDURMA ORAN (null yapılırsa rozet basılmaz, kart düzeni bozulmaz).
-    'planRozet' => 'İşletmelerin %90’ı bunu seçiyor',
+    /*
+     * Plan kartının rozeti. UYDURMA ORAN — ve 2026-08-05'ten beri ANLAMSIZ: satılan tek plan var,
+     * "işletmelerin %90'ı bunu seçiyor" cümlesi seçenek varken bir şey ifade eder. Rozet iki
+     * karttan da (ana sayfa + fiyat sayfası) kaldırıldı; anahtar, ikinci bir plan geri gelirse
+     * nereye takılacağı belli olsun diye null olarak duruyor.
+     */
+    'planRozet' => null,
 ];

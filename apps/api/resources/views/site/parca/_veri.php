@@ -16,8 +16,12 @@
  *
  * TEMSİLİ (uydurma) kanıt/yorum verisi burada DEĞİL — bkz. _temsili-veri.php.
  *
+ * TEK PLAN: "Kurumsal" diye bir plan `plans` tablosunda YOKTUR (tablo tek satırlıdır) ve satılmaz.
+ * Tasarımdaki ikinci kart uydurma bir vitrindi — kaldırıldı (hesap panelindeki abonelik ekranı aynı
+ * kararı zaten vermişti; site artık onunla tutarlı). Plan dizisi bilerek tek anahtarlıdır.
+ *
  * @param array{deneme:int, kontor:int, kurye:int, ekKuryeTl:string, ekKuryeKisa:string,
- *              kunye:array<string,string>, bos:callable(?string):bool} $d
+ *              ekKuryeVar:bool, kunye:array<string,string>, bos:callable(?string):bool} $d
  */
 
 return function (array $d): array {
@@ -79,7 +83,7 @@ return function (array $d): array {
         // ── Güvenceler ───────────────────────────────────────────
         'guvence' => [
             ['ik' => 'cevrimdisi', 't' => 'İnternet gitse de çalışır', 'a' => 'Sipariş ve tahsilat cihazda tutulur, bağlantı gelince kendi senkronlanır.'],
-            ['ik' => 'kalkan', 't' => 'Veriler Türkiye’de', 'a' => 'İstanbul’daki sunucularda, KVKK kapsamında. Kurumsal planda kendi sunucunuzda.'],
+            ['ik' => 'kalkan', 't' => 'Veriler Türkiye’de', 'a' => 'İstanbul’daki sunucularda, KVKK kapsamında.'],
             ['ik' => 'indir', 't' => 'Veriniz sizin', 'a' => 'Müşteri, sipariş ve defter kaydınızı istediğiniz an Excel olarak indirin.'],
             ['ik' => 'kulaklik', 't' => 'Telefonu insan açıyor', 'a' => 'Bot yok. Hafta içi 09:00–19:00 arası aynı ekip, aynı numara.'],
         ],
@@ -94,7 +98,7 @@ return function (array $d): array {
             ['g' => 'Başlangıç', 'l' => [
                 ['s' => 'Deneme için kart bilgisi istiyor musunuz?', 'c' => 'Hayır. '.$d['deneme'].' gün boyunca hiçbir ödeme bilgisi girmeden tüm özellikleri kullanırsınız. Süre dolduğunda uygulama salt-okunur kipe geçer, kaydınız silinmez.'],
                 ['s' => 'Eski defterimdeki müşterileri nasıl aktarırım?', 'c' => 'Excel listesi ya da telefon rehberi olarak gönderin, biz yükleyelim — ücretsiz. Açık veresiye bakiyelerini de başlangıç bakiyesi olarak taşıyoruz.'],
-                ['s' => 'Kaç kişi kullanabilir?', 'c' => 'Sipario planında işletme sahibi + '.$d['kurye'].' kurye hesabı vardır. Ek kurye hesabı '.$d['ekKuryeTl'].'. Kurumsal planda kullanıcı sınırı yoktur.'],
+                ['s' => 'Kaç kişi kullanabilir?', 'c' => 'İşletme sahibi + '.$d['kurye'].' kurye hesabı vardır. Ek kurye hesabı '.$d['ekKuryeTl'].'.'],
             ]],
             ['g' => 'Ödeme', 'l' => [
                 ['s' => 'Hangi ödeme yöntemlerini kabul ediyorsunuz?', 'c' => 'Şu an havale/EFT ve elden ödeme alıyoruz. Kredi kartıyla online ödeme yakında açılacak; hazır olduğunda hesap panelinizden duyuracağız.'],
@@ -106,7 +110,7 @@ return function (array $d): array {
                 ['s' => 'İnternet kesilirse ne olur?', 'c' => 'Uygulama çevrimdışı çalışmaya devam eder. Sipariş, tahsilat ve düzenlemeler cihazda tutulur; bağlantı gelince otomatik senkronlanır.'],
                 ['s' => 'Arayan tanıma nasıl çalışıyor?', 'c' => 'Uygulama çağrı bilgisi iznini kullanarak gelen numarayı kendi müşteri listenizle eşleştirir. Numaralar cihazın dışına çıkmaz, üçüncü tarafla paylaşılmaz.'],
                 ['s' => 'iPhone’da çalışıyor mu?', 'c' => 'Android’de tam sürüm. iOS’ta arayan tanıma dışındaki tüm özellikler çalışır; iOS çağrı entegrasyonu üzerinde çalışıyoruz.'],
-                ['s' => 'Verilerim nerede duruyor?', 'c' => 'İstanbul’daki sunucularda, KVKK kapsamında. Kurumsal planda kendi sunucunuza kurulum yapılabilir.'],
+                ['s' => 'Verilerim nerede duruyor?', 'c' => 'İstanbul’daki sunucularda, KVKK kapsamında. Verileriniz Türkiye dışına çıkmaz.'],
             ]],
         ],
 
@@ -128,46 +132,33 @@ return function (array $d): array {
                     ['t' => 'Telefon + WhatsApp destek', 'a' => 'Hafta içi 09:00–19:00, gerçek insan'],
                 ],
             ],
-            'kurumsal' => [
-                'ad' => 'Kurumsal',
-                'ozet' => 'Çok şubeli bayiler, kendi sunucusunda çalışmak isteyen işletmeler.',
-                // Kurumsal fiyat teklife bağlıdır; sunucuda karşılığı YOKTUR (PlanDeposu tek plan tutar).
-                'ozelFiyat' => '1.499 ₺’den başlar',
-                'cta' => 'Teklif alın',
-                'ctaAlt' => 'Aynı gün dönüş',
-                'kapsam' => [
-                    ['t' => 'Sipario’daki her şey', 'a' => null],
-                    ['t' => 'Sınırsız şube ve kullanıcı', 'a' => 'Şubeler arası konsolide rapor'],
-                    ['t' => 'Rol ve yetki yönetimi', 'a' => 'Kim neyi görür, kim neyi siler'],
-                    ['t' => 'Kendi sunucunuzda kurulum', 'a' => 'Veri işletmenizin içinde kalır'],
-                    ['t' => 'e-Fatura / muhasebe aktarımı', 'a' => 'Logo, Mikro, Paraşüt'],
-                    ['t' => 'Öncelikli destek + SLA', 'a' => '4 saat içinde yanıt taahhüdü'],
-                    ['t' => 'Yerinde kurulum ve eğitim', 'a' => 'Ekibinizi biz eğitiyoruz'],
-                ],
-            ],
         ],
 
-        // ── Plan karşılaştırma tablosu ───────────────────────────
+        /*
+         * Plan detay tablosu. Eskiden "Sipario / Kurumsal" iki sütunluydu; Kurumsal satılmadığı için
+         * karşılaştıracak ikinci plan kalmadı — tablo TEK DEĞER SÜTUNUNA indi ve "planda ne var"
+         * sorusunu yanıtlıyor. Yalnız Kurumsal'ı ayırt etmek için duran satırlar (rol yönetimi,
+         * e-Fatura aktarımı, kendi sunucunuzda kurulum, şube sayısı) kaldırıldı: hiçbiri satılan
+         * üründe yok ve karşısında yükseltilecek bir plan da yok.
+         *
+         * Ek kurye parantezi yalnız KATALOGDA paket varken basılır — yoksa fiyat uydurulmaz.
+         */
         'karsilastir' => [
             ['g' => 'Kullanım', 's' => [
-                ['Müşteri ve sipariş', 'Sınırsız', 'Sınırsız'],
-                ['Kurye hesabı', $d['kurye'].' (ek hesap '.$d['ekKuryeKisa'].')', 'Sınırsız'],
-                ['Şube', '1', 'Sınırsız'],
-                ['Oto-sıralama hakkı', $d['kontor'].' / ay', '500 / ay'],
+                ['Müşteri ve sipariş', 'Sınırsız'],
+                ['Kurye hesabı', $d['kurye'].($d['ekKuryeVar'] ? ' (ek hesap '.$d['ekKuryeKisa'].')' : '')],
+                ['Oto-sıralama hakkı', $d['kontor'].' / ay'],
             ]],
             ['g' => 'Özellikler', 's' => [
-                ['Arayan tanıma', true, true],
-                ['Veresiye defteri', true, true],
-                ['Gün sonu kasa devri', true, true],
-                ['Çevrimdışı çalışma', true, true],
-                ['Rol ve yetki yönetimi', false, true],
-                ['e-Fatura / muhasebe aktarımı', false, true],
-                ['Kendi sunucunuzda kurulum', false, true],
+                ['Arayan tanıma', true],
+                ['Veresiye defteri', true],
+                ['Gün sonu kasa devri', true],
+                ['Çevrimdışı çalışma', true],
             ]],
             ['g' => 'Destek', 's' => [
-                ['Telefon + WhatsApp', 'Hafta içi 09–19', '7/24'],
-                ['Yanıt süresi', 'Aynı gün', '4 saat (SLA)'],
-                ['Kurulum', 'Uzaktan, ücretsiz', 'Yerinde'],
+                ['Telefon + WhatsApp', 'Hafta içi 09–19'],
+                ['Yanıt süresi', 'Aynı gün'],
+                ['Kurulum', 'Uzaktan, ücretsiz'],
             ]],
         ],
 
@@ -214,8 +205,14 @@ return function (array $d): array {
          *
          * Tasarımdaki "sırada ortalama 40 saniye" ölçüm iddiası ÇIKARILDI: ürün pilot aşamasında,
          * böyle bir ölçüm yok (SW_KANIT ile aynı gerekçe).
+         *
+         * YER TUTUCU OLAN KANAL HİÇ BASILMAZ (2026-08-05): eskiden yer tutucu bağlantısız düz metin
+         * olarak ekranda kalıyordu, yani ziyaretçi "[Telefon]" yazan bir iletişim kutusu görüyordu.
+         * Aşağıdaki `array_values(array_filter(...))` gerçek değeri olmayan kanalı listeden düşürür;
+         * gerçek numara/adres config'e girdiği gün kanal kendiliğinden geri gelir. Alt bilgideki
+         * künye kutularında da aynı ilke uygulandı.
          */
-        'kanal' => [
+        'kanal' => array_values(array_filter([
             [
                 'ik' => 'telefon', 't' => 'Telefon', 'dg' => 'Ara',
                 'deger' => $d['kunye']['phone'] ?? '[Telefon]',
@@ -233,7 +230,7 @@ return function (array $d): array {
                 'href' => $d['bos']($d['kunye']['support_email'] ?? null) ? null : 'mailto:'.$d['kunye']['support_email'],
                 'a' => 'Aynı gün içinde yanıt · gece gelenler sabah',
             ],
-        ],
+        ], fn (array $k): bool => ! $d['bos']($k['deger']))),
 
         /*
          * İletişim formunun gideceği adres — config('subscription.company.support_email').

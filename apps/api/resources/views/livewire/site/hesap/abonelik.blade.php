@@ -54,7 +54,21 @@
         </x-site.pano>
     @endif
 
-    <x-site.pano etiket="{{ $deneme ? 'Aboneliği başlat' : 'Dönemi seçin' }}">
+    <x-site.pano etiket="{{ $deneme ? 'Aboneliği başlat' : 'Yenileme ödemesi' }}">
+        @unless ($deneme)
+            {{--
+                AÇIKLAMA KARTLARIN ÜSTÜNDE, altında değil: bayi buradaki düğmeleri bir AYAR sanıp
+                tıklıyordu ("Dönemi seçin" başlığı + radyo düğmeli kartlar öyle okunuyordu). Neyin
+                ne olduğu tıklamadan ÖNCE okunmalı.
+            --}}
+            <p class="gvd" style="margin-bottom:20px">
+                Şu an <b>{{ $this->donem()->etiket() }}</b> ödüyorsunuz; dönem {{ $this->tarih($bayi->valid_until) }} tarihinde bitiyor.
+                Aşağıdakiler bir ayar değil, <b>ödeme adımıdır</b> — tıkladığınızda ödeme sayfasına gidersiniz,
+                hiçbir tercih kaydedilmez. Dönem, ödemenin yapıldığı anda belirlenir; saklanan bir "gelecek dönem"
+                tercihi yoktur. Erken ödemeniz kalan günlerinizi yakmaz: yeni dönem {{ $this->tarih($bayi->valid_until) }} tarihinden itibaren işler.
+            </p>
+        @endunless
+
         <div class="dn-plan">
             @foreach ([
                 ['k' => 'yearly', 'ad' => 'Yıllık', 'kurus' => $this->plan()->yillikKurus()],
@@ -66,12 +80,20 @@
                         ? (int) round(($this->plan()->aylikKurus() * 12 - $this->plan()->yillikKurus()) / $this->plan()->aylikKurus())
                         : 0;
                 @endphp
-                <a class="dn-p {{ ! $deneme && $this->donem()->value === $p['k'] ? 'on' : '' }}"
-                    href="{{ $this->odemeUrl($p['k']) }}">
+                {{--
+                    ABONEDE RADYO DÜĞMESİ (`dn-p-r`) VE SEÇİLİ VURGUSU (`on`) YOK. İkisi de bir
+                    form kontrolünün görsel dilidir; burada tıklanan şey bir seçenek değil, ödeme
+                    sayfasına giden bir bağlantıdır. Hangi dönemin geçerli olduğu kartın kendi
+                    metniyle söyleniyor — vurguyla değil. Denemede kart gerçekten bir başlangıç
+                    seçimidir, orada radyo kalıyor.
+                --}}
+                <a class="dn-p" href="{{ $this->odemeUrl($p['k'], null, 'abonelik') }}">
                     @if ($p['k'] === 'yearly' && $hediye > 0)
                         <span class="hak-rzt mn">{{ $hediye }} ay hediye</span>
                     @endif
-                    <span class="dn-p-ust"><i class="dn-p-r"></i>{{ $p['ad'] }}</span>
+                    <span class="dn-p-ust">
+                        @if ($deneme)<i class="dn-p-r"></i>@endif{{ $deneme ? $p['ad'] : $p['ad'].' ödeme yap' }}
+                    </span>
                     <b class="h2 tab">{{ $this->tlk($aylikTutar) }}</b>
                     <span class="kucuk">
                         aylık ·
@@ -79,15 +101,21 @@
                             ? 'yılda '.$this->tl($p['kurus']).' tek ödeme'
                             : 'istediğiniz zaman bırakın' }}
                     </span>
+                    @if (! $deneme && $this->donem()->value === $p['k'])
+                        <span class="kucuk" style="color:var(--mor);font-weight:700">Şu an bu dönemdesiniz</span>
+                    @endif
                 </a>
             @endforeach
         </div>
 
+        {{--
+            Abonedeki metin YUKARI TAŞINDI (kartların üstüne). Burada bir kopyası kalsaydı aynı şey
+            iki kez yazılırdı; kalan cümle her iki durumda da geçerli olan tahsilat yoludur.
+        --}}
         <p class="kucuk" style="margin-top:20px">
+            Ödemeyi havale/EFT ya da elden alıyoruz — kart bilgisi istemiyoruz. Kartla online ödeme yakında açılacak.
             @if ($deneme)
-                Ödemeyi havale/EFT ya da elden alıyoruz — kart bilgisi istemiyoruz. Kartla online ödeme yakında açılacak. Deneme süreniz {{ $this->tarih($bayi->valid_until) }} tarihinde bitiyor; erken ödemeniz kalan günlerinizi yakmaz, dönem o tarihten itibaren işler.
-            @else
-                Dönem, ödemenin yapıldığı anda belirlenir; saklanan bir "gelecek dönem" tercihi yoktur. Erken ödeme kalan günlerinizi yakmaz — yeni dönem {{ $this->tarih($bayi->valid_until) }} tarihinden itibaren işler.
+                Deneme süreniz {{ $this->tarih($bayi->valid_until) }} tarihinde bitiyor; erken ödemeniz kalan günlerinizi yakmaz, dönem o tarihten itibaren işler.
             @endif
         </p>
     </x-site.pano>

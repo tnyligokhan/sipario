@@ -16,6 +16,7 @@ use App\Payment\SubscriptionService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Route;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -58,6 +59,39 @@ class Subscribe extends Component
     #[Locked]
     public ?string $paketId = null;
 
+    /**
+     * "Vazgeç"in döneceği yerin ANAHTARI (URL değil). `mount()`ta kapalı listeye karşı doğrulanır;
+     * tanınmayan/eksik değer '' kalır ve varsayılana düşer. `#[Locked]`: istemci sonradan
+     * çeviremesin.
+     *
+     * ÖZELLİKLE BİR SORGU PARAMETRESİDİR, `Referer` DEĞİL. `Referer`e bakıp oraya dönmek, ödeme
+     * sayfasına bağlantı kurabilen herkese "bayiyi ödemeden sonra istediğim adrese göndereyim"
+     * demek olurdu (açık yönlendirme → oltalama). Anahtar taşımanın gücü tam da şu: taşınan şey
+     * bir adres değil, bizim tanıdığımız bir kelime.
+     *
+     * `mount()`ta ÇÖZÜLÜR, `render()`ta değil: Livewire'ın sonraki istekleri (ör. `$set('yol',…)`)
+     * kendi uç noktasına gider ve orijinal querystring ORADA YOKTUR — `render()`ta okusaydık ilk
+     * tıklamadan sonra hedef sessizce varsayılana düşerdi.
+     */
+    #[Locked]
+    public string $geri = '';
+
+    /**
+     * "Vazgeç"in dönebileceği yerlerin TAMAMI: anahtar → [route adı, parametreler].
+     *
+     * Hesap paneline dönerken `?bolum=` de taşınır; `Hesap::mount()` bu değeri kendi kapalı
+     * listesine karşı doğrulayıp açılış sekmesini kurar. Yoksa "Abonelik sekmesinden geldim,
+     * Genel bakış'a düştüm" olurdu.
+     *
+     * @var array<string, array{0: string, 1: array<string, string>}>
+     */
+    private const GERI_HEDEFLERI = [
+        'abonelik' => ['site.hesap', ['bolum' => 'abonelik']],
+        'hak' => ['site.hesap', ['bolum' => 'hak']],
+        'hesap' => ['site.hesap', []],
+        'fiyatlar' => ['site.fiyatlar', []],
+    ];
+
     /** Tahsil edilecek tutar — SUNUCUDA hesaplanır, istemciden ASLA alınmaz. */
     #[Locked]
     public int $tutarKurus = 0;
@@ -94,6 +128,9 @@ class Subscribe extends Component
         $istek = request();
         $this->tur = $istek->query('tur') === 'paket' ? 'paket' : 'plan';
         $this->donem = (BillingPeriod::tryFrom((string) $istek->query('donem')) ?? BillingPeriod::Yearly)->value;
+
+        $geri = (string) $istek->query('geri', '');
+        $this->geri = isset(self::GERI_HEDEFLERI[$geri]) ? $geri : '';
 
         if ($this->tur === 'paket') {
             $paket = $this->paketBul((string) $istek->query('paket', ''));
@@ -168,8 +205,29 @@ class Subscribe extends Component
             'hediyeAy' => $aylik > 0 ? (int) round(($aylik * 12 - $yillik) / $aylik) : 0,
             'donemAralik' => $this->donemAralik(),
             'paket' => $this->tur === 'paket' ? $this->paketBul((string) $this->paketId) : null,
-            'iptalUrl' => $this->tur === 'paket' ? route('site.hesap') : route('site.fiyatlar'),
+            'iptalUrl' => $this->iptalUrl(),
         ]);
+    }
+
+    /**
+     * "Vazgeç" hedefi. Anahtar → rota çevirisi BURADA ve yalnız burada olur.
+     *
+     * VARSAYILAN `site.hesap` (eskiden abonelikte `site.fiyatlar`di). Gerekçe: Fiyatlandırma
+     * sayfası üst menüden kalkıyor ve zaten ödeme ekranına hiç bağlantı vermiyor — vazgeçen bayiyi
+     * oraya bırakmak onu menüsü olmayan bir pazarlama sayfasında yalnız bırakmak olurdu. Ödeme
+     * ekranına misafir giremez (`mount()` girişe atar), yani "hesabı olmayana hesap sayfası
+     * gösterme" diye bir durum yok. 'fiyatlar' anahtarı listede DURUYOR: o sayfadan bir gün
+     * bağlantı verilirse dönüş yine doğru yere olsun.
+     *
+     * `Route::has()` kontrolü süs değil: rota adları bu dosyanın DIŞINDA (routes/web.php) yaşıyor.
+     * Kaldırılan bir rota, ödeme sayfasını komple 500'e düşüren bir istisnaya dönüşürdü — ödeme
+     * yüzeyinde ödenecek bedel bu değil.
+     */
+    private function iptalUrl(): string
+    {
+        [$ad, $parametre] = self::GERI_HEDEFLERI[$this->geri] ?? [null, []];
+
+        return $ad !== null && Route::has($ad) ? route($ad, $parametre) : route('site.hesap');
     }
 
     /** KDV %20 DAHİL fiyattan ayrıştırılır (tasarımın `OdemeOzet`i ile aynı hesap). */
