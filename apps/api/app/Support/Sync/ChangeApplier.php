@@ -365,8 +365,12 @@ class ChangeApplier
         }
 
         // reverses_entry_id: ters kayıt yalnız AYNI bayinin bir defter satırını düzeltebilir.
+        // Satırın KENDİSİ çekiliyor (`exists()` değil): aşağıdaki atıf kapısı ters çevrilen kaydın
+        // `collected_by_user_id`sini karşılaştırmak zorunda. Sorgu RLS altında koştuğu için
+        // bulunamama hem "yok" hem "başka bayinin" hâlini kapsar.
         $reversesEntryId = isset($payload['reverses_entry_id']) ? (string) $payload['reverses_entry_id'] : null;
-        if ($reversesEntryId !== null && ! LedgerEntry::query()->whereKey($reversesEntryId)->exists()) {
+        $reversed = $reversesEntryId === null ? null : LedgerEntry::query()->find($reversesEntryId);
+        if ($reversesEntryId !== null && $reversed === null) {
             throw new InvalidArgumentException('reverses_entry_id bu bayide bulunamadı');
         }
 
@@ -376,6 +380,34 @@ class ChangeApplier
         $collectedByUserId = isset($payload['collected_by_user_id']) ? (string) $payload['collected_by_user_id'] : null;
         if ($collectedByUserId !== null && ! User::query()->whereKey($collectedByUserId)->exists()) {
             throw new InvalidArgumentException('collected_by_user_id bu bayide bulunamadı');
+        }
+
+        // KASAYA DOKUNAN DÜZELTME, TERS ÇEVİRDİĞİ KAYDIN NAKİT ATFINI TAŞIMALI (inceleme #⑥).
+        //
+        // ARIZA: atıf düzeltmeyi YAZAN kişiye kayarsa para iki çerçevede birden yanlış yere düşer.
+        // Kurye 100,00 topladı, patron kendi telefonundan hatalı 20,00'ı ters çevirdi: günün nakdi
+        // 80,00'a iner ama kuryenin günlük net değişimi 100,00 kalır → gün beklenen −20,00, patron
+        // kasadaki 0'ı sayınca "FAZLA 20,00"; kurye kapsamında beklenen 100,00 iken cebinde 80,00
+        // → "EKSİK 20,00". İkisi de append-only DONAR, kurye olmayan paradan sorumlu tutulur.
+        //
+        // SUNUCU ATFI YENİDEN YAZMAZ, ÇELİŞKİYİ REDDEDER (lead kararı 2026-08-06). Atıf da bir
+        // İSTEMCİ BEYANIDIR ve sunucu para kaydını yeniden hesaplamaz (DECISIONS Faz 4); sessizce
+        // düzeltseydi sunucu ile istemci ayrışır, aradaki pencerede donan bir kapanış yalanı
+        // kalıcılaştırırdı — arızayı başka kapıdan geri getirirdi. Üstelik istemci yanlış satırı
+        // işaret ederse sunucu YANLIŞ kuryeye para yazardı. Sunucunun işi beyanı düzeltmek değil,
+        // kendi içinde çelişen beyanı reddetmektir (bu sınıfın geri kalanı zaten öyle yapıyor).
+        //
+        // KAPSAM DAR: `payment_type` yoksa kayıt kasaya dokunmaz (bakiye düzeltmesi — arıza doğmaz,
+        // kapı meşru düzeltmeleri reddederdi); `reverses_entry_id` yoksa karşılaştıracak kaynak
+        // yoktur. NULL atıf da bir beyandır: atıfsız satırın düzeltmesi de atıfsız olmalı.
+        //
+        // DB KISITINA TAŞINAMAZ (`payment_type` kapsam kuralının aksine): kural BAŞKA BİR SATIRA
+        // bakmayı gerektirir, CHECK bunu yapamaz — bu kapı uygulama katmanında kalmak zorunda.
+        if ($entryType === 'correction' && $paymentType !== null && $reversed !== null
+            && $collectedByUserId !== $reversed->collected_by_user_id) {
+            throw new InvalidArgumentException(
+                'kasaya dokunan düzeltme, ters çevirdiği kaydın nakit atfını taşımalı'
+            );
         }
 
         $entry = new LedgerEntry;

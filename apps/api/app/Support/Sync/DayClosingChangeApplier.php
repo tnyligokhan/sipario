@@ -55,6 +55,18 @@ class DayClosingChangeApplier
             //
             // ARA TAHSİLAT BU YOLDAN ETKİLENMEZ: onların id'si türetilmez (rastgele kalır), yani
             // gün içinde çok kez devir alınabilmesi bozulmaz — kısıt yalnız KAPANIŞ devrindedir.
+            //
+            // ⚠️ BU DAL RLS'E BAĞLIDIR ve öyle kalmalı. `id` GLOBAL primary key'dir
+            // (`unique(tenant_id,id)` onun ÜSTÜNE ek kısıttır), yani başka bir bayinin kaydı da
+            // teorik olarak aynı id'yi taşıyabilir. Onu 'duplicate' saymak B bayisinin kapanışını
+            // A'nınki yüzünden SESSİZCE yutmak olurdu (kırmızı çizgi #1'in kenarı). Bu olmuyor
+            // çünkü aşağıdaki `find()` RLS ALTINDA koşuyor: `tenant_isolation` politikası (cmd=ALL)
+            // + FORCE ROW LEVEL SECURITY, applier RLS'li `pgsql` bağlantısında ve
+            // `ResolveTenantContext` `app.tenant_id`yi kuruyor. Başka kiracının satırı GÖRÜNMEZ →
+            // `find()` null → INSERT → global PK ihlali (23505) → olay bazında GÖRÜNÜR red.
+            // Applier owner bağlantısına taşınırsa ya da politikadan SELECT düşerse bu dal sessiz
+            // yutmaya döner — `KapanisYakinsamaTest::baska_kiracinin_ayni_idsi_duplicate_SAYILMAZ`
+            // o zinciri uçtan uca kilitler.
             return ['status' => 'duplicate', 'entity_id' => $id, 'changes' => []];
         }
 

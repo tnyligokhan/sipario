@@ -12,14 +12,20 @@ import 'app_database.dart';
 /// güncellemeyi unutmak, iki ekranın farklı gün konuşması demekti — ve hiçbir test bunu
 /// yakalamazdı, çünkü her kopya kendi içinde tutarlı kalırdı.
 ///
-/// ⚠️ TOPLANMA BİTMEDİ — "tek yer" bugün yalnız VERİ/REPO katmanı için doğrudur. Ekran
-/// katmanında `+3` hâlâ ELLE yazılı üç kopya var (üçüncü inceleme #5):
-///   • `screens/isletme/gun_kapatma_sheet.dart` → `_trAn()`
-///   • `screens/isletme/gun_sonu_kartlari.dart` → `araTahsilatSaati()`
-///   • `screens/shell/ana_ozet.dart` → `_trOffset` sabiti ve kullanıldığı yer
-/// Üçü de SAATİ/ANI biçimlendirir, gün sınırı kararı vermez — yani bugünkü riski "iki ekran
-/// farklı gün konuşur" değil, "kural değişirse üç yer geride kalır". Bu satırların iddiası
-/// gerçeğe uydurulmuştur: burası kuralın KAYNAĞIdır, henüz TEK KULLANICISI değil.
+/// TOPLANMA BİTTİ (2026-08-06 vardiya sonu). Üçüncü inceleme `+3`ün ekran katmanında ELLE yazılı
+/// üç kopyası olduğunu bulmuştu (`gun_kapatma_sheet._trAn()`, `gun_sonu_kartlari.araTahsilatSaati`,
+/// `ana_ozet._trOffset`); üçü de temizlendi. `lib/` içinde `Duration(hours: 3)` artık YALNIZ
+/// aşağıdaki [kTrOffset] tanımında geçiyor — kalan çağrı yerleri o sabiti OKUYOR.
+///
+/// Kalan tek nüans: saat biçimlendiren üç yer kaydırmayı hâlâ satır içinde yazıyor
+/// (`t.toUtc().add(kTrOffset)` — `ana_ozet.dart`, `gun_kapatma_sheet.dart`,
+/// `gun_sonu_kartlari.dart`). Bu bir KOPYA DEĞİL: hepsi bu dosyadaki tek sabitten besleniyor,
+/// yani kural değişirse tek satır düzenlenir. Gün sınırı KARARI zaten yalnız burada verilir.
+///
+/// TESTLERDEKİ `+3` KASITLI OLARAK BAĞIMSIZDIR (`ara_tahsilat_test`, `courier_test`,
+/// `kapanis_*_test` kurgu yardımcıları): fikstür üretimini [kTrOffset]e bağlasaydık sabit
+/// yanlışa dönse bile testler onunla birlikte kayar ve hatayı GÖREMEZDİ. Bu satırları "kalan
+/// kopya" sanıp toplama.
 
 const Duration kTrOffset = Duration(hours: 3);
 

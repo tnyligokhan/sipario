@@ -170,6 +170,84 @@ class KapanisYakinsamaTest extends ApiTestCase
     }
 
     #[Test]
+    public function baska_kiracinin_ayni_idsi_duplicate_sayilmaz(): void
+    {
+        // KIRMIZI ÇİZGİ #1 KENARI. `day_closings.id` ve `cash_handovers.id` GLOBAL primary key'dir
+        // (`unique(tenant_id,id)` bunun ÜSTÜNE ek kısıttır, PK'yı daraltmaz). Yani iki bayinin
+        // kaydı teorik olarak aynı id'yi taşıyabilir — deterministik id çekirdeği bayi kodunu
+        // unutursa `day|-|2026-08-06` TÜM bayilerde aynı uuid'yi üretirdi.
+        //
+        // TEHLİKE: `find($id) !== null` dalı 'duplicate' dönerse, B bayisinin kapanışı A'nın kaydı
+        // yüzünden SESSİZCE yutulur ve istemci `acked` görüp satırı kuyruktan siler.
+        //
+        // ÖLÇÜLEN GERÇEK: bu olmuyor, çünkü `find()` RLS ALTINDA koşuyor. İki tabloda da
+        // `tenant_isolation` politikası (cmd=ALL, yani SELECT dahil) + FORCE ROW LEVEL SECURITY
+        // var; applier RLS'li `pgsql` bağlantısında ve `ResolveTenantContext` isteği tek
+        // transaction'a sarıp `app.tenant_id`yi kuruyor. B'nin oturumunda A'nın satırı GÖRÜNMEZ →
+        // `find()` null döner → INSERT denenir → GLOBAL PK ihlali (23505) → olay bazında
+        // `rejected`. Yani sonuç 'duplicate' DEĞİL, GÖRÜNÜR bir reddir; istemci karantinaya alır.
+        //
+        // Bu test o zinciri UÇTAN UCA kilitler: zincirin herhangi bir halkası düşerse (politikadan
+        // SELECT çıkarılır, applier owner bağlantısına taşınır, tenant bağlamı kurulmaz) burası
+        // kırmızı yanar — ve o gün sessiz yutma gerçek olurdu.
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $ortakId = (string) Str::uuid7();
+
+        $kapanis = fn (array $seed) => $this->dayClosing([
+            'id' => $ortakId,
+            'scope' => 'day',
+            'cash_nakit_kurus' => 10000,
+            'expected_cash_kurus' => 10000,
+            'counted_cash_kurus' => 10000,
+        ], ['occurred_at' => '2026-08-06T18:00:00Z']);
+
+        $this->pushEvents($this->tokenFor($a['patron']), [$kapanis($a)])
+            ->assertOk()->assertJsonPath('results.0.status', 'applied');
+
+        $bYanit = $this->pushEvents($this->tokenFor($b['patron']), [$kapanis($b)]);
+        $bYanit->assertOk();
+
+        $this->assertNotSame('duplicate', $bYanit->json('results.0.status'),
+            'Başka kiracının id çakışması TEKRAR değildir; sessizce yutulamaz.');
+        $bYanit->assertJsonPath('results.0.status', 'rejected');
+        // MEKANİZMA DA ÇİVİLENİYOR, yalnız sonuç değil: `invalid_data` reddi bir QueryException'dan
+        // (23505, global PK) gelir — yani `find()` GERÇEKTEN null döndü, A'nın satırını görmedi.
+        // `domain_rejected` görseydik ret başka bir doğrulamadan gelirdi ve RLS'in daralttığı
+        // iddiası kanıtlanmamış kalırdı.
+        $bYanit->assertJsonPath('results.0.reason', 'invalid_data');
+
+        // A'nın satırı DEĞİŞMEDİ ve B'ye hiçbir satır yazılmadı.
+        $satirlar = $this->asOwner(fn () => DayClosing::query()->get());
+        $this->assertCount(1, $satirlar, 'Çakışan olay ikinci satır yazmamalı.');
+        $this->assertSame($a['tenant']->id, $satirlar[0]->tenant_id,
+            'Kayıt A kiracısında kalmalı — B onu ne ezebilir ne devralabilir.');
+        $this->assertSame(10000, (int) $satirlar[0]->counted_cash_kurus);
+
+        // AYNI ZİNCİR PARANIN DEFTERİNDE DE GEÇERLİ olmalı — `cash_handovers` da global PK taşıyor
+        // ve asıl para orada. İki uygulayıcının "yapısı aynı" varsayımıyla yetinmiyoruz.
+        $devirId = (string) Str::uuid7();
+        $devir = fn (array $seed) => $this->cashHandover([
+            'id' => $devirId,
+            'from_user_id' => $seed['kurye']->id,
+            'counted_cash_kurus' => 9000,
+            'expected_cash_kurus' => 9000,
+            'diff_kurus' => 0,
+        ], ['occurred_at' => '2026-08-06T18:00:00Z']);
+
+        $this->pushEvents($this->tokenFor($a['patron']), [$devir($a)])
+            ->assertOk()->assertJsonPath('results.0.status', 'applied');
+        $this->pushEvents($this->tokenFor($b['patron']), [$devir($b)])
+            ->assertOk()
+            ->assertJsonPath('results.0.status', 'rejected')
+            ->assertJsonPath('results.0.reason', 'invalid_data');
+
+        $devirler = $this->asOwner(fn () => CashHandover::query()->get());
+        $this->assertCount(1, $devirler);
+        $this->assertSame($a['tenant']->id, $devirler[0]->tenant_id);
+    }
+
+    #[Test]
     public function ayni_olayin_retry_si_hala_duplicate_ve_tek_satir(): void
     {
         // Aynı cihazın ack'i kaybolup AYNI olayı (aynı client_event_id) yeniden göndermesi:

@@ -16,6 +16,7 @@
 // yeşil geçti, çünkü o etiketi hiçbir iddia tutmuyordu.
 
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart' show TextField;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/repo/cash_handover_repository.dart';
@@ -24,6 +25,7 @@ import 'package:sipario/repo/day_closing_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/screens/day_end_screen.dart';
 import 'package:sipario/theme/components/atoms.dart';
+import 'package:sipario/theme/components/overlays.dart' show SipToast;
 
 import 'support/ara_tahsilat_yardimcilari.dart';
 import 'support/ekran_yardimcilari.dart';
@@ -269,6 +271,50 @@ void main() {
       expect(find.text('Beklenen nakit'), findsOneWidget);
       expect(find.text(sipTutar(on.expectedCashKurus)), findsWidgets);
 
+      await kapat(tester);
+    });
+  });
+
+  group('Kapatma submit\'i — repo kapıyı kapatırsa ekran SÖYLER', () {
+    testWidgets('sheet AÇIKKEN kapsam kapanırsa hata basılır, ekran çökmez', (tester) async {
+      // Ekran kapanmış kapsamda "Kapat" düğmesini zaten çizmiyor. Ama sheet AÇIKKEN senkron
+      // başka bir cihazdan gelen kapanışı indirebilir; o an ekranın bildiği durum bayattır ve
+      // son sözü repo söyler (`kapat()` → StateError). Yakalanmasaydı bayi, sayımını girip
+      // düğmeye bastıktan sonra hiçbir açıklama görmeden çöken bir ekranla kalırdı.
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await nakitTeslim(db, kuryeId: 'k1', tutarKurus: 9000);
+      });
+
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      await dokun(tester, find.text('Günü Kapat'));
+      await sheetAnimasyonu(tester);
+
+      // Sheet açıkken gün BAŞKA BİR YERDEN kapanır (senkronun indirdiği kapanışın karşılığı).
+      await tester.runAsync(() async {
+        await DayClosingRepository(db)
+            .kapat(scope: ClosingScope.day, countedCashKurus: 9000);
+      });
+
+      await tester.enterText(find.byType(TextField).first, '90');
+      await akislariBekle(tester);
+      await dokun(tester, find.text('Kapat ve Arşivle'));
+      await akislariBekle(tester, tur: 8);
+
+      // Mesaj repo'dan geldiği gibi basılır — "bir şeyler ters gitti" demek, NE olduğunu
+      // bilirken bilgi saklamaktır.
+      expect(find.text('Gün hesabı kapandı; yeniden kapatılamaz.'), findsOneWidget);
+
+      // İKİNCİ KAYIT YAZILMADI: arşiv append-only, uydurma bir kapanış kalıcı olurdu.
+      final arsiv =
+          await tester.runAsync(() => DayClosingRepository(db).watchArchive().first);
+      expect(arsiv!.length, 1, reason: 'yalnız arkadan gelen kapanış duruyor');
+
+      // Ekran gerçeğe döndü: kapsam artık kilitli görünüyor.
+      expect(find.textContaining('kapatıldı'), findsWidgets);
+
+      SipToast.temizle();
       await kapat(tester);
     });
   });

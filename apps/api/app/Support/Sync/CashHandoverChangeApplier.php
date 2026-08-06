@@ -53,6 +53,12 @@ class CashHandoverChangeApplier
             //
             // ARA TAHSİLATLAR ETKİLENMEZ: id'leri türetilmez (rastgele kalır), yani "gün içinde
             // çok kez kasa devri" serbestliği korunur — kısıt yalnız KAPANIŞ devrindedir.
+            //
+            // ⚠️ BU DAL RLS'E BAĞLIDIR: `id` GLOBAL primary key olduğu için başka bir bayinin
+            // kaydı da aynı id'yi taşıyabilir ve onu 'duplicate' saymak B'nin devrini A'nınki
+            // yüzünden sessizce yutmak olurdu. `find()` RLS altında koştuğu için başka kiracının
+            // satırı görünmez → null → INSERT → 23505 → GÖRÜNÜR red. Gerekçenin tamamı ve zinciri
+            // kilitleyen test için bkz. `DayClosingChangeApplier` (aynı dal, aynı bağımlılık).
             return ['status' => 'duplicate', 'entity_id' => $id, 'changes' => []];
         }
 
