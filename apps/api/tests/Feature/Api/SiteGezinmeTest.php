@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -71,11 +72,11 @@ class SiteGezinmeTest extends TestCase
     }
 
     #[Test]
-    public function oturum_acikken_menude_cikis_yolu_vardir_ve_GET_DEGILDIR(): void
+    public function oturum_acikken_menude_cikis_yolu_vardir_ve_ge_t_degildir(): void
     {
         // Çıkışın GET olmaması pazarlıksız: prefetch / üçüncü taraf <img> ile istemsiz tetiklenir.
         // Bu test o kuralı kilitler — biri kolaylık olsun diye <a href>'e çevirirse kırılır.
-        if (! \Illuminate\Support\Facades\Route::has('site.cikis')) {
+        if (! Route::has('site.cikis')) {
             $this->markTestSkipped(
                 'POST `site.cikis` rotası henüz açılmadı (rota dosyasının sahibi LEAD). '
                 .'Rota eklendiği an bu test kendiliğinden koşar ve çıkış yolunu doğrular.'

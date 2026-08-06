@@ -354,7 +354,11 @@ class Hesap extends Component
         return $this->paketler(AddonPackage::TYPE_COURIER);
     }
 
-    /** Satıştaki paketlerin istek içi belleği — iki bölüm de aynı sayfada çiziliyor. */
+    /**
+     * Satıştaki paketlerin istek içi belleği — iki bölüm de aynı sayfada çiziliyor.
+     *
+     * @var Collection<int, AddonPackage>|null
+     */
     private ?Collection $katalog = null;
 
     /**
