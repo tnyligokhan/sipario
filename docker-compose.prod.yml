@@ -120,6 +120,11 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.sipario-app.rule=Host(`sipario.com.tr`) || Host(`www.sipario.com.tr`) || Host(`api.sipario.com.tr`)"
+      - "traefik.http.routers.sipario-app.entrypoints=websecure"
+      - "traefik.http.routers.sipario-app.tls.certresolver=letsencrypt"
     deploy:
       update_config:
         order: start-first
