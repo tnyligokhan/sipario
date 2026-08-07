@@ -77,27 +77,16 @@ class _LoginScreenState extends State<LoginScreen> {
   final _firma = TextEditingController();
   final _kullanici = TextEditingController();
   final _password = TextEditingController();
-  final _baseUrl = TextEditingController();
 
   bool _busy = false;
-  bool _gelismis = false;
   Map<String, String> _hata = const {};
   String? _sunucuHata;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.session.state().then((meta) {
-      if (mounted) _baseUrl.text = Session.baseUrlOf(meta);
-    });
-  }
 
   @override
   void dispose() {
     _firma.dispose();
     _kullanici.dispose();
     _password.dispose();
-    _baseUrl.dispose();
     super.dispose();
   }
 
@@ -107,8 +96,6 @@ class _LoginScreenState extends State<LoginScreen> {
       firma: _firma.text,
       kullanici: _kullanici.text,
       parola: _password.text,
-      sunucu: _baseUrl.text,
-      gelismis: _gelismis,
     );
     setState(() {
       _hata = hatalar;
@@ -136,7 +123,6 @@ class _LoginScreenState extends State<LoginScreen> {
         tenantCode: _firma.text,
         username: _kullanici.text,
         password: _password.text,
-        baseUrlOverride: _baseUrl.text.trim().isEmpty ? null : _baseUrl.text,
       );
       if (mounted) widget.onLoggedIn();
     } on AuthException catch (e) {
@@ -179,13 +165,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     firma: _firma,
                     kullanici: _kullanici,
                     parola: _password,
-                    sunucu: _baseUrl,
                     busy: _busy,
-                    gelismis: _gelismis,
                     hata: _hata,
                     sunucuHata: _sunucuHata,
                     onDegis: _temizle,
-                    onGelismis: () => setState(() => _gelismis = !_gelismis),
                     onGonder: _gonder,
                   ),
                 ],
@@ -245,31 +228,25 @@ class _Form extends StatelessWidget {
     required this.firma,
     required this.kullanici,
     required this.parola,
-    required this.sunucu,
     required this.busy,
-    required this.gelismis,
     required this.hata,
     required this.sunucuHata,
     required this.onDegis,
-    required this.onGelismis,
     required this.onGonder,
   });
 
   final TextEditingController firma;
   final TextEditingController kullanici;
   final TextEditingController parola;
-  final TextEditingController sunucu;
   final bool busy;
-  final bool gelismis;
 
-  /// Alan anahtarı → hata metni ('firma' | 'kullanici' | 'parola' | 'sunucu').
+  /// Alan anahtarı → hata metni ('firma' | 'kullanici' | 'parola').
   final Map<String, String> hata;
 
   /// Sunucudan dönen nötr hata (401/403/429) — forma değil, düğmenin üstüne yazılır.
   final String? sunucuHata;
 
   final VoidCallback onDegis;
-  final VoidCallback onGelismis;
   final VoidCallback onGonder;
 
   @override
@@ -325,35 +302,7 @@ class _Form extends StatelessWidget {
             onSubmitted: (_) => onGonder(),
           ),
           if (hata['parola'] != null) _Hata(hata['parola']!),
-          if (gelismis) ...[
-            const SipFormEtiket('Sunucu adresi'),
-            SipInput(
-              controller: sunucu,
-              ipucu: 'https://sipario.com.tr/api/v1',
-              klavye: TextInputType.url,
-              aktif: !busy,
-              hata: hata.containsKey('sunucu'),
-              buyukHarfKipi: TextCapitalization.none,
-              onChanged: (_) => onDegis(),
-            ),
-            if (hata['sunucu'] != null) _Hata(hata['sunucu']!),
-          ],
           if (sunucuHata != null) _Hata(sunucuHata!),
-          // CSS `.giris-gelismis` — sola dayalı düz metin bağlantısı.
-          Align(
-            alignment: Alignment.centerLeft,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onGelismis,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, SipSpace.x3, SipSpace.md, 2),
-                child: Text(
-                  gelismis ? '− Gelişmiş' : '+ Gelişmiş (sunucu adresi)',
-                  style: SipText.link.copyWith(color: t.accent),
-                ),
-              ),
-            ),
-          ),
           const SizedBox(height: SipSpace.x5),
           SipButon(etiket: 'Giriş Yap', onTap: onGonder, yukleniyor: busy),
           const SizedBox(height: SipSpace.x4),
