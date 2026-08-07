@@ -120,12 +120,19 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      update_config:
+        order: start-first
+        failure_action: rollback
+        delay: 2s
+      rollback_config:
+        order: start-first
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/up"]
-      interval: 30s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 3
-      start_period: 30s
+      start_period: 10s
 
   # ── Kuyruk işçisi ─────────────────────────────────────────────────────────
   # Aynı imaj, serversideup'ın S6 entrypoint'i yerine doğrudan php artisan çalıştırır.
