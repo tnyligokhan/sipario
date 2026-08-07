@@ -128,11 +128,11 @@ services:
       rollback_config:
         order: start-first
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/up"]
-      interval: 5s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8080/up || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
   # ── Kuyruk işçisi ─────────────────────────────────────────────────────────
   # Aynı imaj, serversideup'ın S6 entrypoint'i yerine doğrudan php artisan çalıştırır.
