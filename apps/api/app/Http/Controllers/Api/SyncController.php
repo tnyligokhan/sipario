@@ -17,12 +17,18 @@ use Illuminate\Http\JsonResponse;
  */
 class SyncController extends Controller
 {
-    /** POST /api/v1/sync/push — outbox olaylarını idempotent uygular, tenant seq'ini ilerletir. */
+    /**
+     * POST /api/v1/sync/push — outbox olaylarını idempotent uygular, tenant seq'ini ilerletir.
+     *
+     * İstek yalnız ZARF doğrulamasından geçer (SyncPushRequest); olay içeriği SyncService içinde
+     * olay bazında denetlenir. Bu yüzden `validated()['events']` elemanlarının biçimi GARANTİ
+     * DEĞİLDİR — bozuk eleman 422 değil, `results[i].status = 'rejected'` üretir.
+     */
     public function push(SyncPushRequest $request, SyncService $sync): JsonResponse
     {
         /** @var User $user */
         $user = $request->user();
-        /** @var list<array<string, mixed>> $events */
+        /** @var list<mixed> $events */
         $events = $request->validated()['events'];
 
         return response()->json($sync->push($user, $events));

@@ -1,68 +1,79 @@
+{{--
+    Üye detayı kabuğu (tasarım `07-Uyeler.jsx` · UyeDetay). Geri bağlantısı + başlık + sekme çipleri
+    + açık sekmenin parçası. Tasarımın iki sütunlu düzeni "ozet" parçasındadır.
+
+    Sekmeler tasarımda YOKtu: tasarım tek bir firma kartı gösteriyordu, sunucuda bayinin iş verisi
+    (müşteri/sipariş/defter/ürün/denetim) de aynı ekrandan görülüyor ve BRIEF bunu zorunlu kılıyor.
+    Çipler tasarımın kendi bileşenidir — yeni bir görsel dil icat edilmedi.
+--}}
+@use('App\Livewire\Panel\Concerns\Bicim')
+
+@php
+    $tenant = $detail['tenant'];
+    $tarih = Bicim::tarihKisa(...);
+    $yer = $tenant->city
+        ? $tenant->city.($tenant->district ? ' / '.$tenant->district : '')
+        : $tenant->slug;
+
+    $sekmeEtiketleri = [
+        'ozet' => 'Özet',
+        'musteriler' => 'Müşteriler · '.$sayilar['musteri'],
+        'siparisler' => 'Siparişler · '.$sayilar['siparis'],
+        'defter' => 'Defter · '.$sayilar['defter'],
+        'urunler' => 'Ürünler · '.$sayilar['urun'],
+        'denetim' => 'Denetim · '.$sayilar['denetim'],
+    ];
+@endphp
+
 <div>
-    @php($tenant = $detail['tenant'])
-    <p><a href="{{ route('panel.tenants') }}">&larr; Bayiler</a></p>
-    <h1>{{ $tenant->name }}</h1>
+    <x-panel.layout>
+        <x-slot:nav>@include('livewire.panel._nav', ['bolum' => 'nav'])</x-slot:nav>
+        <x-slot:altNav>@include('livewire.panel._nav', ['bolum' => 'alt'])</x-slot:altNav>
 
-    <div class="card">
-        <p><strong>Durum:</strong> <span class="status">{{ $tenant->status->value }}</span></p>
-        <p><strong>Deneme bitişi:</strong> {{ $tenant->trial_ends_at?->format('Y-m-d') ?? '—' }}</p>
-        <p><strong>Geçerlilik (valid_until):</strong> {{ $tenant->valid_until?->format('Y-m-d H:i') ?? '—' }}</p>
-        <p><strong>Kilit anı:</strong> {{ $tenant->locked_at?->format('Y-m-d H:i') ?? '—' }}</p>
-        <p><strong>Kullanıcı / Cihaz:</strong> {{ $detail['user_count'] }} / {{ $detail['device_count'] }}</p>
-    </div>
+        <a href="{{ route('panel.tenants') }}" class="geri">
+            <x-panel.ikon ad="geri" boy="15" /> Üyeler
+        </a>
 
-    <div class="card" style="margin-top:1rem;">
-        <h2>Abonelik & Durum</h2>
-        <p>
-            <label>Deneme uzat (gün):
-                <input type="number" wire:model="extendDays" min="1" style="width:70px">
-            </label>
-            <button wire:click="extendTrial">Denemeyi Uzat</button>
-        </p>
-        <button wire:click="activate">Aboneliği Kaydet (1 yıl)</button>
-        <button wire:click="lock">Kilitle</button>
-        <button wire:click="unlock">Aç</button>
-        <button wire:click="suspend">Askıya Al</button>
-    </div>
+        <x-panel.ust
+            :baslik="$tenant->name"
+            :alt="$yer.' · kayıt '.$tarih($tenant->created_at)"
+            style="margin-bottom:16px"
+        >
+            <x-slot:sag><x-panel.rozet :durum="$tenant->status" /></x-slot:sag>
+        </x-panel.ust>
 
-    <div class="card" style="margin-top:1rem;">
-        <h2>Modüller & Hesap</h2>
-        <p>
-            <strong>Boş/emanet takibi:</strong>
-            {{ ($tenant->modules['empty_tracking'] ?? false) ? 'AÇIK' : 'kapalı' }}
-            <button wire:click="toggleModule('empty_tracking')">Değiştir</button>
-        </p>
-        <p>
-            <button wire:click="resetPassword">Patron Şifresini Sıfırla</button>
-            @if ($newPassword)
-                <span class="status">Yeni parola: <code>{{ $newPassword }}</code> (bir kez gösterilir)</span>
-            @endif
-        </p>
-        <p><a href="{{ route('panel.tenant.export', $tenant->id) }}">Veriyi Dışa Aktar (JSON)</a></p>
-    </div>
+        <x-panel.cipler
+            :secenekler="$sekmeEtiketleri"
+            :secili="$sekme"
+            wire:model="sekme"
+            style="margin-bottom:14px"
+        />
 
-    <div class="card" style="margin-top:1rem;">
-        <h2>Kullanım (churn sinyalleri)</h2>
-        <p><strong>Aktif cihaz (7 gün):</strong> {{ $activeDevices }}</p>
-        <p><strong>Kurulumdan ilk siparişe:</strong>
-            {{ $minutesToFirstOrder !== null ? $minutesToFirstOrder.' dk' : 'henüz sipariş yok' }}</p>
-        <p><strong>Günlük sipariş (7 gün):</strong>
-            @forelse ($dailyOrders as $date => $count) {{ $date }}: {{ $count }} · @empty yok @endforelse</p>
-        <p><strong>Sipariş girme saatleri (30 gün):</strong>
-            @foreach ($hourDistribution as $hour => $count) @if ($count > 0) {{ $hour }}h:{{ $count }} @endif @endforeach</p>
-    </div>
+        {{-- Sonuç bildirimi. Sessiz kalması yasak: kilitli bayi ('locked') ve bayat yazım ('stale')
+             gibi durumlarda panel "kaydettim" der ama hiçbir şey yazılmaz. --}}
+        @if ($bildirim)
+            @php($bildirimStil = $bildirim['tur'] === 'ok'
+                ? 'margin-bottom:12px'
+                : 'margin-bottom:12px;background:var(--danger-soft);color:var(--danger)')
+            <div class="modal-bilgi" style="{{ $bildirimStil }}" role="status">
+                <x-panel.ikon :ad="$bildirim['tur'] === 'ok' ? 'bilgi' : 'uyari'" boy="15" />
+                <span>{{ $bildirim['mesaj'] }}</span>
+            </div>
+        @endif
 
-    <div class="card" style="margin-top:1rem;">
-        <h2>Cihazlar</h2>
-        <table>
-            <thead><tr><th>Model</th><th>Platform</th><th>Son görülme</th></tr></thead>
-            <tbody>
-                @forelse ($devices as $device)
-                    <tr><td>{{ $device->model ?? '—' }}</td><td>{{ $device->platform ?? '—' }}</td><td>{{ $device->last_seen_at ?? '—' }}</td></tr>
-                @empty
-                    <tr><td colspan="3">Cihaz yok.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+        @if ($newPassword)
+            <div class="modal-bilgi" style="margin-bottom:12px">
+                <x-panel.ikon ad="kilit" boy="15" />
+                <span>
+                    Patronun yeni parolası: <b class="tab">{{ $newPassword }}</b> —
+                    <b>bir kez gösterilir ve saklanmaz.</b> Şimdi güvenli bir yere alın.
+                </span>
+            </div>
+        @endif
+
+        {{-- Modallar sekmenin İÇİNDEN basılır (ozet parçası), buradan DEĞİL: ikisi de yalnız Özet
+             sekmesinde var olan verilere (`$kuryeKota`) bakıyor ve `uzatAcik`/`kuryeAcik` kilitsiz
+             public alanlardır — istemci bunları başka bir sekmedeyken true'ya çevirebilir. --}}
+        @include('livewire.panel.tenant.'.$sekme)
+    </x-panel.layout>
 </div>

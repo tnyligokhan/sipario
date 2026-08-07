@@ -2,9 +2,11 @@
 
 namespace App\Support\Sync;
 
+use App\Models\CallLog;
 use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\CustomerPhone;
+use App\Models\ExemptNumber;
 use App\Models\LedgerEntry;
 use App\Models\Order;
 use App\Models\Product;
@@ -31,8 +33,27 @@ use InvalidArgumentException;
  */
 class ChangeApplier
 {
-    /** LWW ile yönetilen basit varlıklar (upsert/delete). */
-    private const SIMPLE_ENTITIES = ['customer', 'customer_phone', 'customer_address', 'product'];
+    /**
+     * LWW ile yönetilen basit varlıklar (upsert/delete). exempt_number ve call_log tasarım
+     * boşluğundan gelir (muaf numaralar / çağrı günlüğü): ikisi de düzenlenebilir varlıktır,
+     * para/hareket kaydı DEĞİL — bu yüzden append değil aynı LWW + tombstone yolundan geçerler.
+     */
+    private const SIMPLE_ENTITIES = [
+        'customer', 'customer_phone', 'customer_address', 'product', 'exempt_number', 'call_log',
+    ];
+
+    /**
+     * Payload'da KARŞILIĞI OLMAYAN, başka bir alandan/olay zarfından hesaplanan kolonlar. Sürüm
+     * çarpıklığı filtresi (SyncPayload::gonderilenler) bunları düşürmez — düşürseydi numara
+     * güncellenirken `phone_last10` eski değerde donar, arayan tanıma yanlış müşteriyi açardı.
+     *
+     * @var array<string, list<string>>
+     */
+    private const TUREYEN_KOLONLAR = [
+        'customer_phone' => ['phone_last10'],
+        'exempt_number' => ['phone_last10'],
+        'call_log' => ['phone_last10', 'occurred_at', 'device_id'],
+    ];
 
     /**
      * @param  array<string, mixed>  $event
@@ -49,8 +70,9 @@ class ChangeApplier
         return match ($type) {
             'order' => (new OrderChangeApplier)->apply($tenantId, $event),
             'ledger' => $this->applyLedger($tenantId, $event),
-            'coupon' => (new CouponChangeApplier)->apply($tenantId, $event),
             'cash_handover' => (new CashHandoverChangeApplier)->apply($tenantId, $event),
+            'tenant_settings', 'user_profile' => (new ProfileChangeApplier)->apply($tenantId, $event),
+            'day_closing' => (new DayClosingChangeApplier)->apply($tenantId, $event),
             default => throw new InvalidArgumentException("Bilinmeyen entity_type: {$type}"),
         };
     }
@@ -68,7 +90,9 @@ class ChangeApplier
         $op = (string) ($event['op'] ?? '');
         /** @var array<string, mixed> $payload */
         $payload = (array) ($event['payload'] ?? []);
-        $occurredAt = (string) ($event['occurred_at'] ?? '');
+        // UTC'ye normalize: aşağıdaki `updated_occurred_at` ve `deleted_at` yazımlarının hepsi
+        // buradan türer (bkz. SyncPayload::zaman — offset'li damga 3 saat kayıyordu).
+        $occurredAt = (string) SyncPayload::zaman((string) ($event['occurred_at'] ?? ''));
         $deviceId = $event['device_id'] ?? null;
 
         $id = (string) ($payload['id'] ?? throw new InvalidArgumentException('payload.id gerekli'));
@@ -89,8 +113,12 @@ class ChangeApplier
                 'updated_device_id' => $deviceId,
             ])->save();
 
-            return ['status' => 'applied', 'entity_id' => $id,
-                'changes' => [SyncPayload::change($type, $id, 'delete', $existing)]];
+            $changes = [SyncPayload::change($type, $id, 'delete', $existing)];
+            if ($type === 'customer') {
+                $changes = array_merge($changes, $this->cascadeCustomerDelete($id, $occurredAt, $deviceId));
+            }
+
+            return ['status' => 'applied', 'entity_id' => $id, 'changes' => $changes];
         }
 
         if ($op !== 'upsert') {
@@ -98,10 +126,17 @@ class ChangeApplier
         }
 
         $this->validateEntityRefs($type, $payload);
-        $cols = $this->simpleColumns($type, $payload);
+        $cols = $this->simpleColumns($type, $payload, $event);
 
         if ($existing !== null && ! $this->lwwWins($existing, $occurredAt, $deviceId)) {
             return ['status' => 'stale', 'entity_id' => $id, 'changes' => []];
+        }
+
+        // SÜRÜM ÇARPIKLIĞI: mevcut satırda, payload'da HİÇ GEÇMEYEN kolonlar korunur (bkz.
+        // SyncPayload::gonderilenler). YENİ satırda filtre YOK — korunacak bir değer yoktur ve
+        // NOT NULL kolonların varsayılanı yazılmalıdır.
+        if ($existing !== null) {
+            $cols = SyncPayload::gonderilenler($cols, $payload, self::TUREYEN_KOLONLAR[$type] ?? []);
         }
 
         /** @var Model $model */
@@ -119,6 +154,48 @@ class ChangeApplier
             'changes' => [SyncPayload::change($type, $id, 'upsert', $model)]];
     }
 
+    /**
+     * Müşteri silindiğinde telefon ve adres satırlarını da tombstone'la.
+     *
+     * NEDEN GEREKLİ: arayan tanıma `customer_phones` üzerinden çalışır ve müşteri satırına
+     * BAKMAZ (1 sn bütçesi, tek-satır okuma). Telefonlar canlı kalsaydı silinen müşteri gelen
+     * aramada kartıyla çıkmaya devam ederdi — özelliğin kullanıcı için ANLAMI budur ve silme
+     * onu karşılamazdı. Ayrıca `snapshot` telefonu müşterisiz gönderir, yeni kurulan cihazda
+     * öksüz satır kalırdı.
+     *
+     * Değişiklikler AYNI olayın change listesine eklenir: tek seq bloğu, tek transaction —
+     * iki cihaz aynı sonuca varır. LWW damgası müşterininkiyle aynı occurred_at/device_id'dir
+     * (silme tek bir karardır, parçalarının damgası ayrışmamalı).
+     *
+     * ZATEN SİLİNMİŞ satırlar atlanır: yoksa her tekrar silme gereksiz değişiklik üretirdi.
+     * Silme GERİ ALINMAZ (upsert bir tombstone'u diriltir ama telefonları diriltmez) — silme
+     * onaylı ve tek yönlü bir eylemdir, "geri al" bir ÜRÜN kararıdır, sessiz bir yan etki değil.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function cascadeCustomerDelete(string $customerId, string $occurredAt, ?string $deviceId): array
+    {
+        $changes = [];
+
+        foreach ([['customer_phone', CustomerPhone::class], ['customer_address', CustomerAddress::class]] as [$tip, $sinif]) {
+            $rows = $sinif::query()
+                ->where('customer_id', $customerId)
+                ->whereNull('deleted_at')
+                ->get();
+
+            foreach ($rows as $row) {
+                $row->forceFill([
+                    'deleted_at' => $occurredAt,
+                    'updated_occurred_at' => $occurredAt,
+                    'updated_device_id' => $deviceId,
+                ])->save();
+                $changes[] = SyncPayload::change($tip, (string) $row->getKey(), 'delete', $row);
+            }
+        }
+
+        return $changes;
+    }
+
     /** @return class-string<Model> */
     private function simpleModelClass(string $type): string
     {
@@ -127,6 +204,8 @@ class ChangeApplier
             'customer_phone' => CustomerPhone::class,
             'customer_address' => CustomerAddress::class,
             'product' => Product::class,
+            'exempt_number' => ExemptNumber::class,
+            'call_log' => CallLog::class,
             default => throw new InvalidArgumentException("Bilinmeyen varlık: {$type}"),
         };
     }
@@ -136,14 +215,29 @@ class ChangeApplier
      * türeyen önbellektir (DECISIONS), istemci ezemez; ledger olayında sunucu tazeler.
      *
      * @param  array<string, mixed>  $p
+     * @param  array<string, mixed>  $event
      * @return array<string, mixed>
      */
-    private function simpleColumns(string $type, array $p): array
+    private function simpleColumns(string $type, array $p, array $event): array
     {
         return match ($type) {
             'customer' => [
                 'name' => SyncPayload::req($p, 'name'),
                 'note' => $p['note'] ?? null,
+                // KARA LİSTE: ayrı bir op DEĞİL, müşterinin bir ALANI. Gerekçe: kara listeye
+                // alma/çıkarma tam da LWW'nin çözdüğü şeydir (iki cihaz farklı yönde karar
+                // verirse son karar kazanır) — ayrı op yazmak aynı çakışma çözümünü ikinci kez
+                // kurmak olurdu.
+                //
+                // İSTEMCİ SÖZLEŞMESİ (2026-08-05'te DÜZELTİLDİ): anahtar payload'da VARSA yazılır
+                // — null göndermek kara listeden ÇIKARMAK demektir ve bu ifade edilebilir kalır.
+                // Anahtar HİÇ YOKSA mevcut değer korunur (SyncPayload::gonderilenler).
+                //
+                // Eski davranış "alan yoksa null yaz"dı ve gerekçesi "null hem bilmiyorum hem
+                // çıkar olurdu" idi; ayrımı anahtarın VARLIĞINA bağlamak o ikilemi çözer. Eski
+                // hâliyle, `blacklisted_at`i bilmeyen bir build (2026-08-01 öncesi) müşterinin
+                // adını düzeltince kara listeyi sessizce kaldırıyordu.
+                'blacklisted_at' => SyncPayload::zaman($p['blacklisted_at'] ?? null),
             ],
             'customer_phone' => [
                 'customer_id' => SyncPayload::req($p, 'customer_id'),
@@ -156,6 +250,7 @@ class ChangeApplier
                 'customer_id' => SyncPayload::req($p, 'customer_id'),
                 'label' => $p['label'] ?? null,
                 'address_text' => SyncPayload::req($p, 'address_text'),
+                'region' => $p['region'] ?? null, // tasarım: "Bölge" (Kepez/Muratpaşa/Lara)
                 'lat' => isset($p['lat']) ? (float) $p['lat'] : null,
                 'lng' => isset($p['lng']) ? (float) $p['lng'] : null,
                 'is_primary' => (bool) ($p['is_primary'] ?? false),
@@ -164,10 +259,46 @@ class ChangeApplier
                 'name' => SyncPayload::req($p, 'name'),
                 'unit_price_kurus' => (int) SyncPayload::req($p, 'unit_price_kurus'),
                 'unit' => (string) ($p['unit'] ?? 'adet'),
+                // barcode tekilliği DB'de ZORLANMAZ (migration 605): çevrimdışı iki cihazın aynı
+                // barkodu girmesi olayı reddedip veri kaybettirirdi; UI uyarır, DB kabul eder.
+                'barcode' => $p['barcode'] ?? null,
+                'image_url' => $p['image_url'] ?? null,
                 'is_active' => (bool) ($p['is_active'] ?? true),
+            ],
+            'exempt_number' => [
+                'phone_e164' => SyncPayload::req($p, 'phone_e164'),
+                'phone_last10' => (string) ($p['phone_last10'] ?? self::last10((string) $p['phone_e164'])),
+                'label' => $p['label'] ?? null,
+            ],
+            'call_log' => [
+                'customer_id' => $p['customer_id'] ?? null,
+                'phone_e164' => SyncPayload::req($p, 'phone_e164'),
+                'phone_last10' => (string) ($p['phone_last10'] ?? self::last10((string) $p['phone_e164'])),
+                'direction' => self::direction($p),
+                'outcome' => $p['outcome'] ?? null,
+                'related_order_id' => $p['related_order_id'] ?? null,
+                // Çağrının GERÇEKLEŞTİĞİ an; LWW'nin updated_occurred_at'inden ayrıdır (sonuç sonradan
+                // yazılınca LWW damgası ilerler ama çağrı saati sabit kalmalı).
+                'occurred_at' => SyncPayload::zaman((string) ($p['occurred_at'] ?? $event['occurred_at'] ?? '')),
+                'device_id' => $event['device_id'] ?? null,
             ],
             default => throw new InvalidArgumentException("Bilinmeyen varlık: {$type}"),
         };
+    }
+
+    /**
+     * Çağrı yönü beyaz listesi — CHECK ihlalinin transaction'ı zehirlemesini önle (önden reddet).
+     *
+     * @param  array<string, mixed>  $p
+     */
+    private static function direction(array $p): string
+    {
+        $direction = (string) SyncPayload::req($p, 'direction');
+        if (! in_array($direction, ['incoming', 'missed', 'outgoing'], true)) {
+            throw new InvalidArgumentException("Geçersiz direction: {$direction}");
+        }
+
+        return $direction;
     }
 
     /**
@@ -182,6 +313,19 @@ class ChangeApplier
             $cid = (string) SyncPayload::req($payload, 'customer_id');
             if (! Customer::query()->whereKey($cid)->exists()) {
                 throw new InvalidArgumentException('customer_id bu bayide bulunamadı');
+            }
+        }
+
+        // call_log referansları OPSİYONELDİR (kayıtsız numara → customer_id null, sipariş doğmadıysa
+        // related_order_id null) ama verilmişlerse AYNI simetriyle doğrulanır (kırmızı çizgi #1).
+        if ($type === 'call_log') {
+            $cid = isset($payload['customer_id']) ? (string) $payload['customer_id'] : null;
+            if ($cid !== null && ! Customer::query()->whereKey($cid)->exists()) {
+                throw new InvalidArgumentException('customer_id bu bayide bulunamadı');
+            }
+            $oid = isset($payload['related_order_id']) ? (string) $payload['related_order_id'] : null;
+            if ($oid !== null && ! Order::query()->whereKey($oid)->exists()) {
+                throw new InvalidArgumentException('related_order_id bu bayide bulunamadı');
             }
         }
     }
@@ -221,8 +365,12 @@ class ChangeApplier
         }
 
         // reverses_entry_id: ters kayıt yalnız AYNI bayinin bir defter satırını düzeltebilir.
+        // Satırın KENDİSİ çekiliyor (`exists()` değil): aşağıdaki atıf kapısı ters çevrilen kaydın
+        // `collected_by_user_id`sini karşılaştırmak zorunda. Sorgu RLS altında koştuğu için
+        // bulunamama hem "yok" hem "başka bayinin" hâlini kapsar.
         $reversesEntryId = isset($payload['reverses_entry_id']) ? (string) $payload['reverses_entry_id'] : null;
-        if ($reversesEntryId !== null && ! LedgerEntry::query()->whereKey($reversesEntryId)->exists()) {
+        $reversed = $reversesEntryId === null ? null : LedgerEntry::query()->find($reversesEntryId);
+        if ($reversesEntryId !== null && $reversed === null) {
             throw new InvalidArgumentException('reverses_entry_id bu bayide bulunamadı');
         }
 
@@ -232,6 +380,24 @@ class ChangeApplier
         $collectedByUserId = isset($payload['collected_by_user_id']) ? (string) $payload['collected_by_user_id'] : null;
         if ($collectedByUserId !== null && ! User::query()->whereKey($collectedByUserId)->exists()) {
             throw new InvalidArgumentException('collected_by_user_id bu bayide bulunamadı');
+        }
+
+        // KASAYA DOKUNAN DÜZELTME, TERS ÇEVİRDİĞİ KAYDIN NAKİT ATFINI TAŞIMALI (inceleme #⑥).
+        // Atıf düzeltmeyi YAZAN kişiye kayarsa gün beklenen negatife düşer ve kurye hiç var olmamış
+        // paradan "EKSİK" sorumlu tutulur — ikisi de append-only DONAR (senaryo: DuzeltmeAtfiTest).
+        //
+        // SUNUCU ATFI YENİDEN YAZMAZ, ÇELİŞKİYİ REDDEDER (lead kararı 2026-08-06): atıf da bir
+        // İSTEMCİ BEYANIDIR ve sunucu para kaydını yeniden hesaplamaz (DECISIONS Faz 4). Sunucunun
+        // işi beyanı düzeltmek değil, kendi içinde çelişeni reddetmektir.
+        //
+        // KAPSAM DAR: `payment_type` yoksa kayıt kasaya dokunmaz (kapı meşru bakiye düzeltmelerini
+        // reddederdi); `reverses_entry_id` yoksa karşılaştıracak kaynak yoktur. NULL atıf da bir
+        // beyandır. DB kısıtına TAŞINAMAZ: kural başka bir satıra bakar, CHECK bunu yapamaz.
+        if ($entryType === 'correction' && $paymentType !== null && $reversed !== null
+            && $collectedByUserId !== $reversed->collected_by_user_id) {
+            throw new InvalidArgumentException(
+                'kasaya dokunan düzeltme, ters çevirdiği kaydın nakit atfını taşımalı'
+            );
         }
 
         $entry = new LedgerEntry;
@@ -246,7 +412,7 @@ class ChangeApplier
             'related_order_id' => $relatedOrderId,
             'reverses_entry_id' => $reversesEntryId,
             'note' => $payload['note'] ?? null,
-            'occurred_at' => (string) ($event['occurred_at'] ?? ''),
+            'occurred_at' => SyncPayload::zaman((string) ($event['occurred_at'] ?? '')),
             'device_id' => $event['device_id'] ?? null,
             'client_event_id' => (string) ($event['client_event_id'] ?? ''),
         ])->save();
@@ -254,7 +420,8 @@ class ChangeApplier
         $changes = [SyncPayload::change('ledger_entry', $id, 'upsert', $entry)];
 
         // Bakiye önbelleğini DEFTERDEN yeniden kur (DECISIONS: önbellek bozulursa defterden kurulur).
-        // Tüm entry_type'lar borç-deltası taşır (debit+, payment/credit−); filtresiz SUM net borcu verir.
+        // Tüm entry_type'lar borç-deltası taşır (debit+, payment/credit/discount−); filtresiz SUM
+        // net borcu verir — iskonto da bakiyeyi bu yoldan kapatır, ayrıcalıklı bir dalı yoktur.
         if ($customerId !== null) {
             /** @var Customer $customer */
             $customer = Customer::query()->findOrFail($customerId);
@@ -269,17 +436,22 @@ class ChangeApplier
 
     /**
      * İşaret tiple tutarlı olmalı (DECISIONS Faz 3 çift-satır): debit ≥ 0 (borç artışı),
-     * payment/credit ≤ 0 (borç azalışı), correction serbest (ters kayıt imzalı olabilir).
+     * payment/credit/discount ≤ 0 (borç azalışı), correction serbest (ters kayıt imzalı olabilir).
      *
-     * payment_type payment VE correction'da olabilir (debit/credit'te YASAK): kasa = "payment_type
-     * taşıyan kayıt = kasaya dokundu" invariant'ı (DECISIONS Faz 3). Yanlış tahsilatı ters çeviren
-     * correction, ters çevirdiği payment'ın tipini taşıyarak kasayı da düzeltir (bakiye + kasa birlikte).
+     * payment_type payment VE correction'da olabilir (debit/credit/discount'ta YASAK): kasa =
+     * "payment_type taşıyan kayıt = kasaya dokundu" invariant'ı (DECISIONS Faz 3). Yanlış tahsilatı
+     * ters çeviren correction, ters çevirdiği payment'ın tipini taşıyarak kasayı da düzeltir
+     * (bakiye + kasa birlikte).
+     *
+     * discount = KAPIDA KIRILAN tutar (2026-07-30). Borcu payment gibi düşürür ama kasaya HİÇ
+     * girmez; payment_type yasağı bunun teminatıdır ve aşağıdaki mevcut kural onu zaten kapsar —
+     * yeni tip kasa sorgularına kendiliğinden sızamaz.
      */
     private function validateLedgerEntry(string $entryType, int $amount, ?string $paymentType): void
     {
         $signOk = match ($entryType) {
             'debit' => $amount >= 0,
-            'payment', 'credit' => $amount <= 0,
+            'payment', 'credit', 'discount' => $amount <= 0,
             'correction' => true,
             default => throw new InvalidArgumentException("Geçersiz entry_type: {$entryType}"),
         };

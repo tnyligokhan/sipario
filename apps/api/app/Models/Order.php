@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SiraKodu;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,11 +16,13 @@ use Illuminate\Support\Carbon;
  * @property string $id
  * @property string $tenant_id
  * @property string|null $customer_id
+ * @property int|null $code
  * @property string|null $assigned_user_id
  * @property string $status
  * @property int $total_kurus
  * @property string|null $payment_type
  * @property string|null $note
+ * @property int|null $sort_index
  * @property Carbon $occurred_at
  * @property string|null $created_device_id
  * @property Carbon|null $deleted_at
@@ -34,11 +37,13 @@ class Order extends Model
         'id',
         'tenant_id',
         'customer_id',
+        'code',
         'assigned_user_id',
         'status',
         'total_kurus',
         'payment_type',
         'note',
+        'sort_index',
         'occurred_at',
         'created_device_id',
         'deleted_at',
@@ -47,10 +52,25 @@ class Order extends Model
     protected function casts(): array
     {
         return [
+            'code' => 'integer',
             'total_kurus' => 'integer',
+            'sort_index' => 'integer',
             'occurred_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Sipariş kodu (#248) MODEL DÜZEYİNDE atanır — gerekçesi `Customer::booted` ile aynı:
+     * sipariş senkron dışında da doğuyor (demo seeder) ve kodsuz bir sipariş yalnız sahada
+     * fark edilirdi. İstemci kod GÖNDEREMEZ; `OrderChangeApplier` yazılabilir kolonlar
+     * listesinde yoktur (aynı `balance_kurus` deseni).
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $m): void {
+            $m->code ??= SiraKodu::sonraki('orders', $m->tenant_id);
+        });
     }
 
     /** @return BelongsTo<Customer, $this> */

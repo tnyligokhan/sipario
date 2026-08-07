@@ -24,9 +24,16 @@ FORBIDDEN=(
   "android.permission.READ_SMS"
   "android.permission.RECEIVE_SMS"
   "android.permission.SEND_SMS"
-  "android.permission.REQUEST_INSTALL_PACKAGES"
   "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
 )
+
+# REQUEST_INSTALL_PACKAGES KANALA GÖRE DEĞERLENDİRİLİR (2026-07-28):
+#   saha   → İZİN MEŞRUDUR. Uygulama içi güncelleme indirilen APK'yı kurucuya verir; izin
+#            olmadan özellik hiç çalışmaz. Bu kanal Play'e YÜKLENMEZ.
+#   magaza → YASAK. Geçici saha özelliğinin mağaza sürümüne sızmaması bu satırla garanti
+#            altındadır; unutma riski koda gömülüdür. Orada güncellemeyi Play yapar.
+# Bu yüzden izin genel FORBIDDEN listesinden ÇIKARILDI ve aşağıda kanal bazında denetleniyor.
+KURULUM_IZNI="android.permission.REQUEST_INSTALL_PACKAGES"
 
 MANIFEST="$(find "$MOBILE_DIR/build" -path "*merged_manifests*${VARIANT}*" -name "AndroidManifest.xml" 2>/dev/null | head -1)"
 
@@ -47,6 +54,32 @@ for perm in "${FORBIDDEN[@]}"; do
     violations=$((violations + 1))
   fi
 done
+
+# ── Kanal kuralı: kurulum izni yalnız `saha`da ────────────────────────────────────────────
+# Kanal, birleştirilmiş manifest'in YOLUNDAN okunur (ör. .../merged_manifests/sahaRelease/...).
+# Yol kanal adı içermiyorsa (flavor'sız eski derleme) kural MAĞAZA gibi uygulanır — güvenli
+# varsayılan: izni beklemediğimiz her yerde varlığı ihlaldir.
+kanal="bilinmeyen"
+case "$MANIFEST" in
+  *merged_manifests/saha*|*merged_manifests/Saha*) kanal="saha" ;;
+  *merged_manifests/magaza*|*merged_manifests/Magaza*) kanal="magaza" ;;
+esac
+echo "Kanal: $kanal"
+
+if grep -q "uses-permission[^>]*\"$KURULUM_IZNI\"" "$MANIFEST"; then
+  if [[ "$kanal" != "saha" ]]; then
+    echo "  IHLAL: $KURULUM_IZNI '$kanal' kanalında beyan edilmiş" >&2
+    echo "         Bu izin YALNIZ saha kanalına aittir (uygulama içi güncelleme)." >&2
+    echo "         Mağaza sürümünde bulunması Play politikası açısından gereksiz risktir." >&2
+    violations=$((violations + 1))
+  fi
+elif [[ "$kanal" == "saha" ]]; then
+  # Pozitif kontrol: saha kanalında izin YOKSA güncelleme sessizce kurulamaz — indirme
+  # biter, kurulum ekranı hiç açılmaz ve bayi "güncellenmedi" der. Sessiz ölümü burada kırıyoruz.
+  echo "HATA: saha kanalında $KURULUM_IZNI YOK — indirilen APK kurulamaz." >&2
+  echo "      Kaynak: apps/mobile/android/app/src/saha/AndroidManifest.xml" >&2
+  exit 1
+fi
 
 if [[ $violations -gt 0 ]]; then
   echo "" >&2

@@ -15,11 +15,19 @@ use Illuminate\Support\Facades\DB;
  */
 class PanelExportService
 {
-    /** Bir tenant'a bağlı iş verisi tabloları (hepsinde tenant_id). */
+    /**
+     * Bir tenant'a bağlı iş verisi tabloları (hepsinde tenant_id).
+     *
+     * `day_closings` 2026-08-06'da EKLENDİ: tablo 000604'te doğdu ama ne panel izninde ne bu
+     * listede yer almıştı. `cash_handovers` varken kapanış arşivinin olmaması mutabakatın YARISINI
+     * vermek demekti — devirler görünüyor, "o gün ne beklendi / ne sayıldı / fark neydi" görünmüyordu.
+     * Yeni bir para/hareket tablosu açan herkes buraya da bakmalı; "veri rehin alınmaz" taahhüdü
+     * tablo listesinin eksiksizliğine bağlı.
+     */
     private const TABLES = [
         'customers', 'customer_phones', 'customer_addresses', 'products',
         'orders', 'order_lines', 'order_events', 'ledger_entries',
-        'coupon_movements', 'coupon_balances', 'cash_handovers', 'devices',
+        'cash_handovers', 'day_closings', 'devices',
     ];
 
     public function __construct(private readonly string $connection = 'pgsql_panel') {}

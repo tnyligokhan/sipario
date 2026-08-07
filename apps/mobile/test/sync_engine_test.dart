@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
@@ -23,8 +24,9 @@ void main() {
     final repo = CustomerRepository(db);
     await repo.create(name: 'Ahmet', phones: [PhoneInput(phoneE164: '+905321112233')]);
 
-    final pushed = await engine.pushPending();
-    expect(pushed, 2); // customer + phone
+    final ozet = await engine.pushPending();
+    expect(ozet.gonderildi, 2); // customer + phone
+    expect(ozet.kaliciRed, isFalse);
 
     // Sunucuya iki olay gitti.
     expect(api.pushedBatches.single, hasLength(2));
@@ -34,7 +36,7 @@ void main() {
     expect(outbox.every((o) => o.status == 'acked'), isTrue);
 
     // İkinci pushPending gönderecek bir şey bulamaz.
-    expect(await engine.pushPending(), 0);
+    expect((await engine.pushPending()).gonderildi, 0);
   });
 
   test('pushPending server_time offset yazar', () async {
@@ -126,6 +128,84 @@ void main() {
     final cust = await (db.select(db.customers)..where((t) => t.id.equals('c9'))).getSingle();
     expect(cust.name, 'Yeni Müşteri');
     expect((await db.syncState()).lastPulledSeq, 7);
+  });
+
+  test('pull kara liste damgasını yerel satıra yazar (diğer cihazın kararı iner)', () async {
+    // İki cihazlı gerçeklik: patron kendi telefonundan müşteriyi kara listeye alır, operatörün
+    // cihazı bunu YALNIZ delta'dan öğrenir. Alan uygulanmasaydı ikinci cihaz o müşteriye
+    // sipariş açmaya devam ederdi — engel sessizce delinirdi.
+    api.pullQueue.add(PullResponse(
+      mode: 'delta',
+      cursor: 9,
+      hasMore: false,
+      currentSeq: 9,
+      changes: [
+        {
+          'seq': 9,
+          'entity_type': 'customer',
+          'entity_id': 'c-kara',
+          'op': 'upsert',
+          'occurred_at': '2026-08-01T09:00:00.000Z',
+          'payload': {
+            'id': 'c-kara',
+            'name': 'Kara Listelik',
+            'note': null,
+            'balance_kurus': 0,
+            'blacklisted_at': '2026-08-01T09:00:00.000Z',
+            'updated_occurred_at': '2026-08-01T09:00:00.000Z',
+            'updated_device_id': null,
+            'deleted_at': null,
+          },
+        },
+      ],
+    ));
+
+    await engine.pull();
+
+    final cust =
+        await (db.select(db.customers)..where((t) => t.id.equals('c-kara'))).getSingle();
+    expect(cust.blacklistedAt, '2026-08-01T09:00:00.000Z');
+    expect(cust.deletedAt, isNull, reason: 'kara liste silme DEĞİLDİR');
+  });
+
+  test('kara listeden çıkarma da iner — alan null gelince damga temizlenir', () async {
+    await db.into(db.customers).insert(CustomersCompanion.insert(
+          id: 'c-af',
+          name: 'Affedilen',
+          blacklistedAt: const Value('2026-08-01T09:00:00.000Z'),
+          updatedOccurredAt: '2026-08-01T09:00:00.000Z',
+        ));
+
+    api.pullQueue.add(PullResponse(
+      mode: 'delta',
+      cursor: 10,
+      hasMore: false,
+      currentSeq: 10,
+      changes: [
+        {
+          'seq': 10,
+          'entity_type': 'customer',
+          'entity_id': 'c-af',
+          'op': 'upsert',
+          'occurred_at': '2026-08-01T10:00:00.000Z',
+          'payload': {
+            'id': 'c-af',
+            'name': 'Affedilen',
+            'note': null,
+            'balance_kurus': 0,
+            'blacklisted_at': null,
+            'updated_occurred_at': '2026-08-01T10:00:00.000Z',
+            'updated_device_id': null,
+            'deleted_at': null,
+          },
+        },
+      ],
+    ));
+
+    await engine.pull();
+
+    final cust = await (db.select(db.customers)..where((t) => t.id.equals('c-af'))).getSingle();
+    expect(cust.blacklistedAt, isNull);
   });
 
   test('çakışma: yerelde daha yeni pending düzenleme varsa sunucu değişikliği uygulanmaz', () async {

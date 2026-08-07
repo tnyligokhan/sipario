@@ -27,6 +27,9 @@ class UserFactory extends Factory
             'tenant_id' => Tenant::factory(),
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
+            // Tasarım kuralı: ^[a-z0-9._-]{3,}$ (DB'de CHECK ile de sabit). Testlerde çakışmasın
+            // diye unique sayaçla üretilir; gerçek hayatta panelden elle verilir.
+            'username' => 'kullanici'.fake()->unique()->numberBetween(1, 999999),
             'password' => static::$password ??= Hash::make('password'),
             'role' => UserRole::Patron->value,
             'status' => 'active',

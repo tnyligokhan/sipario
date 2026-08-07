@@ -23,11 +23,14 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string $tenant_id
  * @property string $name
  * @property string $email
+ * @property string $username
  * @property string $password
  * @property UserRole $role
  * @property string $status
  * @property string|null $phone
  * @property Carbon|null $last_login_at
+ * @property Carbon|null $updated_occurred_at
+ * @property string|null $updated_device_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -40,11 +43,16 @@ class User extends Authenticatable
         'tenant_id',
         'name',
         'email',
+        // Tasarım `s-giris.jsx`: mobil giriş firma kodu + KULLANICI ADI ile yapılır.
+        // Tenant içinde tekildir (global değil) — ayrımı firma kodu yapar.
+        'username',
         'password',
         'role',
         'status',
         'phone',
         'last_login_at',
+        'updated_occurred_at',
+        'updated_device_id',
     ];
 
     protected $hidden = [
@@ -57,6 +65,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => UserRole::class,
             'last_login_at' => 'datetime',
+            'updated_occurred_at' => 'datetime',
         ];
     }
 

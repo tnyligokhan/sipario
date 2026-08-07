@@ -152,16 +152,18 @@ class SubscriptionLockTest extends ApiTestCase
         $prov = Provisioning::createTenantWithPatron('Süre Bayii', 'sure@sipario.test', 'password', 'Süre Patron');
         $tenantId = $prov['tenant']->id;
 
+        $giris = [
+            'tenant_code' => $prov['tenant']->slug,
+            'username' => $prov['patron']->username,
+            'password' => 'password',
+        ];
+
         // Provisioning valid_until = now+30g (gelecek) → login 200.
-        $this->postJson('/api/v1/auth/login', [
-            'email' => 'sure@sipario.test', 'password' => 'password',
-        ])->assertOk();
+        $this->postJson('/api/v1/auth/login', $giris)->assertOk();
 
         // Süre geçmişe çekilir → login nötr 403 (status hâlâ trial olsa bile süre tek çıpa).
         $this->setTenant($tenantId, ['valid_until' => now()->subDay()]);
-        $expired = $this->postJson('/api/v1/auth/login', [
-            'email' => 'sure@sipario.test', 'password' => 'password',
-        ]);
+        $expired = $this->postJson('/api/v1/auth/login', $giris);
         $expired->assertStatus(403);
         $this->assertStringNotContainsString('süre', mb_strtolower($expired->json('message') ?? ''),
             'Mesaj nötr olmalı (süre-dolumu sebebini sızdırmadan).');

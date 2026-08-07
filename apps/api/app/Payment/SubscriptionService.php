@@ -2,11 +2,17 @@
 
 namespace App\Payment;
 
+use App\Abonelik\OdemeBildirimServisi;
+use App\Abonelik\PlanDeposu;
+use App\Enums\BillingPeriod;
 use App\Enums\TenantStatus;
+use App\Models\PaymentNotification;
 use App\Models\SubscriptionPayment;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\DuplicateSlugException;
 use App\Support\Provisioning;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -20,6 +26,11 @@ use Illuminate\Support\Facades\DB;
  *
  * Callback İDEMPOTENT: aynı provider_ref success iki kez → tek aktivasyon (kontrol + partial unique index).
  * KVKK: kart verisi hiçbir yere yazılmaz; yalnız onay sürümü + zaman.
+ *
+ * 2026-08-04 — iyzico ERTELENDİ (OKU-BENI.md kararı): varsayılan tahsilat IBAN/havale + elden ve
+ * ELLE ONAYA döner (App\Abonelik\OdemeKayitServisi + OdemeBildirimServisi). Buradaki gateway yolu
+ * SİLİNMEZ: kart tahsilatı açıldığında tek satırlık bir bağlama işidir; silinirse yeniden yazılır.
+ * Fiyat artık `plans` tablosundan okunur (PlanDeposu), config yalnız yedektir.
  */
 class SubscriptionService
 {
@@ -34,10 +45,29 @@ class SubscriptionService
      * Public üyelik → trial tenant + patron user (valid_until = now+trial, status=trial). KVKK onayı
      * ZORUNLU. Email GLOBAL tekil (çakışma → nötr DuplicateEmailException). Tenant yaratma owner ile.
      *
+     * `$phone` ARTIK GERÇEKTEN KULLANILIYOR: imzada baştan beri vardı ama `createTenantWithPatron`a
+     * geçirilmiyordu, yani kayıt ekranının topladığı telefon sessizce düşüyordu.
+     *
+     * `$slug` (kullanıcının seçtiği firma kodu) ve `$patronAdi` (yetkilinin adı) opsiyoneldir;
+     * verilmezse eski davranış aynen sürer (kod addan türer, ad 'Patron' kalır). Verildiklerinde
+     * hepsi TEK transaction'da yazılır — öncesinde kayıt ekranı bunları tenant yaratıldıktan SONRA
+     * ayrı bir owner UPDATE'iyle düzeltiyordu ve bayi bir an yanlış kodla yaşıyordu.
+     *
      * @return array{tenant: Tenant, patron: User}
+     *
+     * @throws ConsentRequiredException
+     * @throws DuplicateEmailException
+     * @throws DuplicateSlugException istenen firma kodu başka bir bayide
      */
-    public function register(string $name, string $email, string $password, ?string $phone, bool $kvkkConsent): array
-    {
+    public function register(
+        string $name,
+        string $email,
+        string $password,
+        ?string $phone,
+        bool $kvkkConsent,
+        ?string $slug = null,
+        ?string $patronAdi = null,
+    ): array {
         if (! $kvkkConsent) {
             throw new ConsentRequiredException('KVKK aydınlatma onayı gerekli.');
         }
@@ -47,26 +77,92 @@ class SubscriptionService
             throw new DuplicateEmailException('Bu e-posta ile devam edilemiyor.');
         }
 
-        return Provisioning::createTenantWithPatron($name, $email, $password);
+        return Provisioning::createTenantWithPatron(
+            tenantName: $name,
+            patronEmail: $email,
+            patronPassword: $password,
+            patronName: $patronAdi,
+            slug: $slug,
+            phone: $phone,
+        );
     }
 
     /**
      * Ödeme başlat: TÜM hukuk onayları ZORUNLU (işaretsiz → ConsentRequiredException, ödeme başlamaz)
      * → gateway.initiate → subscription_payments 'initiated' (onay sürümü + zaman ile). PaymentInitiation döner.
      *
+     * FİYAT ARTIK PLANDAN GELİR (App\Abonelik\PlanDeposu → `plans` tablosu); config yalnız yedektir.
+     * `$period` varsayılanı YILLIK: BRIEF "yıllık peşin tahsilat esastır" der, aylık seçenek sonradan
+     * eklendi. Varsayılanı değiştirmek, dönem geçmeyen mevcut çağıranın (site Subscribe bileşeni)
+     * tahsilatını sessizce 1/12'ye düşürürdü.
+     *
      * @param  array<string, mixed>  $consents
      */
-    public function startCheckout(string $tenantId, string $buyerEmail, array $consents): PaymentInitiation
-    {
+    public function startCheckout(
+        string $tenantId,
+        string $buyerEmail,
+        array $consents,
+        BillingPeriod $period = BillingPeriod::Yearly,
+    ): PaymentInitiation {
         $this->assertConsents($consents);
 
-        $amount = (int) config('subscription.price_kurus');
+        $amount = (new PlanDeposu(self::CONN))->donemKurus($period);
         $currency = (string) config('subscription.currency');
 
         $init = $this->gateway->initiate(new PaymentInitiationRequest($tenantId, $amount, $currency, $buyerEmail));
-        $this->record($tenantId, $amount, $currency, $init->providerRef, 'initiated', $this->consentVersion());
+        $this->record($tenantId, $amount, $currency, $init->providerRef, 'initiated', $this->consentVersion(), $period);
 
         return $init;
+    }
+
+    /**
+     * ELLE TAHSİLAT CHECKOUT'U (havale/EFT + elden) — `startCheckout`un ödeme sağlayıcısız ikizi.
+     *
+     * NEDEN AYRI BİR GİRİŞ: `startCheckout`un İLK işi `gateway->initiate()`tir ve iyzico ERTELENDİĞİ
+     * için anahtarsız yapılandırmada orada `RuntimeException` atar — üstelik onay kaydı o çağrıdan
+     * SONRA düştüğü için hiçbir şey kaydedilmeden hata alınır. Yani elle tahsilatta o yol TIKALI.
+     * Site ajanı bu yüzden onay kuralını bileşene KOPYALAMAK ve kabul edilen sürümleri `note`
+     * alanına METİN olarak yazmak zorunda kalmıştı; ikisi de yanlıştı.
+     *
+     * `startCheckout`un İKİ SÖZLEŞMESİ burada AYNEN geçerlidir ve AYNI yardımcılardan okunur:
+     *   1. ÜÇ hukuk onayı da zorunlu → `assertConsents()` (eksikse `ConsentRequiredException`,
+     *      hiçbir satır yazılmaz).
+     *   2. Kabul edilen SÜRÜMLER kaydedilir → `consentVersion()`, artık `payment_notifications`ın
+     *      BİRİNCİ SINIF `consent_version`/`consented_at` kolonlarına (migration 005012).
+     * Tek fark ödeme sağlayıcısına ÇIKILMAMASIDIR: burada tahsilat bir BEYANdır.
+     *
+     * BEYAN ABONELİĞİ UZATMAZ. Bu metot yalnız bekleyen bir iddia yazar; `valid_until` ancak panel
+     * operatörü ekstrede parayı görüp `OdemeBildirimServisi::eslestir()` dediğinde ilerler.
+     *
+     * TUTAR ÇAĞIRANDAN GELİR (plandan okunmaz): sepette abonelik de olabilir, tek seferlik bir ek
+     * paket de. Çağıran onu zaten sunucuda hesaplar; burada plandan yeniden türetmek, ek paket
+     * satışında yanlış tutarı beyan etmek olurdu.
+     *
+     * @param  array<string, mixed>  $consents
+     *
+     * @throws ConsentRequiredException
+     */
+    public function manuelCheckout(
+        string $tenantId,
+        int $amountKurus,
+        string $method,
+        array $consents,
+        ?string $referenceCode = null,
+        ?Carbon $declaredOn = null,
+        ?string $note = null,
+    ): PaymentNotification {
+        $this->assertConsents($consents);
+
+        return (new OdemeBildirimServisi(self::CONN))->olustur(
+            tenantId: $tenantId,
+            amountKurus: $amountKurus,
+            method: $method,
+            referenceCode: $referenceCode,
+            declaredOn: $declaredOn,
+            note: $note,
+            consentVersion: $this->consentVersion(),
+            consentedAt: now(),
+        );
     }
 
     /**
@@ -93,34 +189,49 @@ class SubscriptionService
             return $result; // bilinmeyen ref → aktivasyon yok
         }
 
+        // Dönem 'initiated' satırından okunur: checkout'ta hangi dönem seçildiyse aktivasyon da onu
+        // uzatır. Eski (5b) satırlarda kolon boştur → yıllık kabul edilir (o akış yalnız yıllıktı).
+        $period = BillingPeriod::tryFrom((string) $initiated->period) ?? BillingPeriod::Yearly;
+
         if (! $result->success) {
             $this->record($initiated->tenant_id, $initiated->amount_kurus, $initiated->currency,
-                $result->providerRef, 'failed', null);
+                $result->providerRef, 'failed', null, $period);
 
             return $result;
         }
 
-        DB::connection(self::CONN)->transaction(function () use ($initiated, $result) {
+        DB::connection(self::CONN)->transaction(function () use ($initiated, $result, $period) {
             $this->record($initiated->tenant_id, $initiated->amount_kurus, $initiated->currency,
-                $result->providerRef, 'success', $initiated->consent_version);
-            $this->activate($initiated->tenant_id);
+                $result->providerRef, 'success', $initiated->consent_version, $period);
+            $this->activate($initiated->tenant_id, $period);
         });
 
         return $result;
     }
 
-    /** Abonelik aktivasyonu (SUNUCU — tek doğru kaynak): valid_until ileri, status=active, kilit temizle. */
-    private function activate(string $tenantId): void
+    /**
+     * Abonelik aktivasyonu (SUNUCU — tek doğru kaynak): valid_until ileri, status=active, kilit temizle.
+     *
+     * Taban `valid_until > now ? valid_until : now` (OdemeKayitServisi ile AYNI kural): süresi
+     * dolmadan yenileyen bayinin kalan günleri yanmaz. Eski davranış her hâlde now'dan başlıyordu ve
+     * erken ödeyeni cezalandırıyordu.
+     */
+    private function activate(string $tenantId, BillingPeriod $period): void
     {
         $tenant = Tenant::on(self::CONN)->findOrFail($tenantId);
+        $taban = ($tenant->valid_until !== null && $tenant->valid_until->greaterThan(now()))
+            ? $tenant->valid_until
+            : now();
+
         $tenant->forceFill([
             'status' => TenantStatus::Active->value,
-            'valid_until' => now()->addDays((int) config('subscription.period_days')),
+            'billing_period' => $period->value,
+            'valid_until' => $period->uzat($taban),
             'locked_at' => null,
         ])->save();
     }
 
-    private function record(string $tenantId, int $amount, string $currency, string $ref, string $status, ?string $consentVersion): void
+    private function record(string $tenantId, int $amount, string $currency, string $ref, string $status, ?string $consentVersion, BillingPeriod $period): void
     {
         SubscriptionPayment::on(self::CONN)->create([
             'tenant_id' => $tenantId,
@@ -129,6 +240,7 @@ class SubscriptionService
             'provider' => 'iyzico',
             'provider_ref' => $ref,
             'status' => $status,
+            'period' => $period->value,
             'consent_version' => $consentVersion,
             'consented_at' => $consentVersion !== null ? now() : null,
             'occurred_at' => now(),

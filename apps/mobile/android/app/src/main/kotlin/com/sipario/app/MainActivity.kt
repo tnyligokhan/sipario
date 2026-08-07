@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -21,12 +22,81 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
 
     private val channelName = "sipario/phase0"
+
+    /** Çağrı kartı eylemleri için AYRI kanal — bkz. `lib/screens/cagri/cagri_eylem_kanali.dart`. */
+    private val cagriChannelName = "sipario/cagri"
+
     private val roleRequestCode = 4711
     private val contactsRequestCode = 4712
     private val notificationsRequestCode = 4713
 
+    private var cagriKanali: MethodChannel? = null
+
+    /**
+     * Native karttan gelen, henüz Flutter'a devredilmemiş eylem.
+     *
+     * Neden BEKLETİLİR: kart telefon çalarken çizilir ve o an Flutter motoru YAŞAMIYOR olur.
+     * Düğmeye dokunulduğunda bu Activity başlar; niyet ekstraları burada tutulur ve Dart
+     * hazır olduğunda `bekleyen` çağrısıyla çekilir. Çekildiği anda silinir — iki kez
+     * tüketilmesi imkânsızdır.
+     */
+    private var bekleyen: Map<String, String>? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        eylemiAl(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        eylemiAl(intent)
+        // Uygulama ZATEN önplandaysa (bayi çağrı sırasında uygulamayı kullanıyordu) hiçbir
+        // yaşam döngüsü olayı doğmaz; Dart tarafına "bekleyen var" diye dürtmek şart.
+        if (bekleyen != null) cagriKanali?.invokeMethod("eylem", null)
+    }
+
+    /**
+     * Niyetteki eylemi alır. Ekstra HEMEN SİLİNİR: Activity yeniden kurulduğunda (dönme,
+     * süreç öldürülüp geri gelme) sistem aynı niyeti tekrar verir ve eylem ikinci kez
+     * tetiklenirdi — bayi bir kez dokundu, bir kez sipariş formu açılmalı.
+     */
+    private fun eylemiAl(i: Intent?) {
+        val eylem = i?.getStringExtra(CallerCard.EXTRA_EYLEM) ?: return
+        val numara = i.getStringExtra(CallerCard.EXTRA_NUMARA).orEmpty()
+        // Numara KVKK gereği loglanmaz.
+        bekleyen = mapOf("eylem" to eylem, "numara" to numara)
+        i.removeExtra(CallerCard.EXTRA_EYLEM)
+        i.removeExtra(CallerCard.EXTRA_NUMARA)
+        // EYLEM SEÇİLDİ → HER İKİ YÜZEY DE KAPANIR (DECISIONS: "eylem ve kapatma tek işlemdir").
+        // Artık iki yüzey var: karttan basıldıysa bildirim, bildirimden basıldıysa kart açık
+        // kalırdı. Kapatmayı BURAYA koymak ikisini de kapatır, çünkü her iki düğme de aynı
+        // köprüden ([CallerCard.eylemNiyeti]) buraya geliyor. `kapat` üç yüzeyi birden kaldırır
+        // (overlay penceresi, kilit ekranı Activity'si, bildirim) ve idempotenttir — kart yolu
+        // kendi tarafında da çağırıyor, ikinci çağrı zararsız.
+        CallerOverlay.kapat(this)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        cagriKanali = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, cagriChannelName)
+            .apply {
+                setMethodCallHandler { call, result ->
+                    when (call.method) {
+                        "bekleyen" -> {
+                            result.success(bekleyen)
+                            bekleyen = null
+                        }
+
+                        else -> result.notImplemented()
+                    }
+                }
+            }
+
+        // Uygulama içi güncelleme köprüsü (GEÇİCİ, yalnız `saha` kanalı — bkz. GuncellemeKoprusu).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, GuncellemeKoprusu.KANAL)
+            .setMethodCallHandler { call, result -> GuncellemeKoprusu.isle(this, call, result) }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
@@ -83,10 +153,23 @@ class MainActivity : FlutterActivity() {
 
                     "batteryGuide" -> result.success(OemBatteryGuide.stepsFor(Build.MANUFACTURER))
 
+                    // ADI NE DİYORSA ONU AÇAR (2026-07-29 düzeltmesi): eskiden bu metot
+                    // OEM'in OTOMATİK BAŞLATMA ekranını açıyordu, yani sihirbazda "pil"
+                    // yazarken başka bir ayar geliyordu ve pil kısıtlaması hiç kaldırılmıyordu.
                     "openBatterySettings" -> {
-                        OemBatteryGuide.openBestSettingsScreen(this)
+                        OemBatteryGuide.openBatterySettings(this)
                         result.success(null)
                     }
+
+                    "openAutostartSettings" -> {
+                        OemBatteryGuide.openAutostartSettings(this)
+                        result.success(null)
+                    }
+
+                    // Sihirbaz ikinci düğmeyi YALNIZ böyle bir ekranı olan cihazda çizer:
+                    // Pixel'de "Otomatik başlatmayı aç" düğmesi hiçbir yere gitmezdi.
+                    "hasAutostartSettings" ->
+                        result.success(OemBatteryGuide.hasAutostartSettings(this))
 
                     "measurements" -> result.success(LatencyLog.readAllJson(this))
 

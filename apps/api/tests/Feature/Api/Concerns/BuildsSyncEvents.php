@@ -73,21 +73,6 @@ trait BuildsSyncEvents
     }
 
     /**
-     * Kupon hareketi (Faz 3): op = grant|use|correction, qty_delta İMZALI. customer_id ZORUNLU.
-     *
-     * @param  array<string, mixed>  $payload
-     * @param  array<string, mixed>  $meta
-     * @return array<string, mixed>
-     */
-    protected function couponMovement(string $op, array $payload = [], array $meta = []): array
-    {
-        return $this->event('coupon', $op, array_merge([
-            'id' => (string) Str::uuid7(),
-            'qty_delta' => $op === 'use' ? -1 : 1,
-        ], $payload), $meta);
-    }
-
-    /**
      * Kasa devri (Faz 4): op = handover. from_user_id ZORUNLU. counted/expected/diff kuruş.
      *
      * @param  array<string, mixed>  $payload
@@ -102,6 +87,81 @@ trait BuildsSyncEvents
             'expected_cash_kurus' => 0,
             'diff_kurus' => 0,
         ], $payload), $meta);
+    }
+
+    /**
+     * İşletme profili (tasarım boşluğu): payload'da id YOKTUR — anahtar oturumdaki tenant'tır
+     * (migration 601: PK = tenant_id). Çevrimdışı iki cihaz aynı satırda LWW ile buluşur.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $meta
+     * @return array<string, mixed>
+     */
+    protected function tenantSettingsUpsert(array $payload = [], array $meta = []): array
+    {
+        return $this->event('tenant_settings', 'upsert', array_merge([
+            'business_name' => 'Test Su Bayii',
+        ], $payload), $meta);
+    }
+
+    /**
+     * Muaf telefon (arayan tanıma kartı gösterilmez). LWW + tombstone varlığı.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $meta
+     * @return array<string, mixed>
+     */
+    protected function exemptNumberUpsert(array $payload = [], array $meta = []): array
+    {
+        return $this->event('exempt_number', 'upsert', array_merge([
+            'id' => (string) Str::uuid7(),
+            'phone_e164' => '+905321112233',
+            'label' => 'Kurye',
+        ], $payload), $meta);
+    }
+
+    /**
+     * Çağrı günlüğü satırı. direction: incoming|missed|outgoing.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $meta
+     * @return array<string, mixed>
+     */
+    protected function callLogUpsert(array $payload = [], array $meta = []): array
+    {
+        return $this->event('call_log', 'upsert', array_merge([
+            'id' => (string) Str::uuid7(),
+            'phone_e164' => '+905324152290',
+            'direction' => 'incoming',
+        ], $payload), $meta);
+    }
+
+    /**
+     * Gün sonu kapanış arşivi (op = closing, APPEND). scope=day → user_id YOK;
+     * scope=courier → user_id ZORUNLU.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $meta
+     * @return array<string, mixed>
+     */
+    protected function dayClosing(array $payload = [], array $meta = []): array
+    {
+        return $this->event('day_closing', 'closing', array_merge([
+            'id' => (string) Str::uuid7(),
+            'scope' => 'day',
+        ], $payload), $meta);
+    }
+
+    /**
+     * Kullanıcı profili düzenleme (ad/telefon/aktiflik). Kullanıcı OLUŞTURULAMAZ.
+     *
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $meta
+     * @return array<string, mixed>
+     */
+    protected function userProfileUpsert(array $payload, array $meta = []): array
+    {
+        return $this->event('user_profile', 'upsert', $payload, $meta);
     }
 
     /**

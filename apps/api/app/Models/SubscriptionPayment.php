@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
@@ -22,6 +23,10 @@ use Illuminate\Support\Carbon;
  * @property string|null $consent_version
  * @property Carbon|null $consented_at
  * @property Carbon $occurred_at
+ * @property string|null $covers_period
+ * @property string|null $period
+ * @property string|null $note
+ * @property string|null $recorded_by_admin_id
  * @property Carbon|null $created_at
  */
 class SubscriptionPayment extends Model
@@ -41,7 +46,15 @@ class SubscriptionPayment extends Model
         'consent_version',
         'consented_at',
         'occurred_at',
+        // Elle ödeme (IBAN/elden) alanları — 005009. Tablo APPEND-ONLY kalır.
+        'covers_period',
+        'period',
+        'note',
+        'recorded_by_admin_id',
     ];
+
+    /** Ek paket geliri: aboneliği UZATMAZ, yalnız gelir raporuna girer. */
+    public const PERIOD_ADDON = 'addon';
 
     protected function casts(): array
     {
@@ -51,5 +64,16 @@ class SubscriptionPayment extends Model
             'occurred_at' => 'datetime',
             'created_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Ödemenin bayisi. Panelin ödeme listesi firma ADINI gösterir ve firma adına göre süzer;
+     * ilişki olmadan ekran ya N+1 sorgu atardı ya da tüm bayileri belleğe çekip eşlerdi.
+     *
+     * @return BelongsTo<Tenant, $this>
+     */
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
     }
 }

@@ -1,0 +1,263 @@
+// Adres → konum adayları (CSS `.aday-*`, `.md-konum`; kaynak s-musteriler.jsx `adresAdaylari`).
+//
+// Tasarımın kuralı: konum adresten OTOMATİK atanmaz. Servis birden çok aday döner, doğrusunu
+// KULLANICI seçer — yanlış algılanan bir adres yüzünden kurye yanlış kapıya gitmesin.
+//
+// Adaylar artık KENDİ SUNUCUMUZDAN gelir (`POST /geocode`), sağlayıcıya (Yandex/Google) doğrudan
+// gidilmez: anahtar APK'ya gömülemez, aynı adres ikinci kez sorulmamalı ve sağlayıcı değişimi
+// uygulama güncellemesi gerektirmemeli. Ekranlar bu dosyanın altındaki tek dikişten geçer.
+
+import 'package:flutter/material.dart';
+
+import '../../auth/session.dart';
+import '../../data/app_database.dart';
+import '../../sync/geocode_api.dart';
+import '../../theme/components/atoms.dart';
+import '../../theme/components/overlays.dart';
+import '../../theme/icons.dart';
+import '../../theme/tokens.dart';
+import '../../theme/typography.dart';
+
+/// Bir adres metni için önerilen konum. Koordinat GÖSTERİMİ daima 4 basamak (tasarım).
+class AdresAdayi {
+  const AdresAdayi({
+    required this.metin,
+    required this.lat,
+    required this.lng,
+    this.kesinlik = 'semt',
+    this.kaynak = '',
+  });
+
+  final String metin;
+  final double lat;
+  final double lng;
+
+  /// 'bina' | 'sokak' | 'semt' — sunucunun sağlayıcıdan bağımsızlaştırdığı kademe.
+  final String kesinlik;
+
+  /// Adayı bulan sağlayıcı: 'yandex' | 'google' | ''.
+  final String kaynak;
+
+  String get koordinat => konumMetni(lat, lng);
+
+  /// Aday satırında gösterilecek kaynak etiketi; kaynak bilinmiyorsa `null` (eski sunucu).
+  ///
+  /// Kullanıcı kararı (2026-07-29/2): sonuçlar BİRLEŞTİRİLMEZ — "Google şunu buldu, Yandex
+  /// bunu" diye ayrı satırlar görünür ve doğrusunu kullanıcı seçer. Etiket bu okumanın anahtarıdır.
+  String? get kaynakNotu => switch (kaynak) {
+        '' => null,
+        'yandex' => 'Yandex',
+        'google' => 'Google',
+        final k => k,
+      };
+
+  /// Kapı kesinliği YOKSA kullanıcıya söylenir. "Sokak" kesinliğindeki bir pin kuryeyi doğru
+  /// sokağa götürür ama doğru kapıya götürmez; bunu sessizce "konum kayıtlı" saymak, kuryenin
+  /// güvendiği bir yanlış üretir.
+  String? get kesinlikNotu => switch (kesinlik) {
+        'bina' => null,
+        'sokak' => 'sokak yaklaşık',
+        _ => 'semt yaklaşık',
+      };
+}
+
+/// Sonuç boş dönünce gösterilen cümle. İKİ ekranda da AYNI metin: iki kopya zamanla ayrışır ve
+/// biri düzeltilip diğeri unutulur. "Bulunamadı" bir ARIZA değildir, kullanıcıya ne yapacağını
+/// söyler — bu yüzden hata rengiyle değil yönlendirmeyle yazılır.
+const String konumBulunamadiMesaji =
+    'Bu adres bulunamadı — mahalle ve sokak adını biraz daha açık yazın.';
+
+/// "36.8969, 30.7133" — hem aday satırında hem `.md-konum` çipinde aynı yazım.
+String konumMetni(double lat, double lng) =>
+    '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
+
+/// Adres metninden aday üreten TEK dikiş. Widget testleri bunu sahtesiyle değiştirir — ağ
+/// çağrısı ekranların içine gömülmez (`sesliGirisUret` / `uriAcici` deseninin aynısı).
+Future<List<AdresAdayi>> Function(AppDatabase db, String metin) adresAdaylariGetir =
+    sunucudanAdresAdaylari;
+
+/// Gerçek uygulama yolu: kendi API'mize sorar, sonucu ekranın anladığı biçime çevirir.
+///
+/// BÖLGE İPUCU KALDIRILDI (kullanıcı kararı 2026-07-28: "Bölge'ye gerek yok"). Sağlayıcıya
+/// artık yalnız adres metni gider — semt/ilçe adres metninin İÇİNDE yazılmalı. Ölçüldü:
+/// "Sarampol Cad. No:10, Muratpasa" tek ve doğru adayı buluyor; ilçe hiç yazılmazsa Yandex
+/// aynı adlı sokakları başka illerde de önerebilir (aday satırında il görünür, kullanıcı seçer).
+Future<List<AdresAdayi>> sunucudanAdresAdaylari(AppDatabase db, String metin) async {
+  final m = metin.trim();
+  if (m.length < 3) {
+    // Sunucu da reddeder; buradan hiç çıkmaması bir tur ağ ve bir tur kota tasarrufudur.
+    throw GeocodeException('Adres en az 3 karakter olmalı.');
+  }
+
+  final meta = await db.syncState();
+  final token = meta.authToken;
+  if (token == null) {
+    throw GeocodeException('Adres araması için oturum gerekir.');
+  }
+
+  final adaylar =
+      await GeocodeApi(baseUrl: Session.baseUrlOf(meta), token: token).ara(m);
+
+  return [
+    for (final a in adaylar)
+      AdresAdayi(
+        metin: a.metin,
+        lat: a.lat,
+        lng: a.lng,
+        kesinlik: a.kesinlik,
+        kaynak: a.kaynak,
+      ),
+  ];
+}
+
+/// Adayları alttan açılan sayfada gösterir; kullanıcı birini seçerse onu döner.
+Future<AdresAdayi?> konumSecSheet(BuildContext context, List<AdresAdayi> adaylar) {
+  return sipSheet<AdresAdayi>(
+    context,
+    baslik: 'Konum Seç · API Sonuçları',
+    govde: (ctx) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const AdayBilgi(metin: 'Adres bazen yanlış algılanabilir — doğru olanı seçin.'),
+        const SizedBox(height: SipSpace.xs),
+        for (final a in adaylar)
+          Padding(
+            padding: const EdgeInsets.only(top: SipSpace.sm),
+            child: AdaySatiri(aday: a, onSec: () => Navigator.of(ctx).pop(a), okGoster: true),
+          ),
+      ],
+    ),
+  );
+}
+
+/// CSS `.aday-info` — aday listesinin üstündeki açıklama satırı.
+class AdayBilgi extends StatelessWidget {
+  const AdayBilgi({super.key, required this.metin});
+
+  final String metin;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
+        children: [
+          SipIcon(SipIcons.info, boyut: 14, kalinlik: 2, renk: t.accent),
+          const SizedBox(width: SipSpace.sm),
+          Expanded(
+            child: Text(
+              metin,
+              style: SipText.metin(11.5, w: 600).copyWith(color: t.ink2),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// CSS `.aday-row` — ikon + adres + koordinat (+ opsiyonel sağ ok).
+class AdaySatiri extends StatelessWidget {
+  const AdaySatiri({
+    super.key,
+    required this.aday,
+    required this.onSec,
+    this.okGoster = false,
+  });
+
+  final AdresAdayi aday;
+  final VoidCallback onSec;
+  final bool okGoster;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return SipDokunAday(
+      onTap: onSec,
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: t.accentSoft, borderRadius: SipRadius.brHap),
+            child: SipIcon(SipIcons.pin, boyut: 16, kalinlik: 2.1, renk: t.accent),
+          ),
+          const SizedBox(width: SipSpace.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  aday.metin,
+                  style: SipText.metin(13, w: 700, h: 1.35).copyWith(color: t.ink),
+                ),
+                const SizedBox(height: 1),
+                Row(
+                  children: [
+                    Text(
+                      aday.koordinat,
+                      style: SipText.tutar(11, w: 600).copyWith(color: t.muted),
+                    ),
+                    // Kapı kesinliği olmayan aday UYARIYLA gösterilir — kullanıcı iki aday
+                    // arasında seçim yaparken hangisinin kapıyı bulduğunu bilmeli.
+                    if (aday.kesinlikNotu != null) ...[
+                      const SizedBox(width: SipSpace.sm),
+                      Flexible(
+                        child: Text(
+                          '· ${aday.kesinlikNotu!}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SipText.metin(11, w: 700).copyWith(color: t.warn),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                // Kaynak AYRI SATIRDA: koordinat satırına üçüncü bir parça eklemek dar
+                // ekranlarda taşırıyordu. "Google" / "Yandex" etiketi kullanıcının seçim
+                // aracıdır — hangi servisin ne bulduğu ayrı satırlar hâlinde görünür.
+                if (aday.kaynakNotu != null) ...[
+                  const SizedBox(height: 1),
+                  Text(
+                    aday.kaynakNotu!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: SipText.metin(11, w: 700).copyWith(color: t.muted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (okGoster) ...[
+            const SizedBox(width: SipSpace.md),
+            SipIcon(SipIcons.chevR, boyut: 16, kalinlik: 2, renk: t.line2),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// `.aday-row`un kenarlıklı yüzeyi — [SipDokun]a kenarlık + padding geçmenin kısayolu.
+class SipDokunAday extends StatelessWidget {
+  const SipDokunAday({super.key, required this.child, required this.onTap});
+
+  final Widget child;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return SipDokun(
+      onTap: onTap,
+      zemin: t.surface,
+      basiliZemin: t.accentSoft,
+      radius: SipRadius.br2,
+      padding: const EdgeInsets.symmetric(horizontal: SipSpace.xl, vertical: 11),
+      kenarlik: Border.all(color: t.line, width: 1.5),
+      child: child,
+    );
+  }
+}

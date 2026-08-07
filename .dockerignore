@@ -1,0 +1,62 @@
+# ══════════════════════════════════════════════════════════════════════════════
+#  Sipario — Docker build bağlamı dışlama listesi
+# ══════════════════════════════════════════════════════════════════════════════
+#
+#  Üretim imajı repo KÖKÜNDEN build edilir (docker/php/Dockerfile) çünkü
+#  Postgres init betikleri de docker/ altında yaşar ve compose tek yerden yönetir.
+#
+#  Bu dosya olmadan build bağlamı yüzlerce MB olur: apps/mobile tek başına
+#  Flutter çıktıları, .g.dart üreteçleri ve Android araç zinciriyle gelir.
+#  Hiçbiri sunucu imajına girmez.
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Mobil uygulama — sunucu imajına HİÇ girmez ──────────────────────────────
+apps/mobile/
+
+# ── Bağımlılık ağaçları (imaj içinde composer install ile yeniden kurulur) ───
+**/vendor/
+**/node_modules/
+
+# ── Yerel ortam ve sırlar ────────────────────────────────────────────────────
+# Üretim env'i Coolify'ın Environment Variables sekmesinde yaşar.
+**/.env
+**/.env.*
+!**/.env.example
+
+# ── Laravel çalışma zamanı çıktıları (imajda taze kurulur) ──────────────────
+apps/api/storage/logs/*
+apps/api/storage/framework/cache/*
+apps/api/storage/framework/sessions/*
+apps/api/storage/framework/views/*
+apps/api/bootstrap/cache/*
+
+# ── Testler (üretim imajına girmez) ─────────────────────────────────────────
+apps/api/tests/
+
+# ── Dokümanlar ve tasarım dosyaları ─────────────────────────────────────────
+docs/
+design_handoff_sipario/
+design_handoff_web_and_yonetim_paneli/
+scripts/
+PLAN.md
+BRIEF.md
+DECISIONS.md
+YAPILACAKLAR.md
+DESIGN_SYSTEM.md
+README.md
+
+# ── Geliştirme araçları ve ajan durumu ──────────────────────────────────────
+.git/
+.github/
+.claude/
+.claude-flow/
+.swarm/
+.mcp.json
+.tab-navigation
+**/*.db
+**/*.rvf
+**/*.rvf.lock
+
+# ── Docker compose dosyaları (imajın kendisinde gerekmez) ───────────────────
+docker-compose.yml
+docker-compose.prod.yml

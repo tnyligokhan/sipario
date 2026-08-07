@@ -45,8 +45,12 @@ class CallerActivity : Activity() {
         // Aynı bilgiyi iki yerde görmek, hiç görmemekten iyidir.
 
         window.apply {
+            // Genişlik MATCH_PARENT DEĞİL: `setContentView(View)` karta MATCH_PARENT'lık düz bir
+            // `ViewGroup.LayoutParams` dayatır, yani kartın kendi kenar payı hiçbir zaman
+            // uygulanmıyordu ve kart ekran kenarına dayanıyordu (saha bildirimi 2026-07-27).
+            // Boşluğu pencere veriyor — overlay yoluyla AYNI ölçü, iki yüzey ayrışmasın.
             setLayout(
-                WindowManager.LayoutParams.MATCH_PARENT,
+                CallerCard.kartGenisligi(this@CallerActivity),
                 WindowManager.LayoutParams.WRAP_CONTENT,
             )
             setGravity(Gravity.CENTER)
@@ -61,14 +65,14 @@ class CallerActivity : Activity() {
         val phone = intent.getStringExtra(EXTRA_PHONE).orEmpty()
         val t0 = intent.getLongExtra(EXTRA_T0, System.nanoTime())
         val simulated = intent.getBooleanExtra(EXTRA_SIMULATED, false)
-        val direction = intent.getStringExtra(EXTRA_DIRECTION) ?: "in"
+        val yon = CagriYonu.kuyruktan(intent.getStringExtra(EXTRA_DIRECTION))
 
         // Yanıt/kapanış anındaki yeniden gösterimler ölçüm yazmaz — tanıma değil,
         // aynı çağrının devamı.
         val record = intent.getBooleanExtra(EXTRA_RECORD, true)
 
         val customer = CustomerLookup.find(this, phone)
-        val card = CallerCard.build(this, customer, phone)
+        val card = CallerCard.build(this, customer, phone, yon)
         card.setOnClickListener { finish() }
         setContentView(card)
 
@@ -91,7 +95,7 @@ class CallerActivity : Activity() {
                         simulated = simulated,
                         path = "fullscreen",
                         locked = true,
-                        direction = direction,
+                        direction = yon.olcumKodu,
                     )
                 }
             })
@@ -127,6 +131,9 @@ class CallerActivity : Activity() {
                         Intent.FLAG_ACTIVITY_NEW_TASK
                 )
                 .putExtra(EXTRA_PHONE, intent.getStringExtra(EXTRA_PHONE))
+                // Yön TAŞINIR: sistem bu niyetle YENİ bir örnek kurarsa yön kaybolur ve
+                // kart giden çağrıda "GELEN ÇAĞRI" yazmaya geri döner.
+                .putExtra(EXTRA_DIRECTION, intent.getStringExtra(EXTRA_DIRECTION))
                 .putExtra(EXTRA_RECORD, false)
         )
     }

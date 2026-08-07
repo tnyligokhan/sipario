@@ -183,6 +183,10 @@ npx ruflo@latest doctor --fix
 BRIEF.md bu projenin tek kaynağıdır — önce onu oku.
 Sonra DECISIONS.md'yi (verilmiş kararlar ve gerekçeleri — bunları yeniden tartışma)
 ve PLAN.md'yi (yol haritası + güncel durum + sıradaki işler) oku.
+Kullanıcı "vardiyaya başlıyorum" (ya da benzeri bir açılış) dediğinde:
+PLAN.md'deki "🔻 VARDİYA DEVİR NOTU" ve "SIRADAKİ İŞLER" bölümlerini oku ve
+ÖZETİNİ İLK MESAJINDA sun — ne yapıldı, ne yapılmadı, sıradaki en kritik işler.
+YAPILACAKLAR.md bayattır; çelişki halinde PLAN.md doğrudur.
 Mimar sensin: şemayı, stack'i, planı sen kur.
 Sadece ilk planı onaya sun; onaydan sonra karar sorma.
 Önemli kararları DECISIONS.md'nin SONUNA tek satır yaz (otomatik commit mesajı son satırı alır).

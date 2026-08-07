@@ -2,7 +2,11 @@ name: sipario
 description: "Sipario — sipariş, veresiye defteri ve kurye takibi."
 publish_to: 'none'
 
-version: 1.0.0+1
+# SÜRÜM — yalnız SÜRÜM ADI burada elle yönetilir (pilot: 0.9.0, mağaza çıkışında 1.0.0).
+# YAPI NUMARASI (+1) BURADAN KULLANILMAZ: `android/app/build.gradle.kts` onu git commit
+# sayısından türetir, yani her commit'te kendiliğinden artar ve kimsenin elle yazması gerekmez.
+# Buradaki +1 yalnız git'in bulunamadığı durumda (depo dışı derleme) yedek değerdir.
+version: 0.9.0+1
 
 environment:
   sdk: ^3.10.7
@@ -26,6 +30,55 @@ dependencies:
   http: ^1.2.2               # senkron push/pull taşıması
   connectivity_plus: ^6.0.5  # ağ tetiği (online olunca gönderici koşar)
 
+  # Ürün görseli seçimi (tasarım s-urunler.jsx: gerçek dosya seçici). Seçilen dosyanın YOLU
+  # `products.image_local_path` kolonuna yazılır — cihaz-yerel, senkronlanmaz. Yükleme boru
+  # hattı (nesne deposu → products.image_url) hâlâ açık iş.
+  image_picker: ^1.1.2
+  mobile_scanner: ^7.4.0
+
+  # Sipariş/müşteri kartındaki Ara · WhatsApp · Konum düğmeleri harici uygulama açar
+  # (tel: · whatsapp:// · geo:). Saha hatası 3: düğmeler duruyordu ama yalnız toast gösteriyordu.
+  # Native köprü yazmak yerine bu paket: iOS'ta da çalışır ve hedef uygulama yoksa çökmez,
+  # ActivityNotFoundException'ı yutup false döner (gerekçeyi biz Türkçe söyleriz).
+  url_launcher: ^6.3.2
+
+  # Müşteri formunda sesli giriş (ad · adres · bölge · not). Esnafın klavye toleransı düşük;
+  # bayi isteği "inputların yanında mikrofon işareti olabilir".
+  # NEDEN BU PAKET: bakımı süren tek olgun seçenek; Android SpeechRecognizer + iOS
+  # SFSpeechRecognizer'ı tek API'de veriyor, dil seçimi (tr_TR) ve izin akışı içinde.
+  # Elenenler: google_speech (bulut gRPC + API anahtarı — müşteri adı/adresi Google'a giderdi,
+  # kırmızı çizgi #4), vosk_flutter (gerçekten çevrimdışı ama ~50 MB model gömmek gerekir ve
+  # paket olgun değil), flutter_speech (terk edilmiş).
+  speech_to_text: ^7.4.0
+  flutter_local_notifications: ^22.2.0
+  timezone: ^0.11.1
+  package_info_plus: ^10.2.1
+
+  # "Konum Güncelle" — kuryenin/bayinin BULUNDUĞU noktayı müşterinin adresine yazar. Adresten
+  # kodlama (Yandex) kapının önünü değil sokağı bulur; doğru pin ancak orada durup alınır.
+  # NEDEN BU PAKET: izin akışı (reddedildi / kalıcı reddedildi / konum servisi kapalı) ayrı ayrı
+  # ayırt edilebiliyor — kullanıcıya "izin verin" ile "GPS'i açın" farkını söyleyebiliyoruz.
+  # SADECE ÖN PLAN konumu kullanılır; arka plan izni (ACCESS_BACKGROUND_LOCATION) İSTENMEZ —
+  # Play'in kısıtlı izin beyan formunu tetikler (kırmızı çizgi #6 ile aynı mantık) ve ihtiyaç yok.
+  geolocator: ^14.0.3
+
+  # Sipariş haritası — açık siparişlerin pinleri, oto sıralama sonrası rota sırasıyla numaralı.
+  # NEDEN BU PAKET: harita motoru SAF DART — google_maps_flutter gibi API anahtarı + Play
+  # Services + iOS SDK gerektirmez; karolar OSM'den gelir, APK'ya gömülecek sır yoktur ve widget
+  # testi karo sağlayıcı dikişi sayesinde ağa hiç çıkmaz. DÜRÜSTLÜK NOTU (inceleme 2026-07-29):
+  # "hiç native kod gelmedi" DENEMEZ — flutter_map'in path_provider bağımlılığı Android'e
+  # jni/jni_flutter native eklentilerini geçişli getirir. Fark şu: bunlar HARİTA ÇİZİMİNDE değil
+  # yalnız karo önbelleği yol çözümünde devrededir; harita widget'ı platform kanalına uzanmaz,
+  # widget testleri bu yüzden kırılmaz (bu depoda platform kanallı widget iki kez test kırdı).
+  # latlong2 flutter_map'in koordinat tipidir (LatLng) — ayrı bir seçim değil, zorunlu eşlikçi.
+  flutter_map: ^8.3.1
+  latlong2: ^0.10.1
+  # Saha bulgusu (2026-07-29): "harita çok kasıyor". Varsayılan sağlayıcı başladığı karo
+  # indirmesini bitirir; hızlı kaydırmada görünürlükten çıkmış onlarca karo inip çözülmeye devam
+  # eder ve kuyruk ana iş parçacığını boğar. Bu resmî tamamlayıcı, kadraj dışına düşen karonun
+  # isteğini ANINDA iptal eder (flutter_map belgelerinin performans önerisi).
+  flutter_map_cancellable_tile_provider: ^3.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -42,6 +95,19 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # SİPARİO 3.0 tasarım sistemi fontları (OFL, assets/fonts'a gömülü; offline-first: runtime
+  # indirme YOK). İkisi de DEĞİŞKEN font — tek dosya tüm ağırlıkları taşır; ağırlık
+  # typography.dart'ta `fontVariations: [FontVariation('wght', N)]` ile verilir.
+  #   Sora          → başlıklar ve rakamlar (CSS --font-d)
+  #   HankenGrotesk → gövde metni (CSS --font-b)
+  fonts:
+    - family: Sora
+      fonts:
+        - asset: assets/fonts/Sora.ttf
+    - family: HankenGrotesk
+      fonts:
+        - asset: assets/fonts/HankenGrotesk.ttf
 
 # Codegen notu (KOD ÜRETİMİ İÇİN GEÇİCİ): sqlite3'ün native build-hook'u (hook/build.dart) Dart
 # 3.10'da `dart run build_runner`ın AOT derlemesini kırıyor ("dart compile does not support build

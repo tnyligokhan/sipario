@@ -104,6 +104,17 @@ docker compose up -d
 cd apps\api
 composer install
 
+# 5b-2. ⚠️ pdo_pgsql AÇIK OLMALI — XAMPP ve Laragon'da varsayılan KAPALIDIR ve
+#       kapalıyken her istek "could not find driver" ile 500 döner (2026-07-29'da
+#       bir vardiyanın başını yedi). Kontrol:
+php -r "print_r(PDO::getAvailableDrivers());"   # listede 'pgsql' görünmeli
+#       Görünmüyorsa `php --ini` ile yüklenen php.ini'yi bul, şu iki satırın
+#       başındaki ';' işaretini kaldır, kaydet:
+#           ;extension=pdo_pgsql   ->   extension=pdo_pgsql
+#           ;extension=pgsql       ->   extension=pgsql
+#       NOT: `php -d extension=pdo_pgsql artisan serve` ÇÖZÜM DEĞİLDİR — `artisan serve`
+#       isteklere ayrı bir "php -S" süreciyle bakar ve -d bayrakları o sürece geçmez.
+
 # 5c. Ortam dosyası (.env git'te YOK — bilinçli; şablondan üret)
 copy .env.example .env
 php artisan key:generate

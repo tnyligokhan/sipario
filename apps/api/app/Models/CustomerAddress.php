@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property string $customer_id
  * @property string|null $label
  * @property string $address_text
+ * @property string|null $region
  * @property float|null $lat
  * @property float|null $lng
  * @property bool $is_primary
@@ -35,6 +36,7 @@ class CustomerAddress extends Model
         'customer_id',
         'label',
         'address_text',
+        'region',
         'lat',
         'lng',
         'is_primary',

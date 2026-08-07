@@ -1,0 +1,212 @@
+# ══════════════════════════════════════════════════════════════════════════════
+#  Sipario — ÜRETİM Docker Compose
+# ══════════════════════════════════════════════════════════════════════════════
+#
+#  Bu dosya YALNIZ üretim (Coolify) içindir.
+#  Geliştirme ortamı docker-compose.yml ile çalışmaya devam eder — o dosyaya
+#  dokunulmaz.
+#
+#  COOLIFY DAVRANIȘI:
+#    - Coolify bu dosyayı okur ve `app` servisine Traefik label'ları ekler
+#    - Domain yapılandırması Coolify UI'dan yapılır (compose'da yok)
+#    - Environment variables Coolify UI'dan girilir ve ${VAR} ile çözümlenir
+#    - TLS: Coolify Traefik otomatik Let's Encrypt alır
+#
+#  SERVİSLER:
+#    app       — Laravel (API + pazarlama sitesi + yönetim paneli)
+#    queue     — php artisan queue:work (aynı imaj, farklı giriş noktası)
+#    scheduler — php artisan schedule:work
+#    db        — PostgreSQL 16 + ICU tr-TR + 3 rol init betiği
+#    backup    — Günlük pg_dump sidecar (7/4/6 saklama)
+#
+#  PORT GÜVENLİĞİ:
+#    db servisi port DIȘARIYA AÇILMAZ. Dev compose'daki 55432 port yalnız
+#    yerel geliştirici kolaylığıydı; üretimde DB'ye yalnız aynı Docker
+#    ağındaki container'lar erişir.
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Paylaşılan uygulama ortam değişkenleri (YAML anchor) ────────────────────
+# app, queue ve scheduler aynı Laravel uygulamasıdır; üçü de aynı env
+# değişkenlerine ihtiyaç duyar. Tekrarı önlemek için anchor kullanılır.
+x-app-env: &app-env
+  APP_NAME: ${APP_NAME:-Sipario}
+  APP_ENV: ${APP_ENV:-production}
+  APP_KEY: ${APP_KEY}
+  APP_DEBUG: ${APP_DEBUG:-false}
+  APP_URL: ${APP_URL:-https://sipario.com.tr}
+  APP_LOCALE: tr
+  APP_FALLBACK_LOCALE: tr
+  APP_FAKER_LOCALE: tr_TR
+  # Günlükleme
+  LOG_CHANNEL: ${LOG_CHANNEL:-stack}
+  LOG_STACK: ${LOG_STACK:-single}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  # Veritabanı — runtime rolü (sipario_app, RLS altında)
+  DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+  DB_HOST: db
+  DB_PORT: "5432"
+  DB_DATABASE: ${DB_DATABASE:-sipario}
+  DB_USERNAME: ${DB_USERNAME:-sipario_app}
+  DB_PASSWORD: ${DB_PASSWORD}
+  DB_SSLMODE: ${DB_SSLMODE:-prefer}
+  # Veritabanı — sahip rolü (migration/deploy)
+  DB_OWNER_USERNAME: ${DB_OWNER_USERNAME:-sipario_owner}
+  DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD}
+  # Veritabanı — panel rolü (cross-tenant okuma)
+  DB_PANEL_USERNAME: ${DB_PANEL_USERNAME:-sipario_panel}
+  DB_PANEL_PASSWORD: ${DB_PANEL_PASSWORD}
+  # Önbellek, kuyruk, oturum
+  CACHE_STORE: ${CACHE_STORE:-database}
+  QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}
+  SESSION_DRIVER: ${SESSION_DRIVER:-database}
+  SESSION_LIFETIME: ${SESSION_LIFETIME:-120}
+  SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+  BROADCAST_CONNECTION: ${BROADCAST_CONNECTION:-log}
+  FILESYSTEM_DISK: ${FILESYSTEM_DISK:-local}
+  BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+  # Posta
+  MAIL_MAILER: ${MAIL_MAILER:-log}
+  MAIL_HOST: ${MAIL_HOST:-}
+  MAIL_PORT: ${MAIL_PORT:-587}
+  MAIL_USERNAME: ${MAIL_USERNAME:-}
+  MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+  MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
+  MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@sipario.com.tr}
+  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Sipario}
+  # Coğrafi kodlama
+  GEOCODING_DRIVER: ${GEOCODING_DRIVER:-null}
+  GOOGLE_GEOCODER_KEY: ${GOOGLE_GEOCODER_KEY:-}
+  GOOGLE_GEOCODER_URL: ${GOOGLE_GEOCODER_URL:-https://maps.googleapis.com/maps/api/geocode/json}
+  YANDEX_GEOCODER_KEY: ${YANDEX_GEOCODER_KEY:-}
+  YANDEX_GEOCODER_URL: ${YANDEX_GEOCODER_URL:-https://geocode-maps.yandex.ru/v1/}
+  YANDEX_DAILY_LIMIT: ${YANDEX_DAILY_LIMIT:-900}
+  GEOCODING_DAILY_LIMIT: ${GEOCODING_DAILY_LIMIT:-300}
+  GEOCODING_CACHE_DAYS: ${GEOCODING_CACHE_DAYS:-30}
+  GEOCODING_MAX_RESULTS: ${GEOCODING_MAX_RESULTS:-5}
+  GEOCODING_TIMEOUT: ${GEOCODING_TIMEOUT:-8}
+  GEOCODING_COUNTRY: ${GEOCODING_COUNTRY:-tr}
+  GEOCODING_LANG: ${GEOCODING_LANG:-tr_TR}
+  GEOCODING_BBOX: ${GEOCODING_BBOX:-25.5,35.8~45.0,42.2}
+  # Oto sıralama
+  ROTA_SURUCU: ${ROTA_SURUCU:-yakin-komsu}
+  GOOGLE_ROUTES_KEY: ${GOOGLE_ROUTES_KEY:-}
+  GOOGLE_ROUTES_URL: ${GOOGLE_ROUTES_URL:-https://routes.googleapis.com/directions/v2:computeRoutes}
+  ROTA_TIMEOUT: ${ROTA_TIMEOUT:-8}
+  # Abonelik & ödeme
+  SUBSCRIPTION_PRICE_KURUS: ${SUBSCRIPTION_PRICE_KURUS:-120000}
+  SUBSCRIPTION_CURRENCY: ${SUBSCRIPTION_CURRENCY:-TRY}
+  SUBSCRIPTION_PERIOD_DAYS: ${SUBSCRIPTION_PERIOD_DAYS:-365}
+  SUBSCRIPTION_TRIAL_DAYS: ${SUBSCRIPTION_TRIAL_DAYS:-30}
+  IYZICO_API_KEY: ${IYZICO_API_KEY:-}
+  IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY:-}
+  IYZICO_BASE_URL: ${IYZICO_BASE_URL:-https://sandbox-api.iyzipay.com}
+  # Hukuk metni sürümleri
+  LEGAL_DISTANCE_SALES_VERSION: ${LEGAL_DISTANCE_SALES_VERSION:-2026-07-15}
+  LEGAL_PREINFO_VERSION: ${LEGAL_PREINFO_VERSION:-2026-07-15}
+  LEGAL_KVKK_VERSION: ${LEGAL_KVKK_VERSION:-2026-07-15}
+  # Güvenlik
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+  SANCTUM_TOKEN_PREFIX: ${SANCTUM_TOKEN_PREFIX:-sipario_}
+
+services:
+  # ── Laravel uygulaması (API + site + panel) ───────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    environment:
+      <<: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ── Kuyruk işçisi ─────────────────────────────────────────────────────────
+  # Aynı imaj, serversideup'ın S6 entrypoint'i atlanır (nginx/fpm gereksiz).
+  # QUEUE_CONNECTION=database (.env'den), AUTORUN yok.
+  queue:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    entrypoint: []
+    command: ["php", "/var/www/html/artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+    environment:
+      <<: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Zamanlanmış görev yöneticisi ──────────────────────────────────────────
+  # Şu an zamanlanmış iş yok; altyapı hazır, iş eklendiğinde otomatik çalışır.
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    entrypoint: []
+    command: ["php", "/var/www/html/artisan", "schedule:work"]
+    environment:
+      <<: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── PostgreSQL 16 ─────────────────────────────────────────────────────────
+  # ICU tr-TR locale (initdb anında sabitleniyor, sonra değiştirilemez).
+  # 3 rol: sipario_owner (DDL), sipario_app (DML, RLS altında), sipario_panel
+  # (cross-tenant SELECT, BYPASSRLS). Init betikleri yalnız volume boşken koşar.
+  # Port DIȘARIYA AÇILMAZ — yalnız compose ağındaki container'lar erişir.
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-sipario}
+      POSTGRES_USER: ${DB_OWNER_USERNAME:-sipario_owner}
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD}
+      SIPARIO_APP_PASSWORD: ${DB_PASSWORD}
+      SIPARIO_PANEL_PASSWORD: ${DB_PANEL_PASSWORD}
+      POSTGRES_INITDB_ARGS: >-
+        --locale-provider=icu
+        --icu-locale=tr-TR
+        --lc-collate=C.UTF-8
+        --lc-ctype=C.UTF-8
+        --encoding=UTF8
+    volumes:
+      - sipario_pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sipario_owner -d sipario"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ── Yedekleme sidecar ─────────────────────────────────────────────────────
+  # Günlük pg_dump + sıkıştırma. Saklama: 7 günlük, 4 haftalık, 6 aylık.
+  # Makine dışına kopya → hosting hesabına rsync (ayrı cron ile kurulacak).
+  backup:
+    image: postgres:16
+    entrypoint: ["/bin/bash"]
+    command: ["/scripts/backup.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: ${DB_OWNER_USERNAME:-sipario_owner}
+      PGPASSWORD: ${DB_OWNER_PASSWORD}
+      PGDATABASE: ${DB_DATABASE:-sipario}
+    volumes:
+      - sipario_backups:/backups
+      - ./docker/backup/backup.sh:/scripts/backup.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  sipario_pgdata:
+  sipario_backups:

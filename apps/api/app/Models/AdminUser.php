@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Carbon;
@@ -18,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property string $email
  * @property string $password
  * @property string $role
+ * @property Carbon|null $disabled_at
  * @property Carbon|null $last_login_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -35,6 +37,7 @@ class AdminUser extends Authenticatable
         'password',
         'role',
         'last_login_at',
+        'disabled_at',
     ];
 
     protected $hidden = [
@@ -46,11 +49,35 @@ class AdminUser extends Authenticatable
         return [
             'password' => 'hashed',
             'last_login_at' => 'datetime',
+            'disabled_at' => 'datetime',
         ];
+    }
+
+    /**
+     * PASİF HESAPLAR VARSAYILAN OLARAK GÖRÜNMEZ (5c-3 · D5) ve bu bilinçli olarak MODEL düzeyindedir.
+     *
+     * `admin` guard bu modeli kullanır: hem `retrieveByCredentials` (giriş denemesi) hem
+     * `retrieveById` (her istekte oturumun çözülmesi) bu sorgudan geçer. Kapsam burada olunca
+     * pasifleştirilen hesap yalnız giremez değil, AÇIK OTURUMU DA anında çalışmaz olur —
+     * kontrolü giriş ekranına koysaydık pasifleştirilen kişi tarayıcısı açıkken çalışmayı
+     * sürdürürdü ve "pasifleştirdim" demek yanlış olurdu.
+     *
+     * Yönetim ekranı listeyi `withoutGlobalScope('aktif')` ile çeker — orada pasifler görünmeli.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope('aktif', function (Builder $query): void {
+            $query->whereNull('disabled_at');
+        });
     }
 
     public function isSuperadmin(): bool
     {
         return $this->role === 'superadmin';
+    }
+
+    public function pasifMi(): bool
+    {
+        return $this->disabled_at !== null;
     }
 }

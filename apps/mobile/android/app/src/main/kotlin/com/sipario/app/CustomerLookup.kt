@@ -24,6 +24,26 @@ object CustomerLookup {
         val address: String?,
         val balanceKurus: Long,
         val note: String?,
+        /** Müşterinin EN SON siparişi; hiç siparişi yoksa null (kartta satır çizilmez). */
+        val sonSiparis: SonSiparis? = null,
+    )
+
+    /**
+     * Kartta gösterilen son sipariş özeti (2026-07-27 saha bulgusu: arayan tanınıyordu ama
+     * kartta siparişinin ne durumda olduğu HİÇ yazmıyordu — bayi "geldi mi, yolda mı" sorusuna
+     * telefonda cevap veremiyordu).
+     *
+     * Sipariş KALEMLERİ bilerek çekilmez: `order_lines` üzerinde `order_id` indeksi YOKTUR ve
+     * çağrı anındaki bütçe 1 saniyedir. Bayinin telefonda ihtiyaç duyduğu bilgi durum ve
+     * zamandır; kalem dökümü kartın "Sipariş Oluştur"/"Defteri Aç" düğmesinin arkasındadır.
+     */
+    data class SonSiparis(
+        /** `open` | `delivered` | `cancelled` (orders.status önbelleği). */
+        val durum: String,
+        /** Kuryeye atanmış mı — `open` sipariş atanmışsa "Yolda"dır. */
+        val kuryede: Boolean,
+        /** ISO8601; gösterime [CallerCard.sonSiparisSatiri] çevirir. */
+        val occurredAt: String,
     )
 
     /**
@@ -48,12 +68,20 @@ object CustomerLookup {
 
         val db = openForRead(file.absolutePath) ?: return null
         try {
+            // ADRES `customer_addresses`'ten okunur (2026-07-22 SAHA BULGUSU): Faz 2 adresi ayrı
+            // tabloya taşıdı; taze kurulumda customers.address kolonu HİÇ YOKTUR — eski `c.address`
+            // sorgusu "no such column" ile patlayıp HER aramada null dönüyordu (kart hep "kayıtsız").
+            // Alt sorgu birincil (yoksa ilk) arşivsiz adresi seçer; arşivli müşteri/telefon eşleşmez.
             db.rawQuery(
                 """
-                SELECT c.name, c.address, c.balance_kurus, c.note
+                SELECT c.name,
+                       (SELECT a.address_text FROM customer_addresses a
+                         WHERE a.customer_id = c.id AND a.deleted_at IS NULL
+                         ORDER BY a.is_primary DESC LIMIT 1) AS address,
+                       c.balance_kurus, c.note, c.id
                 FROM customer_phones p
                 JOIN customers c ON c.id = p.customer_id
-                WHERE p.phone_last10 = ?
+                WHERE p.phone_last10 = ? AND p.deleted_at IS NULL AND c.deleted_at IS NULL
                 LIMIT 1
                 """.trimIndent(),
                 arrayOf(key)
@@ -64,6 +92,7 @@ object CustomerLookup {
                     address = if (cursor.isNull(1)) null else cursor.getString(1),
                     balanceKurus = cursor.getLong(2),
                     note = if (cursor.isNull(3)) null else cursor.getString(3),
+                    sonSiparis = sonSiparis(db, cursor.getString(4)),
                 )
             }
         } catch (e: SQLiteException) {
@@ -75,11 +104,45 @@ object CustomerLookup {
     }
 
     /**
+     * Müşterinin son siparişi — tek satır. Sıralama `(occurred_at DESC, id DESC)`, yani Dart
+     * tarafındaki `cagri_cozumleyici._sonHareket` ile AYNI anahtar: iki yüzey aynı siparişi
+     * göstersin.
+     *
+     * Tablo yoksa (eski şemalı cihaz) sessizce null döner — kartın geri kalanı çizilmeye
+     * devam eder; arayan tanıma son sipariş satırı yüzünden ASLA kaybedilmez.
+     */
+    private fun sonSiparis(db: SQLiteDatabase, customerId: String): SonSiparis? = try {
+        db.rawQuery(
+            """
+            SELECT status, assigned_user_id, occurred_at
+            FROM orders
+            WHERE customer_id = ? AND deleted_at IS NULL
+            ORDER BY occurred_at DESC, id DESC
+            LIMIT 1
+            """.trimIndent(),
+            arrayOf(customerId),
+        ).use { imlec ->
+            if (!imlec.moveToFirst()) null
+            else SonSiparis(
+                durum = imlec.getString(0) ?: "open",
+                kuryede = !imlec.isNull(1),
+                occurredAt = imlec.getString(2) ?: "",
+            )
+        }
+    } catch (e: SQLiteException) {
+        Log.w(TAG, "son siparis sorgusu basarisiz: ${e.javaClass.simpleName}")
+        null
+    }
+
+    /**
      * Drift WAL modunda çalışır. Salt-okunur açış, -wal dosyası kurtarma gerektirdiğinde
      * "attempt to write a readonly database" ile patlayabilir; bu durumda okuma-yazma açıp
      * yalnız okuruz. Yazma yolu hiçbir zaman buradan geçmez.
+     *
+     * `internal`: [CallerCard.muafMi] de aynı düşüş zincirini kullanır — çağrı anında iki ayrı
+     * açış kalıbı taşımak, birinin WAL kurtarma düşüşünü unutması demek olurdu.
      */
-    private fun openForRead(path: String): SQLiteDatabase? {
+    internal fun openForRead(path: String): SQLiteDatabase? {
         try {
             return SQLiteDatabase.openDatabase(path, null, SQLiteDatabase.OPEN_READONLY)
         } catch (e: SQLiteException) {

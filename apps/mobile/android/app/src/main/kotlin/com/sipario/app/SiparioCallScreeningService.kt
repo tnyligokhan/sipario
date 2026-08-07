@@ -1,5 +1,7 @@
 package com.sipario.app
 
+import android.content.Context
+import android.media.AudioManager
 import android.telecom.Call
 import android.telecom.CallScreeningService
 import android.util.Log
@@ -36,13 +38,10 @@ class SiparioCallScreeningService : CallScreeningService() {
         respondToCall(callDetails, CallResponse.Builder().build())
 
         // Giden aramada da kart gösterilir: bayi müşteriyi geri aradığında da borcu görmek ister.
-        val direction = when (callDetails.callDirection) {
-            Call.Details.DIRECTION_INCOMING -> "in"
-            Call.Details.DIRECTION_OUTGOING -> "out"
-            else -> {
-                Log.i(tag, "yon bilinmiyor, atlaniyor")
-                return
-            }
+        // Yön ARTIK ATLAMA SEBEBİ DEĞİL: `DIRECTION_UNKNOWN` geldiğinde eskiden buradan erken
+        // dönülüyor ve kart hiç çizilmiyordu. Bilinmeyen yönde ses moduna bakılır (izinsiz).
+        val yon = cagriYonuBelirle(callDetails.callDirection) {
+            (getSystemService(Context.AUDIO_SERVICE) as AudioManager).mode
         }
 
         val phone = callDetails.handle?.schemeSpecificPart
@@ -52,13 +51,43 @@ class SiparioCallScreeningService : CallScreeningService() {
             return
         }
 
-        val customer = CustomerLookup.find(this, phone)
-        Log.i(tag, "rehber sorgusu bitti, eslesme=${customer != null}, yon=$direction")
-        CallerOverlay.show(this, customer, phone, t0, simulated = false, direction = direction)
+        // MUAF NUMARA — kart hiç çizilmez (s-uygulama.jsx kuralı). Kontrol müşteri sorgusundan
+        // ÖNCE: muaf bir numarada rehber sorgusu da gereksiz iştir, 1 saniyelik bütçe her
+        // okumayı sayıyor. Tablo yoksa `muafMi` false döner ve kart normal çıkar.
+        if (CallerCard.muafMi(this, phone)) {
+            Log.i(tag, "muaf numara, kart gosterilmiyor")
+            return
+        }
+
+        // Çağrı günlüğü ("Son Aramalar") kuyruğuna düş; Dart tarafı uygulama açılınca boşaltır.
+        // Kayıt ZİL ANINDA atılır (çağrının sonunu beklemeyiz): süreç konuşma ortasında
+        // öldürülse bile bayi kimin aradığını görebilmeli. Cevapsıza dönerse aynı anahtarla
+        // güncellenir — bkz. [CallSessionWatcher].
+        val oturum = CagriOturumu(
+            numara = phone,
+            anahtar = CallJournal.yeniAnahtar(phone),
+            baslangicIso = CallJournal.simdiIso(),
+            yon = yon,
+        )
+        CallJournal.kaydet(this, oturum.numara, oturum.yon, oturum.anahtar, oturum.baslangicIso)
+
+        // ARAYAN TANIMA ANAHTARI (Ayarlar, 2026-07-30): kapalıysa kart, bildirim ve yeniden
+        // gösterim ÜÇÜ BİRDEN susar — bildirim de müşteri bilgisi taşır, yalnız kartı susturmak
+        // ayarı yalancı yapardı. Günlük kaydı YUKARIDA kaldı ve izleyici yine başlar: Çağrı
+        // Geçmişi ayrı bir özelliktir, cevapsıza dönen çağrının güncellenmesi karta bağlanamaz.
+        // Kontrol rehber sorgusundan ÖNCE: kart çıkmayacaksa sorgu da gereksiz iştir.
+        val kartAcik = ArayanAyari.acikMi(this)
+        if (kartAcik) {
+            val customer = CustomerLookup.find(this, phone)
+            Log.i(tag, "rehber sorgusu bitti, eslesme=${customer != null}, yon=${yon.kuyrukKodu}")
+            CallerOverlay.show(this, customer, phone, t0, simulated = false, yon = yon)
+        } else {
+            Log.i(tag, "arayan tanima kapali, kart gosterilmiyor")
+        }
 
         // Yanıt ve kapanış anlarında kartı yeniden göstermek için (MIUI'de zil sırasında
         // çağrı ekranının altında kalıyoruz; asıl gösterim yanıt anında olur).
-        CallSessionWatcher.start(this)
+        CallSessionWatcher.start(this, oturum, kartGoster = kartAcik)
     }
 
     override fun onDestroy() {

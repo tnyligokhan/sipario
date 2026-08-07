@@ -18,6 +18,9 @@ class TenantFactory extends Factory
     {
         return [
             'name' => fake()->company().' Su Bayii',
+            // Firma kodu (tasarımda "Firma Kodu") artık ZORUNLU: giriş ekranının ilk alanı.
+            // Kural ^[a-z0-9-]{3,80}$ — DB'de CHECK ile de sabit.
+            'slug' => 'bayi-'.fake()->unique()->numberBetween(1, 999999),
             'status' => TenantStatus::Trial->value,
             'trial_ends_at' => now()->addDays(30),
             'valid_until' => null,

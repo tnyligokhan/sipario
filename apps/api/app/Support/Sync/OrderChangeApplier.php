@@ -37,6 +37,7 @@ class OrderChangeApplier
             'line_removed' => $this->orderLineRemoved($tenantId, $event, $payload),
             'delivered', 'cancelled', 'payment_set', 'note_set' => $this->orderStatusEvent($tenantId, $op, $event, $payload),
             'assigned', 'unassigned' => $this->orderAssignEvent($tenantId, $op, $event, $payload),
+            'sort_set' => $this->orderSortEvent($tenantId, $event, $payload),
             default => throw new InvalidArgumentException("Geçersiz sipariş op: {$op}"),
         };
     }
@@ -68,7 +69,7 @@ class OrderChangeApplier
             'total_kurus' => 0,
             'payment_type' => $o['payment_type'] ?? null,
             'note' => $o['note'] ?? null,
-            'occurred_at' => (string) ($event['occurred_at'] ?? ''),
+            'occurred_at' => SyncPayload::zaman((string) ($event['occurred_at'] ?? '')),
             'created_device_id' => $event['device_id'] ?? null,
             'deleted_at' => null,
         ])->save();
@@ -126,7 +127,7 @@ class OrderChangeApplier
         if ($line === null) {
             throw new InvalidArgumentException('Satır bulunamadı');
         }
-        $occurredAt = (string) ($event['occurred_at'] ?? '');
+        $occurredAt = (string) SyncPayload::zaman((string) ($event['occurred_at'] ?? ''));
         $line->forceFill(['deleted_at' => $occurredAt])->save();
         $orderEvent = $this->appendOrderEvent($tenantId, $order->id, 'line_removed', $event, $payload);
         $this->recomputeOrder($order);
@@ -194,6 +195,30 @@ class OrderChangeApplier
     }
 
     /**
+     * Sipariş ELLE SIRALAMA olayı (tasarım: s-siparisler "Elle sırala / sürükle-bırak" rota sırası).
+     * assigned_user_id deseninin birebir ikizi: orders.sort_index bir ÖNBELLEKtir, kaynağı en son
+     * `sort_set` olayıdır — böylece iki cihaz aynı olay kümesinden AYNI sırayı türetir. Sıralama
+     * para değildir; çakışmada son yazan kazanır (olay sırası (occurred_at, id) ile deterministik).
+     *
+     * @param  array<string, mixed>  $event
+     * @param  array<string, mixed>  $payload
+     * @return array{status: string, entity_id: string, changes: list<array<string, mixed>>}
+     */
+    private function orderSortEvent(string $tenantId, array $event, array $payload): array
+    {
+        $order = $this->findOrder($payload);
+        SyncPayload::req($payload, 'sort_index'); // yoksa istemci-kaynaklı geçersizlik
+
+        $orderEvent = $this->appendOrderEvent($tenantId, $order->id, 'sort_set', $event, $payload);
+        $this->recomputeOrder($order); // sort_index önbelleği olaylardan türer + $order'ı kaydeder
+
+        return ['status' => 'applied', 'entity_id' => $order->id, 'changes' => [
+            SyncPayload::change('order', $order->id, 'upsert', $order),
+            SyncPayload::change('order_event', $orderEvent->id, 'upsert', $orderEvent),
+        ]];
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      */
     private function findOrder(array $payload): Order
@@ -229,6 +254,11 @@ class OrderChangeApplier
             'product_id' => $productId,
             'product_name' => (string) SyncPayload::req($ln, 'product_name'),
             'unit_price_kurus' => $price,
+            // Birim satırda saklanır (unit_price/product_name deseni: siparişin çekildiği andaki gerçek).
+            'unit' => $ln['unit'] ?? null,
+            // "Serbest satır" AÇIK bayrakla işaretlenir; product_id IS NULL'a bel bağlamak kırılgan
+            // olurdu (silinmiş ürünün satırı da null olabilir) — tasarım bu ikisini ayrı gösteriyor.
+            'is_custom' => (bool) ($ln['is_custom'] ?? false),
             'qty' => $qty,
             'line_total_kurus' => $price * $qty,
             'deleted_at' => null,
@@ -250,7 +280,7 @@ class OrderChangeApplier
             'event_type' => $type,
             'payload' => $payload,
             'client_event_id' => (string) ($event['client_event_id'] ?? ''),
-            'occurred_at' => (string) ($event['occurred_at'] ?? ''),
+            'occurred_at' => SyncPayload::zaman((string) ($event['occurred_at'] ?? '')),
             'device_id' => $event['device_id'] ?? null,
         ])->save();
 
@@ -266,7 +296,30 @@ class OrderChangeApplier
         $order->total_kurus = (int) OrderLine::query()
             ->where('order_id', $order->id)->whereNull('deleted_at')->sum('line_total_kurus');
         $order->assigned_user_id = $this->deriveAssignedUserId($order->id);
+        $order->sort_index = $this->deriveSortIndex($order->id);
         $order->save();
+    }
+
+    /**
+     * sort_index önbelleğini olaylardan türet (assigned_user_id deseni; aynı (occurred_at DESC,
+     * id DESC) ORTAK anahtarı → istemci/sunucu simetrisi, ıraksama yok).
+     */
+    private function deriveSortIndex(string $orderId): ?int
+    {
+        /** @var OrderEvent|null $latest */
+        $latest = OrderEvent::query()
+            ->where('order_id', $orderId)
+            ->where('event_type', 'sort_set')
+            ->orderByDesc('occurred_at')->orderByDesc('id')
+            ->first();
+
+        if ($latest === null) {
+            return null;
+        }
+
+        $value = ($latest->payload ?? [])['sort_index'] ?? null;
+
+        return $value !== null ? (int) $value : null;
     }
 
     /**

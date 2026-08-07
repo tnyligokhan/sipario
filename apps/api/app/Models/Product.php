@@ -18,6 +18,8 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property int $unit_price_kurus
  * @property string $unit
+ * @property string|null $barcode
+ * @property string|null $image_url
  * @property bool $is_active
  * @property Carbon $updated_occurred_at
  * @property string|null $updated_device_id
@@ -36,6 +38,8 @@ class Product extends Model
         'name',
         'unit_price_kurus',
         'unit',
+        'barcode',
+        'image_url',
         'is_active',
         'updated_occurred_at',
         'updated_device_id',

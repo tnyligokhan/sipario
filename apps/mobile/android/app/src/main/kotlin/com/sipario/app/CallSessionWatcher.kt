@@ -29,7 +29,18 @@ object CallSessionWatcher {
     private val main = Handler(Looper.getMainLooper())
     private var running = false
 
-    fun start(context: Context) {
+    /**
+     * [oturum] çağrının kimliğini taşır: yanıtlanmadan biten bir GELEN çağrı cevapsızdır ve
+     * hem kartın başlığı hem çağrı günlüğü bunu göstermek zorundadır. Yönü bilmeden bu ayrım
+     * yapılamaz — yanıtlanmayan bir GİDEN çağrı cevapsız değildir, bayinin açılmayan aramasıdır.
+     *
+     * [kartGoster] false ise ([ArayanAyari] kapalı) yeniden gösterimler atlanır ama izleyici
+     * YİNE ÇALIŞIR: cevapsız çağrının günlükte cevapsıza çevrilmesi kartın değil geçmişin
+     * işidir ve anahtar kapalıyken de doğru kalmalıdır. Ayrıca izleyiciyi hiç başlatmamak,
+     * [CallerOverlay]'in bir ÖNCEKİ çağrıdan kalan `lastPhone`'unu ileride yanlış kartla
+     * diriltme riskini taşırdı — buradaki kapı o yolu da kapatır.
+     */
+    fun start(context: Context, oturum: CagriOturumu, kartGoster: Boolean = true) {
         if (running) return
         running = true
 
@@ -48,16 +59,32 @@ object CallSessionWatcher {
                     sawCall = true
                     if (!answered) {
                         answered = true
-                        Log.i(TAG, "cagri acildi, kart yeniden gosteriliyor")
-                        CallerOverlay.reshow(app)
+                        if (kartGoster) {
+                            Log.i(TAG, "cagri acildi, kart yeniden gosteriliyor")
+                            CallerOverlay.reshow(app)
+                        }
                     }
                 }
 
                 AudioManager.MODE_NORMAL -> if (sawCall) {
                     // Yanıtlanmadan NORMAL'e dönüş = cevapsız çağrı; kartı yine göster —
                     // bayi kimin aradığını kaçırmamalı.
-                    Log.i(TAG, "cagri bitti (yanitlandi=$answered), kart yeniden gosteriliyor")
-                    CallerOverlay.reshow(app)
+                    val cevapsiz = !answered && oturum.yon == CagriYonu.GELEN
+                    Log.i(TAG, "cagri bitti (yanitlandi=$answered, cevapsiz=$cevapsiz)")
+                    if (cevapsiz) {
+                        // Günlükteki "incoming" satırını AYNI anahtarla cevapsıza çevirir;
+                        // yeni bir çağrı satırı DEĞİL, aynı çağrının son hâli.
+                        CallJournal.kaydet(
+                            app,
+                            oturum.numara,
+                            CagriYonu.CEVAPSIZ,
+                            oturum.anahtar,
+                            oturum.baslangicIso,
+                        )
+                    }
+                    if (kartGoster) {
+                        CallerOverlay.reshow(app, if (cevapsiz) CagriYonu.CEVAPSIZ else null)
+                    }
                     running = false
                     return@Runnable
                 }

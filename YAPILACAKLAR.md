@@ -1,5 +1,12 @@
 # YAPILACAKLAR — Sipario (proje sahibi/insan işleri)
 
+> ## ⚠️ BU DOSYA BAYAT (2026-07-16) — GÜNCEL LİSTE `PLAN.md`'DEDİR
+> Aşağıdaki liste 2026-07-16'da yazıldı ve o günden beri güncellenmedi: kapanmış maddeler
+> (2, 13) hâlâ açık görünüyor, kaldırılmış kupon özelliğinden söz ediyor, "~%79" oranı eski.
+> **Güncel ve adım adım liste:** `PLAN.md` → `## Güncel durum` → `🔻 VARDİYA DEVİR NOTU` →
+> `SIRADAKİ İŞLER`. Çelişki halinde PLAN.md doğrudur. Bu dosya arşiv olarak duruyor;
+> yeniden yazımı proje sahibinin onayını bekliyor (2026-07-26'da önerildi).
+
 > **Bu döküman kimin için?** Yazılım tarafı büyük ölçüde bitti; ilerlemenin önündeki her şey artık
 > **senin elindeki dışsal girdiler** (anahtar, hesap, cihaz, avukat, saha). Bu liste, Claude'un
 > bitiremeyeceği — sana ihtiyaç duyan — TÜM işleri tek yerde toplar.
@@ -32,13 +39,12 @@ bitirince ilgili faz kapanışına yaklaşırsın; hangisini önce açtığın b
   abonelik açığı).
 - **Kanıt:** `apps/api/config/subscription.php:38-40`, `apps/api/app/Payment/IyzicoPaymentGateway.php`.
 
-### 2. Mobil doğrulama (partnerin Flutter'lı makinesinde)
-- **NEDEN:** Bu makinede Flutter yok; Faz 4/5a mobil kodu yazıldı ama `.g.dart` STALE (şema-kod uyumsuz),
-  test edilemedi. Yeşilse **Faz 4 ve 5a bütün olarak kapanır.**
-- **NASIL:** Partnerde: pubspec'teki kapalı `dependency_overrides: sqlite3 <3.0.0` bloğunu **geçici aç** →
-  `flutter pub get && dart run build_runner build` → override'ı **kapat** → `flutter pub get && flutter
-  analyze && flutter test`. Yeşil çıktıyı bana ilet.
-- **Kanıt:** `apps/mobile/lib/data/app_database.g.dart` (Faz 3 tarihli) vs `tables.dart` (Faz 4/5a).
+### ~~2. Mobil doğrulama (partnerin Flutter'lı makinesinde)~~ ✅ KAPANDI (2026-07-17)
+- **SONUÇ:** Flutter 3.44.6 kullanıcının onayıyla BU makineye kuruldu (`C:\src\flutter`); partner
+  bağımlılığı bitti. Codegen koşuldu (`.g.dart` 1.332 satır eksikmiş, tazelendi), `dart analyze` temiz
+  (1 gerçek hata düzeltildi), **`flutter test` 72/72**, **debug APK uçtan uca derlendi**. Faz 4/5a'nın
+  mobil doğrulaması tamam. _(Gerçek CİHAZDA doğrulama — arayan tanıma + Drift journal_mode — hâlâ
+  telefonla yapılacak; madde 12/15 kapsamında.)_
 
 ### 3. Android release imza anahtarı  ⭐ YENİ (PLAN'da yoktu, denetim buldu)
 - **NEDEN:** `release` derleme hâlâ **debug** anahtarıyla imzalanıyor — debug-imzalı AAB/APK **Play'e
@@ -80,7 +86,7 @@ bitirince ilgili faz kapanışına yaklaşırsın; hangisini önce açtığın b
 
 ### 8. Mağaza başvuru paketindeki kalan PLACEHOLDER'lar (`docs/magaza/`)
 - **Arayan-tanıma tanıtım videosu** (kilitli+kilitsiz ekran) — HENÜZ ÇEKİLMEDİ; BRIEF mağaza incelemesi
-  için zorunlu sayıyor. Demo hesapla çek (`demo@sipario.com.tr` / `demo1234`). `inceleme-notlari.md`.
+  için zorunlu sayıyor. Demo hesapla çek (Firma Kodu `demo` · Kullanıcı Adı `demo` · `demo1234`). `inceleme-notlari.md`.
 - **Destek e-postası/telefonu** — üç mağaza dosyasında [köşeli].
 - **Ekran görüntüleri + feature graphic** — hiç üretilmedi (görsel iş).
 - **`USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı** — metin hazır, Play Console formuna elle aktarılacak.

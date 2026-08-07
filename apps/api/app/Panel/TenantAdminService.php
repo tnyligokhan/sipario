@@ -117,6 +117,70 @@ class TenantAdminService
     }
 
     /**
+     * İptal: status=cancelled, locked_at=now. `suspend()` ile aynı 5a enforcement — FARKI NİYETTİR:
+     * suspend BİZİM elimizle geçici askıya almadır (ödeme gecikti, haftaya ödeyecek), cancel ise
+     * bayinin AYRILMASIDIR. İkisini ayırmak churn ölçümünün ön şartı: "askıya aldığımız" ile
+     * "bizi bırakan" aynı sayaca düşerse terk oranı hiçbir zaman doğru okunmaz.
+     *
+     * Veri SİLİNMEZ (kırmızı çizgi #5): iptal yalnız yazmayı kapatır. `locked_at`ten ÖNCE cihazda
+     * oluşmuş bekleyen kayıtlar senkronla akmaya devam eder; abonelik yenilenirse her şey geri gelir.
+     */
+    public function cancel(string $tenantId, ?string $adminId = null): Tenant
+    {
+        $tenant = $this->find($tenantId);
+
+        return $this->apply($tenant, [
+            'status' => TenantStatus::Cancelled->value,
+            'locked_at' => now(),
+        ], $adminId, 'cancel');
+    }
+
+    /**
+     * Bayiye kurye hesabı aç. `Provisioning::createCourier` owner ile INSERT eder ve KOTA KAPISINDAN
+     * geçer (`KuryeKotasi`); kota doluysa `KotaDoluException` BURADA YAKALANMAZ, çağırana çıkar —
+     * kullanıcıya ne söyleneceği arayüzün kararıdır, servisin değil.
+     *
+     * Denetim kaydı yalnız BAŞARILI açılışta düşer; reddedilen deneme `auditRed()`in işidir.
+     * Kullanıcı adı/parola denetime YAZILMAZ (panel_audit'in KVKK-nötr sözleşmesi) — yalnız
+     * yaratılan kullanıcının kimliği.
+     */
+    public function createCourier(
+        string $tenantId,
+        string $ad,
+        string $kullaniciAdi,
+        string $parola,
+        ?string $telefon = null,
+        ?string $adminId = null,
+    ): User {
+        $user = Provisioning::createCourier($tenantId, $ad, $kullaniciAdi, $parola, $telefon);
+        $this->audit($adminId, $tenantId, 'create_courier', 'user:'.$user->id);
+
+        return $user;
+    }
+
+    /**
+     * REDDEDİLEN bir yazma denemesini denetime yaz (5c-3 güvenlik incelemesinin kapatılmayan bulgusu).
+     *
+     * Gerekçe: bugün yalnız BAŞARILI eylemler iz bırakıyor. "Kota dolu olduğu hâlde on kez kurye
+     * açmaya çalışıldı" ya da "yetkisiz hesap üç kez bayi silmeye çalıştı" günlükte hiç görünmüyor —
+     * oysa denetim günlüğünün asıl değeri tam olarak budur. Eylem adı `<action>_denied` biçiminde
+     * saklanır ki başarılı kardeşiyle aynı sorguda ayrışsın.
+     *
+     * `$sebep` KISA ve KATEGORİK olmalı ('kota_dolu', 'yetkisiz', 'stale') — kullanıcı girdisi,
+     * tutar, IBAN ya da serbest metin GEÇİRME (panel_audit KVKK-nötr kalmalı, testle kilitli).
+     * `$adminId` guard'dan geldiği için mixed kabul edilir ve burada normalleştirilir.
+     */
+    public function auditRed(string $action, ?string $tenantId, string $sebep, mixed $adminId = null): void
+    {
+        $this->audit(
+            ($adminId === null || $adminId === '') ? null : (string) $adminId,
+            $tenantId,
+            $action.'_denied',
+            $sebep,
+        );
+    }
+
+    /**
      * Elle bayi aç (siteden gelmeyen, birebir satış bayisi). Provisioning owner ile INSERT eder
      * (panel rolü tenants'a INSERT edemez — bilinçli); denetim kaydı panel bağlantısıyla.
      *
@@ -164,6 +228,28 @@ class TenantAdminService
 
             return $newPassword;
         });
+    }
+
+    /**
+     * TOPLU DIŞA AKTARIM denetimi (güvenlik incelemesi 5c-3). Export route'ları bir bayinin TÜM
+     * müşteri adı/telefonu/adresini tek istekte indirir — panelin en yüksek hacimli kişisel veri
+     * çıkışıdır ve iz bırakmıyordu: müşteri ekleme gibi küçük bir eylem günlüğe düşerken tüm
+     * listenin indirilmesi görünmezdi. KVKK hesap verebilirliği bunun tersini ister.
+     *
+     * Günlüğe yalnız NE indirildiği yazılır (tür + hedef bayi), indirilen DEĞERLER değil —
+     * panel_audit'in KVKK-nötr sözleşmesi (kırmızı çizgi #4) korunur.
+     *
+     * `$adminId` guard'dan geldiği için mixed kabul edilir ve burada normalleştirilir; çağıran
+     * route'ların her birinde aynı dönüşümü tekrarlamak gerekmesin.
+     */
+    public function auditExport(string $tenantId, string $tur, mixed $adminId = null): void
+    {
+        $this->audit(
+            ($adminId === null || $adminId === '') ? null : (string) $adminId,
+            $tenantId,
+            'export',
+            $tur,
+        );
     }
 
     // ------------------------------------------------------------------------------------

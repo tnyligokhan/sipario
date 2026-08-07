@@ -81,7 +81,7 @@ class PanelExpansionTest extends ApiTestCase
     }
 
     /**
-     * Bir bayi için 12 export tablosunun HEPSİNE veri tohumlar (push API + makeTenant cihazı).
+     * Bir bayi için 11 export tablosunun HEPSİNE veri tohumlar (push API + makeTenant cihazı).
      * Döner: bu bayinin json'da aranacak ayırt edici id'leri.
      *
      * @param  array{tenant: Tenant, patron: User, kurye: User, device: Device}  $seed
@@ -104,16 +104,31 @@ class PanelExpansionTest extends ApiTestCase
         $this->pushEvents($token, [$order])->assertOk();
         $this->pushEvents($token, [$this->orderEvent('delivered', ['order_id' => $oid, 'payment_type' => 'nakit'])])->assertOk();
 
-        // Defter (debit+payment) + kupon (movement+balance) + kasa devri.
+        // Defter (debit+payment) + kasa devri + gün sonu kapanışı.
+        //
+        // KAPANIŞ ARŞİVİ EXPORT'A 2026-08-06'da GİRDİ: `cash_handovers` baştan beri vardı ama
+        // `day_closings` ne panel izninde ne export listesindeydi, yani destek dışa aktarımı
+        // mutabakatın yarısını veriyordu. Devir ile kapanış BİRLİKTE tohumlanıyor ki eksiklik
+        // tekrarlarsa test kırmızı yansın.
+        $devir = $this->cashHandover(['from_user_id' => $seed['kurye']->id, 'counted_cash_kurus' => 9000, 'expected_cash_kurus' => 9000]);
+        $kapanis = $this->dayClosing([
+            'scope' => 'courier',
+            'user_id' => $seed['kurye']->id,
+            'cash_handover_id' => $devir['payload']['id'],
+            'cash_nakit_kurus' => 9000,
+            'expected_cash_kurus' => 9000,
+            'counted_cash_kurus' => 9000,
+        ]);
         $this->pushEvents($token, [
             $this->ledgerEntry(['customer_id' => $cid, 'entry_type' => 'debit', 'amount_kurus' => 9000, 'related_order_id' => $oid]),
             $this->ledgerEntry(['customer_id' => $cid, 'entry_type' => 'payment', 'amount_kurus' => -9000, 'payment_type' => 'nakit', 'related_order_id' => $oid]),
-            $this->couponMovement('grant', ['customer_id' => $cid, 'qty_delta' => 5]),
-            $this->cashHandover(['from_user_id' => $seed['kurye']->id, 'counted_cash_kurus' => 9000, 'expected_cash_kurus' => 9000]),
+            $devir,
+            $kapanis,
         ])->assertOk();
 
-        // 12 tablonun her birinde aranacak ayırt edici id'ler (devices makeTenant'tan).
-        return [$cid, $pid, $oid, $phone['payload']['id'], $addr['payload']['id'], $seed['device']->id];
+        // 11 export tablosunun her birinde aranacak ayırt edici id'ler (devices makeTenant'tan).
+        return [$cid, $pid, $oid, $phone['payload']['id'], $addr['payload']['id'],
+            $seed['device']->id, $kapanis['payload']['id']];
     }
 
     #[Test]
@@ -128,14 +143,15 @@ class PanelExpansionTest extends ApiTestCase
         $export = (new PanelExportService('pgsql_panel'))->export($a['tenant']->id);
         $json = (string) json_encode($export);
 
-        // 12 export tablosunun HEPSİ mevcut ve A için DOLU (tam kapsama).
+        // 11 export tablosunun HEPSİ mevcut ve A için DOLU (tam kapsama). `day_closings` listeye
+        // 2026-08-06'da girdi — panel rolünde izni de yoktu, yani SELECT bile edemiyordu.
         foreach (['customers', 'customer_phones', 'customer_addresses', 'products', 'orders', 'order_lines',
-            'order_events', 'ledger_entries', 'coupon_movements', 'coupon_balances', 'cash_handovers', 'devices'] as $table) {
+            'order_events', 'ledger_entries', 'cash_handovers', 'day_closings', 'devices'] as $table) {
             $this->assertArrayHasKey($table, $export, "Export {$table} tablosunu içermeli.");
             $this->assertNotEmpty($export[$table], "A'nın {$table} verisi export'ta DOLU olmalı.");
         }
 
-        // A'nın id'leri VAR; B'nin HİÇBİR id'si (12 tablonun hiçbirinden) A export'una SIZMAZ.
+        // A'nın id'leri VAR; B'nin HİÇBİR id'si (10 tablonun hiçbirinden) A export'una SIZMAZ.
         foreach ($idsA as $id) {
             $this->assertStringContainsString($id, $json, "A'nın verisi ({$id}) export'ta olmalı.");
         }
@@ -176,13 +192,13 @@ class PanelExpansionTest extends ApiTestCase
         $admin = $this->makeAdmin();
 
         // Eski parola ('password') ile login çalışır.
-        $this->postJson('/api/v1/auth/login', ['email' => $a['patron']->email, 'password' => 'password'])->assertOk();
+        $this->postJson('/api/v1/auth/login', $this->girisGovdesi($a['tenant'], $a['patron']))->assertOk();
 
         $newPassword = $this->admin()->resetPatronPassword($a['tenant']->id, $admin->id);
 
         // Yeni parola login olur; eski parola artık 401.
-        $this->postJson('/api/v1/auth/login', ['email' => $a['patron']->email, 'password' => $newPassword])->assertOk();
-        $this->postJson('/api/v1/auth/login', ['email' => $a['patron']->email, 'password' => 'password'])->assertStatus(401);
+        $this->postJson('/api/v1/auth/login', $this->girisGovdesi($a['tenant'], $a['patron'], $newPassword))->assertOk();
+        $this->postJson('/api/v1/auth/login', $this->girisGovdesi($a['tenant'], $a['patron']))->assertStatus(401);
 
         // Panel rolü users'a YAZAMAZ (şifre sıfırlama owner ile yapıldı, panel ile değil).
         try {

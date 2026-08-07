@@ -85,7 +85,18 @@ object OemBatteryGuide {
         runCatching { context.startActivity(details) }
     }
 
-    fun openBestSettingsScreen(context: Context) {
+    /**
+     * OEM'in "otomatik başlatma" (autostart / background start) ekranının bileşeni — yoksa null.
+     *
+     * SAHA HATASI (2026-07-29): bu bileşenler eskiden `openBestSettingsScreen` içindeydi ve
+     * sihirbazın **"Pil optimizasyonu muafiyeti"** adımı onları açıyordu. Yani ekranda pil yazıyor,
+     * açılan ekran OTOMATİK BAŞLATMA oluyordu. İki zarar birden: (1) kullanıcı adı verilen ayarı
+     * bulamayıp "uygulama bozuk" diyor, (2) pil kısıtlaması HİÇ kaldırılmıyor — oysa MIUI'de
+     * arayan tanımayı öldüren iki ayrı mekanizma var ve ikisi de gerekli.
+     *
+     * İkisi artık AYRI metottur; sihirbaz aynı adımda iki düğme gösterir.
+     */
+    fun autostartComponent(context: Context): ComponentName? {
         val candidates = when (android.os.Build.MANUFACTURER.lowercase()) {
             "xiaomi", "redmi", "poco" -> listOf(
                 ComponentName(
@@ -118,19 +129,74 @@ object OemBatteryGuide {
             else -> emptyList()
         }
 
-        for (component in candidates) {
+        return candidates.firstOrNull { component ->
+            Intent().setComponent(component).resolveActivity(context.packageManager) != null
+        }
+    }
+
+    /** Cihazda ayrı bir "otomatik başlatma" ekranı var mı? Sihirbaz düğmeyi buna göre çizer. */
+    fun hasAutostartSettings(context: Context): Boolean = autostartComponent(context) != null
+
+    /**
+     * OEM'in otomatik başlatma listesini açar. Bulunamazsa uygulama ayrıntılarına düşer —
+     * boş bir dokunuş bırakmaktansa kullanıcıyı doğru uygulamanın sayfasına götürmek iyidir.
+     */
+    fun openAutostartSettings(context: Context) {
+        val component = autostartComponent(context)
+        if (component != null) {
             val intent = Intent().setComponent(component).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            if (intent.resolveActivity(context.packageManager) != null) {
-                runCatching { context.startActivity(intent) }.onSuccess { return }
+            runCatching { context.startActivity(intent) }.onSuccess { return }
+        }
+        openAppDetails(context)
+    }
+
+    /**
+     * PİL ayarını açar — adı ne diyorsa onu (2026-07-29 düzeltmesi).
+     *
+     * MIUI'de uygulama başına pil kısıtlaması `HiddenAppsConfigActivity`de yaşar ve paket adını
+     * ekstra olarak alır; oraya gidebilirsek kullanıcı listede uygulama ARAMAZ. Bulunamazsa
+     * Android'in standart "pil optimizasyonu" listesine, o da yoksa uygulama ayrıntılarına düşülür.
+     *
+     * REQUEST_IGNORE_BATTERY_OPTIMIZATIONS izni İSTENMEZ — Play'in kısıtlı izinlerindendir
+     * (kırmızı çizgi #6 ile aynı red riski); yalnız izin gerektirmeyen AYAR EKRANI açılır.
+     */
+    fun openBatterySettings(context: Context) {
+        if (android.os.Build.MANUFACTURER.lowercase() in setOf("xiaomi", "redmi", "poco")) {
+            val miuiBattery = Intent()
+                .setComponent(
+                    ComponentName(
+                        "com.miui.powerkeeper",
+                        "com.miui.powerkeeper.ui.HiddenAppsConfigActivity"
+                    )
+                )
+                .putExtra("package_name", context.packageName)
+                .putExtra("package_label", "Sipario")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (miuiBattery.resolveActivity(context.packageManager) != null) {
+                runCatching { context.startActivity(miuiBattery) }.onSuccess { return }
             }
         }
 
-        val fallback = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        val standart = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        runCatching { context.startActivity(fallback) }.onFailure {
-            context.startActivity(
-                Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
+        if (standart.resolveActivity(context.packageManager) != null) {
+            runCatching { context.startActivity(standart) }.onSuccess { return }
+        }
+        openAppDetails(context)
+    }
+
+    /** Son çare: uygulamanın kendi ayar sayfası. Her Android'de vardır. */
+    private fun openAppDetails(context: Context) {
+        val details = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            android.net.Uri.parse("package:${context.packageName}")
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(details) }.onFailure {
+            runCatching {
+                context.startActivity(
+                    Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }
         }
     }
 }
