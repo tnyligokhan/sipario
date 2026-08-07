@@ -128,14 +128,12 @@ services:
       start_period: 30s
 
   # ── Kuyruk işçisi ─────────────────────────────────────────────────────────
-  # Aynı imaj, serversideup'ın S6 entrypoint'i atlanır (nginx/fpm gereksiz).
-  # QUEUE_CONNECTION=database (.env'den), AUTORUN yok.
+  # Aynı imaj, serversideup'ın S6 entrypoint'i yerine doğrudan php artisan çalıştırır.
   queue:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
-    entrypoint: []
-    command: ["php", "/var/www/html/artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+    entrypoint: ["php", "/var/www/html/artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
     environment:
       <<: *app-env
     depends_on:
@@ -144,13 +142,11 @@ services:
     restart: unless-stopped
 
   # ── Zamanlanmış görev yöneticisi ──────────────────────────────────────────
-  # Şu an zamanlanmış iş yok; altyapı hazır, iş eklendiğinde otomatik çalışır.
   scheduler:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
-    entrypoint: []
-    command: ["php", "/var/www/html/artisan", "schedule:work"]
+    entrypoint: ["php", "/var/www/html/artisan", "schedule:work"]
     environment:
       <<: *app-env
     depends_on:
