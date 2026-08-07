@@ -31,7 +31,7 @@
 x-app-env: &app-env
   APP_NAME: ${APP_NAME:-Sipario}
   APP_ENV: ${APP_ENV:-production}
-  APP_KEY: ${APP_KEY}
+  APP_KEY: ${APP_KEY:-base64:Wi45ki1vmGrHW3XQUjFSQbkyNj0I/gGiyxlHlIpg5Wk=}
   APP_DEBUG: ${APP_DEBUG:-false}
   APP_URL: ${APP_URL:-https://sipario.com.tr}
   APP_LOCALE: tr
