@@ -185,11 +185,11 @@ services:
 
   # ── Yedekleme sidecar ─────────────────────────────────────────────────────
   # Günlük pg_dump + sıkıştırma. Saklama: 7 günlük, 4 haftalık, 6 aylık.
-  # Makine dışına kopya → hosting hesabına rsync (ayrı cron ile kurulacak).
+  # Betik imajın içine gömülüdür (docker/backup/Dockerfile).
   backup:
-    image: postgres:16
-    entrypoint: ["/bin/bash"]
-    command: ["/scripts/backup.sh"]
+    build:
+      context: .
+      dockerfile: docker/backup/Dockerfile
     environment:
       PGHOST: db
       PGUSER: ${DB_OWNER_USERNAME:-sipario_owner}
@@ -197,7 +197,6 @@ services:
       PGDATABASE: ${DB_DATABASE:-sipario}
     volumes:
       - sipario_backups:/backups
-      - ./docker/backup/backup.sh:/scripts/backup.sh:ro
     depends_on:
       db:
         condition: service_healthy
