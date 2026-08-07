@@ -42,7 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
          * Geliştirmede cloudflared yalnız loopback'ten bağlanır.
          */
         $middleware->trustProxies(
-            at: app()->environment('production') ? '*' : ['127.0.0.1', '::1'],
+            at: env('APP_ENV') === 'production' ? '*' : ['127.0.0.1', '::1'],
         );
 
         $middleware->alias([
