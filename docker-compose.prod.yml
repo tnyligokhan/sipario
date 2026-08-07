@@ -155,12 +155,13 @@ services:
     restart: unless-stopped
 
   # ── PostgreSQL 16 ─────────────────────────────────────────────────────────
-  # ICU tr-TR locale (initdb anında sabitleniyor, sonra değiştirilemez).
-  # 3 rol: sipario_owner (DDL), sipario_app (DML, RLS altında), sipario_panel
-  # (cross-tenant SELECT, BYPASSRLS). Init betikleri yalnız volume boşken koşar.
-  # Port DIȘARIYA AÇILMAZ — yalnız compose ağındaki container'lar erişir.
+  # Özel Dockerfile ile init betikleri imajın İÇİNE gömülür (mount bağımlılığı yok).
+  # ICU tr-TR locale (initdb anında sabitleniyor).
+  # 3 rol: sipario_owner (DDL), sipario_app (DML, RLS altında), sipario_panel (cross-tenant SELECT).
   db:
-    image: postgres:16
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
     environment:
       POSTGRES_DB: ${DB_DATABASE:-sipario}
       POSTGRES_USER: ${DB_OWNER_USERNAME:-sipario_owner}
@@ -174,8 +175,7 @@ services:
         --lc-ctype=C.UTF-8
         --encoding=UTF8
     volumes:
-      - sipario_pgdata_v3:/var/lib/postgresql/data
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - sipario_pgdata_v4:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sipario_owner -d sipario"]
       interval: 5s
@@ -204,5 +204,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  sipario_pgdata_v3:
+  sipario_pgdata_v4:
   sipario_backups:
