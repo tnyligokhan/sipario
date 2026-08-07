@@ -125,6 +125,7 @@ services:
       - "traefik.http.routers.sipario-app.rule=Host(`sipario.com.tr`) || Host(`www.sipario.com.tr`) || Host(`api.sipario.com.tr`)"
       - "traefik.http.routers.sipario-app.entrypoints=websecure"
       - "traefik.http.routers.sipario-app.tls.certresolver=letsencrypt"
+      - "traefik.http.services.sipario-app.loadbalancer.server.port=8080"
     deploy:
       update_config:
         order: start-first
