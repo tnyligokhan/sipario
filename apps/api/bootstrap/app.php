@@ -4,6 +4,7 @@ use App\Http\Middleware\AppendServerTime;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\ResolveTenantContext;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\BlockApiHostWebRoutes;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -35,7 +36,14 @@ return Application::configure(basePath: dirname(__DIR__))
          * başlıklarıyla şema/istemci-IP yalanı söyleyebilmesi demektir (hız sınırı anahtarları
          * istemci IP'sinden türetiliyor — bkz. AppServiceProvider::limitler).
          */
-        $middleware->trustProxies(at: ['127.0.0.1', '::1']);
+        /*
+         * Üretimde (Coolify/Traefik arkası) proxy Docker iç ağından gelir (172.x.x.x) —
+         * loopback DEĞİL. Container doğrudan internete açık olmadığı için '*' güvenlidir.
+         * Geliştirmede cloudflared yalnız loopback'ten bağlanır.
+         */
+        $middleware->trustProxies(
+            at: app()->environment('production') ? '*' : ['127.0.0.1', '::1'],
+        );
 
         $middleware->alias([
             'tenant' => ResolveTenantContext::class,
@@ -63,6 +71,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // (clickjacking) mümkündü — panelin eylemleri tek tıklık Livewire düğmeleridir.
         $middleware->web(append: [
             SecurityHeaders::class,
+            BlockApiHostWebRoutes::class,
         ]);
 
         /*
