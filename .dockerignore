@@ -14,8 +14,10 @@
 apps/mobile/
 
 # ── Bağımlılık ağaçları (imaj içinde composer install ile yeniden kurulur) ───
-**/vendor/
+apps/api/vendor/
+apps/mobile/vendor/
 **/node_modules/
+!apps/api/resources/views/vendor/
 
 # ── Yerel ortam ve sırlar ────────────────────────────────────────────────────
 # Üretim env'i Coolify'ın Environment Variables sekmesinde yaşar.
