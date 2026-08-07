@@ -329,7 +329,7 @@ class _Form extends StatelessWidget {
             const SipFormEtiket('Sunucu adresi'),
             SipInput(
               controller: sunucu,
-              ipucu: 'https://api.sipario.com.tr/api/v1',
+              ipucu: 'https://sipario.com.tr/api/v1',
               klavye: TextInputType.url,
               aktif: !busy,
               hata: hata.containsKey('sunucu'),

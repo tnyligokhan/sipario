@@ -6,7 +6,7 @@ import 'auth_api.dart';
 
 /// Varsayılan API taban adresi. Geliştirmede login ekranındaki "gelişmiş" alanından değiştirilir
 /// (emülatör: http://10.0.2.2:8000/api/v1 — Android emülatöründe host makine 10.0.2.2'dir).
-const kDefaultApiBaseUrl = 'https://api.sipario.com.tr/api/v1';
+const kDefaultApiBaseUrl = 'https://sipario.com.tr/api/v1';
 
 /// Oturum yöneticisi. Kaynak sync_meta tek satırıdır (id=1): token, kullanıcı, cihaz kimliği.
 /// deviceId İLK login denemesinde üretilir ve kalıcıdır — outbox/LWW'deki device_id ile aynı değer
