@@ -47,14 +47,13 @@ class DemoSeeder extends Seeder
     public const DEMO_EMAIL = 'demo@sipario.com.tr';
 
     /**
-     * Mağaza inceleme hesabının GİRİŞ kimliği (tasarım `s-giris.jsx`).
-     * ⚠️ GEÇİCİ değerler — gerekçe ve geri alma borcu sınıf başlığında.
+     * Gerçek Demo Bayisi Giriş Kimlikleri.
      */
-    public const DEMO_TENANT_CODE = '111';
+    public const DEMO_TENANT_CODE = 'demo';
 
-    public const DEMO_USERNAME = '111';
+    public const DEMO_USERNAME = 'demo';
 
-    public const DEMO_PASSWORD = '1111';
+    public const DEMO_PASSWORD = 'demo1234';
 
     public function run(): void
     {

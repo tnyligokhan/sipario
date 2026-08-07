@@ -33,11 +33,12 @@ ENV AUTORUN_ENABLED="true" \
 
 WORKDIR /var/www/html
 
-# Otomatik Migration Betiği: Container kalkarken pgsql_owner ile migrate koşar
+# Otomatik Migration ve Seed Betiği: Container kalkarken pgsql_owner ile migrate & seed koşar
 USER root
 RUN mkdir -p /etc/entrypoint.d && \
     echo '#!/bin/bash' > /etc/entrypoint.d/99-migrate.sh && \
     echo 'php /var/www/html/artisan migrate --database=pgsql_owner --force || true' >> /etc/entrypoint.d/99-migrate.sh && \
+    echo 'php /var/www/html/artisan db:seed --force || true' >> /etc/entrypoint.d/99-migrate.sh && \
     chmod +x /etc/entrypoint.d/99-migrate.sh
 
 # Uygulama kodunu kopyala
