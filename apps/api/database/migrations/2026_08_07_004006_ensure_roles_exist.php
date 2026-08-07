@@ -55,6 +55,15 @@ return new class extends Migration
             GRANT USAGE ON SCHEMA public TO sipario_app;
             GRANT CONNECT ON DATABASE "{$dbName}" TO sipario_panel;
             GRANT USAGE ON SCHEMA public TO sipario_panel;
+
+            -- Tüm mevcut ve gelecekteki tablolara sipario_app DML yetkileri
+            GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sipario_app;
+            GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sipario_app;
+
+            ALTER DEFAULT PRIVILEGES FOR ROLE sipario_owner IN SCHEMA public
+                GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sipario_app;
+            ALTER DEFAULT PRIVILEGES FOR ROLE sipario_owner IN SCHEMA public
+                GRANT USAGE, SELECT ON SEQUENCES TO sipario_app;
         SQL);
     }
 
