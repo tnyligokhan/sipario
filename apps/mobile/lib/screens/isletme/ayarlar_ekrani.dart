@@ -312,30 +312,30 @@ class _Govde extends StatelessWidget {
         // izin durumu ve kategori anahtarları kendi durumunu yönetiyor.
         const BildirimAyarBolumu(),
 
-        const SipBolumBaslik('İşletme', ustBosluk: 18),
-        AyarKarti(satirlar: [
-          AyarSatiri(
-            ikon: SipIcons.home,
-            baslik: ad.isEmpty ? 'İşletme profili' : ad,
-            altBaslik: iletisim.isEmpty ? 'Bilgileri tamamlayın' : iletisim,
-            sag: SipMetinButon(
-              etiket: 'Düzenle',
-              zemin: context.sip.surface2,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => IsletmeProfiliEkrani(
-                    db: state.widget.db,
-                    writable: state.widget.writable,
+        if (state.widget.rol == 'patron') ...[
+          const SipBolumBaslik('İşletme', ustBosluk: 18),
+          AyarKarti(satirlar: [
+            AyarSatiri(
+              ikon: SipIcons.home,
+              baslik: ad.isEmpty ? 'İşletme profili' : ad,
+              altBaslik: iletisim.isEmpty ? 'Bilgileri tamamlayın' : iletisim,
+              sag: SipMetinButon(
+                etiket: 'Düzenle',
+                zemin: context.sip.surface2,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => IsletmeProfiliEkrani(
+                      db: state.widget.db,
+                      writable: state.widget.writable,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          // Sipariş satırındaki kod tercihi (kullanıcı isteği 2026-07-29: "isteyen firma
-          // siparişte müşteri kodu, isteyen firma sipariş kodu görsün"). KİRACI ayarıdır:
-          // senkronla iner, iki telefonlu bayide aynı liste iki farklı numara göstermez.
-          SiparisKoduSatiri(db: state.widget.db, writable: state.widget.writable),
-        ]),
+            // Sipariş satırındaki kod tercihi
+            SiparisKoduSatiri(db: state.widget.db, writable: state.widget.writable),
+          ]),
+        ],
 
         // "Yönetim" bölümü (Kuryeler + Muaf telefonlar) KALDIRILDI: tasarım `s-ayarlar.jsx`
         // yalnız dört bölüm taşır, o iki ekranın girişi ÇEKMECEDEDİR (`s-bilesenler.jsx:83-87`).

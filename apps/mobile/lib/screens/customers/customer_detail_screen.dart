@@ -296,6 +296,9 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     final koordinat = konumVar ? konumMetni(adres!.lat!, adres.lng!) : null;
     final not = c.note;
 
+    final maskeli = widget.yetki?.telefonMaskeleme ?? false;
+    final telGoster = maskeli ? telefonMaskele(tel) : tel;
+
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -303,16 +306,17 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
           children: [
             SipUst(
               baslik: c.name,
-              alt: tel.isEmpty ? null : tel,
+              alt: telGoster.isEmpty ? null : telGoster,
               onGeri: () => Navigator.of(context).pop(),
               sag: [
-                SipIkonButon(
-                  ikon: SipIcons.edit,
-                  ikonBoyut: 17,
-                  kalinlik: 2,
-                  etiket: 'Müşteriyi düzenle',
-                  onTap: () => _duzenle(c, telefonlar, adres),
-                ),
+                if (widget.yetki?.musteriDuzenleme ?? true)
+                  SipIkonButon(
+                    ikon: SipIcons.edit,
+                    ikonBoyut: 17,
+                    kalinlik: 2,
+                    etiket: 'Müşteriyi düzenle',
+                    onTap: () => _duzenle(c, telefonlar, adres),
+                  ),
               ],
             ),
             Expanded(
@@ -321,28 +325,23 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                 children: [
                   MusteriHeroKart(
                     adres: adresGosterimi(adres?.addressText),
-                    // Telefonsuz müşteride tasarımın `.md-kart-tel`i BOŞ kalır (s-musteriler.jsx:106)
-                    // — "Telefon yok" diye bir metin yazmaz.
-                    telefon: tel,
+                    telefon: telGoster,
                     koordinat: koordinat,
                     onKonumAl: () => _konumAl(adres),
                     konumCalisiyor: _konumCalisiyor,
-                    // Ara · WhatsApp · Konum: sipariş satırıyla AYNI yardımcılardan geçer
-                    // (`musteri_eylemleri.dart`). İki kopya kural zamanla ayrışır — numarayı
-                    // orada +90'a çevirip burada ham bırakmak, WhatsApp'ın sessizce boş sayfa
-                    // açması demekti. Bu ekran 2026-07-27'de düzeltilen saha hatasının
-                    // ATLANMIŞ İKİZİYDİ: üç düğme de yalnız toast basıyordu.
                     onAra: () => _eylem(() => musteriyiAra(telefonlar.firstOrNull?.phoneE164)),
-                    onWhatsapp: () => _eylem(() => whatsappAc(telefonlar.firstOrNull?.phoneE164)),
+                    onWhatsapp: () => _eylem(() {
+                      if (!(widget.yetki?.borcHatirlatma ?? true)) {
+                        SipToast.goster(context, 'Borç hatırlatma yetkisi kapalıdır.');
+                        return;
+                      }
+                      whatsappAc(telefonlar.firstOrNull?.phoneE164);
+                    }),
                     onKonum: () => _eylem(
                       () => konumuHaritadaAc(_adresBilgisi(adres), etiket: c.name),
                     ),
-                    // Adres yoksa güncellenecek kayıt da yok: çip tıklanmaz kalır (koordinatı
-                    // sahipsiz bir adrese yazmak sessiz veri kaybı olurdu).
                     onKonumGuncelle: adres == null ? null : () => _konumGuncelle(adres),
                   ),
-                  // Rozet bakiyeden ÖNCE: "bu müşteriye sipariş açılamaz" bilgisi, para
-                  // bilgisinden önce okunmalı — bayi ekranı yukarıdan aşağı tarar.
                   if (karaListede(c))
                     SipDurumSeridi(
                       metin: karaListeRozeti,
@@ -351,9 +350,6 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       zemin: context.sip.dangerSoft,
                     ),
                   MusteriBakiyeKarti(kurus: c.balanceKurus),
-                  // Tasarımda ızgara İKİ eylemlidir (s-musteriler.jsx:118-121, inline
-                  // `gridTemplateColumns: '1fr 1fr'`). Bakiye düzeltmesinin yeri defter
-                  // başlığının sağındaki bağlantı.
                   MusteriAksiyonlari(
                     eylemler: [
                       MusteriEylemi(
@@ -367,13 +363,20 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       padding: const EdgeInsets.only(top: SipSpace.xl),
                       child: SipNotKutusu(metin: not),
                     ),
-                  CustomerLedgerSection(
-                    db: widget.db,
-                    customerId: widget.customerId,
-                    // Bağlantı HER ZAMAN çizilir (tasarımda koşulsuz); salt-okunur ve yetki
-                    // kapıları `_duzeltme` içinde durur ve kullanıcıya toast'la söylenir.
-                    onDuzelt: () => _duzeltme(c),
-                  ),
+                  if (widget.yetki?.musteriGecmisDefteri ?? true)
+                    CustomerLedgerSection(
+                      db: widget.db,
+                      customerId: widget.customerId,
+                      onDuzelt: () => _duzeltme(c),
+                    )
+                  else
+                    const Padding(
+                      padding: EdgeInsets.only(top: SipSpace.xl),
+                      child: SipNotKutusu(
+                        metin: 'Müşteri geçmiş defteri kurye yetkisine kapalıdır.',
+                        ikon: SipIcons.lock,
+                      ),
+                    ),
                   // Tehlikeli işlemler KURYEDE HİÇ ÇİZİLMEZ (diğer kapıların aksine).
                   // Gerekçe: tahsilat/düzeltme kuryenin işinin bir parçası, yalnız bu cihazda
                   // yetkisi yok — orada toast doğru cevaptır. Müşteriyi silmek ise kuryenin işi

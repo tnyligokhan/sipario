@@ -344,6 +344,10 @@ class _BorcluKarti extends StatelessWidget {
   /// SALT-OKUNUR KİP ENGELLEMEZ: bu bir YAZMA değil, mesaj hazırlama eylemidir. Abonelik bittiğinde
   /// bile bayi alacağını isteyebilmeli — kilit yeni kayıt girişini durdurur, tahsilatı değil.
   Future<void> _hatirlat(BuildContext context) async {
+    if (!(yetki?.borcHatirlatma ?? true)) {
+      SipToast.goster(context, 'Borç hatırlatma gönderme yetkisi kapalıdır.');
+      return;
+    }
     if (ibanNormal(iban) == null) {
       SipToast.goster(context, 'Önce Ayarlar → İşletme Profili\'nden IBAN tanımlayın');
       return;

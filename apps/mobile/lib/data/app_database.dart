@@ -114,6 +114,14 @@ class AppDatabase extends _$AppDatabase {
               'ALTER TABLE tenant_settings ADD COLUMN courier_can_collect INTEGER NOT NULL DEFAULT 1',
               'ALTER TABLE tenant_settings ADD COLUMN courier_can_discount INTEGER NOT NULL DEFAULT 0',
               'ALTER TABLE tenant_settings ADD COLUMN courier_can_day_end INTEGER NOT NULL DEFAULT 0',
+              'ALTER TABLE tenant_settings ADD COLUMN courier_can_see_all_orders INTEGER NOT NULL DEFAULT 0',
+              'ALTER TABLE tenant_settings ADD COLUMN courier_can_view_history INTEGER NOT NULL DEFAULT 0',
+              'ALTER TABLE tenant_settings ADD COLUMN courier_can_expense INTEGER NOT NULL DEFAULT 0',
+              'ALTER TABLE tenant_settings ADD COLUMN courier_phone_mask INTEGER NOT NULL DEFAULT 1',
+              'ALTER TABLE tenant_settings ADD COLUMN courier_can_customer_ledger INTEGER NOT NULL DEFAULT 0',
+              'ALTER TABLE tenant_settings ADD COLUMN courier_can_debt_reminder INTEGER NOT NULL DEFAULT 0',
+              'ALTER TABLE tenant_settings ADD COLUMN courier_can_toggle_stock INTEGER NOT NULL DEFAULT 1',
+              'ALTER TABLE tenant_settings ADD COLUMN courier_can_call_log INTEGER NOT NULL DEFAULT 0',
             ]) {
               await _addColumnIfMissing(m, sql);
             }

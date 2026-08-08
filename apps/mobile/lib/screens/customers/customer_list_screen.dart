@@ -149,6 +149,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                       separatorBuilder: (_, _) => const SizedBox(height: 7),
                       itemBuilder: (context, i) => _MusteriSatiri(
                         satir: rows[i],
+                        maskeli: widget.yetki?.telefonMaskeleme ?? false,
                         onAc: () => _ac(rows[i].customer),
                       ),
                     ),
@@ -186,10 +187,11 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
 /// AVATAR YOK: tasarımın `MusteriSatir`ı (s-musteriler.jsx:7-19) avatar çizmiyor; `.mrow-av`
 /// CSS'te kalmış ölü bir sınıf.
 class _MusteriSatiri extends StatelessWidget {
-  const _MusteriSatiri({required this.satir, required this.onAc});
+  const _MusteriSatiri({required this.satir, required this.onAc, this.maskeli = false});
 
   final CustomerRow satir;
   final VoidCallback onAc;
+  final bool maskeli;
 
   @override
   Widget build(BuildContext context) {
@@ -205,9 +207,6 @@ class _MusteriSatiri extends StatelessWidget {
       radius: SipRadius.br2,
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
       child: Row(
-        // CSS `.mrow-bal { align-self: center }` — çip satırın ortasında durur. Ad/telefon/adres
-        // yığını her zaman çipten uzundur, dolayısıyla satırın yüksekliğini o belirler ve
-        // `center` yalnız çipi etkiler (sabit `Padding(top: 7)` yerine).
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
@@ -215,9 +214,6 @@ class _MusteriSatiri extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // KOD ADIN BAŞINDA (kullanıcı isteği 2026-07-29): bayi müşteriyi numarasıyla
-                // anıyor ("102 arıyor"). Kod ile ad AYNI satırda ve kod DARALMAZ: uzun bir adda
-                // kısalması gereken addır, kimliği taşıyan sayı değil.
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
                   textBaseline: TextBaseline.alphabetic,
@@ -237,9 +233,6 @@ class _MusteriSatiri extends StatelessWidget {
                         style: SipText.satirAd.copyWith(color: t.ink),
                       ),
                     ),
-                    // Rozet ADIN HEMEN YANINDA (satır sonunda değil): bakiye çipiyle aynı
-                    // hizaya konsaydı uzun adlarda ondan uzaklaşır ve hangi müşteriye ait
-                    // olduğu bulanıklaşırdı. Ad `Flexible` — kısalması gereken addır, rozet değil.
                     if (karaListede(c)) ...[
                       const SizedBox(width: 6),
                       const _KaraListeRozeti(),
@@ -252,7 +245,7 @@ class _MusteriSatiri extends StatelessWidget {
                     ikon: SipIcons.phone,
                     ikonRenk: t.muted,
                     kalinlik: 2,
-                    metin: sipTelefon(satir.phone!),
+                    metin: maskeli ? telefonMaskele(satir.phone!) : sipTelefon(satir.phone!),
                     stil: SipText.satirTel.copyWith(color: t.ink2),
                   ),
                 ],

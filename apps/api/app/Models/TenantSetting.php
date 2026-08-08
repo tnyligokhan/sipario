@@ -66,13 +66,21 @@ class TenantSetting extends Model
         'courier_can_collect',
         'courier_can_discount',
         'courier_can_day_end',
+        'courier_can_see_all_orders',
+        'courier_can_view_history',
+        'courier_can_expense',
+        'courier_phone_mask',
+        'courier_can_customer_ledger',
+        'courier_can_debt_reminder',
+        'courier_can_toggle_stock',
+        'courier_can_call_log',
         'order_code_display',
         'updated_occurred_at',
         'updated_device_id',
     ];
 
     /**
-     * Bayinin açıp kapatabildiği kurye yetkileri → varsayılan (migration 004002 ile aynı liste).
+     * Bayinin açıp kapatabildiği kurye yetkileri → varsayılan (Genel Yetki Matrisi).
      * Uygulayıcı bu diziyi dolaşır; yeni bir yetki eklendiğinde TEK yer değişir.
      *
      * @var array<string, bool>
@@ -83,6 +91,14 @@ class TenantSetting extends Model
         'courier_can_collect' => true,
         'courier_can_discount' => false,
         'courier_can_day_end' => false,
+        'courier_can_see_all_orders' => false,
+        'courier_can_view_history' => false,
+        'courier_can_expense' => false,
+        'courier_phone_mask' => true,
+        'courier_can_customer_ledger' => false,
+        'courier_can_debt_reminder' => false,
+        'courier_can_toggle_stock' => true,
+        'courier_can_call_log' => false,
     ];
 
     protected function casts(): array
@@ -94,6 +110,14 @@ class TenantSetting extends Model
             'courier_can_collect' => 'boolean',
             'courier_can_discount' => 'boolean',
             'courier_can_day_end' => 'boolean',
+            'courier_can_see_all_orders' => 'boolean',
+            'courier_can_view_history' => 'boolean',
+            'courier_can_expense' => 'boolean',
+            'courier_phone_mask' => 'boolean',
+            'courier_can_customer_ledger' => 'boolean',
+            'courier_can_debt_reminder' => 'boolean',
+            'courier_can_toggle_stock' => 'boolean',
+            'courier_can_call_log' => 'boolean',
         ];
     }
 

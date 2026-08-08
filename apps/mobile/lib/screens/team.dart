@@ -34,56 +34,107 @@ String? kullaniciAdi(List<User> team, String? id) {
   return null;
 }
 
-/// Rol bazlı görünüm yetkileri (K2 — BRIEF'ten türetilmiş v1 asgarisi).
+/// Rol bazlı görünüm yetkileri (Sipario Genel Yetki Matrisi).
 class RolYetkileri {
   const RolYetkileri({
     required this.urunYonetimi,
+    required this.stokPasifleme,
     required this.gunSonu,
+    required this.gunuKapatma,
     required this.defterDuzeltme,
+    required this.gecmisHesapArsivi,
     required this.tahsilat,
+    required this.iskonto,
+    required this.musteriBorcSilme,
+    required this.sahaGideri,
+    required this.toplamBorclulariGorme,
     required this.atama,
+    required this.rotaCalistir,
+    required this.siparisIptal,
+    required this.siparisAcma,
+    required this.tumSiparisleriGorme,
+    required this.gecmisTeslimatlariGorme,
     required this.musteriYonetimi,
-    this.musteriDuzenleme = true,
-    this.siparisAcma = true,
-    this.iskonto = true,
+    required this.musteriDuzenleme,
+    required this.telefonMaskeleme,
+    required this.musteriGecmisDefteri,
+    required this.borcHatirlatma,
+    required this.cagriGunlugu,
+    required this.muafTelefonYonetimi,
+    required this.isletmeAbonelikAyarlari,
+    this.cihazAyarlari = true,
   });
 
-  final bool urunYonetimi; // ürün ekle/düzenle/pasifle
-  final bool gunSonu; // gün sonu özeti
-  final bool defterDuzeltme; // ters kayıtla düzelt
-  final bool tahsilat; // tahsilat al
-  final bool atama; // siparişi kuryeye ata
+  // 1. Sipariş & Teslimat Yönetimi
+  final bool tumSiparisleriGorme; // Sipariş Listesi: Tüm Siparişler vs Sadece Kendi Siparişleri
+  final bool siparisAcma; // Yeni Sipariş Oluşturma
+  final bool siparisIptal; // Sipariş İptal Etme / Silme (Yalnızca Yönetici)
+  final bool gecmisTeslimatlariGorme; // Geçmiş Gün Teslimatlarını Görme
+  final bool rotaCalistir; // Oto-Sıralama (Rota) Çalıştırma (Yalnızca Yönetici)
+  final bool atama; // Sipariş Kurye Atamasını Değiştirme (Yalnızca Yönetici)
 
-  /// müşteriyi sil / kara listeye al-çıkar (geri dönüşü zor, bayi kararı)
-  final bool musteriYonetimi;
+  // 2. Kasa & Tahsilat Yönetimi
+  final bool tahsilat; // Kapıda Tahsilat Alma (Nakit/POS)
+  final bool iskonto; // Kapıda İskonto / Fiyat Kırma
+  final bool musteriBorcSilme; // Müşteri Borç İskontosu / Silme (Yalnızca Yönetici)
+  final bool sahaGideri; // Saha Gideri Girme (Benzin vb.)
+  final bool toplamBorclulariGorme; // Toplam Borçlular Listesini Görme (Yalnızca Yönetici)
 
-  /// Müşteri EKLE/DÜZENLE (silme değil — o `musteriYonetimi`). Kurye için bayi ayarına tabi.
-  final bool musteriDuzenleme;
+  // 3. Gün Sonu & Kasa Devri
+  final bool gunSonu; // Gün Sonu Özeti Görünürlüğü (Yönetici: Tüm dükkan, Kurye: Kendi devri / ayara bağlı)
+  final bool gunuKapatma; // Günü Kapatma / Devir İşlemi (Yalnızca Yönetici)
+  final bool gecmisHesapArsivi; // Geçmiş Gün Hesap Arşivini Görme (Yalnızca Yönetici)
+  final bool defterDuzeltme; // Defter Düzeltme / Ters Kayıt (Yalnızca Yönetici)
 
-  /// Yeni sipariş oluştur. Kurye için bayi ayarına tabi.
-  final bool siparisAcma;
+  // 4. Müşteri & KVKK / İletişim
+  final bool musteriDuzenleme; // Müşteri Ekleme / Düzenleme
+  final bool musteriYonetimi; // Müşteri Silme / Kara Listeye Alma (Yalnızca Yönetici)
+  final bool telefonMaskeleme; // Müşteri Telefon Maskeleme (0532***12)
+  final bool musteriGecmisDefteri; // Müşteri Geçmiş Defterini Görme
+  final bool borcHatirlatma; // Müşteriye Borç Hatırlatma (SMS/WA)
 
-  /// Kapıda iskonto — PARA KIRMA yetkisi. Kurye için varsayılanı KAPALI.
-  final bool iskonto;
+  // 5. Ürün & Stok
+  final bool urunYonetimi; // Ürün Ekleme / Düzenleme / Fiyat (Yalnızca Yönetici)
+  final bool stokPasifleme; // "Stokta Yok" İşaretleme
 
-  /// Tam yetkili (test/varsayılan yardımcısı; rol bilinmeden ekran açıldığında permissive değil,
-  /// gerçek karar yetkiler() ile verilir).
+  // 6. Çağrı & Ayarlar
+  final bool cagriGunlugu; // Dükkan Çağrı Günlüğünü Görme
+  final bool muafTelefonYonetimi; // Muaf Telefon Numarası Ekleme (Yalnızca Yönetici)
+  final bool isletmeAbonelikAyarlari; // İşletme / Abonelik Ayarları (Yalnızca Patron)
+  final bool cihazAyarlari; // Kurye Cihaz Ayarları (Arayan T. vb) (Herkes)
+
+  /// Tam yetkili (test ve varsayılan yönetici görünümü).
   static const tumu = RolYetkileri(
     urunYonetimi: true,
+    stokPasifleme: true,
     gunSonu: true,
+    gunuKapatma: true,
     defterDuzeltme: true,
+    gecmisHesapArsivi: true,
     tahsilat: true,
+    iskonto: true,
+    musteriBorcSilme: true,
+    sahaGideri: true,
+    toplamBorclulariGorme: true,
     atama: true,
+    rotaCalistir: true,
+    siparisIptal: true,
+    siparisAcma: true,
+    tumSiparisleriGorme: true,
+    gecmisTeslimatlariGorme: true,
     musteriYonetimi: true,
+    musteriDuzenleme: true,
+    telefonMaskeleme: false,
+    musteriGecmisDefteri: true,
+    borcHatirlatma: true,
+    cagriGunlugu: true,
+    muafTelefonYonetimi: true,
+    isletmeAbonelikAyarlari: true,
+    cihazAyarlari: true,
   );
 }
 
-/// Bayinin açıp kapattığı KURYE yetkileri (kullanıcı isteği 2026-08-04) — `tenant_settings`
-/// satırının beş anahtarının ekran katmanındaki karşılığı.
-///
-/// AYRI BİR TİP çünkü [RolYetkileri] bir SONUÇTUR (rol + ayar + ekip durumu hesaplanmış hâli),
-/// bu ise GİRDİ. İkisini tek tipte toplamak, "ayarı mı okuyorum yoksa kararı mı" sorusunu her
-/// çağrı yerinde yeniden sordururdu.
+/// Bayinin açıp kapattığı dinamik KURYE yetkileri (Sipario Genel Yetki Matrisi).
 class KuryeIzinleri {
   const KuryeIzinleri({
     this.musteri = true,
@@ -91,57 +142,97 @@ class KuryeIzinleri {
     this.tahsilat = true,
     this.iskonto = false,
     this.gunSonu = false,
+    this.tumSiparisler = false,
+    this.gecmisTeslimatlar = false,
+    this.sahaGideri = false,
+    this.telefonMaskeleme = true,
+    this.musteriGecmisDefteri = false,
+    this.borcHatirlatma = false,
+    this.stokPasifleme = true,
+    this.cagriGunlugu = false,
   });
 
-  final bool musteri;
-  final bool siparis;
-  final bool tahsilat;
-  final bool iskonto;
-  final bool gunSonu;
+  final bool musteri; // courier_can_customers (Varsayılan: Aktif)
+  final bool siparis; // courier_can_orders (Varsayılan: Aktif)
+  final bool tahsilat; // courier_can_collect (Varsayılan: Aktif)
+  final bool iskonto; // courier_can_discount (Varsayılan: Pasif)
+  final bool gunSonu; // courier_can_day_end (Varsayılan: Pasif - Kendi tahsilatları)
+  final bool tumSiparisler; // courier_can_see_all_orders (Varsayılan: Pasif - Sadece kendi siparişleri)
+  final bool gecmisTeslimatlar; // courier_can_view_history (Varsayılan: Pasif)
+  final bool sahaGideri; // courier_can_expense (Varsayılan: Pasif)
+  final bool telefonMaskeleme; // courier_phone_mask (Varsayılan: Aktif - 0532***12)
+  final bool musteriGecmisDefteri; // courier_can_customer_ledger (Varsayılan: Pasif)
+  final bool borcHatirlatma; // courier_can_debt_reminder (Varsayılan: Pasif)
+  final bool stokPasifleme; // courier_can_toggle_stock (Varsayılan: Aktif)
+  final bool cagriGunlugu; // courier_can_call_log (Varsayılan: Pasif)
 
-  /// Ayar satırı henüz senkronla gelmediyse kullanılan varsayılan — sunucu migration'ıyla
-  /// (004002) ve Drift kolon varsayılanlarıyla BİREBİR aynı olmak zorunda.
   static const varsayilan = KuryeIzinleri();
 }
 
-/// K2 matrisi (tek doğruluk kaynağı). yonetici = patron|operator. kuryeVar = yerelde aktif kurye var.
-/// - ürün/gün-sonu/defter-düzeltme: yalnız yönetici (patron işi).
-/// - tahsilat: HERKES (kurye sahada/ay sonu tahsilat yapar; collected_by atfı zaten ondan).
-/// - atama: yönetici VE kuryeVar (tek kişilikte atama yok).
-/// - müşteri yönetimi (sil / kara liste): yalnız yönetici. Kurye sahada müşterinin kaydını
-///   kaldıramaz ya da ona sipariş açılmasını engelleyemez — bu bayinin ticari kararıdır ve
-///   telefonu elinde tutan kişi verir. Kurye kapıya gider, müşteriyi kayıttan düşürmez.
-///
-/// `kasaDevri` bayrağı KALDIRILDI (2026-07-26): tasarımda ayrı bir kasa devri ekranı yok, devir
-/// Gün Sonu'nun "Hesabı Kapat · Kasa Devri" sheet'inin içindedir (`s-gunsonu.jsx:110`) ve kurye
-/// kapanışı zaten devri yazar (`DayClosingRepository.kapat(alsoHandover:)`).
-/// [izin]: bayinin Ayarlar'dan açıp kapattığı KURYE anahtarları (2026-08-04). YALNIZ kurye
-/// rolünü etkiler — yöneticinin yetkisi bir ayara tabi olsaydı bayi kendini kendi
-/// uygulamasından kilitleyebilirdi ve geri açacak ekran da o ekranın arkasında kalırdı.
-///
-/// `null` geçilirse [KuryeIzinleri.varsayilan] kullanılır: ayar satırı henüz senkronla
-/// gelmemiş olabilir ve o karede kuryeyi işinden etmek yanlış olur.
+/// Genel Yetki Matrisi kurallarını çözen saf fonksiyon.
+/// Patron: Tam yetkili (kısıtlamasız).
+/// Operatör: Patron yetkili (işletme/abonelik ayarları hariç tam yetkili).
+/// Kurye: Varsayılan kısıtlar + Patronun açıp kapattığı dinamik yetkiler.
 RolYetkileri yetkiler({
   required String? rol,
   required bool kuryeVar,
   KuryeIzinleri? izin,
 }) {
-  final yonetici = rol == 'patron' || rol == 'operator';
+  final patron = rol == 'patron';
+  final yonetici = patron || rol == 'operator';
   final k = izin ?? KuryeIzinleri.varsayilan;
+
   return RolYetkileri(
-    urunYonetimi: yonetici,
-    gunSonu: yonetici || k.gunSonu,
-    defterDuzeltme: yonetici,
-    // Tahsilat artık koşulsuz DEĞİL: kurye tarafı bayi ayarına bağlı (yönetici her zaman alır).
-    // Eski kural "tahsilat: true" idi ve gerekçesi "kurye sahada tahsilat yapar" — o gerekçe
-    // hâlâ geçerli, bu yüzden ayarın VARSAYILANI açık. Değişen şey, bayinin hayır diyebilmesi.
-    tahsilat: yonetici || k.tahsilat,
-    atama: yonetici && kuryeVar,
-    musteriYonetimi: yonetici,
-    musteriDuzenleme: yonetici || k.musteri,
+    // 1. Sipariş & Teslimat
+    tumSiparisleriGorme: yonetici || k.tumSiparisler,
     siparisAcma: yonetici || k.siparis,
+    siparisIptal: yonetici,
+    gecmisTeslimatlariGorme: yonetici || k.gecmisTeslimatlar,
+    rotaCalistir: yonetici,
+    atama: yonetici && kuryeVar,
+
+    // 2. Kasa & Tahsilat
+    tahsilat: yonetici || k.tahsilat,
     iskonto: yonetici || k.iskonto,
+    musteriBorcSilme: yonetici,
+    sahaGideri: yonetici || k.sahaGideri,
+    toplamBorclulariGorme: yonetici,
+
+    // 3. Gün Sonu & Kasa Devri
+    gunSonu: yonetici || k.gunSonu,
+    gunuKapatma: yonetici,
+    gecmisHesapArsivi: yonetici,
+    defterDuzeltme: yonetici,
+
+    // 4. Müşteri & KVKK / İletişim
+    musteriDuzenleme: yonetici || k.musteri,
+    musteriYonetimi: yonetici,
+    telefonMaskeleme: !yonetici && k.telefonMaskeleme,
+    musteriGecmisDefteri: yonetici || k.musteriGecmisDefteri,
+    borcHatirlatma: yonetici || k.borcHatirlatma,
+
+    // 5. Ürün & Stok
+    urunYonetimi: yonetici,
+    stokPasifleme: yonetici || k.stokPasifleme,
+
+    // 6. Çağrı & Ayarlar
+    cagriGunlugu: yonetici || k.cagriGunlugu,
+    muafTelefonYonetimi: yonetici,
+    isletmeAbonelikAyarlari: patron,
+    cihazAyarlari: true,
   );
+}
+
+/// Kurye için telefon numarası maskeleme (ör. 0532***12).
+String telefonMaskele(String? phoneE164) {
+  if (phoneE164 == null || phoneE164.isEmpty) return '';
+  final temiz = phoneE164.replaceAll(RegExp(r'\s+'), '');
+  if (temiz.length >= 7) {
+    final bas = temiz.substring(0, (temiz.length - 4).clamp(0, 5));
+    final son = temiz.substring(temiz.length - 2);
+    return '$bas***$son';
+  }
+  return temiz;
 }
 
 /// `tenant_settings` satırından kurye izinlerini okur. Satır yoksa varsayılan.
@@ -153,21 +244,23 @@ KuryeIzinleri kuryeIzinleriOku(TenantSetting? ayar) => ayar == null
         tahsilat: ayar.courierCanCollect,
         iskonto: ayar.courierCanDiscount,
         gunSonu: ayar.courierCanDayEnd,
+        tumSiparisler: ayar.courierCanSeeAllOrders,
+        gecmisTeslimatlar: ayar.courierCanViewHistory,
+        sahaGideri: ayar.courierCanExpense,
+        telefonMaskeleme: ayar.courierPhoneMask,
+        musteriGecmisDefteri: ayar.courierCanCustomerLedger,
+        borcHatirlatma: ayar.courierCanDebtReminder,
+        stokPasifleme: ayar.courierCanToggleStock,
+        cagriGunlugu: ayar.courierCanCallLog,
       );
 
-/// Kurye izinleri akışı — kabuk buna abone olur (tek atış okuma bayat kalırdı: bayi ayarı
-/// değiştirdiğinde kuryenin ekranı bir sonraki açılışa kadar eski yetkiyle çalışırdı).
+/// Kurye izinleri akışı — kabuk buna abone olur.
 Stream<KuryeIzinleri> watchKuryeIzinleri(AppDatabase db) =>
     (db.select(db.tenantSettings)..where((t) => t.id.equals(1)))
         .watchSingleOrNull()
         .map(kuryeIzinleriOku);
 
-/// Bu cihazdaki oturumun yetkileri — TEK ATIŞ. Kabuk yetkileri akıştan tutar ve alt ekranlara
-/// geçirir; ama sheet gibi kabuktan bağımsız açılan yüzeyler onu taşımaz. Orada, eylemin TAM
-/// ÖNCESİNDE okumak doğrudur: karar anındaki değer geçerli olan değerdir.
-///
-/// `kuryeVar: false` geçilir — bu fonksiyonun tükettiği yetkiler (iskonto vb.) ekip mevcudiyetine
-/// bağlı değildir; atama kararı için kabuğun kendi hesabı kullanılır.
+/// Bu cihazdaki oturumun yetkileri — TEK ATIŞ.
 Future<RolYetkileri> oturumYetkileri(AppDatabase db) async {
   final meta = await db.syncState();
   final ayar =

@@ -388,10 +388,18 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   void _cekmeceGirisi(CekmeceGiris g) {
     switch (g) {
       case CekmeceGiris.urunler:
-        _git(ProductListScreen(db: widget.db, writable: _yazilabilir));
+        if (!_yetki.urunYonetimi) {
+          SipToast.goster(context, 'Ürün yönetimi yalnız yöneticilere açıktır.');
+          return;
+        }
+        _git(ProductListScreen(db: widget.db, writable: _yazilabilir, rol: _userRole));
       case CekmeceGiris.kuryeler:
         _git(KuryelerEkrani(db: widget.db, writable: _yazilabilir));
       case CekmeceGiris.muaf:
+        if (!_yetki.muafTelefonYonetimi) {
+          SipToast.goster(context, 'Muaf telefon yönetimi yalnız yöneticilere açıktır.');
+          return;
+        }
         _git(MuafEkrani(db: widget.db, writable: _yazilabilir));
       case CekmeceGiris.ayarlar:
         _git(AyarlarEkrani(
@@ -593,13 +601,19 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     if (eklendi == true && mounted) SipToast.goster(context, 'Müşteri kaydedildi');
   }
 
-  /// "Borçlular" bento kutusu — yalnız borçlu müşterileri ve ödenmemiş siparişlerini listeler.
-  void _borclularAc() => _git(BorclularEkrani(
-        db: widget.db,
-        writable: _yazilabilir,
-        yetki: _yetki,
-        canAssign: _yetki.atama,
-      ));
+  /// "Borçlular" bento kutusu — Genel Yetki Matrisinde kuryelere kısıtlıdır.
+  void _borclularAc() {
+    if (!_yetki.toplamBorclulariGorme) {
+      SipToast.goster(context, 'Toplam borçlular listesi yalnız yöneticilere açıktır.');
+      return;
+    }
+    _git(BorclularEkrani(
+      db: widget.db,
+      writable: _yazilabilir,
+      yetki: _yetki,
+      canAssign: _yetki.atama,
+    ));
+  }
 
   /// "Son aktivite" satırı: sekmeyi siparişe alır VE detayı açar (`s-uygulama.jsx:89`).
   /// Detay sheet'i sipariş katmanının yüzeyidir — buradan yalnız çağrılır.

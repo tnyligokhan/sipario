@@ -291,7 +291,7 @@ class TenantSettings extends Table {
   /// çözülür; IBAN ve alıcı adı SABİT bloktur, metnin içinde düzenlenemez.
   TextColumn get reminderTemplate => text().nullable()();
 
-  /// KURYE YETKİLERİ (kullanıcı isteği 2026-08-04) — bayinin açıp kapattığı beş anahtar.
+  /// KURYE VE ROL YETKİ MATRİSİ — bayinin açıp kapatabildiği dinamik yetkiler.
   /// KİRACI düzeyindedir (kurye başına değil): 1–3 kişilik bayide kişi bazlı yetki, her yeni
   /// kuryede unutulan bir kurulum adımı doğururdu. Varsayılanlar sunucudakiyle AYNI olmalı —
   /// senkron gelmeden önce ekran bir kare boyunca bu değerleri gösterir.
@@ -300,6 +300,14 @@ class TenantSettings extends Table {
   BoolColumn get courierCanCollect => boolean().withDefault(const Constant(true))();
   BoolColumn get courierCanDiscount => boolean().withDefault(const Constant(false))();
   BoolColumn get courierCanDayEnd => boolean().withDefault(const Constant(false))();
+  BoolColumn get courierCanSeeAllOrders => boolean().withDefault(const Constant(false))();
+  BoolColumn get courierCanViewHistory => boolean().withDefault(const Constant(false))();
+  BoolColumn get courierCanExpense => boolean().withDefault(const Constant(false))();
+  BoolColumn get courierPhoneMask => boolean().withDefault(const Constant(true))();
+  BoolColumn get courierCanCustomerLedger => boolean().withDefault(const Constant(false))();
+  BoolColumn get courierCanDebtReminder => boolean().withDefault(const Constant(false))();
+  BoolColumn get courierCanToggleStock => boolean().withDefault(const Constant(true))();
+  BoolColumn get courierCanCallLog => boolean().withDefault(const Constant(false))();
 
   /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
   /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
