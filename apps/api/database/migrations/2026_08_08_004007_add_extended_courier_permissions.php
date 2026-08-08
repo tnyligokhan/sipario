@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\Schema;
  *  - courier_can_toggle_stock: true (varsayılan: stokta yok işaretleme aktif)
  *  - courier_can_call_log: false (varsayılan: dükkan çağrı günlüğünü görme pasif)
  */
-return new class extends Migration {
+return new class extends Migration
+{
     private const YENI_KOLONLAR = [
         'courier_can_see_all_orders' => false,
         'courier_can_view_history' => false,
@@ -33,9 +34,7 @@ return new class extends Migration {
     {
         Schema::table('tenant_settings', function (Blueprint $table) {
             foreach (self::YENI_KOLONLAR as $kolon => $varsayilan) {
-                if (! Schema::hasColumn('tenant_settings', $kolon)) {
-                    $table->boolean($kolon)->default($varsayilan);
-                }
+                $table->boolean($kolon)->default($varsayilan);
             }
         });
     }

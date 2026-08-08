@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Hash;
  * Yönetici paneli hesaplarının (gokhan@sipario.com.tr ve bugra@sipario.com.tr)
  * veritabanına otomatik eklenmesini sağlayan migration.
  */
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         if (DB::getDriverName() !== 'pgsql') {
