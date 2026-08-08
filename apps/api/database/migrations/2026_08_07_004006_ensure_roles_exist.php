@@ -66,7 +66,7 @@ return new class extends Migration
                 GRANT USAGE, SELECT ON SEQUENCES TO sipario_app;
 
             -- Append-only tablolarda UPDATE ve DELETE iptali (finansal defter & mutabakat bütünlüğü)
-            REVOKE UPDATE, DELETE ON order_events, ledger_entries, sync_outbox, sync_inbox, processed_events, cash_handovers, subscription_payments, day_closings FROM sipario_app;
+            REVOKE UPDATE, DELETE ON ledger_entries, order_events, sync_changes, processed_events, cash_handovers, subscription_payments, day_closings FROM sipario_app;
         SQL);
     }
 
