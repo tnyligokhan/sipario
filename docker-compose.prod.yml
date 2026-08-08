@@ -127,8 +127,22 @@ services:
         delay: 2s
       rollback_config:
         order: start-first
+    # Healthcheck PHP ile yapılır, `curl` ile DEĞİL (2026-08-09).
+    #
+    # Neden: Coolify uygulamayı aylardır `running:unhealthy` gösteriyordu (MCP ile okundu;
+    # `restart_count: 0`, yani container döngüde değildi — site çalışıyor, yalnız SİNYAL bozuktu).
+    # En olası sebep `curl`ün bu imajda bulunmaması; `serversideup/php` yalın bir imajdır ve
+    # `curl` varlığı garanti değildir. PHP ise tanım gereği var — testi keşfe dayanmayan bir
+    # araca bağlamak, "sağlıklı mı" sorusunu tahminden çıkarır.
+    #
+    # Bozuk healthcheck zararsız görünür ama bedeli ALARM KÖRLÜĞÜDÜR: panel sürekli kırmızıysa
+    # gerçek arıza fark edilmez. `deploy:` alanları Swarm dışında yok sayıldığı için bu sinyal
+    # bugün otomatik bir davranışı tetiklemiyor — ama Swarm'a geçilirse tetikleyecek.
+    #
+    # `$` KULLANILMAZ: compose `$` gördüğünde değişken genişletmeye çalışır ($f → boş string).
+    # Bu yüzden ifade değişkensiz yazıldı.
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8080/up || exit 1"]
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8080/up') !== false ? 0 : 1);"]
       interval: 10s
       timeout: 5s
       retries: 5

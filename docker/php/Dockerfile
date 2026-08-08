@@ -33,44 +33,32 @@ ENV AUTORUN_ENABLED="true" \
 
 WORKDIR /var/www/html
 
-# Otomatik migration: container kalkarken şema pgsql_owner rolüyle güncellenir.
+# ── MIGRATION BURADA KOŞMAZ — BİLİNÇLİ (2026-08-09) ──────────────────────────
 #
-# ⚠️ İKİ ŞEY BİLİNÇLİ OLARAK KALDIRILDI (2026-08-09):
+# Şema güncellemesi Coolify'ın POST-DEPLOYMENT komutunda yapılıyor:
+#     php artisan migrate --database=pgsql_owner --force     (hedef container: app)
+# Bu, Coolify MCP üzerinden OKUNARAK doğrulandı — varsayım değil.
 #
-#   1. `db:seed` — her container başlangıcında ÜRETİM veritabanına DemoSeeder'ı basıyordu
-#      (DatabaseSeeder → AdminUserSeeder + DemoSeeder). Yani canlı bayilerin yanına her
-#      deploy'da demo bayisi ve sahte Bursa müşterileri yazılıyordu. Seed artık YALNIZ elle
-#      çağrılır; hâlihazırda kurulu demo bayisi yerinde durur (mağaza incelemesi için gerekli).
+# Buradaki entrypoint kopyası KALDIRILDI çünkü aynı migration'ı İKİNCİ kez koşuyordu:
+#   · Coolify komutu deploy başına BİR kez çalışır → doğru yer orası.
+#   · Entrypoint ise HER container açılışında çalışır; `start-first` sırasında eski ve yeni
+#     `app` birlikte ayaktayken ikisi birden migrate koşabilirdi. Laravel migration'da
+#     süreçler arası kilit YOKTUR — bu gerçek bir yarıştı ve bugüne dek patlamaması şanstı.
 #
-#   2. `|| true` — migrate BAŞARISIZ olduğunda hatayı yutuyor ve container'ı "sağlıklı"
-#      gösteriyordu. Uygulama eski şemayla ayağa kalkıyor, arıza günler sonra para
-#      kayıtlarında görünüyordu. Bu, PLAN.md'de "sessiz arıza dersi" olarak yazılı olan
-#      `saha-sunucu.ps1` hatasının (`*> $null` ile seeder hatasını yutmak) birebir tekrarıydı.
-#      Artık `set -e`: migrate düşerse container BAŞLAMAZ ve arıza GÖRÜNÜR olur.
+# Hata görünürlüğü KAYBOLMADI, yer değiştirdi: post-deployment komutu düşerse Coolify deploy'u
+# BAŞARISIZ işaretler. Yani eski `|| true`'nun açtığı "sessiz arıza" kapısı kapalı kalır —
+# ki o hata, `saha-sunucu.ps1`in seeder çıktısını `*> $null` ile yutmasının birebir tekrarıydı.
 #
-#      ⚠️ DÜRÜST OLMAK GEREKİRSE — OTOMATİK ROLLBACK YOK. Compose'daki `deploy.update_config`
-#      (`order: start-first`, `failure_action: rollback`) alanları YALNIZ Docker Swarm'da
-#      çalışır; Coolify düz `docker compose` kullandığı için bunlar SESSİZCE YOK SAYILIYOR.
-#      Ölçüldü (2026-08-09): deploy sırasında site birkaç saniye 503 verdi — `start-first`
-#      gerçekten uygulansaydı kesinti olmazdı. Yani migrate düşerse `restart: unless-stopped`
-#      döngüye girer ve SİTE AŞAĞIDA KALIR; eski sürüme dönüş ELLE yapılır (Coolify'da önceki
-#      deployment'a "Redeploy").
+# `db:seed` de aynı yoldan kaldırılmıştı: her container açılışında ÜRETİM veritabanına
+# DemoSeeder basıyordu (DatabaseSeeder → AdminUserSeeder + DemoSeeder), yani canlı bayilerin
+# yanına her deploy'da demo bayisi ve sahte müşteriler yazılıyordu. Seed artık yalnız elle
+# çağrılır; kurulu demo bayisi yerinde durur (mağaza incelemesi için gerekli).
 #
-#      Bu takas bilinçli: bir defter uygulamasında GÖRÜNÜR bir kesinti, yanlış şemayla sessizce
-#      çalışıp para kayıtlarını bozmaktan iyidir. Ama "rollback beni korur" diye güvenilmemeli.
-#
-# ⚠️ AÇIK RİSK — MIGRATION YARIŞI: `start-first` stratejisiyle eski ve yeni `app` container'ı
-# kısa süre birlikte çalışır; ikisi de bu betiği koşar. Laravel migration'da süreçler arası
-# kilit YOKTUR. Kalıcı çözüm migrate'i buradan alıp Coolify'ın post-deployment komutuna
-# taşımaktır (tek sefer koşar). PLAN.md'de açık borç olarak duruyor.
+# ⚠️ OTOMATİK ROLLBACK YOK: compose'daki `deploy.update_config` (`start-first` +
+# `failure_action: rollback`) yalnız Docker Swarm'da çalışır; Coolify düz `docker compose`
+# kullandığı için sessizce yok sayılıyor. Ölçüldü: iki ayrı deploy'da site 40–60 sn 503 verdi.
+# Geri dönüş ELLEDİR (Coolify → önceki deployment → Redeploy).
 USER root
-RUN mkdir -p /etc/entrypoint.d && \
-    printf '%s\n' \
-      '#!/bin/bash' \
-      'set -e' \
-      'php /var/www/html/artisan migrate --database=pgsql_owner --force' \
-      > /etc/entrypoint.d/99-migrate.sh && \
-    chmod +x /etc/entrypoint.d/99-migrate.sh
 
 # Uygulama kodunu kopyala
 COPY --chown=www-data:www-data apps/api/ /var/www/html/

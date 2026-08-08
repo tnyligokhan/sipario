@@ -356,22 +356,35 @@ Yanlış plan, yanlış zaman, boşa giden vardiya. Hafızayı güncellememenin 
 | `https://api.sipario.com.tr/` | **503** ❌ | Traefik'e ulaşıyor ama arkasında servis yok |
 | `https://api.sipario.com.tr/api/v1/auth/login` | **503** ❌ | Aynı |
 
-## ⚠️ YARIM KALMIŞ İŞ — `api.` ALTALANI (bu vardiyada ÖLÇÜLEREK bulundu)
+## 🔴 `www` VE `api` ALTALANLARI ÖLÜ — TEK KARAKTERLİK SEBEP (Coolify MCP ile bulundu)
 
-Mimari **iki hostname varsayıyor** ama gerçek **tek hostname**. Somut kanıt:
-`BlockApiHostWebRoutes` middleware'i özellikle `api.` ile başlayan host'lardan gelen web
-isteklerini 404'lemek için yazılmış — **ama `api.sipario.com.tr` Coolify'da bağlı olmadığı için
-bu middleware bugün HİÇBİR ŞEY YAPMIYOR.** Yani çözmek için yazıldığı sorun hâlâ açık:
-**mobil trafiğin geldiği kapı ile yönetim panelinin kapısı aynı** (`sipario.com.tr`).
+**Bu bölüm bir kez YANLIŞ yazıldı ve MCP kurulunca düzeltildi.** İlk teşhis "`api.` Coolify'da
+bağlı değil" idi. Gerçek bunun tersi: **üçü de bağlı.** Coolify'daki kayıtlı değer şu:
 
-Bu bir çökme değil — ürün çalışıyor. Ama iki seçenekten biri seçilip **kapatılmalı**:
-- **(a)** `api.sipario.com.tr` Coolify'da `app` servisine bağlanır, mobil varsayılanı oraya döner
-  → middleware anlam kazanır, panel mobil kapısından ayrışır. (Mobil sürüm çıkması gerekir.)
-- **(b)** `api.` altalanı Cloudflare DNS'ten kaldırılır ve `BlockApiHostWebRoutes` silinir
-  → tek hostname bilinçli karar olarak yazılır, ölü kod kalmaz.
+```
+https://sipario.com.tr, https://www.sipario.com.tr, https://api.sipario.com.tr
+```
 
-Şu anki hâl **üçüncü ve en kötü seçenek**: 503 dönen bir altalan, onu bekleyen ölü bir middleware
-ve hangisinin doğru olduğunu söyleyen hiçbir kayıt. **Karar senin** — (b) daha ucuz, (a) daha güvenli.
+Virgüllerden sonra **BOŞLUK** var. Ölçüm (üç hostname, aynı anda):
+
+| Hostname | Sonuç | Yanıtı veren |
+|---|---|---|
+| `sipario.com.tr` | **200** | `Server: nginx` → container'a ulaşıyor ✅ |
+| `www.sipario.com.tr` | **503** `no available server` | Coolify proxy — route YOK ❌ |
+| `api.sipario.com.tr` | **503** `no available server` | Coolify proxy — route YOK ❌ |
+
+DNS ikisinde de çalışıyor (proxy'ye ulaşılıyor), TLS geçerli. **İlk domain çalışıyor, sonraki ikisi
+çalışmıyor** — bu, boşlukların trim edilmeyip geçersiz host kuralı üretilmesi desenidir.
+
+**Gözden kaçan asıl kayıp `www`.** Tartışma `api.` üzerinde dönerken `www.sipario.com.tr`in de ölü
+olduğu fark edilmemişti: bayi tarayıcıya "www.sipario.com.tr" yazarsa **pazarlama sitesine hiç
+ulaşamıyor.** Bu, satış kanalında sessiz bir delik.
+
+**DÜZELTME SENDE** (MCP salt-okunur, yazamaz): Coolify → Sipario App → Domains → boşlukları sil:
+`https://sipario.com.tr,https://www.sipario.com.tr,https://api.sipario.com.tr`
+
+Düzeldikten sonra `BlockApiHostWebRoutes` middleware'i de nihayet anlam kazanır — bugüne dek
+`api.` hiç ulaşılabilir olmadığı için o middleware hiçbir isteği görmedi.
 
 **Kurulum sırasında çözülen gerçek arızalar** (15 commit, 08-07 09:08–10:30): Postgres init betikleri
 mount edilemiyordu → imaja gömüldü (`docker/postgres/Dockerfile`) · `10-roles.sh` DB adını sabit
@@ -422,6 +435,36 @@ dışlıyordu. Bunlar gerçek mühendislik işiydi ve **doğru çözüldü**.
 ⚠️ Anahtar değişince mevcut oturumlar düşer (herkes yeniden giriş yapar) — **para/iş verisi
 etkilenmez**, çünkü veritabanındaki hiçbir alan `APP_KEY` ile şifreli değil.
 
+## 🔌 COOLIFY MCP KURULDU (2026-08-09) — ne görülebilir, ne görülemez
+
+`https://coolify.gostra.co/mcp` **kullanıcı kapsamında** (`--scope user`) kuruldu; token
+`~/.claude.json`'da durur ve **public depodaki `.mcp.json`'a değmez** (doğrulandı). Sunucu
+kendini "**Read-only** MCP server for Coolify" diye tanıtıyor: root token verilse bile MCP
+üzerinden hiçbir şey DEĞİŞTİRİLEMEZ. Coolify sürümü **4.1.2**.
+
+**10 araç:** `get_infrastructure_overview` · `list/get_servers` · `list/get_projects` ·
+`list/get_applications` · `list/get_databases` · `list/get_services`.
+
+| ✅ Görülebiliyor | ❌ Görülemiyor |
+|---|---|
+| Sunucu/proje/uygulama envanteri ve durumu | **Environment variables** — yanıtta hiç yok |
+| Domain eşlemesi, git dalı ve commit | Deployment logları / deploy geçmişi |
+| Healthcheck ayarları, pre/post deploy komutları | Container içi durum, `docker logs` |
+| Kaynak limitleri, restart sayacı, `last_online_at` | Yedek dosyaları |
+
+⚠️ **Sonuç: `APP_KEY` denetimi MCP ile YAPILAMAZ** — env değerleri bu API yüzeyinde yok.
+O madde insanda kalıyor (Coolify UI → uygulama → Environment Variables).
+
+**İlk turda MCP'nin bulduğu üç şey** (üçü de belgedeki bir varsayımı çürüttü):
+1. `www` ve `api` altalanlarının ölü olduğu ve **sebebi** (yukarıdaki bölüm) — önceki teşhis yanlıştı.
+2. **Migration zaten Coolify post-deployment komutunda koşuyordu** (`app` container'ında,
+   deploy başına bir kez). Yani "kalıcı çözüm post-deployment'a taşımak" diye yazdığım borç
+   çoktan çözülmüştü; ben farkında olmadan Dockerfile'a İKİNCİ bir kopya koymuştum. Kopya
+   kaldırıldı → migration yarışı borcu KAPANDI.
+3. **`status: running:unhealthy`** (`restart_count: 0` — site çalışıyor, yalnız sinyal bozuk).
+   Compose'daki healthcheck `curl` çağırıyordu; `serversideup/php` yalın bir imaj ve `curl`
+   varlığı garanti değil. Test PHP tabanlıya çevrildi (PHP tanım gereği var).
+
 ## 📋 SIRADAKİ İŞLER (2026-08-09 itibarıyla, öncelik sırasıyla)
 
 ### 🔴 HEMEN — canlı sistemin sağlığı
@@ -436,12 +479,16 @@ etkilenmez**, çünkü veritabanındaki hiçbir alan `APP_KEY` ile şifreli değ
    - `ROTA_SURUCU` (varsayılan `yakin-komsu`) → Oto Sırala Google Routes'u kullanmıyor olabilir
    - `IYZICO_BASE_URL` (varsayılan **sandbox**) → ödeme akışı sandbox'a bakıyor olabilir
    Her biri tek satırlık env; hangisinin açık olduğunu **canlıda ölçmek** gerekiyor (tahmin değil).
-4. **`api.` altalanı kararı** (yukarıdaki "YARIM KALMIŞ İŞ" bölümü). Ya Coolify'a bağla ya DNS'ten
-   kaldır — ama 503 dönen bir altalanı ve onu bekleyen ölü bir middleware'i olduğu gibi bırakma.
-5. **Migration yarışı.** `start-first` stratejisiyle eski+yeni `app` container'ı birlikte çalışıyor ve
-   ikisi de açılışta `migrate` koşuyor; Laravel'de süreçler arası kilit yok. Doğru çözüm: migrate'i
-   imajdan alıp **Coolify post-deployment komutuna** taşımak (tek sefer koşar). Bugüne kadar patlamadı
-   ama bu şans, tasarım değil.
+4. **Coolify domain alanındaki BOŞLUKLARI SİL** — `www` ve `api` altalanlarını ölü bırakan tek
+   karakterlik hata (yukarıdaki bölüm). Tek satırlık UI düzeltmesi; getiri/maliyet oranı en yüksek iş.
+   Düzelince `www.sipario.com.tr` yeniden ulaşılabilir olur ve `BlockApiHostWebRoutes` anlam kazanır.
+5. ~~**Migration yarışı**~~ ✅ **KAPANDI (2026-08-09, MCP ile).** Migrate'in ZATEN Coolify
+   post-deployment komutunda (`app` container'ı, deploy başına bir kez) koştuğu görüldü; borç olarak
+   yazılan "post-deployment'a taşı" çözümü çoktan uygulanmıştı. Dockerfile'daki ikinci kopya
+   kaldırıldı → yarış yüzeyi ortadan kalktı, şema tek yerden güncelleniyor.
+6. ~~**Healthcheck `running:unhealthy`**~~ ✅ **DÜZELTİLDİ (doğrulama bekliyor).** Test `curl`den
+   PHP'ye çevrildi. Bir sonraki deploy'dan sonra Coolify'da durum yeşile dönmeli; dönmezse sebep
+   `curl` değil demektir (o zaman port/route bakılır).
 
 ### 🟠 YAKINDA — açık riskler
 5. **Makine dışı yedek YOK.** `backup` sidecar günlük `pg_dump` alıyor ama yalnız sunucunun kendi
