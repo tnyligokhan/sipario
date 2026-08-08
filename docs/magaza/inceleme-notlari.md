@@ -11,17 +11,21 @@ durumuna bağlı özellikleri video üzerinden anlayabilsin ve hassas izinlerin 
 
 Giriş ekranı **üç alan** ister (e-posta İSTEMEZ):
 
-- **Firma Kodu:** `111`
-- **Kullanıcı Adı:** `111`
-- **Şifre:** `1111`
+- **Firma Kodu:** `demo`
+- **Kullanıcı Adı:** `demo`
+- **Şifre:** `demo1234`
 - **Rol:** Patron (tam yetkili)
 
-> ⚠️ **BU DEĞERLER GEÇİCİDİR — BAŞVURUDAN ÖNCE DEĞİŞTİRİLMELİ.** Saha testinde giriş kolay
-> olsun diye 2026-07-29'da `demo/demo/demo1234` yerine kısaltıldı. Depo public ve pilot
-> sunucusu tünelle dışarı açık; `1111` parolalı bir hesap, incelemeden geçse bile üçüncü
-> kişilerin kolayca gireceği bir kapıdır. Değiştirme noktası TEK yerdedir:
-> `DemoSeeder::DEMO_TENANT_CODE / DEMO_USERNAME / DEMO_PASSWORD` — bu belge oradan
-> güncellenir. Borç `PLAN.md` "İnsan gerektiren işler" listesinde.
+> ✅ **GEÇİCİ KISALTMA GERİ ALINDI (2026-08-07).** Saha testi kolaylığı için 2026-07-29'da
+> `111/111/1111`'e indirilen kimlik, canlı sunucuya geçişte `demo/demo/demo1234`'e döndürüldü.
+> Değerlerin tek kaynağı `DemoSeeder::DEMO_TENANT_CODE / DEMO_USERNAME / DEMO_PASSWORD`'dür;
+> bu belge ve `scripts/saha-sunucu.ps1` oradan güncellenir.
+>
+> ⚠️ Bu hesap **doğası gereği paylaşılan** bir inceleme hesabıdır ve parolası depoda açıkça
+> yazılıdır — mağaza incelemecisinin girebilmesi için başka yolu yok. Riski sınırlayan şey
+> parolanın gücü değil, **kiracı izolasyonudur**: hesap yalnız kendi demo bayisini görür,
+> içindeki her kayıt sahtedir ve RLS başka bayinin verisine erişimi yapısal olarak engeller
+> (kırmızı çizgi #1). Gerçek bir bayiye bu hesap verilmez.
 
 > Firma kodu, işletmeyi tanımlayan koddur; kullanıcı adı o işletmedeki kişiyi. Saha
 > uygulamasında kurye/tezgâhtar hesaplarının çoğu zaman e-posta adresi olmadığı için giriş

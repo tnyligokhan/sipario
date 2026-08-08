@@ -33,12 +33,33 @@ ENV AUTORUN_ENABLED="true" \
 
 WORKDIR /var/www/html
 
-# Otomatik Migration ve Seed Betiği: Container kalkarken pgsql_owner ile migrate & seed koşar
+# Otomatik migration: container kalkarken şema pgsql_owner rolüyle güncellenir.
+#
+# ⚠️ İKİ ŞEY BİLİNÇLİ OLARAK KALDIRILDI (2026-08-09):
+#
+#   1. `db:seed` — her container başlangıcında ÜRETİM veritabanına DemoSeeder'ı basıyordu
+#      (DatabaseSeeder → AdminUserSeeder + DemoSeeder). Yani canlı bayilerin yanına her
+#      deploy'da demo bayisi ve sahte Bursa müşterileri yazılıyordu. Seed artık YALNIZ elle
+#      çağrılır; hâlihazırda kurulu demo bayisi yerinde durur (mağaza incelemesi için gerekli).
+#
+#   2. `|| true` — migrate BAŞARISIZ olduğunda hatayı yutuyor ve container'ı "sağlıklı"
+#      gösteriyordu. Uygulama eski şemayla ayağa kalkıyor, arıza günler sonra para
+#      kayıtlarında görünüyordu. Bu, PLAN.md'de "sessiz arıza dersi" olarak yazılı olan
+#      `saha-sunucu.ps1` hatasının (`*> $null` ile seeder hatasını yutmak) birebir tekrarıydı.
+#      Artık `set -e`: migrate düşerse container başlamaz → healthcheck kırmızı →
+#      compose'daki `failure_action: rollback` devreye girer ve ESKİ sürüm ayakta kalır.
+#
+# ⚠️ AÇIK RİSK — MIGRATION YARIŞI: `start-first` stratejisiyle eski ve yeni `app` container'ı
+# kısa süre birlikte çalışır; ikisi de bu betiği koşar. Laravel migration'da süreçler arası
+# kilit YOKTUR. Kalıcı çözüm migrate'i buradan alıp Coolify'ın post-deployment komutuna
+# taşımaktır (tek sefer koşar). PLAN.md'de açık borç olarak duruyor.
 USER root
 RUN mkdir -p /etc/entrypoint.d && \
-    echo '#!/bin/bash' > /etc/entrypoint.d/99-migrate.sh && \
-    echo 'php /var/www/html/artisan migrate --database=pgsql_owner --force || true' >> /etc/entrypoint.d/99-migrate.sh && \
-    echo 'php /var/www/html/artisan db:seed --force || true' >> /etc/entrypoint.d/99-migrate.sh && \
+    printf '%s\n' \
+      '#!/bin/bash' \
+      'set -e' \
+      'php /var/www/html/artisan migrate --database=pgsql_owner --force' \
+      > /etc/entrypoint.d/99-migrate.sh && \
     chmod +x /etc/entrypoint.d/99-migrate.sh
 
 # Uygulama kodunu kopyala
