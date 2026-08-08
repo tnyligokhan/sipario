@@ -373,18 +373,36 @@ Virgüllerden sonra **BOŞLUK** var. Ölçüm (üç hostname, aynı anda):
 | `www.sipario.com.tr` | **503** `no available server` | Coolify proxy — route YOK ❌ |
 | `api.sipario.com.tr` | **503** `no available server` | Coolify proxy — route YOK ❌ |
 
-DNS ikisinde de çalışıyor (proxy'ye ulaşılıyor), TLS geçerli. **İlk domain çalışıyor, sonraki ikisi
-çalışmıyor** — bu, boşlukların trim edilmeyip geçersiz host kuralı üretilmesi desenidir.
+DNS ikisinde de çalışıyor (proxy'ye ulaşılıyor), TLS geçerli.
 
-**Gözden kaçan asıl kayıp `www`.** Tartışma `api.` üzerinde dönerken `www.sipario.com.tr`in de ölü
-olduğu fark edilmemişti: bayi tarayıcıya "www.sipario.com.tr" yazarsa **pazarlama sitesine hiç
-ulaşamıyor.** Bu, satış kanalında sessiz bir delik.
+### ✅ SONUÇ: KENDİLİĞİNDEN DÜZELDİ — VE İKİNCİ TEŞHİS DE YANLIŞTI
 
-**DÜZELTME SENDE** (MCP salt-okunur, yazamaz): Coolify → Sipario App → Domains → boşlukları sil:
-`https://sipario.com.tr,https://www.sipario.com.tr,https://api.sipario.com.tr`
+Yukarıdaki "virgülden sonraki boşluk ayrıştırmayı bozuyor" açıklaması **kanıtlanmadı ve büyük
+olasılıkla yanlıştı.** Coolify'da hiçbir domain düzeltmesi YAPILMADAN, yalnızca yeni bir deploy
+sonrasında üç hostname de çalışmaya başladı:
 
-Düzeldikten sonra `BlockApiHostWebRoutes` middleware'i de nihayet anlam kazanır — bugüne dek
-`api.` hiç ulaşılabilir olmadığı için o middleware hiçbir isteği görmedi.
+| Hostname | `/up` | `/` (ana sayfa) |
+|---|---|---|
+| `sipario.com.tr` | **200** | **200** ✅ |
+| `www.sipario.com.tr` | **200** | **200** ✅ |
+| `api.sipario.com.tr` | **200** | **404** ✅ — `BlockApiHostWebRoutes` ÇALIŞIYOR |
+
+**Gerçek kök neden (en olası):** domainler Coolify'a eklenmişti ama **proxy yapılandırması onlar
+için üretilmemişti**; route'lar ancak yeni bir deploy tetiklendiğinde kuruldu. Yani sorun
+"yanlış yazılmış domain" değil, **"uygulanmamış yapılandırma"** idi. Kesin sebep ölçülemedi —
+MCP proxy yapılandırmasını göstermiyor ve arada iki deploy geçti, hangisinin düzelttiği ayrılamıyor.
+
+**İki ders:**
+1. **Bir teşhis, düzeltme uygulanmadan kanıtlanmış sayılmaz.** "İlk domain çalışıyor, sonrakiler
+   çalışmıyor" deseni boşluk hipotezine çok iyi uyuyordu — ama uymak kanıt değildir. Boşluklar
+   hâlâ Coolify'da duruyor ve üçü de çalışıyor; hipotez bu tek gözlemle çürüdü.
+2. **`BlockApiHostWebRoutes` artık ölü kod değil, kanıtlanmış bir kapı:** `api.sipario.com.tr/`
+   404 dönüyor, `api.sipario.com.tr/up` 200. Yani mobil trafiğin kapısından panele/siteye
+   erişilemiyor — middleware tasarlandığı işi yapıyor.
+
+**Kalan takip:** boşluklar Coolify'da hâlâ duruyor. Zarar vermediği ölçüldü; yine de bir sonraki
+Coolify sürümünde ayrıştırma değişirse kırılganlık kaynağı olabilir. Domainleri boşluksuz yazmak
+ucuz bir hijyen adımıdır, acil değildir.
 
 **Kurulum sırasında çözülen gerçek arızalar** (15 commit, 08-07 09:08–10:30): Postgres init betikleri
 mount edilemiyordu → imaja gömüldü (`docker/postgres/Dockerfile`) · `10-roles.sh` DB adını sabit
@@ -479,9 +497,11 @@ O madde insanda kalıyor (Coolify UI → uygulama → Environment Variables).
    - `ROTA_SURUCU` (varsayılan `yakin-komsu`) → Oto Sırala Google Routes'u kullanmıyor olabilir
    - `IYZICO_BASE_URL` (varsayılan **sandbox**) → ödeme akışı sandbox'a bakıyor olabilir
    Her biri tek satırlık env; hangisinin açık olduğunu **canlıda ölçmek** gerekiyor (tahmin değil).
-4. **Coolify domain alanındaki BOŞLUKLARI SİL** — `www` ve `api` altalanlarını ölü bırakan tek
-   karakterlik hata (yukarıdaki bölüm). Tek satırlık UI düzeltmesi; getiri/maliyet oranı en yüksek iş.
-   Düzelince `www.sipario.com.tr` yeniden ulaşılabilir olur ve `BlockApiHostWebRoutes` anlam kazanır.
+4. ~~**`www` / `api` altalanları ölü**~~ ✅ **KAPANDI (2026-08-09).** Yeni deploy sonrası üçü de
+   çalışıyor; `api.sipario.com.tr/` 404 vererek `BlockApiHostWebRoutes`in gerçekten çalıştığını da
+   kanıtladı. Kök neden "yanlış domain" değil **"uygulanmamış proxy yapılandırması"** çıktı.
+   Küçük hijyen borcu: Coolify'daki domain listesinde virgülden sonraki boşluklar duruyor —
+   zararsız olduğu ölçüldü, ama boşluksuz yazmak ileride kırılganlık ihtimalini kapatır.
 5. ~~**Migration yarışı**~~ ✅ **KAPANDI (2026-08-09, MCP ile).** Migrate'in ZATEN Coolify
    post-deployment komutunda (`app` container'ı, deploy başına bir kez) koştuğu görüldü; borç olarak
    yazılan "post-deployment'a taşı" çözümü çoktan uygulanmıştı. Dockerfile'daki ikinci kopya
