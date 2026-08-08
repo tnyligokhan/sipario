@@ -486,9 +486,15 @@ O madde insanda kalıyor (Coolify UI → uygulama → Environment Variables).
    post-deployment komutunda (`app` container'ı, deploy başına bir kez) koştuğu görüldü; borç olarak
    yazılan "post-deployment'a taşı" çözümü çoktan uygulanmıştı. Dockerfile'daki ikinci kopya
    kaldırıldı → yarış yüzeyi ortadan kalktı, şema tek yerden güncelleniyor.
-6. ~~**Healthcheck `running:unhealthy`**~~ ✅ **DÜZELTİLDİ (doğrulama bekliyor).** Test `curl`den
-   PHP'ye çevrildi. Bir sonraki deploy'dan sonra Coolify'da durum yeşile dönmeli; dönmezse sebep
-   `curl` değil demektir (o zaman port/route bakılır).
+6. **Healthcheck — KISMİ SONUÇ, ZAFER İLAN EDİLMEDİ.** Test `curl`den PHP'ye çevrildi ve deploy
+   sonrası durum `running:unhealthy` → **`running:unknown`** oldu; 150 saniye boyunca izlendi,
+   `healthy`ye dönmedi. Yani:
+   - ✅ **Sahte alarm bitti** — panel artık yanlış yere kırmızı göstermiyor (alarm körlüğü riski geçti).
+   - ❌ **Healthcheck'in GERÇEKTEN çalıştığı kanıtlanmadı.** Coolify'daki diğer tüm uygulamalar da
+     `running:unknown` gösteriyor; bu, "healthcheck sonucu yok" varsayılanı olabilir — yani sinyal
+     yeşile dönmedi, sadece sustu.
+   **Kesin kanıt için** sunucuda `docker ps` çıktısındaki STATUS sütununa bakılmalı: `(healthy)`
+   yazıyorsa iş bitmiştir. MCP container düzeyi ayrıntı vermediği için bu yolla ölçülemiyor.
 
 ### 🟠 YAKINDA — açık riskler
 5. **Makine dışı yedek YOK.** `backup` sidecar günlük `pg_dump` alıyor ama yalnız sunucunun kendi
