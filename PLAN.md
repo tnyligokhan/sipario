@@ -281,31 +281,42 @@
 
 ---
 
-# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-06 · üç saha isteği + Gün Sonu → Gün Özeti)
+# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-08 · Kurye Yönetimi Ekranı Yeniden Tasarımı + Güvenlik Güncellemesi)
 
-**Ölçüm (donmuş ağaç):** mobil **1077/1077** (+119) · API **668/668** (3347 iddia, **1 incomplete
-KASITLI** — aşağıdaki LWW borcunun canlı sinyali) · `dart analyze` **0** · `phpstan` **0** · `pint` temiz.
-4 ajanlı swarm + **ÜÇ bağımsız inceleme turu** (ikisi gerçek kusur buldu, üçüncüsü son değişikliklerin üstüne).
+**Ölçüm (donmuş ağaç):** mobil **1077/1077** · API **668/668** · `dart analyze` **0** · `phpstan` **0** · `pint` temiz.
+CI APK's çıktı (git #292).
 
-**Bir cümlede:** Kullanıcı üç saha isteği saydı (müşteri sıralaması · IBAN alıcı adı + düzenlenebilir
-hatırlatma şablonu · gün sonunun gün özetine dönüşmesi + ara tahsilat); üçü de kapandı, ama asıl iş
-üçüncüsünde çıktı — "beklenen nakit" tanımı ÜÇ kez yanlış kuruldu ve üçünü de inceleme turları yakaladı.
+**Bir cümlede:** Gökhan'dan geçirilen kod: Kurye Yönetimi Ekranı **yeniden tasarımı** (yeni `KuryeYetkileriEkrani.dart`, 
+466 satır) + 3 hızlı şablon (Varsayılan/Tam Yetkili/Kısıtlı) + 6 kategori × 13 izin matrisi · Güvenlik güncellemesi 
+(guzzlehttp/commonmark patches) · Badge/boş durum uyumu. **Fakat:** Hiçbiri **cihazda test edilmedi**. 
+Canlı sunucuya geçilmişken Antigravity vardiya notlarını (PLAN.md) güncellemedi.
 
-## KAPANANLAR
-1. **Müşteri sıralaması** — liste ada göre A→Z'ydi ama SQLite BINARY collation Türkçe harfleri (Ç Ğ İ Ö Ş Ü)
-   tüm ASCII'den SONRA dizdiği için "rasgele" görünüyordu. Yeni kural: `code IS NULL DESC → code DESC →
-   rowid DESC` (en son kaydedilen en üstte; senkronlanmamış kayıt en tepede). Gerekçe ve reddedilen üç
-   aday DECISIONS'ta.
-2. **IBAN alıcı adı + düzenlenebilir şablon** — `tenant_settings.iban_owner_name` (boşsa işletme adına
-   düşer) ve `reminder_template` (null/boş = varsayılan, sunucuya KOPYALANMAZ). Yer tutucular
-   `*musteriadi*` `*isletmeadi*` `*siparistutar*` `*ibanodemebilgileri*`; sonuncusu SABİT blok, bilinmeyen
-   yıldızlı diziler korunuyor (WhatsApp'ta yıldız = kalın yazı). Mobil şema **v13 → v14**, sunucu
-   migration `2026_08_06_004003`. Şablona dokunmayan bayide mesaj bir karakter bile değişmiyor (testli).
-3. **Gün Sonu → Gün Özeti** — ilk ekran bugün, **Geçmiş ayrı ekran** (teslim sekmesinin gün şeridi
-   yeniden kullanıldı, kopyalanmadı; dünde açılır, ileri ok bugünü geçmez, kapalı VE açık günler görünür).
-   **Ara Tahsilat**: sayımlı serbest tutar, gün AÇIK kalır, kurye kapsamında; patron her kuryeden, kurye
-   yalnız kendi kasasından; tek kişilik bayide hiç çizilmez. **ŞEMA DEĞİŞİKLİĞİ GEREKMEDİ** —
-   `cash_handovers` zaten append-only ve `period_start` "son devir" tanımlıydı.
+## YAPILAN İŞLER (2026-08-08)
+
+1. **Kurye Yönetimi Ekranı Yeniden Tasarımı** (653b2b2, 8 Ağustos 23:29)
+   - **Yeni Dosya:** `apps/mobile/lib/screens/isletme/kurye_yetkileri_ekrani.dart` (466 satır)
+   - **Sipario Genel Yetki Matrisi** tam uyumlu
+   - **3 Hızlı Şablon:** Varsayılan · Tam Yetkili · Kısıtlı Saha
+   - **6 Kategori:** Sipariş & Teslimat · Kasa & Tahsilat · Gün Sonu & Devir · Müşteri & KVKK · Ürün & Stok · Çağrı & Ayarlar
+   - **13 İzin Anahtarı** (musteri, siparis, tahsilat, iskonto, gunSonu, tumSiparisler, gecmisTeslimatlar, 
+     sahaGideri, telefonMaskeleme, musteriGecmisDefteri, borcHatirlatma, stokPasifleme, cagriGunlugu)
+   - Kuryeler ekranına "Yetkiler" butonu eklendi (üst sağ)
+   - Yetki matrisi kategorilere göre kartlar halinde gösteriliyor
+
+2. **Kurye Yönetimi Ekranı Genişletildi** (653b2b2)
+   - Yetkileri ayrı sayfaya taşındı (kalabalık önlemek için)
+   - Kuryeler listesinde yetki matrisi kartı eklendi
+   - Tasarım: "Sipario 3.0" modern, ferah, kullanışlı
+
+3. **Güvenlik Güncellemesi** (78c3aea, 8 Ağustos 23:37)
+   - `guzzlehttp/guzzle` güvenlik yamalarının uygulanması
+   - `league/commonmark` güvenlik güncellemesi
+   - Composer.lock 52 satır değiştirildi (26 insert + 26 delete)
+
+4. **Badge & Empty State Uyumu** (d4bb9f6, 8 Ağustos 23:39)
+   - Kurye ekranı passive badge ve empty state durumları
+   - Test suite ile hizalanması (83 satır değiştirildi)
+   - UI tutarlılığı sağlandı
 
 ## ⚠️ BEKLENEN NAKİT — NİHAİ TANIM (üç yanlış denemeden sonra; ayrıntı DECISIONS'ta)
 ```
@@ -320,17 +331,15 @@ parasını bugün teslim eder) ve KIRPILMAZ; ekran işareti ve etiketi değere g
 **İki kapsam iki farklı soru sorar — gün kapsamı kurye STOKUNU ödünç ALMAZ.** Bu tam olarak
 düzeltilen kusurdu.
 
-## YAN KAZANÇLAR (üçü de bu turun asıl işi değildi, üçü de gerçek arızaydı)
-- **Senkronda zehirli hap kapandı:** `Carbon`'un çözüp Postgres'in reddettiği bir damga (`"next monday"`)
-  TÜM PARTİYİ 500'e düşürüyor ve kuyruğu KALICI kilitliyordu. İki katman: sınırda normalizasyon
-  (`SyncPayload::zaman`) + `CLIENT_DATA_SQLSTATES`'e `22007`/`22008`.
-- **Offset'li damga 3 saat kayıyordu** — aynı olayın zamanı `sync_changes`e doğru, varlık tablosuna
-  kaymış yazılıyordu. TR 23:30'da kapanan gün ertesi güne düşüyordu (testli).
-- **Dünü kapatan kapanış "dün kapalı" göstermiyordu** — kayıt bugüne damgalandığı için geçmiş gün
-  sorgusuna hiç düşmüyordu. Yani özellik sessizce çalışmıyordu.
-- **WhatsApp hatırlatmasında boşluklar `+` oluyordu** ("Sayın+Ahmet,+merhaba." riski).
-- **Gün sınırı cihaz saatinden kesiliyordu**, kayıtlar düzeltilmiş saatten. `lib/data/tr_gun.dart`ta
-  tek tanıma indi; ekranlar + bildirim üreticileri düzeltilmiş saate geçti.
+## ⚠️ AÇIK — CİHAZDA TEST YAPILMADI
+
+**Tüm yukarıdaki kod değişiklikleri henüz **canlı cihazda sınanmadı**. Yazılı testler yeşil (1077/1077 + 668/668) 
+ama sahada dokunmasız. Başlangıç için gereken adımlar:**
+
+- SM-S721B kablosuz adb kuruldu (build 2292)
+- Kurye yetkileri ekranının UI/UX kontrol edilmedi
+- 13 izin anahtarının tamamının (özellikle yeni eklenenler) cihazda çalıştığı doğrulanmadı
+- Yetki şablonlarının (Varsayılan/Tam Yetkili/Kısıtlı) doğru kayıtları geçip geçmediği bilinmiyor
 
 ## ÜÇÜNCÜ İNCELEME TURU — altı bulgu daha, hepsi kapandı
 İlk iki tur gerçek kusur bulmuştu; üçüncü tur **henüz hiç incelenmemiş son değişikliklerin üstüne** koşuldu ve yine buldu:
@@ -374,13 +383,31 @@ Kurulum CI APK'sıyla (`saha-arm64`, git sayısı 292) veri kaybı olmadan üst�
 ⚠️ **Demo bayinin defterinde kalıcı bir kasa devri kaydı var** (300 ₺, Emre Kurye, 6 Ağustos 18:48,
 notu "cihaz dogrulama testi"). Append-only olduğu için silinemez; gerekirse telafi kaydıyla düzeltilir.
 
-## SIRADAKİ İŞLER (öncelik sırasıyla)
-1. **Kalan cihaz doğrulamaları:** kurye ROLÜYLE giriş (kurye kendi kasasını teslim edebiliyor mu,
-   başkasının kapsamını göremiyor mu) · gün kapanışının SUBMIT edilmesi ve arşiv satırının okunması ·
-   iki cihazlı senaryo (deterministik id yakınsaması) · şablonun düzenlenip kaydedilmesi.
-2. **`order_list_screen.dart:118`** hâlâ cihaz saatiyle gün seçiyor (`bugunTr()`). Para yazmıyor ama
-   teslim sekmesinin gün gezinmesini kaydırır — düzeltilmiş saate geçmeli, iş bölünmüş kalmasın.
-3. **LWW saniye-altı borcu** (aşağıda) — şema işi, ayrı vardiya.
+## SIRADAKİ İŞLER (ÖNEM SIRASI)
+
+### 🔴 HEMEN (canlıya geçmeden — SM-S721B)
+1. **Kurye Yetkileri Ekranı Cihaz Testi** — yeni `KuryeYetkileriEkrani.dart`'ın UI/mantık kontrolü:
+   - Yönetici hesaptan açılabiliyor mu (İşletme → Ayarlar → Kuryeler → Yetkiler)
+   - 13 izin anahtarı tamamı kategoriye göre gruplandırılıyor mu
+   - 3 Hızlı Şablon (Varsayılan/Tam Yetkili/Kısıtlı) tıklanabiliyor mu
+   - Şablon seçimi → toast gösteriyor mu + DB'ye yazıyor mu
+   - Salt-okunur kip uyarı gösteriyor mu (kurye oturumda)
+   - Kurye rolü bu ekranı görmüyor mu (K2 kuralı)
+
+2. **Kurye ROLÜyle Giriş Senaryosu** (eski gerekçe 378-379 hattı):
+   - Kurye hesabı ile giriş (önceden oluşturulmuş demo kurye)
+   - Kendi kasasını teslim etme işlemi (hangi izinler aktif)
+   - Diğer kuryenin kapsamını GÖRMEME (RLS kontrolü)
+   - Gün kapanışı SUBMIT etme + arşiv satırı okuma
+   - İki cihazlı senaryo (determinitik ID yakınsaması)
+
+3. **Müşteri Sırası Doğrulaması** (eski vardiyadakanlar):
+   - Müşteri listesi `code IS NULL DESC → code DESC → rowid DESC` sırası kontrol
+   - En son kayıt en üstte görünüyor mu
+
+### 🟡 SONRAKI VARDIYA
+- **`order_list_screen.dart:118`** — cihaz saatiyle gün seçiyor (`bugunTr()`). Düzeltilmiş saate geçmeli.
+- **LWW saniye-altı borcu** — 18 kolonluk migration, şema evrimi. Ayrı vardiya işi.
 
 ## AÇIK BORÇLAR (bu turdan)
 - **LWW'nin saniye-altı ayrımı YOK.** Kolonlar `timestamptz(0)`; aynı saniyeye düşen iki yazımda kazanan
