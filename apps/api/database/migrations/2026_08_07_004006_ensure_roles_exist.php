@@ -67,6 +67,9 @@ return new class extends Migration
 
             -- Append-only tablolarda UPDATE ve DELETE iptali (finansal defter & mutabakat bütünlüğü)
             REVOKE UPDATE, DELETE ON ledger_entries, order_events, sync_changes, processed_events, cash_handovers, subscription_payments, day_closings FROM sipario_app;
+
+            -- Şirket ve panel tablolarına sipario_app erişim iptali (000504 ve 005010 kuralları)
+            REVOKE ALL ON admin_users, panel_audit, plans, addon_packages, addon_grants, expenses, tenant_notes, payment_notifications FROM sipario_app;
         SQL);
     }
 
