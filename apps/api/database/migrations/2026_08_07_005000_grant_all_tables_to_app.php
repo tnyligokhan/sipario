@@ -7,8 +7,7 @@ use Illuminate\Support\Facades\DB;
  * Mevcut tüm veritabanı tabloları ve dizileri (sequences) üzerinde
  * sipario_app ve sipario_panel izinlerini tazeleyen ve eksikleri gideren migration.
  */
-return new class extends Migration
-{
+return new class extends Migration {
     public function up(): void
     {
         if (DB::getDriverName() !== 'pgsql') {

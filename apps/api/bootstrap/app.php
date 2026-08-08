@@ -1,10 +1,10 @@
 <?php
 
 use App\Http\Middleware\AppendServerTime;
+use App\Http\Middleware\BlockApiHostWebRoutes;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\ResolveTenantContext;
 use App\Http\Middleware\SecurityHeaders;
-use App\Http\Middleware\BlockApiHostWebRoutes;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
