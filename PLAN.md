@@ -401,8 +401,10 @@ dışlıyordu. Bunlar gerçek mühendislik işiydi ve **doğru çözüldü**.
    ⚠️ **Ama otomatik rollback YOK — ve bu ölçülerek anlaşıldı.** Compose'daki `deploy.update_config`
    (`order: start-first` + `failure_action: rollback`) **yalnız Docker Swarm'da** çalışır; Coolify düz
    `docker compose` kullandığı için bu alanlar SESSİZCE YOK SAYILIYOR. Kanıt: bu vardiyanın
-   deploy'unda `sipario.com.tr` birkaç saniye **503** verdi — `start-first` gerçekten uygulansaydı
-   kesinti olmazdı. Yani migrate düşerse `restart: unless-stopped` döngüye girer ve **site aşağıda
+   iki ayrı deploy'unda `sipario.com.tr` **40–60 saniye boyunca 503** verdi — `start-first` gerçekten
+   uygulansaydı hiç kesinti olmazdı. **Bu süre pilot sırasında fark edilir:** kurye teslim kapatırken
+   denk gelirse yazma isteği düşer (offline kuyruk onu tutar, veri kaybı yok — ama "sunucuya
+   ulaşılamıyor" bandı görünür). Yani deploy'lar şimdilik yoğun saat dışında yapılmalı. Yani migrate düşerse `restart: unless-stopped` döngüye girer ve **site aşağıda
    kalır**; eski sürüme dönüş ELLE yapılır (Coolify → önceki deployment → Redeploy).
    Takas bilinçli: bir defter uygulamasında GÖRÜNÜR kesinti, yanlış şemayla sessizce çalışıp para
    kayıtlarını bozmaktan iyidir. Ama "rollback beni korur" diye güvenilmemeli — **compose'daki o iki
