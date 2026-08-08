@@ -1,19 +1,11 @@
-// KURYELER ekranı — tasarım s-kuryeler.jsx + Sipario.html `.urow*`, `.krow-ic`,
-// `.aktif-toggle`, `.ys-bos`.
+// KURYELER ekranı — Modern, ferah ve kullanışlı Sipario 3.0 tasarımı.
 //
-// Liste: ad (+ PASİF rozeti) · telefon · chevron. Satıra dokununca ad/telefon/aktiflik düzenlenir
-// ve `users` aynasına iyimser yazılır (CourierRepository → outbox → sunucu).
+// Liste: ad (+ PASİF rozeti) · telefon · kullanıcı adı · durum rozeti · chevron.
+// Satıra dokununca ad/telefon/aktiflik/giriş bilgileri düzenlenir.
 //
-// ══ NEDEN "YENİ KURYE EKLE" YOK ════════════════════════════════════════════════════════════
-// Tasarımda kesik çizgili bir ekleme düğmesi var; burada bilinçli olarak ÇİZİLMİYOR.
-// `CourierRepository` kullanıcı OLUŞTURAMAZ (dosyanın başındaki sınır notu): yeni kullanıcı
-// e-posta+parola üretmeyi gerektirir ve kimlik yüzeyini senkron yolundan açmak yetki yükseltme
-// vektörüdür. Kullanıcı açma panel tarafındadır. İşini yapamayacak bir düğme koymak yerine
-// nedenini söyleyen bir bilgi bloğu konuldu.
-//
-// Kurye SİLİNMEZ, pasifleşir: geçmiş atamalarda adının okunabilir kalması gerekir.
+// YETKİLER: Ekran kalabalığını önlemek için kurye yetkileri ayrı bir sayfaya (KuryeYetkileriEkrani)
+// taşındı; bu ekrandan üstteki "Yetkiler" butonu veya Yetki Matrisi kartı ile doğrudan erişilir.
 
-import '../../sync/yenileme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -21,6 +13,7 @@ import '../../auth/session.dart';
 import '../../data/app_database.dart';
 import '../../repo/courier_repository.dart';
 import '../../sync/team_api.dart';
+import '../../sync/yenileme.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
@@ -28,13 +21,12 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import 'isletme_atomlari.dart';
-import 'kurye_yetki_bolumu.dart';
+import 'kurye_yetkileri_ekrani.dart';
 
 /// Salt-okunur kip uyarısı — ürün/muaf ekranlarındaki eşdeğerleriyle aynı dil.
 const String kuryeSaltOkunurUyarisi = 'Salt-okunur kip: kurye kaydı değiştirilemez.';
 
-/// Kimlik güncelleme dikişi — testler bunu sahteler (ağa ve platform kanalına çıkmadan
-/// formun davranışı sınanabilsin). `uriAcici` / `sessizKonumOku` desenlerinin aynısı.
+/// Kimlik güncelleme dikişi — testler bunu sahteler.
 Future<bool> Function({
   required AppDatabase db,
   required String userId,
@@ -74,6 +66,18 @@ class KuryelerEkrani extends StatelessWidget {
   /// Oturumdaki rol; kurye bu ekranı göremez (K2).
   final String? rol;
 
+  void _yetkileriAc(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => KuryeYetkileriEkrani(
+          db: db,
+          writable: writable,
+          rol: rol,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
@@ -99,11 +103,24 @@ class KuryelerEkrani extends StatelessWidget {
                         ? null
                         : '$aktif aktif · ${kuryeler.length} kayıtlı',
                     onGeri: () => Navigator.of(context).maybePop(),
+                    sag: [
+                      SipMetinButon(
+                        etiket: 'Yetkiler',
+                        ikon: SipIcons.lock,
+                        onTap: () => _yetkileriAc(context),
+                      ),
+                    ],
                   ),
                   Expanded(
                     child: kuryeler == null
                         ? const SipGovde(children: [SipIskelet(adet: 3)])
-                        : _Liste(repo: repo, kuryeler: kuryeler, writable: writable),
+                        : _Liste(
+                            repo: repo,
+                            kuryeler: kuryeler,
+                            aktifSayi: aktif,
+                            writable: writable,
+                            onYetkileriAc: () => _yetkileriAc(context),
+                          ),
                   ),
                 ],
               );
@@ -122,11 +139,19 @@ List<User> kuryeleriAyikla(List<User> ekip) =>
 bool kuryeAktifMi(User u) => u.status == 'active';
 
 class _Liste extends StatelessWidget {
-  const _Liste({required this.repo, required this.kuryeler, required this.writable});
+  const _Liste({
+    required this.repo,
+    required this.kuryeler,
+    required this.aktifSayi,
+    required this.writable,
+    required this.onYetkileriAc,
+  });
 
   final CourierRepository repo;
   final List<User> kuryeler;
+  final int aktifSayi;
   final bool writable;
+  final VoidCallback onYetkileriAc;
 
   Future<void> _ac(BuildContext context, User kurye) async {
     if (!writable) {
@@ -137,8 +162,6 @@ class _Liste extends StatelessWidget {
     if (sonuc == null || !context.mounted) return;
 
     // SIRA ÖNEMLİ — önce profil (çevrimdışı çalışır, outbox'a düşer), sonra kimlik (ONLINE).
-    // Tersi olsaydı ağ hatası profil düzenlemesini de yutardı; oysa ad/telefon değişikliğinin
-    // internete ihtiyacı yok ve kaybolmaması gerekiyor (kırmızı çizgi #3).
     await repo.updateProfile(
       kurye.id,
       name: sonuc.ad,
@@ -147,9 +170,6 @@ class _Liste extends StatelessWidget {
     );
     if (!context.mounted) return;
 
-    // Değişmeyen alan GÖNDERİLMEZ: aynı kullanıcı adını yeniden yollamak sunucudaki tekillik
-    // denetimini boşuna çalıştırır, boş bir parola alanı da "parolayı değiştir" niyeti değildir.
-    // İkisi de değişmediyse ağa HİÇ çıkılmaz — kurye kaydı çevrimdışı da düzenlenebilmeli.
     final yeniAd = (sonuc.kullaniciAdi.isEmpty || sonuc.kullaniciAdi == kurye.username)
         ? null
         : sonuc.kullaniciAdi;
@@ -173,74 +193,303 @@ class _Liste extends StatelessWidget {
             : 'Kurye kaydedildi',
       );
     } on TeamApiException catch (e) {
-      // Profil ZATEN kaydedildi; yalnız kimlik kısmı başarısız oldu ve kullanıcı bunu bilmeli.
       if (context.mounted) SipToast.goster(context, e.mesaj);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = context.sip;
     return SipGovde(
-      // Aşağı çekerek yenile: liste sunucudan senkronla besleniyor (kullanıcı isteği 2026-07-29).
       onYenile: yenile,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: SipSpace.xl),
-          child: SipNotKutusu(
-            ikon: SipIcons.info,
-            metin: 'Yeni kurye hesabı yönetim panelinden açılır — bu ekrandan kurye EKLENEMEZ. '
-                'Buradan ad, telefon ve aktiflik düzenlenir; kurye silinmez, pasife alınır.',
+        // 1. Yetki Matrisi Hero / Eylem Kartı
+        _YetkiMatrisiHeroKarti(onTap: onYetkileriAc),
+        const SizedBox(height: SipSpace.md),
+
+        // 2. Bilgilendirme Notu (Sade ve kompakt)
+        const SipNotKutusu(
+          ikon: SipIcons.info,
+          tur: SipNotTuru.bilgi,
+          metin: 'Yeni kurye hesabı web yönetim panelinden açılır. '
+              'Buradan kurye adı, telefonu ve aktiflik durumu düzenlenir.',
+        ),
+        const SizedBox(height: SipSpace.lg),
+
+        // 3. Kurye Ekip Listesi Başlığı
+        SipBolumBaslik(
+          'Kurye Ekibi',
+          ustBosluk: 4,
+          altBosluk: 8,
+          sag: Text(
+            '$aktifSayi / ${kuryeler.length} Aktif',
+            style: SipText.metin(12, w: 700).copyWith(color: t.accent),
           ),
         ),
 
-        // YETKİLER — kullanıcı isteği 2026-08-04. Listenin ÜSTÜNDE duruyor çünkü "kuryelerim ne
-        // yapabilir" sorusu kişilerden önce gelir ve ayar TÜM kuryeler için ortaktır (kişi bazlı
-        // değil — gerekçe migration 004002'de).
-        KuryeYetkiBolumu(db: repo.db, writable: writable),
-        // Boş durum ÇİZİLMEZ (tasarımda yok): liste boşken üstteki not zaten hem neden boş
-        // olduğunu hem nereden doldurulacağını söylüyor; ikisi arka arkaya aynı cümleydi.
-        Column(
-          children: [
-            for (var i = 0; i < kuryeler.length; i++)
-              Padding(
-                padding: EdgeInsets.only(top: i == 0 ? 0 : 7),
-                child: _KuryeSatiri(
-                  kurye: kuryeler[i],
-                  onTap: () => _ac(context, kuryeler[i]),
+        // 4. Kurye Kartları / Boş Durum
+        if (kuryeler.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: SipSpace.lg),
+            child: SipBosDurum(
+              ikon: SipIcons.truck,
+              baslik: 'Kayıtlı kurye yok',
+              aciklama: 'Kurye eklemek için web yönetim panelini kullanabilirsiniz.',
+            ),
+          )
+        else
+          Column(
+            children: [
+              for (var i = 0; i < kuryeler.length; i++)
+                Padding(
+                  padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
+                  child: _ModernKuryeKarti(
+                    kurye: kuryeler[i],
+                    onTap: () => _ac(context, kuryeler[i]),
+                  ),
                 ),
-              ),
-          ],
-        ),
+            ],
+          ),
       ],
     );
   }
 }
 
-class _KuryeSatiri extends StatelessWidget {
-  const _KuryeSatiri({required this.kurye, required this.onTap});
+/// Kurye Yetkileri Hızlı Erişim Hero Kartı
+class _YetkiMatrisiHeroKarti extends StatelessWidget {
+  const _YetkiMatrisiHeroKarti({required this.onTap});
 
-  final User kurye;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    final tel = (kurye.phone ?? '').trim();
-    return UrunSatiri(
-      // CSS `.krow-ic` — accent-soft yuvarlak içinde kamyonet ikonu.
-      bas: SipIkonKutu(
-        ikon: SipIcons.truck,
-        cap: 36,
-        ikonBoyut: 18,
-        kalinlik: 1.9,
-        radius: SipRadius.hap,
-        zemin: t.accentSoft,
-        renk: t.accent,
-      ),
-      ad: kurye.name,
-      altSatir: tel.isEmpty ? 'Telefon yok' : sipTelefon(tel),
-      pasif: !kuryeAktifMi(kurye),
+    return SipDokun(
       onTap: onTap,
+      zemin: t.surface,
+      basiliZemin: t.surface2,
+      radius: SipRadius.br3,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          // Sol İkon Kutusu
+          SipIkonKutu(
+            ikon: SipIcons.lock,
+            cap: 42,
+            ikonBoyut: 20,
+            kalinlik: 2.1,
+            radius: SipRadius.hap,
+            zemin: t.accentSoft,
+            renk: t.accent,
+          ),
+          const SizedBox(width: SipSpace.md),
+
+          // Orta Metin Alanı
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Kurye Yetki Matrisi',
+                      style: SipText.metin(14, w: 700).copyWith(color: t.ink),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: t.accentSoft,
+                        borderRadius: SipRadius.brHap,
+                      ),
+                      child: Text(
+                        '13 İzin',
+                        style: SipText.metin(9.5, w: 700).copyWith(color: t.accent),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Tüm kuryeler için geçerli dinamik kuralları yönet',
+                  style: SipText.metin(11.5, w: 500).copyWith(color: t.muted),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: SipSpace.sm),
+
+          // Sağ Ok İkonu
+          SipIcon(
+            SipIcons.right,
+            boyut: 16,
+            kalinlik: 2.0,
+            renk: t.muted,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Modern Kurye Kartı — Temiz avatar, durum noktası, telefon, kullanıcı adı ve rozet
+class _ModernKuryeKarti extends StatelessWidget {
+  const _ModernKuryeKarti({required this.kurye, required this.onTap});
+
+  final User kurye;
+  final VoidCallback onTap;
+
+  String _basHarfler(String ad) {
+    final temiz = ad.trim();
+    if (temiz.isEmpty) return 'K';
+    final parcalar = temiz.split(RegExp(r'\s+'));
+    if (parcalar.length >= 2) {
+      return (parcalar[0][0] + parcalar[1][0]).toUpperCase();
+    }
+    return temiz.substring(0, temiz.length.clamp(1, 2)).toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    final aktif = kuryeAktifMi(kurye);
+    final tel = (kurye.phone ?? '').trim();
+    final nick = kurye.username.trim();
+
+    return Opacity(
+      opacity: aktif ? 1.0 : 0.65,
+      child: SipDokun(
+        onTap: onTap,
+        zemin: t.surface,
+        basiliZemin: t.surface2,
+        radius: SipRadius.br3,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            // Sol Avatar & Durum Göstergesi
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: aktif ? t.accentSoft : t.surface2,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    _basHarfler(kurye.name),
+                    style: SipText.metin(14, w: 700).copyWith(
+                      color: aktif ? t.accent : t.muted,
+                    ),
+                  ),
+                ),
+                // Aktif/Pasif Noktası
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: aktif ? t.ok : t.muted,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: t.surface, width: 2),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: SipSpace.md),
+
+            // Orta Bilgi Alanı
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // İsim & Durum Rozeti
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          kurye.name,
+                          style: SipText.metin(14.5, w: 700).copyWith(
+                            color: t.ink,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: aktif ? t.okSoft : t.surface2,
+                          borderRadius: SipRadius.brHap,
+                        ),
+                        child: Text(
+                          aktif ? 'Aktif' : 'Pasif',
+                          style: SipText.metin(10, w: 700).copyWith(
+                            color: aktif ? t.ok : t.muted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+
+                  // Telefon & Kullanıcı Adı
+                  Row(
+                    children: [
+                      if (tel.isNotEmpty) ...[
+                        SipIcon(SipIcons.phone, boyut: 11, kalinlik: 2, renk: t.muted),
+                        const SizedBox(width: 4),
+                        Text(
+                          sipTelefon(tel),
+                          style: SipText.metin(12, w: 500).copyWith(color: t.ink2),
+                        ),
+                      ] else ...[
+                        Text(
+                          'Telefon yok',
+                          style: SipText.metin(12, w: 500).copyWith(color: t.muted),
+                        ),
+                      ],
+                      if (nick.isNotEmpty) ...[
+                        Text(
+                          ' · ',
+                          style: SipText.metin(12, w: 700).copyWith(color: t.line2),
+                        ),
+                        Flexible(
+                          child: Text(
+                            '@$nick',
+                            style: SipText.metin(11.5, w: 600).copyWith(color: t.muted),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: SipSpace.sm),
+
+            // Sağ Düzenleme Oku
+            SipIcon(
+              SipIcons.right,
+              boyut: 16,
+              kalinlik: 2.0,
+              renk: t.muted,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -260,18 +509,9 @@ class KuryeGirdisi {
   });
 
   final String ad;
-
-  /// Boş bırakıldıysa null (kolon nullable — "telefon yok" gerçek bir durum).
   final String? telefon;
-
   final bool aktif;
-
-  /// Kuryenin GİRİŞ ADI (2026-08-04). Profil alanlarından farklı bir yoldan gider
-  /// (`/team/{id}/credentials`) — senkron değil, çevrimiçi.
   final String kullaniciAdi;
-
-  /// Yeni parola; null = "parolaya dokunma". Boş alan bir parola DEĞİLDİR ve asla gönderilmez —
-  /// aksi hâlde formu her açan, kuryenin parolasını farkında olmadan sıfırlardı.
   final String? parola;
 }
 
@@ -305,8 +545,6 @@ class _KuryeFormuState extends State<_KuryeFormu> {
   late final TextEditingController _kullaniciAdi =
       TextEditingController(text: widget.kurye.username);
 
-  /// Yeni parola alanı — HER ZAMAN BOŞ açılır ve mevcut parolayı GÖSTERMEZ (gösteremez de:
-  /// sunucu yalnız hash tutar ve hiçbir yüzeye vermez). Boş bırakılırsa parolaya dokunulmaz.
   final TextEditingController _parola = TextEditingController();
 
   late bool _aktif = kuryeAktifMi(widget.kurye);
@@ -388,9 +626,7 @@ class _KuryeFormuState extends State<_KuryeFormu> {
         ),
         if (_hata['aktif'] != null) AlanNotu(_hata['aktif']!),
 
-        // ── GİRİŞ BİLGİLERİ (kullanıcı isteği 2026-08-04) ──────────────────────────────────
-        // Ad/telefon/aktiflik çevrimdışı kaydedilir; BU İKİSİ çevrimiçi ister ve bunu kullanıcıya
-        // önceden söylüyoruz — kaydet'e basıp hata almak, baştan bilmekten kötüdür.
+        // ── GİRİŞ BİLGİLERİ ───────────────────────────────────────────────
         const SipBolumBaslik('Giriş Bilgileri', ustBosluk: 20),
         const SipFormEtiket('KULLANICI ADI', ustBosluk: 2),
         SipInput(
@@ -425,15 +661,7 @@ class _KuryeFormuState extends State<_KuryeFormu> {
   }
 }
 
-/// Kurye formu doğrulaması — ekrandan BAĞIMSIZ (saf testle sınanır). Alan adı → hata metni.
-///
-/// Son aktif kurye pasife alınamaz: atama hedefi kalmazsa sipariş ekranı kilitlenir ve
-/// kullanıcı buraya dönüp neyin bozulduğunu anlayamaz.
-/// [kullaniciAdi] / [parola]: giriş bilgileri (2026-08-04). Kurallar SUNUCUDAKİYLE aynıdır
-/// (`^[a-z0-9._-]{3,60}$`, parola ≥4) — burada tekrarlanmalarının sebebi kopya değil, KAPI:
-/// aynı hatayı ağ turundan sonra almak, bayiyi bekletip sonra hayal kırıklığına uğratır.
-/// Tekillik kontrolü SUNUCUDA kalır: yerel `users` aynası pasif/başka rol kullanıcıları
-/// eksik gösterebilir ve burada verilecek "bu ad boşta" kararı yanlış olabilirdi.
+/// Kurye formu doğrulaması — saf test edilebilir.
 Map<String, String> kuryeFormHatalari({
   required String ad,
   required String telefon,
@@ -462,10 +690,6 @@ Map<String, String> kuryeFormHatalari({
     hatalar['aktif'] = 'Son aktif kurye pasif yapılamaz — sipariş atanacak kimse kalmaz';
   }
 
-  // Kullanıcı adı BOŞ bırakılabilir ve bu bilinçli: `users` aynası eski bir sunucudan gelmişse
-  // alan boş olur (kolon varsayılanı ''). Boş alanı hata saymak, o cihazda kurye kaydının
-  // ad/telefon düzenlemesini de kilitlerdi — kimlikle ilgisi olmayan bir işi.
-  // Boş = "kullanıcı adına dokunma"; DOLU ise sunucunun kuralını geçmek zorunda.
   if (kullaniciAdi != null && kullaniciAdi.trim().isNotEmpty) {
     final k = kullaniciAdi.trim().toLowerCase();
     if (!RegExp(r'^[a-z0-9._-]{3,60}$').hasMatch(k)) {
@@ -474,7 +698,6 @@ Map<String, String> kuryeFormHatalari({
     }
   }
 
-  // Parola BOŞ bırakılabilir ("değiştirme"); doluysa sunucunun alt sınırını geçmeli.
   if (parola != null && parola.isNotEmpty && parola.length < 4) {
     hatalar['parola'] = 'Parola en az 4 karakter olmalı';
   }
