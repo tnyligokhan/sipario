@@ -46,8 +46,18 @@ WORKDIR /var/www/html
 #      gösteriyordu. Uygulama eski şemayla ayağa kalkıyor, arıza günler sonra para
 #      kayıtlarında görünüyordu. Bu, PLAN.md'de "sessiz arıza dersi" olarak yazılı olan
 #      `saha-sunucu.ps1` hatasının (`*> $null` ile seeder hatasını yutmak) birebir tekrarıydı.
-#      Artık `set -e`: migrate düşerse container başlamaz → healthcheck kırmızı →
-#      compose'daki `failure_action: rollback` devreye girer ve ESKİ sürüm ayakta kalır.
+#      Artık `set -e`: migrate düşerse container BAŞLAMAZ ve arıza GÖRÜNÜR olur.
+#
+#      ⚠️ DÜRÜST OLMAK GEREKİRSE — OTOMATİK ROLLBACK YOK. Compose'daki `deploy.update_config`
+#      (`order: start-first`, `failure_action: rollback`) alanları YALNIZ Docker Swarm'da
+#      çalışır; Coolify düz `docker compose` kullandığı için bunlar SESSİZCE YOK SAYILIYOR.
+#      Ölçüldü (2026-08-09): deploy sırasında site birkaç saniye 503 verdi — `start-first`
+#      gerçekten uygulansaydı kesinti olmazdı. Yani migrate düşerse `restart: unless-stopped`
+#      döngüye girer ve SİTE AŞAĞIDA KALIR; eski sürüme dönüş ELLE yapılır (Coolify'da önceki
+#      deployment'a "Redeploy").
+#
+#      Bu takas bilinçli: bir defter uygulamasında GÖRÜNÜR bir kesinti, yanlış şemayla sessizce
+#      çalışıp para kayıtlarını bozmaktan iyidir. Ama "rollback beni korur" diye güvenilmemeli.
 #
 # ⚠️ AÇIK RİSK — MIGRATION YARIŞI: `start-first` stratejisiyle eski ve yeni `app` container'ı
 # kısa süre birlikte çalışır; ikisi de bu betiği koşar. Laravel migration'da süreçler arası

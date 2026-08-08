@@ -335,7 +335,8 @@ Yanlış plan, yanlış zaman, boşa giden vardiya. Hafızayı güncellememenin 
 | Ne | Değer |
 |----|-------|
 | Barındırma | **Türkiye'de VPS + Coolify** (kırmızı çizgi #4 sağlanıyor) |
-| Uygulama | `sipario.com.tr` (site + `/panel`) · `api.sipario.com.tr` (mobil) |
+| Uygulama | **`sipario.com.tr` — HER ŞEY buradan**: site + `/panel` + `/api/v1` (mobil dahil) |
+| ⚠️ `api.` altalanı | **BAĞLI DEĞİL — 503 döndürüyor** (2026-08-09'da ölçüldü). Ayrıntı aşağıda. |
 | Yığın | `docker-compose.prod.yml`: `app` · `queue` · `scheduler` · `db` (Postgres 16, ICU tr-TR) · `backup` |
 | İmaj | `serversideup/php:8.3-fpm-nginx`, çok aşamalı build (`docker/php/Dockerfile`) |
 | TLS | Coolify/Traefik + Let's Encrypt |
@@ -343,7 +344,34 @@ Yanlış plan, yanlış zaman, boşa giden vardiya. Hafızayı güncellememenin 
 | İzlenen dal | **`main`** |
 | DB portu | Dışarı KAPALI (dev'deki 55432 yalnız yereldi) |
 | Migration | Container açılışında `migrate --database=pgsql_owner` |
-| Mobil bağlantı | `session.dart` varsayılanı canlıya çevrildi; giriş ekranındaki "+ Gelişmiş (sunucu adresi)" bölümü KALDIRILDI |
+| Mobil bağlantı | `session.dart` varsayılanı **`https://sipario.com.tr/api/v1`**; giriş ekranındaki "+ Gelişmiş (sunucu adresi)" bölümü KALDIRILDI |
+
+**🔬 CANLI SAĞLIK ÖLÇÜMÜ (2026-08-09, `curl` ile bizzat):**
+
+| Uç nokta | Sonuç | Yorum |
+|---|---|---|
+| `https://sipario.com.tr/up` | **200** ✅ | Uygulama ayakta |
+| `https://sipario.com.tr/` | **200** ✅ | Pazarlama sitesi çalışıyor |
+| `https://sipario.com.tr/api/v1/auth/login` | **422** ✅ | **Mobilin kullandığı adres — sağlıklı** (422 = form doğrulama, yani uç nokta canlı) |
+| `https://api.sipario.com.tr/` | **503** ❌ | Traefik'e ulaşıyor ama arkasında servis yok |
+| `https://api.sipario.com.tr/api/v1/auth/login` | **503** ❌ | Aynı |
+
+## ⚠️ YARIM KALMIŞ İŞ — `api.` ALTALANI (bu vardiyada ÖLÇÜLEREK bulundu)
+
+Mimari **iki hostname varsayıyor** ama gerçek **tek hostname**. Somut kanıt:
+`BlockApiHostWebRoutes` middleware'i özellikle `api.` ile başlayan host'lardan gelen web
+isteklerini 404'lemek için yazılmış — **ama `api.sipario.com.tr` Coolify'da bağlı olmadığı için
+bu middleware bugün HİÇBİR ŞEY YAPMIYOR.** Yani çözmek için yazıldığı sorun hâlâ açık:
+**mobil trafiğin geldiği kapı ile yönetim panelinin kapısı aynı** (`sipario.com.tr`).
+
+Bu bir çökme değil — ürün çalışıyor. Ama iki seçenekten biri seçilip **kapatılmalı**:
+- **(a)** `api.sipario.com.tr` Coolify'da `app` servisine bağlanır, mobil varsayılanı oraya döner
+  → middleware anlam kazanır, panel mobil kapısından ayrışır. (Mobil sürüm çıkması gerekir.)
+- **(b)** `api.` altalanı Cloudflare DNS'ten kaldırılır ve `BlockApiHostWebRoutes` silinir
+  → tek hostname bilinçli karar olarak yazılır, ölü kod kalmaz.
+
+Şu anki hâl **üçüncü ve en kötü seçenek**: 503 dönen bir altalan, onu bekleyen ölü bir middleware
+ve hangisinin doğru olduğunu söyleyen hiçbir kayıt. **Karar senin** — (b) daha ucuz, (a) daha güvenli.
 
 **Kurulum sırasında çözülen gerçek arızalar** (15 commit, 08-07 09:08–10:30): Postgres init betikleri
 mount edilemiyordu → imaja gömüldü (`docker/postgres/Dockerfile`) · `10-roles.sh` DB adını sabit
@@ -368,8 +396,18 @@ dışlıyordu. Bunlar gerçek mühendislik işiydi ve **doğru çözüldü**.
 3. **`|| true` migration hatasını yutuyordu.** Şema güncellenmese bile container "sağlıklı" kalkıyor,
    uygulama eski şemayla çalışıyordu. Bu, bu dosyada "sessiz arıza dersi" olarak YAZILI olan
    `saha-sunucu.ps1` hatasının (`*> $null` ile seeder hatasını yutmak) birebir tekrarıydı — ders
-   yazılmıştı ama yeni araç onu okumadı. **Kapatıldı:** `set -e`; migrate düşerse container başlamaz,
-   healthcheck kırmızı yanar, compose'daki `failure_action: rollback` eski sürümü ayakta tutar.
+   yazılmıştı ama yeni araç onu okumadı. **Kapatıldı:** `set -e`; migrate düşerse container başlamaz
+   ve arıza GÖRÜNÜR olur.
+   ⚠️ **Ama otomatik rollback YOK — ve bu ölçülerek anlaşıldı.** Compose'daki `deploy.update_config`
+   (`order: start-first` + `failure_action: rollback`) **yalnız Docker Swarm'da** çalışır; Coolify düz
+   `docker compose` kullandığı için bu alanlar SESSİZCE YOK SAYILIYOR. Kanıt: bu vardiyanın
+   deploy'unda `sipario.com.tr` birkaç saniye **503** verdi — `start-first` gerçekten uygulansaydı
+   kesinti olmazdı. Yani migrate düşerse `restart: unless-stopped` döngüye girer ve **site aşağıda
+   kalır**; eski sürüme dönüş ELLE yapılır (Coolify → önceki deployment → Redeploy).
+   Takas bilinçli: bir defter uygulamasında GÖRÜNÜR kesinti, yanlış şemayla sessizce çalışıp para
+   kayıtlarını bozmaktan iyidir. Ama "rollback beni korur" diye güvenilmemeli — **compose'daki o iki
+   satır bugün dekoratiftir.** (Sıradaki işlerde: ya Swarm'a geçilir ya da o alanlar kaldırılıp
+   yanlış güven veren yazı temizlenir.)
 
 ## 🔑 SENDE OLAN TEK KRİTİK İŞ — `APP_KEY` DOĞRULAMASI
 
@@ -396,7 +434,9 @@ etkilenmez**, çünkü veritabanındaki hiçbir alan `APP_KEY` ile şifreli değ
    - `ROTA_SURUCU` (varsayılan `yakin-komsu`) → Oto Sırala Google Routes'u kullanmıyor olabilir
    - `IYZICO_BASE_URL` (varsayılan **sandbox**) → ödeme akışı sandbox'a bakıyor olabilir
    Her biri tek satırlık env; hangisinin açık olduğunu **canlıda ölçmek** gerekiyor (tahmin değil).
-4. **Migration yarışı.** `start-first` stratejisiyle eski+yeni `app` container'ı birlikte çalışıyor ve
+4. **`api.` altalanı kararı** (yukarıdaki "YARIM KALMIŞ İŞ" bölümü). Ya Coolify'a bağla ya DNS'ten
+   kaldır — ama 503 dönen bir altalanı ve onu bekleyen ölü bir middleware'i olduğu gibi bırakma.
+5. **Migration yarışı.** `start-first` stratejisiyle eski+yeni `app` container'ı birlikte çalışıyor ve
    ikisi de açılışta `migrate` koşuyor; Laravel'de süreçler arası kilit yok. Doğru çözüm: migrate'i
    imajdan alıp **Coolify post-deployment komutuna** taşımak (tek sefer koşar). Bugüne kadar patlamadı
    ama bu şans, tasarım değil.
