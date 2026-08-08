@@ -370,8 +370,9 @@ class _Govde extends StatelessWidget {
 
   Future<void> _iptalEt(BuildContext context) async {
     final yetki = await oturumYetkileri(db);
+    if (!context.mounted) return;
     if (!yetki.siparisIptal) {
-      if (context.mounted) SipToast.goster(context, 'Sipariş iptali yalnız yöneticilere açıktır.');
+      SipToast.goster(context, 'Sipariş iptali yalnız yöneticilere açıktır.');
       return;
     }
     final onay = await sipOnay(

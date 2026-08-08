@@ -330,12 +330,11 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     onKonumAl: () => _konumAl(adres),
                     konumCalisiyor: _konumCalisiyor,
                     onAra: () => _eylem(() => musteriyiAra(telefonlar.firstOrNull?.phoneE164)),
-                    onWhatsapp: () => _eylem(() {
+                    onWhatsapp: () => _eylem(() async {
                       if (!(widget.yetki?.borcHatirlatma ?? true)) {
-                        SipToast.goster(context, 'Borç hatırlatma yetkisi kapalıdır.');
-                        return;
+                        return 'Borç hatırlatma yetkisi kapalıdır.';
                       }
-                      whatsappAc(telefonlar.firstOrNull?.phoneE164);
+                      return whatsappAc(telefonlar.firstOrNull?.phoneE164);
                     }),
                     onKonum: () => _eylem(
                       () => konumuHaritadaAc(_adresBilgisi(adres), etiket: c.name),

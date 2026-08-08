@@ -6399,6 +6399,94 @@ class $TenantSettingsTable extends TenantSettings
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _courierCanSeeAllOrdersMeta = const VerificationMeta('courierCanSeeAllOrders');
+  @override
+  late final GeneratedColumn<bool> courierCanSeeAllOrders = GeneratedColumn<bool>(
+    'courier_can_see_all_orders',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_see_all_orders" IN (0, 1))'),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _courierCanViewHistoryMeta = const VerificationMeta('courierCanViewHistory');
+  @override
+  late final GeneratedColumn<bool> courierCanViewHistory = GeneratedColumn<bool>(
+    'courier_can_view_history',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_view_history" IN (0, 1))'),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _courierCanExpenseMeta = const VerificationMeta('courierCanExpense');
+  @override
+  late final GeneratedColumn<bool> courierCanExpense = GeneratedColumn<bool>(
+    'courier_can_expense',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_expense" IN (0, 1))'),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _courierPhoneMaskMeta = const VerificationMeta('courierPhoneMask');
+  @override
+  late final GeneratedColumn<bool> courierPhoneMask = GeneratedColumn<bool>(
+    'courier_phone_mask',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_phone_mask" IN (0, 1))'),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _courierCanCustomerLedgerMeta = const VerificationMeta('courierCanCustomerLedger');
+  @override
+  late final GeneratedColumn<bool> courierCanCustomerLedger = GeneratedColumn<bool>(
+    'courier_can_customer_ledger',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_customer_ledger" IN (0, 1))'),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _courierCanDebtReminderMeta = const VerificationMeta('courierCanDebtReminder');
+  @override
+  late final GeneratedColumn<bool> courierCanDebtReminder = GeneratedColumn<bool>(
+    'courier_can_debt_reminder',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_debt_reminder" IN (0, 1))'),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _courierCanToggleStockMeta = const VerificationMeta('courierCanToggleStock');
+  @override
+  late final GeneratedColumn<bool> courierCanToggleStock = GeneratedColumn<bool>(
+    'courier_can_toggle_stock',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_toggle_stock" IN (0, 1))'),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _courierCanCallLogMeta = const VerificationMeta('courierCanCallLog');
+  @override
+  late final GeneratedColumn<bool> courierCanCallLog = GeneratedColumn<bool>(
+    'courier_can_call_log',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_call_log" IN (0, 1))'),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _orderCodeDisplayMeta = const VerificationMeta(
     'orderCodeDisplay',
   );
@@ -6455,6 +6543,14 @@ class $TenantSettingsTable extends TenantSettings
     courierCanCollect,
     courierCanDiscount,
     courierCanDayEnd,
+    courierCanSeeAllOrders,
+    courierCanViewHistory,
+    courierCanExpense,
+    courierPhoneMask,
+    courierCanCustomerLedger,
+    courierCanDebtReminder,
+    courierCanToggleStock,
+    courierCanCallLog,
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
@@ -6612,6 +6708,78 @@ class $TenantSettingsTable extends TenantSettings
         ),
       );
     }
+    if (data.containsKey('courier_can_see_all_orders')) {
+      context.handle(
+        _courierCanSeeAllOrdersMeta,
+        courierCanSeeAllOrders.isAcceptableOrUnknown(
+          data['courier_can_see_all_orders']!,
+          _courierCanSeeAllOrdersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_view_history')) {
+      context.handle(
+        _courierCanViewHistoryMeta,
+        courierCanViewHistory.isAcceptableOrUnknown(
+          data['courier_can_view_history']!,
+          _courierCanViewHistoryMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_expense')) {
+      context.handle(
+        _courierCanExpenseMeta,
+        courierCanExpense.isAcceptableOrUnknown(
+          data['courier_can_expense']!,
+          _courierCanExpenseMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_phone_mask')) {
+      context.handle(
+        _courierPhoneMaskMeta,
+        courierPhoneMask.isAcceptableOrUnknown(
+          data['courier_phone_mask']!,
+          _courierPhoneMaskMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_customer_ledger')) {
+      context.handle(
+        _courierCanCustomerLedgerMeta,
+        courierCanCustomerLedger.isAcceptableOrUnknown(
+          data['courier_can_customer_ledger']!,
+          _courierCanCustomerLedgerMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_debt_reminder')) {
+      context.handle(
+        _courierCanDebtReminderMeta,
+        courierCanDebtReminder.isAcceptableOrUnknown(
+          data['courier_can_debt_reminder']!,
+          _courierCanDebtReminderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_toggle_stock')) {
+      context.handle(
+        _courierCanToggleStockMeta,
+        courierCanToggleStock.isAcceptableOrUnknown(
+          data['courier_can_toggle_stock']!,
+          _courierCanToggleStockMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_call_log')) {
+      context.handle(
+        _courierCanCallLogMeta,
+        courierCanCallLog.isAcceptableOrUnknown(
+          data['courier_can_call_log']!,
+          _courierCanCallLogMeta,
+        ),
+      );
+    }
     if (data.containsKey('order_code_display')) {
       context.handle(
         _orderCodeDisplayMeta,
@@ -6724,6 +6892,38 @@ class $TenantSettingsTable extends TenantSettings
         DriftSqlType.bool,
         data['${effectivePrefix}courier_can_day_end'],
       )!,
+      courierCanSeeAllOrders: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_see_all_orders'],
+      )!,
+      courierCanViewHistory: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_view_history'],
+      )!,
+      courierCanExpense: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_expense'],
+      )!,
+      courierPhoneMask: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_phone_mask'],
+      )!,
+      courierCanCustomerLedger: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_customer_ledger'],
+      )!,
+      courierCanDebtReminder: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_debt_reminder'],
+      )!,
+      courierCanToggleStock: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_toggle_stock'],
+      )!,
+      courierCanCallLog: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_call_log'],
+      )!,
       orderCodeDisplay: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}order_code_display'],
@@ -6757,41 +6957,22 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
   final String? opensAt;
   final String? closesAt;
   final String? receiptNote;
-
-  /// Bayinin KENDİ IBAN'ı (kullanıcı isteği 2026-08-04) — borçluya gönderilen WhatsApp
-  /// hatırlatmasında geçer. Boşluksuz ve BÜYÜK harf saklanır (sunucu da normalleştirir);
-  /// null = tanımlı değil, hatırlatma düğmesi o zaman nedenini söyleyip durur.
   final String? iban;
-
-  /// IBAN ALICI ADI (kullanıcı isteği 2026-08-06) — hesap sahibinin AD SOYADI.
-  ///
-  /// NEDEN AYRI ALAN: hesap sahibi çoğu zaman ŞAHIS adıdır ("Mehmet Yılmaz"), işletme adıyla
-  /// ("Merkez Su Bayii") aynı değildir; banka uygulaması havale ekranında ad soyad ister ve
-  /// işletme adını yazan müşteri işlemi tamamlayamaz. Boşsa mesajda işletme adına DÜŞÜLÜR —
-  /// güncelleme öncesi davranış budur, hiçbir bayi "Alıcı" satırını bu sürümle kaybetmemeli.
   final String? ibanOwnerName;
-
-  /// BORÇ HATIRLATMA ŞABLONU (kullanıcı isteği 2026-08-06) — bayinin kendi mesaj metni.
-  ///
-  /// null/boş = VARSAYILAN metin (`borc_hatirlatma.dart`). Varsayılanı buraya kopyalamak,
-  /// metni ileride iyileştirdiğimizde şablona hiç dokunmamış bayilerde eski metni dondururdu.
-  /// Yer tutucular (`*musteriadi*`, `*siparistutar*`, `*ibanodemebilgileri*` …) gönderim anında
-  /// çözülür; IBAN ve alıcı adı SABİT bloktur, metnin içinde düzenlenemez.
   final String? reminderTemplate;
-
-  /// KURYE YETKİLERİ (kullanıcı isteği 2026-08-04) — bayinin açıp kapattığı beş anahtar.
-  /// KİRACI düzeyindedir (kurye başına değil): 1–3 kişilik bayide kişi bazlı yetki, her yeni
-  /// kuryede unutulan bir kurulum adımı doğururdu. Varsayılanlar sunucudakiyle AYNI olmalı —
-  /// senkron gelmeden önce ekran bir kare boyunca bu değerleri gösterir.
   final bool courierCanCustomers;
   final bool courierCanOrders;
   final bool courierCanCollect;
   final bool courierCanDiscount;
   final bool courierCanDayEnd;
-
-  /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
-  /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
-  /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.
+  final bool courierCanSeeAllOrders;
+  final bool courierCanViewHistory;
+  final bool courierCanExpense;
+  final bool courierPhoneMask;
+  final bool courierCanCustomerLedger;
+  final bool courierCanDebtReminder;
+  final bool courierCanToggleStock;
+  final bool courierCanCallLog;
   final String orderCodeDisplay;
   final String? updatedOccurredAt;
   final String? updatedDeviceId;
@@ -6815,6 +6996,14 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     required this.courierCanCollect,
     required this.courierCanDiscount,
     required this.courierCanDayEnd,
+    required this.courierCanSeeAllOrders,
+    required this.courierCanViewHistory,
+    required this.courierCanExpense,
+    required this.courierPhoneMask,
+    required this.courierCanCustomerLedger,
+    required this.courierCanDebtReminder,
+    required this.courierCanToggleStock,
+    required this.courierCanCallLog,
     required this.orderCodeDisplay,
     this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -6959,6 +7148,14 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       courierCanCollect: serializer.fromJson<bool>(json['courierCanCollect']),
       courierCanDiscount: serializer.fromJson<bool>(json['courierCanDiscount']),
       courierCanDayEnd: serializer.fromJson<bool>(json['courierCanDayEnd']),
+      courierCanSeeAllOrders: serializer.fromJson<bool>(json['courierCanSeeAllOrders'] ?? false),
+      courierCanViewHistory: serializer.fromJson<bool>(json['courierCanViewHistory'] ?? false),
+      courierCanExpense: serializer.fromJson<bool>(json['courierCanExpense'] ?? false),
+      courierPhoneMask: serializer.fromJson<bool>(json['courierPhoneMask'] ?? true),
+      courierCanCustomerLedger: serializer.fromJson<bool>(json['courierCanCustomerLedger'] ?? false),
+      courierCanDebtReminder: serializer.fromJson<bool>(json['courierCanDebtReminder'] ?? false),
+      courierCanToggleStock: serializer.fromJson<bool>(json['courierCanToggleStock'] ?? true),
+      courierCanCallLog: serializer.fromJson<bool>(json['courierCanCallLog'] ?? false),
       orderCodeDisplay: serializer.fromJson<String>(json['orderCodeDisplay']),
       updatedOccurredAt: serializer.fromJson<String?>(
         json['updatedOccurredAt'],
@@ -6989,6 +7186,14 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       'courierCanCollect': serializer.toJson<bool>(courierCanCollect),
       'courierCanDiscount': serializer.toJson<bool>(courierCanDiscount),
       'courierCanDayEnd': serializer.toJson<bool>(courierCanDayEnd),
+      'courierCanSeeAllOrders': serializer.toJson<bool>(courierCanSeeAllOrders),
+      'courierCanViewHistory': serializer.toJson<bool>(courierCanViewHistory),
+      'courierCanExpense': serializer.toJson<bool>(courierCanExpense),
+      'courierPhoneMask': serializer.toJson<bool>(courierPhoneMask),
+      'courierCanCustomerLedger': serializer.toJson<bool>(courierCanCustomerLedger),
+      'courierCanDebtReminder': serializer.toJson<bool>(courierCanDebtReminder),
+      'courierCanToggleStock': serializer.toJson<bool>(courierCanToggleStock),
+      'courierCanCallLog': serializer.toJson<bool>(courierCanCallLog),
       'orderCodeDisplay': serializer.toJson<String>(orderCodeDisplay),
       'updatedOccurredAt': serializer.toJson<String?>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -7015,6 +7220,14 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     bool? courierCanCollect,
     bool? courierCanDiscount,
     bool? courierCanDayEnd,
+    bool? courierCanSeeAllOrders,
+    bool? courierCanViewHistory,
+    bool? courierCanExpense,
+    bool? courierPhoneMask,
+    bool? courierCanCustomerLedger,
+    bool? courierCanDebtReminder,
+    bool? courierCanToggleStock,
+    bool? courierCanCallLog,
     String? orderCodeDisplay,
     Value<String?> updatedOccurredAt = const Value.absent(),
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -7042,6 +7255,14 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     courierCanCollect: courierCanCollect ?? this.courierCanCollect,
     courierCanDiscount: courierCanDiscount ?? this.courierCanDiscount,
     courierCanDayEnd: courierCanDayEnd ?? this.courierCanDayEnd,
+    courierCanSeeAllOrders: courierCanSeeAllOrders ?? this.courierCanSeeAllOrders,
+    courierCanViewHistory: courierCanViewHistory ?? this.courierCanViewHistory,
+    courierCanExpense: courierCanExpense ?? this.courierCanExpense,
+    courierPhoneMask: courierPhoneMask ?? this.courierPhoneMask,
+    courierCanCustomerLedger: courierCanCustomerLedger ?? this.courierCanCustomerLedger,
+    courierCanDebtReminder: courierCanDebtReminder ?? this.courierCanDebtReminder,
+    courierCanToggleStock: courierCanToggleStock ?? this.courierCanToggleStock,
+    courierCanCallLog: courierCanCallLog ?? this.courierCanCallLog,
     orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
     updatedOccurredAt: updatedOccurredAt.present
         ? updatedOccurredAt.value
@@ -7091,6 +7312,30 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       courierCanDayEnd: data.courierCanDayEnd.present
           ? data.courierCanDayEnd.value
           : this.courierCanDayEnd,
+      courierCanSeeAllOrders: data.courierCanSeeAllOrders.present
+          ? data.courierCanSeeAllOrders.value
+          : this.courierCanSeeAllOrders,
+      courierCanViewHistory: data.courierCanViewHistory.present
+          ? data.courierCanViewHistory.value
+          : this.courierCanViewHistory,
+      courierCanExpense: data.courierCanExpense.present
+          ? data.courierCanExpense.value
+          : this.courierCanExpense,
+      courierPhoneMask: data.courierPhoneMask.present
+          ? data.courierPhoneMask.value
+          : this.courierPhoneMask,
+      courierCanCustomerLedger: data.courierCanCustomerLedger.present
+          ? data.courierCanCustomerLedger.value
+          : this.courierCanCustomerLedger,
+      courierCanDebtReminder: data.courierCanDebtReminder.present
+          ? data.courierCanDebtReminder.value
+          : this.courierCanDebtReminder,
+      courierCanToggleStock: data.courierCanToggleStock.present
+          ? data.courierCanToggleStock.value
+          : this.courierCanToggleStock,
+      courierCanCallLog: data.courierCanCallLog.present
+          ? data.courierCanCallLog.value
+          : this.courierCanCallLog,
       orderCodeDisplay: data.orderCodeDisplay.present
           ? data.orderCodeDisplay.value
           : this.orderCodeDisplay,
@@ -7125,6 +7370,14 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           ..write('courierCanCollect: $courierCanCollect, ')
           ..write('courierCanDiscount: $courierCanDiscount, ')
           ..write('courierCanDayEnd: $courierCanDayEnd, ')
+          ..write('courierCanSeeAllOrders: $courierCanSeeAllOrders, ')
+          ..write('courierCanViewHistory: $courierCanViewHistory, ')
+          ..write('courierCanExpense: $courierCanExpense, ')
+          ..write('courierPhoneMask: $courierPhoneMask, ')
+          ..write('courierCanCustomerLedger: $courierCanCustomerLedger, ')
+          ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
+          ..write('courierCanToggleStock: $courierCanToggleStock, ')
+          ..write('courierCanCallLog: $courierCanCallLog, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
@@ -7153,6 +7406,14 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     courierCanCollect,
     courierCanDiscount,
     courierCanDayEnd,
+    courierCanSeeAllOrders,
+    courierCanViewHistory,
+    courierCanExpense,
+    courierPhoneMask,
+    courierCanCustomerLedger,
+    courierCanDebtReminder,
+    courierCanToggleStock,
+    courierCanCallLog,
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
@@ -7180,6 +7441,14 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           other.courierCanCollect == this.courierCanCollect &&
           other.courierCanDiscount == this.courierCanDiscount &&
           other.courierCanDayEnd == this.courierCanDayEnd &&
+          other.courierCanSeeAllOrders == this.courierCanSeeAllOrders &&
+          other.courierCanViewHistory == this.courierCanViewHistory &&
+          other.courierCanExpense == this.courierCanExpense &&
+          other.courierPhoneMask == this.courierPhoneMask &&
+          other.courierCanCustomerLedger == this.courierCanCustomerLedger &&
+          other.courierCanDebtReminder == this.courierCanDebtReminder &&
+          other.courierCanToggleStock == this.courierCanToggleStock &&
+          other.courierCanCallLog == this.courierCanCallLog &&
           other.orderCodeDisplay == this.orderCodeDisplay &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId);
@@ -7205,6 +7474,14 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
   final Value<bool> courierCanCollect;
   final Value<bool> courierCanDiscount;
   final Value<bool> courierCanDayEnd;
+  final Value<bool> courierCanSeeAllOrders;
+  final Value<bool> courierCanViewHistory;
+  final Value<bool> courierCanExpense;
+  final Value<bool> courierPhoneMask;
+  final Value<bool> courierCanCustomerLedger;
+  final Value<bool> courierCanDebtReminder;
+  final Value<bool> courierCanToggleStock;
+  final Value<bool> courierCanCallLog;
   final Value<String> orderCodeDisplay;
   final Value<String?> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -7228,6 +7505,14 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.courierCanCollect = const Value.absent(),
     this.courierCanDiscount = const Value.absent(),
     this.courierCanDayEnd = const Value.absent(),
+    this.courierCanSeeAllOrders = const Value.absent(),
+    this.courierCanViewHistory = const Value.absent(),
+    this.courierCanExpense = const Value.absent(),
+    this.courierPhoneMask = const Value.absent(),
+    this.courierCanCustomerLedger = const Value.absent(),
+    this.courierCanDebtReminder = const Value.absent(),
+    this.courierCanToggleStock = const Value.absent(),
+    this.courierCanCallLog = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -7252,6 +7537,14 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.courierCanCollect = const Value.absent(),
     this.courierCanDiscount = const Value.absent(),
     this.courierCanDayEnd = const Value.absent(),
+    this.courierCanSeeAllOrders = const Value.absent(),
+    this.courierCanViewHistory = const Value.absent(),
+    this.courierCanExpense = const Value.absent(),
+    this.courierPhoneMask = const Value.absent(),
+    this.courierCanCustomerLedger = const Value.absent(),
+    this.courierCanDebtReminder = const Value.absent(),
+    this.courierCanToggleStock = const Value.absent(),
+    this.courierCanCallLog = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -7276,6 +7569,14 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Expression<bool>? courierCanCollect,
     Expression<bool>? courierCanDiscount,
     Expression<bool>? courierCanDayEnd,
+    Expression<bool>? courierCanSeeAllOrders,
+    Expression<bool>? courierCanViewHistory,
+    Expression<bool>? courierCanExpense,
+    Expression<bool>? courierPhoneMask,
+    Expression<bool>? courierCanCustomerLedger,
+    Expression<bool>? courierCanDebtReminder,
+    Expression<bool>? courierCanToggleStock,
+    Expression<bool>? courierCanCallLog,
     Expression<String>? orderCodeDisplay,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -7302,6 +7603,19 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       if (courierCanDiscount != null)
         'courier_can_discount': courierCanDiscount,
       if (courierCanDayEnd != null) 'courier_can_day_end': courierCanDayEnd,
+      if (courierCanSeeAllOrders != null)
+        'courier_can_see_all_orders': courierCanSeeAllOrders,
+      if (courierCanViewHistory != null)
+        'courier_can_view_history': courierCanViewHistory,
+      if (courierCanExpense != null) 'courier_can_expense': courierCanExpense,
+      if (courierPhoneMask != null) 'courier_phone_mask': courierPhoneMask,
+      if (courierCanCustomerLedger != null)
+        'courier_can_customer_ledger': courierCanCustomerLedger,
+      if (courierCanDebtReminder != null)
+        'courier_can_debt_reminder': courierCanDebtReminder,
+      if (courierCanToggleStock != null)
+        'courier_can_toggle_stock': courierCanToggleStock,
+      if (courierCanCallLog != null) 'courier_can_call_log': courierCanCallLog,
       if (orderCodeDisplay != null) 'order_code_display': orderCodeDisplay,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -7328,6 +7642,14 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Value<bool>? courierCanCollect,
     Value<bool>? courierCanDiscount,
     Value<bool>? courierCanDayEnd,
+    Value<bool>? courierCanSeeAllOrders,
+    Value<bool>? courierCanViewHistory,
+    Value<bool>? courierCanExpense,
+    Value<bool>? courierPhoneMask,
+    Value<bool>? courierCanCustomerLedger,
+    Value<bool>? courierCanDebtReminder,
+    Value<bool>? courierCanToggleStock,
+    Value<bool>? courierCanCallLog,
     Value<String>? orderCodeDisplay,
     Value<String?>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -7352,6 +7674,14 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       courierCanCollect: courierCanCollect ?? this.courierCanCollect,
       courierCanDiscount: courierCanDiscount ?? this.courierCanDiscount,
       courierCanDayEnd: courierCanDayEnd ?? this.courierCanDayEnd,
+      courierCanSeeAllOrders: courierCanSeeAllOrders ?? this.courierCanSeeAllOrders,
+      courierCanViewHistory: courierCanViewHistory ?? this.courierCanViewHistory,
+      courierCanExpense: courierCanExpense ?? this.courierCanExpense,
+      courierPhoneMask: courierPhoneMask ?? this.courierPhoneMask,
+      courierCanCustomerLedger: courierCanCustomerLedger ?? this.courierCanCustomerLedger,
+      courierCanDebtReminder: courierCanDebtReminder ?? this.courierCanDebtReminder,
+      courierCanToggleStock: courierCanToggleStock ?? this.courierCanToggleStock,
+      courierCanCallLog: courierCanCallLog ?? this.courierCanCallLog,
       orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -7417,6 +7747,30 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     }
     if (courierCanDayEnd.present) {
       map['courier_can_day_end'] = Variable<bool>(courierCanDayEnd.value);
+    }
+    if (courierCanSeeAllOrders.present) {
+      map['courier_can_see_all_orders'] = Variable<bool>(courierCanSeeAllOrders.value);
+    }
+    if (courierCanViewHistory.present) {
+      map['courier_can_view_history'] = Variable<bool>(courierCanViewHistory.value);
+    }
+    if (courierCanExpense.present) {
+      map['courier_can_expense'] = Variable<bool>(courierCanExpense.value);
+    }
+    if (courierPhoneMask.present) {
+      map['courier_phone_mask'] = Variable<bool>(courierPhoneMask.value);
+    }
+    if (courierCanCustomerLedger.present) {
+      map['courier_can_customer_ledger'] = Variable<bool>(courierCanCustomerLedger.value);
+    }
+    if (courierCanDebtReminder.present) {
+      map['courier_can_debt_reminder'] = Variable<bool>(courierCanDebtReminder.value);
+    }
+    if (courierCanToggleStock.present) {
+      map['courier_can_toggle_stock'] = Variable<bool>(courierCanToggleStock.value);
+    }
+    if (courierCanCallLog.present) {
+      map['courier_can_call_log'] = Variable<bool>(courierCanCallLog.value);
     }
     if (orderCodeDisplay.present) {
       map['order_code_display'] = Variable<String>(orderCodeDisplay.value);
