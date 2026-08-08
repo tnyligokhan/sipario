@@ -211,45 +211,36 @@ class _Liste extends StatelessWidget {
         const SipNotKutusu(
           ikon: SipIcons.info,
           tur: SipNotTuru.bilgi,
-          metin: 'Yeni kurye hesabı web yönetim panelinden açılır. '
-              'Buradan kurye adı, telefonu ve aktiflik durumu düzenlenir.',
+          metin: 'Yeni kurye hesabı yönetim panelinden açılır — bu ekrandan kurye EKLENEMEZ. '
+              'Buradan ad, telefon ve aktiflik düzenlenir; kurye silinmez, pasife alınır.',
         ),
         const SizedBox(height: SipSpace.lg),
 
-        // 3. Kurye Ekip Listesi Başlığı
-        SipBolumBaslik(
-          'Kurye Ekibi',
-          ustBosluk: 4,
-          altBosluk: 8,
-          sag: Text(
-            '$aktifSayi / ${kuryeler.length} Aktif',
-            style: SipText.metin(12, w: 700).copyWith(color: t.accent),
-          ),
-        ),
-
-        // 4. Kurye Kartları / Boş Durum
-        if (kuryeler.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: SipSpace.lg),
-            child: SipBosDurum(
-              ikon: SipIcons.truck,
-              baslik: 'Kayıtlı kurye yok',
-              aciklama: 'Kurye eklemek için web yönetim panelini kullanabilirsiniz.',
+        // 3. Kurye Ekip Listesi Başlığı (kurye varsa)
+        if (kuryeler.isNotEmpty)
+          SipBolumBaslik(
+            'Kurye Ekibi',
+            ustBosluk: 4,
+            altBosluk: 8,
+            sag: Text(
+              '$aktifSayi / ${kuryeler.length} Aktif',
+              style: SipText.metin(12, w: 700).copyWith(color: t.accent),
             ),
-          )
-        else
-          Column(
-            children: [
-              for (var i = 0; i < kuryeler.length; i++)
-                Padding(
-                  padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
-                  child: _ModernKuryeKarti(
-                    kurye: kuryeler[i],
-                    onTap: () => _ac(context, kuryeler[i]),
-                  ),
-                ),
-            ],
           ),
+
+        // 4. Kurye Kartları
+        Column(
+          children: [
+            for (var i = 0; i < kuryeler.length; i++)
+              Padding(
+                padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
+                child: _ModernKuryeKarti(
+                  kurye: kuryeler[i],
+                  onTap: () => _ac(context, kuryeler[i]),
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -425,20 +416,22 @@ class _ModernKuryeKarti extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: aktif ? t.okSoft : t.surface2,
-                          borderRadius: SipRadius.brHap,
-                        ),
-                        child: Text(
-                          aktif ? 'Aktif' : 'Pasif',
-                          style: SipText.metin(10, w: 700).copyWith(
-                            color: aktif ? t.ok : t.muted,
+                      if (!aktif) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: t.surface2,
+                            borderRadius: SipRadius.brHap,
+                          ),
+                          child: Text(
+                            'PASİF',
+                            style: SipText.metin(10, w: 700).copyWith(
+                              color: t.muted,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 3),
