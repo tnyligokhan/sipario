@@ -284,6 +284,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // Öne gelişte sayaç oturum varsa geri döner; kapı yine akıştan gelen SON token'dadır
     // (`_metaUygula` her meta değişiminde günceller — burada tek atış DB okuması yapılmaz).
     if (_oturumVar) _konumBildirici.baslat();
+    // Öne gelen cihaz SIKI aralığa döner. Patronun yazımı artık anında push ediliyor (yazım
+    // tetiği) ama KURYE onu ancak kendi pull'unda görür; 2 dakika, elinde telefonla bekleyen
+    // kurye için "gelmiyor" demektir ve çözümü "yenilemeye bas" olamaz. `aralikDegistir` tur
+    // ATMAZ — aşağıdaki satır zaten atıyor, çift istek olmasın.
+    widget.sync.aralikDegistir(SyncService.onPlanAralik);
     unawaited(widget.sync.syncNow());
     // Güncelleme kontrolü de öne gelmede koşar. Yalnız açılışa bağlıydı ve saha bulgusu şuydu
     // (2026-07-28): son kullanılanlardan kaydırmak süreci ÖLDÜRMÜYOR, `initState` bir daha
