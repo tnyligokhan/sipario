@@ -63,6 +63,7 @@ class OrderListScreen extends StatefulWidget {
     required this.db,
     required this.writable,
     this.userId,
+    this.yetki,
     this.canAssign = false,
     this.onMenu,
   });
@@ -70,11 +71,24 @@ class OrderListScreen extends StatefulWidget {
   final AppDatabase db;
   final bool writable;
 
-  /// Oturumdaki kullanıcı. LİSTEYİ SÜZMEZ (2026-07-27): eskiden `watchOrders(assignedTo:)`e
-  /// geçiliyordu ama sorgu o parametreyi hiç kullanmıyordu — sessiz ölü bağdı. Artık `assignedTo`
-  /// gerçek bir süzgeç ve hedefini PATRON seçer; oturum kullanıcısını oraya bağlamak kuryenin
-  /// listesini haber vermeden daraltırdı. Alan `home_shell` sözleşmesinde durduğu için korunuyor.
+  /// Oturumdaki kullanıcı.
+  ///
+  /// TARİHÇE — İKİ KEZ ANLAM DEĞİŞTİRDİ, İKİSİ DE BİLİNÇLİ:
+  ///  1. 2026-07-27: `watchOrders(assignedTo:)`e bağlıydı ama sorgu o parametreyi kullanmıyordu
+  ///     (sessiz ölü bağ). Bağ koparıldı ve `assignedTo` PATRONUN seçtiği bir süzgece dönüştü;
+  ///     gerekçe "oturum kullanıcısını oraya bağlamak kuryenin listesini HABER VERMEDEN
+  ///     daraltırdı" idi — yani sorun kısıtlamanın kendisi değil, SESSİZ olmasıydı.
+  ///  2. 2026-08-09 (kullanıcı isteği): kısıtlama geri geldi ama artık **yetkiye bağlı ve
+  ///     GÖRÜNÜR**. `yetki.tumSiparisleriGorme` kapalıysa liste bu kullanıcıya sabitlenir ve
+  ///     başlık bunu açıkça yazar ("yalnız size atanan"). Böylece 2026-07-27'nin itirazı
+  ///     karşılanmış olur: daraltma var, sessizlik yok.
   final String? userId;
+
+  /// Rol + kurye izinlerinden türeyen yetki kümesi (`yetkiler()`), kabuktan geçer.
+  ///
+  /// Verilmezse `null`: ekran o zaman kısıtlama uygulamaz. Bu, testlerin ve ekranı doğrudan
+  /// açan yolların davranışını değiştirmemek içindir — kısıtlamayı kabuk bilerek verir.
+  final RolYetkileri? yetki;
   final bool canAssign; // kurye çipine dokununca kurye değiştirilebilir mi (K2)
 
   /// Kabuk çekmecesini açar. Verilmezse üstte menü düğmesi çizilmez.
@@ -120,16 +134,31 @@ class _OrderListScreenState extends State<OrderListScreen> {
   /// Süzgecin gerçekten uygulanacağı gün; teslim dışı sekmelerde null (süzme yok).
   DateTime? get _aktifGun => _filtre == OrderFilter.teslim ? _teslimGunu : null;
 
+  /// Kurye kendi siparişlerine KİLİTLİ Mİ (`yetkiler().tumSiparisleriGorme` kapalı).
+  ///
+  /// `userId` şart: kimliği bilinmeyen bir oturumu boş listeye kilitlemek, yetkiyi uygulamak
+  /// değil ekranı bozmaktır — o durumda kısıtlama uygulanmaz ve kapı yönetici tarafında kalır.
+  bool get _kendiSiparisleriyleSinirli =>
+      widget.yetki != null && !widget.yetki!.tumSiparisleriGorme && widget.userId != null;
+
+  /// Sorguya gidecek kurye kimliği. Kilitliyse oturum kullanıcısı, değilse patronun seçtiği süzgeç.
+  String? get _etkinKuryeId => _kendiSiparisleriyleSinirli ? widget.userId : _kuryeId;
+
+  /// Teslim sekmesinde geçmiş günlere gezinilebilir mi (`yetkiler().gecmisTeslimatlariGorme`).
+  /// Yetki verilmemişse (kabuk dışı açılış, testler) kısıtlama uygulanmaz.
+  bool get _gecmisGunlereGidebilir => widget.yetki?.gecmisTeslimatlariGorme ?? true;
+
   Stream<List<OrderListItem>> _siparisleriIzle() {
     final gun = _aktifGun;
+    final kurye = _etkinKuryeId;
     if (_siparisAkisi == null ||
         _akisFiltre != _filtre ||
-        _akisKurye != _kuryeId ||
+        _akisKurye != kurye ||
         _akisGun != gun) {
       _akisFiltre = _filtre;
-      _akisKurye = _kuryeId;
+      _akisKurye = kurye;
       _akisGun = gun;
-      _siparisAkisi = watchOrders(widget.db, _filtre, assignedTo: _kuryeId, gun: gun);
+      _siparisAkisi = watchOrders(widget.db, _filtre, assignedTo: kurye, gun: gun);
     }
     return _siparisAkisi!;
   }
@@ -204,8 +233,15 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 baslik: 'Siparişler',
                 // Süzgeç açıkken kimin listesine bakıldığı BAŞLIKTA yazar: yoksa patron boş
                 // listeyi "sipariş yok" sanır, oysa yalnız o kuryede yoktur.
-                alt: 'Bugün ${snap.data ?? 0} açık'
-                    '${_kuryeId == null ? '' : ' · ${_kuryeAdi ?? 'Kurye'}'}',
+                //
+                // KURYE KİLİDİ DE BURADA SÖYLENİR — bu pazarlıksız. Listeyi haber vermeden
+                // daraltmak 2026-07-27'de tam da bu yüzden geri alınmıştı; kısıtlama geri
+                // gelirken sessizliği geri gelmemeli. Kurye eksik listeyi "sipariş yok" sanıp
+                // teslimat kaçırmamalı, kendi kapsamına baktığını BİLMELİ.
+                alt: _kendiSiparisleriyleSinirli
+                    ? 'Bugün ${snap.data ?? 0} açık · yalnız size atananlar'
+                    : 'Bugün ${snap.data ?? 0} açık'
+                        '${_kuryeId == null ? '' : ' · ${_kuryeAdi ?? 'Kurye'}'}',
                 onMenu: widget.onMenu,
                 // Başlıkta TEK eylem kaldı (2026-08-01). Harita ile kurye süzgeci çıplak ikon
                 // düğmeleriydi; ne yaptıkları ancak dokununca anlaşılıyordu. İkisi de sekmelerin
@@ -246,7 +282,13 @@ class _OrderListScreenState extends State<OrderListScreen> {
             // Elle sıralama kipinde gizlenir (araç şeridiyle aynı gerekçe: sıra yazılırken
             // listenin altından küme değişmemeli). Teslim sekmesinde elle sıralama zaten
             // anlamsız ama kapı burada da kapalı tutulur — kip kararı tek yerde okunmalı.
-            if (!_elle && _filtre == OrderFilter.teslim)
+            //
+            // GEÇMİŞ GÜNLERE GEZİNME YETKİYE BAĞLI (`gecmisTeslimatlariGorme`, 2026-08-09):
+            // yetki kapalıysa şerit HİÇ çizilmez ve sekme bugüne sabit kalır. Şeridi çizip
+            // dokunuşta reddetmek yerine gizlemek doğrudur — yetki kalıcı olarak kapalıdır ve
+            // her dokunuşta aynı reddi okutmak gürültüdür (kurye yetkileri deseninin aynısı).
+            // Kurye kendi BUGÜNKÜ teslimatlarını görmeye devam eder; kapanan şey geçmiş gündür.
+            if (!_elle && _filtre == OrderFilter.teslim && _gecmisGunlereGidebilir)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                     SipSpace.govde, 0, SipSpace.govde, SipSpace.xl),

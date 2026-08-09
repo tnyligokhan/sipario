@@ -27,6 +27,7 @@ import '../cagri/cagri_karti.dart';
 import '../cagri/cagri_model.dart';
 import '../customers/customer_detail_screen.dart';
 import '../customers/customer_form_screen.dart';
+import '../team.dart' show RolYetkileri;
 import 'isletme_atomlari.dart';
 import 'isletme_profili_ekrani.dart';
 import 'siparis_kodu_ayari.dart';
@@ -65,6 +66,7 @@ class AyarlarEkrani extends StatefulWidget {
     super.key,
     required this.db,
     this.rol,
+    this.yetki,
     this.writable = true,
     this.onSihirbaz,
     this.onCagriSimulasyonu,
@@ -72,6 +74,14 @@ class AyarlarEkrani extends StatefulWidget {
     this.koyuTema,
     this.onTema,
   });
+
+  /// Rol + kurye izinlerinden türeyen yetki kümesi (kabuktan gelir).
+  ///
+  /// ⚠️ 2026-08-09: bu ekranda "Çağrı Geçmişi" satırı KOŞULSUZ çiziliyordu; oysa o, dükkânın
+  /// çağrı günlüğüdür ve `courier_can_call_log` anahtarıyla kapatılabildiği sanılıyordu.
+  /// Anahtar kaydediliyor ama HİÇBİR yerde okunmuyordu — kapatılan yetki hiçbir kapıyı
+  /// kapatmıyordu. Kapı artık burada. Verilmezse kısıtlama uygulanmaz (test/önizleme yolu).
+  final RolYetkileri? yetki;
 
   final AppDatabase db;
 
@@ -282,12 +292,16 @@ class _Govde extends StatelessWidget {
               }
             },
           ),
-          AyarSatiri(
-            ikon: SipIcons.clock,
-            baslik: 'Çağrı Geçmişi',
-            altBaslik: 'Son gelen ve giden aramalar',
-            onTap: state._cagriGecmisi,
-          ),
+          // Dükkânın çağrı günlüğü — `cagriGunlugu` yetkisine bağlı (2026-08-09). Kurye kendi
+          // işleyişini (arayan tanıma kurulumu, deneme çağrısı, tema) yönetmeye devam eder;
+          // kapanan şey DÜKKÂN VERİSİDİR: kimin ne zaman aradığı bayinin müşteri ilişkisidir.
+          if (state.widget.yetki?.cagriGunlugu ?? true)
+            AyarSatiri(
+              ikon: SipIcons.clock,
+              baslik: 'Çağrı Geçmişi',
+              altBaslik: 'Son gelen ve giden aramalar',
+              onTap: state._cagriGecmisi,
+            ),
           AyarSatiri(
             ikon: SipIcons.phoneCall,
             baslik: 'Gelen çağrıyı dene',

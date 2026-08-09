@@ -405,6 +405,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         _git(AyarlarEkrani(
           db: widget.db,
           rol: _userRole,
+          yetki: _yetki,
           writable: _yazilabilir,
           onSihirbaz: _sihirbaziAc,
           onCagriSimulasyonu: _cagriKartiAc,
@@ -798,6 +799,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           onArama: _aramaAc,
           onSiparisAc: _siparisAc,
           onBorclular: _borclularAc,
+          borclulariGoster: yetki.toplamBorclulariGorme,
           sonSenkron: _sonSenkron,
           sonSenkronAt: _sonSenkronAt,
         ),
@@ -815,6 +817,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           db: widget.db,
           writable: _yazilabilir,
           userId: _userId,
+          // Kurye kısıtlamalarının kaynağı (2026-08-09): `tumSiparisleriGorme` kapalıysa liste
+          // oturum kullanıcısına kilitlenir, `gecmisTeslimatlariGorme` kapalıysa gün şeridi
+          // çizilmez. İkisi de burada verilir ki rol yorumu TEK yerde kalsın.
+          yetki: yetki,
           canAssign: yetki.atama,
           onMenu: () => setState(() => _cekmece = true),
         ),
@@ -828,6 +834,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           onMenu: () => setState(() => _cekmece = true),
           rol: _userRole,
           kullaniciId: _userId,
+          // Kurye izinleri de geçer (2026-08-09): ekran `gunuKapatma` ve `gecmisHesapArsivi`
+          // kapılarını buradan türetiyor. Geçilmezse varsayılan izinlerle karar verir ve
+          // bayinin kendi ayarı yok sayılırdı.
+          kuryeIzin: _kuryeIzin,
         ),
     };
   }

@@ -24,6 +24,7 @@ class AnaBento extends StatelessWidget {
     required this.onSekme,
     required this.onArama,
     required this.onBorclular,
+    this.borclulariGoster = true,
   });
 
   final AppDatabase db;
@@ -34,6 +35,16 @@ class AnaBento extends StatelessWidget {
   /// "Borçlular" kutusu — borçlu müşteriler ekranını açar. Ekranı KABUK açar (yazma yetkisi
   /// ve rol orada bilinir); bento yalnız niyeti bildirir.
   final VoidCallback onBorclular;
+
+  /// Kutu ÇİZİLSİN Mİ (`yetkiler().toplamBorclulariGorme`).
+  ///
+  /// ⚠️ 2026-08-09'da düzeltilen kusur: kapı YALNIZ dokunuşta vardı (`home_shell._borclularAc`
+  /// bir toast gösterip dönüyordu), ama kutu kuryeye ÇİZİLMEYE devam ediyordu — yani toplam
+  /// borç tutarı ve borçlu müşteri sayısı ekranda okunuyordu. "Erişim kapalı, bilgi açık"
+  /// bir kısıtlama değildir: rakam zaten sızdıysa listeyi engellemenin bir anlamı kalmaz.
+  /// Yetki kapalıysa kutu HİÇ çizilmez ve "Son Arama" satırı tek başına genişler — bu,
+  /// BRIEF'in "yetkisi olmayan adım hiç görünmesin" ilkesiyle aynı çizgidedir.
+  final bool borclulariGoster;
 
   @override
   Widget build(BuildContext context) {
@@ -73,8 +84,9 @@ class AnaBento extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: _Kutu(
+              if (borclulariGoster)
+                Expanded(
+                  child: _Kutu(
                   // "Açık Veresiye" → "Borçlular" (kullanıcı kararı 2026-07-29). Rakam aynı
                   // (tahsil edilmemiş toplam) ama kutunun VAADİ değişti: dokununca müşteriler
                   // sekmesine değil, yalnız borçluları ve ödenmemiş siparişlerini listeleyen
@@ -92,9 +104,9 @@ class AnaBento extends StatelessWidget {
                       ? '${o.borcluMusteri} borçlu müşteri'
                       : 'tüm hesaplar temiz',
                   onTap: onBorclular,
+                  ),
                 ),
-              ),
-              const SizedBox(width: SipSpace.lg),
+              if (borclulariGoster) const SizedBox(width: SipSpace.lg),
               Expanded(child: _SonAramaKutusu(db: db, onArama: onArama)),
             ],
           ),

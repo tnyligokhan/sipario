@@ -617,6 +617,60 @@ güncel şemayla kurar, 13 kolonu DROP eder, `user_version = 14` damgalar, yenid
 **kırılabilirliği kanıtlandı**: sürüm 14'e geri alınınca kırmızı yanıyor, yani vakum değil.
 İddianın merkezi sahada patlayan sorgunun kendisi (`watchHaritaDuraklari`).
 
+## 🔐 KURYE YETKİLERİ GERÇEKTEN BAĞLANDI (2026-08-09, saha raporu üzerine)
+
+Saha raporu: *"yetkilendirme ekranında ayarlar var ama arka planda hiçbir kısıtlama devreye
+girmiyor; kurye hâlâ her şeyi görüyor."* **Ölçüm kullanıcıyı doğruladı.**
+
+**Teşhis:** `RolYetkileri` **26 alan** tanımlıyor, `yetkiler()` çözümleyicisi hepsini **doğru
+hesaplıyor** — ama **yedisi hiçbir kapıya bağlı değildi**: `tumSiparisleriGorme` ·
+`gecmisTeslimatlariGorme` · `gecmisHesapArsivi` · `gunuKapatma` · `isletmeAbonelikAyarlari` ·
+`cihazAyarlari` · `rotaCalistir`. Yani **beyin sağlamdı, kollar takılı değildi**: ayar ekranda
+görünüyor, `tenant_settings`e yazılıyor, hiçbir şeyi etkilemiyordu.
+
+⚠️ Üstüne bir de `schemaVersion` kusuru biniyordu (yukarıda): o 13 kolon sahadaki cihazlarda
+zaten YOKTU. Yani doğru bağlanmış kapılar bile ayarı okuyamazdı. İki kusur üst üsteydi.
+
+**Yapılanlar (istek sırasıyla):**
+
+| # | İstek | Önce | Şimdi |
+|---|---|---|---|
+| 1a | Gün özetinde yalnız kendi tahsilatı | ✅ zaten çalışıyordu (`day_end_screen:75,126`) | korundu |
+| 1b | Kasa işlemleri kısıtlı | ❌ `gunSonu` okunuyordu → o izin açık olan kurye **GÜN hesabını** kapatabiliyordu | `gunuKapatma` (yalnız yönetici); kurye **yalnız kendi devrini** yapar |
+| 1c | Geçmişi göremesin | ❌ kapı yok | "Geçmiş" düğmesi `gecmisHesapArsivi` ile çizilir |
+| 2 | Borçlular görünmesin | ⚠️ tıklama engelli ama **kutu ve rakam görünüyordu** | kutu hiç çizilmez (`borclulariGoster`) |
+| 3 | Yalnız kendi siparişleri | ❌ hiç yok | liste kilitlenir + başlık **"yalnız size atananlar"** der |
+| 4 | Geçmiş teslimat yetkiye bağlı | ❌ hiç yok | gün şeridi `gecmisTeslimatlariGorme` ile çizilir |
+| 5 | Ayarlar kısıtlı | ⚠️ İşletme zaten patronda; **Çağrı Geçmişi koşulsuzdu** | `cagriGunlugu` kapısı eklendi |
+
+**Madde 3'ün özel notu:** filtreleme 2026-07-27'de **bilinçli kaldırılmıştı** — gerekçe "kuryenin
+listesini HABER VERMEDEN daraltırdı" idi. Yani itiraz kısıtlamaya değil, SESSİZLİĞE idi. Bu yüzden
+kısıtlama geri gelirken başlık bunu açıkça yazıyor; kurye eksik listeyi "iş yok" sanıp teslimat
+kaçırmasın.
+
+**Kasa devri kararı (kullanıcı, 2026-08-09):** kurye **kendi** kasasını devredebilir (BRIEF:
+"gün sonunda kurye kasayı patrona devreder"), ama günü kapatamaz, başka kuryenin kapsamına
+giremez, geçmiş arşivi göremez.
+
+**Test:** `ui_kurye_kisitlari_test.dart` (4 test) — kurye yalnız kendine atananı görür · kısıtlama
+sessiz değil · yönetici etkilenmez · yetki verilmezse eski davranış korunur. **Kırılabilirliği
+kanıtlandı** (kapı kaldırılınca 3/4 kırmızı). `kurye_yetkileri_test.dart` "doğru hesaplıyor mu"yu
+sınıyordu; bu dosya eksik yarısını kapatıyor: **hesaplanan yetki ekranda bir şeyi değiştiriyor mu.**
+
+### ⚠️ BU İŞTEN KALAN AÇIK BORÇLAR
+
+- **Kısıtlama YALNIZ ARAYÜZDE** (kullanıcı kararı). `SyncService.php:281` pull'u
+  `WHERE tenant_id = ?` ile yapıyor — kullanıcı/rol süzmesi YOK, yani **bayinin tüm verisi kurye
+  cihazına iniyor**. Ekranda gizlemek, cihazda yok etmek değildir. Sunucu süzmesi ayrı ve büyük
+  bir iş (offline-first ile çatışır: atama değişince veri akışı ve tombstone yönetimi karmaşıklaşır).
+- **`day_end_screen` ve `ayarlar_ekrani` kapılarının widget testi YOK.** Kod yazıldı ve
+  `dart analyze` temiz, ama bu iki kapı yalnız gözle doğrulandı — madde 3'ünki gibi kırılabilir
+  bir teste bağlanmalı.
+- **Diğer yetkilerin "kullanılıyor" görüntüsü aldatıcı olabilir.** `cagriGunlugu` 4 yerde
+  geçiyordu ama dördü de ayarı KAYDEDEN kod; tek bir kapı yoktu. Aynı denetim
+  `sahaGideri` · `stokPasifleme` · `musteriGecmisDefteri` · `borcHatirlatma` · `telefonMaskeleme`
+  için de yapılmalı — "geçiyor" ile "kapı" aynı şey değil.
+
 ## 📋 SIRADAKİ İŞLER (2026-08-09 itibarıyla, öncelik sırasıyla)
 
 ### 🔴 HEMEN — canlı sistemin sağlığı

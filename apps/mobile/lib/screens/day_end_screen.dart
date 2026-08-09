@@ -48,9 +48,16 @@ class DayEndScreen extends StatefulWidget {
     this.onMenu,
     this.rol,
     this.kullaniciId,
+    this.kuryeIzin,
   });
 
   final AppDatabase db;
+
+  /// Bayinin kurye izin ayarları (`tenant_settings`). Rolle birleşip yetkiyi verir.
+  ///
+  /// Verilmezse `KuryeIzinleri.varsayilan` kullanılır — yani ekran tek başına açıldığında
+  /// (test/önizleme) bayinin özel ayarları değil, ürünün varsayılan davranışı geçerlidir.
+  final KuryeIzinleri? kuryeIzin;
 
   /// Verilirse üst çubukta hamburger çizilir (sekme olarak açıldığında); yoksa geri oku.
   final VoidCallback? onMenu;
@@ -129,8 +136,21 @@ class _DayEndScreenState extends State<DayEndScreen> {
 
   /// Seçili kapsamı KAPATMA yetkisi (K2). Yönetici her kapsamı kapatır; kurye yalnız kendi
   /// kurye hesabını — gün hesabı ve başkasının hesabı ona kapalı.
+  /// Bu ekranın yetki kümesi. Tek yerden okunur ki üç kapı (kapatma / ara tahsilat / geçmiş)
+  /// aynı kaynağa baksın.
+  RolYetkileri get _yetki => yetkiler(rol: widget.rol, kuryeVar: true, izin: widget.kuryeIzin);
+
+  /// Geçmiş gün arşivini görebilir mi (`gecmisHesapArsivi` — yalnız yönetici).
+  bool get _gecmisiGorebilir => _yetki.gecmisHesapArsivi;
+
   bool get _kapatabilir {
-    if (yetkiler(rol: widget.rol, kuryeVar: true).gunSonu) return true;
+    // ⚠️ 2026-08-09 DÜZELTMESİ: burada eskiden `gunSonu` okunuyordu. `gunSonu` "gün özetini
+    // GÖRME" yetkisidir ve kuryede AÇIK olabilir (`courier_can_day_end`); dolayısıyla o izni
+    // verilen kurye GÜN hesabını —yani bütün dükkânın kasasını— kapatabiliyordu. Doğru yetki
+    // `gunuKapatma`dır ve o yalnız yöneticidedir.
+    if (_yetki.gunuKapatma) return true;
+    // Kurye YALNIZ kendi kurye kapsamını devreder (kullanıcı kararı 2026-08-09; BRIEF:
+    // "gün sonunda kurye kasayı patrona devreder"). Gün hesabı ve başkasının kapsamı kapalı.
     return _kuryeId != null && _kuryeId == widget.kullaniciId;
   }
 
@@ -144,7 +164,8 @@ class _DayEndScreenState extends State<DayEndScreen> {
   /// devrediyor). Başkasının kapsamı ona kapalı — segmentte zaten göremez, burası ikinci kapı.
   bool _araTahsilatAlabilir(GunSonuGorunumu g) {
     if (!g.araTahsilatMumkun || g.kapsamKapali || _kuryeId == null) return false;
-    if (yetkiler(rol: widget.rol, kuryeVar: true).gunSonu) return true;
+    // `_kapatabilir` ile AYNI düzeltme: ölçüt "gün özetini görme" değil, kapatma/devir yetkisidir.
+    if (_yetki.gunuKapatma) return true;
     return _kuryeId == widget.kullaniciId;
   }
 
@@ -398,20 +419,27 @@ class _DayEndScreenState extends State<DayEndScreen> {
                       // dibinde bir liste olarak duruyordu; bu ekranın işi BUGÜNDÜR ve geçmiş
                       // onu her açılışta aşağı itiyordu. İkon TEK BAŞINA çizilmez — metinsiz bir
                       // takvim, günlük işini yapan bayiye ne açacağını söylemiyordu.
+                      //
+                      // GEÇMİŞ ARŞİVİ YETKİYE BAĞLI (`gecmisHesapArsivi`, 2026-08-09 kullanıcı
+                      // isteği: "kurye geçmişi göremeyecek"). Yetki YALNIZ yöneticidedir; kurye
+                      // için düğme HİÇ çizilmez. Gizlemek doğrudur: yetki kalıcı olarak kapalı
+                      // ve dokunulamayan bir düğme kuryeye sürekli kapalı bir kapı gösterirdi.
+                      // Kuryenin BUGÜNKÜ kendi kapsamı etkilenmez — kapanan yalnız geçmiştir.
                       sag: [
-                        SipMetinButon(
-                          etiket: 'Geçmiş',
-                          ikon: SipIcons.takvim,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => GecmisGunEkrani(
-                                db: widget.db,
-                                rol: widget.rol,
-                                kullaniciId: widget.kullaniciId,
+                        if (_gecmisiGorebilir)
+                          SipMetinButon(
+                            etiket: 'Geçmiş',
+                            ikon: SipIcons.takvim,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => GecmisGunEkrani(
+                                  db: widget.db,
+                                  rol: widget.rol,
+                                  kullaniciId: widget.kullaniciId,
+                                ),
                               ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                     // Kapsam segmenti HER ZAMAN çizilir — tek kurye (ya da hiç kurye) varken de

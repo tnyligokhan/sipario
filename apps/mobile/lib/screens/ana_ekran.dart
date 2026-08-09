@@ -39,6 +39,7 @@ class AnaEkran extends StatelessWidget {
     required this.onArama,
     required this.onSiparisAc,
     required this.onBorclular,
+    this.borclulariGoster = true,
     this.sonSenkron,
     this.sonSenkronAt,
   });
@@ -63,6 +64,10 @@ class AnaEkran extends StatelessWidget {
   /// "Borçlular" bento kutusu — borçlu müşteriler ekranını kabuk açar (yazma yetkisi orada
   /// bilinir; bu ekran yalnız niyeti devreder, `onArama`/`onSiparisAc` deseninin aynısı).
   final VoidCallback onBorclular;
+
+  /// Borçlular kutusu çizilsin mi (`yetkiler().toplamBorclulariGorme`). Kurye için kapalıdır:
+  /// kutu çizilmezse toplam borç tutarı ve borçlu müşteri sayısı ekranda hiç görünmez.
+  final bool borclulariGoster;
 
   final SyncOutcome? sonSenkron;
   final DateTime? sonSenkronAt;
@@ -117,6 +122,7 @@ class AnaEkran extends StatelessWidget {
                     onSekme: onSekme,
                     onArama: onArama,
                     onBorclular: onBorclular,
+                    borclulariGoster: borclulariGoster,
                   ),
                   const SizedBox(height: SipSpace.xl),
                   _Cta(onTap: onYeniSiparis),
