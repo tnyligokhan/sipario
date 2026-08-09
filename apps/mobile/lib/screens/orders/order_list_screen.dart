@@ -193,7 +193,10 @@ class _OrderListScreenState extends State<OrderListScreen> {
   late final Stream<String> _kodTercihi = watchSiparisKoduTercihi(widget.db);
   late final Stream<Map<String, AdresBilgi>> _adresler = watchBirincilAdresler(widget.db);
   late final Stream<Map<String, String>> _telefonlar = watchBirincilTelefonlar(widget.db);
-  late final Stream<int> _acikSayisi = watchAcikSiparisSayisi(widget.db);
+  /// Başlıktaki açık sipariş sayısı — LİSTEYLE AYNI KAPSAMI sayar (2026-08-09).
+  /// Kurye kilitliyse yalnız kendine atananlar sayılır; yoksa başlık listeyle çelişirdi.
+  late final Stream<int> _acikSayisi =
+      watchAcikSiparisSayisi(widget.db, assignedTo: _kendiSiparisleriyleSinirli ? widget.userId : null);
 
   bool get _elle => _sirala == OrderSort.elle;
 

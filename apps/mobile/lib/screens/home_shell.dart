@@ -800,6 +800,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           onSiparisAc: _siparisAc,
           onBorclular: _borclularAc,
           borclulariGoster: yetki.toplamBorclulariGorme,
+          // Sipariş listesiyle AYNI kapsam: kurye kilitliyse bento de yalnız ona atananları sayar.
+          acikSiparisKullanicisi: yetki.tumSiparisleriGorme ? null : _userId,
           sonSenkron: _sonSenkron,
           sonSenkronAt: _sonSenkronAt,
         ),

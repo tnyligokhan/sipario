@@ -318,10 +318,22 @@ Stream<String> watchSiparisKoduTercihi(AppDatabase db) =>
         .map((r) => r?.orderCodeDisplay ?? 'musteri');
 
 /// Üst başlıktaki "Bugün N açık" sayacı (s-siparisler.jsx `Ust alt=`).
-Stream<int> watchAcikSiparisSayisi(AppDatabase db) =>
-    (db.select(db.orders)..where((t) => t.status.equals('open') & t.deletedAt.isNull()))
-        .watch()
-        .map((rows) => rows.length);
+/// Açık sipariş sayısı. [assignedTo] verilirse YALNIZ o kullanıcıya atananlar sayılır.
+///
+/// ⚠️ 2026-08-09 SAHA BULGUSU: bu sayaç kurye kısıtlamasını görmezden geliyordu. Kurye
+/// ekranında başlık "Bugün 12 açık · yalnız size atananlar" diyor ama listede 2 sipariş
+/// vardı — ekran kendi kendisiyle çelişiyordu. Liste süzülürken sayacın süzülmemesi,
+/// kısıtlamayı yarım bırakmaktan da kötüdür: kurye "10 siparişim kayboldu" diye arar.
+/// Kural: **bir listeyi süzen kapı, o listenin SAYACINI da süzmek zorundadır.**
+Stream<int> watchAcikSiparisSayisi(AppDatabase db, {String? assignedTo}) {
+  final q = db.select(db.orders)
+    ..where((t) => t.status.equals('open') & t.deletedAt.isNull());
+  if (assignedTo != null) {
+    q.where((t) => t.assignedUserId.equals(assignedTo));
+  }
+
+  return q.watch().map((rows) => rows.length);
+}
 
 // HARİTA SORGULARI BU DOSYADA DEĞİL: `harita_sorgulari.dart`. Bölüm 500 satır kuralı için
 // ayrıldı ve sipariş listesinin sorgularıyla hiçbir şey paylaşmıyordu; oradan buraya TEK YÖNLÜ

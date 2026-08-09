@@ -64,8 +64,13 @@ class AnaOzet {
 /// [gun] verilmezse gün DÜZELTİLMİŞ SUNUCU SAATİNDEN türer — cihaz saatinden DEĞİL. Kayıtlar
 /// `correctedNowIso(serverTimeOffsetMs)` ile damgalanıyor; bento'nun günü de aynı saatten gelmek
 /// ZORUNDA, yoksa aynı parayı iki yüzey iki farklı güne yazar.
-Stream<AnaOzet> watchAnaOzet(AppDatabase db, {DateTime? gun}) =>
-    gun != null ? _watchGun(db, gun) : _duzeltilmisGunAkisi(db);
+/// [assignedTo] verilirse "Açık Sipariş" kutusu YALNIZ o kullanıcıya atananları sayar
+/// (kurye kısıtlaması). Diğer rakamlar dükkân geneli kalır — kasa/teslim/borç kutuları
+/// kendi yetki kapılarından geçer.
+Stream<AnaOzet> watchAnaOzet(AppDatabase db, {DateTime? gun, String? assignedTo}) =>
+    gun != null
+        ? _watchGun(db, gun, assignedTo: assignedTo)
+        : _duzeltilmisGunAkisi(db, assignedTo: assignedTo);
 
 /// Düzeltilmiş günü İZLER ve gün değiştikçe sorguyu yeniden kurar.
 ///
@@ -74,7 +79,7 @@ Stream<AnaOzet> watchAnaOzet(AppDatabase db, {DateTime? gun}) =>
 /// günün kasasını gösterir, offset indiğinde de kimse ona haber vermezdi (bu depoda yaşanmış bir
 /// arıza sınıfı: kontör "0 hak" görünüyordu, sunucuda 34 vardı). Yan fayda: gece yarısını geçen
 /// bir ekran, sonraki senkron turunda kendiliğinden yeni güne döner.
-Stream<AnaOzet> _duzeltilmisGunAkisi(AppDatabase db) {
+Stream<AnaOzet> _duzeltilmisGunAkisi(AppDatabase db, {String? assignedTo}) {
   final gunler = db
       .watchSyncState()
       .map((m) =>
@@ -93,7 +98,8 @@ Stream<AnaOzet> _duzeltilmisGunAkisi(AppDatabase db) {
       disAbone = gunler.listen(
         (g) {
           icAbone?.cancel();
-          icAbone = _watchGun(db, g).listen(kanal.add, onError: kanal.addError);
+          icAbone = _watchGun(db, g, assignedTo: assignedTo)
+              .listen(kanal.add, onError: kanal.addError);
         },
         onError: kanal.addError,
       );
@@ -123,19 +129,27 @@ Stream<AnaOzet> _duzeltilmisGunAkisi(AppDatabase db) {
   return kanal.stream;
 }
 
-Stream<AnaOzet> _watchGun(AppDatabase db, DateTime gun) {
+Stream<AnaOzet> _watchGun(AppDatabase db, DateTime gun, {String? assignedTo}) {
   final s = trGunSiniri(gun);
   final v = [
     Variable<String>(s.bas),
     Variable<String>(s.son),
   ];
 
+  // Kurye kısıtlıysa "Açık Sipariş" kutusu YALNIZ ona atananları sayar (2026-08-09).
+  // Süzülmezse ana ekran 12 der, sipariş listesi 2 gösterir — aynı ekranın iki yeri
+  // farklı sayı konuşur ve kurye "siparişlerim kayboldu" diye arar.
+  //
+  // ⚠️ PARAMETRE SIRASI: `?` işaretleri SQL'de göründükleri sıraya bağlanır. Bu süzgeç
+  // İLK alt sorguda olduğu için değişkeni de listenin BAŞINA koymak zorundayız.
+  final kuryeSuzgeci = assignedTo == null ? '' : 'AND assigned_user_id = ?';
+
   return db
       .customSelect(
         '''
         SELECT
           (SELECT COUNT(*) FROM orders
-             WHERE deleted_at IS NULL AND status = 'open')            AS acik_siparis,
+             WHERE deleted_at IS NULL AND status = 'open' $kuryeSuzgeci) AS acik_siparis,
           (SELECT COUNT(*) FROM orders
              WHERE deleted_at IS NULL
                AND datetime(occurred_at) >= datetime(?)
@@ -153,7 +167,12 @@ Stream<AnaOzet> _watchGun(AppDatabase db, DateTime gun) {
           (SELECT COALESCE(SUM(balance_kurus), 0) FROM customers
              WHERE deleted_at IS NULL AND balance_kurus > 0)          AS veresiye
         ''',
-        variables: [...v, ...v, ...v],
+        variables: [
+          if (assignedTo != null) Variable<String>(assignedTo),
+          ...v,
+          ...v,
+          ...v,
+        ],
         readsFrom: {db.orders, db.ledgerEntries, db.customers},
       )
       .watchSingle()

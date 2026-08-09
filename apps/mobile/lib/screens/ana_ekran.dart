@@ -40,6 +40,7 @@ class AnaEkran extends StatelessWidget {
     required this.onSiparisAc,
     required this.onBorclular,
     this.borclulariGoster = true,
+    this.acikSiparisKullanicisi,
     this.sonSenkron,
     this.sonSenkronAt,
   });
@@ -68,6 +69,13 @@ class AnaEkran extends StatelessWidget {
   /// Borçlular kutusu çizilsin mi (`yetkiler().toplamBorclulariGorme`). Kurye için kapalıdır:
   /// kutu çizilmezse toplam borç tutarı ve borçlu müşteri sayısı ekranda hiç görünmez.
   final bool borclulariGoster;
+
+  /// "Açık Sipariş" kutusunun kapsamı. Kurye kısıtlıysa onun kullanıcı kimliği verilir ve
+  /// kutu yalnız ona atananları sayar; yönetici için `null` (dükkân geneli).
+  ///
+  /// ⚠️ 2026-08-09: bu alan olmadan ana ekran "12 açık" derken sipariş listesi 2 gösteriyordu —
+  /// aynı uygulamanın iki yüzeyi farklı sayı konuşuyordu.
+  final String? acikSiparisKullanicisi;
 
   final SyncOutcome? sonSenkron;
   final DateTime? sonSenkronAt;
@@ -101,7 +109,7 @@ class AnaEkran extends StatelessWidget {
         ),
         Expanded(
           child: StreamBuilder<AnaOzet>(
-            stream: watchAnaOzet(db),
+            stream: watchAnaOzet(db, assignedTo: acikSiparisKullanicisi),
             builder: (context, snap) {
               final o = snap.data ?? const AnaOzet();
               return RefreshIndicator(
