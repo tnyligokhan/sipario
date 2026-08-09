@@ -406,8 +406,11 @@ void main() {
       expect(api.pullSayaci, 1);
 
       sync.aralikDegistir(const Duration(milliseconds: 400)); // t≈250: AYNI değer
-      await _bekle(270); // t≈520
+      await _bekle(40); // t≈290 — periyodik tik henüz GELMEDİ (t≈400'de gelecek)
+      expect(api.pullSayaci, 1,
+          reason: 'aynı değerle çağrı hiçbir şey yapmaz — tur da atmaz');
 
+      await _bekle(230); // t≈520
       expect(api.pullSayaci, 2,
           reason: 'zamanlayıcı yeniden kurulsaydı geri sayım t≈250\'de sıfırlanır ve tik '
               't≈650\'ye kayardı: her yaşam döngüsü olayı senkronu bir aralık daha geciktirirdi');
