@@ -9,6 +9,23 @@ const path = require('path');
 
 const dir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
+// ── RENK ─────────────────────────────────────────────────────────────────────────────────
+// Yalnız TEMEL ANSI kodları (30-37/90-97): 256 renk ve truecolor her terminalde aynı
+// görünmez, çubuk da her terminalde okunmak zorunda. `NO_COLOR` standardına uyulur —
+// renkleri kapatan kullanıcıya rağmen kod basmak, çubuğu okunmaz karakter çöplüğüne çevirir.
+//
+// ETİKET GRİ, DEĞER PARLAK: göz önce değeri bulsun. Etiket bağlam verir ama okunması
+// gereken şey sayıdır; ikisi aynı parlaklıkta olursa satır tek bir gri blok gibi görünür
+// (önceki hâlin okunmama sebebi buydu).
+const renkVar = !process.env.NO_COLOR;
+const b = (kod, s) => (renkVar ? `\x1b[${kod}m${s}\x1b[0m` : String(s));
+const etiket = (s) => b('90', s);        // gri — bağlam
+const deger = (s) => b('1;97', s);       // parlak beyaz + kalın — okunacak şey
+const uyari = (s) => b('1;33', s);       // sarı — bekleyen iş
+const iyi = (s) => b('1;32', s);         // yeşil — hizada
+const kotu = (s) => b('1;31', s);        // kırmızı — dikkat
+const ayrac = etiket('│');
+
 // Claude Code oturum JSON'ını stdin'den verir; ruflo'ya aynen iletmek için yakala.
 let input = '';
 try {
@@ -17,14 +34,24 @@ try {
   input = '';
 }
 
-/** PLAN.md panosundan "Genel ~%NN · Faz N ~%MM" segmentini üret. */
+/**
+ * PLAN.md panosundan ilerleme segmenti.
+ *
+ * ETİKETLER BÜYÜK HARF — çubuğun tamamında tek bir yazım düzeni var (GENEL · FAZ · CI ·
+ * SAHA · TEST · API · AĞAÇ · YAYIN BORCU). Karışık yazım, gözün satırı "tarayacağı" yerine
+ * "okumasına" yol açar ve çubuk bir bakışta anlaşılmaz hâle gelir.
+ */
 function progressSegment() {
   try {
     const plan = fs.readFileSync(path.join(dir, 'PLAN.md'), 'utf8');
     const full = plan.match(/Genel proje:\s*~?%\s*(\d+)[\s\S]*?Faz\s*(\d+)[\s\S]*?~?%\s*(\d+)/);
-    if (full) return `📊 Genel ~%${full[1]} · Faz ${full[2]} ~%${full[3]}`;
+    // `~` KORUNUR: PLAN.md'deki yüzdeler EFOR TAHMİNİDİR, ölçüm değil. Tildeyi atmak
+    // sayıya sahip olmadığı bir kesinlik verirdi.
+    if (full) {
+      return `${etiket('GENEL')} ${deger('~%' + full[1])}  ${ayrac}  ${etiket('FAZ ' + full[2])} ${deger('~%' + full[3])}`;
+    }
     const gen = plan.match(/Genel proje:\s*~?%\s*(\d+)/);
-    if (gen) return `📊 Genel ~%${gen[1]}`;
+    if (gen) return `${etiket('GENEL')} ${deger('~%' + gen[1])}`;
   } catch (_) {}
   return '';
 }
@@ -72,30 +99,39 @@ function surumSatiri(veri) {
 
   const kanal = (ad, k) => {
     if (!k) return null;
-    if (!k.surum) return k.yapim != null ? `${ad} ${k.yapim}` : null;
+    if (!k.surum) return k.yapim != null ? `${etiket(ad)} ${deger(k.yapim)}` : null;
     // Ağaç bu kanaldan kaç commit ileride? Negatifse (kanal daha yeni) gösterilmez:
     // "geride kaldım" bilgisi bu satırın işi değil, `git` söyler.
     const fark = k.yapim != null && yerelY != null ? yerelY - k.yapim : 0;
-    return fark > 0 ? `${ad} ${k.surum} +${fark}` : `${ad} ${k.surum}`;
+    // Hizadaysa YEŞİL onay: "bekleyen iş yok" bilgisi, sarı bir sayının yokluğundan
+    // okunmamalı — yokluk fark edilmez, işaret edilir.
+    const son = fark > 0 ? uyari(`+${fark}`) : iyi('✓');
+    return `${etiket(ad)} ${deger(k.surum)} ${son}`;
   };
 
-  const saha = kanal('saha', veri.saha);
-  const test = kanal('test', veri.test);
+  const saha = kanal('SAHA', veri.saha);
+  const test = kanal('TEST', veri.test);
   if (saha) p.push(saha);
   if (test) p.push(test);
 
   // Hiç kanal okunamadıysa eski davranış: ham yapım numarası.
-  if (!saha && !test && yerelY != null) p.push(`yapım ${yerelY}`);
+  if (!saha && !test && yerelY != null) p.push(`${etiket('YAPIM')} ${deger(yerelY)}`);
 
-  // "ağaç" YALNIZ ayrıştığında: iki kanaldan biriyle bile aynıysa satırı şişirmez.
+  // "AĞAÇ" YALNIZ ayrıştığında: iki kanaldan biriyle bile aynıysa satırı şişirmez.
   const kanalSurumleri = [veri.saha?.surum, veri.test?.surum].filter(Boolean);
   if (yerelS && kanalSurumleri.length && !kanalSurumleri.includes(yerelS)) {
-    p.push(`ağaç ${yerelS}`);
+    p.push(`${etiket('AĞAÇ')} ${uyari(yerelS)}`);
   }
 
-  if (veri.apiSurum) p.push(`api ${veri.apiSurum}`);
-  if (veri.yayinBorcu > 0) p.push(`yayın borcu ${veri.yayinBorcu}`);
-  return p.join(' · ');
+  if (veri.apiSurum) p.push(`${etiket('API')} ${deger(veri.apiSurum)}`);
+  // Yayın borcu bir BORÇTUR: sıfırsa hiç yazılmaz, büyüdükçe rengi sertleşir.
+  // 20 eşiği keyfi değil — 2026-08-09'da borç 41'e çıktığında sunucu ile telefonlar
+  // farklı kod çalıştırıyordu; o noktaya varmadan gözün takılması gerekiyor.
+  if (veri.yayinBorcu > 0) {
+    const n = veri.yayinBorcu;
+    p.push(`${etiket('YAYIN BORCU')} ${n >= 20 ? kotu(n) : uyari(n)}`);
+  }
+  return p.join(`  ${ayrac}  `);
 }
 
 function ciVeri() {
@@ -135,11 +171,23 @@ function ciVeri() {
   return null;
 }
 
-/** CI rozeti — tek işaret, sürüm satırından AYRI (o satır zaten yoğun). */
+/**
+ * CI rozeti — emoji DEĞİL, renkli metin.
+ *
+ * Emoji terminalden terminale farklı genişlikte çizilir ve hizalamayı bozar; ayrıca renk
+ * körlüğünde 🟢/🔴 ayrımı yalnız RENGE dayanır. Metin + renk ikisini birden verir:
+ * işaret şekli (✓ ✗ ●) renksiz de okunur.
+ */
 function ciRozeti(veri) {
   if (!veri) return '';
-  const isaret = { success: '🟢', in_progress: '🟡', queued: '🟡', failure: '🔴' }[veri.kosum];
-  return isaret ? `${isaret} CI` : '';
+  const harita = {
+    success: iyi('✓'),
+    failure: kotu('✗'),
+    in_progress: uyari('●'),
+    queued: uyari('●'),
+  };
+  const isaret = harita[veri.kosum];
+  return isaret ? `${etiket('CI')} ${isaret}` : '';
 }
 
 /** ruflo'nun statusline'ını çocuk süreç olarak koştur, stdin'i ilet, stdout'u yakala. */
@@ -174,6 +222,8 @@ function rufloSegment() {
 // Sürüm satırı boşsa (önbellek yok / ağ yok) HİÇ yazılmaz — boş bir satır bırakmak, çubuğu
 // bir satır büyütüp hiçbir bilgi vermemek olurdu.
 const veri = ciVeri();
-const ust = [progressSegment(), ciRozeti(veri), rufloSegment()].filter(Boolean).join('  |  ');
+const ust = [progressSegment(), ciRozeti(veri), rufloSegment()]
+  .filter(Boolean)
+  .join(`  ${ayrac}  `);
 const alt = veri ? surumSatiri(veri) : '';
 process.stdout.write([ust, alt].filter(Boolean).join('\n'));
