@@ -35,6 +35,7 @@ class SyncOutcome {
     required this.ok,
     this.pushed = 0,
     this.karantina = 0,
+    this.beklemede = 0,
     this.error,
     this.tur = SyncHataTuru.yok,
   });
@@ -43,6 +44,15 @@ class SyncOutcome {
 
   /// Bu turda karantinaya alınan olay sayısı (kayıtlar SİLİNMEDİ, outbox'ta duruyor).
   final int karantina;
+
+  /// Sunucunun BİLEREK uygulamadığı ve `pending` bırakılan olay sayısı (`locked` = abonelik
+  /// kilitli · bilinmeyen durum = sürüm çarpıklığı). Kayıtlar kaybolmadı, SIRADALAR.
+  ///
+  /// NEDEN [ok]'i BOZMUYOR: bu bir başarısızlık değil ERTELEMEDİR (bkz. `PushOzeti.beklemede`);
+  /// turu kırmızıya boyamak "sunucu kayıtları kabul etmiyor" derdi ve yalan olurdu. Ama sessiz
+  /// de kalamaz — alan bir vardiya boyunca HİÇ okunmadığı için bant "senkron güncel" derken
+  /// kayıtlar cihazda birikiyordu. Görünürlük ayrı bir bantla sağlanır, cins bozularak değil.
+  final int beklemede;
   final String? error;
 
   /// [ok] false ise başarısızlığın CİNSİ. Bant hangi gerçeği yazacağını bundan öğrenir.
@@ -216,12 +226,18 @@ class SyncService {
             ok: false,
             pushed: ozet.gonderildi,
             karantina: ozet.karantina,
+            beklemede: ozet.beklemede,
             error: ozet.kaliciRed
                 ? 'Sunucu bazı kayıtları kabul etmedi'
                 : 'Sunucudan gelen bazı kayıtlar okunamadı',
             tur: SyncHataTuru.veri,
           )
-        : SyncOutcome(ok: true, pushed: ozet.gonderildi, karantina: ozet.karantina);
+        : SyncOutcome(
+            ok: true,
+            pushed: ozet.gonderildi,
+            karantina: ozet.karantina,
+            beklemede: ozet.beklemede,
+          );
   }
 
   /// UYGULAMA ÖN PLANDAYKEN tur aralığı (2026-08-09 kararı). Patronun yazımı artık anında push

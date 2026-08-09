@@ -469,10 +469,17 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   /// ÖNCELİK canlı tur hatasındadır: o AN ne olduğunu anlatır ve genelde eylem gerektirir
   /// (yeniden giriş / bekleme). Karantina uyarısı kalıcıdır, bir sonraki temiz turda zaten
   /// görünür — iki bandı üst üste çizmek ise durum çubuğunu ve yerleşimi bozardı.
+  /// ÜÇÜNCÜ SIRA `bekleyen` (2026-08-09 borcu kapatıldı): sunucunun BİLEREK ertelediği kayıtlar
+  /// (`locked` = abonelik kilitli · bilinmeyen durum = sürüm çarpıklığı). Karantinanın ALTINDA
+  /// çünkü karantina eylem gerektirir (destek), bu ise kendiliğinden çözülür. Ama sessiz de
+  /// kalamazdı: sayı hesaplanıp taşınıyordu, hiçbir yüzey OKUMUYORDU — tur "başarılı" sayıldığı
+  /// için çip "güncel" derken kayıtlar cihazda birikiyordu. Kilitli bayide zaten kilit ekranı var;
+  /// asıl korunan senaryo SÜRÜM ÇARPIKLIĞI — orada hiçbir başka sinyal yok.
   SipBantTuru? get _senkronBandi {
     final o = _sonSenkron;
     if (o != null && !o.ok) return bantTuru(o.tur);
-    return _karantina > 0 ? SipBantTuru.karantina : null;
+    if (_karantina > 0) return SipBantTuru.karantina;
+    return (o?.beklemede ?? 0) > 0 ? SipBantTuru.bekleyen : null;
   }
 
   /// Güncelleme bandının ÜSTÜNDE çizilen bir bant var mı (senkron / grace)? Durum çubuğu

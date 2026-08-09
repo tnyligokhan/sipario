@@ -377,6 +377,16 @@ enum SipBantTuru {
   /// sunucuya hiç ulaşmadı. Senkronun geri kalanı çalışıyor olabilir — bu bant o yüzden ayrıdır:
   /// "çevrimdışı" da "senkron durdu" da yanlış olurdu.
   karantina,
+
+  /// Sunucu kayıtları BİLEREK ertelemiş: abonelik kilitli (`locked`) ya da sunucu bu istemcinin
+  /// tanımadığı bir durum döndürmüş (sürüm çarpıklığı). Kayıtlar `pending` duruyor, deneme
+  /// sayaçları artmıyor, engel kalkınca kendiliğinden akacaklar.
+  ///
+  /// NEDEN AYRI BİR BANT (2026-08-09 borcu): bu sayı hesaplanıyor ve taşınıyordu ama HİÇ
+  /// okunmuyordu — tur "başarılı" sayıldığı için çip "güncel" derken kayıtlar cihazda
+  /// birikiyordu. `karantina` demek yanlış olurdu (kayıt reddedilmedi, ertelendi), `hata` demek
+  /// de yanlış olurdu ("destekle görüşün" — oysa çare abonelik ya da güncelleme).
+  bekleyen,
 }
 
 class SipCevrimdisiBant extends StatelessWidget {
@@ -406,6 +416,11 @@ class SipCevrimdisiBant extends StatelessWidget {
           'Sunucu kayıtları kabul etmiyor · veriler cihazda güvende, destekle görüşün',
         SipBantTuru.karantina =>
           'Bazı kayıtlar gönderilemedi · cihazda duruyor, destekle görüşün',
+        // "bağlanınca gönderilecek" DEMEZ: ağ zaten var, engel abonelik ya da sürüm. Verilemeyecek
+        // bir söz vermemek bu bandın kuruluş ilkesidir (2026-07-27 dersi, dosya başlığı).
+        SipBantTuru.bekleyen =>
+          'Bazı kayıtlar sırada bekliyor · cihazda güvende, abonelik ya da uygulama '
+              'güncellenince gönderilecek',
       };
 
   @override
