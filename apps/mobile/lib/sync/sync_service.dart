@@ -270,7 +270,7 @@ class SyncService {
     _yazimSub = (bekleyenSayisi ?? db.watchBekleyenSayisi()).listen((sayi) {
       final onceki = _sonBekleyen;
       _sonBekleyen = sayi;
-      if (onceki == null || sayi <= onceki) return; // taban kurulumu ya da ack'ten gelen düşüş
+      if (sayi <= (onceki ?? 0)) return; // MUTASYON: ilk-yayın kapısı KALDIRILDI
       if (_yazimGecikme?.isActive ?? false) return; // pencere zaten açık, bu yazım ona binsin
       _yazimGecikme = Timer(gecikme, () => unawaited(_yazimTuru()));
     }, onError: (Object _) {});
