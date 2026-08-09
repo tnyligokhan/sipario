@@ -41,6 +41,36 @@ function progressSegment() {
  * süreç doğar ve makine `gh` süreçleriyle dolardı (saha sunucusu script'inde yetim süreçlerle
  * bir kez ödenen ders).
  */
+/**
+ * Telefon rozeti: YAYINDAKİ sürüm + (varsa) yayınlanmamış iş.
+ *
+ * Dört durum, dördü de tek bakışta ayrılabilir olmalı:
+ *   📱 0.10.0        → yayındaki sürüm bu, ağaçta yayınlanmamış bir şey yok
+ *   📱 0.10.0 +5     → aynı sürüm ama ağaçta 5 commit daha var (henüz telefonda değil)
+ *   📱 0.9.0→0.10.0  → ağaçta SÜRÜM ARTMIŞ, telefon hâlâ eskisinde
+ *   📱 0.10.0 ?      → sürüm okunamadı (surum.json bayat/erişilemez) — sessiz kalmaktansa soru işareti
+ *
+ * Sürüm bilgisi yoksa eski davranışa (yapım numarası) düşülür: bilgi vermemektense
+ * ham sayı vermek yeğdir, ama varsayılan artık insan okunabilir sürümdür.
+ */
+function mobilRozeti(veri) {
+  const yayin = veri.yayindakiSurum;
+  const yerel = veri.yerelSurum;
+  const fark =
+    veri.yayindakiYapim != null && veri.yerelYapim != null
+      ? veri.yerelYapim - veri.yayindakiYapim
+      : null;
+
+  if (!yayin) {
+    // Sürüm alınamadı — yapım numarasıyla idare et (eski davranış).
+    if (veri.yayindakiYapim == null || veri.yerelYapim == null) return '';
+    return fark > 0 ? `📱 ${veri.yayindakiYapim}→${veri.yerelYapim}` : `📱 ${veri.yayindakiYapim}`;
+  }
+  if (yerel && yerel !== yayin) return `📱 ${yayin}→${yerel}`;
+  if (fark != null && fark > 0) return `📱 ${yayin} +${fark}`;
+  return `📱 ${yayin}`;
+}
+
 function ciSegment() {
   try {
     const cache = path.join(dir, '.claude', 'ci-durum.json');
@@ -76,15 +106,19 @@ function ciSegment() {
     const isaret = { success: '🟢', in_progress: '🟡', queued: '🟡', failure: '🔴' }[veri.kosum];
     const parcalar = [];
     if (isaret) parcalar.push(`${isaret} CI`);
-    // Telefonun göreceği yapım ile bu ağacın üreteceği yapım aynı mı? Asıl merak edilen soru
-    // "CI yeşil mi" değil, "değişikliğim telefona ulaştı mı"dır.
-    if (veri.yayindakiYapim != null && veri.yerelYapim != null) {
-      parcalar.push(
-        veri.yayindakiYapim >= veri.yerelYapim
-          ? `📱 ${veri.yayindakiYapim}`
-          : `📱 ${veri.yayindakiYapim}→${veri.yerelYapim}`,
-      );
-    }
+    // SÜRÜM ÖNCE, YAPIM NUMARASI YALNIZ GEREKTİĞİNDE (kullanıcı isteği 2026-08-09:
+    // "derleme numarasına göre olunca kafam karışıyor, kaçta kalmıştım anlamıyorum").
+    //
+    // Neden yapım numarası tamamen atılmıyor: SemVer "değişikliğim telefona ULAŞTI MI?"
+    // sorusunu TEK BAŞINA cevaplayamaz — aynı sürüm altında onlarca commit yayınlanır.
+    // Bu yüzden sürüm insan için önde, yapım farkı ise yalnız YAYINLANMAMIŞ iş varken
+    // ve "+N commit" biçiminde görünür. İkisi farklı soruları cevaplıyor.
+    const mobil = mobilRozeti(veri);
+    if (mobil) parcalar.push(mobil);
+    // API hattı AYRIDIR ve uygulamaya eşitlenmez (CLAUDE.md → "Sürümleme").
+    // ⚠️ Bu YEREL AĞACIN sürümü — canlıdaki API sürümü henüz hiçbir yanıtta yayınlanmıyor.
+    // O açık borç kapandığında burası "yerel→canlı" farkını da gösterebilir.
+    if (veri.apiSurum) parcalar.push(`🔌 ${veri.apiSurum}`);
     return parcalar.join(' ');
   } catch (_) {}
   return '';
