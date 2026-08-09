@@ -77,6 +77,11 @@ class SyncService {
   Timer? _timer;
   StreamSubscription<void>? _tetikSub;
 
+  /// Yazım tetiği AYRI yuvadadır: ağ tetiği ([tetikleyiciBagla]) ile aynı aboneliği paylaşsaydı
+  /// biri diğerini iptal ederdi ve iki kaynak da gerekiyor.
+  StreamSubscription<void>? _yazimSub;
+  Timer? _yazimGecikme;
+
   /// Devam eden tur (yoksa null). Eşzamanlı çağrılar AYNI tura bağlanır: hem çift tur koşmaz hem
   /// de çağıran gerçek sonucu alır.
   ///
@@ -193,11 +198,59 @@ class SyncService {
     _tetikSub = tetik.listen((_) => unawaited(syncNow()), onError: (Object _) {});
   }
 
+  /// YEREL YAZIM TETİĞİ (2026-08-09 saha arızası): outbox'a kayıt düşünce turu AÇAR.
+  ///
+  /// ARIZA: patron siparişi kuryeye atıyor, kurye göremiyor; patron uygulamayı alta alıp öne
+  /// getirince görünüyor. Atama outbox'a düzgün düşüyordu ama hiçbir şey push'u tetiklemiyordu —
+  /// tur yalnız zamanlayıcı · ağ değişimi · öne gelme · aşağı çekme ile açılıyordu. Yani bu bir
+  /// tutarlılık değil GECİKME arızasıydı; "her şey yerinde" diyen ölçümlerin kaçırdığı da buydu.
+  ///
+  /// Kaynak `Stream<void>` olarak alınır ([tetikleyiciBagla] deseninin aynısı): servis `data/`
+  /// katmanını tanımaz, testte akış elle beslenir, üretimde `outboxYazimlari` bağlanır.
+  ///
+  /// [gecikme] PENCEREYİ YENİDEN BAŞLATMAZ — klasik debounce her olayda sayacı sıfırlar ve toplu
+  /// bir yazımda (gün kapanışı onlarca satır yazabilir) turu sürekli erteler. Burada İLK yazım
+  /// pencereyi açar, pencereye düşen yazımlar aynı tura biner: tur en geç [gecikme] sonra koşar
+  /// ve art arda N yazım TEK tur eder. Varsayılan 800 ms: kullanıcıya "anında" hissettirecek
+  /// kadar kısa, tek bir işlemin (teslim = 1 sipariş olayı + 3 defter kaydı) parçalarını
+  /// toplayacak kadar uzun.
+  void yazimTetigiBagla(
+    Stream<void> yazimlar, {
+    Duration gecikme = const Duration(milliseconds: 800),
+  }) {
+    _yazimSub?.cancel();
+    // onError YUTAR — [tetikleyiciBagla] ile aynı gerekçe: tetik bir İYİLEŞTİRMEDİR, senkronun
+    // şartı değil. Kaynağın susması senkronu ya da uygulamayı düşürmemeli.
+    _yazimSub = yazimlar.listen((_) {
+      if (_yazimGecikme?.isActive ?? false) return; // pencere zaten açık, bu yazım ona binsin
+      _yazimGecikme = Timer(gecikme, () => unawaited(_yazimTuru()));
+    }, onError: (Object _) {});
+  }
+
+  /// Yazım tetiğinin turu. Süren bir tura BAĞLANMAK yetmez: o turun `pushPending` seçkisi bu
+  /// yazımdan ÖNCE alınmış olabilir ve kayıt bir sonraki tura — yani 2 dakika sonrasına — kalırdı;
+  /// düzeltmek istediğimiz arızanın ta kendisi. Önce süren tur beklenir, sonra TAZE tur atılır.
+  ///
+  /// Çağıran hiçbir yerde beklenmez (`unawaited`): yazım yolu ağa ASLA bağlanmaz (kırmızı çizgi
+  /// #3). Çevrimdışıyken tur açılır, `SyncHataTuru.ag` ile düşer, kayıt outbox'ta bekler —
+  /// bugünkü davranışın aynısı, bedeli bir başarısız istek.
+  Future<void> _yazimTuru() async {
+    final suren = _tur;
+    if (suren != null) await suren;
+    await syncNow();
+  }
+
   void stop() {
     _timer?.cancel();
     _timer = null;
     _tetikSub?.cancel();
     _tetikSub = null;
+    // Gecikme zamanlayıcısı da BIRAKILIR: çıkış yapıldıktan sonra açılacak bir tur oturumsuzdur
+    // (ve widget testinde bekleyen bir Timer testi asardı).
+    _yazimSub?.cancel();
+    _yazimSub = null;
+    _yazimGecikme?.cancel();
+    _yazimGecikme = null;
   }
 
   void dispose() {
