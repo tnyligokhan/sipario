@@ -329,6 +329,35 @@ class AppDatabase extends _$AppDatabase {
         .map((r) => r.read(sayac) ?? 0);
   }
 
+  /// GÖNDERİLMEYİ BEKLEYEN giden-kutusu kayıtlarının sayısı (akış) — senkronun YAZIM TETİĞİ.
+  ///
+  /// NEDEN VAR (2026-08-09 saha arızası): patron siparişi kuryeye atıyor, kurye yenilese bile
+  /// göremiyordu; patron uygulamayı alta alıp öne getirince görünüyordu. Atama outbox'a düzgün
+  /// düşüyordu — eksik olan, kaydın sunucuya GİDECEĞİ ANIN tetiklenmesiydi: tur yalnız dört DIŞ
+  /// olayla açılıyordu (2 dk zamanlayıcı · ağ değişimi · öne gelme · aşağı çekerek yenileme) ve
+  /// "alta alıp açınca gidiyor" gözlemi tam olarak `AppLifecycleState.resumed` turudur. Bu bir
+  /// tutarlılık değil GECİKME arızasıydı; durağan durumu ölçen teşhislerin kaçırdığı da buydu.
+  ///
+  /// NEDEN AKIŞ, NEDEN `enqueueOutbox` İÇİNDEN ÇAĞRI DEĞİL: her yazım bir `db.transaction`
+  /// İÇİNDEDİR (yerel satır + outbox aynı transaction'da — DECISIONS). Oradan tetiklenen bir tur
+  /// commit'ten ÖNCE koşar ve ya kaydı göremez ya da yazma kilidine girer. Drift'in tablo
+  /// bildirimi COMMIT sonrası düşer; [watchKarantinaSayisi] karantina bandını yıllardır bu
+  /// desenle besliyor. Ayrıca outbox'a yazan 30 nokta (sipariş · defter · kasa devri · gün
+  /// kapanışı · müşteri · ürün · kurye · çağrı günlüğü · muaf numara · işletme ayarları) tek
+  /// tetiği paylaşır: repo katmanı senkrondan habersiz kalır, yarın eklenecek yazım unutulmaz.
+  ///
+  /// ⚠️ DİNLEYEN TARAF YALNIZ ARTIŞA TETİKLENMELİ: push kayıtları `acked` yapınca bu sayı düşer
+  /// ve akış YİNE yayın yapar — düşüşe de tur açan bir dinleyici kendi kendini besleyen sonsuz
+  /// tur döngüsü kurardı (bkz. `sync_service.dart::yazimTetigiBagla`).
+  Stream<int> watchBekleyenSayisi() {
+    final sayac = outbox.id.count();
+    return (selectOnly(outbox)
+          ..addColumns([sayac])
+          ..where(outbox.status.equals('pending')))
+        .watchSingle()
+        .map((r) => r.read(sayac) ?? 0);
+  }
+
   /// ALTER'ı "duplicate column"a TOLERANSLI koşar (savunma derinliği — sürüm damgası harici
   /// bir açıcı tarafından ezilirse migration yeniden koşabilir; var olan kolon hata değildir).
   /// Tablo bu veritabanında var mı? Migration adımları eski şemalarda da koştuğu için, henüz

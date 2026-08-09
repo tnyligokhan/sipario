@@ -275,6 +275,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
       _konumBildirici.durdur();
+      // Senkron aralığı da GEVŞER (2026-08-09 kararı): ekrana bakılmayan cihazda 30 sn'de bir
+      // uyanmak pili boşuna yakar. `inactive` BURAYA GİRMEZ — bildirim perdesi ve izin diyaloğu
+      // da inactive üretir, kullanıcı hâlâ uygulamanın başındadır (konum sayacının aynı gerekçesi).
+      widget.sync.aralikDegistir(SyncService.arkaPlanAralik);
     }
     if (state != AppLifecycleState.resumed) return;
     // Öne gelişte sayaç oturum varsa geri döner; kapı yine akıştan gelen SON token'dadır

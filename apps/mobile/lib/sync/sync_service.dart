@@ -79,8 +79,15 @@ class SyncService {
 
   /// Yazım tetiği AYRI yuvadadır: ağ tetiği ([tetikleyiciBagla]) ile aynı aboneliği paylaşsaydı
   /// biri diğerini iptal ederdi ve iki kaynak da gerekiyor.
-  StreamSubscription<void>? _yazimSub;
+  StreamSubscription<int>? _yazimSub;
   Timer? _yazimGecikme;
+
+  /// Bekleyen outbox sayısının SON görülen değeri — tetik yalnız ARTIŞTA açılır (bkz.
+  /// [yazimTetigiBagla]). `null` = ilk yayın henüz gelmedi.
+  int? _sonBekleyen;
+
+  /// Zamanlayıcının güncel aralığı; ön plan/arka plan geçişinde [aralikAyarla] değiştirir.
+  Duration _aralik = arkaPlanAralik;
 
   /// Devam eden tur (yoksa null). Eşzamanlı çağrılar AYNI tura bağlanır: hem çift tur koşmaz hem
   /// de çağıran gerçek sonucu alır.
@@ -156,12 +163,41 @@ class SyncService {
     return outcome;
   }
 
-  /// Periyodik senkronu başlatır (varsayılan 2 dk — beklenen kopukluklar kısa, BRIEF).
-  void start({Duration every = const Duration(minutes: 2)}) {
+  /// UYGULAMA ÖN PLANDAYKEN tur aralığı (2026-08-09 kararı). Patronun yazımı artık anında push
+  /// ediliyor (bkz. [yazimTetigiBagla]) ama KURYE onu ancak kendi pull'unda görür — 2 dakika,
+  /// elinde telefonla bekleyen bir kurye için "gelmiyor" demektir ve çözümü "yenilemeye bas"
+  /// olamaz. Ekranı açık olan cihaz zaten prizde/kullanımdadır; 30 sn'lik boş bir delta isteği
+  /// (değişiklik yoksa yanıt bir avuç bayt) bu maliyeti hak ediyor.
+  static const onPlanAralik = Duration(seconds: 30);
+
+  /// ARKA PLANDAYKEN tur aralığı. Kullanıcı ekrana bakmıyorken 30 sn'de bir uyanmak pili boşuna
+  /// yakar; beklenen kopukluklar kısa (BRIEF) ve 2 dk baştan beri yeterliydi.
+  static const arkaPlanAralik = Duration(minutes: 2);
+
+  /// Periyodik senkronu başlatır. Varsayılan ÖN PLAN aralığıdır: `start()` yalnız açılışta ve
+  /// girişten sonra çağrılır, ikisinde de uygulama kullanıcının elindedir. Arka plana geçişte
+  /// kabuk [aralikAyarla] ile gevşetir.
+  void start({Duration every = onPlanAralik}) {
     _timer?.cancel();
+    _aralik = every;
     _timer = Timer.periodic(every, (_) => syncNow());
     // İlk turu hemen at (login/açılış sonrası veri gecikmesin).
     unawaited(syncNow());
+  }
+
+  /// Tur aralığını DEĞİŞTİRİR (ön plan ⇄ arka plan). [start]'tan farkı: tur ATMAZ ve durdurulmuş
+  /// bir servisi diriltmez.
+  ///
+  /// Tur atmaması bilinçli: bunu çağıran `resumed` dalı zaten kendi turunu açıyor; burada bir tur
+  /// daha atmak her öne gelişte çift istek demekti. Durdurulmuş servisi diriltmemesi de bilinçli:
+  /// çıkış yapıldıktan sonra gelen bir yaşam döngüsü olayı senkronu yeniden başlatmamalı
+  /// (`stop()` `_timer`ı null bırakır — kapı budur).
+  void aralikDegistir(Duration every) {
+    if (_aralik == every) return; // gereksiz yeniden kurulum yok (sayaç baştan başlardı)
+    _aralik = every;
+    if (_timer == null) return; // servis durdurulmuş: aralık saklanır, zamanlayıcı kurulmaz
+    _timer!.cancel();
+    _timer = Timer.periodic(every, (_) => syncNow());
   }
 
   /// Hatanın cinsini belirler (ekrandan AYRI saf fonksiyon — testi widget kurmadan yazılır).
@@ -200,36 +236,49 @@ class SyncService {
 
   /// YEREL YAZIM TETİĞİ (2026-08-09 saha arızası): outbox'a kayıt düşünce turu AÇAR.
   ///
-  /// ARIZA: patron siparişi kuryeye atıyor, kurye göremiyor; patron uygulamayı alta alıp öne
-  /// getirince görünüyor. Atama outbox'a düzgün düşüyordu ama hiçbir şey push'u tetiklemiyordu —
-  /// tur yalnız zamanlayıcı · ağ değişimi · öne gelme · aşağı çekme ile açılıyordu. Yani bu bir
-  /// tutarlılık değil GECİKME arızasıydı; "her şey yerinde" diyen ölçümlerin kaçırdığı da buydu.
+  /// ARIZA: patron siparişi kuryeye atıyor, kurye yenilese bile göremiyor; patron uygulamayı alta
+  /// alıp öne getirince görüyor. Atama outbox'a düzgün düşüyordu ama hiçbir şey push'u
+  /// tetiklemiyordu — tur yalnız zamanlayıcı · ağ değişimi · öne gelme · aşağı çekme ile
+  /// açılıyordu ("alta alıp açınca gidiyor" = `resumed` turu). Tutarlılık değil GECİKME arızası.
   ///
-  /// Kaynak `Stream<void>` olarak alınır ([tetikleyiciBagla] deseninin aynısı): servis `data/`
-  /// katmanını tanımaz, testte akış elle beslenir, üretimde `outboxYazimlari` bağlanır.
+  /// KAYNAK BEKLEYEN SAYISI AKIŞIDIR ([AppDatabase.watchBekleyenSayisi]), `enqueueOutbox`ten
+  /// çağrı değil: her yazım bir transaction içindedir ve commit'ten önce açılan tur ya kaydı
+  /// göremez ya da yazma kilidine girer. Drift'in bildirimi commit SONRASI düşer. Parametre
+  /// enjekte edilebilir bırakıldı ki testler sahte bir akışla (ve sahte süreyle) koşabilsin.
+  ///
+  /// ⚠️ YALNIZ ARTIŞTA TETİKLER — düzeltmenin en kolay kaçırılan yeri: push kayıtları `acked`
+  /// yapınca bekleyen sayısı DÜŞER ve akış yine yayın yapar; düşüşe de tur açsaydık her tur bir
+  /// sonrakini doğurur, sonsuz döngü olurdu (pil + kota). İlk yayın da tetiklemez, yalnız taban
+  /// değeri kurar: açılışta bekleyen kayıt varsa onu zaten [start] gönderiyor.
+  ///
+  /// Bilinen kör nokta: aynı yayında 1 ekleme + 1 ack olursa sayı sabit kalır ve tetik kaçar.
+  /// O kayıt KAYBOLMAZ, en fazla bir sonraki periyodik tura kalır — kabul edilmiş takas.
   ///
   /// [gecikme] PENCEREYİ YENİDEN BAŞLATMAZ — klasik debounce her olayda sayacı sıfırlar ve toplu
-  /// bir yazımda (gün kapanışı onlarca satır yazabilir) turu sürekli erteler. Burada İLK yazım
-  /// pencereyi açar, pencereye düşen yazımlar aynı tura biner: tur en geç [gecikme] sonra koşar
-  /// ve art arda N yazım TEK tur eder. Varsayılan 800 ms: kullanıcıya "anında" hissettirecek
-  /// kadar kısa, tek bir işlemin (teslim = 1 sipariş olayı + 3 defter kaydı) parçalarını
-  /// toplayacak kadar uzun.
-  void yazimTetigiBagla(
-    Stream<void> yazimlar, {
+  /// bir yazımda (gün kapanışı onlarca satır yazabilir) turu sürekli erteler. Burada İLK artış
+  /// pencereyi açar, pencereye düşen artışlar aynı tura biner: tur en geç [gecikme] sonra koşar
+  /// ve art arda N yazım TEK tur eder. Varsayılan 800 ms: "anında" hissettirecek kadar kısa, tek
+  /// bir işlemin (teslim = 1 sipariş olayı + 3 defter kaydı) parçalarını toplayacak kadar uzun.
+  void yazimTetigiBagla({
+    Stream<int>? bekleyenSayisi,
     Duration gecikme = const Duration(milliseconds: 800),
   }) {
     _yazimSub?.cancel();
+    _sonBekleyen = null;
     // onError YUTAR — [tetikleyiciBagla] ile aynı gerekçe: tetik bir İYİLEŞTİRMEDİR, senkronun
     // şartı değil. Kaynağın susması senkronu ya da uygulamayı düşürmemeli.
-    _yazimSub = yazimlar.listen((_) {
+    _yazimSub = (bekleyenSayisi ?? db.watchBekleyenSayisi()).listen((sayi) {
+      final onceki = _sonBekleyen;
+      _sonBekleyen = sayi;
+      if (onceki == null || sayi <= onceki) return; // taban kurulumu ya da ack'ten gelen düşüş
       if (_yazimGecikme?.isActive ?? false) return; // pencere zaten açık, bu yazım ona binsin
       _yazimGecikme = Timer(gecikme, () => unawaited(_yazimTuru()));
     }, onError: (Object _) {});
   }
 
   /// Yazım tetiğinin turu. Süren bir tura BAĞLANMAK yetmez: o turun `pushPending` seçkisi bu
-  /// yazımdan ÖNCE alınmış olabilir ve kayıt bir sonraki tura — yani 2 dakika sonrasına — kalırdı;
-  /// düzeltmek istediğimiz arızanın ta kendisi. Önce süren tur beklenir, sonra TAZE tur atılır.
+  /// yazımdan ÖNCE alınmış olabilir ve kayıt bir sonraki tura — yani aralık kadar sonrasına —
+  /// kalırdı; düzeltmek istediğimiz arızanın ta kendisi. Önce süren tur beklenir, sonra TAZE tur.
   ///
   /// Çağıran hiçbir yerde beklenmez (`unawaited`): yazım yolu ağa ASLA bağlanmaz (kırmızı çizgi
   /// #3). Çevrimdışıyken tur açılır, `SyncHataTuru.ag` ile düşer, kayıt outbox'ta bekler —
@@ -251,6 +300,9 @@ class SyncService {
     _yazimSub = null;
     _yazimGecikme?.cancel();
     _yazimGecikme = null;
+    // Taban da sıfırlanır: yeniden bağlanınca ilk yayın yine yalnız TABAN kurar, tur açmaz —
+    // yoksa çıkış/giriş sonrası bekleyen kayıtlar sahte bir "artış" gibi görünürdü.
+    _sonBekleyen = null;
   }
 
   void dispose() {

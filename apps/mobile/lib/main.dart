@@ -152,6 +152,12 @@ class _SiparioAppState extends State<SiparioApp> {
           .onConnectivityChanged
           .where((durum) => !durum.contains(ConnectivityResult.none)),
     );
+    // YAZIM TETİĞİ (2026-08-09 saha arızası). Ağ tetiğiyle aynı hikâye, bu kez tersten: orada
+    // "kayıt hazır, ağ yoktu"; burada "ağ vardı, kaydın gideceğini kimse söylemedi". Patronun
+    // kuryeye attığı sipariş outbox'a düşüyor ama turu hiçbir şey açmıyordu — kurye ancak
+    // patron uygulamayı öne getirdiğinde (resumed turu) görüyordu. Kaynağı servis kendi
+    // veritabanından kurar; burada yalnız BAĞLANIR ki tetik tek bir yerde açılıp kapansın.
+    _sync.yazimTetigiBagla();
     _sync.start();
   }
 
