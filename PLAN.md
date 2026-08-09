@@ -320,8 +320,11 @@
 > değişikliğim değil). **APK derlenmedi, cihazda doğrulanmadı.**
 >
 > **Dallar:** `main` == `dev` == `827767a` (vardiya başında) · saha **0.10.0** · test **0.10.0** ·
-> API sürümü **1.0.0**. ⚠️ **Canlıda `/api/v1/version` HENÜZ YOK** — deploy edilene kadar durum
-> çubuğu canlı sürümü okuyamaz ve sessizce ağaçtaki değere düşer (tasarlanan davranış).
+> API sürümü **1.0.0 → 1.1.0** (aynı commit'te artırıldı; MINOR = geriye dönük uyumlu yeni alan —
+> sürüm çalışan koda aittir, o yüzden artış deploy'a ERTELENMEDİ). ⚠️ **Canlıda `/api/v1/version`
+> HENÜZ YOK** — istek 404 döndüğü için canlı sürüm "eski" diye değil, HİÇ okunamıyor; çubuk
+> sessizce ağaçtaki değere düşüyor ve tek numara gösteriyor (`API 1.1.0`). Deploy indiğinde canlı
+> okuma BAŞLAR; `→` oku ancak bir sonraki sürüm artışından itibaren iş görür.
 
 ## NE YAPILDI
 
@@ -636,10 +639,15 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 13. **`dev` → `main` birleştir + canlıya deploy.** `/api/v1/version` yalnız bu ağaçta var; deploy
     edilene kadar durum çubuğunun canlı sürüm ölçümü sessizce boş kalır ve API sürümü işinin
     yarısı kâğıt üstünde durur. Deploy sonrası tek satırlık doğrulama:
-    `curl -s https://api.sipario.com.tr/api/v1/version` → `{"api_version":"1.0.0",...}`.
-    ⚠️ Bu değişiklik yanıtlara YENİ bir alan ekler (geriye dönük uyumlu) → **API sürümü 1.1.0'a
-    çıkarılmalı** (CLAUDE.md → Sürümleme: MINOR = geriye dönük uyumlu yeni alan). Bunu deploy'la
-    AYNI turda yapmak gerekir, yoksa "1.0.0" iki farklı sözleşmeyi anlatır.
+    `curl -s https://api.sipario.com.tr/api/v1/version` → `{"api_version":"1.1.0",...}`.
+    **API sürümü 1.0.0 → 1.1.0 ZATEN ARTIRILDI** (aynı commit'te; MINOR = geriye dönük uyumlu
+    yeni alan).
+    ⚠️ **ÖLÇÜLDÜ — çubuktaki `→` oku BU deploy'da ÇIKMAZ:** canlıda `/version` uç noktası HENÜZ
+    YOK, yani canlı sürüm `1.0.0` diye okunmuyor, HİÇ okunamıyor (istek 404 → `apiCanli` boş →
+    sessizce ağaçtaki değere düşülür, tasarlanan davranış). Bu yüzden çubuk şu an tek numara
+    gösteriyor: `API 1.1.0`. **Deploy'un indiğinin işareti okun kaybolması değil, canlı okumanın
+    BAŞLAMASIDIR** — ok mekanizması ancak bir SONRAKİ sürüm artışından itibaren iş görür.
+    Bu tur için doğrulama yukarıdaki `curl`dür.
 14. **Bu makinedeki Flutter SDK `pubspec.lock`tan YENİ.** İki görünür sonucu var: `flutter test`
     lock'taki dört geçişli paketi bump ediyor (bu vardiyada geri alındı) ve `dart analyze` artık
     **1 info** veriyor (`order_list_parts.dart:161` `onReorder` deprecated). Karar gerekiyor:

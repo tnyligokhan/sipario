@@ -40,9 +40,17 @@ return [
     | gerçek bayilere hizmet veriyor. Mobil tarafın 0.x'te olması mağaza
     | çıkışına bağlı ayrı bir eşiktir, API'yi ilgilendirmez.
     |
+    | 1.1.0 (2026-08-10): her JSON yanıta `api_version` alanı + kimliksiz
+    | `GET /v1/version` uç noktası. İkisi de EKLEME — eski istemci her ikisini
+    | de görmezden gelir, yani MINOR. Artış deploy'a ERTELENMEDİ, bilinçli:
+    | sürüm çalışan koda aittir (env'e değil), o yüzden alanı ekleyen commit
+    | ile numarayı artıran commit AYNI olmak zorundadır. Ayrı bırakılsaydı
+    | "1.0.0" iki farklı sözleşmeyi anlatırdı ve numaranın tek işi olan
+    | "hangi kod koşuyor" sorusunu cevaplayamazdı.
+    |
     */
 
-    'version' => '1.0.0',
+    'version' => '1.1.0',
 
     /*
     |--------------------------------------------------------------------------
