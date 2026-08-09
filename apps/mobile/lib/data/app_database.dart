@@ -38,8 +38,19 @@ class AppDatabase extends _$AppDatabase {
   /// Cihazda: sipario.db'yi Faz 0 ile AYNI dizinde açar (native aynı dosyayı okur).
   AppDatabase.file() : super(_openOnDevice());
 
+  /// ⚠️ KOLON EKLEYEN HERKES BU SAYIYI ARTIRMAK ZORUNDA — 2026-08-09'da sahada ödendi.
+  ///
+  /// Yetki Matrisi (2026-08-08) `tenant_settings`e 13 kolon ekledi, aşağıdaki `onUpgrade`
+  /// içine ALTER TABLE'larını da yazdı, **ama bu sayı 14'te bırakıldı.** Drift `onUpgrade`'i
+  /// YALNIZ sürüm değiştiğinde çağırır; sahadaki cihazlar zaten v14 damgalı olduğu için o
+  /// ALTER TABLE'lar HİÇ KOŞMADI. Sonuç: `no such column: tenant_settings.courier_can_see_all_orders`
+  /// ve `tenant_settings`e dokunan her sorgunun patlaması (harita ekranı bu yüzden açılmıyordu).
+  ///
+  /// **Testler bunu göremez** — her test `NativeDatabase.memory()` ile TAZE veritabanı kurar,
+  /// yani `onCreate` yolundan geçer ve şema her zaman tamdır. 1109 yeşil testin hiçbiri
+  /// YÜKSELTME yolundan geçmiyordu. Kusur yalnız "önceki sürümü kurulu olan cihazda" görünür.
   @override
-  int get schemaVersion => 14; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN · v14 IBAN alıcı adı + hatırlatma şablonu
+  int get schemaVersion => 15; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN · v14 IBAN alıcı adı + hatırlatma şablonu · v15 kurye yetki matrisi 13 kolonu (SÜRÜM ARTIŞI UNUTULMUŞTU)
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

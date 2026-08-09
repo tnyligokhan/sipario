@@ -587,10 +587,35 @@ senaryoyu taklit ediyor: bir tabloyu düşürüp şema uyumsuzluğu üretiyor).
 `SipBosDurum` içinde **3864 piksel taşırıyordu** — yani "hatayı göster" çözümü ekranı okunamaz
 hâle getiriyordu. Kaydırılabilir yapıldı + mesaj 400 karakterde kırpıldı.
 
-**GERÇEK SEBEP HÂLÂ BİLİNMİYOR.** Bu düzeltme sebebi bulmaz, **görünür kılar**. Cihazdaki APK
-güncel olduğu için ilk hipotez (şema uyumsuzluğu) zayıfladı. Bir sonraki CI APK'sı kurulduğunda
-ekran gerçek mesajı yazacak; teşhis o zaman kesinleşir. **Yani bu maddeyi kapatan şey yeni APK +
-kullanıcının okuduğu mesajdır.**
+### 🔴 KÖK NEDEN BULUNDU (kablosuz adb, SM-S721B) — **SCHEMA SÜRÜMÜ ARTIRILMAMIŞ**
+
+Cihaza `adb connect 192.168.1.103:37093` ile bağlanıldı, uygulama açıldı, haritaya dokunuldu ve
+yeni hata ekranı **gerçek sebebi yazdı**:
+
+```
+SqliteException(1): while preparing statement,
+no such column: tenant_settings.courier_can_see_all_orders
+SQL logic error (code 1)
+```
+
+**Kök neden tek satırlık bir eksiklik:** Yetki Matrisi (2026-08-08) `tenant_settings`e 13 kolon
+ekledi ve `app_database.dart` `onUpgrade` içine ALTER TABLE'larını da **yazdı** (satır 111-127) —
+**ama `schemaVersion` 14'te bırakıldı.** Drift `onUpgrade`'i YALNIZ sürüm değiştiğinde çağırır;
+sahadaki cihazlar zaten v14 damgalı olduğu için o ALTER TABLE'lar **hiç koşmadı.**
+
+**Etki alanı haritadan çok daha geniş:** `tenant_settings`e dokunan HER sorgu, önceki sürümü
+kurulu olan HER cihazda patlıyordu. Yani **Yetki Matrisi özelliğinin tamamı sahada ölüydü** —
+harita yalnız en görünür belirtisiydi.
+
+**Neden 1109 yeşil test bunu göremedi:** hepsi `NativeDatabase.memory()` ile TAZE veritabanı kurar,
+yani `onCreate` yolundan geçer ve şema her zaman tamdır. **Hiçbiri YÜKSELTME yolundan geçmiyordu.**
+Kusur yalnız "önceki sürümü kurulu olan cihazda" görünür — yani tam olarak gerçek kullanıcıların
+durumunda, ve hiçbir yerde başka bir sinyal üretmeden.
+
+**Düzeltme:** `schemaVersion => 15` + `migration_v15_test.dart` (v14 diskini birebir taklit eder:
+güncel şemayla kurar, 13 kolonu DROP eder, `user_version = 14` damgalar, yeniden açar). Test
+**kırılabilirliği kanıtlandı**: sürüm 14'e geri alınınca kırmızı yanıyor, yani vakum değil.
+İddianın merkezi sahada patlayan sorgunun kendisi (`watchHaritaDuraklari`).
 
 ## 📋 SIRADAKİ İŞLER (2026-08-09 itibarıyla, öncelik sırasıyla)
 
