@@ -385,13 +385,15 @@ GÖRÜNÜRLÜKTÜ ve o yüzey hiç bağlanmadı — "sessiz arıza" sınıfını
 
 ## SIRADAKİ İŞLER
 
-1. **GERÇEK CİHAZDA UÇTAN UCA DOĞRULAMA — en kritik.** Bu vardiyada telefonlar `adb`ye bağlı
-   değildi (`adb devices` boş); düzeltme yalnız testlerle kanıtlandı. İki cihaz gerekiyor: patron
-   atama yapar, **kurye ekranına dokunulmadan** 30 sn içinde düşmeli. Kablosuz ADB bu depoda
-   standart teşhis yoludur.
-2. Yeni APK derlenip cihazlara kurulmalı — düzeltme kendini taşımaz.
-3. `PushOzeti.beklemede` borcu (yukarıda).
-4. `main` dalı `dev`'in gerisinde; birleştirme her vardiya sonunda rutin adım.
+1. **[✅ KAPANDI — KULLANICI GERÇEK CİHAZDA DOĞRULADI]** İki gerçek telefonla ölçüldü: patron
+   atama yapıyor → kurye yenilediğinde **anında** düşüyor; **hiç dokunmadan beklendiğinde ortalama
+   15–20 sn** içinde ekrana düşüyor. Bu rakam teoriyi de doğruluyor: ön plan aralığı 30 sn ve
+   atama anı tur döngüsüne rastgele düştüğü için beklenen ortalama bekleme ~15 sn'dir — yani
+   **ölçülen davranış tasarlanan davranışın ta kendisi**, tesadüfi bir düzelme değil. Düzeltmenin
+   iki yarısı da sahada çalışıyor: yazım tetiği (patron tarafı anında push) + 30 sn ön plan
+   aralığı (kurye tarafı dokunmadan görüyor).
+2. `PushOzeti.beklemede` borcu (yukarıda).
+3. `main` dalı `dev`'in gerisinde; birleştirme her vardiya sonunda rutin adım.
 
 ---
 
