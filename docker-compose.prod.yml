@@ -37,9 +37,29 @@ x-app-env: &app-env
   APP_LOCALE: tr
   APP_FALLBACK_LOCALE: tr
   APP_FAKER_LOCALE: tr_TR
-  # Günlükleme
-  LOG_CHANNEL: ${LOG_CHANNEL:-stack}
-  LOG_STACK: ${LOG_STACK:-single}
+  # Günlükleme — VARSAYILAN `stderr`, `stack`/`single` DEĞİL (2026-08-09, ölçümle değiştirildi).
+  #
+  # ARIZA: uygulama 2026-08-09 17:01'de çöktü, 16 kez yeniden başlatıldı (`last_restart_type:
+  # crash`), Coolify'ın `max_restart_count: 10` tavanını aşınca yeniden başlatmayı BIRAKTI ve site
+  # elle redeploy edilene kadar 503 kaldı. Çöküşün sebebi ARANAMADI çünkü kanıt yoktu.
+  #
+  # KANIT NEDEN YOKTU: `stack`→`single` kanalı günlükleri container İÇİNDEKİ
+  # `storage/logs/laravel.log` dosyasına yazıyordu ve bu servisin o dizin için volume'ü YOK
+  # (aşağıda yalnız `pgdata` ve `backups` var). Container her yeniden yaratıldığında bütün
+  # uygulama günlükleri siliniyordu. Coolify'ın log ekranı ise container'ın STDOUT'unu gösterir —
+  # Laravel oraya hiçbir şey yazmadığı için ekranda yalnız `scheduler`ın "No scheduled commands"
+  # gürültüsü görünüyordu. Yani sistem kendi arızasının kaydını TASARIM GEREĞİ tutmuyordu.
+  #
+  # `stderr` bunu tersine çevirir: günlük Docker'a akar, `docker logs` ile okunur, Coolify'ın
+  # kendi ekranında görünür ve container ölse bile Docker'ın o container için tuttuğu kayıt
+  # kalır. Dosyaya yazmadığı için `storage/logs` izin sorunu da doğmaz.
+  #
+  # ⚠️ VOLUME BİLİNÇLİ OLARAK EKLENMEDİ: `storage/logs`a adlandırılmış bir volume bağlamak
+  # cazip görünüyor ama volume root sahipliğinde doğar, uygulama ise `www-data` olarak koşar
+  # (`docker/php/Dockerfile:76`) — yazamayan bir log dizini, düzeltmeye çalıştığımız çöküşün
+  # yenisini üretebilirdi. Kalıcı arşiv gerekirse doğru yol Docker günlük sürücüsü ya da harici
+  # bir toplayıcıdır, canlıda körlemesine bağlanan bir volume değil.
+  LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
   LOG_LEVEL: ${LOG_LEVEL:-info}
   # Veritabanı — runtime rolü (sipario_app, RLS altında)
   DB_CONNECTION: ${DB_CONNECTION:-pgsql}
@@ -120,13 +140,24 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
-    deploy:
-      update_config:
-        order: start-first
-        failure_action: rollback
-        delay: 2s
-      rollback_config:
-        order: start-first
+    # GÜNLÜK DÖNDÜRME — `LOG_CHANNEL=stderr`in ZORUNLU eşlikçisi (2026-08-09).
+    #
+    # stderr'e geçmek günlükleri Docker'ın `json-file` sürücüsüne yönlendirir ve o sürücü
+    # VARSAYILAN OLARAK SINIRSIZ BÜYÜR. Döndürme olmadan bu düzeltme, teşhis edilebilirlik
+    # kazandırırken diskin dolmasıyla YENİ bir kesinti üretebilirdi — üstelik en kötü anda,
+    # uygulama çok log basarken. 3×10 MB, bir kaç günlük çöküş penceresine fazlasıyla yeter.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # ⚠️ `deploy:` BLOĞU KALDIRILDI (2026-08-09) — dekoratifti ve YANLIŞ GÜVEN veriyordu.
+    # `update_config.order: start-first` ve `failure_action: rollback` YALNIZ Docker Swarm'da
+    # çalışır; Coolify düz `docker compose` kullandığı için bu alanlar sessizce yok sayılıyordu.
+    # Kanıt ölçülmüştü: `start-first` gerçekten uygulansaydı kesinti olmamalıydı, oysa iki ayrı
+    # deploy'da site 40–60 saniye 503 verdi. Bu satırların durması "rollback beni korur" sanısını
+    # besliyordu; gerçek geri dönüş ELLEDİR (Coolify → önceki deployment → Redeploy).
+    # Kaldırmak davranışı DEĞİŞTİRMEZ — yalnız belgeyi gerçeğe eşitler.
     # Healthcheck PHP ile yapılır, `curl` ile DEĞİL (2026-08-09).
     #
     # Neden: Coolify uygulamayı aylardır `running:unhealthy` gösteriyordu (MCP ile okundu;
@@ -161,6 +192,12 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    # Günlük döndürme — app ile aynı gerekçe (stderr → json-file sınırsız büyür).
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ── Zamanlanmış görev yöneticisi ──────────────────────────────────────────
   scheduler:
@@ -174,6 +211,12 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    # Günlük döndürme — app ile aynı gerekçe (stderr → json-file sınırsız büyür).
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # ── PostgreSQL 16 ─────────────────────────────────────────────────────────
   # Özel Dockerfile ile init betikleri imajın İÇİNE gömülür (mount bağımlılığı yok).
