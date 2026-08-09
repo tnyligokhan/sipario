@@ -192,6 +192,27 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    # ⚠️ MİRAS HEALTHCHECK KAPATILDI (2026-08-09, sunucuda ÖLÇÜLEREK bulundu).
+    #
+    # Temel imaj (serversideup/php) KENDİ healthcheck'ini taşır ve compose'da tanımlamadığımız
+    # her serviste o miras kalır:
+    #     curl --fail http://localhost:$NGINX_HTTP_PORT$HEALTHCHECK_PATH
+    # Bu servis entrypoint'i ezip bir CLI süreci koşuyor — İÇİNDE NGINX YOK. Kontrol 10 saniyede
+    # bir "Failed to connect to localhost port 8080" ile düşüyor ve container ömrü boyunca
+    # `unhealthy` kalıyordu (docker inspect ile okundu: ExitCode 1, curl (7)).
+    #
+    # ETKİSİ TEK CONTAINER'LA SINIRLI DEĞİLDİ: Coolify sağlık durumunu toplulaştırıyor, bütün
+    # kaynağı `running:unhealthy` gösteriyor ve panelde "Traefik bu kaynağı çalıştırmaz" uyarısı
+    # veriyordu — oysa `app` ve `db` ÖLÇÜLDÜ ve ikisi de sağlıklıydı, site kesintisiz çalışıyordu.
+    # Asıl bedel ALARM KÖRLÜĞÜ: panel aylardır kırmızı olduğu için 17:01'deki GERÇEK çöküşte o
+    # kırmızı hiçbir şey ifade etmedi.
+    #
+    # NEDEN SAHTE BİR KONTROL YAZMIYORUZ: ön planda koşan bir CLI sürecinde SÜREÇ = CONTAINER.
+    # `queue:work` ölürse container ölür ve `restart: unless-stopped` onu geri getirir; ayrı bir
+    # canlılık kontrolü hiçbir şey eklemez. `pgrep`/`ps` ile uydurma bir kontrol yazmak ise o
+    # araçların imajda VAR OLDUĞUNU varsayardı — bu dosyanın bugün ödediği hatanın aynısı.
+    healthcheck:
+      disable: true
     # Günlük döndürme — app ile aynı gerekçe (stderr → json-file sınırsız büyür).
     logging:
       driver: json-file
@@ -211,6 +232,11 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    # ⚠️ MİRAS HEALTHCHECK KAPATILDI — gerekçesi `queue` servisinde uzun uzun yazılı.
+    # Özet: temel imajın HTTP kontrolü bu CLI container'ında sonsuza dek düşüyor, tek başına
+    # bütün kaynağı `unhealthy` boyuyor ve gerçek arızaları gizliyordu. Süreç = container.
+    healthcheck:
+      disable: true
     # Günlük döndürme — app ile aynı gerekçe (stderr → json-file sınırsız büyür).
     logging:
       driver: json-file
