@@ -109,12 +109,49 @@ try {
   if (m) sonuc.apiSurum = m[1];
 } catch (_) {}
 
+// 4b) CANLIDAKİ API sürümü — dosyadan değil SUNUCUDAN okunur (`GET /api/v1/version`, kimliksiz).
+//
+// NEDEN AYRI BİR ÖLÇÜM: yukarıdaki satır AĞACIN sürümünü söyler, yani "bu depoda ne yazıyor".
+// Sunucuda o an KOŞAN sürüm bambaşka olabilir — deploy edilmemiş, deploy düşmüş ya da `main`
+// geride. Bu depoda o fark ölçüldü ve zararı görüldü: 2026-08-09'da `main`, `dev`'in 41 commit
+// gerisindeydi ve sunucu ile telefonlar farklı kod çalıştırıyordu. Bir sürüm numarası ancak
+// KOŞAN kodu gösterdiğinde soruya cevap verir.
+//
+// Uç noktanın kimliksiz olmasının sebebi tam da budur: burada token yoktur.
+try {
+  const govde = calistir(
+    'curl',
+    ['-s', '-L', '--max-time', '6', `https://api.sipario.com.tr/api/v1/version?t=${Date.now()}`],
+    8000,
+  );
+  const j = JSON.parse(govde);
+  if (typeof j.api_version === 'string' && j.api_version) sonuc.apiCanli = j.api_version;
+} catch (_) {}
+
 // 5) YAYIN BORCU: `dev`de olup `main`e geçmemiş commit sayısı = bayilere ULAŞMAMIŞ iş.
 //    Bu sayı bu projede soyut değil: 2026-08-09'da 41'e çıkmıştı ve sunucu (main) ile
 //    telefonlar (dev'den derleniyordu) farklı kod çalıştırıyordu. Çubukta durması,
 //    o farkın bir daha sessizce büyümemesi içindir.
+//
+//    ⚠️ UZAK DALLAR ESAS, YERELİ YEDEK (2026-08-10'da ölçülerek düzeltildi). Eskiden burada
+//    düz `main..dev` yazıyordu ve çubuk **YAYIN BORCU 384** diyordu — gerçek borç **0**'dı.
+//    Sebep: kimse yerelde `main`e checkout etmiyor, oturum başındaki fast-forward yalnız
+//    çalışılan dalı ilerletiyor, yani yerel `main` ref'i aylarca donuyor (ölçüm: yerel
+//    `16833e7`, uzak `827767a`). CI ise dalları UZAKTAN okur; "bayilere ulaşmamış iş" sorusunun
+//    doğru cevabı orada.
+//    Bu, çubuğun var oluş sebebinin ta kendisine düşen bir kusurdu: 41'i görünce alarm veren
+//    bir gösterge, 0 iken 384 diyorsa artık okunmaz — kırmızı sayı gürültüye dönüşür ve gerçek
+//    borç büyüdüğünde kimse fark etmez. Yanlış alarmın bedeli bu depoda `running:unhealthy`
+//    ile bir kez ödendi.
 try {
-  const n = parseInt(calistir('git', ['rev-list', '--count', 'main..dev'], 5000), 10);
+  let n = NaN;
+  try {
+    n = parseInt(calistir('git', ['rev-list', '--count', 'origin/main..origin/dev'], 5000), 10);
+  } catch (_) {
+    // Uzak ref yoksa (taze klon, fetch edilmemiş) yerel dallara düşülür — yanlış olabilir ama
+    // hiç göstermemekten iyidir; sessizce kaybolan bir sayı da bu betiğin bilinen tuzağıdır.
+    n = parseInt(calistir('git', ['rev-list', '--count', 'main..dev'], 5000), 10);
+  }
   if (Number.isFinite(n)) sonuc.yayinBorcu = n;
 } catch (_) {}
 

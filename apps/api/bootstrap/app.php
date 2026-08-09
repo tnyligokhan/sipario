@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Middleware\AppendServerTime;
+use App\Http\Middleware\AppendServerMeta;
 use App\Http\Middleware\BlockApiHostWebRoutes;
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\ResolveTenantContext;
@@ -58,9 +58,10 @@ return Application::configure(basePath: dirname(__DIR__))
             prepend: ResolveTenantContext::class,
         );
 
-        // Tüm api yanıtlarına: server_time (DECISIONS: sunucu her yanıtta saatini döner) + güvenlik başlıkları (F3).
+        // Tüm api yanıtlarına: server_time (DECISIONS: sunucu her yanıtta saatini döner) +
+        // api_version (sözleşme sürümü — istemci çarpıklığı görünür olsun) + güvenlik başlıkları (F3).
         $middleware->api(append: [
-            AppendServerTime::class,
+            AppendServerMeta::class,
             SecurityHeaders::class,
         ]);
 

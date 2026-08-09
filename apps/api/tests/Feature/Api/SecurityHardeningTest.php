@@ -30,7 +30,7 @@ class SecurityHardeningTest extends ApiTestCase
         }
 
         // 6. deneme sınırı aşar: 429 + Retry-After başlığı.
-        // (Not: 429 middleware exception'ı olarak render edilir, AppendServerTime'ın post-işlemesini
+        // (Not: 429 middleware exception'ı olarak render edilir, AppendServerMeta'nın post-işlemesini
         // atlar; server_time yalnız denetleyiciden dönen normal JsonResponse'larda bulunur — kapsam dışı.)
         $blocked = $this->postJson('/api/v1/auth/login', $payload);
         $blocked->assertStatus(429);

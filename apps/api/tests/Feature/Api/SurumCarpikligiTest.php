@@ -289,6 +289,71 @@ class SurumCarpikligiTest extends ApiTestCase
         );
     }
 
+    // ----------------------------------------------------------------------------------
+    // F) API SÜRÜMÜNÜN YANITTA GÖRÜNMESİ — çarpıklığı ÖLÇÜLEBİLİR kılan alan
+    // ----------------------------------------------------------------------------------
+    //
+    // Yukarıdaki testlerin hepsi çarpıklığın ZARARINI önlüyor; bu bölüm çarpıklığın kendisini
+    // GÖRÜNÜR kılıyor. 2026-08-09'da `config('app.version')` tanımlandı ama hiçbir yanıtta
+    // okunmuyordu — o hâlde bir saha arızasında "sunucu mu eski, telefon mu" sorusunun cevabı
+    // yoktu ve tek bilgi kaynağı sunucuya girip dosyaya bakmaktı.
+
+    #[Test]
+    public function senkron_yanitlari_api_surumunu_tasir(): void
+    {
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+        $surum = (string) config('app.version');
+
+        // İKİ YÖN DE sınanır: telefon çoğu turda yalnız pull yapar (yazacak bir şeyi yoktur),
+        // yalnız push'a koymak sürümü "yalnız yazan cihazlar görür" hâline getirirdi.
+        $this->pullSince($token)->assertOk()->assertJsonPath('api_version', $surum);
+        $this->pushEvents($token, [$this->customerUpsert(['name' => 'Sürüm Testi'])])
+            ->assertOk()->assertJsonPath('api_version', $surum);
+    }
+
+    #[Test]
+    public function surum_ucu_kimliksiz_okunur_ve_semver_bicimindedir(): void
+    {
+        // Kimliksiz: "canlıda hangi sürüm koşuyor" sorusunu soran taraf çoğu zaman token'ı
+        // OLMAYAN taraftır (durum çubuğu, dağıtım sonrası doğrulama).
+        $yanit = $this->getJson('/api/v1/version')->assertOk();
+        $yanit->assertJsonPath('api_version', (string) config('app.version'));
+
+        // server_time middleware'den gelmeye DEVAM etmeli: uç nokta kendi gövdesini kurduğu
+        // için middleware'in "eksiği tamamla" davranışının bozulmadığını da kanıtlar.
+        $this->assertArrayHasKey('server_time', $yanit->json());
+
+        // BİÇİM SÖZLEŞMESİ: istemci tarafı sürümleri karşılaştırabilsin diye üç parçalı SemVer.
+        // `1.0` ya da `v1.0.0` yazan bir vardiya karşılaştırmayı sessizce bozardı.
+        $this->assertMatchesRegularExpression(
+            '/^\d+\.\d+\.\d+$/',
+            (string) config('app.version'),
+            'API sürümü SemVer (MAJOR.MINOR.PATCH) olmalı — kural: CLAUDE.md → Sürümleme.'
+        );
+    }
+
+    #[Test]
+    public function mobil_istemci_api_surumunu_okuyor(): void
+    {
+        // "TANIMLI AMA BAĞLI DEĞİL" DESENİNE KARŞI BEKÇİ (bu depoda dört kez ödendi: kupon
+        // kodları, `PushOzeti.beklemede`, `check_permissions.sh`, API sürümünün kendisi).
+        // Sunucunun alanı göndermesi tek başına bir şey ifade etmez — okuyanı yoksa alan yoktur.
+        // Aynı monorepo'da olduğumuz için bu bağ makineyle zorlanabilir; `batchSize` bekçisiyle
+        // aynı desen.
+        $yol = base_path('../mobile/lib/sync/sync_api.dart');
+        if (! is_file($yol)) {
+            $this->markTestSkipped('Mobil kaynak bu ağaçta yok (yalnız API dağıtımı).');
+        }
+
+        // `assertStringContainsString` DEĞİL, bilerek: o başarısızlıkta 12 KB'lık kaynak dosyayı
+        // hata mesajına döker ve gerçek cümleyi görünmez kılar. Bekçinin değeri mesajındadır.
+        $this->assertTrue(
+            str_contains((string) file_get_contents($yol), "'api_version'"),
+            'Mobil ayrıştırıcı api_version alanını okumuyor — sunucu gönderiyor, kimse bakmıyor.'
+        );
+    }
+
     #[Test]
     public function eski_istemci_kullanicinin_telefonunu_silmez(): void
     {

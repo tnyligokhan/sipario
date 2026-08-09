@@ -7,11 +7,13 @@ use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\SyncController;
 use App\Http\Controllers\Api\TeamController;
+use App\Http\Controllers\Api\VersionController;
 use Illuminate\Support\Facades\Route;
 
 /*
 | Sipario API v1.
-| Public: yalnız giriş (mobilde kayıt YOK — kırmızı çizgi).
+| Public: giriş + sürüm. Kayıt YOKTUR (mobilde üyelik açma kırmızı çizgidir; hesap yalnız
+| sitede açılır). İkisi de kiracı verisine dokunmaz.
 | Korumalı grup: önce `tenant` (kiracı bağlamını token'dan kurar + isteği transaction'a sarar),
 | sonra `auth:sanctum` (kullanıcıyı RLS altında yükler). Sıra önemlidir.
 */
@@ -22,6 +24,13 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/login', [AuthController::class, 'login'])
         ->middleware('throttle:login')
         ->name('api.auth.login');
+
+    // Sözleşme sürümü — kimliksiz okunabilir (gerekçe controller'da). Token'ı olmayan taraf
+    // (durum çubuğu, dağıtım doğrulaması, saha arızasında "sunucu mu eski, telefon mu") da
+    // sunucunun hangi sürümü koştuğunu sorabilmeli.
+    Route::get('/version', [VersionController::class, 'show'])
+        ->middleware('throttle:api')
+        ->name('api.version');
 
     // --- Korumalı ---------------------------------------------------------------
     // throttle:api — kullanıcı/IP başına genel hız sınırı (çalınan token istismarı + DoS yüzeyi).

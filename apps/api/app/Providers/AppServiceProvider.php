@@ -178,7 +178,7 @@ class AppServiceProvider extends ServiceProvider
      * Zamanlama yan-kanalı zaten kapalı (AuthController), ama sınırsız deneme sözlük saldırısına
      * kapı açar. İki katmanlı sınır: (1) hedefli — aynı firma kodu+kullanıcı adı+IP'ye kaba
      * kuvvet, (2) yayılı — tek IP'den birçok hesaba numaralandırma. Aşımda 429 döner
-     * (AppendServerTime yine ekler).
+     * (AppendServerMeta yine ekler).
      */
     private function configureRateLimiters(): void
     {

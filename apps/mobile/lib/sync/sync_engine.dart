@@ -153,6 +153,7 @@ class SyncEngine {
     }
 
     await _applyServerTime(resp.serverTime);
+    await _applyApiSurumu(resp.apiSurum);
     await _applySubscription(resp.subscription);
     // Atlanan ekip elemanı burada SAYILMAZ: push özeti gönderilen OLAYLARIN kaderini anlatır,
     // yanına iliştirilen önbellek bloğunun değil. Aynı liste pull turunda da iner ve orada sayılır.
@@ -298,6 +299,7 @@ class SyncEngine {
       final meta = await db.syncState();
       final resp = await api.pull(since: meta.lastPulledSeq, limit: limit);
       await _applyServerTime(resp.serverTime);
+      await _applyApiSurumu(resp.apiSurum);
       await _applySubscription(resp.subscription);
       atlanan += await _applyTeam(resp.team);
 
@@ -725,6 +727,24 @@ class SyncEngine {
     await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(
       SyncMetaCompanion(serverTimeOffsetMs: Value(offset), lastServerTimeIso: Value(iso)),
     );
+  }
+
+  /// Sunucunun bildirdiği sözleşme sürümünü (`api_version`) önbelleğe yaz.
+  ///
+  /// YOKLUK EZMEZ (`if (surum == null) return`): sürüm bildirmeyen bir yanıt — eski bir sunucu
+  /// sürümü, ya da yanıtı bu alanı taşımayan bir ara katman — bilinen son sürümü SİLMEK için
+  /// gerekçe değildir. Ezseydi, bir tur bile eksik alan gelmesi Ayarlar'daki satırı boşaltır ve
+  /// "sunucu sürümü bilinmiyor" yanlış bilgisini verirdi.
+  ///
+  /// Karşılaştırma/uyarı BİLİNÇLİ OLARAK YOK: bu alan bir GÖSTERİMDİR. İstemcinin "sunucu benden
+  /// yeni, kilitleneyim" demesi için önce hangi sürüm çiftinin uyumsuz olduğunu söyleyen YAZILI
+  /// bir karar gerekir (CLAUDE.md → Sürümleme: MAJOR bir olaydır ve eski istemcinin ne yapacağı
+  /// önceden kararlaştırılır). O karar olmadan eklenecek bir uyarı, uyumlu bir sunucu sürümünde
+  /// bayiyi boş yere korkuturdu.
+  Future<void> _applyApiSurumu(String? surum) async {
+    if (surum == null) return;
+    await (db.update(db.syncMeta)..where((t) => t.id.equals(1)))
+        .write(SyncMetaCompanion(apiVersion: Value(surum)));
   }
 
   // ---- JSON tip yardımcıları (sunucu attributesToArray çıktısını güvenli çevir) ----

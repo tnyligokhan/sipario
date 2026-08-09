@@ -441,6 +441,17 @@ class SyncMeta extends Table {
   /// API taban adresi (varsayılan üretim; geliştirmede login ekranından değiştirilebilir).
   TextColumn get apiBaseUrl => text().nullable()();
 
+  /// SUNUCUNUN SÖZLEŞME SÜRÜMÜ (`api_version`, SemVer) — son senkron turunda görülen değer.
+  ///
+  /// NEDEN SAKLANIYOR, anlık okunmuyor: uygulama offline-first çalışır ve bayi Ayarlar'ı çoğu
+  /// zaman ağ yokken açar. Değeri saklamayan bir gösterim, tam da "sunucuya ulaşamıyorum"
+  /// anında — yani sürümün en çok merak edildiği anda — boş kalırdı.
+  ///
+  /// null = "bu cihaz sunucuyla hiç konuşmadı ya da sunucu sürümünü henüz bildirmiyor".
+  /// Eski değer YENİSİYLE EZİLİR ama YOKLUKLA EZİLMEZ (bkz. SyncEngine): sürüm bildirmeyen bir
+  /// yanıt, bilinen son sürümü silmek için gerekçe değildir.
+  TextColumn get apiVersion => text().nullable()();
+
   /// SUNUCU SAHİPLİ, salt-okunur önbellek (subscription bloğundan): tasarımdaki "Firma Kodu"
   /// (değiştirilemez) ve "Oto Sırala (rota) · N hak" sayacı. İstemci bunları YAZAMAZ.
   TextColumn get tenantCode => text().nullable()();

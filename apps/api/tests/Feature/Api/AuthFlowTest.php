@@ -320,7 +320,7 @@ class AuthFlowTest extends ApiTestCase
     #[Test]
     public function hata_yanitlarinda_da_server_time_bulunur(): void
     {
-        // AppendServerTime tüm JSON yanıtlara ekler; 401 gövdesinde de olmalı (istemci offset'i).
+        // AppendServerMeta tüm JSON yanıtlara ekler; 401 gövdesinde de olmalı (istemci offset'i).
         $response = $this->postJson('/api/v1/auth/login', [
             'tenant_code' => 'hic-olmayan-firma',
             'username' => 'hic.yok',

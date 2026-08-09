@@ -130,7 +130,15 @@ function surumSatiri(veri) {
     p.push(`${etiket('AĞAÇ')} ${uyari(yerelS)}`);
   }
 
-  if (veri.apiSurum) p.push(`${etiket('API')} ${deger(veri.apiSurum)}`);
+  // API: CANLIDA KOŞAN sürüm esastır, ağaçtaki değil — soru "sunucu hangi sözleşmeyi konuşuyor".
+  // İkisi ayrıştığında ok işaretiyle ikisi birden yazılır (`API 1.0.0→1.0.1`): sol taraf canlı,
+  // sağ taraf ağaç, yani "sunucuya gitmemiş sürüm artışı". Aynıysa tek numara yeter.
+  // Canlı okunamazsa (ağ yok, sunucu düştü) sessizce ağaçtaki değere düşülür — çubuk hata basmaz.
+  if (veri.apiCanli && veri.apiSurum && veri.apiCanli !== veri.apiSurum) {
+    p.push(`${etiket('API')} ${deger(veri.apiCanli)}${uyari(`→${veri.apiSurum}`)}`);
+  } else if (veri.apiCanli || veri.apiSurum) {
+    p.push(`${etiket('API')} ${deger(veri.apiCanli || veri.apiSurum)}`);
+  }
   // Yayın borcu bir BORÇTUR: sıfırsa hiç yazılmaz, büyüdükçe rengi sertleşir.
   // 20 eşiği keyfi değil — 2026-08-09'da borç 41'e çıktığında sunucu ile telefonlar
   // farklı kod çalıştırıyordu; o noktaya varmadan gözün takılması gerekiyor.

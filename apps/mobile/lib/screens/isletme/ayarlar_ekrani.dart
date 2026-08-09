@@ -389,11 +389,31 @@ class _HakkindaKarti extends StatelessWidget {
               altBaslik: surum.data ?? 'Sipario',
             ),
           ),
+          AyarSatiri(baslik: 'Sunucu', altBaslik: sunucuSurumuMetni(meta)),
           AyarSatiri(baslik: 'Lisans', altBaslik: lisansMetni(meta)),
         ]);
       },
     );
   }
+}
+
+/// "Sunucu" satırının metni — son senkron turunda görülen API sözleşme sürümü.
+///
+/// NEDEN "Sürüm"ÜN YANINDA AYRI BİR SATIR: uygulama sürümü ile API sürümü İKİ AYRI HATTIR ve
+/// birbirine eşitlenmez (kural: CLAUDE.md → "Sürümleme"). İkisini tek satırda birleştirmek —
+/// "Sipario 0.10.0 / 1.0.0" gibi — okuyanı bir numaranın diğerini takip ettiğine inandırırdı;
+/// bu depoda daha önce ödenmiş bir hata sınıfı: **anlamı farklı iki sayıyı aynı kelimeyle
+/// taşımak.** Ayrı etiket, ayrı hat.
+///
+/// Ekran metni İDDİA ETMEZ (aynı yazılı kural): satır "sunucu güncel" ya da "uyumlu" demez —
+/// yalnız en son GÖRÜLEN numarayı yazar. Değer önbellekten okunur, o yüzden ağ yokken de doludur;
+/// hiç senkron olmamış cihazda ise uydurmak yerine bilinmediğini söyler.
+///
+/// Ekrandan BAĞIMSIZ (saf testle sınanır).
+String sunucuSurumuMetni(SyncMetaData? meta) {
+  final surum = meta?.apiVersion;
+  if (surum == null || surum.trim().isEmpty) return 'Henüz bağlanılmadı';
+  return 'API ${surum.trim()}';
 }
 
 /// Lisans satırının metni — tasarım `s-ayarlar.jsx:50` "248 gün kaldı · oto sıralama 34 hak".
