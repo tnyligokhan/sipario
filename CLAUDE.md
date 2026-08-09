@@ -194,3 +194,41 @@ Vardiya/oturum sonunda PLAN.md'nin "Güncel durum" bölümünü güncelle.
 Bu projede iki geliştirici nöbetleşe çalışır; sohbet geçmişi paylaşılmaz —
 depodaki bu üç dosya ortak hafızadır, güncel tutulmaları pazarlıksızdır.
 Benimle Türkçe konuş.
+
+## Sürümleme — SemVer, İKİ AYRI HAT (kural, 2026-08-09)
+
+**İki bağımsız sürüm vardır ve birbirine bağlanmaz:**
+
+| Hat | Kaynak (tek doğru yer) | Neyi anlatır |
+|-----|------------------------|--------------|
+| **Uygulama** | `apps/mobile/pubspec.yaml` → `version:` | Bayinin telefonundaki sürüm |
+| **API** | `apps/api/config/app.php` → `'version'` | Sunucudaki sözleşmenin sürümü |
+
+Aynı anda değişebilirler, ama **aynı numarayı taşımak zorunda değiller** — birini diğerine
+eşitlemek, ikisinden birinin sürüm numarasını anlamsız kılar.
+
+### Artırma kuralı (MAJOR.MINOR.PATCH)
+
+Bu projede sürümün anlamı **istemci–sunucu sözleşmesidir**, kod büyüklüğü değil:
+
+- **MAJOR** — eski istemci yeni sunucuyla ÇALIŞAMAZ (alan/uç nokta kaldırıldı, anlamı değişti,
+  zorunlu alan eklendi). ⚠️ Bu projede MAJOR bir olaydır: uygulama offline-first çalışır ve
+  telefonlar günlerce eski sürümde kalabilir (ölçüldü: `main` bir ara `dev`'in 41 commit
+  gerisindeydi). MAJOR atmadan önce eski istemcinin ne yapacağı YAZILI olarak kararlaştırılır.
+- **MINOR** — geriye dönük uyumlu yeni davranış/alan/ekran. Eski istemci çalışmaya devam eder.
+- **PATCH** — davranış değiştirmeyen düzeltme.
+
+**Her kullanıcıya görünen değişiklik en az PATCH artırır.** Sürümü artırmayan bir vardiya,
+"neyin ne zaman gittiğini" cevaplayamaz hâle getirir.
+
+### Derleme numarası (`+N`) SÜRÜM DEĞİLDİR — silme
+
+`+N` ve Android `versionCode` insana bir şey anlatmaz; **makinenin karşılaştırma anahtarıdır**
+ve üçü birden buna dayanır: (1) Play daha küçük `versionCode`lu yüklemeyi reddeder, (2) uygulama
+içi güncelleme "uzaktaki benden yeni mi?" sorusunu tam sayı karşılaştırmasıyla çözer, (3) ABI
+sapması yüzünden `versionCode` güvenilmezdir, bu yüzden gerçek anahtar
+`--dart-define=SIPARIO_YAPIM=<git commit sayısı>` ile geçilir.
+
+Yani: **SemVer insan içindir, derleme numarası makine içindir.** İkisi bir arada yaşar;
+SemVer'e geçmek derleme numarasını kaldırmak DEĞİLDİR. `pubspec.yaml`'daki `+1` CI tarafından
+ezilir, elle güncellenmez.

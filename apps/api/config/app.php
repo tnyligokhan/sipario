@@ -17,6 +17,35 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | API Sürümü — SemVer (kural: CLAUDE.md → "Sürümleme")
+    |--------------------------------------------------------------------------
+    |
+    | SUNUCU SÖZLEŞMESİNİN sürümü. Mobil uygulamanın sürümünden BAĞIMSIZDIR
+    | (`apps/mobile/pubspec.yaml`) ve ona eşitlenmez — ikisini aynı numaraya
+    | bağlamak, ikisinden birinin numarasını anlamsız kılar.
+    |
+    | KODDA sabittir, `env()` ile DEĞİL: sürüm çalışan koda aittir, ortama değil.
+    | Ortamdan okunsaydı canlı ile test farklı sürüm bildirebilir ve numara
+    | "hangi kod koşuyor" sorusunu cevaplamaz hâle gelirdi.
+    |
+    | ARTIRMA (bu projede sürüm = istemci-sunucu sözleşmesi, kod büyüklüğü değil):
+    |   MAJOR → eski istemci ÇALIŞAMAZ (alan kaldırıldı/anlamı değişti/zorunlu
+    |           alan eklendi). Telefonlar offline-first çalışıp günlerce eski
+    |           sürümde kalabildiği için bu bir OLAYDIR; eski istemcinin ne
+    |           yapacağı önceden yazılı olarak kararlaştırılır.
+    |   MINOR → geriye dönük uyumlu yeni alan/uç nokta.
+    |   PATCH → sözleşmeyi değiştirmeyen düzeltme.
+    |
+    | 1.0.0 başlangıcı bilinçli: bu sözleşme 2026-08-07'den beri ÜRETİMDE ve
+    | gerçek bayilere hizmet veriyor. Mobil tarafın 0.x'te olması mağaza
+    | çıkışına bağlı ayrı bir eşiktir, API'yi ilgilendirmez.
+    |
+    */
+
+    'version' => '1.0.0',
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

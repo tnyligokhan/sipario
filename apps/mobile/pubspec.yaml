@@ -2,11 +2,21 @@ name: sipario
 description: "Sipario — sipariş, veresiye defteri ve kurye takibi."
 publish_to: 'none'
 
-# SÜRÜM — yalnız SÜRÜM ADI burada elle yönetilir (pilot: 0.9.0, mağaza çıkışında 1.0.0).
-# YAPI NUMARASI (+1) BURADAN KULLANILMAZ: `android/app/build.gradle.kts` onu git commit
-# sayısından türetir, yani her commit'te kendiliğinden artar ve kimsenin elle yazması gerekmez.
+# SÜRÜM — UYGULAMA hattının TEK doğru yeri (SemVer kuralı: CLAUDE.md → "Sürümleme").
+#
+# API'nin sürümü AYRIDIR (`apps/api/config/app.php` → 'version') ve buna eşitlenmez: ikisini
+# aynı numaraya bağlamak, ikisinden birinin numarasını anlamsız kılar.
+#
+# ARTIRMA: kullanıcıya görünen her değişiklik en az PATCH artırır. MINOR = geriye dönük uyumlu
+# yeni davranış. MAJOR = eski istemcinin sunucuyla çalışamaması — bu projede büyük bir olaydır,
+# çünkü telefonlar offline-first çalışır ve günlerce eski sürümde kalabilir.
+# 1.0.0 mağaza çıkışına saklanıyor (pilot boyunca 0.x).
+#
+# YAPI NUMARASI (+1) BURADAN KULLANILMAZ ve SÜRÜM DEĞİLDİR: `android/app/build.gradle.kts` onu
+# git commit sayısından türetir; makinenin karşılaştırma anahtarıdır (Play daha küçük
+# versionCode'u reddeder, uygulama içi güncelleme "uzaktaki benden yeni mi?"yi tam sayıyla çözer).
 # Buradaki +1 yalnız git'in bulunamadığı durumda (depo dışı derleme) yedek değerdir.
-version: 0.9.0+1
+version: 0.10.0+1
 
 environment:
   sdk: ^3.10.7
