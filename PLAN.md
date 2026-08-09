@@ -410,7 +410,49 @@ GÖRÜNÜRLÜKTÜ ve o yüzey hiç bağlanmadı — "sessiz arıza" sınıfını
    iki yarısı da sahada çalışıyor: yazım tetiği (patron tarafı anında push) + 30 sn ön plan
    aralığı (kurye tarafı dokunmadan görüyor).
 2. **[✅ KAPANDI]** ~~`PushOzeti.beklemede` borcu~~ — aynı vardiyada kapatıldı (bekleyen kayıt bandı, 5 test).
-3. `main` dalı `dev`'in gerisinde; birleştirme her vardiya sonunda rutin adım.
+3. **[✅ KAPANDI]** ~~`main` dalı `dev`'in gerisinde~~ — 41 commit birleştirildi ve **canlıya alındı** (`817047f`, deploy `finished`). Bu artık her vardiya sonunda rutin adım.
+
+## 🔧 ALTYAPI — AYNI VARDİYADA ÜÇ İŞ (2026-08-09/3, hepsi CANLIDA ÖLÇÜLDÜ)
+
+**① `running:unhealthy` gizemi çözüldü — suçlu `queue` + `scheduler`.**
+Panel aylardır kırmızıydı ve "sinyal bozuk, site çalışıyor" diye normalleştirilmişti. Sunucuya SSH
+ile bağlanıp `docker inspect` ile OKUNDU (dışarıdan üç tur tahmin yürütüldü, ÜÇÜ DE YANLIŞTI —
+sırasıyla "db bozuk", "app healthcheck'i bozuk", "`ports_exposes: 3000` yanlış porta vuruyor").
+Gerçek: temel imaj `serversideup/php` KENDİ healthcheck'ini taşıyor
+(`curl --fail http://localhost:$NGINX_HTTP_PORT$HEALTHCHECK_PATH`) ve compose'da healthcheck
+tanımlamadığımız her serviste o miras kalıyor. `queue`/`scheduler` entrypoint'i ezip CLI süreci
+koşuyor — içlerinde nginx yok — kontrol her 10 sn `curl: (7) Failed to connect to localhost port
+8080` ile düşüyordu. `app` ve `db` ölçüldü: İKİSİ DE HEALTHY. Coolify durumu toplulaştırdığı için
+iki CLI container'ı bütün kaynağı kırmızıya boyuyordu.
+**Çözüm:** `healthcheck: disable: true` (queue + scheduler). Sahte `pgrep`/`ps` kontrolü YAZILMADI:
+ön planda koşan CLI sürecinde SÜREÇ = CONTAINER, ölürse `restart: unless-stopped` geri getirir.
+**Deploy sonrası ölçüm:** `app healthy` · `db healthy` · queue/scheduler/backup sağlık durumu YOK
+(tasarım) · **hiçbir yerde `unhealthy` kalmadı** · Coolify `running:unhealthy` → `running:unknown`.
+**Yan bulgu: imajda `curl` VAR** — healthcheck'i curl'den PHP'ye çevirmenin gerekçesi yanlış öncüle
+dayanıyormuş (PHP kontrolü çalıştığı için değiştirilmedi).
+
+**② Üretim günlüğü `stderr`e alındı + döndürme eklendi.**
+17:01'de uygulama çöktü, 16 kez yeniden başladı, `max_restart_count: 10` aşılınca Coolify pes etti,
+site elle redeploy edilene kadar 503 kaldı — **ve sebep aranamadı çünkü kanıt yoktu**:
+`LOG_CHANNEL=stack/single` container İÇİNE yazıyordu, `storage/logs` için volume yok, container her
+yeniden yaratılışında günlükler siliniyordu. Artık `stderr` → Docker → Coolify log ekranı.
+Zorunlu eşlikçi: `json-file` döndürmesi 10 MB × 3 (app/queue/scheduler) — yoksa sınırsız büyüyen
+günlük diski doldurup YENİ bir kesinti üretirdi. `storage/logs` volume'ü BİLİNÇLİ eklenmedi
+(root sahipli volume + `www-data` süreç = yazamayan log dizini).
+
+**③ Dekoratif `deploy:` bloğu compose'dan kaldırıldı** — Swarm dışında yok sayılıyordu, "rollback
+beni korur" sanısı veriyordu. Gerçek geri dönüş ELLEDİR (Coolify → önceki deployment → Redeploy).
+
+## 🔴 SIRADAKİ İŞLER (2026-08-09/3 sonrası)
+
+1. **SSH ANAHTARINI DÖNDÜR — güvenlik borcu.** Teşhis sırasında Coolify'ın sunucu SSH özel anahtarı
+   sohbete düz metin yapıştırıldı; oturum dökümünde ve kabuk geçmişinde duruyor. Coolify →
+   Keys & Tokens → yeni anahtar üret, sunucuda `authorized_keys`ten eskisini çıkar.
+2. **Bildirim kanalı kur** (Coolify → Notifications). SMTP kurulu olmadığı için **Telegram** seçilmeli —
+   e-posta bildirimi sessizce hiç gelmez. Olaylar: Deployment Failed + Container Stopped/Unhealthy.
+   Bu kurulmadan, bir sonraki çöküşü yine kimse fark etmez.
+3. `APP_DEBUG=false` yapıldı ✅ (kullanıcı). SMTP · makine dışı yedek · Google anahtar kısıtlaması
+   hâlâ açık (yukarıdaki "İnsan gerektiren işler" listesi).
 
 ---
 
