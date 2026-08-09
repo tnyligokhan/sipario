@@ -443,6 +443,44 @@ günlük diski doldurup YENİ bir kesinti üretirdi. `storage/logs` volume'ü B�
 **③ Dekoratif `deploy:` bloğu compose'dan kaldırıldı** — Swarm dışında yok sayılıyordu, "rollback
 beni korur" sanısı veriyordu. Gerçek geri dönüş ELLEDİR (Coolify → önceki deployment → Redeploy).
 
+## 🚀 DAĞITIM DÜZENİ YENİDEN KURULDU (2026-08-09/4)
+
+**① İKİ ORTAM.** Coolify'da ikinci uygulama: **`Sipario Dev`** (`pz3gsgc8aawn0lp85uwz2pfe`), dal
+`dev`, domain **`test.sipario.com.tr`**, KENDİ veritabanı. Canlıdan farkları API ile düzeltildi
+ve geri okunarak doğrulandı: `CORS` test domaini · `GEOCODING_DRIVER=null` · `ROTA_SURUCU=yakin-komsu`
+· Google anahtarları BOŞ (test gerçek kotayı/parayı yakmasın) · `MAIL_MAILER=log`. Coolify her
+değişkenin bir de **önizleme kopyasını** tutuyor; ikisi birden hizalandı, yoksa önizleme
+dağıtımı açıldığı gün Google kotası yine yanardı. Ölçüm: test `/up` 200, giriş 401 (şema kurulu).
+
+**② İKİ MOBİL KANAL — `dev`'e her push SAHAYA İNİYORDU, kapatıldı.**
+`main` → `saha` kanalı (bayiler, `com.sipario.app`) · `dev` → `test` kanalı (ekip,
+`com.sipario.app.test`, "Sipario Deneme"). Tek iş akışı `mobil-apk.yml` dala göre kanal seçer;
+`main` dışındaki her şey deneme sayılır (kazayla saha ezilmesin). Flavor adı `test` OLAMAZ
+(Android o adı kaynak kümesi için ayırır) → flavor `deneme`, etiket `test`. Sunucu adresi artık
+derleme sabiti (`--dart-define=SIPARIO_API`), kullanıcıya sorulmaz.
+**Yan bulgu:** `check_permissions.sh` harf duyarlılığı yüzünden flavor'lu manifestlere HİÇ
+bakmıyordu (kırmızı çizgi #6'nın denetimi delikti) — düzeltildi, üç kanal da denetleniyor,
+dişli olduğu kanıtlandı (saha 2 · deneme 2 · magaza 0 beyan).
+
+**③ SÜRÜMLEME KURALI — SemVer, iki ayrı hat.** Kural `CLAUDE.md` → "Sürümleme"de.
+Uygulama `apps/mobile/pubspec.yaml` (**0.10.0**), API `apps/api/config/app.php` (**1.0.0**);
+birbirine EŞİTLENMEZ. Derleme numarası sürüm değildir, makinenin karşılaştırma anahtarıdır.
+⚠️ **API sürümü hiçbir yanıtta okunmuyor** — "tanımlı ama bağlı değil" deseninin dördüncüsü
+olmasın diye borç olarak yazıldı; doğru devamı senkron yanıtına koyup sürüm çarpıklığını
+görünür kılmak.
+
+**④ DURUM ÇUBUĞU.** İki satır: üstte durum, altta `SAHA … │ TEST … │ API … │ YAYIN BORCU …`.
+Etiket gri + değer parlak, bütün etiketler BÜYÜK HARF, emoji yerine renkli metin (emoji
+hizalamayı bozuyor, 🟢/🔴 renk körlüğünde ayırt edilemiyor). `+N` = o kanaldan kaç commit
+ileride. `YAYIN BORCU` = `main..dev`; 20'yi geçince kırmızı — 41'e çıktığında sunucu ile
+telefonlar farklı kod çalıştırıyordu. `NO_COLOR` destekli, dört bozulma senaryosu sınandı.
+⚠️ Çubuk 60 sn'lik ÖNBELLEKTEN okur (ağa çıkmaz); CI beklerken "güncellenmedi" hissi verebilir.
+
+**⑤ Deploy kesintisi ÖLÇÜLDÜ: 52,3 sn** (218 örnek, 0,4 sn aralık). Kesinti deploy'un SONUNDA,
+container değişiminde; ilk ~86 sn build ve site normal. Sıfırlamak Swarm/iki replika ister ve
+ÖN KOŞULU expand/contract migration disiplinidir — o olmadan 52 sn'lik dürüst kesinti, geçiş
+anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintiden ETKİLENMEZ.
+
 ## 🔴 SIRADAKİ İŞLER (2026-08-09/3 sonrası)
 
 1. **SSH ANAHTARINI DÖNDÜR — güvenlik borcu.** Teşhis sırasında Coolify'ın sunucu SSH özel anahtarı
