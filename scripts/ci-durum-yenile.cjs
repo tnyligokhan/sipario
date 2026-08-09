@@ -67,6 +67,25 @@ for (const kanal of ['saha', 'test']) {
     const kutu = {};
     if (typeof j.yapim === 'number') kutu.yapim = j.yapim;
     if (typeof j.surum === 'string') kutu.surum = j.surum;
+
+    // BEKLEYEN = yayınlanmamış MOBİL değişiklik sayısı (belge/sunucu commit'leri SAYILMAZ).
+    //
+    // ⚠️ NEDEN HAM COMMIT FARKI DEĞİL: `yapim` git commit sayacıdır ve HER commit'te artar;
+    // oysa mobil derleme yalnız `apps/mobile/**` değiştiğinde tetiklenir (iş akışının `paths`
+    // süzgeci). Bir belge commit'i sayacı artırıp derlemeyi tetiklemediği için ortaya HİÇBİR
+    // YAPIMIN KAPATAMAYACAĞI hayalet bir "+1" çıkıyordu — ölçüldü ve düzeltmenin sebebi bu.
+    // SHA varsa kesin hesaplanır; yoksa (eski release) ham farka düşülür.
+    if (typeof j.commit === 'string' && /^[0-9a-f]{7,40}$/.test(j.commit)) {
+      try {
+        calistir('git', ['cat-file', '-e', `${j.commit}^{commit}`], 5000);
+        kutu.bekleyen = parseInt(
+          calistir('git', ['rev-list', '--count', `${j.commit}..HEAD`, '--', 'apps/mobile'], 5000),
+          10,
+        );
+      } catch (_) {
+        // SHA yerelde yok (fetch edilmemiş) — sessizce hesaplama yapılmaz, çubuk ham farka düşer.
+      }
+    }
     if (Object.keys(kutu).length) sonuc[kanal] = kutu;
   } catch (_) {}
 }

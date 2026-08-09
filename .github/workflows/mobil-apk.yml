@@ -200,9 +200,16 @@ jobs:
           SURUM=$(grep -m1 '^version:' apps/mobile/pubspec.yaml | sed 's/version: *//; s/+.*//' | tr -d ' ')
           DEPO="${{ github.repository }}"
           # boyut alanları: indirme bütünlüğü kontrolü — yarım inen APK kurulmaya çalışılmaz.
+          # `commit`: bu APK'nın DERLENDİĞİ commit. Durum çubuğu "kaç MOBİL değişikliği
+          # yayınlanmadı"ı bununla hesaplıyor. Yalnız `yapim` (git commit sayısı) yetmiyordu:
+          # o sayı BELGE commit'inde de artıyor ama mobil derleme tetiklenmiyor (iş akışı
+          # `paths: apps/mobile/**` ile sınırlı) — sonuç, hiçbir yapımın kapatamadığı hayalet
+          # bir "+1"di. SHA ile `git rev-list <sha>..HEAD -- apps/mobile` kesin cevabı verir
+          # ve dallar ayrışsa bile doğru çalışır.
           cat > surum.json <<JSON
           {
             "yapim": $YAPIM,
+            "commit": "$(git rev-parse HEAD)",
             "surum": "$SURUM",
             "apk_arm64": "https://github.com/$DEPO/releases/download/$ETIKET/$ETIKET-arm64.apk",
             "apk_evrensel": "https://github.com/$DEPO/releases/download/$ETIKET/$ETIKET-evrensel.apk",

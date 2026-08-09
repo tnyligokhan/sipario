@@ -100,9 +100,16 @@ function surumSatiri(veri) {
   const kanal = (ad, k) => {
     if (!k) return null;
     if (!k.surum) return k.yapim != null ? `${etiket(ad)} ${deger(k.yapim)}` : null;
-    // Ağaç bu kanaldan kaç commit ileride? Negatifse (kanal daha yeni) gösterilmez:
-    // "geride kaldım" bilgisi bu satırın işi değil, `git` söyler.
-    const fark = k.yapim != null && yerelY != null ? yerelY - k.yapim : 0;
+    // BEKLEYEN yayınlanmamış MOBİL değişiklik sayısıdır — belge/sunucu commit'leri sayılmaz.
+    // Yoksa (eski release, SHA yayınlamıyor) ham commit farkına düşülür; o sayı bir belge
+    // commit'inde de artar ve hiçbir yapımın kapatamadığı hayalet bir "+1" üretir, bu yüzden
+    // yalnız YEDEKTİR.
+    const fark =
+      k.bekleyen != null
+        ? k.bekleyen
+        : k.yapim != null && yerelY != null
+          ? yerelY - k.yapim
+          : 0;
     // Hizadaysa YEŞİL onay: "bekleyen iş yok" bilgisi, sarı bir sayının yokluğundan
     // okunmamalı — yokluk fark edilmez, işaret edilir.
     const son = fark > 0 ? uyari(`+${fark}`) : iyi('✓');
