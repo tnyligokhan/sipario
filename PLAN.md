@@ -522,8 +522,42 @@ kendini "**Read-only** MCP server for Coolify" diye tanıtıyor: root token veri
 | Healthcheck ayarları, pre/post deploy komutları | Container içi durum, `docker logs` |
 | Kaynak limitleri, restart sayacı, `last_online_at` | Yedek dosyaları |
 
-⚠️ **Sonuç: `APP_KEY` denetimi MCP ile YAPILAMAZ** — env değerleri bu API yüzeyinde yok.
-O madde insanda kalıyor (Coolify UI → uygulama → Environment Variables).
+### ✅ ENV GÖRÜNÜRLÜĞÜ ÇÖZÜLDÜ — MCP DEĞİL, **REST API**
+
+MCP env döndürmüyor ama Coolify'ın **REST API'si döndürüyor** ve mevcut root token buna yetiyor:
+
+```
+GET https://coolify.gostra.co/api/v1/applications/{uuid}/envs
+Authorization: Bearer <COOLIFY_TOKEN>
+```
+
+Uygulama UUID'si: `h43pc3jwcl2daz1pcfgutvd5`. Yanıt her değişken için `key` + `real_value` verir
+(144 kayıt). **Kural: değerler sohbete/loga BASILMAZ** — denetim "dolu mu / boş mu / kaç karakter"
+düzeyinde yapılır, sır olmayanlar (sürücü adları, portlar) açıkça okunabilir.
+
+**2026-08-09 denetiminin tam sonucu:**
+
+| Dolu ✅ | Boş / eksik |
+|---|---|
+| `APP_KEY` (52) · `DB_*_PASSWORD` (3×32) | `IYZICO_API_KEY` · `IYZICO_SECRET_KEY` (beklenen) |
+| `GOOGLE_ROUTES_KEY` (39) · `GOOGLE_GEOCODER_KEY` (39) · `YANDEX_GEOCODER_KEY` (36) | |
+| `MAIL_HOST=mail.sipario.com.tr` · `MAIL_PORT=587` · `MAIL_ENCRYPTION=tls` · `MAIL_USERNAME` (22) · `MAIL_PASSWORD` (32) | |
+
+**Bu, "SMTP kurulmadı" varsayımını çürüttü:** posta yapılandırması EKSİKSİZ. Yani e-postanın
+gitmemesinin sebebi eksik ayar değil — ya `mail.sipario.com.tr` ayakta değil ya kimlik yanlış.
+Artık tahmin değil, **test edilebilir** bir soru.
+
+### 🔴 `APP_DEBUG=true` — ÜRETİMDE, EN YÜKSEK ETKİLİ AÇIK
+
+`APP_ENV=production` ama `APP_DEBUG=true`. `.env.example` bunu kendi satırında yasaklıyor:
+*"ÜRETİMDE MUTLAKA false: true iken hata sayfaları yığın izini ve ortam değişkenlerini basar."*
+
+Somut risk: canlıda **herhangi bir** hata oluştuğunda Laravel'in debug ekranı bütün ortam
+değişkenlerini basar — `APP_KEY`, üç DB parolası, Google anahtarları, SMTP parolası. Tek bir 500,
+bu vardiyada tek tek kapatılan sırların hepsini birden sızdırır. Panel parolasını repodan
+çıkarmak, `APP_DEBUG` açıkken anlamını yitirir.
+
+**Yapılacak:** Coolify → `APP_DEBUG` → `false` → redeploy. **Tek satır, en yüksek getiri.**
 
 **İlk turda MCP'nin bulduğu üç şey** (üçü de belgedeki bir varsayımı çürüttü):
 1. `www` ve `api` altalanlarının ölü olduğu ve **sebebi** (yukarıdaki bölüm) — önceki teşhis yanlıştı.
@@ -535,10 +569,41 @@ O madde insanda kalıyor (Coolify UI → uygulama → Environment Variables).
    Compose'daki healthcheck `curl` çağırıyordu; `serversideup/php` yalın bir imaj ve `curl`
    varlığı garanti değil. Test PHP tabanlıya çevrildi (PHP tanım gereği var).
 
+## 🗺️ HARİTA "YÜKLENİYORDA KALIYOR" — SESSİZ ARIZA BULUNDU (saha raporu, 2026-08-09)
+
+Kullanıcı demo hesabıyla girip haritaya dokundu; ekran sonsuza dek "Yükleniyor" dedi.
+
+**Kök neden ekranın KENDİSİYDİ:** `siparis_harita.dart` `StreamBuilder<HaritaVerisi>` kullanıyor
+ama **`snap.hasError` hiç kontrol edilmiyordu** — yalnız `snap.data`ya bakılıyor, `null` ise iskelet
+çiziliyordu. Sorgu patladığında `veri` sonsuza dek `null` kalır, ekran donar ve **gerçek sebep
+hiçbir yerde görünmez.** Bu deponun defalarca bedel ödediği sessiz-arıza sınıfının aynısı.
+
+**Düzeltildi:** hata durumu artık ayrı çiziliyor (başlık altı "Yüklenemedi", gövdede "Harita
+yüklenemedi" + Drift/SQLite'ın kendi mesajı). Mesaj KVKK açısından güvenli — tablo/kolon adları
+taşır, müşteri verisi taşımaz. Davranış teste kilitlendi (`ui_siparis_harita_test.dart`, gerçek
+senaryoyu taklit ediyor: bir tabloyu düşürüp şema uyumsuzluğu üretiyor).
+
+**⚠️ Düzeltmenin kendisi ikinci bir arıza üretmişti ve test yakaladı:** uzun bir yığın izi
+`SipBosDurum` içinde **3864 piksel taşırıyordu** — yani "hatayı göster" çözümü ekranı okunamaz
+hâle getiriyordu. Kaydırılabilir yapıldı + mesaj 400 karakterde kırpıldı.
+
+**GERÇEK SEBEP HÂLÂ BİLİNMİYOR.** Bu düzeltme sebebi bulmaz, **görünür kılar**. Cihazdaki APK
+güncel olduğu için ilk hipotez (şema uyumsuzluğu) zayıfladı. Bir sonraki CI APK'sı kurulduğunda
+ekran gerçek mesajı yazacak; teşhis o zaman kesinleşir. **Yani bu maddeyi kapatan şey yeni APK +
+kullanıcının okuduğu mesajdır.**
+
 ## 📋 SIRADAKİ İŞLER (2026-08-09 itibarıyla, öncelik sırasıyla)
 
 ### 🔴 HEMEN — canlı sistemin sağlığı
-1. 🔴 **SMTP'yi bağla — parola sıfırlama şu an SESSİZCE ÇALIŞMIYOR.** `MAIL_MAILER=smtp` ama SMTP
+0. 🔴🔴 **`APP_DEBUG=false` YAP** (Coolify → redeploy). Üretimde `true`; bir hata sayfası tüm
+   ortam değişkenlerini (APP_KEY, DB parolaları, API anahtarları, SMTP parolası) ekrana basar.
+   Bu vardiyada kapatılan bütün sırları tek bir 500 geri açar. **Tek satır, en yüksek getiri.**
+1. 🔴 **SMTP: yapılandırma TAM, sunucu şüpheli.** (Düzeltildi — "kurulmadı" sanılıyordu.)
+   `MAIL_HOST=mail.sipario.com.tr` · `587` · `tls` · kullanıcı adı ve parola dolu. Yani eksik ayar
+   YOK; ya posta sunucusu ayakta değil ya kimlik yanlış. Doğrulama: canlıda bir test e-postası
+   gönderip `report()`un log'a yazdığı gerçek SMTP hatasını okumak. Parola sıfırlama şu an
+   SESSİZCE ÇALIŞMIYOR (aşağıdaki eski açıklama geçerli).
+2. ~~SMTP'yi bağla~~ — parola sıfırlama şu an SESSİZCE ÇALIŞMIYOR. `MAIL_MAILER=smtp` ama SMTP
    sunucusu kurulmadı. Bayi "Parolamı unuttum" der, ekranda **"e-posta gönderildi"** görür, e-posta
    hiç gelmez (`Parola.php:132` `try/catch` + `report($e)` — numaralandırmayı önlemek için ekrana
    yansıtmıyor). Parolasını unutan bayinin kendi kendine kurtulma yolu YOK. Aynı yol havale/ödeme

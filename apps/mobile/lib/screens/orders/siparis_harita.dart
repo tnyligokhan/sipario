@@ -216,19 +216,28 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
             stream: _veri,
             builder: (context, snap) {
               final veri = snap.data;
+              // HATA YUTULMAZ (2026-08-09 saha arızası): eskiden yalnız `snap.data`ya bakılıyordu,
+              // yani sorgu PATLADIĞINDA `veri` sonsuza dek null kalıyor ve ekran "Yükleniyor"
+              // iskeletinde donuyordu. Kullanıcı bekliyor, hiçbir şey gelmiyor, sebep hiçbir yerde
+              // görünmüyor. Bu deponun defalarca bedel ödediği SESSİZ ARIZA sınıfının aynısı.
+              final hata = snap.hasError;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SipUst(
                     baslik: 'Harita',
-                    alt: veri == null
-                        ? 'Yükleniyor'
-                        : '${veri.duraklar.length} durak · rota sırası',
+                    alt: hata
+                        ? 'Yüklenemedi'
+                        : veri == null
+                            ? 'Yükleniyor'
+                            : '${veri.duraklar.length} durak · rota sırası',
                     onGeri: () => Navigator.of(context).maybePop(),
                   ),
-                  if (veri != null && veri.konumsuz > 0)
+                  if (!hata && veri != null && veri.konumsuz > 0)
                     KonumsuzBant(adet: veri.konumsuz),
-                  Expanded(child: _govde(veri)),
+                  Expanded(
+                    child: hata ? _hataGovdesi(snap.error) : _govde(veri),
+                  ),
                 ],
               );
             },
@@ -249,6 +258,27 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
         yukleniyor: _otoKosuyor,
         onTap: _otoSirala,
       );
+
+  /// Sorgu patladığında gösterilir. Teknik mesaj EKRANA YAZILIR — çünkü bu ekranın arızası
+  /// yalnız sahada görülüyor ve kullanıcının okuyup iletebileceği tek kanal burası. KVKK açısından
+  /// güvenli: mesaj Drift/SQLite'ın kendi metnidir (tablo/kolon adları), müşteri verisi taşımaz.
+  ///
+  /// KAYDIRILABİLİR ve KIRPILMIŞ olması şart — ilk yazımda ikisi de yoktu ve widget testi
+  /// **3864 piksellik taşma** ile kırmızı yandı. Yani "hatayı göster" düzeltmesinin kendisi
+  /// ikinci bir arıza üretiyordu: uzun bir yığın izi ekranı taşırıp okunamaz hâle getiriyordu.
+  Widget _hataGovdesi(Object? hata) {
+    final metin = hata.toString();
+    final kisa = metin.length > 400 ? '${metin.substring(0, 400)}…' : metin;
+
+    return SingleChildScrollView(
+      child: SipBosDurum(
+        ikon: SipIcons.pin,
+        baslik: 'Harita yüklenemedi',
+        aciklama: 'Sipariş verisi okunurken bir hata oluştu. Uygulamayı güncellemek çözmezse '
+            'bu mesajı destekle paylaşın:\n\n$kisa',
+      ),
+    );
+  }
 
   Widget _govde(HaritaVerisi? veri) {
     if (veri == null) return const SipIskelet(adet: 3);

@@ -888,4 +888,38 @@ void main() {
       await db.close();
     });
   });
+
+  // ── HATA GÖRÜNÜRLÜĞÜ (2026-08-09 saha arızası) ────────────────────────────
+  //
+  // Saha raporu: "haritaya tıklıyorum, yükleniyorda kalıyor". Kök neden ekranın kendisiydi:
+  // `StreamBuilder` YALNIZ `snap.data`ya bakıyordu, `snap.hasError`a değil. Sorgu patlayınca
+  // `veri` sonsuza dek null kalıyor ve iskelet donuyordu — kullanıcı bekliyor, sebep hiçbir
+  // yerde görünmüyor. Bu depoda defalarca bedel ödetilen SESSİZ ARIZA sınıfı.
+  //
+  // Test gerçek senaryoyu taklit eder: şema uyumsuzluğu (tablo yok) → sorgu SQL hatası verir.
+  group('harita hata görünürlüğü', () {
+    testWidgets('sorgu patlarsa sonsuz iskelet DEĞİL, hata gösterilir', (tester) async {
+      genisYuzey(tester);
+      late AppDatabase db;
+      await tester.runAsync(() async {
+        db = AppDatabase(NativeDatabase.memory());
+        // Şemayı kur, sonra haritanın join'lediği bir tabloyu DÜŞÜR: gerçek dünyada bu,
+        // cihazdaki şemanın sunucu sürümünün gerisinde kalmasıdır.
+        await db.select(db.customers).get();
+        await db.customStatement('DROP TABLE customer_addresses');
+      });
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Başlık altı "Yükleniyor" DEĞİL, gövde iskelet DEĞİL.
+      expect(find.text('Yükleniyor'), findsNothing,
+          reason: 'hata varken "Yükleniyor" demek yalan söylemektir');
+      expect(find.text('Yüklenemedi'), findsOneWidget);
+      expect(find.text('Harita yüklenemedi'), findsOneWidget);
+
+      await db.close();
+    });
+  });
 }
