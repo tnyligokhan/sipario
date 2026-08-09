@@ -21,14 +21,38 @@
 
 import 'dart:convert';
 
-/// Güncelleme bilgisinin çekildiği SABİT adres. Etiket yuvarlanır (`saha`), varlık adları
-/// sabittir; yani URL hiç değişmez ve uygulamaya gömülebilir.
-const String kSurumJsonAdresi =
-    'https://github.com/tnyligokhan/sipario/releases/download/saha/surum.json';
-
-/// Dağıtım kanalı — derleme sabiti (`--dart-define=SIPARIO_KANAL=saha`).
+/// Dağıtım kanalı — derleme sabiti (`--dart-define=SIPARIO_KANAL=saha|test`).
 /// Tanımsızsa `magaza` sayılır: güncelleme yolu KAPALI varsayılan güvenlidir.
 const String kKanal = String.fromEnvironment('SIPARIO_KANAL', defaultValue: 'magaza');
+
+/// Güncelleme bilgisinin çekildiği adres — KANALA GÖRE değişir, yuvarlanan release etiketi.
+///
+/// ⚠️ BU SATIR 2026-08-09'DAN ÖNCE SABİT `saha` İDİ VE ARIZANIN KENDİSİYDİ. O tarihte ölçüldü:
+/// `saha-apk` iş akışı `dev` dalına her push'ta tetikleniyor ve `saha` release'ini güncelliyordu;
+/// uygulama da bu sabit adrese baktığı için **sahadaki bayilerin telefonları `dev`'e atılan her
+/// commit'le kendi kendine güncelleniyordu.** Kimse "kur" demiyor, bant düşüyor ve iniyor.
+/// Denenmemiş kod, gerçek bayinin defterini tutan cihaza bu yoldan gidiyordu.
+///
+/// Artık kanal etiketi belirliyor: `saha` → saha release'i (yalnız `main`'den beslenir),
+/// `test` → deneme release'i (`dev`'den beslenir). İki kanal birbirinin sürümünü ASLA görmez.
+/// `magaza` bu adresi hiç kullanmaz (güncelleme kontrolü o kanalda kapalıdır) ama yine de saha
+/// etiketine düşürülür — tanımsız bir etikete istek atmaktansa hiç atmamak doğrudur.
+const String kSurumJsonAdresi =
+    'https://github.com/tnyligokhan/sipario/releases/download/'
+    '${kKanal == 'test' ? 'test' : 'saha'}/surum.json';
+
+/// Kanal → yuvarlanan release etiketi. KURALIN TEK TANIMI burasıdır.
+///
+/// NEDEN AYRI BİR FONKSİYON: [kSurumJsonAdresi] bir DERLEME SABİTİ, yani testte kanal
+/// değiştirilemez — tek bir koşuda yalnız bir kanalın adresi görülebilir. Kural saf bir
+/// fonksiyona çıkarılınca üç kanal da sınanabiliyor, ayrıca sabitin bu kurala uyduğu tek bir
+/// iddiayla kilitleniyor (`kSurumJsonAdresi == surumJsonAdresi(kKanal)`).
+///
+/// Sınanan asıl güvence şu: saha ve test adresleri AYNI OLAMAZ. Aynı oldukları gün, geliştirme
+/// derlemesi sahadaki bayiye iner — 2026-08-09'a kadar süren durum tam olarak buydu.
+String surumJsonAdresi(String kanal) =>
+    'https://github.com/tnyligokhan/sipario/releases/download/'
+    '${kanal == 'test' ? 'test' : 'saha'}/surum.json';
 
 /// Bu derlemenin yapı numarası — `--dart-define=SIPARIO_YAPIM=<git commit sayısı>`.
 ///
@@ -44,9 +68,15 @@ const int kYapim = int.fromEnvironment('SIPARIO_YAPIM');
 
 /// Güncelleme kontrolü bu derlemede çalışmalı mı?
 ///
-/// İKİ KAPI birden: kanal `saha` OLACAK ve yapı numarası bilinecek. Mağaza derlemesinde ağa
-/// hiç çıkılmaz; yapı numarası bilinmeyen bir derlemede karşılaştırma anlamsızdır.
-bool get guncellemeKapaliMi => kKanal != 'saha' || kYapim <= 0;
+/// İKİ KAPI birden: kanal KENDİ KENDİNİ GÜNCELLEYEN bir kanal OLACAK (`saha` ya da `test`) ve
+/// yapı numarası bilinecek. Mağaza derlemesinde ağa hiç çıkılmaz (orada güncellemeyi Play yapar);
+/// yapı numarası bilinmeyen bir derlemede (yerel/IDE) karşılaştırma anlamsızdır.
+///
+/// `test` kanalı 2026-08-09'da eklendi: geliştirme ekibinin cihazı da kendini güncellemeli, yoksa
+/// her denemede elle APK kurmak gerekir — bu hattın var oluş sebebi tam olarak o zahmetti.
+/// Kanalların BİRBİRİNİ görmemesi [kSurumJsonAdresi] ile sağlanır, burada değil.
+bool get guncellemeKapaliMi =>
+    (kKanal != 'saha' && kKanal != 'test') || kYapim <= 0;
 
 /// Sunucudaki sürümün bilgisi.
 class SurumBilgisi {

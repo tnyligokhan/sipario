@@ -4,9 +4,21 @@ import '../data/app_database.dart';
 import '../data/ids.dart';
 import 'auth_api.dart';
 
-/// Varsayılan API taban adresi. Geliştirmede login ekranındaki "gelişmiş" alanından değiştirilir
-/// (emülatör: http://10.0.2.2:8000/api/v1 — Android emülatöründe host makine 10.0.2.2'dir).
-const kDefaultApiBaseUrl = 'https://sipario.com.tr/api/v1';
+/// Varsayılan API taban adresi — DERLEME SABİTİ (`--dart-define=SIPARIO_API=...`).
+///
+/// NEDEN DEFINE (2026-08-09): iki kanal iki ayrı sunucuya bakmak zorunda. Saha derlemesi canlıya,
+/// deneme derlemesi test sunucusuna gider. Bunu giriş ekranındaki bir alana bırakmak İKİ AÇIDAN
+/// yanlış olurdu: (1) canlıya geçerken o alan bilinçli olarak kaldırıldı — mağaza incelemesinde
+/// saha uygulamasında sunucu adresi kutusu istenmez, (2) adresi kullanıcıya sormak, yanlış
+/// sunucuya bağlanmış bir bayi ihtimali demektir ve bu ihtimal veri karışması riskidir.
+///
+/// Varsayılan CANLIDIR: define geçilmezse (yerel derleme, IDE'den koşturma) davranış bugünküyle
+/// aynı kalır. Deneme kanalı adresi CI'da geçirir; test sunucusu adresi değişirse yalnız iş
+/// akışındaki tek satır değişir, kod değişmez.
+const kDefaultApiBaseUrl = String.fromEnvironment(
+  'SIPARIO_API',
+  defaultValue: 'https://sipario.com.tr/api/v1',
+);
 
 /// Oturum yöneticisi. Kaynak sync_meta tek satırıdır (id=1): token, kullanıcı, cihaz kimliği.
 /// deviceId İLK login denemesinde üretilir ve kalıcıdır — outbox/LWW'deki device_id ile aynı değer

@@ -157,4 +157,31 @@ void main() {
       expect(guncellemeKapaliMi, isTrue);
     });
   });
+
+  // KANAL AYRIMI — 2026-08-09 arızasının regresyon kilidi.
+  //
+  // O tarihe kadar güncelleme adresi SABİT 'saha' idi ve CI 'dev' dalına her push'ta saha
+  // release'ini güncelliyordu: GERÇEK BAYİLERİN telefonları denenmemiş kodla kendi kendine
+  // güncelleniyordu. Aşağıdaki iddialar o yolun bir daha açılmasını engelliyor.
+  group('Kanal → release etiketi', () {
+    test('saha ve test AYRI adreslere bakar (arızanın ta kendisi)', () {
+      expect(surumJsonAdresi('saha'), isNot(surumJsonAdresi('test')),
+          reason: 'iki kanal aynı adrese bakarsa geliştirme derlemesi sahadaki bayiye iner');
+      expect(surumJsonAdresi('saha'), contains('/saha/surum.json'));
+      expect(surumJsonAdresi('test'), contains('/test/surum.json'));
+    });
+
+    test('tanınmayan kanal SAHA etiketine düşer (güvenli taraf)', () {
+      expect(surumJsonAdresi('magaza'), contains('/saha/surum.json'));
+      expect(surumJsonAdresi('uydurma'), contains('/saha/surum.json'),
+          reason: 'tanımsız bir etikete istek atmaktansa var olan kanala düşmek yeğdir; '
+              'mağaza kanalında bu adres zaten hiç kullanılmaz');
+    });
+
+    test('derleme sabiti kuralla AYNI şeyi söyler', () {
+      // kKanal derleme sabiti olduğu için testte değiştirilemez; sabitin KURALA UYDUĞU burada
+      // kilitlenir. İkisi ayrışırsa kural değişmiş ama sabit güncellenmemiş demektir.
+      expect(kSurumJsonAdresi, surumJsonAdresi(kKanal));
+    });
+  });
 }

@@ -89,6 +89,26 @@ android {
     productFlavors {
         create("saha") { dimension = "kanal" }
         create("magaza") { dimension = "kanal" }
+        /**
+         * DENEME KANALI (2026-08-09) — geliştirme ekibinin cihazına giden sürüm.
+         *
+         * `applicationIdSuffix` PAZARLIKSIZ: sonek olmasaydı deneme APK'sı saha APK'sının
+         * ÜSTÜNE kurulurdu. Bir bayinin telefonuna yanlışlıkla deneme sürümü kurulması,
+         * uygulamasının silinmesi ve GÖNDERİLMEMİŞ kayıtlarının kaybolması demekti. Sonekle
+         * ikisi yan yana durur, ayrı verilerle çalışır, biri diğerini göremez.
+         *
+         * Flavor adı `test` DEĞİL: Android Gradle eklentisi `test`/`androidTest`/`main`
+         * adlarını kendi kaynak kümeleri için ayırır ve o adla flavor derlemeyi kırar.
+         * Release etiketi yine `test` — yalnız flavor adı Türkçeleşti.
+         *
+         * İMZA saha ile AYNI anahtardır (aşağıdaki `signingConfigs`). Bilinçli: kanal içi
+         * güncelleme aynı imzayı şart koşar. Farklı applicationId taşıdıkları için aynı
+         * anahtarla imzalanmaları iki uygulamayı birbirine karıştırmaz.
+         */
+        create("deneme") {
+            dimension = "kanal"
+            applicationIdSuffix = ".test"
+        }
     }
 
     /**

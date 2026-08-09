@@ -1,0 +1,46 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      DENEME KANALI — geliştirme ekibinin cihazına giden sürüm (2026-08-09).
+
+      NEDEN AYRI BİR KANAL: bu tarihe kadar `saha-apk` iş akışı `dev` dalına her push'ta
+      tetikleniyor ve `saha` release'ini güncelliyordu; uygulama da sabit `saha` adresine
+      baktığı için GERÇEK BAYİLERİN TELEFONLARI denenmemiş kodla kendi kendine güncelleniyordu.
+      Artık `main` → saha, `dev` → deneme. İki kanal birbirinin sürümünü görmez.
+
+      NEDEN FLAVOR ADI `test` DEĞİL: Android Gradle eklentisi `test`, `androidTest` ve `main`
+      adlarını KENDİ kaynak kümeleri için ayırır; `test` adlı bir flavor derlemeyi kırar.
+      Release ETİKETİ yine `test` (kullanıcıya görünen ad), yalnız flavor adı `deneme`.
+
+      NEDEN AYRI applicationId (`.test` soneki): aynı kimlikle iki APK telefonda YAN YANA
+      DURAMAZ — deneme sürümü sahanınkinin ÜSTÜNE kurulur. Bir bayinin cihazına yanlışlıkla
+      deneme sürümü kurulursa uygulaması silinir ve gönderilmemiş kayıtları gider. Sonek bunu
+      imkânsız kılar: iki uygulama ayrı ayrı kurulur, ayrı verilerle çalışır.
+
+      REQUEST_INSTALL_PACKAGES: saha kanalıyla aynı gerekçe — kendi kendini güncelleyebilmek
+      için gerekli. `magaza` kanalında YOKTUR ve `scripts/check_permissions.sh` orada görürse
+      denetimi kırmızıya çevirir (kırmızı çizgi #6 korunur).
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application
+        android:label="Sipario Deneme"
+        tools:replace="android:label">
+        <!--
+          Ana manifest `android:label="Sipario"` yazıyor; `tools:replace` olmadan birleştirme
+          çakışma hatası verir. Ad BİLEREK farklı: iki uygulama aynı telefonda yan yana
+          duracak ve hangisinin deneme olduğu ikonun altından okunabilmeli — teşhis sırasında
+          "hangi sürüme bakıyoruz?" sorusu en pahalı sorulardan biridir.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.guncelleme"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/saha_guncelleme_yollari" />
+        </provider>
+    </application>
+</manifest>

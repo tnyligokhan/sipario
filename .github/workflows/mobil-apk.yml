@@ -1,0 +1,219 @@
+# MOBİL APK — İKİ KANALLI otomatik güncelleme hattı.
+#
+# Akış: mobil dokunuşlu her push → arm64 + evrensel APK derlenir, kanalın YUVARLANAN release'inin
+# varlıkları değiştirilir (tek release, çok sürüm ÇÖPÜ yok). Uygulama açılışta kendi kanalının
+# surum.json'ına bakar, yenisini görünce kendini günceller. Bu yol tünelden ve API'den bağımsızdır —
+# geliştirici makinesi kapalıyken de çalışır.
+#
+# ⚠️ KANAL AYRIMI 2026-08-09'DA EKLENDİ VE BİR ARIZAYI KAPATTI.
+# Öncesinde bu iş akışı YALNIZ `dev` dalını dinliyor ve `saha` release'ini güncelliyordu;
+# uygulama da sabit `saha` adresine baktığı için **gerçek bayilerin telefonları `dev`'e atılan her
+# commit'le kendi kendine güncelleniyordu.** Kimse "kur" demiyor, bant düşüyor ve iniyor —
+# denenmemiş kod, bayinin defterini tutan cihaza bu yoldan gidiyordu (ölçüldü: `main` bir ara
+# `dev`'in 41 commit gerisindeydi, yani sunucu ile telefon farklı kod çalıştırıyordu).
+#
+#   main → `saha`  kanalı → saha release'i    → GERÇEK BAYİLER
+#   dev  → `test`  kanalı → test release'i    → GELİŞTİRME EKİBİ
+#
+# İki kanal birbirinin sürümünü ASLA görmez (uygulama tarafındaki kapı:
+# `guncelleme_sozlesmesi.dart::kSurumJsonAdresi`) ve iki APK telefonda YAN YANA durur
+# (`applicationIdSuffix = ".test"`) — deneme sürümü saha sürümünün üstüne kurulamaz.
+#
+# GEÇİCİ ÖZELLİK: Play Store'a çıkınca bu hat kapanır; `magaza` flavor'ında güncelleme kodu ve
+# REQUEST_INSTALL_PACKAGES izni ZATEN yoktur (izin denetimi bunu kilitler).
+#
+# İmza: `saha` anahtarı (GitHub secrets) — her iki kanal da AYNI anahtarla imzalanır. Bilinçli:
+# kanal içi güncelleme aynı imzayı şart koşar; applicationId farklı olduğu için karışmazlar.
+# Yerel debug imzayla ÇAKIŞMAZ ama üstüne de KURULAMAZ — cihaza İLK kurulum da bu hattın
+# ürettiği APK'yla yapılmalıdır.
+name: mobil-apk
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'apps/mobile/**'
+      - '.github/workflows/mobil-apk.yml'
+  workflow_dispatch: {}
+
+# Kanal başına ayrı kuyruk: `main` derlemesi `dev` derlemesini İPTAL ETMEMELİ. Tek gruba
+# konsaydı, sahaya çıkan bir sürüm sırf ekip dev'e push attı diye yarıda kesilirdi.
+concurrency:
+  group: mobil-apk-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # release varlıklarını güncelleyebilmek için
+
+jobs:
+  # TESTLER DERLEMEDEN ÖNCE — bu iş 2026-08-06'da eklendi ve boşluğu kapatıyor.
+  #
+  # ÖNCESİNDE: mobil testler YALNIZ yerel `Stop` kancasında koşuyordu ve o kanca zaman aşımına
+  # takılıp commit'e bile ulaşamıyordu (ölçüm: pint+phpstan+artisan test = 604sn, timeout 600sn).
+  # Yani tek bekçi hem yavaş hem güvenilmezdi; kancadan çıkarılınca mobil tarafta HİÇ test
+  # kalmayacaktı ve bu hat bozuk bir APK'yı doğrudan cihaza yollardı — güncelleme kendiliğinden
+  # iniyor, kimse "kurma" demiyor.
+  #
+  # Bu iş KIRMIZIYSA `derle-ve-yayinla` hiç başlamaz (`needs: test`), yani release varlıkları
+  # ellenmez ve telefondaki sürüm olduğu gibi kalır. Testin doğru yeri burası: kimseyi
+  # bekletmiyor ve geliştirici makinesi kapalıyken de koşuyor.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.7'   # derleme işiyle AYNI sürüm; ayrışırsa test yalan söyler
+          channel: stable
+          cache: true
+
+      - name: Bağımlılıklar
+        working-directory: apps/mobile
+        run: flutter pub get
+
+      # `dart analyze`, `flutter analyze` DEĞİL: yerel kancada da öyle (Türkçe karakterli yol
+      # flutter analyze'in LSP kanalını kırıyordu). Aynı aracı kullanmak, CI ile yerelin aynı
+      # şeyi ölçmesini sağlar.
+      - name: Analiz
+        working-directory: apps/mobile
+        run: dart analyze
+
+      - name: Testler
+        working-directory: apps/mobile
+        run: flutter test
+
+  derle-ve-yayinla:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # TAM geçmiş ŞART: versionCode = `git rev-list --count HEAD`
+          # (build.gradle.kts bunu üretir; sığ klonda sayı yanlış çıkar).
+          fetch-depth: 0
+
+      # KANAL SEÇİMİ TEK YERDE. Dal adı dışında hiçbir şey kanalı belirlemez — "hangi APK nereye
+      # gitti?" sorusunun cevabı bu adımın çıktısında yazılı olur.
+      #
+      # `main` DIŞINDAKİ HER ŞEY deneme sayılır (else dalı). Bilinçli ve güvenli taraf: elle
+      # tetiklenen ya da ileride açılacak bir dal, kazayla SAHA release'ini ezemez. Sahaya çıkmanın
+      # tek yolu `main`'e birleştirmektir.
+      - name: Kanalı belirle
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "KANAL=saha"    >> "$GITHUB_ENV"
+            echo "FLAVOR=saha"   >> "$GITHUB_ENV"
+            echo "ETIKET=saha"   >> "$GITHUB_ENV"
+            echo "API=https://sipario.com.tr/api/v1" >> "$GITHUB_ENV"
+            echo "BASLIK=Saha sürümü (otomatik)"     >> "$GITHUB_ENV"
+          else
+            echo "KANAL=test"    >> "$GITHUB_ENV"
+            echo "FLAVOR=deneme" >> "$GITHUB_ENV"
+            echo "ETIKET=test"   >> "$GITHUB_ENV"
+            # ⚠️ TEST SUNUCUSU ADRESİ — Coolify'daki ikinci uygulamanın domaini buraya yazılır.
+            # Adres değişirse YALNIZ bu satır değişir; uygulama kodu sabittir.
+            echo "API=https://test.sipario.com.tr/api/v1" >> "$GITHUB_ENV"
+            echo "BASLIK=Deneme sürümü (otomatik)"        >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.7'   # yerel geliştirme sürümüyle AYNI tutulur
+          channel: stable
+          cache: true
+
+      - name: İmza anahtarını aç
+        env:
+          B64: ${{ secrets.SAHA_KEYSTORE_B64 }}
+        run: |
+          printf '%s' "$B64" | base64 -d > /tmp/saha.jks
+          echo "SAHA_KEYSTORE_YOLU=/tmp/saha.jks" >> "$GITHUB_ENV"
+
+      - name: APK derle (arm64 + evrensel)
+        working-directory: apps/mobile
+        env:
+          SAHA_KEYSTORE_SIFRE: ${{ secrets.SAHA_KEYSTORE_SIFRE }}
+          SAHA_ANAHTAR_SIFRE: ${{ secrets.SAHA_ANAHTAR_SIFRE }}
+        run: |
+          # SIPARIO_YAPIM define'ı ŞART: --split-per-abi versionCode'a ABI sapması ekler
+          # (arm64 = 2000 + git sayısı). PackageInfo.buildNumber ile surum.json'daki yapim
+          # karşılaştırılsaydı arm64 cihaz kendini hep "güncel" sanır ve BİR DAHA
+          # GÜNCELLENMEZDİ. Uygulama kendi yapımını bu define'dan okur, sapmadan bağımsız.
+          #
+          # SIPARIO_API define'ı kanalın sunucusunu belirler: saha canlıya, deneme test
+          # sunucusuna bakar. Adres kullanıcıya SORULMAZ — yanlış sunucuya bağlanmış bir bayi
+          # veri karışması demektir (giriş ekranındaki adres alanı bu yüzden kaldırılmıştı).
+          YAPIM=$(git rev-list --count HEAD)
+          flutter pub get
+          flutter build apk --release --flavor "$FLAVOR" \
+            --dart-define=SIPARIO_KANAL="$KANAL" \
+            --dart-define=SIPARIO_YAPIM="$YAPIM" \
+            --dart-define=SIPARIO_API="$API" --split-per-abi
+          flutter build apk --release --flavor "$FLAVOR" \
+            --dart-define=SIPARIO_KANAL="$KANAL" \
+            --dart-define=SIPARIO_YAPIM="$YAPIM" \
+            --dart-define=SIPARIO_API="$API"
+
+      - name: Sürümü APK'nın KENDİSİNDEN doğrula
+        run: |
+          CIKTI=apps/mobile/build/app/outputs/flutter-apk
+          ls -la "$CIKTI"
+          # Dosya adları cagri raporuyla sabitlendi: app-<abi>-<flavor>-release.apk
+          ARM="$CIKTI/app-arm64-v8a-$FLAVOR-release.apk"
+          AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)
+          # --split-per-abi ABI sapması ekler: arm64 versionCode = 2000 + git sayısı.
+          # Sapma Flutter gradle eklentisinin içinde ve geri alınamıyor (denendi, ezildi).
+          BEKLENEN=$(( 2000 + $(git rev-list --count HEAD) ))
+          OKUNAN=$("$AAPT" dump badging "$ARM" | grep -oP "versionCode='\K[0-9]+")
+          echo "kanal=$KANAL flavor=$FLAVOR beklenen=$BEKLENEN okunan=$OKUNAN"
+          test "$BEKLENEN" = "$OKUNAN"   # gradle'ın yazdığına güvenme — APK'dan oku
+          # Kendini güncelleyen kanalların ikisinde de kurulum izni OLMALI:
+          "$AAPT" dump badging "$ARM" | grep -q REQUEST_INSTALL_PACKAGES
+          # PAKET ADI KAPISI — deneme APK'sı saha kimliğini TAŞIYAMAZ. Taşısaydı bayinin
+          # telefonunda saha uygulamasının üstüne kurulur ve gönderilmemiş kayıtları giderdi.
+          PAKET=$("$AAPT" dump badging "$ARM" | grep -oP "package: name='\K[^']+")
+          echo "paket=$PAKET"
+          if [ "$KANAL" = "test" ]; then
+            case "$PAKET" in *.test) ;; *) echo "HATA: deneme APK'sı '.test' soneki taşımıyor"; exit 1;; esac
+          else
+            case "$PAKET" in *.test) echo "HATA: saha APK'sına '.test' soneki sızmış"; exit 1;; *) ;; esac
+          fi
+
+      - name: surum.json üret ve kanalın release'ini güncelle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CIKTI=apps/mobile/build/app/outputs/flutter-apk
+          ARM="$CIKTI/app-arm64-v8a-$FLAVOR-release.apk"
+          FAT="$CIKTI/app-$FLAVOR-release.apk"
+          # Varlık adları SABİTLENİR — surum.json'daki indirme adresleri bu adlara bakar;
+          # flutter çıktı adı değişse bile uygulama tarafı etkilenmez.
+          cp "$ARM" "$ETIKET-arm64.apk"
+          cp "$FAT" "$ETIKET-evrensel.apk"
+          YAPIM=$(git rev-list --count HEAD)
+          SURUM=$(grep -m1 '^version:' apps/mobile/pubspec.yaml | sed 's/version: *//; s/+.*//' | tr -d ' ')
+          DEPO="${{ github.repository }}"
+          # boyut alanları: indirme bütünlüğü kontrolü — yarım inen APK kurulmaya çalışılmaz.
+          cat > surum.json <<JSON
+          {
+            "yapim": $YAPIM,
+            "surum": "$SURUM",
+            "apk_arm64": "https://github.com/$DEPO/releases/download/$ETIKET/$ETIKET-arm64.apk",
+            "apk_evrensel": "https://github.com/$DEPO/releases/download/$ETIKET/$ETIKET-evrensel.apk",
+            "boyut_arm64": $(stat -c%s "$ETIKET-arm64.apk"),
+            "boyut_evrensel": $(stat -c%s "$ETIKET-evrensel.apk")
+          }
+          JSON
+          cat surum.json
+          # Yuvarlanan release: yoksa bir kez yaratılır, sonra yalnız varlıkları değişir.
+          gh release view "$ETIKET" >/dev/null 2>&1 || gh release create "$ETIKET" --prerelease \
+            --title "$BASLIK" \
+            --notes "Bu release CI tarafından güncellenir (kanal: $KANAL, dal: ${{ github.ref_name }}). Uygulamanın $KANAL kanalı surum.json üzerinden kendini günceller."
+          gh release upload "$ETIKET" "$ETIKET-arm64.apk" "$ETIKET-evrensel.apk" surum.json --clobber
+          echo "Yayınlandı: kanal=$KANAL sürüm=$SURUM yapım=$YAPIM"
