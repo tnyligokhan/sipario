@@ -234,7 +234,7 @@ class _Kutu extends StatelessWidget {
 /// Renk doğrudan `t.danger`: bento kartı açık gövdede `surface` üstünde durur, tıpkı
 /// `.bento-v.eksi`in `var(--danger)`ı doğrudan kullanması gibi (HERO koyu kartlarda gereken
 /// açık ton buraya gerekmez).
-class _SonAramaKutusu extends StatelessWidget {
+class _SonAramaKutusu extends StatefulWidget {
   const _SonAramaKutusu({required this.db, required this.onArama});
 
   final AppDatabase db;
@@ -249,9 +249,34 @@ class _SonAramaKutusu extends StatelessWidget {
       };
 
   @override
+  State<_SonAramaKutusu> createState() => _SonAramaKutusuState();
+}
+
+class _SonAramaKutusuState extends State<_SonAramaKutusu> {
+  /// Akış BİR KEZ kurulur — build'de değil.
+  ///
+  /// ⚠️ AYNI KUSURUN DÖRDÜNCÜ NÜSHASIYDI (hepsi 2026-08-09'da kapatıldı). Kural şu: `watch*`
+  /// fonksiyonları HER ÇAĞRIDA YENİ bir Stream nesnesi döndürür; build'in içinde çağrılırsa
+  /// StreamBuilder onu "akış değişti" sayar, aboneliği koparır ve o karede `snap.data` null
+  /// olur — kutu bir kare boş/iskelet duruma düşüp geri dolar. Kabuk senkron · kontör ·
+  /// sync_meta tiklerinde setState ettiği için bu titreme SIK yaşanır, "arada bir oluyor"
+  /// diye teşhisi de zordur.
+  ///
+  /// BEDELİ ARTIK DÖRT KEZ ÖDENDİ, beşincisi yazılmasın:
+  ///  1. `orders/order_list_screen.dart:119-123` — sipariş listesi bir kare iskelete iniyordu
+  ///     (deseni tanımlayan yer; ORADAKİ yorum bu kusurun anatomisini anlatır).
+  ///  2. `ana_ekran.dart` `_AnaEkranState._ozetiIzle` — "Açık Sipariş" kutusu 0'a düşüyordu.
+  ///  3. `ana_ekran.dart` `_SonAktiviteState` — "Bugün henüz hareket yok." parlıyordu.
+  ///  4. burası — "Son Arama" kutusu "—/henüz arama yok"a düşüyordu.
+  ///
+  /// Kapsam girdisi yok (`db` sabittir), bu yüzden önbellek karşılaştırması da gerekmez;
+  /// girdiye bağlı akışlarda desen `_ozetiIzle`/`_siparisleriIzle`deki gibi kurulur.
+  late final Stream<AramaKaydi?> _sonArama = sonAramaAkisi(widget.db);
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<AramaKaydi?>(
-      stream: sonAramaAkisi(db),
+      stream: _sonArama,
       builder: (context, snap) {
         final a = snap.data;
         if (a == null) {
@@ -269,9 +294,9 @@ class _SonAramaKutusu extends StatelessWidget {
           deger: a.ad ?? sipTelefon(a.numara),
           kucuk: true,
           tekSatir: true, // ad uzunsa küçültülmez, kesilir
-          alt: '${yonEtiketi(a.tip)} · ${a.saat}',
+          alt: '${_SonAramaKutusu.yonEtiketi(a.tip)} · ${a.saat}',
           altEksi: a.tip == AramaTipi.cevapsiz,
-          onTap: () => onArama(a),
+          onTap: () => widget.onArama(a),
         );
       },
     );

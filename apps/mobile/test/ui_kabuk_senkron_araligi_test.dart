@@ -22,7 +22,8 @@ import 'package:sipario/auth/session.dart';
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/screens/home_shell.dart';
 import 'package:sipario/sync/sync_service.dart';
-import 'package:sipario/theme/app_theme.dart';
+
+import 'support/kabuk_yardimcilari.dart';
 
 /// Kabuğun senkron servisine yaptığı ÇAĞRILARI kaydeden vekil.
 ///
@@ -51,25 +52,37 @@ class _KayitliSync extends SyncService {
   }
 }
 
+/// Kabuğu KANONİK yardımcılarla kurar (`test/support/kabuk_yardimcilari.dart`).
+///
+/// ⚠️ BU DOSYA ÖNCE KENDİ KOPYASINI YAZDI ve üç testi "Timer is still pending" ile düştü.
+/// Fark mount'taydı: kopya `pumpAndSettle()` kullanıyordu, kanonik helper ise sahte zamanı
+/// ilerletmek yerine `runAsync` ile GERÇEK bir olay döngüsü turu döndürüp tek `pump()` atıyor.
+/// Kabuk beş Drift aboneliği taşır (kurye · izin · meta · karantina · senkron durumu); sahte
+/// zamanda "yerleşene kadar" pompalamak bu akışların iptal zamanlayıcılarını teardown'a
+/// taşıyordu. Kabuk testleri için ekran yardımcıları DEĞİL, kabuk yardımcıları kullanılır —
+/// dosyanın kendi başlığı bunu yazıyor.
 Future<_KayitliSync> _kabuguKur(WidgetTester tester) async {
   final db = AppDatabase(NativeDatabase.memory());
   final sync = _KayitliSync(db);
-  tester.view.physicalSize = const Size(800, 2400);
-  tester.view.devicePixelRatio = 1.0;
-  addTearDown(tester.view.reset);
-  await tester.pumpWidget(MaterialApp(
-    theme: SipTheme.acik(),
-    home: HomeShell(db: db, session: Session(db), sync: sync, onLoggedOut: () {}),
-  ));
-  await tester.pumpAndSettle();
+  await ekranaKoy(
+    tester,
+    HomeShell(db: db, session: Session(db), sync: sync, onLoggedOut: () {}),
+  );
   sync.aralikCagrilari.clear(); // kuruluş gürültüsü sayılmasın
   return sync;
 }
 
-/// Ekranı ağaçtan alır (bekleyen abonelik/zamanlayıcı testi asmasın) — bu deponun `_kapat` deseni.
-Future<void> _ekraniKapat(WidgetTester tester) async {
-  await tester.pumpWidget(const SizedBox.shrink());
-  await tester.pump(const Duration(seconds: 5));
+/// Testi ÖN PLANDA bitirir — kapanıştan hemen önce çağrılır.
+///
+/// ⚠️ NEDEN GEREKLİ (üç test bunsuz "Timer is still pending" ile düştü): testi
+/// `paused`/`hidden`/`detached` durumunda bırakmak Flutter'ın KENDİ bağlayıcısını arka plan
+/// kipinde bırakıyor — kare üretimi kapalıyken sökme sırasında doğan sıfır süreli zamanlayıcılar
+/// tüketilmiyor. Bunun ürün koduyla ilgisi yok; ölçtüğümüz çağrılar `expect`lerde ZATEN
+/// doğrulanmış oluyor, bu satır yalnız cihazın gerçekte yaptığı şeyi taklit ediyor: kullanıcı
+/// uygulamayı arka planda sonsuza dek bırakmaz, geri döner.
+Future<void> _onPlanaDondur(WidgetTester tester) async {
+  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+  await tester.pump();
 }
 
 void main() {
@@ -84,6 +97,9 @@ void main() {
           reason: 'ekrana bakılmayan cihazda 30 sn\'de bir uyanmak pili boşuna yakar; '
               'kabuk bu çağrıyı yapmazsa aralık ön planda takılı kalır');
       expect(sync.syncNowSayaci, 0, reason: 'arka plana geçerken tur ATILMAZ');
+
+      await _onPlanaDondur(tester);
+      await kapat(tester);
     });
 
     testWidgets('hidden ve detached da arka plandır', (tester) async {
@@ -98,6 +114,9 @@ void main() {
       await tester.pump();
       expect(sync.aralikCagrilari, contains(SyncService.arkaPlanAralik),
           reason: 'üç durum da "kullanıcı ekrana bakmıyor" demektir');
+
+      await _onPlanaDondur(tester);
+      await kapat(tester);
     });
 
     testWidgets('resumed ÖN PLAN aralığına döner ve tek tur atar', (tester) async {
@@ -116,6 +135,8 @@ void main() {
       expect(sync.syncNowSayaci, 1,
           reason: 'öne gelişte TEK tur: `aralikDegistir` tur atmıyor, turu resumed dalı atıyor. '
               'İkisi birden atsaydı her öne gelişte çift istek olurdu');
+
+      await kapat(tester);
     });
 
     testWidgets('inactive arka plan SAYILMAZ (bildirim perdesi / izin diyaloğu)', (tester) async {
@@ -129,6 +150,8 @@ void main() {
               'hâlâ uygulamanın başındadır. Burada aralığı gevşetmek, telefonu her elleyende '
               'senkronu yavaşlatırdı (konum sayacının aynı gerekçesi)');
       expect(sync.syncNowSayaci, 0, reason: 'inactive resumed değildir, tur da atılmaz');
+
+      await kapat(tester);
     });
 
     testWidgets('arka plan ⇄ ön plan gidiş gelişi aralığı doğru sırada taşır', (tester) async {
@@ -147,7 +170,8 @@ void main() {
         SyncService.arkaPlanAralik,
       ], reason: 'her geçişte bir çağrı — biri eksikse cihaz yanlış aralıkta takılı kalır');
 
-      await _ekraniKapat(tester);
+      await _onPlanaDondur(tester);
+      await kapat(tester);
     });
   });
 }

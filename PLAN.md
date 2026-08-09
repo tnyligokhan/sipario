@@ -302,7 +302,100 @@
 
 ---
 
-# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-09 · ÜRÜN CANLIDA + kayıp vardiya hafızasının onarımı)
+# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-09/2 · "kuryeye atama düşmüyor" ARIZASI KAPANDI)
+
+**Ölçüm (bu vardiyada BİZZAT koşuldu, kopyalanmadı):**
+mobil **1135/1135** ✅ (taban 1108 → +27) · API **685/685** (3472 iddia, 1 incomplete KASITLI) ✅ ·
+`flutter analyze` **0** ✅ · `phpstan` **0** ✅ · `pint` temiz ✅.
+
+## ARIZA VE KÖK NEDEN
+
+Saha raporu: *"Patron hesabından bir kuryeye atama yaptığımda, kurye hesabında yenileme yapmama
+rağmen güncelleme gelmiyor. Fakat patron hesabında uygulamayı alta alıp tekrar açtığımda, kurye
+yenilediğinde geliyor."*
+
+**Kök neden: yerel yazım senkron turunu TETİKLEMİYORDU.** Atama outbox'a kusursuz düşüyordu
+(`order_repository.dart:294`, tek transaction) ama `enqueueOutbox` yalnız INSERT ediyor, kimseye
+haber vermiyordu. Tur yalnız dört yoldan açılıyordu: 2 dk zamanlayıcı · connectivity değişimi ·
+`home_shell.dart:283` `resumed` · aşağı çekerek yenile. Kullanıcının "alta alıp açınca gidiyor"
+gözlemi tam olarak üçüncü maddedir. Kurye ne kadar yenilerse yenilesin, **sunucuda henüz olmayan
+bir şeyi çekemez.**
+
+Bu bir **tutarlılık** değil **GECİKME** arızasıydı — ve önceki vardiyanın teşhisinin
+(*"sistemde kusur yok, eski cihazda bayat veri"*, DECISIONS 2026-08-09) neden yanlış hüküm
+verdiğini de bu açıklıyor: o ölçüm temiz cihazda **durağan durumu** karşılaştırıyordu
+(`last_pulled_seq` sunucuyla birebir, 21 sipariş eşleşiyor) ve o yöntem gecikmeyi göremezdi.
+Ölçüm yanlış değildi, **soruya cevap vermiyordu.**
+
+## SUNUCU TEMİZ ÇIKTI — KOŞUMLA
+
+Kuryenin KENDİ tokenıyla üç senaryo yazılıp koşuldu; hepsi yeşil ve artık depoda kalıcı
+(`apps/api/tests/Feature/Api/CourierSyncTest.php`, `--filter=CourierSyncTest` → 10/10):
+kuryenin hiç görmediği sipariş atanınca delta'da iniyor · yeniden atama iniyor · snapshot
+süzülmüyor. Sebebi kodda da açık: delta sorgusunda kullanıcı/rol yüklemi YOK, RLS yalnız kiracı
+bazlı — **kapsam süzgeci tamamen mobilde.** Atama LWW'den geçmiyor (olay-kaynaklı append), yani
+'stale' diye sessizce düşmesi imkânsız.
+⚠️ Test kurgusunda tuzak var, yorumda yazılı: **boş bayide imleç 0 döner ve `since=0` tanım gereği
+SNAPSHOT demektir** — imleç gerçek cihazdaki gibi >0 yapılmalı, yoksa test kendi kurgusundan kırmızı verir.
+
+## YAPILAN DÜZELTMELER
+
+1. **Yazım tetiği** (`sync_service.dart::yazimTetigiBagla`, `app_database.dart::watchBekleyenSayisi`).
+   Bekleyen outbox sayacı akışına abone olunur; **YALNIZ ARTIŞTA** tur açılır. Tetik
+   `enqueueOutbox`ten çağrılmaz — her yazım bir transaction içindedir, commit'ten önce açılan tur
+   ya kaydı göremez ya yazma kilidine girer; Drift bildirimi commit SONRASI düşer. Böylece outbox'a
+   yazan 25 çağrı yerinin (11 dosya) hepsi tek tetiği paylaşır, yarın eklenecek yazım unutulmaz.
+   ⚠️ Düşüşte tetiklemek sonsuz tur döngüsü kurardı (push ack'leyince sayı düşer) — testle kilitli.
+   Pencere klasik debounce DEĞİL: ilk artış pencereyi açar, pencereye düşenler aynı tura biner
+   (klasik debounce toplu yazımda turu sürekli ertelerdi).
+2. **Ön plan aralığı 2 dk → 30 sn** (`onPlanAralik`/`arkaPlanAralik`, kabuk yaşam döngüsüne bağlı).
+   Patronun yazımı anında gitse bile kurye onu ancak kendi pull'unda görür; çözümü "yenilemeye bas"
+   olamaz. Arka planda 2 dk'ya döner (pil). `inactive` bilinçli olarak arka plan SAYILMAZ.
+3. **Tur düzeyinde 90 sn üst sınır.** Zaman aşımı istek başınaydı (25 sn), tur başına yoktu; uzun
+   bir tur boyunca zamanlayıcı, öne gelme VE yeni yazım tetiği tur süresi kadar gecikiyordu.
+   Güvenli olduğu ÖLÇÜLDÜ: `_applyDelta` imleci sayfa başına kalıcı yazıyor
+   (`sync_engine.dart:383-384`), snapshot hiç sayfalanmıyor (`SyncService.php:318` `has_more=false`)
+   → sınır geri sarma değil, en fazla tekrar üretir. Cins **`sunucu`** seçildi: `ag` demek yalan
+   olurdu (ağ ölü olsa tur 90 sn'ye varmadan `ag` ile düşer), `veri` de yalan olurdu (ortada bozuk
+   kayıt yok). `.timeout` bilinçli olarak FIRLATMIYOR — fırlatsaydı taşımanın kendi 25 sn'lik
+   `TimeoutException`ı da aynı kefeye düşer ve `sync_zaman_asimi_test`in kilitlediği sözleşme
+   sessizce bozulurdu.
+4. **"Akış build içinde kuruluyor" kusuru — DÖRT nüsha kapatıldı.** `watch*` her çağrıda YENİ
+   Stream nesnesi döndürür; build'de çağrılırsa StreamBuilder aboneliği koparır ve o kare
+   `snap.data` null olur. Kabuk senkron/kontör/meta tiklerinde setState ettiği için titreme SIK.
+   Kapatılanlar: `ana_ekran.dart` "Açık Sipariş" kutusu (0'a düşüyordu) · `ana_ekran.dart`
+   "Son aktivite" ("henüz hareket yok" parlıyordu) · `ana_bento.dart` "Son Arama".
+   Desenin tanımı `order_list_screen.dart:119-123`te YAZILI ve orada düzeltilmişti — **yazılı ders
+   üç ayrı yere uygulanmamıştı.** Bedeli artık dört kez ödendi, beşincisi yazılmasın.
+5. **Kurye başlık sayacı kapsam değişimini kaçırıyordu** (`order_list_screen.dart`): `late final`
+   bir kez değerleniyordu, liste akışı kapsam değişince yeniden kuruluyor ama sayaç kurmuyordu →
+   başlıkta 12, listede 2. Kapsamı belirleyen iki girdi de asenkron iniyor (`_kuryeIzin`, `_userId`);
+   `ef545ec`in hizalaması yalnız ilk kare için geçerliydi.
+   **GÖRÜNÜR DAVRANIŞ DEĞİŞİKLİĞİ (kullanıcı kararı):** sayaç artık etkin kurye süzgecini sayar —
+   patron bir kurye seçtiğinde rakam da o kuryeye düşer.
+
+## ⚠️ AÇIK BORÇ (bilinçli olarak bu vardiyada YAPILMADI)
+
+**`PushOzeti.beklemede` hiç tüketilmiyor.** `sync_engine.dart:34`te tanımlı, `:126`da doldurulmuş,
+`lib/` içinde TEK okuyucusu yok. Sonuç: abonelik kilidi (`locked`) yüzünden gönderilemeyen kayıtlar
+varken bant "senkron başarılı" diyor. Veri kaybı YOK (kayıt `pending` kalır, `attempts` artmaz,
+`locked`/`duplicate` doğru okunuyor — `sync_engine.dart:174-193` beyaz listesi denetlendi) ve
+kilitliyken kullanıcı zaten `SubscriptionLockedScreen` görüyor. Alanın var oluş sebebi
+GÖRÜNÜRLÜKTÜ ve o yüzey hiç bağlanmadı — "sessiz arıza" sınıfının küçük bir örneği.
+
+## SIRADAKİ İŞLER
+
+1. **GERÇEK CİHAZDA UÇTAN UCA DOĞRULAMA — en kritik.** Bu vardiyada telefonlar `adb`ye bağlı
+   değildi (`adb devices` boş); düzeltme yalnız testlerle kanıtlandı. İki cihaz gerekiyor: patron
+   atama yapar, **kurye ekranına dokunulmadan** 30 sn içinde düşmeli. Kablosuz ADB bu depoda
+   standart teşhis yoludur.
+2. Yeni APK derlenip cihazlara kurulmalı — düzeltme kendini taşımaz.
+3. `PushOzeti.beklemede` borcu (yukarıda).
+4. `main` dalı `dev`'in gerisinde; birleştirme her vardiya sonunda rutin adım.
+
+---
+
+# (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-09 · ÜRÜN CANLIDA + kayıp vardiya hafızasının onarımı)
 
 > **EN ÖNEMLİ TEK CÜMLE: SİPARİO 2026-08-07'DEN BERİ CANLI SUNUCUDA ÇALIŞIYOR.**
 > Bu satır bu dosyada üç gün boyunca YOKTU. Aşağıdaki "kayıp vardiya" bölümü nedenini anlatıyor.
