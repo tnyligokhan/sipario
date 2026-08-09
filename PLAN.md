@@ -451,7 +451,7 @@ dışlıyordu. Bunlar gerçek mühendislik işiydi ve **doğru çözüldü**.
 |---|---|---|
 | `APP_KEY` | tanımlı | ✅ **Kritik güvenlik maddesi KAPANDI** — compose'daki public varsayılan kullanılmıyor |
 | `GEOCODING_DRIVER` | `kademeli` | ✅ Üretim sürücüsü (Google önce, gerekirse Yandex) |
-| `ROTA_SURUCU` | `yakin-komsu` | ⚠️ **Google Routes KAPALI** — aşağıya bak |
+| `ROTA_SURUCU` | ~~`yakin-komsu`~~ → **`google`** | ⚠️ Kullanıcı düzeltti (bilinçli değildi). **Anahtar + deploy doğrulaması bekliyor** — aşağıya bak |
 | `IYZICO_BASE_URL` | sandbox | ⚠️ Beklenen (üretim anahtarı yok) — ödeme canlıda çalışmaz |
 | `MAIL_MAILER` | `smtp` | 🔴 **SMTP KURULMAMIŞ** — aşağıya bak |
 
@@ -470,13 +470,29 @@ saldırısını önlemek için ekrana hiçbir şey yansımıyor. Yani:
 kurulana kadar sadece log kirletir — kullanıcı açısından ikisi de "e-posta gelmiyor"dur.
 **Asıl iş SMTP'yi bağlamak** (hosting'in SMTP'si zaten var, karar verilmişti).
 
-### ⚠️ `ROTA_SURUCU=yakin-komsu` — Google Routes devre dışı
+### ⚠️ `ROTA_SURUCU` — `yakin-komsu` idi, kullanıcı `google` yaptı (2026-08-09); DOĞRULAMA BEKLİYOR
 
-Bu bilinçli mi, unutuldu mu **belirsiz.** PLAN'ın 2026-07-29 kaydı Routes API'nin canlı olduğunu ve
-`auto-route` çağrısının `engine:"google"` döndüğünü yazıyor. Şu anki değerle oto sıralama **kuş uçuşu
-yakın komşu** kullanıyor: gerçek yol ağını, tek yönleri ve dönüşleri BİLMEZ. Özellik çalışır ama
-rota kalitesi düşüktür. Açmak için `ROTA_SURUCU=google` + `GOOGLE_ROUTES_KEY` yeterli (kod hazır,
-Google düşerse kendiliğinden yakın-komşuya döner — 5xx vermez).
+**Bilinçli bir karar değildi:** Antigravity vardiyasında bu değerle kurulmuş ve öyle kalmıştı. Yani
+oto sıralama günlerce **kuş uçuşu** çalıştı — gerçek yol ağını, tek yönleri ve dönüşleri bilmeden.
+Özellik çalışıyordu, sadece rota kalitesi düşüktü; kimse fark etmedi çünkü hiçbir yerde sinyal yok.
+
+Kullanıcı Coolify'da `google` yaptı. **Ama iki sessiz tuzak var ve ikisi de "çalışıyor" sanmaya yol açar:**
+
+1. **`GOOGLE_ROUTES_KEY` boşsa `ROTA_SURUCU=google` HİÇBİR ŞEY YAPMAZ.**
+   `AppServiceProvider::rotaMotoruKur()` son satırı: `return $google->hazirMi() ? $google : $yakinKomsu;`
+   Anahtar yoksa sessizce yakın-komşuya düşer — hata yok, log yok, uyarı yok. Bu bilinçli bir
+   yıkılmazlık tasarımıdır (yanlış bir env satırı özelliği KAPATMASIN) ama teşhis açısından körlük yaratır.
+2. **Coolify'da env değiştirmek tek başına yetmez — YENİDEN DEPLOY gerekir.** İmajda
+   `AUTORUN_LARAVEL_CONFIG_CACHE=true`; yapılandırma container açılışında önbelleğe alınıyor.
+
+**Doğrulama (kod bunu kolaylaştırmış):** uygulamadan bir kez **Oto Sırala** çalıştır; sunucu yanıtındaki
+`engine` alanı çalışan motoru söyler. `"google"` → tamam. `"yakin-komsu"` → anahtar eksik ya da deploy
+yapılmamış. **Bu ölçüm yapılmadan "Google rota açıldı" yazılmamalı.**
+
+⚠️ Aynı tuzak `GEOCODING_DRIVER=kademeli` için de geçerli: `GOOGLE_GEOCODER_KEY` / `YANDEX_GEOCODER_KEY`
+yoksa sürücü Null'a düşer ve "Adresten Konum Al" dürüstçe "bu kurulumda tanımlı değil" der.
+Ayrıca Google tarafında **faturalandırma açık değilse** anahtar geçerli olsa bile her istek
+`REQUEST_DENIED` döner (sürücü bunu 503'e çevirir) — 2026-07-29'da bu bir kez ödendi.
 
 ## 🔑 ~~SENDE OLAN TEK KRİTİK İŞ — `APP_KEY`~~ ✅ KAPANDI (yukarıdaki tabloya bakınız)
 
@@ -529,17 +545,21 @@ O madde insanda kalıyor (Coolify UI → uygulama → Environment Variables).
    bildirimlerini de taşıyor. Karar zaten verilmişti: **hosting'in SMTP'si.** Gereken:
    `MAIL_HOST` · `MAIL_PORT` · `MAIL_USERNAME` · `MAIL_PASSWORD` · `MAIL_ENCRYPTION`.
    Bağlanana kadar `MAIL_MAILER=log` yapmak log kirlenmesini durdurur (e-posta yine gitmez).
-2. ~~**`dev` → `main` birleştirmesi**~~ ✅ Yapıldı; güvenlik düzeltmeleri canlıda.
-3. ~~**`APP_KEY` doğrulaması**~~ ✅ **KAPANDI** — Coolify'da tanımlı olduğu doğrulandı (2026-08-09).
+2. **`ROTA_SURUCU=google` DOĞRULAMASI** — değer değişti ama etkili olduğu ölçülmedi. Uygulamadan bir
+   kez **Oto Sırala** çalıştır ve yanıttaki `engine` alanına bak: `"google"` mi `"yakin-komsu"` mu?
+   `yakin-komsu` çıkarsa iki sebepten biridir: `GOOGLE_ROUTES_KEY` boş, ya da env değişikliğinden
+   sonra yeniden deploy yapılmadı (config önbelleğe alınıyor). **Ölçmeden "açıldı" sayma.**
+3. ~~**`dev` → `main` birleştirmesi**~~ ✅ Yapıldı; güvenlik düzeltmeleri canlıda.
+4. ~~**`APP_KEY` doğrulaması**~~ ✅ **KAPANDI** — Coolify'da tanımlı olduğu doğrulandı (2026-08-09).
    Compose'daki public varsayılan kullanılmıyor.
-4. ~~**`www` / `api` altalanları ölü**~~ ✅ **KAPANDI (2026-08-09).** Kök neden Coolify domain
+5. ~~**`www` / `api` altalanları ölü**~~ ✅ **KAPANDI (2026-08-09).** Kök neden Coolify domain
    alanındaki virgül+boşluktu; **kullanıcı boşlukları sildi** ve üçü de ayağa kalktı.
    `api.sipario.com.tr/` 404 vererek `BlockApiHostWebRoutes`in gerçekten çalıştığını da kanıtladı.
-5. ~~**Migration yarışı**~~ ✅ **KAPANDI (2026-08-09, MCP ile).** Migrate'in ZATEN Coolify
+6. ~~**Migration yarışı**~~ ✅ **KAPANDI (2026-08-09, MCP ile).** Migrate'in ZATEN Coolify
    post-deployment komutunda (`app` container'ı, deploy başına bir kez) koştuğu görüldü; borç olarak
    yazılan "post-deployment'a taşı" çözümü çoktan uygulanmıştı. Dockerfile'daki ikinci kopya
    kaldırıldı → yarış yüzeyi ortadan kalktı, şema tek yerden güncelleniyor.
-6. **Healthcheck — KISMİ SONUÇ, ZAFER İLAN EDİLMEDİ.** Test `curl`den PHP'ye çevrildi ve deploy
+7. **Healthcheck — KISMİ SONUÇ, ZAFER İLAN EDİLMEDİ.** Test `curl`den PHP'ye çevrildi ve deploy
    sonrası durum `running:unhealthy` → **`running:unknown`** oldu; 150 saniye boyunca izlendi,
    `healthy`ye dönmedi. Yani:
    - ✅ **Sahte alarm bitti** — panel artık yanlış yere kırmızı göstermiyor (alarm körlüğü riski geçti).
