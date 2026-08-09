@@ -14,9 +14,15 @@ use Tests\Feature\Api\Concerns\BuildsSyncEvents;
 
 /**
  * FAZ 4 — kurye (DECISIONS "Faz 4 — mimari"). Kapsam: olay-kaynaklı sipariş ATAMA (assigned_user_id
- * önbelleği olaylardan türer), TESLİM İDEMPOTENSİ (deterministik client_event_id → tek defter seti,
- * çift-dokunma imkânsız), KASA DEVRİ (append-only cash_handovers mutabakat kaydı), nakit ATFI
+ * önbelleği olaylardan türer), ATAMANIN KURYEYE ULAŞMASI (atama pull'da kuryenin KENDİ tokenıyla
+ * iniyor mu), TESLİM İDEMPOTENSİ (deterministik client_event_id → tek defter seti, çift-dokunma
+ * imkânsız), KASA DEVRİ (append-only cash_handovers mutabakat kaydı), nakit ATFI
  * (collected_by_user_id). Gerçek Postgres 16 + RLS'e koşar (ApiTestCase).
+ *
+ * Atama testleri İKİ YARIYA ayrılır ve ikisi de gereklidir: önce atamanın SUNUCUDA doğru türetildiği
+ * (assigned_user_id önbelleği), sonra o atamanın KURYENİN CİHAZINA ULAŞTIĞI. İkincisi olmadan
+ * birincisi bir şey kanıtlamaz — "sunucuda doğru duran ama inmeyen alan YOKTUR" (migration 802'nin
+ * dersi, DECISIONS 2026-07-29).
  */
 class CourierSyncTest extends ApiTestCase
 {
