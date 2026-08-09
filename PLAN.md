@@ -374,7 +374,24 @@ SNAPSHOT demektir** — imleç gerçek cihazdaki gibi >0 yapılmalı, yoksa test
    **GÖRÜNÜR DAVRANIŞ DEĞİŞİKLİĞİ (kullanıcı kararı):** sayaç artık etkin kurye süzgecini sayar —
    patron bir kurye seçtiğinde rakam da o kuryeye düşer.
 
-## ⚠️ AÇIK BORÇ (bilinçli olarak bu vardiyada YAPILMADI)
+## ✅ BORÇ AYNI VARDİYADA KAPATILDI — bekleyen kayıt bandı
+
+Aşağıdaki borç önce kapsam dışı bırakıldı, sonra kullanıcı isteğiyle KAPATILDI. `PushOzeti.beklemede`
+artık `SyncOutcome.beklemede` olarak taşınıyor ve kabukta yeni bir bant çiziyor:
+*"Bazı kayıtlar sırada bekliyor · cihazda güvende, abonelik ya da uygulama güncellenince
+gönderilecek"*. Turun CİNSİ bilerek bozulmadı (`ok` hâlâ `true`) — erteleme bir başarısızlık
+değildir; turu kırmızıya boyamak "sunucu kayıtları kabul etmiyor" derdi ve yalan olurdu.
+Öncelik: canlı tur hatası > karantina > bekleyen. Metin bilerek "bağlanınca gönderilecek"
+DEMİYOR (ağ zaten var) ve "destekle görüşün" DEMİYOR (çare abonelik/güncelleme).
+**Asıl korunan senaryo abonelik değil SÜRÜM ÇARPIKLIĞIDIR:** kilitli bayide zaten kilit ekranı
+var, ama sunucu tanınmayan bir durum döndürdüğünde (beyaz liste onu `beklet`e düşürür) başka
+hiçbir sinyal yoktur. Beş test eklendi; düzeltme geri alınıp koşularak testin totoloji olmadığı
+KANITLANDI (kırmızıya döndü).
+⚠️ Test yazarken ölçülen tuzak: sahte durum akışına `add` + tek `pump()` YETMEZ — broadcast
+akışının olayı dinleyiciye ulaştırması `runAsync` ile GERÇEK bir olay döngüsü turu ister
+(ölçüm: bant 0 → bir tur sonra 1). `ekranaKoy`un `runAsync` kullanmasının sebebi de budur.
+
+## ⚠️ (TARİHSEL — YUKARIDA KAPATILDI) Borcun özgün tanımı
 
 **`PushOzeti.beklemede` hiç tüketilmiyor.** `sync_engine.dart:34`te tanımlı, `:126`da doldurulmuş,
 `lib/` içinde TEK okuyucusu yok. Sonuç: abonelik kilidi (`locked`) yüzünden gönderilemeyen kayıtlar
@@ -392,7 +409,7 @@ GÖRÜNÜRLÜKTÜ ve o yüzey hiç bağlanmadı — "sessiz arıza" sınıfını
    **ölçülen davranış tasarlanan davranışın ta kendisi**, tesadüfi bir düzelme değil. Düzeltmenin
    iki yarısı da sahada çalışıyor: yazım tetiği (patron tarafı anında push) + 30 sn ön plan
    aralığı (kurye tarafı dokunmadan görüyor).
-2. `PushOzeti.beklemede` borcu (yukarıda).
+2. **[✅ KAPANDI]** ~~`PushOzeti.beklemede` borcu~~ — aynı vardiyada kapatıldı (bekleyen kayıt bandı, 5 test).
 3. `main` dalı `dev`'in gerisinde; birleştirme her vardiya sonunda rutin adım.
 
 ---
