@@ -28,7 +28,7 @@ import 'shell/alt_nav.dart';
 import 'shell/ana_bento.dart';
 import 'shell/ana_ozet.dart';
 
-class AnaEkran extends StatelessWidget {
+class AnaEkran extends StatefulWidget {
   const AnaEkran({
     super.key,
     required this.db,
@@ -98,18 +98,46 @@ class AnaEkran extends StatelessWidget {
   }
 
   @override
+  State<AnaEkran> createState() => _AnaEkranState();
+}
+
+class _AnaEkranState extends State<AnaEkran> {
+  /// Bento özet akışı — BİR KEZ kurulur, build'de YENİDEN YARATILMAZ.
+  ///
+  /// ⚠️ 2026-08-09: `stream: watchAnaOzet(...)` doğrudan build'in içindeydi. Her build yeni bir
+  /// Stream nesnesi demekti; StreamBuilder akışı "değişmiş" sayıp aboneliği koparıyor, o karede
+  /// `snap.data` null oluyor ve `const AnaOzet()` çiziliyordu — "Açık Sipariş" kutusu ara ara
+  /// 0'a düşüp geri doluyordu. Kabuk senkron/kontör/sync_meta tiklerinde setState ettiği için
+  /// sık oluyordu. Aynı hata sipariş listesinde de vardı ve orada bu desenle kapatılmıştı
+  /// (`orders/order_list_screen.dart` `_siparisleriIzle`); ikinci bir mekanizma icat edilmiyor.
+  ///
+  /// KAPSAM DEĞİŞİNCE YENİDEN KURULUR: `acikSiparisKullanicisi` kabuğa ASENKRON iner (yetki +
+  /// `sync_meta.user_id`), yani ilk karede null'dır. `initState`te tek atış kurulsaydı kurye
+  /// kutusu dükkân genelinde donardı — sipariş başlığı sayacının kapattığı arızanın ta kendisi.
+  Stream<AnaOzet>? _ozetAkisi;
+  String? _akisKullanici;
+
+  Stream<AnaOzet> _ozetiIzle() {
+    if (_ozetAkisi == null || _akisKullanici != widget.acikSiparisKullanicisi) {
+      _akisKullanici = widget.acikSiparisKullanicisi;
+      _ozetAkisi = watchAnaOzet(widget.db, assignedTo: _akisKullanici);
+    }
+    return _ozetAkisi!;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         _Hero(
-          sahipAdi: sahipAdi,
-          onMenu: onMenu,
-          sonSenkron: sonSenkron,
-          sonSenkronAt: sonSenkronAt,
+          sahipAdi: widget.sahipAdi,
+          onMenu: widget.onMenu,
+          sonSenkron: widget.sonSenkron,
+          sonSenkronAt: widget.sonSenkronAt,
         ),
         Expanded(
           child: StreamBuilder<AnaOzet>(
-            stream: watchAnaOzet(db, assignedTo: acikSiparisKullanicisi),
+            stream: _ozetiIzle(),
             builder: (context, snap) {
               final o = snap.data ?? const AnaOzet();
               return RefreshIndicator(
@@ -125,17 +153,17 @@ class AnaEkran extends StatelessWidget {
                     SipSpace.govde, SipSpace.x3, SipSpace.govde, SipSpace.x4),
                 children: [
                   AnaBento(
-                    db: db,
+                    db: widget.db,
                     ozet: o,
-                    onSekme: onSekme,
-                    onArama: onArama,
-                    onBorclular: onBorclular,
-                    borclulariGoster: borclulariGoster,
+                    onSekme: widget.onSekme,
+                    onArama: widget.onArama,
+                    onBorclular: widget.onBorclular,
+                    borclulariGoster: widget.borclulariGoster,
                   ),
                   const SizedBox(height: SipSpace.xl),
-                  _Cta(onTap: onYeniSiparis),
+                  _Cta(onTap: widget.onYeniSiparis),
                   SipBolumBaslik('Son aktivite', ustBosluk: SipSpace.x4),
-                  _SonAktivite(db: db, onSiparisAc: onSiparisAc),
+                  _SonAktivite(db: widget.db, onSiparisAc: widget.onSiparisAc),
                 ],
                 ),
               );
@@ -383,17 +411,28 @@ class _Cta extends StatelessWidget {
 }
 
 /// CSS `.akt-list` / `.ana-bos` — son teslim edilen siparişler.
-class _SonAktivite extends StatelessWidget {
+class _SonAktivite extends StatefulWidget {
   const _SonAktivite({required this.db, required this.onSiparisAc});
 
   final AppDatabase db;
   final ValueChanged<String> onSiparisAc;
 
   @override
+  State<_SonAktivite> createState() => _SonAktiviteState();
+}
+
+class _SonAktiviteState extends State<_SonAktivite> {
+  /// Akış BİR KEZ kurulur — bento özetiyle aynı gerekçe (bkz. [_AnaEkranState._ozetiIzle]).
+  /// Build'de kurulduğunda kabuğun her setState'i aboneliği koparıyor ve liste o karede boş
+  /// snapshot'a düşüp "Bugün henüz hareket yok." yazıyordu. Kapsam girdisi yok (`db` sabittir),
+  /// bu yüzden önbellek karşılaştırmasına da gerek kalmaz.
+  late final Stream<List<SonHareket>> _hareketler = watchSonHareketler(widget.db);
+
+  @override
   Widget build(BuildContext context) {
     final t = context.sip;
     return StreamBuilder<List<SonHareket>>(
-      stream: watchSonHareketler(db),
+      stream: _hareketler,
       builder: (context, snap) {
         final list = snap.data ?? const <SonHareket>[];
         if (list.isEmpty) {
@@ -411,7 +450,7 @@ class _SonAktivite extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: SipSpace.sm),
                 child: SipDokun(
-                  onTap: () => onSiparisAc(h.siparisId),
+                  onTap: () => widget.onSiparisAc(h.siparisId),
                   zemin: t.surface,
                   radius: SipRadius.br2,
                   padding: const EdgeInsets.symmetric(

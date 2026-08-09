@@ -163,6 +163,30 @@ class _OrderListScreenState extends State<OrderListScreen> {
     return _siparisAkisi!;
   }
 
+  /// Başlıktaki "Bugün N açık" sayacının akışı — LİSTEYLE AYNI KAPSAMDAN ([_etkinKuryeId])
+  /// beslenir ve kapsam değişince yeniden kurulur. Önbellekleme kuralı listeninkiyle aynı:
+  /// build'de her çağrıda yeni Stream üretilirse StreamBuilder her setState'te aboneliği koparıp
+  /// bir kare `initialData`ya (0) düşerdi.
+  ///
+  /// ⚠️ NEDEN `late final` DEĞİL (2026-08-09 saha bulgusu, ikinci raunt): alan hâlindeyken kapsam
+  /// İLK BUILD'de bir kez değerleniyordu — oysa kapsamı belirleyen iki girdi de kabuğa ASENKRON
+  /// iner (`home_shell`: `_kuryeIzin` sync_meta akışından, varsayılanı `tumSiparisler=false`;
+  /// `_userId` yine akıştan). İlk karede yetki/kimlik henüz yoktur, sayaç dükkân genelinde
+  /// DONAR ve veriler indiğinde liste kurye kapsamına süzülürken sayaç süzülmez: başlık
+  /// "Bugün 12 açık · yalnız size atananlar" derken listede 2 sipariş kalır. Kural aynı —
+  /// bir listeyi süzen kapı, o listenin SAYACINI da süzer — ama tek karelik değil KALICI olmalı.
+  Stream<int>? _sayacAkisi;
+  String? _sayacKapsam;
+
+  Stream<int> _acikSayisiniIzle() {
+    final kurye = _etkinKuryeId;
+    if (_sayacAkisi == null || _sayacKapsam != kurye) {
+      _sayacKapsam = kurye;
+      _sayacAkisi = watchAcikSiparisSayisi(widget.db, assignedTo: kurye);
+    }
+    return _sayacAkisi!;
+  }
+
   StreamSubscription<SyncMetaData>? _metaAbone;
 
   @override
@@ -193,10 +217,8 @@ class _OrderListScreenState extends State<OrderListScreen> {
   late final Stream<String> _kodTercihi = watchSiparisKoduTercihi(widget.db);
   late final Stream<Map<String, AdresBilgi>> _adresler = watchBirincilAdresler(widget.db);
   late final Stream<Map<String, String>> _telefonlar = watchBirincilTelefonlar(widget.db);
-  /// Başlıktaki açık sipariş sayısı — LİSTEYLE AYNI KAPSAMI sayar (2026-08-09).
-  /// Kurye kilitliyse yalnız kendine atananlar sayılır; yoksa başlık listeyle çelişirdi.
-  late final Stream<int> _acikSayisi =
-      watchAcikSiparisSayisi(widget.db, assignedTo: _kendiSiparisleriyleSinirli ? widget.userId : null);
+  // Açık sipariş SAYACI burada DEĞİL: kapsama bağlı olduğu için liste akışıyla aynı yerde,
+  // aynı desenle kurulur (bkz. [_acikSayisiniIzle]).
 
   bool get _elle => _sirala == OrderSort.elle;
 
@@ -230,12 +252,15 @@ class _OrderListScreenState extends State<OrderListScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             StreamBuilder<int>(
-              stream: _acikSayisi,
+              stream: _acikSayisiniIzle(),
               initialData: 0,
               builder: (context, snap) => SipUst(
                 baslik: 'Siparişler',
                 // Süzgeç açıkken kimin listesine bakıldığı BAŞLIKTA yazar: yoksa patron boş
-                // listeyi "sipariş yok" sanır, oysa yalnız o kuryede yoktur.
+                // listeyi "sipariş yok" sanır, oysa yalnız o kuryede yoktur. RAKAM da o
+                // kapsamdan gelir ([_acikSayisiniIzle]): "Bugün 12 açık · Ahmet" cümlesinde
+                // sayı dükkân geneliyken adın Ahmet olması, kilitli kurye ekranındaki
+                // çelişkinin patron tarafındaki kopyası olurdu.
                 //
                 // KURYE KİLİDİ DE BURADA SÖYLENİR — bu pazarlıksız. Listeyi haber vermeden
                 // daraltmak 2026-07-27'de tam da bu yüzden geri alınmıştı; kısıtlama geri

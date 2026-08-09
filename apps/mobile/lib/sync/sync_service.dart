@@ -59,12 +59,34 @@ class SyncService {
   /// olmaması, 2026-07-27'de sahada yakalanan "senkron takılıp kalıyor" arızasının hiçbir testle
   /// yakalanamamış olmasının sebebiydi: servis kendi taşımasını içeride kuruyordu, dolayısıyla
   /// "istek asılı kalırsa ne olur" sorusu hiç sorulamıyordu.
-  SyncService(this.db, {SyncApi? api}) : _testApi = api {
+  ///
+  /// [turSuresi] de aynı gerekçeyle enjekte edilebilir: 90 saniyeyi gerçek zamanda bekleyen bir
+  /// test yazılamaz, dolayısıyla sınır test edilemez olurdu (bkz. [turUstSinir]).
+  SyncService(this.db, {SyncApi? api, this.turSuresi = turUstSinir}) : _testApi = api {
     _engine = SyncEngine(db, api ?? _httpApi(_baseUrl ?? kDefaultApiBaseUrl));
   }
 
   final AppDatabase db;
   final SyncApi? _testApi;
+
+  /// BİR TURUN ÜST SINIRI. İstek başına zaman aşımı (25 sn) tek başına yetmiyordu: `pull()`
+  /// 100 sayfaya kadar döner ve push'un ikili arama bölmesi 24 EK istek harcayabilir — hepsi
+  /// tek tek "zamanında" yanıtlansa bile tur dakikalarca sürebilir. Tur sürerken açılan her
+  /// yeni tur (yazım tetiği dâhil) `_tur`a bağlanıp SIRAYA girer, yani patronun az önce yazdığı
+  /// atama o turun sonunu bekler — düzeltmek istediğimiz gecikme arızasının ta kendisi.
+  ///
+  /// SINIRIN GÜVENLİ OLMASININ ŞARTI ÖLÇÜLDÜ (2026-08-09): `_applyDelta` HER SAYFAYI kendi
+  /// transaction'ında uygular ve sonunda `lastPulledSeq`i yazar; sonraki tur meta'yı yeniden
+  /// okuyup imleçten devam eder. Snapshot hiç sayfalanmaz (sunucu `has_more=false`), yani sınır
+  /// snapshot'ı keserse HİÇBİR ŞEY uygulanmaz, imleç 0 kalır ve sonraki tur yine snapshot çeker.
+  /// Her iki hâlde de GERİ SARMA yok, en fazla TEKRAR var — kesilen tur veri kaybettirmez.
+  ///
+  /// 90 sn: sağlıklı bir turun (bir push + bir-iki delta sayfası) kat kat üstünde, ama kuryenin
+  /// "gelmiyor" demesine yol açacak dakikaların altında.
+  static const turUstSinir = Duration(seconds: 90);
+
+  /// Bu servisin tur üst sınırı — üretimde [turUstSinir], testte enjekte edilir.
+  final Duration turSuresi;
 
   /// baseUrl her istekte değil KURULUŞTA okunur; login baseUrl'i değiştirirse [configure]
   /// çağrılır (login ekranı zaten uygulamanın kökünü yeniden kurar).
@@ -125,29 +147,7 @@ class SyncService {
         outcome =
             const SyncOutcome(ok: false, error: 'Oturum yok', tur: SyncHataTuru.oturum);
       } else {
-        final ozet = await _engine.pushPending();
-        // Pull, push kalıcı red yese DE koşar: gelen veriyi kullanıcıdan esirgemek için sebep yok
-        // (iki yön birbirinden bağımsız).
-        final atlanan = await _engine.pull();
-        // Sunucu bir kaydı KALICI olarak reddettiyse tur "başarılı" sayılamaz — o sipariş/tahsilat
-        // bu telefonda var, sunucuda YOK. Sessiz kalmak, bu arızanın aylarca görünmemesinin ta
-        // kendisiydi. Cins `veri`: ne ağ ne oturum sorunu, sunucuya ulaşıldı ve geri çevrildi.
-        //
-        // AYNI KEFEDE: pull'un AYRIŞTIRAMADIĞI satırlar (sürüm çarpıklığı — sunucu şeması ilerledi,
-        // bu build o yükü okuyamıyor). Motor artık o satırı atlayıp kuyruğu açık tutuyor; kuyruğu
-        // kurtarmanın bedeli SESSİZLİK olamaz — cins yine `veri`, çünkü çare beklemek değil
-        // uygulamayı güncellemektir.
-        outcome = ozet.kaliciRed || atlanan > 0
-            ? SyncOutcome(
-                ok: false,
-                pushed: ozet.gonderildi,
-                karantina: ozet.karantina,
-                error: ozet.kaliciRed
-                    ? 'Sunucu bazı kayıtları kabul etmedi'
-                    : 'Sunucudan gelen bazı kayıtlar okunamadı',
-                tur: SyncHataTuru.veri,
-              )
-            : SyncOutcome(ok: true, pushed: ozet.gonderildi, karantina: ozet.karantina);
+        outcome = await _pushVePull().timeout(turSuresi, onTimeout: _turSiniriAsildi);
       }
     } catch (e) {
       // `on Exception` DEĞİL — bilinçli. Sunucu beklenmedik bir tip/null yollarsa SyncEngine'deki
@@ -161,6 +161,67 @@ class SyncService {
     // akıştan besleniyor; bir yolda sessiz kalmak "çevrimiçiyken çevrimdışı" demektir.
     if (!_status.isClosed) _status.add(outcome);
     return outcome;
+  }
+
+  /// [turUstSinir]'a takılan turun sonucu.
+  ///
+  /// SINIRA TAKILMAK BİR HATADIR, "başarılı ama kısa kesildi" değil: gönderilemeyen kayıtlar
+  /// cihazda bekliyor, inmeyen sayfalar eksik. `ok: true` demek, kapatmaya çalıştığımız
+  /// sessizlik sınıfının aynısı olurdu.
+  ///
+  /// CİNS `sunucu` — bant kullanıcıya YALAN söylememeli:
+  ///  • `ag` ("Bağlantı yok") yanlış olurdu: taşımada istek başına 25 sn kapısı zaten var; ağ
+  ///    ölü olsaydı tur 90 sn'ye varmadan `ag` ile düşerdi. Sınıra gelmek "istekler yanıtlanıyor
+  ///    ama tur bütçeye sığmıyor" demektir; kullanıcıyı telefonunu/wifi'sini kurcalamaya
+  ///    yollamak, 2026-08-05'te kapatılan günahın aynısı olurdu.
+  ///  • `veri` ("destekle görüşün") de yanlış: ortada bozuk kayıt ya da sürüm çarpıklığı yok,
+  ///    ne kullanıcının ne desteğin yapabileceği bir şey var.
+  ///  • `sunucu` ("Sunucu yanıt vermiyor · tekrar denenecek") kalır ve DÜRÜSTTÜR: sunucuya
+  ///    ULAŞILDI, işini bu turda bitiremedi, kendiliğinden yeniden denenecek. "Tekrar denenecek"
+  ///    sözü burada gerçektir — pull imleci sayfa sayfa kalıcı yazılır, snapshot ise ya tümüyle
+  ///    uygulanır ya hiç: GERİ SARMA yok, en fazla TEKRAR var (bkz. [turUstSinir]).
+  ///
+  /// ⚠️ `.timeout` FIRLATMAZ, DEĞER DÖNDÜRÜR (`onTimeout`) — bilinçli: taşımanın 25 sn'lik kapısı
+  /// da `TimeoutException` fırlatıyor ve o `ag` demek ZORUNDA (yarı-açık bağlantı, sunucuya
+  /// ulaşılamadı — `sync_zaman_asimi_test` bunu kilitliyor). `on TimeoutException catch` yazsaydık
+  /// iki farklı gerçek tek kefeye düşer, "çevrimdışısın" ile "sunucu yavaş" birbirine karışırdı.
+  ///
+  /// ⚠️ KABUL EDİLEN TAKAS: `Future.timeout` ALTINDAKİ İŞİ İPTAL ETMEZ — kesilen tur arka planda
+  /// sayfalarını uygulamayı sürdürür ve bu sırada yeni bir tur başlayabilir. Örtüşme zararsızdır
+  /// (her sayfa kendi transaction'ında, yazımlar idempotent/LWW); alternatifi — turu "bitene
+  /// kadar" kilitlemek — tam da bu sınırın kaldırmak için var olduğu arızadır.
+  static SyncOutcome _turSiniriAsildi() => const SyncOutcome(
+        ok: false,
+        error: 'Tur zaman aşımı',
+        tur: SyncHataTuru.sunucu,
+      );
+
+  /// Turun ASIL İŞİ — [_turAt]'tan ayrı bir fonksiyon olması, üstüne tek bir `.timeout` sarmak
+  /// içindir; hata sınıflandırması ve durum yayını orada kalır.
+  Future<SyncOutcome> _pushVePull() async {
+    final ozet = await _engine.pushPending();
+    // Pull, push kalıcı red yese DE koşar: gelen veriyi kullanıcıdan esirgemek için sebep yok
+    // (iki yön birbirinden bağımsız).
+    final atlanan = await _engine.pull();
+    // Sunucu bir kaydı KALICI olarak reddettiyse tur "başarılı" sayılamaz — o sipariş/tahsilat
+    // bu telefonda var, sunucuda YOK. Sessiz kalmak, bu arızanın aylarca görünmemesinin ta
+    // kendisiydi. Cins `veri`: ne ağ ne oturum sorunu, sunucuya ulaşıldı ve geri çevrildi.
+    //
+    // AYNI KEFEDE: pull'un AYRIŞTIRAMADIĞI satırlar (sürüm çarpıklığı — sunucu şeması ilerledi,
+    // bu build o yükü okuyamıyor). Motor artık o satırı atlayıp kuyruğu açık tutuyor; kuyruğu
+    // kurtarmanın bedeli SESSİZLİK olamaz — cins yine `veri`, çünkü çare beklemek değil
+    // uygulamayı güncellemektir.
+    return ozet.kaliciRed || atlanan > 0
+        ? SyncOutcome(
+            ok: false,
+            pushed: ozet.gonderildi,
+            karantina: ozet.karantina,
+            error: ozet.kaliciRed
+                ? 'Sunucu bazı kayıtları kabul etmedi'
+                : 'Sunucudan gelen bazı kayıtlar okunamadı',
+            tur: SyncHataTuru.veri,
+          )
+        : SyncOutcome(ok: true, pushed: ozet.gonderildi, karantina: ozet.karantina);
   }
 
   /// UYGULAMA ÖN PLANDAYKEN tur aralığı (2026-08-09 kararı). Patronun yazımı artık anında push
