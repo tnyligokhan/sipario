@@ -317,8 +317,9 @@
 >    owner parolası bayatken kimlik doğrulanamaz). Dört bekçi test + gerçek container ölçümü.
 > 4. **Teşhis sırasında iki kez yanıldım ve ikisi de ölçüm hatasıydı** — aşağıda "YANILGILAR"
 >    bölümünde yazılı; ikisi de bu projede tekrar edebilecek sınıftan.
-> 5. **Kullanıcı her iki Coolify uygulamasını da SİLDİ** (bilerek, veri feda edildi). Sıfırdan
->    kurulum bekliyor; hacimler öksüz olarak sunucuda duruyor.
+> 5. **Kullanıcı her iki Coolify uygulamasını da SİLDİ** (bilerek, veri feda edildi); ardından
+>    **`Sipario Dev` sıfırdan kuruldu ve YEŞİL** — düzeltmenin sıfırdan kurulum yolu ilk kez
+>    sahada sınandı ve geçti. **Üretim hâlâ kurulmadı.** Eski hacimler öksüz duruyor.
 >
 > **Ölçüm (bu vardiyada BİZZAT koşuldu):** API **692/692** (3520 iddia, 1 kasıtlı incomplete) ✅ ·
 > `phpstan` **0** ✅ · `pint` temiz ✅ · sıfırdan kurulum ve **parola döndürme** senaryoları
@@ -367,7 +368,18 @@ dosyasını ezer; container'a giden değer her zaman `DB_PASSWORD`'ünkiydi. `.e
 
 ## ⚠️ BU VARDİYADAN KALAN AÇIKLAR
 
-- **Her iki Coolify uygulaması da SİLİNDİ, hiçbiri yeniden kurulmadı.** Site şu an kapalı.
+- **`Sipario Dev` SIFIRDAN KURULDU ve YEŞİL** (yeni uuid `l1o1xouuvwwqo394xypycgcy`).
+  Ölçüldü: `test.sipario.com.tr` **HTTP 200** · beş container ayakta · `db healthy` ·
+  migration 38 tablo · üç rol **ağ üzerinden (scram)** bağlanıyor ·
+  günlükte `[SIPARIO-ROL-ESITLEME] roller env parolalariyla hizalandi` —
+  **düzeltmenin canlıda koştuğunun kanıtı budur, sıfırdan kurulum yolu ilk kez sınandı.**
+  Rota/sıralama zinciri de uçtan uca ölçüldü: `GoogleGeocoder` canlı sorguda gerçek
+  koordinat döndürüyor (Muratpaşa 36.88276,30.76948 · Atatürk Cd. 36.97097,30.75089) ve
+  `YakinKomsuMotoru` kuzeyden güneye doğru zinciri kuruyor, konumsuz durağı sona atıp
+  dış servise göndermiyor. `GOOGLE_ROUTES_KEY` BOŞ — gerçek yol ağı sıralaması kapalı,
+  bedava kuş uçuşu motoru çalışıyor (bilinçli, bkz. 19. madde).
+- **`Sipario App` (üretim) HÂLÂ KURULMADI.** Kurulmadan önce 13. madde (dev→main merge)
+  yapılmalı, yoksa üretim rol eşitleme düzeltmesini taşımaz.
 - **Öksüz hacimler sunucuda duruyor:** `h43pc3…_sipario-pgdata-v4` (silinen üretimin verisi:
   1 bayi, 6 kullanıcı, 21 sipariş, 73 çağrı kaydı), `pz3gsgc8…`, ayrıca iki eski kuşaktan
   (`un35zcb…`, `xwdasjxc…`) kalanlar. Veri istenerek feda edildi ama **fiilen silinmedi** —
@@ -673,8 +685,9 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 **İNSAN/GÜVENLİK — önce bunlar:**
 
-0. **🔥 SİTE KAPALI — İKİ UYGULAMA DA SIFIRDAN KURULACAK.** Kullanıcı 2026-08-10/2 vardiyasında
-   `Sipario App` ve `Sipario Dev`'i Coolify'dan sildi (bilerek). Kurarken **iki tuzak**:
+0. **🔥 ÜRETİM HÂLÂ KURULU DEĞİL** (dev ✅ kuruldu ve yeşil). Kullanıcı 2026-08-10/2 vardiyasında
+   `Sipario App` ve `Sipario Dev`'i Coolify'dan sildi (bilerek); dev sıfırdan kuruldu, üretim
+   bekliyor. Kurarken **iki tuzak** (dev'de ikisi de doğru yapıldı, üretimde tekrarlanmalı):
    (a) `SIPARIO_APP_PASSWORD` / `SIPARIO_PANEL_PASSWORD` değişkenlerini panele **ekleme** —
    compose artık kullanmıyor, durmaları yalnız bir sonraki teşhisi yanıltır (bu vardiyada
    saatlerce yanılttı). (b) `LOG_CHANNEL`'ı panelde **tanımlama** — compose'daki
@@ -772,6 +785,15 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
     Kurtarma tek satır: `docker network create --driver bridge --attachable <app-uuid>`.
     Kalıcı çözüm araştırılmalı (Coolify sürüm davranışı mı, compose'un `external: true`
     tanımı mı). **Bu satır, bir sonraki vardiyanın saatlerini kurtarabilir.**
+19. **Test ortamında gerçek yol ağı sıralaması KAPALI.** `ROTA_SURUCU=yakin-komsu` (bedava,
+    kuş uçuşu) çalışıyor ve ölçüldü; `GOOGLE_ROUTES_KEY` boş. Açmak istenirse: Cloud Console'da
+    **Routes API'yi ayrıca etkinleştir** (Geocoding anahtarının çalışması Routes'un çalışacağı
+    anlamına gelmez), faturalandırmayı aç, anahtarı kısıtla, sonra `GOOGLE_ROUTES_KEY` +
+    `ROTA_SURUCU=google` yaz. Kod savunmalı: anahtar/kota/ağ arızasında controller sessizce
+    yakın komşuya düşer, kullanıcı 5xx görmez.
+    ⚠️ **Test ve üretim AYNI Google anahtarını paylaşmamalı** — test döngüsü üretimin kotasını
+    yakar. Dev'de `GEOCODING_DAILY_LIMIT` bu yüzden düşük tutulmalı (bkz. 3. madde: anahtar
+    zaten bir kez sohbete sızdı ve hâlâ döndürülmedi).
 
 ---
 
