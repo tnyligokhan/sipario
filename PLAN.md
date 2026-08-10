@@ -394,15 +394,13 @@ dosyasını ezer; container'a giden değer her zaman `DB_PASSWORD`'ünkiydi. `.e
   bedava kuş uçuşu motoru çalışıyor (bilinçli, bkz. 19. madde).
 - **`Sipario App` (üretim) HÂLÂ KURULMADI.** Kurulmadan önce 13. madde (dev→main merge)
   yapılmalı, yoksa üretim rol eşitleme düzeltmesini taşımaz.
-- **⑥'daki `migrate` servisi HENÜZ DEPLOY EDİLMEDİ.** Kod `dev`'de ve kapılar yeşil, ama
-  dev'e deploy edilip yarışın fiilen kapandığı GÖRÜLMEDİ. İlk deploy'da iki şey ölçülmeli:
-  (a) `queue`'nun `RestartCount` **0** mı (bu vardiyada 2'ydi),
-  (b) **Coolify'ın panel durumu kirleniyor mu** — `migrate` container'ı işi bitince
-  `Exited (0)` kalır ve Coolify durumu TOPLULAŞTIRIR. Önceki vardiyada `queue`/`scheduler`'ın
-  miras healthcheck'i yüzünden bütün kaynak aylarca `running:unhealthy` görünmüş ve gerçek
-  çöküşü görünmez kılmıştı; aynı alarm körlüğünün tek atımlık container'la doğup doğmadığı
-  BİLİNMİYOR. Kirletiyorsa seçenekler: Coolify'da hariç tutma ya da migration'ı `app`
-  entrypoint'ine alma. **Ölçmeden karar verme.**
+- **[✅ KAPANDI — dev'de ölçüldü]** ⑥'daki `migrate` servisi deploy edildi (dev deploy #162,
+  commit `8d30f76`, `finished`) ve açık bıraktığım iki soru da ÖLÇÜLDÜ:
+  (a) **yarış kapandı** — `queue` `RestartCount` **0** (aynı ortamda önceki deploy'da 2'ydi),
+  altı container'ın hiçbirinde yeniden başlatma yok;
+  (b) **panel kirlenmedi** — `Exited (0)` kalan `migrate` container'ına rağmen Coolify'ın
+  `status` alanı `running:unknown`, yani değişiklikten önceki hâlin aynısı; korktuğum alarm
+  körlüğü DOĞMADI. `migrate` çıktısı `Nothing to migrate.`, site **HTTP 200**.
 - **Coolify'da post-deployment command TEMİZLENMELİ** (`php artisan migrate --database=pgsql_owner
   --force`). Migration artık compose'un içinde; panelde kalırsa aynı komut ikinci kez koşar —
   zararsız ama "migration nerede koşuyor?" sorusunun iki cevabı olur ve bu vardiya tam olarak
