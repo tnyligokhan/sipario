@@ -31,6 +31,20 @@ class Customers extends Table {
   /// OKUMA-MODELİ ÖNBELLEĞİ (DECISIONS: kaynak defterdir). Native arayan-tanıma bunu tek satır okur.
   IntColumn get balanceKurus => integer().withDefault(const Constant(0))();
 
+  /// FAVORİ ÜRÜNLER — bu müşterinin "her zamanki" ürünleri (kullanıcı isteği 2026-08-11).
+  /// İçerik JSON DİZİDİR: `["urun-1","urun-2"]`. null/boş = favori yok.
+  ///
+  /// NEDEN AYRI TABLO DEĞİL (karar verildi): müşteri satırı zaten LWW ile senkronlanıyor ve
+  /// favori listesi tam olarak "bu müşterinin bir alanı"dır — iki cihaz farklı liste yazarsa
+  /// çözüm LWW'nin kendisidir. Ayrı bir senkron varlığı (yeni entity_type, yeni tombstone,
+  /// yeni çakışma kuralı, yeni pull dalı) bu bayi ölçeğinde taşınmayacak bir maliyettir.
+  ///
+  /// SIRA BAYİNİN TERCİHİDİR ve korunur (küme değil, DİZİ): bayi en çok sattığını başa alır.
+  /// Çözümleme TEK yerdedir (`customer_repository.dart::favoriIdleriCoz`) ve bozuk/eski metinde
+  /// çökmez, boş listeye düşer — sahadaki bir cihazda elle bozulmuş bir alan, müşteri ekranının
+  /// tamamını açılmaz yapamaz.
+  TextColumn get favoriteProductIds => text().nullable()();
+
   /// KARA LİSTE damgası (null = kara listede değil) — v12.
   ///
   /// `deletedAt` İLE KARIŞTIRILMAMALI, ikisi ayrı karardır: silinen müşteri listeden DÜŞER,
@@ -152,6 +166,14 @@ class OrderLines extends Table {
 
   /// Birim de satırda saklanır (fiyat/ad ile aynı gerekçe: o anki gerçek).
   TextColumn get unit => text().nullable()();
+
+  /// SATIR NOTU (kullanıcı isteği 2026-08-11) — "buzlu olsun", "kapıya bırak", "faturalı".
+  ///
+  /// `Orders.note` İLE KARIŞTIRILMAMALI: o siparişin tamamına ait tek nottur ("zili çalma"),
+  /// bu ise TEK KALEME aittir. İkisini aynı alana yazmak, üç kalemlik bir siparişte hangi
+  /// kalemin notlu olduğunu kaybettirirdi — kurye kapıda yanlış ürünü teslim eder.
+  /// Satırda saklanır (ad/fiyat/birim ile aynı gerekçe: siparişin çekildiği andaki gerçek).
+  TextColumn get note => text().nullable()();
 
   /// "Serbest satır" (katalogda olmayan tek seferlik iş). AÇIK bayrak: productId'nin null olması
   /// yeterli ayırt edici değildir (silinmiş ürünün satırı da null olabilir).
