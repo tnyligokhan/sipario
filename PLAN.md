@@ -321,12 +321,14 @@
 >    **`Sipario Dev` sıfırdan kuruldu ve YEŞİL** — düzeltmenin sıfırdan kurulum yolu ilk kez
 >    sahada sınandı ve geçti. **Üretim hâlâ kurulmadı.** Eski hacimler öksüz duruyor.
 >
-> **Ölçüm (bu vardiyada BİZZAT koşuldu):** API **692/692** (3520 iddia, 1 kasıtlı incomplete) ✅ ·
+> **Ölçüm (vardiya sonu, BİZZAT koşuldu):** API **695/695** (3537 iddia, 1 kasıtlı incomplete) ✅ ·
 > `phpstan` **0** ✅ · `pint` temiz ✅ · sıfırdan kurulum ve **parola döndürme** senaryoları
-> gerçek container'da koşuldu ✅. **Mobil test koşulmadı** (bu vardiya mobil koda dokunmadı).
+> gerçek container'da koşuldu ✅ · dev CANLIDA ölçüldü (`test.sipario.com.tr` 200, rol eşitleme
+> günlüğü, üç rol scram ile, geocoding + sıralama uçtan uca) ✅.
+> **Mobil test koşulmadı** (bu vardiya mobil koda dokunmadı) · **APK derlenmedi.**
 >
-> **Dallar:** `dev` == `3ec0384` (itildi) · `main` == `827767a` — **`main` artık `dev`'in 4 commit
-> gerisinde** ve üretim düzeltmesi `main`'e HENÜZ GİTMEDİ (aşağıda 13. madde).
+> **Dallar (vardiya sonu):** `dev` itildi · `main` == `827767a` — **`main` `dev`'in gerisinde** ve
+> üretim düzeltmelerinin HİÇBİRİ `main`'e gitmedi (13. madde, artık ACİL).
 
 ## NE YAPILDI
 
@@ -351,6 +353,18 @@ satırı çıkarılıp koşuldu, test kırmızıya döndü.
 
 **⑤ SSH anahtarı döndürüldü.** Benim erişim anahtarım tazelendi (`sipario_v2_ed25519`), yanmış
 olan sunucudan silindi ve reddedildiği ÖLÇÜLDÜ.
+
+**⑥ DEPLOY YARIŞI KAPATILDI — migration artık tek atımlık bir ÖNKOŞUL servisi.**
+Dev sıfırdan kurulurken ölçüldü: `queue` iki kez çöküp yeniden başladı (`relation "cache" does
+not exist`), çünkü yalnız `db healthy` bekliyordu ve tabloları yaratan migration Coolify'ın
+**post-deployment** adımında, yani yığın ayağa kalktıktan SONRA koşuyordu. İki yeniden başlatma
+zararsız görünür ama Coolify'ın tavanı 10'dur ve bu sayı migration süresine bağlıdır — aşıldığında
+ne olduğunu aynı gün yaşadık (①'deki zincirin ilk halkası). Artık compose'da `migrate` servisi var
+(`restart: "no"`) ve `app`/`queue`/`scheduler` ona `service_completed_successfully` ile bağlı;
+`backup` BİLEREK bağlanmadı (migration düşerse kurtarma aracı yine koşmalı). Yan kazanç: migration
+başarısız olursa deploy DÜŞER — eskiden yığın kalkar, migration ayrı adımda düşer ve yarı göçmüş
+şemayla trafik alırdı. `DeploySirasiTest` (3 test) bağı denetler; `queue`'nun bağı koparılıp
+kırmızıya döndüğü ölçüldü.
 
 ## 🔴 BU VARDİYADA YAPTIĞIM İKİ YANILGI (ikisi de ölçüm hatasıydı — desen olarak not edilmeli)
 
@@ -380,6 +394,19 @@ dosyasını ezer; container'a giden değer her zaman `DB_PASSWORD`'ünkiydi. `.e
   bedava kuş uçuşu motoru çalışıyor (bilinçli, bkz. 19. madde).
 - **`Sipario App` (üretim) HÂLÂ KURULMADI.** Kurulmadan önce 13. madde (dev→main merge)
   yapılmalı, yoksa üretim rol eşitleme düzeltmesini taşımaz.
+- **⑥'daki `migrate` servisi HENÜZ DEPLOY EDİLMEDİ.** Kod `dev`'de ve kapılar yeşil, ama
+  dev'e deploy edilip yarışın fiilen kapandığı GÖRÜLMEDİ. İlk deploy'da iki şey ölçülmeli:
+  (a) `queue`'nun `RestartCount` **0** mı (bu vardiyada 2'ydi),
+  (b) **Coolify'ın panel durumu kirleniyor mu** — `migrate` container'ı işi bitince
+  `Exited (0)` kalır ve Coolify durumu TOPLULAŞTIRIR. Önceki vardiyada `queue`/`scheduler`'ın
+  miras healthcheck'i yüzünden bütün kaynak aylarca `running:unhealthy` görünmüş ve gerçek
+  çöküşü görünmez kılmıştı; aynı alarm körlüğünün tek atımlık container'la doğup doğmadığı
+  BİLİNMİYOR. Kirletiyorsa seçenekler: Coolify'da hariç tutma ya da migration'ı `app`
+  entrypoint'ine alma. **Ölçmeden karar verme.**
+- **Coolify'da post-deployment command TEMİZLENMELİ** (`php artisan migrate --database=pgsql_owner
+  --force`). Migration artık compose'un içinde; panelde kalırsa aynı komut ikinci kez koşar —
+  zararsız ama "migration nerede koşuyor?" sorusunun iki cevabı olur ve bu vardiya tam olarak
+  bu tür ikiliklerin (iki parola değişkeni, iki log kanalı) bedelini ödedi.
 - **Öksüz hacimler sunucuda duruyor:** `h43pc3…_sipario-pgdata-v4` (silinen üretimin verisi:
   1 bayi, 6 kullanıcı, 21 sipariş, 73 çağrı kaydı), `pz3gsgc8…`, ayrıca iki eski kuşaktan
   (`un35zcb…`, `xwdasjxc…`) kalanlar. Veri istenerek feda edildi ama **fiilen silinmedi** —

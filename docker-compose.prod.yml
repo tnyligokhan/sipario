@@ -129,6 +129,46 @@ x-app-env: &app-env
   SANCTUM_TOKEN_PREFIX: ${SANCTUM_TOKEN_PREFIX:-sipario_}
 
 services:
+  # ── Migration — TEK ATIMLIK, diğer her şeyin ÖNKOŞULU ─────────────────────
+  #
+  # NEDEN AYRI SERVİS (Coolify'ın "post-deployment command"ı yerine): post-deployment adımı
+  # yığın AYAĞA KALKTIKTAN SONRA koşar. Yani `queue` doğduğunda tablolar henüz yoktur ve
+  # `queue:work` ilk işinde `relation "cache" does not exist` ile ölür; docker onu yeniden
+  # başlatır, migration bitene kadar bu döngü sürer.
+  #
+  # ÖLÇÜLDÜ (2026-08-10/2, dev sıfırdan kurulumu): `queue` 2 kez yeniden başladı. Zararsız
+  # görünüyor ama Coolify'ın tavanı 10'dur ve bu sayı MIGRATION SÜRESİNE bağlıdır — veri
+  # büyüdükçe ya da tek bir yavaş migration eklendiğinde 10 aşılır. Aşıldığında ne olduğunu
+  # aynı gün yaşadık: `StopApplication` → `CleanupDocker` → `external` ağ silinir → sonraki
+  # HER deploy "network not found" ile ölür ve panelden çıkış yolu KALMAZ. Yani bu yarış,
+  # üretimi bir saat kapatan zincirin ilk halkasının ta kendisidir.
+  #
+  # `restart: "no"` ZORUNLU: bu servis bitip çıkmalıdır. Yeniden başlatılırsa
+  # `service_completed_successfully` koşulu hiçbir zaman sağlanmaz ve deploy asılı kalır.
+  #
+  # YAN KAZANÇ: migration başarısız olursa deploy DÜŞER. Eskiden yığın ayağa kalkar, migration
+  # ayrı bir adımda düşer ve yarı göçmüş şemayla trafik almaya başlardı.
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    entrypoint: ["php", "/var/www/html/artisan", "migrate", "--database=pgsql_owner", "--force"]
+    environment:
+      <<: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    # Miras healthcheck kapatılır — gerekçesi `queue` servisinde uzun uzun yazılı.
+    # Burada ayrıca anlamsızdır: tek atımlık bir süreç "sağlıklı" olmaz, BİTER.
+    healthcheck:
+      disable: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # ── Laravel uygulaması (API + site + panel) ───────────────────────────────
   app:
     build:
@@ -139,6 +179,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
     # GÜNLÜK DÖNDÜRME — `LOG_CHANNEL=stderr`in ZORUNLU eşlikçisi (2026-08-09).
     #
@@ -191,6 +233,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
     # ⚠️ MİRAS HEALTHCHECK KAPATILDI (2026-08-09, sunucuda ÖLÇÜLEREK bulundu).
     #
@@ -231,6 +275,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
     # ⚠️ MİRAS HEALTHCHECK KAPATILDI — gerekçesi `queue` servisinde uzun uzun yazılı.
     # Özet: temel imajın HTTP kontrolü bu CLI container'ında sonsuza dek düşüyor, tek başına
