@@ -104,6 +104,47 @@ class DeploySirasiTest extends TestCase
     }
 
     #[Test]
+    public function kuyruk_iscisi_kendini_takvimle_sonlandirmaz(): void
+    {
+        // İddia YORUMA değil KOMUTA bağlanır: bu bayrağın neden kaldırıldığı compose'da uzun
+        // uzun yazılıdır ve orada `--max-time` kelimesi elbette geçer. Bloğun tamamında metin
+        // aramak, gerekçeyi yazmayı testi kırmakla cezalandırırdı — yani belgeyi düşman ilan
+        // ederdi. Denetlenen şey container'ın gerçekten koştuğu satırdır.
+        $blok = $this->servisBloku('queue');
+
+        $this->assertMatchesRegularExpression(
+            '/^\s*entrypoint:.*$/m',
+            $blok,
+            '`queue` servisinin `entrypoint:` satırı yok.'
+        );
+        preg_match('/^\s*entrypoint:.*$/m', $blok, $eslesme);
+        $entrypoint = $eslesme[0];
+
+        // 2026-08-10/3'te ÖLÇÜLDÜ: `queue` `RestartCount=8` ama `ExitCode=0` — çöküş yoktu.
+        // Yaratılış 01:36:48, son başlangıç 09:37:16: 8 saat 28 saniyede tam 8 yeniden
+        // başlatma, yani saatte bir, çünkü `--max-time=3600` işçiye zaten bunu emrediyordu.
+        //
+        // Docker `restart: unless-stopped` altında çıkış kodu 0 ile çöküşü AYIRMAZ; Coolify de
+        // sayaç arttıysa çıkış koduna bakmadan `crash` yazar ve sayacı uygulamanın bütün
+        // container'larının MAX'ı olarak alır. Yani bu bayrak, tavana saatte bir tıklayan bir
+        // sayaçtı — ölçüm anında 8/10'daydı ve iki saat sonra üretimi kendi kendine
+        // durduracaktı. Tavanın ötesi bilinen zincirdir: Stop → CleanupDocker → ağ silinir →
+        // sonraki her deploy "network not found".
+        //
+        // Bellek koruması bu yüzden kaybolmuyor: `queue:work` zaten varsayılan `--memory=128`
+        // ile koşar. Fark, yeniden başlatmanın bir TAKVİM olmaktan çıkıp bir OLAY olmasıdır.
+        $this->assertStringNotContainsString(
+            '--max-time',
+            $entrypoint,
+            '`queue` servisine `--max-time` geri gelmiş. Bu bayrak işçiyi düzenli aralıkla '.
+            'sonlandırır; Docker bunu çöküşten ayıramaz, Coolify `crash` diye sayar ve sayaç '.
+            'tavana vurduğunda bütün kaynağı durdurup ağı siler. Bayrağın kendisi doğrudur, '.
+            'yanlış olan onu Docker\'ın gözetmenliğine bağlamaktır — container İÇİNDE bir '.
+            'gözetmen (s6/supervisor) gerekir.'
+        );
+    }
+
+    #[Test]
     public function yedekleme_migrationa_baglanmaz(): void
     {
         $blok = $this->servisBloku('backup');

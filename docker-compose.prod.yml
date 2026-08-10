@@ -227,7 +227,38 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
-    entrypoint: ["php", "/var/www/html/artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+    # ⚠️ `--max-time=3600` KALDIRILDI (2026-08-10, sunucuda ÖLÇÜLEREK bulundu).
+    #
+    # ÖLÇÜM: `queue` container'ı `RestartCount=8`, `ExitCode=0`, `OOMKilled=false`, `Error=""`.
+    # Yaratılış 01:36:48, son başlangıç 09:37:16 — 8 saat 28 saniyede TAM 8 yeniden başlatma,
+    # yani saatte bir. `app`, `db`, `scheduler`, `backup` hepsi `RestartCount=0`. Çöküş YOKTU:
+    # `--max-time=3600` işçiye "1 saat sonra kendini sonlandır" der ve o da tam olarak bunu
+    # yapıyordu, çıkış kodu 0 ile.
+    #
+    # NEDEN BU ZARARSIZ DEĞİLDİ — üç halkalı zincir:
+    #   ① Docker `restart: unless-stopped` altında çıkış kodu 0 ile çöküşü AYIRMAZ; `RestartCount`
+    #     her iki halde de artar.
+    #   ② Coolify sayaç arttıysa ÇIKIŞ KODUNA BAKMADAN `last_restart_type = 'crash'` yazar
+    #     (`app/Actions/Docker/GetContainersStatus.php:474-480`) ve sayacı uygulamanın BÜTÜN
+    #     container'larının MAX'ı olarak alır (`:465`) — yani `queue`nun 8'i tüm uygulamanın 8'i
+    #     olur. Sayaç yalnız uygulama tamamen `exited` olunca ya da yeni deploy'da sıfırlanır.
+    #   ③ `restart_count >= max_restart_count` olunca `StopApplication::dispatch(...)` (`:484`).
+    #     Bunun ne demek olduğunu 2026-08-09'da yaşadık: Stop → CleanupDocker → `external` ağ
+    #     silinir → sonraki HER deploy "network not found" ile ölür ve panelden çıkış yolu kalmaz.
+    #
+    # Yani bu bayrak, tavana saatte bir tıklayan bir sayaçtı: ölçüm anında 8/10'daydı ve iki saat
+    # sonra üretimi kendi kendine durduracaktı. Her deploy sayacı sıfırlayıp fitili 10 saat sonrası
+    # için yeniden kuruyordu — arıza bu yüzden aylarca "arada bir" görünüp teşhis edilmedi.
+    #
+    # BELLEK KORUMASI KAYBOLMADI: `queue:work` zaten VARSAYILAN `--memory=128` ile koşar; işçi
+    # gerçekten şiştiğinde yine çıkar ve yine geri gelir. Fark şu: yeniden başlatma bir TAKVİM
+    # olmaktan çıkıp bir OLAY olur. Artık `RestartCount` tırmanıyorsa bir şey ifade eder — ki
+    # `max_restart_count` panelde kapatıldığı için (2026-08-10) tek gösterge o sayı.
+    #
+    # ⚠️ `--max-time`i geri koymak isteyen: önce bu üç halkayı çöz. Bayrağın kendisi doğrudur,
+    # yanlış olan onu DOCKER'ın gözetmenliğine bağlamaktır — Docker "planlı çıkış" diye bir kavram
+    # tanımaz. Doğru yol container İÇİNDE gözetmen (s6/supervisor) koşurmaktır.
+    entrypoint: ["php", "/var/www/html/artisan", "queue:work", "--sleep=3", "--tries=3"]
     environment:
       <<: *app-env
     depends_on:
