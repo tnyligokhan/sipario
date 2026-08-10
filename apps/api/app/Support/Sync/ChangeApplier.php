@@ -33,12 +33,7 @@ use InvalidArgumentException;
  */
 class ChangeApplier
 {
-    /**
-     * @param  User  $aktor  Push'u YAPAN oturum kullanıcısı. Uygulayıcıların çoğu buna bakmaz
-     *                       (senkron varlıkları rol tanımaz); `user_profile` yolu bakar — kişiye
-     *                       özel kurye yetkisi yazımı patron/operatör ister ve aktör olay
-     *                       gövdesinden OKUNAMAZ, gövde istemcinin beyanıdır (2026-08-10).
-     */
+    /** Push'u YAPAN oturum kullanıcısı; yalnız `user_profile` yetki kapısı okur (ProfileChangeApplier). */
     public function __construct(private readonly User $aktor) {}
 
     /**

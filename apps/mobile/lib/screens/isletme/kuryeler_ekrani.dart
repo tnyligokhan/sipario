@@ -4,7 +4,11 @@
 // Satıra dokununca ad/telefon/aktiflik/giriş bilgileri düzenlenir.
 //
 // YETKİLER: Ekran kalabalığını önlemek için kurye yetkileri ayrı bir sayfaya (KuryeYetkileriEkrani)
-// taşındı; bu ekrandan üstteki "Yetkiler" butonu veya Yetki Matrisi kartı ile doğrudan erişilir.
+// taşındı. İKİ GİRİŞ VARDIR ve karıştırılmamalıdır:
+//   • Üstteki "Varsayılan Yetkiler" / Yetki Matrisi kartı → BAYİ VARSAYILANI (yeni kurye şablonu).
+//   • Kurye satırındaki "Yetkiler" çipi → YALNIZ o kuryenin ezmeleri (üç durumlu).
+// Kişiye özel ezmesi olan kurye satırında "özel yetki" rozeti çıkar: patron kimin ayrık
+// olduğunu listeye bakarak görebilmelidir, tek tek ekran açarak değil.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,7 +24,9 @@ import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../team.dart';
 import 'isletme_atomlari.dart';
+import 'kurye_kisisel_yetkiler.dart';
 import 'kurye_yetkileri_ekrani.dart';
 
 /// Salt-okunur kip uyarısı — ürün/muaf ekranlarındaki eşdeğerleriyle aynı dil.
@@ -66,13 +72,16 @@ class KuryelerEkrani extends StatelessWidget {
   /// Oturumdaki rol; kurye bu ekranı göremez (K2).
   final String? rol;
 
-  void _yetkileriAc(BuildContext context) {
+  /// [kurye] verilirse KİŞİ kipi, verilmezse bayi varsayılanı açılır.
+  void _yetkileriAc(BuildContext context, {User? kurye}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => KuryeYetkileriEkrani(
           db: db,
           writable: writable,
           rol: rol,
+          userId: kurye?.id,
+          kuryeAdi: kurye?.name,
         ),
       ),
     );
@@ -105,7 +114,7 @@ class KuryelerEkrani extends StatelessWidget {
                     onGeri: () => Navigator.of(context).maybePop(),
                     sag: [
                       SipMetinButon(
-                        etiket: 'Yetkiler',
+                        etiket: 'Varsayılan Yetkiler',
                         ikon: SipIcons.lock,
                         onTap: () => _yetkileriAc(context),
                       ),
@@ -120,6 +129,7 @@ class KuryelerEkrani extends StatelessWidget {
                             aktifSayi: aktif,
                             writable: writable,
                             onYetkileriAc: () => _yetkileriAc(context),
+                            onKuryeYetkileriAc: (k) => _yetkileriAc(context, kurye: k),
                           ),
                   ),
                 ],
@@ -145,6 +155,7 @@ class _Liste extends StatelessWidget {
     required this.aktifSayi,
     required this.writable,
     required this.onYetkileriAc,
+    required this.onKuryeYetkileriAc,
   });
 
   final CourierRepository repo;
@@ -152,6 +163,7 @@ class _Liste extends StatelessWidget {
   final int aktifSayi;
   final bool writable;
   final VoidCallback onYetkileriAc;
+  final ValueChanged<User> onKuryeYetkileriAc;
 
   Future<void> _ac(BuildContext context, User kurye) async {
     if (!writable) {
@@ -237,6 +249,7 @@ class _Liste extends StatelessWidget {
                 child: _ModernKuryeKarti(
                   kurye: kuryeler[i],
                   onTap: () => _ac(context, kuryeler[i]),
+                  onYetkiler: () => onKuryeYetkileriAc(kuryeler[i]),
                 ),
               ),
           ],
@@ -303,7 +316,7 @@ class _YetkiMatrisiHeroKarti extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Tüm kuryeler için geçerli dinamik kuralları yönet',
+                  'Varsayılan kurallar — kurye bazında ezilebilir',
                   style: SipText.metin(11.5, w: 500).copyWith(color: t.muted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -328,10 +341,17 @@ class _YetkiMatrisiHeroKarti extends StatelessWidget {
 
 /// Modern Kurye Kartı — Temiz avatar, durum noktası, telefon, kullanıcı adı ve rozet
 class _ModernKuryeKarti extends StatelessWidget {
-  const _ModernKuryeKarti({required this.kurye, required this.onTap});
+  const _ModernKuryeKarti({
+    required this.kurye,
+    required this.onTap,
+    required this.onYetkiler,
+  });
 
   final User kurye;
   final VoidCallback onTap;
+
+  /// Satır içi "Yetkiler" çipi — kartın kendi dokunuşundan (düzenleme sheet'i) AYRI eylem.
+  final VoidCallback onYetkiler;
 
   String _basHarfler(String ad) {
     final temiz = ad.trim();
@@ -349,6 +369,10 @@ class _ModernKuryeKarti extends StatelessWidget {
     final aktif = kuryeAktifMi(kurye);
     final tel = (kurye.phone ?? '').trim();
     final nick = kurye.username.trim();
+    // Rozet EZMEDEN okunur, etkin yetkiden değil: soru "bu kurye bayiden ayrık mı?" — 13 yetkisi
+    // varsayılanla aynı değere ELLE ayarlanmış bir kurye de ayrıktır (bayi varsayılanı değişince
+    // onunla birlikte kaymaz) ve listede öyle görünmelidir.
+    final ozelYetki = !kuryeEzmeleriOku(kurye).hepsiDevralindi;
 
     return Opacity(
       opacity: aktif ? 1.0 : 0.65,
@@ -432,6 +456,15 @@ class _ModernKuryeKarti extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (ozelYetki) ...[
+                        const SizedBox(width: 6),
+                        YetkiRozeti(
+                          metin: kuryeOzelYetkiRozeti,
+                          renk: t.accent,
+                          zemin: t.accentSoft,
+                          punto: 10,
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 3),
@@ -467,6 +500,28 @@ class _ModernKuryeKarti extends StatelessWidget {
                         ),
                       ],
                     ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: SipSpace.sm),
+
+            // Satır içi yetki girişi — kartın kendi dokunuşunu YUTAR (iç GestureDetector
+            // önce vurulur), böylece "Yetkiler" düzenleme sheet'ini açmaz.
+            SipDokun(
+              onTap: onYetkiler,
+              zemin: t.surface2,
+              basiliZemin: t.line,
+              radius: SipRadius.brHap,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SipIcon(SipIcons.lock, boyut: 12, kalinlik: 2, renk: t.ink2),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Yetkiler',
+                    style: SipText.metin(11.5, w: 700).copyWith(color: t.ink2),
                   ),
                 ],
               ),

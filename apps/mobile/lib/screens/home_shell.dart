@@ -167,9 +167,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   List<User> _kuryeler = const [];
 
-  /// Bayinin açıp kapattığı kurye yetkileri (2026-08-04). Ayar satırı senkronla iner ve bayi
-  /// Kuryeler ekranından değiştirir; AKIŞTAN okunur çünkü tek atış okuma, ayar değiştikten
-  /// sonra kuryenin ekranını bir sonraki açılışa kadar eski yetkiyle bırakırdı.
+  /// BU OTURUMUN ETKİN kurye yetkileri (2026-08-04; kişiselleştirme 2026-08-10). Bayi
+  /// varsayılanı ile kullanıcının kendi ezmeleri çözülmüş hâlde gelir. AKIŞTAN okunur çünkü
+  /// tek atış okuma, ayar değiştikten sonra kuryenin ekranını bir sonraki açılışa kadar eski
+  /// yetkiyle bırakırdı.
   KuryeIzinleri _kuryeIzin = KuryeIzinleri.varsayilan;
 
   StreamSubscription<SyncOutcome>? _syncSub;
@@ -239,7 +240,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() => _kuryeler = k);
     });
-    _izinSub = watchKuryeIzinleri(widget.db).listen((i) {
+    // OTURUMUN ETKİN izinleri (2026-08-10): bayi varsayılanı DEĞİL, bu kullanıcının kişisel
+    // ezmeleriyle çözülmüş hâli. `watchKuryeIzinleri` artık yalnız şablonu verir; kabuk onu
+    // dinlemeye devam etseydi, kişiye özel olarak KAPATILAN bir yetki kuryenin kendi
+    // telefonunda açık görünürdü.
+    _izinSub = watchOturumKuryeIzinleri(widget.db).listen((i) {
       if (!mounted) return;
       setState(() => _kuryeIzin = i);
     });

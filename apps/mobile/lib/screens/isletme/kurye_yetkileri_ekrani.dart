@@ -1,8 +1,13 @@
 // KURYE YETKİLERİ EKRANI — Sipario Genel Yetki Matrisi Tablosuna tam uyumlu
-// kurye izin yönetim ekranı.
+// kurye izin yönetim ekranı. İKİ KİPLİDİR:
 //
-// Ayarlar kiracı düzeyindedir (tenant_settings) — tüm kuryeler için ortaktır.
-// Hızlı şablonlar (Varsayılan, Tam Yetkili, Kısıtlı Saha) ile tek tıkla toplu ayar yapılabilir.
+//   • VARSAYILAN kipi (`userId == null`) — `tenant_settings`teki 13 değer. Bunlar artık "tüm
+//     kuryelerin yetkisi" DEĞİL, BAYİ VARSAYILANI / yeni kurye şablonudur. İki durumlu
+//     anahtarlar ve Hızlı Şablonlar burada yaşar.
+//   • KİŞİ kipi (`userId` verilir) — yalnız o kuryenin `users` satırındaki ezmeler. Üç
+//     durumludur (devral / açık / kapalı) ve gövdesi `kurye_kisisel_yetkiler.dart` içindedir.
+//
+// Rol kapısı (K2) İKİ KİPTE DE geçerlidir: kurye kendi yetki ekranını açamaz.
 
 import 'package:flutter/material.dart';
 
@@ -15,7 +20,8 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../team.dart';
-import 'atomlar/rol_kapisi.dart';
+import 'isletme_atomlari.dart';
+import 'kurye_kisisel_yetkiler.dart';
 import 'kurye_yetki_bolumu.dart';
 
 class KuryeYetkileriEkrani extends StatelessWidget {
@@ -24,18 +30,33 @@ class KuryeYetkileriEkrani extends StatelessWidget {
     required this.db,
     this.writable = true,
     this.rol,
+    this.userId,
+    this.kuryeAdi,
   });
 
   final AppDatabase db;
   final bool writable;
   final String? rol;
 
+  /// Verilirse KİŞİ KİPİ: yalnız bu kuryenin ezmeleri düzenlenir. `null` iken bayi varsayılanı.
+  final String? userId;
+
+  /// Kişi kipinde başlıkta ve bilgilendirmede geçen ad.
+  final String? kuryeAdi;
+
+  bool get _kisiKipi => userId != null;
+
+  String get _ad => (kuryeAdi ?? '').trim().isEmpty ? 'Kurye' : kuryeAdi!.trim();
+
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
+    final baslik = _kisiKipi ? '$_ad — Yetkiler' : 'Varsayılan Kurye Yetkileri';
+    final alt = _kisiKipi ? 'Kişiye özel · 13 İzin' : 'Yeni kurye şablonu · 13 İzin';
+
     return YoneticiKapisi(
       rol: rol,
-      baslik: 'Kurye Yetkileri',
+      baslik: baslik,
       child: Scaffold(
         backgroundColor: t.bg,
         body: SafeArea(
@@ -44,23 +65,30 @@ class KuryeYetkileriEkrani extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SipUst(
-                baslik: 'Kurye Yetkileri',
-                alt: 'Genel Yetki Matrisi · 13 İzin',
+                baslik: baslik,
+                alt: alt,
                 onGeri: () => Navigator.of(context).maybePop(),
               ),
               Expanded(
-                child: StreamBuilder<KuryeIzinleri>(
-                  stream: watchKuryeIzinleri(db),
-                  initialData: KuryeIzinleri.varsayilan,
-                  builder: (context, snap) {
-                    final izin = snap.data ?? KuryeIzinleri.varsayilan;
-                    return _YetkilerGovdesi(
-                      db: db,
-                      izin: izin,
-                      writable: writable,
-                    );
-                  },
-                ),
+                child: _kisiKipi
+                    ? KisiselYetkiGovdesi(
+                        db: db,
+                        userId: userId!,
+                        kuryeAdi: _ad,
+                        writable: writable,
+                      )
+                    : StreamBuilder<KuryeIzinleri>(
+                        stream: watchKuryeIzinleri(db),
+                        initialData: KuryeIzinleri.varsayilan,
+                        builder: (context, snap) {
+                          final izin = snap.data ?? KuryeIzinleri.varsayilan;
+                          return _YetkilerGovdesi(
+                            db: db,
+                            izin: izin,
+                            writable: writable,
+                          );
+                        },
+                      ),
               ),
             ],
           ),
@@ -131,8 +159,8 @@ class _YetkilerGovdesi extends StatelessWidget {
             ikon: SipIcons.lock,
             tur: SipNotTuru.bilgi,
             onEtiket: 'Yetki Kuralı:',
-            metin: 'Bu ayarlar dükkandaki TÜM kuryeler için geçerlidir. '
-                'Patron ve operatör hesapları kısıtlamasız tam yetkilidir.',
+            metin: 'Bu değerler VARSAYILANDIR — her kurye kendi yetki ekranından ayrıca '
+                'ezilebilir. Patron ve operatör hesapları kısıtlamasız tam yetkilidir.',
           ),
           const SizedBox(height: SipSpace.lg),
 
@@ -187,11 +215,18 @@ class _YetkilerGovdesi extends StatelessWidget {
 
           // Yetki Kategorileri
           for (final kat in kategoriler.entries) ...[
-            _KategoriKarti(
+            YetkiKategoriKarti(
               kategoriAdi: kat.key,
-              satirlar: kat.value,
-              izin: izin,
-              onDegis: (satir, val) => _tekilDegistir(context, satir, val),
+              rozetMetni: '${kat.value.where((s) => s.oku(izin)).length}/${kat.value.length} Açık',
+              rozetVurgulu: kat.value.any((s) => s.oku(izin)),
+              satirlar: [
+                for (final satir in kat.value)
+                  _YetkiSatiri(
+                    satir: satir,
+                    acik: satir.oku(izin),
+                    onDegis: (val) => _tekilDegistir(context, satir, val),
+                  ),
+              ],
             ),
             const SizedBox(height: SipSpace.md),
           ],
@@ -312,108 +347,7 @@ class _SablonCipi extends StatelessWidget {
   }
 }
 
-/// Kategoriye göre ikon seçici
-String _kategoriIkonu(String kategori) {
-  return switch (kategori) {
-    'Sipariş & Teslimat' => SipIcons.truck,
-    'Kasa & Tahsilat' => SipIcons.wallet,
-    'Gün Sonu & Devir' => SipIcons.clock,
-    'Müşteri & KVKK' => SipIcons.phone,
-    'Ürün & Stok' => SipIcons.box,
-    'Çağrı & Ayarlar' => SipIcons.settings,
-    _ => SipIcons.settings,
-  };
-}
-
-/// Tek bir yetki kategorisi kartı
-class _KategoriKarti extends StatelessWidget {
-  const _KategoriKarti({
-    required this.kategoriAdi,
-    required this.satirlar,
-    required this.izin,
-    required this.onDegis,
-  });
-
-  final String kategoriAdi;
-  final List<KuryeYetkiSatiri> satirlar;
-  final KuryeIzinleri izin;
-  final void Function(KuryeYetkiSatiri, bool) onDegis;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    final acikAdet = satirlar.where((s) => s.oku(izin)).length;
-    final toplamAdet = satirlar.length;
-    final ikon = _kategoriIkonu(kategoriAdi);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: SipSpace.md, vertical: SipSpace.md),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: SipRadius.br3,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Kategori Başlık Satırı
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: SipSpace.sm, vertical: SipSpace.xs),
-            child: Row(
-              children: [
-                SipIkonKutu(
-                  ikon: ikon,
-                  cap: 28,
-                  ikonBoyut: 14,
-                  kalinlik: 2.0,
-                  radius: SipRadius.hap,
-                  zemin: t.accentSoft,
-                  renk: t.accent,
-                ),
-                const SizedBox(width: SipSpace.md),
-                Expanded(
-                  child: Text(
-                    kategoriAdi,
-                    style: SipText.metin(13.5, w: 700).copyWith(color: t.ink),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: acikAdet > 0 ? t.okSoft : t.surface2,
-                    borderRadius: SipRadius.brHap,
-                  ),
-                  child: Text(
-                    '$acikAdet/$toplamAdet Açık',
-                    style: SipText.metin(10.5, w: 700).copyWith(
-                      color: acikAdet > 0 ? t.ok : t.muted,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: SipSpace.xs),
-
-          // Yetki Satırları
-          for (var i = 0; i < satirlar.length; i++) ...[
-            if (i > 0)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: SipSpace.sm),
-                child: Divider(color: t.line, height: 1),
-              ),
-            _YetkiSatiri(
-              satir: satirlar[i],
-              acik: satirlar[i].oku(izin),
-              onDegis: (val) => onDegis(satirlar[i], val),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// Tekil yetki satırı (toggle ile)
+/// Tekil yetki satırı (toggle ile) — VARSAYILAN kipi, iki durumlu.
 class _YetkiSatiri extends StatelessWidget {
   const _YetkiSatiri({
     required this.satir,
