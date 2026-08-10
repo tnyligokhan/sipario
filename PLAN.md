@@ -302,7 +302,83 @@
 
 ---
 
-# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-10 · API sürümü + iki sessiz arıza)
+# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-10/2 · ÜRETİM ÇÖKTÜ, KÖK NEDEN BULUNDU, KALICI DÜZELTİLDİ)
+
+> **BEŞ CÜMLELİK ÖZET:**
+> 1. **Üretim ~1 saat kapalıydı ve manuel deploy'lar "network not found" ile ölüyordu.** Bu bir
+>    sonuçtu, hastalık değil: `queue` çöküyor → docker yeniden başlatıyor → Coolify 10. yeniden
+>    başlatmada `StopApplication` çağırıyor → `CleanupDocker` `external` ağı siliyor → sonraki
+>    HER deploy ağ yok diye ölüyor. Zinciri **canlı izledik**, tahmin yürütülmedi.
+> 2. **Kök neden: `DB_PASSWORD` döndürülmüş, ama roldeki parola değişmemişti.** `10-roles.sh`'i
+>    PostgreSQL YALNIZ boş veri dizininde koşturur; hacim doluydu, betik bir daha hiç koşmadı.
+>    Uygulama yeni anahtarla eski kilidi açmaya çalışıyordu.
+> 3. **KALICI DÜZELTME KODA GİRDİ (`3ec0384`, `dev`)** — roller artık `db` her açıldığında env
+>    parolalarıyla hizalanıyor; eşitleme container'ın İÇİNDEN koşuyor (dışarıdan imkânsız, çünkü
+>    owner parolası bayatken kimlik doğrulanamaz). Dört bekçi test + gerçek container ölçümü.
+> 4. **Teşhis sırasında iki kez yanıldım ve ikisi de ölçüm hatasıydı** — aşağıda "YANILGILAR"
+>    bölümünde yazılı; ikisi de bu projede tekrar edebilecek sınıftan.
+> 5. **Kullanıcı her iki Coolify uygulamasını da SİLDİ** (bilerek, veri feda edildi). Sıfırdan
+>    kurulum bekliyor; hacimler öksüz olarak sunucuda duruyor.
+>
+> **Ölçüm (bu vardiyada BİZZAT koşuldu):** API **692/692** (3520 iddia, 1 kasıtlı incomplete) ✅ ·
+> `phpstan` **0** ✅ · `pint` temiz ✅ · sıfırdan kurulum ve **parola döndürme** senaryoları
+> gerçek container'da koşuldu ✅. **Mobil test koşulmadı** (bu vardiya mobil koda dokunmadı).
+>
+> **Dallar:** `dev` == `3ec0384` (itildi) · `main` == `827767a` — **`main` artık `dev`'in 4 commit
+> gerisinde** ve üretim düzeltmesi `main`'e HENÜZ GİTMEDİ (aşağıda 13. madde).
+
+## NE YAPILDI
+
+**① Arıza zinciri kaynağına kadar sökülüp yazıldı.** `queue` günlüğündeki
+`FATAL: password authentication failed for user "sipario_app"` tek kanıttı ve ona ulaşmak için
+önce `LOG_CHANNEL`'ın `stderr`e çekilmesi gerekti — çünkü geceki çöküşte kanıt yoktu.
+
+**② `LOG_CHANNEL=stderr` düzeltmesi aylardır ÖLÜYDÜ.** Compose'da `${LOG_CHANNEL:-stderr}` yazıyor
+ama `:-` **yalnız değişken tanımsızken** devreye girer; Coolify panelinde `LOG_CHANNEL=stack`
+tanımlıydı, dolayısıyla varsayılan hiç çalışmadı. Önceki vardiyanın "üretim günlüğü stderr'e
+alındı" kaydı ağaçta doğruydu, **yürürlükte değildi.**
+
+**③ Kalıcı düzeltme (`3ec0384`):** `10-roles.sh` artık iki yerden koşar — initdb'de ve **her
+container açılışında** (`sipario-entrypoint.sh` → `sipario-rol-esitle.sh`). `ALTER ROLE`'ler
+koşulsuz; owner rolü de hizalanır. Parolalar SQL'e gömülmez (psql değişkeni), boş parola sessizce
+geçmez. Aynı sırrın ikinci adları (`SIPARIO_*_PASSWORD`, `DB_APP_PASSWORD`) kaldırıldı. Yerel
+compose `image:` yerine `build:` kullanır — aksi halde eşitleyici yerelde hiç koşmaz ve yerel
+yığın üretimden ayrışarak aynı sınıf arızayı gizlerdi.
+
+**④ `RolParolaEsitlemeTest` (4 test).** Totoloji OLMADIĞI ölçüldü: `Dockerfile`'dan `ENTRYPOINT`
+satırı çıkarılıp koşuldu, test kırmızıya döndü.
+
+**⑤ SSH anahtarı döndürüldü.** Benim erişim anahtarım tazelendi (`sipario_v2_ed25519`), yanmış
+olan sunucudan silindi ve reddedildiği ÖLÇÜLDÜ.
+
+## 🔴 BU VARDİYADA YAPTIĞIM İKİ YANILGI (ikisi de ölçüm hatasıydı — desen olarak not edilmeli)
+
+**① `127.0.0.1` üzerinden yapılan parola testi SAHTE "GEÇTİ" verdi.** `pg_hba.conf`'ta
+`host all all 127.0.0.1/32 trust` var: o yoldan bağlanan istemciye parola HİÇ sorulmaz. Ben
+"parola doğru" diye rapor ettim, oysa uygulama ağ üzerinden (`scram-sha-256`) bağlanıyor ve
+reddediliyordu. **Ders: kimlik doğrulama testi, uygulamanın kullandığı YOLDAN yapılmazsa hiçbir
+şey kanıtlamaz.** Doğru testte üç rol de başarısızdı.
+
+**② `.env`'deki değişkenleri karşılaştırıp "iki ayrı parola var" dedim — yanlıştı.** Compose
+`SIPARIO_APP_PASSWORD: ${DB_PASSWORD}` diye dolaylama yapıyor ve `environment:` bloğu env
+dosyasını ezer; container'a giden değer her zaman `DB_PASSWORD`'ünkiydi. `.env`'de duran ayrı
+`SIPARIO_APP_PASSWORD` girdisi ölü bir kalıntıydı ve teşhisi saatlerce yanlış yöne çekti.
+**Ders: "dosyada ne yazıyor" ile "container'a ne gidiyor" ayrı sorulardır.**
+
+## ⚠️ BU VARDİYADAN KALAN AÇIKLAR
+
+- **Her iki Coolify uygulaması da SİLİNDİ, hiçbiri yeniden kurulmadı.** Site şu an kapalı.
+- **Öksüz hacimler sunucuda duruyor:** `h43pc3…_sipario-pgdata-v4` (silinen üretimin verisi:
+  1 bayi, 6 kullanıcı, 21 sipariş, 73 çağrı kaydı), `pz3gsgc8…`, ayrıca iki eski kuşaktan
+  (`un35zcb…`, `xwdasjxc…`) kalanlar. Veri istenerek feda edildi ama **fiilen silinmedi** —
+  ya `docker volume rm` ile temizlenmeli ya da bilinçli olarak bırakıldığı yazılmalı.
+- **Düzeltme `main`'e gitmedi.** Üretim sıfırdan kurulurken `main` koşulacaksa, `main` bu
+  düzeltmeyi TAŞIMIYOR ve aynı arıza ilk parola döndürmesinde geri gelir.
+- **Coolify'ın kendi sunucu anahtarı hâlâ eski** (`authorized_keys`'te `coolify` yorumlu satır) —
+  önceki oturumda sohbete yapıştırılmıştı. Panel işi, app silmekten etkilenmedi.
+- **Mobil taraf bu vardiyada hiç ölçülmedi.**
+
+# (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-10 · API sürümü + iki sessiz arıza)
 
 > **DÖRT CÜMLELİK ÖZET:**
 > 1. **API sürümü artık her yanıtta.** Önceki listenin 6. maddesi (tek kod borcu) kapandı:
@@ -597,7 +673,22 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 **İNSAN/GÜVENLİK — önce bunlar:**
 
-1. **SSH ANAHTARINI DÖNDÜR.** Teşhis sırasında Coolify'ın sunucu SSH ÖZEL ANAHTARI sohbete düz
+0. **🔥 SİTE KAPALI — İKİ UYGULAMA DA SIFIRDAN KURULACAK.** Kullanıcı 2026-08-10/2 vardiyasında
+   `Sipario App` ve `Sipario Dev`'i Coolify'dan sildi (bilerek). Kurarken **iki tuzak**:
+   (a) `SIPARIO_APP_PASSWORD` / `SIPARIO_PANEL_PASSWORD` değişkenlerini panele **ekleme** —
+   compose artık kullanmıyor, durmaları yalnız bir sonraki teşhisi yanıltır (bu vardiyada
+   saatlerce yanılttı). (b) `LOG_CHANNEL`'ı panelde **tanımlama** — compose'daki
+   `${LOG_CHANNEL:-stderr}` varsayılanı, panelde `stack` tanımlı olduğu için aylardır ölüydü ve
+   geceki çöküşün kanıtını yok eden şey buydu. Tanımlamazsan varsayılan ilk kez gerçekten işler.
+   ⚠️ Üretim `main`'den deploy edilir; **önce 13. madde (merge) yapılmalı**, yoksa üretim
+   düzeltmeyi taşımaz.
+1. **[KISMEN KAPANDI — 2026-08-10/2]** SSH anahtarını döndür. ✅ Claude'un erişim anahtarı
+   tazelendi (`sipario_v2_ed25519`), yanmış olan sunucudan silindi ve reddedildiği ölçüldü.
+   ❌ **KALAN:** Coolify'ın KENDİ sunucu anahtarı hâlâ eski — önceki oturumda sohbete düz metin
+   yapıştırılmıştı ve `authorized_keys`'te `coolify` yorumlu satır olarak duruyor. Coolify →
+   Keys & Tokens → yeni anahtar → sunucuya ata → doğrula → sonra o satırı sil. Sıra önemli:
+   ters yapılırsa Coolify sunucuya erişimini kaybeder.
+1b. ~~**SSH ANAHTARINI DÖNDÜR.**~~ (özgün metin) Teşhis sırasında Coolify'ın sunucu SSH ÖZEL ANAHTARI sohbete düz
    metin yapıştırıldı (kullanıcı verdi, kullanıldı, geçici kopya silindi) — ama oturum dökümünde
    ve kabuk geçmişinde duruyor. Coolify → Keys & Tokens → yeni anahtar; sunucuda
    `authorized_keys`ten eskisini çıkar. **Bu listenin en acil maddesi.**
@@ -636,7 +727,12 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 **YENİ (2026-08-10):**
 
-13. **`dev` → `main` birleştir + canlıya deploy.** `/api/v1/version` yalnız bu ağaçta var; deploy
+13. **`dev` → `main` birleştir + canlıya deploy.** ⚠️ **2026-08-10/2'DEN SONRA BU MADDE ARTIK
+    ACİL:** `main` (`827767a`) rol parolası eşitleme düzeltmesini (`3ec0384`) TAŞIMIYOR. Üretim
+    `main`'den deploy edildiği için, `main` merge edilmeden kurulan bir üretim ilk parola
+    döndürmesinde birebir aynı arızayla düşer. Merge edilmesi gereken 4 commit var.
+    Aşağıdaki `/api/v1/version` gerekçesi hâlâ geçerli ve aynı merge'le kapanır.
+    `/api/v1/version` yalnız bu ağaçta var; deploy
     edilene kadar durum çubuğunun canlı sürüm ölçümü sessizce boş kalır ve API sürümü işinin
     yarısı kâğıt üstünde durur. Deploy sonrası tek satırlık doğrulama:
     `curl -s https://api.sipario.com.tr/api/v1/version` → `{"api_version":"1.1.0",...}`.
@@ -658,6 +754,24 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
     yazdığı için aylardır kırmızıydı ve iki kardeşi vakuma düşmüştü. Aynı desen başka yerde de
     olabilir: `config`/`plans`ten okunması gereken bir değer (fiyat, kota, süre, limit) testte
     elle yazılıysa, o iş kararı değiştiği gün test ya kırılır ya sessizce anlamsızlaşır.
+
+**YENİ (2026-08-10/2):**
+
+16. **`${DEGISKEN:-varsayilan}` TUZAĞINI TARA.** `LOG_CHANNEL: ${LOG_CHANNEL:-stderr}` aylarca
+    ölü kaldı çünkü `:-` yalnız değişken **tanımsızken** işler ve Coolify panelinde `LOG_CHANNEL`
+    tanımlıydı. Compose'da bu desende onlarca satır var; her biri "varsayılanım korur" sanısı
+    üretiyor. Panelde tanımlı olan her değişken için varsayılan ÖLÜDÜR — hangilerinin fiilen
+    yürürlükte olduğu `docker inspect` ile okunmalı, dosyaya bakarak değil.
+17. **Öksüz hacimleri karara bağla.** Sunucuda dört kuşak öksüz veri hacmi birikti
+    (`h43pc3…`, `pz3gsgc8…`, `un35zcb…`, `xwdasjxc…`). Coolify uygulamayı silerken hacmi
+    silmiyor; bu bir güvenlik ağı ama sessizce disk yiyor ve "veri silindi mi?" sorusunu
+    belirsiz bırakıyor. Ya temizlenmeli ya da bilinçli olarak tutulduğu yazılmalı.
+18. **Coolify `StopApplication` → `CleanupDocker` → `external` ağ silinir → deploy kilitlenir.**
+    Bu zincir parola arızasından bağımsızdır: **herhangi bir** çökme döngüsü 10 yeniden başlatmayı
+    aşarsa aynı kilit doğar ve panelden çıkış yolu YOKTUR (deploy düğmesi hep aynı hatayla ölür).
+    Kurtarma tek satır: `docker network create --driver bridge --attachable <app-uuid>`.
+    Kalıcı çözüm araştırılmalı (Coolify sürüm davranışı mı, compose'un `external: true`
+    tanımı mı). **Bu satır, bir sonraki vardiyanın saatlerini kurtarabilir.**
 
 ---
 
