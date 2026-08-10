@@ -50,7 +50,7 @@ class AppDatabase extends _$AppDatabase {
   /// yani `onCreate` yolundan geçer ve şema her zaman tamdır. 1109 yeşil testin hiçbiri
   /// YÜKSELTME yolundan geçmiyordu. Kusur yalnız "önceki sürümü kurulu olan cihazda" görünür.
   @override
-  int get schemaVersion => 16; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN · v14 IBAN alıcı adı + hatırlatma şablonu · v15 kurye yetki matrisi 13 kolonu (SÜRÜM ARTIŞI UNUTULMUŞTU) · v16 sync_meta.api_version (sunucu sözleşme sürümü önbelleği)
+  int get schemaVersion => 17; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN · v14 IBAN alıcı adı + hatırlatma şablonu · v15 kurye yetki matrisi 13 kolonu (SÜRÜM ARTIŞI UNUTULMUŞTU) · v16 sync_meta.api_version (sunucu sözleşme sürümü önbelleği) · v17 users'a kişiye özel kurye yetkileri (13 NULLABLE kolon — null = bayi varsayılanını devral)
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -167,6 +167,38 @@ class AppDatabase extends _$AppDatabase {
           // (aşağıdaki `from < 2` dalı kurar) ve orada kolon güncel şemadan hazır gelir.
           if (await _tabloVar(m, 'sync_meta')) {
             await _addColumnIfMissing(m, 'ALTER TABLE sync_meta ADD COLUMN api_version TEXT');
+          }
+
+          // v17 — KİŞİYE ÖZEL KURYE YETKİLERİ (2026-08-10). `users`a aynı 13 anahtar.
+          //
+          // v10..v16 ile AYNI SEBEPTEN kapıdan ÖNCE ve `from < 17` KOŞULU OLMADAN: aşağıdaki
+          // kendini-onarma kapısı `tenant_settings`i görünce ERKEN DÖNER ve sahadaki her cihazda
+          // o tablo zaten vardır. Arıza yine SESSİZ olurdu: senkron `team` bloğundaki kişisel
+          // yetkiyi yazacak kolonu bulamaz, patron kuryeye özel iskonto yetkisi verir,
+          // "kaydedildi" görür ve o telefonda hiçbir şey değişmezdi.
+          //
+          // NOT NULL + DEFAULT YAZILMAZ (bilinçli): `null` üçüncü bir durumdur — "bayi
+          // varsayılanını devral". Varsayılan koysaydık yükseltme anında sahadaki HER kurye
+          // o günkü değere çakılırdı ve bayi ayarını sonradan değiştirmesi hiçbirine işlemezdi.
+          // Boş gelmeleri doğru başlangıçtır: davranış yükseltmeden önceki hâliyle birebir aynı.
+          if (await _tabloVar(m, 'users')) {
+            for (final kolon in [
+              'courier_can_customers',
+              'courier_can_orders',
+              'courier_can_collect',
+              'courier_can_discount',
+              'courier_can_day_end',
+              'courier_can_see_all_orders',
+              'courier_can_view_history',
+              'courier_can_expense',
+              'courier_phone_mask',
+              'courier_can_customer_ledger',
+              'courier_can_debt_reminder',
+              'courier_can_toggle_stock',
+              'courier_can_call_log',
+            ]) {
+              await _addColumnIfMissing(m, 'ALTER TABLE users ADD COLUMN $kolon INTEGER');
+            }
           }
 
           // KENDİNİ ONARMA (2026-07-22 SAHA BULGUSU — iki gerçek cihazda yaşandı): Faz 0 ölçüm

@@ -34,6 +34,14 @@ use InvalidArgumentException;
 class ChangeApplier
 {
     /**
+     * @param  User  $aktor  Push'u YAPAN oturum kullanıcısı. Uygulayıcıların çoğu buna bakmaz
+     *                       (senkron varlıkları rol tanımaz); `user_profile` yolu bakar — kişiye
+     *                       özel kurye yetkisi yazımı patron/operatör ister ve aktör olay
+     *                       gövdesinden OKUNAMAZ, gövde istemcinin beyanıdır (2026-08-10).
+     */
+    public function __construct(private readonly User $aktor) {}
+
+    /**
      * LWW ile yönetilen basit varlıklar (upsert/delete). exempt_number ve call_log tasarım
      * boşluğundan gelir (muaf numaralar / çağrı günlüğü): ikisi de düzenlenebilir varlıktır,
      * para/hareket kaydı DEĞİL — bu yüzden append değil aynı LWW + tombstone yolundan geçerler.
@@ -71,7 +79,7 @@ class ChangeApplier
             'order' => (new OrderChangeApplier)->apply($tenantId, $event),
             'ledger' => $this->applyLedger($tenantId, $event),
             'cash_handover' => (new CashHandoverChangeApplier)->apply($tenantId, $event),
-            'tenant_settings', 'user_profile' => (new ProfileChangeApplier)->apply($tenantId, $event),
+            'tenant_settings', 'user_profile' => (new ProfileChangeApplier($this->aktor))->apply($tenantId, $event),
             'day_closing' => (new DayClosingChangeApplier)->apply($tenantId, $event),
             default => throw new InvalidArgumentException("Bilinmeyen entity_type: {$type}"),
         };

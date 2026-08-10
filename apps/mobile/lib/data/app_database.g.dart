@@ -5826,6 +5826,186 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _courierCanCustomersMeta =
+      const VerificationMeta('courierCanCustomers');
+  @override
+  late final GeneratedColumn<bool> courierCanCustomers = GeneratedColumn<bool>(
+    'courier_can_customers',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_customers" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanOrdersMeta = const VerificationMeta(
+    'courierCanOrders',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanOrders = GeneratedColumn<bool>(
+    'courier_can_orders',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_orders" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanCollectMeta = const VerificationMeta(
+    'courierCanCollect',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanCollect = GeneratedColumn<bool>(
+    'courier_can_collect',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_collect" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanDiscountMeta =
+      const VerificationMeta('courierCanDiscount');
+  @override
+  late final GeneratedColumn<bool> courierCanDiscount = GeneratedColumn<bool>(
+    'courier_can_discount',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_discount" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanDayEndMeta = const VerificationMeta(
+    'courierCanDayEnd',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanDayEnd = GeneratedColumn<bool>(
+    'courier_can_day_end',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_day_end" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanSeeAllOrdersMeta =
+      const VerificationMeta('courierCanSeeAllOrders');
+  @override
+  late final GeneratedColumn<bool> courierCanSeeAllOrders =
+      GeneratedColumn<bool>(
+        'courier_can_see_all_orders',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_see_all_orders" IN (0, 1))',
+        ),
+      );
+  static const VerificationMeta _courierCanViewHistoryMeta =
+      const VerificationMeta('courierCanViewHistory');
+  @override
+  late final GeneratedColumn<bool> courierCanViewHistory =
+      GeneratedColumn<bool>(
+        'courier_can_view_history',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_view_history" IN (0, 1))',
+        ),
+      );
+  static const VerificationMeta _courierCanExpenseMeta = const VerificationMeta(
+    'courierCanExpense',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanExpense = GeneratedColumn<bool>(
+    'courier_can_expense',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_expense" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierPhoneMaskMeta = const VerificationMeta(
+    'courierPhoneMask',
+  );
+  @override
+  late final GeneratedColumn<bool> courierPhoneMask = GeneratedColumn<bool>(
+    'courier_phone_mask',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_phone_mask" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanCustomerLedgerMeta =
+      const VerificationMeta('courierCanCustomerLedger');
+  @override
+  late final GeneratedColumn<bool> courierCanCustomerLedger =
+      GeneratedColumn<bool>(
+        'courier_can_customer_ledger',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_customer_ledger" IN (0, 1))',
+        ),
+      );
+  static const VerificationMeta _courierCanDebtReminderMeta =
+      const VerificationMeta('courierCanDebtReminder');
+  @override
+  late final GeneratedColumn<bool> courierCanDebtReminder =
+      GeneratedColumn<bool>(
+        'courier_can_debt_reminder',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_debt_reminder" IN (0, 1))',
+        ),
+      );
+  static const VerificationMeta _courierCanToggleStockMeta =
+      const VerificationMeta('courierCanToggleStock');
+  @override
+  late final GeneratedColumn<bool> courierCanToggleStock =
+      GeneratedColumn<bool>(
+        'courier_can_toggle_stock',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_toggle_stock" IN (0, 1))',
+        ),
+      );
+  static const VerificationMeta _courierCanCallLogMeta = const VerificationMeta(
+    'courierCanCallLog',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanCallLog = GeneratedColumn<bool>(
+    'courier_can_call_log',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_call_log" IN (0, 1))',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5834,6 +6014,19 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     status,
     username,
     phone,
+    courierCanCustomers,
+    courierCanOrders,
+    courierCanCollect,
+    courierCanDiscount,
+    courierCanDayEnd,
+    courierCanSeeAllOrders,
+    courierCanViewHistory,
+    courierCanExpense,
+    courierPhoneMask,
+    courierCanCustomerLedger,
+    courierCanDebtReminder,
+    courierCanToggleStock,
+    courierCanCallLog,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5888,6 +6081,123 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         phone.isAcceptableOrUnknown(data['phone']!, _phoneMeta),
       );
     }
+    if (data.containsKey('courier_can_customers')) {
+      context.handle(
+        _courierCanCustomersMeta,
+        courierCanCustomers.isAcceptableOrUnknown(
+          data['courier_can_customers']!,
+          _courierCanCustomersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_orders')) {
+      context.handle(
+        _courierCanOrdersMeta,
+        courierCanOrders.isAcceptableOrUnknown(
+          data['courier_can_orders']!,
+          _courierCanOrdersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_collect')) {
+      context.handle(
+        _courierCanCollectMeta,
+        courierCanCollect.isAcceptableOrUnknown(
+          data['courier_can_collect']!,
+          _courierCanCollectMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_discount')) {
+      context.handle(
+        _courierCanDiscountMeta,
+        courierCanDiscount.isAcceptableOrUnknown(
+          data['courier_can_discount']!,
+          _courierCanDiscountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_day_end')) {
+      context.handle(
+        _courierCanDayEndMeta,
+        courierCanDayEnd.isAcceptableOrUnknown(
+          data['courier_can_day_end']!,
+          _courierCanDayEndMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_see_all_orders')) {
+      context.handle(
+        _courierCanSeeAllOrdersMeta,
+        courierCanSeeAllOrders.isAcceptableOrUnknown(
+          data['courier_can_see_all_orders']!,
+          _courierCanSeeAllOrdersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_view_history')) {
+      context.handle(
+        _courierCanViewHistoryMeta,
+        courierCanViewHistory.isAcceptableOrUnknown(
+          data['courier_can_view_history']!,
+          _courierCanViewHistoryMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_expense')) {
+      context.handle(
+        _courierCanExpenseMeta,
+        courierCanExpense.isAcceptableOrUnknown(
+          data['courier_can_expense']!,
+          _courierCanExpenseMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_phone_mask')) {
+      context.handle(
+        _courierPhoneMaskMeta,
+        courierPhoneMask.isAcceptableOrUnknown(
+          data['courier_phone_mask']!,
+          _courierPhoneMaskMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_customer_ledger')) {
+      context.handle(
+        _courierCanCustomerLedgerMeta,
+        courierCanCustomerLedger.isAcceptableOrUnknown(
+          data['courier_can_customer_ledger']!,
+          _courierCanCustomerLedgerMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_debt_reminder')) {
+      context.handle(
+        _courierCanDebtReminderMeta,
+        courierCanDebtReminder.isAcceptableOrUnknown(
+          data['courier_can_debt_reminder']!,
+          _courierCanDebtReminderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_toggle_stock')) {
+      context.handle(
+        _courierCanToggleStockMeta,
+        courierCanToggleStock.isAcceptableOrUnknown(
+          data['courier_can_toggle_stock']!,
+          _courierCanToggleStockMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_call_log')) {
+      context.handle(
+        _courierCanCallLogMeta,
+        courierCanCallLog.isAcceptableOrUnknown(
+          data['courier_can_call_log']!,
+          _courierCanCallLogMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5921,6 +6231,58 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         DriftSqlType.string,
         data['${effectivePrefix}phone'],
       ),
+      courierCanCustomers: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_customers'],
+      ),
+      courierCanOrders: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_orders'],
+      ),
+      courierCanCollect: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_collect'],
+      ),
+      courierCanDiscount: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_discount'],
+      ),
+      courierCanDayEnd: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_day_end'],
+      ),
+      courierCanSeeAllOrders: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_see_all_orders'],
+      ),
+      courierCanViewHistory: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_view_history'],
+      ),
+      courierCanExpense: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_expense'],
+      ),
+      courierPhoneMask: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_phone_mask'],
+      ),
+      courierCanCustomerLedger: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_customer_ledger'],
+      ),
+      courierCanDebtReminder: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_debt_reminder'],
+      ),
+      courierCanToggleStock: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_toggle_stock'],
+      ),
+      courierCanCallLog: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_call_log'],
+      ),
     );
   }
 
@@ -5945,6 +6307,19 @@ class User extends DataClass implements Insertable<User> {
   /// Kurye telefonu (tasarım: Kuryeler ekranı gösterir/düzenler). Bayinin KENDİ personel iletişim
   /// bilgisidir; e-posta/parola hâlâ sunucuda kalır ve team bloğuna hiç girmez.
   final String? phone;
+  final bool? courierCanCustomers;
+  final bool? courierCanOrders;
+  final bool? courierCanCollect;
+  final bool? courierCanDiscount;
+  final bool? courierCanDayEnd;
+  final bool? courierCanSeeAllOrders;
+  final bool? courierCanViewHistory;
+  final bool? courierCanExpense;
+  final bool? courierPhoneMask;
+  final bool? courierCanCustomerLedger;
+  final bool? courierCanDebtReminder;
+  final bool? courierCanToggleStock;
+  final bool? courierCanCallLog;
   const User({
     required this.id,
     required this.name,
@@ -5952,6 +6327,19 @@ class User extends DataClass implements Insertable<User> {
     required this.status,
     required this.username,
     this.phone,
+    this.courierCanCustomers,
+    this.courierCanOrders,
+    this.courierCanCollect,
+    this.courierCanDiscount,
+    this.courierCanDayEnd,
+    this.courierCanSeeAllOrders,
+    this.courierCanViewHistory,
+    this.courierCanExpense,
+    this.courierPhoneMask,
+    this.courierCanCustomerLedger,
+    this.courierCanDebtReminder,
+    this.courierCanToggleStock,
+    this.courierCanCallLog,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5963,6 +6351,49 @@ class User extends DataClass implements Insertable<User> {
     map['username'] = Variable<String>(username);
     if (!nullToAbsent || phone != null) {
       map['phone'] = Variable<String>(phone);
+    }
+    if (!nullToAbsent || courierCanCustomers != null) {
+      map['courier_can_customers'] = Variable<bool>(courierCanCustomers);
+    }
+    if (!nullToAbsent || courierCanOrders != null) {
+      map['courier_can_orders'] = Variable<bool>(courierCanOrders);
+    }
+    if (!nullToAbsent || courierCanCollect != null) {
+      map['courier_can_collect'] = Variable<bool>(courierCanCollect);
+    }
+    if (!nullToAbsent || courierCanDiscount != null) {
+      map['courier_can_discount'] = Variable<bool>(courierCanDiscount);
+    }
+    if (!nullToAbsent || courierCanDayEnd != null) {
+      map['courier_can_day_end'] = Variable<bool>(courierCanDayEnd);
+    }
+    if (!nullToAbsent || courierCanSeeAllOrders != null) {
+      map['courier_can_see_all_orders'] = Variable<bool>(
+        courierCanSeeAllOrders,
+      );
+    }
+    if (!nullToAbsent || courierCanViewHistory != null) {
+      map['courier_can_view_history'] = Variable<bool>(courierCanViewHistory);
+    }
+    if (!nullToAbsent || courierCanExpense != null) {
+      map['courier_can_expense'] = Variable<bool>(courierCanExpense);
+    }
+    if (!nullToAbsent || courierPhoneMask != null) {
+      map['courier_phone_mask'] = Variable<bool>(courierPhoneMask);
+    }
+    if (!nullToAbsent || courierCanCustomerLedger != null) {
+      map['courier_can_customer_ledger'] = Variable<bool>(
+        courierCanCustomerLedger,
+      );
+    }
+    if (!nullToAbsent || courierCanDebtReminder != null) {
+      map['courier_can_debt_reminder'] = Variable<bool>(courierCanDebtReminder);
+    }
+    if (!nullToAbsent || courierCanToggleStock != null) {
+      map['courier_can_toggle_stock'] = Variable<bool>(courierCanToggleStock);
+    }
+    if (!nullToAbsent || courierCanCallLog != null) {
+      map['courier_can_call_log'] = Variable<bool>(courierCanCallLog);
     }
     return map;
   }
@@ -5977,6 +6408,45 @@ class User extends DataClass implements Insertable<User> {
       phone: phone == null && nullToAbsent
           ? const Value.absent()
           : Value(phone),
+      courierCanCustomers: courierCanCustomers == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanCustomers),
+      courierCanOrders: courierCanOrders == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanOrders),
+      courierCanCollect: courierCanCollect == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanCollect),
+      courierCanDiscount: courierCanDiscount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanDiscount),
+      courierCanDayEnd: courierCanDayEnd == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanDayEnd),
+      courierCanSeeAllOrders: courierCanSeeAllOrders == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanSeeAllOrders),
+      courierCanViewHistory: courierCanViewHistory == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanViewHistory),
+      courierCanExpense: courierCanExpense == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanExpense),
+      courierPhoneMask: courierPhoneMask == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierPhoneMask),
+      courierCanCustomerLedger: courierCanCustomerLedger == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanCustomerLedger),
+      courierCanDebtReminder: courierCanDebtReminder == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanDebtReminder),
+      courierCanToggleStock: courierCanToggleStock == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanToggleStock),
+      courierCanCallLog: courierCanCallLog == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanCallLog),
     );
   }
 
@@ -5992,6 +6462,33 @@ class User extends DataClass implements Insertable<User> {
       status: serializer.fromJson<String>(json['status']),
       username: serializer.fromJson<String>(json['username']),
       phone: serializer.fromJson<String?>(json['phone']),
+      courierCanCustomers: serializer.fromJson<bool?>(
+        json['courierCanCustomers'],
+      ),
+      courierCanOrders: serializer.fromJson<bool?>(json['courierCanOrders']),
+      courierCanCollect: serializer.fromJson<bool?>(json['courierCanCollect']),
+      courierCanDiscount: serializer.fromJson<bool?>(
+        json['courierCanDiscount'],
+      ),
+      courierCanDayEnd: serializer.fromJson<bool?>(json['courierCanDayEnd']),
+      courierCanSeeAllOrders: serializer.fromJson<bool?>(
+        json['courierCanSeeAllOrders'],
+      ),
+      courierCanViewHistory: serializer.fromJson<bool?>(
+        json['courierCanViewHistory'],
+      ),
+      courierCanExpense: serializer.fromJson<bool?>(json['courierCanExpense']),
+      courierPhoneMask: serializer.fromJson<bool?>(json['courierPhoneMask']),
+      courierCanCustomerLedger: serializer.fromJson<bool?>(
+        json['courierCanCustomerLedger'],
+      ),
+      courierCanDebtReminder: serializer.fromJson<bool?>(
+        json['courierCanDebtReminder'],
+      ),
+      courierCanToggleStock: serializer.fromJson<bool?>(
+        json['courierCanToggleStock'],
+      ),
+      courierCanCallLog: serializer.fromJson<bool?>(json['courierCanCallLog']),
     );
   }
   @override
@@ -6004,6 +6501,25 @@ class User extends DataClass implements Insertable<User> {
       'status': serializer.toJson<String>(status),
       'username': serializer.toJson<String>(username),
       'phone': serializer.toJson<String?>(phone),
+      'courierCanCustomers': serializer.toJson<bool?>(courierCanCustomers),
+      'courierCanOrders': serializer.toJson<bool?>(courierCanOrders),
+      'courierCanCollect': serializer.toJson<bool?>(courierCanCollect),
+      'courierCanDiscount': serializer.toJson<bool?>(courierCanDiscount),
+      'courierCanDayEnd': serializer.toJson<bool?>(courierCanDayEnd),
+      'courierCanSeeAllOrders': serializer.toJson<bool?>(
+        courierCanSeeAllOrders,
+      ),
+      'courierCanViewHistory': serializer.toJson<bool?>(courierCanViewHistory),
+      'courierCanExpense': serializer.toJson<bool?>(courierCanExpense),
+      'courierPhoneMask': serializer.toJson<bool?>(courierPhoneMask),
+      'courierCanCustomerLedger': serializer.toJson<bool?>(
+        courierCanCustomerLedger,
+      ),
+      'courierCanDebtReminder': serializer.toJson<bool?>(
+        courierCanDebtReminder,
+      ),
+      'courierCanToggleStock': serializer.toJson<bool?>(courierCanToggleStock),
+      'courierCanCallLog': serializer.toJson<bool?>(courierCanCallLog),
     };
   }
 
@@ -6014,6 +6530,19 @@ class User extends DataClass implements Insertable<User> {
     String? status,
     String? username,
     Value<String?> phone = const Value.absent(),
+    Value<bool?> courierCanCustomers = const Value.absent(),
+    Value<bool?> courierCanOrders = const Value.absent(),
+    Value<bool?> courierCanCollect = const Value.absent(),
+    Value<bool?> courierCanDiscount = const Value.absent(),
+    Value<bool?> courierCanDayEnd = const Value.absent(),
+    Value<bool?> courierCanSeeAllOrders = const Value.absent(),
+    Value<bool?> courierCanViewHistory = const Value.absent(),
+    Value<bool?> courierCanExpense = const Value.absent(),
+    Value<bool?> courierPhoneMask = const Value.absent(),
+    Value<bool?> courierCanCustomerLedger = const Value.absent(),
+    Value<bool?> courierCanDebtReminder = const Value.absent(),
+    Value<bool?> courierCanToggleStock = const Value.absent(),
+    Value<bool?> courierCanCallLog = const Value.absent(),
   }) => User(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -6021,6 +6550,45 @@ class User extends DataClass implements Insertable<User> {
     status: status ?? this.status,
     username: username ?? this.username,
     phone: phone.present ? phone.value : this.phone,
+    courierCanCustomers: courierCanCustomers.present
+        ? courierCanCustomers.value
+        : this.courierCanCustomers,
+    courierCanOrders: courierCanOrders.present
+        ? courierCanOrders.value
+        : this.courierCanOrders,
+    courierCanCollect: courierCanCollect.present
+        ? courierCanCollect.value
+        : this.courierCanCollect,
+    courierCanDiscount: courierCanDiscount.present
+        ? courierCanDiscount.value
+        : this.courierCanDiscount,
+    courierCanDayEnd: courierCanDayEnd.present
+        ? courierCanDayEnd.value
+        : this.courierCanDayEnd,
+    courierCanSeeAllOrders: courierCanSeeAllOrders.present
+        ? courierCanSeeAllOrders.value
+        : this.courierCanSeeAllOrders,
+    courierCanViewHistory: courierCanViewHistory.present
+        ? courierCanViewHistory.value
+        : this.courierCanViewHistory,
+    courierCanExpense: courierCanExpense.present
+        ? courierCanExpense.value
+        : this.courierCanExpense,
+    courierPhoneMask: courierPhoneMask.present
+        ? courierPhoneMask.value
+        : this.courierPhoneMask,
+    courierCanCustomerLedger: courierCanCustomerLedger.present
+        ? courierCanCustomerLedger.value
+        : this.courierCanCustomerLedger,
+    courierCanDebtReminder: courierCanDebtReminder.present
+        ? courierCanDebtReminder.value
+        : this.courierCanDebtReminder,
+    courierCanToggleStock: courierCanToggleStock.present
+        ? courierCanToggleStock.value
+        : this.courierCanToggleStock,
+    courierCanCallLog: courierCanCallLog.present
+        ? courierCanCallLog.value
+        : this.courierCanCallLog,
   );
   User copyWithCompanion(UsersCompanion data) {
     return User(
@@ -6030,6 +6598,45 @@ class User extends DataClass implements Insertable<User> {
       status: data.status.present ? data.status.value : this.status,
       username: data.username.present ? data.username.value : this.username,
       phone: data.phone.present ? data.phone.value : this.phone,
+      courierCanCustomers: data.courierCanCustomers.present
+          ? data.courierCanCustomers.value
+          : this.courierCanCustomers,
+      courierCanOrders: data.courierCanOrders.present
+          ? data.courierCanOrders.value
+          : this.courierCanOrders,
+      courierCanCollect: data.courierCanCollect.present
+          ? data.courierCanCollect.value
+          : this.courierCanCollect,
+      courierCanDiscount: data.courierCanDiscount.present
+          ? data.courierCanDiscount.value
+          : this.courierCanDiscount,
+      courierCanDayEnd: data.courierCanDayEnd.present
+          ? data.courierCanDayEnd.value
+          : this.courierCanDayEnd,
+      courierCanSeeAllOrders: data.courierCanSeeAllOrders.present
+          ? data.courierCanSeeAllOrders.value
+          : this.courierCanSeeAllOrders,
+      courierCanViewHistory: data.courierCanViewHistory.present
+          ? data.courierCanViewHistory.value
+          : this.courierCanViewHistory,
+      courierCanExpense: data.courierCanExpense.present
+          ? data.courierCanExpense.value
+          : this.courierCanExpense,
+      courierPhoneMask: data.courierPhoneMask.present
+          ? data.courierPhoneMask.value
+          : this.courierPhoneMask,
+      courierCanCustomerLedger: data.courierCanCustomerLedger.present
+          ? data.courierCanCustomerLedger.value
+          : this.courierCanCustomerLedger,
+      courierCanDebtReminder: data.courierCanDebtReminder.present
+          ? data.courierCanDebtReminder.value
+          : this.courierCanDebtReminder,
+      courierCanToggleStock: data.courierCanToggleStock.present
+          ? data.courierCanToggleStock.value
+          : this.courierCanToggleStock,
+      courierCanCallLog: data.courierCanCallLog.present
+          ? data.courierCanCallLog.value
+          : this.courierCanCallLog,
     );
   }
 
@@ -6041,13 +6648,46 @@ class User extends DataClass implements Insertable<User> {
           ..write('role: $role, ')
           ..write('status: $status, ')
           ..write('username: $username, ')
-          ..write('phone: $phone')
+          ..write('phone: $phone, ')
+          ..write('courierCanCustomers: $courierCanCustomers, ')
+          ..write('courierCanOrders: $courierCanOrders, ')
+          ..write('courierCanCollect: $courierCanCollect, ')
+          ..write('courierCanDiscount: $courierCanDiscount, ')
+          ..write('courierCanDayEnd: $courierCanDayEnd, ')
+          ..write('courierCanSeeAllOrders: $courierCanSeeAllOrders, ')
+          ..write('courierCanViewHistory: $courierCanViewHistory, ')
+          ..write('courierCanExpense: $courierCanExpense, ')
+          ..write('courierPhoneMask: $courierPhoneMask, ')
+          ..write('courierCanCustomerLedger: $courierCanCustomerLedger, ')
+          ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
+          ..write('courierCanToggleStock: $courierCanToggleStock, ')
+          ..write('courierCanCallLog: $courierCanCallLog')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, role, status, username, phone);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    role,
+    status,
+    username,
+    phone,
+    courierCanCustomers,
+    courierCanOrders,
+    courierCanCollect,
+    courierCanDiscount,
+    courierCanDayEnd,
+    courierCanSeeAllOrders,
+    courierCanViewHistory,
+    courierCanExpense,
+    courierPhoneMask,
+    courierCanCustomerLedger,
+    courierCanDebtReminder,
+    courierCanToggleStock,
+    courierCanCallLog,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6057,7 +6697,20 @@ class User extends DataClass implements Insertable<User> {
           other.role == this.role &&
           other.status == this.status &&
           other.username == this.username &&
-          other.phone == this.phone);
+          other.phone == this.phone &&
+          other.courierCanCustomers == this.courierCanCustomers &&
+          other.courierCanOrders == this.courierCanOrders &&
+          other.courierCanCollect == this.courierCanCollect &&
+          other.courierCanDiscount == this.courierCanDiscount &&
+          other.courierCanDayEnd == this.courierCanDayEnd &&
+          other.courierCanSeeAllOrders == this.courierCanSeeAllOrders &&
+          other.courierCanViewHistory == this.courierCanViewHistory &&
+          other.courierCanExpense == this.courierCanExpense &&
+          other.courierPhoneMask == this.courierPhoneMask &&
+          other.courierCanCustomerLedger == this.courierCanCustomerLedger &&
+          other.courierCanDebtReminder == this.courierCanDebtReminder &&
+          other.courierCanToggleStock == this.courierCanToggleStock &&
+          other.courierCanCallLog == this.courierCanCallLog);
 }
 
 class UsersCompanion extends UpdateCompanion<User> {
@@ -6067,6 +6720,19 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<String> status;
   final Value<String> username;
   final Value<String?> phone;
+  final Value<bool?> courierCanCustomers;
+  final Value<bool?> courierCanOrders;
+  final Value<bool?> courierCanCollect;
+  final Value<bool?> courierCanDiscount;
+  final Value<bool?> courierCanDayEnd;
+  final Value<bool?> courierCanSeeAllOrders;
+  final Value<bool?> courierCanViewHistory;
+  final Value<bool?> courierCanExpense;
+  final Value<bool?> courierPhoneMask;
+  final Value<bool?> courierCanCustomerLedger;
+  final Value<bool?> courierCanDebtReminder;
+  final Value<bool?> courierCanToggleStock;
+  final Value<bool?> courierCanCallLog;
   final Value<int> rowid;
   const UsersCompanion({
     this.id = const Value.absent(),
@@ -6075,6 +6741,19 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.status = const Value.absent(),
     this.username = const Value.absent(),
     this.phone = const Value.absent(),
+    this.courierCanCustomers = const Value.absent(),
+    this.courierCanOrders = const Value.absent(),
+    this.courierCanCollect = const Value.absent(),
+    this.courierCanDiscount = const Value.absent(),
+    this.courierCanDayEnd = const Value.absent(),
+    this.courierCanSeeAllOrders = const Value.absent(),
+    this.courierCanViewHistory = const Value.absent(),
+    this.courierCanExpense = const Value.absent(),
+    this.courierPhoneMask = const Value.absent(),
+    this.courierCanCustomerLedger = const Value.absent(),
+    this.courierCanDebtReminder = const Value.absent(),
+    this.courierCanToggleStock = const Value.absent(),
+    this.courierCanCallLog = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   UsersCompanion.insert({
@@ -6084,6 +6763,19 @@ class UsersCompanion extends UpdateCompanion<User> {
     required String status,
     this.username = const Value.absent(),
     this.phone = const Value.absent(),
+    this.courierCanCustomers = const Value.absent(),
+    this.courierCanOrders = const Value.absent(),
+    this.courierCanCollect = const Value.absent(),
+    this.courierCanDiscount = const Value.absent(),
+    this.courierCanDayEnd = const Value.absent(),
+    this.courierCanSeeAllOrders = const Value.absent(),
+    this.courierCanViewHistory = const Value.absent(),
+    this.courierCanExpense = const Value.absent(),
+    this.courierPhoneMask = const Value.absent(),
+    this.courierCanCustomerLedger = const Value.absent(),
+    this.courierCanDebtReminder = const Value.absent(),
+    this.courierCanToggleStock = const Value.absent(),
+    this.courierCanCallLog = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -6096,6 +6788,19 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<String>? status,
     Expression<String>? username,
     Expression<String>? phone,
+    Expression<bool>? courierCanCustomers,
+    Expression<bool>? courierCanOrders,
+    Expression<bool>? courierCanCollect,
+    Expression<bool>? courierCanDiscount,
+    Expression<bool>? courierCanDayEnd,
+    Expression<bool>? courierCanSeeAllOrders,
+    Expression<bool>? courierCanViewHistory,
+    Expression<bool>? courierCanExpense,
+    Expression<bool>? courierPhoneMask,
+    Expression<bool>? courierCanCustomerLedger,
+    Expression<bool>? courierCanDebtReminder,
+    Expression<bool>? courierCanToggleStock,
+    Expression<bool>? courierCanCallLog,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6105,6 +6810,26 @@ class UsersCompanion extends UpdateCompanion<User> {
       if (status != null) 'status': status,
       if (username != null) 'username': username,
       if (phone != null) 'phone': phone,
+      if (courierCanCustomers != null)
+        'courier_can_customers': courierCanCustomers,
+      if (courierCanOrders != null) 'courier_can_orders': courierCanOrders,
+      if (courierCanCollect != null) 'courier_can_collect': courierCanCollect,
+      if (courierCanDiscount != null)
+        'courier_can_discount': courierCanDiscount,
+      if (courierCanDayEnd != null) 'courier_can_day_end': courierCanDayEnd,
+      if (courierCanSeeAllOrders != null)
+        'courier_can_see_all_orders': courierCanSeeAllOrders,
+      if (courierCanViewHistory != null)
+        'courier_can_view_history': courierCanViewHistory,
+      if (courierCanExpense != null) 'courier_can_expense': courierCanExpense,
+      if (courierPhoneMask != null) 'courier_phone_mask': courierPhoneMask,
+      if (courierCanCustomerLedger != null)
+        'courier_can_customer_ledger': courierCanCustomerLedger,
+      if (courierCanDebtReminder != null)
+        'courier_can_debt_reminder': courierCanDebtReminder,
+      if (courierCanToggleStock != null)
+        'courier_can_toggle_stock': courierCanToggleStock,
+      if (courierCanCallLog != null) 'courier_can_call_log': courierCanCallLog,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6116,6 +6841,19 @@ class UsersCompanion extends UpdateCompanion<User> {
     Value<String>? status,
     Value<String>? username,
     Value<String?>? phone,
+    Value<bool?>? courierCanCustomers,
+    Value<bool?>? courierCanOrders,
+    Value<bool?>? courierCanCollect,
+    Value<bool?>? courierCanDiscount,
+    Value<bool?>? courierCanDayEnd,
+    Value<bool?>? courierCanSeeAllOrders,
+    Value<bool?>? courierCanViewHistory,
+    Value<bool?>? courierCanExpense,
+    Value<bool?>? courierPhoneMask,
+    Value<bool?>? courierCanCustomerLedger,
+    Value<bool?>? courierCanDebtReminder,
+    Value<bool?>? courierCanToggleStock,
+    Value<bool?>? courierCanCallLog,
     Value<int>? rowid,
   }) {
     return UsersCompanion(
@@ -6125,6 +6863,24 @@ class UsersCompanion extends UpdateCompanion<User> {
       status: status ?? this.status,
       username: username ?? this.username,
       phone: phone ?? this.phone,
+      courierCanCustomers: courierCanCustomers ?? this.courierCanCustomers,
+      courierCanOrders: courierCanOrders ?? this.courierCanOrders,
+      courierCanCollect: courierCanCollect ?? this.courierCanCollect,
+      courierCanDiscount: courierCanDiscount ?? this.courierCanDiscount,
+      courierCanDayEnd: courierCanDayEnd ?? this.courierCanDayEnd,
+      courierCanSeeAllOrders:
+          courierCanSeeAllOrders ?? this.courierCanSeeAllOrders,
+      courierCanViewHistory:
+          courierCanViewHistory ?? this.courierCanViewHistory,
+      courierCanExpense: courierCanExpense ?? this.courierCanExpense,
+      courierPhoneMask: courierPhoneMask ?? this.courierPhoneMask,
+      courierCanCustomerLedger:
+          courierCanCustomerLedger ?? this.courierCanCustomerLedger,
+      courierCanDebtReminder:
+          courierCanDebtReminder ?? this.courierCanDebtReminder,
+      courierCanToggleStock:
+          courierCanToggleStock ?? this.courierCanToggleStock,
+      courierCanCallLog: courierCanCallLog ?? this.courierCanCallLog,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6150,6 +6906,55 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (phone.present) {
       map['phone'] = Variable<String>(phone.value);
     }
+    if (courierCanCustomers.present) {
+      map['courier_can_customers'] = Variable<bool>(courierCanCustomers.value);
+    }
+    if (courierCanOrders.present) {
+      map['courier_can_orders'] = Variable<bool>(courierCanOrders.value);
+    }
+    if (courierCanCollect.present) {
+      map['courier_can_collect'] = Variable<bool>(courierCanCollect.value);
+    }
+    if (courierCanDiscount.present) {
+      map['courier_can_discount'] = Variable<bool>(courierCanDiscount.value);
+    }
+    if (courierCanDayEnd.present) {
+      map['courier_can_day_end'] = Variable<bool>(courierCanDayEnd.value);
+    }
+    if (courierCanSeeAllOrders.present) {
+      map['courier_can_see_all_orders'] = Variable<bool>(
+        courierCanSeeAllOrders.value,
+      );
+    }
+    if (courierCanViewHistory.present) {
+      map['courier_can_view_history'] = Variable<bool>(
+        courierCanViewHistory.value,
+      );
+    }
+    if (courierCanExpense.present) {
+      map['courier_can_expense'] = Variable<bool>(courierCanExpense.value);
+    }
+    if (courierPhoneMask.present) {
+      map['courier_phone_mask'] = Variable<bool>(courierPhoneMask.value);
+    }
+    if (courierCanCustomerLedger.present) {
+      map['courier_can_customer_ledger'] = Variable<bool>(
+        courierCanCustomerLedger.value,
+      );
+    }
+    if (courierCanDebtReminder.present) {
+      map['courier_can_debt_reminder'] = Variable<bool>(
+        courierCanDebtReminder.value,
+      );
+    }
+    if (courierCanToggleStock.present) {
+      map['courier_can_toggle_stock'] = Variable<bool>(
+        courierCanToggleStock.value,
+      );
+    }
+    if (courierCanCallLog.present) {
+      map['courier_can_call_log'] = Variable<bool>(courierCanCallLog.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -6165,6 +6970,19 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('status: $status, ')
           ..write('username: $username, ')
           ..write('phone: $phone, ')
+          ..write('courierCanCustomers: $courierCanCustomers, ')
+          ..write('courierCanOrders: $courierCanOrders, ')
+          ..write('courierCanCollect: $courierCanCollect, ')
+          ..write('courierCanDiscount: $courierCanDiscount, ')
+          ..write('courierCanDayEnd: $courierCanDayEnd, ')
+          ..write('courierCanSeeAllOrders: $courierCanSeeAllOrders, ')
+          ..write('courierCanViewHistory: $courierCanViewHistory, ')
+          ..write('courierCanExpense: $courierCanExpense, ')
+          ..write('courierPhoneMask: $courierPhoneMask, ')
+          ..write('courierCanCustomerLedger: $courierCanCustomerLedger, ')
+          ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
+          ..write('courierCanToggleStock: $courierCanToggleStock, ')
+          ..write('courierCanCallLog: $courierCanCallLog, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -14946,6 +15764,19 @@ typedef $$UsersTableCreateCompanionBuilder =
       required String status,
       Value<String> username,
       Value<String?> phone,
+      Value<bool?> courierCanCustomers,
+      Value<bool?> courierCanOrders,
+      Value<bool?> courierCanCollect,
+      Value<bool?> courierCanDiscount,
+      Value<bool?> courierCanDayEnd,
+      Value<bool?> courierCanSeeAllOrders,
+      Value<bool?> courierCanViewHistory,
+      Value<bool?> courierCanExpense,
+      Value<bool?> courierPhoneMask,
+      Value<bool?> courierCanCustomerLedger,
+      Value<bool?> courierCanDebtReminder,
+      Value<bool?> courierCanToggleStock,
+      Value<bool?> courierCanCallLog,
       Value<int> rowid,
     });
 typedef $$UsersTableUpdateCompanionBuilder =
@@ -14956,6 +15787,19 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<String> status,
       Value<String> username,
       Value<String?> phone,
+      Value<bool?> courierCanCustomers,
+      Value<bool?> courierCanOrders,
+      Value<bool?> courierCanCollect,
+      Value<bool?> courierCanDiscount,
+      Value<bool?> courierCanDayEnd,
+      Value<bool?> courierCanSeeAllOrders,
+      Value<bool?> courierCanViewHistory,
+      Value<bool?> courierCanExpense,
+      Value<bool?> courierPhoneMask,
+      Value<bool?> courierCanCustomerLedger,
+      Value<bool?> courierCanDebtReminder,
+      Value<bool?> courierCanToggleStock,
+      Value<bool?> courierCanCallLog,
       Value<int> rowid,
     });
 
@@ -14994,6 +15838,71 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<String> get phone => $composableBuilder(
     column: $table.phone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanCustomers => $composableBuilder(
+    column: $table.courierCanCustomers,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanOrders => $composableBuilder(
+    column: $table.courierCanOrders,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanCollect => $composableBuilder(
+    column: $table.courierCanCollect,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanDiscount => $composableBuilder(
+    column: $table.courierCanDiscount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanDayEnd => $composableBuilder(
+    column: $table.courierCanDayEnd,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanSeeAllOrders => $composableBuilder(
+    column: $table.courierCanSeeAllOrders,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanViewHistory => $composableBuilder(
+    column: $table.courierCanViewHistory,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanExpense => $composableBuilder(
+    column: $table.courierCanExpense,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierPhoneMask => $composableBuilder(
+    column: $table.courierPhoneMask,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanCustomerLedger => $composableBuilder(
+    column: $table.courierCanCustomerLedger,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanDebtReminder => $composableBuilder(
+    column: $table.courierCanDebtReminder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanToggleStock => $composableBuilder(
+    column: $table.courierCanToggleStock,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanCallLog => $composableBuilder(
+    column: $table.courierCanCallLog,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -15036,6 +15945,71 @@ class $$UsersTableOrderingComposer
     column: $table.phone,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get courierCanCustomers => $composableBuilder(
+    column: $table.courierCanCustomers,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanOrders => $composableBuilder(
+    column: $table.courierCanOrders,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanCollect => $composableBuilder(
+    column: $table.courierCanCollect,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanDiscount => $composableBuilder(
+    column: $table.courierCanDiscount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanDayEnd => $composableBuilder(
+    column: $table.courierCanDayEnd,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanSeeAllOrders => $composableBuilder(
+    column: $table.courierCanSeeAllOrders,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanViewHistory => $composableBuilder(
+    column: $table.courierCanViewHistory,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanExpense => $composableBuilder(
+    column: $table.courierCanExpense,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierPhoneMask => $composableBuilder(
+    column: $table.courierPhoneMask,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanCustomerLedger => $composableBuilder(
+    column: $table.courierCanCustomerLedger,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanDebtReminder => $composableBuilder(
+    column: $table.courierCanDebtReminder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanToggleStock => $composableBuilder(
+    column: $table.courierCanToggleStock,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanCallLog => $composableBuilder(
+    column: $table.courierCanCallLog,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UsersTableAnnotationComposer
@@ -15064,6 +16038,71 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<String> get phone =>
       $composableBuilder(column: $table.phone, builder: (column) => column);
+
+  GeneratedColumn<bool> get courierCanCustomers => $composableBuilder(
+    column: $table.courierCanCustomers,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanOrders => $composableBuilder(
+    column: $table.courierCanOrders,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanCollect => $composableBuilder(
+    column: $table.courierCanCollect,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanDiscount => $composableBuilder(
+    column: $table.courierCanDiscount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanDayEnd => $composableBuilder(
+    column: $table.courierCanDayEnd,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanSeeAllOrders => $composableBuilder(
+    column: $table.courierCanSeeAllOrders,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanViewHistory => $composableBuilder(
+    column: $table.courierCanViewHistory,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanExpense => $composableBuilder(
+    column: $table.courierCanExpense,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierPhoneMask => $composableBuilder(
+    column: $table.courierPhoneMask,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanCustomerLedger => $composableBuilder(
+    column: $table.courierCanCustomerLedger,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanDebtReminder => $composableBuilder(
+    column: $table.courierCanDebtReminder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanToggleStock => $composableBuilder(
+    column: $table.courierCanToggleStock,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanCallLog => $composableBuilder(
+    column: $table.courierCanCallLog,
+    builder: (column) => column,
+  );
 }
 
 class $$UsersTableTableManager
@@ -15100,6 +16139,19 @@ class $$UsersTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<String> username = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
+                Value<bool?> courierCanCustomers = const Value.absent(),
+                Value<bool?> courierCanOrders = const Value.absent(),
+                Value<bool?> courierCanCollect = const Value.absent(),
+                Value<bool?> courierCanDiscount = const Value.absent(),
+                Value<bool?> courierCanDayEnd = const Value.absent(),
+                Value<bool?> courierCanSeeAllOrders = const Value.absent(),
+                Value<bool?> courierCanViewHistory = const Value.absent(),
+                Value<bool?> courierCanExpense = const Value.absent(),
+                Value<bool?> courierPhoneMask = const Value.absent(),
+                Value<bool?> courierCanCustomerLedger = const Value.absent(),
+                Value<bool?> courierCanDebtReminder = const Value.absent(),
+                Value<bool?> courierCanToggleStock = const Value.absent(),
+                Value<bool?> courierCanCallLog = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UsersCompanion(
                 id: id,
@@ -15108,6 +16160,19 @@ class $$UsersTableTableManager
                 status: status,
                 username: username,
                 phone: phone,
+                courierCanCustomers: courierCanCustomers,
+                courierCanOrders: courierCanOrders,
+                courierCanCollect: courierCanCollect,
+                courierCanDiscount: courierCanDiscount,
+                courierCanDayEnd: courierCanDayEnd,
+                courierCanSeeAllOrders: courierCanSeeAllOrders,
+                courierCanViewHistory: courierCanViewHistory,
+                courierCanExpense: courierCanExpense,
+                courierPhoneMask: courierPhoneMask,
+                courierCanCustomerLedger: courierCanCustomerLedger,
+                courierCanDebtReminder: courierCanDebtReminder,
+                courierCanToggleStock: courierCanToggleStock,
+                courierCanCallLog: courierCanCallLog,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -15118,6 +16183,19 @@ class $$UsersTableTableManager
                 required String status,
                 Value<String> username = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
+                Value<bool?> courierCanCustomers = const Value.absent(),
+                Value<bool?> courierCanOrders = const Value.absent(),
+                Value<bool?> courierCanCollect = const Value.absent(),
+                Value<bool?> courierCanDiscount = const Value.absent(),
+                Value<bool?> courierCanDayEnd = const Value.absent(),
+                Value<bool?> courierCanSeeAllOrders = const Value.absent(),
+                Value<bool?> courierCanViewHistory = const Value.absent(),
+                Value<bool?> courierCanExpense = const Value.absent(),
+                Value<bool?> courierPhoneMask = const Value.absent(),
+                Value<bool?> courierCanCustomerLedger = const Value.absent(),
+                Value<bool?> courierCanDebtReminder = const Value.absent(),
+                Value<bool?> courierCanToggleStock = const Value.absent(),
+                Value<bool?> courierCanCallLog = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UsersCompanion.insert(
                 id: id,
@@ -15126,6 +16204,19 @@ class $$UsersTableTableManager
                 status: status,
                 username: username,
                 phone: phone,
+                courierCanCustomers: courierCanCustomers,
+                courierCanOrders: courierCanOrders,
+                courierCanCollect: courierCanCollect,
+                courierCanDiscount: courierCanDiscount,
+                courierCanDayEnd: courierCanDayEnd,
+                courierCanSeeAllOrders: courierCanSeeAllOrders,
+                courierCanViewHistory: courierCanViewHistory,
+                courierCanExpense: courierCanExpense,
+                courierPhoneMask: courierPhoneMask,
+                courierCanCustomerLedger: courierCanCustomerLedger,
+                courierCanDebtReminder: courierCanDebtReminder,
+                courierCanToggleStock: courierCanToggleStock,
+                courierCanCallLog: courierCanCallLog,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

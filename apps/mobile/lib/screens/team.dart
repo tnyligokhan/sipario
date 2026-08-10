@@ -169,6 +169,67 @@ class KuryeIzinleri {
   static const varsayilan = KuryeIzinleri();
 }
 
+/// TEK BİR KURYEYE özel yetki ezmeleri (kullanıcı kararı 2026-08-10) — DEVRALMALI, üç durumlu.
+///
+/// Her alan `bool?`: `null` = "bayi varsayılanını DEVRAL", true/false = bu kuryeye özel karar.
+/// [KuryeIzinleri] ile alan adları BİREBİR aynıdır; ayrışırlarsa [kuryeIzinleriCoz] içindeki
+/// eşleme okunamaz hâle gelir. Etkin yetki hiçbir yerde elle hesaplanmaz — tek kapı o fonksiyondur.
+///
+/// NEDEN AYRI BİR TİP: `KuryeIzinleri`yi nullable yapmak, onu tüketen her ekranı üç durumu
+/// düşünmeye zorlardı — oysa ekranların %95'i "bu kurye şunu yapabilir mi?" diye sorar ve
+/// cevabı ÇÖZÜLMÜŞ (non-null) olmalıdır. Üç durum yalnız YAZIM ve DÜZENLEME yüzeyinde yaşar.
+class KuryeIzinEzmeleri {
+  const KuryeIzinEzmeleri({
+    this.musteri,
+    this.siparis,
+    this.tahsilat,
+    this.iskonto,
+    this.gunSonu,
+    this.tumSiparisler,
+    this.gecmisTeslimatlar,
+    this.sahaGideri,
+    this.telefonMaskeleme,
+    this.musteriGecmisDefteri,
+    this.borcHatirlatma,
+    this.stokPasifleme,
+    this.cagriGunlugu,
+  });
+
+  final bool? musteri; // courier_can_customers
+  final bool? siparis; // courier_can_orders
+  final bool? tahsilat; // courier_can_collect
+  final bool? iskonto; // courier_can_discount
+  final bool? gunSonu; // courier_can_day_end
+  final bool? tumSiparisler; // courier_can_see_all_orders
+  final bool? gecmisTeslimatlar; // courier_can_view_history
+  final bool? sahaGideri; // courier_can_expense
+  final bool? telefonMaskeleme; // courier_phone_mask
+  final bool? musteriGecmisDefteri; // courier_can_customer_ledger
+  final bool? borcHatirlatma; // courier_can_debt_reminder
+  final bool? stokPasifleme; // courier_can_toggle_stock
+  final bool? cagriGunlugu; // courier_can_call_log
+
+  /// Hiçbir ezme yok — her yetki bayi varsayılanından devralınır. "Hepsini varsayılana döndür"
+  /// düğmesinin yazacağı değer de budur.
+  static const bos = KuryeIzinEzmeleri();
+
+  /// Bu kuryenin hiç kişisel ezmesi var mı? (UI "özelleştirilmiş" rozeti için.)
+  bool get hepsiDevralindi =>
+      musteri == null &&
+      siparis == null &&
+      tahsilat == null &&
+      iskonto == null &&
+      gunSonu == null &&
+      tumSiparisler == null &&
+      gecmisTeslimatlar == null &&
+      sahaGideri == null &&
+      telefonMaskeleme == null &&
+      musteriGecmisDefteri == null &&
+      borcHatirlatma == null &&
+      stokPasifleme == null &&
+      cagriGunlugu == null;
+}
+
 /// Genel Yetki Matrisi kurallarını çözen saf fonksiyon.
 /// Patron: Tam yetkili (kısıtlamasız).
 /// Operatör: Patron yetkili (işletme/abonelik ayarları hariç tam yetkili).
@@ -254,21 +315,111 @@ KuryeIzinleri kuryeIzinleriOku(TenantSetting? ayar) => ayar == null
         cagriGunlugu: ayar.courierCanCallLog,
       );
 
-/// Kurye izinleri akışı — kabuk buna abone olur.
+/// `users` satırından KİŞİYE ÖZEL ezmeleri okur. Satır yoksa (oturum kullanıcısı henüz team
+/// bloğuyla inmediyse, ya da id çözülemediyse) ezme YOKTUR → her şey devralınır.
+KuryeIzinEzmeleri kuryeEzmeleriOku(User? u) => u == null
+    ? KuryeIzinEzmeleri.bos
+    : KuryeIzinEzmeleri(
+        musteri: u.courierCanCustomers,
+        siparis: u.courierCanOrders,
+        tahsilat: u.courierCanCollect,
+        iskonto: u.courierCanDiscount,
+        gunSonu: u.courierCanDayEnd,
+        tumSiparisler: u.courierCanSeeAllOrders,
+        gecmisTeslimatlar: u.courierCanViewHistory,
+        sahaGideri: u.courierCanExpense,
+        telefonMaskeleme: u.courierPhoneMask,
+        musteriGecmisDefteri: u.courierCanCustomerLedger,
+        borcHatirlatma: u.courierCanDebtReminder,
+        stokPasifleme: u.courierCanToggleStock,
+        cagriGunlugu: u.courierCanCallLog,
+      );
+
+/// DEVRALMAYI ÇÖZEN SAF FONKSİYON — kişiye özel yetki tasarımının tamamı bu tek satırlık
+/// kuralda özetlenir: `etkin = kisisel ?? varsayilan`.
+///
+/// SAF ve alan alan, bilinçli: "hiç ezme yoksa varsayılanı olduğu gibi döndür" gibi bir kısayol
+/// yazmak cazip ama YANLIŞ olurdu — tek bir alanın ezilmesi bile geri kalanın devralınmasını
+/// bozmamalı ve bu ancak alan alan çözümle garanti edilir. Etkin yetkiyi hesaplayan BAŞKA bir
+/// yer OLMAMALIDIR; ikinci bir kopya, iki ekranın aynı kurye için farklı cevap vermesi demektir.
+KuryeIzinleri kuryeIzinleriCoz(KuryeIzinleri varsayilan, KuryeIzinEzmeleri? ezme) {
+  if (ezme == null) return varsayilan;
+
+  return KuryeIzinleri(
+    musteri: ezme.musteri ?? varsayilan.musteri,
+    siparis: ezme.siparis ?? varsayilan.siparis,
+    tahsilat: ezme.tahsilat ?? varsayilan.tahsilat,
+    iskonto: ezme.iskonto ?? varsayilan.iskonto,
+    gunSonu: ezme.gunSonu ?? varsayilan.gunSonu,
+    tumSiparisler: ezme.tumSiparisler ?? varsayilan.tumSiparisler,
+    gecmisTeslimatlar: ezme.gecmisTeslimatlar ?? varsayilan.gecmisTeslimatlar,
+    sahaGideri: ezme.sahaGideri ?? varsayilan.sahaGideri,
+    telefonMaskeleme: ezme.telefonMaskeleme ?? varsayilan.telefonMaskeleme,
+    musteriGecmisDefteri: ezme.musteriGecmisDefteri ?? varsayilan.musteriGecmisDefteri,
+    borcHatirlatma: ezme.borcHatirlatma ?? varsayilan.borcHatirlatma,
+    stokPasifleme: ezme.stokPasifleme ?? varsayilan.stokPasifleme,
+    cagriGunlugu: ezme.cagriGunlugu ?? varsayilan.cagriGunlugu,
+  );
+}
+
+/// BAYİ VARSAYILANI akışı (kişiselleştirme öncesi hâl) — "yeni kurye şablonu" ekranı buna
+/// abone olur. Adı ve anlamı KORUNDU: burası artık "şablonu" izler, oturumun ETKİN yetkisini
+/// değil. Etkin yetki için [watchOturumKuryeIzinleri].
 Stream<KuryeIzinleri> watchKuryeIzinleri(AppDatabase db) =>
     (db.select(db.tenantSettings)..where((t) => t.id.equals(1)))
         .watchSingleOrNull()
         .map(kuryeIzinleriOku);
 
+/// TEK BİR KURYENİN ezmeleri (düzenleme ekranı buna abone olur).
+Stream<KuryeIzinEzmeleri> watchKuryeEzmeleri(AppDatabase db, String userId) =>
+    (db.select(db.users)..where((t) => t.id.equals(userId)))
+        .watchSingleOrNull()
+        .map(kuryeEzmeleriOku);
+
+/// BU OTURUMUN ETKİN kurye izinleri — kabuk buna abone olur.
+///
+/// ÜÇ TABLOYU BİRLİKTE İZLER (`sync_meta` · `tenant_settings` · `users`) ve üçünden herhangi
+/// biri değişince yeniden yayınlar. Tek sorguda join olmasının sebebi budur: ayrı akışları elle
+/// birleştirmek, "hangisi önce geldi" sırasına bağlı bir ara kare üretirdi.
+///
+/// AKIŞ, TEK ATIŞ DEĞİL (ölçülmüş ders): sunucu sahipli alanlar ekran açılışında henüz gelmemiş
+/// olabilir — `initState`te tek atış okuyan her yer bayat kalır ve testler bunu göremez.
+/// Kişisel yetki tam olarak böyle bir alandır: patron paneli değiştirir, kuryenin telefonuna
+/// bir sonraki senkron turuyla iner ve ekranın O AN yeniden çizilmesi gerekir.
+///
+/// `sync_meta.user_id` de izlenir çünkü oturum DEĞİŞEBİLİR (çıkış → başka kullanıcı girişi);
+/// yalnız `users`ı izleyen bir akış, önceki kullanıcının satırına kilitli kalırdı.
+Stream<KuryeIzinleri> watchOturumKuryeIzinleri(AppDatabase db) {
+  final q = db.select(db.syncMeta).join([
+    leftOuterJoin(db.tenantSettings, db.tenantSettings.id.equals(1)),
+    leftOuterJoin(db.users, db.users.id.equalsExp(db.syncMeta.userId)),
+  ])
+    ..where(db.syncMeta.id.equals(1));
+
+  return q.watchSingleOrNull().map((satir) => satir == null
+      ? KuryeIzinleri.varsayilan
+      : kuryeIzinleriCoz(
+          kuryeIzinleriOku(satir.readTableOrNull(db.tenantSettings)),
+          kuryeEzmeleriOku(satir.readTableOrNull(db.users)),
+        ));
+}
+
 /// Bu cihazdaki oturumun yetkileri — TEK ATIŞ.
+///
+/// Kişisel ezmeler de çözülür: `sync_meta.user_id` ile `users` satırı çekilir. Satır yoksa
+/// (henüz team bloğu inmediyse) ezme yok sayılır ve bayi varsayılanı geçerlidir — yani en kötü
+/// durumda davranış bu özellik gelmeden önceki hâline döner, hiçbir yetki uydurulmaz.
 Future<RolYetkileri> oturumYetkileri(AppDatabase db) async {
   final meta = await db.syncState();
   final ayar =
       await (db.select(db.tenantSettings)..where((t) => t.id.equals(1))).getSingleOrNull();
+  final kullanici = meta.userId == null
+      ? null
+      : await (db.select(db.users)..where((t) => t.id.equals(meta.userId!))).getSingleOrNull();
 
   return yetkiler(
     rol: meta.userRole,
     kuryeVar: false,
-    izin: kuryeIzinleriOku(ayar),
+    izin: kuryeIzinleriCoz(kuryeIzinleriOku(ayar), kuryeEzmeleriOku(kullanici)),
   );
 }

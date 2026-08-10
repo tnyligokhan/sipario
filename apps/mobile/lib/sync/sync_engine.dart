@@ -709,6 +709,24 @@ class SyncEngine {
                 // Eski sunucu `username` göndermezse boş kalır (kolon NOT NULL, varsayılan '') —
                 // Kuryeler ekranı o durumda giriş adını "—" gösterir, uydurmaz.
                 username: Value(_sN(u['username']) ?? ''),
+                // KİŞİYE ÖZEL YETKİLER (2026-08-10) — `_bN` ile, `_bV` ile DEĞİL: burada
+                // "alan gelmedi" ile "false geldi" AYRI şeylerdir. Eski bir sunucu bu 13
+                // anahtarı hiç göndermez; onları `false` saymak, bayi varsayılanı açık olan
+                // bir yetkiyi (ör. tahsilat) sahadaki her kurye için sessizce KAPATIRDI.
+                // `null` yazmak devralmayı korur ve davranış bugünküyle birebir aynı kalır.
+                courierCanCustomers: Value(_bN(u['courier_can_customers'])),
+                courierCanOrders: Value(_bN(u['courier_can_orders'])),
+                courierCanCollect: Value(_bN(u['courier_can_collect'])),
+                courierCanDiscount: Value(_bN(u['courier_can_discount'])),
+                courierCanDayEnd: Value(_bN(u['courier_can_day_end'])),
+                courierCanSeeAllOrders: Value(_bN(u['courier_can_see_all_orders'])),
+                courierCanViewHistory: Value(_bN(u['courier_can_view_history'])),
+                courierCanExpense: Value(_bN(u['courier_can_expense'])),
+                courierPhoneMask: Value(_bN(u['courier_phone_mask'])),
+                courierCanCustomerLedger: Value(_bN(u['courier_can_customer_ledger'])),
+                courierCanDebtReminder: Value(_bN(u['courier_can_debt_reminder'])),
+                courierCanToggleStock: Value(_bN(u['courier_can_toggle_stock'])),
+                courierCanCallLog: Value(_bN(u['courier_can_call_log'])),
               ));
         });
         if (!ok) atlanan++;
@@ -761,4 +779,11 @@ class SyncEngine {
   /// (ör. kurye tahsilat alabilir) eski bir sunucuya bağlandığında sessizce KAPANIRDI —
   /// kurye sahada işini yapamaz, kimse de nedenini bilmezdi.
   static bool _bV(dynamic v, bool varsayilan) => v == null ? varsayilan : _b(v);
+
+  /// ÜÇ DURUMLU boolean: `null` yokluğu KORUR, ezmez.
+  ///
+  /// `_b`/`_bV`den farkı anlamlıdır ve kişiye özel kurye yetkilerinin (2026-08-10) tamamı buna
+  /// dayanır: orada `null` bir eksiklik değil, ÜÇÜNCÜ BİR DEĞERDİR — "bayi varsayılanını
+  /// devral". Bu alanları `_b` ile okumak devralmayı `false`a çevirir ve yetkiyi sessizce kapatır.
+  static bool? _bN(dynamic v) => v == null ? null : _b(v);
 }

@@ -103,7 +103,7 @@ class SyncService
     public function push(User $user, array $events): array
     {
         $tenantId = (string) $user->tenant_id;
-        $applier = new ChangeApplier;
+        $applier = new ChangeApplier($user);
         $now = now();
 
         return DB::transaction(function () use ($tenantId, $events, $applier, $now) {
@@ -483,21 +483,48 @@ class SyncService
      * (e-posta, parola hash'i) payload DIŞINDA kalmaya devam eder; parola hiçbir yönde,
      * hiçbir biçimde okunmaz — yalnız YAZILIR (TeamController::credentials).
      *
-     * @return list<array{id: string, name: string, role: string, status: string, phone: string|null, username: string}>
+     * 13 KİŞİYE ÖZEL KURYE YETKİSİ 2026-08-10'da EKLENDİ (migration 004008) çünkü HER CİHAZ KENDİ
+     * YETKİSİNİ BU BLOKTAN ÖĞRENİR: yetkiler artık kullanıcı bazlıdır ve `users` senkron delta
+     * günlüğünde hiç yer almaz (snapshot/delta yolu users bilmez) — telefona ulaşmalarının TEK
+     * kanalı burasıdır. `bool|null` üç durumludur: null = "bayi varsayılanını devral", yani istemci
+     * etkin yetkiyi `team[ben].courier_x ?? tenant_settings.courier_x` ile çözer. Sunucu bu
+     * birleştirmeyi YAPMAZ — birleşik değer, "devralıyor" ile "kişiye özel açık" ayrımını yok eder
+     * ve yetki ekranı tam o ayrımı gösterir. Yayınlamamak ise migration 802'nin dersine düşerdi:
+     * "sunucuda doğru duran ama inmeyen alan YOKTUR."
+     *
+     * BU BİR PII SIZMASI DEĞİLDİR: yetkiler bayinin KENDİ yapılandırmasıdır (müşteri verisi ya da
+     * kimlik bilgisi değil) ve liste zaten aynı bayinin kendi ekibini taşır.
+     *
+     * @return list<array{id: string, name: string, role: string, status: string, phone: string|null, username: string, courier_can_customers: bool|null, courier_can_orders: bool|null, courier_can_collect: bool|null, courier_can_discount: bool|null, courier_can_day_end: bool|null, courier_can_see_all_orders: bool|null, courier_can_view_history: bool|null, courier_can_expense: bool|null, courier_phone_mask: bool|null, courier_can_customer_ledger: bool|null, courier_can_debt_reminder: bool|null, courier_can_toggle_stock: bool|null, courier_can_call_log: bool|null}>
      */
     private function teamPayload(): array
     {
+        // Kolon listesi AÇIKÇA sayılır (PII asgari): yetki kolonları listeye `User`ın tek doğru
+        // kaynağından eklenir, elle ikinci kez yazılmaz.
+        $kolonlar = array_merge(
+            ['id', 'name', 'role', 'status', 'phone', 'username'],
+            User::kuryeIzinKolonlari(),
+        );
+
         return User::query()
             ->orderBy('name')
-            ->get(['id', 'name', 'role', 'status', 'phone', 'username'])
-            ->map(fn (User $u) => [
-                'id' => (string) $u->id,
-                'name' => (string) $u->name,
-                'role' => $u->role->value,
-                'status' => (string) $u->status,
-                'phone' => $u->phone,
-                'username' => (string) $u->username,
-            ])
+            ->get($kolonlar)
+            ->map(function (User $u): array {
+                $izinler = [];
+                foreach (User::kuryeIzinKolonlari() as $kolon) {
+                    // Cast'ten geçmiş değer: bool ya da null (NULL "devral" demektir, false DEĞİL).
+                    $izinler[$kolon] = $u->getAttribute($kolon);
+                }
+
+                return [
+                    'id' => (string) $u->id,
+                    'name' => (string) $u->name,
+                    'role' => $u->role->value,
+                    'status' => (string) $u->status,
+                    'phone' => $u->phone,
+                    'username' => (string) $u->username,
+                ] + $izinler;
+            })
             ->all();
     }
 }

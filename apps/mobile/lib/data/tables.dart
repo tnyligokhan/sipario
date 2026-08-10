@@ -249,6 +249,30 @@ class Users extends Table {
   /// bilgisidir; e-posta/parola hâlâ sunucuda kalır ve team bloğuna hiç girmez.
   TextColumn get phone => text().nullable()();
 
+  // ---- KİŞİYE ÖZEL KURYE YETKİLERİ (kullanıcı kararı 2026-08-10) ----
+  //
+  // ÜÇ DURUMLU ve bu yüzden `nullable()`: `null` = "bayi varsayılanını DEVRAL", true/false =
+  // bu kuryeye özel ezme. Aynı 13 anahtar `tenant_settings`te de durur ve orada anlamı
+  // değişti — artık "bayi varsayılanı / yeni kurye şablonu"dur. Etkin yetki tek yerde
+  // çözülür: `screens/team.dart::kuryeIzinleriCoz` (kisisel ?? varsayilan).
+  //
+  // NEDEN `withDefault` YOK: varsayılan koymak üçüncü durumu (devralma) YOK EDERDİ — sahadaki
+  // her kurye, bayi ayarını sonradan değiştirse bile kurulum anındaki değere çakılı kalırdı.
+  // Eski sunucu bu alanları göndermezse de null kalır ve davranış bugünküyle birebir aynıdır.
+  BoolColumn get courierCanCustomers => boolean().nullable()();
+  BoolColumn get courierCanOrders => boolean().nullable()();
+  BoolColumn get courierCanCollect => boolean().nullable()();
+  BoolColumn get courierCanDiscount => boolean().nullable()();
+  BoolColumn get courierCanDayEnd => boolean().nullable()();
+  BoolColumn get courierCanSeeAllOrders => boolean().nullable()();
+  BoolColumn get courierCanViewHistory => boolean().nullable()();
+  BoolColumn get courierCanExpense => boolean().nullable()();
+  BoolColumn get courierPhoneMask => boolean().nullable()();
+  BoolColumn get courierCanCustomerLedger => boolean().nullable()();
+  BoolColumn get courierCanDebtReminder => boolean().nullable()();
+  BoolColumn get courierCanToggleStock => boolean().nullable()();
+  BoolColumn get courierCanCallLog => boolean().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
