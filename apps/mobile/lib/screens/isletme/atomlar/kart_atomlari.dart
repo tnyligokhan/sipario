@@ -49,6 +49,7 @@ class DegerSatiri extends StatelessWidget {
     required this.deger,
     this.toplam = false,
     this.degerRengi,
+    this.onTap,
   });
 
   final String etiket;
@@ -59,10 +60,18 @@ class DegerSatiri extends StatelessWidget {
 
   final Color? degerRengi;
 
+  /// Verilirse satır DOKUNULABİLİR olur ve sağına chevron çizilir (kullanıcı isteği
+  /// 2026-08-11: ödeme türüne dokununca o günün dökümü açılır).
+  ///
+  /// CHEVRON KOŞULSUZ DEĞİL: dokunulamayan satırda çizilseydi bayi her rakamın altında bir
+  /// döküm arar, bulamayınca satırın bozuk olduğunu sanırdı. Görünen işaret, var olan
+  /// davranışın karşılığıdır.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    return Padding(
+    final govde = Padding(
       padding: const EdgeInsets.symmetric(vertical: 11),
       child: Row(
         children: [
@@ -81,9 +90,16 @@ class DegerSatiri extends StatelessWidget {
             style: (toplam ? SipText.gsToplamDeger : SipText.gsSatirDeger)
                 .copyWith(color: degerRengi ?? (toplam ? t.accent : t.ink)),
           ),
+          if (onTap != null) ...[
+            const SizedBox(width: 6),
+            SipIcon(SipIcons.right, boyut: 13, kalinlik: 2.2, renk: t.muted),
+          ],
         ],
       ),
     );
+
+    if (onTap == null) return govde;
+    return SipDokun(onTap: onTap, radius: SipRadius.br1, child: govde);
   }
 }
 

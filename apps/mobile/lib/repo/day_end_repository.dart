@@ -32,16 +32,26 @@ class DayEndRepository {
   ///
   /// [userId] verilirse yalnız O KULLANICININ topladıkları sayılır (tasarım: gün sonu ekranındaki
   /// kurye sekmesi). Opsiyonel — mevcut çağrılar (Tümü) aynen çalışır.
-  Future<KasaOzeti> kasaOzeti(DateTime localDate, {String? userId}) async {
+  /// KASAYA DOKUNAN kayıtların TEK süzgeci — [kasaOzeti] ve [tahsilatDetaylari] bunu paylaşır.
+  ///
+  /// AYRI YAZILSAYDI kırılım ile detay farklı rakam söylerdi: bayi "Havale 2.240 ₺" satırına
+  /// dokunup açılan listede 1.900 ₺ görürse hangisinin doğru olduğunu soramaz ve ikisine de
+  /// güvenmez. Bu depoda aynı sınıf hata (aynı parayı iki yerde ayrı hesaplamak) gün sonu
+  /// tanımında üç kez tekrarlandı; süzgeç o yüzden tek yerde durur.
+  Future<List<LedgerEntry>> _kasayaDokunanlar(DateTime localDate, String? userId) async {
     final query = db.select(db.ledgerEntries)..where((t) => t.paymentType.isNotNull());
     if (userId != null) {
       query.where((t) => t.collectedByUserId.equals(userId));
     }
-    final tillEntries = await query.get();
+    final hepsi = await query.get();
+    return hepsi.where((e) => _sameTrDay(e.occurredAt, localDate)).toList();
+  }
+
+  Future<KasaOzeti> kasaOzeti(DateTime localDate, {String? userId}) async {
+    final tillEntries = await _kasayaDokunanlar(localDate, userId);
 
     var nakit = 0, kart = 0, havale = 0;
     for (final e in tillEntries) {
-      if (!_sameTrDay(e.occurredAt, localDate)) continue;
       final giren = -e.amountKurus; // payment(−)→kasaya girer(+); ters correction(+)→kasadan çıkar(−)
       switch (e.paymentType) {
         case 'nakit':
@@ -53,6 +63,75 @@ class DayEndRepository {
       }
     }
     return KasaOzeti(nakit: nakit, kart: kart, havale: havale);
+  }
+
+  /// Günün TAHSİLAT DETAYLARI — kasa kartındaki rakamların satır satır dökümü
+  /// (kullanıcı isteği 2026-08-11: "havalelere tıklayınca o günkü havale siparişlerin
+  /// detayları açılacak" + "altta günlük teslimatları detaylı görsün").
+  ///
+  /// [kasaOzeti] İLE AYNI SÜZGEÇTEN geçer ([_kasayaDokunanlar]) — yani bu listenin toplamı
+  /// kartın rakamına EŞİTTİR. Ayrı bir sorgu yazmak, ekranın iki yerinde iki farklı para
+  /// göstermek demekti.
+  ///
+  /// [odemeTuru] verilirse yalnız o tür (`nakit`/`kart`/`havale`) döner.
+  ///
+  /// TERS KAYITLAR (correction) LİSTEDE KALIR ve tutarları NEGATİF görünür: kartın toplamı
+  /// onları içerdiği için gizlemek listeyi toplamla çelişir. Bayi "neden 200 ₺ eksik" diye
+  /// sorduğunda cevabı bu satırdır; saklamak, sayıyı açıklanamaz yapardı.
+  ///
+  /// EN YENİ ÜSTTE. Adres BİRİNCİL adrestir; yoksa null (ekran satırı adressiz çizer —
+  /// tezgâh satışının müşterisi de adresi de yoktur).
+  Future<List<TahsilatSatiri>> tahsilatDetaylari(
+    DateTime localDate, {
+    String? userId,
+    String? odemeTuru,
+  }) async {
+    var kayitlar = await _kasayaDokunanlar(localDate, userId);
+    if (odemeTuru != null) {
+      kayitlar = kayitlar.where((e) => e.paymentType == odemeTuru).toList();
+    }
+    if (kayitlar.isEmpty) return const [];
+
+    // Müşteri ve adres TOPLU okunur: satır başına sorgu açmak 60 teslimatlı bir günde
+    // 120 sorgu demekti ve gün sonu ekranı zaten `FutureBuilder` ile tek atış çalışıyor.
+    final musteriIdler = {
+      for (final e in kayitlar)
+        if (e.customerId != null) e.customerId!,
+    };
+    final musteriler = musteriIdler.isEmpty
+        ? const <Customer>[]
+        : await (db.select(db.customers)..where((t) => t.id.isIn(musteriIdler))).get();
+    final adresler = musteriIdler.isEmpty
+        ? const <CustomerAddressesData>[]
+        : await (db.select(db.customerAddresses)
+              ..where((t) => t.customerId.isIn(musteriIdler))
+              ..where((t) => t.deletedAt.isNull()))
+            .get();
+
+    final adMap = {for (final m in musteriler) m.id: m.name};
+    final adresMap = <String, String>{};
+    for (final a in adresler) {
+      // Birincil adres kazanır; yoksa ilk görülen kalır (müşterinin tek adresi olabilir).
+      if (a.isPrimary || !adresMap.containsKey(a.customerId)) {
+        adresMap[a.customerId] = a.addressText;
+      }
+    }
+
+    final satirlar = [
+      for (final e in kayitlar)
+        TahsilatSatiri(
+          musteriAd: e.customerId == null
+              ? 'Tezgâh satışı'
+              : (adMap[e.customerId] ?? 'Müşteri'),
+          adres: e.customerId == null ? null : adresMap[e.customerId],
+          kurus: -e.amountKurus, // kartla AYNI işaret kuralı: kasaya giren pozitiftir
+          odemeTuru: e.paymentType ?? '',
+          occurredAt: e.occurredAt,
+          orderId: e.relatedOrderId,
+        ),
+    ];
+    satirlar.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+    return satirlar;
   }
 
   /// Gün içinde yazılan İSKONTO toplamı (POZİTİF kuruş; iskonto yoksa 0).
@@ -245,6 +324,38 @@ class DayEndRepository {
       ..sort((a, b) => b.bakiyeKurus.compareTo(a.bakiyeKurus));
     return sonuc;
   }
+}
+
+/// Günün TEK bir tahsilat satırı — gün özetindeki detay listesinin ve ödeme türü
+/// dökümünün ortak satır tipi (kullanıcı isteği 2026-08-11).
+///
+/// SİPARİŞ DEĞİL TAHSİLAT taşır ve ayrım önemlidir: kartın rakamı defterden (`ledger_entries`)
+/// gelir, siparişten değil. Veresiye teslim edilen bir sipariş o gün kasaya HİÇ girmez ve bu
+/// listede görünmemelidir — göründüğü an liste toplamı kasa kartını aşar ve iki rakam
+/// birbirini yalanlar.
+class TahsilatSatiri {
+  const TahsilatSatiri({
+    required this.musteriAd,
+    required this.kurus,
+    required this.odemeTuru,
+    required this.occurredAt,
+    this.adres,
+    this.orderId,
+  });
+
+  final String musteriAd;
+
+  /// Müşterinin birincil adresi; tezgâh satışında ve adresi olmayan müşteride null.
+  final String? adres;
+
+  /// Kasaya GİREN tutar (ters kayıtta negatif) — kasa kartıyla aynı işaret kuralı.
+  final int kurus;
+
+  /// `nakit` · `kart` · `havale`.
+  final String odemeTuru;
+
+  final String occurredAt;
+  final String? orderId;
 }
 
 /// Gün sonu kasa özeti (kuruş). Salt-okunur değer nesnesi.

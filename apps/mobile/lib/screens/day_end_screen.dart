@@ -128,9 +128,18 @@ class _DayEndScreenState extends State<DayEndScreen> {
   String _kapsamAdi(List<User> kuryeler) =>
       _kuryeId == null ? 'Gün hesabı' : (kullaniciAdi(kuryeler, _kuryeId) ?? 'Kurye');
 
+  bool get _kurye => widget.rol == 'kurye';
+
+  /// Kurye ama KİMLİĞİ YOK — kapsam çözülemez.
+  ///
+  /// Bu hâlde ekran gün hesabına DÜŞMEZ, hiçbir rakam göstermez. Düşseydi kimliği çözülemeyen
+  /// bir kurye bütün dükkânın kasasını görürdü; yani kapsam belirsizliği sessizce bir yetki
+  /// genişlemesine dönüşürdü. Belirsizlikte AÇILAN değil KAPANAN taraf seçilir.
+  bool get _kapsamsizKurye => _kurye && widget.kullaniciId == null;
+
   /// Segmentte listelenecek kuryeler. Kurye YALNIZ kendini görür: başka kuryenin kasasını
   /// okumak onun işi değil (K2), ve göremediği kapsamı kapatması da mümkün olmaz.
-  List<User> _gorunurKuryeler(List<User> kuryeler) => widget.rol == 'kurye'
+  List<User> _gorunurKuryeler(List<User> kuryeler) => _kurye
       ? kuryeler.where((k) => k.id == widget.kullaniciId).toList()
       : kuryeler;
 
@@ -143,16 +152,15 @@ class _DayEndScreenState extends State<DayEndScreen> {
   /// Geçmiş gün arşivini görebilir mi (`gecmisHesapArsivi` — yalnız yönetici).
   bool get _gecmisiGorebilir => _yetki.gecmisHesapArsivi;
 
-  bool get _kapatabilir {
-    // ⚠️ 2026-08-09 DÜZELTMESİ: burada eskiden `gunSonu` okunuyordu. `gunSonu` "gün özetini
-    // GÖRME" yetkisidir ve kuryede AÇIK olabilir (`courier_can_day_end`); dolayısıyla o izni
-    // verilen kurye GÜN hesabını —yani bütün dükkânın kasasını— kapatabiliyordu. Doğru yetki
-    // `gunuKapatma`dır ve o yalnız yöneticidedir.
-    if (_yetki.gunuKapatma) return true;
-    // Kurye YALNIZ kendi kurye kapsamını devreder (kullanıcı kararı 2026-08-09; BRIEF:
-    // "gün sonunda kurye kasayı patrona devreder"). Gün hesabı ve başkasının kapsamı kapalı.
-    return _kuryeId != null && _kuryeId == widget.kullaniciId;
-  }
+  /// KAPATMA YALNIZ YÖNETİCİDEDİR (kullanıcı kararı 2026-08-11: "kurye hesap kapatamaz,
+  /// sadece kendi hesabının detaylarını görür").
+  ///
+  /// ÖNCEKİ KARARIN TERSİ ve bilinçli: 2026-08-09'da kurye KENDİ kapsamını kapatabiliyordu
+  /// ("kendi kasasının kanıtı odur"). Kapanış geri alınamaz bir mutabakattır ve arşive donar;
+  /// yanlış sayımla kapatan kuryenin bıraktığı farkı ertesi gün patron çözemez. Devir yolu
+  /// KAPANMADI: ara tahsilat (gün içinde nakit teslimi) kuryede DURUYOR — kaldırılsaydı
+  /// kurye cebindeki parayı sisteme hiç işleyemezdi. Kapatan taraf artık patrondur.
+  bool get _kapatabilir => _yetki.gunuKapatma;
 
   /// Seçili kapsamdan ARA TAHSİLAT alma yetkisi (K2) — [_kapatabilir]in kardeşi, ama üç ek koşul:
   ///  • Kapsam bir KURYE olmalı: ara tahsilat kuryenin cebindeki nakdi almaktır, "gün hesabından"
@@ -385,21 +393,32 @@ class _DayEndScreenState extends State<DayEndScreen> {
           builder: (context, kuryeSnap) {
             final kuryeler = kuryeSnap.data ?? const <User>[];
             final gorunur = _gorunurKuryeler(kuryeler);
-            final secenekler = ['Tümü', for (final k in gorunur) k.name];
 
-            // Seçili kapsam segmentte YOKSA (team bloğu henüz inmemiş, kurye kendi aynasında
-            // görünmüyor) seçenek olarak EKLENİR. Aksi hâlde şerit "Tümü"yü işaretlerken
-            // gövde kurye kapsamını gösteriyor, yani iki bileşen farklı şey söylüyordu.
-            var seciliDizin = 0;
-            if (_kuryeId != null) {
-              final i = gorunur.indexWhere((k) => k.id == _kuryeId);
-              if (i >= 0) {
-                seciliDizin = i + 1;
-              } else {
-                secenekler.add(_kapsamAdi(kuryeler));
-                seciliDizin = secenekler.length - 1;
-              }
+            // KAPSAM SEÇENEKLERİ (id, etiket) çiftidir; `null` id = gün hesabı ("Tümü").
+            //
+            // "TÜMÜ" KURYEDE YOKTUR (kullanıcı isteği 2026-08-11: "tümü kısmına gerek yok,
+            // kendi hesabını görse yeterli"). Eskiden kurye "Tümü"yü okuyabiliyordu ve bu,
+            // bütün dükkânın kasasını kuryeye açıyordu — şikâyetin kendisi buydu. Seçenek
+            // listesini role göre kurmak, kapıyı TEK yerde tutar: aşağıdaki `onSec` artık
+            // kuryeye gün hesabını verebilecek bir dizin bile üretemez.
+            final kapsamlar = <({String? id, String etiket})>[
+              if (_kurye) ...[
+                for (final k in gorunur) (id: k.id, etiket: k.name),
+              ] else ...[
+                (id: null, etiket: 'Tümü'),
+                for (final k in gorunur) (id: k.id, etiket: k.name),
+              ],
+            ];
+
+            // Seçili kapsam listede YOKSA (team bloğu henüz inmemiş, kurye kendi aynasında
+            // görünmüyor) seçenek olarak EKLENİR. Aksi hâlde şerit bir kapsamı işaretlerken
+            // gövde başkasını gösteriyor, yani iki bileşen farklı şey söylüyordu.
+            var seciliDizin = kapsamlar.indexWhere((k) => k.id == _kuryeId);
+            if (seciliDizin < 0) {
+              kapsamlar.add((id: _kuryeId, etiket: _kapsamAdi(kuryeler)));
+              seciliDizin = kapsamlar.length - 1;
             }
+            final secenekler = [for (final k in kapsamlar) k.etiket];
 
             return FutureBuilder<GunSonuGorunumu>(
               future: _gorunum,
@@ -442,35 +461,54 @@ class _DayEndScreenState extends State<DayEndScreen> {
                           ),
                       ],
                     ),
-                    // Kapsam segmenti HER ZAMAN çizilir — tek kurye (ya da hiç kurye) varken de
-                    // "Tümü" görünür (tasarım `s-gunsonu.jsx:37-41` şeridi koşulsuzdur). Segment
-                    // gizlenince kurye kapsamının varlığı keşfedilemez oluyordu.
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                          SipSpace.govde, 0, SipSpace.govde, SipSpace.xl),
-                      child: SipSegment(
-                        secenekler: secenekler,
-                        secili: seciliDizin,
-                        // Son seçenek "çözülemeyen kapsam" olabilir (yukarıdaki dal): ona
-                        // dokunmak kapsamı DEĞİŞTİRMEZ, zaten seçili olandır.
-                        onSec: (i) => _kapsamSec(i == 0
-                            ? null
-                            : (i - 1 < gorunur.length ? gorunur[i - 1].id : _kuryeId)),
+                    // Kapsam segmenti YÖNETİCİDE her zaman çizilir (tek kurye ya da hiç kurye
+                    // varken de "Tümü" görünür — tasarım `s-gunsonu.jsx:37-41` koşulsuzdur).
+                    //
+                    // KURYEDE TEK SEÇENEK KALINCA HİÇ ÇİZİLMEZ: seçilecek bir şey olmayan bir
+                    // segment, dokunulunca hiçbir şey değiştirmeyen ölü bir kontroldür ve
+                    // kuryeye "başka kapsamlar da var ama sana kapalı" izlenimi verirdi.
+                    //
+                    // KOŞUL YÖNETİCİYİ KAPSAMAZ (regresyon dersi): yalnız `secenekler.length`e
+                    // bakan bir kapı, hiç kuryesi olmayan bayide YÖNETİCİNİN segmentini de
+                    // gizliyordu — oysa tasarım onu koşulsuz çizer ve "Tümü"nün varlığı orada
+                    // bilgidir. Kapı role bağlıdır, seçenek sayısına değil.
+                    if (!_kurye || secenekler.length > 1)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                            SipSpace.govde, 0, SipSpace.govde, SipSpace.xl),
+                        child: SipSegment(
+                          secenekler: secenekler,
+                          secili: seciliDizin,
+                          onSec: (i) => _kapsamSec(kapsamlar[i].id),
+                        ),
                       ),
-                    ),
                     Expanded(
-                      child: g == null
-                          ? const SipGovde(children: [SipIskelet(adet: 3)])
-                          : GunOzetiGovdesi(
+                      child: _kapsamsizKurye
+                          ? const SipGovde(children: [
+                              SipBosDurum(
+                                ikon: SipIcons.wallet,
+                                baslik: 'Hesabınız çözülemedi',
+                                aciklama: 'Oturum bilgisi eksik olduğu için kendi gün '
+                                    'özetiniz getirilemiyor. Çıkış yapıp yeniden girin.',
+                              ),
+                            ])
+                          : g == null
+                              ? const SipGovde(children: [SipIskelet(adet: 3)])
+                              : GunOzetiGovdesi(
+                              db: widget.db,
                               gorunum: g,
                               kapsamAdi: _kapsamAdi(kuryeler),
                               gunKapsami: _kuryeId == null,
+                              kuryeId: _kuryeId,
                               ekip: kuryeler,
                               bugun: _bugun,
                               onYenile: _yenile,
                             ),
                     ),
-                    if (g != null)
+                    // ALT ÇUBUK DA KAPSAMSIZ KURYEDE ÇİZİLMEZ: gövdeyi gizleyip çubuğu
+                    // bırakmak, gün toplamını (`kapsam.kasa.toplam`) tam da gizlemeye
+                    // çalıştığımız yerden sızdırırdı.
+                    if (g != null && !_kapsamsizKurye)
                       GunOzetiAltCubugu(
                         kapsamKapali: g.kapsamKapali,
                         gunKapali: g.gunKapali,

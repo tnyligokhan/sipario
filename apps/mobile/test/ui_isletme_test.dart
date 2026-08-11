@@ -237,7 +237,11 @@ void main() {
 
     // Ayrı kasa devri ekranı kaldırılınca çekmecenin "Kasa Devri" satırı bu ekrana bağlandı:
     // ekran artık KURYE trafiği alıyor, dolayısıyla rol kapısı ve kapsam ön seçimi BURADA.
-    testWidgets('kurye kendi kapsamında açılır ve kendi hesabını kapatabilir', (tester) async {
+    testWidgets('kurye kendi kapsamında açılır ve hesabını KAPATAMAZ', (tester) async {
+      // DAVRANIŞ 2026-08-11'DE TERSİNE ÇEVRİLDİ (kullanıcı kararı): kurye eskiden kendi
+      // kapsamını kapatabiliyordu ("kendi kasasının kanıtı odur"). Kapanış geri alınamaz bir
+      // mutabakattır ve arşive donar; yanlış sayımla kapatan kuryenin bıraktığı farkı ertesi
+      // gün patron çözemez. Kapatan taraf artık yalnız yöneticidir.
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await kuryeEkle(db, id: 'k1', ad: 'Emre');
@@ -257,31 +261,36 @@ void main() {
           reason: 'açık veresiye dökümü yalnız gün kapsamında çizilir');
 
       final dugme = tester.widget<SipButon>(find.widgetWithText(SipButon, 'Hesabı Kapat'));
-      expect(dugme.onTap, isNotNull, reason: 'kurye kendi kasasının kanıtıdır — kapatabilir');
+      expect(dugme.onTap, isNull, reason: 'kapatma yalnız yöneticidedir (2026-08-11)');
+      expect(
+        find.text('Hesabı yönetici kapatır. Siz günlük tahsilat ve teslimat dökümünüzü '
+            'görebilirsiniz.'),
+        findsOneWidget,
+        reason: 'sessizce devre dışı bir düğme sebebini söylemeli',
+      );
 
       await kapat(tester);
     });
 
-    testWidgets('kurye "Tümü" kapsamına geçse bile GÜNÜ kapatamaz', (tester) async {
+    testWidgets('kurye segmentte "Tümü"yü HİÇ göremez — gün hesabı ona kapalıdır',
+        (tester) async {
+      // Şikâyetin kendisi buydu (kullanıcı 2026-08-11): "kurye genel raporu görüyor".
+      // "Tümü" seçeneği kuryede artık ÜRETİLMİYOR; tek kapsamı kaldığı için segment de
+      // çizilmiyor (dokunulunca hiçbir şey değiştirmeyen ölü kontrol sunulmaz).
       final db = AppDatabase(NativeDatabase.memory());
-      await tester.runAsync(() => kuryeEkle(db, id: 'k1', ad: 'Emre'));
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await kuryeEkle(db, id: 'k2', ad: 'Ali');
+      });
 
       await ekranaKoy(
         tester,
         DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'),
       );
 
-      await tester.tap(find.text('Tümü'));
-      await akislariBekle(tester);
-
-      // Sessizce devre dışı bir düğme kullanıcıya hiçbir şey söylemiyordu: neden yazılı olmalı.
-      expect(
-        find.text(
-            'Bu hesabı yönetici kapatır; siz yalnız kendi kurye hesabınızı kapatabilirsiniz.'),
-        findsOneWidget,
-      );
-      final dugme = tester.widget<SipButon>(find.widgetWithText(SipButon, 'Günü Kapat'));
-      expect(dugme.onTap, isNull, reason: 'gün hesabı yönetici işidir (K2)');
+      expect(find.text('Tümü'), findsNothing, reason: 'gün hesabı kuryeye kapalı');
+      expect(find.byType(SipSegment), findsNothing, reason: 'tek kapsamda segment çizilmez');
+      expect(find.text('Kasa Özeti · Emre'), findsOneWidget);
 
       await kapat(tester);
     });

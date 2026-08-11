@@ -49,18 +49,30 @@ void main() {
     );
   }
 
+  /// KURYE KAPSAMININ kapanış sheet'ini açar — ama PATRON olarak.
+  ///
+  /// 2026-08-11'de kurye kendi hesabını kapatma yetkisini kaybetti (kullanıcı kararı); bu
+  /// testlerin konusu olan tazelik şeridi ise kapsamın kendisine aittir, kapatan kişiye değil.
+  /// Bu yüzden testler kaldırılmadı, aynı kapsam YÖNETİCİ yolundan sürülüyor: iddia ("kurye
+  /// kapsamı kapatılırken şerit ne der") olduğu gibi duruyor.
+  Future<void> kuryeKapanisiAc(WidgetTester tester, AppDatabase db) async {
+    await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+    await dokun(tester, find.text('Emre')); // kapsam segmenti: Tümü · Emre
+    await dokun(tester, find.text('Hesabı Kapat'));
+    await sheetAnimasyonu(tester);
+  }
+
   group('Kurye kapanışı', () {
     testWidgets('BAYAT: uyarı çıkar ama kapatma ENGELLENMEZ', (tester) async {
       // Kritik olan ikinci yarısı: bodrumdaki kuryeyi kasa kapatamaz hâle getiremeyiz.
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'p1', ad: 'Patron', rol: 'patron');
         await kuryeEkle(db, id: 'k1', ad: 'Emre');
         await temasYaz(db, 45); // eşik 10 dk
       });
 
-      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'));
-      await dokun(tester, find.text('Hesabı Kapat'));
-      await sheetAnimasyonu(tester);
+      await kuryeKapanisiAc(tester, db);
 
       expect(find.textContaining('Sunucuya son ulaşma: 45 dk önce'), findsOneWidget);
       expect(find.textContaining('henüz inmemiş olabilir'), findsOneWidget);
@@ -84,13 +96,12 @@ void main() {
     testWidgets('TAZE: sessiz bilgi satırı, uyarı cümlesi yok', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'p1', ad: 'Patron', rol: 'patron');
         await kuryeEkle(db, id: 'k1', ad: 'Emre');
         await temasYaz(db, 2);
       });
 
-      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'));
-      await dokun(tester, find.text('Hesabı Kapat'));
-      await sheetAnimasyonu(tester);
+      await kuryeKapanisiAc(tester, db);
 
       expect(find.textContaining('Sunucuya son ulaşma: 2 dk önce'), findsOneWidget);
       expect(find.textContaining('henüz inmemiş olabilir'), findsNothing,
@@ -103,12 +114,11 @@ void main() {
       // Bilinmezlik tazelik değildir; ama "0 dk önce" demek de bilmediğimizi bildiğimiz sanmaktır.
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'p1', ad: 'Patron', rol: 'patron');
         await kuryeEkle(db, id: 'k1', ad: 'Emre');
       });
 
-      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'));
-      await dokun(tester, find.text('Hesabı Kapat'));
-      await sheetAnimasyonu(tester);
+      await kuryeKapanisiAc(tester, db);
 
       expect(find.textContaining('sunucuya hiç ulaşmadı'), findsOneWidget);
       expect(find.textContaining('0 dk önce'), findsNothing);

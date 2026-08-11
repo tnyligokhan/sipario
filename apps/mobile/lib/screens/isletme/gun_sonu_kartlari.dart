@@ -256,8 +256,12 @@ class KapatmaEngeli extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // METİN 2026-08-11'DE DEĞİŞTİ. Eskisi "siz yalnız kendi kurye hesabınızı kapatabilirsiniz"
+    // diyordu ve o cümle artık YANLIŞ: kurye hiçbir hesabı kapatamıyor (kullanıcı kararı).
+    // Yanlış kalsaydı ekran kuryeye var olmayan bir yol tarif eder, kurye onu arar ve
+    // bulamayınca uygulamanın bozuk olduğunu düşünürdü.
     final metin = rolEngeli
-        ? 'Bu hesabı yönetici kapatır; siz yalnız kendi kurye hesabınızı kapatabilirsiniz.'
+        ? 'Hesabı yönetici kapatır. Siz günlük tahsilat ve teslimat dökümünüzü görebilirsiniz.'
         : acikSiparis > 0
             ? 'Önce açık siparişleri kapatın: $acikSiparis açık sipariş var.'
             : 'Önce açık kurye hesaplarını kapatın: ${acikKuryeler.join(', ')}';

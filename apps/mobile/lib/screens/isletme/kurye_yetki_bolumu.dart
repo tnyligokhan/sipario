@@ -134,7 +134,12 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
     anahtar: 'gun_sonu',
     kategori: 'Gün Sonu & Devir',
     etiket: 'Gün sonu özetini görebilir',
-    aciklama: 'Tüm işletmenin günlük ciro/kasa özetini görür. Kapalıyken yalnız kendi devrini görebilir.',
+    // METİN 2026-08-11'DE GERÇEĞE ÇEKİLDİ: eskiden "Tüm işletmenin günlük ciro/kasa özetini
+    // görür" yazıyordu ve bu artık DOĞRU DEĞİL — kurye gün hesabını ("Tümü") hiçbir yetkiyle
+    // göremiyor, yalnız kendi kapsamını görüyor. Yetki metni ekranın ne yaptığını söylemezse
+    // bayi kapattığı şeyin ne olduğunu bilemez.
+    aciklama: 'Kendi günlük tahsilat özetini ve teslimat dökümünü görür. İşletmenin geneli '
+        'kuryeye hiçbir hâlde açılmaz; hesabı yalnız yönetici kapatır.',
     oku: _gunSonuOku,
     yaz: _gunSonuYaz,
     ezmeOku: _gunSonuEzmeOku,

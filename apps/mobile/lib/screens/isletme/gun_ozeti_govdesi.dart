@@ -19,18 +19,28 @@ import '../team.dart';
 import 'gun_kapatma_sheet.dart';
 import 'gun_sonu_kartlari.dart';
 import 'gun_sonu_ozet.dart';
+import 'gun_tahsilat_detay.dart';
 import 'isletme_atomlari.dart';
 
 class GunOzetiGovdesi extends StatelessWidget {
   const GunOzetiGovdesi({
     super.key,
+    required this.db,
     required this.gorunum,
     required this.kapsamAdi,
     required this.gunKapsami,
     required this.ekip,
     required this.bugun,
     required this.onYenile,
+    this.kuryeId,
   });
+
+  /// Tahsilat dökümü kendi sorgusunu koşar (özet `FutureBuilder`ından gelmez): döküm yalnız
+  /// açıldığında ve yalnız istenen türde okunur.
+  final AppDatabase db;
+
+  /// Seçili kapsamın kurye kimliği; `null` = gün hesabı.
+  final String? kuryeId;
 
   final Future<void> Function() onYenile;
   final GunSonuGorunumu gorunum;
@@ -48,6 +58,18 @@ class GunOzetiGovdesi extends StatelessWidget {
 
   String _kapanisAdi(DayClosing k) =>
       k.userId == null ? 'Gün hesabı' : (kullaniciAdi(ekip, k.userId) ?? 'Kurye');
+
+  /// Ödeme türü dökümünü açar. Kapsam ekranınkiyle AYNI ([kuryeId]) — kurye kendi kapsamı
+  /// dışındaki bir tahsilatı buradan da göremez; sheet ikinci bir kapı değil, aynı kapsamın
+  /// devamıdır.
+  void _turDetayi(BuildContext context, String tur) => tahsilatTuruSheetAc(
+        context,
+        db: db,
+        gun: bugun,
+        odemeTuru: tur,
+        kuryeId: kuryeId,
+        kapsamAdi: gunKapsami ? null : kapsamAdi,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -72,11 +94,27 @@ class GunOzetiGovdesi extends StatelessWidget {
           gunKapsami ? 'Kasa Özeti' : 'Kasa Özeti · $kapsamAdi',
           ustBosluk: 18,
         ),
+        // ÖDEME TÜRÜ SATIRLARI DOKUNULABİLİR (kullanıcı isteği 2026-08-11): "havalelere
+        // tıklayınca o günkü havale siparişlerin detayları açılacak". Açılan döküm kasa
+        // kartıyla AYNI süzgeçten geçer (`DayEndRepository._kasayaDokunanlar`), yani listenin
+        // toplamı buradaki rakama eşittir — iki yerde iki ayrı para gösterilmez.
         DegerKarti(
           satirlar: [
-            DegerSatiri(etiket: 'Nakit', deger: sipTutar(kasa.nakit)),
-            DegerSatiri(etiket: 'Kart', deger: sipTutar(kasa.kart)),
-            DegerSatiri(etiket: 'Havale', deger: sipTutar(kasa.havale)),
+            DegerSatiri(
+              etiket: 'Nakit',
+              deger: sipTutar(kasa.nakit),
+              onTap: () => _turDetayi(context, 'nakit'),
+            ),
+            DegerSatiri(
+              etiket: 'Kart',
+              deger: sipTutar(kasa.kart),
+              onTap: () => _turDetayi(context, 'kart'),
+            ),
+            DegerSatiri(
+              etiket: 'Havale',
+              deger: sipTutar(kasa.havale),
+              onTap: () => _turDetayi(context, 'havale'),
+            ),
             DegerSatiri(
               etiket: 'Toplam Tahsilat · ${g.kapsam.teslimat} teslimat',
               deger: sipTutar(kasa.toplam),
@@ -112,6 +150,11 @@ class GunOzetiGovdesi extends StatelessWidget {
           const SipBolumBaslik('Açık Veresiye', ustBosluk: 18),
           VeresiyeKarti(borc: g.ozet.borc),
         ],
+
+        // GÜNÜN TESLİMATLARI — aç/kapa anahtarlı detaylı döküm (kullanıcı isteği 2026-08-11).
+        // Kapanışların ÜSTÜNDE durur: kapanış bir SONUÇTUR, döküm ise o sonucu üreten
+        // kayıtlardır; bayi önce parayı, sonra mutabakatı okur.
+        GunTeslimatlariBolumu(db: db, gun: bugun, kuryeId: kuryeId),
 
         // BUGÜNÜN kapanışları burada kalır (Geçmiş ekranı yalnız GEÇMİŞ günleri taşır).
         // Kaldırılsaydı, kuryesinin devrini az önce kapatan patron farkı ancak ERTESİ GÜN
