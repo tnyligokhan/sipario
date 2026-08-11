@@ -85,12 +85,41 @@ x-app-env: &app-env
   FILESYSTEM_DISK: ${FILESYSTEM_DISK:-local}
   BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
   # Posta
+  #
+  # ⚠️ BURADA OLMAYAN BİR ANAHTAR, PANELE YAZILSA BİLE CONTAINER'A GİTMEZ. Coolify'ın env
+  # değişkenleri bu dosyadaki `${...}` yerlerine DEĞER BASAR; hiçbir yerde geçmeyen bir anahtar
+  # yalnız panelde durur. ("Dosyada ne yazıyor" ile "container'a ne gidiyor" ayrı sorulardır —
+  # DECISIONS 2026-08-10/2'de bir kez ödendi.)
   MAIL_MAILER: ${MAIL_MAILER:-log}
   MAIL_HOST: ${MAIL_HOST:-}
   MAIL_PORT: ${MAIL_PORT:-587}
   MAIL_USERNAME: ${MAIL_USERNAME:-}
   MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-  MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
+  #
+  # `MAIL_ENCRYPTION` KALDIRILDI — ÖLÜ BİR DÜĞMEYDİ (2026-08-11, vendor kaynağından doğrulandı).
+  # Laravel'in bu sürümünde `MailManager::createSmtpTransport` şemayı YALNIZ PORTTAN türetiyor:
+  #     $scheme = $config['scheme'] ?? null;
+  #     if (! $scheme) { $scheme = ($config['port'] == 465) ? 'smtps' : 'smtp'; }
+  # ve `config/mail.php`in smtp bloğunda `encryption` diye bir anahtar HİÇ YOK. Yani panele
+  # `MAIL_ENCRYPTION=ssl` yazan biri, hiçbir şey yapmayan bir düğmeyi çevirmiş olur — üstelik
+  # yapılandırmayı TAMAMLANMIŞ sanır. Bu, arızadan daha kötüdür: yanlış bir "ayarlandı" hissi.
+  #
+  # Yerine GERÇEKTEN OKUNAN anahtar geçiriliyor. Boş bırakılırsa davranış bugünküyle aynı
+  # (port 465 → `smtps` örtük TLS, diğer portlar → `smtp` + STARTTLS). Yalnız sağlayıcı
+  # standart dışı bir port üzerinde örtük TLS istiyorsa `smtps` diye elle yazılır.
+  MAIL_SCHEME: ${MAIL_SCHEME:-}
+  #
+  # Tek satırlık DSN (`smtp://kullanici:parola@host:587`). Verilirse host/port/kullanıcı/parolayı
+  # EZER — bazı sağlayıcılar panelde bunu tek parça veriyor ve dört alana bölmek hata kaynağı.
+  MAIL_URL: ${MAIL_URL:-}
+  #
+  # SMTP `EHLO` adı. Verilmezse `APP_URL`in host'una düşer (Laravel varsayılanı). Bazı sağlayıcılar
+  # EHLO adı çözülemeyen istemciyi reddeder — o hâlde alan adı elle yazılır.
+  MAIL_EHLO_DOMAIN: ${MAIL_EHLO_DOMAIN:-}
+  #
+  # ⚠️ SAĞLAYICILARIN EN SIK REDDETME SEBEBİ: gönderen adres, kimlik doğrulanan hesapla
+  # UYUŞMUYOR. Varsayılan `noreply@sipario.com.tr`dir; SMTP hesabı başka bir adresse
+  # (Gmail/Yandex/Zoho kutusu gibi) bu değer o adrese ÇEKİLMELİ, yoksa sunucu 550/553 döner.
   MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@sipario.com.tr}
   MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Sipario}
   # Coğrafi kodlama
