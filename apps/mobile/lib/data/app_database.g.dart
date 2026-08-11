@@ -57,6 +57,17 @@ class $CustomersTable extends Customers
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _favoriteProductIdsMeta =
+      const VerificationMeta('favoriteProductIds');
+  @override
+  late final GeneratedColumn<String> favoriteProductIds =
+      GeneratedColumn<String>(
+        'favorite_product_ids',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _blacklistedAtMeta = const VerificationMeta(
     'blacklistedAt',
   );
@@ -109,6 +120,7 @@ class $CustomersTable extends Customers
     note,
     code,
     balanceKurus,
+    favoriteProductIds,
     blacklistedAt,
     updatedOccurredAt,
     updatedDeviceId,
@@ -157,6 +169,15 @@ class $CustomersTable extends Customers
         balanceKurus.isAcceptableOrUnknown(
           data['balance_kurus']!,
           _balanceKurusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('favorite_product_ids')) {
+      context.handle(
+        _favoriteProductIdsMeta,
+        favoriteProductIds.isAcceptableOrUnknown(
+          data['favorite_product_ids']!,
+          _favoriteProductIdsMeta,
         ),
       );
     }
@@ -224,6 +245,10 @@ class $CustomersTable extends Customers
         DriftSqlType.int,
         data['${effectivePrefix}balance_kurus'],
       )!,
+      favoriteProductIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}favorite_product_ids'],
+      ),
       blacklistedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}blacklisted_at'],
@@ -266,6 +291,20 @@ class Customer extends DataClass implements Insertable<Customer> {
   /// OKUMA-MODELİ ÖNBELLEĞİ (DECISIONS: kaynak defterdir). Native arayan-tanıma bunu tek satır okur.
   final int balanceKurus;
 
+  /// FAVORİ ÜRÜNLER — bu müşterinin "her zamanki" ürünleri (kullanıcı isteği 2026-08-11).
+  /// İçerik JSON DİZİDİR: `["urun-1","urun-2"]`. null/boş = favori yok.
+  ///
+  /// NEDEN AYRI TABLO DEĞİL (karar verildi): müşteri satırı zaten LWW ile senkronlanıyor ve
+  /// favori listesi tam olarak "bu müşterinin bir alanı"dır — iki cihaz farklı liste yazarsa
+  /// çözüm LWW'nin kendisidir. Ayrı bir senkron varlığı (yeni entity_type, yeni tombstone,
+  /// yeni çakışma kuralı, yeni pull dalı) bu bayi ölçeğinde taşınmayacak bir maliyettir.
+  ///
+  /// SIRA BAYİNİN TERCİHİDİR ve korunur (küme değil, DİZİ): bayi en çok sattığını başa alır.
+  /// Çözümleme TEK yerdedir (`customer_repository.dart::favoriIdleriCoz`) ve bozuk/eski metinde
+  /// çökmez, boş listeye düşer — sahadaki bir cihazda elle bozulmuş bir alan, müşteri ekranının
+  /// tamamını açılmaz yapamaz.
+  final String? favoriteProductIds;
+
   /// KARA LİSTE damgası (null = kara listede değil) — v12.
   ///
   /// `deletedAt` İLE KARIŞTIRILMAMALI, ikisi ayrı karardır: silinen müşteri listeden DÜŞER,
@@ -282,6 +321,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     this.note,
     this.code,
     required this.balanceKurus,
+    this.favoriteProductIds,
     this.blacklistedAt,
     required this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -299,6 +339,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       map['code'] = Variable<int>(code);
     }
     map['balance_kurus'] = Variable<int>(balanceKurus);
+    if (!nullToAbsent || favoriteProductIds != null) {
+      map['favorite_product_ids'] = Variable<String>(favoriteProductIds);
+    }
     if (!nullToAbsent || blacklistedAt != null) {
       map['blacklisted_at'] = Variable<String>(blacklistedAt);
     }
@@ -319,6 +362,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       code: code == null && nullToAbsent ? const Value.absent() : Value(code),
       balanceKurus: Value(balanceKurus),
+      favoriteProductIds: favoriteProductIds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(favoriteProductIds),
       blacklistedAt: blacklistedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(blacklistedAt),
@@ -343,6 +389,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       note: serializer.fromJson<String?>(json['note']),
       code: serializer.fromJson<int?>(json['code']),
       balanceKurus: serializer.fromJson<int>(json['balanceKurus']),
+      favoriteProductIds: serializer.fromJson<String?>(
+        json['favoriteProductIds'],
+      ),
       blacklistedAt: serializer.fromJson<String?>(json['blacklistedAt']),
       updatedOccurredAt: serializer.fromJson<String>(json['updatedOccurredAt']),
       updatedDeviceId: serializer.fromJson<String?>(json['updatedDeviceId']),
@@ -358,6 +407,7 @@ class Customer extends DataClass implements Insertable<Customer> {
       'note': serializer.toJson<String?>(note),
       'code': serializer.toJson<int?>(code),
       'balanceKurus': serializer.toJson<int>(balanceKurus),
+      'favoriteProductIds': serializer.toJson<String?>(favoriteProductIds),
       'blacklistedAt': serializer.toJson<String?>(blacklistedAt),
       'updatedOccurredAt': serializer.toJson<String>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -371,6 +421,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     Value<String?> note = const Value.absent(),
     Value<int?> code = const Value.absent(),
     int? balanceKurus,
+    Value<String?> favoriteProductIds = const Value.absent(),
     Value<String?> blacklistedAt = const Value.absent(),
     String? updatedOccurredAt,
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -381,6 +432,9 @@ class Customer extends DataClass implements Insertable<Customer> {
     note: note.present ? note.value : this.note,
     code: code.present ? code.value : this.code,
     balanceKurus: balanceKurus ?? this.balanceKurus,
+    favoriteProductIds: favoriteProductIds.present
+        ? favoriteProductIds.value
+        : this.favoriteProductIds,
     blacklistedAt: blacklistedAt.present
         ? blacklistedAt.value
         : this.blacklistedAt,
@@ -399,6 +453,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       balanceKurus: data.balanceKurus.present
           ? data.balanceKurus.value
           : this.balanceKurus,
+      favoriteProductIds: data.favoriteProductIds.present
+          ? data.favoriteProductIds.value
+          : this.favoriteProductIds,
       blacklistedAt: data.blacklistedAt.present
           ? data.blacklistedAt.value
           : this.blacklistedAt,
@@ -420,6 +477,7 @@ class Customer extends DataClass implements Insertable<Customer> {
           ..write('note: $note, ')
           ..write('code: $code, ')
           ..write('balanceKurus: $balanceKurus, ')
+          ..write('favoriteProductIds: $favoriteProductIds, ')
           ..write('blacklistedAt: $blacklistedAt, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -435,6 +493,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     note,
     code,
     balanceKurus,
+    favoriteProductIds,
     blacklistedAt,
     updatedOccurredAt,
     updatedDeviceId,
@@ -449,6 +508,7 @@ class Customer extends DataClass implements Insertable<Customer> {
           other.note == this.note &&
           other.code == this.code &&
           other.balanceKurus == this.balanceKurus &&
+          other.favoriteProductIds == this.favoriteProductIds &&
           other.blacklistedAt == this.blacklistedAt &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId &&
@@ -461,6 +521,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
   final Value<String?> note;
   final Value<int?> code;
   final Value<int> balanceKurus;
+  final Value<String?> favoriteProductIds;
   final Value<String?> blacklistedAt;
   final Value<String> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -472,6 +533,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     this.note = const Value.absent(),
     this.code = const Value.absent(),
     this.balanceKurus = const Value.absent(),
+    this.favoriteProductIds = const Value.absent(),
     this.blacklistedAt = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -484,6 +546,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     this.note = const Value.absent(),
     this.code = const Value.absent(),
     this.balanceKurus = const Value.absent(),
+    this.favoriteProductIds = const Value.absent(),
     this.blacklistedAt = const Value.absent(),
     required String updatedOccurredAt,
     this.updatedDeviceId = const Value.absent(),
@@ -498,6 +561,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     Expression<String>? note,
     Expression<int>? code,
     Expression<int>? balanceKurus,
+    Expression<String>? favoriteProductIds,
     Expression<String>? blacklistedAt,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -510,6 +574,8 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
       if (note != null) 'note': note,
       if (code != null) 'code': code,
       if (balanceKurus != null) 'balance_kurus': balanceKurus,
+      if (favoriteProductIds != null)
+        'favorite_product_ids': favoriteProductIds,
       if (blacklistedAt != null) 'blacklisted_at': blacklistedAt,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -524,6 +590,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     Value<String?>? note,
     Value<int?>? code,
     Value<int>? balanceKurus,
+    Value<String?>? favoriteProductIds,
     Value<String?>? blacklistedAt,
     Value<String>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -536,6 +603,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
       note: note ?? this.note,
       code: code ?? this.code,
       balanceKurus: balanceKurus ?? this.balanceKurus,
+      favoriteProductIds: favoriteProductIds ?? this.favoriteProductIds,
       blacklistedAt: blacklistedAt ?? this.blacklistedAt,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -561,6 +629,9 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     }
     if (balanceKurus.present) {
       map['balance_kurus'] = Variable<int>(balanceKurus.value);
+    }
+    if (favoriteProductIds.present) {
+      map['favorite_product_ids'] = Variable<String>(favoriteProductIds.value);
     }
     if (blacklistedAt.present) {
       map['blacklisted_at'] = Variable<String>(blacklistedAt.value);
@@ -588,6 +659,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
           ..write('note: $note, ')
           ..write('code: $code, ')
           ..write('balanceKurus: $balanceKurus, ')
+          ..write('favoriteProductIds: $favoriteProductIds, ')
           ..write('blacklistedAt: $blacklistedAt, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -3344,6 +3416,15 @@ class $OrderLinesTable extends OrderLines
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isCustomMeta = const VerificationMeta(
     'isCustom',
   );
@@ -3398,6 +3479,7 @@ class $OrderLinesTable extends OrderLines
     productName,
     unitPriceKurus,
     unit,
+    note,
     isCustom,
     qty,
     lineTotalKurus,
@@ -3460,6 +3542,12 @@ class $OrderLinesTable extends OrderLines
       context.handle(
         _unitMeta,
         unit.isAcceptableOrUnknown(data['unit']!, _unitMeta),
+      );
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
       );
     }
     if (data.containsKey('is_custom')) {
@@ -3526,6 +3614,10 @@ class $OrderLinesTable extends OrderLines
         DriftSqlType.string,
         data['${effectivePrefix}unit'],
       ),
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
       isCustom: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_custom'],
@@ -3563,6 +3655,14 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
   /// Birim de satırda saklanır (fiyat/ad ile aynı gerekçe: o anki gerçek).
   final String? unit;
 
+  /// SATIR NOTU (kullanıcı isteği 2026-08-11) — "buzlu olsun", "kapıya bırak", "faturalı".
+  ///
+  /// `Orders.note` İLE KARIŞTIRILMAMALI: o siparişin tamamına ait tek nottur ("zili çalma"),
+  /// bu ise TEK KALEME aittir. İkisini aynı alana yazmak, üç kalemlik bir siparişte hangi
+  /// kalemin notlu olduğunu kaybettirirdi — kurye kapıda yanlış ürünü teslim eder.
+  /// Satırda saklanır (ad/fiyat/birim ile aynı gerekçe: siparişin çekildiği andaki gerçek).
+  final String? note;
+
   /// "Serbest satır" (katalogda olmayan tek seferlik iş). AÇIK bayrak: productId'nin null olması
   /// yeterli ayırt edici değildir (silinmiş ürünün satırı da null olabilir).
   final bool isCustom;
@@ -3576,6 +3676,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     required this.productName,
     required this.unitPriceKurus,
     this.unit,
+    this.note,
     required this.isCustom,
     required this.qty,
     required this.lineTotalKurus,
@@ -3593,6 +3694,9 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     map['unit_price_kurus'] = Variable<int>(unitPriceKurus);
     if (!nullToAbsent || unit != null) {
       map['unit'] = Variable<String>(unit);
+    }
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
     }
     map['is_custom'] = Variable<bool>(isCustom);
     map['qty'] = Variable<int>(qty);
@@ -3613,6 +3717,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
       productName: Value(productName),
       unitPriceKurus: Value(unitPriceKurus),
       unit: unit == null && nullToAbsent ? const Value.absent() : Value(unit),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       isCustom: Value(isCustom),
       qty: Value(qty),
       lineTotalKurus: Value(lineTotalKurus),
@@ -3634,6 +3739,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
       productName: serializer.fromJson<String>(json['productName']),
       unitPriceKurus: serializer.fromJson<int>(json['unitPriceKurus']),
       unit: serializer.fromJson<String?>(json['unit']),
+      note: serializer.fromJson<String?>(json['note']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       qty: serializer.fromJson<int>(json['qty']),
       lineTotalKurus: serializer.fromJson<int>(json['lineTotalKurus']),
@@ -3650,6 +3756,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
       'productName': serializer.toJson<String>(productName),
       'unitPriceKurus': serializer.toJson<int>(unitPriceKurus),
       'unit': serializer.toJson<String?>(unit),
+      'note': serializer.toJson<String?>(note),
       'isCustom': serializer.toJson<bool>(isCustom),
       'qty': serializer.toJson<int>(qty),
       'lineTotalKurus': serializer.toJson<int>(lineTotalKurus),
@@ -3664,6 +3771,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     String? productName,
     int? unitPriceKurus,
     Value<String?> unit = const Value.absent(),
+    Value<String?> note = const Value.absent(),
     bool? isCustom,
     int? qty,
     int? lineTotalKurus,
@@ -3675,6 +3783,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     productName: productName ?? this.productName,
     unitPriceKurus: unitPriceKurus ?? this.unitPriceKurus,
     unit: unit.present ? unit.value : this.unit,
+    note: note.present ? note.value : this.note,
     isCustom: isCustom ?? this.isCustom,
     qty: qty ?? this.qty,
     lineTotalKurus: lineTotalKurus ?? this.lineTotalKurus,
@@ -3692,6 +3801,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           ? data.unitPriceKurus.value
           : this.unitPriceKurus,
       unit: data.unit.present ? data.unit.value : this.unit,
+      note: data.note.present ? data.note.value : this.note,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
       qty: data.qty.present ? data.qty.value : this.qty,
       lineTotalKurus: data.lineTotalKurus.present
@@ -3710,6 +3820,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           ..write('productName: $productName, ')
           ..write('unitPriceKurus: $unitPriceKurus, ')
           ..write('unit: $unit, ')
+          ..write('note: $note, ')
           ..write('isCustom: $isCustom, ')
           ..write('qty: $qty, ')
           ..write('lineTotalKurus: $lineTotalKurus, ')
@@ -3726,6 +3837,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     productName,
     unitPriceKurus,
     unit,
+    note,
     isCustom,
     qty,
     lineTotalKurus,
@@ -3741,6 +3853,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           other.productName == this.productName &&
           other.unitPriceKurus == this.unitPriceKurus &&
           other.unit == this.unit &&
+          other.note == this.note &&
           other.isCustom == this.isCustom &&
           other.qty == this.qty &&
           other.lineTotalKurus == this.lineTotalKurus &&
@@ -3754,6 +3867,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
   final Value<String> productName;
   final Value<int> unitPriceKurus;
   final Value<String?> unit;
+  final Value<String?> note;
   final Value<bool> isCustom;
   final Value<int> qty;
   final Value<int> lineTotalKurus;
@@ -3766,6 +3880,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     this.productName = const Value.absent(),
     this.unitPriceKurus = const Value.absent(),
     this.unit = const Value.absent(),
+    this.note = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.qty = const Value.absent(),
     this.lineTotalKurus = const Value.absent(),
@@ -3779,6 +3894,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     required String productName,
     required int unitPriceKurus,
     this.unit = const Value.absent(),
+    this.note = const Value.absent(),
     this.isCustom = const Value.absent(),
     required int qty,
     required int lineTotalKurus,
@@ -3797,6 +3913,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     Expression<String>? productName,
     Expression<int>? unitPriceKurus,
     Expression<String>? unit,
+    Expression<String>? note,
     Expression<bool>? isCustom,
     Expression<int>? qty,
     Expression<int>? lineTotalKurus,
@@ -3810,6 +3927,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
       if (productName != null) 'product_name': productName,
       if (unitPriceKurus != null) 'unit_price_kurus': unitPriceKurus,
       if (unit != null) 'unit': unit,
+      if (note != null) 'note': note,
       if (isCustom != null) 'is_custom': isCustom,
       if (qty != null) 'qty': qty,
       if (lineTotalKurus != null) 'line_total_kurus': lineTotalKurus,
@@ -3825,6 +3943,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     Value<String>? productName,
     Value<int>? unitPriceKurus,
     Value<String?>? unit,
+    Value<String?>? note,
     Value<bool>? isCustom,
     Value<int>? qty,
     Value<int>? lineTotalKurus,
@@ -3838,6 +3957,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
       productName: productName ?? this.productName,
       unitPriceKurus: unitPriceKurus ?? this.unitPriceKurus,
       unit: unit ?? this.unit,
+      note: note ?? this.note,
       isCustom: isCustom ?? this.isCustom,
       qty: qty ?? this.qty,
       lineTotalKurus: lineTotalKurus ?? this.lineTotalKurus,
@@ -3867,6 +3987,9 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     if (unit.present) {
       map['unit'] = Variable<String>(unit.value);
     }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
     if (isCustom.present) {
       map['is_custom'] = Variable<bool>(isCustom.value);
     }
@@ -3894,6 +4017,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
           ..write('productName: $productName, ')
           ..write('unitPriceKurus: $unitPriceKurus, ')
           ..write('unit: $unit, ')
+          ..write('note: $note, ')
           ..write('isCustom: $isCustom, ')
           ..write('qty: $qty, ')
           ..write('lineTotalKurus: $lineTotalKurus, ')
@@ -13015,6 +13139,7 @@ typedef $$CustomersTableCreateCompanionBuilder =
       Value<String?> note,
       Value<int?> code,
       Value<int> balanceKurus,
+      Value<String?> favoriteProductIds,
       Value<String?> blacklistedAt,
       required String updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -13028,6 +13153,7 @@ typedef $$CustomersTableUpdateCompanionBuilder =
       Value<String?> note,
       Value<int?> code,
       Value<int> balanceKurus,
+      Value<String?> favoriteProductIds,
       Value<String?> blacklistedAt,
       Value<String> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -13066,6 +13192,11 @@ class $$CustomersTableFilterComposer
 
   ColumnFilters<int> get balanceKurus => $composableBuilder(
     column: $table.balanceKurus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get favoriteProductIds => $composableBuilder(
+    column: $table.favoriteProductIds,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13124,6 +13255,11 @@ class $$CustomersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get favoriteProductIds => $composableBuilder(
+    column: $table.favoriteProductIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get blacklistedAt => $composableBuilder(
     column: $table.blacklistedAt,
     builder: (column) => ColumnOrderings(column),
@@ -13168,6 +13304,11 @@ class $$CustomersTableAnnotationComposer
 
   GeneratedColumn<int> get balanceKurus => $composableBuilder(
     column: $table.balanceKurus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get favoriteProductIds => $composableBuilder(
+    column: $table.favoriteProductIds,
     builder: (column) => column,
   );
 
@@ -13223,6 +13364,7 @@ class $$CustomersTableTableManager
                 Value<String?> note = const Value.absent(),
                 Value<int?> code = const Value.absent(),
                 Value<int> balanceKurus = const Value.absent(),
+                Value<String?> favoriteProductIds = const Value.absent(),
                 Value<String?> blacklistedAt = const Value.absent(),
                 Value<String> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -13234,6 +13376,7 @@ class $$CustomersTableTableManager
                 note: note,
                 code: code,
                 balanceKurus: balanceKurus,
+                favoriteProductIds: favoriteProductIds,
                 blacklistedAt: blacklistedAt,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -13247,6 +13390,7 @@ class $$CustomersTableTableManager
                 Value<String?> note = const Value.absent(),
                 Value<int?> code = const Value.absent(),
                 Value<int> balanceKurus = const Value.absent(),
+                Value<String?> favoriteProductIds = const Value.absent(),
                 Value<String?> blacklistedAt = const Value.absent(),
                 required String updatedOccurredAt,
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -13258,6 +13402,7 @@ class $$CustomersTableTableManager
                 note: note,
                 code: code,
                 balanceKurus: balanceKurus,
+                favoriteProductIds: favoriteProductIds,
                 blacklistedAt: blacklistedAt,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -14570,6 +14715,7 @@ typedef $$OrderLinesTableCreateCompanionBuilder =
       required String productName,
       required int unitPriceKurus,
       Value<String?> unit,
+      Value<String?> note,
       Value<bool> isCustom,
       required int qty,
       required int lineTotalKurus,
@@ -14584,6 +14730,7 @@ typedef $$OrderLinesTableUpdateCompanionBuilder =
       Value<String> productName,
       Value<int> unitPriceKurus,
       Value<String?> unit,
+      Value<String?> note,
       Value<bool> isCustom,
       Value<int> qty,
       Value<int> lineTotalKurus,
@@ -14627,6 +14774,11 @@ class $$OrderLinesTableFilterComposer
 
   ColumnFilters<String> get unit => $composableBuilder(
     column: $table.unit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14690,6 +14842,11 @@ class $$OrderLinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isCustom => $composableBuilder(
     column: $table.isCustom,
     builder: (column) => ColumnOrderings(column),
@@ -14741,6 +14898,9 @@ class $$OrderLinesTableAnnotationComposer
 
   GeneratedColumn<String> get unit =>
       $composableBuilder(column: $table.unit, builder: (column) => column);
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
 
   GeneratedColumn<bool> get isCustom =>
       $composableBuilder(column: $table.isCustom, builder: (column) => column);
@@ -14794,6 +14954,7 @@ class $$OrderLinesTableTableManager
                 Value<String> productName = const Value.absent(),
                 Value<int> unitPriceKurus = const Value.absent(),
                 Value<String?> unit = const Value.absent(),
+                Value<String?> note = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<int> qty = const Value.absent(),
                 Value<int> lineTotalKurus = const Value.absent(),
@@ -14806,6 +14967,7 @@ class $$OrderLinesTableTableManager
                 productName: productName,
                 unitPriceKurus: unitPriceKurus,
                 unit: unit,
+                note: note,
                 isCustom: isCustom,
                 qty: qty,
                 lineTotalKurus: lineTotalKurus,
@@ -14820,6 +14982,7 @@ class $$OrderLinesTableTableManager
                 required String productName,
                 required int unitPriceKurus,
                 Value<String?> unit = const Value.absent(),
+                Value<String?> note = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 required int qty,
                 required int lineTotalKurus,
@@ -14832,6 +14995,7 @@ class $$OrderLinesTableTableManager
                 productName: productName,
                 unitPriceKurus: unitPriceKurus,
                 unit: unit,
+                note: note,
                 isCustom: isCustom,
                 qty: qty,
                 lineTotalKurus: lineTotalKurus,

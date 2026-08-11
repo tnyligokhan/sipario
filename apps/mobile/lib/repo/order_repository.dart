@@ -8,6 +8,12 @@ import '../data/ids.dart';
 import '../data/outbox.dart';
 import 'ledger_ops.dart';
 
+// AÇIK SİPARİŞ SORGUSU BU DOSYADA DEĞİL: `screens/orders/order_queries.dart`
+// (`acikSiparisler` · `watchAcikSiparisler`). Bir ara ikisinde birden tanımlıydı; sipariş formu
+// bu iki dosyayı da import eder (biri `LineInput`, diğeri sorgular için) ve ortak ada dokunduğu
+// anda "ambiguous import" ile DERLENMEZDİ. Okuma sorguları sorgu katmanında durur — repo yazma
+// yolu içindir.
+
 class LineInput {
   LineInput({
     required this.productName,
@@ -15,6 +21,7 @@ class LineInput {
     required this.qty,
     this.productId,
     this.unit,
+    this.note,
     this.isCustom = false,
   });
   final String? productId;
@@ -25,6 +32,10 @@ class LineInput {
   /// Birim ("adet"/"koli"/"kg") satırda saklanır — fiyat/ad ile aynı gerekçe: o anki gerçek.
   /// Opsiyonel; mevcut çağrılar aynen çalışır.
   final String? unit;
+
+  /// SATIR NOTU ("buzlu olsun", "kapıya bırak") — siparişin NOTUYLA karıştırılmamalı: o
+  /// siparişin tamamına, bu TEK KALEME aittir. Opsiyonel; mevcut çağrılar aynen çalışır.
+  final String? note;
 
   /// "Serbest satır" (katalogda olmayan tek seferlik iş — tasarım bunları ayrı gösterir).
   /// productId'nin null olması yeterli ayırt edici değildir: silinmiş ürünün satırı da null olur.
@@ -66,6 +77,7 @@ class OrderRepository {
               productName: l.productName,
               unitPriceKurus: l.unitPriceKurus,
               unit: Value(l.unit),
+              note: Value(l.note),
               isCustom: Value(l.isCustom),
               qty: l.qty,
               lineTotalKurus: l.unitPriceKurus * l.qty,
@@ -222,6 +234,7 @@ class OrderRepository {
             productName: l.productName,
             unitPriceKurus: l.unitPriceKurus,
             unit: Value(l.unit),
+            note: Value(l.note),
             isCustom: Value(l.isCustom),
             qty: l.qty,
             lineTotalKurus: l.unitPriceKurus * l.qty,
@@ -303,12 +316,17 @@ class OrderRepository {
       _statusEvent(orderId, 'sort_set', {'order_id': orderId, 'sort_index': sortIndex},
           sortIndex: sortIndex, setSortFlag: true);
 
+  /// Sipariş satırı payload'ının TEK üretim noktası (`created` ve `line_added` aynı şekli
+  /// gönderir). Alan eklemeyi burada unutmak, satırın o alanını sunucuya HİÇ göndermemek
+  /// demektir — `note` v18'de tam olarak bu yüzden buraya, satır nesnesinin İÇİNE konur
+  /// (siparişin kök `note` alanı ayrı bir şeydir ve karıştırılırsa kurye yanlış ürünü teslim eder).
   static Map<String, Object?> _linePayload(String lineId, LineInput l) => {
         'id': lineId,
         'product_id': l.productId,
         'product_name': l.productName,
         'unit_price_kurus': l.unitPriceKurus,
         'unit': l.unit,
+        'note': l.note,
         'is_custom': l.isCustom,
         'qty': l.qty,
       };

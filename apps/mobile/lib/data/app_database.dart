@@ -50,7 +50,7 @@ class AppDatabase extends _$AppDatabase {
   /// yani `onCreate` yolundan geçer ve şema her zaman tamdır. 1109 yeşil testin hiçbiri
   /// YÜKSELTME yolundan geçmiyordu. Kusur yalnız "önceki sürümü kurulu olan cihazda" görünür.
   @override
-  int get schemaVersion => 17; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN · v14 IBAN alıcı adı + hatırlatma şablonu · v15 kurye yetki matrisi 13 kolonu (SÜRÜM ARTIŞI UNUTULMUŞTU) · v16 sync_meta.api_version (sunucu sözleşme sürümü önbelleği) · v17 users'a kişiye özel kurye yetkileri (13 NULLABLE kolon — null = bayi varsayılanını devral)
+  int get schemaVersion => 18; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN · v14 IBAN alıcı adı + hatırlatma şablonu · v15 kurye yetki matrisi 13 kolonu (SÜRÜM ARTIŞI UNUTULMUŞTU) · v16 sync_meta.api_version (sunucu sözleşme sürümü önbelleği) · v17 users'a kişiye özel kurye yetkileri (13 NULLABLE kolon — null = bayi varsayılanını devral) · v18 order_lines.note (satır notu) + customers.favorite_product_ids (JSON dizi)
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -199,6 +199,29 @@ class AppDatabase extends _$AppDatabase {
             ]) {
               await _addColumnIfMissing(m, 'ALTER TABLE users ADD COLUMN $kolon INTEGER');
             }
+          }
+
+          // v18 — SATIR NOTU + MÜŞTERİ FAVORİLERİ (2026-08-11).
+          //
+          // v10..v17 ile AYNI SEBEPTEN kapıdan ÖNCE ve `from < 18` KOŞULU OLMADAN: aşağıdaki
+          // kendini-onarma kapısı `tenant_settings`i görünce ERKEN DÖNER ve sahadaki her cihazda
+          // o tablo zaten vardır. Arıza yine SESSİZ olurdu ve iki ayrı biçimde ödenirdi:
+          //  • `order_lines.note` yoksa senkron gelen satır notunu yazacak kolonu bulamaz —
+          //    kurye kapıda "buzlu olsun" notunu HİÇ görmez, üstelik bayi onu yazdığını sanır;
+          //  • `customers.favorite_product_ids` yoksa `customers`e dokunan HER sorgu
+          //    "no such column" ile patlar (müşteri listesi, arayan tanıma, sipariş ekranı) —
+          //    2026-08-09'da harita ekranını açılmaz yapan arıza sınıfının aynısı.
+          //
+          // İkisi de NULLABLE, varsayılansız: eski satırlarda "not yok" / "favori yok" doğru
+          // başlangıçtır ve yükseltme öncesi davranışla birebir aynıdır.
+          //
+          // TABLO VARLIĞI ÖNCE SORULUR: v1 damgalı çok eski bir cihazda `order_lines` HENÜZ
+          // YOKTUR (`from < 2` dalı kurar) ve orada kolon güncel şemadan hazır gelir.
+          for (final (tablo, sql) in [
+            ('order_lines', 'ALTER TABLE order_lines ADD COLUMN note TEXT'),
+            ('customers', 'ALTER TABLE customers ADD COLUMN favorite_product_ids TEXT'),
+          ]) {
+            if (await _tabloVar(m, tablo)) await _addColumnIfMissing(m, sql);
           }
 
           // KENDİNİ ONARMA (2026-07-22 SAHA BULGUSU — iki gerçek cihazda yaşandı): Faz 0 ölçüm

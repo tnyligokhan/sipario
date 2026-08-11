@@ -29,6 +29,8 @@ import 'customer_ledger.dart';
 import 'customer_location_picker.dart';
 import 'customer_sheets.dart';
 import 'customer_widgets.dart';
+import 'musteri_favorileri.dart';
+import 'musteri_siparisleri.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
   const CustomerDetailScreen({
@@ -361,6 +363,26 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: SipSpace.xl),
                       child: SipNotKutusu(metin: not),
+                    ),
+                  // FAVORİ ÜRÜNLER — düzenlemesi müşteri düzenleme yetkisine bağlı; GÖRÜNTÜLEMESİ
+                  // herkese açık, çünkü listenin asıl işi kurye/bayi siparişi hızlı açsın diye
+                  // "bu müşteri ne alır" sorusunu cevaplamaktır.
+                  MusteriFavorileri(
+                    db: widget.db,
+                    customerId: widget.customerId,
+                    yazabilir: () =>
+                        _yazabilir(izin: widget.yetki?.musteriDuzenleme ?? true),
+                  ),
+                  // SİPARİŞ GEÇMİŞİ — `gecmisTeslimatlariGorme` kapısının ARKASINDA. Bu ekran o
+                  // kapıyı atlasaydı, geçmiş gün teslimatları kapalı olan kurye aynı bilgiyi
+                  // müşteri kartından okurdu; yarısı kapalı bir kapı hiç kapı değildir.
+                  if (widget.yetki?.gecmisTeslimatlariGorme ?? true)
+                    MusteriSiparisGecmisi(
+                      db: widget.db,
+                      customerId: widget.customerId,
+                      musteriAdi: c.name,
+                      musteriCode: c.code,
+                      writable: widget.writable,
                     ),
                   if (widget.yetki?.musteriGecmisDefteri ?? true)
                     CustomerLedgerSection(

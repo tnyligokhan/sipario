@@ -31,6 +31,7 @@ class DuzenSatiri {
     required this.adet,
     this.unit,
     this.serbestBayrak = false,
+    this.note,
   });
 
   final String? lineId;
@@ -38,6 +39,10 @@ class DuzenSatiri {
   final String ad;
   final int birimFiyatKurus;
   final String? unit;
+
+  /// SATIR NOTU. Adet değişimi satırı SİLİP YENİDEN EKLEDİĞİ için (append-only) notun burada
+  /// taşınması şart: taşınmasaydı kullanıcı adedi bir artırdığında notu sessizce kaybolurdu.
+  String? note;
 
   /// Kayıtlı satırdan gelen `OrderLines.isCustom`. Yeni eklenen serbest satırda productId zaten
   /// null olduğundan varsayılan false yeterli.

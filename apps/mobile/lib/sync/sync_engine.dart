@@ -424,6 +424,12 @@ class SyncEngine {
               code: Value(_iN(m['code'])),
               balanceKurus: Value(_i(m['balance_kurus'] ?? 0)),
               blacklistedAt: Value(_sN(m['blacklisted_at'])),
+              // FAVORİ ÜRÜNLER (v18) — cihazda JSON METİN saklanır. Sunucu bu alanı ya metin
+              // ya da gerçek JSON dizi olarak gönderebilir (kolon `text` mi `json` cast'li mi
+              // olduğuna göre değişir) ve İKİSİ DE kabul edilir: tek biçim bekleyen bir cast,
+              // sunucu tarafı kolonu bir gün `json`a çevirdiğinde satırı TypeError'a düşürür ve
+              // sürüm çarpıklığı kapısı o müşteriyi sessizce ATLAR (bkz. _guvenliUygula).
+              favoriteProductIds: Value(_jsonMetin(m['favorite_product_ids'])),
               updatedOccurredAt: Value(_s(m['updated_occurred_at'])),
               updatedDeviceId: Value(_sN(m['updated_device_id'])),
               deletedAt: Value(_sN(m['deleted_at'])),
@@ -492,6 +498,9 @@ class SyncEngine {
               productName: Value(_s(m['product_name'])),
               unitPriceKurus: Value(_i(m['unit_price_kurus'])),
               unit: Value(_sN(m['unit'])),
+              // SATIR NOTU (v18) — `unit` ile birebir aynı desen: satırda saklanan, o anki gerçek.
+              // Eski sunucu alanı hiç göndermezse null kalır (not yoktu, doğru başlangıç).
+              note: Value(_sN(m['note'])),
               isCustom: Value(_b(m['is_custom'])),
               qty: Value(_i(m['qty'])),
               lineTotalKurus: Value(_i(m['line_total_kurus'])),
@@ -779,6 +788,22 @@ class SyncEngine {
   /// (ör. kurye tahsilat alabilir) eski bir sunucuya bağlandığında sessizce KAPANIRDI —
   /// kurye sahada işini yapamaz, kimse de nedenini bilmezdi.
   static bool _bV(dynamic v, bool varsayilan) => v == null ? varsayilan : _b(v);
+
+  /// JSON alanının CİHAZDA saklanan metin karşılığı (v18 favori ürünler).
+  ///
+  /// Sunucu aynı alanı iki biçimde gönderebilir ve ikisi de meşrudur: kolon düz `text` ise
+  /// zaten JSON METİN gelir (`'["a","b"]'`), `json`/`array` cast'liyse Laravel onu
+  /// `attributesToArray()`te GERÇEK DİZİ yapar. Tek biçim bekleyen bir cast, sunucu bir gün
+  /// diğerine geçtiğinde o satırı düşürür ve sürüm çarpıklığı kapısı müşteriyi sessizce atlar.
+  ///
+  /// Metin OLDUĞU GİBİ saklanır (yeniden kodlanmaz): bozuk bir metin gelse bile okuma tarafı
+  /// (`favoriIdleriCoz`) boş listeye düşer — burada kırpmak, ileride eklenecek bir alanı da
+  /// sessizce yutardı.
+  static String? _jsonMetin(dynamic v) {
+    if (v == null) return null;
+    if (v is String) return v;
+    return jsonEncode(v);
+  }
 
   /// ÜÇ DURUMLU boolean: `null` yokluğu KORUR, ezmez.
   ///

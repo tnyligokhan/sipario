@@ -241,6 +241,15 @@ class ChangeApplier
                 // hâliyle, `blacklisted_at`i bilmeyen bir build (2026-08-01 öncesi) müşterinin
                 // adını düzeltince kara listeyi sessizce kaldırıyordu.
                 'blacklisted_at' => SyncPayload::zaman($p['blacklisted_at'] ?? null),
+                // FAVORİ ÜRÜNLER (kullanıcı isteği 2026-08-11): sık alınan ürünlerin kimlik listesi;
+                // sipariş ekranında hızlı seçim. Ayrı bir senkron varlığı DEĞİL, müşterinin bir
+                // ALANI (lead kararı — gerekçe migration 004010'da). `blacklisted_at` ile aynı
+                // sözleşme: anahtar VARSA yazılır (null = "favorisi yok"), anahtar HİÇ YOKSA
+                // mevcut liste KORUNUR (SyncPayload::gonderilenler). Bu koruma pazarlıksız —
+                // alanı bilmeyen sahadaki bir build müşterinin adını düzeltirken listeyi silerdi
+                // ve bunu kimse görmezdi (2026-08-05'te iki kez yaşanan sınıf).
+                // Biçim/tekillik/sayı kuralları FavoriUrunler'da (bu sınıf 500 satır sınırında).
+                'favorite_product_ids' => FavoriUrunler::dogrula($p['favorite_product_ids'] ?? null),
             ],
             'customer_phone' => [
                 'customer_id' => SyncPayload::req($p, 'customer_id'),

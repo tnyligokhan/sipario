@@ -50,11 +50,16 @@ void main() {
 
       await sheetAc(tester, (ctx) => urunFormuAc(ctx, db: db));
 
-      // Alan sırası: ad · birim fiyat · birim · barkod.
+      // Alan sırası: ad · birim fiyat · barkod.
+      //
+      // BİRİM ARTIK BİR TextField DEĞİL (2026-08-11): serbest metin alanı açılır menüye
+      // dönüştü, yani metin kutusu sayısı 4'ten 3'e düştü ve barkod bir indeks öne kaydı.
+      // Testin eski hâli `at(3)` diyordu ve "index should be less than 3: 3" ile kırılıyordu —
+      // indekse dayalı finder'ın bedeli budur: alan eklenip çıktıkça sessizce kayar.
       final alanlar = find.byType(TextField);
       await tester.enterText(alanlar.at(0), 'Damacana 19 L');
       await tester.enterText(alanlar.at(1), '45');
-      await tester.enterText(alanlar.at(3), '8690123456789');
+      await tester.enterText(alanlar.at(2), '8690123456789');
       await tester.pump();
 
       await dokun(tester, find.text('Kaydet'));

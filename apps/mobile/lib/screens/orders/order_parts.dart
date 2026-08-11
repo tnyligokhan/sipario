@@ -10,10 +10,13 @@ import '../../theme/components/atoms.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import 'satir_notu.dart';
 
 // Detay/özet kartı ve serbest satır sheet'i ayrı dosyada (500 satır sınırı); çağıranlar tek
-// `order_parts.dart` import'uyla ikisine de erişsin.
+// `order_parts.dart` import'uyla ikisine de erişsin. Satır notu da öyle: rozet + normalleştirme
+// + girme sheet'i `satir_notu.dart`ta birlikte durur.
 export 'order_sd_parts.dart';
+export 'satir_notu.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Taslak satır — henüz kaydedilmemiş sipariş kalemi
@@ -30,6 +33,7 @@ class LineDraft {
     required this.unitPriceKurus,
     this.qty = 1,
     this.unit,
+    this.note,
   });
 
   final String? productId;
@@ -41,6 +45,18 @@ class LineDraft {
 
   int qty;
 
+  /// SATIR NOTU — "buzlu olsun", "kapıya bırak" (kullanıcı isteği 2026-08-11).
+  ///
+  /// Sipariş notundan AYRIDIR ve onun yerine geçmez: sipariş notu teslimatın tamamına dairdir
+  /// (kapı kodu, saat), satır notu tek KALEME dairdir. İkisini tek alanda toplamak, üç kalemli
+  /// bir siparişte "buzlu olsun"un hangi kaleme ait olduğunu okuyana tahmin ettirirdi.
+  ///
+  /// BOŞ METİN null'a düşürülür (`notuNormalle`): "" ile null iki ayrı durum değildir ve
+  /// sepette boş bir not rozeti çizdirirdi.
+  String? note;
+
+  bool get notVar => (note ?? '').trim().isNotEmpty;
+
   bool get serbest => productId == null;
 
   /// CSS `.ys-birim` / `.sd-birim` — sepet satırının alt yazısı.
@@ -50,6 +66,7 @@ class LineDraft {
 /// Taslak satırların toplamı (int kuruş — kayan nokta YOK).
 int toplamKurus(List<LineDraft> lines) =>
     lines.fold<int>(0, (s, l) => s + l.unitPriceKurus * l.qty);
+
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Adım göstergesi — CSS `.ys-adimlar`
@@ -219,6 +236,8 @@ class YsSatiri extends StatelessWidget {
     this.onArtir,
     this.onSil,
     this.zemin,
+    this.not,
+    this.onNot,
   });
 
   final String ad;
@@ -234,6 +253,10 @@ class YsSatiri extends StatelessWidget {
   final VoidCallback? onArtir;
   final VoidCallback? onSil;
   final Color? zemin;
+
+  /// SATIR NOTU — doluysa rozet çizilir. [onNot] verilmezse not yüzeyi salt-okunurdur.
+  final String? not;
+  final VoidCallback? onNot;
 
   @override
   Widget build(BuildContext context) {
@@ -253,6 +276,10 @@ class YsSatiri extends StatelessWidget {
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 1),
                 Text(altMetin, style: SipText.metin(10.5, w: 500).copyWith(color: t.muted)),
+                // Not yüzeyi satırın İÇİNDE durur — ayrı bir kutu/şerit açmak sepeti iki kat
+                // uzatır ve dokunuş hedefini kalemden koparırdı.
+                if (not != null || onNot != null)
+                  SatirNotuYuzeyi(not: not, onTap: onNot),
               ],
             ),
           ),

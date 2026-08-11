@@ -448,15 +448,81 @@ Stream<Map<String, String>> watchBirincilTelefonlar(AppDatabase db) {
   });
 }
 
-/// Sipariş detayındaki "Geçmiş Siparişler" (CSS `.gec-*`): aynı müşterinin BU sipariş dışındaki
-/// siparişleri, en yeni önce.
-Stream<List<Order>> watchGecmisSiparisler(AppDatabase db, String customerId, String haricOrderId) {
+/// Bir müşterinin sipariş GEÇMİŞİ — en yeni önce. Silinmişler (tombstone) hariç.
+///
+/// TEK SORGU, iki çağıran: sipariş detayındaki "Geçmiş Siparişler" kartı (CSS `.gec-*`) bir
+/// siparişi hariç tutar ve az sayıda satır gösterir; müşteri geçmişi ekranı ise tümünü ister.
+/// İki ayrı sorgu yazmak, birinde "silinmiş sayılmaz" kuralını güncellemeyi unutmak ve aynı
+/// müşteriye iki farklı geçmiş göstermek demekti.
+///
+/// [limit] SQL'de uygulanır, Dart'ta kırpılarak değil: 400 siparişlik bir müşteride "ilk 3"ü
+/// göstermek için 400 satır çekip 397'sini atmak, listeyi her akış tikinde yeniden kurar.
+/// null = sınırsız.
+///
+/// [haricOrderId] verilirse o sipariş listeden düşer (kendi detayında kendini göstermesin).
+Stream<List<Order>> watchMusteriSiparisGecmisi(
+  AppDatabase db,
+  String customerId, {
+  String? haricOrderId,
+  int? limit,
+}) {
   final q = db.select(db.orders)
-    ..where((t) =>
-        t.customerId.equals(customerId) & t.id.equals(haricOrderId).not() & t.deletedAt.isNull())
+    ..where((t) => t.customerId.equals(customerId) & t.deletedAt.isNull())
     ..orderBy([(t) => OrderingTerm.desc(t.occurredAt), (t) => OrderingTerm.desc(t.id)]);
+  if (haricOrderId != null) {
+    q.where((t) => t.id.equals(haricOrderId).not());
+  }
+  if (limit != null) q.limit(limit);
   return q.watch();
 }
+
+/// Sipariş detayındaki "Geçmiş Siparişler" (CSS `.gec-*`) — mevcut çağrı biçimi korunur.
+Stream<List<Order>> watchGecmisSiparisler(AppDatabase db, String customerId, String haricOrderId) =>
+    watchMusteriSiparisGecmisi(db, customerId, haricOrderId: haricOrderId);
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Müşterinin AÇIK siparişi var mı? (yeni sipariş açarken uyarı)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// Müşterinin AÇIK siparişleri — en yeni ÖNCE. Boş liste = açık siparişi yok.
+///
+/// NEDEN SARMALAYICI BİR TİP DEĞİL (bir ara `AcikSiparisOzeti` diye bir sınıf denendi ve
+/// kaldırıldı): uyarıyı yazan ekranın sorduğu iki şey — KAÇ tane (`length`) ve EN YENİSİ
+/// hangisi (`first`) — listenin kendisinde zaten var. Üstelik o sınıf hem burada hem
+/// `repo/order_repository.dart`ta tanımlanmıştı; sipariş formu iki dosyayı da import eder
+/// (biri `LineInput`, diğeri sorgular için) ve tipe dokunduğu anda "ambiguous import" ile
+/// DERLENMEZDİ. Satırın TAMAMI dönüyor çünkü hangi kodun (müşteri mi sipariş mi) yazılacağı
+/// kiracı tercihine bağlıdır (`satirKodu`) — o karar ekranın, sorgunun değil.
+///
+/// TEK ATIŞ (uyarı diyaloğu için): bu, sorulduğu ANIN cevabıdır. Akış olsaydı kullanıcı uyarıyı
+/// okurken altındaki metin değişebilirdi. Canlı bir rozet gerekiyorsa [watchAcikSiparisler].
+///
+/// KAPSAM KARARI (verildi): yalnız `status == 'open'`. Teslim edilmiş sipariş bitmiştir,
+/// iptal edilmiş hiç olmamıştır; ikisini de "zaten siparişi var" diye uyarıya sokmak bayiyi
+/// her ikinci siparişte yanlış uyarırdı — görmezden gelinen uyarı, olmayan uyarıdır.
+/// Silinmiş (`deleted_at`) sipariş sayılmaz ve başka müşterinin siparişi karışmaz.
+Future<List<Order>> acikSiparisler(AppDatabase db, String customerId) =>
+    _acikSiparisSorgusu(db, customerId).get();
+
+/// [acikSiparisler]'in AKIŞI — müşteri detayındaki canlı rozet için. AYNI sorgu.
+Stream<List<Order>> watchAcikSiparisler(AppDatabase db, String customerId) =>
+    _acikSiparisSorgusu(db, customerId).watch();
+
+/// Açık sipariş sorgusunun TEK tanımı — akış ve tek atış aynı kuralı paylaşır. İki yerde ayrı
+/// yazılsaydı, biri "silinmiş sayılmaz"ı unuttuğunda uyarı ekrana göre farklı çıkardı.
+///
+/// İkincil anahtar `id`: `occurredAt` aynı milisaniyede eşitlenebilir ve o zaman "en yenisi"
+/// çağrıdan çağrıya değişirdi. uuid7 aynı ms içinde sıralı DEĞİLDİR, yani bu ek anahtar doğru
+/// sıralamayı değil KARARLI sıralamayı garanti eder — uyarının aynı veriyle hep aynı siparişi
+/// göstermesi için bu yeterlidir.
+SimpleSelectStatement<$OrdersTable, Order> _acikSiparisSorgusu(
+  AppDatabase db,
+  String customerId,
+) =>
+    db.select(db.orders)
+      ..where((t) =>
+          t.customerId.equals(customerId) & t.status.equals('open') & t.deletedAt.isNull())
+      ..orderBy([(t) => OrderingTerm.desc(t.occurredAt), (t) => OrderingTerm.desc(t.id)]);
 
 /// Tek müşteri (detay başlığı, bakiye, ad).
 Stream<Customer?> watchMusteri(AppDatabase db, String customerId) =>

@@ -11,6 +11,9 @@ use Illuminate\Support\Carbon;
  * Sipariş satırı. product_name ve unit_price_kurus SATIRDA saklanır (DECISIONS: siparişin çekildiği
  * andaki gerçek). product_id yumuşak referans (FK yok). RLS: tenant_id policy'sine tabidir.
  *
+ * note SATIR NOTUdur ("buzlu olsun") — siparişin tamamına ait `orders.note`tan AYRIDIR; ikisi
+ * farklı sorulara cevap verir ve tek metinde eritilemez.
+ *
  * @property string $id
  * @property string $tenant_id
  * @property string $order_id
@@ -18,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property string $product_name
  * @property int $unit_price_kurus
  * @property string|null $unit
+ * @property string|null $note
  * @property bool $is_custom
  * @property int $qty
  * @property int $line_total_kurus
@@ -37,6 +41,7 @@ class OrderLine extends Model
         'product_name',
         'unit_price_kurus',
         'unit',
+        'note',
         'is_custom',
         'qty',
         'line_total_kurus',

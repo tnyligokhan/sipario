@@ -15,14 +15,15 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../customers/customer_form_screen.dart' show musteriEkleSheet;
-import '../customers/kara_liste.dart';
 import '../shell/alt_nav.dart' show SipSekme;
 import '../shell/sekme_yonlendirme.dart';
 import '../team.dart';
+import 'order_form_parts.dart';
 import 'order_parts.dart';
 import 'order_queries.dart';
 import 'order_sheets.dart';
 import 'pos_catalog.dart';
+import 'siparis_kapisi.dart';
 
 export 'order_parts.dart' show LineDraft, toplamKurus;
 
@@ -109,15 +110,17 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     });
   }
 
+  /// Hazır müşteriyle açılan form (müşteri detayı, çağrı kartı, harita). Kapı BURADA da koşar:
+  /// çağıran ekran ne kadar dikkatli olursa olsun bayat bir istek gönderebilir (kart çizildikten
+  /// sonra müşteri kara listeye alınmış ya da yeni bir sipariş açılmış olabilir). Kullanıcı
+  /// vazgeçerse form hiç açılmış olmaz — geldiği yere döner.
   Future<void> _musteriYukle(String id) async {
     final c = await (widget.db.select(widget.db.customers)..where((t) => t.id.equals(id)))
         .getSingleOrNull();
     if (!mounted || c == null) return;
-    // Hazır müşteriyle açılan form (müşteri detayı, çağrı kartı). Detay ekranı kapıyı zaten
-    // tutuyor ama çağrı kartı köprüsü BAYAT bir istek gönderebilir: kart çizildikten sonra
-    // müşteri kara listeye alınmış olabilir. Burada durdurmak o yarışı kapatır.
-    if (karaListede(c)) {
-      SipToast.goster(context, karaListeSiparisMesaji(c.name));
+    final devam = await siparisAcmadanOnceDogrula(context, db: widget.db, musteri: c);
+    if (!mounted) return;
+    if (!devam) {
       Navigator.of(context).maybePop();
       return;
     }
@@ -160,13 +163,12 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     setState(() => _adim--);
   }
 
-  void _musteriSec(Customer c) {
-    // Formun İÇİNDEKİ seçim kapısı: kara listedeki müşteri listede görünmeye devam ettiği için
-    // (bilinçli — bayi borcunu takip etmeli) buradan seçilebilir. Ürün adımına geçmeden dur.
-    if (karaListede(c)) {
-      SipToast.goster(context, karaListeSiparisMesaji(c.name));
-      return;
-    }
+  /// Formun İÇİNDEKİ seçim kapısı — müşterinin forma girdiği İKİNCİ (ve son) yol.
+  /// Kara listedeki müşteri listede görünmeye devam ettiği için (bilinçli — bayi borcunu takip
+  /// etmeli) buradan seçilebilir; kapı ürün adımına geçmeden durdurur.
+  Future<void> _musteriSec(Customer c) async {
+    final devam = await siparisAcmadanOnceDogrula(context, db: widget.db, musteri: c);
+    if (!devam || !mounted) return;
     setState(() {
       _musteri = c;
       _adim = 2;
@@ -230,6 +232,18 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     });
   }
 
+  /// Sepetteki TEK satırın notu. Sheet `null` dönerse vazgeçilmiştir ve mevcut not DEĞİŞMEZ;
+  /// boş dizgi dönerse not silinmiştir ([satirNotuSilindi]).
+  Future<void> _satirNotu(int i) async {
+    final satir = _satirlar[i];
+    final sonuc = await satirNotuSheetAc(context, urunAd: satir.name, mevcut: satir.note);
+    if (sonuc == null || !mounted) return;
+    // Sheet açıkken sepet değişmiş olabilir (kullanıcı arkada bir şey silemez ama savunma ucuz):
+    // satır düştüyse yazacak yer yok.
+    if (i >= _satirlar.length || !identical(_satirlar[i], satir)) return;
+    setState(() => satir.note = notuNormalle(sonuc));
+  }
+
   void _devam() {
     if (_sepetBos) {
       setState(() {
@@ -260,6 +274,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
                   unit: l.unit,
                   isCustom: l.serbest,
                   qty: l.qty,
+                  note: l.note,
                 ))
             .toList(),
       );
@@ -354,83 +369,21 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   late final Stream<Map<String, AdresBilgi>> _adresler = watchBirincilAdresler(widget.db);
 
   // ── Adım 1 — müşteri seç ────────────────────────────────────────────────────────────────
-  Widget _adim1() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(SipSpace.govde, SipSpace.md, SipSpace.govde, SipSpace.xl),
-          child: SipArama(
-            controller: _arama,
-            ipucu: 'İsim ya da telefon ara…',
-            onChanged: (v) => setState(() => _sorgu = v),
-            onTemizle: () => setState(() {
-              _arama.clear();
-              _sorgu = '';
-            }),
-          ),
-        ),
-        Expanded(
-          // Satırda telefon ve adres var (CSS `.mrow-tel`/`.mrow-adres`) — iki yardımcı akış
-          // TEK sorgudur, satır sayısıyla çoğalmaz.
-          child: StreamBuilder<Map<String, String>>(
-            stream: _telefonlar,
-            initialData: const {},
-            builder: (context, telSnap) => StreamBuilder<Map<String, AdresBilgi>>(
-              stream: _adresler,
-              initialData: const {},
-              builder: (context, adresSnap) => StreamBuilder<List<Customer>>(
-                stream: watchMusteriArama(widget.db, _sorgu),
-                builder: (context, snap) {
-                  final liste = snap.data;
-                  final telefonlar = telSnap.data ?? const <String, String>{};
-                  final adresler = adresSnap.data ?? const <String, AdresBilgi>{};
-                  return SipGovde(
-                    altBosluk: SipSpace.x4,
-                    children: [
-                      // Tasarım `.ys-ekle` + `YeniMusteri` (s-siparisler.jsx:311). Buradaki
-                      // "müşterisiz devam et (tezgâh satışı)" kapısı 2026-07-26'da kaldırıldı;
-                      // müşterisiz siparişin GÖRÜNTÜLENMESİ duruyor (senkronla gelebilir),
-                      // yalnız oluşturma yolu gitti.
-                      YsEkleDugmesi(
-                        etiket: 'Yeni müşteri ekle',
-                        ikon: SipIcons.userPlus,
-                        onTap: widget.writable ? _yeniMusteri : null,
-                      ),
-                      const SizedBox(height: SipSpace.xl),
-                      if (liste == null)
-                        const SipIskelet(adet: 4)
-                      else if (liste.isEmpty)
-                        YsBosDurum(
-                          ikon: SipIcons.users,
-                          metin: _sorgu.trim().isEmpty
-                              ? 'Henüz müşteri yok — yukarıdan ekleyin'
-                              : '"$_sorgu" için müşteri yok',
-                        )
-                      else
-                        for (final c in liste)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 7),
-                            child: MusteriSecimSatiri(
-                              musteri: c,
-                              telefon: telefonlar[c.id],
-                              adres: _mrowAdres(adresler[c.id]),
-                              onTap: () => _musteriSec(c),
-                            ),
-                          ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  static MrowAdres? _mrowAdres(AdresBilgi? a) =>
-      a == null ? null : MrowAdres(metin: a.tamMetin, konumVar: a.konumVar);
+  // Çizim `order_form_parts.dart`ta; ekran yalnız DURUMU (arama sorgusu, seçim) tutar.
+  Widget _adim1() => MusteriSecimAdimi(
+        db: widget.db,
+        arama: _arama,
+        sorgu: _sorgu,
+        telefonlar: _telefonlar,
+        adresler: _adresler,
+        onSorgu: (v) => setState(() => _sorgu = v),
+        onTemizle: () => setState(() {
+          _arama.clear();
+          _sorgu = '';
+        }),
+        onSec: _musteriSec,
+        onYeniMusteri: widget.writable ? _yeniMusteri : null,
+      );
 
   // ── Adım 2 — kalemler ───────────────────────────────────────────────────────────────────
   Widget _adim2() {
@@ -460,6 +413,17 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
                 SdxLink(etiket: 'Değiştir', onTap: () => setState(() => _adim = 1)),
             ],
           ),
+        ),
+        // Favori ürünler — müşterinin "her zamankileri", tek dokunuşla sepete. Katalog
+        // düğmesinin ÜSTÜNDE durur: sipariş girişinin en sık hâli zaten budur, katalogu açmak
+        // istisnadır. Favorisi olmayan müşteride bölüm hiç çizilmez.
+        FavoriSeridi(
+          db: widget.db,
+          musteriId: _musteri?.id,
+          onEkle: (u) {
+            _urunEkle(u, 1);
+            SipToast.goster(context, '${u.name} sepete eklendi');
+          },
         ),
         YsEkleDugmesi(
           etiket: 'Katalogdan ürün ekle',
@@ -491,6 +455,8 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
                       onAzalt: () => _adetDegis(i, -1),
                       onArtir: () => _adetDegis(i, 1),
                       onSil: () => setState(() => _satirlar.removeAt(i)),
+                      not: _satirlar[i].note,
+                      onNot: () => _satirNotu(i),
                     ),
                   ),
               ],
@@ -512,105 +478,18 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   }
 
   // ── Adım 3 — özet ───────────────────────────────────────────────────────────────────────
-  Widget _adim3() {
-    final t = context.sip;
-    final musteri = _musteri;
-    return SipGovde(
-      children: [
-        const SdxSec('Müşteri', ustBosluk: SipSpace.lg),
-        // CSS `.sdx-adres` — özette müşterinin TELEFONU ve ADRESİ yazar (s-siparisler.jsx:382-383).
-        // Önce burada BAKİYE gösteriliyordu; siparişi teslim edecek kişinin son kontrolü
-        // "doğru numara, doğru kapı" sorusudur — para teslimde konuşulur.
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: SipSpace.x2, vertical: SipSpace.xl),
-          decoration: BoxDecoration(color: t.surface2, borderRadius: SipRadius.br2),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: SipIcon(SipIcons.user, boyut: 15, kalinlik: 2.1, renk: t.accent),
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(musteri?.name ?? '',
-                        style: SipText.metin(13, w: 600).copyWith(color: t.ink)),
-                    if (musteri != null) ...[
-                      const SizedBox(height: 3),
-                      StreamBuilder<Map<String, String>>(
-                        stream: _telefonlar,
-                        initialData: const {},
-                        builder: (context, snap) {
-                          final tel = (snap.data ?? const {})[musteri.id];
-                          return Text(
-                            (tel ?? '').isEmpty ? 'Telefon yok' : sipTelefon(tel!),
-                            style: SipText.metin(11.5, w: 600).copyWith(color: t.muted),
-                          );
-                        },
-                      ),
-                      StreamBuilder<Map<String, AdresBilgi>>(
-                        stream: _adresler,
-                        initialData: const {},
-                        builder: (context, snap) {
-                          final adres = (snap.data ?? const {})[musteri.id];
-                          if (adres == null) return const SizedBox.shrink();
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 3),
-                            child: Text(
-                              adres.tamMetin,
-                              style: SipText.metin(11.5, w: 600).copyWith(color: t.muted),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        SdxSec(
-          'Kalemler',
-          sag: SdxLink(etiket: 'Düzenle', onTap: () => setState(() => _adim = 2)),
-        ),
-        SdKart(
-          toplamKurus: _toplam,
-          satirlar: [
-            for (final l in _satirlar)
-              SdSatiri(
-                ad: l.name,
-                // Tasarım `{r.adet} {r.birim} × {fmtTL(r.fiyat)}` (s-siparisler.jsx:390).
-                altMetin: l.serbest
-                    ? 'tek seferlik'
-                    : '${l.qty} ${l.birimEtiketi} × ${sipTutar(l.unitPriceKurus)}',
-                tutarKurus: l.unitPriceKurus * l.qty,
-              ),
-          ],
-        ),
-        const SdxSec('Sipariş Notu'),
-        SipInput(
-          controller: _not,
-          ipucu: 'Kapı kodu, teslim saati, özel istek…',
-          satirlar: 2,
-        ),
-        // ── Kurye (OPSİYONEL) ───────────────────────────────────────────────────────────
-        // Saha isteği: siparişi girerken kimin götüreceği çoğu zaman zaten bellidir; onu
-        // atamak için kaydedip listeye dönüp detayı açmak üç fazladan dokunuştu. Satır formun
-        // SONUNDA durur — sipariş girişini uzatmaz, boş bırakılabilir ve atlanabilir.
-        if (_atamaYetkisi) ...[
-          const SdxSec('Kurye'),
-          SecimSatiri(
-            etiket: _kuryeAdi ?? 'Atama yok — sonra da atanabilir',
-            ikon: SipIcons.truck,
-            secili: _kuryeId != null,
-            onTap: _kuryeSec,
-          ),
-        ],
-      ],
-    );
-  }
+  // Çizim `order_form_parts.dart`ta.
+  Widget _adim3() => SiparisOzetiAdimi(
+        musteri: _musteri,
+        satirlar: _satirlar,
+        toplamKurus: _toplam,
+        not: _not,
+        telefonlar: _telefonlar,
+        adresler: _adresler,
+        onKalemleriDuzenle: () => setState(() => _adim = 2),
+        atamaYetkisi: _atamaYetkisi,
+        kuryeAdi: _kuryeAdi,
+        kuryeSecili: _kuryeId != null,
+        onKuryeSec: _kuryeSec,
+      );
 }

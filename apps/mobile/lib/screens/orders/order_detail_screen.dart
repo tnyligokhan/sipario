@@ -217,6 +217,10 @@ class _Govde extends StatelessWidget {
                     ? 'tek seferlik'
                     : '${l.qty} ${l.unit ?? 'adet'} × ${sipTutar(l.unitPriceKurus)}',
                 tutarKurus: l.lineTotalKurus,
+                // SATIR NOTU burada görünmek ZORUNDA: siparişi hazırlayan/götüren kişi kalemleri
+                // bu ekrandan okur. Not girilip okunmadığı bir yer, notun hiç girilmemesiyle
+                // aynı kapıya çıkar.
+                not: l.note,
               ),
           ],
         ),

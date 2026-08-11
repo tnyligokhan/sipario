@@ -19,6 +19,7 @@ import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../isletme/isletme_atomlari.dart';
 import '../barkod/barkod_kamera.dart';
+import 'birimler.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Barkod / görsel
@@ -77,8 +78,14 @@ class _UrunFormuState extends State<_UrunFormu> {
   late final TextEditingController _fiyat = TextEditingController(
     text: widget.urun == null ? '' : _fiyatMetni(widget.urun!.unitPriceKurus),
   );
-  late final TextEditingController _birim =
-      TextEditingController(text: widget.urun?.unit ?? 'adet');
+  /// KAYITTAKİ birim metni. Menü bunu DEĞİŞTİRMEZ, yalnız gösterir: sahadaki serbest değer
+  /// ("damacana") kullanıcı başka bir şey seçmedikçe olduğu gibi geri yazılır.
+  late String _birim = widget.urun?.unit ?? kVarsayilanBirim;
+
+  /// "Diğer…" seçildi — alan menü yerine serbest metin girişi çizer.
+  bool _birimSerbest = false;
+  late final TextEditingController _birimMetni = TextEditingController(text: _birim);
+
   late final TextEditingController _barkod =
       TextEditingController(text: widget.urun == null ? '' : (urunBarkodu(widget.urun!) ?? ''));
 
@@ -101,7 +108,7 @@ class _UrunFormuState extends State<_UrunFormu> {
   void dispose() {
     _ad.dispose();
     _fiyat.dispose();
-    _birim.dispose();
+    _birimMetni.dispose();
     _barkod.dispose();
     super.dispose();
   }
@@ -145,7 +152,9 @@ class _UrunFormuState extends State<_UrunFormu> {
 
     setState(() => _kaydediyor = true);
     final repo = ProductRepository(widget.db);
-    final birim = _birim.text.trim().isEmpty ? 'adet' : _birim.text.trim();
+    // Boş birim (serbest metin silinip kaydedildi) bugünkü davranışın aynısıyla varsayılana
+    // düşer; DOLU olan hiçbir değer dönüştürülmez.
+    final birim = _birim.trim().isEmpty ? kVarsayilanBirim : _birim.trim();
     if (widget.urun == null) {
       await repo.create(
         name: ad,
@@ -272,7 +281,35 @@ class _UrunFormuState extends State<_UrunFormu> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SipFormEtiket('BİRİM'),
-                  SipInput(controller: _birim, ipucu: 'adet / kg / koli…'),
+                  if (_birimSerbest)
+                    SipInput(
+                      controller: _birimMetni,
+                      ipucu: 'Birimi yazın',
+                      otomatikOdak: true,
+                      onChanged: (v) => _birim = v,
+                    )
+                  else
+                    BirimAlani(
+                      deger: _birim,
+                      onSec: (v) => setState(() => _birim = v),
+                      onDiger: () => setState(() {
+                        _birimSerbest = true;
+                        // Mevcut değerle DOLU açılır: "Diğer…"e basan bayi çoğu zaman var olanı
+                        // düzeltmek ister, sıfırdan yazmak değil.
+                        _birimMetni.text = _birim;
+                      }),
+                    ),
+                  if (_birimSerbest)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: SipMetinButon(
+                        etiket: 'Listeden seç',
+                        onTap: () => setState(() {
+                          _birimSerbest = false;
+                          _birim = _birimMetni.text;
+                        }),
+                      ),
+                    ),
                 ],
               ),
             ),

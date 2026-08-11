@@ -256,6 +256,9 @@ class OrderChangeApplier
             'unit_price_kurus' => $price,
             // Birim satırda saklanır (unit_price/product_name deseni: siparişin çekildiği andaki gerçek).
             'unit' => $ln['unit'] ?? null,
+            // Satır notu (kullanıcı isteği 2026-08-11): "buzlu olsun", "ayrı poşete". `unit` ile
+            // AYNI desen — satırın kendi gerçeği satırda durur. `orders.note`tan ayrıdır.
+            'note' => self::satirNotu($ln['note'] ?? null),
             // "Serbest satır" AÇIK bayrakla işaretlenir; product_id IS NULL'a bel bağlamak kırılgan
             // olurdu (silinmiş ürünün satırı da null olabilir) — tasarım bu ikisini ayrı gösteriyor.
             'is_custom' => (bool) ($ln['is_custom'] ?? false),
@@ -265,6 +268,45 @@ class OrderChangeApplier
         ])->save();
 
         return $line;
+    }
+
+    /**
+     * Satır notu kapısı — 500 karakter, KIRPMA YOK (`iban`/`reminder_template` deseniyle aynı çizgi).
+     *
+     * NEDEN UYGULAYICIDA: kolon `varchar(500)`dür ve sınıra dayanan bir yazım 22001 üretir. 22001
+     * `CLIENT_DATA_SQLSTATES` beyaz listesinde olduğu için parti bugün ölmez ama olayı 'invalid_data'
+     * ile reddeder — yani bayi "kayıt reddedildi (geçersiz veri)" görür ve NEDENİNİ öğrenemez.
+     * Buradan fırlayan istisna savepoint ile yalnız BU olayı 'rejected' işaretler ve nedeni
+     * ('domain_rejected' + metin) taşır; partinin geri kalanı yazılır.
+     *
+     * KIRPMA REDDİN YERİNE GEÇEMEZ: yarım kalmış bir not kuryeye YANLIŞ talimat verir ("buzlu
+     * olmasın" → "buzlu ol"). Sessiz "en iyi çaba" bu alanda kabul edilemez.
+     *
+     * Boş/yalnız-boşluk metin `null`dur: "not yok" tek bir hâl olmalı, yoksa istemcideki "not var
+     * mı" kapısı iki dala ayrılır.
+     */
+    private static function satirNotu(mixed $ham): ?string
+    {
+        if ($ham === null) {
+            return null;
+        }
+        // SKALER OLMAYAN DEĞER ÖNDEN REDDEDİLİR: `(string) $nesne` __toString'i olmayan bir nesnede
+        // ÖLÜMCÜL Error atar ve Error bir Exception DEĞİLDİR — SyncService'in InvalidArgument/
+        // QueryException kapanları onu yakalayamaz, parti 500'e düşer ve kuyruk kilitlenir
+        // (zehirli hap). Dizi ise sessizce "Array" metnine dönerdi, ki bu daha da kötü: bayi
+        // notunun yerinde "Array" yazdığını ancak kurye kapıda okuduğunda öğrenir.
+        if (! is_scalar($ham)) {
+            throw new InvalidArgumentException('satır notu metin olmalı');
+        }
+        $s = trim((string) $ham);
+        if ($s === '') {
+            return null;
+        }
+        if (mb_strlen($s) > 500) {
+            throw new InvalidArgumentException('satır notu 500 karakterden uzun olamaz');
+        }
+
+        return $s;
     }
 
     /**

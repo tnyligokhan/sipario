@@ -15,6 +15,7 @@ import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../money.dart';
 import 'order_parts.dart' show LineDraft;
+import 'satir_notu.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Detay kartı — CSS `.sd-kart`, `.sd-satir`, `.sd-toplam`
@@ -69,6 +70,7 @@ class SdSatiri extends StatelessWidget {
     required this.altMetin,
     required this.tutarKurus,
     this.orta,
+    this.not,
   });
 
   final String ad;
@@ -77,6 +79,10 @@ class SdSatiri extends StatelessWidget {
 
   /// Düzenleme kipinde araya giren stepper / sil düğmesi.
   final Widget? orta;
+
+  /// SATIR NOTU — doluysa alt metnin altında rozet çizilir. Sipariş DETAYINDA görünmesi
+  /// pazarlıksızdır: notu okuyacak kişi (kalemi hazırlayan / götüren) siparişi buradan açar.
+  final String? not;
 
   @override
   Widget build(BuildContext context) {
@@ -95,6 +101,10 @@ class SdSatiri extends StatelessWidget {
                 Text(ad, style: SipText.metin(13.5, w: 600).copyWith(color: t.ink)),
                 const SizedBox(height: 2),
                 Text(altMetin, style: SipText.metin(11, w: 500).copyWith(color: t.muted)),
+                if (notuNormalle(not) != null) ...[
+                  const SizedBox(height: 4),
+                  SatirNotuRozeti(metin: notuNormalle(not)!),
+                ],
               ],
             ),
           ),
