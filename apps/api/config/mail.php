@@ -39,14 +39,41 @@ return [
 
         'smtp' => [
             'transport' => 'smtp',
-            'scheme' => env('MAIL_SCHEME'),
-            'url' => env('MAIL_URL'),
+
+            /*
+             * ⚠️ `?: null` ÜÇÜNDE DE ZORUNLUDUR — SÜS DEĞİL. (2026-08-11, canlıda ölçüldü.)
+             *
+             * `env('X')` tanımlı ama BOŞ bir değişkende `''` döner, `null` değil. Bu üç alanda
+             * boş dize ile tanımsızlık AYNI ŞEY DEĞİLDİR ve farkı en pahalı ödeyen `url`dir:
+             *
+             *   MailManager::getConfig()
+             *     if (isset($config['url'])) {                    // '' de "set" sayılır
+             *         $config = array_merge($config, ...parseConfiguration($config));
+             *         $config['transport'] = Arr::pull($config, 'driver');
+             *     }
+             *
+             * Boş URL'de ayrıştırıcı hiçbir `driver` üretmez, `Arr::pull` null döner ve
+             * `transport` NULL'a düşer → `Unsupported mail transport []`. Yani **BOŞ BIRAKILMIŞ
+             * TEK BİR `MAIL_URL` DEĞİŞKENİ POSTACININ TAMAMINI ÖLDÜRÜR** — host, port, kullanıcı
+             * ve parola sapasağlam dururken. Hata da kullanıcıya görünmez: bu projede gönderim
+             * yolları numaralandırmayı önlemek için istisnayı yutuyor (DECISIONS 2026-08-09).
+             *
+             * `local_domain` aynı sınıftan, sessiz bir zarar verir: `env()` `''` döndürdüğü an
+             * ikinci argümandaki `APP_URL` VARSAYILANI HİÇ KULLANILMAZ ve EHLO adı boş gider —
+             * bazı sunucular böyle bir istemciyi reddeder.
+             *
+             * Düzeltme burada, tek noktada yapılır ve compose'da değil: değişken panelden de
+             * boş tanımlanabilir, o yüzden kapının yeri yapılandırma dosyasıdır.
+             */
+            'scheme' => env('MAIL_SCHEME') ?: null,
+            'url' => env('MAIL_URL') ?: null,
             'host' => env('MAIL_HOST', '127.0.0.1'),
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
-            'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+            'local_domain' => env('MAIL_EHLO_DOMAIN')
+                ?: parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST),
         ],
 
         'ses' => [

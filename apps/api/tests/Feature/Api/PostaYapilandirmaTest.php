@@ -106,6 +106,41 @@ class PostaYapilandirmaTest extends TestCase
         $this->assertStringNotContainsString('MAIL_ENCRYPTION', $kaynak);
     }
 
+    /**
+     * BOŞ DİZE ≠ TANIMSIZ — postacının tamamını öldüren tuzak.
+     *
+     * 2026-08-11'de canlıda ÖLÇÜLDÜ: `MAIL_URL` boş dizeyle tanımlıyken `Mail::raw()`
+     * `Unsupported mail transport []` fırlatıyordu; host/port/kullanıcı/parola sapasağlamdı.
+     * Sebep `MailManager::getConfig()`: `isset($config['url'])` boş dizeyi de "set" sayıyor,
+     * URL dalına giriyor ve `$config['transport'] = Arr::pull($config, 'driver')` ile
+     * transport'u NULL'a düşürüyor.
+     *
+     * Bu test kaynağı denetler, davranışı değil: `env(...) ?: null` kalkarsa kırmızıya döner.
+     * Değeri Coolify panelinden de boş tanımlanabildiği için kapı compose'da DEĞİL burada.
+     */
+    #[Test]
+    public function bos_dize_null_a_cevrilir_yoksa_tek_bos_degisken_postaciyi_oldurur(): void
+    {
+        $kaynak = $this->mailConfigKaynagi();
+
+        foreach (['MAIL_SCHEME', 'MAIL_URL'] as $anahtar) {
+            $this->assertMatchesRegularExpression(
+                "/env\\('".preg_quote($anahtar, '/')."'\\)\\s*\\?:\\s*null/",
+                $kaynak,
+                "$anahtar boş dizeyle tanımlandığında `null`a çevrilmeli. `MAIL_URL` için bu "
+                .'pazarlıksız: boş bir URL `transport`u null yapar ve postacı tamamen ölür.',
+            );
+        }
+
+        // `local_domain` ikinci argüman varsayılanı KULLANAMAZ: `env()` boş dizede varsayılana
+        // düşmez, `''` döner ve EHLO adı boş gider.
+        $this->assertMatchesRegularExpression(
+            "/env\\('MAIL_EHLO_DOMAIN'\\)\\s*\\n?\\s*\\?:/",
+            $kaynak,
+            'MAIL_EHLO_DOMAIN boşsa APP_URL host\'una düşmeli; env() varsayılanı bunu yapmaz.',
+        );
+    }
+
     #[Test]
     public function posta_surucusunun_varsayilani_sessiz_log_oldugu_icin_composeda_yazili_durur(): void
     {
