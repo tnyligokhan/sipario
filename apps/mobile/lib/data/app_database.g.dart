@@ -12026,6 +12026,28 @@ class $SyncMetaTable extends SyncMeta
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _savedTenantCodeMeta = const VerificationMeta(
+    'savedTenantCode',
+  );
+  @override
+  late final GeneratedColumn<String> savedTenantCode = GeneratedColumn<String>(
+    'saved_tenant_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _savedUsernameMeta = const VerificationMeta(
+    'savedUsername',
+  );
+  @override
+  late final GeneratedColumn<String> savedUsername = GeneratedColumn<String>(
+    'saved_username',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -12050,6 +12072,8 @@ class $SyncMetaTable extends SyncMeta
     routeCreditsMonthly,
     setupCompletedAt,
     themeMode,
+    savedTenantCode,
+    savedUsername,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -12228,6 +12252,24 @@ class $SyncMetaTable extends SyncMeta
         themeMode.isAcceptableOrUnknown(data['theme_mode']!, _themeModeMeta),
       );
     }
+    if (data.containsKey('saved_tenant_code')) {
+      context.handle(
+        _savedTenantCodeMeta,
+        savedTenantCode.isAcceptableOrUnknown(
+          data['saved_tenant_code']!,
+          _savedTenantCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('saved_username')) {
+      context.handle(
+        _savedUsernameMeta,
+        savedUsername.isAcceptableOrUnknown(
+          data['saved_username']!,
+          _savedUsernameMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -12325,6 +12367,14 @@ class $SyncMetaTable extends SyncMeta
         DriftSqlType.string,
         data['${effectivePrefix}theme_mode'],
       ),
+      savedTenantCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}saved_tenant_code'],
+      ),
+      savedUsername: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}saved_username'],
+      ),
     );
   }
 
@@ -12389,6 +12439,25 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
   /// İzinler cihaza özgüdür — başka cihaza taşınmaları yanlış olurdu.
   final String? setupCompletedAt;
   final String? themeMode;
+
+  /// "Beni hatırla" — giriş ekranının ÖNDOLDURDUĞU kimlik. CİHAZ-YEREL, senkronlanmaz.
+  ///
+  /// ⚠️ PAROLA BURADA YOK VE OLMAYACAK. Saklanan tek şey, kullanıcının zaten ekranda gördüğü
+  /// iki genel bilgidir: firma kodu (İşletme Profili onu "değiştirilemez" diye yayınlıyor) ve
+  /// kullanıcı adı. Parolayı da saklamak, oturum açma kapısını "cihazı eline geçiren herkes
+  /// girebilir"e indirirdi — oysa çıkış yapmanın TEK anlamı budur. Kolaylık zaten büyük kısmı
+  /// karşılanıyor: `authToken` çıkış yapılana kadar durur, yani bu iki alan yalnız BİLİNÇLİ
+  /// çıkıştan sonraki girişte okunur.
+  ///
+  /// [savedTenantCode] SUNUCU SAHİPLİ [tenantCode]'dan AYRI bir alandır ve bilerek öyledir:
+  /// o, senkronun yazdığı bir önbellektir (istemci yazamaz) ve oturum yokken doğruluğu
+  /// garanti değildir; bu ise kullanıcının kendi yazdığı, kendi kapatabildiği bir tercihtir.
+  /// Tek kolona bindirmek, "hatırlama"yı kapatan bayinin ekranında sunucudan gelen kodun
+  /// yine belirmesi demek olurdu.
+  ///
+  /// İkisi de null = hatırlama KAPALI (varsayılan).
+  final String? savedTenantCode;
+  final String? savedUsername;
   const SyncMetaData({
     required this.id,
     required this.lastPulledSeq,
@@ -12412,6 +12481,8 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     required this.routeCreditsMonthly,
     this.setupCompletedAt,
     this.themeMode,
+    this.savedTenantCode,
+    this.savedUsername,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -12469,6 +12540,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     }
     if (!nullToAbsent || themeMode != null) {
       map['theme_mode'] = Variable<String>(themeMode);
+    }
+    if (!nullToAbsent || savedTenantCode != null) {
+      map['saved_tenant_code'] = Variable<String>(savedTenantCode);
+    }
+    if (!nullToAbsent || savedUsername != null) {
+      map['saved_username'] = Variable<String>(savedUsername);
     }
     return map;
   }
@@ -12529,6 +12606,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       themeMode: themeMode == null && nullToAbsent
           ? const Value.absent()
           : Value(themeMode),
+      savedTenantCode: savedTenantCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(savedTenantCode),
+      savedUsername: savedUsername == null && nullToAbsent
+          ? const Value.absent()
+          : Value(savedUsername),
     );
   }
 
@@ -12566,6 +12649,8 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       ),
       setupCompletedAt: serializer.fromJson<String?>(json['setupCompletedAt']),
       themeMode: serializer.fromJson<String?>(json['themeMode']),
+      savedTenantCode: serializer.fromJson<String?>(json['savedTenantCode']),
+      savedUsername: serializer.fromJson<String?>(json['savedUsername']),
     );
   }
   @override
@@ -12594,6 +12679,8 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       'routeCreditsMonthly': serializer.toJson<int>(routeCreditsMonthly),
       'setupCompletedAt': serializer.toJson<String?>(setupCompletedAt),
       'themeMode': serializer.toJson<String?>(themeMode),
+      'savedTenantCode': serializer.toJson<String?>(savedTenantCode),
+      'savedUsername': serializer.toJson<String?>(savedUsername),
     };
   }
 
@@ -12620,6 +12707,8 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     int? routeCreditsMonthly,
     Value<String?> setupCompletedAt = const Value.absent(),
     Value<String?> themeMode = const Value.absent(),
+    Value<String?> savedTenantCode = const Value.absent(),
+    Value<String?> savedUsername = const Value.absent(),
   }) => SyncMetaData(
     id: id ?? this.id,
     lastPulledSeq: lastPulledSeq ?? this.lastPulledSeq,
@@ -12653,6 +12742,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
         ? setupCompletedAt.value
         : this.setupCompletedAt,
     themeMode: themeMode.present ? themeMode.value : this.themeMode,
+    savedTenantCode: savedTenantCode.present
+        ? savedTenantCode.value
+        : this.savedTenantCode,
+    savedUsername: savedUsername.present
+        ? savedUsername.value
+        : this.savedUsername,
   );
   SyncMetaData copyWithCompanion(SyncMetaCompanion data) {
     return SyncMetaData(
@@ -12708,6 +12803,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           ? data.setupCompletedAt.value
           : this.setupCompletedAt,
       themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
+      savedTenantCode: data.savedTenantCode.present
+          ? data.savedTenantCode.value
+          : this.savedTenantCode,
+      savedUsername: data.savedUsername.present
+          ? data.savedUsername.value
+          : this.savedUsername,
     );
   }
 
@@ -12735,7 +12836,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           ..write('routeCredits: $routeCredits, ')
           ..write('routeCreditsMonthly: $routeCreditsMonthly, ')
           ..write('setupCompletedAt: $setupCompletedAt, ')
-          ..write('themeMode: $themeMode')
+          ..write('themeMode: $themeMode, ')
+          ..write('savedTenantCode: $savedTenantCode, ')
+          ..write('savedUsername: $savedUsername')
           ..write(')'))
         .toString();
   }
@@ -12764,6 +12867,8 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     routeCreditsMonthly,
     setupCompletedAt,
     themeMode,
+    savedTenantCode,
+    savedUsername,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -12790,7 +12895,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           other.routeCredits == this.routeCredits &&
           other.routeCreditsMonthly == this.routeCreditsMonthly &&
           other.setupCompletedAt == this.setupCompletedAt &&
-          other.themeMode == this.themeMode);
+          other.themeMode == this.themeMode &&
+          other.savedTenantCode == this.savedTenantCode &&
+          other.savedUsername == this.savedUsername);
 }
 
 class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
@@ -12816,6 +12923,8 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
   final Value<int> routeCreditsMonthly;
   final Value<String?> setupCompletedAt;
   final Value<String?> themeMode;
+  final Value<String?> savedTenantCode;
+  final Value<String?> savedUsername;
   const SyncMetaCompanion({
     this.id = const Value.absent(),
     this.lastPulledSeq = const Value.absent(),
@@ -12839,6 +12948,8 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.routeCreditsMonthly = const Value.absent(),
     this.setupCompletedAt = const Value.absent(),
     this.themeMode = const Value.absent(),
+    this.savedTenantCode = const Value.absent(),
+    this.savedUsername = const Value.absent(),
   });
   SyncMetaCompanion.insert({
     this.id = const Value.absent(),
@@ -12863,6 +12974,8 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.routeCreditsMonthly = const Value.absent(),
     this.setupCompletedAt = const Value.absent(),
     this.themeMode = const Value.absent(),
+    this.savedTenantCode = const Value.absent(),
+    this.savedUsername = const Value.absent(),
   });
   static Insertable<SyncMetaData> custom({
     Expression<int>? id,
@@ -12887,6 +13000,8 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Expression<int>? routeCreditsMonthly,
     Expression<String>? setupCompletedAt,
     Expression<String>? themeMode,
+    Expression<String>? savedTenantCode,
+    Expression<String>? savedUsername,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -12913,6 +13028,8 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
         'route_credits_monthly': routeCreditsMonthly,
       if (setupCompletedAt != null) 'setup_completed_at': setupCompletedAt,
       if (themeMode != null) 'theme_mode': themeMode,
+      if (savedTenantCode != null) 'saved_tenant_code': savedTenantCode,
+      if (savedUsername != null) 'saved_username': savedUsername,
     });
   }
 
@@ -12939,6 +13056,8 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Value<int>? routeCreditsMonthly,
     Value<String?>? setupCompletedAt,
     Value<String?>? themeMode,
+    Value<String?>? savedTenantCode,
+    Value<String?>? savedUsername,
   }) {
     return SyncMetaCompanion(
       id: id ?? this.id,
@@ -12963,6 +13082,8 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       routeCreditsMonthly: routeCreditsMonthly ?? this.routeCreditsMonthly,
       setupCompletedAt: setupCompletedAt ?? this.setupCompletedAt,
       themeMode: themeMode ?? this.themeMode,
+      savedTenantCode: savedTenantCode ?? this.savedTenantCode,
+      savedUsername: savedUsername ?? this.savedUsername,
     );
   }
 
@@ -13035,6 +13156,12 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     if (themeMode.present) {
       map['theme_mode'] = Variable<String>(themeMode.value);
     }
+    if (savedTenantCode.present) {
+      map['saved_tenant_code'] = Variable<String>(savedTenantCode.value);
+    }
+    if (savedUsername.present) {
+      map['saved_username'] = Variable<String>(savedUsername.value);
+    }
     return map;
   }
 
@@ -13062,7 +13189,9 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
           ..write('routeCredits: $routeCredits, ')
           ..write('routeCreditsMonthly: $routeCreditsMonthly, ')
           ..write('setupCompletedAt: $setupCompletedAt, ')
-          ..write('themeMode: $themeMode')
+          ..write('themeMode: $themeMode, ')
+          ..write('savedTenantCode: $savedTenantCode, ')
+          ..write('savedUsername: $savedUsername')
           ..write(')'))
         .toString();
   }
@@ -18502,6 +18631,8 @@ typedef $$SyncMetaTableCreateCompanionBuilder =
       Value<int> routeCreditsMonthly,
       Value<String?> setupCompletedAt,
       Value<String?> themeMode,
+      Value<String?> savedTenantCode,
+      Value<String?> savedUsername,
     });
 typedef $$SyncMetaTableUpdateCompanionBuilder =
     SyncMetaCompanion Function({
@@ -18527,6 +18658,8 @@ typedef $$SyncMetaTableUpdateCompanionBuilder =
       Value<int> routeCreditsMonthly,
       Value<String?> setupCompletedAt,
       Value<String?> themeMode,
+      Value<String?> savedTenantCode,
+      Value<String?> savedUsername,
     });
 
 class $$SyncMetaTableFilterComposer
@@ -18645,6 +18778,16 @@ class $$SyncMetaTableFilterComposer
 
   ColumnFilters<String> get themeMode => $composableBuilder(
     column: $table.themeMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get savedTenantCode => $composableBuilder(
+    column: $table.savedTenantCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get savedUsername => $composableBuilder(
+    column: $table.savedUsername,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -18767,6 +18910,16 @@ class $$SyncMetaTableOrderingComposer
     column: $table.themeMode,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get savedTenantCode => $composableBuilder(
+    column: $table.savedTenantCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get savedUsername => $composableBuilder(
+    column: $table.savedUsername,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SyncMetaTableAnnotationComposer
@@ -18873,6 +19026,16 @@ class $$SyncMetaTableAnnotationComposer
 
   GeneratedColumn<String> get themeMode =>
       $composableBuilder(column: $table.themeMode, builder: (column) => column);
+
+  GeneratedColumn<String> get savedTenantCode => $composableBuilder(
+    column: $table.savedTenantCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get savedUsername => $composableBuilder(
+    column: $table.savedUsername,
+    builder: (column) => column,
+  );
 }
 
 class $$SyncMetaTableTableManager
@@ -18928,6 +19091,8 @@ class $$SyncMetaTableTableManager
                 Value<int> routeCreditsMonthly = const Value.absent(),
                 Value<String?> setupCompletedAt = const Value.absent(),
                 Value<String?> themeMode = const Value.absent(),
+                Value<String?> savedTenantCode = const Value.absent(),
+                Value<String?> savedUsername = const Value.absent(),
               }) => SyncMetaCompanion(
                 id: id,
                 lastPulledSeq: lastPulledSeq,
@@ -18951,6 +19116,8 @@ class $$SyncMetaTableTableManager
                 routeCreditsMonthly: routeCreditsMonthly,
                 setupCompletedAt: setupCompletedAt,
                 themeMode: themeMode,
+                savedTenantCode: savedTenantCode,
+                savedUsername: savedUsername,
               ),
           createCompanionCallback:
               ({
@@ -18976,6 +19143,8 @@ class $$SyncMetaTableTableManager
                 Value<int> routeCreditsMonthly = const Value.absent(),
                 Value<String?> setupCompletedAt = const Value.absent(),
                 Value<String?> themeMode = const Value.absent(),
+                Value<String?> savedTenantCode = const Value.absent(),
+                Value<String?> savedUsername = const Value.absent(),
               }) => SyncMetaCompanion.insert(
                 id: id,
                 lastPulledSeq: lastPulledSeq,
@@ -18999,6 +19168,8 @@ class $$SyncMetaTableTableManager
                 routeCreditsMonthly: routeCreditsMonthly,
                 setupCompletedAt: setupCompletedAt,
                 themeMode: themeMode,
+                savedTenantCode: savedTenantCode,
+                savedUsername: savedUsername,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

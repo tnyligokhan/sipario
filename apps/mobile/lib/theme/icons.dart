@@ -81,6 +81,18 @@ abstract final class SipIcons {
   /// Kara liste (yasak işareti).
   static const String ban = 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z|m4.9 4.9 14.2 14.2';
 
+  /// Parola göster/gizle (giriş ekranı). Lucide `eye` / `eye-off`.
+  ///
+  /// Tasarım sözlüğünde YOK ve olmaması bir eksiklikti, tercih değil: `s-giris.jsx` parolayı
+  /// düz `type="password"` ile çiziyor, çünkü tarayıcı alanı zaten kendi göz düğmesiyle
+  /// donatır. Android'de öyle bir hediye yoktur — ikon eklenmezse özellik hiç var olamaz.
+  /// Set'in çizgi dili korundu (Lucide, 24×24, yuvarlak uç); daire alt-yolu diğer ikonlarla
+  /// aynı biçimde `a` yaylarıyla yazıldı (`<circle>` bu ayrıştırıcıda desteklenmiyor).
+  static const String goz =
+      'M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0|M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z';
+  static const String gozKapali =
+      'M10.73 5.08a10.74 10.74 0 0 1 11.2 6.57 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-1.44 2.49|M14.08 14.16a3 3 0 0 1-4.24-4.24|M17.48 17.5A10.75 10.75 0 0 1 2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 4.45-5.14|m2 2 20 20';
+
   /// Gün gezinmesi (teslim sekmesindeki tarih şeridi).
   static const String takvim =
       'M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z|M16 2v4|M8 2v4|M3 10h18';
@@ -90,6 +102,8 @@ abstract final class SipIcons {
     'trash': trash,
     'ban': ban,
     'takvim': takvim,
+    'goz': goz,
+    'gozKapali': gozKapali,
     'phone': phone,
     'phoneCall': phoneCall,
     'user': user,

@@ -512,6 +512,25 @@ class SyncMeta extends Table {
   TextColumn get setupCompletedAt => text().nullable()();
   TextColumn get themeMode => text().nullable()(); // koyu|acik
 
+  /// "Beni hatırla" — giriş ekranının ÖNDOLDURDUĞU kimlik. CİHAZ-YEREL, senkronlanmaz.
+  ///
+  /// ⚠️ PAROLA BURADA YOK VE OLMAYACAK. Saklanan tek şey, kullanıcının zaten ekranda gördüğü
+  /// iki genel bilgidir: firma kodu (İşletme Profili onu "değiştirilemez" diye yayınlıyor) ve
+  /// kullanıcı adı. Parolayı da saklamak, oturum açma kapısını "cihazı eline geçiren herkes
+  /// girebilir"e indirirdi — oysa çıkış yapmanın TEK anlamı budur. Kolaylık zaten büyük kısmı
+  /// karşılanıyor: `authToken` çıkış yapılana kadar durur, yani bu iki alan yalnız BİLİNÇLİ
+  /// çıkıştan sonraki girişte okunur.
+  ///
+  /// [savedTenantCode] SUNUCU SAHİPLİ [tenantCode]'dan AYRI bir alandır ve bilerek öyledir:
+  /// o, senkronun yazdığı bir önbellektir (istemci yazamaz) ve oturum yokken doğruluğu
+  /// garanti değildir; bu ise kullanıcının kendi yazdığı, kendi kapatabildiği bir tercihtir.
+  /// Tek kolona bindirmek, "hatırlama"yı kapatan bayinin ekranında sunucudan gelen kodun
+  /// yine belirmesi demek olurdu.
+  ///
+  /// İkisi de null = hatırlama KAPALI (varsayılan).
+  TextColumn get savedTenantCode => text().nullable()();
+  TextColumn get savedUsername => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

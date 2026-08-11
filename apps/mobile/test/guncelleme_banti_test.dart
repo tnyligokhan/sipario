@@ -86,7 +86,8 @@ void main() {
 
       expect(find.byType(GuncellemeBanti), findsOneWidget);
       expect(tester.getSize(find.byType(GuncellemeBanti)).height, 0);
-      expect(find.textContaining('Güncelleme'), findsNothing);
+      expect(find.textContaining('sürüm'), findsNothing);
+      expect(find.text(_bilgi.surum), findsNothing);
 
       await _kapat(tester);
     });
@@ -227,8 +228,47 @@ void main() {
       servis.durum.value = GuncellemeDurumu.bulundu;
       await tester.pump();
 
-      expect(find.textContaining('Güncelleme'), findsOneWidget);
+      expect(find.text('Yeni sürüm hazır'), findsOneWidget);
+      expect(find.text('Kurmak için dokunun'), findsOneWidget);
       expect(tester.getSize(find.byType(GuncellemeBanti)).height, greaterThan(0));
+
+      await _kapat(tester);
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    // 2026-08-11 kullanıcı kararı: "sadece sürüm yazsın"
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    //
+    // Eski metin `Güncelleme var — Sipario 0.9.0 (139)` idi. Parantezteki sayı YAPIM
+    // numarasıdır: makinenin karşılaştırma anahtarı (CLAUDE.md → Sürümleme), bayiye hiçbir
+    // şey söylemeyen bir git sayacı. Ekrandan kalktı ama KARŞILAŞTIRMADAN kalkmadı — o
+    // ayrım tam olarak bu iki iddiadır ve ikisi birlikte anlamlıdır.
+    testWidgets('SÜRÜM yazar, YAPIM numarasını YAZMAZ', (tester) async {
+      await bandiKur(tester);
+      servis.bulunan.value = _bilgi;
+      servis.durum.value = GuncellemeDurumu.bulundu;
+      await tester.pump();
+
+      expect(find.text(_bilgi.surum), findsOneWidget, reason: 'sürüm rozeti çizilmeli');
+      expect(find.textContaining('${_bilgi.yapim}'), findsNothing,
+          reason: 'yapım numarası (139) bayiye gösterilmez — makine anahtarıdır');
+      expect(find.textContaining('Sipario'), findsNothing,
+          reason: 'uygulamanın kendi adını kendi bandında tekrarlaması gürültüdür');
+
+      await _kapat(tester);
+    });
+
+    testWidgets('rozet YALNIZ "bulundu" hâlinde çizilir', (tester) async {
+      // İnerken yüzde, hata varken hiçbir şey: aynı köşede iki farklı anlam taşıyan bir
+      // rozet, bayiye indirmenin bittiğini sandırırdı.
+      await bandiKur(tester);
+      servis.bulunan.value = _bilgi;
+
+      for (final durum in [GuncellemeDurumu.iniyor, GuncellemeDurumu.hata]) {
+        servis.durum.value = durum;
+        await tester.pump();
+        expect(find.text(_bilgi.surum), findsNothing, reason: '$durum hâlinde rozet olmamalı');
+      }
 
       await _kapat(tester);
     });

@@ -89,6 +89,7 @@ class _Bant extends StatelessWidget {
     final iniyor = durum == GuncellemeDurumu.iniyor;
     final kuruluyor = durum == GuncellemeDurumu.kuruluyor;
     final hata = durum == GuncellemeDurumu.hata;
+    final renk = hata ? t.danger : t.accent;
 
     return SipDokun(
       // İndirme sürerken dokunuş yok: ikinci bir indirme başlatmak dosyayı bozar.
@@ -97,7 +98,7 @@ class _Bant extends StatelessWidget {
       radius: SipRadius.br2,
       padding: const EdgeInsets.symmetric(
         horizontal: SipSpace.x2,
-        vertical: SipSpace.xl,
+        vertical: SipSpace.md,
       ),
       child: Row(
         children: [
@@ -105,36 +106,92 @@ class _Bant extends StatelessWidget {
             // İkon setinde "indir" YOK. Yeni varlık eklemek yerine mevcut sözlükten en yakın
             // anlam seçildi: `sync` (yenileme/güncelleme), hatada `alert`.
             hata ? SipIcons.alert : SipIcons.sync,
-            boyut: 16,
+            boyut: 17,
             kalinlik: 2.2,
-            renk: hata ? t.danger : t.accent,
+            renk: renk,
           ),
-          const SizedBox(width: SipSpace.md),
+          const SizedBox(width: SipSpace.lg),
           Expanded(
-            child: Text(
-              _metin(),
-              style: SipText.govdeKalin.copyWith(color: hata ? t.danger : t.accent),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _baslik(),
+                  style: SipText.govdeKalin.copyWith(color: renk),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Text(
+                    _altBaslik(),
+                    style: SipText.yardimci.copyWith(color: renk.withValues(alpha: 0.75)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(width: SipSpace.lg),
           if (iniyor)
             ValueListenableBuilder<double>(
               valueListenable: servis.ilerleme,
               builder: (context, o, _) => Text(
                 '%${(o * 100).round()}',
-                style: SipText.yardimci.copyWith(color: t.accent),
+                style: SipText.govdeKalin.copyWith(color: t.accent),
               ),
-            ),
+            )
+          else if (!hata && !kuruluyor)
+            _SurumRozeti(surum: bilgi.surum),
         ],
       ),
     );
   }
 
-  String _metin() => switch (durum) {
-        GuncellemeDurumu.iniyor => 'İndiriliyor…',
-        GuncellemeDurumu.kuruluyor => 'Kurulum başlatılıyor…',
-        GuncellemeDurumu.hata => 'Güncelleme tamamlanamadı — tekrar denemek için dokunun',
-        _ => 'Güncelleme var — Sipario ${bilgi.surum} (${bilgi.yapim})',
+  /// Üst satır — NE OLDUĞU.
+  String _baslik() => switch (durum) {
+        GuncellemeDurumu.iniyor => 'İndiriliyor',
+        GuncellemeDurumu.kuruluyor => 'Kurulum başlatılıyor',
+        GuncellemeDurumu.hata => 'Güncelleme tamamlanamadı',
+        _ => 'Yeni sürüm hazır',
       };
+
+  /// Alt satır — NE YAPILACAĞI. Kısa tutulur: bant tek satır yüksekliğinde kalmalı.
+  String _altBaslik() => switch (durum) {
+        GuncellemeDurumu.iniyor => 'Lütfen bekleyin',
+        GuncellemeDurumu.kuruluyor => 'Kurulum ekranı birazdan açılacak',
+        GuncellemeDurumu.hata => 'Tekrar denemek için dokunun',
+        _ => 'Kurmak için dokunun',
+      };
+}
+
+/// Sürüm numarasını taşıyan hap. YALNIZ SÜRÜM ADI yazar — yapı numarası (`bilgi.yapim`) YOK.
+///
+/// 2026-08-11 kullanıcı kararı: "sadece sürüm yazsın". Eski metin `Sipario 0.13.0 (412)` idi ve
+/// parantez içindeki sayı bayiye hiçbir şey söylemiyordu — o, makinenin karşılaştırma anahtarıdır
+/// (CLAUDE.md → Sürümleme: "SemVer insan içindir, derleme numarası makine içindir") ve bandın
+/// okuru insandır. Sayı ATILMADI, yalnız bu yüzeyden kalktı: karşılaştırma hâlâ ona dayanıyor
+/// ve Ayarlar → Sürüm satırı teşhis için ikisini birden yazmaya devam ediyor.
+class _SurumRozeti extends StatelessWidget {
+  const _SurumRozeti({required this.surum});
+
+  final String surum;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: SipSpace.md, vertical: 3),
+      decoration: BoxDecoration(
+        color: t.accent,
+        borderRadius: SipRadius.brHap,
+      ),
+      child: Text(
+        surum,
+        style: SipText.yardimci.copyWith(color: t.accentInk, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
 }

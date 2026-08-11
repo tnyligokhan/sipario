@@ -31,6 +31,7 @@ import '../team.dart' show RolYetkileri;
 import 'isletme_atomlari.dart';
 import 'isletme_profili_ekrani.dart';
 import 'siparis_kodu_ayari.dart';
+import 'surum_notlari_ekrani.dart';
 
 /// Uygulama sürümü — APK'nın KENDİSİNDEN okunur, elle yazılmaz.
 ///
@@ -391,6 +392,16 @@ class _HakkindaKarti extends StatelessWidget {
           ),
           AyarSatiri(baslik: 'Sunucu', altBaslik: sunucuSurumuMetni(meta)),
           AyarSatiri(baslik: 'Lisans', altBaslik: lisansMetni(meta)),
+          // "Yenilikler" AYRI VE ETİKETLİ bir satır; "Sürüm" satırını dokunulabilir yapmak
+          // daha az yer kaplardı ama keşfedilebilir olmazdı — bir bayi bilgi satırına
+          // dokunmayı denemez. Chevron `onTap` verildiği için kendiliğinden çizilir.
+          AyarSatiri(
+            baslik: 'Yenilikler',
+            altBaslik: 'Bu güncellemede ne değişti?',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const SurumNotlariEkrani()),
+            ),
+          ),
         ]);
       },
     );

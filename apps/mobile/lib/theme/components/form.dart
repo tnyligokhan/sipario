@@ -104,6 +104,7 @@ class SipInput extends StatelessWidget {
     this.hizalama = TextAlign.start,
     this.buyukHarfKipi = TextCapitalization.sentences,
     this.otomatikOdak = false,
+    this.sonEk,
   });
 
   final TextEditingController? controller;
@@ -128,6 +129,14 @@ class SipInput extends StatelessWidget {
   final TextAlign hizalama;
   final TextCapitalization buyukHarfKipi;
   final bool otomatikOdak;
+
+  /// Alanın SAĞ İÇİNE yerleşen eylem (parolayı göster/gizle gibi).
+  ///
+  /// Yükseklik sözleşmesi (46 px) korunmak ZORUNDA: `suffixIcon` kısıtsız bırakılırsa
+  /// Material varsayılanı 48×48 dayatır ve kutu iki piksel uzayarak yanındaki alanlarla
+  /// hizasını kaybeder. Kısıt aşağıda `yukseklik`e bağlanır — çağıran kutuyu büyütürse
+  /// son ek de onunla büyür.
+  final Widget? sonEk;
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +175,12 @@ class SipInput extends StatelessWidget {
         // `max(ipucuYüksekliği, metinYüksekliği)` (`input_decorator.dart` :1080-1083), yani
         // ipucuya çarpan verilmezse kutu yazmaya başlayınca zıplar.
         hintStyle: etkin.copyWith(color: t.muted),
+        suffixIcon: sonEk,
+        suffixIconConstraints: BoxConstraints(
+          minWidth: 40,
+          minHeight: 0,
+          maxHeight: yukseklik ?? SipInputOlcu.yukseklik,
+        ),
         filled: true,
         fillColor: hata ? t.dangerSoft : t.surface2,
         isDense: true,
@@ -362,6 +377,71 @@ class SipToggle extends StatelessWidget {
           ),
           const SizedBox(width: SipSpace.lg),
           SipKnob(acik: acik),
+        ],
+      ),
+    );
+  }
+}
+
+/// Etiketli onay kutusu — kare kutu + tik, yanında metin.
+///
+/// NEDEN [SipToggle] DEĞİL: o, dolgulu bir SATIR (surface-2 zemin, 46 px, sağda ray-topuz) ve
+/// bir AYAR ekranının dilidir — "bu özellik açık mı?". Giriş formunda aynı ağırlıkta bir blok,
+/// yanındaki üç girdi kutusuyla görsel olarak yarışır ve "Giriş Yap" düğmesinden önce gözün
+/// takıldığı en büyük öğe olurdu. Onay kutusu formun kendi diline aittir: tercihi TAŞIR ama
+/// hiyerarşide girdilerin altında kalır.
+///
+/// Dokunma hedefi kutunun kendisi değil TÜM SATIRDIR (18 px'lik bir kareyi parmakla vurmak
+/// erişilebilirlik eşiğinin altındadır); dikey dolgu hedefi ~40 px'e çıkarır.
+class SipOnayKutusu extends StatelessWidget {
+  const SipOnayKutusu({
+    super.key,
+    required this.etiket,
+    required this.isaretli,
+    required this.onDegis,
+    this.aktif = true,
+  });
+
+  final String etiket;
+  final bool isaretli;
+  final ValueChanged<bool> onDegis;
+  final bool aktif;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return SipDokun(
+      onTap: aktif ? () => onDegis(!isaretli) : null,
+      radius: SipRadius.br2,
+      padding: const EdgeInsets.symmetric(vertical: SipSpace.md),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            width: 20,
+            height: 20,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: isaretli ? t.accent : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isaretli ? t.accent : t.line2,
+                width: SipInputOlcu.kenarKalinlik,
+              ),
+            ),
+            // Tik İŞARETLİYKEN de ağaçta durur (opaklıkla gizlenir): kutunun boyutu
+            // çocuğun varlığına göre değişmesin, satır işaretlenirken zıplamasın.
+            child: Opacity(
+              opacity: isaretli ? 1 : 0,
+              child: SipIcon(SipIcons.check, boyut: 13, kalinlik: 3, renk: t.accentInk),
+            ),
+          ),
+          const SizedBox(width: 9),
+          Text(
+            etiket,
+            style: SipText.metin(13, w: 600).copyWith(color: aktif ? t.ink2 : t.muted),
+          ),
         ],
       ),
     );
