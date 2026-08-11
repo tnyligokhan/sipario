@@ -3,6 +3,8 @@
 namespace App\Livewire\Site;
 
 use App\Abonelik\PlanDeposu;
+use App\Eposta\BayiPostacisi;
+use App\Mail\Hosgeldiniz;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Payment\ConsentRequiredException;
@@ -189,6 +191,26 @@ class Register extends Component
         // Ekranda GERÇEK kod gösterilir (DB'de oluşan slug) — bayiye vermediğimiz bir kodu
         // göstermek en kötü yalan olurdu.
         $this->olusanKod = $tenant->slug;
+
+        /*
+         * HOŞ GELDİNİZ POSTASI (2026-08-12). Bu akış bugüne kadar HİÇ posta göndermiyordu ve
+         * bıraktığı boşluk doğrudan BRIEF'in üçüncü korkusuna değiyordu ("kurulum→ilk tanıma
+         * 10 dakikanın altında kalmalı"): mobil giriş FİRMA KODU + KULLANICI ADI ister, e-posta
+         * kabul etmez. Bayi bu başarı ekranını kapattığı an kodu başka hiçbir yerden öğrenemezdi.
+         *
+         * Kayıt akışını DÜŞÜRMEZ: `postala()` istisnayı yutup raporlar. Bir SMTP arızası
+         * yüzünden yeni açılmış bir bayiyi geri almak, çözdüğünden çok sorun yaratırdı — hesap
+         * zaten transaction içinde yazıldı ve ekranda kod görünüyor.
+         */
+        BayiPostacisi::postala($patron->email, $patron->name, new Hosgeldiniz(
+            isletme: $tenant->name,
+            yetkili: $patron->name,
+            firmaKodu: $tenant->slug,
+            kullaniciAdi: $patron->username,
+            denemeBitisi: $tenant->trial_ends_at?->translatedFormat('j F Y') ?? '',
+            denemeGun: $this->denemeGun(),
+            hesapUrl: route('site.hesap'),
+        ));
 
         session()->regenerate();
         Auth::guard('web')->login($patron);

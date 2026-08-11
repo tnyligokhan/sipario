@@ -5,8 +5,10 @@ namespace App\Livewire\Site;
 use App\Abonelik\KotaDoluException;
 use App\Abonelik\KuryeKotasi;
 use App\Enums\UserRole;
+use App\Eposta\BayiPostacisi;
 use App\Livewire\Site\Forms\IsletmeFormu;
 use App\Livewire\Site\Forms\KuryeFormu;
+use App\Mail\KuryeHesabiAcildi;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Sync\SyncService;
@@ -236,6 +238,33 @@ class Ekip extends Component
             'actor_id' => $this->patronId,
             'target_id' => $kurye->id,
         ]);
+
+        /*
+         * GİRİŞ BİLGİLERİ PATRONA POSTALANIR (2026-08-12).
+         *
+         * ALICI KURYE DEĞİL: kurye hesabının e-postası SAHTEDİR — `Provisioning::createCourier`
+         * onu `<kullanıcı>@<firma-kodu>.sipario.local` diye türetir ve o adrese gönderilen posta
+         * hiçbir yere ulaşmaz. Bilgiyi kuryeye ulaştıracak olan patrondur.
+         *
+         * NEDEN GEREKLİ: firma kodu + kullanıcı adı ikilisi bu ekranda bir kez görünüp kaybolur,
+         * ama mobil giriş TAM OLARAK o ikiliyi ister (e-posta kabul etmez). Patron formu
+         * kapattıktan sonra kuryesine ne söyleyeceğini hatırlamak zorunda kalıyordu.
+         *
+         * PAROLA POSTAYA YAZILMAZ — patron onu zaten kendisi belirledi; kopyalamak bilgi
+         * eklemez, yalnız posta kutusunu ele geçirene hazır bir hesap verir.
+         */
+        BayiPostacisi::postala(
+            (string) Auth::guard('web')->user()?->email,
+            (string) Auth::guard('web')->user()?->name,
+            new KuryeHesabiAcildi(
+                isletme: (string) $this->bayi()->name,
+                kuryeAdi: (string) $kurye->name,
+                kullaniciAdi: (string) $kurye->username,
+                firmaKodu: (string) $this->bayi()->slug,
+                kalanHak: max(0, $this->kota()['kalan']),
+                hesapUrl: route('site.hesap'),
+            ),
+        );
 
         $this->dispatch('bildir', detail: $kurye->name.' için kurye hesabı açıldı');
     }

@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Http\Middleware\ResolveTenantContext;
+use App\Mail\ParolaSifirlama;
+use App\Models\User;
 use App\Payment\IyzicoPaymentGateway;
 use App\Payment\PaymentGateway;
 use App\Support\Geocoding\Geocoder;
@@ -15,7 +17,9 @@ use App\Support\Konum\VeritabaniKonumDeposu;
 use App\Support\Route\GoogleRoutesMotoru;
 use App\Support\Route\RotaMotoru;
 use App\Support\Route\YakinKomsuMotoru;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\Auth\CanResetPassword;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -126,6 +130,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiters();
+        $this->parolaSifirlamaPostasiniKur();
 
         /*
          * LIVEWIRE'IN ALPINE PAKETİNİ CSP-GÜVENLİ SÜRÜME AL (2026-08-04, `csp_safe` sıkılaştırması).
@@ -170,6 +175,51 @@ class AppServiceProvider extends ServiceProvider
          * değildir; bu satır yalnız bayinin hesap panelini ayakta tutar.
          */
         Livewire::addPersistentMiddleware(ResolveTenantContext::class);
+    }
+
+    /**
+     * PAROLA SIFIRLAMA POSTASI — Laravel'in varsayılanını Sipario şablonuyla değiştirir.
+     *
+     * DÜZELTTİĞİ ARIZA ÖLÇÜLDÜ: `.env`de `APP_LOCALE=tr` yazıyor ama depoda `lang/tr` dizini
+     * YOK. Laravel'in `ResetPassword` bildirimi metnini `__('Reset Password')` gibi anahtarlarla
+     * kurar; çeviri bulunamayınca anahtarın KENDİSİ basılır. Sonuç: Türkçe bir üründe, hesabına
+     * giremeyen esnafa İngilizce bir posta gidiyordu. Bu iki satır o yolu kapatır ve çeviri
+     * dosyası bağımlılığını tümden kaldırır.
+     *
+     * NEDEN BURADA, `Livewire\Site\Parola` İÇİNDE DEĞİL: ikisi de UYGULAMA GENELİ ayardır,
+     * isteğe özgü değil. `createUrlUsing` daha önce `Parola::baglantiGonder()` içinde her çağrıda
+     * yeniden kuruluyordu; o yerleşim sessiz bir tuzak taşıyordu — parola sıfırlamayı BAŞKA bir
+     * yol tetiklerse (panelden destek talebi, konsol komutu, ileride eklenecek bir uç nokta)
+     * `createUrlUsing` hiç çalışmaz ve Laravel varsayılan `password.reset` adını arar; o ad bu
+     * depoda YOKTUR (bizimki `site.parola.yenile`), yani posta ya patlar ya yanlış adrese
+     * götürür. Boot'ta bir kez kurmak bu yolların hepsini birden doğru yapar.
+     */
+    private function parolaSifirlamaPostasiniKur(): void
+    {
+        // Bağlantı adresi: bizde route adı `site.parola.yenile` (/parola/yenile/{token}).
+        // E-posta parametresi ŞART — token tek başına hangi hesaba ait olduğunu söylemez,
+        // `ParolaYenile` kullanıcıyı adresten bulur.
+        ResetPassword::createUrlUsing(fn (CanResetPassword $kullanici, string $token): string => route(
+            'site.parola.yenile',
+            ['token' => $token, 'email' => $kullanici->getEmailForPasswordReset()],
+        ));
+
+        ResetPassword::toMailUsing(function (CanResetPassword $kullanici, string $token): ParolaSifirlama {
+            $ad = $kullanici instanceof User && trim($kullanici->name) !== ''
+                ? $kullanici->name
+                : 'değerli bayimiz';
+
+            return new ParolaSifirlama(
+                yetkili: $ad,
+                url: route('site.parola.yenile', [
+                    'token' => $token,
+                    'email' => $kullanici->getEmailForPasswordReset(),
+                ]),
+                // Süreyi UYDURMUYORUZ: broker'ın gerçek ömrü config'dedir ve orayı değiştiren
+                // biri postadaki cümleyi güncellemeyi unutursa yalan söylemiş oluruz.
+                gecerlilikDakika: (int) config('auth.passwords.users.expire', 60),
+            );
+        });
     }
 
     /**

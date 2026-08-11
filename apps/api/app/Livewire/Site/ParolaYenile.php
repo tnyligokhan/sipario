@@ -3,6 +3,8 @@
 namespace App\Livewire\Site;
 
 use App\Enums\UserRole;
+use App\Eposta\BayiPostacisi;
+use App\Mail\ParolaDegisti;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Password;
@@ -83,6 +85,21 @@ class ParolaYenile extends Component
 
         // Token TEK KULLANIMLIK: aynı bağlantı ikinci kez çalışmaz.
         $depo->delete($patron);
+
+        /*
+         * GÜVENLİK TEYİDİ (2026-08-12). Bu akış bugüne kadar SESSİZDİ ve sessizliği bir saldırı
+         * penceresi bırakıyordu: bayinin posta kutusuna erişen biri sıfırlama bağlantısını
+         * kullanır, parolayı değiştirir ve hesabın gerçek sahibi bunu ancak giremediği gün fark
+         * ederdi. Bu posta o pencereyi kapatan tek uyarıdır.
+         *
+         * Postanın İÇİNDE tıklanacak bağlantı YOKTUR — "siz değilseniz tıklayın" kalıbı kimlik
+         * avının birebir taklit ettiği kalıptır; bayiyi ona alıştırmak yarın sahtesini tıklamasını
+         * kolaylaştırır. Tek çağrı, zaten güvendiği kanaldan yanıt vermesi.
+         */
+        BayiPostacisi::postala($patron->email, $patron->name, new ParolaDegisti(
+            yetkili: (string) $patron->name,
+            zaman: now()->translatedFormat('j F Y, H:i'),
+        ));
 
         $this->reset('parola', 'parolaTekrar');
         $this->bitti = true;

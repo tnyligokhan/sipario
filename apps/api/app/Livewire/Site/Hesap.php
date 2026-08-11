@@ -9,9 +9,11 @@ use App\Abonelik\PlanDeposu;
 use App\Enums\BillingPeriod;
 use App\Enums\TenantStatus;
 use App\Enums\UserRole;
+use App\Eposta\BayiPostacisi;
 use App\Livewire\Site\Forms\IsletmeFormu;
 use App\Livewire\Site\Forms\ParaBicimi;
 use App\Livewire\Site\Forms\SirketKunyesi;
+use App\Mail\IcBildirim;
 use App\Models\AddonPackage;
 use App\Models\Customer;
 use App\Models\Device;
@@ -26,12 +28,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
-use Throwable;
 
 /**
  * BAYİNİN HESAP PANELİ (tasarım: 14-sw-hesap.jsx) — 6 bölüm: genel bakış · abonelik · oto-sıralama ·
@@ -146,16 +146,28 @@ class Hesap extends Component
     public function disaAktarTalep(): void
     {
         $bayi = $this->bayi();
-        $hedef = (string) config('subscription.company.support_email', 'destek@sipario.com.tr');
 
-        try {
-            Mail::raw(
-                "Veri dışa aktarma talebi\n\nBayi : {$bayi->name}\nKod  : {$bayi->slug}\n"
-                ."Bayi id: {$bayi->id}\nYetkili: {$this->isletme->yetkili}\nE-posta: {$this->isletme->eposta}",
-                fn ($m) => $m->to($hedef)->subject('Sipario · veri dışa aktarma talebi · '.$bayi->slug),
-            );
-        } catch (Throwable $e) {
-            report($e);
+        // Düz metin `Mail::raw` KALDIRILDI (2026-08-12) → `IcBildirim`. Bu posta BİZE gelir,
+        // o yüzden konu satırında "Sipario ·" ön eki KORUNUR (süzgeç anahtarı) ve gövdede
+        // nezaket dili yoktur — okuyan kişi bir işi kuyruğa alacak.
+        //
+        // ⚠️ KVKK (kırmızı çizgi #4): buraya BAYİNİN kimliği yazılır, bayinin KENDİ MÜŞTERİSİNİN
+        // verisi asla. Aşağıdaki alanların hepsi bayiye aittir.
+        $iletildi = BayiPostacisi::destege(new IcBildirim(
+            baslik: 'Veri dışa aktarma talebi',
+            konuEki: 'veri dışa aktarma talebi · '.$bayi->slug,
+            satirlar: [
+                'Bayi' => (string) $bayi->name,
+                'Firma kodu' => (string) $bayi->slug,
+                'Bayi id' => (string) $bayi->id,
+                'Yetkili' => (string) $this->isletme->yetkili,
+                'E-posta' => (string) $this->isletme->eposta,
+                'Talep zamanı' => now()->translatedFormat('j F Y, H:i'),
+            ],
+            aciklama: 'Bayi hesap sayfasındaki "Verilerimi dışa aktar" düğmesinden talep bıraktı.',
+        ));
+
+        if (! $iletildi) {
             $this->dispatch('bildir', detail: 'Talep iletilemedi, destek hattından ulaşın');
 
             return;
