@@ -209,7 +209,7 @@ class AppServiceProvider extends ServiceProvider
                 ? $kullanici->name
                 : 'değerli bayimiz';
 
-            return new ParolaSifirlama(
+            return (new ParolaSifirlama(
                 yetkili: $ad,
                 url: route('site.parola.yenile', [
                     'token' => $token,
@@ -218,7 +218,24 @@ class AppServiceProvider extends ServiceProvider
                 // Süreyi UYDURMUYORUZ: broker'ın gerçek ömrü config'dedir ve orayı değiştiren
                 // biri postadaki cümleyi güncellemeyi unutursa yalan söylemiş oluruz.
                 gecerlilikDakika: (int) config('auth.passwords.users.expire', 60),
-            );
+            ))
+                /*
+                 * ⚠️ `->to(...)` ZORUNLUDUR VE UNUTULDUĞUNDA ARIZA TAMAMEN SESSİZDİR.
+                 * (2026-08-12'de canlıda yaşandı, kök neden burasıydı.)
+                 *
+                 * `Notification::toMail()` bir `MailMessage` döndürdüğünde alıcıyı `MailChannel`
+                 * KENDİSİ ekler (`$notifiable`ın adresinden). Ama bir `Mailable` döndürdüğünde
+                 * kanal onu olduğu gibi `$mailable->send($mailer)` ile gönderir ve alıcı ekleme
+                 * adımını ATLAR — sorumluluk tümüyle buraya geçer. Alıcısız ileti Symfony'de
+                 * `LogicException: An email must have a "To", "Cc", or "Bcc" header.` ile düşer.
+                 *
+                 * Ve o istisna KULLANICIYA GÖRÜNMEZ: `Livewire\Site\Parola::baglantiGonder()`
+                 * gönderim hatalarını numaralandırmayı önlemek için bilerek yutup `report()`
+                 * eder (DECISIONS 2026-08-09). Yani ekran "bağlantı gönderildi" der, posta hiç
+                 * çıkmaz, hiçbir yerde kırmızı yanmaz. Bu satır o sessizliğin tek koruyucusudur;
+                 * regresyon testi `ParolaSifirlamaPostasiTest` ile kilitli.
+                 */
+                ->to($kullanici->getEmailForPasswordReset());
         });
     }
 

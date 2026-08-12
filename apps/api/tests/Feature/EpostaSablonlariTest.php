@@ -17,6 +17,8 @@ use App\Mail\SiparioPostasi;
 use App\Mail\SureDoldu;
 use App\Mail\YenilemeHatirlatmasi;
 use App\Models\AddonPackage;
+use App\Models\User;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Mail;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -219,6 +221,52 @@ class EpostaSablonlariTest extends TestCase
 
         $this->assertStringNotContainsString('[Şirket', (string) $ileti->getHtmlBody());
         $this->assertStringNotContainsString('[Şirket', (string) $ileti->getTextBody());
+    }
+
+    /**
+     * GERÇEK BİLDİRİM YOLU — şablonu değil, `ResetPassword` → `MailChannel` zincirini sürer.
+     *
+     * NEDEN AYRI BİR TEST: 2026-08-12'de canlıda yaşanan arıza tam olarak buradaydı ve yukarıdaki
+     * şablon testlerinin HİÇBİRİ onu yakalayamazdı — çünkü şablon kusursuzdu, kusur onu POSTAYA
+     * BAĞLAYAN yerdeydi. `AppServiceProvider::toMailUsing()` bir `Mailable` döndürüyor ama
+     * `->to(...)` çağırmıyordu. `Notification::toMail()` bir `MailMessage` döndürseydi alıcıyı
+     * `MailChannel` kendisi eklerdi; `Mailable` döndürdüğünde kanal o adımı ATLAR ve iletiyi
+     * olduğu gibi gönderir. Alıcısız ileti Symfony'de `LogicException` ile düşer, `Parola::
+     * baglantiGonder()` o istisnayı numaralandırmaya karşı bilerek yutar → ekran "gönderildi"
+     * der, posta hiç çıkmaz, hiçbir yerde kırmızı yanmaz.
+     */
+    #[Test]
+    public function parola_sifirlama_bildirimi_gercek_bir_aliciya_gider(): void
+    {
+        // Kalıcılık GEREKMİYOR: `Notifiable` adresi modelin `email` alanından okur. DB'ye
+        // yazmamak testi RLS'ten ve kiracı kurulumundan bağımsız kılar.
+        $patron = new User(['name' => 'Mehmet Yılmaz', 'email' => 'patron@ornek.test']);
+
+        $patron->notify(new ResetPassword('sahte-token-123'));
+
+        $ileti = Mail::getSymfonyTransport()->messages()->last()?->getOriginalMessage();
+
+        $this->assertNotNull($ileti, 'Parola sıfırlama bildirimi hiçbir ileti üretmedi.');
+
+        // ASIL İDDİA: alıcı var ve doğru kişi. `->to(...)` düşerse burası kırmızı yanar.
+        $alicilar = $ileti->getTo();
+        $this->assertCount(1, $alicilar, 'İletide alıcı yok — `toMailUsing` içinde `->to(...)` düşmüş.');
+        $this->assertSame('patron@ornek.test', $alicilar[0]->getAddress());
+
+        $html = (string) $ileti->getHtmlBody();
+
+        // Sipario şablonu mu, Laravel'in varsayılanı mı? Varsayılan bu depoda İNGİLİZCE basıyordu
+        // (APP_LOCALE=tr ama `lang/tr` yok) — o yola geri düşersek burası yakalar.
+        $this->assertSame('Sipario parolanızı sıfırlayın', (string) $ileti->getSubject());
+        $this->assertStringNotContainsString('Reset Password', $html);
+        $this->assertStringContainsString('hizmet bildirimidir', $html);
+
+        // Bağlantı gerçekten token taşıyor ve BİZİM rotamıza gidiyor (`password.reset` bu depoda yok).
+        $this->assertStringContainsString('sahte-token-123', $html);
+        $this->assertStringContainsString('/parola/yenile/', $html);
+
+        // Düz metin karşılığı da alıcıya ulaşan gerçek gövdedir; bağlantı orada da olmalı.
+        $this->assertStringContainsString('sahte-token-123', (string) $ileti->getTextBody());
     }
 
     #[Test]
