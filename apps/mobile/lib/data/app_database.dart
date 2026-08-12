@@ -243,6 +243,22 @@ class AppDatabase extends _$AppDatabase {
             }
           }
 
+          // v20 — ARA TAHSİLAT İPTAL KAYDI (2026-08-13). `cash_handovers.reverses_handover_id`.
+          //
+          // v10..v19 ile AYNI SEBEPTEN kapıdan ÖNCE ve `from < 20` KOŞULU OLMADAN: aşağıdaki
+          // kendini-onarma kapısı `tenant_settings`i görünce ERKEN DÖNER ve sahadaki her cihazda
+          // o tablo zaten vardır. Bedeli burada v16/v19'unkiyle aynı sınıftan ve AĞIRDIR —
+          // kolon yoksa `cash_handovers`a dokunan HER sorgu "no such column" ile patlar; o tablo
+          // gün özetinin (kasa devri, ara tahsilat, kapanış önizlemesi) tam ortasındadır, yani
+          // patron gün sonu ekranını hiç açamaz hâle gelirdi.
+          //
+          // NULLABLE, varsayılansız: eski satırların hiçbiri iptal kaydı DEĞİLDİR ve `null` tam
+          // olarak bunu söyler. Yükseltme öncesi davranışla birebir aynı.
+          if (await _tabloVar(m, 'cash_handovers')) {
+            await _addColumnIfMissing(
+                m, 'ALTER TABLE cash_handovers ADD COLUMN reverses_handover_id TEXT');
+          }
+
           // KENDİNİ ONARMA (2026-07-22 SAHA BULGUSU — iki gerçek cihazda yaşandı): Faz 0 ölçüm
           // ekranı sipario.db'yi sqflite `version: 1` ile açınca user_version damgası 1'e
           // eziliyordu; Drift sonraki açılışta migration'ı YENİDEN koşup "duplicate column" ile
