@@ -243,7 +243,19 @@
 >
 ## Güncel durum
 
-### 🔻 2026-08-13 — YENİ SİPARİŞ FORMU: UI/UX ELDEN GEÇİRİLDİ (mobil 0.14.0 → **0.14.1**)
+### 🔻 2026-08-13 — YENİ SİPARİŞ FORMU: UI/UX + KURYE ZORUNLU (mobil 0.14.0 → **0.15.0**)
+
+> ⚠️ **0.14.1 NUMARASI YAKILDI — sürüm notu listesinde YOK.** O numara `test` kanalına iki kez,
+> iki farklı içerikle çıktı (21:52 ve 22:38 koşumları). Sebebi bir varsayımdı: CI kırmızı kaldığı
+> için yayınlanmadığı sanıldı, `gh run list` ile doğrulanmadı. Ders: **"CI kırmızıydı" bir hafıza
+> değil, bir ölçümdür** — yayınlanıp yayınlanmadığı `gh run list` + release'in `surum.json`ıyla
+> bakılır. Cihazlar doğru güncellendi (karşılaştırma `yapim` sayısıyla, SemVer ile değil).
+
+**KURYE ATAMASI ARTIK ZORUNLU** (kullanıcı kararı — 2026-08-11'deki "opsiyonel" kararı değişti),
+ama koşulsuz değil: `_kuryeGerekli = yetkiler().atama && seçilmemiş`. `atama = yönetici && aktif
+kurye var` olduğu için tek kişilik bayide ve kurye rolünde kapı hiç kurulmaz — kurulsaydı o iki
+kullanıcı hiç sipariş giremezdi. Engel sepet-boş kapısının aynı yüzeyini kullanıyor (sarsıntılı
+kırmızı şerit + sönük ama canlı düğme). Dört durum testle kilitli.
 
 Kullanıcı isteği: *"işlevsellik çalışıyor ama UI/UX tatmin edici değil, tasarım dilinin dışına çıkma."*
 Hiçbir akış, kapı ya da yazma yolu değişmedi — yalnız düzen, hiyerarşi ve metin. Tasarım dili korundu

@@ -120,6 +120,11 @@ class _FavoriHapi extends StatelessWidget {
 // Kurye çipi — özet adımının ALT ÇUBUĞUNDA, "Siparişi Kaydet"in solunda
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
+/// Kurye seçilmeden kaydetmeye çalışılınca alt çubukta çıkan uyarı (kullanıcı kararı
+/// 2026-08-13). Sepet boş uyarısıyla AYNI yüzeyi ve sarsıntıyı kullanır — bu ekranda
+/// "eksik bir şey var" demenin tek bir dili vardır.
+const String kuryeZorunluUyarisi = 'Kurye seçin — sipariş atanmadan kaydedilemez.';
+
 /// Kurye seçimini açan çip (kullanıcı isteği 2026-08-13).
 ///
 /// ÖNCE gövdenin en altında, sipariş notunun ardında bir `.sr-row` satırıydı. İki sorunu vardı:
@@ -142,9 +147,7 @@ class AltKuryeCipi extends StatelessWidget {
   final bool secili;
   final VoidCallback onTap;
 
-  /// Ekran metni SÖZLEŞMEDİR. Çip dar olduğu için eski satırın uzun cümlesi ("Atama yok —
-  /// sonra da atanabilir") buraya sığmaz; seçimin opsiyonel olduğunu artık cümle değil DAVRANIŞ
-  /// söylüyor: çipe hiç dokunmadan "Siparişi Kaydet" basılabiliyor ve sipariş atamasız kaydediliyor.
+  /// Ekran metni SÖZLEŞMEDİR — testler bu sabite bağlanır.
   static const String bosEtiket = 'Kurye seç';
 
   @override

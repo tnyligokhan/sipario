@@ -64,9 +64,11 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   String? _uyari;
   int _uyariSayaci = 0;
 
-  /// Sipariş oluşturulurken SEÇİLEN kurye. null = atamasız kaydedilir (seçim ZORUNLU DEĞİL —
-  /// telefonu elinde tutan kullanıcı kimin götüreceğini o an bilmeyebilir; atama sipariş
-  /// detayından her zaman yapılabilir).
+  /// Sipariş oluşturulurken SEÇİLEN kurye.
+  ///
+  /// SEÇİM ZORUNLUDUR — ama yalnız ATAMA YAPILABİLDİĞİNDE (bkz. [_kuryeGerekli]). Kural
+  /// 2026-08-13'te kullanıcı kararıyla değişti: önce opsiyoneldi, "kimin götüreceği o an belli
+  /// olmayabilir" gerekçesiyle. Yeni kural, atanmamış siparişin sahipsiz kalmasını engelliyor.
   String? _kuryeId;
   String? _kuryeAdi;
 
@@ -81,6 +83,18 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   /// Kurye satırı KİME görünür: atama yetkisi olana (K2 — `yetkiler().atama` = yönetici VE
   /// aktif kurye var). Kurye kendine iş atamaz; tek kişilik bayide satır hiç çizilmez.
   bool get _atamaYetkisi => yetkiler(rol: _rol, kuryeVar: _kuryeler.isNotEmpty).atama;
+
+  /// Kaydetmeden önce kurye seçilmiş OLMALI mı?
+  ///
+  /// ZORUNLULUK, ATAMA YETKİSİNE BAĞLIDIR — koşulsuz değildir ve olamaz. `yetkiler().atama`
+  /// = `yönetici && aktif kurye var`; yani çip iki durumda hiç çizilmez:
+  ///   • TEK KİŞİLİK BAYİ (aktif kurye yok) — BRIEF'in saha gerçeği: "tek kişilik bayi çoktur,
+  ///     'kuryeye ata' gibi adımlar orada hiç görünmemelidir". Malı patronun kendisi götürür.
+  ///   • KURYE ROLÜ (K2) — kurye kendine iş atayamaz.
+  /// Zorunluluk koşulsuz olsaydı bu iki kullanıcı HİÇ sipariş oluşturamazdı: seçemeyeceği bir
+  /// alan yüzünden kaydı kapanırdı. Kural bu yüzden şöyle okunur: **atama YAPILABİLİYORSA
+  /// zorunludur.**
+  bool get _kuryeGerekli => _atamaYetkisi && _kuryeId == null;
 
   /// Adım 1'e geri dönülebilir mi? Müşteri dışarıdan verilmişse (müşteri detayından "Sipariş
   /// oluştur") seçim adımı hiç gösterilmez.
@@ -270,6 +284,16 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
 
   Future<void> _kaydet() async {
     if (_sepetBos || _kaydediyor) return;
+    // Kurye kapısı — sepet boş kapısının aynısı: engel SESSİZ DEĞİL, sebebini yazar ve
+    // sarsıntıyla kendini gösterir. Pasif bir düğme "neden basılmıyor?" sorusunu cevapsız
+    // bırakırdı; düğme sönük ama canlı, dokunulunca eksiği söylüyor.
+    if (_kuryeGerekli) {
+      setState(() {
+        _uyari = kuryeZorunluUyarisi;
+        _uyariSayaci++;
+      });
+      return;
+    }
     setState(() => _kaydediyor = true);
     try {
       final repo = OrderRepository(widget.db);
@@ -362,9 +386,12 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
               ),
             if (_adim == 3)
               YsAltCubugu(
-                // Uyarı metni yukarıdaki kalıcı şeritte duruyor — burada TEKRARLANMAZ.
-                // Düğmenin pasif olması (onTap: null) ile şerit birlikte yeterli.
                 toplamKurus: _toplam,
+                // SALT-OKUNUR uyarısı burada TEKRARLANMAZ (yukarıdaki kalıcı şerit söylüyor).
+                // Buradaki uyarı yalnız kurye kapısınındır ve ancak kaydetmeye çalışınca çıkar —
+                // dokunmadan önce hata göstermek, henüz yapılmamış bir şeyi yanlış ilan etmektir.
+                uyari: _uyari,
+                uyariAnahtar: '$_uyariSayaci',
                 // Kurye çipi kaydet düğmesinin YANINDA (kullanıcı isteği 2026-08-13): kararla
                 // eylem aynı bakışta. Atama yetkisi yoksa (kurye rolü, tek kişilik bayi) çip
                 // hiç verilmez ve çubuk tek eylemli hâline döner.
@@ -375,13 +402,17 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
                         onTap: _kuryeSec,
                       )
                     : null,
-                buton: SipButon(
-                  etiket: 'Siparişi Kaydet',
-                  ikon: SipIcons.check,
-                  genisle: false,
-                  yatayPadding: 20,
-                  yukleniyor: _kaydediyor,
-                  onTap: widget.writable ? _kaydet : null,
+                // Kurye eksikken düğme SÖNÜK ama canlı — adım 2'deki "Devam"la aynı dil.
+                buton: Opacity(
+                  opacity: _kuryeGerekli ? 0.6 : 1,
+                  child: SipButon(
+                    etiket: 'Siparişi Kaydet',
+                    ikon: SipIcons.check,
+                    genisle: false,
+                    yatayPadding: 20,
+                    yukleniyor: _kaydediyor,
+                    onTap: widget.writable ? _kaydet : null,
+                  ),
                 ),
               ),
           ],

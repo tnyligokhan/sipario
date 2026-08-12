@@ -51,9 +51,13 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
-    surum: '0.14.1',
+    surum: '0.15.0',
     tarih: '13 Ağustos 2026',
     maddeler: [
+      'Sipariş artık kurye seçilmeden kaydedilmiyor. Kuryesi olan işletmelerde "Siparişi '
+          'Kaydet" yanındaki alandan kimin götüreceğini seçmeniz gerekiyor; seçmeden '
+          'kaydetmeye çalışırsanız ekran sebebini yazıyor. Kuryesi olmayan işletmede bu '
+          'alan hiç görünmüyor ve sipariş eskisi gibi kaydediliyor.',
       'Yeni sipariş ekranı sadeleşti. Ürün ekleme yollarının üçü de (her zamanki ürünler, '
           'katalog, serbest satır) artık üst üste duruyor; eklediğiniz kalemler hemen '
           'altlarında kendi başlığı ve sayacıyla listeleniyor.',
@@ -61,14 +65,17 @@ const List<SurumNotu> kSurumNotlari = [
           'yanına geçti — not eklemek yine tek dokunuş, ama liste daha kısa ve okunaklı.',
       'Özet adımında toplam tek bir yerde, en altta kendi satırında yazıyor.',
       'Kuryeyi seçtiğiniz alan "Siparişi Kaydet" düğmesinin yanına taşındı: kime gittiğini '
-          've kaydetmeyi tek bakışta görüyorsunuz. Seçmezseniz sipariş yine kaydediliyor, '
-          'kuryeyi sonra da atayabilirsiniz.',
+          've kaydetmeyi tek bakışta görüyorsunuz.',
       'Üstteki adım rozetlerine (Müşteri · Kalemler · Özet) dokunarak geçtiğiniz bir adıma '
           'geri dönebilirsiniz.',
       'Müşteri arama alanı ekran açılır açılmaz hazır geliyor: telefon elinizdeyken '
           'doğrudan yazmaya başlayabilirsiniz.',
     ],
   ),
+  // 0.14.1 KAYDI BİLEREK YOK. O numara `test` kanalına İKİ KEZ, İKİ FARKLI İÇERİKLE çıktı
+  // (21:52 ve 22:38 koşumları) — yani "0.14.1'de ne vardı?" sorusunun tek bir cevabı yok.
+  // Uydurma bir kayıt yazmak, listeyi olmayan bir kesinlikle doldurmak olurdu; içeriği bu
+  // sürümde toplandı.
   SurumNotu(
     surum: '0.14.0',
     tarih: '11 Ağustos 2026',
