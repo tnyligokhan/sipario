@@ -241,7 +241,39 @@
 > kod rozeti, tutar, not; Yol Tarifi birincil · Ara telefon varsa · Sipariş Detayı). Testler:
 > API 273 · mobil 764. Kalan: order_queries harita bölümü ayrılıyor (ajanda), anahtar kısıtlaması sende.
 >
-## Güncel durum (son güncelleme: **2026-08-12 — E-POSTA ŞABLONLARI: 13 ŞABLON, MARKA DÜZENİ, İLK ZAMANLANMIŞ GÖREV**.
+## Güncel durum
+
+### 🔻 2026-08-13 — YENİ SİPARİŞ FORMU: UI/UX ELDEN GEÇİRİLDİ (mobil 0.14.0 → **0.14.1**)
+
+Kullanıcı isteği: *"işlevsellik çalışıyor ama UI/UX tatmin edici değil, tasarım dilinin dışına çıkma."*
+Hiçbir akış, kapı ya da yazma yolu değişmedi — yalnız düzen, hiyerarşi ve metin. Tasarım dili korundu
+(`.ys-*` / `.sdx-*` jetonları, Sora/Hanken, tek accent). **1250 mobil test yeşil, `flutter analyze` temiz.**
+
+Ne değişti (`screens/orders/`):
+1. **Adım 2 iki bölgeye ayrıldı.** Üç ekleme yolu sepetin üstüne/altına/arasına dağılmıştı; artık hız
+   sırasına dizili tek blok (her zamanki ürünler → katalog → serbest satır), altında kendi başlığı ve
+   kalem sayacı olan **Kalemler** bölümü. Serbest satır bağlantısı sepetin dibinden katalog düğmesinin
+   altına taşındı.
+2. **Sepet satırı 3 satırdan 2 satıra indi.** Not çağrısı her kalemin altında accent renkli ayrı bir
+   satırdı; birim yazısıyla aynı satıra, muted renge indi (`Not ekle` + kalem ikonu). Not girilince
+   yerini warn-soft rozet alıyor.
+3. **Özette toplam bir kez yazıyor.** `SdKart.toplamGoster: false` — sabit alt çubuk zaten sahibi.
+4. **Kurye satırı sipariş notunun üstüne alındı** ve `surface2` zemin aldı; `SecimSatiri` varsayılanı
+   `bg` olduğu için ekran gövdesinde görünmez oluyordu (koyu temada bariz).
+5. **Adım rozetleri geçilmiş adımlara dokunulabilir**; müşteri araması tasarımdaki gibi otomatik
+   odaklanıyor (`SipArama.otomatikOdak`); boş sepette "Devam" tasarımdaki gibi sönük (opacity .6).
+6. Boş sepet kutusu artık düğmenin sözünü tekrarlamıyor: *"Eklenen kalemler burada listelenir."*
+
+Ölçüm yöntemi: ekranın altı hâli (adım 1/2/3, boş sepet, favori şeridi, koyu tema, serbest satır,
+kurye satırı) gerçek fontlarla golden PNG olarak çizilip **gözle** incelendi; kurye satırının görünmez
+zemini böyle bulundu. Önizleme koşumu geçiciydi, depoya bırakılmadı.
+
+> ⚠️ Yan bulgu (düzeltilmedi, kapsam dışı): `assets/fonts/Sora.ttf` ve `HankenGrotesk.ttf` **₺
+> (U+20BA) glifini taşımıyor** — golden'larda tofu çıkıyor. Cihazda sistem yedeği (Roboto) çizdiği
+> için görünür, ama para rakamları "tabular Sora" iken ₺ başka aileden gelir. Tüm ekranları ilgilendirir;
+> çözümü ya font değişimi ya da ₺ için açık bir yedek aile tanımıdır.
+
+### (ÖNCEKİ) Güncel durum (son güncelleme: **2026-08-12 — E-POSTA ŞABLONLARI: 13 ŞABLON, MARKA DÜZENİ, İLK ZAMANLANMIŞ GÖREV**.
 Bu vardiya SUNUCU tarafında geçti, mobile hiç dokunulmadı. Başlangıç ölçümü: depoda `app/Mail` ve
 `app/Notifications` **yoktu**; posta gönderen üç yer vardı ve üçü de çirkindi. En kötüsü sessiz bir
 arızaydı: **parola sıfırlama postası İngilizce çıkıyordu** — `.env`de `APP_LOCALE=tr` yazıyor ama depoda

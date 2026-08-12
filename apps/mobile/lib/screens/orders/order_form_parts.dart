@@ -165,6 +165,10 @@ class MusteriSecimAdimi extends StatelessWidget {
             ipucu: 'İsim ya da telefon ara…',
             onChanged: onSorgu,
             onTemizle: onTemizle,
+            // Tasarımdaki `autoFocus` (s-siparisler.jsx:305). Bu adımın TEK işi müşteriyi
+            // bulmak ve iş telefon çalarken yapılıyor: klavyeyi getirmek için önce alana
+            // dokundurmak, sipariş girişinin en sıcak anına bir dokunuş ekliyordu.
+            otomatikOdak: true,
           ),
         ),
         Expanded(
@@ -331,31 +335,34 @@ class SiparisOzetiAdimi extends StatelessWidget {
         ),
         SdKart(
           toplamKurus: toplamKurus,
+          // Toplam ALT ÇUBUKTA yazıyor ve orası ekrandan hiç kaybolmuyor. Kartın kendi toplam
+          // satırı aynı sayıyı iki parmak yukarıda ikinci kez tekrarlıyordu.
+          toplamGoster: false,
           satirlar: [
-            for (final l in satirlar)
+            for (var i = 0; i < satirlar.length; i++)
               SdSatiri(
-                ad: l.name,
+                ad: satirlar[i].name,
                 // Tasarım `{r.adet} {r.birim} × {fmtTL(r.fiyat)}` (s-siparisler.jsx:390).
-                altMetin: l.serbest
+                altMetin: satirlar[i].serbest
                     ? 'tek seferlik'
-                    : '${l.qty} ${l.birimEtiketi} × ${sipTutar(l.unitPriceKurus)}',
-                tutarKurus: l.unitPriceKurus * l.qty,
+                    : '${satirlar[i].qty} ${satirlar[i].birimEtiketi} × '
+                        '${sipTutar(satirlar[i].unitPriceKurus)}',
+                tutarKurus: satirlar[i].unitPriceKurus * satirlar[i].qty,
                 // Satır notu ÖZETTE de görünür: kaydetmeden önceki son kontrol, notun doğru
                 // kaleme yazıldığının tek kanıtıdır.
-                not: l.note,
+                not: satirlar[i].note,
+                ayrac: i < satirlar.length - 1,
               ),
           ],
         ),
-        const SdxSec('Sipariş Notu'),
-        SipInput(
-          controller: not,
-          ipucu: 'Kapı kodu, teslim saati, özel istek…',
-          satirlar: 2,
-        ),
         // ── Kurye (OPSİYONEL) ───────────────────────────────────────────────────────────
         // Saha isteği: siparişi girerken kimin götüreceği çoğu zaman zaten bellidir; onu
-        // atamak için kaydedip listeye dönüp detayı açmak üç fazladan dokunuştu. Satır formun
-        // SONUNDA durur — sipariş girişini uzatmaz, boş bırakılabilir ve atlanabilir.
+        // atamak için kaydedip listeye dönüp detayı açmak üç fazladan dokunuştu.
+        //
+        // NOTUN ÜSTÜNE ALINDI: ikisi de teslimata dair, ama kurye bir KARARDIR ve boş bırakılsa
+        // bile görülmesi gerekir; not serbest metindir, en sonda durması doğaldır (odaklanınca
+        // klavye açılır, altında bir şey kalmaz). Eskiden kurye satırı not kutusunun altına
+        // düştüğü için, klavye açıkken ekrandan tamamen çıkıyordu.
         if (atamaYetkisi) ...[
           const SdxSec('Kurye'),
           SecimSatiri(
@@ -363,8 +370,17 @@ class SiparisOzetiAdimi extends StatelessWidget {
             ikon: SipIcons.truck,
             secili: kuryeSecili,
             onTap: onKuryeSec,
+            // Gövde zemini `bg`; satır komşu kartlarla aynı yüzeyde dursun (yoksa çıplak metne
+            // benzer ve dokunulabilir olduğu anlaşılmaz).
+            zemin: t.surface2,
           ),
         ],
+        const SdxSec('Sipariş Notu'),
+        SipInput(
+          controller: not,
+          ipucu: 'Kapı kodu, teslim saati, özel istek…',
+          satirlar: 2,
+        ),
       ],
     );
   }

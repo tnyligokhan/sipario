@@ -27,11 +27,20 @@ class SdKart extends StatelessWidget {
     required this.satirlar,
     required this.toplamKurus,
     this.toplamEtiketi = 'Toplam',
+    this.toplamGoster = true,
   });
 
   final List<Widget> satirlar;
   final int toplamKurus;
   final String toplamEtiketi;
+
+  /// Kartın kendi toplam satırı çizilsin mi?
+  ///
+  /// VARSAYILAN AÇIK — sipariş detayında ve düzenleme sheet'inde toplamı söyleyen başka bir
+  /// yüzey yok. KAPATILDIĞI tek yer yeni sipariş ÖZETİ: orada ekranın altında sabit duran
+  /// `.ys-alt` çubuğu zaten aynı sayıyı, daha büyük puntoyla yazıyor. Aynı rakamın iki parmak
+  /// arayla iki kez görünmesi kullanıcıya "bunlar farklı iki toplam mı?" diye baktırıyordu.
+  final bool toplamGoster;
 
   @override
   Widget build(BuildContext context) {
@@ -44,18 +53,19 @@ class SdKart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ...satirlar,
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0, 13, 0, 11),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(toplamEtiketi,
-                      style: SipText.metin(13, w: 600).copyWith(color: t.ink2)),
-                ),
-                Text(sipTutar(toplamKurus), style: SipText.tutar19.copyWith(color: t.ink)),
-              ],
+          if (toplamGoster)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 13, 0, 11),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(toplamEtiketi,
+                        style: SipText.metin(13, w: 600).copyWith(color: t.ink2)),
+                  ),
+                  Text(sipTutar(toplamKurus), style: SipText.tutar19.copyWith(color: t.ink)),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -71,11 +81,16 @@ class SdSatiri extends StatelessWidget {
     required this.tutarKurus,
     this.orta,
     this.not,
+    this.ayrac = true,
   });
 
   final String ad;
   final String altMetin;
   final int tutarKurus;
+
+  /// Alttaki ince ayraç. Toplam satırı gizlenen kartta (bkz. [SdKart.toplamGoster]) SON satırda
+  /// kapatılır — yoksa kartın dibinde hiçbir şeyi ayırmayan bir çizgi asılı kalır.
+  final bool ayrac;
 
   /// Düzenleme kipinde araya giren stepper / sil düğmesi.
   final Widget? orta;
@@ -90,7 +105,7 @@ class SdSatiri extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: SipSpace.xl),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: t.line)),
+        border: ayrac ? Border(bottom: BorderSide(color: t.line)) : null,
       ),
       child: Row(
         children: [
@@ -180,6 +195,20 @@ class SdxLink extends StatelessWidget {
       child: Text(etiket, style: SipText.link.copyWith(color: t.accent, fontSize: 12)),
     );
   }
+}
+
+/// CSS `.sdx-adet` (_sayfa.html:566) — bölüm başlığının sağındaki sönük sayaç. Bağlantı DEĞİL:
+/// dokunulmaz, yalnız bölümün kaç şey içerdiğini söyler ("2 kalem"). Başlıkla aynı satırda
+/// durduğu için sepetin uzunluğu kaydırmadan okunur.
+class SdxAdet extends StatelessWidget {
+  const SdxAdet(this.metin, {super.key});
+  final String metin;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        metin,
+        style: SipText.metin(11, w: 700).copyWith(color: context.sip.muted),
+      );
 }
 
 /// CSS `.sdx-bos` — bölümün boş olduğunu söyleyen sönük tek satır.

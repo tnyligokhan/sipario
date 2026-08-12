@@ -73,11 +73,25 @@ int toplamKurus(List<LineDraft> lines) =>
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
 /// 1-tabanlı [adim] ile üç durumlu rozet şeridi: geçilmiş (ok, yeşil), aktif (accent), bekleyen.
+///
+/// GEÇİLMİŞ ROZETLER DOKUNULABİLİR ([onAdim] verilirse). Şerit bir sekme çubuğuna benziyor ve
+/// kullanıcı ona öyle davranıyordu: "Kalemler"e basıp geri dönmeyi deniyor, hiçbir şey olmuyordu.
+/// Düğmeye benzeyen ama çalışmayan bir yüzey, arayüzün geri kalanına duyulan güveni de düşürür.
+/// İLERİ atlama YOK: henüz geçilmemiş adım eksik veriyle açılırdı (müşterisiz kalem, boş sepetle
+/// özet); ileri gitmenin tek yolu adımın kendi birincil düğmesidir.
 class AdimGostergesi extends StatelessWidget {
-  const AdimGostergesi({super.key, required this.adimlar, required this.adim});
+  const AdimGostergesi({
+    super.key,
+    required this.adimlar,
+    required this.adim,
+    this.onAdim,
+  });
 
   final List<String> adimlar;
   final int adim;
+
+  /// 1-tabanlı adım numarasıyla çağrılır. null dönen/verilmeyen adımlar dokunulamaz çizilir.
+  final ValueChanged<int>? onAdim;
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +107,7 @@ class AdimGostergesi extends StatelessWidget {
                 sira: i + 1,
                 aktif: adim == i + 1,
                 gecildi: adim > i + 1,
+                onTap: (onAdim != null && adim > i + 1) ? () => onAdim!(i + 1) : null,
               ),
             ),
           ],
@@ -108,12 +123,14 @@ class _AdimRozeti extends StatelessWidget {
     required this.sira,
     required this.aktif,
     required this.gecildi,
+    this.onTap,
   });
 
   final String etiket;
   final int sira;
   final bool aktif;
   final bool gecildi;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -122,34 +139,42 @@ class _AdimRozeti extends StatelessWidget {
     final zemin = aktif ? t.accentSoft : t.surface;
     final noktaZemin = gecildi ? t.ok : (aktif ? t.accent : t.line2);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: SipSpace.xs, vertical: 7),
-      decoration: BoxDecoration(color: zemin, borderRadius: SipRadius.brHap),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 17,
-            height: 17,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: noktaZemin, shape: BoxShape.circle),
-            child: gecildi
-                ? const SipIcon(SipIcons.check,
-                    boyut: 11, kalinlik: 3, renk: SipTokens.onHero)
-                : Text('$sira',
-                    style: SipText.metin(10, w: 800).copyWith(color: SipTokens.onHero)),
-          ),
-          const SizedBox(width: SipSpace.sm),
-          Flexible(
-            child: Text(
-              etiket,
-              style: SipText.metin(11, w: 700).copyWith(color: metinRenk),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+    return Semantics(
+      button: onTap != null,
+      selected: aktif,
+      label: etiket,
+      child: SipDokun(
+        onTap: onTap,
+        zemin: zemin,
+        basiliZemin: t.surface2,
+        radius: SipRadius.brHap,
+        padding: const EdgeInsets.symmetric(horizontal: SipSpace.xs, vertical: 7),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 17,
+              height: 17,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: noktaZemin, shape: BoxShape.circle),
+              child: gecildi
+                  ? const SipIcon(SipIcons.check,
+                      boyut: 11, kalinlik: 3, renk: SipTokens.onHero)
+                  : Text('$sira',
+                      style: SipText.metin(10, w: 800).copyWith(color: SipTokens.onHero)),
             ),
-          ),
-        ],
+            const SizedBox(width: SipSpace.sm),
+            Flexible(
+              child: Text(
+                etiket,
+                style: SipText.metin(11, w: 700).copyWith(color: metinRenk),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -275,11 +300,20 @@ class YsSatiri extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 1),
-                Text(altMetin, style: SipText.metin(10.5, w: 500).copyWith(color: t.muted)),
-                // Not yüzeyi satırın İÇİNDE durur — ayrı bir kutu/şerit açmak sepeti iki kat
-                // uzatır ve dokunuş hedefini kalemden koparırdı.
-                if (not != null || onNot != null)
-                  SatirNotuYuzeyi(not: not, onTap: onNot),
+                // Birim ve not AYNI SATIRDA. Not yüzeyi eskiden alta üçüncü bir satır açıyordu:
+                // sepetteki her kalem 3 satır yer kaplıyor, dört kalemlik bir sipariş ekranı
+                // taşırıyordu. İkisi de kalemin "künyesi" — yan yana okunurlar.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(altMetin,
+                        style: SipText.metin(10.5, w: 500).copyWith(color: t.muted)),
+                    if (not != null || onNot != null) ...[
+                      const SizedBox(width: SipSpace.lg),
+                      Flexible(child: SatirNotuYuzeyi(not: not, onTap: onNot)),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),

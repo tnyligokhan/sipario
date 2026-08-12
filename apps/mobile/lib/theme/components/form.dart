@@ -208,12 +208,20 @@ class SipArama extends StatelessWidget {
     this.ipucu = 'Ara',
     this.onChanged,
     this.onTemizle,
+    this.otomatikOdak = false,
   });
 
   final TextEditingController controller;
   final String ipucu;
   final ValueChanged<String>? onChanged;
   final VoidCallback? onTemizle;
+
+  /// Ekran açılır açılmaz klavyeyi getirir. VARSAYILAN KAPALI: aramanın ekranın tek işi
+  /// olmadığı yerlerde (liste ekranları) açılışta yükselen klavye içeriğin yarısını yer.
+  /// Yalnız aramanın ekranın TEK işi olduğu yerde açılır — sipariş formunun müşteri adımı
+  /// gibi (tasarım `autoFocus`, s-siparisler.jsx:305): telefonu elinde tutan kullanıcı adı
+  /// duyduğu anda yazmaya başlar, önce alana dokunmak zorunda kalmaz.
+  final bool otomatikOdak;
 
   @override
   Widget build(BuildContext context) {
@@ -233,6 +241,7 @@ class SipArama extends StatelessWidget {
             child: TextField(
               controller: controller,
               onChanged: onChanged,
+              autofocus: otomatikOdak,
               cursorColor: t.accent,
               style: SipText.aramaInput.copyWith(color: t.ink),
               textInputAction: TextInputAction.search,

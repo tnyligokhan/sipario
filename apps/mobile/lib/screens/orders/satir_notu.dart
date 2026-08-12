@@ -28,7 +28,11 @@ String? notuNormalle(String? ham) {
 }
 
 /// Ekran metinleri SÖZLEŞMEDİR — testler bu sabitlere bağlanır, dizgeye değil.
-const String satirNotuEkleEtiketi = '+ Not ekle';
+///
+/// Etiketten "+" DÜŞTÜ (2026-08-12): yanına kalem ikonu geldi ve iki işaret aynı şeyi iki kez
+/// söylüyordu. Eylem adı da tüm akışta aynı kalıyor — sheet başlığı "Satır Notu", satırdaki
+/// çağrı "Not ekle".
+const String satirNotuEkleEtiketi = 'Not ekle';
 const String satirNotuSheetBasligi = 'Satır Notu';
 const String satirNotuIpucu = 'Ör. buzlu olsun, kapıya bırak';
 const String satirNotuKaydetEtiketi = 'Notu Kaydet';
@@ -82,9 +86,15 @@ class SatirNotuRozeti extends StatelessWidget {
   }
 }
 
-/// Satırın not YÜZEYİ: notu varsa rozeti, yoksa sönük "+ Not ekle" bağlantısını çizer.
-/// [onTap] null ise (salt-okunur/kayıtlı sipariş) yalnız rozet çizilir, bağlantı hiç görünmez —
-/// dokunulamayan bir "+ Not ekle" bozuk düğmedir.
+/// Satırın not YÜZEYİ: notu varsa rozeti, yoksa sönük "Not ekle" çağrısını çizer.
+/// [onTap] null ise (salt-okunur/kayıtlı sipariş) yalnız rozet çizilir, çağrı hiç görünmez —
+/// dokunulamayan bir "Not ekle" bozuk düğmedir.
+///
+/// SESSİZ ÇİZİLİR — accent DEĞİL, muted (2026-08-12). Eski hâli her sepet satırının altına
+/// accent renkli, 700 ağırlıkta ÜÇÜNCÜ bir satır koyuyordu: dört kalemlik bir sepette dört
+/// mor "+ Not ekle", yani ekranın en dikkat çeken şeyi nadiren kullanılan bir eylem oluyordu.
+/// Vurgu rengi bu ekranda seçili müşteriye ve birincil eyleme ait; not onların önüne geçemez.
+/// Çağrı artık birim yazısıyla AYNI SATIRDA ve aynı puntoda durur — keşfedilir ama bağırmaz.
 class SatirNotuYuzeyi extends StatelessWidget {
   const SatirNotuYuzeyi({super.key, required this.not, this.onTap});
 
@@ -98,17 +108,27 @@ class SatirNotuYuzeyi extends StatelessWidget {
     if (metin == null && onTap == null) return const SizedBox.shrink();
 
     final govde = metin == null
-        ? Text(satirNotuEkleEtiketi,
-            style: SipText.metin(11, w: 700).copyWith(color: t.accent))
-        : SatirNotuRozeti(metin: metin);
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SipIcon(SipIcons.edit, boyut: 11, kalinlik: 2, renk: t.muted),
+              const SizedBox(width: 4),
+              Text(satirNotuEkleEtiketi,
+                  style: SipText.metin(10.5, w: 600).copyWith(color: t.muted)),
+            ],
+          )
+        : SatirNotuRozeti(metin: metin, punto: 10.5);
 
-    if (onTap == null) return Align(alignment: Alignment.centerLeft, child: govde);
-    return Align(
-      alignment: Alignment.centerLeft,
+    if (onTap == null) return govde;
+    // Dokunma hedefi metinden büyük: 10,5 punto bir yazı parmak ucu için küçüktür, dikey
+    // dolgu satırı uzatmadan hedefi büyütür.
+    return Semantics(
+      button: true,
+      label: metin == null ? satirNotuEkleEtiketi : satirNotuSheetBasligi,
       child: SipDokun(
         onTap: onTap,
         radius: SipRadius.br1,
-        padding: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
         child: govde,
       ),
     );

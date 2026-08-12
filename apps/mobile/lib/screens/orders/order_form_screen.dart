@@ -163,6 +163,16 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     setState(() => _adim--);
   }
 
+  /// Adım rozetine dokunma — YALNIZ GERİ. Şerit bir sekme çubuğuna benziyor ve kullanıcı ona
+  /// öyle davranıyor; geçilmiş bir adıma dönmek "Değiştir"/"Düzenle" bağlantılarının zaten
+  /// yaptığı iş, rozet de aynısını yapar. Müşteri dışarıdan kilitliyse adım 1 hiç var olmadı,
+  /// oraya dönülmez.
+  void _adimaGit(int hedef) {
+    if (hedef >= _adim) return;
+    if (hedef == 1 && _musteriKilitli) return;
+    setState(() => _adim = hedef);
+  }
+
   /// Formun İÇİNDEKİ seçim kapısı — müşterinin forma girdiği İKİNCİ (ve son) yol.
   /// Kara listedeki müşteri listede görünmeye devam ettiği için (bilinçli — bayi borcunu takip
   /// etmeli) buradan seçilebilir; kapı ürün adımına geçmeden durdurur.
@@ -312,7 +322,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
               alt: _musteri?.name ?? 'Müşteri seçin',
               onGeri: _geri,
             ),
-            AdimGostergesi(adimlar: _adimlar, adim: _adim),
+            AdimGostergesi(adimlar: _adimlar, adim: _adim, onAdim: _adimaGit),
             // Salt-okunur uyarısı İLK adımdan itibaren durur. Yalnız son adımda göstermek,
             // kullanıcıya sepeti doldurttuktan sonra "kaydedemezsin" demek olurdu.
             if (!widget.writable)
@@ -336,12 +346,18 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
                 toplamKurus: _toplam,
                 uyari: _uyari,
                 uyariAnahtar: '$_uyariSayaci',
-                buton: SipButon(
-                  etiket: 'Devam',
-                  ikon: SipIcons.right,
-                  genisle: false,
-                  yatayPadding: 24,
-                  onTap: _devam,
+                // Sepet boşken düğme SÖNÜK ama ölü değil (tasarım `opacity: bosMu ? .6 : 1`,
+                // s-siparisler.jsx:363). Tamamen pasif bir düğme sebebini söyleyemez; sönük
+                // düğme "burası henüz hazır değil" der, basılınca da nedenini yazar.
+                buton: Opacity(
+                  opacity: _sepetBos ? 0.6 : 1,
+                  child: SipButon(
+                    etiket: 'Devam',
+                    ikon: SipIcons.right,
+                    genisle: false,
+                    yatayPadding: 24,
+                    onTap: _devam,
+                  ),
                 ),
               ),
             if (_adim == 3)
@@ -386,11 +402,19 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       );
 
   // ── Adım 2 — kalemler ───────────────────────────────────────────────────────────────────
+  //
+  // EKRAN İKİ BÖLGEDİR: önce "nasıl eklerim", sonra "ne ekledim".
+  //
+  // Eskiden üç ekleme yolu (favori hapları · katalog düğmesi · serbest satır bağlantısı) sepetin
+  // ÜSTÜNE, ALTINA ve ARASINA dağılmıştı; sepet ikiye bölünmüş, ekran da altı ayrı yüzeye. Aynı
+  // işi yapan üç düğme birbirinden uzağa serpildiğinde kullanıcı hangisine basacağını her
+  // seferinde yeniden karar vermek zorunda kalır. Üçü artık hız sırasına dizili tek bir blok:
+  // her zamanki ürünler (tek dokunuş) → katalog (arama/barkod) → serbest satır (istisna).
   Widget _adim2() {
     final t = context.sip;
     return SipGovde(
       children: [
-        // .ys-secili
+        // .ys-secili — sipariş KİMİN için giriliyor; ekranın çapası, en üstte kalır.
         Container(
           margin: const EdgeInsets.only(top: SipSpace.lg),
           padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
@@ -414,9 +438,11 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
             ],
           ),
         ),
-        // Favori ürünler — müşterinin "her zamankileri", tek dokunuşla sepete. Katalog
-        // düğmesinin ÜSTÜNDE durur: sipariş girişinin en sık hâli zaten budur, katalogu açmak
-        // istisnadır. Favorisi olmayan müşteride bölüm hiç çizilmez.
+
+        // ── Ekleme yolları — hız sırasına göre ────────────────────────────────────────────
+        // Favori ürünler: müşterinin "her zamankileri", tek dokunuşla sepete. Sipariş girişinin
+        // en sık hâli zaten budur; katalogu açmak istisnadır. Favorisi olmayan müşteride bölüm
+        // hiç çizilmez.
         FavoriSeridi(
           db: widget.db,
           musteriId: _musteri?.id,
@@ -435,37 +461,12 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
             onBildir: (m) => SipToast.goster(context, m),
           ),
         ),
-        if (_sepetBos)
-          const YsBosDurum(metin: 'Sepet boş — katalogdan ürün ekleyin')
-        else
-          Padding(
-            padding: const EdgeInsets.only(top: SipSpace.lg),
-            child: Column(
-              children: [
-                for (var i = 0; i < _satirlar.length; i++)
-                  Padding(
-                    padding: EdgeInsets.only(top: i == 0 ? 0 : 7),
-                    child: YsSatiri(
-                      ad: _satirlar[i].name,
-                      // CSS `.ys-birim` YALNIZ birimi yazar (s-siparisler.jsx:346) — birim
-                      // fiyat sağdaki satır toplamının yanında ikinci kez okunmaz.
-                      altMetin: _satirlar[i].birimEtiketi,
-                      tutarKurus: _satirlar[i].unitPriceKurus * _satirlar[i].qty,
-                      adet: _satirlar[i].serbest ? null : _satirlar[i].qty,
-                      onAzalt: () => _adetDegis(i, -1),
-                      onArtir: () => _adetDegis(i, 1),
-                      onSil: () => setState(() => _satirlar.removeAt(i)),
-                      not: _satirlar[i].note,
-                      onNot: () => _satirNotu(i),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        // .ys-serbest
+        // .ys-serbest — katalog düğmesinin hemen ALTINDA. İkisi de "sepete bir şey koy" demek;
+        // aralarına sepeti sokmak, ikinci yolu listenin dibinde kaybediyordu.
         SipDokun(
           onTap: _serbestEkle,
           radius: SipRadius.br2,
+          // CSS `.ys-serbest { padding: 13px 2px }` (_sayfa.html:522) — ölçü tasarımdan.
           padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 2),
           child: Text(
             '+ Serbest satır (katalogda olmayan iş)',
@@ -473,6 +474,41 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
             style: SipText.metin(12.5, w: 600).copyWith(color: t.muted),
           ),
         ),
+
+        // ── Sepet ────────────────────────────────────────────────────────────────────────
+        // Bölüm başlığı sepet BOŞKEN DE durur: ekleme yapıldığında düzen yerinden oynamaz,
+        // kullanıcı eklediği kalemin nereye düşeceğini önceden görür. Sayaç yalnız dolu
+        // sepette yazar — "0 kalem" bir bilgi değil, gürültüdür.
+        SdxSec(
+          // Adım rozeti "Kalemler" diyor, özet ekranı "Kalemler" diyor — sepet de aynı adı
+          // taşır. Aynı şeyin akış boyunca tek adı olur.
+          'Kalemler',
+          sag: _sepetBos ? null : SdxAdet('${_satirlar.length} kalem'),
+        ),
+        if (_sepetBos)
+          // BOŞ DURUM METNİ DEĞİŞTİ (2026-08-12): eski hâli "Sepet boş — katalogdan ürün
+          // ekleyin" diyerek tam üstündeki düğmenin sözünü tekrarlıyordu. Boş bölüm, ne
+          // yapılacağını değil BURAYA NE GELECEĞİNİ söyler; eylem zaten iki parmak yukarıda ve
+          // kendi adını taşıyor.
+          const YsBosDurum(metin: 'Eklenen kalemler burada listelenir')
+        else
+          for (var i = 0; i < _satirlar.length; i++)
+            Padding(
+              padding: EdgeInsets.only(top: i == 0 ? 0 : 7),
+              child: YsSatiri(
+                ad: _satirlar[i].name,
+                // CSS `.ys-birim` YALNIZ birimi yazar (s-siparisler.jsx:346) — birim
+                // fiyat sağdaki satır toplamının yanında ikinci kez okunmaz.
+                altMetin: _satirlar[i].birimEtiketi,
+                tutarKurus: _satirlar[i].unitPriceKurus * _satirlar[i].qty,
+                adet: _satirlar[i].serbest ? null : _satirlar[i].qty,
+                onAzalt: () => _adetDegis(i, -1),
+                onArtir: () => _adetDegis(i, 1),
+                onSil: () => setState(() => _satirlar.removeAt(i)),
+                not: _satirlar[i].note,
+                onNot: () => _satirNotu(i),
+              ),
+            ),
       ],
     );
   }

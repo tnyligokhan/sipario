@@ -19,12 +19,22 @@ class SecimSatiri extends StatelessWidget {
     required this.secili,
     required this.onTap,
     this.ikon,
+    this.zemin,
   });
 
   final String etiket;
   final bool secili;
   final VoidCallback onTap;
   final String? ikon;
+
+  /// Seçili DEĞİLKEN satırın zemini. Varsayılan `bg` — satır bir SHEET'in içinde yaşıyor ve
+  /// sheet zemini `surface` olduğu için orada zıtlık verir.
+  ///
+  /// EKRAN GÖVDESİNDE bu varsayılan görünmezdir: gövde zaten `bg`dir, satır zeminine karışır ve
+  /// dokunulabilir bir satır çıplak metne dönerdi (yeni sipariş özetindeki kurye satırı böyle
+  /// çizilmişti — koyu temada özellikle). Oradaki çağıran `surface2` geçer ve satır komşusu
+  /// kartlarla aynı dili konuşur.
+  final Color? zemin;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +43,7 @@ class SecimSatiri extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: SipSpace.sm),
       child: SipDokun(
         onTap: onTap,
-        zemin: secili ? t.accentSoft : t.bg,
+        zemin: secili ? t.accentSoft : (zemin ?? t.bg),
         radius: SipRadius.br2,
         padding: const EdgeInsets.symmetric(horizontal: SipSpace.x2, vertical: 13),
         child: Row(
