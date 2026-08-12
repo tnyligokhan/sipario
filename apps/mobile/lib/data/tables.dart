@@ -243,6 +243,21 @@ class CashHandovers extends Table {
   IntColumn get expectedCashKurus => integer()();
   IntColumn get diffKurus => integer()();
   TextColumn get periodStart => text().nullable()();
+
+  /// İPTAL KAYDI (kullanıcı kararı 2026-08-13): dolu ise bu satır bir devri GERİ ALIR ve iptal
+  /// edilen devrin id'sini taşır. `ledger_entries.reversesEntryId` deseninin birebir aynısı.
+  ///
+  /// NEDEN KOLON, NEDEN SİLME DEĞİL: BRIEF kırmızı çizgi #2 — para kayıtları silinmez/ezilmez.
+  /// Yanlış alınmış bir ara tahsilat gerçekten OLMUŞ bir olaydır (patron kuryeden para aldı,
+  /// sonra iade etti); satırı yok etmek defterin "ne olduğunu" değil "ne olduğunu sandığımızı"
+  /// anlatır hâle getirirdi. İptal, ters işaretli İKİNCİ bir satırdır: orijinal kanıt olarak
+  /// yerinde durur, toplam kendiliğinden düzelir.
+  ///
+  /// NEDEN `day_closings.cash_handover_id` gibi İLİŞKİDEN türetilemedi: orada ilişkinin sahibi
+  /// KARŞI TARAFTIR (kapanış deviri işaret eder) ve o yüzden kolon gereksizdi. Burada geri alan
+  /// da alınan da aynı tablodadır; ilişkiyi taşıyacak başka bir yer yok.
+  TextColumn get reversesHandoverId => text().nullable()();
+
   TextColumn get occurredAt => text()();
   TextColumn get deviceId => text().nullable()();
   TextColumn get note => text().nullable()();
