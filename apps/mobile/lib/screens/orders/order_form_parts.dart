@@ -16,7 +16,6 @@ import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import 'order_parts.dart';
 import 'order_queries.dart';
-import 'order_sheets.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Favori ürünler — CSS `.ys-ekle` dilinde hap şeridi
@@ -112,6 +111,77 @@ class _FavoriHapi extends StatelessWidget {
           Text(sipTutar(urun.unitPriceKurus),
               style: SipText.tutar(11.5).copyWith(color: t.ink2)),
         ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Kurye çipi — özet adımının ALT ÇUBUĞUNDA, "Siparişi Kaydet"in solunda
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// Kurye seçimini açan çip (kullanıcı isteği 2026-08-13).
+///
+/// ÖNCE gövdenin en altında, sipariş notunun ardında bir `.sr-row` satırıydı. İki sorunu vardı:
+/// notu yazarken klavye açılınca ekrandan çıkıyordu ve kaydetmeden hemen önce verilen bir karar
+/// olmasına rağmen kaydet düğmesine en uzak yerde duruyordu. Artık kararla eylem yan yana:
+/// "kime gidiyor" ve "kaydet" aynı bakışta.
+///
+/// Düğmeyle AYNI yükseklik (48) ve AYNI yarıçap (`br2`) — yan yana duran iki yüzey birbirinin
+/// eşi görünmeli; çip bir düğmenin küçültülmüş hâli değil, ikincil ağırlıkta bir eş.
+class AltKuryeCipi extends StatelessWidget {
+  const AltKuryeCipi({
+    super.key,
+    required this.kuryeAdi,
+    required this.secili,
+    required this.onTap,
+  });
+
+  /// Seçili kuryenin adı; null ise çip boş metnini yazar.
+  final String? kuryeAdi;
+  final bool secili;
+  final VoidCallback onTap;
+
+  /// Ekran metni SÖZLEŞMEDİR. Çip dar olduğu için eski satırın uzun cümlesi ("Atama yok —
+  /// sonra da atanabilir") buraya sığmaz; seçimin opsiyonel olduğunu artık cümle değil DAVRANIŞ
+  /// söylüyor: çipe hiç dokunmadan "Siparişi Kaydet" basılabiliyor ve sipariş atamasız kaydediliyor.
+  static const String bosEtiket = 'Kurye seç';
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    // Seçim dilinin AYNISI (`SecimSatiri`, `.sr-row`): seçiliyken accent-soft zemin + accent
+    // yazı, boşken yüzey zemini + `ink2` yazı ve `muted` ikon. Boş çipin YAZISI muted OLAMAZ —
+    // yanındaki dolu accent düğmenin yanında pasifmiş gibi okunur, oysa asıl işi dokunulmak.
+    final metinRenk = secili ? t.accent : t.ink2;
+    return Semantics(
+      button: true,
+      child: SipDokun(
+        onTap: onTap,
+        zemin: secili ? t.accentSoft : t.surface2,
+        basiliZemin: t.line,
+        radius: SipRadius.br2,
+        olcekle: true,
+        padding: const EdgeInsets.symmetric(horizontal: 13),
+        child: SizedBox(
+          height: 48,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SipIcon(SipIcons.truck,
+                  boyut: 17, kalinlik: 2, renk: secili ? t.accent : t.muted),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  kuryeAdi ?? bosEtiket,
+                  style: SipText.metin(12.5, w: 700).copyWith(color: metinRenk),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -236,7 +306,8 @@ class MusteriSecimAdimi extends StatelessWidget {
 // Adım 3 — özet
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
-/// CSS `.sdx-*` özet gövdesi: müşteri kartı, kalemler, sipariş notu, opsiyonel kurye.
+/// CSS `.sdx-*` özet gövdesi: müşteri kartı, kalemler, sipariş notu.
+/// (Kurye seçimi gövdede DEĞİL, alt çubukta — [AltKuryeCipi].)
 class SiparisOzetiAdimi extends StatelessWidget {
   const SiparisOzetiAdimi({
     super.key,
@@ -247,10 +318,6 @@ class SiparisOzetiAdimi extends StatelessWidget {
     required this.telefonlar,
     required this.adresler,
     required this.onKalemleriDuzenle,
-    required this.atamaYetkisi,
-    required this.kuryeAdi,
-    required this.kuryeSecili,
-    required this.onKuryeSec,
   });
 
   final Customer? musteri;
@@ -260,12 +327,6 @@ class SiparisOzetiAdimi extends StatelessWidget {
   final Stream<Map<String, String>> telefonlar;
   final Stream<Map<String, AdresBilgi>> adresler;
   final VoidCallback onKalemleriDuzenle;
-
-  /// Kurye satırı KİME görünür: atama yetkisi olana. Tek kişilik bayide satır hiç çizilmez.
-  final bool atamaYetkisi;
-  final String? kuryeAdi;
-  final bool kuryeSecili;
-  final VoidCallback onKuryeSec;
 
   @override
   Widget build(BuildContext context) {
@@ -355,26 +416,8 @@ class SiparisOzetiAdimi extends StatelessWidget {
               ),
           ],
         ),
-        // ── Kurye (OPSİYONEL) ───────────────────────────────────────────────────────────
-        // Saha isteği: siparişi girerken kimin götüreceği çoğu zaman zaten bellidir; onu
-        // atamak için kaydedip listeye dönüp detayı açmak üç fazladan dokunuştu.
-        //
-        // NOTUN ÜSTÜNE ALINDI: ikisi de teslimata dair, ama kurye bir KARARDIR ve boş bırakılsa
-        // bile görülmesi gerekir; not serbest metindir, en sonda durması doğaldır (odaklanınca
-        // klavye açılır, altında bir şey kalmaz). Eskiden kurye satırı not kutusunun altına
-        // düştüğü için, klavye açıkken ekrandan tamamen çıkıyordu.
-        if (atamaYetkisi) ...[
-          const SdxSec('Kurye'),
-          SecimSatiri(
-            etiket: kuryeAdi ?? 'Atama yok — sonra da atanabilir',
-            ikon: SipIcons.truck,
-            secili: kuryeSecili,
-            onTap: onKuryeSec,
-            // Gövde zemini `bg`; satır komşu kartlarla aynı yüzeyde dursun (yoksa çıplak metne
-            // benzer ve dokunulabilir olduğu anlaşılmaz).
-            zemin: t.surface2,
-          ),
-        ],
+        // KURYE BURADA DEĞİL — alt çubukta, "Siparişi Kaydet"in solunda ([AltKuryeCipi]).
+        // Kaydetmeden hemen önce verilen bir karar, kaydet düğmesinin yanında durmalı.
         const SdxSec('Sipariş Notu'),
         SipInput(
           controller: not,

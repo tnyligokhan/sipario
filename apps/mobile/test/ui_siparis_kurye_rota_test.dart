@@ -20,6 +20,7 @@ import 'package:sipario/data/app_database.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/repo/product_repository.dart';
+import 'package:sipario/screens/orders/order_form_parts.dart' show AltKuryeCipi;
 import 'package:sipario/screens/orders/order_form_screen.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
 import 'package:sipario/screens/orders/siparis_harita.dart';
@@ -77,15 +78,17 @@ void main() {
       await akisiBekle(tester);
       await ozeteKadar(tester);
 
-      // Satır BOŞ başlar: seçim zorunlu değil, metin de bunu söyler.
-      expect(find.text('Atama yok — sonra da atanabilir'), findsOneWidget);
+      // Çip BOŞ başlar. Seçimin opsiyonel olduğunu artık cümle değil DAVRANIŞ söylüyor
+      // (bir sonraki test: çipe hiç dokunmadan kaydedilebiliyor) — çip alt çubukta,
+      // "Siparişi Kaydet"in solunda durduğu için uzun cümle sığmıyor.
+      expect(find.text(AltKuryeCipi.bosEtiket), findsOneWidget);
 
-      await tester.tap(find.text('Atama yok — sonra da atanabilir'));
+      await tester.tap(find.text(AltKuryeCipi.bosEtiket));
       await akisiBekle(tester);
       await tester.tap(find.text('Kurye Ali'));
       await akisiBekle(tester);
 
-      // Seçim satıra yansır — kullanıcı kaydetmeden önce kime gittiğini görür.
+      // Seçim çipe yansır — kullanıcı kaydetmeden önce kime gittiğini görür.
       expect(find.text('Kurye Ali'), findsOneWidget);
 
       await tester.tap(find.text('Siparişi Kaydet'));
@@ -118,7 +121,7 @@ void main() {
       await akisiBekle(tester);
       await ozeteKadar(tester);
 
-      // Satıra HİÇ dokunulmaz — sipariş atamasız kaydedilmeli.
+      // Çipe HİÇ dokunulmaz — sipariş atamasız kaydedilmeli.
       await tester.tap(find.text('Siparişi Kaydet'));
       await akisiBekle(tester, ms: 300);
 
@@ -135,7 +138,7 @@ void main() {
       await ekraniKapat(tester);
     });
 
-    testWidgets('KURYE rolünde kurye satırı hiç çizilmez (K2: atama yöneticinin işi)',
+    testWidgets('KURYE rolünde kurye çipi hiç çizilmez (K2: atama yöneticinin işi)',
         (tester) async {
       genisYuzey(tester);
       late AppDatabase db;
@@ -145,10 +148,11 @@ void main() {
       await akisiBekle(tester);
       await ozeteKadar(tester);
 
-      // Özet adımının kendisi çizildi (bölüm başlıkları yerinde) — yalnız Kurye bölümü yok.
+      // Özet adımının kendisi çizildi (bölüm başlıkları yerinde) ve alt çubuk da çizildi
+      // (kaydet düğmesi duruyor) — yalnız kurye çipi yok.
       expect(find.text('Sipariş Notu'), findsOneWidget);
-      expect(find.text('Kurye'), findsNothing);
-      expect(find.text('Atama yok — sonra da atanabilir'), findsNothing);
+      expect(find.text('Siparişi Kaydet'), findsOneWidget);
+      expect(find.text(AltKuryeCipi.bosEtiket), findsNothing);
 
       await ekraniKapat(tester);
     });

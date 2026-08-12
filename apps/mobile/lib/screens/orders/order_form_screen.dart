@@ -365,6 +365,16 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
                 // Uyarı metni yukarıdaki kalıcı şeritte duruyor — burada TEKRARLANMAZ.
                 // Düğmenin pasif olması (onTap: null) ile şerit birlikte yeterli.
                 toplamKurus: _toplam,
+                // Kurye çipi kaydet düğmesinin YANINDA (kullanıcı isteği 2026-08-13): kararla
+                // eylem aynı bakışta. Atama yetkisi yoksa (kurye rolü, tek kişilik bayi) çip
+                // hiç verilmez ve çubuk tek eylemli hâline döner.
+                yanEylem: _atamaYetkisi
+                    ? AltKuryeCipi(
+                        kuryeAdi: _kuryeAdi,
+                        secili: _kuryeId != null,
+                        onTap: _kuryeSec,
+                      )
+                    : null,
                 buton: SipButon(
                   etiket: 'Siparişi Kaydet',
                   ikon: SipIcons.check,
@@ -523,9 +533,5 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
         telefonlar: _telefonlar,
         adresler: _adresler,
         onKalemleriDuzenle: () => setState(() => _adim = 2),
-        atamaYetkisi: _atamaYetkisi,
-        kuryeAdi: _kuryeAdi,
-        kuryeSecili: _kuryeId != null,
-        onKuryeSec: _kuryeSec,
       );
 }

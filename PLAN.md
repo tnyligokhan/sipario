@@ -258,8 +258,10 @@ Ne değişti (`screens/orders/`):
    satırdı; birim yazısıyla aynı satıra, muted renge indi (`Not ekle` + kalem ikonu). Not girilince
    yerini warn-soft rozet alıyor.
 3. **Özette toplam bir kez yazıyor.** `SdKart.toplamGoster: false` — sabit alt çubuk zaten sahibi.
-4. **Kurye satırı sipariş notunun üstüne alındı** ve `surface2` zemin aldı; `SecimSatiri` varsayılanı
-   `bg` olduğu için ekran gövdesinde görünmez oluyordu (koyu temada bariz).
+4. **Kurye seçimi gövdeden ALT ÇUBUĞA taşındı** (kullanıcı isteği, aynı gün ikinci tur):
+   `AltKuryeCipi` "Siparişi Kaydet"in solunda, aynı yükseklik/yarıçapta; toplam da tam genişlikte
+   kendi satırına çıktı (`YsAltCubugu.yanEylem`). Etiket "Kurye seç" — eski uzun cümle çipe
+   sığmıyor, opsiyonelliği testin kanıtladığı DAVRANIŞ söylüyor. 360 px'de taşma sınavı yapıldı.
 5. **Adım rozetleri geçilmiş adımlara dokunulabilir**; müşteri araması tasarımdaki gibi otomatik
    odaklanıyor (`SipArama.otomatikOdak`); boş sepette "Devam" tasarımdaki gibi sönük (opacity .6).
 6. Boş sepet kutusu artık düğmenin sözünü tekrarlamıyor: *"Eklenen kalemler burada listelenir."*

@@ -59,8 +59,10 @@ const List<SurumNotu> kSurumNotlari = [
           'altlarında kendi başlığı ve sayacıyla listeleniyor.',
       'Sepetteki her kalemin altında duran "Not ekle" yazısı küçüldü ve birim bilgisinin '
           'yanına geçti — not eklemek yine tek dokunuş, ama liste daha kısa ve okunaklı.',
-      'Özet adımında toplam bir kez yazıyor. Kuryeyi seçtiğiniz satır sipariş notunun '
-          'üstüne alındı; artık yazı yazarken ekranın dışında kalmıyor.',
+      'Özet adımında toplam tek bir yerde, en altta kendi satırında yazıyor.',
+      'Kuryeyi seçtiğiniz alan "Siparişi Kaydet" düğmesinin yanına taşındı: kime gittiğini '
+          've kaydetmeyi tek bakışta görüyorsunuz. Seçmezseniz sipariş yine kaydediliyor, '
+          'kuryeyi sonra da atayabilirsiniz.',
       'Üstteki adım rozetlerine (Müşteri · Kalemler · Özet) dokunarak geçtiğiniz bir adıma '
           'geri dönebilirsiniz.',
       'Müşteri arama alanı ekran açılır açılmaz hazır geliyor: telefon elinizdeyken '
