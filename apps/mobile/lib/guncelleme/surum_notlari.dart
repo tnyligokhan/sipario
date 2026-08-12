@@ -51,6 +51,23 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.14.1',
+    tarih: '13 Ağustos 2026',
+    maddeler: [
+      'Yeni sipariş ekranı sadeleşti. Ürün ekleme yollarının üçü de (her zamanki ürünler, '
+          'katalog, serbest satır) artık üst üste duruyor; eklediğiniz kalemler hemen '
+          'altlarında kendi başlığı ve sayacıyla listeleniyor.',
+      'Sepetteki her kalemin altında duran "Not ekle" yazısı küçüldü ve birim bilgisinin '
+          'yanına geçti — not eklemek yine tek dokunuş, ama liste daha kısa ve okunaklı.',
+      'Özet adımında toplam bir kez yazıyor. Kuryeyi seçtiğiniz satır sipariş notunun '
+          'üstüne alındı; artık yazı yazarken ekranın dışında kalmıyor.',
+      'Üstteki adım rozetlerine (Müşteri · Kalemler · Özet) dokunarak geçtiğiniz bir adıma '
+          'geri dönebilirsiniz.',
+      'Müşteri arama alanı ekran açılır açılmaz hazır geliyor: telefon elinizdeyken '
+          'doğrudan yazmaya başlayabilirsiniz.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.14.0',
     tarih: '11 Ağustos 2026',
     maddeler: [
