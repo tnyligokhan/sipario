@@ -79,9 +79,12 @@ jobs:
         working-directory: apps/mobile
         run: dart analyze
 
+      # `flutter test` DOĞRUDAN ÇAĞRILMAZ: `sqlite3` paketi her koşumda GitHub Releases'ten hazır
+      # kütüphane indirir ve indirme koptuğunda iş, testler yeşilken kırmızı olur (2026-08-13'te
+      # oldu). Sarmalayıcı YALNIZ ağ şekilli arızayı tekrarlar; test hatası ilk turda düşer.
       - name: Testler
         working-directory: apps/mobile
-        run: flutter test
+        run: bash ../../scripts/ci-varlik-indirmesini-yeniden-dene.sh flutter test
 
   derle-ve-yayinla:
     needs: test
@@ -149,13 +152,17 @@ jobs:
           # SIPARIO_API define'ı kanalın sunucusunu belirler: saha canlıya, deneme test
           # sunucusuna bakar. Adres kullanıcıya SORULMAZ — yanlış sunucuya bağlanmış bir bayi
           # veri karışması demektir (giriş ekranındaki adres alanı bu yüzden kaldırılmıştı).
+          #
+          # Derleme de aynı yerel varlık indirmesine bağlı (Android hedefi için de bir
+          # kütüphane iner) — testlerdeki sarmalayıcının aynısı burada da kullanılır.
           YAPIM=$(git rev-list --count HEAD)
+          YENIDEN=../../scripts/ci-varlik-indirmesini-yeniden-dene.sh
           flutter pub get
-          flutter build apk --release --flavor "$FLAVOR" \
+          bash "$YENIDEN" flutter build apk --release --flavor "$FLAVOR" \
             --dart-define=SIPARIO_KANAL="$KANAL" \
             --dart-define=SIPARIO_YAPIM="$YAPIM" \
             --dart-define=SIPARIO_API="$API" --split-per-abi
-          flutter build apk --release --flavor "$FLAVOR" \
+          bash "$YENIDEN" flutter build apk --release --flavor "$FLAVOR" \
             --dart-define=SIPARIO_KANAL="$KANAL" \
             --dart-define=SIPARIO_YAPIM="$YAPIM" \
             --dart-define=SIPARIO_API="$API"
