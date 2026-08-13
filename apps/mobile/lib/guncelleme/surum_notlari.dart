@@ -51,6 +51,30 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.17.0',
+    tarih: '13 Ağustos 2026',
+    maddeler: [
+      'Menü baştan düzenlendi. Alt bardaki dört sekmeyi tekrarlayan satırlar kaldırıldı; '
+          'yerlerine menüden daha önce ulaşılamayan ekranlar geldi: Borçlular, Çağrı Geçmişi '
+          've Sipariş Haritası.',
+      'Koyu Tema ve Arayan Tanıma anahtarları menüye taşındı — günde birçok kez çevrilen '
+          'tercihler artık tek dokunuş uzakta.',
+      'Ayarlar kategorilere ayrıldı: Hesap · İşletme · Uygulama · Bildirimler · Hakkında. '
+          'Her biri kendi sayfasında.',
+      'Yeni "Hesap" sayfası: hangi kullanıcıyla, hangi rolde ve hangi firmaya bağlı '
+          'girdiğinizi buradan görüyorsunuz.',
+      'Çağrı Geçmişi artık Ayarlar\'ın içinde değil, menüde. Orası bir iş kaydıdır, ayar değil.',
+      'Sessiz saatler ayarlanabilir oldu. Daha önce 22:00 – 08:00 sabitti; artık kendi '
+          'çalışma saatlerinize göre seçiyorsunuz.',
+      'Sürükleme tutamacının tarafı (sağ/sol el) Ayarlar → Uygulama altına eklendi.',
+      'Güvenlik düzeltmesi: çağrı geçmişinden açılan müşteri kartında kurye yetkileri '
+          'uygulanmıyordu. Bu yoldan giren kurye, normalde yalnız yöneticiye açık olan müşteri '
+          'silme, kara listeye alma ve maskesiz telefon bilgilerine erişebiliyordu. Kapatıldı.',
+      'Fiş alt notu alanı "Çok yakında" olarak işaretlendi: teslim fişi özelliği henüz yok ve '
+          'yazılan not hiçbir yerde görünmüyordu.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.16.0',
     tarih: '13 Ağustos 2026',
     maddeler: [

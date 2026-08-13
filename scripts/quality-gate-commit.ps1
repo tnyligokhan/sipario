@@ -317,6 +317,33 @@ if (Test-Path 'DECISIONS.md') {
 # yazilir ve testlerin CI'da oldugu acikca belirtilir.
 $ozet = "otomatik($branch): $($staged.Count) dosya, hizli kapi yesil"
 $govde = "Hizli kapi: " + (($ran | Select-Object -Unique) -join ', ')
+
+# ============ SURUM IZI (2026-08-13, kullanici istegi) ============
+# NEDEN VAR: bir vardiya boyunca menu, ayarlar, hesap sayfasi ve bir guvenlik duzeltmesi
+# gitti ve `pubspec.yaml` HIC ARTMADI. Kimse fark etmedi cunku hicbir yerde gorunmuyordu.
+# CLAUDE.md kurali zaten "her kullanıcıya görünen değişiklik en az PATCH artırır" diyor —
+# eksik olan kural degil, kuralin IZIYDI.
+#
+# NEDEN BLOKLAMIYOR: bu kanca HER yanitta calisiyor, yani bir vardiyada onlarca commit
+# uretiyor. Her commit'te surum artisi dayatmak, vardiya basina onlarca surum demek olurdu —
+# SemVer'i anlamsizlastirirdi. Surum artisinin dogru olcegi COMMIT degil, ISTIR.
+#
+# ONUN YERINE GORUNUR KILIYOR: mobil kod degistiginde surum satiri commit govdesine yazilir.
+# `git log` bakildiginda ust uste ayni surumle giden bir mobil degisiklik yigini derhal goze
+# carpar; atlanan surum artik sessiz kalamaz.
+$mobilDokunuldu = @($staged | Where-Object { $_ -like 'apps/mobile/lib/*' }).Count -gt 0
+if ($mobilDokunuldu) {
+  $surumSatiri = (Select-String -Path 'apps/mobile/pubspec.yaml' -Pattern '^version:\s*(.+)$' -ErrorAction SilentlyContinue | Select-Object -First 1)
+  $surum = if ($surumSatiri) { $surumSatiri.Matches[0].Groups[1].Value.Trim() } else { 'okunamadi' }
+  # Onceki commit'teki surumle karsilastir: ayniysa bu commit MEVCUT surumun uzerine yaziyor.
+  $oncekiSurum = (git show 'HEAD:apps/mobile/pubspec.yaml' 2>$null | Select-String -Pattern '^version:\s*(.+)$' | Select-Object -First 1)
+  $onceki = if ($oncekiSurum) { $oncekiSurum.Matches[0].Groups[1].Value.Trim() } else { '' }
+  if ($onceki -and $onceki -eq $surum) {
+    $govde += "`nSURUM: $surum (DEGISMEDI - kullaniciya gorunen bir degisiklik ise artirilmali)"
+  } else {
+    $govde += "`nSURUM: $surum"
+  }
+}
 if ($skipped.Count -gt 0) { $govde += " | atlanan: " + (($skipped | Select-Object -Unique) -join ', ') }
 $govde += "`nTestler CI'da: api-ci (apps/api) · saha-apk/test (apps/mobile)"
 $msg = $ozet + "`n`n" + $govde
