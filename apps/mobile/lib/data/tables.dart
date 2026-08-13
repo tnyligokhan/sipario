@@ -412,6 +412,21 @@ class CallLogs extends Table {
   TextColumn get direction => text()();
   TextColumn get outcome => text().nullable()();
   TextColumn get relatedOrderId => text().nullable()();
+
+  /// Çağrıyı KİM karşıladı / kim yaptı (`users.id`) — kullanıcı isteği 2026-08-13.
+  ///
+  /// NEDEN `device_id` YETMEDİ: cihaz kimliği zaten vardı ama bir CİHAZI anlatır, kişiyi değil.
+  /// Aynı telefonu iki kişi kullanabilir (patron sabah, operatör akşam) ve bir kurye telefon
+  /// değiştirdiğinde geçmişi kopar. Patronun sorduğu soru "hangi TELEFONDAN arandı" değil,
+  /// "kim aradı".
+  ///
+  /// NULLABLE ve öyle KALMALI: bu alan eklenmeden ÖNCE yazılmış kayıtlarda atıf YOKTUR ve
+  /// uydurulamaz — `device_id`den kişiye geriye dönük eşleme yapmak, o cihazı o gün kimin
+  /// kullandığını VARSAYMAK olurdu. Eski satırlar ekranda "bilinmiyor" der; yanlış bir isim
+  /// yazmaktansa boş bırakmak dürüsttür (bu, bir kuryenin yapmadığı aramadan sorumlu
+  /// tutulmasını da engeller).
+  TextColumn get userId => text().nullable()();
+
   TextColumn get occurredAt => text()();
   TextColumn get deviceId => text().nullable()();
   TextColumn get updatedOccurredAt => text()();

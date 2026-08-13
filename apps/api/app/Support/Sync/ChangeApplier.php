@@ -289,6 +289,17 @@ class ChangeApplier
                 'direction' => self::direction($p),
                 'outcome' => $p['outcome'] ?? null,
                 'related_order_id' => $p['related_order_id'] ?? null,
+                // ÇAĞRIYI KİM KARŞILADI (2026-08-13). `device_id` CİHAZI anlatır, kişiyi değil.
+                //
+                // ⚠️ BU SATIR OLMADAN ALAN SESSİZCE DÜŞER: `simpleColumns` açık bir BEYAZ
+                // LİSTEDİR — payload'da olsa bile burada adı geçmeyen anahtar yazılmaz. İlk
+                // denemede migration, model `$fillable`'ı ve istemci tarafı hazırdı ama bu satır
+                // eksikti; sonuç "applied" dönüyor, kolon NULL kalıyordu. Dahası, değer düştüğü
+                // için ÇAPRAZ BAYİ KORUMASI da devreye girmiyordu: başka bayinin kullanıcısına
+                // atıf yazan olay reddedilmesi gerekirken kabul ediliyor gibi görünüyordu
+                // (bileşik FK ancak DEĞER yazıldığında tetiklenir). Beyaz listeye eklemek
+                // yalnız bir özelliği değil, o özelliğin güvenlik kapısını da açar.
+                'user_id' => $p['user_id'] ?? null,
                 // Çağrının GERÇEKLEŞTİĞİ an; LWW'nin updated_occurred_at'inden ayrıdır (sonuç sonradan
                 // yazılınca LWW damgası ilerler ama çağrı saati sabit kalmalı).
                 'occurred_at' => SyncPayload::zaman((string) ($p['occurred_at'] ?? $event['occurred_at'] ?? '')),

@@ -43,6 +43,7 @@ class CallLog extends Model
         'direction',
         'outcome',
         'related_order_id',
+        'user_id',
         'occurred_at',
         'device_id',
         'updated_occurred_at',

@@ -531,6 +531,11 @@ class SyncEngine {
               direction: Value(_s(m['direction'])),
               outcome: Value(_sN(m['outcome'])),
               relatedOrderId: Value(_sN(m['related_order_id'])),
+              // Çağrıyı karşılayan kullanıcı (2026-08-13). BU SATIR OLMADAN özellik tek
+              // cihazlık kalırdı: patron kendi telefonunda atfı görür, kuryenin telefonundan
+              // senkronla inen kayıtta göremezdi — oysa özelliğin tamamı başkasının geçmişini
+              // görmek üzerine.
+              userId: Value(_sN(m['user_id'])),
               occurredAt: Value(_s(m['occurred_at'])),
               deviceId: Value(_sN(m['device_id'])),
               updatedOccurredAt: Value(_s(m['updated_occurred_at'])),

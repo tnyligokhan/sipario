@@ -68,6 +68,10 @@ class CallLogRepository {
             relatedOrderId: Value(relatedOrderId),
             occurredAt: at,
             deviceId: Value(device),
+            // ÇAĞRIYI KİM KARŞILADI (2026-08-13): oturumdaki kullanıcı. `device_id` zaten
+            // vardı ama CİHAZI anlatır, kişiyi değil — aynı telefonu iki kişi kullanabilir.
+            // Oturum kurulmadan yazılan kayıtta null kalır ve atıf UYDURULMAZ.
+            userId: Value(meta.userId),
             updatedOccurredAt: lww,
             updatedDeviceId: Value(device),
           ));
@@ -78,7 +82,16 @@ class CallLogRepository {
           occurredAt: lww,
           deviceId: device,
           payload: _payload(
-              kayitId, resolved, phoneE164, last10, direction.wire, outcome, relatedOrderId, at));
+            id: kayitId,
+            customerId: resolved,
+            phoneE164: phoneE164,
+            last10: last10,
+            direction: direction.wire,
+            outcome: outcome,
+            relatedOrderId: relatedOrderId,
+            userId: meta.userId,
+            occurredAt: at,
+          ));
     });
 
     return kayitId;
@@ -105,8 +118,20 @@ class CallLogRepository {
           entityId: id,
           occurredAt: lww,
           deviceId: device,
-          payload: _payload(id, row.customerId, row.phoneE164, row.phoneLast10, row.direction,
-              outcome, relatedOrderId ?? row.relatedOrderId, row.occurredAt));
+          // ATIF DEĞİŞMEZ: sonucu sonradan yazan kişi çağrıyı karşılayan kişi olmak zorunda
+          // değil (patron akşam "sipariş alındı" işaretleyebilir). Satırdaki `userId` olduğu
+          // gibi taşınır — üzerine yazmak, çağrıyı yapmamış birini yapmış gibi gösterirdi.
+          payload: _payload(
+            id: id,
+            customerId: row.customerId,
+            phoneE164: row.phoneE164,
+            last10: row.phoneLast10,
+            direction: row.direction,
+            outcome: outcome,
+            relatedOrderId: relatedOrderId ?? row.relatedOrderId,
+            userId: row.userId,
+            occurredAt: row.occurredAt,
+          ));
     });
   }
 
@@ -119,16 +144,21 @@ class CallLogRepository {
     return phone?.customerId;
   }
 
-  static Map<String, Object?> _payload(
-    String id,
-    String? customerId,
-    String phoneE164,
-    String last10,
-    String direction,
-    String? outcome,
-    String? relatedOrderId,
-    String occurredAt,
-  ) =>
+  /// Sunucuya giden zarf. ADLANDIRILMIŞ PARAMETRE (2026-08-13): `user_id` eklenince liste
+  /// dokuz sıralı argümana çıkıyordu ve iki çağrı yerinde `String?` tipli üç alan (outcome,
+  /// relatedOrderId, userId) yan yana geliyordu — sırayı karıştırmak derlemeyi KIRMAZ, yalnız
+  /// yanlış alanı gönderirdi.
+  static Map<String, Object?> _payload({
+    required String id,
+    required String? customerId,
+    required String phoneE164,
+    required String last10,
+    required String direction,
+    required String? outcome,
+    required String? relatedOrderId,
+    required String? userId,
+    required String occurredAt,
+  }) =>
       {
         'id': id,
         'customer_id': customerId,
@@ -137,6 +167,7 @@ class CallLogRepository {
         'direction': direction,
         'outcome': outcome,
         'related_order_id': relatedOrderId,
+        'user_id': userId,
         'occurred_at': occurredAt,
       };
 }

@@ -50,7 +50,7 @@ class AppDatabase extends _$AppDatabase {
   /// yani `onCreate` yolundan geçer ve şema her zaman tamdır. 1109 yeşil testin hiçbiri
   /// YÜKSELTME yolundan geçmiyordu. Kusur yalnız "önceki sürümü kurulu olan cihazda" görünür.
   @override
-  int get schemaVersion => 20; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN · v14 IBAN alıcı adı + hatırlatma şablonu · v15 kurye yetki matrisi 13 kolonu (SÜRÜM ARTIŞI UNUTULMUŞTU) · v16 sync_meta.api_version (sunucu sözleşme sürümü önbelleği) · v17 users'a kişiye özel kurye yetkileri (13 NULLABLE kolon — null = bayi varsayılanını devral) · v18 order_lines.note (satır notu) + customers.favorite_product_ids (JSON dizi) · v19 sync_meta "beni hatırla" (saved_tenant_code + saved_username) · v20 cash_handovers.reverses_handover_id (ara tahsilat iptal kaydı)
+  int get schemaVersion => 21; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN · v14 IBAN alıcı adı + hatırlatma şablonu · v15 kurye yetki matrisi 13 kolonu (SÜRÜM ARTIŞI UNUTULMUŞTU) · v16 sync_meta.api_version (sunucu sözleşme sürümü önbelleği) · v17 users'a kişiye özel kurye yetkileri (13 NULLABLE kolon — null = bayi varsayılanını devral) · v18 order_lines.note (satır notu) + customers.favorite_product_ids (JSON dizi) · v19 sync_meta "beni hatırla" (saved_tenant_code + saved_username) · v20 cash_handovers.reverses_handover_id (ara tahsilat iptal kaydı) · v21 call_logs.user_id (çağrıyı kim karşıladı)
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -257,6 +257,19 @@ class AppDatabase extends _$AppDatabase {
           if (await _tabloVar(m, 'cash_handovers')) {
             await _addColumnIfMissing(
                 m, 'ALTER TABLE cash_handovers ADD COLUMN reverses_handover_id TEXT');
+          }
+
+          // v21 — ÇAĞRIYI KİM KARŞILADI (2026-08-13). `call_logs.user_id`.
+          //
+          // Aynı yerleşim gerekçesi (kapıdan ÖNCE, koşulsuz): kolon yoksa çağrı günlüğüne
+          // dokunan her sorgu "no such column" ile patlar ve arayan tanıma kartının yazdığı
+          // kayıt da düşer — yani telefon çalarken ürünün çekirdek özelliği ölür.
+          //
+          // NULLABLE ve GERİYE DÖNÜK DOLDURULMAZ: yükseltmeden önceki satırların atfı
+          // bilinmiyor. `device_id`den kişiye eşleme yapmak "o gün o cihazı kim kullandı"
+          // varsayımıdır; yanlış bir isim, bir kuryeyi yapmadığı aramadan sorumlu tutar.
+          if (await _tabloVar(m, 'call_logs')) {
+            await _addColumnIfMissing(m, 'ALTER TABLE call_logs ADD COLUMN user_id TEXT');
           }
 
           // KENDİNİ ONARMA (2026-07-22 SAHA BULGUSU — iki gerçek cihazda yaşandı): Faz 0 ölçüm

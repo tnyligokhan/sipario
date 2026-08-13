@@ -9506,6 +9506,15 @@ class $CallLogsTable extends CallLogs with TableInfo<$CallLogsTable, CallLog> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _occurredAtMeta = const VerificationMeta(
     'occurredAt',
   );
@@ -9571,6 +9580,7 @@ class $CallLogsTable extends CallLogs with TableInfo<$CallLogsTable, CallLog> {
     direction,
     outcome,
     relatedOrderId,
+    userId,
     occurredAt,
     deviceId,
     updatedOccurredAt,
@@ -9640,6 +9650,12 @@ class $CallLogsTable extends CallLogs with TableInfo<$CallLogsTable, CallLog> {
           data['related_order_id']!,
           _relatedOrderIdMeta,
         ),
+      );
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
       );
     }
     if (data.containsKey('occurred_at')) {
@@ -9719,6 +9735,10 @@ class $CallLogsTable extends CallLogs with TableInfo<$CallLogsTable, CallLog> {
         DriftSqlType.string,
         data['${effectivePrefix}related_order_id'],
       ),
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
       occurredAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}occurred_at'],
@@ -9756,6 +9776,20 @@ class CallLog extends DataClass implements Insertable<CallLog> {
   final String direction;
   final String? outcome;
   final String? relatedOrderId;
+
+  /// Çağrıyı KİM karşıladı / kim yaptı (`users.id`) — kullanıcı isteği 2026-08-13.
+  ///
+  /// NEDEN `device_id` YETMEDİ: cihaz kimliği zaten vardı ama bir CİHAZI anlatır, kişiyi değil.
+  /// Aynı telefonu iki kişi kullanabilir (patron sabah, operatör akşam) ve bir kurye telefon
+  /// değiştirdiğinde geçmişi kopar. Patronun sorduğu soru "hangi TELEFONDAN arandı" değil,
+  /// "kim aradı".
+  ///
+  /// NULLABLE ve öyle KALMALI: bu alan eklenmeden ÖNCE yazılmış kayıtlarda atıf YOKTUR ve
+  /// uydurulamaz — `device_id`den kişiye geriye dönük eşleme yapmak, o cihazı o gün kimin
+  /// kullandığını VARSAYMAK olurdu. Eski satırlar ekranda "bilinmiyor" der; yanlış bir isim
+  /// yazmaktansa boş bırakmak dürüsttür (bu, bir kuryenin yapmadığı aramadan sorumlu
+  /// tutulmasını da engeller).
+  final String? userId;
   final String occurredAt;
   final String? deviceId;
   final String updatedOccurredAt;
@@ -9769,6 +9803,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
     required this.direction,
     this.outcome,
     this.relatedOrderId,
+    this.userId,
     required this.occurredAt,
     this.deviceId,
     required this.updatedOccurredAt,
@@ -9790,6 +9825,9 @@ class CallLog extends DataClass implements Insertable<CallLog> {
     }
     if (!nullToAbsent || relatedOrderId != null) {
       map['related_order_id'] = Variable<String>(relatedOrderId);
+    }
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
     }
     map['occurred_at'] = Variable<String>(occurredAt);
     if (!nullToAbsent || deviceId != null) {
@@ -9820,6 +9858,9 @@ class CallLog extends DataClass implements Insertable<CallLog> {
       relatedOrderId: relatedOrderId == null && nullToAbsent
           ? const Value.absent()
           : Value(relatedOrderId),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
       occurredAt: Value(occurredAt),
       deviceId: deviceId == null && nullToAbsent
           ? const Value.absent()
@@ -9847,6 +9888,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
       direction: serializer.fromJson<String>(json['direction']),
       outcome: serializer.fromJson<String?>(json['outcome']),
       relatedOrderId: serializer.fromJson<String?>(json['relatedOrderId']),
+      userId: serializer.fromJson<String?>(json['userId']),
       occurredAt: serializer.fromJson<String>(json['occurredAt']),
       deviceId: serializer.fromJson<String?>(json['deviceId']),
       updatedOccurredAt: serializer.fromJson<String>(json['updatedOccurredAt']),
@@ -9865,6 +9907,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
       'direction': serializer.toJson<String>(direction),
       'outcome': serializer.toJson<String?>(outcome),
       'relatedOrderId': serializer.toJson<String?>(relatedOrderId),
+      'userId': serializer.toJson<String?>(userId),
       'occurredAt': serializer.toJson<String>(occurredAt),
       'deviceId': serializer.toJson<String?>(deviceId),
       'updatedOccurredAt': serializer.toJson<String>(updatedOccurredAt),
@@ -9881,6 +9924,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
     String? direction,
     Value<String?> outcome = const Value.absent(),
     Value<String?> relatedOrderId = const Value.absent(),
+    Value<String?> userId = const Value.absent(),
     String? occurredAt,
     Value<String?> deviceId = const Value.absent(),
     String? updatedOccurredAt,
@@ -9896,6 +9940,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
     relatedOrderId: relatedOrderId.present
         ? relatedOrderId.value
         : this.relatedOrderId,
+    userId: userId.present ? userId.value : this.userId,
     occurredAt: occurredAt ?? this.occurredAt,
     deviceId: deviceId.present ? deviceId.value : this.deviceId,
     updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
@@ -9919,6 +9964,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
       relatedOrderId: data.relatedOrderId.present
           ? data.relatedOrderId.value
           : this.relatedOrderId,
+      userId: data.userId.present ? data.userId.value : this.userId,
       occurredAt: data.occurredAt.present
           ? data.occurredAt.value
           : this.occurredAt,
@@ -9943,6 +9989,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
           ..write('direction: $direction, ')
           ..write('outcome: $outcome, ')
           ..write('relatedOrderId: $relatedOrderId, ')
+          ..write('userId: $userId, ')
           ..write('occurredAt: $occurredAt, ')
           ..write('deviceId: $deviceId, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
@@ -9961,6 +10008,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
     direction,
     outcome,
     relatedOrderId,
+    userId,
     occurredAt,
     deviceId,
     updatedOccurredAt,
@@ -9978,6 +10026,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
           other.direction == this.direction &&
           other.outcome == this.outcome &&
           other.relatedOrderId == this.relatedOrderId &&
+          other.userId == this.userId &&
           other.occurredAt == this.occurredAt &&
           other.deviceId == this.deviceId &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
@@ -9993,6 +10042,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
   final Value<String> direction;
   final Value<String?> outcome;
   final Value<String?> relatedOrderId;
+  final Value<String?> userId;
   final Value<String> occurredAt;
   final Value<String?> deviceId;
   final Value<String> updatedOccurredAt;
@@ -10007,6 +10057,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
     this.direction = const Value.absent(),
     this.outcome = const Value.absent(),
     this.relatedOrderId = const Value.absent(),
+    this.userId = const Value.absent(),
     this.occurredAt = const Value.absent(),
     this.deviceId = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
@@ -10022,6 +10073,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
     required String direction,
     this.outcome = const Value.absent(),
     this.relatedOrderId = const Value.absent(),
+    this.userId = const Value.absent(),
     required String occurredAt,
     this.deviceId = const Value.absent(),
     required String updatedOccurredAt,
@@ -10042,6 +10094,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
     Expression<String>? direction,
     Expression<String>? outcome,
     Expression<String>? relatedOrderId,
+    Expression<String>? userId,
     Expression<String>? occurredAt,
     Expression<String>? deviceId,
     Expression<String>? updatedOccurredAt,
@@ -10057,6 +10110,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
       if (direction != null) 'direction': direction,
       if (outcome != null) 'outcome': outcome,
       if (relatedOrderId != null) 'related_order_id': relatedOrderId,
+      if (userId != null) 'user_id': userId,
       if (occurredAt != null) 'occurred_at': occurredAt,
       if (deviceId != null) 'device_id': deviceId,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
@@ -10074,6 +10128,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
     Value<String>? direction,
     Value<String?>? outcome,
     Value<String?>? relatedOrderId,
+    Value<String?>? userId,
     Value<String>? occurredAt,
     Value<String?>? deviceId,
     Value<String>? updatedOccurredAt,
@@ -10089,6 +10144,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
       direction: direction ?? this.direction,
       outcome: outcome ?? this.outcome,
       relatedOrderId: relatedOrderId ?? this.relatedOrderId,
+      userId: userId ?? this.userId,
       occurredAt: occurredAt ?? this.occurredAt,
       deviceId: deviceId ?? this.deviceId,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
@@ -10122,6 +10178,9 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
     if (relatedOrderId.present) {
       map['related_order_id'] = Variable<String>(relatedOrderId.value);
     }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
     if (occurredAt.present) {
       map['occurred_at'] = Variable<String>(occurredAt.value);
     }
@@ -10153,6 +10212,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
           ..write('direction: $direction, ')
           ..write('outcome: $outcome, ')
           ..write('relatedOrderId: $relatedOrderId, ')
+          ..write('userId: $userId, ')
           ..write('occurredAt: $occurredAt, ')
           ..write('deviceId: $deviceId, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
@@ -17593,6 +17653,7 @@ typedef $$CallLogsTableCreateCompanionBuilder =
       required String direction,
       Value<String?> outcome,
       Value<String?> relatedOrderId,
+      Value<String?> userId,
       required String occurredAt,
       Value<String?> deviceId,
       required String updatedOccurredAt,
@@ -17609,6 +17670,7 @@ typedef $$CallLogsTableUpdateCompanionBuilder =
       Value<String> direction,
       Value<String?> outcome,
       Value<String?> relatedOrderId,
+      Value<String?> userId,
       Value<String> occurredAt,
       Value<String?> deviceId,
       Value<String> updatedOccurredAt,
@@ -17658,6 +17720,11 @@ class $$CallLogsTableFilterComposer
 
   ColumnFilters<String> get relatedOrderId => $composableBuilder(
     column: $table.relatedOrderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -17731,6 +17798,11 @@ class $$CallLogsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get occurredAt => $composableBuilder(
     column: $table.occurredAt,
     builder: (column) => ColumnOrderings(column),
@@ -17793,6 +17865,9 @@ class $$CallLogsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
   GeneratedColumn<String> get occurredAt => $composableBuilder(
     column: $table.occurredAt,
     builder: (column) => column,
@@ -17850,6 +17925,7 @@ class $$CallLogsTableTableManager
                 Value<String> direction = const Value.absent(),
                 Value<String?> outcome = const Value.absent(),
                 Value<String?> relatedOrderId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 Value<String> occurredAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
                 Value<String> updatedOccurredAt = const Value.absent(),
@@ -17864,6 +17940,7 @@ class $$CallLogsTableTableManager
                 direction: direction,
                 outcome: outcome,
                 relatedOrderId: relatedOrderId,
+                userId: userId,
                 occurredAt: occurredAt,
                 deviceId: deviceId,
                 updatedOccurredAt: updatedOccurredAt,
@@ -17880,6 +17957,7 @@ class $$CallLogsTableTableManager
                 required String direction,
                 Value<String?> outcome = const Value.absent(),
                 Value<String?> relatedOrderId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 required String occurredAt,
                 Value<String?> deviceId = const Value.absent(),
                 required String updatedOccurredAt,
@@ -17894,6 +17972,7 @@ class $$CallLogsTableTableManager
                 direction: direction,
                 outcome: outcome,
                 relatedOrderId: relatedOrderId,
+                userId: userId,
                 occurredAt: occurredAt,
                 deviceId: deviceId,
                 updatedOccurredAt: updatedOccurredAt,
