@@ -97,6 +97,50 @@ class AuthApi {
     );
   }
 
+  /// Parola sıfırlama bağlantısı ister (kullanıcı isteği 2026-08-13).
+  ///
+  /// SUNUCU HER KOŞULDA AYNI ŞEYİ DÖNER ve bu bilinçlidir: hesap var/yok, patron/kurye ayrımı
+  /// yapılmaz — yoksa geçerli firma kodu + kullanıcı adı çiftleri tek tek numaralandırılırdı.
+  /// Yani bu çağrının dönüşü "gönderildi" DEMEK DEĞİLDİR, "istek alındı" demektir; ekran metni
+  /// de öyle kurulmalıdır.
+  ///
+  /// Yalnız AĞ hatası fırlatır: taşıma çalıştıysa sonuç ne olursa olsun başarıdır.
+  Future<String> parolaSifirla({
+    required String tenantCode,
+    required String username,
+  }) async {
+    final http.Response resp;
+    try {
+      resp = await _client
+          .post(
+            Uri.parse('$baseUrl/auth/parola-sifirla'),
+            headers: const {'Content-Type': 'application/json', 'Accept': 'application/json'},
+            body: jsonEncode({'tenant_code': tenantCode, 'username': username}),
+          )
+          .timeout(const Duration(seconds: 20));
+    } on Exception {
+      throw AuthException('Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.');
+    }
+
+    final body = _decode(resp.body);
+    // 429 (hız sınırı) AYRI ELE ALINIR: "çok fazla istek" bilgisi hesabın varlığını sızdırmaz
+    // ama sessizce "gönderdik" demek yalan olurdu — kullanıcı bekler, bağlantı hiç gelmez.
+    if (resp.statusCode == 429) {
+      throw AuthException('Çok fazla istek gönderildi. Birkaç dakika sonra tekrar deneyin.');
+    }
+    if (resp.statusCode != 200) {
+      final msg = body['message'];
+      throw AuthException(
+        msg is String && msg.isNotEmpty ? msg : 'İstek gönderilemedi (HTTP ${resp.statusCode}).',
+      );
+    }
+
+    final msg = body['message'];
+    return msg is String && msg.isNotEmpty
+        ? msg
+        : 'İsteğiniz alındı. Kayıtlı bir e-posta adresi varsa bağlantı gönderildi.';
+  }
+
   /// Sunucudaki token'ı iptal eder. Başarısızlık yutulur — yerel çıkış her koşulda tamamlanır
   /// (offline'da da çıkış yapılabilmeli); token zaten yerelden silinecek.
   Future<void> logout(String token) async {

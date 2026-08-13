@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\TenantStatus;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Resources\TenantResource;
 use App\Http\Resources\UserResource;
 use App\Models\Device;
 use App\Models\User;
+use App\Support\PostaAdresi;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +18,9 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -157,5 +162,80 @@ class AuthController extends Controller
                 'user_id' => $user->id,
             ]);
         }
+    }
+
+    /**
+     * POST /api/v1/auth/parola-sifirla  (public, throttle:parola-sifirla)
+     *
+     * ══ NEDEN VAR (kullanıcı isteği 2026-08-13) ═════════════════════════════════════════════
+     * Mobilde parola kurtarma yolu HİÇ YOKTU: uygulamada "şifremi unuttum" geçen tek bir satır
+     * bile aranmadı ve bulunamadı. Kullanıcı parolasını unuttuğunda yapabildiği tek şey birini
+     * aramaktı — pilot bayilerde bu, birinci sıradaki destek çağrısıdır.
+     *
+     * ══ İKİ AYRI GERÇEK, TEK UÇ NOKTA ═══════════════════════════════════════════════════════
+     * PATRON'un e-postası gerçektir; sıfırlama bağlantısı ona gider (site akışının aynısı).
+     * KURYE/OPERATÖR'ün e-postası SENTETİKTİR (`<kullanıcı>@<kod>.sipario.local`) — o adrese
+     * gönderilen posta hiçbir yere ulaşmaz. Onlar için bu uç nokta bilinçli olarak HİÇBİR ŞEY
+     * YAPMAZ; parolalarını bayi yöneticisi belirler ve mobil ekran bunu AÇIKÇA yazar.
+     *
+     * ⚠️ YANIT HER KOŞULDA AYNI ve bu pazarlıksız: "gönderildi" / "böyle bir hesap yok" /
+     * "bu hesap kurye" ayrımı yapmak, firma kodu + kullanıcı adı çiftlerini tek tek
+     * numaralandırmaya açık kapı bırakırdı (`login`in nötr hata kuralının aynısı). Ekran da bu
+     * yüzden iki gerçeği ÖNCEDEN yazar — cevaptan öğrenilemeyecek şeyi baştan söylemek, hem
+     * dürüst hem güvenlidir.
+     *
+     * OWNER BAĞLANTISI: istek kimliksizdir, yani `app.tenant_id` kurulmamıştır ve RLS altında
+     * hiçbir kullanıcı görünmez. Site tarafı (`Livewire\Site\Parola`) aynı sebeple owner
+     * bağlantısı kullanıyor; buradaki okuma da onun deseni.
+     */
+    public function parolaSifirla(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'tenant_code' => ['required', 'string', 'max:80'],
+            'username' => ['required', 'string', 'max:60'],
+        ]);
+
+        // Nötr yanıt ÖNCE kurulur ve her yoldan bu döner — aşağıdaki hiçbir dal onu değiştirmez.
+        $notr = response()->json([
+            'message' => 'Bu hesap için kayıtlı bir e-posta adresi varsa sıfırlama bağlantısı '
+                .'gönderildi. Gelen kutunuzu kontrol edin.',
+        ]);
+
+        try {
+            /** @var User|null $kullanici */
+            $kullanici = User::on('pgsql_owner')
+                ->join('tenants', 'tenants.id', '=', 'users.tenant_id')
+                ->where('tenants.slug', Str::lower(trim($data['tenant_code'])))
+                ->where('users.username', Str::lower(trim($data['username'])))
+                ->where('users.status', 'active')
+                ->where('users.role', UserRole::Patron->value)
+                ->select('users.*')
+                ->first();
+
+            // Kullanıcı yok · pasif · patron değil → sessizce çık. Hangi koşulun tutmadığı
+            // İSTEMCİYE SÖYLENMEZ (numaralandırma).
+            if ($kullanici === null || ! PostaAdresi::gercekMi($kullanici->email)) {
+                return $notr;
+            }
+
+            $depo = Password::getRepository();
+
+            // Framework'ün 60 saniyelik kendi throttle'ı: aynı token ard arda üretilmez.
+            // Hız sınırlayıcının (dakikada 3) ALTINDAKİ ikinci kapı.
+            if ($depo->recentlyCreatedToken($kullanici)) {
+                return $notr;
+            }
+
+            // Bağlantı adresi ve postanın gövdesi `AppServiceProvider`da bir kez kuruluyor
+            // (`ResetPassword::createUrlUsing` + `toMailUsing`) — burada kurulmaz. Gerekçe
+            // `Livewire\Site\Parola::baglantiGonder()` başlığında.
+            $kullanici->sendPasswordResetNotification($depo->create($kullanici));
+        } catch (Throwable $e) {
+            // Posta/altyapı hatası İSTEMCİYE YANSIMAZ (yine numaralandırma) ama sessizce de
+            // kaybolmaz: `report` ile günlüğe düşer.
+            report($e);
+        }
+
+        return $notr;
     }
 }

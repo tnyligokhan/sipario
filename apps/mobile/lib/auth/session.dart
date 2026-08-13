@@ -129,6 +129,27 @@ class Session {
     ));
   }
 
+  /// Parola sıfırlama bağlantısı ister (kullanıcı isteği 2026-08-13). Oturum GEREKTİRMEZ —
+  /// zaten giriş yapamayan kullanıcı için var.
+  ///
+  /// Kimlik burada da `login` ile AYNI normalizasyondan geçer (kırpma + küçük harf): sunucu
+  /// aramayı `lower()` ile yapıyor ve iki taraf ayrışırsa "Ozpinar" yazan bayi için istek
+  /// sessizce hiçbir hesap bulamaz.
+  ///
+  /// Dönen metin sunucunun NÖTR cevabıdır; "gönderildi" DEĞİL "istek alındı" anlamına gelir
+  /// (gerekçe `AuthApi.parolaSifirla` ve `parola_kurtarma_sheet.dart` başlıklarında).
+  Future<String> parolaSifirlamaIste({
+    required String tenantCode,
+    required String username,
+  }) async {
+    final meta = await db.syncState();
+    final baseUrl = _normalizeBaseUrl(meta.apiBaseUrl ?? kDefaultApiBaseUrl);
+    return _apiFactory(baseUrl).parolaSifirla(
+      tenantCode: tenantCode.trim().toLowerCase(),
+      username: username.trim().toLowerCase(),
+    );
+  }
+
   /// "Beni hatırla" ile saklanmış kimlik; hatırlama kapalıysa null.
   Future<HatirlananKimlik?> hatirlananKimlik() async => hatirlananKimlikCoz(await db.syncState());
 

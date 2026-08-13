@@ -25,6 +25,14 @@ Route::prefix('v1')->group(function () {
         ->middleware('throttle:login')
         ->name('api.auth.login');
 
+    // Parola sıfırlama isteği (public) — mobilde kurtarma yolu YOKTU (2026-08-13).
+    // Yanıt HER KOŞULDA nötrdür (hesap numaralandırması), gerekçe controller'da.
+    // Ayrı sınırlayıcı: `login`in kotasını paylaşmaz — parolasını unutan kullanıcının giriş
+    // hakkını tüketmemeli (gerekçe AppServiceProvider'da).
+    Route::post('/auth/parola-sifirla', [AuthController::class, 'parolaSifirla'])
+        ->middleware('throttle:parola-sifirla')
+        ->name('api.auth.parola-sifirla');
+
     // Sözleşme sürümü — kimliksiz okunabilir (gerekçe controller'da). Token'ı olmayan taraf
     // (durum çubuğu, dağıtım doğrulaması, saha arızasında "sunucu mu eski, telefon mu") da
     // sunucunun hangi sürümü koştuğunu sorabilmeli.

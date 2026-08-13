@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Mail\SiparioPostasi;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\PostaAdresi;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
 
@@ -81,7 +82,9 @@ class BayiPostacisi
 
             // Sahte kurye adresine posta gitmesin — patron rolünde olmaması gerekir ama bu
             // ucuz kapı, ileride patron hesabının nasıl yaratıldığı değişirse tutar.
-            if (str_ends_with(mb_strtolower($patron->email), '.sipario.local')) {
+            // Kural `PostaAdresi`ye taşındı (2026-08-13): parola sıfırlama da aynı soruyu
+            // soruyor ve iki kopya, alan adı değiştiğinde birinin unutulması demekti.
+            if (! PostaAdresi::gercekMi($patron->email)) {
                 return false;
             }
 

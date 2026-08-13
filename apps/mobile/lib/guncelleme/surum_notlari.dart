@@ -51,6 +51,18 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.20.0',
+    tarih: '13 Ağustos 2026',
+    maddeler: [
+      'Giriş ekranına "Parolamı unuttum" eklendi. Daha önce parolasını unutan kullanıcının '
+          'uygulamada yapabileceği hiçbir şey yoktu.',
+      'Ekran iki durumu da baştan söylüyor: yöneticiyseniz kayıtlı e-posta adresinize '
+          'sıfırlama bağlantısı gelir; kurye ya da operatörseniz parolanızı bayi yöneticiniz '
+          'belirler ve ona başvurmanız gerekir.',
+      'Firma kodu ve kullanıcı adı giriş ekranından devralınıyor, yeniden yazmanız gerekmiyor.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.19.1',
     tarih: '13 Ağustos 2026',
     maddeler: [

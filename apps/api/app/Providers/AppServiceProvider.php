@@ -264,6 +264,26 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        // Parola sıfırlama isteği (mobil): AYRI SINIRLAYICI, `login`in kotasını PAYLAŞMAZ.
+        //
+        // Paylaşsaydı iki yönlü zarar verirdi: (a) parolasını unutan kullanıcı birkaç deneme
+        // sonra GİRİŞ yapamaz hâle gelirdi — tam da girmeye çalışırken, (b) sıfırlama isteğiyle
+        // giriş denemesi aynı sayaçta olunca saldırgan ucuz sıfırlama istekleriyle meşru
+        // kullanıcının giriş hakkını tüketebilirdi.
+        //
+        // TAVANLAR SİTEDEKİYLE AYNI DÜZENDE (`Livewire\Site\Parola`): kimlik+IP çifti dar,
+        // IP geniş. Uç nokta POSTA ÜRETİYOR — burası bir kimlik doğrulama yüzeyi değil, bir
+        // posta bombardımanı yüzeyidir ve sınır ona göre kurulur.
+        RateLimiter::for('parola-sifirla', function (Request $request) {
+            $kimlik = Str::lower((string) $request->input('tenant_code'))
+                .'/'.Str::lower((string) $request->input('username'));
+
+            return [
+                Limit::perMinute(3)->by('parola:kimlik:'.sha1($kimlik.'|'.$request->ip())),
+                Limit::perMinute(15)->by('parola:ip:'.sha1((string) $request->ip())),
+            ];
+        });
+
         // Korumalı API: kimlik doğrulanmışsa kullanıcı başına, değilse IP başına dakikada 60.
         // Çalınan bir token'ın istismar hızını ve genel DoS yüzeyini sınırlar.
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)

@@ -17,6 +17,7 @@ import 'package:flutter/services.dart';
 
 import '../auth/auth_api.dart';
 import '../auth/session.dart';
+import 'parola_kurtarma_sheet.dart';
 import '../theme/app_theme.dart';
 import '../theme/components/atoms.dart';
 import '../theme/icons.dart';
@@ -205,6 +206,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     onHatirla: (v) => setState(() => _hatirla = v),
                     onDegis: _temizle,
                     onGonder: _gonder,
+                    onParolaUnuttum: () => parolaKurtarmaAc(
+                      context,
+                      session: widget.session,
+                      // Kullanıcının ZATEN YAZDIĞI kimlik taşınır: aynı iki alanı ikinci kez
+                      // istemek, kurtarma yolunu gereksiz yere zorlaştırırdı.
+                      firmaKodu: _firma.text,
+                      kullaniciAdi: _kullanici.text,
+                    ),
                   ),
                 ],
               ),
@@ -272,6 +281,7 @@ class _Form extends StatelessWidget {
     required this.onHatirla,
     required this.onDegis,
     required this.onGonder,
+    this.onParolaUnuttum,
   });
 
   final TextEditingController firma;
@@ -293,6 +303,9 @@ class _Form extends StatelessWidget {
 
   final VoidCallback onDegis;
   final VoidCallback onGonder;
+
+  /// "Parolamı unuttum" akışı; null ise satır HİÇ çizilmez (önizleme/test yolu).
+  final VoidCallback? onParolaUnuttum;
 
   @override
   Widget build(BuildContext context) {
@@ -363,6 +376,20 @@ class _Form extends StatelessWidget {
           if (sunucuHata != null) _Hata(sunucuHata!),
           const SizedBox(height: SipSpace.lg),
           SipButon(etiket: 'Giriş Yap', onTap: onGonder, yukleniyor: busy),
+          // PAROLA KURTARMA (kullanıcı isteği 2026-08-13): uygulamada bu yol HİÇ YOKTU ve
+          // parolasını unutan kullanıcının yapabildiği tek şey birini aramaktı.
+          //
+          // GİRİŞ DÜĞMESİNİN ALTINDA ve METİN DÜĞMESİ olarak: birincil eylem giriştir; kurtarma
+          // yolu keşfedilebilir olmalı ama onunla yarışmamalı. Alttaki bilgi satırının ÜSTÜNDE
+          // duruyor — o satır bir açıklama, bu ise bir EYLEM.
+          if (onParolaUnuttum != null)
+            Padding(
+              padding: const EdgeInsets.only(top: SipSpace.md),
+              child: SipMetinButon(
+                etiket: 'Parolamı unuttum',
+                onTap: busy ? null : onParolaUnuttum,
+              ),
+            ),
           const SizedBox(height: SipSpace.x4),
           Text(
             'Firma kodunuzu ve hesabınızı işletme yöneticiniz oluşturur.',

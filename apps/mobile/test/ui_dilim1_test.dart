@@ -32,6 +32,14 @@ class _OkAuthApi implements AuthApi {
 
   @override
   Future<void> logout(String token) async {}
+
+  /// Bu testlerin konusu değil; yalnız sözleşmeyi tamamlar (`implements AuthApi`).
+  @override
+  Future<String> parolaSifirla({
+    required String tenantCode,
+    required String username,
+  }) async =>
+      'ok';
 }
 
 void main() {
