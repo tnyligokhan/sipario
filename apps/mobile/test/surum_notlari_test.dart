@@ -116,10 +116,20 @@ void main() {
       await _ekranaKoy(tester);
 
       expect(find.text('Yenilikler'), findsOneWidget);
-      for (final n in kSurumNotlari) {
-        expect(find.text('Sürüm ${n.surum}'), findsOneWidget);
-      }
+      // EN ÜSTTEKİ MADDE DÖNGÜDEN ÖNCE sınanır: aşağıdaki tarama listeyi en alta kaydırıyor ve
+      // ilk kaydın maddesi o noktada görünür alanın dışında kalıyor (liste tembel).
       expect(find.text(kSurumNotlari.first.maddeler.first), findsOneWidget);
+
+      // KAYDIRARAK ARANIR, SABİT VIEWPORT'A GÜVENİLMEZ: liste her yayında bir kayıt uzuyor ve
+      // 2026-08-13'te 3000 punto'luk test ekranını aştı — en eski sürüm (0.10.0) hiç
+      // çizilmediği için `find.text` boş döndü. Yükseklik büyütmek aynı kırığı bir sonraki
+      // sürüme ertelerdi; liste tembel olduğu sürece doğru çözüm satırı görünür alana getirmek.
+      for (final n in kSurumNotlari) {
+        final hedef = find.text('Sürüm ${n.surum}');
+        await tester.scrollUntilVisible(hedef, 400,
+            scrollable: find.byType(Scrollable).first);
+        expect(hedef, findsOneWidget);
+      }
     });
 
     testWidgets('koşan sürüm "Kullandığınız sürüm" rozetiyle işaretlenir — TEK BİR kayıtta',
@@ -140,8 +150,13 @@ void main() {
       // Ekranın hiçbir ağ bağımlılığı olmadığının kanıtı: `HttpClient` testte her isteği
       // 400 ile reddeder, yani gizli bir istek olsaydı liste eksik ya da boş çizilirdi.
       await _ekranaKoy(tester, surum: '0.13.0');
+      // Aynı sebeple KAYDIRARAK taranır (bkz. yukarıdaki not): liste test ekranından uzun ve
+      // tembel; sabit viewport'a güvenen tarama en eski kayıtları hiç görmez.
       for (final n in kSurumNotlari) {
-        expect(find.text('Sürüm ${n.surum}'), findsOneWidget);
+        final hedef = find.text('Sürüm ${n.surum}');
+        await tester.scrollUntilVisible(hedef, 400,
+            scrollable: find.byType(Scrollable).first);
+        expect(hedef, findsOneWidget);
       }
     });
   });

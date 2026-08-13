@@ -464,7 +464,15 @@ void main() {
       );
 
       expect(find.text('Aboneliğiniz sona erdi'), findsOneWidget);
-      expect(find.textContaining('salt-okunur kipte'), findsOneWidget);
+      // KİP ARTIK ROZETLE SÖYLENİYOR (2026-08-13 yeniden tasarımı): eskiden üç bilgiyi (okuma
+      // açık · yazma kapalı · kiminle görüşülür) tek yoğun paragraf taşıyordu ve "ben şimdi ne
+      // yapabiliyorum" sorusunun cevabı cümlenin ortasında kalıyordu. Kilitlenen şey cümlenin
+      // kendisi değil, kullanıcının ÜÇ GERÇEĞİ de görmesi.
+      expect(find.textContaining(trBuyuk('Salt-okunur kip')), findsOneWidget);
+      expect(find.text('Açık'), findsOneWidget, reason: 'ne yapabildiği yazmalı');
+      expect(find.text('Kapalı'), findsOneWidget, reason: 'ne yapamadığı da yazmalı');
+      expect(find.textContaining('okunabilir'), findsOneWidget);
+      expect(find.textContaining('kaydedilemez'), findsOneWidget);
       expect(find.textContaining('işletme yöneticinizle görüşün'), findsOneWidget);
       expect(find.text('Bitiş: 30 Haziran 2026'), findsOneWidget);
 

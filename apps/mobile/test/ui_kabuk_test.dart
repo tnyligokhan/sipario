@@ -125,6 +125,9 @@ void main() {
           onGiris: onGiris ?? (_) {},
           onCikis: () {},
           onDestek: () {},
+          // Senkron damgası VERİLİR: durum şeridi çekmecenin yeni omurgası ve gerçek kullanımda
+          // dolu olur. null bırakmak "henüz senkron olmadı" dalını sınardı — o ayrı bir hâl.
+          sonSenkron: DateTime(2026, 8, 13, 10, 32),
           lisansBitisi:
               lisansBitisi ?? DateTime.now().toUtc().add(const Duration(days: 90)),
           urunlerGorunur: rol != 'kurye',
@@ -138,13 +141,25 @@ void main() {
       expect(find.text('YÖNETİM'), findsOneWidget);
       expect(find.text('Ürünler'), findsOneWidget);
       expect(find.byType(CekmeceIstatistikleri), findsOneWidget);
-      expect(find.text('AKTİF'), findsOneWidget,
-          reason: 'lisans pili Türkçe büyük harf (trBuyuk) — "AKTIF" değil');
-      expect(find.text('Yönetici'), findsNothing); // rol satırı "Yönetici · senkron …" birleşiktir
-      expect(find.textContaining('Yönetici'), findsOneWidget);
+      // LİSANS ARTIK PİLLİ BÜYÜK KART DEĞİL, İNCE ÇİP (2026-08-13 yeniden tasarımı): "AKTİF"
+      // pili kaldırıldı çünkü çip yüksekliği ~44 punto ve pil için yer yok. Durum RENKLE ve
+      // ikonla söyleniyor; kilitlenen şey pilin metni değil, KALAN GÜNÜN yazıyor olmasıdır.
+      expect(find.textContaining('gün'), findsWidgets,
+          reason: 'kalan gün çipte yazmalı — lisans durumu boş çekmeceden okunamaz');
+      // ROL SATIRI ARTIK SENKRONLA BİRLEŞİK DEĞİL (2026-08-13): eskiden "Yönetici · senkron
+      // 10:32" tek satırdı ve senkron bilgisi %55 opaklıkta bir ek cümleydi. Senkron kendi
+      // DURUM ŞERİDİNE çıktı; rol satırı artık kişiyi anlatıyor ("Yönetici · Gökhan").
+      expect(find.text('Yönetici'), findsOneWidget,
+          reason: 'kullanıcı adı verilmediğinde satır yalnız rolü yazar');
+      expect(find.textContaining('Son senkron'), findsOneWidget,
+          reason: 'senkron tazeliği kendi şeridinde, okunabilir bir yerde');
 
-      // 2026-08-13: sekme kopyası satırların yerini İŞ bölümü aldı; yöneticide üçü de açık.
-      expect(find.text('İŞ'), findsOneWidget);
+      // BÖLÜM ETİKETLERİ AZALTILDI (2026-08-13 yeniden tasarımı): dokuz satır için dört büyük
+      // harf başlık ("İŞ", "YÖNETİM", "HIZLI AYARLAR", "UYGULAMA") vardı ve üçü ayırt edici
+      // bilgi taşımıyordu — yalnız dikey alan yiyip taramayı yavaşlatıyorlardı. Tek etiket
+      // YÖNETİM'de kaldı, çünkü o ROL sinyali taşır; ayrım artık boşluk ve ayraçla yapılıyor.
+      expect(find.text('İŞ'), findsNothing);
+      expect(find.text('UYGULAMA'), findsNothing);
       expect(find.text('Borçlular'), findsOneWidget);
 
       await kapat(tester);
@@ -240,9 +255,9 @@ void main() {
       );
 
       expect(find.byType(CekmeceIstatistikleri), findsOneWidget);
-      expect(find.text('BİLİNMİYOR'), findsOneWidget);
-      expect(find.text('—'), findsOneWidget, reason: 'kalan gün uydurulmaz');
-      expect(find.textContaining('Lisans · '), findsOneWidget);
+      expect(find.text('—'), findsOneWidget, reason: 'kalan gün UYDURULMAZ');
+      expect(find.text('Lisans · bilinmiyor'), findsOneWidget,
+          reason: 'çip bilinmediğini SÖYLER; boş bırakmak "lisansım ne oldu"yu cevapsız bırakır');
 
       await kapat(tester);
     });

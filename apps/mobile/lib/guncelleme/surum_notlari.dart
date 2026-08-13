@@ -51,6 +51,27 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.18.0',
+    tarih: '13 Ağustos 2026',
+    maddeler: [
+      'Menü baştan tasarlandı ve üç bölgeye ayrıldı: en üstte kim olduğunuz ve verinizin '
+          'durumu, ortada gidebileceğiniz ekranlar, altta sık çevirdiğiniz anahtarlar.',
+      'Menünün tepesine durum şeridi geldi: son senkron saati görünüyor, sunucuya '
+          'gönderilemeyen kayıt varsa kırmızıyla ve sayısıyla yazıyor.',
+      '"Borçlular" satırı artık borçlu müşteri sayısını rozet olarak gösteriyor — menüyü '
+          'açtığınızda bakmanız gerekip gerekmediğini görüyorsunuz.',
+      'Lisans ve oto sıralama bilgisi büyük kartlardan ince bir şeride indi; menüde daha az '
+          'yer kaplıyor, aynı bilgiyi veriyor.',
+      'Sağ üstteki "×" kaldırıldı (menü zaten boşluğa dokununca kapanıyor); o köşe artık '
+          'Çıkış Yap düğmesinin.',
+      // ⚠️ "abone" SÖZCÜĞÜ KULLANILAMAZ (mağaza kuralı; `surum_notlari_test.dart` tarar).
+      // İlk yazımda "Abonelik bittiğinde…" denmişti ve test haklı olarak kırdı: sürüm notları
+      // da uygulamanın İÇİNDE gösterilen bir yüzeydir, kural orada da geçerlidir.
+      'Erişim süresi dolduğunda görünen ekran yeniden yazıldı: tek uzun paragraf yerine '
+          'neyin açık, neyin kapalı olduğu ayrı ayrı yazıyor ve "Kayıtları Görüntüle" öne çıktı.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.17.0',
     tarih: '13 Ağustos 2026',
     maddeler: [

@@ -188,6 +188,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   /// kaybolmaz. Sıfırdan büyükse bant durur.
   int _karantina = 0;
 
+  /// Borçlu müşteri sayısı — çekmecedeki "Borçlular" satırının rozeti. AKIŞTAN okunur:
+  /// tahsilat yapıldığında sayı düşmeli, tek atış okuma menüyü bayat bir sayıyla bırakırdı.
+  /// null iken rozet çizilmez (uydurma sayı basmaktansa hiç basmamak).
+  int? _borcluSayisi;
+  StreamSubscription<int>? _borcluSub;
+
   /// Bandın alt satırında gösterilecek sunucu adresi (sync_meta akışından).
   String? _apiAdres;
 
@@ -222,6 +228,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // ilk turda kaybederdi. Kayıt cihazda durduğu SÜRECE uyarı da durmalı.
     _karantinaSub = widget.db.watchKarantinaSayisi().listen((n) {
       if (mounted) setState(() => _karantina = n);
+    });
+    _borcluSub = watchDebtCount(widget.db).listen((n) {
+      if (mounted) setState(() => _borcluSayisi = n);
     });
     // Telefon çalarken Flutter motoru başlamadığından native, çağrıyı düz metin bir kuyruğa
     // yazar; DB'ye ancak burada geçer. Açılışta boşaltılmazsa ana ekrandaki "Son Arama" kutusu
@@ -314,6 +323,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     _izinSub?.cancel();
     _metaSub?.cancel();
     _karantinaSub?.cancel();
+    _borcluSub?.cancel();
     _konumBildirici.durdur();
     cagriEylemDurtusunuBirak();
     sekmeYonlendirmeyiCoz();
@@ -634,7 +644,14 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 setState(() => _cekmece = false);
                 SipToast.goster(context, 'Destek sohbeti · yakında');
               },
+              kullaniciAdi: _userName,
               sonSenkron: _sonSenkronAt,
+              // Karantina sayısı çekmecenin DURUM şeridine geçer: "bazı kayıtlar
+              // gönderilemedi" bandı ekranın tepesinde çıkıyor ama menüde hiçbir izi yoktu.
+              karantina: _karantina,
+              // Borçlu sayısı satırda rozet olur — menü "nereye giderim" listesinden
+              // "neye bakmam gerek" yüzeyine dönüyor.
+              borcluSayisi: _borcluSayisi,
               urunlerGorunur: yetki.urunYonetimi,
               // GÖRÜNÜRLÜK KARARLARI KABUKTA (çekmece hiçbir yetki KARARI vermez, verileni
               // çizer): bento kutusuyla çekmece satırı AYNI kapıdan geçsin diye ölçüt burada
