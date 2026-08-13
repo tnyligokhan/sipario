@@ -459,9 +459,18 @@ class SipOnayKutusu extends StatelessWidget {
 
 /// CSS `.aktif-knob` — 40×24 ray, 20 topuz.
 class SipKnob extends StatelessWidget {
-  const SipKnob({super.key, required this.acik});
+  const SipKnob({super.key, required this.acik, this.kapaliZemin});
 
   final bool acik;
+
+  /// KAPALI hâlin ray rengi; verilmezse `t.line2` (açık yüzey kartları için doğru olan).
+  ///
+  /// NEDEN GEREKLİ (2026-08-13): anahtar artık ÇEKMECEDE de çiziliyor ve orası koyu `hero`
+  /// zeminidir. `line2` açık yüzeyler için ayarlanmış bir ayraç tonudur; koyu zeminde ray ile
+  /// arka plan neredeyse aynı renge düşüyor ve KAPALI anahtar "yok" gibi okunuyordu — yani
+  /// kullanıcı kapalı bir kontrolü değil, hiç olmayan bir kontrolü görüyordu. Çağıran kendi
+  /// zeminine uygun tonu verir (çekmecede `SipTokens.onHeroFill2`).
+  final Color? kapaliZemin;
 
   @override
   Widget build(BuildContext context) {
@@ -471,7 +480,7 @@ class SipKnob extends StatelessWidget {
       width: 40,
       height: 24,
       decoration: BoxDecoration(
-        color: acik ? t.accent : t.line2,
+        color: acik ? t.accent : (kapaliZemin ?? t.line2),
         borderRadius: SipRadius.brHap,
       ),
       child: AnimatedAlign(

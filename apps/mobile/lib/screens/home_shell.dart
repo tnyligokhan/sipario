@@ -45,6 +45,7 @@ import '../theme/typography.dart';
 import 'ana_ekran.dart';
 import 'cagri/cagri_cozumleyici.dart';
 import 'cagri/cagri_eylem_kanali.dart';
+import 'cagri/cagri_gunlugu.dart';
 import 'cagri/cagri_karti.dart';
 import 'cagri/cagri_kuyrugu.dart';
 import 'cagri/cagri_model.dart';
@@ -52,6 +53,7 @@ import 'customers/borclular_ekrani.dart';
 import 'customers/customer_detail_screen.dart';
 import 'customers/customer_form_screen.dart' show musteriEkleSheet;
 import 'customers/customer_list_screen.dart';
+import 'isletme/ayarlar/hesap_ekrani.dart';
 import 'isletme/ayarlar_ekrani.dart';
 import 'isletme/kuryeler_ekrani.dart';
 import 'isletme/muaf_ekrani.dart';
@@ -61,6 +63,7 @@ import '../phase0/phase0_screen.dart';
 import 'orders/order_form_screen.dart';
 import 'orders/order_sheets.dart' show SecimSatiri;
 import 'orders/order_list_screen.dart';
+import 'orders/siparis_harita.dart';
 import 'products/product_list_screen.dart';
 import 'shell/alt_nav.dart';
 import 'shell/cekmece.dart';
@@ -401,6 +404,18 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   void _cekmeceGirisi(CekmeceGiris g) {
     switch (g) {
+      case CekmeceGiris.borclular:
+        // Bento kutusuyla AYNI fonksiyon: iki giriş noktası, TEK yetki kapısı. Ayrı yazsaydık
+        // ikisi zamanla ayrışırdı — bu depoda aynı ekranın iki girişinin farklı yetkiyle
+        // açılması bir güvenlik açığına dönüştü (bkz. `CustomerDetailScreen.yetki`).
+        setState(() => _cekmece = false);
+        _borclularAc();
+      case CekmeceGiris.cagriGunlugu:
+        _cagriGecmisiAc();
+      case CekmeceGiris.harita:
+        _git(SiparisHaritaEkrani(db: widget.db, writable: _yazilabilir));
+      case CekmeceGiris.hesap:
+        _git(HesapEkrani(db: widget.db, session: widget.session, onCikis: _cikis));
       case CekmeceGiris.urunler:
         if (!_yetki.urunYonetimi) {
           SipToast.goster(context, 'Ürün yönetimi yalnız yöneticilere açıktır.');
@@ -431,10 +446,67 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           // ve `Phase0Screen` erişilemeyen dosyaya döner (çekmece ölü dalı dersi).
           onOlcumler: () => _git(Phase0Screen(db: widget.db)),
         ));
-      case CekmeceGiris.sihirbaz:
-        _sihirbaziAc();
     }
   }
+
+  /// Dükkânın çağrı geçmişi. GİRİŞİ ÇEKMECEDEDİR (2026-08-13) — eskiden Ayarlar → Arayan
+  /// Tanıma bölümünün içindeydi ve orası yanlış yerdi: bu bir İŞ KAYDIDIR, bir tercih değil.
+  /// Ayarların içinde üç dokunuş derinlikteydi; şimdi hangi sekmede olunursa olunsun iki.
+  ///
+  /// Kapı `cagriGunlugu`dur ve çekmece satırı da aynı ölçütle çizilir; burası ikinci kapı.
+  void _cagriGecmisiAc() {
+    if (!_yetki.cagriGunlugu) {
+      SipToast.goster(context, 'Çağrı geçmişi bu hesaba kapalı.');
+      return;
+    }
+    _git(CagriGunluguSayfasi(
+      db: widget.db,
+      onGeri: () => Navigator.of(context).maybePop(),
+      onAc: _aramayiAc,
+    ));
+  }
+
+  /// Bir arama satırına dokunulduğunda (s-uygulama.jsx:90 kuralı): kayıtlıysa müşteri defteri,
+  /// kayıtsızsa çağrı kartı.
+  ///
+  /// AYARLAR EKRANINDAN BURAYA TAŞINDI ve taşınırken bir açık kapandı: oradaki kopya müşteri
+  /// kartını `yetki` GEÇMEDEN açıyordu, yani `cagriGunlugu` açılmış bir kurye o yoldan yönetici
+  /// eylemlerine ulaşıyordu. Kabuk yetkiyi zaten taşıyor; ekranın kabukta yaşaması bu sınıf
+  /// hatayı yapısal olarak zorlaştırıyor.
+  ///
+  /// Kayıt durumu DOKUNMA ANINDA yeniden çözülür: geçmiş satırı çağrı ANINDAKİ eşleşmeyi taşır
+  /// ve arayan o çağrıdan sonra müşteri olarak kaydedilmiş olabilir.
+  Future<void> _aramayiAc(AramaKaydi arama) async {
+    final kisi = await cagriKisiCoz(widget.db, arama.numara);
+    if (!mounted) return;
+
+    final musteriId = arama.musteriId ?? kisi.musteriId;
+    if (musteriId != null) return _musteriAc(musteriId);
+
+    // Yön GEÇMİŞ SATIRINDAN gelir: kart yönü kendi başına bilemez, verilmezse "GELEN ÇAĞRI"
+    // varsayar ve bayi kendi yaptığı aramanın kartında gelen çağrı görürdü.
+    final eylem = await cagriKartiGoster(context, kisi: kisi, yon: arama.tip);
+    if (eylem != CagriEylemi.kaydet || !mounted) return;
+
+    if (!_yazilabilir) {
+      SipToast.goster(context, 'Salt-okunur kip: yeni müşteri eklenemez.');
+      return;
+    }
+    final eklendi = await musteriEkleSheet(context, db: widget.db, onTel: arama.numara);
+    if (eklendi != true || !mounted) return;
+
+    final yeni = await cagriKisiCoz(widget.db, arama.numara);
+    final yeniId = yeni.musteriId;
+    if (yeniId == null || !mounted) return;
+    await _musteriAc(yeniId);
+  }
+
+  Future<void> _musteriAc(String musteriId) => _git(CustomerDetailScreen(
+        db: widget.db,
+        customerId: musteriId,
+        writable: _yazilabilir,
+        yetki: _yetki,
+      ));
 
   /// Sihirbazı push eder ve BİTİRİLDİYSE tasarımdaki toast'ı basar
   /// (`s-uygulama.jsx:61` `ping('Kurulum tamamlandı')`). Kapatılırsa (çarpı) toast yok.
@@ -552,8 +624,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               onKapat: () => setState(() => _cekmece = false),
               isletmeAdi: _isletmeAdi,
               rol: _userRole,
-              aktif: sekme,
-              onTab: _sekmeSec,
               onGiris: _cekmeceGirisi,
               onCikis: _cikis,
               onDestek: () {
@@ -562,6 +632,13 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               },
               sonSenkron: _sonSenkronAt,
               urunlerGorunur: yetki.urunYonetimi,
+              // GÖRÜNÜRLÜK KARARLARI KABUKTA (çekmece hiçbir yetki KARARI vermez, verileni
+              // çizer): bento kutusuyla çekmece satırı AYNI kapıdan geçsin diye ölçüt burada
+              // tek yerde okunuyor.
+              borclularGorunur: yetki.toplamBorclulariGorme,
+              cagriGunluguGorunur: yetki.cagriGunlugu,
+              koyuTema: _tema,
+              onTema: _tema.ayarla,
               lisansBitisi: _validUntil,
               otoSiralamaHakki: _otoHak,
               otoSiralamaAylik: _otoAylik,

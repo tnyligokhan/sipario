@@ -113,21 +113,23 @@ void main() {
     Widget cekmece(
       String rol, {
       DateTime? lisansBitisi,
-      ValueChanged<SipSekme>? onTab,
+      ValueChanged<CekmeceGiris>? onGiris,
+      bool borclularGorunur = true,
+      bool cagriGunluguGorunur = true,
     }) =>
         SipCekmece(
           acik: true,
           onKapat: () {},
           isletmeAdi: 'Öz Pınar Su',
           rol: rol,
-          aktif: SipSekme.ana,
-          onTab: onTab ?? (_) {},
-          onGiris: (_) {},
+          onGiris: onGiris ?? (_) {},
           onCikis: () {},
           onDestek: () {},
           lisansBitisi:
               lisansBitisi ?? DateTime.now().toUtc().add(const Duration(days: 90)),
           urunlerGorunur: rol != 'kurye',
+          borclularGorunur: borclularGorunur,
+          cagriGunluguGorunur: cagriGunluguGorunur,
         );
 
     testWidgets('patron rolünde YÖNETİM bölümü ve istatistik kartları VAR', (tester) async {
@@ -141,10 +143,9 @@ void main() {
       expect(find.text('Yönetici'), findsNothing); // rol satırı "Yönetici · senkron …" birleşiktir
       expect(find.textContaining('Yönetici'), findsOneWidget);
 
-      // MENÜ dördüncü satırı: yöneticide tasarımdaki birleşik etiket, AYRI kasa devri satırı YOK
-      // (kullanıcı kararı 2026-07-26 — yöneticiden kalkıyor).
-      expect(find.text('Gün Özeti & Kasa Devri'), findsOneWidget);
-      expect(find.text('Kasa Devri'), findsNothing);
+      // 2026-08-13: sekme kopyası satırların yerini İŞ bölümü aldı; yöneticide üçü de açık.
+      expect(find.text('İŞ'), findsOneWidget);
+      expect(find.text('Borçlular'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -160,31 +161,64 @@ void main() {
       expect(find.byType(CekmeceIstatistikleri), findsNothing,
           reason: 'koşullu görünürlük değil — kuryede hiç kurulmaz');
 
-      // Kuryeye açık kalanlar:
-      expect(find.text('Müşteriler'), findsOneWidget);
-      expect(find.text('Siparişler'), findsOneWidget);
-      // UYGULAMA bölümü tasarımda TEK satırdır: Ayarlar (s-bilesenler.jsx). Tema anahtarı bir
-      // ara sürümde burada duruyordu; Ayarlar ekranı yazılınca oraya taşındı.
+      // Kuryeye açık kalanlar. Müşteriler/Siparişler artık ÇEKMECEDE DEĞİL — alt navigasyonda
+      // (ikisi de tek dokunuş uzakta); çekmece yalnız orada olmayanları taşır.
+      expect(find.text('Sipariş Haritası'), findsOneWidget);
+      // HIZLI AYARLAR kuryede de vardır: bunlar kendi CİHAZ tercihleridir, dükkân verisi değil.
+      expect(find.text('Arayan Tanıma'), findsOneWidget);
+      expect(find.text('Hesap'), findsOneWidget);
       expect(find.text('Ayarlar'), findsOneWidget);
       expect(find.textContaining('Kurye'), findsOneWidget);
 
       await kapat(tester);
     });
 
-    testWidgets('kuryenin dördüncü MENÜ satırı "Kasa Devri" ve Gün Özeti sekmesine gider',
-        (tester) async {
-      // Kasa devri EKRANI kaldırıldı; satırın hedefi Gün Özeti sekmesidir. Kuryede satır
-      // adıyla kendi işini söyler, yöneticide tasarımın birleşik etiketi kalır — iki satır
-      // aynı yere gitmesin diye tek satır role göre etiketlenir.
-      final gidilen = <SipSekme>[];
-      await ekranaKoy(tester, cekmece('kurye', onTab: gidilen.add));
+    testWidgets('ALT NAVİGASYONUN KOPYASI satırlar çekmecede YOK', (tester) async {
+      // 2026-08-13 yeniden düzeni. Eski çekmecenin ilk bölümü ("MENÜ") alt navigasyonun
+      // birebir kopyasıydı: Ana Sayfa · Müşteriler · Siparişler · Gün Özeti. Alt bar her
+      // ekranda görünür ve o dört hedefe TEK dokunuşla gider; çekmecedeki kopyaları İKİ
+      // dokunuş istiyordu. Menünün en değerli alanı hiçbir yere götürmeyen bir tekrardaydı.
+      await ekranaKoy(tester, cekmece('patron'));
 
-      expect(find.text('Kasa Devri'), findsOneWidget);
+      expect(find.text('Ana Sayfa'), findsNothing);
+      expect(find.text('Müşteriler'), findsNothing);
+      expect(find.text('Siparişler'), findsNothing);
       expect(find.text('Gün Özeti & Kasa Devri'), findsNothing);
+      expect(find.text('Kasa Devri'), findsNothing);
 
-      await tester.tap(find.text('Kasa Devri'));
+      await kapat(tester);
+    });
+
+    testWidgets('İŞ bölümü menüden ulaşılamayan üç ekranı taşır', (tester) async {
+      // Bu üçü eskiden çekmeceden HİÇ açılamıyordu: Borçlular yalnız ana ekrandaki bento
+      // kutusundan, Sipariş Haritası yalnız sipariş listesinin üst çubuğundan, Çağrı Geçmişi
+      // ise AYARLARIN üç kat dibinden (bir iş kaydı, ayar değil).
+      final gidilen = <CekmeceGiris>[];
+      await ekranaKoy(tester, cekmece('patron', onGiris: gidilen.add));
+
+      expect(find.text('Borçlular'), findsOneWidget);
+      expect(find.text('Çağrı Geçmişi'), findsOneWidget);
+      expect(find.text('Sipariş Haritası'), findsOneWidget);
+
+      await tester.tap(find.text('Çağrı Geçmişi'));
       await tester.pump();
-      expect(gidilen, [SipSekme.gunSonu]);
+      expect(gidilen, [CekmeceGiris.cagriGunlugu]);
+
+      await kapat(tester);
+    });
+
+    testWidgets('YETKİSİ KAPALI satır HİÇ çizilmez (pasif değil)', (tester) async {
+      // Kalıcı olarak kapalı bir kapıyı göstermek, kullanıcıya olmayan bir yol tarif etmektir
+      // — bu dosyanın ve çekmecenin genel kuralı.
+      await ekranaKoy(
+        tester,
+        cekmece('kurye', borclularGorunur: false, cagriGunluguGorunur: false),
+      );
+
+      expect(find.text('Borçlular'), findsNothing);
+      expect(find.text('Çağrı Geçmişi'), findsNothing);
+      // Kendi cihaz tercihleri KURYEDE DE açık: kapatılan hep DÜKKÂN VERİSİDİR.
+      expect(find.text('Arayan Tanıma'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -199,8 +233,6 @@ void main() {
           onKapat: () {},
           isletmeAdi: 'Öz Pınar Su',
           rol: 'patron',
-          aktif: SipSekme.ana,
-          onTab: (_) {},
           onGiris: (_) {},
           onCikis: () {},
           onDestek: () {},
