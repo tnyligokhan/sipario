@@ -51,9 +51,14 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
-    surum: '0.19.0',
+    surum: '0.19.1',
     tarih: '13 Ağustos 2026',
     maddeler: [
+      'Düzeltme: bir arama yapıldıktan sonra kaydın listeye düşmesi gecikiyordu; artık uygulamaya '
+          'her dönüşte yazılıyor.',
+      'Düzeltme: gelen ve giden çağrı ikonları birbirinden ayırt edilemiyordu — ikisi de aynı '
+          'ahizeydi. Artık yön oku ve renk taşıyorlar.',
+      'Düzeltme: aramayı kimin yaptığı bilgisi kaydediliyor ama kısa süre sonra kayboluyordu.',
       'Çağrı geçmişinde artık her aramanın yanında onu kimin karşıladığı yazıyor. Gelen ve '
           'giden çağrılar için de geçerli.',
       'Kullanıcıya göre süzme geldi: listenin üstündeki şeritten bir kişi seçip yalnız onun '

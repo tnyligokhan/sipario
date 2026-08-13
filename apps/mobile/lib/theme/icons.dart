@@ -17,6 +17,26 @@ abstract final class SipIcons {
       'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z';
   static const String phoneCall =
       'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z|M14.05 2a9 9 0 0 1 8 7.94|M14.05 6A5 5 0 0 1 18 10';
+  /// Çağrı YÖNÜ ikonları — Lucide `phone-incoming` / `phone-outgoing` (2026-08-13).
+  ///
+  /// SAHA BULGUSU: çağrı geçmişinde gelen çağrı `phone`, giden çağrı `phoneCall` çiziliyordu ve
+  /// ikisi AYNI ahize yolunu paylaşıyor — `phoneCall`ın tek farkı sağ üstteki iki minik sinyal
+  /// yayı. 15 punto'da o yaylar görünmüyor, yani iki yön fiilen aynı ikonla gösteriliyordu
+  /// (kullanıcı: "giden gelen çağrı ikonları belli değil"). Renk de ayırt etmiyordu: ikisi de
+  /// nötr, yalnız cevapsız kırmızıydı.
+  ///
+  /// OK, YAYDAN OKUNAKLIDIR: aşağı-sola gelen ok "bana geldi", yukarı-sağa giden ok "ben
+  /// yaptım" der ve bu, çağrı listelerinin evrensel dilidir. Ahize gövdesi aynı kalır — satırın
+  /// bir ÇAĞRI olduğu ilk bakışta anlaşılsın.
+  static const String _ahize =
+      'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z';
+
+  /// Gelen çağrı: ahize + sağ üstten içeri (aşağı-sola) bakan ok.
+  static const String phoneIn = '$_ahize|M16 2v6h6|M22 2l-6 6';
+
+  /// Giden çağrı: ahize + sağ üste (dışarı) çıkan ok.
+  static const String phoneOut = '$_ahize|M23 7V1h-6|M16 8l7-7';
+
   static const String user = 'M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z|M20 21a8 8 0 0 0-16 0';
   static const String users =
       'M10 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z|M2 21a8 8 0 0 1 16 0|M16.5 3.5a5 5 0 0 1 0 9|M19.5 15.5c1.9 1.2 2.5 3.3 2.5 5.5';
@@ -106,6 +126,8 @@ abstract final class SipIcons {
     'gozKapali': gozKapali,
     'phone': phone,
     'phoneCall': phoneCall,
+    'phoneIn': phoneIn,
+    'phoneOut': phoneOut,
     'user': user,
     'users': users,
     'list': list,

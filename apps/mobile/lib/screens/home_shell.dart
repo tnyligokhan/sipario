@@ -47,6 +47,7 @@ import 'cagri/cagri_cozumleyici.dart';
 import 'cagri/cagri_eylem_kanali.dart';
 import 'cagri/cagri_gunlugu.dart';
 import 'cagri/cagri_karti.dart';
+import '../repo/call_log_repository.dart';
 import 'cagri/cagri_kuyrugu.dart';
 import 'cagri/cagri_model.dart';
 import 'customers/borclular_ekrani.dart';
@@ -307,6 +308,18 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // ATMAZ — aşağıdaki satır zaten atıyor, çift istek olmasın.
     widget.sync.aralikDegistir(SyncService.onPlanAralik);
     unawaited(widget.sync.syncNow());
+    // ÇAĞRI KUYRUĞU ÖNE GELİŞTE BOŞALTILIR (2026-08-13 saha bulgusu: "arama yaptım, Son
+    // Aramalar'a girdiğimde biraz geç geldi").
+    //
+    // Telefon çalarken/aranırken Flutter motoru çalışmaz; native, çağrıyı düz metin bir dosyaya
+    // yazar. Kuyruğu YALNIZ çağrı geçmişi ekranı boşaltıyordu — yani kayıt, kullanıcı o ekranı
+    // AÇTIKTAN SONRA yazılıyordu ve liste ilk karede onsuz çiziliyordu. Oysa uygulamaya dönüş
+    // ANI, kuyruğun taze olduğu andır: görüşme biter, kullanıcı uygulamaya döner, satır çoktan
+    // yerindedir.
+    //
+    // Ekrandaki boşaltma KALDI (ikinci güvence): dosya taşıma atomik ve kayıt kimlikleri
+    // deterministik olduğu için iki kez boşaltmak çift satır üretmez (`insertOnConflictUpdate`).
+    unawaited(CagriKuyrugu(CallLogRepository(widget.db)).bosalt());
     // Güncelleme kontrolü de öne gelmede koşar. Yalnız açılışa bağlıydı ve saha bulgusu şuydu
     // (2026-07-28): son kullanılanlardan kaydırmak süreci ÖLDÜRMÜYOR, `initState` bir daha
     // koşmuyor ve bant ancak "zorla durdur"dan sonra çıkıyordu. Servis kendi aralığını

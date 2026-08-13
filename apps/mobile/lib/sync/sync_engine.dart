@@ -535,7 +535,11 @@ class SyncEngine {
               // cihazlık kalırdı: patron kendi telefonunda atfı görür, kuryenin telefonundan
               // senkronla inen kayıtta göremezdi — oysa özelliğin tamamı başkasının geçmişini
               // görmek üzerine.
-              userId: Value(_sN(m['user_id'])),
+              //
+              // `_korunan` ŞART, düz `_sN` DEĞİL: alanı bilmeyen bir sunucu (canlı, henüz
+              // dağıtılmamış) onu düşürür ve düz okuma cihazdaki DOĞRU atfı null'la ezer.
+              // Gerçek cihazda yaşandı, gerekçenin tamamı `_korunan` başlığında.
+              userId: _korunan(m, 'user_id'),
               occurredAt: Value(_s(m['occurred_at'])),
               deviceId: Value(_sN(m['device_id'])),
               updatedOccurredAt: Value(_s(m['updated_occurred_at'])),
@@ -799,6 +803,27 @@ class SyncEngine {
   /// (ör. kurye tahsilat alabilir) eski bir sunucuya bağlandığında sessizce KAPANIRDI —
   /// kurye sahada işini yapamaz, kimse de nedenini bilmezdi.
   static bool _bV(dynamic v, bool varsayilan) => v == null ? varsayilan : _b(v);
+
+  /// SÜRÜM ÇARPIKLIĞI KORUMASI — sunucunun HENÜZ BİLMEDİĞİ metin alanı için.
+  ///
+  /// Anahtar payload'da VARSA değeri (null olsa bile) yazılır; anahtar HİÇ YOKSA
+  /// `Value.absent()` döner ve drift o kolonu `ON CONFLICT DO UPDATE SET` listesine hiç
+  /// koymaz — yani cihazdaki mevcut değer KORUNUR.
+  ///
+  /// ⚠️ NEDEN VAR (2026-08-13, GERÇEK CİHAZDA YAKALANDI): `call_logs.user_id` eklendi, telefon
+  /// atfı doğru yazdı, ama uygulama CANLI sunucuya bağlıydı ve orada bu alan henüz yoktu.
+  /// Sunucu alanı düşürdü, pull o satırı geri getirdi ve istemci `_sN` ile okuduğu için EKSİK
+  /// anahtarı `null` sayıp KENDİ DOĞRU VERİSİNİ EZDİ. Belirti sinsiydi: kayıt görünüyor, atıf
+  /// birkaç saniye sonra kayboluyordu ve kullanıcıya göre süzgeç hiçbir şey bulamıyordu.
+  ///
+  /// Bu, `_bV`nin metin karşılığıdır ve aynı sınıf hatadır: **gelmeyen alan, "boş" demek
+  /// değildir.** Sunucu tarafında aynı koruma `SyncPayload::gonderilenler`da yaşıyor; istemci
+  /// pull yolunda karşılığı yoktu.
+  ///
+  /// Sunucu dağıtıldıktan sonra da GEREKLİ: telefonlar günlerce eski sürümde kalabildiği gibi
+  /// sunucu da bir istemciden geride kalabilir (aşamalı dağıtım, geri alma).
+  static Value<String?> _korunan(Map<String, dynamic> m, String anahtar) =>
+      m.containsKey(anahtar) ? Value(_sN(m[anahtar])) : const Value.absent();
 
   /// JSON alanının CİHAZDA saklanan metin karşılığı (v18 favori ürünler).
   ///

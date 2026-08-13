@@ -71,20 +71,36 @@ class AramaSatiri extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: SipSpace.x2, vertical: SipSpace.xl),
       child: Row(
         children: [
-          // CSS `.akt-ic` — 30'luk tam yuvarlak. Cevapsızda danger, diğerlerinde nötr.
-          // ÜÇ YÖN ÜÇ AYRI İKON: cevapsız çağrı da `phone` çiziyordu, yani gelenle arasındaki
-          // tek fark zeminin rengiydi (2026-07-27 saha bulgusu).
+          // CSS `.akt-ic` — 30'luk tam yuvarlak.
+          //
+          // ÜÇ YÖN, ÜÇ GERÇEKTEN FARKLI İKON (2026-08-13 saha bulgusu). Önceki hâlde gelen
+          // `phone`, giden `phoneCall` çiziliyordu ve ikisi AYNI ahize yolunu paylaşıyor —
+          // `phoneCall`ın tek farkı sağ üstteki iki minik sinyal yayı ve 15 punto'da o yaylar
+          // görünmüyor. Kullanıcı bunu sahada bildirdi: "giden gelen çağrı ikonları belli
+          // değil". Artık ahizenin yanında YÖN OKU var.
+          //
+          // RENK DE AYIRIYOR ama tek başına taşımıyor: giden çağrı accent, gelen nötr, cevapsız
+          // danger. Rengi tek ayırt edici yapmak, renk körlüğünde ve güneş altında (bu ürünün
+          // kullanıldığı yer) yönü okunamaz kılardı — ok her koşulda okunur.
           SipIkonKutu(
             ikon: switch (arama.tip) {
-              AramaTipi.giden => SipIcons.phoneCall,
+              AramaTipi.giden => SipIcons.phoneOut,
               AramaTipi.cevapsiz => SipIcons.phoneOff,
-              AramaTipi.gelen => SipIcons.phone,
+              AramaTipi.gelen => SipIcons.phoneIn,
             },
             cap: 30,
             ikonBoyut: 15,
             kalinlik: 2.4,
-            zemin: cevapsiz ? t.dangerSoft : t.surface2,
-            renk: cevapsiz ? t.danger : t.ink2,
+            zemin: switch (arama.tip) {
+              AramaTipi.cevapsiz => t.dangerSoft,
+              AramaTipi.giden => t.accentSoft,
+              AramaTipi.gelen => t.surface2,
+            },
+            renk: switch (arama.tip) {
+              AramaTipi.cevapsiz => t.danger,
+              AramaTipi.giden => t.accent,
+              AramaTipi.gelen => t.ink2,
+            },
           ),
           const SizedBox(width: 11),
           Expanded(
