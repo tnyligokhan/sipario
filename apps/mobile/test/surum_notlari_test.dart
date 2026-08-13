@@ -135,6 +135,11 @@ void main() {
     testWidgets('koşan sürüm "Kullandığınız sürüm" rozetiyle işaretlenir — TEK BİR kayıtta',
         (tester) async {
       await _ekranaKoy(tester, surum: '0.13.0');
+      // ROZETE KAYDIRARAK ULAŞILIR: liste her yayında uzuyor ve işaretli kayıt zamanla test
+      // ekranının dışına düşüyor (tembel liste onu HİÇ çizmiyor). Sabit viewport'a güvenen
+      // iddia, rozet gayet doğru çalışırken "yok" diye kırılır — 2026-08-13'te tam bu oldu.
+      await tester.scrollUntilVisible(find.text('Sürüm 0.13.0'), 400,
+          scrollable: find.byType(Scrollable).first);
       expect(find.text('Kullandığınız sürüm'), findsOneWidget);
     });
 

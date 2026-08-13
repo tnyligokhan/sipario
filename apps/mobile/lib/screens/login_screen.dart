@@ -379,18 +379,33 @@ class _Form extends StatelessWidget {
           // PAROLA KURTARMA (kullanıcı isteği 2026-08-13): uygulamada bu yol HİÇ YOKTU ve
           // parolasını unutan kullanıcının yapabildiği tek şey birini aramaktı.
           //
-          // GİRİŞ DÜĞMESİNİN ALTINDA ve METİN DÜĞMESİ olarak: birincil eylem giriştir; kurtarma
-          // yolu keşfedilebilir olmalı ama onunla yarışmamalı. Alttaki bilgi satırının ÜSTÜNDE
-          // duruyor — o satır bir açıklama, bu ise bir EYLEM.
+          // ⚠️ `SipMetinButon` KULLANILMAZ ve bu bir tasarım kararıdır. O atom bir ARAÇ ÇUBUĞU
+          // ÇİPİDİR: her zaman zemin çizer (`t.surface`) ve `stretch` hizalı bu sütunda tam
+          // genişliğe yayılıp KOCAMAN BEYAZ BİR KUTUYA dönüşüyordu — birincil "Giriş Yap"
+          // düğmesinin hemen altında ikinci bir düğme gibi duruyor, onunla yarışıyor ve formun
+          // ritmini bozuyordu (önizleme PNG'sinde görüldü, kullanıcı da bildirdi).
+          //
+          // DOĞRUSU SESSİZ BİR BAĞLANTI: zeminsiz, ORTALANMIŞ, accent renkli metin. Birincil
+          // eylem giriştir; kurtarma yolu keşfedilebilir olmalı ama görsel ağırlık istememeli.
+          // Dokunma hedefi yine de 44 punto yüksekliğinde — metnin kendisi küçük olsa da parmak
+          // için küçük olamaz (araçta, ayaktayken kullanılıyor).
           if (onParolaUnuttum != null)
-            Padding(
-              padding: const EdgeInsets.only(top: SipSpace.md),
-              child: SipMetinButon(
-                etiket: 'Parolamı unuttum',
+            Center(
+              child: SipDokun(
                 onTap: busy ? null : onParolaUnuttum,
+                zemin: Colors.transparent,
+                basiliZemin: t.surface2,
+                radius: SipRadius.brHap,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Text(
+                  'Parolamı unuttum',
+                  style: SipText.metin(12.5, w: 700).copyWith(
+                    color: busy ? t.muted : t.accent,
+                  ),
+                ),
               ),
             ),
-          const SizedBox(height: SipSpace.x4),
+          const SizedBox(height: SipSpace.xl),
           Text(
             'Firma kodunuzu ve hesabınızı işletme yöneticiniz oluşturur.',
             textAlign: TextAlign.center,

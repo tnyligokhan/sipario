@@ -199,6 +199,9 @@ class _GovdeState extends State<_Govde> {
           yukleniyor: _busy,
           onTap: _gonder,
         ),
+        // Düğme sheet'in en dibine YAPIŞMASIN: önizlemede alt kenara değiyordu ve jest çubuğu
+        // olan cihazlarda parmağın altında kalırdı.
+        const SizedBox(height: SipSpace.md),
       ],
     );
   }
