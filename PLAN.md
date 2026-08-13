@@ -243,7 +243,67 @@
 >
 ## Güncel durum
 
-### 🔻 2026-08-13 — YENİ SİPARİŞ FORMU: UI/UX + KURYE ZORUNLU (mobil 0.14.0 → **0.15.0**)
+### 🔻 2026-08-13/2 — ARA TAHSİLAT: YETKİ DARALDI + İPTAL GELDİ (mobil 0.15.0 → **0.16.0**, API 1.3.0 → **1.4.0**)
+
+Kullanıcının iki cümlesi: *"Gün sonu tarafında Yönetici tahsilat silebilmeli"* ve *"Kurye ara
+tahsilat yapamaz sadece patron."*
+
+**1. Ara tahsilatı artık yalnız yönetici alır.** `_araTahsilatAlabilir` içindeki
+`_kuryeId == widget.kullaniciId` dalı kaldırıldı; gün sonu ekranındaki üç para eyleminin
+(kapatma · ara tahsilat · iptal) üçü de tek anahtara bağlandı: `yetkiler().gunuKapatma`.
+2026-08-11'de yazılmış "devir yolu KAPANMADI, ara tahsilat kuryede DURUYOR" gerekçesi artık
+yanlış olduğu için ilgili yorum blokları da düzeltildi (kod değişince onu anlatan yorum da
+değişir — bu depoda yalanlaşan yorum, yanlış koddan daha pahalıya patlıyor).
+
+**2. "Silme" ters kayıt olarak uygulandı.** Gerçek silme BRIEF kırmızı çizgi #2'yi ihlal ederdi
+ve çevrimdışı bir cihaz silineni senkronla geri diriltirdi. Bunun yerine `ledger_entries`
+desenindeki gibi `cash_handovers.reverses_handover_id` (drift v19→v20 + Laravel migration
+`2026_08_13_004011_add_handover_reversal.php`): ters işaretli ikinci bir devir satırı.
+Kullanıcı gözünde sonuç istenen şey — satır "iptal edildi" görünür, üstü çizili çizilir,
+toplamdan ve sayaçtan düşer — ama kanıt kaybolmaz.
+
+**PARA NEDEN KAPANIYOR:** `teslimEdilenNakit` orijinal(+) ve iptal(−) satırlarını birlikte
+sayıyor, net sıfırlanıyor; yani kuryenin beklenen nakdi kendiliğinden iptal öncesine dönüyor ve
+kapanış sheet'ine doğru rakam gidiyor. `from_user_id` ORİJİNALDEKİYLE AYNI tutuluyor (iptali kim
+yaptıysa o değil) — pencere matematiği cebi bu alandan ölçtüğü için, iptali başka bir kişiye
+yazmak parayı hiç geri vermezdi. Testle kilitli: *"iptal sonrası kurye hesabı kapatılınca arşive
+DOĞRU tutar donar, fark 0."*
+
+**ÇİFT İPTAL ÜÇ KATMANDA KAPALI** ve asıl kapak son ikisi: istemci kapısı · sunucu uygulayıcısı ·
+kısmi unique indeks. Gerekçe: iki cihaz ÇEVRİMDIŞIYKEN aynı tahsilatı iptal edebilir ve
+birbirlerinin kapısını göremez; iki ters satır parayı kasaya İKİ KEZ döndürür ve append-only
+olduğu için bu kalıcı bozardı.
+
+Yeni bir senkron `op` açılmadı — alan mevcut `handover` op'una eklendi (ayrı bir op, eski
+istemcide tanınmayan olay demekti).
+
+**ÖLÇÜMLER (bizzat koşuldu):** `flutter analyze` temiz · **1275 mobil test yeşil** ·
+`php artisan test --filter=AraTahsilat` **9/9, 81 assertion**. API Feature suite'in tamamı
+(710/710) bu vardiyanın API ajanı tarafından ölçüldü, kod o ölçümden sonra değişmedi.
+
+> ⚠️ **Vardiya notu — ajanlar oturum limitinde öldü.** Üç ajan (mobil · api · tester) sırayla
+> düştü; işleri otomatik kanca tarafından commit'lenmişti, `git log` ile bulundu. Tek kayıp,
+> `tester`'ın yazıp KOŞTURAMADAN öldüğü widget testiydi: import eksikti ve yardımcı seçicisi
+> hatalıydı — `satir(tutar)` yalnız tutara bakıyordu, oysa 40,00 iptal edilince **toplam satırı
+> 20,00'a düşüp ayakta kalan satırla aynı rakamı gösteriyor** ve seçici iki satırı birden
+> yakalıyordu ("Too many elements"). Ürün doğru çiziyordu; seçici artık `toplam` bayrağına
+> bakıyor. Ders: iptal/indirim gibi TOPLAMI DÜŞÜREN bir davranışı ölçen testte, satırı tutarla
+> aramak toplamla çakışmaya açıktır.
+
+**SIRADAKİ İŞLER (bu vardiyadan devreden):**
+1. **Reddedilen senkron olaylarının GEREKÇESİ kullanıcıya ulaşmıyor.** Sunucu net bir mesaj
+   döndürüyor ("bu kasa devri zaten iptal edilmiş") ama yerelde saklanmıyor; kabukta yalnız genel
+   karantina bandı çıkıyor. Kapatmak için `outbox.lastError`a gerekçeyi yazmak (kolon zaten var) +
+   karantinayı satır satır gösteren bir ekran gerekiyor. Bu vardiyada BİLİNÇLİ olarak açılmadı:
+   kapsamı bu özellikten geniş — reddedilen HER olay aynı sessizlikten geçiyor — ve buraya
+   iliştirilmiş yarım bir çözüm asıl işi bir daha görünmez yapardı. Bugünkü etkisi dar (yalnız
+   çok cihazlı + çevrimdışı yarış), veri kaybı yok. Not `sync_engine.dart:330` civarında zaten
+   duruyor.
+2. `day_end_screen.dart` **513 satır** — 500 sınırının 13 satır üstünde. Bu vardiyaya 538 satır
+   olarak girdi, ara tahsilat akışları `isletme/gun_ozeti_eylemleri.dart`'a çıkarılarak kısaldı
+   ama sınırın altına inmedi. Azalan bir borç, yine de borç.
+
+### (ÖNCEKİ) 2026-08-13 — YENİ SİPARİŞ FORMU: UI/UX + KURYE ZORUNLU (mobil 0.14.0 → **0.15.0**)
 
 > ⚠️ **0.14.1 NUMARASI YAKILDI — sürüm notu listesinde YOK.** O numara `test` kanalına iki kez,
 > iki farklı içerikle çıktı (21:52 ve 22:38 koşumları). Sebebi bir varsayımdı: CI kırmızı kaldığı
