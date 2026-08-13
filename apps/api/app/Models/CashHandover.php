@@ -14,9 +14,14 @@ use Illuminate\Support\Carbon;
  *
  * Kimlik istemcide UUIDv7 (offline-first). Yalnız INSERT edilir (timestamps sadece oluşturmada dolar).
  *
+ * reverses_handover_id (2026-08-13): İPTAL EDİLEN devir. İptal bir silme değil, TERS BİR SATIRdır
+ * (counted negatif, expected/diff sıfır) — `LedgerEntry::reverses_entry_id` ile aynı desen. Bir devir
+ * en fazla bir kez iptal edilebilir; tekillik kısmi unique indeksle (migration 004011) DB'de zorlanır.
+ *
  * @property string $id
  * @property string $tenant_id
  * @property string $from_user_id
+ * @property string|null $reverses_handover_id
  * @property string|null $to_user_id
  * @property int $counted_cash_kurus
  * @property int $expected_cash_kurus
@@ -37,6 +42,7 @@ class CashHandover extends Model
         'tenant_id',
         'from_user_id',
         'to_user_id',
+        'reverses_handover_id',
         'counted_cash_kurus',
         'expected_cash_kurus',
         'diff_kurus',

@@ -626,6 +626,12 @@ class SyncEngine {
           expectedCashKurus: _i(m['expected_cash_kurus']),
           diffKurus: _i(m['diff_kurus']),
           periodStart: Value(_sN(m['period_start'])),
+          // İPTAL İZİ İNMEK ZORUNDA (2026-08-13): patron kendi telefonundan bir ara tahsilatı
+          // iptal ederse, kuryenin telefonuna yalnız eksi tutarlı satır iner. Bu alan boş
+          // gelseydi o cihaz satırı BAĞIMSIZ bir tahsilat sanar ve listeye "−400,00 ₺ tahsilat"
+          // diye basardı; üstelik orijinal hâlâ iptalsiz görünüp toplama girerdi. Alan eski
+          // sunucudan hiç gelmezse null kalır — davranış bugünküyle birebir aynı.
+          reversesHandoverId: Value(_sN(m['reverses_handover_id'])),
           occurredAt: _s(m['occurred_at']),
           deviceId: Value(_sN(m['device_id'])),
           note: Value(_sN(m['note'])),

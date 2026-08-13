@@ -51,6 +51,20 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.16.0',
+    tarih: '13 Ağustos 2026',
+    maddeler: [
+      'Gün içinde kuryeden nakit alma yetkisi artık yalnız yöneticide. Kurye kendi gün '
+          'özetini ve teslimat dökümünü görmeye devam ediyor, ama "Ara Tahsilat" düğmesi '
+          'onun ekranında görünmüyor.',
+      'Yanlış alınmış bir ara tahsilat artık iptal edilebiliyor: Gün Özeti\'ndeki "Ara '
+          'Tahsilatlar" listesinde o satıra dokunup onaylıyorsunuz. Tutar toplamdan düşüyor '
+          've o nakit kuryede sayılmaya geri dönüyor.',
+      'İptal edilen kayıt silinmiyor: kimden, saat kaçta ve ne kadar alındığı listede üstü '
+          'çizili olarak görünmeye devam ediyor.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.15.0',
     tarih: '13 Ağustos 2026',
     maddeler: [

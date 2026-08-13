@@ -1,7 +1,11 @@
 // ARA TAHSİLAT + KALAN NAKİT (kullanıcı kararı 2026-08-06).
 //
 // "Ara tahsilat: sayımlı serbest tutar, gün açık kalır · kapanışta beklenen = KALAN nakit ·
-// patron her kuryeden alır, kurye yalnız kendi kasasını · tek kişilik bayide hiç görünmez."
+// patron her kuryeden alır · tek kişilik bayide hiç görünmez."
+//
+// ⚠️ "kurye yalnız kendi kasasını" MADDESİ KALDIRILDI (kullanıcı kararı 2026-08-13): ara
+// tahsilatı artık YALNIZ yönetici alır. Kayıt, kuryenin cebindeki nakdin patrona geçtiğini
+// söyler; onu parayı fiilen ALAN taraf girmelidir.
 //
 // Burada çivilenen kararlar:
 //  1. Ekranın adı "Gün Özeti"dir (iç tanımlayıcılar `gunSonu` / `day_end_*` DEĞİŞMEZ).
@@ -30,6 +34,7 @@ import 'package:sipario/repo/day_closing_repository.dart';
 import 'package:sipario/screens/day_end_screen.dart';
 import 'package:sipario/screens/isletme/gun_sonu_ozet.dart';
 import 'package:sipario/theme/components/atoms.dart';
+import 'package:sipario/theme/components/form.dart' show SipSegment;
 
 import 'support/ara_tahsilat_yardimcilari.dart';
 import 'support/ekran_yardimcilari.dart';
@@ -141,8 +146,15 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('KURYE kendi kapsamında düğmeyi görür', (tester) async {
-      // Kurye kendi kasasını patrona devrediyor — kendi kasasının kanıtı odur.
+    testWidgets('KURYE kendi kapsamında bile düğmeyi GÖREMEZ', (tester) async {
+      // KARAR TERSİNE DÖNDÜ (kullanıcı, 2026-08-13). Bu test bir tur önce "kurye kendi kapsamında
+      // düğmeyi görür" diyordu ve gerekçesi "kendi kasasının kanıtı odur"du. Artık ara tahsilatı
+      // YALNIZ yönetici alır: kayıt, kuryenin cebindeki nakdin patrona GEÇTİĞİNİ söyler ve onu
+      // parayı fiilen ALAN taraf girmelidir. Kurye kendi teslimini kendi yazabildiği sürece kayıt
+      // tek taraflı bir beyandı.
+      //
+      // DÜĞME PASİF DEĞİL, HİÇ ÇİZİLMEZ: kalıcı olarak kapalı bir düğme kuryeye her gün
+      // dokunamayacağı bir kapı gösterirdi (aynı gerekçeyle "Geçmiş" düğmesi de gizleniyor).
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await kuryeEkle(db, id: 'k1', ad: 'Emre');
@@ -151,8 +163,10 @@ void main() {
 
       await ekranaKoy(tester, DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'));
 
-      expect(find.text('Ara Tahsilat'), findsOneWidget,
-          reason: 'kurye kendi kapsamında açılır');
+      expect(find.text('Ara Tahsilat'), findsNothing,
+          reason: 'ara tahsilatı yalnız yönetici alır');
+      // Ekranın geri kalanı kuryeye AÇIK kalır — kaldırılan yetki, kapatılan ekran değil.
+      expect(find.text('Kasa Özeti · Emre'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -175,6 +189,11 @@ void main() {
 
     testWidgets('KAPATILMIŞ kapsamda ara tahsilat alınamaz', (tester) async {
       // Kapanmış bir hesaba sonradan para eklemek mutabakatı bozar.
+      //
+      // ROL PATRON'A ÇEVRİLDİ (2026-08-13): eskiden kurye görünümünden bakılıyordu, ama ara
+      // tahsilat artık kuryede HİÇ çizilmiyor — o hâlde bu test yetki kapısını ölçer, KİLİT
+      // kapısını değil ve kilit bozulsa bile yeşil kalırdı. Kilidi ölçmek için düğmeyi normalde
+      // GÖREN rolden bakmak şart.
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await kuryeEkle(db, id: 'k1', ad: 'Emre');
@@ -186,7 +205,15 @@ void main() {
         );
       });
 
-      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'));
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      // `kapsamaGec` KULLANILMIYOR: kapanış yazıldığı için "Bugünün Kapanışları" listesinde de bir
+      // "Emre" satırı var ve düz `find.text('Emre')` iki widget bulup çuvallıyor. Segmente
+      // daraltmak testin niyetini korur — tıklanmak istenen KAPSAM ŞERİDİDİR, arşiv satırı değil.
+      await tester.tap(find.descendant(
+        of: find.byType(SipSegment),
+        matching: find.text('Emre'),
+      ));
+      await akislariBekle(tester, tur: 6);
 
       expect(find.text('Ara Tahsilat'), findsNothing);
       expect(find.textContaining('kapatıldı'), findsWidgets);

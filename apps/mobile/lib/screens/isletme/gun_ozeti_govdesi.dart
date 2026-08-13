@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../repo/cash_handover_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/states.dart';
 import '../../theme/tokens.dart';
@@ -33,7 +34,15 @@ class GunOzetiGovdesi extends StatelessWidget {
     required this.bugun,
     required this.onYenile,
     this.kuryeId,
+    this.onAraTahsilatIptal,
   });
+
+  /// Bir ara tahsilat satırının İPTAL eylemini üreten yapıcı (kullanıcı kararı 2026-08-13).
+  /// null ise satırlar dokunulamaz — yetki kapısı EKRANDADIR, gövde onu yalnız taşır.
+  ///
+  /// Gövdenin hiçbir karar vermemesi bu dosyanın sözleşmesidir (bkz. başlık notu): burada
+  /// `yetkiler()` çağırsaydık aynı yetki iki yerde çözülür ve biri geride kalırdı.
+  final VoidCallback Function(AraTahsilatKaydi)? onAraTahsilatIptal;
 
   /// Tahsilat dökümü kendi sorgusunu koşar (özet `FutureBuilder`ından gelmez): döküm yalnız
   /// açıldığında ve yalnız istenen türde okunur.
@@ -143,6 +152,7 @@ class GunOzetiGovdesi extends StatelessWidget {
             kayitlar: g.araTahsilatlar,
             toplamKurus: g.araTahsilatToplamiKurus,
             kuryeAdiYaz: gunKapsami,
+            onIptal: onAraTahsilatIptal,
           ),
         ],
 

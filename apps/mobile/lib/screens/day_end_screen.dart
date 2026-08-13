@@ -11,11 +11,21 @@
 //
 // ══ ROL KAPISI BURADADIR (K2) ══════════════════════════════════════════════════════════════
 // Ayrı kasa devri ekranı kaldırılınca çekmecenin "Kasa Devri" satırı bu ekrana bağlandı, yani
-// ekran artık KURYE trafiği de alıyor ve kabuk önünde rol kapısı TUTMUYOR. Kural:
-//  • GÜN hesabını yalnız yönetici kapatır (`yetkiler().gunSonu`).
-//  • Kurye YALNIZ kendi kurye hesabını kapatabilir — kendi kasasının kanıtı odur.
-//  • Kurye başka kuryenin kapsamını SEÇEMEZ: segmentte yalnız "Tümü" + kendisi listelenir.
-// Kurye "Tümü"yü okuyabilir (gün toplamları bilgi), ama oradan kapatma düğmesi çalışmaz.
+// ekran artık KURYE trafiği de alıyor ve kabuk önünde rol kapısı TUTMUYOR. Kural (2026-08-13
+// itibarıyla — üç PARA EYLEMİNİN ÜÇÜ DE `yetkiler().gunuKapatma`ya, yani YÖNETİCİYE bağlıdır):
+//  • Hesap kapatma — gün de kurye de yalnız yöneticide.
+//  • Ara tahsilat ALMA — yalnız yöneticide (kurye kendi kapsamında bile alamaz).
+//  • Ara tahsilat İPTALİ — yalnız yöneticide.
+// Kuryeye kalan tek şey OKUMAKTIR: kendi kapsamının tahsilat ve teslimat dökümü.
+//  • Kurye başka kuryenin kapsamını SEÇEMEZ: segmentte yalnız kendisi listelenir ("Tümü" de yok).
+//
+// ÜÇÜNÜN AYNI ANAHTARI PAYLAŞMASI BİLİNÇLİ: yetki matrisi "Günü Kapatma / Devir İşlemi (Yalnızca
+// Yönetici)" diyor ve ara tahsilat da, iptali de birer devir işlemidir. Her biri için ayrı bir
+// yetki alanı açmak, matriste karşılığı olmayan bir ayrım uydurmak ve üçünün bir gün sessizce
+// ayrışmasına kapı açmak olurdu.
+//
+// HER KAPI ÇİFTTİR: ekran düğmeyi hiç çizmez VE eylem fonksiyonu yetkiyi yeniden sorar. Tek kapı
+// yetmez, çünkü ekranın bildiği durum sheet/diyalog açıkken senkronla bayatlayabilir.
 
 import 'package:flutter/material.dart';
 
@@ -157,9 +167,15 @@ class _DayEndScreenState extends State<DayEndScreen> {
   ///
   /// ÖNCEKİ KARARIN TERSİ ve bilinçli: 2026-08-09'da kurye KENDİ kapsamını kapatabiliyordu
   /// ("kendi kasasının kanıtı odur"). Kapanış geri alınamaz bir mutabakattır ve arşive donar;
-  /// yanlış sayımla kapatan kuryenin bıraktığı farkı ertesi gün patron çözemez. Devir yolu
-  /// KAPANMADI: ara tahsilat (gün içinde nakit teslimi) kuryede DURUYOR — kaldırılsaydı
-  /// kurye cebindeki parayı sisteme hiç işleyemezdi. Kapatan taraf artık patrondur.
+  /// yanlış sayımla kapatan kuryenin bıraktığı farkı ertesi gün patron çözemez. Kapatan taraf
+  /// artık patrondur.
+  ///
+  /// ⚠️ DEVİR YOLU DA KURYEDEN ALINDI (2026-08-13). Bu doc bir tur boyunca "ara tahsilat kuryede
+  /// DURUYOR, kaldırılsaydı kurye cebindeki parayı sisteme hiç işleyemezdi" diyordu ve o cümle
+  /// artık YANLIŞ: kurye ne kapatır ne ara tahsilat verir. Kuryedeki nakdi sisteme geçiren TEK
+  /// yol, patronun o kuryeden ara tahsilat ALMASIDIR ([_araTahsilatAlabilir]) — yani parayı
+  /// kaydeden taraf, parayı fiilen teslim ALAN taraftır. Sahadaki gerçek zaten buydu: kurye
+  /// kasayı patrona elden veriyor, kaydı da alan kişinin girmesi mutabakatın anlamına uygun.
   bool get _kapatabilir => _yetki.gunuKapatma;
 
   /// Seçili kapsamdan ARA TAHSİLAT alma yetkisi (K2) — [_kapatabilir]in kardeşi, ama üç ek koşul:
@@ -168,14 +184,34 @@ class _DayEndScreenState extends State<DayEndScreen> {
   ///  • Kapsam kapalıysa alınmaz — kapanmış bir hesaba sonradan para eklemek mutabakatı bozar.
   ///  • [GunSonuGorunumu.araTahsilatMumkun]: aktif kurye var mı, gün açık mı, gün BUGÜN mü.
   ///
-  /// Yönetici her kuryeden alır; kurye YALNIZ kendi kapsamında (kendi kasasını patrona
-  /// devrediyor). Başkasının kapsamı ona kapalı — segmentte zaten göremez, burası ikinci kapı.
+  /// ARA TAHSİLATI YALNIZ YÖNETİCİ ALIR (kullanıcı kararı 2026-08-13).
+  ///
+  /// ÖNCEKİ KARARIN TERSİ ve bilinçli: burada bir tur boyunca "yönetici her kuryeden alır; kurye
+  /// YALNIZ kendi kapsamında" yazıyordu ve son satır `_kuryeId == widget.kullaniciId` ile kuryeye
+  /// kendi kasasını kendi kaydetme yetkisi veriyordu. O yol KAPANDI: ara tahsilat, kuryenin
+  /// cebindeki nakdin patrona GEÇTİĞİNİ söyleyen bir kayıttır ve onu, parayı fiilen ALAN taraf
+  /// girmelidir. Kurye kendi teslimini kendi yazabildiği sürece kayıt tek taraflı bir BEYANDI;
+  /// patron ertesi gün "ben bu parayı almadım" dediğinde defterde iki tarafın da dayanağı yoktu.
+  ///
+  /// Bu, kuryeyi çıkmaza sokmaz: nakit yine sisteme girer, yalnız kaydı patron açar. Tek kişilik
+  /// bayide zaten hiç görünmez ([GunSonuGorunumu.araTahsilatMumkun]).
   bool _araTahsilatAlabilir(GunSonuGorunumu g) {
     if (!g.araTahsilatMumkun || g.kapsamKapali || _kuryeId == null) return false;
-    // `_kapatabilir` ile AYNI düzeltme: ölçüt "gün özetini görme" değil, kapatma/devir yetkisidir.
-    if (_yetki.gunuKapatma) return true;
-    return _kuryeId == widget.kullaniciId;
+    // `_kapatabilir` ile AYNI ölçüt ve AYNI anahtar: ikisi de birer devir işlemidir (bkz. dosya
+    // başındaki K2 bloğu). Ayrı bir anahtar açmak, matriste karşılığı olmayan bir ayrım olurdu.
+    return _yetki.gunuKapatma;
   }
+
+  /// Ara tahsilat İPTALİ — [_araTahsilatAlabilir] ile AYNI yetki, ama kapsam/kilit koşulları YOK.
+  ///
+  /// NEDEN BU KADAR SADE: iptalin geçerli olup olmadığını REPO bilir ve orada üç kapı var (kayıt
+  /// var mı · zaten iptal mi · kapanışa bağlı mı) + kapalı kapsam engeli. Ekran o koşulları
+  /// tekrarlasaydı ikisi bir gün ayrışır ve düğme "açık" görünürken eylem patlardı. Ekranın işi
+  /// yalnız YETKİYİ tutmaktır; geri kalanı repo söyler ve mesajı kullanıcıya olduğu gibi basılır.
+  ///
+  /// KURYE GÖRÜNÜMÜNDE null geçilir → kart satırları dokunulamaz olur (pasif değil, DOKUNULAMAZ:
+  /// dokunup "yetkiniz yok" görmek, olmayan bir yolu varmış gibi göstermektir).
+  bool get _araTahsilatIptalEdebilir => _yetki.gunuKapatma;
 
   /// KURYE KAPSAMINDA SHEET İLE EKRAN AYNI ARALIĞI KONUŞMAYABİLİR — bunu söyleyen satırın metni.
   ///
@@ -259,6 +295,42 @@ class _DayEndScreenState extends State<DayEndScreen> {
     if (!mounted) return;
 
     SipToast.goster(context, '$kuryeAdi · ${sipTutar(sonuc.sayilan)} tahsil edildi');
+    _tazele();
+  }
+
+  /// Bir ara tahsilatı İPTAL eder (kullanıcı kararı 2026-08-13). Kayıt SİLİNMEZ — repo ters
+  /// işaretli ikinci bir devir satırı yazar (BRIEF kırmızı çizgi #2).
+  Future<void> _araTahsilatiIptalEt(AraTahsilatKaydi k) async {
+    if (!_araTahsilatIptalEdebilir) return; // satır zaten dokunulamaz; çift kapı (K2 pazarlıksız)
+
+    // ONAY ADIMI ZORUNLU: satır kaydırılan bir listenin ortasında duruyor ve kazara dokunuş
+    // kalıcı bir düzeltme kaydı yazardı (iptalin iptali yoktur — yeni tahsilat girmek gerekir).
+    final onay = await araTahsilatIptalOnayi(
+      context,
+      kuryeAdi: k.kuryeAdi,
+      tutarKurus: k.countedCashKurus,
+      occurredAt: k.occurredAt,
+    );
+    if (!onay || !mounted) return;
+
+    // ÜÇÜNCÜ KAPI REPODA (ara tahsilat/kapatma ile aynı desen): kayıt bu arada senkronla bir
+    // kapanışa bağlanmış ya da başka bir cihazdan iptal edilmiş olabilir — o an ekranın bildiği
+    // durum bayattır. Mesaj repo'dan geldiği gibi basılır: NE olduğunu bilirken "bir şeyler ters
+    // gitti" demek bilgi saklamaktır.
+    try {
+      await CashHandoverRepository(widget.db).araTahsilatIptal(
+        handoverId: k.id,
+        iptalEdenUserId: widget.kullaniciId,
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      SipToast.goster(context, e.message);
+      _tazele(); // ekranı gerçeğe döndür
+      return;
+    }
+    if (!mounted) return;
+
+    SipToast.goster(context, '${sipTutar(k.countedCashKurus)} tahsilat iptal edildi');
     _tazele();
   }
 
@@ -503,6 +575,10 @@ class _DayEndScreenState extends State<DayEndScreen> {
                               ekip: kuryeler,
                               bugun: _bugun,
                               onYenile: _yenile,
+                              // null → hiçbir ara tahsilat satırı dokunulamaz (kurye görünümü).
+                              onAraTahsilatIptal: _araTahsilatIptalEdebilir
+                                  ? (k) => () => _araTahsilatiIptalEt(k)
+                                  : null,
                             ),
                     ),
                     // ALT ÇUBUK DA KAPSAMSIZ KURYEDE ÇİZİLMEZ: gövdeyi gizleyip çubuğu

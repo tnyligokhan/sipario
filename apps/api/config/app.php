@@ -48,9 +48,15 @@ return [
     | "1.0.0" iki farklı sözleşmeyi anlatırdı ve numaranın tek işi olan
     | "hangi kod koşuyor" sorusunu cevaplayamazdı.
     |
+    | 1.4.0 (2026-08-13): `cash_handover` yükünde OPSİYONEL `reverses_handover_id`
+    | (ara tahsilat iptali — ters satır, silme yok). Saf EKLEME: alanı hiç
+    | göndermeyen eski istemci aynen çalışır, pull'da bilmediği anahtarı yok
+    | sayar. Zorunlu alan eklenmedi, hiçbir alanın anlamı değişmedi → MINOR.
+    | Mobil sürümüyle EŞİTLENMEZ: iki hat bağımsızdır (CLAUDE.md "Sürümleme").
+    |
     */
 
-    'version' => '1.3.0',
+    'version' => '1.4.0',
 
     /*
     |--------------------------------------------------------------------------

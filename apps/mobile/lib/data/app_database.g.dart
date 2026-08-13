@@ -5339,6 +5339,17 @@ class $CashHandoversTable extends CashHandovers
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _reversesHandoverIdMeta =
+      const VerificationMeta('reversesHandoverId');
+  @override
+  late final GeneratedColumn<String> reversesHandoverId =
+      GeneratedColumn<String>(
+        'reverses_handover_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _occurredAtMeta = const VerificationMeta(
     'occurredAt',
   );
@@ -5379,6 +5390,7 @@ class $CashHandoversTable extends CashHandovers
     expectedCashKurus,
     diffKurus,
     periodStart,
+    reversesHandoverId,
     occurredAt,
     deviceId,
     note,
@@ -5456,6 +5468,15 @@ class $CashHandoversTable extends CashHandovers
         ),
       );
     }
+    if (data.containsKey('reverses_handover_id')) {
+      context.handle(
+        _reversesHandoverIdMeta,
+        reversesHandoverId.isAcceptableOrUnknown(
+          data['reverses_handover_id']!,
+          _reversesHandoverIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('occurred_at')) {
       context.handle(
         _occurredAtMeta,
@@ -5513,6 +5534,10 @@ class $CashHandoversTable extends CashHandovers
         DriftSqlType.string,
         data['${effectivePrefix}period_start'],
       ),
+      reversesHandoverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reverses_handover_id'],
+      ),
       occurredAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}occurred_at'],
@@ -5542,6 +5567,20 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
   final int expectedCashKurus;
   final int diffKurus;
   final String? periodStart;
+
+  /// İPTAL KAYDI (kullanıcı kararı 2026-08-13): dolu ise bu satır bir devri GERİ ALIR ve iptal
+  /// edilen devrin id'sini taşır. `ledger_entries.reversesEntryId` deseninin birebir aynısı.
+  ///
+  /// NEDEN KOLON, NEDEN SİLME DEĞİL: BRIEF kırmızı çizgi #2 — para kayıtları silinmez/ezilmez.
+  /// Yanlış alınmış bir ara tahsilat gerçekten OLMUŞ bir olaydır (patron kuryeden para aldı,
+  /// sonra iade etti); satırı yok etmek defterin "ne olduğunu" değil "ne olduğunu sandığımızı"
+  /// anlatır hâle getirirdi. İptal, ters işaretli İKİNCİ bir satırdır: orijinal kanıt olarak
+  /// yerinde durur, toplam kendiliğinden düzelir.
+  ///
+  /// NEDEN `day_closings.cash_handover_id` gibi İLİŞKİDEN türetilemedi: orada ilişkinin sahibi
+  /// KARŞI TARAFTIR (kapanış deviri işaret eder) ve o yüzden kolon gereksizdi. Burada geri alan
+  /// da alınan da aynı tablodadır; ilişkiyi taşıyacak başka bir yer yok.
+  final String? reversesHandoverId;
   final String occurredAt;
   final String? deviceId;
   final String? note;
@@ -5553,6 +5592,7 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
     required this.expectedCashKurus,
     required this.diffKurus,
     this.periodStart,
+    this.reversesHandoverId,
     required this.occurredAt,
     this.deviceId,
     this.note,
@@ -5570,6 +5610,9 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
     map['diff_kurus'] = Variable<int>(diffKurus);
     if (!nullToAbsent || periodStart != null) {
       map['period_start'] = Variable<String>(periodStart);
+    }
+    if (!nullToAbsent || reversesHandoverId != null) {
+      map['reverses_handover_id'] = Variable<String>(reversesHandoverId);
     }
     map['occurred_at'] = Variable<String>(occurredAt);
     if (!nullToAbsent || deviceId != null) {
@@ -5594,6 +5637,9 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
       periodStart: periodStart == null && nullToAbsent
           ? const Value.absent()
           : Value(periodStart),
+      reversesHandoverId: reversesHandoverId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reversesHandoverId),
       occurredAt: Value(occurredAt),
       deviceId: deviceId == null && nullToAbsent
           ? const Value.absent()
@@ -5615,6 +5661,9 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
       expectedCashKurus: serializer.fromJson<int>(json['expectedCashKurus']),
       diffKurus: serializer.fromJson<int>(json['diffKurus']),
       periodStart: serializer.fromJson<String?>(json['periodStart']),
+      reversesHandoverId: serializer.fromJson<String?>(
+        json['reversesHandoverId'],
+      ),
       occurredAt: serializer.fromJson<String>(json['occurredAt']),
       deviceId: serializer.fromJson<String?>(json['deviceId']),
       note: serializer.fromJson<String?>(json['note']),
@@ -5631,6 +5680,7 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
       'expectedCashKurus': serializer.toJson<int>(expectedCashKurus),
       'diffKurus': serializer.toJson<int>(diffKurus),
       'periodStart': serializer.toJson<String?>(periodStart),
+      'reversesHandoverId': serializer.toJson<String?>(reversesHandoverId),
       'occurredAt': serializer.toJson<String>(occurredAt),
       'deviceId': serializer.toJson<String?>(deviceId),
       'note': serializer.toJson<String?>(note),
@@ -5645,6 +5695,7 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
     int? expectedCashKurus,
     int? diffKurus,
     Value<String?> periodStart = const Value.absent(),
+    Value<String?> reversesHandoverId = const Value.absent(),
     String? occurredAt,
     Value<String?> deviceId = const Value.absent(),
     Value<String?> note = const Value.absent(),
@@ -5656,6 +5707,9 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
     expectedCashKurus: expectedCashKurus ?? this.expectedCashKurus,
     diffKurus: diffKurus ?? this.diffKurus,
     periodStart: periodStart.present ? periodStart.value : this.periodStart,
+    reversesHandoverId: reversesHandoverId.present
+        ? reversesHandoverId.value
+        : this.reversesHandoverId,
     occurredAt: occurredAt ?? this.occurredAt,
     deviceId: deviceId.present ? deviceId.value : this.deviceId,
     note: note.present ? note.value : this.note,
@@ -5677,6 +5731,9 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
       periodStart: data.periodStart.present
           ? data.periodStart.value
           : this.periodStart,
+      reversesHandoverId: data.reversesHandoverId.present
+          ? data.reversesHandoverId.value
+          : this.reversesHandoverId,
       occurredAt: data.occurredAt.present
           ? data.occurredAt.value
           : this.occurredAt,
@@ -5695,6 +5752,7 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
           ..write('expectedCashKurus: $expectedCashKurus, ')
           ..write('diffKurus: $diffKurus, ')
           ..write('periodStart: $periodStart, ')
+          ..write('reversesHandoverId: $reversesHandoverId, ')
           ..write('occurredAt: $occurredAt, ')
           ..write('deviceId: $deviceId, ')
           ..write('note: $note')
@@ -5711,6 +5769,7 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
     expectedCashKurus,
     diffKurus,
     periodStart,
+    reversesHandoverId,
     occurredAt,
     deviceId,
     note,
@@ -5726,6 +5785,7 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
           other.expectedCashKurus == this.expectedCashKurus &&
           other.diffKurus == this.diffKurus &&
           other.periodStart == this.periodStart &&
+          other.reversesHandoverId == this.reversesHandoverId &&
           other.occurredAt == this.occurredAt &&
           other.deviceId == this.deviceId &&
           other.note == this.note);
@@ -5739,6 +5799,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
   final Value<int> expectedCashKurus;
   final Value<int> diffKurus;
   final Value<String?> periodStart;
+  final Value<String?> reversesHandoverId;
   final Value<String> occurredAt;
   final Value<String?> deviceId;
   final Value<String?> note;
@@ -5751,6 +5812,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
     this.expectedCashKurus = const Value.absent(),
     this.diffKurus = const Value.absent(),
     this.periodStart = const Value.absent(),
+    this.reversesHandoverId = const Value.absent(),
     this.occurredAt = const Value.absent(),
     this.deviceId = const Value.absent(),
     this.note = const Value.absent(),
@@ -5764,6 +5826,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
     required int expectedCashKurus,
     required int diffKurus,
     this.periodStart = const Value.absent(),
+    this.reversesHandoverId = const Value.absent(),
     required String occurredAt,
     this.deviceId = const Value.absent(),
     this.note = const Value.absent(),
@@ -5782,6 +5845,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
     Expression<int>? expectedCashKurus,
     Expression<int>? diffKurus,
     Expression<String>? periodStart,
+    Expression<String>? reversesHandoverId,
     Expression<String>? occurredAt,
     Expression<String>? deviceId,
     Expression<String>? note,
@@ -5795,6 +5859,8 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
       if (expectedCashKurus != null) 'expected_cash_kurus': expectedCashKurus,
       if (diffKurus != null) 'diff_kurus': diffKurus,
       if (periodStart != null) 'period_start': periodStart,
+      if (reversesHandoverId != null)
+        'reverses_handover_id': reversesHandoverId,
       if (occurredAt != null) 'occurred_at': occurredAt,
       if (deviceId != null) 'device_id': deviceId,
       if (note != null) 'note': note,
@@ -5810,6 +5876,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
     Value<int>? expectedCashKurus,
     Value<int>? diffKurus,
     Value<String?>? periodStart,
+    Value<String?>? reversesHandoverId,
     Value<String>? occurredAt,
     Value<String?>? deviceId,
     Value<String?>? note,
@@ -5823,6 +5890,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
       expectedCashKurus: expectedCashKurus ?? this.expectedCashKurus,
       diffKurus: diffKurus ?? this.diffKurus,
       periodStart: periodStart ?? this.periodStart,
+      reversesHandoverId: reversesHandoverId ?? this.reversesHandoverId,
       occurredAt: occurredAt ?? this.occurredAt,
       deviceId: deviceId ?? this.deviceId,
       note: note ?? this.note,
@@ -5854,6 +5922,9 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
     if (periodStart.present) {
       map['period_start'] = Variable<String>(periodStart.value);
     }
+    if (reversesHandoverId.present) {
+      map['reverses_handover_id'] = Variable<String>(reversesHandoverId.value);
+    }
     if (occurredAt.present) {
       map['occurred_at'] = Variable<String>(occurredAt.value);
     }
@@ -5879,6 +5950,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
           ..write('expectedCashKurus: $expectedCashKurus, ')
           ..write('diffKurus: $diffKurus, ')
           ..write('periodStart: $periodStart, ')
+          ..write('reversesHandoverId: $reversesHandoverId, ')
           ..write('occurredAt: $occurredAt, ')
           ..write('deviceId: $deviceId, ')
           ..write('note: $note, ')
@@ -15753,6 +15825,7 @@ typedef $$CashHandoversTableCreateCompanionBuilder =
       required int expectedCashKurus,
       required int diffKurus,
       Value<String?> periodStart,
+      Value<String?> reversesHandoverId,
       required String occurredAt,
       Value<String?> deviceId,
       Value<String?> note,
@@ -15767,6 +15840,7 @@ typedef $$CashHandoversTableUpdateCompanionBuilder =
       Value<int> expectedCashKurus,
       Value<int> diffKurus,
       Value<String?> periodStart,
+      Value<String?> reversesHandoverId,
       Value<String> occurredAt,
       Value<String?> deviceId,
       Value<String?> note,
@@ -15814,6 +15888,11 @@ class $$CashHandoversTableFilterComposer
 
   ColumnFilters<String> get periodStart => $composableBuilder(
     column: $table.periodStart,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reversesHandoverId => $composableBuilder(
+    column: $table.reversesHandoverId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15877,6 +15956,11 @@ class $$CashHandoversTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get reversesHandoverId => $composableBuilder(
+    column: $table.reversesHandoverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get occurredAt => $composableBuilder(
     column: $table.occurredAt,
     builder: (column) => ColumnOrderings(column),
@@ -15931,6 +16015,11 @@ class $$CashHandoversTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get reversesHandoverId => $composableBuilder(
+    column: $table.reversesHandoverId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get occurredAt => $composableBuilder(
     column: $table.occurredAt,
     builder: (column) => column,
@@ -15981,6 +16070,7 @@ class $$CashHandoversTableTableManager
                 Value<int> expectedCashKurus = const Value.absent(),
                 Value<int> diffKurus = const Value.absent(),
                 Value<String?> periodStart = const Value.absent(),
+                Value<String?> reversesHandoverId = const Value.absent(),
                 Value<String> occurredAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
                 Value<String?> note = const Value.absent(),
@@ -15993,6 +16083,7 @@ class $$CashHandoversTableTableManager
                 expectedCashKurus: expectedCashKurus,
                 diffKurus: diffKurus,
                 periodStart: periodStart,
+                reversesHandoverId: reversesHandoverId,
                 occurredAt: occurredAt,
                 deviceId: deviceId,
                 note: note,
@@ -16007,6 +16098,7 @@ class $$CashHandoversTableTableManager
                 required int expectedCashKurus,
                 required int diffKurus,
                 Value<String?> periodStart = const Value.absent(),
+                Value<String?> reversesHandoverId = const Value.absent(),
                 required String occurredAt,
                 Value<String?> deviceId = const Value.absent(),
                 Value<String?> note = const Value.absent(),
@@ -16019,6 +16111,7 @@ class $$CashHandoversTableTableManager
                 expectedCashKurus: expectedCashKurus,
                 diffKurus: diffKurus,
                 periodStart: periodStart,
+                reversesHandoverId: reversesHandoverId,
                 occurredAt: occurredAt,
                 deviceId: deviceId,
                 note: note,

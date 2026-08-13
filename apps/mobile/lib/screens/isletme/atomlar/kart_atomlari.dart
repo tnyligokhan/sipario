@@ -50,6 +50,7 @@ class DegerSatiri extends StatelessWidget {
     this.toplam = false,
     this.degerRengi,
     this.onTap,
+    this.gecersiz = false,
   });
 
   final String etiket;
@@ -59,6 +60,18 @@ class DegerSatiri extends StatelessWidget {
   final bool toplam;
 
   final Color? degerRengi;
+
+  /// Satır ARTIK GEÇERLİ DEĞİL (iptal edilmiş ara tahsilat, 2026-08-13): tutar ÜSTÜ ÇİZİLİ ve
+  /// solgun çizilir, etiket de solar.
+  ///
+  /// NEDEN SATIR SİLİNMİYOR: para kayıtları silinmez (BRIEF kırmızı çizgi #2) — olay olmuştur ve
+  /// kanıtı görünür kalmalıdır. Üstü çizili tutar, "bu rakam toplamın içinde değil" cümlesini
+  /// ikinci bir açıklama satırı açmadan söyler; solgunluk tek başına yeterli DEĞİLDİ, çünkü
+  /// solgun bir para rakamı "ikincil bilgi" diye de okunabilir ve bayi onu toplama katardı.
+  ///
+  /// [degerRengi] ile birlikte kullanılırsa geçersizlik KAZANIR: iptal edilmiş bir tutarı
+  /// kırmızı/vurgulu çizmek, geri alınmış bir parayı hâlâ bir iddia gibi gösterirdi.
+  final bool gecersiz;
 
   /// Verilirse satır DOKUNULABİLİR olur ve sağına chevron çizilir (kullanıcı isteği
   /// 2026-08-11: ödeme türüne dokununca o günün dökümü açılır).
@@ -79,7 +92,7 @@ class DegerSatiri extends StatelessWidget {
             child: Text(
               etiket,
               style: SipText.gsSatirEtiket.copyWith(
-                color: toplam ? t.ink : t.ink2,
+                color: gecersiz ? t.muted : (toplam ? t.ink : t.ink2),
                 fontWeight: toplam ? FontWeight.w700 : FontWeight.w600,
               ),
             ),
@@ -87,8 +100,12 @@ class DegerSatiri extends StatelessWidget {
           const SizedBox(width: SipSpace.lg),
           Text(
             deger,
-            style: (toplam ? SipText.gsToplamDeger : SipText.gsSatirDeger)
-                .copyWith(color: degerRengi ?? (toplam ? t.accent : t.ink)),
+            style: (toplam ? SipText.gsToplamDeger : SipText.gsSatirDeger).copyWith(
+              color: gecersiz ? t.muted : (degerRengi ?? (toplam ? t.accent : t.ink)),
+              decoration: gecersiz ? TextDecoration.lineThrough : null,
+              decorationColor: gecersiz ? t.muted : null,
+              decorationThickness: gecersiz ? 1.6 : null,
+            ),
           ),
           if (onTap != null) ...[
             const SizedBox(width: 6),

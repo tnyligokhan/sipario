@@ -74,9 +74,22 @@ class AraTahsilatKarti extends StatelessWidget {
     required this.kayitlar,
     required this.toplamKurus,
     this.kuryeAdiYaz = true,
+    this.onIptal,
   });
 
   final List<AraTahsilatKaydi> kayitlar;
+
+  /// Bir satırın İPTAL eylemini üreten yapıcı (kullanıcı kararı 2026-08-13). null ise hiçbir satır
+  /// dokunulabilir DEĞİLDİR — kurye görünümü budur.
+  ///
+  /// NEDEN DOĞRUDAN `VoidCallback` DEĞİL: eylem kayda bağlıdır (hangi tahsilat iptal edilecek) ve
+  /// kart hangi satırın hangi kayda karşılık geldiğini zaten biliyor. Yapıcıyı ekran verir, kart
+  /// yalnız çağırır — böylece onay metnini (tutar + kurye + saat) ve yetkiyi kart değil ekran
+  /// kurar. Kart hiçbir yetki KARARI vermez, bu dosyanın kuralı budur.
+  ///
+  /// İPTALLİ SATIR TEKRAR İPTAL EDİLEMEZ: aşağıda yapıcı o satırlar için hiç çağrılmaz. İkinci
+  /// bir iptal, parayı ikinci kez geri vermek olurdu.
+  final VoidCallback Function(AraTahsilatKaydi)? onIptal;
 
   /// Toplam REPO'DAN gelir (`GunSonuGorunumu.araTahsilatToplamiKurus`), kart listeyi KENDİ
   /// toplamaz. Bugün ikisi aynı sonucu verirdi; ama bir tur önce ekranda tam olarak iki para
@@ -97,12 +110,20 @@ class AraTahsilatKarti extends StatelessWidget {
             // okunan bir bloğa çevirirdi. Sıfır farkta hiç yazılmaz — iskonto satırındaki desenin
             // aynısı: farksız tahsilat çoğunluktur ve "fark 0,00 ₺" her satıra cevapsız bir soru
             // eklerdi.
+            //
+            // İPTAL EDİLMİŞ SATIRDA FARK YAZILMAZ ve "iptal edildi" onun YERİNE geçer: fark,
+            // duran bir tahsilatın kuryede ne bıraktığını anlatır ("kuryede kalan 30,00 ₺").
+            // Geri alınmış bir tahsilatın yanında o cümle düpedüz yanlıştır — o para kuryede
+            // kalmadı, TAMAMI kuryeye geri döndü. Kanıt kaybolmuyor: satırın kendisi (tutarı,
+            // saati, kuryesi) üstü çizili olarak yerinde duruyor.
             etiket: [
               if (kuryeAdiYaz && k.kuryeAdi.isNotEmpty) k.kuryeAdi,
               araTahsilatSaati(k.occurredAt),
-              ?araTahsilatFarki(k.diffKurus),
+              if (k.iptalEdildi) 'iptal edildi' else ?araTahsilatFarki(k.diffKurus),
             ].join(' · '),
             deger: sipTutar(k.countedCashKurus),
+            gecersiz: k.iptalEdildi,
+            onTap: k.iptalEdildi ? null : onIptal?.call(k),
           ),
         // Toplam satırı TEK kayıtta da çizilir — okuyan kişi satırları kafasında toplamasın.
         //
@@ -127,8 +148,14 @@ class AraTahsilatKarti extends StatelessWidget {
         // aldım"), sheet'teki sayı ise ARİTMETİĞİ kapatır (gün nakdi − teslim edilen = beklenen).
         // Etiket o yüzden "ara tahsilat" der — "alınan toplam" deseydi iki farklı rakam aynı
         // kelimeyle anılır ve bayi hangisinin doğru olduğunu sorardı.
+        //
+        // SAYI, TOPLAMIN SAYDIĞI SATIRLARI sayar — `kayitlar.length` DEĞİL. İptal edilmiş satır
+        // listede görünmeye devam eder ama toplama girmez; ikisini ayrı ölçütle yazsaydık kart
+        // "2 tahsilat" der, altındaki tutar tek tahsilatı gösterirdi ve bayi hangisinin doğru
+        // olduğunu soramazdı (bu ekranda tam olarak bu hata bir kez yaşandı).
         DegerSatiri(
-          etiket: 'Ara tahsilat toplamı · ${kayitlar.length} tahsilat',
+          etiket: 'Ara tahsilat toplamı · '
+              '${kayitlar.where((k) => !k.iptalEdildi).length} tahsilat',
           deger: sipTutar(toplamKurus),
           toplam: true,
         ),
@@ -260,6 +287,12 @@ class KapatmaEngeli extends StatelessWidget {
     // diyordu ve o cümle artık YANLIŞ: kurye hiçbir hesabı kapatamıyor (kullanıcı kararı).
     // Yanlış kalsaydı ekran kuryeye var olmayan bir yol tarif eder, kurye onu arar ve
     // bulamayınca uygulamanın bozuk olduğunu düşünürdü.
+    //
+    // 2026-08-13'te ARA TAHSİLAT DA kuryeden alındı; metin YİNE DE DEĞİŞMİYOR ve bu bilinçli:
+    // cümle kuryeye "ne YAPAMAZSIN"ı değil "ne YAPABİLİRSİN"i söylüyor ve o taraf aynı kaldı —
+    // kurye hâlâ kendi dökümünü görür. Kaldırılan yolu tarif eden bir cümle eklemek ("ara
+    // tahsilat da veremezsiniz"), kuryenin hiç aramadığı bir kapının kapalı olduğunu duyurmak
+    // olurdu.
     final metin = rolEngeli
         ? 'Hesabı yönetici kapatır. Siz günlük tahsilat ve teslimat dökümünüzü görebilirsiniz.'
         : acikSiparis > 0
@@ -307,9 +340,13 @@ class GunOzetiAltCubugu extends StatelessWidget {
   final int toplam;
   final VoidCallback onKapat;
 
-  /// null ise ara tahsilat düğmesi HİÇ ÇİZİLMEZ (tek kişilik bayi, gün kapsamı, yetkisiz kullanıcı
-  /// ya da kapatılmış kapsam). Pasif çizmek yerine hiç çizmemek bilinçli: bu ekranın çoğu
-  /// kullanıcısı tek kişilik bayidir ve onlar için "kuryeden ara tahsilat" diye bir kavram yoktur.
+  /// null ise ara tahsilat düğmesi HİÇ ÇİZİLMEZ (tek kişilik bayi, gün kapsamı, KURYE ya da
+  /// kapatılmış kapsam). Pasif çizmek yerine hiç çizmemek bilinçli: bu ekranın çoğu kullanıcısı
+  /// tek kişilik bayidir ve onlar için "kuryeden ara tahsilat" diye bir kavram yoktur.
+  ///
+  /// "yetkisiz kullanıcı" 2026-08-13'te "KURYE" oldu ve bu bir kelime düzeltmesinden fazlası:
+  /// ara tahsilatı artık YALNIZ yönetici alır (`yetkiler().gunuKapatma`), yani kurye — kendi
+  /// kapsamında bile olsa — bu düğmeyi hiç görmez.
   final VoidCallback? onAraTahsilat;
 
   @override

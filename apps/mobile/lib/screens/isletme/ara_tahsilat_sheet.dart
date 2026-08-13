@@ -22,6 +22,9 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import 'gun_kapatma_sheet.dart' show kurusaCevir;
+// Saat biçimi kartla AYNI yerden gelir: elle yazılmış ikinci bir TR kaydırması, onay metnindeki
+// saati kartta yazandan farklı gösterir ve bayi "ben bu tahsilatı iptal etmiyordum" derdi.
+import 'gun_sonu_kartlari.dart' show araTahsilatSaati;
 import 'gun_sonu_ozet.dart' show SenkronTazeligi;
 import 'isletme_atomlari.dart';
 import 'senkron_seridi.dart';
@@ -60,6 +63,36 @@ Future<AraTahsilatSonucu?> araTahsilatSheet(
       cerceveNotu: cerceveNotu,
       senkron: senkron,
     ),
+  );
+}
+
+/// ARA TAHSİLAT İPTALİ ONAYI (kullanıcı kararı 2026-08-13) — `true` dönerse iptal edilir.
+///
+/// NEDEN AYRI BİR ADIM ve neden doğrudan iptal YOK: bu kartın satırları ekranın ortasında,
+/// kaydırılan bir listenin içinde duruyor; kazara dokunuş gerçek bir para hareketi yazardı.
+/// İptal geri alınamaz (append-only: iptalin iptali diye bir şey yok, yeni bir tahsilat girmek
+/// gerekir), yani yanlış dokunuşun bedeli kalıcı bir düzeltme kaydıdır.
+///
+/// METİN ÜÇ ŞEYİ BİRDEN SÖYLER (tutar · kurye · saat) çünkü aynı kuryeden gün içinde birden çok
+/// tahsilat alınır ve "Bu tahsilat iptal edilsin mi?" cümlesi hangisini sorduğunu söylemezdi.
+/// [kuryeAdi] boş gelebilir (kullanıcı `users` aynasından silinmiş olabilir); o hâlde ad hiç
+/// yazılmaz — "  kuryesinden" diye boşluklu bir cümle kurmaktansa saat + tutar yeter.
+Future<bool> araTahsilatIptalOnayi(
+  BuildContext context, {
+  required String kuryeAdi,
+  required int tutarKurus,
+  required DateTime occurredAt,
+}) {
+  final kim = kuryeAdi.isEmpty ? '' : '$kuryeAdi kuryesinden ';
+  return sipOnay(
+    context,
+    baslik: 'Ara tahsilat iptal edilsin mi?',
+    mesaj: '$kim${araTahsilatSaati(occurredAt)}\'da alınan '
+        '${sipTutar(tutarKurus)} iptal edilecek. Kayıt SİLİNMEZ: listede "iptal edildi" olarak '
+        'kalır, tutar toplamlardan düşer ve para kuryede sayılmaya geri döner.',
+    onayEtiketi: 'İptal Et',
+    vazgecEtiketi: 'Vazgeç',
+    tehlike: true,
   );
 }
 
