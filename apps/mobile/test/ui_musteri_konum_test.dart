@@ -25,6 +25,7 @@ import 'package:sipario/screens/customers/customer_form_screen.dart';
 import 'package:sipario/screens/customers/customer_location_picker.dart';
 import 'package:sipario/sync/geocode_api.dart';
 import 'package:sipario/theme/app_theme.dart';
+import 'support/yetki_yardimcilari.dart';
 
 void main() {
   // ═════════════════════════════════════════════════════════════════════════════════════════
@@ -419,7 +420,7 @@ void main() {
       });
       cihazKonumuOku = () async => const CihazKonumu(lat: 36.8969, lng: 30.7133, dogrulukM: 9);
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: customerId, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: customerId, writable: true, yetki: tamYetki));
 
       expect(find.text('36.9014, 30.7221'), findsOneWidget);
       await tester.tap(find.text('36.9014, 30.7221'));
@@ -457,7 +458,7 @@ void main() {
         return const CihazKonumu(lat: 36.8969, lng: 30.7133, dogrulukM: 9);
       };
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: customerId, writable: false));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: customerId, writable: false, yetki: tamYetki));
       await tester.tap(find.text('36.9014, 30.7221'));
       await tester.pumpAndSettle();
 

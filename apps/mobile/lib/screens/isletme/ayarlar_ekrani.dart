@@ -67,7 +67,7 @@ class AyarlarEkrani extends StatefulWidget {
     super.key,
     required this.db,
     this.rol,
-    this.yetki,
+    required this.yetki,
     this.writable = true,
     this.onSihirbaz,
     this.onCagriSimulasyonu,
@@ -81,8 +81,15 @@ class AyarlarEkrani extends StatefulWidget {
   /// ⚠️ 2026-08-09: bu ekranda "Çağrı Geçmişi" satırı KOŞULSUZ çiziliyordu; oysa o, dükkânın
   /// çağrı günlüğüdür ve `courier_can_call_log` anahtarıyla kapatılabildiği sanılıyordu.
   /// Anahtar kaydediliyor ama HİÇBİR yerde okunmuyordu — kapatılan yetki hiçbir kapıyı
-  /// kapatmıyordu. Kapı artık burada. Verilmezse kısıtlama uygulanmaz (test/önizleme yolu).
-  final RolYetkileri? yetki;
+  /// kapatmıyordu. Kapı artık burada.
+  ///
+  /// ⚠️ 2026-08-13'TE ZORUNLU OLDU. Eskiden nullable'dı ve doc "verilmezse kısıtlama uygulanmaz
+  /// (test/önizleme yolu)" diyordu — yani yetkisiz bir yol AÇIK bırakılmıştı ve bu, bu ekrandan
+  /// açılan `CustomerDetailScreen`e de sızıyordu (o ekran da yetkiyi null alınca her şeye izin
+  /// veriyordu). "Test/önizleme kolaylığı" için açık bırakılan varsayılan, üretimde bir yetki
+  /// genişlemesine dönüştü. Önizleme yine mümkün: çağıran `yetkiler(rol: ..., kuryeVar: ...)`
+  /// geçer — kolaylık kaybolmadı, yalnız kapı açık kalmıyor.
+  final RolYetkileri yetki;
 
   final AppDatabase db;
 
@@ -180,6 +187,10 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
           db: widget.db,
           customerId: musteriId,
           writable: widget.writable,
+          // YETKİ BURADAN GEÇMEK ZORUNDA (2026-08-13): bu, müşteri kartının altıncı girişiydi
+          // ve tek yetkisiz olanıydı; `cagriGunlugu` açılmış bir kurye buradan girip yönetici
+          // eylemlerine erişiyordu. Artık alan zorunlu, yani bu satırı silmek derlemeyi kırar.
+          yetki: widget.yetki,
         ),
       ));
       return;
@@ -209,6 +220,7 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
         db: widget.db,
         customerId: yeniId,
         writable: widget.writable,
+        yetki: widget.yetki,
       ),
     ));
   }
@@ -296,7 +308,7 @@ class _Govde extends StatelessWidget {
           // Dükkânın çağrı günlüğü — `cagriGunlugu` yetkisine bağlı (2026-08-09). Kurye kendi
           // işleyişini (arayan tanıma kurulumu, deneme çağrısı, tema) yönetmeye devam eder;
           // kapanan şey DÜKKÂN VERİSİDİR: kimin ne zaman aradığı bayinin müşteri ilişkisidir.
-          if (state.widget.yetki?.cagriGunlugu ?? true)
+          if (state.widget.yetki.cagriGunlugu)
             AyarSatiri(
               ikon: SipIcons.clock,
               baslik: 'Çağrı Geçmişi',

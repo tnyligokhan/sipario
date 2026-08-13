@@ -140,13 +140,16 @@ class BorclularEkrani extends StatelessWidget {
     super.key,
     required this.db,
     required this.writable,
-    this.yetki,
+    required this.yetki,
     this.canAssign = false,
   });
 
   final AppDatabase db;
   final bool writable;
-  final RolYetkileri? yetki;
+
+  /// Rol bazlı yetki (K2) — ZORUNLU (2026-08-13, bkz. `CustomerDetailScreen.yetki`): bu ekran
+  /// yetkiyi müşteri kartına aktarır, nullable kaldığı sürece oradaki kapıyı sessizce açardı.
+  final RolYetkileri yetki;
 
   /// Sipariş detayına geçilir (kurye ataması orada K2 kapısıyla açılır).
   final bool canAssign;
@@ -216,7 +219,7 @@ class _Liste extends StatelessWidget {
   final AppDatabase db;
   final List<Customer> musteriler;
   final bool writable;
-  final RolYetkileri? yetki;
+  final RolYetkileri yetki;
   final bool canAssign;
 
   @override
@@ -300,7 +303,7 @@ class _BorcluKarti extends StatelessWidget {
   final AppDatabase db;
   final BorcluMusteri veri;
   final bool writable;
-  final RolYetkileri? yetki;
+  final RolYetkileri yetki;
   final bool canAssign;
 
   /// Müşterinin birincil telefonu (E.164). Yoksa hatırlatma gönderilemez.
@@ -344,7 +347,7 @@ class _BorcluKarti extends StatelessWidget {
   /// SALT-OKUNUR KİP ENGELLEMEZ: bu bir YAZMA değil, mesaj hazırlama eylemidir. Abonelik bittiğinde
   /// bile bayi alacağını isteyebilmeli — kilit yeni kayıt girişini durdurur, tahsilatı değil.
   Future<void> _hatirlat(BuildContext context) async {
-    if (!(yetki?.borcHatirlatma ?? true)) {
+    if (!yetki.borcHatirlatma) {
       SipToast.goster(context, 'Borç hatırlatma gönderme yetkisi kapalıdır.');
       return;
     }

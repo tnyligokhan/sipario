@@ -38,16 +38,30 @@ class CustomerDetailScreen extends StatefulWidget {
     required this.db,
     required this.customerId,
     required this.writable,
-    this.yetki,
+    required this.yetki,
   });
 
   final AppDatabase db;
   final String customerId;
   final bool writable;
 
-  /// Rol bazlı yetki (K2). null → tam yetki. Defter düzeltme yönetici işidir; kurye tahsilat
-  /// alır ama defteri düzeltemez.
-  final RolYetkileri? yetki;
+  /// Rol bazlı yetki (K2). Defter düzeltme yönetici işidir; kurye tahsilat alır ama defteri
+  /// düzeltemez.
+  ///
+  /// ⚠️ ZORUNLU VE NULLABLE DEĞİL — 2026-08-13'te bu alan `RolYetkileri?` idi ve her okuma
+  /// `widget.yetki?.alan ?? true` deseniyle yazılmıştı; doc'ta da "null → tam yetki" diye
+  /// KURAL olarak duruyordu. Bedeli ölçüldü: bu ekranın altı girişinden beşi yetkiyi geçiyor,
+  /// biri (Ayarlar → Çağrı Geçmişi → arama satırı) geçmiyordu. O tek yoldan giren, `cagriGunlugu`
+  /// yetkisi açılmış bir KURYE müşteri silme · kara listeye alma · defter düzeltme · maskesiz
+  /// telefon eylemlerinin hepsine erişiyordu — aynı ekrana diğer yollardan girdiğinde hiçbirine
+  /// erişemezken.
+  ///
+  /// DÜZELTME NEDEN "VARSAYILANI REDDET" DEĞİL: `?? false` de aynı yolu kapatırdı ama hatanın
+  /// SINIFINI kapatmazdı — parametreyi geçmeyi unutmak yine sessiz kalır, yalnız yönü değişirdi
+  /// (yetkisiz kullanıcıya açmak yerine yetkiliye kapatmak). Zorunlu alan, unutmayı DERLEME
+  /// HATASINA çevirir: bu ekrana yeni bir giriş noktası açan kişi yetkiyi düşünmek zorunda kalır.
+  /// Tam yetkili görünüm isteyen çağıran `yetkiler(rol: 'patron', kuryeVar: true)` geçer.
+  final RolYetkileri yetki;
 
   @override
   State<CustomerDetailScreen> createState() => _CustomerDetailScreenState();
@@ -92,14 +106,14 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   }
 
   Future<void> _tahsilat(Customer c) async {
-    if (!_yazabilir(izin: widget.yetki?.tahsilat ?? true)) return;
+    if (!_yazabilir(izin: widget.yetki.tahsilat)) return;
     final ok = await tahsilatSheet(context,
         db: widget.db, customerId: c.id, bakiyeKurus: c.balanceKurus);
     if (ok == true && mounted) SipToast.goster(context, 'Tahsilat kaydedildi');
   }
 
   Future<void> _duzeltme(Customer c) async {
-    if (!_yazabilir(izin: widget.yetki?.defterDuzeltme ?? true)) return;
+    if (!_yazabilir(izin: widget.yetki.defterDuzeltme)) return;
     final ok = await duzeltmeSheet(context,
         db: widget.db, customerId: c.id, bakiyeKurus: c.balanceKurus);
     if (ok == true && mounted) SipToast.goster(context, 'Düzeltme deftere işlendi');
@@ -121,7 +135,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   /// Kara listeye al / çıkar. ONAY İSTEMEZ: tek dokunuşla geri alınabilir ve rozet sonucu
   /// anında gösterir — geri alınabilir bir eylemi diyalogla yavaşlatmak bedelsiz değildir.
   Future<void> _karaListe(Customer c) async {
-    if (!_yazabilir(izin: widget.yetki?.musteriYonetimi ?? true)) return;
+    if (!_yazabilir(izin: widget.yetki.musteriYonetimi)) return;
     final ekle = !karaListede(c);
     await CustomerRepository(widget.db).karaListe(c.id, ekle: ekle);
     if (!mounted) return;
@@ -135,7 +149,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   /// düşeceği için bayi o borcu bir daha kendiliğinden görmez. Kullanıcının bilmesi gereken şey
   /// budur: kaybolan para değil, TAKİP.
   Future<void> _sil(Customer c) async {
-    if (!_yazabilir(izin: widget.yetki?.musteriYonetimi ?? true)) return;
+    if (!_yazabilir(izin: widget.yetki.musteriYonetimi)) return;
 
     final borc = c.balanceKurus;
     final onay = await sipOnay(
@@ -298,7 +312,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
     final koordinat = konumVar ? konumMetni(adres!.lat!, adres.lng!) : null;
     final not = c.note;
 
-    final maskeli = widget.yetki?.telefonMaskeleme ?? false;
+    final maskeli = widget.yetki.telefonMaskeleme;
     final telGoster = maskeli ? telefonMaskele(tel) : tel;
 
     return Scaffold(
@@ -311,7 +325,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
               alt: telGoster.isEmpty ? null : telGoster,
               onGeri: () => Navigator.of(context).pop(),
               sag: [
-                if (widget.yetki?.musteriDuzenleme ?? true)
+                if (widget.yetki.musteriDuzenleme)
                   SipIkonButon(
                     ikon: SipIcons.edit,
                     ikonBoyut: 17,
@@ -333,7 +347,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     konumCalisiyor: _konumCalisiyor,
                     onAra: () => _eylem(() => musteriyiAra(telefonlar.firstOrNull?.phoneE164)),
                     onWhatsapp: () => _eylem(() async {
-                      if (!(widget.yetki?.borcHatirlatma ?? true)) {
+                      if (!(widget.yetki.borcHatirlatma)) {
                         return 'Borç hatırlatma yetkisi kapalıdır.';
                       }
                       return whatsappAc(telefonlar.firstOrNull?.phoneE164);
@@ -371,12 +385,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     db: widget.db,
                     customerId: widget.customerId,
                     yazabilir: () =>
-                        _yazabilir(izin: widget.yetki?.musteriDuzenleme ?? true),
+                        _yazabilir(izin: widget.yetki.musteriDuzenleme),
                   ),
                   // SİPARİŞ GEÇMİŞİ — `gecmisTeslimatlariGorme` kapısının ARKASINDA. Bu ekran o
                   // kapıyı atlasaydı, geçmiş gün teslimatları kapalı olan kurye aynı bilgiyi
                   // müşteri kartından okurdu; yarısı kapalı bir kapı hiç kapı değildir.
-                  if (widget.yetki?.gecmisTeslimatlariGorme ?? true)
+                  if (widget.yetki.gecmisTeslimatlariGorme)
                     MusteriSiparisGecmisi(
                       db: widget.db,
                       customerId: widget.customerId,
@@ -384,7 +398,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       musteriCode: c.code,
                       writable: widget.writable,
                     ),
-                  if (widget.yetki?.musteriGecmisDefteri ?? true)
+                  if (widget.yetki.musteriGecmisDefteri)
                     CustomerLedgerSection(
                       db: widget.db,
                       customerId: widget.customerId,
@@ -402,7 +416,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                   // Gerekçe: tahsilat/düzeltme kuryenin işinin bir parçası, yalnız bu cihazda
                   // yetkisi yok — orada toast doğru cevaptır. Müşteriyi silmek ise kuryenin işi
                   // DEĞİLDİR; düğmeyi gösterip reddetmek ona olmayan bir rol teklif eder.
-                  if (widget.yetki?.musteriYonetimi ?? true)
+                  if (widget.yetki.musteriYonetimi)
                     MusteriTehlikeliEylemler(
                       karaListede: karaListede(c),
                       karaListeEtiketi:

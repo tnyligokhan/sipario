@@ -30,16 +30,20 @@ class CustomerListScreen extends StatefulWidget {
     super.key,
     required this.db,
     required this.writable,
-    this.yetki,
+    required this.yetki,
     this.onMenu,
   });
 
   final AppDatabase db;
   final bool writable;
 
-  /// Rol bazlı yetki (K2). null → tam yetki (giriş öncesi/test yolu); detaydaki tahsilat ve
-  /// defter düzeltme kapıları buradan gelir.
-  final RolYetkileri? yetki;
+  /// Rol bazlı yetki (K2); detaydaki tahsilat ve defter düzeltme kapıları buradan gelir.
+  ///
+  /// ⚠️ ZORUNLU (2026-08-13). Eskiden nullable'dı ve "null → tam yetki (giriş öncesi/test yolu)"
+  /// diyordu. Bu ekran yetkiyi `CustomerDetailScreen`e AKTARIYOR, yani buradaki geçirgen
+  /// varsayılan orada yönetici eylemlerine dönüşüyordu — kolaylık bir kapıda kalmıyor, zincir
+  /// boyunca akıyor. Test/önizleme yolu kapanmadı: `yetkiler(rol: 'patron', kuryeVar: true)`.
+  final RolYetkileri yetki;
 
   /// Çekmeceyi açan geri çağrım (kabuk verir). null ise hamburger çizilmez.
   final VoidCallback? onMenu;
@@ -69,7 +73,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     // Kurye yetkisi (2026-08-04). Ekranın "Yeni" düğmesi burada GİZLENMEZ (listeye giriş
     // yetkiden bağımsız) ama eylem durur ve sebebini söyler — kabuğun FAB menüsünde satır
     // zaten hiç çizilmiyor, yani bu yol ikinci kapıdır.
-    if (!(widget.yetki?.musteriDuzenleme ?? true)) {
+    if (!(widget.yetki.musteriDuzenleme)) {
       SipToast.goster(context, 'Bu hesap müşteri ekleyemez — bayi yetkisi kapalı.');
       return;
     }
@@ -149,7 +153,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                       separatorBuilder: (_, _) => const SizedBox(height: 7),
                       itemBuilder: (context, i) => _MusteriSatiri(
                         satir: rows[i],
-                        maskeli: widget.yetki?.telefonMaskeleme ?? false,
+                        maskeli: widget.yetki.telefonMaskeleme,
                         onAc: () => _ac(rows[i].customer),
                       ),
                     ),

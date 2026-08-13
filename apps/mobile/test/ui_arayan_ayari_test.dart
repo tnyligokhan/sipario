@@ -14,6 +14,7 @@ import 'package:sipario/screens/isletme/ayarlar_ekrani.dart';
 import 'package:sipario/theme/app_theme.dart';
 
 import 'support/ekran_yardimcilari.dart';
+import 'support/yetki_yardimcilari.dart';
 
 void main() {
   // Gerçek depo platform kanalına (sqflite dizini) uzanır; widget testinde dikiş bellekle
@@ -83,7 +84,7 @@ void main() {
     testWidgets('anahtar Arayan Tanıma kartının İLK satırıdır', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
-      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron'));
+      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron', yetki: tamYetki));
 
       expect(find.text('Arayan tanıma'), findsOneWidget);
       expect(find.text('Telefon çalarken müşteri kartı gösterilir'), findsOneWidget);

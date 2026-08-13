@@ -14,6 +14,7 @@ import 'package:sipario/screens/customers/customer_widgets.dart';
 import 'package:sipario/theme/app_theme.dart';
 import 'package:sipario/theme/components/atoms.dart';
 import 'package:sipario/theme/tokens.dart';
+import 'support/yetki_yardimcilari.dart';
 
 /// SİPARİO 3.0 müşteri ekranları — liste satırı, bakiye kartı, tahsilat, düzeltme, çoklu telefon,
 /// adres bölgesi ve salt-okunur kapısı.
@@ -90,7 +91,7 @@ void main() {
         await repo.create(name: 'Temiz Müşteri');
       });
 
-      await ekranaKoy(tester, CustomerListScreen(db: db, writable: true));
+      await ekranaKoy(tester, CustomerListScreen(db: db, writable: true, yetki: tamYetki));
 
       expect(find.text('Ayşe Yılmaz'), findsOneWidget);
       expect(find.text('Temiz Müşteri'), findsOneWidget);
@@ -114,7 +115,7 @@ void main() {
             phones: [PhoneInput(phoneE164: '+905321112233', isPrimary: true)]);
       });
 
-      await ekranaKoy(tester, CustomerListScreen(db: db, writable: true));
+      await ekranaKoy(tester, CustomerListScreen(db: db, writable: true, yetki: tamYetki));
 
       expect(find.text('Ayşe Yılmaz'), findsOneWidget);
       // `.mrow-av` ölü CSS: baş harf rozeti listede yer almaz.
@@ -134,7 +135,7 @@ void main() {
         await LedgerRepository(db).alacak(alacakli, 2500);
       });
 
-      await ekranaKoy(tester, CustomerListScreen(db: db, writable: true));
+      await ekranaKoy(tester, CustomerListScreen(db: db, writable: true, yetki: tamYetki));
 
       expect(tester.widget<Text>(find.text('50,00 ₺')).style?.color, t.danger);
       expect(tester.widget<Text>(find.text('25,00 ₺')).style?.color, t.ok);
@@ -157,7 +158,7 @@ void main() {
         );
       });
 
-      await ekranaKoy(tester, CustomerListScreen(db: db, writable: true));
+      await ekranaKoy(tester, CustomerListScreen(db: db, writable: true, yetki: tamYetki));
       expect(find.text('Bahçe Sk. no:5'), findsOneWidget);
       expect(find.textContaining('Kepez'), findsNothing);
       await kapat(tester);
@@ -166,7 +167,7 @@ void main() {
     testWidgets('salt-okunur kipte "Yeni" uyarı verir, form açılmaz', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
-      await ekranaKoy(tester, CustomerListScreen(db: db, writable: false));
+      await ekranaKoy(tester, CustomerListScreen(db: db, writable: false, yetki: tamYetki));
       await tester.tap(find.text('Yeni'));
       await tester.pump(const Duration(milliseconds: 100));
 
@@ -206,7 +207,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       final id = await musteriKur(tester, db, 'Borçlu Kişi', 12345);
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true, yetki: tamYetki));
 
       // SİPARİO 3.0: 34 px'lik hero kart ince şeride indi (s-musteriler.jsx:113-116) — etiket
       // "Bakiye", değer tek satırda "123,45 ₺ Borç" (BÜYÜK HARF DEĞİL).
@@ -223,13 +224,13 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       final alacakli = await musteriKur(tester, db, 'Alacaklı Kişi', -2500);
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: alacakli, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: alacakli, writable: true, yetki: tamYetki));
       expect(find.text('25,00 ₺ Alacak'), findsOneWidget);
       expect(seritZemini(tester), t.okSoft);
       await kapat(tester);
 
       final temiz = await musteriKur(tester, db, 'Temiz Kişi', 0);
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: temiz, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: temiz, writable: true, yetki: tamYetki));
       // 0'da tutar yerine tek sözcük ve — borç/alacak ayrımı olmadığı için — YEŞİL soft zemin.
       expect(find.text('Temiz'), findsOneWidget);
       expect(find.text('0,00 ₺'), findsNothing);
@@ -241,7 +242,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       final id = await musteriKur(tester, db, 'İki Eylem', 5000);
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true, yetki: tamYetki));
 
       expect(find.text('Sipariş'), findsOneWidget);
       expect(find.text('Tahsilat'), findsOneWidget);
@@ -261,7 +262,7 @@ void main() {
         id = await CustomerRepository(db).create(name: 'Telefonsuz');
       });
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true, yetki: tamYetki));
 
       // Tasarımda `.md-kart-tel` telefonsuzda BOŞ kalır (s-musteriler.jsx:106).
       expect(find.text('Telefonsuz'), findsOneWidget);
@@ -274,7 +275,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       final id = await musteriKur(tester, db, 'Tahsilatlı', 10000);
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true, yetki: tamYetki));
 
       await tester.tap(find.text('Tahsilat'));
       await tester.pumpAndSettle();
@@ -310,7 +311,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       final id = await musteriKur(tester, db, 'Düzeltmeli', 5000);
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true, yetki: tamYetki));
 
       // Düzeltme artık defter başlığının sağındaki bağlantıdan açılır (CSS `.md-duzelt-link`).
       await tester.tap(find.text('± Bakiye Düzeltme'));
@@ -360,7 +361,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       final id = await musteriKur(tester, db, 'Salt Okunur', 10000);
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: false));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: false, yetki: tamYetki));
 
       await tester.tap(find.text('Tahsilat'));
       await tester.pump(const Duration(milliseconds: 100));
@@ -376,7 +377,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       final id = await musteriKur(tester, db, 'Salt Okunur Düzeltme', 10000);
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: false));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: false, yetki: tamYetki));
 
       // Bağlantı salt-okunurda da ÇİZİLİR (tasarımda koşulsuz) — kapı toast'la kendini söyler.
       await tester.tap(find.text('± Bakiye Düzeltme'));
@@ -393,7 +394,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       final id = await musteriKur(tester, db, 'Mağaza Kural', 4500);
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true, yetki: tamYetki));
 
       for (final yasak in ['Abone', 'Satın al', 'Üye ol', 'Kaydol', 'Kayıt ol']) {
         expect(find.textContaining(yasak), findsNothing, reason: '"$yasak" mobilde gösterilemez');
@@ -416,7 +417,7 @@ void main() {
         await ledger.alacak(id, 1000);
       });
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true, yetki: tamYetki));
 
       expect(find.text('Borç'), findsOneWidget);
       expect(find.text('Tahsilat'), findsWidgets, reason: 'hızlı eylemde de aynı sözcük var');
@@ -437,7 +438,7 @@ void main() {
         await LedgerRepository(db).borcEkle(id, 4500);
       });
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true, yetki: tamYetki));
 
       await tester.tap(find.text('Borç'));
       await tester.pump(const Duration(milliseconds: 200));
@@ -463,7 +464,7 @@ void main() {
         await LedgerRepository(db).borcEkle(id, 8550);
       });
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true, yetki: tamYetki));
       await tester.tap(find.text('Tahsilat'));
       await tester.pumpAndSettle();
 

@@ -11,6 +11,7 @@ import 'package:sipario/screens/customers/customer_form_screen.dart' show normal
 import 'package:sipario/screens/customers/customer_list_screen.dart';
 import 'package:sipario/screens/login_screen.dart';
 import 'package:sipario/screens/money.dart';
+import 'support/yetki_yardimcilari.dart';
 
 /// Dilim 1 UI testleri: telefon normalizasyonu, para biçimi, giriş doğrulaması, müşteri listesi/arama.
 class _OkAuthApi implements AuthApi {
@@ -238,7 +239,7 @@ void main() {
         await LedgerRepository(db).borcEkle(borclu, 34000);
       });
 
-      await tester.pumpWidget(MaterialApp(home: CustomerListScreen(db: db, writable: true)));
+      await tester.pumpWidget(MaterialApp(home: CustomerListScreen(db: db, writable: true, yetki: tamYetki)));
       // İlk emit gerçek zamanda gelir; runAsync içinde bekle, sonra kareyi çiz.
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
@@ -270,7 +271,7 @@ void main() {
       // Sınanan DAVRANIŞ aynı kaldı: salt-okunur kipte form AÇILMAZ ve kullanıcı uyarılır.
       final db = AppDatabase(NativeDatabase.memory());
 
-      await tester.pumpWidget(MaterialApp(home: CustomerListScreen(db: db, writable: false)));
+      await tester.pumpWidget(MaterialApp(home: CustomerListScreen(db: db, writable: false, yetki: tamYetki)));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
       await tester.tap(find.text('Yeni'));

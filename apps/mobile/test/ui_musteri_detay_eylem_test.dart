@@ -17,6 +17,7 @@ import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/screens/customers/customer_detail_screen.dart';
 import 'package:sipario/screens/orders/musteri_eylemleri.dart';
 import 'package:sipario/theme/app_theme.dart';
+import 'support/yetki_yardimcilari.dart';
 
 class SahteAcici {
   SahteAcici({this.acilir = true});
@@ -75,7 +76,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MaterialApp(
       theme: SipTheme.acik(),
-      home: CustomerDetailScreen(db: db, customerId: id, writable: true),
+      home: CustomerDetailScreen(db: db, customerId: id, writable: true, yetki: tamYetki),
     ));
     await tester.pumpAndSettle();
   }

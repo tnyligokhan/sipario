@@ -13,6 +13,7 @@ import 'package:sipario/screens/day_end_screen.dart';
 import 'package:sipario/screens/money.dart';
 import 'package:sipario/theme/components/bicim.dart';
 import 'package:sipario/theme/tokens.dart';
+import 'support/yetki_yardimcilari.dart';
 
 /// Dilim 3 UI testleri: defter (hareket listesi/tahsilat/düzeltme) + gün sonu read-model.
 /// Sorgu ve özet mantığı ekrandan bağımsız fonksiyonlarda tutulur ve saf async sınanır
@@ -322,7 +323,7 @@ void main() {
       });
 
       await tester.pumpWidget(MaterialApp(
-        home: CustomerDetailScreen(db: db, customerId: cid, writable: false),
+        home: CustomerDetailScreen(db: db, customerId: cid, writable: false, yetki: tamYetki),
       ));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
@@ -350,7 +351,7 @@ void main() {
       });
 
       await tester.pumpWidget(MaterialApp(
-        home: CustomerDetailScreen(db: db, customerId: cid, writable: false),
+        home: CustomerDetailScreen(db: db, customerId: cid, writable: false, yetki: tamYetki),
       ));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
@@ -481,7 +482,7 @@ void main() {
       addTearDown(tester.view.reset);
 
       await tester.pumpWidget(MaterialApp(
-        home: CustomerDetailScreen(db: db, customerId: cid, writable: false),
+        home: CustomerDetailScreen(db: db, customerId: cid, writable: false, yetki: tamYetki),
       ));
       // Ekran İÇ İÇE akışlar dinliyor (müşteri → telefon/adres). Tek tur yetmiyor: dıştaki akış
       // çözülmeden içteki StreamBuilder ağaca hiç girmiyor.

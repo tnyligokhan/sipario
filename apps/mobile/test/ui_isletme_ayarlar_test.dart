@@ -17,6 +17,7 @@ import 'package:sipario/subscription/subscription_locked_screen.dart';
 import 'package:sipario/theme/components/atoms.dart';
 
 import 'support/ekran_yardimcilari.dart';
+import 'support/yetki_yardimcilari.dart';
 
 /// SİPARİO 3.0 AYAR/YÖNETİM ekranları — muaf telefonlar, işletme profili, kuryeler, ayarlar,
 /// abonelik kilidi. Ürünler ve Gün Sonu `ui_isletme_test.dart` içinde kaldı; dosya 500 satır
@@ -220,7 +221,7 @@ void main() {
     testWidgets('Ayarlar ekranında abonelik/ödeme/satın alma sözcüğü GEÇMEZ', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
-      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron'));
+      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron', yetki: tamYetki));
 
       // Apple 3.1.3(f) / Google Play: mobilde kayıt · üyelik · fiyat · abonelik · ödeme YOK.
       for (final yasak in [
@@ -263,7 +264,7 @@ void main() {
         (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
-      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron'));
+      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron', yetki: tamYetki));
 
       for (final bolum in ['Görünüm', 'Arayan Tanıma', 'İşletme', 'Hakkında']) {
         expect(find.text(bolum), findsOneWidget, reason: '$bolum bölümü tasarımda VAR');
@@ -292,7 +293,8 @@ void main() {
 
       await ekranaKoy(
         tester,
-        AyarlarEkrani(db: db, rol: 'patron', onOlcumler: () => acildi = true),
+        AyarlarEkrani(
+            db: db, rol: 'patron', yetki: tamYetki, onOlcumler: () => acildi = true),
       );
 
       expect(find.text('Gecikme ölçümleri'), findsOneWidget,
@@ -312,7 +314,7 @@ void main() {
       // dokunma davranışı tasarımda zaten dolu) — bağlantı kopmasın diye sınanıyor.
       final db = AppDatabase(NativeDatabase.memory());
 
-      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron'));
+      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron', yetki: tamYetki));
       expect(find.text('Çağrı Geçmişi'), findsOneWidget);
 
       await tester.tap(find.text('Çağrı Geçmişi'));
@@ -348,7 +350,7 @@ void main() {
             ));
       });
 
-      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron'));
+      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron', yetki: tamYetki));
       await dokun(tester, find.text('Çağrı Geçmişi'));
       await sheetAnimasyonu(tester);
 

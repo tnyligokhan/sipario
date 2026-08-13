@@ -19,6 +19,7 @@ import 'package:sipario/screens/orders/order_form_screen.dart';
 import 'package:sipario/screens/team.dart';
 
 import 'support/siparis_yardimci.dart';
+import 'support/yetki_yardimcilari.dart';
 
 void main() {
   group('yetkiler() — müşteri yönetimi rol kapısı', () {
@@ -142,7 +143,7 @@ void main() {
       });
 
       genisYuzey(tester);
-      await tester.pumpWidget(sipKabuk(CustomerListScreen(db: db, writable: true)));
+      await tester.pumpWidget(sipKabuk(CustomerListScreen(db: db, writable: true, yetki: tamYetki)));
       await akisiBekle(tester);
 
       expect(find.text('Kara Listelik'), findsOneWidget);
@@ -163,7 +164,7 @@ void main() {
       });
 
       genisYuzey(tester);
-      await tester.pumpWidget(sipKabuk(CustomerListScreen(db: db, writable: true)));
+      await tester.pumpWidget(sipKabuk(CustomerListScreen(db: db, writable: true, yetki: tamYetki)));
       await akisiBekle(tester);
 
       expect(find.text('Kalan Müşteri'), findsOneWidget);

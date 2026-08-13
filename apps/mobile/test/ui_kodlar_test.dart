@@ -21,6 +21,7 @@ import 'package:sipario/screens/orders/gecen_sure_pili.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
 
 import 'support/siparis_yardimci.dart';
+import 'support/yetki_yardimcilari.dart';
 
 void main() {
   group('gecenSure — açık siparişin bekleme süresi', () {
@@ -105,7 +106,7 @@ void main() {
       });
 
       genisYuzey(tester);
-      await tester.pumpWidget(sipKabuk(CustomerListScreen(db: db, writable: true)));
+      await tester.pumpWidget(sipKabuk(CustomerListScreen(db: db, writable: true, yetki: tamYetki)));
       await akisiBekle(tester);
 
       expect(find.text('102'), findsOneWidget);
