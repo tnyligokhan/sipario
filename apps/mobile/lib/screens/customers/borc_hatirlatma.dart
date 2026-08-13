@@ -50,6 +50,17 @@ const List<HatirlatmaYerTutucu> hatirlatmaYerTutuculari = [
 /// sonra "mesajım eski" diye fark eder.
 const int hatirlatmaSablonuAzamiUzunluk = 1000;
 
+/// Şablon form hatası; sorun yoksa `null`. Boş metin HATA DEĞİLDİR — "varsayılana dön" demektir.
+///
+/// KURAL BURADA, EKRANDA DEĞİL (2026-08-13): şablon düzenleme İşletme Profili formundan çıkıp
+/// kendi ekranına taşındı. Kural o formun doğrulayıcısında kalsaydı, taşınmayla birlikte
+/// SESSİZCE kaybolurdu — sınırı yalnız sunucu uygulardı ve bayi kaydettiğini sanardı.
+String? hatirlatmaSablonuHatasi(String? ham) {
+  final s = (ham ?? '').trim();
+  if (s.length <= hatirlatmaSablonuAzamiUzunluk) return null;
+  return 'Mesaj çok uzun ($hatirlatmaSablonuAzamiUzunluk karakter sınırı, şu an ${s.length})';
+}
+
 /// Bayiye DÜZENLEMESİ İÇİN sunulan başlangıç metni. Değerlendirildiğinde (tüm alanlar dolu)
 /// [borcHatirlatmaMesaji]'nin varsayılan çıktısıyla BİREBİR aynı metni verir — testle kilitli.
 ///

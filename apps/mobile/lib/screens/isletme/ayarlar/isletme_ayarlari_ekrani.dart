@@ -1,4 +1,17 @@
-// AYARLAR → İŞLETME — bayinin KENDİ bilgileri: profil, iletişim, sipariş kodu tercihi.
+// AYARLAR → İŞLETME — dükkânın kendi ayarları: kimlik, tahsilat, mesajlar, sipariş.
+//
+// ══ SAYFA BİR HUB'DIR, FORM DEĞİL (kullanıcı eleştirisi 2026-08-13) ════════════════════════
+// Eskiden buradaki tek satır ("Düzenle") YEDİ konuyu tek forma açıyordu. Kullanıcı haklı olarak
+// sordu: mesaj şablonları ve fiş bölümü neden İşletme Kimliği'nin içinde? Cevap: olmamalıydı.
+// Artık her konu kendi satırı ve kendi ekranı:
+//
+//   Kimlik   → ad, yetkili, iletişim, vergi, çalışma saatleri   (isletme_profili_ekrani.dart)
+//   Tahsilat → IBAN, alıcı adı, fiş notu (pasif)                (tahsilat_ayarlari_ekrani.dart)
+//   Mesajlar → müşteriye giden hazır metinler, N tane           (mesaj_sablonlari_ekrani.dart)
+//   Sipariş  → sipariş kodu tercihi                             (siparis_kodu_ayari.dart)
+//
+// Bölünme yalnız görsel değil: her ekran `save`e YALNIZ kendi alanlarını verir, geri kalanına
+// dokunmaz. Tek form olduğu sürece iki cihazın çevrimdışı düzenlemesi birbirini eziyordu.
 //
 // YALNIZ PATRON (operatör de dahil DEĞİL). Bu kapı bilinçli olarak `rol == 'patron'` string'ine
 // bakar, `RolYetkileri.isletmeAbonelikAyarlari` alanına değil — matriste o alan TANIMLI ama bu
@@ -19,6 +32,8 @@ import '../../../theme/tokens.dart';
 import '../isletme_atomlari.dart';
 import '../isletme_profili_ekrani.dart';
 import '../siparis_kodu_ayari.dart';
+import 'mesaj_sablonlari_ekrani.dart';
+import 'tahsilat_ayarlari_ekrani.dart';
 
 class IsletmeAyarlariEkrani extends StatelessWidget {
   const IsletmeAyarlariEkrani({
@@ -79,21 +94,55 @@ class _Govde extends StatelessWidget {
       if (telefon.isNotEmpty) sipTelefon(telefon),
     ].join(' · ');
 
+    // Her satır KENDİ DURUMUNU özetler: bayi hangi ayarın eksik olduğunu içeri girmeden görür.
+    // "Düzenle" düğmeleriyle dolu bir liste bunu yapamaz — hepsi aynı görünür, hiçbiri bilgi
+    // vermez.
+    final iban = ibanOkunur(profil?.iban);
+    final sablonOzel = (profil?.reminderTemplate ?? '').trim().isNotEmpty;
+
     return SipGovde(
       children: [
         const SipBolumBaslik('Kimlik', ustBosluk: 18),
         AyarKarti(satirlar: [
           AyarSatiri(
             ikon: SipIcons.home,
-            baslik: ad.isEmpty ? 'İşletme profili' : ad,
+            baslik: ad.isEmpty ? 'İşletme kimliği' : ad,
             altBaslik: iletisim.isEmpty ? 'Bilgileri tamamlayın' : iletisim,
-            sag: SipMetinButon(
-              etiket: 'Düzenle',
-              zemin: context.sip.surface2,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => IsletmeProfiliEkrani(db: db, writable: writable),
-                ),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => IsletmeProfiliEkrani(db: db, writable: writable),
+              ),
+            ),
+          ),
+        ]),
+
+        const SipBolumBaslik('Para', ustBosluk: 18),
+        AyarKarti(satirlar: [
+          AyarSatiri(
+            ikon: SipIcons.wallet,
+            baslik: 'Tahsilat',
+            // IBAN'IN VARLIĞI ÖZETTE GÖRÜNÜR: borç hatırlatma düğmesi IBAN yoksa çalışmıyor ve
+            // bayi nedenini ancak borçlular ekranında öğreniyordu.
+            altBaslik: iban.isEmpty ? 'IBAN girilmedi' : iban,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => TahsilatAyarlariEkrani(db: db, writable: writable),
+              ),
+            ),
+          ),
+        ]),
+
+        const SipBolumBaslik('Müşteriye giden', ustBosluk: 18),
+        AyarKarti(satirlar: [
+          AyarSatiri(
+            ikon: SipIcons.chat,
+            baslik: 'Mesajlar',
+            altBaslik: sablonOzel
+                ? '${kMesajSablonlari.length} şablon · özelleştirilmiş'
+                : '${kMesajSablonlari.length} şablon · varsayılan metin',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => MesajSablonlariEkrani(db: db, writable: writable),
               ),
             ),
           ),

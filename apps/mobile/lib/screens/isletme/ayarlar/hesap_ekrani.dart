@@ -1,10 +1,14 @@
-// HESAP — oturumu açık kullanıcının kendi kimliği ve oturum eylemleri.
+// HESAP — oturumu açık kullanıcının kimliği, cihazları ve oturum eylemleri.
 //
-// NEDEN AYRI BİR SAYFA (kullanıcı isteği 2026-08-13): uygulamada "hesap" diye bir kavram HİÇ
-// YOKTU. Kullanıcı kendi adını, rolünü, hangi firmaya bağlı olduğunu hiçbir yerde göremiyordu;
-// yapabildiği tek şey çekmecenin dibindeki güç düğmesiyle çıkmaktı. Oysa bu ekranın cevapladığı
-// sorular günlük destek çağrılarının ta kendisi: "ben kim olarak girmişim", "bu telefon hangi
-// bayiye bağlı", "yanlış hesapla girmişim galiba".
+// ══ SAYFA NEDEN VAR — İKİNCİ CEVAP (kullanıcı eleştirisi 2026-08-13) ══════════════════════
+// İlk hâli yalnız kullanıcının adını ve rolünü yazıyordu ve kullanıcı haklı olarak sordu:
+// *"Hesabım sayfasının varlık amacı ne, hiçbir şeye yaramıyor, neden var?"* Sayfanın gösterdiği
+// her şey (ad, rol, çıkış) çekmecede ZATEN vardı — yani aynı bilgiyi ikinci bir UI ile tekrar
+// ediyordu, tam da kullanıcının bir önceki vardiyada uyardığı hata.
+//
+// Sayfanın hak ettiği varlık nedeni EYLEMDİR, özet değil. Bir hesap sayfasının cevapladığı ve
+// ürünün hiçbir yerinde cevaplanmayan soru şuydu: **hesabım hangi telefonlarda açık?** Cihazlar
+// satırı bunu getirdi; kimlik satırları artık o eylemin bağlamı, sayfanın gerekçesi değil.
 //
 // MAĞAZA KURALI (pazarlıksız, `ayarlar_ekrani.dart` ile aynı): burada abonelik · ödeme · satın
 // alma · fiyat · üyelik bağlantısı OLAMAZ. Lisans bilgisi Hakkında sayfasında NÖTR bir satır
@@ -24,6 +28,7 @@ import '../../../theme/components/states.dart';
 import '../../../theme/icons.dart';
 import '../../../theme/tokens.dart';
 import '../isletme_atomlari.dart';
+import 'cihazlar_ekrani.dart';
 
 /// Rolün ekranda okunan adı. Çekmecedeki `SipCekmece.rolAdi` ile AYNI sözcükleri kullanır —
 /// iki yüzey aynı kişiye iki farklı unvan derse bayi hangisinin doğru olduğunu sorar.
@@ -79,7 +84,8 @@ class HesapEkrani extends StatelessWidget {
               // birden çok kez bayat ekran üretti.
               child: StreamBuilder<SyncMetaData>(
                 stream: db.watchSyncState(),
-                builder: (context, snap) => _Govde(meta: snap.data, onCikis: onCikis),
+                builder: (context, snap) =>
+                    _Govde(db: db, meta: snap.data, onCikis: onCikis),
               ),
             ),
           ],
@@ -90,8 +96,9 @@ class HesapEkrani extends StatelessWidget {
 }
 
 class _Govde extends StatelessWidget {
-  const _Govde({required this.meta, required this.onCikis});
+  const _Govde({required this.db, required this.meta, required this.onCikis});
 
+  final AppDatabase db;
   final SyncMetaData? meta;
   final VoidCallback onCikis;
 
@@ -121,6 +128,15 @@ class _Govde extends StatelessWidget {
 
         const SipBolumBaslik('Güvenlik', ustBosluk: 18),
         AyarKarti(satirlar: [
+          // SAYFANIN ASIL İŞİ: ürünün başka hiçbir yerinde sorulamayan soruyu sorar.
+          AyarSatiri(
+            ikon: SipIcons.phone,
+            baslik: 'Cihazlar',
+            altBaslik: 'Hesabınızın açık olduğu telefonlar',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => CihazlarEkrani(db: db)),
+            ),
+          ),
           // ÇIKIŞ BURADA DA VAR ve çekmecenin dibindeki güç düğmesiyle AYNI akışı çağırır.
           // İki giriş noktası bilinçli: çekmecedeki ikon tek başına ne yaptığını söylemiyor
           // (metinsiz bir güç simgesi), buradaki satır ise adıyla duruyor. İkisi de tek

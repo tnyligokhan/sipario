@@ -143,7 +143,7 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
                     AyarSatiri(
                       ikon: SipIcons.user,
                       baslik: 'Hesap',
-                      altBaslik: 'Kullanıcı, rol ve oturum',
+                      altBaslik: 'Kullanıcı, cihazlar ve oturum',
                       onTap: () => _ac(HesapEkrani(
                         db: widget.db,
                         session: session,

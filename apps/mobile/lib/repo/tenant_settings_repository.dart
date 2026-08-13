@@ -27,55 +27,82 @@ class TenantSettingsRepository {
     return (tenantCode: meta.tenantCode, routeCredits: meta.routeCredits);
   }
 
-  /// Profili kaydet. TÜM alanlar birlikte yazılır (LWW upsert doğası: sunucu satırı gelen payload'la
-  /// değiştirir) — çağıran formun güncel tam hâlini verir.
+  /// Profili kaydet — KISMİ GÜNCELLEME. Yalnız VERİLEN alanlar değişir, verilmeyen her alan
+  /// cihazdaki mevcut değerinden taşınır.
+  ///
+  /// ══ NEDEN `Value<>` SENTİNELİ, NEDEN DÜZ `String?` DEĞİL (2026-08-13) ═══════════════════
+  /// Bu yazım bir LWW UPSERT'tir: sunucu satırı gelen payload'la DEĞİŞTİRİR. İmza düz `String?`
+  /// olduğu sürece "alan verilmedi" ile "alan boşaltılsın" AYNI ŞEYE (null) benziyordu, yani
+  /// her çağıran TÜM alanları göndermek zorundaydı. Bedeli koda yazılmıştı: `kuryeIzinleriKaydet`
+  /// ve `siparisKoduTercihiKaydet` metotlarının her biri 14 alanı ELLE taşıyan birer kopyaydı
+  /// ve doc'ta "aynı disiplin ileride eklenecek her form dışı ayar için de geçerlidir" yazıyordu
+  /// — yani her yeni ayar ekranı ÜÇÜNCÜ, DÖRDÜNCÜ kopyayı doğuracaktı. Bir alanı listeye
+  /// eklemeyi unutmanın cezası sessizdi: bayi sipariş kodunu değiştirince IBAN'ı silinirdi.
+  ///
+  /// `Value.absent()` bu iki hâli AYIRIR: `Value(null)` "boşalt" demektir ve çalışır,
+  /// `Value.absent()` "dokunma" demektir. Böylece ayarların ekranlara bölünmesi güvenli hâle
+  /// gelir — her ekran YALNIZ kendi alanlarını gönderir ve diğerlerini bilmesi GEREKMEZ.
   Future<void> save({
-    String? businessName,
-    String? ownerName,
-    String? phone,
-    String? whatsapp,
-    String? addressText,
-    String? taxOffice,
-    String? taxNumber,
-    String? opensAt,
-    String? closesAt,
-    String? receiptNote,
-    String? iban,
-    String? ibanOwnerName,
-    String? reminderTemplate,
-    String? orderCodeDisplay,
+    Value<String?> businessName = const Value.absent(),
+    Value<String?> ownerName = const Value.absent(),
+    Value<String?> phone = const Value.absent(),
+    Value<String?> whatsapp = const Value.absent(),
+    Value<String?> addressText = const Value.absent(),
+    Value<String?> taxOffice = const Value.absent(),
+    Value<String?> taxNumber = const Value.absent(),
+    Value<String?> opensAt = const Value.absent(),
+    Value<String?> closesAt = const Value.absent(),
+    Value<String?> receiptNote = const Value.absent(),
+    Value<String?> iban = const Value.absent(),
+    Value<String?> ibanOwnerName = const Value.absent(),
+    Value<String?> reminderTemplate = const Value.absent(),
+    Value<String> orderCodeDisplay = const Value.absent(),
     KuryeIzinleri? kuryeIzin,
   }) async {
     final meta = await db.syncState();
     final at = correctedNowIso(meta.serverTimeOffsetMs);
     final device = meta.deviceId;
 
-    // TUZAK (2026-07-29): bu yazım LWW upsert'tir — sunucu satırı gelen payload'la DEĞİŞTİRİR.
-    // Sipariş kodu tercihi işletme profili formuna ait DEĞİL (ayrı bir ekranda yaşıyor), ama
-    // payload'da eksik kalırsa sunucu onu varsayılana çeker: bayi adresini düzeltince kod
-    // tercihi sessizce geri dönerdi. Bu yüzden alan, açıkça verilmediyse MEVCUT değerden
-    // taşınır. Aynı disiplin ileride eklenecek her "form dışı" ayar için de geçerlidir.
     final mevcut = await get();
-    final kodTercihi = orderCodeDisplay ?? mevcut?.orderCodeDisplay ?? 'musteri';
-    // Kurye yetkileri de "form dışı ayar"dır (2026-08-04) ve yukarıdaki TUZAĞIN aynısına tabidir:
-    // işletme profili formu bu anahtarları bilmez; payload'da eksik kalırsa sunucu onları
-    // VARSAYILANA çeker ve bayi adresini düzeltince kapattığı iskonto yetkisi sessizce geri açılır.
+
+    /// Verilmeyen alan MEVCUT değerinden taşınır; `Value(null)` ise gerçekten boşaltılır.
+    String? al(Value<String?> v, String? simdiki) => v.present ? v.value : simdiki;
+
+    final ad = al(businessName, mevcut?.businessName);
+    final sahip = al(ownerName, mevcut?.ownerName);
+    final tel = al(phone, mevcut?.phone);
+    final wa = al(whatsapp, mevcut?.whatsapp);
+    final adres = al(addressText, mevcut?.addressText);
+    final vDaire = al(taxOffice, mevcut?.taxOffice);
+    final vNo = al(taxNumber, mevcut?.taxNumber);
+    final acilis = al(opensAt, mevcut?.opensAt);
+    final kapanis = al(closesAt, mevcut?.closesAt);
+    final fisNotu = al(receiptNote, mevcut?.receiptNote);
+    final ibanNo = al(iban, mevcut?.iban);
+    final ibanAd = al(ibanOwnerName, mevcut?.ibanOwnerName);
+    final sablon = al(reminderTemplate, mevcut?.reminderTemplate);
+    final kodTercihi = orderCodeDisplay.present
+        ? orderCodeDisplay.value
+        : (mevcut?.orderCodeDisplay ?? 'musteri');
+    // Kurye yetkileri de aynı kuralla taşınır (2026-08-04): yetki ekranı dışındaki hiçbir
+    // çağıran bu 13 anahtarı bilmez; eksik gönderilirse sunucu onları VARSAYILANA çeker ve
+    // bayi adresini düzeltince kapattığı iskonto yetkisi sessizce geri açılırdı.
     final izin = kuryeIzin ?? kuryeIzinleriOku(mevcut);
 
     final payload = <String, Object?>{
-      'business_name': businessName,
-      'owner_name': ownerName,
-      'phone': phone,
-      'whatsapp': whatsapp,
-      'address_text': addressText,
-      'tax_office': taxOffice,
-      'tax_number': taxNumber,
-      'opens_at': opensAt,
-      'closes_at': closesAt,
-      'receipt_note': receiptNote,
-      'iban': iban,
-      'iban_owner_name': ibanOwnerName,
-      'reminder_template': reminderTemplate,
+      'business_name': ad,
+      'owner_name': sahip,
+      'phone': tel,
+      'whatsapp': wa,
+      'address_text': adres,
+      'tax_office': vDaire,
+      'tax_number': vNo,
+      'opens_at': acilis,
+      'closes_at': kapanis,
+      'receipt_note': fisNotu,
+      'iban': ibanNo,
+      'iban_owner_name': ibanAd,
+      'reminder_template': sablon,
       'courier_can_customers': izin.musteri,
       'courier_can_orders': izin.siparis,
       'courier_can_collect': izin.tahsilat,
@@ -95,19 +122,19 @@ class TenantSettingsRepository {
     await db.transaction(() async {
       await db.into(db.tenantSettings).insertOnConflictUpdate(TenantSettingsCompanion(
             id: const Value(1),
-            businessName: Value(businessName),
-            ownerName: Value(ownerName),
-            phone: Value(phone),
-            whatsapp: Value(whatsapp),
-            addressText: Value(addressText),
-            taxOffice: Value(taxOffice),
-            taxNumber: Value(taxNumber),
-            opensAt: Value(opensAt),
-            closesAt: Value(closesAt),
-            receiptNote: Value(receiptNote),
-            iban: Value(iban),
-            ibanOwnerName: Value(ibanOwnerName),
-            reminderTemplate: Value(reminderTemplate),
+            businessName: Value(ad),
+            ownerName: Value(sahip),
+            phone: Value(tel),
+            whatsapp: Value(wa),
+            addressText: Value(adres),
+            taxOffice: Value(vDaire),
+            taxNumber: Value(vNo),
+            opensAt: Value(acilis),
+            closesAt: Value(kapanis),
+            receiptNote: Value(fisNotu),
+            iban: Value(ibanNo),
+            ibanOwnerName: Value(ibanAd),
+            reminderTemplate: Value(sablon),
             courierCanCustomers: Value(izin.musteri),
             courierCanOrders: Value(izin.siparis),
             courierCanCollect: Value(izin.tahsilat),
@@ -137,53 +164,15 @@ class TenantSettingsRepository {
     });
   }
 
-  /// Yalnız KURYE YETKİLERİNİ değiştirir; profilin geri kalanı olduğu gibi taşınır
-  /// (kullanıcı isteği 2026-08-04). Gerekçe `siparisKoduTercihiKaydet` ile birebir aynı:
-  /// yetki ekranı işletme profilinin alanlarını (unvan, vergi no, IBAN…) bilmez ve bilseydi
-  /// onları eksik gönderip sunucudaki profili boşaltma riski doğardı.
-  Future<void> kuryeIzinleriKaydet(KuryeIzinleri izin) async {
-    final m = await get();
-    await save(
-      businessName: m?.businessName,
-      ownerName: m?.ownerName,
-      phone: m?.phone,
-      whatsapp: m?.whatsapp,
-      addressText: m?.addressText,
-      taxOffice: m?.taxOffice,
-      taxNumber: m?.taxNumber,
-      opensAt: m?.opensAt,
-      closesAt: m?.closesAt,
-      receiptNote: m?.receiptNote,
-      iban: m?.iban,
-      ibanOwnerName: m?.ibanOwnerName,
-      reminderTemplate: m?.reminderTemplate,
-      orderCodeDisplay: m?.orderCodeDisplay,
-      kuryeIzin: izin,
-    );
-  }
-
-  /// Yalnız sipariş kodu tercihini değiştirir; profilin geri kalanı OLDUĞU GİBİ taşınır.
+  /// Yalnız KURYE YETKİLERİNİ değiştirir; profilin geri kalanına DOKUNMAZ.
   ///
-  /// Ayrı bir metot çünkü tercih ayrı bir ekranda yaşıyor ve o ekran işletme profilinin
-  /// alanlarını (unvan, vergi no…) bilmez — bilseydi, o alanları eksik gönderip sunucudaki
-  /// profili boşaltma riski doğardı (LWW upsert satırı payload'la değiştirir).
-  Future<void> siparisKoduTercihiKaydet(String tercih) async {
-    final m = await get();
-    await save(
-      businessName: m?.businessName,
-      ownerName: m?.ownerName,
-      phone: m?.phone,
-      whatsapp: m?.whatsapp,
-      addressText: m?.addressText,
-      taxOffice: m?.taxOffice,
-      taxNumber: m?.taxNumber,
-      opensAt: m?.opensAt,
-      closesAt: m?.closesAt,
-      receiptNote: m?.receiptNote,
-      iban: m?.iban,
-      ibanOwnerName: m?.ibanOwnerName,
-      reminderTemplate: m?.reminderTemplate,
-      orderCodeDisplay: tercih,
-    );
-  }
+  /// ESKİDEN 14 ALANI ELLE TAŞIYAN BİR KOPYAYDI (kardeşi [siparisKoduTercihiKaydet] ile birlikte
+  /// İKİ kopya). `save` kısmi güncellemeye geçince (2026-08-13) ikisi de tek satıra indi ve asıl
+  /// kazanç satır sayısı DEĞİL: yeni bir ayar ekranı artık üçüncü bir kopya doğurmuyor, yani
+  /// "listeye bir alan eklemeyi unutunca bayinin IBAN'ını silme" hatası yapısal olarak kalktı.
+  Future<void> kuryeIzinleriKaydet(KuryeIzinleri izin) => save(kuryeIzin: izin);
+
+  /// Yalnız sipariş kodu tercihini değiştirir; profilin geri kalanına DOKUNMAZ.
+  Future<void> siparisKoduTercihiKaydet(String tercih) =>
+      save(orderCodeDisplay: Value(tercih));
 }

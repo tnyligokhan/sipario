@@ -243,7 +243,65 @@
 >
 ## Güncel durum
 
-### 🔻 2026-08-13/2 — ARA TAHSİLAT: YETKİ DARALDI + İPTAL GELDİ (mobil 0.15.0 → **0.16.0**, API 1.3.0 → **1.4.0**)
+### 🔻 2026-08-13/3 — AYARLAR KONULARINA BÖLÜNDÜ + HESAP SAYFASINA VARLIK NEDENİ (mobil 0.20.1 → **0.21.0**, API DEĞİŞMEDİ 1.6.0)
+
+Kullanıcının cümlesi: *"Ayarlarda bulunan Hesap ve İşletme sayfaları çok işlevsiz! Özellikle
+Hesabım sayfasının varlık amacı ne, hiçbir şeye yaramıyor neden var? … İşletme Kimliği düzenleme
+içerisindeki bir çok şey orada olmasa da olur… mesaj şablonları ilerleyen zamanlarda mesaj sayısı
+artacak orada olmaya devam mı edecek! Fiş bölümü özellikle… Lütfen kafanı çalıştır, geleceğe
+yönelik olmalı!"*
+
+**1. ÖNCE TEMEL, SONRA SAYFA.** Bölme doğrudan yapılamazdı: `TenantSettingsRepository.save` bir
+LWW UPSERT ve imzası düz `String?` olduğu için "alan verilmedi" ile "alan boşaltılsın" aynı şeye
+(null) benziyordu — her çağıran 14 alanı birden göndermek zorundaydı. Bedeli koda YAZILIYDI:
+`kuryeIzinleriKaydet` ve `siparisKoduTercihiKaydet` her biri 14 alanı elle taşıyan birer kopyaydı
+ve doc'ta "aynı disiplin ileride eklenecek her ayar için de geçerli" yazıyordu. Drift'in `Value<>`
+sentineli getirildi (`Value.absent()` = dokunma, `Value(null)` = boşalt); iki kopya tek satıra
+indi. Asıl kazanç satır sayısı değil: bir alanı listeye eklemeyi unutunca bayinin IBAN'ını sessizce
+silme hatası YAPISAL olarak kalktı.
+
+**2. İşletme dört konuya ayrıldı.** Kimlik (ad·yetkili·iletişim·vergi·saatler) ·
+**Tahsilat** (IBAN + alıcı adı + fiş notu) · **Mesajlar** · Sipariş. Ayarlar listesindeki her satır
+KENDİ DURUMUNU özetliyor (IBAN girilmemişse orada yazıyor) — "Düzenle" düğmeleriyle dolu bir liste
+hiçbir bilgi vermiyordu.
+
+**3. Mesajlar bir LİSTE olarak kuruldu, tek alan olarak değil** — kullanıcının asıl endişesi
+buydu. Yeni şablon eklemek `kMesajSablonlari` sabitine bir kayıt yazmaktır; ekran değişmez.
+
+**4. Kurallar ekranla birlikte taşındı.** `ibanHatasi` zaten `iban.dart`taydı; şablon sınırı
+`hatirlatmaSablonuHatasi` olarak `borc_hatirlatma.dart`a çıktı. Kuralı eski form doğrulayıcısında
+bırakmak, çağıranı olmayan bir dalı testin yeşil tuttuğu ölü kod demekti.
+
+**5. HESAP SAYFASINA CİHAZLAR EKLENDİ.** Sayfanın gösterdiği her şey (ad, rol, çıkış) çekmecede
+zaten vardı — yani aynı bilgiyi ikinci bir UI ile tekrar ediyordu, tam da kullanıcının bir önceki
+vardiyada uyardığı hata. Cihazlar, ürünün hiçbir yerinde sorulamayan soruyu cevaplıyor: hesabım
+hangi telefonlarda açık, hangisi en son ne zaman görüldü. Mevcut `GET /devices` kullanıldı, sunucu
+değişmedi.
+
+> ⚠️ **UZAKTAN OTURUM KAPATMA BİLEREK EKLENMEDİ ve bu bir eksiklik olarak KAYITLIDIR.** Sunucuda
+> jeton ile cihaz kaydı arasında bağ yok — `AuthController` jetonu düz `'mobile'` adıyla üretiyor.
+> Bir "Oturumu kapat" düğmesi bayiye kapattığını sandırır, telefon çalışmaya devam ederdi; güvenlik
+> ekranında olabilecek en kötü şey. Düğmenin sessizce eklenmesini engelleyen bir test yazıldı
+> (`cihazlar_test.dart`). Liste ÇEVRİMDIŞI ÖNBELLEKLENMİYOR: bayat liste "eski telefonum artık
+> bağlı değil" diye yanlış bir güvenlik izlenimi üretirdi — ağ yoksa ekran boş liste değil hata
+> gösteriyor, bu da testle kilitli.
+
+**ÖLÇÜMLER (bizzat koşuldu):** `flutter analyze` **temiz** · **1309 mobil test yeşil** (tam takım).
+API'ye dokunulmadı, sürümü 1.6.0'da kaldı — iki hat bağımsızdır.
+
+**SIRADAKİ İŞLER (bu vardiyadan devreden):**
+1. **Uzaktan oturum kapatma** — sunucuda jeton↔cihaz bağı kurulmalı (`createToken('mobile')`
+   yerine cihaz kimliğini taşıyan ad + revoke uç noktası), sonra Cihazlar ekranına düğme.
+   Eski istemci uyumu YAZILI olarak kararlaştırılmalı (bağsız eski jetonlar ne olacak).
+2. **Uygulama kilidi (PIN/biyometrik)** — yeni paket + native dokunuş; `flutter build apk
+   --release` kapısı ZORUNLU (desugaring tuzağı).
+3. **Karantina dökümü** (`outbox.lastError` + detay ekranı) — önceki vardiyalardan devreden borç.
+4. **Ölü kod temizliği** — `OrderDetailScreen` (hiç örneklenmiyor), `phase0/setup_wizard.dart`,
+   "Gelen çağrıyı dene" ayarlardan kurulum sihirbazına.
+5. `day_end_screen.dart` **513 satır** — 500 sınırının 13 satır üstünde (azalan borç, yine borç).
+
+### (ÖNCEKİ) 2026-08-13/2 — ARA TAHSİLAT: YETKİ DARALDI + İPTAL GELDİ (mobil 0.15.0 → **0.16.0**, API 1.3.0 → **1.4.0**)
+
 
 Kullanıcının iki cümlesi: *"Gün sonu tarafında Yönetici tahsilat silebilmeli"* ve *"Kurye ara
 tahsilat yapamaz sadece patron."*

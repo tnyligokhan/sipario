@@ -51,6 +51,24 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.21.0',
+    tarih: '13 Ağustos 2026',
+    maddeler: [
+      'İşletme ayarları konularına ayrıldı. Kimlik, Tahsilat, Mesajlar ve Sipariş artık ayrı '
+          'sayfalar; eskiden hepsi tek bir uzun formdu.',
+      'IBAN ve alıcı adı Tahsilat sayfasına taşındı. Ayarlar listesinde IBAN\'ınız görünüyor, '
+          'girilmemişse bunu içeri girmeden fark ediyorsunuz.',
+      'Hatırlatma metni artık Mesajlar sayfasında ve sayfa birden çok metni taşıyacak şekilde '
+          'kuruldu — ileride eklenecek metinler aynı yerde toplanacak.',
+      'Fiş alt notu Tahsilat sayfasına geçti; İşletme Kimliği ile ilgisi yoktu. Alan hâlâ '
+          '"Çok yakında".',
+      'Bir sayfayı kaydetmek diğer sayfaların bilgisine artık dokunmuyor. Önceden yan sayfadaki '
+          'bir alanın sessizce boşalması mümkündü.',
+      'Hesap sayfasına Cihazlar eklendi: hesabınızın hangi telefonlarda açık olduğunu, her '
+          'birinin en son ne zaman görüldüğünü görüyorsunuz.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.20.1',
     tarih: '13 Ağustos 2026',
     maddeler: [

@@ -170,7 +170,8 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         final repo = TenantSettingsRepository(db);
-        await repo.save(businessName: 'Öz Pınar Su', phone: '02422222222');
+        await repo.save(
+            businessName: const Value('Öz Pınar Su'), phone: const Value('02422222222'));
         await repo.siparisKoduTercihiKaydet('siparis');
 
         final kuyruk = await db.select(db.outbox).get();

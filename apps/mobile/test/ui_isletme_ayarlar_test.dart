@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -115,68 +116,7 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('IBAN alıcı adı ve mesaj şablonu görünür, kaydedilir; çip imlece jeton ekler',
-        (tester) async {
-      // Kullanıcı isteği 2026-08-06. Alanlar `_alan` sırasına göre: … iban(9) · ibanAlici(10) ·
-      // sablon(11) · fisNotu(12).
-      final db = AppDatabase(NativeDatabase.memory());
-      final repo = TenantSettingsRepository(db);
-
-      await ekranaKoy(tester, IsletmeProfiliEkrani(db: db));
-
-      // Alanların VARLIĞI etiketleriyle kanıtlanır: alan sırasına dayanan bir test, araya bir
-      // alan eklendiğinde sessizce başka bir alanı sınamaya başlardı.
-      expect(find.text('IBAN ALICI ADI'), findsOneWidget);
-      expect(find.text('Hatırlatma Mesajı'), findsOneWidget);
-      // Bayi yer tutucuları EZBERLEMEK zorunda kalmamalı — ekranda dururlar.
-      expect(find.text('Müşteri adı'), findsOneWidget);
-      expect(find.text('IBAN + alıcı'), findsOneWidget);
-
-      final alanlar = find.byType(TextField);
-      await tester.enterText(alanlar.at(0), 'Merkez Bayi');
-      await tester.enterText(alanlar.at(1), 'Gökhan Tonyalı');
-      await tester.enterText(alanlar.at(2), '0242 111 22 33');
-      await tester.enterText(alanlar.at(10), 'Mehmet Yılmaz');
-      await tester.enterText(alanlar.at(11), 'Sayın ');
-      await tester.pump();
-
-      // Çip: imleç (enterText sonrası metnin SONUNDA) konumuna jeton eklenir.
-      await dokun(tester, find.text('Müşteri adı'));
-      expect(tester.widget<TextField>(alanlar.at(11)).controller!.text, 'Sayın *musteriadi*');
-
-      await dokun(tester, find.text('Kaydet'));
-
-      final satir = await tester.runAsync(() => repo.get());
-      expect(satir!.ibanOwnerName, 'Mehmet Yılmaz');
-      expect(satir.reminderTemplate, 'Sayın *musteriadi*');
-
-      await kapat(tester);
-    });
-
-    testWidgets('şablonu boş bırakmak varsayılana döner — null yazılır, boş dize değil',
-        (tester) async {
-      // null ile boş dize AYRI şeyler olsaydı, boşaltılan şablon "özel metin var ama boş" diye
-      // okunur ve borçluya BOŞ bir WhatsApp mesajı hazırlanırdı.
-      final db = AppDatabase(NativeDatabase.memory());
-      final repo = TenantSettingsRepository(db);
-
-      await ekranaKoy(tester, IsletmeProfiliEkrani(db: db));
-
-      final alanlar = find.byType(TextField);
-      await tester.enterText(alanlar.at(0), 'Merkez Bayi');
-      await tester.enterText(alanlar.at(1), 'Gökhan Tonyalı');
-      await tester.enterText(alanlar.at(2), '0242 111 22 33');
-      await tester.pump();
-      await dokun(tester, find.text('Kaydet'));
-
-      final satir = await tester.runAsync(() => repo.get());
-      expect(satir!.reminderTemplate, isNull);
-      expect(satir.ibanOwnerName, isNull);
-
-      await kapat(tester);
-    });
-
-    testWidgets('zorunlu alanlar yıldızlı; fiş notunda ikinci etiket yok', (tester) async {
+    testWidgets('zorunlu alanlar yıldızlı; adres fiş VAAT ETMEZ', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
       await ekranaKoy(tester, IsletmeProfiliEkrani(db: db));
@@ -188,42 +128,67 @@ void main() {
       expect(find.text('TELEFON *'), findsOneWidget);
       expect(find.text('WHATSAPP HATTI'), findsOneWidget,
           reason: 'opsiyonel alan yıldız TAŞIMAZ — işaret ayırt edici olmalı');
-      expect(find.text('FİŞ NOTU'), findsNothing,
-          reason: 'bölüm başlığı "Fiş Alt Notu" zaten aynı şeyi söylüyor (tasarımda etiket yok)');
 
-      await kapat(tester);
-    });
-
-    testWidgets('FİŞ ALANI PASİF ve "Çok yakında" işaretli; adres fiş VAAT ETMEZ',
-        (tester) async {
-      // Kullanıcı kararı 2026-08-13. `receipt_note` kolonu var, form yazıyor, senkron taşıyor
-      // — ama onu OKUYAN hiçbir yer yok: uygulamada fiş/teslim belgesi diye bir çıktı
-      // üretilmiyor. Alan normal görünümde kaldığı sürece ürün tutmayacağı bir söz veriyordu:
-      // bayi doldurur, kaydeder, sonucunu hiçbir yerde göremez.
-      //
-      // BU TEST GERİ AÇILMAYI ENGELLER: fiş özelliği gelince alan bilinçli olarak açılacak ve
-      // bu test o gün BİLEREK güncellenecek. Kilit olmasaydı, alan bir refactor sırasında
-      // sessizce yazılabilir hâle döner ve aynı yanlış söz geri gelirdi.
-      final db = AppDatabase(NativeDatabase.memory());
-
-      await ekranaKoy(tester, IsletmeProfiliEkrani(db: db));
-
-      expect(find.text('Çok yakında'), findsOneWidget);
-      expect(find.text('Fiş Alt Notu'), findsOneWidget,
-          reason: 'bölüm görünür kalır — özellik geliyor, kaldırılmıyor');
-
-      // Alan PASİF: rozet tek başına yetmez, yazılabilir bırakmak aynı sözü kibarca vermektir.
-      final fisAlani = find.widgetWithText(SipInput, 'Teslim fişi özelliğiyle birlikte açılacak');
-      expect(tester.widget<SipInput>(fisAlani).aktif, isFalse);
-
-      // ADRES İPUCU ARTIK FİŞ VAAT ETMİYOR (eskiden "Dükkân adresi (fişte görünür)").
+      // ADRES İPUCU FİŞ VAAT ETMİYOR (eskiden "Dükkân adresi (fişte görünür)").
       expect(find.text('Dükkân adresi'), findsOneWidget);
       expect(find.textContaining('fişte görünür'), findsNothing);
 
       await kapat(tester);
     });
-  });
 
+    testWidgets('SAYFA YALNIZ KİMLİKTİR — IBAN, şablon ve fiş burada DEĞİL', (tester) async {
+      // Kullanıcı eleştirisi 2026-08-13: yedi ayrı konu tek forma yığılmıştı ve mesaj şablonu
+      // sayısı arttıkça vergi numarası bir metin duvarının içinde kaybolacaktı. Bu test
+      // GERİ YIĞILMAYI engeller: bir sonraki ayar "hemen şuraya da ekleyeyim" diye buraya
+      // düşerse kırılır ve kendi sayfasına gitmesi gerektiğini söyler.
+      final db = AppDatabase(NativeDatabase.memory());
+
+      await ekranaKoy(tester, IsletmeProfiliEkrani(db: db));
+
+      expect(find.text('IBAN'), findsNothing, reason: 'IBAN → Ayarlar · Tahsilat');
+      expect(find.text('IBAN ALICI ADI'), findsNothing);
+      expect(find.text('Hatırlatma Mesajı'), findsNothing, reason: 'şablon → Ayarlar · Mesajlar');
+      expect(find.text('Fiş Alt Notu'), findsNothing, reason: 'fiş → Ayarlar · Tahsilat');
+
+      await kapat(tester);
+    });
+
+    testWidgets('KISMİ KAYIT: kimlik kaydı IBAN ve şablona DOKUNMAZ', (tester) async {
+      // ASIL KİLİT BU. Ayarlar ekranlara bölününce her ekran `save`e yalnız kendi alanlarını
+      // veriyor; `save` bir LWW UPSERT olduğu için verilmeyen alan taşınmazsa SİLİNİR. Bu test
+      // olmadan, kimlik formundan yapılan masum bir kayıt bayinin IBAN'ını sessizce siler ve
+      // bunu ancak borçlulara mesaj göndermeye çalışınca fark ederdi.
+      final db = AppDatabase(NativeDatabase.memory());
+      final repo = TenantSettingsRepository(db);
+      await tester.runAsync(() => repo.save(
+            iban: const Value('TR330006100519786457841326'),
+            ibanOwnerName: const Value('Mehmet Yılmaz'),
+            reminderTemplate: const Value('Sayın *musteriadi*'),
+          ));
+
+      await ekranaKoy(tester, IsletmeProfiliEkrani(db: db));
+
+      final alanlar = find.byType(TextField);
+      await tester.enterText(alanlar.at(0), 'Merkez Bayi');
+      await tester.enterText(alanlar.at(1), 'Gökhan Tonyalı');
+      await tester.enterText(alanlar.at(2), '0242 111 22 33');
+      await tester.pump();
+      await dokun(tester, find.text('Kaydet'));
+
+      final satir = await tester.runAsync(() => repo.get());
+      expect(satir!.businessName, 'Merkez Bayi');
+      expect(satir.iban, 'TR330006100519786457841326', reason: 'başka ekranın alanı SİLİNEMEZ');
+      expect(satir.ibanOwnerName, 'Mehmet Yılmaz');
+      expect(satir.reminderTemplate, 'Sayın *musteriadi*');
+
+      // SUNUCUYA GİDEN PAYLOAD da taşımalı: yalnız cihazda korunup partide null gitseydi,
+      // ikinci telefon IBAN'ı boş görürdü (LWW son yazanı kazandırır).
+      final kuyruk = await tester.runAsync(() => db.select(db.outbox).get());
+      expect(kuyruk!.last.payload, contains('TR330006100519786457841326'));
+
+      await kapat(tester);
+    });
+  });
   // ═════════════════════════════════════════════════════════════════════════════════════════
   group('Kuryeler', () {
     testWidgets('liste ad ve telefonu gösterir, pasif kuryeyi işaretler', (tester) async {

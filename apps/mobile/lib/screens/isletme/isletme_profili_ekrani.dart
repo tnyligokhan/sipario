@@ -1,12 +1,27 @@
-// İŞLETME PROFİLİ ekranı — tasarım s-isletme.jsx + Sipario.html `.fk-*`, `.gs-baslik`,
-// `.s-flabel`, `.s-input`, `.s-textarea`, `.ym-err`.
+// İŞLETME KİMLİĞİ ekranı — "biz kimiz" sorusunun tek cevabı.
 //
-// Kimlik · iletişim · adres · vergi · çalışma saatleri · fiş alt notu. Kalıcılık `tenant_settings`
+// Kimlik · iletişim · adres · vergi · çalışma saatleri. Kalıcılık `tenant_settings`
 // tablosunda TEK SATIR (id=1) olarak durur ve outbox'tan sunucuya LWW upsert ile gider.
 //
+// ══ NE BURADA DEĞİL, NEDEN (kullanıcı eleştirisi 2026-08-13) ═══════════════════════════════
+// Bu ekran bir zamanlar YEDİ ayrı konuyu tek forma yığıyordu: kimlik, iletişim, vergi, saatler,
+// IBAN, hatırlatma şablonu ve fiş notu. Kullanıcının tespiti şuydu: *"İşletme Kimliği düzenleme
+// içerisindeki birçok şey orada olmasa da olur... mesaj şablonları ilerleyen zamanlarda artacak,
+// orada olmaya devam mı edecek? Fiş bölümü özellikle — bunların İşletme altında olmasının
+// mantığı yok."* Doğruydu ve asıl sorun uzunluk değil BÜYÜME YÖNÜYDÜ: şablon sayısı arttıkça
+// vergi numarası bir metin duvarının içinde kaybolacaktı.
+//
+//   IBAN + fiş notu  → `ayarlar/tahsilat_ayarlari_ekrani.dart`   ("parayı nasıl alıyoruz")
+//   hatırlatma metni → `ayarlar/mesaj_sablonlari_ekrani.dart`    (N şablona göre kurulmuş liste)
+//
+// Bölme ancak `TenantSettingsRepository.save` kısmi güncellemeye (`Value.absent()`) geçtikten
+// SONRA güvenli oldu: öncesinde her ekran diğer 13 alanı elle taşımak zorundaydı ve birini
+// unutmak bayinin IBAN'ını sessizce siliyordu.
+//
 // FİRMA KODU SUNUCU SAHİPLİDİR: kullanıcılar onunla giriş yapar, cihazdan değiştirilemez.
-// Formda alan olarak değil, `.fk-kart` koyu bloğunda salt-okunur + kopyalanabilir gösterilir.
+// Formda alan olarak değil, koyu hero blokta salt-okunur + kopyalanabilir gösterilir.
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -17,15 +32,16 @@ import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
-import '../customers/borc_hatirlatma.dart' show hatirlatmaSablonuAzamiUzunluk;
-import 'hatirlatma_sablonu_alani.dart';
-import 'iban.dart';
 import 'isletme_atomlari.dart';
 
+// Geriye dönük yeniden dışa aktarım: IBAN yardımcılarını bu dosyadan alan çağıranlar var.
 export 'iban.dart' show ibanNormal, ibanOkunur;
 
 /// Salt-okunur kip uyarısı — diğer işletme ekranlarıyla aynı dil.
-const String profilSaltOkunurUyarisi = 'Salt-okunur kip: işletme profili değiştirilemez.';
+/// Metin GENELDİR ("ayarlar"), tek bir formun adını taşımaz: aynı uyarıyı Tahsilat ve Mesajlar
+/// ekranları da gösteriyor ve "işletme profili değiştirilemez" demek, IBAN'ı düzenlemeye çalışan
+/// bayiye yanlış ekranın adını söylerdi.
+const String profilSaltOkunurUyarisi = 'Salt-okunur kip: ayarlar değiştirilemez.';
 
 /// Ekranın açılışta ihtiyaç duyduğu her şey: kayıtlı satır + sunucu sahipli firma kodu.
 class IsletmeProfilVerisi {
@@ -68,7 +84,7 @@ class _IsletmeProfiliEkraniState extends State<IsletmeProfiliEkrani> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SipUst(
-              baslik: 'İşletme Profili',
+              baslik: 'İşletme Kimliği',
               onGeri: () => Navigator.of(context).maybePop(),
             ),
             Expanded(
@@ -115,10 +131,6 @@ class _FormState extends State<_Form> {
     'vergiNo': TextEditingController(text: widget.veri.satir?.taxNumber ?? ''),
     'acilis': TextEditingController(text: widget.veri.satir?.opensAt ?? '08:00'),
     'kapanis': TextEditingController(text: widget.veri.satir?.closesAt ?? '19:00'),
-    'fisNotu': TextEditingController(text: widget.veri.satir?.receiptNote ?? ''),
-    'iban': TextEditingController(text: ibanOkunur(widget.veri.satir?.iban)),
-    'ibanAlici': TextEditingController(text: widget.veri.satir?.ibanOwnerName ?? ''),
-    'sablon': TextEditingController(text: widget.veri.satir?.reminderTemplate ?? ''),
   };
 
   Map<String, String> _hata = const {};
@@ -154,28 +166,23 @@ class _FormState extends State<_Form> {
     }
 
     setState(() => _kaydediyor = true);
+    // YALNIZ KİMLİK ALANLARI gönderilir. IBAN, hatırlatma şablonu ve fiş notu artık kendi
+    // ekranlarında ve `Value.absent()` sayesinde bu kayıt onlara DOKUNMAZ — iki ekranın aynı
+    // satırı çevrimdışı yazması artık birbirini ezmez.
     await widget.repo.save(
-      businessName: _metin('ad'),
-      ownerName: _metin('sahip'),
-      phone: _metin('telefon'),
-      whatsapp: _bosNull('whatsapp'),
-      addressText: _bosNull('adres'),
-      taxOffice: _bosNull('vergiDairesi'),
-      taxNumber: _bosNull('vergiNo'),
-      opensAt: _metin('acilis'),
-      closesAt: _metin('kapanis'),
-      receiptNote: _bosNull('fisNotu'),
-      // Saklama biçimi TEK: boşluksuz, büyük harf. Bayi okunaklı olsun diye boşluklu yazar;
-      // mesaja ve sunucuya giden değer normalleştirilmiş olmalı (sunucu da aynısını yapar).
-      iban: ibanNormal(_metin('iban')),
-      ibanOwnerName: _bosNull('ibanAlici'),
-      // Boş şablon null yazılır: "varsayılana dön" bu demektir ve varsayılan metin ileride
-      // iyileşirse şablona hiç dokunmamış bayi o iyileşmeyi alır.
-      reminderTemplate: _bosNull('sablon'),
+      businessName: Value(_metin('ad')),
+      ownerName: Value(_metin('sahip')),
+      phone: Value(_metin('telefon')),
+      whatsapp: Value(_bosNull('whatsapp')),
+      addressText: Value(_bosNull('adres')),
+      taxOffice: Value(_bosNull('vergiDairesi')),
+      taxNumber: Value(_bosNull('vergiNo')),
+      opensAt: Value(_metin('acilis')),
+      closesAt: Value(_metin('kapanis')),
     );
     if (!mounted) return;
     setState(() => _kaydediyor = false);
-    SipToast.goster(context, 'İşletme profili kaydedildi');
+    SipToast.goster(context, 'İşletme kimliği kaydedildi');
   }
 
   /// Boş metin null olarak yazılır — "girilmedi" ile "boş bırakıldı" aynı şey, kolon nullable.
@@ -243,47 +250,6 @@ class _FormState extends State<_Form> {
           tur: AlanNotuTuru.bilgi,
         ),
 
-        // TAHSİLAT (kullanıcı isteği 2026-08-04): borçluya WhatsApp'tan gönderilen hatırlatma
-        // mesajı bu IBAN'ı taşır. Alan boşken düğme çalışmaz ve nedenini söyler — bu yüzden
-        // notu "boş bırakılabilir" değil, NE İŞE YARADIĞI yazar.
-        const SipBolumBaslik('Tahsilat', ustBosluk: 20),
-        _alan('iban', 'IBAN', 'TR00 0000 0000 0000 0000 0000 00',
-            ustBosluk: 2, filtreler: [_IbanBicimi()], stilTutar: true),
-        // ALICI ADI IBAN'IN HEMEN ALTINDA (kullanıcı isteği 2026-08-06): hesap sahibi çoğu zaman
-        // ŞAHIS adıdır ve işletme adıyla aynı değildir; banka uygulaması havale ekranında ad
-        // soyad ister, müşteri "Merkez Su Bayii" yazınca işlemi tamamlayamaz. Boş bırakılırsa
-        // mesaj eskisi gibi işletme adını yazar — kimse "Alıcı" satırını bu sürümle kaybetmez.
-        _alan('ibanAlici', 'IBAN ALICI ADI', 'Hesap sahibi — ad soyad'),
-        if (_hata['iban'] == null)
-          const AlanNotu(
-            'Borçlulara gönderilen WhatsApp hatırlatmasında bu IBAN ve alıcı adı yazar.',
-            tur: AlanNotuTuru.bilgi,
-          ),
-
-        HatirlatmaSablonuAlani(
-          controller: _alanlar['sablon']!,
-          hata: _hata['sablon'],
-          onDegis: _temizle,
-        ),
-
-        // ══ FİŞ HENÜZ YOK — ALAN PASİF (kullanıcı kararı 2026-08-13) ═════════════════════
-        // `receipt_note` kolonu var, form onu yazıyor, senkron taşıyor — ama onu OKUYAN tek
-        // bir yer yok: uygulamada fiş/teslim belgesi diye bir çıktı üretilmiyor. Yani bayi
-        // oturup fiş notunu yazıyor, kaydediyor ve o metin hiçbir zaman hiçbir yerde
-        // görünmüyordu. Tutulmayan bir söz, eksik bir özellikten kötüdür: bayi ürünün
-        // bozuk olduğunu düşünür.
-        //
-        // ALAN SİLİNMEDİ, PASİFLEŞTİRİLDİ: veri katmanı (kolon + repo + senkron) yerinde
-        // duruyor ve özellik geldiğinde tek satır değişiklikle açılacak. Kaldırıp geri
-        // eklemek, arada yazılmış değerleri de kaybetmek olurdu.
-        const CokYakindaBaslik('Fiş Alt Notu'),
-        SipInput(
-          controller: _alanlar['fisNotu']!,
-          ipucu: 'Teslim fişi özelliğiyle birlikte açılacak',
-          satirlar: 2,
-          aktif: false,
-        ),
-
         Padding(
           padding: const EdgeInsets.only(top: SipSpace.govde),
           child: SipButon(etiket: 'Kaydet', onTap: _kaydet, yukleniyor: _kaydediyor),
@@ -299,8 +265,6 @@ class _FormState extends State<_Form> {
     bool telefon = false,
     int satirlar = 1,
     double ustBosluk = 14,
-    List<TextInputFormatter>? filtreler,
-    bool stilTutar = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -311,32 +275,12 @@ class _FormState extends State<_Form> {
           ipucu: ipucu,
           satirlar: satirlar,
           klavye: telefon ? TextInputType.phone : null,
-          girdiFiltreleri: filtreler,
-          stil: (telefon || stilTutar) ? SipText.tutar(15, w: 500) : null,
+          stil: telefon ? SipText.tutar(15, w: 500) : null,
           hata: _hata.containsKey(anahtar),
           onChanged: (_) => _temizle(),
         ),
         if (_hata[anahtar] != null) AlanNotu(_hata[anahtar]!),
       ],
-    );
-  }
-}
-
-/// IBAN alanı biçimlendirici: harfleri büyütür, IBAN'da yeri olmayan karakterleri düşürür.
-///
-/// Boşluğa İZİN VERİLİR (silinmez): bayi hesabını bankadan gördüğü gibi "TR12 3456 …" yazar ve
-/// kendi yazdığını okuyabilmelidir. Boşluk yalnız KAYDEDERKEN atılır — saklama biçimi tektir.
-class _IbanBicimi extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue eski, TextEditingValue yeni) {
-    final temiz = yeni.text.toUpperCase().replaceAll(RegExp(r'[^0-9A-Z ]'), '');
-    if (temiz == yeni.text) return yeni;
-    // İmleç, düşen karakter sayısı kadar geri alınır; yoksa kullanıcı yazdıkça imleç sona atlar.
-    final fark = yeni.text.length - temiz.length;
-    final konum = (yeni.selection.baseOffset - fark).clamp(0, temiz.length);
-    return TextEditingValue(
-      text: temiz,
-      selection: TextSelection.collapsed(offset: konum),
     );
   }
 }
@@ -442,8 +386,13 @@ class _SaatSatiri extends StatelessWidget {
       );
 }
 
-/// Profil doğrulaması — ekrandan BAĞIMSIZ (saf testle sınanır). Alan adı → hata metni.
+/// Kimlik doğrulaması — ekrandan BAĞIMSIZ (saf testle sınanır). Alan adı → hata metni.
 /// Saat hatası tek anahtarda (`saat`) toplanır: iki alan tek kural, tek satır uyarı.
+///
+/// IBAN ve ŞABLON KURALLARI BURADAN ÇIKTI (2026-08-13): alanlar kendi ekranlarına taşınınca
+/// kuralları da yanlarında gitti — `ibanHatasi` (iban.dart) ve `hatirlatmaSablonuHatasi`
+/// (borc_hatirlatma.dart). Kuralı burada bırakmak, artık ÇAĞIRAN OLMAYAN bir dal ve testinin
+/// koruduğu ölü kod anlamına gelirdi: yeşil kalır ama üründe hiçbir şey doğrulamaz.
 Map<String, String> isletmeProfilHatalari(Map<String, String> alanlar) {
   final hatalar = <String, String>{};
   String al(String k) => (alanlar[k] ?? '').trim();
@@ -469,20 +418,6 @@ Map<String, String> isletmeProfilHatalari(Map<String, String> alanlar) {
 
   if (!_saatGecerli(al('acilis')) || !_saatGecerli(al('kapanis'))) {
     hatalar['saat'] = 'Saatleri SS:DD biçiminde girin';
-  }
-
-  // IBAN boş bırakılabilir (zorunlu alan değil); DOLU ise mod-97 sağlamasını geçmek ZORUNDA.
-  // Yanlış IBAN sessiz bir hatadır: mesaj gider, para gelmez, kimse nedenini bilmez.
-  final ibanHata = ibanHatasi(al('iban'));
-  if (ibanHata != null) hatalar['iban'] = ibanHata;
-
-  // Şablon uzunluğu SUNUCUDAKİ kolonla aynı sınırdadır ve hata BURADA söylenir: sınır yalnız
-  // sunucuda olsaydı aşan değer senkron partisinde reddedilir, bayi kaydettiğini sanıp günler
-  // sonra "mesajım eski" derdi.
-  final sablon = al('sablon');
-  if (sablon.length > hatirlatmaSablonuAzamiUzunluk) {
-    hatalar['sablon'] =
-        'Mesaj çok uzun ($hatirlatmaSablonuAzamiUzunluk karakter sınırı, şu an ${sablon.length})';
   }
 
   return hatalar;
