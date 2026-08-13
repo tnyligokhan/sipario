@@ -34,7 +34,6 @@ import 'package:sipario/repo/day_closing_repository.dart';
 import 'package:sipario/screens/day_end_screen.dart';
 import 'package:sipario/screens/isletme/gun_sonu_ozet.dart';
 import 'package:sipario/theme/components/atoms.dart';
-import 'package:sipario/theme/components/form.dart' show SipSegment;
 
 import 'support/ara_tahsilat_yardimcilari.dart';
 import 'support/ekran_yardimcilari.dart';

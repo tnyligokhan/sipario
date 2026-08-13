@@ -51,6 +51,7 @@ class DegerSatiri extends StatelessWidget {
     this.degerRengi,
     this.onTap,
     this.gecersiz = false,
+    this.sagIkon,
   });
 
   final String etiket;
@@ -81,6 +82,15 @@ class DegerSatiri extends StatelessWidget {
   /// davranışın karşılığıdır.
   final VoidCallback? onTap;
 
+  /// [onTap] varken sağda çizilecek işaret ([SipIcons] anahtarı); verilmezse chevron.
+  ///
+  /// NEDEN GEREKLİ (2026-08-13): chevron "burada bir DÖKÜM var, dokun aç" der ve ödeme türü
+  /// satırlarında tam olarak bunu yapar. Ara tahsilat satırında ise dokunuş bir DÜZELTME
+  /// başlatıyor (iptal onayı); oraya chevron koymak, bayiyi detay sanıp dokunduğu yerde
+  /// "iptal edilsin mi?" diyaloğuyla karşılaştırırdı. İşaret, arkasındaki davranışın karşılığı
+  /// olmak zorundadır — kuralın kendisi zaten yukarıda yazılı, burası onun ikinci yarısı.
+  final String? sagIkon;
+
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
@@ -109,7 +119,7 @@ class DegerSatiri extends StatelessWidget {
           ),
           if (onTap != null) ...[
             const SizedBox(width: 6),
-            SipIcon(SipIcons.right, boyut: 13, kalinlik: 2.2, renk: t.muted),
+            SipIcon(sagIkon ?? SipIcons.right, boyut: 13, kalinlik: 2.2, renk: t.muted),
           ],
         ],
       ),

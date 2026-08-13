@@ -5,19 +5,18 @@
 // kaydı arşive taşır (append-only, `day_closings` tablosu). Açık sipariş varken kapatma
 // ENGELLENİR — kapanmış bir gün açık bir siparişi gizlerdi.
 //
-// Kasa/borç rakamları defterden TÜRETİLİR; ekran hiçbir bakiyeyi kendi hesaplamaz.
-// Veri katmanı `isletme/gun_sonu_ozet.dart`, kartlar `isletme/gun_sonu_kartlari.dart` içinde
-// (500 satır sınırı).
+// Kasa/borç rakamları defterden TÜRETİLİR; ekran hiçbir bakiyeyi kendi hesaplamaz. 500 satır
+// sınırı yüzünden üç komşu dosya: veri `isletme/gun_sonu_ozet.dart` · kartlar
+// `isletme/gun_sonu_kartlari.dart` · ara tahsilat akışları `isletme/gun_ozeti_eylemleri.dart`.
+// Burada DURUM ve YETKİ kalır.
 //
 // ══ ROL KAPISI BURADADIR (K2) ══════════════════════════════════════════════════════════════
 // Ayrı kasa devri ekranı kaldırılınca çekmecenin "Kasa Devri" satırı bu ekrana bağlandı, yani
 // ekran artık KURYE trafiği de alıyor ve kabuk önünde rol kapısı TUTMUYOR. Kural (2026-08-13
 // itibarıyla — üç PARA EYLEMİNİN ÜÇÜ DE `yetkiler().gunuKapatma`ya, yani YÖNETİCİYE bağlıdır):
-//  • Hesap kapatma — gün de kurye de yalnız yöneticide.
-//  • Ara tahsilat ALMA — yalnız yöneticide (kurye kendi kapsamında bile alamaz).
-//  • Ara tahsilat İPTALİ — yalnız yöneticide.
-// Kuryeye kalan tek şey OKUMAKTIR: kendi kapsamının tahsilat ve teslimat dökümü.
-//  • Kurye başka kuryenin kapsamını SEÇEMEZ: segmentte yalnız kendisi listelenir ("Tümü" de yok).
+// hesap kapatma · ara tahsilat ALMA · ara tahsilat İPTALİ. Kuryeye kalan tek şey OKUMAKTIR:
+// kendi kapsamının tahsilat ve teslimat dökümü — başka kuryenin kapsamını seçemez, segmentte
+// yalnız kendisi listelenir ("Tümü" de yok).
 //
 // ÜÇÜNÜN AYNI ANAHTARI PAYLAŞMASI BİLİNÇLİ: yetki matrisi "Günü Kapatma / Devir İşlemi (Yalnızca
 // Yönetici)" diyor ve ara tahsilat da, iptali de birer devir işlemidir. Her biri için ayrı bir
@@ -38,9 +37,9 @@ import '../theme/components/overlays.dart';
 import '../theme/components/states.dart';
 import '../theme/icons.dart';
 import '../theme/tokens.dart';
-import 'isletme/ara_tahsilat_sheet.dart';
 import 'isletme/gecmis_gun_ekrani.dart';
 import 'isletme/gun_kapatma_sheet.dart';
+import 'isletme/gun_ozeti_eylemleri.dart';
 import 'isletme/gun_ozeti_govdesi.dart';
 import 'isletme/gun_sonu_kartlari.dart';
 import 'isletme/gun_sonu_ozet.dart';
@@ -173,9 +172,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
   /// ⚠️ DEVİR YOLU DA KURYEDEN ALINDI (2026-08-13). Bu doc bir tur boyunca "ara tahsilat kuryede
   /// DURUYOR, kaldırılsaydı kurye cebindeki parayı sisteme hiç işleyemezdi" diyordu ve o cümle
   /// artık YANLIŞ: kurye ne kapatır ne ara tahsilat verir. Kuryedeki nakdi sisteme geçiren TEK
-  /// yol, patronun o kuryeden ara tahsilat ALMASIDIR ([_araTahsilatAlabilir]) — yani parayı
-  /// kaydeden taraf, parayı fiilen teslim ALAN taraftır. Sahadaki gerçek zaten buydu: kurye
-  /// kasayı patrona elden veriyor, kaydı da alan kişinin girmesi mutabakatın anlamına uygun.
+  /// yol, patronun o kuryeden ara tahsilat ALMASIDIR ([_araTahsilatAlabilir]).
   bool get _kapatabilir => _yetki.gunuKapatma;
 
   /// Seçili kapsamdan ARA TAHSİLAT alma yetkisi (K2) — [_kapatabilir]in kardeşi, ama üç ek koşul:
@@ -184,154 +181,55 @@ class _DayEndScreenState extends State<DayEndScreen> {
   ///  • Kapsam kapalıysa alınmaz — kapanmış bir hesaba sonradan para eklemek mutabakatı bozar.
   ///  • [GunSonuGorunumu.araTahsilatMumkun]: aktif kurye var mı, gün açık mı, gün BUGÜN mü.
   ///
-  /// ARA TAHSİLATI YALNIZ YÖNETİCİ ALIR (kullanıcı kararı 2026-08-13).
-  ///
-  /// ÖNCEKİ KARARIN TERSİ ve bilinçli: burada bir tur boyunca "yönetici her kuryeden alır; kurye
-  /// YALNIZ kendi kapsamında" yazıyordu ve son satır `_kuryeId == widget.kullaniciId` ile kuryeye
-  /// kendi kasasını kendi kaydetme yetkisi veriyordu. O yol KAPANDI: ara tahsilat, kuryenin
-  /// cebindeki nakdin patrona GEÇTİĞİNİ söyleyen bir kayıttır ve onu, parayı fiilen ALAN taraf
-  /// girmelidir. Kurye kendi teslimini kendi yazabildiği sürece kayıt tek taraflı bir BEYANDI;
-  /// patron ertesi gün "ben bu parayı almadım" dediğinde defterde iki tarafın da dayanağı yoktu.
-  ///
-  /// Bu, kuryeyi çıkmaza sokmaz: nakit yine sisteme girer, yalnız kaydı patron açar. Tek kişilik
-  /// bayide zaten hiç görünmez ([GunSonuGorunumu.araTahsilatMumkun]).
+  /// YALNIZ YÖNETİCİ ALIR (kullanıcı kararı 2026-08-13) — ÖNCEKİ KARARIN TERSİ. Burada bir tur
+  /// boyunca `_kuryeId == widget.kullaniciId` satırı vardı ve kuryeye kendi kasasını kendi
+  /// kaydetme yetkisi veriyordu. O yol KAPANDI: ara tahsilat, nakdin kuryeden patrona GEÇTİĞİNİ
+  /// söyleyen bir kayıttır ve onu parayı fiilen ALAN taraf girmelidir. Kurye kendi teslimini
+  /// kendi yazabildiği sürece kayıt tek taraflı bir BEYANDI; patron ertesi gün "ben bu parayı
+  /// almadım" dediğinde defterde iki tarafın da dayanağı yoktu. Kurye çıkmaza girmez: nakit yine
+  /// sisteme girer, yalnız kaydı patron açar.
   bool _araTahsilatAlabilir(GunSonuGorunumu g) {
     if (!g.araTahsilatMumkun || g.kapsamKapali || _kuryeId == null) return false;
-    // `_kapatabilir` ile AYNI ölçüt ve AYNI anahtar: ikisi de birer devir işlemidir (bkz. dosya
-    // başındaki K2 bloğu). Ayrı bir anahtar açmak, matriste karşılığı olmayan bir ayrım olurdu.
+    // `_kapatabilir` ile AYNI anahtar: ikisi de birer devir işlemidir (bkz. dosya başındaki K2
+    // bloğu). Ayrı bir anahtar, matriste karşılığı olmayan bir ayrım uydurmak olurdu.
     return _yetki.gunuKapatma;
   }
 
   /// Ara tahsilat İPTALİ — [_araTahsilatAlabilir] ile AYNI yetki, ama kapsam/kilit koşulları YOK.
   ///
-  /// NEDEN BU KADAR SADE: iptalin geçerli olup olmadığını REPO bilir ve orada üç kapı var (kayıt
-  /// var mı · zaten iptal mi · kapanışa bağlı mı) + kapalı kapsam engeli. Ekran o koşulları
-  /// tekrarlasaydı ikisi bir gün ayrışır ve düğme "açık" görünürken eylem patlardı. Ekranın işi
-  /// yalnız YETKİYİ tutmaktır; geri kalanı repo söyler ve mesajı kullanıcıya olduğu gibi basılır.
+  /// NEDEN BU KADAR SADE: iptalin geçerli olup olmadığını REPO bilir (kayıt var mı · zaten iptal
+  /// mi · kendisi iptal kaydı mı · kapanışa bağlı mı + kapalı kapsam engeli). Ekran o koşulları
+  /// tekrarlasaydı ikisi bir gün ayrışır ve satır dokunulabilir görünürken eylem patlardı.
   ///
-  /// KURYE GÖRÜNÜMÜNDE null geçilir → kart satırları dokunulamaz olur (pasif değil, DOKUNULAMAZ:
-  /// dokunup "yetkiniz yok" görmek, olmayan bir yolu varmış gibi göstermektir).
+  /// KURYE GÖRÜNÜMÜNDE null geçilir → kart satırları DOKUNULAMAZ (pasif değil): dokunup
+  /// "yetkiniz yok" görmek, olmayan bir yolu varmış gibi göstermektir.
   bool get _araTahsilatIptalEdebilir => _yetki.gunuKapatma;
-
-  /// KURYE KAPSAMINDA SHEET İLE EKRAN AYNI ARALIĞI KONUŞMAYABİLİR — bunu söyleyen satırın metni.
-  ///
-  /// Sheet'lerin rakamları o kuryenin PENCERESİNDEN gelir (son hesap kapanışından beri; kapanışı
-  /// yoksa alttan açık), ekrandaki kasa kartı ve ara tahsilat kartı ise TAKVİM GÜNÜNDEN. Hiç
-  /// kapanış yapmamış bir kurye dün 5.000, bugün 3.000 topladıysa ekran 3.000, sheet 8.000 der ve
-  /// bir tur boyunca bu ikisinin arasını açıklayan HİÇBİR satır yoktu — bayi hangisinin doğru
-  /// olduğunu soramıyordu.
-  ///
-  /// KARŞILAŞTIRMA, HESAP DEĞİLDİR: burada hiçbir para türetilmiyor, iki çerçevenin AYNI parayı
-  /// kapsayıp kapsamadığı soruluyor. Rakamların ikisi de repo'dan geliyor. Çakışıyorlarsa (çoğu
-  /// gün böyle) satır çizilmez — açıklanacak bir fark yokken yazılan uyarı gürültüdür.
-  ///
-  /// TEK METİN VAR, çünkü tek hâl ULAŞILABİLİR: pencere ancak kuryenin BUGÜNKÜ bir kapanışıyla
-  /// günün içinden başlayabilirdi, ama o kapanış kapsamı KİLİTLER (`kapsamKapali`) ve o hâlde ne
-  /// kapatma ne ara tahsilat sheet'i açılır. Yani ayrışma her zaman "pencere geriye sarkıyor"
-  /// yönündedir. İkinci bir dal yazmak, hiç oluşamayacak bir hâl için test edilemeyen kopya
-  /// yazmak olurdu.
-  Future<String?> _cerceveNotu(
-    GunSonuGorunumu g,
-    String kuryeId,
-    DateTime gun, {
-    required int pencereNakit,
-    required int pencereTeslim,
-  }) async {
-    final gunTeslim =
-        await CashHandoverRepository(widget.db).teslimEdilenNakit(gun, kuryeId: kuryeId);
-    if (pencereNakit == g.kapsam.kasa.nakit && pencereTeslim == gunTeslim) return null;
-    // Metin FORMÜL İDDİA ETMEZ (beklenen nakdin tanımı repo'nundur ve bu vardiyada iki kez
-    // değişti) — yalnız hangi ARALIĞIN kapsandığını söyler.
-    return 'Önceki günden devreden nakit dahil — ekrandaki gün toplamıyla aynı aralık değil.';
-  }
 
   Future<void> _araTahsilat(List<User> kuryeler, GunSonuGorunumu g) async {
     if (!_araTahsilatAlabilir(g)) return; // düğme zaten çizilmedi; çift kapı (K2 pazarlıksız)
-    final kuryeId = _kuryeId!;
-    final kuryeAdi = _kapsamAdi(kuryeler);
-
-    // Beklenen tutar REPO'DAN gelir, ekranın kasa kartından DEĞİL. Kasa kartı günün TOPLAM
-    // nakdini gösterir; kuryede fiilen kalan tutar ondan farklıdır ve tanımı repo'nundur
-    // (2026-08-06'da kümülatife döndü). Ekran kendi çıkarmasını yapsaydı her tanım değişikliğinde
-    // sessizce ayrışır, sheet'te yazan tutar kayda geçenden farklı olurdu.
-    final repo = CashHandoverRepository(widget.db);
-    final onizleme = await repo.onizle(kuryeId);
-    final not = await _cerceveNotu(
-      g,
-      kuryeId,
-      _bugun,
-      pencereNakit: onizleme.toplananKurus,
-      pencereTeslim: onizleme.teslimEdilenKurus,
-    );
-    if (!mounted) return;
-
-    final sonuc = await araTahsilatSheet(
+    final tazelensin = await araTahsilatAl(
       context,
-      kuryeAdi: kuryeAdi,
-      beklenen: onizleme.expectedKurus,
-      cerceveNotu: not,
-      senkron: g.senkron,
+      db: widget.db,
+      gorunum: g,
+      kuryeId: _kuryeId!,
+      kuryeAdi: _kapsamAdi(kuryeler),
+      alanUserId: widget.kullaniciId,
+      bugun: _bugun,
     );
-    if (sonuc == null || !mounted) return;
-
-    // ÜÇÜNCÜ KAPI repoda: kapsam kapalıysa `araTahsilat` StateError atar. Ekran kapıyı zaten
-    // tutuyor (düğme çizilmiyor), ama sheet açıkken senkron başka bir cihazdan gelen kapanışı
-    // indirebilir — o an ekranın bildiği durum bayattır. Mesaj repo'dan geldiği gibi basılır:
-    // kullanıcıya "bir şeyler ters gitti" demek, tam olarak NE olduğunu bilirken bilgi saklamaktır.
-    try {
-      // Gün AÇIK kalır: `araTahsilat` kapanış yazmaz (bkz. repo'daki gerekçe).
-      await repo.araTahsilat(
-        fromUserId: kuryeId,
-        toUserId: widget.kullaniciId,
-        countedCashKurus: sonuc.sayilan,
-        note: sonuc.not.isEmpty ? null : sonuc.not,
-      );
-    } on StateError catch (e) {
-      if (!mounted) return;
-      SipToast.goster(context, e.message);
-      _tazele(); // ekranı gerçeğe döndür: kapanmış kapsam artık kilitli görünsün
-      return;
-    }
-    if (!mounted) return;
-
-    SipToast.goster(context, '$kuryeAdi · ${sipTutar(sonuc.sayilan)} tahsil edildi');
-    _tazele();
+    if (tazelensin && mounted) _tazele();
   }
 
   /// Bir ara tahsilatı İPTAL eder (kullanıcı kararı 2026-08-13). Kayıt SİLİNMEZ — repo ters
   /// işaretli ikinci bir devir satırı yazar (BRIEF kırmızı çizgi #2).
   Future<void> _araTahsilatiIptalEt(AraTahsilatKaydi k) async {
     if (!_araTahsilatIptalEdebilir) return; // satır zaten dokunulamaz; çift kapı (K2 pazarlıksız)
-
-    // ONAY ADIMI ZORUNLU: satır kaydırılan bir listenin ortasında duruyor ve kazara dokunuş
-    // kalıcı bir düzeltme kaydı yazardı (iptalin iptali yoktur — yeni tahsilat girmek gerekir).
-    final onay = await araTahsilatIptalOnayi(
+    final tazelensin = await araTahsilatIptalEt(
       context,
-      kuryeAdi: k.kuryeAdi,
-      tutarKurus: k.countedCashKurus,
-      occurredAt: k.occurredAt,
+      db: widget.db,
+      kayit: k,
+      iptalEdenUserId: widget.kullaniciId,
     );
-    if (!onay || !mounted) return;
-
-    // ÜÇÜNCÜ KAPI REPODA (ara tahsilat/kapatma ile aynı desen): kayıt bu arada senkronla bir
-    // kapanışa bağlanmış ya da başka bir cihazdan iptal edilmiş olabilir — o an ekranın bildiği
-    // durum bayattır. Mesaj repo'dan geldiği gibi basılır: NE olduğunu bilirken "bir şeyler ters
-    // gitti" demek bilgi saklamaktır.
-    try {
-      await CashHandoverRepository(widget.db).araTahsilatIptal(
-        handoverId: k.id,
-        iptalEdenUserId: widget.kullaniciId,
-      );
-    } on StateError catch (e) {
-      if (!mounted) return;
-      SipToast.goster(context, e.message);
-      _tazele(); // ekranı gerçeğe döndür
-      return;
-    }
-    if (!mounted) return;
-
-    SipToast.goster(context, '${sipTutar(k.countedCashKurus)} tahsilat iptal edildi');
-    _tazele();
+    if (tazelensin && mounted) _tazele();
   }
 
   Future<void> _kapat(List<User> kuryeler, GunSonuGorunumu g) async {
@@ -361,7 +259,8 @@ class _DayEndScreenState extends State<DayEndScreen> {
     // konuşur, açıklanacak bir aralık farkı yoktur.
     final not = _kuryeId == null
         ? null
-        : await _cerceveNotu(
+        : await cerceveNotu(
+            widget.db,
             g,
             _kuryeId!,
             gun,

@@ -124,6 +124,10 @@ class AraTahsilatKarti extends StatelessWidget {
             deger: sipTutar(k.countedCashKurus),
             gecersiz: k.iptalEdildi,
             onTap: k.iptalEdildi ? null : onIptal?.call(k),
+            // İşaret chevron DEĞİL: chevron "detay açılır" der, buradaki dokunuş ise bir
+            // DÜZELTME başlatır. `ban` (üstü çizili daire) bilinçli olarak `trash` değildir —
+            // bu ekranda hiçbir şey SİLİNMİYOR (BRIEF kırmızı çizgi #2); iptal, ters kayıttır.
+            sagIkon: SipIcons.ban,
           ),
         // Toplam satırı TEK kayıtta da çizilir — okuyan kişi satırları kafasında toplamasın.
         //
