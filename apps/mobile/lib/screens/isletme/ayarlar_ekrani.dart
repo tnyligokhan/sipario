@@ -1,73 +1,58 @@
-// AYARLAR ekranı — tasarım s-ayarlar.jsx + Sipario.html `.ayar-kart` / `.ayar-row`.
+// AYARLAR — kategori HUB'ı. Her satır kendi sayfasını açar.
 //
-// Kart içinde ayraçlı satırlar: ikon kutusu + başlık (+ alt açıklama) + chevron ya da anahtar.
+// ══ NEDEN BÖLÜNDÜ (kullanıcı isteği 2026-08-13) ═══════════════════════════════════════════
+// Bu ekran tek uzun bir listeydi ve BEŞ FARKLI TÜRDEN şeyi yan yana koyuyordu: cihaz tercihi
+// (tema), özellik anahtarı (arayan tanıma), İŞ VERİSİ EKRANI (çağrı geçmişi), işletme
+// yapılandırması (profil, sipariş kodu) ve künye (sürüm/lisans). Kullanıcının tespiti şuydu:
+// "çağrı geçmişi sayfası ayarlarda olmamalı, bu çok saçma" — doğruydu ve tek örnek değildi;
+// sorun kategorisizlikti. Çağrı geçmişi ARTIK ÇEKMECEDE (bir iş kaydıdır, bir tercih değil).
 //
-// ══ MAĞAZA KURALI (pazarlıksız) ════════════════════════════════════════════════════════════
-// Bu ekranda abonelik / ödeme / satın alma / fiyat / üyelik bağlantısı OLAMAZ. Lisans yalnız
-// NÖTR bir bilgi satırı olarak durur ("N gün kaldı"); hiçbir eyleme bağlanmaz. Yasaklı sözcük
-// testleri (`Abone`, `Satın al`, `Üye ol`, `Kaydol`) bu ekranı da tarar.
+// Yeni yapı beş sayfadır: Hesap · İşletme · Uygulama · Bildirimler · Hakkında.
+//
+// ⚠️ TASARIM DOSYASINDAN BİLİNÇLİ SAPMA: `s-ayarlar.jsx` dört bölümlük tek liste öngörür
+// (Görünüm · Arayan Tanıma · İşletme · Hakkında). O prototip bildirimler, sipariş kodu, kurye
+// yetkileri ve hesap kavramı yokken çizilmişti; uygulama onu çoktan aştı. Gerekçe DECISIONS.md'de.
+//
+// ══ MAĞAZA KURALI (pazarlıksız) ═══════════════════════════════════════════════════════════
+// Ayarların HİÇBİR sayfasında abonelik / ödeme / satın alma / fiyat / üyelik bağlantısı OLAMAZ.
+// Lisans yalnız NÖTR bir bilgi satırıdır (Hakkında) ve hiçbir eyleme bağlanmaz. Yasaklı sözcük
+// testi (`Abone`, `Satın al`, `Üye ol`, `Kaydol`) BEŞ SAYFAYI DA taramalıdır — bölünme, taramanın
+// kapsamını daraltmak için bir bahane değildir.
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
-import '../../bildirim/bildirim_ayar_bolumu.dart';
+import '../../auth/session.dart';
 import '../../data/app_database.dart';
-import '../../repo/tenant_settings_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
-import '../cagri/arayan_tanima_ayari.dart';
-import '../cagri/cagri_cozumleyici.dart';
-import '../cagri/cagri_gunlugu.dart';
-import '../cagri/cagri_karti.dart';
-import '../cagri/cagri_model.dart';
-import '../customers/customer_detail_screen.dart';
-import '../customers/customer_form_screen.dart';
 import '../team.dart' show RolYetkileri;
+import 'ayarlar/bildirim_ayarlari_ekrani.dart';
+import 'ayarlar/hakkinda_ekrani.dart';
+import 'ayarlar/hesap_ekrani.dart';
+import 'ayarlar/isletme_ayarlari_ekrani.dart';
+import 'ayarlar/uygulama_ayarlari_ekrani.dart';
 import 'isletme_atomlari.dart';
-import 'isletme_profili_ekrani.dart';
-import 'siparis_kodu_ayari.dart';
-import 'surum_notlari_ekrani.dart';
 
-/// Uygulama sürümü — APK'nın KENDİSİNDEN okunur, elle yazılmaz.
-///
-/// Eskiden burada `'Sipario 3.2'` sabiti duruyordu ve APK'daki gerçek sürümle (o gün hâlâ
-/// Flutter varsayılanı olan `1.0.0+1`) HİÇBİR bağı yoktu: 2026-07-27'de dört ayrı APK
-/// derlendi, dördü de aynı sürümü gösteriyordu ve sahadaki bayi hangisini test ettiğini
-/// söyleyemiyordu. İki yerde ayrı yazılan bir sayı, biri güncellenip diğeri unutulduğunda
-/// sessizce yalan söyler.
-///
-/// `package_info_plus` Android'de `PackageManager`dan okur — yani `build.gradle.kts`in git
-/// commit sayısından türettiği yapı numarası ne ise bayi onu görür. Bu YEREL bir sorgudur,
-/// ağ kullanmaz; offline-first çizgisi korunur.
-///
-/// YAPI NUMARASI GÖSTERİLMEK ZORUNDA: saha testinde "hangi APK?" sorusunu tek başına o
-/// cevaplıyor. Sürüm adı iki derleme arasında aynı kalabilir, yapı numarası kalamaz.
-Future<String> siparioSurumunuOku() async {
-  try {
-    final bilgi = await PackageInfo.fromPlatform();
-    final ad = bilgi.version.trim();
-    final yapi = bilgi.buildNumber.trim();
-    if (ad.isEmpty) return 'Sipario';
-    return yapi.isEmpty ? 'Sipario $ad' : 'Sipario $ad ($yapi)';
-  } catch (_) {
-    // Platform kanalı yoksa (test ortamı, iOS'ta eksik kayıt) ÇÖKME — nötr metne düş.
-    // Ayarlar ekranının tamamı bir sürüm satırı yüzünden açılamaz hâle gelemez; bu dersi
-    // bildirim ayar bölümünde bir kez ödedik (LateInitializationError, 2026-07-27).
-    return 'Sipario';
-  }
-}
+// Sürüm/lisans metinleri Hakkında sayfasına taşındı ama BU DOSYADAN ERİŞİLEBİLİR KALIR:
+// `isletme_kurallari_test.dart` ve `api_surumu_test.dart` onları buradan import ediyor ve
+// bölünme testlerin import yollarını kırmak için bir sebep değil (aynı desen:
+// `day_end_screen.dart` veri katmanını böyle yeniden dışa veriyor).
+export 'ayarlar/hakkinda_ekrani.dart'
+    show lisansMetni, sunucuSurumuMetni, siparioSurumunuOku, HakkindaKarti;
 
 class AyarlarEkrani extends StatefulWidget {
   const AyarlarEkrani({
     super.key,
     required this.db,
-    this.rol,
     required this.yetki,
+    this.rol,
+    this.session,
+    this.onCikis,
     this.writable = true,
     this.onSihirbaz,
     this.onCagriSimulasyonu,
@@ -76,67 +61,46 @@ class AyarlarEkrani extends StatefulWidget {
     this.onTema,
   });
 
-  /// Rol + kurye izinlerinden türeyen yetki kümesi (kabuktan gelir).
-  ///
-  /// ⚠️ 2026-08-09: bu ekranda "Çağrı Geçmişi" satırı KOŞULSUZ çiziliyordu; oysa o, dükkânın
-  /// çağrı günlüğüdür ve `courier_can_call_log` anahtarıyla kapatılabildiği sanılıyordu.
-  /// Anahtar kaydediliyor ama HİÇBİR yerde okunmuyordu — kapatılan yetki hiçbir kapıyı
-  /// kapatmıyordu. Kapı artık burada.
-  ///
-  /// ⚠️ 2026-08-13'TE ZORUNLU OLDU. Eskiden nullable'dı ve doc "verilmezse kısıtlama uygulanmaz
-  /// (test/önizleme yolu)" diyordu — yani yetkisiz bir yol AÇIK bırakılmıştı ve bu, bu ekrandan
-  /// açılan `CustomerDetailScreen`e de sızıyordu (o ekran da yetkiyi null alınca her şeye izin
-  /// veriyordu). "Test/önizleme kolaylığı" için açık bırakılan varsayılan, üretimde bir yetki
-  /// genişlemesine dönüştü. Önizleme yine mümkün: çağıran `yetkiler(rol: ..., kuryeVar: ...)`
-  /// geçer — kolaylık kaybolmadı, yalnız kapı açık kalmıyor.
-  final RolYetkileri yetki;
-
   final AppDatabase db;
 
-  /// `patron|operator|kurye`. Bu ekranın KENDİSİNDE artık rol kapısı yok: Kuryeler/Muaf girişleri
-  /// çekmeceye taşındı (tasarım `s-ayarlar.jsx` yalnız Görünüm/Arayan Tanıma/İşletme/Hakkında
-  /// bölümlerini taşır) ve kapı orada. Alan, çağrı geçmişinden açılan müşteri defterinin rol
-  /// kapısını bağlamak için duruyor (o yüzey `screens/customers/` sahipliğinde).
+  /// Rol + kurye izinlerinden türeyen yetki kümesi (kabuktan gelir).
+  ///
+  /// ⚠️ 2026-08-13'TE ZORUNLU OLDU. Eskiden nullable'dı ve doc "verilmezse kısıtlama uygulanmaz
+  /// (test/önizleme yolu)" diyordu — o geçirgen varsayılan, bu ekrandan açılan müşteri kartına
+  /// sızıyor ve orada bir yetki genişlemesine dönüşüyordu. Önizleme yine mümkün: çağıran
+  /// `yetkiler(rol: ..., kuryeVar: ...)` geçer.
+  final RolYetkileri yetki;
+
+  /// `patron|operator|kurye`. İŞLETME satırının kapısı budur ve doğrudan `patron` string'ine
+  /// bakar (operatör dahil DEĞİL) — matristeki `isletmeAbonelikAyarlari` alanı tanımlı ama bu
+  /// yüzeyde hiç kullanılmadı; iki ölçütü birden canlı tutmak birinin sessizce ayrışması demek.
   final String? rol;
+
+  /// Hesap sayfası için — verilmezse HESAP satırı çizilmez (çekmeceden zaten ulaşılıyor).
+  final Session? session;
+  final VoidCallback? onCikis;
 
   final bool writable;
 
-  /// Kurulum sihirbazını yeniden çalıştırır (kabuk ajanının akışı).
+  /// Kurulum sihirbazını yeniden çalıştırır (Uygulama sayfasına geçer).
   final VoidCallback? onSihirbaz;
 
-  /// Verilen numarayla çağrı kartını açar (cagri ajanının akışı).
+  /// Verilen numarayla çağrı kartını açar (Uygulama sayfasındaki deneme akışı).
   final ValueChanged<String>? onCagriSimulasyonu;
 
-  /// Geçerli tema — DEĞER değil DİNLENEBİLİR kaynak. Sahibi KABUKTUR; kalıcılık
-  /// `lib/theme/tema_deposu.dart` üzerindedir ve çağrı kartının native tarafı da aynı kaynağı
-  /// okur, o yüzden ekran kendi bayrağını tutamaz.
-  ///
-  /// Düz `bool` geçmek YETMEZ: bu ekran `Navigator.push` ile açılıyor, yani kabuk tema
-  /// değişince yeniden çizilse bile bu rota kendi anlık kopyasıyla kalır ve anahtar tema
-  /// döndüğü hâlde eski konumunda takılı görünür (cihazda görüldü).
-  final ValueListenable<bool>? koyuTema;
-
-  /// Tema değişimini kabuğa bildirir.
-  final ValueChanged<bool>? onTema;
-
-  /// Faz 0 gecikme ölçüm ekranını (`Phase0Screen`) açar. Satır YALNIZ hata ayıklama
-  /// derlemesinde çizilir — aşağıdaki `kDebugMode` notuna bakın. null → satır hiç çizilmez.
+  /// Faz 0 gecikme ölçüm ekranını açar; null → satır hiç çizilmez.
   final VoidCallback? onOlcumler;
+
+  /// Geçerli tema — DEĞER değil DİNLENEBİLİR kaynak (sahibi kabuk, kalıcılık
+  /// `lib/theme/tema_deposu.dart`; çağrı kartının native tarafı da aynı kaynağı okur).
+  final ValueListenable<bool>? koyuTema;
+  final ValueChanged<bool>? onTema;
 
   @override
   State<AyarlarEkrani> createState() => _AyarlarEkraniState();
 }
 
 class _AyarlarEkraniState extends State<AyarlarEkrani> {
-  // Tema kabuktan gelir (tema_deposu.dart orada yaşar): tercih kalıcı olmalı ve çağrı kartının
-  // native tarafı da AYNI kaynaktan okuyor. Ekranın kendi bayrağını tutması, anahtarı çevirince
-  // hiçbir şeyin kalıcılaşmadığı sahte bir kontrol demekti.
-
-  // Anahtarı `_Govde` (ayrı widget) çeviriyor; `setState` korumalı olduğundan dışarıdan
-  // çağrılamaz — geçiş bu genel yöntemden yapılır.
-  void koyuTemayiCevir() =>
-      widget.onTema?.call(!(widget.koyuTema?.value ?? false));
-
   Future<void> _cagriDene() async {
     final numara = await sipSheet<String>(
       context,
@@ -152,82 +116,17 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
     geriCagri(numara);
   }
 
-  /// Çağrı geçmişini açar (`cagri` ajanının ekranı). Giriş noktası ana ekran DEĞİL burasıdır:
-  /// ana ekrandaki "Son Arama" kutusunun dokunma davranışı tasarımda zaten dolu, oraya ikinci
-  /// bir jest eklemek keşfedilemez olurdu. Muaf Telefonlar ve Çağrı Simülasyonu da bu öbekte.
-  Future<void> _cagriGecmisi() async {
-    await Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (rotaCtx) => CagriGunluguSayfasi(
-        db: widget.db,
-        onGeri: () => Navigator.of(rotaCtx).maybePop(),
-        onAc: (arama) => _aramayiAc(rotaCtx, arama),
-      ),
-    ));
-  }
-
-  /// Bir arama satırına dokunulduğunda (s-uygulama.jsx:90 kuralı): kayıtlıysa müşteri defteri,
-  /// kayıtsızsa çağrı kartı. Kartın kayıtsız hâli tek eylem sunar ("Müşteri Olarak Kaydet"),
-  /// o yüzden dönen tek anlamlı sonuç [CagriEylemi.kaydet]'tir.
-  ///
-  /// Kayıt durumu DOKUNMA ANINDA `cagriKisiCoz` ile yeniden çözülür: geçmiş satırı çağrı
-  /// ANINDAKİ eşleşmeyi taşır ve arayan o çağrıdan sonra müşteri olarak kaydedilmiş olabilir.
-  /// Eskiden burada koşulsuz `CagriKisi.kayitsiz` geçiliyordu; borçlu bir müşteri bile kartta
-  /// "kayıtsız" görünüyordu.
-  ///
-  /// Kart burada muaf listesine BAKMAZ: muaf kapısı çalan telefonda kartın kendiliğinden
-  /// açılmasını engellemek içindir; geçmişten dokunmak kullanıcının kasıtlı isteğidir.
-  Future<void> _aramayiAc(BuildContext rotaCtx, AramaKaydi arama) async {
-    final kisi = await cagriKisiCoz(widget.db, arama.numara);
-    if (!rotaCtx.mounted) return;
-
-    final musteriId = arama.musteriId ?? kisi.musteriId;
-    if (musteriId != null) {
-      await Navigator.of(rotaCtx).push(MaterialPageRoute<void>(
-        builder: (_) => CustomerDetailScreen(
-          db: widget.db,
-          customerId: musteriId,
-          writable: widget.writable,
-          // YETKİ BURADAN GEÇMEK ZORUNDA (2026-08-13): bu, müşteri kartının altıncı girişiydi
-          // ve tek yetkisiz olanıydı; `cagriGunlugu` açılmış bir kurye buradan girip yönetici
-          // eylemlerine erişiyordu. Artık alan zorunlu, yani bu satırı silmek derlemeyi kırar.
-          yetki: widget.yetki,
-        ),
-      ));
-      return;
-    }
-
-    // Yön GEÇMİŞ SATIRINDAN gelir: kart yönü kendi başına bilemez, verilmezse "GELEN ÇAĞRI"
-    // varsayar ve bayi kendi yaptığı aramanın kartında gelen çağrı görürdü (2026-07-27 saha
-    // bulgusunun geçmiş ekranındaki ayağı). `arama.tip` çağrı ANINDAKİ yöndür ve değişmez —
-    // kayıt durumunun aksine yeniden çözülmesi gerekmez.
-    final eylem = await cagriKartiGoster(rotaCtx, kisi: kisi, yon: arama.tip);
-    if (eylem != CagriEylemi.kaydet || !rotaCtx.mounted) return;
-
-    if (!widget.writable) {
-      SipToast.goster(rotaCtx, 'Salt-okunur kip: yeni müşteri eklenemez.');
-      return;
-    }
-    final eklendi = await musteriEkleSheet(rotaCtx, db: widget.db, onTel: arama.numara);
-    if (eklendi != true || !rotaCtx.mounted) return;
-
-    // Tasarım `s-uygulama.jsx:116`: kayıttan sonra YENİ müşterinin defteri açılır. Kimliği
-    // çözücüden yeniden okuyoruz — sheet yalnız "kaydedildi" bilgisini döndürür.
-    final yeni = await cagriKisiCoz(widget.db, arama.numara);
-    final yeniId = yeni.musteriId;
-    if (yeniId == null || !rotaCtx.mounted) return;
-    await Navigator.of(rotaCtx).push(MaterialPageRoute<void>(
-      builder: (_) => CustomerDetailScreen(
-        db: widget.db,
-        customerId: yeniId,
-        writable: widget.writable,
-        yetki: widget.yetki,
-      ),
-    ));
-  }
+  void _ac(Widget ekran) => Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => ekran),
+      );
 
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
+    final patron = widget.rol == 'patron';
+    final session = widget.session;
+    final onCikis = widget.onCikis;
+
     return Scaffold(
       backgroundColor: t.bg,
       body: SafeArea(
@@ -235,231 +134,66 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SipUst(
-              baslik: 'Ayarlar',
-              onGeri: () => Navigator.of(context).maybePop(),
-            ),
+            SipUst(baslik: 'Ayarlar', onGeri: () => Navigator.of(context).maybePop()),
             Expanded(
-              // İşletme satırındaki ad/iletişim özeti `tenant_settings`ten CANLI okunur —
-              // profil ekranında kaydedilince buraya geri dönmeden güncellenir.
-              child: StreamBuilder<TenantSetting?>(
-                stream: TenantSettingsRepository(widget.db).watch(),
-                builder: (context, snap) => _Govde(state: this, profil: snap.data),
-              ),
+              child: SipGovde(children: [
+                const SipBolumBaslik('Ayarlar', ustBosluk: 18),
+                AyarKarti(satirlar: [
+                  if (session != null && onCikis != null)
+                    AyarSatiri(
+                      ikon: SipIcons.user,
+                      baslik: 'Hesap',
+                      altBaslik: 'Kullanıcı, rol ve oturum',
+                      onTap: () => _ac(HesapEkrani(
+                        db: widget.db,
+                        session: session,
+                        onCikis: onCikis,
+                      )),
+                    ),
+                  // İŞLETME YALNIZ PATRONDA: satır çizilmez, pasif de değil. Kalıcı olarak
+                  // kapalı bir kapıyı göstermek kullanıcıya olmayan bir yol tarif etmektir.
+                  if (patron)
+                    AyarSatiri(
+                      ikon: SipIcons.home,
+                      baslik: 'İşletme',
+                      altBaslik: 'Profil, iletişim, sipariş kodu',
+                      onTap: () => _ac(IsletmeAyarlariEkrani(
+                        db: widget.db,
+                        writable: widget.writable,
+                      )),
+                    ),
+                  AyarSatiri(
+                    ikon: SipIcons.settings,
+                    baslik: 'Uygulama',
+                    altBaslik: 'Tema, arayan tanıma, sürükleme',
+                    onTap: () => _ac(UygulamaAyarlariEkrani(
+                      koyuTema: widget.koyuTema,
+                      onTema: widget.onTema,
+                      onSihirbaz: widget.onSihirbaz,
+                      onCagriDene: _cagriDene,
+                      onOlcumler: widget.onOlcumler,
+                    )),
+                  ),
+                  AyarSatiri(
+                    ikon: SipIcons.alert,
+                    baslik: 'Bildirimler',
+                    altBaslik: 'İzinler, kategoriler, sessiz saatler',
+                    onTap: () => _ac(const BildirimAyarlariEkrani()),
+                  ),
+                  AyarSatiri(
+                    ikon: SipIcons.info,
+                    baslik: 'Hakkında',
+                    altBaslik: 'Sürüm, lisans, yenilikler',
+                    onTap: () => _ac(HakkindaEkrani(db: widget.db)),
+                  ),
+                ]),
+              ]),
             ),
           ],
         ),
       ),
     );
   }
-}
-
-class _Govde extends StatelessWidget {
-  const _Govde({required this.state, required this.profil});
-
-  final _AyarlarEkraniState state;
-
-  /// `tenant_settings` satırı; henüz kaydedilmediyse null.
-  final TenantSetting? profil;
-
-  @override
-  Widget build(BuildContext context) {
-    final ad = (profil?.businessName ?? '').trim();
-    final sahip = (profil?.ownerName ?? '').trim();
-    final telefon = (profil?.phone ?? '').trim();
-    final iletisim = [
-      if (sahip.isNotEmpty) sahip,
-      if (telefon.isNotEmpty) sipTelefon(telefon),
-    ].join(' · ');
-
-    return SipGovde(
-      children: [
-        const SipBolumBaslik('Görünüm', ustBosluk: 18),
-        AyarKarti(satirlar: [
-          AyarSatiri(
-            ikon: SipIcons.moon,
-            baslik: 'Koyu tema',
-            onTap: state.koyuTemayiCevir,
-            sag: ValueListenableBuilder<bool>(
-              valueListenable:
-                  state.widget.koyuTema ?? const AlwaysStoppedAnimation<bool>(false),
-              builder: (context, koyu, child) => SipKnob(acik: koyu),
-            ),
-          ),
-        ]),
-
-        const SipBolumBaslik('Arayan Tanıma', ustBosluk: 18),
-        AyarKarti(satirlar: [
-          // AÇ/KAPA anahtarı EN ÜSTTE: bölümün diğer satırları (kurulum, geçmiş, deneme)
-          // özelliğin parçalarıdır; özelliğin kendisinin düğmesi hepsinden önce gelir.
-          const ArayanTanimaSatiri(),
-          AyarSatiri(
-            ikon: SipIcons.phone,
-            baslik: 'Kurulum ve izinler',
-            onTap: () {
-              final sihirbaz = state.widget.onSihirbaz;
-              if (sihirbaz == null) {
-                SipToast.goster(context, 'Kurulum sihirbazı bu görünümde bağlı değil.');
-              } else {
-                sihirbaz();
-              }
-            },
-          ),
-          // Dükkânın çağrı günlüğü — `cagriGunlugu` yetkisine bağlı (2026-08-09). Kurye kendi
-          // işleyişini (arayan tanıma kurulumu, deneme çağrısı, tema) yönetmeye devam eder;
-          // kapanan şey DÜKKÂN VERİSİDİR: kimin ne zaman aradığı bayinin müşteri ilişkisidir.
-          if (state.widget.yetki.cagriGunlugu)
-            AyarSatiri(
-              ikon: SipIcons.clock,
-              baslik: 'Çağrı Geçmişi',
-              altBaslik: 'Son gelen ve giden aramalar',
-              onTap: state._cagriGecmisi,
-            ),
-          AyarSatiri(
-            ikon: SipIcons.phoneCall,
-            baslik: 'Gelen çağrıyı dene',
-            altBaslik: '4 varyant: borçlu, temiz, alacaklı, kayıtsız',
-            onTap: state._cagriDene,
-          ),
-          // Faz 0 gecikme ölçüm ekranı. Tasarımda YOK ve esnafın menüsünde işi de yok — ama
-          // silinemez: çağrı kartının 1 SANİYELİK bütçesini (BRIEF kırmızı çizgisi) ölçen tek
-          // araç orası. Girişi kaldırınca ekran hiçbir yerden açılamaz hâle geldi (bu projede
-          // Ayarlar/Kuryeler/Muaf dalı aynen böyle ölmüştü), o yüzden `kDebugMode` ile geri
-          // kondu: geliştirme derlemesinde ölçüm yapılır, üretim derlemesinde satır derlenmez.
-          if (kDebugMode && state.widget.onOlcumler != null)
-            AyarSatiri(
-              ikon: SipIcons.clock,
-              baslik: 'Gecikme ölçümleri',
-              altBaslik: 'Çağrı kartı 1 sn bütçesinin ölçüm kaydı · yalnız geliştirme derlemesi',
-              onTap: state.widget.onOlcumler,
-            ),
-        ]),
-
-        // Bildirim bölümü kendi dosyasında (`lib/bildirim/bildirim_ayar_bolumu.dart`):
-        // izin durumu ve kategori anahtarları kendi durumunu yönetiyor.
-        const BildirimAyarBolumu(),
-
-        if (state.widget.rol == 'patron') ...[
-          const SipBolumBaslik('İşletme', ustBosluk: 18),
-          AyarKarti(satirlar: [
-            AyarSatiri(
-              ikon: SipIcons.home,
-              baslik: ad.isEmpty ? 'İşletme profili' : ad,
-              altBaslik: iletisim.isEmpty ? 'Bilgileri tamamlayın' : iletisim,
-              sag: SipMetinButon(
-                etiket: 'Düzenle',
-                zemin: context.sip.surface2,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => IsletmeProfiliEkrani(
-                      db: state.widget.db,
-                      writable: state.widget.writable,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // Sipariş satırındaki kod tercihi
-            SiparisKoduSatiri(db: state.widget.db, writable: state.widget.writable),
-          ]),
-        ],
-
-        // "Yönetim" bölümü (Kuryeler + Muaf telefonlar) KALDIRILDI: tasarım `s-ayarlar.jsx`
-        // yalnız dört bölüm taşır, o iki ekranın girişi ÇEKMECEDEDİR (`s-bilesenler.jsx:83-87`).
-        // İki giriş noktası, iki farklı rol kapısı demekti.
-
-        const SipBolumBaslik('Hakkında', ustBosluk: 18),
-        _HakkindaKarti(db: state.widget.db),
-      ],
-    );
-  }
-}
-
-/// Sürüm + lisans. Lisans NÖTR bilgidir: gün sayısı ve kalan oto-sıralama hakkı gösterilir,
-/// hiçbir eyleme bağlanmaz (mağaza kuralı).
-///
-/// Veri AKIŞTAN okunur, tek atıştan DEĞİL: `validUntilIso` ve `routeCredits` SUNUCU SAHİPLİ
-/// alanlardır, senkron sırasında değişirler. `syncState()` tek atışıyla okunduğunda ekran
-/// senkrondan sonra bayat değerde kalıyordu (bu vardiyada iki kez görüldü).
-class _HakkindaKarti extends StatelessWidget {
-  const _HakkindaKarti({required this.db});
-
-  final AppDatabase db;
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<SyncMetaData>(
-      stream: db.watchSyncState(),
-      builder: (context, snap) {
-        final meta = snap.data;
-        return AyarKarti(satirlar: [
-          // Sürüm APK'dan okunuyor (asenkron); gelene kadar satır yerini korur ve nötr
-          // 'Sipario' yazar — yer değiştiren/zıplayan bir satır yerine sabit bir satır.
-          FutureBuilder<String>(
-            future: siparioSurumunuOku(),
-            builder: (context, surum) => AyarSatiri(
-              baslik: 'Sürüm',
-              altBaslik: surum.data ?? 'Sipario',
-            ),
-          ),
-          AyarSatiri(baslik: 'Sunucu', altBaslik: sunucuSurumuMetni(meta)),
-          AyarSatiri(baslik: 'Lisans', altBaslik: lisansMetni(meta)),
-          // "Yenilikler" AYRI VE ETİKETLİ bir satır; "Sürüm" satırını dokunulabilir yapmak
-          // daha az yer kaplardı ama keşfedilebilir olmazdı — bir bayi bilgi satırına
-          // dokunmayı denemez. Chevron `onTap` verildiği için kendiliğinden çizilir.
-          AyarSatiri(
-            baslik: 'Yenilikler',
-            altBaslik: 'Bu güncellemede ne değişti?',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const SurumNotlariEkrani()),
-            ),
-          ),
-        ]);
-      },
-    );
-  }
-}
-
-/// "Sunucu" satırının metni — son senkron turunda görülen API sözleşme sürümü.
-///
-/// NEDEN "Sürüm"ÜN YANINDA AYRI BİR SATIR: uygulama sürümü ile API sürümü İKİ AYRI HATTIR ve
-/// birbirine eşitlenmez (kural: CLAUDE.md → "Sürümleme"). İkisini tek satırda birleştirmek —
-/// "Sipario 0.10.0 / 1.0.0" gibi — okuyanı bir numaranın diğerini takip ettiğine inandırırdı;
-/// bu depoda daha önce ödenmiş bir hata sınıfı: **anlamı farklı iki sayıyı aynı kelimeyle
-/// taşımak.** Ayrı etiket, ayrı hat.
-///
-/// Ekran metni İDDİA ETMEZ (aynı yazılı kural): satır "sunucu güncel" ya da "uyumlu" demez —
-/// yalnız en son GÖRÜLEN numarayı yazar. Değer önbellekten okunur, o yüzden ağ yokken de doludur;
-/// hiç senkron olmamış cihazda ise uydurmak yerine bilinmediğini söyler.
-///
-/// Ekrandan BAĞIMSIZ (saf testle sınanır).
-String sunucuSurumuMetni(SyncMetaData? meta) {
-  final surum = meta?.apiVersion;
-  if (surum == null || surum.trim().isEmpty) return 'Henüz bağlanılmadı';
-  return 'API ${surum.trim()}';
-}
-
-/// Lisans satırının metni — tasarım `s-ayarlar.jsx:50` "248 gün kaldı · oto sıralama 34 hak".
-///
-/// Ekrandan BAĞIMSIZ (saf testle sınanır). Oto sıralama parçası yalnız özellik AÇIKKEN
-/// (`routeCreditsMonthly > 0`) yazılır — kapalı bayide "0 hak" görünmesi yanlış olurdu.
-/// [simdi] yalnız test içindir.
-String lisansMetni(SyncMetaData? meta, {DateTime? simdi}) {
-  final parcalar = <String>[_kalanSureMetni(meta, simdi: simdi)];
-  if (meta != null && meta.routeCreditsMonthly > 0) {
-    parcalar.add('oto sıralama ${meta.routeCredits} hak');
-  }
-  return parcalar.join(' · ');
-}
-
-String _kalanSureMetni(SyncMetaData? meta, {DateTime? simdi}) {
-  final bitis = meta?.validUntilIso;
-  if (bitis == null) return 'Durum bilinmiyor';
-  final t = DateTime.tryParse(bitis);
-  if (t == null) return 'Durum bilinmiyor';
-  final kalan = t.difference(simdi ?? DateTime.now()).inDays;
-  if (kalan < 0) return 'Süre doldu — kayıtlar salt-okunur';
-  return '$kalan gün kaldı';
 }
 
 /// Simülasyon satırının anlamı — ikon rengini bu belirler (tasarım `s-ayarlar.jsx:6-9`).

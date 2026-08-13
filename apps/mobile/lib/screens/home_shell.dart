@@ -436,6 +436,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           rol: _userRole,
           yetki: _yetki,
           writable: _yazilabilir,
+          // Hesap sayfası hem çekmeceden hem ayarlar hub'ından açılır; ikisi de AYNI ekranı
+          // ve AYNI çıkış akışını kullanır (çıkış onayı + oturum temizliği tek yerde).
+          session: widget.session,
+          onCikis: _cikis,
           onSihirbaz: _sihirbaziAc,
           onCagriSimulasyonu: _cagriKartiAc,
           koyuTema: _tema,

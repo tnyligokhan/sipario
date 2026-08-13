@@ -212,7 +212,10 @@ class _FormState extends State<_Form> {
         const SipBolumBaslik('İletişim', ustBosluk: 20),
         _alan('telefon', 'TELEFON *', '0242 XXX XX XX', telefon: true, ustBosluk: 2),
         _alan('whatsapp', 'WHATSAPP HATTI', 'Boş bırakılabilir', telefon: true),
-        _alan('adres', 'ADRES', 'Dükkân adresi (fişte görünür)', satirlar: 2),
+        // İPUCU METNİ DÜZELTİLDİ (2026-08-13): eskiden "Dükkân adresi (fişte görünür)"
+        // yazıyordu ve bu düpedüz yanlıştı — uygulamada fiş diye bir çıktı yok. Ekran, ürünün
+        // yapmadığı bir şeyi vaat ediyordu.
+        _alan('adres', 'ADRES', 'Dükkân adresi', satirlar: 2),
 
         const SipBolumBaslik('Vergi', ustBosluk: 20),
         Row(
@@ -263,14 +266,22 @@ class _FormState extends State<_Form> {
           onDegis: _temizle,
         ),
 
-        // Bölüm başlığından SONRA doğrudan alan gelir (tasarım `s-isletme.jsx:71-72`): araya
-        // "FİŞ NOTU" etiketi koymak aynı şeyi iki kez söylemekti.
-        const SipBolumBaslik('Fiş Alt Notu', ustBosluk: 20),
+        // ══ FİŞ HENÜZ YOK — ALAN PASİF (kullanıcı kararı 2026-08-13) ═════════════════════
+        // `receipt_note` kolonu var, form onu yazıyor, senkron taşıyor — ama onu OKUYAN tek
+        // bir yer yok: uygulamada fiş/teslim belgesi diye bir çıktı üretilmiyor. Yani bayi
+        // oturup fiş notunu yazıyor, kaydediyor ve o metin hiçbir zaman hiçbir yerde
+        // görünmüyordu. Tutulmayan bir söz, eksik bir özellikten kötüdür: bayi ürünün
+        // bozuk olduğunu düşünür.
+        //
+        // ALAN SİLİNMEDİ, PASİFLEŞTİRİLDİ: veri katmanı (kolon + repo + senkron) yerinde
+        // duruyor ve özellik geldiğinde tek satır değişiklikle açılacak. Kaldırıp geri
+        // eklemek, arada yazılmış değerleri de kaybetmek olurdu.
+        const CokYakindaBaslik('Fiş Alt Notu'),
         SipInput(
           controller: _alanlar['fisNotu']!,
-          ipucu: 'Ör. Bizi tercih ettiğiniz için teşekkürler.',
+          ipucu: 'Teslim fişi özelliğiyle birlikte açılacak',
           satirlar: 2,
-          onChanged: (_) => _temizle(),
+          aktif: false,
         ),
 
         Padding(

@@ -28,6 +28,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 
+import '../screens/isletme/atomlar/form_atomlari.dart';
 import '../screens/isletme/atomlar/kart_atomlari.dart';
 import '../theme/components/bicim.dart';
 import '../theme/components/dokunma.dart';
@@ -122,6 +123,23 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
     setState(() {});
   }
 
+  /// Sessiz saat aralığını sorar ve yazar. null dönerse (vazgeçildi) hiçbir şey değişmez.
+  ///
+  /// KAPATMA DA BİR SEÇENEKTİR ve `baslangic == bitis` ile ifade edilir — modelin kendi
+  /// kuralı (`SessizSaatler.kapali`). Ayrı bir "açık mı" bayrağı EKLENMEDİ: aynı gerçeği iki
+  /// alanda tutmak, ikisinin bir gün çelişmesi demektir (bu depoda ödenmiş bir ders).
+  Future<void> _sessizSor() async {
+    final secim = await sipSheet<SessizSaatler>(
+      context,
+      baslik: 'Sessiz saatler',
+      govde: (ctx) => _SessizGovde(baslangic: _ayarlar.sessizSaatler),
+    );
+    if (secim == null || !mounted) return;
+    await _ayarlar.sessizYaz(secim);
+    if (!mounted) return;
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
@@ -148,12 +166,17 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
                 onTap: _izinIste,
               ),
             ),
-          // Sessiz saatler Faz 1'de SABİT ve yalnız bilgilendirme satırı: bayi gece bildirim
-          // gelmediğini bir yerde okuyabilmeli, yoksa "bildirimler çalışmıyor" diye döner.
+          // SESSİZ SAATLER ARTIK DÜZENLENEBİLİR (2026-08-13). Faz 1'de SABİT ve yalnız
+          // bilgilendirme satırıydı; `BildirimAyarlari.sessizYaz()` yazılmış, okunmuş ve
+          // bildirim servisi tarafından UYGULANIYORDU ama onu çağıran TEK BİR EKRAN YOKTU —
+          // yani ürün özelliği taşıyordu, kullanıcı ona hiç erişemiyordu. Kod hazırdı, kapı
+          // yoktu. Su bayilerinin çalışma saatleri birbirinden çok farklı (sabah 6'da açan da
+          // var, gece 1'e kadar teslimat yapan da); sabit 22-8 ikisinde de yanlış.
           AyarSatiri(
             ikon: SipIcons.moon,
             baslik: 'Sessiz saatler',
             altBaslik: _sessizMetin(_ayarlar.sessizSaatler),
+            onTap: _sessizSor,
           ),
           for (final k in BildirimKategori.values)
             if (k == BildirimKategori.borcEsigi)
@@ -260,6 +283,125 @@ class _EsikGovdeState extends State<_EsikGovde> {
           onTap: () => Navigator.of(context).pop(''),
         ),
       ],
+    );
+  }
+}
+
+/// Sessiz saat aralığı seçici (2026-08-13).
+///
+/// İKİ ŞERİT, TEK EKRAN: başlangıç ve bitiş saatleri yan yana kaydırılabilir hap listelerdir.
+/// İki AŞAMALI bir akış (önce başlangıç sor, sonra bitiş sor) daha az kod olurdu ama kullanıcı
+/// aralığı BİR BÜTÜN olarak düşünür — "22'den 8'e" tek bir karardır; ikiye bölmek, ikinci
+/// adımda ilkini hatırlamayı gerektirirdi.
+///
+/// GECE YARISINI AŞAN ARALIK NORMALDİR (22 → 8) ve modelde zaten destekleniyor
+/// (`SessizSaatler.icindeMi`); seçici bu yüzden "başlangıç bitişten küçük olmalı" gibi bir
+/// kısıt DAYATMAZ. Dayatsaydı, en yaygın kullanım biçimini yasaklamış olurduk.
+class _SessizGovde extends StatefulWidget {
+  const _SessizGovde({required this.baslangic});
+
+  final SessizSaatler baslangic;
+
+  @override
+  State<_SessizGovde> createState() => _SessizGovdeState();
+}
+
+class _SessizGovdeState extends State<_SessizGovde> {
+  late int _bas = widget.baslangic.baslangicSaat;
+  late int _bit = widget.baslangic.bitisSaat;
+
+  static String _ss(int saat) => '${saat.toString().padLeft(2, '0')}:00';
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    final kapali = _bas == _bit;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Bu aralıkta bildirim gösterilmez; sıradaki bildirim aralığın bitişine ertelenir. '
+          'Kaybolmaz — yalnız beklerler.',
+          style: SipText.yardimci.copyWith(color: t.muted),
+        ),
+        const SipFormEtiket('BAŞLANGIÇ', ustBosluk: 14),
+        // ANAHTARLAR TEST İÇİN ve bu bilinçli: iki şerit AYNI 24 metni taşıyor, yani
+        // `find.text('11')` iki sonuç döndürüyor ve sıraya güvenen bir test sessizce yanlış
+        // şeridi seçebiliyor (ilk koşumda tam bu oldu: başlangıç 6 beklenirken 11 çıktı).
+        // Kimliği ürüne yazmak, testin tahmin etmesinden iyidir.
+        _SaatSeridi(
+          key: const Key('sessiz-baslangic'),
+          secili: _bas,
+          onSec: (s) => setState(() => _bas = s),
+        ),
+        const SipFormEtiket('BİTİŞ'),
+        _SaatSeridi(
+          key: const Key('sessiz-bitis'),
+          secili: _bit,
+          onSec: (s) => setState(() => _bit = s),
+        ),
+
+        // ÖZET SATIRI: iki şerit ayrı ayrı okunuyor, sonucu bir cümlede söylemek gerekiyor.
+        // Aynı iki saatin seçilmesi KAPALI demektir ve bunu kullanıcı ancak burada anlar —
+        // sessizce "22:00 – 22:00" yazmak, hiçbir şey anlatmayan bir aralık gösterirdi.
+        Padding(
+          padding: const EdgeInsets.only(top: SipSpace.xl),
+          child: AlanNotu(
+            kapali
+                ? 'Aynı saat seçildi — sessiz saatler KAPALI, bildirimler her an gelir.'
+                : 'Sessiz: ${_ss(_bas)} – ${_ss(_bit)}',
+            tur: kapali ? AlanNotuTuru.uyari : AlanNotuTuru.bilgi,
+          ),
+        ),
+
+        const SizedBox(height: SipSpace.x3),
+        SipButon(
+          etiket: 'Kaydet',
+          yukseklik: 50,
+          onTap: () => Navigator.of(context).pop(
+            SessizSaatler(baslangicSaat: _bas, bitisSaat: _bit),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 24 saatlik yatay hap şeridi; seçili olan accent dolgulu.
+class _SaatSeridi extends StatelessWidget {
+  const _SaatSeridi({super.key, required this.secili, required this.onSec});
+
+  final int secili;
+  final ValueChanged<int> onSec;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: 24,
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        itemBuilder: (context, saat) {
+          final secildi = saat == secili;
+          return SipDokun(
+            onTap: () => onSec(saat),
+            zemin: secildi ? t.accent : t.surface2,
+            radius: SipRadius.brHap,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: Center(
+              child: Text(
+                saat.toString().padLeft(2, '0'),
+                style: SipText.tutar(14, w: 700)
+                    .copyWith(color: secildi ? t.accentInk : t.ink2),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

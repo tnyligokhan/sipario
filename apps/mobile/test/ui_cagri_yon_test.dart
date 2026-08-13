@@ -160,9 +160,12 @@ void main() {
     // yani davranışla kilitlenemiyor. Argümanın silinmesi sessiz bir gerileme olurdu: kart yine
     // açılır, yalnız yanlış yönü yazar. Kaynak taraması bu deseni yakalayan tek ucuz kapı —
     // ekran metni taramalarıyla (mağaza-kuralı testleri) aynı gerekçe.
-    test('ayarlar_ekrani çağrı kartını AÇARKEN yönü geçirir', () {
-      final kaynak =
-          File('lib/screens/isletme/ayarlar_ekrani.dart').readAsStringSync();
+    // AKIŞ KABUĞA TAŞINDI (2026-08-13): çağrı geçmişinden kart açma mantığı ayarlar
+    // ekranından `HomeShell`e geçti (çağrı geçmişinin girişi artık çekmecede). Taranan dosya
+    // değişti, KORUNAN KURAL AYNI: yön geçilmezse kart "GELEN ÇAĞRI" varsayar ve bayi kendi
+    // yaptığı aramanın kartında gelen çağrı görür (2026-07-27 saha bulgusu).
+    test('home_shell çağrı kartını AÇARKEN yönü geçirir', () {
+      final kaynak = File('lib/screens/home_shell.dart').readAsStringSync();
       final cagri = kaynak.indexOf('cagriKartiGoster(');
       expect(cagri, isNot(-1), reason: 'çağrı kartı bu ekrandan açılıyor olmalı');
 

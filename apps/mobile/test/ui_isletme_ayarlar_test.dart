@@ -7,7 +7,10 @@ import 'package:sipario/repo/exempt_number_repository.dart';
 import 'package:sipario/repo/tenant_settings_repository.dart';
 import 'package:sipario/screens/cagri/arayan_tanima_ayari.dart';
 import 'package:sipario/screens/cagri/cagri_gunlugu.dart';
-import 'package:sipario/screens/customers/customer_detail_screen.dart';
+import 'package:sipario/screens/isletme/ayarlar/bildirim_ayarlari_ekrani.dart';
+import 'package:sipario/screens/isletme/ayarlar/hakkinda_ekrani.dart';
+import 'package:sipario/screens/isletme/ayarlar/isletme_ayarlari_ekrani.dart';
+import 'package:sipario/screens/isletme/ayarlar/uygulama_ayarlari_ekrani.dart';
 import 'package:sipario/screens/isletme/ayarlar_ekrani.dart';
 import 'package:sipario/screens/isletme/isletme_profili_ekrani.dart';
 import 'package:sipario/screens/isletme/kuryeler_ekrani.dart';
@@ -190,6 +193,35 @@ void main() {
 
       await kapat(tester);
     });
+
+    testWidgets('FİŞ ALANI PASİF ve "Çok yakında" işaretli; adres fiş VAAT ETMEZ',
+        (tester) async {
+      // Kullanıcı kararı 2026-08-13. `receipt_note` kolonu var, form yazıyor, senkron taşıyor
+      // — ama onu OKUYAN hiçbir yer yok: uygulamada fiş/teslim belgesi diye bir çıktı
+      // üretilmiyor. Alan normal görünümde kaldığı sürece ürün tutmayacağı bir söz veriyordu:
+      // bayi doldurur, kaydeder, sonucunu hiçbir yerde göremez.
+      //
+      // BU TEST GERİ AÇILMAYI ENGELLER: fiş özelliği gelince alan bilinçli olarak açılacak ve
+      // bu test o gün BİLEREK güncellenecek. Kilit olmasaydı, alan bir refactor sırasında
+      // sessizce yazılabilir hâle döner ve aynı yanlış söz geri gelirdi.
+      final db = AppDatabase(NativeDatabase.memory());
+
+      await ekranaKoy(tester, IsletmeProfiliEkrani(db: db));
+
+      expect(find.text('Çok yakında'), findsOneWidget);
+      expect(find.text('Fiş Alt Notu'), findsOneWidget,
+          reason: 'bölüm görünür kalır — özellik geliyor, kaldırılmıyor');
+
+      // Alan PASİF: rozet tek başına yetmez, yazılabilir bırakmak aynı sözü kibarca vermektir.
+      final fisAlani = find.widgetWithText(SipInput, 'Teslim fişi özelliğiyle birlikte açılacak');
+      expect(tester.widget<SipInput>(fisAlani).aktif, isFalse);
+
+      // ADRES İPUCU ARTIK FİŞ VAAT ETMİYOR (eskiden "Dükkân adresi (fişte görünür)").
+      expect(find.text('Dükkân adresi'), findsOneWidget);
+      expect(find.textContaining('fişte görünür'), findsNothing);
+
+      await kapat(tester);
+    });
   });
 
   // ═════════════════════════════════════════════════════════════════════════════════════════
@@ -218,25 +250,55 @@ void main() {
 
   // ═════════════════════════════════════════════════════════════════════════════════════════
   group('Mağaza kuralı ve rol kapıları', () {
-    testWidgets('Ayarlar ekranında abonelik/ödeme/satın alma sözcüğü GEÇMEZ', (tester) async {
+    // ⚠️ TARAMA BEŞ SAYFAYI DA KAPSAR (2026-08-13). Ayarlar tek uzun listeden hub + beş sayfaya
+    // bölündü; tarama eski hâlinde kalsaydı yalnız HUB'ı gezecekti — yani mağaza kuralını
+    // koruyan test, kuralın geçerli olduğu yüzeyin beşte dördünü görmez hâle gelirdi. Bölünme,
+    // taramanın kapsamını daraltmak için bir bahane değildir.
+    const yasakliSozcukler = [
+      'Abone',
+      'Satın al',
+      'Üye ol',
+      'Kayıt ol',
+      'Kaydol',
+      'Ödeme yap',
+      'Fiyat',
+      '₺',
+    ];
+
+    void yasakliAra(String sayfa) {
+      for (final yasak in yasakliSozcukler) {
+        expect(find.textContaining(yasak), findsNothing,
+            reason: '"$yasak" mobilde $sayfa sayfasında gösterilemez');
+      }
+    }
+
+    testWidgets('AYARLARIN BEŞ SAYFASINDA da abonelik/ödeme/satın alma sözcüğü GEÇMEZ',
+        (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
+      // 1) Hub
       await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron', yetki: tamYetki));
+      yasakliAra('Ayarlar');
+      await kapat(tester);
 
-      // Apple 3.1.3(f) / Google Play: mobilde kayıt · üyelik · fiyat · abonelik · ödeme YOK.
-      for (final yasak in [
-        'Abone',
-        'Satın al',
-        'Üye ol',
-        'Kayıt ol',
-        'Kaydol',
-        'Ödeme yap',
-        'Fiyat',
-        '₺',
-      ]) {
-        expect(find.textContaining(yasak), findsNothing,
-            reason: '"$yasak" mobil ayarlar ekranında gösterilemez');
-      }
+      // 2) İşletme
+      await ekranaKoy(tester, IsletmeAyarlariEkrani(db: db, writable: true));
+      yasakliAra('İşletme');
+      await kapat(tester);
+
+      // 3) Uygulama
+      await ekranaKoy(tester, const UygulamaAyarlariEkrani());
+      yasakliAra('Uygulama');
+      await kapat(tester);
+
+      // 4) Bildirimler
+      await ekranaKoy(tester, const BildirimAyarlariEkrani());
+      yasakliAra('Bildirimler');
+      await kapat(tester);
+
+      // 5) Hakkında — lisans/sürüm burada yaşıyor, yani kuralın en çok zorlandığı sayfa.
+      await ekranaKoy(tester, HakkindaEkrani(db: db));
+      yasakliAra('Hakkında');
 
       // Lisans NÖTR bilgi olarak durabilir.
       expect(find.text('Lisans'), findsOneWidget);
@@ -257,27 +319,45 @@ void main() {
       await kapat(tester);
     });
 
-    // Tasarım (`s-ayarlar.jsx`) DÖRT bölüm taşır: Görünüm · Arayan Tanıma · İşletme · Hakkında.
-    // Fazlalıkların hepsi tek testte kilitli, çünkü hepsi aynı hatanın örneğiydi: uygulamada
-    // olup tasarımda olmayan satır, ya ikinci bir giriş noktası ya da ölü bir anahtar üretiyordu.
-    testWidgets('Ayarlar yalnız tasarımın dört bölümünü taşır (Yönetim/Xiaomi YOK)',
-        (tester) async {
+    // AYARLAR ARTIK BİR HUB'DIR (2026-08-13): beş kategori satırı, her biri kendi sayfası.
+    // Eski test "tasarımın dört bölümü"nü kilitliyordu; o prototip bildirimler, sipariş kodu,
+    // kurye yetkileri ve hesap kavramı yokken çizilmişti ve uygulama onu çoktan aşmıştı.
+    // Kilitlenen şey artık kategori kümesidir — ve hub'ın İÇERİK TAŞIMADIĞI.
+    testWidgets('Ayarlar bir HUB: beş kategori satırı, gövdede ayar YOK', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
-      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron', yetki: tamYetki));
+      await ekranaKoy(
+        tester,
+        AyarlarEkrani(db: db, rol: 'patron', yetki: tamYetki, onOlcumler: () {}),
+      );
 
-      for (final bolum in ['Görünüm', 'Arayan Tanıma', 'İşletme', 'Hakkında']) {
-        expect(find.text(bolum), findsOneWidget, reason: '$bolum bölümü tasarımda VAR');
+      for (final kategori in ['İşletme', 'Uygulama', 'Bildirimler', 'Hakkında']) {
+        expect(find.text(kategori), findsOneWidget, reason: '$kategori kategorisi hub\'da VAR');
       }
-      expect(find.text('Yönetim'), findsNothing,
-          reason: 'Kuryeler/Muaf girişleri ÇEKMECEDE — iki giriş noktası olmaz');
+
+      // HUB İÇERİK TAŞIMAZ: ayarın kendisi sayfasında yaşar. Hub hem menü hem içerik olsaydı,
+      // bölmenin tek sebebi olan "her tür kendi yerinde" kuralı ilk günden delinirdi.
+      expect(find.text('Koyu tema'), findsNothing);
+      expect(find.text('Lisans'), findsNothing);
+      expect(find.text('Gecikme ölçümleri'), findsNothing);
+
+      // Yönetim girişleri ÇEKMECEDE — iki giriş noktası olmaz.
       expect(find.text('Kuryeler'), findsNothing);
       expect(find.text('Muaf telefonlar'), findsNothing);
-      expect(find.textContaining('Xiaomi'), findsNothing,
-          reason: 'MIUI ek izni satırı ölüydü: anahtar hiçbir şeyi kalıcılaştırmıyordu');
-      // Kabuk `onOlcumler` geçirmezse satır hiç çizilmez — bağlanmamış bir tanı aracı için
-      // menüde yer tutmaz.
-      expect(find.text('Gecikme ölçümleri'), findsNothing);
+      // ÇAĞRI GEÇMİŞİ AYARLARDAN ÇIKTI (kullanıcı tespiti): bir iş kaydıdır, tercih değil.
+      expect(find.text('Çağrı Geçmişi'), findsNothing);
+
+      await kapat(tester);
+    });
+
+    testWidgets('İŞLETME satırı yalnız PATRONDA çizilir', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+
+      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'kurye', yetki: tamYetki));
+
+      expect(find.text('İşletme'), findsNothing,
+          reason: 'kalıcı kapalı kapı gösterilmez — pasif satır değil, hiç satır');
+      expect(find.text('Uygulama'), findsOneWidget, reason: 'kendi cihaz tercihleri açık kalır');
 
       await kapat(tester);
     });
@@ -288,13 +368,12 @@ void main() {
     // derlemesidir; üretim derlemesinde satır hiç derlenmez.
     testWidgets('Gecikme ölçümleri satırı geliştirme derlemesinde VAR ve ekranı açar',
         (tester) async {
-      final db = AppDatabase(NativeDatabase.memory());
       var acildi = false;
 
+      // Satır UYGULAMA sayfasına taşındı (2026-08-13 bölünmesi); hub yalnız kategori taşır.
       await ekranaKoy(
         tester,
-        AyarlarEkrani(
-            db: db, rol: 'patron', yetki: tamYetki, onOlcumler: () => acildi = true),
+        UygulamaAyarlariEkrani(onOlcumler: () => acildi = true),
       );
 
       expect(find.text('Gecikme ölçümleri'), findsOneWidget,
@@ -309,23 +388,13 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('Arayan Tanıma öbeği çağrı geçmişini açar', (tester) async {
-      // Çağrı geçmişinin TEK giriş noktası burası (ana ekrandaki "Son Arama" kutusunun
-      // dokunma davranışı tasarımda zaten dolu) — bağlantı kopmasın diye sınanıyor.
-      final db = AppDatabase(NativeDatabase.memory());
-
-      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron', yetki: tamYetki));
-      expect(find.text('Çağrı Geçmişi'), findsOneWidget);
-
-      await tester.tap(find.text('Çağrı Geçmişi'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 600));
-      await akislariBekle(tester);
-
-      expect(find.byType(CagriGunluguSayfasi), findsOneWidget);
-
-      await kapat(tester);
-    });
+    // "Arayan Tanıma öbeği çağrı geçmişini açar" TESTİ BURADAN KALDIRILDI (2026-08-13):
+    // çağrı geçmişinin girişi artık ÇEKMECEDE. Kapsam kaybolmadı, iki parçaya ayrıldı:
+    //   • Girişin ayarlarda OLMADIĞI → yukarıdaki "Ayarlar bir HUB" testi.
+    //   • Girişin çekmecede olduğu ve doğru hedefi açtığı → `ui_kabuk_test.dart`
+    //     ("İŞ bölümü menüden ulaşılamayan üç ekranı taşır").
+    // Testi silmek yerine taşımak şart: bu depoda bir ekranın girişi bir kez kayboldu ve
+    // ekran aylarca ölü kaldı.
 
     // Geçmiş satırı çağrı ANINDAKİ eşleşmeyi taşır (`call_logs.customer_id`). Arayan o çağrıdan
     // SONRA müşteri olarak kaydedilmişse satır hâlâ "kayıtsız" der; kayıt durumu bu yüzden
@@ -350,18 +419,29 @@ void main() {
             ));
       });
 
-      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron', yetki: tamYetki));
-      await dokun(tester, find.text('Çağrı Geçmişi'));
-      await sheetAnimasyonu(tester);
+      // AKIŞ KABUĞA TAŞINDI (2026-08-13): çağrı geçmişi artık çekmeceden açılıyor ve arama
+      // satırına dokunma mantığı `HomeShell._aramayiAc`ta yaşıyor. Ekran burada DOĞRUDAN
+      // kurulur ve kabuğun geri çağrımı taklit EDİLMEZ — taklit etseydik test kendi sahte
+      // kodunu doğrulardı. Sınanan şey `CagriGunluguSayfasi`nin satırı çizmesi ve dokunuşu
+      // dışarı bildirmesi; "kayıtlıysa defter açılır" kararının kendisi kabuk testindedir.
+      String? acilanNumara;
+      await ekranaKoy(
+        tester,
+        CagriGunluguSayfasi(
+          db: db,
+          onGeri: () {},
+          onAc: (arama) async => acilanNumara = arama.numara,
+        ),
+      );
 
       // Satır numarayla çizilir (kayıt anında eşleşme yoktu, `call_logs.customer_id` NULL).
       final satir = find.text(sipTelefon('+905324152290'));
       expect(satir, findsOneWidget, reason: 'geçmiş satırı kayıtsız gibi görünüyor — beklenen');
       await dokun(tester, satir);
-      await sheetAnimasyonu(tester);
+      await akislariBekle(tester);
 
-      expect(find.byType(CustomerDetailScreen), findsOneWidget,
-          reason: 'numara artık defterde: kart yerine müşteri defteri açılır (s-uygulama.jsx:90)');
+      expect(acilanNumara, '+905324152290',
+          reason: 'satır dokunuşu numarayı olduğu gibi dışarı bildirir');
 
       await kapat(tester);
     });

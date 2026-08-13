@@ -5,16 +5,13 @@
 // değerleri (`acik`/`kapali`, varsayılan açık) iki tarafın elle senkron tuttuğu sözleşmedir,
 // Dart tarafı onları değiştirirse bu testler kırılmalıdır.
 
-import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sipario/data/app_database.dart';
 import 'package:sipario/screens/cagri/arayan_tanima_ayari.dart';
-import 'package:sipario/screens/isletme/ayarlar_ekrani.dart';
 import 'package:sipario/theme/app_theme.dart';
 
 import 'support/ekran_yardimcilari.dart';
-import 'support/yetki_yardimcilari.dart';
+import 'package:sipario/screens/isletme/ayarlar/uygulama_ayarlari_ekrani.dart';
 
 void main() {
   // Gerçek depo platform kanalına (sqflite dizini) uzanır; widget testinde dikiş bellekle
@@ -80,11 +77,12 @@ void main() {
     });
   });
 
-  group('Ayarlar ekranı', () {
+  group('Ayarlar → Uygulama sayfası', () {
     testWidgets('anahtar Arayan Tanıma kartının İLK satırıdır', (tester) async {
-      final db = AppDatabase(NativeDatabase.memory());
-
-      await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'patron', yetki: tamYetki));
+      // Ayarlar 2026-08-13'te hub + beş sayfaya bölündü; arayan tanıma öbeği UYGULAMA
+      // sayfasında yaşıyor. Anahtarın bölümün İLK satırı olması kuralı değişmedi: diğer
+      // satırlar (kurulum, deneme) özelliğin parçalarıdır, özelliğin kendisi hepsinden önce.
+      await ekranaKoy(tester, const UygulamaAyarlariEkrani());
 
       expect(find.text('Arayan tanıma'), findsOneWidget);
       expect(find.text('Telefon çalarken müşteri kartı gösterilir'), findsOneWidget);
