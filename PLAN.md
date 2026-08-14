@@ -243,7 +243,72 @@
 >
 ## Güncel durum
 
-### 🔻 2026-08-13/3 — AYARLAR KONULARINA BÖLÜNDÜ + HESAP SAYFASINA VARLIK NEDENİ (mobil 0.20.1 → **0.21.0**, API DEĞİŞMEDİ 1.6.0)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-14 — PUSH BİLDİRİMİ KURULDU (mobil 0.21.0 → **0.22.0**, API 1.6.0 → **1.7.0**)
+
+Kullanıcının cümlesi: *"Push bildirimlerini kurmamız gerekiyor!"*
+
+**KAPSAM (kullanıcı onayı ile):** operasyon olayları · yalnız Android · Firebase projesini
+kullanıcı kendi Google hesabıyla açtı (`sipario-acd9e`).
+
+**1. NEDEN GEREKTİ.** Bildirim altyapısı vardı ama tamamı YERELDİ — telefon kendi verisinden
+üretiyordu. Olayın BAŞKA BİR CİHAZDA olduğu durumu bu kapatamaz: patron siparişi kendi
+telefonundan kuryeye atar, kuryenin telefonunda o an hiçbir şey yoktur. Tek kişilik bayide
+görünmeyen bu boşluk, patron+kurye olan bayide ürünün eksik yarısıydı.
+
+**2. DÜRTÜ VERİ TAŞIMAZ.** FCM yükü `{olay, id, kategori}` — müşteri adı/adres/tutar YOK
+(kırmızı çizgi #4). Sıra: dürtü → senkron → veri yerel DB'ye iner → bildirim YEREL veriden
+çizilir. Asıl mimari kazanç bu değil, şu: dürtü kaybolsa bile (telefon kapalı, Play Services
+yok — Huawei) veri mevcut senkronla akar. **Push HIZLANDIRICIDIR, taşıyıcı değil**; "push
+gelmezse ürün çalışmaz" durumu tasarım gereği doğamaz.
+
+**3. `notification` alanı BİLEREK gönderilmiyor, yalnız `data`.** Olsaydı bildirimi Android
+sistemi çizerdi ve sessiz saatler · günlük bütçe · kategori kısma kurallarının hiçbiri
+işlemezdi; metin de sunucudan gelmek zorunda kalır, kişisel veri FCM'e sızardı.
+
+**4. Kural tek yerde** (`app/Bildirim/PushTetikleyici.php`): yalnız `applied` olaylar
+(offline istemcinin `duplicate` yeniden denemesi telefonu öttürmez) · üç olay (atandı→ATANAN
+kuryeye, teslim ve kasa devri→yöneticilere) · ters kasa devri (iptal) hariç · olayı üreten
+cihaz elenir. Gönderim KUYRUKTAN koşar (teslim kapatma bir ağ turuna bağlanamaz) ve okuma
+`pgsql_owner` iledir — kuyrukta RLS kiracı değişkeni kurulu değildir, izolasyon elle
+`where tenant_id` ile zorlanır.
+
+**5. SESSİZ ARIZA KAPATILDI.** `POST /devices` ve giriş yolu, `push_token` gönderilmediğinde
+alana `null` yazıyordu. FCM jetonu girişten SONRA asenkron geldiği için bu, **her açılışta
+jetonu silerdi** — hata çıkmaz, yalnız bildirimler bir gün gelmemeye başlardı.
+(`TenantSettingsRepository`de mobilde çözülen "verilmedi ≠ boşalt" probleminin ikizi.)
+
+**ÖLÇÜMLER (bizzat koşuldu):** `flutter analyze` **temiz** · **1324 mobil test yeşil** (tam
+takım) · **API tam takım 852/853 yeşil** (4137 assertion; 1 atlandı = openssl, 1 incomplete —
+ikisi de bu vardiyadan önce de öyleydi) · `flutter build apk --release` **hem `saha` hem
+`deneme` tadında yeşil** (deneme `.test` paket adı taşır; `google-services.json` ikisini de
+kapsıyor — doğrulandı) · `scripts/check_permissions_source.sh` temiz.
+
+**İZİN DENETİMİ (kırmızı çizgi #6) — birleşik manifest okundu, varsayılmadı.** Firebase üç
+izin ekledi: `com.google.android.c2dm.permission.RECEIVE` · `WAKE_LOCK` · `VIBRATE`. Hiçbiri
+Play'in kısıtlı izin grubunda DEĞİL; SMS/Call Log grubundan tek bir izin gelmedi. Bunu kaynak
+manifest'e bakarak söylemek YETMEZDİ — paketler izni birleşme sırasında ekler, o yüzden
+`build/.../merged_manifest/sahaRelease` çıktısı okundu.
+
+> ⚠️ **ÜRETİMDE HENÜZ AÇIK DEĞİL.** `FCM_HIZMET_HESABI` (hizmet hesabı JSON'unun base64'ü)
+> Coolify'a girilmedi. Girilene kadar push sistemi KAPALIDIR ve bu bir hata değildir — kod
+> sessizce atlar. Anahtar `docker-compose.prod.yml`deki `*app-env`e eklendi, yani `queue`
+> konteynerine de gider (gönderim orada koşar).
+
+> ⚠️ **İMZA YOLU YEREL TESTTE ATLANIYOR.** `openssl_pkey_new` bu Windows makinesinde
+> `openssl.cnf` bulamıyor; `imza_gercekten_uretilir` testi `markTestSkipped` ile geçiliyor.
+> CI (Linux) o testi GERÇEKTEN koşar. İmza hatalıysa FCM `invalid_grant` döner ve TÜM push
+> tek noktadan sessizce ölür — ilk gerçek gönderimde bu doğrulanmalı.
+
+**SIRADAKİ İŞLER (bu vardiyadan devreden):**
+1. **`FCM_HIZMET_HESABI`'yi Coolify'a gir** ve iki telefonla saha provası yap (patron sipariş
+   atar → kuryenin telefonu titrer). Push'un çalıştığının TEK kanıtı budur.
+2. **iOS push** — Apple Developer hesabı + APNs sertifikası gerekir. Kod iOS'a hazır yazıldı;
+   `PushServisi` platform ayrımı yapmıyor, yalnız jeton kaydında `'android'` sabiti var.
+3. Önceki vardiyadan devredenler değişmedi: uzaktan oturum kapatma (jeton↔cihaz bağı) ·
+   uygulama kilidi (PIN/biyometrik) · karantina dökümü · ölü kod temizliği ·
+   `day_end_screen.dart` 513 satır.
+
+### (ÖNCEKİ) 2026-08-13/3 — AYARLAR KONULARINA BÖLÜNDÜ + HESAP SAYFASINA VARLIK NEDENİ (mobil 0.20.1 → **0.21.0**, API DEĞİŞMEDİ 1.6.0)
 
 Kullanıcının cümlesi: *"Ayarlarda bulunan Hesap ve İşletme sayfaları çok işlevsiz! Özellikle
 Hesabım sayfasının varlık amacı ne, hiçbir şeye yaramıyor neden var? … İşletme Kimliği düzenleme

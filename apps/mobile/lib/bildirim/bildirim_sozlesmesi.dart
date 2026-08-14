@@ -34,7 +34,27 @@ enum BildirimKategori {
 
   /// Uygulamanın kendi durumu (senkron uzun süredir yapılamadı gibi).
   /// ABONELİK/ÖDEME İÇİN KULLANILMAZ — mağaza kuralı.
-  sistem;
+  sistem,
+
+  // ── SUNUCUDAN İTİLENLER (push) ────────────────────────────────────────────────────────
+  //
+  // Yukarıdakilerden FARKI kaynaktır, biçimi değil: bunları telefon kendi verisinden
+  // TÜRETEMEZ, çünkü olay BAŞKA BİR CİHAZDA olur. Patron siparişi kendi telefonundan
+  // kuryeye atar; kuryenin telefonunda o an hiçbir şey yoktur. Yerel kural motoru bu
+  // boşluğu kapatamaz — dürtünün sunucudan gelmesi gerekir (`bildirim/push/`).
+  //
+  // Kurallar (sessiz saatler · günlük bütçe · kategori kısma) BUNLARA DA UYGULANIR: push
+  // yalnız tetikleyicidir, bildirimi yine bu altyapı çizer.
+
+  /// Bir sipariş BU kullanıcıya atandı. Push'un bu üründeki asıl varlık sebebi: kurye
+  /// bugün siparişi ancak uygulamayı açıp senkronu bekleyerek görüyor.
+  siparisAtandi,
+
+  /// Bir sipariş teslim edildi. Alıcı: yöneticiler (kurye kendi teslimini bilir).
+  siparisTeslim,
+
+  /// Kurye kasayı devretti. Alıcı: yöneticiler.
+  kasaDevri;
 
   /// Kalıcı kimlik: bildirim kanalı adı, ayar dosyası anahtarı ve [BildirimTaslagi.kimlik]
   /// öneki bundan türer. **MAĞAZADA DEĞİŞMEZ** — değişirse kullanıcının sistemden kıstığı
@@ -46,6 +66,12 @@ enum BildirimKategori {
         BildirimKategori.musteriGecikti => 'musteri_gecikti',
         BildirimKategori.rutinTeslimGunu => 'rutin_teslim_gunu',
         BildirimKategori.sistem => 'sistem',
+        // Bu üç değer SUNUCUYLA PAYLAŞILAN SÖZLEŞMEDİR (`app/Bildirim/PushOlayi.php`):
+        // FCM yükünde `kategori` alanı olarak taşınır. Değiştirmek yalnız bayinin kıstığı
+        // kanalı öksüz bırakmaz — sahadaki eski istemcinin gelen dürtüyü TANIMAMASINA yol açar.
+        BildirimKategori.siparisAtandi => 'siparis_atandi',
+        BildirimKategori.siparisTeslim => 'siparis_teslim',
+        BildirimKategori.kasaDevri => 'kasa_devri',
       };
 
   /// Sistem bildirim ayarlarında ve uygulamanın Ayarlar ekranında görünen ad.
@@ -61,6 +87,9 @@ enum BildirimKategori {
         BildirimKategori.musteriGecikti => 'Müşteri gecikti',
         BildirimKategori.rutinTeslimGunu => 'Rutin teslim günü',
         BildirimKategori.sistem => 'Uygulama durumu',
+        BildirimKategori.siparisAtandi => 'Size sipariş atandı',
+        BildirimKategori.siparisTeslim => 'Teslim edildi',
+        BildirimKategori.kasaDevri => 'Kasa devri',
       };
 
   /// Ayarlar ekranındaki tek satırlık açıklama — bayi neyi kapattığını bilmeli.
@@ -71,6 +100,20 @@ enum BildirimKategori {
         BildirimKategori.musteriGecikti => 'Düzenli müşteri her zamanki aralığını geçirdiğinde',
         BildirimKategori.rutinTeslimGunu => 'Rutin teslim günü hatırlatması',
         BildirimKategori.sistem => 'Senkron ve uygulama uyarıları',
+        BildirimKategori.siparisAtandi => 'Bir sipariş size atandığında',
+        BildirimKategori.siparisTeslim => 'Kurye bir siparişi teslim ettiğinde',
+        BildirimKategori.kasaDevri => 'Kurye kasayı devrettiğinde',
+      };
+
+  /// Yalnız YÖNETİCİYE (patron/operatör) anlamlı mı?
+  ///
+  /// Ayar ekranı bu bayrakla süzülür. Süzülmeseydi kurye, hiçbir zaman ALMAYACAĞI bir
+  /// bildirimin anahtarını görürdü (sunucu "teslim edildi" ve "kasa devri" olaylarını
+  /// yalnız yöneticilere gönderir — `PushGondericisi::yoneticiIdleri`). Kapatınca hiçbir
+  /// şey değişmeyen bir anahtar, ayarların tamamına olan güveni bozar.
+  bool get yalnizYonetici => switch (this) {
+        BildirimKategori.siparisTeslim || BildirimKategori.kasaDevri => true,
+        _ => false,
       };
 
   static BildirimKategori? wiredan(String? w) =>
@@ -168,6 +211,17 @@ String bildirimGunAnahtari(DateTime an) {
   final ham = yol?.trim();
   if (ham == null || ham.isEmpty) return null;
   if (ham == 'gunsonu') return (tur: 'gunsonu', id: null);
+  /*
+   * `siparisler` — sipariş LİSTESİ, kimliksiz. Push bildirimleri (atandı · teslim edildi)
+   * buraya götürür.
+   *
+   * NEDEN `siparis/<id>` DEĞİL: tüketecek bir sipariş detay ekranı YOK. `OrderDetailScreen`
+   * bu depoda hiç örneklenmiyor (PLAN: ölü kod temizliği borcu). Kimliği taşıyıp hiçbir yerde
+   * kullanmamak, "taşınan ama tüketilmeyen bilgi"nin ta kendisidir — bu kabuk zaten bir kez
+   * o hatayı ödedi (`yol` alanı aylarca yükte durdu, dokunuş ana ekranı açtı). Detay ekranı
+   * geldiği gün buraya `siparis/<id>` eklenir; o zamana kadar liste dürüst hedeftir.
+   */
+  if (ham == 'siparisler') return (tur: 'siparisler', id: null);
   final musteri = RegExp(r'^musteri/(.+)$').firstMatch(ham);
   if (musteri != null) return (tur: 'musteri', id: musteri.group(1));
   return null;

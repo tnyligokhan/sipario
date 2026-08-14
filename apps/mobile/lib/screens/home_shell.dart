@@ -894,6 +894,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       setState(() => _sekme = SipSekme.gunSonu);
       return;
     }
+    // Push bildirimleri (sipariş atandı · teslim edildi) buraya düşer. Kimliksizdir; gerekçe
+    // `bildirimYoluCoz` içinde (sipariş detay ekranı yok, olmayan hedefe kimlik taşınmaz).
+    if (hedef.tur == 'siparisler') {
+      setState(() => _sekme = SipSekme.siparis);
+      return;
+    }
     setState(() => _sekme = SipSekme.musteri);
     await _git(CustomerDetailScreen(
       db: widget.db,

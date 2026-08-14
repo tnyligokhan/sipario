@@ -178,7 +178,13 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
                     ikon: SipIcons.alert,
                     baslik: 'Bildirimler',
                     altBaslik: 'İzinler, kategoriler, sessiz saatler',
-                    onTap: () => _ac(const BildirimAyarlariEkrani()),
+                    // Rol geçilir: kuryede yalnız ONA GELEN bildirim kategorileri listelenir.
+                    // Rol bilinmiyorsa yönetici varsayılır — eksik bir anahtar göstermek,
+                    // kuryenin hiç almayacağı bir anahtarı göstermekten daha az zararlı değil
+                    // ama yanlış tarafa düşmemek için görünürlük tercih edildi.
+                    onTap: () => _ac(BildirimAyarlariEkrani(
+                      yoneticiMi: widget.rol != 'kurye',
+                    )),
                   ),
                   AyarSatiri(
                     ikon: SipIcons.info,

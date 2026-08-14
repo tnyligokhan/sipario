@@ -13,7 +13,11 @@ import '../../../theme/components/states.dart';
 import '../../../theme/tokens.dart';
 
 class BildirimAyarlariEkrani extends StatelessWidget {
-  const BildirimAyarlariEkrani({super.key});
+  const BildirimAyarlariEkrani({super.key, this.yoneticiMi = true});
+
+  /// Oturumdaki kullanıcı yönetici mi — kuryede yalnız ona gelen kategoriler listelenir
+  /// (gerekçe: `BildirimAyarBolumu.yoneticiMi`).
+  final bool yoneticiMi;
 
   @override
   Widget build(BuildContext context) {
@@ -26,8 +30,8 @@ class BildirimAyarlariEkrani extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SipUst(baslik: 'Bildirimler', onGeri: () => Navigator.of(context).maybePop()),
-            const Expanded(
-              child: SipGovde(children: [BildirimAyarBolumu()]),
+            Expanded(
+              child: SipGovde(children: [BildirimAyarBolumu(yoneticiMi: yoneticiMi)]),
             ),
           ],
         ),

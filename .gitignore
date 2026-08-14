@@ -42,6 +42,20 @@
 # Makineye özgüdür ve depo PUBLIC'tir — ikili dosya asla commit edilmez.
 scripts/.araclar/
 
+# FIREBASE HİZMET HESABI — SIR, repoya ASLA girmez.
+#
+# Sunucunun FCM'e bildirim göndermek için kullandığı özel anahtardır; sızarsa üçüncü taraf
+# bayilerimizin telefonlarına bildirim gönderebilir. Doğru yeri Coolify ortam değişkenidir
+# (`FCM_HIZMET_HESABI`, base64). Firebase konsolundan inen dosya adı `<proje>-<rastgele>.json`
+# biçimindedir; kazara `git add .` yapan biri onu buradan yakalanır.
+#
+# ⚠️ `apps/mobile/android/app/google-services.json` BUNUN KAPSAMINDA DEĞİLDİR ve olmamalıdır:
+# o dosya sır DEĞİLDİR (APK'nın içinde zaten dağıtılır, anahtarı paket adına kısıtlıdır) ve
+# repoda DURMAK ZORUNDADIR — yoksa CI'ın APK derlemesi kırılır.
+*-firebase-adminsdk-*.json
+sipario-*.json
+firebase-service-account*.json
+
 # İşletim sistemi / editör artıkları
 Thumbs.db
 Desktop.ini

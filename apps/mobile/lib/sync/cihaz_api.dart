@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
 /// CİHAZ LİSTESİ istemcisi — `GET /devices`.
@@ -47,6 +48,47 @@ class CihazApi {
     final liste = govde is Map ? govde['data'] : govde;
     if (liste is! List) return const [];
     return liste.whereType<Map>().map((m) => Cihaz.jsondan(m.cast<String, dynamic>())).toList();
+  }
+
+  /// PUSH JETONUNU SUNUCUYA BİLDİRİR (`POST /devices`, idempotent upsert).
+  ///
+  /// NEDEN GİRİŞTEKİ CİHAZ BLOĞU YETMEZ: FCM jetonu girişten SONRA gelir (Play Services'ten
+  /// asenkron) ve ömrü boyunca YENİLENİR — uygulama verisi temizlenince, cihaz geri
+  /// yüklenince, Google jetonu döndürünce. Yalnız girişte gönderseydik, jeton yenilendiği
+  /// gün bildirimler sessizce kesilir ve kimse sebebini bilemezdi.
+  ///
+  /// SESSİZ BAŞARISIZLIK BİLİNÇLİ (`bool` döner, atmaz): jeton bildirimi bir iş akışı
+  /// değildir. Ağ yoksa bildirilemez; sonraki açılışta yeniden denenir. Bu yüzden çağıran
+  /// tarafın hata göstermesi GEREKMEZ — göstermesi, esnafa anlamı olmayan bir uyarı olurdu.
+  Future<bool> jetonBildir({
+    required String cihazId,
+    required String platform,
+    required String jeton,
+  }) async {
+    try {
+      final resp = await _client
+          .post(
+            Uri.parse('$baseUrl/devices'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'device_id': cihazId,
+              'platform': platform,
+              'push_token': jeton,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      return resp.statusCode == 200 || resp.statusCode == 201;
+    } on Exception catch (e) {
+      // Jeton DEĞERİ loglanmaz: cihazın bildirim adresidir, sızarsa üçüncü taraf o telefona
+      // bildirim gönderebilir.
+      debugPrint('Push jetonu bildirilemedi: ${e.runtimeType}');
+      return false;
+    }
   }
 }
 

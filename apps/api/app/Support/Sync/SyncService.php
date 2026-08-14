@@ -2,6 +2,7 @@
 
 namespace App\Support\Sync;
 
+use App\Bildirim\PushTetikleyici;
 use App\Models\CallLog;
 use App\Models\CashHandover;
 use App\Models\Customer;
@@ -175,6 +176,9 @@ class SyncService
                 try {
                     [$lastSeq, $result] = $this->applyOne($tenantId, $event, $lastSeq, $applier, $index);
                     $results[] = $result;
+                    // Push bildirimi (yalnız 'applied' olaylar; kuyruğa afterCommit ile girer).
+                    // Bildirim HİÇBİR ŞEKİLDE yazımı düşüremez — kural `PushTetikleyici`de.
+                    PushTetikleyici::olayUygulandi($tenantId, $event, $result);
                 } catch (InvalidArgumentException $e) {
                     $results[] = $this->rejected($index, $clientEventId, 'domain_rejected', $event, $e->getMessage());
                 } catch (QueryException $e) {

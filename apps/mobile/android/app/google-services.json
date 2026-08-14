@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "899447026834",
+    "project_id": "sipario-acd9e",
+    "storage_bucket": "sipario-acd9e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:899447026834:android:4f55b672b2f884c51ae24b",
+        "android_client_info": {
+          "package_name": "com.sipario.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmJ6Y2BqAoT_W9NEI-doQJMXXJh0hZC5U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:899447026834:android:74e157beda6cd4451ae24b",
+        "android_client_info": {
+          "package_name": "com.sipario.app.test"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmJ6Y2BqAoT_W9NEI-doQJMXXJh0hZC5U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

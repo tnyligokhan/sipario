@@ -44,11 +44,24 @@ import 'bildirim_sozlesmesi.dart';
 
 /// Ayarlar ekranına gömülen bölüm: başlık + izin durumu + kategori anahtarları.
 class BildirimAyarBolumu extends StatefulWidget {
-  const BildirimAyarBolumu({super.key, this.servis, this.ayarlar});
+  const BildirimAyarBolumu({
+    super.key,
+    this.servis,
+    this.ayarlar,
+    this.yoneticiMi = true,
+  });
 
   /// Test/araç yolu — verilmezse uygulamanın gerçek servisi ve deposu kullanılır.
   final BildirimServisi? servis;
   final BildirimAyarlari? ayarlar;
+
+  /// Oturumdaki kullanıcı yönetici mi (patron/operatör)?
+  ///
+  /// Kuryede `BildirimKategori.yalnizYonetici` kategorileri HİÇ GÖSTERİLMEZ: sunucu "teslim
+  /// edildi" ve "kasa devri" dürtülerini yalnız yöneticilere gönderir, yani kuryede o anahtar
+  /// kapatılınca da açılınca da hiçbir şey değişmezdi. Çalışmayan bir anahtar, ayarların
+  /// tamamına olan güveni bozar.
+  final bool yoneticiMi;
 
   @override
   State<BildirimAyarBolumu> createState() => _BildirimAyarBolumuState();
@@ -178,33 +191,37 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
             altBaslik: _sessizMetin(_ayarlar.sessizSaatler),
             onTap: _sessizSor,
           ),
+          // Kuryede yönetici kategorileri LİSTEYE HİÇ GİRMEZ (gerekçe: `yoneticiMi` yorumu).
+          // Boş bir widget eklemek yerine atlanır: kart satırlarının arasına ayırıcı çiziyor,
+          // görünmez bir satır görünür bir boşluk bırakırdı.
           for (final k in BildirimKategori.values)
-            if (k == BildirimKategori.borcEsigi)
+            if (!k.yalnizYonetici || widget.yoneticiMi)
               // BORÇ EŞİĞİ ÖZEL: eşik girilmeden kategori PASİF (lead kararı). Anahtar yerine
               // eşik alanı gösterilir — bayiye "kapalı" demek yetmez, NEDEN kapalı olduğunu ve
               // ne yapması gerektiğini söylemek gerekir.
-              AyarSatiri(
-                ikon: _ikon(k),
-                baslik: k.ad,
-                altBaslik: _esikVar
-                    ? 'Borç ${sipTutar(_ayarlar.borcEsigiKurus)} tutarını aşınca haber ver'
-                    : 'Pasif — bir eşik belirleyin',
-                onTap: _esikSor,
-                sag: SipMetinButon(
-                  etiket: _esikVar ? sipTutar(_ayarlar.borcEsigiKurus) : 'Eşik belirle',
-                  zemin: _esikVar ? t.surface2 : t.accentSoft,
-                  renk: _esikVar ? t.ink : t.accent,
+              if (k == BildirimKategori.borcEsigi)
+                AyarSatiri(
+                  ikon: _ikon(k),
+                  baslik: k.ad,
+                  altBaslik: _esikVar
+                      ? 'Borç ${sipTutar(_ayarlar.borcEsigiKurus)} tutarını aşınca haber ver'
+                      : 'Pasif — bir eşik belirleyin',
                   onTap: _esikSor,
+                  sag: SipMetinButon(
+                    etiket: _esikVar ? sipTutar(_ayarlar.borcEsigiKurus) : 'Eşik belirle',
+                    zemin: _esikVar ? t.surface2 : t.accentSoft,
+                    renk: _esikVar ? t.ink : t.accent,
+                    onTap: _esikSor,
+                  ),
+                )
+              else
+                AyarSatiri(
+                  ikon: _ikon(k),
+                  baslik: k.ad,
+                  altBaslik: k.aciklama,
+                  onTap: () => _kategoriCevir(k),
+                  sag: SipKnob(acik: _acik[k] ?? true),
                 ),
-              )
-            else
-              AyarSatiri(
-                ikon: _ikon(k),
-                baslik: k.ad,
-                altBaslik: k.aciklama,
-                onTap: () => _kategoriCevir(k),
-                sag: SipKnob(acik: _acik[k] ?? true),
-              ),
         ]),
       ],
     );
@@ -223,6 +240,9 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
         BildirimKategori.musteriGecikti => SipIcons.user,
         BildirimKategori.rutinTeslimGunu => SipIcons.box,
         BildirimKategori.sistem => SipIcons.settings,
+        BildirimKategori.siparisAtandi => SipIcons.box,
+        BildirimKategori.siparisTeslim => SipIcons.check,
+        BildirimKategori.kasaDevri => SipIcons.wallet,
       };
 }
 

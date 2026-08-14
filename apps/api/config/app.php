@@ -54,9 +54,22 @@ return [
     | sayar. Zorunlu alan eklenmedi, hiçbir alanın anlamı değişmedi → MINOR.
     | Mobil sürümüyle EŞİTLENMEZ: iki hat bağımsızdır (CLAUDE.md "Sürümleme").
     |
+    | 1.7.0 (2026-08-14): PUSH BİLDİRİMİ. Sunucu, uygulanan senkron olaylarından
+    | üçünde (sipariş kuryeye atandı · teslim edildi · kasa devredildi) ilgili
+    | cihazlara FCM üzerinden VERİ dürtüsü gönderir. Sözleşme açısından saf
+    | EKLEME ve bu yüzden MINOR: hiçbir uç nokta, alan ya da anlam değişmedi;
+    | `POST /devices` zaten var olan `push_token` alanını artık gerçekten
+    | kullanıyor. Push'u tanımayan eski istemci hiçbir şey kaybetmez — dürtü
+    | yalnız bir HIZLANDIRICIDIR, veri mevcut senkronla akmaya devam eder.
+    |
+    | DAVRANIŞ DÜZELTMESİ (aynı sürümde): `POST /devices` ve giriş yolundaki
+    | cihaz bloğu, `push_token` GÖNDERİLMEDİĞİNDE artık alana `null` YAZMIYOR.
+    | Eskisi "verilmedi"yi "boşalt" sayıyordu; FCM jetonu girişten sonra
+    | asenkron geldiği için bu, her açılışta jetonu silerdi.
+    |
     */
 
-    'version' => '1.6.0',
+    'version' => '1.7.0',
 
     /*
     |--------------------------------------------------------------------------

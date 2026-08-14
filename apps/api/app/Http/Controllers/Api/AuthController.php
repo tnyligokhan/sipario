@@ -140,16 +140,7 @@ class AuthController extends Controller
         try {
             Device::updateOrCreate(
                 ['id' => $device['device_id']],
-                [
-                    'tenant_id' => $user->tenant_id,
-                    'user_id' => $user->id,
-                    'platform' => $device['platform'],
-                    'model' => $device['model'] ?? null,
-                    'os_version' => $device['os_version'] ?? null,
-                    'app_version' => $device['app_version'] ?? null,
-                    'push_token' => $device['push_token'] ?? null,
-                    'last_seen_at' => now(),
-                ]
+                Device::kayitNitelikleri($user, $device)
             );
         } catch (QueryException $e) {
             // 23505 = unique_violation. BAŞKA hiçbir veritabanı hatası yutulmaz.

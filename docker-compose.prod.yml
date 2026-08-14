@@ -122,6 +122,20 @@ x-app-env: &app-env
   # (Gmail/Yandex/Zoho kutusu gibi) bu değer o adrese ÇEKİLMELİ, yoksa sunucu 550/553 döner.
   MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@sipario.com.tr}
   MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Sipario}
+  # Push bildirimi (FCM)
+  #
+  # Firebase hizmet hesabı JSON'unun BASE64 hâli. Boş bırakılırsa push sistemi KAPALIDIR ve bu
+  # bir hata değildir (`config/push.php`): dürtü bu üründe bir HIZLANDIRICIDIR, taşıyıcı değil —
+  # veri mevcut senkronla akmaya devam eder.
+  #
+  # NEDEN BASE64: dosya çok satırlıdır ve `private_key` alanı gömülü `\n` taşır; panelin env
+  # kutusuna ham hâlini yapıştırmak satır sonlarını bozar ve imza SESSİZCE geçersizleşir
+  # (FCM "invalid_grant" der, sebebi görünmez).
+  #
+  # ⚠️ KUYRUK KONTEYNERİNE DE GİDER ve gitmesi ŞARTTIR: gönderim `queue:work` içinde koşar
+  # (`App\Jobs\PushGonderimi`). Bu anchor (`*app-env`) hem `app` hem `queue` tarafından
+  # kullanıldığı için tek yerde tanımlamak yeterli.
+  FCM_HIZMET_HESABI: ${FCM_HIZMET_HESABI:-}
   # Coğrafi kodlama
   GEOCODING_DRIVER: ${GEOCODING_DRIVER:-null}
   GOOGLE_GEOCODER_KEY: ${GOOGLE_GEOCODER_KEY:-}

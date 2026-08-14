@@ -11,6 +11,8 @@ import 'bildirim/bildirim_servisi.dart';
 import 'bildirim/bildirim_tetikleyici.dart';
 import 'bildirim/kurallar/musteri_ureticileri.dart';
 import 'bildirim/kurallar/para_ureticileri.dart';
+import 'bildirim/push/push_baglama.dart';
+import 'bildirim/push/push_servisi.dart';
 import 'repo/day_end_repository.dart';
 import 'data/app_database.dart';
 import 'guncelleme/guncelleme_servisi.dart';
@@ -159,10 +161,27 @@ class _SiparioAppState extends State<SiparioApp> {
     // veritabanından kurar; burada yalnız BAĞLANIR ki tetik tek bir yerde açılıp kapansın.
     _sync.yazimTetigiBagla();
     _sync.start();
+    // PUSH — sunucunun telefonu dürtmesi. Yalnız oturum açıkken kurulur (jetonun yazılacağı
+    // cihaz kaydı bir bayiye aittir) ve BEKLENMEZ: Play Services'i olmayan cihazda (Huawei)
+    // ya da yapılandırma eksikse sessizce kurulmaz, ürün mevcut senkronla çalışmaya devam
+    // eder — push HIZLANDIRICIDIR, taşıyıcı değil.
+    unawaited(_pushKur());
+  }
+
+  /// Push servisi. `null` = kurulamadı (oturum/yapılandırma yok, Play Services yok).
+  PushServisi? _push;
+
+  Future<void> _pushKur() async {
+    try {
+      _push = await pushKur(widget.db, _sync);
+    } on Object catch (e) {
+      debugPrint('Push kurulamadı: $e');
+    }
   }
 
   @override
   void dispose() {
+    unawaited(_push?.kapat());
     _sync.dispose();
     if (widget.tema == null) _tema.dispose();
     super.dispose();
