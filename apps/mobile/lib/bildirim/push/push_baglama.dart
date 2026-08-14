@@ -45,20 +45,23 @@ Future<PushServisi?> pushKur(AppDatabase db, SyncService sync) async {
   return servis;
 }
 
-/// Bildirim gövdesine eklenecek YEREL ayrıntı — müşteri adı.
+/// Bildirime eklenecek YEREL bilgi — müşteri adı ve teslim adresi.
 ///
 /// KİŞİSEL VERİ BURADAN OKUNUR, YÜKTEN DEĞİL (BRIEF kırmızı çizgi #4): sunucudan gelen
-/// dürtüde yalnız bir UUID vardır; ad telefonun kendi veritabanındadır ve oraya senkronla
-/// inmiştir.
+/// dürtüde yalnız bir UUID vardır; ad ve adres telefonun kendi veritabanındadır ve oraya
+/// senkronla inmiştir.
 ///
 /// `null` DÖNMESİ NORMALDİR: senkron o siparişi henüz getirmemiş olabilir ya da sipariş
 /// müşterisiz girilmiştir (bu üründe mümkün). Bildirim o zaman jenerik metinle çıkar —
 /// beklemek, push'un tek değerini (anında olmasını) yok ederdi.
-Future<String?> pushAyrintisi(AppDatabase db, PushMesaji mesaj) async {
-  // Kasa devrinde ayrıntı OKUNMAZ: dürtüdeki kimlik bir kasa devri kaydınındır, sipariş
-  // değildir — sipariş tablosunda aranırsa hiçbir zaman bulunmaz. "Kurye kasayı devretti"
-  // cümlesi zaten yeterli.
-  if (mesaj.kategori == BildirimKategori.kasaDevri) return null;
+Future<PushEkBilgi?> pushAyrintisi(AppDatabase db, PushMesaji mesaj) async {
+  // SİPARİŞ OLMAYAN OLAYLARDA OKUMA YAPILMAZ: kasa devrindeki kimlik bir devir kaydınındır,
+  // yeni cihazdaki ise bir cihaz kaydının — ikisi de sipariş tablosunda hiçbir zaman
+  // bulunmaz. Bu iki bildirimin metni zaten kendi kendine yeter.
+  if (mesaj.kategori == BildirimKategori.kasaDevri ||
+      mesaj.kategori == BildirimKategori.yeniCihaz) {
+    return null;
+  }
 
   final sorgu = db.select(db.orders).join([
     leftOuterJoin(db.customers, db.customers.id.equalsExp(db.orders.customerId)),
@@ -67,7 +70,27 @@ Future<String?> pushAyrintisi(AppDatabase db, PushMesaji mesaj) async {
     ..limit(1);
 
   final satir = await sorgu.getSingleOrNull();
-  final ad = satir?.readTableOrNull(db.customers)?.name.trim();
+  final musteri = satir?.readTableOrNull(db.customers);
+  if (musteri == null) return null;
 
-  return (ad == null || ad.isEmpty) ? null : ad;
+  final ad = musteri.name.trim();
+
+  /*
+   * ADRES: müşterinin BİRİNCİL adresi. Sipariş satırı bir adrese bağlı DEĞİL (şemada
+   * `orders.customer_address_id` yok) — bu üründe sipariş müşteriye girilir, teslim onun
+   * bilinen adresine yapılır. Birincil yoksa ilk kayıtlı adres alınır: kuryeye "adres yok"
+   * demektense bilinen bir adresi göstermek her zaman daha yararlıdır.
+   */
+  final adresler = await (db.select(db.customerAddresses)
+        ..where((t) => t.customerId.equals(musteri.id) & t.deletedAt.isNull())
+        ..orderBy([(t) => OrderingTerm.desc(t.isPrimary)])
+        ..limit(1))
+      .get();
+
+  final adres = adresler.isEmpty ? null : adresler.first.addressText.trim();
+
+  return PushEkBilgi(
+    ad: ad.isEmpty ? null : ad,
+    adres: (adres == null || adres.isEmpty) ? null : adres,
+  );
 }

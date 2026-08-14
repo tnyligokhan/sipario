@@ -14,6 +14,24 @@
 
 import '../bildirim_sozlesmesi.dart';
 
+/// Dürtüye YEREL veriden eklenen bilgi. Hepsi telefonun kendi veritabanından okunur —
+/// FCM yükünde bu alanların hiçbiri taşınmaz (BRIEF kırmızı çizgi #4).
+///
+/// Alanların ikisi de `null` olabilir ve bu NORMALDİR: senkron o kaydı henüz getirmemiş
+/// olabilir, sipariş müşterisiz girilmiş olabilir, müşterinin adresi kayıtlı olmayabilir.
+/// Bildirim o zaman jenerik metinle çıkar — beklemek, push'un tek değerini (anında olmasını)
+/// yok ederdi.
+class PushEkBilgi {
+  const PushEkBilgi({this.ad, this.adres});
+
+  /// Müşteri adı — GÖVDEYE girer.
+  final String? ad;
+
+  /// Teslim adresi — yalnız GENİŞLETİLMİŞ metne girer. Gövdeye koymak, daraltılmış bildirimi
+  /// okunmaz uzunlukta yapar ve Android onu zaten keser.
+  final String? adres;
+}
+
 /// Sunucudan gelen dürtünün çözülmüş hâli.
 class PushMesaji {
   const PushMesaji({required this.kategori, required this.varlikId});
@@ -61,8 +79,10 @@ PushMesaji? pushMesajiCoz(Map<String, dynamic>? veri) {
 /// eklendiğinde onu buraya eklemeyi unutmak GÜVENLİ tarafa düşer (dürtü yok sayılır).
 bool pushIleGelebilir(BildirimKategori k) => switch (k) {
       BildirimKategori.siparisAtandi ||
+      BildirimKategori.siparisIptal ||
       BildirimKategori.siparisTeslim ||
-      BildirimKategori.kasaDevri =>
+      BildirimKategori.kasaDevri ||
+      BildirimKategori.yeniCihaz =>
         true,
       _ => false,
     };
@@ -76,13 +96,24 @@ bool pushIleGelebilir(BildirimKategori k) => switch (k) {
 ///
 /// BAŞLIK NÖTR, AYRINTI GÖVDEDE: bildirim rafında bir bakışta okunan şey başlıktır ve telefon
 /// birine uzatıldığında yanındaki onu görür (`BildirimTaslagi.govde` gerekçesinin aynısı).
-BildirimTaslagi pushTaslagi(PushMesaji m, {String? ayrinti}) {
+/// [detaySatiri] GENİŞLETİLMİŞ bildirimde gövdenin altına eklenen ikinci satırdır (teslim
+/// adresi gibi). Yalnız genişleyen kategorilerde anlamlıdır ve o da yerelden okunur.
+BildirimTaslagi pushTaslagi(PushMesaji m, {String? ayrinti, String? detaySatiri}) {
   final ek = (ayrinti ?? '').trim();
+  final ikinci = (detaySatiri ?? '').trim();
 
   final (baslik, govde, yol) = switch (m.kategori) {
     BildirimKategori.siparisAtandi => (
         'Yeni sipariş',
         ek.isEmpty ? 'Size bir sipariş atandı' : '$ek — size atandı',
+        'siparisler',
+      ),
+    // İPTALDE BAŞLIK DA AÇIK OLMALI. Diğerlerinde başlık nötr tutuluyor (kilit ekranı kuralı)
+    // ama burada nötr bir başlık ("Sipario") kuryeye hiçbir şey söylemez ve o yola çıkar;
+    // "iptal" sözcüğü müşteri adı taşımaz, yani kural da çiğnenmiş olmaz.
+    BildirimKategori.siparisIptal => (
+        'Sipariş iptal edildi',
+        ek.isEmpty ? 'Size atanan sipariş iptal edildi' : '$ek — sipariş iptal edildi',
         'siparisler',
       ),
     BildirimKategori.siparisTeslim => (
@@ -95,6 +126,11 @@ BildirimTaslagi pushTaslagi(PushMesaji m, {String? ayrinti}) {
         ek.isEmpty ? 'Kurye kasayı devretti' : '$ek kasayı devretti',
         'gunsonu',
       ),
+    BildirimKategori.yeniCihaz => (
+        'Yeni cihaz girişi',
+        'Hesabınız yeni bir telefonda açıldı',
+        'cihazlar',
+      ),
     // Beyaz liste dışı kategori buraya ULAŞAMAZ (`pushMesajiCoz` eler); yine de dilin
     // tümlük şartı için nötr bir karşılık — çökmek yerine anlamsız ama zararsız bildirim.
     _ => ('Sipario', 'Yeni bir işlem var', 'siparisler'),
@@ -104,6 +140,7 @@ BildirimTaslagi pushTaslagi(PushMesaji m, {String? ayrinti}) {
     kategori: m.kategori,
     baslik: baslik,
     govde: govde,
+    detay: _detay(m.kategori, govde, ikinci),
     // AYNI OLAYIN İKİNCİ DÜRTÜSÜ ÜZERİNE YAZAR: sunucu aynı siparişi iki kez atarsa (ya da
     // kurye ağ yüzünden aynı olayı yeniden gönderirse) bayi iki satır değil bir satır görür
     // ve günlük bütçeden ikinci kez düşülmez.
@@ -111,3 +148,23 @@ BildirimTaslagi pushTaslagi(PushMesaji m, {String? ayrinti}) {
     yol: yol,
   );
 }
+
+/// Genişletilmiş metin. `null` = bu bildirim genişlemez.
+///
+/// ÜÇ KATEGORİ GENİŞLER ve üçünde de sebep aynı: bayinin/kuryenin BİR KARAR vermesi gerekiyor.
+/// "Teslim edildi" ve "kasa devri" olan biteni haber verir — orada açılacak bir şey yoktur ve
+/// genişletilebilir göstermek boş bir hareket yaptırmaktır.
+String? _detay(BildirimKategori k, String govde, String ikinciSatir) => switch (k) {
+      // Kurye nereye gideceğini bildirimi açmadan görebilsin.
+      BildirimKategori.siparisAtandi =>
+        ikinciSatir.isEmpty ? null : '$govde\n$ikinciSatir',
+      // İptalde adres yine değerli: kurye "hangi teslimat iptal oldu"yu tanımalı.
+      BildirimKategori.siparisIptal => ikinciSatir.isEmpty
+          ? 'Bu siparişe gitmeyin — listeden kaldırıldı.'
+          : '$govde\n$ikinciSatir\n\nBu siparişe gitmeyin — listeden kaldırıldı.',
+      // Güvenlik bildiriminde ne yapılacağı SÖYLENİR; uyarıp yalnız bırakmak işe yaramaz.
+      BildirimKategori.yeniCihaz =>
+        'Hesabınız yeni bir telefonda açıldı.\n\nBu siz değilseniz parolanızı değiştirin. '
+            'Bağlı telefonları Hesap → Cihazlar sayfasından görebilirsiniz.',
+      _ => null,
+    };

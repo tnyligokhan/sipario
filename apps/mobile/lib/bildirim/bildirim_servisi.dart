@@ -106,17 +106,33 @@ class YerelBildirimServisi implements BildirimServisi {
     }
   }
 
+  /// ⚠️ KANAL AYARLARI İLK DOĞUŞTA DONAR — bu metodun en önemli gerçeği budur.
+  ///
+  /// Android, var olan bir kanalın ÖNEM DERECESİNİ ve SESİNİ uygulamanın değiştirmesine izin
+  /// vermez; bu çağrı ikinci kez koştuğunda yalnız AD ve AÇIKLAMA güncellenir. Bilinçli bir
+  /// kural: uygulamanın, kullanıcının kıstığı bildirimi arkadan dolanıp geri açmasını
+  /// engelliyor.
+  ///
+  /// PRATİK SONUCU: bir kategoriyi sonradan heads-up yapmak ya da sesini değiştirmek YENİ BİR
+  /// `wire` (kanal kimliği) gerektirir — ve yeni kanal, bayinin eskisinde yaptığı kısmaları
+  /// hatırlamaz, açık gelir. Bu yüzden yeni bir kategori eklerken [BildirimKategori.headsUp]
+  /// ve [BildirimKategori.ses] İLK SEFERDE doğru verilmelidir.
   Future<void> _kanallariKur() async {
     final android = _android();
     if (android == null) return;
     for (final k in BildirimKategori.values) {
+      final ses = k.ses;
       await android.createNotificationChannel(
         AndroidNotificationChannel(
           k.wire,
           k.ad,
           description: k.aciklama,
-          // ARAYAN KARTI DEĞİL: bu bildirimler işi bölmez, sesli/heads-up gelmez.
-          importance: Importance.defaultImportance,
+          // HEADS-UP YALNIZ ÜÇ KATEGORİDE (gerekçe: `BildirimKategori.headsUp`). Kalanlar
+          // rafa düşer, titrer, simge çıkar — ama işi bölmez.
+          importance: k.headsUp ? Importance.high : Importance.defaultImportance,
+          // Ses YOKSA sistem varsayılanı çalar; `playSound: false` DEĞİL — sessiz bildirim
+          // istemiyoruz, yalnız ayırt edici bir ton istemiyoruz.
+          sound: ses == null ? null : RawResourceAndroidNotificationSound(ses),
         ),
       );
     }
@@ -202,7 +218,7 @@ class YerelBildirimServisi implements BildirimServisi {
         id: bildirimSayisalKimlik(t.kimlik),
         title: t.baslik,
         body: t.govde,
-        notificationDetails: _ayrinti(t.kategori),
+        notificationDetails: _ayrinti(t),
         payload: t.yol,
       );
       await _a.kimlikIsaretle(t.kimlik, an);
@@ -233,7 +249,7 @@ class YerelBildirimServisi implements BildirimServisi {
         title: t.baslik,
         body: t.govde,
         scheduledDate: tz.TZDateTime.from(hedef, tz.local),
-        notificationDetails: _ayrinti(t.kategori),
+        notificationDetails: _ayrinti(t),
         // TAM ZAMANLI ALARM İZNİ İSTEMİYORUZ (dosya başındaki gerekçe): birkaç dakika kayma
         // hatırlatma için zararsız, kısıtlı izin beyanı ise Play riski.
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -260,16 +276,43 @@ class YerelBildirimServisi implements BildirimServisi {
     return gunlukSinir.yerVarMi(t.kategori, gunluk, t.kimlik);
   }
 
-  NotificationDetails _ayrinti(BildirimKategori k) => NotificationDetails(
-        android: AndroidNotificationDetails(
-          k.wire,
-          k.ad,
-          channelDescription: k.aciklama,
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
-          visibility: _kilitEkraniGorunurlugu(k),
-        ),
-      );
+  /// Tek bir bildirimin çizim ayrıntıları.
+  ///
+  /// `importance`/`priority` BURADA DA VERİLİR ama belirleyici olan KANALDIR (Android 8+):
+  /// kanal `high` değilse bu alanlar heads-up üretmez. Yine de tutarlı yazılıyor — Android
+  /// 7 ve altı yalnız bunlara bakar ve `minSdk 29` bugün için o cihazları dışarıda bırakıyor
+  /// olsa da, iki yerde çelişkili değer bırakmak ileride yanlış teşhise yol açar.
+  ///
+  /// GENİŞLETİLMİŞ BİLDİRİM (`BigTextStyle`) KANALA BAĞLI DEĞİLDİR: bildirim başına verilir,
+  /// yani geriye dönük ve serbestçe eklenebilir — kanal donması kısıtı buraya İŞLEMEZ.
+  /// [BildirimTaslagi.detay] boşsa stil hiç verilmez: açılacak bir şeyi olmayan bildirimi
+  /// genişletilebilir göstermek, bayiye boş bir hareket yaptırmaktır.
+  NotificationDetails _ayrinti(BildirimTaslagi t) {
+    final k = t.kategori;
+    final ses = k.ses;
+    final detay = t.detay;
+
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        k.wire,
+        k.ad,
+        channelDescription: k.aciklama,
+        importance: k.headsUp ? Importance.high : Importance.defaultImportance,
+        priority: k.headsUp ? Priority.high : Priority.defaultPriority,
+        visibility: _kilitEkraniGorunurlugu(k),
+        sound: ses == null ? null : RawResourceAndroidNotificationSound(ses),
+        styleInformation: detay == null
+            ? null
+            : BigTextStyleInformation(
+                detay,
+                // Başlık genişletilmiş hâlde de AYNI kalır: `contentTitle` verilmezse Android
+                // zaten `title`ı kullanır. Farklı bir başlık koymak, bildirimi açan bayiye
+                // başka bir şeye baktığını düşündürürdü.
+                summaryText: null,
+              ),
+      ),
+    );
+  }
 }
 
 /// Kategorinin kilit ekranı görünürlüğü.

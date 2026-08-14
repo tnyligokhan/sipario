@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  BİLDİRİM SESLERİNİ KAYNAK KISALTMASINDAN KORUR.
+
+  ⚠️ NEDEN GEREKLİ (2026-08-14'te ÖLÇÜLDÜ, varsayılmadı): sesler eklendi, `flutter analyze`
+  temiz geçti, 1275 test yeşil kaldı ve release APK derlemesi BAŞARIYLA bitti; ama üretilen
+  APK'nın içinde `yeni_is.wav` ve `iptal.wav` YOKTU. `resources.arsc` içinde adları bile
+  geçmiyordu.
+
+  Sebep: bu dosyalara Android tarafından HİÇBİR referans yok. Onları Dart kodu string adıyla
+  istiyor (`RawResourceAndroidNotificationSound('yeni_is')`), yani çalışma anında
+  `getIdentifier()` ile çözülüyorlar. Kaynak kısaltıcı statik referans göremediği kaynağı ölü
+  sayar ve atar.
+
+  Sonuç, bulunması en zor arıza sınıfıydı: derleme yeşil, testler yeşil, uygulama açılıyor,
+  yalnız bildirim sesi hiç çalmıyor ve sebebi hiçbir yerde yazmıyor.
+
+  DERS: "APK derlendi" ile "APK doğru içeriği taşıyor" AYRI SORULARDIR. Bu depodaki üç kapıya
+  (analyze, test, APK) buradan bir dördüncüsü ekleniyor: paketlenen içeriğin doğrulanması.
+
+  Yeni bir ses eklenirse BURAYA DA yazılmalı; unutulursa sessizce kaybolur.
+
+  ⚠️ Bu dosya XML YORUMU taşır: içinde iki ardışık tire karakteri BULUNAMAZ (XML kuralı).
+  Bir kez ihlal edildi ve R8 derlemeyi `ParseError` ile düşürdü.
+-->
+<resources
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/yeni_is,@raw/iptal" />

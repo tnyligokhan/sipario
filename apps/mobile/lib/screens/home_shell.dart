@@ -54,6 +54,7 @@ import 'customers/borclular_ekrani.dart';
 import 'customers/customer_detail_screen.dart';
 import 'customers/customer_form_screen.dart' show musteriEkleSheet;
 import 'customers/customer_list_screen.dart';
+import 'isletme/ayarlar/cihazlar_ekrani.dart';
 import 'isletme/ayarlar/hesap_ekrani.dart';
 import 'isletme/ayarlar_ekrani.dart';
 import 'isletme/kuryeler_ekrani.dart';
@@ -894,10 +895,17 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       setState(() => _sekme = SipSekme.gunSonu);
       return;
     }
-    // Push bildirimleri (sipariş atandı · teslim edildi) buraya düşer. Kimliksizdir; gerekçe
-    // `bildirimYoluCoz` içinde (sipariş detay ekranı yok, olmayan hedefe kimlik taşınmaz).
+    // Push bildirimleri (sipariş atandı · iptal edildi · teslim edildi) buraya düşer.
+    // Kimliksizdir; gerekçe `bildirimYoluCoz` içinde (sipariş detay ekranı yok, olmayan
+    // hedefe kimlik taşınmaz).
     if (hedef.tur == 'siparisler') {
       setState(() => _sekme = SipSekme.siparis);
+      return;
+    }
+    // "Yeni cihaz girişi" güvenlik bildiriminin hedefi. Uyarıyı görüp ne yapacağını
+    // ARAMAK zorunda kalmasın: bağlı telefonların listesi tek dokunuş ötede olmalı.
+    if (hedef.tur == 'cihazlar') {
+      await _git(CihazlarEkrani(db: widget.db));
       return;
     }
     setState(() => _sekme = SipSekme.musteri);

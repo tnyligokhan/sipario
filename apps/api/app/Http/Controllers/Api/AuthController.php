@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Bildirim\PushOlayi;
 use App\Enums\TenantStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Resources\TenantResource;
 use App\Http\Resources\UserResource;
+use App\Jobs\PushGonderimi;
 use App\Models\Device;
 use App\Models\User;
 use App\Support\PostaAdresi;
@@ -138,10 +140,31 @@ class AuthController extends Controller
     private function upsertDevice(User $user, array $device): void
     {
         try {
-            Device::updateOrCreate(
+            $kayit = Device::updateOrCreate(
                 ['id' => $device['device_id']],
                 Device::kayitNitelikleri($user, $device)
             );
+
+            /*
+             * GÜVENLİK BİLDİRİMİ — hesap YENİ bir telefonda açıldı (kullanıcı kararı 2026-08-14).
+             *
+             * `wasRecentlyCreated` KAPISI ZORUNLU: bu metot HER GİRİŞTE koşar ve aynı telefon
+             * günde birkaç kez giriş yapabilir. Kapı olmasaydı bayi her oturum açılışında bir
+             * "yeni cihaz" uyarısı alır, üç günde bildirimi kapatır ve GERÇEK bir yabancı girişi
+             * de kaçırırdı.
+             *
+             * Giriş yapan cihaz ELENİR (`haricCihazId`): kendi telefonunda "hesabınız yeni bir
+             * telefonda açıldı" uyarısı görmek, tam da az önce yaptığı şeyi haber vermektir.
+             */
+            if ($kayit->wasRecentlyCreated) {
+                PushGonderimi::dispatch(
+                    (string) $user->tenant_id,
+                    PushOlayi::YeniCihaz,
+                    (string) $kayit->id,
+                    null,               // alıcı: bayinin yöneticileri
+                    (string) $kayit->id // olayı doğuran cihaz
+                )->afterCommit();
+            }
         } catch (QueryException $e) {
             // 23505 = unique_violation. BAŞKA hiçbir veritabanı hatası yutulmaz.
             if ($e->getCode() !== '23505') {

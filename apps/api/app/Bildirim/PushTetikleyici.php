@@ -3,6 +3,8 @@
 namespace App\Bildirim;
 
 use App\Jobs\PushGonderimi;
+use App\Models\Order;
+use App\Models\OrderEvent;
 
 /**
  * "HANGİ SENKRON OLAYI PUSH DOĞURUR" SORUSUNUN TEK YERİ.
@@ -44,7 +46,7 @@ class PushTetikleyici
             return;
         }
 
-        [$olay, $alici] = self::eslestir($tur, $op, $payload);
+        [$olay, $alici] = self::eslestir($tur, $op, $payload, $varlikId);
 
         if ($olay === null) {
             return;
@@ -59,7 +61,7 @@ class PushTetikleyici
      * @param  array<string,mixed>  $payload
      * @return array{0: PushOlayi|null, 1: string|null} [olay, belirli alıcı (null = yöneticiler)]
      */
-    private static function eslestir(string $tur, string $op, array $payload): array
+    private static function eslestir(string $tur, string $op, array $payload, string $varlikId): array
     {
         // Sipariş bir kuryeye ATANDI → yalnız O kuryeye. Bu, push'un bu üründeki asıl varlık
         // sebebidir: kurye bugün siparişi ancak uygulamayı açıp senkronu bekleyerek görüyor.
@@ -69,9 +71,25 @@ class PushTetikleyici
             return $alici === null ? [null, null] : [PushOlayi::SiparisAtandi, $alici];
         }
 
-        // Teslim edildi → işi takip eden tarafa (yöneticiler). `unassigned` ve `cancelled`
-        // BİLEREK DIŞARIDA: bunlar çoğunlukla yöneticinin KENDİ eylemidir; kendi dokunuşunun
-        // bildirimini almak gürültüdür ve bayi bir süre sonra hepsini kapatır.
+        /*
+         * İPTAL ya da ATAMA GERİ ALINDI → o ana kadar ATANMIŞ olan kuryeye (kullanıcı kararı
+         * 2026-08-14). Kurye yola çıkmış olabilir ve bugün bunu ancak uygulamayı açarak görüyor.
+         *
+         * ⚠️ ALICI PAYLOAD'DA YOK, TÜRETİLİR — ve iki op'ta iki farklı yerden:
+         *   `cancelled`  : iptal atamayı silmez, `orders.assigned_user_id` yerinde durur.
+         *   `unassigned` : atama SİLİNMİŞTİR (bu çağrı olay uygulandıktan SONRA geliyor), yani
+         *                  önbelleğe bakmak `null` verir; kimi uyaracağımızı olay geçmişinden
+         *                  okumak zorundayız.
+         * Bu yüzden alıcı çözümlemesi `iptalAlicisi`ndedir; oraya bakmadan buradaki dalın
+         * neden iki ayrı yol izlediği anlaşılmaz.
+         */
+        if ($tur === 'order' && ($op === 'cancelled' || $op === 'unassigned')) {
+            $alici = self::iptalAlicisi($op, $varlikId);
+
+            return $alici === null ? [null, null] : [PushOlayi::SiparisIptal, $alici];
+        }
+
+        // Teslim edildi → işi takip eden tarafa (yöneticiler).
         if ($tur === 'order' && $op === 'delivered') {
             return [PushOlayi::SiparisTeslim, null];
         }
@@ -94,5 +112,47 @@ class PushTetikleyici
         }
 
         return [null, null];
+    }
+
+    /**
+     * İptal/geri alma bildiriminin ALICISI: o ana kadar siparişe atanmış kurye.
+     *
+     * `cancelled` — iptal atamayı silmez; `orders.assigned_user_id` önbelleği hâlâ doğrudur.
+     *
+     * `unassigned` — atama önbelleği bu noktada zaten SİLİNMİŞTİR (`recomputeOrder` olaydan
+     * türetip `null` yazdı). Kimi uyaracağımız yalnız olay geçmişinde durur: son `assigned`
+     * olayının yükündeki kullanıcı. Sıralama `OrderChangeApplier::deriveAssignedUserId` ile
+     * BİREBİR AYNI (`occurred_at DESC, id DESC`) ve bu tesadüf değil — iki yer farklı sıralarsa
+     * bildirim, siparişi gerçekten üstlenmiş kuryeden BAŞKASINA gider.
+     *
+     * `null` dönerse bildirim hiç doğmaz: atanmamış bir siparişin iptalini kimseye haber
+     * vermek gerekmez.
+     */
+    private static function iptalAlicisi(string $op, string $orderId): ?string
+    {
+        if ($op === 'cancelled') {
+            $order = Order::query()->find($orderId);
+
+            return $order?->assigned_user_id;
+        }
+
+        $sonAtama = OrderEvent::query()
+            ->where('order_id', $orderId)
+            ->where('event_type', 'assigned')
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($sonAtama === null) {
+            return null;
+        }
+
+        $payload = is_array($sonAtama->payload)
+            ? $sonAtama->payload
+            : json_decode((string) $sonAtama->payload, true);
+
+        $userId = is_array($payload) ? ($payload['assigned_user_id'] ?? null) : null;
+
+        return is_string($userId) && $userId !== '' ? $userId : null;
     }
 }

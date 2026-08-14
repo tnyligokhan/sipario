@@ -25,11 +25,26 @@ enum PushOlayi: string
     /** Patron siparişi bir kuryeye atadı. Alıcı: ATANAN kurye. */
     case SiparisAtandi = 'siparis_atandi';
 
+    /**
+     * Sipariş İPTAL edildi ya da kuryeden geri alındı. Alıcı: o ana kadar ATANMIŞ olan kurye.
+     *
+     * Kurye yola çıkmış olabilir; bugün iptali görmesinin tek yolu uygulamayı açmak.
+     */
+    case SiparisIptal = 'siparis_iptal';
+
     /** Kurye siparişi teslim etti. Alıcı: bayinin yöneticileri. */
     case SiparisTeslim = 'siparis_teslim';
 
     /** Kurye kasayı devretti. Alıcı: bayinin yöneticileri. */
     case KasaDevri = 'kasa_devri';
+
+    /**
+     * Hesap YENİ BİR CİHAZDA açıldı. Alıcı: bayinin yöneticileri (giriş yapan cihaz HARİÇ).
+     *
+     * Güvenlik bildirimi: bugün bir kurye parolasını başkasına verse patronun haberi olmaz.
+     * Mobilde karşılığı hazır — Hesap → Cihazlar ekranı.
+     */
+    case YeniCihaz = 'yeni_cihaz';
 
     /**
      * Telefonun bildirimi çizerken kullanacağı kategori (`bildirim_sozlesmesi.dart` →
@@ -40,8 +55,10 @@ enum PushOlayi: string
     {
         return match ($this) {
             self::SiparisAtandi => 'siparis_atandi',
+            self::SiparisIptal => 'siparis_iptal',
             self::SiparisTeslim => 'siparis_teslim',
             self::KasaDevri => 'kasa_devri',
+            self::YeniCihaz => 'yeni_cihaz',
         };
     }
 }

@@ -69,7 +69,15 @@ return [
     |
     */
 
-    'version' => '1.7.0',
+    /*
+    | 1.8.0 (2026-08-14): İKİ YENİ PUSH OLAYI — `siparis_iptal` (sipariş iptal
+    | edildi ya da kuryeden geri alındı → o ana kadar ATANMIŞ kuryeye) ve
+    | `yeni_cihaz` (hesap yeni bir telefonda açıldı → yöneticilere). Saf EKLEME,
+    | yani MINOR: uç nokta, alan ya da anlam değişmedi; olayları tanımayan eski
+    | istemci dürtüyü yok sayar ve veri mevcut senkronla akmaya devam eder.
+    */
+
+    'version' => '1.8.0',
 
     /*
     |--------------------------------------------------------------------------

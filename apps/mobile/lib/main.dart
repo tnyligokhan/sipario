@@ -6,10 +6,11 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:async' show unawaited;
 
 import 'auth/session.dart';
-import 'bildirim/bildirim_ayarlari.dart';
 import 'bildirim/bildirim_servisi.dart';
 import 'bildirim/bildirim_tetikleyici.dart';
-import 'bildirim/kurallar/musteri_ureticileri.dart';
+import 'bildirim/kurallar/durum_kurallari.dart';
+import 'bildirim/kurallar/durum_ureticileri.dart';
+import 'bildirim/kurallar/para_kurallari.dart' show kGunSonuSaati;
 import 'bildirim/kurallar/para_ureticileri.dart';
 import 'bildirim/push/push_baglama.dart';
 import 'bildirim/push/push_servisi.dart';
@@ -109,26 +110,49 @@ class _SiparioAppState extends State<SiparioApp> {
     });
   }
 
-  /// Faz 1 bildirimlerinin BAĞLANDIĞI tek yer: beş kural üreticisi tetikleyiciye takılır.
+  /// YEREL bildirim kurallarının BAĞLANDIĞI tek yer.
   ///
-  /// Üreticiler kural dosyalarının yanında yaşıyor (`kurallar/*_ureticileri.dart`) çünkü defteri
-  /// onlar okuyor; tetikleyici ne Drift'i ne kuralların içini tanıyor, yalnız NE ZAMAN
-  /// çağrılacaklarını biliyor. Bağlama burada, main'de: her iki tarafı da tanıyan tek yer burası.
+  /// Üreticiler kural dosyalarının yanında yaşıyor (`kurallar/*_ureticileri.dart`) çünkü
+  /// defteri onlar okuyor; tetikleyici ne Drift'i ne kuralların içini tanıyor, yalnız NE ZAMAN
+  /// çağrılacaklarını biliyor. Bağlama burada, main'de: her iki tarafı da tanıyan tek yer.
+  ///
+  /// SUNUCUDAN İTİLENLER BURADA YOK: push'un yolu ayrıdır (`bildirim/push/`), dürtü geldiğinde
+  /// senkron koşar ve taslak orada üretilir. Buradaki liste yalnız telefonun KENDİ verisinden
+  /// türeyen kurallardır.
   ///
   /// Altyapı kurulumu ÖNCE beklenir — kanallar ve saat dilimi hazır olmadan zamanlama yapılırsa
   /// bildirim yanlış saate düşer.
   Future<void> _bildirimKurallariniKos() async {
     await bildirimAltyapisiniKur();
-    final gunSonuRepo = DayEndRepository(widget.db);
+    final db = widget.db;
+
     await BildirimTetikleyici(
       servis: bildirimServisi,
-      // Anlık taramalar — açılışta koşar, kimlikleri gün damgalı olduğu için tekrar güvenli.
-      gecikmisMusteri: gecikmisMusteriUreticisi(widget.db),
-      rutinTeslim: rutinTeslimUreticisi(widget.db),
-      borcEsigi: borcEsigiUretici(gunSonuRepo, bildirimAyarlari),
-      // Zamanlananlar — akşam özeti ve haftalık vade taraması.
-      gunSonu: gunSonuOzetiUretici(gunSonuRepo),
-      vadesiGecen: vadesiGecenUretici(gunSonuRepo),
+      // AÇILIŞTA koşanlar — kimlikleri gün damgalı, tekrar güvenli.
+      anlik: [
+        senkronUyarisiUretici(db),
+        kullanimHakkiUretici(db),
+      ],
+      // GÜNÜN BELİRLİ ANLARINA kurulanlar. Saatler kuralların yanında sabit duruyor
+      // (`kGunSonuSaati` · `kKasaHatirlatmaSaati` · `kSabahHatirlatmaSaati`) — burada yalnız
+      // bağlanıyorlar ki "ne zaman" sorusunun cevabı tek yerde kalsın.
+      zamanlanan: [
+        ZamanlanmisIs(
+          ad: 'gunSonu',
+          uretici: gunSonuOzetiUretici(DayEndRepository(db)),
+          an: (simdi) => BildirimTetikleyici.gunlukAn(simdi, kGunSonuSaati),
+        ),
+        ZamanlanmisIs(
+          ad: 'kasaDevri',
+          uretici: kasaDevriHatirlatmasiUretici(db),
+          an: (simdi) => BildirimTetikleyici.gunlukAn(simdi, kKasaHatirlatmaSaati),
+        ),
+        ZamanlanmisIs(
+          ad: 'gunKapatilmadi',
+          uretici: gunKapatilmadiUretici(db),
+          an: (simdi) => BildirimTetikleyici.gunlukAn(simdi, kSabahHatirlatmaSaati),
+        ),
+      ],
     ).acilistaKos();
   }
 

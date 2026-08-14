@@ -64,9 +64,9 @@ Future<void> pushArkaPlanIsleyici(RemoteMessage mesaj) async {
 /// Gelen dürtüde senkronu koşturacak kanca. `true` dönerse veri güncellendi sayılır.
 typedef PushSenkronKancasi = Future<void> Function();
 
-/// Dürtüde adı geçen kaydın YEREL veriden okunan tamamlayıcı bilgisi (müşteri adı, kurye adı).
+/// Dürtüde adı geçen kaydın YEREL veriden okunan tamamlayıcı bilgisi (müşteri adı, adres).
 /// `null` dönmesi normaldir — senkron o kaydı henüz getirmemiş olabilir.
-typedef PushAyrintiKancasi = Future<String?> Function(PushMesaji mesaj);
+typedef PushAyrintiKancasi = Future<PushEkBilgi?> Function(PushMesaji mesaj);
 
 /// Push jetonunu sunucuya bildiren kanca.
 typedef PushJetonKancasi = Future<void> Function(String jeton);
@@ -159,14 +159,14 @@ class PushServisi {
 
     if (!await _b.kategoriAcikMi(coz.kategori)) return;
 
-    String? ayrinti;
+    PushEkBilgi? ek;
     try {
-      ayrinti = await ayrintiOku?.call(coz);
+      ek = await ayrintiOku?.call(coz);
     } on Object catch (e) {
       debugPrint('Push ayrıntısı okunamadı: $e');
     }
 
-    await _b.goster(pushTaslagi(coz, ayrinti: ayrinti));
+    await _b.goster(pushTaslagi(coz, ayrinti: ek?.ad, detaySatiri: ek?.adres));
   }
 
   /// Oturum kapanınca dinleyiciler bırakılır.

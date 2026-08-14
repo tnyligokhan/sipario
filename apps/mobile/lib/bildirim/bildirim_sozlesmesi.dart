@@ -1,7 +1,8 @@
 // BİLDİRİM SÖZLEŞMESİ — Faz 1.
 //
-// Bu dosya bildirim altyapısının TEK arayüzüdür. Kural yazan taraflar (borç eşiği, gün sonu
-// özeti, rutin teslim günü …) yalnız [BildirimTaslagi] ÜRETİR; ne zaman gösterileceğine,
+// Bu dosya bildirim altyapısının TEK arayüzüdür. Kaynak ne olursa olsun — telefonun kendi
+// verisinden üreten yerel kurallar (gün sonu özeti) ya da sunucudan gelen dürtüler
+// (`bildirim/push/`) — üretilen şey bir [BildirimTaslagi]dır; ne zaman gösterileceğine,
 // gösterilip gösterilmeyeceğine ve nasıl çizileceğine altyapı karar verir.
 //
 // SAF: bu dosya platform kanalına, veritabanına, `flutter_local_notifications`a BAĞLI DEĞİLDİR.
@@ -20,17 +21,30 @@ enum BildirimKategori {
   /// Akşam kasayı devrederken: bugün kaç teslim, ne kadar tahsilat, ne kadar açık borç.
   gunSonuOzeti,
 
-  /// Bir müşterinin borcu bayinin belirlediği eşiği aştı.
-  borcEsigi,
+  // ⚠️ KALDIRILDI (kullanıcı kararı 2026-08-14): `borcEsigi` · `vadesiGecenBorc` ·
+  // `musteriGecikti` · `rutinTeslimGunu`. Dördü de çalışıyordu (FIFO alacak yaşlandırması
+  // dahil) ama ürünün istemediği bildirimlerdi. Kod bayrak arkasına ALINMADI, SİLİNDİ.
+  //
+  // ⚠️ SAHADAKİ TELEFONLARDA KANALLARI KALIR ve bu Android'in kuralıdır: bir kanal, onu
+  // oluşturan uygulama tarafından silinmedikçe sistem ayarlarında durur. Yeniden
+  // oluşturulmadıkları için ARTIK BİLDİRİM ÜRETMEZLER; yalnız telefonun bildirim ayarları
+  // listesinde boş birer satır olarak görünürler ve kullanıcı onları elle temizleyebilir.
+  // Kanalları KODLA silmek de mümkündü, YAPILMADI: `deleteNotificationChannel` çağrısı,
+  // aynı `wire` değeri bir gün geri gelirse (ör. borç eşiği yeniden istenirse) kullanıcının
+  // o kanalda yaptığı ayarı da yok eder. Boş bir satır, kaybolan bir tercihten ucuzdur.
 
-  /// Vadesi geçmiş borç (veresiye ay sonunda toplanır; geçen ayınki hâlâ duruyorsa).
-  vadesiGecenBorc,
+  /// Gün kapanışı EKSİK KALDI: dün gün kapatılmadı ya da kurye kasayı devretmedi.
+  ///
+  /// İKİSİ TEK KATEGORİDE, bilinçli: ayrı olsalardı ayarlar listesi bir satır daha uzardı ve
+  /// bayi aralarındaki farkı düşünmek zorunda kalırdı. İkisi de aynı ailedendir — "gün
+  /// kapanışı tamamlanmadı" — ve ikisini de yönetici görür.
+  gunKapanisHatirlatma,
 
-  /// Düzenli alan müşteri her zamanki aralığını geçirdi — "Ahmet Bey 3 haftadır aramadı".
-  musteriGecikti,
-
-  /// Rutin teslim günü geldi (haftalık damacana turu gibi).
-  rutinTeslimGunu,
+  /// Kullanım hakkı azaldı/bitti (oto-sıralama kontörü).
+  ///
+  /// ⚠️ NÖTR KALMAK ZORUNDA: fiyat, paket adı, "satın al" çağrısı ya da siteye yönlendirme
+  /// İÇEREMEZ (BRIEF mağaza kuralı). Yalnız özelliğin neden çalışmadığını söyler.
+  kullanimHakki,
 
   /// Uygulamanın kendi durumu (senkron uzun süredir yapılamadı gibi).
   /// ABONELİK/ÖDEME İÇİN KULLANILMAZ — mağaza kuralı.
@@ -50,28 +64,41 @@ enum BildirimKategori {
   /// bugün siparişi ancak uygulamayı açıp senkronu bekleyerek görüyor.
   siparisAtandi,
 
+  /// Sipariş İPTAL edildi ya da kuryeden geri alındı. Alıcı: o ana kadar ATANMIŞ olan kurye.
+  ///
+  /// NEDEN ATAMA KADAR ÖNEMLİ: kurye yola çıkmış olabilir. Bugün iptali görmesinin tek yolu
+  /// uygulamayı açmak; görmezse boşa yol gider ve müşterinin kapısında mahcup olur.
+  siparisIptal,
+
   /// Bir sipariş teslim edildi. Alıcı: yöneticiler (kurye kendi teslimini bilir).
   siparisTeslim,
 
   /// Kurye kasayı devretti. Alıcı: yöneticiler.
-  kasaDevri;
+  kasaDevri,
+
+  /// Hesap YENİ BİR CİHAZDA açıldı. Alıcı: yöneticiler.
+  ///
+  /// Bankacılık standardı ve bu üründe karşılığı hazır: Hesap → Cihazlar ekranı (0.21.0)
+  /// "hesabım hangi telefonlarda açık" sorusunu zaten cevaplıyor; bildirim onu ZAMANINDA
+  /// sorulur hâle getiriyor. Bugün bir kurye parolasını başkasına verse patronun haberi olmaz.
+  yeniCihaz;
 
   /// Kalıcı kimlik: bildirim kanalı adı, ayar dosyası anahtarı ve [BildirimTaslagi.kimlik]
   /// öneki bundan türer. **MAĞAZADA DEĞİŞMEZ** — değişirse kullanıcının sistemden kıstığı
   /// kanal yeni bir kanal olarak geri açılır ve bayi kapattığı bildirimi yeniden almaya başlar.
   String get wire => switch (this) {
         BildirimKategori.gunSonuOzeti => 'gun_sonu_ozeti',
-        BildirimKategori.borcEsigi => 'borc_esigi',
-        BildirimKategori.vadesiGecenBorc => 'vadesi_gecen_borc',
-        BildirimKategori.musteriGecikti => 'musteri_gecikti',
-        BildirimKategori.rutinTeslimGunu => 'rutin_teslim_gunu',
+        BildirimKategori.gunKapanisHatirlatma => 'gun_kapanis_hatirlatma',
+        BildirimKategori.kullanimHakki => 'kullanim_hakki',
         BildirimKategori.sistem => 'sistem',
-        // Bu üç değer SUNUCUYLA PAYLAŞILAN SÖZLEŞMEDİR (`app/Bildirim/PushOlayi.php`):
+        // Aşağıdaki beş değer SUNUCUYLA PAYLAŞILAN SÖZLEŞMEDİR (`app/Bildirim/PushOlayi.php`):
         // FCM yükünde `kategori` alanı olarak taşınır. Değiştirmek yalnız bayinin kıstığı
         // kanalı öksüz bırakmaz — sahadaki eski istemcinin gelen dürtüyü TANIMAMASINA yol açar.
         BildirimKategori.siparisAtandi => 'siparis_atandi',
+        BildirimKategori.siparisIptal => 'siparis_iptal',
         BildirimKategori.siparisTeslim => 'siparis_teslim',
         BildirimKategori.kasaDevri => 'kasa_devri',
+        BildirimKategori.yeniCihaz => 'yeni_cihaz',
       };
 
   /// Sistem bildirim ayarlarında ve uygulamanın Ayarlar ekranında görünen ad.
@@ -82,27 +109,27 @@ enum BildirimKategori {
   /// kıstığı kanalı öksüz BIRAKMAZ. `wire` değerine aynı gerekçeyle DOKUNULMADI.
   String get ad => switch (this) {
         BildirimKategori.gunSonuOzeti => 'Gün özeti',
-        BildirimKategori.borcEsigi => 'Borç eşiği',
-        BildirimKategori.vadesiGecenBorc => 'Vadesi geçen borç',
-        BildirimKategori.musteriGecikti => 'Müşteri gecikti',
-        BildirimKategori.rutinTeslimGunu => 'Rutin teslim günü',
+        BildirimKategori.gunKapanisHatirlatma => 'Kapanış hatırlatması',
+        BildirimKategori.kullanimHakki => 'Kullanım hakkı',
         BildirimKategori.sistem => 'Uygulama durumu',
         BildirimKategori.siparisAtandi => 'Size sipariş atandı',
+        BildirimKategori.siparisIptal => 'Sipariş iptal edildi',
         BildirimKategori.siparisTeslim => 'Teslim edildi',
         BildirimKategori.kasaDevri => 'Kasa devri',
+        BildirimKategori.yeniCihaz => 'Yeni cihaz girişi',
       };
 
   /// Ayarlar ekranındaki tek satırlık açıklama — bayi neyi kapattığını bilmeli.
   String get aciklama => switch (this) {
         BildirimKategori.gunSonuOzeti => 'Akşam kasa ve teslim özeti',
-        BildirimKategori.borcEsigi => 'Bir müşterinin borcu eşiği aştığında',
-        BildirimKategori.vadesiGecenBorc => 'Vadesi geçmiş veresiye hatırlatması',
-        BildirimKategori.musteriGecikti => 'Düzenli müşteri her zamanki aralığını geçirdiğinde',
-        BildirimKategori.rutinTeslimGunu => 'Rutin teslim günü hatırlatması',
+        BildirimKategori.gunKapanisHatirlatma => 'Gün kapatılmadığında ya da kasa devredilmediğinde',
+        BildirimKategori.kullanimHakki => 'Oto-sıralama hakkınız azaldığında',
         BildirimKategori.sistem => 'Senkron ve uygulama uyarıları',
         BildirimKategori.siparisAtandi => 'Bir sipariş size atandığında',
+        BildirimKategori.siparisIptal => 'Size atanan sipariş iptal edildiğinde',
         BildirimKategori.siparisTeslim => 'Kurye bir siparişi teslim ettiğinde',
         BildirimKategori.kasaDevri => 'Kurye kasayı devrettiğinde',
+        BildirimKategori.yeniCihaz => 'Hesabınız yeni bir telefonda açıldığında',
       };
 
   /// Yalnız YÖNETİCİYE (patron/operatör) anlamlı mı?
@@ -112,8 +139,50 @@ enum BildirimKategori {
   /// yalnız yöneticilere gönderir — `PushGondericisi::yoneticiIdleri`). Kapatınca hiçbir
   /// şey değişmeyen bir anahtar, ayarların tamamına olan güveni bozar.
   bool get yalnizYonetici => switch (this) {
-        BildirimKategori.siparisTeslim || BildirimKategori.kasaDevri => true,
+        BildirimKategori.siparisTeslim ||
+        BildirimKategori.kasaDevri ||
+        BildirimKategori.yeniCihaz ||
+        BildirimKategori.gunKapanisHatirlatma ||
+        BildirimKategori.kullanimHakki =>
+          true,
         _ => false,
+      };
+
+  /// EKRANIN ÜSTÜNDE BELİRSİN Mİ (heads-up)?
+  ///
+  /// ⚠️ BU AYAR KANALIN DOĞUŞUNDA DONAR. Android, bir kanalın önem derecesini uygulamanın
+  /// sonradan değiştirmesine İZİN VERMEZ (yalnız kullanıcı değiştirebilir) — bilinçli bir
+  /// kural: uygulamanın, kullanıcının kıstığı bildirimi arkadan dolanıp geri açmasını
+  /// engelliyor. Yani bir kategoriyi sonradan heads-up yapmak YENİ KANAL KİMLİĞİ gerektirir
+  /// ve o da bayinin eski kanalda yaptığı kısmaları sıfırlar. Bu yüzden yeni bir kategori
+  /// eklerken bu değer İLK SEFERDE doğru verilmelidir.
+  ///
+  /// CÖMERT DEĞİL CİMRİ DAĞITILIR: heads-up işi böler. Esnaf tezgâhta, kurye direksiyonda;
+  /// her bildirim ekranın üstünde belirirse bayi bir hafta içinde HEPSİNİ kapatır ve o andan
+  /// sonra önemli olanı da kaçırır (`GunlukSinir` ile aynı gerekçe). Üçü seçildi: ikisi
+  /// kuryenin YOLUNU değiştiren olaylar, biri güvenlik.
+  bool get headsUp => switch (this) {
+        BildirimKategori.siparisAtandi ||
+        BildirimKategori.siparisIptal ||
+        BildirimKategori.yeniCihaz =>
+          true,
+        _ => false,
+      };
+
+  /// `res/raw` altındaki özel ses dosyasının adı; `null` = sistem varsayılanı.
+  ///
+  /// ⚠️ SES DE KANALIN DOĞUŞUNDA DONAR ([headsUp] ile aynı kısıt).
+  ///
+  /// İKİ AYRI TON, ÇÜNKÜ SESİN VAR OLMA SEBEBİ BİLDİRİMİ GÖREMEMEK: kurye direksiyondayken
+  /// ekrana bakmaz. Tek ses kullansaydık iptal sesini "yeni sipariş" sanıp yola devam ederdi.
+  /// `yeni_is` yükselen, `iptal` alçalan iki notadır (`scripts/bildirim_sesi_uret.dart`).
+  ///
+  /// Diğer kategorilerde ses YOK demek SESSİZ demek DEĞİLDİR — sistem varsayılanı çalar;
+  /// yalnız ayırt edici bir tonu hak etmezler.
+  String? get ses => switch (this) {
+        BildirimKategori.siparisAtandi => 'yeni_is',
+        BildirimKategori.siparisIptal => 'iptal',
+        _ => null,
       };
 
   static BildirimKategori? wiredan(String? w) =>
@@ -129,6 +198,7 @@ class BildirimTaslagi {
     required this.govde,
     required this.kimlik,
     this.yol,
+    this.detay,
   });
 
   final BildirimKategori kategori;
@@ -143,9 +213,24 @@ class BildirimTaslagi {
   /// uzatıldığında yanındaki onu görür. Ayrıntı gövdede kalsın.
   final String govde;
 
-  /// Dokununca gidilecek ekran. Sözlük (Faz 1): `musteri/<id>` · `siparis/<id>` · `gunsonu`.
+  /// Dokununca gidilecek ekran. Sözlük: `gunsonu` · `siparisler` · `cihazlar` · `musteri/<id>`.
   /// Boş bırakılırsa uygulama ana ekranda açılır.
   final String? yol;
+
+  /// GENİŞLETİLMİŞ bildirimin metni — bayi bildirimi aşağı çekince görünen tam hâli.
+  /// `null` = bu bildirim genişlemez (tek satır yeter).
+  ///
+  /// [govde] İLE İLİŞKİSİ: `govde` daraltılmış hâlde TEK SATIRDIR ve Android onu keser;
+  /// `detay` ise çok satırlı olabilir. Bu yüzden detay, gövdenin uzun karşılığıdır — gövdede
+  /// olmayan bir bilgiyi detaya koymak, bildirimi açmayan bayiden o bilgiyi saklamak olur.
+  ///
+  /// NEREDE DEĞERLİ: karar verilecek bildirimlerde (gün özeti: üç rakam; sipariş atandı:
+  /// müşteri + adres). NEREDE GEREKSİZ: olan biteni haber verenlerde ("teslim edildi") —
+  /// oraya detay koymak, açılacak bir şey varmış gibi göstermektir.
+  ///
+  /// ⚠️ KİLİT EKRANI KURALI DETAYA DA GEÇERLİ: müşteri adı/adresi burada da GÖVDE tarafındadır,
+  /// başlıkta değil.
+  final String? detay;
 
   /// AYNI KİMLİK = AYNI BİLDİRİM: ikinci gösterim yeni satır açmaz, üzerine yazar
   /// (çağrı günlüğündeki `insertOnConflictUpdate` mantığının bildirim karşılığı) ve günlük
@@ -154,12 +239,14 @@ class BildirimTaslagi {
   /// [bildirimKimligi] ile üretin — elle string birleştirmeyin, kategori öneki zorunludur.
   final String kimlik;
 
-  BildirimTaslagi kopyala({String? baslik, String? govde, String? yol}) => BildirimTaslagi(
+  BildirimTaslagi kopyala({String? baslik, String? govde, String? yol, String? detay}) =>
+      BildirimTaslagi(
         kategori: kategori,
         baslik: baslik ?? this.baslik,
         govde: govde ?? this.govde,
         kimlik: kimlik,
         yol: yol ?? this.yol,
+        detay: detay ?? this.detay,
       );
 
   @override
@@ -169,10 +256,11 @@ class BildirimTaslagi {
       other.baslik == baslik &&
       other.govde == govde &&
       other.yol == yol &&
+      other.detay == detay &&
       other.kimlik == kimlik;
 
   @override
-  int get hashCode => Object.hash(kategori, baslik, govde, yol, kimlik);
+  int get hashCode => Object.hash(kategori, baslik, govde, yol, detay, kimlik);
 
   @override
   String toString() => 'BildirimTaslagi(${kategori.wire}, $kimlik, "$baslik")';
@@ -222,6 +310,9 @@ String bildirimGunAnahtari(DateTime an) {
    * geldiği gün buraya `siparis/<id>` eklenir; o zamana kadar liste dürüst hedeftir.
    */
   if (ham == 'siparisler') return (tur: 'siparisler', id: null);
+  // `cihazlar` — Hesap → Cihazlar ekranı. "Yeni cihaz girişi" bildiriminin hedefi: bayi
+  // uyarıyı görür görmez hangi telefonların bağlı olduğunu görebilmeli, aramak zorunda kalmamalı.
+  if (ham == 'cihazlar') return (tur: 'cihazlar', id: null);
   final musteri = RegExp(r'^musteri/(.+)$').firstMatch(ham);
   if (musteri != null) return (tur: 'musteri', id: musteri.group(1));
   return null;

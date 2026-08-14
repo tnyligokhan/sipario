@@ -51,6 +51,33 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.24.0',
+    tarih: '14 Ağustos 2026',
+    maddeler: [
+      'Size sipariş atandığında ve atanan sipariş iptal edildiğinde bildirim artık ekranın '
+          'üstünde beliriyor ve kendi sesiyle geliyor. Yeni iş ile iptalin sesi farklı — '
+          'telefona bakmadan ayırt edebilirsiniz.',
+      'Sipariş iptal edildiğinde ya da sizden alındığında haber veriliyor; boşuna yola '
+          'çıkmıyorsunuz.',
+      'Hesabınız yeni bir telefonda açıldığında bildirim geliyor. Bildirime dokununca bağlı '
+          'telefonların listesi açılıyor.',
+      'Akşam kurye kasayı devretmediyse ve sabah dünün kasası kapatılmadıysa hatırlatılıyor.',
+      'Oto-sıralama hakkınız azaldığında haber veriliyor.',
+      'İki gündür sunucuya bağlanılamıyorsa uyarı geliyor — kayıtlarınız telefonda güvende, '
+          'bağlantı gelince kendiliğinden gönderiliyor.',
+      'Uzun bildirimler artık aşağı çekilince tamamı okunabiliyor.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.23.0',
+    tarih: '14 Ağustos 2026',
+    maddeler: [
+      'Dört bildirim kaldırıldı: borç eşiği, vadesi geçen borç, müşteri gecikti ve rutin '
+          'teslim günü. Bildirim listesi artık yalnız gerçekten işinize yarayanları içeriyor.',
+      'Ayarlar → Bildirimler sayfası sadeleşti; borç eşiği alanı kalktı.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.22.0',
     tarih: '14 Ağustos 2026',
     maddeler: [

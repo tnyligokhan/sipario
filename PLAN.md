@@ -243,6 +243,84 @@
 >
 ## Güncel durum
 
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-14/3 — HEADS-UP · GENİŞLETİLMİŞ · SES + ALTI YENİ BİLDİRİM (mobil 0.23.0 → **0.24.0**, API 1.7.0 → **1.8.0**)
+
+**⚠️ ÖNCE BU KISITI OKU — bildirimlere dokunacak herkesi ilgilendirir:**
+
+> Android'de bir bildirim kanalının **önem derecesi (heads-up) ve sesi, kanal ilk
+> oluşturulduğunda DONAR.** Uygulama sonradan değiştiremez; yalnız kullanıcı değiştirebilir.
+> Bir kategoriyi sonradan heads-up yapmak **yeni kanal kimliği** gerektirir ve yeni kanal,
+> bayinin eskisinde yaptığı kısmaları hatırlamaz.
+>
+> Bu yüzden iş sırası tersine çevrildi: **önce** heads-up/ses kararı alındı, **sonra** yeni
+> kategoriler o ayarla doğdu. 0.22.0 henüz hiçbir telefona inmediği için üç push kanalı da
+> bedavaya doğru ayarla kuruldu.
+
+**HEADS-UP CİMRİ DAĞITILDI — 3/9 kategori:** sipariş atandı · sipariş iptal · yeni cihaz.
+İlk ikisi kuryenin YOLUNU değiştirir, üçüncüsü güvenliktir. Kalan altısı rafa düşer, titrer,
+simge çıkar ama işi bölmez. Gerekçe `GunlukSinir` ile aynı: her bildirim ekranın üstünde
+belirirse bayi bir haftada hepsini kapatır ve o andan sonra önemliyi de kaçırır.
+
+**İKİ AYRI SES** (`scripts/bildirim_sesi_uret.dart` — ham PCM hesabıyla üretildi, telif
+tamamen bizim): yükselen ton = yeni iş, alçalan ton = iptal. Tek ses kuryeye iptali "yeni
+sipariş" sandırırdı; sesin var olma sebebi zaten bildirimi göremediği durumdur.
+
+**ALTI YENİ BİLDİRİM:** sipariş iptal (push→atanmış kurye) · yeni cihaz girişi (push→yönetici)
+· kapanış hatırlatması (kasa 21:00 + gün 09:00, tek kategori) · kullanım hakkı (rota kontörü)
+· senkron uyarısı. Sonuncusu `sistem` kategorisini ilk kez DOLDURDU — o kategori tanımlıydı
+ama hiçbir yerden bildirim üretmiyordu, yani ayarlarda çalışmayan bir anahtar duruyordu.
+
+**Abonelik bildirimi EKLENMEDİ** (kullanıcı kararı): 7 abonelik postası + günlük hatırlatma
+görevi zaten çalışıyor; Apple 4.5.4 ve BRIEF'in mobilde satın alma yasağı karşısında risk
+ürünün tamamı.
+
+> ⚠️ **SES DOSYALARI İLK DERLEMEDE APK'YA HİÇ GİRMEDİ** ve bu ölçülerek bulundu. Dart onları
+> string adla istiyor (`RawResourceAndroidNotificationSound`), R8 statik referans göremeyip ölü
+> saydı ve attı — `resources.arsc` içinde adları bile yoktu. `res/raw/keep.xml` ile korundu ve
+> APK içeriği zip olarak açılıp DOĞRULANDI (`res/GC.wav` · `res/jN.wav`, arsc'ta adlar duruyor).
+> **Analiz temiz, 1275 test yeşil, APK üretilmişti — yalnız ses yoktu.** Bu depodaki üç kapıya
+> dördüncüsü eklendi: **derleme ≠ paketlenmiş içerik.**
+
+**ÖLÇÜMLER (bizzat koşuldu):** `flutter analyze` **temiz** · **1275 mobil test yeşil** ·
+**API tam takım 856/857 yeşil** (4154 assertion; 1 atlandı = openssl/Windows, 1 incomplete —
+ikisi de bu vardiyadan önce de öyleydi) · `flutter build apk --release` **saha + deneme
+yeşil** · APK içeriği ses dosyaları için ayrıca açılıp doğrulandı · `pint` + `phpstan` temiz.
+
+**SIRADAKİ İŞLER:**
+1. **`FCM_HIZMET_HESABI`'yi Coolify'a gir** ve iki telefonla saha provası yap — push'un
+   çalıştığının TEK kanıtı budur. Sesleri de o provada dinle (ton beğenilmezse
+   `scripts/bildirim_sesi_uret.dart` içindeki nota sabitleri değişir, komut yeniden koşulur).
+2. **iOS push** — Apple Developer hesabı + APNs sertifikası. Ses dosyaları iOS'ta ayrıca
+   `Runner`a eklenmeli (`res/raw` yalnız Android'dir).
+3. Önceki vardiyalardan devredenler: uzaktan oturum kapatma · uygulama kilidi (PIN) ·
+   karantina dökümü · ölü kod temizliği · `day_end_screen.dart` 513 satır.
+
+### (ÖNCEKİ) 2026-08-14/2 — DÖRT BİLDİRİM KALDIRILDI (mobil 0.22.0 → **0.23.0**, API DEĞİŞMEDİ 1.7.0)
+
+Kullanıcı kararı: *"Borç eşiği, Vadesi geçen borç, Müşteri gecikti, Rutin teslim günü —
+bunları kaldır tamamen hiç olmasınlar."*
+
+Dördü de çalışıyordu ve iyi kurulmuştu (borç eşiği bir SEVİYE değil GEÇİŞ yüklemiydi; vade
+taraması FIFO alacak yaşlandırmasının kendisiydi). Sorun kalite değil, İSTENMEMELERİYDİ:
+hepsi bayinin zaten bildiği bir şeyi hatırlatıp günlük bildirim bütçesini yiyordu.
+
+**SİLİNDİ, bayrak arkasına ALINMADI** (~830 satır kural + ~74 test): `kurallar/musteri_*` iki
+dosya · `para_kurallari`nda iki kural · `DayEndRepository.bugunEsigiAsanlar` /
+`gecikmisBorclular` · `orderRepository.musteriTeslimGecmisleri` · `BildirimAyarlari`nde
+`borcEsigiKurus` ve onun TEK İSTİSNAsı · `BildirimTetikleyici`nin ANLIK tarama yolu
+(`_anlik` — geriye tek zamanlanmış kural kaldı).
+
+> ⚠️ Sahadaki telefonlarda bu dört KANAL kalır (Android kanalı uygulama silmedikçe durur).
+> Artık bildirim üretmezler; sistem ayarlarında boş satır olarak görünürler.
+> `deleteNotificationChannel` BİLEREK çağrılmadı: kanal silmek, aynı `wire` bir gün geri
+> gelirse kullanıcının o kanalda yaptığı ayarı da yok eder.
+
+**ÖLÇÜMLER:** `flutter analyze` temiz · **1250 mobil test yeşil** (1324'ten düştü: silinen
+kuralların testleri).
+
+**Kalan bildirimler:** gün sonu özeti (yerel) · uygulama durumu (`sistem` — ⚠️ TANIMLI AMA
+HİÇ KULLANILMIYOR, aşağıya bak) · sipariş atandı · teslim edildi · kasa devri (push).
+
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-14 — PUSH BİLDİRİMİ KURULDU (mobil 0.21.0 → **0.22.0**, API 1.6.0 → **1.7.0**)
 
 Kullanıcının cümlesi: *"Push bildirimlerini kurmamız gerekiyor!"*

@@ -26,11 +26,9 @@
 // `tutamac_deposu` / `tema_deposu` desenlerinde de var: platform yoksa varsayılana düş.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 
 import '../screens/isletme/atomlar/form_atomlari.dart';
 import '../screens/isletme/atomlar/kart_atomlari.dart';
-import '../theme/components/bicim.dart';
 import '../theme/components/dokunma.dart';
 import '../theme/components/form.dart';
 import '../theme/components/overlays.dart';
@@ -115,27 +113,6 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
     if (!yeni) await _servis.iptal(bildirimKimligi(k, bildirimGunAnahtari(DateTime.now())));
   }
 
-  bool get _esikVar => _ayarlar.borcEsigiBelirlendi;
-
-  /// Eşiği LİRA olarak sorar, kuruşa çevirip yazar. Kuruş girdirmiyoruz: esnaf eşiği "iki bin
-  /// lira" diye düşünür; kuruş alanı hem yanlış girişe hem 100 kat hataya açık.
-  /// Boş bırakmak eşiği SİLER ve kategoriyi pasife alır — kapatmak için ayrı bir anahtar yok.
-  Future<void> _esikSor() async {
-    final girilen = await sipSheet<String>(
-      context,
-      baslik: 'Borç eşiği',
-      govde: (ctx) => _EsikGovde(
-        baslangicLira: _esikVar ? (_ayarlar.borcEsigiKurus ~/ 100).toString() : '',
-      ),
-    );
-    if (girilen == null || !mounted) return;
-
-    final lira = int.tryParse(girilen.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-    await _ayarlar.borcEsigiYaz(lira * 100);
-    if (!mounted) return;
-    setState(() {});
-  }
-
   /// Sessiz saat aralığını sorar ve yazar. null dönerse (vazgeçildi) hiçbir şey değişmez.
   ///
   /// KAPATMA DA BİR SEÇENEKTİR ve `baslangic == bitis` ile ifade edilir — modelin kendi
@@ -196,32 +173,13 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
           // görünmez bir satır görünür bir boşluk bırakırdı.
           for (final k in BildirimKategori.values)
             if (!k.yalnizYonetici || widget.yoneticiMi)
-              // BORÇ EŞİĞİ ÖZEL: eşik girilmeden kategori PASİF (lead kararı). Anahtar yerine
-              // eşik alanı gösterilir — bayiye "kapalı" demek yetmez, NEDEN kapalı olduğunu ve
-              // ne yapması gerektiğini söylemek gerekir.
-              if (k == BildirimKategori.borcEsigi)
-                AyarSatiri(
-                  ikon: _ikon(k),
-                  baslik: k.ad,
-                  altBaslik: _esikVar
-                      ? 'Borç ${sipTutar(_ayarlar.borcEsigiKurus)} tutarını aşınca haber ver'
-                      : 'Pasif — bir eşik belirleyin',
-                  onTap: _esikSor,
-                  sag: SipMetinButon(
-                    etiket: _esikVar ? sipTutar(_ayarlar.borcEsigiKurus) : 'Eşik belirle',
-                    zemin: _esikVar ? t.surface2 : t.accentSoft,
-                    renk: _esikVar ? t.ink : t.accent,
-                    onTap: _esikSor,
-                  ),
-                )
-              else
-                AyarSatiri(
-                  ikon: _ikon(k),
-                  baslik: k.ad,
-                  altBaslik: k.aciklama,
-                  onTap: () => _kategoriCevir(k),
-                  sag: SipKnob(acik: _acik[k] ?? true),
-                ),
+              AyarSatiri(
+                ikon: _ikon(k),
+                baslik: k.ad,
+                altBaslik: k.aciklama,
+                onTap: () => _kategoriCevir(k),
+                sag: SipKnob(acik: _acik[k] ?? true),
+              ),
         ]),
       ],
     );
@@ -235,76 +193,15 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
 
   static String _ikon(BildirimKategori k) => switch (k) {
         BildirimKategori.gunSonuOzeti => SipIcons.book,
-        BildirimKategori.borcEsigi => SipIcons.info,
-        BildirimKategori.vadesiGecenBorc => SipIcons.clock,
-        BildirimKategori.musteriGecikti => SipIcons.user,
-        BildirimKategori.rutinTeslimGunu => SipIcons.box,
+        BildirimKategori.gunKapanisHatirlatma => SipIcons.clock,
+        BildirimKategori.kullanimHakki => SipIcons.info,
         BildirimKategori.sistem => SipIcons.settings,
         BildirimKategori.siparisAtandi => SipIcons.box,
+        BildirimKategori.siparisIptal => SipIcons.alert,
         BildirimKategori.siparisTeslim => SipIcons.check,
         BildirimKategori.kasaDevri => SipIcons.wallet,
+        BildirimKategori.yeniCihaz => SipIcons.user,
       };
-}
-
-/// Borç eşiği sheet'inin gövdesi. Kaydet, girilen LİRA metnini döndürür; boş metin eşiği
-/// siler (kategori pasife döner).
-class _EsikGovde extends StatefulWidget {
-  const _EsikGovde({required this.baslangicLira});
-
-  final String baslangicLira;
-
-  @override
-  State<_EsikGovde> createState() => _EsikGovdeState();
-}
-
-class _EsikGovdeState extends State<_EsikGovde> {
-  late final TextEditingController _c =
-      TextEditingController(text: widget.baslangicLira);
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Bir müşterinin borcu bu tutarı aştığında haber verilir. '
-          'Her bayinin cirosu farklı olduğu için hazır bir değer önerilmiyor.',
-          style: SipText.yardimci.copyWith(color: t.muted),
-        ),
-        const SipFormEtiket('EŞİK (₺)', ustBosluk: 2),
-        SipInput(
-          controller: _c,
-          ipucu: '0',
-          klavye: TextInputType.number,
-          girdiFiltreleri: [FilteringTextInputFormatter.digitsOnly],
-          stil: SipText.tutar(22),
-          yukseklik: 56,
-          otomatikOdak: true,
-        ),
-        const SizedBox(height: SipSpace.x3),
-        SipButon(
-          etiket: 'Kaydet',
-          yukseklik: 50,
-          onTap: () => Navigator.of(context).pop(_c.text.trim()),
-        ),
-        const SizedBox(height: SipSpace.md),
-        SipMetinButon(
-          etiket: 'Eşiği sil (bildirimi kapat)',
-          zemin: t.surface2,
-          renk: t.ink2,
-          onTap: () => Navigator.of(context).pop(''),
-        ),
-      ],
-    );
-  }
 }
 
 /// Sessiz saat aralığı seçici (2026-08-13).

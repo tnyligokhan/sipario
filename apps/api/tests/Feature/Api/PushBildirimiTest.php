@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Bildirim\PushOlayi;
 use App\Jobs\PushGonderimi;
 use App\Models\Device;
+use App\Models\Order;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
@@ -136,6 +137,128 @@ class PushBildirimiTest extends ApiTestCase
         $ikinci = $this->pushEvents($token, [$atama]);
 
         $this->assertSame('duplicate', $ikinci->json('results.0.status'));
+        Bus::assertDispatchedTimes(PushGonderimi::class, 1);
+    }
+
+    #[Test]
+    public function siparis_iptalinde_atanmis_kuryeye_gider(): void
+    {
+        // Kurye yola çıkmış olabilir. İptali bugün ancak uygulamayı açarak görüyor; boşa yol
+        // ve müşterinin kapısında mahcubiyet demek.
+        Bus::fake();
+
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $siparis = $this->orderCreated([$this->line()]);
+        $siparisId = $siparis['payload']['order']['id'];
+        $this->pushEvents($token, [$siparis])->assertOk();
+        $this->pushEvents($token, [
+            $this->orderEvent('assigned', [
+                'order_id' => $siparisId,
+                'assigned_user_id' => $a['kurye']->id,
+            ]),
+        ])->assertOk();
+
+        $this->pushEvents($token, [
+            $this->orderEvent('cancelled', ['order_id' => $siparisId]),
+        ])->assertOk();
+
+        Bus::assertDispatched(
+            PushGonderimi::class,
+            fn (PushGonderimi $is) => $is->olay === PushOlayi::SiparisIptal
+                && $is->aliciUserId === $a['kurye']->id
+        );
+    }
+
+    #[Test]
+    public function atama_geri_alininca_eski_kuryeye_gider(): void
+    {
+        /*
+         * ⚠️ BU TESTİN VARLIK SEBEBİ: `unassigned` uygulandıktan sonra `orders.assigned_user_id`
+         * ZATEN NULL'dır (önbellek olaylardan yeniden türetildi). Alıcıyı oradan okumaya
+         * kalkan bir uygulama hiç kimseye bildirim göndermez ve bunu kimse fark etmez —
+         * "bildirim gelmedi" sessiz bir arızadır. Alıcı, olay geçmişindeki son `assigned`
+         * olayından türetilmek zorundadır.
+         */
+        Bus::fake();
+
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $siparis = $this->orderCreated([$this->line()]);
+        $siparisId = $siparis['payload']['order']['id'];
+        $this->pushEvents($token, [$siparis])->assertOk();
+        $this->pushEvents($token, [
+            $this->orderEvent('assigned', [
+                'order_id' => $siparisId,
+                'assigned_user_id' => $a['kurye']->id,
+            ]),
+        ])->assertOk();
+
+        $this->pushEvents($token, [
+            $this->orderEvent('unassigned', ['order_id' => $siparisId]),
+        ])->assertOk();
+
+        // Sunucuda atama gerçekten silinmiş olmalı — testin dayanağı bu.
+        $order = $this->asOwner(fn () => Order::query()->find($siparisId));
+        $this->assertNull($order->assigned_user_id);
+
+        Bus::assertDispatched(
+            PushGonderimi::class,
+            fn (PushGonderimi $is) => $is->olay === PushOlayi::SiparisIptal
+                && $is->aliciUserId === $a['kurye']->id
+        );
+    }
+
+    #[Test]
+    public function atanmamis_siparisin_iptali_kimseye_gitmez(): void
+    {
+        // Kimsenin yola çıkmadığı bir siparişin iptalini haber vermek gürültüdür.
+        Bus::fake();
+
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        $siparis = $this->orderCreated([$this->line()]);
+        $siparisId = $siparis['payload']['order']['id'];
+        $this->pushEvents($token, [$siparis])->assertOk();
+
+        $this->pushEvents($token, [
+            $this->orderEvent('cancelled', ['order_id' => $siparisId]),
+        ])->assertOk();
+
+        Bus::assertNotDispatched(PushGonderimi::class);
+    }
+
+    #[Test]
+    public function yeni_cihazda_giris_yoneticilere_bildirilir_ayni_cihaz_tekrar_etmez(): void
+    {
+        /*
+         * `wasRecentlyCreated` KAPISI: bu kod HER GİRİŞTE koşar ve aynı telefon günde birkaç
+         * kez giriş yapabilir. Kapı olmasaydı bayi her oturum açılışında "yeni cihaz" uyarısı
+         * alır, üç günde bildirimi kapatır ve GERÇEK bir yabancı girişi de kaçırırdı.
+         */
+        Bus::fake();
+
+        $a = $this->makeTenant('a');
+        $cihazId = (string) Str::uuid7();
+
+        $govde = $this->girisGovdesi($a['tenant'], $a['patron']);
+        $govde['device'] = ['device_id' => $cihazId, 'platform' => 'android'];
+
+        $this->postJson('/api/v1/auth/login', $govde)->assertOk();
+
+        Bus::assertDispatchedTimes(PushGonderimi::class, 1);
+        Bus::assertDispatched(
+            PushGonderimi::class,
+            fn (PushGonderimi $is) => $is->olay === PushOlayi::YeniCihaz
+                && $is->varlikId === $cihazId
+                && $is->haricCihazId === $cihazId   // giriş yapan telefon kendine bildirmez
+        );
+
+        // AYNI cihazla ikinci giriş: yeni bildirim YOK.
+        $this->postJson('/api/v1/auth/login', $govde)->assertOk();
         Bus::assertDispatchedTimes(PushGonderimi::class, 1);
     }
 

@@ -41,10 +41,6 @@ void main() {
       // yok saymaktır.
       for (final k in [
         BildirimKategori.gunSonuOzeti,
-        BildirimKategori.borcEsigi,
-        BildirimKategori.vadesiGecenBorc,
-        BildirimKategori.musteriGecikti,
-        BildirimKategori.rutinTeslimGunu,
         BildirimKategori.sistem,
       ]) {
         expect(pushMesajiCoz({'kategori': k.wire, 'id': 'x'}), isNull,
@@ -196,13 +192,95 @@ void main() {
     });
   });
 
+  group('sipariş iptali — kurye yolda olabilir', () {
+    test('BAŞLIK burada nötr DEĞİL: kurye ne olduğunu görmeli', () {
+      // Diğer bildirimlerde başlık nötrdür (kilit ekranı kuralı). Burada nötr bir başlık
+      // kuryeye hiçbir şey söylemez ve o yola çıkar; "iptal" sözcüğü müşteri adı taşımadığı
+      // için kural da çiğnenmiş olmaz.
+      final t = pushTaslagi(
+        const PushMesaji(kategori: BildirimKategori.siparisIptal, varlikId: 's1'),
+      );
+
+      expect(t.baslik, 'Sipariş iptal edildi');
+      expect(t.detay, contains('gitmeyin'));
+    });
+
+    test('müşteri adı ve adres varsa ikisi de kullanılır', () {
+      final t = pushTaslagi(
+        const PushMesaji(kategori: BildirimKategori.siparisIptal, varlikId: 's1'),
+        ayrinti: 'Ayşe Yılmaz',
+        detaySatiri: 'Bahçelievler Mah. 12/4',
+      );
+
+      // Ad GÖVDEDE (daraltılmış hâlde görünür), adres yalnız DETAYDA (genişletilince).
+      expect(t.govde, contains('Ayşe Yılmaz'));
+      expect(t.govde, isNot(contains('Bahçelievler')));
+      expect(t.detay, contains('Bahçelievler'));
+    });
+  });
+
+  group('yeni cihaz — güvenlik bildirimi', () {
+    test('ne yapılacağını SÖYLER ve cihazlar ekranına götürür', () {
+      // Uyarıp yalnız bırakmak işe yaramaz: bayi "ne yapacağım?" diye kalırsa uyarı
+      // endişeden başka bir şey üretmez.
+      final t = pushTaslagi(
+        const PushMesaji(kategori: BildirimKategori.yeniCihaz, varlikId: 'c1'),
+      );
+
+      expect(t.detay, contains('parolanızı değiştirin'));
+      expect(bildirimYoluCoz(t.yol), (tur: 'cihazlar', id: null));
+    });
+
+    test('ayrıntı verilse bile metin DEĞİŞMEZ — cihaz bilgisi yükte taşınmaz', () {
+      final a = pushTaslagi(
+        const PushMesaji(kategori: BildirimKategori.yeniCihaz, varlikId: 'c1'),
+      );
+      final b = pushTaslagi(
+        const PushMesaji(kategori: BildirimKategori.yeniCihaz, varlikId: 'c1'),
+        ayrinti: 'Redmi Note 12',
+      );
+
+      expect(a.govde, b.govde);
+    });
+  });
+
+  group('kanal ayarları — ilk doğuşta donar, o yüzden testle kilitli', () {
+    test('heads-up YALNIZ üç kategoride', () {
+      // Cömert değil cimri dağıtılır: heads-up işi böler. Bu listeyi büyütmek, bayinin bir
+      // hafta içinde bildirimlerin TAMAMINI kapatmasına giden yoldur.
+      final acik = BildirimKategori.values.where((k) => k.headsUp).toSet();
+
+      expect(acik, {
+        BildirimKategori.siparisAtandi,
+        BildirimKategori.siparisIptal,
+        BildirimKategori.yeniCihaz,
+      });
+    });
+
+    test('özel ses YALNIZ iki kategoride ve İKİSİ FARKLI', () {
+      // Tek ses kullansaydık kurye iptal sesini "yeni sipariş" sanıp yola devam ederdi —
+      // sesin var olma sebebi zaten bildirimi GÖREMEDİĞİ durumdur.
+      expect(BildirimKategori.siparisAtandi.ses, 'yeni_is');
+      expect(BildirimKategori.siparisIptal.ses, 'iptal');
+      expect(
+        BildirimKategori.siparisAtandi.ses,
+        isNot(BildirimKategori.siparisIptal.ses),
+      );
+
+      final sesliler = BildirimKategori.values.where((k) => k.ses != null).length;
+      expect(sesliler, 2);
+    });
+  });
+
   group('kategori sözleşmesi', () {
     test('wire değerleri SUNUCUYLA aynı — değişmez', () {
       // `app/Bildirim/PushOlayi.php` ile birebir. Değiştirmek, sahadaki eski istemcinin
       // dürtüyü tanımaması demektir (telefonlar günlerce eski sürümde kalır).
       expect(BildirimKategori.siparisAtandi.wire, 'siparis_atandi');
+      expect(BildirimKategori.siparisIptal.wire, 'siparis_iptal');
       expect(BildirimKategori.siparisTeslim.wire, 'siparis_teslim');
       expect(BildirimKategori.kasaDevri.wire, 'kasa_devri');
+      expect(BildirimKategori.yeniCihaz.wire, 'yeni_cihaz');
     });
 
     test('teslim ve kasa devri YALNIZ yöneticiye anlamlı', () {

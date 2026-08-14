@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
-import '../bildirim/kurallar/musteri_kurallari.dart' show MusteriGecmisi;
 import '../data/app_database.dart';
 import '../data/ids.dart';
 import '../data/outbox.dart';
@@ -404,49 +403,4 @@ class OrderRepository {
     if (last.eventType != 'assigned' || last.payload == null) return null;
     return (jsonDecode(last.payload!) as Map<String, dynamic>)['assigned_user_id'] as String?;
   }
-}
-
-/// Bildirim kurallarının GİRDİSİ (Faz 1 — müşteri ilişkisi bildirimleri).
-///
-/// Kural katmanı SAF kalsın diye okuma burada durur (`bildirim/kurallar/musteri_kurallari.dart`
-/// yalnız `dart:math` kullanır ve doğrudan test edilir). Tek atış — tarama günde bir koşar,
-/// canlı abonelik gereksizdir.
-///
-/// `innerJoin` müşterisiz (tezgâh) siparişi eler: kimsenin ritmi değildir. Yalnız `delivered`
-/// sayılır — İPTAL edilen sipariş hiç olmamıştır, AÇIK sipariş ise henüz teslim edilmemiştir
-/// (mal gitmediyse döngü dönmemiştir) ve sadece "bekleyen siparişi var" bayrağını kaldırır.
-Future<List<MusteriGecmisi>> musteriTeslimGecmisleri(AppDatabase db) async {
-  final q = db.select(db.orders).join([
-    innerJoin(db.customers, db.customers.id.equalsExp(db.orders.customerId)),
-  ])
-    ..where(db.orders.deletedAt.isNull() & db.customers.deletedAt.isNull())
-    ..orderBy([OrderingTerm.asc(db.orders.occurredAt)]);
-
-  final adlar = <String, String>{};
-  final teslimler = <String, List<DateTime>>{};
-  final acikOlanlar = <String>{};
-  for (final r in await q.get()) {
-    final o = r.readTable(db.orders);
-    final c = r.readTable(db.customers);
-    adlar[c.id] = c.name;
-    if (o.status == 'delivered') {
-      // Saat ELENİR: kural gün çözünürlüğünde çalışır (bkz. musteri_kurallari.dart).
-      final t = DateTime.tryParse(o.occurredAt)?.toLocal();
-      if (t != null) {
-        (teslimler[c.id] ??= <DateTime>[]).add(DateTime(t.year, t.month, t.day));
-      }
-    } else if (o.status == 'open') {
-      acikOlanlar.add(c.id);
-    }
-  }
-
-  return [
-    for (final e in teslimler.entries)
-      MusteriGecmisi(
-        customerId: e.key,
-        ad: adlar[e.key] ?? '',
-        teslimGunleri: e.value,
-        acikSiparisVar: acikOlanlar.contains(e.key),
-      ),
-  ];
 }
