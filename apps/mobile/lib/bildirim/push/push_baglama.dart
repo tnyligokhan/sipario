@@ -9,8 +9,10 @@
 import 'package:drift/drift.dart';
 
 import '../../data/app_database.dart';
+import '../../auth/session.dart';
 import '../../sync/cihaz_api.dart';
 import '../../sync/sync_service.dart';
+import '../bildirim_ayarlari.dart';
 import '../bildirim_sozlesmesi.dart';
 import 'push_servisi.dart';
 import 'push_sozlesmesi.dart';
@@ -21,9 +23,26 @@ Future<PushServisi?> pushKur(AppDatabase db, SyncService sync) async {
   final meta = await db.syncState();
   final token = meta.authToken;
   final cihazId = meta.deviceId;
-  final baseUrl = meta.apiBaseUrl;
 
-  if (token == null || cihazId == null || baseUrl == null) return null;
+  if (token == null || cihazId == null) {
+    await bildirimAyarlari.pushDurumuYaz(PushDurumu.oturumYok);
+
+    return null;
+  }
+
+  /*
+   * ⚠️ TABAN ADRES `Session.baseUrlOf` İLE ÇÖZÜLÜR, HAM KOLON OKUNMAZ.
+   *
+   * İlk sürümde burada `meta.apiBaseUrl` doğrudan okunuyordu ve `null` ise push HİÇ
+   * KURULMUYORDU. Oysa bu depoda `apiBaseUrl` NULL OLABİLİR ve olması normaldir — kolon
+   * yalnız girişte yazılır, varsayılan adresle çalışan bir kurulumda boş kalabilir. Bu yüzden
+   * oturum katmanının tamamı (`login`, `logout`, `parolaSifirlamaIste`) o alanı ASLA
+   * doğrudan okumaz, hepsi `?? kDefaultApiBaseUrl`e düşer ve bunun için bir yardımcı vardır.
+   *
+   * Yardımcıyı kullanmamak sessiz bir arıza üretiyordu: push kurulmuyor, jeton alınmıyor,
+   * sunucu gönderecek cihaz bulamıyor — ve hiçbir yerde hata görünmüyor.
+   */
+  final baseUrl = Session.baseUrlOf(meta);
 
   final api = CihazApi(baseUrl: baseUrl, token: token);
 
@@ -32,11 +51,18 @@ Future<PushServisi?> pushKur(AppDatabase db, SyncService sync) async {
     // demek yetmezdi — kuryenin telefonunda bekleyen teslim kaydı varken sunucudan veri
     // çekmek, aynı turda gidebilecek yazımı bir sonraki tura bırakırdı.
     senkronKos: () => sync.syncNow(),
-    jetonBildir: (jeton) => api.jetonBildir(
-      cihazId: cihazId,
-      platform: 'android',
-      jeton: jeton,
-    ),
+    // Sonuç KAYDEDİLİR: "jeton alındı ama sunucuya gitmedi" ile "hiç alınmadı" ayrı
+    // arızalardır ve ayrı çözümleri vardır (biri ağ, diğeri Play Services).
+    jetonBildir: (jeton) async {
+      final gitti = await api.jetonBildir(
+        cihazId: cihazId,
+        platform: 'android',
+        jeton: jeton,
+      );
+      await bildirimAyarlari.pushDurumuYaz(
+        gitti ? PushDurumu.hazir : PushDurumu.bildirilemedi,
+      );
+    },
     ayrintiOku: (mesaj) => pushAyrintisi(db, mesaj),
   );
 

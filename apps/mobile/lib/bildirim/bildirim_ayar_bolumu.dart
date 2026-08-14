@@ -69,6 +69,7 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
   BildirimServisi get _servis => widget.servis ?? bildirimServisi;
   BildirimAyarlari get _ayarlar => widget.ayarlar ?? bildirimAyarlari;
 
+  PushDurumu? _pushDurumu;
   bool _izinVar = true;
   bool _yuklendi = false;
   final Map<BildirimKategori, bool> _acik = {};
@@ -85,6 +86,7 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
     if (!mounted) return;
     setState(() {
       _izinVar = izin;
+      _pushDurumu = _ayarlar.pushDurumu;
       for (final k in BildirimKategori.values) {
         _acik[k] = _ayarlar.kategoriAcik(k);
       }
@@ -155,6 +157,18 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
                 renk: t.accent,
                 onTap: _izinIste,
               ),
+            ),
+          // PUSH DURUMU — SAHA TEŞHİSİ (2026-08-14). "Bildirim gelmiyor" şikâyetinde
+          // bakılacak İLK yer burasıdır: telefon sunucuya kaydolabilmiş mi?
+          //
+          // HAZIR OLDUĞUNDA GİZLENMEZ, SÖYLENİR: çalışan bir şeyin çalıştığını göstermek,
+          // bayiye "burada bir özellik var" bilgisini de verir. Bu bölümün baştan beri
+          // uyguladığı kuralın aynısı — izin reddedildiğinde de gizlemiyor, söylüyoruz.
+          if (_pushDurumu != null)
+            AyarSatiri(
+              ikon: _pushDurumu == PushDurumu.hazir ? SipIcons.check : SipIcons.info,
+              baslik: 'Anlık bildirimler',
+              altBaslik: _pushDurumu!.aciklama,
             ),
           // SESSİZ SAATLER ARTIK DÜZENLENEBİLİR (2026-08-13). Faz 1'de SABİT ve yalnız
           // bilgilendirme satırıydı; `BildirimAyarlari.sessizYaz()` yazılmış, okunmuş ve

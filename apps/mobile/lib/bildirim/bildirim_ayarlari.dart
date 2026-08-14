@@ -45,6 +45,17 @@ class BildirimAyarlari {
   Set<String> _kapaliWire = <String>{};
   SessizSaatler _sessiz = const SessizSaatler();
 
+  /// Push kaydının son durumu — SAHA TEŞHİSİ İÇİN (2026-08-14).
+  ///
+  /// NEDEN VAR: "bildirim gelmiyor" şikâyeti geldiğinde hiçbir tarafta bakılacak veri yoktu.
+  /// Sunucu "gönderecek cihaz bulamadım" diyordu ama telefonun jetonu neden göndermediği
+  /// (Play Services yok mu, izin mi yok, ağ mı yoktu) hiçbir yerde durmuyordu. Bu değer
+  /// Ayarlar → Bildirimler ekranında gösterilir; bayi tek bakışta söyleyebilir.
+  ///
+  /// Şema alanı DEĞİL, bu dosyada duruyor: cihaz-yerel bir tanı bilgisi için migration
+  /// açmak, bu deponun `tutamac_deposu`/`tema_deposu` deseninin kırılması olurdu.
+  String _pushDurumu = '';
+
   String _gun = '';
   Set<String> _gosterilen = <String>{};
   bool _yuklendi = false;
@@ -73,6 +84,8 @@ class BildirimAyarlari {
             _gun = deger;
           case 'gosterilen':
             _gosterilen = deger.split(';').where((x) => x.isNotEmpty).toSet();
+          case 'push':
+            _pushDurumu = deger;
           // `borcEsigi` anahtarı 2026-08-14'te KALDIRILDI. Eski dosyalarda satır DURUYOR
           // olabilir; tanınmayan anahtar zaten sessizce atlanır (switch'in default'u yok) ve
           // ilk yazımda dosya baştan kurulduğu için kendiliğinden temizlenir.
@@ -90,6 +103,17 @@ class BildirimAyarlari {
   bool kategoriAcik(BildirimKategori k) => !_kapaliWire.contains(k.wire);
 
   SessizSaatler get sessizSaatler => _sessiz;
+
+  /// Push kaydının son durumu; hiç denenmediyse `null`.
+  PushDurumu? get pushDurumu => PushDurumu.wiredan(_pushDurumu);
+
+  /// Push kurulumunun her adımı bunu günceller. HATA YUTAR (depo geneli kural): tanı
+  /// bilgisinin yazılamaması, push'un kendisini düşürmemeli.
+  Future<void> pushDurumuYaz(PushDurumu durum) async {
+    if (_pushDurumu == durum.wire) return; // gereksiz disk yazımı yok
+    _pushDurumu = durum.wire;
+    await _yaz();
+  }
 
   // ── Yazma ────────────────────────────────────────────────────────────────────────────────
 
@@ -157,6 +181,7 @@ class BildirimAyarlari {
           'sessiz=${_sessiz.baslangicSaat}-${_sessiz.bitisSaat}',
           'gun=$_gun',
           'gosterilen=${_gosterilen.join(';')}',
+          'push=$_pushDurumu',
         ].join('\n'),
         flush: true,
       );

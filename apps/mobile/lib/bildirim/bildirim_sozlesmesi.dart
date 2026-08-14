@@ -189,6 +189,52 @@ enum BildirimKategori {
       values.where((k) => k.wire == w).firstOrNull;
 }
 
+/// PUSH KAYDININ DURUMU — saha teşhisi (2026-08-14).
+///
+/// NEDEN VAR: "bildirim gelmiyor" şikâyetinde iki taraf da sessizdi. Sunucu "gönderecek cihaz
+/// bulamadım" diyordu; telefonun jetonu NEDEN göndermediği hiçbir yerde durmuyordu. Bu durum
+/// Ayarlar → Bildirimler ekranında bir satır olarak görünür, yani bayi/destek tek bakışta
+/// söyleyebilir — log toplamaya, cihazı elden geçirmeye gerek kalmaz.
+enum PushDurumu {
+  /// Oturum yok (jetonun yazılacağı cihaz kaydı bir bayiye aittir).
+  oturumYok,
+
+  /// Firebase kurulamadı — Play Services yok (Huawei) ya da yapılandırma eksik.
+  kurulamadi,
+
+  /// Firebase kuruldu ama jeton alınamadı.
+  jetonAlinamadi,
+
+  /// Jeton alındı, sunucuya bildirilemedi (ağ yok / sunucu reddetti). Sonraki açılışta yeniden denenir.
+  bildirilemedi,
+
+  /// Jeton alındı ve sunucuya bildirildi. Push çalışır durumda.
+  hazir;
+
+  String get wire => switch (this) {
+        PushDurumu.oturumYok => 'oturum-yok',
+        PushDurumu.kurulamadi => 'kurulamadi',
+        PushDurumu.jetonAlinamadi => 'jeton-alinamadi',
+        PushDurumu.bildirilemedi => 'bildirilemedi',
+        PushDurumu.hazir => 'hazir',
+      };
+
+  /// Ayarlar ekranında görünen açıklama. NE YAPILACAĞINI da söyler: yalnız arızayı bildiren
+  /// bir satır, bayiyi destek aramaya zorlar.
+  String get aciklama => switch (this) {
+        PushDurumu.oturumYok => 'Oturum açılınca kurulacak',
+        PushDurumu.kurulamadi =>
+          'Bu telefonda kurulamadı — Google Play Hizmetleri gerekiyor. Uygulama normal çalışır, '
+              'bildirimler gecikmeli gelir.',
+        PushDurumu.jetonAlinamadi => 'Telefon kaydı alınamadı; uygulamayı yeniden açmayı deneyin',
+        PushDurumu.bildirilemedi => 'Sunucuya bildirilemedi; internet gelince yeniden denenecek',
+        PushDurumu.hazir => 'Kurulu — anlık bildirimler açık',
+      };
+
+  static PushDurumu? wiredan(String? w) =>
+      values.where((d) => d.wire == w).firstOrNull;
+}
+
 /// Kural fonksiyonlarının ÜRETTİĞİ şey. Yan etkisi yok, eşitliği tanımlı, test edilebilir.
 @immutable
 class BildirimTaslagi {

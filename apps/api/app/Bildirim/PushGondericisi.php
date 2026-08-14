@@ -39,11 +39,33 @@ class PushGondericisi
         ?string $haricCihazId = null,
     ): int {
         if (! $this->istemci->kurulu()) {
+            Log::info('Push atlandı: FCM yapılandırılmamış', ['olay' => $olay->value]);
+
             return 0;
         }
 
         $cihazlar = $this->cihazlar($tenantId, $aliciUserId, $haricCihazId);
+
+        /*
+         * ⚠️ "GÖNDERİLECEK CİHAZ YOK" DURUMU LOGLANMAK ZORUNDA (2026-08-14'te ödendi).
+         *
+         * İlk sürümde bu dal sessizce `return 0` yapıyordu ve sahadan "bildirim gelmiyor"
+         * denildiğinde elde HİÇBİR veri yoktu: kuyruk logu `PushGonderimi ... DONE` diyordu,
+         * yani iş başarıyla koşmuştu — ama kaç cihaza gittiği hiçbir yere yazılmadığı için
+         * "jeton yok" ile "gönderildi ama telefon göstermedi" ayırt edilemiyordu.
+         *
+         * `aday` = jetonu olan ve elenmemiş cihaz sayısı. 0 ise sebep neredeyse her zaman
+         * şudur: telefonlardaki uygulama jeton gönderen sürümden ESKİ, yani
+         * `devices.push_token` boş.
+         *
+         * KİŞİSEL VERİ YAZILMAZ: yalnız sayılar ve olay adı (KVKK kırmızı çizgi #4).
+         */
         if ($cihazlar->isEmpty()) {
+            Log::info('Push gönderilmedi: jetonlu alıcı cihaz yok', [
+                'olay' => $olay->value,
+                'belirli_alici' => $aliciUserId !== null,
+            ]);
+
             return 0;
         }
 
@@ -72,6 +94,14 @@ class PushGondericisi
                 PushSonucu::Gecici, PushSonucu::Kalici, PushSonucu::Kapali => null,
             };
         }
+
+        // Sonuç HER ZAMAN yazılır: "3 adaydan 3'üne gitti" ile "3 adaydan 0'ına gitti" arasındaki
+        // fark, sahadan gelen "bildirim gelmiyor" şikâyetinde bakılacak İLK veridir.
+        Log::info('Push gönderildi', [
+            'olay' => $olay->value,
+            'aday' => $cihazlar->count(),
+            'gonderilen' => $gonderilen,
+        ]);
 
         return $gonderilen;
     }

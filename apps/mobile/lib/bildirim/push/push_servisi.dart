@@ -27,11 +27,13 @@
 // adı. Kazanılan: defterin bütünlüğü. Takas bilinçlidir.
 
 import 'dart:async';
+import 'dart:ui' show DartPluginRegistrant;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
+import '../bildirim_ayarlari.dart';
 import '../bildirim_servisi.dart';
 import '../bildirim_sozlesmesi.dart';
 import 'push_sozlesmesi.dart';
@@ -44,6 +46,25 @@ import 'push_sozlesmesi.dart';
 @pragma('vm:entry-point')
 Future<void> pushArkaPlanIsleyici(RemoteMessage mesaj) async {
   try {
+    /*
+     * ⚠️ EKLENTİ KAYDI ELLE YAPILIR — BU SATIR OLMADAN ARKA PLAN BİLDİRİMİ HİÇ ÇİZİLMEZ.
+     *
+     * Bu fonksiyon AYRI BİR ISOLATE'te koşar ve orada `main()` hiç çalışmaz; Flutter'ın
+     * eklenti kayıtları (`flutter_local_notifications`, `sqflite`) o isolate'te KURULU
+     * DEĞİLDİR. Kayıt yapılmazsa şu zincir işler ve hepsi SESSİZDİR:
+     *   `YerelBildirimServisi.kur()` → platform kanalı yok → istisna → yutulur
+     *   `goster()` → `izinDurumu()` → eklenti çözülemez → `false`
+     *   → bildirim çizilmeden `return`.
+     *
+     * Sonuç: uygulama ÖN PLANDAYKEN bildirim gelir, ARKA PLANDAYKEN gelmez — yani tam da
+     * bildirimin en çok gerektiği durumda çalışmaz (kurye telefonu cebindedir, uygulama
+     * kapalıdır). Hiçbir hata da görünmez.
+     *
+     * 2026-08-14'te sahada bu yaşandı: izin açıktı, senkron çalışıyordu, sipariş kurye
+     * telefonunda görünüyordu — bildirim yoktu.
+     */
+    DartPluginRegistrant.ensureInitialized();
+
     await Firebase.initializeApp();
     final coz = pushMesajiCoz(mesaj.data);
     if (coz == null) return;
@@ -122,7 +143,18 @@ class PushServisi {
        * işlevi bildirimden bağımsızdır ve izinsiz de değerlidir.
        */
       final jeton = await fm.getToken();
-      if (jeton != null && jeton.isNotEmpty) await jetonBildir(jeton);
+
+      /*
+       * HER ADIM AYRI AYRI KAYDEDİLİR (2026-08-14, sahadan gelen "bildirim gelmiyor"
+       * şikâyetinden sonra). Önceki sürümde bu blok sessizdi: jeton alınamazsa, bildirilemezse
+       * ya da Firebase hiç kurulamazsa aynı sonuç doğuyordu — hiçbir şey. Arıza telefonda mı
+       * sunucuda mı diye sorulduğunda bakılacak tek bir yer bile yoktu.
+       */
+      if (jeton == null || jeton.isEmpty) {
+        await bildirimAyarlari.pushDurumuYaz(PushDurumu.jetonAlinamadi);
+      } else {
+        await jetonBildir(jeton);
+      }
 
       // JETON YENİLENİR ve bu akış olmadan push bir gün sessizce ölür: veri temizleme, cihaz
       // geri yükleme ya da Google'ın kendi döndürmesi jetonu değiştirir.
@@ -134,6 +166,9 @@ class PushServisi {
         (m) => unawaited(onPlandaMesaj(m.data)),
       );
     } on Object catch (e) {
+      // Play Services yok (Huawei) ya da yapılandırma eksik. Ürün çalışmaya devam eder:
+      // push HIZLANDIRICIDIR, taşıyıcı değil.
+      await bildirimAyarlari.pushDurumuYaz(PushDurumu.kurulamadi);
       debugPrint('Push kurulamadı (Play Services/yapılandırma?): $e');
     }
   }
