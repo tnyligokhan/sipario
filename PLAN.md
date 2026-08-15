@@ -243,6 +243,70 @@
 >
 ## Güncel durum
 
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-15/2 — GÜNLÜK YEDEK BAĞLANTISI POSTALANIYOR (API 1.8.0 → **1.9.0**, mobil DEĞİŞMEDİ 0.25.0)
+
+**Kullanıcı kararı:** *"Yedekleme sunucuda kalsın… bana geri yükleme yapabileceğim bir şekilde
+her gün link üretip SMTP ile mail adresine iletsin. Para kazanmaya başlayınca S3 kullanırım."*
+
+**ÖNCE ÖLÇÜLDÜ, BELGEYE GÜVENİLMEDİ:** `PLAN.md`'nin "SMTP kurulu değil" notu **BAYATMIŞ** —
+Coolify'da `MAIL_MAILER · MAIL_HOST · MAIL_PORT · MAIL_USERNAME · MAIL_PASSWORD · MAIL_SCHEME`
+hepsi TANIMLI (`list_env_keys` ile okundu; değerleri API vermiyor). SMTP hesabı da var:
+`titan.hayalhost.com:465`, `noreply@sipario.com.tr`. Yani 4. maddenin ön koşulu zaten kapalıydı.
+
+**YAPILAN:**
+- `sipario_backups` volume'ü `app` ve `scheduler`'a **salt-okunur** (`:ro`) bağlandı. Bugüne
+  kadar bu dosyalara sidecar DIŞINDA hiçbir şey erişemiyordu — yedek alınıyordu ama
+  **alındığı görünmüyor, indirilemiyordu.**
+- `App\Yedek\YedekArsivi` — arşivi okur; `coz()` kullanıcıdan gelen dosya adını **üç kapıdan**
+  geçirir (basename → sidecar ad deseni → realpath ön eki).
+- `panel.yedek.indir` route'u — **yalnız superadmin**, her indirme `panel_audit`e düşer
+  (`action=yedek_indirme`, `tenant_id=NULL`, detayda yalnız dosya adı).
+- `yedek:baglanti-gonder` komutu + `YedekHazir` postası (HTML + düz metin) — her sabah
+  **08:00 Europe/Istanbul**. Postada dosya adı, boyut, tarih, indirme düğmesi ve
+  **geri yükleme komutu** var.
+- Sürüm: `apps/api/config/app.php` → **1.9.0** (MINOR, mobile tamamen nötr).
+
+**İKİ TASARIM KARARI, ikisi de bilinçli:**
+1. **İmzalı link (`temporarySignedRoute`) KULLANILMADI.** Yedek, ürünün en yoğun kişisel veri
+   taşıyıcısıdır (tüm bayilerin tüm müşterileri tek dosyada); imzalı bağlantı, e-posta kutusu
+   ele geçen birine veritabanının tamamını verirdi. Bağlantı panel girişinin arkasındadır.
+2. **Komut sessiz başarı üretmez.** Adres tanımsızsa, arşiv boşsa → çıkış kodu HATA. Yedek
+   bayatsa (>30 saat) posta **uyarı bandıyla** gider — sidecar durursa o bant arızanın tek
+   görünür işaretidir.
+
+> ⚠️ **SEÇİLEN ÇÖZÜMÜN SINIRI YAZILI OLARAK KABUL EDİLDİ:** yedeğin makine dışına çıkması
+> **insanın her gün postayı açıp indirmesine** bağlıdır. Kimse indirmezse sunucu öldüğünde
+> yedek de ölür. Bu, otomatik uzak kopyanın (S3) yerini **tutmaz**.
+
+> ⚠️ **HOSTINGER YOLU DENENDİ VE BIRAKILDI.** Kurulum sırasında hosting **SSH parolası sohbete
+> düz metin yapıştırıldı** → parola yanmış sayıldı ve değiştirilmesi istendi. SSH anahtarından
+> farkı: parola **değiştirilebiliyor**, yani bu sızıntı kapatılabilir bir sızıntıydı.
+
+**ÖLÇÜMLER (bizzat koşuldu):** `YedekTest` **12/12 yeşil** (45 assertion) · **tam API takımı
+869 test / 868 yeşil** (4205 assertion; 1 atlandı = openssl/Windows, 1 incomplete = LWW
+saniye-altı — ikisi de bu vardiyadan önce de öyleydi, 857→869 artışı bu vardiyanın 12 yeni
+testidir) · `pint` temiz · `phpstan` temiz.
+
+⚠️ `phpstan` ilk koşuda **iki gerçek kusur** yakaladı ve biri sessizdi: `CarbonImmutable::
+createFromFormat` başarısızlıkta `null` döner, `false` DEĞİL — `=== false` yazılmış savunma
+hiçbir zaman çalışmayacaktı. Testler bunu göremezdi (geçerli adlarla koşuyorlar).
+
+⚠️ **TEST DB'Yİ AÇMAK GEREKTİ:** Docker Desktop kapalıydı, suite `Connection refused … 55432`
+verdi. Çözüm bilinen desen: Docker Desktop → `docker start sipario_db` (`docker compose up`
+DEĞİL).
+
+**İKİ TEST BİLEREK DEĞİŞTİRİLDİ** (`PanelAccessControlTest`): panel route yüzeyi kilitli bir
+listedir ve yeni route insan gözden geçirmeden geçemez — `panel.yedek.indir` listeye
+gerekçesiyle eklendi. Ayrıca korunan-URL üreteci route tablosundan türetildiği için parametreli
+route'a örnek değer verilmesi gerekti; route'u listeden çıkarmak testin varlık sebebini
+delerdi.
+
+> 🔴 **BULUNDU AMA KAPATILMADI — SIRADAKİ VARDİYA BUNA BAKMALI:** Coolify'da **yalnız
+> "Sipario Dev" uygulaması var, "Sipario App" (üretim) YOK** ve `fqdn` null. Buna karşılık
+> `main` dalı **2026-08-10'da donmuş** (API 1.0.0, mobil 0.10.0) ve `dev` **78 commit** önde.
+> Yani üretimin fiilen hangi daldan/hangi uygulamadan deploy edildiği **belirsiz**. Bu iş
+> deploy edilmeden önce cevaplanmalı — yoksa yedek postası hiç koşmaz.
+
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-15 — SIZAN SSH ANAHTARI: YEREL KOPYALAR SİLİNDİ, DÖNDÜRME **KULLANICI ONAYIYLA ES GEÇİLDİ (KAPANDI)**
 
 > ✅ **KARAR — 2026-08-15, KULLANICI ONAYI: BU MADDE KAPANDI, BİR DAHA SIRADAKİ İŞLER'E GİRMEZ.**
@@ -1347,8 +1411,17 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
    yakaladı.
 3. **Google anahtarını kısıtla** (Cloud Console → yalnız Geocoding + Routes API + sunucu IP).
    Anahtar sohbette düz metin geçti ve artık iki sunucuda kullanılıyor.
-4. **SMTP bağla** — parola sıfırlama bugün sessizce çalışmıyor (bayi "gönderildi" görüyor, e-posta
-   hiç gelmiyor). 5. **Makine dışı yedek** kararı (yedek yalnız sunucunun kendi diskinde).
+4. **[⚠️ NOT BAYAT — 2026-08-15'te ÖLÇÜLDÜ]** ~~SMTP bağla~~ — Coolify'da `MAIL_MAILER · MAIL_HOST
+   · MAIL_PORT · MAIL_USERNAME · MAIL_PASSWORD · MAIL_SCHEME` **TANIMLI** ve SMTP hesabı var
+   (`titan.hayalhost.com:465`). **KALAN TEK ADIM: canlıda BİR postanın gerçekten gittiğini
+   görmek** — `MAIL_MAILER`'ın değeri API'den okunamıyor, `log` olma ihtimali ölçülmedi.
+   Günlük yedek postası (aşağıda) bunun doğal sınayıcısıdır: gelirse parola sıfırlama da çalışıyor
+   demektir.
+5. **[✅ KAPANDI — 2026-08-15, kullanıcı kararı]** ~~Makine dışı yedek kararı~~ — S3 ertelendi;
+   yerine her sabah 08:00'de indirme bağlantısı `YEDEK_EPOSTA` adresine postalanıyor
+   (`yedek:baglanti-gonder`). ⚠️ Sınırı yazılı: yedeğin makine dışına çıkması **insanın postayı
+   açıp indirmesine** bağlıdır, otomatik uzak kopyanın yerini tutmaz. **Coolify'da `YEDEK_EPOSTA`
+   tanımlanmadan bu görev her sabah HATA ile çıkar** (bilerek: sessizce başarılı dönmez).
 
 **KOD BORÇLARI:**
 

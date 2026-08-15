@@ -77,7 +77,20 @@ return [
     | istemci dürtüyü yok sayar ve veri mevcut senkronla akmaya devam eder.
     */
 
-    'version' => '1.8.0',
+    /*
+    | 1.9.0 (2026-08-15): GÜNLÜK YEDEK BİLDİRİMİ. `backup` sidecar'ının ürettiği
+    | dosyalar bugüne kadar yalnız kendi volume'ünde duruyordu ve hiçbir yerden
+    | görünmüyordu; artık `app`/`scheduler` onları SALT-OKUNUR görüyor, panelde
+    | superadmin'e açık bir indirme route'u (`panel.yedek.indir`) ve her sabah
+    | 08:00'de bağlantıyı postalayan bir zamanlanmış görev var.
+    |
+    | MINOR ve MOBİLE TAMAMEN NÖTR: hiçbir API uç noktası, alanı ya da anlamı
+    | değişmedi — eklenen yüzey panel (web) tarafındadır. Sürümün artmasının
+    | sebebi sunucu davranışının GENİŞLEMESİdir; telefonlar bu sürümü hiç fark
+    | etmeden çalışmaya devam eder.
+    */
+
+    'version' => '1.9.0',
 
     /*
     |--------------------------------------------------------------------------

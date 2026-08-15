@@ -28,3 +28,23 @@ Schedule::command('abonelik:hatirlat')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping()
     ->onOneServer();
+
+/*
+ * GÜNLÜK YEDEK BİLDİRİMİ — en yeni yedeğin indirme bağlantısını bize postalar.
+ *
+ * SAAT 08:00, abonelik hatırlatmasından ÖNCE ve bilerek: bu posta bir İŞ değil bir
+ * SAĞLIK RAPORUdur. Güne "yedek dün gece alındı, boyutu şu" bilgisiyle başlamak,
+ * yedekleme servisinin durduğunu günler sonra fark etmekten iyidir.
+ *
+ * `backup` sidecar'ı sabit bir saatte değil, kendi başlangıcından itibaren 24 saatte bir
+ * yazar (`docker/backup/backup.sh:110`). Bu yüzden komut "bu sabahki yedeği" değil
+ * ARŞİVDEKİ EN YENİSİNİ gönderir ve yaşı eşiği aşarsa postaya uyarı bandı koyar —
+ * sidecar durursa bu bant, arızanın tek görünür işareti olur.
+ *
+ * `withoutOverlapping` + `onOneServer`: yukarıdaki görevle aynı gerekçe.
+ */
+Schedule::command('yedek:baglanti-gonder')
+    ->dailyAt('08:00')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping()
+    ->onOneServer();

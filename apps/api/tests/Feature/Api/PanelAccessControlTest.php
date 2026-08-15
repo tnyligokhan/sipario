@@ -55,7 +55,16 @@ class PanelAccessControlTest extends ApiTestCase
                 continue; // panel.login — kapı dışı, bilerek
             }
 
-            $urller[] = route($ad, ['tenant' => $tenantId]);
+            // `dosya`: `panel.yedek.indir` route'unun parametresi (2026-08-15). Buraya
+            // konmasının sebebi biçimsel değil — bu liste route tablosundan TÜRETİLİYOR ve
+            // parametresi karşılanmayan bir route, kapsam testini `UrlGenerationException`
+            // ile kırar. Yeni bir parametreli panel route'u eklendiğinde yapılacak şey
+            // route'u listeden çıkarmak DEĞİL, örnek değerini buraya eklemektir; aksi hâlde
+            // testin var oluş sebebi (auth'suz eklenen sayfayı yakalamak) delinir.
+            $urller[] = route($ad, [
+                'tenant' => $tenantId,
+                'dosya' => 'sipario_20260101_000000.sql.gz',
+            ]);
         }
 
         return $urller;
@@ -292,6 +301,14 @@ class PanelAccessControlTest extends ApiTestCase
             'panel.tenant.export',
             'panel.tenant.import',
             'panel.tenants',
+            // 2026-08-15 eklendi: panel.yedek.indir — günlük veritabanı yedeğini indirir.
+            // Kırmızı çizgi #2 açısından NÖTR: hiçbir şey yazmaz, veritabanına hiç dokunmaz;
+            // `backup` sidecar'ının ürettiği dosyayı salt-okunur bir volume'den okur
+            // (`docker-compose.prod.yml`, `:ro`). Buna karşılık panelin EN GENİŞ OKUMA
+            // yüzeyidir — diğer export'lar tek bayiyi verir, bu tüm bayileri verir. Bu yüzden
+            // route'un içinde iki ek kapı vardır ve ikisi de `YedekTest` ile kilitlidir:
+            // yalnız superadmin, ve dosya adı `YedekArsivi::coz()` doğrulamasından geçer.
+            'panel.yedek.indir',
         ], $adlar, 'Panel route yüzeyi değişmiş: yeni route sipariş/para yazıyorsa kırmızı çizgi delinmiştir.');
 
         // Yazma servisinin yüzeyi de kapalı: yalnız müşteri ve ürün. Sipariş/defter/kasa yok.

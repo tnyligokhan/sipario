@@ -122,6 +122,15 @@ x-app-env: &app-env
   # (Gmail/Yandex/Zoho kutusu gibi) bu değer o adrese ÇEKİLMELİ, yoksa sunucu 550/553 döner.
   MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@sipario.com.tr}
   MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Sipario}
+
+  # ── Yedek bildirimi (2026-08-15) ───────────────────────────────────────────
+  # Günlük yedeğin indirme bağlantısı bu adrese gider. BOŞ BIRAKILIRSA komut gönderim
+  # yapmaz ve HATA ile çıkar — sessizce "başarılı" dönmez (bkz. YedekBaglantisiGonder).
+  # Panelde tanımlanması ZORUNLUDUR; buradaki boş varsayılan yalnız "tanımsız" hâlini
+  # anlamlı kılmak içindir.
+  YEDEK_EPOSTA: ${YEDEK_EPOSTA:-}
+  YEDEK_DIZIN: ${YEDEK_DIZIN:-/backups}
+  YEDEK_TAZELIK_SAAT: ${YEDEK_TAZELIK_SAAT:-30}
   # Push bildirimi (FCM)
   #
   # Firebase hizmet hesabı JSON'unun BASE64 hâli. Boş bırakılırsa push sistemi KAPALIDIR ve bu
@@ -219,6 +228,11 @@ services:
       dockerfile: docker/php/Dockerfile
     environment:
       <<: *app-env
+    # Yedek arşivi SALT-OKUNUR (2026-08-15). Panelden yedek indirme route'u
+    # (`panel.yedek.indir`) bu dosyaları okur; `:ro` bilinçlidir — yedeği ÜRETEN tek yer
+    # `backup` sidecar'ıdır ve uygulama tarafından silinebilen bir yedek, yedek değildir.
+    volumes:
+      - sipario_backups:/backups:ro
     depends_on:
       db:
         condition: service_healthy
@@ -346,6 +360,10 @@ services:
     entrypoint: ["php", "/var/www/html/artisan", "schedule:work"]
     environment:
       <<: *app-env
+    # `yedek:baglanti-gonder` günlük olarak buradan koşar ve arşivi okur (dosya adı, boyut,
+    # tarih). `app` ile aynı gerekçeyle salt-okunur.
+    volumes:
+      - sipario_backups:/backups:ro
     depends_on:
       db:
         condition: service_healthy

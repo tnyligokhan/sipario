@@ -17,12 +17,14 @@ use App\Livewire\Site\Parola;
 use App\Livewire\Site\ParolaYenile;
 use App\Livewire\Site\Register;
 use App\Livewire\Site\Subscribe;
+use App\Models\AdminUser;
 use App\Panel\Csv;
 use App\Panel\PanelCsvExportService;
 use App\Panel\PanelExportService;
 use App\Panel\PanelImportService;
 use App\Panel\TenantAdminService;
 use App\Payment\SubscriptionService;
+use App\Yedek\YedekArsivi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -203,5 +205,40 @@ Route::prefix('panel')->group(function () {
          */
         Route::get('denetim', AuditLog::class)->name('panel.audit');
         Route::get('yoneticiler', AdminUsers::class)->name('panel.admins');
+
+        /*
+         * VERİTABANI YEDEĞİ İNDİRME — panelin EN YÜKSEK riskli çıkışı.
+         *
+         * Yukarıdaki export route'ları TEK bayinin verisini verir; bu route TÜM bayilerin
+         * TÜM verisini tek dosyada verir. Bu yüzden üç fark taşır:
+         *
+         *  1. YALNIZ SUPERADMIN. `support` rolü bayi destekler, veritabanı taşımaz. Kapı
+         *     route'un İÇİNDEdir — `auth:admin` middleware'i yalnız "giriş yapmış mı"
+         *     sorusunu cevaplar, "hangi rol" sorusunu değil.
+         *  2. Dosya adı KULLANICIDAN gelir; `YedekArsivi::coz()` onu üç kapıdan geçirir
+         *     (basename → desen → realpath ön eki). Buraya `file_get_contents($dosya)`
+         *     yazmak, container'ın tüm dosya sistemini panele açardı.
+         *  3. Her indirme `panel_audit`e düşer. İz olmadan bu route'un varlığı,
+         *     "veriyi kim ne zaman aldı" sorusunu cevapsız bırakırdı.
+         *
+         * Bağlantı günlük e-posta ile gelir (`yedek:baglanti-gonder`). İmzalı-link
+         * (`temporarySignedRoute`) BİLEREK kullanılmadı: e-posta kutusu ele geçen biri,
+         * imzalı bağlantıyla veritabanının tamamını indirirdi.
+         */
+        Route::get('yedek/{dosya}', function (string $dosya, TenantAdminService $admin) {
+            $yonetici = Auth::guard('admin')->user();
+
+            abort_unless($yonetici instanceof AdminUser && $yonetici->isSuperadmin(), 403);
+
+            $yol = YedekArsivi::varsayilan()->coz($dosya);
+
+            abort_if($yol === null, 404);
+
+            $admin->auditYedekIndirme((string) $yonetici->id, basename($yol));
+
+            return response()->download($yol, basename($yol), [
+                'Content-Type' => 'application/gzip',
+            ]);
+        })->name('panel.yedek.indir');
     });
 });
