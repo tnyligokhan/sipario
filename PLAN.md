@@ -243,6 +243,56 @@
 >
 ## Güncel durum
 
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-15 — SIZAN SSH ANAHTARI: YEREL KOPYALAR SİLİNDİ, DÖNDÜRME YAPILMADI
+
+**Karar (kullanıcı, ortağıyla görüşerek):** Coolify'ın sunucu SSH ÖZEL ANAHTARI daha önce
+sohbete düz metin yapıştırılmıştı. Coolify anahtarı **kullanımdayken silmeye izin vermiyor**;
+döndürme bu vardiyada YAPILMADI ve **risk bilinçli olarak kabul edildi.**
+
+**Yapılan:** yereldeki tüm kopyalar silindi — `~/.claude/history.jsonl` (3) ·
+`2ecce529-….jsonl` (6 blok + 5 gövde) · `4dec15f2-….jsonl` (1+1) · `05b48db3-….jsonl` (1 ad).
+Doğrulandı: `BEGIN … PRIVATE KEY` ve `b3BlbnNzaC1rZXktdjE` (openssh-key-v1 base64 imzası)
+aramaları **0 sonuç**; her dosyada satır sayısı korundu ve **JSON bütünlüğü TAM**.
+Depoda ve PowerShell PSReadLine geçmişinde zaten hiç geçmiyordu (ölçüldü).
+
+> ⚠️ **ANAHTAR HÂLÂ YANMIŞ SAYILIR.** Yerel silme sızıntıyı geri almaz: anahtar bir API
+> isteğinin gövdesinde ağdan geçti ve sunucudaki `authorized_keys` satırı duruyor.
+> ⚠️ **SİLME SIRASI ÖNEMLİ** — ters yapılırsa Coolify sunucuya erişimini kaybeder:
+> yeni anahtar ekle → sunucuyu ona geçir → **Validate** → eski anahtar artık kullanımda
+> olmadığı için silinebilir hâle gelir → en son `authorized_keys`teki satırı çıkar.
+> ⚠️ **DERS:** ilk temizleme denemesi 104 satırı yutacaktı (desendeki karakter sınıfına boşluk
+> konulmuştu, gerçek satır sonlarını aşıyordu). Satır sayısı koruması dosyaya hiç dokunmadan
+> iptal etti. **Kayıt dosyasına toplu düzenleme satır-bazlı yapılır ve JSON bütünlüğü ölçülür.**
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-14/4 — "BİLDİRİM GELMİYOR" TEŞHİSİ (mobil 0.24.0 → **0.25.0**, API DEĞİŞMEDİ 1.8.0)
+
+Saha denemesi: patron siparişi kuryeye attı, sipariş kuryenin telefonunda **görüldü** (senkron
+çalışıyor), bildirim izni **açıktı** — bildirim yoktu. Sunucu ölçülerek elendi (API 1.8.0
+üretimde, `FCM_HIZMET_HESABI` **girildi**, `PushGonderimi` işleri kuyrukta koşup tamamlanmıştı).
+
+**KÖK NEDEN:** `pushArkaPlanIsleyici` AYRI BİR ISOLATE'te koşar; orada `main()` hiç çalışmadığı
+için Flutter eklenti kayıtları KURULU DEĞİLDİR. `DartPluginRegistrant.ensureInitialized()`
+çağrılmadan zincir sessizce kırılıyordu: `flutter_local_notifications` çözülemiyor →
+`izinDurumu()` false → bildirim çizilmeden return. Belirtisi aldatıcıydı: **ön planda çalışıyor,
+arka planda çalışmıyor** — yani tam da bildirimin gerektiği durumda (telefon cepte, uygulama
+kapalı) yok. Analiz, 1275 test ve APK derlemesi hepsi yeşildi.
+
+**İKİNCİ KUSUR:** `pushKur` sunucu adresini ham kolondan (`meta.apiBaseUrl`) okuyordu; bu alan
+NULL OLABİLİR ve oturum katmanının tamamı `Session.baseUrlOf` ile varsayılana düşer — yardımcıyı
+kullanmamak, null bir kurulumda push'un HİÇ kurulmaması demekti.
+
+**ASIL DERS TEŞHİSTEydi: bakılacak hiçbir veri yoktu.** Sunucu logu yalnız `PushGonderimi … DONE`
+diyordu (kaç cihaza gittiği yazmıyordu), telefon jetonu neden göndermediğini hiçbir yere
+kaydetmiyordu. İkisi de kapatıldı: sunucu artık `aday: N, gonderilen: M` logluyor; telefon
+`PushDurumu`nu (oturum-yok · kurulamadi · jeton-alinamadi · bildirilemedi · hazir) cihaz-yerel
+ayar dosyasına yazıyor ve **Ayarlar → Bildirimler → "Anlık bildirimler"** satırında GÖSTERİYOR —
+bayi/destek tek bakışta söyleyebilir, log toplamaya gerek kalmaz. (Şema alanı DEĞİL,
+`tutamac_deposu`/`tema_deposu` desenindeki cihaz-yerel dosyada: bir tanı bayrağı için migration
+açmak o deseni kırardı.)
+
+> ⚠️ **DÜZELTME SAHADA DOĞRULANMADI.** 0.25.0'ın çalıştığının tek kanıtı iki telefonla,
+> **uygulama KAPALIYKEN** yapılacak provadır. Sıradaki işlerin birincisi budur.
+
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-14/3 — HEADS-UP · GENİŞLETİLMİŞ · SES + ALTI YENİ BİLDİRİM (mobil 0.23.0 → **0.24.0**, API 1.7.0 → **1.8.0**)
 
 **⚠️ ÖNCE BU KISITI OKU — bildirimlere dokunacak herkesi ilgilendirir:**
