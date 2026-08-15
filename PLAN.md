@@ -243,7 +243,12 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-15 — SIZAN SSH ANAHTARI: YEREL KOPYALAR SİLİNDİ, DÖNDÜRME YAPILMADI
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-15 — SIZAN SSH ANAHTARI: YEREL KOPYALAR SİLİNDİ, DÖNDÜRME **KULLANICI ONAYIYLA ES GEÇİLDİ (KAPANDI)**
+
+> ✅ **KARAR — 2026-08-15, KULLANICI ONAYI: BU MADDE KAPANDI, BİR DAHA SIRADAKİ İŞLER'E GİRMEZ.**
+> Coolify anahtarı **kullanımdayken silmeye izin vermiyor**; döndürme teknik olarak engellendi.
+> Kullanıcı riski bilerek kabul etti. **Sonraki vardiyalar bunu yeniden gündeme getirmesin** —
+> yeniden açılması ancak yeni bir kullanıcı kararıyla olur.
 
 **Karar (kullanıcı, ortağıyla görüşerek):** Coolify'ın sunucu SSH ÖZEL ANAHTARI daha önce
 sohbete düz metin yapıştırılmıştı. Coolify anahtarı **kullanımdayken silmeye izin vermiyor**;
@@ -1325,12 +1330,12 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
    geceki çöküşün kanıtını yok eden şey buydu. Tanımlamazsan varsayılan ilk kez gerçekten işler.
    ⚠️ Üretim `main`'den deploy edilir; **önce 13. madde (merge) yapılmalı**, yoksa üretim
    düzeltmeyi taşımaz.
-1. **[KISMEN KAPANDI — 2026-08-10/2]** SSH anahtarını döndür. ✅ Claude'un erişim anahtarı
-   tazelendi (`sipario_v2_ed25519`), yanmış olan sunucudan silindi ve reddedildiği ölçüldü.
-   ❌ **KALAN:** Coolify'ın KENDİ sunucu anahtarı hâlâ eski — önceki oturumda sohbete düz metin
-   yapıştırılmıştı ve `authorized_keys`'te `coolify` yorumlu satır olarak duruyor. Coolify →
-   Keys & Tokens → yeni anahtar → sunucuya ata → doğrula → sonra o satırı sil. Sıra önemli:
-   ters yapılırsa Coolify sunucuya erişimini kaybeder.
+1. **[✅ KAPANDI — 2026-08-15, KULLANICI ONAYIYLA ES GEÇİLDİ]** ~~SSH anahtarını döndür.~~
+   Claude'un erişim anahtarı tazelendi (`sipario_v2_ed25519`), yanmış olan sunucudan silindi ve
+   reddedildiği ölçüldü. Coolify'ın KENDİ sunucu anahtarı eski kalıyor: **Coolify kullanımdaki
+   anahtarı silmeye izin vermiyor**, döndürme teknik olarak engellendi ve kullanıcı riski
+   bilerek kabul etti. **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz** — yeniden açılması ancak
+   yeni bir kullanıcı kararıyla olur.
 1b. ~~**SSH ANAHTARINI DÖNDÜR.**~~ (özgün metin) Teşhis sırasında Coolify'ın sunucu SSH ÖZEL ANAHTARI sohbete düz
    metin yapıştırıldı (kullanıcı verdi, kullanıldı, geçici kopya silindi) — ama oturum dökümünde
    ve kabuk geçmişinde duruyor. Coolify → Keys & Tokens → yeni anahtar; sunucuda
