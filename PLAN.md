@@ -301,11 +301,19 @@ gerekçesiyle eklendi. Ayrıca korunan-URL üreteci route tablosundan türetildi
 route'a örnek değer verilmesi gerekti; route'u listeden çıkarmak testin varlık sebebini
 delerdi.
 
-> 🔴 **BULUNDU AMA KAPATILMADI — SIRADAKİ VARDİYA BUNA BAKMALI:** Coolify'da **yalnız
-> "Sipario Dev" uygulaması var, "Sipario App" (üretim) YOK** ve `fqdn` null. Buna karşılık
-> `main` dalı **2026-08-10'da donmuş** (API 1.0.0, mobil 0.10.0) ve `dev` **78 commit** önde.
-> Yani üretimin fiilen hangi daldan/hangi uygulamadan deploy edildiği **belirsiz**. Bu iş
-> deploy edilmeden önce cevaplanmalı — yoksa yedek postası hiç koşmaz.
+> ✅ **ÖLÇÜLDÜ VE AÇIKLANDI — ARIZA DEĞİL, KULLANICI KARARI (2026-08-15):** Coolify'da yalnız
+> **"Sipario Dev"** var; `main` **2026-08-10'da donmuş** (API 1.0.0, mobil 0.10.0) ve `dev`
+> **78 commit** önde. **Kullanıcının cümlesi:** *"Main şu an beklemede! Sunucu tarafında sadece
+> test ile devam ediyorum, her şey oturduğunda main'e yani canlıya geçeceğim; geçileceği zaman
+> haber ederim."*
+>
+> **Sonraki vardiyalar için üç sonuç:**
+> 1. `main`'in geride olması bir **borç değil, bilinçli bir bekletme**. `dev`→`main` merge'ünü
+>    KENDİ BAŞINA yapma — geçiş zamanını kullanıcı söyler.
+> 2. Ölçüm ve doğrulamalar **test ortamında** yapılır; "canlıda doğrulandı" diye bir kanıt
+>    şu an üretilemez.
+> 3. Bu vardiyanın yedek postası da **önce test ortamında** koşacak. Oradaki ilk posta,
+>    `MAIL_MAILER`'ın gerçekten `smtp` olup olmadığının da sınavıdır.
 
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-15 — SIZAN SSH ANAHTARI: YEREL KOPYALAR SİLİNDİ, DÖNDÜRME **KULLANICI ONAYIYLA ES GEÇİLDİ (KAPANDI)**
 
@@ -1384,7 +1392,11 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 **İNSAN/GÜVENLİK — önce bunlar:**
 
-0. **🔥 ÜRETİM HÂLÂ KURULU DEĞİL** (dev ✅ kuruldu ve yeşil). Kullanıcı 2026-08-10/2 vardiyasında
+0. **⏸️ ÜRETİM BEKLEMEDE — KULLANICI KARARI, ACELE EDİLMEZ (2026-08-15'te teyit edildi).**
+   *"Sunucu tarafında sadece test ile devam ediyorum, her şey oturduğunda canlıya geçeceğim;
+   geçileceği zaman haber ederim."* Yani aşağıdaki kurulum tarifi **hazır beklesin, kendi
+   başına uygulanmasın** — geçiş komutunu kullanıcı verir. Tarif olduğu gibi geçerlidir:
+   (dev ✅ kuruldu ve yeşil). Kullanıcı 2026-08-10/2 vardiyasında
    `Sipario App` ve `Sipario Dev`'i Coolify'dan sildi (bilerek); dev sıfırdan kuruldu, üretim
    bekliyor. Kurarken **iki tuzak** (dev'de ikisi de doğru yapıldı, üretimde tekrarlanmalı):
    (a) `SIPARIO_APP_PASSWORD` / `SIPARIO_PANEL_PASSWORD` değişkenlerini panele **ekleme** —
@@ -1448,8 +1460,11 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 **YENİ (2026-08-10):**
 
-13. **`dev` → `main` birleştir + canlıya deploy.** ⚠️ **2026-08-10/2'DEN SONRA BU MADDE ARTIK
-    ACİL:** `main` (`827767a`) rol parolası eşitleme düzeltmesini (`3ec0384`) TAŞIMIYOR. Üretim
+13. **`dev` → `main` birleştir + canlıya deploy.** ⏸️ **KULLANICI KARARIYLA BEKLEMEDE
+    (2026-08-15) — "acil" ibaresi ARTIK GEÇERSİZ, kendi başına merge etme.** Aşağıdaki gerekçe
+    teknik olarak hâlâ doğrudur ve geçiş günü okunacaktır; ama geçişin ZAMANINI kullanıcı
+    söyler. Fark bu vardiyada ölçüldü: `main` 2026-08-10'da donmuş, `dev` **78 commit** önde.
+    ⚠️ (Aşağıdaki "ACİL" değerlendirmesi 2026-08-10 tarihlidir, tarihsel olarak korunuyor:) `main` (`827767a`) rol parolası eşitleme düzeltmesini (`3ec0384`) TAŞIMIYOR. Üretim
     `main`'den deploy edildiği için, `main` merge edilmeden kurulan bir üretim ilk parola
     döndürmesinde birebir aynı arızayla düşer. Merge edilmesi gereken 4 commit var.
     Aşağıdaki `/api/v1/version` gerekçesi hâlâ geçerli ve aynı merge'le kapanır.
