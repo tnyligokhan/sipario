@@ -130,7 +130,9 @@ services:
       # erişebilir. Bunun yerini alan eski kurulum (`artisan serve
       # --host=127.0.0.1`) yalnız bu makineye açıktı; Docker'a taşırken o sınırı
       # kaybetmek, kimsenin istemediği sessiz bir genişleme olurdu.
-      # Sahaya açmanın YOLU tüneldir (`scripts/saha-sunucu.ps1`), yerel ağ değil.
+      # Bu sunucu YEREL geliştirme içindir ve dışarı açılmaz; saha denemesi artık
+      # gerçek sunucuya (test.sipario.com.tr) karşı yapılıyor — tünel 2026-08-16'da
+      # kaldırıldı.
       - "127.0.0.1:8000:8000"
     depends_on:
       db:

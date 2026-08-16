@@ -2,8 +2,9 @@
 #
 # Akış: mobil dokunuşlu her push → arm64 + evrensel APK derlenir, kanalın YUVARLANAN release'inin
 # varlıkları değiştirilir (tek release, çok sürüm ÇÖPÜ yok). Uygulama açılışta kendi kanalının
-# surum.json'ına bakar, yenisini görünce kendini günceller. Bu yol tünelden ve API'den bağımsızdır —
-# geliştirici makinesi kapalıyken de çalışır.
+# surum.json'ına bakar, yenisini görünce kendini günceller. Bu yol API'den bağımsızdır —
+# geliştirici makinesi kapalıyken de çalışır. (2026-08-16'ya kadar "tünelden de bağımsız"
+# yazıyordu; tünel o tarihte tümüyle kaldırıldı.)
 #
 # ⚠️ KANAL AYRIMI 2026-08-09'DA EKLENDİ VE BİR ARIZAYI KAPATTI.
 # Öncesinde bu iş akışı YALNIZ `dev` dalını dinliyor ve `saha` release'ini güncelliyordu;

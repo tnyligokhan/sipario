@@ -307,9 +307,22 @@ gömülüydü.
   yukarıdaki 1. tuzak ve "boş volume host vendor'ünü içine kopyalıyor" sorunu ayrıca çözülmeli.
 - `pint` temiz (370 dosya) · üç PowerShell script'i sözdizimi denetiminden geçti.
 
-> ⚠️ **SAHADA DENENMEYEN TEK PARÇA:** `saha-sunucu.ps1`in **cloudflared tünel** bölümü. Docker,
-> migrate, seed ve API sağlık kontrolü çevrildi ve mantığı korundu; tünel kodunun kendisine
-> hiç dokunulmadı — ama tünel açılıp telefondan bağlanma provası YAPILMADI.
+> ✅ **TÜNEL TÜMÜYLE KALDIRILDI (aynı vardiya, kullanıcı kararı):** *"Tünel artık yok, onunla
+> alakalı her şey silinebilir."* Yani yukarıdaki "sahada denenmemiş parça" sorunu ortadan kalktı —
+> denenecek bir şey kalmadı. **Silinenler:** `scripts/saha-sunucu.ps1` (375 satır) ·
+> `scripts/SUNUCU-BASLAT.bat` · `apps/api/storage/logs/tunnel.log`. Script tünelsiz anlamsızdı:
+> geriye kalan işleri (docker başlat · migrate · seed) `docker compose up -d` ve
+> `scripts/api.ps1` zaten yapıyor.
+>
+> ⚠️ **`bootstrap/app.php`'DEKİ `trustProxies` SİLİNMEDİ ve SİLİNMEMELİ.** Yorumu cloudflared'i
+> anlatıyordu ama ayarın kendisi tünele ait değil: üretim dalı (`production ? '*'`)
+> Coolify/Traefik arkasında koşan her istek için gerekli. Kaldırılsaydı `asset()`/`route()`
+> mutlak URL'leri `http://` üretir, HTTPS sayfada karışık içerik doğar ve mobil Chrome CSS'i
+> koşulsuz engellerdi — sahada birebir yaşanmış bir arıza. Yorum, "bu ayar tünele ait değildir,
+> silinmez" uyarısıyla güncellendi.
+>
+> Saha denemesi artık gerçek sunucuya karşı yapılıyor; yerel web sunucusu yalnız `127.0.0.1`e
+> bağlı ve dışarı hiç açılmıyor.
 
 **YEREL VERİTABANI SADELEŞTİRİLDİ (kullanıcı isteği, aynı vardiya):** `migrate:fresh` + seed
 sonrası iş verisi boşaltıldı ve fazla hesaplar silindi. Kalan: **1 işletme (`demo`)**,

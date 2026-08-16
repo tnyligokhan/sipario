@@ -38,8 +38,9 @@
 .claude/ci-durum.json
 .claude/ci-durum.kilit
 
-# Saha sunucusu script'inin indirdiği yardımcı ikililer (cloudflared ~50 MB).
-# Makineye özgüdür ve depo PUBLIC'tir — ikili dosya asla commit edilmez.
+# Script'lerin indirebileceği yardımcı ikililer. Makineye özgüdür ve depo PUBLIC'tir —
+# ikili dosya asla commit edilmez. (Bu satırı doğuran cloudflared ihtiyacı 2026-08-16'da
+# bitti: tünel kaldırıldı. Kural olarak duruyor — bir sonraki indirilen ikili için de geçerli.)
 scripts/.araclar/
 
 # FIREBASE HİZMET HESABI — SIR, repoya ASLA girmez.

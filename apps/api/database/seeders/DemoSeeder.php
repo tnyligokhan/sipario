@@ -25,7 +25,9 @@ use Illuminate\Support\Facades\DB;
  * ⚠️ GEÇİCİ — SAHA TESTİ KOLAYLIĞI (kullanıcı isteği 2026-07-29). Öncesi `demo/demo/demo1234`.
  * MAĞAZA BAŞVURUSUNDAN ÖNCE GERİ ALINMALI: `docs/magaza/inceleme-notlari.md` incelemeciye bu
  * bilgileri veriyor ve "1111" parolalı bir hesap, incelemeden geçse bile üçüncü kişilerin
- * kolayca gireceği bir kapıdır (depo PUBLIC, saha sunucusu tünelle dışarı açık).
+ * kolayca gireceği bir kapıdır (depo PUBLIC). — Not: "saha sunucusu tünelle dışarı açık"
+ * gerekçesi 2026-08-16'da düştü (tünel kaldırıldı, yerel sunucu yalnız 127.0.0.1'e bağlı);
+ * ama deponun PUBLIC olması tek başına yeterli sebeptir.
  * PLAN.md "İnsan gerektiren işler" listesine borç olarak yazıldı.
  *
  * NEDEN `1/1/1` DEĞİL: `LoginRequest` firma kodu ve kullanıcı adı için `{3,}`, parola için
