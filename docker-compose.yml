@@ -55,14 +55,17 @@ services:
   # servisindeki ilkenin devamıdır — yerel yığın üretimden ayrılırsa, üretimi
   # düşüren sınıftan bir arıza burada bir daha ölçülemez hâle gelir.
   php:
-    # `image:` DEĞİL `build:` — imaj `vendor` dizinini www-data sahipliğinde
-    # yaratır; hazır imajla named volume ROOT sahipliğinde doğuyor ve
-    # `composer install` yazamadan düşüyordu (gerekçe Dockerfile.dev'de, ölçüldü).
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile.dev
+    image: serversideup/php:8.3-cli
     container_name: sipario_php
-    working_dir: /var/www/html
+    # ⚠️ DEPO KÖKÜ BAĞLANIR, `apps/api` DEĞİL — ve bu ÖLÇÜLEREK öğrenildi.
+    # İlk kurulumda yalnız `apps/api` bağlanmıştı; tam takım 11 test düştü.
+    # Sebep: `RolParolaEsitlemeTest` depo kökündeki dosyaları okur
+    # (`dirname(__DIR__, 5)` → `docker-compose.prod.yml`, `docker/postgres/*`) ve
+    # bu testin varlık sebebi tam olarak budur — depodaki dosyaların birbiriyle
+    # tutarlılığını denetler, Laravel'i hiç önyüklemez. Dar bir mount o testi
+    # "dosya yok" diye kırıyordu; yani ortam, testin denetlediği şeyi görünmez
+    # yapıyordu. Dizin yapısı host'takiyle AYNI olmalı ki yol hesabı da aynı çıksın.
+    working_dir: /depo/apps/api
     environment:
       # ⚠️ BU İKİ SATIR `phpunit.xml`E VE `.env`E DOKUNMADAN ÇALIŞIR ve sebebi
       # ikisinin de aynı kuralı izlemesidir:
@@ -76,15 +79,16 @@ services:
       DB_HOST: db
       DB_PORT: 5432
     volumes:
-      - ./apps/api:/var/www/html
-      # ⚠️ `vendor` AYRI BİR VOLUME — bilinçli. Windows'ta bind mount üzerinden
-      # on binlerce dosyalık bir `vendor` okumak testleri belirgin yavaşlatır;
-      # ayrıca host'taki `vendor` Windows'ta kurulmuştur ve IDE onu kullanmaya
-      # devam etmelidir. Named volume ikisini birden çözer: container kendi
-      # Linux vendor'ünü kullanır, host'taki dosyalara hiç dokunulmaz.
-      # Bedeli: `composer install` iki yerde ayrı ayrı koşar (aynı
-      # `composer.lock`tan, yani sürüm sapması olmaz).
-      - sipario_vendor:/var/www/html/vendor
+      # `vendor` İÇİN AYRI VOLUME YOK — bilinçli, ve bir denemeden sonra.
+      # Önce named volume kullanıldı (host'un Windows `vendor`ünü bozmamak için);
+      # iki sorun çıkardı: (1) volume ROOT sahipliğinde doğuyor, container
+      # `www-data` olarak koşuyor ve `composer install` yazamadan düşüyordu,
+      # (2) depo kökü bağlanınca volume'ün mount noktası bind mount'un ALTINA
+      # düşüyor ve boş volume host'taki Windows `vendor`ünü içine kopyalıyordu —
+      # yani izole ettiği şeyi geri getiriyordu.
+      # Tek bind mount daha öngörülebilir: TEK bir `vendor` var, container onu
+      # kurar, IDE de aynısını okur. Sürüm sapması diye bir şey kalmaz.
+      - ./:/depo
     depends_on:
       db:
         condition: service_healthy
@@ -108,11 +112,9 @@ services:
   # burada PHP'nin kendisinde aranıyor (aynı imaj ailesi, aynı sürüm), web
   # sunucusu katmanında değil — o katmanın yereldeki tek işi sayfayı açmaktır.
   web:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile.dev
+    image: serversideup/php:8.3-cli
     container_name: sipario_web
-    working_dir: /var/www/html
+    working_dir: /depo/apps/api
     environment:
       DB_HOST: db
       DB_PORT: 5432
@@ -121,8 +123,7 @@ services:
       # `0.0.0.0` şart; bu satır olmadan aşağıdaki `ports` hiçbir işe yaramaz.
       APP_URL: http://localhost:8000
     volumes:
-      - ./apps/api:/var/www/html
-      - sipario_vendor:/var/www/html/vendor
+      - ./:/depo
     ports:
       # ⚠️ `127.0.0.1:` ÖN EKİ BİLİNÇLİ — düz `"8000:8000"` yazmak portu makinenin
       # TÜM ağ arayüzlerine açar, yani aynı wifi'daki herkes panele ve API'ye
@@ -138,4 +139,3 @@ services:
 
 volumes:
   sipario_pgdata:
-  sipario_vendor:
