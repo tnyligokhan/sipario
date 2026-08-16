@@ -23,23 +23,26 @@
 
 $ErrorActionPreference = "Continue"
 $kok     = Split-Path -Parent $PSScriptRoot         # depo koku (scripts\'in ustu)
-$apiDir  = Join-Path $kok "apps\api"
+# ($apiDir KALDIRILDI 2026-08-16: artisan artik container'in kendi working_dir'inde
+#  kosuyor - /var/www/html, yani apps/api'nin ta kendisi.)
 $log     = Join-Path $env:TEMP "sipario-tunel.log"
 $aracDir = Join-Path $PSScriptRoot ".araclar"       # indirilen yardimci ikililer (.gitignore'da)
 
 function Yaz($m) { Write-Host $m }
 
-# Sunucu surecini VE onun dogurdugu asil web sunucusunu kapatir.
+# Web sunucusunu kapatir.
 #
-# `artisan serve` bir SARMALAYICIDIR: istekleri karsilayan surec onun cocugu olan
-# "php -S ..."tir. Yalniz sarmalayiciyi oldurmek cocugu yetim birakir; o da 8000 portunu
-# tutmaya devam eder ve bir sonraki calistirma sessizce ESKI koda baglanir. Bu yuzden
-# kapatma da komut satiri kalibina bakar, tek bir PID'e degil.
-function Kapat-Sunucu($surec) {
-  if ($surec) { Stop-Process -Id $surec.Id -Force -ErrorAction SilentlyContinue }
-  Get-CimInstance Win32_Process -Filter "Name='php.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -like "*artisan serve*" -or $_.CommandLine -like "*-S 127.0.0.1:8000*" } |
-    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+# 2026-08-16'DAN ONCE bu fonksiyon bir SUREC AVIYDI ve olmasi gerekiyordu: `artisan serve`
+# bir sarmalayicidir, istekleri karsilayan surec onun cocugu olan "php -S ..."tir; yalniz
+# sarmalayiciyi oldurmek cocugu yetim birakir, o da 8000 portunu tutmaya devam eder ve bir
+# sonraki calistirma sessizce ESKI koda baglanirdi (2026-07-29'da 5 yetim surec bulundu).
+#
+# ARTIK O SINIF ARIZA YOK: sunucu bir container'dir (`sipario_web`) ve container'in
+# olmesi icindeki her sureci de goturur. Yetim surec kavrami ortadan kalkti - kapatma
+# tek satir. Yukaridaki tarih bilerek duruyor: ayni tuzak, bir gun host'ta sunucu
+# calistirmaya donulurse geri gelir.
+function Kapat-Sunucu {
+  docker compose --project-directory $kok stop web *> $null
 }
 
 function Dur($mesaj) {
@@ -50,48 +53,25 @@ function Dur($mesaj) {
   exit 1
 }
 
-# php.exe'yi bul. Sira: PATH -> Laragon (en yeni surum) -> XAMPP.
-# Surum kontrolu yapilir: Laravel 8.2+ ister ve eski bir php ile acilan sunucu
-# anlasilmaz hatalarla duser - "php yok" demek "yanlis php" demekten iyidir.
-function Bul-Php {
-  $adaylar = New-Object System.Collections.ArrayList
-  $g = Get-Command php.exe -ErrorAction SilentlyContinue
-  if ($g) { [void]$adaylar.Add($g.Source) }
-  if (Test-Path "C:\laragon\bin\php") {
-    Get-ChildItem "C:\laragon\bin\php" -Directory -ErrorAction SilentlyContinue |
-      Sort-Object Name -Descending |
-      ForEach-Object { [void]$adaylar.Add((Join-Path $_.FullName "php.exe")) }
-  }
-  [void]$adaylar.Add("C:\xampp\php\php.exe")
-
-  foreach ($a in $adaylar) {
-    if (-not (Test-Path $a)) { continue }
-    $s = & $a -r "echo PHP_MAJOR_VERSION.'.'.PHP_MINOR_VERSION;" 2>$null
-    if (-not $s) { continue }
-    $p = $s.Split('.')
-    if ([int]$p[0] -gt 8 -or ([int]$p[0] -eq 8 -and [int]$p[1] -ge 2)) { return $a }
-  }
-  return $null
-}
-
-# pdo_pgsql yuklu mu? API Postgres kullanir (.env: DB_CONNECTION=pgsql); bu eklenti
-# olmadan her istek "could not find driver" ile 500 doner.
+# ── PHP ARAMA VE pdo_pgsql KONTROLU KALDIRILDI (2026-08-16) ──────────────────
 #
-# BURADA GECICI COZUM YOKTUR - VE BU BIR DERSTIR (2026-07-29'da iki kez odendi):
-#   1. "php -d extension=pdo_pgsql artisan serve" ISE YARAMAZ. `artisan serve` isteklere
-#      kendisi bakmaz; "php -S ..." ile AYRI bir surec dogurur ve komut satirindaki -d
-#      bayraklari o cocuga GECMEZ. Ana surecte eklenti yuklu gorunur, sunucuda yuklu degildir.
-#   2. PHP_INI_SCAN_DIR ortam degiskeni de GECMEZ: Laravel'in ServeCommand'i cocuga yalniz
-#      beyaz listedeki degiskenleri aktarir (`$passthroughVariables`) ve bu degisken listede
-#      yoktur. (Listedeki HERD_PHP_8x_INI_SCAN_DIR girdileri tam da bu yuzden vardir.)
-# Yani eklenti php.ini'de ACIK olmak ZORUNDADIR. Bunu script'in kendisi yapmaz: php.ini
-# makinenin tamami icindir (ayni PHP'yi kullanan diger projeler de onu okur) ve baskasinin
-# ortamini sessizce degistirmek bu script'in isi degildir - NE yapilacagini SOYLER.
-# Donen deger: $true (hazir) / $false (eksik).
-function Pgsql-Var($phpExe) {
-  $moduller = & $phpExe -m 2>$null | ForEach-Object { $_.Trim() }
-  return ($moduller -contains "pdo_pgsql")
-}
+# Buradaki iki fonksiyon (`Bul-Php`, `Pgsql-Var`) host'ta php.exe ariyor ve
+# pdo_pgsql eklentisinin acik olup olmadigini olcuyordu. Ikisi de artik gereksiz:
+# PHP `sipario_php`/`sipario_web` container'larinda kosuyor ve eklentiler imajin
+# icinde HAZIR geliyor (`serversideup/php:8.3-cli`).
+#
+# ODENEN BEDELLER KAYIT ICIN DURUYOR - ikisi de kurulum FARKINDAN dogmustu:
+#   · php PATH'te degildi, iki ayri yerde kuruluydu; script ham bir PowerShell
+#     istisnasiyla oluyordu ve mesaj NE eksik oldugunu soylemiyordu (2026-07-29).
+#   · pdo_pgsql Laragon/XAMPP'ta varsayilan KAPALI; kapaliyken her istek
+#     "could not find driver" ile 500 donuyordu ve gecici cozumu YOKTU:
+#     `php -d extension=pdo_pgsql artisan serve` ISE YARAMAZ (serve, istekleri
+#     ayri bir "php -S" surecine devreder, -d bayraklari o cocuga gecmez),
+#     PHP_INI_SCAN_DIR de gecmez (ServeCommand yalniz beyaz listedeki
+#     degiskenleri aktarir).
+#
+# Her iki arizanin da ortak kaynagi suydu: PHP MAKINENIN, projenin degildi.
+# Container bunu tersine cevirir - PHP artik projenin parcasi ve her makinede ayni.
 
 # cloudflared.exe'yi bul; yoksa resmi surumden BIR KEZ indirir (scripts\.araclar\).
 # Indirilen dosya dogrulanir (boyut + --version): yarim inen bir exe, tunel adimini
@@ -130,34 +110,8 @@ function Bul-Cloudflared {
 
 # ── 0) Araclar — Docker'a dokunmadan ONCE: eksik bir arac icin 2 dakika Docker
 #       beklemek, sonra "php yok" demek kullanicinin zamanini bosa harcar.
-$phpExe = Bul-Php
-if (-not $phpExe) {
-  Dur @"
-PHP bulunamadi (8.2 veya ustu gerekli).
-
-  Bakilan yerler: PATH, C:\laragon\bin\php\*, C:\xampp\php
-
-  Cozum: XAMPP ya da Laragon kur; ya da kurulu php.exe'nin klasorunu PATH'e ekle.
-"@
-}
-if (-not (Pgsql-Var $phpExe)) {
-  $ini = & $phpExe -r "echo php_ini_loaded_file();" 2>$null
-  if (-not $ini) { $ini = "(php.ini bulunamadi - 'php --ini' ile bak)" }
-  Dur @"
-PHP bulundu ama pdo_pgsql eklentisi KAPALI.
-  PHP     : $phpExe
-  php.ini : $ini
-
-  API Postgres kullanir (.env: DB_CONNECTION=pgsql); bu eklenti olmadan her istek
-  "could not find driver" ile 500 doner.
-
-  Cozum (tek seferlik): php.ini dosyasini ac, su iki satirin basindaki ';' isaretini kaldir:
-      ;extension=pdo_pgsql   ->   extension=pdo_pgsql
-      ;extension=pgsql       ->   extension=pgsql
-  Kaydet ve bu pencereyi yeniden calistir.
-"@
-}
-Yaz "PHP: $phpExe"
+# (PHP kontrolu artik burada YOK - container'da kosuyor, bkz. yukaridaki not.
+#  Docker kontrolu asagida, 1) adiminda; oradan once yalniz cloudflared bakilir.)
 
 $cfExe = Bul-Cloudflared
 if (-not $cfExe) {
@@ -178,9 +132,10 @@ cloudflared bulunamadi ve indirilemedi (internet baglantisi?).
 # olu sunucu 8000 portunu tutmaya devam eder, yeni sunucu porta baglanamayip sessizce oger,
 # script'in "API hazir mi" kontrolu ise ESKI surece cevap verdirip YESIL yanar. Yani ekranda
 # her sey yolunda gorunurken bayi bir onceki calistirmanin koduna baglanir.
-Get-CimInstance Win32_Process -Filter "Name='php.exe'" -ErrorAction SilentlyContinue |
-  Where-Object { $_.CommandLine -like "*artisan serve*" -or $_.CommandLine -like "*-S 127.0.0.1:8000*" } |
-  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+# NOT (2026-08-16): buradaki php.exe surec avi KALDIRILDI - sunucu artik bir container
+# ve container olunce icindeki her surec de oluyor, yani yetim surec kalmiyor. Yukaridaki
+# aciklama gerekcesiyle birlikte duruyor cunku ders hala gecerli: host'ta sunucu
+# calistirmaya donulurse ayni sinsi ariza geri gelir.
 Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 Remove-Item $log -Force -ErrorAction SilentlyContinue
 
@@ -197,7 +152,19 @@ if ($LASTEXITCODE -ne 0) {
   }
   if (-not $hazir) { Yaz "HATA: Docker acilamadi. Docker Desktop'i elle acip tekrar dene."; Read-Host "Kapatmak icin ENTER"; exit 1 }
 }
-docker start sipario_db *> $null
+# `docker start sipario_db` DEGIL `docker compose up -d`: artik ayaga kalkmasi gereken
+# UC servis var (db + php + web) ve `compose up` yoksa yaratir, varsa baslatir. Tek tek
+# `docker start` yazmak, yeni bir servis eklendigi gun burayi sessizce eksik birakirdi.
+Yaz "Yigin baslatiliyor (veritabani + PHP + web)..."
+docker compose --project-directory $kok up -d *> $null
+if ($LASTEXITCODE -ne 0) {
+  Dur @"
+Docker yigini baslatilamadi.
+
+  Sebebi gormek icin ELLE calistir:
+  cd "$kok"; docker compose up -d
+"@
+}
 Yaz "Veritabani bekleniyor..."
 for ($i = 0; $i -lt 20; $i++) {
   $d = docker inspect --format "{{.State.Health.Status}}" sipario_db 2>$null
@@ -217,18 +184,17 @@ Yaz "Veritabani hazir."
 # kayitlari silinmez). Bekleyen goc yoksa "Nothing to migrate" deyip ciker, maliyeti bir saniye.
 # Owner baglantisi SART: uygulama rolunun (sipario_app) DDL yetkisi yoktur (Faz 1 izolasyonu).
 # DemoSeeder idempotenttir - demo bayisi varsa dokunmadan doner.
-Push-Location $apiDir
-& $phpExe artisan migrate --database=pgsql_owner --force *> $null
+docker compose --project-directory $kok exec -T php php artisan migrate --database=pgsql_owner --force *> $null
 $gocKodu = $LASTEXITCODE
 if ($gocKodu -ne 0) {
-  Pop-Location
   Dur @"
-Veritabani semasi kurulamadi (php artisan migrate).
+Veritabani semasi kurulamadi (artisan migrate).
 
   Sebebi gormek icin ELLE calistir:
-  cd "$apiDir"; & "$phpExe" artisan migrate --database=pgsql_owner --force
+  cd "$kok"; .\scripts\api.ps1 artisan migrate --database=pgsql_owner --force
 
   Sik sebep: .env icindeki DB_OWNER_USERNAME/PASSWORD ile konteynerdeki roller uyusmuyor.
+  Ikinci sebep: bagimliliklar kurulmamis - `.\scripts\api.ps1 -Kur` calistir.
 "@
 }
 # SESSIZ ARIZA (2026-07-29'da odendi): bu satir eskiden `*> $null` idi ve seeder'in CIKTISINI
@@ -239,7 +205,7 @@ Veritabani semasi kurulamadi (php artisan migrate).
 #
 # OLUMCUL DEGIL, ama SESSIZ de degil: demo verisi kurulamasa bile sunucu ayaga kalkar
 # (mevcut bayiler calisir) - yalniz ekranda kirmizi bir uyari ve gercek sebep durur.
-$seedCikti = (& $phpExe artisan db:seed --class=DemoSeeder --force 2>&1 | Out-String)
+$seedCikti = (docker compose --project-directory $kok exec -T php php artisan db:seed --class=DemoSeeder --force 2>&1 | Out-String)
 if ($LASTEXITCODE -ne 0) {
   Yaz ""
   Yaz "UYARI: Demo verisi kurulamadi (sunucu yine de aciliyor)."
@@ -251,29 +217,32 @@ if ($LASTEXITCODE -ne 0) {
 } else {
   Yaz "Sema ve demo verisi hazir."
 }
-Pop-Location
 
-# ── 2) API sunucusu (gizli surec)
-$php = Start-Process -FilePath $phpExe `
-  -ArgumentList "artisan","serve","--host=127.0.0.1","--port=8000" `
-  -WorkingDirectory $apiDir -WindowStyle Hidden -PassThru
+# ── 2) API sunucusu
+#
+# Sunucu 1) adiminda `compose up -d` ile ZATEN ayaga kalkti (servis adi: web). Burada
+# yapilan tek is CEVAP VERDIGINI dogrulamaktir - "container ayakta" ile "API cevap
+# veriyor" iki ayri sorudur ve bu ayrimin bedeli bu depoda bir kez odendi (konteyner
+# saglikliydi ama sema bostu, giris istegi 500 donuyordu).
+#
+# SAGLIK OLCUSU 422: kimliksiz bir login istegi dogrulama hatasi dondurmelidir. 200
+# beklemek yanlis olurdu (kimlik yok), 500 ise gercek bir ariza. 422 gormek, hem web
+# sunucusunun hem PHP'nin hem de veritabaninin ayakta oldugunu TEK istekte kanitlar.
 $apiHazir = $false
-for ($i = 0; $i -lt 20; $i++) {
+for ($i = 0; $i -lt 30; $i++) {
   $kod = & curl.exe -s -o NUL -w "%{http_code}" --max-time 3 -X POST http://127.0.0.1:8000/api/v1/auth/login -H "Accept: application/json" 2>$null
   if ($kod -eq "422") { $apiHazir = $true; break }
   Start-Sleep -Seconds 1
 }
 if (-not $apiHazir) {
-  # Surec olduyse sebebini gosterelim: sessiz bir "acilamadi" teshis ettirmiyor.
-  Kapat-Sunucu $php
+  Kapat-Sunucu
   Dur @"
-API acilamadi (php artisan serve).
+API acilamadi (sipario_web container'i cevap vermiyor).
 
-  PHP: $phpExe
-  Klasor: $apiDir
+  Sebebi gormek icin:
+  cd "$kok"; docker compose logs web
 
-  Sebebi gormek icin bu komutu ELLE calistir (pencere acik kalir, hatayi yazar):
-  cd "$apiDir"; & "$phpExe" artisan serve --host=127.0.0.1 --port=8000
+  Sik sebep: bagimliliklar kurulmamis - `.\scripts\api.ps1 -Kur` calistir.
 "@
 }
 Yaz "API hazir."
@@ -341,7 +310,7 @@ if (-not $adres) {
   # IKISI de kapatilir: eskiden yalniz php durduruluyordu ve arkada sahipsiz bir
   # cloudflared kaliyordu (bir sonraki calistirmada 0. adim onu temizliyordu ama
   # o ana kadar bosuna calisir ve gunlugu kirletirdi).
-  Kapat-Sunucu $php
+  Kapat-Sunucu
   if ($cf) { Stop-Process -Id $cf.Id -Force -ErrorAction SilentlyContinue }
   Dur "Tunel adresi alinamadi. Internet baglantisini kontrol et. (Gunluk: $log)"
 }
@@ -369,7 +338,12 @@ Yaz ""
 Read-Host "KAPATMAK icin ENTER'a bas"
 
 # ── 5) Kapat
-Kapat-Sunucu $php
+#
+# Yalniz `web` durdurulur; `db` ve `php` calisir birakilir. Gerekce: ikisi de disariya
+# hicbir sey acmaz (`db` yalniz 127.0.0.1:55432, `php` hic port acmaz) ve ayakta
+# kalmalari bir sonraki calistirmayi saniyeler icinde baslatir. Disariya acik olan tek
+# sey tuneldi, o da kapandi.
+Kapat-Sunucu
 Stop-Process -Id $cf.Id -Force -ErrorAction SilentlyContinue
-Yaz "Sunucu ve tunel kapatildi. (Veritabani konteyneri calisir birakildi - zararsiz.)"
+Yaz "Web sunucusu ve tunel kapatildi. (Veritabani ve PHP konteynerleri calisir birakildi - disariya kapali, zararsiz.)"
 Start-Sleep -Seconds 2

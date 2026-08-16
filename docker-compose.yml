@@ -94,6 +94,48 @@ services:
     # bekler ve kalite kapısı saniyeler yerine dakikalar sürerdi.
     command: ["sleep", "infinity"]
 
+  # ── Yerel web sunucusu (site + yönetim paneli) ───────────────────────────────
+  #
+  # ⚠️ `php` SERVİSİNDEN AYRI, BİLEREK. İkisini tek container'da birleştirmek
+  # cazipti (aynı imaj, aynı vendor) ama web sunucusu bir SÜREÇTİR ve çökebilir:
+  # `artisan serve` bir sözdizimi hatasında ölürse container da ölür, ve o anda
+  # `exec` ile koşan HER ŞEY — kalite kapısı, testler, composer — erişilemez hâle
+  # gelirdi. Yani web'in çökmesi, web'le ilgisi olmayan işleri de durdururdu.
+  # Ayrı servis bu bağı koparır: `web` ölse bile `php` ayakta kalır.
+  #
+  # `artisan serve` KULLANILDI, üretimdeki nginx+fpm DEĞİL: yereldeki iş tek
+  # kişilik geliştirmedir ve `serve` sıfır yapılandırma ister. Üretime benzerlik
+  # burada PHP'nin kendisinde aranıyor (aynı imaj ailesi, aynı sürüm), web
+  # sunucusu katmanında değil — o katmanın yereldeki tek işi sayfayı açmaktır.
+  web:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile.dev
+    container_name: sipario_web
+    working_dir: /var/www/html
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      # `serve` varsayılan olarak 127.0.0.1'e bağlanır ve container içindeki bir
+      # 127.0.0.1, host'tan ERİŞİLEMEZ — port haritalansa bile sayfa açılmaz.
+      # `0.0.0.0` şart; bu satır olmadan aşağıdaki `ports` hiçbir işe yaramaz.
+      APP_URL: http://localhost:8000
+    volumes:
+      - ./apps/api:/var/www/html
+      - sipario_vendor:/var/www/html/vendor
+    ports:
+      # ⚠️ `127.0.0.1:` ÖN EKİ BİLİNÇLİ — düz `"8000:8000"` yazmak portu makinenin
+      # TÜM ağ arayüzlerine açar, yani aynı wifi'daki herkes panele ve API'ye
+      # erişebilir. Bunun yerini alan eski kurulum (`artisan serve
+      # --host=127.0.0.1`) yalnız bu makineye açıktı; Docker'a taşırken o sınırı
+      # kaybetmek, kimsenin istemediği sessiz bir genişleme olurdu.
+      # Sahaya açmanın YOLU tüneldir (`scripts/saha-sunucu.ps1`), yerel ağ değil.
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+
 volumes:
   sipario_pgdata:
   sipario_vendor:

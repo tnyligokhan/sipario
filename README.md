@@ -24,26 +24,23 @@ scripts/      → kalite kapısı, vardiya senkron kontrolü
 |------|-------|-----|
 | **Git** | `winget install Git.Git` | |
 | **GitHub CLI (gh)** | `winget install GitHub.cli` → `gh auth login` | Tarayıcı ile giriş yap (HTTPS seç). PAT kullanacaksan token'da **Workflows: Read and write** izni olmalı, yoksa `.github/workflows` içeren push'lar reddedilir (yaşandı). |
-| **Docker Desktop** | docker.com'dan indir, kur, başlat | Yerel PostgreSQL 16 bunda koşar. |
-| **Laragon** | laragon.org'dan indir | PHP 8.3 + Composer için kullanıyoruz. Apache/vhost katmanı KULLANILMIYOR; proje Laragon'un `www` klasörüne taşınmaz. |
+| **Docker Desktop** | docker.com'dan indir, kur, başlat | **API tarafının TAMAMI bunda koşar**: PostgreSQL 16 · PHP 8.3 · Composer · web sunucusu. |
+| ~~Laragon~~ | — | **GEREKMİYOR (2026-08-16'da kaldırıldı).** PHP artık `sipario_php` container'ında koşuyor; `pdo_pgsql`/`zip` eklentileri imajın içinde hazır geliyor. Makinende Laragon kurulu kalabilir, bu depo ona hiç bakmaz. |
 | **Node.js LTS (20+)** | `winget install OpenJS.NodeJS.LTS` | Ruflo/claude-flow ve hook'lar node ile çalışır. |
 | **Claude Code** | `npm install -g @anthropic-ai/claude-code` | Geliştirme Claude Code ile yürür (aşağıda "Çalışma düzeni"). |
 | **Flutter 3.38+** | flutter.dev → `flutter doctor` | Mobil taraf için. Android SDK cmdline-tools kur, `flutter doctor --android-licenses` ile lisansları onayla. |
 | **Gerçek Android cihaz** | — | Arayan tanıma emülatörde kanıt sayılmaz (DECISIONS); pilot Xiaomi/Samsung ağırlıklı. |
 
-### 2. PHP eklentilerini aç (Laragon varsayılanı KAPALI — atlarsan hiçbir şey çalışmaz)
+### 2. ~~PHP eklentilerini aç~~ — ARTIK GEREKMİYOR (2026-08-16)
 
-Laragon → sistem tepsisinde sağ tık → **PHP → Extensions** → şunları işaretle:
+Bu adım kaldırıldı. `pdo_pgsql` ve `zip`, PHP imajının (`serversideup/php:8.3-cli`) içinde
+hazır geliyor; açılacak bir `php.ini` yok.
 
-- `pdo_pgsql` ve `pgsql` (Postgres bağlantısı — migrate/test bunsuz çalışmaz)
-- `zip` (composer paket indirmek için)
-
-Doğrula:
-
-```powershell
-php -m | findstr pgsql   # pdo_pgsql ve pgsql görünmeli
-php -m | findstr zip     # zip görünmeli
-```
+> **Neden bu adım vardı ve neden kaldırılması bir kazanç:** Laragon/XAMPP bu eklentileri
+> KAPALI getirir ve kapalıyken her istek `could not find driver` ile 500 döner. Bu, bir
+> vardiyanın başını yedi (2026-07-29) ve makineden makineye değişen bir kurulum adımıydı —
+> yani "bende çalışıyor" ile "sende çalışmıyor" arasındaki farkın kaynağıydı. İmaja taşınınca
+> herkeste aynı PHP, aynı eklentiler, aynı sürüm çalışır.
 
 ### 3. Depoyu klonla
 
@@ -95,42 +92,45 @@ aynı dört eklentiyi arayüzden kur.
 
 ### 5. API'yi ayağa kaldır
 
+**Hiçbir komut host'taki PHP'yi çağırmaz** — hepsi container'ın içinde koşar. Giriş noktası
+`scripts\api.ps1`; ne yaptığı ve neden var olduğu dosyanın başında yazılı.
+
 ```powershell
-# 5a. Postgres'i başlat (host portu 55432 — 5432 DEĞİL; Laragon'un yerli
-#     Postgres'i 5432'yi tuttuğu için bilinçli karar, DECISIONS.md'de)
+# 5a. Yığını başlat: Postgres + PHP + web sunucusu
+#     (host portları: DB 55432, web 8000. DB'de 5432 DEĞİL — geliştirici
+#      makinelerindeki yerli PostgreSQL'i gölgelememek için bilinçli karar,
+#      DECISIONS.md'de)
 docker compose up -d
 
-# 5b. PHP bağımlılıkları
-cd apps\api
-composer install
+# 5b. Ortam dosyası (.env git'te YOK — bilinçli; şablondan üret)
+copy apps\api\.env.example apps\api\.env
+.\scripts\api.ps1 artisan key:generate
 
-# 5b-2. ⚠️ pdo_pgsql AÇIK OLMALI — XAMPP ve Laragon'da varsayılan KAPALIDIR ve
-#       kapalıyken her istek "could not find driver" ile 500 döner (2026-07-29'da
-#       bir vardiyanın başını yedi). Kontrol:
-php -r "print_r(PDO::getAvailableDrivers());"   # listede 'pgsql' görünmeli
-#       Görünmüyorsa `php --ini` ile yüklenen php.ini'yi bul, şu iki satırın
-#       başındaki ';' işaretini kaldır, kaydet:
-#           ;extension=pdo_pgsql   ->   extension=pdo_pgsql
-#           ;extension=pgsql       ->   extension=pgsql
-#       NOT: `php -d extension=pdo_pgsql artisan serve` ÇÖZÜM DEĞİLDİR — `artisan serve`
-#       isteklere ayrı bir "php -S" süreciyle bakar ve -d bayrakları o sürece geçmez.
-
-# 5c. Ortam dosyası (.env git'te YOK — bilinçli; şablondan üret)
-copy .env.example .env
-php artisan key:generate
+# 5c. PHP bağımlılıkları (container'ın kendi vendor'üne kurulur)
+.\scripts\api.ps1 -Kur
 
 # 5d. Migration'lar (owner rolüyle koşulur — RLS tasarımı gereği)
-php artisan migrate --database=pgsql_owner
+.\scripts\api.ps1 artisan migrate --database=pgsql_owner
 
-# 5e. Deneme bayisi aç (istersen)
-php artisan sipario:create-tenant "Deneme Bayi" "patron@ornek.tr" "Parola-123!"
+# 5e. Demo verisi: demo bayisi + panel yöneticileri
+.\scripts\api.ps1 artisan db:seed
+#     Bayi girişi  : firma kodu `demo` · kullanıcı `demo` · parola `demo1234`
+#     Panel parolası RASTGELE üretilir; almak için:
+#     .\scripts\api.ps1 artisan panel:admin "Adın" eposta@sipario.com.tr --sifirla
 
-# 5f. Testler — 34 test / 88 assertion, hepsi yeşil olmalı
-php vendor\bin\phpunit
+# 5f. Testler
+.\scripts\api.ps1 artisan test
 
-# 5g. Geliştirme sunucusu
-php artisan serve        # http://127.0.0.1:8000, API: /api/v1/...
+# 5g. Tarayıcıda aç — sunucu 5a'da zaten ayağa kalktı, ayrıca başlatmak gerekmez
+#     http://localhost:8000            site
+#     http://localhost:8000/panel/login  yönetim paneli
+#     http://localhost:8000/api/v1/version  API sağlık kontrolü
 ```
+
+> **`artisan serve`'ü elle çalıştırmana gerek yok** — `web` servisi onu container içinde
+> koşuyor ve 8000 portunu host'a açıyor. Bu servis `php` servisinden AYRIDIR: web sunucusu
+> bir sözdizimi hatasında ölse bile testler ve kalite kapısı çalışmaya devam etsin diye
+> (gerekçe `docker-compose.yml`de yazılı).
 
 Sorun çıkarsa: **Sorun giderme** bölümüne bak (en altta).
 
@@ -157,9 +157,11 @@ Sorun çıkarsa: **Sorun giderme** bölümüne bak (en altta).
 
 | Belirti | Sebep / Çözüm |
 |---------|---------------|
-| `could not find driver (pgsql)` | php.ini'de `pdo_pgsql` kapalı → Adım 2. Geçici çare: `php -d extension=pdo_pgsql -d extension=pgsql artisan ...` |
-| composer: "zip extension missing" | php.ini'de `zip` kapalı → Adım 2. |
-| DB'ye bağlanıyor ama tablolar tuhaf/boş | Yanlış sunucuya bağlısın: Laragon'un yerli Postgres'i 5432'de. Bizim DB **55432**'de — `.env`'de `DB_PORT=55432` olduğunu doğrula. |
+| `could not find driver (pgsql)` | Host'taki PHP'yi çağırıyorsun. Komutlar `.\scripts\api.ps1 ...` ile container'da koşar; eklentiler orada hazırdır. |
+| `Docker daemon calismiyor` (kalite kapısı kırmızı) | Docker Desktop kapalı. Aç, bekle, tekrar dene. **Bu kapı bilerek kırmızı yanar** — eskiden sessizce atlıyordu ve pint/phpstan aylarca hiç koşmadı. |
+| `vendor/doctrine does not exist and could not be created` | `vendor` volume'ü root sahipliğinde doğmuş. `docker compose up -d --build` (imaj dizini www-data sahipliğinde yaratır). |
+| Sayfa açılmıyor (localhost:8000) | `docker compose ps` → `sipario_web` ayakta mı? Logu: `docker compose logs web`. |
+| DB'ye bağlanıyor ama tablolar tuhaf/boş | Yanlış sunucuya bağlısın: makinede kurulu başka bir PostgreSQL 5432'de olabilir. Bizim DB **55432**'de (container içinden `db:5432`). |
 | Push reddedildi: "workflow scope" | Token'da Workflows izni yok → `gh auth login` ile tarayıcıdan yeniden gir veya PAT'e Workflows: Read/write ekle. |
 | Testler `permission denied` / RLS hatası | Testler `sipario_app` rolüyle koşmalı (phpunit.xml doğru); migration'ı `--database=pgsql_owner` ile koştuğundan emin ol. |
 | Docker volume bozuldu / sıfırlamak istiyorum | `docker compose down -v && docker compose up -d` (init betikleri rolleri ve test DB'sini yeniden kurar), sonra migrate. |
