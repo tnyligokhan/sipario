@@ -243,6 +243,82 @@
 >
 ## Güncel durum
 
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-16 — LARAGON KALDIRILDI, API TARAFI TAMAMEN DOCKER'DA (sürüm DEĞİŞMEDİ: API 1.9.0, mobil 0.25.0)
+
+**Kullanıcı kararı:** *"Local tarafında Laragon ve Docker kullanıyoruz, bunu istemiyorum; her şey
+Docker üzerinde olsun ve Laragon bağımlılığından kurtulalım."* + *"Coolify tarafında bir şeyleri
+etkilemesin."*
+
+**⚠️ SÜRÜM ARTMADI VE BU DOĞRU:** kullanıcıya görünen hiçbir davranış değişmedi — bu tümüyle
+geliştirici ortamı işidir. Sürüm kuralı "kullanıcıya görünen değişiklik" der; burada görünen
+şey yok.
+
+**COOLIFY'A HİÇ DOKUNULMADI (kısıt buydu):** `docker-compose.prod.yml` ve üretim imajı
+`docker/php/Dockerfile` **değişmedi**. Dev tarafı yalnız `docker-compose.yml`de yaşıyor.
+
+**LARAGON FİİLEN NE SAĞLIYORDU (ölçüldü):** yalnız **PHP 8.3 CLI + Composer**. Apache/vhost hiç
+kullanılmıyordu, Postgres zaten Docker'daydı. Bağımlılık küçüktü ama GÖRÜNMEZDİ ve iki script'e
+gömülüydü.
+
+**YAPILAN:**
+- `docker-compose.yml`e iki servis: **`php`** (`sleep infinity` ile elde tutulan komut kabuğu) ve
+  **`web`** (`artisan serve`, `127.0.0.1:8000`). İkisi AYRI: web bir sözdizimi hatasında ölse bile
+  testler ve kalite kapısı çalışmaya devam etsin diye.
+- `scripts/api.ps1` (**yeni**) — tek giriş noktası: `artisan · composer · pint · phpstan`.
+- `scripts/quality-gate-commit.ps1` — PHP arama bloğu Docker'a çevrildi.
+- `scripts/saha-sunucu.ps1` — `Bul-Php` ve `Pgsql-Var` kaldırıldı; migrate/seed/serve container'a taşındı.
+- `README.md` — Laragon satırı ve "PHP eklentilerini aç" adımı kaldırıldı, kurulum akışı yeniden yazıldı.
+- **Docker tamamen sıfırlandı** (kullanıcı emri): 1 container, 3 volume, 5 imaj, 21 build cache
+  katmanı silindi (938 MB), yığın sıfırdan kuruldu.
+
+**ÜÇ TUZAK, ÜÇÜ DE ÖLÇÜLEREK BULUNDU:**
+1. **`vendor` named volume ROOT sahipliğinde doğuyor**, container `www-data` koşuyor →
+   `composer install` ilk pakette düşüyor. Bu, üretim compose'unda `storage/logs` için zaten
+   yazılı olan tuzağın aynısı. **Sonunda named volume tümüyle bırakıldı** (aşağıda).
+2. **Port sessizce genişliyordu.** Compose'a düz `"8000:8000"` yazmak paneli yerel ağdaki
+   herkese açar; yerini aldığı `artisan serve --host=127.0.0.1` yalnız bu makineye açıktı.
+   `127.0.0.1:8000:8000` yapıldı — sahaya açmanın yolu tüneldir, yerel ağ değil.
+3. **🔴 MOUNT KAPSAMI DAR OLUNCA 11 TEST DÜŞTÜ.** İlk kurulumda yalnız `apps/api` bağlanmıştı.
+   `RolParolaEsitlemeTest` depo kökündeki dosyaları okur (`dirname(__DIR__, 5)` →
+   `docker-compose.prod.yml`) ve Laravel'i hiç önyüklemez; container'da depo kökü olmadığı için
+   `/var` çıkıyor ve "dosya yok" diyordu. **Ortam, testin denetlediği şeyi görünmez yapmıştı.**
+   Düzeltme: depo kökü bağlanır (`./:/depo`), `working_dir: /depo/apps/api`.
+
+> ⚠️ **KENDİ TEŞHİSİMDE BİR KEZ YANILDIM, KAYDA GEÇSİN:** 11 kırığı önce "suite koşarken
+> migrate/seed çalıştırdım, rol parolaları çakıştı" diye açıkladım. Temiz koşuda **aynı 11
+> kırık** çıktı — açıklama yanlıştı. Ders deponun kendi dersinin tersi yönünde: eşzamanlılık
+> bu depoda gerçekten sahte kırmızı üretti (birden çok kez), ama **tanıdık açıklama doğru
+> açıklama değildir**; kırığın mesajı okunmadan sebep atanmaz.
+
+**ÖLÇÜMLER (üçü de bizzat koşuldu, tam takım):**
+
+| Ortam | Sonuç | Süre |
+|---|---|---|
+| Host / Laragon PHP | 868 ✓, 1 atlandı, 1 incomplete | 753 sn |
+| Container, dar mount | 855 ✓, **11 kırık** | 740 sn |
+| **Container, depo kökü mount** | **868 ✓, 0 kırık**, 1 incomplete | **1007 sn** |
+
+- **Kapsam GENİŞLEDİ:** host'ta *atlanan* 1 test (openssl/Windows) Linux container'da artık
+  gerçekten koşuyor ve geçiyor. Atlanan test sayısı 1 → 0.
+- **Bedel: %34 yavaşlama** (753 → 1007 sn). Sebebi `vendor`ün Windows bind mount'una düşmesi
+  (dar mount + named volume denemesinde 740 sn'ydi). **Bilerek kabul edildi:** kalite kapısı
+  `artisan test` koşmuyor (yalnız pint + phpstan, saniyeler sürüyor), tam takım çoğunlukla
+  CI'da koşuyor. Rahatsız ederse `vendor`ü named volume'e döndürmek gerekir — ama o zaman
+  yukarıdaki 1. tuzak ve "boş volume host vendor'ünü içine kopyalıyor" sorunu ayrıca çözülmeli.
+- `pint` temiz (370 dosya) · üç PowerShell script'i sözdizimi denetiminden geçti.
+
+> ⚠️ **SAHADA DENENMEYEN TEK PARÇA:** `saha-sunucu.ps1`in **cloudflared tünel** bölümü. Docker,
+> migrate, seed ve API sağlık kontrolü çevrildi ve mantığı korundu; tünel kodunun kendisine
+> hiç dokunulmadı — ama tünel açılıp telefondan bağlanma provası YAPILMADI.
+
+**YEREL VERİTABANI SADELEŞTİRİLDİ (kullanıcı isteği, aynı vardiya):** `migrate:fresh` + seed
+sonrası iş verisi boşaltıldı ve fazla hesaplar silindi. Kalan: **1 işletme (`demo`)**,
+**1 patron (`demo`)**, **1 kurye (`emre`)**, parola `demo1234`; 2 panel yöneticisi (parolaları
+sıfırlandı, kullanıcıya bir kez gösterildi). Müşteri/sipariş/ürün/defter **0**.
+⚠️ Bu sadeleştirme YALNIZ VERİTABANINDA — `DemoSeeder` bilerek DEĞİŞTİRİLMEDİ (kullanıcı seçimi),
+yani `db:seed` koşulursa 5 kullanıcı ve zengin demo verisi geri gelir. Gerekçe: `DemoSeederTest`
+en az 2 aktif + 1 pasif kurye zorunlu kılıyor ve bu veri mağaza incelemecisinin gördüğü veridir.
+
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-15/2 — GÜNLÜK YEDEK BAĞLANTISI POSTALANIYOR (API 1.8.0 → **1.9.0**, mobil DEĞİŞMEDİ 0.25.0)
 
 **Kullanıcı kararı:** *"Yedekleme sunucuda kalsın… bana geri yükleme yapabileceğim bir şekilde
