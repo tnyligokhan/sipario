@@ -237,60 +237,66 @@ if ($mobileChanged.Count -gt 0) {
 # ============ 3) API (yalniz apps/api degistiyse) ============
 $apiChanged = @($staged | Where-Object { $_ -like 'apps/api/*' })
 if ($apiChanged.Count -gt 0) {
-  $api = Join-Path $root 'apps/api'
+  # (Eski `$api` yol degiskeni KALDIRILDI: araclar artik container'in kendi
+  # `working_dir`inde kosuyor - /var/www/html, yani apps/api'nin ta kendisi.)
 
-  # PHP'yi KENDİMİZ buluruz — PATH bir sözleşme değildir (2026-07-29'da iki kez ödendi).
+  # PHP ARTIK HOST'TA DEGIL, `sipario_php` CONTAINER'INDA KOSAR (2026-08-16).
   #
-  # SESSİZ ARIZA: bu makinede php PATH'te yok (Laragon/XAMPP altında kurulu) ve eski kod
-  # `Get-Command php` bulamayınca API bölümünün TAMAMINI "kurulum eksik" diye ATLIYORDU.
-  # Sonuç: pint · phpstan · php artisan test aylarca HİÇ koşmadı, kapı yine de "yeşil" dedi
-  # ve API değişiklikleri doğrulanmadan commit edildi. Kırmızıyı CI yakaladı (pint, 6 dosya) —
-  # yani kapının işini uzaktaki hat yapıyordu. Bir bekçinin sessizce devre dışı kalması,
-  # bekçinin hiç olmamasından KÖTÜDÜR: "yeşil" raporu güven üretir.
-  $phpExe = $null
-  $g = Get-Command php.exe -ErrorAction SilentlyContinue
-  if ($g) { $phpExe = $g.Source }
-  if (-not $phpExe -and (Test-Path 'C:\laragon\bin\php')) {
-    $aday = Get-ChildItem 'C:\laragon\bin\php' -Directory -ErrorAction SilentlyContinue |
-            Sort-Object Name -Descending |
-            ForEach-Object { Join-Path $_.FullName 'php.exe' } |
-            Where-Object { Test-Path $_ } | Select-Object -First 1
-    if ($aday) { $phpExe = $aday }
-  }
-  if (-not $phpExe -and (Test-Path 'C:\xampp\php\php.exe')) { $phpExe = 'C:\xampp\php\php.exe' }
+  # ONCEKI HALI VE ODENEN BEDEL (degismedi, hatirlatma olarak duruyor): php PATH'te yoktu
+  # (Laragon/XAMPP altinda kuruluydu) ve eski kod `Get-Command php` bulamayinca API
+  # bolumunun TAMAMINI "kurulum eksik" diye ATLIYORDU. Sonuc: pint · phpstan aylarca HIC
+  # kosmadi, kapi yine de "yesil" dedi ve API degisiklikleri dogrulanmadan commit edildi.
+  # Kirmiziyi CI yakaladi (pint, 6 dosya) - yani kapinin isini uzaktaki hat yapiyordu.
+  # Bir bekcinin sessizce devre disi kalmasi, bekcinin hic olmamasindan KOTUDUR.
+  #
+  # ⚠️ DOCKER'A GECMEK BU TUZAGI YOK ETMEZ, KILIK DEGISTIRIR. Artik "php bulunamadi"
+  # yerine "Docker kapali" ayni sessizligi uretebilirdi. Bu yuzden asagida Docker/container
+  # eksikligi $skipped'e DEGIL $failed'e yazilir: kapi kirmizi yanar, commit atilmaz ve
+  # sebep ekranda gorunur. Docker Desktop'i acmak bir zahmet, ama dogrulanmamis commit'in
+  # bedeli daha buyuk - bu ayrim bir kez olculdu.
+  $dockerOk = $false
+  docker info --format '{{.ServerVersion}}' 2>$null | Out-Null
+  if ($?) { $dockerOk = $true }
 
-  $phpOk = $phpExe -and (Test-Path (Join-Path $api 'vendor'))
-  if ($phpOk) {
-    Push-Location $api
+  if (-not $dockerOk) {
+    # `docker --version` DEGIL `docker info` kullanildi: birincisi daemon kapaliyken de
+    # basariyla doner ve "docker var" sanisi uretir.
+    $failed.Add('docker (kapali)')
+    $detail.Add('Docker daemon calismiyor - pint/phpstan kosamadi. Docker Desktop baslat.')
+  } else {
+    # Container uykuda olabilir (`sleep infinity` ile elde tutulan bir kabuk); ayakta
+    # degilse kaldiririz. Bu, ilk commit'e birkac saniye ekler, sonrakilere hicbir sey.
+    $servisler = (docker compose --project-directory $root ps --status running --services 2>$null)
+    if ($servisler -notcontains 'php') {
+      docker compose --project-directory $root up -d 2>&1 | Out-Null
+    }
 
-    # Araçlar .bat sarmalayıcılarıyla DEĞİL, bulunan php ile koşturulur: pint.bat/phpstan.bat
-    # içeride düz `php` çağırır ve PATH'te php yoksa "'php' is not recognized" ile düşer —
-    # yani sarmalayıcı, çözdüğümüz sorunu geri getirirdi.
-    if (Test-Path 'vendor\bin\pint') {
-      $out = (& $phpExe 'vendor\bin\pint' --test 2>&1 | Out-String)
+    # Araclar container'in `vendor`unden kosar (named volume). Host'taki `vendor` IDE icin
+    # durmaya devam eder ama BURADA KULLANILMAZ - ikisini karistirmak, Windows'ta kurulmus
+    # bir bagimliligi Linux'ta kosturmak demektir.
+    docker compose --project-directory $root exec -T php test -x vendor/bin/pint 2>$null
+    if ($LASTEXITCODE -eq 0) {
+      $out = (docker compose --project-directory $root exec -T php vendor/bin/pint --test 2>&1 | Out-String)
       if ($LASTEXITCODE -ne 0) {
         $failed.Add('pint')
         $detail.Add((@($out.Trim() -split "`n") | Select-Object -Last 2) -join ' | ')
       }
       $ran.Add('pint')
-    } else { $skipped.Add('pint (arac yok)') }
+    } else { $skipped.Add('pint (arac yok - .\scripts\api.ps1 -Kur)') }
 
-    if (Test-Path 'vendor\bin\phpstan') {
-      $out = (& $phpExe 'vendor\bin\phpstan' analyse --no-progress 2>&1 | Out-String)
+    docker compose --project-directory $root exec -T php test -x vendor/bin/phpstan 2>$null
+    if ($LASTEXITCODE -eq 0) {
+      $out = (docker compose --project-directory $root exec -T php vendor/bin/phpstan analyse --no-progress 2>&1 | Out-String)
       if ($LASTEXITCODE -ne 0) {
         $failed.Add('phpstan')
         $detail.Add((@($out.Trim() -split "`n") | Select-Object -Last 2) -join ' | ')
       }
       $ran.Add('phpstan')
-    } else { $skipped.Add('phpstan (arac yok)') }
+    } else { $skipped.Add('phpstan (arac yok - .\scripts\api.ps1 -Kur)') }
 
     # `php artisan test` BURADA KOSMUYOR — bkz. dosya basindaki "SURE BUTCESI" notu.
     # API testleri CI'da: .github/workflows/api-ci.yml, push'ta gercek Postgres + RLS ile
     # (yereldeki kosumdan DAHA guclu: RLS rolleri gercekten kuruluyor, izolasyon sinaniyor).
-
-    Pop-Location
-  } else {
-    $skipped.Add('php/composer (kurulum eksik)')
   }
 }
 

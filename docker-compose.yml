@@ -36,5 +36,64 @@ services:
       timeout: 3s
       retries: 10
 
+  # ── PHP çalışma ortamı (2026-08-16) — Laragon'un yerine geçer ────────────────
+  #
+  # NEDEN VAR: bu depoda PHP tarafı bugüne kadar Laragon'un `C:\laragon\bin\php`ine
+  # bağlıydı ve bağımlılık iki script'e gömülüydü (`quality-gate-commit.ps1`,
+  # `saha-sunucu.ps1`). Laragon'un sağladığı TEK şey PHP 8.3 CLI + Composer'dı
+  # (Apache/vhost hiç kullanılmıyordu, Postgres zaten burada koşuyor) — yani
+  # bağımlılık büyük değil, ama görünmezdi: PHP bulunamadığında kalite kapısı
+  # API bölümünü SESSİZCE atlıyor ve yine de "yeşil" diyordu.
+  #
+  # ⚠️ BU SERVİS COOLIFY'I ETKİLEMEZ. Coolify yalnız `docker-compose.prod.yml`i
+  # okur; bu dosya (dev compose) oraya hiç girmez. Üretim imajı
+  # (`docker/php/Dockerfile`) da değiştirilmedi.
+  #
+  # İMAJ SEÇİMİ ÜRETİMLE AYNI AİLEDEN (`serversideup/php`): üretim
+  # `8.3-fpm-nginx` kullanıyor, burada `8.3-cli` yeter (web sunucusu gerekmiyor,
+  # yalnız artisan/composer/pint/phpstan koşacak). Aynı aile olması, `db`
+  # servisindeki ilkenin devamıdır — yerel yığın üretimden ayrılırsa, üretimi
+  # düşüren sınıftan bir arıza burada bir daha ölçülemez hâle gelir.
+  php:
+    # `image:` DEĞİL `build:` — imaj `vendor` dizinini www-data sahipliğinde
+    # yaratır; hazır imajla named volume ROOT sahipliğinde doğuyor ve
+    # `composer install` yazamadan düşüyordu (gerekçe Dockerfile.dev'de, ölçüldü).
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile.dev
+    container_name: sipario_php
+    working_dir: /var/www/html
+    environment:
+      # ⚠️ BU İKİ SATIR `phpunit.xml`E VE `.env`E DOKUNMADAN ÇALIŞIR ve sebebi
+      # ikisinin de aynı kuralı izlemesidir:
+      #   · `phpunit.xml`de `force` YOKTUR (dosyada yazılı: "CI kendi env
+      #     değerleriyle bunları geçersiz kılar") → ortamda tanımlı değer kazanır.
+      #   · Laravel dotenv'i `createImmutable` ile yükler → `.env` zaten tanımlı
+      #     bir ortam değişkeninin üzerine YAZMAZ.
+      # Yani host'tan bakınca DB hâlâ `127.0.0.1:55432`, container'dan bakınca
+      # `db:5432` — iki dünya aynı veritabanını farklı adresten görür ve hiçbir
+      # dosyada çift kayıt tutulmaz.
+      DB_HOST: db
+      DB_PORT: 5432
+    volumes:
+      - ./apps/api:/var/www/html
+      # ⚠️ `vendor` AYRI BİR VOLUME — bilinçli. Windows'ta bind mount üzerinden
+      # on binlerce dosyalık bir `vendor` okumak testleri belirgin yavaşlatır;
+      # ayrıca host'taki `vendor` Windows'ta kurulmuştur ve IDE onu kullanmaya
+      # devam etmelidir. Named volume ikisini birden çözer: container kendi
+      # Linux vendor'ünü kullanır, host'taki dosyalara hiç dokunulmaz.
+      # Bedeli: `composer install` iki yerde ayrı ayrı koşar (aynı
+      # `composer.lock`tan, yani sürüm sapması olmaz).
+      - sipario_vendor:/var/www/html/vendor
+    depends_on:
+      db:
+        condition: service_healthy
+    # Servis bir sunucu değil, ELDE TUTULAN bir kabuktur: komutlar
+    # `docker compose exec php ...` ile içeri gönderilir (bkz. scripts/api.ps1).
+    # Uyumasaydı container her komuttan sonra ölür, her komut yeniden başlatma
+    # bekler ve kalite kapısı saniyeler yerine dakikalar sürerdi.
+    command: ["sleep", "infinity"]
+
 volumes:
   sipario_pgdata:
+  sipario_vendor:
