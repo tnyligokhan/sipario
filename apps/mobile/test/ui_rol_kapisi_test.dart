@@ -71,27 +71,31 @@ void main() {
   });
 
   group('YoneticiKapisi.acik — kapının saf kuralı', () {
-    test('yalnız "kurye" kapatır', () {
-      expect(const YoneticiKapisi(rol: 'kurye', child: SizedBox()).acik, isFalse);
+    test('yalnız TANINAN yönetici rolleri açar', () {
       expect(const YoneticiKapisi(rol: 'patron', child: SizedBox()).acik, isTrue);
       expect(const YoneticiKapisi(rol: 'operator', child: SizedBox()).acik, isTrue);
+      expect(const YoneticiKapisi(rol: 'kurye', child: SizedBox()).acik, isFalse);
     });
 
-    test('ROL BİLİNMİYORSA kapı AÇIKTIR — ölçülmüş davranış, matristen AYRIŞIR', () {
-      // ⚠️ Kayda geçiyoruz: `yetkiler(rol: null)` KURYE kümesini verir (en dar taraf), kapı ise
-      // `rol != 'kurye'` dediği için null'da AÇILIR. İki kural aynı soruya farklı cevap verir.
+    test('ROL BİLİNMİYORSA kapı KAPALIDIR — matrisle aynı yöne bakar (2026-08-17)', () {
+      // ⚠️ DAVRANIŞ DEĞİŞTİ. Eskiden kural `rol != 'kurye'` idi ve null'da AÇILIYORDU; oysa aynı
+      // soruya cevap veren `yetkiler(rol: null)` EN DAR kümeyi (kurye) veriyor. İki kural aynı
+      // soruya ters cevap veriyordu.
       //
-      // Bugün bir açık üretmiyor çünkü bu dört ekrana giden tek yol çekmecedir ve çekmece de
-      // aynı `rol == 'kurye'` ölçütünü kullanır — yani rol inmemişken çekmece girişleri de
-      // gizlidir. Ama kapının VARLIK SEBEBİ "çekmece atlandığında" korumaktı; o senaryoda
-      // (derin bağlantı) rol henüz inmemişse koruma yoktur.
+      // Açık üretmesini çekmecenin aynı ölçütü kullanması engelliyordu — ama kapı tam olarak
+      // "ÇEKMECE ATLANDIĞINDA" (derin bağlantı, geri yığını) korumak için var; yani korumasının
+      // gerektiği tek senaryoda korumuyordu. Uygulanan ilke deponun kendi yazılı kuralı:
+      // belirsizlikte AÇILAN değil KAPANAN taraf seçilir.
       //
-      // Bu test MEVCUT davranışı kilitler, doğrulamaz. Kural değiştirilirse burası kırmızı
-      // yanar ve kararın bilinçli olduğu görülür.
-      expect(const YoneticiKapisi(rol: null, child: SizedBox()).acik, isTrue);
-      expect(const YoneticiKapisi(rol: '', child: SizedBox()).acik, isTrue);
-      expect(const YoneticiKapisi(rol: 'KURYE', child: SizedBox()).acik, isTrue,
+      // PRATİK SONUÇ: oturum açılmış ama ilk senkron inmemişken bu dört ekran kapalı görünür;
+      // rol indiği anda ekran yeniden çizilir ve açılır. Kapalı bir ekranı bir saniye sonra
+      // açmak, açık bir ekranı yetkisiz birine göstermekten iyidir.
+      expect(const YoneticiKapisi(rol: null, child: SizedBox()).acik, isFalse);
+      expect(const YoneticiKapisi(rol: '', child: SizedBox()).acik, isFalse);
+      expect(const YoneticiKapisi(rol: 'KURYE', child: SizedBox()).acik, isFalse,
           reason: 'eşleşme birebir küçük harf — sunucu sözleşmesi budur');
+      expect(const YoneticiKapisi(rol: 'yeni_rol', child: SizedBox()).acik, isFalse,
+          reason: 'sunucu ileride yeni bir rol gönderirse kapı KAPALI kalır (izin listesi)');
     });
   });
 

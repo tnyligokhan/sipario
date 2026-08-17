@@ -37,11 +37,14 @@ void main() {
   });
   // ═════════════════════════════════════════════════════════════════════════════════════════
   group('Muaf telefonlar', () {
+      // ⚠️ `rol` AÇIKÇA VERİLİR (2026-08-17): yönetici kapısı artık tanınmayan/eksik rolde
+      // KAPANIYOR. Rolsüz kurulan bir ekran testi, kapının kapalı hâlini ölçerdi — ekranın
+      // içeriğini değil. Ekran zaten yalnız yöneticiye açık, test de öyle kurulmalı.
     testWidgets('eklenen numara DB\'ye yazılır ve listede görünür', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       final repo = ExemptNumberRepository(db);
 
-      await ekranaKoy(tester, MuafEkrani(db: db));
+      await ekranaKoy(tester, MuafEkrani(db: db, rol: 'patron'));
       expect(find.text('Muaf numara yok'), findsOneWidget);
 
       await tester.tap(find.text('Muaf numara ekle'));
@@ -70,7 +73,7 @@ void main() {
         (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
-      await ekranaKoy(tester, MuafEkrani(db: db));
+      await ekranaKoy(tester, MuafEkrani(db: db, rol: 'patron'));
 
       // `SipNotKutusu.onEtiket` kalın parçayı metnin başına alır (tema kilitli: cümle ORTASINDA
       // kalınlaştırma yok) — ama vurgulanan cümle tasarımın cümlesidir.
@@ -199,7 +202,7 @@ void main() {
         await kuryeEkle(db, id: 'p1', ad: 'Patron', rol: 'patron');
       });
 
-      await ekranaKoy(tester, KuryelerEkrani(db: db));
+      await ekranaKoy(tester, KuryelerEkrani(db: db, rol: 'patron'));
 
       expect(find.text('1 aktif · 2 kayıtlı'), findsOneWidget,
           reason: 'patron listeye girmez — bu ekran yalnız kuryeleri yönetir');

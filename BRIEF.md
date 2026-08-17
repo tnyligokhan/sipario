@@ -40,6 +40,18 @@ Türkiye'de eve servis yapan mikro esnaf (ilk hedef: su/damacana bayileri) için
 - Kupon yaygındır: müşteri peşin ödeyip N damacanalık paket alır, her teslimde düşülür. İki cihaz offline'ken aynı son kuponu harcayabilir — teslim edilmiş mal gerçektir, sistem reddedemez; bakiye eksiye düşer, arayüz kırmızı gösterir, düzeltme kaydıyla kapatılır.
 > **KALDIRILDI (2026-07-26 tasarım kararı):** kupon özelliği üründen çıkarıldı; arayüz, veri katmanı ve sunucu tarafı tamamen silindi. Ödeme tipleri artık yalnız nakit/kart/havale/veresiye. Yukarıdaki madde SAHA GERÇEĞİ olarak durur (kupon esnafta hâlâ yaygındır) — geri geleceği gün gereksinim burada yazılıdır.
 - Boş damacana/emanet takibi bayiden bayiye değişir — kimi ister, kimi hiç uğraşmaz. İstemeyen bayide o alanlar hiç görünmemelidir.
+> **v1'DEN ÇIKARILDI (2026-08-17 kararı):** emanet/boş kap takibi v1 kapsamında YAPILMAYACAK.
+> Bugüne kadar var olan tek şey bir bayraktı (`tenants.modules.empty_tracking`): panelde düğmesi
+> vardı, senkron yanıtına konuyordu ve **mobil istemci o alanı hiç okumuyordu** — yani düğme
+> boşluğa basıyordu. Panel etiketi artık "(v1'de yok)" diyor; bayrak mekanizması BRIEF md. 3'ün
+> panel şartı olduğu için duruyor, kaldırılan şey özelliğin kendisidir.
+>
+> **GEREKÇE:** hangi bayinin gerçekten istediği BİLİNMİYOR. Bu bir "para defteri" değil "adet
+> defteri"dir (müşterinin üstündeki boş kap) ve tasarımı bayiye göre değişir: kimi teslimde
+> sayar, kimi ay sonunda, kimi hiç tutmaz. Tahminle yazılan bir adet defteri, yanlış tasarlanırsa
+> bayinin elindeki gerçek sayımla tutmaz ve ürüne güveni — para defterindeki gibi — öldürür.
+> **Pilotta sorulup öğrenilecek** (Faz 7); cevaba göre (a) tam yapılır, (b) müşteri kartında
+> elle düzeltilebilen basit bir sayaç eklenir ya da kalıcı olarak çıkarılır.
 - Kurye sahada telefonla çalışır; kısa sinyal kesintileri (bodrum, asansör, çukur bölge) gerçektir ama kalıcı değildir. Teslim kapatma internetsiz, saniyeler içinde bitmelidir; konum alınamıyorsa teslim ASLA bloklanmaz.
 - Gün sonunda kurye kasayı patrona devreder. Rakamlar bayinin elle tuttuğu defterle kuruşu kuruşuna tutmazsa ürüne güven ölür. Para kayıtları düzeltilmez, telafi kaydıyla düzeltilir — eksik para kanıt olarak görünür kalmalıdır.
 - Tek kişilik bayi çoktur: "kuryeye ata" gibi adımlar tek kişilik işletmede hiç görünmemelidir.

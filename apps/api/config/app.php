@@ -78,6 +78,22 @@ return [
     */
 
     /*
+    | 1.10.0 (2026-08-17): LWW SANİYE-ALTI AYRIMI. Çakışma çözümü ("son yazan
+    | kazanır") aynı saniyeye düşen iki yazımı ayıramıyor, karar `device_id`
+    | karşılaştırmasına iniyordu — yani kazanan daha YENİ olan değil, kimliği
+    | BÜYÜK olandı ve çevrimdışı bir cihazın eski yazımı yeniyi ezebiliyordu.
+    |
+    | İKİ KIRPICI VARDI, ikisi de kapatıldı: (1) karar veren 19 kolon
+    | `timestamptz(0)` idi → `timestamptz(6)`; (2) Eloquent'in damga biçimi
+    | `Y-m-d H:i:s` (mikrosaniyesiz) olduğu için model, gelen `.900000`ı
+    | KAYDEDERKEN kendisi kırpıyordu → `MikrosaniyeliDamga` trait'i (14 model).
+    | Yalnız birincisi düzeltilseydi hiçbir şey değişmezdi.
+    |
+    | MINOR ve ESKİ İSTEMCİ KIRILMAZ: uygulama damgayı en başından mikrosaniyeli
+    | GÖNDERİYORDU; değişen tek şey sunucunun artık o hassasiyeti KAYBETMEMESİ.
+    | Uç nokta, alan ve anlam aynı; yalnız var olan bir alanın değer aralığı
+    | genişledi. Değer DEĞİŞMEDİĞİ için `sync_changes`e delta da düşmez.
+    |
     | 1.9.0 (2026-08-15): GÜNLÜK YEDEK BİLDİRİMİ. `backup` sidecar'ının ürettiği
     | dosyalar bugüne kadar yalnız kendi volume'ünde duruyordu ve hiçbir yerden
     | görünmüyordu; artık `app`/`scheduler` onları SALT-OKUNUR görüyor, panelde
@@ -90,7 +106,7 @@ return [
     | etmeden çalışmaya devam eder.
     */
 
-    'version' => '1.9.0',
+    'version' => '1.10.0',
 
     /*
     |--------------------------------------------------------------------------

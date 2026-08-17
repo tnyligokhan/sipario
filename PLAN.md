@@ -256,6 +256,49 @@
 >
 ## Güncel durum
 
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-17/3 — LWW KAPANDI · YETKİ KAPISI DARALDI · EMANET v1'DEN ÇIKTI (mobil 0.25.1 → **0.26.0**, API 1.9.0 → **1.10.0**)
+
+**1. LWW SANİYE-ALTI BORCU KAPANDI — ve kırpıcı İKİ TANEYDİ.** Aylardır `incomplete` duran test
+sebebi tek başına kolona yüklüyordu; ölçülünce eksik çıktı:
+
+| Kırpıcı | Durum |
+|---|---|
+| Karar veren 19 kolon `timestamptz(0)` | → `timestamptz(6)` (migration `2026_08_17_004012`) |
+| **Eloquent damga biçimi `Y-m-d H:i:s`** | Mikrosaniyesiz; model gelen `.900000`'ı KAYDEDERKEN kırpıyordu → `MikrosaniyeliDamga` trait'i (14 model) |
+
+**Yalnız migration yazılsaydı hiçbir şey düzelmezdi** ve bu sessiz kalırdı. Ürün kodu (`lwwWins`)
+DEĞİŞMEDİ — zaten çözünürlükten bağımsızdı. Sonuç: API takımı ilk kez **869/869, `incomplete` YOK**.
+⚠️ İki tuzak kayda geçti: trait `$dateFormat` property'sini EZEMEZ (PHP ölümcül hatası, testlerde
+"Premature end of PHP process" kılığında çıkıyor — metot ezilir); `pint` `Concerns` altındaki
+trait import'unu "kullanılmıyor" sanıp siliyor (trait `App\Models` ad alanına taşındı).
+
+**2. COMPOSE VARSAYILANLARI TARANDI — 64'te 62'si ÖLÜ.** Ölçüm yöntemi dosyanın başına yazıldı
+(Coolify `list_env_keys` × compose grep). Yürürlükte olan yalnız `YEDEK_DIZIN` ve
+`YEDEK_TAZELIK_SAAT`. 🔴 **Asıl bulgu:** `APP_KEY`in varsayılanı depoda AÇIK YAZAN bir anahtardı.
+Dev'de ölüydü ama varsayılanlar tam da **panelde tanımsızken**, yani üretim sıfırdan kurulduğunda
+canlanır — uygulama herkesin okuyabildiği bir anahtarla açılırdı. Varsayılan kaldırıldı: artık
+`APP_KEY` yoksa Laravel açılışta gürültüyle düşer.
+
+**3. YÖNETİCİ KAPISI İZİN LİSTESİNE ÇEVRİLDİ** (karar bana bırakıldı). `rol != 'kurye'` →
+`rol == 'patron' || rol == 'operator'`. Tanınmayan/eksik rol artık KAPALI — deponun kendi ilkesi
+("belirsizlikte kapanan taraf seçilir"). Rol inene kadar dört ekran kısa süre kapalı görünür ve
+kendiliğinden açılır; bu bedel bilerek kabul edildi. Yetki değişikliği → mobil **MINOR**.
+
+**4. EMANET / BOŞ KAP TAKİBİ v1'DEN ÇIKARILDI** (karar bana bırakıldı, seçenek **c**). Var olan
+tek şey bir bayraktı ve **mobil onu hiç okumuyordu** — düğme boşluğa basıyordu. BRIEF.md'ye kupon
+desenindeki "v1'DEN ÇIKARILDI" notu düşüldü, panel etiketi "(v1'de yok)" oldu. Mekanizma KALDI
+(BRIEF md. 3'ün panel şartı); pilotta bayilere sorulacak.
+
+**ÖLÇÜMLER:** API **869/869** (`incomplete` yok) · `phpstan` 0 · `pint` temiz (372 dosya) ·
+panel takımı 42/42 · yetki takımı 97/97 · `dart analyze` 0.
+
+**⛔ YAPILAMAYAN İKİ İŞ — ERİŞİM YOK, ATLAMADIM:**
+- **Öksüz Docker hacimleri (#17):** Coolify API'si öksüzleri GÖREMİYOR (hacim uygulamaya bağlı,
+  o uygulamalar silinmiş). SSH denendi, **izin sınıflandırıcısı engelledi**. Ayrıca hacim silmek
+  geri alınamaz — kullanıcı onayı olmadan yapılmaz.
+- **Test ortamına demo verisi (#11):** Coolify MCP'de komut çalıştırma yok, SSH kapalı;
+  `db:seed` koşacak bir yol yok.
+
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-17/2 — KOD BORÇLARI ERİDİ + SAHADA ÖLÜMCÜL İKİ GÖÇ ARIZASI BULUNDU (mobil 0.25.0 → **0.25.1**, API DEĞİŞMEDİ 1.9.0)
 
 **🔴 BU VARDİYANIN EN ÖNEMLİ CÜMLESİ: `onUpgrade`de İKİ GERÇEK ARIZA VARDI ve ikisi de sahadaki
