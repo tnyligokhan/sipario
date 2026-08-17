@@ -256,6 +256,95 @@
 >
 ## Güncel durum
 
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-17/2 — KOD BORÇLARI ERİDİ + SAHADA ÖLÜMCÜL İKİ GÖÇ ARIZASI BULUNDU (mobil 0.25.0 → **0.25.1**, API DEĞİŞMEDİ 1.9.0)
+
+**🔴 BU VARDİYANIN EN ÖNEMLİ CÜMLESİ: `onUpgrade`de İKİ GERÇEK ARIZA VARDI ve ikisi de sahadaki
+telefonu ÖLDÜRÜYORDU.** Kod borcu #13 ("yükseltme yolu testi yok") tam olarak bunun için
+duruyordu; test yazılır yazılmaz ikisi birden çıktı.
+
+| Arıza | Ne olurdu | Kanıt |
+|---|---|---|
+| `users.username` adımının ALTER'ı **hiç yazılmamış** (kolon v13'te eklendi, göç adımı yok) | v7+ damgalı cihazda `users` sorgusu çöker → **Kuryeler ekranı, atama, `team` senkronu ölür** | düzeltme geri alınınca `$UsersTable.map` patlıyor |
+| `route_credits_monthly` adımı kendini-onarma **kapısının ARKASINDA** | v8 damgalı cihazda kapı erken döner, adım hiç koşmaz → `sync_meta` okunamaz → **uygulama HİÇ AÇILMAZ** | düzeltme geri alınınca `$SyncMetaTable.map` patlıyor |
+
+Düzeltme: iki adım da kapıdan ÖNCEye taşındı. **Testlerin gerçekten yakaladığı ölçülerek
+kanıtlandı** — düzeltme geçici olarak geri alındı, iki test kırmızı yandı, geri kondu.
+
+> ⚠️ **KURAL (bir daha ihlal edilmesin):** kendini-onarma kapısı (`if (latest.isNotEmpty) return;`)
+> `tenant_settings` arar ve o tablo **v8'de doğar**. Yani **kapıdan SONRA yazılan her adım, v8 ve
+> sonrası damgalı cihazlarda ÖLÜDÜR.** Yeni adım yazarken tek soru: "bu adımın koşması gereken
+> cihazda `tenant_settings` var mı?" Varsa adım kapıdan ÖNCE yazılır. Gerekçenin tamamı
+> `app_database_gocler.dart` başlığında.
+
+**KAPANAN KOD BORÇLARI (altısı da bitti):**
+
+| # | Borç | Sonuç |
+|---|---|---|
+| 9 | Yetki Matrisi'nin testi yok | **26 satır × 5 senaryoluk veri tablosu + 32 test** (`yetki_matrisi_test.dart` 23 + `ui_rol_kapisi_test.dart` 9 + `support/yetki_matrisi_tablosu.dart`) |
+| 10 | 500 satır kuralını 13 dosya çiğniyor | **`lib/` altında 500'ü aşan dosya KALMADI** (tablo aşağıda) |
+| 11 | Testlerde sabit yazılmış iş değerleri | `SubscriptionTest` dönem süresi → `BillingPeriod::Yearly->uzat()`; `LiveLocationTest` sınırı → `config('konum.kalp_atisi_limit')` + "sınır genelden DAR olmalı" iddiası (vakuma düşmesin diye) |
+| 12 | Flutter SDK ↔ lock sapması | **Sapma ölçülemedi: `dart analyze` 0 issue, lock DEĞİŞMEDİ.** `onReorder` hâlâ kullanımda ve deprecated UYARISI ÇIKMIYOR — kör göç YAPILMADI, madde kapandı |
+| 13 | Yükseltme yolu testi | v1/v7/v8 zincir testleri + v19/v20/v21 + `support/migration_yardimcilari.dart` iskelesi; **`semaTamOlmali` sınıf düzeyinde koruma** (yükseltilmiş şema ⊇ taze şema) |
+| 14 | CI'da birleştirilmiş manifest denetimi | `mobil-apk.yml`e adım eklendi + `check_permissions.sh`teki **gerçek hata** düzeltildi |
+
+**500 SATIR — ÖNCE/SONRA (hepsi ölçüldü):**
+
+| Dosya | Önce | Sonra |
+|---|---|---|
+| `home_shell.dart` | 1022 | 461 + durum 99 + gezinme 200 + çağrı 235 + gövde 110 |
+| `sync_engine.dart` | 850 | 253 + `sync_cekme` 380 + `sync_itme` 281 |
+| `kuryeler_ekrani.dart` | 754 | 340 + `kurye_karti` 226 + `kurye_formu` 230 |
+| `order_queries.dart` | 728 | bölündü (`order_musteri_sorgulari` vb.) |
+| `phase0_screen.dart` | 663 | 201 + kartlar 267 + test kartı 223 |
+| `customer_form_screen.dart` | 559 | 424 + `musteri_formu_eylemler` 162 |
+| `tables.dart` | 566 | 272 + `tables_isletme` 312 |
+| `app_database.dart` | 546 | 151 + `app_database_gocler` 423 |
+| `cekmece.dart` | 541 | 368 + `cekmece_satirlari` 182 |
+| `day_end_screen.dart` | 513 | + `gun_sonu_eylemleri` |
+| `form.dart` | 512 | 274 + `form_kontroller` 255 |
+| `ana_ekran.dart` | 509 | 274 + `ana_ekran_parcalari` 245 |
+| `bildirim_sozlesmesi.dart` | 504 | 467 + `sessiz_saatler` 53 |
+
+> **BÖLME YÖNTEMİ (sonraki vardiya aynısını yapsın):** widget'ın kendi başına yaşayabildiği yerde
+> AYRI KÜTÜPHANE + `export` ile sözleşme korunur (`kurye_formu`, `form_kontroller`); sınıfın ÖZEL
+> durumuna dokunan yüzeylerde `part` + `extension` kullanılır (`home_shell`, `sync_engine`).
+> ⚠️ `part`taki extension `setState`i DOĞRUDAN çağıramaz (`@protected`) — kabuk `_durumDegisti`
+> kapısını açar. ⚠️ Drift tabloları `part` ile bölünür: ayrı kütüphane 19 bin satırlık üretilmiş
+> dosyayı yeniden ürettirirdi; `part` sayesinde **`app_database.g.dart` hiç değişmedi.**
+
+**ÖLÇÜMLER (üç kapı da bizzat koşuldu, ağaç dondurulmuş hâlde):**
+- **mobil `flutter test`: 1362/1362 YEŞİL.** ⚠️ Bu sayıyı 1108'le karşılaştırmayın: o ölçüm
+  2026-08-09 tarihlidir ve aradaki sekiz günün işini de içerir. **Bu vardiyanın kendi katkısı 38
+  yeni testtir** (yetki matrisi 23 + rol kapısı 9 + göç zinciri 3 + v19/v20/v21 üçer bir).
+- `dart analyze`: **0 issue** (`onReorder` info'su dahil hiçbir uyarı yok)
+- API: `pint` temiz (370 dosya) · `phpstan` **0 hata** · dokunulan iki test dosyası 26/26
+- **Birleştirilmiş manifest denetimi KIRMIZI YAKABİLİYOR — kanıtlandı:** `magaza` manifestine
+  `READ_SMS` enjekte edildi → betik kanalı isimlendirerek düştü (çıkış kodu 1), sonra geri alındı.
+  Gradle görev adı (`:app:processMagazaReleaseManifest`) de yerel olarak doğrulandı.
+
+**🔴 KAYDA GEÇEN BULGU — KARAR KULLANICIDA (düzeltilmedi, testle KİLİTLENDİ):**
+`YoneticiKapisi` rol `null` iken **AÇILIYOR** (`rol != 'kurye'`), oysa `yetkiler(rol: null)` en dar
+küme olan KURYE'yi veriyor. İki kural aynı soruya farklı cevap veriyor. Bugün açık üretmiyor
+(o dört ekrana giden tek yol çekmece ve o da aynı ölçütü kullanıyor), ama kapının VARLIK SEBEBİ
+"çekmece atlandığında korumak"tı — derin bağlantıda rol henüz inmemişse koruma yok. Deponun kendi
+ilkesi "belirsizlikte AÇILAN değil KAPANAN taraf seçilir" der; hizalamak bir YETKİ değişikliğidir
+(MINOR) ve kullanıcı kararı ister. `ui_rol_kapisi_test.dart` mevcut davranışı kilitledi.
+
+**⚠️ AÇIK KALAN:** **14 TEST DOSYASI 500 satırı aşıyor** (toplam 9.214 satır; en büyükleri
+`ara_tahsilat_test` 1126 · `ui_siparis_harita_test` 925 · `ui_siparis_test` 862). Kural testlere de
+uygulanır; bu vardiya `lib/` tarafını bitirdi, test tarafı ayrı bir iş kolu olarak duruyor.
+
+**⚠️ BU VARDİYADA YAPTIĞIM BİR HATA, KAYDA GEÇSİN:** `cekmece_parcalari.dart`ı **var olan bir dosya
+olduğunu kontrol etmeden** üzerine yazdım (2026-08-13'te oluşturulmuştu). Git izlediği için tek
+komutla geri alındı, kayıp yok. Ders: bölmede yeni dosya adı seçerken hedefin BOŞ olduğu önce
+ölçülür — `ls` bir saniye, kurtarma beş dakika.
+
+**AJAN HATTI ÖLDÜ AMA İŞ DURMADI:** beş ajan (yetki-testci · gocmen · bolucu-ekran ·
+bolucu-cekirdek · api-ci) oturum limitine çarpıp aynı dakikada düştü. **İşleri commit edilmemiş
+hâlde ağaçta duruyordu** ve yarım bir bölme ağacı kırıyordu (`borclu_karti.dart` veri dosyasını
+arıyordu, dosya hiç yazılmamıştı). Lead devraldı, yarımı tamamladı, ölçtü. Ders yine aynı:
+**ajan limitte ölünce önce `git status` + `git log` — iş yapılmış olabilir.**
+
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-17 — YEDİ MADDE KAPANDI, DÖRT MADDE ASKIYA ALINDI (kod DEĞİŞMEDİ, sürüm DEĞİŞMEDİ: API 1.9.0, mobil 0.25.0)
 
 **Bu vardiya kod yazmadı** — kullanıcı sahada/panelde biriken işleri bitirdi ve durumu bildirdi;
@@ -1531,6 +1620,12 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 ## 🔴 SIRADAKİ İŞLER — TEK LİSTE (vardiyaya başlayan BURADAN devam eder)
 
+> 🔴 **2026-08-17/2 GÜNCELLEMESİ — KOD BORÇLARI KAPANDI.** 7 · 8 · 9 · 14 · 15 kapandı (ayrıntı
+> 2026-08-17/2 devir notunda). **Bu bölümden geriye yalnız ORTAM/İŞLETME maddeleri (10 · 11 · 16 ·
+> 17) ve iki AÇIK KUYRUK kaldı:** LWW saniye-altı `incomplete`i ve 500 satır kuralının TEST tarafı
+> (14 dosya). Ayrıca kayda geçen bir bulgu var, kararı kullanıcıda: `YoneticiKapisi` rol `null`
+> iken açılıyor, `yetkiler(rol: null)` ise en dar kümeyi veriyor.
+>
 > 🔴 **2026-08-17 GÜNCELLEMESİ — LİSTE KISALDI.** Kapananlar: **2** (Telegram bildirimi) ·
 > **3** (Google anahtarı IP kısıtlaması) · **4** (SMTP/e-posta gerçekten gidiyor) ·
 > **12** (deneme APK'sı kuruldu) · **18** (Coolify deploy kilidi) · **19** (gerçek yol ağı açık).
@@ -1592,13 +1687,20 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
    JSON yanıta `api_version` koyuyor · kimliksiz `GET /api/v1/version` · telefon `sync_meta`ya
    önbellekliyor (şema v16) · Ayarlar → Hakkında'da "Sunucu" satırı · durum çubuğu canlı/ağaç
    farkını `API 1.0.0→1.0.1` biçiminde gösteriyor. **Kalan tek adım: canlıya deploy** (13. madde).
-7. **`PushOzeti.beklemede`** kapatıldı ✅ ama **Yetki Matrisi'nin (+2816 satır) hâlâ testi yok** ve
-   **LWW saniye-altı ayrımı yok** (suite'te kasıtlı `incomplete` ile canlı sinyal).
-8. **500 satır kuralını 13 dosya çiğniyor** (`home_shell.dart` 892 · `sync_engine.dart` 744 ·
-   `kuryeler_ekrani.dart` 699 · `order_queries.dart` 662 …). Bu vardiya `ana_ekran.dart`ı 509'a
-   çıkararak durumu bir miktar kötüleştirdi.
-9. **Yükseltme yolu testi** (`migration_vN_test.dart` deseni) — şema değiştiren her vardiya yazmalı;
-   testlerin hepsi taze DB kurduğu için `onUpgrade` yolu hâlâ zayıf noktadır.
+7. **[✅ KAPANDI — 2026-08-17]** ~~Yetki Matrisi'nin testi yok~~ — 26 satır × 5 senaryoluk veri
+   tablosu (`test/support/yetki_matrisi_tablosu.dart`) + **32 test**. ⚠️ **LWW saniye-altı ayrımı
+   AÇIK KALDI** (`SyncZamanNormalizasyonuTest.php:208`, kasıtlı `incomplete` — canlı sinyal olarak
+   duruyor; kapatmak damga çözünürlüğü değişikliği ister).
+8. **[✅ KAPANDI — 2026-08-17]** ~~500 satır kuralını 13 dosya çiğniyor~~ — **`apps/mobile/lib`
+   altında 500'ü aşan dosya KALMADI** (önce/sonra tablosu 2026-08-17/2 devir notunda).
+   ⚠️ **TEST TARAFI AÇIK: 14 test dosyası 500'ü aşıyor** (toplam 9.214 satır; `ara_tahsilat_test`
+   1126 · `ui_siparis_harita_test` 925 · `ui_siparis_test` 862 …). Kural testlere de uygulanır.
+9. **[✅ KAPANDI — 2026-08-17]** ~~Yükseltme yolu testi~~ — v1/v7/v8 **zincir** testleri +
+   v19/v20/v21 + ortak iskele (`test/support/migration_yardimcilari.dart`). En değerli parça
+   `semaTamOlmali`: yükseltilmiş şemayı taze şemayla karşılaştırır ve "ALTER yazmayı unutulmuş
+   kolon" sınıfını tek başına yakalar. **Bu testler yazılır yazılmaz iki gerçek arıza buldu**
+   (bkz. 2026-08-17/2 devir notu). Kural olarak duruyor: şema değiştiren her vardiya kendi
+   testini yazar.
 
 **ORTAM/İŞLETME:**
 
@@ -1632,16 +1734,18 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
     gösteriyor: `API 1.1.0`. **Deploy'un indiğinin işareti okun kaybolması değil, canlı okumanın
     BAŞLAMASIDIR** — ok mekanizması ancak bir SONRAKİ sürüm artışından itibaren iş görür.
     Bu tur için doğrulama yukarıdaki `curl`dür.
-14. **Bu makinedeki Flutter SDK `pubspec.lock`tan YENİ.** İki görünür sonucu var: `flutter test`
-    lock'taki dört geçişli paketi bump ediyor (bu vardiyada geri alındı) ve `dart analyze` artık
-    **1 info** veriyor (`order_list_parts.dart:161` `onReorder` deprecated). Karar gerekiyor:
-    SDK'yı sabitle mi, lock'u bump edip göçü yap mı? ⚠️ `onReorder` → `onReorderItem` göçü indeks
-    kaydırma semantiği taşır — siparişlerin SÜRÜKLE-SIRALA davranışını sessizce bozabilir, kör
-    yapılmaz. **"analyze 0" artık otomatik doğru değil; ölçüm notlarına bu info yazılmalı.**
-15. **Test içine SABİT YAZILMIŞ İŞ DEĞERLERİNİ tara.** `PaymentSecurityTest` fiyatı sabit
-    yazdığı için aylardır kırmızıydı ve iki kardeşi vakuma düşmüştü. Aynı desen başka yerde de
-    olabilir: `config`/`plans`ten okunması gereken bir değer (fiyat, kota, süre, limit) testte
-    elle yazılıysa, o iş kararı değiştiği gün test ya kırılır ya sessizce anlamsızlaşır.
+14. **[✅ KAPANDI — 2026-08-17, ÖLÇÜLDÜ]** ~~Flutter SDK ↔ `pubspec.lock` sapması~~ — **sapma
+    ölçülemedi:** tam takım koşuldu, `pubspec.lock` DEĞİŞMEDİ ve `dart analyze` **0 issue** verdi;
+    bahsi geçen `onReorder` info'su artık ÇIKMIYOR (çağrı hâlâ yerinde,
+    `order_list_parts.dart:282`). **Göç KÖR YAPILMADI** — indeks kaydırma semantiği siparişlerin
+    sürükle-sırala davranışını sessizce bozabilirdi ve bunu gerektiren bir kanıt yok.
+    "analyze 0" yeniden otomatik doğru.
+15. **[✅ KAPANDI — 2026-08-17]** ~~Test içine SABİT YAZILMIŞ İŞ DEĞERLERİ~~ — tarandı, iki gerçek
+    bulgu düzeltildi: `SubscriptionTest` dönem süresini `BillingPeriod::Yearly->uzat()`tan okuyor
+    (eski `addDays(300)` eşiği "yıllık"ı değil yalnız "çok uzun"u kanıtlıyordu), `LiveLocationTest`
+    sınırı `config('konum.kalp_atisi_limit')`ten okuyor. ⚠️ **Düzeltme testin varlık sebebini
+    delmesin diye** konum testine ayrıca "sınır genel API sınırından DAR olmalı" iddiası eklendi —
+    yoksa değeri kaynaktan okumak testi "her zaman geçer" hâline getirirdi.
 
 **YENİ (2026-08-10/2):**
 

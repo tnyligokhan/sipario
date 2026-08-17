@@ -13,16 +13,15 @@ import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
-import '../../theme/typography.dart';
 import '../customers/customer_form_screen.dart' show musteriEkleSheet;
 import '../shell/alt_nav.dart' show SipSekme;
 import '../shell/sekme_yonlendirme.dart';
 import '../team.dart';
+import 'order_form_kalemler.dart';
 import 'order_form_parts.dart';
 import 'order_parts.dart';
 import 'order_queries.dart';
 import 'order_sheets.dart';
-import 'pos_catalog.dart';
 import 'siparis_kapisi.dart';
 
 export 'order_parts.dart' show LineDraft, toplamKurus;
@@ -443,116 +442,20 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       );
 
   // ── Adım 2 — kalemler ───────────────────────────────────────────────────────────────────
-  //
-  // EKRAN İKİ BÖLGEDİR: önce "nasıl eklerim", sonra "ne ekledim".
-  //
-  // Eskiden üç ekleme yolu (favori hapları · katalog düğmesi · serbest satır bağlantısı) sepetin
-  // ÜSTÜNE, ALTINA ve ARASINA dağılmıştı; sepet ikiye bölünmüş, ekran da altı ayrı yüzeye. Aynı
-  // işi yapan üç düğme birbirinden uzağa serpildiğinde kullanıcı hangisine basacağını her
-  // seferinde yeniden karar vermek zorunda kalır. Üçü artık hız sırasına dizili tek bir blok:
-  // her zamanki ürünler (tek dokunuş) → katalog (arama/barkod) → serbest satır (istisna).
-  Widget _adim2() {
-    final t = context.sip;
-    return SipGovde(
-      children: [
-        // .ys-secili — sipariş KİMİN için giriliyor; ekranın çapası, en üstte kalır.
-        Container(
-          margin: const EdgeInsets.only(top: SipSpace.lg),
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-          decoration: BoxDecoration(color: t.accentSoft, borderRadius: SipRadius.br2),
-          child: Row(
-            children: [
-              SipIcon(SipIcons.user, boyut: 15, kalinlik: 2.1, renk: t.accent),
-              const SizedBox(width: SipSpace.md),
-              Expanded(
-                child: Text(
-                  // Müşteri dışarıdan kilitli geldiyse (müşteri detayından "Sipariş oluştur")
-                  // kayıt bir kare gecikmeyle iner — boş satır yerine bekleme işareti.
-                  _musteri?.name ?? '…',
-                  style: SipText.metin(13.5, w: 800).copyWith(color: t.accent),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (!_musteriKilitli)
-                SdxLink(etiket: 'Değiştir', onTap: () => setState(() => _adim = 1)),
-            ],
-          ),
-        ),
-
-        // ── Ekleme yolları — hız sırasına göre ────────────────────────────────────────────
-        // Favori ürünler: müşterinin "her zamankileri", tek dokunuşla sepete. Sipariş girişinin
-        // en sık hâli zaten budur; katalogu açmak istisnadır. Favorisi olmayan müşteride bölüm
-        // hiç çizilmez.
-        FavoriSeridi(
-          db: widget.db,
-          musteriId: _musteri?.id,
-          onEkle: (u) {
-            _urunEkle(u, 1);
-            SipToast.goster(context, '${u.name} sepete eklendi');
-          },
-        ),
-        YsEkleDugmesi(
-          etiket: 'Katalogdan ürün ekle',
-          ikon: SipIcons.plus,
-          onTap: () => posKatalogAc(
-            context,
-            db: widget.db,
-            onEkle: _urunEkle,
-            onBildir: (m) => SipToast.goster(context, m),
-          ),
-        ),
-        // .ys-serbest — katalog düğmesinin hemen ALTINDA. İkisi de "sepete bir şey koy" demek;
-        // aralarına sepeti sokmak, ikinci yolu listenin dibinde kaybediyordu.
-        SipDokun(
-          onTap: _serbestEkle,
-          radius: SipRadius.br2,
-          // CSS `.ys-serbest { padding: 13px 2px }` (_sayfa.html:522) — ölçü tasarımdan.
-          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 2),
-          child: Text(
-            '+ Serbest satır (katalogda olmayan iş)',
-            textAlign: TextAlign.center,
-            style: SipText.metin(12.5, w: 600).copyWith(color: t.muted),
-          ),
-        ),
-
-        // ── Sepet ────────────────────────────────────────────────────────────────────────
-        // Bölüm başlığı sepet BOŞKEN DE durur: ekleme yapıldığında düzen yerinden oynamaz,
-        // kullanıcı eklediği kalemin nereye düşeceğini önceden görür. Sayaç yalnız dolu
-        // sepette yazar — "0 kalem" bir bilgi değil, gürültüdür.
-        SdxSec(
-          // Adım rozeti "Kalemler" diyor, özet ekranı "Kalemler" diyor — sepet de aynı adı
-          // taşır. Aynı şeyin akış boyunca tek adı olur.
-          'Kalemler',
-          sag: _sepetBos ? null : SdxAdet('${_satirlar.length} kalem'),
-        ),
-        if (_sepetBos)
-          // BOŞ DURUM METNİ DEĞİŞTİ (2026-08-12): eski hâli "Sepet boş — katalogdan ürün
-          // ekleyin" diyerek tam üstündeki düğmenin sözünü tekrarlıyordu. Boş bölüm, ne
-          // yapılacağını değil BURAYA NE GELECEĞİNİ söyler; eylem zaten iki parmak yukarıda ve
-          // kendi adını taşıyor.
-          const YsBosDurum(metin: 'Eklenen kalemler burada listelenir')
-        else
-          for (var i = 0; i < _satirlar.length; i++)
-            Padding(
-              padding: EdgeInsets.only(top: i == 0 ? 0 : 7),
-              child: YsSatiri(
-                ad: _satirlar[i].name,
-                // CSS `.ys-birim` YALNIZ birimi yazar (s-siparisler.jsx:346) — birim
-                // fiyat sağdaki satır toplamının yanında ikinci kez okunmaz.
-                altMetin: _satirlar[i].birimEtiketi,
-                tutarKurus: _satirlar[i].unitPriceKurus * _satirlar[i].qty,
-                adet: _satirlar[i].serbest ? null : _satirlar[i].qty,
-                onAzalt: () => _adetDegis(i, -1),
-                onArtir: () => _adetDegis(i, 1),
-                onSil: () => setState(() => _satirlar.removeAt(i)),
-                not: _satirlar[i].note,
-                onNot: () => _satirNotu(i),
-              ),
-            ),
-      ],
-    );
-  }
+  // Çizim `order_form_kalemler.dart`ta; DURUM (sepet, adetler, satır notları) burada kalır.
+  Widget _adim2() => KalemlerAdimi(
+        db: widget.db,
+        musteri: _musteri,
+        musteriKilitli: _musteriKilitli,
+        satirlar: _satirlar,
+        onMusteriDegistir: () => setState(() => _adim = 1),
+        onUrunEkle: _urunEkle,
+        onSerbestEkle: _serbestEkle,
+        onAdetDegis: _adetDegis,
+        onSil: (i) => setState(() => _satirlar.removeAt(i)),
+        onSatirNotu: _satirNotu,
+        onBildir: (m) => SipToast.goster(context, m),
+      );
 
   // ── Adım 3 — özet ───────────────────────────────────────────────────────────────────────
   // Çizim `order_form_parts.dart`ta.

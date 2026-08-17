@@ -168,6 +168,39 @@ jobs:
             --dart-define=SIPARIO_YAPIM="$YAPIM" \
             --dart-define=SIPARIO_API="$API"
 
+      # BİRLEŞTİRİLMİŞ MANİFEST İZİN DENETİMİ (kırmızı çizgi #6) — 2026-08-17'de eklendi.
+      #
+      # NEDEN AYRI BİR ADIM: `manifest-lint.yml` yalnız KAYNAK manifest'i okur. Üçüncü parti
+      # paketlerin manifest merger üzerinden ENJEKTE ettiği izinler o denetimden KAÇAR ve
+      # yalnız build çıktısında görünür — yani yasağın en olası ihlal yolu (bir paket
+      # güncellemesinin sessizce READ_PHONE_STATE getirmesi) tam da denetimsiz olan yoldu.
+      # `scripts/check_permissions.sh` bunun için yazılmıştı ama HİÇBİR iş akışı çağırmıyordu.
+      #
+      # `magaza` AYRICA ÜRETİLİR ve bu pazarlıksız: kanal DAL ADINDAN gelir (main→saha,
+      # diğer→deneme), yani mağaza kanalı bu iş akışında hiç derlenmez. Oysa
+      # REQUEST_INSTALL_PACKAGES yasağının ASIL adresi orasıdır — "geçici saha özelliği Play
+      # sürümüne sızmasın" güvencesi yalnız magaza çıktısı denetlenirse gerçektir. Tam APK
+      # gerekmez: manifest birleştirme tek gradle görevidir ve derlemeden sonra bağımlı
+      # görevlerin çoğu zaten güncel olduğu için saniyeler sürer.
+      #
+      # `android/gradlew` depoda YOKTUR (`android/.gitignore`), ama `flutter build` çalışırken
+      # sarmalayıcıyı SDK önbelleğinden kopyalar ve çalıştırılabilir yapar
+      # (`gradle_utils.dart::injectGradleWrapperIfNeeded`). Bu yüzden adım derlemeden SONRA
+      # gelmek zorunda. Yoksa AÇIKÇA düşer — sessizce atlamak, denetimin olmamasından beterdir.
+      - name: Birleştirilmiş manifest izin denetimi (kırmızı çizgi #6)
+        working-directory: apps/mobile
+        env:
+          SAHA_KEYSTORE_SIFRE: ${{ secrets.SAHA_KEYSTORE_SIFRE }}
+          SAHA_ANAHTAR_SIFRE: ${{ secrets.SAHA_ANAHTAR_SIFRE }}
+        run: |
+          if [ ! -x android/gradlew ]; then
+            echo "HATA: android/gradlew yok — flutter sarmalayıcıyı enjekte etmemiş." >&2
+            echo "      Bu adım 'APK derle'den SONRA gelmeli." >&2
+            exit 1
+          fi
+          (cd android && ./gradlew --console=plain :app:processMagazaReleaseManifest)
+          bash ../../scripts/check_permissions.sh release
+
       - name: Sürümü APK'nın KENDİSİNDEN doğrula
         run: |
           CIKTI=apps/mobile/build/app/outputs/flutter-apk

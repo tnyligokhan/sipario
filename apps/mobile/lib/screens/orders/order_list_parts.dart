@@ -9,6 +9,7 @@ import '../../data/app_database.dart';
 import '../../sync/yenileme.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
+import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
@@ -63,6 +64,126 @@ String kuryeSuzgecEtiketi(String? seciliId, List<User> adaylar) {
 /// Bu dosya depoyu İMPORT ETMEZ (tersi geçerli): çizim katmanı `dart:io`ya bağlanmasın, widget
 /// testleri platform kanalı olmadan koşabilsin.
 bool tutamacSagdaTercihi = true;
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// Gövde — yedi akış tek listede birleşir
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// Sipariş akışını YARDIMCI akışlarla (ekip · satırlar · tahsilatlar · kod tercihi · adresler ·
+/// telefonlar) birleştirip [SiparisListesi]ye verir.
+///
+/// NEDEN STATEFUL: yardımcı akışlar `late final` alanlarda BİR KEZ kurulur. `build` içinde
+/// kurulsalardı her `setState`te yeni birer Stream nesnesi doğar, StreamBuilder aboneliği
+/// koparır ve liste bir kare iskelete inerdi (ekranda ödenen ders; sipariş akışının önbelleği
+/// de aynı sebeple var). Widget yeniden kurulsa da State aynı kaldığı için alanlar korunur.
+///
+/// Sipariş akışı DIŞARIDAN gelir ([siparisler]): filtre/kurye/gün değişince onu yeniden kurmak
+/// ekranın işidir — kapsamı bilen odur.
+class SiparisListesiGovdesi extends StatefulWidget {
+  const SiparisListesiGovdesi({
+    super.key,
+    required this.db,
+    required this.siparisler,
+    required this.sirala,
+    required this.bos,
+    required this.elle,
+    required this.tutamacSagda,
+    required this.onAc,
+    required this.onKuryeAc,
+    required this.onBildir,
+    required this.onSirala,
+    required this.onTekrar,
+  });
+
+  final AppDatabase db;
+
+  /// Filtre/kurye/gün kapsamındaki sipariş akışı — ekran önbellekler.
+  final Stream<List<OrderListItem>> siparisler;
+
+  /// Ham listeyi seçili kipe göre sıralar (`siparisleriSirala` + elle sırası) — kip ve sürükleme
+  /// sırası ekranın durumudur, bu yüzden karar dışarıda verilir.
+  final List<OrderListItem> Function(List<OrderListItem> ham) sirala;
+
+  /// Boş durum. Metni ekran kurar: süzgece ve sekmeye bağlıdır.
+  final Widget bos;
+
+  final bool elle;
+  final bool tutamacSagda;
+  final void Function(OrderListItem) onAc;
+  final void Function(OrderListItem)? onKuryeAc;
+  final void Function(String mesaj) onBildir;
+  final Future<void> Function(List<OrderListItem>) onSirala;
+
+  /// "Tekrar dene" — ekran akışı YENİDEN KURMALI (önbellekli akışa boş bir setState ile geri
+  /// abone olmak aynı ölü akışa dönmek olurdu; düğme hiçbir şey yapmazdı).
+  final VoidCallback onTekrar;
+
+  @override
+  State<SiparisListesiGovdesi> createState() => _SiparisListesiGovdesiState();
+}
+
+class _SiparisListesiGovdesiState extends State<SiparisListesiGovdesi> {
+  late final Stream<List<User>> _ekip = watchTeam(widget.db);
+  late final Stream<Map<String, List<OrderLine>>> _satirlar =
+      watchOrderLinesByOrder(widget.db);
+  late final Stream<Map<String, int>> _tahsilatlar = watchSiparisTahsilatlari(widget.db);
+  late final Stream<String> _kodTercihi = watchSiparisKoduTercihi(widget.db);
+  late final Stream<Map<String, AdresBilgi>> _adresler = watchBirincilAdresler(widget.db);
+  late final Stream<Map<String, String>> _telefonlar = watchBirincilTelefonlar(widget.db);
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<User>>(
+      stream: _ekip,
+      initialData: const [],
+      builder: (context, ekipSnap) => StreamBuilder<Map<String, List<OrderLine>>>(
+        stream: _satirlar,
+        initialData: const {},
+        builder: (context, satirSnap) => StreamBuilder<String>(
+          stream: _kodTercihi,
+          initialData: 'musteri',
+          builder: (context, kodSnap) => StreamBuilder<Map<String, int>>(
+            stream: _tahsilatlar,
+            initialData: const {},
+            builder: (context, tahsilatSnap) => StreamBuilder<Map<String, AdresBilgi>>(
+              stream: _adresler,
+              initialData: const {},
+              builder: (context, adresSnap) => StreamBuilder<Map<String, String>>(
+                stream: _telefonlar,
+                initialData: const {},
+                builder: (context, telSnap) => StreamBuilder<List<OrderListItem>>(
+                  stream: widget.siparisler,
+                  builder: (context, snap) {
+                    if (snap.hasError) return SipHataEkran(onTekrar: widget.onTekrar);
+                    final ham = snap.data;
+                    if (ham == null) return const SipIskelet(adet: 4);
+                    if (ham.isEmpty) return widget.bos;
+
+                    return SiparisListesi(
+                      liste: widget.sirala(ham),
+                      satirlar: satirSnap.data ?? const {},
+                      tahsilatlar: tahsilatSnap.data ?? const {},
+                      kodTercihi: kodSnap.data ?? 'musteri',
+                      adresler: adresSnap.data ?? const {},
+                      telefonlar: telSnap.data ?? const {},
+                      ekip: ekipSnap.data ?? const [],
+                      elle: widget.elle,
+                      tutamacSagda: widget.tutamacSagda,
+                      onAc: widget.onAc,
+                      onKuryeAc: widget.onKuryeAc,
+                      onBildir: widget.onBildir,
+                      onSirala: widget.onSirala,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Liste — CSS `.sliste`

@@ -164,8 +164,16 @@ void main() {
     // ekranından `HomeShell`e geçti (çağrı geçmişinin girişi artık çekmecede). Taranan dosya
     // değişti, KORUNAN KURAL AYNI: yön geçilmezse kart "GELEN ÇAĞRI" varsayar ve bayi kendi
     // yaptığı aramanın kartında gelen çağrı görür (2026-07-27 saha bulgusu).
+    // KABUK DÖRDE BÖLÜNDÜ (2026-08-17, 500 satır kuralı): çağrı yüzeyi
+    // `home_shell_cagri.dart`a taşındı. Tek dosya adı yazmak yerine kabuğun TÜM parçaları
+    // taranıyor — bir sonraki bölme bu testi yine kırmasın diye. Korunan kural değişmedi.
     test('home_shell çağrı kartını AÇARKEN yönü geçirir', () {
-      final kaynak = File('lib/screens/home_shell.dart').readAsStringSync();
+      final kaynak = Directory('lib/screens')
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.contains('home_shell'))
+          .map((f) => f.readAsStringSync())
+          .join('\n');
       final cagri = kaynak.indexOf('cagriKartiGoster(');
       expect(cagri, isNot(-1), reason: 'çağrı kartı bu ekrandan açılıyor olmalı');
 
