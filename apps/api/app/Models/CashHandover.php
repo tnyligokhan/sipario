@@ -35,7 +35,7 @@ use Illuminate\Support\Carbon;
  */
 class CashHandover extends Model
 {
-    use HasUuids;
+    use HasUuids, MikrosaniyeliDamga;
 
     protected $fillable = [
         'id',

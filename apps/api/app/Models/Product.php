@@ -30,7 +30,7 @@ use Illuminate\Support\Carbon;
 class Product extends Model
 {
     /** @use HasFactory<ProductFactory> */
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, MikrosaniyeliDamga;
 
     protected $fillable = [
         'id',

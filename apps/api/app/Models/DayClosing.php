@@ -37,7 +37,7 @@ use Illuminate\Support\Carbon;
  */
 class DayClosing extends Model
 {
-    use HasUuids;
+    use HasUuids, MikrosaniyeliDamga;
 
     protected $fillable = [
         'id',

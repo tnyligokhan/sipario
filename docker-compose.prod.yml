@@ -25,13 +25,44 @@
 #    ağındaki container'lar erişir.
 # ══════════════════════════════════════════════════════════════════════════════
 
+# ⚠️ ══ AŞAĞIDAKİ `${DEGISKEN:-varsayilan}` VARSAYILANLARININ ÇOĞU ÖLÜDÜR ══════════════════
+#
+# `:-` YALNIZ değişken TANIMSIZKEN işler. Coolify panelinde tanımlı olan her değişken için
+# buradaki varsayılan hiçbir zaman okunmaz — yani bu dosya "yürürlükteki değer" belgesi DEĞİLDİR.
+# Bir kez pahalıya mal oldu: `LOG_CHANNEL: ${LOG_CHANNEL:-stderr}` aylarca ölü kaldı (panelde
+# `stack` tanımlıydı) ve bir gecelik çöküşün günlüklerini yok eden şey buydu.
+#
+# ÖLÇÜLDÜ (2026-08-17, "Sipario Dev" uygulaması): bu dosyadaki **64 değişkenin 62'sinin
+# varsayılanı ÖLÜ**. Yürürlükte olan yalnız ikisi — panelde tanımsız oldukları için:
+#   • YEDEK_DIZIN (/backups)   • YEDEK_TAZELIK_SAAT (30)
+#
+# ÖLÇÜM YÖNTEMİ (tahmin etme, tekrar koş): Coolify API'sinden anahtar listesini al
+# (`list_env_keys`, DEĞERLERİ vermez ama tanımlı olup olmadığını söyler) ve şu listeyle karşılaştır:
+#   grep -o '\${[A-Z_]*:-' docker-compose.prod.yml | sed 's/\${//; s/:-//' | sort -u
+# Kesişimde kalan her satırın varsayılanı ölüdür. (`docker inspect` de çalışır ama sunucuya
+# erişim ister; API yöntemi ucuzdur ve deploy'dan ÖNCE koşulabilir.)
+#
+# 🔴 ÜRETİM SIFIRDAN KURULURKEN DENKLEM TERSİNE DÖNER: panelde hiçbiri tanımlı olmadığı için
+# TÜM varsayılanlar canlanır. Kurulum listesi PLAN.md'deki "SIRADAKİ İŞLER" 0. maddesindedir;
+# oradaki iki tuzak (SIPARIO_*_PASSWORD eklenmesin · LOG_CHANNEL tanımlanmasın) bu yüzden vardır.
+# ══════════════════════════════════════════════════════════════════════════════════════════
+
 # ── Paylaşılan uygulama ortam değişkenleri (YAML anchor) ────────────────────
 # app, queue ve scheduler aynı Laravel uygulamasıdır; üçü de aynı env
 # değişkenlerine ihtiyaç duyar. Tekrarı önlemek için anchor kullanılır.
 x-app-env: &app-env
   APP_NAME: ${APP_NAME:-Sipario}
   APP_ENV: ${APP_ENV:-production}
-  APP_KEY: ${APP_KEY:-base64:Wi45ki1vmGrHW3XQUjFSQbkyNj0I/gGiyxlHlIpg5Wk=}
+  # ⚠️ VARSAYILANI BİLEREK YOK (2026-08-17). Buraya kadar depoda AÇIK YAZAN bir anahtar
+  # duruyordu (`base64:Wi45ki1...`). Panelde `APP_KEY` tanımlı olduğu için dev'de ölüydü —
+  # ama varsayılanlar tam da PANELDE TANIMSIZKEN canlanır, yani üretim SIFIRDAN kurulduğunda.
+  # O senaryoda uygulama, deposu herkese açık bir anahtarla açılırdı: oturum çerezleri ve
+  # şifrelenmiş her yük taklit edilebilir olurdu.
+  #
+  # Varsayılansız bırakmak SESSİZ bir açığı GÜRÜLTÜLÜ bir hataya çevirir: `APP_KEY` yoksa
+  # Laravel açılışta "No application encryption key has been specified" ile DÜŞER. Kurulumu
+  # yapan kişi hatayı görür ve `php artisan key:generate --show` ile gerçek bir anahtar üretir.
+  APP_KEY: ${APP_KEY}
   APP_DEBUG: ${APP_DEBUG:-false}
   APP_URL: ${APP_URL:-https://sipario.com.tr}
   APP_LOCALE: tr

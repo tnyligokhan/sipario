@@ -40,6 +40,8 @@ use Illuminate\Support\Carbon;
  */
 class TenantSetting extends Model
 {
+    use MikrosaniyeliDamga;
+
     protected $primaryKey = 'tenant_id';
 
     public $incrementing = false;

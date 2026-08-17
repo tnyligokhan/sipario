@@ -26,7 +26,7 @@ use Illuminate\Support\Carbon;
  */
 class CustomerPhone extends Model
 {
-    use HasUuids;
+    use HasUuids, MikrosaniyeliDamga;
 
     protected $fillable = [
         'id',

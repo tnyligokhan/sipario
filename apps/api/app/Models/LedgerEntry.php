@@ -30,7 +30,7 @@ use Illuminate\Support\Carbon;
  */
 class LedgerEntry extends Model
 {
-    use HasUuids;
+    use HasUuids, MikrosaniyeliDamga;
 
     public $timestamps = false; // yalnız created_at (DB useCurrent); updated_at yok — append-only
 

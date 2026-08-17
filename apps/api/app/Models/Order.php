@@ -31,7 +31,7 @@ use Illuminate\Support\Carbon;
  */
 class Order extends Model
 {
-    use HasUuids;
+    use HasUuids, MikrosaniyeliDamga;
 
     protected $fillable = [
         'id',
