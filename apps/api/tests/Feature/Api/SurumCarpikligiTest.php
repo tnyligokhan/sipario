@@ -270,12 +270,19 @@ class SurumCarpikligiTest extends ApiTestCase
         // Oysa aynı MONOREPO'dalar — bağ makineyle zorlanabilir ve zorlanmalıdır. Bağ koparsa
         // (mobil batchSize büyür ya da sunucu MAX_EVENTS küçülür) HER push kalıcı 422 alır:
         // istemcinin ikili araması kuyruğu kilitlenmekten kurtarır ama her tur boşa gider.
-        $yol = base_path('../mobile/lib/sync/sync_engine.dart');
-        if (! is_file($yol)) {
+        // MOTOR ÜÇE BÖLÜNDÜ (2026-08-17, 500 satır kuralı): `pushPending` artık
+        // `sync_itme.dart`ta. Tek dosya adı yazmak bu bekçiyi her bölmede yeniden kırar ve
+        // kırıldığında SESSİZ DEĞİL ama YANLIŞ yerde arayan bir hata verir; bu yüzden motorun
+        // dosya AİLESİ taranıyor (`sync_engine.dart` + `part`ları).
+        $dosyalar = glob(base_path('../mobile/lib/sync/sync_*.dart')) ?: [];
+        if ($dosyalar === []) {
             $this->markTestSkipped('Mobil kaynak bu ağaçta yok (yalnız API dağıtımı).');
         }
 
-        $kaynak = (string) file_get_contents($yol);
+        $kaynak = implode("\n", array_map(
+            static fn (string $y): string => (string) file_get_contents($y),
+            $dosyalar
+        ));
         $this->assertSame(
             1,
             preg_match('/pushPending\(\{int batchSize = (\d+)\}\)/', $kaynak, $m),

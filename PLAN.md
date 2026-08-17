@@ -317,7 +317,14 @@ kanıtlandı** — düzeltme geçici olarak geri alındı, iki test kırmızı y
   2026-08-09 tarihlidir ve aradaki sekiz günün işini de içerir. **Bu vardiyanın kendi katkısı 38
   yeni testtir** (yetki matrisi 23 + rol kapısı 9 + göç zinciri 3 + v19/v20/v21 üçer bir).
 - `dart analyze`: **0 issue** (`onReorder` info'su dahil hiçbir uyarı yok)
-- API: `pint` temiz (370 dosya) · `phpstan` **0 hata** · dokunulan iki test dosyası 26/26
+- API: **869 test / 867 geçti + 1 incomplete (LWW) + 1 kırık → kırık DÜZELTİLDİ**, `pint` temiz
+  (370 dosya) · `phpstan` **0 hata**
+- ⚠️ **BÖLME İKİ KAYNAK-TARAYAN BEKÇİYİ KIRDI ve ikisi de değerliydi** (biri Dart, biri PHP):
+  `ui_cagri_yon_test.dart` çağrı kartının `yon:` argümanını, `SurumCarpikligiTest` ise **mobil
+  `batchSize` ile sunucunun `MAX_EVENTS` sabitinin bağını** denetliyor. İkisi de tek bir dosya
+  ADI yazıyordu; taşınan kodu bulamayınca "desen değişmiş" diye düştüler. **İkisi de artık dosya
+  AİLESİNİ tarıyor** (`home_shell*`, `sync_*`) — bir sonraki bölme onları yeniden kırmasın diye.
+  **Ders: kaynak tarayan bekçi, taradığı dosyanın adına değil AİLESİNE bağlanmalıdır.**
 - **Birleştirilmiş manifest denetimi KIRMIZI YAKABİLİYOR — kanıtlandı:** `magaza` manifestine
   `READ_SMS` enjekte edildi → betik kanalı isimlendirerek düştü (çıkış kodu 1), sonra geri alındı.
   Gradle görev adı (`:app:processMagazaReleaseManifest`) de yerel olarak doğrulandı.
