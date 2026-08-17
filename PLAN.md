@@ -68,10 +68,13 @@
   kapandı; `MAIL_*` 2026-08-15'te tanımlı ölçüldü ve **2026-08-17'de test sunucusunda gerçekten posta
   gittiği doğrulandı** (yani `log` değil `smtp`); `GEOCODING_DRIVER` + `ROTA_SURUCU=google` çalışır
   durumda. `IYZICO_*` **askıya alındı** (aşağıya bakınız) — denetlenecek bir şey kalmadı.
-- **[✅ KAPANDI — 2026-08-15]** ~~Makine dışı yedek kararı.~~ S3 ertelendi; her sabah 08:00'de
-  indirme bağlantısı `YEDEK_EPOSTA` adresine postalanıyor. **Tek kalan adım kullanıcıda:
-  Coolify'da `YEDEK_EPOSTA` değişkenini tanımlamak** (tanımlanana kadar görev her sabah bilerek
-  HATA ile çıkar, sessizce başarılı dönmez).
+- **[✅ TAMAMEN KAPANDI — 2026-08-18, UÇTAN UCA ÖLÇÜLDÜ]** ~~Makine dışı yedek kararı.~~ S3
+  ertelendi; her sabah 08:00'de indirme bağlantısı `YEDEK_EPOSTA` adresine postalanıyor.
+  Kullanıcı değişkeni panelde tanımladı; **bu vardiyada gerçekten bağlandı ve postanın çıktığı
+  görüldü:** `yedek:baglanti-gonder` → çıkış kodu **0**, `App\Mail\YedekHazir … DONE`,
+  `failed_jobs` **0**. ⚠️ **Tanımlamak yetmedi:** koşan kap 3 günlüktü, `config('yedek.eposta')`
+  boş dönüyordu — değişken ancak REDEPLOY'la indi. (Sınır aynen duruyor: yedeğin makine dışına
+  çıkması insanın postayı açıp indirmesine bağlıdır, otomatik uzak kopyanın yerini tutmaz.)
 - **[✅ KAPANDI]** ~~Mobil doğrulama partnerin Flutter'lı makinesinde~~ — **bu makinede Flutter VAR**
   (`C:\flutter`); 2026-08-09'da `flutter test` burada koşuldu: **1108/1108**.
 - **[✅ KAPANDI]** ~~`dev→main` PR (#11) merge kararı~~ — birleştirme yapıldı (`86c418b`) ve canlı
@@ -256,6 +259,105 @@
 >
 ## Güncel durum
 
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-18 — SSH AÇIKMIŞ: ÜÇ ORTAM MADDESİ KAPANDI, BİR "KAPALI" MADDE YALAN ÇIKTI (kod DEĞİŞMEDİ; sürüm DEĞİŞMEDİ: mobil 0.26.0, API 1.10.0)
+
+**🔴 BU VARDİYANIN EN ÖNEMLİ TEK CÜMLESİ: SSH ERİŞİMİ VAR VE HEP VARDI.** Önceki vardiya
+#11 ve #17'yi "erişim yok" diye kapatamamıştı (*"Coolify MCP'de komut çalıştırma yok, SSH
+kapalı"*). Ölçüldü: `ssh -i ~/.ssh/sipario_v2_ed25519 root@187.124.191.134` → `srv1577146`,
+Docker 29.4.1, `docker exec` serbest. Anahtar 2026-08-15'te zaten tazelenmişti; "kapalı"
+hükmü **denenmeden** verilmişti. Erişim açılınca üç madde aynı vardiyada kapandı.
+
+> ⚠️ **DERS (bu depoda ikinci kez):** "erişim yok" bir ÖLÇÜMDÜR, bir hatırlama değil.
+> Bir aracın çalışmaması (Coolify MCP'de komut yok) başka bir aracın da çalışmadığını
+> göstermez. Bir sonraki vardiya "X kapalı" yazan bir satır görürse **X'i bir kez dener.**
+
+**✅ #11 — TEST ORTAMINA DEMO VERİSİ YÜKLENDİ.**
+Madde "test ortamı boş, içinde bayi yok" diyordu; **bu da bayattı** — elle kurulmuş bir
+`test-bayi` zaten vardı (2 kullanıcı · 6 müşteri · 21 sipariş). Eksik olan DEMO bayisiydi.
+`DemoSeeder` koşuldu (idempotent, tek işlem — mevcut bayiye dokunmaz):
+
+| Demo bayisi | Sayı |
+|---|---|
+| kullanıcı | 5 |
+| müşteri | 11 |
+| ürün | 10 |
+| sipariş | 15 |
+| defter kaydı | 14 |
+| çağrı kaydı | 6 |
+
+**Giriş UYGULAMANIN KENDİ YOLUNDAN doğrulandı** (kayıt saymak giriş yapılabildiğini
+kanıtlamaz — bu depoda bir kez ödendi): `POST /api/v1/auth/login` → **HTTP 200**,
+`demo/demo/demo1234` → patron "Mehmet Usta" · "Merkez Su Bayii" · `valid_until` 2036.
+⚠️ Uç nokta `/api/v1/login` DEĞİL, **`/api/v1/auth/login`**tir.
+
+**✅ #17 — ÖKSÜZ HACİMLER SİLİNDİ (10 adet, ~377 MB).** Silmeden önce içerik OKUNDU, çünkü
+maddenin asıl sorusu disk değil *"veri silindi mi?"* belirsizliğiydi. Yedek hacimleri
+okunabilir `pg_dump` taşıyordu; en yeni öksüz kuşağın dökümü açıldı:
+**tek bayi = slug `demo` / "Merkez Su Bayii"** — yani `DemoSeeder`'ın ürettiği SENTETİK veri.
+**Gerçek bayi/müşteri verisi YOKTU**, dolayısıyla silme hiçbir şey kaybettirmedi ve KVKK
+tarafında da doğru olan buydu. Dökümler (~700 KB) `/root/oksuz-hacim-arsiv/` altına
+`OKUBENI.txt` ile arşivlendi; o dizin serbestçe silinebilir.
+
+| Silinen kuşak | Hacim | Boyut |
+|---|---|---|
+| `h43pc3…` | backups · pgdata-v3 · pgdata-v4 | 508K · 46M · 73M |
+| `pz3gsgc8…` | backups · pgdata-v4 | 236K · 72M |
+| `un35zcb3…` | pgdata · pgdata-v1 | 46M · 47M |
+| `xwdasjxc3…` | backups(boş) · pgdata-v2 · pgdata-v3 | 4K · 46M · 46M |
+
+Kalan iki hacim (`l1o1xouu…_sipario-backups`, `…-pgdata-v4`) KULLANIMDADIR; silme sonrası
+beş kap sağlıklı ve site HTTP 200.
+
+**✅ #16 — `${DEGISKEN:-varsayilan}` TARAMASI KAPANDI.** Önceki vardiyanın sayısı bağımsız
+olarak doğrulandı: compose'da **64** varsayılanlı satır, panelde **68** tanımlı anahtar →
+**yalnız 2 varsayılan fiilen yürürlükte** (`YEDEK_DIZIN:-/backups`, `YEDEK_TAZELIK_SAAT:-30`;
+üçüncü eşleşme `${DEGISKEN:-varsayilan}` yorumdaki örnektir).
+🔴 **Asıl ders burada ve maddenin metninden daha keskin:** ölü varsayılanların çoğu panel
+değeriyle **birebir aynı** (`LOG_CHANNEL=stderr`, `CACHE_STORE=database`,
+`SESSION_DRIVER=database`, `QUEUE_CONNECTION=database`, `BCRYPT_ROUNDS=12`). Yani **değere
+bakarak hangisinin yürürlükte olduğu ayırt EDİLEMEZ** — eşitlik, varsayılanın yaşadığının
+değil yalnızca çakıştığının kanıtıdır. Tek güvenilir ölçüt: *anahtar panelde tanımlı mı?*
+
+**📏 #10 — DEPLOY KESİNTİSİ YENİDEN ÖLÇÜLDÜ: 48 saniye.** Zaten gereken bir redeploy
+(aşağıda) 0,5 sn aralıklı sonda ile izlendi: 1 bağlantı hatası + **60 ardışık 503**,
+`02:24:53 → 02:25:40`. Yani PLAN'daki **52,3 sn** ölçümü doğru ve YENİDEN ÜRETİLEBİLİR —
+tek seferlik bir aksama değil, düzenin kendisi. Sebep compose'da zaten yazılı: `deploy:`
+bloğu Swarm dışında yok sayıldığı için `start-first` diye bir şey yok; Coolify eski kabı
+durdurup yenisini kuruyor ve `start_period: 40s`lik healthcheck bekleniyor.
+**Karar DEĞİŞMEDİ ve değişmemeli:** sıfırlamak iki replika + expand/contract migration
+disiplini ister; bugünkü tek kullanıcı test ortamıdır, 48 sn'nin bedeli sıfırdır.
+Madde "araştırılacak" olmaktan çıkıp **ölçülmüş ve kabul edilmiş** hâline geçti.
+
+**✅ `YEDEK_EPOSTA` UÇTAN UCA ÇALIŞIYOR** (kullanıcı panelde tanımladı, bu vardiyada bağlandı).
+⚠️ Tanımlamak YETMİYORDU: koşan kap 3 günlüktü ve değişkeni taşımıyordu (`config('yedek.eposta')`
+boş dönüyordu). Redeploy sonrası `YEDEK_EPOSTA=tnyligokhan@gmail.com` kaba indi ve komut
+gerçekten koştu: `yedek:baglanti-gonder` → **çıkış kodu 0**, `App\Mail\YedekHazir … DONE`,
+`failed_jobs` 0. Yani posta kuyruktan geçti, artık her sabah 08:00'de çıkacak.
+
+> **KURAL OLARAK KAYDA GEÇSİN:** Coolify'da bir değişkeni TANIMLAMAK onu YÜRÜRLÜĞE KOYMAZ.
+> Değişken kaba ancak yeni kap kurulurken iner; koşan kap eski değerlerle yaşamaya devam
+> eder. "Panelde yazıyor" bir kanıt değildir — kanıt `docker inspect` ya da uygulamanın
+> kendi `config()` çıktısıdır.
+
+**🔴 BU VARDİYANIN KÖTÜ HABERİ — #19 "KAPANDI" YAZIYORDU, KAPANMAMIŞ:**
+`ROTA_SURUCU` sunucuda **`yakin-komsu`**. Redeploy'dan SONRA da öyle kaldı, yani bu eski
+kabın bayatlığı değil — **panel değerinin kendisi `google` değil.** PLAN #19 ve 2026-08-17
+devir notu *"AÇIK · `ROTA_SURUCU=google` · gerçek yol ağı çalışıyor"* diyor; **sahada
+yürürlükte olan yakın-komşu yedeğidir.** Gerçek yol ağı sıralaması ŞU AN KAPALI.
+Madde yeniden AÇILDI (aşağıda). Düzeltmesi tek satır (panelde `ROTA_SURUCU=google` +
+redeploy) ama bu bir kota kararıdır ve test/üretim aynı anahtarı paylaşmamalıdır —
+**kullanıcıya bırakıldı, kendi başıma değiştirmedim.**
+
+**YAN ÖLÇÜM — test ortamı 3 gün eski kod koşuyormuş:** deploy öncesi `/api/v1/version`
+**1.8.0** dönüyordu, ağaç **1.10.0**'dı. Redeploy sonrası **1.10.0**. Sürüm artırılmadı,
+yalnız mevcut kod indi.
+
+**ÖLÇÜMLER:** site HTTP 200 · beş kap sağlıklı · demo girişi 200 · `failed_jobs` 0 ·
+kuyruk boş · disk 12G/96G. **Kod değişmedi, sürüm değişmedi** (kural: kullanıcıya görünen
+davranış değişmediyse artış yok).
+
+**TEMİZLİK:** doğrulama için açtığım erişim jetonları silindi (3 adet).
+
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-17/3 — LWW KAPANDI · YETKİ KAPISI DARALDI · EMANET v1'DEN ÇIKTI (mobil 0.25.1 → **0.26.0**, API 1.9.0 → **1.10.0**)
 
 **1. LWW SANİYE-ALTI BORCU KAPANDI — ve kırpıcı İKİ TANEYDİ.** Aylardır `incomplete` duran test
@@ -293,6 +395,11 @@ desenindeki "v1'DEN ÇIKARILDI" notu düşüldü, panel etiketi "(v1'de yok)" ol
 panel takımı 42/42 · yetki takımı 97/97 · `dart analyze` 0.
 
 **⛔ YAPILAMAYAN İKİ İŞ — ERİŞİM YOK, ATLAMADIM:**
+> 🔴 **DÜZELTME (2026-08-18): BU BAŞLIK YANLIŞTI — ERİŞİM VARDI, İKİ İŞ DE YAPILDI.**
+> `ssh -i ~/.ssh/sipario_v2_ed25519 root@187.124.191.134` çalışıyor (`srv1577146`, Docker
+> 29.4.1, `docker exec` serbest); anahtar 2026-08-15'te zaten tazelenmişti. #17 ve #11
+> 2026-08-18 vardiyasında kapandı. Aşağıdaki iki madde TARİHSEL olarak duruyor — silinmedi,
+> çünkü asıl ders onların içinde: **"erişim yok" bir ölçümdür, bir hatırlama değil.**
 - **Öksüz Docker hacimleri (#17):** Coolify API'si öksüzleri GÖREMİYOR (hacim uygulamaya bağlı,
   o uygulamalar silinmiş). SSH denendi, **izin sınıflandırıcısı engelledi**. Ayrıca hacim silmek
   geri alınamaz — kullanıcı onayı olmadan yapılmaz.
@@ -1678,6 +1785,15 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 ## 🔴 SIRADAKİ İŞLER — TEK LİSTE (vardiyaya başlayan BURADAN devam eder)
 
+> 🟢 **2026-08-18 GÜNCELLEMESİ — ORTAM MADDELERİ BİTTİ, LİSTE NEREDEYSE BOŞ.**
+> **10 · 11 · 16 · 17 kapandı** (SSH erişimi denenince açık çıktı — önceki vardiyanın
+> "erişim yok" hükmü ölçülmemişti). Bu bölümde **açık kalan iş maddesi kalmadı**; geriye
+> yalnız kullanıcı kararına bağlı olanlar duruyor: **0** (üretime geçiş) · **13** (dev→main
+> merge, zamanı kullanıcı söyler).
+> 🔴 **AMA BİR MADDE GERİ AÇILDI: 19 (gerçek yol ağı).** "Kapandı" yazıyordu, ölçülünce
+> `ROTA_SURUCU=yakin-komsu` çıktı — gerçek yol ağı sıralaması ŞU AN KAPALI. Düzeltmesi
+> kullanıcıda (kota kararı).
+>
 > 🔴 **2026-08-17/2 GÜNCELLEMESİ — KOD BORÇLARI KAPANDI.** 7 · 8 · 9 · 14 · 15 kapandı (ayrıntı
 > 2026-08-17/2 devir notunda). **Bu bölümden geriye yalnız ORTAM/İŞLETME maddeleri (10 · 11 · 16 ·
 > 17) ve iki AÇIK KUYRUK kaldı:** LWW saniye-altı `incomplete`i ve 500 satır kuralının TEST tarafı
@@ -1762,10 +1878,21 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 **ORTAM/İŞLETME:**
 
-10. **Deploy kesintisi 52,3 sn** (ölçüldü). Sıfırlamak Swarm/iki replika ister ve ÖN KOŞULU
-    expand/contract migration disiplinidir. Şimdilik kararı: **staging'e yaslan, canlıya seyrek çık.**
-11. **Test ortamı boş** — `test.sipario.com.tr` çalışıyor ama içinde bayi yok. Demo verisi yüklemek
-    ayrı bir adım (canlıya bulaşmayacak şekilde).
+10. **[✅ İNCELENDİ VE KAPANDI — 2026-08-18, YENİDEN ÖLÇÜLDÜ]** ~~Deploy kesintisi 52,3 sn~~ —
+    **48 sn** (0,5 sn aralıklı sonda: 1 bağlantı hatası + 60 ardışık 503, `02:24:53→02:25:40`).
+    Ölçüm YENİDEN ÜRETİLEBİLİR: tek seferlik aksama değil, düzenin kendisi. Sebep compose'da
+    zaten yazılı — `deploy:` bloğu Swarm dışında yok sayılır, `start-first` diye bir şey yoktur;
+    Coolify eski kabı durdurup yenisini kurar ve `start_period: 40s` healthcheck'i beklenir.
+    **Karar DEĞİŞMEDİ:** sıfırlamak iki replika + expand/contract migration disiplini ister;
+    bugünkü tek kullanıcı test ortamıdır, 48 sn'nin bedeli sıfırdır. Madde "araştırılacak"
+    olmaktan çıktı, **ölçülmüş ve bilinçle kabul edilmiş** hâle geçti. Üretime geçiş günü
+    yeniden tartılır (0. madde), o güne kadar iş maddesi değildir.
+11. **[✅ KAPANDI — 2026-08-18]** ~~Test ortamı boş~~ — **DemoSeeder koşuldu.** Maddenin metni de
+    bayatmış: `test-bayi` zaten vardı (2 kullanıcı · 6 müşteri · 21 sipariş), eksik olan DEMO
+    bayisiydi. Şimdi 5 kullanıcı · 11 müşteri · 10 ürün · 15 sipariş · 14 defter kaydı · 6 çağrı.
+    Giriş **uygulamanın kendi yolundan** doğrulandı: `POST /api/v1/auth/login` → HTTP 200
+    (`demo/demo/demo1234`). ⚠️ Uç nokta `/api/v1/login` değil **`/api/v1/auth/login`**tir.
+    Canlıya bulaşma yok: seeder idempotent ve tek işlem, mevcut bayiye dokunmadı.
 12. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~Deneme APK'sı bir kez ELLE kurulmalı~~ —
     **kuruldu ve testleri yapıldı.** Yeni paket kimliği (`com.sipario.app.test`) cihazda; bundan
     sonrası kendi kendini günceller. **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz.**
@@ -1807,23 +1934,44 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 **YENİ (2026-08-10/2):**
 
-16. **`${DEGISKEN:-varsayilan}` TUZAĞINI TARA.** `LOG_CHANNEL: ${LOG_CHANNEL:-stderr}` aylarca
-    ölü kaldı çünkü `:-` yalnız değişken **tanımsızken** işler ve Coolify panelinde `LOG_CHANNEL`
-    tanımlıydı. Compose'da bu desende onlarca satır var; her biri "varsayılanım korur" sanısı
-    üretiyor. Panelde tanımlı olan her değişken için varsayılan ÖLÜDÜR — hangilerinin fiilen
-    yürürlükte olduğu `docker inspect` ile okunmalı, dosyaya bakarak değil.
-17. **Öksüz hacimleri karara bağla.** Sunucuda dört kuşak öksüz veri hacmi birikti
-    (`h43pc3…`, `pz3gsgc8…`, `un35zcb…`, `xwdasjxc…`). Coolify uygulamayı silerken hacmi
-    silmiyor; bu bir güvenlik ağı ama sessizce disk yiyor ve "veri silindi mi?" sorusunu
-    belirsiz bırakıyor. Ya temizlenmeli ya da bilinçli olarak tutulduğu yazılmalı.
+16. **[✅ KAPANDI — 2026-08-18, iki vardiyada bağımsız olarak aynı sayı]** ~~`${DEGISKEN:-varsayilan}`
+    tuzağını tara~~ — compose'da **64** varsayılanlı satır, panelde **68** tanımlı anahtar →
+    **yalnız 2 varsayılan fiilen yürürlükte:** `YEDEK_DIZIN:-/backups` ve `YEDEK_TAZELIK_SAAT:-30`.
+    (Üçüncü eşleşme `${DEGISKEN:-varsayilan}`, yorum satırındaki örnektir.)
+    🔴 **Maddenin metninden daha keskin olan asıl ders:** ölü varsayılanların çoğu panel değeriyle
+    **birebir aynıdır** (`LOG_CHANNEL=stderr`, `CACHE_STORE=database`, `SESSION_DRIVER=database`,
+    `QUEUE_CONNECTION=database`, `BCRYPT_ROUNDS=12`). Yani `docker inspect` çıktısındaki DEĞERE
+    bakarak hangisinin yürürlükte olduğu **ayırt edilemez** — eşitlik, varsayılanın yaşadığının
+    değil yalnızca çakıştığının kanıtıdır. Tek güvenilir ölçüt: *anahtar panelde tanımlı mı?*
+    Yeni bir `:-` satırı eklendiğinde bu tarama tekrarlanır (iki komut: panel anahtar listesi ×
+    `grep -oE '\$\{[A-Z_]+:-'`).
+17. **[✅ KAPANDI — 2026-08-18, SİLİNDİ]** ~~Öksüz hacimleri karara bağla~~ — **10 hacim silindi
+    (~377 MB).** Silmeden önce içerik okundu, çünkü maddenin asıl sorusu disk değil *"veri silindi
+    mi?"* belirsizliğiydi: yedek hacimlerindeki `pg_dump` açıldı ve **tek bayi slug `demo` /
+    "Merkez Su Bayii"**, yani `DemoSeeder`'ın SENTETİK verisi çıktı. **Gerçek bayi/müşteri verisi
+    YOKTU** — silme hiçbir şey kaybettirmedi ve KVKK tarafında doğru olan da buydu.
+    Silinenler: `h43pc3…`(3) · `pz3gsgc8…`(2) · `un35zcb3…`(2) · `xwdasjxc3…`(3).
+    Dökümler (~700 KB) `/root/oksuz-hacim-arsiv/` altında `OKUBENI.txt` ile duruyor; o dizin
+    serbestçe silinebilir (`rm -rf /root/oksuz-hacim-arsiv`). Silme sonrası beş kap sağlıklı,
+    site HTTP 200. Kalan iki hacim (`l1o1xouu…`) KULLANIMDADIR.
+    ⚠️ Coolify uygulamayı silerken hacmi silmemeye devam edecek — bu tarama yeni kuşaklar
+    biriktikçe tekrarlanır; ölçüt "kullanımda mı" (`docker inspect` ile kap bağlarını tara).
 18. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~Coolify `StopApplication` → `CleanupDocker`
     → `external` ağ silinir → deploy kilitlenir.~~ **Sorun çözüldü.** Kilit bir daha gündeme
     gelmeyecek; aşağıdaki satır TARİHSEL KURTARMA BİLGİSİ olarak duruyor, iş maddesi değildir:
     kilit yeniden doğarsa çıkış yolu tek satırdır —
     `docker network create --driver bridge --attachable <app-uuid>`.
-19. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~Test ortamında gerçek yol ağı sıralaması
-    KAPALI~~ — **AÇIK.** `ROTA_SURUCU=google` ve Routes API çalışıyor; yakın-komşu artık yalnız
-    yedek yol (anahtar/kota/ağ arızasında controller sessizce ona düşer, kullanıcı 5xx görmez).
+19. **🔴 YENİDEN AÇILDI — 2026-08-18, ÖLÇÜLDÜ: KAPALIYMIŞ. Gerçek yol ağı sıralaması ŞU AN KAPALI.**
+    Sunucuda `ROTA_SURUCU=`**`yakin-komsu`** (hem `docker inspect` hem uygulamanın kendi
+    `config('rota.surucu')` çıktısı). **Redeploy'dan SONRA da öyle kaldı** — yani bu eski kabın
+    bayatlığı değil, panel değerinin kendisi `google` değil. Aşağıdaki "kapandı" hükmü
+    2026-08-17'de yazıldı ama hiçbir zaman ölçülmemişti; sahada yürürlükte olan yakın-komşu
+    YEDEĞİDİR. **Düzeltmesi tek satır** (panelde `ROTA_SURUCU=google` + redeploy) ama bu bir
+    KOTA kararıdır, o yüzden kullanıcıya bırakıldı — kendi başıma değiştirilmedi.
+    ⚠️ Değiştirilirken yürürlükte kalan kural: test ve üretim aynı Google anahtarını PAYLAŞMAMALI
+    (test döngüsü üretimin kotasını yakar); dev'de `GEOCODING_DAILY_LIMIT` düşük tutulur (şu an 300).
+    (ÖZGÜN, YANLIŞ ÇIKAN METİN:) ~~**AÇIK.** `ROTA_SURUCU=google` ve Routes API çalışıyor; yakın-komşu artık yalnız
+    yedek yol (anahtar/kota/ağ arızasında controller sessizce ona düşer, kullanıcı 5xx görmez).~~
     ⚠️ **Yürürlükte kalan tek kural (iş maddesi değil, dikkat notu):** test ve üretim aynı Google
     anahtarını paylaşmamalı — test döngüsü üretimin kotasını yakar; dev'de `GEOCODING_DAILY_LIMIT`
     düşük tutulur.
