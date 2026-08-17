@@ -36,7 +36,7 @@
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
-| 0 · Arayan tanıma kanıtı | %7 | ✅ kapandı | 7 |
+| 0 · Arayan tanıma kanıtı | %7 | ✅ kapandı — **GO KESİN** (20/20 ölçüldü 2026-08-17) | 7 |
 | 1 · Temel (API/Postgres+RLS/auth) | %10 | ✅ kapandı | 10 |
 | 2 · Offline çekirdek (Drift/outbox/sync) | %13 | ✅ kapandı | 13 |
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %10 | ✅ kapandı | 10 |
@@ -64,24 +64,32 @@
 > varsayımıyla yazılmış maddeler artık farklı anlam taşıyor. **Bugünün gerçek listesi
 > yukarıdaki 2026-08-09 devir notunun "SIRADAKİ İŞLER" bölümüdür.**
 
-- **[⚡ YENİ · EN KRİTİK]** **Coolify → Environment Variables denetimi.** (a) `APP_KEY` tanımlı mı?
-  Değilse compose'daki public varsayılan kullanılıyordur → `php artisan key:generate --show` ile üret,
-  gir, yeniden deploy et (oturumlar düşer, iş verisi etkilenmez). (b) `MAIL_MAILER` · `GEOCODING_DRIVER`
-  · `ROTA_SURUCU` · `IYZICO_BASE_URL` tanımlı mı? Değilse e-posta gönderimi, adres→konum, Google rota
-  ve ödeme **sessizce kapalı ya da sandbox'tadır**. Bu dört satır canlıda ölçülmeli, tahmin edilmemeli.
-- **[⚡ YENİ]** **Makine dışı yedek kararı.** `backup` sidecar günlük `pg_dump` alıyor ama yalnız
-  sunucunun kendi volume'una — sunucu ölürse yedek de ölür. Seçenekler: hosting'e rsync/SFTP · S3
-  uyumlu TR depolama · elle indirme. (2026-08-09'da "sonra karar verelim" dendi.)
+- **[✅ KAPANDI — 2026-08-17]** ~~Coolify → Environment Variables denetimi.~~ `APP_KEY` 2026-08-09'da
+  kapandı; `MAIL_*` 2026-08-15'te tanımlı ölçüldü ve **2026-08-17'de test sunucusunda gerçekten posta
+  gittiği doğrulandı** (yani `log` değil `smtp`); `GEOCODING_DRIVER` + `ROTA_SURUCU=google` çalışır
+  durumda. `IYZICO_*` **askıya alındı** (aşağıya bakınız) — denetlenecek bir şey kalmadı.
+- **[✅ KAPANDI — 2026-08-15]** ~~Makine dışı yedek kararı.~~ S3 ertelendi; her sabah 08:00'de
+  indirme bağlantısı `YEDEK_EPOSTA` adresine postalanıyor. **Tek kalan adım kullanıcıda:
+  Coolify'da `YEDEK_EPOSTA` değişkenini tanımlamak** (tanımlanana kadar görev her sabah bilerek
+  HATA ile çıkar, sessizce başarılı dönmez).
 - **[✅ KAPANDI]** ~~Mobil doğrulama partnerin Flutter'lı makinesinde~~ — **bu makinede Flutter VAR**
   (`C:\flutter`); 2026-08-09'da `flutter test` burada koşuldu: **1108/1108**.
 - **[✅ KAPANDI]** ~~`dev→main` PR (#11) merge kararı~~ — birleştirme yapıldı (`86c418b`) ve canlı
   artık `main`'i izliyor. **AMA DİKKAT:** `main` şu an `dev`'den 2 commit geride; her vardiya sonunda
   birleştirme yeniden gerekiyor — bu artık rutin bir adım, tek seferlik karar değil.
-- **[Faz 5]** iyzico **üretim** hesabı + API anahtarları (geliştirme sandbox anahtarlarıyla yürür); site domain TLS; e-arşiv fatura sağlayıcı entegrasyon bilgileri. **⚠️ GÜVENLİK:** anahtar entegre edilirken `IyzicoPaymentGateway::verify()` MUTLAKA iyzico'ya sunucu-sunucu geri-sorgu + IYZWSv2 imza doğrulaması yapmalı (kod fail-closed kuruldu; smoke-test YETMEZ — gövde-güven = bedava abonelik açığı). Sandbox'ta forged-body reddi + gerçek retrieve sınanmalı.
+- **[⏸️ ASKIYA ALINDI — 2026-08-17, kullanıcı kararı]** ~~iyzico **üretim** hesabı + API anahtarları~~
+  ve ~~e-arşiv fatura sağlayıcı~~. **Gündeme alınmaz, sorulmaz** — yeniden açılması ancak yeni bir
+  kullanıcı kararıyla olur. Kod tarafı hazır ve fail-closed duruyor; askı kalktığı gün geçerli olacak
+  pazarlıksız şart burada saklı: `IyzicoPaymentGateway::verify()` iyzico'ya sunucu-sunucu geri-sorgu +
+  IYZWSv2 imza doğrulaması yapmalı, sandbox'ta forged-body reddi ayrıca sınanmalı (smoke-test YETMEZ —
+  gövde-güven = bedava abonelik açığı).
 - **[Faz 5c ortam]** `sipario_panel` DB rolü küme düzeyinde ELLE kuruldu (mevcut container); **CI/yeni makinede rol SQL'i elle koşulmalı** (Faz 1 sipario_app deseni). `.env`/`.env.example`'a `DB_PANEL_USERNAME=sipario_panel` + `DB_PANEL_PASSWORD=...` eklenmeli (config default'u var, testler yeşil; araç `.env*`'i koruyor).
 - **[GÜNCELLEME — TEK SEFERLİK ELLE KURULUM GEREKİYOR]** Güncelleme bandı bağlanmamıştı (2026-07-28 bulgusu, düzeltildi). Ama düzeltme KENDİNİ TAŞIYAMAZ: telefondaki mevcut uygulamada bant kodu ağaçta olmadığı için hiçbir release ona bant gösteremez. **Bir kez elle** yeni CI APK'sını (`saha` release'indeki `saha-arm64.apk`) kurmak gerekiyor; ondan sonrası kendiliğinden yürür. Not: imza uyuşmazlığı çıkarsa (cihazdaki uygulama elle/debug imzalı kurulduysa) tek seferlik sil + kur — veri sunucudan geri gelir.
 - **[KONUM — SÜRÜCÜ `kademeli`: GOOGLE ÖNCE, YANDEX GEREKTİĞİNDE]** Kullanıcı kararı 2026-07-29/2 (ilk `coklu` tasarımını geri çevirdi: *"iki sonucu birleştirme; Google ve Yandex ayrı görünsün, doğrusunu ben seçeyim"* + kota gerçeği): her sorgu önce **Google**'a gider; **Yandex yalnız Google BİNA kesinliğinde aday veremezse** ve **günlük tavana kadar** sorulur (`YANDEX_DAILY_LIMIT=900`, global — 1000/gün limiti hesabın tamamına ait, yüz kullanıcı bir günde eritebilir). Sonuçlar **BİRLEŞTİRİLMEZ**: her aday "Google"/"Yandex" etiketiyle ayrı satır, seçim kullanıcıda. Tavan dolunca ya da bir sağlayıcı arızalanınca özellik düşmez; aynı adresin ikinci sorgusu 30 günlük önbellekten döner, kota yalnız ilk soruşta yanar. Bilinen bedel (konuşuldu): Google YANLIŞ binayı gösterirse kademe tetiklenmez, Yandex'in muhtemelen doğru adayı görünmez.
-- **[GOOGLE — İKİ API DE CANLI ✅ 2026-07-29; TEK KALAN İŞ ANAHTAR KISITLAMASI]** Geocoding API ve **Routes API** aynı projede (`142583979849`) etkin ve ölçülmüş durumda (auto-route canlı çağrısı `engine:"google"` döndü). Kullanılan anahtar ikinci anahtar; ilk anahtar (proje `42963591866`) terk edildi. **Yapılacak:** Cloud Console → Credentials → anahtarı **yalnız "Geocoding API" + "Routes API"** ve **sunucu IP'siyle** kısıtla. Anahtar sohbette düz metin geçti; kısıtlama pazarlıksız. ⚠️ HTTP referrer SEÇME — sunucu anahtarı, tarayıcıya hiç gitmez, referrer kuralı isteği reddeder.
+- **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~GOOGLE ANAHTAR KISITLAMASI~~ — anahtarlar **IP ile
+  kısıtlandı**, sohbete sızmış anahtarın serbest kullanımı kapandı. Geocoding API ve Routes API aynı
+  projede (`142583979849`) etkin ve ölçülmüş (auto-route `engine:"google"` döndü). Kullanılan anahtar
+  ikinci anahtar; ilk anahtar (proje `42963591866`) terk edildi. **Bu madde bir daha listeye alınmaz.**
 - **[KONUM — KAPI NUMARASI BORCU KAPANDI ✅]** Ölçüldü: `"Şirinyalı Mah. 1497. Sk. No: 9"` → Google **`ROOFTOP`, `partial=false`** ile kapıyı BULDU (36.86004,30.73569); Yandex aynı sorguda hâlâ sokağa düşüyor (36.86318,30.73490). Yani `kapiNumarasiniAt` geri çekilmesini ortak koda taşımaya **gerek yok** — Google'ın kendi davranışı yeterli. Borç kapandı.
 - **[KONUM — KVKK]** Adres metni sınır dışına çıkıyor ve artık **İKİ ülkeye birden**: Yandex (Rusya) + Google (ABD). Ad/telefon/müşteri kimliği ÇIKMIYOR (uç nokta kabul etmiyor, testle kilitli) ama **KVKK aydınlatma metnine "adres bilgisi coğrafi kodlama amacıyla yurt dışı sağlayıcılara aktarılır" satırı eklenmeli** — zaten bekleyen avukat işinin kapsamında. Metin sağlayıcı ADI vermemeli ya da ikisini de saymalı; sürücü bir env satırıyla değişiyor, tek isim yazmak metni bayatlatır.
 - **[❌ GEÇERSİZ — YEREL VERİ ONARIMI]** Bu madde `111` kimliğine taşınmış bir yerel demo bayisini
@@ -95,20 +103,25 @@
   `scripts/saha-sunucu.ps1` de aynı değere hizalandı (üç gün boyunca bayat kalmışlardı).
   Not: bu hesabın parolası doğası gereği depoda açıktır — mağaza incelemecisi girebilsin diye.
   Riski parolanın gücü değil **kiracı izolasyonu** sınırlar: hesap yalnız kendi demo bayisini görür.
-- **[Faz 6]** Apple + Google Play geliştirici hesapları + mağaza başvurusu; `USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı; KVKK aydınlatma + mesafeli satış/ön bilgilendirme metinlerinin **hukukça onayı**.
+- **[⏸️ ASKIYA ALINDI — 2026-08-17, kullanıcı kararı]** ~~Apple geliştirici hesabı + D-U-N-S~~ ve
+  ~~iOS~~. **Gündeme alınmaz, sorulmaz.**
+- **[Faz 6 — AÇIK, zamanı var]** Google Play geliştirici hesabı + **release imza anahtarı (keystore)**
+  + mağaza başvurusu; `USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı; KVKK aydınlatma + mesafeli
+  satış/ön bilgilendirme metinlerinin **hukukça onayı**. (Kullanıcı 2026-08-17: keystore için "henüz
+  daha var" — acil değil, ama Play'e yükleme bu satır olmadan yapılamaz.)
 - **[Faz 7]** Antalya'da 2–3 gerçek bayi + gerçek Android cihazlar (pilot).
 
 ## Fazlar
 
 | Faz | Kapsam | Durum |
 |-----|--------|-------|
-| 0 | Arayan tanıma kanıtı (gerçek cihazlarda go/no-go) | ✅ **KAPANDI — GO (şartlı)**, 2026-07-10 |
+| 0 | Arayan tanıma kanıtı (gerçek cihazlarda go/no-go) | ✅ **KAPANDI — GO KESİN** (şart 2026-08-17'de düştü: 20/20 ölçüm yapıldı) |
 | 1 | Temel: Laravel API, Postgres+RLS, auth, izolasyon test matrisi | ✅ **KAPANDI** (güvenlik denetimi dahil, 2026-07-13) |
 | 2 | Offline çekirdek: SQLite/Drift, outbox, senkron motoru, müşteri+sipariş | ✅ **ÇEKİRDEK KAPANDI — test + inceleme yeşil** (2026-07-13) |
 | 3 | Defter: veresiye, kasa, ödeme tipleri, kupon, gün sonu | ✅ **KAPANDI — test + inceleme yeşil** (2026-07-14) |
 | 4 | Kurye: atama, teslim kapatma, kasa devri (+iOS başlangıcı) | 🔄 **~%92** (API ✅ inceleme ✅ mobil test ✅ 2026-07-17; iOS/gerçek-cihaz açık) |
-| 5 | Para: site, iyzico, abonelik kilidi, yönetim paneli | 🔄 **KOD TAM** (sunucu ✅ inceleme ✅ güvenlik ✅ 163/163); dışsal: iyzico anahtar/hukuk prose/mobil |
-| 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
+| 5 | Para: site, iyzico, abonelik kilidi, yönetim paneli | 🔄 **KOD TAM** (sunucu ✅ inceleme ✅ güvenlik ✅); ⏸️ **iyzico ASKIDA (2026-08-17 kullanıcı kararı)** — kalan dışsal: hukuk metinleri |
+| 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | 🔄 Play ayağı açık (keystore, acil değil); ⏸️ **Apple/iOS ASKIDA (2026-08-17)** |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
 > **2026-07-29 (ikinci vardiya) — KONUM İKİ SAĞLAYICIYLA CANLI (`GEOCODING_DRIVER=kademeli`).**
@@ -242,6 +255,49 @@
 > API 273 · mobil 764. Kalan: order_queries harita bölümü ayrılıyor (ajanda), anahtar kısıtlaması sende.
 >
 ## Güncel durum
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-17 — YEDİ MADDE KAPANDI, DÖRT MADDE ASKIYA ALINDI (kod DEĞİŞMEDİ, sürüm DEĞİŞMEDİ: API 1.9.0, mobil 0.25.0)
+
+**Bu vardiya kod yazmadı** — kullanıcı sahada/panelde biriken işleri bitirdi ve durumu bildirdi;
+yapılan iş bunların üç ayrı listede (baştaki "İnsan gerektiren işler", "SIRADAKİ İŞLER — TEK LİSTE",
+arşiv 2026-07 listesi) **aynı anda** işaretlenmesidir. Bir yerde kapatıp ötekinde bırakmak, maddenin
+bir sonraki vardiyada yeniden "açık" diye karşımıza çıkması demekti — üç listenin biri hâlâ eskisini
+söylüyor olurdu.
+
+**✅ KAPANANLAR (kullanıcı doğruladı):**
+
+| Madde | Ne oldu |
+|---|---|
+| Coolify bildirim kanalı | **Telegram kuruldu**, bildirimler kullanıcının telefonuna düşüyor. Bir çöküşü fark etmek artık ölçüme değil kanala bağlı. |
+| Google API anahtarı | **IP ile kısıtlandı** — sohbete sızmış anahtarın serbest kullanımı kapandı. |
+| SMTP / e-posta | **Test sunucusunda postalar gidiyor** → `MAIL_MAILER` gerçekten `smtp`, `log` değil. Parola sıfırlama ve günlük yedek postası da aynı yoldan çıkıyor. |
+| **Arayan tanıma 20/20** | **Ölçüm yapıldı → FAZ 0'IN ŞARTI DÜŞTÜ, GO KESİN.** BRIEF'in 1 numaralı korkusu ve ürünün varlık sebebi artık doğrulanmış. |
+| Deneme APK'sı | **Elle kuruldu ve testleri yapıldı** (`com.sipario.app.test`); bundan sonrası kendini günceller. |
+| Coolify Stop → ağ silinir → deploy kilidi | **Çözüldü.** Kurtarma satırı (`docker network create …`) arşivde tarihsel bilgi olarak duruyor. |
+| Test ortamında gerçek yol ağı sıralaması | **AÇIK** — `ROTA_SURUCU=google`; yakın-komşu artık yalnız yedek yol. |
+
+**⏸️ ASKIYA ALINANLAR — kullanıcı kararı, YENİDEN GÜNDEME GETİRİLMEZ:**
+**iyzico** · **Apple (D-U-N-S + geliştirici hesabı)** · **iOS** · **e-arşiv fatura**.
+Bunlar "unutulmuş iş" değil, bilinçli bekletmedir; sıradaki işler listesinden kendiliğinden
+tetiklenmezler. Yeniden açılmaları ancak yeni bir kullanıcı kararıyla olur. Tarifleri arşiv
+listesinde olduğu gibi duruyor — askı kalktığı gün hazır bulunsun diye.
+
+**🟡 AÇIK AMA ACELESİ YOK:** **Android release keystore** (kullanıcı: *"henüz daha var"*). Release
+hâlâ debug anahtarıyla imzalanıyor; Play'e yükleme bu satır olmadan yapılamaz ama başvuru gündemde
+değil. **Her vardiyada hatırlatılmaz.**
+
+**🔵 KULLANICIDA KALAN TEK KÜÇÜK İŞ:** Coolify'da **`YEDEK_EPOSTA`** tanımı (kullanıcı: "yapacağım").
+Tanımlanana kadar `yedek:baglanti-gonder` her sabah **bilerek HATA ile** çıkar — sessizce başarılı
+dönmemesi tasarımdır, arıza değil.
+
+> ⚠️ **BAYAT ÇIKAN İKİ SATIR, ÖLÇÜLEREK DÜZELTİLDİ (belgeye değil koda bakıldı):**
+> (1) Arşiv listesindeki **"mobil CI yok"** maddesi aylardır yanlıştı — `mobil-apk.yml` `dart analyze`
+> + `flutter test` + imzalı APK + `surum.json` yayınını zaten koşuyor. (2) `kDebugMode` kapısının
+> dosya yolu (`ayarlar_ekrani.dart:266`) ayarların beşe bölünmesiyle taşınmış; doğrusu
+> `screens/isletme/ayarlar/uygulama_ayarlari_ekrani.dart:138`.
+
+**Sürüm neden artmadı:** kullanıcıya görünen hiçbir davranış değişmedi, tek satır kod yazılmadı.
+Sürüm kuralı "kullanıcıya görünen değişiklik" der; burada değişen yalnız belgenin gerçeğe uyumudur.
 
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-16 — LARAGON KALDIRILDI, API TARAFI TAMAMEN DOCKER'DA (sürüm DEĞİŞMEDİ: API 1.9.0, mobil 0.25.0)
 
@@ -1475,6 +1531,14 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 ## 🔴 SIRADAKİ İŞLER — TEK LİSTE (vardiyaya başlayan BURADAN devam eder)
 
+> 🔴 **2026-08-17 GÜNCELLEMESİ — LİSTE KISALDI.** Kapananlar: **2** (Telegram bildirimi) ·
+> **3** (Google anahtarı IP kısıtlaması) · **4** (SMTP/e-posta gerçekten gidiyor) ·
+> **12** (deneme APK'sı kuruldu) · **18** (Coolify deploy kilidi) · **19** (gerçek yol ağı açık).
+> Ayrıca **arayan tanıma 20/20 ölçümü yapıldı → Faz 0'ın şartı düştü, GO kesin.**
+> Kullanıcı kararıyla **ASKIYA ALINANLAR — bu listeye bir daha girmezler:** iyzico · Apple/D-U-N-S ·
+> iOS · e-arşiv fatura. **Açık ama acelesi yok:** Android release keystore.
+> **Kullanıcıda kalan tek küçük iş:** Coolify'da `YEDEK_EPOSTA` tanımı.
+>
 > **2026-08-10 GÜNCELLEMESİ:** 6. madde (API sürümü okunmuyor) **KAPANDI**. 9. madde (yükseltme
 > yolu testi) ilk taksitini aldı (`migration_v16_test.dart`) ama KURAL olarak duruyor: şema
 > değiştiren her vardiya kendi testini yazmalı. Listeye üç yeni madde eklendi (13-15).
@@ -1505,19 +1569,17 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
    metin yapıştırıldı (kullanıcı verdi, kullanıldı, geçici kopya silindi) — ama oturum dökümünde
    ve kabuk geçmişinde duruyor. Coolify → Keys & Tokens → yeni anahtar; sunucuda
    `authorized_keys`ten eskisini çıkar. **Bu listenin en acil maddesi.**
-2. **Bildirim kanalı kur** (Coolify → Notifications) — **Telegram**, e-posta DEĞİL (SMTP kurulu
-   değil, e-posta bildirimi sessizce hiç gelmez). Olaylar: Deployment Failed + Container
-   Stopped/Unhealthy. **Bu kurulmadan bir sonraki çöküşü yine kimse fark etmez** — bugün üretim
-   iki kez çöktü (17:01'de 16 yeniden başlatma, 20:10'da 2) ve ikisini de kullanıcı değil ölçüm
-   yakaladı.
-3. **Google anahtarını kısıtla** (Cloud Console → yalnız Geocoding + Routes API + sunucu IP).
-   Anahtar sohbette düz metin geçti ve artık iki sunucuda kullanılıyor.
-4. **[⚠️ NOT BAYAT — 2026-08-15'te ÖLÇÜLDÜ]** ~~SMTP bağla~~ — Coolify'da `MAIL_MAILER · MAIL_HOST
-   · MAIL_PORT · MAIL_USERNAME · MAIL_PASSWORD · MAIL_SCHEME` **TANIMLI** ve SMTP hesabı var
-   (`titan.hayalhost.com:465`). **KALAN TEK ADIM: canlıda BİR postanın gerçekten gittiğini
-   görmek** — `MAIL_MAILER`'ın değeri API'den okunamıyor, `log` olma ihtimali ölçülmedi.
-   Günlük yedek postası (aşağıda) bunun doğal sınayıcısıdır: gelirse parola sıfırlama da çalışıyor
-   demektir.
+2. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~Bildirim kanalı kur~~ — Coolify →
+   Notifications → **Telegram** kuruldu ve bildirimler kullanıcının telefonuna DÜŞÜYOR
+   (kullanıcının kendi cümlesi). Artık bir çöküşü fark etmek ölçüme değil kanala bağlı.
+   **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz.**
+3. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~Google anahtarını kısıtla~~ — anahtarlar
+   **IP ile kısıtlandı**. Sohbete sızan anahtarın serbest kullanımı böylece kapandı.
+   **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz.**
+4. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~SMTP bağla / bir postanın gittiğini gör~~ —
+   **test sunucusunda e-postalar GİDİYOR.** Yani `MAIL_MAILER` gerçekten `smtp`, `log` değil; parola
+   sıfırlama ve yedek postası da aynı yoldan çıkıyor. (Coolify değişkenleri 2026-08-15'te zaten
+   tanımlıydı: `titan.hayalhost.com:465`.) **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz.**
 5. **[✅ KAPANDI — 2026-08-15, kullanıcı kararı]** ~~Makine dışı yedek kararı~~ — S3 ertelendi;
    yerine her sabah 08:00'de indirme bağlantısı `YEDEK_EPOSTA` adresine postalanıyor
    (`yedek:baglanti-gonder`). ⚠️ Sınırı yazılı: yedeğin makine dışına çıkması **insanın postayı
@@ -1544,8 +1606,9 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
     expand/contract migration disiplinidir. Şimdilik kararı: **staging'e yaslan, canlıya seyrek çık.**
 11. **Test ortamı boş** — `test.sipario.com.tr` çalışıyor ama içinde bayi yok. Demo verisi yüklemek
     ayrı bir adım (canlıya bulaşmayacak şekilde).
-12. **Deneme APK'sı bir kez ELLE kurulmalı** — yeni paket kimliği (`com.sipario.app.test`), yani
-    yeni uygulama; ilk kurulumdan sonra kendini günceller.
+12. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~Deneme APK'sı bir kez ELLE kurulmalı~~ —
+    **kuruldu ve testleri yapıldı.** Yeni paket kimliği (`com.sipario.app.test`) cihazda; bundan
+    sonrası kendi kendini günceller. **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz.**
 
 **YENİ (2026-08-10):**
 
@@ -1591,21 +1654,17 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
     (`h43pc3…`, `pz3gsgc8…`, `un35zcb…`, `xwdasjxc…`). Coolify uygulamayı silerken hacmi
     silmiyor; bu bir güvenlik ağı ama sessizce disk yiyor ve "veri silindi mi?" sorusunu
     belirsiz bırakıyor. Ya temizlenmeli ya da bilinçli olarak tutulduğu yazılmalı.
-18. **Coolify `StopApplication` → `CleanupDocker` → `external` ağ silinir → deploy kilitlenir.**
-    Bu zincir parola arızasından bağımsızdır: **herhangi bir** çökme döngüsü 10 yeniden başlatmayı
-    aşarsa aynı kilit doğar ve panelden çıkış yolu YOKTUR (deploy düğmesi hep aynı hatayla ölür).
-    Kurtarma tek satır: `docker network create --driver bridge --attachable <app-uuid>`.
-    Kalıcı çözüm araştırılmalı (Coolify sürüm davranışı mı, compose'un `external: true`
-    tanımı mı). **Bu satır, bir sonraki vardiyanın saatlerini kurtarabilir.**
-19. **Test ortamında gerçek yol ağı sıralaması KAPALI.** `ROTA_SURUCU=yakin-komsu` (bedava,
-    kuş uçuşu) çalışıyor ve ölçüldü; `GOOGLE_ROUTES_KEY` boş. Açmak istenirse: Cloud Console'da
-    **Routes API'yi ayrıca etkinleştir** (Geocoding anahtarının çalışması Routes'un çalışacağı
-    anlamına gelmez), faturalandırmayı aç, anahtarı kısıtla, sonra `GOOGLE_ROUTES_KEY` +
-    `ROTA_SURUCU=google` yaz. Kod savunmalı: anahtar/kota/ağ arızasında controller sessizce
-    yakın komşuya düşer, kullanıcı 5xx görmez.
-    ⚠️ **Test ve üretim AYNI Google anahtarını paylaşmamalı** — test döngüsü üretimin kotasını
-    yakar. Dev'de `GEOCODING_DAILY_LIMIT` bu yüzden düşük tutulmalı (bkz. 3. madde: anahtar
-    zaten bir kez sohbete sızdı ve hâlâ döndürülmedi).
+18. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~Coolify `StopApplication` → `CleanupDocker`
+    → `external` ağ silinir → deploy kilitlenir.~~ **Sorun çözüldü.** Kilit bir daha gündeme
+    gelmeyecek; aşağıdaki satır TARİHSEL KURTARMA BİLGİSİ olarak duruyor, iş maddesi değildir:
+    kilit yeniden doğarsa çıkış yolu tek satırdır —
+    `docker network create --driver bridge --attachable <app-uuid>`.
+19. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~Test ortamında gerçek yol ağı sıralaması
+    KAPALI~~ — **AÇIK.** `ROTA_SURUCU=google` ve Routes API çalışıyor; yakın-komşu artık yalnız
+    yedek yol (anahtar/kota/ağ arızasında controller sessizce ona düşer, kullanıcı 5xx görmez).
+    ⚠️ **Yürürlükte kalan tek kural (iş maddesi değil, dikkat notu):** test ve üretim aynı Google
+    anahtarını paylaşmamalı — test döngüsü üretimin kotasını yakar; dev'de `GEOCODING_DAILY_LIMIT`
+    düşük tutulur.
 
 ---
 
@@ -3013,16 +3072,18 @@ SMS/Call Log grubundan tek izin yok, `SCHEDULE_EXACT_ALARM` da yok.
 
 ---
 
-# SIRADAKİ İŞLER — önem sırasına göre, adım adım
+# (ARŞİV) SIRADAKİ İŞLER — 2026-07 listesi, ÇOĞU KAPANDI/ASKIDA
 
-> **Okuma kılavuzu:** Her iş için **NEDEN** (neyi bloklar), **KİMDE** (sen mi Claude mı),
-> **ADIMLAR**, **BİTTİ SAYILIR** ve **KANIT** (koddaki yeri) var. 🔴 = bu olmadan ürün satılamaz.
+> 🔴 **BU LİSTE ARTIK GÜNCEL DEĞİLDİR — güncel liste yukarıdaki
+> "🔴 SIRADAKİ İŞLER — TEK LİSTE" bölümüdür.** 2026-08-17'de maddelerin çoğu kapandı ya da
+> kullanıcı kararıyla askıya alındı; her biri kendi başlığında işaretlendi. Buradaki tarifler
+> yalnız TARİHSEL/REFERANS değer taşır — askıdaki bir madde yeniden açılırsa adımları hazır bulunur.
 >
-> **Acı gerçek:** 🔴 işlerin 4'ü de proje sahibinde. Claude'un tek başına ilerletebileceği en
-> değerli iş **#5 (mobil CI)** ve **#4'ün kod ayağı**. Sıradaki vardiya boş kalmasın diye
-> önce onlara bak.
+> **Okuma kılavuzu:** Her iş için **NEDEN**, **KİMDE**, **ADIMLAR**, **BİTTİ SAYILIR** ve **KANIT** var.
 
-## 🔴 1. iyzico sandbox anahtarı → ödeme akışını canlıya bağla
+## ⏸️ 1. iyzico sandbox anahtarı — **ASKIYA ALINDI (2026-08-17, kullanıcı kararı)**
+
+> **Gündeme alınmaz, sorulmaz.** Aşağısı askı kalktığı gün okunacak tariftir; iş maddesi değildir.
 
 **NEDEN:** Faz 5'in kodu TAM ama **gerçek iyzico ile hiç konuşmadı**. Anahtar olmadan tek kuruş
 tahsilat yapılamaz; abonelik iş modelinin tamamı buna bağlı. Bu, tüm listenin en pahalı beklemesi.
@@ -3045,11 +3106,13 @@ anahtarları `.env`'de.
 
 **KANIT:** `apps/api/config/subscription.php:38-40` · `apps/api/app/Payment/IyzicoPaymentGateway.php`
 
-## 🔴 2. Android release imza anahtarı (keystore)
+## 🟡 2. Android release imza anahtarı (keystore) — **AÇIK, AMA ACİL DEĞİL (2026-08-17)**
+
+> Kullanıcı: *"Android Release keystore için henüz daha var."* Yani iş duruyor ama zamanı
+> gelmedi — **her vardiyada hatırlatılmaz**, mağaza başvurusuna yaklaşınca gündeme gelir.
 
 **NEDEN:** `release` derleme **hâlâ debug anahtarıyla imzalanıyor**. Debug imzalı paket Play'e
-**yüklenemez** — mağaza başvurusu bu satır yüzünden ilk adımda durur. Yapılması yarım saat,
-yapılmaması her şeyi bloklar. **Ucuz ve kritik: sıradaki vardiyada ilk bunu iste.**
+**yüklenemez** — mağaza başvurusu bu satır yüzünden ilk adımda durur. Yapılması yarım saat.
 
 **KİMDE:** Anahtar üretimi ve saklanması **sende** (Claude anahtar üretemez/saklayamaz);
 gradle'a bağlama **Claude'da**.
@@ -3068,11 +3131,12 @@ release AAB kendi anahtarıyla imzalı.
 
 **KANIT:** `apps/mobile/android/app/build.gradle.kts:32-36` (`// TODO: Faz 6'da kendi imza anahtarımız`)
 
-## 🔴 3. Apple D-U-N-S + mağaza geliştirici hesapları
+## ⏸️ 3. Apple D-U-N-S + Apple geliştirici hesabı — **ASKIYA ALINDI (2026-08-17, kullanıcı kararı)**
 
-**NEDEN:** Mağaza başvurusunun ön koşulu. **Apple kurumsal hesap D-U-N-S numarası ister ve
-D-U-N-S başvurusu HAFTALAR sürebilir.** Bu yüzden listede yukarıda: yapacak bir şey yokken bile
-saat işliyor. Bugün başlatılmazsa iOS çıkışı haftalarca gecikir.
+> **Gündeme alınmaz, sorulmaz.** Apple tarafı (D-U-N-S, Developer Program, iOS çıkışı) askıda.
+> Google Play ayağı 2. maddede ayrı yaşıyor ve askıda DEĞİL.
+
+**NEDEN (tarihsel):** Mağaza başvurusunun ön koşulu; D-U-N-S başvurusu HAFTALAR sürebilir.
 
 **KİMDE:** Tamamen **sende** (tüzel kişilik gerektirir).
 
@@ -3084,12 +3148,19 @@ saat işliyor. Bugün başlatılmazsa iOS çıkışı haftalarca gecikir.
 
 **BİTTİ SAYILIR:** İki konsola da giriş yapılabiliyor.
 
-## 🔴 4. Arayan tanıma 20/20 ölçümü — ve önündeki `kDebugMode` KAPISI
+## ✅ 4. Arayan tanıma 20/20 ölçümü — **YAPILDI (2026-08-17, kullanıcı doğruladı)**
 
-**NEDEN:** BRIEF'in **1 numaralı korkusu** ve Faz 0 "**şartlı** GO" ile kapandı — şart tam olarak
-buydu: *20/20 aramada ≤1 sn*. Bu ölçüm hâlâ yapılmadı. Ürünün varlık sebebi doğrulanmamış durumda.
+> ✅ **FAZ 0'IN ŞARTI DÜŞTÜ: GO ARTIK KESİN.** BRIEF'in 1 numaralı korkusu ve Faz 0'ın "şartlı GO"
+> kaydı tam olarak bu ölçüme bağlıydı (*20/20 aramada ≤1 sn*); ölçüm sahada yapıldı. Ürünün varlık
+> sebebi artık doğrulanmış durumda. **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz.**
+>
+> ℹ️ Tek teknik not (iş maddesi DEĞİL, bilgi): ölçüm ekranına giden Ayarlar satırı kodda hâlâ
+> `kDebugMode` ile sarılı (`screens/isletme/ayarlar/uygulama_ayarlari_ekrani.dart:138` — dosya
+> ayarların beşe bölünmesiyle taşındı, eski `ayarlar_ekrani.dart:266` yolu bayattır). Yani release
+> derlemede satır çizilmez. Ölçüm tamamlandığı için bu artık kimseyi bloklamıyor; sahada YENİDEN
+> ölçüm istenirse gizli kapı (sürüm numarasına 7 kez dokunma) o gün açılır.
 
-**KİMDE:** Ölçüm **sende** (gerçek cihaz, gerçek arama); önündeki kod engelini kaldırmak **Claude'da**.
+**NEDEN (tarihsel):** Faz 0 "şartlı GO" ile kapanmıştı; şart bu ölçümdü.
 
 **⚠️ SIRADAKİ CLAUDE'A NOT — bu tuzağı kimse fark etmemiş:**
 Ölçüm ekranına giden Ayarlar satırı `kDebugMode` ile sarılı
@@ -3113,10 +3184,17 @@ buydu: *20/20 aramada ≤1 sn*. Bu ölçüm hâlâ yapılmadı. Ürünün varlı
 **KANIT:** `lib/phase0/phase0_screen.dart` · `lib/screens/isletme/ayarlar_ekrani.dart:266` ·
 `lib/screens/home_shell.dart:252`
 
-## 🟡 5. Mobil CI — Claude'un TEK BAŞINA yapabileceği en değerli iş
+## ✅ 5. Mobil CI — **KAPANDI** (2026-08-17'de koddan ölçüldü; bu satır aylardır bayatmış)
 
-**NEDEN:** Ürünün ağırlık merkezi artık mobil (378 test), ama CI'da **yalnız API ve manifest
-denetimi** koşuyor. `flutter test` / `dart analyze` **sadece geliştiricinin makinesinde** çalışıyor —
+> `.github/workflows/mobil-apk.yml` **var ve koşuyor**: `dart analyze` (79-81. satır) +
+> `flutter test` (86-88. satır, varlık indirmesini yeniden deneyen sarmalayıcıyla) + imzalı APK
+> derleme + sürümü APK'nın kendisinden doğrulama + `surum.json` yayınlama.
+> ℹ️ Tek eksik alt adım (iş maddesi değil, bilgi): 3. adımdaki **birleştirilmiş** manifest denetimi
+> kurulmadı — kırmızı çizgi #6'yı `manifest-lint.yml` hâlâ **kaynak** manifest üzerinden koruyor
+> (`scripts/check_permissions_source.sh`).
+
+**NEDEN (tarihsel):** Ürünün ağırlık merkezi mobil, ama CI'da **yalnız API ve manifest
+denetimi** koşuyordu. `flutter test` / `dart analyze` **sadece geliştiricinin makinesinde** çalışıyordu —
 yani iki geliştirici nöbetleşe çalışırken hiçbir otomatik bekçi yok. Ayrıca kırmızı çizgi #6'nın
 (Play izin yasağı) son katmanı olan **birleştirilmiş manifest denetimi** gradle build istediği
 için hâlâ kurulamadı; mobil CI gelince o da bağlanır.
@@ -3167,14 +3245,15 @@ rızasının gerekip gerekmediği.
 
 ## 🟢 8–12. Kalanlar (kısa)
 
-- **e-arşiv fatura:** BRIEF yasal gereklilik sayıyor, kodda **sıfır**. Entegratör seçimi sende,
-  bağlama Claude'da. (`mesafeli-satis.blade.php:22` "fatura elektronik iletilir" diyor.)
-- **iOS:** `apps/mobile/ios/` iskeleti hiç derlenmedi. **Mac + Xcode gerekli** — ekipte kimde
-  olduğu belirsiz, netleştir.
+- **[⏸️ ASKIYA ALINDI — 2026-08-17, kullanıcı kararı]** ~~e-arşiv fatura:~~ BRIEF yasal gereklilik
+  sayıyor, kodda **sıfır**. **Gündeme alınmaz, sorulmaz.** (Askı kalkarsa: entegratör seçimi
+  kullanıcıda, bağlama Claude'da; `mesafeli-satis.blade.php:22` "fatura elektronik iletilir" diyor.)
+- **[⏸️ ASKIYA ALINDI — 2026-08-17, kullanıcı kararı]** ~~iOS:~~ `apps/mobile/ios/` iskeleti hiç
+  derlenmedi, Mac + Xcode gerekiyor. **Gündeme alınmaz, sorulmaz** (Apple tarafıyla birlikte askıda).
 - **Mağaza görselleri + arayan-tanıma tanıtım videosu:** BRIEF mağaza incelemesi için zorunlu
   sayıyor, hiç üretilmedi. Video demo hesapla çekilecek (kilitli + kilitsiz ekran).
-- **Transactional e-posta:** `MAIL_MAILER=log`. Panel şifre sıfırlamada yeni şifreyi ekranda
-  gösteriyor, kimseye göndermiyor.
+- **[✅ KAPANDI — 2026-08-17]** ~~Transactional e-posta: `MAIL_MAILER=log`~~ — test sunucusunda
+  e-postalar gerçekten gidiyor (kullanıcı doğruladı), yani şifre sıfırlama da postalanıyor.
 - **Prod ortam:** TR VPS + Docker + `sipario.com.tr` TLS + `CORS_ALLOWED_ORIGINS` (boşsa tarayıcı
   reddedilir) + `sipario_panel` DB rolünün elle kurulması (docker init yalnız ilk initdb'de çalışır).
 - **Küçükler:** PR #11 merge · VERBİS değerlendirmesi · marka başvurusu takibi ·

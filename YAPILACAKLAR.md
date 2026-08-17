@@ -1,5 +1,12 @@
 # YAPILACAKLAR — Sipario (proje sahibi/insan işleri)
 
+> ## ⛔ 2026-08-17 — BU DOSYADAKİ DÖRT MADDE **ASKIYA ALINDI**, BİRİ **YAPILDI**
+> Kullanıcı kararıyla **gündeme alınmaz, sorulmaz:** **1. iyzico** · **4'ün Apple ayağı (D-U-N-S +
+> Developer Program)** · **5. Mac/Xcode + iOS** · **9. e-arşiv fatura**. Yeniden açılmaları ancak
+> yeni bir kullanıcı kararıyla olur. **12. maddedeki arayan-tanıma 20/20 ölçümü YAPILDI** →
+> Faz 0'ın şartı düştü, GO kesinleşti. **3. keystore** açık ama acelesi yok ("henüz daha var").
+> Gerekçeler ve kapanan öteki maddeler: `DECISIONS.md` son satırı + `PLAN.md` 2026-08-17 devir notu.
+>
 > ## ⚠️ BU DOSYA BAYAT (2026-07-16) — GÜNCEL LİSTE `PLAN.md`'DEDİR
 > Aşağıdaki liste 2026-07-16'da yazıldı ve o günden beri güncellenmedi: kapanmış maddeler
 > (2, 13) hâlâ açık görünüyor, kaldırılmış kupon özelliğinden söz ediyor, "~%79" oranı eski.
@@ -28,7 +35,8 @@ bitirince ilgili faz kapanışına yaklaşırsın; hangisini önce açtığın b
 
 ## 🔴 KRİTİK YOL — bunlar olmadan ürün satılamaz / mağazaya çıkamaz
 
-### 1. iyzico üretim hesabı + API anahtarları
+### ⏸️ ~~1. iyzico üretim hesabı + API anahtarları~~ — **ASKIYA ALINDI (2026-08-17, kullanıcı kararı)**
+- **Gündeme alınmaz, sorulmaz.** Aşağısı askı kalkarsa okunacak tariftir.
 - **NEDEN:** Faz 5 ödeme kodu GÜVENLİK olarak fail-closed kuruldu ama **gerçek iyzico'ya hiç bağlanmadı**;
   anahtar olmadan abonelik tahsilatı canlıya çıkamaz.
 - **NASIL:** Önce **sandbox** hesabı aç → `IYZICO_API_KEY` + `IYZICO_SECRET_KEY`'i bana ver (`.env`'e
@@ -54,13 +62,16 @@ bitirince ilgili faz kapanışına yaklaşırsın; hangisini önce açtığın b
   (kod bağlamayı ben yapabilirim, anahtar üretimi/saklama sende).
 - **Kanıt:** `apps/mobile/android/app/build.gradle.kts:32-36` (`// TODO: Faz 6'da kendi imza anahtarımız`).
 
-### 4. Apple + Google Play geliştirici hesapları (tüzel kişilik)
+### 4. ~~Apple~~ + Google Play geliştirici hesapları — **APPLE AYAĞI ASKIDA (2026-08-17)**
+- ⏸️ **Apple Developer Program + D-U-N-S: askıya alındı, gündeme alınmaz.** Google Play ayağı açık
+  (acelesi yok, keystore ile birlikte mağaza başvurusuna yaklaşınca).
 - **NEDEN:** Mağaza başvurusu için zorunlu.
 - **NASIL:** Google Play Console (kurumsal) + Apple Developer Program. **Apple kurumsal hesap D-U-N-S
   numarası ister** — yoksa D-U-N-S başvurusu haftalar sürebilir, **ERKEN başla**.
 - **Kanıt:** `docs/magaza/README.md`, `BRIEF.md` (mağaza kuralları).
 
-### 5. Mac + Xcode (iOS derleme/imzalama)  ⭐ YENİ
+### ⏸️ ~~5. Mac + Xcode (iOS derleme/imzalama)~~ — **ASKIYA ALINDI (2026-08-17, kullanıcı kararı)**
+- **iOS gündeme alınmaz, sorulmaz** (Apple tarafıyla birlikte askıda).
 - **NEDEN:** `apps/mobile/ios/` iskeleti var ama HİÇ derlenmedi/imzalanmadı; App Store başvurusu
   Mac + Xcode + Apple sertifikası gerektirir. Ekipte kimde olduğu belirsiz — netleştir.
 - **Kanıt:** DECISIONS "Faz 4 — mimari" (iOS doğrulaması ertelendi, Mac yok).
@@ -92,7 +103,8 @@ bitirince ilgili faz kapanışına yaklaşırsın; hangisini önce açtığın b
 - **`USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı** — metin hazır, Play Console formuna elle aktarılacak.
 - **Play data-safety: disk şifreleme + bağımsız güvenlik incelemesi** soruları — VPS seçimine bağlı.
 
-### 9. e-arşiv fatura sağlayıcı  ⭐ YENİ (BRIEF'te var, kodda hiç yok)
+### ⏸️ ~~9. e-arşiv fatura sağlayıcı~~ — **ASKIYA ALINDI (2026-08-17, kullanıcı kararı)**
+- **Gündeme alınmaz, sorulmaz.**
 - **NEDEN:** Yasal gereklilik; hukuk metni "fatura elektronik iletilir" diyor ama entegrasyon SIFIR.
 - **NASIL:** Bir e-arşiv/e-fatura entegratörü seç (iş kararı) + API bilgilerini ver → ben bağlarım.
 - **Kanıt:** `BRIEF.md` (yasal gereklilikler), `mesafeli-satis.blade.php:22`; kodda grep = 0 sonuç.
@@ -111,8 +123,9 @@ bitirince ilgili faz kapanışına yaklaşırsın; hangisini önce açtığın b
 
 ### 12. Antalya pilotu (Faz 7)
 - **NEDEN:** Gerçek doğrulama. 2–3 gerçek bayi + gerçek Android cihaz + saha ziyareti.
-- **NASIL:** Pilotun ilk haftasında **20 aramalık sistematik arayan-tanıma ölçümü** (ölçüm ekranı üründe
-  hazır). MIUI izinlerini Xiaomi'li bayide **birlikte** kur (programla verilemiyor).
+- **NASIL:** ~~Pilotun ilk haftasında **20 aramalık sistematik arayan-tanıma ölçümü**~~ →
+  ✅ **20/20 ÖLÇÜM 2026-08-17'DE YAPILDI, Faz 0'ın şartı düştü (GO kesin) — pilotun ön koşulu değil
+  artık.** MIUI izinlerini Xiaomi'li bayide **birlikte** kur (programla verilemiyor).
 - **Kanıt:** `BRIEF.md`, DECISIONS "Faz 0 kapanışı".
 
 ---
