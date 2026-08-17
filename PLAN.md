@@ -93,6 +93,16 @@
   kısıtlandı**, sohbete sızmış anahtarın serbest kullanımı kapandı. Geocoding API ve Routes API aynı
   projede (`142583979849`) etkin ve ölçülmüş (auto-route `engine:"google"` döndü). Kullanılan anahtar
   ikinci anahtar; ilk anahtar (proje `42963591866`) terk edildi. **Bu madde bir daha listeye alınmaz.**
+- **[🟡 KARAR SENDE — 2026-08-18, ANAHTAR ÜÇÜNCÜ KEZ SOHBETE GİRDİ]** Google anahtarı (`AIzaSyBfF…`)
+  bu oturumda düz metin olarak sohbete yapıştırıldı ve oturum dökümünde duruyor. **Depoya SIZMADI**
+  — ölçüldü: `apps/api/.env` git tarafından hiç izlenmemiş, `.gitignore` 13-17. satırlar doğru
+  kurulu (`.env` + `.env.*`, yalnız `.env.example` muaf). **Riski IP kısıtlaması sınırlıyor:**
+  anahtar `187.124.191.134` dışından çalışmaz, yani serbest kullanım kapalı. Karar: ya döndürülür
+  (Google Console → yeni anahtar → Coolify'da `GOOGLE_GEOCODER_KEY` + `GOOGLE_ROUTES_KEY` +
+  redeploy) ya da SSH anahtarında olduğu gibi risk **bilinçli kabul** edilip bu satır kapatılır.
+  ⚠️ Desen olarak not: bu bu depoda üçüncü sır sızıntısıdır (SSH özel anahtarı 2026-08-15, ilk
+  Google anahtarı, şimdi bu) ve üçünde de taşıyıcı sohbetin kendisiydi — sırlar panele/`.env`e
+  yazılır, konuşmaya değil.
 - **[KONUM — KAPI NUMARASI BORCU KAPANDI ✅]** Ölçüldü: `"Şirinyalı Mah. 1497. Sk. No: 9"` → Google **`ROOFTOP`, `partial=false`** ile kapıyı BULDU (36.86004,30.73569); Yandex aynı sorguda hâlâ sokağa düşüyor (36.86318,30.73490). Yani `kapiNumarasiniAt` geri çekilmesini ortak koda taşımaya **gerek yok** — Google'ın kendi davranışı yeterli. Borç kapandı.
 - **[KONUM — KVKK]** Adres metni sınır dışına çıkıyor ve artık **İKİ ülkeye birden**: Yandex (Rusya) + Google (ABD). Ad/telefon/müşteri kimliği ÇIKMIYOR (uç nokta kabul etmiyor, testle kilitli) ama **KVKK aydınlatma metnine "adres bilgisi coğrafi kodlama amacıyla yurt dışı sağlayıcılara aktarılır" satırı eklenmeli** — zaten bekleyen avukat işinin kapsamında. Metin sağlayıcı ADI vermemeli ya da ikisini de saymalı; sürücü bir env satırıyla değişiyor, tek isim yazmak metni bayatlatır.
 - **[❌ GEÇERSİZ — YEREL VERİ ONARIMI]** Bu madde `111` kimliğine taşınmış bir yerel demo bayisini
@@ -1790,9 +1800,11 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 > "erişim yok" hükmü ölçülmemişti). Bu bölümde **açık kalan iş maddesi kalmadı**; geriye
 > yalnız kullanıcı kararına bağlı olanlar duruyor: **0** (üretime geçiş) · **13** (dev→main
 > merge, zamanı kullanıcı söyler).
-> 🔴 **AMA BİR MADDE GERİ AÇILDI: 19 (gerçek yol ağı).** "Kapandı" yazıyordu, ölçülünce
-> `ROTA_SURUCU=yakin-komsu` çıktı — gerçek yol ağı sıralaması ŞU AN KAPALI. Düzeltmesi
-> kullanıcıda (kota kararı).
+> 🟡 **BİR MADDE GERİ AÇILDI, AYNI GÜN KULLANICI TARAFINDAN KAPATILDI: 19 (gerçek yol ağı).**
+> "Kapandı" yazıyordu, ölçülünce kapalı çıktı. Kullanıcı `ROTA_SURUCU=google` yaptı → yine
+> yakın komşu döndü; kök neden bulundu: **`GOOGLE_ROUTES_KEY` BOŞTU** ve motor anahtarsızken
+> *sessizce, günlüğe bile yazmadan* yedeğe düşüyor. Kullanıcı anahtarı doldurup redeploy etti.
+> **Son adım bağımsız ölçülmedi — sonraki vardiya `auto-route` çağırıp `engine`e baksın.**
 >
 > 🔴 **2026-08-17/2 GÜNCELLEMESİ — KOD BORÇLARI KAPANDI.** 7 · 8 · 9 · 14 · 15 kapandı (ayrıntı
 > 2026-08-17/2 devir notunda). **Bu bölümden geriye yalnız ORTAM/İŞLETME maddeleri (10 · 11 · 16 ·
@@ -1961,15 +1973,41 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
     gelmeyecek; aşağıdaki satır TARİHSEL KURTARMA BİLGİSİ olarak duruyor, iş maddesi değildir:
     kilit yeniden doğarsa çıkış yolu tek satırdır —
     `docker network create --driver bridge --attachable <app-uuid>`.
-19. **🔴 YENİDEN AÇILDI — 2026-08-18, ÖLÇÜLDÜ: KAPALIYMIŞ. Gerçek yol ağı sıralaması ŞU AN KAPALI.**
-    Sunucuda `ROTA_SURUCU=`**`yakin-komsu`** (hem `docker inspect` hem uygulamanın kendi
-    `config('rota.surucu')` çıktısı). **Redeploy'dan SONRA da öyle kaldı** — yani bu eski kabın
-    bayatlığı değil, panel değerinin kendisi `google` değil. Aşağıdaki "kapandı" hükmü
-    2026-08-17'de yazıldı ama hiçbir zaman ölçülmemişti; sahada yürürlükte olan yakın-komşu
-    YEDEĞİDİR. **Düzeltmesi tek satır** (panelde `ROTA_SURUCU=google` + redeploy) ama bu bir
-    KOTA kararıdır, o yüzden kullanıcıya bırakıldı — kendi başıma değiştirilmedi.
-    ⚠️ Değiştirilirken yürürlükte kalan kural: test ve üretim aynı Google anahtarını PAYLAŞMAMALI
+19. **🟡 KULLANICI KAPATTI — DOĞRULAMA SONRAKİ VARDİYAYA KALDI.** Kullanıcı 2026-08-18'de
+    `ROTA_SURUCU=google` yaptı, ardından **`GOOGLE_ROUTES_KEY`i doldurdu ve redeploy etti**
+    (kullanıcının bildirimi; bu son adım BAĞIMSIZ OLARAK ÖLÇÜLMEDİ — kullanıcı kendi ölçtüğünü
+    söyledi ve tekrar ölçülmesini istemedi).
+    ⚠️ **SONRAKİ VARDİYA BUNU BİR KEZ ÖLÇSÜN — çünkü bu madde daha önce iki kez ölçülmeden
+    "kapandı" yazıldı ve iki kez de tutmadı.** Doğrulama env okumak DEĞİLDİR:
+    `POST /api/v1/orders/auto-route` çağrılır ve yanıttaki **`engine` alanı `"google"` olmalıdır**
+    (demo bayisi + koordinatlı sipariş + `start` konumu ile; ayrıntılı tarif aşağıdaki teşhis
+    zincirinde). `"yakin-komsu"` dönüyorsa anahtar hâlâ boş ya da IP kısıtlaması sunucuyu
+    (`187.124.191.134`) dışarıda bırakıyordur.
+    (Geocoding API ve Routes API aynı Google projesinde — `142583979849` — etkin.)
+
+    **2026-08-18 TEŞHİS ZİNCİRİ (uçtan uca ölçüldü, tahmin yok):**
+    1. İlk ölçümde `ROTA_SURUCU=yakin-komsu`'ydu → kullanıcı panelde `google` yaptı + redeploy.
+    2. Redeploy sonrası kap doğru: `ROTA_SURUCU=google`, `config('rota.surucu')=google`. ✅
+    3. **Ama gerçek çağrı hâlâ yakın komşu döndü:** `POST /api/v1/orders/auto-route` →
+       `"engine":"yakin-komsu"` (HTTP 200, demo bayisi, 4 sipariş + `start` konumu).
+    4. Günlükte **düşüş uyarısı YOK** → motor Google'a gidip DÜŞMEDİ, hiç Google OLMADI.
+    5. Kök neden: `AppServiceProvider::rotaMotoruKur()` son satırı
+       `return $google->hazirMi() ? $google : $yakinKomsu;` — anahtar yoksa **sessizce** yakın
+       komşu döner. Ölçüldü: `config('rota.google.api_key')` **uzunluk 0**, `base_url` doğru,
+       `GOOGLE_GEOCODER_KEY` ise dolu (`AIzaSy…`). Yani boş olan yalnız ROTA anahtarı.
+
+    ⚠️ **BU MADDENİN ASIL DERSİ — SESSİZ DÜŞÜŞ İKİ KATMANLI:** `siralamayiKos()` içindeki
+    `catch (RotaException)` düşüşü **log'a yazar**; ama `hazirMi()` düşüşü **hiçbir iz
+    bırakmaz.** Yani "günlükte uyarı yok" ≠ "Google çalışıyor" — tam tersine, yapılandırma
+    eksikse hiç uyarı olmaz. `engine` alanı bu yüzden tek güvenilir tanıktır ve
+    **doğrulama `auto-route`u GERÇEKTEN ÇAĞIRIP `engine`e bakmaktır**; env okumak yetmez.
+    (2026-08-17'de bu madde "kapandı, `engine:"google"` döndü" diye yazılmıştı — ölçüm
+    tekrarlanınca tutmadı.)
+
+    ⚠️ Yürürlükte kalan kota kuralı: test ve üretim aynı Google anahtarını PAYLAŞMAMALI
     (test döngüsü üretimin kotasını yakar); dev'de `GEOCODING_DAILY_LIMIT` düşük tutulur (şu an 300).
+    Not: kontör motordan bağımsız düşer ("1 sıralama = 1 kontör"), yani yakın komşuya düşülen
+    her çağrı da hak yakar — özelliği yarım açık bırakmanın görünmez bir bedeli var.
     (ÖZGÜN, YANLIŞ ÇIKAN METİN:) ~~**AÇIK.** `ROTA_SURUCU=google` ve Routes API çalışıyor; yakın-komşu artık yalnız
     yedek yol (anahtar/kota/ağ arızasında controller sessizce ona düşer, kullanıcı 5xx görmez).~~
     ⚠️ **Yürürlükte kalan tek kural (iş maddesi değil, dikkat notu):** test ve üretim aynı Google
