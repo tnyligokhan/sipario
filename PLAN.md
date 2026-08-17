@@ -337,9 +337,17 @@ küme olan KURYE'yi veriyor. İki kural aynı soruya farklı cevap veriyor. Bug�
 ilkesi "belirsizlikte AÇILAN değil KAPANAN taraf seçilir" der; hizalamak bir YETKİ değişikliğidir
 (MINOR) ve kullanıcı kararı ister. `ui_rol_kapisi_test.dart` mevcut davranışı kilitledi.
 
-**⚠️ AÇIK KALAN:** **14 TEST DOSYASI 500 satırı aşıyor** (toplam 9.214 satır; en büyükleri
-`ara_tahsilat_test` 1126 · `ui_siparis_harita_test` 925 · `ui_siparis_test` 862). Kural testlere de
-uygulanır; bu vardiya `lib/` tarafını bitirdi, test tarafı ayrı bir iş kolu olarak duruyor.
+**✅ TEST DOSYASI BÖLME İŞİ — KULLANICI KARARIYLA KAPANDI, LİSTEYE BİR DAHA GİRMEZ.**
+Beş dosya bölündü (`ara_tahsilat` · `harita` · `müşteri` · `çağrı` · `sipariş` aileleri; hepsi
+yeşil, **test kaybı yok** — önce/sonra sayıldı: 55→55 · 29→29 · 43→43 · 28→28 · 22→22) ve orada
+DURULDU. Kullanıcı kararı: **500 satır kuralı `lib/` içindir, test dosyalarına uygulanmaz** —
+test dosyası grup grup okunur, bölmenin kazancı kozmetik, riski test kaybıdır. Kalan dosyalar
+(628 · 609 · 552 · 546 · 513 · 511 · 509 · 507 · 502) bölünmez. Kural `CLAUDE.md`ye yazıldı.
+
+**🆕 YENİ KURAL (kullanıcı, 2026-08-17): bundan sonra yazılan HER ŞEY OOP'a uygun olur — test
+dosyaları dahil.** Testte karşılığı fikstür SINIFIDIR (`test/support/*` deseni). ⚠️ Geriye dönük
+DEĞİLDİR: mevcut kod olduğu gibi kalır, toplu dönüştürme yapılmaz; mevcut dosyaya satır eklerken
+o dosyanın kendi kalıbı korunur. Ayrıntı `CLAUDE.md` ve `DECISIONS.md` son satırlarında.
 
 **⚠️ BU VARDİYADA YAPTIĞIM BİR HATA, KAYDA GEÇSİN:** `cekmece_parcalari.dart`ı **var olan bir dosya
 olduğunu kontrol etmeden** üzerine yazdım (2026-08-13'te oluşturulmuştu). Git izlediği için tek

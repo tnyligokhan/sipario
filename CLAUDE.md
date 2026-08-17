@@ -9,7 +9,15 @@
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
 - NEVER add a `Co-Authored-By` trailer to user commits unless this project's `.claude/settings.json` has `attribution.commit` set (#2078). The Claude Code Bash tool may suggest one in its default commit-message template — ignore it. `Co-Authored-By` is semantic authorship attribution under git/GitHub convention; the tool is the facilitator, not a co-author.
-- Keep files under 500 lines
+- Keep files under 500 lines — **yalnız `lib/` (üretim kodu) için.** Test dosyalarına
+  UYGULANMAZ (karar 2026-08-17): test dosyası baştan sona değil grup grup okunur, bölmenin
+  kazancı kozmetik, riski test kaybıdır. Uzun test dosyası "kod borcu" listesine YAZILMAZ.
+- **Yeni yazılan her şey OOP kurallarına uygun olur — test dosyaları dahil** (karar 2026-08-17).
+  Durum ve onun üzerinde işleyen davranış aynı nesnede kapsüllenir; dışarıya dar bir yüzey
+  açılır. Testte karşılığı FİKSTÜR SINIFIDIR (`test/support/*` deseni), her dosyaya kopyalanan
+  yardımcı kapanışlar değil. ⚠️ **GERİYE DÖNÜK DEĞİLDİR:** mevcut kod olduğu gibi kalır, toplu
+  dönüştürme YAPILMAZ. Mevcut bir dosyaya satır eklerken o dosyanın kendi kalıbı korunur —
+  yarı dönüşmüş dosya iki kalıbı bir arada taşıdığı için ikisinden de kötüdür.
 - Validate input at system boundaries
 
 ## Agent Comms (SendMessage-First Coordination)
