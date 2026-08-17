@@ -31,7 +31,7 @@ void main() {
         await repo.deactivate(eski);
       });
 
-      await ekranaKoy(tester, ProductListScreen(db: db, writable: true));
+      await ekranaKoy(tester, ProductListScreen(db: db, writable: true, rol: 'patron'));
 
       expect(find.text('PASİF'), findsOneWidget, reason: 'pasif ürün rozet taşır');
       expect(find.text(sipTutar(500)), findsOneWidget,

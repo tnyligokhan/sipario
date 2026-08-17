@@ -238,8 +238,10 @@ void main() {
       // Ekleme yolu FAB'dan listenin başındaki kesikli "Yeni ürün ekle" satırına taşındı
       // (CSS `.ys-ekle`); uyarı da SnackBar yerine `SipToast`. Kural aynı.
       final db = AppDatabase(NativeDatabase.memory());
+      // `rol` AÇIKÇA VERİLİR (2026-08-17): yönetici kapısı artık tanınmayan/eksik rolde kapanıyor;
+      // rolsüz kurulan bir ekran testi kapının kapalı hâlini ölçerdi, ekranın içeriğini değil.
 
-      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: false)));
+      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: false, rol: 'patron')));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
       await tester.tap(find.text('Yeni ürün ekle'));
@@ -263,7 +265,7 @@ void main() {
         await repo.deactivate(eski);
       });
 
-      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: true)));
+      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: true, rol: 'patron')));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
@@ -283,7 +285,7 @@ void main() {
     testWidgets('yeniden tasarım (Ekran 5): boş durum ortak bileşenle', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
-      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: true)));
+      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: true, rol: 'patron')));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
