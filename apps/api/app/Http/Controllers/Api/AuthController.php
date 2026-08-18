@@ -111,6 +111,50 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * POST /api/v1/auth/parola-dogrula  (korumalı) — YÖNETİCİ ONAYI.
+     *
+     * ══ NEDEN VAR ═══════════════════════════════════════════════════════════════════════════
+     * Bazı işlemler "giriş yapmış olmak"tan fazlasını ister: kapatılmış bir gün hesabını geri
+     * almak gibi. Telefon çoğu zaman tezgâhın üstünde açık durur; oturumun patrona ait olması,
+     * o an ekrana dokunanın patron olduğunu KANITLAMAZ. Bu uç nokta o kanıtı ister.
+     *
+     * ══ NEDEN İSTEMCİDE DOĞRULANMIYOR ══════════════════════════════════════════════════════
+     * Depoda yazılı kural: **parola SAKLANMAZ ve hash'i istemci üretemez** (`Session.giris`
+     * "beniHatirla" notu, `TeamApi` başlığı). Yerel bir parola aynası koymak, offline çalışsın
+     * diye ürünün en hassas sırrını her telefona kopyalamak olurdu — bir telefon kaybolduğunda
+     * bedeli tüm bayidir. Bedeli AÇIK: bu onay ÇEVRİMİÇİ ister; çağıran ekran ağ yokken
+     * gerekçesini yazmak zorundadır.
+     *
+     * ══ GÜVENLİK NOTLARI ═══════════════════════════════════════════════════════════════════
+     *  • YALNIZ OTURUMDAKİ kullanıcının parolası doğrulanır. Kullanıcı adı GÖVDEDEN ALINMAZ:
+     *    alınsaydı, kuryenin telefonundaki bir oturumdan patronun parolası TAHMİN EDİLEBİLİR
+     *    hâle gelirdi (kimlik doğrulanmış bir kaba kuvvet yüzeyi).
+     *  • `throttle:login` ile SINIRLANIR — bu bir parola denemesidir ve giriş ekranıyla aynı
+     *    kaba kuvvet bütçesinden yemelidir.
+     *  • Yanıt tek bit taşır. Rol/yetki kararı BURADA VERİLMEZ: uç nokta "bu parola bu kullanıcıya
+     *    ait mi" sorusuna cevap verir, "bu kişi şunu yapabilir mi" sorusuna değil. İkisini
+     *    birleştirmek, her yeni eylemde bu dosyayı da düzenlemek demekti.
+     */
+    public function parolaDogrula(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'password' => ['required', 'string', 'max:200'],
+        ]);
+
+        $user = $request->user();
+
+        // Zamanlama yan-kanalı: `login` ile AYNI önlem. Buradaki kullanıcı zaten kesin var, ama
+        // `password` sütunu (teorik olarak) boş olsa kısa devre yapmak süre farkı üretirdi.
+        $gecerli = Hash::check($data['password'], $user->password ?? self::DUMMY_PASSWORD_HASH);
+
+        if (! $gecerli) {
+            return response()->json(['message' => 'Parola hatalı.'], 422);
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
     /** POST /api/v1/auth/logout  (korumalı) — yalnız geçerli token'ı iptal eder. */
     public function logout(Request $request): JsonResponse
     {

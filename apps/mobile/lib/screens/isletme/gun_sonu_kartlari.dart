@@ -198,10 +198,16 @@ class ArsivSatiri extends StatelessWidget {
     required this.kapsamAdi,
     required this.bugun,
     this.onTap,
+    this.geriAlinmis = false,
   });
 
   final DayClosing kapanis;
   final String kapsamAdi;
+
+  /// Bu kapanış SONRADAN geri alındı mı (2026-08-18). Satır LİSTEDE KALIR ama artık geçerli
+  /// bir mutabakat değildir — para kayıtlarında düzeltme silmeyle değil ters kayıtla yapılır,
+  /// yani hata kanıt olarak görünür kalmalı (BRIEF).
+  final bool geriAlinmis;
 
   /// "Bugün/Dün" kelimesinin referans günü — DÜZELTİLMİŞ saatten gelmeli (`bugunTrDuzeltilmis`).
   /// Kaydın GÜNÜ düzeltilmiş saatten çıkıyor; etiketi cihaz saatinden çıkarmak, telefonu ileri
@@ -223,11 +229,13 @@ class ArsivSatiri extends StatelessWidget {
       child: Row(
         children: [
           SipIkonKutu(
-            ikon: SipIcons.lock,
+            // GERİ ALINMIŞ KAPANIŞ KİLİT DEĞİL, AÇIK KAPI ANLATIR: aynı ikonu bırakmak satırı
+            // hâlâ kilitli bir hesap gibi gösterirdi ve bu, tam olarak ters bilgidir.
+            ikon: geriAlinmis ? SipIcons.info : SipIcons.lock,
             cap: 30,
             ikonBoyut: 15,
-            zemin: t.surface2,
-            renk: t.muted,
+            zemin: geriAlinmis ? t.warnSoft : t.surface2,
+            renk: geriAlinmis ? t.warn : t.muted,
           ),
           const SizedBox(width: 11),
           Expanded(
@@ -235,11 +243,31 @@ class ArsivSatiri extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  kapsamAdi,
-                  style: SipText.metin(13.5, w: 700).copyWith(color: t.ink),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        kapsamAdi,
+                        style: SipText.metin(13.5, w: 700).copyWith(color: t.ink),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (geriAlinmis) ...[
+                      const SizedBox(width: SipSpace.sm),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: t.warnSoft,
+                          borderRadius: SipRadius.brHap,
+                        ),
+                        child: Text(
+                          'Geri alındı',
+                          style: SipText.metin(10, w: 700).copyWith(color: t.warn),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
@@ -255,7 +283,12 @@ class ArsivSatiri extends StatelessWidget {
           const SizedBox(width: SipSpace.md),
           Text(
             sipTutar(k.totalCollectedKurus),
-            style: SipText.tutar(13.5).copyWith(color: t.ink),
+            style: SipText.tutar(13.5).copyWith(
+              color: geriAlinmis ? t.muted : t.ink,
+              // ÜSTÜ ÇİZİLİ: rakam artık geçerli değil ama okunabilir kalmalı — silmek yerine
+              // "bu sayı iptal" demenin en kısa yolu (ara tahsilat iptalinde de aynı dil).
+              decoration: geriAlinmis ? TextDecoration.lineThrough : null,
+            ),
           ),
           const SizedBox(width: SipSpace.sm),
           SipIcon(SipIcons.chevR, boyut: 16, kalinlik: 2, renk: t.line2),

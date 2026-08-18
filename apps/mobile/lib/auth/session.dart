@@ -150,6 +150,20 @@ class Session {
     );
   }
 
+  /// YÖNETİCİ ONAYI — oturumdaki kullanıcının parolasını sunucuya doğrulatır (2026-08-18).
+  ///
+  /// Gerekçe ve çevrimiçi zorunluluğu `AuthApi.parolaDogrula` başlığında. Burada yalnız oturum
+  /// jetonu çözülür; jeton yoksa çağrı hiç yapılmaz (ağa çıkıp 401 almak, kullanıcıya "sunucu
+  /// hatası" gibi görünen bir gecikme eklemek olurdu).
+  Future<bool> parolaDogrula(String password) async {
+    final meta = await db.syncState();
+    final token = meta.authToken;
+    if (token == null) {
+      throw AuthException('Oturum bulunamadı — çıkış yapıp yeniden girin.');
+    }
+    return _apiFactory(baseUrlOf(meta)).parolaDogrula(token: token, password: password);
+  }
+
   /// "Beni hatırla" ile saklanmış kimlik; hatırlama kapalıysa null.
   Future<HatirlananKimlik?> hatirlananKimlik() async => hatirlananKimlikCoz(await db.syncState());
 

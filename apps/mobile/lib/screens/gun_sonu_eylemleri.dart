@@ -40,6 +40,26 @@ extension _GunSonuEylemleri on _DayEndScreenState {
     if (tazelensin && mounted) _tazele();
   }
 
+  /// Kapatılmış bir hesabı GERİ ALIR (kullanıcı kararı 2026-08-18). Kayıt SİLİNMEZ — repo ters
+  /// bir kapanış satırı yazar ve varsa bağlı kasa devrini de aynı transaction'da geri alır
+  /// (BRIEF kırmızı çizgi #2).
+  ///
+  /// Yetki kapısı BURADA DA sorulur (çift kapı, K2 pazarlıksız): düğme çizilmemiş olsa bile bu
+  /// fonksiyon kendi başına güvenli olmalı.
+  Future<void> _kapanisiGeriAl(DayClosing kapanis, List<User> kuryeler) async {
+    if (!_kapanisGeriAlabilir) return;
+    final tazelensin = await kapanisGeriAl(
+      context,
+      db: widget.db,
+      session: widget.session!,
+      kapanis: kapanis,
+      kapsamAdi: kapanis.userId == null
+          ? 'Gün'
+          : (kullaniciAdi(kuryeler, kapanis.userId) ?? 'Kurye'),
+    );
+    if (tazelensin && mounted) _tazele();
+  }
+
   Future<void> _kapat(List<User> kuryeler, GunSonuGorunumu g) async {
     if (!_kapatabilir) return; // düğme zaten kapalı; çift kapı (K2 pazarlıksız)
     final kapsamAdi = _kapsamAdi(kuryeler);

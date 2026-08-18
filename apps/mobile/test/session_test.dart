@@ -44,6 +44,9 @@ class _FakeAuthApi implements AuthApi {
 
   /// Bu testlerin konusu değil; yalnız sözleşmeyi tamamlar (`implements AuthApi`).
   @override
+  Future<bool> parolaDogrula({required String token, required String password}) async => true;
+
+  @override
   Future<String> parolaSifirla({
     required String tenantCode,
     required String username,

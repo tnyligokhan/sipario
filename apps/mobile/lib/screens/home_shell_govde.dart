@@ -74,6 +74,8 @@ extension _GovdeYuzeyi on _HomeShellState {
           // kapılarını buradan türetiyor. Geçilmezse varsayılan izinlerle karar verir ve
           // bayinin kendi ayarı yok sayılırdı.
           kuryeIzin: _kuryeIzin,
+          // Oturum YALNIZ yönetici parolası doğrulaması için geçer (kapanışı geri alma).
+          session: widget.session,
         ),
     };
   }

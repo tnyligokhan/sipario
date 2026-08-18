@@ -89,9 +89,26 @@ class TahsilatSatirKarti extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 3),
-                Text(
-                  saatBicimi(satir.occurredAt),
-                  style: SipText.metin(11, w: 600).copyWith(color: t.ink2),
+                Row(
+                  children: [
+                    Text(
+                      saatBicimi(satir.occurredAt),
+                      style: SipText.metin(11, w: 600).copyWith(color: t.ink2),
+                    ),
+                    // KAYNAK ROZETİ (saha isteği 2026-08-18): "borç tahsilatı kasaya işliyor
+                    // fakat sipariş gibi gözüküyor". Para doğruydu, ANLAMI yanlıştı — dün
+                    // teslim edilmiş bir siparişin bugün ödenmesi, bugün yapılmış bir satışla
+                    // aynı satırda ayırt edilemiyordu.
+                    //
+                    // ROZET SAATİN YANINDA, TUTARIN DEĞİL: tutar sütununda ödeme türü rozeti
+                    // zaten var; ikisini alt alta koymak satırı iki rozetli bir bulmacaya
+                    // çevirirdi. Kaynak bir ZAMAN bilgisidir ("hangi güne ait iş"), o yüzden
+                    // saatin komşusudur.
+                    if (satir.kaynak.etiket != null) ...[
+                      const SizedBox(width: SipSpace.sm),
+                      _KaynakRozeti(kaynak: satir.kaynak),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -120,6 +137,34 @@ class TahsilatSatirKarti extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Tahsilatın kaynağını söyleyen küçük rozet.
+///
+/// RENK ANLAM TAŞIR ama UYARI DEĞİLDİR: bu satırların hiçbiri hata değil, sadece bugünün
+/// satışından gelmeyen paradır. `warn` tonu kullanılsaydı bayi her eski borç tahsilatında bir
+/// sorun aradı — nötr `ink2` doğru olan.
+class _KaynakRozeti extends StatelessWidget {
+  const _KaynakRozeti({required this.kaynak});
+
+  final TahsilatKaynagi kaynak;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    final ters = kaynak == TahsilatKaynagi.duzeltme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: ters ? t.warnSoft : t.surface2,
+        borderRadius: SipRadius.brHap,
+      ),
+      child: Text(
+        kaynak.etiket!,
+        style: SipText.metin(10, w: 700).copyWith(color: ters ? t.warn : t.ink2),
       ),
     );
   }

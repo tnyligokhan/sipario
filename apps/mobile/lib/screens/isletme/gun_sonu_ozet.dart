@@ -10,6 +10,7 @@ import '../../data/tr_gun.dart';
 import '../../repo/cash_handover_repository.dart';
 import '../../repo/day_closing_repository.dart';
 import '../../repo/day_end_repository.dart';
+import '../../repo/gun_veresiye_repository.dart';
 
 export '../../data/tr_gun.dart' show bugunTrDuzeltilmis;
 
@@ -62,6 +63,8 @@ class KapsamOzeti {
     required this.teslimat,
     required this.acikSiparis,
     this.iskonto = 0,
+    this.veresiye = 0,
+    this.eskiBorcTahsilati = 0,
   });
 
   final KasaOzeti kasa;
@@ -70,6 +73,21 @@ class KapsamOzeti {
 
   /// Kapıda kırılan toplam (pozitif kuruş). [kasa]nın İÇİNDE DEĞİLDİR — kasaya hiç girmedi.
   final int iskonto;
+
+  /// BUGÜN yazılan veresiye (pozitif kuruş). [kasa]nın İÇİNDE DEĞİLDİR — tanımı gereği kasaya
+  /// girmeyen paradır (saha isteği 2026-08-18).
+  ///
+  /// "Açık Veresiye" kartıyla KARIŞTIRILMAMALI: o kart anlık toplam bakiyeyi (aylardır birikmiş
+  /// borç) gösterir, bu sayı yalnız bugüne aittir. İkisini tek satırda toplamak, bugünün işini
+  /// geçmişin yığınında görünmez kılan tam olarak o hataydı.
+  final int veresiye;
+
+  /// Kasaya giren ama BUGÜNKÜ SATIŞTAN gelmeyen tutar (pozitif kuruş) — eski borç kapatmaları
+  /// ve geçmiş siparişlerin tahsilatı. [kasa]NIN İÇİNDEDİR, ondan düşülmez.
+  ///
+  /// Ayrı durur çünkü "kasaya ne girdi" ile "bugün ne sattım" farklı sorulardır ve bir tek
+  /// rakam ikisine birden cevap veremez.
+  final int eskiBorcTahsilati;
 }
 
 /// KAPSAM özeti. [kuryeId] null ise gün geneli.
@@ -83,11 +101,27 @@ Future<KapsamOzeti> kapsamOzeti(
   String? kuryeId,
 }) async {
   final repo = DayEndRepository(db);
+  // ALTI OKUMA PARALEL: hiçbiri diğerinin sonucuna bağlı değil ve `await`leri sıraya dizmek
+  // ekranın ilk çizimini altı gidiş-dönüş kadar geciktiriyordu. Gün özeti `FutureBuilder` ile
+  // TEK ATIŞ yüklenir — o future uzadıkça ekran iskelet kalır. (2026-08-18'de iki okuma daha
+  // eklenince sınır göründü: mevcut widget testleri "dört tur bekle" varsayımıyla yazılmıştı
+  // ve future yetişemedi. Testin varsayımını büyütmek yerine işi kısaltmak doğrusu.)
+  final sonuc = await Future.wait<Object>([
+    repo.kasaOzeti(localDate, userId: kuryeId),
+    repo.teslimatSayisi(localDate, userId: kuryeId),
+    repo.iskontoOzeti(localDate, userId: kuryeId),
+    GunVeresiyeRepository(db).toplam(localDate, userId: kuryeId),
+    repo.eskiBorcTahsilati(localDate, userId: kuryeId),
+    acikSiparisSayisi(db, localDate, kuryeId: kuryeId),
+  ]);
+
   return KapsamOzeti(
-    kasa: await repo.kasaOzeti(localDate, userId: kuryeId),
-    teslimat: await repo.teslimatSayisi(localDate, userId: kuryeId),
-    iskonto: await repo.iskontoOzeti(localDate, userId: kuryeId),
-    acikSiparis: await acikSiparisSayisi(db, localDate, kuryeId: kuryeId),
+    kasa: sonuc[0] as KasaOzeti,
+    teslimat: sonuc[1] as int,
+    iskonto: sonuc[2] as int,
+    veresiye: sonuc[3] as int,
+    eskiBorcTahsilati: sonuc[4] as int,
+    acikSiparis: sonuc[5] as int,
   );
 }
 
@@ -133,7 +167,15 @@ class GunSonuGorunumu {
     this.araTahsilatMumkun = false,
     this.araTahsilatToplamiKurus = 0,
     this.senkron = const SenkronTazeligi(),
+    this.geriAlinmisKapanislar = const {},
   });
+
+  /// GERİ ALINMIŞ kapanışların id'leri (2026-08-18).
+  ///
+  /// Görünümün İÇİNDE taşınır, ekranın ikinci bir sorgusundan gelmez: [gunKapanislari] ile
+  /// AYNI ANDA okunmalı, yoksa liste ile rozet bir kare boyunca ayrışır ve kullanıcı geri
+  /// aldığı kapanışı hâlâ geçerli görür.
+  final Set<String> geriAlinmisKapanislar;
 
   /// Gün geneli BORÇ (yalnız borç — bkz. [GunBorcOzeti]).
   final GunBorcOzeti ozet;
@@ -220,6 +262,7 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
     gunKapali: gunKapali,
     kapsamKapali: gunKapali || kuryeKapali,
     gunKapanislari: await kapanislar.gununKapanislari(localDate),
+    geriAlinmisKapanislar: await kapanislar.geriAlinmisIdler(),
     araTahsilatlar:
         await CashHandoverRepository(db).araTahsilatlar(localDate, kuryeId: kuryeId),
     araTahsilatToplamiKurus:

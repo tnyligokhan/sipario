@@ -97,6 +97,53 @@ class AuthApi {
     );
   }
 
+  /// YÖNETİCİ ONAYI — oturumdaki kullanıcının parolasını sunucuya doğrulatır (2026-08-18).
+  ///
+  /// Bazı işlemler "giriş yapmış olmak"tan fazlasını ister: kapatılmış bir gün hesabını geri
+  /// almak gibi. Telefon çoğu zaman tezgâhın üstünde açık durur; oturumun patrona ait olması, o
+  /// an ekrana dokunanın patron olduğunu kanıtlamaz.
+  ///
+  /// ⚠️ ÇEVRİMİÇİ ZORUNLU ve bu bilinçli bir bedeldir. Depoda yazılı kural: parola SAKLANMAZ ve
+  /// hash'i istemci üretemez (`Session.giris` "beniHatirla" notu, `TeamApi` başlığı). Yerel bir
+  /// parola aynası koymak, ürünün en hassas sırrını her telefona kopyalamak olurdu. Çağıran
+  /// ekran ağ yokken gerekçesini YAZMAK zorundadır — sessizce başarısız olmak, kullanıcıya
+  /// "parolam yanlış" dedirtir.
+  ///
+  /// Kullanıcı adı GÖNDERİLMEZ: sunucu her zaman TOKEN'IN sahibini doğrular. Gönderilseydi
+  /// kuryenin telefonundaki bir oturumdan patronun parolası denenebilirdi.
+  ///
+  /// `true` = parola doğru. `false` = parola yanlış (422). Ağ/sunucu arızasında [AuthException]
+  /// atar — "yanlış parola" ile "sunucuya ulaşılamadı" AYRI sonuçlardır ve ekran ikisini aynı
+  /// cümleyle gösteremez.
+  Future<bool> parolaDogrula({required String token, required String password}) async {
+    final http.Response resp;
+    try {
+      resp = await _client
+          .post(
+            Uri.parse('$baseUrl/auth/parola-dogrula'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'password': password}),
+          )
+          .timeout(const Duration(seconds: 20));
+    } on Exception {
+      throw AuthException('Sunucuya ulaşılamadı. Yönetici onayı için internet gerekli.');
+    }
+
+    if (resp.statusCode == 200) return true;
+    if (resp.statusCode == 422) return false;
+    if (resp.statusCode == 429) {
+      throw AuthException('Çok fazla deneme yapıldı. Birkaç dakika sonra tekrar deneyin.');
+    }
+    if (resp.statusCode == 401) {
+      throw AuthException('Oturumunuz sona ermiş. Çıkış yapıp yeniden girin.');
+    }
+    throw AuthException('Onay alınamadı (HTTP ${resp.statusCode}).');
+  }
+
   /// Parola sıfırlama bağlantısı ister (kullanıcı isteği 2026-08-13).
   ///
   /// SUNUCU HER KOŞULDA AYNI ŞEYİ DÖNER ve bu bilinçlidir: hesap var/yok, patron/kurye ayrımı

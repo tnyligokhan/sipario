@@ -78,6 +78,26 @@ return [
     */
 
     /*
+    | 1.11.0 (2026-08-18): KAPANIŞI GERİ ALMA + YÖNETİCİ ONAYI. İki ekleme:
+    |
+    | (1) `day_closings.reverses_closing_id` — kapatılmış bir gün/kurye hesabı
+    | artık geri alınabiliyor. Kayıt SİLİNMEZ: geri alma, tabloya yazılan TERS
+    | BİR SATIRdır (`cash_handovers.reverses_handover_id` deseninin aynısı) ve
+    | orijinal kapanış kanıt olarak yerinde kalır.
+    |
+    | (2) `POST /auth/parola-dogrula` — oturumdaki kullanıcının parolasını
+    | doğrular ("bu ekrana dokunan gerçekten sen misin?"). Kullanıcı adı
+    | GÖVDEDEN ALINMAZ; doğrulanan her zaman token'ın sahibidir.
+    |
+    | MINOR: uç nokta eklendi, alan eklendi, hiçbir mevcut anlam değişmedi.
+    |
+    | ⚠️ ESKİ İSTEMCİ İÇİN BİLİNÇLİ BEDEL: 0.28.0 ve öncesi bir telefon, geri
+    | alma satırını "ikinci bir kapanış" olarak indirir ve o günü hâlâ KAPALI
+    | görür — yani yeni yeteneği kullanamaz. Yanlış PARA göstermez (arşiv
+    | satırları olduğu gibi durur). Alternatif (yeni bir entity_type) olayın
+    | eski istemcide tamamen KAYBOLMASI demekti; görünür ama etkisiz olmak,
+    | hiç olmamaktan iyidir.
+    |
     | 1.10.0 (2026-08-17): LWW SANİYE-ALTI AYRIMI. Çakışma çözümü ("son yazan
     | kazanır") aynı saniyeye düşen iki yazımı ayıramıyor, karar `device_id`
     | karşılaştırmasına iniyordu — yani kazanan daha YENİ olan değil, kimliği
@@ -106,7 +126,7 @@ return [
     | etmeden çalışmaya devam eder.
     */
 
-    'version' => '1.10.0',
+    'version' => '1.11.0',
 
     /*
     |--------------------------------------------------------------------------

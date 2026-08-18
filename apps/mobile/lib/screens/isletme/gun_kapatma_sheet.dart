@@ -319,19 +319,38 @@ Future<void> arsivDetaySheet(
   DayClosing k, {
   required String kapsamAdi,
   required DateTime bugun,
+  bool geriAlinmis = false,
+  Future<void> Function()? onGeriAl,
 }) {
   return sipSheet<void>(
     context,
     baslik: '$kapsamAdi · Arşiv',
-    govde: (ctx) => _ArsivDetay(kapanis: k, bugun: bugun),
+    govde: (ctx) => _ArsivDetay(
+      kapanis: k,
+      bugun: bugun,
+      geriAlinmis: geriAlinmis,
+      onGeriAl: onGeriAl,
+    ),
   );
 }
 
 class _ArsivDetay extends StatelessWidget {
-  const _ArsivDetay({required this.kapanis, required this.bugun});
+  const _ArsivDetay({
+    required this.kapanis,
+    required this.bugun,
+    this.geriAlinmis = false,
+    this.onGeriAl,
+  });
 
   final DayClosing kapanis;
   final DateTime bugun;
+
+  /// Bu kapanış SONRADAN geri alındı mı (2026-08-18). Kayıt yerinde durur, geçerliliği düşer.
+  final bool geriAlinmis;
+
+  /// "Hesabı Geri Al" eylemi. `null` ise düğme HİÇ çizilmez — yetki kapısı ÇAĞIRANDADIR
+  /// (`yetkiler().gunuKapatma`), bu sheet karar vermez, yalnız taşır.
+  final Future<void> Function()? onGeriAl;
 
   @override
   Widget build(BuildContext context) {
@@ -379,6 +398,37 @@ class _ArsivDetay extends StatelessWidget {
         if (not.isNotEmpty) ...[
           const SizedBox(height: SipSpace.lg),
           SipNotKutusu(metin: not),
+        ],
+
+        // GERİ ALINMIŞ KAPANIŞ: kayıt DURUR, geçersizliği yazıyla söylenir (2026-08-18).
+        // Satırı listeden silmek "olay hiç olmadı" demek olurdu; oysa olmuştu ve düzeltildi.
+        if (geriAlinmis) ...[
+          const SizedBox(height: SipSpace.lg),
+          const SipNotKutusu(
+            metin: 'Bu kapanış geri alındı. Rakamlar o anki kaydı gösterir; '
+                'hesabın güncel durumu için sonraki kapanışa bakın.',
+            ikon: SipIcons.info,
+            tur: SipNotTuru.uyari,
+          ),
+        ],
+
+        // "HESABI GERİ AL" — yalnız GEÇERLİ bir kapanışta ve yalnız yetkili kullanıcıda.
+        // Geri alınmış bir kaydı ikinci kez geri almak anlamsızdır (repo da reddeder); düğmeyi
+        // çizip dokunuşta reddetmek yerine hiç çizmiyoruz.
+        if (onGeriAl != null && !geriAlinmis) ...[
+          const SizedBox(height: SipSpace.x4),
+          SipButon(
+            etiket: 'Hesabı Geri Al',
+            tur: SipButonTuru.tehlike,
+            onTap: () async {
+              // Sheet ÖNCE kapanır: geri alma akışı kendi onay diyaloğunu ve parola sheet'ini
+              // açıyor, üst üste üç katman modal kullanıcıyı nerede olduğunu bilmez hâle
+              // getirirdi. Ayrıca akış bitince ekranın tazelenmesi gerekiyor ve bu sheet
+              // tazelenmiş veriyi zaten taşımıyor.
+              Navigator.of(context).maybePop();
+              await onGeriAl!();
+            },
+          ),
         ],
       ],
     );

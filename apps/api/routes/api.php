@@ -46,6 +46,15 @@ Route::prefix('v1')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me'])->name('api.auth.me');
         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
 
+        // YÖNETİCİ ONAYI (2026-08-18) — "bu ekrana dokunan gerçekten sen misin?".
+        // Kapatılmış bir gün hesabını geri almak gibi geri döndürülebilir ama ağır işlemler
+        // önce buradan geçer. `throttle:login` bilinçli: bu bir parola denemesidir ve giriş
+        // ekranıyla AYNI kaba kuvvet bütçesini paylaşmalı — ayrı bir kota açmak, kilitli giriş
+        // ekranını yan kapıdan zorlamaya izin vermek olurdu.
+        Route::post('/auth/parola-dogrula', [AuthController::class, 'parolaDogrula'])
+            ->middleware('throttle:login')
+            ->name('api.auth.parola-dogrula');
+
         Route::get('/devices', [DeviceController::class, 'index'])->name('api.devices.index');
         Route::post('/devices', [DeviceController::class, 'store'])->name('api.devices.store');
         Route::get('/devices/{device}', [DeviceController::class, 'show'])->name('api.devices.show');

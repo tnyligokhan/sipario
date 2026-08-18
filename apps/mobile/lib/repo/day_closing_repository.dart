@@ -50,22 +50,54 @@ class DayClosingRepository {
         ..limit(limit))
       .watch();
 
+  /// GERİ ALINMIŞ kapanışların id kümesi — bir satırın hâlâ GEÇERLİ olup olmadığının tek ölçüsü.
+  ///
+  /// Geri alma, tabloya yazılan TERS BİR SATIRdır (`reverses_closing_id` dolu). Yani bir kapanışın
+  /// "iptal edilmiş" olduğu, kendi satırında DEĞİL başka bir satırda yazar — append-only defterin
+  /// doğal sonucu ([DayClosings.reversesClosingId] gerekçesi).
+  Future<Set<String>> _geriAlinmisIdler() async {
+    final rows = await (db.select(db.dayClosings)
+          ..where((t) => t.reversesClosingId.isNotNull()))
+        .get();
+    return {for (final r in rows) r.reversesClosingId!};
+  }
+
   /// Bu kapsam bugün kapatıldı mı? (Kapatılmışsa ekran kilitlenir — tasarım.)
+  ///
+  /// ⚠️ İKİ ELEME ŞART (2026-08-18, geri alma özelliğiyle geldi) ve ikisini de atlamak farklı
+  /// biçimlerde bozar:
+  ///  • GERİ ALMA SATIRLARI kapanış SAYILMAZ. Sayılsaydı geri alma işlemi günü kapatır ve
+  ///    kullanıcı "geri aldım ama hâlâ kilitli" derdi — özellik kendi kendini iptal ederdi.
+  ///  • GERİ ALINMIŞ KAPANIŞLAR da sayılmaz. Sayılsaydı geri almanın hiçbir görünür etkisi olmaz,
+  ///    gün yine kilitli kalırdı.
   Future<bool> kapaliMi(ClosingScope scope, {String? userId, DateTime? localDate}) async {
     final date = localDate ?? await bugunTrDuzeltilmis(db);
+    final geriAlinmis = await _geriAlinmisIdler();
     final rows = await (db.select(db.dayClosings)..where((t) => t.scope.equals(scope.name))).get();
     return rows.any((r) =>
-        r.userId == (scope == ClosingScope.courier ? userId : null) && _sameTrDay(r.occurredAt, date));
+        r.reversesClosingId == null &&
+        !geriAlinmis.contains(r.id) &&
+        r.userId == (scope == ClosingScope.courier ? userId : null) &&
+        _sameTrDay(r.occurredAt, date));
   }
 
   /// [localDate] TR gününe düşen kapanış kayıtları (yeni üstte). Arşivin GÜN SÜZGEÇLİ hâli —
   /// geçmiş gün ekranı "o gün kim kapattı" sorusunu tüm arşivi taramadan sorabilsin diye.
+  ///
+  /// GERİ ALMA SATIRLARI DA DÖNER ve bu bilinçlidir: liste bir ARŞİVDİR, olan biteni anlatır.
+  /// Geri alınmış kapanışı gizlemek, "5.000 ₺ teslim alındı" diye bir kaydın hiç olmamış gibi
+  /// yok olması demekti — oysa olay olmuştu ve düzeltildiği de görünmeli (BRIEF: "eksik para
+  /// kanıt olarak görünür kalmalı"). Hangi satırın geçersiz olduğunu [geriAlinmisIdler] söyler.
   Future<List<DayClosing>> gununKapanislari(DateTime localDate) async {
     final rows = await (db.select(db.dayClosings)
           ..orderBy([(t) => OrderingTerm.desc(t.occurredAt)]))
         .get();
     return rows.where((r) => _sameTrDay(r.occurredAt, localDate)).toList();
   }
+
+  /// Ekranın "bu satır geri alınmış" rozetini çizebilmesi için — [_geriAlinmisIdler]in genel
+  /// yüzeyi. Ekran kendi sorgusunu yazmaz: "geçerli kapanış" tanımı TEK yerde durmalı.
+  Future<Set<String>> geriAlinmisIdler() => _geriAlinmisIdler();
 
   /// Kapanış ÖNİZLEMESİ — ekranın gösterdiği rakamlar. `kapat()` submit anında bunu YENİDEN çağırır,
   /// böylece gösterilen ile yazılan aynı koddan çıkar (devir önizlemesiyle aynı desen).
@@ -222,6 +254,27 @@ class DayClosingRepository {
         : simdi;
     // Çekirdek KAPATILAN GÜNE demirlenir (`gun`), "şimdi"ye değil: dünü kapatan iki cihaz da aynı
     // id'yi üretmeli. Gün metni `tr_gun.dart`taki tek tanımdan gelir — burada elle +3 YOK.
+    // ⚠️ DENEME SIRASI ÇEKİRDEĞE GİRER (2026-08-18, geri alma özelliğiyle zorunlu oldu).
+    //
+    // Kapanış id'si `tenant|scope|user|gün` çekirdeğinden TÜRETİLİR — aynı kapanışın iki cihazda
+    // aynı satır olması için. Ama gün geri alınıp YENİDEN kapatılınca ikinci kapanış AYNI
+    // çekirdeği üretirdi: yerelde birincil anahtar çakışır, sunucuda uygulayıcı 'duplicate' der
+    // ve DÜZELTİLMİŞ SAYIM HİÇ KAYDEDİLMEZDİ. Yani özellik, sessizce hiçbir şey yapmayan bir
+    // düğmeye dönüşürdü — üstelik kullanıcı "geri aldım, düzelttim, kapattım" sanarak.
+    //
+    // Sıra, O KAPSAMIN O GÜNDEKİ mevcut kapanış sayısıdır (geri alma satırları hariç). İki cihaz
+    // aynı geçmişi gördüğü sürece aynı sayıyı bulur, yani DETERMİNİZM KORUNUR — çekirdek
+    // "kaçıncı deneme" bilgisiyle zenginleşti, rastgeleliğe düşmedi.
+    final oncekiler = await (db.select(db.dayClosings)
+          ..where((t) => t.scope.equals(scope.name))
+          ..where((t) => t.reversesClosingId.isNull()))
+        .get();
+    final deneme = oncekiler
+        .where((r) =>
+            r.userId == (scope == ClosingScope.courier ? userId : null) &&
+            _sameTrDay(r.occurredAt, gun))
+        .length;
+
     final tenant = meta.tenantCode;
     String? olayId(String tag) => tenant == null
         ? null
@@ -230,7 +283,9 @@ class DayClosingRepository {
             scope: scope.name,
             userId: userId,
             gunAnahtari: trGunAnahtari(gun),
-            tag: tag,
+            // İlk kapanış eski etiketi AYNEN taşır: sahadaki kayıtların id'si değişmemeli,
+            // yoksa aynı kapanış eski ve yeni sürümde iki ayrı satır olurdu.
+            tag: deneme == 0 ? tag : '$tag-${deneme + 1}',
           );
     final id = olayId('closing') ?? newId();
     final diff = countedCashKurus == null ? 0 : countedCashKurus - on.expectedCashKurus;
@@ -299,6 +354,157 @@ class DayClosingRepository {
           occurredAt: at,
           deviceId: device,
           payload: payload);
+    });
+
+    return id;
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  // GERİ ALMA (kullanıcı kararı 2026-08-18)
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+
+  /// Kapatılmış bir hesabı GERİ ALIR: gün/kurye yeniden açılır ve düzeltilip yeniden kapatılabilir.
+  ///
+  /// ══ NEDEN GEREKLİ ═══════════════════════════════════════════════════════════════════════
+  /// Kapanış bugüne kadar TEK YÖNLÜYDÜ. Yanlış sayılmış bir nakit arşive KALICI donuyor, gün
+  /// kilitleniyordu; patronun elindeki tek çare ertesi gün deftere ters kayıt yazmaktı — yani
+  /// hatanın izi doğru yerde değil, bir gün ilerideydi. Kullanıcının tarifi: "patron hata
+  /// yapabilir, kasayı kapattığında yönetici şifresi ile geriye alabilir".
+  ///
+  /// ══ SİLME YOK ═══════════════════════════════════════════════════════════════════════════
+  /// Geri alma, tabloya yazılan TERS BİR SATIRdır ([DayClosings.reversesClosingId]). Orijinal
+  /// kapanış kanıt olarak yerinde durur; arşiv "ne olduğunu" anlatmayı sürdürür.
+  ///
+  /// ══ BAĞLI KASA DEVRİ DE GERİ ALINIR — AYNI TRANSACTION'DA ══════════════════════════════
+  /// ⚠️ Bunu atlamak, özelliğin en pahalı hatası olurdu. Kurye kapanışı `alsoHandover` ile bir
+  /// `cash_handovers` satırı da yazar; kapanış geri alınıp gün yeniden kapatılırsa o devir
+  /// YERİNDE KALIR ve İKİNCİ bir devir daha yazılır. `teslimEdilenNakit` ikisini birden sayar,
+  /// gün kapsamında beklenen nakit teslim edilen paranın İKİ KATI kadar düşer ve patron
+  /// kasasını sayınca açıklanamaz bir "FAZLA" görür — append-only olduğu için de kalıcı.
+  ///
+  /// `araTahsilatIptal` bu iş için KULLANILAMAZ: o fonksiyon kapanışa bağlı devirleri bilerek
+  /// reddeder ("ara tahsilat değildir"). Kural doğruydu ve duruyor — orada yasaklanan şey
+  /// devrin TEK BAŞINA geri alınmasıydı; burada kapanışıyla BİRLİKTE geri alınıyor.
+  ///
+  /// [StateError] atar: kayıt yok · satır zaten bir geri alma · zaten geri alınmış · gün hesabı
+  /// kapalıyken kurye kapanışı geri alınmaya çalışılıyor.
+  Future<String> geriAl({required String closingId, String? note}) async {
+    final hedef = await (db.select(db.dayClosings)..where((t) => t.id.equals(closingId)))
+        .getSingleOrNull();
+    if (hedef == null) {
+      throw StateError('Kapanış kaydı bulunamadı; ekranı yenileyip tekrar deneyin.');
+    }
+    if (hedef.reversesClosingId != null) {
+      throw StateError('Bu satır zaten bir geri alma kaydı; geri alınamaz.');
+    }
+    if ((await _geriAlinmisIdler()).contains(hedef.id)) {
+      throw StateError('Bu kapanış zaten geri alınmış.');
+    }
+
+    // SIRA KURALI: gün hesabı kapalıyken bir KURYE kapanışını geri almak, kilitli bir günün
+    // içindeki hesabı açmak olurdu — gün toplamı o kapanışı zaten yutmuş durumda. Önce gün
+    // geri alınır, sonra kurye. (Tasarımdaki "gün kapandıysa tüm hesaplar kilitli" kuralının
+    // ters yöndeki karşılığı.)
+    if (hedef.scope == ClosingScope.courier.name) {
+      final gun = trGunu(DateTime.parse(hedef.occurredAt).add(const Duration(hours: 3)));
+      if (await kapaliMi(ClosingScope.day, localDate: gun)) {
+        throw StateError('Önce gün hesabını geri alın; gün kapalıyken kurye hesabı açılamaz.');
+      }
+    }
+
+    final meta = await db.syncState();
+    final at = correctedNowIso(meta.serverTimeOffsetMs);
+    final device = meta.deviceId;
+
+    // GERİ ALMANIN KİMLİĞİ HEDEFTEN TÜRER: bir kapanış EN FAZLA BİR KEZ geri alınabilir (sunucuda
+    // kısmi unique indeks bunu zorluyor), yani "hangi kapanışı geri alıyorum" tek başına yeterli
+    // bir çekirdektir. İki cihaz aynı anda geri alırsa AYNI satırı üretir ve ikinci push
+    // 'duplicate' olur — para iki kez geri gelmez.
+    final tenant = meta.tenantCode;
+    final id = tenant == null
+        ? newId()
+        : kapanisOlayId(
+            tenantCode: tenant,
+            scope: hedef.scope,
+            userId: hedef.userId,
+            gunAnahtari: closingId,
+            tag: 'geri-al',
+          );
+
+    await db.transaction(() async {
+      await db.into(db.dayClosings).insert(DayClosingsCompanion.insert(
+            id: id,
+            scope: hedef.scope,
+            userId: Value(hedef.userId),
+            reversesClosingId: Value(hedef.id),
+            // TUTARLAR SIFIR: bu satır bir mutabakat değil, bir GERİ ALMADIR. Hedefin
+            // rakamlarını ters işaretle kopyalamak cazip ama YANLIŞ olurdu — `day_closings`
+            // toplanan bir defter değil, ARŞİV SNAPSHOT'LARI listesidir; ters bir snapshot
+            // "eksi 480 ₺ sayıldı" gibi okunamayan bir kayıt bırakırdı. Paranın geri dönüşü
+            // bağlı devrin ters satırından gelir (aşağıda).
+            occurredAt: at,
+            deviceId: Value(device),
+            note: Value(note),
+          ));
+      await enqueueOutbox(db,
+          entityType: 'day_closing',
+          op: 'closing',
+          entityId: id,
+          occurredAt: at,
+          deviceId: device,
+          payload: <String, Object?>{
+            'id': id,
+            'scope': hedef.scope,
+            'user_id': hedef.userId,
+            'reverses_closing_id': hedef.id,
+            'note': note,
+          });
+
+      // BAĞLI KASA DEVRİ — kapanışla AYNI transaction'da ters satır (gerekçe doc'ta).
+      final devirId = hedef.cashHandoverId;
+      if (devirId != null) {
+        final devir = await (db.select(db.cashHandovers)..where((t) => t.id.equals(devirId)))
+            .getSingleOrNull();
+        if (devir != null) {
+          final tersId = tenant == null
+              ? newId()
+              : kapanisOlayId(
+                  tenantCode: tenant,
+                  scope: hedef.scope,
+                  userId: hedef.userId,
+                  gunAnahtari: closingId,
+                  tag: 'geri-al-handover',
+                );
+          await db.into(db.cashHandovers).insert(CashHandoversCompanion.insert(
+                id: tersId,
+                fromUserId: devir.fromUserId,
+                toUserId: Value(devir.toUserId),
+                countedCashKurus: -devir.countedCashKurus,
+                expectedCashKurus: 0,
+                diffKurus: 0,
+                reversesHandoverId: Value(devir.id),
+                occurredAt: at,
+                deviceId: Value(device),
+                note: Value(note),
+              ));
+          await enqueueOutbox(db,
+              entityType: 'cash_handover',
+              op: 'handover',
+              entityId: tersId,
+              occurredAt: at,
+              deviceId: device,
+              payload: <String, Object?>{
+                'id': tersId,
+                'from_user_id': devir.fromUserId,
+                'to_user_id': devir.toUserId,
+                'counted_cash_kurus': -devir.countedCashKurus,
+                'expected_cash_kurus': 0,
+                'diff_kurus': 0,
+                'reverses_handover_id': devir.id,
+                'note': note,
+              });
+        }
+      }
     });
 
     return id;

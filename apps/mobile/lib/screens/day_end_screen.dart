@@ -29,6 +29,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/app_database.dart';
+import '../auth/session.dart';
 import '../sync/yenileme.dart';
 import '../repo/cash_handover_repository.dart';
 import '../repo/day_closing_repository.dart';
@@ -43,6 +44,7 @@ import 'isletme/gun_ozeti_eylemleri.dart';
 import 'isletme/gun_ozeti_govdesi.dart';
 import 'isletme/gun_sonu_kartlari.dart';
 import 'isletme/gun_sonu_ozet.dart';
+import 'isletme/kapanis_geri_alma.dart';
 import 'team.dart';
 
 
@@ -63,9 +65,17 @@ class DayEndScreen extends StatefulWidget {
     this.rol,
     this.kullaniciId,
     this.kuryeIzin,
+    this.session,
   });
 
   final AppDatabase db;
+
+  /// Oturum — YALNIZ yönetici parolası doğrulaması için (kapanışı geri alma, 2026-08-18).
+  ///
+  /// OPSİYONEL ve null iken "Hesabı Geri Al" düğmesi HİÇ çizilmez. Bu, testlerin/önizlemenin
+  /// ekranı oturumsuz açabilmesi içindir; ama aynı zamanda doğru varsayılan: parola sunucuda
+  /// doğrulanır ve oturumsuz bir ekranda doğrulanacak bir şey yoktur.
+  final Session? session;
 
   /// Bayinin kurye izin ayarları (`tenant_settings`). Rolle birleşip yetkiyi verir.
   ///
@@ -210,6 +220,14 @@ class _DayEndScreenState extends State<DayEndScreen> {
   /// "yetkiniz yok" görmek, olmayan bir yolu varmış gibi göstermektir.
   bool get _araTahsilatIptalEdebilir => _yetki.gunuKapatma;
 
+  /// KAPANIŞI GERİ ALMA yetkisi (2026-08-18) — üç para eyleminin dördüncüsü ve AYNI anahtarı
+  /// paylaşır (`gunuKapatma`). Ayrı bir yetki alanı açmak, yetki matrisinde karşılığı olmayan
+  /// bir ayrım uydurmak olurdu: kapatabilen kişi, kapattığını düzeltebilmeli.
+  ///
+  /// EK KOŞUL OTURUMDUR: parola SUNUCUDA doğrulanıyor (`AuthApi.parolaDogrula`), oturumsuz
+  /// açılan bir ekranda (test/önizleme) doğrulanacak bir şey yok.
+  bool get _kapanisGeriAlabilir => _yetki.gunuKapatma && widget.session != null;
+
 
   @override
   Widget build(BuildContext context) {
@@ -336,6 +354,13 @@ class _DayEndScreenState extends State<DayEndScreen> {
                               // null → hiçbir ara tahsilat satırı dokunulamaz (kurye görünümü).
                               onAraTahsilatIptal: _araTahsilatIptalEdebilir
                                   ? (k) => () => _araTahsilatiIptalEt(k)
+                                  : null,
+                              geriAlinmisKapanislar: g.geriAlinmisKapanislar,
+                              // ÇİFT KOŞUL: yetki VE oturum. Oturum yoksa parola doğrulanamaz
+                              // (sunucuda doğrulanıyor) ve düğmeyi çizip dokunuşta "oturum yok"
+                              // demek, olmayan bir yolu varmış gibi göstermek olurdu.
+                              onKapanisGeriAl: _kapanisGeriAlabilir
+                                  ? (k) => _kapanisiGeriAl(k, kuryeler)
                                   : null,
                             ),
                     ),

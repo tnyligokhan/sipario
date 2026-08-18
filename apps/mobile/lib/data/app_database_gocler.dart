@@ -278,6 +278,21 @@ extension _GocMerdiveni on AppDatabase {
             await AppDatabase._addColumnIfMissing(m, 'ALTER TABLE call_logs ADD COLUMN user_id TEXT');
           }
 
+          // v22 — KAPANIŞI GERİ ALMA (2026-08-18). `day_closings.reverses_closing_id`.
+          //
+          // Yerleşim gerekçesi v20/v21 ile AYNI (kapıdan ÖNCE, koşulsuz): kendini-onarma kapısı
+          // `tenant_settings`i görünce erken döner ve sahadaki her cihazda o tablo zaten vardır.
+          // Bedeli burada da AĞIR — kolon yoksa `day_closings`e dokunan her sorgu "no such
+          // column" ile patlar ve gün özeti ekranı hiç açılmaz (kapanmışlık sorgusu, arşiv,
+          // kapanış önizlemesi hepsi o tablodan geçiyor).
+          //
+          // NULLABLE, varsayılansız: yükseltmeden önceki satırların hiçbiri geri alma kaydı
+          // DEĞİLDİR ve `null` tam olarak bunu söyler.
+          if (await AppDatabase._tabloVar(m, 'day_closings')) {
+            await AppDatabase._addColumnIfMissing(
+                m, 'ALTER TABLE day_closings ADD COLUMN reverses_closing_id TEXT');
+          }
+
           // KENDİNİ ONARMA (2026-07-22 SAHA BULGUSU — iki gerçek cihazda yaşandı): Faz 0 ölçüm
           // ekranı sipario.db'yi sqflite `version: 1` ile açınca user_version damgası 1'e
           // eziliyordu; Drift sonraki açılışta migration'ı YENİDEN koşup "duplicate column" ile

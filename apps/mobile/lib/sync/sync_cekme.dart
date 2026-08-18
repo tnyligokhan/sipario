@@ -347,6 +347,11 @@ extension SyncCekme on SyncEngine {
           id: id,
           scope: _s(m['scope']),
           userId: Value(_sN(m['user_id'])),
+          // ⚠️ BU SATIR OLMADAN GERİ ALMA DİĞER TELEFONDA HİÇ OLMAMIŞ SAYILIR (2026-08-18):
+          // sunucu satırı doğru yazar, pull da indirir, ama alan haritalanmazsa yerelde `null`
+          // kalır — kapanış hâlâ GEÇERLİ görünür ve o cihazda gün kilitli kalmaya devam eder.
+          // Patronun telefonunda açılan gün, kuryenin telefonunda kapalı olurdu.
+          reversesClosingId: Value(_sN(m['reverses_closing_id'])),
           periodStart: Value(_sN(m['period_start'])),
           deliveryCount: Value(_i(m['delivery_count'] ?? 0)),
           totalCollectedKurus: Value(_i(m['total_collected_kurus'] ?? 0)),

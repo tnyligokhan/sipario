@@ -21,6 +21,7 @@ import 'gun_kapatma_sheet.dart';
 import 'gun_sonu_kartlari.dart';
 import 'gun_sonu_ozet.dart';
 import 'gun_tahsilat_detay.dart';
+import 'gun_veresiye_detay.dart';
 import 'isletme_atomlari.dart';
 
 class GunOzetiGovdesi extends StatelessWidget {
@@ -35,7 +36,18 @@ class GunOzetiGovdesi extends StatelessWidget {
     required this.onYenile,
     this.kuryeId,
     this.onAraTahsilatIptal,
+    this.onKapanisGeriAl,
+    this.geriAlinmisKapanislar = const {},
   });
+
+  /// Bir kapanış satırının GERİ ALMA eylemini üreten yapıcı (2026-08-18). null ise düğme hiç
+  /// çizilmez — yetki ve oturum kapısı EKRANDADIR, gövde onu yalnız taşır ([onAraTahsilatIptal]
+  /// ile aynı sözleşme: gövde karar vermez).
+  final Future<void> Function(DayClosing)? onKapanisGeriAl;
+
+  /// Geri alınmış kapanışların id'leri — satır rozeti ve "geri al düğmesini gizle" kararı bundan.
+  /// Küme EKRANDAN gelir; "geçerli kapanış" tanımı `DayClosingRepository`de TEK yerde durur.
+  final Set<String> geriAlinmisKapanislar;
 
   /// Bir ara tahsilat satırının İPTAL eylemini üreten yapıcı (kullanıcı kararı 2026-08-13).
   /// null ise satırlar dokunulamaz — yetki kapısı EKRANDADIR, gövde onu yalnız taşır.
@@ -129,6 +141,24 @@ class GunOzetiGovdesi extends StatelessWidget {
               deger: sipTutar(kasa.toplam),
               toplam: true,
             ),
+            // ESKİ BORÇ TAHSİLATI — toplamın İÇİNDE, ama ayrı yazılı (saha isteği 2026-08-18:
+            // "geçmişten kalan bir siparişin tahsilatını yaptıysa bunu ayrı belirtmeli, hesaba
+            // yine dahil etsin"). Etikette "dahil" sözcüğü ZORUNLU: satır toplamın altında
+            // duruyor ve iskonto satırıyla aynı yerde; oradaki para kasaya GİRMEDİ, buradaki
+            // GİRDİ. İki komşu satırın zıt anlamını kelime taşımazsa bayi ikisini de yanlış
+            // okur ve toplamdan bir kez daha düşmeye çalışır.
+            if (g.kapsam.eskiBorcTahsilati > 0)
+              DegerSatiri(
+                etiket: 'Eski borç tahsilatı (toplama dahil)',
+                deger: sipTutar(g.kapsam.eskiBorcTahsilati),
+                degerRengi: context.sip.ink2,
+              ),
+            // ⚠️ "BUGÜN YAZILAN VERESİYE" BURAYA KONMADI, bilinçli: aşağıdaki "Günün
+            // Veresiyeleri" bölümü aynı rakamı zaten TOPLAM olarak taşıyor ve hemen birkaç
+            // satır aşağıda duruyor. İkisini birden yazmak, tek ekran içinde aynı sayıyı iki
+            // kez göstermek olurdu — ve bu depoda aynı sayının iki yerde durması her seferinde
+            // ikisinin ayrışmasıyla bitti. Eski borç tahsilatının burada yazılmasının sebebi
+            // farklıdır: o rakam TOPLAMIN İÇİNDEDİR ve başka hiçbir yerde açıklanamaz.
             // İSKONTO TOPLAMIN ALTINDA DURUR ve yalnız varsa çizilir (kullanıcı isteği
             // 2026-07-30). Üstünde dursaydı toplamın bir bileşeni gibi okunurdu; oysa kırılan
             // para kasaya HİÇ girmedi — sayılan nakitle karşılaştırılan rakam üstteki toplamdır.
@@ -156,6 +186,21 @@ class GunOzetiGovdesi extends StatelessWidget {
           ),
         ],
 
+        // BUGÜNÜN VERESİYESİ, birikmiş borcun ÜSTÜNDE durur (saha isteği 2026-08-18).
+        // Sıra bilinçli: bayi önce BUGÜN ne olduğunu okur, sonra toplam yükü. Tersi olsaydı
+        // günün rakamı yine 48.000 ₺'lik bir yığının altında kalırdı — şikâyetin kendisi
+        // "bugünkü veresiye görünmüyor"du, "veresiye diye bir şey yok" değil.
+        //
+        // KURYE KAPSAMINDA DA ÇİZİLİR (birikmiş borç kartının aksine): kurye kendi teslim
+        // ettiği siparişin ne kadarını borca yazdığını bilmek zorundadır, çünkü akşam kasada
+        // o para EKSİK çıkacak ve farkın açıklaması budur.
+        GunVeresiyeBolumu(
+          db: db,
+          gun: bugun,
+          kuryeId: kuryeId,
+          toplamKurus: g.kapsam.veresiye,
+        ),
+
         if (gunKapsami) ...[
           const SipBolumBaslik('Açık Veresiye', ustBosluk: 18),
           VeresiyeKarti(borc: g.ozet.borc),
@@ -172,20 +217,30 @@ class GunOzetiGovdesi extends StatelessWidget {
         if (g.gunKapanislari.isNotEmpty) ...[
           const SipBolumBaslik('Bugünün Kapanışları', ustBosluk: 18),
           for (var i = 0; i < g.gunKapanislari.length; i++)
-            Padding(
-              padding: EdgeInsets.only(top: i == 0 ? 0 : 6),
-              child: ArsivSatiri(
-                kapanis: g.gunKapanislari[i],
-                kapsamAdi: _kapanisAdi(g.gunKapanislari[i]),
-                bugun: bugun,
-                onTap: () => arsivDetaySheet(
-                  context,
-                  g.gunKapanislari[i],
+            // GERİ ALMA SATIRLARI LİSTEDE ÇİZİLMEZ (2026-08-18). Repo onları döndürür — arşiv
+            // ham gerçeği taşımalı — ama kullanıcıya "0,00 ₺ · 0 teslimat" diye bir kapanış
+            // göstermek anlamsız olurdu: o satır bir kapanış değil, bir kapanışın İPTALİDİR ve
+            // anlamı ancak geri aldığı satırın üstündeki rozetle okunur.
+            if (g.gunKapanislari[i].reversesClosingId == null)
+              Padding(
+                padding: EdgeInsets.only(top: i == 0 ? 0 : 6),
+                child: ArsivSatiri(
+                  kapanis: g.gunKapanislari[i],
                   kapsamAdi: _kapanisAdi(g.gunKapanislari[i]),
                   bugun: bugun,
+                  geriAlinmis: geriAlinmisKapanislar.contains(g.gunKapanislari[i].id),
+                  onTap: () => arsivDetaySheet(
+                    context,
+                    g.gunKapanislari[i],
+                    kapsamAdi: _kapanisAdi(g.gunKapanislari[i]),
+                    bugun: bugun,
+                    geriAlinmis: geriAlinmisKapanislar.contains(g.gunKapanislari[i].id),
+                    onGeriAl: onKapanisGeriAl == null
+                        ? null
+                        : () => onKapanisGeriAl!(g.gunKapanislari[i]),
+                  ),
                 ),
               ),
-            ),
         ],
       ],
     );

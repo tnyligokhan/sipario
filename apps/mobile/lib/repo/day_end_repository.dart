@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../bildirim/kurallar/para_kurallari.dart';
 import '../data/app_database.dart';
 import '../data/tr_gun.dart';
+import 'gun_veresiye_repository.dart';
 
 /// Gün sonu SALT-OKUNUR read-model (FAZ 3). Hiçbir tabloya YAZMAZ (kalıcı durum üretmez); tüm veriyi
 /// yerel Drift'ten türetir. Kasa özeti + borç durumu. Kurye kasa DEVRİ (kalıcı mutabakat) ve atama
@@ -117,6 +118,18 @@ class DayEndRepository {
       }
     }
 
+    // TAHSİLATIN KAYNAĞI: bağlı siparişlerin GÜNÜ toplu okunur (saha isteği 2026-08-18 —
+    // "geçmişten kalan bir siparişin tahsilatını yaptıysa bunu ayrı belirtmeli"). Satır başına
+    // sorgu açmak yerine tek `isIn`: 60 tahsilatlı bir gün 60 sorgu demekti.
+    final siparisIdler = {
+      for (final e in kayitlar)
+        if (e.relatedOrderId != null) e.relatedOrderId!,
+    };
+    final siparisler = siparisIdler.isEmpty
+        ? const <Order>[]
+        : await (db.select(db.orders)..where((t) => t.id.isIn(siparisIdler))).get();
+    final siparisGunu = {for (final o in siparisler) o.id: o.occurredAt};
+
     final satirlar = [
       for (final e in kayitlar)
         TahsilatSatiri(
@@ -128,10 +141,34 @@ class DayEndRepository {
           odemeTuru: e.paymentType ?? '',
           occurredAt: e.occurredAt,
           orderId: e.relatedOrderId,
+          kaynak: tahsilatKaynagi(
+            entryType: e.entryType,
+            relatedOrderId: e.relatedOrderId,
+            siparisGunu: e.relatedOrderId == null ? null : siparisGunu[e.relatedOrderId],
+            localDate: localDate,
+          ),
         ),
     ];
     satirlar.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
     return satirlar;
+  }
+
+  /// BUGÜNKÜ SATIŞ DIŞI tahsilat toplamı — eski borç kapatmaları (pozitif kuruş).
+  ///
+  /// [kasaOzeti]NİN İÇİNDEDİR, ondan düşülmez (kullanıcı kararı 2026-08-18: "hesaba yine dahil
+  /// etsin sıkıntı yok"). Ayrı bir sayı olarak durmasının sebebi mutabakat değil ANLAMDIR:
+  /// kasadaki 3.400 ₺'nin 1.200'ü dün teslim edilmiş bir siparişin bugün ödenmesiyse, bugünün
+  /// cirosu 3.400 DEĞİLDİR. Bu satır olmadan bayi her tahsilatı bugünün satışı sanar.
+  Future<int> eskiBorcTahsilati(DateTime localDate, {String? userId}) async {
+    final satirlar = await tahsilatDetaylari(localDate, userId: userId);
+    var toplam = 0;
+    for (final s in satirlar) {
+      if (s.kaynak == TahsilatKaynagi.gununSiparisi) continue;
+      // DÜZELTME de dışarıda: ters kayıt bir tahsilat değil, bir tahsilatın geri alınmasıdır.
+      if (s.kaynak == TahsilatKaynagi.duzeltme) continue;
+      toplam += s.kurus;
+    }
+    return toplam;
   }
 
   /// Gün içinde yazılan İSKONTO toplamı (POZİTİF kuruş; iskonto yoksa 0).
@@ -191,39 +228,83 @@ class DayEndRepository {
   /// Gün sonu bildiriminin üç rakamı. Kasa ve teslimat sayısı EKRANLA AYNI fonksiyonlardan
   /// gelir ([kasaOzeti], [teslimatSayisi]) — bildirim ile gün sonu ekranı farklı sayı konuşamaz.
   ///
-  /// `veresiyeKurus` = günün `debit` toplamı − günün SİPARİŞ BAĞLI tahsilatı. Sipariş dışı
-  /// tahsilat (eski borcun kapatılması) düşülmez: o, bugün yazılmış bir veresiyeyi kapatmaz.
+  /// `veresiyeKurus` GÜN ÖZETİ EKRANIYLA AYNI KODDAN gelir (`GunVeresiyeRepository.toplam`) —
+  /// bildirim ile ekran farklı bir veresiye rakamı konuşamaz.
   ///
-  /// İSKONTO da düşülür ve bu DOĞRUDUR: `discount` negatiftir ve siparişe bağlıdır, yani aşağıdaki
-  /// döngüde kendiliğinden sayılır. Kırılan tutar bugün yazılmış bir veresiye DEĞİLDİR — bildirime
-  /// "20 ₺ veresiye" yazsaydık bayi hiç var olmayan bir alacağı takip ederdi. Kasa rakamı ise
-  /// [kasaOzeti]den gelir ve orası iskontoyu görmez; iki rakam da doğru kaynaktan çıkar.
+  /// ⚠️ ESKİDEN BURADA AYRI BİR HESAP VARDI (2026-08-18'de kaldırıldı): "günün tüm pozitif
+  /// hareketleri − siparişe bağlı tahsilat", sonucu negatife düşmesin diye sıfıra kırpılmış
+  /// hâlde. Kırpma bir düzeltme değil, bir BELİRTİ ÖRTMESİYDİ: hesap gün genelinde tek toplam
+  /// aldığı için bir müşterinin fazla ödemesi (eski borcunu da kapatması) BAŞKA bir siparişin
+  /// veresiyesini sessizce götürebiliyordu. Doğru birim sipariştir; gerekçenin tamamı
+  /// `gun_veresiye_repository.dart` başlığında.
+  ///
+  /// İSKONTO yine düşülür ve bu DOĞRUDUR: `discount` negatiftir ve siparişe bağlıdır, yani
+  /// grubun netinde kendiliğinden sayılır. Kırılan tutar bugün yazılmış bir veresiye DEĞİLDİR —
+  /// bildirime "20 ₺ veresiye" yazsaydık bayi hiç var olmayan bir alacağı takip ederdi.
   Future<GunSonuVerisi> gunSonuBildirimVerisi(DateTime localDate) async {
     final kasa = await kasaOzeti(localDate);
     final teslim = await teslimatSayisi(localDate);
-
-    final hareketler = await db.select(db.ledgerEntries).get();
-    var borcYazilan = 0;
-    var siparisTahsilati = 0;
-    for (final e in hareketler) {
-      if (!_sameTrDay(e.occurredAt, localDate)) continue;
-      if (e.amountKurus > 0) {
-        borcYazilan += e.amountKurus;
-      } else if (e.relatedOrderId != null) {
-        siparisTahsilati += -e.amountKurus;
-      }
-    }
 
     return GunSonuVerisi(
       gun: localDate,
       tahsilatKurus: kasa.toplam,
       teslimatSayisi: teslim,
-      // Negatife düşemez: bir siparişten tutarından fazlası tahsil edilmiş olabilir (fazla ödeme
-      // önceki borcu kapatır) ve o fark "bugün eksi veresiye yazıldı" anlamına gelmez.
-      veresiyeKurus:
-          borcYazilan - siparisTahsilati < 0 ? 0 : borcYazilan - siparisTahsilati,
+      veresiyeKurus: await GunVeresiyeRepository(db).toplam(localDate),
     );
   }
+}
+
+/// Bir tahsilatın NEREDEN geldiği (saha isteği 2026-08-18).
+///
+/// SORUN: kasaya giren her kuruş listede aynı görünüyordu. Bayi dün teslim ettiği bir siparişin
+/// borcunu bugün tahsil ettiğinde satır, bugün yapılmış bir satıştan ayırt edilemiyordu — yani
+/// "bugün ne sattım" sorusunun cevabı kasadaki rakam sanılıyordu. Para doğruydu, ANLAMI yanlıştı.
+///
+/// Sınıflandırma KASAYI DEĞİŞTİRMEZ: dördü de kasa toplamına dahildir (kullanıcı kararı). Tek
+/// yaptığı, aynı rakamın hangi işten geldiğini söylemektir.
+enum TahsilatKaynagi {
+  /// BUGÜN teslim edilen bir siparişin tahsilatı — günün cirosu budur.
+  gununSiparisi,
+
+  /// GEÇMİŞ bir güne ait siparişin tahsilatı. Para bugün girdi, satış bugün olmadı.
+  gecmisSiparis,
+
+  /// Siparişe bağlı olmayan tahsilat: müşterinin birikmiş bakiyesinden ödeme
+  /// (`LedgerRepository.tahsilat`). Hangi siparişi kapattığı defterde YAZMAZ ve yazamaz —
+  /// müşteri "borcuma 500 ₺ vereyim" der, kalemleri ayırmaz.
+  borcTahsilati,
+
+  /// Ters kayıt (`correction`): yanlış yazılmış bir tahsilatın geri alınması. Tutarı NEGATİFTİR.
+  duzeltme;
+
+  /// Satırda görünen kısa etiket. Bugünün siparişinde etiket YOKTUR — olağan hâl rozet
+  /// taşımaz, yoksa liste rozet denizine döner ve istisna göze batmaz.
+  String? get etiket => switch (this) {
+        TahsilatKaynagi.gununSiparisi => null,
+        TahsilatKaynagi.gecmisSiparis => 'Geçmiş sipariş',
+        TahsilatKaynagi.borcTahsilati => 'Borç tahsilatı',
+        TahsilatKaynagi.duzeltme => 'Düzeltme',
+      };
+}
+
+/// Bir defter kaydının tahsilat kaynağını çözer — SAF KURAL, doğrudan testlenir.
+///
+/// [siparisGunu] bağlı siparişin `occurred_at`i (UTC ISO); sipariş bulunamazsa null. Sipariş
+/// kaydı YOKKEN "bugünün siparişi" demek, olmayan bir cirodan söz etmektir — o yüzden
+/// bulunamayan sipariş [TahsilatKaynagi.gecmisSiparis] sayılır: bilinmezlikte bugüne yazmayan
+/// taraf seçilir (deponun "belirsizlikte kapanan tarafı seç" ilkesinin para karşılığı).
+TahsilatKaynagi tahsilatKaynagi({
+  required String entryType,
+  required String? relatedOrderId,
+  required String? siparisGunu,
+  required DateTime localDate,
+}) {
+  if (entryType == 'correction') return TahsilatKaynagi.duzeltme;
+  if (relatedOrderId == null) return TahsilatKaynagi.borcTahsilati;
+  if (siparisGunu != null && ayniTrGunIso(siparisGunu, localDate)) {
+    return TahsilatKaynagi.gununSiparisi;
+  }
+  return TahsilatKaynagi.gecmisSiparis;
 }
 
 /// Günün TEK bir tahsilat satırı — gün özetindeki detay listesinin ve ödeme türü
@@ -241,7 +322,11 @@ class TahsilatSatiri {
     required this.occurredAt,
     this.adres,
     this.orderId,
+    this.kaynak = TahsilatKaynagi.gununSiparisi,
   });
+
+  /// Paranın hangi işten geldiği — satırdaki rozet ve "eski borç tahsilatı" toplamı bundan çıkar.
+  final TahsilatKaynagi kaynak;
 
   final String musteriAd;
 

@@ -10257,6 +10257,18 @@ class $DayClosingsTable extends DayClosings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _reversesClosingIdMeta = const VerificationMeta(
+    'reversesClosingId',
+  );
+  @override
+  late final GeneratedColumn<String> reversesClosingId =
+      GeneratedColumn<String>(
+        'reverses_closing_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _periodStartMeta = const VerificationMeta(
     'periodStart',
   );
@@ -10421,6 +10433,7 @@ class $DayClosingsTable extends DayClosings
     id,
     scope,
     userId,
+    reversesClosingId,
     periodStart,
     deliveryCount,
     totalCollectedKurus,
@@ -10465,6 +10478,15 @@ class $DayClosingsTable extends DayClosings
       context.handle(
         _userIdMeta,
         userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('reverses_closing_id')) {
+      context.handle(
+        _reversesClosingIdMeta,
+        reversesClosingId.isAcceptableOrUnknown(
+          data['reverses_closing_id']!,
+          _reversesClosingIdMeta,
+        ),
       );
     }
     if (data.containsKey('period_start')) {
@@ -10604,6 +10626,10 @@ class $DayClosingsTable extends DayClosings
         DriftSqlType.string,
         data['${effectivePrefix}user_id'],
       ),
+      reversesClosingId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reverses_closing_id'],
+      ),
       periodStart: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}period_start'],
@@ -10673,6 +10699,19 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
   final String id;
   final String scope;
   final String? userId;
+
+  /// GERİ ALMA KAYDI (kullanıcı kararı 2026-08-18): dolu ise bu satır bir kapanışı GERİ ALIR ve
+  /// geri aldığı kapanışın id'sini taşır. `cash_handovers.reversesHandoverId` deseninin aynısı.
+  ///
+  /// NEDEN KOLON, NEDEN SİLME/GÜNCELLEME DEĞİL: BRIEF kırmızı çizgi #2 — para kayıtları
+  /// silinmez/ezilmez. Yanlış sayılmış bir kapanış gerçekten OLMUŞ bir olaydır; satırı yok etmek
+  /// defterin "ne olduğunu" değil "ne olduğunu sandığımızı" anlatır hâle getirirdi. Geri alma
+  /// İKİNCİ bir satırdır: orijinal kanıt olarak yerinde durur, gün yeniden açılır.
+  ///
+  /// ⚠️ BU KOLON DOLU OLAN SATIR BİR KAPANIŞ DEĞİLDİR. Kapanmışlık sorgusu
+  /// (`DayClosingRepository.kapaliMi`) hem geri alma satırlarını hem de geri alınmış kapanışları
+  /// elemek zorundadır; elemezse gün "iki kez kapalı" görünür ve yeniden kapatma engellenir.
+  final String? reversesClosingId;
   final String? periodStart;
   final int deliveryCount;
   final int totalCollectedKurus;
@@ -10691,6 +10730,7 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
     required this.id,
     required this.scope,
     this.userId,
+    this.reversesClosingId,
     this.periodStart,
     required this.deliveryCount,
     required this.totalCollectedKurus,
@@ -10713,6 +10753,9 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
     map['scope'] = Variable<String>(scope);
     if (!nullToAbsent || userId != null) {
       map['user_id'] = Variable<String>(userId);
+    }
+    if (!nullToAbsent || reversesClosingId != null) {
+      map['reverses_closing_id'] = Variable<String>(reversesClosingId);
     }
     if (!nullToAbsent || periodStart != null) {
       map['period_start'] = Variable<String>(periodStart);
@@ -10748,6 +10791,9 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
       userId: userId == null && nullToAbsent
           ? const Value.absent()
           : Value(userId),
+      reversesClosingId: reversesClosingId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reversesClosingId),
       periodStart: periodStart == null && nullToAbsent
           ? const Value.absent()
           : Value(periodStart),
@@ -10782,6 +10828,9 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
       id: serializer.fromJson<String>(json['id']),
       scope: serializer.fromJson<String>(json['scope']),
       userId: serializer.fromJson<String?>(json['userId']),
+      reversesClosingId: serializer.fromJson<String?>(
+        json['reversesClosingId'],
+      ),
       periodStart: serializer.fromJson<String?>(json['periodStart']),
       deliveryCount: serializer.fromJson<int>(json['deliveryCount']),
       totalCollectedKurus: serializer.fromJson<int>(
@@ -10807,6 +10856,7 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
       'id': serializer.toJson<String>(id),
       'scope': serializer.toJson<String>(scope),
       'userId': serializer.toJson<String?>(userId),
+      'reversesClosingId': serializer.toJson<String?>(reversesClosingId),
       'periodStart': serializer.toJson<String?>(periodStart),
       'deliveryCount': serializer.toJson<int>(deliveryCount),
       'totalCollectedKurus': serializer.toJson<int>(totalCollectedKurus),
@@ -10828,6 +10878,7 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
     String? id,
     String? scope,
     Value<String?> userId = const Value.absent(),
+    Value<String?> reversesClosingId = const Value.absent(),
     Value<String?> periodStart = const Value.absent(),
     int? deliveryCount,
     int? totalCollectedKurus,
@@ -10846,6 +10897,9 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
     id: id ?? this.id,
     scope: scope ?? this.scope,
     userId: userId.present ? userId.value : this.userId,
+    reversesClosingId: reversesClosingId.present
+        ? reversesClosingId.value
+        : this.reversesClosingId,
     periodStart: periodStart.present ? periodStart.value : this.periodStart,
     deliveryCount: deliveryCount ?? this.deliveryCount,
     totalCollectedKurus: totalCollectedKurus ?? this.totalCollectedKurus,
@@ -10870,6 +10924,9 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
       id: data.id.present ? data.id.value : this.id,
       scope: data.scope.present ? data.scope.value : this.scope,
       userId: data.userId.present ? data.userId.value : this.userId,
+      reversesClosingId: data.reversesClosingId.present
+          ? data.reversesClosingId.value
+          : this.reversesClosingId,
       periodStart: data.periodStart.present
           ? data.periodStart.value
           : this.periodStart,
@@ -10915,6 +10972,7 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
           ..write('id: $id, ')
           ..write('scope: $scope, ')
           ..write('userId: $userId, ')
+          ..write('reversesClosingId: $reversesClosingId, ')
           ..write('periodStart: $periodStart, ')
           ..write('deliveryCount: $deliveryCount, ')
           ..write('totalCollectedKurus: $totalCollectedKurus, ')
@@ -10938,6 +10996,7 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
     id,
     scope,
     userId,
+    reversesClosingId,
     periodStart,
     deliveryCount,
     totalCollectedKurus,
@@ -10960,6 +11019,7 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
           other.id == this.id &&
           other.scope == this.scope &&
           other.userId == this.userId &&
+          other.reversesClosingId == this.reversesClosingId &&
           other.periodStart == this.periodStart &&
           other.deliveryCount == this.deliveryCount &&
           other.totalCollectedKurus == this.totalCollectedKurus &&
@@ -10980,6 +11040,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
   final Value<String> id;
   final Value<String> scope;
   final Value<String?> userId;
+  final Value<String?> reversesClosingId;
   final Value<String?> periodStart;
   final Value<int> deliveryCount;
   final Value<int> totalCollectedKurus;
@@ -10999,6 +11060,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
     this.id = const Value.absent(),
     this.scope = const Value.absent(),
     this.userId = const Value.absent(),
+    this.reversesClosingId = const Value.absent(),
     this.periodStart = const Value.absent(),
     this.deliveryCount = const Value.absent(),
     this.totalCollectedKurus = const Value.absent(),
@@ -11019,6 +11081,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
     required String id,
     required String scope,
     this.userId = const Value.absent(),
+    this.reversesClosingId = const Value.absent(),
     this.periodStart = const Value.absent(),
     this.deliveryCount = const Value.absent(),
     this.totalCollectedKurus = const Value.absent(),
@@ -11041,6 +11104,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
     Expression<String>? id,
     Expression<String>? scope,
     Expression<String>? userId,
+    Expression<String>? reversesClosingId,
     Expression<String>? periodStart,
     Expression<int>? deliveryCount,
     Expression<int>? totalCollectedKurus,
@@ -11061,6 +11125,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
       if (id != null) 'id': id,
       if (scope != null) 'scope': scope,
       if (userId != null) 'user_id': userId,
+      if (reversesClosingId != null) 'reverses_closing_id': reversesClosingId,
       if (periodStart != null) 'period_start': periodStart,
       if (deliveryCount != null) 'delivery_count': deliveryCount,
       if (totalCollectedKurus != null)
@@ -11084,6 +11149,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
     Value<String>? id,
     Value<String>? scope,
     Value<String?>? userId,
+    Value<String?>? reversesClosingId,
     Value<String?>? periodStart,
     Value<int>? deliveryCount,
     Value<int>? totalCollectedKurus,
@@ -11104,6 +11170,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
       id: id ?? this.id,
       scope: scope ?? this.scope,
       userId: userId ?? this.userId,
+      reversesClosingId: reversesClosingId ?? this.reversesClosingId,
       periodStart: periodStart ?? this.periodStart,
       deliveryCount: deliveryCount ?? this.deliveryCount,
       totalCollectedKurus: totalCollectedKurus ?? this.totalCollectedKurus,
@@ -11133,6 +11200,9 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
     }
     if (userId.present) {
       map['user_id'] = Variable<String>(userId.value);
+    }
+    if (reversesClosingId.present) {
+      map['reverses_closing_id'] = Variable<String>(reversesClosingId.value);
     }
     if (periodStart.present) {
       map['period_start'] = Variable<String>(periodStart.value);
@@ -11188,6 +11258,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
           ..write('id: $id, ')
           ..write('scope: $scope, ')
           ..write('userId: $userId, ')
+          ..write('reversesClosingId: $reversesClosingId, ')
           ..write('periodStart: $periodStart, ')
           ..write('deliveryCount: $deliveryCount, ')
           ..write('totalCollectedKurus: $totalCollectedKurus, ')
@@ -18007,6 +18078,7 @@ typedef $$DayClosingsTableCreateCompanionBuilder =
       required String id,
       required String scope,
       Value<String?> userId,
+      Value<String?> reversesClosingId,
       Value<String?> periodStart,
       Value<int> deliveryCount,
       Value<int> totalCollectedKurus,
@@ -18028,6 +18100,7 @@ typedef $$DayClosingsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> scope,
       Value<String?> userId,
+      Value<String?> reversesClosingId,
       Value<String?> periodStart,
       Value<int> deliveryCount,
       Value<int> totalCollectedKurus,
@@ -18066,6 +18139,11 @@ class $$DayClosingsTableFilterComposer
 
   ColumnFilters<String> get userId => $composableBuilder(
     column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reversesClosingId => $composableBuilder(
+    column: $table.reversesClosingId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18164,6 +18242,11 @@ class $$DayClosingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get reversesClosingId => $composableBuilder(
+    column: $table.reversesClosingId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get periodStart => $composableBuilder(
     column: $table.periodStart,
     builder: (column) => ColumnOrderings(column),
@@ -18252,6 +18335,11 @@ class $$DayClosingsTableAnnotationComposer
 
   GeneratedColumn<String> get userId =>
       $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get reversesClosingId => $composableBuilder(
+    column: $table.reversesClosingId,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get periodStart => $composableBuilder(
     column: $table.periodStart,
@@ -18352,6 +18440,7 @@ class $$DayClosingsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> scope = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
+                Value<String?> reversesClosingId = const Value.absent(),
                 Value<String?> periodStart = const Value.absent(),
                 Value<int> deliveryCount = const Value.absent(),
                 Value<int> totalCollectedKurus = const Value.absent(),
@@ -18371,6 +18460,7 @@ class $$DayClosingsTableTableManager
                 id: id,
                 scope: scope,
                 userId: userId,
+                reversesClosingId: reversesClosingId,
                 periodStart: periodStart,
                 deliveryCount: deliveryCount,
                 totalCollectedKurus: totalCollectedKurus,
@@ -18392,6 +18482,7 @@ class $$DayClosingsTableTableManager
                 required String id,
                 required String scope,
                 Value<String?> userId = const Value.absent(),
+                Value<String?> reversesClosingId = const Value.absent(),
                 Value<String?> periodStart = const Value.absent(),
                 Value<int> deliveryCount = const Value.absent(),
                 Value<int> totalCollectedKurus = const Value.absent(),
@@ -18411,6 +18502,7 @@ class $$DayClosingsTableTableManager
                 id: id,
                 scope: scope,
                 userId: userId,
+                reversesClosingId: reversesClosingId,
                 periodStart: periodStart,
                 deliveryCount: deliveryCount,
                 totalCollectedKurus: totalCollectedKurus,

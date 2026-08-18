@@ -190,6 +190,20 @@ class DayClosings extends Table {
   TextColumn get id => text()();
   TextColumn get scope => text()();
   TextColumn get userId => text().nullable()();
+
+  /// GERİ ALMA KAYDI (kullanıcı kararı 2026-08-18): dolu ise bu satır bir kapanışı GERİ ALIR ve
+  /// geri aldığı kapanışın id'sini taşır. `cash_handovers.reversesHandoverId` deseninin aynısı.
+  ///
+  /// NEDEN KOLON, NEDEN SİLME/GÜNCELLEME DEĞİL: BRIEF kırmızı çizgi #2 — para kayıtları
+  /// silinmez/ezilmez. Yanlış sayılmış bir kapanış gerçekten OLMUŞ bir olaydır; satırı yok etmek
+  /// defterin "ne olduğunu" değil "ne olduğunu sandığımızı" anlatır hâle getirirdi. Geri alma
+  /// İKİNCİ bir satırdır: orijinal kanıt olarak yerinde durur, gün yeniden açılır.
+  ///
+  /// ⚠️ BU KOLON DOLU OLAN SATIR BİR KAPANIŞ DEĞİLDİR. Kapanmışlık sorgusu
+  /// (`DayClosingRepository.kapaliMi`) hem geri alma satırlarını hem de geri alınmış kapanışları
+  /// elemek zorundadır; elemezse gün "iki kez kapalı" görünür ve yeniden kapatma engellenir.
+  TextColumn get reversesClosingId => text().nullable()();
+
   TextColumn get periodStart => text().nullable()();
   IntColumn get deliveryCount => integer().withDefault(const Constant(0))();
   IntColumn get totalCollectedKurus => integer().withDefault(const Constant(0))();
