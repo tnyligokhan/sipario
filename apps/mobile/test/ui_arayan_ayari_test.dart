@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/screens/cagri/arayan_tanima_ayari.dart';
+import 'package:sipario/theme/components/atoms.dart';
 import 'package:sipario/theme/app_theme.dart';
 
 import 'support/ekran_yardimcilari.dart';
@@ -53,12 +54,16 @@ void main() {
       await tester.pump(); // depo okuması (bellek: anında) ağaca işlensin
 
       expect(find.text('Arayan tanıma'), findsOneWidget);
-      expect(find.text('Telefon çalarken müşteri kartı gösterilir'), findsOneWidget);
+      // DURUM ANAHTARDAN OKUNUR, METİNDEN DEĞİL (2026-08-18). Alt başlık artık açık/kapalı
+      // hâline göre değişmiyor: durumu sağdaki `SipKnob` gösteriyor ve aynı bilgiyi iki kez
+      // yazmak satırı okumak yerine çözmeyi gerektiriyordu. Test de kontrolü sınıyor —
+      // kopyayı sınayan bir test, kopya her iyileştiğinde kırılır ve hiçbir davranış korumaz.
+      expect(tester.widget<SipKnob>(find.byType(SipKnob)).acik, isTrue);
 
       await tester.tap(find.text('Arayan tanıma'));
       await tester.pump();
 
-      expect(find.text('Kapalı — çağrıda kart gösterilmez'), findsOneWidget);
+      expect(tester.widget<SipKnob>(find.byType(SipKnob)).acik, isFalse);
       expect(await bellek.acikMi(), isFalse,
           reason: 'anahtar yalnız görünümü değil DEPOYU değiştirmeli — native taraf oradan okur');
     });
@@ -72,7 +77,7 @@ void main() {
       ));
       await tester.pump();
 
-      expect(find.text('Kapalı — çağrıda kart gösterilmez'), findsOneWidget,
+      expect(tester.widget<SipKnob>(find.byType(SipKnob)).acik, isFalse,
           reason: 'satır kalıcı tercihi okur; her açılışta açığa dönen bir anahtar sahte kontroldür');
     });
   });
@@ -81,11 +86,11 @@ void main() {
     testWidgets('anahtar Arayan Tanıma kartının İLK satırıdır', (tester) async {
       // Ayarlar 2026-08-13'te hub + beş sayfaya bölündü; arayan tanıma öbeği UYGULAMA
       // sayfasında yaşıyor. Anahtarın bölümün İLK satırı olması kuralı değişmedi: diğer
-      // satırlar (kurulum, deneme) özelliğin parçalarıdır, özelliğin kendisi hepsinden önce.
+      // satırlar (kurulum) özelliğin parçalarıdır, özelliğin kendisi hepsinden önce gelir.
+      // ("Gelen çağrıyı dene" satırı 2026-08-18'de kaldırıldı — kullanıcı kararı.)
       await ekranaKoy(tester, const UygulamaAyarlariEkrani());
 
       expect(find.text('Arayan tanıma'), findsOneWidget);
-      expect(find.text('Telefon çalarken müşteri kartı gösterilir'), findsOneWidget);
       // Bölümün diğer satırları anahtarın ALTINDA kalmaya devam eder.
       expect(find.text('Kurulum ve izinler'), findsOneWidget);
 

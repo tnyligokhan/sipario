@@ -269,6 +269,43 @@
 >
 ## Güncel durum
 
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-18/5 — AYARLAR SADELEŞTİ: METİN DİLİ · ANAHTARLAR · SİMÜLASYON KALDIRILDI (mobil 0.32.0 → **0.33.0**, API DEĞİŞMEDİ 1.11.0)
+
+**Üç kullanıcı isteği.** Hepsi ayarlar yüzeyine dokunuyor; sunucu tarafı hiç değişmedi.
+
+#### 1. "Metinler çok yapay" → iki kalıp ayıklandı
+- **ANAHTARLI SATIRDA ALT BAŞLIK DURUMU TEKRARLIYORDU.** "Telefon çalarken müşteri kartı
+  gösterilir" / "Kapalı — çağrıda kart gösterilmez" gibi çift cümleler vardı; durumu zaten
+  sağdaki `SipKnob` gösteriyordu. **Kural: anahtarlı satırda alt başlık NE İŞE YARADIĞINI
+  anlatır, açık/kapalı olduğunu değil.**
+- **ENVANTER CÜMLELERİ.** "Tema, arayan tanıma, sürükleme" · "İzinler, kategoriler, sessiz
+  saatler" · "4 şablon · varsayılan metin" — virgüllü anahtar listeleri site haritası gibi
+  okunuyordu. Bayinin sorusu "içinde kaç şey var" değil, "burada ne yaparım".
+- **YAPISAL SADELEŞTİRME** (aynı eleştirinin parçası): hub'da sayfa adını tekrarlayan "Ayarlar"
+  bölüm başlığı kaldırıldı; İşletme sayfasında **beş satır için dört** bölüm başlığı **ikiye**
+  indi (Dükkân · Sipariş). Gruplama tarama içindir; satır sayısı kadar başlık taramayı zorlaştırır.
+
+⚠️ TESTLERE YANSIYAN SONUÇ: `ui_arayan_ayari_test.dart` durumu artık METİNDEN değil
+**KONTROLDEN** sınıyor (`SipKnob.acik`). Kopyayı sınayan bir test, kopya her iyileştiğinde
+kırılır ve hiçbir davranışı korumaz.
+
+#### 2. Aç/kapa ayarları anahtarla
+- "Ürün içerikleri" satırı dokunuşta ayarı ÇEVİRDİĞİ hâlde chevron taşıyordu — chevron "bu satır
+  bir sayfa açar" der, yani kullanıcıya yanlış bir söz verir. Anahtar eklendi.
+- "Sürükleme tutamacı" başlığı **"Tutamaç sağda"** oldu: iki yönlü bir tercihte anahtarın AÇIK
+  hâlinin ne demek olduğu başlıkta cevaplanmalı, yoksa anahtar okunamaz.
+- Zaten anahtarlıydı: koyu tema, arayan tanıma, bildirim kategorileri.
+
+#### 3. "Gelen çağrıyı dene" kaldırıldı
+- Dört sahte senaryoyla çağrı kartını açan simülasyon sheet'i tamamen silindi
+  (`_SimulasyonListesi`, `_SimTuru`, `onCagriSimulasyonu`/`onCagriDene`, kabuk bağlantısı).
+- ⚠️ `_cagriKartiAc` **KALDI** — onu gerçek çağrı ve çağrı geçmişi kullanıyor.
+
+#### Doğrulama
+`flutter analyze` 0 · `flutter test` **1412/1412** · üç ayar ekranı golden ile gözle incelendi
+(hub · İşletme · Uygulama).
+
+
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-18/4 — ÇOK İŞLETMELİ GÖRÜNÜRLÜK: "İÇİNDEKİLER" ARTIK YETENEĞE BAĞLI (mobil 0.31.0 → **0.32.0**, API 1.11.0 DEĞİŞMEDİ¹)
 
 **Kullanıcı düzeltmesi.** Aynı vardiyada eklenen ürün seçenekleri özelliği HER ürün formunda

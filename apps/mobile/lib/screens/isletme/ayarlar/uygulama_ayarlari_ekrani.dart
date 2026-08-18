@@ -31,7 +31,6 @@ class UygulamaAyarlariEkrani extends StatefulWidget {
     this.koyuTema,
     this.onTema,
     this.onSihirbaz,
-    this.onCagriDene,
     this.onOlcumler,
   });
 
@@ -43,9 +42,6 @@ class UygulamaAyarlariEkrani extends StatefulWidget {
 
   /// Kurulum sihirbazını yeniden çalıştırır.
   final VoidCallback? onSihirbaz;
-
-  /// Çağrı simülasyonu sheet'ini açar.
-  final VoidCallback? onCagriDene;
 
   /// Faz 0 gecikme ölçüm ekranı — satır YALNIZ hata ayıklama derlemesinde çizilir.
   final VoidCallback? onOlcumler;
@@ -98,10 +94,12 @@ class _UygulamaAyarlariEkraniState extends State<UygulamaAyarlariEkrani> {
                   // burası tercihin adıyla anıldığı yer.
                   AyarSatiri(
                     ikon: SipIcons.grip,
-                    baslik: 'Sürükleme tutamacı',
-                    altBaslik: _tutamacSagda
-                        ? 'Sağda — sağ elle kullanım'
-                        : 'Solda — sol elle kullanım',
+                    // BAŞLIK ANAHTARIN AÇIK HÂLİNİ SÖYLER (2026-08-18). Eskiden başlık
+                    // "Sürükleme tutamacı", alt başlık ise DURUMU yazıyordu — anahtarın yanında
+                    // durum iki kez okunuyor ve "açık ne demek?" sorusu cevapsız kalıyordu.
+                    // Anahtarlı satırda alt başlık NE İŞE YARADIĞINI anlatır, durumu değil.
+                    baslik: 'Tutamaç sağda',
+                    altBaslik: 'Siparişleri elle sıralarken',
                     onTap: _tutamacCevir,
                     sag: SipKnob(acik: _tutamacSagda),
                   ),
@@ -115,6 +113,7 @@ class _UygulamaAyarlariEkraniState extends State<UygulamaAyarlariEkrani> {
                   AyarSatiri(
                     ikon: SipIcons.phone,
                     baslik: 'Kurulum ve izinler',
+                    altBaslik: 'Telefon izinlerini yeniden ayarlayın',
                     onTap: () {
                       final sihirbaz = widget.onSihirbaz;
                       if (sihirbaz == null) {
@@ -123,12 +122,6 @@ class _UygulamaAyarlariEkraniState extends State<UygulamaAyarlariEkrani> {
                         sihirbaz();
                       }
                     },
-                  ),
-                  AyarSatiri(
-                    ikon: SipIcons.phoneCall,
-                    baslik: 'Gelen çağrıyı dene',
-                    altBaslik: '4 varyant: borçlu, temiz, alacaklı, kayıtsız',
-                    onTap: widget.onCagriDene,
                   ),
                   // Faz 0 gecikme ölçüm ekranı. Tasarımda YOK ve esnafın menüsünde işi de yok —
                   // ama silinemez: çağrı kartının 1 SANİYELİK bütçesini (BRIEF kırmızı çizgisi)
@@ -139,8 +132,7 @@ class _UygulamaAyarlariEkraniState extends State<UygulamaAyarlariEkrani> {
                     AyarSatiri(
                       ikon: SipIcons.clock,
                       baslik: 'Gecikme ölçümleri',
-                      altBaslik:
-                          'Çağrı kartı 1 sn bütçesinin ölçüm kaydı · yalnız geliştirme derlemesi',
+                      altBaslik: 'Yalnız geliştirme derlemesinde görünür',
                       onTap: widget.onOlcumler,
                     ),
                 ]),

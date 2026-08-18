@@ -73,7 +73,6 @@ extension _GezinmeYuzeyi on _HomeShellState {
           session: widget.session,
           onCikis: _cikis,
           onSihirbaz: _sihirbaziAc,
-          onCagriSimulasyonu: _cagriKartiAc,
           koyuTema: _tema,
           onTema: _tema.ayarla,
           // Faz 0 gecikme ölçüm ekranı: TASARIMDA YOK ama arayan-tanımanın 1 sn bütçesini

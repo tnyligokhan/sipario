@@ -24,12 +24,9 @@ import 'package:flutter/material.dart';
 
 import '../../auth/session.dart';
 import '../../data/app_database.dart';
-import '../../theme/components/atoms.dart';
-import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
-import '../../theme/typography.dart';
 import '../team.dart' show RolYetkileri;
 import 'ayarlar/bildirim_ayarlari_ekrani.dart';
 import 'ayarlar/hakkinda_ekrani.dart';
@@ -55,7 +52,6 @@ class AyarlarEkrani extends StatefulWidget {
     this.onCikis,
     this.writable = true,
     this.onSihirbaz,
-    this.onCagriSimulasyonu,
     this.onOlcumler,
     this.koyuTema,
     this.onTema,
@@ -85,9 +81,6 @@ class AyarlarEkrani extends StatefulWidget {
   /// Kurulum sihirbazını yeniden çalıştırır (Uygulama sayfasına geçer).
   final VoidCallback? onSihirbaz;
 
-  /// Verilen numarayla çağrı kartını açar (Uygulama sayfasındaki deneme akışı).
-  final ValueChanged<String>? onCagriSimulasyonu;
-
   /// Faz 0 gecikme ölçüm ekranını açar; null → satır hiç çizilmez.
   final VoidCallback? onOlcumler;
 
@@ -101,21 +94,6 @@ class AyarlarEkrani extends StatefulWidget {
 }
 
 class _AyarlarEkraniState extends State<AyarlarEkrani> {
-  Future<void> _cagriDene() async {
-    final numara = await sipSheet<String>(
-      context,
-      baslik: 'Çağrı Simülasyonu',
-      govde: (ctx) => const _SimulasyonListesi(),
-    );
-    if (numara == null || !mounted) return;
-    final geriCagri = widget.onCagriSimulasyonu;
-    if (geriCagri == null) {
-      SipToast.goster(context, 'Çağrı ekranı bu görünümde bağlı değil.');
-      return;
-    }
-    geriCagri(numara);
-  }
-
   void _ac(Widget ekran) => Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => ekran),
       );
@@ -137,13 +115,16 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
             SipUst(baslik: 'Ayarlar', onGeri: () => Navigator.of(context).maybePop()),
             Expanded(
               child: SipGovde(children: [
-                const SipBolumBaslik('Ayarlar', ustBosluk: 18),
+                // BÖLÜM BAŞLIĞI KALDIRILDI (kullanıcı eleştirisi 2026-08-18): sayfanın adı
+                // zaten "Ayarlar" ve hemen altında ikinci kez "Ayarlar" yazıyordu. Tek kartlı
+                // bir sayfada bölüm başlığı hiçbir şeyi ayırmaz, yalnız yer kaplar.
+                const SizedBox(height: SipSpace.xl),
                 AyarKarti(satirlar: [
                   if (session != null && onCikis != null)
                     AyarSatiri(
                       ikon: SipIcons.user,
                       baslik: 'Hesap',
-                      altBaslik: 'Kullanıcı, cihazlar ve oturum',
+                      altBaslik: 'Oturumunuz ve bağlı telefonlar',
                       onTap: () => _ac(HesapEkrani(
                         db: widget.db,
                         session: session,
@@ -156,7 +137,7 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
                     AyarSatiri(
                       ikon: SipIcons.home,
                       baslik: 'İşletme',
-                      altBaslik: 'Profil, iletişim, sipariş kodu',
+                      altBaslik: 'Dükkân bilgileri ve tercihler',
                       onTap: () => _ac(IsletmeAyarlariEkrani(
                         db: widget.db,
                         writable: widget.writable,
@@ -165,19 +146,18 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
                   AyarSatiri(
                     ikon: SipIcons.settings,
                     baslik: 'Uygulama',
-                    altBaslik: 'Tema, arayan tanıma, sürükleme',
+                    altBaslik: 'Görünüm ve arayan tanıma',
                     onTap: () => _ac(UygulamaAyarlariEkrani(
                       koyuTema: widget.koyuTema,
                       onTema: widget.onTema,
                       onSihirbaz: widget.onSihirbaz,
-                      onCagriDene: _cagriDene,
                       onOlcumler: widget.onOlcumler,
                     )),
                   ),
                   AyarSatiri(
                     ikon: SipIcons.alert,
                     baslik: 'Bildirimler',
-                    altBaslik: 'İzinler, kategoriler, sessiz saatler',
+                    altBaslik: 'Hangi bildirimler gelsin, ne zaman sussun',
                     // Rol geçilir: kuryede yalnız ONA GELEN bildirim kategorileri listelenir.
                     // Rol bilinmiyorsa yönetici varsayılır — eksik bir anahtar göstermek,
                     // kuryenin hiç almayacağı bir anahtarı göstermekten daha az zararlı değil
@@ -189,7 +169,7 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
                   AyarSatiri(
                     ikon: SipIcons.info,
                     baslik: 'Hakkında',
-                    altBaslik: 'Sürüm, lisans, yenilikler',
+                    altBaslik: 'Sürüm bilgisi ve yenilikler',
                     onTap: () => _ac(HakkindaEkrani(db: widget.db)),
                   ),
                 ]),
@@ -202,103 +182,3 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
   }
 }
 
-/// Simülasyon satırının anlamı — ikon rengini bu belirler (tasarım `s-ayarlar.jsx:6-9`).
-enum _SimTuru { borclu, temiz, alacakli, kayitsiz }
-
-/// CSS `.sr-list` + `.aday-row` — tasarımdaki dört çağrı senaryosu.
-///
-/// Alt satır SOMUT örnek verir (isim + tutar), genel ifade değil: kullanıcı hangi varyantı
-/// açtığını kartın çıkmasından ÖNCE bilsin. Renk de satır başına ayrılır — dört satır aynı
-/// renkte olunca "borçlu" ile "temiz" arasındaki fark yalnız metinde kalıyordu.
-class _SimulasyonListesi extends StatelessWidget {
-  const _SimulasyonListesi();
-
-  static List<({String ad, String alt, String no, _SimTuru tur})> get _senaryolar => [
-        (
-          ad: 'Kayıtlı · Borçlu',
-          alt: 'Ahmet Yılmaz · ${sipTutar(34000)} borç',
-          no: '05324152290',
-          tur: _SimTuru.borclu,
-        ),
-        (
-          ad: 'Kayıtlı · Temiz',
-          alt: 'Selin Kaya · hesap temiz',
-          no: '05332207841',
-          tur: _SimTuru.temiz,
-        ),
-        (
-          ad: 'Kayıtlı · Alacaklı',
-          alt: 'Murat Öz · ${sipTutar(12000)} alacak',
-          no: '05429076322',
-          tur: _SimTuru.alacakli,
-        ),
-        (
-          ad: 'Kayıtsız Numara',
-          alt: 'Defterde olmayan arayan',
-          no: '02165550188',
-          tur: _SimTuru.kayitsiz,
-        ),
-      ];
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    final senaryolar = _senaryolar;
-    Color renk(_SimTuru tur) => switch (tur) {
-          _SimTuru.borclu => t.danger,
-          _SimTuru.temiz => t.ok,
-          _SimTuru.alacakli => t.ok,
-          _SimTuru.kayitsiz => t.muted,
-        };
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < senaryolar.length; i++)
-          Padding(
-            padding: EdgeInsets.only(top: i == 0 ? 0 : 6),
-            child: SipDokun(
-              onTap: () => Navigator.of(context).pop(senaryolar[i].no),
-              zemin: t.surface,
-              basiliZemin: t.accentSoft,
-              radius: SipRadius.br2,
-              kenarlik: Border.all(color: t.line, width: 1.5),
-              padding: const EdgeInsets.symmetric(horizontal: SipSpace.xl, vertical: 11),
-              child: Row(
-                children: [
-                  SipIkonKutu(
-                    ikon: SipIcons.phoneCall,
-                    cap: 32,
-                    ikonBoyut: 15,
-                    kalinlik: 2.1,
-                    zemin: t.surface2,
-                    renk: renk(senaryolar[i].tur),
-                  ),
-                  const SizedBox(width: SipSpace.lg),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          senaryolar[i].ad,
-                          style: SipText.metin(13, w: 700, h: 1.35).copyWith(color: t.ink),
-                        ),
-                        Text(
-                          '${senaryolar[i].alt} · ${sipTelefon(senaryolar[i].no)}',
-                          style: SipText.metin(11, w: 600).copyWith(color: t.muted),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  SipIcon(SipIcons.chevR, boyut: 16, kalinlik: 2, renk: t.line2),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}

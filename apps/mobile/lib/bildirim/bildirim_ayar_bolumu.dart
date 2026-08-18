@@ -150,7 +150,7 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
             AyarSatiri(
               ikon: SipIcons.info,
               baslik: 'Bildirim izni kapalı',
-              altBaslik: 'İzin verilmeden hiçbir bildirim gösterilemez',
+              altBaslik: 'Bildirim göstermek için izin gerekir',
               sag: SipMetinButon(
                 etiket: 'İzin ver',
                 zemin: t.accentSoft,
@@ -200,9 +200,9 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
   }
 
   static String _sessizMetin(SessizSaatler s) {
-    if (s.kapali) return 'Kapalı — her saat bildirim gelebilir';
+    if (s.kapali) return 'Kapalı — her saat bildirim gelir';
     String iki(int x) => x.toString().padLeft(2, '0');
-    return '${iki(s.baslangicSaat)}:00 – ${iki(s.bitisSaat)}:00 arası bildirim gelmez, sabaha ertelenir';
+    return '${iki(s.baslangicSaat)}:00 – ${iki(s.bitisSaat)}:00 arası sessiz, sabaha ertelenir';
   }
 
   static String _ikon(BildirimKategori k) => switch (k) {

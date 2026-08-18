@@ -46,10 +46,10 @@ String hesapRolAdi(String? rol) => switch (rol) {
 /// bayi ayarlarına göre değişir (`KuryeIzinleri`), o yüzden metin kapsamı anlatır, tek tek
 /// yetkileri saymaz. Saysaydı, izinler değiştiği gün sessizce yalan söylerdi.
 String hesapRolAciklamasi(String? rol) => switch (rol) {
-      'patron' => 'Tüm ekranlar ve işletme ayarları açık',
-      'operator' => 'İşletme ayarları dışında yönetici yetkileri',
-      'kurye' => 'Yetkileri bayi belirler — Kuryeler ekranından değiştirilir',
-      _ => 'Oturum bilgisi çözülemedi',
+      'patron' => 'Her şeye erişebilirsiniz',
+      'operator' => 'İşletme ayarları dışında her şey açık',
+      'kurye' => 'Yetkilerinizi bayi belirler',
+      _ => 'Oturum bilgisi okunamadı',
     };
 
 class HesapEkrani extends StatelessWidget {

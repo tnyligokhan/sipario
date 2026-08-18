@@ -346,7 +346,7 @@ void main() {
 
       expect(find.text('Gecikme ölçümleri'), findsOneWidget,
           reason: 'ölü dal bırakmıyoruz: araç geliştirme derlemesinde erişilebilir kalmalı');
-      expect(find.textContaining('yalnız geliştirme derlemesi'), findsOneWidget,
+      expect(find.textContaining('geliştirme derlemesinde'), findsOneWidget,
           reason: 'satır neden koşullu olduğunu kendi altyazısında söylüyor');
 
       await tester.tap(find.text('Gecikme ölçümleri'));

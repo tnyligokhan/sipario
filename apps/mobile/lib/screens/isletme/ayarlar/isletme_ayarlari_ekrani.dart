@@ -5,10 +5,11 @@
 // sordu: mesaj şablonları ve fiş bölümü neden İşletme Kimliği'nin içinde? Cevap: olmamalıydı.
 // Artık her konu kendi satırı ve kendi ekranı:
 //
-//   Kimlik   → ad, yetkili, iletişim, vergi, çalışma saatleri   (isletme_profili_ekrani.dart)
-//   Tahsilat → IBAN, alıcı adı, fiş notu (pasif)                (tahsilat_ayarlari_ekrani.dart)
-//   Mesajlar → müşteriye giden hazır metinler, N tane           (mesaj_sablonlari_ekrani.dart)
-//   Sipariş  → sipariş kodu tercihi                             (siparis_kodu_ayari.dart)
+//   İşletme bilgileri → ad, yetkili, iletişim, vergi, saatler  (isletme_profili_ekrani.dart)
+//   Tahsilat          → IBAN, alıcı adı, fiş notu (pasif)      (tahsilat_ayarlari_ekrani.dart)
+//   Mesajlar          → müşteriye giden hazır metinler         (mesaj_sablonlari_ekrani.dart)
+//   Sipariş kodu      → satırda hangi kod görünsün             (siparis_kodu_ayari.dart)
+//   Ürün içerikleri   → hazırlanan ürün yeteneği               (hazirlanan_urun_ayari.dart)
 //
 // Bölünme yalnız görsel değil: her ekran `save`e YALNIZ kendi alanlarını verir, geri kalanına
 // dokunmaz. Tek form olduğu sürece iki cihazın çevrimdışı düzenlemesi birbirini eziyordu.
@@ -103,22 +104,22 @@ class _Govde extends StatelessWidget {
 
     return SipGovde(
       children: [
-        const SipBolumBaslik('Kimlik', ustBosluk: 18),
+        // DÖRT BAŞLIK, BEŞ SATIR VARDI (kullanıcı eleştirisi 2026-08-18): her satırın üstünde
+        // kendi bölüm başlığı duruyordu ve sayfa, içeriğinden çok ayraçtan oluşuyordu. İki
+        // gruba indirildi — biri DÜKKÂNIN KENDİSİ, diğeri SİPARİŞ AKIŞI. Gruplama tarama için
+        // var; satır sayısı kadar başlık, taramayı kolaylaştırmaz zorlaştırır.
+        const SipBolumBaslik('Dükkân', ustBosluk: 18),
         AyarKarti(satirlar: [
           AyarSatiri(
             ikon: SipIcons.home,
-            baslik: ad.isEmpty ? 'İşletme kimliği' : ad,
-            altBaslik: iletisim.isEmpty ? 'Bilgileri tamamlayın' : iletisim,
+            baslik: ad.isEmpty ? 'İşletme bilgileri' : ad,
+            altBaslik: iletisim.isEmpty ? 'Ad ve iletişim eksik' : iletisim,
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => IsletmeProfiliEkrani(db: db, writable: writable),
               ),
             ),
           ),
-        ]),
-
-        const SipBolumBaslik('Para', ustBosluk: 18),
-        AyarKarti(satirlar: [
           AyarSatiri(
             ikon: SipIcons.wallet,
             baslik: 'Tahsilat',
@@ -131,16 +132,15 @@ class _Govde extends StatelessWidget {
               ),
             ),
           ),
-        ]),
-
-        const SipBolumBaslik('Müşteriye giden', ustBosluk: 18),
-        AyarKarti(satirlar: [
           AyarSatiri(
             ikon: SipIcons.chat,
             baslik: 'Mesajlar',
+            // METİN SAYISI DEĞİL DURUMU YAZAR (2026-08-18). "4 şablon · varsayılan metin" bir
+            // envanter cümlesiydi; bayinin sorduğu soru "kaç tane var" değil, "benim yazdığım
+            // metin mi gidiyor, hazır olan mı".
             altBaslik: sablonOzel
-                ? '${kMesajSablonlari.length} şablon · özelleştirilmiş'
-                : '${kMesajSablonlari.length} şablon · varsayılan metin',
+                ? 'Metinleri siz yazdınız'
+                : 'Hazır metinler kullanılıyor',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => MesajSablonlariEkrani(db: db, writable: writable),

@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
 import '../../repo/tenant_settings_repository.dart';
+import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
 import 'isletme_atomlari.dart';
@@ -75,13 +76,15 @@ class HazirlananUrunSatiri extends StatelessWidget {
         return AyarSatiri(
           ikon: SipIcons.box,
           baslik: 'Ürün içerikleri',
-          // Alt başlık hem DURUMU hem KİMİN İŞİNE YARADIĞINI söyler: bir ayarın ne olduğunu
-          // anlamak için ona dokunmak gerekiyorsa o ayar gizlidir. "Dönerci, tostçu" örneği
-          // bilerek yazıldı — su bayisi bu satırı okuyup kendisine ait olmadığını anlamalı.
-          altBaslik: acik
-              ? 'Açık · ürün formunda malzeme listesi çıkar'
-              : 'Kapalı · dönerci, tostçu gibi hazırlanan ürünler için',
+          // ALT BAŞLIK DURUMU DEĞİL KİMİN İŞİNE YARADIĞINI söyler (2026-08-18): durumu sağdaki
+          // anahtar zaten gösteriyor. Örnek işletmeler bilerek yazıldı — su bayisi bu satırı
+          // okuyup kendisine ait olmadığını tek bakışta anlamalı.
+          altBaslik: 'Dönerci, tostçu gibi hazırlanan ürünler için',
           onTap: () => _degistir(context, acik),
+          // AÇ/KAPA AYARI ANAHTARLA GÖSTERİLİR (kullanıcı isteği 2026-08-18). Chevron, satırın
+          // bir sayfa açtığını söyler; oysa burada dokunuş ayarı ÇEVİRİYOR. Yanlış ikon,
+          // kullanıcıya yanlış bir söz vermektir.
+          sag: SipKnob(acik: acik),
         );
       },
     );

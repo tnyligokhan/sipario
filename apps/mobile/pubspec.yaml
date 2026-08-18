@@ -16,7 +16,7 @@ publish_to: 'none'
 # git commit sayısından türetir; makinenin karşılaştırma anahtarıdır (Play daha küçük
 # versionCode'u reddeder, uygulama içi güncelleme "uzaktaki benden yeni mi?"yi tam sayıyla çözer).
 # Buradaki +1 yalnız git'in bulunamadığı durumda (depo dışı derleme) yedek değerdir.
-version: 0.32.0+1
+version: 0.33.0+1
 
 environment:
   sdk: ^3.10.7
