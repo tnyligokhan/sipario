@@ -57,6 +57,7 @@ class TenantSettingsRepository {
     Value<String?> ibanOwnerName = const Value.absent(),
     Value<String?> reminderTemplate = const Value.absent(),
     Value<String> orderCodeDisplay = const Value.absent(),
+    Value<bool> preparedProducts = const Value.absent(),
     KuryeIzinleri? kuryeIzin,
   }) async {
     final meta = await db.syncState();
@@ -84,6 +85,12 @@ class TenantSettingsRepository {
     final kodTercihi = orderCodeDisplay.present
         ? orderCodeDisplay.value
         : (mevcut?.orderCodeDisplay ?? 'musteri');
+    // HAZIRLANAN ÜRÜN YETENEĞİ (2026-08-18) de aynı kuralla taşınır: bu anahtarı yalnız kendi
+    // ayar satırı bilir; başka bir ekranın kaydı onu sessizce VARSAYILANA (kapalı) çekerse
+    // dönercinin malzeme listeleri bir gün ortadan kaybolmuş gibi görünürdü.
+    final hazirlanan = preparedProducts.present
+        ? preparedProducts.value
+        : (mevcut?.preparedProducts ?? false);
     // Kurye yetkileri de aynı kuralla taşınır (2026-08-04): yetki ekranı dışındaki hiçbir
     // çağıran bu 13 anahtarı bilmez; eksik gönderilirse sunucu onları VARSAYILANA çeker ve
     // bayi adresini düzeltince kapattığı iskonto yetkisi sessizce geri açılırdı.
@@ -117,6 +124,7 @@ class TenantSettingsRepository {
       'courier_can_toggle_stock': izin.stokPasifleme,
       'courier_can_call_log': izin.cagriGunlugu,
       'order_code_display': kodTercihi,
+      'prepared_products': hazirlanan,
     };
 
     await db.transaction(() async {
@@ -149,6 +157,7 @@ class TenantSettingsRepository {
             courierCanToggleStock: Value(izin.stokPasifleme),
             courierCanCallLog: Value(izin.cagriGunlugu),
             orderCodeDisplay: Value(kodTercihi),
+            preparedProducts: Value(hazirlanan),
             updatedOccurredAt: Value(at),
             updatedDeviceId: Value(device),
           ));
@@ -175,4 +184,19 @@ class TenantSettingsRepository {
   /// Yalnız sipariş kodu tercihini değiştirir; profilin geri kalanına DOKUNMAZ.
   Future<void> siparisKoduTercihiKaydet(String tercih) =>
       save(orderCodeDisplay: Value(tercih));
+
+  /// Yalnız "hazırlanan ürün" yeteneğini değiştirir (2026-08-18).
+  Future<void> hazirlananUrunKaydet(bool acik) => save(preparedProducts: Value(acik));
 }
+
+/// "Bu işletmede hazırlanan ürün var mı?" — ekranların okuduğu AKIŞ.
+///
+/// Akış, tek atış DEĞİL: ayar başka bir cihazdan değiştirilebilir ve senkronla iner. Tek atış
+/// okuyan bir ürün formu, patron ayarı telefonundan açtıktan sonra kuryenin ekranında hâlâ
+/// kapalı görünürdü (`watchSiparisKoduTercihi` ile aynı gerekçe).
+///
+/// Kayıt hiç yoksa `false`: yetenek varsayılan olarak KAPALIDIR (gerekçe şemada).
+Stream<bool> watchHazirlananUrun(AppDatabase db) => db
+    .select(db.tenantSettings)
+    .watchSingleOrNull()
+    .map((s) => s?.preparedProducts ?? false);

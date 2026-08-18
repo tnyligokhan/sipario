@@ -75,6 +75,7 @@ class SurumCarpikligiTest extends ApiTestCase
             'courier_can_day_end' => true,
             'courier_can_collect' => false,
             'order_code_display' => 'siparis',
+            'prepared_products' => true,
         ], ['occurred_at' => now()->subMinute()->toIso8601String()])])
             ->assertJsonPath('results.0.status', 'applied');
 
@@ -101,6 +102,11 @@ class SurumCarpikligiTest extends ApiTestCase
         $this->assertTrue($satir->courier_can_day_end, 'Eski istemci gün sonu yetkisini varsayılana çekti.');
         $this->assertFalse($satir->courier_can_collect, 'Eski istemci KAPATILMIŞ tahsilat yetkisini geri açtı.');
         $this->assertSame('siparis', $satir->order_code_display, 'Eski istemci kod tercihini varsayılana çekti.');
+        // v24 kolonu (2026-08-18). Kaybolması, dönercinin ürün formundaki malzeme bölümünü
+        // sessizce yok ederdi — bayi "listelerim silinmiş" diye rapor eder, oysa yalnız
+        // yetenek kapanmıştır ve veri yerinde durur.
+        $this->assertTrue($satir->prepared_products,
+            'Eski istemci hazırlanan ürün yeteneğini kapattı.');
     }
 
     #[Test]

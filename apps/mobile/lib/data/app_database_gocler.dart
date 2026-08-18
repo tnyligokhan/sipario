@@ -307,6 +307,14 @@ extension _GocMerdiveni on AppDatabase {
             ('products', 'ALTER TABLE products ADD COLUMN options_json TEXT'),
             ('order_lines', 'ALTER TABLE order_lines ADD COLUMN options_json TEXT'),
             ('customers', 'ALTER TABLE customers ADD COLUMN product_options_json TEXT'),
+            // v24 — HAZIRLANAN ÜRÜN YETENEĞİ (2026-08-18). Ürün seçenekleri özelliğinin
+            // kiracı düzeyindeki anahtarı; gerekçesi `TenantSettings.preparedProducts`ta.
+            //
+            // NOT NULL DEFAULT 0 (kapalı): sahadaki her bayi yükseltmeden sonra bugünkü
+            // davranışı görür — su bayisi ürün formunda hiçbir değişiklik fark etmez, özelliği
+            // isteyen açar. Varsayılanı 1 yapmak, azınlığın ihtiyacını çoğunluğa dayatmak olurdu.
+            ('tenant_settings',
+                'ALTER TABLE tenant_settings ADD COLUMN prepared_products INTEGER NOT NULL DEFAULT 0'),
           ]) {
             if (await AppDatabase._tabloVar(m, tablo)) {
               await AppDatabase._addColumnIfMissing(m, sql);

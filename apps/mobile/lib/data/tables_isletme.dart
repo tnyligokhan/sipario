@@ -116,6 +116,28 @@ class TenantSettings extends Table {
   BoolColumn get courierCanToggleStock => boolean().withDefault(const Constant(true))();
   BoolColumn get courierCanCallLog => boolean().withDefault(const Constant(false))();
 
+  /// İŞLETMEDE HAZIRLANAN ÜRÜN VAR MI? (kullanıcı kararı 2026-08-18) — ürün seçenekleri
+  /// ("içinde şu olsun olmasın") özelliğinin KİRACI DÜZEYİNDEKİ anahtarı.
+  ///
+  /// ══ NEDEN GEREKLİ ═══════════════════════════════════════════════════════════════════════
+  /// Bu uygulamayı ÇOK FARKLI işletmeler kullanır: su bayii, tüp bayii, market, dönerci,
+  /// tostçu. Su bayisinde "içindekiler" diye bir kavram YOKTUR ve ürün formunda o bölümü her
+  /// ürün için çizmek, 12 üründe 12 kez cevapsız bir soru sormaktır.
+  ///
+  /// ══ NEDEN "İŞLETME TÜRÜ" DEĞİL, YETENEK ═══════════════════════════════════════════════
+  /// Tek bir tür etiketi ("market" / "dönerci") bu ürünü tarif EDEMEZ: kullanıcının verdiği
+  /// örnek tam da bunu gösteriyor — küçük bir bakkal hem paketli ürün satar HEM tost yapar.
+  /// Tür bir etikettir; davranışı belirleyen şey YETENEKTİR. İleride gelecek kurulum sihirbazı
+  /// "işletmen ne?" diye sorup bu yeteneği AYARLAYACAK; ekranlar türü değil yeteneği okur.
+  ///
+  /// ⚠️ VARSAYILAN KAPALI ve bu bilinçli: bu üründeki bayilerin çoğunluğu (BRIEF) su/tüp
+  /// bayisidir; azınlık için herkese gürültü eklemek yanlış yöndür. Açan bayi Ayarlar →
+  /// İşletme → "Ürün içerikleri" satırından açar; sihirbaz geldiğinde ilk kurulumda sorulacak.
+  ///
+  /// KAPALI OLMASI VERİYİ SİLMEZ: ürünlerin kayıtlı malzeme listeleri yerinde kalır, yalnız
+  /// düzenleyici gizlenir. Yeniden açıldığında hepsi geri gelir.
+  BoolColumn get preparedProducts => boolean().withDefault(const Constant(false))();
+
   /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
   /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
   /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.

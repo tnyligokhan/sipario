@@ -32,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property bool $courier_can_collect
  * @property bool $courier_can_discount
  * @property bool $courier_can_day_end
+ * @property bool $prepared_products işletmede hazırlanan ürün var mı (ürün seçenekleri anahtarı)
  * @property string $order_code_display 'musteri' | 'siparis' — sipariş satırında hangi kod görünür
  * @property Carbon $updated_occurred_at
  * @property string|null $updated_device_id
@@ -77,6 +78,7 @@ class TenantSetting extends Model
         'courier_can_toggle_stock',
         'courier_can_call_log',
         'order_code_display',
+        'prepared_products',
         'updated_occurred_at',
         'updated_device_id',
     ];
@@ -107,6 +109,7 @@ class TenantSetting extends Model
     {
         return [
             'updated_occurred_at' => 'datetime',
+            'prepared_products' => 'boolean',
             'courier_can_customers' => 'boolean',
             'courier_can_orders' => 'boolean',
             'courier_can_collect' => 'boolean',

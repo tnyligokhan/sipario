@@ -276,6 +276,10 @@ extension SyncCekme on SyncEngine {
               // Sunucu alanı göndermezse (eski sürüm) varsayılana düşülür — `Value(null)`
               // yazmak NOT NULL kolonu bozardı.
               orderCodeDisplay: Value(_sN(m['order_code_display']) ?? 'musteri'),
+              // HAZIRLANAN ÜRÜN YETENEĞİ (2026-08-18) — eski sunucu alanı göndermezse KAPALI
+              // sayılır, yani bugünkü davranış. Haritalanmazsa patronun açtığı ayar kuryenin
+              // telefonuna hiç inmez ve iki cihaz farklı bir ürün formu gösterir.
+              preparedProducts: Value(_bV(m['prepared_products'], false)),
               updatedOccurredAt: Value(_sN(m['updated_occurred_at'])),
               updatedDeviceId: Value(_sN(m['updated_device_id'])),
             ));

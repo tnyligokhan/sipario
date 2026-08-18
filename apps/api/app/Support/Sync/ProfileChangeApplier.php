@@ -132,6 +132,11 @@ class ProfileChangeApplier
             'order_code_display' => in_array($p['order_code_display'] ?? null, ['musteri', 'siparis'], true)
                 ? $p['order_code_display']
                 : 'musteri',
+            // HAZIRLANAN ÜRÜN YETENEĞİ (kullanıcı eleştirisi 2026-08-18) — ürün seçenekleri
+            // özelliğinin kiracı anahtarı. Su/tüp bayisinde kapalı, dönerci/tostçuda açık;
+            // gerekçenin tamamı migration 004015'te. NOT NULL olduğu için varsayılan false.
+            // (Anahtar HİÇ gelmediğinde varsayılana düşmez, KORUNUR — üstteki filtre kapsar.)
+            'prepared_products' => (bool) ($p['prepared_products'] ?? false),
         ];
     }
 

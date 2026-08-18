@@ -31,6 +31,7 @@ import '../../../theme/icons.dart';
 import '../../../theme/tokens.dart';
 import '../isletme_atomlari.dart';
 import '../isletme_profili_ekrani.dart';
+import '../hazirlanan_urun_ayari.dart';
 import '../siparis_kodu_ayari.dart';
 import 'mesaj_sablonlari_ekrani.dart';
 import 'tahsilat_ayarlari_ekrani.dart';
@@ -151,6 +152,15 @@ class _Govde extends StatelessWidget {
         const SipBolumBaslik('Sipariş', ustBosluk: 18),
         AyarKarti(satirlar: [
           SiparisKoduSatiri(db: db, writable: writable),
+          // ÜRÜN İÇERİKLERİ (2026-08-18) — "hazırlanan ürün" yeteneği. Bu satır, farklı
+          // işletme türlerinin aynı uygulamayı kullanmasının ilk açık karşılığıdır: su/tüp
+          // bayisi kapalı bırakır, dönerci/tostçu açar, bakkal tost yapıyorsa açar.
+          //
+          // ⚠️ İLERİDE KURULUM SİHİRBAZINA TAŞINACAK, buradan KALDIRILMAYACAK: sihirbaz ilk
+          // girişte bir kez sorar, bu satır ise fikir değiştiren bayinin dönebileceği yerdir.
+          // Yalnız sihirbazda sorulan bir ayar, kurulumdan sonra tost yapmaya başlayan bakkal
+          // için ulaşılamaz olurdu.
+          HazirlananUrunSatiri(db: db, writable: writable),
         ]),
       ],
     );

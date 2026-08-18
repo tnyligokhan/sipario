@@ -1,0 +1,89 @@
+// ÜRÜN İÇERİKLERİ — "bu işletmede hazırlanan ürün var mı?" (kullanıcı eleştirisi 2026-08-18).
+//
+// ══ NEDEN VAR ══════════════════════════════════════════════════════════════════════════════
+// Bu uygulamayı ÇOK FARKLI işletmeler kullanır: su bayii, tüp bayii, market, dönerci, tostçu.
+// "İçindekiler" özelliği ilk sürümde HER ürün formunda koşulsuz çiziliyordu ve kullanıcı haklı
+// olarak itiraz etti: *"su bayisinde içindekiler göstermek çok mantıklı değil"*. Bu satır o
+// özelliğin kiracı düzeyindeki anahtarıdır.
+//
+// ══ NEDEN "İŞLETME TÜRÜ" SEÇİMİ DEĞİL ══════════════════════════════════════════════════════
+// Tek bir tür etiketi ("market" / "dönerci") bu ürünü tarif EDEMEZ. Kullanıcının kendi örneği
+// bunu kanıtlıyor: *"küçük bir bakkal olabilir ama aynı zamanda tost yapıyor olabilir"*. Tür bir
+// ETİKETTİR; ekranların davranışını belirleyen şey YETENEKTİR. İleride gelecek kurulum sihirbazı
+// "işletmen ne, neler satıyorsun?" diye soracak ve cevaptan bu yeteneği TÜRETECEK — ekranlar
+// yine türü değil yeteneği okuyacak. Türü doğrudan okuyan bir ekran, bakkal-tost hâlinde
+// kaçınılmaz olarak yanlış karar verirdi.
+//
+// ⚠️ SİHİRBAZ GELDİĞİNDE BU SATIR KALDIRILMAZ. Sihirbaz ilk girişte BİR KEZ sorar; bu satır
+// fikir değiştiren bayinin dönebileceği yerdir. Yalnız sihirbazda sorulan bir ayar, kurulumdan
+// altı ay sonra tost yapmaya başlayan bakkal için ulaşılamaz olurdu.
+
+import 'package:flutter/material.dart';
+
+import '../../data/app_database.dart';
+import '../../repo/tenant_settings_repository.dart';
+import '../../theme/components/overlays.dart';
+import '../../theme/icons.dart';
+import 'isletme_atomlari.dart';
+
+/// Ayarlar → İşletme → "Ürün içerikleri" satırı.
+class HazirlananUrunSatiri extends StatelessWidget {
+  const HazirlananUrunSatiri({super.key, required this.db, this.writable = true});
+
+  final AppDatabase db;
+  final bool writable;
+
+  Future<void> _degistir(BuildContext context, bool mevcut) async {
+    if (!writable) {
+      SipToast.goster(context, 'Salt-okunur kip: ayar değiştirilemez.');
+      return;
+    }
+
+    // KAPATMA ONAY İSTER, AÇMA İSTEMEZ. Açmak bir şey kaybettirmez (yeni bir bölüm belirir);
+    // kapatmak ise bayinin girdiği malzeme listelerini EKRANDAN kaldırır ve "sildim mi?"
+    // sorusunu doğurur. Cevabı onay metninde yazılı: silinmez.
+    if (mevcut) {
+      final onay = await sipOnay(
+        context,
+        baslik: 'Ürün içerikleri kapatılsın mı?',
+        mesaj: 'Ürün formundaki "İçindekiler" bölümü ve sipariş alırken çıkan malzeme '
+            'seçenekleri gizlenir. Girdiğiniz malzeme listeleri SİLİNMEZ — yeniden '
+            'açtığınızda hepsi geri gelir.',
+        onayEtiketi: 'Kapat',
+        tehlike: true,
+      );
+      if (!onay || !context.mounted) return;
+    }
+
+    await TenantSettingsRepository(db).hazirlananUrunKaydet(!mevcut);
+    if (!context.mounted) return;
+    SipToast.goster(
+      context,
+      mevcut
+          ? 'Ürün içerikleri kapatıldı.'
+          : 'Ürün içerikleri açıldı — ürünü düzenlerken malzeme ekleyebilirsiniz.',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<bool>(
+      stream: watchHazirlananUrun(db),
+      initialData: false,
+      builder: (context, snap) {
+        final acik = snap.data ?? false;
+        return AyarSatiri(
+          ikon: SipIcons.box,
+          baslik: 'Ürün içerikleri',
+          // Alt başlık hem DURUMU hem KİMİN İŞİNE YARADIĞINI söyler: bir ayarın ne olduğunu
+          // anlamak için ona dokunmak gerekiyorsa o ayar gizlidir. "Dönerci, tostçu" örneği
+          // bilerek yazıldı — su bayisi bu satırı okuyup kendisine ait olmadığını anlamalı.
+          altBaslik: acik
+              ? 'Açık · ürün formunda malzeme listesi çıkar'
+              : 'Kapalı · dönerci, tostçu gibi hazırlanan ürünler için',
+          onTap: () => _degistir(context, acik),
+        );
+      },
+    );
+  }
+}

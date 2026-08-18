@@ -51,6 +51,19 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.32.0',
+    tarih: '18 Ağustos 2026',
+    maddeler: [
+      'Ürün içerikleri artık isteğe bağlı: Ayarlar → İşletme → "Ürün içerikleri". Su ya da tüp '
+          'bayisiyseniz kapalı kalır ve ürün formunda hiç görünmez; dönerci, tostçu, gözlemeci '
+          'gibi hazırlanan ürün satıyorsanız açarsınız.',
+      'Açıkken bile her üründe liste çıkmaz: paketli ürünlerde tek satırlık "İçindekiler ekle" '
+          'bağlantısı durur. Bakkal gibi hem paketli ürün satıp hem tost yapan işletmeler '
+          'yalnız gerçekten hazırladıkları ürüne malzeme girer.',
+      'Kapatmak hiçbir listeyi silmez — yeniden açtığınızda hepsi yerinde durur.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.31.0',
     tarih: '18 Ağustos 2026',
     maddeler: [

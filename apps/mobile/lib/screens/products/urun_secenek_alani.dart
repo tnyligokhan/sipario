@@ -17,7 +17,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../data/app_database.dart';
 import '../../data/urun_secenekleri.dart';
+import '../../repo/tenant_settings_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
@@ -25,8 +27,55 @@ import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../isletme/isletme_atomlari.dart';
 
+/// Ürün formunun "İçindekiler" BÖLÜMÜ — kiracı kapısı + düzenleyici.
+///
+/// KAPI BURADA, FORMDA DEĞİL: ürün formu bir ürünü düzenler; "bu işletmede hazırlanan ürün var
+/// mı?" sorusu onun konusu değildir. Kapıyı forma koymak, `tenant_settings`i bilen üçüncü bir
+/// ekran daha demekti — ve o bilgiyi her yeni ürün yüzeyinde tekrar sormak gerekirdi.
+///
+/// AKIŞLA okunur, tek atış değil: ayar başka bir cihazdan açılabilir ve senkronla iner.
+class UrunSecenekBolumu extends StatelessWidget {
+  const UrunSecenekBolumu({
+    super.key,
+    required this.db,
+    required this.secenekler,
+    required this.onDegis,
+  });
+
+  final AppDatabase db;
+  final List<UrunSecenegi> secenekler;
+  final ValueChanged<List<UrunSecenegi>> onDegis;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<bool>(
+      stream: watchHazirlananUrun(db),
+      initialData: false,
+      builder: (context, snap) => (snap.data ?? false)
+          ? UrunSecenekAlani(secenekler: secenekler, onDegis: onDegis)
+          : const SizedBox.shrink(),
+    );
+  }
+}
+
 /// Ürünün seçenek listesini düzenleyen alan. Değişiklikleri [onDegis] ile dışarı bildirir;
 /// kendi durumunu TUTMAZ — kaynak doğruluk formun `_secenekler` listesidir.
+///
+/// ══ İKİ KATMANLI GÖRÜNÜRLÜK (kullanıcı eleştirisi 2026-08-18) ══════════════════════════════
+/// İlk sürümde bu alan HER ürün formunda koşulsuz çiziliyordu ve kullanıcı haklı olarak
+/// itiraz etti: "su bayisinde içindekiler göstermek çok mantıklı değil". Görünürlük artık iki
+/// ayrı soruya bağlı ve ikisi FARKLI şeyler sorar:
+///
+///  1. **İŞLETME**: burada hazırlanan ürün var mı? (`tenant_settings.prepared_products`)
+///     Su/tüp bayisinde cevap HAYIR ve alan HİÇ çizilmez — çağıran ekranın kapısı.
+///  2. **ÜRÜN**: bu ürünün içindekileri var mı? Kullanıcının örneği kesin: "küçük bir bakkal
+///     olabilir ama aynı zamanda tost yapıyor olabilir". Yani karar ÜRÜN BAZINDA olmalı;
+///     bakkalın 300 paketli ürününde bölüm açık durursa gürültü aynen geri gelir.
+///
+/// İkinci katman AYRI BİR KOLONLA DEĞİL, listenin kendisiyle çözülür: malzemesi olan ürün
+/// düzenleyiciyi AÇIK gösterir, olmayan tek satırlık bir "İçindekiler ekle" bağlantısı. Ayrı
+/// bir `hazirlanan` bayrağı, listeyle çelişebilen İKİNCİ bir doğruluk kaynağı olurdu (bayrak
+/// açık ama liste boş / bayrak kapalı ama liste dolu) ve hiçbir yeni bilgi taşımazdı.
 class UrunSecenekAlani extends StatefulWidget {
   const UrunSecenekAlani({super.key, required this.secenekler, required this.onDegis});
 
@@ -39,6 +88,10 @@ class UrunSecenekAlani extends StatefulWidget {
 
 class _UrunSecenekAlaniState extends State<UrunSecenekAlani> {
   final _yeni = TextEditingController();
+
+  /// Düzenleyici AÇIK mı? Malzemesi olan üründe baştan açık; olmayanda kullanıcı isteyene kadar
+  /// kapalı (yukarıdaki ikinci katman).
+  late bool _acik = widget.secenekler.isNotEmpty;
 
   @override
   void dispose() {
@@ -117,17 +170,49 @@ class _UrunSecenekAlaniState extends State<UrunSecenekAlani> {
     final t = context.sip;
     final liste = widget.secenekler;
 
+    // KAPALI HÂL: TEK SATIR. Bakkalın paketli ürünlerinde ekranda görünen her şey budur —
+    // bölüm başlığı bile çizilmez. Dokununca düzenleyici açılır ve bir daha kapanmaz (ürün
+    // artık "hazırlanan" sayılır; kullanıcı malzemeleri tek tek silerek geri dönebilir).
+    if (!_acik) {
+      return Padding(
+        padding: const EdgeInsets.only(top: SipSpace.md),
+        child: SipDokun(
+          onTap: () => setState(() => _acik = true),
+          radius: SipRadius.br2,
+          padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 2),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SipIcon(SipIcons.plus, boyut: 14, kalinlik: 2.4, renk: t.muted),
+              const SizedBox(width: SipSpace.sm),
+              // FLEXIBLE + ELLIPSIS: metin uzun ve dar telefonda satırı taşırıyordu (golden
+              // ile yakalandı). Serbest satır bağlantısındaki (`.ys-serbest`) desenin aynısı —
+              // orada da tek satırlık bir davet metni var.
+              Flexible(
+                child: Text(
+                  'İçindekiler ekle · hazırlanan ürün',
+                  style: SipText.metin(12.5, w: 600).copyWith(color: t.muted),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SipFormEtiket('İÇİNDEKİLER · OPSİYONEL'),
-        // BOŞ DURUM AÇIKLAYICI: özelliğin ne işe yaradığını bilmeyen bayi burada öğrenir.
-        // "Boş liste" ile "bu ürünün malzemesi yok" aynı şeydir ve ikisi de doğrudur — su
-        // bayisinde ürünlerin çoğu böyledir, bu yüzden metin suçlayıcı değil bilgilendirici.
+        // BOŞ DURUM AÇIKLAYICI: düzenleyiciyi yeni açan bayi özelliğin ne işe yaradığını
+        // burada öğrenir. Metin suçlayıcı değil bilgilendirici — malzemesiz ürün de meşrudur.
         if (liste.isEmpty)
           const AlanNotu(
             'Malzeme eklerseniz sipariş alırken tek dokunuşla "soğansız" diyebilirsiniz. '
-            'Gerekmeyen ürünlerde boş bırakın.',
+            'Bu ürünün malzemesi yoksa boş bırakın.',
           ),
 
         for (var i = 0; i < liste.length; i++)

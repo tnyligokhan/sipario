@@ -19,9 +19,12 @@ import 'package:sipario/data/urun_secenekleri.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/repo/product_repository.dart';
+import 'package:sipario/repo/tenant_settings_repository.dart';
 import 'package:sipario/screens/orders/order_parts.dart';
 
 void main() {
+  _gorunurluk();
+
   group('Saf model — biçim ve dayanıklılık', () {
     test('seçenek listesi yazılır ve geri okunur', () {
       const liste = [
@@ -258,6 +261,73 @@ void main() {
           kuyruk.where((o) => o.entityType == 'customer').toList().last;
       expect(sonMusteri.payload, contains('product_options'));
       expect(sonMusteri.payload, contains('Soğan'));
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// GÖRÜNÜRLÜK — "su bayisinde içindekiler göstermek mantıklı değil" (kullanıcı eleştirisi)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// Bu uygulamayı su bayii, tüp bayii, market, dönerci, tostçu BİRLİKTE kullanıyor. Özellik ilk
+/// sürümde her ürün formunda koşulsuz çiziliyordu; artık İKİ katmanlı:
+///
+///  1. İŞLETME — `tenant_settings.prepared_products`. Su bayisinde kapalı, hiçbir şey çizilmez.
+///  2. ÜRÜN — malzemesi olan ürün düzenleyiciyi açık gösterir; olmayan tek satırlık bir
+///     bağlantı. Kullanıcının örneği: bakkal hem paketli ürün satar hem tost yapar.
+///
+/// ⚠️ EN KRİTİK TEST `yetenek kapaliyken mevcut liste KORUNUR`: kapı yalnız düzenleyiciyi
+/// gizler. Kaydetme yolunda listeyi düşüren bir uygulama, yeteneği geçici kapatan dönercinin
+/// bütün malzemelerini bir ürünü açıp kaydettiği anda sessizce silerdi.
+void _gorunurluk() {
+  group('Hazırlanan ürün yeteneği', () {
+    late AppDatabase db;
+    setUp(() => db = AppDatabase(NativeDatabase.memory()));
+    tearDown(() => db.close());
+
+    test('VARSAYILAN KAPALI — su/tüp bayisi bugünkü davranışı görür', () async {
+      expect(await watchHazirlananUrun(db).first, isFalse);
+    });
+
+    test('açılır, kapanır ve akışla yayılır', () async {
+      final repo = TenantSettingsRepository(db);
+      await repo.hazirlananUrunKaydet(true);
+      expect(await watchHazirlananUrun(db).first, isTrue);
+
+      await repo.hazirlananUrunKaydet(false);
+      expect(await watchHazirlananUrun(db).first, isFalse);
+    });
+
+    test('BAŞKA BİR AYAR yeteneği sıfırlamaz', () async {
+      // `save` kısmi güncelleme sözleşmesi: her ekran YALNIZ kendi alanını gönderir. Bu tutmasa
+      // dönerci, sipariş kodu tercihini değiştirdiği anda malzeme düzenleyicisini kaybederdi.
+      final repo = TenantSettingsRepository(db);
+      await repo.hazirlananUrunKaydet(true);
+      await repo.siparisKoduTercihiKaydet('siparis');
+
+      expect(await watchHazirlananUrun(db).first, isTrue);
+    });
+
+    test('yetenek KAPALIYKEN mevcut malzeme listesi KORUNUR', () async {
+      // Kapı yalnız DÜZENLEYİCİYİ gizler. Veri yerinde kalmalı — yeniden açan bayi her şeyi
+      // olduğu gibi bulmalı.
+      final urunId = await ProductRepository(db).create(
+        name: 'Tavuk Dürüm',
+        unitPriceKurus: 10000,
+        secenekler: const [UrunSecenegi(ad: 'Soğan')],
+      );
+      await TenantSettingsRepository(db).hazirlananUrunKaydet(false);
+
+      final urun =
+          await (db.select(db.products)..where((t) => t.id.equals(urunId))).getSingle();
+      expect(secenekleriCoz(urun.optionsJson), hasLength(1));
+    });
+
+    test('outbox payloadı yeteneği taşır — ikinci telefon da aynı formu görmeli', () async {
+      await TenantSettingsRepository(db).hazirlananUrunKaydet(true);
+      final kuyruk = await db.select(db.outbox).get();
+      final ayar = kuyruk.where((o) => o.entityType == 'tenant_settings').toList().last;
+      expect(ayar.payload, contains('prepared_products'));
     });
   });
 }

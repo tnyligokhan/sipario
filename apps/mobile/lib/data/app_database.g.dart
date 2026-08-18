@@ -7727,6 +7727,21 @@ class $TenantSettingsTable extends TenantSettings
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _preparedProductsMeta = const VerificationMeta(
+    'preparedProducts',
+  );
+  @override
+  late final GeneratedColumn<bool> preparedProducts = GeneratedColumn<bool>(
+    'prepared_products',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("prepared_products" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _orderCodeDisplayMeta = const VerificationMeta(
     'orderCodeDisplay',
   );
@@ -7791,6 +7806,7 @@ class $TenantSettingsTable extends TenantSettings
     courierCanDebtReminder,
     courierCanToggleStock,
     courierCanCallLog,
+    preparedProducts,
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
@@ -8020,6 +8036,15 @@ class $TenantSettingsTable extends TenantSettings
         ),
       );
     }
+    if (data.containsKey('prepared_products')) {
+      context.handle(
+        _preparedProductsMeta,
+        preparedProducts.isAcceptableOrUnknown(
+          data['prepared_products']!,
+          _preparedProductsMeta,
+        ),
+      );
+    }
     if (data.containsKey('order_code_display')) {
       context.handle(
         _orderCodeDisplayMeta,
@@ -8164,6 +8189,10 @@ class $TenantSettingsTable extends TenantSettings
         DriftSqlType.bool,
         data['${effectivePrefix}courier_can_call_log'],
       )!,
+      preparedProducts: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}prepared_products'],
+      )!,
       orderCodeDisplay: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}order_code_display'],
@@ -8237,6 +8266,28 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
   final bool courierCanToggleStock;
   final bool courierCanCallLog;
 
+  /// İŞLETMEDE HAZIRLANAN ÜRÜN VAR MI? (kullanıcı kararı 2026-08-18) — ürün seçenekleri
+  /// ("içinde şu olsun olmasın") özelliğinin KİRACI DÜZEYİNDEKİ anahtarı.
+  ///
+  /// ══ NEDEN GEREKLİ ═══════════════════════════════════════════════════════════════════════
+  /// Bu uygulamayı ÇOK FARKLI işletmeler kullanır: su bayii, tüp bayii, market, dönerci,
+  /// tostçu. Su bayisinde "içindekiler" diye bir kavram YOKTUR ve ürün formunda o bölümü her
+  /// ürün için çizmek, 12 üründe 12 kez cevapsız bir soru sormaktır.
+  ///
+  /// ══ NEDEN "İŞLETME TÜRÜ" DEĞİL, YETENEK ═══════════════════════════════════════════════
+  /// Tek bir tür etiketi ("market" / "dönerci") bu ürünü tarif EDEMEZ: kullanıcının verdiği
+  /// örnek tam da bunu gösteriyor — küçük bir bakkal hem paketli ürün satar HEM tost yapar.
+  /// Tür bir etikettir; davranışı belirleyen şey YETENEKTİR. İleride gelecek kurulum sihirbazı
+  /// "işletmen ne?" diye sorup bu yeteneği AYARLAYACAK; ekranlar türü değil yeteneği okur.
+  ///
+  /// ⚠️ VARSAYILAN KAPALI ve bu bilinçli: bu üründeki bayilerin çoğunluğu (BRIEF) su/tüp
+  /// bayisidir; azınlık için herkese gürültü eklemek yanlış yöndür. Açan bayi Ayarlar →
+  /// İşletme → "Ürün içerikleri" satırından açar; sihirbaz geldiğinde ilk kurulumda sorulacak.
+  ///
+  /// KAPALI OLMASI VERİYİ SİLMEZ: ürünlerin kayıtlı malzeme listeleri yerinde kalır, yalnız
+  /// düzenleyici gizlenir. Yeniden açıldığında hepsi geri gelir.
+  final bool preparedProducts;
+
   /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
   /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
   /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.
@@ -8271,6 +8322,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     required this.courierCanDebtReminder,
     required this.courierCanToggleStock,
     required this.courierCanCallLog,
+    required this.preparedProducts,
     required this.orderCodeDisplay,
     this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -8333,6 +8385,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     map['courier_can_debt_reminder'] = Variable<bool>(courierCanDebtReminder);
     map['courier_can_toggle_stock'] = Variable<bool>(courierCanToggleStock);
     map['courier_can_call_log'] = Variable<bool>(courierCanCallLog);
+    map['prepared_products'] = Variable<bool>(preparedProducts);
     map['order_code_display'] = Variable<String>(orderCodeDisplay);
     if (!nullToAbsent || updatedOccurredAt != null) {
       map['updated_occurred_at'] = Variable<String>(updatedOccurredAt);
@@ -8396,6 +8449,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       courierCanDebtReminder: Value(courierCanDebtReminder),
       courierCanToggleStock: Value(courierCanToggleStock),
       courierCanCallLog: Value(courierCanCallLog),
+      preparedProducts: Value(preparedProducts),
       orderCodeDisplay: Value(orderCodeDisplay),
       updatedOccurredAt: updatedOccurredAt == null && nullToAbsent
           ? const Value.absent()
@@ -8451,6 +8505,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
         json['courierCanToggleStock'],
       ),
       courierCanCallLog: serializer.fromJson<bool>(json['courierCanCallLog']),
+      preparedProducts: serializer.fromJson<bool>(json['preparedProducts']),
       orderCodeDisplay: serializer.fromJson<String>(json['orderCodeDisplay']),
       updatedOccurredAt: serializer.fromJson<String?>(
         json['updatedOccurredAt'],
@@ -8491,6 +8546,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       'courierCanDebtReminder': serializer.toJson<bool>(courierCanDebtReminder),
       'courierCanToggleStock': serializer.toJson<bool>(courierCanToggleStock),
       'courierCanCallLog': serializer.toJson<bool>(courierCanCallLog),
+      'preparedProducts': serializer.toJson<bool>(preparedProducts),
       'orderCodeDisplay': serializer.toJson<String>(orderCodeDisplay),
       'updatedOccurredAt': serializer.toJson<String?>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -8525,6 +8581,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     bool? courierCanDebtReminder,
     bool? courierCanToggleStock,
     bool? courierCanCallLog,
+    bool? preparedProducts,
     String? orderCodeDisplay,
     Value<String?> updatedOccurredAt = const Value.absent(),
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -8563,6 +8620,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
         courierCanDebtReminder ?? this.courierCanDebtReminder,
     courierCanToggleStock: courierCanToggleStock ?? this.courierCanToggleStock,
     courierCanCallLog: courierCanCallLog ?? this.courierCanCallLog,
+    preparedProducts: preparedProducts ?? this.preparedProducts,
     orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
     updatedOccurredAt: updatedOccurredAt.present
         ? updatedOccurredAt.value
@@ -8636,6 +8694,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       courierCanCallLog: data.courierCanCallLog.present
           ? data.courierCanCallLog.value
           : this.courierCanCallLog,
+      preparedProducts: data.preparedProducts.present
+          ? data.preparedProducts.value
+          : this.preparedProducts,
       orderCodeDisplay: data.orderCodeDisplay.present
           ? data.orderCodeDisplay.value
           : this.orderCodeDisplay,
@@ -8678,6 +8739,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
           ..write('courierCanToggleStock: $courierCanToggleStock, ')
           ..write('courierCanCallLog: $courierCanCallLog, ')
+          ..write('preparedProducts: $preparedProducts, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
@@ -8714,6 +8776,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     courierCanDebtReminder,
     courierCanToggleStock,
     courierCanCallLog,
+    preparedProducts,
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
@@ -8749,6 +8812,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           other.courierCanDebtReminder == this.courierCanDebtReminder &&
           other.courierCanToggleStock == this.courierCanToggleStock &&
           other.courierCanCallLog == this.courierCanCallLog &&
+          other.preparedProducts == this.preparedProducts &&
           other.orderCodeDisplay == this.orderCodeDisplay &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId);
@@ -8782,6 +8846,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
   final Value<bool> courierCanDebtReminder;
   final Value<bool> courierCanToggleStock;
   final Value<bool> courierCanCallLog;
+  final Value<bool> preparedProducts;
   final Value<String> orderCodeDisplay;
   final Value<String?> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -8813,6 +8878,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.courierCanDebtReminder = const Value.absent(),
     this.courierCanToggleStock = const Value.absent(),
     this.courierCanCallLog = const Value.absent(),
+    this.preparedProducts = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -8845,6 +8911,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.courierCanDebtReminder = const Value.absent(),
     this.courierCanToggleStock = const Value.absent(),
     this.courierCanCallLog = const Value.absent(),
+    this.preparedProducts = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -8877,6 +8944,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Expression<bool>? courierCanDebtReminder,
     Expression<bool>? courierCanToggleStock,
     Expression<bool>? courierCanCallLog,
+    Expression<bool>? preparedProducts,
     Expression<String>? orderCodeDisplay,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -8916,6 +8984,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       if (courierCanToggleStock != null)
         'courier_can_toggle_stock': courierCanToggleStock,
       if (courierCanCallLog != null) 'courier_can_call_log': courierCanCallLog,
+      if (preparedProducts != null) 'prepared_products': preparedProducts,
       if (orderCodeDisplay != null) 'order_code_display': orderCodeDisplay,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -8950,6 +9019,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Value<bool>? courierCanDebtReminder,
     Value<bool>? courierCanToggleStock,
     Value<bool>? courierCanCallLog,
+    Value<bool>? preparedProducts,
     Value<String>? orderCodeDisplay,
     Value<String?>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -8987,6 +9057,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       courierCanToggleStock:
           courierCanToggleStock ?? this.courierCanToggleStock,
       courierCanCallLog: courierCanCallLog ?? this.courierCanCallLog,
+      preparedProducts: preparedProducts ?? this.preparedProducts,
       orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -9087,6 +9158,9 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     if (courierCanCallLog.present) {
       map['courier_can_call_log'] = Variable<bool>(courierCanCallLog.value);
     }
+    if (preparedProducts.present) {
+      map['prepared_products'] = Variable<bool>(preparedProducts.value);
+    }
     if (orderCodeDisplay.present) {
       map['order_code_display'] = Variable<String>(orderCodeDisplay.value);
     }
@@ -9129,6 +9203,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
           ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
           ..write('courierCanToggleStock: $courierCanToggleStock, ')
           ..write('courierCanCallLog: $courierCanCallLog, ')
+          ..write('preparedProducts: $preparedProducts, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
@@ -17044,6 +17119,7 @@ typedef $$TenantSettingsTableCreateCompanionBuilder =
       Value<bool> courierCanDebtReminder,
       Value<bool> courierCanToggleStock,
       Value<bool> courierCanCallLog,
+      Value<bool> preparedProducts,
       Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -17077,6 +17153,7 @@ typedef $$TenantSettingsTableUpdateCompanionBuilder =
       Value<bool> courierCanDebtReminder,
       Value<bool> courierCanToggleStock,
       Value<bool> courierCanCallLog,
+      Value<bool> preparedProducts,
       Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -17223,6 +17300,11 @@ class $$TenantSettingsTableFilterComposer
 
   ColumnFilters<bool> get courierCanCallLog => $composableBuilder(
     column: $table.courierCanCallLog,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get preparedProducts => $composableBuilder(
+    column: $table.preparedProducts,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -17386,6 +17468,11 @@ class $$TenantSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get preparedProducts => $composableBuilder(
+    column: $table.preparedProducts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get orderCodeDisplay => $composableBuilder(
     column: $table.orderCodeDisplay,
     builder: (column) => ColumnOrderings(column),
@@ -17528,6 +17615,11 @@ class $$TenantSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get preparedProducts => $composableBuilder(
+    column: $table.preparedProducts,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get orderCodeDisplay => $composableBuilder(
     column: $table.orderCodeDisplay,
     builder: (column) => column,
@@ -17604,6 +17696,7 @@ class $$TenantSettingsTableTableManager
                 Value<bool> courierCanDebtReminder = const Value.absent(),
                 Value<bool> courierCanToggleStock = const Value.absent(),
                 Value<bool> courierCanCallLog = const Value.absent(),
+                Value<bool> preparedProducts = const Value.absent(),
                 Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -17635,6 +17728,7 @@ class $$TenantSettingsTableTableManager
                 courierCanDebtReminder: courierCanDebtReminder,
                 courierCanToggleStock: courierCanToggleStock,
                 courierCanCallLog: courierCanCallLog,
+                preparedProducts: preparedProducts,
                 orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -17668,6 +17762,7 @@ class $$TenantSettingsTableTableManager
                 Value<bool> courierCanDebtReminder = const Value.absent(),
                 Value<bool> courierCanToggleStock = const Value.absent(),
                 Value<bool> courierCanCallLog = const Value.absent(),
+                Value<bool> preparedProducts = const Value.absent(),
                 Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -17699,6 +17794,7 @@ class $$TenantSettingsTableTableManager
                 courierCanDebtReminder: courierCanDebtReminder,
                 courierCanToggleStock: courierCanToggleStock,
                 courierCanCallLog: courierCanCallLog,
+                preparedProducts: preparedProducts,
                 orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,

@@ -361,7 +361,16 @@ class _UrunFormuState extends State<_UrunFormu> {
           hizala: TextAlign.start,
         ),
 
-        UrunSecenekAlani(
+        // İÇİNDEKİLER — kapısı bileşenin İÇİNDE (kullanıcı eleştirisi 2026-08-18: "su bayisinde
+        // içindekiler göstermek çok mantıklı değil"). Bölüm iki katmanlıdır: işletmenin
+        // "hazırlanan ürün" yeteneği + ürünün kendi malzeme listesi.
+        //
+        // ⚠️ YETENEK KAPALIYKEN DE MEVCUT LİSTE KORUNUR: `_secenekler` kayıttan okundu ve
+        // `_kaydet` onu aynen geri yazıyor. Kapı yalnız DÜZENLEYİCİYİ gizler — aksi hâlde
+        // yeteneği geçici kapatan bir dönerci, bir ürünü açıp kaydettiği anda o ürünün bütün
+        // malzemelerini sessizce kaybederdi.
+        UrunSecenekBolumu(
+          db: widget.db,
           secenekler: _secenekler,
           onDegis: (l) => setState(() => _secenekler = l),
         ),

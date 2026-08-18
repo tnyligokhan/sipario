@@ -269,6 +269,67 @@
 >
 ## Güncel durum
 
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-18/4 — ÇOK İŞLETMELİ GÖRÜNÜRLÜK: "İÇİNDEKİLER" ARTIK YETENEĞE BAĞLI (mobil 0.31.0 → **0.32.0**, API 1.11.0 DEĞİŞMEDİ¹)
+
+**Kullanıcı düzeltmesi.** Aynı vardiyada eklenen ürün seçenekleri özelliği HER ürün formunda
+koşulsuz çiziliyordu; kullanıcı haklı olarak itiraz etti: bu uygulamayı su bayii, tüp bayii,
+market, dönerci, tostçu BİRLİKTE kullanıyor ve **"su bayisinde içindekiler göstermek çok
+mantıklı değil"**.
+
+¹ API sürümü artmadı çünkü 1.11.0 bu vardiyada zaten yayınlanmadı; yeni kolon (migration 004015)
+onun içine girdi.
+
+#### Asıl tasarım kararı tek bir cümleden çıktı
+> *"küçük bir bakkal olabilir ama aynı zamanda tost yapıyor olabilir"*
+
+Yani **tek bir "işletme türü" etiketi bu ürünü tarif EDEMEZ.** Tür bir ETİKETTİR; davranışı
+belirleyen şey YETENEKTİR. Şemaya `business_type` metni DEĞİL,
+`tenant_settings.prepared_products` BOOLEAN'ı eklendi — ekranlar türü değil yeteneği okur.
+
+#### İki katmanlı görünürlük
+1. **İŞLETME** — yetenek kapalıysa özelliğin tamamı görünmez. **Varsayılan KAPALI**: bu üründeki
+   bayilerin çoğunluğu su/tüp bayisidir, azınlığın ihtiyacı çoğunluğa dayatılmaz.
+   Açma yeri: Ayarlar → İşletme → "Ürün içerikleri".
+2. **ÜRÜN** — yetenek açıkken bile malzemesi olmayan üründe yalnız tek satırlık
+   "İçindekiler ekle · hazırlanan ürün" bağlantısı durur. Bakkalın 300 paketli ürününde bölüm
+   açık kalsaydı gürültü aynen geri gelirdi.
+
+⚠️ İkinci katman **ayrı bir kolonla değil listenin kendisiyle** çözüldü. Bir `hazirlanan` bayrağı,
+listeyle çelişebilen (bayrak açık/liste boş, bayrak kapalı/liste dolu) İKİNCİ bir doğruluk
+kaynağı olur ve hiçbir yeni bilgi taşımazdı.
+
+⚠️ **YETENEK KAPALI OLMAK VERİ SİLMEZ.** Kapı yalnız düzenleyiciyi gizler; kaydetme yolu listeyi
+aynen geri yazar. Aksi hâlde yeteneği geçici kapatan dönerci, bir ürünü açıp kaydettiği anda
+bütün malzemelerini sessizce kaybederdi — test bunu kilitliyor
+(`yetenek KAPALIYKEN mevcut malzeme listesi KORUNUR`).
+
+#### Görsel doğrulama (golden, üç işletme türü)
+- **Su bayisi** (yetenek kapalı): formda içindekilere dair HİÇBİR iz yok. ✓
+- **Bakkal** (açık, paketli ürün): tek satırlık bağlantı. ✓ (ilk çekimde satır TAŞIYORDU —
+  `Flexible`+ellipsis ile düzeltildi; golden olmasa fark edilmezdi)
+- **Dönerci** (açık, malzemeli ürün): tam düzenleyici, "İçinde/Ekstra" anahtarları, ek ücret
+  alanı, hazır liste düğmesi. ✓
+
+#### Doğrulama
+`flutter analyze` 0 · `flutter test` **1412/1412** · API: `SurumCarpikligi` + `UrunSecenekleri`
+19/19 · migration 004015 koşuldu.
+
+#### 🔜 SIRADAKİ ADIM — KURULUM SİHİRBAZI (kullanıcı vizyonu, HENÜZ YAPILMADI)
+Kullanıcının tarifi: işletmenin **ilk girişinde** bir kurulum tetiklenecek ve soracak —
+*"sadece kendisi mi var yoksa kuryeleri de mi var, işletmenin türü ne, ne gibi hizmetleri var
+neler satıyor"* — arayüz cevaplara göre şekillenecek.
+
+**Mimari çizgi bugünden çekildi, sihirbaz gelirken korunmalı:**
+- Sihirbaz **TÜRÜ sorar, YETENEĞİ yazar**; ekranlar yalnız yeteneği okur. Ekranların doğrudan
+  "işletme türü" okuduğu bir tasarım bakkal-tost hâlinde kaçınılmaz olarak yanlış karar verir.
+- Bugün tek yetenek var (`prepared_products`). Sihirbaz gelince kurye kullanımı, hizmet türleri
+  vb. için yenileri eklenecek.
+- **Her yeteneğin ayar satırı KORUNACAK.** Sihirbaz ilk girişte BİR KEZ sorar; ayar satırı,
+  fikir değiştiren bayinin (altı ay sonra tost yapmaya başlayan bakkal) dönebileceği yerdir.
+- ⚠️ Mevcut `screens/sihirbaz/` **İZİN** sihirbazıdır (Android izinleri) — bu yeni kurulum
+  sihirbazıyla karıştırılmamalı, ayrı bir akıştır.
+
+
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-18/3 — DÖRT SAHA MADDESİ: GÜNÜN VERESİYESİ · TAHSİLAT KAYNAĞI · KAPANIŞI GERİ ALMA · ÜRÜN SEÇENEKLERİ (mobil 0.28.0 → **0.31.0**, API 1.10.0 → **1.11.0**)
 
 **Kullanıcının verdiği dört maddenin dördü de bitti, doğrulandı ve sürümlendi.** Bu vardiya hem

@@ -154,7 +154,13 @@ class _AdetGovdeState extends State<_AdetGovde> {
           secim: _secim,
           onDegis: (s) => setState(() => _secim = s),
         ),
-        if (widget.musteriAdi != null || widget.tercihUygulandi)
+        // ⚠️ ÜRÜNÜN SEÇENEĞİ YOKSA ŞERİT HİÇ KURULMAZ (2026-08-18 düzeltmesi). Koşul eskiden
+        // yalnız "müşteri var mı"ya bakıyordu; su bayisinde her damacana için hatırlanacak
+        // hiçbir şey olmadığı hâlde bileşen ağaca giriyor ve boş bir Column çiziyordu.
+        // Görünmeyen bir gürültü de gürültüdür: bir gün oraya bir boşluk eklendiğinde ekran
+        // sebepsiz uzardı ve kimse nereden geldiğini bulamazdı.
+        if (widget.secenekler.isNotEmpty &&
+            (widget.musteriAdi != null || widget.tercihUygulandi))
           MusteriTercihSeridi(
             musteriAdi: widget.musteriAdi,
             tercihUygulandi: widget.tercihUygulandi,
