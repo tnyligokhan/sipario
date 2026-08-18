@@ -269,7 +269,53 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-18/5 — AYARLAR SADELEŞTİ: METİN DİLİ · ANAHTARLAR · SİMÜLASYON KALDIRILDI (mobil 0.32.0 → **0.33.0**, API DEĞİŞMEDİ 1.11.0)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-19/1 — KOYU TEMA GÖZ YORMUYOR: MOR KOYUDA AÇILDI, NÖTRLERDEN ÇEKİLDİ (mobil 0.33.0 → **0.34.0**, API DEĞİŞMEDİ 1.11.0)
+
+**Tek kullanıcı isteği**, tamamı istemci tarafı: *"dark mode tarafı çok göz yoruyor; mor ana
+rengimiz ama dark modda her yerde uygulanacak diye bir şey yok."*
+
+#### Teşhis ÖLÇÜLDÜ (varsayılmadı)
+Koyu tema o güne dek CSS `.app.koyu` bloğunun birebir kopyasıydı; `accent`/`danger`/`ok`/`warn`
+ana tonları açık temadan **olduğu gibi** taşınıyordu ("durum renkleri tema değişince kaymasın"
+kuralı — bilinçliydi ama hiç ölçülmemişti). Ölçüm iki arıza gösterdi:
+
+| Bulgu | Değer | Neden sorun |
+|---|---|---|
+| `accent #5A45F0` koyu kart üstünde | **2,86:1** | WCAG AA (4,5:1) ALTINDA — tek vurgu rengi okunmuyordu |
+| `accent` OKLCH kroma | **0,242** | paletin en doymuş rengi; doymuş mavi-mor koyu zeminde optik titreşim yapar |
+| nötr yüzeylerin kroması | ~0,026 | `bg`/`surface`/`ink` dahil HEPSİ mor tentliydi → ekran mor sis |
+| `ink` zemin üstünde | **16,45:1** | saf beyaza yakın metin koyu zeminde halation (harf çevresinde hale) |
+
+#### Üç kural kondu (yalnız KOYU tema; açık tema hiç değişmedi)
+1. **Vurgu koyuda AÇILIR.** Mor hue korunur, OKLCH L .53→.75 · C .242→.12 (Material'ın koyu tema
+   "tone 80" mantığı). Kart üstünde **2,86 → 6,94:1**. Aynısı danger/ok/warn için.
+2. **Mor HER YERDE DEĞİL.** Nötrlerin kroması ~.026 → ~.010; mor yalnız **vurgu** ve **hero**da
+   görünür. Markanın görünürlüğü azalmadı, gürültüsü azaldı.
+3. **Beyaz ışık KISILIR.** `ink` **16,45 → 13,46:1** (hâlâ AAA'nın çok üstünde).
+
+Renkler açıldığı için üstlerindeki mürekkep **tersine döner**: koyuda `accentInk` koyudur ve
+durum dolguları (tehlike düğmesi · senkron bandı · sihirbaz rozeti · Material `onError`/
+`onTertiary`) için yeni **`durumInk`** jetonu eklendi. Açıkta ikisi de beyaz → eski davranış.
+
+#### Sözleşme artık DEĞER değil NİYET kilitliyor
+`ui_temel_test.dart` içinde yeni grup: kontrast eşikleri (vurgu/durum ≥ 4,5 · dolgu mürekkebi
+≥ 4,5 · gövde metni 7–15 arası) ve **"nötr yüzeyde doygunluk ≤ 10"**. Palet bir gün yeniden
+ayarlanabilir; koyu temanın göz yormama sözü ayarlanamaz. `ui_kabuk_test.dart` de güncellendi —
+eskiden "accent iki temada da AYNI" diye kilitliyordu, artık tersini kilitliyor.
+
+⚠️ **BİLİNÇLİ SAPMA:** koyu palet artık `design_handoff_sipario/` altındaki CSS'ten ayrışıyor.
+Ayrışma `tokens.dart` başlığında ve DESIGN_SYSTEM.md'de yazılı — CSS'e bakıp "Dart sapmış"
+diye geri almayın.
+
+**Kapılar:** `flutter analyze` temiz · `flutter test` **1416 test yeşil** · palet eski/yeni
+yan yana PNG'ye basılıp gözle doğrulandı.
+
+**Dokunulmayan:** açık tema · `onHero*` sabitleri (hero daima koyu olduğu için tema-bağımsız) ·
+API (1.11.0) · panel/web.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-18/5 — AYARLAR SADELEŞTİ: METİN DİLİ · ANAHTARLAR · SİMÜLASYON KALDIRILDI (mobil 0.32.0 → **0.33.0**, API DEĞİŞMEDİ 1.11.0)
 
 **Üç kullanıcı isteği.** Hepsi ayarlar yüzeyine dokunuyor; sunucu tarafı hiç değişmedi.
 

@@ -103,9 +103,9 @@ class _SihirbazLogoState extends State<SihirbazLogo>
     final t = context.sip;
     final (zemin, murekkep) = switch (widget.tur) {
       SihirbazLogoTuru.marka => (t.accent, t.accentInk),
-      // `ok`/`danger` dolgusunun üstü hero kadar koyu — beyaz mürekkep sabiti oradan gelir.
-      SihirbazLogoTuru.basari => (t.ok, SipTokens.onHero),
-      SihirbazLogoTuru.hata => (t.danger, SipTokens.onHero),
+      // Durum dolgusunun mürekkebi temaya bağlıdır: açıkta beyaz, koyuda koyu (bkz. durumInk).
+      SihirbazLogoTuru.basari => (t.ok, t.durumInk),
+      SihirbazLogoTuru.hata => (t.danger, t.durumInk),
     };
     final kutu = Container(
       width: 66,
@@ -145,7 +145,7 @@ class IzinIkonu extends StatelessWidget {
         verildi ? SipIcons.check : ikon,
         boyut: 40,
         kalinlik: 1.9,
-        renk: verildi ? SipTokens.onHero : t.accent,
+        renk: verildi ? t.durumInk : t.accent,
       ),
     );
   }

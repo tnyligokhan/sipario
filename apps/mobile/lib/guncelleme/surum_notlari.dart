@@ -51,6 +51,18 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.34.0',
+    tarih: '19 Ağustos 2026',
+    maddeler: [
+      'Koyu tema gözü daha az yoruyor. Mor vurgu koyu ekranda açıldı; artık hem daha rahat '
+          'okunuyor hem de gözde titreme yapmıyor.',
+      'Koyu temada gri yüzeylerdeki mor sis kaldırıldı — mor artık yalnız düğme, bağlantı ve '
+          'üst bloklarda görünüyor.',
+      'Borç, alacak ve uyarı renkleri koyu temada yumuşadı; küçük yazılar daha net okunuyor.',
+      'Koyu temada beyaz yazının parlaklığı bir tık kısıldı — uzun listelerde göz daha az yoruluyor.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.33.0',
     tarih: '18 Ağustos 2026',
     maddeler: [

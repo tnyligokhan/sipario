@@ -84,34 +84,62 @@ koyulaşması. Dokunma hedefi ≥ 44–52 px.
 
 Sözleşme testleri: `apps/mobile/test/ui_temel_test.dart`.
 
-## Renk — `SipTokens` (CSS `:root` / `.app.koyu`)
+## Renk — `SipTokens` (açık = CSS `:root`; koyu = KENDİ paleti)
 
 Renkler `static const` **değildir**: tema çalışma anında değiştiği için bir `ThemeExtension`
 içinde yaşar ve `context.sip.surface` biçiminde okunur.
 
 | Jeton | Açık | Koyu | Kullanım |
 |-------|------|------|----------|
-| `bg` | `#F4F3F7` | `#141218` | Ekran zemini |
-| `surface` | `#FFFFFF` | `#1E1B26` | Kart / liste satırı |
-| `surface2` | `#EAE8F0` | `#2A2634` | Basılı hâl, input zemini, çip, segment rayı |
-| `ink` | `#17141F` | `#F2F0F7` | Birincil metin |
-| `ink2` | `#47434F` | `#C9C5D4` | İkincil metin |
-| `muted` | `#8B8794` | `#8D8999` | Sönük metin / etiket |
-| `line` | `#E6E4EC` | `#2C2836` | İnce ayraç |
-| `line2` | `#D2CFDB` | `#423C52` | Belirgin kenarlık |
-| `accent` | `#5A45F0` | *(aynı)* | Marka vurgusu |
-| `accentSoft` | `#ECE9FE` | `#2C2650` | Vurgunun yumuşak zemini |
-| `hero` | `#17141F` | `#0D0B12` | Koyu mürekkep blok |
-| `hero2` | `#241F31` | `#1A1722` | Hero basılı / ikincil ton |
-| `danger` | `#DF3F45` | *(aynı)* | Borç · hata · yıkıcı eylem |
-| `dangerSoft` | `#FCE9EA` | `#3A1D22` | |
-| `ok` | `#1E9E6A` | *(aynı)* | Alacak · başarı |
-| `okSoft` | `#E3F4EC` | `#17332A` | |
-| `warn` | `#C08415` | *(aynı)* | Uyarı · not |
-| `warnSoft` | `#F9F0DC` | `#332A16` | |
+| `bg` | `#F4F3F7` | `#161519` | Ekran zemini |
+| `surface` | `#FFFFFF` | `#212026` | Kart / liste satırı |
+| `surface2` | `#EAE8F0` | `#2E2D34` | Basılı hâl, input zemini, çip, segment rayı |
+| `ink` | `#17141F` | `#DEDDE2` | Birincil metin |
+| `ink2` | `#47434F` | `#B9B8BE` | İkincil metin |
+| `muted` | `#8B8794` | `#909097` | Sönük metin / etiket |
+| `line` | `#E6E4EC` | `#302F36` | İnce ayraç |
+| `line2` | `#D2CFDB` | `#484650` | Belirgin kenarlık |
+| `accent` | `#5A45F0` | `#A9A0F4` | Marka vurgusu |
+| `accentInk` | `#FFFFFF` | `#151422` | Vurgu dolgusu üstündeki metin |
+| `accentSoft` | `#ECE9FE` | `#2B2940` | Vurgunun yumuşak zemini |
+| `hero` | `#17141F` | `#100E18` | Koyu mürekkep blok |
+| `hero2` | `#241F31` | `#1C1A26` | Hero basılı / ikincil ton |
+| `danger` | `#DF3F45` | `#E7827C` | Borç · hata · yıkıcı eylem |
+| `dangerSoft` | `#FCE9EA` | `#442524` | |
+| `ok` | `#1E9E6A` | `#6AC796` | Alacak · başarı |
+| `okSoft` | `#E3F4EC` | `#193426` | |
+| `warn` | `#C08415` | `#E2B466` | Uyarı · not |
+| `warnSoft` | `#F9F0DC` | `#3B2C13` | |
+| `durumInk` *(getter)* | `#FFFFFF` | `#16151E` | danger/ok/warn **dolgusu** üstündeki metin |
 
-**Tasarım kararı:** `accent`, `danger`, `ok`, `warn` ana tonları iki temada da **aynıdır** — yalnız
-yumuşak zeminleri değişir. Durum renkleri tema değişince kaymamalı.
+### Koyu tema neden açık temanın kopyası değil (karar 2026-08-19)
+
+Koyu tema eskiden CSS `.app.koyu` bloğunun birebir kopyasıydı ve `accent`/`danger`/`ok`/`warn`
+ana tonlarını açık temadan **olduğu gibi** taşıyordu. Ölçüm bunun iki ayrı arıza olduğunu gösterdi:
+
+1. **Okunmuyordu.** `#5A45F0` koyu kartın üstünde **2,86:1** — WCAG AA'nın (4,5:1) altında.
+   Yani uygulamanın tek vurgu rengi, koyu temada en zor okunan rengiydi.
+2. **Titriyordu.** OKLCH kroması **0,242** ile paletin açık ara en doymuş rengiydi. Koyu zeminde
+   doymuş mavi-mor "optik titreşim" üretir: göz kırmızı ile moru aynı düzlemde odaklayamaz
+   (kromatik sapma), bu da sürekli akomodasyon → göz yorgunluğu demektir. Material'ın koyu tema
+   rehberi de bu yüzden doymuş rengi değil, **açılmış/doygunluğu düşürülmüş tonu** (tone 80) ister.
+
+Üstelik nötr yüzeylerin hepsi mor tentliydi (kroma ~0,026) — ekran topluca mor bir sis okuyordu.
+
+**Yeni koyu paletin üç kuralı:**
+
+| Kural | Ne yapıldı | Ölçüm |
+|---|---|---|
+| Vurgu koyuda **açılır** | mor hue korunur, L .53→.75, C .242→.12 | kart üstünde 2,86 → **6,94:1** |
+| Mor **her yerde değil** | nötrlerin kroması ~.026 → ~.010 | mor yalnız vurgu + hero'da |
+| Beyaz ışık **kısılır** | `ink` bir tık koyulaştı | zemin üstünde 16,45 → **13,46:1** |
+
+Vurgu ve durum renkleri açıldığı için üstlerindeki mürekkep **tersine döner**: koyuda
+`accentInk` ve `durumInk` koyudur (açıkta ikisi de beyaz — yani açık tema hiç değişmedi).
+
+**AÇIK TEMA DEĞİŞMEDİ.** Şikâyet koyu taraftaydı; açık tema tasarımın `:root` bloğudur ve öyle
+kalır. Bu yüzden `design_handoff_sipario/` altındaki CSS ile koyu palet artık **kasıtlı olarak**
+ayrışır — CSS'e bakıp "Dart sapmış" diye geri almayın.
 
 **Hero üstü katmanlar** (hero daima koyu olduğundan tema-bağımsız; `SipTokens.` altında statik):
 `onHero` beyaz · `onHeroStrong` %85 · `onHeroMid` %55 · `onHeroSoft` %38 · `onHeroFill` %7 ·
@@ -182,7 +210,11 @@ biraz altında kalıyor. Bağımsız olarak iki kez ölçüldü:
 | Zemin | Oran | Eşik |
 |-------|------|------|
 | Açık tema `surface #FFFFFF` | **4,26:1** | 4,5:1 |
-| Koyu tema `surface #1E1B26` | **3,98:1** | 4,5:1 |
+| ~~Koyu tema `surface #1E1B26`~~ | ~~3,98:1~~ → **6,07:1** | 4,5:1 ✅ |
+
+> **Koyu taraf 2026-08-19'da kapandı** — yukarıdaki koyu palet kararıyla `danger` koyuda
+> `#E7827C`ye açıldı. Açık temadaki açık **duruyor**: aşağıdaki gerekçe yalnız açık tema için
+> geçerlidir.
 
 Bu, tek bir ekranın değil **jetonun** özelliği: bakiye çipleri, gün sonu farkları, cevapsız çağrı
 satırı — hepsi aynı tonu kullanıyor.

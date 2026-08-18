@@ -42,11 +42,11 @@ abstract final class SipTheme {
       secondaryContainer: t.accentSoft,
       onSecondaryContainer: t.accent,
       tertiary: t.ok,
-      onTertiary: const Color(0xFFFFFFFF),
+      onTertiary: t.durumInk,
       tertiaryContainer: t.okSoft,
       onTertiaryContainer: t.ok,
       error: t.danger,
-      onError: const Color(0xFFFFFFFF),
+      onError: t.durumInk,
       errorContainer: t.dangerSoft,
       onErrorContainer: t.danger,
       surface: t.surface,
@@ -212,7 +212,7 @@ abstract final class SipTheme {
 
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? Colors.white : t.knob,
+          (s) => s.contains(WidgetState.selected) ? t.accentInk : t.knob,
         ),
         trackColor: WidgetStateProperty.resolveWith(
           (s) => s.contains(WidgetState.selected) ? t.accent : t.line2,

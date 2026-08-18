@@ -437,18 +437,18 @@ class SipCevrimdisiBant extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SipIcon(
+              SipIcon(
                 SipIcons.sync,
                 boyut: 15,
                 kalinlik: 2.2,
-                renk: Color(0xFFFFFFFF),
+                renk: t.durumInk,
               ),
               const SizedBox(width: 7),
               Flexible(
                 child: Text(
                   metin,
                   style: SipText.metin(11.5, w: 600)
-                      .copyWith(color: const Color(0xFFFFFFFF)),
+                      .copyWith(color: t.durumInk),
                   textAlign: TextAlign.center,
                 ),
               ),

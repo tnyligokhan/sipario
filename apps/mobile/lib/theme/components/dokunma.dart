@@ -164,7 +164,7 @@ class SipButon extends StatelessWidget {
       SipButonTuru.ikincil => (t.surface2, pasif ? t.muted : t.ink),
       SipButonTuru.tehlike => (
           pasif ? t.disabledFill : t.danger,
-          const Color(0xFFFFFFFF)
+          pasif ? t.disabledInk : t.durumInk
         ),
     };
 

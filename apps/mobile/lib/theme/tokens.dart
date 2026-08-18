@@ -1,7 +1,10 @@
 // Sipario tasarım sistemi — TOKEN'lar (tek kaynak).
-// SİPARİO 3.0 kimliği: tasarım Sipario.html `:root` ve `.app.koyu` bloklarının birebir
-// Dart karşılığı. Koyu gece-mürekkep hero · aydınlık gövde · elektrik moru vurgu.
+// SİPARİO 3.0 kimliği: koyu gece-mürekkep hero · aydınlık gövde · elektrik moru vurgu.
 // Yüzeyler DÜZ (flat): gölge yok, katman ton farkıyla kurulur.
+//
+// AÇIK tema tasarımın `:root` bloğunun birebir Dart karşılığıdır.
+// KOYU tema ARTIK `.app.koyu`nun kopyası DEĞİLDİR (bkz. [koyuTema] başlığı) — CSS'e bakıp
+// "Dart sapmış" diye geri almayın, sapma kasıtlıdır ve ölçülmüştür.
 //
 // KURAL: ekranlarda ham renk/ölçü/yarıçap KULLANILMAZ — her şey buradan gelir.
 // Tema çalışma anında değiştiği için renkler `static const` DEĞİL, bir [ThemeExtension] içinde
@@ -158,29 +161,49 @@ class SipTokens extends ThemeExtension<SipTokens> {
     koyu: false,
   );
 
-  /// KOYU tema — CSS `.app.koyu` bloğu. Yalnız orada geçersiz kılınan jetonlar değişir;
-  /// accent / danger / ok / warn ana tonları AYNI kalır (tasarım kararı).
+  /// KOYU tema — MARKAYA SADIK ama GÖZE YUMUŞAK (karar 2026-08-19; ölçüm DESIGN_SYSTEM.md).
+  ///
+  /// Eskiden `.app.koyu` CSS bloğunun birebir kopyasıydı: açık temanın doymuş elektrik moru
+  /// (`#5A45F0`) koyu zemine olduğu gibi taşınıyordu. Ölçüm bunun iki ayrı arıza olduğunu
+  /// gösterdi: (1) mor, koyu yüzeyde 2,9:1'de kalıyordu — WCAG AA'nın (4,5:1) ALTINDA, yani
+  /// vurgu okunmuyordu; (2) OKLCH kroması 0,242 ile paletin en doymuş rengiydi ve koyu zeminde
+  /// doymuş mavi-mor "optik titreşim" üretir (göz kırmızıyı ve moru aynı anda odaklayamaz).
+  /// İkisi birden "koyu tema gözümü yoruyor" şikâyetinin ta kendisidir.
+  ///
+  /// Üç kural (Material'ın koyu tema rehberiyle aynı yönde):
+  ///   1. VURGU KOYUDA AÇILIR. Marka moru hue'sunu korur, AÇILIR ve doygunluğu düşer
+  ///      (OKLCH L .53→.75, C .242→.12). Üstündeki mürekkep buna bağlı olarak TERSİNE döner:
+  ///      koyuda `accentInk` beyaz değil, KOYUDUR. Aynısı danger/ok/warn için de geçerli —
+  ///      onların dolgu mürekkebi [durumInk]'tir.
+  ///   2. MOR HER YERDE DEĞİL. Nötrlerin mor tenti yarıya indi (kroma ~.026 → ~.010): ekran
+  ///      artık mor bir sis değil, nötr kömür; mor yalnız VURGU ve HERO'da görünür. Markanın
+  ///      görünürlüğü azalmaz, gürültüsü azalır.
+  ///   3. BEYAZ IŞIK KISILIR. `ink` 16,5:1'den 13,5:1'e indi. Saf beyaza yakın metin koyu
+  ///      zeminde "halation" (harflerin etrafında hale) yapar; astigmatlı okurda bu doğrudan
+  ///      göz yorgunluğudur. 13,5:1 hâlâ AAA'nın çok üstünde.
+  ///
+  /// Değişmeyen: AÇIK tema. Şikâyet koyu taraftaydı, açık taraf tasarımın `:root`'u kalır.
   static const SipTokens koyuTema = SipTokens(
-    canvas: Color(0xFF0B0A0E),
-    bg: Color(0xFF141218),
-    surface: Color(0xFF1E1B26),
-    surface2: Color(0xFF2A2634),
-    ink: Color(0xFFF2F0F7),
-    ink2: Color(0xFFC9C5D4),
-    muted: Color(0xFF8D8999),
-    line: Color(0xFF2C2836),
-    line2: Color(0xFF423C52),
-    accent: Color(0xFF5A45F0),
-    accentInk: Color(0xFFFFFFFF),
-    accentSoft: Color(0xFF2C2650),
-    hero: Color(0xFF0D0B12),
-    hero2: Color(0xFF1A1722),
-    danger: Color(0xFFDF3F45),
-    dangerSoft: Color(0xFF3A1D22),
-    ok: Color(0xFF1E9E6A),
-    okSoft: Color(0xFF17332A),
-    warn: Color(0xFFC08415),
-    warnSoft: Color(0xFF332A16),
+    canvas: Color(0xFF09090C),
+    bg: Color(0xFF161519),
+    surface: Color(0xFF212026),
+    surface2: Color(0xFF2E2D34),
+    ink: Color(0xFFDEDDE2),
+    ink2: Color(0xFFB9B8BE),
+    muted: Color(0xFF909097),
+    line: Color(0xFF302F36),
+    line2: Color(0xFF484650),
+    accent: Color(0xFFA9A0F4),
+    accentInk: Color(0xFF151422),
+    accentSoft: Color(0xFF2B2940),
+    hero: Color(0xFF100E18),
+    hero2: Color(0xFF1C1A26),
+    danger: Color(0xFFE7827C),
+    dangerSoft: Color(0xFF442524),
+    ok: Color(0xFF6AC796),
+    okSoft: Color(0xFF193426),
+    warn: Color(0xFFE2B466),
+    warnSoft: Color(0xFF3B2C13),
     koyu: true,
   );
 
@@ -197,12 +220,20 @@ class SipTokens extends ThemeExtension<SipTokens> {
       kurus > 0 ? 'Borç' : (kurus < 0 ? 'Alacak' : 'Temiz');
 
   /// Stepper düğmesi / toggle topuzu (CSS `.app.koyu .ys-stepper button`).
-  Color get knob => koyu ? const Color(0xFF3A3548) : const Color(0xFFFFFFFF);
+  Color get knob => koyu ? const Color(0xFF37363C) : const Color(0xFFFFFFFF);
 
   /// Devre dışı birincil düğme (CSS `.btn-p:disabled` + koyu tema geçersiz kılması).
-  Color get disabledFill => koyu ? const Color(0xFF423C52) : line2;
+  Color get disabledFill => koyu ? const Color(0xFF414048) : line2;
   Color get disabledInk =>
       koyu ? const Color(0x66FFFFFF) : const Color(0xFFFFFFFF);
+
+  /// DURUM DOLGUSU üstündeki mürekkep — `danger` / `ok` / `warn` bir ZEMİN olarak
+  /// kullanıldığında (tehlike düğmesi, senkron bandı, sihirbaz rozeti) üstüne bu renk yazılır.
+  /// Açık temada beyazdır — yani eski davranış. Koyu temada durum renkleri AÇILDIĞI için
+  /// beyaz üstlerinde okunmaz (1,3:1); mürekkep koyuya döner. `accentInk`in durum renkleri
+  /// için karşılığıdır; ayrı bir jeton olmasının sebebi vurgu ile durumun bağımsız
+  /// ayarlanabilmesidir.
+  Color get durumInk => koyu ? const Color(0xFF16151E) : const Color(0xFFFFFFFF);
 
   /// Toast — koyu temada tersine döner (CSS `.app.koyu .toast`).
   Color get toastFill => koyu ? ink : hero;

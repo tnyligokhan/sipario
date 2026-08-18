@@ -2,6 +2,8 @@
 // Buradaki testler ekranlardan bağımsızdır: jetonlar, tipografi, SVG ikon ayrıştırıcısı ve
 // paylaşılan atomlar. Bir ekran bozulduğunda hatanın temelden mi geldiğini bu dosya ayırt eder.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/theme/app_theme.dart';
@@ -28,18 +30,63 @@ void main() {
       expect(t.koyu, isFalse);
     });
 
-    test('koyu tema yalnız .app.koyu bloğundaki jetonları değiştirir', () {
+    test('koyu tema kendi paletidir — açık temanın kopyası DEĞİL', () {
       const a = SipTokens.acik;
       const k = SipTokens.koyuTema;
-      // Değişenler
-      expect(k.bg, const Color(0xFF141218));
-      expect(k.surface, const Color(0xFF1E1B26));
-      expect(k.ink, const Color(0xFFF2F0F7));
-      // DEĞİŞMEYENLER — tasarım kararı: ana durum renkleri iki temada da aynı
-      expect(k.accent, a.accent);
-      expect(k.danger, a.danger);
-      expect(k.ok, a.ok);
-      expect(k.warn, a.warn);
+      expect(k.bg, const Color(0xFF161519));
+      expect(k.surface, const Color(0xFF212026));
+      expect(k.ink, const Color(0xFFDEDDE2));
+      // Karar 2026-08-19: vurgu ve durum renkleri koyuda AÇILIR (M3 "tone 80" mantığı).
+      // Eskiden dördü de açık temayla aynıydı; doymuş mor koyu zeminde hem okunmuyor
+      // hem optik titreşim üretiyordu.
+      expect(k.accent, isNot(a.accent));
+      expect(k.danger, isNot(a.danger));
+      expect(k.ok, isNot(a.ok));
+      expect(k.warn, isNot(a.warn));
+    });
+
+    // Bu grup jetonun DEĞERİNİ değil NİYETİNİ kilitler: bir gün palet yeniden
+    // ayarlanırsa değerler değişebilir, ama koyu temanın göz yormama sözü değişemez.
+    // Ölçüm WCAG 2.x bağıl parlaklık formülü (DESIGN_SYSTEM.md'deki tabloyla aynı).
+    group('koyu tema — göz yormama sözleşmesi', () {
+      const k = SipTokens.koyuTema;
+
+      test('vurgu ve durum renkleri kart üstünde AA geçer (eskiden accent 2,86:1)', () {
+        expect(_kontrast(k.accent, k.surface), greaterThanOrEqualTo(4.5));
+        expect(_kontrast(k.danger, k.surface), greaterThanOrEqualTo(4.5));
+        expect(_kontrast(k.ok, k.surface), greaterThanOrEqualTo(4.5));
+        expect(_kontrast(k.warn, k.surface), greaterThanOrEqualTo(4.5));
+      });
+
+      test('dolgu üstündeki mürekkep okunur — koyuda durumInk koyudur', () {
+        expect(_kontrast(k.accentInk, k.accent), greaterThanOrEqualTo(4.5));
+        expect(_kontrast(k.durumInk, k.danger), greaterThanOrEqualTo(4.5));
+        expect(_kontrast(k.durumInk, k.ok), greaterThanOrEqualTo(4.5));
+        expect(_kontrast(k.durumInk, k.warn), greaterThanOrEqualTo(4.5));
+        expect(SipTokens.acik.durumInk, const Color(0xFFFFFFFF)); // açıkta eski davranış
+      });
+
+      test('gövde metni AAA üstünde ama halation eşiğinin altında (13,5:1)', () {
+        final m = _kontrast(k.ink, k.bg);
+        expect(m, greaterThanOrEqualTo(7.0)); // AAA
+        expect(m, lessThanOrEqualTo(15.0)); // saf beyaz hale yapar — 16,45'ten indirildi
+      });
+
+      test('nötr yüzeylerde mor sis yok — kroma vurgunun çok altında', () {
+        // Doygunluk vekili: en yüksek ve en düşük kanal arası fark.
+        int doygunluk(Color c) {
+          final r = (c.r * 255).round(), g = (c.g * 255).round(), b = (c.b * 255).round();
+          return [r, g, b].reduce((x, y) => x > y ? x : y) -
+              [r, g, b].reduce((x, y) => x < y ? x : y);
+        }
+
+        for (final n in [k.bg, k.surface, k.surface2, k.ink, k.ink2, k.muted]) {
+          expect(doygunluk(n), lessThanOrEqualTo(10),
+              reason: 'nötr yüzey mor tentini geri almış');
+        }
+        expect(doygunluk(k.accent), greaterThanOrEqualTo(40),
+            reason: 'vurgu mor kimliğini kaybetmiş');
+      });
     });
 
     test('bakiye renkleri: +borç danger, −alacak ok, 0 temiz ink', () {
@@ -61,7 +108,7 @@ void main() {
         }), koyu: true),
       );
       expect(okunan.koyu, isTrue);
-      expect(okunan.bg, const Color(0xFF141218));
+      expect(okunan.bg, const Color(0xFF161519));
     });
 
     testWidgets('tema uzantısı kayıtlı değilse açık temaya düşer (çıplak MaterialApp)',
@@ -353,4 +400,15 @@ void main() {
       expect(find.byType(SipParilti), findsNWidgets(3 * 4));
     });
   });
+}
+
+/// WCAG 2.x bağıl parlaklık — koyu tema sözleşme testleri için.
+double _bagilParlaklik(Color c) {
+  double kanal(double v) => v <= 0.03928 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4) as double;
+  return 0.2126 * kanal(c.r) + 0.7152 * kanal(c.g) + 0.0722 * kanal(c.b);
+}
+
+double _kontrast(Color a, Color b) {
+  final x = _bagilParlaklik(a), y = _bagilParlaklik(b);
+  return (math.max(x, y) + 0.05) / (math.min(x, y) + 0.05);
 }

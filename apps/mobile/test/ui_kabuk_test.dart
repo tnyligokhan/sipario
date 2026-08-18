@@ -404,8 +404,10 @@ void main() {
 
       expect(jeton().koyu, isTrue);
       expect(jeton().bg, isNot(acikBg), reason: 'ekran zemini koyu tabloya geçmeli');
-      expect(jeton().accent, SipTokens.acik.accent,
-          reason: 'accent iki temada da AYNI — durum renkleri tema değişince kaymaz');
+      expect(jeton().accent, SipTokens.koyuTema.accent,
+          reason: 'vurgu da koyu tabloya geçmeli — koyuda mor açılır (karar 2026-08-19)');
+      expect(jeton().accent, isNot(SipTokens.acik.accent),
+          reason: 'açık temanın doymuş moru koyu zemine taşınmaz');
 
       await tema.ayarla(false);
       await tester.pump();
