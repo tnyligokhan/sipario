@@ -49,6 +49,16 @@ class Customers extends Table {
   /// tamamını açılmaz yapamaz.
   TextColumn get favoriteProductIds => text().nullable()();
 
+  /// ÜRÜN TERCİHLERİ (kullanıcı isteği 2026-08-18) — JSON nesne: `{urunId: {cikarilan, eklenen}}`.
+  ///
+  /// "İşletmede her seferinde bunu sormak istemeyebilir": aynı müşteri her hafta "soğansız"
+  /// diyor. Tercih burada durur ve o ürün o müşteriye eklenirken KENDİLİĞİNDEN uygulanır.
+  ///
+  /// [favoriteProductIds] ile AYNI gerekçeyle müşterinin bir ALANIDIR (ayrı senkron varlığı
+  /// değil): tam olarak "bu müşterinin bir tercihi"dir ve iki cihaz farklı yazarsa çözüm LWW'nin
+  /// kendisidir. Çözümleme TEK yerdedir (`data/urun_secenekleri.dart`) ve bozuk metinde çökmez.
+  TextColumn get productOptionsJson => text().nullable()();
+
   /// KARA LİSTE damgası (null = kara listede değil) — v12.
   ///
   /// `deletedAt` İLE KARIŞTIRILMAMALI, ikisi ayrı karardır: silinen müşteri listeden DÜŞER,
@@ -120,6 +130,15 @@ class Products extends Table {
   /// (sunucu payload'ında karşılığı yok) — imageUrl gelene kadar POS karosunu doldurur.
   TextColumn get imageLocalPath => text().nullable()();
 
+  /// SEÇENEK LİSTESİ (kullanıcı isteği 2026-08-18) — JSON dizi: `[{ad, varsayilan, ekKurus}]`.
+  ///
+  /// Ürünün İÇİNDEKİLERİ + eklenebilir ekstralar. "Dürümde soğan var mı?" sorusunun cevabı
+  /// burada durur ve sipariş alan kişi tek dokunuşla çıkarır. null = ürünün seçeneği yok — su
+  /// bayisi gibi işletmelerde ürünlerin çoğu böyledir ve hiçbir ekranda ek gürültü doğurmaz.
+  ///
+  /// Gerekçe ve biçim `data/urun_secenekleri.dart` başlığında.
+  TextColumn get optionsJson => text().nullable()();
+
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   TextColumn get updatedOccurredAt => text()();
   TextColumn get updatedDeviceId => text().nullable()();
@@ -178,6 +197,17 @@ class OrderLines extends Table {
   /// kalemin notlu olduğunu kaybettirirdi — kurye kapıda yanlış ürünü teslim eder.
   /// Satırda saklanır (ad/fiyat/birim ile aynı gerekçe: siparişin çekildiği andaki gerçek).
   TextColumn get note => text().nullable()();
+
+  /// SEÇİLEN SEÇENEKLER (kullanıcı isteği 2026-08-18) — JSON: `{cikarilan:[…], eklenen:[…]}`.
+  ///
+  /// SATIRDA saklanır ve KENDİ KENDİNE YETER: çıkarılan malzemenin adı ve eklenenin FİYATI
+  /// burada durur, ürüne bakılarak çözülmez ([unitPriceKurus]/[productName] ile aynı kural —
+  /// "siparişin çekildiği andaki gerçek"). Menü yarın değişse bile dünkü sipariş "soğansız" der.
+  ///
+  /// ⚠️ [note] ALANI DA DOLDURULUR: seçimin insan okunur özeti oraya yazılır, çünkü sipariş
+  /// detayı, kurye ekranı ve geçmiş o alanı ZATEN çiziyor. Yapılandırılmış veri makine için,
+  /// not metni ekranlar için — ikisi aynı gerçeğin iki okuyucusuna bakar.
+  TextColumn get optionsJson => text().nullable()();
 
   /// "Serbest satır" (katalogda olmayan tek seferlik iş). AÇIK bayrak: productId'nin null olması
   /// yeterli ayırt edici değildir (silinmiş ürünün satırı da null olabilir).

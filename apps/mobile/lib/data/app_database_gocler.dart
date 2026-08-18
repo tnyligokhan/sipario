@@ -293,6 +293,26 @@ extension _GocMerdiveni on AppDatabase {
                 m, 'ALTER TABLE day_closings ADD COLUMN reverses_closing_id TEXT');
           }
 
+          // v23 — ÜRÜN SEÇENEKLERİ (2026-08-18). Üç tabloya birer JSON kolonu.
+          //
+          // Yerleşim gerekçesi v18..v22 ile AYNI (kapıdan ÖNCE, koşulsuz) ve bedeli burada EN
+          // AĞIRLARDAN: üçü de ürünün çekirdek tablolarıdır. `products` ya da `order_lines`
+          // kolonu eksik kalırsa sipariş açma, katalog ve sipariş listesi topluca "no such
+          // column" ile düşer — yani uygulama günlük işini hiç yapamaz.
+          //
+          // HEPSİ NULLABLE: yükseltmeden önceki hiçbir ürünün seçeneği, hiçbir satırın seçimi
+          // ve hiçbir müşterinin tercihi YOKTUR; `null` tam olarak bunu söyler ve yükseltme
+          // öncesi davranışla birebir aynıdır.
+          for (final (tablo, sql) in const [
+            ('products', 'ALTER TABLE products ADD COLUMN options_json TEXT'),
+            ('order_lines', 'ALTER TABLE order_lines ADD COLUMN options_json TEXT'),
+            ('customers', 'ALTER TABLE customers ADD COLUMN product_options_json TEXT'),
+          ]) {
+            if (await AppDatabase._tabloVar(m, tablo)) {
+              await AppDatabase._addColumnIfMissing(m, sql);
+            }
+          }
+
           // KENDİNİ ONARMA (2026-07-22 SAHA BULGUSU — iki gerçek cihazda yaşandı): Faz 0 ölçüm
           // ekranı sipario.db'yi sqflite `version: 1` ile açınca user_version damgası 1'e
           // eziliyordu; Drift sonraki açılışta migration'ı YENİDEN koşup "duplicate column" ile

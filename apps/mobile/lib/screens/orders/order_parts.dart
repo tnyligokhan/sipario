@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../data/urun_secenekleri.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
@@ -37,6 +38,7 @@ class LineDraft {
     this.qty = 1,
     this.unit,
     this.note,
+    this.secim = const SecenekSecimi(),
   });
 
   final String? productId;
@@ -58,17 +60,41 @@ class LineDraft {
   /// sepette boş bir not rozeti çizdirirdi.
   String? note;
 
+  /// SEÇENEK SEÇİMİ — "soğansız, ekstra peynirli" (kullanıcı isteği 2026-08-18).
+  ///
+  /// SATIRIN KİMLİĞİNİN PARÇASIDIR: aynı üründen "soğanlı" ve "soğansız" iki dürüm AYRI iki
+  /// sepet satırıdır ve birleştirilemez (bkz. [ayniKalem]).
+  SecenekSecimi secim;
+
   bool get notVar => (note ?? '').trim().isNotEmpty;
 
   bool get serbest => productId == null;
 
+  /// Sepette ve toplamda kullanılan BİRİM fiyat: katalog fiyatı + eklenen ekstralar.
+  /// `LineInput.birimFiyat` ile AYNI formül — sepetin gösterdiği tutar ile kaydedilen tutarın
+  /// ayrışmaması için ikisi de aynı kuralı uygular.
+  int get birimFiyat => unitPriceKurus + secim.ekTutarKurus;
+
   /// CSS `.ys-birim` / `.sd-birim` — sepet satırının alt yazısı.
   String get birimEtiketi => serbest ? 'tek seferlik' : (unit ?? 'adet');
+
+  /// Sepette satırın altında görünen seçim özeti; seçim yoksa boş.
+  String get secimOzeti => secim.ozet();
+
+  /// Bu taslak, [urunId] + [digerSecim] ikilisiyle AYNI kalem mi?
+  ///
+  /// ⚠️ ADET BİRLEŞTİRME BUNA BAKAR. Yalnız `productId`ye bakan bir birleştirme, "1 soğanlı +
+  /// 1 soğansız dürüm" isteğini "2 soğansız dürüm"e çevirirdi — müşterinin siparişini sessizce
+  /// değiştirmek, hiç kaydetmemekten kötüdür.
+  bool ayniKalem(String? urunId, SecenekSecimi digerSecim) =>
+      productId == urunId &&
+      secim.ozet() == digerSecim.ozet() &&
+      secim.ekTutarKurus == digerSecim.ekTutarKurus;
 }
 
-/// Taslak satırların toplamı (int kuruş — kayan nokta YOK).
+/// Taslak satırların toplamı (int kuruş — kayan nokta YOK). Ekstralar birim fiyata dahildir.
 int toplamKurus(List<LineDraft> lines) =>
-    lines.fold<int>(0, (s, l) => s + l.unitPriceKurus * l.qty);
+    lines.fold<int>(0, (s, l) => s + l.birimFiyat * l.qty);
 
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════

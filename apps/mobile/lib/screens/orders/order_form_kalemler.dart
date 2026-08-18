@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../data/urun_secenekleri.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
@@ -56,7 +57,10 @@ class KalemlerAdimi extends StatelessWidget {
   final List<LineDraft> satirlar;
 
   final VoidCallback onMusteriDegistir;
-  final void Function(Product urun, int adet) onUrunEkle;
+  /// Kataloğa/favorilere dokunulunca sepete ekler. Üçüncü argüman SEÇENEK SEÇİMİdir
+  /// (2026-08-18) — favori şeridi boş seçimle çağırır: favori tek dokunuşla eklenir, malzeme
+  /// sormaz. "Hız" onun bütün sebebidir; sormak isteyen katalogdan seçer.
+  final void Function(Product urun, int adet, SecenekSecimi secim) onUrunEkle;
   final VoidCallback onSerbestEkle;
 
   /// Satırın adedini [delta] kadar değiştirir; 0'a düşünce satır silinir (kararı ekran verir).
@@ -105,7 +109,7 @@ class KalemlerAdimi extends StatelessWidget {
           db: db,
           musteriId: musteri?.id,
           onEkle: (u) {
-            onUrunEkle(u, 1);
+            onUrunEkle(u, 1, const SecenekSecimi());
             onBildir('${u.name} sepete eklendi');
           },
         ),
@@ -117,6 +121,8 @@ class KalemlerAdimi extends StatelessWidget {
             db: db,
             onEkle: onUrunEkle,
             onBildir: onBildir,
+            musteriId: musteri?.id,
+            musteriAdi: musteri?.name,
           ),
         ),
         // .ys-serbest — katalog düğmesinin hemen ALTINDA. İkisi de "sepete bir şey koy" demek;
@@ -157,8 +163,15 @@ class KalemlerAdimi extends StatelessWidget {
                 ad: satirlar[i].name,
                 // CSS `.ys-birim` YALNIZ birimi yazar (s-siparisler.jsx:346) — birim
                 // fiyat sağdaki satır toplamının yanında ikinci kez okunmaz.
-                altMetin: satirlar[i].birimEtiketi,
-                tutarKurus: satirlar[i].unitPriceKurus * satirlar[i].qty,
+                // SEÇİM ÖZETİ BİRİMİN YANINDA (2026-08-18): "adet · Soğansız". Ayrı bir satır
+                // açmak sepeti kalem başına üç satıra çıkarırdı (not rozetiyle aynı gerekçe);
+                // birim alanı zaten kalemin künyesidir ve seçim o künyenin parçasıdır.
+                altMetin: satirlar[i].secimOzeti.isEmpty
+                    ? satirlar[i].birimEtiketi
+                    : '${satirlar[i].birimEtiketi} · ${satirlar[i].secimOzeti}',
+                // Ekstralar birim fiyata dahildir (`birimFiyat`) — sepetin gösterdiği tutar,
+                // kaydedilen tutarla AYNI formülden çıkmalı.
+                tutarKurus: satirlar[i].birimFiyat * satirlar[i].qty,
                 adet: satirlar[i].serbest ? null : satirlar[i].qty,
                 onAzalt: () => onAdetDegis(i, -1),
                 onArtir: () => onAdetDegis(i, 1),

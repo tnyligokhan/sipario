@@ -30,6 +30,7 @@ import 'customer_location_picker.dart';
 import 'customer_sheets.dart';
 import 'customer_widgets.dart';
 import 'musteri_favorileri.dart';
+import 'musteri_urun_tercihleri.dart';
 import 'musteri_siparisleri.dart';
 
 class CustomerDetailScreen extends StatefulWidget {
@@ -386,6 +387,14 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     customerId: widget.customerId,
                     yazabilir: () =>
                         _yazabilir(izin: widget.yetki.musteriDuzenleme),
+                  ),
+                  // ÜRÜN TERCİHLERİ (2026-08-18) — favorilerin HEMEN ALTINDA: ikisi de aynı
+                  // soruya bakar ("bu müşteri ne alır, nasıl alır") ve yan yana okunurlar.
+                  // Tercihi olmayan müşteride bölüm hiç çizilmez.
+                  MusteriUrunTercihleri(
+                    db: widget.db,
+                    customerId: widget.customerId,
+                    yazabilir: () => _yazabilir(izin: widget.yetki.musteriDuzenleme),
                   ),
                   // SİPARİŞ GEÇMİŞİ — `gecmisTeslimatlariGorme` kapısının ARKASINDA. Bu ekran o
                   // kapıyı atlasaydı, geçmiş gün teslimatları kapalı olan kurye aynı bilgiyi

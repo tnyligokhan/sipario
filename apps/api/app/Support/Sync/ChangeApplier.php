@@ -250,6 +250,12 @@ class ChangeApplier
                 // ve bunu kimse görmezdi (2026-08-05'te iki kez yaşanan sınıf).
                 // Biçim/tekillik/sayı kuralları FavoriUrunler'da (bu sınıf 500 satır sınırında).
                 'favorite_product_ids' => FavoriUrunler::dogrula($p['favorite_product_ids'] ?? null),
+                // ÜRÜN TERCİHLERİ (kullanıcı isteği 2026-08-18): "her seferinde sormak
+                // istemeyebilir" — bu müşterinin hangi üründe neyi istemediği. Favori listesiyle
+                // AYNI sözleşme: anahtar VARSA yazılır (null = tercih yok), anahtar HİÇ YOKSA
+                // mevcut değer KORUNUR. Koruma pazarlıksız — alanı bilmeyen bir build müşterinin
+                // adını düzeltirken bütün tercihlerini silerdi ve bunu kimse görmezdi.
+                'product_options' => UrunSecenekleri::tercihler($p['product_options'] ?? null),
             ],
             'customer_phone' => [
                 'customer_id' => SyncPayload::req($p, 'customer_id'),
@@ -276,6 +282,10 @@ class ChangeApplier
                 'barcode' => $p['barcode'] ?? null,
                 'image_url' => $p['image_url'] ?? null,
                 'is_active' => (bool) ($p['is_active'] ?? true),
+                // SEÇENEK LİSTESİ (2026-08-18) — ürünün içindekileri + eklenebilir ekstralar.
+                // Biçim/tekillik/sayı/fiyat kuralları UrunSecenekleri'nde (bu sınıf 500 satır
+                // sınırında ve FavoriUrunler ile aynı gerekçeyle ayrıldı).
+                'options' => UrunSecenekleri::liste($p['options'] ?? null),
             ],
             'exempt_number' => [
                 'phone_e164' => SyncPayload::req($p, 'phone_e164'),

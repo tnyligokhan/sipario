@@ -68,6 +68,17 @@ class $CustomersTable extends Customers
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _productOptionsJsonMeta =
+      const VerificationMeta('productOptionsJson');
+  @override
+  late final GeneratedColumn<String> productOptionsJson =
+      GeneratedColumn<String>(
+        'product_options_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _blacklistedAtMeta = const VerificationMeta(
     'blacklistedAt',
   );
@@ -121,6 +132,7 @@ class $CustomersTable extends Customers
     code,
     balanceKurus,
     favoriteProductIds,
+    productOptionsJson,
     blacklistedAt,
     updatedOccurredAt,
     updatedDeviceId,
@@ -178,6 +190,15 @@ class $CustomersTable extends Customers
         favoriteProductIds.isAcceptableOrUnknown(
           data['favorite_product_ids']!,
           _favoriteProductIdsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('product_options_json')) {
+      context.handle(
+        _productOptionsJsonMeta,
+        productOptionsJson.isAcceptableOrUnknown(
+          data['product_options_json']!,
+          _productOptionsJsonMeta,
         ),
       );
     }
@@ -249,6 +270,10 @@ class $CustomersTable extends Customers
         DriftSqlType.string,
         data['${effectivePrefix}favorite_product_ids'],
       ),
+      productOptionsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_options_json'],
+      ),
       blacklistedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}blacklisted_at'],
@@ -305,6 +330,16 @@ class Customer extends DataClass implements Insertable<Customer> {
   /// tamamını açılmaz yapamaz.
   final String? favoriteProductIds;
 
+  /// ÜRÜN TERCİHLERİ (kullanıcı isteği 2026-08-18) — JSON nesne: `{urunId: {cikarilan, eklenen}}`.
+  ///
+  /// "İşletmede her seferinde bunu sormak istemeyebilir": aynı müşteri her hafta "soğansız"
+  /// diyor. Tercih burada durur ve o ürün o müşteriye eklenirken KENDİLİĞİNDEN uygulanır.
+  ///
+  /// [favoriteProductIds] ile AYNI gerekçeyle müşterinin bir ALANIDIR (ayrı senkron varlığı
+  /// değil): tam olarak "bu müşterinin bir tercihi"dir ve iki cihaz farklı yazarsa çözüm LWW'nin
+  /// kendisidir. Çözümleme TEK yerdedir (`data/urun_secenekleri.dart`) ve bozuk metinde çökmez.
+  final String? productOptionsJson;
+
   /// KARA LİSTE damgası (null = kara listede değil) — v12.
   ///
   /// `deletedAt` İLE KARIŞTIRILMAMALI, ikisi ayrı karardır: silinen müşteri listeden DÜŞER,
@@ -322,6 +357,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     this.code,
     required this.balanceKurus,
     this.favoriteProductIds,
+    this.productOptionsJson,
     this.blacklistedAt,
     required this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -341,6 +377,9 @@ class Customer extends DataClass implements Insertable<Customer> {
     map['balance_kurus'] = Variable<int>(balanceKurus);
     if (!nullToAbsent || favoriteProductIds != null) {
       map['favorite_product_ids'] = Variable<String>(favoriteProductIds);
+    }
+    if (!nullToAbsent || productOptionsJson != null) {
+      map['product_options_json'] = Variable<String>(productOptionsJson);
     }
     if (!nullToAbsent || blacklistedAt != null) {
       map['blacklisted_at'] = Variable<String>(blacklistedAt);
@@ -365,6 +404,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       favoriteProductIds: favoriteProductIds == null && nullToAbsent
           ? const Value.absent()
           : Value(favoriteProductIds),
+      productOptionsJson: productOptionsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(productOptionsJson),
       blacklistedAt: blacklistedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(blacklistedAt),
@@ -392,6 +434,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       favoriteProductIds: serializer.fromJson<String?>(
         json['favoriteProductIds'],
       ),
+      productOptionsJson: serializer.fromJson<String?>(
+        json['productOptionsJson'],
+      ),
       blacklistedAt: serializer.fromJson<String?>(json['blacklistedAt']),
       updatedOccurredAt: serializer.fromJson<String>(json['updatedOccurredAt']),
       updatedDeviceId: serializer.fromJson<String?>(json['updatedDeviceId']),
@@ -408,6 +453,7 @@ class Customer extends DataClass implements Insertable<Customer> {
       'code': serializer.toJson<int?>(code),
       'balanceKurus': serializer.toJson<int>(balanceKurus),
       'favoriteProductIds': serializer.toJson<String?>(favoriteProductIds),
+      'productOptionsJson': serializer.toJson<String?>(productOptionsJson),
       'blacklistedAt': serializer.toJson<String?>(blacklistedAt),
       'updatedOccurredAt': serializer.toJson<String>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -422,6 +468,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     Value<int?> code = const Value.absent(),
     int? balanceKurus,
     Value<String?> favoriteProductIds = const Value.absent(),
+    Value<String?> productOptionsJson = const Value.absent(),
     Value<String?> blacklistedAt = const Value.absent(),
     String? updatedOccurredAt,
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -435,6 +482,9 @@ class Customer extends DataClass implements Insertable<Customer> {
     favoriteProductIds: favoriteProductIds.present
         ? favoriteProductIds.value
         : this.favoriteProductIds,
+    productOptionsJson: productOptionsJson.present
+        ? productOptionsJson.value
+        : this.productOptionsJson,
     blacklistedAt: blacklistedAt.present
         ? blacklistedAt.value
         : this.blacklistedAt,
@@ -456,6 +506,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       favoriteProductIds: data.favoriteProductIds.present
           ? data.favoriteProductIds.value
           : this.favoriteProductIds,
+      productOptionsJson: data.productOptionsJson.present
+          ? data.productOptionsJson.value
+          : this.productOptionsJson,
       blacklistedAt: data.blacklistedAt.present
           ? data.blacklistedAt.value
           : this.blacklistedAt,
@@ -478,6 +531,7 @@ class Customer extends DataClass implements Insertable<Customer> {
           ..write('code: $code, ')
           ..write('balanceKurus: $balanceKurus, ')
           ..write('favoriteProductIds: $favoriteProductIds, ')
+          ..write('productOptionsJson: $productOptionsJson, ')
           ..write('blacklistedAt: $blacklistedAt, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -494,6 +548,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     code,
     balanceKurus,
     favoriteProductIds,
+    productOptionsJson,
     blacklistedAt,
     updatedOccurredAt,
     updatedDeviceId,
@@ -509,6 +564,7 @@ class Customer extends DataClass implements Insertable<Customer> {
           other.code == this.code &&
           other.balanceKurus == this.balanceKurus &&
           other.favoriteProductIds == this.favoriteProductIds &&
+          other.productOptionsJson == this.productOptionsJson &&
           other.blacklistedAt == this.blacklistedAt &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId &&
@@ -522,6 +578,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
   final Value<int?> code;
   final Value<int> balanceKurus;
   final Value<String?> favoriteProductIds;
+  final Value<String?> productOptionsJson;
   final Value<String?> blacklistedAt;
   final Value<String> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -534,6 +591,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     this.code = const Value.absent(),
     this.balanceKurus = const Value.absent(),
     this.favoriteProductIds = const Value.absent(),
+    this.productOptionsJson = const Value.absent(),
     this.blacklistedAt = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -547,6 +605,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     this.code = const Value.absent(),
     this.balanceKurus = const Value.absent(),
     this.favoriteProductIds = const Value.absent(),
+    this.productOptionsJson = const Value.absent(),
     this.blacklistedAt = const Value.absent(),
     required String updatedOccurredAt,
     this.updatedDeviceId = const Value.absent(),
@@ -562,6 +621,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     Expression<int>? code,
     Expression<int>? balanceKurus,
     Expression<String>? favoriteProductIds,
+    Expression<String>? productOptionsJson,
     Expression<String>? blacklistedAt,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -576,6 +636,8 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
       if (balanceKurus != null) 'balance_kurus': balanceKurus,
       if (favoriteProductIds != null)
         'favorite_product_ids': favoriteProductIds,
+      if (productOptionsJson != null)
+        'product_options_json': productOptionsJson,
       if (blacklistedAt != null) 'blacklisted_at': blacklistedAt,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -591,6 +653,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     Value<int?>? code,
     Value<int>? balanceKurus,
     Value<String?>? favoriteProductIds,
+    Value<String?>? productOptionsJson,
     Value<String?>? blacklistedAt,
     Value<String>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -604,6 +667,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
       code: code ?? this.code,
       balanceKurus: balanceKurus ?? this.balanceKurus,
       favoriteProductIds: favoriteProductIds ?? this.favoriteProductIds,
+      productOptionsJson: productOptionsJson ?? this.productOptionsJson,
       blacklistedAt: blacklistedAt ?? this.blacklistedAt,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -633,6 +697,9 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     if (favoriteProductIds.present) {
       map['favorite_product_ids'] = Variable<String>(favoriteProductIds.value);
     }
+    if (productOptionsJson.present) {
+      map['product_options_json'] = Variable<String>(productOptionsJson.value);
+    }
     if (blacklistedAt.present) {
       map['blacklisted_at'] = Variable<String>(blacklistedAt.value);
     }
@@ -660,6 +727,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
           ..write('code: $code, ')
           ..write('balanceKurus: $balanceKurus, ')
           ..write('favoriteProductIds: $favoriteProductIds, ')
+          ..write('productOptionsJson: $productOptionsJson, ')
           ..write('blacklistedAt: $blacklistedAt, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -2004,6 +2072,17 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _optionsJsonMeta = const VerificationMeta(
+    'optionsJson',
+  );
+  @override
+  late final GeneratedColumn<String> optionsJson = GeneratedColumn<String>(
+    'options_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isActiveMeta = const VerificationMeta(
     'isActive',
   );
@@ -2062,6 +2141,7 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
     barcode,
     imageUrl,
     imageLocalPath,
+    optionsJson,
     isActive,
     updatedOccurredAt,
     updatedDeviceId,
@@ -2127,6 +2207,15 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         imageLocalPath.isAcceptableOrUnknown(
           data['image_local_path']!,
           _imageLocalPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('options_json')) {
+      context.handle(
+        _optionsJsonMeta,
+        optionsJson.isAcceptableOrUnknown(
+          data['options_json']!,
+          _optionsJsonMeta,
         ),
       );
     }
@@ -2199,6 +2288,10 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         DriftSqlType.string,
         data['${effectivePrefix}image_local_path'],
       ),
+      optionsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}options_json'],
+      ),
       isActive: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
@@ -2240,6 +2333,15 @@ class Product extends DataClass implements Insertable<Product> {
   /// YALNIZ CİHAZ-YEREL: kullanıcının bu cihazda seçtiği görselin dosya yolu. Senkronlanmaz
   /// (sunucu payload'ında karşılığı yok) — imageUrl gelene kadar POS karosunu doldurur.
   final String? imageLocalPath;
+
+  /// SEÇENEK LİSTESİ (kullanıcı isteği 2026-08-18) — JSON dizi: `[{ad, varsayilan, ekKurus}]`.
+  ///
+  /// Ürünün İÇİNDEKİLERİ + eklenebilir ekstralar. "Dürümde soğan var mı?" sorusunun cevabı
+  /// burada durur ve sipariş alan kişi tek dokunuşla çıkarır. null = ürünün seçeneği yok — su
+  /// bayisi gibi işletmelerde ürünlerin çoğu böyledir ve hiçbir ekranda ek gürültü doğurmaz.
+  ///
+  /// Gerekçe ve biçim `data/urun_secenekleri.dart` başlığında.
+  final String? optionsJson;
   final bool isActive;
   final String updatedOccurredAt;
   final String? updatedDeviceId;
@@ -2252,6 +2354,7 @@ class Product extends DataClass implements Insertable<Product> {
     this.barcode,
     this.imageUrl,
     this.imageLocalPath,
+    this.optionsJson,
     required this.isActive,
     required this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -2272,6 +2375,9 @@ class Product extends DataClass implements Insertable<Product> {
     }
     if (!nullToAbsent || imageLocalPath != null) {
       map['image_local_path'] = Variable<String>(imageLocalPath);
+    }
+    if (!nullToAbsent || optionsJson != null) {
+      map['options_json'] = Variable<String>(optionsJson);
     }
     map['is_active'] = Variable<bool>(isActive);
     map['updated_occurred_at'] = Variable<String>(updatedOccurredAt);
@@ -2299,6 +2405,9 @@ class Product extends DataClass implements Insertable<Product> {
       imageLocalPath: imageLocalPath == null && nullToAbsent
           ? const Value.absent()
           : Value(imageLocalPath),
+      optionsJson: optionsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(optionsJson),
       isActive: Value(isActive),
       updatedOccurredAt: Value(updatedOccurredAt),
       updatedDeviceId: updatedDeviceId == null && nullToAbsent
@@ -2323,6 +2432,7 @@ class Product extends DataClass implements Insertable<Product> {
       barcode: serializer.fromJson<String?>(json['barcode']),
       imageUrl: serializer.fromJson<String?>(json['imageUrl']),
       imageLocalPath: serializer.fromJson<String?>(json['imageLocalPath']),
+      optionsJson: serializer.fromJson<String?>(json['optionsJson']),
       isActive: serializer.fromJson<bool>(json['isActive']),
       updatedOccurredAt: serializer.fromJson<String>(json['updatedOccurredAt']),
       updatedDeviceId: serializer.fromJson<String?>(json['updatedDeviceId']),
@@ -2340,6 +2450,7 @@ class Product extends DataClass implements Insertable<Product> {
       'barcode': serializer.toJson<String?>(barcode),
       'imageUrl': serializer.toJson<String?>(imageUrl),
       'imageLocalPath': serializer.toJson<String?>(imageLocalPath),
+      'optionsJson': serializer.toJson<String?>(optionsJson),
       'isActive': serializer.toJson<bool>(isActive),
       'updatedOccurredAt': serializer.toJson<String>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -2355,6 +2466,7 @@ class Product extends DataClass implements Insertable<Product> {
     Value<String?> barcode = const Value.absent(),
     Value<String?> imageUrl = const Value.absent(),
     Value<String?> imageLocalPath = const Value.absent(),
+    Value<String?> optionsJson = const Value.absent(),
     bool? isActive,
     String? updatedOccurredAt,
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -2369,6 +2481,7 @@ class Product extends DataClass implements Insertable<Product> {
     imageLocalPath: imageLocalPath.present
         ? imageLocalPath.value
         : this.imageLocalPath,
+    optionsJson: optionsJson.present ? optionsJson.value : this.optionsJson,
     isActive: isActive ?? this.isActive,
     updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
     updatedDeviceId: updatedDeviceId.present
@@ -2389,6 +2502,9 @@ class Product extends DataClass implements Insertable<Product> {
       imageLocalPath: data.imageLocalPath.present
           ? data.imageLocalPath.value
           : this.imageLocalPath,
+      optionsJson: data.optionsJson.present
+          ? data.optionsJson.value
+          : this.optionsJson,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
       updatedOccurredAt: data.updatedOccurredAt.present
           ? data.updatedOccurredAt.value
@@ -2410,6 +2526,7 @@ class Product extends DataClass implements Insertable<Product> {
           ..write('barcode: $barcode, ')
           ..write('imageUrl: $imageUrl, ')
           ..write('imageLocalPath: $imageLocalPath, ')
+          ..write('optionsJson: $optionsJson, ')
           ..write('isActive: $isActive, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -2427,6 +2544,7 @@ class Product extends DataClass implements Insertable<Product> {
     barcode,
     imageUrl,
     imageLocalPath,
+    optionsJson,
     isActive,
     updatedOccurredAt,
     updatedDeviceId,
@@ -2443,6 +2561,7 @@ class Product extends DataClass implements Insertable<Product> {
           other.barcode == this.barcode &&
           other.imageUrl == this.imageUrl &&
           other.imageLocalPath == this.imageLocalPath &&
+          other.optionsJson == this.optionsJson &&
           other.isActive == this.isActive &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId &&
@@ -2457,6 +2576,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
   final Value<String?> barcode;
   final Value<String?> imageUrl;
   final Value<String?> imageLocalPath;
+  final Value<String?> optionsJson;
   final Value<bool> isActive;
   final Value<String> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -2470,6 +2590,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.barcode = const Value.absent(),
     this.imageUrl = const Value.absent(),
     this.imageLocalPath = const Value.absent(),
+    this.optionsJson = const Value.absent(),
     this.isActive = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -2484,6 +2605,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.barcode = const Value.absent(),
     this.imageUrl = const Value.absent(),
     this.imageLocalPath = const Value.absent(),
+    this.optionsJson = const Value.absent(),
     this.isActive = const Value.absent(),
     required String updatedOccurredAt,
     this.updatedDeviceId = const Value.absent(),
@@ -2501,6 +2623,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Expression<String>? barcode,
     Expression<String>? imageUrl,
     Expression<String>? imageLocalPath,
+    Expression<String>? optionsJson,
     Expression<bool>? isActive,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -2515,6 +2638,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       if (barcode != null) 'barcode': barcode,
       if (imageUrl != null) 'image_url': imageUrl,
       if (imageLocalPath != null) 'image_local_path': imageLocalPath,
+      if (optionsJson != null) 'options_json': optionsJson,
       if (isActive != null) 'is_active': isActive,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -2531,6 +2655,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Value<String?>? barcode,
     Value<String?>? imageUrl,
     Value<String?>? imageLocalPath,
+    Value<String?>? optionsJson,
     Value<bool>? isActive,
     Value<String>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -2545,6 +2670,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       barcode: barcode ?? this.barcode,
       imageUrl: imageUrl ?? this.imageUrl,
       imageLocalPath: imageLocalPath ?? this.imageLocalPath,
+      optionsJson: optionsJson ?? this.optionsJson,
       isActive: isActive ?? this.isActive,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -2577,6 +2703,9 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     if (imageLocalPath.present) {
       map['image_local_path'] = Variable<String>(imageLocalPath.value);
     }
+    if (optionsJson.present) {
+      map['options_json'] = Variable<String>(optionsJson.value);
+    }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
@@ -2605,6 +2734,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
           ..write('barcode: $barcode, ')
           ..write('imageUrl: $imageUrl, ')
           ..write('imageLocalPath: $imageLocalPath, ')
+          ..write('optionsJson: $optionsJson, ')
           ..write('isActive: $isActive, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -3425,6 +3555,17 @@ class $OrderLinesTable extends OrderLines
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _optionsJsonMeta = const VerificationMeta(
+    'optionsJson',
+  );
+  @override
+  late final GeneratedColumn<String> optionsJson = GeneratedColumn<String>(
+    'options_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isCustomMeta = const VerificationMeta(
     'isCustom',
   );
@@ -3480,6 +3621,7 @@ class $OrderLinesTable extends OrderLines
     unitPriceKurus,
     unit,
     note,
+    optionsJson,
     isCustom,
     qty,
     lineTotalKurus,
@@ -3550,6 +3692,15 @@ class $OrderLinesTable extends OrderLines
         note.isAcceptableOrUnknown(data['note']!, _noteMeta),
       );
     }
+    if (data.containsKey('options_json')) {
+      context.handle(
+        _optionsJsonMeta,
+        optionsJson.isAcceptableOrUnknown(
+          data['options_json']!,
+          _optionsJsonMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_custom')) {
       context.handle(
         _isCustomMeta,
@@ -3618,6 +3769,10 @@ class $OrderLinesTable extends OrderLines
         DriftSqlType.string,
         data['${effectivePrefix}note'],
       ),
+      optionsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}options_json'],
+      ),
       isCustom: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_custom'],
@@ -3663,6 +3818,17 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
   /// Satırda saklanır (ad/fiyat/birim ile aynı gerekçe: siparişin çekildiği andaki gerçek).
   final String? note;
 
+  /// SEÇİLEN SEÇENEKLER (kullanıcı isteği 2026-08-18) — JSON: `{cikarilan:[…], eklenen:[…]}`.
+  ///
+  /// SATIRDA saklanır ve KENDİ KENDİNE YETER: çıkarılan malzemenin adı ve eklenenin FİYATI
+  /// burada durur, ürüne bakılarak çözülmez ([unitPriceKurus]/[productName] ile aynı kural —
+  /// "siparişin çekildiği andaki gerçek"). Menü yarın değişse bile dünkü sipariş "soğansız" der.
+  ///
+  /// ⚠️ [note] ALANI DA DOLDURULUR: seçimin insan okunur özeti oraya yazılır, çünkü sipariş
+  /// detayı, kurye ekranı ve geçmiş o alanı ZATEN çiziyor. Yapılandırılmış veri makine için,
+  /// not metni ekranlar için — ikisi aynı gerçeğin iki okuyucusuna bakar.
+  final String? optionsJson;
+
   /// "Serbest satır" (katalogda olmayan tek seferlik iş). AÇIK bayrak: productId'nin null olması
   /// yeterli ayırt edici değildir (silinmiş ürünün satırı da null olabilir).
   final bool isCustom;
@@ -3677,6 +3843,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     required this.unitPriceKurus,
     this.unit,
     this.note,
+    this.optionsJson,
     required this.isCustom,
     required this.qty,
     required this.lineTotalKurus,
@@ -3698,6 +3865,9 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     if (!nullToAbsent || note != null) {
       map['note'] = Variable<String>(note);
     }
+    if (!nullToAbsent || optionsJson != null) {
+      map['options_json'] = Variable<String>(optionsJson);
+    }
     map['is_custom'] = Variable<bool>(isCustom);
     map['qty'] = Variable<int>(qty);
     map['line_total_kurus'] = Variable<int>(lineTotalKurus);
@@ -3718,6 +3888,9 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
       unitPriceKurus: Value(unitPriceKurus),
       unit: unit == null && nullToAbsent ? const Value.absent() : Value(unit),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      optionsJson: optionsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(optionsJson),
       isCustom: Value(isCustom),
       qty: Value(qty),
       lineTotalKurus: Value(lineTotalKurus),
@@ -3740,6 +3913,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
       unitPriceKurus: serializer.fromJson<int>(json['unitPriceKurus']),
       unit: serializer.fromJson<String?>(json['unit']),
       note: serializer.fromJson<String?>(json['note']),
+      optionsJson: serializer.fromJson<String?>(json['optionsJson']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       qty: serializer.fromJson<int>(json['qty']),
       lineTotalKurus: serializer.fromJson<int>(json['lineTotalKurus']),
@@ -3757,6 +3931,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
       'unitPriceKurus': serializer.toJson<int>(unitPriceKurus),
       'unit': serializer.toJson<String?>(unit),
       'note': serializer.toJson<String?>(note),
+      'optionsJson': serializer.toJson<String?>(optionsJson),
       'isCustom': serializer.toJson<bool>(isCustom),
       'qty': serializer.toJson<int>(qty),
       'lineTotalKurus': serializer.toJson<int>(lineTotalKurus),
@@ -3772,6 +3947,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     int? unitPriceKurus,
     Value<String?> unit = const Value.absent(),
     Value<String?> note = const Value.absent(),
+    Value<String?> optionsJson = const Value.absent(),
     bool? isCustom,
     int? qty,
     int? lineTotalKurus,
@@ -3784,6 +3960,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     unitPriceKurus: unitPriceKurus ?? this.unitPriceKurus,
     unit: unit.present ? unit.value : this.unit,
     note: note.present ? note.value : this.note,
+    optionsJson: optionsJson.present ? optionsJson.value : this.optionsJson,
     isCustom: isCustom ?? this.isCustom,
     qty: qty ?? this.qty,
     lineTotalKurus: lineTotalKurus ?? this.lineTotalKurus,
@@ -3802,6 +3979,9 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           : this.unitPriceKurus,
       unit: data.unit.present ? data.unit.value : this.unit,
       note: data.note.present ? data.note.value : this.note,
+      optionsJson: data.optionsJson.present
+          ? data.optionsJson.value
+          : this.optionsJson,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
       qty: data.qty.present ? data.qty.value : this.qty,
       lineTotalKurus: data.lineTotalKurus.present
@@ -3821,6 +4001,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           ..write('unitPriceKurus: $unitPriceKurus, ')
           ..write('unit: $unit, ')
           ..write('note: $note, ')
+          ..write('optionsJson: $optionsJson, ')
           ..write('isCustom: $isCustom, ')
           ..write('qty: $qty, ')
           ..write('lineTotalKurus: $lineTotalKurus, ')
@@ -3838,6 +4019,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     unitPriceKurus,
     unit,
     note,
+    optionsJson,
     isCustom,
     qty,
     lineTotalKurus,
@@ -3854,6 +4036,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           other.unitPriceKurus == this.unitPriceKurus &&
           other.unit == this.unit &&
           other.note == this.note &&
+          other.optionsJson == this.optionsJson &&
           other.isCustom == this.isCustom &&
           other.qty == this.qty &&
           other.lineTotalKurus == this.lineTotalKurus &&
@@ -3868,6 +4051,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
   final Value<int> unitPriceKurus;
   final Value<String?> unit;
   final Value<String?> note;
+  final Value<String?> optionsJson;
   final Value<bool> isCustom;
   final Value<int> qty;
   final Value<int> lineTotalKurus;
@@ -3881,6 +4065,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     this.unitPriceKurus = const Value.absent(),
     this.unit = const Value.absent(),
     this.note = const Value.absent(),
+    this.optionsJson = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.qty = const Value.absent(),
     this.lineTotalKurus = const Value.absent(),
@@ -3895,6 +4080,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     required int unitPriceKurus,
     this.unit = const Value.absent(),
     this.note = const Value.absent(),
+    this.optionsJson = const Value.absent(),
     this.isCustom = const Value.absent(),
     required int qty,
     required int lineTotalKurus,
@@ -3914,6 +4100,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     Expression<int>? unitPriceKurus,
     Expression<String>? unit,
     Expression<String>? note,
+    Expression<String>? optionsJson,
     Expression<bool>? isCustom,
     Expression<int>? qty,
     Expression<int>? lineTotalKurus,
@@ -3928,6 +4115,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
       if (unitPriceKurus != null) 'unit_price_kurus': unitPriceKurus,
       if (unit != null) 'unit': unit,
       if (note != null) 'note': note,
+      if (optionsJson != null) 'options_json': optionsJson,
       if (isCustom != null) 'is_custom': isCustom,
       if (qty != null) 'qty': qty,
       if (lineTotalKurus != null) 'line_total_kurus': lineTotalKurus,
@@ -3944,6 +4132,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     Value<int>? unitPriceKurus,
     Value<String?>? unit,
     Value<String?>? note,
+    Value<String?>? optionsJson,
     Value<bool>? isCustom,
     Value<int>? qty,
     Value<int>? lineTotalKurus,
@@ -3958,6 +4147,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
       unitPriceKurus: unitPriceKurus ?? this.unitPriceKurus,
       unit: unit ?? this.unit,
       note: note ?? this.note,
+      optionsJson: optionsJson ?? this.optionsJson,
       isCustom: isCustom ?? this.isCustom,
       qty: qty ?? this.qty,
       lineTotalKurus: lineTotalKurus ?? this.lineTotalKurus,
@@ -3990,6 +4180,9 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     if (note.present) {
       map['note'] = Variable<String>(note.value);
     }
+    if (optionsJson.present) {
+      map['options_json'] = Variable<String>(optionsJson.value);
+    }
     if (isCustom.present) {
       map['is_custom'] = Variable<bool>(isCustom.value);
     }
@@ -4018,6 +4211,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
           ..write('unitPriceKurus: $unitPriceKurus, ')
           ..write('unit: $unit, ')
           ..write('note: $note, ')
+          ..write('optionsJson: $optionsJson, ')
           ..write('isCustom: $isCustom, ')
           ..write('qty: $qty, ')
           ..write('lineTotalKurus: $lineTotalKurus, ')
@@ -13472,6 +13666,7 @@ typedef $$CustomersTableCreateCompanionBuilder =
       Value<int?> code,
       Value<int> balanceKurus,
       Value<String?> favoriteProductIds,
+      Value<String?> productOptionsJson,
       Value<String?> blacklistedAt,
       required String updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -13486,6 +13681,7 @@ typedef $$CustomersTableUpdateCompanionBuilder =
       Value<int?> code,
       Value<int> balanceKurus,
       Value<String?> favoriteProductIds,
+      Value<String?> productOptionsJson,
       Value<String?> blacklistedAt,
       Value<String> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -13529,6 +13725,11 @@ class $$CustomersTableFilterComposer
 
   ColumnFilters<String> get favoriteProductIds => $composableBuilder(
     column: $table.favoriteProductIds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productOptionsJson => $composableBuilder(
+    column: $table.productOptionsJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13592,6 +13793,11 @@ class $$CustomersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get productOptionsJson => $composableBuilder(
+    column: $table.productOptionsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get blacklistedAt => $composableBuilder(
     column: $table.blacklistedAt,
     builder: (column) => ColumnOrderings(column),
@@ -13641,6 +13847,11 @@ class $$CustomersTableAnnotationComposer
 
   GeneratedColumn<String> get favoriteProductIds => $composableBuilder(
     column: $table.favoriteProductIds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get productOptionsJson => $composableBuilder(
+    column: $table.productOptionsJson,
     builder: (column) => column,
   );
 
@@ -13697,6 +13908,7 @@ class $$CustomersTableTableManager
                 Value<int?> code = const Value.absent(),
                 Value<int> balanceKurus = const Value.absent(),
                 Value<String?> favoriteProductIds = const Value.absent(),
+                Value<String?> productOptionsJson = const Value.absent(),
                 Value<String?> blacklistedAt = const Value.absent(),
                 Value<String> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -13709,6 +13921,7 @@ class $$CustomersTableTableManager
                 code: code,
                 balanceKurus: balanceKurus,
                 favoriteProductIds: favoriteProductIds,
+                productOptionsJson: productOptionsJson,
                 blacklistedAt: blacklistedAt,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -13723,6 +13936,7 @@ class $$CustomersTableTableManager
                 Value<int?> code = const Value.absent(),
                 Value<int> balanceKurus = const Value.absent(),
                 Value<String?> favoriteProductIds = const Value.absent(),
+                Value<String?> productOptionsJson = const Value.absent(),
                 Value<String?> blacklistedAt = const Value.absent(),
                 required String updatedOccurredAt,
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -13735,6 +13949,7 @@ class $$CustomersTableTableManager
                 code: code,
                 balanceKurus: balanceKurus,
                 favoriteProductIds: favoriteProductIds,
+                productOptionsJson: productOptionsJson,
                 blacklistedAt: blacklistedAt,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -14393,6 +14608,7 @@ typedef $$ProductsTableCreateCompanionBuilder =
       Value<String?> barcode,
       Value<String?> imageUrl,
       Value<String?> imageLocalPath,
+      Value<String?> optionsJson,
       Value<bool> isActive,
       required String updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -14408,6 +14624,7 @@ typedef $$ProductsTableUpdateCompanionBuilder =
       Value<String?> barcode,
       Value<String?> imageUrl,
       Value<String?> imageLocalPath,
+      Value<String?> optionsJson,
       Value<bool> isActive,
       Value<String> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -14456,6 +14673,11 @@ class $$ProductsTableFilterComposer
 
   ColumnFilters<String> get imageLocalPath => $composableBuilder(
     column: $table.imageLocalPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14524,6 +14746,11 @@ class $$ProductsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isActive => $composableBuilder(
     column: $table.isActive,
     builder: (column) => ColumnOrderings(column),
@@ -14579,6 +14806,11 @@ class $$ProductsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
 
@@ -14631,6 +14863,7 @@ class $$ProductsTableTableManager
                 Value<String?> barcode = const Value.absent(),
                 Value<String?> imageUrl = const Value.absent(),
                 Value<String?> imageLocalPath = const Value.absent(),
+                Value<String?> optionsJson = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<String> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -14644,6 +14877,7 @@ class $$ProductsTableTableManager
                 barcode: barcode,
                 imageUrl: imageUrl,
                 imageLocalPath: imageLocalPath,
+                optionsJson: optionsJson,
                 isActive: isActive,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -14659,6 +14893,7 @@ class $$ProductsTableTableManager
                 Value<String?> barcode = const Value.absent(),
                 Value<String?> imageUrl = const Value.absent(),
                 Value<String?> imageLocalPath = const Value.absent(),
+                Value<String?> optionsJson = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 required String updatedOccurredAt,
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -14672,6 +14907,7 @@ class $$ProductsTableTableManager
                 barcode: barcode,
                 imageUrl: imageUrl,
                 imageLocalPath: imageLocalPath,
+                optionsJson: optionsJson,
                 isActive: isActive,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -15048,6 +15284,7 @@ typedef $$OrderLinesTableCreateCompanionBuilder =
       required int unitPriceKurus,
       Value<String?> unit,
       Value<String?> note,
+      Value<String?> optionsJson,
       Value<bool> isCustom,
       required int qty,
       required int lineTotalKurus,
@@ -15063,6 +15300,7 @@ typedef $$OrderLinesTableUpdateCompanionBuilder =
       Value<int> unitPriceKurus,
       Value<String?> unit,
       Value<String?> note,
+      Value<String?> optionsJson,
       Value<bool> isCustom,
       Value<int> qty,
       Value<int> lineTotalKurus,
@@ -15111,6 +15349,11 @@ class $$OrderLinesTableFilterComposer
 
   ColumnFilters<String> get note => $composableBuilder(
     column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15179,6 +15422,11 @@ class $$OrderLinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isCustom => $composableBuilder(
     column: $table.isCustom,
     builder: (column) => ColumnOrderings(column),
@@ -15234,6 +15482,11 @@ class $$OrderLinesTableAnnotationComposer
   GeneratedColumn<String> get note =>
       $composableBuilder(column: $table.note, builder: (column) => column);
 
+  GeneratedColumn<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isCustom =>
       $composableBuilder(column: $table.isCustom, builder: (column) => column);
 
@@ -15287,6 +15540,7 @@ class $$OrderLinesTableTableManager
                 Value<int> unitPriceKurus = const Value.absent(),
                 Value<String?> unit = const Value.absent(),
                 Value<String?> note = const Value.absent(),
+                Value<String?> optionsJson = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<int> qty = const Value.absent(),
                 Value<int> lineTotalKurus = const Value.absent(),
@@ -15300,6 +15554,7 @@ class $$OrderLinesTableTableManager
                 unitPriceKurus: unitPriceKurus,
                 unit: unit,
                 note: note,
+                optionsJson: optionsJson,
                 isCustom: isCustom,
                 qty: qty,
                 lineTotalKurus: lineTotalKurus,
@@ -15315,6 +15570,7 @@ class $$OrderLinesTableTableManager
                 required int unitPriceKurus,
                 Value<String?> unit = const Value.absent(),
                 Value<String?> note = const Value.absent(),
+                Value<String?> optionsJson = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 required int qty,
                 required int lineTotalKurus,
@@ -15328,6 +15584,7 @@ class $$OrderLinesTableTableManager
                 unitPriceKurus: unitPriceKurus,
                 unit: unit,
                 note: note,
+                optionsJson: optionsJson,
                 isCustom: isCustom,
                 qty: qty,
                 lineTotalKurus: lineTotalKurus,

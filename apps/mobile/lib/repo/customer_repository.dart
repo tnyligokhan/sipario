@@ -5,6 +5,11 @@ import 'package:drift/drift.dart';
 import '../data/app_database.dart';
 import '../data/ids.dart';
 import '../data/outbox.dart';
+import '../data/urun_secenekleri.dart';
+
+// ÜRÜN TERCİHİ yüzeyi buradan ayrıldı — 500 satır sınırı. AYNI KÜTÜPHANEDİR (`part`):
+// gerekçe o dosyanın başlığında.
+part 'customer_urun_tercihi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Favori ürünler — JSON çözümlemenin TEK yeri (v18)
@@ -209,7 +214,7 @@ class CustomerRepository {
           occurredAt: at,
           deviceId: device,
           payload: _payload(customerId, name, note, mevcut?.blacklistedAt,
-              favoriIdleriCoz(mevcut?.favoriteProductIds)));
+              favoriIdleriCoz(mevcut?.favoriteProductIds), mevcut?.productOptionsJson));
     });
   }
 
@@ -243,7 +248,7 @@ class CustomerRepository {
           occurredAt: at,
           deviceId: device,
           payload: _payload(customerId, mevcut.name, mevcut.note, damga,
-              favoriIdleriCoz(mevcut.favoriteProductIds)));
+              favoriIdleriCoz(mevcut.favoriteProductIds), mevcut.productOptionsJson));
     });
   }
 
@@ -283,7 +288,8 @@ class CustomerRepository {
           occurredAt: at,
           deviceId: device,
           payload:
-              _payload(customerId, mevcut.name, mevcut.note, mevcut.blacklistedAt, favoriler));
+              _payload(customerId, mevcut.name, mevcut.note, mevcut.blacklistedAt, favoriler,
+                  mevcut.productOptionsJson));
     });
   }
 
@@ -319,14 +325,21 @@ class CustomerRepository {
     String name,
     String? note,
     String? blacklistedAt,
-    List<String> favoriteProductIds,
-  ) =>
+    List<String> favoriteProductIds, [
+    String? productOptionsJson,
+  ]) =>
       {
         'id': id,
         'name': name,
         'note': note,
         'blacklisted_at': blacklistedAt,
         'favorite_product_ids': favoriteProductIds.isEmpty ? null : favoriteProductIds,
+        // ÜRÜN TERCİHLERİ (2026-08-18) — favori listesiyle AYNI kural: JSON NESNE olarak gider.
+        //
+        // ⚠️ HER ÇAĞRI YERİ MEVCUT DEĞERİ OKUYUP GERİ GÖNDERMEK ZORUNDA. Sunucu bu payload'ı TAM
+        // SATIR olarak uyguluyor; adı değiştiren bir çağrı tercihi geçmezse müşterinin bütün
+        // tercihleri sessizce silinir. Aynı tuzak favori listesinde de yazılı ve bir kez ödendi.
+        'product_options': productOptionsJson == null ? null : jsonDecode(productOptionsJson),
       };
 
   /// Arşivle (tombstone). Silme fiziksel değildir; deleted_at işaretlenir + outbox delete.

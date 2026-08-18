@@ -41,6 +41,7 @@ class Product extends Model
         'barcode',
         'image_url',
         'is_active',
+        'options',
         'updated_occurred_at',
         'updated_device_id',
         'deleted_at',
@@ -51,6 +52,7 @@ class Product extends Model
         return [
             'unit_price_kurus' => 'integer',
             'is_active' => 'boolean',
+            'options' => 'array',
             'updated_occurred_at' => 'datetime',
             'deleted_at' => 'datetime',
         ];

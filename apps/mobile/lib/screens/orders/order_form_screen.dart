@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../data/urun_secenekleri.dart';
 import '../../repo/order_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
@@ -217,9 +218,12 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     _musteriSec(yeni);
   }
 
-  void _urunEkle(Product u, int adet) {
+  void _urunEkle(Product u, int adet, SecenekSecimi secim) {
     setState(() {
-      final i = _satirlar.indexWhere((l) => l.productId == u.id);
+      // ⚠️ BİRLEŞTİRME SEÇİME DE BAKAR (2026-08-18). Yalnız `productId`ye bakan eski kural,
+      // "1 soğanlı + 1 soğansız dürüm" isteğini "2 soğansız dürüm"e çevirirdi — müşterinin
+      // siparişini sessizce değiştirmek, hiç kaydetmemekten kötüdür.
+      final i = _satirlar.indexWhere((l) => l.ayniKalem(u.id, secim));
       if (i >= 0) {
         _satirlar[i].qty += adet;
       } else {
@@ -229,6 +233,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
           unitPriceKurus: u.unitPriceKurus,
           unit: u.unit,
           qty: adet,
+          secim: secim,
         ));
       }
       _uyari = null;
@@ -303,11 +308,14 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
             .map((l) => LineInput(
                   productId: l.productId,
                   productName: l.name,
+                  // KATALOG FİYATI gönderilir, ekstralar ta eklenir:
+                  // fiyat formülü tek yerde durmalı (bkz. ).
                   unitPriceKurus: l.unitPriceKurus,
                   unit: l.unit,
                   isCustom: l.serbest,
                   qty: l.qty,
                   note: l.note,
+                  secim: l.secim,
                 ))
             .toList(),
       );

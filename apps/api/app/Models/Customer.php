@@ -50,6 +50,7 @@ class Customer extends Model
         'updated_device_id',
         'blacklisted_at',
         'favorite_product_ids',
+        'product_options',
         'deleted_at',
     ];
 
@@ -67,6 +68,7 @@ class Customer extends Model
             // kez daha ayrıştırmak zorunda kalır ve `unit`/`name` gibi alanlarla aynı biçimde
             // okunamazdı (mobil ayrıştırıcı sözleşmesi: alan ne ise o).
             'favorite_product_ids' => 'array',
+            'product_options' => 'array',
             'deleted_at' => 'datetime',
         ];
     }

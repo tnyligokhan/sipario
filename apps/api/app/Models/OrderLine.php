@@ -42,6 +42,7 @@ class OrderLine extends Model
         'unit_price_kurus',
         'unit',
         'note',
+        'options',
         'is_custom',
         'qty',
         'line_total_kurus',
@@ -53,6 +54,7 @@ class OrderLine extends Model
         return [
             'unit_price_kurus' => 'integer',
             'is_custom' => 'boolean',
+            'options' => 'array',
             'qty' => 'integer',
             'line_total_kurus' => 'integer',
             'deleted_at' => 'datetime',

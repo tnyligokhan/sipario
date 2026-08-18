@@ -120,6 +120,9 @@ extension SyncCekme on SyncEngine {
               // sunucu tarafı kolonu bir gün `json`a çevirdiğinde satırı TypeError'a düşürür ve
               // sürüm çarpıklığı kapısı o müşteriyi sessizce ATLAR (bkz. _guvenliUygula).
               favoriteProductIds: Value(_jsonMetin(m['favorite_product_ids'])),
+              // ÜRÜN TERCİHLERİ (2026-08-18) — haritalanmazsa sunucudaki tercih telefonda
+              // HİÇ OLMAMIŞ sayılır ve müşteri her siparişte yeniden sorulur.
+              productOptionsJson: Value(_jsonMetin(m['product_options'])),
               updatedOccurredAt: Value(_s(m['updated_occurred_at'])),
               updatedDeviceId: Value(_sN(m['updated_device_id'])),
               deletedAt: Value(_sN(m['deleted_at'])),
@@ -158,6 +161,9 @@ extension SyncCekme on SyncEngine {
               unit: Value(_s(m['unit'])),
               barcode: Value(_sN(m['barcode'])),
               imageUrl: Value(_sN(m['image_url'])),
+              // SEÇENEK LİSTESİ (2026-08-18) — favori listesiyle AYNI hoşgörü: sunucu metin de
+              // gerçek JSON dizi de gönderebilir, ikisi de kabul edilir.
+              optionsJson: Value(_jsonMetin(m['options'])),
               // imageLocalPath BİLEREK yazılmaz: cihaz-yerel alandır, sunucu payload'ında yoktur;
               // buraya null yazmak kullanıcının bu cihazdaki görselini silerdi.
               isActive: Value(_b(m['is_active'])),
@@ -191,6 +197,10 @@ extension SyncCekme on SyncEngine {
               // SATIR NOTU (v18) — `unit` ile birebir aynı desen: satırda saklanan, o anki gerçek.
               // Eski sunucu alanı hiç göndermezse null kalır (not yoktu, doğru başlangıç).
               note: Value(_sN(m['note'])),
+              // SEÇİLEN SEÇENEKLER (2026-08-18). Not metni ekranlarda zaten görünüyor; bu alan
+              // YAPILANDIRILMIŞ hâlidir ve "aynı seçimle tekrar sipariş" gibi işler ona bakar.
+              // Haritalanmazsa satır başka cihazda seçimsiz görünür ve düzenleme onu SİLERDİ.
+              optionsJson: Value(_jsonMetin(m['options'])),
               isCustom: Value(_b(m['is_custom'])),
               qty: Value(_i(m['qty'])),
               lineTotalKurus: Value(_i(m['line_total_kurus'])),

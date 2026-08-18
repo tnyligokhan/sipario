@@ -43,7 +43,7 @@ void main() {
 
     await tester.pumpWidget(sipKabuk(Builder(
       builder: (ctx) => TextButton(
-        onPressed: () => posKatalogAc(ctx, db: db, onEkle: (_, _) {}),
+        onPressed: () => posKatalogAc(ctx, db: db, onEkle: (_, _, _) {}),
         child: const Text('Katalog'),
       ),
     )));

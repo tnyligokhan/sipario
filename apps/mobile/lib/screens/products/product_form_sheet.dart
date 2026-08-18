@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/app_database.dart';
+import '../../data/urun_secenekleri.dart';
 import '../../repo/product_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
@@ -20,6 +21,7 @@ import '../../theme/typography.dart';
 import '../isletme/isletme_atomlari.dart';
 import '../barkod/barkod_kamera.dart';
 import 'birimler.dart';
+import 'urun_secenek_alani.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Barkod / görsel
@@ -85,6 +87,9 @@ class _UrunFormuState extends State<_UrunFormu> {
   /// "Diğer…" seçildi — alan menü yerine serbest metin girişi çizer.
   bool _birimSerbest = false;
   late final TextEditingController _birimMetni = TextEditingController(text: _birim);
+
+  /// Ürünün malzeme listesi (2026-08-18). Kaynak doğruluk BURASI — alt bileşen durum tutmaz.
+  late List<UrunSecenegi> _secenekler = secenekleriCoz(widget.urun?.optionsJson);
 
   late final TextEditingController _barkod =
       TextEditingController(text: widget.urun == null ? '' : (urunBarkodu(widget.urun!) ?? ''));
@@ -162,6 +167,7 @@ class _UrunFormuState extends State<_UrunFormu> {
         unit: birim,
         barcode: barkod.isEmpty ? null : barkod,
         imageLocalPath: _gorsel,
+        secenekler: _secenekler,
       );
     } else {
       // `update` TÜM alanları yazar (verilmeyen null olur): sunucudan inen `imageUrl`
@@ -175,6 +181,7 @@ class _UrunFormuState extends State<_UrunFormu> {
         barcode: barkod.isEmpty ? null : barkod,
         imageUrl: widget.urun!.imageUrl,
         imageLocalPath: _gorsel,
+        secenekler: _secenekler,
       );
     }
     if (!mounted) return;
@@ -352,6 +359,11 @@ class _UrunFormuState extends State<_UrunFormu> {
         const _SilmeNotu(
           'Barkodsuz ürünler katalogda aramayla seçilir; barkodlular POS’ta okutarak eklenir.',
           hizala: TextAlign.start,
+        ),
+
+        UrunSecenekAlani(
+          secenekler: _secenekler,
+          onDegis: (l) => setState(() => _secenekler = l),
         ),
 
         AktifToggle(

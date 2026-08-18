@@ -11,6 +11,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../data/urun_secenekleri.dart';
+import '../../repo/customer_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
@@ -18,6 +20,11 @@ import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../barkod/barkod_kamera.dart';
 import 'order_queries.dart';
+import 'urun_secenek_secici.dart';
+
+// "Sepete Ekle" sheet'i (adet · malzeme seçimi · müşteri tercihi) buradan ayrıldı — 500 satır
+// sınırı. AYNI KÜTÜPHANEDİR (`part`): gerekçe o dosyanın başlığında.
+part 'pos_adet_sheet.dart';
 
 /// Katalogdan sepete eklenen kalem.
 class KatalogSecimi {
@@ -31,22 +38,41 @@ class KatalogSecimi {
 Future<void> posKatalogAc(
   BuildContext context, {
   required AppDatabase db,
-  required void Function(Product urun, int adet) onEkle,
+  required void Function(Product urun, int adet, SecenekSecimi secim) onEkle,
   ValueChanged<String>? onBildir,
+  String? musteriId,
+  String? musteriAdi,
 }) =>
     sipSheet<void>(
       context,
       baslik: 'Ürün Kataloğu',
       tam: true,
-      govde: (ctx) => _KatalogGovde(db: db, onEkle: onEkle, onBildir: onBildir),
+      govde: (ctx) => _KatalogGovde(
+        db: db,
+        onEkle: onEkle,
+        onBildir: onBildir,
+        musteriId: musteriId,
+        musteriAdi: musteriAdi,
+      ),
     );
 
 class _KatalogGovde extends StatefulWidget {
-  const _KatalogGovde({required this.db, required this.onEkle, this.onBildir});
+  const _KatalogGovde({
+    required this.db,
+    required this.onEkle,
+    this.onBildir,
+    this.musteriId,
+    this.musteriAdi,
+  });
 
   final AppDatabase db;
-  final void Function(Product urun, int adet) onEkle;
+  final void Function(Product urun, int adet, SecenekSecimi secim) onEkle;
   final ValueChanged<String>? onBildir;
+
+  /// Siparişin müşterisi (2026-08-18). Verilirse kayıtlı ürün tercihi ÖNCEDEN uygulanır ve
+  /// "bu müşteri için hatırla" anahtarı çizilir. null = tezgâh satışı: hatırlanacak kimse yok.
+  final String? musteriId;
+  final String? musteriAdi;
 
   @override
   State<_KatalogGovde> createState() => _KatalogGovdeState();
@@ -64,11 +90,40 @@ class _KatalogGovdeState extends State<_KatalogGovde> {
   }
 
   Future<void> _sec(Product u) async {
-    final adet = await _adetSheetAc(context, u);
-    if (adet == null || !mounted) return;
-    widget.onEkle(u, adet);
+    final secenekler = secenekleriCoz(u.optionsJson);
+    // MÜŞTERİ TERCİHİ SHEET AÇILMADAN ÖNCE OKUNUR (kullanıcı isteği 2026-08-18: "her seferinde
+    // sormak istemeyebilir"). Ürünün BUGÜNKÜ listesiyle uyumlulaştırılır — aylar önce kaydedilen
+    // tercih menüden kalkmış bir malzemeyi taşıyor olabilir.
+    final musteriId = widget.musteriId;
+    final tercih = musteriId == null || secenekler.isEmpty
+        ? const SecenekSecimi()
+        : await CustomerRepository(widget.db)
+            .urunTercihi(musteriId, u.id, secenekler: secenekler);
+    if (!mounted) return;
+
+    final sonuc = await _adetSheetAc(
+      context,
+      u,
+      secenekler: secenekler,
+      baslangic: tercih,
+      musteriAdi: musteriId == null ? null : widget.musteriAdi,
+      tercihUygulandi: !tercih.bos,
+    );
+    if (sonuc == null || !mounted) return;
+
+    // HATIRLAMA YAZIMI EKLEMEDEN ÖNCE: sipariş satırı zaten seçimi taşıyor, ama tercih yazımı
+    // başarısız olursa (müşteri silinmiş) kullanıcı bunu ürün sepete girmeden önce öğrenmeli.
+    if (sonuc.hatirla && musteriId != null) {
+      await CustomerRepository(widget.db)
+          .urunTercihiKaydet(musteriId, u.id, sonuc.secim);
+      if (!mounted) return;
+    }
+
+    widget.onEkle(u, sonuc.adet, sonuc.secim);
     setState(() => _eklenen++);
-    widget.onBildir?.call('${u.name} ×$adet sepete eklendi');
+    final ozet = sonuc.secim.ozet();
+    widget.onBildir?.call(
+        '${u.name} ×${sonuc.adet} sepete eklendi${ozet.isEmpty ? '' : ' · $ozet'}');
   }
 
   @override
@@ -307,148 +362,6 @@ class _PosBos extends StatelessWidget {
               textAlign: TextAlign.center,
               style: SipText.metin(13, w: 500).copyWith(color: t.muted)),
         ],
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-// Adet seçimi — CSS `.pos-sec`, `.pos-stepper`
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-
-Future<int?> _adetSheetAc(BuildContext context, Product u) => sipSheet<int>(
-      context,
-      baslik: 'Sepete Ekle',
-      govde: (ctx) => _AdetGovde(urun: u),
-    );
-
-class _AdetGovde extends StatefulWidget {
-  const _AdetGovde({required this.urun});
-  final Product urun;
-
-  @override
-  State<_AdetGovde> createState() => _AdetGovdeState();
-}
-
-class _AdetGovdeState extends State<_AdetGovde> {
-  int _adet = 1;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    final u = widget.urun;
-    final tutar = u.unitPriceKurus * _adet;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // .pos-sec-head
-        Padding(
-          padding: const EdgeInsets.fromLTRB(2, 2, 2, SipSpace.x2),
-          child: Row(
-            children: [
-              UrunGorseli(urun: u),
-              const SizedBox(width: SipSpace.lg),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // CSS `.pos-sec-nm` DISPLAY ailesindedir (font-d, 16,5/700, ls -.01 —
-                    // _sayfa.html:630); `SipText.metin` gövde ailesini verir. Aynı ölçüdeki
-                    // display jetonu `bosBaslik`tır (`.bos-baslik` ile birebir aynı değerler).
-                    Text(u.name,
-                        style: SipText.bosBaslik.copyWith(color: t.ink),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 3),
-                    Text('${sipTutar(u.unitPriceKurus)} / ${u.unit}',
-                        style: SipText.metin(12, w: 600).copyWith(color: t.muted)),
-                    if ((u.barcode ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SipIcon(SipIcons.barkod, boyut: 12, kalinlik: 1.8, renk: t.muted),
-                          const SizedBox(width: 5),
-                          Text(u.barcode!,
-                              style: SipText.metin(11, w: 600).copyWith(color: t.muted)),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: SipSpace.md),
-              Text(sipTutar(tutar), style: SipText.tutar19.copyWith(color: t.ink)),
-            ],
-          ),
-        ),
-        // .pos-stepper
-        Container(
-          padding: const EdgeInsets.all(SipSpace.md),
-          decoration: BoxDecoration(color: t.surface2, borderRadius: SipRadius.br2),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _StepperDugmesi(
-                ikon: SipIcons.down,
-                pasif: _adet <= 1,
-                onTap: () => setState(() => _adet = _adet > 1 ? _adet - 1 : 1),
-                etiket: 'Azalt',
-              ),
-              Text('$_adet', style: SipText.adet24.copyWith(color: t.ink)),
-              _StepperDugmesi(
-                ikon: SipIcons.plus,
-                onTap: () => setState(() => _adet++),
-                etiket: 'Artır',
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: SipSpace.x2),
-        SipButon(
-          etiket: 'Sepete Ekle · ${sipTutar(tutar)}',
-          ikon: SipIcons.plus,
-          onTap: () => Navigator.of(context).pop(_adet),
-        ),
-      ],
-    );
-  }
-}
-
-/// CSS `.pos-stepper button` — 52×48 yüzey karosu.
-class _StepperDugmesi extends StatelessWidget {
-  const _StepperDugmesi({
-    required this.ikon,
-    required this.onTap,
-    required this.etiket,
-    this.pasif = false,
-  });
-
-  final String ikon;
-  final VoidCallback onTap;
-  final String etiket;
-  final bool pasif;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Semantics(
-      button: true,
-      label: etiket,
-      child: SipDokun(
-        onTap: pasif ? null : onTap,
-        zemin: t.knob,
-        basiliZemin: t.knob,
-        radius: const BorderRadius.all(Radius.circular(12)),
-        olcekle: true,
-        child: SizedBox(
-          width: 52,
-          height: 48,
-          child: Center(
-            child: SipIcon(ikon, boyut: 20, kalinlik: 2.4, renk: pasif ? t.line2 : t.ink),
-          ),
-        ),
       ),
     );
   }

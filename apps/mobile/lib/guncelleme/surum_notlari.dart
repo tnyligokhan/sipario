@@ -51,6 +51,43 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.31.0',
+    tarih: '18 Ağustos 2026',
+    maddeler: [
+      'Ürünlere "içindekiler" listesi eklendi. Ürünü düzenlerken malzemeleri yazın; sipariş '
+          'alırken tek dokunuşla "soğansız" diyebilir ya da ekstra malzeme ekleyebilirsiniz. '
+          'Dürümcü, gözlemeci, tostçu gibi işletmeler için hazır malzeme listeleri de var.',
+      'Bir müşterinin seçimi hatırlanabiliyor: "Bu müşteri için hatırla" derseniz aynı ürünü '
+          'bir daha eklediğinizde seçim kendiliğinden uygulanır — her seferinde sormanız '
+          'gerekmez. Kayıtlı tercihleri müşteri kartından görebilir ve kaldırabilirsiniz.',
+      'Seçim, sipariş kaleminin altında ve kuryenin ekranında yazılı çıkar; ekstra malzemenin '
+          'farkı kalem tutarına eklenir.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.30.0',
+    tarih: '18 Ağustos 2026',
+    maddeler: [
+      'Yanlış kapatılan hesap geri alınabiliyor. Gün Özeti → kapanış kaydına dokunun → '
+          '"Hesabı Geri Al". İşlem yönetici parolası ister ve internet gerektirir.',
+      'Geri alınan kapanış silinmez: arşivde "geri alındı" olarak görünmeye devam eder ve '
+          'düzeltip yeniden kapatabilirsiniz. Kurye kapanışıyla alınan kasa devri de birlikte '
+          'geri alınır.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.29.0',
+    tarih: '18 Ağustos 2026',
+    maddeler: [
+      'Gün Özetine "Günün Veresiyeleri" bölümü eklendi: bugün ne kadar borç yazdığınızı ve '
+          'hangi müşteriye yazıldığını tek bakışta görüyorsunuz. Bu rakam "Açık Veresiye" '
+          'toplamından ayrıdır — o, aylardır birikmiş borcun tamamıdır.',
+      'Tahsilat dökümünde her satır nereden geldiğini söylüyor: "Geçmiş sipariş", '
+          '"Borç tahsilatı" ya da düzeltme. Kasa özetinde ayrıca "Eski borç tahsilatı" satırı '
+          'çıkıyor — para toplama dahildir, yalnız bugünkü satıştan gelmediği belirtilir.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.28.0',
     tarih: '18 Ağustos 2026',
     maddeler: [

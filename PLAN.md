@@ -269,6 +269,77 @@
 >
 ## Güncel durum
 
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-18/3 — DÖRT SAHA MADDESİ: GÜNÜN VERESİYESİ · TAHSİLAT KAYNAĞI · KAPANIŞI GERİ ALMA · ÜRÜN SEÇENEKLERİ (mobil 0.28.0 → **0.31.0**, API 1.10.0 → **1.11.0**)
+
+**Kullanıcının verdiği dört maddenin dördü de bitti, doğrulandı ve sürümlendi.** Bu vardiya hem
+mobil hem sunucu tarafına dokundu: mobil şema v22→**v23**, iki API migration (004013, 004014),
+bir yeni uç nokta (`/auth/parola-dogrula`).
+
+#### 1. "Gün özetinde veresiye işlemleri gözükmüyor" → Günün Veresiyeleri (0.29.0)
+- Ekranda veresiye adına tek kart vardı ve o **anlık toplam bakiyeyi** gösteriyordu (aylardır
+  birikmiş borç). Bugün yazılan veresiye o yığında eriyordu — günün mutabakatının eksik yarısı.
+- ⚠️ **EN KOLAY YANLIŞ CEVAP "günün debit'lerini topla"**: `deliver` HER teslimde tutarın
+  TAMAMI kadar `debit` yazar (nakit teslimde bile) ve borç hemen `payment` ile kapanır. O toplam
+  ciroya eşittir, veresiyeye değil.
+- ⚠️ İKİNCİ YANLIŞ CEVAP zaten kodda vardı: `gunSonuBildirimVerisi` gün geneli tek net alıyor,
+  negatife düşmesin diye sıfıra kırpıyordu. Kırpma belirtiyi örtüyordu — bir müşterinin fazla
+  ödemesi BAŞKA bir siparişin veresiyesini götürebiliyordu. Doğru birim **SİPARİŞTİR**
+  (`GunVeresiyeRepository`); bildirim de artık aynı fonksiyondan besleniyor.
+- UI: "Günün Veresiyeleri" bölümü (toplam hep görünür, döküm aç/kapa), kurye kapsamında da çizilir.
+
+#### 2. "Borç tahsilatı sipariş gibi gözüküyor" → tahsilat kaynağı (0.29.0)
+- `TahsilatKaynagi`: gununSiparisi (ROZETSİZ) · gecmisSiparis · borcTahsilati · duzeltme.
+- Kasadan **hiçbiri düşülmedi** (kullanıcı kararı); kasa kartına yalnız
+  "Eski borç tahsilatı (toplama dahil)" satırı eklendi. Etiketteki "dahil" pazarlıksız: satır
+  iskontonun komşusunda duruyor ve oradaki para kasaya GİRMEDİ, buradaki GİRDİ.
+
+#### 3. "Kasayı kapattığında yönetici şifresiyle geri alabilsin" (0.30.0 · API 1.11.0)
+- `day_closings.reverses_closing_id` — ters satır, silme yok (`cash_handovers` deseninin aynısı).
+- ⚠️ **BAĞLI KASA DEVRİ DE GERİ ALINIR, aynı transaction'da.** Atlansaydı yeniden kapatma İKİNCİ
+  bir devir yazar, `teslimEdilenNakit` ikisini birden sayar ve beklenen nakit teslim edilen
+  paranın İKİ KATI kadar düşerdi — append-only olduğu için kalıcı.
+- ⚠️ **KAPANIŞ ID ÇEKİRDEĞİNE "DENEME SIRASI" EKLENDİ.** Id `tenant|scope|user|gün`den
+  türüyordu; yeniden kapatma AYNI id'yi üretir, yerelde PK çakışır, sunucuda 'duplicate' olurdu
+  → düzeltilmiş sayım HİÇ kaydedilmezdi. İlk kapanış eski etiketi aynen taşır (sahadaki
+  kayıtların id'si değişmez), determinizm korunur.
+- Yönetici onayı: `POST /auth/parola-dogrula`, yalnız TOKEN'IN sahibini doğrular (kullanıcı adı
+  gövdeden alınmaz), `throttle:login`. **Yerel parola aynası bilinçli olarak REDDEDİLDİ** —
+  bu tek eylem çevrimiçi ister ve ağ yokken kullanıcı gerekçesini okur.
+
+#### 4. "İçinde şu olsun olmasın" → ürün seçenekleri (0.31.0 · şema v23)
+- Üç JSON alanı, **sıfır yeni senkron varlığı**: `products.options` · `order_lines.options` ·
+  `customers.product_options`. Gerekçe `customers.favorite_product_ids` (2026-08-11) ile birebir.
+- ⚠️ Satırın seçimi **kendi kendine yeter**: çıkarılanın ADI, eklenenin FİYATI satırda durur —
+  menü yarın değişse dünkü sipariş hâlâ "soğansız" der.
+- ⚠️ Seçim **satır notuna da yazılır**. Özelliğin en ucuz kazancı: sipariş detayı, kurye ekranı
+  ve geçmiş `note` alanını ZATEN çiziyor — hiçbirine dokunmadan seçim görünür oldu (ve eski
+  istemcilerde bilgi kaybolmuyor).
+- Ekstra ücreti BİRİM fiyata biner; `lineTotalKurus = birim * adet` kimliği korundu, hiçbir para
+  formülü değişmedi. Sepette birleştirme artık SEÇİME de bakıyor (yoksa "1 soğanlı + 1 soğansız"
+  → "2 soğansız" olurdu).
+- UX: ürün formunda malzeme düzenleyici + **hazır şablonlar** (Dürüm/Döner, Gözleme, Tost,
+  Burger, Pide, Salata, Çay, İçecek) · adet sheet'inde çip seçici · müşteri tercihi ÖNCEDEN
+  uygulanır ve bunu ekranda SÖYLER · "Bu müşteri için hatırla" anahtarı · müşteri kartında
+  "Ürün Tercihleri" bölümü (görüntüle + sil).
+- "İşletme türü" diye sabit bir alan EKLENMEDİ: aynı dükkânda hem dürüm hem tatlı satılır.
+
+#### Doğrulama (bu makinede bizzat koşuldu)
+- `flutter analyze` **0 sorun** · `flutter test` **1407/1407** (vardiya başında 1364)
+- `flutter build apk --release --flavor saha` başarılı (80.9 MB)
+- API: `pint` temiz · `phpstan` **0 hata** · yeni testler yeşil (KapanisGeriAlma 6/6,
+  UrunSecenekleri 7/7, izolasyon matrisi +1)
+- Sürüm: `pubspec.yaml` 0.31.0 · `surum_notlari.dart`ta DÖRT kayıt (0.29.0 · 0.30.0 · 0.31.0 —
+  0.28.0 bir önceki vardiyadan) · `config/app.php` 1.11.0
+
+#### SONRAKİ KİŞİYE
+1. **Ürün seçeneklerini gerçek bir menüyle dene.** Şablonlar başlangıç noktasıdır; sahadaki
+   dürümcüyle oturup listeyi düzeltmek özelliğin gerçek sınavıdır.
+2. Kapanış geri alma **çevrimiçi ister**. Bunu bayiye anlatan tek yer sürüm notu ve sheet'teki
+   uyarı — pilotta "internet yokken neden çalışmıyor" sorusu gelirse cevabı budur.
+3. Bildirim sesleri hâlâ **gerçek cihazda dinlenmedi** (bir önceki devir notundan devam eden madde).
+4. `ROTA_SURUCU` maddesi hâlâ açık — bu vardiya ona dokunmadı.
+
+
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-18/2 — DÖRT SAHA İSTEĞİ KAPANDI: YETKİ ARIZASI · 3 SÜTUN KATALOG · DOKUZ BİLDİRİM SESİ · KARTTAN TESLİM (mobil 0.26.0 → **0.28.0**, API DEĞİŞMEDİ 1.10.0)
 
 **Kullanıcının verdiği dört maddenin dördü de bitti, doğrulandı ve sürümlendi.** Bu vardiya

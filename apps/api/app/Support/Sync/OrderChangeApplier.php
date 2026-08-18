@@ -259,6 +259,18 @@ class OrderChangeApplier
             // Satır notu (kullanıcı isteği 2026-08-11): "buzlu olsun", "ayrı poşete". `unit` ile
             // AYNI desen — satırın kendi gerçeği satırda durur. `orders.note`tan ayrıdır.
             'note' => self::satirNotu($ln['note'] ?? null),
+            // SEÇİLEN SEÇENEKLER (kullanıcı isteği 2026-08-18) — "soğansız, ekstra peynirli".
+            //
+            // Notun YANINDA durur, yerine değil: not metni ekranların okuduğu hâl, bu alan
+            // makinenin okuduğu hâl. İkisi aynı gerçeğin iki okuyucusuna bakar ve istemci ikisini
+            // birlikte yazar (`LineInput.satirNotu`). Yalnız biri saklansaydı ya eski istemciler
+            // seçimi hiç göremezdi (yalnız yapılandırılmış hâl) ya da "aynı seçimle tekrarla"
+            // gibi işler metin ayrıştırmak zorunda kalırdı (yalnız not).
+            //
+            // ⚠️ FİYAT BURADAN TÜRETİLMEZ: `unit_price_kurus` istemcide ekstralarla birlikte
+            // hesaplanıp gönderilir ve satır toplamı ondan çıkar. Sunucunun ekstraları yeniden
+            // toplaması, aynı formülün ikinci bir kopyası olurdu ve ikisi bir gün ayrışırdı.
+            'options' => UrunSecenekleri::secim($ln['options'] ?? null),
             // "Serbest satır" AÇIK bayrakla işaretlenir; product_id IS NULL'a bel bağlamak kırılgan
             // olurdu (silinmiş ürünün satırı da null olabilir) — tasarım bu ikisini ayrı gösteriyor.
             'is_custom' => (bool) ($ln['is_custom'] ?? false),

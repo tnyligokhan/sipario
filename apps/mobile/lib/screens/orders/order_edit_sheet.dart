@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/app_database.dart';
+import '../../data/urun_secenekleri.dart';
 import '../../repo/order_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
@@ -183,7 +184,12 @@ class _DuzenGovdeState extends State<_DuzenGovde> {
     }
   }
 
-  void _urunEkle(Product u, int adet) {
+  /// [secim] BU SHEET'TE SORULMAZ ve kullanılmaz (2026-08-18) — imzada durmasının sebebi
+  /// `posKatalogAc` sözleşmesidir. Düzenleme sheet'i var olan bir siparişin ADET/SATIR
+  /// düzeltmesidir; katalog buradan müşterisiz açılır, yani tercih de uygulanmaz ve seçim
+  /// her zaman boş gelir. Sessizce yok saymak yerine bu not yazıldı: parametreyi görüp
+  /// "neden kullanılmıyor" diye soran kişinin cevabı burada.
+  void _urunEkle(Product u, int adet, SecenekSecimi secim) {
     setState(() {
       final i = _taslak.indexWhere((x) => x.productId == u.id);
       if (i >= 0) {
