@@ -28,6 +28,7 @@ import 'order_list_parts.dart';
 import 'order_queries.dart';
 import 'siparis_arac_seridi.dart';
 import 'siparis_tarih_seridi.dart';
+import 'teslim_akisi.dart';
 import 'tutamac_deposu.dart';
 
 // Sorgu/biçim yardımcıları bu ekranın YÜZEYİNDEN de erişilebilir olmalı: mevcut testler ve
@@ -359,7 +360,26 @@ class _OrderListScreenState extends State<OrderListScreen> {
         onBildir: (m) => SipToast.goster(context, m),
         onSirala: _yenidenSirala,
         onTekrar: () => setState(() => _siparisAkisi = null),
+        // Salt-okunur kipte GEÇİLMEZ: teslim bir YAZMADIR, kurye çipi gibi "dokun ve gerekçeyi
+        // duy" davranışı buraya uymaz — abonelik kapalıyken hiçbir teslim yazılamaz ve bunu
+        // sipariş detayı zaten tek yerde söylüyor.
+        onTeslim: widget.writable ? _teslimEt : null,
       );
+
+  /// Liste kartındaki "Teslim" düğmesi — detaydaki "Teslim Et" ile AYNI akış ([TeslimAkisi]).
+  ///
+  /// Kalemler satırın elinde YOK (liste onları `SiparisListesi` katmanında tutuyor); tutar
+  /// siparişin kendi `totalKurus` alanından okunur. İkisi aynı sayıdır — `deliver` da onu
+  /// esas alır — ama burada okumak, teslim anında kalem akışının inmiş olmasına bağımlılığı
+  /// da kaldırır: akış geç gelirse tutar 0 görünürdü ve sheet sıfır tahsilatla açılırdı.
+  Future<void> _teslimEt(OrderListItem item) async {
+    await TeslimAkisi(
+      db: widget.db,
+      siparisId: item.order.id,
+      toplamKurus: item.order.totalKurus,
+      musteriId: item.order.customerId,
+    ).calistir(context, onBildir: (m) => SipToast.goster(context, m));
+  }
 
   /// Boş durum — tasarımda İKİ metin var (s-siparisler.jsx:116): "Açık" sekmesi kullanıcıya ne
   /// yapacağını söyler, kalan sekmeler tek nötr cümleyi paylaşır.

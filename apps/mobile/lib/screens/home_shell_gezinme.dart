@@ -49,13 +49,19 @@ extension _GezinmeYuzeyi on _HomeShellState {
         }
         _git(ProductListScreen(db: widget.db, writable: _yazilabilir, rol: _userRole));
       case CekmeceGiris.kuryeler:
-        _git(KuryelerEkrani(db: widget.db, writable: _yazilabilir));
+        // ⚠️ `rol` GEÇİLMEZSE PATRON DA GİREMEZ. Kapı (`YoneticiKapisi`) izin listesidir ve
+        // bilinmeyen rolde KAPANIR (2026-08-17 kararı); geçilmeyen `rol` null demektir, null da
+        // "kurye" ile aynı kovada. Bu satır bir vardiya boyunca rolsüz kaldı ve patron kendi
+        // kuryelerini yönetemedi. Artık dört korunan ekranda da `rol` ZORUNLU alandır —
+        // unutulursa derlenmez, sahada değil burada patlar.
+        _git(KuryelerEkrani(db: widget.db, writable: _yazilabilir, rol: _userRole));
       case CekmeceGiris.muaf:
         if (!_yetki.muafTelefonYonetimi) {
           SipToast.goster(context, 'Muaf telefon yönetimi yalnız yöneticilere açıktır.');
           return;
         }
-        _git(MuafEkrani(db: widget.db, writable: _yazilabilir));
+        // `rol` zorunlu — gerekçe yukarıda (kuryeler dalı). Bu satır da aynı açığı taşıyordu.
+        _git(MuafEkrani(db: widget.db, writable: _yazilabilir, rol: _userRole));
       case CekmeceGiris.ayarlar:
         _git(AyarlarEkrani(
           db: widget.db,

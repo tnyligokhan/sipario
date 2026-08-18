@@ -32,7 +32,7 @@ class ProductListScreen extends StatelessWidget {
     super.key,
     required this.db,
     required this.writable,
-    this.rol,
+    required this.rol,
   });
 
   final AppDatabase db;

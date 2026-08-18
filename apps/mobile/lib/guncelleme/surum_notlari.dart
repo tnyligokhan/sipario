@@ -51,6 +51,46 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.28.0',
+    tarih: '18 Ağustos 2026',
+    maddeler: [
+      'Sipariş kartındaki Ara / WhatsApp / Konum düğmelerinin yanına "Teslim Et" eklendi. '
+          'Artık siparişi açmadan, listenin üzerinden teslim edip tahsilatı işleyebilirsiniz.',
+      'Müşterisiz (tezgâh) siparişlerde de kartın altında "Teslim Et" düğmesi çıkıyor.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.27.0',
+    tarih: '18 Ağustos 2026',
+    maddeler: [
+      'Her bildirim türünün artık kendine özel bir sesi var: size sipariş atandığında, sipariş '
+          'iptal edildiğinde, teslim yapıldığında, kasa devredildiğinde ve gün özeti hazır '
+          'olduğunda telefonunuz farklı çalıyor. Ekrana bakmadan hangi haberin geldiğini '
+          'anlayabilirsiniz.',
+      'Sesler daha belirgin hâle getirildi — motor sesinde ve tezgâh gürültüsünde duyulmak için.',
+      'Bu değişiklik yüzünden telefonunuzun bildirim ayarlarında bu başlıklara daha önce elle '
+          'yaptığınız kısmalar sıfırlanmış olabilir. Uygulama içindeki Bildirim ayarlarınız '
+          'olduğu gibi korunur.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.26.2',
+    tarih: '18 Ağustos 2026',
+    maddeler: [
+      'Sipariş eklerken açılan ürün kataloğunda kartlar küçültüldü: bir satıra iki yerine üç '
+          'ürün sığıyor, aynı ekranda daha fazla ürün görüyorsunuz.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.26.1',
+    tarih: '18 Ağustos 2026',
+    maddeler: [
+      'Patron ve operatör hesaplarında Kuryeler ve Muaf Telefonlar sayfalarının "Bu ekran '
+          'yöneticilere açık" uyarısıyla açılmaması giderildi. Yetkiniz varsa sayfalar '
+          'yeniden normal açılıyor.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.26.0',
     tarih: '17 Ağustos 2026',
     maddeler: [

@@ -269,6 +269,77 @@
 >
 ## Güncel durum
 
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-18/2 — DÖRT SAHA İSTEĞİ KAPANDI: YETKİ ARIZASI · 3 SÜTUN KATALOG · DOKUZ BİLDİRİM SESİ · KARTTAN TESLİM (mobil 0.26.0 → **0.28.0**, API DEĞİŞMEDİ 1.10.0)
+
+**Kullanıcının verdiği dört maddenin dördü de bitti, doğrulandı ve sürümlendi.** Bu vardiya
+yalnız mobil tarafa dokundu; sunucu sözleşmesi DEĞİŞMEDİ (`apps/api/config/app.php` 1.10.0 aynen).
+
+#### 1. Patron "Kuryeler"e giremiyordu — kapının kendisi değil ONA GİDEN YOL kırıktı (0.26.1)
+- Belirti: patron hesabında Kuryeler → *"Bu ekran yöneticilere açık"*; diğer sayfalar normal.
+- Kök neden: 0.26.0'da `YoneticiKapisi` bir İZİN LİSTESİNE çevrildi (bilinmeyen/eksik rolde
+  KAPANIR) ama çekmece `KuryelerEkrani(db:, writable:)` çağrısına `rol`ü HİÇ geçirmiyordu.
+  Geçilmeyen alan `null` → kapı kapalı. **Aynı açık `MuafEkrani`de de vardı** (fark edilmemişti).
+- ⚠️ Teşhis dersi: `ui_rol_kapisi_test.dart` o vardiyada yazılmıştı ve TAMAMI YEŞİLDİ. Kırık olan
+  kapı değil bağlantıydı; kapıyı test etmek, kapıya giden yolu test etmek değildir.
+- Kalıcı çözüm: dört korunan ekranda (`Ürünler` · `Kuryeler` · `Muaf` · `Kurye Yetkileri`)
+  `rol` artık **`required`** — unutmak DERLENMEZ. Ayrıca `lib/` genelinde `rol: null` yazımını
+  arayan bekçi testi eklendi (zorunlu alana elle null yazmak aynı arızayı üretirdi).
+
+#### 2. Sipariş eklerken ürün kartları çok büyüktü → ızgara 2 sütundan 3'e (0.26.2)
+- `pos_catalog.dart`: `crossAxisCount` 2→3, `childAspectRatio` 0.86→**0.68**, dolgu/punto küçüldü.
+- ⚠️ Oran sütun sayısına BAĞLIDIR: karo yüksekliği sabit parçalardan (2 satır ad + fiyat + dolgu)
+  ve genişliğe orantılı parçadan (5/4 görsel) oluşur. Sütun artınca genişlik düşer, sabitlerin
+  payı büyür — 0.86 bırakılsaydı fiyat satırı taşardı. 0.68 en dar telefonda (360 dp) ~10 px pay
+  bırakır ve bu `ui_pos_katalog_test.dart` ile kilitlendi (taşma widget testinde HATA olur).
+- Golden PNG ile gözle de bakıldı: 3 sütun dengeli, kırpma yok.
+
+#### 3. Her bildirime özel ses — dokuz kategori, dokuz ton (0.27.0)
+- Önceden yalnız `siparisAtandi`/`siparisIptal` ayırt ediliyordu; kalan yedisi sistem varsayılanını
+  çalıyordu. Artık **hepsinin kendi tonu var** (`BildirimKategori.ses` nullable DEĞİL).
+- ⚠️ **`wire` ile kanal kimliği AYRILDI.** Android bir kanalın sesini doğuştan sonra değiştirtmez
+  (yeni kanal kimliği şart), ama `wire` sunucu sözleşmesidir (FCM `kategori`) ve sürümlenemez.
+  Çözüm: `wire` çıplak kaldı, `kanalKimligi` = `${wire}_v2`. v1 kanalları `deleteNotificationChannel`
+  ile SİLİNİYOR — deponun "kanal silme" kuralının bilinçli istisnası (gerekçe: v1 bir daha
+  kullanılmayacak ve adı v2 ile birebir aynı; bırakılsaydı ayarlarda iki özdeş satır kalırdı).
+- Ses tasarımı `scripts/bildirim_sesi_uret.dart` (saf matematik, telifi bizim). Ayrım İKİ EKSENDE:
+  nota deseni VE **tını** (harmonik içerik: zil · org · elektronik · saf sinüs) — telefon hoparlörü
+  dar bantlı olduğu için yalnız melodi değiştirmek dokuz sesi birbirine benzetirdi.
+  Tepe genlik 0.35→**0.60** ve her ses tepeye NORMALİZE edilir.
+- **Dördüncü kapı koşuldu:** `flutter build apk --release --flavor saha` → APK içinde dokuz `.wav`
+  VAR ve `resources.arsc` dokuz adı da taşıyor (yani `getIdentifier` çözebilir). `keep.xml` dokuza
+  çıkarıldı; `bildirim_altyapi_test.dart` artık "sözleşme ↔ res/raw ↔ keep.xml" üçlüsünü tarıyor.
+- BEDELİ AÇIK: yeni kanal, bayinin SİSTEM ayarlarında yaptığı kısmaları hatırlamaz (uygulama içi
+  tercihler korunur, çünkü onlar hâlâ `wire` ile saklanıyor). Sürüm notuna bayi diliyle yazıldı.
+
+#### 4. Sipariş kartına "Teslim Et" düğmesi — en sağa (0.28.0)
+- Eylem şeridi (Ara · WhatsApp · Konum) dörde çıktı; dördüncü en sağda, yeşil kenarlıklı.
+- Akış KOPYALANMADI: `screens/orders/teslim_akisi.dart` → `TeslimAkisi` nesnesi. Sipariş DETAYI da
+  artık oradan geçiyor. Gerekçe: bakiye okuma + iskonto yetkisi + özet metni ayrışmaya en açık üç
+  yerdi ve bu depoda aynı ekranın iki girişinin farklı yetkiyle açılması bir kez açık üretmişti.
+- Kapılar: salt-okunur kipte düğme HİÇ çizilmez (teslim bir yazmadır); müşterisiz tezgâh
+  siparişinde eylem şeridi yerine tek başına çizilir (üç düğmenin hepsi ölü olurdu).
+- ⚠️ Etiket **"Teslim" olamadı**: üstteki segment sekmelerinden biri de "Teslim" ve o LİSTELEME
+  yapar. Aynı kelime bir yerde "şu listeyi göster", diğerinde "bu siparişi kapat" demiş olurdu;
+  test de `find.text` iki eşleşme bulup düştü. Şerit dört düğmeliyken ikon/ara/punto küçülür
+  (`sikisik` bayrağı) — üç düğmelik şerit sebepsiz küçülmesin diye KOŞULLU.
+
+#### Doğrulama (bu makinede bizzat koşuldu)
+- `flutter analyze` → **0 sorun**
+- `flutter test` → **1371/1371 yeşil** (vardiya başında 1364; +7 yeni test)
+- `flutter build apk --release --flavor saha` → başarılı (80.6 MB) + APK içeriği ölçüldü (9 ses)
+- Sürüm: `pubspec.yaml` 0.28.0, `surum_notlari.dart`ta DÖRT ayrı kayıt (0.26.1 · 0.26.2 · 0.27.0 ·
+  0.28.0) — her iş kolu kendi artışını aldı (CLAUDE.md sürüm kuralı).
+
+#### SONRAKİ KİŞİYE
+1. **Bildirim sesleri GERÇEK CİHAZDA dinlenmeli.** Ölçülen şey seslerin APK'da OLDUĞU; kulakla
+   ayırt edilebilirlikleri (özellikle `kapanis` ↔ `yeni_cihaz`, ikisi de tekrarlı desen)
+   yalnız telefonda doğrulanır. Beğenilmezse `scripts/bildirim_sesi_uret.dart` tablosu düzenlenir
+   ve komut yeniden koşulur — ⚠️ ama ses değişirse `kanalKimligi` `_v3` olmak zorundadır.
+2. Kanal v1 silme yolu cihazda doğrulanmadı (widget testi platform kanalına dokunamaz): güncelleyen
+   bir telefonda sistem bildirim ayarlarında ÇİFT satır kalmadığı gözle bakılmalı.
+3. `ROTA_SURUCU` maddesi hâlâ açık (bir önceki devir notu) — bu vardiya ona dokunmadı.
+
+
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-18 — SSH AÇIKMIŞ: ÜÇ ORTAM MADDESİ KAPANDI, BİR "KAPALI" MADDE YALAN ÇIKTI (kod DEĞİŞMEDİ; sürüm DEĞİŞMEDİ: mobil 0.26.0, API 1.10.0)
 
 **🔴 BU VARDİYANIN EN ÖNEMLİ TEK CÜMLESİ: SSH ERİŞİMİ VAR VE HEP VARDI.** Önceki vardiya

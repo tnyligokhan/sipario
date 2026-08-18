@@ -10,6 +10,13 @@ import '../../../theme/typography.dart';
 
 /// Kurye rolü Ürünler / Kuryeler / Muaf telefonlar ekranlarını GÖREMEZ. Çekmece bu girişleri
 /// zaten gizler; bu ekranın doğrudan (derin bağlantı, geri yığını) açılmasına karşı ikinci kapı.
+///
+/// ⚠️ KAPIYI SARAN DÖRT EKRANDA `rol` ZORUNLU ALANDIR (2026-08-18) ve bu bilinçlidir: kapı bir
+/// İZİN LİSTESİ olduğu için bilinmeyen rolde KAPANIR, `rol` geçilmeyen bir çağrı da null
+/// gönderir — yani "unutmak", ekranı HERKESE kapatmak demektir. Tam olarak bu yaşandı: çekmece
+/// `KuryelerEkrani`ye `rol` geçmiyordu ve PATRON kendi kuryelerini yönetemiyordu. Kapının kendi
+/// testleri yeşildi, çünkü kırık olan kapı değil BAĞLANTIYDI. Alanı zorunlu yapmak o bağlantıyı
+/// derleyicinin sorumluluğuna verir — yeni bir giriş noktası eklendiğinde derlenmez.
 class YoneticiKapisi extends StatelessWidget {
   const YoneticiKapisi({super.key, required this.rol, required this.child, this.baslik});
 

@@ -5,6 +5,8 @@
 // (kanal kurulumu, izin ve zamanlama cihazda doğrulanır) — ama kararların TAMAMI saf
 // fonksiyonlara çekildi, o yüzden kurallar burada çivileniyor.
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/bildirim/bildirim_ayarlari.dart';
 import 'package:sipario/bildirim/bildirim_servisi.dart';
@@ -12,6 +14,8 @@ import 'package:sipario/bildirim/bildirim_tetikleyici.dart';
 import 'package:sipario/bildirim/bildirim_sozlesmesi.dart';
 
 void main() {
+  _sesVarliklari();
+
   group('BildirimKategori.wire — MAĞAZADA DEĞİŞMEZ', () {
     test('kanal kimlikleri sabittir', () {
       // Bu değerler sistem bildirim kanalının kimliğidir. Değişirse bayinin KAPATTIĞI kanal
@@ -397,6 +401,51 @@ void main() {
 
       expect(servis.gosterilenler, isEmpty);
       expect(servis.zamanlananlar, isEmpty);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// SES VARLIKLARI — "APK derlendi" ile "APK doğru içeriği taşıyor" ayrı sorulardır
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// `BildirimKategori.ses` değerlerinin GERÇEKTEN paketlenebilir olduğunu doğrular.
+///
+/// NEDEN VAR (2026-08-14'te ölçüldü, 2026-08-18'de dokuz sese genişledi): ses dosyalarına
+/// Android tarafından hiçbir statik referans YOKTUR — onları Dart kodu çalışma anında string
+/// adıyla ister (`RawResourceAndroidNotificationSound('yeni_is')`). Kaynak kısaltıcı,
+/// göremediği referansı ölü sayıp atar. Bir kez tam olarak bu oldu: `flutter analyze` temiz,
+/// 1275 test yeşil, release APK derlemesi başarılı — ve APK'nın içinde ses YOK.
+///
+/// Bu bekçi iki ayrı sessiz kaybı yakalar:
+///   1. Sözleşmede adı geçen ama `res/raw` altında OLMAYAN dosya (üreticiyi koşmayı unutmak).
+///   2. Var olan ama `keep.xml`e YAZILMAYAN dosya (kısaltıcı onu APK'dan atar).
+///
+/// ⚠️ SINIRI AÇIKÇA YAZILIYOR: bu test APK'yı AÇMAZ, kaynak ağacını okur. Paketlenmiş içeriğin
+/// kendisi hâlâ dördüncü kapıdır (`flutter build apk --release` + APK'yı zip olarak ölçmek).
+void _sesVarliklari() {
+  group('Ses varlıkları — sözleşme ↔ res/raw ↔ keep.xml', () {
+    // `flutter test` çalışma dizini paket kökü (`apps/mobile`) olduğundan yol görelidir.
+    final rawDizin = Directory('android/app/src/main/res/raw');
+
+    test('her kategorinin ses dosyası res/raw altında GERÇEKTEN var', () {
+      for (final k in BildirimKategori.values) {
+        final dosya = File('${rawDizin.path}/${k.ses}.wav');
+        expect(dosya.existsSync(), isTrue,
+            reason: '${k.wire} → ${k.ses}.wav yok. '
+                '`dart run scripts/bildirim_sesi_uret.dart` koşuldu mu?');
+        expect(dosya.lengthSync(), greaterThan(1000),
+            reason: '${k.ses}.wav neredeyse boş — üretici yarıda kalmış olabilir');
+      }
+    });
+
+    test('keep.xml sesleri kısaltıcıdan KORUYOR — biri eksikse sahada sessizlik olur', () {
+      final keep = File('${rawDizin.path}/keep.xml').readAsStringSync();
+      for (final k in BildirimKategori.values) {
+        expect(keep, contains('@raw/${k.ses}'),
+            reason: '${k.ses} keep.xml listesinde yok: R8 onu APK\'dan atar ve '
+                'derleme de testler de YEŞİL kalır. Kayıp yalnız sahada duyulur.');
+      }
     });
   });
 }

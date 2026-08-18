@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,6 +19,8 @@ import 'support/siparis_yardimci.dart';
 ///
 /// `yetki_matrisi_test.dart` matrisin HESABINI kilitler; bu dosya kapının çizimini kilitler.
 void main() {
+  _rolBaglantisiBekcisi();
+
   group('YoneticiKapisi — kimin geçtiği', () {
     /// Kapının ardındaki içerik: geçtiyse bu metin ekranda olur.
     const icerik = Text('KORUNAN ICERIK', textDirection: TextDirection.ltr);
@@ -127,6 +131,49 @@ void main() {
       expect(find.text('Bu ekran yöneticilere açık'), findsNothing);
 
       await ekraniKapat(tester);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// BAĞLANTI BEKÇİSİ — kapının kendisi değil, ONA GİDEN YOL (2026-08-18)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// Kapının bağlantısını korur: `rol` alanı dört ekranda da ZORUNLUDUR (derleyici kapısı),
+/// ama zorunlu bir alana `null` YAZMAK hâlâ mümkündür ve sonucu aynıdır — ekran HERKESE
+/// kapanır, patron dahil.
+///
+/// NEDEN BU BEKÇİ VAR: tam olarak bu yaşandı. Çekmece `KuryelerEkrani`ye `rol` geçmiyordu;
+/// kapı bir İZİN LİSTESİ olduğu için null'da kapanıyor ve patron kendi kuryelerini
+/// yönetemiyordu. Yukarıdaki testlerin HEPSİ yeşildi — çünkü kırık olan kapı değil, ona giden
+/// yoldu. Alanı `required` yapmak yolun unutulmasını engeller; bu tarama ise "geçtim ama
+/// boş geçtim" hâlini yakalar.
+///
+/// ⚠️ TEK BİR DOSYA ADINA DEĞİL, DOSYA AİLESİNE bakar (`lib/` altındaki tüm Dart kaynağı):
+/// ekranlar bölündüğünde tek dosyayı izleyen bir bekçi sessizce kör kalırdı.
+void _rolBaglantisiBekcisi() {
+  group('rol bağlantısı — kaynak taraması', () {
+    test('hiçbir çağrı `rol: null` YAZMIYOR', () {
+      final ihlaller = <String>[];
+      for (final e in Directory('lib').listSync(recursive: true)) {
+        if (e is! File || !e.path.endsWith('.dart')) continue;
+        final satirlar = e.readAsLinesSync();
+        for (var i = 0; i < satirlar.length; i++) {
+          final satir = satirlar[i].trim();
+          // YORUM SATIRLARI ELENİR: bu kuralın GEREKÇESİ birkaç dosyada `yetkiler(rol: null)`
+          // diye yazılı ve bekçi kendi belgesini ihlal saymamalı. Eleme kaba ama yeterli —
+          // satır içi yorumda (`rol: x, // rol: null`) kaçak vermesi teorik bir ihtimaldir ve
+          // asıl aranan hâl (`rol: null` GEÇMEK) her zaman kod satırındadır.
+          if (satir.startsWith('//') || satir.startsWith('*')) continue;
+          if (RegExp(r'\brol:\s*null\b').hasMatch(satir)) {
+            ihlaller.add('${e.path}:${i + 1} → $satir');
+          }
+        }
+      }
+      expect(ihlaller, isEmpty,
+          reason: 'Yönetici kapısı izin listesidir ve null rolde KAPANIR — `rol: null` '
+              'geçmek, ekranı patrona da kapatmak demektir. Oturumdaki rolü geçirin '
+              '(kabukta `_userRole`).');
     });
   });
 }

@@ -257,18 +257,37 @@ void main() {
       });
     });
 
-    test('özel ses YALNIZ iki kategoride ve İKİSİ FARKLI', () {
-      // Tek ses kullansaydık kurye iptal sesini "yeni sipariş" sanıp yola devam ederdi —
-      // sesin var olma sebebi zaten bildirimi GÖREMEDİĞİ durumdur.
-      expect(BildirimKategori.siparisAtandi.ses, 'yeni_is');
-      expect(BildirimKategori.siparisIptal.ses, 'iptal');
-      expect(
-        BildirimKategori.siparisAtandi.ses,
-        isNot(BildirimKategori.siparisIptal.ses),
-      );
+    test('HER kategorinin sesi var ve DOKUZU DA FARKLI', () {
+      // 2026-08-18 (kullanıcı isteği): önceden yalnız atama ve iptal ayırt ediliyordu, kalan
+      // yedi kategori sistem varsayılanını çalıyordu — yani "sipariş iptal edildi" ile "gün
+      // özeti hazır" kulakta AYNI sesti. Sesin var olma sebebi bildirimi GÖRMEMEK olduğuna
+      // göre, ayırt etmeyen ses hiç ses olmamasıyla aynı kapıya çıkar.
+      //
+      // ⚠️ BU TEST BENZERSİZLİĞİ KİLİTLER, GÜZELLİĞİ DEĞİL: iki kategoriye aynı dosyayı
+      // vermek (kopyala-yapıştır sırasında en olası hata) burada düşer.
+      final sesler = {for (final k in BildirimKategori.values) k: k.ses};
 
-      final sesliler = BildirimKategori.values.where((k) => k.ses != null).length;
-      expect(sesliler, 2);
+      for (final girdi in sesler.entries) {
+        expect(girdi.value, isNotEmpty, reason: '${girdi.key.wire} sessiz kalmış');
+        expect(girdi.value, matches(RegExp(r'^[a-z0-9_]+$')),
+            reason: 'res/raw kuralı: yalnız küçük harf, rakam, alt çizgi — '
+                'büyük harf ya da tire Android kaynak derleyicisini kırar');
+      }
+
+      expect(sesler.values.toSet().length, BildirimKategori.values.length,
+          reason: 'iki kategori aynı dosyayı paylaşıyor — ayırt edicilik kaybolur');
+    });
+
+    test('kanal kimliği SÜRÜMLÜ, wire ise ÇIPLAK — ikisi karıştırılamaz', () {
+      // Sesi değiştirmenin tek yolu yeni kanal kimliğidir (Android var olan kanalın sesini
+      // uygulamanın değiştirmesine izin vermez). `wire` ise sunucu sözleşmesidir ve
+      // sürümlenemez. İkisi tek alana indirgenirse, ses değiştirmenin bedeli push
+      // sözleşmesini kırmak olur.
+      for (final k in BildirimKategori.values) {
+        expect(k.kanalKimligi, '${k.wire}_v2');
+        expect(k.kanalKimligiV1, k.wire, reason: 'v1 yalnız SİLİNMEK için durur');
+        expect(k.kanalKimligi, isNot(k.kanalKimligiV1));
+      }
     });
   });
 

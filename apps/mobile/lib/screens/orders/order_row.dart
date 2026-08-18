@@ -35,6 +35,7 @@ class SiparisSatiri extends StatelessWidget {
     this.onAc,
     this.onKuryeAc,
     this.onBildir,
+    this.onTeslim,
     this.elle = false,
     this.tutamac,
     this.tutamacSagda = true,
@@ -72,6 +73,12 @@ class SiparisSatiri extends StatelessWidget {
 
   /// Tasarımdaki `ping` — eylem düğmeleri toast gösterir.
   final ValueChanged<String>? onBildir;
+
+  /// Eylem şeridinin EN SAĞINDAKİ "Teslim" düğmesi (2026-08-18). `null` = düğme çizilmez.
+  ///
+  /// Çağıran, yetkisi olmayan kullanıcıda (salt-okunur kip) null geçer — kapı BURADA değil,
+  /// ekranda tutulur; satır kimin ne yapabileceğini bilmez, yalnız çizer.
+  final VoidCallback? onTeslim;
 
   /// Elle sıralama kipi: adres/not/eylemler gizlenir, sol başa tutamaç gelir (CSS `.srow.elle`).
   final bool elle;
@@ -302,7 +309,15 @@ class SiparisSatiri extends StatelessWidget {
               telefon: telefon,
               adres: adres,
               onBildir: onBildir,
+              // Dördüncü düğme yalnız AÇIK siparişte anlamlıdır; bu blok zaten `_acik` altında.
+              onTeslim: onTeslim,
             ),
+          ]
+          // TEZGÂH SATIŞI (müşterisiz) — şerit çizilmez ama teslim yine yapılabilmeli.
+          // Üç düğmenin hepsi ölü olacağı için şeridin tamamını çizmek yerine tek düğme konur.
+          else if (o.customerId == null && _acik && !elle && onTeslim != null) ...[
+            const SizedBox(height: SipSpace.md),
+            TeslimSeridi(onTeslim: onTeslim!),
           ],
         ],
       ),

@@ -93,6 +93,7 @@ class SiparisListesiGovdesi extends StatefulWidget {
     required this.onBildir,
     required this.onSirala,
     required this.onTekrar,
+    this.onTeslim,
   });
 
   final AppDatabase db;
@@ -117,6 +118,9 @@ class SiparisListesiGovdesi extends StatefulWidget {
   /// "Tekrar dene" — ekran akışı YENİDEN KURMALI (önbellekli akışa boş bir setState ile geri
   /// abone olmak aynı ölü akışa dönmek olurdu; düğme hiçbir şey yapmazdı).
   final VoidCallback onTekrar;
+
+  /// Satırın "Teslim" düğmesi — akışı EKRAN yürütür (yetki okuma, sheet, toast oradadır).
+  final void Function(OrderListItem)? onTeslim;
 
   @override
   State<SiparisListesiGovdesi> createState() => _SiparisListesiGovdesiState();
@@ -173,6 +177,7 @@ class _SiparisListesiGovdesiState extends State<SiparisListesiGovdesi> {
                       onKuryeAc: widget.onKuryeAc,
                       onBildir: widget.onBildir,
                       onSirala: widget.onSirala,
+                      onTeslim: widget.onTeslim,
                     );
                   },
                 ),
@@ -207,6 +212,7 @@ class SiparisListesi extends StatelessWidget {
     required this.onKuryeAc,
     required this.onBildir,
     required this.onSirala,
+    this.onTeslim,
   });
 
   final List<OrderListItem> liste;
@@ -228,6 +234,9 @@ class SiparisListesi extends StatelessWidget {
   final ValueChanged<OrderListItem>? onKuryeAc;
   final ValueChanged<String> onBildir;
   final ValueChanged<List<OrderListItem>> onSirala;
+
+  /// Satırın "Teslim" düğmesi. `null` = salt-okunur kip (düğme hiç çizilmez).
+  final ValueChanged<OrderListItem>? onTeslim;
 
   static const _dolgu = EdgeInsets.fromLTRB(SipSpace.govde, 0, SipSpace.govde, 96);
 
@@ -254,6 +263,7 @@ class SiparisListesi extends StatelessWidget {
         onAc: () => onAc(item),
         onKuryeAc: onKuryeAc == null ? null : () => onKuryeAc!(item),
         onBildir: onBildir,
+        onTeslim: onTeslim == null ? null : () => onTeslim!(item),
       ),
     );
   }

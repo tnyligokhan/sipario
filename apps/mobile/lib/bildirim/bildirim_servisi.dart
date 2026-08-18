@@ -6,9 +6,14 @@
 // Bildirim CİHAZDAN ÇIKMAZ — sunucu, hesap, push altyapısı YOK (KVKK açısından sessiz).
 //
 // KANALLAR: kategori başına AYRI kanal. Bayi sistemden tek tek kısabilmeli. Kanal kimlikleri
-// `BildirimKategori.wire`dan gelir ve MAĞAZADA DEĞİŞMEZ — değişirse kullanıcının kapattığı
-// kanal yeni kanal olarak geri açılır. Arayan kartının kanalı (`sipario_caller`, native
-// tarafta) buraya HİÇ dokunmaz: ayrı kimlik, ayrı önem derecesi, ayrı yaşam döngüsü.
+// `BildirimKategori.kanalKimligi`den gelir — `wire`dan DEĞİL (2026-08-18). `wire` sunucuyla
+// paylaşılan sözleşmedir ve sürümlenemez; kanal kimliği ise kanalın SESİ değiştiğinde değişmek
+// ZORUNDADIR, çünkü Android var olan bir kanalın sesini uygulamanın değiştirmesine izin vermez.
+// Sürüm artışının bedeli, bayinin o kanalda yaptığı SİSTEM kısmalarının sıfırlanmasıdır; bu
+// yüzden ucuz bir hareket değildir ve gerekçesi sözleşme dosyasında yazılıdır.
+//
+// Arayan kartının kanalı (`sipario_caller`, native tarafta) buraya HİÇ dokunmaz: ayrı kimlik,
+// ayrı önem derecesi, ayrı yaşam döngüsü.
 //
 // TAM ZAMANLI ALARM İZNİ ALINMIYOR: `AndroidScheduleMode.inexactAllowWhileIdle` kullanılıyor,
 // bu `SCHEDULE_EXACT_ALARM`/`USE_EXACT_ALARM` GEREKTİRMEZ. Bizim bildirimlerimiz alarm değil
@@ -120,19 +125,32 @@ class YerelBildirimServisi implements BildirimServisi {
   Future<void> _kanallariKur() async {
     final android = _android();
     if (android == null) return;
+
+    // ÖNCE SİL, SONRA KUR (2026-08-18). Sıra önemlidir: v1 ile v2 aynı ADI ve AÇIKLAMAYI
+    // taşıyor, yani bir an bile yan yana durdukları bir liste bayiyi yanıltır. Gerekçenin
+    // tamamı `BildirimKategori.kanalKimligiV1` üzerinde.
+    //
+    // Silme İDEMPOTENTTİR: olmayan kanalı silmek Android'de sessizce hiçbir şey yapmaz, yani
+    // uygulamayı ilk kez kuran telefonda da güvenle koşar. İkinci açılışta v1 zaten yoktur.
     for (final k in BildirimKategori.values) {
-      final ses = k.ses;
+      await android.deleteNotificationChannel(channelId: k.kanalKimligiV1);
+    }
+
+    for (final k in BildirimKategori.values) {
       await android.createNotificationChannel(
         AndroidNotificationChannel(
-          k.wire,
+          // ⚠️ `wire` DEĞİL `kanalKimligi`: sesi değiştirmenin tek yolu yeni kanal kimliğidir
+          // ve `wire` sunucu sözleşmesi olduğu için sürümlenemez (gerekçe sözleşme dosyasında).
+          k.kanalKimligi,
           k.ad,
           description: k.aciklama,
           // HEADS-UP YALNIZ ÜÇ KATEGORİDE (gerekçe: `BildirimKategori.headsUp`). Kalanlar
-          // rafa düşer, titrer, simge çıkar — ama işi bölmez.
+          // rafa düşer, titrer, simge çıkar — ama işi bölmez. Kanal sürümü artarken bu değer
+          // BİLEREK DEĞİŞTİRİLMEDİ: kullanıcının istediği ayırt edici SESTİ, daha çok ekran
+          // kesintisi değil.
           importance: k.headsUp ? Importance.high : Importance.defaultImportance,
-          // Ses YOKSA sistem varsayılanı çalar; `playSound: false` DEĞİL — sessiz bildirim
-          // istemiyoruz, yalnız ayırt edici bir ton istemiyoruz.
-          sound: ses == null ? null : RawResourceAndroidNotificationSound(ses),
+          // Artık her kategorinin kendi tonu var — sistem varsayılanına düşen kategori YOK.
+          sound: RawResourceAndroidNotificationSound(k.ses),
         ),
       );
     }
@@ -289,18 +307,19 @@ class YerelBildirimServisi implements BildirimServisi {
   /// genişletilebilir göstermek, bayiye boş bir hareket yaptırmaktır.
   NotificationDetails _ayrinti(BildirimTaslagi t) {
     final k = t.kategori;
-    final ses = k.ses;
     final detay = t.detay;
 
     return NotificationDetails(
       android: AndroidNotificationDetails(
-        k.wire,
+        // Kanal kimliği `_kanallariKur` ile AYNI kaynaktan okunur. İkisi ayrışırsa bildirim
+        // hiç var olmayan bir kanala düşer ve Android onu sessizce yok sayar.
+        k.kanalKimligi,
         k.ad,
         channelDescription: k.aciklama,
         importance: k.headsUp ? Importance.high : Importance.defaultImportance,
         priority: k.headsUp ? Priority.high : Priority.defaultPriority,
         visibility: _kilitEkraniGorunurlugu(k),
-        sound: ses == null ? null : RawResourceAndroidNotificationSound(ses),
+        sound: RawResourceAndroidNotificationSound(k.ses),
         styleInformation: detay == null
             ? null
             : BigTextStyleInformation(

@@ -20,9 +20,14 @@
 
   Yeni bir ses eklenirse BURAYA DA yazılmalı; unutulursa sessizce kaybolur.
 
+  ⚠️ 2026-08-18: liste ikiden DOKUZA çıktı — her bildirim kategorisinin artık kendi tonu var
+  (`scripts/bildirim_sesi_uret.dart`). Buradaki isimlerin `BildirimKategori.ses` değerleriyle
+  BİREBİR aynı olması gerekir; `bildirim_altyapi_test.dart` bu listeyi sözleşme sayar ama test
+  APK'yı açamaz — eksik bir isim yalnız sahada, sessizlik olarak görünür.
+
   ⚠️ Bu dosya XML YORUMU taşır: içinde iki ardışık tire karakteri BULUNAMAZ (XML kuralı).
   Bir kez ihlal edildi ve R8 derlemeyi `ParseError` ile düşürdü.
 -->
 <resources
     xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@raw/yeni_is,@raw/iptal" />
+    tools:keep="@raw/yeni_is,@raw/iptal,@raw/teslim,@raw/kasa,@raw/yeni_cihaz,@raw/gun_ozeti,@raw/kapanis,@raw/kontor,@raw/sistem" />

@@ -65,7 +65,7 @@ class KuryelerEkrani extends StatelessWidget {
     super.key,
     required this.db,
     this.writable = true,
-    this.rol,
+    required this.rol,
   });
 
   final AppDatabase db;

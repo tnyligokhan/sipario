@@ -125,13 +125,23 @@ class _KatalogGovdeState extends State<_KatalogGovde> {
                 metin: tumu.isEmpty ? 'Katalog boş' : '"$_sorgu" için sonuç yok',
               )
             else
+              // ÜÇ SÜTUN (kullanıcı kararı 2026-08-18): iki sütunda karolar tezgâhta gereksiz
+              // büyüktü ve ekrana ancak dört ürün sığıyordu; sipariş girişi sürekli kaydırma
+              // istiyordu. Üç sütun aynı yükseklikte %50 daha fazla ürün gösterir.
+              //
+              // ⚠️ ORAN SÜTUN SAYISINA BAĞLIDIR: `childAspectRatio` GENİŞLİK/YÜKSEKLİK'tir ve
+              // karo yüksekliği sabit parçalar (2 satır ad + fiyat satırı + dolgu ≈ 76 px)
+              // ile genişliğe ORANTILI parçadan (5/4 görsel) oluşur. Sütun sayısı artınca
+              // genişlik düşer, sabit parçaların payı büyür — eski 0.86 ile karo 40 px kısa
+              // kalır ve `Expanded`in altındaki fiyat satırı taşardı. 0.68, en dar telefonda
+              // (360 dp) bile ~10 px pay bırakır.
               GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                mainAxisSpacing: SipSpace.lg,
-                crossAxisSpacing: SipSpace.lg,
-                childAspectRatio: 0.86,
+                crossAxisCount: 3,
+                mainAxisSpacing: SipSpace.md,
+                crossAxisSpacing: SipSpace.md,
+                childAspectRatio: 0.68,
                 children: [
                   for (final u in liste) _PosKarosu(urun: u, onTap: () => _sec(u)),
                 ],
@@ -177,27 +187,29 @@ class _PosKarosu extends StatelessWidget {
       onTap: onTap,
       zemin: t.surface2,
       basiliZemin: t.line,
-      radius: const BorderRadius.all(Radius.circular(18)),
+      radius: const BorderRadius.all(Radius.circular(16)),
       olcekle: true,
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 11),
+      // Üç sütunda dolgu 8 → 6: kaybedilen her piksel doğrudan görselden ve ad satırından
+      // çıkıyordu. Alt dolgu (9) üsttekinden büyük kalır — fiyat satırı kenara yapışmasın.
+      padding: const EdgeInsets.fromLTRB(6, 6, 6, 9),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          UrunGorseli(urun: urun, en: double.infinity, oran: 5 / 4, radius: 12, puntoBoyut: 24),
-          const SizedBox(height: 5),
+          UrunGorseli(urun: urun, en: double.infinity, oran: 5 / 4, radius: 10, puntoBoyut: 20),
+          const SizedBox(height: 4),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: SipSpace.xs),
+              padding: const EdgeInsets.symmetric(horizontal: 2),
               child: Text(
                 urun.name,
-                style: SipText.metin(13, w: 700, h: 1.3).copyWith(color: t.ink),
+                style: SipText.metin(12, w: 700, h: 1.3).copyWith(color: t.ink),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: SipSpace.xs),
+            padding: const EdgeInsets.symmetric(horizontal: 2),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
@@ -205,14 +217,23 @@ class _PosKarosu extends StatelessWidget {
                 Flexible(
                   child: Text(
                     sipTutar(urun.unitPriceKurus),
-                    style: SipText.tutar(13.5).copyWith(color: t.ink),
+                    style: SipText.tutar(12.5).copyWith(color: t.ink),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: SipSpace.xs),
-                Text('/ ${urun.unit}',
-                    style: SipText.metin(10.5, w: 500).copyWith(color: t.muted)),
+                const SizedBox(width: 3),
+                // BİRİM DARALTILABİLİR: dar telefonda "1.250,00 ₺" + "/ porsiyon" yan yana
+                // sığmaz. Kırpılacaksa BİRİM kırpılır, fiyat değil — bayi fiyatı okuyamazsa
+                // karo işini yapmıyor demektir.
+                Flexible(
+                  child: Text(
+                    '/ ${urun.unit}',
+                    style: SipText.metin(9.5, w: 500).copyWith(color: t.muted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           ),

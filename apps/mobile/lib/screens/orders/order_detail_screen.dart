@@ -25,13 +25,13 @@ import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../customers/customer_form_screen.dart' show musteriDuzenleSheet;
 import '../team.dart';
-import 'delivery_sheet.dart';
 import 'order_detail_basligi.dart';
 import 'order_detail_eylemler.dart';
 import 'order_detail_parts.dart';
 import 'order_edit_sheet.dart';
 import 'order_parts.dart';
 import 'order_queries.dart';
+import 'teslim_akisi.dart';
 
 export 'order_queries.dart'
     show
@@ -317,40 +317,14 @@ class _Govde extends StatelessWidget {
   /// Teslim + KISMİ ÖDEME + İSKONTO: sheet ne kadar tahsil edildiğini VE ne kadar kırıldığını
   /// döner. `deliver` alınan parayı `payment`, kırılanı `discount` olarak yazar; ikisinden de
   /// artan fark ödenmemiş `debit` olarak borçta durur (kalan borç için ayrı kayıt YOK).
+  ///
+  /// AKIŞIN KENDİSİ ARTIK BURADA DEĞİL ([TeslimAkisi], 2026-08-18): aynı teslim liste
+  /// kartındaki dördüncü eylem düğmesinden de başlatılıyor. İki giriş, TEK kapı — ayrı
+  /// yazılsalardı bakiye okuma, iskonto yetkisi ve özet metni zamanla ayrışırdı.
   Future<void> _teslimEt(BuildContext context) async {
-    final musteriId = order.customerId;
-    final toplam = satirlarToplami(satirlar);
-    // Teslimden ÖNCEKİ bakiye tek atış okunur: sheet yalnız sipariş tutarını görür, "fazla ödemede
-    // müşteri ne kadar alacaklı kalacak" sorusunu bu olmadan yanıtlayamaz (akış beklenemez).
-    final oncekiBakiye =
-        musteriId == null ? 0 : (await musteriOku(db, musteriId))?.balanceKurus ?? 0;
-    // İskonto yetkisi EYLEM ANINDA okunur (2026-08-04): bu sheet kabuktan bağımsız açılıyor ve
-    // yetkileri taşımıyor; patron ayarı az önce kapatmış olabilir.
-    final yetki = await oturumYetkileri(db);
-    if (!context.mounted) return;
-
-    final sonuc = await teslimSheetAc(context,
-        toplamKurus: toplam,
-        musteriVar: musteriId != null,
-        oncekiBakiyeKurus: oncekiBakiye,
-        iskontoYetkisi: yetki.iskonto);
-    if (sonuc == null || !context.mounted) return;
-
-    await OrderRepository(db).deliver(order.id,
-        paymentType: sonuc.odemeTipi,
-        tahsilKurus: sonuc.tahsilKurus,
-        iskontoKurus: sonuc.iskontoKurus);
-    if (!context.mounted) return;
-
-    // Bayi teslim anında en çok "borç kaldı mı" diye merak eder — kısmi teslimde toast onu söyler.
-    // İskontoda borç KALMAZ, o yüzden toast borcu değil kırılan tutarı yazar: aynı farkın iki ayrı
-    // anlamı var ve hangisinin kaydedildiği teslimden sonra da okunabilmeli.
-    final kalan = teslimBorcFarki(toplamKurus: toplam, tahsilKurus: sonuc.tahsilKurus) -
-        sonuc.iskontoKurus;
-    final ek = sonuc.iskontoKurus > 0
-        ? ' · ${sipTutar(sonuc.iskontoKurus)} iskonto'
-        : (kalan > 0 && sonuc.odemeTipi != 'veresiye' ? ' · ${sipTutar(kalan)} borç' : '');
-    SipToast.goster(context, 'Sipariş teslim edildi · ${odemeTipiEtiketi(sonuc.odemeTipi)}$ek');
+    final yazildi = await TeslimAkisi.satirdan(db: db, siparis: order, satirlar: satirlar)
+        .calistir(context);
+    if (!yazildi || !context.mounted) return;
     Navigator.of(context).maybePop();
   }
 

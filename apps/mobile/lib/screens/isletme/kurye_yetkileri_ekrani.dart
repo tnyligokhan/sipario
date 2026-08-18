@@ -29,7 +29,7 @@ class KuryeYetkileriEkrani extends StatelessWidget {
     super.key,
     required this.db,
     this.writable = true,
-    this.rol,
+    required this.rol,
     this.userId,
     this.kuryeAdi,
   });

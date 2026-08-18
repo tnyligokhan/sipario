@@ -170,21 +170,65 @@ enum BildirimKategori {
         _ => false,
       };
 
-  /// `res/raw` altındaki özel ses dosyasının adı; `null` = sistem varsayılanı.
+  /// `res/raw` altındaki özel ses dosyasının adı. **Her kategorinin kendi tonu vardır.**
   ///
-  /// ⚠️ SES DE KANALIN DOĞUŞUNDA DONAR ([headsUp] ile aynı kısıt).
+  /// ⚠️ SES KANALIN DOĞUŞUNDA DONAR ([headsUp] ile aynı kısıt) — bu yüzden sesi değiştirmek
+  /// [kanalKimligi]nin sürümünü artırmayı gerektirir; oradaki nota bunun tek yoludur.
   ///
-  /// İKİ AYRI TON, ÇÜNKÜ SESİN VAR OLMA SEBEBİ BİLDİRİMİ GÖREMEMEK: kurye direksiyondayken
-  /// ekrana bakmaz. Tek ses kullansaydık iptal sesini "yeni sipariş" sanıp yola devam ederdi.
-  /// `yeni_is` yükselen, `iptal` alçalan iki notadır (`scripts/bildirim_sesi_uret.dart`).
+  /// DOKUZ AYRI TON, ÇÜNKÜ SESİN VAR OLMA SEBEBİ BİLDİRİMİ GÖREMEMEK: kurye direksiyonda,
+  /// esnaf tezgâhtadır; ikisi de bildirimi DUYAR, ekrana bakmaz. Önceden yalnız atama ve iptal
+  /// ayırt ediliyordu, kalan yedi kategori sistem varsayılanını çalıyordu — yani "sipariş iptal
+  /// edildi" ile "gün özeti hazır" telefonun kulağında AYNI sesti (kullanıcı isteği 2026-08-18:
+  /// "her bildirim için özel bir ses, gerçekten belirgin olsun").
   ///
-  /// Diğer kategorilerde ses YOK demek SESSİZ demek DEĞİLDİR — sistem varsayılanı çalar;
-  /// yalnız ayırt edici bir tonu hak etmezler.
-  String? get ses => switch (this) {
+  /// Tonlar iki eksende birden ayrıştırılır — nota deseni VE tını (harmonik içerik). Yalnız
+  /// nota dizisini değiştirmek yetmiyor: telefon hoparlörü dar bantlıdır ve dokuz melodiyi
+  /// birbirine benzetir. Ayrıntı ve gerekçeler `scripts/bildirim_sesi_uret.dart` tablosunda;
+  /// ton beğenilmezse orası düzenlenip komut yeniden koşulur (ses saf matematiktir, telifi
+  /// bizimdir).
+  ///
+  /// ⚠️ BURAYA YAZILAN HER AD `android/app/src/main/res/raw/keep.xml` DOSYASINDA DA OLMALI.
+  /// Yoksa kaynak kısaltıcı sesi ölü sayıp APK'dan atar: derleme yeşil, testler yeşil, ses yok.
+  String get ses => switch (this) {
         BildirimKategori.siparisAtandi => 'yeni_is',
         BildirimKategori.siparisIptal => 'iptal',
-        _ => null,
+        BildirimKategori.siparisTeslim => 'teslim',
+        BildirimKategori.kasaDevri => 'kasa',
+        BildirimKategori.yeniCihaz => 'yeni_cihaz',
+        BildirimKategori.gunSonuOzeti => 'gun_ozeti',
+        BildirimKategori.gunKapanisHatirlatma => 'kapanis',
+        BildirimKategori.kullanimHakki => 'kontor',
+        BildirimKategori.sistem => 'sistem',
       };
+
+  /// ANDROID KANAL KİMLİĞİ — [wire]dan AYRI TUTULUR ve SÜRÜMLENİR.
+  ///
+  /// ⚠️ İKİSİ NEDEN AYNI OLAMAZ: `wire` sunucuyla paylaşılan sözleşmedir (FCM yükündeki
+  /// `kategori` alanı — `app/Bildirim/PushOlayi.php`) ve sahadaki eski istemci onu tanımak
+  /// zorundadır. Kanal kimliği ise Android'in kaydıdır ve kanalın SESİ/ÖNEMİ değiştiğinde
+  /// DEĞİŞMEK ZORUNDADIR, çünkü Android var olan bir kanalın sesini uygulamanın değiştirmesine
+  /// izin vermez. İkisi tek alan olsaydı sesi değiştirmenin bedeli push sözleşmesini kırmak
+  /// olurdu; sözleşmeyi korumanın bedeli de sesi asla değiştirememek.
+  ///
+  /// SÜRÜM 2 (2026-08-18): yedi kategori ilk kez kendi sesini aldı, ikisinin sesi yenilendi.
+  /// v1 kanalları [kanalKimligiV1] listesinden SİLİNİR — bkz. oradaki gerekçe.
+  ///
+  /// BEDELİ AÇIKÇA YAZILIYOR: yeni kanal, bayinin eskisinde yaptığı kısmaları HATIRLAMAZ ve
+  /// açık gelir. Uygulama içi kategori anahtarları (`bildirim_ayarlari.dart`, hâlâ [wire] ile
+  /// saklanır) korunur — yani bayinin UYGULAMADAN kapattığı kategori kapalı kalır; sıfırlanan
+  /// yalnız SİSTEM ayarlarındaki kısmalardır.
+  String get kanalKimligi => '${wire}_v2';
+
+  /// Sürüm 1 kanal kimliği — yalnız SİLMEK için durur.
+  ///
+  /// Depoda yazılı olan kural "kullanılmayan kanalı silme"dir (kaldırılan `borcEsigi` ailesi
+  /// öyle bırakıldı) ve gerekçesi şuydu: aynı kimlik bir gün geri gelirse kullanıcının o
+  /// kanaldaki ayarı da yok olur. BURADA DURUM TERSİ — `..._v1` kimliği bir daha ASLA
+  /// kullanılmayacak, ama adı ve açıklaması v2 ile BİREBİR AYNI. Bırakılsaydı bayinin sistem
+  /// ayarlarında iki "Gün özeti", iki "Kasa devri" yan yana dururdu ve hangisinin gerçekten
+  /// çalan kanal olduğu anlaşılamazdı. Sessizce yanıltan bir ayar, kaybolan bir tercihten
+  /// pahalıdır.
+  String get kanalKimligiV1 => wire;
 
   static BildirimKategori? wiredan(String? w) =>
       values.where((k) => k.wire == w).firstOrNull;

@@ -22,6 +22,8 @@ import 'support/siparis_yardimci.dart';
 ///
 /// Bölme gerekçesi: `ui_siparis_test.dart` başlığı.
 void main() {
+  _kartUzerindenTeslim();
+
   // ═════════════════════════════════════════════════════════════════════════════════════════
   // Teslim & ödeme sheet'i — CSS `.odeme-grid`, `.teslim-uyari`
   // ═════════════════════════════════════════════════════════════════════════════════════════
@@ -394,6 +396,135 @@ void main() {
         siparisleriSirala(liste, OrderSort.rota).map((i) => i.order.id),
         reason: 'elle kipi rotanın bıraktığı yerden başlar',
       );
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// LİSTE KARTINDAN TESLİM — dördüncü eylem düğmesi (2026-08-18)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// Teslim artık İKİ yerden başlıyor: sipariş detayı ve liste kartının eylem şeridi. İkisi de
+/// `TeslimAkisi` üzerinden geçer — ama "aynı akışı çağırıyorlar" iddiası, düğmenin GERÇEKTEN
+/// çizildiği ve akışı GERÇEKTEN başlattığı doğrulanmadan bir şey ifade etmez. Bu depoda tam
+/// olarak bu boşluk bir kez ödendi: kapının kendi testleri yeşilken ekranın ona bağlanmayı
+/// unutması sahada yetki arızası olarak göründü (`ui_rol_kapisi_test.dart`).
+void _kartUzerindenTeslim() {
+  group('liste kartı — "Teslim Et" düğmesi', () {
+    testWidgets('AÇIK siparişte şeridin EN SAĞINDA çizilir ve teslim sheet\'ini açar',
+        (tester) async {
+      genisYuzey(tester);
+      final db = AppDatabase(NativeDatabase.memory());
+      late String orderId;
+      await tester.runAsync(() async {
+        final musteriId = await CustomerRepository(db).create(name: 'Ayşe Yılmaz');
+        orderId = await OrderRepository(db).create(customerId: musteriId, lines: [
+          LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 2),
+        ]);
+      });
+
+      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
+      await akisiBekle(tester);
+
+      // EN SAĞDA olmak sözleşmenin parçası (kullanıcı isteği: "WhatsApp/Ara butonları gibi
+      // teslim et butonu en sağ"). Sıra, düğmelerin ekrandaki yatay konumuyla doğrulanır —
+      // widget ağacındaki sıra Row içinde de olsa yeterli kanıt değildir.
+      final teslimX = tester.getCenter(find.text('Teslim Et')).dx;
+      for (final onceki in ['Ara', 'WhatsApp', 'Konum']) {
+        expect(tester.getCenter(find.text(onceki)).dx, lessThan(teslimX),
+            reason: '"$onceki" teslim düğmesinin SOLUNDA kalmalı');
+      }
+
+      await tester.tap(find.text('Teslim Et'));
+      await akisiBekle(tester);
+      // Sheet açıldı: kaydetme düğmesi ancak orada var.
+      expect(find.text('Teslim Et ve Kaydet'), findsOneWidget);
+
+      await tester.tap(find.text('Teslim Et ve Kaydet'));
+      await akisiBekle(tester, ms: 300);
+
+      late Order siparis;
+      await tester.runAsync(() async {
+        siparis =
+            await (db.select(db.orders)..where((t) => t.id.equals(orderId))).getSingle();
+      });
+      expect(siparis.status, 'delivered',
+          reason: 'liste kartından teslim, detaydakiyle AYNI yazmayı yapmalı');
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('SALT-OKUNUR kipte düğme HİÇ çizilmez, diğer üçü kalır', (tester) async {
+      // Teslim bir YAZMADIR; abonelik kapalıyken hiçbir teslim kaydedilemez. Düğmeyi çizip
+      // dokunuşta reddetmek, gerekçeyi zaten söyleyen sipariş detayının işini tekrarlardı.
+      // Ara/WhatsApp/Konum ise okuma değil HARİCİ eylemdir — onlar kalmalı.
+      genisYuzey(tester);
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        final musteriId = await CustomerRepository(db).create(name: 'Ayşe Yılmaz');
+        await OrderRepository(db).create(customerId: musteriId, lines: [
+          LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 1),
+        ]);
+      });
+
+      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: false)));
+      await akisiBekle(tester);
+
+      expect(find.text('Teslim Et'), findsNothing);
+      expect(find.text('Ara'), findsOneWidget);
+      expect(find.text('WhatsApp'), findsOneWidget);
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('360 dp telefonda DÖRT düğme yan yana TAŞMAZ', (tester) async {
+      // Şerit üçten dörde çıktı ve en dar yaygın Android telefonda düğme başına ~68 px kalıyor.
+      // `_EylemDugmesi.sikisik` ikonu, arayı ve puntoyu tam bu yüzden küçültüyor; ölçü yanlışsa
+      // `RenderFlex overflow` burada HATA olarak yükselir.
+      //
+      // ⚠️ WIDGET TEST FONTU GERÇEK CİHAZDAN ~1.8 KAT GENİŞ çizer, yani bu sınama sahadakinden
+      // AĞIRDIR: geçtiği takdirde gerçek telefonda da geçer. Tersi doğru değildir — burada
+      // etiketin üç noktaya düşmesi tek başına cihaz kanıtı sayılmaz.
+      tester.view.physicalSize = const Size(360, 760);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        final musteriId = await CustomerRepository(db).create(name: 'Ayşe Yılmaz');
+        await OrderRepository(db).create(customerId: musteriId, lines: [
+          LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 1),
+        ]);
+      });
+
+      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
+      await akisiBekle(tester);
+
+      expect(find.text('Teslim Et'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'dört düğme 360 dp\'de taşmamalı');
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('MÜŞTERİSİZ (tezgâh) siparişte tek başına çizilir', (tester) async {
+      // Eylem şeridi müşterisiz siparişte HİÇ çizilmez (aranacak kimse yok) — ama teslimin
+      // müşteriyle işi yoktur. Şeridi çizip üç düğmeyi pasifleştirmek, asla dolmayacak üç boş
+      // kutu göstermek olurdu.
+      genisYuzey(tester);
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async {
+        await OrderRepository(db).create(lines: [
+          LineInput(productName: 'Damacana', unitPriceKurus: 4500, qty: 1),
+        ]);
+      });
+
+      await tester.pumpWidget(sipKabuk(OrderListScreen(db: db, writable: true)));
+      await akisiBekle(tester);
+
+      expect(find.text('Teslim Et'), findsOneWidget);
+      expect(find.text('Ara'), findsNothing, reason: 'aranacak müşteri yok');
+
+      await ekraniKapat(tester);
     });
   });
 }
