@@ -42,6 +42,15 @@ Route::view('destek', 'site.destek')->name('site.destek');
 Route::view('iletisim', 'site.iletisim')->name('site.iletisim');
 
 /*
+ * "Biz kimiz" (2026-08-19). Tasarım kaynağında yoktu ve eksikliği ölçülebilirdi: site yıllık
+ * dört haneli bir ödeme istiyor ama arkasında kimin olduğunu hiçbir yerde söylemiyordu.
+ * Boşluk bu vardiyada BÜYÜDÜ — uydurma müşteri yorumları kaldırıldı ve yerlerine gerçek
+ * referans konamadı (ürün pilotta, izin alınmış yorum yok). Sayfa o güven boşluğunu sahte
+ * olmayan bir şeyle dolduruyor.
+ */
+Route::view('hakkimizda', 'site.hakkimizda')->name('site.hakkimizda');
+
+/*
  * ── ARAMA MOTORU + YAPAY ZEKÂ KEŞİF DOSYALARI (2026-08-19) ──────────────────────────────────
  *
  * `robots.txt` BURADA DEĞİL: o statik bir dosyadır (public/robots.txt) ve web sunucusu onu
@@ -64,6 +73,7 @@ Route::get('sitemap.xml', function () {
         ['site.ana', 'weekly', '1.0'],
         ['site.ozellikler', 'monthly', '0.9'],
         ['site.destek', 'monthly', '0.7'],
+        ['site.hakkimizda', 'yearly', '0.6'],
         ['site.iletisim', 'monthly', '0.6'],
         ['account.deletion', 'yearly', '0.3'],
     ];

@@ -78,3 +78,19 @@ CTR'liden daha değerli bir düzeltme fırsatıdır.
   verir). Bugün eklenmedi: SSS içeriği `_veri.php`den geliyor ve şemayı oradan üretmek, cevapların
   HTML taşıyıp taşımadığına göre değişen bir kaçış işi — ayrı bir vardiyada ölçülerek yapılmalı.
 - **Search Console'a site haritası gönderimi** insan işidir (hesap doğrulaması gerekir).
+
+---
+
+## Sayfa listesi (2026-08-19 · metin sadeleştirmesinden sonra)
+
+| Adres | Dizine | Ne için var |
+|---|---|---|
+| `/` | ✅ | Ürünü tanıtır, fiyatı gösterir, denemeye götürür |
+| `/ozellikler` | ✅ | Beş ekranın ayrıntısı — ana sayfa üçünü gösterir, tamamı burada |
+| `/destek` | ✅ | Kanallar + aranabilir sık sorulanlar |
+| `/hakkimizda` | ✅ | **Yeni.** "Bunlar kim?" — para ödemeden önce sorulan soru |
+| `/iletisim` | ✅ | Form + demo talebi |
+| `/hesap-silme` | ✅ | Google Play zorunlu |
+| `/sozlesme/*` (10 belge) | ✅ | Marka + belge aramalarının cevabı |
+| `/fiyatlar` | ❌ noindex | Rota duruyor, siteden gösterilmiyor (2026-08-05) |
+| `/kayit` `/giris` `/parola` `/abonelik` `/hesap` | ❌ noindex | Kimlik ve ödeme akışı |

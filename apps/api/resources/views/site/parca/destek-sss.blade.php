@@ -28,7 +28,10 @@
 <section class="blm kagit2" x-data="sssArama">
     <script type="application/json">@json($aranabilir)</script>
     <div class="kap">
-        <x-site.blm-bas kulak="Sık sorulanlar" baslik="Aradığınızı yazın." />
+        {{-- Kulak + başlık ("Sık sorulanlar" / "Aradığınızı yazın.") üst üste iki komut gibi
+             okunuyordu ve sayfa başlığı zaten "Takıldığınız yerde insan var" diyor. Tek başlık
+             yeterli; arama kutusunun ne işe yaradığını kutunun kendi ipucu metni söylüyor. --}}
+        <x-site.blm-bas baslik="Sık sorulan sorular" />
 
         <div class="sss-arac">
             <div class="gir-sarma sss-ara">

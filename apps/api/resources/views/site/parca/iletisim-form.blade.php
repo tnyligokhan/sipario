@@ -79,7 +79,11 @@
                     e-posta sayısından her zaman FAZLA olur.
                 --}}
                 <button class="dg dg-a tam" type="submit" data-olcum="sipario_iletisim" data-olcum-etiket="iletisim-formu">Gönder, beni arayın</button>
-                <p class="od-kucuk">“Gönder”e bastığınızda e-posta uygulamanız hazırlanmış bir mesajla açılır; göndermeden önce okuyabilirsiniz. Bilgileriniz yalnızca bu talebe dönmek için kullanılır. <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">KVKK aydınlatma metni</a>.</p>
+                {{-- Metin kısaldı (2026-08-19). Eskisi üç cümleydi ve ilki teknik bir süreci
+                     tarif ediyordu ("e-posta uygulamanız hazırlanmış bir mesajla açılır").
+                     Ziyaretçinin bilmesi gereken tek şey, düğmeye basınca ne olacağı — o da
+                     bir cümleyle söylenebiliyor. KVKK bağlantısı mevzuat gereği duruyor. --}}
+                <p class="od-kucuk">Düğmeye bastığınızda mesajınız e-posta olarak hazırlanır, göndermeden önce görürsünüz. Bilgilerinizi yalnızca size dönmek için kullanıyoruz — <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">KVKK aydınlatma metni</a>.</p>
             @else
                 {{-- "Soldaki kanallardan ulaşın" cümlesi KOŞULLU: hedef adres yer tutucuysa e-posta
                      kanalı da süzülüp listeden düşer (ikisi de `support_email`ten besleniyor), telefon

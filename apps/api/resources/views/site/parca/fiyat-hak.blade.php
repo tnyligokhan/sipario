@@ -14,16 +14,18 @@
 @if (! empty($fiyat['kontorPaketleri']))
     <section class="blm kagit2">
         <div class="kap">
-            <x-site.blm-bas kulak="Ek paket" baslik="Oto-sıralama hakkı bitince."
-                aciklama="Planınızda ayda {{ $fiyat['kontor'] }} hak var. Yoğun aylarda tükenirse tek seferlik paket alın — süresi dolmaz, devreder." />
+            {{-- "Oto-sıralama hakkı" ve "hak" birimi sadeleşti (2026-08-19): ikisi de bizim iç
+                 adımızdı. Ne satın alındığı, satın alma kararının verildiği yerde anlaşılmalı. --}}
+            <x-site.blm-bas baslik="Ay ortasında sıralama hakkınız biterse."
+                aciklama="Her ay {{ $fiyat['kontor'] }} kez kuryenizin yolunu uygulama sıralar. Yoğun bir ayda biterse tek seferlik paket alabilirsiniz — süresi dolmaz, sonraki aya devreder." />
             <div class="hak-grid">
                 @foreach ($fiyat['kontorPaketleri'] as $h)
                     <div @class(['hak', 'iyi' => $h['iyi']])>
                         @if ($h['iyi'])<span class="hak-rzt mn">En avantajlı</span>@endif
                         <span class="rakam">{{ $h['adet'] }}</span>
-                        <span class="hak-l mn">hak</span>
+                        <span class="hak-l mn">sıralama</span>
                         <span class="hak-f">{{ $h['fiyat'] }}</span>
-                        <span class="kucuk">hak başına {{ $h['birim'] }}</span>
+                        <span class="kucuk">tanesi {{ $h['birim'] }}</span>
                         <a class="dg dg-c tam gk"
                             href="{{ route('subscription.subscribe', ['tur' => 'paket', 'paket' => $h['id'], 'geri' => 'fiyatlar']) }}">Satın al</a>
                     </div>

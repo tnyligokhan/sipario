@@ -34,7 +34,9 @@
          * fiyatın göründüğü yere iniyor. `/fiyatlar` rotası ve sayfası DURUYOR; birebir satışta
          * adresi doğrudan paylaşılabilir, sadece siteden kendini göstermiyor.
          */
-        ['Fiyatlandırma', 'site.ana', '#fiyat'],
+        // "Fiyatlandırma" → "Fiyat": aynı yere gidiyor, iki hece kısa ve daha sık kullanılan
+        // kelime. Alt bilgi sütunları tarama içindir; uzun kelime taramayı yavaşlatır.
+        ['Fiyat', 'site.ana', '#fiyat'],
     ];
     $destek = [
         // Tek satır: /destek sayfası zaten "Destek ve sık sorulan sorular" — kanallar ve SSS aynı
@@ -42,6 +44,10 @@
         ['Destek ve SSS', 'site.destek'],
         // Üst menüden buraya indi (kullanıcı kararı 2026-08-05).
         ['İletişim', 'site.iletisim'],
+        // 2026-08-19: "Biz kimiz" sayfası. Alt bilgideki yeri bilinçli — üst menüye koymak
+        // menüyü şişirirdi (menü keşif aracıdır, site haritası değil; 2026-08-05 kararı), ama
+        // "bunlar kim" sorusu para ödemeden önce sorulan bir sorudur ve bir yerden erişilmeli.
+        ['Biz kimiz', 'site.hakkimizda'],
     ];
     // Üçüncü öge route parametresidir (yoksa boş dizi) — `Hesap` sütununda sekme anahtarı taşır.
     $hesap = $oturum
@@ -107,8 +113,22 @@
             <div class="alt-marka">
                 <x-site.marka boy="38" koyu />
                 <p class="alt-slogan">Telefon çaldığında müşteriniz ekranda. Bayiler ve esnaf için sipariş, veresiye ve kurye defteri.</p>
+                {{--
+                    "Tüm sistemler çalışıyor" ROZETİ KALDIRILDI (2026-08-19). İki sebep:
+
+                    1. ANLAMSIZ. Bu, geliştiricilerin durum sayfalarından (status page) gelen bir
+                       kalıptır ve teknik bir kitleye hitap eder. Su bayii "sistemler" diye bir
+                       şey düşünmüyor; okuduğunda ya hiçbir şey anlamıyor ya da aklına "demek ki
+                       bazen çalışmıyor" geliyor.
+                    2. KANITSIZ. Rozet YEŞİL SABİTTİ — hiçbir sağlık kontrolüne bağlı değildi.
+                       Sunucu tamamen çökse ve bu sayfa yine de basılsa "tüm sistemler çalışıyor"
+                       demeye devam ederdi. Gerçek bir durum sayfası olmadan bu rozet bir ölçüm
+                       değil, bir dekordur.
+
+                    "Veriler Türkiye'de" DURUYOR: doğrulanabilir bir olgu ve esnafın gerçekten
+                    önemsediği bir şey.
+                --}}
                 <div class="alt-rzt">
-                    <x-site.rozet tur="yesil" nokta>Tüm sistemler çalışıyor</x-site.rozet>
                     <x-site.rozet tur="notr">Veriler Türkiye'de</x-site.rozet>
                 </div>
             </div>

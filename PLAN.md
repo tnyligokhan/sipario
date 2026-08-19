@@ -269,7 +269,71 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-19/2 — WEB SİTESİ YAYINA HAZIRLANDI: HUKUK PAKETİ · ÖLÇÜM · SEO · METİN DİLİ (API 1.11.0 → **1.12.0**, mobil DEĞİŞMEDİ 0.34.0)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-19/3 — SİTE METNİ SADELEŞTİ: TEKRARLAR SİLİNDİ, "BİZ KİMİZ" AÇILDI (API 1.12.0, mobil DEĞİŞMEDİ 0.34.0)
+
+**Bir önceki turun eksiği kapatıldı.** Kullanıcı "metinler yapay geliyor" demişti; o tur uydurma
+veriyi silmiş ama METNİN KENDİSİNİ büyük ölçüde bırakmıştı. Bu turda sayfaların **görünen
+metni** çıkarılıp okundu (kodu okumak yetmiyordu) ve şunlar bulundu:
+
+| Bulgu | Ne yapıldı |
+|---|---|
+| Ana sayfa "dert" bölümü ile ürün turu **aynı üç konuyu** anlatıyordu | Dert bölümü sayfadan çıktı |
+| Ürün turu ana sayfada 5, Özellikler'de aynı 5 ekran | Ana sayfa **3**'e indi, beşi Özellikler'de kaldı |
+| Özellikler'deki "Bir gün" çizelgesi, üstündeki 5 bölümün özetiydi | Çıkarıldı |
+| "Kurulum" bölümü ana sayfa + Özellikler + SSS = 3 yerde | Yalnız ana sayfada kaldı |
+| **Uydurma veri kayıt/giriş ekranlarında yaşıyordu** | Kaldırıldı — aşağıda |
+| "oto-sıralama hakkı" (site + işletme paneli) | Düz Türkçeye çevrildi |
+| Başlığını tekrarlayan 6 "kulak" | Silindi |
+| "Bunlar kim?" sorusunun cevabı hiçbir yerde yoktu | **`/hakkimizda` açıldı** |
+
+**Ana sayfa 9 → 7 bölüm, Özellikler 6 → 4 bölüm.**
+
+#### ⚠️ Uydurma veri İKİNCİ bir yerde daha vardı — bir tur gözden kaçtı
+
+Önceki tur `site/parca/_temsili-veri.php` dizilerini boşaltarak uydurma yorumları ve rakamları
+silmişti. Ama `components/site/kimlik-kabuk.blade.php` **o dosyayı hiç okumuyor** — kendi içine
+gömülü bir kopya taşıyordu. Sonuç: "Hasan Yıldırım · Yıldırım Su · Antalya" yorumu ve
+"1.240 işletme / %31 daha az kayıp" rakamları **kayıt ve giriş ekranlarında**, yani satın alma
+hunisinin tam ortasında basılmaya devam ediyordu.
+
+> **Ders:** "veriyi tek kaynaktan sil" yeterli değil; aynı içeriğin elle kopyalanmış ikinci bir
+> örneği olabilir. Silme doğrulaması veri dosyasında değil **ekranda** yapılır.
+
+Yerine doğrulanabilir üç söz kondu: *Kart yok · Türkiye · Taahhüt yok*.
+
+#### İki gerçek bilgi hatası düzeltildi
+
+1. Kurulum adımı **"İşletme adı ve telefon numarası yeter"** diyordu — kayıt formu telefon
+   sormuyor, **e-posta** istiyor. Site, formu doldurmaya gelene yanlış hazırlık yaptırıyordu.
+2. Kayıt ekranının alt yazısı **"Sağ üstten giriş yapabilirsiniz"** diyordu — o ekran menüsüz
+   layout kullanıyor, sağ üstte hiçbir şey yok. Yerine gerçek bir bağlantı kondu.
+
+#### Silinen "gereksiz açıklama"lar
+
+- *"Ekranın kendisi. Ekran görüntüsü değil."* + *"uygulamadaki ölçüler, renkler ve yerleşimle
+  birebir"* — geliştirici övüncü; üstelik akla gelmemiş bir şüpheyi hediye ediyor.
+- *"Aşağıdaki dördü bir özellik listesi değil, verdiğimiz sözler."* — metnin kendi türünü
+  açıklaması.
+- *"Sipario bir 'sipariş uygulaması' değil…"* — olmayan bir kategoriyi önce yaratıp reddetmek.
+- *"Tüm sistemler çalışıyor"* rozeti — durum sayfası dili **ve** yeşil sabitti: hiçbir sağlık
+  kontrolüne bağlı değildi, sunucu çökse aynı şeyi söylerdi.
+- "ekran paylaşımı", "çevrimdışı kip", "bot yok", "yerel teslimat" gibi ifadeler.
+
+#### Yeni sayfa: `/hakkimizda` — "Biz kimiz"
+
+Site yıllık dört haneli bir ödeme istiyor ama arkasında kimin olduğunu söylemiyordu. Boşluk
+uydurma yorumlar silinince **büyüdü** (sahte de olsa bir güven kaynağıydılar). Sayfa o boşluğu
+sahte olmayanla dolduruyor: kurucu adı, ekip fotoğrafı, "10 yıllık tecrübe" gibi **bilmediğim
+hiçbir şey yazılmadı**; pilot aşamasında olmak saklanmadı (alternatifi büyük görünüp ilk destek
+aramasında yakalanmaktır) ve beş somut söz sayıldı. Alt bilgiden erişiliyor — üst menü keşif
+aracıdır, site haritası değil (2026-08-05 kararı).
+
+**Kapılar:** phpunit **905 test / 904 geçti / 1 atlandı / 0 kırık** · pint temiz. Doğrulama ağaç
+donduktan sonra koşuldu.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-19/2 — WEB SİTESİ YAYINA HAZIRLANDI: HUKUK PAKETİ · ÖLÇÜM · SEO (API 1.11.0 → **1.12.0**, mobil DEĞİŞMEDİ 0.34.0)
 
 **Tamamı web yüzeyi.** Mobil uygulamaya, senkron sözleşmesine ve API uç noktalarına hiç
 dokunulmadı — telefonlar bu vardiyayı fark etmez.

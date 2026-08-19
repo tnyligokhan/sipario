@@ -1,10 +1,19 @@
 {{-- Ana sayfa · Güvenceler (09-sw-ana.jsx · GuvenceBlm). Koyu bölüm. --}}
 <section class="blm gece guvence-blm">
     <div class="kap">
-        {{-- Eski başlık ("İşin durursa defter de durur. O yüzden durmuyor.") aynı reklam
-             kalıbının üçüncü tekrarıydı; bkz. ana-dert.blade.php'deki gerekçe. --}}
-        <x-site.blm-bas kulak="Güvence" baslik="Sipario durursa işiniz durur. O yüzden durmayacak şekilde kurduk."
-            aciklama="Aşağıdaki dördü bir özellik listesi değil, verdiğimiz sözler." />
+        {{--
+            İki kez sadeleşti. Önce "İşin durursa defter de durur. O yüzden durmuyor." vardı;
+            sonra "Sipario durursa işiniz durur. O yüzden durmayacak şekilde kurduk." oldu —
+            ikisi de aynı reklam kalıbını (A. O yüzden B.) sürdürüyordu ve sayfada bu kalıp
+            üç ayrı başlıkta tekrarlanıyordu.
+
+            Alt açıklama ("Aşağıdaki dördü bir özellik listesi değil, verdiğimiz sözler.")
+            tamamen silindi: metnin kendi türünü açıklaması, okura hiçbir bilgi vermeyen bir
+            iç sestir. Dört kart zaten söz gibi yazılmış; onlara "bunlar sözdür" demek gerekmiyor.
+        --}}
+        {{-- "Merak ettikleriniz." denemişti; hemen altındaki bölüm "Sık sorulanlar" olduğu için
+             ikisi aynı işi vaat ediyordu. Bu bölüm soru cevaplamıyor, SÖZ VERİYOR. --}}
+        <x-site.blm-bas baslik="Verdiğimiz sözler" />
         <div class="guvence-grid">
             @foreach ($sw['guvence'] as $g)
                 <div class="guvence">

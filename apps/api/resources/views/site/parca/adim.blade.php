@@ -1,8 +1,12 @@
 {{-- Kurulum adımları (09-sw-ana.jsx · AdimBlm). Ana sayfa ve Özellikler sayfası ortak kullanır. --}}
 <section class="blm kagit2">
     <div class="kap">
-        <x-site.blm-bas kulak="Kurulum" baslik="Bugün başlayın, bugün kullanın."
-            aciklama="Bilgisayar, kablo, teknik ekip yok. Telefonunuzdaki uygulamayı indirip firma kodunuzla giriyorsunuz." />
+        {{-- Kulak "Kurulum" idi, başlık zaten kurulumu anlatıyor — tekrar. Açıklamadaki
+             "kablo" ve "teknik ekip" ise korkutucu bir ihtimali akla getiriyordu: kimse
+             bir telefon uygulamasından kablo beklemez, ama "kablo yok" demek "demek ki
+             olabilirmiş" dedirtir. Cümle, gerçekten gereken tek şeye indirildi. --}}
+        <x-site.blm-bas baslik="Kurulum on dakika sürüyor."
+            aciklama="Tek ihtiyacınız telefon. Uygulamayı indirip firma kodunuzla giriyorsunuz." />
         <div class="adim-grid">
             @foreach ($sw['adim'] as $a)
                 <div class="adim">

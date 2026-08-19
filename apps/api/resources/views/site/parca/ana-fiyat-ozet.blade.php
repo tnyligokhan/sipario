@@ -23,8 +23,11 @@
 {{-- `id="fiyat"`: /fiyatlar menüden kalktığı için "fiyata bak" çağrıları artık buraya çapalanıyor. --}}
 <section class="blm kagit2" id="fiyat">
     <div class="kap">
-        <x-site.blm-bas kulak="Fiyat" baslik="Tek plan. Gizli kalem yok."
-            aciklama="Kaç müşteriniz olduğuna, kaç sipariş girdiğinize bakmıyoruz. Fiyat aşağıda yazan fiyat." />
+        {{-- Kulak "Fiyat" ile başlık aynı şeyi söylüyordu. Açıklamadaki "Fiyat aşağıda yazan
+             fiyat" cümlesi de kendini tekrarlayan bir söz oyunuydu; yerini gerçekten bilgi
+             veren bir cümle aldı (neye göre ücret almadığımız). --}}
+        <x-site.blm-bas baslik="Tek plan, tek fiyat."
+            aciklama="Kaç müşteriniz olduğuna ya da kaç sipariş girdiğinize bakmıyoruz. Ek kalem çıkmaz." />
         <div class="fo-grid tek">
             <x-site.pano class="fo fo-vurgu" etiket="Tek plan" genis-ic>
                 <div class="fo-bas">

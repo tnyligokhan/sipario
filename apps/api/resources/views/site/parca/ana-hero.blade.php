@@ -10,7 +10,10 @@
     <div class="hero-isik"></div>
     <div class="kap hero-ic">
         <div class="hero-sol">
-            <span class="blm-kulak mn"><i></i>Bayiler · esnaf · yerel teslimat</span>
+            {{-- "yerel teslimat" pazarlama sözlüğüydü; esnaf kendi işini "eve servis" diye
+                 anlatır. Kulak, ziyaretçinin "bu benim için mi" sorusunu ilk saniyede
+                 cevaplıyor — o yüzden burada duruyor, süs değil. --}}
+            <span class="blm-kulak mn"><i></i>Eve servis yapan bayiler ve esnaf için</span>
             <h1 class="h-dev">Telefon çaldığında<br>müşteriniz<br><em>ekranda.</em></h1>
             <p class="gvd b hero-alt">Sipario, gelen numarayı müşteri defterinizle eşleştirir: kim aradı, nerede oturuyor, ne kadar borcu var, en son ne almıştı — daha “alo” demeden ekranda.</p>
             <div class="dg-grup hero-dg">

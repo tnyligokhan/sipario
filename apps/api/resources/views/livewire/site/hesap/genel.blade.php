@@ -69,9 +69,11 @@
         </x-site.pano>
 
         <div class="hb-ikili">
-            <x-site.pano etiket="Oto-sıralama hakkı">
+            <x-site.pano etiket="Kurye yolu sıralama">
+                {{-- "hak" birimi sadeleşti (2026-08-19): esnaf için "50 hak" bir şey ifade
+                     etmiyordu. Sayılan şey ne ise o yazılıyor — bir sıralama. --}}
                 <x-site.kota etiket="Denemede kullanılan" :kullanilan="$hak['kullanilan']" :toplam="$hak['toplam']"
-                    alt="Deneme boyunca {{ $hak['toplam'] }} hak ücretsiz · {{ $hak['kalan'] }} hak kaldı" />
+                    alt="Deneme boyunca {{ $hak['toplam'] }} sıralama ücretsiz · {{ $hak['kalan'] }} tanesi duruyor" />
             </x-site.pano>
             <x-site.pano etiket="Kullanıcılar">
                 <x-site.kota etiket="Kurye hesabı" :kullanilan="$kurye['kullanilan']" :toplam="$kurye['limit']"
@@ -101,12 +103,12 @@
         </x-site.pano>
     @else
         <div class="hb-ikili">
-            <x-site.pano etiket="Oto-sıralama hakkı">
+            <x-site.pano etiket="Kurye yolu sıralama">
                 <x-slot:sag>
                     <button type="button" class="dg dg-d gk" wire:click="bolumSec('hak')">Yönet</button>
                 </x-slot:sag>
-                <x-site.kota etiket="Kullanılan" :kullanilan="$hak['kullanilan']" :toplam="$hak['toplam']"
-                    alt="{{ $hak['kalan'] }} hak kaldı · aylık kota {{ $bayi->route_credits_monthly }}" />
+                <x-site.kota etiket="Bu ay kullanılan" :kullanilan="$hak['kullanilan']" :toplam="$hak['toplam']"
+                    alt="{{ $hak['kalan'] }} sıralama kaldı · her ay {{ $bayi->route_credits_monthly }} tane yenilenir" />
             </x-site.pano>
             <x-site.pano etiket="Kullanıcılar">
                 {{-- Kurye limiti de artık satın alınabilir (ek kurye paketi) — kotanın yanında
@@ -122,7 +124,7 @@
         <x-site.pano etiket="Kısayollar" :ic="false">
             <div class="hb-kisa">
                 @foreach ([['kart', 'Ödeme bilgilerini gör', 'odeme'], ['belge', 'Ödeme geçmişini gör', 'fatura'],
-                    ['simsek', 'Ek hak veya kurye al', 'hak'], ['bina', 'Fatura bilgilerini düzenle', 'isletme']] as [$ik, $etiket, $hedef])
+                    ['simsek', 'Ek sıralama veya kurye al', 'hak'], ['bina', 'Fatura bilgilerini düzenle', 'isletme']] as [$ik, $etiket, $hedef])
                     <button type="button" class="hb-k" wire:click="bolumSec('{{ $hedef }}')">
                         <span class="hb-k-ik"><x-site.ikon :ad="$ik" boy="19" kalin="2" renk="var(--mor)" /></span>
                         <span>{{ $etiket }}</span>
