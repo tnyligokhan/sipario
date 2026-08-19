@@ -124,9 +124,33 @@ return [
     | değişmedi — eklenen yüzey panel (web) tarafındadır. Sürümün artmasının
     | sebebi sunucu davranışının GENİŞLEMESİdir; telefonlar bu sürümü hiç fark
     | etmeden çalışmaya devam eder.
+    |
+    | 1.12.0 (2026-08-19): SİTE METİNLERİ, HUKUK PAKETİ, ÖLÇÜM VE SEO.
+    |
+    | Üç iş kolu birden web yüzeyinde bitti:
+    |  · Hukuk metinleri BAŞTAN YAZILDI ve 5'ten 10 belgeye çıktı (kullanım
+    |    koşulları, gizlilik politikası, açık rıza, veri işleyen eki, KVKK
+    |    başvuru formu eklendi). `subscription.legal_docs` haritası büyüdü,
+    |    `subscription.legal` sürümleri 2026-07-15'ten 2026-08-19'a çekildi ve
+    |    yeni bir `terms_version` hattı açıldı.
+    |  · Google Analytics 4 + Consent Mode v2 eklendi; çerez rıza bandı ve
+    |    `config/analitik.php` yeni. Site CSP'si ölçüm kaynaklarına açıldı,
+    |    `Referrer-Policy` yüzeye göre ayrıştı.
+    |  · `sitemap.xml`, `llms.txt`, genişletilmiş `robots.txt`, OG/Twitter meta
+    |    ve JSON-LD yapısal verisi eklendi.
+    |
+    | NEDEN MINOR VE NEDEN MOBİL ETKİLENMEZ: hiçbir API uç noktası, alanı ya da
+    | anlamı değişmedi — değişen her şey tarayıcı yüzeyindedir. Telefonlar bu
+    | sürümü fark etmeden çalışmaya devam eder.
+    |
+    | ⚠️ TEK GERÇEK SÖZLEŞME DEĞİŞİKLİĞİ, KABUL SÜRÜMLERİNİN İLERLEMESİDİR:
+    | `subscription_payments.consent_version` artık "…:2026-08-19" yazacak.
+    | Eski kayıtlar 2026-07-15 ile duruyor ve DURMALIDIR — o bayiler o günkü
+    | metni kabul etti. Sürümleri geriye dönük eşitlemek, kabul kaydını bir
+    | delil olmaktan çıkarırdı.
     */
 
-    'version' => '1.11.0',
+    'version' => '1.12.0',
 
     /*
     |--------------------------------------------------------------------------

@@ -42,7 +42,16 @@
 
     <x-site.pano etiket="Elden ödeme">
         <x-slot:sag><x-site.rozet tur="yesil" :nokta="true">Kullanımda</x-site.rozet></x-slot:sag>
-        <p class="gvd">Ankara, Antalya ve İzmir'de ödemeyi elden alıyoruz. Talebinizi bırakın, aynı gün arayarak saat ayarlayalım; makbuzunuz teslimde verilir.</p>
+        {{--
+            ŞEHİR ADLARI KALDIRILDI (2026-08-19). Eski metin "Ankara, Antalya ve İzmir'de elden
+            alıyoruz" diyordu — tasarım prototipinden gelen ÖRNEK bir listeydi ve üçünde de
+            elden tahsilat yapabildiğimizi gösteren hiçbir şey yok; ürün Antalya pilotunda.
+            Karşılanamayacak bir kapsam sözü, siteden silinen uydurma kullanım rakamlarıyla
+            aynı türden bir iddiadır (bkz. DECISIONS 2026-08-19). Sitenin kendi ödeme güvence
+            metni zaten doğru olanı söylüyordu ("Bölgenizdeyse uğrayıp elden alıyoruz") —
+            panel de aynı dile getirildi.
+        --}}
+        <p class="gvd">Bölgenizdeysek ödemeyi elden alıyoruz. Talebinizi bırakın, aynı gün arayıp saat ayarlayalım; makbuzunuz teslimde verilir. Bölgenizde değilsek havale/EFT ile ilerleriz.</p>
         <a class="dg dg-c" style="margin-top:18px" href="{{ $this->odemeUrl() }}">
             <x-site.ikon ad="telefon" boy="17" kalin="2.1" />Elden ödeme talebi bırak
         </a>
@@ -52,8 +61,16 @@
         <x-slot:sag><x-site.rozet tur="notr">Yakında</x-site.rozet></x-slot:sag>
         <div class="hb-bos">
             <span class="hb-bos-ik"><x-site.ikon ad="kart" boy="22" kalin="1.9" renk="var(--sonuk)" /></span>
+            {{--
+                "otomatik yenilemeye geçebileceksiniz" CÜMLESİ KALDIRILDI (2026-08-19).
+                Ürünün kararı bunun TERSİ: abonelik kendiliğinden yenilenmiyor, kartından
+                kendiliğinden para çekilmiyor ve bu, hem hesap panelinin başka üç yerinde hem
+                Mesafeli Satış Sözleşmesi m.7 ile İptal/İade belgesi m.7'de yazılı bir taahhüt.
+                Panelin bir köşesinde bunun aksini vaat etmek, aynı ürünün iki farklı söz
+                verdiği bir yüzey üretirdi.
+            --}}
             <b class="h4">Kartla ödeme henüz açık değil</b>
-            <p class="kucuk">Kredi ve banka kartıyla online ödeme üzerinde çalışıyoruz. Açıldığında kartınızı buradan kaydedip otomatik yenilemeye geçebileceksiniz.</p>
+            <p class="kucuk">Kredi ve banka kartıyla online ödeme üzerinde çalışıyoruz. Açıldığında ödemeyi buradan tek dokunuşla yapabileceksiniz — kartınız kaydedilmeyecek, kendiliğinden para çekilmeyecek.</p>
         </div>
     </x-site.pano>
 </div>

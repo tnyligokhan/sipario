@@ -45,7 +45,13 @@
                             <div class="il-k">
                                 <span class="il-k-ik"><x-site.ikon :ad="$k['ik']" boy="19" kalin="2" renk="var(--mor)" /></span>
                                 <div>
-                                    <b>@if($k['href'])<a href="{{ $k['href'] }}">{{ $k['deger'] }}</a>@else{{ $k['deger'] }}@endif</b>
+                                    {{-- Ölçüm: bkz. site/parca/destek-kanal.blade.php'deki aynı blok. --}}
+                                    <b>@if($k['href'])<a href="{{ $k['href'] }}"
+                                        @if(in_array($k['ik'], ['telefon', 'sohbet'], true))
+                                            data-olcum="{{ $k['ik'] === 'telefon' ? 'sipario_telefon_tik' : 'sipario_whatsapp_tik' }}"
+                                            data-olcum-etiket="iletisim-sayfasi"
+                                        @endif
+                                    >{{ $k['deger'] }}</a>@else{{ $k['deger'] }}@endif</b>
                                     <span class="kucuk">{{ $k['a'] }}</span>
                                 </div>
                             </div>

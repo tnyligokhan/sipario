@@ -9,9 +9,11 @@
         = (require resource_path('views/site/parca/_kur.php'))($planlar, $ekPaketler);
 @endphp
 
+{{-- Birincil kelime: "arayan tanıma programı" (docs/seo-anahtar-kelimeler.md). Ürünün varlık
+     sebebi ve rakiplerde olmayan tek şey; başlıkta ÖNDE durması bu yüzden. --}}
 <x-layouts.site
-    baslik="Özellikler — arayan tanıma, veresiye defteri, kurye ve gün sonu · Sipario"
-    aciklama="Arayan tanıma, veresiye defteri, sipariş akışı, kurye ve rota, gün sonu kasa. Sipario'nun tezgâhın arkasında yaptığı işin tamamı — çevrimdışı da çalışır.">
+    baslik="Arayan tanıma programı, veresiye defteri ve kurye takibi · Sipario"
+    aciklama="Gelen aramada müşteri kartı ekranda: adı, adresi, borcu, son siparişi. Veresiye defteri, sipariş akışı, kurye ve rota, gün sonu kasa — internet gitse de çalışır.">
     @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
     @include('site.parca.ozellik-hero')
     @include('site.parca.ozellik-split')

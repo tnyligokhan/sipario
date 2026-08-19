@@ -16,7 +16,7 @@
             @endforeach
         </div>
         <div class="adim-alt">
-            <a class="dg dg-b" href="{{ route('subscription.register') }}">İşletmenizi açın<x-site.ikon ad="ok" boy="18" kalin="2.2" /></a>
+            <a class="dg dg-b" href="{{ route('subscription.register') }}" data-olcum="sipario_deneme_tik" data-olcum-etiket="kurulum-adimlari">İşletmenizi açın<x-site.ikon ad="ok" boy="18" kalin="2.2" /></a>
             <span class="kucuk">Müşteri listenizi biz aktarıyoruz — Excel ya da rehber, fark etmez.</span>
         </div>
     </div>

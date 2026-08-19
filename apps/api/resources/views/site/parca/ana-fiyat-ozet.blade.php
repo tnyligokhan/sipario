@@ -41,7 +41,7 @@
                         <li><x-site.ikon ad="onay" boy="16" kalin="2.6" renk="var(--yesil)" />{{ $x['t'] }}</li>
                     @endforeach
                 </ul>
-                <a class="dg dg-a tam" href="{{ route('subscription.register') }}">{{ $p['cta'] }}</a>
+                <a class="dg dg-a tam" href="{{ route('subscription.register') }}" data-olcum="sipario_deneme_tik" data-olcum-etiket="fiyat-karti">{{ $p['cta'] }}</a>
                 <span class="kucuk fo-alt">{{ $p['ctaAlt'] }}</span>
             </x-site.pano>
         </div>

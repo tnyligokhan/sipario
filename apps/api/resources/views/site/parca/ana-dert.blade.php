@@ -1,8 +1,16 @@
 {{-- Ana sayfa · "Kâğıt defterin maliyeti" (09-sw-ana.jsx · DertBlm). --}}
 <section class="blm kagit2">
     <div class="kap">
-        <x-site.blm-bas kulak="Sorun" baslik="Kâğıt defter iyi bir defterdir. Kötü bir sistemdir."
-            aciklama="Üç yerde sızdırır: alacakta, telefonda ve akşam kasada. Sipario tam bu üç yeri kapatmak için var." />
+        {{--
+            Başlık değişti (2026-08-19). Eskisi: "Kâğıt defter iyi bir defterdir. Kötü bir
+            sistemdir." Zekice ama iki sebeple yanlış yerdeydi: (1) esnafın kendi defterini
+            küçümsüyor — o defter yıllardır işini yürütmüş bir alet, ilk cümlede onu "kötü"
+            ilan etmek satışın en kötü açılışı; (2) "X'dir. Y'dir." kalıbı sayfada üç ayrı
+            başlıkta tekrarlanıyordu ve o tekrar, metnin bir insan tarafından yazılmadığı
+            hissini veren şeyin ta kendisiydi. Yeni başlık aynı fikri suçlamadan söylüyor.
+        --}}
+        <x-site.blm-bas kulak="Sorun" baslik="Defter yanlış tutulmuyor. Tek bir defter yetmiyor."
+            aciklama="Alacak bir yerde, telefondaki bilgi başka yerde, akşamki kasa üçüncü yerde. Sipario bu üçünü aynı yere getiriyor." />
         <div class="dert-grid">
             @foreach ($sw['dert'] as $i => $d)
                 <div class="dert">

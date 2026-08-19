@@ -16,9 +16,20 @@
         = (require resource_path('views/site/parca/_kur.php'))($planlar, $ekPaketler);
 @endphp
 
+{{--
+    ── BAŞLIK ANAHTAR KELİMEYE GÖRE YENİDEN YAZILDI (2026-08-19) ───────────────────────────
+    Eski başlık "Sipario — Telefon çaldığında müşteriniz ekranda" idi: markayı ve vaadi güzel
+    anlatıyordu ama İÇİNDE HİÇBİR ARAMA TERİMİ YOKTU. Kimse "telefon çaldığında müşterim
+    ekranda" diye aramaz; "su bayii programı" diye arar. Marka çağrışımı hero başlığında ve
+    alt bilgide zaten yaşıyor — <title> etiketinin işi çağrışım değil, EŞLEŞMEDİR.
+
+    Birincil kelime `su bayii programı` (bkz. docs/seo-anahtar-kelimeler.md): ilk dikey su
+    bayileri ve bu, en dar/en niyetli arama. "Esnaf" ikincil olarak aynı başlıkta duruyor
+    çünkü ürün sektör-bağımsız kurgulandı ve tüpçü/manav da hedefte.
+--}}
 <x-layouts.site koyu
-    baslik="Sipario — Telefon çaldığında müşteriniz ekranda"
-    :aciklama="'Sipario gelen numarayı müşteri defterinizle eşleştirir: kim aradı, nerede oturuyor, ne kadar borcu var. Bayiler ve esnaf için sipariş, veresiye ve kurye defteri. '.$fiyat['deneme'].' gün ücretsiz.'">
+    baslik="Su bayii ve esnaf programı: sipariş, veresiye, kurye · Sipario"
+    :aciklama="'Telefon çaldığında müşteriniz ekranda: kim aradı, nerede oturuyor, ne kadar borcu var. Su bayii ve esnaf için sipariş, veresiye defteri ve kurye takibi — internetsiz de çalışır. '.$fiyat['deneme'].' gün ücretsiz.'">
     @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
     @include('site.parca.ana-hero')
     @include('site.parca.ana-kanit')

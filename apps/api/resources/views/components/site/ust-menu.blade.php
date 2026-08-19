@@ -72,7 +72,7 @@
                     <a href="{{ route('subscription.login') }}" class="dg dg-d k">Giriş yap</a>
                 @endif
                 @if(Route::has('subscription.register'))
-                    <a href="{{ route('subscription.register') }}" class="dg dg-a k">Ücretsiz dene</a>
+                    <a href="{{ route('subscription.register') }}" class="dg dg-a k" data-olcum="sipario_deneme_tik" data-olcum-etiket="ust-menu">Ücretsiz dene</a>
                 @endif
             @endif
         </div>
@@ -104,7 +104,7 @@
                     <a href="{{ route('subscription.login') }}" class="dg dg-c tam">Giriş yap</a>
                 @endif
                 @if(Route::has('subscription.register'))
-                    <a href="{{ route('subscription.register') }}" class="dg dg-a tam">Ücretsiz dene</a>
+                    <a href="{{ route('subscription.register') }}" class="dg dg-a tam" data-olcum="sipario_deneme_tik" data-olcum-etiket="mobil-menu">Ücretsiz dene</a>
                 @endif
             @endif
         </div>

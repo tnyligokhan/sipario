@@ -127,6 +127,19 @@ class Login extends Component
 
         $patron->forceFill(['last_login_at' => now()])->save();
 
+        /*
+         * ── DÖNÜŞÜM ÖLÇÜMÜ (2026-08-19) ────────────────────────────────────────────────
+         * Livewire'ın `dispatch`i BURADA KULLANILAMAZ: metot bir yönlendirmeyle bitiyor ve
+         * yönlendirme, bu istekte yayılan tarayıcı olaylarını beraberinde götürür — olay
+         * hiçbir zaman ateşlenmezdi ve bunu fark etmek zor olurdu (sessizce eksik veri).
+         *
+         * Bunun yerine tek kullanımlık bir oturum bayrağı bırakılıyor; hedef sayfa (hesap
+         * paneli) onu görüp bir işaret basıyor, `public/js/olcum.js` işareti görüp olayı
+         * ateşliyor. `flash` olduğu için bir sonraki istekte kendiliğinden siliniyor —
+         * yani her sayfa yenilemesinde tekrar sayılmıyor.
+         */
+        session()->flash('olcum_giris', true);
+
         return redirect()->route('site.hesap');
     }
 

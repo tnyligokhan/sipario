@@ -42,6 +42,74 @@ Route::view('destek', 'site.destek')->name('site.destek');
 Route::view('iletisim', 'site.iletisim')->name('site.iletisim');
 
 /*
+ * ── ARAMA MOTORU + YAPAY ZEKÂ KEŞİF DOSYALARI (2026-08-19) ──────────────────────────────────
+ *
+ * `robots.txt` BURADA DEĞİL: o statik bir dosyadır (public/robots.txt) ve web sunucusu onu
+ * Laravel'e hiç uğratmadan döndürür — rota yazmak ölü kod olurdu. Aşağıdaki ikisi ise
+ * ÜRETİLMESİ gereken dosyalar: sayfa listesi ve hukuk belgeleri config'ten geliyor, elle
+ * yazılan bir kopya ilk belge eklendiğinde bayatlardı.
+ *
+ * Rotaların `tenant` middleware'i YOK ve olmamalı — içerik kiracıdan bağımsız, üstelik her
+ * bot isteğine bir DB transaction'ı bindirmek boşuna maliyet (aynı gerekçe genel site
+ * sayfaları için de geçerli; bkz. components/layouts/site.blade.php başlığı).
+ */
+Route::get('sitemap.xml', function () {
+    /*
+     * Sayfa → değişim sıklığı + öncelik. `lastmod` BİLEREK YOK: doğru bir lastmod ancak
+     * içeriğin gerçekten ne zaman değiştiği biliniyorsa verilebilir. `now()` basmak her tarama
+     * turunda "her sayfa bugün değişti" demek olurdu ve Google bunu fark edip lastmod'a
+     * tamamen güvenmeyi bırakır — yanlış sinyal, hiç sinyal vermemekten kötüdür.
+     */
+    $sayfalar = [
+        ['site.ana', 'weekly', '1.0'],
+        ['site.ozellikler', 'monthly', '0.9'],
+        ['site.destek', 'monthly', '0.7'],
+        ['site.iletisim', 'monthly', '0.6'],
+        ['account.deletion', 'yearly', '0.3'],
+    ];
+
+    $adresler = [];
+
+    foreach ($sayfalar as [$ad, $siklik, $oncelik]) {
+        $adresler[] = ['loc' => route($ad), 'changefreq' => $siklik, 'priority' => $oncelik];
+    }
+
+    /*
+     * Hukuk belgeleri haritadan gelir — yeni bir belge eklendiğinde site haritasına elle
+     * eklenmesi gerekmez. Bu sayfalar dizine AÇIKTIR ve açık kalmalı: "sipario kvkk",
+     * "sipario iptal" aramaları gerçek ve bu sayfalar o aramanın doğru cevabı.
+     */
+    foreach (array_keys((array) config('subscription.legal_docs')) as $slug) {
+        $adresler[] = ['loc' => route('legal.show', $slug), 'changefreq' => 'yearly', 'priority' => '0.4'];
+    }
+
+    // `/fiyatlar` BİLEREK YOK: sayfa `noindex` (2026-08-05 kararı). Site haritasına koyup
+    // aynı sayfaya noindex vermek Google'a çelişkili iki sinyal göndermektir.
+
+    return response()
+        ->view('seo.sitemap', ['adresler' => $adresler])
+        ->header('Content-Type', 'application/xml; charset=utf-8');
+})->name('seo.sitemap');
+
+/*
+ * llms.txt — yapay zekâ araçlarına sitenin ne olduğunu ve hangi sayfanın neyi anlattığını
+ * anlatan düz metin özet (llmstxt.org önerisi).
+ *
+ * NEDEN: bu ürün hakkında bir dil modeline soru sorulduğunda, model sayfaları tek tek
+ * tarayıp çıkarım yapmak yerine burayı okur. Bir SaaS için bu artık markdown bir "hakkımızda"
+ * kadar sıradan bir dosyadır ve maliyeti bir rotadır.
+ *
+ * ⚠️ İÇERİK PAZARLAMA DİLİ TAŞIMAZ. Modeli ikna etmeye çalışan bir metin, modelin ürünü
+ * yanlış anlatmasına yol açar. Burada yalnız DOĞRULANABİLİR olgular var — ne yapar, ne
+ * yapmaz, hangi platformda çalışır, fiyat nereden okunur.
+ */
+Route::get('llms.txt', function () {
+    return response()
+        ->view('seo.llms')
+        ->header('Content-Type', 'text/plain; charset=utf-8');
+})->name('seo.llms');
+
+/*
  * Public abonelik/ödeme sitesi (Faz 5b) — WEB, mağaza kuralı gereği mobil DIŞI. auth YOK; üyelik
  * tenant+patron yaratır (owner), abonelik iyzico ile (soyut PaymentGateway). Callback CSRF muaf
  * (bootstrap/app.php) — iyzico dış POST.

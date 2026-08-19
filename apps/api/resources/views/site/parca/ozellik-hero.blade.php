@@ -11,7 +11,7 @@
             <h1 class="h1 ic-h1">Tezgâhın arkasındaki<br>bütün defterler, tek ekranda.</h1>
             <p class="gvd b ic-lead">Sipario bir “sipariş uygulaması” değil. Telefonu açtığınız andan akşam kasayı kapattığınız ana kadar geçen işin tamamı.</p>
             <div class="dg-grup" style="margin-top:30px">
-                <a class="dg dg-a" href="{{ route('subscription.register') }}">{{ $fiyat['deneme'] }} gün ücretsiz dene<x-site.ikon ad="ok" boy="18" kalin="2.2" /></a>
+                <a class="dg dg-a" href="{{ route('subscription.register') }}" data-olcum="sipario_deneme_tik" data-olcum-etiket="ozellik-hero">{{ $fiyat['deneme'] }} gün ücretsiz dene<x-site.ikon ad="ok" boy="18" kalin="2.2" /></a>
                 <a class="dg dg-c" href="{{ route('site.ana') }}#fiyat">Fiyata bak</a>
             </div>
         </div>

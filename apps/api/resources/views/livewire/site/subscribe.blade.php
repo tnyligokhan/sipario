@@ -20,7 +20,22 @@
         </div>
     </header>
 
+    {{--
+        ── DÖNÜŞÜM ÖLÇÜMÜ (2026-08-19) ─────────────────────────────────────────────────────
+        İki ayrı an, iki ayrı olay ve aralarındaki fark önemli:
+
+          • `begin_checkout` — ödeme adımı AÇILDI. Huninin "niyet" basamağı.
+          • `sipario_odeme_beyani` — bayi havale/elden beyanını GÖNDERDİ. Bu bir SATIŞ DEĞİLDİR
+            ve `purchase` olarak sayılmaz: kaydedilen şey bir beyandır, para değil (ekranın
+            kendi metni de bunu söylüyor: "Bildiriminiz alındı", "Ödemeniz alındı" DEĞİL).
+            `purchase` olayı, panelde ödeme onaylandığında yayılmalıdır — beyanı satış saymak,
+            raporda hiç gelmemiş parayı ciro gösterirdi.
+
+        Tutar `value` olarak geçiyor ama KİŞİSEL VERİ YOK: işletme adı, e-posta ve referans
+        kodu gönderilmiyor (KVKK aydınlatma metnindeki taahhüt).
+    --}}
     @if ($tesekkur)
+        <span data-olcum-otomatik="sipario_odeme_beyani" data-olcum-etiket="{{ $tesekkurYol }}" hidden></span>
         <div class="kap ensiz od-basari">
             <span class="od-tik"><x-site.ikon ad="onay" boy="34" kalin="2.6" renk="#fff" /></span>
             <h1 class="h1">Bildiriminiz alındı.</h1>
@@ -47,9 +62,10 @@
             </div>
         </div>
     @else
+        <span data-olcum-otomatik="begin_checkout" data-olcum-etiket="{{ $this->kalemAdi() }}" hidden></span>
         <div class="kap od-basl">
             <h1 class="h1 od-h1">Ödeme</h1>
-            <p class="gvd od-lead">Aşağıdaki tutar tektir; ödeme adımında ek ücret çıkmaz.</p>
+            <p class="gvd od-lead">Aşağıda yazan tutarın dışında bir şey ödemeyeceksiniz — komisyon, dosya masrafı, kurulum ücreti yok.</p>
         </div>
 
         <div class="kap od-ic">
@@ -81,7 +97,9 @@
                 @if ($yol === 'elden')
                     <div class="od-form">
                         <x-site.kutu tur="sari" ikon="bilgi">
-                            Elden ödeme şu an Ankara, Antalya ve İzmir'de geçerli. Talebinizi bırakın, aynı gün içinde arayarak saat ayarlayalım.
+                            {{-- Şehir listesi kaldırıldı — gerekçe: hesap/odeme.blade.php'deki
+                                 aynı düzeltme (tasarımdan gelen örnek liste, karşılığı yok). --}}
+                            Bölgenizdeysek ödemeyi elden alıyoruz. Talebinizi bırakın, aynı gün içinde arayıp saat ayarlayalım; bölgenizde değilsek havale/EFT ile ilerleriz.
                         </x-site.kutu>
                         <x-site.pano :ince="true" :duz="true" :sikIc="true" class="havale">
                             <div class="ozet-r"><span>Tutar</span><b class="tab">{{ $this->tl($tutarKurus) }}</b></div>

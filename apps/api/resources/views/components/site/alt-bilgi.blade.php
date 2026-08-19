@@ -63,13 +63,27 @@
             // data-safety formundaki URL'i bilen bulabiliyordu.
             ['Hesap ve veri silme', 'account.deletion', []],
         ];
+    /*
+     * ── YASAL SÜTUN: HEPSİ DEĞİL, GİRİŞ KAPILARI (2026-08-19) ─────────────────────────────
+     * Belge sayısı 5'ten 10'a çıktı (kullanım koşulları, gizlilik politikası, açık rıza, veri
+     * işleyen eki, başvuru formu eklendi). Onu birden buraya dizmek, alt bilgiyi tek sütunlu
+     * bir mevzuat listesine çevirirdi ve ızgaranın diğer üç sütunuyla oranı bozulurdu.
+     *
+     * Çözüm listelemek değil, YAPIYA GÜVENMEK: her yasal belge sayfasının SOL SÜTUNU on
+     * belgenin tamamını taşır (legal/show.blade.php · ys-nav). Yani buradaki herhangi bir
+     * bağlantı, diğer dokuzuna bir tık uzaklıktadır. Aşağıdaki altı satır, mevzuatın "kolay
+     * erişilebilir olsun" dediği belgelerdir; kalan dördü türev/başvuru belgesidir.
+     *
+     * ⚠️ İKİZ HEDEF YASAĞI (SiteGezinmeTest kilitliyor): her satır farklı bir slug'a gider.
+     */
     $yasal = [
         ['Mesafeli satış sözleşmesi', 'legal.show', 'mesafeli-satis'],
-        // Ön bilgilendirme formu mevzuat gereği mesafeli satışın AYRILMAZ ekidir (sözleşmenin 9.
+        // Ön bilgilendirme formu mevzuat gereği mesafeli satışın AYRILMAZ ekidir (sözleşmenin 14.
         // maddesi onu ek olarak sayar) ve belge zaten vardı; alt bilgide yoktu, yani ödeme akışı
         // dışından erişilemiyordu.
         ['Ön bilgilendirme formu', 'legal.show', 'on-bilgilendirme'],
         ['İptal ve iade', 'legal.show', 'iptal-iade'],
+        ['Kullanım koşulları', 'legal.show', 'kullanim-kosullari'],
         ['Gizlilik ve KVKK', 'legal.show', 'kvkk-aydinlatma'],
         ['Çerez politikası', 'legal.show', 'cerez-politikasi'],
     ];
@@ -149,12 +163,32 @@
         <div class="alt-son">
             <span class="kucuk">© {{ date('Y') }} {{ $telifAdi }}. Tüm hakları saklıdır.</span>
             {{--
-                "Rakamlar örnektir" notu tasarımda VARDI ve kaldırılmamalı: sitedeki kullanım
-                sayıları, yorumlar ve süreler hâlâ TEMSİLİ (bkz. site/parca/_temsili-veri.php).
-                Gerçek rakamlarla değiştirildikleri gün bu cümle de kaldırılır — ikisi birlikte
-                yaşar, biri diğeri olmadan yanlış olur.
+                "Rakamlar örnektir" NOTU KALDIRILDI (2026-08-19) — ve bu, notu görmezden gelmek
+                DEĞİL, notun sebebini ortadan kaldırmaktır.
+
+                Not, sitedeki kullanım sayılarının ve müşteri yorumlarının TEMSİLİ (uydurma)
+                olmasından doğmuştu: "1.240 işletme", "%31 daha az kayıp", isimli üç bayi
+                yorumu. Bir dipnotla dürüst olmaya çalışıyordu ama olamıyordu — ziyaretçi
+                yorumları okuyup notu okumuyor, hatta not TAM DA yorumların gerçek sanılacağını
+                kabul ettiği için yazılmıştı.
+
+                Bu vardiyada uydurma veri siteden ÇIKARILDI (site/parca/_temsili-veri.php artık
+                boş dizi döndürüyor, ilgili bölümler sayfadan düşüyor). Uydurma rakam kalmayınca
+                "rakamlar örnektir" cümlesinin işaret edeceği bir şey de kalmadı; bırakılsaydı
+                bu kez KENDİSİ yanlış olurdu — sayfada örnek rakam yok.
+
+                Yerine destek saati kaldı: ziyaretçinin alt bilgide gerçekten arayacağı bilgi.
             --}}
-            <span class="kucuk">{{ $sirket['hours'] }} · Bu sayfadaki rakamlar örnektir.</span>
+            <span class="kucuk">Destek: {{ $sirket['hours'] }}</span>
+            {{--
+                Çerez tercihi geri alma yolu. `<button>` bilerek — `<a href="#">` olsaydı
+                "alt bilgideki her bağlantı benzersiz bir hedefe gider" sözleşmesine sahte bir
+                hedefle girerdi (SiteGezinmeTest). Ölçüm kapalıysa hiç basılmaz: olmayan bir
+                çerez için tercih düğmesi göstermek ziyaretçiyi yanıltırdı.
+            --}}
+            @if ((bool) config('analitik.enabled') && (string) config('analitik.measurement_id') !== '')
+                <button type="button" class="kucuk alt-cerez" data-cerez-ac>Çerez tercihleri</button>
+            @endif
         </div>
     </div>
 </footer>

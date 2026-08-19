@@ -1100,3 +1100,80 @@ main.ic{padding-top:74px}
 .od-kod-h{width:40px;height:50px;font-size:19px}
 .destek-cta-ic{flex-direction:column;align-items:flex-start}
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   HUKUK BELGELERİ + ÇEREZ ONAYI (2026-08-19)
+
+   Kaynak tasarımda (`_kaynak/web/16-sw-yasal.jsx`) hukuk sayfası yalnız başlık + paragraf
+   taşıyordu; belgeler baştan yazılınca LİSTE, TABLO ve KOD BLOĞU gerekti — bir saklama süresi
+   tablosunu düz paragrafa yazmak okunmaz hâle getiriyordu. Sınıf adları `ys-` ön ekiyle
+   mevcut düzeni sürdürüyor (`.ys-b`, `.ys-ic`, `.ys-nav` zaten vardı).
+
+   ⚠️ `.ys-b .gvd{white-space:pre-line}` KURALI YUKARIDA DURUYOR ve buradaki her şeyi etkiler:
+   Blade kaynağında bir `<p class="gvd">` satır kırarsa ekranda da kırılır. Bu yüzden belge
+   dosyalarında her paragraf tek satırdır. Liste ve tablo `<p>` DEĞİLDİR, o kuraldan etkilenmez.
+   ══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* Doldurulacak alan işareti — `x-legal.deger` yer tutucu bulduğunda basar.
+   Göze BATMASI amaçtır: bu işaret, belgeyi yayına alacak insanın yapılacaklar listesidir. */
+.doldur{background:var(--sari-sis);color:var(--sari);font:600 13.5px/1.35 var(--m);
+  padding:2px 7px;border-radius:var(--rs);border:1px dashed currentColor;white-space:nowrap}
+.gece .doldur{background:rgba(232,182,90,.14);color:#E8B65A}
+
+/* Madde listeleri. `list-style` kapalı değil — hukuk metninde madde işareti okumayı kolaylaştırır. */
+.ys-liste{margin:12px 0 0 20px;max-width:72ch;display:flex;flex-direction:column;gap:9px}
+.ys-liste li{font-size:16.5px;line-height:1.6;color:var(--murekkep-2);padding-left:4px}
+.ys-liste li b{color:var(--murekkep)}
+.ys-b h3.h4{margin:20px 0 8px;font-family:var(--d);font-size:17px;font-weight:650}
+
+/* Tablolar. Dar ekranda SATIRA SIĞDIRILMAZ, kendi içinde yatay kaydırılır — sütunları
+   üst üste yığmak saklama süresi tablosunda "hangi süre hangi veriye ait" bağını koparırdı. */
+.ys-tablo-sar{overflow-x:auto;margin:14px 0 4px;border:var(--kalem) solid var(--cizgi);
+  border-radius:var(--r);background:var(--yuzey)}
+.ys-tablo{border-collapse:collapse;width:100%;min-width:520px;font-size:15px}
+.ys-tablo th,.ys-tablo td{text-align:left;padding:10px 13px;border-bottom:1px solid var(--cizgi);
+  vertical-align:top;line-height:1.5}
+.ys-tablo thead th{font:500 12.5px/1.3 var(--m);text-transform:uppercase;letter-spacing:.04em;
+  color:var(--sonuk);background:var(--kagit-2);white-space:nowrap}
+.ys-tablo tbody tr:last-child td{border-bottom:none}
+.ys-tablo td b{color:var(--murekkep)}
+.ys-tablo code{font:400 13.5px/1.4 var(--m);background:var(--kagit-2);padding:1px 5px;border-radius:3px}
+
+/* Örnek başvuru metni bloğu — kopyalanabilir olsun diye tek aralıklı ve seçilebilir. */
+.ys-kod{font:400 14px/1.7 var(--m);background:var(--kagit-2);border:var(--kalem) solid var(--cizgi);
+  border-radius:var(--r);padding:16px 18px;margin-top:14px;white-space:pre-wrap;overflow-x:auto;
+  color:var(--murekkep-2)}
+
+.ys-alt{margin-top:20px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+
+/* ── ÇEREZ ONAY BANDI ──────────────────────────────────────────────────────────────────────
+   Sayfanın altına sabitlenir. `position:fixed` bilinçli: ziyaretçi aşağı kaydırırken bandı
+   kaybederse rıza istenmiş sayılmaz ama ölçüm de başlamaz — yani kaybolan bir band sessizce
+   "reddedildi" demektir. Görünür kalması ziyaretçinin lehinedir.
+
+   Z-DÜZENİ: 60 — üst menü 50, modal 100 (ölçüldü). Band menüyü örter, modalın altında kalır. */
+.cerez{position:fixed;left:0;right:0;bottom:0;z-index:60;padding:14px 0;
+  background:var(--gece);color:#F3F0EC;border-top:2px solid var(--mor);
+  box-shadow:0 -8px 28px rgba(22,19,28,.22)}
+.cerez-ic{display:flex;align-items:center;gap:16px 22px;flex-wrap:wrap}
+.cerez-m{flex:1 1 380px;font-size:14.8px;line-height:1.55;color:rgba(243,240,236,.82)}
+.cerez-m a{color:#C3B8FF;text-decoration:underline}
+.cerez-dg{display:flex;gap:9px;flex-wrap:wrap}
+/* Reddet ve kabul et AYNI görsel ağırlıkta. KVK Kurulu çerez rehberi, reddi zorlaştıran
+   tasarımı (karanlık desen) geçerli rıza saymaz: kabul yeşil-büyük, ret gri-küçük olamaz. */
+.cerez-dg .dg{min-height:42px;padding:0 18px;font-size:14.5px}
+.cerez .dg-a{background:var(--mor);color:#fff}
+.cerez .dg-c{background:transparent;color:#F3F0EC;border:var(--kalem) solid rgba(243,240,236,.34)}
+.cerez .dg-c:hover{border-color:rgba(243,240,236,.7)}
+@media(max-width:700px){
+.cerez-ic{flex-direction:column;align-items:stretch}
+.cerez-dg{width:100%}
+.cerez-dg .dg{flex:1}
+}
+
+/* Alt bilgideki "Çerez tercihleri" düğmesi. `<a>` DEĞİL `<button>` (gerekçe: alt-bilgi.blade.php),
+   ama görsel olarak bir bağlantı gibi durmalı — ziyaretçi onu tıklanabilir bir metin olarak arar.
+   `.alt-son`daki diğer iki metinle aynı puntoda, alt çizgi tıklanabilirliği belli ediyor. */
+.alt-cerez{color:rgba(243,240,236,.62);text-decoration:underline;text-underline-offset:2px;
+  padding:0;font:inherit;font-size:14px}
+.alt-cerez:hover{color:#F3F0EC}

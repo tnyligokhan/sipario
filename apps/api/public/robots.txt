@@ -1,2 +1,42 @@
+# robots.txt — sipario.com.tr
+#
+# 2026-08-19'da yazıldı. Öncesinde dosya iki satırdı ("User-agent: *" + boş "Disallow:"),
+# yani "her şey serbest" diyordu ve DOĞRUYDU ama EKSİKTİ: site haritasını duyurmuyor, oturum
+# ve ödeme adreslerini dizin dışında tutmuyordu.
+#
+# ⚠️ robots.txt DİZİNE GİRMEYİ ENGELLEMEZ, TARAMAYI engeller. Bir adres başka bir yerden
+# bağlantı alırsa, taranmasa bile arama sonucunda başlıksız olarak görünebilir. Gerçek kapı
+# sayfanın kendi `<meta name="robots" content="noindex">` etiketidir ve o etiket zaten
+# basılıyor (components/layouts/site-ciplak.blade.php · noindex,follow). Buradaki Disallow
+# satırları o kapıyı TAMAMLAR: tarayıcı botun boşuna kaynak harcamasını önler.
+#
+# ── STATİK DOSYA, ROTA DEĞİL ────────────────────────────────────────────────────────────────
+# Web sunucusu (nginx `try_files $uri /index.php`) statik dosyayı Laravel'e hiç uğratmadan
+# döndürür; bir rota yazılsaydı sessizce ölü kalırdı. Sitemap adresi bu yüzden mutlak ve elle
+# yazılı — alan adı verilmiş bir karardır (BRIEF: domain sipario.com.tr alındı).
+
 User-agent: *
-Disallow:
+Allow: /
+
+# Oturum, ödeme ve kimlik akışları: dizine girmelerinin ziyaretçiye faydası yok, bize zararı var.
+# (/abonelik ve /parola/yenile/ bağlam/jeton taşır.)
+Disallow: /hesap
+Disallow: /abonelik
+Disallow: /giris
+Disallow: /parola
+Disallow: /parola/yenile/
+
+# İç yönetim paneli — bize ait, müşteriye değil.
+Disallow: /panel
+
+# API yüzeyi HTML döndürmez; taranması boş istek üretir.
+Disallow: /api/
+
+# Livewire'ın kendi AJAX uç noktası.
+Disallow: /livewire/
+
+# Yapay zekâ araçları için sitenin özeti (bkz. /llms.txt).
+# Bu bir yönerge değil, bilgi satırıdır — hiçbir bot standart olarak okumaz, ama adresi
+# görünür kılar ve manuel bakan insana yol gösterir.
+
+Sitemap: https://sipario.com.tr/sitemap.xml

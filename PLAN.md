@@ -269,7 +269,262 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-19/1 — KOYU TEMA GÖZ YORMUYOR: MOR KOYUDA AÇILDI, NÖTRLERDEN ÇEKİLDİ (mobil 0.33.0 → **0.34.0**, API DEĞİŞMEDİ 1.11.0)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-19/2 — WEB SİTESİ YAYINA HAZIRLANDI: HUKUK PAKETİ · ÖLÇÜM · SEO · METİN DİLİ (API 1.11.0 → **1.12.0**, mobil DEĞİŞMEDİ 0.34.0)
+
+**Tamamı web yüzeyi.** Mobil uygulamaya, senkron sözleşmesine ve API uç noktalarına hiç
+dokunulmadı — telefonlar bu vardiyayı fark etmez.
+
+Kullanıcı isteği dört başlıktı: (1) site ve işletme paneli metinleri "çok yapay", doğallaştır;
+(2) `claude-for-legal` deposundan doğru skill'i kurup **tüm** legal metinleri Türkiye hukukuna
+göre baştan yaz, doldurulacak yerleri işaretle; (3) Google Analytics + gereken metrik altyapısı,
+GTM'siz de çalışsın; (4) anahtar kelime + SEO + `robots`/`llms` dosyaları.
+
+---
+
+#### 1) Sitenin en yapay yeri üslup değil, UYDURMA VERİYDİ — ve silindi
+
+Ana sayfa şunları yayımlıyordu: **"1.240 işletme"**, **"%31 daha az kayıp"**, **"6 dk sipariş
+başına"** ve üç **isimli müşteri yorumu** (Hasan Yıldırım · Yıldırım Su · Antalya; Necla Aksoy ·
+Aksoy Tüp · Konya; Serkan Demir · Demir Market · İzmir).
+
+**Hiçbiri gerçek değildi.** Tasarım prototipinin örnek verisiydi; `_temsili-veri.php` bunu kendi
+başlığında zaten yazıyor ve *"yayına çıkmadan önce ZORUNLU: ya gerçek rakamlarla değiştirilecek
+YA DA bölümler kaldırılacak"* diyordu. **Site 2026-08-07'den beri canlı** — o zorunluluğun tarihi
+geçmişti.
+
+Uydurma bir yorumu "daha doğal Türkçeyle" yeniden yazmak onu **daha inandırıcı bir uydurma**
+yapardı. Diziler boşaltıldı, bölümler sayfadan düştü (parçalar boş diziye karşı zaten korumalıydı).
+Alt bilgideki *"Bu sayfadaki rakamlar örnektir"* dipnotu da kaldırıldı: uydurma rakam kalmayınca
+dipnotun işaret edeceği bir şey kalmadı.
+
+> **Geri gelme şartı dosyaya yazıldı:** yorum için bayiden **yazılı izin** (ad + işletme kişisel
+> veridir), rakam için *"nasıl ölçüldüğü"* söylenebilir olmalı.
+
+#### Metin dili: aynı reklam kalıbı üç başlıkta tekrarlıyordu
+
+"Kâğıt defter iyi bir defterdir. **Kötü bir sistemdir.**" / "İşin durursa defter de durur.
+**O yüzden durmuyor.**" / "Defter değil, **bakiye**." — bu `X değil, Y` ritmi metnin bir insan
+tarafından yazılmadığı hissini veren şeyin ta kendisiydi. Üçü de değişti; ürün turu ve "dert"
+bölümleri esnafın konuştuğu dile yaklaştırıldı ("Her aramada aynı üç soru" → "Aynı soruları her
+gün baştan soruyorsunuz").
+
+İşletme panelinde jargon ayıklandı: **"salt-okunur kipe geçer"** → *"yeni kayıt giremezsiniz;
+girdikleriniz olduğu gibi durur"* (üç ayrı yerde). **"Verilerimi isteyin"** düğmesi → *"Verilerimi
+gönderin"* (emir kipi yanlış tarafa bakıyordu: basan bayi, ama cümle bize emir veriyordu).
+
+⚠️ **Bir dil bilgisi tuzağı kapandı:** "Deneme {tarih}**'da** bitiyor" — `tarih()` her zaman yılla
+biter ve ek son hecenin ünlüsüne uyar: 2026 (altı) → `'da` doğru, **2027 (yedi) ve 2028 (sekiz) →
+`'de` olmalıydı**. Cümle bu yıl doğru, seneye yanlış basacaktı. "…{tarih} **tarihinde** bitiyor"
+eki tamamen ortadan kaldırdı.
+
+---
+
+#### 2) Hukuk paketi: 5 iskelet → **10 tam metin**
+
+Belgeler bugüne kadar başlarında **"PLACEHOLDER"** yazan sarı bir kutu ve gövdelerinde "avukat
+netleştirecek" cümleleri taşıyordu. O kutu bir uyarı gibi görünüyordu ama **işlevi başkaydı:**
+ödeme ekranındaki onay kutuları bu belgelere bağlı, yani bayi *"okudum, kabul ediyorum"* derken
+PLACEHOLDER yazan bir sayfaya onay veriyordu ve `subscription_payments.consent_version` kaydı
+hiçbir şeyin delili değildi.
+
+| Hat | Belgeler |
+|---|---|
+| **Satış** | Mesafeli Satış Sözleşmesi · Ön Bilgilendirme Formu · İptal, Cayma ve İade Koşulları · **Kullanım Koşulları ve Üyelik Sözleşmesi** (yeni) |
+| **Veri** | KVKK Aydınlatma Metni · **Gizlilik Politikası** (yeni) · **Açık Rıza ve Ticari Elektronik İleti Metni** (yeni) · **Veri İşleyen Sözleşmesi Ek-1** (yeni) · Çerez Politikası · **İlgili Kişi Başvuru Formu** (yeni) |
+
+**Üç esaslı karar:**
+
+1. **Açık rıza aydınlatmadan AYRILDI.** Eski belgenin adı "KVKK Aydınlatma Metni **ve Açık Rıza**"ydı
+   ve ikisi tek onay kutusuna bağlıydı. KVKK m.3/1-a rızayı *belirli bir konuya ilişkin* ve *özgür
+   iradeyle* verilmiş sayar; hizmetin ön koşulu yapılan rıza geçersizdir. Hizmet zaten m.5/2-c
+   (sözleşmenin ifası) sebebine dayanıyor — rıza artık **yalnız** pazarlama iletisi ve ölçüm
+   çerezi için isteniyor ve reddi hizmeti hiç etkilemiyor.
+2. **Veri İşleyen Eki zorunluydu, "iyi olur" değil.** Bayinin kendi müşterilerine ait
+   ad/telefon/adres/borç verisinin **sorumlusu bayidir**, Sipario veri işleyendir; KVKK m.12/1 bu
+   ilişkiyi yazılı bir belgeye bağlar. Belge yokken bayi bir denetimde *"veri işleyeninizle
+   sözleşmeniz nerede?"* sorusuna cevap veremezdi.
+3. **"Alıcı tacir mi tüketici mi" sorusu saklanmadı.** TKHK yalnız tüketici işlemlerini kapsar;
+   bu ürünün alıcısı ezici çoğunlukla esnaftır. Metin cayma hakkını **iki alıcı tipi için ayrı
+   ayrı** düzenliyor ve tacire kanunun vermediği 14 günlük iadeyi **sözleşmeyle** veriyor.
+
+**Skill kurulumu:** `anthropics/claude-for-legal` marketplace olarak eklendi;
+**`privacy-legal`** (KVKK/gizlilik hattı) ve **`commercial-legal`** (SaaS sözleşme hattı) kullanıcı
+kapsamında kuruldu. Etkileşimli `cold-start-interview` yerine pratik profili bu projenin gerçek
+olgularıyla dolduruldu: `~/.claude/plugins/config/claude-for-legal/company-profile.md` +
+`privacy-legal/CLAUDE.md` (çift sıfat tablosu, alt işleyen listesi, saklama süreleri, "uydurma
+yok" kuralı). Sonraki vardiya `/privacy-legal:*` komutlarını doğrudan kullanabilir.
+
+**Sürümler ilerledi:** `subscription.legal` 2026-07-15 → **2026-08-19**, ayrıca yeni bir
+`terms_version` hattı açıldı. ⚠️ Eski `consent_version` kayıtları **2026-07-15 olarak duruyor ve
+durmalı** — o bayiler o günkü metni kabul etti; geriye dönük eşitlemek kabul kaydını delil
+olmaktan çıkarırdı.
+
+---
+
+#### 3) "Verileriniz Türkiye dışına çıkmaz" cümlesi YANLIŞTI
+
+Hukuk metinleri yazılırken koda bakınca çıktı. **Dört ayrı yurt dışı çıkışı var:**
+
+| Ne | Nereye | Ne gidiyor |
+|---|---|---|
+| Adres arama | Yandex / Google | **yalnız adres metni** |
+| Rota sıralama | Google Routes | **yalnız durak koordinatları** |
+| Anlık bildirim | Google FCM | cihaz jetonu + olay adı + kayıt no |
+| Site ölçümü (yeni) | Google Analytics | rızaya bağlı kullanım olayları |
+
+**Saklama Türkiye'de** — o doğru ve BRIEF kırmızı çizgisi olarak duruyor — ama saklama ile
+aktarım aynı şey değil (KVKK m.9 ayrı bir rejim). Yeni metinler her çıkışı sayıyor **ve ne
+gitmediğini de yazıyor**: müşterinin adı, telefonu, borcu hiçbir çağrıda yok (ölçüldü).
+
+Aynı denetimde **site iki yerde daha ürünle çelişiyordu**, ikisi de düzeltildi:
+- *"İstediğim zaman iptal edebilir miyim? → **Evet, panelden tek tıkla**"* — panelde iptal düğmesi
+  **yok** ve olmaması bilinçli bir karar (`hesap/abonelik.blade.php` · sapma 3).
+- *"verinizi Excel olarak **alıp gidersiniz**"* — uygulamada dışa aktarım düğmesi **yok**, talep
+  destek kanalından yürür (BRIEF'in kendi kuralı).
+
+> **Ders:** pazarlama metni ile ürün davranışı arasındaki sapma, hukuk metni yazarken en görünür
+> hâle geliyor.
+
+---
+
+#### 4) GA4 kuruldu — ama **rızasız tek bir istek atmıyor**
+
+Ölçüm kimliği `G-6SGNK7B0ZK` (kullanıcı verdi). Yaygın kurulum gtag.js'i hemen yükleyip Consent
+Mode ile "denied" der; **o yaklaşım seçilmedi** — betik yüklenir yüklenmez `googletagmanager.com`a
+istek gider ve o istek ziyaretçinin IP'sini Google'a taşır, KVK Kurulu çerez rehberinin *önceden
+rıza* beklentisini karşıladığı kesin değildir.
+
+Burada etiket **ancak "kabul" tıklandığında** DOM'a enjekte ediliyor. Böylece Çerez Politikası'ndaki
+*"izin vermezseniz Google'a hiçbir istek gönderilmez"* cümlesi **ölçülebilir biçimde doğru** ve
+testi de öyle yazıldı (sunucu çıktısında `googletagmanager.com` geçmemeli).
+
+- **Üç kapı:** kimlik (`ANALITIK_GA4_ID` boşsa hiç kurulmaz) + ortam (varsayılan yalnız üretim —
+  test koşusu gerçek mülke veri yollamaz) + rıza.
+- **Consent Mode v2** dört sinyalle; rıza gelse bile `ad_storage`/`ad_user_data`/
+  `ad_personalization` **denied** kalır ve `allow_google_signals:false` — reklam yapmıyoruz,
+  açık bırakmak "reklam çerezi yok" cümlesini yalanlardı.
+- **Ret ve kabul aynı ağırlıkta, ret önde** (rehber, reddi zorlaştıran tasarımı geçerli rıza
+  saymaz). Reddedilince var olan `_ga*` çerezleri **silinir**. Alt bilgide "Çerez tercihleri"
+  bağlantısı rızayı geri almayı sağlıyor.
+- **GTM hazır ama gerekmiyor:** `ANALITIK_GTM_ID` doldurulursa konteyner devreye girer, kodda
+  değişiklik gerekmez. GTM'in `<noscript><iframe>` parçası **bilerek basılmıyor** — rıza kapısı
+  yalnız JS ile işlediği için o iframe kapının dışından geçerdi.
+- **12 dönüşüm olayı** tanımlı (`config/analitik.php`). Görünümlerde `data-olcum="…"` özniteliği
+  yeter; JS'e dokunmadan yeni düğme ölçülebilir. Bağlananlar: `sign_up` (sunucudan, tenant
+  gerçekten yaratıldıysa), `login`, `begin_checkout`, `sipario_odeme_beyani`, `sipario_iletisim`,
+  `sipario_telefon_tik`, `sipario_whatsapp_tik`, `sipario_deneme_tik` (altı ayrı CTA).
+  ⚠️ **`purchase` bilerek BAĞLANMADI** — bayinin havale beyanı bir **satış değildir**; olay,
+  panelde ödeme onaylandığında yayılmalı (sıradaki işler).
+- **CSP siteye özel genişletildi** (panel ve API'ye **değil**) ve `script-src`e `'unsafe-inline'`
+  **eklenmedi** — eklenseydi tarayıcı nonce'u yok sayar ve mevcut korumanın tamamı anlamsızlaşırdı.
+- **`Referrer-Policy` yüzeye göre ayrıştı:** sitede `strict-origin-when-cross-origin` (eski
+  `no-referrer` tüm trafiği "doğrudan" gösterip raporu ilk günden körleştiriyordu), panel ve
+  API'de `no-referrer` **kaldı**.
+
+---
+
+#### 5) SEO yüzeyi
+
+`sitemap.xml` ve `llms.txt` birer **rota** ve sayfa listesini config'ten okuyor — elle tutulan bir
+kopya ilk yeni belge eklendiğinde bayatlardı. `robots.txt` **statik kaldı** (web sunucusu statik
+dosyayı Laravel'e hiç uğratmaz; rota yazılsaydı sessizce ölü kalırdı) ve genişletildi.
+
+Eklenenler: her sayfada canonical + OG/Twitter + `hreflang tr-TR` + `theme-color`, JSON-LD
+(`Organization` + `WebSite`, yasal sayfalarda `BreadcrumbList`), layout'a `dizine` prop'u
+(kimlik/ödeme ekranlarının tamamı `noindex,follow`).
+
+- **`lastmod` bilerek yok:** `now()` basmak her taramada "her sayfa bugün değişti" demek olurdu ve
+  Google bu sinyale güvenmeyi bırakır. Yanlış sinyal, hiç sinyal vermemekten kötü.
+- **`/fiyatlar` haritaya konmadı:** sayfa `noindex` taşıyor; aynı adrese iki çelişkili sinyal
+  göndermek anlamsız.
+- **`og:image` yok ve uydurulmadı** — olmayan bir dosyaya işaret etmek WhatsApp'ta kırık önizleme
+  üretir. (Sıradaki işler: 1200×630 paylaşım görseli.)
+
+---
+
+#### Kapılar
+
+| Kapı | Sonuç |
+|---|---|
+| `phpunit` (API tam suite) | **YEŞİL — 905 test, 904 geçti, 1 atlandı, 0 kırık** · 4545 iddia · ~10,6 dk |
+| `pint --test` | temiz |
+| `phpstan` | **0 hata** |
+| Yeni test dosyası | `OlcumVeSeoTest` — **14 test**: rıza kapısı, CSP, referrer, robots/sitemap/llms, dizin yönergeleri, yapısal veri, olay işaretleri |
+| Güncellenen testler | `LegalDocsTest` 2 → **8**, `AccountDeletionPageTest` 2 → **4** |
+| Elle ölçüm | 8 genel sayfa 200 · `sitemap.xml` geçerli XML (15 URL, `DOMDocument` ile doğrulandı) · 10 hukuk belgesi render · `node --check` ile `olcum.js` |
+
+> ⚠️ **SUITE İKİ KEZ KOŞULDU VE BİRİNCİSİ SAYILMADI.** İlk tam koşu sırasında ağaç hâlâ
+> hareketliydi (üç görünüm ve bir test dosyası koşu devam ederken değişti). Depoda yazılı kural
+> bu: *doğrulama ağaç donduktan sonra koşulur.* İlk koşu 903 testte 1 kırık verdi
+> (`AccountDeletionPageTest` — kopya değişikliğinin gerçek sonucuydu, düzeltildi); ikinci koşu
+> ağaç yine hareketli olduğu için ORTASINDA DURDURULDU; üçüncüsü donmuş ağaçta koşuldu ve
+> yukarıdaki sayı odur. Test sayısının 903 → 905 çıkmasının sebebi bu vardiyada eklenen
+> iddialardır (`AccountDeletionPageTest` 2 → 4).
+
+#### `AccountDeletionPageTest` neden değişti (kopya değil, sözleşme kilitleniyor)
+
+Test `assertSee('Hesap ve Veri Silme')` ile sayfanın BAŞLIĞINI, `assertSee('TASLAK')` ile de
+kaldırılan yer tutucu kutusunu kilitliyordu. İkisi de birer **davranış** değil, birer **kopya
+tercihiydi**; metin doğallaşınca kırıldılar. Yerine sayfanın taşımak ZORUNDA olduğu bilgi
+kilitlendi: Play'in şartı (erişilebilirlik + sürecin anlatılması), BRIEF'in şartı (talep destek
+kanalından), KVKK'nın şartı (sorumlu/işleyen ayrımı + saklama istisnaları **dayanaklarıyla** +
+30 gün). Artık kopya iyileştikçe kırılmaz, bilgi düşerse kırılır.
+
+---
+
+#### ⚠️ SENİN DOLDURMAN GEREKENLER (belgelerde `DOLDURULACAK` diye işaretli, sayfa başında sayısı yazıyor)
+
+Hepsi `config/subscription.php` → `company` bloğundan veya env'den okunuyor; **kod değişmez, env
+dolunca işaretler kendiliğinden kaybolur.**
+
+| Alan | env anahtarı | Nerede görünüyor |
+|---|---|---|
+| Ticaret unvanı | `COMPANY_TITLE` | 4 belge + alt bilgi telif satırı |
+| Açık adres | `COMPANY_ADDRESS` | mesafeli satış · ön bilgilendirme · KVKK · başvuru formu |
+| MERSİS no | `COMPANY_MERSIS` | mesafeli satış · ön bilgilendirme · KVKK |
+| Vergi dairesi / no | `COMPANY_TAX_OFFICE` | mesafeli satış · ön bilgilendirme |
+| Telefon | `COMPANY_PHONE` | 3 belge + destek/iletişim kanal kartları |
+| **KEP adresi** | **env anahtarı YOK — eklenmeli** | mesafeli satış · ön bilgilendirme · KVKK · başvuru formu |
+| **Yetkili mahkeme/icra** | **env anahtarı YOK — eklenmeli** | mesafeli satış m.13 · ön bilgilendirme · iptal-iade |
+| **KDV dahil/hariç + oran** | **env anahtarı YOK — eklenmeli** | mesafeli satış m.4 · ön bilgilendirme |
+| **VERBİS kayıt durumu** | **env anahtarı YOK — eklenmeli** | KVKK aydınlatma m.1 |
+| **Barındırma sağlayıcısı unvanı** | **env anahtarı YOK** | veri işleyen eki alt işleyen tablosu |
+| **SMTP sağlayıcısı + ülkesi** | **env anahtarı YOK** | KVKK aktarım tablosu · veri işleyen eki |
+| **Yurt dışı aktarım dayanağı** | — | KVKK m.5 · veri işleyen eki m.6 — **standart sözleşme imzalanıp Kurul'a 5 iş günü içinde bildirilmeli** |
+| **İYS kaydı** | — | açık rıza metni — ticari elektronik ileti göndermeye başlamadan önce açılmalı |
+| **WhatsApp numarası** | **config karşılığı YOK** | destek + iletişim kanal listesi (bugün hiç basılmıyor) |
+| **Kartlı ödemenin açılacağı tarih** | — | mesafeli satış m.4 · ön bilgilendirme m.4 |
+
+Ayrıca **insan işi, env değil:**
+- **Avukat onayı.** Her belgenin başındaki sarı kutu bunu söylüyor; onay gelince
+  `<x-legal.uyari />` çağrıları belgelerden silinir (bileşen tek yerde, on dosyada arama gerekmez).
+- **Google Analytics'te 8 dönüşüm olayını "anahtar olay" işaretle.** Adlar
+  `config/analitik.php` → `olaylar` tablosunda, `donusum => true` olanlar.
+- **GA4 veri saklamayı 14 aya çek** (Çerez Politikası bu süreyi metin olarak yazıyor).
+- **Search Console'a `sitemap.xml` gönder.**
+
+---
+
+**SIRADAKİ İŞLER (bu vardiyadan çıkanlar):**
+
+1. **`purchase` olayı panele bağlanmalı.** Bugün yalnız beyan (`sipario_odeme_beyani`) ölçülüyor;
+   gerçek satış, panelde ödeme onaylandığı an yayılmalı. Aksi hâlde GA4 hunisi tahsil edilmemiş
+   parayı ciro gösterir.
+2. **`og:image` (1200×630) hazırlanmalı.** Satış WhatsApp'tan yürüyor; görselsiz bağlantı çıplak
+   URL olarak görünüyor.
+3. **API hata yanıtları güvenlik başlığı almıyor** (bu vardiyada ölçüldü, DÜZELTİLMEDİ — kapsam
+   dışı). `SecurityHeaders`, `api` grubuna `append` ile takılı, yani `auth:sanctum`ın fırlattığı
+   401 middleware'e hiç uğramıyor: `/api/v1/auth/me` → 401, `Referrer-Policy` = null. Öncelik
+   listesi `ResolveTenantContext` için elle ayarlanmış; dokunmak yan etki üretebilir, ayrı bir
+   vardiyada ölçülerek yapılmalı.
+4. **Anahtar kelime çalışması ikinci tura girmeli.** Bugün meta açıklamaları ve `llms.txt`
+   ürünün gerçek dilini taşıyor ("veresiye defteri", "arayan tanıma", "kurye takibi", "su bayii
+   programı"); gerçek arama hacmi ölçülmedi. Search Console verisi biriktikten sonra başlıklar
+   veriye göre ayarlanmalı — bugün tahminle ayarlamak, ölçmeden optimize etmek olurdu.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-19/1 — KOYU TEMA GÖZ YORMUYOR: MOR KOYUDA AÇILDI, NÖTRLERDEN ÇEKİLDİ (mobil 0.33.0 → **0.34.0**, API DEĞİŞMEDİ 1.11.0)
 
 **Tek kullanıcı isteği**, tamamı istemci tarafı: *"dark mode tarafı çok göz yoruyor; mor ana
 rengimiz ama dark modda her yerde uygulanacak diye bir şey yok."*

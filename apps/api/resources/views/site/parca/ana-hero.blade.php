@@ -14,7 +14,7 @@
             <h1 class="h-dev">Telefon çaldığında<br>müşteriniz<br><em>ekranda.</em></h1>
             <p class="gvd b hero-alt">Sipario, gelen numarayı müşteri defterinizle eşleştirir: kim aradı, nerede oturuyor, ne kadar borcu var, en son ne almıştı — daha “alo” demeden ekranda.</p>
             <div class="dg-grup hero-dg">
-                <a class="dg dg-a dev" href="{{ route('subscription.register') }}">{{ $fiyat['deneme'] }} gün ücretsiz dene<x-site.ikon ad="ok" boy="19" kalin="2.2" /></a>
+                <a class="dg dg-a dev" href="{{ route('subscription.register') }}" data-olcum="sipario_deneme_tik" data-olcum-etiket="hero">{{ $fiyat['deneme'] }} gün ücretsiz dene<x-site.ikon ad="ok" boy="19" kalin="2.2" /></a>
                 <a class="dg dg-c dev" href="{{ route('site.ozellikler') }}">Nasıl çalıştığını gör</a>
             </div>
             <ul class="hero-guvence">

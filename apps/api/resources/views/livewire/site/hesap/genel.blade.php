@@ -14,8 +14,19 @@
             </x-slot:sag>
             <div class="ab-ust">
                 <div>
-                    <span class="h2">Deneme {{ $this->tarih($bayi->valid_until) }}'da bitiyor</span>
-                    <p class="gvd">Bittiğinde hesabınız salt-okunur kipe geçer — kayıtlarınız silinmez. Aboneliği şimdi başlatsanız bile ücret {{ $this->tarih($bayi->valid_until) }} tarihinde işler.</p>
+                    {{--
+                        ── İKİ DÜZELTME (2026-08-19) ────────────────────────────────────────
+                        1. KESME İŞARETİ KALDIRILDI. Başlık "{tarih}'da bitiyor" diye kuruluyordu
+                           ve `tarih()` her zaman YIL ile bitiyor ("12 Eylül 2026"). Türkçede ek
+                           son hecenin ünlüsüne uyar: 2026 (altı) → "'da" DOĞRU, ama 2027 (yedi)
+                           ve 2028 (sekiz) → "'de" olmalı. Yani cümle bu yıl doğru, seneye yanlış
+                           basacaktı — kimsenin arayıp bulamayacağı türden bir hata. "tarihinde"
+                           yazmak eki tamamen ortadan kaldırır ve her yıl doğru kalır.
+                        2. "salt-okunur kip" ESNAF SÖZLÜĞÜ DEĞİL. Kullanıcının GÖRDÜĞÜ davranışla
+                           anlatıldı: yeni kayıt girilemez, eskiler durur.
+                    --}}
+                    <span class="h2">Deneme {{ $this->tarih($bayi->valid_until) }} tarihinde bitiyor</span>
+                    <p class="gvd">O gün geldiğinde yeni sipariş ve tahsilat giremezsiniz; girdiğiniz hiçbir kayıt silinmez, olduğu gibi durur. Bugün abone olsanız bile ücret {{ $this->tarih($bayi->valid_until) }} tarihinde işlemeye başlar — erken ödeme kalan günlerinizi yakmaz.</p>
                 </div>
                 <div class="ab-fiyat">
                     <b class="rakam kucuk-rakam tab">{{ $this->tlk($this->plan()->yillikKurus() / 12) }}</b>
