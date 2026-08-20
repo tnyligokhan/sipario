@@ -64,7 +64,7 @@ class AyarlarEkrani extends StatefulWidget {
   /// ⚠️ 2026-08-13'TE ZORUNLU OLDU. Eskiden nullable'dı ve doc "verilmezse kısıtlama uygulanmaz
   /// (test/önizleme yolu)" diyordu — o geçirgen varsayılan, bu ekrandan açılan müşteri kartına
   /// sızıyor ve orada bir yetki genişlemesine dönüşüyordu. Önizleme yine mümkün: çağıran
-  /// `yetkiler(rol: ..., kuryeVar: ...)` geçer.
+  /// `yetkiler(rol: ..., atamaHedefiVar: ...)` geçer.
   final RolYetkileri yetki;
 
   /// `patron|operator|kurye`. İŞLETME satırının kapısı budur ve doğrudan `patron` string'ine

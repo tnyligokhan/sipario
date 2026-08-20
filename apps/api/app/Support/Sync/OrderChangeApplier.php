@@ -155,6 +155,21 @@ class OrderChangeApplier
             $order->note = isset($payload['note']) ? (string) $payload['note'] : null;
         }
 
+        // TESLİM EDEN — `assigned_user_id` ile AYNI kapı: yazımdan (türetmeden) ÖNCE RLS-kapsamlı
+        // varlık kontrolü. Kapı olmasaydı bir istemci başka bayinin kullanıcı kimliğini teslim
+        // payload'ına koyup siparişi ona atfedebilirdi (kırmızı çizgi #1).
+        //
+        // ALAN OPSİYONELDİR ve öyle kalmalı: sahadaki eski uygulama sürümleri `delivered` olayını
+        // bu anahtar OLMADAN gönderiyor ve onların teslimatı reddedilemez (offline-first: telefon
+        // günlerce eski sürümde kalabilir). Anahtar yoksa türetme null bırakır, okuma katmanı
+        // atamaya düşer — yani eski istemci bugünkü davranışını sürdürür.
+        if ($op === 'delivered' && isset($payload['delivered_by_user_id'])) {
+            $teslimEden = (string) $payload['delivered_by_user_id'];
+            if (! User::query()->whereKey($teslimEden)->exists()) {
+                throw new InvalidArgumentException('delivered_by_user_id bu bayide bulunamadı');
+            }
+        }
+
         $orderEvent = $this->appendOrderEvent($tenantId, $order->id, $op, $event, $payload);
         $this->recomputeOrder($order); // status/total olaylardan türer + $order'ı kaydeder
 
@@ -350,8 +365,36 @@ class OrderChangeApplier
         $order->total_kurus = (int) OrderLine::query()
             ->where('order_id', $order->id)->whereNull('deleted_at')->sum('line_total_kurus');
         $order->assigned_user_id = $this->deriveAssignedUserId($order->id);
+        $order->delivered_by_user_id = $this->deriveDeliveredByUserId($order->id);
         $order->sort_index = $this->deriveSortIndex($order->id);
         $order->save();
+    }
+
+    /**
+     * delivered_by_user_id önbelleğini olaylardan türet (assigned_user_id deseninin ikizi; AYNI
+     * (occurred_at DESC, id DESC) ortak anahtarı → istemci `_deriveDeliveredByUserId` ile birebir
+     * simetrik, ıraksama yok).
+     *
+     * İPTAL EDİLEN SİPARİŞ: alan TEMİZLENMEZ. `delivered` olayı append-only defterde durmaya devam
+     * eder ve gerçekten olmuş bir olayı anlatır; okuma katmanı zaten `status='delivered'` süzgeci
+     * uyguluyor. Burada silmek, olay defterini "ne olduğunu sandığımız" hâline çevirirdi.
+     */
+    private function deriveDeliveredByUserId(string $orderId): ?string
+    {
+        /** @var OrderEvent|null $latest */
+        $latest = OrderEvent::query()
+            ->where('order_id', $orderId)
+            ->where('event_type', 'delivered')
+            ->orderByDesc('occurred_at')->orderByDesc('id')
+            ->first();
+
+        if ($latest === null) {
+            return null;
+        }
+
+        $userId = ($latest->payload ?? [])['delivered_by_user_id'] ?? null;
+
+        return $userId !== null ? (string) $userId : null;
     }
 
     /**

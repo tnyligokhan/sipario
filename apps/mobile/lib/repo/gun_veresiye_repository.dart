@@ -29,6 +29,7 @@
 
 import '../data/app_database.dart';
 import '../data/tr_gun.dart';
+import 'islem_sahibi.dart';
 
 /// Bugün yazılmış TEK bir veresiye kalemi.
 class VeresiyeSatiri {
@@ -120,14 +121,19 @@ class GunVeresiyeRepository {
   /// [localDate] gününde yazılan veresiyeler, EN YENİ ÜSTTE.
   ///
   /// [userId] verilirse kapsam daralır ve KAPSAM İKİ KAYNAKTAN çözülür, çünkü iki kayıt tipi
-  /// atfını farklı yerde taşır: sipariş veresiyesinin sahibi siparişin ATANDIĞI kuryedir
-  /// (`orders.assigned_user_id` — `deliver` borç satırına `collected_by_user_id` yazmaz, borç
-  /// kimsenin kasasına girmediği için doğrudur), elle borç girişinin sahibi ise onu YAZAN
-  /// kişidir (`collected_by_user_id`). Tek alana bakılsaydı kurye kapsamında sipariş
-  /// veresiyeleri toptan kaybolurdu.
+  /// atfını farklı yerde taşır: sipariş veresiyesinin sahibi siparişi TESLİM EDEN kişidir
+  /// ([siparisSahibi] — `delivered_by_user_id`, yoksa eski kayıtlarda atama), elle borç
+  /// girişinin sahibi ise onu YAZAN kişidir (`collected_by_user_id`). Tek alana bakılsaydı
+  /// kurye kapsamında sipariş veresiyeleri toptan kaybolurdu.
+  ///
+  /// ⚠️ ESKİDEN SİPARİŞ VERESİYESİNİN SAHİBİ "ATANAN KURYE"YDİ (2026-08-20'de düzeltildi).
+  /// Saha bulgusu: 1.200 ₺lik sipariş Ali'ye aktarıldı, patron siparişi kendisi teslim edip
+  /// veresiye işaretledi — borç ALİ'nin hesabında göründü. Atama bir niyettir; borcu doğuran
+  /// olay teslimdir ve onu kim yaptıysa borç onundur.
   Future<List<VeresiyeSatiri>> gununVeresiyeleri(
     DateTime localDate, {
     String? userId,
+    String? haric,
   }) async {
     final hepsi = await db.select(db.ledgerEntries).get();
     final gunun = hepsi.where((e) => ayniTrGunIso(e.occurredAt, localDate)).toList();
@@ -143,7 +149,13 @@ class GunVeresiyeRepository {
     final siparisler = siparisIdler.isEmpty
         ? const <Order>[]
         : await (db.select(db.orders)..where((t) => t.id.isIn(siparisIdler))).get();
-    final atanan = {for (final o in siparisler) o.id: o.assignedUserId};
+    final sahip = {
+      for (final o in siparisler)
+        o.id: siparisSahibi(
+          deliveredByUserId: o.deliveredByUserId,
+          assignedUserId: o.assignedUserId,
+        ),
+    };
     // İPTAL EDİLEN SİPARİŞ ELENİR: iptalde borç ters kayıtla kapanmıyorsa bile o sipariş
     // teslim edilmemiştir ve veresiye üretmez. `deleted_at` dolu olan da aynı sebeple düşer.
     final gecerli = {
@@ -159,9 +171,9 @@ class GunVeresiyeRepository {
     final secilen = <VeresiyeGrubu>[];
     for (final g in gruplar) {
       if (g.orderId != null && !gecerli.contains(g.orderId)) continue;
-      if (userId != null) {
-        final sahip = g.orderId != null ? atanan[g.orderId] : elleAtif[g.anahtar];
-        if (sahip != userId) continue;
+      if (userId != null || haric != null) {
+        final grupSahibi = g.orderId != null ? sahip[g.orderId] : elleAtif[g.anahtar];
+        if (!kapsamaDusuyor(grupSahibi, userId: userId, haric: haric)) continue;
       }
       secilen.add(g);
     }
@@ -211,8 +223,8 @@ class GunVeresiyeRepository {
 
   /// Günün veresiye TOPLAMI (pozitif kuruş). [gununVeresiyeleri] ile AYNI koddan çıkar —
   /// liste ile başlıktaki rakam ayrışamaz.
-  Future<int> toplam(DateTime localDate, {String? userId}) async {
-    final satirlar = await gununVeresiyeleri(localDate, userId: userId);
+  Future<int> toplam(DateTime localDate, {String? userId, String? haric}) async {
+    final satirlar = await gununVeresiyeleri(localDate, userId: userId, haric: haric);
     return satirlar.fold<int>(0, (s, v) => s + v.kurus);
   }
 }

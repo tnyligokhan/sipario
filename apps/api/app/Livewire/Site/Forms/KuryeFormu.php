@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Site\Forms;
 
+use App\Enums\UserRole;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Provisioning;
@@ -9,7 +10,9 @@ use Illuminate\Validation\Rule;
 use Livewire\Form;
 
 /**
- * "Kurye hesabı aç" formu — bayinin web hesap panelindeki Ekip bölümü.
+ * "Personel hesabı aç" formu (kurye ya da tezgâh) — bayinin web hesap panelindeki Ekip bölümü.
+ * Sınıf adı `KuryeFormu` kaldı: 2026-08-20'ye kadar açılabilen tek tür kuryeydi ve adı
+ * değiştirmek Livewire bileşen/görünüm bağlarını gereksizce kırardı.
  *
  * NEDEN AYRI BİR YAZMA YOLU DEĞİL: kullanıcı yaratmak senkron varlığı yazmak DEĞİLDİR.
  * `ProfileChangeApplier` kimlik yüzeyini bilerek dışarıda tutar (ad/telefon/aktiflik yazar;
@@ -37,7 +40,20 @@ class KuryeFormu extends Form
     public string $telefon = '';
 
     /**
-     * Doğrular ve kurye hesabını açar. KOTA KAPISI ÇAĞIRANDA değil `Provisioning::createCourier`
+     * Açılacak hesabın ROLÜ (2026-08-20 kullanıcı isteği: "kurye haricinde farklı roller de
+     * olması gerekiyor — kasiyer/tezgâh").
+     *
+     * VARSAYILAN KURYE: bugüne kadar açılabilen tek hesap türü oydu ve su bayisinde ihtiyacın
+     * çoğu hâlâ odur; varsayılanı değiştirmek, formu hızlıca dolduran patrona yanlış rol
+     * açtırırdı.
+     *
+     * PATRON BURADA YOK ve olamaz — kapı ayrıca `Provisioning::createStaff` içinde de durur
+     * (form bir istemci beyanıdır; tek kapı yetmez).
+     */
+    public string $rol = 'kurye';
+
+    /**
+     * Doğrular ve personel hesabını açar. KOTA KAPISI ÇAĞIRANDA değil `Provisioning::createStaff`
      * içindedir; buraya gelmeden önce Ekip bileşeni kotayı ayrıca sorar (kullanıcıya form
      * doldurtmadan söyleyebilmek için) — ikisi aynı `KuryeKotasi` sınıfına sorar, iki ayrı kural
      * değildir.
@@ -49,11 +65,12 @@ class KuryeFormu extends Form
 
         $this->validate($this->kurallar($bayi), $this->mesajlar());
 
-        return Provisioning::createCourier(
+        return Provisioning::createStaff(
             $bayi,
             $this->ad,
             $this->kullaniciAdi,
             $this->parola,
+            UserRole::from($this->rol),
             trim($this->telefon) === '' ? null : trim($this->telefon),
         );
     }
@@ -64,6 +81,7 @@ class KuryeFormu extends Form
         $this->kullaniciAdi = '';
         $this->parola = '';
         $this->telefon = '';
+        $this->rol = 'kurye';
     }
 
     /**
@@ -96,6 +114,9 @@ class KuryeFormu extends Form
             // patronun kuryesine veremeyeceği bir parola üretirdi (BRIEF: parolalar kısadır).
             'parola' => ['required', 'string', 'min:4', 'max:72'],
             'telefon' => ['nullable', 'string', 'max:20'],
+            // AK LİSTE, kara liste değil: `UserRole` yarın büyüdüğünde yeni bir rol buradan
+            // KENDİLİĞİNDEN açılmamalı. `patron` listede yok — hesap sahipliği devredilemez.
+            'rol' => ['required', Rule::in([UserRole::Kurye->value, UserRole::Operator->value])],
         ];
     }
 
@@ -105,12 +126,12 @@ class KuryeFormu extends Form
     private function mesajlar(): array
     {
         return [
-            'ad.required' => 'Kuryenin adını girin',
+            'ad.required' => 'Personelin adını girin',
             'ad.min' => 'En az 2 karakter',
             'kullaniciAdi.required' => 'Giriş için bir kullanıcı adı belirleyin',
             'kullaniciAdi.regex' => 'Kullanıcı adı 3-60 karakter olmalı; küçük harf, rakam, nokta, tire ve alt çizgi kullanılabilir',
             'kullaniciAdi.unique' => 'Bu kullanıcı adı bu bayide zaten kullanılıyor (pasif bir hesap da tutuyor olabilir)',
-            'parola.required' => 'Kuryenin gireceği parolayı belirleyin',
+            'parola.required' => 'Personelin gireceği parolayı belirleyin',
             'parola.min' => 'Parola en az 4 karakter olmalı',
         ];
     }

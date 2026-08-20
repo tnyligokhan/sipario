@@ -51,6 +51,49 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.38.0',
+    tarih: '20 Ağustos 2026',
+    maddeler: [
+      'Gün Özeti\'nde kapsam artık açılır liste: Tümü · Kendi işlemlerim · Elemanlar ve tek tek '
+          'her personel. Kendi yaptığınız işleri ekibinizinkinden ayrı görebiliyorsunuz.',
+      '"Elemanlar" kapsamı sizin dışınızdaki herkesin o günkü kasasını, teslimatını ve '
+          'veresiyesini tek ekranda toplar.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.37.0',
+    tarih: '20 Ağustos 2026',
+    maddeler: [
+      'Yeni personel türü: TEZGÂH. Telefona bakan, sipariş açan ve tahsilat alan kişi artık '
+          'kendi hesabıyla girer — kurye hesabı vermek zorunda değilsiniz.',
+      'Tezgâh siparişi açar, görevli atar, iptal eder ve tahsilat alır; ama günü kapatamaz, '
+          'defteri düzeltemez, müşteri silemez ve ürün kartlarına dokunamaz. Bunlar sizde kalır.',
+      'Tezgâh hesabını web sitesindeki Ekip bölümünden açarsınız; personel hakkınızdan düşer.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.36.0',
+    tarih: '20 Ağustos 2026',
+    maddeler: [
+      'Görevli seçiminde artık KENDİNİZ de varsınız. Siparişi kendiniz götürecekseniz onu '
+          'kendi üstünüze alabiliyorsunuz — listede "(siz)" diye işaretli.',
+      'Görevli listesi yalnız kuryeleri değil, çalışan tüm ekibi gösteriyor ve her satırda '
+          'kişinin görevi yazıyor.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.35.0',
+    tarih: '20 Ağustos 2026',
+    maddeler: [
+      'Teslimat ve veresiye artık işi FİİLEN YAPAN kişinin hesabına yazılıyor. Siparişi Ali\'ye '
+          'atayıp kendiniz teslim ederseniz, teslimat da veresiye de sizin hesabınızda görünür.',
+      'Önceden bu kayıtlar atanan kuryenin hesabına düşüyordu; parası sizde, borcu onda '
+          'görünüyordu. Gün sonu artık iki yarısını da aynı kişiye yazıyor.',
+      'Geçmiş günler değişmedi: eski kayıtlarda teslimi kimin yaptığı yazılı olmadığı için '
+          'atanan kişi gösterilmeye devam eder.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.34.0',
     tarih: '19 Ağustos 2026',
     maddeler: [

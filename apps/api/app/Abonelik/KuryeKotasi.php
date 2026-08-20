@@ -11,9 +11,16 @@ use App\Models\User;
  * hiçbir yerde zorlanmıyordu. Ek kurye paketi satacaksak kotanın SUNUCUDA gerçek olması gerekir —
  * yoksa paket, karşılığı olmayan bir şey satmak olur.
  *
- * SAYIM KURALI: yalnız `role='kurye'` VE `status='active'` kullanıcılar sayılır. Pasifleştirilmiş
- * kurye kotadan DÜŞMEZ — işten çıkan kuryenin hesabı geçmiş atamalarda adıyla görünmeye devam eder
- * (silinmez), ama bayinin hakkını işgal etmesi için bir sebep yok. Patron/operator hiç sayılmaz.
+ * SAYIM KURALI: PATRON DIŞINDAKİ her `status='active'` hesap sayılır (kurye + tezgâh).
+ * Pasifleştirilmiş hesap kotadan DÜŞER — işten çıkan kuryenin hesabı geçmiş atamalarda adıyla
+ * görünmeye devam eder (silinmez), ama bayinin hakkını işgal etmesi için bir sebep yok.
+ *
+ * ⚠️ TEZGÂH 2026-08-20'DE KOTAYA GİRDİ. Öncesinde yalnız `role='kurye'` sayılıyordu ve bu, rol
+ * gerçek bir role dönüşene kadar zararsızdı (tezgâh hesabı AÇAN bir yol yoktu). Artık var: tezgâh
+ * hesabı da atama hedefi olabiliyor, yani fiilen teslimat yapabiliyor. Bedava kalsaydı bayi
+ * kotayı "hepsini tezgâh açarım" diyerek atlar ve "3 kurye hesabı" sözü karşılıksız kalırdı.
+ *
+ * PATRON SAYILMAZ: o hesap bayinin kendisidir, satın alınan bir koltuk değildir.
  *
  * BAĞLANTI: varsayılan `pgsql_owner`. Sayım `users` üzerinde yapılır ve kapı hem panelden hem de
  * provizyondan (RLS oturumu KURULMAMIŞ olabilir) çağrılır; RLS altındaki bir bağlantıda oturum
@@ -62,7 +69,7 @@ class KuryeKotasi extends AbonelikServisi
     {
         return User::on($this->connection)
             ->where('tenant_id', $tenantId)
-            ->where('role', UserRole::Kurye->value)
+            ->where('role', '!=', UserRole::Patron->value)
             ->where('status', 'active')
             ->count();
     }

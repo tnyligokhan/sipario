@@ -23,17 +23,22 @@ import 'support/yetki_yardimcilari.dart';
 
 void main() {
   group('yetkiler() — müşteri yönetimi rol kapısı', () {
-    test('patron ve operator müşteri yönetebilir', () {
-      expect(yetkiler(rol: 'patron', kuryeVar: true).musteriYonetimi, isTrue);
-      expect(yetkiler(rol: 'operator', kuryeVar: false).musteriYonetimi, isTrue);
+    test('YALNIZ PATRON müşteri yönetebilir', () {
+      expect(yetkiler(rol: 'patron', atamaHedefiVar: true).musteriYonetimi, isTrue);
     });
 
-    test('kurye müşteri YÖNETEMEZ — silmek/kara listelemek bayinin ticari kararıdır', () {
-      expect(yetkiler(rol: 'kurye', kuryeVar: true).musteriYonetimi, isFalse);
+    test('kurye ve tezgâh müşteri YÖNETEMEZ — silmek/kara listelemek bayinin ticari kararıdır',
+        () {
+      expect(yetkiler(rol: 'kurye', atamaHedefiVar: true).musteriYonetimi, isFalse);
+      // TEZGÂH 2026-08-20'de kısıtlandı: müşteri silmek/kara listelemek geri dönüşü olmayan bir
+      // ticari karardır ve telefona bakan kişinin işi değildir. Müşteri EKLEME/DÜZENLEME açık
+      // kalır (`musteriDuzenleme`) — o günlük iştir.
+      expect(yetkiler(rol: 'operator', atamaHedefiVar: false).musteriYonetimi, isFalse);
+      expect(yetkiler(rol: 'operator', atamaHedefiVar: false).musteriDuzenleme, isTrue);
     });
 
     test('rol bilinmiyorsa yetki YOK (permissive değil — K2 sözleşmesi)', () {
-      expect(yetkiler(rol: null, kuryeVar: false).musteriYonetimi, isFalse);
+      expect(yetkiler(rol: null, atamaHedefiVar: false).musteriYonetimi, isFalse);
     });
   });
 
@@ -197,7 +202,7 @@ void main() {
         db: db,
         customerId: id,
         writable: true,
-        yetki: yetkiler(rol: 'patron', kuryeVar: false),
+        yetki: yetkiler(rol: 'patron', atamaHedefiVar: false),
       )));
       await akisiBekle(tester);
 
@@ -218,7 +223,7 @@ void main() {
         db: db,
         customerId: id,
         writable: true,
-        yetki: yetkiler(rol: 'kurye', kuryeVar: true),
+        yetki: yetkiler(rol: 'kurye', atamaHedefiVar: true),
       )));
       await akisiBekle(tester);
 

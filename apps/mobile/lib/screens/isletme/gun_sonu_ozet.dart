@@ -11,6 +11,7 @@ import '../../repo/cash_handover_repository.dart';
 import '../../repo/day_closing_repository.dart';
 import '../../repo/day_end_repository.dart';
 import '../../repo/gun_veresiye_repository.dart';
+import '../../repo/islem_sahibi.dart';
 
 export '../../data/tr_gun.dart' show bugunTrDuzeltilmis;
 
@@ -99,6 +100,7 @@ Future<KapsamOzeti> kapsamOzeti(
   AppDatabase db,
   DateTime localDate, {
   String? kuryeId,
+  String? haric,
 }) async {
   final repo = DayEndRepository(db);
   // ALTI OKUMA PARALEL: hiçbiri diğerinin sonucuna bağlı değil ve `await`leri sıraya dizmek
@@ -107,12 +109,12 @@ Future<KapsamOzeti> kapsamOzeti(
   // eklenince sınır göründü: mevcut widget testleri "dört tur bekle" varsayımıyla yazılmıştı
   // ve future yetişemedi. Testin varsayımını büyütmek yerine işi kısaltmak doğrusu.)
   final sonuc = await Future.wait<Object>([
-    repo.kasaOzeti(localDate, userId: kuryeId),
-    repo.teslimatSayisi(localDate, userId: kuryeId),
-    repo.iskontoOzeti(localDate, userId: kuryeId),
-    GunVeresiyeRepository(db).toplam(localDate, userId: kuryeId),
-    repo.eskiBorcTahsilati(localDate, userId: kuryeId),
-    acikSiparisSayisi(db, localDate, kuryeId: kuryeId),
+    repo.kasaOzeti(localDate, userId: kuryeId, haric: haric),
+    repo.teslimatSayisi(localDate, userId: kuryeId, haric: haric),
+    repo.iskontoOzeti(localDate, userId: kuryeId, haric: haric),
+    GunVeresiyeRepository(db).toplam(localDate, userId: kuryeId, haric: haric),
+    repo.eskiBorcTahsilati(localDate, userId: kuryeId, haric: haric),
+    acikSiparisSayisi(db, localDate, kuryeId: kuryeId, haric: haric),
   ]);
 
   return KapsamOzeti(
@@ -131,17 +133,24 @@ Future<int> acikSiparisSayisi(
   AppDatabase db,
   DateTime localDate, {
   String? kuryeId,
+  String? haric,
 }) async {
   // İki ayrı `where` çağrısı drift'te AND ile birleşir — ekran dosyasına `package:drift`
   // operatör eklentisini import etmemek için bilinçli tercih.
   final sorgu = db.select(db.orders)
     ..where((t) => t.deletedAt.isNull())
     ..where((t) => t.status.equals('open'));
-  if (kuryeId != null) {
-    sorgu.where((t) => t.assignedUserId.equals(kuryeId));
-  }
   final satirlar = await sorgu.get();
-  return satirlar.where((o) => ayniTrGun(o.occurredAt, localDate)).length;
+  // KAPSAM SÜZGECİ DART TARAFINDA: gün süzgeci zaten burada koşuyor (satırlar toptan çekiliyor)
+  // ve bu dosya `package:drift` import ETMİYOR (ekran katmanı sözleşmesi).
+  //
+  // AÇIK SİPARİŞTE SAHİP = ATANANDIR: henüz teslim edilmemiş bir siparişin "teslim edeni" yoktur
+  // ve olamaz. `delivered_by_user_id` boş olduğu için [kapsamaDusuyor] zaten atamaya bakar;
+  // burada açıkça atama geçilmesi, okuyanın "acaba teslim eden mi" diye durmaması içindir.
+  return satirlar
+      .where((o) => ayniTrGun(o.occurredAt, localDate))
+      .where((o) => kapsamaDusuyor(o.assignedUserId, userId: kuryeId, haric: haric))
+      .length;
 }
 
 /// occurred_at (UTC ISO) verilen TR yerel takvim gününe mi düşüyor?
@@ -244,6 +253,7 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
   AppDatabase db,
   DateTime localDate, {
   String? kuryeId,
+  String? haric,
 }) async {
   final kapanislar = DayClosingRepository(db);
   final gunKapali = await kapanislar.kapaliMi(ClosingScope.day, localDate: localDate);
@@ -258,7 +268,7 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
 
   return GunSonuGorunumu(
     ozet: GunBorcOzeti(borc: await DayEndRepository(db).borcDurumu()),
-    kapsam: await kapsamOzeti(db, localDate, kuryeId: kuryeId),
+    kapsam: await kapsamOzeti(db, localDate, kuryeId: kuryeId, haric: haric),
     gunKapali: gunKapali,
     kapsamKapali: gunKapali || kuryeKapali,
     gunKapanislari: await kapanislar.gununKapanislari(localDate),

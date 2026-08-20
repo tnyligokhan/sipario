@@ -194,9 +194,39 @@ class Provisioning
         string $password,
         ?string $phone = null,
     ): User {
+        return self::createStaff($tenant, $name, $username, $password, UserRole::Kurye, $phone);
+    }
+
+    /**
+     * PERSONEL hesabı açar — kurye ya da TEZGÂH (2026-08-20).
+     *
+     * `createCourier` bu metoda delege eder ve adıyla kalır: 2026-08-20'den önce açılabilen tek
+     * hesap türü kuryeydi ve panel/seeder o adı çağırıyor. Yeni yüzeyler buraya gelir.
+     *
+     * PATRON BURADAN AÇILAMAZ ve bu bir kısıt değil KAPI: patron hesabı bayinin SAHİBİDİR,
+     * abonelik ve fatura ona bağlıdır; ikinci bir sahip yaratmak, hesabı kimin devrettiğini
+     * cevaplanamaz hâle getirir. Bayinin panelinden ikinci patron açma isteği gelirse bu ayrı
+     * bir karar olarak verilir.
+     *
+     * KOTA HER İKİ ROLE DE UYGULANIR (`KuryeKotasi`): tezgâh hesabı bedava olsaydı, atama hedefi
+     * olabilen (yani fiilen teslimat yapabilen) sınırsız hesap açılabilirdi ve "3 kurye hesabı"
+     * sözü anlamını yitirirdi.
+     */
+    public static function createStaff(
+        Tenant|string $tenant,
+        string $name,
+        string $username,
+        string $password,
+        UserRole $role = UserRole::Kurye,
+        ?string $phone = null,
+    ): User {
+        if ($role === UserRole::Patron) {
+            throw new InvalidArgumentException('Patron hesabı bu yoldan açılamaz');
+        }
+
         $tenantId = $tenant instanceof Tenant ? $tenant->id : $tenant;
 
-        return self::asOwner(function () use ($tenantId, $name, $username, $password, $phone) {
+        return self::asOwner(function () use ($tenantId, $name, $username, $password, $role, $phone) {
             $bayi = Tenant::query()->findOrFail($tenantId);
 
             (new KuryeKotasi('pgsql_owner'))->kontrolEt($bayi);
@@ -204,12 +234,12 @@ class Provisioning
             return User::create([
                 'tenant_id' => $bayi->id,
                 'name' => $name,
-                // E-posta tenant-üstü TEKİLdir; kurye hesabı mobilde firma kodu + kullanıcı adıyla
-                // girer, e-posta yalnız teknik bir zorunluluktur.
+                // E-posta tenant-üstü TEKİLdir; personel hesabı mobilde firma kodu + kullanıcı
+                // adıyla girer, e-posta yalnız teknik bir zorunluluktur.
                 'email' => mb_strtolower($username).'@'.$bayi->slug.'.sipario.local',
                 'username' => mb_strtolower($username),
                 'password' => $password, // 'hashed' cast'i bcrypt'ler
-                'role' => UserRole::Kurye->value,
+                'role' => $role->value,
                 'status' => 'active',
                 'phone' => $phone,
             ]);

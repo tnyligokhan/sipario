@@ -10,12 +10,52 @@ import '../data/app_database.dart';
 Stream<List<User>> watchTeam(AppDatabase db) =>
     (db.select(db.users)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
 
-/// Atama hedefi olarak sunulacaklar: yalnız AKTİF kuryeler (ada göre).
+/// Yalnız AKTİF kuryeler (ada göre). Kurye ROLÜNE özgü yüzeyler için — kurye yetki ekranı,
+/// kurye kotası gibi. ATAMA HEDEFİ İÇİN KULLANILMAZ: onun listesi [watchAtamaHedefleri]'dir.
 Stream<List<User>> watchAktifKuryeler(AppDatabase db) => (db.select(db.users)
       ..where((t) => t.role.equals('kurye'))
       ..where((t) => t.status.equals('active'))
       ..orderBy([(t) => OrderingTerm.asc(t.name)]))
     .watch();
+
+/// ATAMA HEDEFLERİ — siparişi kimin götüreceği seçilirken sunulan liste (kullanıcı isteği
+/// 2026-08-20: "kurye seçiminde patron kendisini de görebilmeli, daha doğrusu siparişi
+/// oluşturan kişi kendisini de görebilmeli").
+///
+/// ROL SÜZGECİ YOK ve bu, listenin bütün sebebidir. Eskiden yalnız `role='kurye'` dönüyordu;
+/// sonucu şuydu: malı çoğu zaman patronun kendisi götürdüğü hâlde onu seçebileceği bir satır
+/// YOKTU. Sipariş ya sahipsiz kalıyor ya da götürmeyecek bir kuryeye atanıyordu — ve gün özeti
+/// o yanlış atamayı muhasebe kaydı olarak okuyordu (bkz. `repo/islem_sahibi.dart`).
+///
+/// PASİFLER YOK: pasif hesap iş yapamaz, atama hedefi olamaz. Sıra rolle başlar (patron ·
+/// tezgâh · kurye), sonra ad — web Ekip ekranıyla AYNI sıra; kullanıcı aynı ekibi her yüzeyde
+/// aynı düzende görmeli.
+/// SIRALAMA DART TARAFINDA: ekip birkaç kişiliktir, SQL'de `CASE` kurmanın kazancı yok ama
+/// bedeli var (sürüme bağlı ifade API'si). Ad karşılaştırması Türkçe harfleri de doğru sıralasın
+/// diye `compareTo` yerine küçük harfe indirgenmiş karşılaştırma kullanılır.
+Stream<List<User>> watchAtamaHedefleri(AppDatabase db) =>
+    (db.select(db.users)..where((t) => t.status.equals('active'))).watch().map((liste) {
+      final sirali = [...liste]..sort((a, b) {
+          final r = _rolSirasi(a.role).compareTo(_rolSirasi(b.role));
+          return r != 0 ? r : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+      return sirali;
+    });
+
+int _rolSirasi(String? rol) => switch (rol) {
+      'patron' => 0,
+      'operator' => 1,
+      _ => 2,
+    };
+
+/// Rolün İNSAN OKUNUR adı — TEK yer. Ekranlar rol dizgesini kendileri çevirmez; `operator`
+/// kelimesi kullanıcıya hiçbir yerde görünmemeli (bayi "tezgâh" der, "operatör" demez).
+String rolEtiketi(String? rol) => switch (rol) {
+      'patron' => 'Patron',
+      'operator' => 'Tezgâh',
+      'kurye' => 'Kurye',
+      _ => 'Personel',
+    };
 
 /// Devralan seçici için: bayinin patron/operator kullanıcıları (aktif, ada göre).
 Stream<List<User>> watchYoneticiler(AppDatabase db) => (db.select(db.users)
@@ -230,55 +270,92 @@ class KuryeIzinEzmeleri {
       cagriGunlugu == null;
 }
 
-/// Genel Yetki Matrisi kurallarını çözen saf fonksiyon.
-/// Patron: Tam yetkili (kısıtlamasız).
-/// Operatör: Patron yetkili (işletme/abonelik ayarları hariç tam yetkili).
-/// Kurye: Varsayılan kısıtlar + Patronun açıp kapattığı dinamik yetkiler.
+/// Genel Yetki Matrisi kurallarını çözen saf fonksiyon — ÜÇ ROL, İKİ ÇİZGİ.
+///
+/// ```
+///   PATRON  → tam yetki (kısıtlamasız)
+///   TEZGÂH  → dükkânı çevirir; PARA KONTROLÜNE ve KATALOĞA dokunamaz
+///   KURYE   → varsayılan kısıtlar + bayinin/patronun açtığı dinamik yetkiler
+/// ```
+///
+/// ══ TEZGÂH ROLÜ 2026-08-20'DE YENİDEN TANIMLANDI ═════════════════════════════════════════
+/// `operator` rolü vardı ama "işletme ayarları hariç patron" demekti — yani bir kasiyer günü
+/// kapatabiliyor, defteri ters kayıtla düzeltebiliyor, müşterinin borcunu silebiliyor, ürün
+/// fiyatı değiştirebiliyordu. Kullanıcı isteği ("patron tüm yetki, kasiyer telefona bakan
+/// farklı, kurye farklı") bu rolü gerçek bir role çevirdi.
+///
+/// GERİYE DÖNÜK RİSK YOK ve bu ölçüldü: üretimde `operator` hesabı AÇAN hiçbir yol yoktu
+/// (`Provisioning::createCourier` yalnız kurye üretiyor, web Ekip yalnız onu çağırıyordu);
+/// rol yalnız demo seeder'da ve fabrikada geçiyordu. Yani kimsenin elindeki yetki daralmadı,
+/// bugüne kadar boş duran bir rol doldurulmuş oldu.
+///
+/// ══ İKİ ÇİZGİ ════════════════════════════════════════════════════════════════════════════
+/// [_ofis] — dükkânın günlük işini çeviren (patron + tezgâh): sipariş açar, atar, iptal eder,
+/// tahsilat alır, borçluları görür. Telefona bakan kişinin yapamadığı iş, telefonu her çaldığında
+/// patronu çağırmak demektir; rolün varlık sebebi tam olarak budur.
+///
+/// [_paraKontrolu] — YALNIZ PATRON: günü/hesabı kapatma, geçmiş hesap arşivi, defter düzeltme
+/// (ters kayıt), müşteri borcu silme, ürün/fiyat yönetimi, müşteri silme-kara liste, muaf numara.
+/// Ortak yanları şu: hepsi ya PARANIN kendisini ya da onu üreten TANIMLARI değiştirir ve
+/// hiçbirinin geri dönüşü bir günlük işle sınırlı değildir. Bu çizgi bir tercih değildir —
+/// bayinin kasiyerine güvenip güvenmemesinden bağımsız olarak, defterin sahibi tektir.
+///
+/// [atamaHedefiVar]: atanabilecek BAŞKA aktif personel var mı (eskiden `kuryeVar`). Adı 2026-08-20'de
+/// değişti çünkü anlamı değişti: atama hedefi artık kuryelerle sınırlı değil, siparişi oluşturan
+/// kişinin kendisi de dahil. Tek kişilik bayide yine `false` olur ve atama yüzeyi hiç çizilmez
+/// (BRIEF: "'kuryeye ata' gibi adımlar tek kişilik işletmede hiç görünmemelidir").
 RolYetkileri yetkiler({
   required String? rol,
-  required bool kuryeVar,
+  required bool atamaHedefiVar,
   KuryeIzinleri? izin,
 }) {
   final patron = rol == 'patron';
-  final yonetici = patron || rol == 'operator';
+  final tezgah = rol == 'operator';
+
+  /// Dükkânı çeviren: patron + tezgâh.
+  final ofis = patron || tezgah;
+
+  /// Defterin ve katalogun sahibi: yalnız patron.
+  final paraKontrolu = patron;
+
   final k = izin ?? KuryeIzinleri.varsayilan;
 
   return RolYetkileri(
     // 1. Sipariş & Teslimat
-    tumSiparisleriGorme: yonetici || k.tumSiparisler,
-    siparisAcma: yonetici || k.siparis,
-    siparisIptal: yonetici,
-    gecmisTeslimatlariGorme: yonetici || k.gecmisTeslimatlar,
-    rotaCalistir: yonetici,
-    atama: yonetici && kuryeVar,
+    tumSiparisleriGorme: ofis || k.tumSiparisler,
+    siparisAcma: ofis || k.siparis,
+    siparisIptal: ofis,
+    gecmisTeslimatlariGorme: ofis || k.gecmisTeslimatlar,
+    rotaCalistir: ofis,
+    atama: ofis && atamaHedefiVar,
 
     // 2. Kasa & Tahsilat
-    tahsilat: yonetici || k.tahsilat,
-    iskonto: yonetici || k.iskonto,
-    musteriBorcSilme: yonetici,
-    sahaGideri: yonetici || k.sahaGideri,
-    toplamBorclulariGorme: yonetici,
+    tahsilat: ofis || k.tahsilat,
+    iskonto: ofis || k.iskonto,
+    musteriBorcSilme: paraKontrolu,
+    sahaGideri: ofis || k.sahaGideri,
+    toplamBorclulariGorme: ofis,
 
     // 3. Gün Sonu & Kasa Devri
-    gunSonu: yonetici || k.gunSonu,
-    gunuKapatma: yonetici,
-    gecmisHesapArsivi: yonetici,
-    defterDuzeltme: yonetici,
+    gunSonu: ofis || k.gunSonu,
+    gunuKapatma: paraKontrolu,
+    gecmisHesapArsivi: paraKontrolu,
+    defterDuzeltme: paraKontrolu,
 
     // 4. Müşteri & KVKK / İletişim
-    musteriDuzenleme: yonetici || k.musteri,
-    musteriYonetimi: yonetici,
-    telefonMaskeleme: !yonetici && k.telefonMaskeleme,
-    musteriGecmisDefteri: yonetici || k.musteriGecmisDefteri,
-    borcHatirlatma: yonetici || k.borcHatirlatma,
+    musteriDuzenleme: ofis || k.musteri,
+    musteriYonetimi: paraKontrolu,
+    telefonMaskeleme: !ofis && k.telefonMaskeleme,
+    musteriGecmisDefteri: ofis || k.musteriGecmisDefteri,
+    borcHatirlatma: ofis || k.borcHatirlatma,
 
     // 5. Ürün & Stok
-    urunYonetimi: yonetici,
-    stokPasifleme: yonetici || k.stokPasifleme,
+    urunYonetimi: paraKontrolu,
+    stokPasifleme: ofis || k.stokPasifleme,
 
     // 6. Çağrı & Ayarlar
-    cagriGunlugu: yonetici || k.cagriGunlugu,
-    muafTelefonYonetimi: yonetici,
+    cagriGunlugu: ofis || k.cagriGunlugu,
+    muafTelefonYonetimi: paraKontrolu,
     isletmeAbonelikAyarlari: patron,
     cihazAyarlari: true,
   );
@@ -419,7 +496,7 @@ Future<RolYetkileri> oturumYetkileri(AppDatabase db) async {
 
   return yetkiler(
     rol: meta.userRole,
-    kuryeVar: false,
+    atamaHedefiVar: false,
     izin: kuryeIzinleriCoz(kuryeIzinleriOku(ayar), kuryeEzmeleriOku(kullanici)),
   );
 }

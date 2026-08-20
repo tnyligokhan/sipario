@@ -56,7 +56,7 @@ void main() {
   /// Bayinin `cagriGunlugu`nu AÇTIĞI kurye — açığın tam senaryosu. Diğer izinler varsayılan.
   final cagriGunluguAcikKurye = yetkiler(
     rol: 'kurye',
-    kuryeVar: true,
+    atamaHedefiVar: true,
     izin: const KuryeIzinleri(cagriGunlugu: true),
   );
 

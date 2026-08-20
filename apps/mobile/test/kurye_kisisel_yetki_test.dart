@@ -103,7 +103,7 @@ void main() {
     test('kişisel ezme kuryenin ETKİN yetkisini değiştirir', () {
       const varsayilan = KuryeIzinleri(iskonto: false);
       final izin = kuryeIzinleriCoz(varsayilan, const KuryeIzinEzmeleri(iskonto: true));
-      expect(yetkiler(rol: 'kurye', kuryeVar: true, izin: izin).iskonto, isTrue);
+      expect(yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: izin).iskonto, isTrue);
     });
 
     test('YÖNETİCİ kişisel ezmeden ETKİLENMEZ — kapatılmış yetki patronu bağlamaz', () {
@@ -113,7 +113,7 @@ void main() {
         const KuryeIzinleri(tahsilat: true),
         const KuryeIzinEzmeleri(tahsilat: false, iskonto: false),
       );
-      final patron = yetkiler(rol: 'patron', kuryeVar: true, izin: izin);
+      final patron = yetkiler(rol: 'patron', atamaHedefiVar: true, izin: izin);
       expect(patron.tahsilat, isTrue);
       expect(patron.iskonto, isTrue);
     });

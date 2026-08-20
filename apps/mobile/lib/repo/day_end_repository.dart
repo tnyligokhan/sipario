@@ -4,6 +4,7 @@ import '../bildirim/kurallar/para_kurallari.dart';
 import '../data/app_database.dart';
 import '../data/tr_gun.dart';
 import 'gun_veresiye_repository.dart';
+import 'islem_sahibi.dart';
 
 /// Gün sonu SALT-OKUNUR read-model (FAZ 3). Hiçbir tabloya YAZMAZ (kalıcı durum üretmez); tüm veriyi
 /// yerel Drift'ten türetir. Kasa özeti + borç durumu. Kurye kasa DEVRİ (kalıcı mutabakat) ve atama
@@ -39,17 +40,17 @@ class DayEndRepository {
   /// dokunup açılan listede 1.900 ₺ görürse hangisinin doğru olduğunu soramaz ve ikisine de
   /// güvenmez. Bu depoda aynı sınıf hata (aynı parayı iki yerde ayrı hesaplamak) gün sonu
   /// tanımında üç kez tekrarlandı; süzgeç o yüzden tek yerde durur.
-  Future<List<LedgerEntry>> _kasayaDokunanlar(DateTime localDate, String? userId) async {
+  Future<List<LedgerEntry>> _kasayaDokunanlar(
+      DateTime localDate, String? userId, String? haric) async {
     final query = db.select(db.ledgerEntries)..where((t) => t.paymentType.isNotNull());
-    if (userId != null) {
-      query.where((t) => t.collectedByUserId.equals(userId));
-    }
+    query.where((t) =>
+        defterKapsamSuzgeci(t, userId: userId, haric: haric) ?? const Constant(true));
     final hepsi = await query.get();
     return hepsi.where((e) => _sameTrDay(e.occurredAt, localDate)).toList();
   }
 
-  Future<KasaOzeti> kasaOzeti(DateTime localDate, {String? userId}) async {
-    final tillEntries = await _kasayaDokunanlar(localDate, userId);
+  Future<KasaOzeti> kasaOzeti(DateTime localDate, {String? userId, String? haric}) async {
+    final tillEntries = await _kasayaDokunanlar(localDate, userId, haric);
 
     var nakit = 0, kart = 0, havale = 0;
     for (final e in tillEntries) {
@@ -85,9 +86,10 @@ class DayEndRepository {
   Future<List<TahsilatSatiri>> tahsilatDetaylari(
     DateTime localDate, {
     String? userId,
+    String? haric,
     String? odemeTuru,
   }) async {
-    var kayitlar = await _kasayaDokunanlar(localDate, userId);
+    var kayitlar = await _kasayaDokunanlar(localDate, userId, haric);
     if (odemeTuru != null) {
       kayitlar = kayitlar.where((e) => e.paymentType == odemeTuru).toList();
     }
@@ -159,8 +161,8 @@ class DayEndRepository {
   /// etsin sıkıntı yok"). Ayrı bir sayı olarak durmasının sebebi mutabakat değil ANLAMDIR:
   /// kasadaki 3.400 ₺'nin 1.200'ü dün teslim edilmiş bir siparişin bugün ödenmesiyse, bugünün
   /// cirosu 3.400 DEĞİLDİR. Bu satır olmadan bayi her tahsilatı bugünün satışı sanar.
-  Future<int> eskiBorcTahsilati(DateTime localDate, {String? userId}) async {
-    final satirlar = await tahsilatDetaylari(localDate, userId: userId);
+  Future<int> eskiBorcTahsilati(DateTime localDate, {String? userId, String? haric}) async {
+    final satirlar = await tahsilatDetaylari(localDate, userId: userId, haric: haric);
     var toplam = 0;
     for (final s in satirlar) {
       if (s.kaynak == TahsilatKaynagi.gununSiparisi) continue;
@@ -181,11 +183,10 @@ class DayEndRepository {
   ///
   /// [userId] verilirse yalnız O KULLANICININ verdiği iskontolar ([kasaOzeti] ile simetrik:
   /// `collected_by_user_id` teslimi yapan kişidir).
-  Future<int> iskontoOzeti(DateTime localDate, {String? userId}) async {
+  Future<int> iskontoOzeti(DateTime localDate, {String? userId, String? haric}) async {
     final query = db.select(db.ledgerEntries)..where((t) => t.entryType.equals('discount'));
-    if (userId != null) {
-      query.where((t) => t.collectedByUserId.equals(userId));
-    }
+    query.where((t) =>
+        defterKapsamSuzgeci(t, userId: userId, haric: haric) ?? const Constant(true));
     final kayitlar = await query.get();
     var toplam = 0;
     for (final e in kayitlar) {
@@ -196,13 +197,17 @@ class DayEndRepository {
   }
 
   /// Gün içinde teslim edilen sipariş SAYISI (tasarım: "N teslimat"). [userId] verilirse yalnız
-  /// o kuryeye atanmış siparişler. İptaller sayılmaz (status='delivered').
-  Future<int> teslimatSayisi(DateTime localDate, {String? userId}) async {
+  /// o kullanıcının TESLİM ETTİKLERİ. İptaller sayılmaz (status='delivered').
+  ///
+  /// ⚠️ ESKİDEN ATAMAYA BAKIYORDU (2026-08-20'de düzeltildi): patron, Ali'ye atanmış siparişi
+  /// kendisi teslim ettiğinde teslimat ALİ'nin hesabına yazılıyordu — üstelik parası patronda
+  /// kalarak, yani aynı olayın iki yarısı iki ayrı kişiye gidiyordu. Kural [siparisSahibiEsit]
+  /// içinde tek yerde durur ve günün veresiyesiyle ORTAKTIR.
+  Future<int> teslimatSayisi(DateTime localDate, {String? userId, String? haric}) async {
     final query = db.select(db.orders)
       ..where((t) => t.deletedAt.isNull() & t.status.equals('delivered'));
-    if (userId != null) {
-      query.where((t) => t.assignedUserId.equals(userId));
-    }
+    query.where((t) =>
+        siparisKapsamSuzgeci(t, userId: userId, haric: haric) ?? const Constant(true));
     final rows = await query.get();
     return rows.where((o) => _sameTrDay(o.occurredAt, localDate)).length;
   }

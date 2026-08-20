@@ -315,6 +315,14 @@ extension _GocMerdiveni on AppDatabase {
             // isteyen açar. Varsayılanı 1 yapmak, azınlığın ihtiyacını çoğunluğa dayatmak olurdu.
             ('tenant_settings',
                 'ALTER TABLE tenant_settings ADD COLUMN prepared_products INTEGER NOT NULL DEFAULT 0'),
+            // v25 — TESLİMİ KİM YAPTI (2026-08-20). Yerleşim gerekçesi v11..v24 ile AYNI
+            // (kapıdan ÖNCE, koşulsuz): sahadaki her cihazda `tenant_settings` zaten var, yani
+            // `if (from < 25)` yazsaydık adım hiçbir telefonda koşmazdı.
+            //
+            // BEDELİ AĞIR OLURDU: kolon eksikken teslim akışı `_recompute`ta "no such column:
+            // delivered_by_user_id" ile düşer — yani kurye siparişi HİÇ teslim edemez. NULLABLE:
+            // yükseltmeden önceki teslimlerin kim tarafından yapıldığı kayıtlı değildir.
+            ('orders', 'ALTER TABLE orders ADD COLUMN delivered_by_user_id TEXT'),
           ]) {
             if (await AppDatabase._tabloVar(m, tablo)) {
               await AppDatabase._addColumnIfMissing(m, sql);

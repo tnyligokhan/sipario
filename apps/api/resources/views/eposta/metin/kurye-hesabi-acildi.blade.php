@@ -1,24 +1,25 @@
-{{ $kuryeAdi }} için kurye hesabı açıldı
+{{ $kuryeAdi }} için {{ mb_strtolower($rolAdi) }} hesabı açıldı
 ========================================
 
-{{ $isletme }} ekibine yeni bir kurye hesabı eklendi. Kuryenizin uygulamaya girmek için ihtiyacı
-olan bilgiler aşağıda.
+{{ $isletme }} ekibine yeni bir personel hesabı eklendi ({{ $rolAdi }}). Personelinizin
+uygulamaya girmek için ihtiyacı olan bilgiler aşağıda.
 
 Ad soyad      : {{ $kuryeAdi }}
+Görevi        : {{ $rolAdi }}
 Firma kodu    : {{ $firmaKodu }}
 Kullanıcı adı : {{ $kullaniciAdi }}
 
-PAROLA BU İLETİDE YOK. Kuryenizin parolası, hesabı açarken sizin belirlediğiniz paroladır.
-Güvenlik gereği parolaları e-postayla göndermiyoruz; kuryenize kendiniz iletin.
+PAROLA BU İLETİDE YOK. Personelinizin parolası, hesabı açarken sizin belirlediğiniz paroladır.
+Güvenlik gereği parolaları e-postayla göndermiyoruz; kendisine siz iletin.
 
-Kuryeniz uygulamayı telefonuna kurup bu üç bilgiyle girer: firma kodu, kullanıcı adı, parola.
+Personeliniz uygulamayı telefonuna kurup bu üç bilgiyle girer: firma kodu, kullanıcı adı, parola.
 E-posta adresiyle giriş yapılmaz.
 @if ($kalanHak > 0)
 
-Paketinizde {{ $kalanHak }} kurye hakkı daha var.
+Paketinizde {{ $kalanHak }} personel hakkı daha var.
 @else
 
-KURYE HAKKINIZ DOLDU. Yeni bir kurye eklemek isterseniz bu iletiyi yanıtlayın, ek kurye
+PERSONEL HAKKINIZ DOLDU. Yeni bir hesap eklemek isterseniz bu iletiyi yanıtlayın, ek kurye
 paketini birlikte açalım.
 @endif
 

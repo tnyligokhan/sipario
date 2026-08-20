@@ -2790,6 +2790,18 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _deliveredByUserIdMeta = const VerificationMeta(
+    'deliveredByUserId',
+  );
+  @override
+  late final GeneratedColumn<String> deliveredByUserId =
+      GeneratedColumn<String>(
+        'delivered_by_user_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -2882,6 +2894,7 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
     customerId,
     code,
     assignedUserId,
+    deliveredByUserId,
     status,
     totalKurus,
     paymentType,
@@ -2926,6 +2939,15 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
         assignedUserId.isAcceptableOrUnknown(
           data['assigned_user_id']!,
           _assignedUserIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('delivered_by_user_id')) {
+      context.handle(
+        _deliveredByUserIdMeta,
+        deliveredByUserId.isAcceptableOrUnknown(
+          data['delivered_by_user_id']!,
+          _deliveredByUserIdMeta,
         ),
       );
     }
@@ -3010,6 +3032,10 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
         DriftSqlType.string,
         data['${effectivePrefix}assigned_user_id'],
       ),
+      deliveredByUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}delivered_by_user_id'],
+      ),
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -3063,6 +3089,19 @@ class Order extends DataClass implements Insertable<Order> {
   /// atama olayından türer. Tek kişilik bayide UI'da hiç görünmez (BRIEF), sunucu her zaman destekler.
   final String? assignedUserId;
 
+  /// ÖNBELLEK — kaynak `delivered` order olayının payload'ı. TESLİMİ FİİLEN KİM YAPTI
+  /// (2026-08-20 kullanıcı kararı: "uygulamada yapılan her işlem giriş yapılan hesaba bağlanır").
+  ///
+  /// [assignedUserId] İLE KARIŞTIRILMAZ ve ikisi de gereklidir: atama bir NİYETTİR ("bunu Ali
+  /// götürecek"), bu alan bir OLGUDUR ("götüren patron oldu"). Gün özeti teslimat sayısını ve
+  /// günün veresiyesini atamadan okuduğu sürece, patronun kendi yaptığı teslimat Ali'nin
+  /// hesabına yazılıyordu — üstelik parası (`ledger_entries.collected_by_user_id`) patronda
+  /// kalarak: aynı olayın iki yarısı iki ayrı kişiye gidiyordu.
+  ///
+  /// ESKİ SATIRLARDA NULL'dur ve okuma katmanı null'da atamaya düşer: o teslimlerin kim
+  /// tarafından yapıldığı kayıtlı DEĞİLDİR ve uydurulmaz — geçmiş günler eskisi gibi görünür.
+  final String? deliveredByUserId;
+
   /// ÖNBELLEK — kaynak order_events (DECISIONS). status: open|delivered|cancelled.
   final String status;
   final int totalKurus;
@@ -3080,6 +3119,7 @@ class Order extends DataClass implements Insertable<Order> {
     this.customerId,
     this.code,
     this.assignedUserId,
+    this.deliveredByUserId,
     required this.status,
     required this.totalKurus,
     this.paymentType,
@@ -3101,6 +3141,9 @@ class Order extends DataClass implements Insertable<Order> {
     }
     if (!nullToAbsent || assignedUserId != null) {
       map['assigned_user_id'] = Variable<String>(assignedUserId);
+    }
+    if (!nullToAbsent || deliveredByUserId != null) {
+      map['delivered_by_user_id'] = Variable<String>(deliveredByUserId);
     }
     map['status'] = Variable<String>(status);
     map['total_kurus'] = Variable<int>(totalKurus);
@@ -3133,6 +3176,9 @@ class Order extends DataClass implements Insertable<Order> {
       assignedUserId: assignedUserId == null && nullToAbsent
           ? const Value.absent()
           : Value(assignedUserId),
+      deliveredByUserId: deliveredByUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deliveredByUserId),
       status: Value(status),
       totalKurus: Value(totalKurus),
       paymentType: paymentType == null && nullToAbsent
@@ -3162,6 +3208,9 @@ class Order extends DataClass implements Insertable<Order> {
       customerId: serializer.fromJson<String?>(json['customerId']),
       code: serializer.fromJson<int?>(json['code']),
       assignedUserId: serializer.fromJson<String?>(json['assignedUserId']),
+      deliveredByUserId: serializer.fromJson<String?>(
+        json['deliveredByUserId'],
+      ),
       status: serializer.fromJson<String>(json['status']),
       totalKurus: serializer.fromJson<int>(json['totalKurus']),
       paymentType: serializer.fromJson<String?>(json['paymentType']),
@@ -3180,6 +3229,7 @@ class Order extends DataClass implements Insertable<Order> {
       'customerId': serializer.toJson<String?>(customerId),
       'code': serializer.toJson<int?>(code),
       'assignedUserId': serializer.toJson<String?>(assignedUserId),
+      'deliveredByUserId': serializer.toJson<String?>(deliveredByUserId),
       'status': serializer.toJson<String>(status),
       'totalKurus': serializer.toJson<int>(totalKurus),
       'paymentType': serializer.toJson<String?>(paymentType),
@@ -3196,6 +3246,7 @@ class Order extends DataClass implements Insertable<Order> {
     Value<String?> customerId = const Value.absent(),
     Value<int?> code = const Value.absent(),
     Value<String?> assignedUserId = const Value.absent(),
+    Value<String?> deliveredByUserId = const Value.absent(),
     String? status,
     int? totalKurus,
     Value<String?> paymentType = const Value.absent(),
@@ -3211,6 +3262,9 @@ class Order extends DataClass implements Insertable<Order> {
     assignedUserId: assignedUserId.present
         ? assignedUserId.value
         : this.assignedUserId,
+    deliveredByUserId: deliveredByUserId.present
+        ? deliveredByUserId.value
+        : this.deliveredByUserId,
     status: status ?? this.status,
     totalKurus: totalKurus ?? this.totalKurus,
     paymentType: paymentType.present ? paymentType.value : this.paymentType,
@@ -3232,6 +3286,9 @@ class Order extends DataClass implements Insertable<Order> {
       assignedUserId: data.assignedUserId.present
           ? data.assignedUserId.value
           : this.assignedUserId,
+      deliveredByUserId: data.deliveredByUserId.present
+          ? data.deliveredByUserId.value
+          : this.deliveredByUserId,
       status: data.status.present ? data.status.value : this.status,
       totalKurus: data.totalKurus.present
           ? data.totalKurus.value
@@ -3258,6 +3315,7 @@ class Order extends DataClass implements Insertable<Order> {
           ..write('customerId: $customerId, ')
           ..write('code: $code, ')
           ..write('assignedUserId: $assignedUserId, ')
+          ..write('deliveredByUserId: $deliveredByUserId, ')
           ..write('status: $status, ')
           ..write('totalKurus: $totalKurus, ')
           ..write('paymentType: $paymentType, ')
@@ -3276,6 +3334,7 @@ class Order extends DataClass implements Insertable<Order> {
     customerId,
     code,
     assignedUserId,
+    deliveredByUserId,
     status,
     totalKurus,
     paymentType,
@@ -3293,6 +3352,7 @@ class Order extends DataClass implements Insertable<Order> {
           other.customerId == this.customerId &&
           other.code == this.code &&
           other.assignedUserId == this.assignedUserId &&
+          other.deliveredByUserId == this.deliveredByUserId &&
           other.status == this.status &&
           other.totalKurus == this.totalKurus &&
           other.paymentType == this.paymentType &&
@@ -3308,6 +3368,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   final Value<String?> customerId;
   final Value<int?> code;
   final Value<String?> assignedUserId;
+  final Value<String?> deliveredByUserId;
   final Value<String> status;
   final Value<int> totalKurus;
   final Value<String?> paymentType;
@@ -3322,6 +3383,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     this.customerId = const Value.absent(),
     this.code = const Value.absent(),
     this.assignedUserId = const Value.absent(),
+    this.deliveredByUserId = const Value.absent(),
     this.status = const Value.absent(),
     this.totalKurus = const Value.absent(),
     this.paymentType = const Value.absent(),
@@ -3337,6 +3399,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     this.customerId = const Value.absent(),
     this.code = const Value.absent(),
     this.assignedUserId = const Value.absent(),
+    this.deliveredByUserId = const Value.absent(),
     this.status = const Value.absent(),
     this.totalKurus = const Value.absent(),
     this.paymentType = const Value.absent(),
@@ -3353,6 +3416,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     Expression<String>? customerId,
     Expression<int>? code,
     Expression<String>? assignedUserId,
+    Expression<String>? deliveredByUserId,
     Expression<String>? status,
     Expression<int>? totalKurus,
     Expression<String>? paymentType,
@@ -3368,6 +3432,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
       if (customerId != null) 'customer_id': customerId,
       if (code != null) 'code': code,
       if (assignedUserId != null) 'assigned_user_id': assignedUserId,
+      if (deliveredByUserId != null) 'delivered_by_user_id': deliveredByUserId,
       if (status != null) 'status': status,
       if (totalKurus != null) 'total_kurus': totalKurus,
       if (paymentType != null) 'payment_type': paymentType,
@@ -3385,6 +3450,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     Value<String?>? customerId,
     Value<int?>? code,
     Value<String?>? assignedUserId,
+    Value<String?>? deliveredByUserId,
     Value<String>? status,
     Value<int>? totalKurus,
     Value<String?>? paymentType,
@@ -3400,6 +3466,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
       customerId: customerId ?? this.customerId,
       code: code ?? this.code,
       assignedUserId: assignedUserId ?? this.assignedUserId,
+      deliveredByUserId: deliveredByUserId ?? this.deliveredByUserId,
       status: status ?? this.status,
       totalKurus: totalKurus ?? this.totalKurus,
       paymentType: paymentType ?? this.paymentType,
@@ -3426,6 +3493,9 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     }
     if (assignedUserId.present) {
       map['assigned_user_id'] = Variable<String>(assignedUserId.value);
+    }
+    if (deliveredByUserId.present) {
+      map['delivered_by_user_id'] = Variable<String>(deliveredByUserId.value);
     }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
@@ -3464,6 +3534,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
           ..write('customerId: $customerId, ')
           ..write('code: $code, ')
           ..write('assignedUserId: $assignedUserId, ')
+          ..write('deliveredByUserId: $deliveredByUserId, ')
           ..write('status: $status, ')
           ..write('totalKurus: $totalKurus, ')
           ..write('paymentType: $paymentType, ')
@@ -15017,6 +15088,7 @@ typedef $$OrdersTableCreateCompanionBuilder =
       Value<String?> customerId,
       Value<int?> code,
       Value<String?> assignedUserId,
+      Value<String?> deliveredByUserId,
       Value<String> status,
       Value<int> totalKurus,
       Value<String?> paymentType,
@@ -15033,6 +15105,7 @@ typedef $$OrdersTableUpdateCompanionBuilder =
       Value<String?> customerId,
       Value<int?> code,
       Value<String?> assignedUserId,
+      Value<String?> deliveredByUserId,
       Value<String> status,
       Value<int> totalKurus,
       Value<String?> paymentType,
@@ -15070,6 +15143,11 @@ class $$OrdersTableFilterComposer
 
   ColumnFilters<String> get assignedUserId => $composableBuilder(
     column: $table.assignedUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deliveredByUserId => $composableBuilder(
+    column: $table.deliveredByUserId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15143,6 +15221,11 @@ class $$OrdersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get deliveredByUserId => $composableBuilder(
+    column: $table.deliveredByUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -15206,6 +15289,11 @@ class $$OrdersTableAnnotationComposer
 
   GeneratedColumn<String> get assignedUserId => $composableBuilder(
     column: $table.assignedUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deliveredByUserId => $composableBuilder(
+    column: $table.deliveredByUserId,
     builder: (column) => column,
   );
 
@@ -15274,6 +15362,7 @@ class $$OrdersTableTableManager
                 Value<String?> customerId = const Value.absent(),
                 Value<int?> code = const Value.absent(),
                 Value<String?> assignedUserId = const Value.absent(),
+                Value<String?> deliveredByUserId = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> totalKurus = const Value.absent(),
                 Value<String?> paymentType = const Value.absent(),
@@ -15288,6 +15377,7 @@ class $$OrdersTableTableManager
                 customerId: customerId,
                 code: code,
                 assignedUserId: assignedUserId,
+                deliveredByUserId: deliveredByUserId,
                 status: status,
                 totalKurus: totalKurus,
                 paymentType: paymentType,
@@ -15304,6 +15394,7 @@ class $$OrdersTableTableManager
                 Value<String?> customerId = const Value.absent(),
                 Value<int?> code = const Value.absent(),
                 Value<String?> assignedUserId = const Value.absent(),
+                Value<String?> deliveredByUserId = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> totalKurus = const Value.absent(),
                 Value<String?> paymentType = const Value.absent(),
@@ -15318,6 +15409,7 @@ class $$OrdersTableTableManager
                 customerId: customerId,
                 code: code,
                 assignedUserId: assignedUserId,
+                deliveredByUserId: deliveredByUserId,
                 status: status,
                 totalKurus: totalKurus,
                 paymentType: paymentType,

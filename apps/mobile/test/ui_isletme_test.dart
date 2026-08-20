@@ -8,6 +8,7 @@ import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/repo/product_repository.dart';
 import 'package:sipario/screens/day_end_screen.dart';
 import 'package:sipario/screens/isletme/gun_kapatma_sheet.dart';
+import 'package:sipario/screens/isletme/gun_kapsami.dart';
 import 'package:sipario/screens/products/product_form_sheet.dart';
 import 'package:sipario/screens/products/product_list_screen.dart';
 import 'package:sipario/theme/components/atoms.dart';
@@ -309,10 +310,24 @@ void main() {
       );
 
       expect(find.text('Kasa Özeti'), findsOneWidget, reason: 'gün kapsamı');
-      expect(find.text('Emre'), findsOneWidget);
-      expect(find.text('Ali'), findsOneWidget);
       final dugme = tester.widget<SipButon>(find.widgetWithText(SipButon, 'Günü Kapat'));
       expect(dugme.onTap, isNotNull);
+
+      // KAPSAM ARTIK AÇILIR LİSTE (2026-08-20): ekipte kim olduğu şeritte değil, seçici
+      // açıldığında görünür. Seçici kapalıyken YALNIZ seçili kapsamın adı yazar.
+      expect(find.text('Tümü'), findsOneWidget, reason: 'yönetici gün hesabıyla açılır');
+      expect(find.text('Emre · Kurye'), findsNothing, reason: 'liste kapalıyken ad yazmaz');
+
+      await tester.tap(find.byType(GunKapsamSecici));
+      await sheetAnimasyonu(tester);
+
+      // ÜÇ KATMAN: gün geneli · kendi işlerim · elemanlar, sonra kişi kişi herkes.
+      expect(find.text('Kendi işlemlerim'), findsOneWidget);
+      expect(find.text('Elemanlar'), findsOneWidget);
+      expect(find.text('Emre · Kurye'), findsOneWidget);
+      expect(find.text('Ali · Kurye'), findsOneWidget);
+      // Patron kendi satırını "Kendi işlemlerim" olarak görür — ikinci kez adıyla listelenmez.
+      expect(find.text('Patron · Patron'), findsNothing);
 
       await kapat(tester);
     });

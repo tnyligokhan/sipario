@@ -5,7 +5,7 @@
 // KULLANILMAZ — tasarımın hap navigasyonu ve hero zeminli çekmecesi onlarla kurulamıyor.
 //
 // KAPILAR:
-//  • Rol (K2): `yetkiler(rol:, kuryeVar:)` — ürün yönetimi yalnız yöneticide (çekmecenin YÖNETİM
+//  • Rol (K2): `yetkiler(rol:, atamaHedefiVar:)` — ürün yönetimi yalnız yöneticide (çekmecenin YÖNETİM
 //    bölümü), atama yalnız yönetici + aktif kurye varken.
 //  • Abonelik: salt-okunur kipte gövde `SubscriptionLockedScreen`e düşer; çekmece ve navigasyon
 //    erişilebilir kalır (mevcut veri okunabilir), FAB çizilir ama pasiftir.
@@ -178,7 +178,16 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int? _otoHak;
   int? _otoAylik;
 
+  /// ATANABİLECEK aktif personel (kendim dahil) — `watchAtamaHedefleri`. "Tek kişilik bayi"
+  /// kararının dayanağı buradan çıkar ([_atamaHedefiVar]).
   List<User> _kuryeler = const [];
+
+  /// Bu bayide BENDEN BAŞKA atanabilecek biri var mı?
+  ///
+  /// KENDİM SAYILMAM ve bu, BRIEF'in tek kişilik bayi kuralının tamamıdır: liste artık patronu
+  /// da içerdiği için "liste boş değil" ölçütü tek kişilik bayide de doğru çıkardı ve malı zaten
+  /// kendi götüren bayiye her siparişte anlamsız bir "kime atansın" adımı eklerdi.
+  bool get _atamaHedefiVar => _kuryeler.any((u) => u.id != _userId);
 
   /// BU OTURUMUN ETKİN kurye yetkileri (2026-08-04; kişiselleştirme 2026-08-10). Bayi
   /// varsayılanı ile kullanıcının kendi ezmeleri çözülmüş hâlde gelir. AKIŞTAN okunur çünkü
@@ -257,8 +266,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // yokluyoruz (çağrı kartı köprüsünün `bekleyen` deseninin aynısı).
     YerelBildirimServisi.dokunulanYol.addListener(_bildirimDokunusu);
     _bildirimDokunusu();
-    // Aktif kurye varlığı "tek kişilik bayi" kararının dayanağıdır (K2 kuryeVar).
-    _kuryeSub = watchAktifKuryeler(widget.db).listen((k) {
+    // Atanabilecek personel varlığı "tek kişilik bayi" kararının dayanağıdır (K2 atamaHedefiVar).
+    // ROL SÜZGECİ YOK: siparişi oluşturan kişi kendisini de seçebilmeli (2026-08-20).
+    _kuryeSub = watchAtamaHedefleri(widget.db).listen((k) {
       if (!mounted) return;
       setState(() => _kuryeler = k);
     });
@@ -364,7 +374,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   bool get _kilit => _access == AccessLevel.readOnly;
 
   RolYetkileri get _yetki =>
-      yetkiler(rol: _userRole, kuryeVar: _kuryeler.isNotEmpty, izin: _kuryeIzin);
+      yetkiler(rol: _userRole, atamaHedefiVar: _atamaHedefiVar, izin: _kuryeIzin);
 
   /// ÇEKMECE başlığı: işletme (firma) adı — tasarım `s-bilesenler.jsx:100` `{isletme.ad}`.
   String get _isletmeAdi => _tenantName ?? 'Sipario';

@@ -178,7 +178,18 @@ class OrderRepository {
       // 1) Teslim olayı + ödeme tipi + önbellek + outbox (mevcut sipariş akışı).
       await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
           .write(OrdersCompanion(paymentType: Value(paymentType)));
-      final payload = {'order_id': orderId, 'payment_type': paymentType};
+      // TESLİM EDEN OLAYIN İÇİNDE GİDER (2026-08-20). Kolona doğrudan yazmak yerine payload'a
+      // konmasının sebebi `assigned_user_id` ile aynı: önbellek kolonları iki tarafta da AYNI
+      // olaylardan türetilir, yoksa senkron sırasına bağlı bir ıraksama doğar.
+      //
+      // `collector` ile AYNI kişidir ve bu bilinçli: teslimi yapan ile parayı alan aynı olaydır.
+      // Ayrılabilecekleri tek yer çağıranın `collectedByUserId`i elle geçmesidir (kasa devri
+      // senaryoları) — orada da "işlemi kime yazıyoruz" cevabı tektir.
+      final payload = {
+        'order_id': orderId,
+        'payment_type': paymentType,
+        'delivered_by_user_id': collector,
+      };
       await _appendEvent(orderId, 'delivered', deliverEventId, payload, at, device);
       await _recompute(orderId);
       await enqueueOutbox(db,
@@ -199,8 +210,18 @@ class OrderRepository {
       final alinan = (paymentType == 'veresiye' || istenen < 0) ? 0 : istenen;
 
       // Satışın borcu: her teslimde, TAM tutarla.
+      //
+      // BORÇ SATIRI DA ATFINI TAŞIR (2026-08-20). Eskiden `collected_by_user_id` bilerek boş
+      // bırakılıyordu ("borç kimsenin kasasına girmedi") ve sonucu şuydu: günün veresiyesi
+      // atamadan okunmak ZORUNDA kalıyordu, yani patron kendi teslim ettiği siparişi veresiye
+      // yazdığında borç ATANMIŞ KURYENİN hesabına düşüyordu. Alanın anlamı genişletildi:
+      // "parayı kim aldı" değil, "bu hareketi kim yaptı".
+      //
+      // KASA ETKİLENMEZ: kasa özeti `payment_type` taşıyan satırları sayar, `debit` taşımaz.
+      // Kurye kasa devri de yalnız `payment_type='nakit'` satırlarını toplar.
       await writeLedgerEntry(db, entryType: 'debit', amountKurus: total,
           id: deliveryEventId(orderId, 'debit'), clientEventId: deliveryEventId(orderId, 'debit'),
+          collectedByUserId: collector,
           customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
 
       // Alınan para: yalnız gerçekten alındıysa. 0 tahsilatlı bir `payment` satırı kasayı
@@ -404,8 +425,27 @@ class OrderRepository {
       status: Value(status),
       totalKurus: Value(total),
       assignedUserId: Value(_deriveAssignedUserId(events)),
+      deliveredByUserId: Value(_deriveDeliveredByUserId(events)),
       sortIndex: Value(_deriveSortIndex(events)),
     ));
+  }
+
+  /// delivered_by_user_id önbelleğini en son `delivered` olayından türet (SUNUCU
+  /// `deriveDeliveredByUserId`ının aynası; AYNI (occurredAt, id) ortak anahtarı → ıraksama yok).
+  ///
+  /// Payload'da anahtar YOKSA null döner: teslim eski bir uygulama sürümünden gelmiş olabilir
+  /// (offline-first, telefon günlerce eski sürümde kalır). Okuma katmanı null'da atamaya düşer.
+  String? _deriveDeliveredByUserId(List<OrderEvent> events) {
+    final teslimler = events.where((e) => e.eventType == 'delivered').toList()
+      ..sort((a, b) {
+        final byTime = a.occurredAt.compareTo(b.occurredAt);
+        return byTime != 0 ? byTime : a.id.compareTo(b.id);
+      });
+    if (teslimler.isEmpty) return null;
+    final payload = teslimler.last.payload;
+    if (payload == null) return null;
+    final value = (jsonDecode(payload) as Map<String, dynamic>)['delivered_by_user_id'];
+    return value is String ? value : null;
   }
 
   /// sort_index önbelleğini en son `sort_set` olayından türet (SUNUCU deriveSortIndex'inin aynası;

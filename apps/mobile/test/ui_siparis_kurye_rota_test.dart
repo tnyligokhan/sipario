@@ -91,7 +91,7 @@ void main() {
 
       await tester.tap(find.text(AltKuryeCipi.bosEtiket));
       await akisiBekle(tester);
-      await tester.tap(find.text('Kurye Ali'));
+      await tester.tap(find.text('Kurye Ali · Kurye'));
       await akisiBekle(tester);
 
       // Seçim çipe yansır — kullanıcı kaydetmeden önce kime gittiğini görür.
@@ -143,7 +143,7 @@ void main() {
       // Kurye seçilince aynı düğme çalışır — kapı kilit değil, eksik alan.
       await tester.tap(find.text(AltKuryeCipi.bosEtiket));
       await akisiBekle(tester);
-      await tester.tap(find.text('Kurye Ali'));
+      await tester.tap(find.text('Kurye Ali · Kurye'));
       await akisiBekle(tester);
       await tester.tap(find.text('Siparişi Kaydet'));
       await akisiBekle(tester, ms: 300);

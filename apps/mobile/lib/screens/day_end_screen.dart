@@ -40,6 +40,7 @@ import '../theme/icons.dart';
 import '../theme/tokens.dart';
 import 'isletme/gecmis_gun_ekrani.dart';
 import 'isletme/gun_kapatma_sheet.dart';
+import 'isletme/gun_kapsami.dart';
 import 'isletme/gun_ozeti_eylemleri.dart';
 import 'isletme/gun_ozeti_govdesi.dart';
 import 'isletme/gun_sonu_kartlari.dart';
@@ -102,8 +103,20 @@ class DayEndScreen extends StatefulWidget {
 }
 
 class _DayEndScreenState extends State<DayEndScreen> {
-  /// null = "Tümü"; aksi hâlde kuryenin kullanıcı kimliği.
-  late String? _kuryeId = widget.rol == 'kurye' ? widget.kullaniciId : null;
+  /// SEÇİLİ KAPSAM (2026-08-20). Kurye kendi kapsamıyla açılır; yönetici gün hesabıyla.
+  ///
+  /// Rol bilgisi henüz gelmemişse (`_secili.rol == null`) sorun değil: rol yalnız KAPATMA
+  /// kapısını etkiler ve o kapı her koşulda ikinci kez sorulur.
+  late GunKapsamSecenegi _secili = widget.rol == 'kurye' && widget.kullaniciId != null
+      ? GunKapsamSecenegi(etiket: 'Kendi hesabım', userId: widget.kullaniciId, rol: 'kurye')
+      : const GunKapsamSecenegi(etiket: 'Tümü');
+
+  /// Seçili kişinin kimliği; gün hesabında ve "Elemanlar"da null. Ekranın geri kalanı (kapatma,
+  /// ara tahsilat, gövde) bu alanı okur — kapsam tipini her yerde yeniden çözmek yerine.
+  String? get _kuryeId => _secili.userId;
+
+  /// "Elemanlar" kapsamında hariç tutulan kişi (oturumdaki kullanıcı); diğer kapsamlarda null.
+  String? get _haric => _secili.haric;
 
   // İlk yükleme de kapsamı taşır: ön seçim varken `kuryeId` geçilmezse ekran bir kare boyunca
   // gün toplamlarını kurye kapsamı etiketiyle gösteriyordu.
@@ -122,7 +135,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
     // göre yazılır. Yazma kararı vermez — yalnız kelime seçer, o yüzden bir kare bayat kalması
     // zararsızdır (gövde zaten ancak bu future çözüldükten SONRA çiziliyor).
     _bugun = gun;
-    return gunSonuGorunumu(widget.db, gun, kuryeId: _kuryeId);
+    return gunSonuGorunumu(widget.db, gun, kuryeId: _kuryeId, haric: _haric);
   }
 
   /// "Bugün/Dün" etiketlerinin referans günü. Cihaz saatiyle başlar, ilk yükleme onu düzeltilmiş
@@ -142,15 +155,20 @@ class _DayEndScreenState extends State<DayEndScreen> {
     if (mounted) _tazele();
   }
 
-  void _kapsamSec(String? kuryeId) {
+  void _kapsamSec(GunKapsamSecenegi secim) {
     setState(() {
-      _kuryeId = kuryeId;
+      _secili = secim;
       _gorunum = _yukle();
     });
   }
 
-  String _kapsamAdi(List<User> kuryeler) =>
-      _kuryeId == null ? 'Gün hesabı' : (kullaniciAdi(kuryeler, _kuryeId) ?? 'Kurye');
+  /// Kapsamın BAŞLIKTA ve kapanış kaydında görünen adı.
+  ///
+  /// Kişi kapsamında ekipten çözülür (etiket "Ali · Kurye" gibi rol de taşır; kapanış notunda
+  /// sade ad gerekir). Gün hesabında ve "Elemanlar"da seçeneğin kendi etiketi kullanılır.
+  String _kapsamAdi(List<User> kuryeler) => _kuryeId == null
+      ? (_secili.gunHesabi ? 'Gün hesabı' : _secili.etiket)
+      : (kullaniciAdi(kuryeler, _kuryeId) ?? 'Kurye');
 
   bool get _kurye => widget.rol == 'kurye';
 
@@ -161,17 +179,15 @@ class _DayEndScreenState extends State<DayEndScreen> {
   /// genişlemesine dönüşürdü. Belirsizlikte AÇILAN değil KAPANAN taraf seçilir.
   bool get _kapsamsizKurye => _kurye && widget.kullaniciId == null;
 
-  /// Segmentte listelenecek kuryeler. Kurye YALNIZ kendini görür: başka kuryenin kasasını
-  /// okumak onun işi değil (K2), ve göremediği kapsamı kapatması da mümkün olmaz.
-  List<User> _gorunurKuryeler(List<User> kuryeler) => _kurye
-      ? kuryeler.where((k) => k.id == widget.kullaniciId).toList()
-      : kuryeler;
+  // KAPSAM SÜZGECİ BURADAN TAŞINDI (2026-08-20): "kurye yalnız kendini görür" kuralı artık
+  // `gunKapsamlari()` içinde, seçenek listesinin ÜRETİLDİĞİ yerde duruyor. İki yerde durması
+  // (liste + süzgeç) birinin bir gün diğerini yakalayamaması demekti.
 
   /// Seçili kapsamı KAPATMA yetkisi (K2). Yönetici her kapsamı kapatır; kurye yalnız kendi
   /// kurye hesabını — gün hesabı ve başkasının hesabı ona kapalı.
   /// Bu ekranın yetki kümesi. Tek yerden okunur ki üç kapı (kapatma / ara tahsilat / geçmiş)
   /// aynı kaynağa baksın.
-  RolYetkileri get _yetki => yetkiler(rol: widget.rol, kuryeVar: true, izin: widget.kuryeIzin);
+  RolYetkileri get _yetki => yetkiler(rol: widget.rol, atamaHedefiVar: true, izin: widget.kuryeIzin);
 
   /// Geçmiş gün arşivini görebilir mi (`gecmisHesapArsivi` — yalnız yönetici).
   bool get _gecmisiGorebilir => _yetki.gecmisHesapArsivi;
@@ -188,7 +204,13 @@ class _DayEndScreenState extends State<DayEndScreen> {
   /// DURUYOR, kaldırılsaydı kurye cebindeki parayı sisteme hiç işleyemezdi" diyordu ve o cümle
   /// artık YANLIŞ: kurye ne kapatır ne ara tahsilat verir. Kuryedeki nakdi sisteme geçiren TEK
   /// yol, patronun o kuryeden ara tahsilat ALMASIDIR ([_araTahsilatAlabilir]).
-  bool get _kapatabilir => _yetki.gunuKapatma;
+  /// ⚠️ KAPSAM KAPISI DA BURADA (2026-08-20): kapatma yalnız GÜN hesabında ya da bir KURYE
+  /// kapsamında yapılır. "Elemanlar" ve "Kendi işlemlerim" birer OKUMA kapsamıdır — ekranda
+  /// gösterilen rakam dükkânın tamamı değilken "Günü Kapat" düğmesi, gördüğünden başka bir şeyi
+  /// kapatırdı. `day_closings` yalnız iki kapsam tanır (day · courier); üçüncü bir kapsamı
+  /// oraya yazmanın yolu yok, dolayısıyla düğmenin çizilmemesi doğru davranıştır.
+  bool get _kapatabilir =>
+      _yetki.gunuKapatma && (_secili.gunHesabi || _secili.devirKapsami);
 
   /// Seçili kapsamdan ARA TAHSİLAT alma yetkisi (K2) — [_kapatabilir]in kardeşi, ama üç ek koşul:
   ///  • Kapsam bir KURYE olmalı: ara tahsilat kuryenin cebindeki nakdi almaktır, "gün hesabından"
@@ -204,7 +226,9 @@ class _DayEndScreenState extends State<DayEndScreen> {
   /// almadım" dediğinde defterde iki tarafın da dayanağı yoktu. Kurye çıkmaza girmez: nakit yine
   /// sisteme girer, yalnız kaydı patron açar.
   bool _araTahsilatAlabilir(GunSonuGorunumu g) {
-    if (!g.araTahsilatMumkun || g.kapsamKapali || _kuryeId == null) return false;
+    // KAPSAM KURYE OLMALI: ara tahsilat, nakdi taşıyan KURYEDEN alınır. Patronun/tezgâhın
+    // "kendi işlemlerim" kapsamı da, "Elemanlar" da devir kapsamı değildir.
+    if (!g.araTahsilatMumkun || g.kapsamKapali || !_secili.devirKapsami) return false;
     // `_kapatabilir` ile AYNI anahtar: ikisi de birer devir işlemidir (bkz. dosya başındaki K2
     // bloğu). Ayrı bir anahtar, matriste karşılığı olmayan bir ayrım uydurmak olurdu.
     return _yetki.gunuKapatma;
@@ -237,36 +261,25 @@ class _DayEndScreenState extends State<DayEndScreen> {
       body: SafeArea(
         bottom: false,
         child: StreamBuilder<List<User>>(
-          stream: watchAktifKuryeler(widget.db),
+          // EKİP ARTIK TÜM AKTİF PERSONELDİR (2026-08-20), yalnız kuryeler değil: kapsam
+          // listesi patronu ve tezgâhı da içeriyor. `kullaniciAdi` çözümleri de bu listeden
+          // yapılıyor — dar bir liste, patronun teslim ettiği siparişi "Kurye" diye yazardı.
+          stream: watchAtamaHedefleri(widget.db),
           builder: (context, kuryeSnap) {
             final kuryeler = kuryeSnap.data ?? const <User>[];
-            final gorunur = _gorunurKuryeler(kuryeler);
 
-            // KAPSAM SEÇENEKLERİ (id, etiket) çiftidir; `null` id = gün hesabı ("Tümü").
-            //
-            // "TÜMÜ" KURYEDE YOKTUR (kullanıcı isteği 2026-08-11: "tümü kısmına gerek yok,
-            // kendi hesabını görse yeterli"). Eskiden kurye "Tümü"yü okuyabiliyordu ve bu,
-            // bütün dükkânın kasasını kuryeye açıyordu — şikâyetin kendisi buydu. Seçenek
-            // listesini role göre kurmak, kapıyı TEK yerde tutar: aşağıdaki `onSec` artık
-            // kuryeye gün hesabını verebilecek bir dizin bile üretemez.
-            final kapsamlar = <({String? id, String etiket})>[
-              if (_kurye) ...[
-                for (final k in gorunur) (id: k.id, etiket: k.name),
-              ] else ...[
-                (id: null, etiket: 'Tümü'),
-                for (final k in gorunur) (id: k.id, etiket: k.name),
-              ],
-            ];
+            // KAPSAM SEÇENEKLERİ tek yerde üretilir (`gun_kapsami.dart`) — rol kapısı dahil:
+            // kurye YALNIZ kendini görür, "Tümü" onun listesinde HİÇ doğmaz.
+            final kapsamlar = gunKapsamlari(
+              rol: widget.rol,
+              benimId: widget.kullaniciId,
+              ekip: kuryeler,
+            );
 
-            // Seçili kapsam listede YOKSA (team bloğu henüz inmemiş, kurye kendi aynasında
-            // görünmüyor) seçenek olarak EKLENİR. Aksi hâlde şerit bir kapsamı işaretlerken
-            // gövde başkasını gösteriyor, yani iki bileşen farklı şey söylüyordu.
-            var seciliDizin = kapsamlar.indexWhere((k) => k.id == _kuryeId);
-            if (seciliDizin < 0) {
-              kapsamlar.add((id: _kuryeId, etiket: _kapsamAdi(kuryeler)));
-              seciliDizin = kapsamlar.length - 1;
-            }
-            final secenekler = [for (final k in kapsamlar) k.etiket];
+            // Seçili kapsam listede YOKSA (team bloğu henüz inmemiş) seçenek olarak EKLENİR.
+            // Aksi hâlde seçici bir kapsamı yazarken gövde başkasını gösterir, yani iki bileşen
+            // farklı şey söylerdi.
+            if (!kapsamlar.any((k) => k.ayniMi(_secili))) kapsamlar.insert(0, _secili);
 
             return FutureBuilder<GunSonuGorunumu>(
               future: _gorunum,
@@ -320,14 +333,14 @@ class _DayEndScreenState extends State<DayEndScreen> {
                     // bakan bir kapı, hiç kuryesi olmayan bayide YÖNETİCİNİN segmentini de
                     // gizliyordu — oysa tasarım onu koşulsuz çizer ve "Tümü"nün varlığı orada
                     // bilgidir. Kapı role bağlıdır, seçenek sayısına değil.
-                    if (!_kurye || secenekler.length > 1)
+                    if (!_kurye || kapsamlar.length > 1)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(
                             SipSpace.govde, 0, SipSpace.govde, SipSpace.xl),
-                        child: SipSegment(
-                          secenekler: secenekler,
-                          secili: seciliDizin,
-                          onSec: (i) => _kapsamSec(kapsamlar[i].id),
+                        child: GunKapsamSecici(
+                          secenekler: kapsamlar,
+                          secili: _secili,
+                          onSec: _kapsamSec,
                         ),
                       ),
                     Expanded(

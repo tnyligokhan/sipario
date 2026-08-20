@@ -160,6 +160,19 @@ class Orders extends Table {
   /// atama olayından türer. Tek kişilik bayide UI'da hiç görünmez (BRIEF), sunucu her zaman destekler.
   TextColumn get assignedUserId => text().nullable()();
 
+  /// ÖNBELLEK — kaynak `delivered` order olayının payload'ı. TESLİMİ FİİLEN KİM YAPTI
+  /// (2026-08-20 kullanıcı kararı: "uygulamada yapılan her işlem giriş yapılan hesaba bağlanır").
+  ///
+  /// [assignedUserId] İLE KARIŞTIRILMAZ ve ikisi de gereklidir: atama bir NİYETTİR ("bunu Ali
+  /// götürecek"), bu alan bir OLGUDUR ("götüren patron oldu"). Gün özeti teslimat sayısını ve
+  /// günün veresiyesini atamadan okuduğu sürece, patronun kendi yaptığı teslimat Ali'nin
+  /// hesabına yazılıyordu — üstelik parası (`ledger_entries.collected_by_user_id`) patronda
+  /// kalarak: aynı olayın iki yarısı iki ayrı kişiye gidiyordu.
+  ///
+  /// ESKİ SATIRLARDA NULL'dur ve okuma katmanı null'da atamaya düşer: o teslimlerin kim
+  /// tarafından yapıldığı kayıtlı DEĞİLDİR ve uydurulmaz — geçmiş günler eskisi gibi görünür.
+  TextColumn get deliveredByUserId => text().nullable()();
+
   /// ÖNBELLEK — kaynak order_events (DECISIONS). status: open|delivered|cancelled.
   TextColumn get status => text().withDefault(const Constant('open'))();
   IntColumn get totalKurus => integer().withDefault(const Constant(0))();

@@ -177,6 +177,10 @@ extension SyncCekme on SyncEngine {
               customerId: Value(_sN(m['customer_id'])),
               code: Value(_iN(m['code'])), // sunucu atar (bkz. Orders.code)
               assignedUserId: Value(_sN(m['assigned_user_id'])),
+              // TESLİMİ KİM YAPTI (2026-08-20). Haritalanmazsa başka cihazdan yapılan teslimat
+              // bu telefonda sahipsiz görünür ve gün özeti onu atanan kuryeye yazardı — yani
+              // düzeltilen arıza senkron yoluyla geri gelirdi. Eski sunucu alanı göndermezse null.
+              deliveredByUserId: Value(_sN(m['delivered_by_user_id'])),
               status: Value(_s(m['status'])),
               totalKurus: Value(_i(m['total_kurus'])),
               paymentType: Value(_sN(m['payment_type'])),

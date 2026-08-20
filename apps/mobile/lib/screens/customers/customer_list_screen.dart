@@ -42,7 +42,7 @@ class CustomerListScreen extends StatefulWidget {
   /// ⚠️ ZORUNLU (2026-08-13). Eskiden nullable'dı ve "null → tam yetki (giriş öncesi/test yolu)"
   /// diyordu. Bu ekran yetkiyi `CustomerDetailScreen`e AKTARIYOR, yani buradaki geçirgen
   /// varsayılan orada yönetici eylemlerine dönüşüyordu — kolaylık bir kapıda kalmıyor, zincir
-  /// boyunca akıyor. Test/önizleme yolu kapanmadı: `yetkiler(rol: 'patron', kuryeVar: true)`.
+  /// boyunca akıyor. Test/önizleme yolu kapanmadı: `yetkiler(rol: 'patron', atamaHedefiVar: true)`.
   final RolYetkileri yetki;
 
   /// Çekmeceyi açan geri çağrım (kabuk verir). null ise hamburger çizilmez.

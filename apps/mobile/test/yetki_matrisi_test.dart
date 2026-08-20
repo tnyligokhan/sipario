@@ -24,12 +24,12 @@ void main() {
   // ═════════════════════════════════════════════════════════════════════════════════════════
 
   group('yetkiler() — 26 yetki × 5 senaryonun tam tablosu', () {
-    /// Senaryolar. `kuryeVar: true` sabittir (tek kişilik bayi ayrı grupta sınanır).
-    final patron = yetkiler(rol: 'patron', kuryeVar: true);
-    final operatorRol = yetkiler(rol: 'operator', kuryeVar: true);
-    final kuryeVarsayilan = yetkiler(rol: 'kurye', kuryeVar: true);
-    final kuryeKapali = yetkiler(rol: 'kurye', kuryeVar: true, izin: _hepsiKapali);
-    final kuryeAcik = yetkiler(rol: 'kurye', kuryeVar: true, izin: _hepsiAcik);
+    /// Senaryolar. `atamaHedefiVar: true` sabittir (tek kişilik bayi ayrı grupta sınanır).
+    final patron = yetkiler(rol: 'patron', atamaHedefiVar: true);
+    final operatorRol = yetkiler(rol: 'operator', atamaHedefiVar: true);
+    final kuryeVarsayilan = yetkiler(rol: 'kurye', atamaHedefiVar: true);
+    final kuryeKapali = yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: _hepsiKapali);
+    final kuryeAcik = yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: _hepsiAcik);
 
     for (final satir in _matris) {
       test(satir.ad, () {
@@ -62,8 +62,8 @@ void main() {
         // Hepsi kapalı tabandan TEK anahtarı açıyoruz. Yalnız eşlendiği yetki değişmeli:
         // • hiç değişmemesi → anahtar ÖLÜ (ekranda kutucuk var, arkasında kural yok),
         // • birden fazlası değişmesi → kopyala-yapıştır ile iki satır aynı anahtarı okuyor.
-        final taban = _kume(yetkiler(rol: 'kurye', kuryeVar: true, izin: _hepsiKapali));
-        final acik = _kume(yetkiler(rol: 'kurye', kuryeVar: true, izin: _tekAnahtar(e.key)));
+        final taban = _kume(yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: _hepsiKapali));
+        final acik = _kume(yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: _tekAnahtar(e.key)));
 
         final degisenler = {
           for (final ad in _okuyucular.keys)
@@ -77,8 +77,8 @@ void main() {
         // Ters yön: hepsi açık tabandan tek anahtarı kapatmak. Bu yön ayrı bir tuzağı yakalar —
         // `yonetici || k.x` yerine yanlışlıkla `yonetici || true` yazılmış bir satır ileri
         // yönde farkı üretir ama geri yönde ÜRETMEZ.
-        final taban = _kume(yetkiler(rol: 'kurye', kuryeVar: true, izin: _hepsiAcik));
-        final kapali = _kume(yetkiler(rol: 'kurye', kuryeVar: true, izin: _tekAnahtarHaric(e.key)));
+        final taban = _kume(yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: _hepsiAcik));
+        final kapali = _kume(yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: _tekAnahtarHaric(e.key)));
 
         final degisenler = {
           for (final ad in _okuyucular.keys)
@@ -103,7 +103,7 @@ void main() {
 
   group('rol tavanı — 13 anahtarın hepsi açık olsa da kuryeye geçmeyenler', () {
     test('yalnız-yönetici 11 yetki kuryede KAPALI kalır', () {
-      final k = _kume(yetkiler(rol: 'kurye', kuryeVar: true, izin: _hepsiAcik));
+      final k = _kume(yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: _hepsiAcik));
       for (final ad in _yalnizYonetici) {
         expect(k[ad], isFalse, reason: '$ad kuryeye açılamaz — anahtar kümesi bilinçli olarak dar');
       }
@@ -111,11 +111,12 @@ void main() {
     });
 
     test('isletmeAbonelikAyarlari YALNIZ patronda — operatör de göremez', () {
-      // Matristeki TEK patron/operatör farkı budur; kaybolursa operatör faturayı ve aboneliği
-      // yönetebilir hâle gelir ve bunu hiçbir başka test görmez.
-      expect(yetkiler(rol: 'patron', kuryeVar: true).isletmeAbonelikAyarlari, isTrue);
-      expect(yetkiler(rol: 'operator', kuryeVar: true).isletmeAbonelikAyarlari, isFalse);
-      expect(yetkiler(rol: 'kurye', kuryeVar: true, izin: _hepsiAcik).isletmeAbonelikAyarlari,
+      // Patron/tezgâh farklarından biri — tam listesi aşağıdaki testte kilitli. Kaybolursa
+      // tezgâh faturayı ve aboneliği yönetebilir hâle gelir; ayrıca sınanmasının sebebi bu
+      // yetkinin PARA KONTROLÜ kümesinde değil, HESAP SAHİPLİĞİ kümesinde olmasıdır.
+      expect(yetkiler(rol: 'patron', atamaHedefiVar: true).isletmeAbonelikAyarlari, isTrue);
+      expect(yetkiler(rol: 'operator', atamaHedefiVar: true).isletmeAbonelikAyarlari, isFalse);
+      expect(yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: _hepsiAcik).isletmeAbonelikAyarlari,
           isFalse);
     });
 
@@ -123,25 +124,40 @@ void main() {
       // `tumu` elle yazılmış 26 satırlık bir sabittir ve altı widget testi ona yaslanıyor
       // (`ui_kara_liste_test.dart`). `yetkiler()` değişip `tumu` değişmezse o testler artık
       // var olmayan bir dünyayı sınar — kopya kayması sessizdir, çünkü hiçbiri kırılmaz.
-      expect(_kume(RolYetkileri.tumu), _kume(yetkiler(rol: 'patron', kuryeVar: true)));
+      expect(_kume(RolYetkileri.tumu), _kume(yetkiler(rol: 'patron', atamaHedefiVar: true)));
     });
 
-    test('patron ve operatör bunun DIŞINDA birebir aynı', () {
-      final p = _kume(yetkiler(rol: 'patron', kuryeVar: true, izin: _hepsiKapali));
-      final o = _kume(yetkiler(rol: 'operator', kuryeVar: true, izin: _hepsiKapali));
+    test('PATRON ile TEZGÂH arasındaki fark TAM OLARAK para kontrolü + abonelik (2026-08-20)',
+        () {
+      // TEZGÂH ARTIK "MİNİ PATRON" DEĞİL. Bu test, farkın TAM listesini kilitler: yeni bir yetki
+      // eklendiğinde onu hangi tarafa koyduğumuz bilinçli bir karar olmak zorunda kalsın —
+      // varsayılan tarafa kayması sessiz bir yetki genişlemesi/daralmasıdır.
+      final p = _kume(yetkiler(rol: 'patron', atamaHedefiVar: true, izin: _hepsiKapali));
+      final o = _kume(yetkiler(rol: 'operator', atamaHedefiVar: true, izin: _hepsiKapali));
       final fark = {
         for (final ad in _okuyucular.keys)
           if (p[ad] != o[ad]) ad,
       };
-      expect(fark, {'isletmeAbonelikAyarlari'});
+      expect(fark, {
+        // Defterin ve katalogun sahibi tektir.
+        'gunuKapatma',
+        'gecmisHesapArsivi',
+        'defterDuzeltme',
+        'musteriBorcSilme',
+        'musteriYonetimi',
+        'urunYonetimi',
+        'muafTelefonYonetimi',
+        // Hesabın sahibi tektir.
+        'isletmeAbonelikAyarlari',
+      });
     });
 
     test('YÖNETİCİ anahtarlardan ETKİLENMEZ — bayi kendini kilitleyemez', () {
       // Kapıyı yöneticiye de uygulasaydık, bayi tüm anahtarları kapatıp yetkileri geri açacağı
       // ekranı da kendine kapatırdı (ve o ekran kilidin arkasında kalırdı).
       for (final rol in ['patron', 'operator']) {
-        final kapali = _kume(yetkiler(rol: rol, kuryeVar: true, izin: _hepsiKapali));
-        final acik = _kume(yetkiler(rol: rol, kuryeVar: true, izin: _hepsiAcik));
+        final kapali = _kume(yetkiler(rol: rol, atamaHedefiVar: true, izin: _hepsiKapali));
+        final acik = _kume(yetkiler(rol: rol, atamaHedefiVar: true, izin: _hepsiAcik));
         expect(kapali, acik, reason: '$rol için anahtarlar hiçbir farkı üretmemeli');
       }
     });
@@ -157,18 +173,18 @@ void main() {
       // Kutup yanlışlıkla düzleştirilirse patronun telefon listesi maskelenir; hiçbir ekran
       // testi bunu "yetki kaybı" olarak okumaz, sessiz bir gerileme olur.
       for (final rol in ['patron', 'operator']) {
-        expect(yetkiler(rol: rol, kuryeVar: true, izin: _hepsiAcik).telefonMaskeleme, isFalse,
+        expect(yetkiler(rol: rol, atamaHedefiVar: true, izin: _hepsiAcik).telefonMaskeleme, isFalse,
             reason: '$rol maskeleme görmemeli');
       }
     });
 
     test('kuryede VARSAYILAN AÇIK — KVKK tarafı güvenli yön', () {
-      expect(yetkiler(rol: 'kurye', kuryeVar: true).telefonMaskeleme, isTrue);
+      expect(yetkiler(rol: 'kurye', atamaHedefiVar: true).telefonMaskeleme, isTrue);
       expect(KuryeIzinleri.varsayilan.telefonMaskeleme, isTrue);
     });
 
     test('bayi kapatınca kurye tam numarayı görür', () {
-      expect(yetkiler(rol: 'kurye', kuryeVar: true, izin: _hepsiKapali).telefonMaskeleme, isFalse);
+      expect(yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: _hepsiKapali).telefonMaskeleme, isFalse);
     });
   });
 
@@ -180,9 +196,9 @@ void main() {
     test('null / boş / uydurma rol, kurye kümesinin AYNISINI verir', () {
       // `sync_meta.user_role` daha inmemişse veya sunucu ileride yeni bir rol adı gönderirse
       // istemci onu YETKİLİ sanmamalı. Testin kilitlediği şey bu güvenli-yön varsayılanıdır.
-      final kurye = _kume(yetkiler(rol: 'kurye', kuryeVar: true));
+      final kurye = _kume(yetkiler(rol: 'kurye', atamaHedefiVar: true));
       for (final rol in <String?>[null, '', 'admin', 'sahip', 'PATRON', 'Operator']) {
-        expect(_kume(yetkiler(rol: rol, kuryeVar: true)), kurye,
+        expect(_kume(yetkiler(rol: rol, atamaHedefiVar: true)), kurye,
             reason: '${rol ?? "null"} rolü kurye kadar yetkili olmalı, fazlası değil');
       }
     });
@@ -190,7 +206,7 @@ void main() {
     test('rol büyük harfle gelirse YETKİ VERİLMEZ (eşleşme birebir)', () {
       // Sözleşmenin küçük harf olduğunu açıkça yazıyoruz: sunucu bir gün 'Patron' gönderirse
       // uygulama sessizce yetkisiz kalır — bu bir arıza olur ama GÜVENLİ yönde bir arızadır.
-      expect(yetkiler(rol: 'PATRON', kuryeVar: true).urunYonetimi, isFalse);
+      expect(yetkiler(rol: 'PATRON', atamaHedefiVar: true).urunYonetimi, isFalse);
     });
   });
 
@@ -200,8 +216,8 @@ void main() {
 
   group('kuryeVar — tek kişilik işletmede gizlenen yüzey', () {
     test('kurye yoksa YALNIZ atama kapanır, başka hiçbir yetki etkilenmez', () {
-      final varken = _kume(yetkiler(rol: 'patron', kuryeVar: true));
-      final yokken = _kume(yetkiler(rol: 'patron', kuryeVar: false));
+      final varken = _kume(yetkiler(rol: 'patron', atamaHedefiVar: true));
+      final yokken = _kume(yetkiler(rol: 'patron', atamaHedefiVar: false));
       final fark = {
         for (final ad in _okuyucular.keys)
           if (varken[ad] != yokken[ad]) ad,
@@ -213,15 +229,15 @@ void main() {
     test('kurye rolünde kuryeVar hiçbir şeyi değiştirmez', () {
       // `atama: yonetici && kuryeVar` — kuryede zaten `yonetici` false olduğu için ikinci
       // koşulun tek başına bir etkisi olmamalı.
-      expect(_kume(yetkiler(rol: 'kurye', kuryeVar: true, izin: _hepsiAcik)),
-          _kume(yetkiler(rol: 'kurye', kuryeVar: false, izin: _hepsiAcik)));
+      expect(_kume(yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: _hepsiAcik)),
+          _kume(yetkiler(rol: 'kurye', atamaHedefiVar: false, izin: _hepsiAcik)));
     });
 
-    test('oturumYetkileri yolu kuryeVar: false geçer — atama ORADAN gelmez', () {
+    test('oturumYetkileri yolu atamaHedefiVar: false geçer — atama ORADAN gelmez', () {
       // Tek atış yol (`oturumYetkileri`) kurye listesini okumaz; atama yetkisini o yoldan alan
       // bir ekran patronda bile kapalı görür. Davranış bilinçli, ama YAZILI olsun: atamayı
       // kabuk (`home_shell`) kendi kurye listesiyle hesaplar.
-      expect(yetkiler(rol: 'patron', kuryeVar: false).atama, isFalse);
+      expect(yetkiler(rol: 'patron', atamaHedefiVar: false).atama, isFalse);
     });
   });
 
@@ -248,7 +264,7 @@ void main() {
       );
       final k = _kume(yetkiler(
         rol: 'kurye',
-        kuryeVar: true,
+        atamaHedefiVar: true,
         izin: kuryeIzinleriCoz(_hepsiKapali, hepsiEzildi),
       ));
       for (final ad in _yalnizYonetici) {
@@ -263,12 +279,12 @@ void main() {
       const ezme = KuryeIzinEzmeleri(iskonto: true, tahsilat: false);
       final cozulmus = yetkiler(
         rol: 'kurye',
-        kuryeVar: true,
+        atamaHedefiVar: true,
         izin: kuryeIzinleriCoz(KuryeIzinleri.varsayilan, ezme),
       );
       final elle = yetkiler(
         rol: 'kurye',
-        kuryeVar: true,
+        atamaHedefiVar: true,
         izin: const KuryeIzinleri(iskonto: true, tahsilat: false),
       );
       expect(_kume(cozulmus), _kume(elle));
@@ -292,10 +308,10 @@ void main() {
       );
       final p = _kume(yetkiler(
         rol: 'patron',
-        kuryeVar: true,
+        atamaHedefiVar: true,
         izin: kuryeIzinleriCoz(KuryeIzinleri.varsayilan, hepsiKapatildi),
       ));
-      expect(p, _kume(yetkiler(rol: 'patron', kuryeVar: true)));
+      expect(p, _kume(yetkiler(rol: 'patron', atamaHedefiVar: true)));
     });
   });
 
@@ -309,14 +325,14 @@ void main() {
     // cagriGunluguGorunur=cagriGunlugu. Buradaki test o EŞLEMENİN sonucunu kilitler — bayrağın
     // hangi alandan geldiği değişirse kuryede görünmemesi gereken bir giriş açılır.
     test('kuryede Ürünler ve Borçlular girişleri KAPALI kalır (anahtarlar açıkken bile)', () {
-      final k = yetkiler(rol: 'kurye', kuryeVar: true, izin: _hepsiAcik);
+      final k = yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: _hepsiAcik);
       expect(k.urunYonetimi, isFalse);
       expect(k.toplamBorclulariGorme, isFalse);
     });
 
     test('Çağrı Geçmişi kuryede ANAHTARA bağlıdır — varsayılan kapalı, bayi açabilir', () {
-      expect(yetkiler(rol: 'kurye', kuryeVar: true).cagriGunlugu, isFalse);
-      expect(yetkiler(rol: 'kurye', kuryeVar: true, izin: _tekAnahtar('cagriGunlugu')).cagriGunlugu,
+      expect(yetkiler(rol: 'kurye', atamaHedefiVar: true).cagriGunlugu, isFalse);
+      expect(yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: _tekAnahtar('cagriGunlugu')).cagriGunlugu,
           isTrue);
     });
   });
@@ -392,7 +408,7 @@ const _matris = <_Satir>[
   _Satir('iskonto',
       patron: _t, operatorRol: _t, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _t),
   _Satir('musteriBorcSilme',
-      patron: _t, operatorRol: _t, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
+      patron: _t, operatorRol: _f, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
   _Satir('sahaGideri',
       patron: _t, operatorRol: _t, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _t),
   _Satir('toplamBorclulariGorme',
@@ -402,17 +418,17 @@ const _matris = <_Satir>[
   _Satir('gunSonu',
       patron: _t, operatorRol: _t, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _t),
   _Satir('gunuKapatma',
-      patron: _t, operatorRol: _t, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
+      patron: _t, operatorRol: _f, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
   _Satir('gecmisHesapArsivi',
-      patron: _t, operatorRol: _t, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
+      patron: _t, operatorRol: _f, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
   _Satir('defterDuzeltme',
-      patron: _t, operatorRol: _t, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
+      patron: _t, operatorRol: _f, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
 
   // 4. Müşteri & KVKK
   _Satir('musteriDuzenleme',
       patron: _t, operatorRol: _t, kuryeVarsayilan: _t, kuryeKapali: _f, kuryeAcik: _t),
   _Satir('musteriYonetimi',
-      patron: _t, operatorRol: _t, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
+      patron: _t, operatorRol: _f, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
   // TERS KUTUP: yetki değil KISIT — yöneticide hep kapalı, kuryede varsayılan AÇIK.
   _Satir('telefonMaskeleme',
       patron: _f, operatorRol: _f, kuryeVarsayilan: _t, kuryeKapali: _f, kuryeAcik: _t),
@@ -423,7 +439,7 @@ const _matris = <_Satir>[
 
   // 5. Ürün & Stok
   _Satir('urunYonetimi',
-      patron: _t, operatorRol: _t, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
+      patron: _t, operatorRol: _f, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
   _Satir('stokPasifleme',
       patron: _t, operatorRol: _t, kuryeVarsayilan: _t, kuryeKapali: _f, kuryeAcik: _t),
 
@@ -431,7 +447,7 @@ const _matris = <_Satir>[
   _Satir('cagriGunlugu',
       patron: _t, operatorRol: _t, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _t),
   _Satir('muafTelefonYonetimi',
-      patron: _t, operatorRol: _t, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
+      patron: _t, operatorRol: _f, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),
   // Matristeki TEK patron/operatör ayrımı.
   _Satir('isletmeAbonelikAyarlari',
       patron: _t, operatorRol: _f, kuryeVarsayilan: _f, kuryeKapali: _f, kuryeAcik: _f),

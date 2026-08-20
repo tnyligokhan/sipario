@@ -8,7 +8,7 @@ void main() {
     test('varsayılan: kurye müşteri/sipariş/tahsilat yapar, iskonto ve gün sonu KAPALI', () {
       // Varsayılanlar saha gerçeğinden gelir: işini yapamayan kurye ürünü kullanılmaz kılar;
       // para kırma ve kasa özeti ise patron kararıdır.
-      final k = yetkiler(rol: 'kurye', kuryeVar: true);
+      final k = yetkiler(rol: 'kurye', atamaHedefiVar: true);
       expect(k.musteriDuzenleme, isTrue);
       expect(k.siparisAcma, isTrue);
       expect(k.tahsilat, isTrue);
@@ -24,7 +24,7 @@ void main() {
         iskonto: false,
         gunSonu: false,
       );
-      final k = yetkiler(rol: 'kurye', kuryeVar: true, izin: kapali);
+      final k = yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: kapali);
       expect(k.musteriDuzenleme, isFalse);
       expect(k.siparisAcma, isFalse);
       expect(k.tahsilat, isFalse);
@@ -34,7 +34,7 @@ void main() {
 
     test('bayi açınca kurye iskonto ve gün sonu görebilir', () {
       const acik = KuryeIzinleri(iskonto: true, gunSonu: true);
-      final k = yetkiler(rol: 'kurye', kuryeVar: true, izin: acik);
+      final k = yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: acik);
       expect(k.iskonto, isTrue);
       expect(k.gunSonu, isTrue);
     });
@@ -50,7 +50,7 @@ void main() {
         gunSonu: false,
       );
       for (final rol in ['patron', 'operator']) {
-        final y = yetkiler(rol: rol, kuryeVar: true, izin: hepsiKapali);
+        final y = yetkiler(rol: rol, atamaHedefiVar: true, izin: hepsiKapali);
         expect(y.musteriDuzenleme, isTrue, reason: '$rol müşteri düzenleyebilmeli');
         expect(y.siparisAcma, isTrue, reason: '$rol sipariş açabilmeli');
         expect(y.tahsilat, isTrue, reason: '$rol tahsilat alabilmeli');
@@ -69,7 +69,7 @@ void main() {
       );
       // Anahtarların HEPSİ açık olsa bile bunlar kuryeye AÇILMAZ: on/off kümesi bilinçli olarak
       // dardır (ayar felci) ve bu üçü patronun kendi işidir.
-      final k = yetkiler(rol: 'kurye', kuryeVar: true, izin: hepsiAcik);
+      final k = yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: hepsiAcik);
       expect(k.urunYonetimi, isFalse);
       expect(k.defterDuzeltme, isFalse);
       expect(k.musteriYonetimi, isFalse, reason: 'silme/kara liste kuryeye açılmaz');
@@ -78,7 +78,7 @@ void main() {
 
     test('izin null geçilirse varsayılan kullanılır (ayar henüz senkronla gelmedi)', () {
       // O karede kuryeyi işinden etmek yanlış olurdu.
-      expect(yetkiler(rol: 'kurye', kuryeVar: true, izin: null).tahsilat, isTrue);
+      expect(yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: null).tahsilat, isTrue);
     });
   });
 

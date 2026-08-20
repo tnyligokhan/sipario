@@ -148,9 +148,31 @@ return [
     | Eski kayıtlar 2026-07-15 ile duruyor ve DURMALIDIR — o bayiler o günkü
     | metni kabul etti. Sürümleri geriye dönük eşitlemek, kabul kaydını bir
     | delil olmaktan çıkarırdı.
+    |
+    | 1.13.0 (2026-08-20): TESLİMİ KİM YAPTI + TEZGÂH HESABI.
+    |
+    | İki iş kolu, ikisi de GERİYE DÖNÜK UYUMLU:
+    |  · `orders.delivered_by_user_id` eklendi (migration 004016). `delivered`
+    |    order olayının payload'ı artık OPSİYONEL bir `delivered_by_user_id`
+    |    taşıyabiliyor; sunucu onu `assigned_user_id` ile AYNI desende doğrular
+    |    (RLS-kapsamlı `User::exists`) ve önbelleği en son olaydan türetir.
+    |    Anahtarı GÖNDERMEYEN eski istemciler aynen çalışır — alan null kalır ve
+    |    okuma katmanı atamaya düşer.
+    |  · Bayi kendi web panelinden TEZGÂH hesabı açabiliyor
+    |    (`Provisioning::createStaff`). Kota artık patron dışındaki her aktif
+    |    hesabı sayar: tezgâh bedava kalsaydı "3 kurye hesabı" sözü karşılıksız
+    |    kalırdı — tezgâh da atama hedefi olabiliyor, yani teslimat yapabiliyor.
+    |
+    | NEDEN MINOR: yeni alan OPSİYONELDİR ve hiçbir mevcut alanın anlamı
+    | değişmedi. Sahadaki eski telefon yeni sunucuyla çalışmaya devam eder;
+    | tek farkı, yaptığı teslimatın "kim yaptı" bilgisini taşımamasıdır.
+    |
+    | ⚠️ SESSİZ DAVRANIŞ DEĞİŞİKLİĞİ (kayda geçsin): `KuryeKotasi` sayımı
+    | genişledi. Üretimde `operator` rollü hesap AÇAN bir yol yoktu (ölçüldü),
+    | yani bugün kimsenin kotası daralmıyor; ama kural bundan sonra geçerlidir.
     */
 
-    'version' => '1.12.0',
+    'version' => '1.13.0',
 
     /*
     |--------------------------------------------------------------------------

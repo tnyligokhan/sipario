@@ -45,18 +45,36 @@ void main() {
   // K2 rol matrisi — tek kişilik gizleme regresyonu (pazarlıksız, BRIEF)
   // ---------------------------------------------------------------------------
   group('yetkiler() — K2 rol matrisi', () {
-    test('patron/operator: ürün+gün-sonu+düzeltme AÇIK', () {
-      for (final rol in ['patron', 'operator']) {
-        final y = yetkiler(rol: rol, kuryeVar: true);
-        expect(y.urunYonetimi, isTrue, reason: '$rol ürün yönetir');
-        expect(y.gunSonu, isTrue);
-        expect(y.defterDuzeltme, isTrue);
-        expect(y.tahsilat, isTrue);
-      }
+    test('patron: ürün+gün-sonu+düzeltme AÇIK', () {
+      final y = yetkiler(rol: 'patron', atamaHedefiVar: true);
+      expect(y.urunYonetimi, isTrue);
+      expect(y.gunSonu, isTrue);
+      expect(y.defterDuzeltme, isTrue);
+      expect(y.tahsilat, isTrue);
+    });
+
+    test('TEZGÂH: dükkânı çevirir ama PARA KONTROLÜNE dokunamaz (2026-08-20)', () {
+      final y = yetkiler(rol: 'operator', atamaHedefiVar: true);
+      // Dükkânın günlük işi AÇIK — telefona bakan kişi bunları yapamazsa rolün anlamı kalmaz.
+      expect(y.siparisAcma, isTrue);
+      expect(y.atama, isTrue);
+      expect(y.siparisIptal, isTrue);
+      expect(y.tahsilat, isTrue);
+      expect(y.gunSonu, isTrue, reason: 'kasayı OKUR');
+      expect(y.toplamBorclulariGorme, isTrue);
+      // Defterin ve katalogun sahibi TEKTİR: bunlar patronda kalır.
+      expect(y.gunuKapatma, isFalse);
+      expect(y.defterDuzeltme, isFalse);
+      expect(y.gecmisHesapArsivi, isFalse);
+      expect(y.musteriBorcSilme, isFalse);
+      expect(y.urunYonetimi, isFalse);
+      expect(y.musteriYonetimi, isFalse);
+      expect(y.muafTelefonYonetimi, isFalse);
+      expect(y.isletmeAbonelikAyarlari, isFalse);
     });
 
     test('KURYE: yönetici işleri KAPALI; tahsilat AÇIK (kuryeVar önemsiz)', () {
-      final y = yetkiler(rol: 'kurye', kuryeVar: false);
+      final y = yetkiler(rol: 'kurye', atamaHedefiVar: false);
       expect(y.urunYonetimi, isFalse);
       expect(y.gunSonu, isFalse);
       expect(y.defterDuzeltme, isFalse);
@@ -65,7 +83,7 @@ void main() {
     });
 
     test('TEK KİŞİLİK BAYİ (patron, aktif kurye YOK): atama GİZLİ', () {
-      final y = yetkiler(rol: 'patron', kuryeVar: false);
+      final y = yetkiler(rol: 'patron', atamaHedefiVar: false);
       expect(y.atama, isFalse, reason: 'tek kişilikte atama görünmez (BRIEF)');
       // İş yönetimi yine açık.
       expect(y.urunYonetimi, isTrue);
@@ -73,12 +91,12 @@ void main() {
     });
 
     test('patron + aktif kurye VAR: atama AÇILIR', () {
-      final y = yetkiler(rol: 'patron', kuryeVar: true);
+      final y = yetkiler(rol: 'patron', atamaHedefiVar: true);
       expect(y.atama, isTrue);
     });
 
     test('rol null (giriş öncesi): yönetici/atama kapalı, tahsilat açık', () {
-      final y = yetkiler(rol: null, kuryeVar: true);
+      final y = yetkiler(rol: null, atamaHedefiVar: true);
       expect(y.urunYonetimi, isFalse);
       expect(y.atama, isFalse);
       expect(y.tahsilat, isTrue);
@@ -302,9 +320,12 @@ void main() {
       // kalır ve dokunuş sessizce ıskalar (ölçüldü: hedef y=2490 > 2400).
       await sheetAnimasyonu(tester);
       await tester.pump(const Duration(milliseconds: 600));
-      expect(find.text('Emre'), findsOneWidget, reason: 'seçim sheet\'i aktif kuryeleri listeler');
+      // SATIRDA ROL DE YAZAR (2026-08-20): liste artık kuryelerle sınırlı değil, tüm aktif
+      // personeli içeriyor — "Emre" ile "Mehmet"i ayıran şey ad değil görevdir.
+      expect(find.text('Emre · Kurye'), findsOneWidget,
+          reason: 'seçim sheet\'i aktif personeli rolüyle listeler');
 
-      await tester.tap(find.text('Emre'));
+      await tester.tap(find.text('Emre · Kurye'));
       await sheetAnimasyonu(tester);
 
       final atanmis = await tester.runAsync(

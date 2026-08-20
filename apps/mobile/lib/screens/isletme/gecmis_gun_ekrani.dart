@@ -39,6 +39,7 @@ import '../../theme/typography.dart';
 import '../orders/siparis_tarih_seridi.dart';
 import '../team.dart';
 import 'gun_arsivi.dart';
+import 'gun_kapsami.dart';
 import 'gun_kapatma_sheet.dart' show KapaliSerit, arsivDetaySheet;
 import 'gun_sonu_kartlari.dart';
 import 'gun_sonu_ozet.dart';
@@ -93,8 +94,15 @@ class _GecmisGunEkraniState extends State<GecmisGunEkrani> {
     });
   }
 
-  /// null = "Tümü"; aksi hâlde kuryenin kullanıcı kimliği.
-  late String? _kuryeId = widget.rol == 'kurye' ? widget.kullaniciId : null;
+  /// SEÇİLİ KAPSAM — Gün Özeti ekranıyla AYNI tip ve AYNI seçenek üreticisi (`gunKapsamlari`).
+  /// İki ekran ayrı listeler kursaydı bayi aynı ekibi iki yerde iki farklı düzende görürdü ve
+  /// "kurye yalnız kendini görür" kapısı iki kez yazılmış olurdu.
+  late GunKapsamSecenegi _secili = widget.rol == 'kurye' && widget.kullaniciId != null
+      ? GunKapsamSecenegi(etiket: 'Kendi hesabım', userId: widget.kullaniciId, rol: 'kurye')
+      : const GunKapsamSecenegi(etiket: 'Tümü');
+
+  String? get _kuryeId => _secili.userId;
+  String? get _haric => _secili.haric;
 
   late Future<_GunVerisi> _veri = _yukle();
   late Future<List<UrunSatisi>> _urunler = satilanUrunler(widget.db, _gun);
@@ -103,7 +111,7 @@ class _GecmisGunEkraniState extends State<GecmisGunEkrani> {
   /// kare boyunca kartları çizip sonra boş duruma atlardı (ya da tersi) — geçmiş bir günde bu
   /// titreme, bayiye rakamların oynadığını düşündürürdü.
   Future<_GunVerisi> _yukle() async => _GunVerisi(
-        gorunum: await gunSonuGorunumu(widget.db, _gun, kuryeId: _kuryeId),
+        gorunum: await gunSonuGorunumu(widget.db, _gun, kuryeId: _kuryeId, haric: _haric),
         kayitVar: await gunKayitVarMi(widget.db, _gun),
       );
 
@@ -116,9 +124,9 @@ class _GecmisGunEkraniState extends State<GecmisGunEkrani> {
     });
   }
 
-  void _kapsamSec(String? kuryeId) {
+  void _kapsamSec(GunKapsamSecenegi secim) {
     setState(() {
-      _kuryeId = kuryeId;
+      _secili = secim;
       _veri = _yukle();
     });
   }
@@ -135,13 +143,13 @@ class _GecmisGunEkraniState extends State<GecmisGunEkrani> {
     });
   }
 
-  String _kapsamAdi(List<User> kuryeler) =>
-      _kuryeId == null ? 'Gün hesabı' : (kullaniciAdi(kuryeler, _kuryeId) ?? 'Kurye');
+  String _kapsamAdi(List<User> kuryeler) => _kuryeId == null
+      ? (_secili.gunHesabi ? 'Gün hesabı' : _secili.etiket)
+      : (kullaniciAdi(kuryeler, _kuryeId) ?? 'Kurye');
 
-  /// Kurye YALNIZ kendini görür (K2) — Gün Özeti ekranıyla aynı süzgeç.
-  List<User> _gorunurKuryeler(List<User> kuryeler) => widget.rol == 'kurye'
-      ? kuryeler.where((k) => k.id == widget.kullaniciId).toList()
-      : kuryeler;
+  // "Kurye YALNIZ kendini görür" (K2) süzgeci BURADAN TAŞINDI (2026-08-20): kural artık
+  // seçeneklerin ÜRETİLDİĞİ yerde (`gunKapsamlari`) duruyor ve iki ekran onu paylaşıyor. İki
+  // yerde durması, birinin bir gün diğerini yakalayamaması demekti.
 
   @override
   Widget build(BuildContext context) {
@@ -151,24 +159,19 @@ class _GecmisGunEkraniState extends State<GecmisGunEkrani> {
       body: SafeArea(
         bottom: false,
         child: StreamBuilder<List<User>>(
-          stream: watchAktifKuryeler(widget.db),
+          // EKİP = TÜM AKTİF PERSONEL (2026-08-20) — Gün Özeti ekranıyla aynı akış. Dar bir
+          // liste, patronun teslim ettiği siparişi "Kurye" diye yazardı.
+          stream: watchAtamaHedefleri(widget.db),
           builder: (context, kuryeSnap) {
             final kuryeler = kuryeSnap.data ?? const <User>[];
-            final gorunur = _gorunurKuryeler(kuryeler);
-            final secenekler = ['Tümü', for (final k in gorunur) k.name];
-
-            // Seçili kapsam segmentte YOKSA seçenek olarak eklenir; aksi hâlde şerit "Tümü"yü
-            // işaretlerken gövde kurye kapsamını gösterirdi (Gün Özeti ekranındaki aynı dal).
-            var seciliDizin = 0;
-            if (_kuryeId != null) {
-              final i = gorunur.indexWhere((k) => k.id == _kuryeId);
-              if (i >= 0) {
-                seciliDizin = i + 1;
-              } else {
-                secenekler.add(_kapsamAdi(kuryeler));
-                seciliDizin = secenekler.length - 1;
-              }
-            }
+            final kapsamlar = gunKapsamlari(
+              rol: widget.rol,
+              benimId: widget.kullaniciId,
+              ekip: kuryeler,
+            );
+            // Seçili kapsam listede YOKSA seçenek olarak eklenir; aksi hâlde seçici bir kapsamı
+            // yazarken gövde başkasını gösterirdi (Gün Özeti ekranındaki aynı dal).
+            if (!kapsamlar.any((k) => k.ayniMi(_secili))) kapsamlar.insert(0, _secili);
 
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -190,12 +193,10 @@ class _GecmisGunEkraniState extends State<GecmisGunEkrani> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
                       SipSpace.govde, 0, SipSpace.govde, SipSpace.xl),
-                  child: SipSegment(
-                    secenekler: secenekler,
-                    secili: seciliDizin,
-                    onSec: (i) => _kapsamSec(i == 0
-                        ? null
-                        : (i - 1 < gorunur.length ? gorunur[i - 1].id : _kuryeId)),
+                  child: GunKapsamSecici(
+                    secenekler: kapsamlar,
+                    secili: _secili,
+                    onSec: _kapsamSec,
                   ),
                 ),
                 Expanded(

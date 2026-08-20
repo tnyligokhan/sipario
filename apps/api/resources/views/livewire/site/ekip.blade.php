@@ -27,7 +27,7 @@
         <x-site.pano etiket="Ekibiniz" :ic="false">
             <x-slot:sag>
                 <x-site.rozet :tur="$kotaDolu ? 'sari' : 'notr'">
-                    {{ $kota['kullanilan'] }} / {{ $kota['limit'] }} kurye
+                    {{ $kota['kullanilan'] }} / {{ $kota['limit'] }} personel
                 </x-site.rozet>
             </x-slot:sag>
 
@@ -100,19 +100,29 @@
             </x-site.pano>
         @endif
 
-        {{-- Kurye ekleme --}}
+        {{-- Personel ekleme --}}
         @error('form.kota')<x-site.kutu tur="sari" ikon="uyari">{{ $message }}</x-site.kutu>@enderror
 
         @if ($formAcik)
             <form wire:submit="kuryeEkle">
-                <x-site.pano etiket="Yeni kurye hesabı">
-                    <x-site.alan etiket="Kuryenin adı" :hata="$errors->first('form.ad')" id="k-ad">
+                <x-site.pano etiket="Yeni personel hesabı">
+                    <x-site.alan etiket="Personelin adı" :hata="$errors->first('form.ad')" id="k-ad">
                         <input id="k-ad" class="gir @error('form.ad') yanlis @enderror" wire:model="form.ad">
+                    </x-site.alan>
+
+                    {{-- ROL SEÇİMİ (2026-08-20). İki rolün farkı bir cümleyle yazılır: patron
+                         formu doldururken "tezgâh ne demek" diye başka bir sayfaya gitmemeli. --}}
+                    <x-site.alan etiket="Görevi" :hata="$errors->first('form.rol')" id="k-rol"
+                        ipucu="Kurye sahada teslim eder. Tezgâh telefona bakar, sipariş açar, tahsilat alır — ama günü kapatamaz, defteri düzeltemez, ürün/fiyat değiştiremez.">
+                        <select id="k-rol" class="gir @error('form.rol') yanlis @enderror" wire:model="form.rol">
+                            <option value="kurye">Kurye</option>
+                            <option value="operator">Tezgâh</option>
+                        </select>
                     </x-site.alan>
 
                     <div class="alan-ikili">
                         <x-site.alan etiket="Giriş için kullanıcı adı" :hata="$errors->first('form.kullaniciAdi')" id="k-ku"
-                            ipucu="Kurye uygulamaya firma kodu ({{ $this->firmaKodu() }}) ve bu adla girer.">
+                            ipucu="Personel uygulamaya firma kodu ({{ $this->firmaKodu() }}) ve bu adla girer.">
                             <input id="k-ku" class="gir @error('form.kullaniciAdi') yanlis @enderror"
                                 autocapitalize="none" wire:model="form.kullaniciAdi">
                         </x-site.alan>
@@ -130,8 +140,8 @@
                          Kaydedildikten sonra bir daha HİÇBİR yerde okunamaz (bcrypt) — bu yüzden
                          uyarı burada duruyor. --}}
                     <x-site.kutu tur="mor" ikon="bilgi">
-                        Parolayı kuryenize siz ileteceksiniz; kaydettikten sonra bir daha
-                        gösterilmez. Unutulursa buradan değil, uygulamadaki Kuryeler ekranından
+                        Parolayı personelinize siz ileteceksiniz; kaydettikten sonra bir daha
+                        gösterilmez. Unutulursa buradan değil, uygulamadaki Ekip ekranından
                         yenisini belirleyebilirsiniz.
                     </x-site.kutu>
 
@@ -148,22 +158,23 @@
                  iki ekranda çizmek, fiyat/kampanya değiştiğinde ikisinin ayrışacağı demekti.
                  Burada kalan KOTA bilgisi fazlalık değil: düğmenin neden kapalı olduğunu
                  açıklayan tek şey odur. --}}
-            <x-site.pano etiket="Kurye hakkı">
+            <x-site.pano etiket="Personel hakkı">
                 <x-site.kutu tur="sari" ikon="uyari">
-                    {{ $kota['limit'] }} kurye hakkınızın tamamı kullanımda. Yeni bir hesap açmak
-                    için kullanılmayan bir kuryeyi devre dışı bırakın ya da ek kurye paketi alın.
+                    {{ $kota['limit'] }} personel hakkınızın tamamı kullanımda. Yeni bir hesap açmak
+                    için kullanılmayan bir hesabı devre dışı bırakın ya da ek kurye paketi alın.
                 </x-site.kutu>
                 <hr class="ayrac">
                 <a class="dg dg-c k" href="{{ route('site.hesap', ['bolum' => 'hak']) }}">Ek kurye paketi al</a>
             </x-site.pano>
         @else
-            <x-site.pano etiket="Kurye hesabı">
+            <x-site.pano etiket="Personel hesabı">
                 <p class="gvd">
-                    Kuryeniz uygulamaya kendi hesabıyla girer; kendisine atanan siparişleri görür ve
-                    teslim ettikçe kapatır. {{ $kota['kalan'] }} kurye hakkınız kaldı.
+                    Personeliniz uygulamaya kendi hesabıyla girer. Kurye kendisine atanan
+                    siparişleri görür ve teslim ettikçe kapatır; tezgâh telefona bakar, sipariş
+                    açar ve tahsilat alır. {{ $kota['kalan'] }} personel hakkınız kaldı.
                 </p>
                 <hr class="ayrac">
-                <button type="button" class="dg dg-a k" wire:click="formAc">Kurye hesabı aç</button>
+                <button type="button" class="dg dg-a k" wire:click="formAc">Personel hesabı aç</button>
             </x-site.pano>
         @endif
     @endif

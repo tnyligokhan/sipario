@@ -205,14 +205,11 @@ void main() {
       });
 
       await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
-      // `kapsamaGec` KULLANILMIYOR: kapanış yazıldığı için "Bugünün Kapanışları" listesinde de bir
-      // "Emre" satırı var ve düz `find.text('Emre')` iki widget bulup çuvallıyor. Segmente
-      // daraltmak testin niyetini korur — tıklanmak istenen KAPSAM ŞERİDİDİR, arşiv satırı değil.
-      await tester.tap(find.descendant(
-        of: find.byType(SipSegment),
-        matching: find.text('Emre'),
-      ));
-      await akislariBekle(tester, tur: 6);
+      // `kapsamaGec` ARTIK KULLANILABİLİYOR (2026-08-20): kapsam bir sheet'te seçiliyor ve
+      // seçenek satırı "Emre · Kurye" yazıyor — arşivdeki düz "Emre" satırıyla çakışmıyor.
+      // Eskiden `find.text('Emre')` iki widget bulup çuvalladığı için segmente daraltmak
+      // gerekiyordu.
+      await kapsamaGec(tester, 'Emre');
 
       expect(find.text('Ara Tahsilat'), findsNothing);
       expect(find.textContaining('kapatıldı'), findsWidgets);

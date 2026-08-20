@@ -24,5 +24,5 @@ import 'package:sipario/screens/team.dart';
 /// kümesi tam olarak budur. Yani testlerin niyeti değişmedi, yalnız açıkça yazıldı.
 ///
 /// Rol kapısını SINAYAN testler bunu kullanmaz; kendi kümesini kurar
-/// (ör. `yetkiler(rol: 'kurye', kuryeVar: true, izin: ...)`).
-final RolYetkileri tamYetki = yetkiler(rol: 'patron', kuryeVar: true);
+/// (ör. `yetkiler(rol: 'kurye', atamaHedefiVar: true, izin: ...)`).
+final RolYetkileri tamYetki = yetkiler(rol: 'patron', atamaHedefiVar: true);

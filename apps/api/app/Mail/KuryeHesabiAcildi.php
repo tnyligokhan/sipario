@@ -24,6 +24,14 @@ class KuryeHesabiAcildi extends SiparioPostasi
         public readonly string $firmaKodu,
         public readonly int $kalanHak,
         public readonly string $hesapUrl,
+        /**
+         * Açılan hesabın GÖREVİ — "Kurye" ya da "Tezgâh" (2026-08-20).
+         *
+         * VARSAYILANI OLMASININ SEBEBİ SÖZLEŞMEDİR: bu posta 2026-08-12'den beri kurye için
+         * gönderiliyordu ve mevcut çağrılar (panel, testler) alanı bilmiyor. Varsayılan, eski
+         * davranışın birebir aynısını verir.
+         */
+        public readonly string $rolAdi = 'Kurye',
     ) {}
 
     protected function sablon(): string
@@ -33,7 +41,7 @@ class KuryeHesabiAcildi extends SiparioPostasi
 
     protected function konu(): string
     {
-        return $this->kuryeAdi.' için kurye hesabı açıldı';
+        return $this->kuryeAdi.' için '.mb_strtolower($this->rolAdi).' hesabı açıldı';
     }
 
     protected function onizleme(): string

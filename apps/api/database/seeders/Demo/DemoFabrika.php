@@ -192,6 +192,9 @@ class DemoFabrika
             'tenant_id' => $this->tenantId,
             'customer_id' => $musteri?->id,
             'assigned_user_id' => $kurye?->id,
+            // TESLİM EDEN = işi FİİLEN yapan. Demo verisinde tahsilatı alan kişi bellidir
+            // (`tahsilEden`), yoksa atanan kurye götürmüştür. Açık/iptal siparişte null.
+            'delivered_by_user_id' => $durum === 'delivered' ? ($tahsilEden ?? $kurye)?->id : null,
             'status' => $durum,
             'total_kurus' => 0,   // satırlar yazıldıktan sonra güncellenir
             'payment_type' => $odeme,
@@ -246,24 +249,32 @@ class DemoFabrika
         $o->total_kurus = $toplam;
         $o->save();
 
-        $olaylar = ['created'];
+        // OLAY PAYLOAD'LARI KOLONLARLA TUTARLI YAZILIR: sunucunun `recomputeOrder`ı önbellek
+        // kolonlarını olaylardan türetir; payload boş kalırsa demo verisi bir daha herhangi bir
+        // senkron dokunuşunda atamasını ve teslim edenini SESSİZCE kaybederdi.
+        $olaylar = [['created', []]];
         if ($kurye !== null) {
-            $olaylar[] = 'assigned';
+            $olaylar[] = ['assigned', ['assigned_user_id' => $kurye->id]];
         }
         if ($durum === 'delivered') {
-            $olaylar[] = 'delivered';
+            $teslimEden = ($tahsilEden ?? $kurye)?->id;
+            $olaylar[] = ['delivered', $teslimEden === null ? [] : ['delivered_by_user_id' => $teslimEden]];
         }
         if ($durum === 'cancelled') {
-            $olaylar[] = 'cancelled';
+            $olaylar[] = ['cancelled', []];
         }
-        foreach ($olaylar as $tip) {
-            $this->siparisOlayi($orderId, $tip, $zaman);
+        foreach ($olaylar as [$tip, $ek]) {
+            $this->siparisOlayi($orderId, $tip, $zaman, $ek);
         }
 
         // Defter: teslim edilen her sipariş borç yazar; nakit/kart/havale ise aynı anda ödenir.
         // Veresiyede ödeme kaydı YOKtur — borç açık kalır (tasarımın "Açık Veresiye"si budur).
         if ($durum === 'delivered' && $musteri !== null) {
-            $this->defter($musteri, 'debit', $toplam, zaman: $zaman, siparisId: $orderId);
+            // BORÇ SATIRI DA İŞLEMİ YAPANI TAŞIR (2026-08-20): `collected_by_user_id` artık "parayı
+            // kim aldı" değil "bu hareketi kim yaptı" demektir. Kasa özeti etkilenmez — orası
+            // `payment_type` taşıyan satırları sayar, `debit` hiç taşımaz.
+            $this->defter($musteri, 'debit', $toplam, zaman: $zaman, siparisId: $orderId,
+                tahsilEden: $tahsilEden ?? $kurye);
             if ($odeme !== null && $odeme !== 'veresiye') {
                 $this->defter($musteri, 'payment', -$toplam, odeme: $odeme, zaman: $zaman,
                     siparisId: $orderId, tahsilEden: $tahsilEden ?? $kurye);
@@ -273,7 +284,8 @@ class DemoFabrika
         return $o;
     }
 
-    private function siparisOlayi(string $orderId, string $tip, Carbon $zaman): void
+    /** @param  array<string, mixed>  $ek */
+    private function siparisOlayi(string $orderId, string $tip, Carbon $zaman, array $ek = []): void
     {
         $e = new OrderEvent;
         $e->forceFill([
@@ -281,7 +293,7 @@ class DemoFabrika
             'tenant_id' => $this->tenantId,
             'order_id' => $orderId,
             'event_type' => $tip,
-            'payload' => ['order_id' => $orderId],
+            'payload' => ['order_id' => $orderId] + $ek,
             'client_event_id' => (string) Str::uuid7(),
             'occurred_at' => $zaman,
             'device_id' => null,

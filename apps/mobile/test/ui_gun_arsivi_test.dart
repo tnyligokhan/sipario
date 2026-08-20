@@ -20,6 +20,7 @@ import 'package:sipario/data/app_database.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/screens/isletme/gecmis_gun_ekrani.dart';
+import 'package:sipario/screens/isletme/gun_kapsami.dart';
 import 'package:sipario/screens/isletme/gun_arsivi.dart';
 
 import 'support/ekran_yardimcilari.dart';
@@ -118,7 +119,10 @@ void main() {
 
       await ekranaKoy(tester, GecmisGunEkrani(db: db, bugun: bugun));
       await akislariBekle(tester, tur: 6);
-      await tester.tap(find.text('Hakan'));
+      // KAPSAM ARTIK AÇILIR LİSTE (2026-08-20): önce seçici, sonra "Ad · Rol" satırı.
+      await tester.tap(find.byType(GunKapsamSecici));
+      await sheetAnimasyonu(tester);
+      await tester.tap(find.text('Hakan · Kurye'));
       await akislariBekle(tester, tur: 6);
 
       expect(find.text('Hakan bu gün çalışmamış'), findsOneWidget);

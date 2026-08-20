@@ -77,12 +77,19 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   /// görüp satırı sonsuza dek gizlerdi (kontör dersinin aynısı, order_list_screen.dart).
   List<User> _kuryeler = const [];
   String? _rol;
+
+  /// Oturumdaki kullanıcı — "(siz)" işareti ve "başka biri var mı" ölçütü için.
+  String? _benimId;
   StreamSubscription<SyncMetaData>? _metaAbone;
   StreamSubscription<List<User>>? _kuryeAbone;
 
-  /// Kurye satırı KİME görünür: atama yetkisi olana (K2 — `yetkiler().atama` = yönetici VE
-  /// aktif kurye var). Kurye kendine iş atamaz; tek kişilik bayide satır hiç çizilmez.
-  bool get _atamaYetkisi => yetkiler(rol: _rol, kuryeVar: _kuryeler.isNotEmpty).atama;
+  /// Görevli satırı KİME görünür: atama yetkisi olana (K2 — `yetkiler().atama` = ofis VE
+  /// atanabilecek BAŞKA biri var). Kurye kendine iş atamaz; tek kişilik bayide satır hiç çizilmez.
+  ///
+  /// "BAŞKA biri" ölçütü 2026-08-20'de geldi: liste artık oturumdaki kişiyi de içeriyor, yani
+  /// `isNotEmpty` tek kişilik bayide de doğru çıkar ve BRIEF'in gizleme kuralını delerdi.
+  bool get _atamaYetkisi =>
+      yetkiler(rol: _rol, atamaHedefiVar: _kuryeler.any((u) => u.id != _benimId)).atama;
 
   /// Kaydetmeden önce kurye seçilmiş OLMALI mı?
   ///
@@ -108,14 +115,17 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       _musteriYukle(widget.initialCustomerId!);
     }
     _metaAbone = widget.db.watchSyncState().listen((meta) {
-      if (!mounted || meta.userRole == _rol) return;
-      setState(() => _rol = meta.userRole);
+      if (!mounted || (meta.userRole == _rol && meta.userId == _benimId)) return;
+      setState(() {
+        _rol = meta.userRole;
+        _benimId = meta.userId;
+      });
     });
-    _kuryeAbone = watchAktifKuryeler(widget.db).listen((kuryeler) {
+    _kuryeAbone = watchAtamaHedefleri(widget.db).listen((kuryeler) {
       if (!mounted) return;
       setState(() {
         _kuryeler = kuryeler;
-        // Seçili kurye bu arada pasifleştiyse seçim DÜŞER. Var olmayan birine atanmış bir
+        // Seçili görevli bu arada pasifleştiyse seçim DÜŞER. Var olmayan birine atanmış bir
         // sipariş, atanmamış bir siparişten daha kötüdür: kimse üstlenmez ama liste atanmış
         // görünür.
         _kuryeAdi = kullaniciAdi(kuryeler, _kuryeId);
@@ -150,7 +160,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     super.dispose();
   }
 
-  /// "Kurye Seç" — sipariş detayındaki sheet'in AYNISI, tek farkı "Atama yok" satırının da
+  /// "Görevli Seç" — sipariş detayındaki sheet'in AYNISI, tek farkı "Atama yok" satırının da
   /// sunulması (burada seçim opsiyoneldir ve geri alınabilmelidir).
   Future<void> _kuryeSec() async {
     final secim = await kuryeSecSheet(
@@ -158,6 +168,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       kuryeler: _kuryeler,
       seciliId: _kuryeId,
       atamasizEtiketi: 'Atama yok',
+      benimId: _benimId,
     );
     if (secim == null || !mounted) return; // sheet kapatıldı = vazgeçildi, seçim DEĞİŞMEZ
     setState(() {

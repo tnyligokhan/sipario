@@ -232,11 +232,13 @@ class Ekip extends Component
         unset($this->ekip);
 
         // KVKK / kırmızı çizgi #4: parola ve kullanıcı adı loga YAZILMAZ (TeamController ile
-        // aynı sözleşme) — yalnız "kim, kime, ne" izlenebilsin diye kimlikler.
-        Log::info('Web panelinden kurye hesabi acildi', [
+        // aynı sözleşme) — yalnız "kim, kime, ne" izlenebilsin diye kimlikler. ROL de yazılır:
+        // iki tür hesap açılabildiği andan itibaren "ne açıldı" sorusu logdan cevaplanabilmeli.
+        Log::info('Web panelinden personel hesabi acildi', [
             'tenant_id' => $this->bayiId,
             'actor_id' => $this->patronId,
             'target_id' => $kurye->id,
+            'role' => $kurye->role->value,
         ]);
 
         /*
@@ -263,10 +265,13 @@ class Ekip extends Component
                 firmaKodu: (string) $this->bayi()->slug,
                 kalanHak: max(0, $this->kota()['kalan']),
                 hesapUrl: route('site.hesap'),
+                // Görev postada da yazar: iki tür hesap açılabildiği andan itibaren "kime ne
+                // açtım" sorusunun cevabı, formu kapattıktan sonra yalnız bu iletide kalıyor.
+                rolAdi: $this->rolAdi($kurye),
             ),
         );
 
-        $this->dispatch('bildir', detail: $kurye->name.' için kurye hesabı açıldı');
+        $this->dispatch('bildir', detail: $kurye->name.' için '.$this->rolAdi($kurye).' hesabı açıldı');
     }
 
     /** Onay kutusunu açar/kapatır (aktiflik değişimi geri alınması güç bir eylemdir). */
@@ -302,15 +307,20 @@ class Ekip extends Component
 
         // GERİ AÇMA DA KOTAYA ÇARPAR: pasifleştirme kotayı serbest bırakır (KuryeKotasi yalnız
         // `active` sayar), dolayısıyla açma serbest olsaydı "birini kapat, ötekini aç" ile limit
-        // sonsuza kadar aşılırdı. Operatörün kotası yoktur — kapı yalnız kuryeye uygulanır.
-        if ($acilacak && $hedef->role === UserRole::Kurye) {
+        // sonsuza kadar aşılırdı.
+        //
+        // TEZGÂH DA KAPIYA TABİ (2026-08-20): kota artık patron dışındaki her aktif hesabı sayar.
+        // Burada yalnız kuryeyi süzmek, kapatılan bir tezgâhın kotasız geri açılmasına — yani
+        // limitin aynı yoldan aşılmasına — izin verirdi. `$hedef` zaten patron olamaz (yukarıda
+        // erken dönüyor), o yüzden ek bir rol kontrolü gerekmiyor.
+        if ($acilacak) {
             try {
                 (new KuryeKotasi('pgsql_owner'))->bayiKontrolEt($this->bayiId);
             } catch (KotaDoluException) {
                 $this->onay = '';
                 $kota = $this->kota();
-                $this->dispatch('bildir', detail: 'Kurye hakkınız dolu ('.$kota['kullanilan'].'/'
-                    .$kota['limit'].'); geri açmak için önce başka bir kuryeyi devre dışı bırakın');
+                $this->dispatch('bildir', detail: 'Personel hakkınız dolu ('.$kota['kullanilan'].'/'
+                    .$kota['limit'].'); geri açmak için önce başka bir hesabı devre dışı bırakın');
 
                 return;
             }
@@ -458,7 +468,7 @@ class Ekip extends Component
     private function kotaHatasi(): void
     {
         $kota = $this->kota();
-        $this->addError('form.kota', 'Kurye hakkınız dolu ('.$kota['kullanilan'].'/'.$kota['limit']
+        $this->addError('form.kota', 'Personel hakkınız dolu ('.$kota['kullanilan'].'/'.$kota['limit']
             .'). Yeni hesap açmak için ek kurye paketi alın ya da kullanılmayan bir hesabı devre dışı bırakın.');
     }
 

@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $customer_id
  * @property int|null $code
  * @property string|null $assigned_user_id
+ * @property string|null $delivered_by_user_id
  * @property string $status
  * @property int $total_kurus
  * @property string|null $payment_type
@@ -39,6 +40,9 @@ class Order extends Model
         'customer_id',
         'code',
         'assigned_user_id',
+        // TESLİMİ KİM YAPTI — atamanın (niyet) yanındaki OLGU. Önbellektir, kaynağı `delivered`
+        // olayının payload'ıdır; `recomputeOrder` türetir (migration 004016).
+        'delivered_by_user_id',
         'status',
         'total_kurus',
         'payment_type',

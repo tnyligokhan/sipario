@@ -21,8 +21,8 @@ import 'support/siparis_yardimci.dart';
 /// ve bu depoda tam olarak ikincisi kırıktı.
 void main() {
   /// Yönetici (kısıtsız) ve kurye (varsayılan izinler) yetki kümeleri.
-  final yonetici = yetkiler(rol: 'patron', kuryeVar: true);
-  final kurye = yetkiler(rol: 'kurye', kuryeVar: true);
+  final yonetici = yetkiler(rol: 'patron', atamaHedefiVar: true);
+  final kurye = yetkiler(rol: 'kurye', atamaHedefiVar: true);
 
   group('sipariş listesi · kurye kendi siparişlerine kilitli', () {
     /// İki sipariş: biri kuryeye atanmış, biri başkasına. Kurye YALNIZ kendininkini görmeli.

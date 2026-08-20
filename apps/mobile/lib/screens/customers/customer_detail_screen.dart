@@ -61,7 +61,7 @@ class CustomerDetailScreen extends StatefulWidget {
   /// SINIFINI kapatmazdı — parametreyi geçmeyi unutmak yine sessiz kalır, yalnız yönü değişirdi
   /// (yetkisiz kullanıcıya açmak yerine yetkiliye kapatmak). Zorunlu alan, unutmayı DERLEME
   /// HATASINA çevirir: bu ekrana yeni bir giriş noktası açan kişi yetkiyi düşünmek zorunda kalır.
-  /// Tam yetkili görünüm isteyen çağıran `yetkiler(rol: 'patron', kuryeVar: true)` geçer.
+  /// Tam yetkili görünüm isteyen çağıran `yetkiler(rol: 'patron', atamaHedefiVar: true)` geçer.
   final RolYetkileri yetki;
 
   @override

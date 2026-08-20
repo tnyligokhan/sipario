@@ -27,6 +27,7 @@ import 'package:sipario/screens/day_end_screen.dart';
 import 'package:sipario/screens/isletme/senkron_seridi.dart';
 import 'package:sipario/theme/components/atoms.dart';
 
+import 'support/ara_tahsilat_yardimcilari.dart';
 import 'support/ekran_yardimcilari.dart';
 
 void main() {
@@ -57,7 +58,7 @@ void main() {
   /// kapsamı kapatılırken şerit ne der") olduğu gibi duruyor.
   Future<void> kuryeKapanisiAc(WidgetTester tester, AppDatabase db) async {
     await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
-    await dokun(tester, find.text('Emre')); // kapsam segmenti: Tümü · Emre
+    await kapsamaGec(tester, 'Emre'); // kapsam açılır listesi: Tümü · … · Emre · Kurye
     await dokun(tester, find.text('Hesabı Kapat'));
     await sheetAnimasyonu(tester);
   }
@@ -175,8 +176,7 @@ void main() {
       });
 
       await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
-      await tester.tap(find.text('Emre'));
-      await akislariBekle(tester, tur: 6);
+      await kapsamaGec(tester, 'Emre');
       await dokun(tester, find.text('Ara Tahsilat'));
       await sheetAnimasyonu(tester);
 

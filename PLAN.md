@@ -269,7 +269,106 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-19/3 — SİTE METNİ SADELEŞTİ: TEKRARLAR SİLİNDİ, "BİZ KİMİZ" AÇILDI (API 1.12.0, mobil DEĞİŞMEDİ 0.34.0)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-20 — ATIF NİYETE DEĞİL OLGUYA BAKIYOR · TEZGÂH ROLÜ AÇILDI · GÜN ÖZETİ KAPSAMI (mobil 0.34.0 → **0.38.0**, API 1.12.0 → **1.13.0**)
+
+Sahadan gelen **dört madde** kapandı. Üçünün kökü aynı çıktı: gün özeti, teslimatı ve günün
+veresiyesini **atamadan** okuyordu.
+
+#### ⭐ ASIL BULGU: aynı olayın iki yarısı iki ayrı kişiye gidiyordu
+
+`orders.assigned_user_id` bir **niyettir** ("bunu Ali götürecek"), muhasebe kaydı değil. Ama para
+zaten doğru kişide duruyordu (`ledger_entries.collected_by_user_id`). Sonuç:
+
+| Patron, Ali'ye atanmış siparişi kendi teslim edince | Eskiden | Şimdi |
+|---|---|---|
+| Kasaya giren para | Patron ✔ | Patron ✔ |
+| Teslimat sayısı | **Ali ✘** | Patron ✔ |
+| Yazılan veresiye | **Ali ✘** | Patron ✔ |
+
+**Çözüm:** `orders.delivered_by_user_id` (mobil şema **v25** · API migration **004016**).
+`assigned_user_id`in birebir ikizi: bir ÖNBELLEKtir, kaynağı `delivered` olayının payload'ıdır ve
+iki taraf da aynı olaylardan aynı sonucu türetir. `deliver` artık `debit` satırına da atıf yazar —
+`collected_by_user_id`in anlamı "parayı kim aldı"dan **"bu hareketi kim yaptı"**ya genişledi (kasa
+etkilenmez: orası `payment_type` taşıyan satırları sayar). Kural TEK yerde: `repo/islem_sahibi.dart`.
+
+> **GERİYE DÖNÜK UYDURMA YOK:** eski kayıtlarda alan NULL'dur ve okuma atamaya düşer. Geçmiş
+> günler yükseltmeden önceki gibi görünür; `migration_v25_test.dart` bunu kilitliyor.
+
+#### Rol kararı — kullanıcı "kararsızım" dedi, karar verildi: YENİ ROL EKLENMEDİ
+
+Var olan ama **üretimde hiç açılmayan** `operator` rolü gerçek bir role dönüştürüldü ve **Tezgâh**
+adını aldı (ölçüldü: `Provisioning::createCourier` yalnız kurye üretiyordu, web Ekip yalnız onu
+çağırıyordu — yani kimsenin yetkisi daralmadı). Çizgi ikiye ayrıldı:
+
+- **OFİS (patron + tezgâh)** — dükkânın günlük işi: sipariş açma/atama/iptal, tahsilat, iskonto,
+  borçluları görme, gün özetini OKUMA, çağrı günlüğü, müşteri ekleme/düzenleme.
+- **PARA KONTROLÜ (yalnız patron)** — günü kapatma, geçmiş hesap arşivi, defter düzeltme, müşteri
+  borcu silme, ürün yönetimi, müşteri silme/kara liste, muaf numara, abonelik ayarları.
+
+Gerekçe: ikinci kümenin tamamı ya paranın kendisini ya da onu üreten tanımları değiştirir ve geri
+dönüşü bir günlük işle sınırlı değildir. Rol sayısını artırmak yerine yetkiyi anlamlandırmak,
+kullanıcının "sürekli yeni rol ile uğraşmaktansa yetki sistemini canlandırmak" itirazının cevabı.
+Kuryedeki 13 anahtarlı kişiye özel yetki mekanizması **olduğu gibi duruyor**.
+
+`yetki_matrisi_test.dart` artık patron/tezgâh farkının **TAM listesini** kilitliyor: yeni bir yetki
+eklendiğinde hangi tarafa konduğu bilinçli bir karar olmak zorunda.
+
+#### Atama hedefi rol süzgecinden çıktı
+
+`watchAtamaHedefleri` → **tüm aktif personel** (kendisi dahil, satırda "(siz)" işareti ve rol adı).
+Eskiden yalnız `role='kurye'` dönüyordu; malı çoğu zaman patron götürdüğü hâlde onu seçebileceği
+satır YOKTU — sipariş ya sahipsiz kalıyor ya götürmeyecek bir kuryeye atanıyordu.
+
+> **Tek kişilik bayi kuralı (BRIEF) korundu ve ölçütü değişti:** "liste boş değil" DEĞİL,
+> **"BENDEN BAŞKA biri var"**. Liste artık beni de içerdiği için eski ölçüt tek kişilik bayide de
+> doğru çıkar ve gizleme kuralını delerdi.
+
+#### Gün özeti: segment → açılır liste, üç katman
+
+`Tümü · Kendi işlemlerim · Elemanlar · [kişi kişi herkes]`
+
+"Elemanlar" bir **çıkarma işlemi değil, ayrı bir süzgeçtir**: sahibi bilinmeyen kayıt hiçbir kişiye
+yazılmaz, yani `Kendi işlemlerim + Elemanlar` toplamı `Tümü`yü tutmayabilir — bu bir hata değil,
+dürüstlüktür. Kapatma ve ara tahsilat yalnız **GÜN** ya da **KURYE** kapsamında sunulur
+(`day_closings` üçüncü bir kapsam tanımıyor; gördüğünden başka bir şeyi kapatan düğme olmaz).
+
+#### Kota genişledi — sessiz açığı kapattı
+
+`KuryeKotasi` artık **patron dışındaki her aktif hesabı** sayar. Tezgâh da atama hedefi olabildiği
+için (yani fiilen teslimat yapabildiği için) bedava kalsaydı bayi kotayı "hepsini tezgâh açarım"
+diyerek atlar ve "3 kurye hesabı" sözü karşılıksız kalırdı. Tezgâh hesabı bayinin web panelindeki
+Ekip bölümünden açılıyor (`Provisioning::createStaff`; **patron bu yoldan AÇILAMAZ**).
+
+#### Yol üstünde bulunan ölü kod
+
+`test/support/yetki_matrisi_tablosu.dart` **hiçbir yerden import edilmiyordu** — yetki matrisinin
+ikinci, koşmayan bir kopyasıydı. Silindi. (Koşan tablo `yetki_matrisi_test.dart` içindeki
+`_matris`.) İki kopyadan biri koşmuyorsa, o kopya yeşil kalırken diğerini yakalayamaz.
+
+**Kapılar:** flutter analyze temiz · **flutter test 1428 yeşil** (11 yeni) · **phpunit 905 / 904
+geçti / 1 atlandı** · pint temiz.
+
+**SIRADAKİ İŞLER (bu vardiyadan çıkanlar):**
+
+1. **Tezgâhın kişiye özel yetkisi YOK.** Kurye için 13 anahtarlı devralmalı mekanizma var; tezgâh
+   şablonu şu an SABİT. Bayi "benim kasiyerim günü de kapatsın" derse bugün yolu yok. Mekanizma
+   (`users.courier_can_*` + `kuryeIzinleriCoz`) role bağlı değil, yani genişletmek ucuz — ama
+   şablonun hangi anahtarlara açılacağı bir ÜRÜN kararıdır, pilotta sorulmalı.
+2. **Mobilde tezgâh hesabı açılamıyor** (web'den açılıyor). Kurye için de öyleydi ve bilinçliydi
+   (kimlik yüzeyi senkron kuyruğuna açılmaz); ama Ekip ekranı artık iki tür hesap gösteriyor,
+   mobildeki metinler hâlâ "kurye" diyor olabilir — gözden geçirilmeli.
+3. Sahada doğrulanacak: patron kendi telefonundan teslim ettiğinde gün özetinin üç rakamı (kasa ·
+   teslimat · veresiye) **aynı kapsamda** buluşuyor mu.
+
+> **NOT — geçmiş gün ekranı da bu turda dönüştürüldü:** `gecmis_gun_ekrani.dart` artık aynı
+> `gunKapsamlari` + `GunKapsamSecici` ikilisini kullanıyor. Yan fayda: o ekranın kapsam listesi
+> kurye rolünde de "Tümü" üretiyordu (üretimde erişilemez bir yol — geçmiş arşivi patrona özel —
+> ama yine de kuralın ikinci bir kopyasıydı ve ayrışmıştı). Artık tek kural, tek yer.
+
+---
+
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-19/3 — SİTE METNİ SADELEŞTİ: TEKRARLAR SİLİNDİ, "BİZ KİMİZ" AÇILDI (API 1.12.0, mobil DEĞİŞMEDİ 0.34.0)
 
 **Bir önceki turun eksiği kapatıldı.** Kullanıcı "metinler yapay geliyor" demişti; o tur uydurma
 veriyi silmiş ama METNİN KENDİSİNİ büyük ölçüde bırakmıştı. Bu turda sayfaların **görünen

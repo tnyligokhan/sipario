@@ -27,8 +27,12 @@ const String kTumKuryeler = '__tumu__';
 /// `watchAktifKuryeler` (team.dart) YALNIZ `role = 'kurye'` döner; kullanıcının açık notu ise
 /// "patronun kendisi de aslında bir kurye olarak görünmeli" — tek/iki kişilik bayide teslimatı
 /// patron yapar ve siparişler ona atanır. Bu yüzden süzgeç adayları aktif patron/operator/kurye
-/// kullanıcılarının HEPSİDİR; ATAMA sorgusu (kurye seçme sheet'i) DEĞİŞMEDİ — orada hâlâ yalnız
-/// kuryeler var, bu yalnız GÖRÜNTÜLEME süzgecidir.
+/// kullanıcılarının HEPSİDİR.
+///
+/// ATAMA SORGUSU DA ARTIK AYNI KÜMEYE BAKIYOR (2026-08-20, `watchAtamaHedefleri`): bu doc bir
+/// tur boyunca "atama hâlâ yalnız kuryeler" diyordu ve o cümle artık yanlış. İki sorgu ayrı
+/// duruyor çünkü biri PASİFLERİ de kapsayabilecek bir görüntüleme süzgeci, öteki bir yazma
+/// hedefidir; ama ikisi de rolle sınırlı değildir.
 Stream<List<User>> watchKuryeSuzgecAdaylari(AppDatabase db) => (db.select(db.users)
       ..where((t) => t.status.equals('active'))
       ..where((t) => t.role.isIn(const ['kurye', 'patron', 'operator']))

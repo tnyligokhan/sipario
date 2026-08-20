@@ -92,22 +92,25 @@ Future<void> siparisKuryesiniDegistir(
     SipToast.goster(context, 'Salt-okunur kip: kurye atanamaz.');
     return;
   }
-  final kuryeler = await watchAktifKuryeler(db).first;
+  // ATAMA HEDEFLERİ: kuryeler değil TÜM aktif personel (2026-08-20; gerekçe `team.dart`).
+  final hedefler = await watchAtamaHedefleri(db).first;
+  final benimId = (await db.syncState()).userId;
   if (!context.mounted) return;
-  if (kuryeler.isEmpty) {
-    SipToast.goster(context, 'Atanacak aktif kurye yok');
+  if (hedefler.isEmpty) {
+    SipToast.goster(context, 'Atanacak aktif personel yok');
     return;
   }
   final secili = await kuryeSecSheet(
     context,
-    kuryeler: kuryeler,
+    kuryeler: hedefler,
     seciliId: item.order.assignedUserId,
-    baslik: 'Kurye Seç · ${item.customerName ?? 'Tezgâh satışı'}',
+    baslik: 'Görevli Seç · ${item.customerName ?? 'Tezgâh satışı'}',
+    benimId: benimId,
   );
   if (secili == null || secili == item.order.assignedUserId || !context.mounted) return;
   await OrderRepository(db).assign(item.order.id, secili);
   if (!context.mounted) return;
-  SipToast.goster(context, 'Kurye değiştirildi: ${kullaniciAdi(kuryeler, secili) ?? ''}');
+  SipToast.goster(context, 'Görevli değiştirildi: ${kullaniciAdi(hedefler, secili) ?? ''}');
 }
 
 /// Sıralama sheet'i. Elle sıralama `sort_set` OLAYI yazar → salt-okunur kipte sunulmaz (yeni

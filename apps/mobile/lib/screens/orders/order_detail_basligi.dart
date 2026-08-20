@@ -144,21 +144,26 @@ class SiparisDetayBasligi extends StatelessWidget {
   }
 
   Future<void> _kuryeSec(BuildContext context, List<User> ekip) async {
-    final kuryeler = await watchAktifKuryeler(db).first;
+    // ATAMA HEDEFLERİ: kuryeler değil TÜM aktif personel (2026-08-20) — patron malı kendi
+    // götürecekse kendini seçebilmeli. Oturumdaki kişi "(siz)" ile işaretlensin diye kimliği
+    // de okunur.
+    final hedefler = await watchAtamaHedefleri(db).first;
+    final benimId = (await db.syncState()).userId;
     if (!context.mounted) return;
-    if (kuryeler.isEmpty) {
-      SipToast.goster(context, 'Atanacak aktif kurye yok');
+    if (hedefler.isEmpty) {
+      SipToast.goster(context, 'Atanacak aktif personel yok');
       return;
     }
     final secili = await kuryeSecSheet(
       context,
-      kuryeler: kuryeler,
+      kuryeler: hedefler,
       seciliId: order.assignedUserId,
+      benimId: benimId,
     );
     if (secili == null || secili == order.assignedUserId || !context.mounted) return;
     await OrderRepository(db).assign(order.id, secili);
     if (!context.mounted) return;
-    SipToast.goster(context, 'Kurye değiştirildi: ${kullaniciAdi(kuryeler, secili) ?? ''}');
+    SipToast.goster(context, 'Görevli değiştirildi: ${kullaniciAdi(hedefler, secili) ?? ''}');
   }
 }
 
