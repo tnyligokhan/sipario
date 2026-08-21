@@ -67,8 +67,8 @@ class IzinAdimi {
 const List<IzinAdimi> izinAdimlari = [
   IzinAdimi(
     anahtar: 'tarama',
-    ad: 'Arama tanıma',
-    neden: 'Telefon çaldığında arayan numarayı okuyup müşterinizle eşleştirmek için gereklidir.',
+    ad: 'Arayan tanıma',
+    neden: 'Telefon çaldığında arayan numarayı okuyup müşterinizle eşleştirmek için gereklidir',
     ikon: SipIcons.phone,
     eylem: 'requestScreeningRole',
     durumAnahtari: 'hasScreeningRole',
@@ -77,15 +77,15 @@ const List<IzinAdimi> izinAdimlari = [
   IzinAdimi(
     anahtar: 'rehber',
     ad: 'Rehber erişimi',
-    neden: 'Kayıtlı müşterilerinizi arayan numarayla eşleştirebilmek için rehbere erişiriz.',
+    neden: 'Kayıtlı müşterilerinizi arayan numarayla eşleştirmek için rehbere erişilir',
     ikon: SipIcons.users,
     eylem: 'requestContactsPermission',
     durumAnahtari: 'hasContactsPermission',
   ),
   IzinAdimi(
     anahtar: 'overlay',
-    ad: 'Üste çizim izni',
-    neden: 'Çağrı kartını başka uygulamaların üzerinde, en üstte gösterebilmek için gereklidir.',
+    ad: 'Diğer uygulamaların üzerinde göster',
+    neden: 'Çağrı kartını başka uygulamaların üzerinde, en üstte gösterebilmek için gereklidir',
     ikon: SipIcons.box,
     eylem: 'requestOverlayPermission',
     durumAnahtari: 'canDrawOverlays',
@@ -94,7 +94,7 @@ const List<IzinAdimi> izinAdimlari = [
   IzinAdimi(
     anahtar: 'bildirim',
     ad: 'Bildirimler',
-    neden: 'Yeni sipariş ve borç hatırlatmalarını size iletebilmek için.',
+    neden: 'Yeni sipariş ve borç hatırlatmalarını size iletebilmek için',
     ikon: SipIcons.info,
     eylem: 'requestNotificationPermission',
     durumAnahtari: 'hasNotificationPermission',
@@ -102,7 +102,7 @@ const List<IzinAdimi> izinAdimlari = [
   IzinAdimi(
     anahtar: 'kilit',
     ad: 'Kilit ekranında göster',
-    neden: 'Telefon kilitliyken bile çağrı kartının çıkması için.',
+    neden: 'Telefon kilitliyken bile çağrı kartının çıkması için',
     ikon: SipIcons.lock,
     eylem: 'requestFullScreenIntent',
     durumAnahtari: 'canUseFullScreenIntent',

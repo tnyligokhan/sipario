@@ -231,13 +231,13 @@ class CagriGunluguEkrani extends StatelessWidget {
       if (seciliKullaniciId != null) {
         return const SipBosDurum(
           baslik: 'Bu kullanıcının çağrısı yok',
-          aciklama: 'Herkesi görmek için "Tümü"yü seçin.',
+          aciklama: 'Herkesi görmek için "Tümü"yü seçin',
           ikon: SipIcons.phone,
         );
       }
       return const SipBosDurum(
         baslik: 'Henüz arama yok',
-        aciklama: 'Gelen ve giden aramalar burada listelenir.',
+        aciklama: 'Gelen ve giden aramalar burada listelenir',
         ikon: SipIcons.phone,
       );
     }

@@ -566,7 +566,7 @@ void main() {
     testWidgets('veri hatası bandında "çevrimdışı" METNİ ÇIKMAZ', (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant(tur: SipBantTuru.hata)));
       expect(find.textContaining('İnternet yok'), findsNothing);
-      expect(find.textContaining('bağlanınca gönderilecek'), findsNothing,
+      expect(find.textContaining('bağlantı gelince gönderilecek'), findsNothing,
           reason: 'sunucuya ULAŞILDI — tutulamayacak bir söz vermek arızayı gizler');
       expect(find.textContaining('Telefonda güvende'), findsOneWidget);
     });

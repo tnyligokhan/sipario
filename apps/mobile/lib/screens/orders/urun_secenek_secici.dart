@@ -231,8 +231,8 @@ class MusteriTercihSeridi extends StatelessWidget {
               Expanded(
                 child: Text(
                   ad.isEmpty
-                      ? 'Bu müşterinin kayıtlı tercihi uygulandı.'
-                      : '$ad için kayıtlı tercih uygulandı.',
+                      ? 'Bu müşterinin kayıtlı tercihi uygulandı'
+                      : '$ad için kayıtlı tercih uygulandı',
                   style: SipText.metin(11.5, w: 600).copyWith(color: t.ok),
                 ),
               ),

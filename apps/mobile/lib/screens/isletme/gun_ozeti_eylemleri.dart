@@ -56,7 +56,7 @@ Future<String?> cerceveNotu(
   if (pencereNakit == g.kapsam.kasa.nakit && pencereTeslim == gunTeslim) return null;
   // Metin FORMÜL İDDİA ETMEZ (beklenen nakdin tanımı repo'nundur ve bu vardiyada iki kez
   // değişti) — yalnız hangi ARALIĞIN kapsandığını söyler.
-  return 'Önceki günlerden devreden nakit dahil.';
+  return 'Önceki günlerden devreden nakit dahil';
 }
 
 /// Kuryeden ARA TAHSİLAT alır (sheet → kayıt). Ekran tazelensin mi diye `bool` döner.

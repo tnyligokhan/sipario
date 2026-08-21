@@ -86,7 +86,7 @@ class _GovdeState extends State<_Govde> {
     final firma = _firma.text.trim();
     final kullanici = _kullanici.text.trim();
     if (firma.isEmpty || kullanici.isEmpty) {
-      setState(() => _hata = 'Firma kodu ve kullanıcı adını girin.');
+      setState(() => _hata = 'Firma kodu ve kullanıcı adını girin');
       return;
     }
 
@@ -161,14 +161,14 @@ class _GovdeState extends State<_Govde> {
           ikon: SipIcons.user,
           renk: t.accent,
           baslik: 'İşletme sahibiyseniz',
-          metin: 'Kayıtlı e-posta adresinize sıfırlama bağlantısı gönderilir.',
+          metin: 'Kayıtlı e-posta adresinize sıfırlama bağlantısı gönderilir',
         ),
         const SizedBox(height: SipSpace.md),
         _Yol(
           ikon: SipIcons.truck,
           renk: t.muted,
           baslik: 'Kurye ya da tezgâhta çalışıyorsanız',
-          metin: 'Parolanızı işletme sahibi belirler, sıfırlama için ona başvurun.',
+          metin: 'Parolanızı işletme sahibi belirler, sıfırlama için ona başvurun',
         ),
 
         const SipFormEtiket('FİRMA KODU', ustBosluk: 18),

@@ -73,7 +73,7 @@ class _OnayGovdesiState extends State<_OnayGovdesi> {
   Future<void> _dogrula() async {
     final girilen = _parola.text;
     if (girilen.isEmpty) {
-      setState(() => _hata = 'Parolanızı girin.');
+      setState(() => _hata = 'Parolanızı girin');
       return;
     }
     setState(() {
@@ -91,7 +91,7 @@ class _OnayGovdesiState extends State<_OnayGovdesi> {
         _parola.clear();
         setState(() {
           _calisiyor = false;
-          _hata = 'Parola hatalı.';
+          _hata = 'Parola hatalı';
         });
         return;
       }
@@ -142,7 +142,7 @@ class _OnayGovdesiState extends State<_OnayGovdesi> {
         ],
         const SizedBox(height: SipSpace.x4),
         SipButon(
-          etiket: _calisiyor ? 'Doğrulanıyor…' : 'Onayla',
+          etiket: _calisiyor ? 'Doğrulanıyor' : 'Onayla',
           onTap: _calisiyor ? null : _dogrula,
         ),
       ],

@@ -91,7 +91,7 @@ void main() {
 
       await ekranaKoy(tester, CihazlarEkrani(db: db, apiFabrikasi: _sahte(govde)));
 
-      expect(find.text('2 cihaz bu hesaba bağlı.'), findsOneWidget);
+      expect(find.text('2 cihaz bu hesaba bağlı'), findsOneWidget);
       expect(find.text('Samsung A54 (bu cihaz)'), findsOneWidget,
           reason: 'bayinin ilk sorusu "hangisi benimki" — listede aramamalı');
       expect(find.text('Redmi Note 12'), findsOneWidget);
@@ -120,7 +120,7 @@ void main() {
 
       expect(find.text('Oturumu kapat'), findsNothing);
       expect(find.text('Çıkar'), findsNothing);
-      expect(find.textContaining('yalnız gösterir'), findsOneWidget,
+      expect(find.textContaining('oturumlar kapanır'), findsOneWidget,
           reason: 'ekran ne YAPMADIĞINI söylemeli');
 
       await kapat(tester);
@@ -159,7 +159,7 @@ void main() {
       );
 
       expect(find.text('Liste okunamadı'), findsOneWidget);
-      expect(find.textContaining('HTTP 401'), findsOneWidget);
+      expect(find.textContaining('kod 401'), findsOneWidget);
 
       await kapat(tester);
     });

@@ -52,7 +52,7 @@ void main() {
 
       expect(t.detay, isNotNull);
       expect(t.detay, contains('kaybolmaz'));
-      expect(t.detay!.indexOf('kaybolmaz'), lessThan(t.detay!.indexOf('İnternet')));
+      expect(t.detay!.indexOf('kaybolmaz'), lessThan(t.detay!.indexOf('Bağlantı')));
     });
 
     test('kimlik GÜN bazlı — gün içinde tekrar koşmak yeni bildirim doğurmaz', () {
@@ -88,7 +88,7 @@ void main() {
     test('bitince farklı konuşur ve ne yapılacağını söyler', () {
       final t = kullanimHakkiUyarisi(kalan: 0, aylik: 30, gun: gun)!;
       expect(t.baslik, contains('bitti'));
-      expect(t.detay, contains('elle sıralamaya devam'));
+      expect(t.detay, contains('Siparişleri elle sıralayabilirsiniz'));
       expect(t.detay, contains('ay başında yenilenir'));
     });
 
@@ -167,7 +167,7 @@ void main() {
       )!;
 
       expect(t.kategori, BildirimKategori.gunKapanisHatirlatma);
-      expect(t.detay, contains('bugünün rakamlarına karışır'));
+      expect(t.detay, contains('Kuryedeki nakit sayılmaya devam eder'));
       expect(bildirimYoluCoz(t.yol), (tur: 'gunsonu', id: null));
     });
 

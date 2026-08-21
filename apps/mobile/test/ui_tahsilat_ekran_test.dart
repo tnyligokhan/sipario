@@ -62,7 +62,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField).first, '120');
       await akislariBekle(tester);
-      expect(find.textContaining('kalan'), findsOneWidget,
+      expect(find.textContaining('borcuna yazılacak'), findsOneWidget,
           reason: 'kısmi tahsilatta kalanın borca yazılacağı kullanıcıya söylenir');
 
       await dokun(tester, find.text('Teslim Et ve Kaydet'));
@@ -313,7 +313,7 @@ void main() {
       await tester.tap(find.textContaining('Tahsilat Al'));
       await akisiBekle(tester, ms: 300);
 
-      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
       expect(find.text('Tahsilatı Kaydet'), findsNothing, reason: 'sheet hiç açılmamalı');
 
       await tester.runAsync(() async {
@@ -350,7 +350,7 @@ void main() {
       await dokun(tester, find.text('tahsilat-ac'));
       await sheetAnimasyonu(tester);
 
-      expect(find.text('Bu müşterinin açık borcu yok.'), findsOneWidget);
+      expect(find.text('Bu müşterinin açık borcu yok'), findsOneWidget);
       expect(find.text('Tahsilatı Kaydet'), findsNothing);
       await kapat(tester);
     });

@@ -64,7 +64,7 @@ Future<KuryeSuzgecSecimi?> kuryeSuzgeciSec(
   final adaylar = await watchKuryeSuzgecAdaylari(db).first;
   if (!context.mounted) return null;
   if (adaylar.isEmpty) {
-    SipToast.goster(context, 'Ekip listesi henüz inmedi');
+    SipToast.goster(context, 'Ekip listesi henüz güncellenmedi');
     return null;
   }
   final secim = await kuryeSuzgecSheet(context, adaylar: adaylar, seciliId: seciliId);
@@ -89,7 +89,7 @@ Future<void> siparisKuryesiniDegistir(
     return;
   }
   if (!writable) {
-    SipToast.goster(context, 'Aboneliğiniz sona erdiği için görevli atanamıyor.');
+    SipToast.goster(context, 'Aboneliğiniz sona erdiği için görevli atanamıyor');
     return;
   }
   // ATAMA HEDEFLERİ: kuryeler değil TÜM aktif personel (2026-08-20; gerekçe `team.dart`).

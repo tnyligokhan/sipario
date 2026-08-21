@@ -156,7 +156,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(sahte.denenen, isEmpty);
-    expect(find.text('Konum kayıtlı değil — müşteri detayından alın'), findsOneWidget);
+    expect(find.text('Konum kayıtlı değil. Müşteri detayından alabilirsiniz'), findsOneWidget);
 
     await kapat(tester);
   });
@@ -172,7 +172,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(sahte.denenen.length, 2, reason: 'whatsapp:// sonra wa.me denenmeli');
-    expect(find.text('WhatsApp açılamadı — telefonda yüklü değil'), findsOneWidget);
+    expect(find.text('WhatsApp bu telefonda yüklü değil'), findsOneWidget);
 
     await kapat(tester);
   });

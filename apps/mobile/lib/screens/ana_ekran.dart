@@ -227,7 +227,7 @@ class _SonAktiviteState extends State<_SonAktivite> {
           return Padding(
             padding: const EdgeInsets.fromLTRB(2, SipSpace.md, 2, SipSpace.md),
             child: Text(
-              'Bugün henüz hareket yok.',
+              'Bugün henüz hareket yok',
               style: SipText.metin(13).copyWith(color: t.muted),
             ),
           );

@@ -40,7 +40,7 @@ class _TestCardState extends State<_TestCard> {
     final phone = _phone.text.trim();
     if (normalizePhoneTR(phone) == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Numarayı 05xx xxx xx xx biçiminde girin')),
+        const SnackBar(content: Text('Numarayı 05XX XXX XX XX biçiminde girin')),
       );
       return;
     }
@@ -83,7 +83,7 @@ class _TestCardState extends State<_TestCard> {
                     keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(
                       labelText: 'Arayacak numara',
-                      hintText: '05xx xxx xx xx',
+                      hintText: '05XX XXX XX XX',
                       isDense: true,
                     ),
                     onSubmitted: (_) => _submit(),

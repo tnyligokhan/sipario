@@ -44,13 +44,13 @@ extension KapanisGeriAlma on DayClosingRepository {
     final hedef = await (db.select(db.dayClosings)..where((t) => t.id.equals(closingId)))
         .getSingleOrNull();
     if (hedef == null) {
-      throw StateError('Kapanış kaydı bulunamadı; ekranı yenileyip tekrar deneyin.');
+      throw StateError('Kapanış kaydı bulunamadı; ekranı yenileyip tekrar deneyin');
     }
     if (hedef.reversesClosingId != null) {
-      throw StateError('Bu satır zaten bir geri alma kaydı; geri alınamaz.');
+      throw StateError('Bu satır zaten bir geri alma kaydı; geri alınamaz');
     }
     if ((await _geriAlinmisIdler()).contains(hedef.id)) {
-      throw StateError('Bu kapanış zaten geri alınmış.');
+      throw StateError('Bu kapanış zaten geri alınmış');
     }
 
     // SIRA KURALI: gün hesabı kapalıyken bir KURYE kapanışını geri almak, kilitli bir günün
@@ -60,7 +60,7 @@ extension KapanisGeriAlma on DayClosingRepository {
     if (hedef.scope == ClosingScope.courier.name) {
       final gun = trGunu(DateTime.parse(hedef.occurredAt).add(const Duration(hours: 3)));
       if (await kapaliMi(ClosingScope.day, localDate: gun)) {
-        throw StateError('Önce gün hesabını geri alın; gün kapalıyken kurye hesabı açılamaz.');
+        throw StateError('Önce gün hesabını geri alın; gün kapalıyken kurye hesabı açılamaz');
       }
     }
 

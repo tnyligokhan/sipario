@@ -25,7 +25,7 @@ import '../isletme/isletme_atomlari.dart';
 import 'product_form_sheet.dart';
 
 /// Salt-okunur kip uyarısı — DEĞİŞTİRME: sözleşme testleri bu metni birebir arıyor.
-const String saltOkunurUyarisi = 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor.';
+const String saltOkunurUyarisi = 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor';
 
 class ProductListScreen extends StatelessWidget {
   const ProductListScreen({

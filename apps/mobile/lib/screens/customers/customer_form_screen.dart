@@ -234,7 +234,7 @@ class _MusteriFormuState extends State<_MusteriFormu> {
           ),
         ),
         if (dinliyor)
-          SipHataSatiri(metin: 'Dinleniyor… konuşun', renk: t.accent, ikon: SipIcons.info),
+          SipHataSatiri(metin: 'Dinleniyor, konuşun', renk: t.accent, ikon: SipIcons.info),
         if (_sesMesajAlani == ad && _sesMesaji != null)
           SipHataSatiri(metin: _sesMesaji!, renk: t.warn, ikon: SipIcons.info),
       ],
@@ -310,7 +310,7 @@ class _MusteriFormuState extends State<_MusteriFormu> {
               padding: const EdgeInsets.only(top: SipSpace.lg, bottom: 2, right: SipSpace.md),
               radius: SipRadius.br1,
               child: Text(
-                '+ Telefon ekle (${_teller.length}/$_enFazlaTelefon)',
+                'Telefon ekle (${_teller.length}/$_enFazlaTelefon)',
                 style: SipText.link.copyWith(color: t.accent),
               ),
             ),
@@ -363,7 +363,7 @@ class _MusteriFormuState extends State<_MusteriFormu> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const AdayBilgi(
-                    metin: 'Doğru adresi seçin.'),
+                    metin: 'Doğru adresi seçin'),
                 for (final a in _adaylar!)
                   Padding(
                     padding: const EdgeInsets.only(bottom: SipSpace.sm),
@@ -391,7 +391,7 @@ class _MusteriFormuState extends State<_MusteriFormu> {
           alan: SipInput(
             controller: _not,
             satirlar: 2,
-            ipucu: 'Zil, kapı kodu, özel durum…',
+            ipucu: 'Zil, kapı kodu, özel durum',
           ),
         ),
         const SizedBox(height: SipSpace.x3),

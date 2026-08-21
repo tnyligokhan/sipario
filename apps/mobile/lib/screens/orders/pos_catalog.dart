@@ -146,7 +146,7 @@ class _KatalogGovdeState extends State<_KatalogGovde> {
                 Expanded(
                   child: SipArama(
                     controller: _arama,
-                    ipucu: 'Ürün ara…',
+                    ipucu: 'Ürün ara',
                     onChanged: (v) => setState(() => _sorgu = v),
                     onTemizle: () => setState(() {
                       _arama.clear();

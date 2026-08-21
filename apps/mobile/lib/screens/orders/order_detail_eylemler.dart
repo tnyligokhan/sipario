@@ -139,7 +139,7 @@ class SiparisTahsilatButonu extends StatelessWidget {
 
   Future<void> _ac(BuildContext context) async {
     if (!writable) {
-      SipToast.goster(context, 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor');
       return;
     }
     final ok = await borcTahsilatiAc(context, db: db, customerId: customerId);

@@ -115,13 +115,13 @@ class KapaliKapiMetni extends StatelessWidget {
           ),
           const SizedBox(height: SipSpace.x3),
           Text(
-            'Bu ekran yöneticilere açık',
+            'Bu ekran size kapalı',
             style: SipText.bosBaslik.copyWith(color: t.ink),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: SipSpace.sm),
           Text(
-            'Bu ekran kuryeye kapalı.',
+            'Açtırmak için işletme yöneticinizle görüşün',
             style: SipText.bosAciklama.copyWith(color: t.muted),
             textAlign: TextAlign.center,
           ),

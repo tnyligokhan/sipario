@@ -32,7 +32,7 @@ void main() {
 
       expect(find.text('KORUNAN ICERIK'), findsNothing,
           reason: 'kapı kapalıyken çocuk ağaca HİÇ girmemeli — gizlemek yetmez');
-      expect(find.text('Bu ekran yöneticilere açık'), findsOneWidget);
+      expect(find.text('Bu ekran size kapalı'), findsOneWidget);
     });
 
     testWidgets('patron ve operatör geçer', (tester) async {
@@ -50,10 +50,10 @@ void main() {
       // geri düğmesi olmasaydı kurye o rotada KİLİTLİ kalırdı — çıkmak için uygulamayı
       // öldürmesi gerekirdi.
       await tester.pumpWidget(
-          sipKabuk(const YoneticiKapisi(rol: 'kurye', baslik: 'Muaf Telefonlar', child: icerik)));
+          sipKabuk(const YoneticiKapisi(rol: 'kurye', baslik: 'Muaf Numaralar', child: icerik)));
       await tester.pump();
 
-      expect(find.text('Muaf Telefonlar'), findsOneWidget);
+      expect(find.text('Muaf Numaralar'), findsOneWidget);
       expect(find.bySemanticsLabel('Geri'), findsOneWidget);
     });
 
@@ -68,7 +68,7 @@ void main() {
       await tester.pumpWidget(sipKabuk(const YoneticiKapisi(rol: 'kurye', child: icerik)));
       await tester.pump();
       expect(
-        find.text('Kurye hesabıyla ürün, kurye ve muaf numara yönetimi görülemez.'),
+        find.text('Bu ekran size kapalı'),
         findsOneWidget,
       );
     });
@@ -114,7 +114,7 @@ void main() {
           sipKabuk(ProductListScreen(db: db, writable: true, rol: 'kurye')));
       await akisiBekle(tester);
 
-      expect(find.text('Bu ekran yöneticilere açık'), findsOneWidget);
+      expect(find.text('Bu ekran size kapalı'), findsOneWidget);
       expect(find.text('Ürünler'), findsOneWidget, reason: 'kapalı kapı başlığı');
 
       await ekraniKapat(tester);
@@ -128,7 +128,7 @@ void main() {
           sipKabuk(ProductListScreen(db: db, writable: true, rol: 'patron')));
       await akisiBekle(tester);
 
-      expect(find.text('Bu ekran yöneticilere açık'), findsNothing);
+      expect(find.text('Bu ekran size kapalı'), findsNothing);
 
       await ekraniKapat(tester);
     });

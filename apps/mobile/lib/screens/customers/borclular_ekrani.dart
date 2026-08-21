@@ -77,7 +77,7 @@ class BorclularEkrani extends StatelessWidget {
                           ? SipBosDurum(
                               ikon: SipIcons.wallet,
                               baslik: 'Borçlu yok',
-                              aciklama: 'Tahsil edilmemiş borç yok.',
+                              aciklama: 'Bütün müşterilerin hesabı kapalı',
                             )
                           : _Liste(
                               db: db,

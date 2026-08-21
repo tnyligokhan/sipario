@@ -75,7 +75,7 @@ Future<CihazKonumu> gercekCihazKonumu() async {
     }
 
     if (izin != LocationPermission.whileInUse && izin != LocationPermission.always) {
-      throw const KonumHatasi('Konum izni verilmediği için konum alınamadı.');
+      throw const KonumHatasi('Konum izni verilmediği için konum alınamadı');
     }
 
     final konum = await Geolocator.getCurrentPosition(

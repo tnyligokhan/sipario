@@ -66,7 +66,7 @@ class TeamApi {
     throw TeamApiException(
       mesaj is String && mesaj.isNotEmpty
           ? mesaj
-          : 'Giriş bilgileri güncellenemedi (kod ${resp.statusCode}).',
+          : 'Giriş bilgileri güncellenemedi (kod ${resp.statusCode})',
     );
   }
 

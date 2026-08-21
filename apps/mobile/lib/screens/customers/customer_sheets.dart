@@ -176,7 +176,7 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
         ),
         if (_borc == 0)
           SipDurumSeridi(
-            metin: 'Bu müşterinin açık borcu yok.',
+            metin: 'Bu müşterinin açık borcu yok',
             ikon: SipIcons.check,
             renk: t.ok,
             zemin: t.okSoft,
@@ -364,7 +364,7 @@ class _DuzeltmeGovdeState extends State<_DuzeltmeGovde> {
         const SipFormEtiket('Açıklama (zorunlu)'),
         SipInput(
           controller: _not,
-          ipucu: 'Ör. eksik yazılan tutar, iade, pazarlık…',
+          ipucu: 'Ör. eksik yazılan tutar, iade, pazarlık',
           hata: _notHatasi != null,
           onChanged: (_) => setState(() => _notHatasi = null),
         ),
@@ -373,7 +373,7 @@ class _DuzeltmeGovdeState extends State<_DuzeltmeGovde> {
           Padding(
             padding: const EdgeInsets.only(top: SipSpace.md),
             child: SipHataSatiri(
-              metin: 'Bu düzeltmeyle müşteri alacaklı duruma geçecek.',
+              metin: 'Bu düzeltmeyle müşteri alacaklı duruma geçecek',
               renk: t.warn,
               ikon: SipIcons.info,
             ),

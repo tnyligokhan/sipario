@@ -44,7 +44,7 @@ class RouteApi {
           )
           .timeout(const Duration(seconds: 20));
     } on Exception {
-      throw RouteException('Sunucuya ulaşılamadı, sıra değişmedi.');
+      throw RouteException('Sunucuya ulaşılamadı, sıra değişmedi');
     }
 
     final body = _decode(resp.body);
@@ -53,7 +53,7 @@ class RouteApi {
       throw RouteException(
         mesaj is String && mesaj.isNotEmpty
             ? mesaj
-            : 'Oto sıralama yapılamadı (kod ${resp.statusCode}).',
+            : 'Oto sıralama yapılamadı (kod ${resp.statusCode})',
         // 409 = hak bitti; çağıran bunu ayırt edip kalan hakkı sıfırlayabilsin.
         kalanHak: (body['route_credits'] as num?)?.toInt(),
       );

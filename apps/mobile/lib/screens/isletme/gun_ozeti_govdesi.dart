@@ -107,8 +107,8 @@ class GunOzetiGovdesi extends StatelessWidget {
         if (g.kapsamKapali)
           KapaliSerit(
             metin: g.gunKapali
-                ? 'Günün hesabı kapatıldı, kayıtlar kilitlendi.'
-                : '$kapsamAdi hesabı kapatıldı ve arşivlendi.',
+                ? 'Günün hesabı kapatıldı, kayıtlar kilitlendi'
+                : '$kapsamAdi hesabı kapatıldı ve arşivlendi',
           ),
 
         SipBolumBaslik(

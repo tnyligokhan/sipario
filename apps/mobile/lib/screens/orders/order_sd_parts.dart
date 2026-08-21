@@ -279,7 +279,7 @@ class _SerbestFormState extends State<_SerbestForm> {
         const SipFormEtiket('Açıklama', ustBosluk: 2),
         SipInput(
           controller: _ad,
-          ipucu: 'Ör. Nakliye, montaj, ek iş',
+          ipucu: 'Ör. nakliye, montaj, ek iş',
           otomatikOdak: true,
           hata: _adHata != null,
           onChanged: (_) {

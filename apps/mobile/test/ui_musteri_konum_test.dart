@@ -259,7 +259,7 @@ void main() {
       await tester.tap(find.text('Antalya, Kepez, Bahçe Sk., 5'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Konum alındı · 36.8969, 30.7133'), findsOneWidget);
+      expect(find.text('Konum alındı: 36.8969, 30.7133'), findsOneWidget);
       expect(find.text('Antalya, Kepez, Bahçe Sk.'), findsNothing, reason: 'aday listesi kapanır');
 
       await tester.tap(find.text('Müşteriyi Kaydet'));
@@ -360,13 +360,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Aday'));
       await tester.pumpAndSettle();
-      expect(find.text('Konum alındı · 36.9014, 30.7221'), findsOneWidget);
+      expect(find.text('Konum alındı: 36.9014, 30.7221'), findsOneWidget);
 
       // Adresten türetilen "sokak" pini, kapının önünde alınan ölçümle değişir.
-      await tester.tap(find.text('Konum alındı · 36.9014, 30.7221'));
+      await tester.tap(find.text('Konum alındı: 36.9014, 30.7221'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Konum alındı · 36.8969, 30.7133'), findsOneWidget);
+      expect(find.text('Konum alındı: 36.8969, 30.7133'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -387,12 +387,12 @@ void main() {
       await tester.tap(find.text('Aday'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Konum alındı · 36.9014, 30.7221'));
+      await tester.tap(find.text('Konum alındı: 36.9014, 30.7221'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('telefon ayarlarından'), findsOneWidget);
       // Eski konum KORUNUR — hata yüzünden kayıtlı veri silinmez.
-      expect(find.text('Konum alındı · 36.9014, 30.7221'), findsOneWidget);
+      expect(find.text('Konum alındı: 36.9014, 30.7221'), findsOneWidget);
       expect(find.text('Müşteriyi Kaydet'), findsOneWidget, reason: 'form kullanılabilir kalır');
 
       await kapat(tester);

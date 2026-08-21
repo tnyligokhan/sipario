@@ -378,20 +378,20 @@ void main() {
 
     testWidgets('çevrimdışı bandı offline-first sözünü söyler', (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant()));
-      expect(find.textContaining('bağlanınca gönderilecek'), findsOneWidget);
+      expect(find.textContaining('bağlantı gelince gönderilecek'), findsOneWidget);
     });
 
     // Oturum ölmüşken offline-first sözünü VERMEK yalandır: hiçbir şey gönderilmeyecektir.
     // Bant kullanıcıya ne yapması gerektiğini söylemeli (2026-07-27 saha arızası).
     testWidgets('oturum bandı bekleme sözü VERMEZ, yeniden giriş ister', (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant(tur: SipBantTuru.oturum)));
-      expect(find.textContaining('bağlanınca gönderilecek'), findsNothing);
+      expect(find.textContaining('bağlantı gelince gönderilecek'), findsNothing);
       expect(find.textContaining('yeniden girin'), findsOneWidget);
     });
 
     testWidgets('veri hatası bandı kayıtların güvende olduğunu söyler', (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant(tur: SipBantTuru.hata)));
-      expect(find.textContaining('bağlanınca gönderilecek'), findsNothing);
+      expect(find.textContaining('bağlantı gelince gönderilecek'), findsNothing);
       expect(find.textContaining('Telefonda güvende'), findsOneWidget);
     });
 

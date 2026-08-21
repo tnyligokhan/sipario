@@ -48,7 +48,7 @@ class GeocodeApi {
       throw GeocodeException(
         mesaj is String && mesaj.isNotEmpty
             ? mesaj
-            : 'Adres araması yapılamadı (kod ${resp.statusCode}).',
+            : 'Adres araması yapılamadı (kod ${resp.statusCode})',
       );
     }
 

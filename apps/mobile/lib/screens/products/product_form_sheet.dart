@@ -217,7 +217,7 @@ class _UrunFormuState extends State<_UrunFormu> {
   Future<void> _gorselSec() async {
     final secici = urunGorselSecici;
     if (secici == null) {
-      SipToast.goster(context, 'Ürün görseli yakında eklenecek.');
+      SipToast.goster(context, 'Ürün görseli yakında eklenecek');
       return;
     }
     final yol = await secici();
@@ -324,7 +324,7 @@ class _UrunFormuState extends State<_UrunFormu> {
         ),
         if (_hata['fiyat'] != null) AlanNotu(_hata['fiyat']!),
 
-        const SipFormEtiket('BARKOD (OPSİYONEL)'),
+        const SipFormEtiket('Barkod (isteğe bağlı)'),
         Row(
           children: [
             Expanded(
@@ -357,7 +357,7 @@ class _UrunFormuState extends State<_UrunFormu> {
         ),
         if (_hata['barkod'] != null) AlanNotu(_hata['barkod']!),
         const _SilmeNotu(
-          'Barkodsuz ürünler katalogda aramayla bulunur, barkodlular okutularak eklenir.',
+          'Barkodsuz ürünler katalogda aramayla bulunur, barkodlular okutularak eklenir',
           hizala: TextAlign.start,
         ),
 
@@ -384,7 +384,7 @@ class _UrunFormuState extends State<_UrunFormu> {
         const SizedBox(height: SipSpace.x3),
         SipButon(etiket: 'Kaydet', onTap: _kaydet, yukleniyor: _kaydediyor),
         if (widget.urun != null)
-          const _SilmeNotu('Ürünler silinmez; kullanılmayanı Pasif yap.'),
+          const _SilmeNotu('Ürünler silinmez; kullanılmayanı Pasif yap'),
       ],
     );
   }
@@ -448,7 +448,7 @@ class _GorselAlani extends StatelessWidget {
               children: [
                 Text(
                   gorsel == null
-                      ? 'POS katalogda karo üzerinde görünür'
+                      ? 'Sipariş alırken ürün kartında görünür'
                       : 'Görsel yüklendi',
                   style: SipText.yardimci.copyWith(color: t.muted),
                 ),

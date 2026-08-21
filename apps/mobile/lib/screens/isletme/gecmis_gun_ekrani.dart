@@ -408,12 +408,12 @@ class _Govde extends StatelessWidget {
         // günün cirosu okunamaz hâle gelmemeli), ama sayım yapılmadığı SÖYLENİR — yoksa ekran
         // mutabık bir gün gibi okunurdu.
         if (g.gunKapali)
-          const KapaliSerit(metin: 'Bu günün hesabı kapatıldı.')
+          const KapaliSerit(metin: 'Bu günün hesabı kapatıldı')
         else
           SipNotKutusu(
             tur: SipNotTuru.uyari,
             ikon: SipIcons.info,
-            metin: 'Bu günün hesabı kapatılmadı.',
+            metin: 'Bu günün hesabı kapatılmadı',
           ),
 
         // İKİ AYRI BOŞLUK, İKİ AYRI CÜMLE: "o gün hiç çalışılmadı" ile "o gün bu kurye çalışmadı"
@@ -424,13 +424,13 @@ class _Govde extends StatelessWidget {
           const SipBosDurum(
             ikon: SipIcons.takvim,
             baslik: 'Bu güne ait hareket yok',
-            aciklama: 'Bu gün sipariş, tahsilat ya da gider kaydedilmemiş.',
+            aciklama: 'Bu gün sipariş, tahsilat ya da gider kaydedilmemiş',
           )
         else if (_kapsamBos)
           SipBosDurum(
             ikon: SipIcons.takvim,
             baslik: '$kapsamAdi bu gün çalışmamış',
-            aciklama: 'Bu günün diğer kayıtlarını görmek için kapsamı "Tümü" yapın.',
+            aciklama: 'Bu günün diğer kayıtlarını görmek için kapsamı "Tümü" yapın',
           )
         else ...[
           SipBolumBaslik(
@@ -501,7 +501,7 @@ class _Govde extends StatelessWidget {
                 final liste = snap.data;
                 if (liste == null) return const SipIskelet(adet: 1);
                 if (liste.isEmpty) {
-                  return const _BosNot('Bu gün teslim edilmiş sipariş yok.');
+                  return const _BosNot('Bu gün teslim edilmiş sipariş yok');
                 }
                 return DegerKarti(
                   satirlar: [

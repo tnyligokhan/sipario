@@ -244,7 +244,7 @@ class MusteriSiparisleriEkrani extends StatelessWidget {
                         const SipBosDurum(
                           ikon: SipIcons.receipt,
                           baslik: 'Sipariş yok',
-                          aciklama: 'Bu müşteriye henüz sipariş girilmedi.',
+                          aciklama: 'Bu müşteriye henüz sipariş girilmedi',
                         )
                       else
                         MusteriSiparisListesi(

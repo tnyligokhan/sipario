@@ -490,7 +490,7 @@ void main() {
 
       await pumpShell(tester, db);
 
-      for (final giris in ['Ürünler', 'Kuryeler', 'Muaf Telefonlar', 'Ayarlar']) {
+      for (final giris in ['Ürünler', 'Kuryeler', 'Muaf Numaralar', 'Ayarlar']) {
         expect(find.text(giris), findsOneWidget, reason: '$giris çekmecede yok');
       }
 

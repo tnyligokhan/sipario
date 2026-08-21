@@ -153,7 +153,7 @@ void main() {
       await tester.tap(find.text('Yeni'));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
       // Sheet'in AÇILMADIĞINI kaydet düğmesinden anlıyoruz: "Yeni Müşteri" boş durumun eylem
       // düğmesinde de geçtiği için ayırt edici değil.
       expect(find.text('Müşteriyi Kaydet'), findsNothing, reason: 'sheet hiç açılmamalı');
@@ -231,7 +231,7 @@ void main() {
       // "Düzeltme" ızgaradan çıktı (tasarım `gridTemplateColumns: '1fr 1fr'`); yeri defter
       // başlığının sağındaki bağlantı.
       expect(find.text('Düzeltme'), findsNothing);
-      expect(find.text('± Bakiye Düzeltme'), findsOneWidget);
+      expect(find.text('Bakiye Düzeltme'), findsOneWidget);
       expect(find.text('Kupon'), findsNothing);
 
       await kapat(tester);
@@ -296,9 +296,10 @@ void main() {
       await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: true, yetki: tamYetki));
 
       // Düzeltme artık defter başlığının sağındaki bağlantıdan açılır (CSS `.md-duzelt-link`).
-      await tester.tap(find.text('± Bakiye Düzeltme'));
+      await tester.tap(find.text('Bakiye Düzeltme'));
       await tester.pumpAndSettle();
-      expect(find.text('Bakiye Düzeltme'), findsOneWidget);
+      expect(find.text('Bakiye Düzeltme'), findsNWidgets(2),
+          reason: 'bağlantı ve açılan sayfanın başlığı aynı adı taşır');
       expect(find.text(trBuyuk('Tutar (₺)')), findsOneWidget);
 
       // Sheet'in alanları: 0 = tutar, 1 = açıklama.
@@ -307,8 +308,8 @@ void main() {
 
       // Açıklama boşken kayıt DURUR (defter düzeltmesinin nedeni yazılmadan işlenmez).
       await kaydetVeBekle(tester, 'Düzeltmeyi Kaydet');
-      expect(find.text('Açıklama girin — düzeltmenin nedeni deftere yazılır'), findsOneWidget);
-      expect(find.text('Bakiye Düzeltme'), findsOneWidget, reason: 'sheet açık kalmalı');
+      expect(find.text('Düzeltmenin nedenini yazın, deftere kaydedilir'), findsOneWidget);
+      expect(find.text('Bakiye Düzeltme'), findsNWidgets(2), reason: 'sayfa açık kalmalı');
 
       late List<LedgerEntry> erken;
       await tester.runAsync(() async {
@@ -348,7 +349,7 @@ void main() {
       await tester.tap(find.text('Tahsilat'));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
       expect(find.text('Tahsilat Al'), findsNothing);
 
       await tester.pump(const Duration(seconds: 5));
@@ -362,11 +363,12 @@ void main() {
       await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: id, writable: false, yetki: tamYetki));
 
       // Bağlantı salt-okunurda da ÇİZİLİR (tasarımda koşulsuz) — kapı toast'la kendini söyler.
-      await tester.tap(find.text('± Bakiye Düzeltme'));
+      await tester.tap(find.text('Bakiye Düzeltme'));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
-      expect(find.text('Bakiye Düzeltme'), findsNothing);
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
+      expect(find.text('Düzeltmeyi Kaydet'), findsNothing,
+          reason: 'sayfa hiç açılmamalı — bağlantı kendisi ekranda kalır');
 
       await tester.pump(const Duration(seconds: 5));
       await kapat(tester);

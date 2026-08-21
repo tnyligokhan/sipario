@@ -117,7 +117,7 @@ class _UygulamaAyarlariEkraniState extends State<UygulamaAyarlariEkrani> {
                     onTap: () {
                       final sihirbaz = widget.onSihirbaz;
                       if (sihirbaz == null) {
-                        SipToast.goster(context, 'Kurulum sihirbazı bu görünümde bağlı değil.');
+                        SipToast.goster(context, 'Kurulum sihirbazı şu an açılamıyor');
                       } else {
                         sihirbaz();
                       }

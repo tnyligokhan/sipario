@@ -129,7 +129,7 @@ Future<void> kapanmamisGunlerSheet(
             return const SipBosDurum(
               ikon: SipIcons.check,
               baslik: 'Kapanmamış gün yok',
-              aciklama: 'Son günlerin hepsi kapalı.',
+              aciklama: 'Son on dört günün hesabı kapatılmış',
             );
           }
           // AÇIKLAMA KUTUSU KALDIRILDI (2026-08-21 kullanıcı isteği): "kapatmasam ne olur"

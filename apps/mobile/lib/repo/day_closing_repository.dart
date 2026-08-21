@@ -260,11 +260,11 @@ class DayClosingRepository {
     // KAPI, KAPATILAN GÜNE sorulur ("bugün"e değil): geçmiş bir günü kapatan çağrı da o günün
     // kapanışına takılmalı, yoksa dün iki kez kapatılabilirdi.
     if (await kapaliMi(ClosingScope.day, localDate: gun)) {
-      throw StateError('Gün hesabı kapandı; yeniden kapatılamaz.');
+      throw StateError('Gün hesabı kapandı; yeniden kapatılamaz');
     }
     if (scope == ClosingScope.courier &&
         await kapaliMi(ClosingScope.courier, userId: userId, localDate: gun)) {
-      throw StateError('Bu kuryenin hesabı kapandı; yeniden kapatılamaz.');
+      throw StateError('Bu kuryenin hesabı kapandı; yeniden kapatılamaz');
     }
 
     final on = await onizle(scope, userId: userId, localDate: localDate);

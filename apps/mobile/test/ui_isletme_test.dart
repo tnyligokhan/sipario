@@ -119,7 +119,7 @@ void main() {
       await sheetAc(tester, (ctx) => urunFormuAc(ctx, db: db));
       await dokun(tester, find.text('Görsel Ekle'));
 
-      expect(find.textContaining('cihaz galerisi eklentisiyle gelecek'), findsOneWidget);
+      expect(find.textContaining('Ürün görseli yakında eklenecek'), findsOneWidget);
       expect(find.text('Görsel yüklendi'), findsNothing,
           reason: 'seçim olmadan "yüklendi" yazmak yalan olurdu');
 
@@ -146,7 +146,7 @@ void main() {
       await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
 
       // CSS `.gs-engel`
-      expect(find.text('Önce açık siparişleri kapatın: 1 açık sipariş var.'), findsOneWidget);
+      expect(find.text('Önce açık siparişleri kapatın: 1 açık sipariş var'), findsOneWidget);
 
       final kapatDugmesi = tester.widget<SipButon>(
         find.widgetWithText(SipButon, 'Günü Kapat'),
@@ -228,7 +228,7 @@ void main() {
       await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
 
       expect(
-        find.textContaining(RegExp(r'^Bugün \d{2}:\d{2} saatinde kapatıldı, \d+ teslimat')),
+        find.textContaining(RegExp(r'^Bugün \d{2}:\d{2}, \d+ teslimat')),
         findsOneWidget,
         reason: 'yalnız saat basılınca iki günün kapanışı aynı görünüyordu (tasarım {a.tarih})',
       );
@@ -264,8 +264,8 @@ void main() {
       final dugme = tester.widget<SipButon>(find.widgetWithText(SipButon, 'Hesabı Kapat'));
       expect(dugme.onTap, isNull, reason: 'kapatma yalnız yöneticidedir (2026-08-11)');
       expect(
-        find.text('Hesabı yönetici kapatır. Siz günlük tahsilat ve teslimat dökümünüzü '
-            'görebilirsiniz.'),
+        find.text('Günü işletme sahibi kapatır. Siz kendi tahsilat ve teslimat '
+            'dökümünüzü görürsünüz.'),
         findsOneWidget,
         reason: 'sessizce devre dışı bir düğme sebebini söylemeli',
       );
@@ -350,11 +350,11 @@ void main() {
       await akislariBekle(tester, tur: 2);
 
       expect(find.text('EKSİK'), findsOneWidget, reason: 'CSS .kd-fark eksik şeridi');
-      expect(find.text('Eksik tutar kanıt olarak arşive geçer; kapatma engellenmez.'),
+      expect(find.text('Eksik tutar kayda geçer'),
           findsOneWidget);
 
       final dugme = tester.widget<SipButon>(
-        find.widgetWithText(SipButon, 'Kapat ve Kaydet'),
+        find.widgetWithText(SipButon, 'Kapat ve Arşivle'),
       );
       expect(dugme.onTap, isNotNull, reason: 'fark ≠ 0 kapatmayı ENGELLEMEZ');
 

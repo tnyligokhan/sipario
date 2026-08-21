@@ -391,8 +391,8 @@ class _OrderListScreenState extends State<OrderListScreen> {
         aciklama: _kuryeId != null
             ? '${_kuryeAdi ?? 'Seçili kurye'} için bu filtrede sipariş yok.'
             : _filtre == OrderFilter.acik
-                ? 'Açık sipariş yok. Yeni sipariş için + düğmesine dokunun.'
-                : 'Bu filtrede sipariş bulunmuyor.',
+                ? 'Yeni sipariş eklemek için alttaki ekle düğmesini kullanın'
+                : 'Bu filtrede sipariş bulunmuyor',
       );
 
   // ── Eylemler ────────────────────────────────────────────────────────────────────────────
@@ -473,7 +473,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
   Future<void> _yenidenSirala(List<OrderListItem> yeniSira) async {
     setState(() => _elleSira = [for (final e in yeniSira) e.order.id]);
     if (!widget.writable) {
-      SipToast.goster(context, 'Aboneliğiniz sona erdiği için sıra kaydedilmedi.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için sıra kaydedilmedi');
       return;
     }
     await elleSirayiYaz(widget.db, yeniSira);

@@ -167,13 +167,13 @@ void main() {
 
       // Açılışta: ad · telefon · adres · bölge · not
       expect(find.byType(TextField), findsNWidgets(4));
-      expect(find.text('+ Telefon ekle (1/3)'), findsOneWidget);
+      expect(find.text('Telefon ekle (1/3)'), findsOneWidget);
 
-      await tester.tap(find.text('+ Telefon ekle (1/3)'));
+      await tester.tap(find.text('Telefon ekle (1/3)'));
       await tester.pumpAndSettle();
       expect(find.byType(TextField), findsNWidgets(5));
       expect(find.text(trBuyuk('Telefon 2')), findsOneWidget);
-      expect(find.text('+ Telefon ekle (2/3)'), findsOneWidget);
+      expect(find.text('Telefon ekle (2/3)'), findsOneWidget);
 
       await tester.tap(find.bySemanticsLabel('Telefonu sil'));
       await tester.pumpAndSettle();
@@ -213,7 +213,7 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       await formuAc(tester, db);
 
-      await tester.tap(find.text('+ Telefon ekle (1/3)'));
+      await tester.tap(find.text('Telefon ekle (1/3)'));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField).at(0), 'Tek Numara');

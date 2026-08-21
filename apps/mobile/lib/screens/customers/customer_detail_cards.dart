@@ -147,7 +147,7 @@ class _KonumCipi extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (calisiyor)
-                Text('Konum alınıyor…',
+                Text('Konum alınıyor',
                     style: SipText.metin(12, w: 600).copyWith(color: SipTokens.onHeroStrong))
               else if (varMi) ...[
                 const SipIcon(SipIcons.check, boyut: 13, kalinlik: 2.6, renk: SipTokens.heroDot),

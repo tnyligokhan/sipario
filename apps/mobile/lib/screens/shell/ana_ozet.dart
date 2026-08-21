@@ -243,7 +243,7 @@ Stream<List<SonHareket>> watchSonHareketler(AppDatabase db, {int limit = 3}) {
       .map((rows) => rows
           .map((r) => SonHareket(
                 siparisId: r.read<String>('id'),
-                musteriAd: r.read<String?>('musteri') ?? 'Kayıtsız müşteri',
+                musteriAd: r.read<String?>('musteri') ?? 'Tezgâh satışı',
                 tutarKurus: r.read<int>('tutar'),
                 odemeTipi: r.read<String?>('odeme'),
                 occurredAt: r.read<String>('zaman'),

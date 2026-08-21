@@ -103,7 +103,7 @@ void main() {
     test('hedef uygulama yoksa ÇÖKMEZ, Türkçe gerekçe döner', () async {
       final sahte = SahteAcici(acilir: false);
       uriAcici = sahte.ac;
-      expect(await whatsappAc('05324152290'), 'WhatsApp açılamadı — telefonda yüklü değil');
+      expect(await whatsappAc('05324152290'), 'WhatsApp bu telefonda yüklü değil');
       expect(sahte.denenen.length, 2, reason: 'iki aday da denenmeli');
     });
 
@@ -118,7 +118,7 @@ void main() {
       final sahte = SahteAcici();
       uriAcici = sahte.ac;
       const adres = AdresBilgi(metin: 'Lara Cad. 12');
-      expect(await konumuHaritadaAc(adres), 'Konum kayıtlı değil — müşteri detayından alın');
+      expect(await konumuHaritadaAc(adres), 'Konum kayıtlı değil. Müşteri detayından alabilirsiniz');
       expect(sahte.denenen, isEmpty);
     });
   });

@@ -313,7 +313,7 @@ void main() {
       // ASIL SÖZLEŞME: tutamaç ve elle bandı YOK.
       expect(find.byType(ReorderableDragStartListener), findsNothing);
       expect(find.text('Bitti'), findsNothing);
-      expect(find.text('Tutamaçtan sürükleyip bırak, bitince “Bitti”ye bas.'), findsNothing);
+      expect(find.text('Tutamaçtan sürükleyip bırakın, bitince "Bitti"ye dokunun'), findsNothing);
 
       await ekraniKapat(tester);
     });

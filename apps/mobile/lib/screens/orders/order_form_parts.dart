@@ -123,7 +123,7 @@ class _FavoriHapi extends StatelessWidget {
 /// Kurye seçilmeden kaydetmeye çalışılınca alt çubukta çıkan uyarı (kullanıcı kararı
 /// 2026-08-13). Sepet boş uyarısıyla AYNI yüzeyi ve sarsıntıyı kullanır — bu ekranda
 /// "eksik bir şey var" demenin tek bir dili vardır.
-const String kuryeZorunluUyarisi = 'Siparişi kaydetmeden önce bir görevli seçin.';
+const String kuryeZorunluUyarisi = 'Siparişi kaydetmeden önce bir görevli seçin';
 
 /// Kurye seçimini açan çip (kullanıcı isteği 2026-08-13).
 ///
@@ -235,7 +235,7 @@ class MusteriSecimAdimi extends StatelessWidget {
               const EdgeInsets.fromLTRB(SipSpace.govde, SipSpace.md, SipSpace.govde, SipSpace.xl),
           child: SipArama(
             controller: arama,
-            ipucu: 'İsim ya da telefon ara…',
+            ipucu: 'İsim ya da telefon ara',
             onChanged: onSorgu,
             onTemizle: onTemizle,
             // Tasarımdaki `autoFocus` (s-siparisler.jsx:305). Bu adımın TEK işi müşteriyi
@@ -424,7 +424,7 @@ class SiparisOzetiAdimi extends StatelessWidget {
         const SdxSec('Sipariş Notu'),
         SipInput(
           controller: not,
-          ipucu: 'Kapı kodu, teslim saati, özel istek…',
+          ipucu: 'Kapı kodu, teslim saati, özel istek',
           satirlar: 2,
         ),
       ],

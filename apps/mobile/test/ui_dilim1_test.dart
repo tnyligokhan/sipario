@@ -80,7 +80,7 @@ void main() {
 
     test('firma kodu: 3 haneden kısa ya da yasak karakter reddedilir', () {
       expect(girisHatalari(firma: 'ab', kullanici: 'patron', parola: 'sifre'),
-          containsPair('firma', 'Geçersiz firma kodu (en az 3 harf/rakam)'));
+          containsPair('firma', 'Firma kodu en az 3 harf ya da rakam olmalı'));
       // Nokta ve alt çizgi firma kodunda YOKtur (yalnız harf/rakam/tire) — kullanıcı adından
       // farkı budur; tasarımın iki ayrı regex'i var, ikisi de burada sabitlenir.
       expect(girisHatalari(firma: 'merkez.bayi', kullanici: 'patron', parola: 'sifre'),
@@ -92,14 +92,14 @@ void main() {
       // Giriş yüzeyi e-postadan kullanıcı adına taşındı; "@" içeren giriş sessizce
       // kabul edilirse eski alışkanlık sunucuda 422'ye çarpar ve sebebi anlaşılmaz.
       expect(girisHatalari(firma: 'merkezbayi', kullanici: 'a@b.com', parola: 'sifre'),
-          containsPair('kullanici', 'Geçersiz kullanıcı adı (en az 3 harf/rakam)'));
+          containsPair('kullanici', 'Kullanıcı adı en az 3 harf ya da rakam olmalı'));
     });
 
     test('parola: boş ile kısa AYRI mesaj verir', () {
       expect(girisHatalari(firma: 'merkezbayi', kullanici: 'patron', parola: ''),
           containsPair('parola', 'Parola boş bırakılamaz'));
       expect(girisHatalari(firma: 'merkezbayi', kullanici: 'patron', parola: 'abc'),
-          containsPair('parola', 'Parola en az 4 karakter'));
+          containsPair('parola', 'Parola en az 4 karakter olmalı'));
     });
 
     test('sunucu adresi yalnız "Gelişmiş" AÇIKKEN ve doluyken sınanır', () {
@@ -288,7 +288,7 @@ void main() {
       await tester.tap(find.text('Yeni'));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
       // Form sheet'i açılmamalı — başlığı ağaçta olmamalı.
       expect(find.text('Yeni müşteri'), findsNothing);
       expect(find.byType(TextField), findsOneWidget,

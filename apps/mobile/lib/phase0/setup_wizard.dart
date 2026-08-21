@@ -95,7 +95,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
         title: 'Bildirimler',
         description:
             'Telefon kilitliyken arayan müşterinin bilgisi bildirimle taşınır. '
-            'Bu izin olmadan kilitli ekranda hiçbir şey gösteremeyiz.',
+            'Bu izin olmadan kilitli ekranda hiçbir şey görünmez.',
         statusKey: 'hasNotificationPermission',
         actionMethod: 'requestNotificationPermission',
         actionLabel: 'İzin ver',
@@ -104,7 +104,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
         icon: Icons.phone_callback_outlined,
         title: 'Çağrı tarama',
         description:
-            'Telefon çaldığında arayan numarayı görmemizi sağlayan sistem rolü. '
+            'Telefon çaldığında arayan numaranın okunmasını sağlayan sistem rolü. '
             'Bu izni vermezseniz arayan tanıma çalışmaz.',
         statusKey: 'hasScreeningRole',
         actionMethod: 'requestScreeningRole',
@@ -115,7 +115,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
         title: 'Rehber erişimi',
         description:
             'Telefon rehberinize kayıtlı müşteriler aradığında da kartın çıkması '
-            'için gerekli. Android, bu izin olmadan rehberdeki numaralarda bizi '
+            'için gerekli. Android, bu izin olmadan rehberdeki numaralarda uygulamayı '
             'hiç uyandırmıyor. Rehberiniz hiçbir yere gönderilmez.',
         statusKey: 'hasContactsPermission',
         actionMethod: 'requestContactsPermission',
@@ -123,7 +123,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
       ),
       const _WizardStep(
         icon: Icons.picture_in_picture_alt_outlined,
-        title: 'Üstte gösterme',
+        title: 'Diğer uygulamaların üzerinde göster',
         description:
             'Müşteri kartı, telefon uygulamasının üstünde küçük bir pencere '
             'olarak çıkar. Açılan listede Sipario\'yu bulup izni açın, sonra '

@@ -228,9 +228,9 @@ class SipHataEkran extends StatelessWidget {
     return SipBosDurum(
       hata: true,
       ikon: SipIcons.alert,
-      baslik: 'Bir şeyler ters gitti',
+      baslik: 'Liste yüklenemedi',
       aciklama: aciklama ??
-          'Liste yüklenemedi. Tekrar deneyin.',
+          'Bağlantınızı kontrol edip tekrar deneyin',
       aksiyon: onTekrar == null ? null : 'Tekrar Dene',
       onAksiyon: onTekrar,
     );

@@ -75,7 +75,7 @@ void main() {
 
       await kuryeKapanisiAc(tester, db);
 
-      expect(find.textContaining('Sunucuya son ulaşma: 45 dk önce'), findsOneWidget);
+      expect(find.textContaining('45 dk önce güncellendi'), findsOneWidget);
       expect(find.textContaining('henüz inmemiş olabilir'), findsOneWidget);
 
       // DÜRÜST DİL: tamamlanmışlık iddiası YOK.
@@ -104,7 +104,7 @@ void main() {
 
       await kuryeKapanisiAc(tester, db);
 
-      expect(find.textContaining('Sunucuya son ulaşma: 2 dk önce'), findsOneWidget);
+      expect(find.textContaining('2 dk önce güncellendi'), findsOneWidget);
       expect(find.textContaining('henüz inmemiş olabilir'), findsNothing,
           reason: 'tazeyken uyarı cümlesi çizilmez');
 
@@ -121,7 +121,7 @@ void main() {
 
       await kuryeKapanisiAc(tester, db);
 
-      expect(find.textContaining('sunucuya hiç ulaşmadı'), findsOneWidget);
+      expect(find.textContaining('sunucuya henüz hiç bağlanmadı'), findsOneWidget);
       expect(find.textContaining('0 dk önce'), findsNothing);
 
       await kapat(tester);
@@ -142,7 +142,7 @@ void main() {
       await dokun(tester, find.text('Günü Kapat'));
       await sheetAnimasyonu(tester);
 
-      expect(find.textContaining('Sunucuya son ulaşma: 45 dk önce'), findsOneWidget);
+      expect(find.textContaining('45 dk önce güncellendi'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -180,7 +180,7 @@ void main() {
       await dokun(tester, find.text('Ara Tahsilat'));
       await sheetAnimasyonu(tester);
 
-      expect(find.textContaining('Sunucuya son ulaşma: 45 dk önce'), findsOneWidget);
+      expect(find.textContaining('45 dk önce güncellendi'), findsOneWidget);
 
       await kapat(tester);
     });

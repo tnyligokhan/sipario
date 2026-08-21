@@ -33,7 +33,7 @@ class SiparisKoduSatiri extends StatelessWidget {
 
   Future<void> _sec(BuildContext context, String mevcut) async {
     if (!writable) {
-      SipToast.goster(context, 'Aboneliğiniz sona erdiği için ayar değiştirilemiyor.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için ayar değiştirilemiyor');
       return;
     }
     final secim = await sipSheet<String>(

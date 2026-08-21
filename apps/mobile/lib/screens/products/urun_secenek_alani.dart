@@ -107,7 +107,7 @@ class _UrunSecenekAlaniState extends State<UrunSecenekAlani> {
     // AYNI AD İKİ KEZ EKLENEMEZ — seçim `ad` üzerinden eşleşiyor (gerekçe `secenekleriCoz`).
     // Sessizce yutmak yerine söylenir: bayi yazdığı şeyin nereye gittiğini bilmeli.
     if (widget.secenekler.any((s) => s.ad.toLowerCase() == ad.toLowerCase())) {
-      SipToast.goster(context, '"$ad" listede zaten var.');
+      SipToast.goster(context, '"$ad" listede zaten var');
       return;
     }
     widget.onDegis([...widget.secenekler, UrunSecenegi(ad: ad)]);
@@ -134,7 +134,7 @@ class _UrunSecenekAlaniState extends State<UrunSecenekAlani> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const AlanNotu(
-            'Listeyi ekledikten sonra malzemeleri düzenleyebilir ya da silebilirsiniz.',
+            'Listeyi ekledikten sonra malzemeleri düzenleyebilir ya da silebilirsiniz',
           ),
           const SizedBox(height: SipSpace.md),
           for (final s in kSecenekSablonlari)
@@ -158,7 +158,7 @@ class _UrunSecenekAlaniState extends State<UrunSecenekAlani> {
         if (!mevcut.contains(s.ad.toLowerCase())) s,
     ];
     if (eklenecek.isEmpty) {
-      SipToast.goster(context, 'Bu listedeki malzemelerin hepsi zaten ekli.');
+      SipToast.goster(context, 'Bu listedeki malzemelerin hepsi zaten ekli');
       return;
     }
     widget.onDegis([...widget.secenekler, ...eklenecek].take(kSecenekUstSinir).toList());
@@ -205,12 +205,12 @@ class _UrunSecenekAlaniState extends State<UrunSecenekAlani> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SipFormEtiket('İÇİNDEKİLER (OPSİYONEL)'),
+        const SipFormEtiket('İçindekiler (isteğe bağlı)'),
         // BOŞ DURUM AÇIKLAYICI: düzenleyiciyi yeni açan bayi özelliğin ne işe yaradığını
         // burada öğrenir. Metin suçlayıcı değil bilgilendirici — malzemesiz ürün de meşrudur.
         if (liste.isEmpty)
           const AlanNotu(
-            'Malzeme eklerseniz sipariş alırken "soğansız" gibi seçimler yapabilirsiniz.',
+            'Malzeme eklerseniz sipariş alırken "soğansız" gibi seçimler yapabilirsiniz',
           ),
 
         for (var i = 0; i < liste.length; i++)
@@ -229,7 +229,7 @@ class _UrunSecenekAlaniState extends State<UrunSecenekAlani> {
             Expanded(
               child: SipInput(
                 controller: _yeni,
-                ipucu: _doldu ? 'Liste dolu ($kSecenekUstSinir)' : 'Malzeme adı…',
+                ipucu: _doldu ? 'Liste dolu ($kSecenekUstSinir)' : 'Malzeme adı',
                 aktif: !_doldu,
                 onSubmitted: (_) => _ekle(),
               ),

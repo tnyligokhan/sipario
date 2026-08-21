@@ -35,8 +35,8 @@ String odemeTuruAdi(String tur) => switch (tur) {
 
 /// Boş durum metni — hem sheet hem bölüm bunu kullanır.
 String tahsilatBosMetni(String? odemeTuru) => odemeTuru == null
-    ? 'Bugün kasaya giren bir tahsilat yok.'
-    : 'Bugün ${odemeTuruAdi(odemeTuru).toLowerCase()} tahsilat yok.';
+    ? 'Bugün kasaya giren bir tahsilat yok'
+    : 'Bugün ${odemeTuruAdi(odemeTuru).toLowerCase()} tahsilat yok';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Satır

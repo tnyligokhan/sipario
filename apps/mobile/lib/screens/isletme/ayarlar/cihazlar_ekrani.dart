@@ -68,7 +68,7 @@ class _CihazlarEkraniState extends State<CihazlarEkrani> {
   Future<_Sonuc> _yukle() async {
     final meta = await widget.db.syncState();
     final token = meta.authToken;
-    if (token == null) throw CihazApiException('Oturum bulunamadı.');
+    if (token == null) throw CihazApiException('Oturum bulunamadı');
     final api = widget.apiFabrikasi != null
         ? widget.apiFabrikasi!(Session.baseUrlOf(meta), token)
         : CihazApi(baseUrl: Session.baseUrlOf(meta), token: token);
@@ -123,7 +123,7 @@ class _Liste extends StatelessWidget {
     final t = context.sip;
     if (sonuc.cihazlar.isEmpty) {
       return const SipGovde(children: [
-        SipBosDurum(baslik: 'Kayıtlı cihaz yok', aciklama: 'Bu hesap henüz hiçbir cihaza bağlanmamış.'),
+        SipBosDurum(baslik: 'Kayıtlı cihaz yok', aciklama: 'Bu hesap henüz hiçbir cihaza bağlanmamış'),
       ]);
     }
 
@@ -139,7 +139,7 @@ class _Liste extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(top: SipSpace.xl, bottom: SipSpace.md),
           child: Text(
-            '${sonuc.cihazlar.length} cihaz bu hesaba bağlı.',
+            '${sonuc.cihazlar.length} cihaz bu hesaba bağlı',
             style: SipText.metin(12.5, w: 600).copyWith(color: t.ink2),
           ),
         ),
@@ -159,7 +159,7 @@ class _Liste extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.only(top: SipSpace.xl),
           child: AlanNotu(
-            'Parolanızı değiştirirseniz tüm cihazlardaki oturumlar kapanır.',
+            'Parolanızı değiştirirseniz tüm cihazlardaki oturumlar kapanır',
             tur: AlanNotuTuru.bilgi,
           ),
         ),
@@ -179,7 +179,7 @@ class _Hata extends StatelessWidget {
   Widget build(BuildContext context) {
     final mesaj = hata is CihazApiException
         ? (hata as CihazApiException).mesaj
-        : 'Cihaz listesi alınamadı.';
+        : 'Cihaz listesi alınamadı';
     return SipGovde(children: [
       Padding(
         padding: const EdgeInsets.only(top: SipSpace.x3),

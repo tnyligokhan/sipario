@@ -371,7 +371,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
               const Padding(
                 padding: EdgeInsets.fromLTRB(SipSpace.govde, SipSpace.lg, SipSpace.govde, 0),
                 child: SipNotKutusu(
-                  metin: 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor.',
+                  metin: 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor',
                   ikon: SipIcons.lock,
                   tur: SipNotTuru.hata,
                 ),

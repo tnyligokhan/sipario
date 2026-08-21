@@ -34,7 +34,7 @@ import 'kurye_karti.dart';
 import 'kurye_yetkileri_ekrani.dart';
 
 /// Salt-okunur kip uyarısı — ürün/muaf ekranlarındaki eşdeğerleriyle aynı dil.
-const String kuryeSaltOkunurUyarisi = 'Aboneliğiniz sona erdiği için kayıt değiştirilemiyor.';
+const String kuryeSaltOkunurUyarisi = 'Aboneliğiniz sona erdiği için kayıt değiştirilemiyor';
 
 /// Kimlik güncelleme dikişi — testler bunu sahteler.
 Future<bool> Function({

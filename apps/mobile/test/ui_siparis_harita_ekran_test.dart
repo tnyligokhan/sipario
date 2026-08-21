@@ -79,7 +79,7 @@ void main() {
 
       expect(find.byType(DurakPini), findsOneWidget);
       // Metin SÖZLEŞMEDİR: sessizce yutulan sipariş, eksik koşulan rota demektir.
-      expect(find.text('1 sipariş konumsuz — haritada yok'), findsOneWidget);
+      expect(find.text('1 siparişin konumu yok, haritada görünmüyor'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -264,7 +264,7 @@ void main() {
 
       expect(find.byType(FlutterMap), findsNothing);
       expect(find.text('Haritada gösterilecek sipariş yok'), findsOneWidget);
-      expect(find.text('1 sipariş konumsuz — haritada yok'), findsOneWidget);
+      expect(find.text('1 siparişin konumu yok, haritada görünmüyor'), findsOneWidget);
 
       await ekraniKapat(tester);
     });

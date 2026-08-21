@@ -45,15 +45,15 @@ String? otoKilitNedeni({
   required int? hak,
   required int durakSayisi,
 }) {
-  if (!yazilabilir) return 'Aboneliğiniz sona erdiği için sıra kaydedilemiyor.';
-  if (hak == null) return 'Hak bilgisi henüz inmedi. İlk senkrondan sonra kullanabilirsiniz.';
-  if (hak <= 0) return 'Oto sıralama hakkı kalmadı.';
+  if (!yazilabilir) return 'Aboneliğiniz sona erdiği için sıra kaydedilemiyor';
+  if (hak == null) return 'Kullanım hakkınız henüz görünmüyor. Sunucuya bağlanınca kullanabilirsiniz.';
+  if (hak <= 0) return 'Oto sıralama hakkı kalmadı';
   if (durakSayisi < 2) return kOtoKumeYetersiz;
   return null;
 }
 
 /// Küme yetersizken yazılan gerekçe. Metin SÖZLEŞMEDİR (testler bu cümleyi arar).
-const String kOtoKumeYetersiz = 'Rota için en az iki açık sipariş gerekir.';
+const String kOtoKumeYetersiz = 'Rota için en az iki açık sipariş gerekir';
 
 /// Sunucudan SIRA ÖNERİSİ ister, dönen sırayı normal yazma yolundan (`sort_set` olayı) kalıcılar.
 /// Kontörü SUNUCU düşer; istemci yalnız onun bildirdiği kalanı önbelleğe yazar.

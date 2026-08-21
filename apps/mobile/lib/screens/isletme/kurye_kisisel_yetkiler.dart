@@ -162,7 +162,7 @@ class _Govde extends StatelessWidget {
           ),
           const SizedBox(height: SipSpace.sm),
           Text(
-            'Kişiye özel ayarlar silinir, tüm yetkiler genel ayardan gelir.',
+            'Kişiye özel ayarlar silinir, tüm yetkiler genel ayardan gelir',
             style: SipText.metin(11.5, w: 500).copyWith(color: t.muted),
             textAlign: TextAlign.center,
           ),

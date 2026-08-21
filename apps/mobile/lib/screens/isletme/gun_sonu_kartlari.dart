@@ -332,7 +332,7 @@ class KapatmaEngeli extends StatelessWidget {
     final metin = rolEngeli
         ? 'Günü işletme sahibi kapatır. Siz kendi tahsilat ve teslimat dökümünüzü görürsünüz.'
         : acikSiparis > 0
-            ? 'Önce açık siparişleri kapatın: $acikSiparis açık sipariş var.'
+            ? 'Önce açık siparişleri kapatın: $acikSiparis açık sipariş var'
             : 'Önce açık kurye hesaplarını kapatın: ${acikKuryeler.join(', ')}';
     return _EngelKutusu(metin: metin);
   }

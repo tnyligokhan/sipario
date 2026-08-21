@@ -113,19 +113,19 @@ enum BildirimKategori {
         BildirimKategori.gunKapanisHatirlatma => 'Kapanış hatırlatması',
         BildirimKategori.kullanimHakki => 'Kullanım hakkı',
         BildirimKategori.sistem => 'Uygulama durumu',
-        BildirimKategori.siparisAtandi => 'Size sipariş atandı',
-        BildirimKategori.siparisIptal => 'Sipariş iptal edildi',
-        BildirimKategori.siparisTeslim => 'Teslim edildi',
+        BildirimKategori.siparisAtandi => 'Sipariş ataması',
+        BildirimKategori.siparisIptal => 'Sipariş iptali',
+        BildirimKategori.siparisTeslim => 'Teslimat',
         BildirimKategori.kasaDevri => 'Kasa devri',
         BildirimKategori.yeniCihaz => 'Yeni cihaz girişi',
       };
 
   /// Ayarlar ekranındaki tek satırlık açıklama — bayi neyi kapattığını bilmeli.
   String get aciklama => switch (this) {
-        BildirimKategori.gunSonuOzeti => 'Akşam kasa ve teslim özeti',
+        BildirimKategori.gunSonuOzeti => 'Her akşam kasa ve teslimat özeti',
         BildirimKategori.gunKapanisHatirlatma => 'Gün kapatılmadığında ya da kasa devredilmediğinde',
-        BildirimKategori.kullanimHakki => 'Oto-sıralama hakkınız azaldığında',
-        BildirimKategori.sistem => 'Bağlantı ve uygulama uyarıları',
+        BildirimKategori.kullanimHakki => 'Oto sıralama hakkınız azaldığında',
+        BildirimKategori.sistem => 'Bağlantı kesildiğinde ya da bir sorun çıktığında',
         BildirimKategori.siparisAtandi => 'Bir sipariş size atandığında',
         BildirimKategori.siparisIptal => 'Size atanan sipariş iptal edildiğinde',
         BildirimKategori.siparisTeslim => 'Kurye bir siparişi teslim ettiğinde',

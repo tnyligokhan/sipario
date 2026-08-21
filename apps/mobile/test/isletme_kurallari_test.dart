@@ -385,10 +385,10 @@ void main() {
     test('bildirim gerekçesi tasarımın cümlesidir (anlam kayması regresyonu)', () {
       final bildirim = izinAdimlari.firstWhere((i) => i.anahtar == 'bildirim');
       expect(bildirim.neden,
-          'Yeni sipariş, senkron ve borç hatırlatmalarını size iletebilmek için.',
+          'Yeni sipariş ve borç hatırlatmalarını size iletebilmek için',
           reason: 'kilit ekranı gerekçesi buraya yazılmıştı — o ayrı bir adımın işi');
       expect(izinAdimlari.firstWhere((i) => i.anahtar == 'kilit').neden,
-          'Telefon kilitliyken bile çağrı kartının çıkması için.');
+          'Telefon kilitliyken bile çağrı kartının çıkması için');
     });
   });
 

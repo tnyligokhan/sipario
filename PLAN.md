@@ -269,7 +269,73 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-21 — KAPANMAYAN GÜN GÖRÜNÜR OLDU VE KAPATILABİLİYOR · BİLDİRİM MERKEZİ (mobil 0.38.0 → **0.40.0**, API DEĞİŞMEDİ 1.13.0)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-21/2 — UYGULAMA METNİ BAŞTAN SONA YENİDEN YAZILDI · TEST TABANI KIRMIZIYDI, KAPATILDI (mobil 0.40.0 → **0.41.0**, API DEĞİŞMEDİ 1.13.0)
+
+Tek istek vardı: "tüm metinleri elden geçir". İki iş çıktı — biri istenendi, biri ölçünce ortaya çıktı.
+
+#### ⭐ Metin artık yazılı bir kurala uyuyor
+
+Bu depoda metin kuralı YAZILI DEĞİLDİ; sonucu, her vardiyanın kendi diliyle yazmasıydı.
+Ölçülen sapmalar: aynı özelliğin iki adı ("Arama tanıma" / "Arayan tanıma"), aynı cümlenin
+iki noktalaması, İngilizce sızıntı ("Caller ID kartı açılmaz", "POS katalogda karo üzerinde
+görünür"), birinci çoğul şahıs ("gösteremeyiz", "erişiriz", "isteyeceğiz") ve başlığını
+tekrar eden boş durumlar ("Hareket yok" / "Henüz hareket yok.").
+
+**KURAL (tam hâli DECISIONS.md'de):**
+
+1. Tek cümlelik kısa metin (toast · etiket · düğme · alt başlık · boş durum açıklaması)
+   **nokta almaz**; iki ve daha fazla cümleli açıklama normal noktalama alır.
+2. Ünlem, üç nokta, em-tire ve süsleme işareti (`+`, `±`) yok; `&` yerine "ve".
+3. İngilizce terim yok. Android izinleri telefonun kendi Türkçe adıyla anılır.
+4. Uygulama ikinci şahısla konuşur, "biz" demez.
+5. Boş durum açıklaması başlığı tekrar etmez, ne yapılacağını söyler.
+6. Bir şey yapılamadığında sebep tek cümleyle yazılır.
+
+**Kapsam:** `apps/mobile/lib` altında 90 dosya · 188 metin noktalamadan arındı · ~60 metin
+yeniden yazıldı.
+
+| Kalıcı adlandırma kararı | Eski | Yeni |
+|---|---|---|
+| Menü satırı | Muaf Telefonlar | **Muaf Numaralar** |
+| Gün kapatma düğmesi | Kapat ve Kaydet | **Kapat ve Arşivle** |
+| Bildirim kategorileri | "Size sipariş atandı" | **Sipariş ataması** (isim öbeği) |
+| Kontör | Oto-sıralama | **Oto sıralama** |
+| İzin adımı | Üste çizim izni | **Diğer uygulamaların üzerinde göster** |
+
+> Bildirim kanalının **adı** serbesttir, `wire` DEĞİŞMEDİ — sahadaki bayinin sistemden kıstığı
+> kanal öksüz kalmaz.
+
+**DOKUNULMAYANLAR ve gerekçeleri:** `surum_notlari.dart` geçmiş maddeleri (tarihî kayıttır,
+yeniden yazılmaz) · borç hatırlatma şablonu (`borc_hatirlatma.dart`) — o bir arayüz metni
+değil, bayinin ağzından müşteriye giden mektuptur, tam cümle noktalaması korunur.
+
+#### ⚠️ İKİNCİ BULGU — TEST TABANI ZATEN KIRMIZIYDI
+
+İş başlamadan ölçüldü: `flutter test` → **1391 yeşil / 73 KIRMIZI**.
+
+- Yetmiş üçünün **tamamı** bayat metin bekleyişiydi: `lib` daha önceki vardiyalarda em-tireli
+  dilden ("Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.") vazgeçmiş, testler eski cümlede
+  kalmıştı.
+- Bir önceki devir notu "flutter test 1464 yeşil" diyor. **1464 TOPLAM sayıdır**, yeşil sayısı
+  değil. Otomatik commit kancasının "hizli kapi yesil" mesajı da suite'i koşmuyor.
+- **DERS:** "yeşil" bir hafıza değil bir ölçümdür. Devir notuna yazılan sayı bundan sonra
+  `+N -M` biçiminde, kırmızı sayısıyla birlikte yazılır.
+- Yetmiş üçünün hepsi bu vardiyada kapatıldı. Kendi değişikliğimin kırdığı 8 test de ayrıca
+  ölçüldü (taban listesiyle `comm -13` farkı alınarak) ve düzeltildi.
+
+#### Kapılar
+
+`flutter analyze` temiz · `flutter test` **+1464 -0** · sürüm notu yazıldı · pubspec 0.41.0.
+
+#### SONRAKİ KİŞİ BURADAN DEVAM ETSİN
+
+1. **API ve yönetim paneli metinleri bu vardiyanın kapsamı DIŞINDA kaldı** (istek "uygulama"
+   dedi). Aynı kural oraya da uygulanacaksa hedef: `apps/api/resources/views` (panel +
+   e-posta şablonları). Web sitesi metni 2026-08-19/3'te ayrıca sadeleşmişti.
+2. Faz 7 (Antalya pilotu) hâlâ açık — saha/insan işi.
+3. Kalan dışsal işler değişmedi: iyzico anahtarı, mağaza hesapları, hukuk paketi.
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-21 — KAPANMAYAN GÜN GÖRÜNÜR OLDU VE KAPATILABİLİYOR · BİLDİRİM MERKEZİ (mobil 0.38.0 → **0.40.0**, API DEĞİŞMEDİ 1.13.0)
 
 İki iş kolu. Birincisi bir PARA meselesiydi ve en kritik kısmı **hiçbir formüle dokunmamaktı**.
 

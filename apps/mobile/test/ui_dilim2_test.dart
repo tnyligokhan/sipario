@@ -223,7 +223,7 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
-      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsWidgets,
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsWidgets,
           reason: 'kullanıcı neden kaydedemediğini görmeli');
 
       await tester.pump(const Duration(seconds: 5));
@@ -247,7 +247,7 @@ void main() {
       await tester.tap(find.text('Yeni ürün ekle'));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
       expect(find.text('Ürün kaydedildi'), findsNothing, reason: 'form hiç açılmamalı');
 
       await tester.pump(const Duration(seconds: 5));
@@ -290,7 +290,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Henüz ürün yok'), findsOneWidget);
-      expect(find.text('Yukarıdan ekleyin — sipariş satırları buradan seçilir.'), findsOneWidget);
+      expect(find.text('Yukarıdan ekleyin. Sipariş alırken ürünler buradan seçilir.'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));

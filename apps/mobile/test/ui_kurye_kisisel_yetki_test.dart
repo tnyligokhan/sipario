@@ -73,7 +73,7 @@ void main() {
     final db = await kur(tester);
     await ekranAc(tester, db);
 
-    expect(find.text('Ahmet Yıldız — Yetkiler'), findsOneWidget);
+    expect(find.text('Ahmet Yıldız Yetkileri'), findsOneWidget);
     expect(find.text('Kişiye özel 13 izin'), findsOneWidget);
 
     await kapat(tester);

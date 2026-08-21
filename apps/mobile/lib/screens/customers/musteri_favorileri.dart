@@ -282,13 +282,13 @@ class _FavoriSeciciState extends State<_FavoriSecici> {
               const SipBosDurum(
                 ikon: SipIcons.box,
                 baslik: 'Katalog boş',
-                aciklama: 'Önce Ürünler ekranından ürün ekleyin.',
+                aciklama: 'Önce Ürünler ekranından ürün ekleyin',
               )
             else if (liste.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: SipSpace.x3),
                 child: Text(
-                  '“${_ara.text.trim()}” için sonuç yok',
+                  '"${_ara.text.trim()}" için sonuç yok',
                   textAlign: TextAlign.center,
                   style: SipText.metin(13, w: 600).copyWith(color: t.muted),
                 ),

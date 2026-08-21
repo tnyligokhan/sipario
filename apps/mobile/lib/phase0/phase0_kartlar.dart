@@ -174,7 +174,7 @@ class _SetupCard extends StatelessWidget {
             _Step(
               done: hasRole,
               title: 'Çağrı tarama rolü',
-              subtitle: 'Numarayı izin almadan görmemizi sağlar. Zorunlu.',
+              subtitle: 'Numaranın izin almadan okunmasını sağlar. Zorunlu.',
               action: 'Rolü iste',
               onTap: onRequestRole,
             ),
@@ -189,7 +189,7 @@ class _SetupCard extends StatelessWidget {
               done: hasContacts,
               title: 'Rehber erişimi',
               subtitle: 'Telefon rehberinize kayıtlı müşteriler aradığında da kartın '
-                  'çıkması için zorunlu. İzin yoksa Android o aramalarda bizi hiç uyandırmaz.',
+                  'çıkması için zorunlu. İzin yoksa Android o aramalarda uygulamayı hiç uyandırmaz.',
               action: 'İzin ver',
               onTap: onRequestContacts,
             ),

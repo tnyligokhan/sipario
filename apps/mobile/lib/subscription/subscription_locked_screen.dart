@@ -81,7 +81,7 @@ class SubscriptionLockedScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Verileriniz yerinde duruyor ve silinmez.',
+                'Verileriniz yerinde duruyor ve silinmez',
                 style: SipText.kilitMetin.copyWith(color: t.ink2),
                 textAlign: TextAlign.center,
               ),
@@ -96,14 +96,14 @@ class SubscriptionLockedScreen extends StatelessWidget {
                 ikon: SipIcons.check,
                 renk: t.ok,
                 baslik: 'Açık',
-                metin: 'Müşteriler, siparişler, defter ve gün özeti okunmaya devam eder.',
+                metin: 'Müşteriler, siparişler, defter ve gün özeti okunmaya devam eder',
               ),
               const SizedBox(height: SipSpace.md),
               _DurumSatiri(
                 ikon: SipIcons.ban,
                 renk: t.muted,
                 baslik: 'Kapalı',
-                metin: 'Yeni sipariş, tahsilat ve değişiklik kaydedilemez.',
+                metin: 'Yeni sipariş, tahsilat ve değişiklik kaydedilemez',
               ),
 
               if (bitis != null) ...[
@@ -128,7 +128,7 @@ class SubscriptionLockedScreen extends StatelessWidget {
               // sitesine bağlantı ya da çağrı YOK. Yalnız kiminle görüşüleceği söylenir.
               const SizedBox(height: SipSpace.x3),
               Text(
-                'Erişiminizi sürdürmek için işletme yöneticinizle görüşün.',
+                'Erişiminizi sürdürmek için işletme yöneticinizle görüşün',
                 style: SipText.metin(12.5, w: 600, h: 1.5).copyWith(color: t.muted),
                 textAlign: TextAlign.center,
               ),

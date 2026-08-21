@@ -287,7 +287,7 @@ void main() {
       await ikiTahsilat();
       expect(
         () => CashHandoverRepository(db).araTahsilatIptal(handoverId: 'yok-boyle-bir-kayit'),
-        hataMetni('Ara tahsilat kaydı bulunamadı; ekranı yenileyip tekrar deneyin.'),
+        hataMetni('Ara tahsilat kaydı bulunamadı; ekranı yenileyip tekrar deneyin'),
       );
     });
 
@@ -299,7 +299,7 @@ void main() {
       await devirler.araTahsilatIptal(handoverId: birinci);
 
       expect(() => devirler.araTahsilatIptal(handoverId: birinci),
-          hataMetni('Bu ara tahsilat zaten iptal edilmiş.'));
+          hataMetni('Bu ara tahsilat zaten iptal edilmiş'));
       expect(await db.select(db.cashHandovers).get(), hasLength(3),
           reason: 'reddedilen iptal HİÇBİR satır yazmaz');
       expect((await devirler.onizle('k1')).expectedKurus, 7000, reason: 'para iki kez dönmedi');
@@ -311,7 +311,7 @@ void main() {
       final iptalId = await devirler.araTahsilatIptal(handoverId: birinci);
 
       expect(() => devirler.araTahsilatIptal(handoverId: iptalId),
-          hataMetni('Bu satır zaten bir iptal kaydı; iptal edilemez.'));
+          hataMetni('Bu satır zaten bir iptal kaydı; iptal edilemez'));
     });
 
     test('KAPANIŞA BAĞLI devir (ara tahsilat değil) iptal edilemez', () async {
@@ -331,7 +331,7 @@ void main() {
 
       expect(
         () => CashHandoverRepository(db).araTahsilatIptal(handoverId: devir.id),
-        hataMetni('Bu devir bir hesap kapanışına ait; ara tahsilat değildir, iptal edilemez.'),
+        hataMetni('Bu devir bir hesap kapanışına ait; ara tahsilat değildir, iptal edilemez'),
         reason: 'kapsam da kapalı ama ÖNCE bu kapı konuşmalı — sebep daha kesin',
       );
     });
@@ -342,7 +342,7 @@ void main() {
           .kapat(scope: ClosingScope.day, countedCashKurus: 6000, localDate: bugun);
 
       expect(() => CashHandoverRepository(db).araTahsilatIptal(handoverId: birinci),
-          hataMetni('Gün hesabı kapandı; ara tahsilat iptal edilemez.'));
+          hataMetni('Gün hesabı kapandı; ara tahsilat iptal edilemez'));
     });
 
     test('KURYENİN hesabı kapandıysa iptal edilemez; diğer kurye serbest kalır', () async {
@@ -358,7 +358,7 @@ void main() {
           scope: ClosingScope.courier, userId: 'k1', countedCashKurus: 3000, localDate: bugun);
 
       expect(() => devirler.araTahsilatIptal(handoverId: birinci),
-          hataMetni('Bu kuryenin hesabı kapandı; ara tahsilat iptal edilemez.'));
+          hataMetni('Bu kuryenin hesabı kapandı; ara tahsilat iptal edilemez'));
       // Kapı KAPSAM BAZLIDIR: bir kuryenin hesabının kapanması ötekini kilitlemez.
       await devirler.araTahsilatIptal(handoverId: k2Tahsilat);
       expect((await devirler.araTahsilatlar(bugun, kuryeId: 'k2')).single.iptalEdildi, isTrue);
@@ -375,7 +375,7 @@ void main() {
       expect(
         () => CashHandoverRepository(db).araTahsilat(fromUserId: 'k1', countedCashKurus: 1000),
         throwsA(isA<StateError>()
-            .having((e) => e.message, 'mesaj', 'Gün hesabı kapandı; ara tahsilat alınamaz.')),
+            .having((e) => e.message, 'mesaj', 'Gün hesabı kapandı; ara tahsilat alınamaz')),
       );
     });
   });

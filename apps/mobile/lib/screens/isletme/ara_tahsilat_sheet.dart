@@ -148,7 +148,7 @@ class _AraTahsilatGovdesiState extends State<_AraTahsilatGovdesi> {
 
         if (widget.beklenen == 0)
           const AlanNotu(
-            'Bu kuryede şu an nakit görünmüyor.',
+            'Bu kuryede şu an nakit görünmüyor',
             tur: AlanNotuTuru.uyari,
           ),
 
@@ -197,8 +197,8 @@ class _AraTahsilatGovdesiState extends State<_AraTahsilatGovdesi> {
         // tutar buradan türemez (kayda giden yalnız [sayilan]), yani paralel hesap doğmaz.
         if (sayilan != null) _KalanSeridi(kalan: widget.beklenen - sayilan),
 
-        const SipFormEtiket('NOT (OPSİYONEL)'),
-        SipInput(controller: _not, ipucu: 'Para üstü bırakıldı, kalan akşam…', satirlar: 2),
+        const SipFormEtiket('Not (isteğe bağlı)'),
+        SipInput(controller: _not, ipucu: 'Ör. para üstü bırakıldı, kalanı akşam alınacak', satirlar: 2),
 
         const SizedBox(height: SipSpace.x3),
         SipButon(

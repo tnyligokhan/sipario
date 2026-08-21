@@ -56,7 +56,7 @@ const String kVarsayilanBirim = 'adet';
 
 /// "Diğer…" satırının etiketi. Seçilince serbest metin girişi açılır — listenin dışında kalan
 /// birimler (damacana, şişe, teneke) bu kapıdan girer; liste onların yerine geçmez.
-const String kBirimDigerEtiketi = 'Diğer…';
+const String kBirimDigerEtiketi = 'Diğer';
 
 /// Türkçe duyarlı küçültme — 'I' → 'ı', 'İ' → 'i'. Dart'ın `toLowerCase`i yerelden bağımsızdır
 /// ve 'İ' için birleşik nokta üretir; sahadan 'LİTRE' gelirse eşleşme sessizce kaçardı.

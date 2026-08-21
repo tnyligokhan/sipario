@@ -324,7 +324,7 @@ class _AcilisHatasi extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SipHataEkran(
-                  aciklama: 'Uygulama açılamadı. Lütfen destek ile iletişime geçin.',
+                  aciklama: 'Uygulama açılamadı. Aşağıdaki mesajı destekle paylaşın.',
                 ),
                 Text(
                   mesaj,

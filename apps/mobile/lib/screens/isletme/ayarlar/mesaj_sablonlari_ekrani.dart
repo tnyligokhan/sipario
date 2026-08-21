@@ -60,7 +60,7 @@ const List<MesajSablonu> kMesajSablonlari = [
   MesajSablonu(
     anahtar: 'hatirlatma',
     baslik: 'Borç Hatırlatma',
-    aciklama: 'Borçlular listesindeki WhatsApp düğmesinden gönderilir.',
+    aciklama: 'Borçlular listesindeki WhatsApp düğmesinden gönderilir',
     oku: _hatirlatmaOku,
     yaz: _hatirlatmaYaz,
   ),

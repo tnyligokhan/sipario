@@ -305,7 +305,7 @@ class _Govde extends StatelessWidget {
         ] else if (!writable && _acik) ...[
           const SizedBox(height: 18),
           const SipNotKutusu(
-            metin: 'Aboneliğiniz sona erdiği için teslim ve iptal yapılamıyor.',
+            metin: 'Aboneliğiniz sona erdiği için teslim ve iptal yapılamıyor',
             ikon: SipIcons.lock,
             tur: SipNotTuru.hata,
           ),
@@ -353,13 +353,13 @@ class _Govde extends StatelessWidget {
     final yetki = await oturumYetkileri(db);
     if (!context.mounted) return;
     if (!yetki.siparisIptal) {
-      SipToast.goster(context, 'Sipariş iptal etme yetkiniz yok.');
+      SipToast.goster(context, 'Sipariş iptal etme yetkiniz yok');
       return;
     }
     final onay = await sipOnay(
       context,
       baslik: 'Sipariş iptal edilsin mi?',
-      mesaj: 'Kayıt silinmez, iptal olarak işaretlenir.',
+      mesaj: 'Kayıt silinmez, iptal olarak işaretlenir',
       onayEtiketi: 'İptal Et',
       tehlike: true,
     );

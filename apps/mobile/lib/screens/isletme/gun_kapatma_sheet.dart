@@ -183,8 +183,8 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
         if (widget.teslimat == 0)
           AlanNotu(
             widget.sayimIstenmiyor
-                ? 'Bu günde teslimat yok.'
-                : 'Bugün teslimat yok.',
+                ? 'Bu günde teslimat yok'
+                : 'Bugün teslimat yok',
             tur: AlanNotuTuru.uyari,
           ),
 
@@ -277,16 +277,16 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
             child: SipNotKutusu(
               tur: SipNotTuru.hata,
               ikon: SipIcons.alert,
-              metin: 'Eksik tutar kayda geçer.',
+              metin: 'Eksik tutar kayda geçer',
             ),
           ),
 
-        const SipFormEtiket('NOT (OPSİYONEL)'),
-        SipInput(controller: _not, ipucu: 'Fark açıklaması, devreden…', satirlar: 2),
+        const SipFormEtiket('Not (isteğe bağlı)'),
+        SipInput(controller: _not, ipucu: 'Fark açıklaması ya da devreden tutar', satirlar: 2),
 
         const SizedBox(height: SipSpace.x3),
         SipButon(
-          etiket: 'Kapat ve Kaydet',
+          etiket: 'Kapat ve Arşivle',
           ikon: SipIcons.lock,
           // GEÇMİŞ GÜNDE DÜĞME KOŞULSUZ AÇIKTIR: bekleyen bir giriş yok. Sayım kipinde ise
           // tutar girilmeden kapatmak, arşive "0 sayıldı" diye donan bir yalan üretirdi.

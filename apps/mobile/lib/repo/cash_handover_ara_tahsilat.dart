@@ -91,19 +91,19 @@ extension AraTahsilatIslemleri on CashHandoverRepository {
     final hedef = await (db.select(db.cashHandovers)..where((t) => t.id.equals(handoverId)))
         .getSingleOrNull();
     if (hedef == null) {
-      throw StateError('Ara tahsilat kaydı bulunamadı; ekranı yenileyip tekrar deneyin.');
+      throw StateError('Ara tahsilat kaydı bulunamadı; ekranı yenileyip tekrar deneyin');
     }
     if (hedef.reversesHandoverId != null) {
-      throw StateError('Bu satır zaten bir iptal kaydı; iptal edilemez.');
+      throw StateError('Bu satır zaten bir iptal kaydı; iptal edilemez');
     }
     if ((await _iptalEdilmisDevirIdleri()).contains(hedef.id)) {
-      throw StateError('Bu ara tahsilat zaten iptal edilmiş.');
+      throw StateError('Bu ara tahsilat zaten iptal edilmiş');
     }
     // KAPANIŞ DEVİRLERİ İPTAL EDİLEMEZ: "ara" olmanın tanımı ilişkidendir (bkz. [araTahsilatlar]).
     // Bir kapanışa bağlı devri geri almak, arşivdeki mutabakatı sessizce boşa düşürürdü —
     // kapanış hâlâ "5.000 teslim alındı" derken defterde o para geri dönmüş olurdu.
     if ((await _kapanisaBagliDevirIdleri()).contains(hedef.id)) {
-      throw StateError('Bu devir bir hesap kapanışına ait; ara tahsilat değildir, iptal edilemez.');
+      throw StateError('Bu devir bir hesap kapanışına ait; ara tahsilat değildir, iptal edilemez');
     }
 
     final engel = await _kapaliKapsamEngeli(hedef.fromUserId, eylem: 'ara tahsilat iptal edilemez');
@@ -165,9 +165,9 @@ extension AraTahsilatIslemleri on CashHandoverRepository {
     for (final k in kapanislar) {
       final t = DateTime.tryParse(k.occurredAt);
       if (t == null || !ayniTrGunAn(t, bugun)) continue;
-      if (k.scope == 'day') return 'Gün hesabı kapandı; $eylem.';
+      if (k.scope == 'day') return 'Gün hesabı kapandı; $eylem';
       if (k.scope == 'courier' && k.userId == fromUserId) {
-        return 'Bu kuryenin hesabı kapandı; $eylem.';
+        return 'Bu kuryenin hesabı kapandı; $eylem';
       }
     }
     return null;

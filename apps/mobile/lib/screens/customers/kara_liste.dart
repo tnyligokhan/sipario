@@ -20,7 +20,7 @@ bool karaListede(Customer? musteri) => musteri?.blacklistedAt != null;
 /// çıkarın" demek, yapamayacağı bir işe yönlendirmektir; cümle nötr kalır ve nereye bakılacağını
 /// söyler.
 String karaListeSiparisMesaji(String ad) =>
-    '$ad kara listede olduğu için yeni sipariş oluşturulamaz.';
+    '$ad kara listede olduğu için yeni sipariş oluşturulamaz';
 
 /// Liste satırındaki ve detaydaki rozet metni.
 const String karaListeRozeti = 'KARA LİSTE';

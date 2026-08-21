@@ -331,7 +331,7 @@ class _Form extends StatelessWidget {
           const SipFormEtiket('Firma Kodu', ustBosluk: 0),
           SipInput(
             controller: firma,
-            ipucu: 'ornek: merkezbayi',
+            ipucu: 'Örnek: merkezbayi',
             aktif: !busy,
             hata: hata.containsKey('firma'),
             buyukHarfKipi: TextCapitalization.none,
@@ -341,7 +341,7 @@ class _Form extends StatelessWidget {
           const SipFormEtiket('Kullanıcı Adı'),
           SipInput(
             controller: kullanici,
-            ipucu: 'ornek: mehmet.usta',
+            ipucu: 'Örnek: mehmet.usta',
             aktif: !busy,
             hata: hata.containsKey('kullanici'),
             buyukHarfKipi: TextCapitalization.none,
@@ -407,7 +407,7 @@ class _Form extends StatelessWidget {
             ),
           const SizedBox(height: SipSpace.xl),
           Text(
-            'Firma kodunuzu ve hesabınızı işletme sahibi oluşturur.',
+            'Firma kodunuzu ve hesabınızı işletme sahibi oluşturur',
             textAlign: TextAlign.center,
             style: SipText.girisAlt.copyWith(color: t.muted),
           ),

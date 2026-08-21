@@ -85,13 +85,13 @@ void main() {
 
     expect(find.text('Veresiye'), findsOneWidget, reason: 'karo YERİNDE durur');
     expect(
-        find.text('Tezgâh satışında veresiye kullanılamaz — kayıtlı müşteri gerekir.'),
+        find.text('Tezgâh satışında veresiye yazılamaz, kayıtlı müşteri gerekir'),
         findsOneWidget);
 
     // Dokunuş YUTULUR: uyarı şeridi çıkmaz, seçim nakitte kalır.
     await tester.tap(find.text('Veresiye'));
     await tester.pump();
-    expect(find.text('Tutar müşterinin borcuna eklenecek.'), findsNothing);
+    expect(find.text('Tutar müşterinin borcuna eklenecek'), findsNothing);
 
     await tester.tap(find.text('Teslim Et ve Kaydet'));
     await akisiBekle(tester, ms: 300);
@@ -127,7 +127,7 @@ void main() {
     await tester.tap(find.text('Veresiye'));
     await tester.pump();
     // `.teslim-uyari`
-    expect(find.text('Tutar müşterinin borcuna eklenecek.'), findsOneWidget);
+    expect(find.text('Tutar müşterinin borcuna eklenecek'), findsOneWidget);
     expect(find.text('Önce ödeme tipi seçin.'), findsNothing);
 
     await tester.tap(find.text('Teslim Et ve Kaydet'));
@@ -158,7 +158,7 @@ void main() {
     test('adres ile bölge tire ile birleşir, boş/"—" değerler elenir', () {
       expect(
         const AdresBilgi(metin: 'Atatürk Cad. No:5', bolge: 'Merkez').tamMetin,
-        'Atatürk Cad. No:5 — Merkez',
+        'Atatürk Cad. No:5, Merkez',
       );
       expect(const AdresBilgi(metin: 'Atatürk Cad. No:5').tamMetin, 'Atatürk Cad. No:5');
       expect(const AdresBilgi(metin: 'Atatürk Cad. No:5', bolge: '').tamMetin,
@@ -255,7 +255,7 @@ void main() {
 
       // `.elle-bant` göründü, tutamaçlar çizildi. (Tutamaç semantik etiketi satırın birleşik
       // düğümüne karışıyor; sürükleme tanıyıcısının TİPİ üzerinden aranır.)
-      expect(find.text('Tutamaçtan sürükleyip bırak, bitince “Bitti”ye bas.'), findsOneWidget);
+      expect(find.text('Tutamaçtan sürükleyip bırakın, bitince "Bitti"ye dokunun'), findsOneWidget);
       expect(find.byType(ReorderableDragStartListener), findsNWidgets(2));
 
       // İlk satırı ikincinin ALTINA sürükle. `ReorderableListView` hedefi her pointer olayında
@@ -363,7 +363,7 @@ void main() {
       // ASIL SÖZLEŞME: bu bir GÖRÜNÜM, düzenleme kipi değil.
       expect(find.byType(ReorderableDragStartListener), findsNothing,
           reason: 'rota görünümünde tutamaç YOKTUR — kullanıcı düzenlemek istemedi');
-      expect(find.text('Tutamaçtan sürükleyip bırak, bitince “Bitti”ye bas.'), findsNothing);
+      expect(find.text('Tutamaçtan sürükleyip bırakın, bitince "Bitti"ye dokunun'), findsNothing);
       expect(find.text('Bitti'), findsNothing, reason: 'elle kipi açılmadı');
 
       await ekraniKapat(tester);

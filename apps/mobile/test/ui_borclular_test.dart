@@ -215,7 +215,7 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 250)));
       await tester.pump();
 
-      expect(find.text('Ödenmemiş sipariş yok — borç defter kaydından geliyor.'), findsOneWidget);
+      expect(find.text('Ödenmemiş sipariş yok; borç elle girilmiş'), findsOneWidget);
 
       await kapat(tester);
     });

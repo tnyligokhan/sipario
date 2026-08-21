@@ -74,7 +74,7 @@ class _KameraGovdeState extends State<_KameraGovde> {
   /// Fener çalıştırılamadığında söylenen tek cümle. SESSİZ KALINMAZ: dokunulan ama hiçbir şey
   /// yapmayan bir düğme kullanıcıya "uygulama bozuk" dedirtir (okunamayan kod uyarısıyla aynı
   /// gerekçe).
-  static const String _fenerYokMesaji = 'Bu telefonda fener kullanılamıyor.';
+  static const String _fenerYokMesaji = 'Bu telefonda fener kullanılamıyor';
 
   @override
   void dispose() {
@@ -93,7 +93,7 @@ class _KameraGovdeState extends State<_KameraGovde> {
     }
     // Okundu ama ürün barkodu değil: sessiz kalmak "kamera bozuk" hissi verir.
     if (mounted) {
-      setState(() => _uyari = 'Okunan kod ürün barkodu değil (en az 8 hane rakam).');
+      setState(() => _uyari = 'Okunan kod ürün barkodu değil (en az 8 hane rakam)');
     }
   }
 

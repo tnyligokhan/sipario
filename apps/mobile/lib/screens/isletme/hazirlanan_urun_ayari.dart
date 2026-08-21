@@ -36,7 +36,7 @@ class HazirlananUrunSatiri extends StatelessWidget {
 
   Future<void> _degistir(BuildContext context, bool mevcut) async {
     if (!writable) {
-      SipToast.goster(context, 'Aboneliğiniz sona erdiği için ayar değiştirilemiyor.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için ayar değiştirilemiyor');
       return;
     }
 
@@ -61,7 +61,7 @@ class HazirlananUrunSatiri extends StatelessWidget {
     SipToast.goster(
       context,
       mevcut
-          ? 'Ürün içerikleri kapatıldı.'
+          ? 'Ürün içerikleri kapatıldı'
           : 'Ürün içerikleri açıldı. Ürünü düzenlerken malzeme ekleyebilirsiniz.',
     );
   }

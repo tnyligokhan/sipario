@@ -59,7 +59,7 @@ class SenkronTazeligiSeridi extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.only(top: SipSpace.sm, bottom: 2),
         child: Text(
-          'Bilgiler ${senkronSuresi(tazelik.gecenSure!)} güncellendi.',
+          'Bilgiler ${senkronSuresi(tazelik.gecenSure!)} güncellendi',
           style: SipText.yardimci.copyWith(color: t.muted),
         ),
       );

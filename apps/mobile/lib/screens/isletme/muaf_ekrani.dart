@@ -45,7 +45,7 @@ class MuafEkrani extends StatelessWidget {
     final repo = ExemptNumberRepository(db);
     return YoneticiKapisi(
       rol: rol,
-      baslik: 'Muaf Telefonlar',
+      baslik: 'Muaf Numaralar',
       child: Scaffold(
         backgroundColor: t.bg,
         body: SafeArea(
@@ -58,7 +58,7 @@ class MuafEkrani extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SipUst(
-                    baslik: 'Muaf Telefonlar',
+                    baslik: 'Muaf Numaralar',
                     alt: liste == null
                         ? null
                         : '${liste.length} numara için çağrı kartı çıkmaz',
@@ -105,7 +105,7 @@ class _Govde extends StatelessWidget {
     final onay = await sipOnay(
       context,
       baslik: 'Listeden çıkarılsın mı?',
-      mesaj: '${sipTelefon(m.phoneE164)} bundan sonra aradığında çağrı kartı yeniden açılacak.',
+      mesaj: '${sipTelefon(m.phoneE164)} bundan sonra aradığında çağrı kartı yeniden açılacak',
       onayEtiketi: 'Çıkar',
       tehlike: true,
     );
@@ -129,8 +129,8 @@ class _Govde extends StatelessWidget {
           child: SipNotKutusu(
             tur: SipNotTuru.uyari,
             ikon: SipIcons.info,
-            onEtiket: 'Caller ID kartı açılmaz.',
-            metin: 'Kurye, tedarikçi, kişisel numaralar için kullanın.',
+            onEtiket: 'Arayan kartı çıkmaz',
+            metin: 'Kurye, tedarikçi, kişisel numaralar için kullanın',
           ),
         ),
         EkleSatiri(etiket: 'Muaf numara ekle', onTap: () => _ekle(context)),
@@ -161,7 +161,7 @@ class _Govde extends StatelessWidget {
 }
 
 /// Salt-okunur kip uyarısı — ürün ekranındaki eşdeğeriyle aynı dil.
-const String muafSaltOkunurUyarisi = 'Aboneliğiniz sona erdiği için liste değiştirilemiyor.';
+const String muafSaltOkunurUyarisi = 'Aboneliğiniz sona erdiği için liste değiştirilemiyor';
 
 /// CSS `.muaf-row` — yuvarlak ikon + etiket/numara + kırmızı çarpı.
 class MuafSatiri extends StatelessWidget {

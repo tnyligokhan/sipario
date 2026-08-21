@@ -152,7 +152,7 @@ class _FormState extends State<_Form> {
         SipInput(controller: _alici, ipucu: 'Hesap sahibinin adı soyadı'),
         if (_ibanHata == null)
           const AlanNotu(
-            'Hatırlatma mesajında bu bilgiler görünür.',
+            'Hatırlatma mesajında bu bilgiler görünür',
             tur: AlanNotuTuru.bilgi,
           ),
 

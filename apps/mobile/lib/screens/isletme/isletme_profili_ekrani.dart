@@ -41,7 +41,7 @@ export 'iban.dart' show ibanNormal, ibanOkunur;
 /// Metin GENELDİR ("ayarlar"), tek bir formun adını taşımaz: aynı uyarıyı Tahsilat ve Mesajlar
 /// ekranları da gösteriyor ve "işletme profili değiştirilemez" demek, IBAN'ı düzenlemeye çalışan
 /// bayiye yanlış ekranın adını söylerdi.
-const String profilSaltOkunurUyarisi = 'Aboneliğiniz sona erdiği için ayarlar değiştirilemiyor.';
+const String profilSaltOkunurUyarisi = 'Aboneliğiniz sona erdiği için ayarlar değiştirilemiyor';
 
 /// Ekranın açılışta ihtiyaç duyduğu her şey: kayıtlı satır + sunucu sahipli firma kodu.
 class IsletmeProfilVerisi {
@@ -206,7 +206,7 @@ class _FormState extends State<_Form> {
           onKopyala: kod == null ? null : () => _kodKopyala(kod),
         ),
         const AlanNotu(
-          'Kullanıcılarınız bu kodla giriş yapar; değiştirilemez.',
+          'Kullanıcılarınız bu kodla giriş yapar; değiştirilemez',
           tur: AlanNotuTuru.bilgi,
         ),
 
@@ -246,7 +246,7 @@ class _FormState extends State<_Form> {
         ),
         if (_hata['saat'] != null) AlanNotu(_hata['saat']!),
         const AlanNotu(
-          'Bu saatlerin dışında çağrı bildirimi çıkmaz.',
+          'Bu saatlerin dışında çağrı bildirimi çıkmaz',
           tur: AlanNotuTuru.bilgi,
         ),
 
@@ -317,7 +317,7 @@ class FirmaKoduKarti extends StatelessWidget {
                   const SizedBox(height: 2),
                   // CSS `.fk-kod`
                   Text(
-                    kod ?? 'Henüz inmedi',
+                    kod ?? 'Henüz alınmadı',
                     style: SipText.tutar(15, w: 700)
                         .copyWith(color: SipTokens.onHero, letterSpacing: 0.3),
                   ),

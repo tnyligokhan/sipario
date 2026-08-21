@@ -318,7 +318,7 @@ void main() {
       expect(find.text(sipTutar(3000)), findsWidgets, reason: 'arkadaki kasa kartı GÜNÜ yazar');
       expect(
         find.text(
-            'Önceki günden devreden nakit dahil — ekrandaki gün toplamıyla aynı aralık değil.'),
+            'Önceki günlerden devreden nakit dahil'),
         findsOneWidget,
       );
 

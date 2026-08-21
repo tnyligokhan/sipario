@@ -83,7 +83,7 @@ class _Liste extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(top: SipSpace.md, bottom: SipSpace.x2),
           child: Text(
-            'Daha eski sürümlerin notları listede tutulmuyor.',
+            'Daha eski sürümlerin notları listede tutulmuyor',
             textAlign: TextAlign.center,
             style: SipText.yardimci.copyWith(color: context.sip.muted),
           ),

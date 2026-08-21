@@ -65,7 +65,7 @@ class _MusteriUrunTercihleriState extends State<MusteriUrunTercihleri> {
           children: [
             const SipBolumBaslik('Ürün Tercihleri', ustBosluk: 18),
             const AlanNotu(
-              'Sipariş girerken bu seçimler hazır gelir.',
+              'Sipariş girerken bu seçimler hazır gelir',
             ),
             for (final s in liste)
               Padding(
@@ -110,7 +110,7 @@ class _MusteriUrunTercihleriState extends State<MusteriUrunTercihleri> {
     final onay = await sipOnay(
       context,
       baslik: 'Tercih silinsin mi?',
-      mesaj: '"${s.urunAdi}" için kayıtlı seçim kaldırılacak.',
+      mesaj: '"${s.urunAdi}" için kayıtlı seçim kaldırılacak',
       onayEtiketi: 'Sil',
       tehlike: true,
     );
@@ -120,7 +120,7 @@ class _MusteriUrunTercihleriState extends State<MusteriUrunTercihleri> {
     await CustomerRepository(widget.db)
         .urunTercihiKaydet(widget.customerId, s.urunId, const SecenekSecimi());
     if (!mounted) return;
-    SipToast.goster(context, 'Tercih kaldırıldı.');
+    SipToast.goster(context, 'Tercih kaldırıldı');
   }
 }
 

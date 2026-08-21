@@ -192,7 +192,7 @@ void main() {
       expect(find.textContaining('Emre kuryesinden'), findsOneWidget);
       expect(find.textContaining(sipTutar(4000)), findsWidgets);
       // Kullanıcı SİLİNMEDİĞİNİ onay anında öğrenir — sonradan "kaydım gitti mi?" diye sormasın.
-      expect(find.textContaining('Kayıt SİLİNMEZ'), findsOneWidget);
+      expect(find.textContaining('yine kuryede sayılacak'), findsOneWidget);
       expect(find.text('Vazgeç'), findsOneWidget);
 
       await dokun(tester, find.text('Vazgeç'));
@@ -226,8 +226,8 @@ void main() {
       expect(ters.fromUserId, 'k1', reason: 'para kuryenin cebine geri döner');
 
       // EKRAN: satır yerinde ama artık iptalli; toplam ve sayaç düştü. Toast metni ('40,00 ₺
-      // tahsilat iptal edildi') ayrı bir cümledir — satır etiketini '· iptal edildi' ile arıyoruz.
-      expect(find.textContaining('iptal edildi'), findsOneWidget);
+      // tahsilat iptal edildi') ayrı bir cümledir; satır etiketi de aynı sözü taşır.
+      expect(find.textContaining('iptal edildi'), findsWidgets);
       expect(find.text('1 ara tahsilatın toplamı'), findsOneWidget);
       expect(tester.widget<Text>(find.text(sipTutar(4000))).style?.decoration,
           TextDecoration.lineThrough);

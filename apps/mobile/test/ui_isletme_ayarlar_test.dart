@@ -69,7 +69,7 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('bilgi notu "Caller ID kartı açılmaz" vurgusunu taşır, boş durum tek satır',
+    testWidgets('bilgi notu "Arayan kartı çıkmaz" vurgusunu taşır, boş durum tek satır',
         (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
@@ -77,7 +77,7 @@ void main() {
 
       // `SipNotKutusu.onEtiket` kalın parçayı metnin başına alır (tema kilitli: cümle ORTASINDA
       // kalınlaştırma yok) — ama vurgulanan cümle tasarımın cümlesidir.
-      expect(find.textContaining('Caller ID kartı açılmaz.'), findsOneWidget);
+      expect(find.textContaining('Arayan kartı çıkmaz'), findsOneWidget);
       expect(find.textContaining('Kurye, tedarikçi, kişisel numaralar'), findsOneWidget);
       expect(find.text('Muaf numara yok'), findsOneWidget);
       expect(find.textContaining('Eklediğiniz numaralar'), findsNothing,
@@ -439,7 +439,7 @@ void main() {
       expect(find.textContaining(trBuyuk('Yalnızca görüntüleme')), findsOneWidget);
       expect(find.text('Açık'), findsOneWidget, reason: 'ne yapabildiği yazmalı');
       expect(find.text('Kapalı'), findsOneWidget, reason: 'ne yapamadığı da yazmalı');
-      expect(find.textContaining('okunabilir'), findsOneWidget);
+      expect(find.textContaining('okunmaya devam eder'), findsOneWidget);
       expect(find.textContaining('kaydedilemez'), findsOneWidget);
       expect(find.textContaining('işletme yöneticinizle görüşün'), findsOneWidget);
       expect(find.text('Bitiş: 30 Haziran 2026'), findsOneWidget);
@@ -476,7 +476,7 @@ void main() {
         MuafEkrani(db: db, rol: 'kurye'),
       ]) {
         await ekranaKoy(tester, ekran);
-        expect(find.text('Bu ekran yöneticilere açık'), findsOneWidget,
+        expect(find.text('Bu ekran size kapalı'), findsOneWidget,
             reason: '${ekran.runtimeType} kurye rolünde kapalı olmalı (K2)');
         expect(find.text('Yeni ürün ekle'), findsNothing);
         await kapat(tester);
@@ -487,12 +487,12 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
 
       await ekranaKoy(tester, KuryelerEkrani(db: db, rol: 'operator'));
-      expect(find.text('Bu ekran yöneticilere açık'), findsNothing);
+      expect(find.text('Bu ekran size kapalı'), findsNothing);
       // Liste boşken ayrı bir boş-durum bloğu YOK (tasarımda yok): bilgi notu hem neden boş
       // olduğunu hem nereden doldurulacağını söylüyor.
       expect(find.text('Kayıtlı kurye yok'), findsNothing);
       expect(
-        find.textContaining('yönetim panelinden açılır'),
+        find.textContaining('web panelinden açılır'),
         findsOneWidget,
         reason: 'kurye EKLENEMEZ kısıtı ekranda açıkça yazılı olmalı — düğme yerine cümle',
       );

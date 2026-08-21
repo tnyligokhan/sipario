@@ -227,7 +227,7 @@ void main() {
       await ekranaKoy(tester, GecmisGunEkrani(db: db, bugun: bugun));
       await akislariBekle(tester, tur: 6);
 
-      expect(find.textContaining('Bu gün kapatılmadı'), findsOneWidget);
+      expect(find.textContaining('Bu günün hesabı kapatılmadı'), findsOneWidget);
       expect(find.text('Toplam tahsilat (1 teslimat)'), findsOneWidget,
           reason: 'kapatılmamış gün de rakamlarını gösterir');
 
@@ -249,8 +249,8 @@ void main() {
       await ekranaKoy(tester, GecmisGunEkrani(db: db, bugun: bugun));
       await akislariBekle(tester, tur: 6);
 
-      expect(find.textContaining('kapatıldı ve arşivlendi'), findsOneWidget);
-      expect(find.textContaining('Bu gün kapatılmadı'), findsNothing);
+      expect(find.textContaining('Bu günün hesabı kapatıldı'), findsOneWidget);
+      expect(find.textContaining('Bu günün hesabı kapatılmadı'), findsNothing);
       expect(find.text('Kapanış Kayıtları'), findsOneWidget);
 
       await kapat(tester);

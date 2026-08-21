@@ -101,7 +101,7 @@ class _GraceBandi extends StatelessWidget {
           const SizedBox(width: 7),
           Flexible(
             child: Text(
-              'Abonelik süreniz doldu görünüyor; bağlantı kurulunca netleşecek.',
+              'Abonelik süreniz doldu görünüyor; bağlantı kurulunca netleşecek',
               style: SipText.metin(11.5, w: 600).copyWith(color: t.warn),
               textAlign: TextAlign.center,
             ),

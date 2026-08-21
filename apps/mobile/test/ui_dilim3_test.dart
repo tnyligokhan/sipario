@@ -352,7 +352,7 @@ void main() {
 
       await tester.tap(find.text('Tahsilat'));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
       expect(find.text('Tahsilat kaydedildi'), findsNothing,
           reason: 'sheet hiç açılmamalı, kayıt oluşmamalı');
 
@@ -381,9 +381,9 @@ void main() {
       // SİPARİO 3.0: düzeltme artık hızlı eylem ızgarasında DEĞİL, defter başlığının sağındaki
       // "± Bakiye Düzeltme" bağlantısında (tasarım s-musteriler.jsx:125). Kapı yer değiştirdi,
       // kural değişmedi.
-      await tester.tap(find.text('± Bakiye Düzeltme'));
+      await tester.tap(find.text('Bakiye Düzeltme'));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
       expect(find.text('Düzeltme deftere işlendi'), findsNothing,
           reason: 'salt-okunurda düzeltme sheet\'i hiç açılmamalı');
 

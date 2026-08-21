@@ -110,7 +110,7 @@ class CustomerLedgerSection extends StatelessWidget {
                   radius: SipRadius.br1,
                   padding: const EdgeInsets.symmetric(vertical: SipSpace.xs),
                   child: Text(
-                    '± Bakiye Düzeltme',
+                    'Bakiye Düzeltme',
                     style: SipText.metin(12, w: 700).copyWith(color: t.accent),
                   ),
                 ),
@@ -124,7 +124,7 @@ class CustomerLedgerSection extends StatelessWidget {
               return const SipBosDurum(
                 ikon: SipIcons.book,
                 baslik: 'Hareket yok',
-                aciklama: 'Henüz hareket yok.',
+                aciklama: 'Tahsilat ve borç kayıtları burada görünür',
               );
             }
             return Column(

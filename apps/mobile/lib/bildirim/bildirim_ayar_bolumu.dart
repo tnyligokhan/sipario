@@ -280,8 +280,8 @@ class _SessizGovdeState extends State<_SessizGovde> {
           padding: const EdgeInsets.only(top: SipSpace.xl),
           child: AlanNotu(
             kapali
-                ? 'Başlangıç ve bitiş aynı olduğu için sessiz saatler kapalı.'
-                : '${_ss(_bas)} ile ${_ss(_bit)} arasında bildirim gelmez.',
+                ? 'Başlangıç ve bitiş aynı olduğu için sessiz saatler kapalı'
+                : '${_ss(_bas)} ile ${_ss(_bit)} arasında bildirim gelmez',
             tur: kapali ? AlanNotuTuru.uyari : AlanNotuTuru.bilgi,
           ),
         ),

@@ -75,7 +75,7 @@ void main() {
       // 2026-07-27'de filtreleme tam da SESSİZ olduğu için geri alınmıştı. Kısıtlama geri
       // geldi ama sessizliği geri gelmemeli: kurye eksik listeyi "iş yok" sanıp teslimat
       // kaçırmamalı.
-      expect(find.textContaining('yalnız size atananlar'), findsOneWidget);
+      expect(find.textContaining('Size atanan'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -91,7 +91,7 @@ void main() {
 
       expect(find.text('Benim Müşterim'), findsOneWidget);
       expect(find.text('Başkasının Müşterisi'), findsOneWidget);
-      expect(find.textContaining('yalnız size atananlar'), findsNothing);
+      expect(find.textContaining('Size atanan'), findsNothing);
 
       await ekraniKapat(tester);
     });

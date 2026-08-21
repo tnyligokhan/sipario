@@ -107,7 +107,7 @@ class HakkindaKarti extends StatelessWidget {
           // dokunmayı denemez. Chevron `onTap` verildiği için kendiliğinden çizilir.
           AyarSatiri(
             baslik: 'Yenilikler',
-            altBaslik: 'Bu güncellemede ne değişti?',
+            altBaslik: 'Bu sürümde neler değişti',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(builder: (_) => const SurumNotlariEkrani()),
             ),

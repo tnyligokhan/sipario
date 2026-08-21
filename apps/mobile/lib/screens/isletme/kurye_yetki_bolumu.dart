@@ -23,7 +23,7 @@ import '../team.dart';
 import 'isletme_atomlari.dart';
 
 /// Salt-okunur kip uyarısı.
-const String yetkiSaltOkunurUyarisi = 'Aboneliğiniz sona erdiği için yetkiler değiştirilemiyor.';
+const String yetkiSaltOkunurUyarisi = 'Aboneliğiniz sona erdiği için yetkiler değiştirilemiyor';
 
 class KuryeYetkiSatiri {
   const KuryeYetkiSatiri({
@@ -58,9 +58,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   // 1. Sipariş & Teslimat Yönetimi
   KuryeYetkiSatiri(
     anahtar: 'musteri',
-    kategori: 'Sipariş & Teslimat',
+    kategori: 'Sipariş ve Teslimat',
     etiket: 'Müşteri ekleyip düzenleyebilir',
-    aciklama: 'Yeni müşteri ekler, adres ve telefon düzeltir.',
+    aciklama: 'Yeni müşteri ekler, adres ve telefon düzeltir',
     oku: _musteriOku,
     yaz: _musteriYaz,
     ezmeOku: _musteriEzmeOku,
@@ -68,9 +68,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   ),
   KuryeYetkiSatiri(
     anahtar: 'siparis',
-    kategori: 'Sipariş & Teslimat',
+    kategori: 'Sipariş ve Teslimat',
     etiket: 'Sipariş oluşturabilir',
-    aciklama: 'Sahadan yeni sipariş girer.',
+    aciklama: 'Sahadan yeni sipariş girer',
     oku: _siparisOku,
     yaz: _siparisYaz,
     ezmeOku: _siparisEzmeOku,
@@ -78,9 +78,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   ),
   KuryeYetkiSatiri(
     anahtar: 'tum_siparisler',
-    kategori: 'Sipariş & Teslimat',
+    kategori: 'Sipariş ve Teslimat',
     etiket: 'Tüm siparişleri görebilir',
-    aciklama: 'Kapalıyken yalnız kendine atananları görür.',
+    aciklama: 'Kapalıyken yalnız kendine atananları görür',
     oku: _tumSiparislerOku,
     yaz: _tumSiparislerYaz,
     ezmeOku: _tumSiparislerEzmeOku,
@@ -88,9 +88,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   ),
   KuryeYetkiSatiri(
     anahtar: 'gecmis_teslimatlar',
-    kategori: 'Sipariş & Teslimat',
+    kategori: 'Sipariş ve Teslimat',
     etiket: 'Geçmiş gün teslimatlarını görebilir',
-    aciklama: 'Önceki günlerin teslimatlarına bakabilir.',
+    aciklama: 'Önceki günlerin teslimatlarına bakabilir',
     oku: _gecmisTeslimatlarOku,
     yaz: _gecmisTeslimatlarYaz,
     ezmeOku: _gecmisTeslimatlarEzmeOku,
@@ -100,9 +100,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   // 2. Kasa, Tahsilat & Finans
   KuryeYetkiSatiri(
     anahtar: 'tahsilat',
-    kategori: 'Kasa & Tahsilat',
+    kategori: 'Kasa ve Tahsilat',
     etiket: 'Kapıda tahsilat alabilir',
-    aciklama: 'Kapıda nakit, kart veya havale tahsil eder.',
+    aciklama: 'Kapıda nakit, kart veya havale tahsil eder',
     oku: _tahsilatOku,
     yaz: _tahsilatYaz,
     ezmeOku: _tahsilatEzmeOku,
@@ -110,9 +110,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   ),
   KuryeYetkiSatiri(
     anahtar: 'iskonto',
-    kategori: 'Kasa & Tahsilat',
+    kategori: 'Kasa ve Tahsilat',
     etiket: 'Kapıda iskonto yapabilir',
-    aciklama: 'Kapıda fiyat kırabilir.',
+    aciklama: 'Kapıda fiyat kırabilir',
     oku: _iskontoOku,
     yaz: _iskontoYaz,
     ezmeOku: _iskontoEzmeOku,
@@ -120,9 +120,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   ),
   KuryeYetkiSatiri(
     anahtar: 'saha_gideri',
-    kategori: 'Kasa & Tahsilat',
+    kategori: 'Kasa ve Tahsilat',
     etiket: 'Saha gideri girebilir',
-    aciklama: 'Benzin, tamir gibi masrafları kasadan düşer.',
+    aciklama: 'Benzin, tamir gibi masrafları kasadan düşer',
     oku: _sahaGideriOku,
     yaz: _sahaGideriYaz,
     ezmeOku: _sahaGideriEzmeOku,
@@ -132,13 +132,13 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   // 3. Gün Sonu & Kasa Devri
   KuryeYetkiSatiri(
     anahtar: 'gun_sonu',
-    kategori: 'Gün Sonu & Devir',
+    kategori: 'Gün Sonu ve Devir',
     etiket: 'Gün sonu özetini görebilir',
     // METİN 2026-08-11'DE GERÇEĞE ÇEKİLDİ: eskiden "Tüm işletmenin günlük ciro/kasa özetini
     // görür" yazıyordu ve bu artık DOĞRU DEĞİL — kurye gün hesabını ("Tümü") hiçbir yetkiyle
     // göremiyor, yalnız kendi kapsamını görüyor. Yetki metni ekranın ne yaptığını söylemezse
     // bayi kapattığı şeyin ne olduğunu bilemez.
-    aciklama: 'Yalnız kendi günlük tahsilat ve teslimat dökümünü görür.',
+    aciklama: 'Yalnız kendi günlük tahsilat ve teslimat dökümünü görür',
     oku: _gunSonuOku,
     yaz: _gunSonuYaz,
     ezmeOku: _gunSonuEzmeOku,
@@ -148,9 +148,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   // 4. Müşteri & KVKK / İletişim
   KuryeYetkiSatiri(
     anahtar: 'telefon_maskeleme',
-    kategori: 'Müşteri & KVKK',
+    kategori: 'Müşteri ve Gizlilik',
     etiket: 'Müşteri telefonlarını maskele',
-    aciklama: 'Müşteri numarası 0532***12 diye gizlenir; arama yine yapılır.',
+    aciklama: 'Müşteri numarası 0532***12 diye gizlenir; arama yine yapılır',
     oku: _telefonMaskelemeOku,
     yaz: _telefonMaskelemeYaz,
     ezmeOku: _telefonMaskelemeEzmeOku,
@@ -158,9 +158,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   ),
   KuryeYetkiSatiri(
     anahtar: 'musteri_gecmis_defteri',
-    kategori: 'Müşteri & KVKK',
+    kategori: 'Müşteri ve Gizlilik',
     etiket: 'Müşteri geçmiş defterini görebilir',
-    aciklama: 'Müşterinin geçmiş alışveriş ve ödemelerini görür.',
+    aciklama: 'Müşterinin geçmiş alışveriş ve ödemelerini görür',
     oku: _musteriGecmisDefteriOku,
     yaz: _musteriGecmisDefteriYaz,
     ezmeOku: _musteriGecmisDefteriEzmeOku,
@@ -168,9 +168,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   ),
   KuryeYetkiSatiri(
     anahtar: 'borc_hatirlatma',
-    kategori: 'Müşteri & KVKK',
+    kategori: 'Müşteri ve Gizlilik',
     etiket: 'Borç hatırlatma gönderebilir',
-    aciklama: 'Müşteriye WhatsApp/SMS ile borç hatırlatması gönderir.',
+    aciklama: 'Müşteriye WhatsApp/SMS ile borç hatırlatması gönderir',
     oku: _borcHatirlatmaOku,
     yaz: _borcHatirlatmaYaz,
     ezmeOku: _borcHatirlatmaEzmeOku,
@@ -180,9 +180,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   // 5. Ürün & Stok
   KuryeYetkiSatiri(
     anahtar: 'stok_pasifleme',
-    kategori: 'Ürün & Stok',
+    kategori: 'Ürün ve Stok',
     etiket: 'Stokta yok işaretleyebilir',
-    aciklama: 'Tükenen ürünü "Stokta yok" işaretler.',
+    aciklama: 'Tükenen ürünü "Stokta yok" işaretler',
     oku: _stokPasiflemeOku,
     yaz: _stokPasiflemeYaz,
     ezmeOku: _stokPasiflemeEzmeOku,
@@ -192,9 +192,9 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
   // 6. Çağrı & Sistem
   KuryeYetkiSatiri(
     anahtar: 'cagri_gunlugu',
-    kategori: 'Çağrı & Ayarlar',
-    etiket: 'Dükkan çağrı günlüğünü görebilir',
-    aciklama: 'Dükkâna gelen aramaların geçmişini görür.',
+    kategori: 'Çağrı ve Ayarlar',
+    etiket: 'Dükkân çağrı geçmişini görebilir',
+    aciklama: 'Dükkâna gelen aramaların geçmişini görür',
     oku: _cagriGunluguOku,
     yaz: _cagriGunluguYaz,
     ezmeOku: _cagriGunluguEzmeOku,

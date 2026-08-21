@@ -151,12 +151,12 @@ class YetkiRozeti extends StatelessWidget {
 
 /// Kategoriye göre ikon seçici — iki kip de aynı ikonları kullanır.
 String yetkiKategoriIkonu(String kategori) => switch (kategori) {
-      'Sipariş & Teslimat' => SipIcons.truck,
-      'Kasa & Tahsilat' => SipIcons.wallet,
-      'Gün Sonu & Devir' => SipIcons.clock,
-      'Müşteri & KVKK' => SipIcons.phone,
-      'Ürün & Stok' => SipIcons.box,
-      'Çağrı & Ayarlar' => SipIcons.settings,
+      'Sipariş ve Teslimat' => SipIcons.truck,
+      'Kasa ve Tahsilat' => SipIcons.wallet,
+      'Gün Sonu ve Devir' => SipIcons.clock,
+      'Müşteri ve Gizlilik' => SipIcons.phone,
+      'Ürün ve Stok' => SipIcons.box,
+      'Çağrı ve Ayarlar' => SipIcons.settings,
       _ => SipIcons.settings,
     };
 

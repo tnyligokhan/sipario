@@ -240,7 +240,7 @@ void main() {
     await kare(tester);
 
     // Kullanıcı dinlendiğini GÖRMELİ — sessiz mikrofon güven sorunudur.
-    expect(find.text('Dinleniyor… konuşun'), findsOneWidget);
+    expect(find.text('Dinleniyor, konuşun'), findsOneWidget);
     expect(ses.dinlemeSayisi, 1);
 
     ses.soyle('Kaya');
@@ -307,7 +307,7 @@ void main() {
     // 1. duraklama: motor sessizlik sınırında KENDİ kapanır — kullanıcı düğmeye DOKUNMADI.
     ses.motorKendiKapandi();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Dinleniyor… konuşun'), findsOneWidget,
+    expect(find.text('Dinleniyor, konuşun'), findsOneWidget,
         reason: 'kullanıcı kapatmadıkça düğme aktif kalmalı');
     expect(ses.dinlemeSayisi, 2, reason: 'motor yeniden başlatılmalı');
 
@@ -344,9 +344,9 @@ void main() {
     }
 
     expect(ses.dinlemeSayisi, 9, reason: '1 ilk oturum + 8 yenileme');
-    expect(find.text('Dinleniyor… konuşun'), findsNothing, reason: 'sınırda dinleme biter');
+    expect(find.text('Dinleniyor, konuşun'), findsNothing, reason: 'sınırda dinleme biter');
     // Sessizce sönen düğme, kullanıcının yazılmadığını sonradan fark etmesi demektir.
-    expect(find.text('Dinleme süresi doldu — devam etmek için mikrofona dokunun'),
+    expect(find.text('Dinleme süresi doldu. Devam etmek için mikrofona dokunun'),
         findsOneWidget);
 
     await kapat(tester);
@@ -358,14 +358,14 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Sesle yaz (Adres)'));
     await kare(tester);
-    expect(find.text('Dinleniyor… konuşun'), findsOneWidget);
+    expect(find.text('Dinleniyor, konuşun'), findsOneWidget);
 
     // Dinlerken etiket "durdur"a döner — düğme kendi durumunu anlatır.
     await tester.tap(find.bySemanticsLabel('Dinlemeyi durdur'));
     await kare(tester);
 
     expect(ses.durdurmaSayisi, 1);
-    expect(find.text('Dinleniyor… konuşun'), findsNothing);
+    expect(find.text('Dinleniyor, konuşun'), findsNothing);
 
     // Kullanıcının kapattığı mikrofon KAPALI kalır: otomatik devam YALNIZ motorun kendi
     // kapanışında çalışır, kullanıcının kararını geri almaz.
@@ -386,7 +386,7 @@ void main() {
 
     expect(ses.durdurmaSayisi, 1, reason: 'önceki alan kapatılmalı');
     expect(ses.dinlemeSayisi, 2);
-    expect(find.text('Dinleniyor… konuşun'), findsOneWidget, reason: 'tek bant görünür');
+    expect(find.text('Dinleniyor, konuşun'), findsOneWidget, reason: 'tek bant görünür');
 
     await kapat(tester);
   });
@@ -430,7 +430,7 @@ void main() {
 
     expect(find.text('Ses tanıma için internet gerekiyor — çevrimdışıyken elle yazın'),
         findsOneWidget);
-    expect(find.text('Dinleniyor… konuşun'), findsNothing);
+    expect(find.text('Dinleniyor, konuşun'), findsNothing);
 
     await kapat(tester);
   });

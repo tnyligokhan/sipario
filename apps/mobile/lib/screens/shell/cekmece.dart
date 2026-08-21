@@ -240,7 +240,7 @@ class _Panel extends StatelessWidget {
                     ),
                     _Satir(
                       ikon: SipIcons.phoneOff,
-                      etiket: 'Muaf Telefonlar',
+                      etiket: 'Muaf Numaralar',
                       onTap: () => c.onGiris(CekmeceGiris.muaf),
                     ),
                   ],

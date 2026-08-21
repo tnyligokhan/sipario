@@ -244,11 +244,11 @@ class _IzinSihirbaziState extends State<IzinSihirbazi> with WidgetsBindingObserv
                   const SihirbazLogo(ikon: SipIcons.phoneCall),
                   const SihirbazBaslik('Telefon çaldığında\nmüşteriniz ekranda'),
                   SihirbazMetin(
-                    'Bunun çalışması için telefonunuzdan $n izin isteyeceğiz. Her adımı tek '
-                    'tek, ne işe yaradığını açıklayarak göstereceğiz.',
+                    'Bunun için telefonunuzun $n iznine ihtiyaç var. Her adımda hangi iznin '
+                    'ne işe yaradığı tek tek anlatılır.',
                   ),
                   SihirbazRozet(
-                    etiket: 'İzinler yalnız arayanı tanımak için kullanılır.',
+                    etiket: 'İzinler yalnız arayanı tanımak için kullanılır',
                     renk: t.ok,
                     zemin: t.okSoft,
                     ikon: SipIcons.lock,
@@ -354,7 +354,7 @@ class _IzinSihirbaziState extends State<IzinSihirbazi> with WidgetsBindingObserv
                     Padding(
                       padding: const EdgeInsets.only(top: 9),
                       child: Text(
-                        'Bu izin kartın çalışması için zorunludur.',
+                        'Bu izin kartın çalışması için zorunludur',
                         style: SipText.metin(11.5).copyWith(color: t.muted),
                         textAlign: TextAlign.center,
                       ),
@@ -382,16 +382,17 @@ class _IzinSihirbaziState extends State<IzinSihirbazi> with WidgetsBindingObserv
   List<Widget> _denemeGovde() => switch (_test) {
         _Test.basari => const [
             SihirbazLogo(ikon: SipIcons.check, tur: SihirbazLogoTuru.basari),
-            SihirbazBaslik('Kart çıktı!'),
+            SihirbazBaslik('Kart çıktı'),
             SihirbazMetin(
-              'Arama tanıma çalışıyor. Artık telefon çaldığında müşteriniz ekranda belirecek.',
+              'Arayan tanıma çalışıyor. Artık telefon çaldığında müşteriniz ekranda belirecek.',
             ),
           ],
         _Test.hata => const [
             SihirbazLogo(ikon: SipIcons.alert, tur: SihirbazLogoTuru.hata),
             SihirbazBaslik('Kart çıkmadı'),
             SihirbazMetin(
-              'Büyük ihtimalle "üste çizim" izni eksik. Adımlara dönüp kontrol edelim.',
+              'Büyük ihtimalle "Diğer uygulamaların üzerinde göster" izni eksik. '
+              'Adımlara dönüp kontrol edin.',
             ),
           ],
         _ => [

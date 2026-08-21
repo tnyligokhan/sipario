@@ -160,7 +160,7 @@ class _Bant extends StatelessWidget {
 
   /// Alt satır — NE YAPILACAĞI. Kısa tutulur: bant tek satır yüksekliğinde kalmalı.
   String _altBaslik() => switch (durum) {
-        GuncellemeDurumu.iniyor => 'Lütfen bekleyin',
+        GuncellemeDurumu.iniyor => 'İndirme sürüyor',
         GuncellemeDurumu.kuruluyor => 'Kurulum ekranı birazdan açılacak',
         GuncellemeDurumu.hata => 'Tekrar denemek için dokunun',
         _ => 'Kurmak için dokunun',

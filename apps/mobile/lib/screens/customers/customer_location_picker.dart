@@ -86,13 +86,13 @@ Future<List<AdresAdayi>> sunucudanAdresAdaylari(AppDatabase db, String metin) as
   final m = metin.trim();
   if (m.length < 3) {
     // Sunucu da reddeder; buradan hiç çıkmaması bir tur ağ ve bir tur kota tasarrufudur.
-    throw GeocodeException('Adres en az 3 karakter olmalı.');
+    throw GeocodeException('Adres en az 3 karakter olmalı');
   }
 
   final meta = await db.syncState();
   final token = meta.authToken;
   if (token == null) {
-    throw GeocodeException('Adres araması için oturum gerekir.');
+    throw GeocodeException('Adres araması için oturum gerekir');
   }
 
   final adaylar =
@@ -118,7 +118,7 @@ Future<AdresAdayi?> konumSecSheet(BuildContext context, List<AdresAdayi> adaylar
     govde: (ctx) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const AdayBilgi(metin: 'Doğru adresi seçin.'),
+        const AdayBilgi(metin: 'Doğru adresi seçin'),
         const SizedBox(height: SipSpace.xs),
         for (final a in adaylar)
           Padding(

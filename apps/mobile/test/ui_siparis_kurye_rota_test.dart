@@ -70,7 +70,7 @@ void main() {
       await akisiBekle(tester);
       await tester.tap(find.text('Sepete Ekle (${sipTutar(4500)})'));
       await akisiBekle(tester);
-      await tester.tap(find.text('Bitti · 1 kalem eklendi'));
+      await tester.tap(find.text('1 kalem eklendi'));
       await akisiBekle(tester);
       await tester.tap(find.text('Devam'));
       await akisiBekle(tester);
@@ -377,7 +377,7 @@ void main() {
       await akisiBekle(tester);
 
       expect(find.text('Oto Sırala (34 hak)'), findsOneWidget);
-      expect(find.text('Aboneliğiniz sona erdi — sıra kaydedilemiyor.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için sıra kaydedilemiyor'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -391,7 +391,7 @@ void main() {
       await akisiBekle(tester);
 
       expect(find.text('Oto Sırala (0 hak)'), findsOneWidget);
-      expect(find.text('Oto sıralama hakkı kalmadı.'), findsOneWidget);
+      expect(find.text('Oto sıralama hakkı kalmadı'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -408,7 +408,7 @@ void main() {
 
       // TAM eşleşme: etikette " · N hak" eki YOK.
       expect(find.text('Oto Sırala'), findsOneWidget);
-      expect(find.text('Hak bilgisi bekleniyor — ilk senkrondan sonra kullanılabilir.'),
+      expect(find.text('Kullanım hakkınız henüz görünmüyor. Sunucuya bağlanınca kullanabilirsiniz.'),
           findsOneWidget);
 
       await ekraniKapat(tester);
@@ -422,7 +422,7 @@ void main() {
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.text('Rota için en az iki açık sipariş gerekir.'), findsOneWidget);
+      expect(find.text('Rota için en az iki açık sipariş gerekir'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -448,7 +448,7 @@ void main() {
 
       expect(find.text('Oto Sırala (34 hak)'), findsOneWidget,
           reason: 'kontör senkronla gelince düğme tazelenmeli — "0 hak"ta donmamalı');
-      expect(find.text('Oto sıralama hakkı kalmadı.'), findsNothing);
+      expect(find.text('Oto sıralama hakkı kalmadı'), findsNothing);
 
       await ekraniKapat(tester);
     });

@@ -59,7 +59,7 @@ class _NotBolumuState extends State<NotBolumu> {
           'Sipariş Notu',
           sag: (!_duzenle && widget.duzenlenebilir)
               ? SdxLink(
-                  etiket: not.isEmpty ? '+ Not Ekle' : 'Düzenle',
+                  etiket: not.isEmpty ? 'Not Ekle' : 'Düzenle',
                   onTap: () => setState(() {
                     _taslak.text = not;
                     _duzenle = true;
@@ -70,7 +70,7 @@ class _NotBolumuState extends State<NotBolumu> {
         if (_duzenle) ...[
           SipInput(
             controller: _taslak,
-            ipucu: 'Kapı kodu, teslim saati, özel istek…',
+            ipucu: 'Kapı kodu, teslim saati, özel istek',
             satirlar: 2,
             otomatikOdak: true,
           ),
@@ -94,7 +94,7 @@ class _NotBolumuState extends State<NotBolumu> {
             ),
           ),
         ] else if (not.isEmpty)
-          const SdxBos('Not yok.')
+          const SdxBos('Not yok')
         else
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: SipSpace.md),
@@ -167,7 +167,7 @@ class _AdresBolumuState extends State<AdresBolumu> {
   Future<void> _konumGuncelle() async {
     if (_calisiyor) return;
     if (!widget.writable) {
-      SipToast.goster(context, 'Aboneliğiniz sona erdiği için konum kaydedilemiyor.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için konum kaydedilemiyor');
       return;
     }
 
@@ -411,7 +411,7 @@ class _KonumGuncelleButonu extends StatelessWidget {
                 boyut: 13, kalinlik: 2.2, renk: calisiyor ? t.muted : t.accent),
             const SizedBox(width: 6),
             Text(
-              calisiyor ? 'Konum alınıyor…' : (ilk ? 'Konumu Kaydet' : 'Konum Güncelle'),
+              calisiyor ? 'Konum alınıyor' : (ilk ? 'Konumu Kaydet' : 'Konum Güncelle'),
               style: SipText.metin(12, w: 800)
                   .copyWith(color: calisiyor ? t.muted : t.accent),
             ),

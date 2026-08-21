@@ -133,7 +133,7 @@ void main() {
     await dokun(tester, saat('sessiz-bitis', '09'));
     await akislariBekle(tester);
 
-    expect(find.textContaining('KAPALI'), findsOneWidget);
+    expect(find.textContaining('sessiz saatler kapalı'), findsOneWidget);
 
     await kapat(tester);
   });

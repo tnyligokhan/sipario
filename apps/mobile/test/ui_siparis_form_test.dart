@@ -52,7 +52,7 @@ void main() {
 
     // CSS `.mrow-tel` + `.mrow-adres` — ad tek başına yeterli değil (aynı adlı iki müşteri).
     expect(find.text(sipTelefon('+905321234567')), findsOneWidget);
-    expect(find.text('Atatürk Cad. No:5 — Merkez'), findsOneWidget);
+    expect(find.text('Atatürk Cad. No:5, Merkez'), findsOneWidget);
 
     await ekraniKapat(tester);
   });
@@ -86,7 +86,7 @@ void main() {
     await akisiBekle(tester);
     await tester.tap(find.text('Sepete Ekle (${sipTutar(4500)})'));
     await akisiBekle(tester);
-    await tester.tap(find.text('Bitti · 1 kalem eklendi'));
+    await tester.tap(find.text('1 kalem eklendi'));
     await akisiBekle(tester);
 
     // Adım 2 — CSS `.ys-birim` YALNIZ birimi yazar, birim fiyatı tekrarlamaz.
@@ -97,7 +97,7 @@ void main() {
     await akisiBekle(tester);
 
     expect(find.text(sipTelefon('+905321234567')), findsOneWidget);
-    expect(find.text('Atatürk Cad. No:5 — Merkez'), findsOneWidget);
+    expect(find.text('Atatürk Cad. No:5, Merkez'), findsOneWidget);
     // CSS `.sd-birim` — `{adet} {birim} × {fiyat}`; birim düşerse 1 koli mi 1 adet mi belirsiz.
     expect(find.text('1 koli × ${sipTutar(4500)}'), findsOneWidget);
 
@@ -131,7 +131,7 @@ void main() {
     await tester.tap(find.text('Sepete Ekle (${sipTutar(2 * 4500)})'));
     await akisiBekle(tester);
 
-    await tester.tap(find.text('Bitti · 1 kalem eklendi'));
+    await tester.tap(find.text('1 kalem eklendi'));
     await akisiBekle(tester);
 
     // `.ys-alt` alt toplam çubuğu.
@@ -166,13 +166,13 @@ void main() {
     await akisiBekle(tester);
     await tester.tap(find.text('Sepete Ekle (${sipTutar(4500)})'));
     await akisiBekle(tester);
-    await tester.tap(find.text('Bitti · 1 kalem eklendi'));
+    await tester.tap(find.text('1 kalem eklendi'));
     await akisiBekle(tester);
 
     // Serbest satır: 150 ₺ nakliye.
-    await tester.tap(find.text('+ Serbest satır (katalogda olmayan iş)'));
+    await tester.tap(find.text('Katalogda olmayan iş ekle'));
     await akisiBekle(tester);
-    await tester.enterText(find.widgetWithText(TextField, 'Ör. Nakliye, montaj, ek iş'), 'Nakliye');
+    await tester.enterText(find.widgetWithText(TextField, 'Ör. nakliye, montaj, ek iş'), 'Nakliye');
     await tester.enterText(find.widgetWithText(TextField, '0'), '150');
     await tester.pump();
     await tester.tap(find.text('Ekle'));
@@ -223,12 +223,12 @@ void main() {
     await akisiBekle(tester);
     await tester.tap(find.text('Sepete Ekle (${sipTutar(4500)})'));
     await akisiBekle(tester);
-    await tester.tap(find.text('Bitti · 1 kalem eklendi'));
+    await tester.tap(find.text('1 kalem eklendi'));
     await akisiBekle(tester);
     await tester.tap(find.text('Devam'));
     await akisiBekle(tester);
 
-    expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
+    expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
     await tester.tap(find.text('Siparişi Kaydet'));
     await akisiBekle(tester, ms: 250);
 

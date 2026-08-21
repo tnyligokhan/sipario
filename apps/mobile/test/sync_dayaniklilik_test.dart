@@ -275,7 +275,7 @@ void main() {
       expect(SipCevrimdisiBant(tur: bantTuru(sonuc.tur)).metin, isNot(contains('Çevrimdışı')),
           reason: 'sunucuya ulaşıldı; "çevrimdışı" demek arızayı GİZLER');
       expect(SipCevrimdisiBant(tur: bantTuru(sonuc.tur)).metin,
-          isNot(contains('bağlanınca gönderilecek')),
+          isNot(contains('bağlantı gelince gönderilecek')),
           reason: 'tutulamayacak söz verilmez — bağlantı zaten var');
     });
 

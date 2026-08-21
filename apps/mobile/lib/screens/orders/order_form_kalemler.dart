@@ -133,7 +133,7 @@ class KalemlerAdimi extends StatelessWidget {
           // CSS `.ys-serbest { padding: 13px 2px }` (_sayfa.html:522) — ölçü tasarımdan.
           padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 2),
           child: Text(
-            '+ Serbest satır (katalogda olmayan iş)',
+            'Katalogda olmayan iş ekle',
             textAlign: TextAlign.center,
             style: SipText.metin(12.5, w: 600).copyWith(color: t.muted),
           ),

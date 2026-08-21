@@ -36,7 +36,7 @@ String hesapRolAdi(String? rol) => switch (rol) {
       'patron' => 'Patron',
       'operator' => 'Tezgâh',
       'kurye' => 'Kurye',
-      _ => 'Tanımsız',
+      _ => 'Bilinmiyor',
     };
 
 /// Rolün ne yapabildiğini bir cümlede anlatan alt satır.
@@ -157,8 +157,8 @@ class _Govde extends StatelessWidget {
           padding: const EdgeInsets.only(top: SipSpace.xl),
           child: AlanNotu(
             rol == 'patron'
-                ? 'Parolanızı sipario.com.tr üzerinden değiştirebilirsiniz.'
-                : 'Parolanızı işletme sahibi belirler, değiştirmek için ona başvurun.',
+                ? 'Parolanızı sipario.com.tr üzerinden değiştirebilirsiniz'
+                : 'Parolanızı işletme sahibi belirler, değiştirmek için ona başvurun',
             tur: AlanNotuTuru.bilgi,
           ),
         ),

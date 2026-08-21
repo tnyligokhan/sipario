@@ -69,8 +69,8 @@ class CustomerDetailScreen extends StatefulWidget {
 }
 
 class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
-  static const String saltOkunurMesaji = 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor.';
-  static const String yetkisizMesaji = 'Bu işlem için yetkiniz yok.';
+  static const String saltOkunurMesaji = 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor';
+  static const String yetkisizMesaji = 'Bu işlem için yetkiniz yok';
 
   late final Stream<Customer?> _musteri = (widget.db.select(widget.db.customers)
         ..where((t) => t.id.equals(widget.customerId)))
@@ -348,7 +348,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     onAra: () => _eylem(() => musteriyiAra(telefonlar.firstOrNull?.phoneE164)),
                     onWhatsapp: () => _eylem(() async {
                       if (!(widget.yetki.borcHatirlatma)) {
-                        return 'Borç hatırlatma yetkisi kapalıdır.';
+                        return 'Borç hatırlatma yetkisi kapalıdır';
                       }
                       return whatsappAc(telefonlar.firstOrNull?.phoneE164);
                     }),
@@ -416,7 +416,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     const Padding(
                       padding: EdgeInsets.only(top: SipSpace.xl),
                       child: SipNotKutusu(
-                        metin: 'Geçmiş hareketler size kapalı.',
+                        metin: 'Geçmiş hareketler size kapalı',
                         ikon: SipIcons.lock,
                       ),
                     ),

@@ -39,7 +39,7 @@ class CihazApi {
     }
 
     if (resp.statusCode != 200) {
-      throw CihazApiException('Cihaz listesi alınamadı (kod ${resp.statusCode}).');
+      throw CihazApiException('Cihaz listesi alınamadı (kod ${resp.statusCode})');
     }
 
     final govde = jsonDecode(resp.body);

@@ -267,7 +267,7 @@ class AdresEtiketSatiri extends StatelessWidget {
           // Flexible + ellipsis: koordinat + güncelle ikonu büyük yazı tipi ayarında satırı
           // taşırmasın (taşma çizgili kırmızı bant demektir, saha telefonunda utanç verici).
           if (calisiyor)
-            Text('Konum aranıyor…', style: SipText.metin(11.5, w: 700).copyWith(color: t.muted))
+            Text('Konum aranıyor', style: SipText.metin(11.5, w: 700).copyWith(color: t.muted))
           else if (konumVar)
             Flexible(
               child: SipDokun(

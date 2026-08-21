@@ -85,7 +85,7 @@ BildirimTaslagi? kullanimHakkiUyarisi({
 
   return BildirimTaslagi(
     kategori: BildirimKategori.kullanimHakki,
-    baslik: bitti ? 'Oto-sıralama hakkınız bitti' : 'Oto-sıralama hakkınız azaldı',
+    baslik: bitti ? 'Oto sıralama hakkınız bitti' : 'Oto sıralama hakkınız azaldı',
     govde: bitti
         ? 'Bu ayki $aylik hakkın tamamı kullanıldı'
         : 'Bu ay $kalan hakkınız kaldı',

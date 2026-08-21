@@ -172,7 +172,7 @@ void main() {
       expect(find.text('YÖNETİM'), findsNothing);
       expect(find.text('Ürünler'), findsNothing);
       expect(find.text('Kuryeler'), findsNothing);
-      expect(find.text('Muaf Telefonlar'), findsNothing);
+      expect(find.text('Muaf Numaralar'), findsNothing);
       expect(find.byType(CekmeceIstatistikleri), findsNothing,
           reason: 'koşullu görünürlük değil — kuryede hiç kurulmaz');
 

@@ -51,6 +51,24 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.41.0',
+    tarih: '21 Ağustos 2026',
+    maddeler: [
+      'Uygulamadaki bütün yazılar baştan sona gözden geçirildi. Başlıklar, düğmeler, '
+          'uyarılar ve bildirimler artık aynı dili konuşuyor; gereksiz noktalama ve '
+          'süsleme işaretleri kaldırıldı.',
+      'Aynı şeyi anlatan farklı adlar tekleştirildi: "Arayan tanıma" her yerde aynı '
+          'yazıyor, menüdeki "Muaf Telefonlar" artık "Muaf Numaralar".',
+      'Teknik terimler günlük dile çevrildi. İzin sihirbazındaki "Üste çizim izni" artık '
+          'telefonun kendi ayarındaki adıyla "Diğer uygulamaların üzerinde göster".',
+      'Bir şey yapılamadığında sebebi tek cümleyle yazılıyor ve ne yapılacağı söyleniyor. '
+          'Kapalı ekranlarda aynı cümleyi iki kez okumuyorsunuz.',
+      'Bildirim başlıkları kısaldı: ayarlarda "Sipariş ataması", "Sipariş iptali" ve '
+          '"Teslimat" olarak görünüyor.',
+      'Gün kapatma düğmesi ne yaptığını yazıyor: "Kapat ve Arşivle".',
+    ],
+  ),
+  SurumNotu(
     surum: '0.40.0',
     tarih: '21 Ağustos 2026',
     maddeler: [
