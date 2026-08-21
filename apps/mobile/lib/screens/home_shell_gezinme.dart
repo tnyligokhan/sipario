@@ -44,7 +44,7 @@ extension _GezinmeYuzeyi on _HomeShellState {
         _git(HesapEkrani(db: widget.db, session: widget.session, onCikis: _cikis));
       case CekmeceGiris.urunler:
         if (!_yetki.urunYonetimi) {
-          SipToast.goster(context, 'Ürün yönetimi yalnız yöneticilere açıktır.');
+          SipToast.goster(context, 'Ürünleri yalnız patron düzenler.');
           return;
         }
         _git(ProductListScreen(db: widget.db, writable: _yazilabilir, rol: _userRole));
@@ -57,7 +57,7 @@ extension _GezinmeYuzeyi on _HomeShellState {
         _git(KuryelerEkrani(db: widget.db, writable: _yazilabilir, rol: _userRole));
       case CekmeceGiris.muaf:
         if (!_yetki.muafTelefonYonetimi) {
-          SipToast.goster(context, 'Muaf telefon yönetimi yalnız yöneticilere açıktır.');
+          SipToast.goster(context, 'Muaf numaraları yalnız patron düzenler.');
           return;
         }
         // `rol` zorunlu — gerekçe yukarıda (kuryeler dalı). Bu satır da aynı açığı taşıyordu.
@@ -142,7 +142,7 @@ extension _GezinmeYuzeyi on _HomeShellState {
     // kapalıysa menü hiç açılmaz, tek bir cümleyle sebep söylenir.
     final yetki = _yetki;
     if (!yetki.musteriDuzenleme && !yetki.siparisAcma) {
-      SipToast.goster(context, 'Bu hesap yeni kayıt ekleyemez — bayi yetkisi kapalı.');
+      SipToast.goster(context, 'Kayıt ekleme yetkiniz yok.');
       return;
     }
 
@@ -178,7 +178,7 @@ extension _GezinmeYuzeyi on _HomeShellState {
   /// "Borçlular" bento kutusu — Genel Yetki Matrisinde kuryelere kısıtlıdır.
   void _borclularAc() {
     if (!_yetki.toplamBorclulariGorme) {
-      SipToast.goster(context, 'Toplam borçlular listesi yalnız yöneticilere açıktır.');
+      SipToast.goster(context, 'Borçlular listesi size kapalı.');
       return;
     }
     _git(BorclularEkrani(

@@ -62,7 +62,7 @@ class AramaSatiri extends StatelessWidget {
       if (kayitli) numara,
       if (sonuc != null && sonuc.isNotEmpty) sonuc,
       if (kim != null && kim.trim().isNotEmpty) kim.trim(),
-    ].join(' · ');
+    ].join(', ');
 
     return SipDokun(
       onTap: onAc == null ? null : () => onAc!(arama),
@@ -132,7 +132,7 @@ class AramaSatiri extends StatelessWidget {
                       ),
                       if (alt.isNotEmpty) ...[
                         Text(
-                          ' · ',
+                          ', ',
                           style: SipText.yardimci.copyWith(color: t.muted),
                         ),
                         Flexible(
@@ -231,16 +231,13 @@ class CagriGunluguEkrani extends StatelessWidget {
       if (seciliKullaniciId != null) {
         return const SipBosDurum(
           baslik: 'Bu kullanıcının çağrısı yok',
-          aciklama: 'Seçilen kişiye ait gelen ya da giden çağrı kaydı bulunmuyor. '
-              'Herkesi görmek için süzgeci "Tümü"ye alın.',
+          aciklama: 'Herkesi görmek için "Tümü"yü seçin.',
           ikon: SipIcons.phone,
         );
       }
       return const SipBosDurum(
         baslik: 'Henüz arama yok',
-        aciklama:
-            'Gelen ve giden çağrılar burada listelenir. Kayıtlı müşteriler adıyla, '
-            'diğerleri numarasıyla görünür.',
+        aciklama: 'Gelen ve giden aramalar burada listelenir.',
         ikon: SipIcons.phone,
       );
     }

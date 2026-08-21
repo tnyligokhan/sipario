@@ -121,7 +121,7 @@ class KapaliKapiMetni extends StatelessWidget {
           ),
           const SizedBox(height: SipSpace.sm),
           Text(
-            'Kurye hesabıyla ürün, kurye ve muaf numara yönetimi görülemez.',
+            'Bu ekran kuryeye kapalı.',
             style: SipText.bosAciklama.copyWith(color: t.muted),
             textAlign: TextAlign.center,
           ),

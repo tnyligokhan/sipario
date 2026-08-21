@@ -105,7 +105,7 @@ BildirimTaslagi pushTaslagi(PushMesaji m, {String? ayrinti, String? detaySatiri}
   final (baslik, govde, yol) = switch (m.kategori) {
     BildirimKategori.siparisAtandi => (
         'Yeni sipariş',
-        ek.isEmpty ? 'Size bir sipariş atandı' : '$ek — size atandı',
+        ek.isEmpty ? 'Size bir sipariş atandı' : '$ek size atandı',
         'siparisler',
       ),
     // İPTALDE BAŞLIK DA AÇIK OLMALI. Diğerlerinde başlık nötr tutuluyor (kilit ekranı kuralı)
@@ -113,12 +113,12 @@ BildirimTaslagi pushTaslagi(PushMesaji m, {String? ayrinti, String? detaySatiri}
     // "iptal" sözcüğü müşteri adı taşımaz, yani kural da çiğnenmiş olmaz.
     BildirimKategori.siparisIptal => (
         'Sipariş iptal edildi',
-        ek.isEmpty ? 'Size atanan sipariş iptal edildi' : '$ek — sipariş iptal edildi',
+        ek.isEmpty ? 'Size atanan sipariş iptal edildi' : '$ek iptal edildi',
         'siparisler',
       ),
     BildirimKategori.siparisTeslim => (
         'Teslim edildi',
-        ek.isEmpty ? 'Bir sipariş teslim edildi' : '$ek — teslim edildi',
+        ek.isEmpty ? 'Bir sipariş teslim edildi' : '$ek teslim edildi',
         'siparisler',
       ),
     BildirimKategori.kasaDevri => (
@@ -160,8 +160,8 @@ String? _detay(BildirimKategori k, String govde, String ikinciSatir) => switch (
         ikinciSatir.isEmpty ? null : '$govde\n$ikinciSatir',
       // İptalde adres yine değerli: kurye "hangi teslimat iptal oldu"yu tanımalı.
       BildirimKategori.siparisIptal => ikinciSatir.isEmpty
-          ? 'Bu siparişe gitmeyin — listeden kaldırıldı.'
-          : '$govde\n$ikinciSatir\n\nBu siparişe gitmeyin — listeden kaldırıldı.',
+          ? 'Bu siparişe gitmeyin, sipariş listeden kaldırıldı.'
+          : '$govde\n$ikinciSatir\n\nBu siparişe gitmeyin, sipariş listeden kaldırıldı.',
       // Güvenlik bildiriminde ne yapılacağı SÖYLENİR; uyarıp yalnız bırakmak işe yaramaz.
       BildirimKategori.yeniCihaz =>
         'Hesabınız yeni bir telefonda açıldı.\n\nBu siz değilseniz parolanızı değiştirin. '

@@ -207,7 +207,7 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
               children: [
                 Expanded(
                   child: SipCip(
-                    etiket: 'Tamamı · ${sipTutar(_borc)}',
+                    etiket: 'Tamamı (${sipTutar(_borc)})',
                     // "Tamamı" KURUŞUYLA doldurur — adı bir kesinlik iddiası: tam liraya
                     // yuvarlasaydı 85,50 ₺ borçta 85 yazıp borcu kapatmazdı (ve çip, kendi
                     // yazdığı değerle `secili` görünmezdi).
@@ -238,8 +238,8 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
           ),
           if (alacakKurus > 0)
             SipHataSatiri(
-              metin: 'Bu tahsilat açık borcu aşıyor — müşteri '
-                  '${sipTutar(alacakKurus)} alacaklı duruma geçecek.',
+              metin: 'Tahsilat açık borçtan fazla. Müşteri ${sipTutar(alacakKurus)} alacaklı '
+                  'duruma geçecek.',
               renk: t.warn,
               ikon: SipIcons.info,
             ),
@@ -296,7 +296,7 @@ class _DuzeltmeGovdeState extends State<_DuzeltmeGovde> {
     setState(() {
       _tutarHatasi = kurus <= 0 ? 'Tutar 0’dan büyük olmalı' : null;
       _notHatasi =
-          not.length < 2 ? 'Açıklama girin — düzeltmenin nedeni deftere yazılır' : null;
+          not.length < 2 ? 'Düzeltmenin nedenini yazın, deftere kaydedilir' : null;
     });
     if (_tutarHatasi != null || _notHatasi != null) return;
 

@@ -100,7 +100,7 @@ List<GunKapsamSecenegi> gunKapsamlari({
       GunKapsamSecenegi(etiket: 'Elemanlar', haric: benimId),
     for (final u in baskalari)
       GunKapsamSecenegi(
-        etiket: '${u.name} · ${rolEtiketi(u.role)}',
+        etiket: '${u.name} (${rolEtiketi(u.role)})',
         userId: u.id,
         rol: u.role,
       ),

@@ -61,7 +61,7 @@ class MuafEkrani extends StatelessWidget {
                     baslik: 'Muaf Telefonlar',
                     alt: liste == null
                         ? null
-                        : '${liste.length} numara · çağrı kartı çıkmaz',
+                        : '${liste.length} numara için çağrı kartı çıkmaz',
                     onGeri: () => Navigator.of(context).maybePop(),
                   ),
                   Expanded(
@@ -105,7 +105,7 @@ class _Govde extends StatelessWidget {
     final onay = await sipOnay(
       context,
       baslik: 'Listeden çıkarılsın mı?',
-      mesaj: '${sipTelefon(m.phoneE164)} bundan sonra aradığında çağrı kartı AÇILIR.',
+      mesaj: '${sipTelefon(m.phoneE164)} bundan sonra aradığında çağrı kartı yeniden açılacak.',
       onayEtiketi: 'Çıkar',
       tehlike: true,
     );
@@ -161,7 +161,7 @@ class _Govde extends StatelessWidget {
 }
 
 /// Salt-okunur kip uyarısı — ürün ekranındaki eşdeğeriyle aynı dil.
-const String muafSaltOkunurUyarisi = 'Salt-okunur kip: muaf liste değiştirilemez.';
+const String muafSaltOkunurUyarisi = 'Aboneliğiniz sona erdiği için liste değiştirilemiyor.';
 
 /// CSS `.muaf-row` — yuvarlak ikon + etiket/numara + kırmızı çarpı.
 class MuafSatiri extends StatelessWidget {

@@ -120,12 +120,12 @@ Future<String?> kuryeSecSheet(
       ),
     );
 
-/// Görevli satırının etiketi — "Ali · Kurye", oturumdaki kişide "Mehmet · Patron (siz)".
+/// Görevli satırının etiketi: "Ali (Kurye)", oturumdaki kişide "Mehmet (Patron, siz)".
 /// Sheet ile gün özeti kapsam listesi AYNI etiketten okur; ayrışırlarsa bayi aynı kişiyi iki
 /// ekranda iki farklı adla görürdü.
 String gorevliEtiketi(User u, {String? benimId}) {
   final ben = benimId != null && u.id == benimId;
-  return '${u.name} · ${rolEtiketi(u.role)}${ben ? ' (siz)' : ''}';
+  return '${u.name} (${rolEtiketi(u.role)}${ben ? ', siz' : ''})';
 }
 
 /// "Sıralama" sheet'i — CSS `.sr-*`. [secenekler] verilmezse tüm sıralama kipleri sunulur;

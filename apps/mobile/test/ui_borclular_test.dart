@@ -198,8 +198,8 @@ void main() {
       expect(find.text('Borçlu Bayi'), findsOneWidget);
       expect(find.text('Temiz Hesap'), findsNothing,
           reason: 'ekranın tamamı borçlulara ayrılmıştır');
-      expect(find.text('1 müşteri · 200,00 ₺'), findsOneWidget);
-      expect(find.text('Tahsilat Al · 200,00 ₺'), findsOneWidget);
+      expect(find.text('1 müşteri, toplam 200,00 ₺'), findsOneWidget);
+      expect(find.text('Tahsilat Al (200,00 ₺)'), findsOneWidget);
 
       await kapat(tester);
     });

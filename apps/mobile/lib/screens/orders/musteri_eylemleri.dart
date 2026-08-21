@@ -146,12 +146,12 @@ Future<String?> whatsappAc(String? telefon, {String? mesaj}) async {
   if (n == null) return 'Müşterinin kayıtlı telefonu yok';
   return await uriAc(whatsappUriler(n, mesaj: mesaj))
       ? null
-      : 'WhatsApp açılamadı — telefonda yüklü değil';
+      : 'WhatsApp bu telefonda yüklü değil';
 }
 
 Future<String?> konumuHaritadaAc(AdresBilgi? adres, {String? etiket}) async {
   if (adres == null || !adres.konumVar) {
-    return 'Konum kayıtlı değil — müşteri detayından alın';
+    return 'Konum kayıtlı değil. Müşteri detayından alabilirsiniz';
   }
   final acildi = await uriAc(haritaUriler(adres.lat!, adres.lng!, etiket: etiket));
   return acildi ? null : 'Harita uygulaması açılamadı';

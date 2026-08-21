@@ -286,7 +286,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   void _devam() {
     if (_sepetBos) {
       setState(() {
-        _uyari = 'Sepet boş — önce ürün ekleyin.';
+        _uyari = 'Sepet boş. Önce ürün ekleyin.';
         _uyariSayaci++; // aynı uyarı tekrar gösterilse de sarsıntı yeniden oynasın
       });
       return;
@@ -371,7 +371,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
               const Padding(
                 padding: EdgeInsets.fromLTRB(SipSpace.govde, SipSpace.lg, SipSpace.govde, 0),
                 child: SipNotKutusu(
-                  metin: 'Salt-okunur kip: yeni kayıt eklenemez.',
+                  metin: 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor.',
                   ikon: SipIcons.lock,
                   tur: SipNotTuru.hata,
                 ),

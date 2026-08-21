@@ -65,7 +65,7 @@ class SubscriptionLockedScreen extends StatelessWidget {
                       SipIcon(SipIcons.lock, boyut: 13, kalinlik: 2.2, renk: t.warn),
                       const SizedBox(width: 6),
                       Text(
-                        trBuyuk('Salt-okunur kip'),
+                        trBuyuk('Yalnızca görüntüleme'),
                         style: SipText.metin(10.5, w: 800)
                             .copyWith(color: t.warn, letterSpacing: 0.6),
                       ),
@@ -96,7 +96,7 @@ class SubscriptionLockedScreen extends StatelessWidget {
                 ikon: SipIcons.check,
                 renk: t.ok,
                 baslik: 'Açık',
-                metin: 'Müşteriler, siparişler, defter ve gün özeti — hepsi okunabilir.',
+                metin: 'Müşteriler, siparişler, defter ve gün özeti okunmaya devam eder.',
               ),
               const SizedBox(height: SipSpace.md),
               _DurumSatiri(

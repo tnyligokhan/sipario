@@ -106,8 +106,10 @@ class TeslimAkisi {
         teslimBorcFarki(toplamKurus: toplamKurus, tahsilKurus: sonuc.tahsilKurus) -
             sonuc.iskontoKurus;
     final ek = sonuc.iskontoKurus > 0
-        ? ' · ${sipTutar(sonuc.iskontoKurus)} iskonto'
-        : (kalan > 0 && sonuc.odemeTipi != 'veresiye' ? ' · ${sipTutar(kalan)} borç' : '');
-    return 'Sipariş teslim edildi · ${odemeTipiEtiketi(sonuc.odemeTipi)}$ek';
+        ? ', ${sipTutar(sonuc.iskontoKurus)} iskonto yapıldı'
+        : (kalan > 0 && sonuc.odemeTipi != 'veresiye'
+            ? ', ${sipTutar(kalan)} borç kaldı'
+            : '');
+    return '${odemeTipiEtiketi(sonuc.odemeTipi)} olarak teslim edildi$ek';
   }
 }

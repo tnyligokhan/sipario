@@ -74,8 +74,8 @@ class _VerdictCard extends StatelessWidget {
             if (verdict.simulated.isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(
-                '${verdict.simulated.length} simüle çağrı sayıma dahil değil — '
-                'süreç zaten ayakta olduğu için asıl maliyeti ölçmez.',
+                '${verdict.simulated.length} simüle çağrı sayıma dahil değil. '
+                'Süreç zaten ayakta olduğu için asıl maliyeti ölçmez.',
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
@@ -196,8 +196,8 @@ class _SetupCard extends StatelessWidget {
             _Step(
               done: canFullScreen,
               title: 'Kilit ekranında göster',
-              subtitle: 'Telefon kilitliyken kart ancak bu izinle çıkar. Yoksa yalnız '
-                  'bildirim görünür — sahada telefon çoğu zaman kilitlidir.',
+              subtitle: 'Telefon kilitliyken kart ancak bu izinle çıkar. Sahada telefon çoğu zaman '
+                  'kilitli olduğu için bu izin gerekir.',
               action: 'İzin ver',
               onTap: onRequestFullScreen,
             ),

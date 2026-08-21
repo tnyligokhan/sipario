@@ -46,7 +46,7 @@ class KonumHatasi implements Exception {
 /// Zayıf ölçüm kullanıcıya SÖYLENİR (kayıt yine de yapılır — hiçbir konum, yanlış konumdan
 /// iyidir demiyoruz; ama "konum kayıtlı" yazısına güvenen kurye ±800 m'yi bilmeli).
 String konumDogrulukUyarisi(double metre) =>
-    'Konum ±${metre.round()} m doğrulukla alındı — kapının önünde tekrar deneyebilirsiniz.';
+    'Konum ±${metre.round()} m doğrulukla alındı. Daha hassas olması için kapının önünde tekrar deneyin.';
 
 /// Ekranların gördüğü tek yüzey. Widget testleri bunu sahtesiyle değiştirir
 /// (`sesliGirisUret` / `uriAcici` deseninin aynısı — eklenti çağrısı tek dikişten geçer).
@@ -57,7 +57,7 @@ Future<CihazKonumu> gercekCihazKonumu() async {
   try {
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw const KonumHatasi(
-        'Konum servisi kapalı — telefonun konum ayarını açıp tekrar deneyin.',
+        'Konum servisi kapalı. Telefonun konum ayarını açıp tekrar deneyin.',
         ayarlaraYonlendir: true,
       );
     }
@@ -69,13 +69,13 @@ Future<CihazKonumu> gercekCihazKonumu() async {
 
     if (izin == LocationPermission.deniedForever) {
       throw const KonumHatasi(
-        'Konum izni kapalı — telefon ayarlarından Sipario için konum iznini açın.',
+        'Konum izni kapalı. Telefon ayarlarından Sipario için konum iznini açın.',
         ayarlaraYonlendir: true,
       );
     }
 
     if (izin != LocationPermission.whileInUse && izin != LocationPermission.always) {
-      throw const KonumHatasi('Konum izni verilmedi — konum alınamadı.');
+      throw const KonumHatasi('Konum izni verilmediği için konum alınamadı.');
     }
 
     final konum = await Geolocator.getCurrentPosition(
@@ -97,7 +97,7 @@ Future<CihazKonumu> gercekCihazKonumu() async {
     // Zaman aşımı, eklentinin bulunmadığı ortam (test/masaüstü) ya da platform arızası:
     // ÇÖKME YOK, kullanıcı ne yapacağını bilsin.
     throw const KonumHatasi(
-      'Konum alınamadı — açık alana çıkıp tekrar deneyin ya da adresten konum alın.',
+      'Konum alınamadı. Açık alana çıkıp tekrar deneyin ya da adresten konum alın.',
     );
   }
 }

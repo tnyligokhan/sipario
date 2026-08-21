@@ -281,7 +281,7 @@ class AdresEtiketSatiri extends StatelessWidget {
                     const SizedBox(width: 5),
                     Flexible(
                       child: Text(
-                        'Konum alındı · ${koordinat!}',
+                        'Konum alındı: ${koordinat!}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: SipText.metin(11.5, w: 700).copyWith(color: t.ok),
@@ -362,7 +362,7 @@ class SesliGirisDugmesi extends StatelessWidget {
     final t = context.sip;
     final etiket = dinliyor
         ? 'Dinlemeyi durdur'
-        : 'Sesle yaz${alanAdi == null ? '' : ' · $alanAdi'}';
+        : 'Sesle yaz${alanAdi == null ? '' : ' ($alanAdi)'}';
     return Semantics(
       button: true,
       label: etiket,

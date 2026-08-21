@@ -379,9 +379,8 @@ class _DayEndScreenState extends State<DayEndScreen> {
                           ? const SipGovde(children: [
                               SipBosDurum(
                                 ikon: SipIcons.wallet,
-                                baslik: 'Hesabınız çözülemedi',
-                                aciklama: 'Oturum bilgisi eksik olduğu için kendi gün '
-                                    'özetiniz getirilemiyor. Çıkış yapıp yeniden girin.',
+                                baslik: 'Gün özetiniz açılamadı',
+                                aciklama: 'Oturum bilgileriniz eksik. Çıkış yapıp yeniden girin.',
                               ),
                             ])
                           : g == null

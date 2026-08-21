@@ -392,7 +392,7 @@ void main() {
     testWidgets('veri hatası bandı kayıtların güvende olduğunu söyler', (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant(tur: SipBantTuru.hata)));
       expect(find.textContaining('bağlanınca gönderilecek'), findsNothing);
-      expect(find.textContaining('cihazda güvende'), findsOneWidget);
+      expect(find.textContaining('Telefonda güvende'), findsOneWidget);
     });
 
     testWidgets('iskelet istenen sayıda satır çizer', (tester) async {

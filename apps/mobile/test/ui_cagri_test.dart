@@ -33,7 +33,7 @@ const _ahmet = CagriKisi(
   adres: 'Cumhuriyet Mah. 5. Sk. No:12/4',
   konumVar: true,
   not: 'Zil çalışmıyor, gelince arayın.',
-  sonHareket: 'Son sipariş: Damacana 19 L ×2 · 10:24',
+  sonHareket: 'Son sipariş: Damacana 19 L ×2 (10:24)',
 );
 
 const _selin = CagriKisi(
@@ -89,7 +89,7 @@ void main() {
       // Bilgi satırları: adres bölgeyle birleşir, not sarı satırda durur.
       // Bölge kaldırıldı (2026-07-28): kartta adres metni tek başına yazar.
       expect(find.text('Cumhuriyet Mah. 5. Sk. No:12/4'), findsOneWidget);
-      expect(find.text('Son sipariş: Damacana 19 L ×2 · 10:24'), findsOneWidget);
+      expect(find.text('Son sipariş: Damacana 19 L ×2 (10:24)'), findsOneWidget);
       expect(find.text('Zil çalışmıyor, gelince arayın.'), findsOneWidget);
 
       // Kayıtlı varyantın eylemleri.

@@ -248,7 +248,7 @@ void main() {
 
       // Düğme TUTARI DA YAZAR (2026-07-29): eskiden borcu görmenin tek yolu düğmeye basıp
       // sheet'i açmaktı — bayi rakamı öğrenmek için bir para yazma akışına giriyordu.
-      expect(find.text('Tahsilat Al · 200,00 ₺'), findsOneWidget,
+      expect(find.text('Tahsilat Al (200,00 ₺)'), findsOneWidget,
           reason: 'teslim edilmiş siparişte de görünür — tahsilat sipariş durumundan bağımsız');
       // Kalan borç ayrıca kutuda yazar (`.sd-odendi`nin borç eşi).
       expect(find.text('Bu siparişten kalan borç 200,00 ₺'), findsOneWidget);
@@ -309,11 +309,11 @@ void main() {
       await akisiBekle(tester);
 
       // Düğme GÖRÜNÜR kalır ve kilidin sebebini söyler (Dilim 3 kararı: ana eylemler gizlenmez).
-      expect(find.text('Tahsilat Al · 500,00 ₺'), findsOneWidget);
+      expect(find.text('Tahsilat Al (500,00 ₺)'), findsOneWidget);
       await tester.tap(find.textContaining('Tahsilat Al'));
       await akisiBekle(tester, ms: 300);
 
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
       expect(find.text('Tahsilatı Kaydet'), findsNothing, reason: 'sheet hiç açılmamalı');
 
       await tester.runAsync(() async {

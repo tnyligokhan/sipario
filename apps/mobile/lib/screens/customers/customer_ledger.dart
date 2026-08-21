@@ -41,7 +41,7 @@ String defterTipEtiketi(LedgerEntry e) => switch (e.entryType) {
 /// Tek satırlık tam etiket (tip + ödeme tipi) — onay diyaloğu ve testler için.
 /// DB değeri değişmez: 'debit'/'payment'/… olduğu gibi durur.
 String defterHareketEtiketi(LedgerEntry e) {
-  final tip = e.paymentType != null ? ' · ${odemeEtiketi(e.paymentType!)}' : '';
+  final tip = e.paymentType != null ? ', ${odemeEtiketi(e.paymentType!)}' : '';
   return switch (e.entryType) {
     'debit' => defterTipEtiketi(e),
     'credit' => defterTipEtiketi(e),
@@ -124,7 +124,7 @@ class CustomerLedgerSection extends StatelessWidget {
               return const SipBosDurum(
                 ikon: SipIcons.book,
                 baslik: 'Hareket yok',
-                aciklama: 'Bu müşteriyle henüz kayıt oluşmadı.',
+                aciklama: 'Henüz hareket yok.',
               );
             }
             return Column(
@@ -161,7 +161,7 @@ class _HareketSatiri extends StatelessWidget {
     final alt = [
       defterSaati(e.occurredAt),
       if (not != null && not.isNotEmpty) not,
-    ].join(' · ');
+    ].join(', ');
 
     return Container(
       decoration: BoxDecoration(color: t.surface, borderRadius: SipRadius.br2),

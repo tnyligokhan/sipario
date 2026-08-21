@@ -36,7 +36,7 @@ class HazirlananUrunSatiri extends StatelessWidget {
 
   Future<void> _degistir(BuildContext context, bool mevcut) async {
     if (!writable) {
-      SipToast.goster(context, 'Salt-okunur kip: ayar değiştirilemez.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için ayar değiştirilemiyor.');
       return;
     }
 
@@ -48,8 +48,8 @@ class HazirlananUrunSatiri extends StatelessWidget {
         context,
         baslik: 'Ürün içerikleri kapatılsın mı?',
         mesaj: 'Ürün formundaki "İçindekiler" bölümü ve sipariş alırken çıkan malzeme '
-            'seçenekleri gizlenir. Girdiğiniz malzeme listeleri SİLİNMEZ — yeniden '
-            'açtığınızda hepsi geri gelir.',
+            'seçenekleri gizlenir. Girdiğiniz listeler silinmez, yeniden açtığınızda '
+            'hepsi geri gelir.',
         onayEtiketi: 'Kapat',
         tehlike: true,
       );
@@ -62,7 +62,7 @@ class HazirlananUrunSatiri extends StatelessWidget {
       context,
       mevcut
           ? 'Ürün içerikleri kapatıldı.'
-          : 'Ürün içerikleri açıldı — ürünü düzenlerken malzeme ekleyebilirsiniz.',
+          : 'Ürün içerikleri açıldı. Ürünü düzenlerken malzeme ekleyebilirsiniz.',
     );
   }
 

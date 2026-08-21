@@ -171,7 +171,7 @@ class _AdetGovdeState extends State<_AdetGovde> {
 
         const SizedBox(height: SipSpace.x2),
         SipButon(
-          etiket: 'Sepete Ekle · ${sipTutar(tutar)}',
+          etiket: 'Sepete Ekle (${sipTutar(tutar)})',
           ikon: SipIcons.plus,
           onTap: () => Navigator.of(context).pop(_AdetSonucu(_adet, _secim, _hatirla)),
         ),

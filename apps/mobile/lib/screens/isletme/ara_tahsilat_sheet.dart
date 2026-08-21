@@ -56,7 +56,7 @@ Future<AraTahsilatSonucu?> araTahsilatSheet(
 }) {
   return sipSheet<AraTahsilatSonucu>(
     context,
-    baslik: 'Ara Tahsilat · $kuryeAdi',
+    baslik: '$kuryeAdi için ara tahsilat',
     govde: (ctx) => _AraTahsilatGovdesi(
       kuryeAdi: kuryeAdi,
       beklenen: beklenen,
@@ -87,9 +87,8 @@ Future<bool> araTahsilatIptalOnayi(
   return sipOnay(
     context,
     baslik: 'Ara tahsilat iptal edilsin mi?',
-    mesaj: '$kim${araTahsilatSaati(occurredAt)}\'da alınan '
-        '${sipTutar(tutarKurus)} iptal edilecek. Kayıt SİLİNMEZ: listede "iptal edildi" olarak '
-        'kalır, tutar toplamlardan düşer ve para kuryede sayılmaya geri döner.',
+    mesaj: '$kim${araTahsilatSaati(occurredAt)}\'da alınan ${sipTutar(tutarKurus)} '
+        'iptal edilecek; bu tutar yine kuryede sayılacak.',
     onayEtiketi: 'İptal Et',
     vazgecEtiketi: 'Vazgeç',
     tehlike: true,
@@ -149,7 +148,7 @@ class _AraTahsilatGovdesiState extends State<_AraTahsilatGovdesi> {
 
         if (widget.beklenen == 0)
           const AlanNotu(
-            'Bu kuryede şu an nakit görünmüyor — yine de tahsilat kaydedebilirsiniz.',
+            'Bu kuryede şu an nakit görünmüyor.',
             tur: AlanNotuTuru.uyari,
           ),
 

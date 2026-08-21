@@ -288,7 +288,7 @@ void main() {
       await tester.tap(find.text('Yeni'));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
       // Form sheet'i açılmamalı — başlığı ağaçta olmamalı.
       expect(find.text('Yeni müşteri'), findsNothing);
       expect(find.byType(TextField), findsOneWidget,

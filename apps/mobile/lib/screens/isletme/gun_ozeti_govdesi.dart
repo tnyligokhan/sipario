@@ -107,12 +107,12 @@ class GunOzetiGovdesi extends StatelessWidget {
         if (g.kapsamKapali)
           KapaliSerit(
             metin: g.gunKapali
-                ? 'Günün hesabı kapatıldı — tüm hesaplar kilitli.'
+                ? 'Günün hesabı kapatıldı, kayıtlar kilitlendi.'
                 : '$kapsamAdi hesabı kapatıldı ve arşivlendi.',
           ),
 
         SipBolumBaslik(
-          gunKapsami ? 'Kasa Özeti' : 'Kasa Özeti · $kapsamAdi',
+          gunKapsami ? 'Kasa Özeti' : '$kapsamAdi için kasa özeti',
           ustBosluk: 18,
         ),
         // ÖDEME TÜRÜ SATIRLARI DOKUNULABİLİR (kullanıcı isteği 2026-08-11): "havalelere
@@ -137,7 +137,7 @@ class GunOzetiGovdesi extends StatelessWidget {
               onTap: () => _turDetayi(context, 'havale'),
             ),
             DegerSatiri(
-              etiket: 'Toplam Tahsilat · ${g.kapsam.teslimat} teslimat',
+              etiket: 'Toplam tahsilat (${g.kapsam.teslimat} teslimat)',
               deger: sipTutar(kasa.toplam),
               toplam: true,
             ),

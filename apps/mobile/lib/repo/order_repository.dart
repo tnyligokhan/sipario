@@ -66,7 +66,7 @@ class LineInput {
     final ozet = secim.ozet();
     if (elle.isEmpty) return ozet.isEmpty ? null : ozet;
     if (ozet.isEmpty) return elle;
-    return '$ozet · $elle';
+    return '$ozet, $elle';
   }
 }
 

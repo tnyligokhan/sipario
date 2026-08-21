@@ -30,10 +30,10 @@ class AdresBilgi {
   final double? lat;
   final double? lng;
 
-  /// CSS `.srow-adres` / `.sdx-adres` — tasarımın `[metin, bolge].filter(…).join(' — ')` yazımı.
+  /// CSS `.srow-adres` / `.sdx-adres` — tasarımın `[metin, bolge].filter(…).join(', ')` yazımı.
   /// Tasarımdaki gibi boş ve "—" değerler ELENİR (kullanıcı "Adres — —" görmesin).
   String get tamMetin =>
-      [metin, bolge].where((x) => x != null && x.isNotEmpty && x != '—').join(' — ');
+      [metin, bolge].where((x) => x != null && x.isNotEmpty && x != '—').join(', ');
 
   /// CSS `.sdx-konum` — konum kayıtlı mı?
   bool get konumVar => lat != null && lng != null;

@@ -120,7 +120,7 @@ class AraTahsilatKarti extends StatelessWidget {
               if (kuryeAdiYaz && k.kuryeAdi.isNotEmpty) k.kuryeAdi,
               araTahsilatSaati(k.occurredAt),
               if (k.iptalEdildi) 'iptal edildi' else ?araTahsilatFarki(k.diffKurus),
-            ].join(' · '),
+            ].join(', '),
             deger: sipTutar(k.countedCashKurus),
             gecersiz: k.iptalEdildi,
             onTap: k.iptalEdildi ? null : onIptal?.call(k),
@@ -158,8 +158,7 @@ class AraTahsilatKarti extends StatelessWidget {
         // "2 tahsilat" der, altındaki tutar tek tahsilatı gösterirdi ve bayi hangisinin doğru
         // olduğunu soramazdı (bu ekranda tam olarak bu hata bir kez yaşandı).
         DegerSatiri(
-          etiket: 'Ara tahsilat toplamı · '
-              '${kayitlar.where((k) => !k.iptalEdildi).length} tahsilat',
+          etiket: '${kayitlar.where((k) => !k.iptalEdildi).length} ara tahsilatın toplamı',
           deger: sipTutar(toplamKurus),
           toplam: true,
         ),
@@ -272,8 +271,8 @@ class ArsivSatiri extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
                   child: Text(
-                    '${gunSaatBicimi(k.occurredAt, bugun: bugun)} · ${k.deliveryCount} teslimat'
-                    '${farkli ? ' · fark ${sipTutar(k.diffKurus)}' : ''}',
+                    '${gunSaatBicimi(k.occurredAt, bugun: bugun)}, ${k.deliveryCount} teslimat'
+                    '${farkli ? ', ${sipTutar(k.diffKurus)} fark' : ''}',
                     style: SipText.yardimci.copyWith(color: t.muted),
                   ),
                 ),
@@ -331,7 +330,7 @@ class KapatmaEngeli extends StatelessWidget {
     // tahsilat da veremezsiniz"), kuryenin hiç aramadığı bir kapının kapalı olduğunu duyurmak
     // olurdu.
     final metin = rolEngeli
-        ? 'Hesabı yönetici kapatır. Siz günlük tahsilat ve teslimat dökümünüzü görebilirsiniz.'
+        ? 'Günü işletme sahibi kapatır. Siz kendi tahsilat ve teslimat dökümünüzü görürsünüz.'
         : acikSiparis > 0
             ? 'Önce açık siparişleri kapatın: $acikSiparis açık sipariş var.'
             : 'Önce açık kurye hesaplarını kapatın: ${acikKuryeler.join(', ')}';
@@ -402,8 +401,8 @@ class GunOzetiAltCubugu extends StatelessWidget {
               Flexible(
                 child: Text(
                   gunKapali
-                      ? 'Gün kapatıldı — arşivde'
-                      : '$kuryeAdi hesabı kapatıldı — arşivde',
+                      ? 'Gün kapatıldı, arşivde'
+                      : '$kuryeAdi hesabı kapatıldı, arşivde',
                   style: SipText.metin(13.5, w: 800).copyWith(color: t.ok),
                 ),
               ),
@@ -432,7 +431,7 @@ class GunOzetiAltCubugu extends StatelessWidget {
       SizedBox(
         width: onAraTahsilat == null ? 150 : 108,
         child: AltCubukToplam(
-          etiket: kuryeAdi == null ? 'Bugün tahsilat' : '$kuryeAdi · tahsilat',
+          etiket: kuryeAdi == null ? 'Bugünkü tahsilat' : '$kuryeAdi için tahsilat',
           deger: sipTutar(toplam),
         ),
       ),

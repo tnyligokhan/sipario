@@ -65,7 +65,7 @@ class _MusteriUrunTercihleriState extends State<MusteriUrunTercihleri> {
           children: [
             const SipBolumBaslik('Ürün Tercihleri', ustBosluk: 18),
             const AlanNotu(
-              'Bu ürünler siparişe eklenirken aşağıdaki seçim kendiliğinden uygulanır.',
+              'Sipariş girerken bu seçimler hazır gelir.',
             ),
             for (final s in liste)
               Padding(
@@ -110,8 +110,7 @@ class _MusteriUrunTercihleriState extends State<MusteriUrunTercihleri> {
     final onay = await sipOnay(
       context,
       baslik: 'Tercih silinsin mi?',
-      mesaj: '"${s.urunAdi}" için kayıtlı seçim kaldırılır. Geçmiş siparişler DEĞİŞMEZ — '
-          'onlar seçimi kendi içlerinde taşır.',
+      mesaj: '"${s.urunAdi}" için kayıtlı seçim kaldırılacak.',
       onayEtiketi: 'Sil',
       tehlike: true,
     );

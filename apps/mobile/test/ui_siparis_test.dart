@@ -259,7 +259,7 @@ void main() {
     // Üst satır: kalem dökümü (tasarımın `siparisOzet`i).
     expect(find.text('Damacana 19 L ×2'), findsOneWidget);
     // Alt satır: kurye adı dökümün ALTINDA, not DEĞİL.
-    expect(find.textContaining('Nakit · Kurye Ali'), findsOneWidget);
+    expect(find.textContaining('Nakit, Kurye Ali'), findsOneWidget);
     expect(find.text('Kapı kodu 1234'), findsNothing,
         reason: 'geçmiş satırında NOT yazmaz — yeri kurye adıdır');
 

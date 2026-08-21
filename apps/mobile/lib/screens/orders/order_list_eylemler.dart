@@ -64,7 +64,7 @@ Future<KuryeSuzgecSecimi?> kuryeSuzgeciSec(
   final adaylar = await watchKuryeSuzgecAdaylari(db).first;
   if (!context.mounted) return null;
   if (adaylar.isEmpty) {
-    SipToast.goster(context, 'Süzülecek kullanıcı yok — ekip henüz senkronlanmadı');
+    SipToast.goster(context, 'Ekip listesi henüz inmedi');
     return null;
   }
   final secim = await kuryeSuzgecSheet(context, adaylar: adaylar, seciliId: seciliId);
@@ -89,7 +89,7 @@ Future<void> siparisKuryesiniDegistir(
     return;
   }
   if (!writable) {
-    SipToast.goster(context, 'Salt-okunur kip: kurye atanamaz.');
+    SipToast.goster(context, 'Aboneliğiniz sona erdiği için görevli atanamıyor.');
     return;
   }
   // ATAMA HEDEFLERİ: kuryeler değil TÜM aktif personel (2026-08-20; gerekçe `team.dart`).
@@ -104,7 +104,7 @@ Future<void> siparisKuryesiniDegistir(
     context,
     kuryeler: hedefler,
     seciliId: item.order.assignedUserId,
-    baslik: 'Görevli Seç · ${item.customerName ?? 'Tezgâh satışı'}',
+    baslik: '${item.customerName ?? 'Tezgâh satışı'} için görevli seç',
     benimId: benimId,
   );
   if (secili == null || secili == item.order.assignedUserId || !context.mounted) return;

@@ -228,7 +228,7 @@ void main() {
       await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
 
       expect(
-        find.textContaining(RegExp(r'^Bugün \d{2}:\d{2} · \d+ teslimat')),
+        find.textContaining(RegExp(r'^Bugün \d{2}:\d{2} saatinde kapatıldı, \d+ teslimat')),
         findsOneWidget,
         reason: 'yalnız saat basılınca iki günün kapanışı aynı görünüyordu (tasarım {a.tarih})',
       );
@@ -254,7 +254,7 @@ void main() {
         DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'),
       );
 
-      expect(find.text('Kasa Özeti · Emre'), findsOneWidget,
+      expect(find.text('Emre için kasa özeti'), findsOneWidget,
           reason: 'kurye "Tümü"de değil KENDİ kapsamında açılır (çekmeceden Kasa Devri geldi)');
       expect(find.text('Ali'), findsNothing,
           reason: 'kurye başka kuryenin kapsamını segmentte GÖRMEZ (K2)');
@@ -291,7 +291,7 @@ void main() {
 
       expect(find.text('Tümü'), findsNothing, reason: 'gün hesabı kuryeye kapalı');
       expect(find.byType(SipSegment), findsNothing, reason: 'tek kapsamda segment çizilmez');
-      expect(find.text('Kasa Özeti · Emre'), findsOneWidget);
+      expect(find.text('Emre için kasa özeti'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -316,7 +316,7 @@ void main() {
       // KAPSAM ARTIK AÇILIR LİSTE (2026-08-20): ekipte kim olduğu şeritte değil, seçici
       // açıldığında görünür. Seçici kapalıyken YALNIZ seçili kapsamın adı yazar.
       expect(find.text('Tümü'), findsOneWidget, reason: 'yönetici gün hesabıyla açılır');
-      expect(find.text('Emre · Kurye'), findsNothing, reason: 'liste kapalıyken ad yazmaz');
+      expect(find.text('Emre (Kurye)'), findsNothing, reason: 'liste kapalıyken ad yazmaz');
 
       await tester.tap(find.byType(GunKapsamSecici));
       await sheetAnimasyonu(tester);
@@ -324,10 +324,10 @@ void main() {
       // ÜÇ KATMAN: gün geneli · kendi işlerim · elemanlar, sonra kişi kişi herkes.
       expect(find.text('Kendi işlemlerim'), findsOneWidget);
       expect(find.text('Elemanlar'), findsOneWidget);
-      expect(find.text('Emre · Kurye'), findsOneWidget);
-      expect(find.text('Ali · Kurye'), findsOneWidget);
+      expect(find.text('Emre (Kurye)'), findsOneWidget);
+      expect(find.text('Ali (Kurye)'), findsOneWidget);
       // Patron kendi satırını "Kendi işlemlerim" olarak görür — ikinci kez adıyla listelenmez.
-      expect(find.text('Patron · Patron'), findsNothing);
+      expect(find.text('Patron (Patron)'), findsNothing);
 
       await kapat(tester);
     });
@@ -354,7 +354,7 @@ void main() {
           findsOneWidget);
 
       final dugme = tester.widget<SipButon>(
-        find.widgetWithText(SipButon, 'Kapat ve Arşivle'),
+        find.widgetWithText(SipButon, 'Kapat ve Kaydet'),
       );
       expect(dugme.onTap, isNotNull, reason: 'fark ≠ 0 kapatmayı ENGELLEMEZ');
 

@@ -51,8 +51,8 @@ class KuryeYetkileriEkrani extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    final baslik = _kisiKipi ? '$_ad — Yetkiler' : 'Varsayılan Kurye Yetkileri';
-    final alt = _kisiKipi ? 'Kişiye özel · 13 İzin' : 'Yeni kurye şablonu · 13 İzin';
+    final baslik = _kisiKipi ? '$_ad Yetkileri' : 'Varsayılan Kurye Yetkileri';
+    final alt = _kisiKipi ? 'Kişiye özel 13 izin' : 'Yeni kurye şablonu (13 izin)';
 
     return YoneticiKapisi(
       rol: rol,
@@ -159,8 +159,7 @@ class _YetkilerGovdesi extends StatelessWidget {
             ikon: SipIcons.lock,
             tur: SipNotTuru.bilgi,
             onEtiket: 'Yetki Kuralı:',
-            metin: 'Bu değerler VARSAYILANDIR — her kurye kendi yetki ekranından ayrıca '
-                'ezilebilir. Patron ve operatör hesapları kısıtlamasız tam yetkilidir.',
+            metin: 'Tüm kuryeler için varsayılan. Kişiye özel ayar kurye kartından yapılır.',
           ),
           const SizedBox(height: SipSpace.lg),
 

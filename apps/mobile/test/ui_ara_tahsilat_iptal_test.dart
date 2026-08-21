@@ -108,7 +108,7 @@ void main() {
           reason: 'iptalsiz satır normal çizilir');
 
       // SAYAÇ VE TOPLAM AYNI KÜMEYİ SAYAR.
-      expect(find.text('Ara tahsilat toplamı · 1 tahsilat'), findsOneWidget,
+      expect(find.text('1 ara tahsilatın toplamı'), findsOneWidget,
           reason: 'iptalli satır sayaca girmez');
       expect(find.text(sipTutar(2000)), findsNWidgets(2),
           reason: 'ayakta duran satır + toplam; iptal edilen 40,00 ₺ toplamdan düştü');
@@ -161,7 +161,7 @@ void main() {
 
       await ekranaKoy(tester, DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'));
 
-      expect(find.text('Kasa Özeti · Emre'), findsOneWidget,
+      expect(find.text('Emre için kasa özeti'), findsOneWidget,
           reason: 'ekranın geri kalanı kuryeye AÇIK kalır — kaldırılan yetki, kapatılan ekran değil');
       expect(tester.widget<DegerSatiri>(satir(4000)).onTap, isNull);
 
@@ -201,7 +201,7 @@ void main() {
       final satirlar = await tester.runAsync(() => db.select(db.cashHandovers).get());
       expect(satirlar, hasLength(2), reason: 'vazgeçmek bir para hareketi yazmaz');
       expect(find.textContaining('iptal edildi'), findsNothing);
-      expect(find.text('Ara tahsilat toplamı · 2 tahsilat'), findsOneWidget);
+      expect(find.text('2 ara tahsilatın toplamı'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -227,8 +227,8 @@ void main() {
 
       // EKRAN: satır yerinde ama artık iptalli; toplam ve sayaç düştü. Toast metni ('40,00 ₺
       // tahsilat iptal edildi') ayrı bir cümledir — satır etiketini '· iptal edildi' ile arıyoruz.
-      expect(find.textContaining('· iptal edildi'), findsOneWidget);
-      expect(find.text('Ara tahsilat toplamı · 1 tahsilat'), findsOneWidget);
+      expect(find.textContaining('iptal edildi'), findsOneWidget);
+      expect(find.text('1 ara tahsilatın toplamı'), findsOneWidget);
       expect(tester.widget<Text>(find.text(sipTutar(4000))).style?.decoration,
           TextDecoration.lineThrough);
 

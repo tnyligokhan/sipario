@@ -52,7 +52,7 @@ class CekmeceIstatistikleri extends StatelessWidget {
       lisans = const _Cip(
         ikon: SipIcons.clock,
         deger: '—',
-        alt: 'Lisans · bilinmiyor',
+        alt: 'Bitiş tarihi bilinmiyor',
         renk: SipTokens.onHeroMid,
       );
     } else {
@@ -61,7 +61,7 @@ class CekmeceIstatistikleri extends StatelessWidget {
       lisans = _Cip(
         ikon: gecerli ? SipIcons.check : SipIcons.alert,
         deger: '${gecerli ? kalan : 0} gün',
-        alt: 'Lisans · ${b.day} ${_aylar[b.month - 1]} ${b.year}',
+        alt: '${b.day} ${_aylar[b.month - 1]} ${b.year} tarihine kadar',
         renk: gecerli ? SipTokens.heroDot : t.danger,
       );
     }
@@ -79,7 +79,7 @@ class CekmeceIstatistikleri extends StatelessWidget {
                 deger: '$otoSiralamaHakki hak',
                 alt: otoSiralamaAylik == null
                     ? 'Oto sıralama'
-                    : 'Oto sıralama · aylık $otoSiralamaAylik',
+                    : 'Oto sıralama, ayda $otoSiralamaAylik',
                 renk: SipTokens.heroPill,
               ),
             ),

@@ -71,8 +71,7 @@ class BildirimlerEkrani extends StatelessWidget {
                               SipBosDurum(
                                 ikon: SipIcons.info,
                                 baslik: 'Bildirim yok',
-                                aciklama: 'Gün sonu hatırlatmaları, kasa uyarıları ve size '
-                                    'atanan siparişler burada birikir.',
+                                aciklama: 'Hatırlatmalar ve uyarılar burada birikir.',
                               ),
                             ])
                           : SipGovde(

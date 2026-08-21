@@ -63,7 +63,7 @@ void main() {
           'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
       expect(katman.subdomains, ['a', 'b', 'c', 'd']);
       // Atıf HUKUKİ ZORUNLULUK — kaldırılamaz, metni sözleşmedir.
-      expect(find.text('© OpenStreetMap katkıcıları · © CARTO'), findsOneWidget);
+      expect(find.text('© OpenStreetMap, © CARTO'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -82,7 +82,7 @@ void main() {
       expect(katman.urlTemplate,
           'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
       // Atıf koyuda da durur — hukuki zorunluluk temayla pazarlık etmez.
-      expect(find.text('© OpenStreetMap katkıcıları · © CARTO'), findsOneWidget);
+      expect(find.text('© OpenStreetMap, © CARTO'), findsOneWidget);
 
       await ekraniKapat(tester);
     });

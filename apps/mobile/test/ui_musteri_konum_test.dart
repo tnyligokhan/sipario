@@ -254,7 +254,7 @@ void main() {
       expect(find.text('Antalya, Kepez, Bahçe Sk., 5'), findsOneWidget);
       expect(find.textContaining('Konum alındı'), findsNothing);
       // Kapı kesinliği olmayan aday uyarısıyla gösterilir.
-      expect(find.text('· sokak yaklaşık'), findsOneWidget);
+      expect(find.text('sokak yaklaşık'), findsOneWidget);
 
       await tester.tap(find.text('Antalya, Kepez, Bahçe Sk., 5'));
       await tester.pumpAndSettle();

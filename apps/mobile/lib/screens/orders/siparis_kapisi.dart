@@ -41,7 +41,7 @@ String acikSiparisUyariMesaji({
     saatBicimi(enYeni.occurredAt, simdi: simdi),
   ];
   return '$musteriAd için $adet açık sipariş kayıtlı.\n'
-      'En yenisi: ${parcalar.join(' · ')}\n\n'
+      'En yenisi: ${parcalar.join(', ')}\n\n'
       'Yine de yeni bir sipariş oluşturulsun mu?';
 }
 

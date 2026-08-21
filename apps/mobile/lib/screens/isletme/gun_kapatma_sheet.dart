@@ -77,7 +77,11 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
 }) {
   return sipSheet<KapatmaSonucu>(
     context,
-    baslik: sayimIstenmiyor ? 'Geçmiş Günü Kapat' : 'Hesabı Kapat · Kasa Devri',
+    // BAŞLIK DÜĞMEYLE AYNI OLMAZ: arkadaki çubukta zaten "Hesabı Kapat" düğmesi duruyor; sheet
+    // aynı sözü tekrarlarsa bayi hangi yüzeye baktığını ayırt edemez.
+    baslik: sayimIstenmiyor
+        ? 'Geçmiş Günü Kapat'
+        : (gunHesabi ? 'Günü Kapat' : '$kapsamAdi Hesabı'),
     govde: (ctx) => _KapatmaGovdesi(
       kapsamAdi: kapsamAdi,
       gunHesabi: gunHesabi,
@@ -179,8 +183,8 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
         if (widget.teslimat == 0)
           AlanNotu(
             widget.sayimIstenmiyor
-                ? 'Bu günde hiç teslimat yok — yine de kapatabilirsiniz.'
-                : 'Bu hesapta bugün hiç teslimat yok — yine de kapatabilirsiniz.',
+                ? 'Bu günde teslimat yok.'
+                : 'Bugün teslimat yok.',
             tur: AlanNotuTuru.uyari,
           ),
 
@@ -248,8 +252,7 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
         // geçmiş bir günün kasası hiçbir koşulda sayılamaz.
         if (widget.sayimIstenmiyor)
           const AlanNotu(
-            'Geçmiş bir günün kasası bugün sayılamaz. Bu kapanış yalnız günü DEFTERDE kapatır; '
-            'sayım yapılmadı olarak arşive geçer ve fark yazılmaz.',
+            'Geçmiş günün kasası bugün sayılamaz. Bu gün sayım olmadan kapanır.',
             tur: AlanNotuTuru.bilgi,
           )
         else ...[
@@ -274,7 +277,7 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
             child: SipNotKutusu(
               tur: SipNotTuru.hata,
               ikon: SipIcons.alert,
-              metin: 'Eksik tutar kanıt olarak arşive geçer; kapatma engellenmez.',
+              metin: 'Eksik tutar kayda geçer.',
             ),
           ),
 
@@ -283,7 +286,7 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
 
         const SizedBox(height: SipSpace.x3),
         SipButon(
-          etiket: 'Kapat ve Arşivle',
+          etiket: 'Kapat ve Kaydet',
           ikon: SipIcons.lock,
           // GEÇMİŞ GÜNDE DÜĞME KOŞULSUZ AÇIKTIR: bekleyen bir giriş yok. Sayım kipinde ise
           // tutar girilmeden kapatmak, arşive "0 sayıldı" diye donan bir yalan üretirdi.
@@ -357,7 +360,7 @@ Future<void> arsivDetaySheet(
 }) {
   return sipSheet<void>(
     context,
-    baslik: '$kapsamAdi · Arşiv',
+    baslik: '$kapsamAdi arşivi',
     govde: (ctx) => _ArsivDetay(
       kapanis: k,
       bugun: bugun,
@@ -396,7 +399,7 @@ class _ArsivDetay extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         KapaliSerit(
-          metin: '${gunSaatBicimi(k.occurredAt, bugun: bugun)} · kapatıldı · '
+          metin: '${gunSaatBicimi(k.occurredAt, bugun: bugun)} saatinde kapatıldı, '
               '${k.deliveryCount} teslimat',
           ikon: SipIcons.lock,
         ),
@@ -438,8 +441,7 @@ class _ArsivDetay extends StatelessWidget {
         if (geriAlinmis) ...[
           const SizedBox(height: SipSpace.lg),
           const SipNotKutusu(
-            metin: 'Bu kapanış geri alındı. Rakamlar o anki kaydı gösterir; '
-                'hesabın güncel durumu için sonraki kapanışa bakın.',
+            metin: 'Bu kapanış geri alındı. Rakamlar kapanış anındaki hâli gösterir.',
             ikon: SipIcons.info,
             tur: SipNotTuru.uyari,
           ),

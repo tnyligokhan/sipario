@@ -223,7 +223,7 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsWidgets,
+      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsWidgets,
           reason: 'kullanıcı neden kaydedemediğini görmeli');
 
       await tester.pump(const Duration(seconds: 5));
@@ -247,7 +247,7 @@ void main() {
       await tester.tap(find.text('Yeni ürün ekle'));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
       expect(find.text('Ürün kaydedildi'), findsNothing, reason: 'form hiç açılmamalı');
 
       await tester.pump(const Duration(seconds: 5));
@@ -269,7 +269,7 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
-      expect(find.text('1 aktif · 2 toplam'), findsOneWidget,
+      expect(find.text('2 ürün, 1 aktif'), findsOneWidget,
           reason: 'başlık altı canlı sayaç aktif/toplam ayrımını gösterir');
       expect(find.text(formatKurus(4500)), findsOneWidget, reason: 'fiyat kartın sağında (amount)');
       expect(find.text('PASİF'), findsOneWidget,

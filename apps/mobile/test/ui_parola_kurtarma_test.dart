@@ -95,10 +95,10 @@ void main() {
     // cevabında söyleyemez; ekran söylemek zorunda.
     await sheetiAc(tester);
 
-    expect(find.text('Yöneticiyseniz'), findsOneWidget);
+    expect(find.text('İşletme sahibiyseniz'), findsOneWidget);
     expect(find.textContaining('sıfırlama bağlantısı gönderilir'), findsOneWidget);
-    expect(find.text('Kurye ya da operatörseniz'), findsOneWidget);
-    expect(find.textContaining('yöneticiniz belirler'), findsOneWidget);
+    expect(find.text('Kurye ya da tezgâhta çalışıyorsanız'), findsOneWidget);
+    expect(find.textContaining('işletme sahibi belirler'), findsOneWidget);
 
     await kapat(tester);
   });

@@ -322,7 +322,7 @@ class _IzinSihirbaziState extends State<IzinSihirbazi> with WidgetsBindingObserv
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 270),
                     child: Text(
-                      'Bu izni atladınız — sonra Menü\'den tekrar açabilirsiniz.',
+                      'Bu izni atladınız. Sonra Menü\'den tekrar açabilirsiniz.',
                       style: SipText.metin(12.5).copyWith(color: t.muted),
                       textAlign: TextAlign.center,
                     ),

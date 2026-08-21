@@ -165,7 +165,7 @@ void main() {
       expect(find.text('Ara Tahsilat'), findsNothing,
           reason: 'ara tahsilatı yalnız yönetici alır');
       // Ekranın geri kalanı kuryeye AÇIK kalır — kaldırılan yetki, kapatılan ekran değil.
-      expect(find.text('Kasa Özeti · Emre'), findsOneWidget);
+      expect(find.text('Emre için kasa özeti'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -263,7 +263,7 @@ void main() {
       // sayar, kapanış sheet'indeki orta satır ise bambaşka bir büyüklüktür (kurye kapsamında
       // teslim edilen, gün kapsamında kuryelerde kalan). Üçünü de "alınan" diye anmak, bayiye
       // birbirini tutmayan üç rakam gösterip hangisinin doğru olduğunu sordururdu.
-      expect(find.textContaining('Ara tahsilat toplamı · 1 tahsilat'), findsOneWidget);
+      expect(find.textContaining('1 ara tahsilatın toplamı'), findsOneWidget);
 
       await kapat(tester);
     });

@@ -68,7 +68,7 @@ void main() {
       await akisiBekle(tester);
       await tester.tap(find.text('Damacana 19 L'));
       await akisiBekle(tester);
-      await tester.tap(find.text('Sepete Ekle · ${sipTutar(4500)}'));
+      await tester.tap(find.text('Sepete Ekle (${sipTutar(4500)})'));
       await akisiBekle(tester);
       await tester.tap(find.text('Bitti · 1 kalem eklendi'));
       await akisiBekle(tester);
@@ -91,7 +91,7 @@ void main() {
 
       await tester.tap(find.text(AltKuryeCipi.bosEtiket));
       await akisiBekle(tester);
-      await tester.tap(find.text('Kurye Ali · Kurye'));
+      await tester.tap(find.text('Kurye Ali (Kurye)'));
       await akisiBekle(tester);
 
       // Seçim çipe yansır — kullanıcı kaydetmeden önce kime gittiğini görür.
@@ -143,7 +143,7 @@ void main() {
       // Kurye seçilince aynı düğme çalışır — kapı kilit değil, eksik alan.
       await tester.tap(find.text(AltKuryeCipi.bosEtiket));
       await akisiBekle(tester);
-      await tester.tap(find.text('Kurye Ali · Kurye'));
+      await tester.tap(find.text('Kurye Ali (Kurye)'));
       await akisiBekle(tester);
       await tester.tap(find.text('Siparişi Kaydet'));
       await akisiBekle(tester, ms: 300);
@@ -359,9 +359,9 @@ void main() {
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.text('Oto Sırala · 34 hak'), findsOneWidget);
+      expect(find.text('Oto Sırala (34 hak)'), findsOneWidget);
       expect(find.textContaining('en az iki açık sipariş'), findsNothing);
-      expect(find.textContaining('Salt-okunur'), findsNothing);
+      expect(find.textContaining('Aboneliğiniz sona erdi'), findsNothing);
 
       await ekraniKapat(tester);
     });
@@ -376,8 +376,8 @@ void main() {
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: false)));
       await akisiBekle(tester);
 
-      expect(find.text('Oto Sırala · 34 hak'), findsOneWidget);
-      expect(find.text('Salt-okunur kip: sıra kaydedilemez.'), findsOneWidget);
+      expect(find.text('Oto Sırala (34 hak)'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdi — sıra kaydedilemiyor.'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -390,7 +390,7 @@ void main() {
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.text('Oto Sırala · 0 hak'), findsOneWidget);
+      expect(find.text('Oto Sırala (0 hak)'), findsOneWidget);
       expect(find.text('Oto sıralama hakkı kalmadı.'), findsOneWidget);
 
       await ekraniKapat(tester);
@@ -438,7 +438,7 @@ void main() {
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
-      expect(find.text('Oto Sırala · 0 hak'), findsOneWidget);
+      expect(find.text('Oto Sırala (0 hak)'), findsOneWidget);
 
       await tester.runAsync(() async {
         await (db.update(db.syncMeta)..where((t) => t.id.equals(1)))
@@ -446,7 +446,7 @@ void main() {
       });
       await akisiBekle(tester);
 
-      expect(find.text('Oto Sırala · 34 hak'), findsOneWidget,
+      expect(find.text('Oto Sırala (34 hak)'), findsOneWidget,
           reason: 'kontör senkronla gelince düğme tazelenmeli — "0 hak"ta donmamalı');
       expect(find.text('Oto sıralama hakkı kalmadı.'), findsNothing);
 

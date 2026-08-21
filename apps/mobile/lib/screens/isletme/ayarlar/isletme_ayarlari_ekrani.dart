@@ -94,7 +94,7 @@ class _Govde extends StatelessWidget {
     final iletisim = [
       if (sahip.isNotEmpty) sahip,
       if (telefon.isNotEmpty) sipTelefon(telefon),
-    ].join(' · ');
+    ].join(', ');
 
     // Her satır KENDİ DURUMUNU özetler: bayi hangi ayarın eksik olduğunu içeri girmeden görür.
     // "Düzenle" düğmeleriyle dolu bir liste bunu yapamaz — hepsi aynı görünür, hiçbiri bilgi

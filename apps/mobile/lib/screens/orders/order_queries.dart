@@ -377,7 +377,7 @@ Stream<List<OrderLine>> watchOrderLines(AppDatabase db, String orderId) =>
 /// için korunur — yeni tasarım dökümü madde madde çizer, bu akış başka ekranlarda kullanılabilir.
 Stream<Map<String, String>> watchOrderItemsSummary(AppDatabase db) =>
     watchOrderLinesByOrder(db).map((byOrder) => {
-          for (final e in byOrder.entries) e.key: e.value.map(satirOzeti).join(' · '),
+          for (final e in byOrder.entries) e.key: e.value.map(satirOzeti).join(', '),
         });
 
 /// Bir satırın liste dökümündeki yazımı — s-veri.jsx `siparisOzet`. SERBEST satır (productId null)

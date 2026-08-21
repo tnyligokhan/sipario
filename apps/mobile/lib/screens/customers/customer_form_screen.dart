@@ -363,7 +363,7 @@ class _MusteriFormuState extends State<_MusteriFormu> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const AdayBilgi(
-                    metin: 'API sonuçları — adres bazen yanlış algılanır, doğrusunu seçin.'),
+                    metin: 'Doğru adresi seçin.'),
                 for (final a in _adaylar!)
                   Padding(
                     padding: const EdgeInsets.only(bottom: SipSpace.sm),

@@ -407,7 +407,7 @@ class _KuryeCipi extends StatelessWidget {
           const SizedBox(width: 5),
           Text(ad, style: SipText.kuryeCip.copyWith(color: t.ink2)),
           if (odeme != null)
-            Text(' · ${odemeTipiEtiketi(odeme!)}',
+            Text(', ${odemeTipiEtiketi(odeme!)}',
                 style: SipText.kuryeCip.copyWith(color: t.muted)),
           if (acik) ...[
             const SizedBox(width: 5),

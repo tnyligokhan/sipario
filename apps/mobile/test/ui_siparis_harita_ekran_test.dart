@@ -59,7 +59,7 @@ void main() {
       expect(find.widgetWithText(DurakPini, '3'), findsNothing,
           reason: 'teslim edilmiş sipariş rotada bir durak değildir');
       // Üst başlıkta durak sayısı — kullanıcı haritayı saymak zorunda kalmasın.
-      expect(find.text('2 durak · rota sırası'), findsOneWidget);
+      expect(find.text('2 durak, rota sırasıyla'), findsOneWidget);
       // Konumsuz sipariş yok → bant hiç çizilmez.
       expect(find.byType(KonumsuzBant), findsNothing);
 
@@ -109,7 +109,7 @@ void main() {
       await akisiBekle(tester, ms: 400);
 
       // Başlık dokunulan PİNİN numarasını taşır: yanlış pine dokunmak sık ve sessiz bir hatadır.
-      expect(find.text('2. Durak · Mehmet Kaya'), findsOneWidget);
+      expect(find.text('2. durak: Mehmet Kaya'), findsOneWidget);
       expect(find.text(sipTutar(12500)), findsOneWidget);
       expect(find.text('Mehmet Kaya sokağı No: 1'), findsOneWidget);
       expect(find.textContaining('Zili çalma'), findsOneWidget);
@@ -284,7 +284,7 @@ void main() {
 
       expect(find.byType(CihazPini), findsOneWidget);
       // Cihaz bir DURAK değildir: numara almaz, durak sayısını da değiştirmez.
-      expect(find.text('1 durak · rota sırası'), findsOneWidget);
+      expect(find.text('1 durak, rota sırasıyla'), findsOneWidget);
 
       await ekraniKapat(tester);
     });

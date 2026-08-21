@@ -45,8 +45,8 @@ String? otoKilitNedeni({
   required int? hak,
   required int durakSayisi,
 }) {
-  if (!yazilabilir) return 'Salt-okunur kip: sıra kaydedilemez.';
-  if (hak == null) return 'Hak bilgisi bekleniyor — ilk senkrondan sonra kullanılabilir.';
+  if (!yazilabilir) return 'Aboneliğiniz sona erdiği için sıra kaydedilemiyor.';
+  if (hak == null) return 'Hak bilgisi henüz inmedi. İlk senkrondan sonra kullanabilirsiniz.';
   if (hak <= 0) return 'Oto sıralama hakkı kalmadı.';
   if (durakSayisi < 2) return kOtoKumeYetersiz;
   return null;
@@ -124,13 +124,15 @@ Future<OtoSiralamaSonucu> otoSiralaKos(AppDatabase db) async {
 
   // Koordinatsız duraklar sona atıldı — bunu SÖYLEMEK zorundayız, yoksa "sıraladım" demek
   // yanıltıcı olur (kullanıcı o siparişlerin neden sonda olduğunu anlamaz).
-  final ek = sonuc.konumsuz > 0 ? ' · ${sonuc.konumsuz} sipariş konumsuz, sona alındı' : '';
+  final ek = sonuc.konumsuz > 0
+      ? ' ${sonuc.konumsuz} siparişin konumu olmadığı için sona alındı.'
+      : '';
   // Hangi KİPTE sıralandığı da söylenir: kurye "benim konumumdan başladı" sanıp ilk durağa
   // gitmemeyi seçebilir. Sessiz bozulma yasak — konum alınamadıysa cümlenin sonunda yazar.
-  final kip = baslangic == null ? ' · konum alınamadı, ilk duraktan' : '';
+  final kip = baslangic == null ? ' Konumunuz alınamadığı için ilk duraktan başlandı.' : '';
   return OtoSiralamaSonucu(
     basarili: true,
-    mesaj: 'Rota otomatik sıralandı · ${sonuc.kalanHak} hak kaldı$ek$kip',
+    mesaj: 'Rota sıralandı, ${sonuc.kalanHak} hakkınız kaldı.$ek$kip',
   );
 }
 

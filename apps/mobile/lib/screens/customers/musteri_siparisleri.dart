@@ -232,7 +232,7 @@ class MusteriSiparisleriEkrani extends StatelessWidget {
                   // "kimin geçmişi" sorusunun cevabı başlıktan düşmemeli.
                   alt: siparisler == null
                       ? musteriAdi
-                      : '$musteriAdi · ${siparisler.length} sipariş',
+                      : '$musteriAdi, ${siparisler.length} sipariş',
                   onGeri: () => Navigator.of(context).maybePop(),
                 ),
                 Expanded(

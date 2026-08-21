@@ -132,8 +132,8 @@ class SipCekmece extends StatelessWidget {
   bool get _kurye => rol == 'kurye';
 
   static String rolAdi(String? rol) => switch (rol) {
-        'patron' => 'Yönetici',
-        'operator' => 'Operatör',
+        'patron' => 'Patron',
+        'operator' => 'Tezgâh',
         'kurye' => 'Kurye',
         _ => 'Tek kişilik',
       };
@@ -286,7 +286,7 @@ class _Baslik extends StatelessWidget {
     final c = cekmece;
     final ad = (c.kullaniciAdi ?? '').trim();
     final altSatir =
-        ad.isEmpty ? SipCekmece.rolAdi(c.rol) : '${SipCekmece.rolAdi(c.rol)} · $ad';
+        ad.isEmpty ? SipCekmece.rolAdi(c.rol) : '$ad (${SipCekmece.rolAdi(c.rol)})';
 
     return Container(
       padding: EdgeInsets.fromLTRB(

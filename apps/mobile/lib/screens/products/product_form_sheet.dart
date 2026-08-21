@@ -217,7 +217,7 @@ class _UrunFormuState extends State<_UrunFormu> {
   Future<void> _gorselSec() async {
     final secici = urunGorselSecici;
     if (secici == null) {
-      SipToast.goster(context, 'Görsel seçimi cihaz galerisi eklentisiyle gelecek.');
+      SipToast.goster(context, 'Ürün görseli yakında eklenecek.');
       return;
     }
     final yol = await secici();
@@ -324,7 +324,7 @@ class _UrunFormuState extends State<_UrunFormu> {
         ),
         if (_hata['fiyat'] != null) AlanNotu(_hata['fiyat']!),
 
-        const SipFormEtiket('BARKOD · OPSİYONEL'),
+        const SipFormEtiket('BARKOD (OPSİYONEL)'),
         Row(
           children: [
             Expanded(
@@ -357,7 +357,7 @@ class _UrunFormuState extends State<_UrunFormu> {
         ),
         if (_hata['barkod'] != null) AlanNotu(_hata['barkod']!),
         const _SilmeNotu(
-          'Barkodsuz ürünler katalogda aramayla seçilir; barkodlular POS’ta okutarak eklenir.',
+          'Barkodsuz ürünler katalogda aramayla bulunur, barkodlular okutularak eklenir.',
           hizala: TextAlign.start,
         ),
 
@@ -377,7 +377,7 @@ class _UrunFormuState extends State<_UrunFormu> {
 
         AktifToggle(
           acik: _aktif,
-          etiket: _aktif ? 'Aktif — siparişte görünür' : 'Pasif — siparişte gizli',
+          etiket: _aktif ? 'Aktif, siparişte görünür' : 'Pasif, siparişte görünmez',
           onDegis: (v) => setState(() => _aktif = v),
         ),
 

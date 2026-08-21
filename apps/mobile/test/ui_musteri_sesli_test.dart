@@ -210,7 +210,7 @@ void main() {
     await formuAc(tester, db);
 
     for (final alan in ['Ad Soyad', 'Adres', 'Not']) {
-      expect(find.bySemanticsLabel('Sesle yaz · $alan'), findsOneWidget,
+      expect(find.bySemanticsLabel('Sesle yaz ($alan)'), findsOneWidget,
           reason: '$alan alanında mikrofon olmalı');
     }
     // Sesle rakam dikte etmek yanlış numara üretir ve arayan tanımayı kör eder — bilinçli yokluk.
@@ -236,7 +236,7 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'Ayşe');
     await tester.pump();
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Ad Soyad'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Ad Soyad)'));
     await kare(tester);
 
     // Kullanıcı dinlendiğini GÖRMELİ — sessiz mikrofon güven sorunudur.
@@ -271,7 +271,7 @@ void main() {
     await tester.enterText(adres, 'eski yanlış adres');
     await tester.pump();
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Adres'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Adres)'));
     await kare(tester);
 
     ses.soyle('Atatürk caddesi', nihai: true);
@@ -297,7 +297,7 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Adres'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Adres)'));
     await kare(tester);
 
     ses.soyle('Atatürk caddesi', nihai: true);
@@ -335,7 +335,7 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Not'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Not)'));
     await kare(tester);
 
     for (var i = 0; i < 9; i++) {
@@ -356,7 +356,7 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Adres'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Adres)'));
     await kare(tester);
     expect(find.text('Dinleniyor… konuşun'), findsOneWidget);
 
@@ -379,9 +379,9 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Ad Soyad'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Ad Soyad)'));
     await kare(tester);
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Not'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Not)'));
     await kare(tester);
 
     expect(ses.durdurmaSayisi, 1, reason: 'önceki alan kapatılmalı');
@@ -405,10 +405,10 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    expect(find.bySemanticsLabel('Sesle yaz · Ad Soyad'), findsOneWidget,
+    expect(find.bySemanticsLabel('Sesle yaz (Ad Soyad)'), findsOneWidget,
         reason: 'pasif ≠ gizli (Oto Sırala / Ara düğmeleriyle aynı desen)');
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Ad Soyad'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Ad Soyad)'));
     await kare(tester);
 
     expect(find.text('Mikrofon izni verilmedi — telefon ayarlarından açın'), findsOneWidget);
@@ -423,7 +423,7 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Adres'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Adres)'));
     await kare(tester);
     ses.hataylaBitir('Ses tanıma için internet gerekiyor — çevrimdışıyken elle yazın');
     await kare(tester);
@@ -440,7 +440,7 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Ad Soyad'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Ad Soyad)'));
     await kare(tester);
 
     await tester.pumpWidget(const SizedBox.shrink());

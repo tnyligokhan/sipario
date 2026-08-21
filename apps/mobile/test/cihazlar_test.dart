@@ -92,12 +92,12 @@ void main() {
       await ekranaKoy(tester, CihazlarEkrani(db: db, apiFabrikasi: _sahte(govde)));
 
       expect(find.text('2 cihaz bu hesaba bağlı.'), findsOneWidget);
-      expect(find.text('Samsung A54 · Bu cihaz'), findsOneWidget,
+      expect(find.text('Samsung A54 (bu cihaz)'), findsOneWidget,
           reason: 'bayinin ilk sorusu "hangisi benimki" — listede aramamalı');
       expect(find.text('Redmi Note 12'), findsOneWidget);
 
       // SIRALAMA: bu cihaz listenin başında olmalı (sunucu son görülmeye göre sıralar).
-      final buCihaz = tester.getTopLeft(find.text('Samsung A54 · Bu cihaz')).dy;
+      final buCihaz = tester.getTopLeft(find.text('Samsung A54 (bu cihaz)')).dy;
       final oteki = tester.getTopLeft(find.text('Redmi Note 12')).dy;
       expect(buCihaz, lessThan(oteki));
 

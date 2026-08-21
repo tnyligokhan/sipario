@@ -165,7 +165,7 @@ void main() {
       final rows = await watchLedger(db, cid).first;
       final etiketler = rows.map(defterHareketEtiketi).toSet();
       expect(etiketler.contains('Borç'), isTrue);
-      expect(etiketler.contains('Tahsilat · Havale'), isTrue);
+      expect(etiketler.contains('Tahsilat, Havale'), isTrue);
 
       // Tasarımın (`HAREKET_META`) dört sözcüğü var: Borç · Tahsilat · Alacak · Düzeltme.
       // "Sipariş borcu" ayrı bir etiket DEĞİL — sipariş bağı etikette değil `relatedOrderId`
@@ -352,7 +352,7 @@ void main() {
 
       await tester.tap(find.text('Tahsilat'));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
       expect(find.text('Tahsilat kaydedildi'), findsNothing,
           reason: 'sheet hiç açılmamalı, kayıt oluşmamalı');
 
@@ -383,7 +383,7 @@ void main() {
       // kural değişmedi.
       await tester.tap(find.text('± Bakiye Düzeltme'));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
       expect(find.text('Düzeltme deftere işlendi'), findsNothing,
           reason: 'salt-okunurda düzeltme sheet\'i hiç açılmamalı');
 

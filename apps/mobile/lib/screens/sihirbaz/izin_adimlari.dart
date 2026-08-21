@@ -94,7 +94,7 @@ const List<IzinAdimi> izinAdimlari = [
   IzinAdimi(
     anahtar: 'bildirim',
     ad: 'Bildirimler',
-    neden: 'Yeni sipariş, senkron ve borç hatırlatmalarını size iletebilmek için.',
+    neden: 'Yeni sipariş ve borç hatırlatmalarını size iletebilmek için.',
     ikon: SipIcons.info,
     eylem: 'requestNotificationPermission',
     durumAnahtari: 'hasNotificationPermission',

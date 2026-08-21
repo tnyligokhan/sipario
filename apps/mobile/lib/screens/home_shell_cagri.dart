@@ -24,7 +24,7 @@ extension _CagriYuzeyi on _HomeShellState {
   /// Kapı `cagriGunlugu`dur ve çekmece satırı da aynı ölçütle çizilir; burası ikinci kapı.
   void _cagriGecmisiAc() {
     if (!_yetki.cagriGunlugu) {
-      SipToast.goster(context, 'Çağrı geçmişi bu hesaba kapalı.');
+      SipToast.goster(context, 'Çağrı geçmişi size kapalı.');
       return;
     }
     _git(CagriGunluguSayfasi(
@@ -57,7 +57,7 @@ extension _CagriYuzeyi on _HomeShellState {
     if (eylem != CagriEylemi.kaydet || !mounted) return;
 
     if (!_yazilabilir) {
-      SipToast.goster(context, 'Salt-okunur kip: yeni müşteri eklenemez.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için müşteri eklenemiyor.');
       return;
     }
     final eklendi = await musteriEkleSheet(context, db: widget.db, onTel: arama.numara);
@@ -97,12 +97,12 @@ extension _CagriYuzeyi on _HomeShellState {
 
       case CagriEylemi.siparis:
         if (!_yazilabilir) {
-          SipToast.goster(context, 'Salt-okunur kip: yeni sipariş oluşturulamaz.');
+          SipToast.goster(context, 'Aboneliğiniz sona erdiği için sipariş oluşturulamıyor.');
           return;
         }
         // Çağrı kartı native taraftan da gelebilir ve yetkiyi bilmez; kapı BURADA (2026-08-04).
         if (!_yetki.siparisAcma) {
-          SipToast.goster(context, 'Bu hesap sipariş oluşturamaz — bayi yetkisi kapalı.');
+          SipToast.goster(context, 'Sipariş açma yetkiniz yok.');
           return;
         }
         _durumDegisti(() => _sekme = SipSekme.siparis);
@@ -130,7 +130,7 @@ extension _CagriYuzeyi on _HomeShellState {
 
       case CagriEylemi.kaydet:
         if (!_yazilabilir) {
-          SipToast.goster(context, 'Salt-okunur kip: yeni müşteri eklenemez.');
+          SipToast.goster(context, 'Aboneliğiniz sona erdiği için müşteri eklenemiyor.');
           return;
         }
         final eklendi =

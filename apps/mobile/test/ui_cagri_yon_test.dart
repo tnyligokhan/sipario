@@ -39,7 +39,7 @@ const _ahmet = CagriKisi(
   ad: 'Ahmet Yılmaz',
   bakiyeKurus: 34000,
   adres: 'Cumhuriyet Mah. 5. Sk. No:12/4',
-  sonHareket: 'Son sipariş: Damacana 19 L ×2 · 10:24',
+  sonHareket: 'Son sipariş: Damacana 19 L ×2 (10:24)',
   sonSiparisDurumu: 'Yolda',
 );
 
@@ -191,7 +191,7 @@ void main() {
     testWidgets('durum rozeti son hareket satırının yanında görünür', (tester) async {
       await tester.pumpWidget(_kabuk(const CagriKarti(kisi: _ahmet)));
 
-      expect(find.text('Son sipariş: Damacana 19 L ×2 · 10:24'), findsOneWidget);
+      expect(find.text('Son sipariş: Damacana 19 L ×2 (10:24)'), findsOneWidget);
       expect(find.text('Yolda'), findsOneWidget);
     });
 
@@ -201,12 +201,12 @@ void main() {
           numara: '0532 415 22 90',
           musteriId: 'm1',
           ad: 'Defterli',
-          sonHareket: 'Son hareket: Elden borç · 10:24',
+          sonHareket: 'Son hareket: Elden borç (10:24)',
           sonHareketTuru: SonHareketTuru.defter,
         ),
       )));
 
-      expect(find.text('Son hareket: Elden borç · 10:24'), findsOneWidget);
+      expect(find.text('Son hareket: Elden borç (10:24)'), findsOneWidget);
       expect(find.text('Yolda'), findsNothing);
       expect(find.text('Teslim edildi'), findsNothing);
     });
@@ -251,7 +251,7 @@ void main() {
       await tester.pumpWidget(_kabuk(const CagriGunluguEkrani(aramalar: aramalar)));
 
       // Numara ve sonuç eskisi gibi tek metinde durur (yön ayrı bir metindir).
-      expect(find.text('0532 415 22 90 · Sipariş alındı'), findsOneWidget);
+      expect(find.text('0532 415 22 90, Sipariş alındı'), findsOneWidget);
       expect(find.text('0533 220 78 41'), findsOneWidget);
     });
   });

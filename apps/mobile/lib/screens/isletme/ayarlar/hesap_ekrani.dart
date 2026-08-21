@@ -33,8 +33,8 @@ import 'cihazlar_ekrani.dart';
 /// Rolün ekranda okunan adı. Çekmecedeki `SipCekmece.rolAdi` ile AYNI sözcükleri kullanır —
 /// iki yüzey aynı kişiye iki farklı unvan derse bayi hangisinin doğru olduğunu sorar.
 String hesapRolAdi(String? rol) => switch (rol) {
-      'patron' => 'Yönetici',
-      'operator' => 'Operatör',
+      'patron' => 'Patron',
+      'operator' => 'Tezgâh',
       'kurye' => 'Kurye',
       _ => 'Tanımsız',
     };
@@ -47,8 +47,8 @@ String hesapRolAdi(String? rol) => switch (rol) {
 /// yetkileri saymaz. Saysaydı, izinler değiştiği gün sessizce yalan söylerdi.
 String hesapRolAciklamasi(String? rol) => switch (rol) {
       'patron' => 'Her şeye erişebilirsiniz',
-      'operator' => 'İşletme ayarları dışında her şey açık',
-      'kurye' => 'Yetkilerinizi bayi belirler',
+      'operator' => 'Sipariş ve tahsilat yaparsınız; gün kapatma ve ayarlar patronda',
+      'kurye' => 'Yetkilerinizi işletme sahibi belirler',
       _ => 'Oturum bilgisi okunamadı',
     };
 
@@ -116,12 +116,12 @@ class _Govde extends StatelessWidget {
             ikon: SipIcons.user,
             // Ad boşsa KİMLİK UYDURULMAZ: "Kullanıcı" gibi bir yer tutucu, yanlış hesapla
             // girmiş bayiye doğru hesapta olduğunu düşündürürdü.
-            baslik: kullanici.isEmpty ? 'Kullanıcı adı çözülemedi' : kullanici,
+            baslik: kullanici.isEmpty ? 'Kullanıcı adı okunamadı' : kullanici,
             altBaslik: hesapRolAdi(rol),
           ),
           AyarSatiri(
             ikon: SipIcons.home,
-            baslik: firma.isEmpty ? 'Firma çözülemedi' : firma,
+            baslik: firma.isEmpty ? 'Firma adı okunamadı' : firma,
             altBaslik: hesapRolAciklamasi(rol),
           ),
         ]),
@@ -158,7 +158,7 @@ class _Govde extends StatelessWidget {
           child: AlanNotu(
             rol == 'patron'
                 ? 'Parolanızı sipario.com.tr üzerinden değiştirebilirsiniz.'
-                : 'Parolanızı bayi yöneticiniz belirler; değiştirmek için ona başvurun.',
+                : 'Parolanızı işletme sahibi belirler, değiştirmek için ona başvurun.',
             tur: AlanNotuTuru.bilgi,
           ),
         ),

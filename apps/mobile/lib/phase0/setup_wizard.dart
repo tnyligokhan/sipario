@@ -105,7 +105,7 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
         title: 'Çağrı tarama',
         description:
             'Telefon çaldığında arayan numarayı görmemizi sağlayan sistem rolü. '
-            'Uygulamanın varlık sebebi bu — vermezseniz arayan tanıma çalışmaz.',
+            'Bu izni vermezseniz arayan tanıma çalışmaz.',
         statusKey: 'hasScreeningRole',
         actionMethod: 'requestScreeningRole',
         actionLabel: 'Rolü ver',
@@ -162,9 +162,8 @@ class _SetupWizardScreenState extends State<SetupWizardScreen>
         icon: Icons.battery_saver_outlined,
         title: 'Pil ayarları',
         description:
-            'Telefon, pili korumak için uygulamayı arka planda kapatabilir — '
-            'o zaman arama geldiğinde kart çıkmaz. Açılan ekranda şu adımları '
-            'yapın:',
+            'Telefon pili korumak için uygulamayı arka planda kapatabilir; o zaman arama '
+            'geldiğinde kart çıkmaz. Açılan ekranda şu adımları yapın:',
         statusKey: null,
         actionMethod: 'openBatterySettings',
         actionLabel: 'Ayarları aç',

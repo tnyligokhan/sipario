@@ -134,8 +134,7 @@ class _UrunSecenekAlaniState extends State<UrunSecenekAlani> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const AlanNotu(
-            'Şablon bir başlangıçtır: uyguladıktan sonra her malzemeyi düzenleyebilir, '
-            'silebilir ya da yenisini ekleyebilirsiniz.',
+            'Listeyi ekledikten sonra malzemeleri düzenleyebilir ya da silebilirsiniz.',
           ),
           const SizedBox(height: SipSpace.md),
           for (final s in kSecenekSablonlari)
@@ -191,7 +190,7 @@ class _UrunSecenekAlaniState extends State<UrunSecenekAlani> {
               // orada da tek satırlık bir davet metni var.
               Flexible(
                 child: Text(
-                  'İçindekiler ekle · hazırlanan ürün',
+                  'Hazırlanan ürüne içindekiler ekleyin',
                   style: SipText.metin(12.5, w: 600).copyWith(color: t.muted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -206,13 +205,12 @@ class _UrunSecenekAlaniState extends State<UrunSecenekAlani> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SipFormEtiket('İÇİNDEKİLER · OPSİYONEL'),
+        const SipFormEtiket('İÇİNDEKİLER (OPSİYONEL)'),
         // BOŞ DURUM AÇIKLAYICI: düzenleyiciyi yeni açan bayi özelliğin ne işe yaradığını
         // burada öğrenir. Metin suçlayıcı değil bilgilendirici — malzemesiz ürün de meşrudur.
         if (liste.isEmpty)
           const AlanNotu(
-            'Malzeme eklerseniz sipariş alırken tek dokunuşla "soğansız" diyebilirsiniz. '
-            'Bu ürünün malzemesi yoksa boş bırakın.',
+            'Malzeme eklerseniz sipariş alırken "soğansız" gibi seçimler yapabilirsiniz.',
           ),
 
         for (var i = 0; i < liste.length; i++)

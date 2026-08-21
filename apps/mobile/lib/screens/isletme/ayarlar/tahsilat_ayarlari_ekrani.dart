@@ -149,10 +149,10 @@ class _FormState extends State<_Form> {
         // ŞAHIS adıdır ve işletme adıyla aynı değildir; banka uygulaması havale ekranında ad
         // soyad ister, müşteri "Merkez Su Bayii" yazınca işlemi tamamlayamaz.
         const SipFormEtiket('IBAN ALICI ADI'),
-        SipInput(controller: _alici, ipucu: 'Hesap sahibi — ad soyad'),
+        SipInput(controller: _alici, ipucu: 'Hesap sahibinin adı soyadı'),
         if (_ibanHata == null)
           const AlanNotu(
-            'Borçlulara gönderilen WhatsApp hatırlatmasında bu IBAN ve alıcı adı yazar.',
+            'Hatırlatma mesajında bu bilgiler görünür.',
             tur: AlanNotuTuru.bilgi,
           ),
 

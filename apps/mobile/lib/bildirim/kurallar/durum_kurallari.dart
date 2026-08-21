@@ -53,13 +53,10 @@ BildirimTaslagi? senkronUyarisi({
   return BildirimTaslagi(
     kategori: BildirimKategori.sistem,
     baslik: 'Sunucuya bağlanılamıyor',
-    govde: '$gun gündür kayıtlarınız sunucuya gönderilemedi',
-    // NE YAPACAĞINI SÖYLER ve ÖNCE İÇİNİ RAHATLATIR: bu uyarıyı gören esnafın ilk düşüncesi
-    // "verilerim gitti mi?" olur. Gitmediğini söylemeden internet kontrolü istemek, paniği
-    // çözmeden iş buyurmaktır.
-    detay: '$gun gündür kayıtlarınız sunucuya gönderilemedi.\n\n'
-        'Kayıtlarınız telefonunuzda duruyor ve kaybolmaz; bağlantı gelince kendiliğinden '
-        'gönderilir. İnternet bağlantınızı kontrol edin.',
+    govde: '$gun gündür sunucuya bağlanılamadı',
+    // DETAY YALNIZ İÇİ RAHATLATIR: bu uyarıyı gören esnafın ilk düşüncesi "verilerim gitti mi?"
+    // olur. Gövdeyi tekrar etmez — bildirim açıldığında zaten görünüyor.
+    detay: 'Kayıtlarınız telefonda duruyor, kaybolmaz. Bağlantı gelince kendiliğinden gider.',
     kimlik: bildirimKimligi(BildirimKategori.sistem, bildirimGunAnahtari(simdi)),
   );
 }
@@ -90,11 +87,10 @@ BildirimTaslagi? kullanimHakkiUyarisi({
     kategori: BildirimKategori.kullanimHakki,
     baslik: bitti ? 'Oto-sıralama hakkınız bitti' : 'Oto-sıralama hakkınız azaldı',
     govde: bitti
-        ? 'Bu ayki $aylik hakkınızın tamamını kullandınız'
+        ? 'Bu ayki $aylik hakkın tamamı kullanıldı'
         : 'Bu ay $kalan hakkınız kaldı',
     detay: bitti
-        ? 'Bu ayki $aylik oto-sıralama hakkınızın tamamını kullandınız.\n\n'
-            'Siparişleri elle sıralamaya devam edebilirsiniz; hakkınız ay başında yenilenir.'
+        ? 'Siparişleri elle sıralayabilirsiniz. Hak ay başında yenilenir.'
         : null,
     // GÜN DAMGALI: gün içinde birkaç rota çalıştırılırsa aynı bildirim tazelenir, yenisi
     // doğmaz. Ay damgası YETMEZDİ — hak azalırken tek bir uyarı verip susardı.
@@ -162,20 +158,12 @@ BildirimTaslagi? gunKapatilmadiHatirlatmasi({
   // TEK GÜN İÇİN ESKİ CÜMLE KORUNUR ve bu bilinçli: "1 gün kapatılmadı" doğru ama soğuktur;
   // bayinin diliyle konuşan hâli "dün"dür. Çoğulda ise gün adı zaten yetmez.
   final tekDun = toplam == 1 && dunSayilir;
-  final baslik = tekDun ? 'Dün gün kapatılmadı' : '$toplam gün kapatılmadı';
-  final govde = tekDun
-      ? 'Dünün kasası kapatılmamış görünüyor'
-      : '$toplam günün kasası kapatılmamış görünüyor';
 
   return BildirimTaslagi(
     kategori: BildirimKategori.gunKapanisHatirlatma,
-    baslik: baslik,
-    govde: govde,
-    detay: '$govde.\n\n'
-        'Kapatmadan geçen gün, bugünün rakamlarına karışır — kasa devri ve tahsilat '
-        'hesapları son kapanıştan itibaren sayılır.\n\n'
-        'Gün Özeti ekranındaki uyarıya dokunarak hangi günler olduğunu görebilir ve '
-        'oradan kapatabilirsiniz.',
+    baslik: tekDun ? 'Dün gün kapatılmadı' : '$toplam gün kapatılmadı',
+    govde: tekDun ? 'Dünün hesabı hâlâ açık' : 'Son $toplam günün hesabı hâlâ açık',
+    detay: 'Gün Özeti\'nden kapatabilirsiniz. Kuryedeki nakit sayılmaya devam eder.',
     kimlik: bildirimKimligi(
       BildirimKategori.gunKapanisHatirlatma,
       'gun-${bildirimGunAnahtari(dun)}',

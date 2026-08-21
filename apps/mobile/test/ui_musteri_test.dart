@@ -153,7 +153,7 @@ void main() {
       await tester.tap(find.text('Yeni'));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
       // Sheet'in AÇILMADIĞINI kaydet düğmesinden anlıyoruz: "Yeni Müşteri" boş durumun eylem
       // düğmesinde de geçtiği için ayırt edici değil.
       expect(find.text('Müşteriyi Kaydet'), findsNothing, reason: 'sheet hiç açılmamalı');
@@ -264,7 +264,7 @@ void main() {
       expect(find.text('Tahsilat Al'), findsOneWidget);
       // Tutar açık borcun TAMAMIYLA ön-dolu gelir (tasarım: "Tamamı" varsayılan), kuruşuyla —
       // alan kuruş kabul eder (kart/havale tahsilatı kuruşlu olur); çipler tam lira yuvarlar.
-      expect(find.text('Tamamı · 100,00 ₺'), findsOneWidget);
+      expect(find.text('Tamamı (100,00 ₺)'), findsOneWidget);
       expect(find.text(trBuyuk('Tahsil edilecek tutar (₺)')), findsOneWidget,
           reason: 'etikette para birimi var (s-musteriler.jsx:156)');
       expect(tester.widget<TextField>(find.byType(TextField).first).controller?.text, '100,00');
@@ -348,7 +348,7 @@ void main() {
       await tester.tap(find.text('Tahsilat'));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
       expect(find.text('Tahsilat Al'), findsNothing);
 
       await tester.pump(const Duration(seconds: 5));
@@ -365,7 +365,7 @@ void main() {
       await tester.tap(find.text('± Bakiye Düzeltme'));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
       expect(find.text('Bakiye Düzeltme'), findsNothing);
 
       await tester.pump(const Duration(seconds: 5));

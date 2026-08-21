@@ -322,10 +322,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
       // SATIRDA ROL DE YAZAR (2026-08-20): liste artık kuryelerle sınırlı değil, tüm aktif
       // personeli içeriyor — "Emre" ile "Mehmet"i ayıran şey ad değil görevdir.
-      expect(find.text('Emre · Kurye'), findsOneWidget,
+      expect(find.text('Emre (Kurye)'), findsOneWidget,
           reason: 'seçim sheet\'i aktif personeli rolüyle listeler');
 
-      await tester.tap(find.text('Emre · Kurye'));
+      await tester.tap(find.text('Emre (Kurye)'));
       await sheetAnimasyonu(tester);
 
       final atanmis = await tester.runAsync(

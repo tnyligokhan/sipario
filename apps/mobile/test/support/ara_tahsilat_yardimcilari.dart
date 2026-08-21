@@ -77,11 +77,11 @@ Future<void> duneKaydir(
 /// Bir kişinin kapsamına geçer.
 ///
 /// KAPSAM ARTIK SEGMENT DEĞİL AÇILIR LİSTE (2026-08-20): seçiciye dokunulur, açılan sheet'te
-/// kişinin "Ad · Rol" satırı seçilir. Rol satırda yazdığı için [rol] parametresi var — tezgâh
+/// kişinin "Ad (Rol)" satırı seçilir. Rol satırda yazdığı için [rol] parametresi var — tezgâh
 /// kapsamına geçen bir test aynı yardımcıyı kullanabilsin.
 Future<void> kapsamaGec(WidgetTester tester, String kisiAdi, {String rol = 'Kurye'}) async {
   await tester.tap(find.byType(GunKapsamSecici));
   await sheetAnimasyonu(tester);
-  await tester.tap(find.text('$kisiAdi · $rol'));
+  await tester.tap(find.text('$kisiAdi ($rol)'));
   await akislariBekle(tester, tur: 6);
 }

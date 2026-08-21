@@ -67,14 +67,14 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
 
   Future<void> _yeniMusteri() async {
     if (!widget.writable) {
-      SipToast.goster(context, 'Salt-okunur kip: yeni kayıt eklenemez.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor.');
       return;
     }
     // Kurye yetkisi (2026-08-04). Ekranın "Yeni" düğmesi burada GİZLENMEZ (listeye giriş
     // yetkiden bağımsız) ama eylem durur ve sebebini söyler — kabuğun FAB menüsünde satır
     // zaten hiç çizilmiyor, yani bu yol ikinci kapıdır.
     if (!(widget.yetki.musteriDuzenleme)) {
-      SipToast.goster(context, 'Bu hesap müşteri ekleyemez — bayi yetkisi kapalı.');
+      SipToast.goster(context, 'Müşteri ekleme yetkiniz yok.');
       return;
     }
     final eklendi = await musteriEkleSheet(context, db: widget.db);
@@ -179,7 +179,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
     return SipBosDurum(
       ikon: SipIcons.users,
       baslik: 'Henüz müşteri yok',
-      aciklama: 'Gelen çağrıdan ya da + Yeni ile ilk müşterini ekle.',
+      aciklama: 'Gelen çağrıdan ya da + Yeni ile ekleyin.',
       aksiyon: 'Yeni Müşteri',
       onAksiyon: _yeniMusteri,
     );

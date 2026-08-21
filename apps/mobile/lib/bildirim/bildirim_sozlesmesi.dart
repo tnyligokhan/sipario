@@ -125,7 +125,7 @@ enum BildirimKategori {
         BildirimKategori.gunSonuOzeti => 'Akşam kasa ve teslim özeti',
         BildirimKategori.gunKapanisHatirlatma => 'Gün kapatılmadığında ya da kasa devredilmediğinde',
         BildirimKategori.kullanimHakki => 'Oto-sıralama hakkınız azaldığında',
-        BildirimKategori.sistem => 'Senkron ve uygulama uyarıları',
+        BildirimKategori.sistem => 'Bağlantı ve uygulama uyarıları',
         BildirimKategori.siparisAtandi => 'Bir sipariş size atandığında',
         BildirimKategori.siparisIptal => 'Size atanan sipariş iptal edildiğinde',
         BildirimKategori.siparisTeslim => 'Kurye bir siparişi teslim ettiğinde',
@@ -269,11 +269,11 @@ enum PushDurumu {
   String get aciklama => switch (this) {
         PushDurumu.oturumYok => 'Oturum açılınca kurulacak',
         PushDurumu.kurulamadi =>
-          'Bu telefonda kurulamadı — Google Play Hizmetleri gerekiyor. Uygulama normal çalışır, '
-              'bildirimler gecikmeli gelir.',
+          'Bu telefonda Google Play Hizmetleri olmadığı için kurulamadı. Uygulama normal '
+              'çalışır, bildirimler gecikmeli gelir.',
         PushDurumu.jetonAlinamadi => 'Telefon kaydı alınamadı; uygulamayı yeniden açmayı deneyin',
         PushDurumu.bildirilemedi => 'Sunucuya bildirilemedi; internet gelince yeniden denenecek',
-        PushDurumu.hazir => 'Kurulu — anlık bildirimler açık',
+        PushDurumu.hazir => 'Kurulu, anlık bildirimler açık',
       };
 
   static PushDurumu? wiredan(String? w) =>

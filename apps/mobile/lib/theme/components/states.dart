@@ -230,7 +230,7 @@ class SipHataEkran extends StatelessWidget {
       ikon: SipIcons.alert,
       baslik: 'Bir şeyler ters gitti',
       aciklama: aciklama ??
-          'Liste yüklenemedi. Bağlantını kontrol edip tekrar dene.',
+          'Liste yüklenemedi. Tekrar deneyin.',
       aksiyon: onTekrar == null ? null : 'Tekrar Dene',
       onAksiyon: onTekrar,
     );
@@ -406,21 +406,20 @@ class SipCevrimdisiBant extends StatelessWidget {
   /// Metin SÖZLEŞMEDİR (ui_temel_test.dart): `cevrimdisi` metni offline-first sözünü verir,
   /// DİĞERLERİ VERMEZ — verilemeyecek bir söz vermek bayiyi boşuna bekletir.
   String get metin => switch (tur) {
-        SipBantTuru.cevrimdisi =>
-          'Çevrimdışı · değişiklikler kaydedilip bağlanınca gönderilecek',
-        SipBantTuru.oturum =>
-          'Oturum doğrulanmadı · kayıtlar gönderilemiyor, çıkış yapıp yeniden girin',
-        SipBantTuru.sunucu =>
-          'Sunucu yanıt veremiyor · kayıtlar cihazda, otomatik yeniden denenecek',
-        SipBantTuru.hata =>
-          'Sunucu kayıtları kabul etmiyor · veriler cihazda güvende, destekle görüşün',
+        SipBantTuru.cevrimdisi => 'İnternet yok. Kayıtlarınız bağlantı gelince gönderilecek.',
+        SipBantTuru.oturum => 'Oturumunuz düştü. Çıkış yapıp yeniden girin.',
+        SipBantTuru.sunucu => 'Sunucuya ulaşılamıyor. Kayıtlarınız telefonda, birazdan '
+            'yeniden denenecek.',
+        // "telefonda güvende" CÜMLEDEN ÇIKARILMADI: bandın işi yalnız arızayı söylemek değil,
+        // veri kaybı korkusunu kesmek (BRIEF kırmızı çizgi #3). O ifade çıkarılınca bant
+        // kısalıyor ama bayinin ilk sorusu ("kayıtlarım gitti mi?") cevapsız kalıyor.
+        SipBantTuru.hata => 'Kayıtlarınız gönderilemiyor. Telefonda güvende, destekle görüşün.',
         SipBantTuru.karantina =>
-          'Bazı kayıtlar gönderilemedi · cihazda duruyor, destekle görüşün',
+          'Bazı kayıtlar gönderilemedi. Telefonda duruyor, destekle görüşün.',
         // "bağlanınca gönderilecek" DEMEZ: ağ zaten var, engel abonelik ya da sürüm. Verilemeyecek
         // bir söz vermemek bu bandın kuruluş ilkesidir (2026-07-27 dersi, dosya başlığı).
-        SipBantTuru.bekleyen =>
-          'Bazı kayıtlar sırada bekliyor · cihazda güvende, abonelik ya da uygulama '
-              'güncellenince gönderilecek',
+        SipBantTuru.bekleyen => 'Bazı kayıtlar sırada bekliyor. Telefonda güvende; aboneliğiniz '
+            'ya da uygulama güncellenince gönderilecek.',
       };
 
   @override

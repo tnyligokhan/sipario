@@ -441,7 +441,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               onCikis: _cikis,
               onDestek: () {
                 setState(() => _cekmece = false);
-                SipToast.goster(context, 'Destek sohbeti · yakında');
+                SipToast.goster(context, 'Destek sohbeti yakında açılacak');
               },
               kullaniciAdi: _userName,
               sonSenkron: _sonSenkronAt,

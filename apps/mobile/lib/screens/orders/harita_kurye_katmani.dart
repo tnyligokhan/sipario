@@ -43,7 +43,7 @@ const String kKuryeMotorYolu =
 String kuryeRolEtiketi(String rol) => switch (rol) {
       'kurye' => 'Kurye',
       'patron' => 'Patron',
-      'operator' => 'Operatör',
+      'operator' => 'Tezgâh',
       _ => 'Kullanıcı',
     };
 
@@ -189,7 +189,7 @@ class KuryePini extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: '${kuryeRolEtiketi(konum.rol)} · ${konum.ad}',
+      label: '${konum.ad} (${kuryeRolEtiketi(konum.rol)})',
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,

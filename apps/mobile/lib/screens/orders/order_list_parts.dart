@@ -334,7 +334,7 @@ class ElleBant extends StatelessWidget {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  'Tutamaçtan sürükleyip bırak, bitince “Bitti”ye bas.',
+                  'Tutamaçtan sürükleyip bırakın, bitince "Bitti"ye dokunun.',
                   style: SipText.metin(12, w: 600).copyWith(color: t.accent),
                 ),
               ),

@@ -170,7 +170,7 @@ class KuryeKarti extends StatelessWidget {
                       ],
                       if (nick.isNotEmpty) ...[
                         Text(
-                          ' · ',
+                          ', ',
                           style: SipText.metin(12, w: 700).copyWith(color: t.line2),
                         ),
                         Flexible(

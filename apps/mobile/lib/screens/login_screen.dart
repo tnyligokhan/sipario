@@ -49,20 +49,20 @@ Map<String, String> girisHatalari({
   if (f.isEmpty) {
     hatalar['firma'] = 'Firma kodu boş bırakılamaz';
   } else if (!RegExp(r'^[a-z0-9-]{3,}$', caseSensitive: false).hasMatch(f)) {
-    hatalar['firma'] = 'Geçersiz firma kodu (en az 3 harf/rakam)';
+    hatalar['firma'] = 'Firma kodu en az 3 harf ya da rakam olmalı';
   }
 
   final k = kullanici.trim();
   if (k.isEmpty) {
     hatalar['kullanici'] = 'Kullanıcı adı boş bırakılamaz';
   } else if (!RegExp(r'^[a-z0-9._-]{3,}$', caseSensitive: false).hasMatch(k)) {
-    hatalar['kullanici'] = 'Geçersiz kullanıcı adı (en az 3 harf/rakam)';
+    hatalar['kullanici'] = 'Kullanıcı adı en az 3 harf ya da rakam olmalı';
   }
 
   if (parola.isEmpty) {
     hatalar['parola'] = 'Parola boş bırakılamaz';
   } else if (parola.length < 4) {
-    hatalar['parola'] = 'Parola en az 4 karakter';
+    hatalar['parola'] = 'Parola en az 4 karakter olmalı';
   }
 
   // Sunucu adresi yalnız "Gelişmiş" açıkken ve DOLUYKEN sınanır (boş = varsayılan adres).
@@ -407,7 +407,7 @@ class _Form extends StatelessWidget {
             ),
           const SizedBox(height: SipSpace.xl),
           Text(
-            'Firma kodunuzu ve hesabınızı işletme yöneticiniz oluşturur.',
+            'Firma kodunuzu ve hesabınızı işletme sahibi oluşturur.',
             textAlign: TextAlign.center,
             style: SipText.girisAlt.copyWith(color: t.muted),
           ),

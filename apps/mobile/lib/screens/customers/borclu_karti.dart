@@ -72,7 +72,7 @@ class BorcluKarti extends StatelessWidget {
 
   Future<void> _tahsilat(BuildContext context) async {
     if (!writable) {
-      SipToast.goster(context, 'Salt-okunur kip: yeni kayıt eklenemez.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor.');
       return;
     }
     final ok = await borcTahsilatiAc(context, db: db, customerId: veri.musteri.id);
@@ -89,7 +89,7 @@ class BorcluKarti extends StatelessWidget {
   /// bile bayi alacağını isteyebilmeli — kilit yeni kayıt girişini durdurur, tahsilatı değil.
   Future<void> _hatirlat(BuildContext context) async {
     if (!yetki.borcHatirlatma) {
-      SipToast.goster(context, 'Borç hatırlatma gönderme yetkisi kapalıdır.');
+      SipToast.goster(context, 'Hatırlatma gönderme yetkiniz yok.');
       return;
     }
     if (ibanNormal(iban) == null) {
@@ -144,7 +144,7 @@ class BorcluKarti extends StatelessWidget {
           if (veri.siparisler.isEmpty)
             // Borç var ama ödenmemiş sipariş yok: kaynağı sipariş dışı bir defter kaydıdır.
             // Boş bir kart bırakmak yerine sebebi söylenir.
-            Text('Ödenmemiş sipariş yok — borç defter kaydından geliyor.',
+            Text('Ödenmemiş sipariş yok; borç elle girilmiş.',
                 style: SipText.metin(12, w: 600).copyWith(color: t.muted))
           else
             for (final s in veri.siparisler)
@@ -189,7 +189,7 @@ class BorcluKarti extends StatelessWidget {
                         SipIcon(SipIcons.wallet, boyut: 15, kalinlik: 2.2, renk: t.ink2),
                         const SizedBox(width: 7),
                         Flexible(
-                          child: Text('Tahsilat Al · ${sipTutar(veri.borcKurus)}',
+                          child: Text('Tahsilat Al (${sipTutar(veri.borcKurus)})',
                               style: SipText.metin(13, w: 700).copyWith(color: t.ink2),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),

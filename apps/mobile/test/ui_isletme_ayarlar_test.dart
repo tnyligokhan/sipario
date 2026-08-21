@@ -64,7 +64,7 @@ void main() {
 
       expect(find.text('Kurye Ali'), findsOneWidget);
       expect(find.text(sipTelefon('05324152290')), findsOneWidget);
-      expect(find.text('1 numara · çağrı kartı çıkmaz'), findsOneWidget);
+      expect(find.text('1 numara için çağrı kartı çıkmaz'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -204,7 +204,7 @@ void main() {
 
       await ekranaKoy(tester, KuryelerEkrani(db: db, rol: 'patron'));
 
-      expect(find.text('1 aktif · 2 kayıtlı'), findsOneWidget,
+      expect(find.text('2 kayıtlı, 1 aktif'), findsOneWidget,
           reason: 'patron listeye girmez — bu ekran yalnız kuryeleri yönetir');
       expect(find.text('Emre'), findsOneWidget);
       expect(find.text(sipTelefon('05324152290')), findsOneWidget);
@@ -436,7 +436,7 @@ void main() {
       // açık · yazma kapalı · kiminle görüşülür) tek yoğun paragraf taşıyordu ve "ben şimdi ne
       // yapabiliyorum" sorusunun cevabı cümlenin ortasında kalıyordu. Kilitlenen şey cümlenin
       // kendisi değil, kullanıcının ÜÇ GERÇEĞİ de görmesi.
-      expect(find.textContaining(trBuyuk('Salt-okunur kip')), findsOneWidget);
+      expect(find.textContaining(trBuyuk('Yalnızca görüntüleme')), findsOneWidget);
       expect(find.text('Açık'), findsOneWidget, reason: 'ne yapabildiği yazmalı');
       expect(find.text('Kapalı'), findsOneWidget, reason: 'ne yapamadığı da yazmalı');
       expect(find.textContaining('okunabilir'), findsOneWidget);

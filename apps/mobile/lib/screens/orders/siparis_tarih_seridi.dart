@@ -40,8 +40,8 @@ String tarihEtiketi(DateTime gun, {DateTime? bugun}) {
   final bugunTarih = DateTime(b.year, b.month, b.day);
   final fark = DateTime(gun.year, gun.month, gun.day).difference(bugunTarih).inDays;
   final tarih = '${gun.day} ${_aylar[gun.month - 1]}';
-  if (fark == 0) return 'Bugün · $tarih';
-  if (fark == -1) return 'Dün · $tarih';
+  if (fark == 0) return 'Bugün, $tarih';
+  if (fark == -1) return 'Dün, $tarih';
   return '$tarih ${_gunler[gun.weekday - 1]}';
 }
 
@@ -102,7 +102,7 @@ class SiparisTarihSeridi extends StatelessWidget {
                       child: Text(
                         adet == null
                             ? tarihEtiketi(gun, bugun: b)
-                            : '${tarihEtiketi(gun, bugun: b)} · $adet',
+                            : '${tarihEtiketi(gun, bugun: b)} ($adet)',
                         style: SipText.ustMetin.copyWith(color: t.ink2),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

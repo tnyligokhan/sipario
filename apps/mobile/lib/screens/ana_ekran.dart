@@ -272,7 +272,7 @@ class _SonAktiviteState extends State<_SonAktivite> {
                             Text(
                               [h.satirOzeti, odemeEtiketi(h.odemeTipi)]
                                   .where((s) => s.isNotEmpty)
-                                  .join(' · '),
+                                  .join(', '),
                               style: SipText.metin(11.5).copyWith(color: t.muted),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

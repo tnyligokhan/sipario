@@ -294,7 +294,7 @@ class _SonAramaKutusuState extends State<_SonAramaKutusu> {
           deger: a.ad ?? sipTelefon(a.numara),
           kucuk: true,
           tekSatir: true, // ad uzunsa küçültülmez, kesilir
-          alt: '${_SonAramaKutusu.yonEtiketi(a.tip)} · ${a.saat}',
+          alt: '${_SonAramaKutusu.yonEtiketi(a.tip)}, ${a.saat}',
           altEksi: a.tip == AramaTipi.cevapsiz,
           onTap: () => widget.onArama(a),
         );

@@ -184,7 +184,7 @@ class HaritaOtoDugmesi extends StatelessWidget {
 class HaritaAtfi extends StatelessWidget {
   const HaritaAtfi({super.key});
 
-  static const String metin = '© OpenStreetMap katkıcıları · © CARTO';
+  static const String metin = '© OpenStreetMap, © CARTO';
 
   @override
   Widget build(BuildContext context) {

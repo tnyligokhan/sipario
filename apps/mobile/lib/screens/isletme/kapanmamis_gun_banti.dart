@@ -23,7 +23,6 @@ import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
-import 'atomlar/form_atomlari.dart' show AlanNotu, AlanNotuTuru;
 import 'gun_arsivi.dart' show gunTamBasligi;
 
 /// Gün Özeti'nin tepesindeki uyarı bandı. Kapanmamış gün YOKSA hiç çizilmez.
@@ -99,7 +98,7 @@ class _Bant extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Kapanmayan gün, kuryeden beklenen nakde devreder. Görmek için dokunun.',
+                  'Kalan nakit kuryede sayılmaya devam eder. Görmek için dokunun.',
                   style: SipText.metin(12).copyWith(color: t.ink2),
                 ),
               ],
@@ -130,19 +129,15 @@ Future<void> kapanmamisGunlerSheet(
             return const SipBosDurum(
               ikon: SipIcons.check,
               baslik: 'Kapanmamış gün yok',
-              aciklama: 'Son günlerin hepsi kapatılmış görünüyor.',
+              aciklama: 'Son günlerin hepsi kapalı.',
             );
           }
+          // AÇIKLAMA KUTUSU KALDIRILDI (2026-08-21 kullanıcı isteği): "kapatmasam ne olur"
+          // sorusunun cevabı bandın alt satırında zaten bir cümleyle yazıyor; listeye ikinci
+          // kez yazmak, dokunduğu şeyi ona bir daha anlatmaktı.
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // NEDEN AÇIKLAMASI LİSTENİN BAŞINDA: bayi "kapatmasam ne olur" sorusunun cevabını
-              // burada, kapatma kararını vermeden ÖNCE okumalı.
-              const AlanNotu(
-                'Kapatılmayan bir gün silinmez, kaybolmaz — ama o günden kalan nakit kuryenin '
-                'beklenen tutarında görünmeye devam eder. Kapatmak defteri o günde kapatır.',
-                tur: AlanNotuTuru.bilgi,
-              ),
               for (final k in liste)
                 _GunSatiri(
                   kayit: k,
@@ -185,7 +180,7 @@ class _GunSatiri extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '${kayit.teslimat} teslimat · ${sipTutar(kayit.kasaKurus)}',
+                    '${kayit.teslimat} teslimat, ${sipTutar(kayit.kasaKurus)}',
                     style: SipText.metin(12).copyWith(color: t.ink2),
                   ),
                   // ENGEL SATIRDA YAZAR: kapatılamayan bir günü sessizce listede bırakmak,
@@ -193,7 +188,7 @@ class _GunSatiri extends StatelessWidget {
                   if (!kayit.kapatilabilir) ...[
                     const SizedBox(height: 3),
                     Text(
-                      '${kayit.acikSiparis} açık sipariş — önce onları kapatın',
+                      '${kayit.acikSiparis} açık sipariş var',
                       style: SipText.metin(12, w: 700).copyWith(color: t.warn),
                     ),
                   ],

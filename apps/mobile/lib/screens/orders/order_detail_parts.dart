@@ -167,7 +167,7 @@ class _AdresBolumuState extends State<AdresBolumu> {
   Future<void> _konumGuncelle() async {
     if (_calisiyor) return;
     if (!widget.writable) {
-      SipToast.goster(context, 'Salt-okunur kip: konum kaydedilemez.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için konum kaydedilemiyor.');
       return;
     }
 
@@ -193,7 +193,7 @@ class _AdresBolumuState extends State<AdresBolumu> {
         context,
         konum.guvenilir
             ? 'Konum güncellendi'
-            : 'Konum güncellendi · ${konumDogrulukUyarisi(konum.dogrulukM)}',
+            : 'Konum güncellendi. ${konumDogrulukUyarisi(konum.dogrulukM)}',
       );
     } on KonumHatasi catch (e) {
       if (mounted) SipToast.goster(context, e.mesaj);
@@ -211,7 +211,7 @@ class _AdresBolumuState extends State<AdresBolumu> {
       builder: (context, snap) {
         final adres = (snap.data ?? const {})[musteriId];
         if (adres == null) {
-          return const SdxBos('Adres kayıtlı değil — müşteri detayından ekleyin.');
+          return const SdxBos('Adres kayıtlı değil. Müşteri detayından ekleyebilirsiniz.');
         }
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: SipSpace.x2, vertical: SipSpace.xl),
@@ -234,7 +234,7 @@ class _AdresBolumuState extends State<AdresBolumu> {
                     const SizedBox(height: 3),
                     Text(
                       adres.konumVar
-                          ? 'Konum kayıtlı · ${adres.konumMetni}'
+                          ? 'Konum kayıtlı (${adres.konumMetni})'
                           : 'Konum alınmamış',
                       style: SipText.metin(11, w: 700)
                           .copyWith(color: adres.konumVar ? t.ok : t.warn),
@@ -330,14 +330,14 @@ class _GecmisSatiri extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    final dokum = satirlar.isEmpty ? '—' : satirlar.map(satirOzeti).join(' · ');
+    final dokum = satirlar.isEmpty ? '—' : satirlar.map(satirOzeti).join(', ');
     final alt = [
       saatBicimi(order.occurredAt),
       if (order.paymentType != null) odemeTipiEtiketi(order.paymentType!),
-      // Kurye adı yoksa (tek kişilik bayi) alt satır saat·ödeme olarak kalır — BRIEF gereği
+      // Kurye adı yoksa (tek kişilik bayi) alt satır saat ve ödeme olarak kalır — BRIEF gereği
       // kurye kavramı olmayan bayide boş bir ayraç bile görünmez.
       ?kuryeAdi,
-    ].join(' · ');
+    ].join(', ');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: SipSpace.sm),

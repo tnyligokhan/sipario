@@ -68,7 +68,7 @@ void main() {
         cikarilan: ['Soğan', 'Turşu'],
         eklenen: [UrunSecenegi(ad: 'Ekstra peynir', varsayilan: false, ekKurus: 1000)],
       );
-      expect(secim.ozet(), 'Soğan, Turşu olmasın · + Ekstra peynir');
+      expect(secim.ozet(), 'Soğan, Turşu olmasın, + Ekstra peynir');
       expect(secim.ekTutarKurus, 1000);
     });
 
@@ -160,7 +160,7 @@ void main() {
       expect(satir.lineTotalKurus, 22000);
 
       // METİN: ekranların tamamı bu alanı çiziyor.
-      expect(satir.note, 'Soğan olmasın · + Ekstra peynir');
+      expect(satir.note, 'Soğan olmasın, + Ekstra peynir');
 
       // YAPILANDIRILMIŞ: satır KENDİ KENDİNE YETER — çıkarılanın adı ve eklenenin FİYATI
       // satırda durur, ürüne bakılarak çözülmez.
@@ -183,7 +183,7 @@ void main() {
                 ..where((t) => t.orderId.equals(orderId)))
               .get())
           .single;
-      expect(satir.note, 'Soğan olmasın · acı sos ayrı');
+      expect(satir.note, 'Soğan olmasın, acı sos ayrı');
     });
 
     test('seçimsiz satır eskisi gibi davranır — alan null kalır', () async {

@@ -36,7 +36,7 @@ class KonumsuzBant extends StatelessWidget {
             Expanded(
               child: Text(
                 // Metin SÖZLEŞMEDİR (testler bu cümleyi arar).
-                '$adet sipariş konumsuz — haritada yok',
+                '$adet siparişin konumu yok, haritada görünmüyor',
                 style: SipText.metin(12, w: 600).copyWith(color: t.ink2),
               ),
             ),
@@ -69,7 +69,7 @@ class DurakPini extends StatelessWidget {
     final t = context.sip;
     return Semantics(
       button: true,
-      label: '$sira. durak · $baslik',
+      label: '$sira. durak: $baslik',
       child: GestureDetector(
         onTap: onTap,
         child: Container(

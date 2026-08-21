@@ -84,7 +84,7 @@ void main() {
     await akisiBekle(tester);
     await tester.tap(find.text('Damacana 19 L'));
     await akisiBekle(tester);
-    await tester.tap(find.text('Sepete Ekle · ${sipTutar(4500)}'));
+    await tester.tap(find.text('Sepete Ekle (${sipTutar(4500)})'));
     await akisiBekle(tester);
     await tester.tap(find.text('Bitti · 1 kalem eklendi'));
     await akisiBekle(tester);
@@ -127,8 +127,8 @@ void main() {
     // Adet sheet'i: bir kez artır → 2 adet, "Sepete Ekle · 90,00 ₺".
     await tester.tap(find.bySemanticsLabel('Artır'));
     await tester.pump();
-    expect(find.text('Sepete Ekle · ${sipTutar(2 * 4500)}'), findsOneWidget);
-    await tester.tap(find.text('Sepete Ekle · ${sipTutar(2 * 4500)}'));
+    expect(find.text('Sepete Ekle (${sipTutar(2 * 4500)})'), findsOneWidget);
+    await tester.tap(find.text('Sepete Ekle (${sipTutar(2 * 4500)})'));
     await akisiBekle(tester);
 
     await tester.tap(find.text('Bitti · 1 kalem eklendi'));
@@ -164,7 +164,7 @@ void main() {
     await akisiBekle(tester);
     await tester.tap(find.text('Damacana 19 L'));
     await akisiBekle(tester);
-    await tester.tap(find.text('Sepete Ekle · ${sipTutar(4500)}'));
+    await tester.tap(find.text('Sepete Ekle (${sipTutar(4500)})'));
     await akisiBekle(tester);
     await tester.tap(find.text('Bitti · 1 kalem eklendi'));
     await akisiBekle(tester);
@@ -221,14 +221,14 @@ void main() {
     await akisiBekle(tester);
     await tester.tap(find.text('Damacana 19 L'));
     await akisiBekle(tester);
-    await tester.tap(find.text('Sepete Ekle · ${sipTutar(4500)}'));
+    await tester.tap(find.text('Sepete Ekle (${sipTutar(4500)})'));
     await akisiBekle(tester);
     await tester.tap(find.text('Bitti · 1 kalem eklendi'));
     await akisiBekle(tester);
     await tester.tap(find.text('Devam'));
     await akisiBekle(tester);
 
-    expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+    expect(find.text('Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.'), findsOneWidget);
     await tester.tap(find.text('Siparişi Kaydet'));
     await akisiBekle(tester, ms: 250);
 

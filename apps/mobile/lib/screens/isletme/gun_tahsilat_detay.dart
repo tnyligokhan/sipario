@@ -205,7 +205,7 @@ class TahsilatListesi extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               Text(
-                '${satirlar.length} kayıt · ',
+                '${satirlar.length} kayıt, toplam ',
                 style: SipText.metin(12, w: 600).copyWith(color: t.muted),
               ),
               Text(
@@ -238,7 +238,7 @@ Future<void> tahsilatTuruSheetAc(
     context,
     baslik: kapsamAdi == null
         ? '${odemeTuruAdi(odemeTuru)} Tahsilatlar'
-        : '${odemeTuruAdi(odemeTuru)} · $kapsamAdi',
+        : '$kapsamAdi için ${odemeTuruAdi(odemeTuru).toLowerCase()} tahsilat',
     govde: (ctx) => FutureBuilder<List<TahsilatSatiri>>(
       future: DayEndRepository(db)
           .tahsilatDetaylari(gun, userId: kuryeId, odemeTuru: odemeTuru),

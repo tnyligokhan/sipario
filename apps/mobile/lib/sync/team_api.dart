@@ -47,7 +47,7 @@ class TeamApi {
           )
           .timeout(const Duration(seconds: 20));
     } on Exception {
-      throw TeamApiException('İnternete ulaşılamadı — giriş bilgileri çevrimiçiyken değiştirilir.');
+      throw TeamApiException('İnternete ulaşılamadı. Giriş bilgileri yalnız çevrimiçiyken değiştirilebilir.');
     }
 
     final body = _decode(resp.body);
@@ -66,7 +66,7 @@ class TeamApi {
     throw TeamApiException(
       mesaj is String && mesaj.isNotEmpty
           ? mesaj
-          : 'Giriş bilgileri güncellenemedi (HTTP ${resp.statusCode}).',
+          : 'Giriş bilgileri güncellenemedi (kod ${resp.statusCode}).',
     );
   }
 

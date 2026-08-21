@@ -35,11 +35,11 @@ class CihazApi {
         },
       ).timeout(const Duration(seconds: 20));
     } on Exception {
-      throw CihazApiException('İnternete ulaşılamadı — cihaz listesi çevrimiçi okunur.');
+      throw CihazApiException('İnternete ulaşılamadı. Cihaz listesi yalnız çevrimiçiyken görünür.');
     }
 
     if (resp.statusCode != 200) {
-      throw CihazApiException('Cihaz listesi alınamadı (HTTP ${resp.statusCode}).');
+      throw CihazApiException('Cihaz listesi alınamadı (kod ${resp.statusCode}).');
     }
 
     final govde = jsonDecode(resp.body);

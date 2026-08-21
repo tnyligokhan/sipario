@@ -147,7 +147,7 @@ String lisansMetni(SyncMetaData? meta, {DateTime? simdi}) {
   if (meta != null && meta.routeCreditsMonthly > 0) {
     parcalar.add('oto sıralama ${meta.routeCredits} hak');
   }
-  return parcalar.join(' · ');
+  return parcalar.join(', ');
 }
 
 String _kalanSureMetni(SyncMetaData? meta, {DateTime? simdi}) {
@@ -156,6 +156,6 @@ String _kalanSureMetni(SyncMetaData? meta, {DateTime? simdi}) {
   final t = DateTime.tryParse(bitis);
   if (t == null) return 'Durum bilinmiyor';
   final kalan = t.difference(simdi ?? DateTime.now()).inDays;
-  if (kalan < 0) return 'Süre doldu — kayıtlar salt-okunur';
+  if (kalan < 0) return 'Süre doldu, yeni kayıt eklenemiyor';
   return '$kalan gün kaldı';
 }

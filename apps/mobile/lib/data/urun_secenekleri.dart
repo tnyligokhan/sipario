@@ -179,7 +179,7 @@ class SecenekSecimi {
     final parcalar = <String>[];
     if (cikarilan.isNotEmpty) parcalar.add('${cikarilan.join(', ')} olmasın');
     if (eklenen.isNotEmpty) parcalar.add('+ ${eklenen.map((s) => s.ad).join(', ')}');
-    return parcalar.join(' · ');
+    return parcalar.join(', ');
   }
 
   Map<String, Object?> toJson() => {

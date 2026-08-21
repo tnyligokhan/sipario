@@ -176,7 +176,7 @@ class _GunVeresiyeBolumuState extends State<GunVeresiyeBolumu> {
                       const SizedBox(height: 2),
                       Text(
                         varMi
-                            ? 'Kasaya girmedi · müşteri borcuna eklendi'
+                            ? 'Kasaya girmedi, müşterinin borcuna eklendi'
                             : 'Bugünkü satışların tamamı tahsil edildi',
                         style: SipText.metin(11, w: 500).copyWith(color: t.muted),
                       ),
@@ -218,7 +218,7 @@ class _GunVeresiyeBolumuState extends State<GunVeresiyeBolumu> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Text(
-                          '${satirlar.length} kayıt · ',
+                          '${satirlar.length} kayıt, toplam ',
                           style: SipText.metin(12, w: 600).copyWith(color: t.muted),
                         ),
                         Text(

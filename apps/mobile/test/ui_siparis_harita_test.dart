@@ -158,7 +158,7 @@ void main() {
 
     /// Haritadaki birincil eyleme basar.
     Future<void> otoSirala(WidgetTester tester) async {
-      await tester.tap(find.text('Oto Sırala · 34 hak'));
+      await tester.tap(find.text('Oto Sırala (34 hak)'));
       await akisiBekle(tester, ms: 400);
     }
 
@@ -177,7 +177,7 @@ void main() {
       expect(govdeler, hasLength(1));
       expect(govdeler.single['start'], {'lat': 36.8841, 'lng': 30.7056});
       // Konum gitti → toast'ta kip eki YOK (tam eşleşme: ek olsaydı bu bulunamazdı).
-      expect(find.text('Rota otomatik sıralandı · 33 hak kaldı'), findsOneWidget);
+      expect(find.text('Rota sıralandı, 33 hakkınız kaldı.'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -198,7 +198,7 @@ void main() {
       expect(govdeler, hasLength(1));
       expect(govdeler.single.containsKey('start'), isFalse);
       expect(
-        find.text('Rota otomatik sıralandı · 33 hak kaldı · konum alınamadı, ilk duraktan'),
+        find.text('Rota sıralandı, 33 hakkınız kaldı. Konumunuz alınamadığı için ilk duraktan başlandı.'),
         findsOneWidget,
       );
 
@@ -240,7 +240,7 @@ void main() {
       expect(govdeler, hasLength(1));
       expect(govdeler.single['order_ids'], unorderedEquals(idler));
       // Toast'ta kapalı eki YOK (tam eşleşme).
-      expect(find.text('Rota otomatik sıralandı · 33 hak kaldı'), findsOneWidget);
+      expect(find.text('Rota sıralandı, 33 hakkınız kaldı.'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -261,7 +261,7 @@ void main() {
 
       expect(govdeler.single.containsKey('start'), isFalse);
       expect(
-        find.text('Rota otomatik sıralandı · 33 hak kaldı · konum alınamadı, ilk duraktan'),
+        find.text('Rota sıralandı, 33 hakkınız kaldı. Konumunuz alınamadığı için ilk duraktan başlandı.'),
         findsOneWidget,
       );
 
@@ -288,7 +288,7 @@ void main() {
       await akisiBekle(tester, ms: 400);
 
       await otoSirala(tester);
-      expect(find.text('Rota otomatik sıralandı · 33 hak kaldı'), findsOneWidget);
+      expect(find.text('Rota sıralandı, 33 hakkınız kaldı.'), findsOneWidget);
 
       // İKİ TUR ŞART: geri dönüş `PopScope` üzerinden gidiyor (donanım geri tuşu da sonucu
       // taşısın diye). İlk tur bekleyen mikro görevleri boşaltıp `pop`u başlatır, ikinci tur

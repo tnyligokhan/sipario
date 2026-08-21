@@ -168,7 +168,7 @@ class KalemlerAdimi extends StatelessWidget {
                 // birim alanı zaten kalemin künyesidir ve seçim o künyenin parçasıdır.
                 altMetin: satirlar[i].secimOzeti.isEmpty
                     ? satirlar[i].birimEtiketi
-                    : '${satirlar[i].birimEtiketi} · ${satirlar[i].secimOzeti}',
+                    : '${satirlar[i].birimEtiketi}, ${satirlar[i].secimOzeti}',
                 // Ekstralar birim fiyata dahildir (`birimFiyat`) — sepetin gösterdiği tutar,
                 // kaydedilen tutarla AYNI formülden çıkmalı.
                 tutarKurus: satirlar[i].birimFiyat * satirlar[i].qty,

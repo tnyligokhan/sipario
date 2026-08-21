@@ -80,7 +80,7 @@ class AuthApi {
     if (resp.statusCode != 200) {
       final msg = body['message'];
       throw AuthException(
-        msg is String && msg.isNotEmpty ? msg : 'Giriş başarısız (HTTP ${resp.statusCode}).',
+        msg is String && msg.isNotEmpty ? msg : 'Giriş başarısız (kod ${resp.statusCode}).',
       );
     }
 
@@ -141,7 +141,7 @@ class AuthApi {
     if (resp.statusCode == 401) {
       throw AuthException('Oturumunuz sona ermiş. Çıkış yapıp yeniden girin.');
     }
-    throw AuthException('Onay alınamadı (HTTP ${resp.statusCode}).');
+    throw AuthException('Onay alınamadı (kod ${resp.statusCode}).');
   }
 
   /// Parola sıfırlama bağlantısı ister (kullanıcı isteği 2026-08-13).
@@ -178,7 +178,7 @@ class AuthApi {
     if (resp.statusCode != 200) {
       final msg = body['message'];
       throw AuthException(
-        msg is String && msg.isNotEmpty ? msg : 'İstek gönderilemedi (HTTP ${resp.statusCode}).',
+        msg is String && msg.isNotEmpty ? msg : 'İstek gönderilemedi (kod ${resp.statusCode}).',
       );
     }
 

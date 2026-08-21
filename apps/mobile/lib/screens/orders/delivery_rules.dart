@@ -35,10 +35,10 @@ String? teslimTahsilatHatasi({
   required int toplamKurus,
   required bool musteriVar,
 }) {
-  if (tahsilKurus == null) return 'Tutarı okuyamadım — ör. 120 ya da 120,50 yazın';
+  if (tahsilKurus == null) return 'Tutarı 120 ya da 120,50 gibi yazın';
   if (!musteriVar && tahsilKurus != toplamKurus) {
-    return 'Tezgâh satışında sipariş tutarının tamamı tahsil edilir '
-        '(${sipTutar(toplamKurus)}) — eksiği yazılacak müşteri yok';
+    return 'Tezgâh satışında tutarın tamamı tahsil edilir (${sipTutar(toplamKurus)}), '
+        'eksiği yazılacak müşteri yok';
   }
   return null;
 }

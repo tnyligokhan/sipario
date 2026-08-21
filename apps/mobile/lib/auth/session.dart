@@ -159,7 +159,7 @@ class Session {
     final meta = await db.syncState();
     final token = meta.authToken;
     if (token == null) {
-      throw AuthException('Oturum bulunamadı — çıkış yapıp yeniden girin.');
+      throw AuthException('Oturumunuz bulunamadı. Çıkış yapıp yeniden girin.');
     }
     return _apiFactory(baseUrlOf(meta)).parolaDogrula(token: token, password: password);
   }

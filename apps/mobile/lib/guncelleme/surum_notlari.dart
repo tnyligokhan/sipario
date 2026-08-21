@@ -82,7 +82,7 @@ const List<SurumNotu> kSurumNotlari = [
     surum: '0.38.0',
     tarih: '20 Ağustos 2026',
     maddeler: [
-      'Gün Özeti\'nde kapsam artık açılır liste: Tümü · Kendi işlemlerim · Elemanlar ve tek tek '
+      'Gün Özeti\'nde kapsam artık açılır liste: Tümü, Kendi işlemlerim, Elemanlar ve tek tek '
           'her personel. Kendi yaptığınız işleri ekibinizinkinden ayrı görebiliyorsunuz.',
       '"Elemanlar" kapsamı sizin dışınızdaki herkesin o günkü kasasını, teslimatını ve '
           'veresiyesini tek ekranda toplar.',
@@ -382,7 +382,7 @@ const List<SurumNotu> kSurumNotlari = [
           've Sipariş Haritası.',
       'Koyu Tema ve Arayan Tanıma anahtarları menüye taşındı — günde birçok kez çevrilen '
           'tercihler artık tek dokunuş uzakta.',
-      'Ayarlar kategorilere ayrıldı: Hesap · İşletme · Uygulama · Bildirimler · Hakkında. '
+      'Ayarlar kategorilere ayrıldı: Hesap, İşletme, Uygulama, Bildirimler ve Hakkında. '
           'Her biri kendi sayfasında.',
       'Yeni "Hesap" sayfası: hangi kullanıcıyla, hangi rolde ve hangi firmaya bağlı '
           'girdiğinizi buradan görüyorsunuz.',
@@ -427,7 +427,7 @@ const List<SurumNotu> kSurumNotlari = [
       'Özet adımında toplam tek bir yerde, en altta kendi satırında yazıyor.',
       'Kuryeyi seçtiğiniz alan "Siparişi Kaydet" düğmesinin yanına taşındı: kime gittiğini '
           've kaydetmeyi tek bakışta görüyorsunuz.',
-      'Üstteki adım rozetlerine (Müşteri · Kalemler · Özet) dokunarak geçtiğiniz bir adıma '
+      'Üstteki adım rozetlerine (Müşteri, Kalemler, Özet) dokunarak geçtiğiniz bir adıma '
           'geri dönebilirsiniz.',
       'Müşteri arama alanı ekran açılır açılmaz hazır geliyor: telefon elinizdeyken '
           'doğrudan yazmaya başlayabilirsiniz.',

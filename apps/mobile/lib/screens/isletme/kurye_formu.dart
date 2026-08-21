@@ -142,7 +142,7 @@ class _KuryeFormuState extends State<_KuryeFormu> {
 
         AktifToggle(
           acik: _aktif,
-          etiket: _aktif ? 'Aktif — sipariş atanabilir' : 'Pasif — atama kapalı',
+          etiket: _aktif ? 'Aktif, sipariş atanabilir' : 'Pasif, sipariş atanamaz',
           onDegis: (v) => setState(() {
             _aktif = v;
             _hata = const {};
@@ -173,8 +173,7 @@ class _KuryeFormuState extends State<_KuryeFormu> {
           AlanNotu(_hata['parola']!)
         else
           const AlanNotu(
-            'Parola değiştirilirse kuryenin açık oturumu kapanır ve yeni parolayla girmesi '
-            'gerekir. Giriş bilgileri yalnız internet varken değiştirilebilir.',
+            'Parolayı değiştirirseniz kuryenin açık oturumu kapanır. Bu işlem internet ister.',
             tur: AlanNotuTuru.bilgi,
           ),
 
@@ -211,7 +210,7 @@ Map<String, String> kuryeFormHatalari({
   }
 
   if (!aktif && !digerleri.any(kuryeAktifMi)) {
-    hatalar['aktif'] = 'Son aktif kurye pasif yapılamaz — sipariş atanacak kimse kalmaz';
+    hatalar['aktif'] = 'Son aktif kurye pasif yapılamaz, sipariş atanacak kimse kalmaz';
   }
 
   if (kullaniciAdi != null && kullaniciAdi.trim().isNotEmpty) {

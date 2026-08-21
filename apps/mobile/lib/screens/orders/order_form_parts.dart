@@ -123,7 +123,7 @@ class _FavoriHapi extends StatelessWidget {
 /// Kurye seçilmeden kaydetmeye çalışılınca alt çubukta çıkan uyarı (kullanıcı kararı
 /// 2026-08-13). Sepet boş uyarısıyla AYNI yüzeyi ve sarsıntıyı kullanır — bu ekranda
 /// "eksik bir şey var" demenin tek bir dili vardır.
-const String kuryeZorunluUyarisi = 'Kurye seçin — sipariş atanmadan kaydedilemez.';
+const String kuryeZorunluUyarisi = 'Siparişi kaydetmeden önce bir görevli seçin.';
 
 /// Kurye seçimini açan çip (kullanıcı isteği 2026-08-13).
 ///
@@ -276,7 +276,7 @@ class MusteriSecimAdimi extends StatelessWidget {
                         YsBosDurum(
                           ikon: SipIcons.users,
                           metin: sorgu.trim().isEmpty
-                              ? 'Henüz müşteri yok — yukarıdan ekleyin'
+                              ? 'Henüz müşteri yok. Yukarıdan ekleyebilirsiniz'
                               : '"$sorgu" için müşteri yok',
                         )
                       else

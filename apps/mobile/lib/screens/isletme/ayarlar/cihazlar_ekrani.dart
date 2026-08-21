@@ -147,11 +147,11 @@ class _Liste extends StatelessWidget {
           for (final c in sirali)
             AyarSatiri(
               ikon: SipIcons.phone,
-              baslik: c.id == sonuc.buCihazId ? '${c.ad} · Bu cihaz' : c.ad,
+              baslik: c.id == sonuc.buCihazId ? '${c.ad} (bu cihaz)' : c.ad,
               altBaslik: [
                 cihazSonGorulmeMetni(c.sonGorulme),
                 if (c.uygulamaSurumu != null) 'Sürüm ${c.uygulamaSurumu}',
-              ].join(' · '),
+              ].join(', '),
             ),
         ]),
         // DÜRÜSTLÜK NOTU: ekran ne YAPMADIĞINI söyler. Bunu yazmamak, bayinin listeyi bir
@@ -159,8 +159,7 @@ class _Liste extends StatelessWidget {
         const Padding(
           padding: EdgeInsets.only(top: SipSpace.xl),
           child: AlanNotu(
-            'Bu liste yalnız gösterir. Bir cihazın oturumunu uzaktan kapatmak yakında eklenecek; '
-            'şimdilik parolayı değiştirmek tüm oturumları düşürür.',
+            'Parolanızı değiştirirseniz tüm cihazlardaki oturumlar kapanır.',
             tur: AlanNotuTuru.bilgi,
           ),
         ),

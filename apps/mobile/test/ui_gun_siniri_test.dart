@@ -129,7 +129,7 @@ void main() {
       expect(find.text('Bugünün Kapanışları'), findsOneWidget);
       // Satır metni "Bugün 18:05 · 1 teslimat" biçimindedir. Başlıktaki tek başına "Bugün"
       // (üst çubuğun alt satırı) bu desene UYMAZ, yani iddia gerçekten arşiv satırını tutuyor.
-      expect(find.textContaining(RegExp(r'^Bugün \d{2}:\d{2} · ')), findsOneWidget);
+      expect(find.textContaining(RegExp(r'^Bugün \d{2}:\d{2} saatinde kapatıldı, ')), findsOneWidget);
       expect(find.textContaining('Dün '), findsNothing,
           reason: 'cihaz saatinden bakan eski kod burada "Dün" yazıyordu');
 

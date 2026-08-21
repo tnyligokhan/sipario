@@ -123,7 +123,7 @@ void main() {
     await tester.tap(find.text('Konumu Kaydet'));
     await akisiBekle(tester, ms: 300);
 
-    expect(find.text('Salt-okunur kip: konum kaydedilemez.'), findsOneWidget);
+    expect(find.text('Aboneliğiniz sona erdi — konum kaydedilemiyor.'), findsOneWidget);
     await tester.runAsync(() async {
       final adres = await (db.select(db.customerAddresses)
             ..where((t) => t.customerId.equals(cid)))

@@ -251,7 +251,7 @@ class _DuzenGovdeState extends State<_DuzenGovde> {
                     SipIcon(SipIcons.alert, boyut: 13, kalinlik: 2.2, renk: t.danger),
                     const SizedBox(width: 5),
                     Expanded(
-                      child: Text('Sepet boş kalamaz — en az bir kalem ekleyin',
+                      child: Text('Sepette en az bir kalem olmalı',
                           style: SipText.metin(12, w: 700).copyWith(color: t.danger)),
                     ),
                   ],

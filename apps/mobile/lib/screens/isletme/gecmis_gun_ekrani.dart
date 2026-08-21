@@ -408,12 +408,12 @@ class _Govde extends StatelessWidget {
         // günün cirosu okunamaz hâle gelmemeli), ama sayım yapılmadığı SÖYLENİR — yoksa ekran
         // mutabık bir gün gibi okunurdu.
         if (g.gunKapali)
-          const KapaliSerit(metin: 'Bu günün hesabı kapatıldı ve arşivlendi.')
+          const KapaliSerit(metin: 'Bu günün hesabı kapatıldı.')
         else
           SipNotKutusu(
             tur: SipNotTuru.uyari,
             ikon: SipIcons.info,
-            metin: 'Bu gün kapatılmadı — rakamlar defterden okunuyor, kasa sayımı yapılmamış.',
+            metin: 'Bu günün hesabı kapatılmadı.',
           ),
 
         // İKİ AYRI BOŞLUK, İKİ AYRI CÜMLE: "o gün hiç çalışılmadı" ile "o gün bu kurye çalışmadı"
@@ -424,17 +424,17 @@ class _Govde extends StatelessWidget {
           const SipBosDurum(
             ikon: SipIcons.takvim,
             baslik: 'Bu güne ait hareket yok',
-            aciklama: 'Bu gün teslimat yapılmamış ve kasaya para girmemiş.',
+            aciklama: 'Bu gün sipariş, tahsilat ya da gider kaydedilmemiş.',
           )
         else if (_kapsamBos)
           SipBosDurum(
             ikon: SipIcons.takvim,
             baslik: '$kapsamAdi bu gün çalışmamış',
-            aciklama: 'Bu günde başka hareketler var — "Tümü"ye geçerek görebilirsiniz.',
+            aciklama: 'Bu günün diğer kayıtlarını görmek için kapsamı "Tümü" yapın.',
           )
         else ...[
           SipBolumBaslik(
-            gunKapsami ? 'Kasa Özeti' : 'Kasa Özeti · $kapsamAdi',
+            gunKapsami ? 'Kasa Özeti' : '$kapsamAdi için kasa özeti',
             ustBosluk: 18,
           ),
           DegerKarti(
@@ -443,7 +443,7 @@ class _Govde extends StatelessWidget {
               DegerSatiri(etiket: 'Kart', deger: sipTutar(kasa.kart)),
               DegerSatiri(etiket: 'Havale', deger: sipTutar(kasa.havale)),
               DegerSatiri(
-                etiket: 'Toplam Tahsilat · ${g.kapsam.teslimat} teslimat',
+                etiket: 'Toplam tahsilat (${g.kapsam.teslimat} teslimat)',
                 deger: sipTutar(kasa.toplam),
                 toplam: true,
               ),
@@ -509,7 +509,7 @@ class _Govde extends StatelessWidget {
                       DegerSatiri(
                           etiket: '${u.ad} ×${u.adet}', deger: sipTutar(u.tutar)),
                     DegerSatiri(
-                      etiket: 'Toplam · '
+                      etiket: 'Toplam, '
                           '${liste.fold<int>(0, (s, u) => s + u.adet)} adet',
                       deger: sipTutar(liste.fold<int>(0, (s, u) => s + u.tutar)),
                       toplam: true,

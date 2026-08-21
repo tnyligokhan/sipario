@@ -54,8 +54,8 @@ class CekmeceDurumSeridi extends StatelessWidget {
     final (renk, metin) = karantina > 0
         ? (t.danger, '$karantina kayıt gönderilemedi')
         : sonSenkron == null
-            ? (SipTokens.onHeroSoft, 'Henüz senkron olmadı')
-            : (t.ok, 'Son senkron ${saat(sonSenkron!)}');
+            ? (SipTokens.onHeroSoft, 'Henüz güncellenmedi')
+            : (t.ok, 'Son güncelleme ${saat(sonSenkron!)}');
 
     final govde = Container(
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),

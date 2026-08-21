@@ -274,7 +274,7 @@ extension SyncItme on SyncEngine {
       OutboxCompanion(
         status: Value(karantina ? 'rejected' : 'pending'),
         attempts: Value(deneme),
-        lastError: Value('HTTP ${e.statusCode} · ${_kisaGovde(e.body)}'),
+        lastError: Value('HTTP ${e.statusCode} — ${_kisaGovde(e.body)}'),
       ),
     );
   }

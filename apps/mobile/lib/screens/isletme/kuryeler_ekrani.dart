@@ -34,7 +34,7 @@ import 'kurye_karti.dart';
 import 'kurye_yetkileri_ekrani.dart';
 
 /// Salt-okunur kip uyarısı — ürün/muaf ekranlarındaki eşdeğerleriyle aynı dil.
-const String kuryeSaltOkunurUyarisi = 'Salt-okunur kip: kurye kaydı değiştirilemez.';
+const String kuryeSaltOkunurUyarisi = 'Aboneliğiniz sona erdiği için kayıt değiştirilemiyor.';
 
 /// Kimlik güncelleme dikişi — testler bunu sahteler.
 Future<bool> Function({
@@ -53,7 +53,7 @@ Future<bool> _sunucudaKimlikGuncelle({
   final meta = await db.syncState();
   final token = meta.authToken;
   if (token == null) {
-    throw TeamApiException('Oturum bulunamadı — çıkış yapıp yeniden girin.');
+    throw TeamApiException('Oturumunuz bulunamadı. Çıkış yapıp yeniden girin.');
   }
 
   return TeamApi(baseUrl: Session.baseUrlOf(meta), token: token)
@@ -114,7 +114,7 @@ class KuryelerEkrani extends StatelessWidget {
                     baslik: 'Kuryeler',
                     alt: kuryeler == null
                         ? null
-                        : '$aktif aktif · ${kuryeler.length} kayıtlı',
+                        : '${kuryeler.length} kayıtlı, $aktif aktif',
                     onGeri: () => Navigator.of(context).maybePop(),
                     sag: [
                       SipMetinButon(
@@ -205,7 +205,7 @@ class _Liste extends StatelessWidget {
       SipToast.goster(
         context,
         oturumDustu
-            ? 'Giriş bilgileri güncellendi — kuryenin oturumu kapandı, yeni parolayla girmeli'
+            ? 'Giriş bilgileri güncellendi. Kurye yeni parolayla tekrar girmeli'
             : 'Kurye kaydedildi',
       );
     } on TeamApiException catch (e) {
@@ -227,8 +227,7 @@ class _Liste extends StatelessWidget {
         const SipNotKutusu(
           ikon: SipIcons.info,
           tur: SipNotTuru.bilgi,
-          metin: 'Yeni kurye hesabı yönetim panelinden açılır — bu ekrandan kurye EKLENEMEZ. '
-              'Buradan ad, telefon ve aktiflik düzenlenir; kurye silinmez, pasife alınır.',
+          metin: 'Yeni hesap web panelinden açılır. Burada ad, telefon ve durum düzenlenir.',
         ),
         const SizedBox(height: SipSpace.lg),
 
@@ -320,7 +319,7 @@ class _YetkiMatrisiHeroKarti extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Varsayılan kurallar — kurye bazında ezilebilir',
+                  'Tüm kuryeler için geçerli, kişiye özel ayarla değiştirilebilir',
                   style: SipText.metin(11.5, w: 500).copyWith(color: t.muted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

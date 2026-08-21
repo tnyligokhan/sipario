@@ -260,9 +260,9 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 // gelirken sessizliği geri gelmemeli. Kurye eksik listeyi "sipariş yok" sanıp
                 // teslimat kaçırmamalı, kendi kapsamına baktığını BİLMELİ.
                 alt: _kendiSiparisleriyleSinirli
-                    ? 'Bugün ${snap.data ?? 0} açık · yalnız size atananlar'
+                    ? 'Size atanan ${snap.data ?? 0} açık sipariş'
                     : 'Bugün ${snap.data ?? 0} açık'
-                        '${_kuryeId == null ? '' : ' · ${_kuryeAdi ?? 'Kurye'}'}',
+                        '${_kuryeId == null ? '' : ', ${_kuryeAdi ?? 'Kurye'}'}',
                 onMenu: widget.onMenu,
                 // Başlıkta TEK eylem kaldı (2026-08-01). Harita ile kurye süzgeci çıplak ikon
                 // düğmeleriydi; ne yaptıkları ancak dokununca anlaşılıyordu. İkisi de sekmelerin
@@ -391,7 +391,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
         aciklama: _kuryeId != null
             ? '${_kuryeAdi ?? 'Seçili kurye'} için bu filtrede sipariş yok.'
             : _filtre == OrderFilter.acik
-                ? 'Açık sipariş yok. Yeni sipariş için + tuşuna bas.'
+                ? 'Açık sipariş yok. Yeni sipariş için + düğmesine dokunun.'
                 : 'Bu filtrede sipariş bulunmuyor.',
       );
 
@@ -447,7 +447,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
       if (secim != OrderSort.elle) _elleSira = const [];
     });
     if (secim == OrderSort.elle) {
-      SipToast.goster(context, 'Elle sıralama açık — tutamaçtan sürükle');
+      SipToast.goster(context, 'Elle sıralama açık, tutamaçtan sürükleyin');
     }
   }
 
@@ -473,7 +473,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
   Future<void> _yenidenSirala(List<OrderListItem> yeniSira) async {
     setState(() => _elleSira = [for (final e in yeniSira) e.order.id]);
     if (!widget.writable) {
-      SipToast.goster(context, 'Salt-okunur kip: sıra kaydedilmedi.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için sıra kaydedilmedi.');
       return;
     }
     await elleSirayiYaz(widget.db, yeniSira);

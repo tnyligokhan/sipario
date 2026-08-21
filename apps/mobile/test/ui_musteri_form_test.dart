@@ -296,7 +296,7 @@ void main() {
       await formuAc(tester, db);
 
       expect(find.text(trBuyuk('Bölge')), findsNothing, reason: 'alan tamamen kalkmalı');
-      expect(find.bySemanticsLabel('Sesle yaz · Bölge'), findsNothing,
+      expect(find.bySemanticsLabel('Sesle yaz (Bölge)'), findsNothing,
           reason: 'kalkan alanın mikrofonu da kalkmalı');
 
       await tester.enterText(find.byType(TextField).at(0), 'Adresli Kişi');

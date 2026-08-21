@@ -422,8 +422,8 @@ void main() {
     final bugun = DateTime(2026, 8, 4); // Salı
 
     test('bugün ve dün ANLAMIYLA yazılır, diğerleri gün adıyla', () {
-      expect(tarihEtiketi(bugun, bugun: bugun), 'Bugün · 4 Ağustos');
-      expect(tarihEtiketi(DateTime(2026, 8, 3), bugun: bugun), 'Dün · 3 Ağustos');
+      expect(tarihEtiketi(bugun, bugun: bugun), 'Bugün, 4 Ağustos');
+      expect(tarihEtiketi(DateTime(2026, 8, 3), bugun: bugun), 'Dün, 3 Ağustos');
       expect(tarihEtiketi(DateTime(2026, 8, 1), bugun: bugun), '1 Ağustos Cumartesi');
       expect(tarihEtiketi(DateTime(2026, 7, 30), bugun: bugun), '30 Temmuz Perşembe');
     });

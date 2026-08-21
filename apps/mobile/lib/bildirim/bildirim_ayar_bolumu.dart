@@ -200,7 +200,7 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
   }
 
   static String _sessizMetin(SessizSaatler s) {
-    if (s.kapali) return 'Kapalı — her saat bildirim gelir';
+    if (s.kapali) return 'Kapalı, her saat bildirim gelir';
     String iki(int x) => x.toString().padLeft(2, '0');
     return '${iki(s.baslangicSaat)}:00 – ${iki(s.bitisSaat)}:00 arası sessiz, sabaha ertelenir';
   }
@@ -253,8 +253,7 @@ class _SessizGovdeState extends State<_SessizGovde> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Bu aralıkta bildirim gösterilmez; sıradaki bildirim aralığın bitişine ertelenir. '
-          'Kaybolmaz — yalnız beklerler.',
+          'Bu saatlerde bildirim gösterilmez. Gelenler kaybolmaz, aralık bitince görünür.',
           style: SipText.yardimci.copyWith(color: t.muted),
         ),
         const SipFormEtiket('BAŞLANGIÇ', ustBosluk: 14),
@@ -281,8 +280,8 @@ class _SessizGovdeState extends State<_SessizGovde> {
           padding: const EdgeInsets.only(top: SipSpace.xl),
           child: AlanNotu(
             kapali
-                ? 'Aynı saat seçildi — sessiz saatler KAPALI, bildirimler her an gelir.'
-                : 'Sessiz: ${_ss(_bas)} – ${_ss(_bit)}',
+                ? 'Başlangıç ve bitiş aynı olduğu için sessiz saatler kapalı.'
+                : '${_ss(_bas)} ile ${_ss(_bit)} arasında bildirim gelmez.',
             tur: kapali ? AlanNotuTuru.uyari : AlanNotuTuru.bilgi,
           ),
         ),

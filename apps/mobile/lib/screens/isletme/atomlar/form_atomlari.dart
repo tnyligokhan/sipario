@@ -276,7 +276,7 @@ class UrunSatiri extends StatelessWidget {
                           children: [
                             if (altEk != null)
                               TextSpan(
-                                text: ' · $altEk',
+                                text: '  ($altEk)',
                                 style: SipText.tutar(10.5, w: 500).copyWith(color: t.muted),
                               ),
                           ],

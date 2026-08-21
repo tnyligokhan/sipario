@@ -186,13 +186,13 @@ class SpeechSesliGiris implements SesliGiris {
     }
   }
 
-  static const String _izinGerekce = 'Mikrofon izni verilmedi — telefon ayarlarından açın';
+  static const String _izinGerekce = 'Mikrofon izni verilmedi. Telefon ayarlarından açabilirsiniz';
 
   /// Motorun ham hata kodunu kullanıcının anlayacağı tek cümleye çevirir. Ağ hataları
   /// ÖZELLİKLE ayrılır: bu uygulama offline-first, kullanıcı "neden çalışmadı"yı bilmeli.
   static String _hataMetni(String kod) => switch (kod) {
         'error_network' || 'error_network_timeout' || 'error_server' =>
-          'Ses tanıma için internet gerekiyor — çevrimdışıyken elle yazın',
+          'Ses tanıma internet ister. Çevrimdışıyken elle yazabilirsiniz',
         'error_permission' || 'error_insufficient_permissions' => _izinGerekce,
         'error_no_match' || 'error_speech_timeout' => 'Anlaşılmadı, tekrar deneyin',
         'error_language_not_supported' || 'error_language_unavailable' =>
@@ -286,7 +286,7 @@ class DikteSurucusu {
   /// Üst sınırda söylenen tek cümle. Sessizce sönen düğme, kullanıcının söylediğinin
   /// yazılmadığını çok sonra fark etmesi demektir.
   static const String sureDolduMesaji =
-      'Dinleme süresi doldu — devam etmek için mikrofona dokunun';
+      'Dinleme süresi doldu. Devam etmek için mikrofona dokunun';
 
   DikteBirikimi? _birikim;
   void Function(String metin)? _yaz;

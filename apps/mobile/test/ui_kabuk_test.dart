@@ -146,12 +146,12 @@ void main() {
       // ikonla söyleniyor; kilitlenen şey pilin metni değil, KALAN GÜNÜN yazıyor olmasıdır.
       expect(find.textContaining('gün'), findsWidgets,
           reason: 'kalan gün çipte yazmalı — lisans durumu boş çekmeceden okunamaz');
-      // ROL SATIRI ARTIK SENKRONLA BİRLEŞİK DEĞİL (2026-08-13): eskiden "Yönetici · senkron
+      // ROL SATIRI ARTIK SENKRONLA BİRLEŞİK DEĞİL (2026-08-13): eskiden "Patron, senkron
       // 10:32" tek satırdı ve senkron bilgisi %55 opaklıkta bir ek cümleydi. Senkron kendi
-      // DURUM ŞERİDİNE çıktı; rol satırı artık kişiyi anlatıyor ("Yönetici · Gökhan").
-      expect(find.text('Yönetici'), findsOneWidget,
+      // DURUM ŞERİDİNE çıktı; rol satırı artık kişiyi anlatıyor ("Patron, Gökhan").
+      expect(find.text('Patron'), findsOneWidget,
           reason: 'kullanıcı adı verilmediğinde satır yalnız rolü yazar');
-      expect(find.textContaining('Son senkron'), findsOneWidget,
+      expect(find.textContaining('Son güncelleme'), findsOneWidget,
           reason: 'senkron tazeliği kendi şeridinde, okunabilir bir yerde');
 
       // BÖLÜM ETİKETLERİ AZALTILDI (2026-08-13 yeniden tasarımı): dokuz satır için dört büyük
@@ -256,7 +256,7 @@ void main() {
 
       expect(find.byType(CekmeceIstatistikleri), findsOneWidget);
       expect(find.text('—'), findsOneWidget, reason: 'kalan gün UYDURULMAZ');
-      expect(find.text('Lisans · bilinmiyor'), findsOneWidget,
+      expect(find.text('Bitiş tarihi bilinmiyor'), findsOneWidget,
           reason: 'çip bilinmediğini SÖYLER; boş bırakmak "lisansım ne oldu"yu cevapsız bırakır');
 
       await kapat(tester);

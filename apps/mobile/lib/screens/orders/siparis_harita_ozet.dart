@@ -38,7 +38,7 @@ Future<DurakOzetSonucu?> durakOzetSheetAc(
       context,
       // Başlık SÖZLEŞMEDİR: numara haritadaki pinin üstündeki rakamla aynıdır — kullanıcı
       // hangi pine dokunduğunu sayfada da görmeli (yanlış pine dokunmak sık ve sessiz bir hata).
-      baslik: '$sira. Durak · ${durak.baslik}',
+      baslik: '$sira. durak: ${durak.baslik}',
       govde: (ctx) => DurakOzetGovde(durak: durak),
     );
 

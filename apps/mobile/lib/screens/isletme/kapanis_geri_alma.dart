@@ -169,7 +169,7 @@ Future<bool> kapanisGeriAl(
     context,
     baslik: 'Hesap geri alınsın mı?',
     mesaj: '$kapsamAdi hesabı yeniden açılır ve düzeltip tekrar kapatabilirsiniz. '
-        'Kapanış kaydı SİLİNMEZ — arşivde "geri alındı" olarak görünmeye devam eder.'
+        'Kapanış kaydı silinmez, arşivde "geri alındı" olarak görünmeye devam eder.'
         '${kurye ? ' Bu kapanışla alınan kasa devri de geri alınır.' : ''}',
     onayEtiketi: 'Devam',
     tehlike: true,
@@ -196,6 +196,6 @@ Future<bool> kapanisGeriAl(
   }
 
   if (!context.mounted) return false;
-  SipToast.goster(context, 'Hesap geri alındı — düzeltip yeniden kapatabilirsiniz.');
+  SipToast.goster(context, 'Hesap geri alındı. Düzeltip yeniden kapatabilirsiniz.');
   return true;
 }

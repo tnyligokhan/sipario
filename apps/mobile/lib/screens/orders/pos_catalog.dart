@@ -123,7 +123,7 @@ class _KatalogGovdeState extends State<_KatalogGovde> {
     setState(() => _eklenen++);
     final ozet = sonuc.secim.ozet();
     widget.onBildir?.call(
-        '${u.name} ×${sonuc.adet} sepete eklendi${ozet.isEmpty ? '' : ' · $ozet'}');
+        '${u.name} ×${sonuc.adet} sepete eklendi${ozet.isEmpty ? '' : ' ($ozet)'}');
   }
 
   @override
@@ -204,7 +204,7 @@ class _KatalogGovdeState extends State<_KatalogGovde> {
             const SizedBox(height: SipSpace.lg),
             // .pos-alt
             SipButon(
-              etiket: _eklenen > 0 ? 'Bitti · $_eklenen kalem eklendi' : 'Bitti',
+              etiket: _eklenen > 0 ? '$_eklenen kalem eklendi' : 'Bitti',
               onTap: () => Navigator.of(context).maybePop(),
             ),
           ],

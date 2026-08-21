@@ -291,7 +291,7 @@ void main() {
       expect(sonuc.tur, SyncHataTuru.sunucu);
       final metin = SipCevrimdisiBant(tur: bantTuru(sonuc.tur)).metin;
       expect(metin, isNot(contains('Çevrimdışı')));
-      expect(metin, contains('otomatik'),
+      expect(metin, contains('yeniden denenecek'),
           reason: '5xx geçicidir — kullanıcıdan bir eylem beklenmez');
     });
 

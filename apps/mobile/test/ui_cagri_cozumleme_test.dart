@@ -138,7 +138,7 @@ void main() {
       // Sipariş AÇIK ve az önce girildi: satırın sonu saat değil yaştır.
       expect(
         kisi.sonHareket,
-        'Son sipariş: Damacana 19 L ×2 · Kapı tamiri · az önce',
+        'Son sipariş: Damacana 19 L ×2, Kapı tamiri (az önce)',
       );
       expect(kisi.sonSiparisDurumu, 'Hazırlanıyor');
     });
@@ -158,7 +158,7 @@ void main() {
       expect(kisi.sonSiparisDurumu, 'Teslim edildi');
       expect(
         kisi.sonHareket,
-        matches(RegExp(r'^Son sipariş: Damacana 19 L ×1 · \d{2}:\d{2}$')),
+        matches(RegExp(r'^Son sipariş: Damacana 19 L ×1 \(\d{2}:\d{2}\)$')),
         reason: 'kapanmış siparişin sorusu "ne zamandı"dır, yaş değil',
       );
     });
@@ -182,7 +182,7 @@ void main() {
 
       expect(
         cagriSiparisOzeti(satirlar),
-        'Damacana 19 L ×2 · Eski serbest satır',
+        'Damacana 19 L ×2, Eski serbest satır',
         reason: 'productId olmayan satır adetsiz yazılır (serbestMi yedek ölçütü)',
       );
     });
@@ -194,7 +194,7 @@ void main() {
       final kisi = await cagriKisiCoz(db, '+905321112244');
 
       expect(kisi.sonHareketTuru, SonHareketTuru.defter);
-      expect(kisi.sonHareket, matches(RegExp(r'^Son hareket: Elden borç · \d{2}:\d{2}$')));
+      expect(kisi.sonHareket, matches(RegExp(r'^Son hareket: Elden borç \(\d{2}:\d{2}\)$')));
     });
 
     test('SON HAREKET satırı: not yoksa HAREKET_META etiketi yazılır', () async {
@@ -205,7 +205,7 @@ void main() {
       final kisi = await cagriKisiCoz(db, '+905321112255');
 
       // En yeni hareket tahsilattır.
-      expect(kisi.sonHareket, matches(RegExp(r'^Son hareket: Tahsilat · \d{2}:\d{2}$')));
+      expect(kisi.sonHareket, matches(RegExp(r'^Son hareket: Tahsilat \(\d{2}:\d{2}\)$')));
     });
 
     test('saf yardımcılar: sipariş özeti · hareket etiketi · satır metni', () {
@@ -218,7 +218,7 @@ void main() {
       expect(cagriSiparisOzeti(const []), '—');
       expect(
         cagriSonHareketMetni(onEk: 'Son sipariş', govde: 'Damacana ×2', saat: '10:24'),
-        'Son sipariş: Damacana ×2 · 10:24',
+        'Son sipariş: Damacana ×2 (10:24)',
       );
       // Saat okunamıyorsa ayraç da düşer (kartta yalnız ' · ' asılı kalmasın).
       expect(

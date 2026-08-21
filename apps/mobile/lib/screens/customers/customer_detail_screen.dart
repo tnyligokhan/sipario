@@ -69,7 +69,7 @@ class CustomerDetailScreen extends StatefulWidget {
 }
 
 class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
-  static const String saltOkunurMesaji = 'Salt-okunur kip: yeni kayıt eklenemez.';
+  static const String saltOkunurMesaji = 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor.';
   static const String yetkisizMesaji = 'Bu işlem için yetkiniz yok.';
 
   late final Stream<Customer?> _musteri = (widget.db.select(widget.db.customers)
@@ -157,9 +157,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
       context,
       baslik: '${c.name} silinsin mi?',
       mesaj: borc > 0
-          ? 'Müşteri listeden kaldırılacak. ${formatKurus(borc)} borcu var — '
-              'geçmiş kayıtlarda görünmeye devam eder ama listede takip edemezsiniz.'
-          : 'Müşteri listeden kaldırılacak. Geçmiş siparişleri ve defter kayıtları silinmez.',
+          ? '${formatKurus(borc)} borcu var. Silerseniz listede takip edemezsiniz.'
+          : 'Müşteri listeden kaldırılacak. Geçmiş kayıtları silinmez.',
       onayEtiketi: 'Sil',
       tehlike: true,
     );
@@ -417,7 +416,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     const Padding(
                       padding: EdgeInsets.only(top: SipSpace.xl),
                       child: SipNotKutusu(
-                        metin: 'Müşteri geçmiş defteri kurye yetkisine kapalıdır.',
+                        metin: 'Geçmiş hareketler size kapalı.',
                         ikon: SipIcons.lock,
                       ),
                     ),

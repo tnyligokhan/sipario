@@ -56,7 +56,7 @@ Future<String?> cerceveNotu(
   if (pencereNakit == g.kapsam.kasa.nakit && pencereTeslim == gunTeslim) return null;
   // Metin FORMÜL İDDİA ETMEZ (beklenen nakdin tanımı repo'nundur ve bu vardiyada iki kez
   // değişti) — yalnız hangi ARALIĞIN kapsandığını söyler.
-  return 'Önceki günden devreden nakit dahil — ekrandaki gün toplamıyla aynı aralık değil.';
+  return 'Önceki günlerden devreden nakit dahil.';
 }
 
 /// Kuryeden ARA TAHSİLAT alır (sheet → kayıt). Ekran tazelensin mi diye `bool` döner.
@@ -116,7 +116,7 @@ Future<bool> araTahsilatAl(
   }
   if (!context.mounted) return false;
 
-  SipToast.goster(context, '$kuryeAdi · ${sipTutar(sonuc.sayilan)} tahsil edildi');
+  SipToast.goster(context, '$kuryeAdi için ${sipTutar(sonuc.sayilan)} tahsilat kaydedildi');
   return true;
 }
 

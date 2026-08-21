@@ -160,15 +160,15 @@ class _GovdeState extends State<_Govde> {
         _Yol(
           ikon: SipIcons.user,
           renk: t.accent,
-          baslik: 'Yöneticiyseniz',
+          baslik: 'İşletme sahibiyseniz',
           metin: 'Kayıtlı e-posta adresinize sıfırlama bağlantısı gönderilir.',
         ),
         const SizedBox(height: SipSpace.md),
         _Yol(
           ikon: SipIcons.truck,
           renk: t.muted,
-          baslik: 'Kurye ya da operatörseniz',
-          metin: 'Parolanızı bayi yöneticiniz belirler; sıfırlama için ona başvurun.',
+          baslik: 'Kurye ya da tezgâhta çalışıyorsanız',
+          metin: 'Parolanızı işletme sahibi belirler, sıfırlama için ona başvurun.',
         ),
 
         const SipFormEtiket('FİRMA KODU', ustBosluk: 18),

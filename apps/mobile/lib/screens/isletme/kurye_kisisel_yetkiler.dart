@@ -127,8 +127,7 @@ class _Govde extends StatelessWidget {
             ikon: SipIcons.user,
             tur: SipNotTuru.bilgi,
             onEtiket: 'Kişiye özel:',
-            metin: 'Bu ayarlar yalnız $kuryeAdi için geçerlidir. '
-                'Varsayılan bırakılan yetkiler bayi ayarından devralınır.',
+            metin: 'Yalnız $kuryeAdi için. "Varsayılan" bırakılanlar genel ayardan gelir.',
           ),
           const SizedBox(height: SipSpace.md),
 
@@ -163,7 +162,7 @@ class _Govde extends StatelessWidget {
           ),
           const SizedBox(height: SipSpace.sm),
           Text(
-            'Kişiye özel tüm kararlar silinir; 13 yetki de bayi varsayılanını devralır.',
+            'Kişiye özel ayarlar silinir, tüm yetkiler genel ayardan gelir.',
             style: SipText.metin(11.5, w: 500).copyWith(color: t.muted),
             textAlign: TextAlign.center,
           ),
@@ -215,7 +214,7 @@ class _EzmeSatiri extends StatelessWidget {
               const SizedBox(width: SipSpace.sm),
               YetkiRozeti(
                 metin: devraliyor
-                    ? 'Varsayılan · ${devralinan ? 'açık' : 'kapalı'}'
+                    ? 'Varsayılanı: ${devralinan ? 'açık' : 'kapalı'}'
                     : kuryeOzelYetkiRozeti,
                 renk: devraliyor ? t.muted : t.accent,
                 zemin: devraliyor ? t.surface2 : t.accentSoft,

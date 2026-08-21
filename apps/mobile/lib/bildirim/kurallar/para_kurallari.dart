@@ -74,8 +74,9 @@ BildirimTaslagi? gunSonuOzeti(GunSonuVerisi v) {
     // (kullanıcı kararı 2026-08-06): çekmece "Gün Özeti" derken bildirim başka bir ad söylerse
     // bayi iki ayrı özellik olduğunu sanar. Kanal kimliği (`wire`) DEĞİŞMEDİ.
     baslik: 'Gün özeti',
-    govde: 'Bugün ${sipTutar(v.tahsilatKurus)} tahsil edildi · '
-        '${v.teslimatSayisi} teslim · ${sipTutar(v.veresiyeKurus)} veresiye yazıldı',
+    govde: 'Bugün ${v.teslimatSayisi} teslimat yaptınız, '
+        '${sipTutar(v.tahsilatKurus)} tahsil ettiniz ve '
+        '${sipTutar(v.veresiyeKurus)} veresiye yazdınız.',
     // Günde TEK özet: ayırt edici TR takvim günü. İki kez tetiklense (yeniden başlatma,
     // zamanlayıcı çakışması) aynı kimlik üzerine yazılır, ikinci bildirim doğmaz.
     kimlik: bildirimKimligi(BildirimKategori.gunSonuOzeti, bildirimGunAnahtari(v.gun)),

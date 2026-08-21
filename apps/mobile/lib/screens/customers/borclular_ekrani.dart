@@ -77,7 +77,7 @@ class BorclularEkrani extends StatelessWidget {
                           ? SipBosDurum(
                               ikon: SipIcons.wallet,
                               baslik: 'Borçlu yok',
-                              aciklama: 'Tüm hesaplar temiz — tahsil edilmemiş borç görünmüyor.',
+                              aciklama: 'Tahsil edilmemiş borç yok.',
                             )
                           : _Liste(
                               db: db,
@@ -100,7 +100,7 @@ class BorclularEkrani extends StatelessWidget {
     if (musteriler == null) return '';
     if (musteriler.isEmpty) return 'Tüm hesaplar temiz';
     final toplam = musteriler.fold<int>(0, (s, c) => s + c.balanceKurus);
-    return '${musteriler.length} müşteri · ${sipTutar(toplam)}';
+    return '${musteriler.length} müşteri, toplam ${sipTutar(toplam)}';
   }
 }
 

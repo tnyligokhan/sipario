@@ -233,7 +233,7 @@ void main() {
       const t = BildirimTaslagi(
         kategori: BildirimKategori.siparisAtandi,
         baslik: 'Borç eşiği aşıldı',
-        govde: 'Ahmet Yılmaz · 12.340,00 ₺',
+        govde: 'Ahmet Yılmaz, 12.340,00 ₺',
         kimlik: 'siparis_atandi:m1',
         yol: 'musteri/m1',
       );

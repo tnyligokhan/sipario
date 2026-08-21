@@ -179,11 +179,11 @@ class _SyncCipi extends StatelessWidget {
   /// "Tekrar denenecek" YALNIZ kendiliğinden düzelecek hâllerde yazılır (`ag`/`sunucu`);
   /// `veri` ve `oturum` beklemekle geçmez, kullanıcı eylemi gerekir — oraya söz verilmez.
   static String _hataMetni(SyncHataTuru tur) => switch (tur) {
-        SyncHataTuru.sunucu => 'Sunucu yanıt vermiyor · tekrar denenecek',
-        SyncHataTuru.veri => 'Kayıtlar gönderilemiyor · destekle görüşün',
+        SyncHataTuru.sunucu => 'Sunucu yanıt vermiyor, tekrar denenecek',
+        SyncHataTuru.veri => 'Kayıtlar gönderilemiyor, destekle görüşün',
         SyncHataTuru.oturum => 'Oturum doğrulanmadı',
         // `ag` ve `yok`: gerçekten ulaşılamadı — "çevrimdışı" demenin doğru olduğu TEK hâl.
-        SyncHataTuru.ag || SyncHataTuru.yok => 'Bağlantı yok · tekrar denenecek',
+        SyncHataTuru.ag || SyncHataTuru.yok => 'Bağlantı yok, tekrar denenecek',
       };
 
   @override
@@ -192,11 +192,11 @@ class _SyncCipi extends StatelessWidget {
     final ok = sonuc?.ok ?? false;
     final saat = zaman == null
         ? ''
-        : ' · ${zaman!.hour.toString().padLeft(2, '0')}:'
-            '${zaman!.minute.toString().padLeft(2, '0')}';
+        : ' (${zaman!.hour.toString().padLeft(2, '0')}:'
+            '${zaman!.minute.toString().padLeft(2, '0')})';
     final metin = sonuc == null
-        ? 'Senkron bekleniyor'
-        : (ok ? 'Senkron güncel$saat' : _hataMetni(sonuc!.tur));
+        ? 'Bağlantı kontrol ediliyor'
+        : (ok ? 'Her şey güncel$saat' : _hataMetni(sonuc!.tur));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: SipSpace.xl, vertical: SipSpace.sm),
       decoration: const BoxDecoration(

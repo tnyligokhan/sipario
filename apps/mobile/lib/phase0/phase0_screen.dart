@@ -141,7 +141,7 @@ class _Phase0ScreenState extends State<Phase0Screen> with WidgetsBindingObserver
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sipario · Faz 0'),
+        title: const Text('Sipario Faz 0'),
         actions: [
           IconButton(
             onPressed: () async {

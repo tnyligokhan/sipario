@@ -60,7 +60,7 @@ void main() {
       );
 
       expect(find.text('Ahmet Yılmaz'), findsOneWidget);
-      expect(find.text('0532 415 22 90 · Sipariş alındı'), findsOneWidget);
+      expect(find.text('0532 415 22 90, Sipariş alındı'), findsOneWidget);
 
       // Kayıtsızda ad yok: numara üstte, altta yalnız sonuç.
       expect(find.text('0216 555 01 88'), findsOneWidget);

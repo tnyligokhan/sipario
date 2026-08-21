@@ -146,7 +146,7 @@ class _KameraGovdeState extends State<_KameraGovde> {
         ),
         const SizedBox(height: SipSpace.x3),
         Text(
-          _uyari ?? 'Barkodu çerçeveye getirin — okunduğunda alana kendiliğinden yazılır.',
+          _uyari ?? 'Barkodu çerçeveye getirin. Okunduğunda alana kendiliğinden yazılır.',
           textAlign: TextAlign.center,
           style: SipText.metin(12.5, w: 500)
               .copyWith(color: _uyari == null ? t.muted : t.warn),

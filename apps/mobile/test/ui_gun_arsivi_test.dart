@@ -122,11 +122,11 @@ void main() {
       // KAPSAM ARTIK AÇILIR LİSTE (2026-08-20): önce seçici, sonra "Ad · Rol" satırı.
       await tester.tap(find.byType(GunKapsamSecici));
       await sheetAnimasyonu(tester);
-      await tester.tap(find.text('Hakan · Kurye'));
+      await tester.tap(find.text('Hakan (Kurye)'));
       await akislariBekle(tester, tur: 6);
 
       expect(find.text('Hakan bu gün çalışmamış'), findsOneWidget);
-      expect(find.text('Kasa Özeti · Hakan'), findsNothing,
+      expect(find.text('Hakan için kasa özeti'), findsNothing,
           reason: 'sıfırlarla dolu kart, çalışıp kasayı boş getirmiş gibi okunurdu');
       // GÜNÜN kendisi boş DEĞİL — iki boşluk ayrı cümlelerdir.
       expect(find.text('Bu güne ait hareket yok'), findsNothing);
@@ -156,8 +156,8 @@ void main() {
       expect(find.text('28 Temmuz 2026, Salı'), findsOneWidget,
           reason: 'başlık altı seçili günü yazar');
       expect(find.text('Damacana ×4'), findsOneWidget);
-      expect(find.text('Toplam · 4 adet'), findsOneWidget);
-      expect(find.text('Toplam Tahsilat · 1 teslimat'), findsOneWidget);
+      expect(find.text('Toplam, 4 adet'), findsOneWidget);
+      expect(find.text('Toplam tahsilat (1 teslimat)'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -228,7 +228,7 @@ void main() {
       await akislariBekle(tester, tur: 6);
 
       expect(find.textContaining('Bu gün kapatılmadı'), findsOneWidget);
-      expect(find.text('Toplam Tahsilat · 1 teslimat'), findsOneWidget,
+      expect(find.text('Toplam tahsilat (1 teslimat)'), findsOneWidget,
           reason: 'kapatılmamış gün de rakamlarını gösterir');
 
       await kapat(tester);

@@ -40,7 +40,7 @@ class _TestCardState extends State<_TestCard> {
     final phone = _phone.text.trim();
     if (normalizePhoneTR(phone) == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Geçersiz numara — 05xx xxx xx xx biçiminde girin')),
+        const SnackBar(content: Text('Numarayı 05xx xxx xx xx biçiminde girin')),
       );
       return;
     }
@@ -193,7 +193,7 @@ class _LogCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        m.shown ? '${m.ms} ms · ${m.path}' : 'gösterilemedi · ${m.path}',
+                        m.shown ? '${m.ms} ms, ${m.path}' : 'gösterilemedi, ${m.path}',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ),

@@ -227,7 +227,7 @@ Stream<List<SonHareket>> watchSonHareketler(AppDatabase db, {int limit = 3}) {
                (SELECT group_concat(
                           CASE WHEN l.is_custom = 1
                                THEN l.product_name
-                               ELSE l.product_name || ' ×' || l.qty END, ' · ')
+                               ELSE l.product_name || ' ×' || l.qty END, ', ')
                   FROM order_lines l
                  WHERE l.order_id = o.id AND l.deleted_at IS NULL) AS ozet
         FROM orders o
