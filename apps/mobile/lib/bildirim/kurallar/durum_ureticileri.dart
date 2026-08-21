@@ -15,6 +15,7 @@ import '../../data/tr_gun.dart';
 import '../../repo/cash_handover_repository.dart';
 import '../../repo/day_closing_repository.dart';
 import '../../repo/day_end_repository.dart';
+import '../../repo/kapanmamis_gunler.dart';
 import '../bildirim_tetikleyici.dart' show TaslakUretici;
 import 'durum_kurallari.dart';
 
@@ -137,10 +138,16 @@ TaslakUretici gunKapatilmadiUretici(
       // kapatılmaz ve bu bir eksiklik değildir — kural o ayrımı kendisi yapar.
       final veri = await DayEndRepository(db).gunSonuBildirimVerisi(bugun);
 
+      // BUGÜNDEN ÖNCEKİ kapanmamış günler (2026-08-21). `gunler()` bugünü zaten dışarıda
+      // bırakır, yani bildirim yarın "dün" dediği güne kadar olan HER şeyi sayar ve iki kaynak
+      // (bu satır + yukarıdaki `kapandi`) hiçbir günü ne iki kez sayar ne atlar.
+      final onceki = await KapanmamisGunlerRepository(db).sayi();
+
       return gunKapatilmadiHatirlatmasi(
         dunKapatildi: kapandi,
         dunHareketVardi: !veri.bosGun,
         dun: bugun,
+        oncekiKapanmamis: onceki,
       );
     } catch (e) {
       debugPrint('Gün kapanışı hatırlatması üretilemedi: ${e.runtimeType}');

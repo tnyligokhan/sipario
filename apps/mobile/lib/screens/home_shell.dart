@@ -60,6 +60,7 @@ import 'isletme/ayarlar_ekrani.dart';
 import 'isletme/kuryeler_ekrani.dart';
 import 'isletme/muaf_ekrani.dart';
 import 'day_end_screen.dart';
+import 'bildirimler_ekrani.dart';
 import 'orders/order_detail_screen.dart';
 import '../phase0/phase0_screen.dart';
 import 'orders/order_form_screen.dart';

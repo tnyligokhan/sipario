@@ -137,23 +137,45 @@ BildirimTaslagi? kasaDevriHatirlatmasi({
 ///
 /// [dunKapatildi] true ise `null`. Kapatılmayan gün ertesi günün rakamlarını kirletir: kasa
 /// devri ve tahsilat pencereleri son kapanıştan itibaren sayılır.
+/// [oncekiKapanmamis] DÜNDEN ÖNCEKİ kapanmamış gün sayısı (kullanıcı isteği 2026-08-21:
+/// "kapanmayan gün/günleriniz var şeklinde göstermeliyiz").
+///
+/// ⚠️ ESKİDEN YALNIZ DÜNE BAKIYORDU ve bu, şikâyetin sessiz yarısıydı: üst üste üç gün
+/// kapatmayan bayi her sabah aynı tekil cümleyi ("Dün gün kapatılmadı") okuyordu. Cümle
+/// doğruydu ama BİRİKMENİN kendisini gizliyordu — oysa devreden tutarı büyüten şey tam olarak
+/// o birikmedir. Sayı yazınca uyarı bir hatırlatmadan bir DURUM RAPORUNA dönüşür.
+///
+/// DÜN KAPATILMIŞ AMA ÖNCESİ AÇIKSA YİNE UYARIR: eski günler kendiliğinden kapanmaz ve
+/// "dünü kapattım" hissi, üç gün önceki açık günü görünmez kılıyordu.
 BildirimTaslagi? gunKapatilmadiHatirlatmasi({
   required bool dunKapatildi,
   required bool dunHareketVardi,
   required DateTime dun,
+  int oncekiKapanmamis = 0,
 }) {
-  if (dunKapatildi) return null;
   // HAREKETSİZ GÜN KAPATILMAZ ve bu bir eksiklik değildir: bayi pazar günü çalışmamıştır.
   // Uyarmak, tatil gününde iş buyurmak olurdu.
-  if (!dunHareketVardi) return null;
+  final dunSayilir = !dunKapatildi && dunHareketVardi;
+  final toplam = (dunSayilir ? 1 : 0) + (oncekiKapanmamis < 0 ? 0 : oncekiKapanmamis);
+  if (toplam == 0) return null;
+
+  // TEK GÜN İÇİN ESKİ CÜMLE KORUNUR ve bu bilinçli: "1 gün kapatılmadı" doğru ama soğuktur;
+  // bayinin diliyle konuşan hâli "dün"dür. Çoğulda ise gün adı zaten yetmez.
+  final tekDun = toplam == 1 && dunSayilir;
+  final baslik = tekDun ? 'Dün gün kapatılmadı' : '$toplam gün kapatılmadı';
+  final govde = tekDun
+      ? 'Dünün kasası kapatılmamış görünüyor'
+      : '$toplam günün kasası kapatılmamış görünüyor';
 
   return BildirimTaslagi(
     kategori: BildirimKategori.gunKapanisHatirlatma,
-    baslik: 'Dün gün kapatılmadı',
-    govde: 'Dünün kasası kapatılmamış görünüyor',
-    detay: 'Dünün kasası kapatılmamış görünüyor.\n\n'
+    baslik: baslik,
+    govde: govde,
+    detay: '$govde.\n\n'
         'Kapatmadan geçen gün, bugünün rakamlarına karışır — kasa devri ve tahsilat '
-        'hesapları son kapanıştan itibaren sayılır.',
+        'hesapları son kapanıştan itibaren sayılır.\n\n'
+        'Gün Özeti ekranındaki uyarıya dokunarak hangi günler olduğunu görebilir ve '
+        'oradan kapatabilirsiniz.',
     kimlik: bildirimKimligi(
       BildirimKategori.gunKapanisHatirlatma,
       'gun-${bildirimGunAnahtari(dun)}',

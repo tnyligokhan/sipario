@@ -15,12 +15,19 @@ class _Hero extends StatelessWidget {
     required this.onMenu,
     required this.sonSenkron,
     required this.sonSenkronAt,
+    required this.okunmamisBildirim,
+    required this.onBildirimler,
   });
 
   final String sahipAdi;
   final VoidCallback onMenu;
   final SyncOutcome? sonSenkron;
   final DateTime? sonSenkronAt;
+
+  /// Okunmamış bildirim sayısı — zilin üstündeki rozet. 0 ise rozet çizilmez.
+  final int okunmamisBildirim;
+
+  final VoidCallback onBildirimler;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +70,11 @@ class _Hero extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: SipSpace.xl),
+                // ZİL MENÜNÜN SOLUNDA (2026-08-21): menü hero'nun sağ ucunda kalmalı — bayi
+                // onu aylardır orada arıyor. Yeni bir düğmeyi o köşeye koymak, kas hafızasıyla
+                // menüye uzanan eli bildirimlere götürürdü.
+                _ZilButonu(okunmamis: okunmamisBildirim, onTap: onBildirimler),
+                const SizedBox(width: SipSpace.sm),
                 SipIkonButon(
                   ikon: SipIcons.menu,
                   cap: 40,
@@ -89,6 +101,60 @@ class _Hero extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Hero'daki zil + okunmamış rozeti.
+///
+/// ROZET SAYIYI YAZAR, nokta değil: "3 bildirim var" ile "bir şey var" arasındaki fark, bayinin
+/// dokunup dokunmama kararını değiştirir. 9'dan sonra "9+" — iki haneli sayı 40 piksellik
+/// düğmenin köşesinde okunmuyor.
+class _ZilButonu extends StatelessWidget {
+  const _ZilButonu({required this.okunmamis, required this.onTap});
+
+  final int okunmamis;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        SipIkonButon(
+          ikon: SipIcons.alert,
+          cap: 40,
+          ikonBoyut: 19,
+          kalinlik: 2,
+          zemin: SipTokens.onHeroFill,
+          renk: SipTokens.onHero,
+          // ETİKET SAYIYI TAŞIR: ekran okuyucu kullanan bayi rozeti göremez, duyar.
+          etiket: okunmamis == 0 ? 'Bildirimler' : 'Bildirimler, $okunmamis okunmamış',
+          onTap: onTap,
+        ),
+        if (okunmamis > 0)
+          Positioned(
+            top: -2,
+            right: -2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              constraints: const BoxConstraints(minWidth: 18),
+              decoration: BoxDecoration(
+                color: t.danger,
+                borderRadius: BorderRadius.circular(9),
+                // Hero koyu, rozet kırmızı: aradaki ince halka ikisini ayırır, yoksa rozet
+                // koyu zeminde kanıyormuş gibi görünüyor.
+                border: Border.all(color: t.hero, width: 1.5),
+              ),
+              child: Text(
+                okunmamis > 9 ? '9+' : '$okunmamis',
+                textAlign: TextAlign.center,
+                style: SipText.metin(10.5, w: 800).copyWith(color: Colors.white),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

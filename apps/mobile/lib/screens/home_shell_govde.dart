@@ -33,6 +33,7 @@ extension _GovdeYuzeyi on _HomeShellState {
           onArama: _aramaAc,
           onSiparisAc: _siparisAc,
           onBorclular: _borclularAc,
+          onBildirimler: _bildirimleriAc,
           borclulariGoster: yetki.toplamBorclulariGorme,
           // Sipariş listesiyle AYNI kapsam: kurye kilitliyse bento de yalnız ona atananları sayar.
           acikSiparisKullanicisi: yetki.tumSiparisleriGorme ? null : _userId,

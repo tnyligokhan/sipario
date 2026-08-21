@@ -269,7 +269,103 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-20 — ATIF NİYETE DEĞİL OLGUYA BAKIYOR · TEZGÂH ROLÜ AÇILDI · GÜN ÖZETİ KAPSAMI (mobil 0.34.0 → **0.38.0**, API 1.12.0 → **1.13.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-21 — KAPANMAYAN GÜN GÖRÜNÜR OLDU VE KAPATILABİLİYOR · BİLDİRİM MERKEZİ (mobil 0.38.0 → **0.40.0**, API DEĞİŞMEDİ 1.13.0)
+
+İki iş kolu. Birincisi bir PARA meselesiydi ve en kritik kısmı **hiçbir formüle dokunmamaktı**.
+
+#### ⭐ "Kapanmayan günler bir sonraki güne aktarılıyor" — gözlem doğru, teşhis değil
+
+Aktarma **bir hata değil**: kuryenin mutabakat penceresi bilerek **alttan açıktır**
+(`CashHandoverRepository._pencere`). Cep gece yarısında boşalmaz — dün toplanıp teslim
+edilmemiş para bugün de kuryededir ve beklenen nakit onu göstermek zorundadır. Pencereyi her
+gece sıfırlamak, **teslim edilmemiş parayı sessizce silmek** olurdu.
+
+Yanlış olan aritmetik değil **görünürlüktü**: bayi devreden tutarı görüyor, nereden geldiğini
+göremiyordu. Eksik yarı eklendi; para formüllerinin hiçbirine dokunulmadı.
+
+| Eklendi | Nerede |
+|---|---|
+| Kapanmamış gün tespiti (saf kural + read-model) | `repo/kapanmamis_gunler.dart` |
+| Gün Özeti'nin tepesinde sayı bandı + gün gün liste | `screens/isletme/kapanmamis_gun_banti.dart` |
+| Geçmiş günü KAPATMA | `gecmis_gun_ekrani.dart` (`_gunuKapat`) |
+| Sabah bildirimi artık "N gün kapatılmadı" | `durum_kurallari.dart` |
+
+#### Tespit algoritması — iki sınır, DAR OLANI kazanır
+
+```
+alt sınır = max(bugün − 14 gün, son geçerli gün kapanışı + 1 gün)
+gün listeye girer  ⇔  hareket görmüş  ∧  geçerli gün kapanışı yok
+```
+
+- **Bugün listede yok** — henüz kapanmadı, *kapanmamış* değil. Koysaydık her sabah kendiliğinden
+  doğan bir uyarı üretirdi.
+- **Hareketsiz gün yok** — bayi o gün çalışmamıştır (`gunKayitVarMi` tanımı artık tek yerde ve
+  bu tarama ile ORTAK).
+- **14 günün gerekçesi mutabakattır**, estetik değil: daha eski bir günün kasası artık sayılamaz.
+  Sınırsız liste ise hiç kapanış kullanmayan bayide 200 satırlık bir duvar olur ve uyarıyı
+  **körleştirir** — hiç uyarmamaktan kötü.
+- İki sınırın **kapsayıcılığı farklıdır** (gerideMax dahil, kapanış hariç) ve bu bir ayrıntı
+  değil kuralın kendisi: aynı yazılsalardı ya bir gün kaybolurdu ya kapalı bir gün listelenirdi.
+  16 test bu tabloyu çiviliyor (`kapanmamis_gunler_test.dart`).
+
+#### Geçmiş gün kapatma — üç kısıt pazarlıksız
+
+1. **Yalnız GÜN kapsamı.** Kurye kapanışı geçmişe yazılırsa mutabakat penceresi o güne kayar ve
+   o günden bugüne toplanmış ama teslim edilmemiş para **beklenenden düşer** — kuryenin
+   cebindeki gerçek nakit sessizce silinir. Kurye mutabakatı her zaman BUGÜN yapılır.
+2. **Sayım istenmez.** Üç gün önceki kasa bugün sayılamaz. Sayım alınsaydı `diff` arşive
+   **kalıcı olarak yanlış** donardı (append-only). Kayıt `counted=null`, `diff=0` ile geçer ve
+   sheet bunu açıkça yazar: "sayım yapılmadı olarak arşive geçer".
+3. **Gün engeli uygulanmaz.** O engel "bugün yarım kalmış devri tamamla" demektir; geçmişte devir
+   zaten yapılamaz. Uygulasaydık kapatılması **imkânsız** bir gün doğar ve liste hiç boşalmazdı.
+
+**Açık sipariş engeli DURUYOR** ve durmalı: o sipariş gerçekten açıktır, kullanıcı teslim edip
+ya da iptal edip günü kapatabilir — aşılabilir olduğu için ölü bir engel değil. Liste satırı
+kaç açık sipariş olduğunu yazar, "kapat düğmesi neden yok" sorusu doğmasın diye.
+
+> **Para güvenliği testle çivilendi** (`gecmis_gun_kapatma_test.dart`): gün kapanışı kuryeden
+> beklenen nakdi **değiştirmez** ve **kasa devri kaydı yazmaz**.
+
+#### Bildirim merkezi (v26) — ana ekranda zil
+
+Cihaz-yerel `bildirimler` tablosu + `BildirimKutusu` + servisi saran `KutuluBildirimServisi`.
+Hero'ya okunmamış rozetli zil eklendi (menünün SOLUNA — menü sağ uçta kalmalı, kas hafızası).
+
+- **Kutu ÜRETİLEN her taslağı kaydeder.** Asıl kazanç burada: sessiz saatte ertelenen ve günlük
+  bütçeye takılan bildirimler bugüne kadar **hiçbir yerde** görünmüyordu (`atlananlar` yalnız
+  bellekte, yalnız hata ayıklama içindi).
+- **Kimlik = bildirimin kimliği**: aynı kimlik yeni satır açmaz, tazeler. **Tazeleme "okundu"yu
+  silmez** — silseydi açılış taraması aynı uyarıyı her seferinde okunmamışa çevirir ve bayi onu
+  bir daha asla kapatamazdı.
+- **Kapalı kategori kutuya girmez** (bayi kapattığını başka yerden geri görmemeli).
+- Satıra dokunmak okundu işaretler ve **yolu kabuğa döndürür** — sistem bildirimine dokunmakla
+  aynı yere gider (`_bildirimYoluAc`), iki ayrı yönlendirme yok.
+
+> ⚠️ **BİLİNEN SINIR:** uygulama KAPALIYKEN gelen push ayrı isolate'te işlenir; orada veritabanı
+> açık değildir ve o bildirim kutuya GİRMEZ. Aynı sqlite dosyasını ikinci isolate'ten açmak
+> drift'in açıkça uyardığı bir yarıştır ve bir liste için göze alınmadı. Bilgi kaybı değil:
+> push'un anlattığı olay (atanan sipariş) zaten senkronla iniyor.
+
+**Kapılar:** flutter analyze temiz · **flutter test 1464 yeşil** (36 yeni test) · API'ye
+dokunulmadı (phpunit 905 önceki turdan yeşil).
+
+**SIRADAKİ İŞLER (bu vardiyadan çıkanlar):**
+
+1. **Kapanmamış gün uyarısını susturma yolu YOK.** Hiç kapanış kullanmayan bayi 14 günlük bir
+   liste görür ve bant hep durur. Şu an bilinçli (uyarı gerçek), ama pilotta "biz gün kapatmayız"
+   diyen bayi çıkarsa bir "bu bayi gün kapatmıyor" ayarı gerekebilir — karar VERİYE bağlı,
+   şimdiden eklemek tahmindir.
+2. **Geçmiş gün kapanışı arşivde "sayım yapılmadı" olarak görünüyor mu?** `arsivDetaySheet`
+   `counted=null` hâlini çiziyor ama bu turda gözle doğrulanmadı; golden PNG ile bakılmalı.
+3. **Push bildirimi kutuya girmiyor** (yukarıdaki sınır). Çözüm istenirse: ön plana geçişte
+   sunucudan "son N bildirim" çekmek — sunucu tarafı iş.
+4. Sahada doğrulanacak: iki gün üst üste kapatmayan bayide bandın sayısı 2 diyor mu, kapattıkça
+   1'e ve 0'a düşüyor mu.
+
+---
+
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-20 — ATIF NİYETE DEĞİL OLGUYA BAKIYOR · TEZGÂH ROLÜ AÇILDI · GÜN ÖZETİ KAPSAMI (mobil 0.34.0 → **0.38.0**, API 1.12.0 → **1.13.0**)
 
 Sahadan gelen **dört madde** kapandı. Üçünün kökü aynı çıktı: gün özeti, teslimatı ve günün
 veresiyesini **atamadan** okuyordu.

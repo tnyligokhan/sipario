@@ -89,6 +89,7 @@ void main() {
           onSekme: (_) {},
           onYeniSiparis: () {},
           onBorclular: () {},
+          onBildirimler: () {},
           onArama: (_) {},
           onSiparisAc: (_) {},
         ),

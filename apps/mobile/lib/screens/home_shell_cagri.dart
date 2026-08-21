@@ -224,6 +224,19 @@ extension _CagriYuzeyi on _HomeShellState {
     ));
   }
 
+  /// UYGULAMA İÇİ BİLDİRİM KUTUSU (2026-08-21) — ana ekrandaki zil.
+  ///
+  /// Ekran, dokunulan satırın YOLUNU döndürür ve gezinmeyi kabuk yapar: sistem bildirimine
+  /// dokunmakla listedeki satıra dokunmak AYNI yere gitmeli ([_bildirimYoluAc]). İki ayrı
+  /// yönlendirme yazsaydık biri bir gün ötekinden farklı bir ekran açardı.
+  Future<void> _bildirimleriAc() async {
+    final yol = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(builder: (_) => BildirimlerEkrani(db: widget.db)),
+    );
+    if (yol == null || yol.isEmpty || !mounted) return;
+    await _bildirimYoluAc(yol);
+  }
+
   /// [YerelBildirimServisi.dokunulanYol] dinleyicisi. Değer tüketildikten sonra SIFIRLANIR:
   /// aksi hâlde aynı yol, sonraki her dinleyici kurulumunda yeniden açılırdı.
   void _bildirimDokunusu() {

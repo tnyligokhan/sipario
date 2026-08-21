@@ -346,3 +346,47 @@ class SyncMeta extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// BİLDİRİM KUTUSU (v26, 2026-08-21) — "ana sayfada okunmamış bildirimler görünsün".
+///
+/// ══ CİHAZ-YEREL, SENKRONLANMAZ ══════════════════════════════════════════════════════════════
+/// Bir bildirim, BU CİHAZA teslim edilmiş bir olaydır: yerel kural bu telefonun verisinden
+/// üretir, push bu telefona düşer. "Okundu" da cihaz düzeyinde bir olgudur — patron kendi
+/// telefonunda okuduğu bir uyarıyı kuryenin telefonunda da okumuş SAYILMAZ, çünkü o telefona
+/// zaten hiç gelmemiştir. Senkronlamak, olmayan bir ortaklık uydurmak olurdu. `outbox`a HİÇ
+/// girmez; sunucu bu tablodan habersizdir.
+///
+/// ══ KİMLİK = BİLDİRİMİN KİMLİĞİ ═════════════════════════════════════════════════════════════
+/// Birincil anahtar `BildirimTaslagi.kimlik`tir, yani sistemdeki bildirimle AYNI tekillik
+/// kuralı: aynı kimlik ikinci kez gösterilince YENİ SATIR AÇILMAZ, mevcut satır tazelenir.
+///
+/// ⚠️ TAZELEME `okundu_at`i VE `occurred_at`i KORUR. Kurallar gün damgalı kimlikler üretir ve
+/// AÇILIŞTA yeniden koşar (`BildirimTetikleyici.anlik`); okunma damgası her açılışta silinseydi
+/// bayi aynı uyarıyı bir daha asla kapatamazdı. `occurred_at` korunmasa da liste her açılışta
+/// yeniden sıralanır ve okunmuş satırlar durmadan yukarı zıplardı.
+class Bildirimler extends Table {
+  /// `BildirimTaslagi.kimlik` — kategori önekli tekil anahtar.
+  TextColumn get id => text()();
+
+  /// `BildirimKategori.name`. Metin olarak saklanır: enum'a yeni değer eklenip eskisi
+  /// kaldırıldığında eski satır okunamaz hâle gelmesin (liste bir ARŞİVDİR).
+  TextColumn get kategori => text()();
+
+  TextColumn get baslik => text()();
+  TextColumn get govde => text()();
+
+  /// Genişletilmiş metin; yoksa null (liste satırı yalnız gövdeyi yazar).
+  TextColumn get detay => text().nullable()();
+
+  /// Dokununca gidilecek ekran (`gunsonu` · `siparisler` · `musteri/<id>` …); yoksa null.
+  TextColumn get yol => text().nullable()();
+
+  /// Bildirimin DOĞDUĞU an (UTC ISO). Sıralama bundan.
+  TextColumn get occurredAt => text()();
+
+  /// Okunma anı (UTC ISO); null = OKUNMAMIŞ. Rozet bu alanı sayar.
+  TextColumn get okunduAt => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

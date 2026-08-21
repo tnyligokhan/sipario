@@ -45,6 +45,7 @@ import 'isletme/gun_ozeti_eylemleri.dart';
 import 'isletme/gun_ozeti_govdesi.dart';
 import 'isletme/gun_sonu_kartlari.dart';
 import 'isletme/gun_sonu_ozet.dart';
+import 'isletme/kapanmamis_gun_banti.dart';
 import 'isletme/kapanis_geri_alma.dart';
 import 'team.dart';
 
@@ -141,6 +142,10 @@ class _DayEndScreenState extends State<DayEndScreen> {
   /// "Bugün/Dün" etiketlerinin referans günü. Cihaz saatiyle başlar, ilk yükleme onu düzeltilmiş
   /// güne çevirir.
   DateTime _bugun = bugunTr();
+
+  /// Kapanmamış gün bandının sayaç anahtarı — artırılınca bant yeniden sayar. Geçmiş ekranından
+  /// dönüldüğünde ve gün kapatıldığında artar.
+  int _kapanmamisTazeleme = 0;
 
   void _tazele() {
     setState(() {
@@ -322,6 +327,32 @@ class _DayEndScreenState extends State<DayEndScreen> {
                           ),
                       ],
                     ),
+                    // KAPANMAMIŞ GÜN BANDI EN ÜSTTE (kullanıcı isteği 2026-08-21) — kapsam
+                    // seçicisinin bile üstünde. Gerekçe: bandın konusu SEÇİLİ KAPSAM DEĞİL,
+                    // defterin kendisidir; seçicinin altına konsaydı "bu uyarı seçtiğim
+                    // kapsama mı ait" sorusunu doğururdu.
+                    //
+                    // YALNIZ KAPATABİLENE ÇİZİLİR: kurye ne geçmiş günü görebilir ne kapatabilir;
+                    // ona sürekli duran ve dokunulunca hiçbir şey açmayan bir uyarı göstermek,
+                    // yapamayacağı bir iş için sorumluluk hissettirmek olurdu.
+                    if (_kapatabilir)
+                      KapanmamisGunBandi(
+                        db: widget.db,
+                        yenilemeAnahtari: _kapanmamisTazeleme,
+                        onGunSec: (gun) => Navigator.of(context)
+                            .push(MaterialPageRoute<void>(
+                              builder: (_) => GecmisGunEkrani(
+                                db: widget.db,
+                                rol: widget.rol,
+                                kullaniciId: widget.kullaniciId,
+                                acilisGunu: gun,
+                              ),
+                            ))
+                            // Geçmişte gün kapatılmış olabilir: dönüşte bant yeniden sayar.
+                            .then((_) => mounted
+                                ? setState(() => _kapanmamisTazeleme++)
+                                : null),
+                      ),
                     // Kapsam segmenti YÖNETİCİDE her zaman çizilir (tek kurye ya da hiç kurye
                     // varken de "Tümü" görünür — tasarım `s-gunsonu.jsx:37-41` koşulsuzdur).
                     //

@@ -329,6 +329,22 @@ extension _GocMerdiveni on AppDatabase {
             }
           }
 
+          // v26 — BİLDİRİM KUTUSU (2026-08-21). Yeni bir TABLO, kolon değil.
+          //
+          // KAPIDAN ÖNCE, v11..v25 ile AYNI SEBEPTEN: aşağıdaki kendini-onarma kapısı
+          // `tenant_settings`i görünce erken döner ve sahadaki her cihazda o tablo zaten var.
+          // `if (from < 26)` yazsaydık tablo hiçbir telefonda oluşmazdı.
+          //
+          // VARLIK KONTROLÜ ŞART: adım koşulsuz koştuğu için her açılışta çalışır; `createTable`
+          // ikinci kez çağrıldığında "table already exists" ile düşerdi.
+          //
+          // BOŞ DOĞMASI DOĞRU BAŞLANGIÇTIR: yükseltmeden önce gösterilmiş bildirimlerin kaydı
+          // hiçbir yerde YOK. Geriye dönük satır uydurmak, hiç okunmamış 40 satırlık bir kutuyla
+          // karşılamak olurdu.
+          if (!await AppDatabase._tabloVar(m, 'bildirimler')) {
+            await m.createTable(bildirimler);
+          }
+
           // KENDİNİ ONARMA (2026-07-22 SAHA BULGUSU — iki gerçek cihazda yaşandı): Faz 0 ölçüm
           // ekranı sipario.db'yi sqflite `version: 1` ile açınca user_version damgası 1'e
           // eziliyordu; Drift sonraki açılışta migration'ı YENİDEN koşup "duplicate column" ile

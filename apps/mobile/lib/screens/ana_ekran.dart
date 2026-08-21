@@ -16,6 +16,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/app_database.dart';
+import '../repo/bildirim_kutusu.dart';
 import '../guncelleme/guncelleme_servisi.dart';
 import '../sync/sync_service.dart';
 import '../sync/yenileme.dart';
@@ -43,6 +44,7 @@ class AnaEkran extends StatefulWidget {
     required this.onArama,
     required this.onSiparisAc,
     required this.onBorclular,
+    required this.onBildirimler,
     this.borclulariGoster = true,
     this.acikSiparisKullanicisi,
     this.sonSenkron,
@@ -69,6 +71,10 @@ class AnaEkran extends StatefulWidget {
   /// "Borçlular" bento kutusu — borçlu müşteriler ekranını kabuk açar (yazma yetkisi orada
   /// bilinir; bu ekran yalnız niyeti devreder, `onArama`/`onSiparisAc` deseninin aynısı).
   final VoidCallback onBorclular;
+
+  /// Zil düğmesi — bildirim kutusunu KABUK açar (gezinme kararı onundur; `onArama`,
+  /// `onSiparisAc`, `onBorclular` deseninin aynısı).
+  final VoidCallback onBildirimler;
 
   /// Borçlular kutusu çizilsin mi (`yetkiler().toplamBorclulariGorme`). Kurye için kapalıdır:
   /// kutu çizilmezse toplam borç tutarı ve borçlu müşteri sayısı ekranda hiç görünmez.
@@ -129,15 +135,28 @@ class _AnaEkranState extends State<AnaEkran> {
     return _ozetAkisi!;
   }
 
+  /// Okunmamış bildirim akışı — BİR KEZ kurulur ([_ozetAkisi] ile AYNI gerekçe: build içinde
+  /// yaratılan akış her karede aboneliği koparır ve rozet ara ara sıfıra düşerdi).
+  late final Stream<int> _okunmamisAkisi =
+      BildirimKutusu(widget.db).watchOkunmamisSayisi();
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _Hero(
-          sahipAdi: widget.sahipAdi,
-          onMenu: widget.onMenu,
-          sonSenkron: widget.sonSenkron,
-          sonSenkronAt: widget.sonSenkronAt,
+        // ROZET AKIŞTAN OKUNUR, tek atış değil: bildirim uygulama AÇIKKEN de doğar (açılış
+        // taramaları, push) ve rozet o an artmalı. Tek atış okuma, bayinin bir sonraki ekran
+        // geçişine kadar "hiç bildirim yok" görmesi demekti.
+        StreamBuilder<int>(
+          stream: _okunmamisAkisi,
+          builder: (context, snap) => _Hero(
+            sahipAdi: widget.sahipAdi,
+            onMenu: widget.onMenu,
+            sonSenkron: widget.sonSenkron,
+            sonSenkronAt: widget.sonSenkronAt,
+            okunmamisBildirim: snap.data ?? 0,
+            onBildirimler: widget.onBildirimler,
+          ),
         ),
         Expanded(
           child: StreamBuilder<AnaOzet>(

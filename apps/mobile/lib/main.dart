@@ -17,6 +17,7 @@ import 'bildirim/push/push_servisi.dart';
 import 'repo/day_end_repository.dart';
 import 'data/app_database.dart';
 import 'guncelleme/guncelleme_servisi.dart';
+import 'repo/bildirim_kutusu.dart';
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/orders/tutamac_deposu.dart';
@@ -125,6 +126,17 @@ class _SiparioAppState extends State<SiparioApp> {
   Future<void> _bildirimKurallariniKos() async {
     await bildirimAltyapisiniKur();
     final db = widget.db;
+
+    // BİLDİRİM KUTUSU BAĞLANIR (2026-08-21) — üretilen her taslak uygulama içi listeye de düşer.
+    //
+    // SARMALAMA ALTYAPI KURULUMUNDAN SONRA: `bildirimAltyapisiniKur` servisin somut tipine
+    // bakıyor (`is YerelBildirimServisi`) ve sarmalanmış hâli tanımaz — önce sarsaydık kanallar
+    // hiç kurulmazdı, yani bildirimler sessizce çıkmamaya başlardı.
+    //
+    // İKİ KEZ SARMAYA KARŞI: bu fonksiyon oturum açılışında bir kez koşar ama savunma ucuz.
+    if (bildirimServisi is! KutuluBildirimServisi) {
+      bildirimServisi = KutuluBildirimServisi(bildirimServisi, BildirimKutusu(db));
+    }
 
     await BildirimTetikleyici(
       servis: bildirimServisi,

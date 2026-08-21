@@ -23,15 +23,21 @@
 // DÜNDE AÇILIR, bugünde değil: bugünün özeti zaten bir önceki ekrandır ve bu ekranın sorusu
 // geçmiştir. Bugüne dönmek yine mümkün (şeridin ortasına dokunmak ya da ileri ok).
 //
-// SALT OKUNUR: bu ekran hiçbir kayıt YAZMAZ — ne kapatma ne ara tahsilat. Geçmiş bir günün
-// rakamını düzeltmenin yolu defterdir (düzeltme kaydı), arşivi elle değiştirmek değil
-// (kırmızı çizgi #2). Bu yüzden alt çubuk da yoktur.
+// ⚠️ ARTIK TAM SALT OKUNUR DEĞİL (2026-08-21): ekran TEK bir kayıt yazabilir — GÜN KAPANIŞI.
+// Kullanıcı isteği: "kapatılmayan günleri kapatabilmeli işletme sahibi". Sınırlar dar ve
+// gerekçeleri `_gunuKapat` üzerinde yazılı:
+//   • yalnız GÜN kapsamı (kurye kapanışı geçmişe yazılamaz — mutabakat penceresini kaydırır),
+//   • SAYIM İSTENMEZ (geçmiş bir günün kasası bugün sayılamaz; fark uydurulmaz),
+//   • yalnız `gunuKapatma` yetkisi olan kullanıcı.
+// Ara tahsilat, defter düzeltme ve arşiv düzenleme YİNE YOKTUR: geçmiş bir günün RAKAMINI
+// düzeltmenin yolu defterdir (düzeltme kaydı), arşivi elle değiştirmek değil (kırmızı çizgi #2).
 
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
 import '../../sync/yenileme.dart';
 import '../../theme/components/atoms.dart';
+import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
@@ -40,7 +46,8 @@ import '../orders/siparis_tarih_seridi.dart';
 import '../team.dart';
 import 'gun_arsivi.dart';
 import 'gun_kapsami.dart';
-import 'gun_kapatma_sheet.dart' show KapaliSerit, arsivDetaySheet;
+import '../../repo/day_closing_repository.dart';
+import 'gun_kapatma_sheet.dart' show KapaliSerit, arsivDetaySheet, gunKapatmaSheet;
 import 'gun_sonu_kartlari.dart';
 import 'gun_sonu_ozet.dart';
 import 'isletme_atomlari.dart';
@@ -52,6 +59,7 @@ class GecmisGunEkrani extends StatefulWidget {
     this.rol,
     this.kullaniciId,
     this.bugun,
+    this.acilisGunu,
   });
 
   final AppDatabase db;
@@ -65,6 +73,12 @@ class GecmisGunEkrani extends StatefulWidget {
   /// Test dikişi — "bugün"ün ne olduğu dışarıdan verilebilir. İleri okun sınırı buna bağlı.
   final DateTime? bugun;
 
+  /// Ekranın AÇILACAĞI gün. Verilmezse DÜN (bu ekranın olağan girişi).
+  ///
+  /// "Kapanmamış günler" listesinden gelen kullanıcı üç gün öncesini seçmiş olabilir; onu dünde
+  /// açıp oklarla geri saydırmak, listeye dokunmanın anlamını yok ederdi.
+  final DateTime? acilisGunu;
+
   @override
   State<GecmisGunEkrani> createState() => _GecmisGunEkraniState();
 }
@@ -76,7 +90,7 @@ class _GecmisGunEkraniState extends State<GecmisGunEkrani> {
   /// bir sınır en fazla bir kare sürer ve hiçbir kayda dokunmaz.
   late DateTime _bugun = widget.bugun ?? bugunTr();
 
-  late DateTime _gun = _bugun.subtract(const Duration(days: 1));
+  late DateTime _gun = widget.acilisGunu ?? _bugun.subtract(const Duration(days: 1));
 
   @override
   void initState() {
@@ -87,7 +101,10 @@ class _GecmisGunEkraniState extends State<GecmisGunEkrani> {
       if (!mounted || duzeltilmis == _bugun) return;
       setState(() {
         _bugun = duzeltilmis;
-        _gun = duzeltilmis.subtract(const Duration(days: 1));
+        // AÇILIŞ GÜNÜ ÇAĞIRANDAN GELDİYSE KORUNUR: saat düzeltmesi "bugün"ü kaydırabilir ama
+        // kullanıcının listeden seçtiği günü kaydırmaz. Ezseydik, üç gün öncesini seçen bayi
+        // bir kare sonra kendini dünde bulurdu.
+        if (widget.acilisGunu == null) _gun = duzeltilmis.subtract(const Duration(days: 1));
         _veri = _yukle();
         _urunler = satilanUrunler(widget.db, _gun);
       });
@@ -150,6 +167,70 @@ class _GecmisGunEkraniState extends State<GecmisGunEkrani> {
   // "Kurye YALNIZ kendini görür" (K2) süzgeci BURADAN TAŞINDI (2026-08-20): kural artık
   // seçeneklerin ÜRETİLDİĞİ yerde (`gunKapsamlari`) duruyor ve iki ekran onu paylaşıyor. İki
   // yerde durması, birinin bir gün diğerini yakalayamaması demekti.
+
+  /// Kapatma alt çubuğu bu ekranda çizilir mi? (Koşulun rol/kapsam yarısı; günün durumu
+  /// verinin kendisinden okunur.)
+  bool get _kapatmaCubuguCizilir =>
+      _secili.gunHesabi &&
+      yetkiler(rol: widget.rol, atamaHedefiVar: true).gunuKapatma;
+
+  /// GEÇMİŞ BİR GÜNÜ KAPATIR — sayım İSTENMEDEN (kullanıcı isteği 2026-08-21).
+  ///
+  /// ══ NEDEN YALNIZ GÜN KAPSAMI ═══════════════════════════════════════════════════════════
+  /// Kurye kapanışı bir MUTABAKAT PENCERESİNİ kapatır (`CashHandoverRepository._pencere` son
+  /// kurye kapanışından başlar). Geçmiş bir güne kurye kapanışı yazmak pencereyi o güne taşır
+  /// ve o günden bugüne kadar toplanmış ama teslim edilmemiş para BEKLENENDEN DÜŞER — yani
+  /// kuryenin cebindeki gerçek nakit sessizce silinir. Kurye mutabakatı her zaman BUGÜN yapılır;
+  /// orada pencere ile cepteki para aynı şeyi anlatır.
+  ///
+  /// ══ NEDEN SAYIM YOK ════════════════════════════════════════════════════════════════════
+  /// Üç gün önceki kasa bugün sayılamaz. Sayım alınsaydı `diff` arşive KALICI olarak yanlış
+  /// donardı (append-only). Kayıt "sayım yapılmadı" (counted=null, fark 0) olarak geçer.
+  ///
+  /// ══ NEDEN GÜN ENGELİ YOK ═══════════════════════════════════════════════════════════════
+  /// `gunEngeli` "bugün yarım kalmış bir kurye devrini tamamla" demektir. Geçmiş bir günde o
+  /// devir zaten tamamlanamaz (yukarıdaki sebep); engeli uygulamak, kapatılması İMKÂNSIZ bir
+  /// gün üretir ve "kapanmamış günler" listesi hiç boşalmazdı.
+  ///
+  /// AÇIK SİPARİŞ ENGELİ DURUYOR ve durmalı: o sipariş hâlâ gerçekten açıktır ve kullanıcı onu
+  /// teslim edip ya da iptal edip günü kapatabilir. Aşılabilir olduğu için ölü bir engel değil.
+  Future<void> _gunuKapat() async {
+    if (!_kapatmaCubuguCizilir) return; // çift kapı (K2 pazarlıksız)
+
+    final onizleme =
+        await DayClosingRepository(widget.db).onizle(ClosingScope.day, localDate: _gun);
+    if (!mounted) return;
+
+    final sonuc = await gunKapatmaSheet(
+      context,
+      kapsamAdi: gunTamBasligi(_gun),
+      gunHesabi: true,
+      beklenen: onizleme.expectedCashKurus,
+      tamNakit: onizleme.gunNakitKurus,
+      teslimat: onizleme.deliveryCount,
+      ortaEtiket: onizleme.dusulenKurus < 0 ? 'Kuryelerden devir' : 'Kuryelerde kalan',
+      ortaTutar: onizleme.dusulenKurus,
+      sayimIstenmiyor: true,
+    );
+    if (sonuc == null || !mounted) return;
+
+    try {
+      await DayClosingRepository(widget.db).kapat(
+        scope: ClosingScope.day,
+        countedCashKurus: null, // sayım YOK — sheet de istemedi
+        note: sonuc.not.isEmpty ? null : sonuc.not,
+        localDate: _gun,
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      SipToast.goster(context, e.message);
+      setState(() => _veri = _yukle());
+      return;
+    }
+    if (!mounted) return;
+    SipToast.goster(context, '${gunTamBasligi(_gun)} kapatıldı');
+    setState(() => _veri = _yukle());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -226,6 +307,35 @@ class _GecmisGunEkraniState extends State<GecmisGunEkrani> {
                     },
                   ),
                 ),
+                // GEÇMİŞ GÜNÜ KAPATMA (kullanıcı isteği 2026-08-21) — bu ekran artık salt okunur
+                // DEĞİL. Alt çubuk YALNIZ şu üçü birlikteyken çizilir:
+                //  • kapsam GÜN hesabı (kurye kapsamı geçmişte kapatılamaz — gerekçe [_gunuKapat]),
+                //  • kullanıcının `gunuKapatma` yetkisi var,
+                //  • gün henüz kapanmamış.
+                // Üçü de sağlanmıyorsa çubuk HİÇ çizilmez: geçmişe bakan kurye için bu ekran
+                // eskisi gibi salt okunurdur.
+                if (_kapatmaCubuguCizilir)
+                  FutureBuilder<_GunVerisi>(
+                    future: _veri,
+                    builder: (context, snap) {
+                      final v = snap.data;
+                      if (v == null || v.gorunum.gunKapali || !v.kayitVar) {
+                        return const SizedBox.shrink();
+                      }
+                      return GunOzetiAltCubugu(
+                        kapsamKapali: false,
+                        gunKapali: false,
+                        kuryeAdi: null,
+                        kapatabilir: true,
+                        acikSiparis: v.gorunum.kapsam.acikSiparis,
+                        // GÜN ENGELİ GEÇMİŞTE UYGULANMAZ (bkz. [_gunuKapat] doc'u).
+                        gunEngeli: false,
+                        acikKuryeAdlari: const [],
+                        toplam: v.gorunum.kapsam.kasa.toplam,
+                        onKapat: _gunuKapat,
+                      );
+                    },
+                  ),
               ],
             );
           },

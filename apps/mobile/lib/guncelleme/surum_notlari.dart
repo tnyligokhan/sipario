@@ -51,6 +51,34 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.40.0',
+    tarih: '21 Ağustos 2026',
+    maddeler: [
+      'Ana ekranda BİLDİRİM ZİLİ var. Okunmamış bildirim sayısı zilin üstünde görünüyor; '
+          'dokununca hepsini bir arada okuyabiliyorsunuz.',
+      'Telefonun bildirim rafını silseniz bile uyarılar burada duruyor. Gece geldiği için '
+          'sabaha ertelenen ya da günlük sınıra takılan uyarılar da listede.',
+      'Bir bildirime dokunmak sizi ilgili ekrana götürüyor; okundu olarak işaretleniyor.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.39.0',
+    tarih: '21 Ağustos 2026',
+    maddeler: [
+      'Kapatmadığınız günler artık Gün Özeti\'nin tepesinde uyarı olarak duruyor: '
+          '"Kapatmadığınız 3 gün var". Dokununca hangi günler olduğunu, o günün teslimat ve '
+          'kasa rakamlarıyla birlikte görüyorsunuz.',
+      'Geçmiş bir günü artık KAPATABİLİYORSUNUZ. Listeden güne dokunun, açılan ekranın '
+          'altındaki "Günü Kapat" ile defterde o günü kapatın.',
+      'Geçmiş gün kapatılırken kasa SAYIMI istenmiyor — o günün kasası bugün sayılamaz. '
+          'Kayıt "sayım yapılmadı" olarak geçer ve uydurma bir fark yazılmaz.',
+      'O günden kalan açık sipariş varsa gün kapatılamaz; uyarı hangi günde kaç açık sipariş '
+          'olduğunu söylüyor.',
+      'Kuryeden beklenen nakit bu işlemden ETKİLENMEZ: kuryenin cebindeki para gerçektir ve '
+          'gün kapatmak onu silmez. Kurye hesabı her zaman güncel günde kapatılır.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.38.0',
     tarih: '20 Ağustos 2026',
     maddeler: [

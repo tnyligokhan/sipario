@@ -13740,6 +13740,525 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
   }
 }
 
+class $BildirimlerTable extends Bildirimler
+    with TableInfo<$BildirimlerTable, BildirimlerData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BildirimlerTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _kategoriMeta = const VerificationMeta(
+    'kategori',
+  );
+  @override
+  late final GeneratedColumn<String> kategori = GeneratedColumn<String>(
+    'kategori',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _baslikMeta = const VerificationMeta('baslik');
+  @override
+  late final GeneratedColumn<String> baslik = GeneratedColumn<String>(
+    'baslik',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _govdeMeta = const VerificationMeta('govde');
+  @override
+  late final GeneratedColumn<String> govde = GeneratedColumn<String>(
+    'govde',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _detayMeta = const VerificationMeta('detay');
+  @override
+  late final GeneratedColumn<String> detay = GeneratedColumn<String>(
+    'detay',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _yolMeta = const VerificationMeta('yol');
+  @override
+  late final GeneratedColumn<String> yol = GeneratedColumn<String>(
+    'yol',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _occurredAtMeta = const VerificationMeta(
+    'occurredAt',
+  );
+  @override
+  late final GeneratedColumn<String> occurredAt = GeneratedColumn<String>(
+    'occurred_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _okunduAtMeta = const VerificationMeta(
+    'okunduAt',
+  );
+  @override
+  late final GeneratedColumn<String> okunduAt = GeneratedColumn<String>(
+    'okundu_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    kategori,
+    baslik,
+    govde,
+    detay,
+    yol,
+    occurredAt,
+    okunduAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bildirimler';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BildirimlerData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('kategori')) {
+      context.handle(
+        _kategoriMeta,
+        kategori.isAcceptableOrUnknown(data['kategori']!, _kategoriMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kategoriMeta);
+    }
+    if (data.containsKey('baslik')) {
+      context.handle(
+        _baslikMeta,
+        baslik.isAcceptableOrUnknown(data['baslik']!, _baslikMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_baslikMeta);
+    }
+    if (data.containsKey('govde')) {
+      context.handle(
+        _govdeMeta,
+        govde.isAcceptableOrUnknown(data['govde']!, _govdeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_govdeMeta);
+    }
+    if (data.containsKey('detay')) {
+      context.handle(
+        _detayMeta,
+        detay.isAcceptableOrUnknown(data['detay']!, _detayMeta),
+      );
+    }
+    if (data.containsKey('yol')) {
+      context.handle(
+        _yolMeta,
+        yol.isAcceptableOrUnknown(data['yol']!, _yolMeta),
+      );
+    }
+    if (data.containsKey('occurred_at')) {
+      context.handle(
+        _occurredAtMeta,
+        occurredAt.isAcceptableOrUnknown(data['occurred_at']!, _occurredAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_occurredAtMeta);
+    }
+    if (data.containsKey('okundu_at')) {
+      context.handle(
+        _okunduAtMeta,
+        okunduAt.isAcceptableOrUnknown(data['okundu_at']!, _okunduAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BildirimlerData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BildirimlerData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      kategori: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kategori'],
+      )!,
+      baslik: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}baslik'],
+      )!,
+      govde: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}govde'],
+      )!,
+      detay: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}detay'],
+      ),
+      yol: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}yol'],
+      ),
+      occurredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}occurred_at'],
+      )!,
+      okunduAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}okundu_at'],
+      ),
+    );
+  }
+
+  @override
+  $BildirimlerTable createAlias(String alias) {
+    return $BildirimlerTable(attachedDatabase, alias);
+  }
+}
+
+class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
+  /// `BildirimTaslagi.kimlik` — kategori önekli tekil anahtar.
+  final String id;
+
+  /// `BildirimKategori.name`. Metin olarak saklanır: enum'a yeni değer eklenip eskisi
+  /// kaldırıldığında eski satır okunamaz hâle gelmesin (liste bir ARŞİVDİR).
+  final String kategori;
+  final String baslik;
+  final String govde;
+
+  /// Genişletilmiş metin; yoksa null (liste satırı yalnız gövdeyi yazar).
+  final String? detay;
+
+  /// Dokununca gidilecek ekran (`gunsonu` · `siparisler` · `musteri/<id>` …); yoksa null.
+  final String? yol;
+
+  /// Bildirimin DOĞDUĞU an (UTC ISO). Sıralama bundan.
+  final String occurredAt;
+
+  /// Okunma anı (UTC ISO); null = OKUNMAMIŞ. Rozet bu alanı sayar.
+  final String? okunduAt;
+  const BildirimlerData({
+    required this.id,
+    required this.kategori,
+    required this.baslik,
+    required this.govde,
+    this.detay,
+    this.yol,
+    required this.occurredAt,
+    this.okunduAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['kategori'] = Variable<String>(kategori);
+    map['baslik'] = Variable<String>(baslik);
+    map['govde'] = Variable<String>(govde);
+    if (!nullToAbsent || detay != null) {
+      map['detay'] = Variable<String>(detay);
+    }
+    if (!nullToAbsent || yol != null) {
+      map['yol'] = Variable<String>(yol);
+    }
+    map['occurred_at'] = Variable<String>(occurredAt);
+    if (!nullToAbsent || okunduAt != null) {
+      map['okundu_at'] = Variable<String>(okunduAt);
+    }
+    return map;
+  }
+
+  BildirimlerCompanion toCompanion(bool nullToAbsent) {
+    return BildirimlerCompanion(
+      id: Value(id),
+      kategori: Value(kategori),
+      baslik: Value(baslik),
+      govde: Value(govde),
+      detay: detay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(detay),
+      yol: yol == null && nullToAbsent ? const Value.absent() : Value(yol),
+      occurredAt: Value(occurredAt),
+      okunduAt: okunduAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(okunduAt),
+    );
+  }
+
+  factory BildirimlerData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BildirimlerData(
+      id: serializer.fromJson<String>(json['id']),
+      kategori: serializer.fromJson<String>(json['kategori']),
+      baslik: serializer.fromJson<String>(json['baslik']),
+      govde: serializer.fromJson<String>(json['govde']),
+      detay: serializer.fromJson<String?>(json['detay']),
+      yol: serializer.fromJson<String?>(json['yol']),
+      occurredAt: serializer.fromJson<String>(json['occurredAt']),
+      okunduAt: serializer.fromJson<String?>(json['okunduAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'kategori': serializer.toJson<String>(kategori),
+      'baslik': serializer.toJson<String>(baslik),
+      'govde': serializer.toJson<String>(govde),
+      'detay': serializer.toJson<String?>(detay),
+      'yol': serializer.toJson<String?>(yol),
+      'occurredAt': serializer.toJson<String>(occurredAt),
+      'okunduAt': serializer.toJson<String?>(okunduAt),
+    };
+  }
+
+  BildirimlerData copyWith({
+    String? id,
+    String? kategori,
+    String? baslik,
+    String? govde,
+    Value<String?> detay = const Value.absent(),
+    Value<String?> yol = const Value.absent(),
+    String? occurredAt,
+    Value<String?> okunduAt = const Value.absent(),
+  }) => BildirimlerData(
+    id: id ?? this.id,
+    kategori: kategori ?? this.kategori,
+    baslik: baslik ?? this.baslik,
+    govde: govde ?? this.govde,
+    detay: detay.present ? detay.value : this.detay,
+    yol: yol.present ? yol.value : this.yol,
+    occurredAt: occurredAt ?? this.occurredAt,
+    okunduAt: okunduAt.present ? okunduAt.value : this.okunduAt,
+  );
+  BildirimlerData copyWithCompanion(BildirimlerCompanion data) {
+    return BildirimlerData(
+      id: data.id.present ? data.id.value : this.id,
+      kategori: data.kategori.present ? data.kategori.value : this.kategori,
+      baslik: data.baslik.present ? data.baslik.value : this.baslik,
+      govde: data.govde.present ? data.govde.value : this.govde,
+      detay: data.detay.present ? data.detay.value : this.detay,
+      yol: data.yol.present ? data.yol.value : this.yol,
+      occurredAt: data.occurredAt.present
+          ? data.occurredAt.value
+          : this.occurredAt,
+      okunduAt: data.okunduAt.present ? data.okunduAt.value : this.okunduAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BildirimlerData(')
+          ..write('id: $id, ')
+          ..write('kategori: $kategori, ')
+          ..write('baslik: $baslik, ')
+          ..write('govde: $govde, ')
+          ..write('detay: $detay, ')
+          ..write('yol: $yol, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('okunduAt: $okunduAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    kategori,
+    baslik,
+    govde,
+    detay,
+    yol,
+    occurredAt,
+    okunduAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BildirimlerData &&
+          other.id == this.id &&
+          other.kategori == this.kategori &&
+          other.baslik == this.baslik &&
+          other.govde == this.govde &&
+          other.detay == this.detay &&
+          other.yol == this.yol &&
+          other.occurredAt == this.occurredAt &&
+          other.okunduAt == this.okunduAt);
+}
+
+class BildirimlerCompanion extends UpdateCompanion<BildirimlerData> {
+  final Value<String> id;
+  final Value<String> kategori;
+  final Value<String> baslik;
+  final Value<String> govde;
+  final Value<String?> detay;
+  final Value<String?> yol;
+  final Value<String> occurredAt;
+  final Value<String?> okunduAt;
+  final Value<int> rowid;
+  const BildirimlerCompanion({
+    this.id = const Value.absent(),
+    this.kategori = const Value.absent(),
+    this.baslik = const Value.absent(),
+    this.govde = const Value.absent(),
+    this.detay = const Value.absent(),
+    this.yol = const Value.absent(),
+    this.occurredAt = const Value.absent(),
+    this.okunduAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BildirimlerCompanion.insert({
+    required String id,
+    required String kategori,
+    required String baslik,
+    required String govde,
+    this.detay = const Value.absent(),
+    this.yol = const Value.absent(),
+    required String occurredAt,
+    this.okunduAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       kategori = Value(kategori),
+       baslik = Value(baslik),
+       govde = Value(govde),
+       occurredAt = Value(occurredAt);
+  static Insertable<BildirimlerData> custom({
+    Expression<String>? id,
+    Expression<String>? kategori,
+    Expression<String>? baslik,
+    Expression<String>? govde,
+    Expression<String>? detay,
+    Expression<String>? yol,
+    Expression<String>? occurredAt,
+    Expression<String>? okunduAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (kategori != null) 'kategori': kategori,
+      if (baslik != null) 'baslik': baslik,
+      if (govde != null) 'govde': govde,
+      if (detay != null) 'detay': detay,
+      if (yol != null) 'yol': yol,
+      if (occurredAt != null) 'occurred_at': occurredAt,
+      if (okunduAt != null) 'okundu_at': okunduAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BildirimlerCompanion copyWith({
+    Value<String>? id,
+    Value<String>? kategori,
+    Value<String>? baslik,
+    Value<String>? govde,
+    Value<String?>? detay,
+    Value<String?>? yol,
+    Value<String>? occurredAt,
+    Value<String?>? okunduAt,
+    Value<int>? rowid,
+  }) {
+    return BildirimlerCompanion(
+      id: id ?? this.id,
+      kategori: kategori ?? this.kategori,
+      baslik: baslik ?? this.baslik,
+      govde: govde ?? this.govde,
+      detay: detay ?? this.detay,
+      yol: yol ?? this.yol,
+      occurredAt: occurredAt ?? this.occurredAt,
+      okunduAt: okunduAt ?? this.okunduAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (kategori.present) {
+      map['kategori'] = Variable<String>(kategori.value);
+    }
+    if (baslik.present) {
+      map['baslik'] = Variable<String>(baslik.value);
+    }
+    if (govde.present) {
+      map['govde'] = Variable<String>(govde.value);
+    }
+    if (detay.present) {
+      map['detay'] = Variable<String>(detay.value);
+    }
+    if (yol.present) {
+      map['yol'] = Variable<String>(yol.value);
+    }
+    if (occurredAt.present) {
+      map['occurred_at'] = Variable<String>(occurredAt.value);
+    }
+    if (okunduAt.present) {
+      map['okundu_at'] = Variable<String>(okunduAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BildirimlerCompanion(')
+          ..write('id: $id, ')
+          ..write('kategori: $kategori, ')
+          ..write('baslik: $baslik, ')
+          ..write('govde: $govde, ')
+          ..write('detay: $detay, ')
+          ..write('yol: $yol, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('okunduAt: $okunduAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -13760,6 +14279,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $DayClosingsTable dayClosings = $DayClosingsTable(this);
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
+  late final $BildirimlerTable bildirimler = $BildirimlerTable(this);
   late final Index idxPhonesLast10 = Index(
     'idx_phones_last10',
     'CREATE INDEX idx_phones_last10 ON customer_phones (phone_last10)',
@@ -13797,6 +14317,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     dayClosings,
     outbox,
     syncMeta,
+    bildirimler,
     idxPhonesLast10,
     idxProductsBarcode,
     idxExemptLast10,
@@ -19905,6 +20426,265 @@ typedef $$SyncMetaTableProcessedTableManager =
       SyncMetaData,
       PrefetchHooks Function()
     >;
+typedef $$BildirimlerTableCreateCompanionBuilder =
+    BildirimlerCompanion Function({
+      required String id,
+      required String kategori,
+      required String baslik,
+      required String govde,
+      Value<String?> detay,
+      Value<String?> yol,
+      required String occurredAt,
+      Value<String?> okunduAt,
+      Value<int> rowid,
+    });
+typedef $$BildirimlerTableUpdateCompanionBuilder =
+    BildirimlerCompanion Function({
+      Value<String> id,
+      Value<String> kategori,
+      Value<String> baslik,
+      Value<String> govde,
+      Value<String?> detay,
+      Value<String?> yol,
+      Value<String> occurredAt,
+      Value<String?> okunduAt,
+      Value<int> rowid,
+    });
+
+class $$BildirimlerTableFilterComposer
+    extends Composer<_$AppDatabase, $BildirimlerTable> {
+  $$BildirimlerTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kategori => $composableBuilder(
+    column: $table.kategori,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get baslik => $composableBuilder(
+    column: $table.baslik,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get govde => $composableBuilder(
+    column: $table.govde,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get detay => $composableBuilder(
+    column: $table.detay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get yol => $composableBuilder(
+    column: $table.yol,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get okunduAt => $composableBuilder(
+    column: $table.okunduAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BildirimlerTableOrderingComposer
+    extends Composer<_$AppDatabase, $BildirimlerTable> {
+  $$BildirimlerTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kategori => $composableBuilder(
+    column: $table.kategori,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get baslik => $composableBuilder(
+    column: $table.baslik,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get govde => $composableBuilder(
+    column: $table.govde,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get detay => $composableBuilder(
+    column: $table.detay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get yol => $composableBuilder(
+    column: $table.yol,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get okunduAt => $composableBuilder(
+    column: $table.okunduAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BildirimlerTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BildirimlerTable> {
+  $$BildirimlerTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get kategori =>
+      $composableBuilder(column: $table.kategori, builder: (column) => column);
+
+  GeneratedColumn<String> get baslik =>
+      $composableBuilder(column: $table.baslik, builder: (column) => column);
+
+  GeneratedColumn<String> get govde =>
+      $composableBuilder(column: $table.govde, builder: (column) => column);
+
+  GeneratedColumn<String> get detay =>
+      $composableBuilder(column: $table.detay, builder: (column) => column);
+
+  GeneratedColumn<String> get yol =>
+      $composableBuilder(column: $table.yol, builder: (column) => column);
+
+  GeneratedColumn<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get okunduAt =>
+      $composableBuilder(column: $table.okunduAt, builder: (column) => column);
+}
+
+class $$BildirimlerTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BildirimlerTable,
+          BildirimlerData,
+          $$BildirimlerTableFilterComposer,
+          $$BildirimlerTableOrderingComposer,
+          $$BildirimlerTableAnnotationComposer,
+          $$BildirimlerTableCreateCompanionBuilder,
+          $$BildirimlerTableUpdateCompanionBuilder,
+          (
+            BildirimlerData,
+            BaseReferences<_$AppDatabase, $BildirimlerTable, BildirimlerData>,
+          ),
+          BildirimlerData,
+          PrefetchHooks Function()
+        > {
+  $$BildirimlerTableTableManager(_$AppDatabase db, $BildirimlerTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BildirimlerTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BildirimlerTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BildirimlerTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> kategori = const Value.absent(),
+                Value<String> baslik = const Value.absent(),
+                Value<String> govde = const Value.absent(),
+                Value<String?> detay = const Value.absent(),
+                Value<String?> yol = const Value.absent(),
+                Value<String> occurredAt = const Value.absent(),
+                Value<String?> okunduAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BildirimlerCompanion(
+                id: id,
+                kategori: kategori,
+                baslik: baslik,
+                govde: govde,
+                detay: detay,
+                yol: yol,
+                occurredAt: occurredAt,
+                okunduAt: okunduAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String kategori,
+                required String baslik,
+                required String govde,
+                Value<String?> detay = const Value.absent(),
+                Value<String?> yol = const Value.absent(),
+                required String occurredAt,
+                Value<String?> okunduAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BildirimlerCompanion.insert(
+                id: id,
+                kategori: kategori,
+                baslik: baslik,
+                govde: govde,
+                detay: detay,
+                yol: yol,
+                occurredAt: occurredAt,
+                okunduAt: okunduAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BildirimlerTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BildirimlerTable,
+      BildirimlerData,
+      $$BildirimlerTableFilterComposer,
+      $$BildirimlerTableOrderingComposer,
+      $$BildirimlerTableAnnotationComposer,
+      $$BildirimlerTableCreateCompanionBuilder,
+      $$BildirimlerTableUpdateCompanionBuilder,
+      (
+        BildirimlerData,
+        BaseReferences<_$AppDatabase, $BildirimlerTable, BildirimlerData>,
+      ),
+      BildirimlerData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -19941,4 +20721,6 @@ class $AppDatabaseManager {
       $$OutboxTableTableManager(_db, _db.outbox);
   $$SyncMetaTableTableManager get syncMeta =>
       $$SyncMetaTableTableManager(_db, _db.syncMeta);
+  $$BildirimlerTableTableManager get bildirimler =>
+      $$BildirimlerTableTableManager(_db, _db.bildirimler);
 }

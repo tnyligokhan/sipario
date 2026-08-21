@@ -12,6 +12,7 @@ import '../../repo/day_closing_repository.dart';
 import '../../repo/day_end_repository.dart';
 import '../../repo/gun_veresiye_repository.dart';
 import '../../repo/islem_sahibi.dart';
+import '../../repo/kapanmamis_gunler.dart';
 
 export '../../data/tr_gun.dart' show bugunTrDuzeltilmis;
 
@@ -356,19 +357,15 @@ Future<SenkronTazeligi> senkronTazeligi(AppDatabase db, {DateTime? simdi}) async
 /// [localDate] gününde HİÇ kayıt var mı? (sipariş · kasaya dokunan defter hareketi · kapanış ·
 /// kasa devri). Geçmiş gün ekranı boş durumu buna göre çizer — "0 ₺" ile "o gün çalışılmadı"
 /// aynı şey değildir ve sıfırlarla dolu bir kart bayiyi kasa eksik sandırır.
-Future<bool> gunKayitVarMi(AppDatabase db, DateTime localDate) async {
-  final siparisler = await (db.select(db.orders)..where((t) => t.deletedAt.isNull())).get();
-  if (siparisler.any((o) => ayniTrGun(o.occurredAt, localDate))) return true;
-
-  final hareketler = await db.select(db.ledgerEntries).get();
-  if (hareketler.any((e) => ayniTrGun(e.occurredAt, localDate))) return true;
-
-  final kapanislar = await DayClosingRepository(db).gununKapanislari(localDate);
-  if (kapanislar.isNotEmpty) return true;
-
-  final devirler = await db.select(db.cashHandovers).get();
-  return devirler.any((h) => ayniTrGun(h.occurredAt, localDate));
-}
+/// ⚠️ TANIM BURADA DEĞİL: `KapanmamisGunlerRepository.hareketliGunler()` içinde. Bu imza
+/// çağrı yerlerini kırmamak için duruyor ve oraya DELEGE eder.
+///
+/// NEDEN TAŞINDI (2026-08-21): "kapanmamış günler" taraması aynı soruyu 14 gün için soruyor ve
+/// kendi kopyasını yazsaydı iki tanım ayrışırdı — bayi hareketsiz bir pazar günü için "gün
+/// kapatmadınız" uyarısı alır ya da tersine gerçekten çalışılmış bir gün listeden düşerdi.
+Future<bool> gunKayitVarMi(AppDatabase db, DateTime localDate) async =>
+    (await KapanmamisGunlerRepository(db).hareketliGunler())
+        .contains(trGunAnahtari(localDate));
 
 /// Aktif kuryelerden bugün hesabı KAPANMAMIŞ olanların adları.
 Future<List<String>> acikKuryeAdlari(AppDatabase db, DateTime localDate) async {

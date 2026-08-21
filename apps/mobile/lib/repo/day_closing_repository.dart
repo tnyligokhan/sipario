@@ -76,13 +76,38 @@ class DayClosingRepository {
   ///    gün yine kilitli kalırdı.
   Future<bool> kapaliMi(ClosingScope scope, {String? userId, DateTime? localDate}) async {
     final date = localDate ?? await bugunTrDuzeltilmis(db);
-    final geriAlinmis = await _geriAlinmisIdler();
-    final rows = await (db.select(db.dayClosings)..where((t) => t.scope.equals(scope.name))).get();
+    final rows = await _gecerliKapanislar(scope);
     return rows.any((r) =>
-        r.reversesClosingId == null &&
-        !geriAlinmis.contains(r.id) &&
         r.userId == (scope == ClosingScope.courier ? userId : null) &&
         _sameTrDay(r.occurredAt, date));
+  }
+
+  /// Bir kapsamın GEÇERLİ (hâlâ ayakta) kapanış satırları — iki elemenin TEK yeri.
+  ///
+  /// [kapaliMi] ve [kapaliGunAnahtarlari] bunu paylaşır. Ayrı yazılsalardı "geçerli kapanış"
+  /// tanımı iki kopya olurdu ve bu tanım tam olarak iki kez ısırmış bir tanımdır (geri alma
+  /// satırının kendisi kapanış sanılması · geri alınmış kapanışın hâlâ kapatıyor sayılması).
+  Future<List<DayClosing>> _gecerliKapanislar(ClosingScope scope) async {
+    final geriAlinmis = await _geriAlinmisIdler();
+    final rows = await (db.select(db.dayClosings)..where((t) => t.scope.equals(scope.name))).get();
+    return rows
+        .where((r) => r.reversesClosingId == null && !geriAlinmis.contains(r.id))
+        .toList();
+  }
+
+  /// GÜN hesabı kapatılmış TR günlerinin anahtar kümesi (`2026-08-20` biçiminde) —
+  /// `kapaliMi(ClosingScope.day, localDate: …)`ın TOPLU hâli.
+  ///
+  /// NEDEN TOPLU: "kapanmamış günler" taraması 14 güne kadar bakar; her gün için `kapaliMi`
+  /// çağırmak aynı iki sorguyu 14 kez koşturmak demekti. Aynı kuralı paylaşırlar
+  /// ([_gecerliKapanislar]), yani ikisi ASLA farklı cevap veremez.
+  Future<Set<String>> kapaliGunAnahtarlari() async {
+    final rows = await _gecerliKapanislar(ClosingScope.day);
+    return {
+      for (final r in rows)
+        if (DateTime.tryParse(r.occurredAt) != null)
+          trGunAnahtari(trGunu(DateTime.parse(r.occurredAt).toUtc())),
+    };
   }
 
   /// [localDate] TR gününe düşen kapanış kayıtları (yeni üstte). Arşivin GÜN SÜZGEÇLİ hâli —

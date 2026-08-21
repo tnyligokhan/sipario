@@ -111,6 +111,7 @@ void main() {
           onArama: (_) {},
           onSiparisAc: (_) {},
           onBorclular: () {},
+          onBildirimler: () {},
         );
 
     testWidgets('kontrol YAPILMAMIŞKEN çip çizilmez', (tester) async {
@@ -168,6 +169,7 @@ void main() {
           onArama: (_) {},
           onSiparisAc: (_) {},
           onBorclular: () {},
+          onBildirimler: () {},
         ),
       );
 

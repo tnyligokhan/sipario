@@ -73,10 +73,11 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
   int ortaTutar = 0,
   String? cerceveNotu,
   SenkronTazeligi? senkron,
+  bool sayimIstenmiyor = false,
 }) {
   return sipSheet<KapatmaSonucu>(
     context,
-    baslik: 'Hesabı Kapat · Kasa Devri',
+    baslik: sayimIstenmiyor ? 'Geçmiş Günü Kapat' : 'Hesabı Kapat · Kasa Devri',
     govde: (ctx) => _KapatmaGovdesi(
       kapsamAdi: kapsamAdi,
       gunHesabi: gunHesabi,
@@ -88,6 +89,7 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
       ortaTutar: ortaTutar,
       cerceveNotu: cerceveNotu,
       senkron: senkron,
+      sayimIstenmiyor: sayimIstenmiyor,
     ),
   );
 }
@@ -104,6 +106,7 @@ class _KapatmaGovdesi extends StatefulWidget {
     required this.ortaTutar,
     required this.cerceveNotu,
     required this.senkron,
+    this.sayimIstenmiyor = false,
   });
 
   final String kapsamAdi;
@@ -120,6 +123,18 @@ class _KapatmaGovdesi extends StatefulWidget {
 
   /// null ise tazelik şeridi hiç çizilmez (çağıran o kapsamda göstermemeye karar vermiştir).
   final SenkronTazeligi? senkron;
+
+  /// GEÇMİŞ GÜN KİPİ (2026-08-21): sayım alanı HİÇ ÇİZİLMEZ ve kapanış `sayilan: null` döner.
+  ///
+  /// ⚠️ BU BİR KOLAYLIK DEĞİL, MUHASEBE KAPISIDIR. Geçmiş bir günün kasası BUGÜN sayılamaz —
+  /// para çoktan çekmeceden çıktı. Sayım kutusu açık bırakılsaydı bayi bugünkü çekmecesini
+  /// sayıp üç gün önceki güne yazardı ve `diff` arşive KALICI olarak yanlış donardı
+  /// (append-only: düzeltmesi ancak ikinci bir kayıtla olur).
+  ///
+  /// Yani geçmiş gün kapanışı bir MUTABAKAT değil, bir DEFTER KAPANIŞIDIR: "bu gün gözden
+  /// geçirildi ve kapatıldı". Fark sıfır yazılır çünkü karşılaştırılacak bir sayım YOKTUR —
+  /// sıfır burada "tuttu" demek değil, "sayılmadı" demektir ve ekran bunu açıkça söyler.
+  final bool sayimIstenmiyor;
 
   @override
   State<_KapatmaGovdesi> createState() => _KapatmaGovdesiState();
@@ -162,8 +177,10 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
           ),
 
         if (widget.teslimat == 0)
-          const AlanNotu(
-            'Bu hesapta bugün hiç teslimat yok — yine de kapatabilirsiniz.',
+          AlanNotu(
+            widget.sayimIstenmiyor
+                ? 'Bu günde hiç teslimat yok — yine de kapatabilirsiniz.'
+                : 'Bu hesapta bugün hiç teslimat yok — yine de kapatabilirsiniz.',
             tur: AlanNotuTuru.uyari,
           ),
 
@@ -226,21 +243,32 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
         if (widget.cerceveNotu != null)
           AlanNotu(widget.cerceveNotu!, tur: AlanNotuTuru.bilgi),
 
-        const SipFormEtiket('SAYILAN NAKİT (₺)', ustBosluk: 2),
-        // CSS `.kd-input` — 56 yüksek, 22 punto rakam.
-        SipInput(
-          controller: _sayilan,
-          ipucu: '0',
-          klavye: const TextInputType.numberWithOptions(decimal: true),
-          girdiFiltreleri: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,]'))],
-          stil: SipText.tutar(22),
-          yukseklik: 56,
-          otomatikOdak: true,
-          onChanged: (_) => setState(() {}),
-        ),
+        // GEÇMİŞ GÜNDE SAYIM ALANI HİÇ ÇİZİLMEZ (gerekçe [sayimIstenmiyor] üzerinde). Pasif bir
+        // kutu çizmek yerine hiç çizmemek bilinçli: pasif kutu "bir gün açılabilir" der, oysa
+        // geçmiş bir günün kasası hiçbir koşulda sayılamaz.
+        if (widget.sayimIstenmiyor)
+          const AlanNotu(
+            'Geçmiş bir günün kasası bugün sayılamaz. Bu kapanış yalnız günü DEFTERDE kapatır; '
+            'sayım yapılmadı olarak arşive geçer ve fark yazılmaz.',
+            tur: AlanNotuTuru.bilgi,
+          )
+        else ...[
+          const SipFormEtiket('SAYILAN NAKİT (₺)', ustBosluk: 2),
+          // CSS `.kd-input` — 56 yüksek, 22 punto rakam.
+          SipInput(
+            controller: _sayilan,
+            ipucu: '0',
+            klavye: const TextInputType.numberWithOptions(decimal: true),
+            girdiFiltreleri: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,]'))],
+            stil: SipText.tutar(22),
+            yukseklik: 56,
+            otomatikOdak: true,
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
 
-        if (sayilan != null) FarkSeridi(fark: fark),
-        if (sayilan != null && fark < 0)
+        if (!widget.sayimIstenmiyor && sayilan != null) FarkSeridi(fark: fark),
+        if (!widget.sayimIstenmiyor && sayilan != null && fark < 0)
           Padding(
             padding: const EdgeInsets.only(top: SipSpace.xl),
             child: SipNotKutusu(
@@ -257,10 +285,15 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
         SipButon(
           etiket: 'Kapat ve Arşivle',
           ikon: SipIcons.lock,
-          onTap: sayilan == null
+          // GEÇMİŞ GÜNDE DÜĞME KOŞULSUZ AÇIKTIR: bekleyen bir giriş yok. Sayım kipinde ise
+          // tutar girilmeden kapatmak, arşive "0 sayıldı" diye donan bir yalan üretirdi.
+          onTap: !widget.sayimIstenmiyor && sayilan == null
               ? null
               : () => Navigator.of(context).pop(
-                    KapatmaSonucu(sayilan: sayilan, not: _not.text.trim()),
+                    KapatmaSonucu(
+                      sayilan: widget.sayimIstenmiyor ? null : sayilan,
+                      not: _not.text.trim(),
+                    ),
                   ),
         ),
       ],
