@@ -51,6 +51,15 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.41.1',
+    tarih: '21 Ağustos 2026',
+    maddeler: [
+      'Akşam saat 21:00 ile gece yarısı arasında kapatılmış bir kurye hesabı, gün hesabı '
+          'kapalı olmasına rağmen geri alınabiliyordu. Artık doğru sırayı bekliyor: önce gün, '
+          'sonra kurye.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.41.0',
     tarih: '21 Ağustos 2026',
     maddeler: [

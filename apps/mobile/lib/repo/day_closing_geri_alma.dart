@@ -58,7 +58,12 @@ extension KapanisGeriAlma on DayClosingRepository {
     // geri alınır, sonra kurye. (Tasarımdaki "gün kapandıysa tüm hesaplar kilitli" kuralının
     // ters yöndeki karşılığı.)
     if (hedef.scope == ClosingScope.courier.name) {
-      final gun = trGunu(DateTime.parse(hedef.occurredAt).add(const Duration(hours: 3)));
+      // ⚠️ KAYDIRMAYI BURADA TEKRARLAMA: `trGunu` zaten `.toUtc().add(kTrOffset)` yapıyor.
+      // Eskiden burada fazladan bir `+3` vardı, yani gün TOPLAM +6 ile hesaplanıyordu; sonuç
+      // 18:00–21:00 UTC (21:00–24:00 TR) arasında YARINI gösteriyor, kapı yanlış güne bakıp
+      // sessizce açılıyordu. Testi yalnız o üç saatlik pencerede düşürdüğü için CI'da
+      // yakalandı, yerelde geçti (2026-08-21).
+      final gun = trGunu(DateTime.parse(hedef.occurredAt));
       if (await kapaliMi(ClosingScope.day, localDate: gun)) {
         throw StateError('Önce gün hesabını geri alın; gün kapalıyken kurye hesabı açılamaz');
       }
