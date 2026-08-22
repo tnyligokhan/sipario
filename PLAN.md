@@ -293,11 +293,26 @@ oturum alanlarını siler — defter, outbox ve sync imleci DURUR (kırmızı ç
 **Kapsam kullanıcıdır, bayi değil:** patron/operatör/kurye ayrı hesaplar, birbirini düşürmez.
 Aynı hesabı iki telefonda paylaşan bayi bundan sonra sırayla birbirini atar — istenen bu.
 
+#### ⭐ İkinci iş — ölçünce çıktı: takvim çürümesi
+
+Tam API takımı **4 kırmızı** verdi ve hiçbiri bu vardiyanın işiyle ilgili değildi.
+`PanelOdemeEkraniTest`in fikstürü `valid_until`ı **2026-08-20**'ye sabitliyordu; servis tabanı
+`valid_until > now ? valid_until : now` seçiyor. 20 Ağustos geçince taban "bugün"e kaydı ve
+dört test, doğrulamak istediği kuralın ön koşulunu kaybetti — yani **2026-08-21'de kimse koda
+dokunmadan kırıldılar.** Çözüm kökten: sınıfın `setUp`ında saat donduruldu
+(`Carbon::setTestNow(2026-08-04 12:00)`), `tearDown`da bırakıldı. 19/19 yeşil.
+
+**Belirtiyi tanı:** beklenen değerdeki gün bugünün günüyle değişiyorsa sebep kod değil takvimdir.
+
 #### Ölçümler
 
-`flutter analyze` temiz · `flutter test` **1470 yeşil / 0 kırmızı** · `artisan test` tam takım
-yeşil (yeni `TekCihazOturumuTest` 8 test). Sunucu tarafı testleri Docker'daki `sipario_db`
-(55432) ve `sipario_php` konteynerlerinde koşuldu.
+`flutter analyze` temiz · `flutter test` **1470 yeşil / 0 kırmızı** · `pint` temiz (385 dosya) ·
+`phpstan` 0 hata · `artisan test` ölçüldü: düzeltmeden ÖNCE **909 yeşil / 4 kırmızı** (dördü de
+takvim çürümesi), `PanelOdemeEkraniTest` tek başına düzeltmeden sonra **19/19**; tam takımın
+düzeltme sonrası koşumu bu notun yazıldığı anda sürüyordu, sonucu bir sonraki vardiya
+`artisan test` ile doğrular. Yeni `TekCihazOturumuTest` 8/8. Sunucu tarafı Docker'daki
+`sipario_db` (55432) ve `sipario_php` konteynerlerinde koşuldu — Docker kapalıysa `artisan test`
+asılır, önce `docker compose up -d db php`.
 
 #### Sıradaki işler
 
