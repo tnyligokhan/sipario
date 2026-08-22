@@ -310,9 +310,21 @@ if ($failed.Count -gt 0) {
 }
 
 # --- Turkce commit mesaji + DECISIONS.md son karari ---
+#
+# IKI BICIM DE KABUL EDILIR ve bu bir uyumluluk yamasi degil, olculmus bir duzeltmedir
+# (2026-08-22). Eski suzgec YALNIZ '- ' ile baslayan satirlari sayiyordu; DECISIONS.md ise
+# 2026-08-16'dan beri girdileri dogrudan TARIHLE basliyor. Sonuc sessizdi: kapi her commit'e
+# "Son karar" yaziyordu ama yazdigi karar BIR HAFTALIKTI (2026-08-15 SSH anahtari) -- yani
+# alan doluydu, dolayisiyla kimse bakmadi. Bayat bir alan, bos bir alandan daha yaniltir.
+#
+# Olcut: satir ya '- ' ile baslar (eski bicim) ya da 'YYYY-MM-DD' ile (yeni bicim). Duz metin
+# paragraflari ve basliklar ikisine de uymaz, yani suzgecin asil isi korunur.
 $lastDecision = ''
 if (Test-Path 'DECISIONS.md') {
-  $decisionLines = @(Get-Content 'DECISIONS.md' -Encoding UTF8 | Where-Object { $_.Trim().StartsWith('- ') })
+  $decisionLines = @(Get-Content 'DECISIONS.md' -Encoding UTF8 | Where-Object {
+    $t = $_.Trim()
+    $t.StartsWith('- ') -or $t -match '^\d{4}-\d{2}-\d{2}'
+  })
   if ($decisionLines.Count -gt 0) { $lastDecision = $decisionLines[-1].Trim() }
   if ($lastDecision.Length -gt 220) { $lastDecision = $lastDecision.Substring(0, 217) + '...' }
 }
