@@ -51,6 +51,17 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.42.0',
+    tarih: '22 Ağustos 2026',
+    maddeler: [
+      'Bir hesap artık aynı anda tek bir telefonda açık kalıyor. Aynı kullanıcı adıyla başka '
+          'bir telefondan girildiğinde önceki telefon giriş ekranına döner ve sebebini yazar.',
+      'Giriş ekranına kendiliğinden dönen telefonda hiçbir kayıt silinmez: gönderilmemiş '
+          'siparişler ve tahsilatlar cihazda bekler, aynı kişi tekrar girdiğinde gönderilir.',
+      'Oturumu kapanan telefon o işletmenin bildirimlerini artık almaz.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.41.1',
     tarih: '21 Ağustos 2026',
     maddeler: [

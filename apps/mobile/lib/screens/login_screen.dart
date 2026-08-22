@@ -25,10 +25,23 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.session, required this.onLoggedIn});
+  const LoginScreen({
+    super.key,
+    required this.session,
+    required this.onLoggedIn,
+    this.acilisMesaji,
+  });
 
   final Session session;
   final VoidCallback onLoggedIn;
+
+  /// Ekran AÇILIR AÇILMAZ düğmenin üstünde yazacak açıklama — kullanıcı buraya kendi isteğiyle
+  /// gelmediyse neden geldiğini bilmeli ("hesabınız başka bir cihazda açıldı", 2026-08-22).
+  ///
+  /// Sunucu hatalarıyla AYNI yuvayı kullanır: ikisi de "giriş denemesinden önce bilmen gereken
+  /// şey"dir ve iki ayrı satır yan yana durursa ekran ikisini birden gösterip kullanıcıyı hangi
+  /// cümlenin güncel olduğu konusunda ikilemde bırakırdı. Kullanıcı yazmaya başlayınca silinir.
+  final String? acilisMesaji;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -81,7 +94,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _busy = false;
   Map<String, String> _hata = const {};
-  String? _sunucuHata;
+
+  /// Düğmenin üstündeki açıklama satırı. Başlangıçta düşürülen oturumun gerekçesi
+  /// ([LoginScreen.acilisMesaji]), sonrasında sunucunun nötr giriş hatası olur.
+  late String? _sunucuHata = widget.acilisMesaji;
 
   /// Parola AÇIK metin mi? Varsayılan KAPALI (omuz üstünden okunma).
   bool _parolaGorunur = false;

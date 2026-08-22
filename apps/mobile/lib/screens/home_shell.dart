@@ -123,7 +123,9 @@ class HomeShell extends StatefulWidget {
 /// widget kurmadan test edilir ve tema katmanı `sync` paketine bağımlı olmaz (bağımlılık yönü
 /// ekran → tema + ekran → sync olarak kalır).
 SipBantTuru bantTuru(SyncHataTuru tur) => switch (tur) {
-      SyncHataTuru.oturum => SipBantTuru.oturum,
+      // `oturumKapandi` da OTURUM bandına düşer: kök zaten giriş ekranına dönüyor, ama bandın
+      // o kareyi doğru anlatması gerekir (dönüş bir sonraki karede olur).
+      SyncHataTuru.oturum || SyncHataTuru.oturumKapandi => SipBantTuru.oturum,
       SyncHataTuru.sunucu => SipBantTuru.sunucu,
       SyncHataTuru.veri => SipBantTuru.hata,
       SyncHataTuru.ag || SyncHataTuru.yok => SipBantTuru.cevrimdisi,

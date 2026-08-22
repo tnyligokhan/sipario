@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Bildirim\PushOlayi;
 use App\Enums\TenantStatus;
+use App\Enums\TokenDusmeSebebi;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
@@ -77,15 +78,27 @@ class AuthController extends Controller
 
             $user = User::findOrFail($row->id);
 
+            $cihazId = isset($data['device']) ? (string) $data['device']['device_id'] : null;
+
             $token = $user->createToken('mobile');
             // Token satırına tenant_id yaz: sonraki isteklerde middleware bunu okuyup app.tenant_id set eder.
-            $token->accessToken->forceFill(['tenant_id' => $user->tenant_id])->save();
+            // device_id da burada yazılır — düşürme sırasında hangi telefonun token'ı olduğunu
+            // bilmek gerekiyor (bkz. digerCihazlariDusur).
+            $token->accessToken->forceFill([
+                'tenant_id' => $user->tenant_id,
+                'device_id' => $cihazId,
+            ])->save();
 
             $user->forceFill(['last_login_at' => now()])->save();
 
             if (isset($data['device'])) {
                 $this->upsertDevice($user, $data['device']);
             }
+
+            // TEK HESAP = TEK CİHAZ. Cihaz kaydından SONRA: düşen cihazın push jetonu
+            // temizlenirken bu girişin cihazı zaten yazılmış olmalı, yoksa yeni cihaz
+            // "eskilerden biri" gibi görünürdü.
+            $this->digerCihazlariDusur($user, $token->accessToken->getKey(), $cihazId);
 
             return response()->json([
                 'token' => $token->plainTextToken,
@@ -219,6 +232,67 @@ class AuthController extends Controller
                 'tenant_id' => $user->tenant_id,
                 'user_id' => $user->id,
             ]);
+        }
+    }
+
+    /**
+     * TEK HESAP = TEK CİHAZ (kullanıcı kararı 2026-08-22): bu kullanıcının BAŞKA her token'ı
+     * düşürülür, yani eski telefon bir sonraki isteğinde kapı dışarı edilir.
+     *
+     * ══ KAPSAM: KULLANICI, BAYİ DEĞİL ═══════════════════════════════════════════════════════
+     * Düşürülenler YALNIZ aynı `users` satırının token'larıdır. Bayide patron, operatör ve
+     * kurye AYRI hesaplardır; patronun girişi kuryenin telefonunu düşürmez — düşürseydi
+     * tek kişilik olmayan her bayide iki kişi sırayla birbirini atardı.
+     *
+     * ══ NEDEN SİLMİYORUZ ════════════════════════════════════════════════════════════════════
+     * Silinen token sonraki istekte çıplak bir 401 verir ve eski telefon SEBEPSİZ çıkış yapar.
+     * Satır kalır, üstüne sebep yazılır; `RejectRevokedToken` o sebebi okuyup istemciye
+     * "hesabınız başka bir cihazda açıldı" dedirtir. `expires_at` de geçmişe çekilir — asıl
+     * kapıyı Sanctum'un kendi süre kontrolü tutar, biz yalnız sebebi taşırız (bkz. migration).
+     *
+     * ══ PUSH JETONU ═════════════════════════════════════════════════════════════════════════
+     * Oturumu kapanan telefon o bayinin bildirimlerini almaya DEVAM ETMEMELİ (veresiye
+     * tutarları, sipariş adresleri bildirim gövdesinde geçebilir). Bu yüzden düşen token'ların
+     * cihazlarında `push_token` boşaltılır.
+     *
+     * ⚠️ BU GİRİŞİN CİHAZI HARİÇ TUTULUR: aynı telefondan yeniden giriş (çıkış yapıp girmek,
+     * parola değişimi) de eski bir token bırakır. Hariç tutulmasaydı her yeniden giriş,
+     * kullanıcının AZ ÖNCE kaydettiği push jetonunu siler ve bildirimler sessizce kesilirdi.
+     *
+     * @param  int|string  $yeniTokenId  Bu girişte üretilen token (düşürülmeyecek tek satır).
+     * @param  string|null  $cihazId  Bu girişin cihazı; `device` bloğu gelmediyse null.
+     */
+    private function digerCihazlariDusur(User $user, int|string $yeniTokenId, ?string $cihazId): void
+    {
+        $dusenler = $user->tokens()
+            ->whereKeyNot($yeniTokenId)
+            ->whereNull('revoked_at')
+            ->get(['id', 'device_id']);
+
+        if ($dusenler->isEmpty()) {
+            return;
+        }
+
+        $sebep = TokenDusmeSebebi::BaskaCihaz;
+
+        $user->tokens()->whereKey($dusenler->pluck('id')->all())->update([
+            'revoked_at' => now(),
+            'revoked_reason' => $sebep->value,
+            // subSecond: `isPast()` tam eşitlikte false döner; sınırda kalan bir token'ın
+            // bir saniyeliğine geçerli sayılması, kapıyı hiç kapatmamakla aynı sınıf hatadır.
+            'expires_at' => now()->subSecond(),
+        ]);
+
+        $eskiCihazlar = $dusenler
+            ->pluck('device_id')
+            ->filter(fn ($id) => $id !== null && $id !== $cihazId)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($eskiCihazlar !== []) {
+            // RLS altında koşar: yalnız bu bayinin cihazları görünür/güncellenebilir.
+            Device::whereIn('id', $eskiCihazlar)->update(['push_token' => null]);
         }
     }
 

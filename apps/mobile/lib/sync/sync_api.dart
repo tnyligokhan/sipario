@@ -289,6 +289,23 @@ class SyncApiException implements Exception {
   /// gerekir. Karantinaya ALINMAZ: kayıt bozuk değil, oturum bozuk.
   bool get oturumHatasi => statusCode == 401 || statusCode == 403;
 
+  /// Yanıt gövdesindeki MAKİNE KODU (`code`) — sunucu 401'de neden reddettiğini bununla söyler
+  /// (`oturum_baska_cihazda`, 2026-08-22 "tek hesap tek cihaz"). Yoksa null.
+  ///
+  /// Gövde ÇÖZÜLEMEZSE sessizce null döner ve bu bilinçli: burası zaten bir hata yolu, üstüne
+  /// ikinci bir istisna atmak asıl hatayı (HTTP durumunu) gizlerdi. Bir sunucu HTML hata sayfası
+  /// döndürebilir (proxy/504) ve o gövde JSON değildir.
+  String? get kod {
+    try {
+      final govde = jsonDecode(body);
+      return govde is Map<String, dynamic> && govde['code'] is String
+          ? govde['code'] as String
+          : null;
+    } on Object {
+      return null;
+    }
+  }
+
   /// GEÇİCİ: sunucu ayakta ama şu an veremiyor — 5xx (arıza), 408 (istek zaman aşımı),
   /// 425 (çok erken), 429 (çok fazla istek). Tekrar denemek DOĞRU davranıştır; bu yüzden
   /// karantinaya ALINMAZ ve motor bu hatayı yukarı fırlatır (tur düşer, sonraki tur dener).

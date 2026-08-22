@@ -170,9 +170,27 @@ return [
     | ⚠️ SESSİZ DAVRANIŞ DEĞİŞİKLİĞİ (kayda geçsin): `KuryeKotasi` sayımı
     | genişledi. Üretimde `operator` rollü hesap AÇAN bir yol yoktu (ölçüldü),
     | yani bugün kimsenin kotası daralmıyor; ama kural bundan sonra geçerlidir.
+    |
+    | 1.14.0 (2026-08-22): TEK HESAP = TEK CİHAZ.
+    |
+    | Bir kullanıcı yeni bir telefonda giriş yaptığında o hesabın DİĞER bütün
+    | token'ları düşürülür; eski telefon bir sonraki isteğinde 401 alır ve
+    | gövdede `code: "oturum_baska_cihazda"` görür. Düşen token'ın cihazındaki
+    | push jetonu da boşaltılır — oturumu kapanan telefon o bayinin
+    | bildirimlerini almaya devam edemez.
+    |
+    | KAPSAM KULLANICIDIR, BAYİ DEĞİL: patronun girişi kuryenin telefonunu
+    | düşürmez (ayrı hesaplar). Aynı hesabı iki telefonda paylaşan bir bayi
+    | bundan sonra sırayla birbirini düşürür — istenen davranış budur.
+    |
+    | NEDEN MINOR VE NEDEN MAJOR DEĞİL: hiçbir uç nokta, alan ya da anlam
+    | kaldırılmadı; `code` alanı EKLEMEDİR. Eski istemci (sürüm < 0.42) yeni
+    | sunucuyla çalışmaya devam eder — düşürüldüğünde giriş ekranına
+    | kendiliğinden dönmez, senkron bandında "Oturum doğrulanmadı" yazar ve
+    | kullanıcı elle çıkış yapıp girer. Yani davranış eksik, kırık değil.
     */
 
-    'version' => '1.13.0',
+    'version' => '1.14.0',
 
     /*
     |--------------------------------------------------------------------------

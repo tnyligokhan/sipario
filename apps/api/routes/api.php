@@ -42,7 +42,10 @@ Route::prefix('v1')->group(function () {
 
     // --- Korumalı ---------------------------------------------------------------
     // throttle:api — kullanıcı/IP başına genel hız sınırı (çalınan token istismarı + DoS yüzeyi).
-    Route::middleware(['throttle:api', 'tenant', 'auth:sanctum'])->group(function () {
+    // `oturum` ara katmanı `auth:sanctum`tan ÖNCE: düşürülmüş token'a sebebini söyleyen tek yer
+    // (tek hesap = tek cihaz). Sanctum sırayı ona bırakmaz — süresi geçmiş token'ı çıplak 401 ile
+    // reddederdi ve eski telefon neden çıktığını öğrenemezdi.
+    Route::middleware(['throttle:api', 'tenant', 'oturum', 'auth:sanctum'])->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me'])->name('api.auth.me');
         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
 

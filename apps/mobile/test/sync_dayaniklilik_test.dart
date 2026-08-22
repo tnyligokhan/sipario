@@ -236,8 +236,13 @@ void main() {
     // yani 422 de 500 de "Çevrimdışı · bağlanınca gönderilecek" diyordu. `SyncApiException`
     // demek "sunucuya ULAŞTIK" demektir; ulaşılan bir sunucu için çevrimdışı yazmak yalandır ve
     // kalıcı-çevrimdışı arızasının aylarca görünmemesinin sebebi tam olarak buydu.
-    test('401/403 OTURUM, kalıcı 4xx VERİ, 5xx/geçici 4xx SUNUCU, soket AĞ, Error VERİ', () {
-      expect(SyncService.hataTuru(SyncApiException('pull', 401, '')), SyncHataTuru.oturum);
+    test('401 OTURUM-KAPANDI, 403 OTURUM, kalıcı 4xx VERİ, 5xx/geçici 4xx SUNUCU, soket AĞ, Error VERİ',
+        () {
+      // 401 ile 403 AYRI CİNSTİR (2026-08-22, tek hesap tek cihaz): 401 "kimliğini tanımıyorum"
+      // demektir ve kök kullanıcıyı giriş ekranına alır; 403 "bu isteğe yetkin yok" demektir
+      // (rol kapısı) ve oturumu kapatmak, kuryeyi patrona ait bir uç noktaya dokunduğu için
+      // dışarı atmak olurdu.
+      expect(SyncService.hataTuru(SyncApiException('pull', 401, '')), SyncHataTuru.oturumKapandi);
       expect(SyncService.hataTuru(SyncApiException('push', 403, '')), SyncHataTuru.oturum);
 
       expect(SyncService.hataTuru(SyncApiException('push', 422, '')), SyncHataTuru.veri,
@@ -306,7 +311,39 @@ void main() {
 
       final sonuc = await sync.syncNow();
       expect(sonuc.ok, isFalse);
-      expect(sonuc.tur, SyncHataTuru.oturum);
+      expect(sonuc.tur, SyncHataTuru.oturumKapandi);
+      expect(bantTuru(sonuc.tur), SipBantTuru.oturum,
+          reason: 'kök giriş ekranına dönene kadar bandın anlattığı gerçek değişmez');
+    });
+
+    test('401 gövdesindeki `code` sonuca taşınır — düşürülen cihaz SEBEBİNİ öğrenir', () async {
+      // Kök (`main.dart`) bu koda bakıp giriş ekranına "hesabınız başka bir cihazda açıldı"
+      // yazar. Kod taşınmazsa özellik sessiz kalır: kullanıcı sebepsiz çıkmış gibi görür.
+      final db = await _oturumluDb();
+      addTearDown(db.close);
+      final api = _ArizaliApi()
+        ..davranis = (n) => n == 1
+            ? SyncApiException('pull', 401, '{"message":"x","code":"oturum_baska_cihazda"}')
+            : null;
+      final sync = SyncService(db, api: api);
+      addTearDown(sync.dispose);
+
+      expect((await sync.syncNow()).kod, 'oturum_baska_cihazda');
+    });
+
+    test('JSON olmayan 401 gövdesi kodu null bırakır, tur yine de OTURUM-KAPANDI', () async {
+      // Araya giren bir vekil (504 sayfası) ya da eski sunucu HTML döndürebilir. Gövdenin
+      // çözülememesi ikinci bir istisnaya dönüşürse asıl gerçek (HTTP 401) kaybolurdu.
+      final db = await _oturumluDb();
+      addTearDown(db.close);
+      final api = _ArizaliApi()
+        ..davranis = (n) => n == 1 ? SyncApiException('pull', 401, '<html>hata</html>') : null;
+      final sync = SyncService(db, api: api);
+      addTearDown(sync.dispose);
+
+      final sonuc = await sync.syncNow();
+      expect(sonuc.tur, SyncHataTuru.oturumKapandi);
+      expect(sonuc.kod, isNull);
     });
 
     test('oturum yokken de tur OTURUM cinsi taşır', () async {

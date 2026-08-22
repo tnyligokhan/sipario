@@ -48,3 +48,20 @@ Schedule::command('yedek:baglanti-gonder')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping()
     ->onOneServer();
+
+/*
+ * DÜŞÜRÜLMÜŞ TOKEN'LARIN TEMİZLİĞİ (2026-08-22, tek hesap = tek cihaz).
+ *
+ * Yeni bir telefonda giriş yapılınca eski token SİLİNMEZ, düşürülür: satır kalır ki eski
+ * telefon "neden çıktım" sorusunun cevabını alabilsin (`RejectRevokedToken`). Kalan satır
+ * sonsuza kadar durmamalı — 30 gün, çevrimdışı kalabilecek en uzun makul süreden (BRIEF:
+ * istisnaen bir gün) kat kat uzun ve bir telefonun o cevabı hâlâ okuyabileceği penceredir.
+ *
+ * `sanctum:prune-expired` süresi geçmiş token'ları siler; düşürme sırasında `expires_at`
+ * geçmişe çekildiği için bu komut düşürülmüşleri de kapsar.
+ */
+Schedule::command('sanctum:prune-expired --hours=720')
+    ->weekly()
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping()
+    ->onOneServer();

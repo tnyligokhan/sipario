@@ -181,7 +181,7 @@ class _SyncCipi extends StatelessWidget {
   static String _hataMetni(SyncHataTuru tur) => switch (tur) {
         SyncHataTuru.sunucu => 'Sunucu yanıt vermiyor, tekrar denenecek',
         SyncHataTuru.veri => 'Kayıtlar gönderilemiyor, destekle görüşün',
-        SyncHataTuru.oturum => 'Oturum doğrulanmadı',
+        SyncHataTuru.oturum || SyncHataTuru.oturumKapandi => 'Oturum doğrulanmadı',
         // `ag` ve `yok`: gerçekten ulaşılamadı — "çevrimdışı" demenin doğru olduğu TEK hâl.
         SyncHataTuru.ag || SyncHataTuru.yok => 'Bağlantı yok, tekrar denenecek',
       };

@@ -3,6 +3,7 @@
 use App\Http\Middleware\AppendServerMeta;
 use App\Http\Middleware\BlockApiHostWebRoutes;
 use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\RejectRevokedToken;
 use App\Http\Middleware\ResolveTenantContext;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -53,6 +54,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant' => ResolveTenantContext::class,
             'role' => EnsureRole::class,
+            // Düşürülmüş token'a SEBEBİNİ söyler (tek hesap = tek cihaz). Kapıyı Sanctum tutar;
+            // bu yalnız açıklama katmanıdır — gerekçe RejectRevokedToken başlığında.
+            'oturum' => RejectRevokedToken::class,
         ]);
 
         // Kiracı bağlamı, auth:sanctum kullanıcıyı RLS altında yüklemeden ÖNCE kurulmalı.
@@ -61,6 +65,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(
             before: AuthenticatesRequests::class,
             prepend: ResolveTenantContext::class,
+        );
+
+        // Aynı gerekçe: düşürülmüş token'a sebebini söyleyen katman da auth'tan ÖNCE koşmalı,
+        // yoksa Sanctum çıplak 401 ile sırayı ona hiç bırakmaz. Rota grubunda zaten doğru sırada
+        // yazılı; buradaki satır önceliklendiricinin onu auth'ın arkasına atmayacağını GARANTİLER.
+        $middleware->prependToPriorityList(
+            before: AuthenticatesRequests::class,
+            prepend: RejectRevokedToken::class,
         );
 
         // Tüm api yanıtlarına: server_time (DECISIONS: sunucu her yanıtta saatini döner) +

@@ -122,12 +122,27 @@ class Session {
       final baseUrl = _normalizeBaseUrl(meta.apiBaseUrl ?? kDefaultApiBaseUrl);
       await _apiFactory(baseUrl).logout(token);
     }
-    await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(const SyncMetaCompanion(
-      authToken: Value(null),
-      userName: Value(null),
-      userRole: Value(null),
-    ));
+    await _oturumAlanlariniSil();
   }
+
+  /// SUNUCU OTURUMU DÜŞÜRDÜ — yerel tarafı temizle (2026-08-22, "tek hesap tek cihaz").
+  ///
+  /// [logout]tan tek farkı: SUNUCUYA GİTMEZ. Token zaten sunucuda geçersizdir; `auth/logout`
+  /// çağırmak bir 401 daha almaktan başka bir şey yapmaz ve ağ yokken kullanıcıyı bekletirdi.
+  ///
+  /// Sildiği alanlar [logout] ile AYNI — yani iş verisi, outbox ve sync imleci DURUR. Bu,
+  /// özelliğin kırmızı çizgi #3 ile barışmasının tek yolu: hesabı yeni telefona taşınan bayinin
+  /// eski telefonunda gönderilmemiş kayıtlar kalmış olabilir; o kayıtlar SİLİNMEZ, aynı
+  /// kullanıcı bu cihaza tekrar girdiğinde kaldığı yerden sunucuya akar.
+  Future<void> oturumuDusur() => _oturumAlanlariniSil();
+
+  /// [logout] ve [oturumuDusur] için ORTAK yazım — ikisinin sildiği alan kümesi ayrışmamalı.
+  Future<void> _oturumAlanlariniSil() =>
+      (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(const SyncMetaCompanion(
+        authToken: Value(null),
+        userName: Value(null),
+        userRole: Value(null),
+      ));
 
   /// Parola sıfırlama bağlantısı ister (kullanıcı isteği 2026-08-13). Oturum GEREKTİRMEZ —
   /// zaten giriş yapamayan kullanıcı için var.

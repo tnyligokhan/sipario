@@ -269,7 +269,48 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-21/2 — UYGULAMA METNİ BAŞTAN SONA YENİDEN YAZILDI · TEST TABANI KIRMIZIYDI, KAPATILDI (mobil 0.40.0 → **0.41.0**, API DEĞİŞMEDİ 1.13.0)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-22 — TEK HESAP = TEK CİHAZ (mobil 0.41.1 → **0.42.0**, API 1.13.0 → **1.14.0**)
+
+Tek istek: "bir kullanıcı farklı bir cihazdan giriş yaptığında diğer cihazlardan otomatik çıkış".
+
+#### ⭐ Ne yapıldı
+
+**Sunucu.** Giriş anında o KULLANICININ diğer bütün token'ları düşürülür. Düşürme silme
+değildir: `personal_access_tokens`a `device_id` + `revoked_at` + `revoked_reason` eklendi
+(migration `004017`). Sebep saklanıyor ki eski telefon çıplak bir 401 yerine
+`code: "oturum_baska_cihazda"` görsün — sebepsiz çıkış, bu özelliğin bir numaralı destek
+çağrısı olurdu. Sebebi taşıyan katman `RejectRevokedToken` (alias `oturum`, `auth:sanctum`tan
+önce). **Kapıyı o katman TUTMUYOR:** düşen token'ın `expires_at`i de geçmişe çekiliyor, asıl
+reddi Sanctum veriyor; middleware unutulsa bile token işe yaramaz. Düşen cihazın
+`devices.push_token`ı boşaltılıyor (bildirim gövdesi müşteri adı/adres/borç taşır) — bu girişin
+KENDİ cihazı hariç, yoksa aynı telefondan yeniden giriş kendi jetonunu silerdi.
+
+**İstemci.** `SyncHataTuru` ikiye ayrıldı: `oturumKapandi` (401 → kök giriş ekranına döner,
+sebebini yazar) ve `oturum` (403 → yalnız bant; 403 "yetkin yok" demektir, kuryeyi patrona ait
+bir uç noktaya dokunduğu için atmak olurdu). `Session.oturumuDusur()` sunucuya GİTMEZ, yalnız
+oturum alanlarını siler — defter, outbox ve sync imleci DURUR (kırmızı çizgi #3).
+
+**Kapsam kullanıcıdır, bayi değil:** patron/operatör/kurye ayrı hesaplar, birbirini düşürmez.
+Aynı hesabı iki telefonda paylaşan bayi bundan sonra sırayla birbirini atar — istenen bu.
+
+#### Ölçümler
+
+`flutter analyze` temiz · `flutter test` **1470 yeşil / 0 kırmızı** · `artisan test` tam takım
+yeşil (yeni `TekCihazOturumuTest` 8 test). Sunucu tarafı testleri Docker'daki `sipario_db`
+(55432) ve `sipario_php` konteynerlerinde koşuldu.
+
+#### Sıradaki işler
+
+1. **Deploy sırası önemli:** sunucu ÖNCE gider (eski istemci yeni sunucuyla çalışır, yalnız
+   düşürüldüğünde giriş ekranına kendiliğinden dönmez), mobil sonra.
+2. Düşürülmüş token satırları haftalık `sanctum:prune-expired --hours=720` ile temizleniyor —
+   üretimde `schedule:work` konteynerinin bu görevi aldığı ilk hafta doğrulanmalı.
+3. Pilot bayilerde tek gerçek risk: aynı hesabı iki telefonda paylaşan bayi. Pilotta
+   sorulacak; gerekirse ikinci hesap açılır (kota `KuryeKotasi`).
+
+---
+
+### 🔻 ÖNCEKİ DEVİR NOTU — 2026-08-21/2 — UYGULAMA METNİ BAŞTAN SONA YENİDEN YAZILDI · TEST TABANI KIRMIZIYDI, KAPATILDI (mobil 0.40.0 → **0.41.0**, API DEĞİŞMEDİ 1.13.0)
 
 Tek istek vardı: "tüm metinleri elden geçir". İki iş çıktı — biri istenendi, biri ölçünce ortaya çıktı.
 
