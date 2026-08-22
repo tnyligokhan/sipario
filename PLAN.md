@@ -329,7 +329,7 @@ Heads-up listesi bir ölçüte bağlandı ("birinin BEKLEDİĞİ bir iş mi?"); 
 o ölçüte uyduğu için heads-up doğdu. **Mevcut kanalların önemi DEĞİŞMEDİ** — kimsenin sistem
 ayarı sıfırlanmadı.
 
-#### ⚠️ ÜÇ TUZAK — üçü de ölçülerek bulundu
+#### ⚠️ DÖRT TUZAK — dördü de ölçülerek bulundu
 
 **1 · YENİ BİR SİPARİŞ OLAYININ DÖRT YERİ VAR, DÖRDÜNCÜSÜ ŞEMADA.**
 `cancel_requested` `EventValidator::OPS`e eklendi, `OrderChangeApplier`ın `match`ine dal
@@ -345,7 +345,19 @@ verir. Doğru sıra: **migration owner ezmesiyle, takım ezmesiz.** Ayrıca test
 ve `assertDatabaseHas` gibi doğrudan okumalar `asOwner(...)` içine alınmalı — test sürecinde
 kiracı bağlamı yoktur (o, HTTP isteğinin katmanında kurulur), bağlamsız okuma "tablo boş" der.
 
-**3 · `surum_notlari_test` yöntemi değişti.** Sürüm başına `scrollUntilVisible` çağıran döngü,
+**3 · OTOMATİK COMMIT BÜTÜN VARDİYA BOYUNCA HİÇ ATILMADI ve bu sessizdi.** Sonda 69 dosya
+işlenmemiş duruyordu; ne hata ne uyarı vardı. Kapı `phpstan`ı **container içinde** koşuyor,
+geliştirici ise elle **host'ta** — container'ın `memory_limit`i 256M'di ve kod büyüdükçe
+phpstan'ın paralel işçisi taştı (`Child process error ... while running parallel worker`).
+Host'ta limit yüksek olduğu için benim ölçümüm "0 hata" diyordu: **ölçüm ile kapı aynı şeye
+bakmıyordu.** Düzeltildi (`docker-compose.yml` → `PHP_MEMORY_LIMIT: 1G`). Bundan sonra vardiya
+sonunda kapının KENDİ komutu koşulmalı:
+`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/quality-gate-commit.ps1 < /dev/null`
+Aynı betikte ikinci bir çürüme daha vardı: commit gövdesindeki "Son karar" alanı bir haftadır
+2026-08-15'teki kararı yazıyordu (süzgeç yalnız `- ` ile başlayan satırlara bakıyor, dosya ise
+artık tarihle başlıyor). O da düzeltildi.
+
+**4 · `surum_notlari_test` yöntemi değişti.** Sürüm başına `scrollUntilVisible` çağıran döngü,
 liste 38'den 43 kayda çıkınca ORTADA kilitlendi. Sebep ekranda değil yöntemdeydi: tembel
 listede `maxScrollExtent` bir TAHMİNDİR ve `ensureVisible`ın her hedefte yaptığı geri
 konumlandırma tahmini oynatıyor (ölçüldü: 8779 → 8058). Artık tek geçişli sürükleme taraması
