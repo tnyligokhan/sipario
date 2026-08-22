@@ -307,10 +307,8 @@ dokunmadan kırıldılar.** Çözüm kökten: sınıfın `setUp`ında saat dondu
 #### Ölçümler
 
 `flutter analyze` temiz · `flutter test` **1470 yeşil / 0 kırmızı** · `pint` temiz (385 dosya) ·
-`phpstan` 0 hata · `artisan test` ölçüldü: düzeltmeden ÖNCE **909 yeşil / 4 kırmızı** (dördü de
-takvim çürümesi), `PanelOdemeEkraniTest` tek başına düzeltmeden sonra **19/19**; tam takımın
-düzeltme sonrası koşumu bu notun yazıldığı anda sürüyordu, sonucu bir sonraki vardiya
-`artisan test` ile doğrular. Yeni `TekCihazOturumuTest` 8/8. Sunucu tarafı Docker'daki
+`phpstan` 0 hata · `artisan test` **913 yeşil / 0 kırmızı** (düzeltmeden ÖNCE 909 yeşil /
+4 kırmızıydı, dördü de takvim çürümesi). Yeni `TekCihazOturumuTest` 8/8. Sunucu tarafı Docker'daki
 `sipario_db` (55432) ve `sipario_php` konteynerlerinde koşuldu — Docker kapalıysa `artisan test`
 asılır, önce `docker compose up -d db php`.
 
