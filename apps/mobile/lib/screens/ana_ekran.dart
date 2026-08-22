@@ -40,7 +40,7 @@ class AnaEkran extends StatefulWidget {
     required this.sahipAdi,
     required this.onMenu,
     required this.onSekme,
-    required this.onYeniSiparis,
+    required this.onCagrilar,
     required this.onArama,
     required this.onSiparisAc,
     required this.onBorclular,
@@ -58,7 +58,18 @@ class AnaEkran extends StatefulWidget {
 
   final VoidCallback onMenu;
   final ValueChanged<SipSekme> onSekme;
-  final VoidCallback onYeniSiparis;
+
+  /// Ana ekrandaki BİRİNCİL EYLEM — ekibin çağrı geçmişi (kullanıcı kararı 2026-08-22).
+  ///
+  /// ESKİDEN "Yeni Sipariş"Tİ ve değişmesinin sebebi bir tercih değil, bir ÖLÇÜ: sipariş
+  /// açmanın zaten iki ayrı yolu vardı (alttaki artı düğmesi → "Sipariş Ekle", ve çağrı
+  /// kartındaki "Sipariş Oluştur"), ama "dükkânı kim aradı, kim karşıladı" sorusunun tek yolu
+  /// çekmeceyi açıp satır aramaktı. Bu üründe telefon çalmak ana olaydır (BRIEF: "siparişin
+  /// ezici çoğunluğu telefonla gelir"), yani ana ekranın birincil eylemi de o olmalı.
+  ///
+  /// KAPI KABUKTA: `yetkiler().cagriGunlugu` kapalı olan kurye dokunduğunda sebebini okur.
+  /// Bu ekran yetkiyi bilmez — `onArama`, `onSiparisAc`, `onBorclular` deseninin aynısı.
+  final VoidCallback onCagrilar;
 
   /// "Son Arama" kutusuna dokunulduğunda. Kayıtlı/kayıtsız ayrımını kabuk yapar.
   final ValueChanged<AramaKaydi> onArama;
@@ -184,7 +195,7 @@ class _AnaEkranState extends State<AnaEkran> {
                     borclulariGoster: widget.borclulariGoster,
                   ),
                   const SizedBox(height: SipSpace.xl),
-                  _Cta(onTap: widget.onYeniSiparis),
+                  _Cta(onTap: widget.onCagrilar),
                   SipBolumBaslik('Son aktivite', ustBosluk: SipSpace.x4),
                   _SonAktivite(db: widget.db, onSiparisAc: widget.onSiparisAc),
                 ],

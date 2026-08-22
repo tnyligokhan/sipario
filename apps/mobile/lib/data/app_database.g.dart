@@ -6467,6 +6467,20 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
       'CHECK ("courier_can_call_log" IN (0, 1))',
     ),
   );
+  static const VerificationMeta _courierCanSeeAllCustomersMeta =
+      const VerificationMeta('courierCanSeeAllCustomers');
+  @override
+  late final GeneratedColumn<bool> courierCanSeeAllCustomers =
+      GeneratedColumn<bool>(
+        'courier_can_see_all_customers',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_see_all_customers" IN (0, 1))',
+        ),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -6488,6 +6502,7 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     courierCanDebtReminder,
     courierCanToggleStock,
     courierCanCallLog,
+    courierCanSeeAllCustomers,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6659,6 +6674,15 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         ),
       );
     }
+    if (data.containsKey('courier_can_see_all_customers')) {
+      context.handle(
+        _courierCanSeeAllCustomersMeta,
+        courierCanSeeAllCustomers.isAcceptableOrUnknown(
+          data['courier_can_see_all_customers']!,
+          _courierCanSeeAllCustomersMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -6744,6 +6768,10 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         DriftSqlType.bool,
         data['${effectivePrefix}courier_can_call_log'],
       ),
+      courierCanSeeAllCustomers: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_see_all_customers'],
+      ),
     );
   }
 
@@ -6781,6 +6809,10 @@ class User extends DataClass implements Insertable<User> {
   final bool? courierCanDebtReminder;
   final bool? courierCanToggleStock;
   final bool? courierCanCallLog;
+
+  /// v27 (2026-08-22) — kurye TÜM müşterileri görebilir mi. `null` = bayi varsayılanını devral.
+  /// Gerekçe [TenantSettings.courierCanSeeAllCustomers] üzerinde.
+  final bool? courierCanSeeAllCustomers;
   const User({
     required this.id,
     required this.name,
@@ -6801,6 +6833,7 @@ class User extends DataClass implements Insertable<User> {
     this.courierCanDebtReminder,
     this.courierCanToggleStock,
     this.courierCanCallLog,
+    this.courierCanSeeAllCustomers,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6856,6 +6889,11 @@ class User extends DataClass implements Insertable<User> {
     if (!nullToAbsent || courierCanCallLog != null) {
       map['courier_can_call_log'] = Variable<bool>(courierCanCallLog);
     }
+    if (!nullToAbsent || courierCanSeeAllCustomers != null) {
+      map['courier_can_see_all_customers'] = Variable<bool>(
+        courierCanSeeAllCustomers,
+      );
+    }
     return map;
   }
 
@@ -6908,6 +6946,10 @@ class User extends DataClass implements Insertable<User> {
       courierCanCallLog: courierCanCallLog == null && nullToAbsent
           ? const Value.absent()
           : Value(courierCanCallLog),
+      courierCanSeeAllCustomers:
+          courierCanSeeAllCustomers == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanSeeAllCustomers),
     );
   }
 
@@ -6950,6 +6992,9 @@ class User extends DataClass implements Insertable<User> {
         json['courierCanToggleStock'],
       ),
       courierCanCallLog: serializer.fromJson<bool?>(json['courierCanCallLog']),
+      courierCanSeeAllCustomers: serializer.fromJson<bool?>(
+        json['courierCanSeeAllCustomers'],
+      ),
     );
   }
   @override
@@ -6981,6 +7026,9 @@ class User extends DataClass implements Insertable<User> {
       ),
       'courierCanToggleStock': serializer.toJson<bool?>(courierCanToggleStock),
       'courierCanCallLog': serializer.toJson<bool?>(courierCanCallLog),
+      'courierCanSeeAllCustomers': serializer.toJson<bool?>(
+        courierCanSeeAllCustomers,
+      ),
     };
   }
 
@@ -7004,6 +7052,7 @@ class User extends DataClass implements Insertable<User> {
     Value<bool?> courierCanDebtReminder = const Value.absent(),
     Value<bool?> courierCanToggleStock = const Value.absent(),
     Value<bool?> courierCanCallLog = const Value.absent(),
+    Value<bool?> courierCanSeeAllCustomers = const Value.absent(),
   }) => User(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -7050,6 +7099,9 @@ class User extends DataClass implements Insertable<User> {
     courierCanCallLog: courierCanCallLog.present
         ? courierCanCallLog.value
         : this.courierCanCallLog,
+    courierCanSeeAllCustomers: courierCanSeeAllCustomers.present
+        ? courierCanSeeAllCustomers.value
+        : this.courierCanSeeAllCustomers,
   );
   User copyWithCompanion(UsersCompanion data) {
     return User(
@@ -7098,6 +7150,9 @@ class User extends DataClass implements Insertable<User> {
       courierCanCallLog: data.courierCanCallLog.present
           ? data.courierCanCallLog.value
           : this.courierCanCallLog,
+      courierCanSeeAllCustomers: data.courierCanSeeAllCustomers.present
+          ? data.courierCanSeeAllCustomers.value
+          : this.courierCanSeeAllCustomers,
     );
   }
 
@@ -7122,7 +7177,8 @@ class User extends DataClass implements Insertable<User> {
           ..write('courierCanCustomerLedger: $courierCanCustomerLedger, ')
           ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
           ..write('courierCanToggleStock: $courierCanToggleStock, ')
-          ..write('courierCanCallLog: $courierCanCallLog')
+          ..write('courierCanCallLog: $courierCanCallLog, ')
+          ..write('courierCanSeeAllCustomers: $courierCanSeeAllCustomers')
           ..write(')'))
         .toString();
   }
@@ -7148,6 +7204,7 @@ class User extends DataClass implements Insertable<User> {
     courierCanDebtReminder,
     courierCanToggleStock,
     courierCanCallLog,
+    courierCanSeeAllCustomers,
   );
   @override
   bool operator ==(Object other) =>
@@ -7171,7 +7228,8 @@ class User extends DataClass implements Insertable<User> {
           other.courierCanCustomerLedger == this.courierCanCustomerLedger &&
           other.courierCanDebtReminder == this.courierCanDebtReminder &&
           other.courierCanToggleStock == this.courierCanToggleStock &&
-          other.courierCanCallLog == this.courierCanCallLog);
+          other.courierCanCallLog == this.courierCanCallLog &&
+          other.courierCanSeeAllCustomers == this.courierCanSeeAllCustomers);
 }
 
 class UsersCompanion extends UpdateCompanion<User> {
@@ -7194,6 +7252,7 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<bool?> courierCanDebtReminder;
   final Value<bool?> courierCanToggleStock;
   final Value<bool?> courierCanCallLog;
+  final Value<bool?> courierCanSeeAllCustomers;
   final Value<int> rowid;
   const UsersCompanion({
     this.id = const Value.absent(),
@@ -7215,6 +7274,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.courierCanDebtReminder = const Value.absent(),
     this.courierCanToggleStock = const Value.absent(),
     this.courierCanCallLog = const Value.absent(),
+    this.courierCanSeeAllCustomers = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   UsersCompanion.insert({
@@ -7237,6 +7297,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.courierCanDebtReminder = const Value.absent(),
     this.courierCanToggleStock = const Value.absent(),
     this.courierCanCallLog = const Value.absent(),
+    this.courierCanSeeAllCustomers = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -7262,6 +7323,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<bool>? courierCanDebtReminder,
     Expression<bool>? courierCanToggleStock,
     Expression<bool>? courierCanCallLog,
+    Expression<bool>? courierCanSeeAllCustomers,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -7291,6 +7353,8 @@ class UsersCompanion extends UpdateCompanion<User> {
       if (courierCanToggleStock != null)
         'courier_can_toggle_stock': courierCanToggleStock,
       if (courierCanCallLog != null) 'courier_can_call_log': courierCanCallLog,
+      if (courierCanSeeAllCustomers != null)
+        'courier_can_see_all_customers': courierCanSeeAllCustomers,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -7315,6 +7379,7 @@ class UsersCompanion extends UpdateCompanion<User> {
     Value<bool?>? courierCanDebtReminder,
     Value<bool?>? courierCanToggleStock,
     Value<bool?>? courierCanCallLog,
+    Value<bool?>? courierCanSeeAllCustomers,
     Value<int>? rowid,
   }) {
     return UsersCompanion(
@@ -7342,6 +7407,8 @@ class UsersCompanion extends UpdateCompanion<User> {
       courierCanToggleStock:
           courierCanToggleStock ?? this.courierCanToggleStock,
       courierCanCallLog: courierCanCallLog ?? this.courierCanCallLog,
+      courierCanSeeAllCustomers:
+          courierCanSeeAllCustomers ?? this.courierCanSeeAllCustomers,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -7416,6 +7483,11 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (courierCanCallLog.present) {
       map['courier_can_call_log'] = Variable<bool>(courierCanCallLog.value);
     }
+    if (courierCanSeeAllCustomers.present) {
+      map['courier_can_see_all_customers'] = Variable<bool>(
+        courierCanSeeAllCustomers.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -7444,6 +7516,7 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
           ..write('courierCanToggleStock: $courierCanToggleStock, ')
           ..write('courierCanCallLog: $courierCanCallLog, ')
+          ..write('courierCanSeeAllCustomers: $courierCanSeeAllCustomers, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7798,6 +7871,21 @@ class $TenantSettingsTable extends TenantSettings
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _courierCanSeeAllCustomersMeta =
+      const VerificationMeta('courierCanSeeAllCustomers');
+  @override
+  late final GeneratedColumn<bool> courierCanSeeAllCustomers =
+      GeneratedColumn<bool>(
+        'courier_can_see_all_customers',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_see_all_customers" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   static const VerificationMeta _preparedProductsMeta = const VerificationMeta(
     'preparedProducts',
   );
@@ -7877,6 +7965,7 @@ class $TenantSettingsTable extends TenantSettings
     courierCanDebtReminder,
     courierCanToggleStock,
     courierCanCallLog,
+    courierCanSeeAllCustomers,
     preparedProducts,
     orderCodeDisplay,
     updatedOccurredAt,
@@ -8107,6 +8196,15 @@ class $TenantSettingsTable extends TenantSettings
         ),
       );
     }
+    if (data.containsKey('courier_can_see_all_customers')) {
+      context.handle(
+        _courierCanSeeAllCustomersMeta,
+        courierCanSeeAllCustomers.isAcceptableOrUnknown(
+          data['courier_can_see_all_customers']!,
+          _courierCanSeeAllCustomersMeta,
+        ),
+      );
+    }
     if (data.containsKey('prepared_products')) {
       context.handle(
         _preparedProductsMeta,
@@ -8260,6 +8358,10 @@ class $TenantSettingsTable extends TenantSettings
         DriftSqlType.bool,
         data['${effectivePrefix}courier_can_call_log'],
       )!,
+      courierCanSeeAllCustomers: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_see_all_customers'],
+      )!,
       preparedProducts: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}prepared_products'],
@@ -8337,6 +8439,20 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
   final bool courierCanToggleStock;
   final bool courierCanCallLog;
 
+  /// KURYE TÜM MÜŞTERİLERİ GÖREBİLİR Mİ (kullanıcı kararı 2026-08-22).
+  ///
+  /// KAPALIYKEN müşteri listesi kuryenin KENDİ siparişlerinin müşterileriyle sınırlanır.
+  /// `courierCanCustomers`tan AYRI BİR SORUDUR ve karıştırılmamalı: o "ekleyip düzenleyebilir
+  /// mi", bu "kimleri görebilir". Bugüne kadar ikincisinin cevabı sorulmadan "hepsi"ydi.
+  ///
+  /// ⚠️ VARSAYILAN KAPALI ve bu bir DAVRANIŞ DEĞİŞİKLİĞİDİR — isteğin kendisi kısıtlamadır.
+  /// Gerekçenin tamamı sunucu migration'ında (`..._add_courier_can_see_all_customers.php`).
+  ///
+  /// KISITLAMA EKRANDA UYGULANIR, SENKRONDA DEĞİL: müşteriler telefona inmeye devam eder
+  /// (offline-first). Sunucuda süzmek, kuryeye ATANAN siparişin müşterisi henüz inmemişse
+  /// kapıda adressiz bırakırdı — kırmızı çizgi #3.
+  final bool courierCanSeeAllCustomers;
+
   /// İŞLETMEDE HAZIRLANAN ÜRÜN VAR MI? (kullanıcı kararı 2026-08-18) — ürün seçenekleri
   /// ("içinde şu olsun olmasın") özelliğinin KİRACI DÜZEYİNDEKİ anahtarı.
   ///
@@ -8393,6 +8509,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     required this.courierCanDebtReminder,
     required this.courierCanToggleStock,
     required this.courierCanCallLog,
+    required this.courierCanSeeAllCustomers,
     required this.preparedProducts,
     required this.orderCodeDisplay,
     this.updatedOccurredAt,
@@ -8456,6 +8573,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     map['courier_can_debt_reminder'] = Variable<bool>(courierCanDebtReminder);
     map['courier_can_toggle_stock'] = Variable<bool>(courierCanToggleStock);
     map['courier_can_call_log'] = Variable<bool>(courierCanCallLog);
+    map['courier_can_see_all_customers'] = Variable<bool>(
+      courierCanSeeAllCustomers,
+    );
     map['prepared_products'] = Variable<bool>(preparedProducts);
     map['order_code_display'] = Variable<String>(orderCodeDisplay);
     if (!nullToAbsent || updatedOccurredAt != null) {
@@ -8520,6 +8640,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       courierCanDebtReminder: Value(courierCanDebtReminder),
       courierCanToggleStock: Value(courierCanToggleStock),
       courierCanCallLog: Value(courierCanCallLog),
+      courierCanSeeAllCustomers: Value(courierCanSeeAllCustomers),
       preparedProducts: Value(preparedProducts),
       orderCodeDisplay: Value(orderCodeDisplay),
       updatedOccurredAt: updatedOccurredAt == null && nullToAbsent
@@ -8576,6 +8697,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
         json['courierCanToggleStock'],
       ),
       courierCanCallLog: serializer.fromJson<bool>(json['courierCanCallLog']),
+      courierCanSeeAllCustomers: serializer.fromJson<bool>(
+        json['courierCanSeeAllCustomers'],
+      ),
       preparedProducts: serializer.fromJson<bool>(json['preparedProducts']),
       orderCodeDisplay: serializer.fromJson<String>(json['orderCodeDisplay']),
       updatedOccurredAt: serializer.fromJson<String?>(
@@ -8617,6 +8741,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       'courierCanDebtReminder': serializer.toJson<bool>(courierCanDebtReminder),
       'courierCanToggleStock': serializer.toJson<bool>(courierCanToggleStock),
       'courierCanCallLog': serializer.toJson<bool>(courierCanCallLog),
+      'courierCanSeeAllCustomers': serializer.toJson<bool>(
+        courierCanSeeAllCustomers,
+      ),
       'preparedProducts': serializer.toJson<bool>(preparedProducts),
       'orderCodeDisplay': serializer.toJson<String>(orderCodeDisplay),
       'updatedOccurredAt': serializer.toJson<String?>(updatedOccurredAt),
@@ -8652,6 +8779,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     bool? courierCanDebtReminder,
     bool? courierCanToggleStock,
     bool? courierCanCallLog,
+    bool? courierCanSeeAllCustomers,
     bool? preparedProducts,
     String? orderCodeDisplay,
     Value<String?> updatedOccurredAt = const Value.absent(),
@@ -8691,6 +8819,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
         courierCanDebtReminder ?? this.courierCanDebtReminder,
     courierCanToggleStock: courierCanToggleStock ?? this.courierCanToggleStock,
     courierCanCallLog: courierCanCallLog ?? this.courierCanCallLog,
+    courierCanSeeAllCustomers:
+        courierCanSeeAllCustomers ?? this.courierCanSeeAllCustomers,
     preparedProducts: preparedProducts ?? this.preparedProducts,
     orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
     updatedOccurredAt: updatedOccurredAt.present
@@ -8765,6 +8895,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       courierCanCallLog: data.courierCanCallLog.present
           ? data.courierCanCallLog.value
           : this.courierCanCallLog,
+      courierCanSeeAllCustomers: data.courierCanSeeAllCustomers.present
+          ? data.courierCanSeeAllCustomers.value
+          : this.courierCanSeeAllCustomers,
       preparedProducts: data.preparedProducts.present
           ? data.preparedProducts.value
           : this.preparedProducts,
@@ -8810,6 +8943,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
           ..write('courierCanToggleStock: $courierCanToggleStock, ')
           ..write('courierCanCallLog: $courierCanCallLog, ')
+          ..write('courierCanSeeAllCustomers: $courierCanSeeAllCustomers, ')
           ..write('preparedProducts: $preparedProducts, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
@@ -8847,6 +8981,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     courierCanDebtReminder,
     courierCanToggleStock,
     courierCanCallLog,
+    courierCanSeeAllCustomers,
     preparedProducts,
     orderCodeDisplay,
     updatedOccurredAt,
@@ -8883,6 +9018,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           other.courierCanDebtReminder == this.courierCanDebtReminder &&
           other.courierCanToggleStock == this.courierCanToggleStock &&
           other.courierCanCallLog == this.courierCanCallLog &&
+          other.courierCanSeeAllCustomers == this.courierCanSeeAllCustomers &&
           other.preparedProducts == this.preparedProducts &&
           other.orderCodeDisplay == this.orderCodeDisplay &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
@@ -8917,6 +9053,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
   final Value<bool> courierCanDebtReminder;
   final Value<bool> courierCanToggleStock;
   final Value<bool> courierCanCallLog;
+  final Value<bool> courierCanSeeAllCustomers;
   final Value<bool> preparedProducts;
   final Value<String> orderCodeDisplay;
   final Value<String?> updatedOccurredAt;
@@ -8949,6 +9086,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.courierCanDebtReminder = const Value.absent(),
     this.courierCanToggleStock = const Value.absent(),
     this.courierCanCallLog = const Value.absent(),
+    this.courierCanSeeAllCustomers = const Value.absent(),
     this.preparedProducts = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
@@ -8982,6 +9120,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.courierCanDebtReminder = const Value.absent(),
     this.courierCanToggleStock = const Value.absent(),
     this.courierCanCallLog = const Value.absent(),
+    this.courierCanSeeAllCustomers = const Value.absent(),
     this.preparedProducts = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
@@ -9015,6 +9154,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Expression<bool>? courierCanDebtReminder,
     Expression<bool>? courierCanToggleStock,
     Expression<bool>? courierCanCallLog,
+    Expression<bool>? courierCanSeeAllCustomers,
     Expression<bool>? preparedProducts,
     Expression<String>? orderCodeDisplay,
     Expression<String>? updatedOccurredAt,
@@ -9055,6 +9195,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       if (courierCanToggleStock != null)
         'courier_can_toggle_stock': courierCanToggleStock,
       if (courierCanCallLog != null) 'courier_can_call_log': courierCanCallLog,
+      if (courierCanSeeAllCustomers != null)
+        'courier_can_see_all_customers': courierCanSeeAllCustomers,
       if (preparedProducts != null) 'prepared_products': preparedProducts,
       if (orderCodeDisplay != null) 'order_code_display': orderCodeDisplay,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
@@ -9090,6 +9232,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Value<bool>? courierCanDebtReminder,
     Value<bool>? courierCanToggleStock,
     Value<bool>? courierCanCallLog,
+    Value<bool>? courierCanSeeAllCustomers,
     Value<bool>? preparedProducts,
     Value<String>? orderCodeDisplay,
     Value<String?>? updatedOccurredAt,
@@ -9128,6 +9271,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       courierCanToggleStock:
           courierCanToggleStock ?? this.courierCanToggleStock,
       courierCanCallLog: courierCanCallLog ?? this.courierCanCallLog,
+      courierCanSeeAllCustomers:
+          courierCanSeeAllCustomers ?? this.courierCanSeeAllCustomers,
       preparedProducts: preparedProducts ?? this.preparedProducts,
       orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
@@ -9229,6 +9374,11 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     if (courierCanCallLog.present) {
       map['courier_can_call_log'] = Variable<bool>(courierCanCallLog.value);
     }
+    if (courierCanSeeAllCustomers.present) {
+      map['courier_can_see_all_customers'] = Variable<bool>(
+        courierCanSeeAllCustomers.value,
+      );
+    }
     if (preparedProducts.present) {
       map['prepared_products'] = Variable<bool>(preparedProducts.value);
     }
@@ -9274,6 +9424,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
           ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
           ..write('courierCanToggleStock: $courierCanToggleStock, ')
           ..write('courierCanCallLog: $courierCanCallLog, ')
+          ..write('courierCanSeeAllCustomers: $courierCanSeeAllCustomers, ')
           ..write('preparedProducts: $preparedProducts, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
@@ -17239,6 +17390,7 @@ typedef $$UsersTableCreateCompanionBuilder =
       Value<bool?> courierCanDebtReminder,
       Value<bool?> courierCanToggleStock,
       Value<bool?> courierCanCallLog,
+      Value<bool?> courierCanSeeAllCustomers,
       Value<int> rowid,
     });
 typedef $$UsersTableUpdateCompanionBuilder =
@@ -17262,6 +17414,7 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<bool?> courierCanDebtReminder,
       Value<bool?> courierCanToggleStock,
       Value<bool?> courierCanCallLog,
+      Value<bool?> courierCanSeeAllCustomers,
       Value<int> rowid,
     });
 
@@ -17365,6 +17518,11 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<bool> get courierCanCallLog => $composableBuilder(
     column: $table.courierCanCallLog,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanSeeAllCustomers => $composableBuilder(
+    column: $table.courierCanSeeAllCustomers,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -17472,6 +17630,11 @@ class $$UsersTableOrderingComposer
     column: $table.courierCanCallLog,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get courierCanSeeAllCustomers => $composableBuilder(
+    column: $table.courierCanSeeAllCustomers,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UsersTableAnnotationComposer
@@ -17565,6 +17728,11 @@ class $$UsersTableAnnotationComposer
     column: $table.courierCanCallLog,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get courierCanSeeAllCustomers => $composableBuilder(
+    column: $table.courierCanSeeAllCustomers,
+    builder: (column) => column,
+  );
 }
 
 class $$UsersTableTableManager
@@ -17614,6 +17782,7 @@ class $$UsersTableTableManager
                 Value<bool?> courierCanDebtReminder = const Value.absent(),
                 Value<bool?> courierCanToggleStock = const Value.absent(),
                 Value<bool?> courierCanCallLog = const Value.absent(),
+                Value<bool?> courierCanSeeAllCustomers = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UsersCompanion(
                 id: id,
@@ -17635,6 +17804,7 @@ class $$UsersTableTableManager
                 courierCanDebtReminder: courierCanDebtReminder,
                 courierCanToggleStock: courierCanToggleStock,
                 courierCanCallLog: courierCanCallLog,
+                courierCanSeeAllCustomers: courierCanSeeAllCustomers,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -17658,6 +17828,7 @@ class $$UsersTableTableManager
                 Value<bool?> courierCanDebtReminder = const Value.absent(),
                 Value<bool?> courierCanToggleStock = const Value.absent(),
                 Value<bool?> courierCanCallLog = const Value.absent(),
+                Value<bool?> courierCanSeeAllCustomers = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UsersCompanion.insert(
                 id: id,
@@ -17679,6 +17850,7 @@ class $$UsersTableTableManager
                 courierCanDebtReminder: courierCanDebtReminder,
                 courierCanToggleStock: courierCanToggleStock,
                 courierCanCallLog: courierCanCallLog,
+                courierCanSeeAllCustomers: courierCanSeeAllCustomers,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -17732,6 +17904,7 @@ typedef $$TenantSettingsTableCreateCompanionBuilder =
       Value<bool> courierCanDebtReminder,
       Value<bool> courierCanToggleStock,
       Value<bool> courierCanCallLog,
+      Value<bool> courierCanSeeAllCustomers,
       Value<bool> preparedProducts,
       Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
@@ -17766,6 +17939,7 @@ typedef $$TenantSettingsTableUpdateCompanionBuilder =
       Value<bool> courierCanDebtReminder,
       Value<bool> courierCanToggleStock,
       Value<bool> courierCanCallLog,
+      Value<bool> courierCanSeeAllCustomers,
       Value<bool> preparedProducts,
       Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
@@ -17913,6 +18087,11 @@ class $$TenantSettingsTableFilterComposer
 
   ColumnFilters<bool> get courierCanCallLog => $composableBuilder(
     column: $table.courierCanCallLog,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanSeeAllCustomers => $composableBuilder(
+    column: $table.courierCanSeeAllCustomers,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18081,6 +18260,11 @@ class $$TenantSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get courierCanSeeAllCustomers => $composableBuilder(
+    column: $table.courierCanSeeAllCustomers,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get preparedProducts => $composableBuilder(
     column: $table.preparedProducts,
     builder: (column) => ColumnOrderings(column),
@@ -18228,6 +18412,11 @@ class $$TenantSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get courierCanSeeAllCustomers => $composableBuilder(
+    column: $table.courierCanSeeAllCustomers,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get preparedProducts => $composableBuilder(
     column: $table.preparedProducts,
     builder: (column) => column,
@@ -18309,6 +18498,7 @@ class $$TenantSettingsTableTableManager
                 Value<bool> courierCanDebtReminder = const Value.absent(),
                 Value<bool> courierCanToggleStock = const Value.absent(),
                 Value<bool> courierCanCallLog = const Value.absent(),
+                Value<bool> courierCanSeeAllCustomers = const Value.absent(),
                 Value<bool> preparedProducts = const Value.absent(),
                 Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
@@ -18341,6 +18531,7 @@ class $$TenantSettingsTableTableManager
                 courierCanDebtReminder: courierCanDebtReminder,
                 courierCanToggleStock: courierCanToggleStock,
                 courierCanCallLog: courierCanCallLog,
+                courierCanSeeAllCustomers: courierCanSeeAllCustomers,
                 preparedProducts: preparedProducts,
                 orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
@@ -18375,6 +18566,7 @@ class $$TenantSettingsTableTableManager
                 Value<bool> courierCanDebtReminder = const Value.absent(),
                 Value<bool> courierCanToggleStock = const Value.absent(),
                 Value<bool> courierCanCallLog = const Value.absent(),
+                Value<bool> courierCanSeeAllCustomers = const Value.absent(),
                 Value<bool> preparedProducts = const Value.absent(),
                 Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
@@ -18407,6 +18599,7 @@ class $$TenantSettingsTableTableManager
                 courierCanDebtReminder: courierCanDebtReminder,
                 courierCanToggleStock: courierCanToggleStock,
                 courierCanCallLog: courierCanCallLog,
+                courierCanSeeAllCustomers: courierCanSeeAllCustomers,
                 preparedProducts: preparedProducts,
                 orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,

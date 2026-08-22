@@ -171,7 +171,7 @@ class IsletmeFormu extends Form
             'courier_can_discount', 'courier_can_day_end', 'courier_can_see_all_orders',
             'courier_can_view_history', 'courier_can_expense', 'courier_phone_mask',
             'courier_can_customer_ledger', 'courier_can_debt_reminder', 'courier_can_toggle_stock',
-            'courier_can_call_log', 'order_code_display',
+            'courier_can_call_log', 'courier_can_see_all_customers', 'order_code_display',
         ]);
         $payload['business_name'] = $this->bosNull($this->unvan) ?? $payload['business_name'] ?? null;
         $payload['tax_number'] = $this->bosNull($this->vkn);

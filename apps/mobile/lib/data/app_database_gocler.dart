@@ -345,6 +345,20 @@ extension _GocMerdiveni on AppDatabase {
             await m.createTable(bildirimler);
           }
 
+          // v27 — KURYE MÜŞTERİ GÖRÜNÜRLÜĞÜ (2026-08-22). Yerleşim ve bedel v11..v26 ile AYNI.
+          // İKİ TABLODA İKİ FARKLI VARSAYILAN, üç durumlu modelin ta kendisi: `tenant_settings`
+          // NOT NULL DEFAULT 0 (bayi varsayılanı: kapalı), `users` NULLABLE (null = devral).
+          // `users` tarafına varsayılan koymak devralmayı yok ederdi (v17 dersi).
+          for (final (tablo, sql) in const [
+            ('tenant_settings',
+                'ALTER TABLE tenant_settings ADD COLUMN courier_can_see_all_customers INTEGER NOT NULL DEFAULT 0'),
+            ('users', 'ALTER TABLE users ADD COLUMN courier_can_see_all_customers INTEGER'),
+          ]) {
+            if (await AppDatabase._tabloVar(m, tablo)) {
+              await AppDatabase._addColumnIfMissing(m, sql);
+            }
+          }
+
           // KENDİNİ ONARMA (2026-07-22 SAHA BULGUSU — iki gerçek cihazda yaşandı): Faz 0 ölçüm
           // ekranı sipario.db'yi sqflite `version: 1` ile açınca user_version damgası 1'e
           // eziliyordu; Drift sonraki açılışta migration'ı YENİDEN koşup "duplicate column" ile

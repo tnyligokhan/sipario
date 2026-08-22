@@ -51,7 +51,7 @@ void main() {
 
     test('dokunuş gün sonu ekranına gider', () {
       final b = gunSonuOzeti(veri(teslim: 1))!;
-      expect(bildirimYoluCoz(b.yol), (tur: 'gunsonu', id: null));
+      expect(bildirimYoluCoz(b.yol), (tur: 'gunsonu', id: null, eylem: null));
     });
   });
 

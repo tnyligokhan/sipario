@@ -26,6 +26,10 @@ import 'urun_secenek_secici.dart';
 // sınırı. AYNI KÜTÜPHANEDİR (`part`): gerekçe o dosyanın başlığında.
 part 'pos_adet_sheet.dart';
 
+// Ürün karosu ve eylem şeridi (adet · sepete ekle) buradan ayrıldı — 500 satır sınırı.
+// AYNI KÜTÜPHANEDİR (`part`): gerekçe o dosyanın başlığında.
+part 'pos_karosu.dart';
+
 /// Katalogdan sepete eklenen kalem.
 class KatalogSecimi {
   const KatalogSecimi(this.urun, this.adet);
@@ -81,7 +85,15 @@ class _KatalogGovde extends StatefulWidget {
 class _KatalogGovdeState extends State<_KatalogGovde> {
   final _arama = TextEditingController();
   String _sorgu = '';
-  int _eklenen = 0;
+
+  /// KARODAN sepete gönderilen adet (ürün kimliği → adet). Sepetin kendisi DEĞİLDİR:
+  /// sepet çağıranda yaşar ve katalog onu görmez.
+  ///
+  /// NEDEN YETERLİ: bu sayaç yalnız sheet AÇIK OLDUĞU sürece yaşar ve o süre boyunca sepete
+  /// tek dokunan yüzey burasıdır. Sheet kapanınca unutulur; ikinci kez açıldığında karolar
+  /// yine "Ekle" der. Gerçek sepeti buraya taşımak, kataloğun sipariş formunun iç durumunu
+  /// tanıması demekti — iki yüzey birbirine bağlanır, ikisi de ayrı ayrı test edilemezdi.
+  final Map<String, int> _adetler = {};
 
   @override
   void dispose() {
@@ -89,6 +101,7 @@ class _KatalogGovdeState extends State<_KatalogGovde> {
     super.dispose();
   }
 
+  /// Seçeneği olan ürün — adet/malzeme sheet'i açılır (tek yol; malzeme karoya sığmaz).
   Future<void> _sec(Product u) async {
     final secenekler = secenekleriCoz(u.optionsJson);
     // MÜŞTERİ TERCİHİ SHEET AÇILMADAN ÖNCE OKUNUR (kullanıcı isteği 2026-08-18: "her seferinde
@@ -120,10 +133,40 @@ class _KatalogGovdeState extends State<_KatalogGovde> {
     }
 
     widget.onEkle(u, sonuc.adet, sonuc.secim);
-    setState(() => _eklenen++);
+    setState(() => _adetler[u.id] = (_adetler[u.id] ?? 0) + sonuc.adet);
     final ozet = sonuc.secim.ozet();
     widget.onBildir?.call(
         '${u.name} ×${sonuc.adet} sepete eklendi${ozet.isEmpty ? '' : ' ($ozet)'}');
+  }
+
+  /// KARODAN doğrudan ekleme/çıkarma (seçeneksiz ürün) — sheet AÇILMAZ.
+  ///
+  /// Kullanıcı isteği 2026-08-22: "adet seçme işlemi için ekstra bir alan açılıyor, bunun
+  /// yerine kompakt kartta adet ve sepete ekleme olsun". Su bayisinde ürünlerin hiçbirinin
+  /// seçeneği yoktur, yani her damacana için açılan sheet iki fazladan dokunuştu.
+  ///
+  /// [delta] NEGATİF OLABİLİR ve çağıran taraf bunu bilmek zorundadır: sipariş formu ile
+  /// düzenleme sheet'i, adet sıfıra inince satırı SİLER (`_urunEkle`). Katalog o kararı
+  /// vermez — sepetin sahibi o değildir.
+  void _karodanDegis(Product u, int delta) {
+    final onceki = _adetler[u.id] ?? 0;
+    final yeni = onceki + delta;
+    if (yeni < 0) return;
+    widget.onEkle(u, delta, const SecenekSecimi());
+    setState(() {
+      if (yeni == 0) {
+        _adetler.remove(u.id);
+      } else {
+        _adetler[u.id] = yeni;
+      }
+    });
+    if (delta > 0) widget.onBildir?.call('${u.name} sepete eklendi');
+  }
+
+  /// Karonun ana dokunuşu: seçenekli ürün sheet açar, seçeneksiz ürün doğrudan bir adet ekler.
+  Future<void> _karoyaDokun(Product u) async {
+    if (secenekleriCoz(u.optionsJson).isNotEmpty) return _sec(u);
+    _karodanDegis(u, 1);
   }
 
   @override
@@ -185,26 +228,37 @@ class _KatalogGovdeState extends State<_KatalogGovde> {
               // istiyordu. Üç sütun aynı yükseklikte %50 daha fazla ürün gösterir.
               //
               // ⚠️ ORAN SÜTUN SAYISINA BAĞLIDIR: `childAspectRatio` GENİŞLİK/YÜKSEKLİK'tir ve
-              // karo yüksekliği sabit parçalar (2 satır ad + fiyat satırı + dolgu ≈ 76 px)
-              // ile genişliğe ORANTILI parçadan (5/4 görsel) oluşur. Sütun sayısı artınca
-              // genişlik düşer, sabit parçaların payı büyür — eski 0.86 ile karo 40 px kısa
-              // kalır ve `Expanded`in altındaki fiyat satırı taşardı. 0.68, en dar telefonda
-              // (360 dp) bile ~10 px pay bırakır.
+              // karo yüksekliği sabit parçalar (2 satır ad + fiyat satırı + EYLEM ŞERİDİ +
+              // dolgu) ile genişliğe ORANTILI parçadan (görsel) oluşur. Sütun sayısı artınca
+              // genişlik düşer, sabit parçaların payı büyür — oran güncellenmezse karo kısa
+              // kalır ve `Expanded`in altındaki satırlar taşar.
+              //
+              // 0.68 → 0.60 (2026-08-22): karoya 30 px'lik EYLEM ŞERİDİ eklendi (adet + sepete
+              // ekle). Görselin oranı da 5/4'ten 8/5'e çekildi — yoksa karo, kazandığı işlevin
+              // iki katı kadar uzardı ve "kompakt kart" isteğinin tersine düşerdi. En dar
+              // telefonda (360 dp) karo ≈ 171 px; sabit parçalar ≈ 159 px, yani ~12 px pay var.
               GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 3,
                 mainAxisSpacing: SipSpace.md,
                 crossAxisSpacing: SipSpace.md,
-                childAspectRatio: 0.68,
+                childAspectRatio: 0.60,
                 children: [
-                  for (final u in liste) _PosKarosu(urun: u, onTap: () => _sec(u)),
+                  for (final u in liste)
+                    _PosKarosu(
+                      urun: u,
+                      adet: _adetler[u.id] ?? 0,
+                      secenekli: secenekleriCoz(u.optionsJson).isNotEmpty,
+                      onTap: () => _karoyaDokun(u),
+                      onAzalt: () => _karodanDegis(u, -1),
+                    ),
                 ],
               ),
             const SizedBox(height: SipSpace.lg),
             // .pos-alt
             SipButon(
-              etiket: _eklenen > 0 ? '$_eklenen kalem eklendi' : 'Bitti',
+              etiket: _adetler.isEmpty ? 'Bitti' : '${_adetler.length} kalem eklendi',
               onTap: () => Navigator.of(context).maybePop(),
             ),
           ],
@@ -225,76 +279,6 @@ class _KatalogGovdeState extends State<_KatalogGovde> {
       _arama.text = kod;
       _sorgu = kod;
     });
-  }
-}
-
-/// CSS `.pos-tile` — görsel/baş harf, ad (2 satır), fiyat + birim.
-class _PosKarosu extends StatelessWidget {
-  const _PosKarosu({required this.urun, required this.onTap});
-
-  final Product urun;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return SipDokun(
-      onTap: onTap,
-      zemin: t.surface2,
-      basiliZemin: t.line,
-      radius: const BorderRadius.all(Radius.circular(16)),
-      olcekle: true,
-      // Üç sütunda dolgu 8 → 6: kaybedilen her piksel doğrudan görselden ve ad satırından
-      // çıkıyordu. Alt dolgu (9) üsttekinden büyük kalır — fiyat satırı kenara yapışmasın.
-      padding: const EdgeInsets.fromLTRB(6, 6, 6, 9),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          UrunGorseli(urun: urun, en: double.infinity, oran: 5 / 4, radius: 10, puntoBoyut: 20),
-          const SizedBox(height: 4),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: Text(
-                urun.name,
-                style: SipText.metin(12, w: 700, h: 1.3).copyWith(color: t.ink),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Flexible(
-                  child: Text(
-                    sipTutar(urun.unitPriceKurus),
-                    style: SipText.tutar(12.5).copyWith(color: t.ink),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 3),
-                // BİRİM DARALTILABİLİR: dar telefonda "1.250,00 ₺" + "/ porsiyon" yan yana
-                // sığmaz. Kırpılacaksa BİRİM kırpılır, fiyat değil — bayi fiyatı okuyamazsa
-                // karo işini yapmıyor demektir.
-                Flexible(
-                  child: Text(
-                    '/ ${urun.unit}',
-                    style: SipText.metin(9.5, w: 500).copyWith(color: t.muted),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 

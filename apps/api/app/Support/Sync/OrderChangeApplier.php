@@ -35,7 +35,12 @@ class OrderChangeApplier
             'created' => $this->orderCreated($tenantId, $event, $payload),
             'line_added' => $this->orderLineAdded($tenantId, $event, $payload),
             'line_removed' => $this->orderLineRemoved($tenantId, $event, $payload),
-            'delivered', 'cancelled', 'payment_set', 'note_set' => $this->orderStatusEvent($tenantId, $op, $event, $payload),
+            // `cancel_requested` / `cancel_rejected` (2026-08-22) BU DALA DÜŞER ve bu bilinçli:
+            // ikisi de yalnız bir olay EKLER, siparişin durumunu DEĞİŞTİRMEZ. `recomputeOrder`
+            // status'ü yalnız `cancelled`/`delivered`tan türetir, yani talep açıkken sipariş
+            // `open` kalır ve teslim edilebilir — müşteri kapıda fikir değiştirebilir.
+            'delivered', 'cancelled', 'payment_set', 'note_set',
+            'cancel_requested', 'cancel_rejected' => $this->orderStatusEvent($tenantId, $op, $event, $payload),
             'assigned', 'unassigned' => $this->orderAssignEvent($tenantId, $op, $event, $payload),
             'sort_set' => $this->orderSortEvent($tenantId, $event, $payload),
             default => throw new InvalidArgumentException("Geçersiz sipariş op: {$op}"),
@@ -167,6 +172,20 @@ class OrderChangeApplier
             $teslimEden = (string) $payload['delivered_by_user_id'];
             if (! User::query()->whereKey($teslimEden)->exists()) {
                 throw new InvalidArgumentException('delivered_by_user_id bu bayide bulunamadı');
+            }
+        }
+
+        // İPTAL TALEBİNİ AÇAN — `delivered_by_user_id` ile AYNI kapı: yazımdan ÖNCE RLS-kapsamlı
+        // varlık kontrolü. Kapı olmasaydı bir istemci başka bayinin kullanıcı kimliğini yüke
+        // koyar ve reddi o kişiye bildirtebilirdi (kırmızı çizgi #1).
+        //
+        // ALAN OPSİYONELDİR: talebi açan cihazda oturum kimliği henüz inmemiş olabilir
+        // (`sync_meta.user_id` null). O zaman ret bildirimi kimseye gitmez ve talep yine de
+        // geçerlidir — reddin duyurulamaması, talebin hiç açılamamasından iyidir.
+        if ($op === 'cancel_requested' && isset($payload['requested_by_user_id'])) {
+            $isteyen = (string) $payload['requested_by_user_id'];
+            if (! User::query()->whereKey($isteyen)->exists()) {
+                throw new InvalidArgumentException('requested_by_user_id bu bayide bulunamadı');
             }
         }
 

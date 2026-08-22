@@ -272,11 +272,34 @@ extension SyncCekme on SyncEngine {
               reminderTemplate: Value(_sN(m['reminder_template'])),
               // Kurye yetkileri — sunucu alanı göndermezse (eski sürüm) varsayılana düşülür;
               // NOT NULL kolona `Value(null)` yazmak satırı bozardı (order_code_display dersi).
+              //
+              // ⚠️ 2026-08-22'DE SEKİZ ALAN EKSİK BULUNDU. Burada yalnız İLK BEŞİ vardı; kalan
+              // sekizi (`see_all_orders` … `call_log`) v15'te şemaya girmiş ama BU uygulayıcıya
+              // hiç bağlanmamıştı. Arıza sessizdi ve tam olarak şu biçimde görünürdü: patron
+              // KENDİ telefonundan bir kurye yetkisini açar, ayar sunucuya gider, ama kuryenin
+              // telefonuna İNMEZ — çünkü inen `tenant_settings` deltasında o alan okunmaz.
+              // İki cihaz aynı bayi için farklı yetki gösterir ve hiçbir yerde hata çıkmaz
+              // ("sunucuda doğru duran ama inmeyen alan YOKTUR" — SyncPayload şema sözleşmesi).
+              //
+              // Varsayılanlar `TenantSetting::KURYE_IZINLERI` ile BİREBİR aynıdır; ayrışırlarsa
+              // eski sunucudan gelen satır iki tarafta iki farklı yetki üretir.
               courierCanCustomers: Value(_bV(m['courier_can_customers'], true)),
               courierCanOrders: Value(_bV(m['courier_can_orders'], true)),
               courierCanCollect: Value(_bV(m['courier_can_collect'], true)),
               courierCanDiscount: Value(_bV(m['courier_can_discount'], false)),
               courierCanDayEnd: Value(_bV(m['courier_can_day_end'], false)),
+              courierCanSeeAllOrders: Value(_bV(m['courier_can_see_all_orders'], false)),
+              courierCanViewHistory: Value(_bV(m['courier_can_view_history'], false)),
+              courierCanExpense: Value(_bV(m['courier_can_expense'], false)),
+              courierPhoneMask: Value(_bV(m['courier_phone_mask'], true)),
+              courierCanCustomerLedger: Value(_bV(m['courier_can_customer_ledger'], false)),
+              courierCanDebtReminder: Value(_bV(m['courier_can_debt_reminder'], false)),
+              courierCanToggleStock: Value(_bV(m['courier_can_toggle_stock'], true)),
+              courierCanCallLog: Value(_bV(m['courier_can_call_log'], false)),
+              // v27 (2026-08-22) — kurye tüm müşterileri görebilir mi. Eski sunucu alanı
+              // göndermezse KAPALI sayılır; yani yeni istemci + eski sunucu bileşiminde kurye
+              // yalnız kendi siparişlerinin müşterilerini görür. Güvenli taraf budur.
+              courierCanSeeAllCustomers: Value(_bV(m['courier_can_see_all_customers'], false)),
               // Sunucu alanı göndermezse (eski sürüm) varsayılana düşülür — `Value(null)`
               // yazmak NOT NULL kolonu bozardı.
               orderCodeDisplay: Value(_sN(m['order_code_display']) ?? 'musteri'),

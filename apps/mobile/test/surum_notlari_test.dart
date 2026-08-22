@@ -120,16 +120,31 @@ void main() {
       // ilk kaydın maddesi o noktada görünür alanın dışında kalıyor (liste tembel).
       expect(find.text(kSurumNotlari.first.maddeler.first), findsOneWidget);
 
-      // KAYDIRARAK ARANIR, SABİT VIEWPORT'A GÜVENİLMEZ: liste her yayında bir kayıt uzuyor ve
-      // 2026-08-13'te 3000 punto'luk test ekranını aştı — en eski sürüm (0.10.0) hiç
-      // çizilmediği için `find.text` boş döndü. Yükseklik büyütmek aynı kırığı bir sonraki
-      // sürüme ertelerdi; liste tembel olduğu sürece doğru çözüm satırı görünür alana getirmek.
-      for (final n in kSurumNotlari) {
-        final hedef = find.text('Sürüm ${n.surum}');
-        await tester.scrollUntilVisible(hedef, 400,
-            scrollable: find.byType(Scrollable).first);
-        expect(hedef, findsOneWidget);
-      }
+      // ══ TEK GEÇİŞLİ TARAMA (2026-08-22'de yöntem DEĞİŞTİ) ═══════════════════════════════
+      //
+      // Önceki hâl her sürüm için ayrı ayrı `scrollUntilVisible` çağırıyordu ve 2026-08-22'de
+      // liste 38'den 43 kayda çıkınca ORTADA (0.25.1) `Bad state: No element` ile düştü.
+      //
+      // SEBEP EKRANDA DEĞİL, YÖNTEMDEYDİ ve ölçüldü: liste tembeldir, dolayısıyla
+      // `maxScrollExtent` bir TAHMİNDİR ve o tahmin yalnız ÇİZİLMİŞ kayıtların ortalamasından
+      // üretilir. `scrollUntilVisible` her bulduğu hedefte `Scrollable.ensureVisible` ile
+      // konumu yeniden ayarlıyor; kart yükseklikleri eşit olmadığı için tahmin her turda
+      // oynuyor (ölçüldü: 8779 → 8058) ve bir noktada gerçek içerikten KÜÇÜK kalıyor —
+      // liste o noktadan ileri kaydırılamaz hâle geliyor. Ekranın kendisi sağlamdı: düz bir
+      // sürükleme döngüsü aynı listede 43/43 kaydı sorunsuz gösterdi.
+      //
+      // Yeni yöntem tam olarak bunu yapar: yukarıdan aşağıya SÜRÜKLER ve gördüklerini
+      // biriktirir. Hedefe geri dönme (ensureVisible) yok, dolayısıyla tahmin churn'ü de yok.
+      // Liste uzadıkça kırılmaz — 2026-08-13'te bir kez, 2026-08-22'de ikinci kez ödenen
+      // bedelin kalıcı karşılığı budur.
+      final gorulen = await _tumSurumleriTara(tester);
+
+      expect(
+        gorulen,
+        hasLength(kSurumNotlari.length),
+        reason: 'çizilmeyen sürüm(ler): '
+            '${kSurumNotlari.map((n) => n.surum).where((s) => !gorulen.contains(s)).toList()}',
+      );
     });
 
     testWidgets('koşan sürüm "Kullandığınız sürüm" rozetiyle işaretlenir — TEK BİR kayıtta',
@@ -155,16 +170,34 @@ void main() {
       // Ekranın hiçbir ağ bağımlılığı olmadığının kanıtı: `HttpClient` testte her isteği
       // 400 ile reddeder, yani gizli bir istek olsaydı liste eksik ya da boş çizilirdi.
       await _ekranaKoy(tester, surum: '0.13.0');
-      // Aynı sebeple KAYDIRARAK taranır (bkz. yukarıdaki not): liste test ekranından uzun ve
-      // tembel; sabit viewport'a güvenen tarama en eski kayıtları hiç görmez.
-      for (final n in kSurumNotlari) {
-        final hedef = find.text('Sürüm ${n.surum}');
-        await tester.scrollUntilVisible(hedef, 400,
-            scrollable: find.byType(Scrollable).first);
-        expect(hedef, findsOneWidget);
-      }
+      // Aynı sebeple TEK GEÇİŞLE taranır (gerekçe yukarıdaki testte): liste test ekranından
+      // uzun ve tembel; `scrollUntilVisible` döngüsü ise tahmin edilen kaydırma sınırını
+      // oynatıp listeyi ortada kilitliyor.
+      expect(await _tumSurumleriTara(tester), hasLength(kSurumNotlari.length));
     });
   });
+}
+
+/// Listeyi yukarıdan aşağıya SÜRÜKLEYEREK tarar ve çizilen sürüm adlarını biriktirir.
+///
+/// Gerekçe "bütün sürümleri ve maddeleri çizer" testinin içinde yazılı; özeti: tembel listede
+/// `maxScrollExtent` bir tahmindir ve `scrollUntilVisible`ın her hedefte yaptığı geri
+/// konumlandırma o tahmini oynatıp listeyi ortada kilitliyor.
+Future<Set<String>> _tumSurumleriTara(WidgetTester tester) async {
+  final kaydirici = find.byType(Scrollable).first;
+  final konum = tester.state<ScrollableState>(kaydirici).position;
+  final gorulen = <String>{};
+
+  // Üst sınır bir emniyet kemeri: sürükleme hiç ilerlemezse test asılmasın, DÜŞSÜN.
+  for (var tur = 0; tur < 300; tur++) {
+    for (final n in kSurumNotlari) {
+      if (find.text('Sürüm ${n.surum}').evaluate().isNotEmpty) gorulen.add(n.surum);
+    }
+    if (konum.pixels >= konum.maxScrollExtent) break;
+    await tester.drag(kaydirici, const Offset(0, -300));
+    await tester.pump();
+  }
+  return gorulen;
 }
 
 /// `pubspec.yaml` → `version:` satırındaki SemVer adı (yapı numarası atılır).

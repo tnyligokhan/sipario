@@ -89,6 +89,35 @@ class PushTetikleyici
             return $alici === null ? [null, null] : [PushOlayi::SiparisIptal, $alici];
         }
 
+        /*
+         * KURYE İPTAL İSTEDİ → yöneticiler (kullanıcı isteği 2026-08-22).
+         *
+         * ALICI `null`DIR ve bu doğru: talebi kim karşılarsa karar onundur. Belirli bir kişiye
+         * (ör. siparişi açan) yollamak, o kişi telefonuna bakmadığında kuryeyi müşterinin
+         * kapısında cevapsız bırakırdı.
+         *
+         * TALEBİ AÇAN CİHAZ ZATEN ELENİR (`$cihaz` → `haricCihazId`): kendi eyleminin
+         * bildirimini almazsın. Kurye aynı zamanda yönetici olsaydı bile kendi talebini
+         * bildirim olarak görmezdi.
+         */
+        if ($tur === 'order' && $op === 'cancel_requested') {
+            return [PushOlayi::SiparisIptalTalebi, null];
+        }
+
+        /*
+         * TALEP REDDEDİLDİ → TALEBİ AÇAN kuryeye.
+         *
+         * ⚠️ ALICI PAYLOAD'DA YOK, olay geçmişinden okunur ([iptalIsteyeni]): reddin yükünde
+         * kimin beklediği yazmaz, çünkü reddi yönetici gönderir ve o kuryenin kimliğini
+         * taşımaz. Kimse bulunamazsa bildirim HİÇ DOĞMAZ — reddi rastgele birine göndermek,
+         * hiç göndermemekten kötüdür.
+         */
+        if ($tur === 'order' && $op === 'cancel_rejected') {
+            $alici = self::iptalIsteyeni($varlikId);
+
+            return $alici === null ? [null, null] : [PushOlayi::SiparisIptalReddedildi, $alici];
+        }
+
         // Teslim edildi → işi takip eden tarafa (yöneticiler).
         if ($tur === 'order' && $op === 'delivered') {
             return [PushOlayi::SiparisTeslim, null];
@@ -128,6 +157,39 @@ class PushTetikleyici
      * `null` dönerse bildirim hiç doğmaz: atanmamış bir siparişin iptalini kimseye haber
      * vermek gerekmez.
      */
+    /**
+     * REDDİN ALICISI: iptali İSTEYEN kurye (2026-08-22).
+     *
+     * Kaynak, EN SON `cancel_requested` olayının yükündeki `requested_by_user_id`. Sıralama
+     * `iptalAlicisi` ve `deriveAssignedUserId` ile BİREBİR AYNI (`occurred_at DESC, id DESC`)
+     * ve bu tesadüf değil: aynı sipariş için iki kez talep açılmış olabilir (ilki reddedildi,
+     * kurye yeniden istedi) ve iki yer farklı sıralarsa ret, talebi açmayan kuryeye gider.
+     *
+     * `null` DÖNERSE bildirim doğmaz: talebi açan cihazda oturum kimliği inmemiş olabilir
+     * (alan opsiyoneldir, bkz. `OrderChangeApplier::orderStatusEvent`).
+     */
+    private static function iptalIsteyeni(string $orderId): ?string
+    {
+        $sonTalep = OrderEvent::query()
+            ->where('order_id', $orderId)
+            ->where('event_type', 'cancel_requested')
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($sonTalep === null) {
+            return null;
+        }
+
+        $payload = is_array($sonTalep->payload)
+            ? $sonTalep->payload
+            : json_decode((string) $sonTalep->payload, true);
+
+        $userId = is_array($payload) ? ($payload['requested_by_user_id'] ?? null) : null;
+
+        return is_string($userId) && $userId !== '' ? $userId : null;
+    }
+
     private static function iptalAlicisi(string $op, string $orderId): ?string
     {
         if ($op === 'cancelled') {

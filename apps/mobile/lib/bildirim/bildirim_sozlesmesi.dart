@@ -16,6 +16,10 @@
 import 'package:flutter/foundation.dart';
 export 'sessiz_saatler.dart';
 
+// Taslak · kimlik · `yol` sözlüğü buradan ayrıldı — 500 satır sınırı. AYNI KÜTÜPHANEDİR
+// (`part`), yani import eden hiçbir yer değişmedi; gerekçe o dosyanın başlığında.
+part 'bildirim_taslagi.dart';
+
 /// Bildirim türleri. Her biri sistemde AYRI bir kanaldır: bayi tek tek kısabilmeli
 /// (ör. "gün sonu özeti kalsın, gecikme uyarısı sussun").
 enum BildirimKategori {
@@ -77,6 +81,18 @@ enum BildirimKategori {
   /// Kurye kasayı devretti. Alıcı: yöneticiler.
   kasaDevri,
 
+  /// İPTAL ONAYI — kurye iptal istedi (alıcı: yöneticiler) VEYA talep reddedildi (alıcı: talebi
+  /// açan kurye). Kullanıcı isteği 2026-08-22.
+  ///
+  /// ⚠️ İKİ YÖN, TEK KATEGORİ ve bu bilinçli. Ayrı kategoriler ayarlar listesini iki satır
+  /// uzatır ve bayiye anlamsız bir soru sorardı ("iptal talebi bildirimini istiyorum ama
+  /// sonucunu istemiyorum" diye bir ihtiyaç yok). İkisi tek bir konuşmadır: bir iş bekliyor,
+  /// sonra kapanıyor. Metni AYIRAN şey yükteki `olay` alanıdır (`push_sozlesmesi.dart`).
+  ///
+  /// ONAY BU KATEGORİDE DEĞİLDİR: iptal onaylandığında sipariş gerçekten iptal olur ve
+  /// kuryeye zaten [siparisIptal] gider — ikinci bir bildirim aynı olayı iki kez anlatırdı.
+  siparisIptalOnayi,
+
   /// Hesap YENİ BİR CİHAZDA açıldı. Alıcı: yöneticiler.
   ///
   /// Bankacılık standardı ve bu üründe karşılığı hazır: Hesap → Cihazlar ekranı (0.21.0)
@@ -99,6 +115,7 @@ enum BildirimKategori {
         BildirimKategori.siparisIptal => 'siparis_iptal',
         BildirimKategori.siparisTeslim => 'siparis_teslim',
         BildirimKategori.kasaDevri => 'kasa_devri',
+        BildirimKategori.siparisIptalOnayi => 'siparis_iptal_onayi',
         BildirimKategori.yeniCihaz => 'yeni_cihaz',
       };
 
@@ -117,6 +134,7 @@ enum BildirimKategori {
         BildirimKategori.siparisIptal => 'Sipariş iptali',
         BildirimKategori.siparisTeslim => 'Teslimat',
         BildirimKategori.kasaDevri => 'Kasa devri',
+        BildirimKategori.siparisIptalOnayi => 'İptal onayı',
         BildirimKategori.yeniCihaz => 'Yeni cihaz girişi',
       };
 
@@ -130,6 +148,8 @@ enum BildirimKategori {
         BildirimKategori.siparisIptal => 'Size atanan sipariş iptal edildiğinde',
         BildirimKategori.siparisTeslim => 'Kurye bir siparişi teslim ettiğinde',
         BildirimKategori.kasaDevri => 'Kurye kasayı devrettiğinde',
+        BildirimKategori.siparisIptalOnayi =>
+          'Kurye iptal istediğinde ve talep sonuçlandığında',
         BildirimKategori.yeniCihaz => 'Hesabınız yeni bir telefonda açıldığında',
       };
 
@@ -160,15 +180,32 @@ enum BildirimKategori {
   ///
   /// CÖMERT DEĞİL CİMRİ DAĞITILIR: heads-up işi böler. Esnaf tezgâhta, kurye direksiyonda;
   /// her bildirim ekranın üstünde belirirse bayi bir hafta içinde HEPSİNİ kapatır ve o andan
-  /// sonra önemli olanı da kaçırır (`GunlukSinir` ile aynı gerekçe). Üçü seçildi: ikisi
-  /// kuryenin YOLUNU değiştiren olaylar, biri güvenlik.
+  /// sonra önemli olanı da kaçırır (`GunlukSinir` ile aynı gerekçe).
+  ///
+  /// ÖLÇÜT TEKTİR: **birinin BEKLEDİĞİ bir iş mi?** Beklenen iş bölmeyi hak eder, olan biteni
+  /// haber veren bildirim etmez.
+  ///   • `siparisAtandi`   — kurye yola çıkacak, bekleyen odur
+  ///   • `siparisIptal`    — kurye yoldadır, dönmesi gerekir
+  ///   • `siparisIptalOnayi` — kurye MÜŞTERİNİN KAPISINDA cevap bekliyor (2026-08-22)
+  ///   • `yeniCihaz`       — güvenlik; geç görülen bir giriş, görülmemiş sayılır
+  /// Kalan beşi (gün özeti, kapanış hatırlatması, kontör, teslim, kasa devri) rafa düşer,
+  /// titrer, simge çıkar — ama işi bölmez.
   bool get headsUp => switch (this) {
         BildirimKategori.siparisAtandi ||
         BildirimKategori.siparisIptal ||
+        BildirimKategori.siparisIptalOnayi ||
         BildirimKategori.yeniCihaz =>
           true,
         _ => false,
       };
+
+  /// BİLDİRİMİN İÇİNDE KARAR DÜĞMESİ VAR MI ("Onayla" / "Reddet")?
+  ///
+  /// Kullanıcı isteği 2026-08-22: *"patrona Onayla veya Reddet şeklinde bildirim gitmeli"*.
+  /// Yalnız iptal TALEBİ için anlamlıdır; talebin SONUCU (ret) bir bilgidir, karar değil.
+  /// Ayrımı bu bayrak değil, taslağın [BildirimTaslagi.kararIster] alanı taşır — aynı
+  /// kategorinin iki yönü var (bkz. kategori tanımı).
+  bool get kararTasiyabilir => this == BildirimKategori.siparisIptalOnayi;
 
   /// `res/raw` altındaki özel ses dosyasının adı. **Her kategorinin kendi tonu vardır.**
   ///
@@ -194,6 +231,7 @@ enum BildirimKategori {
         BildirimKategori.siparisIptal => 'iptal',
         BildirimKategori.siparisTeslim => 'teslim',
         BildirimKategori.kasaDevri => 'kasa',
+        BildirimKategori.siparisIptalOnayi => 'iptal_onayi',
         BildirimKategori.yeniCihaz => 'yeni_cihaz',
         BildirimKategori.gunSonuOzeti => 'gun_ozeti',
         BildirimKategori.gunKapanisHatirlatma => 'kapanis',
@@ -278,135 +316,6 @@ enum PushDurumu {
 
   static PushDurumu? wiredan(String? w) =>
       values.where((d) => d.wire == w).firstOrNull;
-}
-
-/// Kural fonksiyonlarının ÜRETTİĞİ şey. Yan etkisi yok, eşitliği tanımlı, test edilebilir.
-@immutable
-class BildirimTaslagi {
-  const BildirimTaslagi({
-    required this.kategori,
-    required this.baslik,
-    required this.govde,
-    required this.kimlik,
-    this.yol,
-    this.detay,
-  });
-
-  final BildirimKategori kategori;
-  final String baslik;
-
-  /// Gövde metni: müşteri adı ve borç tutarı BURAYA yazılır, başlık nötr tutulur.
-  ///
-  /// DÜZELTME (2026-07-27): önce "başlık kilit ekranında görünür, gövde gizlenir" yazıyordu;
-  /// mekanizma öyle DEĞİL. `flutter_local_notifications` `publicVersion` alanını açmıyor, yani
-  /// `VISIBILITY_PRIVATE` bildirimin TAMAMINI (başlık dahil) gizler. Kural yine de geçerli:
-  /// kilidi açtıktan sonra bildirim rafında bir bakışta okunan şey başlıktır ve telefon
-  /// uzatıldığında yanındaki onu görür. Ayrıntı gövdede kalsın.
-  final String govde;
-
-  /// Dokununca gidilecek ekran. Sözlük: `gunsonu` · `siparisler` · `cihazlar` · `musteri/<id>`.
-  /// Boş bırakılırsa uygulama ana ekranda açılır.
-  final String? yol;
-
-  /// GENİŞLETİLMİŞ bildirimin metni — bayi bildirimi aşağı çekince görünen tam hâli.
-  /// `null` = bu bildirim genişlemez (tek satır yeter).
-  ///
-  /// [govde] İLE İLİŞKİSİ: `govde` daraltılmış hâlde TEK SATIRDIR ve Android onu keser;
-  /// `detay` ise çok satırlı olabilir. Bu yüzden detay, gövdenin uzun karşılığıdır — gövdede
-  /// olmayan bir bilgiyi detaya koymak, bildirimi açmayan bayiden o bilgiyi saklamak olur.
-  ///
-  /// NEREDE DEĞERLİ: karar verilecek bildirimlerde (gün özeti: üç rakam; sipariş atandı:
-  /// müşteri + adres). NEREDE GEREKSİZ: olan biteni haber verenlerde ("teslim edildi") —
-  /// oraya detay koymak, açılacak bir şey varmış gibi göstermektir.
-  ///
-  /// ⚠️ KİLİT EKRANI KURALI DETAYA DA GEÇERLİ: müşteri adı/adresi burada da GÖVDE tarafındadır,
-  /// başlıkta değil.
-  final String? detay;
-
-  /// AYNI KİMLİK = AYNI BİLDİRİM: ikinci gösterim yeni satır açmaz, üzerine yazar
-  /// (çağrı günlüğündeki `insertOnConflictUpdate` mantığının bildirim karşılığı) ve günlük
-  /// bildirim bütçesinden İKİNCİ KEZ düşmez.
-  ///
-  /// [bildirimKimligi] ile üretin — elle string birleştirmeyin, kategori öneki zorunludur.
-  final String kimlik;
-
-  BildirimTaslagi kopyala({String? baslik, String? govde, String? yol, String? detay}) =>
-      BildirimTaslagi(
-        kategori: kategori,
-        baslik: baslik ?? this.baslik,
-        govde: govde ?? this.govde,
-        kimlik: kimlik,
-        yol: yol ?? this.yol,
-        detay: detay ?? this.detay,
-      );
-
-  @override
-  bool operator ==(Object other) =>
-      other is BildirimTaslagi &&
-      other.kategori == kategori &&
-      other.baslik == baslik &&
-      other.govde == govde &&
-      other.yol == yol &&
-      other.detay == detay &&
-      other.kimlik == kimlik;
-
-  @override
-  int get hashCode => Object.hash(kategori, baslik, govde, yol, detay, kimlik);
-
-  @override
-  String toString() => 'BildirimTaslagi(${kategori.wire}, $kimlik, "$baslik")';
-}
-
-/// Bildirim kimliği üretir: `<kategori>:<ayırt edici>`.
-///
-/// [ayirtEdici] AYNI ŞEYİ gösteren iki bildirimde AYNI olmalıdır — müşteri kimliği, gün
-/// (`2026-07-27`) gibi. Rastgele değer vermeyin: her çağrıda yeni bildirim doğar, bayi
-/// bildirim yağmuruna tutulur ve hepsini kapatır.
-String bildirimKimligi(BildirimKategori kategori, String ayirtEdici) =>
-    '${kategori.wire}:$ayirtEdici';
-
-/// Gün bazlı bildirimler için ayırt edici: `2026-07-27`.
-String bildirimGunAnahtari(DateTime an) {
-  final y = an.year.toString().padLeft(4, '0');
-  final a = an.month.toString().padLeft(2, '0');
-  final g = an.day.toString().padLeft(2, '0');
-  return '$y-$a-$g';
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-// `yol` sözlüğü — bildirime dokunulunca nereye gidilir
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-
-/// [BildirimTaslagi.yol] değerinin çözümü. Faz 1 sözlüğü: `gunsonu` · `musteri/<id>`.
-///
-/// TANINMAYAN YOL `null` DÖNER, İSTİSNA ATMAZ: sözlük büyüyecek (çok-müşterili liste rotası
-/// Faz 2'de gelecek) ve zamanlanmış eski bir bildirim, güncellenmiş uygulamada ya da tersi
-/// durumda bilinmeyen bir yol taşıyabilir. Bilinmeyen hedef bir hata değildir; çağıran
-/// kullanıcıyı bulunduğu yerde bırakır.
-///
-/// SAF ve burada duruyor çünkü sözlük SÖZLEŞMENİN parçası: taslağı üreten kural ile onu
-/// tüketen kabuk aynı tanıma bakmalı, iki yerde iki ayrı `split('/')` olmamalı.
-({String tur, String? id})? bildirimYoluCoz(String? yol) {
-  final ham = yol?.trim();
-  if (ham == null || ham.isEmpty) return null;
-  if (ham == 'gunsonu') return (tur: 'gunsonu', id: null);
-  /*
-   * `siparisler` — sipariş LİSTESİ, kimliksiz. Push bildirimleri (atandı · teslim edildi)
-   * buraya götürür.
-   *
-   * NEDEN `siparis/<id>` DEĞİL: tüketecek bir sipariş detay ekranı YOK. `OrderDetailScreen`
-   * bu depoda hiç örneklenmiyor (PLAN: ölü kod temizliği borcu). Kimliği taşıyıp hiçbir yerde
-   * kullanmamak, "taşınan ama tüketilmeyen bilgi"nin ta kendisidir — bu kabuk zaten bir kez
-   * o hatayı ödedi (`yol` alanı aylarca yükte durdu, dokunuş ana ekranı açtı). Detay ekranı
-   * geldiği gün buraya `siparis/<id>` eklenir; o zamana kadar liste dürüst hedeftir.
-   */
-  if (ham == 'siparisler') return (tur: 'siparisler', id: null);
-  // `cihazlar` — Hesap → Cihazlar ekranı. "Yeni cihaz girişi" bildiriminin hedefi: bayi
-  // uyarıyı görür görmez hangi telefonların bağlı olduğunu görebilmeli, aramak zorunda kalmamalı.
-  if (ham == 'cihazlar') return (tur: 'cihazlar', id: null);
-  final musteri = RegExp(r'^musteri/(.+)$').firstMatch(ham);
-  if (musteri != null) return (tur: 'musteri', id: musteri.group(1));
-  return null;
 }
 
 /// Bildirim altyapısının dış yüzü. Kural yazan taraf YALNIZ bunu görür.
@@ -508,4 +417,18 @@ class SahteBildirimServisi implements BildirimServisi {
 
   @override
   Future<bool> kategoriAcikMi(BildirimKategori k) async => !_kapali.contains(k);
+}
+
+/// Bildirim düğmelerinin eylem kimlikleri — TEK yer.
+///
+/// Değerler ANDROID'E GİDER ve dokunulduğunda geri gelir; ayrıca `yol`un `#` ekine yazılır.
+/// Bu yüzden serbest metin değil sabittirler: iki yerde iki farklı dizge, sessizce hiçbir şey
+/// yapmayan bir düğme demektir.
+abstract final class BildirimEylemi {
+  static const String iptalOnay = 'iptal_onay';
+  static const String iptalRet = 'iptal_ret';
+
+  /// Kullanıcıya görünen etiketler.
+  static const String iptalOnayEtiketi = 'Onayla';
+  static const String iptalRetEtiketi = 'Reddet';
 }

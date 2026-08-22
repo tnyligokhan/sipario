@@ -236,8 +236,12 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       // siparişini sessizce değiştirmek, hiç kaydetmemekten kötüdür.
       final i = _satirlar.indexWhere((l) => l.ayniKalem(u.id, secim));
       if (i >= 0) {
+        // ADET NEGATİF OLABİLİR (2026-08-22): katalog karosundaki `−` düğmesi sepeti buradan
+        // azaltır. Sıfıra inen satır SİLİNİR — 0 adetli bir kalem sepette anlamsızdır ve
+        // toplamı etkilemeden listeyi kirletirdi.
         _satirlar[i].qty += adet;
-      } else {
+        if (_satirlar[i].qty <= 0) _satirlar.removeAt(i);
+      } else if (adet > 0) {
         _satirlar.add(LineDraft(
           productId: u.id,
           name: u.name,

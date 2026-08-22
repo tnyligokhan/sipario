@@ -39,6 +39,24 @@ enum PushOlayi: string
     case KasaDevri = 'kasa_devri';
 
     /**
+     * KURYE İPTAL İSTEDİ. Alıcı: bayinin yöneticileri.
+     *
+     * Kullanıcı isteği 2026-08-22: *"Kurye siparişi iptal ettiğinde, patrona Onayla veya
+     * Reddet şeklinde bildirim gitmeli."* Bildirimin İÇİNDEKİ düğmeler istemci tarafındadır
+     * (`bildirim_servisi.dart` → `actions`); sunucu yalnız dürtüyü yollar.
+     */
+    case SiparisIptalTalebi = 'siparis_iptal_talebi';
+
+    /**
+     * İPTAL TALEBİ REDDEDİLDİ. Alıcı: talebi AÇAN kurye.
+     *
+     * Onayın ayrı bir olayı YOKTUR ve olmamalı: onaylanan talep siparişi gerçekten iptal eder,
+     * yani `cancelled` olayı doğar ve o zaten [SiparisIptal] dürtüsünü kuryeye gönderir. İkinci
+     * bir olay aynı gerçeği iki kez anlatır ve günlük bildirim bütçesini iki kez yakardı.
+     */
+    case SiparisIptalReddedildi = 'siparis_iptal_reddedildi';
+
+    /**
      * Hesap YENİ BİR CİHAZDA açıldı. Alıcı: bayinin yöneticileri (giriş yapan cihaz HARİÇ).
      *
      * Güvenlik bildirimi: bugün bir kurye parolasını başkasına verse patronun haberi olmaz.
@@ -58,6 +76,10 @@ enum PushOlayi: string
             self::SiparisIptal => 'siparis_iptal',
             self::SiparisTeslim => 'siparis_teslim',
             self::KasaDevri => 'kasa_devri',
+            // İKİ OLAY, TEK KATEGORİ (2026-08-22): talep ve ret aynı konuşmanın iki yönüdür ve
+            // bayi için tek bir anahtardır ("İptal onayı"). Metni ayıran şey yükteki `olay`
+            // alanıdır — istemci onu okur (`push_sozlesmesi.dart` → `PushMesaji.olay`).
+            self::SiparisIptalTalebi, self::SiparisIptalReddedildi => 'siparis_iptal_onayi',
             self::YeniCihaz => 'yeni_cihaz',
         };
     }

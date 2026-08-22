@@ -49,7 +49,7 @@ void main() {
           sahipAdi: 'Mehmet Usta',
           onMenu: () {},
           onSekme: (_) {},
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onBorclular: () {},
           onBildirimler: () {},
           onArama: (_) {},
@@ -91,7 +91,7 @@ void main() {
           sahipAdi: 'Bayi',
           onMenu: () {},
           onSekme: gidilen.add,
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onBorclular: () => borclular++,
           onBildirimler: () {},
           onArama: (_) {},
@@ -128,7 +128,7 @@ void main() {
           sahipAdi: 'Bayi',
           onMenu: () {},
           onSekme: (_) {},
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onBorclular: () {},
           onBildirimler: () {},
           onArama: (_) {},
@@ -186,7 +186,7 @@ void main() {
           sahipAdi: 'Bayi',
           onMenu: () {},
           onSekme: gidilen.add,
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onBorclular: () {},
           onBildirimler: () {},
           onArama: (_) {},
@@ -221,7 +221,7 @@ void main() {
             sahipAdi: 'Bayi',
             onMenu: () {},
             onSekme: (_) {},
-            onYeniSiparis: () {},
+            onCagrilar: () {},
             onBorclular: () {},
           onBildirimler: () {},
             onArama: yakalanan.add,
@@ -373,7 +373,7 @@ void main() {
             sahipAdi: 'Mehmet Usta',
             onMenu: () {},
             onSekme: (_) {},
-            onYeniSiparis: () {},
+            onCagrilar: () {},
             onBorclular: () {},
           onBildirimler: () {},
             onArama: (_) {},
@@ -440,7 +440,7 @@ void main() {
           sahipAdi: 'Mehmet Usta',
           onMenu: () {},
           onSekme: (_) {},
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onBorclular: () {},
           onBildirimler: () {},
           onArama: (_) {},
@@ -448,6 +448,43 @@ void main() {
         ),
       );
       expect(find.text('Bağlantı kontrol ediliyor'), findsOneWidget);
+      await kapat(tester);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════════════════
+  // BİRİNCİL EYLEM — "Yeni Sipariş" değil "Ekip Çağrıları" (kullanıcı kararı 2026-08-22)
+  // ═══════════════════════════════════════════════════════════════════════════════════════
+
+  group('Ana ekran birincil eylemi', () {
+    testWidgets('düğme EKİP ÇAĞRILARINA gider, sipariş formuna DEĞİL', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      var cagrilar = 0;
+
+      await ekranaKoy(
+        tester,
+        AnaEkran(
+          db: db,
+          sahipAdi: 'Mehmet Usta',
+          onMenu: () {},
+          onSekme: (_) {},
+          onCagrilar: () => cagrilar++,
+          onBorclular: () {},
+          onBildirimler: () {},
+          onArama: (_) {},
+          onSiparisAc: (_) {},
+        ),
+      );
+
+      // ESKİ ETİKET GERİ GELMEMELİ: sipariş açmanın iki yolu zaten var (alttaki artı düğmesi
+      // ve çağrı kartı), çağrı geçmişinin hiç kısayolu yoktu.
+      expect(find.text('Yeni Sipariş'), findsNothing);
+      expect(find.text('Ekip Çağrıları'), findsOneWidget);
+
+      await tester.tap(find.text('Ekip Çağrıları'));
+      await tester.pump();
+      expect(cagrilar, 1);
+
       await kapat(tester);
     });
   });

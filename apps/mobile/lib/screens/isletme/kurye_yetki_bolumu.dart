@@ -1,4 +1,4 @@
-// KURYE YETKİLERİ — 13 satırlık Genel Yetki Matrisi TANIMI ve kiracı düzeyi bölüm widget'ı.
+// KURYE YETKİLERİ — 14 satırlık Genel Yetki Matrisi TANIMI ve kiracı düzeyi bölüm widget'ı.
 //
 // [kuryeYetkiSatirlari] TEK KAYNAKTIR ve İKİ KİP birden onu okur:
 //   • VARSAYILAN kipi (`tenant_settings`) — `oku`/`yaz`, iki durumlu.
@@ -147,6 +147,18 @@ const List<KuryeYetkiSatiri> kuryeYetkiSatirlari = [
 
   // 4. Müşteri & KVKK / İletişim
   KuryeYetkiSatiri(
+    anahtar: 'tum_musteriler',
+    kategori: 'Müşteri ve Gizlilik',
+    etiket: 'Tüm müşterileri görebilir',
+    // AÇIKLAMA KAPALI HÂLİ ANLATIR ("tum_siparisler" satırıyla aynı kalıp): bayi bir anahtarı
+    // kapatmadan önce kapattığında ne olacağını okumalı.
+    aciklama: 'Kapalıyken yalnız kendi siparişlerinin müşterilerini görür',
+    oku: _tumMusterilerOku,
+    yaz: _tumMusterilerYaz,
+    ezmeOku: _tumMusterilerEzmeOku,
+    ezmeYaz: _tumMusterilerEzmeYaz,
+  ),
+  KuryeYetkiSatiri(
     anahtar: 'telefon_maskeleme',
     kategori: 'Müşteri ve Gizlilik',
     etiket: 'Müşteri telefonlarını maskele',
@@ -216,6 +228,7 @@ bool _musteriGecmisDefteriOku(KuryeIzinleri i) => i.musteriGecmisDefteri;
 bool _borcHatirlatmaOku(KuryeIzinleri i) => i.borcHatirlatma;
 bool _stokPasiflemeOku(KuryeIzinleri i) => i.stokPasifleme;
 bool _cagriGunluguOku(KuryeIzinleri i) => i.cagriGunlugu;
+bool _tumMusterilerOku(KuryeIzinleri i) => i.tumMusteriler;
 
 // Yazma yardımcıları
 KuryeIzinleri _musteriYaz(KuryeIzinleri i, bool v) => _kopyala(i, musteri: v);
@@ -231,6 +244,7 @@ KuryeIzinleri _musteriGecmisDefteriYaz(KuryeIzinleri i, bool v) => _kopyala(i, m
 KuryeIzinleri _borcHatirlatmaYaz(KuryeIzinleri i, bool v) => _kopyala(i, borcHatirlatma: v);
 KuryeIzinleri _stokPasiflemeYaz(KuryeIzinleri i, bool v) => _kopyala(i, stokPasifleme: v);
 KuryeIzinleri _cagriGunluguYaz(KuryeIzinleri i, bool v) => _kopyala(i, cagriGunlugu: v);
+KuryeIzinleri _tumMusterilerYaz(KuryeIzinleri i, bool v) => _kopyala(i, tumMusteriler: v);
 
 // ── KİŞİYE ÖZEL EZME okuma yardımcıları (null = devral) ─────────────────────────────────────
 bool? _musteriEzmeOku(KuryeIzinEzmeleri e) => e.musteri;
@@ -246,6 +260,7 @@ bool? _musteriGecmisDefteriEzmeOku(KuryeIzinEzmeleri e) => e.musteriGecmisDefter
 bool? _borcHatirlatmaEzmeOku(KuryeIzinEzmeleri e) => e.borcHatirlatma;
 bool? _stokPasiflemeEzmeOku(KuryeIzinEzmeleri e) => e.stokPasifleme;
 bool? _cagriGunluguEzmeOku(KuryeIzinEzmeleri e) => e.cagriGunlugu;
+bool? _tumMusterilerEzmeOku(KuryeIzinEzmeleri e) => e.tumMusteriler;
 
 // ── KİŞİYE ÖZEL EZME yazma yardımcıları ─────────────────────────────────────────────────────
 KuryeIzinEzmeleri _musteriEzmeYaz(KuryeIzinEzmeleri e, bool? v) => _ezmeKopyala(e, musteri: v);
@@ -269,6 +284,8 @@ KuryeIzinEzmeleri _stokPasiflemeEzmeYaz(KuryeIzinEzmeleri e, bool? v) =>
     _ezmeKopyala(e, stokPasifleme: v);
 KuryeIzinEzmeleri _cagriGunluguEzmeYaz(KuryeIzinEzmeleri e, bool? v) =>
     _ezmeKopyala(e, cagriGunlugu: v);
+KuryeIzinEzmeleri _tumMusterilerEzmeYaz(KuryeIzinEzmeleri e, bool? v) =>
+    _ezmeKopyala(e, tumMusteriler: v);
 
 /// "Bu alana dokunma" nöbetçisi. Ezmelerde `null` GEÇERLİ bir değerdir (= devral), bu yüzden
 /// [_kopyala]'daki `yeni ?? mevcut` deseni burada KULLANILAMAZ: bir yetkiyi varsayılana
@@ -290,6 +307,7 @@ KuryeIzinEzmeleri _ezmeKopyala(
   Object? borcHatirlatma = _dokunma,
   Object? stokPasifleme = _dokunma,
   Object? cagriGunlugu = _dokunma,
+  Object? tumMusteriler = _dokunma,
 }) =>
     KuryeIzinEzmeleri(
       musteri: identical(musteri, _dokunma) ? e.musteri : musteri as bool?,
@@ -313,6 +331,8 @@ KuryeIzinEzmeleri _ezmeKopyala(
       stokPasifleme:
           identical(stokPasifleme, _dokunma) ? e.stokPasifleme : stokPasifleme as bool?,
       cagriGunlugu: identical(cagriGunlugu, _dokunma) ? e.cagriGunlugu : cagriGunlugu as bool?,
+      tumMusteriler:
+          identical(tumMusteriler, _dokunma) ? e.tumMusteriler : tumMusteriler as bool?,
     );
 
 KuryeIzinleri _kopyala(
@@ -330,6 +350,7 @@ KuryeIzinleri _kopyala(
   bool? borcHatirlatma,
   bool? stokPasifleme,
   bool? cagriGunlugu,
+  bool? tumMusteriler,
 }) =>
     KuryeIzinleri(
       musteri: musteri ?? i.musteri,
@@ -345,6 +366,7 @@ KuryeIzinleri _kopyala(
       borcHatirlatma: borcHatirlatma ?? i.borcHatirlatma,
       stokPasifleme: stokPasifleme ?? i.stokPasifleme,
       cagriGunlugu: cagriGunlugu ?? i.cagriGunlugu,
+      tumMusteriler: tumMusteriler ?? i.tumMusteriler,
     );
 
 /// BAYİ VARSAYILANLARINI düzenleyen gömülü bölüm (kişiye özel ezmeleri DEĞİL — onlar

@@ -94,13 +94,13 @@ void main() {
       );
 
       expect(t.yol, 'gunsonu');
-      expect(bildirimYoluCoz(t.yol), (tur: 'gunsonu', id: null));
+      expect(bildirimYoluCoz(t.yol), (tur: 'gunsonu', id: null, eylem: null));
     });
 
     test('sipariş yolu kabuk tarafından çözülebilir', () {
       // Taşınan ama tüketilemeyen `yol` bu depoda bir kez yaşandı (bildirime dokunmak ana
       // ekranı açıyordu). Sözlük ile kabuk aynı tanıma bakmalı.
-      expect(bildirimYoluCoz('siparisler'), (tur: 'siparisler', id: null));
+      expect(bildirimYoluCoz('siparisler'), (tur: 'siparisler', id: null, eylem: null));
     });
   });
 
@@ -228,7 +228,7 @@ void main() {
       );
 
       expect(t.detay, contains('parolanızı değiştirin'));
-      expect(bildirimYoluCoz(t.yol), (tur: 'cihazlar', id: null));
+      expect(bildirimYoluCoz(t.yol), (tur: 'cihazlar', id: null, eylem: null));
     });
 
     test('ayrıntı verilse bile metin DEĞİŞMEZ — cihaz bilgisi yükte taşınmaz', () {
@@ -245,19 +245,32 @@ void main() {
   });
 
   group('kanal ayarları — ilk doğuşta donar, o yüzden testle kilitli', () {
-    test('heads-up YALNIZ üç kategoride', () {
+    test('heads-up YALNIZ birinin BEKLEDİĞİ dört olayda', () {
       // Cömert değil cimri dağıtılır: heads-up işi böler. Bu listeyi büyütmek, bayinin bir
       // hafta içinde bildirimlerin TAMAMINI kapatmasına giden yoldur.
+      //
+      // ÖLÇÜT: birinin BEKLEDİĞİ bir iş mi? Üçü kuryenin yolunu/işini belirler, biri güvenlik.
+      // `siparisIptalOnayi` 2026-08-22'de eklendi ve ölçüte uyar: kurye MÜŞTERİNİN KAPISINDA
+      // cevap bekliyor.
       final acik = BildirimKategori.values.where((k) => k.headsUp).toSet();
 
       expect(acik, {
         BildirimKategori.siparisAtandi,
         BildirimKategori.siparisIptal,
+        BildirimKategori.siparisIptalOnayi,
         BildirimKategori.yeniCihaz,
       });
     });
 
-    test('HER kategorinin sesi var ve DOKUZU DA FARKLI', () {
+    test('KARAR DÜĞMESİ taşıyan tek kategori iptal onayıdır', () {
+      // "Onayla"/"Reddet" düğmeleri yalnız gerçekten karar verilecek bildirimde olmalı;
+      // her bildirime düğme koymak, bildirimi bir forma çevirir.
+      final kararli =
+          BildirimKategori.values.where((k) => k.kararTasiyabilir).toSet();
+      expect(kararli, {BildirimKategori.siparisIptalOnayi});
+    });
+
+    test('HER kategorinin sesi var ve HEPSİ FARKLI', () {
       // 2026-08-18 (kullanıcı isteği): önceden yalnız atama ve iptal ayırt ediliyordu, kalan
       // yedi kategori sistem varsayılanını çalıyordu — yani "sipariş iptal edildi" ile "gün
       // özeti hazır" kulakta AYNI sesti. Sesin var olma sebebi bildirimi GÖRMEMEK olduğuna

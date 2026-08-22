@@ -67,20 +67,43 @@ void main() {
 
   group('bildirimYoluCoz — dokunma sözlüğü', () {
     test('Faz 1 sözlüğü çözülür', () {
-      expect(bildirimYoluCoz('gunsonu'), (tur: 'gunsonu', id: null));
-      expect(bildirimYoluCoz('musteri/m1'), (tur: 'musteri', id: 'm1'));
+      expect(bildirimYoluCoz('gunsonu'), (tur: 'gunsonu', id: null, eylem: null));
+      expect(bildirimYoluCoz('musteri/m1'), (tur: 'musteri', id: 'm1', eylem: null));
       // Kimlikler UUID; içinde tire var, ilk `/`den sonrası olduğu gibi alınmalı.
       expect(bildirimYoluCoz('musteri/019fa40a-986c-7000-adef-8f3953e64487'),
-          (tur: 'musteri', id: '019fa40a-986c-7000-adef-8f3953e64487'));
+          (tur: 'musteri', id: '019fa40a-986c-7000-adef-8f3953e64487', eylem: null));
+    });
+
+    test('TEK SİPARİŞ yolu çözülür (2026-08-22 — iptal onayı bildirimi)', () {
+      // Eskiden `siparis/<id>` BİLEREK tanınmıyordu ("tüketecek detay ekranı yok"). Gerekçe
+      // düştü: `siparisDetaySheetAc` var ve iptal onayı bildirimi kimliği taşımak ZORUNDA —
+      // karar düğmesinin uygulayacağı kayıt odur.
+      expect(bildirimYoluCoz('siparis/s1'), (tur: 'siparis', id: 's1', eylem: null));
+      expect(bildirimYoluCoz('siparis/019fa40a-986c-7000-adef-8f3953e64487'),
+          (tur: 'siparis', id: '019fa40a-986c-7000-adef-8f3953e64487', eylem: null));
+    });
+
+    test('EYLEM EKİ (#) çözülür — bildirimin İÇİNDEKİ düğme', () {
+      // "Onayla"/"Reddet" düğmeleri Android'e ayrı bir alan olarak GİDER ama geriye tek bir
+      // `payload` dizesiyle döner; ek o yüzden yolun içinde taşınır.
+      expect(bildirimYoluCoz('siparis/s1#iptal_onay'),
+          (tur: 'siparis', id: 's1', eylem: 'iptal_onay'));
+      expect(bildirimYoluCoz('siparis/s1#iptal_ret'),
+          (tur: 'siparis', id: 's1', eylem: 'iptal_ret'));
+      // Boş ek YOK SAYILIR — gövdeye dokunmakla aynı anlama gelir.
+      expect(bildirimYoluCoz('siparis/s1#'), (tur: 'siparis', id: 's1', eylem: null));
+      // Ek, YOLU BOZMAZ: gövdeye dokunuş eski davranışını korur.
+      expect(bildirimYoluCoz('gunsonu#'), (tur: 'gunsonu', id: null, eylem: null));
     });
 
     test('TANINMAYAN yol null döner, İSTİSNA ATMAZ', () {
       // Sözlük Faz 2'de büyüyecek; zamanlanmış eski bir bildirim yeni bir yol taşıyabilir ya da
       // tersi. Bilinmeyen hedef bir hata değil — kullanıcı bulunduğu yerde kalır.
       expect(bildirimYoluCoz('musteriler?suzgec=gecikmis'), isNull);
-      expect(bildirimYoluCoz('siparis/s1'), isNull, reason: 'Faz 1de bağlı değil');
       expect(bildirimYoluCoz('zort'), isNull);
       expect(bildirimYoluCoz('musteri/'), isNull, reason: 'kimliksiz müşteri yolu');
+      expect(bildirimYoluCoz('siparis/'), isNull, reason: 'kimliksiz sipariş yolu');
+      expect(bildirimYoluCoz('#iptal_onay'), isNull, reason: 'yolu olmayan eylem');
     });
 
     test('boş ve null yol null döner', () {

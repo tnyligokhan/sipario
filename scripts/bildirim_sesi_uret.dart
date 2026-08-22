@@ -1,4 +1,4 @@
-// BİLDİRİM SESİ ÜRETİCİSİ — dokuz kategorinin dokuz ayrı tonunu ham PCM hesabıyla sentezler.
+// BİLDİRİM SESİ ÜRETİCİSİ — on kategorinin on ayrı tonunu ham PCM hesabıyla sentezler.
 //
 //     dart run scripts/bildirim_sesi_uret.dart
 //
@@ -198,7 +198,7 @@ List<int> _normalize(List<double> ham) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// Dokuz ses — sıra `BildirimKategori` ile aynıdır, karşılaştırılabilsin
+// On ses — sıra `BildirimKategori` ile aynıdır, karşılaştırılabilsin
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
 const sesler = <BildirimSesi>[
@@ -217,6 +217,18 @@ const sesler = <BildirimSesi>[
     aciklama: 'siparisIptal — "işin geri alındı". ALÇALAN, kuru elektronik tını.',
     tini: Tini.elektronik,
     notalar: [Nota(e6), Nota(c6), Nota(a5, saniye: 0.20, araSaniye: 0)],
+  ),
+
+  BildirimSesi(
+    dosyaAdi: 'iptal_onayi',
+    aciklama: 'siparisIptalOnayi — "senden karar bekleniyor". SORU DESENİ: iki nota YUKARI, '
+        'sonuncusu uzun ve asılı kalır — konuşmada soru tonlaması budur ve cevap beklediğini '
+        'kelimeye gerek kalmadan söyler. Zil tınısı `yeni_is` ile ortak ama desen farklı: o '
+        'üç notalı bir arpej, bu iki notalı ve ikincisi çok daha uzun. '
+        '⚠️ `iptal` İLE KARIŞTIRILAMAZ: o alçalır ve kurudur, bu yükselir ve parlaktır — '
+        'ikisi karışırsa patron talebi "iptal oldu" sanıp hiç cevap vermez.',
+    tini: Tini.zil,
+    notalar: [Nota(a5, saniye: 0.10, araSaniye: 0.05), Nota(d6, saniye: 0.34, araSaniye: 0)],
   ),
 
   // ── Yöneticiye giden olaylar ──────────────────────────────────────────────────────────

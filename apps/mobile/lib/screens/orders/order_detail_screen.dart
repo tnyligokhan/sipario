@@ -16,7 +16,6 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
-import '../../repo/order_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
@@ -24,7 +23,7 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../customers/customer_form_screen.dart' show musteriDuzenleSheet;
-import '../team.dart';
+import 'iptal_onayi.dart';
 import 'order_detail_basligi.dart';
 import 'order_detail_eylemler.dart';
 import 'order_detail_parts.dart';
@@ -188,6 +187,10 @@ class _Govde extends StatelessWidget {
           duzenlenebilir: _duzenlenebilir,
         ),
 
+        // ── Bekleyen iptal talebi (2026-08-22) ────────────────────────────────────────────
+        // BANT EN ÜSTTE: bildirime dokunup gelen patronun karar düğmesini araması gerekmez.
+        IptalTalebiBandi(db: db, order: order, writable: writable),
+
         // ── Kalemler ──────────────────────────────────────────────────────────────────────
         SdxSec(
           'Sipariş Kalemleri',
@@ -285,10 +288,14 @@ class _Govde extends StatelessWidget {
           const SizedBox(height: 18),
           Row(
             children: [
+              // ETİKET VE DAVRANIŞ YETKİYE BAĞLI (2026-08-22): yönetici "İptal Et" görür ve
+              // iptal eder, kurye "İptal İste" görür ve patronun onayına düşen bir talep
+              // açar. Karar `iptal_onayi.dart`ta — bu ekran yalnız yerini verir.
               Expanded(
-                child: YumusakTehlikeButonu(
-                  etiket: 'İptal Et',
-                  onTap: () => _iptalEt(context),
+                child: IptalButonu(
+                  db: db,
+                  orderId: order.id,
+                  onBitti: () => Navigator.of(context).maybePop(),
                 ),
               ),
               const SizedBox(width: SipSpace.md),
@@ -349,24 +356,7 @@ class _Govde extends StatelessWidget {
     }
   }
 
-  Future<void> _iptalEt(BuildContext context) async {
-    final yetki = await oturumYetkileri(db);
-    if (!context.mounted) return;
-    if (!yetki.siparisIptal) {
-      SipToast.goster(context, 'Sipariş iptal etme yetkiniz yok');
-      return;
-    }
-    final onay = await sipOnay(
-      context,
-      baslik: 'Sipariş iptal edilsin mi?',
-      mesaj: 'Kayıt silinmez, iptal olarak işaretlenir',
-      onayEtiketi: 'İptal Et',
-      tehlike: true,
-    );
-    if (!onay || !context.mounted) return;
-    await OrderRepository(db).cancel(order.id);
-    if (!context.mounted) return;
-    SipToast.goster(context, 'Sipariş iptal edildi');
-    Navigator.of(context).maybePop();
-  }
+  // `_iptalEt` BURADAN KALKTI (2026-08-22) → `iptal_onayi.dart` → [IptalButonu]. Yetki kapısı
+  // artık DÜĞMENİN ETİKETİNDE de yaşıyor: yapamayacağı işi vaat eden bir düğmeye dokunup
+  // reddi okumak, kuryeye "uygulama bozuk" dedirtiyordu.
 }

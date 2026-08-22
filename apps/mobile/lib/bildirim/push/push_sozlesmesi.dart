@@ -34,7 +34,7 @@ class PushEkBilgi {
 
 /// Sunucudan gelen dürtünün çözülmüş hâli.
 class PushMesaji {
-  const PushMesaji({required this.kategori, required this.varlikId});
+  const PushMesaji({required this.kategori, required this.varlikId, this.olay});
 
   /// Hangi olay — doğrudan bir bildirim kategorisidir (sunucu `kategori` alanında yollar).
   final BildirimKategori kategori;
@@ -43,15 +43,35 @@ class PushMesaji {
   /// ayrıntı okumak ve aynı olayın ikinci dürtüsünü ÜZERİNE YAZMAK için kullanılır.
   final String varlikId;
 
+  /// SUNUCUNUN OLAY ADI (`app/Bildirim/PushOlayi.php` → `value`) — yükte `olay` alanı.
+  ///
+  /// 2026-08-22'DE OKUNMAYA BAŞLANDI ve alan yükte İLK GÜNDEN BERİ VARDI. Gerekmesinin sebebi
+  /// bir kategorinin İKİ YÖNÜ olabilmesi: `siparis_iptal_onayi` hem "kurye iptal istedi"
+  /// (yöneticiye) hem "talebin reddedildi" (kuryeye) dürtüsünü taşır ve metinleri terstir.
+  /// Kategoriyi ikiye bölmek ayarlar listesini uzatırdı; `olay`ı okumak bedavaydı.
+  ///
+  /// `null` OLABİLİR: eski sunucu ya da tanınmayan bir değer. O zaman kategori genel metnine
+  /// düşülür — bilinmeyen bir yön, bildirimi hiç göstermemek için yeterli sebep değildir.
+  final String? olay;
+
   @override
   bool operator ==(Object other) =>
-      other is PushMesaji && other.kategori == kategori && other.varlikId == varlikId;
+      other is PushMesaji &&
+      other.kategori == kategori &&
+      other.varlikId == varlikId &&
+      other.olay == olay;
 
   @override
-  int get hashCode => Object.hash(kategori, varlikId);
+  int get hashCode => Object.hash(kategori, varlikId, olay);
 
   @override
-  String toString() => 'PushMesaji(${kategori.wire}, $varlikId)';
+  String toString() => 'PushMesaji(${kategori.wire}, $varlikId, ${olay ?? '-'})';
+}
+
+/// Sunucunun `olay` değerleri — SÖZLEŞME (`app/Bildirim/PushOlayi.php` ile birebir).
+abstract final class PushOlayAdi {
+  static const String iptalTalebi = 'siparis_iptal_talebi';
+  static const String iptalReddedildi = 'siparis_iptal_reddedildi';
 }
 
 /// FCM `data` haritasını çözer. TANINMAYAN/BOZUK YÜK `null` DÖNER, İSTİSNA ATMAZ.
@@ -72,7 +92,13 @@ PushMesaji? pushMesajiCoz(Map<String, dynamic>? veri) {
   // ya da kötü niyetli bir yüktür. İkisinde de doğru davranış yok saymaktır.
   if (!pushIleGelebilir(kategori)) return null;
 
-  return PushMesaji(kategori: kategori, varlikId: id);
+  final olay = '${veri['olay'] ?? ''}'.trim();
+
+  return PushMesaji(
+    kategori: kategori,
+    varlikId: id,
+    olay: olay.isEmpty ? null : olay,
+  );
 }
 
 /// Sunucudan itilebilecek kategoriler. Beyaz liste — kara liste değil: yeni bir yerel kategori
@@ -82,6 +108,7 @@ bool pushIleGelebilir(BildirimKategori k) => switch (k) {
       BildirimKategori.siparisIptal ||
       BildirimKategori.siparisTeslim ||
       BildirimKategori.kasaDevri ||
+      BildirimKategori.siparisIptalOnayi ||
       BildirimKategori.yeniCihaz =>
         true,
       _ => false,
@@ -131,6 +158,29 @@ BildirimTaslagi pushTaslagi(PushMesaji m, {String? ayrinti, String? detaySatiri}
         'Hesabınız yeni bir telefonda açıldı',
         'cihazlar',
       ),
+    /*
+     * İPTAL ONAYI — TEK KATEGORİ, İKİ YÖN. Ayrımı yükteki `olay` yapar (bkz. [PushMesaji.olay]).
+     *
+     * YOL KİMLİK TAŞIR (`siparis/<id>`): karar düğmesinin uygulayacağı kayıt odur ve talebi
+     * gören patron listeye değil doğrudan o siparişe gitmeli — bekleyen talep bir liste
+     * içinde aranacak şey değildir.
+     *
+     * `olay` TANINMAZSA TALEP VARSAYILIR: eski sunucu bu kategoriyi zaten hiç göndermez, yani
+     * buraya yalnız yeni sunucudan gelinir; bilinmeyen bir değerde "bir iş bekliyor" demek,
+     * "bir şey oldu" demekten yararlıdır.
+     */
+    BildirimKategori.siparisIptalOnayi =>
+      m.olay == PushOlayAdi.iptalReddedildi
+          ? (
+              'İptal talebiniz reddedildi',
+              ek.isEmpty ? 'Sipariş açık kalmaya devam ediyor' : '$ek siparişi açık kalıyor',
+              'siparis/${m.varlikId}',
+            )
+          : (
+              'İptal onayı bekliyor',
+              ek.isEmpty ? 'Kurye bir siparişi iptal etmek istiyor' : '$ek siparişi için iptal istendi',
+              'siparis/${m.varlikId}',
+            ),
     // Beyaz liste dışı kategori buraya ULAŞAMAZ (`pushMesajiCoz` eler); yine de dilin
     // tümlük şartı için nötr bir karşılık — çökmek yerine anlamsız ama zararsız bildirim.
     _ => ('Sipario', 'Yeni bir işlem var', 'siparisler'),
@@ -146,6 +196,9 @@ BildirimTaslagi pushTaslagi(PushMesaji m, {String? ayrinti, String? detaySatiri}
     // ve günlük bütçeden ikinci kez düşülmez.
     kimlik: bildirimKimligi(m.kategori, m.varlikId),
     yol: yol,
+    // KARAR DÜĞMELERİ YALNIZ TALEPTE: ret bir bilgidir, kuryenin verecek kararı yoktur.
+    kararIster: m.kategori == BildirimKategori.siparisIptalOnayi &&
+        m.olay != PushOlayAdi.iptalReddedildi,
   );
 }
 

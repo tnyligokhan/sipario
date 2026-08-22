@@ -123,6 +123,7 @@ class TenantSettingsRepository {
       'courier_can_debt_reminder': izin.borcHatirlatma,
       'courier_can_toggle_stock': izin.stokPasifleme,
       'courier_can_call_log': izin.cagriGunlugu,
+      'courier_can_see_all_customers': izin.tumMusteriler,
       'order_code_display': kodTercihi,
       'prepared_products': hazirlanan,
     };
@@ -156,6 +157,7 @@ class TenantSettingsRepository {
             courierCanDebtReminder: Value(izin.borcHatirlatma),
             courierCanToggleStock: Value(izin.stokPasifleme),
             courierCanCallLog: Value(izin.cagriGunlugu),
+            courierCanSeeAllCustomers: Value(izin.tumMusteriler),
             orderCodeDisplay: Value(kodTercihi),
             preparedProducts: Value(hazirlanan),
             updatedOccurredAt: Value(at),

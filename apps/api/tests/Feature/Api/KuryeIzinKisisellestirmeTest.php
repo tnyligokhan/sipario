@@ -306,6 +306,43 @@ class KuryeIzinKisisellestirmeTest extends ApiTestCase
             User::kuryeIzinKolonlari(),
             'Kişisel yetki listesi bayi varsayılan listesinden ıraksadı.'
         );
-        $this->assertCount(13, User::kuryeIzinKolonlari());
+        $this->assertCount(14, User::kuryeIzinKolonlari());
+    }
+
+    /**
+     * MÜŞTERİ GÖRÜNÜRLÜĞÜ — `courier_can_see_all_customers` (kullanıcı kararı 2026-08-22).
+     *
+     * Yeni bir yetkinin telefona ulaşması ÜÇ listeye birden bağlıdır ve üçü de sessizdir:
+     * `TenantSetting::KURYE_IZINLERI` (uygulayıcının dolaştığı liste), `User::kuryeIzinKolonlari`
+     * (kişisel ezme + team bloğu) ve mobil ayrıştırıcı. Biri eksik kalırsa alan yazılmaz,
+     * yayınlanmaz ve hiçbir yerde hata vermez — "sunucuda doğru duran ama inmeyen alan YOKTUR".
+     */
+    #[Test]
+    public function musteri_gorunurlugu_yetkisi_uctan_uca_akar(): void
+    {
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+
+        // 1. BAYİ VARSAYILANI: kapalı doğar (istek kısıtlamanın kendisiydi).
+        $this->assertFalse(TenantSetting::KURYE_IZINLERI['courier_can_see_all_customers']);
+
+        // 2. KİŞİYE ÖZEL EZME yazılır ve `team` bloğuyla yayınlanır.
+        $yanit = $this->pushEvents($token, [$this->userProfileUpsert([
+            'id' => $a['kurye']->id,
+            'name' => 'A Kurye',
+            'courier_can_see_all_customers' => true,
+        ])]);
+        $yanit->assertJsonPath('results.0.status', 'applied');
+
+        /** @var User $taze */
+        $taze = $this->asOwner(fn () => User::query()->findOrFail($a['kurye']->id));
+        $this->assertTrue($taze->courier_can_see_all_customers);
+
+        $kurye = collect($yanit->json('team'))->firstWhere('id', $a['kurye']->id);
+        $this->assertTrue($kurye['courier_can_see_all_customers'],
+            'Yetki team bloğunda yayınlanmazsa kuryenin telefonu onu ASLA öğrenemez.');
+
+        // 3. DEVRALMA korunur: gönderilmeyen anahtar null kalır.
+        $this->assertNull($taze->courier_can_collect);
     }
 }

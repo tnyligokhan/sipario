@@ -269,7 +269,140 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-22 — TEK HESAP = TEK CİHAZ (mobil 0.41.1 → **0.42.0**, API 1.13.0 → **1.14.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-22/2 — BEŞ SAHA MADDESİ (mobil 0.42.0 → **0.47.0**, API 1.14.0 → **1.16.0**)
+
+Kullanıcı beş madde verdi, beşi de kapandı. Her biri kendi MINOR artışını aldı (SemVer kuralı:
+"birden çok iş kolu aynı vardiyada bitiyorsa her biri kendi artışını alır").
+
+#### ⭐ 1 · Katalogda adet artık karonun içinde (0.43.0)
+
+Seçeneksiz üründe adet sheet'i KALKTI: karoya dokunmak bir adedi doğrudan sepete koyuyor,
+karonun altındaki `[−] adet [+]` şeridiyle sepetten çıkmadan değiştiriliyor. Malzemesi olan
+üründe eski sheet AYNEN duruyor ("soğansız olsun" karoya sığmaz).
+
+Şerit İKİ HÂLLİ ve bu, 103 px'lik karonun tek çözümüydü: üç düğmeyi baştan yan yana koymak her
+birini ~20 px'e düşürürdü. Görsel oranı 5/4 → 8/5, `childAspectRatio` 0.68 → 0.60.
+
+**Katalog sepeti TUTMAZ, delta bildirir** — sıfıra inen satırı silmek çağıranın işi.
+
+#### ⭐ 2 · Kurye müşteri görünürlüğü yetkiye bağlandı (0.44.0 · API 1.15.0)
+
+`courier_can_see_all_customers` (migration 004018, mobil şema **v27**). Kapalıyken kurye yalnız
+ATANDIĞI ya da TESLİM ETTİĞİ siparişlerin müşterilerini görür. Kapsam ARAMAYA da uygulanır.
+
+⚠️ **VARSAYILAN KAPALI — sahadaki kuryelerin müşteri listesi bu sürümle DARALIR.** İsteğin
+kendisi kısıtlamaydı. İstemeyen bayi Ayarlar → Kurye Yetkileri → "Tüm müşterileri görebilir"
+ile tek anahtarla eski davranışa döner.
+
+**YAN BULGU (ölçüldü, düzeltildi):** `sync_cekme.dart`ın `tenant_settings` uygulayıcısı 13 kurye
+yetkisinin yalnız BEŞİNİ okuyordu; kalan sekizi v15'te şemaya girmiş ama uygulayıcıya hiç
+bağlanmamıştı. Yani patronun açtığı bir kurye yetkisi sunucuya gidiyor, kuryenin telefonuna
+İNMİYORDU ve hiçbir yerde hata yoktu. Sekizi de bağlandı.
+
+#### ⭐ 3 · Ana ekranın birincil eylemi değişti (0.45.0)
+
+"Yeni Sipariş" → **"Ekip Çağrıları"**. Sipariş açmanın zaten iki yolu vardı (alttaki artı ve
+çağrı kartı); "dükkânı kim aradı" sorusunun hiç kısayolu yoktu. İkon ahizeye döndü.
+
+#### ⭐ 4 · İptal onay akışı (0.46.0 · API 1.16.0)
+
+Kurye **İptal İster** → sipariş AÇIK KALIR → patron **Onayla/Reddet**. İki yeni sipariş olayı
+(`cancel_requested` · `cancel_rejected`); yeni kolon YOK, durum olay geçmişinden türetiliyor.
+Onayın ayrı olayı yok — onay `cancelled` üretir.
+
+Bildirim yöneticilere gider ve **İÇİNDE "Onayla"/"Reddet" düğmeleri vardır**; düğme kararı arka
+planda uygulamaz, uygulamayı öne getirir (arka plan isolate'i SQLite'a yazmaz). Ret, talebi AÇAN
+kuryeye gider. Sipariş detayında da aynı karar bandı var.
+
+#### ⭐ 5 · Heads-up ölçülebilir oldu (0.47.0)
+
+**Kod tarafı zaten kuruluydu** — kategoriler `IMPORTANCE_HIGH` kanalla doğuyor. Eksik olan,
+çalışıp çalışmadığını GÖSTEREN yüzeydi: Android'de kanal önemi doğduktan sonra yalnız KULLANICI
+değiştirebilir ve Xiaomi/MIUI'de "kayan bildirim" uygulama başına kapalı gelebilir.
+
+İki native uç eklendi (`notificationChannels` ölçer, `openNotificationChannelSettings` düzeltme
+ekranını açar) ve Ayarlar → Bildirimler artık tahmin etmiyor: kapalı kategori "Ekranın üstünde
+belirmiyor" der ve ayarı tek dokunuşla açar. **"Bildirimi dene" düğmesi** gerçek kanaldan gerçek
+bir bildirim çıkarır — heads-up'ın çalıştığının tek kanıtı budur.
+
+Heads-up listesi bir ölçüte bağlandı ("birinin BEKLEDİĞİ bir iş mi?"); yeni `siparisIptalOnayi`
+o ölçüte uyduğu için heads-up doğdu. **Mevcut kanalların önemi DEĞİŞMEDİ** — kimsenin sistem
+ayarı sıfırlanmadı.
+
+#### ⚠️ ÜÇ TUZAK — üçü de ölçülerek bulundu
+
+**1 · YENİ BİR SİPARİŞ OLAYININ DÖRT YERİ VAR, DÖRDÜNCÜSÜ ŞEMADA.**
+`cancel_requested` `EventValidator::OPS`e eklendi, `OrderChangeApplier`ın `match`ine dal
+kondu, mobil taraf yazıldı — ve olay yine `rejected` döndü. Yanıt `reason: "invalid_data"`
+diyordu, yani "kodun bir yerinde InvalidArgumentException". **İstisna PHP'de değil
+POSTGRES'teydi:** `order_events.event_type` bir CHECK kısıtı taşıyor (000207'de doğdu, iki kez
+genişletildi) ve listede olmayan tür INSERT'te 23514 ile düşüyor. Migration 004019 eklendi.
+Yeni sipariş olayı ekleyen herkes bu dördüncü yeri arasın.
+
+**2 · `artisan test`i `DB_USERNAME=sipario_owner` ile KOŞMAYIN.** Migration owner ister ama
+TESTLER `sipario_app` ile koşmalı: owner RLS'i baypas eder ve 65 izolasyon testi SAHTE kırmızı
+verir. Doğru sıra: **migration owner ezmesiyle, takım ezmesiz.** Ayrıca testte `Order::find`
+ve `assertDatabaseHas` gibi doğrudan okumalar `asOwner(...)` içine alınmalı — test sürecinde
+kiracı bağlamı yoktur (o, HTTP isteğinin katmanında kurulur), bağlamsız okuma "tablo boş" der.
+
+**3 · `surum_notlari_test` yöntemi değişti.** Sürüm başına `scrollUntilVisible` çağıran döngü,
+liste 38'den 43 kayda çıkınca ORTADA kilitlendi. Sebep ekranda değil yöntemdeydi: tembel
+listede `maxScrollExtent` bir TAHMİNDİR ve `ensureVisible`ın her hedefte yaptığı geri
+konumlandırma tahmini oynatıyor (ölçüldü: 8779 → 8058). Artık tek geçişli sürükleme taraması
+var; liste uzadıkça kırılmaz.
+
+#### 500 satır kuralı — beş dosya bölündü
+
+Bu vardiya üç dosyayı sınırın üstüne çıkardı, ikisi zaten sınırdaydı. Hepsi `part` ile bölündü,
+yani **hiçbir çağrı yeri ve hiçbir import değişmedi**:
+
+| Dosya | Önce → Sonra | Ayrılan |
+|---|---|---|
+| `pos_catalog.dart` | 629 → 352 | `pos_karosu.dart` (karo + eylem şeridi) |
+| `customer_list_screen.dart` | 553 → 372 | `customer_list_sorgulari.dart` |
+| `team.dart` | 524 → 79 | `team_yetkileri.dart` (rol matrisi + devralma) |
+| `bildirim_sozlesmesi.dart` | 593 → 434 | `bildirim_taslagi.dart` (taslak + `yol` sözlüğü) |
+| `order_repository.dart` | 520 → 487 | `order_repository_iptal.dart` (extension) |
+
+⚠️ **HÂLÂ SINIRIN ÜSTÜNDE OLAN DÖRT DOSYA VAR ve dördü de bu vardiyadan ÖNCE öyleydi**
+(dokunulmadı): `surum_notlari.dart` 615 (her yayında büyüyen bir VERİ listesi — arşiv ayrımı
+ayrı bir iş), `gun_kapatma_sheet.dart` 550, `gecmis_gun_ekrani.dart` 541, `login_screen.dart`
+505. `app_database_gocler.dart` 504'te ve **sınırda**: bir sonraki migration onu aşıracak,
+o vardiyada göç adımlarının ayrılması gerekecek.
+
+#### Ölçümler (bizzat koşuldu)
+
+`flutter analyze` temiz · `flutter test` **+1511 −0** (taban +1470 −0 idi) ·
+`flutter build apk --release --flavor saha` **YEŞİL** (43,4 MB) · `pint` temiz ·
+`phpstan` 0 hata · `artisan test` **+925 −0** (4616 iddia; taban +913 −0 idi).
+
+⚠️ **BU SAYIYA ULAŞMAK ÜÇ KOŞUM ALDI ve ilk ikisi SAHTEYDİ** — ikisi de ortam hatasıydı, kod
+hatası değil: birincisi `DB_USERNAME=sipario_owner` ezmesiyle koştuğu için 65 RLS testini
+düşürdü, ikincisi ben aynı anda `--filter` ile ikinci bir koşum başlattığım için `TRUNCATE`
+çakışması yaşadı (61 kırmızı, hepsi alakasız dosyalarda). **Tam takım koşarken o veritabanına
+BAŞKA HİÇBİR ŞEY dokunmamalı.**
+
+**APK İÇERİĞİ AYRICA DOĞRULANDI** (bu depodaki dördüncü kapı — "derleme ≠ paketlenmiş içerik"):
+APK zip olarak açıldı, `res/*.wav` **10 dosya** çıktı ve boyutlar `res/raw` ile birebir eşleşti;
+yeni ses `iptal_onayi.wav` (21 654 bayt) `res/lr.wav` olarak paketlenmiş.
+
+#### Sıradaki işler
+
+1. **Deploy sırası pazarlıksız: sunucu ÖNCE, mobil sonra.** Tersi olursa kuryenin açtığı iptal
+   talebi `unknown_op` ile reddedilir ve outbox satırı kalıcı hata alır. Sunucu tarafında
+   migration 004018 + 004019 koşmalı.
+2. **Heads-up'ı gerçek cihazda dene:** Ayarlar → Bildirimler → "Dene". MIUI'de kapalıysa uyarı
+   satırı çıkmalı ve "Ayarı aç" doğru ekrana gitmeli — bu yolun CİHAZ kanıtı henüz yok
+   (widget testi Android'in bildirim gölgesini göremez).
+3. **İptal onayı bildiriminin düğmeleri de cihazda denenmeli:** "Onayla"/"Reddet"
+   `showsUserInterface: true` ile uygulamayı öne getirir; uygulama ÖLÜYKEN basıldığında
+   kararın uygulanıp uygulanmadığı ölçülmedi.
+4. Pilotta sorulacak: kurye müşteri kısıtı bayiler için doğru varsayılan mı (varsayılan KAPALI
+   geldi ve bu sahadaki davranışı değiştiriyor).
+
+---
+
+### 🔻 ÖNCEKİ DEVİR NOTU — 2026-08-22 — TEK HESAP = TEK CİHAZ (mobil 0.41.1 → **0.42.0**, API 1.13.0 → **1.14.0**)
 
 Tek istek: "bir kullanıcı farklı bir cihazdan giriş yaptığında diğer cihazlardan otomatik çıkış".
 

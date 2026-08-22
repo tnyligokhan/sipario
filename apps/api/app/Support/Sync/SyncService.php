@@ -499,7 +499,7 @@ class SyncService
      * BU BİR PII SIZMASI DEĞİLDİR: yetkiler bayinin KENDİ yapılandırmasıdır (müşteri verisi ya da
      * kimlik bilgisi değil) ve liste zaten aynı bayinin kendi ekibini taşır.
      *
-     * @return list<array{id: string, name: string, role: string, status: string, phone: string|null, username: string, courier_can_customers: bool|null, courier_can_orders: bool|null, courier_can_collect: bool|null, courier_can_discount: bool|null, courier_can_day_end: bool|null, courier_can_see_all_orders: bool|null, courier_can_view_history: bool|null, courier_can_expense: bool|null, courier_phone_mask: bool|null, courier_can_customer_ledger: bool|null, courier_can_debt_reminder: bool|null, courier_can_toggle_stock: bool|null, courier_can_call_log: bool|null}>
+     * @return list<array{id: string, name: string, role: string, status: string, phone: string|null, username: string, courier_can_customers: bool|null, courier_can_orders: bool|null, courier_can_collect: bool|null, courier_can_discount: bool|null, courier_can_day_end: bool|null, courier_can_see_all_orders: bool|null, courier_can_view_history: bool|null, courier_can_expense: bool|null, courier_phone_mask: bool|null, courier_can_customer_ledger: bool|null, courier_can_debt_reminder: bool|null, courier_can_toggle_stock: bool|null, courier_can_call_log: bool|null, courier_can_see_all_customers: bool|null}>
      */
     private function teamPayload(): array
     {

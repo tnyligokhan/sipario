@@ -1,7 +1,9 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
+import 'package:sipario/screens/customers/customer_list_screen.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
 import 'package:sipario/screens/team.dart';
 
@@ -108,6 +110,137 @@ void main() {
 
       expect(find.text('Başkasının Müşterisi'), findsOneWidget,
           reason: 'yetki yoksa ekran eski davranışını korur — kısıtlamayı KABUK verir');
+
+      await ekraniKapat(tester);
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  // MÜŞTERİ LİSTESİ KAPSAMI (kullanıcı kararı 2026-08-22)
+  //
+  // Sipariş listesindeki kısıtın MÜŞTERİ tarafındaki ikizi. Bugüne kadar kurye bayinin müşteri
+  // defterinin TAMAMINI görüyordu ve bunu kapatacak bir anahtar yoktu.
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+
+  group('müşteri listesi · kurye kendi işinin müşterileriyle sınırlı', () {
+    /// Üç müşteri: birine kurye ATANDI, birini kurye TESLİM ETTİ, biri hiç ilgisiz.
+    ///
+    /// İkinci durum testin asıl sebebidir: atama sonradan başkasına geçebilir, ama malı
+    /// fiilen kapıya götüren kişi o müşteriyi görmeye devam etmelidir.
+    Future<void> kurMusteri(AppDatabase db) async {
+      for (final (id, ad) in const [
+        ('c1', 'Atanan Müşteri'),
+        ('c2', 'Teslim Ettiğim Müşteri'),
+        ('c3', 'İlgisiz Müşteri'),
+      ]) {
+        await db.into(db.customers).insert(CustomersCompanion.insert(
+            id: id, name: ad, updatedOccurredAt: '2026-08-22T00:00:00.000Z'));
+      }
+      await db.into(db.orders).insert(OrdersCompanion.insert(
+          id: 'o1',
+          customerId: const Value('c1'),
+          assignedUserId: const Value('kurye-1'),
+          occurredAt: '2026-08-22T10:00:00.000Z'));
+      await db.into(db.orders).insert(OrdersCompanion.insert(
+          id: 'o2',
+          customerId: const Value('c2'),
+          assignedUserId: const Value('kurye-2'),
+          deliveredByUserId: const Value('kurye-1'),
+          occurredAt: '2026-08-22T11:00:00.000Z'));
+      await db.into(db.orders).insert(OrdersCompanion.insert(
+          id: 'o3',
+          customerId: const Value('c3'),
+          assignedUserId: const Value('kurye-2'),
+          occurredAt: '2026-08-22T12:00:00.000Z'));
+    }
+
+    testWidgets('yetki KAPALIYKEN kurye yalnız kendi işinin müşterilerini görür',
+        (tester) async {
+      genisYuzey(tester);
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async => await kurMusteri(db));
+
+      await tester.pumpWidget(sipKabuk(CustomerListScreen(
+        db: db,
+        writable: true,
+        userId: 'kurye-1',
+        yetki: kurye, // tumMusterileriGorme = false (varsayılan)
+      )));
+      await akisiBekle(tester);
+
+      expect(find.text('Atanan Müşteri'), findsOneWidget);
+      expect(find.text('Teslim Ettiğim Müşteri'), findsOneWidget,
+          reason: 'atama başkasına geçse de teslim eden kişi müşteriyi görmeye devam eder');
+      expect(find.text('İlgisiz Müşteri'), findsNothing);
+
+      // DARALTMA SESSİZ OLAMAZ: üst şerit kapsamı yazar.
+      expect(find.text('Yalnız sizin siparişlerinizin müşterileri'), findsOneWidget);
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('ARAMA KUTUSU kapsamı DELMEZ', (tester) async {
+      // Kapsam yalnız boş sorguda uygulansaydı, kurye adı yazarak görmemesi gereken müşteriye
+      // ulaşırdı — yani yetki arama kutusuyla atlatılırdı.
+      genisYuzey(tester);
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async => await kurMusteri(db));
+
+      await tester.pumpWidget(sipKabuk(CustomerListScreen(
+        db: db,
+        writable: true,
+        userId: 'kurye-1',
+        yetki: kurye,
+      )));
+      await akisiBekle(tester);
+
+      await tester.enterText(find.byType(TextField).first, 'İlgisiz');
+      await akisiBekle(tester);
+
+      expect(find.text('İlgisiz Müşteri'), findsNothing,
+          reason: 'kapsam sorguda uygulanır, ekranda değil');
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('yetki AÇIKKEN kurye bayinin tüm müşterilerini görür', (tester) async {
+      genisYuzey(tester);
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async => await kurMusteri(db));
+
+      final acik = yetkiler(
+        rol: 'kurye',
+        atamaHedefiVar: true,
+        izin: const KuryeIzinleri(tumMusteriler: true),
+      );
+
+      await tester.pumpWidget(sipKabuk(CustomerListScreen(
+        db: db,
+        writable: true,
+        userId: 'kurye-1',
+        yetki: acik,
+      )));
+      await akisiBekle(tester);
+
+      expect(find.text('İlgisiz Müşteri'), findsOneWidget);
+      expect(find.text('Yalnız sizin siparişlerinizin müşterileri'), findsNothing);
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('userId VERİLMEZSE kısıtlama uygulanmaz (kimliksiz oturum boş listeye kilitlenmez)',
+        (tester) async {
+      genisYuzey(tester);
+      final db = AppDatabase(NativeDatabase.memory());
+      await tester.runAsync(() async => await kurMusteri(db));
+
+      await tester.pumpWidget(
+          sipKabuk(CustomerListScreen(db: db, writable: true, yetki: kurye)));
+      await akisiBekle(tester);
+
+      expect(find.text('İlgisiz Müşteri'), findsOneWidget,
+          reason: 'kimliği bilinmeyen oturumu boş listeye kilitlemek yetkiyi uygulamak değil, '
+              'ekranı bozmaktır (OrderListScreen ile aynı kural)');
 
       await ekraniKapat(tester);
     });

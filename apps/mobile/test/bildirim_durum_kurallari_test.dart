@@ -168,7 +168,7 @@ void main() {
 
       expect(t.kategori, BildirimKategori.gunKapanisHatirlatma);
       expect(t.detay, contains('Kuryedeki nakit sayılmaya devam eder'));
-      expect(bildirimYoluCoz(t.yol), (tur: 'gunsonu', id: null));
+      expect(bildirimYoluCoz(t.yol), (tur: 'gunsonu', id: null, eylem: null));
     });
 
     test('iki kapanış hatırlatması AYNI kategoride ama AYRI kimlikte', () {

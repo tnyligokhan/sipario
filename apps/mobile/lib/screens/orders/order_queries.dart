@@ -19,7 +19,10 @@
 // SÖZLEŞME: `watchOrders` / `OrderFilter` / `saatBicimi` / `odemeTipiEtiketi` imzaları DEĞİŞMEZ —
 // mevcut testler ve başka ekranlar (kasa devri, defter, menü) bunları doğrudan çağırıyor.
 
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show immutable;
 
 import '../../data/app_database.dart';
 // Gün sınırı (TR, sabit +03:00) TEK yerde tanımlıdır ve gün sonu ekranı da onu kullanır;
@@ -394,3 +397,73 @@ bool serbestMi(OrderLine l) => l.isCustom || l.productId == null;
 /// kaydedilmemiş taslaklarda tek hesap yolu budur.
 int satirlarToplami(List<OrderLine> lines) =>
     lines.fold<int>(0, (s, l) => s + l.lineTotalKurus);
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// İPTAL ONAY AKIŞI (kullanıcı isteği 2026-08-22)
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// Bekleyen iptal talebi. `null` = bekleyen talep yok.
+///
+/// SIPARIŞTE BİR ALAN DEĞİL, OLAYLARDAN TÜRETİLİR ([iptalTalebiCoz]) — gerekçe
+/// `OrderRepository.iptalTalepEt` başlığında.
+@immutable
+class IptalTalebi {
+  const IptalTalebi({required this.isteyenUserId, required this.occurredAt, this.gerekce});
+
+  /// Talebi açan kullanıcı. `null` olabilir: talep, oturum kimliği henüz inmemiş bir cihazdan
+  /// gelmiş olabilir. Ekran o zaman adı yazmaz — yanlış bir isim, bir kuryeyi yapmadığı
+  /// talepten sorumlu tutar (çağrı atfındaki kuralın aynısı).
+  final String? isteyenUserId;
+
+  final String occurredAt;
+  final String? gerekce;
+
+  @override
+  bool operator ==(Object other) =>
+      other is IptalTalebi &&
+      other.isteyenUserId == isteyenUserId &&
+      other.occurredAt == occurredAt &&
+      other.gerekce == gerekce;
+
+  @override
+  int get hashCode => Object.hash(isteyenUserId, occurredAt, gerekce);
+}
+
+/// Olay geçmişinden BEKLEYEN iptal talebini çözer — SAF, sunucu tarafıyla aynı kural.
+///
+/// KURAL: dört olay türü tek bir zaman çizgisinde okunur (`cancel_requested`, `cancel_rejected`,
+/// `cancelled`, `delivered`). EN SON olan `cancel_requested` ise talep BEKLİYOR; başka bir şeyse
+/// bekleyen talep yoktur. Böylece reddedilen bir talep yeniden açılabilir (müşteri fikir
+/// değiştirdi) ve teslim edilmiş siparişte talep asılı kalmaz.
+///
+/// SIRA (occurredAt, id) ORTAK ANAHTARIDIR — `deriveAssignedUserId` ve `deriveSortIndex` ile
+/// birebir aynı. Ayrışırlarsa iki cihaz aynı olay kümesinden farklı bir talep durumu türetir.
+IptalTalebi? iptalTalebiCoz(List<OrderEvent> events) {
+  const ilgili = {'cancel_requested', 'cancel_rejected', 'cancelled', 'delivered'};
+  final zincir = events.where((e) => ilgili.contains(e.eventType)).toList()
+    ..sort((a, b) {
+      final byTime = a.occurredAt.compareTo(b.occurredAt);
+      return byTime != 0 ? byTime : a.id.compareTo(b.id);
+    });
+  if (zincir.isEmpty) return null;
+
+  final son = zincir.last;
+  if (son.eventType != 'cancel_requested') return null;
+
+  final ham = son.payload;
+  final yuk = ham == null ? const <String, dynamic>{} : jsonDecode(ham) as Map<String, dynamic>;
+  final isteyen = yuk['requested_by_user_id'];
+  final gerekce = yuk['reason'];
+
+  return IptalTalebi(
+    isteyenUserId: isteyen is String && isteyen.isNotEmpty ? isteyen : null,
+    occurredAt: son.occurredAt,
+    gerekce: gerekce is String && gerekce.trim().isNotEmpty ? gerekce.trim() : null,
+  );
+}
+
+/// Tek siparişin bekleyen iptal talebi — canlı.
+Stream<IptalTalebi?> watchIptalTalebi(AppDatabase db, String orderId) =>
+    (db.select(db.orderEvents)..where((t) => t.orderId.equals(orderId)))
+        .watch()
+        .map(iptalTalebiCoz);

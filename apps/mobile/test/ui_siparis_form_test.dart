@@ -82,9 +82,9 @@ void main() {
     await akisiBekle(tester);
     await tester.tap(find.text('Katalogdan ürün ekle'));
     await akisiBekle(tester);
+    // SEÇENEKSİZ ÜRÜNDE ADET SHEET'İ AÇILMAZ (2026-08-22): karoya dokunmak bir adedi
+    // DOĞRUDAN sepete koyar. Malzemesi olan üründe eski sheet yolu aynen durur.
     await tester.tap(find.text('Damacana 19 L'));
-    await akisiBekle(tester);
-    await tester.tap(find.text('Sepete Ekle (${sipTutar(4500)})'));
     await akisiBekle(tester);
     await tester.tap(find.text('1 kalem eklendi'));
     await akisiBekle(tester);
@@ -124,12 +124,12 @@ void main() {
     await tester.tap(find.text('Damacana 19 L'));
     await akisiBekle(tester);
 
-    // Adet sheet'i: bir kez artır → 2 adet, "Sepete Ekle · 90,00 ₺".
-    await tester.tap(find.bySemanticsLabel('Artır'));
-    await tester.pump();
-    expect(find.text('Sepete Ekle (${sipTutar(2 * 4500)})'), findsOneWidget);
-    await tester.tap(find.text('Sepete Ekle (${sipTutar(2 * 4500)})'));
+    // KARO ŞERİDİ (2026-08-22): ilk dokunuş "Ekle" şeridini `[−] 1 [+]` hâline çevirir; artı
+    // düğmesi ikinci adedi sepete koyar. Şerit ADEDİ DE YAZAR — bayi ne gönderdiğini karodan
+    // görmeli, sepeti açmak zorunda kalmamalı.
+    await tester.tap(find.bySemanticsLabel('Damacana 19 L adedini artır'));
     await akisiBekle(tester);
+    expect(find.text('2'), findsWidgets);
 
     await tester.tap(find.text('1 kalem eklendi'));
     await akisiBekle(tester);
@@ -162,9 +162,9 @@ void main() {
     // Önce katalogdan bir kalem (sepet boş kalamaz kuralı devrede kalmasın).
     await tester.tap(find.text('Katalogdan ürün ekle'));
     await akisiBekle(tester);
+    // SEÇENEKSİZ ÜRÜNDE ADET SHEET'İ AÇILMAZ (2026-08-22): karoya dokunmak bir adedi
+    // DOĞRUDAN sepete koyar. Malzemesi olan üründe eski sheet yolu aynen durur.
     await tester.tap(find.text('Damacana 19 L'));
-    await akisiBekle(tester);
-    await tester.tap(find.text('Sepete Ekle (${sipTutar(4500)})'));
     await akisiBekle(tester);
     await tester.tap(find.text('1 kalem eklendi'));
     await akisiBekle(tester);
@@ -219,9 +219,9 @@ void main() {
 
     await tester.tap(find.text('Katalogdan ürün ekle'));
     await akisiBekle(tester);
+    // SEÇENEKSİZ ÜRÜNDE ADET SHEET'İ AÇILMAZ (2026-08-22): karoya dokunmak bir adedi
+    // DOĞRUDAN sepete koyar. Malzemesi olan üründe eski sheet yolu aynen durur.
     await tester.tap(find.text('Damacana 19 L'));
-    await akisiBekle(tester);
-    await tester.tap(find.text('Sepete Ekle (${sipTutar(4500)})'));
     await akisiBekle(tester);
     await tester.tap(find.text('1 kalem eklendi'));
     await akisiBekle(tester);

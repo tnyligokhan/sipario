@@ -78,6 +78,21 @@ services:
       # dosyada çift kayıt tutulmaz.
       DB_HOST: db
       DB_PORT: 5432
+      # ⚠️ PHPSTAN İÇİN (2026-08-22, ölçülerek bulundu). İmajın varsayılanı 256M ve kod
+      # büyüdükçe phpstan'ın PARALEL İŞÇİSİ o tavanı aştı:
+      #   "Child process error (exit code 255): Allowed memory size of 268435456 bytes
+      #    exhausted ... while running parallel worker"
+      #
+      # ARIZANIN GÖRÜNÜŞÜ YANILTICIYDI ve bir vardiya boyunca sessiz kaldı: kalite kapısı
+      # (`scripts/quality-gate-commit.ps1`) phpstan'ı CONTAINER İÇİNDE koşar, geliştirici ise
+      # elle HOST'ta koşar. Host'un limiti yüksek olduğu için elle ölçüm "0 hata" diyor, kapı
+      # ise kırmızı yanıp COMMIT ATMIYORDU — yani ölçüm ile kapı aynı şeye bakmıyordu.
+      # Belirtisi: hiç commit yok, ağaç kirli, ortada hata mesajı da yok.
+      #
+      # 1G BOL BİR TAVAN, KEYFİ DEĞİL: phpstan her paralel işçi için ayrı süreç açar ve
+      # sınırı süreç BAŞINA uygular; 256M'yi aşan tek bir işçi tüm koşumu düşürür. Bu bir
+      # geliştirme container'ıdır, üretim ayarı değildir.
+      PHP_MEMORY_LIMIT: 1G
     volumes:
       # `vendor` İÇİN AYRI VOLUME YOK — bilinçli, ve bir denemeden sonra.
       # Önce named volume kullanıldı (host'un Windows `vendor`ünü bozmamak için);

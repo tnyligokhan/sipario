@@ -151,6 +151,7 @@ class SyncEngine {
                 courierCanDebtReminder: Value(_bN(u['courier_can_debt_reminder'])),
                 courierCanToggleStock: Value(_bN(u['courier_can_toggle_stock'])),
                 courierCanCallLog: Value(_bN(u['courier_can_call_log'])),
+                courierCanSeeAllCustomers: Value(_bN(u['courier_can_see_all_customers'])),
               ));
         });
         if (!ok) atlanan++;

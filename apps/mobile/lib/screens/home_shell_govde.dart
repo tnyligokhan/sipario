@@ -29,7 +29,10 @@ extension _GovdeYuzeyi on _HomeShellState {
           sahipAdi: _sahipAdi,
           onMenu: () => _durumDegisti(() => _cekmece = true),
           onSekme: _sekmeSec,
-          onYeniSiparis: _yeniSiparis,
+          // Ana ekranın birincil eylemi (2026-08-22): ÇAĞRI GEÇMİŞİ. Kapı `_cagriGecmisiAc`
+          // içindedir (`yetkiler().cagriGunlugu`) — çekmecedeki satırla AYNI kapı, aynı
+          // reddi aynı cümleyle söyler.
+          onCagrilar: _cagriGecmisiAc,
           onArama: _aramaAc,
           onSiparisAc: _siparisAc,
           onBorclular: _borclularAc,
@@ -48,6 +51,10 @@ extension _GovdeYuzeyi on _HomeShellState {
           db: widget.db,
           writable: _yazilabilir,
           yetki: yetki,
+          // Kurye kapsamının kaynağı (2026-08-22): `tumMusterileriGorme` kapalıysa liste bu
+          // kullanıcıya kilitlenir. Sipariş listesindeki `userId` deseninin birebir ikizi —
+          // rol yorumu TEK yerde (kabukta) kalsın.
+          userId: _userId,
           onMenu: () => _durumDegisti(() => _cekmece = true),
         ),
       SipSekme.siparis => OrderListScreen(

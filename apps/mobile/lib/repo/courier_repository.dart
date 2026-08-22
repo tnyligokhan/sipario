@@ -95,6 +95,7 @@ class CourierRepository {
       courierCanDebtReminder: Value(ezmeler.borcHatirlatma),
       courierCanToggleStock: Value(ezmeler.stokPasifleme),
       courierCanCallLog: Value(ezmeler.cagriGunlugu),
+      courierCanSeeAllCustomers: Value(ezmeler.tumMusteriler),
     );
 
     final payload = <String, Object?>{
@@ -112,6 +113,7 @@ class CourierRepository {
       'courier_can_debt_reminder': ezmeler.borcHatirlatma,
       'courier_can_toggle_stock': ezmeler.stokPasifleme,
       'courier_can_call_log': ezmeler.cagriGunlugu,
+      'courier_can_see_all_customers': ezmeler.tumMusteriler,
     };
 
     await db.transaction(() async {

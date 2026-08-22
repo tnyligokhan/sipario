@@ -188,9 +188,50 @@ return [
     | sunucuyla çalışmaya devam eder — düşürüldüğünde giriş ekranına
     | kendiliğinden dönmez, senkron bandında "Oturum doğrulanmadı" yazar ve
     | kullanıcı elle çıkış yapıp girer. Yani davranış eksik, kırık değil.
+    |
+    | 1.15.0 (2026-08-22): KURYE MÜŞTERİ GÖRÜNÜRLÜĞÜ YETKİSİ.
+    |
+    | `courier_can_see_all_customers` eklendi (migration 004018) ve mevcut üç
+    | durumlu modele girdi: `tenant_settings` üzerinde NOT NULL DEFAULT false
+    | (bayi varsayılanı), `users` üzerinde NULLABLE (null = devral). Yeni yetki
+    | `TenantSetting::KURYE_IZINLERI`'nden türeyen HER yerde kendiliğinden akar:
+    | profil uygulayıcısı, `team` bloğu, panel formu.
+    |
+    | SUNUCU HİÇBİR ŞEYİ SÜZMEZ ve bu bilinçli: uygulama offline-first çalışır,
+    | senkron snapshot'ı bayinin bütün müşterilerini telefona indirmeye devam
+    | eder. Kısıtlama EKRANDA uygulanır (`courier_can_see_all_orders` deseninin
+    | aynısı). Sunucuda süzmek, kuryeye ATANDIĞI anda müşterisi henüz inmemiş
+    | bir sipariş göstermek olurdu — kapıda adressiz teslim, kırmızı çizgi #3.
+    |
+    | NEDEN MINOR: alan EKLEMEDİR; hiçbir uç nokta, alan ya da anlam kalkmadı.
+    | Eski istemci bilmediği anahtarı yok sayar ve bugünkü gibi çalışır.
+    |
+    | 1.16.0 (2026-08-22): İPTAL ONAY AKIŞI.
+    |
+    | İki yeni sipariş olayı: `cancel_requested` (kurye iptal İSTER) ve
+    | `cancel_rejected` (yönetici reddeder). İkisi de `EventValidator::OPS`
+    | sözlüğüne girdi ve `orderStatusEvent` dalından uygulanıyor.
+    |
+    | ⚠️ İKİSİ DE SİPARİŞİN DURUMUNU DEĞİŞTİRMEZ. `recomputeOrder` status'ü hâlâ
+    | yalnız `cancelled`/`delivered`tan türetir; talep açıkken sipariş `open`
+    | kalır ve teslim edilebilir. Bu, özelliğin tamamıdır: talep siparişi
+    | kapatsaydı "Reddet" düğmesi geri alınamaz bir işi düzeltmeye çalışırdı.
+    |
+    | ONAYIN AYRI BİR OLAYI YOKTUR: onaylanan talep siparişi gerçekten iptal
+    | eder, yani `cancelled` doğar. İkinci bir "approved" olayı, durumu türeten
+    | iki ayrı kural demekti.
+    |
+    | PUSH: `PushOlayi::SiparisIptalTalebi` (alıcı: yöneticiler) ve
+    | `SiparisIptalReddedildi` (alıcı: talebi AÇAN kurye, olay geçmişinden
+    | türetilir). İKİSİ DE `siparis_iptal_onayi` kategorisini taşır — bayi için
+    | tek bir anahtar; metni ayıran şey yükteki `olay` alanıdır.
+    |
+    | NEDEN MINOR: yeni op'lar EKLEMEDİR. Eski istemci onları hiç göndermez ve
+    | `order_events` içinde tanımadığı bir satır görürse yok sayar (durum
+    | türetmesi yalnız bildiği olaylara bakar).
     */
 
-    'version' => '1.14.0',
+    'version' => '1.16.0',
 
     /*
     |--------------------------------------------------------------------------

@@ -8,6 +8,10 @@ import '../data/outbox.dart';
 import '../data/urun_secenekleri.dart';
 import 'ledger_ops.dart';
 
+// İptal ONAY akışının yazma yolu buradan ayrıldı — 500 satır sınırı. AYNI KÜTÜPHANEDİR
+// (`part`): `_statusEvent` private kalsın diye; gerekçe o dosyanın başlığında.
+part 'order_repository_iptal.dart';
+
 // AÇIK SİPARİŞ SORGUSU BU DOSYADA DEĞİL: `screens/orders/order_queries.dart`
 // (`acikSiparisler` · `watchAcikSiparisler`). Bir ara ikisinde birden tanımlıydı; sipariş formu
 // bu iki dosyayı da import eder (biri `LineInput`, diğeri sorgular için) ve ortak ada dokunduğu

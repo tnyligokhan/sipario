@@ -151,6 +151,68 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
 
+                    /*
+                     * HEADS-UP GERÇEKTEN AÇIK MI — ÖLÇÜM (2026-08-22).
+                     *
+                     * ⚠️ NEDEN GEREKLİ: uygulama kanalı `IMPORTANCE_HIGH` ile kurar ama bu
+                     * yalnız DOĞUŞ anındaki değerdir. Sonrasında karar KULLANICININDIR ve
+                     * uygulama onu geri yükseltemez (Android kuralı). Üstelik bazı OEM
+                     * kabuklarında (MIUI başta) "kayan bildirim" uygulama başına KAPALI gelir.
+                     *
+                     * Sonuç: "heads-up bildirimler yok" şikâyetinin sebebi kodda DEĞİL, cihaz
+                     * ayarında olabilir ve bugüne kadar bunu ayırt edecek hiçbir veri yoktu.
+                     * Bu uç, her kanalın O ANKİ önem derecesini geri verir — yani ayarlar
+                     * ekranı artık tahmin etmez, ÖLÇER.
+                     *
+                     * Dönen değer: kanal kimliği → önem (Android sabiti; 4 = HIGH, 0 = kapalı).
+                     * Kanal hiç yoksa listeye GİRMEZ (uygulama henüz kurmamış olabilir).
+                     */
+                    "notificationChannels" -> {
+                        val yonetici = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                        val harita = HashMap<String, Int>()
+                        for (kanal in yonetici.notificationChannels) {
+                            harita[kanal.id] = kanal.importance
+                        }
+                        // Uygulamanın TAMAMI kapalıysa kanal önemi anlamsızdır; ayrı bayrak.
+                        result.success(
+                            mapOf(
+                                "kanallar" to harita,
+                                "acik" to yonetici.areNotificationsEnabled(),
+                            )
+                        )
+                    }
+
+                    /*
+                     * Tek bir kanalın SİSTEM ayarını açar. Uygulama önemi yükseltemez ama
+                     * kullanıcıyı yükseltebileceği ekrana TEK DOKUNUŞLA götürebilir —
+                     * "Ayarlar → Uygulamalar → Sipario → Bildirimler → ..." tarifini okuyup
+                     * bulmak esnaf için gerçek bir engeldir.
+                     *
+                     * Kanal kimliği verilmezse ya da bulunamazsa uygulamanın genel bildirim
+                     * ayarına düşülür: hiçbir yere gitmeyen bir düğme bırakılmaz.
+                     */
+                    "openNotificationChannelSettings" -> {
+                        val kanal = call.argument<String>("channel")
+                        val niyet = if (kanal.isNullOrEmpty()) {
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                        } else {
+                            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                                .putExtra(Settings.EXTRA_CHANNEL_ID, kanal)
+                        }
+                        try {
+                            startActivity(niyet)
+                        } catch (e: Exception) {
+                            // Kanal ayarı ekranı olmayan bir kabuk: uygulama ayarına düş.
+                            startActivity(
+                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                    .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                            )
+                        }
+                        result.success(null)
+                    }
+
                     "batteryGuide" -> result.success(OemBatteryGuide.stepsFor(Build.MANUFACTURER))
 
                     // ADI NE DİYORSA ONU AÇAR (2026-07-29 düzeltmesi): eskiden bu metot

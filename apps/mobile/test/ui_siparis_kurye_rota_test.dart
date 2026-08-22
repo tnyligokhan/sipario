@@ -29,7 +29,6 @@ import 'package:sipario/screens/orders/order_form_parts.dart'
 import 'package:sipario/screens/orders/order_form_screen.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
 import 'package:sipario/screens/orders/siparis_harita.dart';
-import 'package:sipario/theme/components/atoms.dart';
 
 import 'support/siparis_yardimci.dart';
 
@@ -66,9 +65,8 @@ void main() {
       await akisiBekle(tester);
       await tester.tap(find.text('Katalogdan ürün ekle'));
       await akisiBekle(tester);
+      // Seçeneksiz üründe karoya dokunmak bir adedi doğrudan sepete koyar (2026-08-22).
       await tester.tap(find.text('Damacana 19 L'));
-      await akisiBekle(tester);
-      await tester.tap(find.text('Sepete Ekle (${sipTutar(4500)})'));
       await akisiBekle(tester);
       await tester.tap(find.text('1 kalem eklendi'));
       await akisiBekle(tester);

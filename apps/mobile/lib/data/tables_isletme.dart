@@ -56,6 +56,10 @@ class Users extends Table {
   BoolColumn get courierCanToggleStock => boolean().nullable()();
   BoolColumn get courierCanCallLog => boolean().nullable()();
 
+  /// v27 (2026-08-22) — kurye TÜM müşterileri görebilir mi. `null` = bayi varsayılanını devral.
+  /// Gerekçe [TenantSettings.courierCanSeeAllCustomers] üzerinde.
+  BoolColumn get courierCanSeeAllCustomers => boolean().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -115,6 +119,20 @@ class TenantSettings extends Table {
   BoolColumn get courierCanDebtReminder => boolean().withDefault(const Constant(false))();
   BoolColumn get courierCanToggleStock => boolean().withDefault(const Constant(true))();
   BoolColumn get courierCanCallLog => boolean().withDefault(const Constant(false))();
+
+  /// KURYE TÜM MÜŞTERİLERİ GÖREBİLİR Mİ (kullanıcı kararı 2026-08-22).
+  ///
+  /// KAPALIYKEN müşteri listesi kuryenin KENDİ siparişlerinin müşterileriyle sınırlanır.
+  /// `courierCanCustomers`tan AYRI BİR SORUDUR ve karıştırılmamalı: o "ekleyip düzenleyebilir
+  /// mi", bu "kimleri görebilir". Bugüne kadar ikincisinin cevabı sorulmadan "hepsi"ydi.
+  ///
+  /// ⚠️ VARSAYILAN KAPALI ve bu bir DAVRANIŞ DEĞİŞİKLİĞİDİR — isteğin kendisi kısıtlamadır.
+  /// Gerekçenin tamamı sunucu migration'ında (`..._add_courier_can_see_all_customers.php`).
+  ///
+  /// KISITLAMA EKRANDA UYGULANIR, SENKRONDA DEĞİL: müşteriler telefona inmeye devam eder
+  /// (offline-first). Sunucuda süzmek, kuryeye ATANAN siparişin müşterisi henüz inmemişse
+  /// kapıda adressiz bırakırdı — kırmızı çizgi #3.
+  BoolColumn get courierCanSeeAllCustomers => boolean().withDefault(const Constant(false))();
 
   /// İŞLETMEDE HAZIRLANAN ÜRÜN VAR MI? (kullanıcı kararı 2026-08-18) — ürün seçenekleri
   /// ("içinde şu olsun olmasın") özelliğinin KİRACI DÜZEYİNDEKİ anahtarı.

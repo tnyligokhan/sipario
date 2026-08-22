@@ -209,19 +209,86 @@ extension _CagriYuzeyi on _HomeShellState {
       _durumDegisti(() => _sekme = SipSekme.siparis);
       return;
     }
+    // TEK SİPARİŞ (2026-08-22) — iptal onayı bildiriminin hedefi. Bildirimin İÇİNDEKİ
+    // "Onayla"/"Reddet" düğmesine basıldıysa karar önce UYGULANIR, sonra detay açılır:
+    // patron sonucu görmeden bırakılmaz.
+    if (hedef.tur == 'siparis' && hedef.id != null) {
+      await _iptalKarariUygula(hedef.id!, hedef.eylem);
+      if (!mounted) return;
+      _durumDegisti(() => _sekme = SipSekme.siparis);
+      await siparisDetaySheetAc(
+        context,
+        db: widget.db,
+        orderId: hedef.id!,
+        writable: _yazilabilir,
+        canAssign: _yetki.atama,
+      );
+      return;
+    }
     // "Yeni cihaz girişi" güvenlik bildiriminin hedefi. Uyarıyı görüp ne yapacağını
     // ARAMAK zorunda kalmasın: bağlı telefonların listesi tek dokunuş ötede olmalı.
     if (hedef.tur == 'cihazlar') {
       await _git(CihazlarEkrani(db: widget.db));
       return;
     }
+    // SON DAL ARTIK AÇIKÇA `musteri` SORAR (2026-08-22). Eskiden "geriye kalan her şey
+    // müşteridir" varsayıyor ve `hedef.id!` yazıyordu; sözlüğe kimliksiz bir tür eklendiği
+    // gün o satır null kontrolüyle ÇÖKERDİ. Tanınmayan hedef bir hata değil, yalnız bilinmeyen
+    // bir hedeftir — kullanıcı bulunduğu yerde kalır (bu dosyanın baştan beri yazdığı kural).
+    final musteriId = hedef.tur == 'musteri' ? hedef.id : null;
+    if (musteriId == null) return;
+
     _durumDegisti(() => _sekme = SipSekme.musteri);
     await _git(CustomerDetailScreen(
       db: widget.db,
-      customerId: hedef.id!,
+      customerId: musteriId,
       writable: _yazilabilir,
       yetki: _yetki,
     ));
+  }
+
+  /// BİLDİRİMİN İÇİNDEKİ "Onayla"/"Reddet" düğmesinin kararını uygular (2026-08-22).
+  ///
+  /// [eylem] yoksa (gövdeye dokunulduysa) hiçbir şey yapılmaz — yalnız detay açılır.
+  ///
+  /// ══ ÜÇ KAPI, ÜÇÜ DE GEREKLİ ═══════════════════════════════════════════════════════════
+  /// 1. YETKİ — bildirim yanlış kişiye düşmüş olabilir (hesap paylaşımı, cihaz devri) ve
+  ///    bildirim yükü bir yetki belgesi DEĞİLDİR. Kapı burada, istemcide, YİNE de vardır;
+  ///    asıl kapı sunucudadır ama kullanıcıya sebebini burada söyleyebiliriz.
+  /// 2. ABONELİK — kilitliyken yazma yok (kırmızı çizgi #5'in yazma yüzü).
+  /// 3. TALEP HÂLÂ AÇIK MI — bildirim cepte beklerken patron başka bir telefondan karar
+  ///    vermiş olabilir. Kontrolsüz uygulanan bir "Onayla", zaten reddedilmiş bir talebi
+  ///    iptale çevirirdi ve bu geri alınamaz.
+  Future<void> _iptalKarariUygula(String siparisId, String? eylem) async {
+    if (eylem == null) return;
+    if (eylem != BildirimEylemi.iptalOnay && eylem != BildirimEylemi.iptalRet) return;
+
+    if (!_yetki.siparisIptal) {
+      SipToast.goster(context, 'İptal kararı verme yetkiniz yok');
+      return;
+    }
+    if (!_yazilabilir) {
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için karar verilemiyor');
+      return;
+    }
+
+    final talep = await watchIptalTalebi(widget.db, siparisId).first;
+    if (!mounted) return;
+    if (talep == null) {
+      SipToast.goster(context, 'Bu talep zaten sonuçlanmış');
+      return;
+    }
+
+    final depo = OrderRepository(widget.db);
+    if (eylem == BildirimEylemi.iptalOnay) {
+      await depo.cancel(siparisId);
+      if (!mounted) return;
+      SipToast.goster(context, 'İptal onaylandı');
+    } else {
+      await depo.iptalTalebiniReddet(siparisId);
+      if (!mounted) return;
+      SipToast.goster(context, 'İptal talebi reddedildi');
+    }
   }
 
   /// UYGULAMA İÇİ BİLDİRİM KUTUSU (2026-08-21) — ana ekrandaki zil.

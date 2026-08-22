@@ -46,6 +46,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property bool|null $courier_can_debt_reminder
  * @property bool|null $courier_can_toggle_stock
  * @property bool|null $courier_can_call_log
+ * @property bool|null $courier_can_see_all_customers
  */
 class User extends Authenticatable
 {

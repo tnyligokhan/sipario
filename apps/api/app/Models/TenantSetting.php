@@ -77,6 +77,7 @@ class TenantSetting extends Model
         'courier_can_debt_reminder',
         'courier_can_toggle_stock',
         'courier_can_call_log',
+        'courier_can_see_all_customers',
         'order_code_display',
         'prepared_products',
         'updated_occurred_at',
@@ -103,6 +104,7 @@ class TenantSetting extends Model
         'courier_can_debt_reminder' => false,
         'courier_can_toggle_stock' => true,
         'courier_can_call_log' => false,
+        'courier_can_see_all_customers' => false,
     ];
 
     protected function casts(): array
@@ -123,6 +125,7 @@ class TenantSetting extends Model
             'courier_can_debt_reminder' => 'boolean',
             'courier_can_toggle_stock' => 'boolean',
             'courier_can_call_log' => 'boolean',
+            'courier_can_see_all_customers' => 'boolean',
         ];
     }
 

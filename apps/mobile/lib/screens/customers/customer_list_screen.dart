@@ -25,6 +25,10 @@ import 'customer_form_screen.dart';
 import 'customer_widgets.dart';
 import 'kara_liste.dart';
 
+// Liste SORGULARI buradan ayrıldı — 500 satır sınırı. AYNI KÜTÜPHANEDİR (`part`), yani
+// `watchCustomerRows` gibi adları import eden hiçbir yer değişmedi; gerekçe o dosyanın başlığında.
+part 'customer_list_sorgulari.dart';
+
 class CustomerListScreen extends StatefulWidget {
   const CustomerListScreen({
     super.key,
@@ -32,6 +36,7 @@ class CustomerListScreen extends StatefulWidget {
     required this.writable,
     required this.yetki,
     this.onMenu,
+    this.userId,
   });
 
   final AppDatabase db;
@@ -48,6 +53,14 @@ class CustomerListScreen extends StatefulWidget {
   /// Çekmeceyi açan geri çağrım (kabuk verir). null ise hamburger çizilmez.
   final VoidCallback? onMenu;
 
+  /// Oturumdaki kullanıcı — `yetki.tumMusterileriGorme` KAPALIYSA liste bu kişinin kapsamına
+  /// kilitlenir (kendi siparişlerinin müşterileri). `OrderListScreen.userId` deseninin ikizi.
+  ///
+  /// null verilirse kısıtlama UYGULANMAZ ve bu bilinçli: kimliği bilinmeyen bir oturumu boş
+  /// listeye kilitlemek, yetkiyi uygulamak değil ekranı bozmaktır — o durumda kapı yönetici
+  /// tarafında kalır (`OrderListScreen._kendiSiparisleriyleSinirli` ile aynı gerekçe).
+  final String? userId;
+
   @override
   State<CustomerListScreen> createState() => _CustomerListScreenState();
 }
@@ -56,8 +69,13 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
   final _arama = TextEditingController();
   String _sorgu = '';
 
+  /// Sorguya gidecek kapsam: kısıtlıysa oturum kullanıcısı, değilse null (bayinin tamamı).
+  String? get _kapsamKullanicisi =>
+      widget.yetki.tumMusterileriGorme ? null : widget.userId;
+
   // Başlıktaki borçlu sayısı — bir kez abone ol (tuş başına yeniden abonelik/titreme olmasın).
-  late final Stream<int> _borcluSayisi = watchDebtCount(widget.db);
+  late final Stream<int> _borcluSayisi =
+      watchDebtCount(widget.db, kullaniciId: _kapsamKullanicisi);
 
   @override
   void dispose() {
@@ -106,7 +124,12 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                 final n = snap.data ?? 0;
                 return SipUst(
                   baslik: 'Müşteriler',
-                  alt: n > 0 ? '$n borçlu müşteri' : 'Tüm hesaplar temiz',
+                  // DARALTMA SESSİZ OLAMAZ (bu deponun yerleşik kuralı; sipariş listesinde de
+                  // aynı çözüm var): kapsam kısıtlıysa üst şerit bunu SÖYLER. Söylemeseydi
+                  // kurye eksik bir defter görüp "müşterim kaybolmuş" derdi.
+                  alt: _kapsamKullanicisi != null
+                      ? 'Yalnız sizin siparişlerinizin müşterileri'
+                      : (n > 0 ? '$n borçlu müşteri' : 'Tüm hesaplar temiz'),
                   onMenu: widget.onMenu,
                   sag: [
                     SipMetinButon(
@@ -132,7 +155,8 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
             ),
             Expanded(
               child: StreamBuilder<List<CustomerRow>>(
-                stream: watchCustomerRows(widget.db, _sorgu),
+                stream: watchCustomerRows(widget.db, _sorgu,
+                    kullaniciId: _kapsamKullanicisi),
                 builder: (context, snap) {
                   if (snap.hasError) return const SipHataEkran();
                   final rows = snap.data;
@@ -174,6 +198,16 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
         ikon: SipIcons.search,
         baslik: 'Sonuç yok',
         aciklama: '"$arama" için müşteri bulunamadı',
+      );
+    }
+    // BOŞ DURUM KAPSAMI BİLİR (çağrı günlüğündeki süzgeç dersinin aynısı): kısıtlı kuryeye
+    // "henüz müşteri yok" demek, bayinin defterinin boş olduğunu söylerdi — oysa yalnız ONA
+    // düşen bir iş yok.
+    if (_kapsamKullanicisi != null) {
+      return const SipBosDurum(
+        ikon: SipIcons.users,
+        baslik: 'Size düşen müşteri yok',
+        aciklama: 'Size sipariş atandığında müşterisi burada görünür',
       );
     }
     return SipBosDurum(
@@ -336,150 +370,3 @@ class _AltSatir extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-// Sorgular
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-
-/// Liste satırının verisi: müşteri + görüntü telefonu + birincil adres.
-typedef CustomerRow = ({Customer customer, String? phone, CustomerAddressesData? adres});
-
-/// LİSTENİN TEK SIRA KURALI: "en son kaydedilen en üstte" (kullanıcı isteği 2026-08-06).
-///
-/// ESKİDEN ADA GÖREYDİ ve kullanıcıya RASGELE görünüyordu: SQLite'ın varsayılan BINARY
-/// collation'ı baytları karşılaştırır, Türkçe harfler (Ç Ğ İ Ö Ş Ü) çok baytlı UTF-8'dir ve
-/// TÜM ASCII harflerden SONRA sıralanır — "Şükrü" listenin dibine, "Zeynep"in bile altına düşer.
-/// Kullanıcı zaten alfabe aramıyor; az önce kaydettiğini arıyor.
-///
-/// Terimler:
-///  1. `code IS NULL DESC` → kodu olmayan müşteri EN ÜSTTE. Kodu sunucu atar; kodsuz kayıt =
-///     henüz senkronlanmamış = en yeni. (`NULLS FIRST` yerine bu ifade — sqlite sürümünden
-///     bağımsız çalışır.)
-///  2. `code DESC` → kod kiracı içinde artan sayaçtır (100, 101, …); büyük kod yeni müşteridir.
-///  3. `rowid DESC` → kodsuz gruptaki ayırıcı: yerel INSERT sırası, yani tam olarak "kaydetme
-///     sırası". Deterministiktir (aynı milisaniyede üretilen iki UUIDv7'nin sırası değildir).
-///
-/// `updated_occurred_at` BİLEREK KULLANILMADI: her düzenlemede (ad düzeltme, kara liste, adres)
-/// tazeleniyor — tek başına "kayıt sırası" DEĞİLDİR; adı düzeltilen üç yıllık müşteri listenin
-/// başına fırlardı. `rowid` UPDATE'te değişmez; senkron da satırları `insertOnConflictUpdate`
-/// (yani `INSERT OR REPLACE` DEĞİL) ile yazdığından rowid korunur.
-final List<OrderClauseGenerator<$CustomersTable>> _enYeniOnce = [
-  (t) => OrderingTerm.desc(t.code.isNull()),
-  (t) => OrderingTerm.desc(t.code),
-  (t) => OrderingTerm.desc(t.rowId),
-];
-
-/// Liste akışı. Telefon ve adres LEFT JOIN'dir — ikisi de olmayan müşteri de listede kalır.
-/// Sorguda 3+ rakam varsa telefon araması (son-10 normalizasyonu — arayan tanımanın kuralı),
-/// yoksa ad araması.
-Stream<List<CustomerRow>> watchCustomerRows(AppDatabase db, String query) {
-  final q = query.trim();
-
-  final sel = db.select(db.customers).join([
-    leftOuterJoin(
-      db.customerPhones,
-      db.customerPhones.customerId.equalsExp(db.customers.id) &
-          db.customerPhones.deletedAt.isNull(),
-    ),
-    leftOuterJoin(
-      db.customerAddresses,
-      db.customerAddresses.customerId.equalsExp(db.customers.id) &
-          db.customerAddresses.deletedAt.isNull(),
-    ),
-  ]);
-
-  if (q.isEmpty) {
-    sel.where(db.customers.deletedAt.isNull());
-  } else {
-    final digits = _numaraGovdesi(q);
-    if (digits != null) {
-      // EXISTS: herhangi bir telefonu eşleşen müşteri (görüntü telefonu yine birincil kalır).
-      final match = db.selectOnly(db.customerPhones)
-        ..addColumns([db.customerPhones.id])
-        ..where(db.customerPhones.customerId.equalsExp(db.customers.id) &
-            db.customerPhones.deletedAt.isNull() &
-            db.customerPhones.phoneLast10.like('%$digits%'));
-      sel.where(db.customers.deletedAt.isNull() & existsQuery(match));
-    } else {
-      sel.where(db.customers.deletedAt.isNull() & db.customers.name.like('%$q%'));
-    }
-  }
-
-  // isPrimary terimleri SİLİNEMEZ ve sıra kuralının ARDINDA kalmak zorundadır: aşağıdaki
-  // tekilleştirme "ilk gelen satır kazanır" der, yani müşterinin hangi telefon/adresinin
-  // görüneceğini bu iki terim seçer. Önlerine geçselerdi yanlış telefon çizilirdi.
-  sel.orderBy([
-    ..._enYeniOnce.map((f) => f(db.customers)),
-    OrderingTerm.desc(db.customerPhones.isPrimary),
-    OrderingTerm.desc(db.customerAddresses.isPrimary),
-  ]);
-
-  return sel.watch().map((rows) {
-    // JOIN çarpımını müşteri başına tek satıra indir: ilk gelen (sıralama gereği birincil) kazanır.
-    final byId = <String, CustomerRow>{};
-    for (final r in rows) {
-      final c = r.readTable(db.customers);
-      final p = r.readTableOrNull(db.customerPhones);
-      final a = r.readTableOrNull(db.customerAddresses);
-      final mevcut = byId[c.id];
-      byId[c.id] = (
-        customer: c,
-        phone: mevcut?.phone ?? p?.phoneE164,
-        adres: mevcut?.adres ?? a,
-      );
-    }
-    return byId.values.toList();
-  });
-}
-
-/// Başlıktaki "N borçlu müşteri" için canlı sayım (bakiyesi + olan müşteriler).
-Stream<int> watchDebtCount(AppDatabase db) {
-  final count = db.customers.id.count();
-  final q = db.selectOnly(db.customers)
-    ..addColumns([count])
-    ..where(db.customers.deletedAt.isNull() & db.customers.balanceKurus.isBiggerThanValue(0));
-  return q.watchSingle().map((r) => r.read(count) ?? 0);
-}
-
-/// Müşteri listesi sorgusu (arşivsizler, en son kaydedilen en üstte — bkz. [_enYeniOnce]).
-/// Liste ekranı artık [watchCustomerRows]'u kullanır; bu fonksiyon KORUNDU çünkü
-/// arama/normalizasyon sözleşmesi doğrudan onun üzerinden test ediliyor. Sıra kuralı ikisinde
-/// AYNI olmalı — arama sonucu da aynı mantıkla dizilir.
-Stream<List<Customer>> watchCustomers(AppDatabase db, String query) {
-  final q = query.trim();
-  if (q.isEmpty) {
-    return (db.select(db.customers)
-          ..where((t) => t.deletedAt.isNull())
-          ..orderBy(_enYeniOnce))
-        .watch();
-  }
-
-  final digits = _numaraGovdesi(q);
-  if (digits != null) {
-    final join = db.select(db.customers).join([
-      innerJoin(db.customerPhones, db.customerPhones.customerId.equalsExp(db.customers.id)),
-    ])
-      ..where(db.customers.deletedAt.isNull() & db.customerPhones.phoneLast10.like('%$digits%'))
-      ..orderBy(_enYeniOnce.map((f) => f(db.customers)).toList());
-    return join.watch().map((rows) =>
-        {for (final r in rows) r.readTable(db.customers).id: r.readTable(db.customers)}
-            .values
-            .toList());
-  }
-
-  return (db.select(db.customers)
-        ..where((t) => t.deletedAt.isNull() & t.name.like('%$q%'))
-        ..orderBy(_enYeniOnce))
-      .watch();
-}
-
-/// Kullanıcı yazımını numara gövdesine indirir; 3'ten az rakam varsa null (= ad araması).
-/// DB'de phone_last10 '5321112233' biçimindedir; '+90'/'90' ve baştaki 0 atılmazsa eşleşme kaçar.
-String? _numaraGovdesi(String query) {
-  var digits = query.replaceAll(RegExp(r'\D'), '');
-  if (digits.length < 3) return null;
-  if (digits.startsWith('90') && digits.length > 10) digits = digits.substring(2);
-  while (digits.startsWith('0')) {
-    digits = digits.substring(1);
-  }
-  return phoneLast10(digits);
-}

@@ -51,6 +51,59 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.47.0',
+    tarih: '22 Ağustos 2026',
+    maddeler: [
+      'Bildirim ayarlarına "Bildirimi dene" düğmesi eklendi. Örnek bir bildirim gönderir; '
+          'sesini duyup ekranın üstünde belirip belirmediğini kendiniz görebilirsiniz.',
+      'Bir bildirimin ekranın üstünde belirmesi telefonunuzun ayarından kapatılmışsa '
+          'uygulama bunu artık söylüyor ve düzelteceğiniz ekranı tek dokunuşla açıyor.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.46.0',
+    tarih: '22 Ağustos 2026',
+    maddeler: [
+      'Kurye artık bir siparişin iptalini isteyebiliyor. Sipariş o anda iptal olmaz; '
+          'yöneticiye onaya gider ve müşterinin kapısında beklenirken karar verilebilir.',
+      'Yöneticiye gelen bildirimin içinde "Onayla" ve "Reddet" düğmeleri var. Sipariş '
+          'ekranında da aynı karar, talebi kimin ve neden açtığıyla birlikte görünüyor.',
+      'Talep reddedilirse kurye bunu bildirimle öğrenir ve sipariş açık kalmaya devam eder.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.45.0',
+    tarih: '22 Ağustos 2026',
+    maddeler: [
+      'Ana ekrandaki büyük düğme artık "Ekip Çağrıları" sayfasını açıyor: dükkâna kim '
+          'aradı, kim karşıladı tek dokunuşla görünüyor.',
+      'Sipariş oluşturma kaybolmadı; alttaki artı düğmesinden "Sipariş Ekle" ile ve gelen '
+          'çağrı kartındaki "Sipariş Oluştur" ile aynı şekilde devam ediyor.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.44.0',
+    tarih: '22 Ağustos 2026',
+    maddeler: [
+      'Kuryenin müşteri listesi artık bir yetkiye bağlı. Yetki kapalıyken kurye yalnız '
+          'kendi siparişlerinin ve kendi teslim ettiği işlerin müşterilerini görür.',
+      'Yetki Ayarlar › Kurye Yetkileri altındaki "Tüm müşterileri görebilir" satırından '
+          'açılır; her kurye için ayrı ayrı da ayarlanabilir.',
+      'Liste daraldığında ekran bunu yazıyor, sessizce eksik göstermiyor.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.43.0',
+    tarih: '22 Ağustos 2026',
+    maddeler: [
+      'Katalogdan ürün eklemek hızlandı: ürün kartına dokunmak bir adedi doğrudan sepete '
+          'koyuyor, ayrıca bir adet ekranı açılmıyor.',
+      'Kartın altındaki artı ve eksi düğmeleriyle adet sepetten çıkmadan değiştirilebiliyor.',
+      'İçindekileri seçilebilen ürünlerde eski akış duruyor: karta dokunmak malzeme ve adet '
+          'ekranını açar.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.42.0',
     tarih: '22 Ağustos 2026',
     maddeler: [

@@ -87,7 +87,7 @@ class YerelBildirimServisi implements BildirimServisi {
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         ),
         onDidReceiveNotificationResponse: (yanit) {
-          dokunulanYol.value = yanit.payload;
+          dokunulanYol.value = _yolaEylemEkle(yanit.payload, yanit.actionId);
         },
       );
       await _kanallariKur();
@@ -329,6 +329,35 @@ class YerelBildirimServisi implements BildirimServisi {
                 // başka bir şeye baktığını düşündürürdü.
                 summaryText: null,
               ),
+        /*
+         * KARAR DÜĞMELERİ (kullanıcı isteği 2026-08-22): "Onayla" · "Reddet".
+         *
+         * ⚠️ `showsUserInterface: true` PAZARLIKSIZ. `false` olsaydı Android düğmeyi ARKA PLAN
+         * isolate'inde karşılardı ve karar oradan uygulanmak zorunda kalırdı — bu depoda arka
+         * plan isolate'inin SQLite'a yazması yasaktır (`push_servisi.dart` başlığı: para ve
+         * defter kayıtlarında yarış riski). `true` ile uygulama öne gelir, kararı ön plandaki
+         * tek isolate uygular ve bayi sonucu ekranda görür.
+         *
+         * `cancelNotification` VARSAYILAN (true) BIRAKILIR: karar verildikten sonra bildirim
+         * rafta durursa aynı talep ikinci kez onaylanmaya çalışılır.
+         *
+         * KANAL DONMASI BURAYA İŞLEMEZ: eylemler bildirim başına verilir, kanal ayarı değildir
+         * (genişletilmiş metinle aynı sınıf).
+         */
+        actions: t.kararIster
+            ? const [
+                AndroidNotificationAction(
+                  BildirimEylemi.iptalOnay,
+                  BildirimEylemi.iptalOnayEtiketi,
+                  showsUserInterface: true,
+                ),
+                AndroidNotificationAction(
+                  BildirimEylemi.iptalRet,
+                  BildirimEylemi.iptalRetEtiketi,
+                  showsUserInterface: true,
+                ),
+              ]
+            : null,
       ),
     );
   }
@@ -354,6 +383,21 @@ NotificationVisibility _kilitEkraniGorunurlugu(BildirimKategori k) =>
     k == BildirimKategori.sistem
         ? NotificationVisibility.public
         : NotificationVisibility.private;
+
+/// Dokunulan yola, basılan DÜĞMENİN kimliğini `#eylem` eki olarak ekler.
+///
+/// Gövdeye dokunulduğunda `actionId` boştur ve yol olduğu gibi döner — yani mevcut davranış
+/// değişmez. Ek, `bildirimYoluCoz` tarafından çözülür; iki uç aynı biçimi bilir.
+///
+/// SAF ve GÖRÜNÜR (private değil, test edilebilir): bu iki satır "Onayla düğmesine basıldığında
+/// ne oluyor" sorusunun tamamıdır ve sessizce yanlış olması en pahalı yer burasıdır.
+String? _yolaEylemEkle(String? yol, String? eylemId) {
+  final y = yol?.trim();
+  if (y == null || y.isEmpty) return yol;
+  final e = eylemId?.trim();
+  if (e == null || e.isEmpty) return y;
+  return '$y#$e';
+}
 
 /// Kimlik dizesinden KARARLI 31 bitlik bildirim kimliği (Android bildirim id'si `int`tir).
 ///

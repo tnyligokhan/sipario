@@ -193,8 +193,11 @@ class _DuzenGovdeState extends State<_DuzenGovde> {
     setState(() {
       final i = _taslak.indexWhere((x) => x.productId == u.id);
       if (i >= 0) {
+        // ADET NEGATİF OLABİLİR (2026-08-22): katalog karosundaki `−` düğmesi buradan azaltır.
+        // Sıfıra inen satır SİLİNİR (`order_form_screen._urunEkle` ile aynı kural).
         _taslak[i].adet += adet;
-      } else {
+        if (_taslak[i].adet <= 0) _taslak.removeAt(i);
+      } else if (adet > 0) {
         _taslak.add(DuzenSatiri(
           productId: u.id,
           ad: u.name,

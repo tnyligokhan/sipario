@@ -87,7 +87,7 @@ void main() {
           sahipAdi: 'Mehmet Usta',
           onMenu: () {},
           onSekme: (_) {},
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onBorclular: () {},
           onBildirimler: () {},
           onArama: (_) {},

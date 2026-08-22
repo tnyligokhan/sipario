@@ -270,7 +270,13 @@ class _SurumCipi extends StatelessWidget {
   }
 }
 
-/// CSS `.ana-cta` — hero zeminli birincil eylem.
+/// CSS `.ana-cta` — hero zeminli birincil eylem: EKİBİN ÇAĞRI GEÇMİŞİ.
+///
+/// İÇERİĞİ 2026-08-22'DE DEĞİŞTİ ("Yeni Sipariş" → "Ekip Çağrıları"), YERLEŞİMİ DEĞİŞMEDİ.
+/// Gerekçe [AnaEkran.onCagrilar] üzerinde yazılıdır; özeti: sipariş açmanın zaten iki yolu
+/// vardı, "dükkânı kim aradı" sorusunun hiç kısayolu yoktu ve bu üründe telefon çalmak ana
+/// olaydır. İkon da ahizeye döndü — artı işareti "yeni bir şey oluştur" demektir ve bu düğme
+/// artık bir şey oluşturmuyor, var olanı gösteriyor.
 class _Cta extends StatelessWidget {
   const _Cta({required this.onTap});
 
@@ -292,12 +298,12 @@ class _Cta extends StatelessWidget {
             height: 38,
             alignment: Alignment.center,
             decoration: BoxDecoration(color: t.accent, shape: BoxShape.circle),
-            child: SipIcon(SipIcons.plus, boyut: 20, kalinlik: 2.4, renk: t.accentInk),
+            child: SipIcon(SipIcons.phone, boyut: 20, kalinlik: 2.4, renk: t.accentInk),
           ),
           const SizedBox(width: 13),
           Expanded(
             child: Text(
-              'Yeni Sipariş',
+              'Ekip Çağrıları',
               style: SipText.anaCta.copyWith(color: SipTokens.onHero),
             ),
           ),
