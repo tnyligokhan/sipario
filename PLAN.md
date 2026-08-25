@@ -327,8 +327,21 @@ kırpılıyordu).
   yani yeni bir kategori eklendiğinde ses ve keep girdisi otomatik olarak zorunlu hâle geliyor.
 - **`GuncellemeServisi.bildir` `@visibleForTesting`:** `sessizKontrol` üzerinden ulaşılamaz
   (`kYapim` derleme sabiti testte 0, güncelleme "bulunmuyor"). Gerekçe metodun doc'unda.
-- **main'e geçildi:** bu vardiyanın sonunda `dev` → `main` birleştirildi ve saha kanalı
-  `main`den besleniyor — yani sahadaki telefonlar bu sürümü görecek.
+- **PR #15 AÇIK, HENÜZ BİRLEŞTİRİLMEDİ** (`dev` → `main`, 139 commit). Birleştirme komutu bu
+  ortamda izin sınıflandırıcısına takıldı; kullanıcı tek tıkla birleştirecek. Birleştiği an
+  saha kanalı beslenir ve sahadaki telefonlar 1.0.0'ı otomatik indirir.
+
+- 🔴 **ÜRETİM API'Sİ AYAKTA DEĞİL — ÖLÇÜLDÜ (2026-08-25):**
+  `sipario.com.tr`, `www.sipario.com.tr` ve `api.sipario.com.tr` üçü de **503 "no available
+  server"** dönüyor. Coolify'da yalnız `dev` dalını izleyen tek bir uygulama var ("Sipario
+  Dev" → `test.sipario.com.tr`, API 1.17.0, sağlıklı). Saha APK'sı
+  `https://sipario.com.tr/api/v1` adresine bakıyor (`mobil-apk.yml` satır 112).
+  **Bu, bu vardiyanın YARATTIĞI bir durum değildir** — mevcut saha derlemesi de aynı adrese
+  bakıyor, yani sahadaki telefonlar ZATEN ölü bir sunucuya bakıyor ve offline-first oldukları
+  için kuyrukta birikiyorlar. Ama "yayına geçtik" denebilmesi için üretimin ayağa kalkması ŞART.
+  Ayağa kalkarken migration `main`den koşmalı (`2026_08_25_000101_add_ledger_expense_type`
+  dahil): **sunucu ÖNCE, istemci sonra** — tersi durumda telefondan yazılan gider `rejected`
+  döner.
 
 ---
 
