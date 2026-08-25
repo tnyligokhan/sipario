@@ -13,6 +13,7 @@ import 'package:sipario/screens/day_end_screen.dart';
 import 'package:sipario/screens/money.dart';
 import 'package:sipario/theme/components/bicim.dart';
 import 'package:sipario/theme/tokens.dart';
+import 'support/yetki_yardimcilari.dart';
 
 /// Dilim 3 UI testleri: defter (hareket listesi/tahsilat/düzeltme) + gün sonu read-model.
 /// Sorgu ve özet mantığı ekrandan bağımsız fonksiyonlarda tutulur ve saf async sınanır
@@ -164,7 +165,7 @@ void main() {
       final rows = await watchLedger(db, cid).first;
       final etiketler = rows.map(defterHareketEtiketi).toSet();
       expect(etiketler.contains('Borç'), isTrue);
-      expect(etiketler.contains('Tahsilat · Havale'), isTrue);
+      expect(etiketler.contains('Tahsilat, Havale'), isTrue);
 
       // Tasarımın (`HAREKET_META`) dört sözcüğü var: Borç · Tahsilat · Alacak · Düzeltme.
       // "Sipariş borcu" ayrı bir etiket DEĞİL — sipariş bağı etikette değil `relatedOrderId`
@@ -181,6 +182,15 @@ void main() {
 
   group('DayEndScreen (widget — salt-okunur özet)', () {
     testWidgets('kasa/borç kartlarını çizer', (tester) async {
+      // VIEWPORT YÜKSELTİLİYOR (600 → 2400): `SipGovde` bir `ListView`, yani TEMBEL — katlamanın
+      // altındaki çocuk hiç BUILD edilmez ve `find.text` boş döner. 2026-08-18'de "Günün
+      // Veresiyeleri" bölümü eklenince gövde bir kart boyu uzadı ve "Açık Veresiye" başlığı
+      // fold'un altına düştü. Ürün kodunda gerileme YOK; kırılan şey testin görünür alan
+      // varsayımıydı (aynı tuzak bu dosyanın borç-rengi testinde de yazılı).
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         final cid = await CustomerRepository(db).create(name: 'Ayşe');
@@ -201,6 +211,10 @@ void main() {
       }
 
       expect(find.text('Kasa Özeti'), findsOneWidget);
+      // GÜNÜN VERESİYELERİ (2026-08-18) — birikmiş borcun ÜSTÜNDE, ayrı bölüm. Saha şikâyeti
+      // "gün özetinde veresiye işlemleri gözükmüyor"du: ekranda yalnız ANLIK TOPLAM bakiye
+      // vardı, bugün yazılanı söyleyen hiçbir şey yoktu.
+      expect(find.text('Günün Veresiyeleri'), findsOneWidget);
       expect(find.text('Açık Veresiye'), findsOneWidget);
       // Kupon üründen kaldırıldı (2026-07-26): gün sonunda kupon bölümü OLMAMALI.
       expect(find.textContaining('Kupon'), findsNothing);
@@ -297,9 +311,18 @@ void main() {
       // Bu iddia DAVRANIŞSAL: "borç kırmızı görünür" tasarımın bakiye dilinin çekirdeği
       // (+borç danger · −alacak ok · 0 temiz). Stil kimliği değil, RENK sınanıyor — tasarım
       // sistemi değişse bile bu kural değişmemeli.
-      final toplamTutar = tester.widget<Text>(find.text(formatKurus(16500)));
-      expect(toplamTutar.style?.color, SipTokens.acik.danger,
-          reason: 'açık borç > 0 iken toplam tutar borç rengiyle çizilir (bakiye dili)');
+      //
+      // ⚠️ AYNI TUTAR ARTIK İKİ YERDE ÇIKIYOR (2026-08-18): "Açık Veresiye" toplamı (anlık
+      // birikmiş borç) ve "Günün Veresiyeleri" toplamı (bugün yazılan). Bu senaryoda ikisi
+      // eşittir çünkü müşterilerin BAŞKA borcu yok; sahada eşit olmazlar. Test bu yüzden tek
+      // widget beklemiyor — İKİSİNİN DE borç rengiyle çizilmesini istiyor, çünkü kural
+      // "borç kırmızıdır", "borç bir kez yazılır" değil.
+      final tutarlar = tester.widgetList<Text>(find.text(formatKurus(16500)));
+      expect(tutarlar, isNotEmpty);
+      for (final t in tutarlar) {
+        expect(t.style?.color, SipTokens.acik.danger,
+            reason: 'açık borç > 0 iken tutar borç rengiyle çizilir (bakiye dili)');
+      }
 
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpWidget(const SizedBox.shrink());
@@ -322,14 +345,14 @@ void main() {
       });
 
       await tester.pumpWidget(MaterialApp(
-        home: CustomerDetailScreen(db: db, customerId: cid, writable: false),
+        home: CustomerDetailScreen(db: db, customerId: cid, writable: false, yetki: tamYetki),
       ));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
       await tester.tap(find.text('Tahsilat'));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
       expect(find.text('Tahsilat kaydedildi'), findsNothing,
           reason: 'sheet hiç açılmamalı, kayıt oluşmamalı');
 
@@ -350,7 +373,7 @@ void main() {
       });
 
       await tester.pumpWidget(MaterialApp(
-        home: CustomerDetailScreen(db: db, customerId: cid, writable: false),
+        home: CustomerDetailScreen(db: db, customerId: cid, writable: false, yetki: tamYetki),
       ));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
@@ -358,9 +381,9 @@ void main() {
       // SİPARİO 3.0: düzeltme artık hızlı eylem ızgarasında DEĞİL, defter başlığının sağındaki
       // "± Bakiye Düzeltme" bağlantısında (tasarım s-musteriler.jsx:125). Kapı yer değiştirdi,
       // kural değişmedi.
-      await tester.tap(find.text('± Bakiye Düzeltme'));
+      await tester.tap(find.text('Bakiye Düzeltme'));
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
       expect(find.text('Düzeltme deftere işlendi'), findsNothing,
           reason: 'salt-okunurda düzeltme sheet\'i hiç açılmamalı');
 
@@ -481,7 +504,7 @@ void main() {
       addTearDown(tester.view.reset);
 
       await tester.pumpWidget(MaterialApp(
-        home: CustomerDetailScreen(db: db, customerId: cid, writable: false),
+        home: CustomerDetailScreen(db: db, customerId: cid, writable: false, yetki: tamYetki),
       ));
       // Ekran İÇ İÇE akışlar dinliyor (müşteri → telefon/adres). Tek tur yetmiyor: dıştaki akış
       // çözülmeden içteki StreamBuilder ağaca hiç girmiyor.

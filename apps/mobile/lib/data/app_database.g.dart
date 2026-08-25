@@ -57,6 +57,28 @@ class $CustomersTable extends Customers
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _favoriteProductIdsMeta =
+      const VerificationMeta('favoriteProductIds');
+  @override
+  late final GeneratedColumn<String> favoriteProductIds =
+      GeneratedColumn<String>(
+        'favorite_product_ids',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _productOptionsJsonMeta =
+      const VerificationMeta('productOptionsJson');
+  @override
+  late final GeneratedColumn<String> productOptionsJson =
+      GeneratedColumn<String>(
+        'product_options_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _blacklistedAtMeta = const VerificationMeta(
     'blacklistedAt',
   );
@@ -109,6 +131,8 @@ class $CustomersTable extends Customers
     note,
     code,
     balanceKurus,
+    favoriteProductIds,
+    productOptionsJson,
     blacklistedAt,
     updatedOccurredAt,
     updatedDeviceId,
@@ -157,6 +181,24 @@ class $CustomersTable extends Customers
         balanceKurus.isAcceptableOrUnknown(
           data['balance_kurus']!,
           _balanceKurusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('favorite_product_ids')) {
+      context.handle(
+        _favoriteProductIdsMeta,
+        favoriteProductIds.isAcceptableOrUnknown(
+          data['favorite_product_ids']!,
+          _favoriteProductIdsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('product_options_json')) {
+      context.handle(
+        _productOptionsJsonMeta,
+        productOptionsJson.isAcceptableOrUnknown(
+          data['product_options_json']!,
+          _productOptionsJsonMeta,
         ),
       );
     }
@@ -224,6 +266,14 @@ class $CustomersTable extends Customers
         DriftSqlType.int,
         data['${effectivePrefix}balance_kurus'],
       )!,
+      favoriteProductIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}favorite_product_ids'],
+      ),
+      productOptionsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_options_json'],
+      ),
       blacklistedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}blacklisted_at'],
@@ -266,6 +316,30 @@ class Customer extends DataClass implements Insertable<Customer> {
   /// OKUMA-MODELİ ÖNBELLEĞİ (DECISIONS: kaynak defterdir). Native arayan-tanıma bunu tek satır okur.
   final int balanceKurus;
 
+  /// FAVORİ ÜRÜNLER — bu müşterinin "her zamanki" ürünleri (kullanıcı isteği 2026-08-11).
+  /// İçerik JSON DİZİDİR: `["urun-1","urun-2"]`. null/boş = favori yok.
+  ///
+  /// NEDEN AYRI TABLO DEĞİL (karar verildi): müşteri satırı zaten LWW ile senkronlanıyor ve
+  /// favori listesi tam olarak "bu müşterinin bir alanı"dır — iki cihaz farklı liste yazarsa
+  /// çözüm LWW'nin kendisidir. Ayrı bir senkron varlığı (yeni entity_type, yeni tombstone,
+  /// yeni çakışma kuralı, yeni pull dalı) bu bayi ölçeğinde taşınmayacak bir maliyettir.
+  ///
+  /// SIRA BAYİNİN TERCİHİDİR ve korunur (küme değil, DİZİ): bayi en çok sattığını başa alır.
+  /// Çözümleme TEK yerdedir (`customer_repository.dart::favoriIdleriCoz`) ve bozuk/eski metinde
+  /// çökmez, boş listeye düşer — sahadaki bir cihazda elle bozulmuş bir alan, müşteri ekranının
+  /// tamamını açılmaz yapamaz.
+  final String? favoriteProductIds;
+
+  /// ÜRÜN TERCİHLERİ (kullanıcı isteği 2026-08-18) — JSON nesne: `{urunId: {cikarilan, eklenen}}`.
+  ///
+  /// "İşletmede her seferinde bunu sormak istemeyebilir": aynı müşteri her hafta "soğansız"
+  /// diyor. Tercih burada durur ve o ürün o müşteriye eklenirken KENDİLİĞİNDEN uygulanır.
+  ///
+  /// [favoriteProductIds] ile AYNI gerekçeyle müşterinin bir ALANIDIR (ayrı senkron varlığı
+  /// değil): tam olarak "bu müşterinin bir tercihi"dir ve iki cihaz farklı yazarsa çözüm LWW'nin
+  /// kendisidir. Çözümleme TEK yerdedir (`data/urun_secenekleri.dart`) ve bozuk metinde çökmez.
+  final String? productOptionsJson;
+
   /// KARA LİSTE damgası (null = kara listede değil) — v12.
   ///
   /// `deletedAt` İLE KARIŞTIRILMAMALI, ikisi ayrı karardır: silinen müşteri listeden DÜŞER,
@@ -282,6 +356,8 @@ class Customer extends DataClass implements Insertable<Customer> {
     this.note,
     this.code,
     required this.balanceKurus,
+    this.favoriteProductIds,
+    this.productOptionsJson,
     this.blacklistedAt,
     required this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -299,6 +375,12 @@ class Customer extends DataClass implements Insertable<Customer> {
       map['code'] = Variable<int>(code);
     }
     map['balance_kurus'] = Variable<int>(balanceKurus);
+    if (!nullToAbsent || favoriteProductIds != null) {
+      map['favorite_product_ids'] = Variable<String>(favoriteProductIds);
+    }
+    if (!nullToAbsent || productOptionsJson != null) {
+      map['product_options_json'] = Variable<String>(productOptionsJson);
+    }
     if (!nullToAbsent || blacklistedAt != null) {
       map['blacklisted_at'] = Variable<String>(blacklistedAt);
     }
@@ -319,6 +401,12 @@ class Customer extends DataClass implements Insertable<Customer> {
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       code: code == null && nullToAbsent ? const Value.absent() : Value(code),
       balanceKurus: Value(balanceKurus),
+      favoriteProductIds: favoriteProductIds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(favoriteProductIds),
+      productOptionsJson: productOptionsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(productOptionsJson),
       blacklistedAt: blacklistedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(blacklistedAt),
@@ -343,6 +431,12 @@ class Customer extends DataClass implements Insertable<Customer> {
       note: serializer.fromJson<String?>(json['note']),
       code: serializer.fromJson<int?>(json['code']),
       balanceKurus: serializer.fromJson<int>(json['balanceKurus']),
+      favoriteProductIds: serializer.fromJson<String?>(
+        json['favoriteProductIds'],
+      ),
+      productOptionsJson: serializer.fromJson<String?>(
+        json['productOptionsJson'],
+      ),
       blacklistedAt: serializer.fromJson<String?>(json['blacklistedAt']),
       updatedOccurredAt: serializer.fromJson<String>(json['updatedOccurredAt']),
       updatedDeviceId: serializer.fromJson<String?>(json['updatedDeviceId']),
@@ -358,6 +452,8 @@ class Customer extends DataClass implements Insertable<Customer> {
       'note': serializer.toJson<String?>(note),
       'code': serializer.toJson<int?>(code),
       'balanceKurus': serializer.toJson<int>(balanceKurus),
+      'favoriteProductIds': serializer.toJson<String?>(favoriteProductIds),
+      'productOptionsJson': serializer.toJson<String?>(productOptionsJson),
       'blacklistedAt': serializer.toJson<String?>(blacklistedAt),
       'updatedOccurredAt': serializer.toJson<String>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -371,6 +467,8 @@ class Customer extends DataClass implements Insertable<Customer> {
     Value<String?> note = const Value.absent(),
     Value<int?> code = const Value.absent(),
     int? balanceKurus,
+    Value<String?> favoriteProductIds = const Value.absent(),
+    Value<String?> productOptionsJson = const Value.absent(),
     Value<String?> blacklistedAt = const Value.absent(),
     String? updatedOccurredAt,
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -381,6 +479,12 @@ class Customer extends DataClass implements Insertable<Customer> {
     note: note.present ? note.value : this.note,
     code: code.present ? code.value : this.code,
     balanceKurus: balanceKurus ?? this.balanceKurus,
+    favoriteProductIds: favoriteProductIds.present
+        ? favoriteProductIds.value
+        : this.favoriteProductIds,
+    productOptionsJson: productOptionsJson.present
+        ? productOptionsJson.value
+        : this.productOptionsJson,
     blacklistedAt: blacklistedAt.present
         ? blacklistedAt.value
         : this.blacklistedAt,
@@ -399,6 +503,12 @@ class Customer extends DataClass implements Insertable<Customer> {
       balanceKurus: data.balanceKurus.present
           ? data.balanceKurus.value
           : this.balanceKurus,
+      favoriteProductIds: data.favoriteProductIds.present
+          ? data.favoriteProductIds.value
+          : this.favoriteProductIds,
+      productOptionsJson: data.productOptionsJson.present
+          ? data.productOptionsJson.value
+          : this.productOptionsJson,
       blacklistedAt: data.blacklistedAt.present
           ? data.blacklistedAt.value
           : this.blacklistedAt,
@@ -420,6 +530,8 @@ class Customer extends DataClass implements Insertable<Customer> {
           ..write('note: $note, ')
           ..write('code: $code, ')
           ..write('balanceKurus: $balanceKurus, ')
+          ..write('favoriteProductIds: $favoriteProductIds, ')
+          ..write('productOptionsJson: $productOptionsJson, ')
           ..write('blacklistedAt: $blacklistedAt, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -435,6 +547,8 @@ class Customer extends DataClass implements Insertable<Customer> {
     note,
     code,
     balanceKurus,
+    favoriteProductIds,
+    productOptionsJson,
     blacklistedAt,
     updatedOccurredAt,
     updatedDeviceId,
@@ -449,6 +563,8 @@ class Customer extends DataClass implements Insertable<Customer> {
           other.note == this.note &&
           other.code == this.code &&
           other.balanceKurus == this.balanceKurus &&
+          other.favoriteProductIds == this.favoriteProductIds &&
+          other.productOptionsJson == this.productOptionsJson &&
           other.blacklistedAt == this.blacklistedAt &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId &&
@@ -461,6 +577,8 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
   final Value<String?> note;
   final Value<int?> code;
   final Value<int> balanceKurus;
+  final Value<String?> favoriteProductIds;
+  final Value<String?> productOptionsJson;
   final Value<String?> blacklistedAt;
   final Value<String> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -472,6 +590,8 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     this.note = const Value.absent(),
     this.code = const Value.absent(),
     this.balanceKurus = const Value.absent(),
+    this.favoriteProductIds = const Value.absent(),
+    this.productOptionsJson = const Value.absent(),
     this.blacklistedAt = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -484,6 +604,8 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     this.note = const Value.absent(),
     this.code = const Value.absent(),
     this.balanceKurus = const Value.absent(),
+    this.favoriteProductIds = const Value.absent(),
+    this.productOptionsJson = const Value.absent(),
     this.blacklistedAt = const Value.absent(),
     required String updatedOccurredAt,
     this.updatedDeviceId = const Value.absent(),
@@ -498,6 +620,8 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     Expression<String>? note,
     Expression<int>? code,
     Expression<int>? balanceKurus,
+    Expression<String>? favoriteProductIds,
+    Expression<String>? productOptionsJson,
     Expression<String>? blacklistedAt,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -510,6 +634,10 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
       if (note != null) 'note': note,
       if (code != null) 'code': code,
       if (balanceKurus != null) 'balance_kurus': balanceKurus,
+      if (favoriteProductIds != null)
+        'favorite_product_ids': favoriteProductIds,
+      if (productOptionsJson != null)
+        'product_options_json': productOptionsJson,
       if (blacklistedAt != null) 'blacklisted_at': blacklistedAt,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -524,6 +652,8 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     Value<String?>? note,
     Value<int?>? code,
     Value<int>? balanceKurus,
+    Value<String?>? favoriteProductIds,
+    Value<String?>? productOptionsJson,
     Value<String?>? blacklistedAt,
     Value<String>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -536,6 +666,8 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
       note: note ?? this.note,
       code: code ?? this.code,
       balanceKurus: balanceKurus ?? this.balanceKurus,
+      favoriteProductIds: favoriteProductIds ?? this.favoriteProductIds,
+      productOptionsJson: productOptionsJson ?? this.productOptionsJson,
       blacklistedAt: blacklistedAt ?? this.blacklistedAt,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -561,6 +693,12 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     }
     if (balanceKurus.present) {
       map['balance_kurus'] = Variable<int>(balanceKurus.value);
+    }
+    if (favoriteProductIds.present) {
+      map['favorite_product_ids'] = Variable<String>(favoriteProductIds.value);
+    }
+    if (productOptionsJson.present) {
+      map['product_options_json'] = Variable<String>(productOptionsJson.value);
     }
     if (blacklistedAt.present) {
       map['blacklisted_at'] = Variable<String>(blacklistedAt.value);
@@ -588,6 +726,8 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
           ..write('note: $note, ')
           ..write('code: $code, ')
           ..write('balanceKurus: $balanceKurus, ')
+          ..write('favoriteProductIds: $favoriteProductIds, ')
+          ..write('productOptionsJson: $productOptionsJson, ')
           ..write('blacklistedAt: $blacklistedAt, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -1932,6 +2072,17 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _optionsJsonMeta = const VerificationMeta(
+    'optionsJson',
+  );
+  @override
+  late final GeneratedColumn<String> optionsJson = GeneratedColumn<String>(
+    'options_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isActiveMeta = const VerificationMeta(
     'isActive',
   );
@@ -1990,6 +2141,7 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
     barcode,
     imageUrl,
     imageLocalPath,
+    optionsJson,
     isActive,
     updatedOccurredAt,
     updatedDeviceId,
@@ -2055,6 +2207,15 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         imageLocalPath.isAcceptableOrUnknown(
           data['image_local_path']!,
           _imageLocalPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('options_json')) {
+      context.handle(
+        _optionsJsonMeta,
+        optionsJson.isAcceptableOrUnknown(
+          data['options_json']!,
+          _optionsJsonMeta,
         ),
       );
     }
@@ -2127,6 +2288,10 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, Product> {
         DriftSqlType.string,
         data['${effectivePrefix}image_local_path'],
       ),
+      optionsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}options_json'],
+      ),
       isActive: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
@@ -2168,6 +2333,15 @@ class Product extends DataClass implements Insertable<Product> {
   /// YALNIZ CİHAZ-YEREL: kullanıcının bu cihazda seçtiği görselin dosya yolu. Senkronlanmaz
   /// (sunucu payload'ında karşılığı yok) — imageUrl gelene kadar POS karosunu doldurur.
   final String? imageLocalPath;
+
+  /// SEÇENEK LİSTESİ (kullanıcı isteği 2026-08-18) — JSON dizi: `[{ad, varsayilan, ekKurus}]`.
+  ///
+  /// Ürünün İÇİNDEKİLERİ + eklenebilir ekstralar. "Dürümde soğan var mı?" sorusunun cevabı
+  /// burada durur ve sipariş alan kişi tek dokunuşla çıkarır. null = ürünün seçeneği yok — su
+  /// bayisi gibi işletmelerde ürünlerin çoğu böyledir ve hiçbir ekranda ek gürültü doğurmaz.
+  ///
+  /// Gerekçe ve biçim `data/urun_secenekleri.dart` başlığında.
+  final String? optionsJson;
   final bool isActive;
   final String updatedOccurredAt;
   final String? updatedDeviceId;
@@ -2180,6 +2354,7 @@ class Product extends DataClass implements Insertable<Product> {
     this.barcode,
     this.imageUrl,
     this.imageLocalPath,
+    this.optionsJson,
     required this.isActive,
     required this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -2200,6 +2375,9 @@ class Product extends DataClass implements Insertable<Product> {
     }
     if (!nullToAbsent || imageLocalPath != null) {
       map['image_local_path'] = Variable<String>(imageLocalPath);
+    }
+    if (!nullToAbsent || optionsJson != null) {
+      map['options_json'] = Variable<String>(optionsJson);
     }
     map['is_active'] = Variable<bool>(isActive);
     map['updated_occurred_at'] = Variable<String>(updatedOccurredAt);
@@ -2227,6 +2405,9 @@ class Product extends DataClass implements Insertable<Product> {
       imageLocalPath: imageLocalPath == null && nullToAbsent
           ? const Value.absent()
           : Value(imageLocalPath),
+      optionsJson: optionsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(optionsJson),
       isActive: Value(isActive),
       updatedOccurredAt: Value(updatedOccurredAt),
       updatedDeviceId: updatedDeviceId == null && nullToAbsent
@@ -2251,6 +2432,7 @@ class Product extends DataClass implements Insertable<Product> {
       barcode: serializer.fromJson<String?>(json['barcode']),
       imageUrl: serializer.fromJson<String?>(json['imageUrl']),
       imageLocalPath: serializer.fromJson<String?>(json['imageLocalPath']),
+      optionsJson: serializer.fromJson<String?>(json['optionsJson']),
       isActive: serializer.fromJson<bool>(json['isActive']),
       updatedOccurredAt: serializer.fromJson<String>(json['updatedOccurredAt']),
       updatedDeviceId: serializer.fromJson<String?>(json['updatedDeviceId']),
@@ -2268,6 +2450,7 @@ class Product extends DataClass implements Insertable<Product> {
       'barcode': serializer.toJson<String?>(barcode),
       'imageUrl': serializer.toJson<String?>(imageUrl),
       'imageLocalPath': serializer.toJson<String?>(imageLocalPath),
+      'optionsJson': serializer.toJson<String?>(optionsJson),
       'isActive': serializer.toJson<bool>(isActive),
       'updatedOccurredAt': serializer.toJson<String>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -2283,6 +2466,7 @@ class Product extends DataClass implements Insertable<Product> {
     Value<String?> barcode = const Value.absent(),
     Value<String?> imageUrl = const Value.absent(),
     Value<String?> imageLocalPath = const Value.absent(),
+    Value<String?> optionsJson = const Value.absent(),
     bool? isActive,
     String? updatedOccurredAt,
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -2297,6 +2481,7 @@ class Product extends DataClass implements Insertable<Product> {
     imageLocalPath: imageLocalPath.present
         ? imageLocalPath.value
         : this.imageLocalPath,
+    optionsJson: optionsJson.present ? optionsJson.value : this.optionsJson,
     isActive: isActive ?? this.isActive,
     updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
     updatedDeviceId: updatedDeviceId.present
@@ -2317,6 +2502,9 @@ class Product extends DataClass implements Insertable<Product> {
       imageLocalPath: data.imageLocalPath.present
           ? data.imageLocalPath.value
           : this.imageLocalPath,
+      optionsJson: data.optionsJson.present
+          ? data.optionsJson.value
+          : this.optionsJson,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
       updatedOccurredAt: data.updatedOccurredAt.present
           ? data.updatedOccurredAt.value
@@ -2338,6 +2526,7 @@ class Product extends DataClass implements Insertable<Product> {
           ..write('barcode: $barcode, ')
           ..write('imageUrl: $imageUrl, ')
           ..write('imageLocalPath: $imageLocalPath, ')
+          ..write('optionsJson: $optionsJson, ')
           ..write('isActive: $isActive, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -2355,6 +2544,7 @@ class Product extends DataClass implements Insertable<Product> {
     barcode,
     imageUrl,
     imageLocalPath,
+    optionsJson,
     isActive,
     updatedOccurredAt,
     updatedDeviceId,
@@ -2371,6 +2561,7 @@ class Product extends DataClass implements Insertable<Product> {
           other.barcode == this.barcode &&
           other.imageUrl == this.imageUrl &&
           other.imageLocalPath == this.imageLocalPath &&
+          other.optionsJson == this.optionsJson &&
           other.isActive == this.isActive &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId &&
@@ -2385,6 +2576,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
   final Value<String?> barcode;
   final Value<String?> imageUrl;
   final Value<String?> imageLocalPath;
+  final Value<String?> optionsJson;
   final Value<bool> isActive;
   final Value<String> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -2398,6 +2590,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.barcode = const Value.absent(),
     this.imageUrl = const Value.absent(),
     this.imageLocalPath = const Value.absent(),
+    this.optionsJson = const Value.absent(),
     this.isActive = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -2412,6 +2605,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     this.barcode = const Value.absent(),
     this.imageUrl = const Value.absent(),
     this.imageLocalPath = const Value.absent(),
+    this.optionsJson = const Value.absent(),
     this.isActive = const Value.absent(),
     required String updatedOccurredAt,
     this.updatedDeviceId = const Value.absent(),
@@ -2429,6 +2623,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Expression<String>? barcode,
     Expression<String>? imageUrl,
     Expression<String>? imageLocalPath,
+    Expression<String>? optionsJson,
     Expression<bool>? isActive,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -2443,6 +2638,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       if (barcode != null) 'barcode': barcode,
       if (imageUrl != null) 'image_url': imageUrl,
       if (imageLocalPath != null) 'image_local_path': imageLocalPath,
+      if (optionsJson != null) 'options_json': optionsJson,
       if (isActive != null) 'is_active': isActive,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -2459,6 +2655,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     Value<String?>? barcode,
     Value<String?>? imageUrl,
     Value<String?>? imageLocalPath,
+    Value<String?>? optionsJson,
     Value<bool>? isActive,
     Value<String>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -2473,6 +2670,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
       barcode: barcode ?? this.barcode,
       imageUrl: imageUrl ?? this.imageUrl,
       imageLocalPath: imageLocalPath ?? this.imageLocalPath,
+      optionsJson: optionsJson ?? this.optionsJson,
       isActive: isActive ?? this.isActive,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -2505,6 +2703,9 @@ class ProductsCompanion extends UpdateCompanion<Product> {
     if (imageLocalPath.present) {
       map['image_local_path'] = Variable<String>(imageLocalPath.value);
     }
+    if (optionsJson.present) {
+      map['options_json'] = Variable<String>(optionsJson.value);
+    }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
@@ -2533,6 +2734,7 @@ class ProductsCompanion extends UpdateCompanion<Product> {
           ..write('barcode: $barcode, ')
           ..write('imageUrl: $imageUrl, ')
           ..write('imageLocalPath: $imageLocalPath, ')
+          ..write('optionsJson: $optionsJson, ')
           ..write('isActive: $isActive, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -2588,6 +2790,18 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _deliveredByUserIdMeta = const VerificationMeta(
+    'deliveredByUserId',
+  );
+  @override
+  late final GeneratedColumn<String> deliveredByUserId =
+      GeneratedColumn<String>(
+        'delivered_by_user_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -2680,6 +2894,7 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
     customerId,
     code,
     assignedUserId,
+    deliveredByUserId,
     status,
     totalKurus,
     paymentType,
@@ -2724,6 +2939,15 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
         assignedUserId.isAcceptableOrUnknown(
           data['assigned_user_id']!,
           _assignedUserIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('delivered_by_user_id')) {
+      context.handle(
+        _deliveredByUserIdMeta,
+        deliveredByUserId.isAcceptableOrUnknown(
+          data['delivered_by_user_id']!,
+          _deliveredByUserIdMeta,
         ),
       );
     }
@@ -2808,6 +3032,10 @@ class $OrdersTable extends Orders with TableInfo<$OrdersTable, Order> {
         DriftSqlType.string,
         data['${effectivePrefix}assigned_user_id'],
       ),
+      deliveredByUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}delivered_by_user_id'],
+      ),
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -2861,6 +3089,19 @@ class Order extends DataClass implements Insertable<Order> {
   /// atama olayından türer. Tek kişilik bayide UI'da hiç görünmez (BRIEF), sunucu her zaman destekler.
   final String? assignedUserId;
 
+  /// ÖNBELLEK — kaynak `delivered` order olayının payload'ı. TESLİMİ FİİLEN KİM YAPTI
+  /// (2026-08-20 kullanıcı kararı: "uygulamada yapılan her işlem giriş yapılan hesaba bağlanır").
+  ///
+  /// [assignedUserId] İLE KARIŞTIRILMAZ ve ikisi de gereklidir: atama bir NİYETTİR ("bunu Ali
+  /// götürecek"), bu alan bir OLGUDUR ("götüren patron oldu"). Gün özeti teslimat sayısını ve
+  /// günün veresiyesini atamadan okuduğu sürece, patronun kendi yaptığı teslimat Ali'nin
+  /// hesabına yazılıyordu — üstelik parası (`ledger_entries.collected_by_user_id`) patronda
+  /// kalarak: aynı olayın iki yarısı iki ayrı kişiye gidiyordu.
+  ///
+  /// ESKİ SATIRLARDA NULL'dur ve okuma katmanı null'da atamaya düşer: o teslimlerin kim
+  /// tarafından yapıldığı kayıtlı DEĞİLDİR ve uydurulmaz — geçmiş günler eskisi gibi görünür.
+  final String? deliveredByUserId;
+
   /// ÖNBELLEK — kaynak order_events (DECISIONS). status: open|delivered|cancelled.
   final String status;
   final int totalKurus;
@@ -2878,6 +3119,7 @@ class Order extends DataClass implements Insertable<Order> {
     this.customerId,
     this.code,
     this.assignedUserId,
+    this.deliveredByUserId,
     required this.status,
     required this.totalKurus,
     this.paymentType,
@@ -2899,6 +3141,9 @@ class Order extends DataClass implements Insertable<Order> {
     }
     if (!nullToAbsent || assignedUserId != null) {
       map['assigned_user_id'] = Variable<String>(assignedUserId);
+    }
+    if (!nullToAbsent || deliveredByUserId != null) {
+      map['delivered_by_user_id'] = Variable<String>(deliveredByUserId);
     }
     map['status'] = Variable<String>(status);
     map['total_kurus'] = Variable<int>(totalKurus);
@@ -2931,6 +3176,9 @@ class Order extends DataClass implements Insertable<Order> {
       assignedUserId: assignedUserId == null && nullToAbsent
           ? const Value.absent()
           : Value(assignedUserId),
+      deliveredByUserId: deliveredByUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deliveredByUserId),
       status: Value(status),
       totalKurus: Value(totalKurus),
       paymentType: paymentType == null && nullToAbsent
@@ -2960,6 +3208,9 @@ class Order extends DataClass implements Insertable<Order> {
       customerId: serializer.fromJson<String?>(json['customerId']),
       code: serializer.fromJson<int?>(json['code']),
       assignedUserId: serializer.fromJson<String?>(json['assignedUserId']),
+      deliveredByUserId: serializer.fromJson<String?>(
+        json['deliveredByUserId'],
+      ),
       status: serializer.fromJson<String>(json['status']),
       totalKurus: serializer.fromJson<int>(json['totalKurus']),
       paymentType: serializer.fromJson<String?>(json['paymentType']),
@@ -2978,6 +3229,7 @@ class Order extends DataClass implements Insertable<Order> {
       'customerId': serializer.toJson<String?>(customerId),
       'code': serializer.toJson<int?>(code),
       'assignedUserId': serializer.toJson<String?>(assignedUserId),
+      'deliveredByUserId': serializer.toJson<String?>(deliveredByUserId),
       'status': serializer.toJson<String>(status),
       'totalKurus': serializer.toJson<int>(totalKurus),
       'paymentType': serializer.toJson<String?>(paymentType),
@@ -2994,6 +3246,7 @@ class Order extends DataClass implements Insertable<Order> {
     Value<String?> customerId = const Value.absent(),
     Value<int?> code = const Value.absent(),
     Value<String?> assignedUserId = const Value.absent(),
+    Value<String?> deliveredByUserId = const Value.absent(),
     String? status,
     int? totalKurus,
     Value<String?> paymentType = const Value.absent(),
@@ -3009,6 +3262,9 @@ class Order extends DataClass implements Insertable<Order> {
     assignedUserId: assignedUserId.present
         ? assignedUserId.value
         : this.assignedUserId,
+    deliveredByUserId: deliveredByUserId.present
+        ? deliveredByUserId.value
+        : this.deliveredByUserId,
     status: status ?? this.status,
     totalKurus: totalKurus ?? this.totalKurus,
     paymentType: paymentType.present ? paymentType.value : this.paymentType,
@@ -3030,6 +3286,9 @@ class Order extends DataClass implements Insertable<Order> {
       assignedUserId: data.assignedUserId.present
           ? data.assignedUserId.value
           : this.assignedUserId,
+      deliveredByUserId: data.deliveredByUserId.present
+          ? data.deliveredByUserId.value
+          : this.deliveredByUserId,
       status: data.status.present ? data.status.value : this.status,
       totalKurus: data.totalKurus.present
           ? data.totalKurus.value
@@ -3056,6 +3315,7 @@ class Order extends DataClass implements Insertable<Order> {
           ..write('customerId: $customerId, ')
           ..write('code: $code, ')
           ..write('assignedUserId: $assignedUserId, ')
+          ..write('deliveredByUserId: $deliveredByUserId, ')
           ..write('status: $status, ')
           ..write('totalKurus: $totalKurus, ')
           ..write('paymentType: $paymentType, ')
@@ -3074,6 +3334,7 @@ class Order extends DataClass implements Insertable<Order> {
     customerId,
     code,
     assignedUserId,
+    deliveredByUserId,
     status,
     totalKurus,
     paymentType,
@@ -3091,6 +3352,7 @@ class Order extends DataClass implements Insertable<Order> {
           other.customerId == this.customerId &&
           other.code == this.code &&
           other.assignedUserId == this.assignedUserId &&
+          other.deliveredByUserId == this.deliveredByUserId &&
           other.status == this.status &&
           other.totalKurus == this.totalKurus &&
           other.paymentType == this.paymentType &&
@@ -3106,6 +3368,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
   final Value<String?> customerId;
   final Value<int?> code;
   final Value<String?> assignedUserId;
+  final Value<String?> deliveredByUserId;
   final Value<String> status;
   final Value<int> totalKurus;
   final Value<String?> paymentType;
@@ -3120,6 +3383,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     this.customerId = const Value.absent(),
     this.code = const Value.absent(),
     this.assignedUserId = const Value.absent(),
+    this.deliveredByUserId = const Value.absent(),
     this.status = const Value.absent(),
     this.totalKurus = const Value.absent(),
     this.paymentType = const Value.absent(),
@@ -3135,6 +3399,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     this.customerId = const Value.absent(),
     this.code = const Value.absent(),
     this.assignedUserId = const Value.absent(),
+    this.deliveredByUserId = const Value.absent(),
     this.status = const Value.absent(),
     this.totalKurus = const Value.absent(),
     this.paymentType = const Value.absent(),
@@ -3151,6 +3416,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     Expression<String>? customerId,
     Expression<int>? code,
     Expression<String>? assignedUserId,
+    Expression<String>? deliveredByUserId,
     Expression<String>? status,
     Expression<int>? totalKurus,
     Expression<String>? paymentType,
@@ -3166,6 +3432,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
       if (customerId != null) 'customer_id': customerId,
       if (code != null) 'code': code,
       if (assignedUserId != null) 'assigned_user_id': assignedUserId,
+      if (deliveredByUserId != null) 'delivered_by_user_id': deliveredByUserId,
       if (status != null) 'status': status,
       if (totalKurus != null) 'total_kurus': totalKurus,
       if (paymentType != null) 'payment_type': paymentType,
@@ -3183,6 +3450,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     Value<String?>? customerId,
     Value<int?>? code,
     Value<String?>? assignedUserId,
+    Value<String?>? deliveredByUserId,
     Value<String>? status,
     Value<int>? totalKurus,
     Value<String?>? paymentType,
@@ -3198,6 +3466,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
       customerId: customerId ?? this.customerId,
       code: code ?? this.code,
       assignedUserId: assignedUserId ?? this.assignedUserId,
+      deliveredByUserId: deliveredByUserId ?? this.deliveredByUserId,
       status: status ?? this.status,
       totalKurus: totalKurus ?? this.totalKurus,
       paymentType: paymentType ?? this.paymentType,
@@ -3224,6 +3493,9 @@ class OrdersCompanion extends UpdateCompanion<Order> {
     }
     if (assignedUserId.present) {
       map['assigned_user_id'] = Variable<String>(assignedUserId.value);
+    }
+    if (deliveredByUserId.present) {
+      map['delivered_by_user_id'] = Variable<String>(deliveredByUserId.value);
     }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
@@ -3262,6 +3534,7 @@ class OrdersCompanion extends UpdateCompanion<Order> {
           ..write('customerId: $customerId, ')
           ..write('code: $code, ')
           ..write('assignedUserId: $assignedUserId, ')
+          ..write('deliveredByUserId: $deliveredByUserId, ')
           ..write('status: $status, ')
           ..write('totalKurus: $totalKurus, ')
           ..write('paymentType: $paymentType, ')
@@ -3344,6 +3617,26 @@ class $OrderLinesTable extends OrderLines
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _noteMeta = const VerificationMeta('note');
+  @override
+  late final GeneratedColumn<String> note = GeneratedColumn<String>(
+    'note',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _optionsJsonMeta = const VerificationMeta(
+    'optionsJson',
+  );
+  @override
+  late final GeneratedColumn<String> optionsJson = GeneratedColumn<String>(
+    'options_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isCustomMeta = const VerificationMeta(
     'isCustom',
   );
@@ -3398,6 +3691,8 @@ class $OrderLinesTable extends OrderLines
     productName,
     unitPriceKurus,
     unit,
+    note,
+    optionsJson,
     isCustom,
     qty,
     lineTotalKurus,
@@ -3460,6 +3755,21 @@ class $OrderLinesTable extends OrderLines
       context.handle(
         _unitMeta,
         unit.isAcceptableOrUnknown(data['unit']!, _unitMeta),
+      );
+    }
+    if (data.containsKey('note')) {
+      context.handle(
+        _noteMeta,
+        note.isAcceptableOrUnknown(data['note']!, _noteMeta),
+      );
+    }
+    if (data.containsKey('options_json')) {
+      context.handle(
+        _optionsJsonMeta,
+        optionsJson.isAcceptableOrUnknown(
+          data['options_json']!,
+          _optionsJsonMeta,
+        ),
       );
     }
     if (data.containsKey('is_custom')) {
@@ -3526,6 +3836,14 @@ class $OrderLinesTable extends OrderLines
         DriftSqlType.string,
         data['${effectivePrefix}unit'],
       ),
+      note: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note'],
+      ),
+      optionsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}options_json'],
+      ),
       isCustom: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_custom'],
@@ -3563,6 +3881,25 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
   /// Birim de satırda saklanır (fiyat/ad ile aynı gerekçe: o anki gerçek).
   final String? unit;
 
+  /// SATIR NOTU (kullanıcı isteği 2026-08-11) — "buzlu olsun", "kapıya bırak", "faturalı".
+  ///
+  /// `Orders.note` İLE KARIŞTIRILMAMALI: o siparişin tamamına ait tek nottur ("zili çalma"),
+  /// bu ise TEK KALEME aittir. İkisini aynı alana yazmak, üç kalemlik bir siparişte hangi
+  /// kalemin notlu olduğunu kaybettirirdi — kurye kapıda yanlış ürünü teslim eder.
+  /// Satırda saklanır (ad/fiyat/birim ile aynı gerekçe: siparişin çekildiği andaki gerçek).
+  final String? note;
+
+  /// SEÇİLEN SEÇENEKLER (kullanıcı isteği 2026-08-18) — JSON: `{cikarilan:[…], eklenen:[…]}`.
+  ///
+  /// SATIRDA saklanır ve KENDİ KENDİNE YETER: çıkarılan malzemenin adı ve eklenenin FİYATI
+  /// burada durur, ürüne bakılarak çözülmez ([unitPriceKurus]/[productName] ile aynı kural —
+  /// "siparişin çekildiği andaki gerçek"). Menü yarın değişse bile dünkü sipariş "soğansız" der.
+  ///
+  /// ⚠️ [note] ALANI DA DOLDURULUR: seçimin insan okunur özeti oraya yazılır, çünkü sipariş
+  /// detayı, kurye ekranı ve geçmiş o alanı ZATEN çiziyor. Yapılandırılmış veri makine için,
+  /// not metni ekranlar için — ikisi aynı gerçeğin iki okuyucusuna bakar.
+  final String? optionsJson;
+
   /// "Serbest satır" (katalogda olmayan tek seferlik iş). AÇIK bayrak: productId'nin null olması
   /// yeterli ayırt edici değildir (silinmiş ürünün satırı da null olabilir).
   final bool isCustom;
@@ -3576,6 +3913,8 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     required this.productName,
     required this.unitPriceKurus,
     this.unit,
+    this.note,
+    this.optionsJson,
     required this.isCustom,
     required this.qty,
     required this.lineTotalKurus,
@@ -3593,6 +3932,12 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     map['unit_price_kurus'] = Variable<int>(unitPriceKurus);
     if (!nullToAbsent || unit != null) {
       map['unit'] = Variable<String>(unit);
+    }
+    if (!nullToAbsent || note != null) {
+      map['note'] = Variable<String>(note);
+    }
+    if (!nullToAbsent || optionsJson != null) {
+      map['options_json'] = Variable<String>(optionsJson);
     }
     map['is_custom'] = Variable<bool>(isCustom);
     map['qty'] = Variable<int>(qty);
@@ -3613,6 +3958,10 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
       productName: Value(productName),
       unitPriceKurus: Value(unitPriceKurus),
       unit: unit == null && nullToAbsent ? const Value.absent() : Value(unit),
+      note: note == null && nullToAbsent ? const Value.absent() : Value(note),
+      optionsJson: optionsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(optionsJson),
       isCustom: Value(isCustom),
       qty: Value(qty),
       lineTotalKurus: Value(lineTotalKurus),
@@ -3634,6 +3983,8 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
       productName: serializer.fromJson<String>(json['productName']),
       unitPriceKurus: serializer.fromJson<int>(json['unitPriceKurus']),
       unit: serializer.fromJson<String?>(json['unit']),
+      note: serializer.fromJson<String?>(json['note']),
+      optionsJson: serializer.fromJson<String?>(json['optionsJson']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       qty: serializer.fromJson<int>(json['qty']),
       lineTotalKurus: serializer.fromJson<int>(json['lineTotalKurus']),
@@ -3650,6 +4001,8 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
       'productName': serializer.toJson<String>(productName),
       'unitPriceKurus': serializer.toJson<int>(unitPriceKurus),
       'unit': serializer.toJson<String?>(unit),
+      'note': serializer.toJson<String?>(note),
+      'optionsJson': serializer.toJson<String?>(optionsJson),
       'isCustom': serializer.toJson<bool>(isCustom),
       'qty': serializer.toJson<int>(qty),
       'lineTotalKurus': serializer.toJson<int>(lineTotalKurus),
@@ -3664,6 +4017,8 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     String? productName,
     int? unitPriceKurus,
     Value<String?> unit = const Value.absent(),
+    Value<String?> note = const Value.absent(),
+    Value<String?> optionsJson = const Value.absent(),
     bool? isCustom,
     int? qty,
     int? lineTotalKurus,
@@ -3675,6 +4030,8 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     productName: productName ?? this.productName,
     unitPriceKurus: unitPriceKurus ?? this.unitPriceKurus,
     unit: unit.present ? unit.value : this.unit,
+    note: note.present ? note.value : this.note,
+    optionsJson: optionsJson.present ? optionsJson.value : this.optionsJson,
     isCustom: isCustom ?? this.isCustom,
     qty: qty ?? this.qty,
     lineTotalKurus: lineTotalKurus ?? this.lineTotalKurus,
@@ -3692,6 +4049,10 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           ? data.unitPriceKurus.value
           : this.unitPriceKurus,
       unit: data.unit.present ? data.unit.value : this.unit,
+      note: data.note.present ? data.note.value : this.note,
+      optionsJson: data.optionsJson.present
+          ? data.optionsJson.value
+          : this.optionsJson,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
       qty: data.qty.present ? data.qty.value : this.qty,
       lineTotalKurus: data.lineTotalKurus.present
@@ -3710,6 +4071,8 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           ..write('productName: $productName, ')
           ..write('unitPriceKurus: $unitPriceKurus, ')
           ..write('unit: $unit, ')
+          ..write('note: $note, ')
+          ..write('optionsJson: $optionsJson, ')
           ..write('isCustom: $isCustom, ')
           ..write('qty: $qty, ')
           ..write('lineTotalKurus: $lineTotalKurus, ')
@@ -3726,6 +4089,8 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     productName,
     unitPriceKurus,
     unit,
+    note,
+    optionsJson,
     isCustom,
     qty,
     lineTotalKurus,
@@ -3741,6 +4106,8 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           other.productName == this.productName &&
           other.unitPriceKurus == this.unitPriceKurus &&
           other.unit == this.unit &&
+          other.note == this.note &&
+          other.optionsJson == this.optionsJson &&
           other.isCustom == this.isCustom &&
           other.qty == this.qty &&
           other.lineTotalKurus == this.lineTotalKurus &&
@@ -3754,6 +4121,8 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
   final Value<String> productName;
   final Value<int> unitPriceKurus;
   final Value<String?> unit;
+  final Value<String?> note;
+  final Value<String?> optionsJson;
   final Value<bool> isCustom;
   final Value<int> qty;
   final Value<int> lineTotalKurus;
@@ -3766,6 +4135,8 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     this.productName = const Value.absent(),
     this.unitPriceKurus = const Value.absent(),
     this.unit = const Value.absent(),
+    this.note = const Value.absent(),
+    this.optionsJson = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.qty = const Value.absent(),
     this.lineTotalKurus = const Value.absent(),
@@ -3779,6 +4150,8 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     required String productName,
     required int unitPriceKurus,
     this.unit = const Value.absent(),
+    this.note = const Value.absent(),
+    this.optionsJson = const Value.absent(),
     this.isCustom = const Value.absent(),
     required int qty,
     required int lineTotalKurus,
@@ -3797,6 +4170,8 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     Expression<String>? productName,
     Expression<int>? unitPriceKurus,
     Expression<String>? unit,
+    Expression<String>? note,
+    Expression<String>? optionsJson,
     Expression<bool>? isCustom,
     Expression<int>? qty,
     Expression<int>? lineTotalKurus,
@@ -3810,6 +4185,8 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
       if (productName != null) 'product_name': productName,
       if (unitPriceKurus != null) 'unit_price_kurus': unitPriceKurus,
       if (unit != null) 'unit': unit,
+      if (note != null) 'note': note,
+      if (optionsJson != null) 'options_json': optionsJson,
       if (isCustom != null) 'is_custom': isCustom,
       if (qty != null) 'qty': qty,
       if (lineTotalKurus != null) 'line_total_kurus': lineTotalKurus,
@@ -3825,6 +4202,8 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     Value<String>? productName,
     Value<int>? unitPriceKurus,
     Value<String?>? unit,
+    Value<String?>? note,
+    Value<String?>? optionsJson,
     Value<bool>? isCustom,
     Value<int>? qty,
     Value<int>? lineTotalKurus,
@@ -3838,6 +4217,8 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
       productName: productName ?? this.productName,
       unitPriceKurus: unitPriceKurus ?? this.unitPriceKurus,
       unit: unit ?? this.unit,
+      note: note ?? this.note,
+      optionsJson: optionsJson ?? this.optionsJson,
       isCustom: isCustom ?? this.isCustom,
       qty: qty ?? this.qty,
       lineTotalKurus: lineTotalKurus ?? this.lineTotalKurus,
@@ -3867,6 +4248,12 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     if (unit.present) {
       map['unit'] = Variable<String>(unit.value);
     }
+    if (note.present) {
+      map['note'] = Variable<String>(note.value);
+    }
+    if (optionsJson.present) {
+      map['options_json'] = Variable<String>(optionsJson.value);
+    }
     if (isCustom.present) {
       map['is_custom'] = Variable<bool>(isCustom.value);
     }
@@ -3894,6 +4281,8 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
           ..write('productName: $productName, ')
           ..write('unitPriceKurus: $unitPriceKurus, ')
           ..write('unit: $unit, ')
+          ..write('note: $note, ')
+          ..write('optionsJson: $optionsJson, ')
           ..write('isCustom: $isCustom, ')
           ..write('qty: $qty, ')
           ..write('lineTotalKurus: $lineTotalKurus, ')
@@ -5215,6 +5604,17 @@ class $CashHandoversTable extends CashHandovers
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _reversesHandoverIdMeta =
+      const VerificationMeta('reversesHandoverId');
+  @override
+  late final GeneratedColumn<String> reversesHandoverId =
+      GeneratedColumn<String>(
+        'reverses_handover_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _occurredAtMeta = const VerificationMeta(
     'occurredAt',
   );
@@ -5255,6 +5655,7 @@ class $CashHandoversTable extends CashHandovers
     expectedCashKurus,
     diffKurus,
     periodStart,
+    reversesHandoverId,
     occurredAt,
     deviceId,
     note,
@@ -5332,6 +5733,15 @@ class $CashHandoversTable extends CashHandovers
         ),
       );
     }
+    if (data.containsKey('reverses_handover_id')) {
+      context.handle(
+        _reversesHandoverIdMeta,
+        reversesHandoverId.isAcceptableOrUnknown(
+          data['reverses_handover_id']!,
+          _reversesHandoverIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('occurred_at')) {
       context.handle(
         _occurredAtMeta,
@@ -5389,6 +5799,10 @@ class $CashHandoversTable extends CashHandovers
         DriftSqlType.string,
         data['${effectivePrefix}period_start'],
       ),
+      reversesHandoverId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reverses_handover_id'],
+      ),
       occurredAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}occurred_at'],
@@ -5418,6 +5832,20 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
   final int expectedCashKurus;
   final int diffKurus;
   final String? periodStart;
+
+  /// İPTAL KAYDI (kullanıcı kararı 2026-08-13): dolu ise bu satır bir devri GERİ ALIR ve iptal
+  /// edilen devrin id'sini taşır. `ledger_entries.reversesEntryId` deseninin birebir aynısı.
+  ///
+  /// NEDEN KOLON, NEDEN SİLME DEĞİL: BRIEF kırmızı çizgi #2 — para kayıtları silinmez/ezilmez.
+  /// Yanlış alınmış bir ara tahsilat gerçekten OLMUŞ bir olaydır (patron kuryeden para aldı,
+  /// sonra iade etti); satırı yok etmek defterin "ne olduğunu" değil "ne olduğunu sandığımızı"
+  /// anlatır hâle getirirdi. İptal, ters işaretli İKİNCİ bir satırdır: orijinal kanıt olarak
+  /// yerinde durur, toplam kendiliğinden düzelir.
+  ///
+  /// NEDEN `day_closings.cash_handover_id` gibi İLİŞKİDEN türetilemedi: orada ilişkinin sahibi
+  /// KARŞI TARAFTIR (kapanış deviri işaret eder) ve o yüzden kolon gereksizdi. Burada geri alan
+  /// da alınan da aynı tablodadır; ilişkiyi taşıyacak başka bir yer yok.
+  final String? reversesHandoverId;
   final String occurredAt;
   final String? deviceId;
   final String? note;
@@ -5429,6 +5857,7 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
     required this.expectedCashKurus,
     required this.diffKurus,
     this.periodStart,
+    this.reversesHandoverId,
     required this.occurredAt,
     this.deviceId,
     this.note,
@@ -5446,6 +5875,9 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
     map['diff_kurus'] = Variable<int>(diffKurus);
     if (!nullToAbsent || periodStart != null) {
       map['period_start'] = Variable<String>(periodStart);
+    }
+    if (!nullToAbsent || reversesHandoverId != null) {
+      map['reverses_handover_id'] = Variable<String>(reversesHandoverId);
     }
     map['occurred_at'] = Variable<String>(occurredAt);
     if (!nullToAbsent || deviceId != null) {
@@ -5470,6 +5902,9 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
       periodStart: periodStart == null && nullToAbsent
           ? const Value.absent()
           : Value(periodStart),
+      reversesHandoverId: reversesHandoverId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reversesHandoverId),
       occurredAt: Value(occurredAt),
       deviceId: deviceId == null && nullToAbsent
           ? const Value.absent()
@@ -5491,6 +5926,9 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
       expectedCashKurus: serializer.fromJson<int>(json['expectedCashKurus']),
       diffKurus: serializer.fromJson<int>(json['diffKurus']),
       periodStart: serializer.fromJson<String?>(json['periodStart']),
+      reversesHandoverId: serializer.fromJson<String?>(
+        json['reversesHandoverId'],
+      ),
       occurredAt: serializer.fromJson<String>(json['occurredAt']),
       deviceId: serializer.fromJson<String?>(json['deviceId']),
       note: serializer.fromJson<String?>(json['note']),
@@ -5507,6 +5945,7 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
       'expectedCashKurus': serializer.toJson<int>(expectedCashKurus),
       'diffKurus': serializer.toJson<int>(diffKurus),
       'periodStart': serializer.toJson<String?>(periodStart),
+      'reversesHandoverId': serializer.toJson<String?>(reversesHandoverId),
       'occurredAt': serializer.toJson<String>(occurredAt),
       'deviceId': serializer.toJson<String?>(deviceId),
       'note': serializer.toJson<String?>(note),
@@ -5521,6 +5960,7 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
     int? expectedCashKurus,
     int? diffKurus,
     Value<String?> periodStart = const Value.absent(),
+    Value<String?> reversesHandoverId = const Value.absent(),
     String? occurredAt,
     Value<String?> deviceId = const Value.absent(),
     Value<String?> note = const Value.absent(),
@@ -5532,6 +5972,9 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
     expectedCashKurus: expectedCashKurus ?? this.expectedCashKurus,
     diffKurus: diffKurus ?? this.diffKurus,
     periodStart: periodStart.present ? periodStart.value : this.periodStart,
+    reversesHandoverId: reversesHandoverId.present
+        ? reversesHandoverId.value
+        : this.reversesHandoverId,
     occurredAt: occurredAt ?? this.occurredAt,
     deviceId: deviceId.present ? deviceId.value : this.deviceId,
     note: note.present ? note.value : this.note,
@@ -5553,6 +5996,9 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
       periodStart: data.periodStart.present
           ? data.periodStart.value
           : this.periodStart,
+      reversesHandoverId: data.reversesHandoverId.present
+          ? data.reversesHandoverId.value
+          : this.reversesHandoverId,
       occurredAt: data.occurredAt.present
           ? data.occurredAt.value
           : this.occurredAt,
@@ -5571,6 +6017,7 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
           ..write('expectedCashKurus: $expectedCashKurus, ')
           ..write('diffKurus: $diffKurus, ')
           ..write('periodStart: $periodStart, ')
+          ..write('reversesHandoverId: $reversesHandoverId, ')
           ..write('occurredAt: $occurredAt, ')
           ..write('deviceId: $deviceId, ')
           ..write('note: $note')
@@ -5587,6 +6034,7 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
     expectedCashKurus,
     diffKurus,
     periodStart,
+    reversesHandoverId,
     occurredAt,
     deviceId,
     note,
@@ -5602,6 +6050,7 @@ class CashHandover extends DataClass implements Insertable<CashHandover> {
           other.expectedCashKurus == this.expectedCashKurus &&
           other.diffKurus == this.diffKurus &&
           other.periodStart == this.periodStart &&
+          other.reversesHandoverId == this.reversesHandoverId &&
           other.occurredAt == this.occurredAt &&
           other.deviceId == this.deviceId &&
           other.note == this.note);
@@ -5615,6 +6064,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
   final Value<int> expectedCashKurus;
   final Value<int> diffKurus;
   final Value<String?> periodStart;
+  final Value<String?> reversesHandoverId;
   final Value<String> occurredAt;
   final Value<String?> deviceId;
   final Value<String?> note;
@@ -5627,6 +6077,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
     this.expectedCashKurus = const Value.absent(),
     this.diffKurus = const Value.absent(),
     this.periodStart = const Value.absent(),
+    this.reversesHandoverId = const Value.absent(),
     this.occurredAt = const Value.absent(),
     this.deviceId = const Value.absent(),
     this.note = const Value.absent(),
@@ -5640,6 +6091,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
     required int expectedCashKurus,
     required int diffKurus,
     this.periodStart = const Value.absent(),
+    this.reversesHandoverId = const Value.absent(),
     required String occurredAt,
     this.deviceId = const Value.absent(),
     this.note = const Value.absent(),
@@ -5658,6 +6110,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
     Expression<int>? expectedCashKurus,
     Expression<int>? diffKurus,
     Expression<String>? periodStart,
+    Expression<String>? reversesHandoverId,
     Expression<String>? occurredAt,
     Expression<String>? deviceId,
     Expression<String>? note,
@@ -5671,6 +6124,8 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
       if (expectedCashKurus != null) 'expected_cash_kurus': expectedCashKurus,
       if (diffKurus != null) 'diff_kurus': diffKurus,
       if (periodStart != null) 'period_start': periodStart,
+      if (reversesHandoverId != null)
+        'reverses_handover_id': reversesHandoverId,
       if (occurredAt != null) 'occurred_at': occurredAt,
       if (deviceId != null) 'device_id': deviceId,
       if (note != null) 'note': note,
@@ -5686,6 +6141,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
     Value<int>? expectedCashKurus,
     Value<int>? diffKurus,
     Value<String?>? periodStart,
+    Value<String?>? reversesHandoverId,
     Value<String>? occurredAt,
     Value<String?>? deviceId,
     Value<String?>? note,
@@ -5699,6 +6155,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
       expectedCashKurus: expectedCashKurus ?? this.expectedCashKurus,
       diffKurus: diffKurus ?? this.diffKurus,
       periodStart: periodStart ?? this.periodStart,
+      reversesHandoverId: reversesHandoverId ?? this.reversesHandoverId,
       occurredAt: occurredAt ?? this.occurredAt,
       deviceId: deviceId ?? this.deviceId,
       note: note ?? this.note,
@@ -5730,6 +6187,9 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
     if (periodStart.present) {
       map['period_start'] = Variable<String>(periodStart.value);
     }
+    if (reversesHandoverId.present) {
+      map['reverses_handover_id'] = Variable<String>(reversesHandoverId.value);
+    }
     if (occurredAt.present) {
       map['occurred_at'] = Variable<String>(occurredAt.value);
     }
@@ -5755,6 +6215,7 @@ class CashHandoversCompanion extends UpdateCompanion<CashHandover> {
           ..write('expectedCashKurus: $expectedCashKurus, ')
           ..write('diffKurus: $diffKurus, ')
           ..write('periodStart: $periodStart, ')
+          ..write('reversesHandoverId: $reversesHandoverId, ')
           ..write('occurredAt: $occurredAt, ')
           ..write('deviceId: $deviceId, ')
           ..write('note: $note, ')
@@ -5826,6 +6287,200 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _courierCanCustomersMeta =
+      const VerificationMeta('courierCanCustomers');
+  @override
+  late final GeneratedColumn<bool> courierCanCustomers = GeneratedColumn<bool>(
+    'courier_can_customers',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_customers" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanOrdersMeta = const VerificationMeta(
+    'courierCanOrders',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanOrders = GeneratedColumn<bool>(
+    'courier_can_orders',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_orders" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanCollectMeta = const VerificationMeta(
+    'courierCanCollect',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanCollect = GeneratedColumn<bool>(
+    'courier_can_collect',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_collect" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanDiscountMeta =
+      const VerificationMeta('courierCanDiscount');
+  @override
+  late final GeneratedColumn<bool> courierCanDiscount = GeneratedColumn<bool>(
+    'courier_can_discount',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_discount" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanDayEndMeta = const VerificationMeta(
+    'courierCanDayEnd',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanDayEnd = GeneratedColumn<bool>(
+    'courier_can_day_end',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_day_end" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanSeeAllOrdersMeta =
+      const VerificationMeta('courierCanSeeAllOrders');
+  @override
+  late final GeneratedColumn<bool> courierCanSeeAllOrders =
+      GeneratedColumn<bool>(
+        'courier_can_see_all_orders',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_see_all_orders" IN (0, 1))',
+        ),
+      );
+  static const VerificationMeta _courierCanViewHistoryMeta =
+      const VerificationMeta('courierCanViewHistory');
+  @override
+  late final GeneratedColumn<bool> courierCanViewHistory =
+      GeneratedColumn<bool>(
+        'courier_can_view_history',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_view_history" IN (0, 1))',
+        ),
+      );
+  static const VerificationMeta _courierCanExpenseMeta = const VerificationMeta(
+    'courierCanExpense',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanExpense = GeneratedColumn<bool>(
+    'courier_can_expense',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_expense" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierPhoneMaskMeta = const VerificationMeta(
+    'courierPhoneMask',
+  );
+  @override
+  late final GeneratedColumn<bool> courierPhoneMask = GeneratedColumn<bool>(
+    'courier_phone_mask',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_phone_mask" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanCustomerLedgerMeta =
+      const VerificationMeta('courierCanCustomerLedger');
+  @override
+  late final GeneratedColumn<bool> courierCanCustomerLedger =
+      GeneratedColumn<bool>(
+        'courier_can_customer_ledger',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_customer_ledger" IN (0, 1))',
+        ),
+      );
+  static const VerificationMeta _courierCanDebtReminderMeta =
+      const VerificationMeta('courierCanDebtReminder');
+  @override
+  late final GeneratedColumn<bool> courierCanDebtReminder =
+      GeneratedColumn<bool>(
+        'courier_can_debt_reminder',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_debt_reminder" IN (0, 1))',
+        ),
+      );
+  static const VerificationMeta _courierCanToggleStockMeta =
+      const VerificationMeta('courierCanToggleStock');
+  @override
+  late final GeneratedColumn<bool> courierCanToggleStock =
+      GeneratedColumn<bool>(
+        'courier_can_toggle_stock',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_toggle_stock" IN (0, 1))',
+        ),
+      );
+  static const VerificationMeta _courierCanCallLogMeta = const VerificationMeta(
+    'courierCanCallLog',
+  );
+  @override
+  late final GeneratedColumn<bool> courierCanCallLog = GeneratedColumn<bool>(
+    'courier_can_call_log',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_call_log" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _courierCanSeeAllCustomersMeta =
+      const VerificationMeta('courierCanSeeAllCustomers');
+  @override
+  late final GeneratedColumn<bool> courierCanSeeAllCustomers =
+      GeneratedColumn<bool>(
+        'courier_can_see_all_customers',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_see_all_customers" IN (0, 1))',
+        ),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -5834,6 +6489,20 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
     status,
     username,
     phone,
+    courierCanCustomers,
+    courierCanOrders,
+    courierCanCollect,
+    courierCanDiscount,
+    courierCanDayEnd,
+    courierCanSeeAllOrders,
+    courierCanViewHistory,
+    courierCanExpense,
+    courierPhoneMask,
+    courierCanCustomerLedger,
+    courierCanDebtReminder,
+    courierCanToggleStock,
+    courierCanCallLog,
+    courierCanSeeAllCustomers,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5888,6 +6557,132 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         phone.isAcceptableOrUnknown(data['phone']!, _phoneMeta),
       );
     }
+    if (data.containsKey('courier_can_customers')) {
+      context.handle(
+        _courierCanCustomersMeta,
+        courierCanCustomers.isAcceptableOrUnknown(
+          data['courier_can_customers']!,
+          _courierCanCustomersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_orders')) {
+      context.handle(
+        _courierCanOrdersMeta,
+        courierCanOrders.isAcceptableOrUnknown(
+          data['courier_can_orders']!,
+          _courierCanOrdersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_collect')) {
+      context.handle(
+        _courierCanCollectMeta,
+        courierCanCollect.isAcceptableOrUnknown(
+          data['courier_can_collect']!,
+          _courierCanCollectMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_discount')) {
+      context.handle(
+        _courierCanDiscountMeta,
+        courierCanDiscount.isAcceptableOrUnknown(
+          data['courier_can_discount']!,
+          _courierCanDiscountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_day_end')) {
+      context.handle(
+        _courierCanDayEndMeta,
+        courierCanDayEnd.isAcceptableOrUnknown(
+          data['courier_can_day_end']!,
+          _courierCanDayEndMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_see_all_orders')) {
+      context.handle(
+        _courierCanSeeAllOrdersMeta,
+        courierCanSeeAllOrders.isAcceptableOrUnknown(
+          data['courier_can_see_all_orders']!,
+          _courierCanSeeAllOrdersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_view_history')) {
+      context.handle(
+        _courierCanViewHistoryMeta,
+        courierCanViewHistory.isAcceptableOrUnknown(
+          data['courier_can_view_history']!,
+          _courierCanViewHistoryMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_expense')) {
+      context.handle(
+        _courierCanExpenseMeta,
+        courierCanExpense.isAcceptableOrUnknown(
+          data['courier_can_expense']!,
+          _courierCanExpenseMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_phone_mask')) {
+      context.handle(
+        _courierPhoneMaskMeta,
+        courierPhoneMask.isAcceptableOrUnknown(
+          data['courier_phone_mask']!,
+          _courierPhoneMaskMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_customer_ledger')) {
+      context.handle(
+        _courierCanCustomerLedgerMeta,
+        courierCanCustomerLedger.isAcceptableOrUnknown(
+          data['courier_can_customer_ledger']!,
+          _courierCanCustomerLedgerMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_debt_reminder')) {
+      context.handle(
+        _courierCanDebtReminderMeta,
+        courierCanDebtReminder.isAcceptableOrUnknown(
+          data['courier_can_debt_reminder']!,
+          _courierCanDebtReminderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_toggle_stock')) {
+      context.handle(
+        _courierCanToggleStockMeta,
+        courierCanToggleStock.isAcceptableOrUnknown(
+          data['courier_can_toggle_stock']!,
+          _courierCanToggleStockMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_call_log')) {
+      context.handle(
+        _courierCanCallLogMeta,
+        courierCanCallLog.isAcceptableOrUnknown(
+          data['courier_can_call_log']!,
+          _courierCanCallLogMeta,
+        ),
+      );
+    }
+    if (data.containsKey('courier_can_see_all_customers')) {
+      context.handle(
+        _courierCanSeeAllCustomersMeta,
+        courierCanSeeAllCustomers.isAcceptableOrUnknown(
+          data['courier_can_see_all_customers']!,
+          _courierCanSeeAllCustomersMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5921,6 +6716,62 @@ class $UsersTable extends Users with TableInfo<$UsersTable, User> {
         DriftSqlType.string,
         data['${effectivePrefix}phone'],
       ),
+      courierCanCustomers: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_customers'],
+      ),
+      courierCanOrders: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_orders'],
+      ),
+      courierCanCollect: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_collect'],
+      ),
+      courierCanDiscount: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_discount'],
+      ),
+      courierCanDayEnd: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_day_end'],
+      ),
+      courierCanSeeAllOrders: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_see_all_orders'],
+      ),
+      courierCanViewHistory: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_view_history'],
+      ),
+      courierCanExpense: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_expense'],
+      ),
+      courierPhoneMask: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_phone_mask'],
+      ),
+      courierCanCustomerLedger: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_customer_ledger'],
+      ),
+      courierCanDebtReminder: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_debt_reminder'],
+      ),
+      courierCanToggleStock: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_toggle_stock'],
+      ),
+      courierCanCallLog: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_call_log'],
+      ),
+      courierCanSeeAllCustomers: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_see_all_customers'],
+      ),
     );
   }
 
@@ -5945,6 +6796,23 @@ class User extends DataClass implements Insertable<User> {
   /// Kurye telefonu (tasarım: Kuryeler ekranı gösterir/düzenler). Bayinin KENDİ personel iletişim
   /// bilgisidir; e-posta/parola hâlâ sunucuda kalır ve team bloğuna hiç girmez.
   final String? phone;
+  final bool? courierCanCustomers;
+  final bool? courierCanOrders;
+  final bool? courierCanCollect;
+  final bool? courierCanDiscount;
+  final bool? courierCanDayEnd;
+  final bool? courierCanSeeAllOrders;
+  final bool? courierCanViewHistory;
+  final bool? courierCanExpense;
+  final bool? courierPhoneMask;
+  final bool? courierCanCustomerLedger;
+  final bool? courierCanDebtReminder;
+  final bool? courierCanToggleStock;
+  final bool? courierCanCallLog;
+
+  /// v27 (2026-08-22) — kurye TÜM müşterileri görebilir mi. `null` = bayi varsayılanını devral.
+  /// Gerekçe [TenantSettings.courierCanSeeAllCustomers] üzerinde.
+  final bool? courierCanSeeAllCustomers;
   const User({
     required this.id,
     required this.name,
@@ -5952,6 +6820,20 @@ class User extends DataClass implements Insertable<User> {
     required this.status,
     required this.username,
     this.phone,
+    this.courierCanCustomers,
+    this.courierCanOrders,
+    this.courierCanCollect,
+    this.courierCanDiscount,
+    this.courierCanDayEnd,
+    this.courierCanSeeAllOrders,
+    this.courierCanViewHistory,
+    this.courierCanExpense,
+    this.courierPhoneMask,
+    this.courierCanCustomerLedger,
+    this.courierCanDebtReminder,
+    this.courierCanToggleStock,
+    this.courierCanCallLog,
+    this.courierCanSeeAllCustomers,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5963,6 +6845,54 @@ class User extends DataClass implements Insertable<User> {
     map['username'] = Variable<String>(username);
     if (!nullToAbsent || phone != null) {
       map['phone'] = Variable<String>(phone);
+    }
+    if (!nullToAbsent || courierCanCustomers != null) {
+      map['courier_can_customers'] = Variable<bool>(courierCanCustomers);
+    }
+    if (!nullToAbsent || courierCanOrders != null) {
+      map['courier_can_orders'] = Variable<bool>(courierCanOrders);
+    }
+    if (!nullToAbsent || courierCanCollect != null) {
+      map['courier_can_collect'] = Variable<bool>(courierCanCollect);
+    }
+    if (!nullToAbsent || courierCanDiscount != null) {
+      map['courier_can_discount'] = Variable<bool>(courierCanDiscount);
+    }
+    if (!nullToAbsent || courierCanDayEnd != null) {
+      map['courier_can_day_end'] = Variable<bool>(courierCanDayEnd);
+    }
+    if (!nullToAbsent || courierCanSeeAllOrders != null) {
+      map['courier_can_see_all_orders'] = Variable<bool>(
+        courierCanSeeAllOrders,
+      );
+    }
+    if (!nullToAbsent || courierCanViewHistory != null) {
+      map['courier_can_view_history'] = Variable<bool>(courierCanViewHistory);
+    }
+    if (!nullToAbsent || courierCanExpense != null) {
+      map['courier_can_expense'] = Variable<bool>(courierCanExpense);
+    }
+    if (!nullToAbsent || courierPhoneMask != null) {
+      map['courier_phone_mask'] = Variable<bool>(courierPhoneMask);
+    }
+    if (!nullToAbsent || courierCanCustomerLedger != null) {
+      map['courier_can_customer_ledger'] = Variable<bool>(
+        courierCanCustomerLedger,
+      );
+    }
+    if (!nullToAbsent || courierCanDebtReminder != null) {
+      map['courier_can_debt_reminder'] = Variable<bool>(courierCanDebtReminder);
+    }
+    if (!nullToAbsent || courierCanToggleStock != null) {
+      map['courier_can_toggle_stock'] = Variable<bool>(courierCanToggleStock);
+    }
+    if (!nullToAbsent || courierCanCallLog != null) {
+      map['courier_can_call_log'] = Variable<bool>(courierCanCallLog);
+    }
+    if (!nullToAbsent || courierCanSeeAllCustomers != null) {
+      map['courier_can_see_all_customers'] = Variable<bool>(
+        courierCanSeeAllCustomers,
+      );
     }
     return map;
   }
@@ -5977,6 +6907,49 @@ class User extends DataClass implements Insertable<User> {
       phone: phone == null && nullToAbsent
           ? const Value.absent()
           : Value(phone),
+      courierCanCustomers: courierCanCustomers == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanCustomers),
+      courierCanOrders: courierCanOrders == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanOrders),
+      courierCanCollect: courierCanCollect == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanCollect),
+      courierCanDiscount: courierCanDiscount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanDiscount),
+      courierCanDayEnd: courierCanDayEnd == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanDayEnd),
+      courierCanSeeAllOrders: courierCanSeeAllOrders == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanSeeAllOrders),
+      courierCanViewHistory: courierCanViewHistory == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanViewHistory),
+      courierCanExpense: courierCanExpense == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanExpense),
+      courierPhoneMask: courierPhoneMask == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierPhoneMask),
+      courierCanCustomerLedger: courierCanCustomerLedger == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanCustomerLedger),
+      courierCanDebtReminder: courierCanDebtReminder == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanDebtReminder),
+      courierCanToggleStock: courierCanToggleStock == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanToggleStock),
+      courierCanCallLog: courierCanCallLog == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanCallLog),
+      courierCanSeeAllCustomers:
+          courierCanSeeAllCustomers == null && nullToAbsent
+          ? const Value.absent()
+          : Value(courierCanSeeAllCustomers),
     );
   }
 
@@ -5992,6 +6965,36 @@ class User extends DataClass implements Insertable<User> {
       status: serializer.fromJson<String>(json['status']),
       username: serializer.fromJson<String>(json['username']),
       phone: serializer.fromJson<String?>(json['phone']),
+      courierCanCustomers: serializer.fromJson<bool?>(
+        json['courierCanCustomers'],
+      ),
+      courierCanOrders: serializer.fromJson<bool?>(json['courierCanOrders']),
+      courierCanCollect: serializer.fromJson<bool?>(json['courierCanCollect']),
+      courierCanDiscount: serializer.fromJson<bool?>(
+        json['courierCanDiscount'],
+      ),
+      courierCanDayEnd: serializer.fromJson<bool?>(json['courierCanDayEnd']),
+      courierCanSeeAllOrders: serializer.fromJson<bool?>(
+        json['courierCanSeeAllOrders'],
+      ),
+      courierCanViewHistory: serializer.fromJson<bool?>(
+        json['courierCanViewHistory'],
+      ),
+      courierCanExpense: serializer.fromJson<bool?>(json['courierCanExpense']),
+      courierPhoneMask: serializer.fromJson<bool?>(json['courierPhoneMask']),
+      courierCanCustomerLedger: serializer.fromJson<bool?>(
+        json['courierCanCustomerLedger'],
+      ),
+      courierCanDebtReminder: serializer.fromJson<bool?>(
+        json['courierCanDebtReminder'],
+      ),
+      courierCanToggleStock: serializer.fromJson<bool?>(
+        json['courierCanToggleStock'],
+      ),
+      courierCanCallLog: serializer.fromJson<bool?>(json['courierCanCallLog']),
+      courierCanSeeAllCustomers: serializer.fromJson<bool?>(
+        json['courierCanSeeAllCustomers'],
+      ),
     );
   }
   @override
@@ -6004,6 +7007,28 @@ class User extends DataClass implements Insertable<User> {
       'status': serializer.toJson<String>(status),
       'username': serializer.toJson<String>(username),
       'phone': serializer.toJson<String?>(phone),
+      'courierCanCustomers': serializer.toJson<bool?>(courierCanCustomers),
+      'courierCanOrders': serializer.toJson<bool?>(courierCanOrders),
+      'courierCanCollect': serializer.toJson<bool?>(courierCanCollect),
+      'courierCanDiscount': serializer.toJson<bool?>(courierCanDiscount),
+      'courierCanDayEnd': serializer.toJson<bool?>(courierCanDayEnd),
+      'courierCanSeeAllOrders': serializer.toJson<bool?>(
+        courierCanSeeAllOrders,
+      ),
+      'courierCanViewHistory': serializer.toJson<bool?>(courierCanViewHistory),
+      'courierCanExpense': serializer.toJson<bool?>(courierCanExpense),
+      'courierPhoneMask': serializer.toJson<bool?>(courierPhoneMask),
+      'courierCanCustomerLedger': serializer.toJson<bool?>(
+        courierCanCustomerLedger,
+      ),
+      'courierCanDebtReminder': serializer.toJson<bool?>(
+        courierCanDebtReminder,
+      ),
+      'courierCanToggleStock': serializer.toJson<bool?>(courierCanToggleStock),
+      'courierCanCallLog': serializer.toJson<bool?>(courierCanCallLog),
+      'courierCanSeeAllCustomers': serializer.toJson<bool?>(
+        courierCanSeeAllCustomers,
+      ),
     };
   }
 
@@ -6014,6 +7039,20 @@ class User extends DataClass implements Insertable<User> {
     String? status,
     String? username,
     Value<String?> phone = const Value.absent(),
+    Value<bool?> courierCanCustomers = const Value.absent(),
+    Value<bool?> courierCanOrders = const Value.absent(),
+    Value<bool?> courierCanCollect = const Value.absent(),
+    Value<bool?> courierCanDiscount = const Value.absent(),
+    Value<bool?> courierCanDayEnd = const Value.absent(),
+    Value<bool?> courierCanSeeAllOrders = const Value.absent(),
+    Value<bool?> courierCanViewHistory = const Value.absent(),
+    Value<bool?> courierCanExpense = const Value.absent(),
+    Value<bool?> courierPhoneMask = const Value.absent(),
+    Value<bool?> courierCanCustomerLedger = const Value.absent(),
+    Value<bool?> courierCanDebtReminder = const Value.absent(),
+    Value<bool?> courierCanToggleStock = const Value.absent(),
+    Value<bool?> courierCanCallLog = const Value.absent(),
+    Value<bool?> courierCanSeeAllCustomers = const Value.absent(),
   }) => User(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -6021,6 +7060,48 @@ class User extends DataClass implements Insertable<User> {
     status: status ?? this.status,
     username: username ?? this.username,
     phone: phone.present ? phone.value : this.phone,
+    courierCanCustomers: courierCanCustomers.present
+        ? courierCanCustomers.value
+        : this.courierCanCustomers,
+    courierCanOrders: courierCanOrders.present
+        ? courierCanOrders.value
+        : this.courierCanOrders,
+    courierCanCollect: courierCanCollect.present
+        ? courierCanCollect.value
+        : this.courierCanCollect,
+    courierCanDiscount: courierCanDiscount.present
+        ? courierCanDiscount.value
+        : this.courierCanDiscount,
+    courierCanDayEnd: courierCanDayEnd.present
+        ? courierCanDayEnd.value
+        : this.courierCanDayEnd,
+    courierCanSeeAllOrders: courierCanSeeAllOrders.present
+        ? courierCanSeeAllOrders.value
+        : this.courierCanSeeAllOrders,
+    courierCanViewHistory: courierCanViewHistory.present
+        ? courierCanViewHistory.value
+        : this.courierCanViewHistory,
+    courierCanExpense: courierCanExpense.present
+        ? courierCanExpense.value
+        : this.courierCanExpense,
+    courierPhoneMask: courierPhoneMask.present
+        ? courierPhoneMask.value
+        : this.courierPhoneMask,
+    courierCanCustomerLedger: courierCanCustomerLedger.present
+        ? courierCanCustomerLedger.value
+        : this.courierCanCustomerLedger,
+    courierCanDebtReminder: courierCanDebtReminder.present
+        ? courierCanDebtReminder.value
+        : this.courierCanDebtReminder,
+    courierCanToggleStock: courierCanToggleStock.present
+        ? courierCanToggleStock.value
+        : this.courierCanToggleStock,
+    courierCanCallLog: courierCanCallLog.present
+        ? courierCanCallLog.value
+        : this.courierCanCallLog,
+    courierCanSeeAllCustomers: courierCanSeeAllCustomers.present
+        ? courierCanSeeAllCustomers.value
+        : this.courierCanSeeAllCustomers,
   );
   User copyWithCompanion(UsersCompanion data) {
     return User(
@@ -6030,6 +7111,48 @@ class User extends DataClass implements Insertable<User> {
       status: data.status.present ? data.status.value : this.status,
       username: data.username.present ? data.username.value : this.username,
       phone: data.phone.present ? data.phone.value : this.phone,
+      courierCanCustomers: data.courierCanCustomers.present
+          ? data.courierCanCustomers.value
+          : this.courierCanCustomers,
+      courierCanOrders: data.courierCanOrders.present
+          ? data.courierCanOrders.value
+          : this.courierCanOrders,
+      courierCanCollect: data.courierCanCollect.present
+          ? data.courierCanCollect.value
+          : this.courierCanCollect,
+      courierCanDiscount: data.courierCanDiscount.present
+          ? data.courierCanDiscount.value
+          : this.courierCanDiscount,
+      courierCanDayEnd: data.courierCanDayEnd.present
+          ? data.courierCanDayEnd.value
+          : this.courierCanDayEnd,
+      courierCanSeeAllOrders: data.courierCanSeeAllOrders.present
+          ? data.courierCanSeeAllOrders.value
+          : this.courierCanSeeAllOrders,
+      courierCanViewHistory: data.courierCanViewHistory.present
+          ? data.courierCanViewHistory.value
+          : this.courierCanViewHistory,
+      courierCanExpense: data.courierCanExpense.present
+          ? data.courierCanExpense.value
+          : this.courierCanExpense,
+      courierPhoneMask: data.courierPhoneMask.present
+          ? data.courierPhoneMask.value
+          : this.courierPhoneMask,
+      courierCanCustomerLedger: data.courierCanCustomerLedger.present
+          ? data.courierCanCustomerLedger.value
+          : this.courierCanCustomerLedger,
+      courierCanDebtReminder: data.courierCanDebtReminder.present
+          ? data.courierCanDebtReminder.value
+          : this.courierCanDebtReminder,
+      courierCanToggleStock: data.courierCanToggleStock.present
+          ? data.courierCanToggleStock.value
+          : this.courierCanToggleStock,
+      courierCanCallLog: data.courierCanCallLog.present
+          ? data.courierCanCallLog.value
+          : this.courierCanCallLog,
+      courierCanSeeAllCustomers: data.courierCanSeeAllCustomers.present
+          ? data.courierCanSeeAllCustomers.value
+          : this.courierCanSeeAllCustomers,
     );
   }
 
@@ -6041,13 +7164,48 @@ class User extends DataClass implements Insertable<User> {
           ..write('role: $role, ')
           ..write('status: $status, ')
           ..write('username: $username, ')
-          ..write('phone: $phone')
+          ..write('phone: $phone, ')
+          ..write('courierCanCustomers: $courierCanCustomers, ')
+          ..write('courierCanOrders: $courierCanOrders, ')
+          ..write('courierCanCollect: $courierCanCollect, ')
+          ..write('courierCanDiscount: $courierCanDiscount, ')
+          ..write('courierCanDayEnd: $courierCanDayEnd, ')
+          ..write('courierCanSeeAllOrders: $courierCanSeeAllOrders, ')
+          ..write('courierCanViewHistory: $courierCanViewHistory, ')
+          ..write('courierCanExpense: $courierCanExpense, ')
+          ..write('courierPhoneMask: $courierPhoneMask, ')
+          ..write('courierCanCustomerLedger: $courierCanCustomerLedger, ')
+          ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
+          ..write('courierCanToggleStock: $courierCanToggleStock, ')
+          ..write('courierCanCallLog: $courierCanCallLog, ')
+          ..write('courierCanSeeAllCustomers: $courierCanSeeAllCustomers')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, role, status, username, phone);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    role,
+    status,
+    username,
+    phone,
+    courierCanCustomers,
+    courierCanOrders,
+    courierCanCollect,
+    courierCanDiscount,
+    courierCanDayEnd,
+    courierCanSeeAllOrders,
+    courierCanViewHistory,
+    courierCanExpense,
+    courierPhoneMask,
+    courierCanCustomerLedger,
+    courierCanDebtReminder,
+    courierCanToggleStock,
+    courierCanCallLog,
+    courierCanSeeAllCustomers,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6057,7 +7215,21 @@ class User extends DataClass implements Insertable<User> {
           other.role == this.role &&
           other.status == this.status &&
           other.username == this.username &&
-          other.phone == this.phone);
+          other.phone == this.phone &&
+          other.courierCanCustomers == this.courierCanCustomers &&
+          other.courierCanOrders == this.courierCanOrders &&
+          other.courierCanCollect == this.courierCanCollect &&
+          other.courierCanDiscount == this.courierCanDiscount &&
+          other.courierCanDayEnd == this.courierCanDayEnd &&
+          other.courierCanSeeAllOrders == this.courierCanSeeAllOrders &&
+          other.courierCanViewHistory == this.courierCanViewHistory &&
+          other.courierCanExpense == this.courierCanExpense &&
+          other.courierPhoneMask == this.courierPhoneMask &&
+          other.courierCanCustomerLedger == this.courierCanCustomerLedger &&
+          other.courierCanDebtReminder == this.courierCanDebtReminder &&
+          other.courierCanToggleStock == this.courierCanToggleStock &&
+          other.courierCanCallLog == this.courierCanCallLog &&
+          other.courierCanSeeAllCustomers == this.courierCanSeeAllCustomers);
 }
 
 class UsersCompanion extends UpdateCompanion<User> {
@@ -6067,6 +7239,20 @@ class UsersCompanion extends UpdateCompanion<User> {
   final Value<String> status;
   final Value<String> username;
   final Value<String?> phone;
+  final Value<bool?> courierCanCustomers;
+  final Value<bool?> courierCanOrders;
+  final Value<bool?> courierCanCollect;
+  final Value<bool?> courierCanDiscount;
+  final Value<bool?> courierCanDayEnd;
+  final Value<bool?> courierCanSeeAllOrders;
+  final Value<bool?> courierCanViewHistory;
+  final Value<bool?> courierCanExpense;
+  final Value<bool?> courierPhoneMask;
+  final Value<bool?> courierCanCustomerLedger;
+  final Value<bool?> courierCanDebtReminder;
+  final Value<bool?> courierCanToggleStock;
+  final Value<bool?> courierCanCallLog;
+  final Value<bool?> courierCanSeeAllCustomers;
   final Value<int> rowid;
   const UsersCompanion({
     this.id = const Value.absent(),
@@ -6075,6 +7261,20 @@ class UsersCompanion extends UpdateCompanion<User> {
     this.status = const Value.absent(),
     this.username = const Value.absent(),
     this.phone = const Value.absent(),
+    this.courierCanCustomers = const Value.absent(),
+    this.courierCanOrders = const Value.absent(),
+    this.courierCanCollect = const Value.absent(),
+    this.courierCanDiscount = const Value.absent(),
+    this.courierCanDayEnd = const Value.absent(),
+    this.courierCanSeeAllOrders = const Value.absent(),
+    this.courierCanViewHistory = const Value.absent(),
+    this.courierCanExpense = const Value.absent(),
+    this.courierPhoneMask = const Value.absent(),
+    this.courierCanCustomerLedger = const Value.absent(),
+    this.courierCanDebtReminder = const Value.absent(),
+    this.courierCanToggleStock = const Value.absent(),
+    this.courierCanCallLog = const Value.absent(),
+    this.courierCanSeeAllCustomers = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   UsersCompanion.insert({
@@ -6084,6 +7284,20 @@ class UsersCompanion extends UpdateCompanion<User> {
     required String status,
     this.username = const Value.absent(),
     this.phone = const Value.absent(),
+    this.courierCanCustomers = const Value.absent(),
+    this.courierCanOrders = const Value.absent(),
+    this.courierCanCollect = const Value.absent(),
+    this.courierCanDiscount = const Value.absent(),
+    this.courierCanDayEnd = const Value.absent(),
+    this.courierCanSeeAllOrders = const Value.absent(),
+    this.courierCanViewHistory = const Value.absent(),
+    this.courierCanExpense = const Value.absent(),
+    this.courierPhoneMask = const Value.absent(),
+    this.courierCanCustomerLedger = const Value.absent(),
+    this.courierCanDebtReminder = const Value.absent(),
+    this.courierCanToggleStock = const Value.absent(),
+    this.courierCanCallLog = const Value.absent(),
+    this.courierCanSeeAllCustomers = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -6096,6 +7310,20 @@ class UsersCompanion extends UpdateCompanion<User> {
     Expression<String>? status,
     Expression<String>? username,
     Expression<String>? phone,
+    Expression<bool>? courierCanCustomers,
+    Expression<bool>? courierCanOrders,
+    Expression<bool>? courierCanCollect,
+    Expression<bool>? courierCanDiscount,
+    Expression<bool>? courierCanDayEnd,
+    Expression<bool>? courierCanSeeAllOrders,
+    Expression<bool>? courierCanViewHistory,
+    Expression<bool>? courierCanExpense,
+    Expression<bool>? courierPhoneMask,
+    Expression<bool>? courierCanCustomerLedger,
+    Expression<bool>? courierCanDebtReminder,
+    Expression<bool>? courierCanToggleStock,
+    Expression<bool>? courierCanCallLog,
+    Expression<bool>? courierCanSeeAllCustomers,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6105,6 +7333,28 @@ class UsersCompanion extends UpdateCompanion<User> {
       if (status != null) 'status': status,
       if (username != null) 'username': username,
       if (phone != null) 'phone': phone,
+      if (courierCanCustomers != null)
+        'courier_can_customers': courierCanCustomers,
+      if (courierCanOrders != null) 'courier_can_orders': courierCanOrders,
+      if (courierCanCollect != null) 'courier_can_collect': courierCanCollect,
+      if (courierCanDiscount != null)
+        'courier_can_discount': courierCanDiscount,
+      if (courierCanDayEnd != null) 'courier_can_day_end': courierCanDayEnd,
+      if (courierCanSeeAllOrders != null)
+        'courier_can_see_all_orders': courierCanSeeAllOrders,
+      if (courierCanViewHistory != null)
+        'courier_can_view_history': courierCanViewHistory,
+      if (courierCanExpense != null) 'courier_can_expense': courierCanExpense,
+      if (courierPhoneMask != null) 'courier_phone_mask': courierPhoneMask,
+      if (courierCanCustomerLedger != null)
+        'courier_can_customer_ledger': courierCanCustomerLedger,
+      if (courierCanDebtReminder != null)
+        'courier_can_debt_reminder': courierCanDebtReminder,
+      if (courierCanToggleStock != null)
+        'courier_can_toggle_stock': courierCanToggleStock,
+      if (courierCanCallLog != null) 'courier_can_call_log': courierCanCallLog,
+      if (courierCanSeeAllCustomers != null)
+        'courier_can_see_all_customers': courierCanSeeAllCustomers,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6116,6 +7366,20 @@ class UsersCompanion extends UpdateCompanion<User> {
     Value<String>? status,
     Value<String>? username,
     Value<String?>? phone,
+    Value<bool?>? courierCanCustomers,
+    Value<bool?>? courierCanOrders,
+    Value<bool?>? courierCanCollect,
+    Value<bool?>? courierCanDiscount,
+    Value<bool?>? courierCanDayEnd,
+    Value<bool?>? courierCanSeeAllOrders,
+    Value<bool?>? courierCanViewHistory,
+    Value<bool?>? courierCanExpense,
+    Value<bool?>? courierPhoneMask,
+    Value<bool?>? courierCanCustomerLedger,
+    Value<bool?>? courierCanDebtReminder,
+    Value<bool?>? courierCanToggleStock,
+    Value<bool?>? courierCanCallLog,
+    Value<bool?>? courierCanSeeAllCustomers,
     Value<int>? rowid,
   }) {
     return UsersCompanion(
@@ -6125,6 +7389,26 @@ class UsersCompanion extends UpdateCompanion<User> {
       status: status ?? this.status,
       username: username ?? this.username,
       phone: phone ?? this.phone,
+      courierCanCustomers: courierCanCustomers ?? this.courierCanCustomers,
+      courierCanOrders: courierCanOrders ?? this.courierCanOrders,
+      courierCanCollect: courierCanCollect ?? this.courierCanCollect,
+      courierCanDiscount: courierCanDiscount ?? this.courierCanDiscount,
+      courierCanDayEnd: courierCanDayEnd ?? this.courierCanDayEnd,
+      courierCanSeeAllOrders:
+          courierCanSeeAllOrders ?? this.courierCanSeeAllOrders,
+      courierCanViewHistory:
+          courierCanViewHistory ?? this.courierCanViewHistory,
+      courierCanExpense: courierCanExpense ?? this.courierCanExpense,
+      courierPhoneMask: courierPhoneMask ?? this.courierPhoneMask,
+      courierCanCustomerLedger:
+          courierCanCustomerLedger ?? this.courierCanCustomerLedger,
+      courierCanDebtReminder:
+          courierCanDebtReminder ?? this.courierCanDebtReminder,
+      courierCanToggleStock:
+          courierCanToggleStock ?? this.courierCanToggleStock,
+      courierCanCallLog: courierCanCallLog ?? this.courierCanCallLog,
+      courierCanSeeAllCustomers:
+          courierCanSeeAllCustomers ?? this.courierCanSeeAllCustomers,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6150,6 +7434,60 @@ class UsersCompanion extends UpdateCompanion<User> {
     if (phone.present) {
       map['phone'] = Variable<String>(phone.value);
     }
+    if (courierCanCustomers.present) {
+      map['courier_can_customers'] = Variable<bool>(courierCanCustomers.value);
+    }
+    if (courierCanOrders.present) {
+      map['courier_can_orders'] = Variable<bool>(courierCanOrders.value);
+    }
+    if (courierCanCollect.present) {
+      map['courier_can_collect'] = Variable<bool>(courierCanCollect.value);
+    }
+    if (courierCanDiscount.present) {
+      map['courier_can_discount'] = Variable<bool>(courierCanDiscount.value);
+    }
+    if (courierCanDayEnd.present) {
+      map['courier_can_day_end'] = Variable<bool>(courierCanDayEnd.value);
+    }
+    if (courierCanSeeAllOrders.present) {
+      map['courier_can_see_all_orders'] = Variable<bool>(
+        courierCanSeeAllOrders.value,
+      );
+    }
+    if (courierCanViewHistory.present) {
+      map['courier_can_view_history'] = Variable<bool>(
+        courierCanViewHistory.value,
+      );
+    }
+    if (courierCanExpense.present) {
+      map['courier_can_expense'] = Variable<bool>(courierCanExpense.value);
+    }
+    if (courierPhoneMask.present) {
+      map['courier_phone_mask'] = Variable<bool>(courierPhoneMask.value);
+    }
+    if (courierCanCustomerLedger.present) {
+      map['courier_can_customer_ledger'] = Variable<bool>(
+        courierCanCustomerLedger.value,
+      );
+    }
+    if (courierCanDebtReminder.present) {
+      map['courier_can_debt_reminder'] = Variable<bool>(
+        courierCanDebtReminder.value,
+      );
+    }
+    if (courierCanToggleStock.present) {
+      map['courier_can_toggle_stock'] = Variable<bool>(
+        courierCanToggleStock.value,
+      );
+    }
+    if (courierCanCallLog.present) {
+      map['courier_can_call_log'] = Variable<bool>(courierCanCallLog.value);
+    }
+    if (courierCanSeeAllCustomers.present) {
+      map['courier_can_see_all_customers'] = Variable<bool>(
+        courierCanSeeAllCustomers.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -6165,6 +7503,20 @@ class UsersCompanion extends UpdateCompanion<User> {
           ..write('status: $status, ')
           ..write('username: $username, ')
           ..write('phone: $phone, ')
+          ..write('courierCanCustomers: $courierCanCustomers, ')
+          ..write('courierCanOrders: $courierCanOrders, ')
+          ..write('courierCanCollect: $courierCanCollect, ')
+          ..write('courierCanDiscount: $courierCanDiscount, ')
+          ..write('courierCanDayEnd: $courierCanDayEnd, ')
+          ..write('courierCanSeeAllOrders: $courierCanSeeAllOrders, ')
+          ..write('courierCanViewHistory: $courierCanViewHistory, ')
+          ..write('courierCanExpense: $courierCanExpense, ')
+          ..write('courierPhoneMask: $courierPhoneMask, ')
+          ..write('courierCanCustomerLedger: $courierCanCustomerLedger, ')
+          ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
+          ..write('courierCanToggleStock: $courierCanToggleStock, ')
+          ..write('courierCanCallLog: $courierCanCallLog, ')
+          ..write('courierCanSeeAllCustomers: $courierCanSeeAllCustomers, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6399,29 +7751,39 @@ class $TenantSettingsTable extends TenantSettings
     ),
     defaultValue: const Constant(false),
   );
-  static const VerificationMeta _courierCanSeeAllOrdersMeta = const VerificationMeta('courierCanSeeAllOrders');
+  static const VerificationMeta _courierCanSeeAllOrdersMeta =
+      const VerificationMeta('courierCanSeeAllOrders');
   @override
-  late final GeneratedColumn<bool> courierCanSeeAllOrders = GeneratedColumn<bool>(
-    'courier_can_see_all_orders',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_see_all_orders" IN (0, 1))'),
-    defaultValue: const Constant(false),
-  );
-  static const VerificationMeta _courierCanViewHistoryMeta = const VerificationMeta('courierCanViewHistory');
+  late final GeneratedColumn<bool> courierCanSeeAllOrders =
+      GeneratedColumn<bool>(
+        'courier_can_see_all_orders',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_see_all_orders" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _courierCanViewHistoryMeta =
+      const VerificationMeta('courierCanViewHistory');
   @override
-  late final GeneratedColumn<bool> courierCanViewHistory = GeneratedColumn<bool>(
-    'courier_can_view_history',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_view_history" IN (0, 1))'),
-    defaultValue: const Constant(false),
+  late final GeneratedColumn<bool> courierCanViewHistory =
+      GeneratedColumn<bool>(
+        'courier_can_view_history',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_view_history" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _courierCanExpenseMeta = const VerificationMeta(
+    'courierCanExpense',
   );
-  static const VerificationMeta _courierCanExpenseMeta = const VerificationMeta('courierCanExpense');
   @override
   late final GeneratedColumn<bool> courierCanExpense = GeneratedColumn<bool>(
     'courier_can_expense',
@@ -6429,10 +7791,14 @@ class $TenantSettingsTable extends TenantSettings
     false,
     type: DriftSqlType.bool,
     requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_expense" IN (0, 1))'),
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_expense" IN (0, 1))',
+    ),
     defaultValue: const Constant(false),
   );
-  static const VerificationMeta _courierPhoneMaskMeta = const VerificationMeta('courierPhoneMask');
+  static const VerificationMeta _courierPhoneMaskMeta = const VerificationMeta(
+    'courierPhoneMask',
+  );
   @override
   late final GeneratedColumn<bool> courierPhoneMask = GeneratedColumn<bool>(
     'courier_phone_mask',
@@ -6440,43 +7806,59 @@ class $TenantSettingsTable extends TenantSettings
     false,
     type: DriftSqlType.bool,
     requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_phone_mask" IN (0, 1))'),
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_phone_mask" IN (0, 1))',
+    ),
     defaultValue: const Constant(true),
   );
-  static const VerificationMeta _courierCanCustomerLedgerMeta = const VerificationMeta('courierCanCustomerLedger');
+  static const VerificationMeta _courierCanCustomerLedgerMeta =
+      const VerificationMeta('courierCanCustomerLedger');
   @override
-  late final GeneratedColumn<bool> courierCanCustomerLedger = GeneratedColumn<bool>(
-    'courier_can_customer_ledger',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_customer_ledger" IN (0, 1))'),
-    defaultValue: const Constant(false),
-  );
-  static const VerificationMeta _courierCanDebtReminderMeta = const VerificationMeta('courierCanDebtReminder');
+  late final GeneratedColumn<bool> courierCanCustomerLedger =
+      GeneratedColumn<bool>(
+        'courier_can_customer_ledger',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_customer_ledger" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _courierCanDebtReminderMeta =
+      const VerificationMeta('courierCanDebtReminder');
   @override
-  late final GeneratedColumn<bool> courierCanDebtReminder = GeneratedColumn<bool>(
-    'courier_can_debt_reminder',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_debt_reminder" IN (0, 1))'),
-    defaultValue: const Constant(false),
-  );
-  static const VerificationMeta _courierCanToggleStockMeta = const VerificationMeta('courierCanToggleStock');
+  late final GeneratedColumn<bool> courierCanDebtReminder =
+      GeneratedColumn<bool>(
+        'courier_can_debt_reminder',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_debt_reminder" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _courierCanToggleStockMeta =
+      const VerificationMeta('courierCanToggleStock');
   @override
-  late final GeneratedColumn<bool> courierCanToggleStock = GeneratedColumn<bool>(
-    'courier_can_toggle_stock',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_toggle_stock" IN (0, 1))'),
-    defaultValue: const Constant(true),
+  late final GeneratedColumn<bool> courierCanToggleStock =
+      GeneratedColumn<bool>(
+        'courier_can_toggle_stock',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_toggle_stock" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
+  static const VerificationMeta _courierCanCallLogMeta = const VerificationMeta(
+    'courierCanCallLog',
   );
-  static const VerificationMeta _courierCanCallLogMeta = const VerificationMeta('courierCanCallLog');
   @override
   late final GeneratedColumn<bool> courierCanCallLog = GeneratedColumn<bool>(
     'courier_can_call_log',
@@ -6484,7 +7866,39 @@ class $TenantSettingsTable extends TenantSettings
     false,
     type: DriftSqlType.bool,
     requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("courier_can_call_log" IN (0, 1))'),
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("courier_can_call_log" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _courierCanSeeAllCustomersMeta =
+      const VerificationMeta('courierCanSeeAllCustomers');
+  @override
+  late final GeneratedColumn<bool> courierCanSeeAllCustomers =
+      GeneratedColumn<bool>(
+        'courier_can_see_all_customers',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("courier_can_see_all_customers" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _preparedProductsMeta = const VerificationMeta(
+    'preparedProducts',
+  );
+  @override
+  late final GeneratedColumn<bool> preparedProducts = GeneratedColumn<bool>(
+    'prepared_products',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("prepared_products" IN (0, 1))',
+    ),
     defaultValue: const Constant(false),
   );
   static const VerificationMeta _orderCodeDisplayMeta = const VerificationMeta(
@@ -6551,6 +7965,8 @@ class $TenantSettingsTable extends TenantSettings
     courierCanDebtReminder,
     courierCanToggleStock,
     courierCanCallLog,
+    courierCanSeeAllCustomers,
+    preparedProducts,
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
@@ -6780,6 +8196,24 @@ class $TenantSettingsTable extends TenantSettings
         ),
       );
     }
+    if (data.containsKey('courier_can_see_all_customers')) {
+      context.handle(
+        _courierCanSeeAllCustomersMeta,
+        courierCanSeeAllCustomers.isAcceptableOrUnknown(
+          data['courier_can_see_all_customers']!,
+          _courierCanSeeAllCustomersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('prepared_products')) {
+      context.handle(
+        _preparedProductsMeta,
+        preparedProducts.isAcceptableOrUnknown(
+          data['prepared_products']!,
+          _preparedProductsMeta,
+        ),
+      );
+    }
     if (data.containsKey('order_code_display')) {
       context.handle(
         _orderCodeDisplayMeta,
@@ -6924,6 +8358,14 @@ class $TenantSettingsTable extends TenantSettings
         DriftSqlType.bool,
         data['${effectivePrefix}courier_can_call_log'],
       )!,
+      courierCanSeeAllCustomers: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}courier_can_see_all_customers'],
+      )!,
+      preparedProducts: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}prepared_products'],
+      )!,
       orderCodeDisplay: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}order_code_display'],
@@ -6957,9 +8399,32 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
   final String? opensAt;
   final String? closesAt;
   final String? receiptNote;
+
+  /// Bayinin KENDİ IBAN'ı (kullanıcı isteği 2026-08-04) — borçluya gönderilen WhatsApp
+  /// hatırlatmasında geçer. Boşluksuz ve BÜYÜK harf saklanır (sunucu da normalleştirir);
+  /// null = tanımlı değil, hatırlatma düğmesi o zaman nedenini söyleyip durur.
   final String? iban;
+
+  /// IBAN ALICI ADI (kullanıcı isteği 2026-08-06) — hesap sahibinin AD SOYADI.
+  ///
+  /// NEDEN AYRI ALAN: hesap sahibi çoğu zaman ŞAHIS adıdır ("Mehmet Yılmaz"), işletme adıyla
+  /// ("Merkez Su Bayii") aynı değildir; banka uygulaması havale ekranında ad soyad ister ve
+  /// işletme adını yazan müşteri işlemi tamamlayamaz. Boşsa mesajda işletme adına DÜŞÜLÜR —
+  /// güncelleme öncesi davranış budur, hiçbir bayi "Alıcı" satırını bu sürümle kaybetmemeli.
   final String? ibanOwnerName;
+
+  /// BORÇ HATIRLATMA ŞABLONU (kullanıcı isteği 2026-08-06) — bayinin kendi mesaj metni.
+  ///
+  /// null/boş = VARSAYILAN metin (`borc_hatirlatma.dart`). Varsayılanı buraya kopyalamak,
+  /// metni ileride iyileştirdiğimizde şablona hiç dokunmamış bayilerde eski metni dondururdu.
+  /// Yer tutucular (`*musteriadi*`, `*siparistutar*`, `*ibanodemebilgileri*` …) gönderim anında
+  /// çözülür; IBAN ve alıcı adı SABİT bloktur, metnin içinde düzenlenemez.
   final String? reminderTemplate;
+
+  /// KURYE VE ROL YETKİ MATRİSİ — bayinin açıp kapatabildiği dinamik yetkiler.
+  /// KİRACI düzeyindedir (kurye başına değil): 1–3 kişilik bayide kişi bazlı yetki, her yeni
+  /// kuryede unutulan bir kurulum adımı doğururdu. Varsayılanlar sunucudakiyle AYNI olmalı —
+  /// senkron gelmeden önce ekran bir kare boyunca bu değerleri gösterir.
   final bool courierCanCustomers;
   final bool courierCanOrders;
   final bool courierCanCollect;
@@ -6973,6 +8438,46 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
   final bool courierCanDebtReminder;
   final bool courierCanToggleStock;
   final bool courierCanCallLog;
+
+  /// KURYE TÜM MÜŞTERİLERİ GÖREBİLİR Mİ (kullanıcı kararı 2026-08-22).
+  ///
+  /// KAPALIYKEN müşteri listesi kuryenin KENDİ siparişlerinin müşterileriyle sınırlanır.
+  /// `courierCanCustomers`tan AYRI BİR SORUDUR ve karıştırılmamalı: o "ekleyip düzenleyebilir
+  /// mi", bu "kimleri görebilir". Bugüne kadar ikincisinin cevabı sorulmadan "hepsi"ydi.
+  ///
+  /// ⚠️ VARSAYILAN KAPALI ve bu bir DAVRANIŞ DEĞİŞİKLİĞİDİR — isteğin kendisi kısıtlamadır.
+  /// Gerekçenin tamamı sunucu migration'ında (`..._add_courier_can_see_all_customers.php`).
+  ///
+  /// KISITLAMA EKRANDA UYGULANIR, SENKRONDA DEĞİL: müşteriler telefona inmeye devam eder
+  /// (offline-first). Sunucuda süzmek, kuryeye ATANAN siparişin müşterisi henüz inmemişse
+  /// kapıda adressiz bırakırdı — kırmızı çizgi #3.
+  final bool courierCanSeeAllCustomers;
+
+  /// İŞLETMEDE HAZIRLANAN ÜRÜN VAR MI? (kullanıcı kararı 2026-08-18) — ürün seçenekleri
+  /// ("içinde şu olsun olmasın") özelliğinin KİRACI DÜZEYİNDEKİ anahtarı.
+  ///
+  /// ══ NEDEN GEREKLİ ═══════════════════════════════════════════════════════════════════════
+  /// Bu uygulamayı ÇOK FARKLI işletmeler kullanır: su bayii, tüp bayii, market, dönerci,
+  /// tostçu. Su bayisinde "içindekiler" diye bir kavram YOKTUR ve ürün formunda o bölümü her
+  /// ürün için çizmek, 12 üründe 12 kez cevapsız bir soru sormaktır.
+  ///
+  /// ══ NEDEN "İŞLETME TÜRÜ" DEĞİL, YETENEK ═══════════════════════════════════════════════
+  /// Tek bir tür etiketi ("market" / "dönerci") bu ürünü tarif EDEMEZ: kullanıcının verdiği
+  /// örnek tam da bunu gösteriyor — küçük bir bakkal hem paketli ürün satar HEM tost yapar.
+  /// Tür bir etikettir; davranışı belirleyen şey YETENEKTİR. İleride gelecek kurulum sihirbazı
+  /// "işletmen ne?" diye sorup bu yeteneği AYARLAYACAK; ekranlar türü değil yeteneği okur.
+  ///
+  /// ⚠️ VARSAYILAN KAPALI ve bu bilinçli: bu üründeki bayilerin çoğunluğu (BRIEF) su/tüp
+  /// bayisidir; azınlık için herkese gürültü eklemek yanlış yöndür. Açan bayi Ayarlar →
+  /// İşletme → "Ürün içerikleri" satırından açar; sihirbaz geldiğinde ilk kurulumda sorulacak.
+  ///
+  /// KAPALI OLMASI VERİYİ SİLMEZ: ürünlerin kayıtlı malzeme listeleri yerinde kalır, yalnız
+  /// düzenleyici gizlenir. Yeniden açıldığında hepsi geri gelir.
+  final bool preparedProducts;
+
+  /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
+  /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
+  /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.
   final String orderCodeDisplay;
   final String? updatedOccurredAt;
   final String? updatedDeviceId;
@@ -7004,6 +8509,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     required this.courierCanDebtReminder,
     required this.courierCanToggleStock,
     required this.courierCanCallLog,
+    required this.courierCanSeeAllCustomers,
+    required this.preparedProducts,
     required this.orderCodeDisplay,
     this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -7056,6 +8563,20 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     map['courier_can_collect'] = Variable<bool>(courierCanCollect);
     map['courier_can_discount'] = Variable<bool>(courierCanDiscount);
     map['courier_can_day_end'] = Variable<bool>(courierCanDayEnd);
+    map['courier_can_see_all_orders'] = Variable<bool>(courierCanSeeAllOrders);
+    map['courier_can_view_history'] = Variable<bool>(courierCanViewHistory);
+    map['courier_can_expense'] = Variable<bool>(courierCanExpense);
+    map['courier_phone_mask'] = Variable<bool>(courierPhoneMask);
+    map['courier_can_customer_ledger'] = Variable<bool>(
+      courierCanCustomerLedger,
+    );
+    map['courier_can_debt_reminder'] = Variable<bool>(courierCanDebtReminder);
+    map['courier_can_toggle_stock'] = Variable<bool>(courierCanToggleStock);
+    map['courier_can_call_log'] = Variable<bool>(courierCanCallLog);
+    map['courier_can_see_all_customers'] = Variable<bool>(
+      courierCanSeeAllCustomers,
+    );
+    map['prepared_products'] = Variable<bool>(preparedProducts);
     map['order_code_display'] = Variable<String>(orderCodeDisplay);
     if (!nullToAbsent || updatedOccurredAt != null) {
       map['updated_occurred_at'] = Variable<String>(updatedOccurredAt);
@@ -7111,6 +8632,16 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       courierCanCollect: Value(courierCanCollect),
       courierCanDiscount: Value(courierCanDiscount),
       courierCanDayEnd: Value(courierCanDayEnd),
+      courierCanSeeAllOrders: Value(courierCanSeeAllOrders),
+      courierCanViewHistory: Value(courierCanViewHistory),
+      courierCanExpense: Value(courierCanExpense),
+      courierPhoneMask: Value(courierPhoneMask),
+      courierCanCustomerLedger: Value(courierCanCustomerLedger),
+      courierCanDebtReminder: Value(courierCanDebtReminder),
+      courierCanToggleStock: Value(courierCanToggleStock),
+      courierCanCallLog: Value(courierCanCallLog),
+      courierCanSeeAllCustomers: Value(courierCanSeeAllCustomers),
+      preparedProducts: Value(preparedProducts),
       orderCodeDisplay: Value(orderCodeDisplay),
       updatedOccurredAt: updatedOccurredAt == null && nullToAbsent
           ? const Value.absent()
@@ -7148,14 +8679,28 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       courierCanCollect: serializer.fromJson<bool>(json['courierCanCollect']),
       courierCanDiscount: serializer.fromJson<bool>(json['courierCanDiscount']),
       courierCanDayEnd: serializer.fromJson<bool>(json['courierCanDayEnd']),
-      courierCanSeeAllOrders: serializer.fromJson<bool>(json['courierCanSeeAllOrders'] ?? false),
-      courierCanViewHistory: serializer.fromJson<bool>(json['courierCanViewHistory'] ?? false),
-      courierCanExpense: serializer.fromJson<bool>(json['courierCanExpense'] ?? false),
-      courierPhoneMask: serializer.fromJson<bool>(json['courierPhoneMask'] ?? true),
-      courierCanCustomerLedger: serializer.fromJson<bool>(json['courierCanCustomerLedger'] ?? false),
-      courierCanDebtReminder: serializer.fromJson<bool>(json['courierCanDebtReminder'] ?? false),
-      courierCanToggleStock: serializer.fromJson<bool>(json['courierCanToggleStock'] ?? true),
-      courierCanCallLog: serializer.fromJson<bool>(json['courierCanCallLog'] ?? false),
+      courierCanSeeAllOrders: serializer.fromJson<bool>(
+        json['courierCanSeeAllOrders'],
+      ),
+      courierCanViewHistory: serializer.fromJson<bool>(
+        json['courierCanViewHistory'],
+      ),
+      courierCanExpense: serializer.fromJson<bool>(json['courierCanExpense']),
+      courierPhoneMask: serializer.fromJson<bool>(json['courierPhoneMask']),
+      courierCanCustomerLedger: serializer.fromJson<bool>(
+        json['courierCanCustomerLedger'],
+      ),
+      courierCanDebtReminder: serializer.fromJson<bool>(
+        json['courierCanDebtReminder'],
+      ),
+      courierCanToggleStock: serializer.fromJson<bool>(
+        json['courierCanToggleStock'],
+      ),
+      courierCanCallLog: serializer.fromJson<bool>(json['courierCanCallLog']),
+      courierCanSeeAllCustomers: serializer.fromJson<bool>(
+        json['courierCanSeeAllCustomers'],
+      ),
+      preparedProducts: serializer.fromJson<bool>(json['preparedProducts']),
       orderCodeDisplay: serializer.fromJson<String>(json['orderCodeDisplay']),
       updatedOccurredAt: serializer.fromJson<String?>(
         json['updatedOccurredAt'],
@@ -7190,10 +8735,16 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       'courierCanViewHistory': serializer.toJson<bool>(courierCanViewHistory),
       'courierCanExpense': serializer.toJson<bool>(courierCanExpense),
       'courierPhoneMask': serializer.toJson<bool>(courierPhoneMask),
-      'courierCanCustomerLedger': serializer.toJson<bool>(courierCanCustomerLedger),
+      'courierCanCustomerLedger': serializer.toJson<bool>(
+        courierCanCustomerLedger,
+      ),
       'courierCanDebtReminder': serializer.toJson<bool>(courierCanDebtReminder),
       'courierCanToggleStock': serializer.toJson<bool>(courierCanToggleStock),
       'courierCanCallLog': serializer.toJson<bool>(courierCanCallLog),
+      'courierCanSeeAllCustomers': serializer.toJson<bool>(
+        courierCanSeeAllCustomers,
+      ),
+      'preparedProducts': serializer.toJson<bool>(preparedProducts),
       'orderCodeDisplay': serializer.toJson<String>(orderCodeDisplay),
       'updatedOccurredAt': serializer.toJson<String?>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -7228,6 +8779,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     bool? courierCanDebtReminder,
     bool? courierCanToggleStock,
     bool? courierCanCallLog,
+    bool? courierCanSeeAllCustomers,
+    bool? preparedProducts,
     String? orderCodeDisplay,
     Value<String?> updatedOccurredAt = const Value.absent(),
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -7255,14 +8808,20 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     courierCanCollect: courierCanCollect ?? this.courierCanCollect,
     courierCanDiscount: courierCanDiscount ?? this.courierCanDiscount,
     courierCanDayEnd: courierCanDayEnd ?? this.courierCanDayEnd,
-    courierCanSeeAllOrders: courierCanSeeAllOrders ?? this.courierCanSeeAllOrders,
+    courierCanSeeAllOrders:
+        courierCanSeeAllOrders ?? this.courierCanSeeAllOrders,
     courierCanViewHistory: courierCanViewHistory ?? this.courierCanViewHistory,
     courierCanExpense: courierCanExpense ?? this.courierCanExpense,
     courierPhoneMask: courierPhoneMask ?? this.courierPhoneMask,
-    courierCanCustomerLedger: courierCanCustomerLedger ?? this.courierCanCustomerLedger,
-    courierCanDebtReminder: courierCanDebtReminder ?? this.courierCanDebtReminder,
+    courierCanCustomerLedger:
+        courierCanCustomerLedger ?? this.courierCanCustomerLedger,
+    courierCanDebtReminder:
+        courierCanDebtReminder ?? this.courierCanDebtReminder,
     courierCanToggleStock: courierCanToggleStock ?? this.courierCanToggleStock,
     courierCanCallLog: courierCanCallLog ?? this.courierCanCallLog,
+    courierCanSeeAllCustomers:
+        courierCanSeeAllCustomers ?? this.courierCanSeeAllCustomers,
+    preparedProducts: preparedProducts ?? this.preparedProducts,
     orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
     updatedOccurredAt: updatedOccurredAt.present
         ? updatedOccurredAt.value
@@ -7336,6 +8895,12 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       courierCanCallLog: data.courierCanCallLog.present
           ? data.courierCanCallLog.value
           : this.courierCanCallLog,
+      courierCanSeeAllCustomers: data.courierCanSeeAllCustomers.present
+          ? data.courierCanSeeAllCustomers.value
+          : this.courierCanSeeAllCustomers,
+      preparedProducts: data.preparedProducts.present
+          ? data.preparedProducts.value
+          : this.preparedProducts,
       orderCodeDisplay: data.orderCodeDisplay.present
           ? data.orderCodeDisplay.value
           : this.orderCodeDisplay,
@@ -7378,6 +8943,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
           ..write('courierCanToggleStock: $courierCanToggleStock, ')
           ..write('courierCanCallLog: $courierCanCallLog, ')
+          ..write('courierCanSeeAllCustomers: $courierCanSeeAllCustomers, ')
+          ..write('preparedProducts: $preparedProducts, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
@@ -7414,6 +8981,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     courierCanDebtReminder,
     courierCanToggleStock,
     courierCanCallLog,
+    courierCanSeeAllCustomers,
+    preparedProducts,
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
@@ -7449,6 +9018,8 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           other.courierCanDebtReminder == this.courierCanDebtReminder &&
           other.courierCanToggleStock == this.courierCanToggleStock &&
           other.courierCanCallLog == this.courierCanCallLog &&
+          other.courierCanSeeAllCustomers == this.courierCanSeeAllCustomers &&
+          other.preparedProducts == this.preparedProducts &&
           other.orderCodeDisplay == this.orderCodeDisplay &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId);
@@ -7482,6 +9053,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
   final Value<bool> courierCanDebtReminder;
   final Value<bool> courierCanToggleStock;
   final Value<bool> courierCanCallLog;
+  final Value<bool> courierCanSeeAllCustomers;
+  final Value<bool> preparedProducts;
   final Value<String> orderCodeDisplay;
   final Value<String?> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -7513,6 +9086,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.courierCanDebtReminder = const Value.absent(),
     this.courierCanToggleStock = const Value.absent(),
     this.courierCanCallLog = const Value.absent(),
+    this.courierCanSeeAllCustomers = const Value.absent(),
+    this.preparedProducts = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -7545,6 +9120,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.courierCanDebtReminder = const Value.absent(),
     this.courierCanToggleStock = const Value.absent(),
     this.courierCanCallLog = const Value.absent(),
+    this.courierCanSeeAllCustomers = const Value.absent(),
+    this.preparedProducts = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -7577,6 +9154,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Expression<bool>? courierCanDebtReminder,
     Expression<bool>? courierCanToggleStock,
     Expression<bool>? courierCanCallLog,
+    Expression<bool>? courierCanSeeAllCustomers,
+    Expression<bool>? preparedProducts,
     Expression<String>? orderCodeDisplay,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -7616,6 +9195,9 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       if (courierCanToggleStock != null)
         'courier_can_toggle_stock': courierCanToggleStock,
       if (courierCanCallLog != null) 'courier_can_call_log': courierCanCallLog,
+      if (courierCanSeeAllCustomers != null)
+        'courier_can_see_all_customers': courierCanSeeAllCustomers,
+      if (preparedProducts != null) 'prepared_products': preparedProducts,
       if (orderCodeDisplay != null) 'order_code_display': orderCodeDisplay,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -7650,6 +9232,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Value<bool>? courierCanDebtReminder,
     Value<bool>? courierCanToggleStock,
     Value<bool>? courierCanCallLog,
+    Value<bool>? courierCanSeeAllCustomers,
+    Value<bool>? preparedProducts,
     Value<String>? orderCodeDisplay,
     Value<String?>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -7674,14 +9258,22 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       courierCanCollect: courierCanCollect ?? this.courierCanCollect,
       courierCanDiscount: courierCanDiscount ?? this.courierCanDiscount,
       courierCanDayEnd: courierCanDayEnd ?? this.courierCanDayEnd,
-      courierCanSeeAllOrders: courierCanSeeAllOrders ?? this.courierCanSeeAllOrders,
-      courierCanViewHistory: courierCanViewHistory ?? this.courierCanViewHistory,
+      courierCanSeeAllOrders:
+          courierCanSeeAllOrders ?? this.courierCanSeeAllOrders,
+      courierCanViewHistory:
+          courierCanViewHistory ?? this.courierCanViewHistory,
       courierCanExpense: courierCanExpense ?? this.courierCanExpense,
       courierPhoneMask: courierPhoneMask ?? this.courierPhoneMask,
-      courierCanCustomerLedger: courierCanCustomerLedger ?? this.courierCanCustomerLedger,
-      courierCanDebtReminder: courierCanDebtReminder ?? this.courierCanDebtReminder,
-      courierCanToggleStock: courierCanToggleStock ?? this.courierCanToggleStock,
+      courierCanCustomerLedger:
+          courierCanCustomerLedger ?? this.courierCanCustomerLedger,
+      courierCanDebtReminder:
+          courierCanDebtReminder ?? this.courierCanDebtReminder,
+      courierCanToggleStock:
+          courierCanToggleStock ?? this.courierCanToggleStock,
       courierCanCallLog: courierCanCallLog ?? this.courierCanCallLog,
+      courierCanSeeAllCustomers:
+          courierCanSeeAllCustomers ?? this.courierCanSeeAllCustomers,
+      preparedProducts: preparedProducts ?? this.preparedProducts,
       orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -7749,10 +9341,14 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       map['courier_can_day_end'] = Variable<bool>(courierCanDayEnd.value);
     }
     if (courierCanSeeAllOrders.present) {
-      map['courier_can_see_all_orders'] = Variable<bool>(courierCanSeeAllOrders.value);
+      map['courier_can_see_all_orders'] = Variable<bool>(
+        courierCanSeeAllOrders.value,
+      );
     }
     if (courierCanViewHistory.present) {
-      map['courier_can_view_history'] = Variable<bool>(courierCanViewHistory.value);
+      map['courier_can_view_history'] = Variable<bool>(
+        courierCanViewHistory.value,
+      );
     }
     if (courierCanExpense.present) {
       map['courier_can_expense'] = Variable<bool>(courierCanExpense.value);
@@ -7761,16 +9357,30 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       map['courier_phone_mask'] = Variable<bool>(courierPhoneMask.value);
     }
     if (courierCanCustomerLedger.present) {
-      map['courier_can_customer_ledger'] = Variable<bool>(courierCanCustomerLedger.value);
+      map['courier_can_customer_ledger'] = Variable<bool>(
+        courierCanCustomerLedger.value,
+      );
     }
     if (courierCanDebtReminder.present) {
-      map['courier_can_debt_reminder'] = Variable<bool>(courierCanDebtReminder.value);
+      map['courier_can_debt_reminder'] = Variable<bool>(
+        courierCanDebtReminder.value,
+      );
     }
     if (courierCanToggleStock.present) {
-      map['courier_can_toggle_stock'] = Variable<bool>(courierCanToggleStock.value);
+      map['courier_can_toggle_stock'] = Variable<bool>(
+        courierCanToggleStock.value,
+      );
     }
     if (courierCanCallLog.present) {
       map['courier_can_call_log'] = Variable<bool>(courierCanCallLog.value);
+    }
+    if (courierCanSeeAllCustomers.present) {
+      map['courier_can_see_all_customers'] = Variable<bool>(
+        courierCanSeeAllCustomers.value,
+      );
+    }
+    if (preparedProducts.present) {
+      map['prepared_products'] = Variable<bool>(preparedProducts.value);
     }
     if (orderCodeDisplay.present) {
       map['order_code_display'] = Variable<String>(orderCodeDisplay.value);
@@ -7806,6 +9416,16 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
           ..write('courierCanCollect: $courierCanCollect, ')
           ..write('courierCanDiscount: $courierCanDiscount, ')
           ..write('courierCanDayEnd: $courierCanDayEnd, ')
+          ..write('courierCanSeeAllOrders: $courierCanSeeAllOrders, ')
+          ..write('courierCanViewHistory: $courierCanViewHistory, ')
+          ..write('courierCanExpense: $courierCanExpense, ')
+          ..write('courierPhoneMask: $courierPhoneMask, ')
+          ..write('courierCanCustomerLedger: $courierCanCustomerLedger, ')
+          ..write('courierCanDebtReminder: $courierCanDebtReminder, ')
+          ..write('courierCanToggleStock: $courierCanToggleStock, ')
+          ..write('courierCanCallLog: $courierCanCallLog, ')
+          ..write('courierCanSeeAllCustomers: $courierCanSeeAllCustomers, ')
+          ..write('preparedProducts: $preparedProducts, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
@@ -8377,6 +9997,15 @@ class $CallLogsTable extends CallLogs with TableInfo<$CallLogsTable, CallLog> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _occurredAtMeta = const VerificationMeta(
     'occurredAt',
   );
@@ -8442,6 +10071,7 @@ class $CallLogsTable extends CallLogs with TableInfo<$CallLogsTable, CallLog> {
     direction,
     outcome,
     relatedOrderId,
+    userId,
     occurredAt,
     deviceId,
     updatedOccurredAt,
@@ -8511,6 +10141,12 @@ class $CallLogsTable extends CallLogs with TableInfo<$CallLogsTable, CallLog> {
           data['related_order_id']!,
           _relatedOrderIdMeta,
         ),
+      );
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
       );
     }
     if (data.containsKey('occurred_at')) {
@@ -8590,6 +10226,10 @@ class $CallLogsTable extends CallLogs with TableInfo<$CallLogsTable, CallLog> {
         DriftSqlType.string,
         data['${effectivePrefix}related_order_id'],
       ),
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      ),
       occurredAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}occurred_at'],
@@ -8627,6 +10267,20 @@ class CallLog extends DataClass implements Insertable<CallLog> {
   final String direction;
   final String? outcome;
   final String? relatedOrderId;
+
+  /// Çağrıyı KİM karşıladı / kim yaptı (`users.id`) — kullanıcı isteği 2026-08-13.
+  ///
+  /// NEDEN `device_id` YETMEDİ: cihaz kimliği zaten vardı ama bir CİHAZI anlatır, kişiyi değil.
+  /// Aynı telefonu iki kişi kullanabilir (patron sabah, operatör akşam) ve bir kurye telefon
+  /// değiştirdiğinde geçmişi kopar. Patronun sorduğu soru "hangi TELEFONDAN arandı" değil,
+  /// "kim aradı".
+  ///
+  /// NULLABLE ve öyle KALMALI: bu alan eklenmeden ÖNCE yazılmış kayıtlarda atıf YOKTUR ve
+  /// uydurulamaz — `device_id`den kişiye geriye dönük eşleme yapmak, o cihazı o gün kimin
+  /// kullandığını VARSAYMAK olurdu. Eski satırlar ekranda "bilinmiyor" der; yanlış bir isim
+  /// yazmaktansa boş bırakmak dürüsttür (bu, bir kuryenin yapmadığı aramadan sorumlu
+  /// tutulmasını da engeller).
+  final String? userId;
   final String occurredAt;
   final String? deviceId;
   final String updatedOccurredAt;
@@ -8640,6 +10294,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
     required this.direction,
     this.outcome,
     this.relatedOrderId,
+    this.userId,
     required this.occurredAt,
     this.deviceId,
     required this.updatedOccurredAt,
@@ -8661,6 +10316,9 @@ class CallLog extends DataClass implements Insertable<CallLog> {
     }
     if (!nullToAbsent || relatedOrderId != null) {
       map['related_order_id'] = Variable<String>(relatedOrderId);
+    }
+    if (!nullToAbsent || userId != null) {
+      map['user_id'] = Variable<String>(userId);
     }
     map['occurred_at'] = Variable<String>(occurredAt);
     if (!nullToAbsent || deviceId != null) {
@@ -8691,6 +10349,9 @@ class CallLog extends DataClass implements Insertable<CallLog> {
       relatedOrderId: relatedOrderId == null && nullToAbsent
           ? const Value.absent()
           : Value(relatedOrderId),
+      userId: userId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(userId),
       occurredAt: Value(occurredAt),
       deviceId: deviceId == null && nullToAbsent
           ? const Value.absent()
@@ -8718,6 +10379,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
       direction: serializer.fromJson<String>(json['direction']),
       outcome: serializer.fromJson<String?>(json['outcome']),
       relatedOrderId: serializer.fromJson<String?>(json['relatedOrderId']),
+      userId: serializer.fromJson<String?>(json['userId']),
       occurredAt: serializer.fromJson<String>(json['occurredAt']),
       deviceId: serializer.fromJson<String?>(json['deviceId']),
       updatedOccurredAt: serializer.fromJson<String>(json['updatedOccurredAt']),
@@ -8736,6 +10398,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
       'direction': serializer.toJson<String>(direction),
       'outcome': serializer.toJson<String?>(outcome),
       'relatedOrderId': serializer.toJson<String?>(relatedOrderId),
+      'userId': serializer.toJson<String?>(userId),
       'occurredAt': serializer.toJson<String>(occurredAt),
       'deviceId': serializer.toJson<String?>(deviceId),
       'updatedOccurredAt': serializer.toJson<String>(updatedOccurredAt),
@@ -8752,6 +10415,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
     String? direction,
     Value<String?> outcome = const Value.absent(),
     Value<String?> relatedOrderId = const Value.absent(),
+    Value<String?> userId = const Value.absent(),
     String? occurredAt,
     Value<String?> deviceId = const Value.absent(),
     String? updatedOccurredAt,
@@ -8767,6 +10431,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
     relatedOrderId: relatedOrderId.present
         ? relatedOrderId.value
         : this.relatedOrderId,
+    userId: userId.present ? userId.value : this.userId,
     occurredAt: occurredAt ?? this.occurredAt,
     deviceId: deviceId.present ? deviceId.value : this.deviceId,
     updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
@@ -8790,6 +10455,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
       relatedOrderId: data.relatedOrderId.present
           ? data.relatedOrderId.value
           : this.relatedOrderId,
+      userId: data.userId.present ? data.userId.value : this.userId,
       occurredAt: data.occurredAt.present
           ? data.occurredAt.value
           : this.occurredAt,
@@ -8814,6 +10480,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
           ..write('direction: $direction, ')
           ..write('outcome: $outcome, ')
           ..write('relatedOrderId: $relatedOrderId, ')
+          ..write('userId: $userId, ')
           ..write('occurredAt: $occurredAt, ')
           ..write('deviceId: $deviceId, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
@@ -8832,6 +10499,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
     direction,
     outcome,
     relatedOrderId,
+    userId,
     occurredAt,
     deviceId,
     updatedOccurredAt,
@@ -8849,6 +10517,7 @@ class CallLog extends DataClass implements Insertable<CallLog> {
           other.direction == this.direction &&
           other.outcome == this.outcome &&
           other.relatedOrderId == this.relatedOrderId &&
+          other.userId == this.userId &&
           other.occurredAt == this.occurredAt &&
           other.deviceId == this.deviceId &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
@@ -8864,6 +10533,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
   final Value<String> direction;
   final Value<String?> outcome;
   final Value<String?> relatedOrderId;
+  final Value<String?> userId;
   final Value<String> occurredAt;
   final Value<String?> deviceId;
   final Value<String> updatedOccurredAt;
@@ -8878,6 +10548,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
     this.direction = const Value.absent(),
     this.outcome = const Value.absent(),
     this.relatedOrderId = const Value.absent(),
+    this.userId = const Value.absent(),
     this.occurredAt = const Value.absent(),
     this.deviceId = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
@@ -8893,6 +10564,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
     required String direction,
     this.outcome = const Value.absent(),
     this.relatedOrderId = const Value.absent(),
+    this.userId = const Value.absent(),
     required String occurredAt,
     this.deviceId = const Value.absent(),
     required String updatedOccurredAt,
@@ -8913,6 +10585,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
     Expression<String>? direction,
     Expression<String>? outcome,
     Expression<String>? relatedOrderId,
+    Expression<String>? userId,
     Expression<String>? occurredAt,
     Expression<String>? deviceId,
     Expression<String>? updatedOccurredAt,
@@ -8928,6 +10601,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
       if (direction != null) 'direction': direction,
       if (outcome != null) 'outcome': outcome,
       if (relatedOrderId != null) 'related_order_id': relatedOrderId,
+      if (userId != null) 'user_id': userId,
       if (occurredAt != null) 'occurred_at': occurredAt,
       if (deviceId != null) 'device_id': deviceId,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
@@ -8945,6 +10619,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
     Value<String>? direction,
     Value<String?>? outcome,
     Value<String?>? relatedOrderId,
+    Value<String?>? userId,
     Value<String>? occurredAt,
     Value<String?>? deviceId,
     Value<String>? updatedOccurredAt,
@@ -8960,6 +10635,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
       direction: direction ?? this.direction,
       outcome: outcome ?? this.outcome,
       relatedOrderId: relatedOrderId ?? this.relatedOrderId,
+      userId: userId ?? this.userId,
       occurredAt: occurredAt ?? this.occurredAt,
       deviceId: deviceId ?? this.deviceId,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
@@ -8993,6 +10669,9 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
     if (relatedOrderId.present) {
       map['related_order_id'] = Variable<String>(relatedOrderId.value);
     }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
     if (occurredAt.present) {
       map['occurred_at'] = Variable<String>(occurredAt.value);
     }
@@ -9024,6 +10703,7 @@ class CallLogsCompanion extends UpdateCompanion<CallLog> {
           ..write('direction: $direction, ')
           ..write('outcome: $outcome, ')
           ..write('relatedOrderId: $relatedOrderId, ')
+          ..write('userId: $userId, ')
           ..write('occurredAt: $occurredAt, ')
           ..write('deviceId: $deviceId, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
@@ -9068,6 +10748,18 @@ class $DayClosingsTable extends DayClosings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _reversesClosingIdMeta = const VerificationMeta(
+    'reversesClosingId',
+  );
+  @override
+  late final GeneratedColumn<String> reversesClosingId =
+      GeneratedColumn<String>(
+        'reverses_closing_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _periodStartMeta = const VerificationMeta(
     'periodStart',
   );
@@ -9232,6 +10924,7 @@ class $DayClosingsTable extends DayClosings
     id,
     scope,
     userId,
+    reversesClosingId,
     periodStart,
     deliveryCount,
     totalCollectedKurus,
@@ -9276,6 +10969,15 @@ class $DayClosingsTable extends DayClosings
       context.handle(
         _userIdMeta,
         userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('reverses_closing_id')) {
+      context.handle(
+        _reversesClosingIdMeta,
+        reversesClosingId.isAcceptableOrUnknown(
+          data['reverses_closing_id']!,
+          _reversesClosingIdMeta,
+        ),
       );
     }
     if (data.containsKey('period_start')) {
@@ -9415,6 +11117,10 @@ class $DayClosingsTable extends DayClosings
         DriftSqlType.string,
         data['${effectivePrefix}user_id'],
       ),
+      reversesClosingId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reverses_closing_id'],
+      ),
       periodStart: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}period_start'],
@@ -9484,6 +11190,19 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
   final String id;
   final String scope;
   final String? userId;
+
+  /// GERİ ALMA KAYDI (kullanıcı kararı 2026-08-18): dolu ise bu satır bir kapanışı GERİ ALIR ve
+  /// geri aldığı kapanışın id'sini taşır. `cash_handovers.reversesHandoverId` deseninin aynısı.
+  ///
+  /// NEDEN KOLON, NEDEN SİLME/GÜNCELLEME DEĞİL: BRIEF kırmızı çizgi #2 — para kayıtları
+  /// silinmez/ezilmez. Yanlış sayılmış bir kapanış gerçekten OLMUŞ bir olaydır; satırı yok etmek
+  /// defterin "ne olduğunu" değil "ne olduğunu sandığımızı" anlatır hâle getirirdi. Geri alma
+  /// İKİNCİ bir satırdır: orijinal kanıt olarak yerinde durur, gün yeniden açılır.
+  ///
+  /// ⚠️ BU KOLON DOLU OLAN SATIR BİR KAPANIŞ DEĞİLDİR. Kapanmışlık sorgusu
+  /// (`DayClosingRepository.kapaliMi`) hem geri alma satırlarını hem de geri alınmış kapanışları
+  /// elemek zorundadır; elemezse gün "iki kez kapalı" görünür ve yeniden kapatma engellenir.
+  final String? reversesClosingId;
   final String? periodStart;
   final int deliveryCount;
   final int totalCollectedKurus;
@@ -9502,6 +11221,7 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
     required this.id,
     required this.scope,
     this.userId,
+    this.reversesClosingId,
     this.periodStart,
     required this.deliveryCount,
     required this.totalCollectedKurus,
@@ -9524,6 +11244,9 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
     map['scope'] = Variable<String>(scope);
     if (!nullToAbsent || userId != null) {
       map['user_id'] = Variable<String>(userId);
+    }
+    if (!nullToAbsent || reversesClosingId != null) {
+      map['reverses_closing_id'] = Variable<String>(reversesClosingId);
     }
     if (!nullToAbsent || periodStart != null) {
       map['period_start'] = Variable<String>(periodStart);
@@ -9559,6 +11282,9 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
       userId: userId == null && nullToAbsent
           ? const Value.absent()
           : Value(userId),
+      reversesClosingId: reversesClosingId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reversesClosingId),
       periodStart: periodStart == null && nullToAbsent
           ? const Value.absent()
           : Value(periodStart),
@@ -9593,6 +11319,9 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
       id: serializer.fromJson<String>(json['id']),
       scope: serializer.fromJson<String>(json['scope']),
       userId: serializer.fromJson<String?>(json['userId']),
+      reversesClosingId: serializer.fromJson<String?>(
+        json['reversesClosingId'],
+      ),
       periodStart: serializer.fromJson<String?>(json['periodStart']),
       deliveryCount: serializer.fromJson<int>(json['deliveryCount']),
       totalCollectedKurus: serializer.fromJson<int>(
@@ -9618,6 +11347,7 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
       'id': serializer.toJson<String>(id),
       'scope': serializer.toJson<String>(scope),
       'userId': serializer.toJson<String?>(userId),
+      'reversesClosingId': serializer.toJson<String?>(reversesClosingId),
       'periodStart': serializer.toJson<String?>(periodStart),
       'deliveryCount': serializer.toJson<int>(deliveryCount),
       'totalCollectedKurus': serializer.toJson<int>(totalCollectedKurus),
@@ -9639,6 +11369,7 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
     String? id,
     String? scope,
     Value<String?> userId = const Value.absent(),
+    Value<String?> reversesClosingId = const Value.absent(),
     Value<String?> periodStart = const Value.absent(),
     int? deliveryCount,
     int? totalCollectedKurus,
@@ -9657,6 +11388,9 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
     id: id ?? this.id,
     scope: scope ?? this.scope,
     userId: userId.present ? userId.value : this.userId,
+    reversesClosingId: reversesClosingId.present
+        ? reversesClosingId.value
+        : this.reversesClosingId,
     periodStart: periodStart.present ? periodStart.value : this.periodStart,
     deliveryCount: deliveryCount ?? this.deliveryCount,
     totalCollectedKurus: totalCollectedKurus ?? this.totalCollectedKurus,
@@ -9681,6 +11415,9 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
       id: data.id.present ? data.id.value : this.id,
       scope: data.scope.present ? data.scope.value : this.scope,
       userId: data.userId.present ? data.userId.value : this.userId,
+      reversesClosingId: data.reversesClosingId.present
+          ? data.reversesClosingId.value
+          : this.reversesClosingId,
       periodStart: data.periodStart.present
           ? data.periodStart.value
           : this.periodStart,
@@ -9726,6 +11463,7 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
           ..write('id: $id, ')
           ..write('scope: $scope, ')
           ..write('userId: $userId, ')
+          ..write('reversesClosingId: $reversesClosingId, ')
           ..write('periodStart: $periodStart, ')
           ..write('deliveryCount: $deliveryCount, ')
           ..write('totalCollectedKurus: $totalCollectedKurus, ')
@@ -9749,6 +11487,7 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
     id,
     scope,
     userId,
+    reversesClosingId,
     periodStart,
     deliveryCount,
     totalCollectedKurus,
@@ -9771,6 +11510,7 @@ class DayClosing extends DataClass implements Insertable<DayClosing> {
           other.id == this.id &&
           other.scope == this.scope &&
           other.userId == this.userId &&
+          other.reversesClosingId == this.reversesClosingId &&
           other.periodStart == this.periodStart &&
           other.deliveryCount == this.deliveryCount &&
           other.totalCollectedKurus == this.totalCollectedKurus &&
@@ -9791,6 +11531,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
   final Value<String> id;
   final Value<String> scope;
   final Value<String?> userId;
+  final Value<String?> reversesClosingId;
   final Value<String?> periodStart;
   final Value<int> deliveryCount;
   final Value<int> totalCollectedKurus;
@@ -9810,6 +11551,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
     this.id = const Value.absent(),
     this.scope = const Value.absent(),
     this.userId = const Value.absent(),
+    this.reversesClosingId = const Value.absent(),
     this.periodStart = const Value.absent(),
     this.deliveryCount = const Value.absent(),
     this.totalCollectedKurus = const Value.absent(),
@@ -9830,6 +11572,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
     required String id,
     required String scope,
     this.userId = const Value.absent(),
+    this.reversesClosingId = const Value.absent(),
     this.periodStart = const Value.absent(),
     this.deliveryCount = const Value.absent(),
     this.totalCollectedKurus = const Value.absent(),
@@ -9852,6 +11595,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
     Expression<String>? id,
     Expression<String>? scope,
     Expression<String>? userId,
+    Expression<String>? reversesClosingId,
     Expression<String>? periodStart,
     Expression<int>? deliveryCount,
     Expression<int>? totalCollectedKurus,
@@ -9872,6 +11616,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
       if (id != null) 'id': id,
       if (scope != null) 'scope': scope,
       if (userId != null) 'user_id': userId,
+      if (reversesClosingId != null) 'reverses_closing_id': reversesClosingId,
       if (periodStart != null) 'period_start': periodStart,
       if (deliveryCount != null) 'delivery_count': deliveryCount,
       if (totalCollectedKurus != null)
@@ -9895,6 +11640,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
     Value<String>? id,
     Value<String>? scope,
     Value<String?>? userId,
+    Value<String?>? reversesClosingId,
     Value<String?>? periodStart,
     Value<int>? deliveryCount,
     Value<int>? totalCollectedKurus,
@@ -9915,6 +11661,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
       id: id ?? this.id,
       scope: scope ?? this.scope,
       userId: userId ?? this.userId,
+      reversesClosingId: reversesClosingId ?? this.reversesClosingId,
       periodStart: periodStart ?? this.periodStart,
       deliveryCount: deliveryCount ?? this.deliveryCount,
       totalCollectedKurus: totalCollectedKurus ?? this.totalCollectedKurus,
@@ -9944,6 +11691,9 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
     }
     if (userId.present) {
       map['user_id'] = Variable<String>(userId.value);
+    }
+    if (reversesClosingId.present) {
+      map['reverses_closing_id'] = Variable<String>(reversesClosingId.value);
     }
     if (periodStart.present) {
       map['period_start'] = Variable<String>(periodStart.value);
@@ -9999,6 +11749,7 @@ class DayClosingsCompanion extends UpdateCompanion<DayClosing> {
           ..write('id: $id, ')
           ..write('scope: $scope, ')
           ..write('userId: $userId, ')
+          ..write('reversesClosingId: $reversesClosingId, ')
           ..write('periodStart: $periodStart, ')
           ..write('deliveryCount: $deliveryCount, ')
           ..write('totalCollectedKurus: $totalCollectedKurus, ')
@@ -10902,6 +12653,17 @@ class $SyncMetaTable extends SyncMeta
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _apiVersionMeta = const VerificationMeta(
+    'apiVersion',
+  );
+  @override
+  late final GeneratedColumn<String> apiVersion = GeneratedColumn<String>(
+    'api_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _tenantCodeMeta = const VerificationMeta(
     'tenantCode',
   );
@@ -10958,6 +12720,28 @@ class $SyncMetaTable extends SyncMeta
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _savedTenantCodeMeta = const VerificationMeta(
+    'savedTenantCode',
+  );
+  @override
+  late final GeneratedColumn<String> savedTenantCode = GeneratedColumn<String>(
+    'saved_tenant_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _savedUsernameMeta = const VerificationMeta(
+    'savedUsername',
+  );
+  @override
+  late final GeneratedColumn<String> savedUsername = GeneratedColumn<String>(
+    'saved_username',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -10976,11 +12760,14 @@ class $SyncMetaTable extends SyncMeta
     userRole,
     tenantName,
     apiBaseUrl,
+    apiVersion,
     tenantCode,
     routeCredits,
     routeCreditsMonthly,
     setupCompletedAt,
     themeMode,
+    savedTenantCode,
+    savedUsername,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -11114,6 +12901,12 @@ class $SyncMetaTable extends SyncMeta
         ),
       );
     }
+    if (data.containsKey('api_version')) {
+      context.handle(
+        _apiVersionMeta,
+        apiVersion.isAcceptableOrUnknown(data['api_version']!, _apiVersionMeta),
+      );
+    }
     if (data.containsKey('tenant_code')) {
       context.handle(
         _tenantCodeMeta,
@@ -11151,6 +12944,24 @@ class $SyncMetaTable extends SyncMeta
       context.handle(
         _themeModeMeta,
         themeMode.isAcceptableOrUnknown(data['theme_mode']!, _themeModeMeta),
+      );
+    }
+    if (data.containsKey('saved_tenant_code')) {
+      context.handle(
+        _savedTenantCodeMeta,
+        savedTenantCode.isAcceptableOrUnknown(
+          data['saved_tenant_code']!,
+          _savedTenantCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('saved_username')) {
+      context.handle(
+        _savedUsernameMeta,
+        savedUsername.isAcceptableOrUnknown(
+          data['saved_username']!,
+          _savedUsernameMeta,
+        ),
       );
     }
     return context;
@@ -11226,6 +13037,10 @@ class $SyncMetaTable extends SyncMeta
         DriftSqlType.string,
         data['${effectivePrefix}api_base_url'],
       ),
+      apiVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}api_version'],
+      ),
       tenantCode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}tenant_code'],
@@ -11245,6 +13060,14 @@ class $SyncMetaTable extends SyncMeta
       themeMode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}theme_mode'],
+      ),
+      savedTenantCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}saved_tenant_code'],
+      ),
+      savedUsername: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}saved_username'],
       ),
     );
   }
@@ -11286,6 +13109,17 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
   /// API taban adresi (varsayılan üretim; geliştirmede login ekranından değiştirilebilir).
   final String? apiBaseUrl;
 
+  /// SUNUCUNUN SÖZLEŞME SÜRÜMÜ (`api_version`, SemVer) — son senkron turunda görülen değer.
+  ///
+  /// NEDEN SAKLANIYOR, anlık okunmuyor: uygulama offline-first çalışır ve bayi Ayarlar'ı çoğu
+  /// zaman ağ yokken açar. Değeri saklamayan bir gösterim, tam da "sunucuya ulaşamıyorum"
+  /// anında — yani sürümün en çok merak edildiği anda — boş kalırdı.
+  ///
+  /// null = "bu cihaz sunucuyla hiç konuşmadı ya da sunucu sürümünü henüz bildirmiyor".
+  /// Eski değer YENİSİYLE EZİLİR ama YOKLUKLA EZİLMEZ (bkz. SyncEngine): sürüm bildirmeyen bir
+  /// yanıt, bilinen son sürümü silmek için gerekçe değildir.
+  final String? apiVersion;
+
   /// SUNUCU SAHİPLİ, salt-okunur önbellek (subscription bloğundan): tasarımdaki "Firma Kodu"
   /// (değiştirilemez) ve "Oto Sırala (rota) · N hak" sayacı. İstemci bunları YAZAMAZ.
   final String? tenantCode;
@@ -11299,6 +13133,25 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
   /// İzinler cihaza özgüdür — başka cihaza taşınmaları yanlış olurdu.
   final String? setupCompletedAt;
   final String? themeMode;
+
+  /// "Beni hatırla" — giriş ekranının ÖNDOLDURDUĞU kimlik. CİHAZ-YEREL, senkronlanmaz.
+  ///
+  /// ⚠️ PAROLA BURADA YOK VE OLMAYACAK. Saklanan tek şey, kullanıcının zaten ekranda gördüğü
+  /// iki genel bilgidir: firma kodu (İşletme Profili onu "değiştirilemez" diye yayınlıyor) ve
+  /// kullanıcı adı. Parolayı da saklamak, oturum açma kapısını "cihazı eline geçiren herkes
+  /// girebilir"e indirirdi — oysa çıkış yapmanın TEK anlamı budur. Kolaylık zaten büyük kısmı
+  /// karşılanıyor: `authToken` çıkış yapılana kadar durur, yani bu iki alan yalnız BİLİNÇLİ
+  /// çıkıştan sonraki girişte okunur.
+  ///
+  /// [savedTenantCode] SUNUCU SAHİPLİ [tenantCode]'dan AYRI bir alandır ve bilerek öyledir:
+  /// o, senkronun yazdığı bir önbellektir (istemci yazamaz) ve oturum yokken doğruluğu
+  /// garanti değildir; bu ise kullanıcının kendi yazdığı, kendi kapatabildiği bir tercihtir.
+  /// Tek kolona bindirmek, "hatırlama"yı kapatan bayinin ekranında sunucudan gelen kodun
+  /// yine belirmesi demek olurdu.
+  ///
+  /// İkisi de null = hatırlama KAPALI (varsayılan).
+  final String? savedTenantCode;
+  final String? savedUsername;
   const SyncMetaData({
     required this.id,
     required this.lastPulledSeq,
@@ -11316,11 +13169,14 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     this.userRole,
     this.tenantName,
     this.apiBaseUrl,
+    this.apiVersion,
     this.tenantCode,
     required this.routeCredits,
     required this.routeCreditsMonthly,
     this.setupCompletedAt,
     this.themeMode,
+    this.savedTenantCode,
+    this.savedUsername,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -11365,6 +13221,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     if (!nullToAbsent || apiBaseUrl != null) {
       map['api_base_url'] = Variable<String>(apiBaseUrl);
     }
+    if (!nullToAbsent || apiVersion != null) {
+      map['api_version'] = Variable<String>(apiVersion);
+    }
     if (!nullToAbsent || tenantCode != null) {
       map['tenant_code'] = Variable<String>(tenantCode);
     }
@@ -11375,6 +13234,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     }
     if (!nullToAbsent || themeMode != null) {
       map['theme_mode'] = Variable<String>(themeMode);
+    }
+    if (!nullToAbsent || savedTenantCode != null) {
+      map['saved_tenant_code'] = Variable<String>(savedTenantCode);
+    }
+    if (!nullToAbsent || savedUsername != null) {
+      map['saved_username'] = Variable<String>(savedUsername);
     }
     return map;
   }
@@ -11421,6 +13286,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       apiBaseUrl: apiBaseUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(apiBaseUrl),
+      apiVersion: apiVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(apiVersion),
       tenantCode: tenantCode == null && nullToAbsent
           ? const Value.absent()
           : Value(tenantCode),
@@ -11432,6 +13300,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       themeMode: themeMode == null && nullToAbsent
           ? const Value.absent()
           : Value(themeMode),
+      savedTenantCode: savedTenantCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(savedTenantCode),
+      savedUsername: savedUsername == null && nullToAbsent
+          ? const Value.absent()
+          : Value(savedUsername),
     );
   }
 
@@ -11461,6 +13335,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       userRole: serializer.fromJson<String?>(json['userRole']),
       tenantName: serializer.fromJson<String?>(json['tenantName']),
       apiBaseUrl: serializer.fromJson<String?>(json['apiBaseUrl']),
+      apiVersion: serializer.fromJson<String?>(json['apiVersion']),
       tenantCode: serializer.fromJson<String?>(json['tenantCode']),
       routeCredits: serializer.fromJson<int>(json['routeCredits']),
       routeCreditsMonthly: serializer.fromJson<int>(
@@ -11468,6 +13343,8 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       ),
       setupCompletedAt: serializer.fromJson<String?>(json['setupCompletedAt']),
       themeMode: serializer.fromJson<String?>(json['themeMode']),
+      savedTenantCode: serializer.fromJson<String?>(json['savedTenantCode']),
+      savedUsername: serializer.fromJson<String?>(json['savedUsername']),
     );
   }
   @override
@@ -11490,11 +13367,14 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       'userRole': serializer.toJson<String?>(userRole),
       'tenantName': serializer.toJson<String?>(tenantName),
       'apiBaseUrl': serializer.toJson<String?>(apiBaseUrl),
+      'apiVersion': serializer.toJson<String?>(apiVersion),
       'tenantCode': serializer.toJson<String?>(tenantCode),
       'routeCredits': serializer.toJson<int>(routeCredits),
       'routeCreditsMonthly': serializer.toJson<int>(routeCreditsMonthly),
       'setupCompletedAt': serializer.toJson<String?>(setupCompletedAt),
       'themeMode': serializer.toJson<String?>(themeMode),
+      'savedTenantCode': serializer.toJson<String?>(savedTenantCode),
+      'savedUsername': serializer.toJson<String?>(savedUsername),
     };
   }
 
@@ -11515,11 +13395,14 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     Value<String?> userRole = const Value.absent(),
     Value<String?> tenantName = const Value.absent(),
     Value<String?> apiBaseUrl = const Value.absent(),
+    Value<String?> apiVersion = const Value.absent(),
     Value<String?> tenantCode = const Value.absent(),
     int? routeCredits,
     int? routeCreditsMonthly,
     Value<String?> setupCompletedAt = const Value.absent(),
     Value<String?> themeMode = const Value.absent(),
+    Value<String?> savedTenantCode = const Value.absent(),
+    Value<String?> savedUsername = const Value.absent(),
   }) => SyncMetaData(
     id: id ?? this.id,
     lastPulledSeq: lastPulledSeq ?? this.lastPulledSeq,
@@ -11545,6 +13428,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     userRole: userRole.present ? userRole.value : this.userRole,
     tenantName: tenantName.present ? tenantName.value : this.tenantName,
     apiBaseUrl: apiBaseUrl.present ? apiBaseUrl.value : this.apiBaseUrl,
+    apiVersion: apiVersion.present ? apiVersion.value : this.apiVersion,
     tenantCode: tenantCode.present ? tenantCode.value : this.tenantCode,
     routeCredits: routeCredits ?? this.routeCredits,
     routeCreditsMonthly: routeCreditsMonthly ?? this.routeCreditsMonthly,
@@ -11552,6 +13436,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
         ? setupCompletedAt.value
         : this.setupCompletedAt,
     themeMode: themeMode.present ? themeMode.value : this.themeMode,
+    savedTenantCode: savedTenantCode.present
+        ? savedTenantCode.value
+        : this.savedTenantCode,
+    savedUsername: savedUsername.present
+        ? savedUsername.value
+        : this.savedUsername,
   );
   SyncMetaData copyWithCompanion(SyncMetaCompanion data) {
     return SyncMetaData(
@@ -11591,6 +13481,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       apiBaseUrl: data.apiBaseUrl.present
           ? data.apiBaseUrl.value
           : this.apiBaseUrl,
+      apiVersion: data.apiVersion.present
+          ? data.apiVersion.value
+          : this.apiVersion,
       tenantCode: data.tenantCode.present
           ? data.tenantCode.value
           : this.tenantCode,
@@ -11604,6 +13497,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           ? data.setupCompletedAt.value
           : this.setupCompletedAt,
       themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
+      savedTenantCode: data.savedTenantCode.present
+          ? data.savedTenantCode.value
+          : this.savedTenantCode,
+      savedUsername: data.savedUsername.present
+          ? data.savedUsername.value
+          : this.savedUsername,
     );
   }
 
@@ -11626,11 +13525,14 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           ..write('userRole: $userRole, ')
           ..write('tenantName: $tenantName, ')
           ..write('apiBaseUrl: $apiBaseUrl, ')
+          ..write('apiVersion: $apiVersion, ')
           ..write('tenantCode: $tenantCode, ')
           ..write('routeCredits: $routeCredits, ')
           ..write('routeCreditsMonthly: $routeCreditsMonthly, ')
           ..write('setupCompletedAt: $setupCompletedAt, ')
-          ..write('themeMode: $themeMode')
+          ..write('themeMode: $themeMode, ')
+          ..write('savedTenantCode: $savedTenantCode, ')
+          ..write('savedUsername: $savedUsername')
           ..write(')'))
         .toString();
   }
@@ -11653,11 +13555,14 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     userRole,
     tenantName,
     apiBaseUrl,
+    apiVersion,
     tenantCode,
     routeCredits,
     routeCreditsMonthly,
     setupCompletedAt,
     themeMode,
+    savedTenantCode,
+    savedUsername,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -11679,11 +13584,14 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           other.userRole == this.userRole &&
           other.tenantName == this.tenantName &&
           other.apiBaseUrl == this.apiBaseUrl &&
+          other.apiVersion == this.apiVersion &&
           other.tenantCode == this.tenantCode &&
           other.routeCredits == this.routeCredits &&
           other.routeCreditsMonthly == this.routeCreditsMonthly &&
           other.setupCompletedAt == this.setupCompletedAt &&
-          other.themeMode == this.themeMode);
+          other.themeMode == this.themeMode &&
+          other.savedTenantCode == this.savedTenantCode &&
+          other.savedUsername == this.savedUsername);
 }
 
 class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
@@ -11703,11 +13611,14 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
   final Value<String?> userRole;
   final Value<String?> tenantName;
   final Value<String?> apiBaseUrl;
+  final Value<String?> apiVersion;
   final Value<String?> tenantCode;
   final Value<int> routeCredits;
   final Value<int> routeCreditsMonthly;
   final Value<String?> setupCompletedAt;
   final Value<String?> themeMode;
+  final Value<String?> savedTenantCode;
+  final Value<String?> savedUsername;
   const SyncMetaCompanion({
     this.id = const Value.absent(),
     this.lastPulledSeq = const Value.absent(),
@@ -11725,11 +13636,14 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.userRole = const Value.absent(),
     this.tenantName = const Value.absent(),
     this.apiBaseUrl = const Value.absent(),
+    this.apiVersion = const Value.absent(),
     this.tenantCode = const Value.absent(),
     this.routeCredits = const Value.absent(),
     this.routeCreditsMonthly = const Value.absent(),
     this.setupCompletedAt = const Value.absent(),
     this.themeMode = const Value.absent(),
+    this.savedTenantCode = const Value.absent(),
+    this.savedUsername = const Value.absent(),
   });
   SyncMetaCompanion.insert({
     this.id = const Value.absent(),
@@ -11748,11 +13662,14 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.userRole = const Value.absent(),
     this.tenantName = const Value.absent(),
     this.apiBaseUrl = const Value.absent(),
+    this.apiVersion = const Value.absent(),
     this.tenantCode = const Value.absent(),
     this.routeCredits = const Value.absent(),
     this.routeCreditsMonthly = const Value.absent(),
     this.setupCompletedAt = const Value.absent(),
     this.themeMode = const Value.absent(),
+    this.savedTenantCode = const Value.absent(),
+    this.savedUsername = const Value.absent(),
   });
   static Insertable<SyncMetaData> custom({
     Expression<int>? id,
@@ -11771,11 +13688,14 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Expression<String>? userRole,
     Expression<String>? tenantName,
     Expression<String>? apiBaseUrl,
+    Expression<String>? apiVersion,
     Expression<String>? tenantCode,
     Expression<int>? routeCredits,
     Expression<int>? routeCreditsMonthly,
     Expression<String>? setupCompletedAt,
     Expression<String>? themeMode,
+    Expression<String>? savedTenantCode,
+    Expression<String>? savedUsername,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -11795,12 +13715,15 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       if (userRole != null) 'user_role': userRole,
       if (tenantName != null) 'tenant_name': tenantName,
       if (apiBaseUrl != null) 'api_base_url': apiBaseUrl,
+      if (apiVersion != null) 'api_version': apiVersion,
       if (tenantCode != null) 'tenant_code': tenantCode,
       if (routeCredits != null) 'route_credits': routeCredits,
       if (routeCreditsMonthly != null)
         'route_credits_monthly': routeCreditsMonthly,
       if (setupCompletedAt != null) 'setup_completed_at': setupCompletedAt,
       if (themeMode != null) 'theme_mode': themeMode,
+      if (savedTenantCode != null) 'saved_tenant_code': savedTenantCode,
+      if (savedUsername != null) 'saved_username': savedUsername,
     });
   }
 
@@ -11821,11 +13744,14 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Value<String?>? userRole,
     Value<String?>? tenantName,
     Value<String?>? apiBaseUrl,
+    Value<String?>? apiVersion,
     Value<String?>? tenantCode,
     Value<int>? routeCredits,
     Value<int>? routeCreditsMonthly,
     Value<String?>? setupCompletedAt,
     Value<String?>? themeMode,
+    Value<String?>? savedTenantCode,
+    Value<String?>? savedUsername,
   }) {
     return SyncMetaCompanion(
       id: id ?? this.id,
@@ -11844,11 +13770,14 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       userRole: userRole ?? this.userRole,
       tenantName: tenantName ?? this.tenantName,
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
+      apiVersion: apiVersion ?? this.apiVersion,
       tenantCode: tenantCode ?? this.tenantCode,
       routeCredits: routeCredits ?? this.routeCredits,
       routeCreditsMonthly: routeCreditsMonthly ?? this.routeCreditsMonthly,
       setupCompletedAt: setupCompletedAt ?? this.setupCompletedAt,
       themeMode: themeMode ?? this.themeMode,
+      savedTenantCode: savedTenantCode ?? this.savedTenantCode,
+      savedUsername: savedUsername ?? this.savedUsername,
     );
   }
 
@@ -11903,6 +13832,9 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     if (apiBaseUrl.present) {
       map['api_base_url'] = Variable<String>(apiBaseUrl.value);
     }
+    if (apiVersion.present) {
+      map['api_version'] = Variable<String>(apiVersion.value);
+    }
     if (tenantCode.present) {
       map['tenant_code'] = Variable<String>(tenantCode.value);
     }
@@ -11917,6 +13849,12 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     }
     if (themeMode.present) {
       map['theme_mode'] = Variable<String>(themeMode.value);
+    }
+    if (savedTenantCode.present) {
+      map['saved_tenant_code'] = Variable<String>(savedTenantCode.value);
+    }
+    if (savedUsername.present) {
+      map['saved_username'] = Variable<String>(savedUsername.value);
     }
     return map;
   }
@@ -11940,11 +13878,533 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
           ..write('userRole: $userRole, ')
           ..write('tenantName: $tenantName, ')
           ..write('apiBaseUrl: $apiBaseUrl, ')
+          ..write('apiVersion: $apiVersion, ')
           ..write('tenantCode: $tenantCode, ')
           ..write('routeCredits: $routeCredits, ')
           ..write('routeCreditsMonthly: $routeCreditsMonthly, ')
           ..write('setupCompletedAt: $setupCompletedAt, ')
-          ..write('themeMode: $themeMode')
+          ..write('themeMode: $themeMode, ')
+          ..write('savedTenantCode: $savedTenantCode, ')
+          ..write('savedUsername: $savedUsername')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $BildirimlerTable extends Bildirimler
+    with TableInfo<$BildirimlerTable, BildirimlerData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BildirimlerTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _kategoriMeta = const VerificationMeta(
+    'kategori',
+  );
+  @override
+  late final GeneratedColumn<String> kategori = GeneratedColumn<String>(
+    'kategori',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _baslikMeta = const VerificationMeta('baslik');
+  @override
+  late final GeneratedColumn<String> baslik = GeneratedColumn<String>(
+    'baslik',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _govdeMeta = const VerificationMeta('govde');
+  @override
+  late final GeneratedColumn<String> govde = GeneratedColumn<String>(
+    'govde',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _detayMeta = const VerificationMeta('detay');
+  @override
+  late final GeneratedColumn<String> detay = GeneratedColumn<String>(
+    'detay',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _yolMeta = const VerificationMeta('yol');
+  @override
+  late final GeneratedColumn<String> yol = GeneratedColumn<String>(
+    'yol',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _occurredAtMeta = const VerificationMeta(
+    'occurredAt',
+  );
+  @override
+  late final GeneratedColumn<String> occurredAt = GeneratedColumn<String>(
+    'occurred_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _okunduAtMeta = const VerificationMeta(
+    'okunduAt',
+  );
+  @override
+  late final GeneratedColumn<String> okunduAt = GeneratedColumn<String>(
+    'okundu_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    kategori,
+    baslik,
+    govde,
+    detay,
+    yol,
+    occurredAt,
+    okunduAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bildirimler';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<BildirimlerData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('kategori')) {
+      context.handle(
+        _kategoriMeta,
+        kategori.isAcceptableOrUnknown(data['kategori']!, _kategoriMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kategoriMeta);
+    }
+    if (data.containsKey('baslik')) {
+      context.handle(
+        _baslikMeta,
+        baslik.isAcceptableOrUnknown(data['baslik']!, _baslikMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_baslikMeta);
+    }
+    if (data.containsKey('govde')) {
+      context.handle(
+        _govdeMeta,
+        govde.isAcceptableOrUnknown(data['govde']!, _govdeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_govdeMeta);
+    }
+    if (data.containsKey('detay')) {
+      context.handle(
+        _detayMeta,
+        detay.isAcceptableOrUnknown(data['detay']!, _detayMeta),
+      );
+    }
+    if (data.containsKey('yol')) {
+      context.handle(
+        _yolMeta,
+        yol.isAcceptableOrUnknown(data['yol']!, _yolMeta),
+      );
+    }
+    if (data.containsKey('occurred_at')) {
+      context.handle(
+        _occurredAtMeta,
+        occurredAt.isAcceptableOrUnknown(data['occurred_at']!, _occurredAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_occurredAtMeta);
+    }
+    if (data.containsKey('okundu_at')) {
+      context.handle(
+        _okunduAtMeta,
+        okunduAt.isAcceptableOrUnknown(data['okundu_at']!, _okunduAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BildirimlerData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BildirimlerData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      kategori: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kategori'],
+      )!,
+      baslik: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}baslik'],
+      )!,
+      govde: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}govde'],
+      )!,
+      detay: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}detay'],
+      ),
+      yol: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}yol'],
+      ),
+      occurredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}occurred_at'],
+      )!,
+      okunduAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}okundu_at'],
+      ),
+    );
+  }
+
+  @override
+  $BildirimlerTable createAlias(String alias) {
+    return $BildirimlerTable(attachedDatabase, alias);
+  }
+}
+
+class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
+  /// `BildirimTaslagi.kimlik` — kategori önekli tekil anahtar.
+  final String id;
+
+  /// `BildirimKategori.name`. Metin olarak saklanır: enum'a yeni değer eklenip eskisi
+  /// kaldırıldığında eski satır okunamaz hâle gelmesin (liste bir ARŞİVDİR).
+  final String kategori;
+  final String baslik;
+  final String govde;
+
+  /// Genişletilmiş metin; yoksa null (liste satırı yalnız gövdeyi yazar).
+  final String? detay;
+
+  /// Dokununca gidilecek ekran (`gunsonu` · `siparisler` · `musteri/<id>` …); yoksa null.
+  final String? yol;
+
+  /// Bildirimin DOĞDUĞU an (UTC ISO). Sıralama bundan.
+  final String occurredAt;
+
+  /// Okunma anı (UTC ISO); null = OKUNMAMIŞ. Rozet bu alanı sayar.
+  final String? okunduAt;
+  const BildirimlerData({
+    required this.id,
+    required this.kategori,
+    required this.baslik,
+    required this.govde,
+    this.detay,
+    this.yol,
+    required this.occurredAt,
+    this.okunduAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['kategori'] = Variable<String>(kategori);
+    map['baslik'] = Variable<String>(baslik);
+    map['govde'] = Variable<String>(govde);
+    if (!nullToAbsent || detay != null) {
+      map['detay'] = Variable<String>(detay);
+    }
+    if (!nullToAbsent || yol != null) {
+      map['yol'] = Variable<String>(yol);
+    }
+    map['occurred_at'] = Variable<String>(occurredAt);
+    if (!nullToAbsent || okunduAt != null) {
+      map['okundu_at'] = Variable<String>(okunduAt);
+    }
+    return map;
+  }
+
+  BildirimlerCompanion toCompanion(bool nullToAbsent) {
+    return BildirimlerCompanion(
+      id: Value(id),
+      kategori: Value(kategori),
+      baslik: Value(baslik),
+      govde: Value(govde),
+      detay: detay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(detay),
+      yol: yol == null && nullToAbsent ? const Value.absent() : Value(yol),
+      occurredAt: Value(occurredAt),
+      okunduAt: okunduAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(okunduAt),
+    );
+  }
+
+  factory BildirimlerData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BildirimlerData(
+      id: serializer.fromJson<String>(json['id']),
+      kategori: serializer.fromJson<String>(json['kategori']),
+      baslik: serializer.fromJson<String>(json['baslik']),
+      govde: serializer.fromJson<String>(json['govde']),
+      detay: serializer.fromJson<String?>(json['detay']),
+      yol: serializer.fromJson<String?>(json['yol']),
+      occurredAt: serializer.fromJson<String>(json['occurredAt']),
+      okunduAt: serializer.fromJson<String?>(json['okunduAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'kategori': serializer.toJson<String>(kategori),
+      'baslik': serializer.toJson<String>(baslik),
+      'govde': serializer.toJson<String>(govde),
+      'detay': serializer.toJson<String?>(detay),
+      'yol': serializer.toJson<String?>(yol),
+      'occurredAt': serializer.toJson<String>(occurredAt),
+      'okunduAt': serializer.toJson<String?>(okunduAt),
+    };
+  }
+
+  BildirimlerData copyWith({
+    String? id,
+    String? kategori,
+    String? baslik,
+    String? govde,
+    Value<String?> detay = const Value.absent(),
+    Value<String?> yol = const Value.absent(),
+    String? occurredAt,
+    Value<String?> okunduAt = const Value.absent(),
+  }) => BildirimlerData(
+    id: id ?? this.id,
+    kategori: kategori ?? this.kategori,
+    baslik: baslik ?? this.baslik,
+    govde: govde ?? this.govde,
+    detay: detay.present ? detay.value : this.detay,
+    yol: yol.present ? yol.value : this.yol,
+    occurredAt: occurredAt ?? this.occurredAt,
+    okunduAt: okunduAt.present ? okunduAt.value : this.okunduAt,
+  );
+  BildirimlerData copyWithCompanion(BildirimlerCompanion data) {
+    return BildirimlerData(
+      id: data.id.present ? data.id.value : this.id,
+      kategori: data.kategori.present ? data.kategori.value : this.kategori,
+      baslik: data.baslik.present ? data.baslik.value : this.baslik,
+      govde: data.govde.present ? data.govde.value : this.govde,
+      detay: data.detay.present ? data.detay.value : this.detay,
+      yol: data.yol.present ? data.yol.value : this.yol,
+      occurredAt: data.occurredAt.present
+          ? data.occurredAt.value
+          : this.occurredAt,
+      okunduAt: data.okunduAt.present ? data.okunduAt.value : this.okunduAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BildirimlerData(')
+          ..write('id: $id, ')
+          ..write('kategori: $kategori, ')
+          ..write('baslik: $baslik, ')
+          ..write('govde: $govde, ')
+          ..write('detay: $detay, ')
+          ..write('yol: $yol, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('okunduAt: $okunduAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    kategori,
+    baslik,
+    govde,
+    detay,
+    yol,
+    occurredAt,
+    okunduAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BildirimlerData &&
+          other.id == this.id &&
+          other.kategori == this.kategori &&
+          other.baslik == this.baslik &&
+          other.govde == this.govde &&
+          other.detay == this.detay &&
+          other.yol == this.yol &&
+          other.occurredAt == this.occurredAt &&
+          other.okunduAt == this.okunduAt);
+}
+
+class BildirimlerCompanion extends UpdateCompanion<BildirimlerData> {
+  final Value<String> id;
+  final Value<String> kategori;
+  final Value<String> baslik;
+  final Value<String> govde;
+  final Value<String?> detay;
+  final Value<String?> yol;
+  final Value<String> occurredAt;
+  final Value<String?> okunduAt;
+  final Value<int> rowid;
+  const BildirimlerCompanion({
+    this.id = const Value.absent(),
+    this.kategori = const Value.absent(),
+    this.baslik = const Value.absent(),
+    this.govde = const Value.absent(),
+    this.detay = const Value.absent(),
+    this.yol = const Value.absent(),
+    this.occurredAt = const Value.absent(),
+    this.okunduAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BildirimlerCompanion.insert({
+    required String id,
+    required String kategori,
+    required String baslik,
+    required String govde,
+    this.detay = const Value.absent(),
+    this.yol = const Value.absent(),
+    required String occurredAt,
+    this.okunduAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       kategori = Value(kategori),
+       baslik = Value(baslik),
+       govde = Value(govde),
+       occurredAt = Value(occurredAt);
+  static Insertable<BildirimlerData> custom({
+    Expression<String>? id,
+    Expression<String>? kategori,
+    Expression<String>? baslik,
+    Expression<String>? govde,
+    Expression<String>? detay,
+    Expression<String>? yol,
+    Expression<String>? occurredAt,
+    Expression<String>? okunduAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (kategori != null) 'kategori': kategori,
+      if (baslik != null) 'baslik': baslik,
+      if (govde != null) 'govde': govde,
+      if (detay != null) 'detay': detay,
+      if (yol != null) 'yol': yol,
+      if (occurredAt != null) 'occurred_at': occurredAt,
+      if (okunduAt != null) 'okundu_at': okunduAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BildirimlerCompanion copyWith({
+    Value<String>? id,
+    Value<String>? kategori,
+    Value<String>? baslik,
+    Value<String>? govde,
+    Value<String?>? detay,
+    Value<String?>? yol,
+    Value<String>? occurredAt,
+    Value<String?>? okunduAt,
+    Value<int>? rowid,
+  }) {
+    return BildirimlerCompanion(
+      id: id ?? this.id,
+      kategori: kategori ?? this.kategori,
+      baslik: baslik ?? this.baslik,
+      govde: govde ?? this.govde,
+      detay: detay ?? this.detay,
+      yol: yol ?? this.yol,
+      occurredAt: occurredAt ?? this.occurredAt,
+      okunduAt: okunduAt ?? this.okunduAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (kategori.present) {
+      map['kategori'] = Variable<String>(kategori.value);
+    }
+    if (baslik.present) {
+      map['baslik'] = Variable<String>(baslik.value);
+    }
+    if (govde.present) {
+      map['govde'] = Variable<String>(govde.value);
+    }
+    if (detay.present) {
+      map['detay'] = Variable<String>(detay.value);
+    }
+    if (yol.present) {
+      map['yol'] = Variable<String>(yol.value);
+    }
+    if (occurredAt.present) {
+      map['occurred_at'] = Variable<String>(occurredAt.value);
+    }
+    if (okunduAt.present) {
+      map['okundu_at'] = Variable<String>(okunduAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BildirimlerCompanion(')
+          ..write('id: $id, ')
+          ..write('kategori: $kategori, ')
+          ..write('baslik: $baslik, ')
+          ..write('govde: $govde, ')
+          ..write('detay: $detay, ')
+          ..write('yol: $yol, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('okunduAt: $okunduAt, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -11970,6 +14430,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $DayClosingsTable dayClosings = $DayClosingsTable(this);
   late final $OutboxTable outbox = $OutboxTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
+  late final $BildirimlerTable bildirimler = $BildirimlerTable(this);
   late final Index idxPhonesLast10 = Index(
     'idx_phones_last10',
     'CREATE INDEX idx_phones_last10 ON customer_phones (phone_last10)',
@@ -12007,6 +14468,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     dayClosings,
     outbox,
     syncMeta,
+    bildirimler,
     idxPhonesLast10,
     idxProductsBarcode,
     idxExemptLast10,
@@ -12021,6 +14483,8 @@ typedef $$CustomersTableCreateCompanionBuilder =
       Value<String?> note,
       Value<int?> code,
       Value<int> balanceKurus,
+      Value<String?> favoriteProductIds,
+      Value<String?> productOptionsJson,
       Value<String?> blacklistedAt,
       required String updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -12034,6 +14498,8 @@ typedef $$CustomersTableUpdateCompanionBuilder =
       Value<String?> note,
       Value<int?> code,
       Value<int> balanceKurus,
+      Value<String?> favoriteProductIds,
+      Value<String?> productOptionsJson,
       Value<String?> blacklistedAt,
       Value<String> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -12072,6 +14538,16 @@ class $$CustomersTableFilterComposer
 
   ColumnFilters<int> get balanceKurus => $composableBuilder(
     column: $table.balanceKurus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get favoriteProductIds => $composableBuilder(
+    column: $table.favoriteProductIds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productOptionsJson => $composableBuilder(
+    column: $table.productOptionsJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12130,6 +14606,16 @@ class $$CustomersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get favoriteProductIds => $composableBuilder(
+    column: $table.favoriteProductIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get productOptionsJson => $composableBuilder(
+    column: $table.productOptionsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get blacklistedAt => $composableBuilder(
     column: $table.blacklistedAt,
     builder: (column) => ColumnOrderings(column),
@@ -12174,6 +14660,16 @@ class $$CustomersTableAnnotationComposer
 
   GeneratedColumn<int> get balanceKurus => $composableBuilder(
     column: $table.balanceKurus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get favoriteProductIds => $composableBuilder(
+    column: $table.favoriteProductIds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get productOptionsJson => $composableBuilder(
+    column: $table.productOptionsJson,
     builder: (column) => column,
   );
 
@@ -12229,6 +14725,8 @@ class $$CustomersTableTableManager
                 Value<String?> note = const Value.absent(),
                 Value<int?> code = const Value.absent(),
                 Value<int> balanceKurus = const Value.absent(),
+                Value<String?> favoriteProductIds = const Value.absent(),
+                Value<String?> productOptionsJson = const Value.absent(),
                 Value<String?> blacklistedAt = const Value.absent(),
                 Value<String> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -12240,6 +14738,8 @@ class $$CustomersTableTableManager
                 note: note,
                 code: code,
                 balanceKurus: balanceKurus,
+                favoriteProductIds: favoriteProductIds,
+                productOptionsJson: productOptionsJson,
                 blacklistedAt: blacklistedAt,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -12253,6 +14753,8 @@ class $$CustomersTableTableManager
                 Value<String?> note = const Value.absent(),
                 Value<int?> code = const Value.absent(),
                 Value<int> balanceKurus = const Value.absent(),
+                Value<String?> favoriteProductIds = const Value.absent(),
+                Value<String?> productOptionsJson = const Value.absent(),
                 Value<String?> blacklistedAt = const Value.absent(),
                 required String updatedOccurredAt,
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -12264,6 +14766,8 @@ class $$CustomersTableTableManager
                 note: note,
                 code: code,
                 balanceKurus: balanceKurus,
+                favoriteProductIds: favoriteProductIds,
+                productOptionsJson: productOptionsJson,
                 blacklistedAt: blacklistedAt,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -12922,6 +15426,7 @@ typedef $$ProductsTableCreateCompanionBuilder =
       Value<String?> barcode,
       Value<String?> imageUrl,
       Value<String?> imageLocalPath,
+      Value<String?> optionsJson,
       Value<bool> isActive,
       required String updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -12937,6 +15442,7 @@ typedef $$ProductsTableUpdateCompanionBuilder =
       Value<String?> barcode,
       Value<String?> imageUrl,
       Value<String?> imageLocalPath,
+      Value<String?> optionsJson,
       Value<bool> isActive,
       Value<String> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -12985,6 +15491,11 @@ class $$ProductsTableFilterComposer
 
   ColumnFilters<String> get imageLocalPath => $composableBuilder(
     column: $table.imageLocalPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13053,6 +15564,11 @@ class $$ProductsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isActive => $composableBuilder(
     column: $table.isActive,
     builder: (column) => ColumnOrderings(column),
@@ -13108,6 +15624,11 @@ class $$ProductsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
 
@@ -13160,6 +15681,7 @@ class $$ProductsTableTableManager
                 Value<String?> barcode = const Value.absent(),
                 Value<String?> imageUrl = const Value.absent(),
                 Value<String?> imageLocalPath = const Value.absent(),
+                Value<String?> optionsJson = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<String> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -13173,6 +15695,7 @@ class $$ProductsTableTableManager
                 barcode: barcode,
                 imageUrl: imageUrl,
                 imageLocalPath: imageLocalPath,
+                optionsJson: optionsJson,
                 isActive: isActive,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -13188,6 +15711,7 @@ class $$ProductsTableTableManager
                 Value<String?> barcode = const Value.absent(),
                 Value<String?> imageUrl = const Value.absent(),
                 Value<String?> imageLocalPath = const Value.absent(),
+                Value<String?> optionsJson = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 required String updatedOccurredAt,
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -13201,6 +15725,7 @@ class $$ProductsTableTableManager
                 barcode: barcode,
                 imageUrl: imageUrl,
                 imageLocalPath: imageLocalPath,
+                optionsJson: optionsJson,
                 isActive: isActive,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -13235,6 +15760,7 @@ typedef $$OrdersTableCreateCompanionBuilder =
       Value<String?> customerId,
       Value<int?> code,
       Value<String?> assignedUserId,
+      Value<String?> deliveredByUserId,
       Value<String> status,
       Value<int> totalKurus,
       Value<String?> paymentType,
@@ -13251,6 +15777,7 @@ typedef $$OrdersTableUpdateCompanionBuilder =
       Value<String?> customerId,
       Value<int?> code,
       Value<String?> assignedUserId,
+      Value<String?> deliveredByUserId,
       Value<String> status,
       Value<int> totalKurus,
       Value<String?> paymentType,
@@ -13288,6 +15815,11 @@ class $$OrdersTableFilterComposer
 
   ColumnFilters<String> get assignedUserId => $composableBuilder(
     column: $table.assignedUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deliveredByUserId => $composableBuilder(
+    column: $table.deliveredByUserId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13361,6 +15893,11 @@ class $$OrdersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get deliveredByUserId => $composableBuilder(
+    column: $table.deliveredByUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -13424,6 +15961,11 @@ class $$OrdersTableAnnotationComposer
 
   GeneratedColumn<String> get assignedUserId => $composableBuilder(
     column: $table.assignedUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get deliveredByUserId => $composableBuilder(
+    column: $table.deliveredByUserId,
     builder: (column) => column,
   );
 
@@ -13492,6 +16034,7 @@ class $$OrdersTableTableManager
                 Value<String?> customerId = const Value.absent(),
                 Value<int?> code = const Value.absent(),
                 Value<String?> assignedUserId = const Value.absent(),
+                Value<String?> deliveredByUserId = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> totalKurus = const Value.absent(),
                 Value<String?> paymentType = const Value.absent(),
@@ -13506,6 +16049,7 @@ class $$OrdersTableTableManager
                 customerId: customerId,
                 code: code,
                 assignedUserId: assignedUserId,
+                deliveredByUserId: deliveredByUserId,
                 status: status,
                 totalKurus: totalKurus,
                 paymentType: paymentType,
@@ -13522,6 +16066,7 @@ class $$OrdersTableTableManager
                 Value<String?> customerId = const Value.absent(),
                 Value<int?> code = const Value.absent(),
                 Value<String?> assignedUserId = const Value.absent(),
+                Value<String?> deliveredByUserId = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> totalKurus = const Value.absent(),
                 Value<String?> paymentType = const Value.absent(),
@@ -13536,6 +16081,7 @@ class $$OrdersTableTableManager
                 customerId: customerId,
                 code: code,
                 assignedUserId: assignedUserId,
+                deliveredByUserId: deliveredByUserId,
                 status: status,
                 totalKurus: totalKurus,
                 paymentType: paymentType,
@@ -13576,6 +16122,8 @@ typedef $$OrderLinesTableCreateCompanionBuilder =
       required String productName,
       required int unitPriceKurus,
       Value<String?> unit,
+      Value<String?> note,
+      Value<String?> optionsJson,
       Value<bool> isCustom,
       required int qty,
       required int lineTotalKurus,
@@ -13590,6 +16138,8 @@ typedef $$OrderLinesTableUpdateCompanionBuilder =
       Value<String> productName,
       Value<int> unitPriceKurus,
       Value<String?> unit,
+      Value<String?> note,
+      Value<String?> optionsJson,
       Value<bool> isCustom,
       Value<int> qty,
       Value<int> lineTotalKurus,
@@ -13633,6 +16183,16 @@ class $$OrderLinesTableFilterComposer
 
   ColumnFilters<String> get unit => $composableBuilder(
     column: $table.unit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13696,6 +16256,16 @@ class $$OrderLinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get note => $composableBuilder(
+    column: $table.note,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isCustom => $composableBuilder(
     column: $table.isCustom,
     builder: (column) => ColumnOrderings(column),
@@ -13747,6 +16317,14 @@ class $$OrderLinesTableAnnotationComposer
 
   GeneratedColumn<String> get unit =>
       $composableBuilder(column: $table.unit, builder: (column) => column);
+
+  GeneratedColumn<String> get note =>
+      $composableBuilder(column: $table.note, builder: (column) => column);
+
+  GeneratedColumn<String> get optionsJson => $composableBuilder(
+    column: $table.optionsJson,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<bool> get isCustom =>
       $composableBuilder(column: $table.isCustom, builder: (column) => column);
@@ -13800,6 +16378,8 @@ class $$OrderLinesTableTableManager
                 Value<String> productName = const Value.absent(),
                 Value<int> unitPriceKurus = const Value.absent(),
                 Value<String?> unit = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<String?> optionsJson = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<int> qty = const Value.absent(),
                 Value<int> lineTotalKurus = const Value.absent(),
@@ -13812,6 +16392,8 @@ class $$OrderLinesTableTableManager
                 productName: productName,
                 unitPriceKurus: unitPriceKurus,
                 unit: unit,
+                note: note,
+                optionsJson: optionsJson,
                 isCustom: isCustom,
                 qty: qty,
                 lineTotalKurus: lineTotalKurus,
@@ -13826,6 +16408,8 @@ class $$OrderLinesTableTableManager
                 required String productName,
                 required int unitPriceKurus,
                 Value<String?> unit = const Value.absent(),
+                Value<String?> note = const Value.absent(),
+                Value<String?> optionsJson = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 required int qty,
                 required int lineTotalKurus,
@@ -13838,6 +16422,8 @@ class $$OrderLinesTableTableManager
                 productName: productName,
                 unitPriceKurus: unitPriceKurus,
                 unit: unit,
+                note: note,
+                optionsJson: optionsJson,
                 isCustom: isCustom,
                 qty: qty,
                 lineTotalKurus: lineTotalKurus,
@@ -14466,6 +17052,7 @@ typedef $$CashHandoversTableCreateCompanionBuilder =
       required int expectedCashKurus,
       required int diffKurus,
       Value<String?> periodStart,
+      Value<String?> reversesHandoverId,
       required String occurredAt,
       Value<String?> deviceId,
       Value<String?> note,
@@ -14480,6 +17067,7 @@ typedef $$CashHandoversTableUpdateCompanionBuilder =
       Value<int> expectedCashKurus,
       Value<int> diffKurus,
       Value<String?> periodStart,
+      Value<String?> reversesHandoverId,
       Value<String> occurredAt,
       Value<String?> deviceId,
       Value<String?> note,
@@ -14527,6 +17115,11 @@ class $$CashHandoversTableFilterComposer
 
   ColumnFilters<String> get periodStart => $composableBuilder(
     column: $table.periodStart,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reversesHandoverId => $composableBuilder(
+    column: $table.reversesHandoverId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14590,6 +17183,11 @@ class $$CashHandoversTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get reversesHandoverId => $composableBuilder(
+    column: $table.reversesHandoverId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get occurredAt => $composableBuilder(
     column: $table.occurredAt,
     builder: (column) => ColumnOrderings(column),
@@ -14644,6 +17242,11 @@ class $$CashHandoversTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get reversesHandoverId => $composableBuilder(
+    column: $table.reversesHandoverId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get occurredAt => $composableBuilder(
     column: $table.occurredAt,
     builder: (column) => column,
@@ -14694,6 +17297,7 @@ class $$CashHandoversTableTableManager
                 Value<int> expectedCashKurus = const Value.absent(),
                 Value<int> diffKurus = const Value.absent(),
                 Value<String?> periodStart = const Value.absent(),
+                Value<String?> reversesHandoverId = const Value.absent(),
                 Value<String> occurredAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
                 Value<String?> note = const Value.absent(),
@@ -14706,6 +17310,7 @@ class $$CashHandoversTableTableManager
                 expectedCashKurus: expectedCashKurus,
                 diffKurus: diffKurus,
                 periodStart: periodStart,
+                reversesHandoverId: reversesHandoverId,
                 occurredAt: occurredAt,
                 deviceId: deviceId,
                 note: note,
@@ -14720,6 +17325,7 @@ class $$CashHandoversTableTableManager
                 required int expectedCashKurus,
                 required int diffKurus,
                 Value<String?> periodStart = const Value.absent(),
+                Value<String?> reversesHandoverId = const Value.absent(),
                 required String occurredAt,
                 Value<String?> deviceId = const Value.absent(),
                 Value<String?> note = const Value.absent(),
@@ -14732,6 +17338,7 @@ class $$CashHandoversTableTableManager
                 expectedCashKurus: expectedCashKurus,
                 diffKurus: diffKurus,
                 periodStart: periodStart,
+                reversesHandoverId: reversesHandoverId,
                 occurredAt: occurredAt,
                 deviceId: deviceId,
                 note: note,
@@ -14770,6 +17377,20 @@ typedef $$UsersTableCreateCompanionBuilder =
       required String status,
       Value<String> username,
       Value<String?> phone,
+      Value<bool?> courierCanCustomers,
+      Value<bool?> courierCanOrders,
+      Value<bool?> courierCanCollect,
+      Value<bool?> courierCanDiscount,
+      Value<bool?> courierCanDayEnd,
+      Value<bool?> courierCanSeeAllOrders,
+      Value<bool?> courierCanViewHistory,
+      Value<bool?> courierCanExpense,
+      Value<bool?> courierPhoneMask,
+      Value<bool?> courierCanCustomerLedger,
+      Value<bool?> courierCanDebtReminder,
+      Value<bool?> courierCanToggleStock,
+      Value<bool?> courierCanCallLog,
+      Value<bool?> courierCanSeeAllCustomers,
       Value<int> rowid,
     });
 typedef $$UsersTableUpdateCompanionBuilder =
@@ -14780,6 +17401,20 @@ typedef $$UsersTableUpdateCompanionBuilder =
       Value<String> status,
       Value<String> username,
       Value<String?> phone,
+      Value<bool?> courierCanCustomers,
+      Value<bool?> courierCanOrders,
+      Value<bool?> courierCanCollect,
+      Value<bool?> courierCanDiscount,
+      Value<bool?> courierCanDayEnd,
+      Value<bool?> courierCanSeeAllOrders,
+      Value<bool?> courierCanViewHistory,
+      Value<bool?> courierCanExpense,
+      Value<bool?> courierPhoneMask,
+      Value<bool?> courierCanCustomerLedger,
+      Value<bool?> courierCanDebtReminder,
+      Value<bool?> courierCanToggleStock,
+      Value<bool?> courierCanCallLog,
+      Value<bool?> courierCanSeeAllCustomers,
       Value<int> rowid,
     });
 
@@ -14818,6 +17453,76 @@ class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
 
   ColumnFilters<String> get phone => $composableBuilder(
     column: $table.phone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanCustomers => $composableBuilder(
+    column: $table.courierCanCustomers,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanOrders => $composableBuilder(
+    column: $table.courierCanOrders,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanCollect => $composableBuilder(
+    column: $table.courierCanCollect,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanDiscount => $composableBuilder(
+    column: $table.courierCanDiscount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanDayEnd => $composableBuilder(
+    column: $table.courierCanDayEnd,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanSeeAllOrders => $composableBuilder(
+    column: $table.courierCanSeeAllOrders,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanViewHistory => $composableBuilder(
+    column: $table.courierCanViewHistory,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanExpense => $composableBuilder(
+    column: $table.courierCanExpense,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierPhoneMask => $composableBuilder(
+    column: $table.courierPhoneMask,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanCustomerLedger => $composableBuilder(
+    column: $table.courierCanCustomerLedger,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanDebtReminder => $composableBuilder(
+    column: $table.courierCanDebtReminder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanToggleStock => $composableBuilder(
+    column: $table.courierCanToggleStock,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanCallLog => $composableBuilder(
+    column: $table.courierCanCallLog,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanSeeAllCustomers => $composableBuilder(
+    column: $table.courierCanSeeAllCustomers,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -14860,6 +17565,76 @@ class $$UsersTableOrderingComposer
     column: $table.phone,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get courierCanCustomers => $composableBuilder(
+    column: $table.courierCanCustomers,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanOrders => $composableBuilder(
+    column: $table.courierCanOrders,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanCollect => $composableBuilder(
+    column: $table.courierCanCollect,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanDiscount => $composableBuilder(
+    column: $table.courierCanDiscount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanDayEnd => $composableBuilder(
+    column: $table.courierCanDayEnd,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanSeeAllOrders => $composableBuilder(
+    column: $table.courierCanSeeAllOrders,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanViewHistory => $composableBuilder(
+    column: $table.courierCanViewHistory,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanExpense => $composableBuilder(
+    column: $table.courierCanExpense,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierPhoneMask => $composableBuilder(
+    column: $table.courierPhoneMask,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanCustomerLedger => $composableBuilder(
+    column: $table.courierCanCustomerLedger,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanDebtReminder => $composableBuilder(
+    column: $table.courierCanDebtReminder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanToggleStock => $composableBuilder(
+    column: $table.courierCanToggleStock,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanCallLog => $composableBuilder(
+    column: $table.courierCanCallLog,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanSeeAllCustomers => $composableBuilder(
+    column: $table.courierCanSeeAllCustomers,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$UsersTableAnnotationComposer
@@ -14888,6 +17663,76 @@ class $$UsersTableAnnotationComposer
 
   GeneratedColumn<String> get phone =>
       $composableBuilder(column: $table.phone, builder: (column) => column);
+
+  GeneratedColumn<bool> get courierCanCustomers => $composableBuilder(
+    column: $table.courierCanCustomers,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanOrders => $composableBuilder(
+    column: $table.courierCanOrders,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanCollect => $composableBuilder(
+    column: $table.courierCanCollect,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanDiscount => $composableBuilder(
+    column: $table.courierCanDiscount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanDayEnd => $composableBuilder(
+    column: $table.courierCanDayEnd,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanSeeAllOrders => $composableBuilder(
+    column: $table.courierCanSeeAllOrders,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanViewHistory => $composableBuilder(
+    column: $table.courierCanViewHistory,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanExpense => $composableBuilder(
+    column: $table.courierCanExpense,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierPhoneMask => $composableBuilder(
+    column: $table.courierPhoneMask,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanCustomerLedger => $composableBuilder(
+    column: $table.courierCanCustomerLedger,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanDebtReminder => $composableBuilder(
+    column: $table.courierCanDebtReminder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanToggleStock => $composableBuilder(
+    column: $table.courierCanToggleStock,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanCallLog => $composableBuilder(
+    column: $table.courierCanCallLog,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanSeeAllCustomers => $composableBuilder(
+    column: $table.courierCanSeeAllCustomers,
+    builder: (column) => column,
+  );
 }
 
 class $$UsersTableTableManager
@@ -14924,6 +17769,20 @@ class $$UsersTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<String> username = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
+                Value<bool?> courierCanCustomers = const Value.absent(),
+                Value<bool?> courierCanOrders = const Value.absent(),
+                Value<bool?> courierCanCollect = const Value.absent(),
+                Value<bool?> courierCanDiscount = const Value.absent(),
+                Value<bool?> courierCanDayEnd = const Value.absent(),
+                Value<bool?> courierCanSeeAllOrders = const Value.absent(),
+                Value<bool?> courierCanViewHistory = const Value.absent(),
+                Value<bool?> courierCanExpense = const Value.absent(),
+                Value<bool?> courierPhoneMask = const Value.absent(),
+                Value<bool?> courierCanCustomerLedger = const Value.absent(),
+                Value<bool?> courierCanDebtReminder = const Value.absent(),
+                Value<bool?> courierCanToggleStock = const Value.absent(),
+                Value<bool?> courierCanCallLog = const Value.absent(),
+                Value<bool?> courierCanSeeAllCustomers = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UsersCompanion(
                 id: id,
@@ -14932,6 +17791,20 @@ class $$UsersTableTableManager
                 status: status,
                 username: username,
                 phone: phone,
+                courierCanCustomers: courierCanCustomers,
+                courierCanOrders: courierCanOrders,
+                courierCanCollect: courierCanCollect,
+                courierCanDiscount: courierCanDiscount,
+                courierCanDayEnd: courierCanDayEnd,
+                courierCanSeeAllOrders: courierCanSeeAllOrders,
+                courierCanViewHistory: courierCanViewHistory,
+                courierCanExpense: courierCanExpense,
+                courierPhoneMask: courierPhoneMask,
+                courierCanCustomerLedger: courierCanCustomerLedger,
+                courierCanDebtReminder: courierCanDebtReminder,
+                courierCanToggleStock: courierCanToggleStock,
+                courierCanCallLog: courierCanCallLog,
+                courierCanSeeAllCustomers: courierCanSeeAllCustomers,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -14942,6 +17815,20 @@ class $$UsersTableTableManager
                 required String status,
                 Value<String> username = const Value.absent(),
                 Value<String?> phone = const Value.absent(),
+                Value<bool?> courierCanCustomers = const Value.absent(),
+                Value<bool?> courierCanOrders = const Value.absent(),
+                Value<bool?> courierCanCollect = const Value.absent(),
+                Value<bool?> courierCanDiscount = const Value.absent(),
+                Value<bool?> courierCanDayEnd = const Value.absent(),
+                Value<bool?> courierCanSeeAllOrders = const Value.absent(),
+                Value<bool?> courierCanViewHistory = const Value.absent(),
+                Value<bool?> courierCanExpense = const Value.absent(),
+                Value<bool?> courierPhoneMask = const Value.absent(),
+                Value<bool?> courierCanCustomerLedger = const Value.absent(),
+                Value<bool?> courierCanDebtReminder = const Value.absent(),
+                Value<bool?> courierCanToggleStock = const Value.absent(),
+                Value<bool?> courierCanCallLog = const Value.absent(),
+                Value<bool?> courierCanSeeAllCustomers = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => UsersCompanion.insert(
                 id: id,
@@ -14950,6 +17837,20 @@ class $$UsersTableTableManager
                 status: status,
                 username: username,
                 phone: phone,
+                courierCanCustomers: courierCanCustomers,
+                courierCanOrders: courierCanOrders,
+                courierCanCollect: courierCanCollect,
+                courierCanDiscount: courierCanDiscount,
+                courierCanDayEnd: courierCanDayEnd,
+                courierCanSeeAllOrders: courierCanSeeAllOrders,
+                courierCanViewHistory: courierCanViewHistory,
+                courierCanExpense: courierCanExpense,
+                courierPhoneMask: courierPhoneMask,
+                courierCanCustomerLedger: courierCanCustomerLedger,
+                courierCanDebtReminder: courierCanDebtReminder,
+                courierCanToggleStock: courierCanToggleStock,
+                courierCanCallLog: courierCanCallLog,
+                courierCanSeeAllCustomers: courierCanSeeAllCustomers,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -14995,6 +17896,16 @@ typedef $$TenantSettingsTableCreateCompanionBuilder =
       Value<bool> courierCanCollect,
       Value<bool> courierCanDiscount,
       Value<bool> courierCanDayEnd,
+      Value<bool> courierCanSeeAllOrders,
+      Value<bool> courierCanViewHistory,
+      Value<bool> courierCanExpense,
+      Value<bool> courierPhoneMask,
+      Value<bool> courierCanCustomerLedger,
+      Value<bool> courierCanDebtReminder,
+      Value<bool> courierCanToggleStock,
+      Value<bool> courierCanCallLog,
+      Value<bool> courierCanSeeAllCustomers,
+      Value<bool> preparedProducts,
       Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -15020,6 +17931,16 @@ typedef $$TenantSettingsTableUpdateCompanionBuilder =
       Value<bool> courierCanCollect,
       Value<bool> courierCanDiscount,
       Value<bool> courierCanDayEnd,
+      Value<bool> courierCanSeeAllOrders,
+      Value<bool> courierCanViewHistory,
+      Value<bool> courierCanExpense,
+      Value<bool> courierPhoneMask,
+      Value<bool> courierCanCustomerLedger,
+      Value<bool> courierCanDebtReminder,
+      Value<bool> courierCanToggleStock,
+      Value<bool> courierCanCallLog,
+      Value<bool> courierCanSeeAllCustomers,
+      Value<bool> preparedProducts,
       Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -15126,6 +18047,56 @@ class $$TenantSettingsTableFilterComposer
 
   ColumnFilters<bool> get courierCanDayEnd => $composableBuilder(
     column: $table.courierCanDayEnd,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanSeeAllOrders => $composableBuilder(
+    column: $table.courierCanSeeAllOrders,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanViewHistory => $composableBuilder(
+    column: $table.courierCanViewHistory,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanExpense => $composableBuilder(
+    column: $table.courierCanExpense,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierPhoneMask => $composableBuilder(
+    column: $table.courierPhoneMask,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanCustomerLedger => $composableBuilder(
+    column: $table.courierCanCustomerLedger,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanDebtReminder => $composableBuilder(
+    column: $table.courierCanDebtReminder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanToggleStock => $composableBuilder(
+    column: $table.courierCanToggleStock,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanCallLog => $composableBuilder(
+    column: $table.courierCanCallLog,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get courierCanSeeAllCustomers => $composableBuilder(
+    column: $table.courierCanSeeAllCustomers,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get preparedProducts => $composableBuilder(
+    column: $table.preparedProducts,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15249,6 +18220,56 @@ class $$TenantSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get courierCanSeeAllOrders => $composableBuilder(
+    column: $table.courierCanSeeAllOrders,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanViewHistory => $composableBuilder(
+    column: $table.courierCanViewHistory,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanExpense => $composableBuilder(
+    column: $table.courierCanExpense,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierPhoneMask => $composableBuilder(
+    column: $table.courierPhoneMask,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanCustomerLedger => $composableBuilder(
+    column: $table.courierCanCustomerLedger,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanDebtReminder => $composableBuilder(
+    column: $table.courierCanDebtReminder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanToggleStock => $composableBuilder(
+    column: $table.courierCanToggleStock,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanCallLog => $composableBuilder(
+    column: $table.courierCanCallLog,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get courierCanSeeAllCustomers => $composableBuilder(
+    column: $table.courierCanSeeAllCustomers,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get preparedProducts => $composableBuilder(
+    column: $table.preparedProducts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get orderCodeDisplay => $composableBuilder(
     column: $table.orderCodeDisplay,
     builder: (column) => ColumnOrderings(column),
@@ -15351,6 +18372,56 @@ class $$TenantSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get courierCanSeeAllOrders => $composableBuilder(
+    column: $table.courierCanSeeAllOrders,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanViewHistory => $composableBuilder(
+    column: $table.courierCanViewHistory,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanExpense => $composableBuilder(
+    column: $table.courierCanExpense,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierPhoneMask => $composableBuilder(
+    column: $table.courierPhoneMask,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanCustomerLedger => $composableBuilder(
+    column: $table.courierCanCustomerLedger,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanDebtReminder => $composableBuilder(
+    column: $table.courierCanDebtReminder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanToggleStock => $composableBuilder(
+    column: $table.courierCanToggleStock,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanCallLog => $composableBuilder(
+    column: $table.courierCanCallLog,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get courierCanSeeAllCustomers => $composableBuilder(
+    column: $table.courierCanSeeAllCustomers,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get preparedProducts => $composableBuilder(
+    column: $table.preparedProducts,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get orderCodeDisplay => $composableBuilder(
     column: $table.orderCodeDisplay,
     builder: (column) => column,
@@ -15419,6 +18490,16 @@ class $$TenantSettingsTableTableManager
                 Value<bool> courierCanCollect = const Value.absent(),
                 Value<bool> courierCanDiscount = const Value.absent(),
                 Value<bool> courierCanDayEnd = const Value.absent(),
+                Value<bool> courierCanSeeAllOrders = const Value.absent(),
+                Value<bool> courierCanViewHistory = const Value.absent(),
+                Value<bool> courierCanExpense = const Value.absent(),
+                Value<bool> courierPhoneMask = const Value.absent(),
+                Value<bool> courierCanCustomerLedger = const Value.absent(),
+                Value<bool> courierCanDebtReminder = const Value.absent(),
+                Value<bool> courierCanToggleStock = const Value.absent(),
+                Value<bool> courierCanCallLog = const Value.absent(),
+                Value<bool> courierCanSeeAllCustomers = const Value.absent(),
+                Value<bool> preparedProducts = const Value.absent(),
                 Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -15442,6 +18523,16 @@ class $$TenantSettingsTableTableManager
                 courierCanCollect: courierCanCollect,
                 courierCanDiscount: courierCanDiscount,
                 courierCanDayEnd: courierCanDayEnd,
+                courierCanSeeAllOrders: courierCanSeeAllOrders,
+                courierCanViewHistory: courierCanViewHistory,
+                courierCanExpense: courierCanExpense,
+                courierPhoneMask: courierPhoneMask,
+                courierCanCustomerLedger: courierCanCustomerLedger,
+                courierCanDebtReminder: courierCanDebtReminder,
+                courierCanToggleStock: courierCanToggleStock,
+                courierCanCallLog: courierCanCallLog,
+                courierCanSeeAllCustomers: courierCanSeeAllCustomers,
+                preparedProducts: preparedProducts,
                 orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -15467,6 +18558,16 @@ class $$TenantSettingsTableTableManager
                 Value<bool> courierCanCollect = const Value.absent(),
                 Value<bool> courierCanDiscount = const Value.absent(),
                 Value<bool> courierCanDayEnd = const Value.absent(),
+                Value<bool> courierCanSeeAllOrders = const Value.absent(),
+                Value<bool> courierCanViewHistory = const Value.absent(),
+                Value<bool> courierCanExpense = const Value.absent(),
+                Value<bool> courierPhoneMask = const Value.absent(),
+                Value<bool> courierCanCustomerLedger = const Value.absent(),
+                Value<bool> courierCanDebtReminder = const Value.absent(),
+                Value<bool> courierCanToggleStock = const Value.absent(),
+                Value<bool> courierCanCallLog = const Value.absent(),
+                Value<bool> courierCanSeeAllCustomers = const Value.absent(),
+                Value<bool> preparedProducts = const Value.absent(),
                 Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -15490,6 +18591,16 @@ class $$TenantSettingsTableTableManager
                 courierCanCollect: courierCanCollect,
                 courierCanDiscount: courierCanDiscount,
                 courierCanDayEnd: courierCanDayEnd,
+                courierCanSeeAllOrders: courierCanSeeAllOrders,
+                courierCanViewHistory: courierCanViewHistory,
+                courierCanExpense: courierCanExpense,
+                courierPhoneMask: courierPhoneMask,
+                courierCanCustomerLedger: courierCanCustomerLedger,
+                courierCanDebtReminder: courierCanDebtReminder,
+                courierCanToggleStock: courierCanToggleStock,
+                courierCanCallLog: courierCanCallLog,
+                courierCanSeeAllCustomers: courierCanSeeAllCustomers,
+                preparedProducts: preparedProducts,
                 orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -15772,6 +18883,7 @@ typedef $$CallLogsTableCreateCompanionBuilder =
       required String direction,
       Value<String?> outcome,
       Value<String?> relatedOrderId,
+      Value<String?> userId,
       required String occurredAt,
       Value<String?> deviceId,
       required String updatedOccurredAt,
@@ -15788,6 +18900,7 @@ typedef $$CallLogsTableUpdateCompanionBuilder =
       Value<String> direction,
       Value<String?> outcome,
       Value<String?> relatedOrderId,
+      Value<String?> userId,
       Value<String> occurredAt,
       Value<String?> deviceId,
       Value<String> updatedOccurredAt,
@@ -15837,6 +18950,11 @@ class $$CallLogsTableFilterComposer
 
   ColumnFilters<String> get relatedOrderId => $composableBuilder(
     column: $table.relatedOrderId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15910,6 +19028,11 @@ class $$CallLogsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get occurredAt => $composableBuilder(
     column: $table.occurredAt,
     builder: (column) => ColumnOrderings(column),
@@ -15972,6 +19095,9 @@ class $$CallLogsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
   GeneratedColumn<String> get occurredAt => $composableBuilder(
     column: $table.occurredAt,
     builder: (column) => column,
@@ -16029,6 +19155,7 @@ class $$CallLogsTableTableManager
                 Value<String> direction = const Value.absent(),
                 Value<String?> outcome = const Value.absent(),
                 Value<String?> relatedOrderId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 Value<String> occurredAt = const Value.absent(),
                 Value<String?> deviceId = const Value.absent(),
                 Value<String> updatedOccurredAt = const Value.absent(),
@@ -16043,6 +19170,7 @@ class $$CallLogsTableTableManager
                 direction: direction,
                 outcome: outcome,
                 relatedOrderId: relatedOrderId,
+                userId: userId,
                 occurredAt: occurredAt,
                 deviceId: deviceId,
                 updatedOccurredAt: updatedOccurredAt,
@@ -16059,6 +19187,7 @@ class $$CallLogsTableTableManager
                 required String direction,
                 Value<String?> outcome = const Value.absent(),
                 Value<String?> relatedOrderId = const Value.absent(),
+                Value<String?> userId = const Value.absent(),
                 required String occurredAt,
                 Value<String?> deviceId = const Value.absent(),
                 required String updatedOccurredAt,
@@ -16073,6 +19202,7 @@ class $$CallLogsTableTableManager
                 direction: direction,
                 outcome: outcome,
                 relatedOrderId: relatedOrderId,
+                userId: userId,
                 occurredAt: occurredAt,
                 deviceId: deviceId,
                 updatedOccurredAt: updatedOccurredAt,
@@ -16107,6 +19237,7 @@ typedef $$DayClosingsTableCreateCompanionBuilder =
       required String id,
       required String scope,
       Value<String?> userId,
+      Value<String?> reversesClosingId,
       Value<String?> periodStart,
       Value<int> deliveryCount,
       Value<int> totalCollectedKurus,
@@ -16128,6 +19259,7 @@ typedef $$DayClosingsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> scope,
       Value<String?> userId,
+      Value<String?> reversesClosingId,
       Value<String?> periodStart,
       Value<int> deliveryCount,
       Value<int> totalCollectedKurus,
@@ -16166,6 +19298,11 @@ class $$DayClosingsTableFilterComposer
 
   ColumnFilters<String> get userId => $composableBuilder(
     column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reversesClosingId => $composableBuilder(
+    column: $table.reversesClosingId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16264,6 +19401,11 @@ class $$DayClosingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get reversesClosingId => $composableBuilder(
+    column: $table.reversesClosingId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get periodStart => $composableBuilder(
     column: $table.periodStart,
     builder: (column) => ColumnOrderings(column),
@@ -16352,6 +19494,11 @@ class $$DayClosingsTableAnnotationComposer
 
   GeneratedColumn<String> get userId =>
       $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get reversesClosingId => $composableBuilder(
+    column: $table.reversesClosingId,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get periodStart => $composableBuilder(
     column: $table.periodStart,
@@ -16452,6 +19599,7 @@ class $$DayClosingsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> scope = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
+                Value<String?> reversesClosingId = const Value.absent(),
                 Value<String?> periodStart = const Value.absent(),
                 Value<int> deliveryCount = const Value.absent(),
                 Value<int> totalCollectedKurus = const Value.absent(),
@@ -16471,6 +19619,7 @@ class $$DayClosingsTableTableManager
                 id: id,
                 scope: scope,
                 userId: userId,
+                reversesClosingId: reversesClosingId,
                 periodStart: periodStart,
                 deliveryCount: deliveryCount,
                 totalCollectedKurus: totalCollectedKurus,
@@ -16492,6 +19641,7 @@ class $$DayClosingsTableTableManager
                 required String id,
                 required String scope,
                 Value<String?> userId = const Value.absent(),
+                Value<String?> reversesClosingId = const Value.absent(),
                 Value<String?> periodStart = const Value.absent(),
                 Value<int> deliveryCount = const Value.absent(),
                 Value<int> totalCollectedKurus = const Value.absent(),
@@ -16511,6 +19661,7 @@ class $$DayClosingsTableTableManager
                 id: id,
                 scope: scope,
                 userId: userId,
+                reversesClosingId: reversesClosingId,
                 periodStart: periodStart,
                 deliveryCount: deliveryCount,
                 totalCollectedKurus: totalCollectedKurus,
@@ -16897,11 +20048,14 @@ typedef $$SyncMetaTableCreateCompanionBuilder =
       Value<String?> userRole,
       Value<String?> tenantName,
       Value<String?> apiBaseUrl,
+      Value<String?> apiVersion,
       Value<String?> tenantCode,
       Value<int> routeCredits,
       Value<int> routeCreditsMonthly,
       Value<String?> setupCompletedAt,
       Value<String?> themeMode,
+      Value<String?> savedTenantCode,
+      Value<String?> savedUsername,
     });
 typedef $$SyncMetaTableUpdateCompanionBuilder =
     SyncMetaCompanion Function({
@@ -16921,11 +20075,14 @@ typedef $$SyncMetaTableUpdateCompanionBuilder =
       Value<String?> userRole,
       Value<String?> tenantName,
       Value<String?> apiBaseUrl,
+      Value<String?> apiVersion,
       Value<String?> tenantCode,
       Value<int> routeCredits,
       Value<int> routeCreditsMonthly,
       Value<String?> setupCompletedAt,
       Value<String?> themeMode,
+      Value<String?> savedTenantCode,
+      Value<String?> savedUsername,
     });
 
 class $$SyncMetaTableFilterComposer
@@ -17017,6 +20174,11 @@ class $$SyncMetaTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get apiVersion => $composableBuilder(
+    column: $table.apiVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get tenantCode => $composableBuilder(
     column: $table.tenantCode,
     builder: (column) => ColumnFilters(column),
@@ -17039,6 +20201,16 @@ class $$SyncMetaTableFilterComposer
 
   ColumnFilters<String> get themeMode => $composableBuilder(
     column: $table.themeMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get savedTenantCode => $composableBuilder(
+    column: $table.savedTenantCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get savedUsername => $composableBuilder(
+    column: $table.savedUsername,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -17132,6 +20304,11 @@ class $$SyncMetaTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get apiVersion => $composableBuilder(
+    column: $table.apiVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get tenantCode => $composableBuilder(
     column: $table.tenantCode,
     builder: (column) => ColumnOrderings(column),
@@ -17154,6 +20331,16 @@ class $$SyncMetaTableOrderingComposer
 
   ColumnOrderings<String> get themeMode => $composableBuilder(
     column: $table.themeMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get savedTenantCode => $composableBuilder(
+    column: $table.savedTenantCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get savedUsername => $composableBuilder(
+    column: $table.savedUsername,
     builder: (column) => ColumnOrderings(column),
   );
 }
@@ -17235,6 +20422,11 @@ class $$SyncMetaTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get apiVersion => $composableBuilder(
+    column: $table.apiVersion,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get tenantCode => $composableBuilder(
     column: $table.tenantCode,
     builder: (column) => column,
@@ -17257,6 +20449,16 @@ class $$SyncMetaTableAnnotationComposer
 
   GeneratedColumn<String> get themeMode =>
       $composableBuilder(column: $table.themeMode, builder: (column) => column);
+
+  GeneratedColumn<String> get savedTenantCode => $composableBuilder(
+    column: $table.savedTenantCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get savedUsername => $composableBuilder(
+    column: $table.savedUsername,
+    builder: (column) => column,
+  );
 }
 
 class $$SyncMetaTableTableManager
@@ -17306,11 +20508,14 @@ class $$SyncMetaTableTableManager
                 Value<String?> userRole = const Value.absent(),
                 Value<String?> tenantName = const Value.absent(),
                 Value<String?> apiBaseUrl = const Value.absent(),
+                Value<String?> apiVersion = const Value.absent(),
                 Value<String?> tenantCode = const Value.absent(),
                 Value<int> routeCredits = const Value.absent(),
                 Value<int> routeCreditsMonthly = const Value.absent(),
                 Value<String?> setupCompletedAt = const Value.absent(),
                 Value<String?> themeMode = const Value.absent(),
+                Value<String?> savedTenantCode = const Value.absent(),
+                Value<String?> savedUsername = const Value.absent(),
               }) => SyncMetaCompanion(
                 id: id,
                 lastPulledSeq: lastPulledSeq,
@@ -17328,11 +20533,14 @@ class $$SyncMetaTableTableManager
                 userRole: userRole,
                 tenantName: tenantName,
                 apiBaseUrl: apiBaseUrl,
+                apiVersion: apiVersion,
                 tenantCode: tenantCode,
                 routeCredits: routeCredits,
                 routeCreditsMonthly: routeCreditsMonthly,
                 setupCompletedAt: setupCompletedAt,
                 themeMode: themeMode,
+                savedTenantCode: savedTenantCode,
+                savedUsername: savedUsername,
               ),
           createCompanionCallback:
               ({
@@ -17352,11 +20560,14 @@ class $$SyncMetaTableTableManager
                 Value<String?> userRole = const Value.absent(),
                 Value<String?> tenantName = const Value.absent(),
                 Value<String?> apiBaseUrl = const Value.absent(),
+                Value<String?> apiVersion = const Value.absent(),
                 Value<String?> tenantCode = const Value.absent(),
                 Value<int> routeCredits = const Value.absent(),
                 Value<int> routeCreditsMonthly = const Value.absent(),
                 Value<String?> setupCompletedAt = const Value.absent(),
                 Value<String?> themeMode = const Value.absent(),
+                Value<String?> savedTenantCode = const Value.absent(),
+                Value<String?> savedUsername = const Value.absent(),
               }) => SyncMetaCompanion.insert(
                 id: id,
                 lastPulledSeq: lastPulledSeq,
@@ -17374,11 +20585,14 @@ class $$SyncMetaTableTableManager
                 userRole: userRole,
                 tenantName: tenantName,
                 apiBaseUrl: apiBaseUrl,
+                apiVersion: apiVersion,
                 tenantCode: tenantCode,
                 routeCredits: routeCredits,
                 routeCreditsMonthly: routeCreditsMonthly,
                 setupCompletedAt: setupCompletedAt,
                 themeMode: themeMode,
+                savedTenantCode: savedTenantCode,
+                savedUsername: savedUsername,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -17403,6 +20617,265 @@ typedef $$SyncMetaTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $SyncMetaTable, SyncMetaData>,
       ),
       SyncMetaData,
+      PrefetchHooks Function()
+    >;
+typedef $$BildirimlerTableCreateCompanionBuilder =
+    BildirimlerCompanion Function({
+      required String id,
+      required String kategori,
+      required String baslik,
+      required String govde,
+      Value<String?> detay,
+      Value<String?> yol,
+      required String occurredAt,
+      Value<String?> okunduAt,
+      Value<int> rowid,
+    });
+typedef $$BildirimlerTableUpdateCompanionBuilder =
+    BildirimlerCompanion Function({
+      Value<String> id,
+      Value<String> kategori,
+      Value<String> baslik,
+      Value<String> govde,
+      Value<String?> detay,
+      Value<String?> yol,
+      Value<String> occurredAt,
+      Value<String?> okunduAt,
+      Value<int> rowid,
+    });
+
+class $$BildirimlerTableFilterComposer
+    extends Composer<_$AppDatabase, $BildirimlerTable> {
+  $$BildirimlerTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get kategori => $composableBuilder(
+    column: $table.kategori,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get baslik => $composableBuilder(
+    column: $table.baslik,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get govde => $composableBuilder(
+    column: $table.govde,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get detay => $composableBuilder(
+    column: $table.detay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get yol => $composableBuilder(
+    column: $table.yol,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get okunduAt => $composableBuilder(
+    column: $table.okunduAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$BildirimlerTableOrderingComposer
+    extends Composer<_$AppDatabase, $BildirimlerTable> {
+  $$BildirimlerTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kategori => $composableBuilder(
+    column: $table.kategori,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get baslik => $composableBuilder(
+    column: $table.baslik,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get govde => $composableBuilder(
+    column: $table.govde,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get detay => $composableBuilder(
+    column: $table.detay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get yol => $composableBuilder(
+    column: $table.yol,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get okunduAt => $composableBuilder(
+    column: $table.okunduAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$BildirimlerTableAnnotationComposer
+    extends Composer<_$AppDatabase, $BildirimlerTable> {
+  $$BildirimlerTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get kategori =>
+      $composableBuilder(column: $table.kategori, builder: (column) => column);
+
+  GeneratedColumn<String> get baslik =>
+      $composableBuilder(column: $table.baslik, builder: (column) => column);
+
+  GeneratedColumn<String> get govde =>
+      $composableBuilder(column: $table.govde, builder: (column) => column);
+
+  GeneratedColumn<String> get detay =>
+      $composableBuilder(column: $table.detay, builder: (column) => column);
+
+  GeneratedColumn<String> get yol =>
+      $composableBuilder(column: $table.yol, builder: (column) => column);
+
+  GeneratedColumn<String> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get okunduAt =>
+      $composableBuilder(column: $table.okunduAt, builder: (column) => column);
+}
+
+class $$BildirimlerTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $BildirimlerTable,
+          BildirimlerData,
+          $$BildirimlerTableFilterComposer,
+          $$BildirimlerTableOrderingComposer,
+          $$BildirimlerTableAnnotationComposer,
+          $$BildirimlerTableCreateCompanionBuilder,
+          $$BildirimlerTableUpdateCompanionBuilder,
+          (
+            BildirimlerData,
+            BaseReferences<_$AppDatabase, $BildirimlerTable, BildirimlerData>,
+          ),
+          BildirimlerData,
+          PrefetchHooks Function()
+        > {
+  $$BildirimlerTableTableManager(_$AppDatabase db, $BildirimlerTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$BildirimlerTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$BildirimlerTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$BildirimlerTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> kategori = const Value.absent(),
+                Value<String> baslik = const Value.absent(),
+                Value<String> govde = const Value.absent(),
+                Value<String?> detay = const Value.absent(),
+                Value<String?> yol = const Value.absent(),
+                Value<String> occurredAt = const Value.absent(),
+                Value<String?> okunduAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BildirimlerCompanion(
+                id: id,
+                kategori: kategori,
+                baslik: baslik,
+                govde: govde,
+                detay: detay,
+                yol: yol,
+                occurredAt: occurredAt,
+                okunduAt: okunduAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String kategori,
+                required String baslik,
+                required String govde,
+                Value<String?> detay = const Value.absent(),
+                Value<String?> yol = const Value.absent(),
+                required String occurredAt,
+                Value<String?> okunduAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => BildirimlerCompanion.insert(
+                id: id,
+                kategori: kategori,
+                baslik: baslik,
+                govde: govde,
+                detay: detay,
+                yol: yol,
+                occurredAt: occurredAt,
+                okunduAt: okunduAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$BildirimlerTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $BildirimlerTable,
+      BildirimlerData,
+      $$BildirimlerTableFilterComposer,
+      $$BildirimlerTableOrderingComposer,
+      $$BildirimlerTableAnnotationComposer,
+      $$BildirimlerTableCreateCompanionBuilder,
+      $$BildirimlerTableUpdateCompanionBuilder,
+      (
+        BildirimlerData,
+        BaseReferences<_$AppDatabase, $BildirimlerTable, BildirimlerData>,
+      ),
+      BildirimlerData,
       PrefetchHooks Function()
     >;
 
@@ -17441,4 +20914,6 @@ class $AppDatabaseManager {
       $$OutboxTableTableManager(_db, _db.outbox);
   $$SyncMetaTableTableManager get syncMeta =>
       $$SyncMetaTableTableManager(_db, _db.syncMeta);
+  $$BildirimlerTableTableManager get bildirimler =>
+      $$BildirimlerTableTableManager(_db, _db.bildirimler);
 }

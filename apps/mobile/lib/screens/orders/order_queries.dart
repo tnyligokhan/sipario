@@ -1,16 +1,28 @@
 // Sipariş ekranlarının VERİ katmanı — ekrandan bağımsız Drift akışları ve saf yardımcılar.
 // Tasarım kaynağı: tasarım s-siparisler.jsx + s-veri.jsx (`siparisTutar`, `siparisOzet`,
-// `birincilAdres`, `birincilTel`, `musteriKod`, `ODEME_TIPLERI`).
+// `musteriKod`, `ODEME_TIPLERI`).
 //
 // NEDEN AYRI DOSYA: sorgu mantığı widget ağacından bağımsız olunca saf async testle sınanabiliyor
 // (widget-test sahte zamanı drift akışlarında güvenilmez — Dilim 1 dersi). Ayrıca sipariş ekranları
 // BAŞKA ajanların ekranlarından (müşteri/ürün listesi) tek bir sembol bile ödünç almaz; o dosyalar
 // eşzamanlı yeniden yazılıyor.
 //
+// BU DOSYA SİPARİŞ LİSTESİNİN SORGUSUDUR: süzgeç · sıralama · borç · kalemler. İki bölüm 500
+// satır kuralı için ayrıldı ve ikisi de buradan TEK YÖNLÜ dışa aktarılır (aşağıdaki `export`):
+//   • `order_musteri_sorgulari.dart` — adres/telefon/geçmiş/arama, yani "müşteri hakkında ne
+//     biliyoruz"; sipariş listesinin kurulmasına hiç girmez.
+//   • `order_bicim.dart` — saf gösterim (kod rozeti, saat, ödeme etiketi); hiçbir import'u yok.
+// YENİDEN İHRACAT BURADA BİLİNÇLİDİR (harita sorgularının aksine): o dosya bu dosyayı KULLANAN
+// bir tüketiciydi, bunlar ise bu dosyadan ÇIKARILMIŞ parçalardır — çağıranların import satırını
+// değiştirmek, bölmeyi bir davranış değişikliğine dönüştürme riski taşırdı.
+//
 // SÖZLEŞME: `watchOrders` / `OrderFilter` / `saatBicimi` / `odemeTipiEtiketi` imzaları DEĞİŞMEZ —
 // mevcut testler ve başka ekranlar (kasa devri, defter, menü) bunları doğrudan çağırıyor.
 
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show immutable;
 
 import '../../data/app_database.dart';
 // Gün sınırı (TR, sabit +03:00) TEK yerde tanımlıdır ve gün sonu ekranı da onu kullanır;
@@ -18,6 +30,8 @@ import '../../data/app_database.dart';
 import '../isletme/gun_sonu_ozet.dart' show ayniTrGun;
 
 export '../isletme/gun_sonu_ozet.dart' show bugunTr;
+export 'order_bicim.dart';
+export 'order_musteri_sorgulari.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Sipariş listesi
@@ -366,7 +380,7 @@ Stream<List<OrderLine>> watchOrderLines(AppDatabase db, String orderId) =>
 /// için korunur — yeni tasarım dökümü madde madde çizer, bu akış başka ekranlarda kullanılabilir.
 Stream<Map<String, String>> watchOrderItemsSummary(AppDatabase db) =>
     watchOrderLinesByOrder(db).map((byOrder) => {
-          for (final e in byOrder.entries) e.key: e.value.map(satirOzeti).join(' · '),
+          for (final e in byOrder.entries) e.key: e.value.map(satirOzeti).join(', '),
         });
 
 /// Bir satırın liste dökümündeki yazımı — s-veri.jsx `siparisOzet`. SERBEST satır (productId null)
@@ -385,278 +399,71 @@ int satirlarToplami(List<OrderLine> lines) =>
     lines.fold<int>(0, (s, l) => s + l.lineTotalKurus);
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// Müşteri yardımcı akışları (adres · telefon · geçmiş)
+// İPTAL ONAY AKIŞI (kullanıcı isteği 2026-08-22)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
-/// Müşterinin birincil adresi — s-veri.jsx `birincilAdres`.
-class AdresBilgi {
-  const AdresBilgi({required this.metin, this.bolge, this.lat, this.lng});
-  final String metin;
+/// Bekleyen iptal talebi. `null` = bekleyen talep yok.
+///
+/// SIPARIŞTE BİR ALAN DEĞİL, OLAYLARDAN TÜRETİLİR ([iptalTalebiCoz]) — gerekçe
+/// `OrderRepository.iptalTalepEt` başlığında.
+@immutable
+class IptalTalebi {
+  const IptalTalebi({required this.isteyenUserId, required this.occurredAt, this.gerekce});
 
-  /// Semt/bölge (`CustomerAddresses.region`). Tasarım adresi "metin — bölge" diye yazar.
-  final String? bolge;
+  /// Talebi açan kullanıcı. `null` olabilir: talep, oturum kimliği henüz inmemiş bir cihazdan
+  /// gelmiş olabilir. Ekran o zaman adı yazmaz — yanlış bir isim, bir kuryeyi yapmadığı
+  /// talepten sorumlu tutar (çağrı atfındaki kuralın aynısı).
+  final String? isteyenUserId;
 
-  final double? lat;
-  final double? lng;
+  final String occurredAt;
+  final String? gerekce;
 
-  /// CSS `.srow-adres` / `.sdx-adres` — tasarımın `[metin, bolge].filter(…).join(' — ')` yazımı.
-  /// Tasarımdaki gibi boş ve "—" değerler ELENİR (kullanıcı "Adres — —" görmesin).
-  String get tamMetin =>
-      [metin, bolge].where((x) => x != null && x.isNotEmpty && x != '—').join(' — ');
+  @override
+  bool operator ==(Object other) =>
+      other is IptalTalebi &&
+      other.isteyenUserId == isteyenUserId &&
+      other.occurredAt == occurredAt &&
+      other.gerekce == gerekce;
 
-  /// CSS `.sdx-konum` — konum kayıtlı mı?
-  bool get konumVar => lat != null && lng != null;
-
-  /// "41,0082, 28,9784" — tasarım 4 haneli gösteriyor.
-  String get konumMetni =>
-      konumVar ? '${lat!.toStringAsFixed(4)}, ${lng!.toStringAsFixed(4)}' : '';
+  @override
+  int get hashCode => Object.hash(isteyenUserId, occurredAt, gerekce);
 }
 
-/// customerId → birincil adres. `isPrimary` işaretlisi varsa o, yoksa ilk kayıt.
-Stream<Map<String, AdresBilgi>> watchBirincilAdresler(AppDatabase db) {
-  final q = db.select(db.customerAddresses)
-    ..where((t) => t.deletedAt.isNull())
-    ..orderBy([(t) => OrderingTerm.desc(t.isPrimary), (t) => OrderingTerm.asc(t.id)]);
-  return q.watch().map((rows) {
-    final map = <String, AdresBilgi>{};
-    for (final a in rows) {
-      map.putIfAbsent(
-        a.customerId,
-        () => AdresBilgi(
-          metin: a.addressText,
-          bolge: a.region,
-          lat: a.lat,
-          lng: a.lng,
-        ),
-      );
-    }
-    return map;
-  });
-}
+/// Olay geçmişinden BEKLEYEN iptal talebini çözer — SAF, sunucu tarafıyla aynı kural.
+///
+/// KURAL: dört olay türü tek bir zaman çizgisinde okunur (`cancel_requested`, `cancel_rejected`,
+/// `cancelled`, `delivered`). EN SON olan `cancel_requested` ise talep BEKLİYOR; başka bir şeyse
+/// bekleyen talep yoktur. Böylece reddedilen bir talep yeniden açılabilir (müşteri fikir
+/// değiştirdi) ve teslim edilmiş siparişte talep asılı kalmaz.
+///
+/// SIRA (occurredAt, id) ORTAK ANAHTARIDIR — `deriveAssignedUserId` ve `deriveSortIndex` ile
+/// birebir aynı. Ayrışırlarsa iki cihaz aynı olay kümesinden farklı bir talep durumu türetir.
+IptalTalebi? iptalTalebiCoz(List<OrderEvent> events) {
+  const ilgili = {'cancel_requested', 'cancel_rejected', 'cancelled', 'delivered'};
+  final zincir = events.where((e) => ilgili.contains(e.eventType)).toList()
+    ..sort((a, b) {
+      final byTime = a.occurredAt.compareTo(b.occurredAt);
+      return byTime != 0 ? byTime : a.id.compareTo(b.id);
+    });
+  if (zincir.isEmpty) return null;
 
-/// customerId → birincil telefon (E.164 saklanır, gösterimde `sipTelefon` biçimlenir).
-Stream<Map<String, String>> watchBirincilTelefonlar(AppDatabase db) {
-  final q = db.select(db.customerPhones)
-    ..where((t) => t.deletedAt.isNull())
-    ..orderBy([(t) => OrderingTerm.desc(t.isPrimary), (t) => OrderingTerm.asc(t.id)]);
-  return q.watch().map((rows) {
-    final map = <String, String>{};
-    for (final p in rows) {
-      map.putIfAbsent(p.customerId, () => p.phoneE164);
-    }
-    return map;
-  });
-}
+  final son = zincir.last;
+  if (son.eventType != 'cancel_requested') return null;
 
-/// Sipariş detayındaki "Geçmiş Siparişler" (CSS `.gec-*`): aynı müşterinin BU sipariş dışındaki
-/// siparişleri, en yeni önce.
-Stream<List<Order>> watchGecmisSiparisler(AppDatabase db, String customerId, String haricOrderId) {
-  final q = db.select(db.orders)
-    ..where((t) =>
-        t.customerId.equals(customerId) & t.id.equals(haricOrderId).not() & t.deletedAt.isNull())
-    ..orderBy([(t) => OrderingTerm.desc(t.occurredAt), (t) => OrderingTerm.desc(t.id)]);
-  return q.watch();
-}
+  final ham = son.payload;
+  final yuk = ham == null ? const <String, dynamic>{} : jsonDecode(ham) as Map<String, dynamic>;
+  final isteyen = yuk['requested_by_user_id'];
+  final gerekce = yuk['reason'];
 
-/// Tek müşteri (detay başlığı, bakiye, ad).
-Stream<Customer?> watchMusteri(AppDatabase db, String customerId) =>
-    (db.select(db.customers)..where((t) => t.id.equals(customerId))).watchSingleOrNull();
-
-/// Tek atış müşteri okuma — sheet açılmadan ÖNCE başlık/ad gerektiğinde (akış beklenemez).
-Future<Customer?> musteriOku(AppDatabase db, String customerId) =>
-    (db.select(db.customers)..where((t) => t.id.equals(customerId))).getSingleOrNull();
-
-/// Siparişin sheet BAŞLIĞI — tasarım `baslik={o.musteriAd}` (s-siparisler.jsx:466). `sipSheet`
-/// başlığı `String` ister, akış bekleyemez; bu yüzden sheet açılmadan önce tek atış okunur.
-Future<String> siparisBasligi(AppDatabase db, String orderId) async {
-  final order =
-      await (db.select(db.orders)..where((t) => t.id.equals(orderId))).getSingleOrNull();
-  final musteriId = order?.customerId;
-  if (musteriId == null) return 'Tezgâh satışı';
-  return (await musteriOku(db, musteriId))?.name ?? 'Tezgâh satışı';
-}
-
-/// Müşteri düzenleme sheet'inin istediği üçlü. Sheet `screens/customers/`de yaşıyor ve kayıt +
-/// telefonlar + birincil adresi HAZIR ister; sipariş detayındaki "Müşteriyi Düzenle" bağlantısı
-/// onu tek dokunuşta açabilsin diye tek okumada toplanır.
-class MusteriDuzenleVerisi {
-  const MusteriDuzenleVerisi({
-    required this.musteri,
-    required this.telefonlar,
-    this.adres,
-  });
-
-  final Customer musteri;
-  final List<CustomerPhone> telefonlar;
-  final CustomerAddressesData? adres;
-}
-
-Future<MusteriDuzenleVerisi?> musteriDuzenleVerisiOku(AppDatabase db, String customerId) async {
-  final musteri = await musteriOku(db, customerId);
-  if (musteri == null) return null;
-  final telefonlar = await (db.select(db.customerPhones)
-        ..where((t) => t.customerId.equals(customerId) & t.deletedAt.isNull())
-        ..orderBy([(t) => OrderingTerm.desc(t.isPrimary), (t) => OrderingTerm.asc(t.id)]))
-      .get();
-  final adresler = await (db.select(db.customerAddresses)
-        ..where((t) => t.customerId.equals(customerId) & t.deletedAt.isNull())
-        ..orderBy([(t) => OrderingTerm.desc(t.isPrimary), (t) => OrderingTerm.asc(t.id)]))
-      .get();
-  return MusteriDuzenleVerisi(
-    musteri: musteri,
-    telefonlar: telefonlar,
-    adres: adresler.isEmpty ? null : adresler.first,
+  return IptalTalebi(
+    isteyenUserId: isteyen is String && isteyen.isNotEmpty ? isteyen : null,
+    occurredAt: son.occurredAt,
+    gerekce: gerekce is String && gerekce.trim().isNotEmpty ? gerekce.trim() : null,
   );
 }
 
-/// Silinmemiş müşteri kimlikleri. "Yeni müşteri ekle" sheet'i `bool?` döner (sözleşmesi o —
-/// dosya başka ajanın alanı), dolayısıyla eklenen kaydın kimliği önce/sonra kümelerinin
-/// FARKINDAN bulunur; tek kayıt eklendiği için fark tektir.
-Future<Set<String>> musteriKimlikleri(AppDatabase db) async {
-  final rows = await (db.select(db.customers)..where((t) => t.deletedAt.isNull())).get();
-  return {for (final c in rows) c.id};
-}
-
-/// Yeni sipariş adım 1 — müşteri arama. Ad VEYA telefonun son 10 hanesi eşleşir (müşteri liste
-/// ekranıyla aynı kural; oradan sembol ödünç ALMADAN, çünkü o dosya eşzamanlı yeniden yazılıyor).
-Stream<List<Customer>> watchMusteriArama(AppDatabase db, String sorgu) {
-  final q = sorgu.trim();
-  final sel = db.select(db.customers)
-    ..where((t) => t.deletedAt.isNull())
-    ..orderBy([(t) => OrderingTerm.asc(t.name)]);
-  if (q.isEmpty) return sel.watch();
-
-  final rakam = q.replaceAll(RegExp(r'\D'), '');
-  return sel.watch().asyncMap((liste) async {
-    final adEsleme = liste
-        .where((c) => c.name.toLowerCase().contains(q.toLowerCase()))
-        .map((c) => c.id)
-        .toSet();
-    if (rakam.length >= 3) {
-      final telefonlar = await (db.select(db.customerPhones)
-            ..where((t) => t.deletedAt.isNull() & t.phoneLast10.like('%$rakam%')))
-          .get();
-      adEsleme.addAll(telefonlar.map((p) => p.customerId));
-    }
-    return liste.where((c) => adEsleme.contains(c.id)).toList();
-  });
-}
-
-/// Katalog — aktif ürünler, ada göre. (Ürün ekranı başka ajanın; sorguyu kendimiz kuruyoruz.)
-Stream<List<Product>> watchKatalogUrunleri(AppDatabase db) => (db.select(db.products)
-      ..where((t) => t.isActive.equals(true) & t.deletedAt.isNull())
-      ..orderBy([(t) => OrderingTerm.asc(t.name)]))
-    .watch();
-
-/// POS kataloğunun arama süzgeci: ad VE barkod birlikte taranır.
-///
-/// Barkod okuyucu okuduğu kodu ARAMA ALANINA yazar (2026-07-26 kullanıcı kararı), yani
-/// sorgu çoğu zaman bir barkoddur. Yalnız ada bakan bir süzgeç, okutulan ürünü `"…" için
-/// sonuç yok` ile karşılardı — okuma başarılıyken.
-List<Product> katalogSuz(List<Product> tumu, String sorgu) {
-  final q = sorgu.trim().toLowerCase();
-  if (q.isEmpty) return tumu;
-  return tumu
-      .where((u) => u.name.toLowerCase().contains(q) || (u.barcode ?? '').contains(q))
-      .toList();
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-// Saf gösterim yardımcıları
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-
-/// Müşteri kodu rozeti — "102".
-///
-/// ESKİ HÂLİ (2026-07-29'a kadar): kod UUID'nin son üç RAKAMINDAN türetiliyordu ve "M-007"
-/// yazıyordu. Bu bir kimlik değil, bir SÜSTÜ: iki müşteri aynı üçlüyü alabiliyordu, sayı hiçbir
-/// sırayı anlatmıyordu ve bayi "102 numaralı abone" diyemiyordu. Artık kod sunucudan gelen
-/// gerçek sıra numarasıdır (`customers.code`).
-///
-/// Kod YOKSA null döner ve çağıran rozeti HİÇ çizmez — sıfır ya da "M-000" gibi uydurma bir
-/// numara basmak, senkronlanmamış bir müşteriyi var olmayan bir kodla anmak olurdu.
-String? musteriKodu(int? code) => code == null ? null : '$code';
-
-/// Sipariş kodu rozeti — "#248". Kullanıcı isteği: "her siparişin bir kodu olmalı #xxx gibi".
-String? siparisKodu(int? code) => code == null ? null : '#$code';
-
-/// Sipariş satırında hangi kod görünecek? Bayi tercihi (`tenant_settings.order_code_display`).
-///
-/// Tek karar noktası: liste satırı, sipariş detayı ve testler aynı fonksiyonu çağırır. Tanınmayan
-/// bir değer (eski/yeni istemci ayrışması) MÜŞTERİ koduna düşer — sunucudaki beyaz listenin aynısı.
-/// Seçilen kod yoksa (ör. tezgâh satışında müşteri kodu) DİĞERİNE düşülür: satırda hiç numara
-/// olmamasındansa var olan numara gösterilir.
-String? satirKodu({
-  required String tercih,
-  required int? musteriCode,
-  required int? siparisCode,
-}) {
-  final musteri = musteriKodu(musteriCode);
-  final siparis = siparisKodu(siparisCode);
-  return tercih == 'siparis' ? (siparis ?? musteri) : (musteri ?? siparis);
-}
-
-/// Açık siparişin ÜZERİNDEN GEÇEN süre — "12 dk" · "1 sa 5 dk" · "2 gün".
-///
-/// Kullanıcı isteği (2026-07-29): açık siparişte kartta "Açık" yazmak yerine siparişin kaç
-/// dakikadır beklediği görünsün. Gerekçe sahadan: "açık" bilgisi zaten listenin adında var
-/// (Açık sekmesi), asıl merak edilen BEKLEME SÜRESİDİR — geciken teslimat böyle fark edilir.
-///
-/// Kurallar:
-///  • 1 dakikadan yeni → "yeni" (0 dk yazmak siparişin daha girilmediğini düşündürür).
-///  • 60 dakikaya kadar dakika; sonrasında saat + dakika (ilk gün dakika ÖNEMLİDİR — 1 sa 5 dk
-///    ile 1 sa 55 dk arasındaki fark bayinin telefonla özür dileyip dilemeyeceğini belirler).
-///  • 24 saatten sonra gün (o noktada dakika gürültüdür).
-///  • İLERİ tarihli damga "yeni" sayılır: cihaz saati ileri kaymış olabilir ve "−3 dk" yazmak
-///    veriye güveni sarsar (senkron zaten sunucu saatiyle düzeltilmiş damga yazar).
-String gecenSure(String iso, {DateTime? simdi}) {
-  final t = DateTime.tryParse(iso);
-  if (t == null) return '';
-  final fark = (simdi ?? DateTime.now()).difference(t.toLocal());
-  if (fark.inMinutes < 1) return 'yeni';
-  if (fark.inMinutes < 60) return '${fark.inMinutes} dk';
-  if (fark.inHours < 24) {
-    final dk = fark.inMinutes % 60;
-    return dk == 0 ? '${fark.inHours} sa' : '${fark.inHours} sa $dk dk';
-  }
-  return '${fark.inDays} gün';
-}
-
-/// Teslim sheet'inde ÇİZİLEN ödeme karoları (tasarım `ODEME_TIPLERI`) — dördü de HER ZAMAN
-/// görünür. Müşterisiz siparişte veresiye karosu listeden DÜŞMEZ, PASİF çizilir
-/// (s-siparisler.jsx:620 `disabled` + `opacity .45`): seçeneği gizlemek kullanıcıya "veresiye
-/// yok" dedirtir, pasif göstermek "burada kullanılamaz" der ve yanındaki açıklama okunur olur.
-const List<String> odemeTipleri = ['nakit', 'kart', 'havale', 'veresiye'];
-
-/// Teslimde SEÇİLEBİLİR ödeme tipleri. veresiye MÜŞTERİ ZORUNLU: borç bir müşteriye yazılır —
-/// müşterisiz veresiye kimseye ait olmayan bir borç kaydı üretirdi (defter tutarlılığı;
-/// tezgâh satışındaki veresiye kilidi budur). Karo GÖSTERİMİ için [odemeTipleri] kullanılır.
-List<String> teslimOdemeTipleri({required bool musteriVar}) =>
-    [for (final tip in odemeTipleri) if (odemeTipiSecilebilir(tip, musteriVar: musteriVar)) tip];
-
-/// Tek karonun kilidi — pasif çizim ve dokunma engeli aynı kuraldan okur (iki yerde ayrı
-/// koşul yazılırsa görünüşte pasif ama seçilebilir bir karo çıkar).
-bool odemeTipiSecilebilir(String tip, {required bool musteriVar}) =>
-    tip != 'veresiye' || musteriVar;
-
-/// Ödeme tipinin ekran etiketi (veri değeri değişmez — DB'de 'nakit'/'veresiye'/... durur).
-String odemeTipiEtiketi(String paymentType) => switch (paymentType) {
-      'nakit' => 'Nakit',
-      'kart' => 'Kart',
-      'havale' => 'Havale',
-      'veresiye' => 'Veresiye',
-      _ => paymentType,
-    };
-
-/// ISO8601 occurred_at → "14:35" (bugünse) veya "17.07 14:35". Saat cihaz yerelinde gösterilir;
-/// kayıtta UTC/sunucu-düzeltilmiş metin OLDUĞU GİBİ durur (DECISIONS — gösterim veriyi değiştirmez).
-String saatBicimi(String iso, {DateTime? simdi}) {
-  final t = DateTime.tryParse(iso);
-  if (t == null) return iso;
-  final local = t.toLocal();
-  final now = simdi ?? DateTime.now();
-  final saat = '${_ikiHane(local.hour)}:${_ikiHane(local.minute)}';
-  final ayniGun = local.year == now.year && local.month == now.month && local.day == now.day;
-  return ayniGun ? saat : '${_ikiHane(local.day)}.${_ikiHane(local.month)} $saat';
-}
-
-String _ikiHane(int n) => n.toString().padLeft(2, '0');
+/// Tek siparişin bekleyen iptal talebi — canlı.
+Stream<IptalTalebi?> watchIptalTalebi(AppDatabase db, String orderId) =>
+    (db.select(db.orderEvents)..where((t) => t.orderId.equals(orderId)))
+        .watch()
+        .map(iptalTalebiCoz);

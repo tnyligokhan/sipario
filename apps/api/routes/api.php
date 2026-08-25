@@ -7,11 +7,13 @@ use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\SyncController;
 use App\Http\Controllers\Api\TeamController;
+use App\Http\Controllers\Api\VersionController;
 use Illuminate\Support\Facades\Route;
 
 /*
 | Sipario API v1.
-| Public: yalnız giriş (mobilde kayıt YOK — kırmızı çizgi).
+| Public: giriş + sürüm. Kayıt YOKTUR (mobilde üyelik açma kırmızı çizgidir; hesap yalnız
+| sitede açılır). İkisi de kiracı verisine dokunmaz.
 | Korumalı grup: önce `tenant` (kiracı bağlamını token'dan kurar + isteği transaction'a sarar),
 | sonra `auth:sanctum` (kullanıcıyı RLS altında yükler). Sıra önemlidir.
 */
@@ -23,11 +25,38 @@ Route::prefix('v1')->group(function () {
         ->middleware('throttle:login')
         ->name('api.auth.login');
 
+    // Parola sıfırlama isteği (public) — mobilde kurtarma yolu YOKTU (2026-08-13).
+    // Yanıt HER KOŞULDA nötrdür (hesap numaralandırması), gerekçe controller'da.
+    // Ayrı sınırlayıcı: `login`in kotasını paylaşmaz — parolasını unutan kullanıcının giriş
+    // hakkını tüketmemeli (gerekçe AppServiceProvider'da).
+    Route::post('/auth/parola-sifirla', [AuthController::class, 'parolaSifirla'])
+        ->middleware('throttle:parola-sifirla')
+        ->name('api.auth.parola-sifirla');
+
+    // Sözleşme sürümü — kimliksiz okunabilir (gerekçe controller'da). Token'ı olmayan taraf
+    // (durum çubuğu, dağıtım doğrulaması, saha arızasında "sunucu mu eski, telefon mu") da
+    // sunucunun hangi sürümü koştuğunu sorabilmeli.
+    Route::get('/version', [VersionController::class, 'show'])
+        ->middleware('throttle:api')
+        ->name('api.version');
+
     // --- Korumalı ---------------------------------------------------------------
     // throttle:api — kullanıcı/IP başına genel hız sınırı (çalınan token istismarı + DoS yüzeyi).
-    Route::middleware(['throttle:api', 'tenant', 'auth:sanctum'])->group(function () {
+    // `oturum` ara katmanı `auth:sanctum`tan ÖNCE: düşürülmüş token'a sebebini söyleyen tek yer
+    // (tek hesap = tek cihaz). Sanctum sırayı ona bırakmaz — süresi geçmiş token'ı çıplak 401 ile
+    // reddederdi ve eski telefon neden çıktığını öğrenemezdi.
+    Route::middleware(['throttle:api', 'tenant', 'oturum', 'auth:sanctum'])->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me'])->name('api.auth.me');
         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
+
+        // YÖNETİCİ ONAYI (2026-08-18) — "bu ekrana dokunan gerçekten sen misin?".
+        // Kapatılmış bir gün hesabını geri almak gibi geri döndürülebilir ama ağır işlemler
+        // önce buradan geçer. `throttle:login` bilinçli: bu bir parola denemesidir ve giriş
+        // ekranıyla AYNI kaba kuvvet bütçesini paylaşmalı — ayrı bir kota açmak, kilitli giriş
+        // ekranını yan kapıdan zorlamaya izin vermek olurdu.
+        Route::post('/auth/parola-dogrula', [AuthController::class, 'parolaDogrula'])
+            ->middleware('throttle:login')
+            ->name('api.auth.parola-dogrula');
 
         Route::get('/devices', [DeviceController::class, 'index'])->name('api.devices.index');
         Route::post('/devices', [DeviceController::class, 'store'])->name('api.devices.store');

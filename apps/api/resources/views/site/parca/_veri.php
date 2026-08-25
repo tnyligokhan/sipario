@@ -29,11 +29,17 @@ return function (array $d): array {
         // ── Sektörler (hero şeridi) ──────────────────────────────
         'sektor' => ['Su bayii', 'Tüp bayii', 'Manav', 'Kuruyemişçi', 'Market', 'Fırın', 'Kırtasiye', 'Yem bayii', 'Halı yıkama'],
 
-        // ── Kâğıt defterin maliyeti ──────────────────────────────
+        /*
+         * ── Kâğıt defterin maliyeti ─────────────────────────────────────────────────────
+         * 2026-08-19 metin elden geçti. Değişen şey bilgi değil, SES: cümleler reklam
+         * ritmine göre kurulmuştu (kısa-vurucu-kesik), esnafın konuştuğu gibi değil.
+         * "Her aramada aynı üç soru" gibi bir başlık akıllıca ama soğuk; "Aynı soruları
+         * her seferinde baştan sormak" olanı anlatıyor. Sahadaki gerçek dile yaklaştırıldı.
+         */
         'dert' => [
-            ['ik' => 'defter', 't' => 'Defterde kalan alacak', 'a' => 'Kim ne kadar borçlu — sadece defteri tutanın kafasında. Biri izne çıkınca tahsilat durur.', 'c' => 'Her müşterinin bakiyesi, hareketi ve son ödemesi tek ekranda.'],
-            ['ik' => 'cagri', 't' => 'Her aramada aynı üç soru', 'a' => '“Adınız? Adresiniz? Ne göndermiştik?” Müşteri her seferinde baştan anlatır.', 'c' => 'Telefon çaldığı anda ad, adres, geçmiş sipariş ve bakiye ekranda.'],
-            ['ik' => 'para', 't' => 'Akşam tutmayan kasa', 'a' => 'Nakit, kart, veresiye birbirine karışır. Fark nereden çıktı, kimse bilmez.', 'c' => 'Gün sonunda üç kalem ayrı ayrı sayılır, fark anında görünür.'],
+            ['ik' => 'defter', 't' => 'Alacak defterde kalıyor', 'a' => 'Kimin ne kadar borcu olduğunu bir tek defteri tutan biliyor. O kişi izne çıktığında tahsilat da izne çıkıyor.', 'c' => 'Her müşterinin borcu, hareketi ve en son ne zaman ödediği tek ekranda.'],
+            ['ik' => 'cagri', 't' => 'Aynı soruları her gün baştan soruyorsunuz', 'a' => '“Adınız neydi? Adres neresiydi? Geçen sefer ne göndermiştik?” Müşteri her aramada kendini yeniden anlatıyor.', 'c' => 'Telefon çaldığı anda adı, adresi, son siparişi ve borcu ekranda.'],
+            ['ik' => 'para', 't' => 'Akşam kasa tutmuyor', 'a' => 'Nakit, kart ve veresiye gün içinde birbirine karışıyor. Akşam bir fark çıkıyor ama nereden çıktığını kimse bilmiyor.', 'c' => 'Gün sonunda üç kalem ayrı ayrı sayılıyor; fark varsa nerede olduğu görünüyor.'],
         ],
 
         /*
@@ -43,49 +49,69 @@ return function (array $d): array {
         'tur' => [
             [
                 'k' => 'cagri', 'ad' => 'Arayan tanıma', 'ik' => 'cagri', 'ekran' => 'ana', 'cagri' => true,
-                'bas' => 'Telefon çalıyor. Kim aradığını zaten biliyorsunuz.',
-                'a' => 'Numara rehberde varsa kart ekrana gelir: ad, kayıtlı adresler, açık borç, en son ne aldığı. Yoksa tek dokunuşla yeni müşteri açılır — numara hazır gelir.',
-                'ozet' => ['Kayıtlı numara anında eşleşir', 'Borç ve son sipariş kartın üstünde', 'Kayıtsız numara için tek dokunuşla kayıt'],
+                'bas' => 'Telefon çalıyor ve kimin aradığını zaten biliyorsunuz.',
+                'a' => 'Numara listenizde kayıtlıysa kartı ekrana geliyor: adı, kayıtlı adresleri, açık borcu, en son ne aldığı. Kayıtlı değilse tek dokunuşla yeni müşteri açıyorsunuz, numara hazır geliyor.',
+                'ozet' => ['Kayıtlı numara anında eşleşiyor', 'Borcu ve son siparişi kartın üstünde', 'Yeni numara için tek dokunuşla kayıt'],
             ],
             [
                 'k' => 'veresiye', 'ad' => 'Veresiye defteri', 'ik' => 'defter', 'ekran' => 'musteri', 'cagri' => false,
-                'bas' => 'Defter değil, bakiye. Herkes aynı rakamı görüyor.',
-                'a' => 'Her müşterinin altında borç/alacak hareketi işler. Tahsilat girildiği anda bakiye düşer, kurye de ekranında görür.',
-                'ozet' => ['Borç · alacak · temiz durumu renkle ayrılır', 'Tahsilat girildiği an bakiye güncellenir', 'Hareket geçmişi ödeme tipiyle saklanır'],
+                'bas' => 'Borcu herkes aynı yerden, aynı rakamla görüyor.',
+                'a' => 'Her müşterinin altında borç ve ödeme hareketi işliyor. Kurye tahsilatı girdiği anda borç düşüyor; siz de aynı rakamı görüyorsunuz, akşamı beklemiyorsunuz.',
+                'ozet' => ['Borçlu, alacaklı ve temiz müşteri renkten ayrılıyor', 'Tahsilat girildiği an borç güncelleniyor', 'Hangi ödemenin nasıl alındığı kayıtta duruyor'],
             ],
             [
                 'k' => 'siparis', 'ad' => 'Sipariş akışı', 'ik' => 'fis', 'ekran' => 'siparis', 'cagri' => false,
-                'bas' => 'Sipariş üç dokunuşta kaydolur.',
-                'a' => 'Müşteri seç, ürünleri ekle, teslimatı ata. Serbest kalem gerekiyorsa açıklama yazıp tutar girin — katalog dışı iş de deftere düşer.',
-                'ozet' => ['Katalogdan ya da barkodla ürün ekleme', 'Serbest kalem ve ek ücret satırı', 'Açık · teslim · iptal durumları'],
+                'bas' => 'Müşteri hâlâ telefondayken sipariş kaydedilmiş oluyor.',
+                'a' => 'Müşteriyi seçiyorsunuz, ürünleri ekliyorsunuz, kuryeye atıyorsunuz. Katalogda olmayan bir iş varsa açıklamasını yazıp tutarını giriyorsunuz — o da deftere düşüyor.',
+                'ozet' => ['Katalogdan ya da barkod okutarak ürün ekleme', 'Katalog dışı iş için serbest satır', 'Açık, teslim edildi, iptal — hepsi ayrı görünüyor'],
             ],
             [
                 'k' => 'kurye', 'ad' => 'Kurye ve rota', 'ik' => 'kurye', 'ekran' => 'kurye', 'cagri' => false,
-                'bas' => 'Kim nereye gidiyor, sıra ne — ekranda.',
-                'a' => 'Siparişler kuryeye atanır. Konumu olan adresler için uygulama sırayı kendi kurar; sıralamayı elle de sürükleyebilirsiniz.',
-                'ozet' => ['Kuryeye atama ve teslim onayı', 'Oto-sıralama ya da elle sürükleme', 'Konumsuz adres uyarısı'],
+                'bas' => 'Hangi kurye nereye gidiyor, sırası ne — bakınca görüyorsunuz.',
+                'a' => 'Siparişleri kuryeye atıyorsunuz. Konumu kayıtlı adresler için sırayı uygulama kuruyor; beğenmezseniz parmağınızla sürükleyip kendiniz diziyorsunuz.',
+                'ozet' => ['Kuryeye atama ve teslim onayı', 'Sırayı uygulama kuruyor ya da siz diziyorsunuz', 'Konumu olmayan adres uyarı veriyor'],
             ],
             [
                 'k' => 'gunsonu', 'ad' => 'Gün sonu', 'ik' => 'para', 'ekran' => 'gunsonu', 'cagri' => false,
-                'bas' => 'Akşam kasayı üç kalemde kapatın.',
-                'a' => 'Nakit, kart ve veresiye ayrı ayrı toplanır. Sayılan nakdi girin, fark anında çıksın. Kapanan gün arşive düşer.',
-                'ozet' => ['Nakit · kart · veresiye ayrımı', 'Sayım farkı anında hesaplanır', 'Kapanan günler arşivde saklanır'],
+                'bas' => 'Akşam kasayı üç kalemde kapatıyorsunuz.',
+                'a' => 'Nakit, kart ve veresiye ayrı ayrı toplanıyor. Elinizde saydığınız parayı giriyorsunuz, fark varsa hemen çıkıyor. Kapanan gün arşive düşüyor, sonra dönüp bakabiliyorsunuz.',
+                'ozet' => ['Nakit, kart ve veresiye ayrı toplanıyor', 'Saydığınız parayla arasındaki fark anında çıkıyor', 'Kapanan günler arşivde duruyor'],
             ],
         ],
 
-        // ── Kurulum adımları ─────────────────────────────────────
+        /*
+         * ── Kurulum adımları ────────────────────────────────────────────────────────────
+         * ⚠️ 1. ADIMDA YANLIŞ BİLGİ VARDI (2026-08-19). Metin "İşletme adı ve telefon numarası
+         * yeter" diyordu; kayıt formu (livewire/site/register.blade.php · adım 0) TELEFON
+         * SORMUYOR, işletme adı ve E-POSTA istiyor. Yani site, formu doldurmaya gelen esnafa
+         * yanlış hazırlık yaptırıyordu — küçük bir hata ama tam da "kurulum kolay" vaadinin
+         * altını oyan türden: söylenenle görülen tutmayınca ilk izlenim bozulur.
+         *
+         * "Telefonu bağlayın" başlığı da netleşti: bağlanan bir şey yok, verilen bir izin var.
+         */
         'adim' => [
-            ['n' => '01', 't' => 'Hesabınızı açın', 's' => '2 dakika', 'a' => 'İşletme adı ve telefon numarası yeter. Firma kodunuz bu ekranda üretilir — ekibiniz uygulamaya bu kodla girer.'],
-            ['n' => '02', 't' => 'Müşterilerinizi aktarın', 's' => 'Aynı gün', 'a' => 'Rehberinizi ya da Excel listenizi gönderin, biz yükleyelim. Defterdeki açık bakiyeleri de birlikte aktarıyoruz.'],
-            ['n' => '03', 't' => 'Telefonu bağlayın', 's' => '5 dakika', 'a' => 'Uygulamaya çağrı iznini verin. İlk çağrıda müşteri kartının ekrana geldiğini görün — kurulum bitti.'],
+            ['n' => '01', 't' => 'Hesabınızı açın', 's' => '2 dakika', 'a' => 'İşletme adınız ve bir e-posta adresi yeter. Firma kodunuz bu ekranda çıkar — ekibiniz uygulamaya o kodla girecek.'],
+            ['n' => '02', 't' => 'Müşterilerinizi bize gönderin', 's' => 'Aynı gün', 'a' => 'Telefon rehberi, Excel listesi ya da defterin fotoğrafı — nasıl duruyorsa gönderin, biz gireriz. Açık borçları da birlikte taşıyoruz.'],
+            ['n' => '03', 't' => 'Çağrı iznini verin', 's' => '5 dakika', 'a' => 'Uygulama bir kez izin isteyecek. İzni verdiğinizde ilk gelen aramada müşteri kartı ekranınıza gelir — kurulum bitmiş olur.'],
         ],
 
-        // ── Güvenceler ───────────────────────────────────────────
+        /*
+         * ── Güvenceler ──────────────────────────────────────────────────────────────────
+         * "İstanbul'daki sunucularda" İFADESİ KALDIRILDI (2026-08-19). Şehir adı, kanıtı
+         * olmayan bir ayrıntıydı: sunucu Türkiye'de ama hangi ilde olduğu bir barındırma
+         * sağlayıcısı kararıdır ve yarın değişebilir. Ülke bir kırmızı çizgidir (BRIEF md.4)
+         * ve o duruyor; şehir bir varsayımdı. Ayrıca "veriniz sizin" maddesindeki "istediğiniz
+         * an Excel olarak indirin" cümlesi, uygulamada BÖYLE BİR DÜĞME OLMADIĞI için düzeltildi
+         * — dışa aktarım destek kanalından yürüyor (BRIEF: "uygulamada buton yok"). Ziyaretçiye
+         * var olmayan bir düğme vaat etmek, ilk kullanımda güveni bitiren türden bir küçük yalan.
+         */
         'guvence' => [
-            ['ik' => 'cevrimdisi', 't' => 'İnternet gitse de çalışır', 'a' => 'Sipariş ve tahsilat cihazda tutulur, bağlantı gelince kendi senkronlanır.'],
-            ['ik' => 'kalkan', 't' => 'Veriler Türkiye’de', 'a' => 'İstanbul’daki sunucularda, KVKK kapsamında.'],
-            ['ik' => 'indir', 't' => 'Veriniz sizin', 'a' => 'Müşteri, sipariş ve defter kaydınızı istediğiniz an Excel olarak indirin.'],
-            ['ik' => 'kulaklik', 't' => 'Telefonu insan açıyor', 'a' => 'Bot yok. Hafta içi 09:00–19:00 arası aynı ekip, aynı numara.'],
+            ['ik' => 'cevrimdisi', 't' => 'İnternet gitse de çalışır', 'a' => 'Sipariş ve tahsilat telefonda tutulur, bağlantı gelince kendi kendine yerine oturur.'],
+            ['ik' => 'kalkan', 't' => 'Veriler Türkiye’de', 'a' => 'Türkiye’deki sunucularda saklanır, KVKK kapsamında işlenir.'],
+            ['ik' => 'indir', 't' => 'Veriniz sizin', 'a' => 'Müşteri, sipariş ve defter kaydınızı isteyin, Excel olarak gönderelim. Abonelik bitse de bu kapı açık.'],
+            // "Bot yok" kaldırıldı: "bot" kelimesini bilmeyen için boşluk, bilen için de zaten
+            // "insan açıyor" başlığında söylenmiş bir şeyin tekrarı.
+            ['ik' => 'kulaklik', 't' => 'Telefonu insan açıyor', 'a' => 'Hafta içi 09:00–19:00 arası hep aynı ekip, hep aynı numara.'],
         ],
 
         /*
@@ -94,23 +120,67 @@ return function (array $d): array {
          * ÖDEME grubundaki "14 gün" ise CAYMA HAKKI süresidir (Mesafeli Sözleşmeler Yönetmeliği),
          * deneme süresi değil — bilinçli olarak 14 kaldı.
          */
+        /*
+         * ── SSS'TE ÜÇ DÜZELTME (2026-08-19), üçü de ÜRÜNE UYMAYAN CÜMLELERDİ ─────────────
+         *
+         * 1. "salt-okunur kipe geçer" → esnaf sözlüğü değil, yazılımcı sözlüğü. Aynı şeyi
+         *    kullanıcının gördüğü davranışla anlatıyoruz: yeni kayıt girilemez, eskiler durur.
+         *
+         * 2. "İstediğim zaman iptal edebilir miyim? → Evet, panelden tek tıkla." Bu CÜMLE
+         *    YANLIŞTI: hesap panelinde iptal düğmesi YOK ve olmaması bilinçli bir karar
+         *    (livewire/site/hesap/abonelik.blade.php · sapma 3 — `Cancelled` yazmak yazmayı
+         *    ANINDA kapatır, oysa ekranın vaadi "dönem sonuna kadar hiçbir şey değişmez").
+         *    Yani site, panelde bulunmayan bir düğmeyi tarif ediyordu; bayi arar, bulamaz.
+         *    Gerçek cevap: otomatik yenileme zaten yok, iptal için bir şey yapmak gerekmiyor.
+         *
+         * 3. "Fatura … PDF olarak indirilir" → panelde Faturalar bölümü ödeme GEÇMİŞİNİ
+         *    listeliyor, PDF indirme düğmesi yok (e-arşiv faturası e-posta ile gidiyor).
+         *    Cevap, gerçekte olan yola çevrildi.
+         */
         'sss' => [
             ['g' => 'Başlangıç', 'l' => [
-                ['s' => 'Deneme için kart bilgisi istiyor musunuz?', 'c' => 'Hayır. '.$d['deneme'].' gün boyunca hiçbir ödeme bilgisi girmeden tüm özellikleri kullanırsınız. Süre dolduğunda uygulama salt-okunur kipe geçer, kaydınız silinmez.'],
-                ['s' => 'Eski defterimdeki müşterileri nasıl aktarırım?', 'c' => 'Excel listesi ya da telefon rehberi olarak gönderin, biz yükleyelim — ücretsiz. Açık veresiye bakiyelerini de başlangıç bakiyesi olarak taşıyoruz.'],
-                ['s' => 'Kaç kişi kullanabilir?', 'c' => 'İşletme sahibi + '.$d['kurye'].' kurye hesabı vardır. Ek kurye hesabı '.$d['ekKuryeTl'].'.'],
+                ['s' => 'Deneme için kart bilgisi istiyor musunuz?', 'c' => 'Hayır. '.$d['deneme'].' gün boyunca hiçbir ödeme bilgisi vermeden her şeyi kullanırsınız. Süre dolunca yeni kayıt girilemez; girdikleriniz olduğu gibi durur ve abone olduğunuz gün geri gelir.'],
+                ['s' => 'Eski defterimdeki müşterileri nasıl aktarırım?', 'c' => 'Excel listesi, telefon rehberi, hatta defterin fotoğrafı — nasıl duruyorsa öyle gönderin, biz gireriz. Ücret almıyoruz. Açık veresiye bakiyelerini de başlangıç borcu olarak taşıyoruz.'],
+                ['s' => 'Kaç kişi kullanabilir?', 'c' => 'İşletme sahibi + '.$d['kurye'].' kurye hesabı. Daha fazla kuryeniz varsa ek hesap '.$d['ekKuryeTl'].'.'],
+                ['s' => 'Kurmak zor mu, birinin gelmesi gerekiyor mu?', 'c' => 'Kimsenin gelmesi gerekmiyor. Uygulamayı indirip firma kodunuzla giriyorsunuz; çağrı iznini verdiğiniz an arayan tanıma çalışmaya başlıyor. Takılırsanız telefonla birlikte kuruyoruz, o da ücretsiz.'],
             ]],
             ['g' => 'Ödeme', 'l' => [
-                ['s' => 'Hangi ödeme yöntemlerini kabul ediyorsunuz?', 'c' => 'Şu an havale/EFT ve elden ödeme alıyoruz. Kredi kartıyla online ödeme yakında açılacak; hazır olduğunda hesap panelinizden duyuracağız.'],
-                ['s' => 'Fatura kesiyor musunuz?', 'c' => 'Evet. Her ödemede e-arşiv fatura düzenlenir ve hesap panelinizdeki Faturalar sayfasından PDF olarak indirilir.'],
-                ['s' => 'İstediğim zaman iptal edebilir miyim?', 'c' => 'Evet, panelden tek tıkla. Dönem sonuna kadar erişiminiz devam eder, otomatik yenileme durur. Telefon etmenize gerek yok.'],
-                ['s' => 'Yıllık ödedim, iade alabilir miyim?', 'c' => 'İlk 14 gün içinde koşulsuz iade. Sonrasında kullanılmayan aylar oranında iade yapılır.'],
+                ['s' => 'Hangi ödeme yöntemlerini kabul ediyorsunuz?', 'c' => 'Şimdilik havale/EFT ve elden ödeme. Kartla online ödeme üzerinde çalışıyoruz; açıldığında hesap panelinizde göreceksiniz.'],
+                ['s' => 'Fatura kesiyor musunuz?', 'c' => 'Evet, her ödeme için e-arşiv fatura düzenleyip e-posta ile gönderiyoruz. Ödeme geçmişinizin tamamı hesap panelinizdeki Faturalar bölümünde duruyor.'],
+                ['s' => 'İstediğim zaman bırakabilir miyim?', 'c' => 'Evet ve bunun için bir şey yapmanız bile gerekmiyor: otomatik yenileme diye bir şey yok, kartınızdan kendiliğinden para çekilmez. Ödemezseniz dönem sonunda hesap yeni kayıt almayı durdurur, o kadar. Erken ayrılmak isterseniz kalan aylarınızın parasını iade ediyoruz.'],
+                ['s' => 'Yıllık ödedim, vazgeçersem param yanar mı?', 'c' => 'Hayır. İlk 14 gün içinde vazgeçerseniz tamamını, sonrasında kullanmadığınız aylar oranında iade ediyoruz. Sebep sormuyoruz.'],
+                ['s' => 'Fiyat sonradan artar mı?', 'c' => 'Ödediğiniz dönemin fiyatı sabittir, dönem ortasında değişmez. Yeni dönemde fiyat değişecekse en az 30 gün önce haber veriyoruz — sürpriz zam yok.'],
             ]],
+            /*
+             * ── "VERİLERİM NEREDE DURUYOR?" CEVABI DÜZELTİLDİ (2026-08-19) ───────────────
+             * Eski cevap "Verileriniz Türkiye dışına çıkmaz" diyordu. Bu cümle YANLIŞTI ve
+             * yanlışlığı hukuk metinleri yazılırken koda bakınca çıktı:
+             *   • Adres arama, aranan adres metnini Yandex/Google'a yolluyor (config/geocoding.php)
+             *   • Rota sıralama, durak koordinatlarını Google Routes'a yolluyor (config/rota.php)
+             *   • Anlık bildirim, cihaz jetonunu Google FCM'e yolluyor (app/Bildirim/FcmIstemcisi.php)
+             *   • Bu vardiyada siteye Google Analytics eklendi (rızaya bağlı)
+             * SAKLAMA Türkiye'de — o doğru ve kırmızı çizgi. Ama "saklama" ile "aktarım" aynı
+             * şey değil ve ziyaretçiye ikisini birbirine karıştıran bir cümle kurulamaz; aynı
+             * sitede yayımlanan aydınlatma metni her çıkışı tek tek sayarken SSS'in tersini
+             * söylemesi, iki metinden birini yalancı çıkarırdı.
+             *
+             * Yeni cevap ne gittiğini VE ne gitmediğini söylüyor — ikincisi olmadan cümle
+             * ziyaretçiyi gereksiz yere ürkütürdü, çünkü müşteri adı ve borcu gerçekten hiçbir
+             * çağrıda yer almıyor (ölçüldü).
+             */
             ['g' => 'Teknik', 'l' => [
-                ['s' => 'İnternet kesilirse ne olur?', 'c' => 'Uygulama çevrimdışı çalışmaya devam eder. Sipariş, tahsilat ve düzenlemeler cihazda tutulur; bağlantı gelince otomatik senkronlanır.'],
-                ['s' => 'Arayan tanıma nasıl çalışıyor?', 'c' => 'Uygulama çağrı bilgisi iznini kullanarak gelen numarayı kendi müşteri listenizle eşleştirir. Numaralar cihazın dışına çıkmaz, üçüncü tarafla paylaşılmaz.'],
-                ['s' => 'iPhone’da çalışıyor mu?', 'c' => 'Android’de tam sürüm. iOS’ta arayan tanıma dışındaki tüm özellikler çalışır; iOS çağrı entegrasyonu üzerinde çalışıyoruz.'],
-                ['s' => 'Verilerim nerede duruyor?', 'c' => 'İstanbul’daki sunucularda, KVKK kapsamında. Verileriniz Türkiye dışına çıkmaz.'],
+                ['s' => 'İnternet kesilirse ne olur?', 'c' => 'Uygulama çalışmaya devam eder. Sipariş, tahsilat ve düzeltmeler telefonda birikir; bağlantı gelince kendi kendine sunucuya geçer. Kurye bodrumda da teslim kapatır.'],
+                ['s' => 'Arayan tanıma nasıl çalışıyor?', 'c' => 'Gelen numara telefonun kendi içinde, sizin müşteri listenizle eşleştirilir. Numara bu iş için sunucuya ya da üçüncü bir tarafa gönderilmez.'],
+                ['s' => 'iPhone’da çalışıyor mu?', 'c' => 'Android’de her şey var. iPhone’da arayan tanıma dışındaki tüm özellikler çalışıyor — iOS işletim sistemi uygulamaların gelen çağrıyı görmesine izin vermiyor, bu bizim eksiğimiz değil Apple’ın kuralı.'],
+                /*
+                 * CEVAP KISALTILDI (2026-08-19). Önceki hâli beş cümleydi ve "durak
+                 * koordinatları", "harita servisi", "KVKK aydınlatma metni" gibi ifadelerle
+                 * SSS'in en uzun, en teknik maddesiydi. Sık sorulan bir sorunun cevabı
+                 * okunacak kadar kısa olmalı; ayrıntı, ayrıntıyı arayanın gideceği yerde
+                 * (aydınlatma metni) zaten var ve oradaki tablo her çıkışı tek tek sayıyor.
+                 * Buradaki iş, esnafın gerçekten sorduğu şeyi cevaplamak: "verim bende kalır mı".
+                 */
+                ['s' => 'Verilerim nerede duruyor?', 'c' => 'Müşteri listeniz, siparişleriniz ve defteriniz Türkiye’deki sunucularda saklanır. Sadece adres ararken ve kurye yolunu sıralarken adres bilgisi harita servisine gider; müşterinizin adı, telefonu ve borcu hiçbir zaman dışarı çıkmaz.'],
             ]],
         ],
 
@@ -118,7 +188,13 @@ return function (array $d): array {
         'plan' => [
             'sipario' => [
                 'ad' => 'Sipario',
-                'ozet' => 'Tek plan, tek fiyat. Tezgâhın arkasındaki her şey içinde.',
+                /*
+                 * Kartın özeti "Tek plan, tek fiyat. Tezgâhın arkasındaki her şey içinde."ydi
+                 * ve bölüm başlığı da (ana-fiyat-ozet.blade.php) "Tek plan, tek fiyat." diyor —
+                 * aynı cümle üst üste iki kez okunuyordu. Kart artık başlığı tekrar etmiyor,
+                 * onun bıraktığı yerden devam ediyor.
+                 */
+                'ozet' => 'Tezgâhın arkasında ne yapıyorsanız hepsi içinde.',
                 'cta' => $d['deneme'].' gün ücretsiz dene',
                 'ctaAlt' => 'Kart istemiyoruz',
                 'kapsam' => [
@@ -127,7 +203,15 @@ return function (array $d): array {
                     ['t' => 'Veresiye defteri', 'a' => 'Bakiye, tahsilat, hareket geçmişi'],
                     ['t' => 'Gün sonu kasa', 'a' => 'Nakit · kart · veresiye ayrımıyla devir'],
                     ['t' => $d['kurye'].' kurye hesabı', 'a' => 'Ek kurye '.$d['ekKuryeTl']],
-                    ['t' => 'Ayda '.$d['kontor'].' oto-sıralama hakkı', 'a' => 'Rota sırasını uygulama kurar'],
+                    /*
+                     * "Ayda 50 oto-sıralama hakkı" SATIRI DEĞİŞTİ (2026-08-19). Fiyat kartındaki
+                     * sekiz satır içinde en anlaşılmazı buydu: "oto-sıralama" bizim iç adımız,
+                     * "hak" ise ne olduğu belirsiz bir birim. Tezgâhın arkasındaki adam bu satırı
+                     * okuyup ne aldığını bilemiyordu — üstelik satır bir ÖZELLİK listesinde, yani
+                     * tam da "ne alıyorum" sorusunun cevaplandığı yerde duruyor.
+                     * Yeni satır işi tarif ediyor; sayı alt satırda kaldı.
+                     */
+                    ['t' => 'Kuryenin yolunu uygulama sıralasın', 'a' => 'Ayda '.$d['kontor'].' kez'],
                     ['t' => 'Ürün kataloğu ve barkod', 'a' => 'Fotoğraflı, birimli, çok fiyatlı'],
                     ['t' => 'Telefon + WhatsApp destek', 'a' => 'Hafta içi 09:00–19:00, gerçek insan'],
                 ],
@@ -147,7 +231,7 @@ return function (array $d): array {
             ['g' => 'Kullanım', 's' => [
                 ['Müşteri ve sipariş', 'Sınırsız'],
                 ['Kurye hesabı', $d['kurye'].($d['ekKuryeVar'] ? ' (ek hesap '.$d['ekKuryeKisa'].')' : '')],
-                ['Oto-sıralama hakkı', $d['kontor'].' / ay'],
+                ['Kurye yolunu otomatik sıralama', $d['kontor'].' kez / ay'],
             ]],
             ['g' => 'Özellikler', 's' => [
                 ['Arayan tanıma', true],
@@ -170,17 +254,28 @@ return function (array $d): array {
             ['ik' => 'geri', 't' => '14 gün koşulsuz iade', 'a' => 'İlk iki hafta içinde vazgeçerseniz tutarın tamamı iade edilir. Sebep sormuyoruz.'],
         ],
 
-        // ── Ek özellikler (10-sw-ozellik.jsx · SW_EK) ────────────
+        /*
+         * ── Ek özellikler (10-sw-ozellik.jsx · SW_EK) ───────────────────────────────────
+         * SEKİZ KART → BEŞ (2026-08-19). Çıkarılan üçü ve gerekçeleri:
+         *
+         *  • "Çevrimdışı kip" — ana sayfadaki güvence kartlarında ("İnternet gitse de çalışır")
+         *    ve SSS'te ("İnternet kesilirse ne olur?") zaten iki kez anlatılıyor. Üçüncü kez,
+         *    üstelik "kip" gibi bir kelimeyle.
+         *  • "Koyu tema" — bir SATIN ALMA kararına etki etmeyen tek kart buydu. Su bayii
+         *    "koyu tema var mı" diye sorup almıyor; listede yer kaplayıp gerçekten önemli
+         *    kartların dikkatini çalıyordu.
+         *  • "Serbest kalem" — hemen üstündeki "Sipariş akışı" bölümü aynı şeyi aynı örnekle
+         *    ("katalogda olmayan iş") zaten anlatıyor.
+         *
+         * Kalan beşi, sahada gerçekten sorulan şeyler: muafiyet, barkod, çoklu adres,
+         * gün arşivi, kuryenin ne göreceği. "Kip" gibi kelimeler de temizlendi.
+         */
         'ek' => [
-            ['ik' => 'elpara', 't' => 'Muaf müşteriler', 'a' => 'Ücret almadığınız kişiler listede işaretlenir; siparişleri sıfır tutarla deftere düşer, ciroyu bozmaz.'],
-            ['ik' => 'barkod', 't' => 'Barkodla ürün ekleme', 'a' => 'Kamerayla okutun, ürün sepete düşsün. Barkodu olmayan kalem için serbest satır açın.'],
-            ['ik' => 'pin', 't' => 'Çoklu adres ve konum', 'a' => 'Bir müşterinin evi, dükkânı, deposu ayrı adres olarak durur. Konum kaydedilirse rota sırasına girer.'],
-            ['ik' => 'fis', 't' => 'Serbest kalem', 'a' => 'Katalogda olmayan iş için açıklama yazıp tutar girin — merdiven çıkışı, montaj, iade farkı.'],
-            ['ik' => 'takvim', 't' => 'Gün arşivi', 'a' => 'Kapanan her gün ciro, kasa farkı ve sipariş sayısıyla saklanır. Geriye dönüp bakabilirsiniz.'],
-            ['ik' => 'kurye', 't' => 'Kurye görünümü', 'a' => 'Kurye hesabı sadece kendi teslimatlarını görür. Fiyat listesi, defter ve ayarlar ona kapalıdır.'],
-            ['ik' => 'cevrimdisi', 't' => 'Çevrimdışı kip', 'a' => 'Sinyal yoksa kayıt cihazda tutulur, bağlantı gelince sıraya girer. Hiçbir sipariş kaybolmaz.'],
-            // 'ay' takma adı ikon haritasında YOK — kaynakta da yoktu, bileşen nötr çember çizer (kasıtlı).
-            ['ik' => 'ay', 't' => 'Koyu tema', 'a' => 'Akşam saatlerinde ekran yormasın diye. Sistem ayarını takip eder ya da elle sabitlenir.'],
+            ['ik' => 'elpara', 't' => 'Para almadığınız müşteriler', 'a' => 'Akrabaya, komşuya bedava gönderdiğiniz siparişler listede işaretlenir; deftere sıfır tutarla düşer, cironuzu bozmaz.'],
+            ['ik' => 'barkod', 't' => 'Barkod okutarak ürün ekleme', 'a' => 'Telefonun kamerasıyla okutun, ürün sepete düşsün. Barkodu olmayan mal için elle satır açarsınız.'],
+            ['ik' => 'pin', 't' => 'Bir müşteriye birden fazla adres', 'a' => 'Evi, dükkânı ve deposu ayrı ayrı kayıtlı durur. Hangisine gideceğinizi sipariş girerken seçersiniz.'],
+            ['ik' => 'takvim', 't' => 'Geçmiş günler duruyor', 'a' => 'Kapattığınız her gün cirosu, kasa farkı ve sipariş sayısıyla saklanır. Geçen ayın salısına dönüp bakabilirsiniz.'],
+            ['ik' => 'kurye', 't' => 'Kurye her şeyi göremez', 'a' => 'Kurye hesabı yalnız kendi teslimatlarını görür. Fiyat listesi, veresiye defteri ve ayarlar ona kapalıdır.'],
         ],
 
         // ── "Bir gün" anlatısı (10-sw-ozellik.jsx · SW_GUN) ──────

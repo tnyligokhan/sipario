@@ -18,6 +18,11 @@ import 'gun_sonu_ozet.dart' show SenkronTazeligi;
 import 'isletme_atomlari.dart';
 import 'senkron_seridi.dart';
 
+// ARŞİV DETAYI AYRI PARÇADA (500 satır kuralı — dosya 569 satıra çıkmıştı): burası bir hesabı
+// KAPATIR, orası KAPANMIŞ bir hesabı geri OKUR. `part` seçildi ki bu dosyayı import eden altı
+// çağrı yeri hiç değişmesin (`cash_handover_ara_tahsilat.dart` ile aynı desen).
+part 'gun_arsiv_detay.dart';
+
 /// Kapatma sheet'inin sonucu: sayılan nakit (girilmediyse null) + not.
 @immutable
 class KapatmaSonucu {
@@ -32,10 +37,11 @@ class KapatmaSonucu {
 /// [beklenen] kasada olması gereken nakittir; sayılan tutar bununla karşılaştırılır.
 ///
 /// ══ SHEET HİÇBİR FORMÜL VE HİÇBİR ANLAM BİLMEZ (lead kararı 2026-08-06) ════════════════════
-/// Üçlü şöyle çizilir ve tek kuralı vardır: **üst − orta == alt**.
-///   • üst  = [tamNakit]   adı [ustEtiket] ile ÇAĞIRANDAN gelir
-///   • orta = [ortaTutar]  adı [ortaEtiket] ile ÇAĞIRANDAN gelir
-///   • alt  = [beklenen]   "Beklenen nakit"
+/// Döküm şöyle çizilir ve tek kuralı vardır: **üst − gider − orta == alt**.
+///   • üst   = [tamNakit]    adı [ustEtiket] ile ÇAĞIRANDAN gelir
+///   • gider = [giderTutar]  "Gider (kasadan çıktı)" — sıfırsa satır HİÇ çizilmez
+///   • orta  = [ortaTutar]   adı [ortaEtiket] ile ÇAĞIRANDAN gelir
+///   • alt   = [beklenen]    "Beklenen nakit"
 ///
 /// İKİ ETİKET DE NEDEN PARAMETRE: her ikisi de kapsama göre BAŞKA BİR ŞEYİ ölçüyor.
 ///   • orta → gün hesabında "Kuryelerde kalan" (henüz teslim EDİLMEMİŞ), kurye hesabında
@@ -71,12 +77,18 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
   String ustEtiket = 'Günün nakdi',
   String? ortaEtiket,
   int ortaTutar = 0,
+  int giderTutar = 0,
   String? cerceveNotu,
   SenkronTazeligi? senkron,
+  bool sayimIstenmiyor = false,
 }) {
   return sipSheet<KapatmaSonucu>(
     context,
-    baslik: 'Hesabı Kapat · Kasa Devri',
+    // BAŞLIK DÜĞMEYLE AYNI OLMAZ: arkadaki çubukta zaten "Hesabı Kapat" düğmesi duruyor; sheet
+    // aynı sözü tekrarlarsa bayi hangi yüzeye baktığını ayırt edemez.
+    baslik: sayimIstenmiyor
+        ? 'Geçmiş Günü Kapat'
+        : (gunHesabi ? 'Günü Kapat' : '$kapsamAdi Hesabı'),
     govde: (ctx) => _KapatmaGovdesi(
       kapsamAdi: kapsamAdi,
       gunHesabi: gunHesabi,
@@ -86,8 +98,10 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
       ustEtiket: ustEtiket,
       ortaEtiket: ortaEtiket,
       ortaTutar: ortaTutar,
+      giderTutar: giderTutar,
       cerceveNotu: cerceveNotu,
       senkron: senkron,
+      sayimIstenmiyor: sayimIstenmiyor,
     ),
   );
 }
@@ -102,8 +116,10 @@ class _KapatmaGovdesi extends StatefulWidget {
     required this.ustEtiket,
     required this.ortaEtiket,
     required this.ortaTutar,
+    required this.giderTutar,
     required this.cerceveNotu,
     required this.senkron,
+    this.sayimIstenmiyor = false,
   });
 
   final String kapsamAdi;
@@ -115,11 +131,28 @@ class _KapatmaGovdesi extends StatefulWidget {
   final String? ortaEtiket;
   final int ortaTutar;
 
+  /// KASADAN ÇIKAN gider (POZİTİF kuruş; 2026-08-25). Sıfırsa satır hiç çizilmez — gider
+  /// kullanmayan bayide döküm eskisi gibi ÜÇ satırdır, dördüncü bir "Gider 0,00 ₺" her akşam
+  /// cevapsız bir soru olurdu (iskonto satırıyla aynı kural).
+  final int giderTutar;
+
   /// Sheet'in çerçevesi ekranınkiyle çakışmıyorsa bunu söyleyen kısa satır; null ise çizilmez.
   final String? cerceveNotu;
 
   /// null ise tazelik şeridi hiç çizilmez (çağıran o kapsamda göstermemeye karar vermiştir).
   final SenkronTazeligi? senkron;
+
+  /// GEÇMİŞ GÜN KİPİ (2026-08-21): sayım alanı HİÇ ÇİZİLMEZ ve kapanış `sayilan: null` döner.
+  ///
+  /// ⚠️ BU BİR KOLAYLIK DEĞİL, MUHASEBE KAPISIDIR. Geçmiş bir günün kasası BUGÜN sayılamaz —
+  /// para çoktan çekmeceden çıktı. Sayım kutusu açık bırakılsaydı bayi bugünkü çekmecesini
+  /// sayıp üç gün önceki güne yazardı ve `diff` arşive KALICI olarak yanlış donardı
+  /// (append-only: düzeltmesi ancak ikinci bir kayıtla olur).
+  ///
+  /// Yani geçmiş gün kapanışı bir MUTABAKAT değil, bir DEFTER KAPANIŞIDIR: "bu gün gözden
+  /// geçirildi ve kapatıldı". Fark sıfır yazılır çünkü karşılaştırılacak bir sayım YOKTUR —
+  /// sıfır burada "tuttu" demek değil, "sayılmadı" demektir ve ekran bunu açıkça söyler.
+  final bool sayimIstenmiyor;
 
   @override
   State<_KapatmaGovdesi> createState() => _KapatmaGovdesiState();
@@ -162,8 +195,10 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
           ),
 
         if (widget.teslimat == 0)
-          const AlanNotu(
-            'Bu hesapta bugün hiç teslimat yok — yine de kapatabilirsiniz.',
+          AlanNotu(
+            widget.sayimIstenmiyor
+                ? 'Bu günde teslimat yok'
+                : 'Bugün teslimat yok',
             tur: AlanNotuTuru.uyari,
           ),
 
@@ -174,25 +209,35 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
         //
         // Orta satırın ADI çağırandan gelir (dosya başındaki gerekçe): gün hesabında
         // "Kuryelerde kalan", kurye hesabında "Gün içinde alınan" — zıt yönlü iki büyüklük.
-        if (widget.ortaEtiket != null && widget.ortaTutar != 0) ...[
+        // GİDER DÖKÜMÜ TEK BAŞINA DA AÇAR (2026-08-25): kurye hiç devir yapmamışken bile
+        // (orta = 0) yolda 200 ₺ benzin almış olabilir ve beklenen tutar o kadar küçüktür.
+        // Koşul yalnız `ortaTutar`a baksaydı, açıklaması olan tek fark açıklamasız kalırdı.
+        if ((widget.ortaEtiket != null && widget.ortaTutar != 0) || widget.giderTutar != 0) ...[
           DegerKarti(
             satirlar: [
               DegerSatiri(etiket: widget.ustEtiket, deger: sipTutar(widget.tamNakit)),
-              DegerSatiri(
-                etiket: widget.ortaEtiket!,
-                // İŞARET DEĞERDEN TÜRER, SABİT DEĞİLDİR. [ortaTutar] gün kapsamında NEGATİF
-                // olabilir (kurye dünden taşıdığı nakdi bugün teslim ettiyse kasaya günün kendi
-                // nakdinden FAZLASI girer). Sabit "−" ile basıldığında ekran "− -5.000,00 ₺"
-                // yazıyordu: hem bozuk hem yanlış yönlü. `sipTutar` negatifi kendi başına "−"
-                // ile basar; o yüzden mutlak değer verilir ve işareti burası koyar.
-                //
-                // Sheet yine hiçbir ANLAM bilmiyor: işaret aritmetiktir (üst − orta == alt),
-                // kelime değil. Negatifte ETİKETİN de değişmesi gerekir ("kalan" demesin) ama o
-                // karar ÇAĞIRANINDIR — anlamı bilen odur.
-                deger: '${widget.ortaTutar < 0 ? '+' : '−'} '
-                    '${sipTutar(widget.ortaTutar.abs())}',
-                degerRengi: t.ink2,
-              ),
+              if (widget.giderTutar != 0)
+                DegerSatiri(
+                  etiket: 'Gider (kasadan çıktı)',
+                  deger: '− ${sipTutar(widget.giderTutar.abs())}',
+                  degerRengi: t.warn,
+                ),
+              if (widget.ortaEtiket != null && widget.ortaTutar != 0)
+                DegerSatiri(
+                  etiket: widget.ortaEtiket!,
+                  // İŞARET DEĞERDEN TÜRER, SABİT DEĞİLDİR. [ortaTutar] gün kapsamında NEGATİF
+                  // olabilir (kurye dünden taşıdığı nakdi bugün teslim ettiyse kasaya günün kendi
+                  // nakdinden FAZLASI girer). Sabit "−" ile basıldığında ekran "− -5.000,00 ₺"
+                  // yazıyordu: hem bozuk hem yanlış yönlü. `sipTutar` negatifi kendi başına "−"
+                  // ile basar; o yüzden mutlak değer verilir ve işareti burası koyar.
+                  //
+                  // Sheet yine hiçbir ANLAM bilmiyor: işaret aritmetiktir (üst − gider − orta ==
+                  // alt), kelime değil. Negatifte ETİKETİN de değişmesi gerekir ("kalan"
+                  // demesin) ama o karar ÇAĞIRANINDIR — anlamı bilen odur.
+                  deger: '${widget.ortaTutar < 0 ? '+' : '−'} '
+                      '${sipTutar(widget.ortaTutar.abs())}',
+                  degerRengi: t.ink2,
+                ),
             ],
           ),
           const SizedBox(height: SipSpace.md),
@@ -226,41 +271,56 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
         if (widget.cerceveNotu != null)
           AlanNotu(widget.cerceveNotu!, tur: AlanNotuTuru.bilgi),
 
-        const SipFormEtiket('SAYILAN NAKİT (₺)', ustBosluk: 2),
-        // CSS `.kd-input` — 56 yüksek, 22 punto rakam.
-        SipInput(
-          controller: _sayilan,
-          ipucu: '0',
-          klavye: const TextInputType.numberWithOptions(decimal: true),
-          girdiFiltreleri: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,]'))],
-          stil: SipText.tutar(22),
-          yukseklik: 56,
-          otomatikOdak: true,
-          onChanged: (_) => setState(() {}),
-        ),
+        // GEÇMİŞ GÜNDE SAYIM ALANI HİÇ ÇİZİLMEZ (gerekçe [sayimIstenmiyor] üzerinde). Pasif bir
+        // kutu çizmek yerine hiç çizmemek bilinçli: pasif kutu "bir gün açılabilir" der, oysa
+        // geçmiş bir günün kasası hiçbir koşulda sayılamaz.
+        if (widget.sayimIstenmiyor)
+          const AlanNotu(
+            'Geçmiş günün kasası bugün sayılamaz. Bu gün sayım olmadan kapanır.',
+            tur: AlanNotuTuru.bilgi,
+          )
+        else ...[
+          const SipFormEtiket('SAYILAN NAKİT (₺)', ustBosluk: 2),
+          // CSS `.kd-input` — 56 yüksek, 22 punto rakam.
+          SipInput(
+            controller: _sayilan,
+            ipucu: '0',
+            klavye: const TextInputType.numberWithOptions(decimal: true),
+            girdiFiltreleri: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,]'))],
+            stil: SipText.tutar(22),
+            yukseklik: 56,
+            otomatikOdak: true,
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
 
-        if (sayilan != null) FarkSeridi(fark: fark),
-        if (sayilan != null && fark < 0)
+        if (!widget.sayimIstenmiyor && sayilan != null) FarkSeridi(fark: fark),
+        if (!widget.sayimIstenmiyor && sayilan != null && fark < 0)
           Padding(
             padding: const EdgeInsets.only(top: SipSpace.xl),
             child: SipNotKutusu(
               tur: SipNotTuru.hata,
               ikon: SipIcons.alert,
-              metin: 'Eksik tutar kanıt olarak arşive geçer; kapatma engellenmez.',
+              metin: 'Eksik tutar kayda geçer',
             ),
           ),
 
-        const SipFormEtiket('NOT (OPSİYONEL)'),
-        SipInput(controller: _not, ipucu: 'Fark açıklaması, devreden…', satirlar: 2),
+        const SipFormEtiket('Not (isteğe bağlı)'),
+        SipInput(controller: _not, ipucu: 'Fark açıklaması ya da devreden tutar', satirlar: 2),
 
         const SizedBox(height: SipSpace.x3),
         SipButon(
           etiket: 'Kapat ve Arşivle',
           ikon: SipIcons.lock,
-          onTap: sayilan == null
+          // GEÇMİŞ GÜNDE DÜĞME KOŞULSUZ AÇIKTIR: bekleyen bir giriş yok. Sayım kipinde ise
+          // tutar girilmeden kapatmak, arşive "0 sayıldı" diye donan bir yalan üretirdi.
+          onTap: !widget.sayimIstenmiyor && sayilan == null
               ? null
               : () => Navigator.of(context).pop(
-                    KapatmaSonucu(sayilan: sayilan, not: _not.text.trim()),
+                    KapatmaSonucu(
+                      sayilan: widget.sayimIstenmiyor ? null : sayilan,
+                      not: _not.text.trim(),
+                    ),
                   ),
         ),
       ],
@@ -303,84 +363,6 @@ class FarkSeridi extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-// Arşiv detayı
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-
-/// Arşivlenmiş kapanışı kuruşu kuruşuna geri okur. [kapsamAdi] gün hesabında "Gün hesabı",
-/// kurye kapanışında kuryenin adıdır (kayıtta yalnız `user_id` durur, ad `users` aynasından çözülür).
-/// [bugun] "Bugün/Dün" şeridinin referans günüdür — DÜZELTİLMİŞ saatten gelmeli.
-Future<void> arsivDetaySheet(
-  BuildContext context,
-  DayClosing k, {
-  required String kapsamAdi,
-  required DateTime bugun,
-}) {
-  return sipSheet<void>(
-    context,
-    baslik: '$kapsamAdi · Arşiv',
-    govde: (ctx) => _ArsivDetay(kapanis: k, bugun: bugun),
-  );
-}
-
-class _ArsivDetay extends StatelessWidget {
-  const _ArsivDetay({required this.kapanis, required this.bugun});
-
-  final DayClosing kapanis;
-  final DateTime bugun;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    final k = kapanis;
-    final fark = k.diffKurus;
-    final farkRengi = fark < 0 ? t.danger : (fark > 0 ? t.warn : t.ok);
-    final not = (k.note ?? '').trim();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        KapaliSerit(
-          metin: '${gunSaatBicimi(k.occurredAt, bugun: bugun)} · kapatıldı · '
-              '${k.deliveryCount} teslimat',
-          ikon: SipIcons.lock,
-        ),
-        const SizedBox(height: SipSpace.xl),
-        DegerKarti(
-          satirlar: [
-            DegerSatiri(etiket: 'Nakit', deger: sipTutar(k.cashNakitKurus)),
-            DegerSatiri(etiket: 'Kart', deger: sipTutar(k.cashKartKurus)),
-            DegerSatiri(etiket: 'Havale', deger: sipTutar(k.cashHavaleKurus)),
-            DegerSatiri(
-              etiket: 'Toplam Tahsilat',
-              deger: sipTutar(k.totalCollectedKurus),
-              toplam: true,
-            ),
-          ],
-        ),
-        const SizedBox(height: SipSpace.lg),
-        DegerKarti(
-          satirlar: [
-            DegerSatiri(etiket: 'Beklenen nakit', deger: sipTutar(k.expectedCashKurus)),
-            DegerSatiri(
-              etiket: 'Sayılan nakit',
-              deger: k.countedCashKurus == null ? '—' : sipTutar(k.countedCashKurus!),
-            ),
-            DegerSatiri(
-              etiket: 'Fark',
-              deger: fark == 0 ? 'Tam' : sipTutar(fark),
-              degerRengi: farkRengi,
-            ),
-          ],
-        ),
-        if (not.isNotEmpty) ...[
-          const SizedBox(height: SipSpace.lg),
-          SipNotKutusu(metin: not),
-        ],
-      ],
     );
   }
 }

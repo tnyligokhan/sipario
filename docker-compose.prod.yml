@@ -25,13 +25,44 @@
 #    ağındaki container'lar erişir.
 # ══════════════════════════════════════════════════════════════════════════════
 
+# ⚠️ ══ AŞAĞIDAKİ `${DEGISKEN:-varsayilan}` VARSAYILANLARININ ÇOĞU ÖLÜDÜR ══════════════════
+#
+# `:-` YALNIZ değişken TANIMSIZKEN işler. Coolify panelinde tanımlı olan her değişken için
+# buradaki varsayılan hiçbir zaman okunmaz — yani bu dosya "yürürlükteki değer" belgesi DEĞİLDİR.
+# Bir kez pahalıya mal oldu: `LOG_CHANNEL: ${LOG_CHANNEL:-stderr}` aylarca ölü kaldı (panelde
+# `stack` tanımlıydı) ve bir gecelik çöküşün günlüklerini yok eden şey buydu.
+#
+# ÖLÇÜLDÜ (2026-08-17, "Sipario Dev" uygulaması): bu dosyadaki **64 değişkenin 62'sinin
+# varsayılanı ÖLÜ**. Yürürlükte olan yalnız ikisi — panelde tanımsız oldukları için:
+#   • YEDEK_DIZIN (/backups)   • YEDEK_TAZELIK_SAAT (30)
+#
+# ÖLÇÜM YÖNTEMİ (tahmin etme, tekrar koş): Coolify API'sinden anahtar listesini al
+# (`list_env_keys`, DEĞERLERİ vermez ama tanımlı olup olmadığını söyler) ve şu listeyle karşılaştır:
+#   grep -o '\${[A-Z_]*:-' docker-compose.prod.yml | sed 's/\${//; s/:-//' | sort -u
+# Kesişimde kalan her satırın varsayılanı ölüdür. (`docker inspect` de çalışır ama sunucuya
+# erişim ister; API yöntemi ucuzdur ve deploy'dan ÖNCE koşulabilir.)
+#
+# 🔴 ÜRETİM SIFIRDAN KURULURKEN DENKLEM TERSİNE DÖNER: panelde hiçbiri tanımlı olmadığı için
+# TÜM varsayılanlar canlanır. Kurulum listesi PLAN.md'deki "SIRADAKİ İŞLER" 0. maddesindedir;
+# oradaki iki tuzak (SIPARIO_*_PASSWORD eklenmesin · LOG_CHANNEL tanımlanmasın) bu yüzden vardır.
+# ══════════════════════════════════════════════════════════════════════════════════════════
+
 # ── Paylaşılan uygulama ortam değişkenleri (YAML anchor) ────────────────────
 # app, queue ve scheduler aynı Laravel uygulamasıdır; üçü de aynı env
 # değişkenlerine ihtiyaç duyar. Tekrarı önlemek için anchor kullanılır.
 x-app-env: &app-env
   APP_NAME: ${APP_NAME:-Sipario}
   APP_ENV: ${APP_ENV:-production}
-  APP_KEY: ${APP_KEY:-base64:Wi45ki1vmGrHW3XQUjFSQbkyNj0I/gGiyxlHlIpg5Wk=}
+  # ⚠️ VARSAYILANI BİLEREK YOK (2026-08-17). Buraya kadar depoda AÇIK YAZAN bir anahtar
+  # duruyordu (`base64:Wi45ki1...`). Panelde `APP_KEY` tanımlı olduğu için dev'de ölüydü —
+  # ama varsayılanlar tam da PANELDE TANIMSIZKEN canlanır, yani üretim SIFIRDAN kurulduğunda.
+  # O senaryoda uygulama, deposu herkese açık bir anahtarla açılırdı: oturum çerezleri ve
+  # şifrelenmiş her yük taklit edilebilir olurdu.
+  #
+  # Varsayılansız bırakmak SESSİZ bir açığı GÜRÜLTÜLÜ bir hataya çevirir: `APP_KEY` yoksa
+  # Laravel açılışta "No application encryption key has been specified" ile DÜŞER. Kurulumu
+  # yapan kişi hatayı görür ve `php artisan key:generate --show` ile gerçek bir anahtar üretir.
+  APP_KEY: ${APP_KEY}
   APP_DEBUG: ${APP_DEBUG:-false}
   APP_URL: ${APP_URL:-https://sipario.com.tr}
   APP_LOCALE: tr
@@ -85,14 +116,66 @@ x-app-env: &app-env
   FILESYSTEM_DISK: ${FILESYSTEM_DISK:-local}
   BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
   # Posta
+  #
+  # ⚠️ BURADA OLMAYAN BİR ANAHTAR, PANELE YAZILSA BİLE CONTAINER'A GİTMEZ. Coolify'ın env
+  # değişkenleri bu dosyadaki `${...}` yerlerine DEĞER BASAR; hiçbir yerde geçmeyen bir anahtar
+  # yalnız panelde durur. ("Dosyada ne yazıyor" ile "container'a ne gidiyor" ayrı sorulardır —
+  # DECISIONS 2026-08-10/2'de bir kez ödendi.)
   MAIL_MAILER: ${MAIL_MAILER:-log}
   MAIL_HOST: ${MAIL_HOST:-}
   MAIL_PORT: ${MAIL_PORT:-587}
   MAIL_USERNAME: ${MAIL_USERNAME:-}
   MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-  MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
+  #
+  # `MAIL_ENCRYPTION` KALDIRILDI — ÖLÜ BİR DÜĞMEYDİ (2026-08-11, vendor kaynağından doğrulandı).
+  # Laravel'in bu sürümünde `MailManager::createSmtpTransport` şemayı YALNIZ PORTTAN türetiyor:
+  #     $scheme = $config['scheme'] ?? null;
+  #     if (! $scheme) { $scheme = ($config['port'] == 465) ? 'smtps' : 'smtp'; }
+  # ve `config/mail.php`in smtp bloğunda `encryption` diye bir anahtar HİÇ YOK. Yani panele
+  # `MAIL_ENCRYPTION=ssl` yazan biri, hiçbir şey yapmayan bir düğmeyi çevirmiş olur — üstelik
+  # yapılandırmayı TAMAMLANMIŞ sanır. Bu, arızadan daha kötüdür: yanlış bir "ayarlandı" hissi.
+  #
+  # Yerine GERÇEKTEN OKUNAN anahtar geçiriliyor. Boş bırakılırsa davranış bugünküyle aynı
+  # (port 465 → `smtps` örtük TLS, diğer portlar → `smtp` + STARTTLS). Yalnız sağlayıcı
+  # standart dışı bir port üzerinde örtük TLS istiyorsa `smtps` diye elle yazılır.
+  MAIL_SCHEME: ${MAIL_SCHEME:-}
+  #
+  # Tek satırlık DSN (`smtp://kullanici:parola@host:587`). Verilirse host/port/kullanıcı/parolayı
+  # EZER — bazı sağlayıcılar panelde bunu tek parça veriyor ve dört alana bölmek hata kaynağı.
+  MAIL_URL: ${MAIL_URL:-}
+  #
+  # SMTP `EHLO` adı. Verilmezse `APP_URL`in host'una düşer (Laravel varsayılanı). Bazı sağlayıcılar
+  # EHLO adı çözülemeyen istemciyi reddeder — o hâlde alan adı elle yazılır.
+  MAIL_EHLO_DOMAIN: ${MAIL_EHLO_DOMAIN:-}
+  #
+  # ⚠️ SAĞLAYICILARIN EN SIK REDDETME SEBEBİ: gönderen adres, kimlik doğrulanan hesapla
+  # UYUŞMUYOR. Varsayılan `noreply@sipario.com.tr`dir; SMTP hesabı başka bir adresse
+  # (Gmail/Yandex/Zoho kutusu gibi) bu değer o adrese ÇEKİLMELİ, yoksa sunucu 550/553 döner.
   MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@sipario.com.tr}
   MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Sipario}
+
+  # ── Yedek bildirimi (2026-08-15) ───────────────────────────────────────────
+  # Günlük yedeğin indirme bağlantısı bu adrese gider. BOŞ BIRAKILIRSA komut gönderim
+  # yapmaz ve HATA ile çıkar — sessizce "başarılı" dönmez (bkz. YedekBaglantisiGonder).
+  # Panelde tanımlanması ZORUNLUDUR; buradaki boş varsayılan yalnız "tanımsız" hâlini
+  # anlamlı kılmak içindir.
+  YEDEK_EPOSTA: ${YEDEK_EPOSTA:-}
+  YEDEK_DIZIN: ${YEDEK_DIZIN:-/backups}
+  YEDEK_TAZELIK_SAAT: ${YEDEK_TAZELIK_SAAT:-30}
+  # Push bildirimi (FCM)
+  #
+  # Firebase hizmet hesabı JSON'unun BASE64 hâli. Boş bırakılırsa push sistemi KAPALIDIR ve bu
+  # bir hata değildir (`config/push.php`): dürtü bu üründe bir HIZLANDIRICIDIR, taşıyıcı değil —
+  # veri mevcut senkronla akmaya devam eder.
+  #
+  # NEDEN BASE64: dosya çok satırlıdır ve `private_key` alanı gömülü `\n` taşır; panelin env
+  # kutusuna ham hâlini yapıştırmak satır sonlarını bozar ve imza SESSİZCE geçersizleşir
+  # (FCM "invalid_grant" der, sebebi görünmez).
+  #
+  # ⚠️ KUYRUK KONTEYNERİNE DE GİDER ve gitmesi ŞARTTIR: gönderim `queue:work` içinde koşar
+  # (`App\Jobs\PushGonderimi`). Bu anchor (`*app-env`) hem `app` hem `queue` tarafından
+  # kullanıldığı için tek yerde tanımlamak yeterli.
+  FCM_HIZMET_HESABI: ${FCM_HIZMET_HESABI:-}
   # Coğrafi kodlama
   GEOCODING_DRIVER: ${GEOCODING_DRIVER:-null}
   GOOGLE_GEOCODER_KEY: ${GOOGLE_GEOCODER_KEY:-}
@@ -129,6 +212,46 @@ x-app-env: &app-env
   SANCTUM_TOKEN_PREFIX: ${SANCTUM_TOKEN_PREFIX:-sipario_}
 
 services:
+  # ── Migration — TEK ATIMLIK, diğer her şeyin ÖNKOŞULU ─────────────────────
+  #
+  # NEDEN AYRI SERVİS (Coolify'ın "post-deployment command"ı yerine): post-deployment adımı
+  # yığın AYAĞA KALKTIKTAN SONRA koşar. Yani `queue` doğduğunda tablolar henüz yoktur ve
+  # `queue:work` ilk işinde `relation "cache" does not exist` ile ölür; docker onu yeniden
+  # başlatır, migration bitene kadar bu döngü sürer.
+  #
+  # ÖLÇÜLDÜ (2026-08-10/2, dev sıfırdan kurulumu): `queue` 2 kez yeniden başladı. Zararsız
+  # görünüyor ama Coolify'ın tavanı 10'dur ve bu sayı MIGRATION SÜRESİNE bağlıdır — veri
+  # büyüdükçe ya da tek bir yavaş migration eklendiğinde 10 aşılır. Aşıldığında ne olduğunu
+  # aynı gün yaşadık: `StopApplication` → `CleanupDocker` → `external` ağ silinir → sonraki
+  # HER deploy "network not found" ile ölür ve panelden çıkış yolu KALMAZ. Yani bu yarış,
+  # üretimi bir saat kapatan zincirin ilk halkasının ta kendisidir.
+  #
+  # `restart: "no"` ZORUNLU: bu servis bitip çıkmalıdır. Yeniden başlatılırsa
+  # `service_completed_successfully` koşulu hiçbir zaman sağlanmaz ve deploy asılı kalır.
+  #
+  # YAN KAZANÇ: migration başarısız olursa deploy DÜŞER. Eskiden yığın ayağa kalkar, migration
+  # ayrı bir adımda düşer ve yarı göçmüş şemayla trafik almaya başlardı.
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    entrypoint: ["php", "/var/www/html/artisan", "migrate", "--database=pgsql_owner", "--force"]
+    environment:
+      <<: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    # Miras healthcheck kapatılır — gerekçesi `queue` servisinde uzun uzun yazılı.
+    # Burada ayrıca anlamsızdır: tek atımlık bir süreç "sağlıklı" olmaz, BİTER.
+    healthcheck:
+      disable: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   # ── Laravel uygulaması (API + site + panel) ───────────────────────────────
   app:
     build:
@@ -136,9 +259,16 @@ services:
       dockerfile: docker/php/Dockerfile
     environment:
       <<: *app-env
+    # Yedek arşivi SALT-OKUNUR (2026-08-15). Panelden yedek indirme route'u
+    # (`panel.yedek.indir`) bu dosyaları okur; `:ro` bilinçlidir — yedeği ÜRETEN tek yer
+    # `backup` sidecar'ıdır ve uygulama tarafından silinebilen bir yedek, yedek değildir.
+    volumes:
+      - sipario_backups:/backups:ro
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
     # GÜNLÜK DÖNDÜRME — `LOG_CHANNEL=stderr`in ZORUNLU eşlikçisi (2026-08-09).
     #
@@ -185,12 +315,45 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
-    entrypoint: ["php", "/var/www/html/artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+    # ⚠️ `--max-time=3600` KALDIRILDI (2026-08-10, sunucuda ÖLÇÜLEREK bulundu).
+    #
+    # ÖLÇÜM: `queue` container'ı `RestartCount=8`, `ExitCode=0`, `OOMKilled=false`, `Error=""`.
+    # Yaratılış 01:36:48, son başlangıç 09:37:16 — 8 saat 28 saniyede TAM 8 yeniden başlatma,
+    # yani saatte bir. `app`, `db`, `scheduler`, `backup` hepsi `RestartCount=0`. Çöküş YOKTU:
+    # `--max-time=3600` işçiye "1 saat sonra kendini sonlandır" der ve o da tam olarak bunu
+    # yapıyordu, çıkış kodu 0 ile.
+    #
+    # NEDEN BU ZARARSIZ DEĞİLDİ — üç halkalı zincir:
+    #   ① Docker `restart: unless-stopped` altında çıkış kodu 0 ile çöküşü AYIRMAZ; `RestartCount`
+    #     her iki halde de artar.
+    #   ② Coolify sayaç arttıysa ÇIKIŞ KODUNA BAKMADAN `last_restart_type = 'crash'` yazar
+    #     (`app/Actions/Docker/GetContainersStatus.php:474-480`) ve sayacı uygulamanın BÜTÜN
+    #     container'larının MAX'ı olarak alır (`:465`) — yani `queue`nun 8'i tüm uygulamanın 8'i
+    #     olur. Sayaç yalnız uygulama tamamen `exited` olunca ya da yeni deploy'da sıfırlanır.
+    #   ③ `restart_count >= max_restart_count` olunca `StopApplication::dispatch(...)` (`:484`).
+    #     Bunun ne demek olduğunu 2026-08-09'da yaşadık: Stop → CleanupDocker → `external` ağ
+    #     silinir → sonraki HER deploy "network not found" ile ölür ve panelden çıkış yolu kalmaz.
+    #
+    # Yani bu bayrak, tavana saatte bir tıklayan bir sayaçtı: ölçüm anında 8/10'daydı ve iki saat
+    # sonra üretimi kendi kendine durduracaktı. Her deploy sayacı sıfırlayıp fitili 10 saat sonrası
+    # için yeniden kuruyordu — arıza bu yüzden aylarca "arada bir" görünüp teşhis edilmedi.
+    #
+    # BELLEK KORUMASI KAYBOLMADI: `queue:work` zaten VARSAYILAN `--memory=128` ile koşar; işçi
+    # gerçekten şiştiğinde yine çıkar ve yine geri gelir. Fark şu: yeniden başlatma bir TAKVİM
+    # olmaktan çıkıp bir OLAY olur. Artık `RestartCount` tırmanıyorsa bir şey ifade eder — ki
+    # `max_restart_count` panelde kapatıldığı için (2026-08-10) tek gösterge o sayı.
+    #
+    # ⚠️ `--max-time`i geri koymak isteyen: önce bu üç halkayı çöz. Bayrağın kendisi doğrudur,
+    # yanlış olan onu DOCKER'ın gözetmenliğine bağlamaktır — Docker "planlı çıkış" diye bir kavram
+    # tanımaz. Doğru yol container İÇİNDE gözetmen (s6/supervisor) koşurmaktır.
+    entrypoint: ["php", "/var/www/html/artisan", "queue:work", "--sleep=3", "--tries=3"]
     environment:
       <<: *app-env
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
     # ⚠️ MİRAS HEALTHCHECK KAPATILDI (2026-08-09, sunucuda ÖLÇÜLEREK bulundu).
     #
@@ -228,9 +391,15 @@ services:
     entrypoint: ["php", "/var/www/html/artisan", "schedule:work"]
     environment:
       <<: *app-env
+    # `yedek:baglanti-gonder` günlük olarak buradan koşar ve arşivi okur (dosya adı, boyut,
+    # tarih). `app` ile aynı gerekçeyle salt-okunur.
+    volumes:
+      - sipario_backups:/backups:ro
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
     # ⚠️ MİRAS HEALTHCHECK KAPATILDI — gerekçesi `queue` servisinde uzun uzun yazılı.
     # Özet: temel imajın HTTP kontrolü bu CLI container'ında sonsuza dek düşüyor, tek başına
@@ -256,8 +425,13 @@ services:
       POSTGRES_DB: ${DB_DATABASE:-sipario}
       POSTGRES_USER: ${DB_OWNER_USERNAME:-sipario_owner}
       POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD}
-      SIPARIO_APP_PASSWORD: ${DB_PASSWORD}
-      SIPARIO_PANEL_PASSWORD: ${DB_PANEL_PASSWORD}
+      # Rol parolaları, uygulamanın BAĞLANDIĞI değişken adlarıyla birebir aynı geçilir.
+      # Eskiden SIPARIO_APP_PASSWORD / SIPARIO_PANEL_PASSWORD diye ikinci bir ad vardı;
+      # kaldırıldı çünkü aynı sırrın iki adı, panelde yalnız birinin güncellenmesine ve
+      # farkın ancak üretimde görülmesine açık kapı bırakıyordu.
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PANEL_PASSWORD: ${DB_PANEL_PASSWORD}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD}
       POSTGRES_INITDB_ARGS: >-
         --locale-provider=icu
         --icu-locale=tr-TR

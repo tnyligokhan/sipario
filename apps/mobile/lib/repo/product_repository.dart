@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../data/app_database.dart';
 import '../data/ids.dart';
 import '../data/outbox.dart';
+import '../data/urun_secenekleri.dart';
 
 /// Ürün yerel CRUD'u (oluştur/düzenle/pasifle). Yerel yazma + outbox aynı transaction'da.
 class ProductRepository {
@@ -18,10 +21,12 @@ class ProductRepository {
     String? barcode,
     String? imageUrl,
     String? imageLocalPath,
+    List<UrunSecenegi> secenekler = const [],
   }) async {
     final meta = await db.syncState();
     final at = correctedNowIso(meta.serverTimeOffsetMs);
     final device = meta.deviceId;
+    final secenekMetni = secenekleriYaz(secenekler);
     final id = newId();
 
     await db.transaction(() async {
@@ -33,6 +38,7 @@ class ProductRepository {
             barcode: Value(barcode),
             imageUrl: Value(imageUrl),
             imageLocalPath: Value(imageLocalPath),
+            optionsJson: Value(secenekMetni),
             updatedOccurredAt: at,
             updatedDeviceId: Value(device),
           ));
@@ -42,7 +48,7 @@ class ProductRepository {
           entityId: id,
           occurredAt: at,
           deviceId: device,
-          payload: _payload(id, name, unitPriceKurus, unit, barcode, imageUrl, true));
+          payload: _payload(id, name, unitPriceKurus, unit, barcode, imageUrl, true, secenekMetni));
     });
 
     return id;
@@ -57,10 +63,12 @@ class ProductRepository {
     String? barcode,
     String? imageUrl,
     String? imageLocalPath,
+    List<UrunSecenegi> secenekler = const [],
   }) async {
     final meta = await db.syncState();
     final at = correctedNowIso(meta.serverTimeOffsetMs);
     final device = meta.deviceId;
+    final secenekMetni = secenekleriYaz(secenekler);
 
     await db.transaction(() async {
       await (db.update(db.products)..where((t) => t.id.equals(id))).write(ProductsCompanion(
@@ -70,6 +78,7 @@ class ProductRepository {
         barcode: Value(barcode),
         imageUrl: Value(imageUrl),
         imageLocalPath: Value(imageLocalPath),
+        optionsJson: Value(secenekMetni),
         isActive: Value(isActive),
         updatedOccurredAt: Value(at),
         updatedDeviceId: Value(device),
@@ -80,7 +89,7 @@ class ProductRepository {
           entityId: id,
           occurredAt: at,
           deviceId: device,
-          payload: _payload(id, name, unitPriceKurus, unit, barcode, imageUrl, isActive));
+          payload: _payload(id, name, unitPriceKurus, unit, barcode, imageUrl, isActive, secenekMetni));
     });
   }
 
@@ -105,6 +114,7 @@ class ProductRepository {
     String? barcode,
     String? imageUrl,
     bool isActive,
+    String? optionsJson,
   ) =>
       {
         'id': id,
@@ -114,6 +124,10 @@ class ProductRepository {
         'barcode': barcode,
         'image_url': imageUrl,
         'is_active': isActive,
+        // SEÇENEK LİSTESİ JSON DİZİ olarak gider (metin olarak değil): alanın kendisi zaten
+        // JSON'dur ve metne sarmak sunucuda ikinci bir çözümleme dalı açardı — favori ürünlerde
+        // (2026-08-11) verilen kararın aynısı, gerekçesi `FavoriUrunler` başlığında.
+        'options': optionsJson == null ? null : jsonDecode(optionsJson),
       };
 
   /// Pasifle (silme yerine — geçmiş siparişler satırda fiyat/adı taşıdığından bozulmaz).
@@ -143,6 +157,10 @@ class ProductRepository {
             product.barcode,
             product.imageUrl,
             false,
+            // PASİFLEMEDE SEÇENEK LİSTESİ KORUNUR: ürün silinmiyor, rafa kaldırılıyor. Buraya
+            // `null` geçmek, sunucudaki listeyi sessizce siler ve ürün yeniden aktifleştiğinde
+            // bayi malzemelerini baştan yazmak zorunda kalırdı.
+            product.optionsJson,
           ));
     });
   }

@@ -8,6 +8,7 @@ import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/repo/product_repository.dart';
 import 'package:sipario/screens/day_end_screen.dart';
 import 'package:sipario/screens/isletme/gun_kapatma_sheet.dart';
+import 'package:sipario/screens/isletme/gun_kapsami.dart';
 import 'package:sipario/screens/products/product_form_sheet.dart';
 import 'package:sipario/screens/products/product_list_screen.dart';
 import 'package:sipario/theme/components/atoms.dart';
@@ -31,7 +32,7 @@ void main() {
         await repo.deactivate(eski);
       });
 
-      await ekranaKoy(tester, ProductListScreen(db: db, writable: true));
+      await ekranaKoy(tester, ProductListScreen(db: db, writable: true, rol: 'patron'));
 
       expect(find.text('PASİF'), findsOneWidget, reason: 'pasif ürün rozet taşır');
       expect(find.text(sipTutar(500)), findsOneWidget,
@@ -50,11 +51,16 @@ void main() {
 
       await sheetAc(tester, (ctx) => urunFormuAc(ctx, db: db));
 
-      // Alan sırası: ad · birim fiyat · birim · barkod.
+      // Alan sırası: ad · birim fiyat · barkod.
+      //
+      // BİRİM ARTIK BİR TextField DEĞİL (2026-08-11): serbest metin alanı açılır menüye
+      // dönüştü, yani metin kutusu sayısı 4'ten 3'e düştü ve barkod bir indeks öne kaydı.
+      // Testin eski hâli `at(3)` diyordu ve "index should be less than 3: 3" ile kırılıyordu —
+      // indekse dayalı finder'ın bedeli budur: alan eklenip çıktıkça sessizce kayar.
       final alanlar = find.byType(TextField);
       await tester.enterText(alanlar.at(0), 'Damacana 19 L');
       await tester.enterText(alanlar.at(1), '45');
-      await tester.enterText(alanlar.at(3), '8690123456789');
+      await tester.enterText(alanlar.at(2), '8690123456789');
       await tester.pump();
 
       await dokun(tester, find.text('Kaydet'));
@@ -113,7 +119,7 @@ void main() {
       await sheetAc(tester, (ctx) => urunFormuAc(ctx, db: db));
       await dokun(tester, find.text('Görsel Ekle'));
 
-      expect(find.textContaining('cihaz galerisi eklentisiyle gelecek'), findsOneWidget);
+      expect(find.textContaining('Ürün görseli yakında eklenecek'), findsOneWidget);
       expect(find.text('Görsel yüklendi'), findsNothing,
           reason: 'seçim olmadan "yüklendi" yazmak yalan olurdu');
 
@@ -140,7 +146,7 @@ void main() {
       await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
 
       // CSS `.gs-engel`
-      expect(find.text('Önce açık siparişleri kapatın: 1 açık sipariş var.'), findsOneWidget);
+      expect(find.text('Önce açık siparişleri kapatın: 1 açık sipariş var'), findsOneWidget);
 
       final kapatDugmesi = tester.widget<SipButon>(
         find.widgetWithText(SipButon, 'Günü Kapat'),
@@ -222,7 +228,7 @@ void main() {
       await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
 
       expect(
-        find.textContaining(RegExp(r'^Bugün \d{2}:\d{2} · \d+ teslimat')),
+        find.textContaining(RegExp(r'^Bugün \d{2}:\d{2}, \d+ teslimat')),
         findsOneWidget,
         reason: 'yalnız saat basılınca iki günün kapanışı aynı görünüyordu (tasarım {a.tarih})',
       );
@@ -232,7 +238,11 @@ void main() {
 
     // Ayrı kasa devri ekranı kaldırılınca çekmecenin "Kasa Devri" satırı bu ekrana bağlandı:
     // ekran artık KURYE trafiği alıyor, dolayısıyla rol kapısı ve kapsam ön seçimi BURADA.
-    testWidgets('kurye kendi kapsamında açılır ve kendi hesabını kapatabilir', (tester) async {
+    testWidgets('kurye kendi kapsamında açılır ve hesabını KAPATAMAZ', (tester) async {
+      // DAVRANIŞ 2026-08-11'DE TERSİNE ÇEVRİLDİ (kullanıcı kararı): kurye eskiden kendi
+      // kapsamını kapatabiliyordu ("kendi kasasının kanıtı odur"). Kapanış geri alınamaz bir
+      // mutabakattır ve arşive donar; yanlış sayımla kapatan kuryenin bıraktığı farkı ertesi
+      // gün patron çözemez. Kapatan taraf artık yalnız yöneticidir.
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await kuryeEkle(db, id: 'k1', ad: 'Emre');
@@ -244,7 +254,7 @@ void main() {
         DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'),
       );
 
-      expect(find.text('Kasa Özeti · Emre'), findsOneWidget,
+      expect(find.text('Emre için kasa özeti'), findsOneWidget,
           reason: 'kurye "Tümü"de değil KENDİ kapsamında açılır (çekmeceden Kasa Devri geldi)');
       expect(find.text('Ali'), findsNothing,
           reason: 'kurye başka kuryenin kapsamını segmentte GÖRMEZ (K2)');
@@ -252,31 +262,36 @@ void main() {
           reason: 'açık veresiye dökümü yalnız gün kapsamında çizilir');
 
       final dugme = tester.widget<SipButon>(find.widgetWithText(SipButon, 'Hesabı Kapat'));
-      expect(dugme.onTap, isNotNull, reason: 'kurye kendi kasasının kanıtıdır — kapatabilir');
+      expect(dugme.onTap, isNull, reason: 'kapatma yalnız yöneticidedir (2026-08-11)');
+      expect(
+        find.text('Günü işletme sahibi kapatır. Siz kendi tahsilat ve teslimat '
+            'dökümünüzü görürsünüz.'),
+        findsOneWidget,
+        reason: 'sessizce devre dışı bir düğme sebebini söylemeli',
+      );
 
       await kapat(tester);
     });
 
-    testWidgets('kurye "Tümü" kapsamına geçse bile GÜNÜ kapatamaz', (tester) async {
+    testWidgets('kurye segmentte "Tümü"yü HİÇ göremez — gün hesabı ona kapalıdır',
+        (tester) async {
+      // Şikâyetin kendisi buydu (kullanıcı 2026-08-11): "kurye genel raporu görüyor".
+      // "Tümü" seçeneği kuryede artık ÜRETİLMİYOR; tek kapsamı kaldığı için segment de
+      // çizilmiyor (dokunulunca hiçbir şey değiştirmeyen ölü kontrol sunulmaz).
       final db = AppDatabase(NativeDatabase.memory());
-      await tester.runAsync(() => kuryeEkle(db, id: 'k1', ad: 'Emre'));
+      await tester.runAsync(() async {
+        await kuryeEkle(db, id: 'k1', ad: 'Emre');
+        await kuryeEkle(db, id: 'k2', ad: 'Ali');
+      });
 
       await ekranaKoy(
         tester,
         DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'),
       );
 
-      await tester.tap(find.text('Tümü'));
-      await akislariBekle(tester);
-
-      // Sessizce devre dışı bir düğme kullanıcıya hiçbir şey söylemiyordu: neden yazılı olmalı.
-      expect(
-        find.text(
-            'Bu hesabı yönetici kapatır; siz yalnız kendi kurye hesabınızı kapatabilirsiniz.'),
-        findsOneWidget,
-      );
-      final dugme = tester.widget<SipButon>(find.widgetWithText(SipButon, 'Günü Kapat'));
-      expect(dugme.onTap, isNull, reason: 'gün hesabı yönetici işidir (K2)');
+      expect(find.text('Tümü'), findsNothing, reason: 'gün hesabı kuryeye kapalı');
+      expect(find.byType(SipSegment), findsNothing, reason: 'tek kapsamda segment çizilmez');
+      expect(find.text('Emre için kasa özeti'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -295,10 +310,24 @@ void main() {
       );
 
       expect(find.text('Kasa Özeti'), findsOneWidget, reason: 'gün kapsamı');
-      expect(find.text('Emre'), findsOneWidget);
-      expect(find.text('Ali'), findsOneWidget);
       final dugme = tester.widget<SipButon>(find.widgetWithText(SipButon, 'Günü Kapat'));
       expect(dugme.onTap, isNotNull);
+
+      // KAPSAM ARTIK AÇILIR LİSTE (2026-08-20): ekipte kim olduğu şeritte değil, seçici
+      // açıldığında görünür. Seçici kapalıyken YALNIZ seçili kapsamın adı yazar.
+      expect(find.text('Tümü'), findsOneWidget, reason: 'yönetici gün hesabıyla açılır');
+      expect(find.text('Emre (Kurye)'), findsNothing, reason: 'liste kapalıyken ad yazmaz');
+
+      await tester.tap(find.byType(GunKapsamSecici));
+      await sheetAnimasyonu(tester);
+
+      // ÜÇ KATMAN: gün geneli · kendi işlerim · elemanlar, sonra kişi kişi herkes.
+      expect(find.text('Kendi işlemlerim'), findsOneWidget);
+      expect(find.text('Elemanlar'), findsOneWidget);
+      expect(find.text('Emre (Kurye)'), findsOneWidget);
+      expect(find.text('Ali (Kurye)'), findsOneWidget);
+      // Patron kendi satırını "Kendi işlemlerim" olarak görür — ikinci kez adıyla listelenmez.
+      expect(find.text('Patron (Patron)'), findsNothing);
 
       await kapat(tester);
     });
@@ -321,7 +350,7 @@ void main() {
       await akislariBekle(tester, tur: 2);
 
       expect(find.text('EKSİK'), findsOneWidget, reason: 'CSS .kd-fark eksik şeridi');
-      expect(find.text('Eksik tutar kanıt olarak arşive geçer; kapatma engellenmez.'),
+      expect(find.text('Eksik tutar kayda geçer'),
           findsOneWidget);
 
       final dugme = tester.widget<SipButon>(

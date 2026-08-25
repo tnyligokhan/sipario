@@ -74,9 +74,22 @@ class AraTahsilatKarti extends StatelessWidget {
     required this.kayitlar,
     required this.toplamKurus,
     this.kuryeAdiYaz = true,
+    this.onIptal,
   });
 
   final List<AraTahsilatKaydi> kayitlar;
+
+  /// Bir satırın İPTAL eylemini üreten yapıcı (kullanıcı kararı 2026-08-13). null ise hiçbir satır
+  /// dokunulabilir DEĞİLDİR — kurye görünümü budur.
+  ///
+  /// NEDEN DOĞRUDAN `VoidCallback` DEĞİL: eylem kayda bağlıdır (hangi tahsilat iptal edilecek) ve
+  /// kart hangi satırın hangi kayda karşılık geldiğini zaten biliyor. Yapıcıyı ekran verir, kart
+  /// yalnız çağırır — böylece onay metnini (tutar + kurye + saat) ve yetkiyi kart değil ekran
+  /// kurar. Kart hiçbir yetki KARARI vermez, bu dosyanın kuralı budur.
+  ///
+  /// İPTALLİ SATIR TEKRAR İPTAL EDİLEMEZ: aşağıda yapıcı o satırlar için hiç çağrılmaz. İkinci
+  /// bir iptal, parayı ikinci kez geri vermek olurdu.
+  final VoidCallback Function(AraTahsilatKaydi)? onIptal;
 
   /// Toplam REPO'DAN gelir (`GunSonuGorunumu.araTahsilatToplamiKurus`), kart listeyi KENDİ
   /// toplamaz. Bugün ikisi aynı sonucu verirdi; ama bir tur önce ekranda tam olarak iki para
@@ -97,12 +110,24 @@ class AraTahsilatKarti extends StatelessWidget {
             // okunan bir bloğa çevirirdi. Sıfır farkta hiç yazılmaz — iskonto satırındaki desenin
             // aynısı: farksız tahsilat çoğunluktur ve "fark 0,00 ₺" her satıra cevapsız bir soru
             // eklerdi.
+            //
+            // İPTAL EDİLMİŞ SATIRDA FARK YAZILMAZ ve "iptal edildi" onun YERİNE geçer: fark,
+            // duran bir tahsilatın kuryede ne bıraktığını anlatır ("kuryede kalan 30,00 ₺").
+            // Geri alınmış bir tahsilatın yanında o cümle düpedüz yanlıştır — o para kuryede
+            // kalmadı, TAMAMI kuryeye geri döndü. Kanıt kaybolmuyor: satırın kendisi (tutarı,
+            // saati, kuryesi) üstü çizili olarak yerinde duruyor.
             etiket: [
               if (kuryeAdiYaz && k.kuryeAdi.isNotEmpty) k.kuryeAdi,
               araTahsilatSaati(k.occurredAt),
-              ?araTahsilatFarki(k.diffKurus),
-            ].join(' · '),
+              if (k.iptalEdildi) 'iptal edildi' else ?araTahsilatFarki(k.diffKurus),
+            ].join(', '),
             deger: sipTutar(k.countedCashKurus),
+            gecersiz: k.iptalEdildi,
+            onTap: k.iptalEdildi ? null : onIptal?.call(k),
+            // İşaret chevron DEĞİL: chevron "detay açılır" der, buradaki dokunuş ise bir
+            // DÜZELTME başlatır. `ban` (üstü çizili daire) bilinçli olarak `trash` değildir —
+            // bu ekranda hiçbir şey SİLİNMİYOR (BRIEF kırmızı çizgi #2); iptal, ters kayıttır.
+            sagIkon: SipIcons.ban,
           ),
         // Toplam satırı TEK kayıtta da çizilir — okuyan kişi satırları kafasında toplamasın.
         //
@@ -127,8 +152,13 @@ class AraTahsilatKarti extends StatelessWidget {
         // aldım"), sheet'teki sayı ise ARİTMETİĞİ kapatır (gün nakdi − teslim edilen = beklenen).
         // Etiket o yüzden "ara tahsilat" der — "alınan toplam" deseydi iki farklı rakam aynı
         // kelimeyle anılır ve bayi hangisinin doğru olduğunu sorardı.
+        //
+        // SAYI, TOPLAMIN SAYDIĞI SATIRLARI sayar — `kayitlar.length` DEĞİL. İptal edilmiş satır
+        // listede görünmeye devam eder ama toplama girmez; ikisini ayrı ölçütle yazsaydık kart
+        // "2 tahsilat" der, altındaki tutar tek tahsilatı gösterirdi ve bayi hangisinin doğru
+        // olduğunu soramazdı (bu ekranda tam olarak bu hata bir kez yaşandı).
         DegerSatiri(
-          etiket: 'Ara tahsilat toplamı · ${kayitlar.length} tahsilat',
+          etiket: '${kayitlar.where((k) => !k.iptalEdildi).length} ara tahsilatın toplamı',
           deger: sipTutar(toplamKurus),
           toplam: true,
         ),
@@ -167,10 +197,16 @@ class ArsivSatiri extends StatelessWidget {
     required this.kapsamAdi,
     required this.bugun,
     this.onTap,
+    this.geriAlinmis = false,
   });
 
   final DayClosing kapanis;
   final String kapsamAdi;
+
+  /// Bu kapanış SONRADAN geri alındı mı (2026-08-18). Satır LİSTEDE KALIR ama artık geçerli
+  /// bir mutabakat değildir — para kayıtlarında düzeltme silmeyle değil ters kayıtla yapılır,
+  /// yani hata kanıt olarak görünür kalmalı (BRIEF).
+  final bool geriAlinmis;
 
   /// "Bugün/Dün" kelimesinin referans günü — DÜZELTİLMİŞ saatten gelmeli (`bugunTrDuzeltilmis`).
   /// Kaydın GÜNÜ düzeltilmiş saatten çıkıyor; etiketi cihaz saatinden çıkarmak, telefonu ileri
@@ -192,11 +228,13 @@ class ArsivSatiri extends StatelessWidget {
       child: Row(
         children: [
           SipIkonKutu(
-            ikon: SipIcons.lock,
+            // GERİ ALINMIŞ KAPANIŞ KİLİT DEĞİL, AÇIK KAPI ANLATIR: aynı ikonu bırakmak satırı
+            // hâlâ kilitli bir hesap gibi gösterirdi ve bu, tam olarak ters bilgidir.
+            ikon: geriAlinmis ? SipIcons.info : SipIcons.lock,
             cap: 30,
             ikonBoyut: 15,
-            zemin: t.surface2,
-            renk: t.muted,
+            zemin: geriAlinmis ? t.warnSoft : t.surface2,
+            renk: geriAlinmis ? t.warn : t.muted,
           ),
           const SizedBox(width: 11),
           Expanded(
@@ -204,17 +242,37 @@ class ArsivSatiri extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  kapsamAdi,
-                  style: SipText.metin(13.5, w: 700).copyWith(color: t.ink),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        kapsamAdi,
+                        style: SipText.metin(13.5, w: 700).copyWith(color: t.ink),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (geriAlinmis) ...[
+                      const SizedBox(width: SipSpace.sm),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: t.warnSoft,
+                          borderRadius: SipRadius.brHap,
+                        ),
+                        child: Text(
+                          'Geri alındı',
+                          style: SipText.metin(10, w: 700).copyWith(color: t.warn),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
                   child: Text(
-                    '${gunSaatBicimi(k.occurredAt, bugun: bugun)} · ${k.deliveryCount} teslimat'
-                    '${farkli ? ' · fark ${sipTutar(k.diffKurus)}' : ''}',
+                    '${gunSaatBicimi(k.occurredAt, bugun: bugun)}, ${k.deliveryCount} teslimat'
+                    '${farkli ? ', ${sipTutar(k.diffKurus)} fark' : ''}',
                     style: SipText.yardimci.copyWith(color: t.muted),
                   ),
                 ),
@@ -224,7 +282,12 @@ class ArsivSatiri extends StatelessWidget {
           const SizedBox(width: SipSpace.md),
           Text(
             sipTutar(k.totalCollectedKurus),
-            style: SipText.tutar(13.5).copyWith(color: t.ink),
+            style: SipText.tutar(13.5).copyWith(
+              color: geriAlinmis ? t.muted : t.ink,
+              // ÜSTÜ ÇİZİLİ: rakam artık geçerli değil ama okunabilir kalmalı — silmek yerine
+              // "bu sayı iptal" demenin en kısa yolu (ara tahsilat iptalinde de aynı dil).
+              decoration: geriAlinmis ? TextDecoration.lineThrough : null,
+            ),
           ),
           const SizedBox(width: SipSpace.sm),
           SipIcon(SipIcons.chevR, boyut: 16, kalinlik: 2, renk: t.line2),
@@ -256,10 +319,20 @@ class KapatmaEngeli extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // METİN 2026-08-11'DE DEĞİŞTİ. Eskisi "siz yalnız kendi kurye hesabınızı kapatabilirsiniz"
+    // diyordu ve o cümle artık YANLIŞ: kurye hiçbir hesabı kapatamıyor (kullanıcı kararı).
+    // Yanlış kalsaydı ekran kuryeye var olmayan bir yol tarif eder, kurye onu arar ve
+    // bulamayınca uygulamanın bozuk olduğunu düşünürdü.
+    //
+    // 2026-08-13'te ARA TAHSİLAT DA kuryeden alındı; metin YİNE DE DEĞİŞMİYOR ve bu bilinçli:
+    // cümle kuryeye "ne YAPAMAZSIN"ı değil "ne YAPABİLİRSİN"i söylüyor ve o taraf aynı kaldı —
+    // kurye hâlâ kendi dökümünü görür. Kaldırılan yolu tarif eden bir cümle eklemek ("ara
+    // tahsilat da veremezsiniz"), kuryenin hiç aramadığı bir kapının kapalı olduğunu duyurmak
+    // olurdu.
     final metin = rolEngeli
-        ? 'Bu hesabı yönetici kapatır; siz yalnız kendi kurye hesabınızı kapatabilirsiniz.'
+        ? 'Günü işletme sahibi kapatır. Siz kendi tahsilat ve teslimat dökümünüzü görürsünüz.'
         : acikSiparis > 0
-            ? 'Önce açık siparişleri kapatın: $acikSiparis açık sipariş var.'
+            ? 'Önce açık siparişleri kapatın: $acikSiparis açık sipariş var'
             : 'Önce açık kurye hesaplarını kapatın: ${acikKuryeler.join(', ')}';
     return _EngelKutusu(metin: metin);
   }
@@ -285,7 +358,12 @@ class GunOzetiAltCubugu extends StatelessWidget {
     required this.toplam,
     required this.onKapat,
     this.onAraTahsilat,
+    this.bugunMu = true,
   });
+
+  /// Görüntülenen gün bugün mü (2026-08-25 gün gezinmesi)? Yalnız toplam etiketini değiştirir —
+  /// geçmiş bir günde "Bugünkü tahsilat" yazmak, bayiye o anki kasasını okuduğunu sandırırdı.
+  final bool bugunMu;
 
   final bool kapsamKapali;
   final bool gunKapali;
@@ -303,9 +381,13 @@ class GunOzetiAltCubugu extends StatelessWidget {
   final int toplam;
   final VoidCallback onKapat;
 
-  /// null ise ara tahsilat düğmesi HİÇ ÇİZİLMEZ (tek kişilik bayi, gün kapsamı, yetkisiz kullanıcı
-  /// ya da kapatılmış kapsam). Pasif çizmek yerine hiç çizmemek bilinçli: bu ekranın çoğu
-  /// kullanıcısı tek kişilik bayidir ve onlar için "kuryeden ara tahsilat" diye bir kavram yoktur.
+  /// null ise ara tahsilat düğmesi HİÇ ÇİZİLMEZ (tek kişilik bayi, gün kapsamı, KURYE ya da
+  /// kapatılmış kapsam). Pasif çizmek yerine hiç çizmemek bilinçli: bu ekranın çoğu kullanıcısı
+  /// tek kişilik bayidir ve onlar için "kuryeden ara tahsilat" diye bir kavram yoktur.
+  ///
+  /// "yetkisiz kullanıcı" 2026-08-13'te "KURYE" oldu ve bu bir kelime düzeltmesinden fazlası:
+  /// ara tahsilatı artık YALNIZ yönetici alır (`yetkiler().gunuKapatma`), yani kurye — kendi
+  /// kapsamında bile olsa — bu düğmeyi hiç görmez.
   final VoidCallback? onAraTahsilat;
 
   @override
@@ -324,8 +406,8 @@ class GunOzetiAltCubugu extends StatelessWidget {
               Flexible(
                 child: Text(
                   gunKapali
-                      ? 'Gün kapatıldı — arşivde'
-                      : '$kuryeAdi hesabı kapatıldı — arşivde',
+                      ? 'Gün kapatıldı, arşivde'
+                      : '$kuryeAdi hesabı kapatıldı, arşivde',
                   style: SipText.metin(13.5, w: 800).copyWith(color: t.ok),
                 ),
               ),
@@ -354,7 +436,9 @@ class GunOzetiAltCubugu extends StatelessWidget {
       SizedBox(
         width: onAraTahsilat == null ? 150 : 108,
         child: AltCubukToplam(
-          etiket: kuryeAdi == null ? 'Bugün tahsilat' : '$kuryeAdi · tahsilat',
+          etiket: kuryeAdi == null
+              ? (bugunMu ? 'Bugünkü tahsilat' : 'Günün tahsilatı')
+              : '$kuryeAdi için tahsilat',
           deger: sipTutar(toplam),
         ),
       ),

@@ -4,10 +4,13 @@
 // Satıra dokununca ad/telefon/aktiflik/giriş bilgileri düzenlenir.
 //
 // YETKİLER: Ekran kalabalığını önlemek için kurye yetkileri ayrı bir sayfaya (KuryeYetkileriEkrani)
-// taşındı; bu ekrandan üstteki "Yetkiler" butonu veya Yetki Matrisi kartı ile doğrudan erişilir.
+// taşındı. İKİ GİRİŞ VARDIR ve karıştırılmamalıdır:
+//   • Üstteki "Varsayılan Yetkiler" / Yetki Matrisi kartı → BAYİ VARSAYILANI (yeni kurye şablonu).
+//   • Kurye satırındaki "Yetkiler" çipi → YALNIZ o kuryenin ezmeleri (üç durumlu).
+// Kişiye özel ezmesi olan kurye satırında "özel yetki" rozeti çıkar: patron kimin ayrık
+// olduğunu listeye bakarak görebilmelidir, tek tek ekran açarak değil.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../auth/session.dart';
 import '../../data/app_database.dart';
@@ -21,10 +24,17 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import 'isletme_atomlari.dart';
+import 'kurye_formu.dart';
+
+// Form yüzeyi yeniden dışa aktarılır: bölme kimsenin import satırını değiştirmesin.
+// `kuryeFormHatalari` saf bir doğrulama kuralıdır ve `isletme_kurallari_test.dart` onu bu
+// kapıdan çağırıyor — sözleşme dosya bölünürken korunur (aynı desen: `order_queries.dart`).
+export 'kurye_formu.dart';
+import 'kurye_karti.dart';
 import 'kurye_yetkileri_ekrani.dart';
 
 /// Salt-okunur kip uyarısı — ürün/muaf ekranlarındaki eşdeğerleriyle aynı dil.
-const String kuryeSaltOkunurUyarisi = 'Salt-okunur kip: kurye kaydı değiştirilemez.';
+const String kuryeSaltOkunurUyarisi = 'Aboneliğiniz sona erdiği için kayıt değiştirilemiyor';
 
 /// Kimlik güncelleme dikişi — testler bunu sahteler.
 Future<bool> Function({
@@ -43,7 +53,7 @@ Future<bool> _sunucudaKimlikGuncelle({
   final meta = await db.syncState();
   final token = meta.authToken;
   if (token == null) {
-    throw TeamApiException('Oturum bulunamadı — çıkış yapıp yeniden girin.');
+    throw TeamApiException('Oturumunuz bulunamadı. Çıkış yapıp yeniden girin.');
   }
 
   return TeamApi(baseUrl: Session.baseUrlOf(meta), token: token)
@@ -55,7 +65,7 @@ class KuryelerEkrani extends StatelessWidget {
     super.key,
     required this.db,
     this.writable = true,
-    this.rol,
+    required this.rol,
   });
 
   final AppDatabase db;
@@ -66,13 +76,16 @@ class KuryelerEkrani extends StatelessWidget {
   /// Oturumdaki rol; kurye bu ekranı göremez (K2).
   final String? rol;
 
-  void _yetkileriAc(BuildContext context) {
+  /// [kurye] verilirse KİŞİ kipi, verilmezse bayi varsayılanı açılır.
+  void _yetkileriAc(BuildContext context, {User? kurye}) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => KuryeYetkileriEkrani(
           db: db,
           writable: writable,
           rol: rol,
+          userId: kurye?.id,
+          kuryeAdi: kurye?.name,
         ),
       ),
     );
@@ -101,11 +114,11 @@ class KuryelerEkrani extends StatelessWidget {
                     baslik: 'Kuryeler',
                     alt: kuryeler == null
                         ? null
-                        : '$aktif aktif · ${kuryeler.length} kayıtlı',
+                        : '${kuryeler.length} kayıtlı, $aktif aktif',
                     onGeri: () => Navigator.of(context).maybePop(),
                     sag: [
                       SipMetinButon(
-                        etiket: 'Yetkiler',
+                        etiket: 'Varsayılan Yetkiler',
                         ikon: SipIcons.lock,
                         onTap: () => _yetkileriAc(context),
                       ),
@@ -120,6 +133,7 @@ class KuryelerEkrani extends StatelessWidget {
                             aktifSayi: aktif,
                             writable: writable,
                             onYetkileriAc: () => _yetkileriAc(context),
+                            onKuryeYetkileriAc: (k) => _yetkileriAc(context, kurye: k),
                           ),
                   ),
                 ],
@@ -145,6 +159,7 @@ class _Liste extends StatelessWidget {
     required this.aktifSayi,
     required this.writable,
     required this.onYetkileriAc,
+    required this.onKuryeYetkileriAc,
   });
 
   final CourierRepository repo;
@@ -152,6 +167,7 @@ class _Liste extends StatelessWidget {
   final int aktifSayi;
   final bool writable;
   final VoidCallback onYetkileriAc;
+  final ValueChanged<User> onKuryeYetkileriAc;
 
   Future<void> _ac(BuildContext context, User kurye) async {
     if (!writable) {
@@ -189,7 +205,7 @@ class _Liste extends StatelessWidget {
       SipToast.goster(
         context,
         oturumDustu
-            ? 'Giriş bilgileri güncellendi — kuryenin oturumu kapandı, yeni parolayla girmeli'
+            ? 'Giriş bilgileri güncellendi. Kurye yeni parolayla tekrar girmeli'
             : 'Kurye kaydedildi',
       );
     } on TeamApiException catch (e) {
@@ -211,8 +227,7 @@ class _Liste extends StatelessWidget {
         const SipNotKutusu(
           ikon: SipIcons.info,
           tur: SipNotTuru.bilgi,
-          metin: 'Yeni kurye hesabı yönetim panelinden açılır — bu ekrandan kurye EKLENEMEZ. '
-              'Buradan ad, telefon ve aktiflik düzenlenir; kurye silinmez, pasife alınır.',
+          metin: 'Yeni hesap web panelinden açılır. Burada ad, telefon ve durum düzenlenir.',
         ),
         const SizedBox(height: SipSpace.lg),
 
@@ -234,9 +249,10 @@ class _Liste extends StatelessWidget {
             for (var i = 0; i < kuryeler.length; i++)
               Padding(
                 padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
-                child: _ModernKuryeKarti(
+                child: KuryeKarti(
                   kurye: kuryeler[i],
                   onTap: () => _ac(context, kuryeler[i]),
+                  onYetkiler: () => onKuryeYetkileriAc(kuryeler[i]),
                 ),
               ),
           ],
@@ -303,7 +319,7 @@ class _YetkiMatrisiHeroKarti extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Tüm kuryeler için geçerli dinamik kuralları yönet',
+                  'Tüm kuryeler için geçerli, kişiye özel ayarla değiştirilebilir',
                   style: SipText.metin(11.5, w: 500).copyWith(color: t.muted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -326,374 +342,3 @@ class _YetkiMatrisiHeroKarti extends StatelessWidget {
   }
 }
 
-/// Modern Kurye Kartı — Temiz avatar, durum noktası, telefon, kullanıcı adı ve rozet
-class _ModernKuryeKarti extends StatelessWidget {
-  const _ModernKuryeKarti({required this.kurye, required this.onTap});
-
-  final User kurye;
-  final VoidCallback onTap;
-
-  String _basHarfler(String ad) {
-    final temiz = ad.trim();
-    if (temiz.isEmpty) return 'K';
-    final parcalar = temiz.split(RegExp(r'\s+'));
-    if (parcalar.length >= 2) {
-      return (parcalar[0][0] + parcalar[1][0]).toUpperCase();
-    }
-    return temiz.substring(0, temiz.length.clamp(1, 2)).toUpperCase();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    final aktif = kuryeAktifMi(kurye);
-    final tel = (kurye.phone ?? '').trim();
-    final nick = kurye.username.trim();
-
-    return Opacity(
-      opacity: aktif ? 1.0 : 0.65,
-      child: SipDokun(
-        onTap: onTap,
-        zemin: t.surface,
-        basiliZemin: t.surface2,
-        radius: SipRadius.br3,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            // Sol Avatar & Durum Göstergesi
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: aktif ? t.accentSoft : t.surface2,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _basHarfler(kurye.name),
-                    style: SipText.metin(14, w: 700).copyWith(
-                      color: aktif ? t.accent : t.muted,
-                    ),
-                  ),
-                ),
-                // Aktif/Pasif Noktası
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: aktif ? t.ok : t.muted,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: t.surface, width: 2),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: SipSpace.md),
-
-            // Orta Bilgi Alanı
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // İsim & Durum Rozeti
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          kurye.name,
-                          style: SipText.metin(14.5, w: 700).copyWith(
-                            color: t.ink,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (!aktif) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: t.surface2,
-                            borderRadius: SipRadius.brHap,
-                          ),
-                          child: Text(
-                            'PASİF',
-                            style: SipText.metin(10, w: 700).copyWith(
-                              color: t.muted,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-
-                  // Telefon & Kullanıcı Adı
-                  Row(
-                    children: [
-                      if (tel.isNotEmpty) ...[
-                        SipIcon(SipIcons.phone, boyut: 11, kalinlik: 2, renk: t.muted),
-                        const SizedBox(width: 4),
-                        Text(
-                          sipTelefon(tel),
-                          style: SipText.metin(12, w: 500).copyWith(color: t.ink2),
-                        ),
-                      ] else ...[
-                        Text(
-                          'Telefon yok',
-                          style: SipText.metin(12, w: 500).copyWith(color: t.muted),
-                        ),
-                      ],
-                      if (nick.isNotEmpty) ...[
-                        Text(
-                          ' · ',
-                          style: SipText.metin(12, w: 700).copyWith(color: t.line2),
-                        ),
-                        Flexible(
-                          child: Text(
-                            '@$nick',
-                            style: SipText.metin(11.5, w: 600).copyWith(color: t.muted),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: SipSpace.sm),
-
-            // Sağ Düzenleme Oku
-            SipIcon(
-              SipIcons.right,
-              boyut: 16,
-              kalinlik: 2.0,
-              renk: t.muted,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-// Düzenleme sheet'i — CSS `.sb-form`
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-
-@immutable
-class KuryeGirdisi {
-  const KuryeGirdisi({
-    required this.ad,
-    required this.telefon,
-    required this.aktif,
-    required this.kullaniciAdi,
-    this.parola,
-  });
-
-  final String ad;
-  final String? telefon;
-  final bool aktif;
-  final String kullaniciAdi;
-  final String? parola;
-}
-
-Future<KuryeGirdisi?> kuryeFormuAc(
-  BuildContext context, {
-  required User kurye,
-  required List<User> tumKuryeler,
-}) {
-  return sipSheet<KuryeGirdisi>(
-    context,
-    baslik: 'Kuryeyi Düzenle',
-    govde: (ctx) => _KuryeFormu(kurye: kurye, tumKuryeler: tumKuryeler),
-  );
-}
-
-class _KuryeFormu extends StatefulWidget {
-  const _KuryeFormu({required this.kurye, required this.tumKuryeler});
-
-  final User kurye;
-  final List<User> tumKuryeler;
-
-  @override
-  State<_KuryeFormu> createState() => _KuryeFormuState();
-}
-
-class _KuryeFormuState extends State<_KuryeFormu> {
-  late final TextEditingController _ad = TextEditingController(text: widget.kurye.name);
-  late final TextEditingController _telefon =
-      TextEditingController(text: widget.kurye.phone ?? '');
-
-  late final TextEditingController _kullaniciAdi =
-      TextEditingController(text: widget.kurye.username);
-
-  final TextEditingController _parola = TextEditingController();
-
-  late bool _aktif = kuryeAktifMi(widget.kurye);
-
-  Map<String, String> _hata = const {};
-
-  @override
-  void dispose() {
-    _ad.dispose();
-    _telefon.dispose();
-    _kullaniciAdi.dispose();
-    _parola.dispose();
-    super.dispose();
-  }
-
-  void _temizle() {
-    if (_hata.isNotEmpty) setState(() => _hata = const {});
-  }
-
-  void _kaydet() {
-    final hatalar = kuryeFormHatalari(
-      ad: _ad.text,
-      telefon: _telefon.text,
-      aktif: _aktif,
-      duzenlenenId: widget.kurye.id,
-      tumKuryeler: widget.tumKuryeler,
-      kullaniciAdi: _kullaniciAdi.text,
-      parola: _parola.text,
-    );
-    if (hatalar.isNotEmpty) {
-      setState(() => _hata = hatalar);
-      return;
-    }
-    final tel = _telefon.text.trim();
-    final parola = _parola.text;
-    Navigator.of(context).pop(KuryeGirdisi(
-      ad: _ad.text.trim(),
-      telefon: tel.isEmpty ? null : tel,
-      aktif: _aktif,
-      kullaniciAdi: _kullaniciAdi.text.trim().toLowerCase(),
-      parola: parola.isEmpty ? null : parola,
-    ));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SipFormEtiket('AD', ustBosluk: 2),
-        SipInput(
-          controller: _ad,
-          ipucu: 'Ör. Emre',
-          hata: _hata.containsKey('ad'),
-          otomatikOdak: true,
-          onChanged: (_) => _temizle(),
-        ),
-        if (_hata['ad'] != null) AlanNotu(_hata['ad']!),
-
-        const SipFormEtiket('TELEFON'),
-        SipInput(
-          controller: _telefon,
-          ipucu: '05XX XXX XX XX',
-          klavye: TextInputType.phone,
-          girdiFiltreleri: [FilteringTextInputFormatter.allow(RegExp(r'[0-9 +()-]'))],
-          stil: SipText.tutar(15, w: 500),
-          hata: _hata.containsKey('telefon'),
-          onChanged: (_) => _temizle(),
-        ),
-        if (_hata['telefon'] != null) AlanNotu(_hata['telefon']!),
-
-        AktifToggle(
-          acik: _aktif,
-          etiket: _aktif ? 'Aktif — sipariş atanabilir' : 'Pasif — atama kapalı',
-          onDegis: (v) => setState(() {
-            _aktif = v;
-            _hata = const {};
-          }),
-        ),
-        if (_hata['aktif'] != null) AlanNotu(_hata['aktif']!),
-
-        // ── GİRİŞ BİLGİLERİ ───────────────────────────────────────────────
-        const SipBolumBaslik('Giriş Bilgileri', ustBosluk: 20),
-        const SipFormEtiket('KULLANICI ADI', ustBosluk: 2),
-        SipInput(
-          controller: _kullaniciAdi,
-          ipucu: 'Ör. emre',
-          hata: _hata.containsKey('kullaniciAdi'),
-          girdiFiltreleri: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._-]'))],
-          onChanged: (_) => _temizle(),
-        ),
-        if (_hata['kullaniciAdi'] != null) AlanNotu(_hata['kullaniciAdi']!),
-
-        const SipFormEtiket('YENİ PAROLA'),
-        SipInput(
-          controller: _parola,
-          ipucu: 'Değiştirmeyecekseniz boş bırakın',
-          hata: _hata.containsKey('parola'),
-          onChanged: (_) => _temizle(),
-        ),
-        if (_hata['parola'] != null)
-          AlanNotu(_hata['parola']!)
-        else
-          const AlanNotu(
-            'Parola değiştirilirse kuryenin açık oturumu kapanır ve yeni parolayla girmesi '
-            'gerekir. Giriş bilgileri yalnız internet varken değiştirilebilir.',
-            tur: AlanNotuTuru.bilgi,
-          ),
-
-        const SizedBox(height: SipSpace.x3),
-        SipButon(etiket: 'Kaydet', onTap: _kaydet),
-      ],
-    );
-  }
-}
-
-/// Kurye formu doğrulaması — saf test edilebilir.
-Map<String, String> kuryeFormHatalari({
-  required String ad,
-  required String telefon,
-  required bool aktif,
-  required String duzenlenenId,
-  required List<User> tumKuryeler,
-  String? kullaniciAdi,
-  String? parola,
-}) {
-  final hatalar = <String, String>{};
-  final temizAd = ad.trim();
-  final digerleri = tumKuryeler.where((k) => k.id != duzenlenenId);
-
-  if (temizAd.length < 2) {
-    hatalar['ad'] = 'Kurye adı girin (en az 2 karakter)';
-  } else if (digerleri.any((k) => trKucuk(k.name) == trKucuk(temizAd))) {
-    hatalar['ad'] = 'Bu adla kayıtlı kurye zaten var';
-  }
-
-  final haneler = telefon.replaceAll(RegExp(r'\D'), '');
-  if (telefon.trim().isNotEmpty && (haneler.length < 10 || haneler.length > 11)) {
-    hatalar['telefon'] = 'Geçerli telefon girin (10-11 hane) ya da boş bırakın';
-  }
-
-  if (!aktif && !digerleri.any(kuryeAktifMi)) {
-    hatalar['aktif'] = 'Son aktif kurye pasif yapılamaz — sipariş atanacak kimse kalmaz';
-  }
-
-  if (kullaniciAdi != null && kullaniciAdi.trim().isNotEmpty) {
-    final k = kullaniciAdi.trim().toLowerCase();
-    if (!RegExp(r'^[a-z0-9._-]{3,60}$').hasMatch(k)) {
-      hatalar['kullaniciAdi'] =
-          'Kullanıcı adı en az 3 karakter; harf, rakam, nokta, tire ve alt çizgi kullanılabilir';
-    }
-  }
-
-  if (parola != null && parola.isNotEmpty && parola.length < 4) {
-    hatalar['parola'] = 'Parola en az 4 karakter olmalı';
-  }
-
-  return hatalar;
-}

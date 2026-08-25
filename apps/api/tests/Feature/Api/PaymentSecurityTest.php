@@ -29,6 +29,27 @@ class PaymentSecurityTest extends ApiTestCase
         return new IyzicoPaymentGateway('test-key', 'test-secret', self::BASE);
     }
 
+    /**
+     * iyzico'nun döneceği "doğru" tutar — YAPILANDIRMADAN türetilir, elle yazılmaz.
+     *
+     * BURADA BİR ARIZA ÖDENDİ (2026-08-10'da bulundu). Bu dosya tutarı `'1200.00'` diye SABİT
+     * yazıyordu; yıllık fiyat 2026-08-04'te 5.988 ₺'ye çıkınca `verify()`in tutar denetimi haklı
+     * olarak eşleşmeyi reddetti ve `verify_govde_paymentstatusuna_guvenmez_iyzico_retrievei_esastir`
+     * KIRMIZIYA döndü — yani bir GÜVENLİK testi, koruduğu davranış hâlâ doğruyken bozuldu.
+     *
+     * Daha sinsisi kardeş testlerdeydi: "gövdedeki SUCCESS iyzico'nun FAILURE'ını ezemez" iddiası
+     * `assertFalse` beklediği için YEŞİL kalmaya devam etti — ama artık iddiasını kanıtlamıyordu,
+     * çünkü sonuç zaten TUTAR yüzünden `false`tu. Bu depoda adı konmuş bir hata sınıfı: bir testin
+     * yeşil olması, doğru şeyi ölçtüğü anlamına gelmez (`a − b == c` vakumunun ikizi).
+     *
+     * Fiyat bir İŞ KARARIDIR ve değişecektir (yapılandırma dosyası bunu açıkça söylüyor); bu
+     * yüzden testin fiyat sabiti taşıması, bir sonraki zam gününde aynı arızayı geri getirirdi.
+     */
+    private function dogruTutar(): string
+    {
+        return number_format(((int) config('subscription.price_kurus')) / 100, 2, '.', '');
+    }
+
     #[Test]
     public function forge_edilen_callback_govdesi_aboneligi_aktive_etmez(): void
     {
@@ -43,7 +64,8 @@ class PaymentSecurityTest extends ApiTestCase
 
         // Saldırganın hedeflediği 'initiated' kaydı (owner ile seed).
         $this->asOwner(fn () => SubscriptionPayment::query()->create([
-            'tenant_id' => $tenantId, 'amount_kurus' => 120000, 'currency' => 'TRY',
+            'tenant_id' => $tenantId, 'amount_kurus' => (int) config('subscription.price_kurus'),
+            'currency' => 'TRY',
             'provider' => 'iyzico', 'provider_ref' => 'forged-ref', 'status' => 'initiated',
             'occurred_at' => now(),
         ]));
@@ -73,7 +95,7 @@ class PaymentSecurityTest extends ApiTestCase
         Http::fake([
             '*/checkoutform/auth/ecom/detail' => Http::response([
                 'status' => 'success', 'paymentStatus' => 'SUCCESS',
-                'conversationId' => 'real-ref', 'paidPrice' => '1200.00',
+                'conversationId' => 'real-ref', 'paidPrice' => $this->dogruTutar(),
             ], 200),
         ]);
 
@@ -89,7 +111,9 @@ class PaymentSecurityTest extends ApiTestCase
         Http::fake([
             '*/checkoutform/auth/ecom/detail' => Http::response([
                 'status' => 'success', 'paymentStatus' => 'FAILURE',
-                'conversationId' => 'ref', 'paidPrice' => '1200.00',
+                // Tutar DOĞRU olmalı ki testin ölçtüğü tek şey `paymentStatus` kalsın: yanlış bir
+                // tutar bu iddiayı sessizce vakuma çevirir (yukarıdaki [dogruTutar] notu).
+                'conversationId' => 'ref', 'paidPrice' => $this->dogruTutar(),
             ], 200),
         ]);
 

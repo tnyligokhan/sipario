@@ -230,6 +230,8 @@ class AramaKaydi {
     this.musteriId,
     this.ad,
     this.sonuc,
+    this.kullaniciId,
+    this.kullaniciAdi,
   });
 
   final String id;
@@ -250,6 +252,14 @@ class AramaKaydi {
 
   /// "Sipariş alındı", "Kayıtsız numara" gibi sonuç notu.
   final String? sonuc;
+
+  /// Çağrıyı karşılayan/yapan kullanıcı (`call_logs.user_id`) — kullanıcı isteği 2026-08-13.
+  /// Alan eklenmeden ÖNCEKİ kayıtlarda null'dır ve atıf UYDURULMAZ.
+  final String? kullaniciId;
+
+  /// [kullaniciId]'nin `users` aynasından çözülen adı. Kullanıcı silinmişse ya da ayna henüz
+  /// inmemişse null kalır — ekran o zaman kimlik yerine "bilinmiyor" der, ham UUID basmaz.
+  final String? kullaniciAdi;
 
   bool get kayitli => musteriId != null;
 }

@@ -54,8 +54,19 @@ class TenantDetail extends Component
     /** Geçerli sekmeler — bilinmeyen değer 'ozet'e düşer (URL'den elle sekme uydurulamaz). */
     public const SEKMELER = ['ozet', 'musteriler', 'siparisler', 'defter', 'urunler', 'denetim'];
 
-    /** Bayi bazında açılıp kapanabilen opsiyonel modüller (BRIEF md. 3). */
-    public const MODULLER = ['empty_tracking' => 'Boş/emanet takibi'];
+    /**
+     * Bayi bazında açılıp kapanabilen opsiyonel modüller (BRIEF md. 3).
+     *
+     * ⚠️ `empty_tracking` BİR BAYRAKTIR, BİR ÖZELLİK DEĞİL (karar 2026-08-17): boş/emanet
+     * takibi v1 kapsamından ÇIKARILDI ve mobil istemcide karşılığı YOKTUR — telefon bu alanı
+     * senkron yanıtında görür ama HİÇ OKUMAZ. Etikete "(v1'de yok)" eklenmesinin sebebi tam
+     * olarak budur: bayrağı açan operatör, sahada bir şeyin değişeceğini sanmamalıdır.
+     *
+     * Mekanizmanın kendisi KALIR çünkü BRIEF md. 3 paneliden "bayi bazında modül aç/kapa"
+     * yeteneğini istiyor; kaldırılan şey o yeteneğin İLK ÖRNEĞİNİN ürün karşılığıdır. Gerçek
+     * bir modül geldiğinde bu liste onu taşır ve etiket düzelir.
+     */
+    public const MODULLER = ['empty_tracking' => 'Boş/emanet takibi (v1\'de yok)'];
 
     /** Salt-okunur panel bağlantısı; yazan servisler kendi (owner) bağlantısını kullanır. */
     private const BAGLANTI = 'pgsql_panel';

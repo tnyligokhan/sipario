@@ -2,6 +2,8 @@
 
 namespace App\Abonelik;
 
+use App\Eposta\BayiPostacisi;
+use App\Mail\EkPaketTanimlandi;
 use App\Models\AddonGrant;
 use App\Models\AddonPackage;
 use App\Models\SubscriptionPayment;
@@ -148,7 +150,34 @@ class EkPaketServisi extends AbonelikServisi
         $grantedOn ??= now();
 
         try {
-            return $this->tanimlamaYaz($tenantId, $paketId, $collectionMethod, $amountKurus, $grantedOn, $note, $adminId, $grantId);
+            $tanimlama = $this->tanimlamaYaz($tenantId, $paketId, $collectionMethod, $amountKurus, $grantedOn, $note, $adminId, $grantId);
+
+            /*
+             * BAYİYE HABER VER (2026-08-12). Ek paket TELEFONDA konuşulup PANELDE tanımlanır
+             * (birebir satış). Bayi açısından bu, karşılığında para ödediği ama hiçbir belgesi
+             * olmayan bir işlemdir — "kaç hakkım oldu, ne zaman tanımlandı" sorusunun yazılı tek
+             * cevabı bu postadır.
+             *
+             * `wasRecentlyCreated` KAPISI ŞART: bu metot idempotenttir ve aynı `grantId` ile
+             * yeniden çağrıldığında mevcut satırı döndürür (hem içerideki kilit-sonrası kontrol
+             * hem de 23505 yakalaması). O yolda posta göndermek, bayiye ikinci kez "paketiniz
+             * tanımlandı" demek olurdu — hakkı bir kez artmışken.
+             *
+             * Transaction'ın DIŞINDA: geri alınan bir tanımlamanın postası gitmemeli.
+             */
+            if ($tanimlama->wasRecentlyCreated) {
+                BayiPostacisi::gonder($tenantId, fn (Tenant $bayi): EkPaketTanimlandi => new EkPaketTanimlandi(
+                    isletme: (string) $bayi->name,
+                    paketAdi: (string) $tanimlama->package_name,
+                    tur: (string) $tanimlama->type,
+                    adet: (int) $tanimlama->quantity,
+                    tutarKurus: (int) $tanimlama->amount_kurus,
+                    tanimlamaTarihi: $grantedOn->translatedFormat('j F Y'),
+                    hesapUrl: route('site.hesap'),
+                ));
+            }
+
+            return $tanimlama;
         } catch (QueryException $e) {
             // 23505 = unique_violation (birincil anahtar). Yarışın kaybeden tarafı: transaction geri
             // alındı, kazananın satırını döndür. Anahtar verilmemişse çakışma bizim hatamız değildir

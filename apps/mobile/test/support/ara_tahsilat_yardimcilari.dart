@@ -11,6 +11,7 @@ import 'package:sipario/data/app_database.dart';
 import 'package:sipario/data/tr_gun.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
+import 'package:sipario/screens/isletme/gun_kapsami.dart';
 
 import 'ekran_yardimcilari.dart';
 
@@ -73,8 +74,14 @@ Future<void> duneKaydir(
   );
 }
 
-/// Kurye kapsamına geçer (segmentteki kurye adına dokunur).
-Future<void> kapsamaGec(WidgetTester tester, String kuryeAdi) async {
-  await tester.tap(find.text(kuryeAdi));
+/// Bir kişinin kapsamına geçer.
+///
+/// KAPSAM ARTIK SEGMENT DEĞİL AÇILIR LİSTE (2026-08-20): seçiciye dokunulur, açılan sheet'te
+/// kişinin "Ad (Rol)" satırı seçilir. Rol satırda yazdığı için [rol] parametresi var — tezgâh
+/// kapsamına geçen bir test aynı yardımcıyı kullanabilsin.
+Future<void> kapsamaGec(WidgetTester tester, String kisiAdi, {String rol = 'Kurye'}) async {
+  await tester.tap(find.byType(GunKapsamSecici));
+  await sheetAnimasyonu(tester);
+  await tester.tap(find.text('$kisiAdi ($rol)'));
   await akislariBekle(tester, tur: 6);
 }

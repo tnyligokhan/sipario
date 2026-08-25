@@ -25,6 +25,7 @@ import 'package:sipario/screens/customers/customer_form_screen.dart';
 import 'package:sipario/screens/customers/customer_location_picker.dart';
 import 'package:sipario/sync/geocode_api.dart';
 import 'package:sipario/theme/app_theme.dart';
+import 'support/yetki_yardimcilari.dart';
 
 void main() {
   // ═════════════════════════════════════════════════════════════════════════════════════════
@@ -253,12 +254,12 @@ void main() {
       expect(find.text('Antalya, Kepez, Bahçe Sk., 5'), findsOneWidget);
       expect(find.textContaining('Konum alındı'), findsNothing);
       // Kapı kesinliği olmayan aday uyarısıyla gösterilir.
-      expect(find.text('· sokak yaklaşık'), findsOneWidget);
+      expect(find.text('sokak yaklaşık'), findsOneWidget);
 
       await tester.tap(find.text('Antalya, Kepez, Bahçe Sk., 5'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Konum alındı · 36.8969, 30.7133'), findsOneWidget);
+      expect(find.text('Konum alındı: 36.8969, 30.7133'), findsOneWidget);
       expect(find.text('Antalya, Kepez, Bahçe Sk.'), findsNothing, reason: 'aday listesi kapanır');
 
       await tester.tap(find.text('Müşteriyi Kaydet'));
@@ -359,13 +360,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Aday'));
       await tester.pumpAndSettle();
-      expect(find.text('Konum alındı · 36.9014, 30.7221'), findsOneWidget);
+      expect(find.text('Konum alındı: 36.9014, 30.7221'), findsOneWidget);
 
       // Adresten türetilen "sokak" pini, kapının önünde alınan ölçümle değişir.
-      await tester.tap(find.text('Konum alındı · 36.9014, 30.7221'));
+      await tester.tap(find.text('Konum alındı: 36.9014, 30.7221'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Konum alındı · 36.8969, 30.7133'), findsOneWidget);
+      expect(find.text('Konum alındı: 36.8969, 30.7133'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -386,12 +387,12 @@ void main() {
       await tester.tap(find.text('Aday'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Konum alındı · 36.9014, 30.7221'));
+      await tester.tap(find.text('Konum alındı: 36.9014, 30.7221'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('telefon ayarlarından'), findsOneWidget);
       // Eski konum KORUNUR — hata yüzünden kayıtlı veri silinmez.
-      expect(find.text('Konum alındı · 36.9014, 30.7221'), findsOneWidget);
+      expect(find.text('Konum alındı: 36.9014, 30.7221'), findsOneWidget);
       expect(find.text('Müşteriyi Kaydet'), findsOneWidget, reason: 'form kullanılabilir kalır');
 
       await kapat(tester);
@@ -419,7 +420,7 @@ void main() {
       });
       cihazKonumuOku = () async => const CihazKonumu(lat: 36.8969, lng: 30.7133, dogrulukM: 9);
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: customerId, writable: true));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: customerId, writable: true, yetki: tamYetki));
 
       expect(find.text('36.9014, 30.7221'), findsOneWidget);
       await tester.tap(find.text('36.9014, 30.7221'));
@@ -457,7 +458,7 @@ void main() {
         return const CihazKonumu(lat: 36.8969, lng: 30.7133, dogrulukM: 9);
       };
 
-      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: customerId, writable: false));
+      await ekranaKoy(tester, CustomerDetailScreen(db: db, customerId: customerId, writable: false, yetki: tamYetki));
       await tester.tap(find.text('36.9014, 30.7221'));
       await tester.pumpAndSettle();
 

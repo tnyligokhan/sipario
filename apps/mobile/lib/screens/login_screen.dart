@@ -17,6 +17,7 @@ import 'package:flutter/services.dart';
 
 import '../auth/auth_api.dart';
 import '../auth/session.dart';
+import 'parola_kurtarma_sheet.dart';
 import '../theme/app_theme.dart';
 import '../theme/components/atoms.dart';
 import '../theme/icons.dart';
@@ -24,10 +25,23 @@ import '../theme/tokens.dart';
 import '../theme/typography.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.session, required this.onLoggedIn});
+  const LoginScreen({
+    super.key,
+    required this.session,
+    required this.onLoggedIn,
+    this.acilisMesaji,
+  });
 
   final Session session;
   final VoidCallback onLoggedIn;
+
+  /// Ekran AÇILIR AÇILMAZ düğmenin üstünde yazacak açıklama — kullanıcı buraya kendi isteğiyle
+  /// gelmediyse neden geldiğini bilmeli ("hesabınız başka bir cihazda açıldı", 2026-08-22).
+  ///
+  /// Sunucu hatalarıyla AYNI yuvayı kullanır: ikisi de "giriş denemesinden önce bilmen gereken
+  /// şey"dir ve iki ayrı satır yan yana durursa ekran ikisini birden gösterip kullanıcıyı hangi
+  /// cümlenin güncel olduğu konusunda ikilemde bırakırdı. Kullanıcı yazmaya başlayınca silinir.
+  final String? acilisMesaji;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -48,20 +62,20 @@ Map<String, String> girisHatalari({
   if (f.isEmpty) {
     hatalar['firma'] = 'Firma kodu boş bırakılamaz';
   } else if (!RegExp(r'^[a-z0-9-]{3,}$', caseSensitive: false).hasMatch(f)) {
-    hatalar['firma'] = 'Geçersiz firma kodu (en az 3 harf/rakam)';
+    hatalar['firma'] = 'Firma kodu en az 3 harf ya da rakam olmalı';
   }
 
   final k = kullanici.trim();
   if (k.isEmpty) {
     hatalar['kullanici'] = 'Kullanıcı adı boş bırakılamaz';
   } else if (!RegExp(r'^[a-z0-9._-]{3,}$', caseSensitive: false).hasMatch(k)) {
-    hatalar['kullanici'] = 'Geçersiz kullanıcı adı (en az 3 harf/rakam)';
+    hatalar['kullanici'] = 'Kullanıcı adı en az 3 harf ya da rakam olmalı';
   }
 
   if (parola.isEmpty) {
     hatalar['parola'] = 'Parola boş bırakılamaz';
   } else if (parola.length < 4) {
-    hatalar['parola'] = 'Parola en az 4 karakter';
+    hatalar['parola'] = 'Parola en az 4 karakter olmalı';
   }
 
   // Sunucu adresi yalnız "Gelişmiş" açıkken ve DOLUYKEN sınanır (boş = varsayılan adres).
@@ -80,7 +94,39 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _busy = false;
   Map<String, String> _hata = const {};
-  String? _sunucuHata;
+
+  /// Düğmenin üstündeki açıklama satırı. Başlangıçta düşürülen oturumun gerekçesi
+  /// ([LoginScreen.acilisMesaji]), sonrasında sunucunun nötr giriş hatası olur.
+  late String? _sunucuHata = widget.acilisMesaji;
+
+  /// Parola AÇIK metin mi? Varsayılan KAPALI (omuz üstünden okunma).
+  bool _parolaGorunur = false;
+
+  /// "Beni hatırla" kutusu. Başlangıç değeri diskten gelir: kimlik hatırlanmışsa kutu
+  /// İŞARETLİ açılmalı, yoksa bayi bir sonraki girişte tercihini farkında olmadan iptal eder.
+  bool _hatirla = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _hatirlananiYukle();
+  }
+
+  /// Hatırlanan kimliği alanlara doldurur. Sessizce başarısız olur: bu bir KOLAYLIKTIR,
+  /// okunamaması giriş ekranını hata gösterecek kadar önemli bir olay değildir.
+  Future<void> _hatirlananiYukle() async {
+    try {
+      final kimlik = await widget.session.hatirlananKimlik();
+      if (!mounted || kimlik == null) return;
+      // Kullanıcı bekleme sırasında yazmaya başlamış olabilir (ilk kare ile disk okuması
+      // arasında geçen süre kısa ama sıfır değil) — yazdığının üzerine YAZILMAZ.
+      if (_firma.text.isEmpty) _firma.text = kimlik.firma;
+      if (_kullanici.text.isEmpty) _kullanici.text = kimlik.kullanici;
+      setState(() => _hatirla = true);
+    } on Object {
+      // yut
+    }
+  }
 
   @override
   void dispose() {
@@ -123,6 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
         tenantCode: _firma.text,
         username: _kullanici.text,
         password: _password.text,
+        beniHatirla: _hatirla,
       );
       if (mounted) widget.onLoggedIn();
     } on AuthException catch (e) {
@@ -168,8 +215,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     busy: _busy,
                     hata: _hata,
                     sunucuHata: _sunucuHata,
+                    parolaGorunur: _parolaGorunur,
+                    onParolaGoruntule: () =>
+                        setState(() => _parolaGorunur = !_parolaGorunur),
+                    hatirla: _hatirla,
+                    onHatirla: (v) => setState(() => _hatirla = v),
                     onDegis: _temizle,
                     onGonder: _gonder,
+                    onParolaUnuttum: () => parolaKurtarmaAc(
+                      context,
+                      session: widget.session,
+                      // Kullanıcının ZATEN YAZDIĞI kimlik taşınır: aynı iki alanı ikinci kez
+                      // istemek, kurtarma yolunu gereksiz yere zorlaştırırdı.
+                      firmaKodu: _firma.text,
+                      kullaniciAdi: _kullanici.text,
+                    ),
                   ),
                 ],
               ),
@@ -231,8 +291,13 @@ class _Form extends StatelessWidget {
     required this.busy,
     required this.hata,
     required this.sunucuHata,
+    required this.parolaGorunur,
+    required this.onParolaGoruntule,
+    required this.hatirla,
+    required this.onHatirla,
     required this.onDegis,
     required this.onGonder,
+    this.onParolaUnuttum,
   });
 
   final TextEditingController firma;
@@ -246,8 +311,17 @@ class _Form extends StatelessWidget {
   /// Sunucudan dönen nötr hata (401/403/429) — forma değil, düğmenin üstüne yazılır.
   final String? sunucuHata;
 
+  final bool parolaGorunur;
+  final VoidCallback onParolaGoruntule;
+
+  final bool hatirla;
+  final ValueChanged<bool> onHatirla;
+
   final VoidCallback onDegis;
   final VoidCallback onGonder;
+
+  /// "Parolamı unuttum" akışı; null ise satır HİÇ çizilmez (önizleme/test yolu).
+  final VoidCallback? onParolaUnuttum;
 
   @override
   Widget build(BuildContext context) {
@@ -273,7 +347,7 @@ class _Form extends StatelessWidget {
           const SipFormEtiket('Firma Kodu', ustBosluk: 0),
           SipInput(
             controller: firma,
-            ipucu: 'ornek: merkezbayi',
+            ipucu: 'Örnek: merkezbayi',
             aktif: !busy,
             hata: hata.containsKey('firma'),
             buyukHarfKipi: TextCapitalization.none,
@@ -283,7 +357,7 @@ class _Form extends StatelessWidget {
           const SipFormEtiket('Kullanıcı Adı'),
           SipInput(
             controller: kullanici,
-            ipucu: 'ornek: mehmet.usta',
+            ipucu: 'Örnek: mehmet.usta',
             aktif: !busy,
             hata: hata.containsKey('kullanici'),
             buyukHarfKipi: TextCapitalization.none,
@@ -294,24 +368,106 @@ class _Form extends StatelessWidget {
           SipInput(
             controller: parola,
             ipucu: '••••••••',
-            gizli: true,
+            gizli: !parolaGorunur,
             aktif: !busy,
             hata: hata.containsKey('parola'),
             buyukHarfKipi: TextCapitalization.none,
             onChanged: (_) => onDegis(),
             onSubmitted: (_) => onGonder(),
+            sonEk: _ParolaGozu(gorunur: parolaGorunur, onTap: onParolaGoruntule),
           ),
           if (hata['parola'] != null) _Hata(hata['parola']!),
+          // "Beni hatırla" parolanın HEMEN ALTINDA: kimlik alanlarının kapanışıdır ve
+          // tercihi, ilgili olduğu alanların yanında sunar. Hata satırlarından SONRA gelir
+          // ki bir hata belirdiğinde kutu yer değiştirmesin.
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SipOnayKutusu(
+              etiket: 'Beni hatırla',
+              isaretli: hatirla,
+              aktif: !busy,
+              onDegis: onHatirla,
+            ),
+          ),
           if (sunucuHata != null) _Hata(sunucuHata!),
-          const SizedBox(height: SipSpace.x5),
+          const SizedBox(height: SipSpace.lg),
           SipButon(etiket: 'Giriş Yap', onTap: onGonder, yukleniyor: busy),
-          const SizedBox(height: SipSpace.x4),
+          // PAROLA KURTARMA (kullanıcı isteği 2026-08-13): uygulamada bu yol HİÇ YOKTU ve
+          // parolasını unutan kullanıcının yapabildiği tek şey birini aramaktı.
+          //
+          // ⚠️ `SipMetinButon` KULLANILMAZ ve bu bir tasarım kararıdır. O atom bir ARAÇ ÇUBUĞU
+          // ÇİPİDİR: her zaman zemin çizer (`t.surface`) ve `stretch` hizalı bu sütunda tam
+          // genişliğe yayılıp KOCAMAN BEYAZ BİR KUTUYA dönüşüyordu — birincil "Giriş Yap"
+          // düğmesinin hemen altında ikinci bir düğme gibi duruyor, onunla yarışıyor ve formun
+          // ritmini bozuyordu (önizleme PNG'sinde görüldü, kullanıcı da bildirdi).
+          //
+          // DOĞRUSU SESSİZ BİR BAĞLANTI: zeminsiz, ORTALANMIŞ, accent renkli metin. Birincil
+          // eylem giriştir; kurtarma yolu keşfedilebilir olmalı ama görsel ağırlık istememeli.
+          // Dokunma hedefi yine de 44 punto yüksekliğinde — metnin kendisi küçük olsa da parmak
+          // için küçük olamaz (araçta, ayaktayken kullanılıyor).
+          if (onParolaUnuttum != null)
+            Center(
+              child: SipDokun(
+                onTap: busy ? null : onParolaUnuttum,
+                zemin: Colors.transparent,
+                basiliZemin: t.surface2,
+                radius: SipRadius.brHap,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Text(
+                  'Parolamı unuttum',
+                  style: SipText.metin(12.5, w: 700).copyWith(
+                    color: busy ? t.muted : t.accent,
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: SipSpace.xl),
           Text(
-            'Firma kodunuzu ve hesabınızı işletme yöneticiniz oluşturur.',
+            'Firma kodunuzu ve hesabınızı işletme sahibi oluşturur',
             textAlign: TextAlign.center,
             style: SipText.girisAlt.copyWith(color: t.muted),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Parola alanının içindeki göster/gizle düğmesi.
+///
+/// NEDEN VAR (tasarımda yok): `s-giris.jsx` parolayı düz `type="password"` ile çiziyor çünkü
+/// tarayıcı alanı KENDİ göz düğmesiyle donatır — Android'de öyle bir hediye yoktur. Bayinin
+/// parolası yöneticisi tarafından verilmiş, çoğu zaman ezberlenmemiş bir metindir; noktalara
+/// bakarak üçüncü kez yanlış yazmak, girişin en sık takıldığı yerdir.
+///
+/// İKON DEĞİŞİR AMA ANLAMI SABİT: `goz` = "göstermek için dokun" (parola gizli),
+/// `gozKapali` = "gizlemek için dokun" (parola açık). Ters yazmak (durumu resmetmek) yaygın
+/// bir karışıklık kaynağıdır; buradaki sözleşme EYLEMİ resmeder ve `semanticLabel` de aynı
+/// eylemi söyler — ekran okuyucu kullanan bayi ikonu göremez.
+class _ParolaGozu extends StatelessWidget {
+  const _ParolaGozu({required this.gorunur, required this.onTap});
+
+  final bool gorunur;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return Semantics(
+      button: true,
+      label: gorunur ? 'Parolayı gizle' : 'Parolayı göster',
+      child: SipDokun(
+        onTap: onTap,
+        radius: SipRadius.br2,
+        // Yatay dolgu dokunma hedefini alanın sağ kenarına kadar genişletir; dikeyde
+        // kutunun 46 px sözleşmesi `suffixIconConstraints` ile zaten korunuyor.
+        padding: const EdgeInsets.symmetric(horizontal: SipSpace.md, vertical: SipSpace.md),
+        child: SipIcon(
+          gorunur ? SipIcons.gozKapali : SipIcons.goz,
+          boyut: 19,
+          kalinlik: 2,
+          renk: t.muted,
+        ),
       ),
     );
   }

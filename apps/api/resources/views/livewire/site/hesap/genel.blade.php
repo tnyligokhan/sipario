@@ -14,8 +14,19 @@
             </x-slot:sag>
             <div class="ab-ust">
                 <div>
-                    <span class="h2">Deneme {{ $this->tarih($bayi->valid_until) }}'da bitiyor</span>
-                    <p class="gvd">Bittiğinde hesabınız salt-okunur kipe geçer — kayıtlarınız silinmez. Aboneliği şimdi başlatsanız bile ücret {{ $this->tarih($bayi->valid_until) }} tarihinde işler.</p>
+                    {{--
+                        ── İKİ DÜZELTME (2026-08-19) ────────────────────────────────────────
+                        1. KESME İŞARETİ KALDIRILDI. Başlık "{tarih}'da bitiyor" diye kuruluyordu
+                           ve `tarih()` her zaman YIL ile bitiyor ("12 Eylül 2026"). Türkçede ek
+                           son hecenin ünlüsüne uyar: 2026 (altı) → "'da" DOĞRU, ama 2027 (yedi)
+                           ve 2028 (sekiz) → "'de" olmalı. Yani cümle bu yıl doğru, seneye yanlış
+                           basacaktı — kimsenin arayıp bulamayacağı türden bir hata. "tarihinde"
+                           yazmak eki tamamen ortadan kaldırır ve her yıl doğru kalır.
+                        2. "salt-okunur kip" ESNAF SÖZLÜĞÜ DEĞİL. Kullanıcının GÖRDÜĞÜ davranışla
+                           anlatıldı: yeni kayıt girilemez, eskiler durur.
+                    --}}
+                    <span class="h2">Deneme {{ $this->tarih($bayi->valid_until) }} tarihinde bitiyor</span>
+                    <p class="gvd">O gün geldiğinde yeni sipariş ve tahsilat giremezsiniz; girdiğiniz hiçbir kayıt silinmez, olduğu gibi durur. Bugün abone olsanız bile ücret {{ $this->tarih($bayi->valid_until) }} tarihinde işlemeye başlar — erken ödeme kalan günlerinizi yakmaz.</p>
                 </div>
                 <div class="ab-fiyat">
                     <b class="rakam kucuk-rakam tab">{{ $this->tlk($this->plan()->yillikKurus() / 12) }}</b>
@@ -58,9 +69,11 @@
         </x-site.pano>
 
         <div class="hb-ikili">
-            <x-site.pano etiket="Oto-sıralama hakkı">
+            <x-site.pano etiket="Kurye yolu sıralama">
+                {{-- "hak" birimi sadeleşti (2026-08-19): esnaf için "50 hak" bir şey ifade
+                     etmiyordu. Sayılan şey ne ise o yazılıyor — bir sıralama. --}}
                 <x-site.kota etiket="Denemede kullanılan" :kullanilan="$hak['kullanilan']" :toplam="$hak['toplam']"
-                    alt="Deneme boyunca {{ $hak['toplam'] }} hak ücretsiz · {{ $hak['kalan'] }} hak kaldı" />
+                    alt="Deneme boyunca {{ $hak['toplam'] }} sıralama ücretsiz · {{ $hak['kalan'] }} tanesi duruyor" />
             </x-site.pano>
             <x-site.pano etiket="Kullanıcılar">
                 <x-site.kota etiket="Kurye hesabı" :kullanilan="$kurye['kullanilan']" :toplam="$kurye['limit']"
@@ -90,12 +103,12 @@
         </x-site.pano>
     @else
         <div class="hb-ikili">
-            <x-site.pano etiket="Oto-sıralama hakkı">
+            <x-site.pano etiket="Kurye yolu sıralama">
                 <x-slot:sag>
                     <button type="button" class="dg dg-d gk" wire:click="bolumSec('hak')">Yönet</button>
                 </x-slot:sag>
-                <x-site.kota etiket="Kullanılan" :kullanilan="$hak['kullanilan']" :toplam="$hak['toplam']"
-                    alt="{{ $hak['kalan'] }} hak kaldı · aylık kota {{ $bayi->route_credits_monthly }}" />
+                <x-site.kota etiket="Bu ay kullanılan" :kullanilan="$hak['kullanilan']" :toplam="$hak['toplam']"
+                    alt="{{ $hak['kalan'] }} sıralama kaldı · her ay {{ $bayi->route_credits_monthly }} tane yenilenir" />
             </x-site.pano>
             <x-site.pano etiket="Kullanıcılar">
                 {{-- Kurye limiti de artık satın alınabilir (ek kurye paketi) — kotanın yanında
@@ -111,7 +124,7 @@
         <x-site.pano etiket="Kısayollar" :ic="false">
             <div class="hb-kisa">
                 @foreach ([['kart', 'Ödeme bilgilerini gör', 'odeme'], ['belge', 'Ödeme geçmişini gör', 'fatura'],
-                    ['simsek', 'Ek hak veya kurye al', 'hak'], ['bina', 'Fatura bilgilerini düzenle', 'isletme']] as [$ik, $etiket, $hedef])
+                    ['simsek', 'Ek sıralama veya kurye al', 'hak'], ['bina', 'Fatura bilgilerini düzenle', 'isletme']] as [$ik, $etiket, $hedef])
                     <button type="button" class="hb-k" wire:click="bolumSec('{{ $hedef }}')">
                         <span class="hb-k-ik"><x-site.ikon :ad="$ik" boy="19" kalin="2" renk="var(--mor)" /></span>
                         <span>{{ $etiket }}</span>

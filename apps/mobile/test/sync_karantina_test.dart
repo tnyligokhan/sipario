@@ -565,24 +565,24 @@ void main() {
 
     testWidgets('veri hatası bandında "çevrimdışı" METNİ ÇIKMAZ', (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant(tur: SipBantTuru.hata)));
-      expect(find.textContaining('Çevrimdışı'), findsNothing);
-      expect(find.textContaining('bağlanınca gönderilecek'), findsNothing,
+      expect(find.textContaining('İnternet yok'), findsNothing);
+      expect(find.textContaining('bağlantı gelince gönderilecek'), findsNothing,
           reason: 'sunucuya ULAŞILDI — tutulamayacak bir söz vermek arızayı gizler');
-      expect(find.textContaining('cihazda güvende'), findsOneWidget);
+      expect(find.textContaining('Telefonda güvende'), findsOneWidget);
     });
 
     testWidgets('karantina bandı kaydın cihazda DURDUĞUNU söyler, kayıp demez', (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant(tur: SipBantTuru.karantina)));
-      expect(find.textContaining('Çevrimdışı'), findsNothing);
-      expect(find.textContaining('cihazda duruyor'), findsOneWidget);
+      expect(find.textContaining('İnternet yok'), findsNothing);
+      expect(find.textContaining('Telefonda duruyor'), findsOneWidget);
       expect(find.textContaining('destekle görüşün'), findsOneWidget);
     });
 
     testWidgets('sunucu bandı geçici olduğunu söyler, kullanıcıdan eylem beklemez',
         (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant(tur: SipBantTuru.sunucu)));
-      expect(find.textContaining('Çevrimdışı'), findsNothing);
-      expect(find.textContaining('otomatik yeniden denenecek'), findsOneWidget);
+      expect(find.textContaining('İnternet yok'), findsNothing);
+      expect(find.textContaining('yeniden denenecek'), findsOneWidget);
     });
 
     // KABUĞA BAĞLI MI: bandı doğru kurmak yetmez, birinin onu ÇİZMESİ gerekir. Güncelleme
@@ -617,7 +617,7 @@ void main() {
       expect(find.byType(SipCevrimdisiBant), findsOneWidget,
           reason: 'senkron turu hiç düşmese bile karantina uyarısı ekranda DURMALI — '
               'kayıt cihazda, sunucuda yok');
-      expect(find.textContaining('cihazda duruyor'), findsOneWidget);
+      expect(find.textContaining('Telefonda duruyor'), findsOneWidget);
       expect(find.textContaining('tunel-3f2a.trycloudflare.com'), findsOneWidget,
           reason: 'bayi hangi sunucuya gönderemediğini görmeli');
 

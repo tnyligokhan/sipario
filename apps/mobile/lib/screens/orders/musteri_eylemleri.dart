@@ -146,12 +146,12 @@ Future<String?> whatsappAc(String? telefon, {String? mesaj}) async {
   if (n == null) return 'Müşterinin kayıtlı telefonu yok';
   return await uriAc(whatsappUriler(n, mesaj: mesaj))
       ? null
-      : 'WhatsApp açılamadı — telefonda yüklü değil';
+      : 'WhatsApp bu telefonda yüklü değil';
 }
 
 Future<String?> konumuHaritadaAc(AdresBilgi? adres, {String? etiket}) async {
   if (adres == null || !adres.konumVar) {
-    return 'Konum kayıtlı değil — müşteri detayından alın';
+    return 'Konum kayıtlı değil. Müşteri detayından alabilirsiniz';
   }
   final acildi = await uriAc(haritaUriler(adres.lat!, adres.lng!, etiket: etiket));
   return acildi ? null : 'Harita uygulaması açılamadı';
@@ -170,11 +170,25 @@ class MusteriEylemSeridi extends StatelessWidget {
     required this.telefon,
     required this.adres,
     this.onBildir,
+    this.onTeslim,
   });
 
   final String musteriAd;
   final String? telefon;
   final AdresBilgi? adres;
+
+  /// EN SAĞDAKİ dördüncü düğme: "Teslim" (kullanıcı isteği 2026-08-18).
+  ///
+  /// NEDEN BURADA: teslim bugün yalnız detay sheet'i açıldıktan sonra yapılabiliyordu — kurye
+  /// kapının önünde iki dokunuş ve bir ekran geçişi uzaklıktaydı. Ara/WhatsApp/Konum zaten
+  /// "kapıdaki işler" şerididir; teslim onların doğal dördüncüsüdür.
+  ///
+  /// `null` GEÇİLİRSE DÜĞME HİÇ ÇİZİLMEZ ve üçlü şerit aynen kalır. Diğer üç düğmenin "veri
+  /// yoksa pasif çiz" kuralı buraya UYGULANMAZ, çünkü sebep farklı: orada eksik olan MÜŞTERİ
+  /// VERİSİDİR (bayi gidip girebilir), burada eksik olan YETKİDİR (salt-okunur kip). Kullanıcının
+  /// hiçbir şekilde açamayacağı bir düğmeyi göstermek, düzeltilebilir bir eksiği göstermekle
+  /// aynı şey değildir — salt-okunur kipin gerekçesini sipariş detayı zaten yazıyor.
+  final VoidCallback? onTeslim;
 
   /// Sonucu kullanıcıya duyurur (toast). Başarıda ÇAĞRILMAZ — hedef uygulama zaten öne gelir,
   /// üstüne bir de bildirim göstermek gürültü olur.
@@ -193,6 +207,8 @@ class MusteriEylemSeridi extends StatelessWidget {
     final t = context.sip;
     final telVar = telefonE164(telefon) != null;
     final konumVar = adres?.konumVar ?? false;
+    // Dördüncü düğme geldiğinde şeridin tamamı daralır (gerekçe: [_EylemDugmesi.sikisik]).
+    final sikisik = onTeslim != null;
 
     return Row(
       children: [
@@ -202,6 +218,7 @@ class MusteriEylemSeridi extends StatelessWidget {
             ikonRenk: telVar ? t.accent : t.muted,
             etiket: 'Ara',
             soluk: !telVar,
+            sikisik: sikisik,
             onTap: () => _calistir(context, () => musteriyiAra(telefon)),
           ),
         ),
@@ -214,6 +231,7 @@ class MusteriEylemSeridi extends StatelessWidget {
             ikonKalinlik: 1.9,
             etiket: 'WhatsApp',
             soluk: !telVar,
+            sikisik: sikisik,
             onTap: () => _calistir(context, () => whatsappAc(telefon)),
           ),
         ),
@@ -224,13 +242,61 @@ class MusteriEylemSeridi extends StatelessWidget {
             ikonRenk: konumVar ? t.ok : t.muted,
             etiket: 'Konum',
             soluk: !konumVar,
+            sikisik: sikisik,
             kenarlik: konumVar ? t.okSoft : null,
             onay: konumVar,
             onTap: () =>
                 _calistir(context, () => konumuHaritadaAc(adres, etiket: musteriAd)),
           ),
         ),
+        if (onTeslim != null) ...[
+          const SizedBox(width: 7),
+          Expanded(
+            child: _EylemDugmesi(
+              ikon: SipIcons.check,
+              ikonRenk: t.ok,
+              ikonKalinlik: 2.6,
+              sikisik: sikisik,
+              // ⚠️ ETİKET "Teslim" OLAMAZ: üstteki segment sekmelerinden birinin adı da
+              // "Teslim" ve o sekme TESLİM EDİLMİŞ siparişleri LİSTELER. Yan yana durduklarında
+              // aynı kelime bir yerde "şu listeyi göster", diğerinde "bu siparişi kapat"
+              // demektedir — bayinin ayırt etmesi gereken en son şey budur. Fiil hâli hem
+              // eylemi hem sipariş detayındaki karşılığını ("Teslim Et" düğmesi) karşılar.
+              etiket: 'Teslim Et',
+              // Dolgulu değil KENARLIKLI vurgulanır: dolgu bu şeridi bir "ana eylem" satırına
+              // çevirir ve yanındaki üç düğmeyi ikincilleştirirdi. Teslim daha önemli değil,
+              // yalnız FARKLI bir iştir (ötekiler harici uygulama açar, bu kayıt yazar).
+              kenarlik: t.okSoft,
+              onTap: onTeslim!,
+            ),
+          ),
+        ],
       ],
+    );
+  }
+}
+
+/// Müşterisiz (tezgâh) siparişin TEK BAŞINA teslim düğmesi — `.srow-acts`in tek düğmelik hâli.
+///
+/// NEDEN AYRI: eylem şeridi müşteri olmayan siparişte HİÇ çizilmez, çünkü aranacak/yazılacak/
+/// haritada gösterilecek kimse yoktur. Teslimin ise müşteriyle işi yok. Şeridi müşterisiz
+/// siparişte de çizip üç düğmeyi pasifleştirmek, kullanıcıya asla dolmayacak üç boş kutu
+/// göstermek olurdu.
+class TeslimSeridi extends StatelessWidget {
+  const TeslimSeridi({super.key, required this.onTeslim});
+
+  final VoidCallback onTeslim;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return _EylemDugmesi(
+      ikon: SipIcons.check,
+      ikonRenk: t.ok,
+      ikonKalinlik: 2.6,
+      etiket: 'Teslim Et',
+      kenarlik: t.okSoft,
+      onTap: onTeslim,
     );
   }
 }
@@ -245,6 +311,7 @@ class _EylemDugmesi extends StatelessWidget {
     this.soluk = false,
     this.kenarlik,
     this.onay = false,
+    this.sikisik = false,
   });
 
   final String ikon;
@@ -255,6 +322,15 @@ class _EylemDugmesi extends StatelessWidget {
   final bool soluk;
   final Color? kenarlik;
   final bool onay;
+
+  /// Şeritte ÜÇ değil DÖRT düğme var — ikon, ara ve punto bir tık küçülür.
+  ///
+  /// NEDEN KOŞULLU: 360 dp'lik telefonda dört düğme paylaşınca her birine ~68 px kalıyor ve
+  /// eski ölçülerle en uzun iki etiket ("WhatsApp", "Teslim Et") üç noktaya düşüyordu.
+  /// Kırpılmış bir etiket, dokunmadan önce ne yaptığını söylemeyen düğme demektir. Ölçüyü
+  /// HERKES İÇİN küçültmek ise üç düğmelik şeridi (kapalı/müşterisiz siparişler, salt-okunur
+  /// kip) sebepsiz yere okunmaz yapardı — daralma yalnız daralmanın gerektiği yerde olur.
+  final bool sikisik;
 
   @override
   Widget build(BuildContext context) {
@@ -277,12 +353,12 @@ class _EylemDugmesi extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SipIcon(ikon, boyut: 15, kalinlik: ikonKalinlik, renk: ikonRenk),
-                const SizedBox(width: SipSpace.sm),
+                SipIcon(ikon, boyut: sikisik ? 13 : 15, kalinlik: ikonKalinlik, renk: ikonRenk),
+                SizedBox(width: sikisik ? 3 : SipSpace.sm),
                 Flexible(
                   child: Text(
                     etiket,
-                    style: SipText.metin(12, w: 700).copyWith(color: t.ink2),
+                    style: SipText.metin(sikisik ? 11 : 12, w: 700).copyWith(color: t.ink2),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

@@ -230,7 +230,7 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
                         ? 'Yüklenemedi'
                         : veri == null
                             ? 'Yükleniyor'
-                            : '${veri.duraklar.length} durak · rota sırası',
+                            : '${veri.duraklar.length} durak, rota sırasıyla',
                     onGeri: () => Navigator.of(context).maybePop(),
                   ),
                   if (!hata && veri != null && veri.konumsuz > 0)
@@ -249,7 +249,7 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
 
   /// Alt ortadaki birincil eylem. Kontör bilinmiyorsa etikette SAYI YAZMAZ (sahte sayı yasağı).
   Widget _otoDugmesi(int durakSayisi) => HaritaOtoDugmesi(
-        etiket: _otoHak == null ? 'Oto Sırala' : 'Oto Sırala · $_otoHak hak',
+        etiket: _otoHak == null ? 'Oto Sırala' : 'Oto Sırala ($_otoHak hak)',
         neden: otoKilitNedeni(
           yazilabilir: widget.writable,
           hak: _otoHak,
@@ -289,7 +289,7 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
         ikon: SipIcons.pin,
         baslik: 'Haritada gösterilecek sipariş yok',
         aciklama: veri.konumsuz > 0
-            ? 'Açık siparişlerin adreslerinde konum kayıtlı değil — sipariş detayından '
+            ? 'Açık siparişlerin adreslerinde konum kayıtlı değil. Sipariş detayındaki '
                 '"Konumu Kaydet" ile ekleyebilirsiniz.'
             : 'Açık sipariş yok. Yeni sipariş girildiğinde durağı burada görünür.',
       );

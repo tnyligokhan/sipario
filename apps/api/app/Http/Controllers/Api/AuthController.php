@@ -2,13 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Bildirim\PushOlayi;
 use App\Enums\TenantStatus;
+use App\Enums\TokenDusmeSebebi;
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Resources\TenantResource;
 use App\Http\Resources\UserResource;
+use App\Jobs\PushGonderimi;
 use App\Models\Device;
 use App\Models\User;
+use App\Support\PostaAdresi;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +21,9 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -70,15 +78,27 @@ class AuthController extends Controller
 
             $user = User::findOrFail($row->id);
 
+            $cihazId = isset($data['device']) ? (string) $data['device']['device_id'] : null;
+
             $token = $user->createToken('mobile');
             // Token satırına tenant_id yaz: sonraki isteklerde middleware bunu okuyup app.tenant_id set eder.
-            $token->accessToken->forceFill(['tenant_id' => $user->tenant_id])->save();
+            // device_id da burada yazılır — düşürme sırasında hangi telefonun token'ı olduğunu
+            // bilmek gerekiyor (bkz. digerCihazlariDusur).
+            $token->accessToken->forceFill([
+                'tenant_id' => $user->tenant_id,
+                'device_id' => $cihazId,
+            ])->save();
 
             $user->forceFill(['last_login_at' => now()])->save();
 
             if (isset($data['device'])) {
                 $this->upsertDevice($user, $data['device']);
             }
+
+            // TEK HESAP = TEK CİHAZ. Cihaz kaydından SONRA: düşen cihazın push jetonu
+            // temizlenirken bu girişin cihazı zaten yazılmış olmalı, yoksa yeni cihaz
+            // "eskilerden biri" gibi görünürdü.
+            $this->digerCihazlariDusur($user, $token->accessToken->getKey(), $cihazId);
 
             return response()->json([
                 'token' => $token->plainTextToken,
@@ -102,6 +122,50 @@ class AuthController extends Controller
             'user' => new UserResource($user),
             'tenant' => new TenantResource($tenant),
         ]);
+    }
+
+    /**
+     * POST /api/v1/auth/parola-dogrula  (korumalı) — YÖNETİCİ ONAYI.
+     *
+     * ══ NEDEN VAR ═══════════════════════════════════════════════════════════════════════════
+     * Bazı işlemler "giriş yapmış olmak"tan fazlasını ister: kapatılmış bir gün hesabını geri
+     * almak gibi. Telefon çoğu zaman tezgâhın üstünde açık durur; oturumun patrona ait olması,
+     * o an ekrana dokunanın patron olduğunu KANITLAMAZ. Bu uç nokta o kanıtı ister.
+     *
+     * ══ NEDEN İSTEMCİDE DOĞRULANMIYOR ══════════════════════════════════════════════════════
+     * Depoda yazılı kural: **parola SAKLANMAZ ve hash'i istemci üretemez** (`Session.giris`
+     * "beniHatirla" notu, `TeamApi` başlığı). Yerel bir parola aynası koymak, offline çalışsın
+     * diye ürünün en hassas sırrını her telefona kopyalamak olurdu — bir telefon kaybolduğunda
+     * bedeli tüm bayidir. Bedeli AÇIK: bu onay ÇEVRİMİÇİ ister; çağıran ekran ağ yokken
+     * gerekçesini yazmak zorundadır.
+     *
+     * ══ GÜVENLİK NOTLARI ═══════════════════════════════════════════════════════════════════
+     *  • YALNIZ OTURUMDAKİ kullanıcının parolası doğrulanır. Kullanıcı adı GÖVDEDEN ALINMAZ:
+     *    alınsaydı, kuryenin telefonundaki bir oturumdan patronun parolası TAHMİN EDİLEBİLİR
+     *    hâle gelirdi (kimlik doğrulanmış bir kaba kuvvet yüzeyi).
+     *  • `throttle:login` ile SINIRLANIR — bu bir parola denemesidir ve giriş ekranıyla aynı
+     *    kaba kuvvet bütçesinden yemelidir.
+     *  • Yanıt tek bit taşır. Rol/yetki kararı BURADA VERİLMEZ: uç nokta "bu parola bu kullanıcıya
+     *    ait mi" sorusuna cevap verir, "bu kişi şunu yapabilir mi" sorusuna değil. İkisini
+     *    birleştirmek, her yeni eylemde bu dosyayı da düzenlemek demekti.
+     */
+    public function parolaDogrula(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'password' => ['required', 'string', 'max:200'],
+        ]);
+
+        $user = $request->user();
+
+        // Zamanlama yan-kanalı: `login` ile AYNI önlem. Buradaki kullanıcı zaten kesin var, ama
+        // `password` sütunu (teorik olarak) boş olsa kısa devre yapmak süre farkı üretirdi.
+        $gecerli = Hash::check($data['password'], $user->password ?? self::DUMMY_PASSWORD_HASH);
+
+        if (! $gecerli) {
+            return response()->json(['message' => 'Parola hatalı.'], 422);
+        }
+
+        return response()->json(['ok' => true]);
     }
 
     /** POST /api/v1/auth/logout  (korumalı) — yalnız geçerli token'ı iptal eder. */
@@ -133,19 +197,31 @@ class AuthController extends Controller
     private function upsertDevice(User $user, array $device): void
     {
         try {
-            Device::updateOrCreate(
+            $kayit = Device::updateOrCreate(
                 ['id' => $device['device_id']],
-                [
-                    'tenant_id' => $user->tenant_id,
-                    'user_id' => $user->id,
-                    'platform' => $device['platform'],
-                    'model' => $device['model'] ?? null,
-                    'os_version' => $device['os_version'] ?? null,
-                    'app_version' => $device['app_version'] ?? null,
-                    'push_token' => $device['push_token'] ?? null,
-                    'last_seen_at' => now(),
-                ]
+                Device::kayitNitelikleri($user, $device)
             );
+
+            /*
+             * GÜVENLİK BİLDİRİMİ — hesap YENİ bir telefonda açıldı (kullanıcı kararı 2026-08-14).
+             *
+             * `wasRecentlyCreated` KAPISI ZORUNLU: bu metot HER GİRİŞTE koşar ve aynı telefon
+             * günde birkaç kez giriş yapabilir. Kapı olmasaydı bayi her oturum açılışında bir
+             * "yeni cihaz" uyarısı alır, üç günde bildirimi kapatır ve GERÇEK bir yabancı girişi
+             * de kaçırırdı.
+             *
+             * Giriş yapan cihaz ELENİR (`haricCihazId`): kendi telefonunda "hesabınız yeni bir
+             * telefonda açıldı" uyarısı görmek, tam da az önce yaptığı şeyi haber vermektir.
+             */
+            if ($kayit->wasRecentlyCreated) {
+                PushGonderimi::dispatch(
+                    (string) $user->tenant_id,
+                    PushOlayi::YeniCihaz,
+                    (string) $kayit->id,
+                    null,               // alıcı: bayinin yöneticileri
+                    (string) $kayit->id // olayı doğuran cihaz
+                )->afterCommit();
+            }
         } catch (QueryException $e) {
             // 23505 = unique_violation. BAŞKA hiçbir veritabanı hatası yutulmaz.
             if ($e->getCode() !== '23505') {
@@ -157,5 +233,141 @@ class AuthController extends Controller
                 'user_id' => $user->id,
             ]);
         }
+    }
+
+    /**
+     * TEK HESAP = TEK CİHAZ (kullanıcı kararı 2026-08-22): bu kullanıcının BAŞKA her token'ı
+     * düşürülür, yani eski telefon bir sonraki isteğinde kapı dışarı edilir.
+     *
+     * ══ KAPSAM: KULLANICI, BAYİ DEĞİL ═══════════════════════════════════════════════════════
+     * Düşürülenler YALNIZ aynı `users` satırının token'larıdır. Bayide patron, operatör ve
+     * kurye AYRI hesaplardır; patronun girişi kuryenin telefonunu düşürmez — düşürseydi
+     * tek kişilik olmayan her bayide iki kişi sırayla birbirini atardı.
+     *
+     * ══ NEDEN SİLMİYORUZ ════════════════════════════════════════════════════════════════════
+     * Silinen token sonraki istekte çıplak bir 401 verir ve eski telefon SEBEPSİZ çıkış yapar.
+     * Satır kalır, üstüne sebep yazılır; `RejectRevokedToken` o sebebi okuyup istemciye
+     * "hesabınız başka bir cihazda açıldı" dedirtir. `expires_at` de geçmişe çekilir — asıl
+     * kapıyı Sanctum'un kendi süre kontrolü tutar, biz yalnız sebebi taşırız (bkz. migration).
+     *
+     * ══ PUSH JETONU ═════════════════════════════════════════════════════════════════════════
+     * Oturumu kapanan telefon o bayinin bildirimlerini almaya DEVAM ETMEMELİ (veresiye
+     * tutarları, sipariş adresleri bildirim gövdesinde geçebilir). Bu yüzden düşen token'ların
+     * cihazlarında `push_token` boşaltılır.
+     *
+     * ⚠️ BU GİRİŞİN CİHAZI HARİÇ TUTULUR: aynı telefondan yeniden giriş (çıkış yapıp girmek,
+     * parola değişimi) de eski bir token bırakır. Hariç tutulmasaydı her yeniden giriş,
+     * kullanıcının AZ ÖNCE kaydettiği push jetonunu siler ve bildirimler sessizce kesilirdi.
+     *
+     * @param  int|string  $yeniTokenId  Bu girişte üretilen token (düşürülmeyecek tek satır).
+     * @param  string|null  $cihazId  Bu girişin cihazı; `device` bloğu gelmediyse null.
+     */
+    private function digerCihazlariDusur(User $user, int|string $yeniTokenId, ?string $cihazId): void
+    {
+        $dusenler = $user->tokens()
+            ->whereKeyNot($yeniTokenId)
+            ->whereNull('revoked_at')
+            ->get(['id', 'device_id']);
+
+        if ($dusenler->isEmpty()) {
+            return;
+        }
+
+        $sebep = TokenDusmeSebebi::BaskaCihaz;
+
+        $user->tokens()->whereKey($dusenler->pluck('id')->all())->update([
+            'revoked_at' => now(),
+            'revoked_reason' => $sebep->value,
+            // subSecond: `isPast()` tam eşitlikte false döner; sınırda kalan bir token'ın
+            // bir saniyeliğine geçerli sayılması, kapıyı hiç kapatmamakla aynı sınıf hatadır.
+            'expires_at' => now()->subSecond(),
+        ]);
+
+        $eskiCihazlar = $dusenler
+            ->pluck('device_id')
+            ->filter(fn ($id) => $id !== null && $id !== $cihazId)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($eskiCihazlar !== []) {
+            // RLS altında koşar: yalnız bu bayinin cihazları görünür/güncellenebilir.
+            Device::whereIn('id', $eskiCihazlar)->update(['push_token' => null]);
+        }
+    }
+
+    /**
+     * POST /api/v1/auth/parola-sifirla  (public, throttle:parola-sifirla)
+     *
+     * ══ NEDEN VAR (kullanıcı isteği 2026-08-13) ═════════════════════════════════════════════
+     * Mobilde parola kurtarma yolu HİÇ YOKTU: uygulamada "şifremi unuttum" geçen tek bir satır
+     * bile aranmadı ve bulunamadı. Kullanıcı parolasını unuttuğunda yapabildiği tek şey birini
+     * aramaktı — pilot bayilerde bu, birinci sıradaki destek çağrısıdır.
+     *
+     * ══ İKİ AYRI GERÇEK, TEK UÇ NOKTA ═══════════════════════════════════════════════════════
+     * PATRON'un e-postası gerçektir; sıfırlama bağlantısı ona gider (site akışının aynısı).
+     * KURYE/OPERATÖR'ün e-postası SENTETİKTİR (`<kullanıcı>@<kod>.sipario.local`) — o adrese
+     * gönderilen posta hiçbir yere ulaşmaz. Onlar için bu uç nokta bilinçli olarak HİÇBİR ŞEY
+     * YAPMAZ; parolalarını bayi yöneticisi belirler ve mobil ekran bunu AÇIKÇA yazar.
+     *
+     * ⚠️ YANIT HER KOŞULDA AYNI ve bu pazarlıksız: "gönderildi" / "böyle bir hesap yok" /
+     * "bu hesap kurye" ayrımı yapmak, firma kodu + kullanıcı adı çiftlerini tek tek
+     * numaralandırmaya açık kapı bırakırdı (`login`in nötr hata kuralının aynısı). Ekran da bu
+     * yüzden iki gerçeği ÖNCEDEN yazar — cevaptan öğrenilemeyecek şeyi baştan söylemek, hem
+     * dürüst hem güvenlidir.
+     *
+     * OWNER BAĞLANTISI: istek kimliksizdir, yani `app.tenant_id` kurulmamıştır ve RLS altında
+     * hiçbir kullanıcı görünmez. Site tarafı (`Livewire\Site\Parola`) aynı sebeple owner
+     * bağlantısı kullanıyor; buradaki okuma da onun deseni.
+     */
+    public function parolaSifirla(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'tenant_code' => ['required', 'string', 'max:80'],
+            'username' => ['required', 'string', 'max:60'],
+        ]);
+
+        // Nötr yanıt ÖNCE kurulur ve her yoldan bu döner — aşağıdaki hiçbir dal onu değiştirmez.
+        $notr = response()->json([
+            'message' => 'Bu hesap için kayıtlı bir e-posta adresi varsa sıfırlama bağlantısı '
+                .'gönderildi. Gelen kutunuzu kontrol edin.',
+        ]);
+
+        try {
+            /** @var User|null $kullanici */
+            $kullanici = User::on('pgsql_owner')
+                ->join('tenants', 'tenants.id', '=', 'users.tenant_id')
+                ->where('tenants.slug', Str::lower(trim($data['tenant_code'])))
+                ->where('users.username', Str::lower(trim($data['username'])))
+                ->where('users.status', 'active')
+                ->where('users.role', UserRole::Patron->value)
+                ->select('users.*')
+                ->first();
+
+            // Kullanıcı yok · pasif · patron değil → sessizce çık. Hangi koşulun tutmadığı
+            // İSTEMCİYE SÖYLENMEZ (numaralandırma).
+            if ($kullanici === null || ! PostaAdresi::gercekMi($kullanici->email)) {
+                return $notr;
+            }
+
+            $depo = Password::getRepository();
+
+            // Framework'ün 60 saniyelik kendi throttle'ı: aynı token ard arda üretilmez.
+            // Hız sınırlayıcının (dakikada 3) ALTINDAKİ ikinci kapı.
+            if ($depo->recentlyCreatedToken($kullanici)) {
+                return $notr;
+            }
+
+            // Bağlantı adresi ve postanın gövdesi `AppServiceProvider`da bir kez kuruluyor
+            // (`ResetPassword::createUrlUsing` + `toMailUsing`) — burada kurulmaz. Gerekçe
+            // `Livewire\Site\Parola::baglantiGonder()` başlığında.
+            $kullanici->sendPasswordResetNotification($depo->create($kullanici));
+        } catch (Throwable $e) {
+            // Posta/altyapı hatası İSTEMCİYE YANSIMAZ (yine numaralandırma) ama sessizce de
+            // kaybolmaz: `report` ile günlüğe düşer.
+            report($e);
+        }
+
+        return $notr;
     }
 }

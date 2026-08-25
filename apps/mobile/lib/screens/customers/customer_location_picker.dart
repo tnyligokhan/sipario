@@ -65,7 +65,7 @@ class AdresAdayi {
 /// biri düzeltilip diğeri unutulur. "Bulunamadı" bir ARIZA değildir, kullanıcıya ne yapacağını
 /// söyler — bu yüzden hata rengiyle değil yönlendirmeyle yazılır.
 const String konumBulunamadiMesaji =
-    'Bu adres bulunamadı — mahalle ve sokak adını biraz daha açık yazın.';
+    'Adres bulunamadı. Mahalle ve sokağı biraz daha açık yazın.';
 
 /// "36.8969, 30.7133" — hem aday satırında hem `.md-konum` çipinde aynı yazım.
 String konumMetni(double lat, double lng) =>
@@ -86,13 +86,13 @@ Future<List<AdresAdayi>> sunucudanAdresAdaylari(AppDatabase db, String metin) as
   final m = metin.trim();
   if (m.length < 3) {
     // Sunucu da reddeder; buradan hiç çıkmaması bir tur ağ ve bir tur kota tasarrufudur.
-    throw GeocodeException('Adres en az 3 karakter olmalı.');
+    throw GeocodeException('Adres en az 3 karakter olmalı');
   }
 
   final meta = await db.syncState();
   final token = meta.authToken;
   if (token == null) {
-    throw GeocodeException('Adres araması için oturum gerekir.');
+    throw GeocodeException('Adres araması için oturum gerekir');
   }
 
   final adaylar =
@@ -114,11 +114,11 @@ Future<List<AdresAdayi>> sunucudanAdresAdaylari(AppDatabase db, String metin) as
 Future<AdresAdayi?> konumSecSheet(BuildContext context, List<AdresAdayi> adaylar) {
   return sipSheet<AdresAdayi>(
     context,
-    baslik: 'Konum Seç · API Sonuçları',
+    baslik: 'Konum Seç',
     govde: (ctx) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const AdayBilgi(metin: 'Adres bazen yanlış algılanabilir — doğru olanı seçin.'),
+        const AdayBilgi(metin: 'Doğru adresi seçin'),
         const SizedBox(height: SipSpace.xs),
         for (final a in adaylar)
           Padding(
@@ -206,7 +206,7 @@ class AdaySatiri extends StatelessWidget {
                       const SizedBox(width: SipSpace.sm),
                       Flexible(
                         child: Text(
-                          '· ${aday.kesinlikNotu!}',
+                          aday.kesinlikNotu!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: SipText.metin(11, w: 700).copyWith(color: t.warn),

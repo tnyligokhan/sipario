@@ -30,7 +30,10 @@
                 <div class="ozet-r"><span>Otomatik yenileme</span><b style="color:var(--sonuk)">Kapalı</b></div>
             </div>
             <hr class="ayrac">
-            <p class="kucuk">Deneme kendiliğinden ücretli aboneliğe dönmez. Karar vermezseniz hesap salt-okunur kipe geçer, verileriniz silinmez.</p>
+            {{-- "salt-okunur kip" yerine kullanıcının gördüğü davranış (2026-08-19; aynı düzeltme
+                 hesap/genel.blade.php ve site SSS'inde de yapıldı — tek bir yerde bırakmak,
+                 aynı şeyi iki farklı dille anlatan bir ürün üretirdi). --}}
+            <p class="kucuk">Deneme kendiliğinden ücretli aboneliğe dönmez; kartınızdan bir şey çekilmez. Karar vermezseniz süre dolduğunda yeni kayıt giremezsiniz, o kadar — girdikleriniz olduğu gibi durur.</p>
         </x-site.pano>
     @else
         <x-site.pano etiket="Mevcut plan">
@@ -125,13 +128,19 @@
             @if ($deneme)
                 İşinize uygun bulmadıysanız bir şey yapmanız gerekmez — deneme kendiliğinden sona erer ve ücret işlemez.
             @else
-                Otomatik yenileme zaten kapalıdır: ödeme yapmadığınız sürece dönem sonunda ({{ $this->tarih($bayi->valid_until) }}) yenileme olmaz. O tarihte hesap salt-okunur kipe geçer — kayıtlarınız silinmez, görmeye ve dışa aktarmaya devam edersiniz.
+                Otomatik yenileme zaten kapalı: ödeme yapmadığınız sürece dönem sonunda ({{ $this->tarih($bayi->valid_until) }}) bir şey yenilenmez. O tarihte yeni kayıt giremezsiniz — kayıtlarınız silinmez, görmeye ve dışa aktarmaya devam edersiniz.
             @endif
-            Hesabı büsbütün kapatmak isterseniz önce verilerinizi isteyin, sonra destek hattından kapatalım.
+            Hesabı büsbütün kapatmak isterseniz önce verilerinizi alın, sonra destek hattından birlikte kapatalım.
         </p>
         <div class="dg-grup" style="margin-top:18px">
+            {{--
+                DÜĞME ADI DÜZELTİLDİ (2026-08-19). Eskisi "Verilerimi isteyin"di ve emir kipi
+                YANLIŞ TARAFA bakıyordu: düğmeye basan bayidir, ama cümle bize "isteyin" diyor.
+                Bayi kendi ekranında kendine emir veriyor gibi okunuyordu. Düğme metni, basanın
+                ne yaptığını söylemeli.
+            --}}
             <button type="button" class="dg dg-c" wire:click="disaAktarTalep">
-                <x-site.ikon ad="indir" boy="17" kalin="2.1" />Verilerimi isteyin
+                <x-site.ikon ad="indir" boy="17" kalin="2.1" />Verilerimi gönderin
             </button>
             <a class="dg dg-d" href="{{ route('site.destek') }}">Destek hattı</a>
         </div>

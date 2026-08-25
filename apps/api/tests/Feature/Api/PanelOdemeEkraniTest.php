@@ -42,6 +42,29 @@ class PanelOdemeEkraniTest extends ApiTestCase
         // ApiTestCase yalnız kendi listesini boşaltır; bu vardiyanın tabloları oradan gelmiyor.
         // `tenants` TRUNCATE CASCADE zaten addon_grants/payment_notifications'ı süpürür.
         DB::connection('pgsql_owner')->statement('TRUNCATE expenses RESTART IDENTITY CASCADE');
+
+        /*
+         * ⚠️ SAAT DONDURULUR — TAKVİM ÇÜRÜMESİ (2026-08-22'de ölçüldü).
+         *
+         * Bu dosyanın dört testi 2026-08-21'de KENDİLİĞİNDEN kırmızıya döndü; kimse koda
+         * dokunmamıştı. Sebep: `bayi()` fikstürü `valid_until`ı 2026-08-20'ye sabitliyor ve
+         * `OdemeKayitServisi` tabanı `valid_until > now ? valid_until : now` diye seçiyor.
+         * 20 Ağustos geçince taban "bugün"e kaydı, beklenen 2026-09-20 gerçekte 2026-09-22
+         * çıktı — yani test, doğrulamak istediği kuralın (SÜRE GERİ ALINMAZ, taban GELECEKTEKİ
+         * bitiştir) ön koşulunu kaybetti.
+         *
+         * Dondurulan an, dosyanın zaten kullandığı takvimle aynı (ödeme tarihleri 2026-08-01…04),
+         * yani fikstürün bitişi yine GELECEKTE kalır ve beklentiler sabitlenir. Tarihleri ileri
+         * atmak çürümeyi yalnız ertelerdi; bu depoda saate bağlı testler yazılı bir risk
+         * sınıfıdır (DECISIONS 2026-08-21/3).
+         */
+        Carbon::setTestNow(Carbon::create(2026, 8, 4, 12));
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow(); // sonraki test dosyası gerçek saatle koşsun
+        parent::tearDown();
     }
 
     private function admin(string $rol = 'superadmin', string $email = 'para-super@sipario.test'): AdminUser

@@ -47,9 +47,18 @@
         </a>
     </x-site.kimlik-kabuk>
 @else
+    {{--
+        ⚠️ ALT YAZI YANLIŞ YÖNLENDİRİYORDU (2026-08-19). Metin "Zaten hesabınız var mı? SAĞ
+        ÜSTTEN giriş yapabilirsiniz." diyordu — ama bu ekran `site-ciplak` layout'unu kullanıyor
+        ve o layout'ta ÜST MENÜ YOK (bileşenin kendi belge başlığı da bunu söylüyor: "menüsüz").
+        Yani sayfanın sağ üstünde giriş bağlantısı diye bir şey hiç olmadı; hesabı olan kullanıcı
+        oraya bakıp bir şey bulamıyordu. Yerine gerçekten çalışan bir bağlantı kondu.
+
+        Açıklamadaki "otomatik ücret alınmaz" ifadesi de sadeleşti: "otomatik ücret" bir yazılım
+        deyimi; esnafın korktuğu şeyin adı "kartımdan para çekilmesi"dir.
+    --}}
     <x-site.kimlik-kabuk kulak="{{ $this->denemeGun }} gün ücretsiz" baslik="İşletmenizi açalım."
-        aciklama="Üç kısa adım, iki dakika. Kart bilgisi istemiyoruz — deneme bitince otomatik ücret alınmaz."
-        altYazi="Zaten hesabınız var mı? Sağ üstten giriş yapabilirsiniz.">
+        aciklama="Üç kısa adım, iki dakika sürer. Kart bilgisi istemiyoruz; deneme bitince hiçbir yerden para çekilmez.">
 
         <x-site.ilerleme :adimlar="['İşletme', 'Yetkili', 'Firma kodu']" :aktif="$adim" />
 
@@ -121,5 +130,12 @@
                 </button>
             </div>
         </form>
+
+        {{-- "Sağ üstten giriş yapabilirsiniz" alt yazısının yerini alan GERÇEK bağlantı.
+             Bu ekranda üst menü yok (site-ciplak layout'u); hesabı olan kullanıcının çıkışı
+             burada olmalı, yoksa geri düğmesine basmaktan başka yolu kalmıyor. --}}
+        <p class="kimlik-dip kucuk" style="margin-top:22px">
+            Hesabınız zaten var mı? <a class="kimlik-link" href="{{ route('subscription.login') }}">Giriş yapın</a>.
+        </p>
     </x-site.kimlik-kabuk>
 @endif

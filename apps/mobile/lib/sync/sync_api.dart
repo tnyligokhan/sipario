@@ -124,12 +124,33 @@ List<Map<String, dynamic>> _mapListesi(dynamic v) => v is List
     ? v.whereType<Map<dynamic, dynamic>>().map((e) => e.cast<String, dynamic>()).toList()
     : const [];
 
+/// Sunucunun SÖZLEŞME SÜRÜMÜ (`api_version`, SemVer — `apps/api/config/app.php`).
+///
+/// NULLABLE ve savunmacı, bilerek: alan 2026-08-10'da eklendi ve sahadaki telefonlar günlerce
+/// eski sunucu sürümüyle konuşabilir (offline-first; kanal ayrımından sonra `saha` yalnız
+/// `main`'den beslenir). Yokluğu bir arıza DEĞİLDİR — "bu sunucu henüz söylemiyor" demektir ve
+/// önceki değer korunur (bkz. SyncEngine).
+///
+/// TİP KONTROLÜ ZORUNLU: `as String` yazmak, sunucu bu alanı bir gün sayı/nesne olarak
+/// yollarsa TÜM senkron turunu TypeError ile düşürürdü — bir GÖSTERİM alanının senkronu
+/// durdurmaya yetkisi yoktur. Aynı disiplin `EventResult._metin`te yazılı.
+String? _surum(Object? v) => v is String && v.isNotEmpty ? v : null;
+
 class PushResponse {
-  PushResponse(
-      {required this.results, required this.currentSeq, this.serverTime, this.subscription, this.team});
+  PushResponse({
+    required this.results,
+    required this.currentSeq,
+    this.serverTime,
+    this.apiSurum,
+    this.subscription,
+    this.team,
+  });
   final List<EventResult> results;
   final int currentSeq;
   final String? serverTime;
+
+  /// Sunucunun sözleşme sürümü — bkz. [_surum].
+  final String? apiSurum;
   final SubscriptionInfo? subscription;
   final List<Map<String, dynamic>>? team;
 
@@ -137,6 +158,7 @@ class PushResponse {
         results: _mapListesi(j['results']).map(EventResult.fromJson).toList(),
         currentSeq: (j['current_seq'] as num?)?.toInt() ?? 0,
         serverTime: j['server_time'] as String?,
+        apiSurum: _surum(j['api_version']),
         subscription: j['subscription'] is Map
             ? SubscriptionInfo.fromJson((j['subscription'] as Map).cast<String, dynamic>())
             : null,
@@ -151,6 +173,7 @@ class PullResponse {
     required this.hasMore,
     required this.currentSeq,
     this.serverTime,
+    this.apiSurum,
     this.subscription,
     this.team,
     this.changes = const [],
@@ -161,6 +184,9 @@ class PullResponse {
   final bool hasMore;
   final int currentSeq;
   final String? serverTime;
+
+  /// Sunucunun sözleşme sürümü — bkz. [_surum].
+  final String? apiSurum;
   final SubscriptionInfo? subscription;
   final List<Map<String, dynamic>>? team;
   final List<Map<String, dynamic>> changes; // delta
@@ -177,6 +203,7 @@ class PullResponse {
       hasMore: (j['has_more'] as bool?) ?? false,
       currentSeq: (j['current_seq'] as num?)?.toInt() ?? 0,
       serverTime: j['server_time'] as String?,
+      apiSurum: _surum(j['api_version']),
       subscription: j['subscription'] is Map
           ? SubscriptionInfo.fromJson((j['subscription'] as Map).cast<String, dynamic>())
           : null,
@@ -261,6 +288,23 @@ class SyncApiException implements Exception {
   /// Sunucu bize ULAŞTI ve "seni tanımıyorum" dedi (401/403). Beklemek çözmez, yeniden giriş
   /// gerekir. Karantinaya ALINMAZ: kayıt bozuk değil, oturum bozuk.
   bool get oturumHatasi => statusCode == 401 || statusCode == 403;
+
+  /// Yanıt gövdesindeki MAKİNE KODU (`code`) — sunucu 401'de neden reddettiğini bununla söyler
+  /// (`oturum_baska_cihazda`, 2026-08-22 "tek hesap tek cihaz"). Yoksa null.
+  ///
+  /// Gövde ÇÖZÜLEMEZSE sessizce null döner ve bu bilinçli: burası zaten bir hata yolu, üstüne
+  /// ikinci bir istisna atmak asıl hatayı (HTTP durumunu) gizlerdi. Bir sunucu HTML hata sayfası
+  /// döndürebilir (proxy/504) ve o gövde JSON değildir.
+  String? get kod {
+    try {
+      final govde = jsonDecode(body);
+      return govde is Map<String, dynamic> && govde['code'] is String
+          ? govde['code'] as String
+          : null;
+    } on Object {
+      return null;
+    }
+  }
 
   /// GEÇİCİ: sunucu ayakta ama şu an veremiyor — 5xx (arıza), 408 (istek zaman aşımı),
   /// 425 (çok erken), 429 (çok fazla istek). Tekrar denemek DOĞRU davranıştır; bu yüzden

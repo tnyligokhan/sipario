@@ -15,14 +15,22 @@ use InvalidArgumentException;
  * tenant_settings: payload'da id YOKTUR — anahtar oturumdaki tenant'tır (migration 601: PK = tenant_id).
  * İki cihazın çevrimdışı yazımı AYNI satırda buluşur, çakışıp reddedilemez.
  *
- * user_profile: YALNIZ name/phone/status güncellenir; kullanıcı OLUŞTURULAMAZ, rol/e-posta/parola
- * DEĞİŞTİRİLEMEZ (kimlik yüzeyi senkron yoluyla açılmaz — yetki yükseltme vektörü olurdu). Kullanıcı
- * yaratmak kimlik bilgisi (e-posta+parola) üretmeyi gerektirir; o yol panel/owner tarafındadır.
+ * user_profile: name/phone/status + KİŞİYE ÖZEL KURYE YETKİLERİ güncellenir; kullanıcı
+ * OLUŞTURULAMAZ, rol/e-posta/parola DEĞİŞTİRİLEMEZ (kimlik yüzeyi senkron yoluyla açılmaz — yetki
+ * yükseltme vektörü olurdu). Kullanıcı yaratmak kimlik bilgisi (e-posta+parola) üretmeyi gerektirir;
+ * o yol panel/owner tarafındadır. Yetki alanları 2026-08-10'da eklendi ve kendi kapısıyla geldi
+ * (bkz. `applyUserProfile`): yazan aktör patron/operatör değilse olay reddedilir.
  * Değişiklik `sync_changes`'e YAZILMAZ: users delta günlüğünde hiç yoktur, her yanıttaki `team`
  * bloğuyla toptan tazelenir (DECISIONS 4b Dilim 4) — diğer cihazlara oradan iner.
  */
 class ProfileChangeApplier
 {
+    /**
+     * @param  User  $aktor  Push'u YAPAN oturum kullanıcısı (olayın hedefi DEĞİL). Yetki yükseltme
+     *                       kapısı buna bakar; olay gövdesinden okunamaz — gövde istemcinin beyanıdır.
+     */
+    public function __construct(private readonly User $aktor) {}
+
     /**
      * @param  array<string, mixed>  $event
      * @return array{status: string, entity_id: string, changes: list<array<string, mixed>>}
@@ -124,6 +132,11 @@ class ProfileChangeApplier
             'order_code_display' => in_array($p['order_code_display'] ?? null, ['musteri', 'siparis'], true)
                 ? $p['order_code_display']
                 : 'musteri',
+            // HAZIRLANAN ÜRÜN YETENEĞİ (kullanıcı eleştirisi 2026-08-18) — ürün seçenekleri
+            // özelliğinin kiracı anahtarı. Su/tüp bayisinde kapalı, dönerci/tostçuda açık;
+            // gerekçenin tamamı migration 004015'te. NOT NULL olduğu için varsayılan false.
+            // (Anahtar HİÇ gelmediğinde varsayılana düşmez, KORUNUR — üstteki filtre kapsar.)
+            'prepared_products' => (bool) ($p['prepared_products'] ?? false),
         ];
     }
 
@@ -222,6 +235,19 @@ class ProfileChangeApplier
     private function applyUserProfile(array $p, string $occurredAt, ?string $deviceId): array
     {
         $id = (string) SyncPayload::req($p, 'id');
+
+        // YETKİ YÜKSELTME KAPISI (2026-08-10). Yalnız payload'da GERÇEKTEN yer alan yetki anahtarları
+        // toplanır; kapı da tam bu kümeye bakar. Kapı ad/telefon/status yazımını ETKİLEMEZ — kurye
+        // kendi telefonunu güncelleyebilmeli, o bir yetki değil iletişim bilgisidir.
+        //
+        // KAPI LWW'DEN VE KULLANICI ARAMASINDAN ÖNCE: yetkisi olmayan bir aktörün yazımı, olayın
+        // eski ya da hedefin var olup olmaması gibi tesadüflere bağlı olarak 'stale' değil, HER
+        // ZAMAN 'rejected' dönmelidir — yoksa reddin görünürlüğü zamanlamaya kalırdı.
+        $izinler = self::kisiselIzinler($p);
+        if ($izinler !== [] && ! $this->aktor->role->kuryeYetkisiAtayabilir()) {
+            throw new InvalidArgumentException('kurye yetkilerini yalnız patron veya operatör değiştirebilir');
+        }
+
         /** @var User|null $user */
         $user = User::query()->find($id); // RLS kapsamlı: başka bayinin kullanıcısı bulunamaz
         if ($user === null) {
@@ -237,7 +263,7 @@ class ProfileChangeApplier
             throw new InvalidArgumentException("Geçersiz status: {$status}");
         }
 
-        $user->forceFill([
+        $user->forceFill($izinler + [
             'name' => (string) ($p['name'] ?? $user->name),
             // `name`/`status` ile SİMETRİK (2026-08-05): anahtar gelmediyse mevcut değer korunur.
             // Eskiden `?? null` idi ve tek asimetrik alandı — `phone`u bilmeyen bir yüzeyin profil
@@ -250,6 +276,47 @@ class ProfileChangeApplier
 
         // changes BOŞ: users sync_changes delta günlüğünde yer almaz, `team` bloğuyla yayılır.
         return ['status' => 'applied', 'entity_id' => $id, 'changes' => []];
+    }
+
+    /**
+     * KİŞİYE ÖZEL kurye yetkileri — ÜÇ DEĞERLİ okuma (2026-08-10, migration 004008).
+     *
+     * Dönen dizi YALNIZ payload'da GERÇEKTEN geçen anahtarları taşır; geri kalanı hiç yazılmaz.
+     * Üç hâl ve üçü de ayrı şeydir:
+     *
+     *   anahtar HİÇ YOK        → dizide de yok → kolon MEVCUT değerini korur (sürüm çarpıklığı
+     *                            kapısı; `applySettings`'teki `SyncPayload::gonderilenler` ile aynı
+     *                            disiplin — yetkiyi bilmeyen eski bir build, patronun az önce
+     *                            kişiselleştirdiği yetkiyi sessizce silerdi)
+     *   anahtar VAR, değer null → NULL yazılır = "bayi varsayılanına dön" (devralma)
+     *   anahtar VAR, bool      → kişiye özel ezme yazılır
+     *
+     * `filter_var(..., FILTER_VALIDATE_BOOL)` ZORUNLU: istemciler booleanı üç biçimde gönderir
+     * (true / "true" / 1) ve PHP'nin gevşek dönüşümü `"false"` METNİNİ true sayardı — yani
+     * "kapalı" diye gönderilen bir yetki AÇIK yazılırdı (tenant_settings tarafında aynı ders).
+     *
+     * OKUNAMAYAN DEĞER (`"belki"`, dizi, nesne) NULL'a düşer, yani "devral": bu alanda "belirsiz"
+     * diye bir durum olamaz ve devralma güvenli taraftır — kişisel ezmeyi uydurmaktansa bayinin
+     * kendi varsayılanına dönmek. Olayı reddetmek de olurdu ama tek bozuk anahtar yüzünden ad/
+     * telefon/aktiflik yazımını da düşürürdü.
+     *
+     * @param  array<string, mixed>  $p
+     * @return array<string, bool|null>
+     */
+    private static function kisiselIzinler(array $p): array
+    {
+        $sonuc = [];
+        foreach (User::kuryeIzinKolonlari() as $kolon) {
+            if (! array_key_exists($kolon, $p)) {
+                continue; // anahtar YOK ≠ anahtar null
+            }
+            $ham = $p[$kolon];
+            $sonuc[$kolon] = $ham === null
+                ? null
+                : filter_var($ham, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
+        }
+
+        return $sonuc;
     }
 
     /**

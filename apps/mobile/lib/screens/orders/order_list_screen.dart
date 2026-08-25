@@ -6,16 +6,16 @@
 // sonra sipariş satırları. Elle sıralama kipinde satırlar sürüklenebilir hale gelir, adres/not/
 // eylem şeritleri gizlenir ve sıra `orders.sort_index` olarak KALICI yazılır.
 //
-// Satırın kendisi order_row.dart'ta, sorgular order_queries.dart'ta, liste/bant/süzgeç parçaları
-// order_list_parts.dart'ta, seçim sheet'leri order_sheets.dart'ta. Bu dosya yalnız DURUM ve akış
-// birleştirmesi yapar.
+// Satırın kendisi order_row.dart'ta, sorgular order_queries.dart'ta, liste/gövde/bant/süzgeç
+// parçaları order_list_parts.dart'ta, eylemler (harita · kurye süzgeci · kurye atama · sıralama
+// sheet'i) order_list_eylemler.dart'ta, seçim sheet'leri order_sheets.dart'ta. Bu dosya yalnız
+// DURUMU tutar: seçili sekme, sıralama kipi, kurye süzgeci, teslim günü.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
-import '../../repo/order_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
@@ -23,12 +23,12 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../team.dart';
 import 'order_detail_screen.dart';
+import 'order_list_eylemler.dart';
 import 'order_list_parts.dart';
 import 'order_queries.dart';
-import 'order_sheets.dart';
 import 'siparis_arac_seridi.dart';
-import 'siparis_harita.dart';
 import 'siparis_tarih_seridi.dart';
+import 'teslim_akisi.dart';
 import 'tutamac_deposu.dart';
 
 // Sorgu/biçim yardımcıları bu ekranın YÜZEYİNDEN de erişilebilir olmalı: mevcut testler ve
@@ -208,17 +208,10 @@ class _OrderListScreenState extends State<OrderListScreen> {
     super.dispose();
   }
 
-  // Yardımcı akışlar bir kez abone edilir — filtre değişince yeniden abone olup titremesinler.
-  // Sipariş akışı filtreye bağlı olduğundan build'de kurulur.
-  late final Stream<List<User>> _ekip = watchTeam(widget.db);
-  late final Stream<Map<String, List<OrderLine>>> _satirlar =
-      watchOrderLinesByOrder(widget.db);
-  late final Stream<Map<String, int>> _tahsilatlar = watchSiparisTahsilatlari(widget.db);
-  late final Stream<String> _kodTercihi = watchSiparisKoduTercihi(widget.db);
-  late final Stream<Map<String, AdresBilgi>> _adresler = watchBirincilAdresler(widget.db);
-  late final Stream<Map<String, String>> _telefonlar = watchBirincilTelefonlar(widget.db);
-  // Açık sipariş SAYACI burada DEĞİL: kapsama bağlı olduğu için liste akışıyla aynı yerde,
-  // aynı desenle kurulur (bkz. [_acikSayisiniIzle]).
+  // Yardımcı akışlar (ekip · satırlar · tahsilatlar · kod tercihi · adres · telefon) artık
+  // `SiparisListesiGovdesi`nin içinde, orada bir kez kuruluyor — filtre değişince yeniden abone
+  // olup titremesinler. Açık sipariş SAYACI ise burada kalır: kapsama bağlı olduğu için liste
+  // akışıyla aynı yerde, aynı desenle kurulur (bkz. [_acikSayisiniIzle]).
 
   bool get _elle => _sirala == OrderSort.elle;
 
@@ -267,9 +260,9 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 // gelirken sessizliği geri gelmemeli. Kurye eksik listeyi "sipariş yok" sanıp
                 // teslimat kaçırmamalı, kendi kapsamına baktığını BİLMELİ.
                 alt: _kendiSiparisleriyleSinirli
-                    ? 'Bugün ${snap.data ?? 0} açık · yalnız size atananlar'
+                    ? 'Size atanan ${snap.data ?? 0} açık sipariş'
                     : 'Bugün ${snap.data ?? 0} açık'
-                        '${_kuryeId == null ? '' : ' · ${_kuryeAdi ?? 'Kurye'}'}',
+                        '${_kuryeId == null ? '' : ', ${_kuryeAdi ?? 'Kurye'}'}',
                 onMenu: widget.onMenu,
                 // Başlıkta TEK eylem kaldı (2026-08-01). Harita ile kurye süzgeci çıplak ikon
                 // düğmeleriydi; ne yaptıkları ancak dokununca anlaşılıyordu. İkisi de sekmelerin
@@ -349,67 +342,43 @@ class _OrderListScreenState extends State<OrderListScreen> {
     );
   }
 
-  // ── Gövde — dört akış tek listede birleşir ──────────────────────────────────────────────
-  Widget _govde() {
-    return StreamBuilder<List<User>>(
-      stream: _ekip,
-      initialData: const [],
-      builder: (context, ekipSnap) => StreamBuilder<Map<String, List<OrderLine>>>(
-        stream: _satirlar,
-        initialData: const {},
-        builder: (context, satirSnap) => StreamBuilder<String>(
-          stream: _kodTercihi,
-          initialData: 'musteri',
-          builder: (context, kodSnap) => StreamBuilder<Map<String, int>>(
-          stream: _tahsilatlar,
-          initialData: const {},
-          builder: (context, tahsilatSnap) => StreamBuilder<Map<String, AdresBilgi>>(
-            stream: _adresler,
-            initialData: const {},
-            builder: (context, adresSnap) => StreamBuilder<Map<String, String>>(
-              stream: _telefonlar,
-              initialData: const {},
-              builder: (context, telSnap) => StreamBuilder<List<OrderListItem>>(
-              // `assignedTo` artık KURYE SÜZGECİDİR (saha hatası 6). Önceden oturumdaki
-              // kullanıcı geçiliyordu ama sorgu bu parametreyi hiç kullanmıyordu — sessiz
-              // ölü koddu. Kurye kendi işini "Açık" sekmesinde zaten görür.
-              stream: _siparisleriIzle(),
-              builder: (context, snap) {
-                if (snap.hasError) {
-                  // "Tekrar dene" akışı YENİDEN KURMALI: artık akış önbellekli olduğu için
-                  // boş bir setState aynı ölü akışa geri abone olurdu (düğme hiçbir şey yapmaz).
-                  return SipHataEkran(onTekrar: () => setState(() => _siparisAkisi = null));
-                }
-                final ham = snap.data;
-                if (ham == null) return const SipIskelet(adet: 4);
-                if (ham.isEmpty) return _bos();
+  // ── Gövde — akışların birleşimi `order_list_parts.dart`ta ───────────────────────────────
+  // `assignedTo` artık KURYE SÜZGECİDİR (saha hatası 6). Önceden oturumdaki kullanıcı
+  // geçiliyordu ama sorgu bu parametreyi hiç kullanmıyordu — sessiz ölü koddu. Kurye kendi
+  // işini "Açık" sekmesinde zaten görür.
+  Widget _govde() => SiparisListesiGovdesi(
+        db: widget.db,
+        siparisler: _siparisleriIzle(),
+        sirala: (ham) => siparisleriSirala(ham, _sirala, elleSira: _elleSira),
+        bos: _bos(),
+        elle: _elle,
+        tutamacSagda: _tutamacSagda,
+        onAc: _detayAc,
+        // Salt-okunur kipte de GEÇİLİR: çipe dokunan kullanıcı sessizlik değil gerekçe duyar
+        // (`_kuryeAc` kapıları tek yerde tutar).
+        onKuryeAc: widget.canAssign ? _kuryeAc : null,
+        onBildir: (m) => SipToast.goster(context, m),
+        onSirala: _yenidenSirala,
+        onTekrar: () => setState(() => _siparisAkisi = null),
+        // Salt-okunur kipte GEÇİLMEZ: teslim bir YAZMADIR, kurye çipi gibi "dokun ve gerekçeyi
+        // duy" davranışı buraya uymaz — abonelik kapalıyken hiçbir teslim yazılamaz ve bunu
+        // sipariş detayı zaten tek yerde söylüyor.
+        onTeslim: widget.writable ? _teslimEt : null,
+      );
 
-                final liste = siparisleriSirala(ham, _sirala, elleSira: _elleSira);
-                return SiparisListesi(
-                  liste: liste,
-                  satirlar: satirSnap.data ?? const {},
-                  tahsilatlar: tahsilatSnap.data ?? const {},
-                  kodTercihi: kodSnap.data ?? 'musteri',
-                  adresler: adresSnap.data ?? const {},
-                  telefonlar: telSnap.data ?? const {},
-                  ekip: ekipSnap.data ?? const [],
-                  elle: _elle,
-                  tutamacSagda: _tutamacSagda,
-                  onAc: _detayAc,
-                  // Salt-okunur kipte de GEÇİLİR: çipe dokunan kullanıcı sessizlik değil
-                  // gerekçe duyar (`_kuryeAc` kapıları tek yerde tutar).
-                  onKuryeAc: widget.canAssign ? _kuryeAc : null,
-                  onBildir: (m) => SipToast.goster(context, m),
-                  onSirala: _yenidenSirala,
-                );
-              },
-              ),
-            ),
-          ),
-          ),
-        ),
-      ),
-    );
+  /// Liste kartındaki "Teslim" düğmesi — detaydaki "Teslim Et" ile AYNI akış ([TeslimAkisi]).
+  ///
+  /// Kalemler satırın elinde YOK (liste onları `SiparisListesi` katmanında tutuyor); tutar
+  /// siparişin kendi `totalKurus` alanından okunur. İkisi aynı sayıdır — `deliver` da onu
+  /// esas alır — ama burada okumak, teslim anında kalem akışının inmiş olmasına bağımlılığı
+  /// da kaldırır: akış geç gelirse tutar 0 görünürdü ve sheet sıfır tahsilatla açılırdı.
+  Future<void> _teslimEt(OrderListItem item) async {
+    await TeslimAkisi(
+      db: widget.db,
+      siparisId: item.order.id,
+      toplamKurus: item.order.totalKurus,
+      musteriId: item.order.customerId,
+    ).calistir(context, onBildir: (m) => SipToast.goster(context, m));
   }
 
   /// Boş durum — tasarımda İKİ metin var (s-siparisler.jsx:116): "Açık" sekmesi kullanıcıya ne
@@ -422,8 +391,8 @@ class _OrderListScreenState extends State<OrderListScreen> {
         aciklama: _kuryeId != null
             ? '${_kuryeAdi ?? 'Seçili kurye'} için bu filtrede sipariş yok.'
             : _filtre == OrderFilter.acik
-                ? 'Açık sipariş yok. Yeni sipariş için + tuşuna bas.'
-                : 'Bu filtrede sipariş bulunmuyor.',
+                ? 'Yeni sipariş eklemek için alttaki ekle düğmesini kullanın'
+                : 'Bu filtrede sipariş bulunmuyor',
       );
 
   // ── Eylemler ────────────────────────────────────────────────────────────────────────────
@@ -438,95 +407,47 @@ class _OrderListScreenState extends State<OrderListScreen> {
         baslik: item.customerName ?? 'Tezgâh satışı',
       );
 
-  /// Harita ekranı — açık siparişlerin durakları, rota sırasında numaralı. "Oto Sırala" ORADA
-  /// durur; dönen `true`, orada sıra yazıldığını söyleyen SİNYALDİR.
-  ///
-  /// Oto sıralamadan sonra liste ELLE kipine ALINMAZ (2026-08-01 kullanıcı şikâyeti: "oto
-  /// sıralamadan sonra tekrar elle sıralama alanı geliyor, mantıksız"). Kullanıcı sonucu
-  /// görmek istiyordu, düzenlemek değil; `rota` kipi aynı sırayı tutamaçsız gösterir ve ince
-  /// ayar isteyen Sırala → "Elle sırala"yı kendisi seçer.
+  /// Harita ekranı. Dönen `true`, orada rota sırası yazıldığını söyler → liste `rota` kipine
+  /// geçer (ELLE kipine DEĞİL — gerekçe `siparisHaritasiAc` başlığında).
   Future<void> _haritaAc() async {
-    final otoYapildi = await Navigator.of(context).push<bool>(MaterialPageRoute<bool>(
-      builder: (_) => SiparisHaritaEkrani(
-        db: widget.db,
-        writable: widget.writable,
-        canAssign: widget.canAssign,
-      ),
-    ));
-    if (otoYapildi != true || !mounted) return;
+    final otoYapildi = await siparisHaritasiAc(
+      context,
+      db: widget.db,
+      writable: widget.writable,
+      canAssign: widget.canAssign,
+    );
+    if (!otoYapildi || !mounted) return;
     setState(() {
       _sirala = OrderSort.rota;
       _elleSira = const [];
     });
   }
 
-  /// "Kuryeye Göre" süzgeci (saha hatası 6 — patron hiçbir listede kuryeye göre süzemiyordu).
-  ///
-  /// Aday listesi tek atış okunur: sheet açılırken bir akış tikini beklemek, dokunma ile ekran
-  /// arasına gereksiz gecikme koyardı. Süzgeç yalnız GÖRÜNÜMÜ değiştirir, hiçbir kayıt yazmaz —
-  /// bu yüzden salt-okunur kipte de çalışır.
   Future<void> _kuryeSuzgeciAc() async {
-    final adaylar = await watchKuryeSuzgecAdaylari(widget.db).first;
-    if (!mounted) return;
-    if (adaylar.isEmpty) {
-      SipToast.goster(context, 'Süzülecek kullanıcı yok — ekip henüz senkronlanmadı');
-      return;
-    }
-    final secim = await kuryeSuzgecSheet(context, adaylar: adaylar, seciliId: _kuryeId);
+    final secim = await kuryeSuzgeciSec(context, db: widget.db, seciliId: _kuryeId);
     if (secim == null || !mounted) return;
     setState(() {
-      _kuryeId = secim == kTumKuryeler ? null : secim;
-      _kuryeAdi = _kuryeId == null ? null : kuryeSuzgecEtiketi(_kuryeId, adaylar);
+      _kuryeId = secim.id;
+      _kuryeAdi = secim.ad;
     });
   }
 
-  Future<void> _kuryeAc(OrderListItem item) async {
-    // Kapalı sipariş: tasarım dokunuşu YUTMAZ, nedenini söyler (s-siparisler.jsx:24).
-    if (item.order.status != 'open') {
-      SipToast.goster(context, 'Kapalı siparişte kurye değiştirilemez');
-      return;
-    }
-    if (!widget.writable) {
-      SipToast.goster(context, 'Salt-okunur kip: kurye atanamaz.');
-      return;
-    }
-    final kuryeler = await watchAktifKuryeler(widget.db).first;
-    if (!mounted) return;
-    if (kuryeler.isEmpty) {
-      SipToast.goster(context, 'Atanacak aktif kurye yok');
-      return;
-    }
-    final secili = await kuryeSecSheet(
-      context,
-      kuryeler: kuryeler,
-      seciliId: item.order.assignedUserId,
-      baslik: 'Kurye Seç · ${item.customerName ?? 'Tezgâh satışı'}',
-    );
-    if (secili == null || secili == item.order.assignedUserId || !mounted) return;
-    await OrderRepository(widget.db).assign(item.order.id, secili);
-    if (!mounted) return;
-    SipToast.goster(
-        context, 'Kurye değiştirildi: ${kullaniciAdi(kuryeler, secili) ?? ''}');
-  }
+  Future<void> _kuryeAc(OrderListItem item) => siparisKuryesiniDegistir(
+        context,
+        db: widget.db,
+        item: item,
+        writable: widget.writable,
+      );
 
   Future<void> _siralamaAc() async {
-    final secim = await siralamaSecSheet(
-      context,
-      secili: _sirala,
-      // Elle sıralama `sort_set` OLAYI yazar → salt-okunur kipte sunulmaz (yeni kayıt yasağı).
-      // "Rota sırası" için böyle bir kapı YOK: seçmek hiçbir şey yazmaz, kalıcı sırayı gösterir.
-      secenekler: [
-        for (final s in OrderSort.values)
-          if (widget.writable || s != OrderSort.elle) s,
-      ],
-    );
+    final secim = await siralamaSec(context, secili: _sirala, writable: widget.writable);
     if (secim == null || !mounted) return;
     setState(() {
       _sirala = secim;
       if (secim != OrderSort.elle) _elleSira = const [];
     });
     if (secim == OrderSort.elle) {
-      SipToast.goster(context, 'Elle sıralama açık — tutamaçtan sürükle');
+      SipToast.goster(context, 'Elle sıralama açık, tutamaçtan sürükleyin');
     }
   }
 
@@ -549,17 +470,13 @@ class _OrderListScreenState extends State<OrderListScreen> {
       });
 
   /// Sürükle-bırak sonrası: önce İYİMSER sıra (ekran anında oturur), sonra kalıcı yazım.
-  /// Yazma yolu repo → olay → outbox; `sort_index` yalnız türetilmiş önbellektir.
   Future<void> _yenidenSirala(List<OrderListItem> yeniSira) async {
     setState(() => _elleSira = [for (final e in yeniSira) e.order.id]);
     if (!widget.writable) {
-      SipToast.goster(context, 'Salt-okunur kip: sıra kaydedilmedi.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için sıra kaydedilmedi');
       return;
     }
-    final repo = OrderRepository(widget.db);
-    for (final girdi in elleSiraYazimi(yeniSira).entries) {
-      await repo.setSortIndex(girdi.key, girdi.value);
-    }
+    await elleSirayiYaz(widget.db, yeniSira);
   }
 }
 

@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/app_database.dart';
+import '../../data/urun_secenekleri.dart';
 import '../../repo/order_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
@@ -31,6 +32,7 @@ class DuzenSatiri {
     required this.adet,
     this.unit,
     this.serbestBayrak = false,
+    this.note,
   });
 
   final String? lineId;
@@ -38,6 +40,10 @@ class DuzenSatiri {
   final String ad;
   final int birimFiyatKurus;
   final String? unit;
+
+  /// SATIR NOTU. Adet değişimi satırı SİLİP YENİDEN EKLEDİĞİ için (append-only) notun burada
+  /// taşınması şart: taşınmasaydı kullanıcı adedi bir artırdığında notu sessizce kaybolurdu.
+  String? note;
 
   /// Kayıtlı satırdan gelen `OrderLines.isCustom`. Yeni eklenen serbest satırda productId zaten
   /// null olduğundan varsayılan false yeterli.
@@ -178,12 +184,20 @@ class _DuzenGovdeState extends State<_DuzenGovde> {
     }
   }
 
-  void _urunEkle(Product u, int adet) {
+  /// [secim] BU SHEET'TE SORULMAZ ve kullanılmaz (2026-08-18) — imzada durmasının sebebi
+  /// `posKatalogAc` sözleşmesidir. Düzenleme sheet'i var olan bir siparişin ADET/SATIR
+  /// düzeltmesidir; katalog buradan müşterisiz açılır, yani tercih de uygulanmaz ve seçim
+  /// her zaman boş gelir. Sessizce yok saymak yerine bu not yazıldı: parametreyi görüp
+  /// "neden kullanılmıyor" diye soran kişinin cevabı burada.
+  void _urunEkle(Product u, int adet, SecenekSecimi secim) {
     setState(() {
       final i = _taslak.indexWhere((x) => x.productId == u.id);
       if (i >= 0) {
+        // ADET NEGATİF OLABİLİR (2026-08-22): katalog karosundaki `−` düğmesi buradan azaltır.
+        // Sıfıra inen satır SİLİNİR (`order_form_screen._urunEkle` ile aynı kural).
         _taslak[i].adet += adet;
-      } else {
+        if (_taslak[i].adet <= 0) _taslak.removeAt(i);
+      } else if (adet > 0) {
         _taslak.add(DuzenSatiri(
           productId: u.id,
           ad: u.name,
@@ -240,7 +254,7 @@ class _DuzenGovdeState extends State<_DuzenGovde> {
                     SipIcon(SipIcons.alert, boyut: 13, kalinlik: 2.2, renk: t.danger),
                     const SizedBox(width: 5),
                     Expanded(
-                      child: Text('Sepet boş kalamaz — en az bir kalem ekleyin',
+                      child: Text('Sepette en az bir kalem olmalı',
                           style: SipText.metin(12, w: 700).copyWith(color: t.danger)),
                     ),
                   ],

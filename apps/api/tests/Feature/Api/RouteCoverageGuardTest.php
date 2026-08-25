@@ -24,6 +24,15 @@ class RouteCoverageGuardTest extends TestCase
     private const COVERED_TENANT_ROUTES = [
         'api.auth.me',
         'api.auth.logout',
+
+        /*
+         * YÖNETİCİ ONAYI (2026-08-18). Kiracılar arası bir yüzey DEĞİLDİR ve olamaz: doğrulanan
+         * parola HER ZAMAN oturumdaki kullanıcınındır, kullanıcı adı gövdeden ALINMAZ. Yine de
+         * `tenant` middleware'ini taşıdığı için bekçi onu sayar ve matriste karşılığı vardır —
+         * "başka bayinin kullanıcısının parolası bu uçtan denenemez" iddiası, tam olarak
+         * denenmediği için doğru sayılan türden bir iddiaydı.
+         */
+        'api.auth.parola-dogrula',
         'api.devices.index',
         'api.devices.store',
         'api.devices.show',

@@ -8,3 +8,4 @@
 export 'atomlar/form_atomlari.dart';
 export 'atomlar/kart_atomlari.dart';
 export 'atomlar/rol_kapisi.dart';
+export 'atomlar/yetki_atomlari.dart';

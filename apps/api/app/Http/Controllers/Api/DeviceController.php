@@ -40,16 +40,7 @@ class DeviceController extends Controller
         try {
             $device = Device::updateOrCreate(
                 ['id' => $data['device_id']],
-                [
-                    'tenant_id' => $user->tenant_id,
-                    'user_id' => $user->id,
-                    'platform' => $data['platform'],
-                    'model' => $data['model'] ?? null,
-                    'os_version' => $data['os_version'] ?? null,
-                    'app_version' => $data['app_version'] ?? null,
-                    'push_token' => $data['push_token'] ?? null,
-                    'last_seen_at' => now(),
-                ]
+                Device::kayitNitelikleri($user, $data)
             );
         } catch (QueryException $e) {
             // 23505 = unique_violation: device_id başka bir bayide mevcut.

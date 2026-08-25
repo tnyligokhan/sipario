@@ -61,6 +61,6 @@ String? ibanHatasi(String? ham) {
   if (s.startsWith('TR') && s.length != 26) {
     return 'TR IBAN 26 karakter olmalı (şu an ${s.length})';
   }
-  if (!ibanGecerliMi(s)) return 'IBAN geçersiz — rakamları kontrol edin';
+  if (!ibanGecerliMi(s)) return 'IBAN geçersiz, rakamları kontrol edin';
   return null;
 }

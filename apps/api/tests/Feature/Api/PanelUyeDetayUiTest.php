@@ -62,7 +62,10 @@ class PanelUyeDetayUiTest extends ApiTestCase
 
         Livewire::test(TenantDetail::class, ['tenant' => $a['tenant']->id])
             ->assertOk()
-            ->assertSee('Boş/emanet takibi')            // modül aç/kapa
+            // Modül aç/kapa yüzeyi (BRIEF md. 3). Etiketteki "(v1'de yok)" bilinçlidir: bayrak
+            // duruyor ama boş/emanet takibi v1 kapsamından çıkarıldı (2026-08-17) ve mobilde
+            // karşılığı yok — düğmeyi çeviren operatör sahada bir değişiklik beklememeli.
+            ->assertSee("Boş/emanet takibi (v1'de yok)")
             ->assertSee('Patron Şifresini Sıfırla')     // patron parolası
             ->assertSee('Cihazlar')                     // cihaz listesi
             ->assertSee('Veri Aktarımı')                // kırmızı çizgi #5

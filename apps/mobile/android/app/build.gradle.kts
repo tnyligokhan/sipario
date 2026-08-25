@@ -5,6 +5,13 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    /*
+     * PUSH (Firebase). `google-services.json` ÜÇ TADI DA taşımak zorundadır: `saha` ve `magaza`
+     * `com.sipario.app`, `deneme` ise `com.sipario.app.test` paket adıyla derlenir (aşağıdaki
+     * `applicationIdSuffix`). Eksik paket adı derlemeyi "No matching client found for package
+     * name" ile kırar — yani hata sessiz değildir, derleme kapısında yakalanır.
+     */
+    id("com.google.gms.google-services")
 }
 
 /**

@@ -2,11 +2,21 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
-import '../bildirim/kurallar/musteri_kurallari.dart' show MusteriGecmisi;
 import '../data/app_database.dart';
 import '../data/ids.dart';
 import '../data/outbox.dart';
+import '../data/urun_secenekleri.dart';
 import 'ledger_ops.dart';
+
+// İptal ONAY akışının yazma yolu buradan ayrıldı — 500 satır sınırı. AYNI KÜTÜPHANEDİR
+// (`part`): `_statusEvent` private kalsın diye; gerekçe o dosyanın başlığında.
+part 'order_repository_iptal.dart';
+
+// AÇIK SİPARİŞ SORGUSU BU DOSYADA DEĞİL: `screens/orders/order_queries.dart`
+// (`acikSiparisler` · `watchAcikSiparisler`). Bir ara ikisinde birden tanımlıydı; sipariş formu
+// bu iki dosyayı da import eder (biri `LineInput`, diğeri sorgular için) ve ortak ada dokunduğu
+// anda "ambiguous import" ile DERLENMEZDİ. Okuma sorguları sorgu katmanında durur — repo yazma
+// yolu içindir.
 
 class LineInput {
   LineInput({
@@ -15,7 +25,9 @@ class LineInput {
     required this.qty,
     this.productId,
     this.unit,
+    this.note,
     this.isCustom = false,
+    this.secim = const SecenekSecimi(),
   });
   final String? productId;
   final String productName;
@@ -26,9 +38,40 @@ class LineInput {
   /// Opsiyonel; mevcut çağrılar aynen çalışır.
   final String? unit;
 
+  /// SATIR NOTU ("buzlu olsun", "kapıya bırak") — siparişin NOTUYLA karıştırılmamalı: o
+  /// siparişin tamamına, bu TEK KALEME aittir. Opsiyonel; mevcut çağrılar aynen çalışır.
+  final String? note;
+
   /// "Serbest satır" (katalogda olmayan tek seferlik iş — tasarım bunları ayrı gösterir).
   /// productId'nin null olması yeterli ayırt edici değildir: silinmiş ürünün satırı da null olur.
   final bool isCustom;
+
+  /// SEÇENEK SEÇİMİ — "soğansız, ekstra peynirli" (kullanıcı isteği 2026-08-18).
+  ///
+  /// ⚠️ [unitPriceKurus] EK TUTARI **İÇERMEZ**; onu depo ekler ([birimFiyat]). Çağıranın ürünün
+  /// katalog fiyatını göndermesi ve ekstraları depo hesabına bırakması bilinçli: fiyat formülü
+  /// tek yerde durur, yoksa her çağrı yerinde bir kez daha yazılır ve biri er geç unutulur.
+  final SecenekSecimi secim;
+
+  /// Satıra yazılacak BİRİM fiyat: katalog fiyatı + eklenen malzemelerin ek tutarı.
+  ///
+  /// Ekstra, ADET BAŞINA binmelidir: iki dürümün ikisine de ekstra peynir eklendiyse ücret de
+  /// iki kere alınır. Satır toplamı `birim * adet` kimliğini koruduğu için gün sonu, defter ve
+  /// teslim hesaplarının hiçbiri değişmez.
+  int get birimFiyat => unitPriceKurus + secim.ekTutarKurus;
+
+  /// Satırın notu: kullanıcının yazdığı not + seçim özeti ("Soğansız · + Ekstra peynir").
+  ///
+  /// İKİSİ BİRLEŞTİRİLİR çünkü ekranların TAMAMI bu tek alanı çiziyor (sipariş detayı, kurye
+  /// görünümü, geçmiş). Seçimi ayrı bir alanda bırakıp ekranları tek tek güncellemek, bir
+  /// ekranın unutulduğu gün kuryenin "soğansız"ı hiç görmemesi demekti.
+  String? get satirNotu {
+    final elle = (note ?? '').trim();
+    final ozet = secim.ozet();
+    if (elle.isEmpty) return ozet.isEmpty ? null : ozet;
+    if (ozet.isEmpty) return elle;
+    return '$ozet, $elle';
+  }
 }
 
 /// Sipariş yerel CRUD'u. status/total YERELDE de olaylardan türer (sunucu önbelleğinin aynası).
@@ -64,11 +107,13 @@ class OrderRepository {
               orderId: orderId,
               productId: Value(l.productId),
               productName: l.productName,
-              unitPriceKurus: l.unitPriceKurus,
+              unitPriceKurus: l.birimFiyat,
               unit: Value(l.unit),
+              note: Value(l.satirNotu),
+              optionsJson: Value(l.secim.yaz()),
               isCustom: Value(l.isCustom),
               qty: l.qty,
-              lineTotalKurus: l.unitPriceKurus * l.qty,
+              lineTotalKurus: l.birimFiyat * l.qty,
             ));
         linePayloads.add(_linePayload(lineId, l));
       }
@@ -137,7 +182,18 @@ class OrderRepository {
       // 1) Teslim olayı + ödeme tipi + önbellek + outbox (mevcut sipariş akışı).
       await (db.update(db.orders)..where((t) => t.id.equals(orderId)))
           .write(OrdersCompanion(paymentType: Value(paymentType)));
-      final payload = {'order_id': orderId, 'payment_type': paymentType};
+      // TESLİM EDEN OLAYIN İÇİNDE GİDER (2026-08-20). Kolona doğrudan yazmak yerine payload'a
+      // konmasının sebebi `assigned_user_id` ile aynı: önbellek kolonları iki tarafta da AYNI
+      // olaylardan türetilir, yoksa senkron sırasına bağlı bir ıraksama doğar.
+      //
+      // `collector` ile AYNI kişidir ve bu bilinçli: teslimi yapan ile parayı alan aynı olaydır.
+      // Ayrılabilecekleri tek yer çağıranın `collectedByUserId`i elle geçmesidir (kasa devri
+      // senaryoları) — orada da "işlemi kime yazıyoruz" cevabı tektir.
+      final payload = {
+        'order_id': orderId,
+        'payment_type': paymentType,
+        'delivered_by_user_id': collector,
+      };
       await _appendEvent(orderId, 'delivered', deliverEventId, payload, at, device);
       await _recompute(orderId);
       await enqueueOutbox(db,
@@ -158,8 +214,18 @@ class OrderRepository {
       final alinan = (paymentType == 'veresiye' || istenen < 0) ? 0 : istenen;
 
       // Satışın borcu: her teslimde, TAM tutarla.
+      //
+      // BORÇ SATIRI DA ATFINI TAŞIR (2026-08-20). Eskiden `collected_by_user_id` bilerek boş
+      // bırakılıyordu ("borç kimsenin kasasına girmedi") ve sonucu şuydu: günün veresiyesi
+      // atamadan okunmak ZORUNDA kalıyordu, yani patron kendi teslim ettiği siparişi veresiye
+      // yazdığında borç ATANMIŞ KURYENİN hesabına düşüyordu. Alanın anlamı genişletildi:
+      // "parayı kim aldı" değil, "bu hareketi kim yaptı".
+      //
+      // KASA ETKİLENMEZ: kasa özeti `payment_type` taşıyan satırları sayar, `debit` taşımaz.
+      // Kurye kasa devri de yalnız `payment_type='nakit'` satırlarını toplar.
       await writeLedgerEntry(db, entryType: 'debit', amountKurus: total,
           id: deliveryEventId(orderId, 'debit'), clientEventId: deliveryEventId(orderId, 'debit'),
+          collectedByUserId: collector,
           customerId: customerId, relatedOrderId: orderId, occurredAt: at, deviceId: device);
 
       // Alınan para: yalnız gerçekten alındıysa. 0 tahsilatlı bir `payment` satırı kasayı
@@ -220,11 +286,13 @@ class OrderRepository {
             orderId: orderId,
             productId: Value(l.productId),
             productName: l.productName,
-            unitPriceKurus: l.unitPriceKurus,
+            unitPriceKurus: l.birimFiyat,
             unit: Value(l.unit),
+            note: Value(l.satirNotu),
+            optionsJson: Value(l.secim.yaz()),
             isCustom: Value(l.isCustom),
             qty: l.qty,
-            lineTotalKurus: l.unitPriceKurus * l.qty,
+            lineTotalKurus: l.birimFiyat * l.qty,
           ));
       final payload = {'order_id': orderId, 'line': _linePayload(lineId, l)};
       await _appendEvent(orderId, 'line_added', clientEventId, payload, at, device);
@@ -303,14 +371,25 @@ class OrderRepository {
       _statusEvent(orderId, 'sort_set', {'order_id': orderId, 'sort_index': sortIndex},
           sortIndex: sortIndex, setSortFlag: true);
 
+  /// Sipariş satırı payload'ının TEK üretim noktası (`created` ve `line_added` aynı şekli
+  /// gönderir). Alan eklemeyi burada unutmak, satırın o alanını sunucuya HİÇ göndermemek
+  /// demektir — `note` v18'de tam olarak bu yüzden buraya, satır nesnesinin İÇİNE konur
+  /// (siparişin kök `note` alanı ayrı bir şeydir ve karıştırılırsa kurye yanlış ürünü teslim eder).
   static Map<String, Object?> _linePayload(String lineId, LineInput l) => {
         'id': lineId,
         'product_id': l.productId,
         'product_name': l.productName,
-        'unit_price_kurus': l.unitPriceKurus,
+        // ⚠️ YEREL SATIRLA AYNI DEĞER GİTMELİ: `birimFiyat` ekstraları içerir. `unitPriceKurus`
+        // gönderilirse sunucudaki toplam ekstra kadar EKSİK çıkar ve iki taraf sessizce ayrışır
+        // (satır toplamı zaten `unit_price * qty`den türetiliyor).
+        'unit_price_kurus': l.birimFiyat,
         'unit': l.unit,
+        'note': l.satirNotu,
         'is_custom': l.isCustom,
         'qty': l.qty,
+        // Yapılandırılmış seçim: JSON NESNE olarak gider (metin değil) — ürün seçenekleriyle
+        // aynı gerekçe. Seçim yoksa anahtar null gider ve sunucu kolonu boş bırakır.
+        'options': l.secim.bos ? null : l.secim.toJson(),
       };
 
   Future<void> _appendEvent(
@@ -350,8 +429,27 @@ class OrderRepository {
       status: Value(status),
       totalKurus: Value(total),
       assignedUserId: Value(_deriveAssignedUserId(events)),
+      deliveredByUserId: Value(_deriveDeliveredByUserId(events)),
       sortIndex: Value(_deriveSortIndex(events)),
     ));
+  }
+
+  /// delivered_by_user_id önbelleğini en son `delivered` olayından türet (SUNUCU
+  /// `deriveDeliveredByUserId`ının aynası; AYNI (occurredAt, id) ortak anahtarı → ıraksama yok).
+  ///
+  /// Payload'da anahtar YOKSA null döner: teslim eski bir uygulama sürümünden gelmiş olabilir
+  /// (offline-first, telefon günlerce eski sürümde kalır). Okuma katmanı null'da atamaya düşer.
+  String? _deriveDeliveredByUserId(List<OrderEvent> events) {
+    final teslimler = events.where((e) => e.eventType == 'delivered').toList()
+      ..sort((a, b) {
+        final byTime = a.occurredAt.compareTo(b.occurredAt);
+        return byTime != 0 ? byTime : a.id.compareTo(b.id);
+      });
+    if (teslimler.isEmpty) return null;
+    final payload = teslimler.last.payload;
+    if (payload == null) return null;
+    final value = (jsonDecode(payload) as Map<String, dynamic>)['delivered_by_user_id'];
+    return value is String ? value : null;
   }
 
   /// sort_index önbelleğini en son `sort_set` olayından türet (SUNUCU deriveSortIndex'inin aynası;
@@ -386,49 +484,4 @@ class OrderRepository {
     if (last.eventType != 'assigned' || last.payload == null) return null;
     return (jsonDecode(last.payload!) as Map<String, dynamic>)['assigned_user_id'] as String?;
   }
-}
-
-/// Bildirim kurallarının GİRDİSİ (Faz 1 — müşteri ilişkisi bildirimleri).
-///
-/// Kural katmanı SAF kalsın diye okuma burada durur (`bildirim/kurallar/musteri_kurallari.dart`
-/// yalnız `dart:math` kullanır ve doğrudan test edilir). Tek atış — tarama günde bir koşar,
-/// canlı abonelik gereksizdir.
-///
-/// `innerJoin` müşterisiz (tezgâh) siparişi eler: kimsenin ritmi değildir. Yalnız `delivered`
-/// sayılır — İPTAL edilen sipariş hiç olmamıştır, AÇIK sipariş ise henüz teslim edilmemiştir
-/// (mal gitmediyse döngü dönmemiştir) ve sadece "bekleyen siparişi var" bayrağını kaldırır.
-Future<List<MusteriGecmisi>> musteriTeslimGecmisleri(AppDatabase db) async {
-  final q = db.select(db.orders).join([
-    innerJoin(db.customers, db.customers.id.equalsExp(db.orders.customerId)),
-  ])
-    ..where(db.orders.deletedAt.isNull() & db.customers.deletedAt.isNull())
-    ..orderBy([OrderingTerm.asc(db.orders.occurredAt)]);
-
-  final adlar = <String, String>{};
-  final teslimler = <String, List<DateTime>>{};
-  final acikOlanlar = <String>{};
-  for (final r in await q.get()) {
-    final o = r.readTable(db.orders);
-    final c = r.readTable(db.customers);
-    adlar[c.id] = c.name;
-    if (o.status == 'delivered') {
-      // Saat ELENİR: kural gün çözünürlüğünde çalışır (bkz. musteri_kurallari.dart).
-      final t = DateTime.tryParse(o.occurredAt)?.toLocal();
-      if (t != null) {
-        (teslimler[c.id] ??= <DateTime>[]).add(DateTime(t.year, t.month, t.day));
-      }
-    } else if (o.status == 'open') {
-      acikOlanlar.add(c.id);
-    }
-  }
-
-  return [
-    for (final e in teslimler.entries)
-      MusteriGecmisi(
-        customerId: e.key,
-        ad: adlar[e.key] ?? '',
-        teslimGunleri: e.value,
-        acikSiparisVar: acikOlanlar.contains(e.key),
-      ),
-  ];
 }

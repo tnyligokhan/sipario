@@ -45,12 +45,17 @@ class BildirimAyarlari {
   Set<String> _kapaliWire = <String>{};
   SessizSaatler _sessiz = const SessizSaatler();
 
-  /// Borç eşiği (kuruş). 0 = BELİRLENMEMİŞ ve kategori pasif.
+  /// Push kaydının son durumu — SAHA TEŞHİSİ İÇİN (2026-08-14).
   ///
-  /// VARSAYILAN YOK, bilinçli (lead kararı): cirosu 2.000 ₺ olan bayiyle 200.000 ₺ olan aynı
-  /// eşiği kullanamaz. Uydurulmuş bir varsayılan ya bildirimi hiç çıkarmaz ya da her gün
-  /// çıkarıp gürültüye çevirir; ikisi de bayiye "bu özellik bozuk" dedirtir.
-  int _borcEsigiKurus = 0;
+  /// NEDEN VAR: "bildirim gelmiyor" şikâyeti geldiğinde hiçbir tarafta bakılacak veri yoktu.
+  /// Sunucu "gönderecek cihaz bulamadım" diyordu ama telefonun jetonu neden göndermediği
+  /// (Play Services yok mu, izin mi yok, ağ mı yoktu) hiçbir yerde durmuyordu. Bu değer
+  /// Ayarlar → Bildirimler ekranında gösterilir; bayi tek bakışta söyleyebilir.
+  ///
+  /// Şema alanı DEĞİL, bu dosyada duruyor: cihaz-yerel bir tanı bilgisi için migration
+  /// açmak, bu deponun `tutamac_deposu`/`tema_deposu` deseninin kırılması olurdu.
+  String _pushDurumu = '';
+
   String _gun = '';
   Set<String> _gosterilen = <String>{};
   bool _yuklendi = false;
@@ -79,8 +84,11 @@ class BildirimAyarlari {
             _gun = deger;
           case 'gosterilen':
             _gosterilen = deger.split(';').where((x) => x.isNotEmpty).toSet();
-          case 'borcEsigi':
-            _borcEsigiKurus = int.tryParse(deger) ?? 0;
+          case 'push':
+            _pushDurumu = deger;
+          // `borcEsigi` anahtarı 2026-08-14'te KALDIRILDI. Eski dosyalarda satır DURUYOR
+          // olabilir; tanınmayan anahtar zaten sessizce atlanır (switch'in default'u yok) ve
+          // ilk yazımda dosya baştan kurulduğu için kendiliğinden temizlenir.
         }
       }
     } on Object catch (e) {
@@ -90,26 +98,20 @@ class BildirimAyarlari {
 
   /// Kategori açık mı? Varsayılan AÇIK — bayi kapatmadıysa bildirim gelir.
   ///
-  /// TEK İSTİSNA borç eşiği: eşik girilmeden kategori PASİFTİR. Kapı burada, tek yerde;
-  /// böylece servis, ayar ekranı ve tetikleyici ayrı ayrı kontrol etmek zorunda kalmıyor —
-  /// eşiksiz bir borç bildirimi hiçbir yoldan çıkamaz.
-  bool kategoriAcik(BildirimKategori k) {
-    if (_kapaliWire.contains(k.wire)) return false;
-    if (k == BildirimKategori.borcEsigi && !borcEsigiBelirlendi) return false;
-    return true;
-  }
+  /// (Borç eşiği kategorisinin "eşik girilmeden pasif" istisnası 2026-08-14'te kategoriyle
+  /// birlikte kaldırıldı; artık istisna yok.)
+  bool kategoriAcik(BildirimKategori k) => !_kapaliWire.contains(k.wire);
 
   SessizSaatler get sessizSaatler => _sessiz;
 
-  /// Bayinin belirlediği borç eşiği (kuruş); 0 = belirlenmemiş.
-  int get borcEsigiKurus => _borcEsigiKurus;
+  /// Push kaydının son durumu; hiç denenmediyse `null`.
+  PushDurumu? get pushDurumu => PushDurumu.wiredan(_pushDurumu);
 
-  bool get borcEsigiBelirlendi => _borcEsigiKurus > 0;
-
-  /// Eşiği yazar. 0 (ya da negatif) yazmak kategoriyi yeniden PASİFE alır — bayi eşiği
-  /// silerek bildirimi kapatabilir, ayrı bir anahtar aramak zorunda kalmaz.
-  Future<void> borcEsigiYaz(int kurus) async {
-    _borcEsigiKurus = kurus > 0 ? kurus : 0;
+  /// Push kurulumunun her adımı bunu günceller. HATA YUTAR (depo geneli kural): tanı
+  /// bilgisinin yazılamaması, push'un kendisini düşürmemeli.
+  Future<void> pushDurumuYaz(PushDurumu durum) async {
+    if (_pushDurumu == durum.wire) return; // gereksiz disk yazımı yok
+    _pushDurumu = durum.wire;
     await _yaz();
   }
 
@@ -179,7 +181,7 @@ class BildirimAyarlari {
           'sessiz=${_sessiz.baslangicSaat}-${_sessiz.bitisSaat}',
           'gun=$_gun',
           'gosterilen=${_gosterilen.join(';')}',
-          'borcEsigi=$_borcEsigiKurus',
+          'push=$_pushDurumu',
         ].join('\n'),
         flush: true,
       );

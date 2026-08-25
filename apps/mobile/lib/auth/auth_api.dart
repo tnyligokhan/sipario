@@ -80,7 +80,7 @@ class AuthApi {
     if (resp.statusCode != 200) {
       final msg = body['message'];
       throw AuthException(
-        msg is String && msg.isNotEmpty ? msg : 'Giriş başarısız (HTTP ${resp.statusCode}).',
+        msg is String && msg.isNotEmpty ? msg : 'Giriş başarısız (kod ${resp.statusCode})',
       );
     }
 
@@ -95,6 +95,97 @@ class AuthApi {
       validUntilIso: tenant['valid_until'] as String?,
       tenantStatus: tenant['status'] as String?,
     );
+  }
+
+  /// YÖNETİCİ ONAYI — oturumdaki kullanıcının parolasını sunucuya doğrulatır (2026-08-18).
+  ///
+  /// Bazı işlemler "giriş yapmış olmak"tan fazlasını ister: kapatılmış bir gün hesabını geri
+  /// almak gibi. Telefon çoğu zaman tezgâhın üstünde açık durur; oturumun patrona ait olması, o
+  /// an ekrana dokunanın patron olduğunu kanıtlamaz.
+  ///
+  /// ⚠️ ÇEVRİMİÇİ ZORUNLU ve bu bilinçli bir bedeldir. Depoda yazılı kural: parola SAKLANMAZ ve
+  /// hash'i istemci üretemez (`Session.giris` "beniHatirla" notu, `TeamApi` başlığı). Yerel bir
+  /// parola aynası koymak, ürünün en hassas sırrını her telefona kopyalamak olurdu. Çağıran
+  /// ekran ağ yokken gerekçesini YAZMAK zorundadır — sessizce başarısız olmak, kullanıcıya
+  /// "parolam yanlış" dedirtir.
+  ///
+  /// Kullanıcı adı GÖNDERİLMEZ: sunucu her zaman TOKEN'IN sahibini doğrular. Gönderilseydi
+  /// kuryenin telefonundaki bir oturumdan patronun parolası denenebilirdi.
+  ///
+  /// `true` = parola doğru. `false` = parola yanlış (422). Ağ/sunucu arızasında [AuthException]
+  /// atar — "yanlış parola" ile "sunucuya ulaşılamadı" AYRI sonuçlardır ve ekran ikisini aynı
+  /// cümleyle gösteremez.
+  Future<bool> parolaDogrula({required String token, required String password}) async {
+    final http.Response resp;
+    try {
+      resp = await _client
+          .post(
+            Uri.parse('$baseUrl/auth/parola-dogrula'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'password': password}),
+          )
+          .timeout(const Duration(seconds: 20));
+    } on Exception {
+      throw AuthException('Sunucuya ulaşılamadı. Yönetici onayı için internet gerekli.');
+    }
+
+    if (resp.statusCode == 200) return true;
+    if (resp.statusCode == 422) return false;
+    if (resp.statusCode == 429) {
+      throw AuthException('Çok fazla deneme yapıldı. Birkaç dakika sonra tekrar deneyin.');
+    }
+    if (resp.statusCode == 401) {
+      throw AuthException('Oturumunuz sona ermiş. Çıkış yapıp yeniden girin.');
+    }
+    throw AuthException('Onay alınamadı (kod ${resp.statusCode})');
+  }
+
+  /// Parola sıfırlama bağlantısı ister (kullanıcı isteği 2026-08-13).
+  ///
+  /// SUNUCU HER KOŞULDA AYNI ŞEYİ DÖNER ve bu bilinçlidir: hesap var/yok, patron/kurye ayrımı
+  /// yapılmaz — yoksa geçerli firma kodu + kullanıcı adı çiftleri tek tek numaralandırılırdı.
+  /// Yani bu çağrının dönüşü "gönderildi" DEMEK DEĞİLDİR, "istek alındı" demektir; ekran metni
+  /// de öyle kurulmalıdır.
+  ///
+  /// Yalnız AĞ hatası fırlatır: taşıma çalıştıysa sonuç ne olursa olsun başarıdır.
+  Future<String> parolaSifirla({
+    required String tenantCode,
+    required String username,
+  }) async {
+    final http.Response resp;
+    try {
+      resp = await _client
+          .post(
+            Uri.parse('$baseUrl/auth/parola-sifirla'),
+            headers: const {'Content-Type': 'application/json', 'Accept': 'application/json'},
+            body: jsonEncode({'tenant_code': tenantCode, 'username': username}),
+          )
+          .timeout(const Duration(seconds: 20));
+    } on Exception {
+      throw AuthException('Sunucuya ulaşılamadı. İnternet bağlantınızı kontrol edin.');
+    }
+
+    final body = _decode(resp.body);
+    // 429 (hız sınırı) AYRI ELE ALINIR: "çok fazla istek" bilgisi hesabın varlığını sızdırmaz
+    // ama sessizce "gönderdik" demek yalan olurdu — kullanıcı bekler, bağlantı hiç gelmez.
+    if (resp.statusCode == 429) {
+      throw AuthException('Çok fazla istek gönderildi. Birkaç dakika sonra tekrar deneyin.');
+    }
+    if (resp.statusCode != 200) {
+      final msg = body['message'];
+      throw AuthException(
+        msg is String && msg.isNotEmpty ? msg : 'İstek gönderilemedi (kod ${resp.statusCode})',
+      );
+    }
+
+    final msg = body['message'];
+    return msg is String && msg.isNotEmpty
+        ? msg
+        : 'İsteğiniz alındı. Kayıtlı bir e-posta adresi varsa bağlantı gönderildi.';
   }
 
   /// Sunucudaki token'ı iptal eder. Başarısızlık yutulur — yerel çıkış her koşulda tamamlanır

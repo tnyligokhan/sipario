@@ -75,6 +75,7 @@ class SurumCarpikligiTest extends ApiTestCase
             'courier_can_day_end' => true,
             'courier_can_collect' => false,
             'order_code_display' => 'siparis',
+            'prepared_products' => true,
         ], ['occurred_at' => now()->subMinute()->toIso8601String()])])
             ->assertJsonPath('results.0.status', 'applied');
 
@@ -101,6 +102,11 @@ class SurumCarpikligiTest extends ApiTestCase
         $this->assertTrue($satir->courier_can_day_end, 'Eski istemci gün sonu yetkisini varsayılana çekti.');
         $this->assertFalse($satir->courier_can_collect, 'Eski istemci KAPATILMIŞ tahsilat yetkisini geri açtı.');
         $this->assertSame('siparis', $satir->order_code_display, 'Eski istemci kod tercihini varsayılana çekti.');
+        // v24 kolonu (2026-08-18). Kaybolması, dönercinin ürün formundaki malzeme bölümünü
+        // sessizce yok ederdi — bayi "listelerim silinmiş" diye rapor eder, oysa yalnız
+        // yetenek kapanmıştır ve veri yerinde durur.
+        $this->assertTrue($satir->prepared_products,
+            'Eski istemci hazırlanan ürün yeteneğini kapattı.');
     }
 
     #[Test]
@@ -270,12 +276,19 @@ class SurumCarpikligiTest extends ApiTestCase
         // Oysa aynı MONOREPO'dalar — bağ makineyle zorlanabilir ve zorlanmalıdır. Bağ koparsa
         // (mobil batchSize büyür ya da sunucu MAX_EVENTS küçülür) HER push kalıcı 422 alır:
         // istemcinin ikili araması kuyruğu kilitlenmekten kurtarır ama her tur boşa gider.
-        $yol = base_path('../mobile/lib/sync/sync_engine.dart');
-        if (! is_file($yol)) {
+        // MOTOR ÜÇE BÖLÜNDÜ (2026-08-17, 500 satır kuralı): `pushPending` artık
+        // `sync_itme.dart`ta. Tek dosya adı yazmak bu bekçiyi her bölmede yeniden kırar ve
+        // kırıldığında SESSİZ DEĞİL ama YANLIŞ yerde arayan bir hata verir; bu yüzden motorun
+        // dosya AİLESİ taranıyor (`sync_engine.dart` + `part`ları).
+        $dosyalar = glob(base_path('../mobile/lib/sync/sync_*.dart')) ?: [];
+        if ($dosyalar === []) {
             $this->markTestSkipped('Mobil kaynak bu ağaçta yok (yalnız API dağıtımı).');
         }
 
-        $kaynak = (string) file_get_contents($yol);
+        $kaynak = implode("\n", array_map(
+            static fn (string $y): string => (string) file_get_contents($y),
+            $dosyalar
+        ));
         $this->assertSame(
             1,
             preg_match('/pushPending\(\{int batchSize = (\d+)\}\)/', $kaynak, $m),
@@ -286,6 +299,71 @@ class SurumCarpikligiTest extends ApiTestCase
             SyncService::MAX_EVENTS,
             (int) $m[1],
             'Mobil batchSize sunucunun MAX_EVENTS sınırını aşıyor: her push 422 alır.'
+        );
+    }
+
+    // ----------------------------------------------------------------------------------
+    // F) API SÜRÜMÜNÜN YANITTA GÖRÜNMESİ — çarpıklığı ÖLÇÜLEBİLİR kılan alan
+    // ----------------------------------------------------------------------------------
+    //
+    // Yukarıdaki testlerin hepsi çarpıklığın ZARARINI önlüyor; bu bölüm çarpıklığın kendisini
+    // GÖRÜNÜR kılıyor. 2026-08-09'da `config('app.version')` tanımlandı ama hiçbir yanıtta
+    // okunmuyordu — o hâlde bir saha arızasında "sunucu mu eski, telefon mu" sorusunun cevabı
+    // yoktu ve tek bilgi kaynağı sunucuya girip dosyaya bakmaktı.
+
+    #[Test]
+    public function senkron_yanitlari_api_surumunu_tasir(): void
+    {
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+        $surum = (string) config('app.version');
+
+        // İKİ YÖN DE sınanır: telefon çoğu turda yalnız pull yapar (yazacak bir şeyi yoktur),
+        // yalnız push'a koymak sürümü "yalnız yazan cihazlar görür" hâline getirirdi.
+        $this->pullSince($token)->assertOk()->assertJsonPath('api_version', $surum);
+        $this->pushEvents($token, [$this->customerUpsert(['name' => 'Sürüm Testi'])])
+            ->assertOk()->assertJsonPath('api_version', $surum);
+    }
+
+    #[Test]
+    public function surum_ucu_kimliksiz_okunur_ve_semver_bicimindedir(): void
+    {
+        // Kimliksiz: "canlıda hangi sürüm koşuyor" sorusunu soran taraf çoğu zaman token'ı
+        // OLMAYAN taraftır (durum çubuğu, dağıtım sonrası doğrulama).
+        $yanit = $this->getJson('/api/v1/version')->assertOk();
+        $yanit->assertJsonPath('api_version', (string) config('app.version'));
+
+        // server_time middleware'den gelmeye DEVAM etmeli: uç nokta kendi gövdesini kurduğu
+        // için middleware'in "eksiği tamamla" davranışının bozulmadığını da kanıtlar.
+        $this->assertArrayHasKey('server_time', $yanit->json());
+
+        // BİÇİM SÖZLEŞMESİ: istemci tarafı sürümleri karşılaştırabilsin diye üç parçalı SemVer.
+        // `1.0` ya da `v1.0.0` yazan bir vardiya karşılaştırmayı sessizce bozardı.
+        $this->assertMatchesRegularExpression(
+            '/^\d+\.\d+\.\d+$/',
+            (string) config('app.version'),
+            'API sürümü SemVer (MAJOR.MINOR.PATCH) olmalı — kural: CLAUDE.md → Sürümleme.'
+        );
+    }
+
+    #[Test]
+    public function mobil_istemci_api_surumunu_okuyor(): void
+    {
+        // "TANIMLI AMA BAĞLI DEĞİL" DESENİNE KARŞI BEKÇİ (bu depoda dört kez ödendi: kupon
+        // kodları, `PushOzeti.beklemede`, `check_permissions.sh`, API sürümünün kendisi).
+        // Sunucunun alanı göndermesi tek başına bir şey ifade etmez — okuyanı yoksa alan yoktur.
+        // Aynı monorepo'da olduğumuz için bu bağ makineyle zorlanabilir; `batchSize` bekçisiyle
+        // aynı desen.
+        $yol = base_path('../mobile/lib/sync/sync_api.dart');
+        if (! is_file($yol)) {
+            $this->markTestSkipped('Mobil kaynak bu ağaçta yok (yalnız API dağıtımı).');
+        }
+
+        // `assertStringContainsString` DEĞİL, bilerek: o başarısızlıkta 12 KB'lık kaynak dosyayı
+        // hata mesajına döker ve gerçek cümleyi görünmez kılar. Bekçinin değeri mesajındadır.
+        $this->assertTrue(
+            str_contains((string) file_get_contents($yol), "'api_version'"),
+            'Mobil ayrıştırıcı api_version alanını okumuyor — sunucu gönderiyor, kimse bakmıyor.'
         );
     }
 

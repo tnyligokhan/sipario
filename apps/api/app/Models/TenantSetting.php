@@ -32,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property bool $courier_can_collect
  * @property bool $courier_can_discount
  * @property bool $courier_can_day_end
+ * @property bool $prepared_products işletmede hazırlanan ürün var mı (ürün seçenekleri anahtarı)
  * @property string $order_code_display 'musteri' | 'siparis' — sipariş satırında hangi kod görünür
  * @property Carbon $updated_occurred_at
  * @property string|null $updated_device_id
@@ -40,6 +41,8 @@ use Illuminate\Support\Carbon;
  */
 class TenantSetting extends Model
 {
+    use MikrosaniyeliDamga;
+
     protected $primaryKey = 'tenant_id';
 
     public $incrementing = false;
@@ -74,7 +77,9 @@ class TenantSetting extends Model
         'courier_can_debt_reminder',
         'courier_can_toggle_stock',
         'courier_can_call_log',
+        'courier_can_see_all_customers',
         'order_code_display',
+        'prepared_products',
         'updated_occurred_at',
         'updated_device_id',
     ];
@@ -99,12 +104,14 @@ class TenantSetting extends Model
         'courier_can_debt_reminder' => false,
         'courier_can_toggle_stock' => true,
         'courier_can_call_log' => false,
+        'courier_can_see_all_customers' => false,
     ];
 
     protected function casts(): array
     {
         return [
             'updated_occurred_at' => 'datetime',
+            'prepared_products' => 'boolean',
             'courier_can_customers' => 'boolean',
             'courier_can_orders' => 'boolean',
             'courier_can_collect' => 'boolean',
@@ -118,6 +125,7 @@ class TenantSetting extends Model
             'courier_can_debt_reminder' => 'boolean',
             'courier_can_toggle_stock' => 'boolean',
             'courier_can_call_log' => 'boolean',
+            'courier_can_see_all_customers' => 'boolean',
         ];
     }
 

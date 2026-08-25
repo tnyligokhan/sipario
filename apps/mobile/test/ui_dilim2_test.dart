@@ -223,7 +223,7 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsWidgets,
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsWidgets,
           reason: 'kullanıcı neden kaydedemediğini görmeli');
 
       await tester.pump(const Duration(seconds: 5));
@@ -238,14 +238,16 @@ void main() {
       // Ekleme yolu FAB'dan listenin başındaki kesikli "Yeni ürün ekle" satırına taşındı
       // (CSS `.ys-ekle`); uyarı da SnackBar yerine `SipToast`. Kural aynı.
       final db = AppDatabase(NativeDatabase.memory());
+      // `rol` AÇIKÇA VERİLİR (2026-08-17): yönetici kapısı artık tanınmayan/eksik rolde kapanıyor;
+      // rolsüz kurulan bir ekran testi kapının kapalı hâlini ölçerdi, ekranın içeriğini değil.
 
-      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: false)));
+      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: false, rol: 'patron')));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
       await tester.tap(find.text('Yeni ürün ekle'));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
       expect(find.text('Ürün kaydedildi'), findsNothing, reason: 'form hiç açılmamalı');
 
       await tester.pump(const Duration(seconds: 5));
@@ -263,11 +265,11 @@ void main() {
         await repo.deactivate(eski);
       });
 
-      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: true)));
+      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: true, rol: 'patron')));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
-      expect(find.text('1 aktif · 2 toplam'), findsOneWidget,
+      expect(find.text('2 ürün, 1 aktif'), findsOneWidget,
           reason: 'başlık altı canlı sayaç aktif/toplam ayrımını gösterir');
       expect(find.text(formatKurus(4500)), findsOneWidget, reason: 'fiyat kartın sağında (amount)');
       expect(find.text('PASİF'), findsOneWidget,
@@ -283,12 +285,12 @@ void main() {
     testWidgets('yeniden tasarım (Ekran 5): boş durum ortak bileşenle', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
-      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: true)));
+      await tester.pumpWidget(MaterialApp(home: ProductListScreen(db: db, writable: true, rol: 'patron')));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
       await tester.pump();
 
       expect(find.text('Henüz ürün yok'), findsOneWidget);
-      expect(find.text('Yukarıdan ekleyin — sipariş satırları buradan seçilir.'), findsOneWidget);
+      expect(find.text('Yukarıdan ekleyin. Sipariş alırken ürünler buradan seçilir.'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));

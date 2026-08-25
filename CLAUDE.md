@@ -9,7 +9,15 @@
 - ALWAYS read a file before editing it
 - NEVER commit secrets, credentials, or .env files
 - NEVER add a `Co-Authored-By` trailer to user commits unless this project's `.claude/settings.json` has `attribution.commit` set (#2078). The Claude Code Bash tool may suggest one in its default commit-message template — ignore it. `Co-Authored-By` is semantic authorship attribution under git/GitHub convention; the tool is the facilitator, not a co-author.
-- Keep files under 500 lines
+- Keep files under 500 lines — **yalnız `lib/` (üretim kodu) için.** Test dosyalarına
+  UYGULANMAZ (karar 2026-08-17): test dosyası baştan sona değil grup grup okunur, bölmenin
+  kazancı kozmetik, riski test kaybıdır. Uzun test dosyası "kod borcu" listesine YAZILMAZ.
+- **Yeni yazılan her şey OOP kurallarına uygun olur — test dosyaları dahil** (karar 2026-08-17).
+  Durum ve onun üzerinde işleyen davranış aynı nesnede kapsüllenir; dışarıya dar bir yüzey
+  açılır. Testte karşılığı FİKSTÜR SINIFIDIR (`test/support/*` deseni), her dosyaya kopyalanan
+  yardımcı kapanışlar değil. ⚠️ **GERİYE DÖNÜK DEĞİLDİR:** mevcut kod olduğu gibi kalır, toplu
+  dönüştürme YAPILMAZ. Mevcut bir dosyaya satır eklerken o dosyanın kendi kalıbı korunur —
+  yarı dönüşmüş dosya iki kalıbı bir arada taşıdığı için ikisinden de kötüdür.
 - Validate input at system boundaries
 
 ## Agent Comms (SendMessage-First Coordination)
@@ -232,3 +240,38 @@ sapması yüzünden `versionCode` güvenilmezdir, bu yüzden gerçek anahtar
 Yani: **SemVer insan içindir, derleme numarası makine içindir.** İkisi bir arada yaşar;
 SemVer'e geçmek derleme numarasını kaldırmak DEĞİLDİR. `pubspec.yaml`'daki `+1` CI tarafından
 ezilir, elle güncellenmez.
+
+### 🔴 SÜRÜM ARTIŞI İŞİN PARÇASIDIR — ayrı bir adım değil (kural, 2026-08-13)
+
+**Kullanıcıya görünen bir iş, sürümü artırılmadan BİTMİŞ SAYILMAZ.** Kod yeşil, testler yeşil
+ama sürüm sabitse iş yarımdır: "neyin ne zaman gittiği" cevaplanamaz hâle gelir.
+
+Bu kural bir kez çiğnendi ve bedeli ölçüldü (2026-08-13): tek bir vardiyada menü baştan
+kuruldu, ayarlar beş sayfaya bölündü, yeni bir Hesap sayfası eklendi, sessiz saatler açıldı ve
+bir **yetki açığı** kapatıldı — `pubspec.yaml` hiç artmadı. Hata kuralın yokluğu değildi (kural
+yukarıda zaten yazılıydı), kuralın İZİNİN olmamasıydı.
+
+**Her iş kolu bittiğinde, o iş kolunun kapanış adımı şudur:**
+
+1. `apps/mobile/pubspec.yaml` → `version:` işe göre artır (aşağıdaki tablo).
+2. `lib/guncelleme/surum_notlari.dart` → EN ÜSTE o sürümün notunu yaz.
+   (`surum_notlari_test.dart` en üstteki kaydın pubspec ile aynı olmasını zorlar — yani
+   sürümü artırıp not yazmamak testi kırar. Ters yön korumasızdır: not yazmadan sürümü
+   artırmamak sessizce geçer, **dikkat edilmesi gereken taraf budur.**)
+3. Sunucu sözleşmesi değiştiyse `apps/api/config/app.php` → `'version'` AYRICA artır.
+   İki hat bağımsızdır, birbirine eşitlenmez.
+
+| Ne yapıldı | Artış |
+|---|---|
+| Yeni ekran/akış, davranış değişikliği, yetki değişikliği | **MINOR** |
+| Görünen bir hatanın düzeltilmesi, metin/yerleşim onarımı | **PATCH** |
+| Yalnız iç düzenleme (kullanıcı hiçbir farkı görmüyor) | artış YOK |
+| Eski istemci yeni sunucuyla çalışamıyor | **MAJOR** — önce yazılı karar |
+
+**Birden çok iş kolu aynı vardiyada bitiyorsa her biri kendi artışını alır**; hepsini tek
+numaraya yığmak, sahada "hangi sürümde neyin geldiğini" yine cevapsız bırakır.
+
+Otomatik commit kancası (`scripts/quality-gate-commit.ps1`) `apps/mobile/lib/**` dokunulan her
+commit'in gövdesine `SURUM:` satırını yazar; sürüm bir önceki commit'le aynıysa bunu açıkça
+belirtir. Kanca **bloklamaz** (bir vardiyada onlarca commit var, her birinde artış SemVer'i
+anlamsızlaştırırdı) — yalnız atlanan sürümü `git log`'da GÖRÜNÜR kılar.

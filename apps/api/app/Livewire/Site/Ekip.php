@@ -5,8 +5,10 @@ namespace App\Livewire\Site;
 use App\Abonelik\KotaDoluException;
 use App\Abonelik\KuryeKotasi;
 use App\Enums\UserRole;
+use App\Eposta\BayiPostacisi;
 use App\Livewire\Site\Forms\IsletmeFormu;
 use App\Livewire\Site\Forms\KuryeFormu;
+use App\Mail\KuryeHesabiAcildi;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Sync\SyncService;
@@ -230,14 +232,46 @@ class Ekip extends Component
         unset($this->ekip);
 
         // KVKK / kırmızı çizgi #4: parola ve kullanıcı adı loga YAZILMAZ (TeamController ile
-        // aynı sözleşme) — yalnız "kim, kime, ne" izlenebilsin diye kimlikler.
-        Log::info('Web panelinden kurye hesabi acildi', [
+        // aynı sözleşme) — yalnız "kim, kime, ne" izlenebilsin diye kimlikler. ROL de yazılır:
+        // iki tür hesap açılabildiği andan itibaren "ne açıldı" sorusu logdan cevaplanabilmeli.
+        Log::info('Web panelinden personel hesabi acildi', [
             'tenant_id' => $this->bayiId,
             'actor_id' => $this->patronId,
             'target_id' => $kurye->id,
+            'role' => $kurye->role->value,
         ]);
 
-        $this->dispatch('bildir', detail: $kurye->name.' için kurye hesabı açıldı');
+        /*
+         * GİRİŞ BİLGİLERİ PATRONA POSTALANIR (2026-08-12).
+         *
+         * ALICI KURYE DEĞİL: kurye hesabının e-postası SAHTEDİR — `Provisioning::createCourier`
+         * onu `<kullanıcı>@<firma-kodu>.sipario.local` diye türetir ve o adrese gönderilen posta
+         * hiçbir yere ulaşmaz. Bilgiyi kuryeye ulaştıracak olan patrondur.
+         *
+         * NEDEN GEREKLİ: firma kodu + kullanıcı adı ikilisi bu ekranda bir kez görünüp kaybolur,
+         * ama mobil giriş TAM OLARAK o ikiliyi ister (e-posta kabul etmez). Patron formu
+         * kapattıktan sonra kuryesine ne söyleyeceğini hatırlamak zorunda kalıyordu.
+         *
+         * PAROLA POSTAYA YAZILMAZ — patron onu zaten kendisi belirledi; kopyalamak bilgi
+         * eklemez, yalnız posta kutusunu ele geçirene hazır bir hesap verir.
+         */
+        BayiPostacisi::postala(
+            (string) Auth::guard('web')->user()?->email,
+            (string) Auth::guard('web')->user()?->name,
+            new KuryeHesabiAcildi(
+                isletme: (string) $this->bayi()->name,
+                kuryeAdi: (string) $kurye->name,
+                kullaniciAdi: (string) $kurye->username,
+                firmaKodu: (string) $this->bayi()->slug,
+                kalanHak: max(0, $this->kota()['kalan']),
+                hesapUrl: route('site.hesap'),
+                // Görev postada da yazar: iki tür hesap açılabildiği andan itibaren "kime ne
+                // açtım" sorusunun cevabı, formu kapattıktan sonra yalnız bu iletide kalıyor.
+                rolAdi: $this->rolAdi($kurye),
+            ),
+        );
+
+        $this->dispatch('bildir', detail: $kurye->name.' için '.$this->rolAdi($kurye).' hesabı açıldı');
     }
 
     /** Onay kutusunu açar/kapatır (aktiflik değişimi geri alınması güç bir eylemdir). */
@@ -273,15 +307,20 @@ class Ekip extends Component
 
         // GERİ AÇMA DA KOTAYA ÇARPAR: pasifleştirme kotayı serbest bırakır (KuryeKotasi yalnız
         // `active` sayar), dolayısıyla açma serbest olsaydı "birini kapat, ötekini aç" ile limit
-        // sonsuza kadar aşılırdı. Operatörün kotası yoktur — kapı yalnız kuryeye uygulanır.
-        if ($acilacak && $hedef->role === UserRole::Kurye) {
+        // sonsuza kadar aşılırdı.
+        //
+        // TEZGÂH DA KAPIYA TABİ (2026-08-20): kota artık patron dışındaki her aktif hesabı sayar.
+        // Burada yalnız kuryeyi süzmek, kapatılan bir tezgâhın kotasız geri açılmasına — yani
+        // limitin aynı yoldan aşılmasına — izin verirdi. `$hedef` zaten patron olamaz (yukarıda
+        // erken dönüyor), o yüzden ek bir rol kontrolü gerekmiyor.
+        if ($acilacak) {
             try {
                 (new KuryeKotasi('pgsql_owner'))->bayiKontrolEt($this->bayiId);
             } catch (KotaDoluException) {
                 $this->onay = '';
                 $kota = $this->kota();
-                $this->dispatch('bildir', detail: 'Kurye hakkınız dolu ('.$kota['kullanilan'].'/'
-                    .$kota['limit'].'); geri açmak için önce başka bir kuryeyi devre dışı bırakın');
+                $this->dispatch('bildir', detail: 'Personel hakkınız dolu ('.$kota['kullanilan'].'/'
+                    .$kota['limit'].'); geri açmak için önce başka bir hesabı devre dışı bırakın');
 
                 return;
             }
@@ -429,7 +468,7 @@ class Ekip extends Component
     private function kotaHatasi(): void
     {
         $kota = $this->kota();
-        $this->addError('form.kota', 'Kurye hakkınız dolu ('.$kota['kullanilan'].'/'.$kota['limit']
+        $this->addError('form.kota', 'Personel hakkınız dolu ('.$kota['kullanilan'].'/'.$kota['limit']
             .'). Yeni hesap açmak için ek kurye paketi alın ya da kullanılmayan bir hesabı devre dışı bırakın.');
     }
 

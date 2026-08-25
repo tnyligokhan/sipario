@@ -304,7 +304,7 @@ void main() {
 
       // Mesaj repo'dan geldiği gibi basılır — "bir şeyler ters gitti" demek, NE olduğunu
       // bilirken bilgi saklamaktır.
-      expect(find.text('Gün hesabı kapandı; yeniden kapatılamaz.'), findsOneWidget);
+      expect(find.text('Gün hesabı kapandı; yeniden kapatılamaz'), findsOneWidget);
 
       // İKİNCİ KAYIT YAZILMADI: arşiv append-only, uydurma bir kapanış kalıcı olurdu.
       final arsiv =
@@ -331,7 +331,7 @@ void main() {
   // Satır YALNIZ ayrıştıklarında çizilir; çakışan günlerde (çoğunluk) gürültü yapmaz.
   group('Çerçeve notu — iki çerçeve ayrışınca ekran bunu SÖYLER', () {
     const cerceveSatiri =
-        'Önceki günden devreden nakit dahil — ekrandaki gün toplamıyla aynı aralık değil.';
+        'Önceki günlerden devreden nakit dahil';
 
     testWidgets('EKSEN 1 — kasa kartı GÜNÜ, sheet PENCEREYİ yazarken satır çizilir',
         (tester) async {

@@ -25,14 +25,14 @@ import '../isletme/isletme_atomlari.dart';
 import 'product_form_sheet.dart';
 
 /// Salt-okunur kip uyarısı — DEĞİŞTİRME: sözleşme testleri bu metni birebir arıyor.
-const String saltOkunurUyarisi = 'Salt-okunur kip: yeni kayıt eklenemez.';
+const String saltOkunurUyarisi = 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor';
 
 class ProductListScreen extends StatelessWidget {
   const ProductListScreen({
     super.key,
     required this.db,
     required this.writable,
-    this.rol,
+    required this.rol,
   });
 
   final AppDatabase db;
@@ -65,7 +65,7 @@ class ProductListScreen extends StatelessWidget {
                     baslik: 'Ürünler',
                     alt: urunler == null
                         ? null
-                        : '$aktif aktif · ${urunler.length} toplam',
+                        : '${urunler.length} ürün, $aktif aktif',
                     onGeri: () => Navigator.of(context).maybePop(),
                   ),
                   Expanded(
@@ -112,7 +112,7 @@ class _Liste extends StatelessWidget {
           const SipBosDurum(
             ikon: SipIcons.box,
             baslik: 'Henüz ürün yok',
-            aciklama: 'Yukarıdan ekleyin — sipariş satırları buradan seçilir.',
+            aciklama: 'Yukarıdan ekleyin. Sipariş alırken ürünler buradan seçilir.',
           )
         else
           Padding(

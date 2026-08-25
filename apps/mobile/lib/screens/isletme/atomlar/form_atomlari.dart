@@ -276,7 +276,7 @@ class UrunSatiri extends StatelessWidget {
                           children: [
                             if (altEk != null)
                               TextSpan(
-                                text: ' · $altEk',
+                                text: '  ($altEk)',
                                 style: SipText.tutar(10.5, w: 500).copyWith(color: t.muted),
                               ),
                           ],
@@ -297,6 +297,50 @@ class UrunSatiri extends StatelessWidget {
             SipIcon(SipIcons.chevR, boyut: 18, kalinlik: 2, renk: t.line2),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Henüz gelmemiş bir özelliğin bölüm başlığı: başlık + "Çok yakında" rozeti.
+///
+/// NEDEN VAR (2026-08-13): bazı alanlar veri katmanında hazır ama onları TÜKETEN özellik
+/// yazılmadı — ilk örnek fiş alt notu (`tenant_settings.receipt_note` yazılıyor, senkron
+/// taşıyor, ama uygulamada fiş diye bir çıktı yok). Böyle bir alanı normal görünümde bırakmak
+/// tutulmayan bir söz verir: bayi doldurur, kaydeder, sonucu hiçbir yerde göremez ve ürünün
+/// bozuk olduğunu düşünür.
+///
+/// ALANI SİLMEK YERİNE İŞARETLEMEK bilinçli bir tercihtir: veri katmanı yerinde kalır (özellik
+/// gelince tek satırla açılır) ve arada girilmiş değerler kaybolmaz. Rozet, alanın PASİF
+/// çizilmesiyle BİRLİKTE kullanılır — yalnız rozet koyup alanı yazılabilir bırakmak, aynı
+/// yanlış sözü kibarca vermek olurdu.
+class CokYakindaBaslik extends StatelessWidget {
+  const CokYakindaBaslik(this.baslik, {super.key, this.ustBosluk = 20});
+
+  final String baslik;
+  final double ustBosluk;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    return Padding(
+      padding: EdgeInsets.only(top: ustBosluk, bottom: 8),
+      child: Row(
+        children: [
+          Text(
+            baslik,
+            style: SipText.bolumBaslik.copyWith(color: t.muted),
+          ),
+          const SizedBox(width: SipSpace.md),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: t.surface2, borderRadius: SipRadius.brHap),
+            child: Text(
+              'Çok yakında',
+              style: SipText.metin(10.5, w: 700).copyWith(color: t.ink2),
+            ),
+          ),
+        ],
       ),
     );
   }

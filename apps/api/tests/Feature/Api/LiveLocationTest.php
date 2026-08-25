@@ -274,14 +274,32 @@ class LiveLocationTest extends ApiTestCase
     #[Test]
     public function kalp_atisi_kendi_hiz_sinirina_tabidir(): void
     {
-        // `throttle:konum` gerçekten bağlı mı: genel api sınırı (60/dk) devreye girmeden ÖNCE
-        // 429 gelmeli, yoksa bozuk bir istemci döngüsü kullanıcının gerçek isteklerini yerdi.
+        // `throttle:konum` gerçekten bağlı mı: genel api sınırı devreye girmeden ÖNCE 429
+        // gelmeli, yoksa bozuk bir istemci döngüsü kullanıcının gerçek isteklerini yerdi.
+        //
+        // SINIR YAPILANDIRMADAN OKUNUR, teste elle yazılmaz. Eskiden döngü `6` diye sabitti ve
+        // `konum.kalp_atisi_limit` bir iş kararıdır (yorumu bunu açıkça söylüyor: "uygulama
+        // ~30 sn'de bir bildirir, 6 tekrar denemelere pay bırakır"). Sınır büyütülseydi
+        // N+1'inci istek 204 döner ve test HAKSIZ YERE kırılırdı; küçültülseydi döngünün
+        // içindeki `assertNoContent` kırılırdı. İki yönde de kırık, korunan davranış hâlâ
+        // doğruyken oluşurdu — `PaymentSecurityTest`in ödediği arızanın aynısı.
+        $limit = (int) config('konum.kalp_atisi_limit');
+        $genel = 60; // AppServiceProvider::configureRateLimiters — `api` sınırlayıcısı.
+
+        // Bu testin VARLIK SEBEBİ: konum sınırının genel sınırdan DAR olması. Eşit ya da geniş
+        // olsaydı ayrı sınırlayıcının hiçbir anlamı kalmaz, test de vakuma düşerdi.
+        $this->assertLessThan($genel, $limit, 'Kalp atışı sınırı genel api sınırından DAR olmalı.');
+
         $a = $this->makeTenant('a');
         $token = $this->tokenFor($a['kurye']);
         $govde = ['lat' => self::KEPEZ[0], 'lng' => self::KEPEZ[1]];
 
-        for ($i = 0; $i < 6; $i++) {
-            $this->asToken($token)->postJson('/api/v1/locations/heartbeat', $govde)->assertNoContent();
+        for ($i = 0; $i < $limit; $i++) {
+            // assertNoContent() ikinci argüman almaz (imzası `assertNoContent(int $status)`),
+            // bu yüzden sıra numarası ayrı bir iddiayla raporlanır.
+            $yanit = $this->asToken($token)->postJson('/api/v1/locations/heartbeat', $govde);
+            $this->assertSame(204, $yanit->getStatusCode(),
+                "Sınır içindeki {$i}. atış geçmeliydi (limit: {$limit}).");
         }
 
         $this->asToken($token)->postJson('/api/v1/locations/heartbeat', $govde)->assertStatus(429);

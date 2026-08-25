@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\BillingPeriod;
 use App\Livewire\Site\Login as SiteLogin;
 use App\Models\SubscriptionPayment;
 use App\Models\Tenant;
@@ -98,7 +99,23 @@ class SubscriptionTest extends ApiTestCase
         $this->assertSame('active', $tenant->status->value);
         $this->assertTrue($tenant->valid_until->isFuture());
         $this->assertNull($tenant->locked_at, 'Aktivasyon kilidi temizlemeli.');
-        $this->assertTrue($tenant->valid_until->greaterThan(now()->addDays(300)), 'Yıllık abonelik ~1 yıl ileri.');
+        // DÖNEM SÜRESİ TESTE ELLE YAZILMAZ — `BillingPeriod::Yearly->uzat()` tek doğru kaynaktır.
+        //
+        // Eskiden burada `greaterThan(now()->addDays(300))` yazıyordu ve iki yönden de kusurluydu:
+        // (a) dönem hesabı takvim bazlıdır (`addYear`), gün sayısı değil — 300, "yıllık" iddiasını
+        // değil yalnız "çok uzun" iddiasını kanıtlıyordu; (b) yıllık dönemin tanımı değişse
+        // (ör. taahhüt 10 aya inse) test HAKSIZ YERE kırılırdı, oysa aylık dönem yanlışlıkla
+        // uygulansaydı (addMonthNoOverflow → +30 gün) 300 günlük eşik onu ZATEN yakalardı ama
+        // tersi de mümkündü: eşik 30'a inseydi aylık/yıllık farkı sessizce görünmez olurdu.
+        //
+        // Şimdiki iddia DAVRANIŞA bağlı: aktivasyon, checkout'ta seçilen dönemi (varsayılan
+        // yıllık) uygulamalı. Aylık uygulanırsa saniyeler mertebesinde bile tutmaz → kırmızı.
+        $this->assertEqualsWithDelta(
+            BillingPeriod::Yearly->uzat(now())->getTimestamp(),
+            $tenant->valid_until->getTimestamp(),
+            120,
+            'Aktivasyon checkout dönemini (yıllık) uygulamalı; taban `now`dur (süre geçmişte kalmıştı).'
+        );
 
         // subscription_payments success kaydı.
         $success = $this->asOwner(fn () => SubscriptionPayment::query()

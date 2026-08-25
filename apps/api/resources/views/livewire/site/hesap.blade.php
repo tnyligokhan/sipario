@@ -12,6 +12,15 @@
     $kalan = $this->kalanGun();
 @endphp
 <div class="hesap">
+    {{--
+        Giriş dönüşümünün işareti. `Site\Login::authenticate()` yönlendirmeden önce tek
+        kullanımlık bir oturum bayrağı bırakıyor; burası onu bir kez basıyor ve
+        `public/js/olcum.js` görüp `login` olayını gönderiyor. Bayrak `flash` olduğu için
+        sayfa yenilendiğinde tekrar basılmaz — yoksa her yenileme yeni bir giriş sayılırdı.
+    --}}
+    @if (session('olcum_giris'))
+        <span data-olcum-otomatik="login" data-olcum-etiket="hesap-paneli" hidden></span>
+    @endif
     <div class="kap">
         <div class="hs-bas">
             <div>

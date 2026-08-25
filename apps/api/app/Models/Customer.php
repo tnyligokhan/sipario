@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * updated_device_id LWW meta'sıdır. deleted_at tombstone (fiziksel silme yok).
  * blacklisted_at kara liste damgası (null = değil); silmeden BAĞIMSIZDIR — kara listedeki müşteri
  * listede kalır, yalnız yeni sipariş alamaz.
+ * favorite_product_ids sık alınan ürünlerin kimlik listesi (JSON dizi, `array` cast'i; null = yok).
  *
  * @property string $id
  * @property string $tenant_id
@@ -25,6 +26,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $note
  * @property int|null $code
  * @property int $balance_kurus
+ * @property list<string>|null $favorite_product_ids
  * @property Carbon $updated_occurred_at
  * @property string|null $updated_device_id
  * @property Carbon|null $blacklisted_at
@@ -35,7 +37,7 @@ use Illuminate\Support\Carbon;
 class Customer extends Model
 {
     /** @use HasFactory<CustomerFactory> */
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, MikrosaniyeliDamga;
 
     protected $fillable = [
         'id',
@@ -47,6 +49,8 @@ class Customer extends Model
         'updated_occurred_at',
         'updated_device_id',
         'blacklisted_at',
+        'favorite_product_ids',
+        'product_options',
         'deleted_at',
     ];
 
@@ -57,6 +61,14 @@ class Customer extends Model
             'balance_kurus' => 'integer',
             'updated_occurred_at' => 'datetime',
             'blacklisted_at' => 'datetime',
+            // Favori ürünler `text` kolonda JSON dizi olarak durur; cast okuma/yazmanın İKİ ucunu
+            // da tek yerde çözer. Kritik olan OKUMA ucudur: senkronun istemciye yayınladığı iki
+            // yol da (snapshot `->toArray()`, delta `SyncPayload::change`) cast'ten geçer, yani
+            // telefona JSON metni değil GERÇEK BİR DİZİ iner. Cast olmasaydı istemci alanı bir
+            // kez daha ayrıştırmak zorunda kalır ve `unit`/`name` gibi alanlarla aynı biçimde
+            // okunamazdı (mobil ayrıştırıcı sözleşmesi: alan ne ise o).
+            'favorite_product_ids' => 'array',
+            'product_options' => 'array',
             'deleted_at' => 'datetime',
         ];
     }

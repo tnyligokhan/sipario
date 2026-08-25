@@ -10,6 +10,9 @@ import '../../data/tr_gun.dart';
 import '../../repo/cash_handover_repository.dart';
 import '../../repo/day_closing_repository.dart';
 import '../../repo/day_end_repository.dart';
+import '../../repo/gun_veresiye_repository.dart';
+import '../../repo/islem_sahibi.dart';
+import '../../repo/kapanmamis_gunler.dart';
 
 export '../../data/tr_gun.dart' show bugunTrDuzeltilmis;
 
@@ -62,6 +65,8 @@ class KapsamOzeti {
     required this.teslimat,
     required this.acikSiparis,
     this.iskonto = 0,
+    this.veresiye = 0,
+    this.eskiBorcTahsilati = 0,
   });
 
   final KasaOzeti kasa;
@@ -70,6 +75,21 @@ class KapsamOzeti {
 
   /// Kapıda kırılan toplam (pozitif kuruş). [kasa]nın İÇİNDE DEĞİLDİR — kasaya hiç girmedi.
   final int iskonto;
+
+  /// BUGÜN yazılan veresiye (pozitif kuruş). [kasa]nın İÇİNDE DEĞİLDİR — tanımı gereği kasaya
+  /// girmeyen paradır (saha isteği 2026-08-18).
+  ///
+  /// "Açık Veresiye" kartıyla KARIŞTIRILMAMALI: o kart anlık toplam bakiyeyi (aylardır birikmiş
+  /// borç) gösterir, bu sayı yalnız bugüne aittir. İkisini tek satırda toplamak, bugünün işini
+  /// geçmişin yığınında görünmez kılan tam olarak o hataydı.
+  final int veresiye;
+
+  /// Kasaya giren ama BUGÜNKÜ SATIŞTAN gelmeyen tutar (pozitif kuruş) — eski borç kapatmaları
+  /// ve geçmiş siparişlerin tahsilatı. [kasa]NIN İÇİNDEDİR, ondan düşülmez.
+  ///
+  /// Ayrı durur çünkü "kasaya ne girdi" ile "bugün ne sattım" farklı sorulardır ve bir tek
+  /// rakam ikisine birden cevap veremez.
+  final int eskiBorcTahsilati;
 }
 
 /// KAPSAM özeti. [kuryeId] null ise gün geneli.
@@ -81,13 +101,30 @@ Future<KapsamOzeti> kapsamOzeti(
   AppDatabase db,
   DateTime localDate, {
   String? kuryeId,
+  String? haric,
 }) async {
   final repo = DayEndRepository(db);
+  // ALTI OKUMA PARALEL: hiçbiri diğerinin sonucuna bağlı değil ve `await`leri sıraya dizmek
+  // ekranın ilk çizimini altı gidiş-dönüş kadar geciktiriyordu. Gün özeti `FutureBuilder` ile
+  // TEK ATIŞ yüklenir — o future uzadıkça ekran iskelet kalır. (2026-08-18'de iki okuma daha
+  // eklenince sınır göründü: mevcut widget testleri "dört tur bekle" varsayımıyla yazılmıştı
+  // ve future yetişemedi. Testin varsayımını büyütmek yerine işi kısaltmak doğrusu.)
+  final sonuc = await Future.wait<Object>([
+    repo.kasaOzeti(localDate, userId: kuryeId, haric: haric),
+    repo.teslimatSayisi(localDate, userId: kuryeId, haric: haric),
+    repo.iskontoOzeti(localDate, userId: kuryeId, haric: haric),
+    GunVeresiyeRepository(db).toplam(localDate, userId: kuryeId, haric: haric),
+    repo.eskiBorcTahsilati(localDate, userId: kuryeId, haric: haric),
+    acikSiparisSayisi(db, localDate, kuryeId: kuryeId, haric: haric),
+  ]);
+
   return KapsamOzeti(
-    kasa: await repo.kasaOzeti(localDate, userId: kuryeId),
-    teslimat: await repo.teslimatSayisi(localDate, userId: kuryeId),
-    iskonto: await repo.iskontoOzeti(localDate, userId: kuryeId),
-    acikSiparis: await acikSiparisSayisi(db, localDate, kuryeId: kuryeId),
+    kasa: sonuc[0] as KasaOzeti,
+    teslimat: sonuc[1] as int,
+    iskonto: sonuc[2] as int,
+    veresiye: sonuc[3] as int,
+    eskiBorcTahsilati: sonuc[4] as int,
+    acikSiparis: sonuc[5] as int,
   );
 }
 
@@ -97,17 +134,24 @@ Future<int> acikSiparisSayisi(
   AppDatabase db,
   DateTime localDate, {
   String? kuryeId,
+  String? haric,
 }) async {
   // İki ayrı `where` çağrısı drift'te AND ile birleşir — ekran dosyasına `package:drift`
   // operatör eklentisini import etmemek için bilinçli tercih.
   final sorgu = db.select(db.orders)
     ..where((t) => t.deletedAt.isNull())
     ..where((t) => t.status.equals('open'));
-  if (kuryeId != null) {
-    sorgu.where((t) => t.assignedUserId.equals(kuryeId));
-  }
   final satirlar = await sorgu.get();
-  return satirlar.where((o) => ayniTrGun(o.occurredAt, localDate)).length;
+  // KAPSAM SÜZGECİ DART TARAFINDA: gün süzgeci zaten burada koşuyor (satırlar toptan çekiliyor)
+  // ve bu dosya `package:drift` import ETMİYOR (ekran katmanı sözleşmesi).
+  //
+  // AÇIK SİPARİŞTE SAHİP = ATANANDIR: henüz teslim edilmemiş bir siparişin "teslim edeni" yoktur
+  // ve olamaz. `delivered_by_user_id` boş olduğu için [kapsamaDusuyor] zaten atamaya bakar;
+  // burada açıkça atama geçilmesi, okuyanın "acaba teslim eden mi" diye durmaması içindir.
+  return satirlar
+      .where((o) => ayniTrGun(o.occurredAt, localDate))
+      .where((o) => kapsamaDusuyor(o.assignedUserId, userId: kuryeId, haric: haric))
+      .length;
 }
 
 /// occurred_at (UTC ISO) verilen TR yerel takvim gününe mi düşüyor?
@@ -132,8 +176,51 @@ class GunSonuGorunumu {
     this.gunKapanislari = const [],
     this.araTahsilatMumkun = false,
     this.araTahsilatToplamiKurus = 0,
+    this.bugunMu = true,
+    this.kayitVar = true,
+    this.beklenenNakit,
     this.senkron = const SenkronTazeligi(),
+    this.geriAlinmisKapanislar = const {},
   });
+
+  /// Görüntülenen gün BUGÜN mü (düzeltilmiş sunucu saatine göre)?
+  ///
+  /// Gün Özeti ekranı 2026-08-25'te gün gezinmesi kazandı; artık AYNI ekran hem bugünü hem
+  /// geçmişi gösteriyor ve yazma yolları buna göre kapanıyor: ara tahsilat, gider ekleme ve
+  /// SAYIMLI kapanış yalnız bugün mümkündür. Geçmiş bir güne bugünün parasını yazmak, kapanmış
+  /// ya da kapanmaya hazır bir günün kasasını geriye dönük değiştirmek olurdu.
+  ///
+  /// Anlık bakiye gösteren "Açık Veresiye" kartı da buna bağlıdır: `customers.balance_kurus` ŞU
+  /// ANIN durumudur, geçmişe sarılamaz — geçmiş bir günde çizmek, o günün borcu sanılacak bir
+  /// rakamı basmak olurdu.
+  final bool bugunMu;
+
+  /// O GÜNDE (kapsamdan bağımsız) herhangi bir kayıt var mı? "0 ₺" ile "o gün çalışılmadı" aynı
+  /// şey değildir ve sıfırlarla dolu bir kasa kartı bayiyi kasa eksik sandırır.
+  ///
+  /// Görünümün İÇİNDE taşınır, ekranın ikinci bir future'ından değil: ayrı olsaydı gövde bir kare
+  /// boyunca kartları çizip sonra boş duruma atlardı (ya da tersi) — geçmiş bir günde bu titreme,
+  /// bayiye rakamların oynadığını düşündürürdü.
+  final bool kayitVar;
+
+  /// KASADA OLMASI GEREKEN nakit — ekranın en üstündeki iri rakam.
+  ///
+  /// `DayClosingRepository.onizle`den OLDUĞU GİBİ alınır: kapanış sheet'inde yazan tutarla aynı
+  /// koddan çıkmak zorunda, yoksa bayi kapatmaya bastığında başka bir rakam görür.
+  ///
+  /// NULL = BU KAPSAMDA TANIMLI DEĞİL, "sıfır" değil. `day_closings` yalnız iki kapsam tanır
+  /// (gün · kurye); "Elemanlar" ve patronun "Kendi işlemlerim" kapsamları birer okuma
+  /// kapsamıdır ve orada "kasada olması gereken" diye bir büyüklük yoktur — patronun kendi
+  /// topladığı para zaten kasanın kendisidir. Sıfır yazmak, olmayan bir mutabakat iddia etmek
+  /// olurdu; ekran o kapsamlarda başlığı da rakamı da değiştirir.
+  final int? beklenenNakit;
+
+  /// GERİ ALINMIŞ kapanışların id'leri (2026-08-18).
+  ///
+  /// Görünümün İÇİNDE taşınır, ekranın ikinci bir sorgusundan gelmez: [gunKapanislari] ile
+  /// AYNI ANDA okunmalı, yoksa liste ile rozet bir kare boyunca ayrışır ve kullanıcı geri
+  /// aldığı kapanışı hâlâ geçerli görür.
+  final Set<String> geriAlinmisKapanislar;
 
   /// Gün geneli BORÇ (yalnız borç — bkz. [GunBorcOzeti]).
   final GunBorcOzeti ozet;
@@ -202,6 +289,8 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
   AppDatabase db,
   DateTime localDate, {
   String? kuryeId,
+  String? haric,
+  bool devirKapsami = false,
 }) async {
   final kapanislar = DayClosingRepository(db);
   final gunKapali = await kapanislar.kapaliMi(ClosingScope.day, localDate: localDate);
@@ -214,12 +303,29 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
   final aktifSayi = await _aktifKuryeSayisi(db);
   final bugun = localDate == await bugunTrDuzeltilmis(db);
 
+  // BEKLENEN NAKİT — ekranın en üstündeki iri rakam. HER KAPSAMDA TANIMLI DEĞİLDİR ve
+  // tanımsızken null kalır (bkz. [GunSonuGorunumu.beklenenNakit]). Kapsam süzgeci burada
+  // `ClosingScope`a çevrilir; "Elemanlar" ve patronun "Kendi işlemlerim" kapsamları birer OKUMA
+  // kapsamıdır, `day_closings` onları hiç tanımaz.
+  //
+  // FORMÜL BURADA YAZILMAZ, `DayClosingRepository.onizle`den ALINIR: kapanış sheet'inde yazan
+  // rakam ile ekranın en üstündeki rakam AYNI koddan çıkmak zorunda. İkisini ayrı hesaplamak,
+  // bu depoda gün sonu tanımında üç kez ayrışma üreten hata sınıfının ta kendisi.
+  final beklenen = haric != null || (kuryeId != null && !devirKapsami)
+      ? null
+      : (await kapanislar.onizle(
+          kuryeId == null ? ClosingScope.day : ClosingScope.courier,
+          userId: kuryeId,
+          localDate: localDate,
+        ));
+
   return GunSonuGorunumu(
     ozet: GunBorcOzeti(borc: await DayEndRepository(db).borcDurumu()),
-    kapsam: await kapsamOzeti(db, localDate, kuryeId: kuryeId),
+    kapsam: await kapsamOzeti(db, localDate, kuryeId: kuryeId, haric: haric),
     gunKapali: gunKapali,
     kapsamKapali: gunKapali || kuryeKapali,
     gunKapanislari: await kapanislar.gununKapanislari(localDate),
+    geriAlinmisKapanislar: await kapanislar.geriAlinmisIdler(),
     araTahsilatlar:
         await CashHandoverRepository(db).araTahsilatlar(localDate, kuryeId: kuryeId),
     araTahsilatToplamiKurus:
@@ -227,6 +333,9 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
     // Geçmiş gün için de FALSE: dünün kasasını bugün "ara" tahsilat diye almak, parayı dünün
     // hesabına yazmak olurdu.
     araTahsilatMumkun: bugun && !gunKapali && aktifSayi > 0,
+    bugunMu: bugun,
+    kayitVar: await gunKayitVarMi(db, localDate),
+    beklenenNakit: beklenen?.expectedCashKurus,
     senkron: await senkronTazeligi(db),
     acikKuryeAdlari: acikKuryeler,
     gunEngeli: kuryeId == null &&
@@ -303,19 +412,15 @@ Future<SenkronTazeligi> senkronTazeligi(AppDatabase db, {DateTime? simdi}) async
 /// [localDate] gününde HİÇ kayıt var mı? (sipariş · kasaya dokunan defter hareketi · kapanış ·
 /// kasa devri). Geçmiş gün ekranı boş durumu buna göre çizer — "0 ₺" ile "o gün çalışılmadı"
 /// aynı şey değildir ve sıfırlarla dolu bir kart bayiyi kasa eksik sandırır.
-Future<bool> gunKayitVarMi(AppDatabase db, DateTime localDate) async {
-  final siparisler = await (db.select(db.orders)..where((t) => t.deletedAt.isNull())).get();
-  if (siparisler.any((o) => ayniTrGun(o.occurredAt, localDate))) return true;
-
-  final hareketler = await db.select(db.ledgerEntries).get();
-  if (hareketler.any((e) => ayniTrGun(e.occurredAt, localDate))) return true;
-
-  final kapanislar = await DayClosingRepository(db).gununKapanislari(localDate);
-  if (kapanislar.isNotEmpty) return true;
-
-  final devirler = await db.select(db.cashHandovers).get();
-  return devirler.any((h) => ayniTrGun(h.occurredAt, localDate));
-}
+/// ⚠️ TANIM BURADA DEĞİL: `KapanmamisGunlerRepository.hareketliGunler()` içinde. Bu imza
+/// çağrı yerlerini kırmamak için duruyor ve oraya DELEGE eder.
+///
+/// NEDEN TAŞINDI (2026-08-21): "kapanmamış günler" taraması aynı soruyu 14 gün için soruyor ve
+/// kendi kopyasını yazsaydı iki tanım ayrışırdı — bayi hareketsiz bir pazar günü için "gün
+/// kapatmadınız" uyarısı alır ya da tersine gerçekten çalışılmış bir gün listeden düşerdi.
+Future<bool> gunKayitVarMi(AppDatabase db, DateTime localDate) async =>
+    (await KapanmamisGunlerRepository(db).hareketliGunler())
+        .contains(trGunAnahtari(localDate));
 
 /// Aktif kuryelerden bugün hesabı KAPANMAMIŞ olanların adları.
 Future<List<String>> acikKuryeAdlari(AppDatabase db, DateTime localDate) async {

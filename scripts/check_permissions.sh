@@ -123,32 +123,43 @@ for MANIFEST in "${MANIFESTLER[@]}"; do
     echo "         Kaynak: apps/mobile/android/app/src/$kanal/AndroidManifest.xml" >&2
     violations=$((violations + 1))
   fi
+
+  # ⚠️ AŞAĞIDAKİ İKİ DENETİM 2026-08-17'DE DÖNGÜNÜN İÇİNE ALINDI.
+  #
+  # Öncesinde döngünün DIŞINDAydılar ve `$MANIFEST` değişkeninin son turdan SIZAN değerini
+  # okuyorlardı: üç kanal üretilmiş olsa bile yalnız SONUNCUSU (sıralamada `sahaRelease`)
+  # sınanıyordu. `magaza` APK'sından CallScreeningService ya da READ_CONTACTS düşse denetim
+  # bunu GÖRMEZDİ — ve arayan tanıma tam olarak mağaza sürümünde sessizce ölürdü. Betiğin
+  # kendi yorumu "HEPSİ denetlenir, ilki değil" diyordu; bu iki denetim için doğru değildi.
+  #
+  # Ayrıca eski yerleri `violations > 0` çıkışının ALTINDAydı: bir izin ihlali varken bu iki
+  # eksik hiç raporlanmıyordu. Artık ikisi de aynı sayaca yazıyor, tek koşuda tam liste çıkıyor.
+
+  # CallScreeningService gerçekten beyan edilmiş mi? Kaldırılırsa arayan tanıma sessizce ölür.
+  if ! grep -q "android.telecom.CallScreeningService" "$MANIFEST"; then
+    echo "  IHLAL [$kanal]: CallScreeningService beyanı yok — arayan tanıma çalışmaz." >&2
+    violations=$((violations + 1))
+  fi
+
+  # READ_CONTACTS zorunlu. Telecom'un CallScreeningServiceFilter'ı, bu izne sahip olmayan
+  # tarama uygulamasını rehberde KAYITLI numaralardan gelen çağrılarda hiç uyandırmaz:
+  #     if (priorStageResult.contactExists && !hasReadContactsPermission()) { atla }
+  # İzin manifest'ten düşerse hata sessizdir: uygulama çalışır, testler geçer, ama bayinin
+  # rehberine kaydettiği (yani en sık aradığı) müşterilerde kart çıkmaz. Gerçek cihazda
+  # doğrulandı: izinle birlikte "contact exists" olan çağrıda da SCREENING_BOUND alınıyor.
+  if ! grep -q "uses-permission[^>]*\"android.permission.READ_CONTACTS\"" "$MANIFEST"; then
+    echo "  IHLAL [$kanal]: READ_CONTACTS beyanı yok." >&2
+    echo "         Rehberde kayıtlı müşteriler aradığında arayan tanıma SESSİZCE çalışmaz." >&2
+    violations=$((violations + 1))
+  fi
 done
 
 if [[ $violations -gt 0 ]]; then
   echo "" >&2
-  echo "$violations yasaklı izin bulundu. Kırmızı çizgi #6 ihlal ediliyor." >&2
+  echo "$violations sorun bulundu (birleştirilmiş manifest). Kırmızı çizgi #6 ihlal ediliyor." >&2
   echo "Kaynağı bulmak için:  cd apps/mobile/android && ./gradlew :app:processDebugMainManifest --info" >&2
-  echo "Çözüm: ilgili izni AndroidManifest.xml'e tools:node=\"remove\" ile ekleyin." >&2
+  echo "Yasaklı izin için: ilgili izni AndroidManifest.xml'e tools:node=\"remove\" ile ekleyin." >&2
   exit 1
 fi
 
-# CallScreeningService gerçekten beyan edilmiş mi? Kaldırılırsa arayan tanıma sessizce ölür.
-if ! grep -q "android.telecom.CallScreeningService" "$MANIFEST"; then
-  echo "HATA: CallScreeningService beyanı manifest'te yok — arayan tanıma çalışmaz." >&2
-  exit 1
-fi
-
-# READ_CONTACTS zorunlu. Telecom'un CallScreeningServiceFilter'ı, bu izne sahip olmayan
-# tarama uygulamasını rehberde KAYITLI numaralardan gelen çağrılarda hiç uyandırmaz:
-#     if (priorStageResult.contactExists && !hasReadContactsPermission()) { atla }
-# İzin manifest'ten düşerse hata sessizdir: uygulama çalışır, testler geçer, ama bayinin
-# rehberine kaydettiği (yani en sık aradığı) müşterilerde kart çıkmaz. Gerçek cihazda
-# doğrulandı: izinle birlikte "contact exists" olan çağrıda da SCREENING_BOUND alınıyor.
-if ! grep -q "uses-permission[^>]*\"android.permission.READ_CONTACTS\"" "$MANIFEST"; then
-  echo "HATA: READ_CONTACTS beyanı yok." >&2
-  echo "      Rehberde kayıtlı müşteriler aradığında arayan tanıma SESSİZCE çalışmaz." >&2
-  exit 1
-fi
-
-echo "Temiz: yasaklı izin yok, CallScreeningService ve READ_CONTACTS yerinde."
+echo "Temiz (${#MANIFESTLER[@]} kanal): yasaklı izin yok, CallScreeningService ve READ_CONTACTS yerinde."

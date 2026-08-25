@@ -3,6 +3,9 @@
 namespace App\Abonelik;
 
 use App\Enums\BillingPeriod;
+use App\Eposta\BayiPostacisi;
+use App\Mail\OdemeEslesmedi;
+use App\Mail\OdemeOnaylandi;
 use App\Models\PaymentNotification;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Collection;
@@ -145,14 +148,21 @@ class OdemeBildirimServisi extends AbonelikServisi
         ?int $amountKurus = null,
         ?string $adminId = null,
     ): PaymentNotification {
-        return $this->db()->transaction(function () use ($bildirimId, $coversPeriod, $period, $amountKurus, $adminId) {
+        /*
+         * POSTA TRANSACTION'IN DIŞINDA GÖNDERİLİR. İçeride gönderilseydi ve sonrasında bir hata
+         * transaction'ı geri alsaydı, bayiye "ödemeniz onaylandı, hesabınız açık" diyen bir posta
+         * gitmiş ama hesabı açılmamış olurdu — düzeltilmesi en pahalı yalan türü. Bu yüzden
+         * kapanış işlemi bir çift döndürür: bildirim + (varsa) yeni oluşan ödeme sonucu.
+         */
+        [$bildirim, $sonuc] = $this->db()->transaction(function () use ($bildirimId, $coversPeriod, $period, $amountKurus, $adminId) {
             /** @var PaymentNotification $bildirim */
             $bildirim = PaymentNotification::on($this->connection)->lockForUpdate()->findOrFail($bildirimId);
 
             if ($bildirim->status !== PaymentNotification::STATUS_PENDING) {
                 // Kapanmış bildirim yeniden işlenmez (durum makinesi tek yönlü). Sessiz geçiş:
                 // ikinci tıklamaya hata göstermek yerine mevcut sonucu döndürmek doğru davranıştır.
-                return $bildirim;
+                // Posta da GÖNDERİLMEZ: ikinci tıklama bayiye ikinci bir onay postası yollamamalı.
+                return [$bildirim, null];
             }
 
             $sonuc = (new OdemeKayitServisi($this->connection))->kaydet(
@@ -177,8 +187,25 @@ class OdemeBildirimServisi extends AbonelikServisi
 
             $this->denetle($adminId, $bildirim->tenant_id, 'payment_notification_match');
 
-            return $bildirim;
+            return [$bildirim, $sonuc];
         });
+
+        if ($sonuc !== null) {
+            /** @var Tenant $bayi */
+            $bayi = $sonuc['tenant'];
+
+            BayiPostacisi::gonder($bildirim->tenant_id, fn (): OdemeOnaylandi => new OdemeOnaylandi(
+                isletme: (string) $bayi->name,
+                tutarKurus: $amountKurus ?? (int) $bildirim->amount_kurus,
+                donem: ($period ?? $bayi->billing_period)?->etiket() ?? 'Abonelik',
+                // Bayinin tek merak ettiği rakam: ne zamana kadar açık. `kaydet()` bu modeli
+                // uzatılmış `valid_until` ile bellekte günceller.
+                gecerlilikBitisi: $bayi->valid_until?->translatedFormat('j F Y') ?? '',
+                hesapUrl: route('site.hesap'),
+            ));
+        }
+
+        return $bildirim;
     }
 
     /** REDDET — para gelmemiş/eşleşmemiş. Ödeme kaydı OLUŞMAZ, abonelik değişmez. */
@@ -199,6 +226,24 @@ class OdemeBildirimServisi extends AbonelikServisi
         ])->save();
 
         $this->denetle($adminId, $bildirim->tenant_id, 'payment_notification_reject');
+
+        /*
+         * RET DE HABER VERİLİR — ve bu, onay postasından daha önemlidir. Bugüne kadar bu yol
+         * tamamen sessizdi: bayi parayı gönderdiğine inanıyor, hesabı açılmıyor ve sebebini
+         * öğrenmesinin hiçbir yolu yok. En olası sebep de onun hatası değil, açıklamaya
+         * yazılmamış bir referans kodu.
+         *
+         * Postanın adı ve dili bilinçli: "reddedildi" değil "eşleşmedi". Durum makinesinin
+         * teknik adı `rejected`tır ama o adı bayiye taşımak onu yalancı ilan etmektir.
+         */
+        BayiPostacisi::gonder($bildirim->tenant_id, fn (Tenant $bayi): OdemeEslesmedi => new OdemeEslesmedi(
+            isletme: (string) $bayi->name,
+            tutarKurus: (int) $bildirim->amount_kurus,
+            referans: (string) $bildirim->reference_code,
+            beyanTarihi: $bildirim->declared_on->translatedFormat('j F Y'),
+            abonelikUrl: route('subscription.subscribe'),
+            not: (string) ($note ?? ''),
+        ));
 
         return $bildirim;
     }

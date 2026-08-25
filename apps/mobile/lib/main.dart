@@ -3,22 +3,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'dart:async' show unawaited;
+import 'dart:async' show StreamSubscription, unawaited;
 
 import 'auth/session.dart';
-import 'bildirim/bildirim_ayarlari.dart';
 import 'bildirim/bildirim_servisi.dart';
 import 'bildirim/bildirim_tetikleyici.dart';
-import 'bildirim/kurallar/musteri_ureticileri.dart';
+import 'bildirim/kurallar/durum_kurallari.dart';
+import 'bildirim/kurallar/durum_ureticileri.dart';
+import 'bildirim/kurallar/para_kurallari.dart' show kGunSonuSaati;
 import 'bildirim/kurallar/para_ureticileri.dart';
+import 'bildirim/push/push_baglama.dart';
+import 'bildirim/push/push_servisi.dart';
 import 'repo/day_end_repository.dart';
 import 'data/app_database.dart';
 import 'guncelleme/guncelleme_servisi.dart';
+import 'repo/bildirim_kutusu.dart';
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/orders/tutamac_deposu.dart';
 import 'screens/products/product_form_sheet.dart';
 import 'screens/sihirbaz/izin_sihirbazi.dart';
+import 'sync/sync_api.dart';
 import 'sync/sync_service.dart';
 import 'theme/app_theme.dart';
 import 'theme/components/overlays.dart';
@@ -48,12 +53,21 @@ void main() {
 /// `sync_meta.setup_completed_at` (cihaz-yerel, bkz. [kurulumuDamgala]) — hem bitirmek hem
 /// çarpıyla atlamak damgalar, sihirbaz sonra yalnız Ayarlar/çekmeceden açılır.
 class SiparioApp extends StatefulWidget {
-  const SiparioApp({super.key, required this.db, this.tema});
+  const SiparioApp({super.key, required this.db, this.tema, this.syncApi});
 
   final AppDatabase db;
 
   /// Test/araç yolu — verilmezse diske yazan gerçek depo kurulur.
   final TemaKontrol? tema;
+
+  /// YALNIZ TEST İÇİNDİR (üretimde null → gerçek HTTP taşıması kurulur).
+  ///
+  /// NEDEN VAR: "oturum düşürüldü → giriş ekranına dön" kararı KÖKTE verilir (bkz.
+  /// [_SiparioAppState._oturumKapandi]) ve kök kendi senkron servisini içeride kuruyordu.
+  /// Enjeksiyon noktası olmadan o karar hiçbir testle koşturulamazdı — yani özelliğin ağaca
+  /// bağlı olup olmadığını kimse ölçemezdi (aynı sınıf hata bir kez yaşandı: güncelleme bandı
+  /// aylarca hiç bağlanmamıştı ve testleri yeşildi).
+  final SyncApi? syncApi;
 
   @override
   State<SiparioApp> createState() => _SiparioAppState();
@@ -61,11 +75,27 @@ class SiparioApp extends StatefulWidget {
 
 class _SiparioAppState extends State<SiparioApp> {
   late final Session _session = Session(widget.db);
-  late final SyncService _sync = SyncService(widget.db);
+  late final SyncService _sync = SyncService(widget.db, api: widget.syncApi);
   late final TemaKontrol _tema = widget.tema ?? TemaKontrol();
 
   bool? _loggedIn; // null = açılış kontrolü sürüyor
   String? _startupError;
+
+  /// Senkron sonuçlarını dinler — TEK amacı düşürülen oturumu yakalamak (bkz. [_oturumKapandi]).
+  StreamSubscription<SyncOutcome>? _durumSub;
+
+  /// Giriş ekranının üstünde yazacak açıklama: kullanıcı buraya kendi isteğiyle DÖNMEDİYSE
+  /// neden döndüğünü bilmeli. `null` = normal giriş.
+  String? _cikisMesaji;
+
+  /// Oturum SUNUCU TARAFINDAN düşürüldü mü? ([_oturumKapandi] yazar.)
+  ///
+  /// ⚠️ BU BAYRAK BİR YARIŞI KAPATIR ve gereklidir: açılış (ve giriş) yolu senkronu başlattıktan
+  /// SONRA `kurulumGerekliMi` için diske gider, yani ilk senkron turu o bekleme sırasında
+  /// bitebilir. Bayrak olmasaydı düşürülmüş bir cihaz şöyle davranırdı: senkron 401 alır, kök
+  /// giriş ekranına döner ve hemen ardından bekleyen açılış devamı `_loggedIn = true` yazıp
+  /// kullanıcıyı token'sız kabuğa geri sokardı — ekran dolu, hiçbir kayıt gitmiyor.
+  bool _oturumDusuruldu = false;
 
   /// Kurulum sihirbazı kabuğun yerine gösteriliyor mu (ilk giriş).
   bool _sihirbaz = false;
@@ -96,7 +126,9 @@ class _SiparioAppState extends State<SiparioApp> {
       // BEKLENMEZ: açılışı bloke etmemeli; taramanın kendisi hata yutar.
       if (v) unawaited(_bildirimKurallariniKos());
       final sihirbaz = v && await kurulumGerekliMi(widget.db);
-      if (mounted) {
+      // Bu bekleme sırasında ilk senkron turu oturumu düşürmüş olabilir — düşürdüyse karar
+      // ONUNDUR, burası üstüne yazmaz (gerekçe [_oturumDusuruldu]).
+      if (mounted && !_oturumDusuruldu) {
         setState(() {
           _loggedIn = v;
           _sihirbaz = sihirbaz;
@@ -107,26 +139,60 @@ class _SiparioAppState extends State<SiparioApp> {
     });
   }
 
-  /// Faz 1 bildirimlerinin BAĞLANDIĞI tek yer: beş kural üreticisi tetikleyiciye takılır.
+  /// YEREL bildirim kurallarının BAĞLANDIĞI tek yer.
   ///
-  /// Üreticiler kural dosyalarının yanında yaşıyor (`kurallar/*_ureticileri.dart`) çünkü defteri
-  /// onlar okuyor; tetikleyici ne Drift'i ne kuralların içini tanıyor, yalnız NE ZAMAN
-  /// çağrılacaklarını biliyor. Bağlama burada, main'de: her iki tarafı da tanıyan tek yer burası.
+  /// Üreticiler kural dosyalarının yanında yaşıyor (`kurallar/*_ureticileri.dart`) çünkü
+  /// defteri onlar okuyor; tetikleyici ne Drift'i ne kuralların içini tanıyor, yalnız NE ZAMAN
+  /// çağrılacaklarını biliyor. Bağlama burada, main'de: her iki tarafı da tanıyan tek yer.
+  ///
+  /// SUNUCUDAN İTİLENLER BURADA YOK: push'un yolu ayrıdır (`bildirim/push/`), dürtü geldiğinde
+  /// senkron koşar ve taslak orada üretilir. Buradaki liste yalnız telefonun KENDİ verisinden
+  /// türeyen kurallardır.
   ///
   /// Altyapı kurulumu ÖNCE beklenir — kanallar ve saat dilimi hazır olmadan zamanlama yapılırsa
   /// bildirim yanlış saate düşer.
   Future<void> _bildirimKurallariniKos() async {
     await bildirimAltyapisiniKur();
-    final gunSonuRepo = DayEndRepository(widget.db);
+    final db = widget.db;
+
+    // BİLDİRİM KUTUSU BAĞLANIR (2026-08-21) — üretilen her taslak uygulama içi listeye de düşer.
+    //
+    // SARMALAMA ALTYAPI KURULUMUNDAN SONRA: `bildirimAltyapisiniKur` servisin somut tipine
+    // bakıyor (`is YerelBildirimServisi`) ve sarmalanmış hâli tanımaz — önce sarsaydık kanallar
+    // hiç kurulmazdı, yani bildirimler sessizce çıkmamaya başlardı.
+    //
+    // İKİ KEZ SARMAYA KARŞI: bu fonksiyon oturum açılışında bir kez koşar ama savunma ucuz.
+    if (bildirimServisi is! KutuluBildirimServisi) {
+      bildirimServisi = KutuluBildirimServisi(bildirimServisi, BildirimKutusu(db));
+    }
+
     await BildirimTetikleyici(
       servis: bildirimServisi,
-      // Anlık taramalar — açılışta koşar, kimlikleri gün damgalı olduğu için tekrar güvenli.
-      gecikmisMusteri: gecikmisMusteriUreticisi(widget.db),
-      rutinTeslim: rutinTeslimUreticisi(widget.db),
-      borcEsigi: borcEsigiUretici(gunSonuRepo, bildirimAyarlari),
-      // Zamanlananlar — akşam özeti ve haftalık vade taraması.
-      gunSonu: gunSonuOzetiUretici(gunSonuRepo),
-      vadesiGecen: vadesiGecenUretici(gunSonuRepo),
+      // AÇILIŞTA koşanlar — kimlikleri gün damgalı, tekrar güvenli.
+      anlik: [
+        senkronUyarisiUretici(db),
+        kullanimHakkiUretici(db),
+      ],
+      // GÜNÜN BELİRLİ ANLARINA kurulanlar. Saatler kuralların yanında sabit duruyor
+      // (`kGunSonuSaati` · `kKasaHatirlatmaSaati` · `kSabahHatirlatmaSaati`) — burada yalnız
+      // bağlanıyorlar ki "ne zaman" sorusunun cevabı tek yerde kalsın.
+      zamanlanan: [
+        ZamanlanmisIs(
+          ad: 'gunSonu',
+          uretici: gunSonuOzetiUretici(DayEndRepository(db)),
+          an: (simdi) => BildirimTetikleyici.gunlukAn(simdi, kGunSonuSaati),
+        ),
+        ZamanlanmisIs(
+          ad: 'kasaDevri',
+          uretici: kasaDevriHatirlatmasiUretici(db),
+          an: (simdi) => BildirimTetikleyici.gunlukAn(simdi, kKasaHatirlatmaSaati),
+        ),
+        ZamanlanmisIs(
+          ad: 'gunKapatilmadi',
+          uretici: gunKapatilmadiUretici(db),
+          an: (simdi) => BildirimTetikleyici.gunlukAn(simdi, kSabahHatirlatmaSaati),
+        ),
+      ],
     ).acilistaKos();
   }
 
@@ -141,6 +207,12 @@ class _SiparioAppState extends State<SiparioApp> {
 
   Future<void> _startSync() async {
     await _sync.configure();
+    // OTURUM DÜŞÜRÜLDÜ KAPISI (2026-08-22 — tek hesap, tek cihaz). Kök burada dinler çünkü
+    // giriş ekranıyla kabuk arasında geçişi yapabilen tek yer burasıdır.
+    _durumSub?.cancel();
+    _durumSub = _sync.status.listen((sonuc) {
+      if (sonuc.tur == SyncHataTuru.oturumKapandi) _oturumKapandi(sonuc.kod);
+    });
     // AĞ TETİĞİ (2026-07-27 saha arızası). `connectivity_plus` pubspec'te baştan vardı ve
     // `sync_engine.dart:9` "ağ tetiği (connectivity) ve zamanlayıcı bunları çağırır" diye YAZMIŞTI
     // ama kod hiç yazılmamıştı — tetikleyici yalnız açılıştaki ilk tur ve 2 dakikalık
@@ -159,10 +231,65 @@ class _SiparioAppState extends State<SiparioApp> {
     // veritabanından kurar; burada yalnız BAĞLANIR ki tetik tek bir yerde açılıp kapansın.
     _sync.yazimTetigiBagla();
     _sync.start();
+    // PUSH — sunucunun telefonu dürtmesi. Yalnız oturum açıkken kurulur (jetonun yazılacağı
+    // cihaz kaydı bir bayiye aittir) ve BEKLENMEZ: Play Services'i olmayan cihazda (Huawei)
+    // ya da yapılandırma eksikse sessizce kurulmaz, ürün mevcut senkronla çalışmaya devam
+    // eder — push HIZLANDIRICIDIR, taşıyıcı değil.
+    unawaited(_pushKur());
+  }
+
+  /// SUNUCU BU CİHAZIN OTURUMUNU DÜŞÜRDÜ (401) — kullanıcıyı giriş ekranına al.
+  ///
+  /// ══ NEDEN OTOMATİK ══════════════════════════════════════════════════════════════════════
+  /// "Tek hesap tek cihaz" kuralı (2026-08-22): hesap yeni bir telefonda açılınca eskisinin
+  /// token'ı düşer. Eski telefon bunu FARK ETMEZSE ekranda dolu bir defter gösterir, kullanıcı
+  /// sipariş yazar ve hiçbiri gitmez — sessizce çalışmayan bir uygulama, açıkça çıkış yapmış
+  /// bir uygulamadan kötüdür.
+  ///
+  /// ══ VERİ SİLİNMEZ ═══════════════════════════════════════════════════════════════════════
+  /// [Session.oturumuDusur] yalnız oturum alanlarını siler; defter, outbox ve sync imleci
+  /// yerinde kalır (kırmızı çizgi #3). Aynı kullanıcı bu cihaza tekrar girerse bekleyen
+  /// kayıtlar kaldığı yerden akar.
+  ///
+  /// ══ İKİ KEZ ÇAĞRILMAYA KARŞI ════════════════════════════════════════════════════════════
+  /// Senkron akışı arka arkaya birkaç başarısız tur yayınlayabilir. `_loggedIn == false` ise
+  /// iş bitmiştir; ikinci çağrı `setState`i ve diske yazımı boşuna tekrarlardı.
+  Future<void> _oturumKapandi(String? kod) async {
+    if (_oturumDusuruldu) return;
+    _oturumDusuruldu = true;
+    _sync.stop();
+    // Push aboneliği de bırakılır: servisin elindeki `CihazApi` artık geçersiz bir token
+    // taşıyor ve bir sonraki giriş yenisini kuracak. Kapatmasaydık her düşme+giriş çevrimi
+    // ağaçta bir abonelik daha bırakırdı.
+    await _push?.kapat();
+    _push = null;
+    await _session.oturumuDusur();
+    if (!mounted) return;
+    setState(() {
+      _loggedIn = false;
+      _sihirbaz = false;
+      // Sunucunun cümlesi DEĞİL, kodu okunur — metin uygulamanın kendi dilidir.
+      _cikisMesaji = kod == 'oturum_baska_cihazda'
+          ? 'Hesabınız başka bir cihazda açıldı, bu cihazdaki oturum kapatıldı'
+          : 'Oturumunuz sona erdi, yeniden giriş yapın';
+    });
+  }
+
+  /// Push servisi. `null` = kurulamadı (oturum/yapılandırma yok, Play Services yok).
+  PushServisi? _push;
+
+  Future<void> _pushKur() async {
+    try {
+      _push = await pushKur(widget.db, _sync);
+    } on Object catch (e) {
+      debugPrint('Push kurulamadı: $e');
+    }
   }
 
   @override
   void dispose() {
+    unawaited(_durumSub?.cancel());
+    unawaited(_push?.kapat());
     _sync.dispose();
     if (widget.tema == null) _tema.dispose();
     super.dispose();
@@ -196,15 +323,20 @@ class _SiparioAppState extends State<SiparioApp> {
             null => const _Acilis(),
             false => LoginScreen(
                 session: _session,
+                acilisMesaji: _cikisMesaji,
                 onLoggedIn: () async {
+                  // Yeni ve GEÇERLİ bir oturum var: önceki düşürmenin bayrağı burada sıfırlanır,
+                  // yoksa bir kez düşürülen cihaz bir daha kabuğa hiç giremezdi.
+                  _oturumDusuruldu = false;
                   await _startSync();
                   final sihirbaz = await kurulumGerekliMi(widget.db);
-                  if (mounted) {
-                    setState(() {
-                      _loggedIn = true;
-                      _sihirbaz = sihirbaz;
-                    });
-                  }
+                  if (!mounted || _oturumDusuruldu) return;
+                  setState(() {
+                    _loggedIn = true;
+                    _sihirbaz = sihirbaz;
+                    // Açıklama tüketildi: bir sonraki giriş ekranı temiz açılmalı.
+                    _cikisMesaji = null;
+                  });
                 },
               ),
             true when _sihirbaz => IzinSihirbazi(
@@ -218,6 +350,10 @@ class _SiparioAppState extends State<SiparioApp> {
                 tema: _tema,
                 onLoggedOut: () {
                   _sync.stop();
+                  // Elle çıkışta da push bırakılır — [_oturumKapandi] ile aynı gerekçe
+                  // (geçersiz token taşıyan abonelik ağaçta kalmasın).
+                  unawaited(_push?.kapat());
+                  _push = null;
                   if (mounted) setState(() => _loggedIn = false);
                 },
               ),
@@ -269,7 +405,7 @@ class _AcilisHatasi extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SipHataEkran(
-                  aciklama: 'Uygulama açılamadı. Lütfen destek ile iletişime geçin.',
+                  aciklama: 'Uygulama açılamadı. Aşağıdaki mesajı destekle paylaşın.',
                 ),
                 Text(
                   mesaj,

@@ -252,6 +252,27 @@ class TenantAdminService
         );
     }
 
+    /**
+     * Veritabanı yedeği indirildi — `tenant_id` YOK, çünkü yedek TÜM bayileri kapsar.
+     *
+     * Ayrı bir metot olmasının sebebi budur: `auditExport` bir bayiye işaret eder ve o
+     * imzaya boş bir kimlik geçirmek, denetim kaydını "hangi bayi?" sorusuna yanlış
+     * cevap verir hâle getirirdi. Burada doğru cevap "hepsi"dir ve onu tenant sütunu
+     * değil, eylem adı taşır.
+     *
+     * Detaya yalnız DOSYA ADI yazılır — `panel_audit`in KVKK-nötr sözleşmesi gereği
+     * dosyanın içeriğine dair hiçbir şey buraya girmez.
+     */
+    public function auditYedekIndirme(?string $adminId, string $dosya): void
+    {
+        $this->audit(
+            ($adminId === null || $adminId === '') ? null : $adminId,
+            null,
+            'yedek_indirme',
+            $dosya,
+        );
+    }
+
     // ------------------------------------------------------------------------------------
 
     private function find(string $tenantId): Tenant

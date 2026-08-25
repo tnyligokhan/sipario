@@ -49,6 +49,9 @@ class DegerSatiri extends StatelessWidget {
     required this.deger,
     this.toplam = false,
     this.degerRengi,
+    this.onTap,
+    this.gecersiz = false,
+    this.sagIkon,
   });
 
   final String etiket;
@@ -59,10 +62,39 @@ class DegerSatiri extends StatelessWidget {
 
   final Color? degerRengi;
 
+  /// Satır ARTIK GEÇERLİ DEĞİL (iptal edilmiş ara tahsilat, 2026-08-13): tutar ÜSTÜ ÇİZİLİ ve
+  /// solgun çizilir, etiket de solar.
+  ///
+  /// NEDEN SATIR SİLİNMİYOR: para kayıtları silinmez (BRIEF kırmızı çizgi #2) — olay olmuştur ve
+  /// kanıtı görünür kalmalıdır. Üstü çizili tutar, "bu rakam toplamın içinde değil" cümlesini
+  /// ikinci bir açıklama satırı açmadan söyler; solgunluk tek başına yeterli DEĞİLDİ, çünkü
+  /// solgun bir para rakamı "ikincil bilgi" diye de okunabilir ve bayi onu toplama katardı.
+  ///
+  /// [degerRengi] ile birlikte kullanılırsa geçersizlik KAZANIR: iptal edilmiş bir tutarı
+  /// kırmızı/vurgulu çizmek, geri alınmış bir parayı hâlâ bir iddia gibi gösterirdi.
+  final bool gecersiz;
+
+  /// Verilirse satır DOKUNULABİLİR olur ve sağına chevron çizilir (kullanıcı isteği
+  /// 2026-08-11: ödeme türüne dokununca o günün dökümü açılır).
+  ///
+  /// CHEVRON KOŞULSUZ DEĞİL: dokunulamayan satırda çizilseydi bayi her rakamın altında bir
+  /// döküm arar, bulamayınca satırın bozuk olduğunu sanırdı. Görünen işaret, var olan
+  /// davranışın karşılığıdır.
+  final VoidCallback? onTap;
+
+  /// [onTap] varken sağda çizilecek işaret ([SipIcons] anahtarı); verilmezse chevron.
+  ///
+  /// NEDEN GEREKLİ (2026-08-13): chevron "burada bir DÖKÜM var, dokun aç" der ve ödeme türü
+  /// satırlarında tam olarak bunu yapar. Ara tahsilat satırında ise dokunuş bir DÜZELTME
+  /// başlatıyor (iptal onayı); oraya chevron koymak, bayiyi detay sanıp dokunduğu yerde
+  /// "iptal edilsin mi?" diyaloğuyla karşılaştırırdı. İşaret, arkasındaki davranışın karşılığı
+  /// olmak zorundadır — kuralın kendisi zaten yukarıda yazılı, burası onun ikinci yarısı.
+  final String? sagIkon;
+
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    return Padding(
+    final govde = Padding(
       padding: const EdgeInsets.symmetric(vertical: 11),
       child: Row(
         children: [
@@ -70,7 +102,7 @@ class DegerSatiri extends StatelessWidget {
             child: Text(
               etiket,
               style: SipText.gsSatirEtiket.copyWith(
-                color: toplam ? t.ink : t.ink2,
+                color: gecersiz ? t.muted : (toplam ? t.ink : t.ink2),
                 fontWeight: toplam ? FontWeight.w700 : FontWeight.w600,
               ),
             ),
@@ -78,12 +110,23 @@ class DegerSatiri extends StatelessWidget {
           const SizedBox(width: SipSpace.lg),
           Text(
             deger,
-            style: (toplam ? SipText.gsToplamDeger : SipText.gsSatirDeger)
-                .copyWith(color: degerRengi ?? (toplam ? t.accent : t.ink)),
+            style: (toplam ? SipText.gsToplamDeger : SipText.gsSatirDeger).copyWith(
+              color: gecersiz ? t.muted : (degerRengi ?? (toplam ? t.accent : t.ink)),
+              decoration: gecersiz ? TextDecoration.lineThrough : null,
+              decorationColor: gecersiz ? t.muted : null,
+              decorationThickness: gecersiz ? 1.6 : null,
+            ),
           ),
+          if (onTap != null) ...[
+            const SizedBox(width: 6),
+            SipIcon(sagIkon ?? SipIcons.right, boyut: 13, kalinlik: 2.2, renk: t.muted),
+          ],
         ],
       ),
     );
+
+    if (onTap == null) return govde;
+    return SipDokun(onTap: onTap, radius: SipRadius.br1, child: govde);
   }
 }
 

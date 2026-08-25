@@ -70,9 +70,24 @@ class SecurityHeaders
     private const HEADERS = [
         'X-Content-Type-Options' => 'nosniff',
         'X-Frame-Options' => 'DENY',
-        'Referrer-Policy' => 'no-referrer',
         'X-Permitted-Cross-Domain-Policies' => 'none',
     ];
+
+    /**
+     * Google'ın ölçüm kaynakları. Tek yerde durur ki `script-src`/`img-src`/`connect-src`
+     * üçünde birbirinden sapmasın — biri unutulduğunda ölçüm sessizce yarım çalışır ve
+     * konsolda "Refused to connect" satırı, kimsenin bakmadığı bir yerde birikir.
+     *
+     * `www.googletagmanager.com` hem gtag.js hem GTM konteynerini sunar (ikisi de aynı köken).
+     * `*.google-analytics.com` toplama uç noktasıdır; `*.analytics.google.com` ise GA4'ün
+     * bölgesel toplama alanıdır ve ATLANMASI YAYGIN BİR HATADIR — GA4 isteği region1'e
+     * düştüğünde `connect-src` onu tanımazsa olaylar sessizce kaybolur.
+     */
+    private const OLCUM_BETIK = 'https://www.googletagmanager.com';
+
+    private const OLCUM_BAGLANTI = 'https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com';
+
+    private const OLCUM_GORSEL = 'https://*.google-analytics.com https://www.googletagmanager.com';
 
     /** api/* hiç HTML/JS render etmez — mobil istemciye JSON döner, aktif içerik hiç gerekmez. */
     private const API_CSP = "default-src 'none'; frame-ancestors 'none'";
@@ -83,10 +98,28 @@ class SecurityHeaders
         "style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; ".
         "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'";
 
-    /** Herkese açık site — onay kutusu SVG'si `data:` URI olarak geliyor, `img-src` bu yüzden geniş. */
+    /**
+     * Herkese açık site — onay kutusu SVG'si `data:` URI olarak geliyor, `img-src` bu yüzden geniş.
+     *
+     * ── 2026-08-19 · ÖLÇÜM İÇİN GENİŞLETİLDİ ────────────────────────────────────────────────
+     * Google Analytics 4 eklendi ve CSP genişletilmeden ÇALIŞMAZDI: `script-src` gtag.js'i
+     * reddeder, `connect-src` toplama isteğini keser. Genişletme SİTEYE ÖZELDİR — panel ve API
+     * politikaları olduğu gibi duruyor; iç aracın Google'a çıkması için bir sebep yok.
+     *
+     * ⚠️ `'unsafe-inline'` script için HÂLÂ YOK ve eklenmedi. Google'ın hazır parçası satır içi
+     * bir blok verir; onu olduğu gibi yapıştırmak `script-src`e `'unsafe-inline'` eklemeyi
+     * gerektirirdi ve o an nonce koruması TAMAMEN ANLAMSIZLAŞIRDI (tarayıcı, nonce ile
+     * `'unsafe-inline'` bir aradayken ikincisini yok sayar — ama tersi değil; yani politikayı
+     * gevşetmiş olurduk). Bunun yerine mantık `public/js/olcum.js`e alındı: 'self' bir dosya,
+     * nonce'a bile ihtiyacı yok.
+     *
+     * `frame-src` EKLENMEDİ: GTM'in `<noscript><iframe>` parçası bilerek basılmıyor
+     * (gerekçesi components/site/olcum.blade.php'de — rıza kapısının dışından geçerdi).
+     */
     private const SITE_CSP_TEMPLATE =
-        "default-src 'self'; script-src 'self' 'nonce-%1\$s'; ".
-        "style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; ".
+        "default-src 'self'; script-src 'self' 'nonce-%1\$s' ".self::OLCUM_BETIK.'; '.
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data: ".self::OLCUM_GORSEL.'; '.
+        "font-src 'self'; connect-src 'self' ".self::OLCUM_BAGLANTI.'; '.
         "base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'";
 
     public function handle(Request $request, Closure $next): Response
@@ -101,6 +134,27 @@ class SecurityHeaders
         foreach (self::HEADERS as $name => $value) {
             $response->headers->set($name, $value);
         }
+
+        /*
+         * ── REFERRER-POLICY YÜZEYE GÖRE AYRIŞTI (2026-08-19) ────────────────────────────────
+         * Eskiden üç yüzeyde de `no-referrer`dı. API ve PANEL için doğru ve öyle kalıyor:
+         * ikisinin adresleri de bağlam taşıyor (bayi kimliği, kayıt numarası) ve dış bir siteye
+         * sızmalarının hiçbir karşılığı yok.
+         *
+         * GENEL SİTE için `no-referrer` ÖLÇÜLEBİLİR bir zarar veriyordu: tarayıcı Referer
+         * başlığını hiç göndermeyince, ziyaretçinin siteye NEREDEN geldiği kaybolur ve tüm
+         * trafik "doğrudan" görünür. Bu vardiyada ölçüm kurulduğuna göre, ilk günden kör bir
+         * rapor üretecek bir başlıkla başlamak anlamsızdı.
+         *
+         * `strict-origin-when-cross-origin` tarayıcıların bugünkü VARSAYILANIDIR ve dengeyi
+         * doğru kurar: aynı kökene tam adres, farklı kökene YALNIZ köken (yol ve sorgu dizesi
+         * gitmez), HTTPS'ten HTTP'ye hiçbir şey. Yani "hangi siteden geldi" bilgisi korunur,
+         * "hangi sayfadaydı" bilgisi dışarı çıkmaz.
+         */
+        $response->headers->set('Referrer-Policy', match (true) {
+            $request->is('api/*'), $request->is('panel*') => 'no-referrer',
+            default => 'strict-origin-when-cross-origin',
+        });
 
         $response->headers->set('Content-Security-Policy', match (true) {
             $request->is('api/*') => self::API_CSP,

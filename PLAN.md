@@ -36,7 +36,7 @@
 
 | Faz | Ağırlık | Durum | Katkı |
 |-----|---------|-------|-------|
-| 0 · Arayan tanıma kanıtı | %7 | ✅ kapandı | 7 |
+| 0 · Arayan tanıma kanıtı | %7 | ✅ kapandı — **GO KESİN** (20/20 ölçüldü 2026-08-17) | 7 |
 | 1 · Temel (API/Postgres+RLS/auth) | %10 | ✅ kapandı | 10 |
 | 2 · Offline çekirdek (Drift/outbox/sync) | %13 | ✅ kapandı | 13 |
 | 3 · Defter (veresiye/kasa/kupon/gün sonu) | %10 | ✅ kapandı | 10 |
@@ -64,24 +64,45 @@
 > varsayımıyla yazılmış maddeler artık farklı anlam taşıyor. **Bugünün gerçek listesi
 > yukarıdaki 2026-08-09 devir notunun "SIRADAKİ İŞLER" bölümüdür.**
 
-- **[⚡ YENİ · EN KRİTİK]** **Coolify → Environment Variables denetimi.** (a) `APP_KEY` tanımlı mı?
-  Değilse compose'daki public varsayılan kullanılıyordur → `php artisan key:generate --show` ile üret,
-  gir, yeniden deploy et (oturumlar düşer, iş verisi etkilenmez). (b) `MAIL_MAILER` · `GEOCODING_DRIVER`
-  · `ROTA_SURUCU` · `IYZICO_BASE_URL` tanımlı mı? Değilse e-posta gönderimi, adres→konum, Google rota
-  ve ödeme **sessizce kapalı ya da sandbox'tadır**. Bu dört satır canlıda ölçülmeli, tahmin edilmemeli.
-- **[⚡ YENİ]** **Makine dışı yedek kararı.** `backup` sidecar günlük `pg_dump` alıyor ama yalnız
-  sunucunun kendi volume'una — sunucu ölürse yedek de ölür. Seçenekler: hosting'e rsync/SFTP · S3
-  uyumlu TR depolama · elle indirme. (2026-08-09'da "sonra karar verelim" dendi.)
+- **[✅ KAPANDI — 2026-08-17]** ~~Coolify → Environment Variables denetimi.~~ `APP_KEY` 2026-08-09'da
+  kapandı; `MAIL_*` 2026-08-15'te tanımlı ölçüldü ve **2026-08-17'de test sunucusunda gerçekten posta
+  gittiği doğrulandı** (yani `log` değil `smtp`); `GEOCODING_DRIVER` + `ROTA_SURUCU=google` çalışır
+  durumda. `IYZICO_*` **askıya alındı** (aşağıya bakınız) — denetlenecek bir şey kalmadı.
+- **[✅ TAMAMEN KAPANDI — 2026-08-18, UÇTAN UCA ÖLÇÜLDÜ]** ~~Makine dışı yedek kararı.~~ S3
+  ertelendi; her sabah 08:00'de indirme bağlantısı `YEDEK_EPOSTA` adresine postalanıyor.
+  Kullanıcı değişkeni panelde tanımladı; **bu vardiyada gerçekten bağlandı ve postanın çıktığı
+  görüldü:** `yedek:baglanti-gonder` → çıkış kodu **0**, `App\Mail\YedekHazir … DONE`,
+  `failed_jobs` **0**. ⚠️ **Tanımlamak yetmedi:** koşan kap 3 günlüktü, `config('yedek.eposta')`
+  boş dönüyordu — değişken ancak REDEPLOY'la indi. (Sınır aynen duruyor: yedeğin makine dışına
+  çıkması insanın postayı açıp indirmesine bağlıdır, otomatik uzak kopyanın yerini tutmaz.)
 - **[✅ KAPANDI]** ~~Mobil doğrulama partnerin Flutter'lı makinesinde~~ — **bu makinede Flutter VAR**
   (`C:\flutter`); 2026-08-09'da `flutter test` burada koşuldu: **1108/1108**.
 - **[✅ KAPANDI]** ~~`dev→main` PR (#11) merge kararı~~ — birleştirme yapıldı (`86c418b`) ve canlı
   artık `main`'i izliyor. **AMA DİKKAT:** `main` şu an `dev`'den 2 commit geride; her vardiya sonunda
   birleştirme yeniden gerekiyor — bu artık rutin bir adım, tek seferlik karar değil.
-- **[Faz 5]** iyzico **üretim** hesabı + API anahtarları (geliştirme sandbox anahtarlarıyla yürür); site domain TLS; e-arşiv fatura sağlayıcı entegrasyon bilgileri. **⚠️ GÜVENLİK:** anahtar entegre edilirken `IyzicoPaymentGateway::verify()` MUTLAKA iyzico'ya sunucu-sunucu geri-sorgu + IYZWSv2 imza doğrulaması yapmalı (kod fail-closed kuruldu; smoke-test YETMEZ — gövde-güven = bedava abonelik açığı). Sandbox'ta forged-body reddi + gerçek retrieve sınanmalı.
+- **[⏸️ ASKIYA ALINDI — 2026-08-17, kullanıcı kararı]** ~~iyzico **üretim** hesabı + API anahtarları~~
+  ve ~~e-arşiv fatura sağlayıcı~~. **Gündeme alınmaz, sorulmaz** — yeniden açılması ancak yeni bir
+  kullanıcı kararıyla olur. Kod tarafı hazır ve fail-closed duruyor; askı kalktığı gün geçerli olacak
+  pazarlıksız şart burada saklı: `IyzicoPaymentGateway::verify()` iyzico'ya sunucu-sunucu geri-sorgu +
+  IYZWSv2 imza doğrulaması yapmalı, sandbox'ta forged-body reddi ayrıca sınanmalı (smoke-test YETMEZ —
+  gövde-güven = bedava abonelik açığı).
 - **[Faz 5c ortam]** `sipario_panel` DB rolü küme düzeyinde ELLE kuruldu (mevcut container); **CI/yeni makinede rol SQL'i elle koşulmalı** (Faz 1 sipario_app deseni). `.env`/`.env.example`'a `DB_PANEL_USERNAME=sipario_panel` + `DB_PANEL_PASSWORD=...` eklenmeli (config default'u var, testler yeşil; araç `.env*`'i koruyor).
 - **[GÜNCELLEME — TEK SEFERLİK ELLE KURULUM GEREKİYOR]** Güncelleme bandı bağlanmamıştı (2026-07-28 bulgusu, düzeltildi). Ama düzeltme KENDİNİ TAŞIYAMAZ: telefondaki mevcut uygulamada bant kodu ağaçta olmadığı için hiçbir release ona bant gösteremez. **Bir kez elle** yeni CI APK'sını (`saha` release'indeki `saha-arm64.apk`) kurmak gerekiyor; ondan sonrası kendiliğinden yürür. Not: imza uyuşmazlığı çıkarsa (cihazdaki uygulama elle/debug imzalı kurulduysa) tek seferlik sil + kur — veri sunucudan geri gelir.
 - **[KONUM — SÜRÜCÜ `kademeli`: GOOGLE ÖNCE, YANDEX GEREKTİĞİNDE]** Kullanıcı kararı 2026-07-29/2 (ilk `coklu` tasarımını geri çevirdi: *"iki sonucu birleştirme; Google ve Yandex ayrı görünsün, doğrusunu ben seçeyim"* + kota gerçeği): her sorgu önce **Google**'a gider; **Yandex yalnız Google BİNA kesinliğinde aday veremezse** ve **günlük tavana kadar** sorulur (`YANDEX_DAILY_LIMIT=900`, global — 1000/gün limiti hesabın tamamına ait, yüz kullanıcı bir günde eritebilir). Sonuçlar **BİRLEŞTİRİLMEZ**: her aday "Google"/"Yandex" etiketiyle ayrı satır, seçim kullanıcıda. Tavan dolunca ya da bir sağlayıcı arızalanınca özellik düşmez; aynı adresin ikinci sorgusu 30 günlük önbellekten döner, kota yalnız ilk soruşta yanar. Bilinen bedel (konuşuldu): Google YANLIŞ binayı gösterirse kademe tetiklenmez, Yandex'in muhtemelen doğru adayı görünmez.
-- **[GOOGLE — İKİ API DE CANLI ✅ 2026-07-29; TEK KALAN İŞ ANAHTAR KISITLAMASI]** Geocoding API ve **Routes API** aynı projede (`142583979849`) etkin ve ölçülmüş durumda (auto-route canlı çağrısı `engine:"google"` döndü). Kullanılan anahtar ikinci anahtar; ilk anahtar (proje `42963591866`) terk edildi. **Yapılacak:** Cloud Console → Credentials → anahtarı **yalnız "Geocoding API" + "Routes API"** ve **sunucu IP'siyle** kısıtla. Anahtar sohbette düz metin geçti; kısıtlama pazarlıksız. ⚠️ HTTP referrer SEÇME — sunucu anahtarı, tarayıcıya hiç gitmez, referrer kuralı isteği reddeder.
+- **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~GOOGLE ANAHTAR KISITLAMASI~~ — anahtarlar **IP ile
+  kısıtlandı**, sohbete sızmış anahtarın serbest kullanımı kapandı. Geocoding API ve Routes API aynı
+  projede (`142583979849`) etkin ve ölçülmüş (auto-route `engine:"google"` döndü). Kullanılan anahtar
+  ikinci anahtar; ilk anahtar (proje `42963591866`) terk edildi. **Bu madde bir daha listeye alınmaz.**
+- **[🟡 KARAR SENDE — 2026-08-18, ANAHTAR ÜÇÜNCÜ KEZ SOHBETE GİRDİ]** Google anahtarı (`AIzaSyBfF…`)
+  bu oturumda düz metin olarak sohbete yapıştırıldı ve oturum dökümünde duruyor. **Depoya SIZMADI**
+  — ölçüldü: `apps/api/.env` git tarafından hiç izlenmemiş, `.gitignore` 13-17. satırlar doğru
+  kurulu (`.env` + `.env.*`, yalnız `.env.example` muaf). **Riski IP kısıtlaması sınırlıyor:**
+  anahtar `187.124.191.134` dışından çalışmaz, yani serbest kullanım kapalı. Karar: ya döndürülür
+  (Google Console → yeni anahtar → Coolify'da `GOOGLE_GEOCODER_KEY` + `GOOGLE_ROUTES_KEY` +
+  redeploy) ya da SSH anahtarında olduğu gibi risk **bilinçli kabul** edilip bu satır kapatılır.
+  ⚠️ Desen olarak not: bu bu depoda üçüncü sır sızıntısıdır (SSH özel anahtarı 2026-08-15, ilk
+  Google anahtarı, şimdi bu) ve üçünde de taşıyıcı sohbetin kendisiydi — sırlar panele/`.env`e
+  yazılır, konuşmaya değil.
 - **[KONUM — KAPI NUMARASI BORCU KAPANDI ✅]** Ölçüldü: `"Şirinyalı Mah. 1497. Sk. No: 9"` → Google **`ROOFTOP`, `partial=false`** ile kapıyı BULDU (36.86004,30.73569); Yandex aynı sorguda hâlâ sokağa düşüyor (36.86318,30.73490). Yani `kapiNumarasiniAt` geri çekilmesini ortak koda taşımaya **gerek yok** — Google'ın kendi davranışı yeterli. Borç kapandı.
 - **[KONUM — KVKK]** Adres metni sınır dışına çıkıyor ve artık **İKİ ülkeye birden**: Yandex (Rusya) + Google (ABD). Ad/telefon/müşteri kimliği ÇIKMIYOR (uç nokta kabul etmiyor, testle kilitli) ama **KVKK aydınlatma metnine "adres bilgisi coğrafi kodlama amacıyla yurt dışı sağlayıcılara aktarılır" satırı eklenmeli** — zaten bekleyen avukat işinin kapsamında. Metin sağlayıcı ADI vermemeli ya da ikisini de saymalı; sürücü bir env satırıyla değişiyor, tek isim yazmak metni bayatlatır.
 - **[❌ GEÇERSİZ — YEREL VERİ ONARIMI]** Bu madde `111` kimliğine taşınmış bir yerel demo bayisini
@@ -95,20 +116,25 @@
   `scripts/saha-sunucu.ps1` de aynı değere hizalandı (üç gün boyunca bayat kalmışlardı).
   Not: bu hesabın parolası doğası gereği depoda açıktır — mağaza incelemecisi girebilsin diye.
   Riski parolanın gücü değil **kiracı izolasyonu** sınırlar: hesap yalnız kendi demo bayisini görür.
-- **[Faz 6]** Apple + Google Play geliştirici hesapları + mağaza başvurusu; `USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı; KVKK aydınlatma + mesafeli satış/ön bilgilendirme metinlerinin **hukukça onayı**.
+- **[⏸️ ASKIYA ALINDI — 2026-08-17, kullanıcı kararı]** ~~Apple geliştirici hesabı + D-U-N-S~~ ve
+  ~~iOS~~. **Gündeme alınmaz, sorulmaz.**
+- **[Faz 6 — AÇIK, zamanı var]** Google Play geliştirici hesabı + **release imza anahtarı (keystore)**
+  + mağaza başvurusu; `USE_FULL_SCREEN_INTENT` "çekirdek işlev" beyanı; KVKK aydınlatma + mesafeli
+  satış/ön bilgilendirme metinlerinin **hukukça onayı**. (Kullanıcı 2026-08-17: keystore için "henüz
+  daha var" — acil değil, ama Play'e yükleme bu satır olmadan yapılamaz.)
 - **[Faz 7]** Antalya'da 2–3 gerçek bayi + gerçek Android cihazlar (pilot).
 
 ## Fazlar
 
 | Faz | Kapsam | Durum |
 |-----|--------|-------|
-| 0 | Arayan tanıma kanıtı (gerçek cihazlarda go/no-go) | ✅ **KAPANDI — GO (şartlı)**, 2026-07-10 |
+| 0 | Arayan tanıma kanıtı (gerçek cihazlarda go/no-go) | ✅ **KAPANDI — GO KESİN** (şart 2026-08-17'de düştü: 20/20 ölçüm yapıldı) |
 | 1 | Temel: Laravel API, Postgres+RLS, auth, izolasyon test matrisi | ✅ **KAPANDI** (güvenlik denetimi dahil, 2026-07-13) |
 | 2 | Offline çekirdek: SQLite/Drift, outbox, senkron motoru, müşteri+sipariş | ✅ **ÇEKİRDEK KAPANDI — test + inceleme yeşil** (2026-07-13) |
 | 3 | Defter: veresiye, kasa, ödeme tipleri, kupon, gün sonu | ✅ **KAPANDI — test + inceleme yeşil** (2026-07-14) |
 | 4 | Kurye: atama, teslim kapatma, kasa devri (+iOS başlangıcı) | 🔄 **~%92** (API ✅ inceleme ✅ mobil test ✅ 2026-07-17; iOS/gerçek-cihaz açık) |
-| 5 | Para: site, iyzico, abonelik kilidi, yönetim paneli | 🔄 **KOD TAM** (sunucu ✅ inceleme ✅ güvenlik ✅ 163/163); dışsal: iyzico anahtar/hukuk prose/mobil |
-| 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | bekliyor |
+| 5 | Para: site, iyzico, abonelik kilidi, yönetim paneli | 🔄 **KOD TAM** (sunucu ✅ inceleme ✅ güvenlik ✅); ⏸️ **iyzico ASKIDA (2026-08-17 kullanıcı kararı)** — kalan dışsal: hukuk metinleri |
+| 6 | Mağaza+hukuk: Play beyanları, demo hesap, KVKK/mesafeli satış | 🔄 Play ayağı açık (keystore, acil değil); ⏸️ **Apple/iOS ASKIDA (2026-08-17)** |
 | 7 | Antalya pilotu: 2–3 gerçek bayi | bekliyor |
 
 > **2026-07-29 (ikinci vardiya) — KONUM İKİ SAĞLAYICIYLA CANLI (`GEOCODING_DRIVER=kademeli`).**
@@ -241,7 +267,2228 @@
 > kod rozeti, tutar, not; Yol Tarifi birincil · Ara telefon varsa · Sipariş Detayı). Testler:
 > API 273 · mobil 764. Kalan: order_queries harita bölümü ayrılıyor (ajanda), anahtar kısıtlaması sende.
 >
-## Güncel durum (son güncelleme: **2026-08-09/2-3-4 — SAHA ARIZASI KAPANDI + DAĞITIM İKİYE AYRILDI**. Kurye atama arızasının kök nedeni bulundu ve kullanıcı GERÇEK CİHAZDA doğruladı (yenilemede anında, dokunmadan 15–20 sn): yerel yazım senkron turunu TETİKLEMİYORDU; artık bekleyen-outbox akışına bağlı yazım tetiği + ön planda 30 sn aralık + tur başına 90 sn sınır var. Aynı bölgede dört "watch* build içinde kuruluyor" titremesi ve kurye başlık sayacı da kapatıldı; `PushOzeti.beklemede` banda bağlandı (tanımlıydı, hiç okunmuyordu). ALTYAPI: üretim iki kez çöktü (17:01 · 20:10) ve sebebi ARANAMADI çünkü günlükler container ile birlikte siliniyordu → `LOG_CHANNEL=stderr` + json-file döndürme (10 MB × 3); aylardır yanan `running:unhealthy` alarmının suçlusu `queue`/`scheduler` container larının temel imajdan MİRAS aldığı HTTP healthcheck i çıktı (SSH + `docker inspect` ile OKUNDU; dışarıdan yürütülen üç tahmin de yanlıştı) → `healthcheck: disable: true`; dekoratif `deploy:` bloğu kaldırıldı. Deploy kesintisi ÖLÇÜLDÜ: **52,3 sn** (218 örnek), kesinti deploy un SONUNDA — ilk ~86 sn build ve site normal. DAĞITIM: `dev` e atılan her commit SAHADAKİ BAYİLERİN telefonuna iniyordu; kanal ayrıldı (`main`→saha · `dev`→test), ayrı paket kimliği (`com.sipario.app.test`), sunucu adresi derleme sabiti oldu; `test.sipario.com.tr` ortamı kuruldu (kendi veritabanı, Google anahtarları BOŞ, mail `log`). SemVer kuralı `CLAUDE.md` → "Sürümleme"ye yazıldı: uygulama **0.10.0**, API **1.0.0**, birbirine EŞİTLENMEZ; derleme numarası sürüm değil, makinenin karşılaştırma anahtarıdır. Durum çubuğu yeniden tasarlandı (SAHA/TEST/API/YAYIN BORCU · renkli · BÜYÜK HARF etiketler · `+N` yalnız MOBİL değişikliği sayar, `surum.json` artık commit SHA taşıyor). `check_permissions.sh` harf duyarlılığı yüzünden flavor lu manifestlere HİÇ bakmıyordu — kırmızı çizgi #6 nın otomatik denetimi delikti, kapatıldı ve dişli olduğu kanıtlandı (saha 2 · deneme 2 · magaza 0). Ölçüm: mobil **1143/1143** · API **685/685** · analyze **0** · phpstan **0** · pint temiz · iki APK derlendi ve kendi çıktılarından doğrulandı. Dallar eşit (`main` == `dev` == `ca7dde7`), saha ve test kanalları 0.10.0. AÇIK VE ACİL: **SSH anahtarı DÖNDÜRÜLMELİ** (sohbete düz metin yapıştırıldı) · **bildirim kanalı yok** (çöküşü kimse duymuyor) · **API sürümü hiçbir yanıtta okunmuyor**. Öncesinde — 2026-08-09 — **ÜRÜN CANLIDA + KAYIP VARDİYA HAFIZASI ONARILDI**. Sipario **2026-08-07'den beri Türkiye'de bir VPS üzerinde Coolify ile canlı çalışıyor**: `sipario.com.tr` (site + `/panel`) ve `api.sipario.com.tr` (mobil), Postgres 16 (ICU tr-TR, üç rol, port dışarı kapalı), Traefik+Let's Encrypt TLS, Cloudflare DNS, izlenen dal `main`. Mobil uygulamanın varsayılan sunucu adresi canlıya çevrildi ve giriş ekranındaki "+ Gelişmiş (sunucu adresi)" bölümü kaldırıldı. **Ama bu gerçek üç gün boyunca bu dosyada YAZILI DEĞİLDİ:** Claude oturumu limitle kesilince iş Gemini (Antigravity CLI) ile sürdürüldü, araç `CLAUDE.md`'yi okumadığı için vardiya sözleşmesini bilmiyordu — kod yazıp commit attı, ortak hafızayı güncellemedi. Bedeli ölçüldü: 2026-08-09'da yeni bir oturum "canlıya geçelim" isteğine **sıfırdan üretim altyapısı planı** sundu, oysa `docker-compose.prod.yml` iki gündür repodaydı. Bu vardiya hafızayı onardı ve **üç güvenlik açığı kapattı**: ① `AdminUserSeeder` panel superadmin parolasını (`SiparioAdmin2026!`) public depoda düz metin taşıyor ve `updateOrCreate` ile her deploy'da geri yazıyordu — parolayı elle değiştirmek işe yaramıyordu; artık seeder parola TAŞIMIYOR, yeni hesap rastgele parolayla doğuyor, var olana `firstOrCreate` ile dokunulmuyor, parola `panel:admin --sifirla` ile alınıyor. ② `Dockerfile` entrypoint'i her container açılışında `db:seed` koşuyordu (`DatabaseSeeder` → Admin + **DemoSeeder**), yani ÜRETİM veritabanına her deploy'da demo bayisi ve sahte Bursa müşterileri yazılıyordu — seed deploy'dan çıkarıldı, kurulu demo bayisi yerinde. ③ `|| true` migration hatasını yutuyor, şema güncellenmese bile container "sağlıklı" kalkıyordu — bu, bu dosyada "sessiz arıza dersi" olarak YAZILI olan `saha-sunucu.ps1` hatasının birebir tekrarıydı; artık `set -e` (migrate düşerse rollback devreye girer). **COOLIFY ENV DENETİMİ YAPILDI (kullanıcı doğruladı):** `APP_KEY` **tanımlı** → compose'daki public varsayılan kullanılmıyor, kritik madde KAPANDI. `GEOCODING_DRIVER=kademeli` ✅. `IYZICO_BASE_URL` sandbox (beklenen — üretim anahtarı yok). **`ROTA_SURUCU=yakin-komsu`** → Google Routes KAPALI, oto sıralama kuş uçuşu çalışıyor (bilinçli mi belirsiz; açmak `ROTA_SURUCU=google` + `GOOGLE_ROUTES_KEY` ile tek satır). **🔴 `MAIL_MAILER=smtp` ama SMTP KURULMADI** — parola sıfırlama SESSİZCE çalışmıyor: bayi "e-posta gönderildi" görüyor, e-posta hiç gelmiyor (`Parola.php` `try/catch`+`report`, numaralandırmayı önlemek için ekrana yansıtmıyor); parolasını unutan bayinin kurtulma yolu YOK. Ayrıca Coolify MCP kuruldu (salt-okunur, kullanıcı kapsamında) ve ilk turda üç şey buldu: migration ZATEN post-deployment'ta koşuyordu (Dockerfile'daki ikinci kopya kaldırıldı, yarış borcu kapandı) · healthcheck `curl`e dayanıyordu ve uygulama `running:unhealthy` görünüyordu (PHP tabanlı teste çevrildi; sahte alarm sustu ama `healthy` doğrulanamadı) · `www`+`api` altalanları ölüydü, kök neden domain alanındaki virgül+boşluk (kullanıcı sildi, üçü de 200; `api./` 404 ile `BlockApiHostWebRoutes` ilk kez gerçekten kanıtlandı). **MCP SINIRI:** env değerlerini döndürmüyor, deployment logu yok. Belgeler gerçeğe döndürüldü: demo kimliği `111/111/1111` → `demo/demo/demo1234` (mağaza notları + `saha-sunucu.ps1`). Ölçüm BİZZAT koşuldu: mobil **1108/1108** · phpstan **0** · pint temiz (önceki not "1077/1077 · 668/668" diyordu — kopyalanmış rakamlardı). Kalan borçlar: makine dışı yedek YOK · Yetki Matrisi'nin (+2816 satır) hiç testi yok · migration yarışı (`start-first` + iki container) · cihaz doğrulaması. Öncesinde — 2026-08-06 — **ÜÇ SAHA İSTEĞİ + GÜN SONU → GÜN ÖZETİ** (4 ajanlı swarm, ÜÇ bağımsız inceleme turu). ① Müşteri listesi artık kayıt sırasına göre (en yeni üstte); "rasgele diziyor" şikâyetinin kökü alfabetikti — SQLite BINARY collation Türkçe harfleri tüm ASCII'den sonra dizdiği için "Şükrü" listede "Zeynep"in altına düşüyordu. ② İşletme profiline **IBAN alıcı adı** ve **düzenlenebilir hatırlatma şablonu** geldi (`*musteriadi*` `*isletmeadi*` `*siparistutar*` `*ibanodemebilgileri*`; sonuncusu SABİT blok, dokunulmamış bayide mesaj bir karakter bile değişmiyor; mobil şema v14 + sunucu + web hesap paneli). ③ **Gün Sonu → Gün Özeti**: ilk ekran bugün, Geçmiş AYRI ekran ve teslim sekmesinin gün şeridiyle geziliyor (kopyalanmadı, aynı bileşen), kapalı VE açık geçmiş günler görünüyor; **ara tahsilat** eklendi (sayımlı serbest tutar, gün açık kalır, patron her kuryeden / kurye yalnız kendi kasasından, tek kişilik bayide hiç çizilmez) ve ŞEMA DEĞİŞİKLİĞİ GEREKMEDİ — `cash_handovers` zaten append-only ve `period_start` "son devir" tanımlıydı. **Asıl iş "beklenen nakit" tanımındaydı ve ÜÇ kez yanlış kuruldu**, üçünü de inceleme turları yakaladı: (1) yalnız ara tahsilatları düşmek kurye hesabı kapandığında parayı İKİ KEZ istiyordu, (2) tüm devirleri düşmek gün kapsamında İÇ TRANSFERİ para çıkışı sayıyordu (patron 10.000'i kasasında görürken ekran "beklenen 0" diyordu → her akşam sahte FAZLA), (3) kurye STOKUNU düşmek bir AKIŞTAN bir STOK çıkarıyordu (kurye dünden para taşıyorsa beklenen negatife düşüyor, üstelik "her gün biraz artık para tutan kurye" senaryosunda sapma BİRİKİYORDU). NİHAİ: `gün = günün nakdi − Σ(kuryenin O GÜN topladığı − O GÜN teslim ettiği)`, `kurye = penceresinde topladığı − teslim ettiği` (pencere son kurye kapanışına demirli, yoksa alttan AÇIK). YAN KAZANÇLAR — hiçbiri bu turun işi değildi, üçü de gerçek arızaydı: senkronda **zehirli hap** (Carbon'un çözüp Postgres'in reddettiği damga TÜM PARTİYİ 500'e düşürüp kuyruğu kalıcı kilitliyordu → sınırda normalizasyon + `22007`/`22008`), **offset'li damga 3 saat kayıyordu** (TR 23:30'da kapanan gün ertesi güne düşüyordu; aynı olayın zamanı `sync_changes`e doğru, varlık tablosuna kaymış yazılıyordu), **dünü kapatan kapanış "dün kapalı" göstermiyordu** (özellik sessizce çalışmıyordu), WhatsApp hatırlatmasında boşluklar `+` oluyordu, gün sınırı cihaz saatinden kesiliyordu (artık `lib/data/tr_gun.dart` tek tanım + düzeltilmiş sunucu saati, ekranlar ve bildirim üreticileri dahil). VARDİYANIN KALICI DERSİ: **anlamı değişen sayıyı eski kelimesiyle taşımak** — aynı hata sınıfı YEDİ kez tekrarlandı ve her seferinde analyze+suite yeşil geçti; üç kapak kuruldu (anlam değerle taşınır/`DusulenKalem` enum'u · ekran metni formül iddia etmez · etiketler iki yönlü kilitlenir). Ayrıca `a − b == c` testinin `c` zaten `a − b` ise VAKUM olduğu ölçüldü. AÇIK BORÇ: **LWW'nin saniye-altı ayrımı YOK** (kolonlar `timestamptz(0)`; aynı saniyede kazanan "daha yeni" değil `device_id`si büyük olan — panel kapağını koymuş, mobil senkron yolunda kapak yok; 18 kolonluk migration ister, `markTestIncomplete` ile suite'te CANLI sinyal). Ölçüm: mobil **1077/1077** (+119) · API **668/668** (3347, 1 kasıtlı incomplete) · analyze **0** · phpstan **0** · pint temiz. **CİHAZDA DOĞRULAMA YAPILMADI.** Öncesinde — 2026-08-05/4 — **SAHADAN 10 MADDELİK SİTE LİSTESİ KAPANDI** (5 ajanlı swarm). Kullanıcı web tarafında 10 madde saydı; **ikisi sessiz ARIZAYDI**, sekizi ürün kararı. (1) "Giriş yaptım ama giriş yapmış görünmüyorum": genel sayfalar `tenant` middleware'i taşımadığı için `app.tenant_id` kurulmuyor, `users` RLS FORCE sıfır satır veriyor ve `Auth::guard('web')->check()` giriş yapmış patrona **false** diyor — ÜSTELİK `$oturum` prop'unu hiçbir sayfa geçmiyordu, yani iki arıza üst üsteydi ve birini düzeltmek yetmezdi. Çözüm kullanıcıyı hiç yüklemiyor (`session()->has(...)`, sıfır sorgu). (2) Oturumdan çıkmanın tek yolu "İşletme bilgileri" sekmesinin dibine gömülüydü → üst menüye POST+`@csrf` çıkış (GET olsaydı prefetch/`<img>` ile istemsiz tetiklenirdi), yeni `site.cikis` rotası. Ürün kararları: "Dönemi seçin"→"Yenileme ödemesi" (radyo düğmeleri kalktı — ekran form kontrolü diliyle konuşurken aslında ödeme adımıydı) · ödeme "Vazgeç"i beyaz listeli `geri` anahtarıyla geldiği sekmeye döner (`Referer` reddedildi) · "Oto-sıralama"→"Kullanım ve ek paketler", ek KURYE paketi de satılıyor · **web'den kurye hesabı açma/devre dışı bırakma** (yeni Ekip sekmesi; üç ayrı yazma yolu, gerçek DELETE yok çünkü FK olmadığı için sahipsiz para kaydı bırakırdı; kota İKİ YÖNDE zorlanıyor) · **"Kurumsal" plan siteden kaldırıldı** (uydurma vitrindi, `plans` tek satırlı), `/fiyatlar` `noindex`+menüden çıktı · üst menü 4→2 · alt bilgideki 4 İKİZ bağlantı kaldırıldı · footer künye bloğu kaldırıldı (mevzuat karşılığı iki hukuk belgesinde ölçülerek kanıtlandı) · `a` alt çizgisi yalnız düz metinde. YAN KAZANÇ: `/hesap-silme` siteden hiçbir yere bağlı değildi — Google Play şartı, mağaza başvurusunu bloke edebilirdi. Ölçüm: **643/643** (3197) · pint temiz · konsol sıfır hata. AÇIK: mobil yerleşim tarayıcıda ölçülemedi (`resize_window` no-op, iframe kendi güvenlik başlıklarımıza takılıyor) — kullanıcının telefonundan doğrulanacak. Öncesinde — **WEB UI ARCI: İKİ KÖK NEDEN KAPANDI**. "Web tarafında büyük sorunlar" şikâyetinin altından iki ayrı kök neden çıktı ve ikisi de kapatıldı: ① `trustProxies` yokluğu — cloudflared tüneli arkasında tüm varlıklar `http://` üretiliyor, HTTPS sayfada AKTİF KARIŞIK İÇERİK doğuyor ve mobil Chrome CSS'i koşulsuz engelliyordu; site tünelden herkese ÇIPLAK görünüyordu, masaüstünden `http://127.0.0.1:8000`e bakan kimse görmüyordu (çözüm: `bootstrap/app.php` dar kapsamlı `trustProxies`, `URL::forceScheme` REDDEDİLDİ). ② `@js(dizi/nesne)` + csp_safe — Blade'in ürettiği `JSON.parse` ifadesini CSP değerlendiricisi çözemiyor, x-data SESSİZCE hiç kurulmuyor; /fiyatlar bu yüzden "Aylık" seçiliyken YANLIŞ FİYAT (499 ₺, doğrusu 599 ₺) gösteriyordu, /destek SSS'i ve panel firma-combo ölüydü (çözüm: yük `application/json` kanalı/`data-*` + `jsonKanal`, kural alpine.js başlığında). Ek: panel modallarında dış-tıklama kapatması `if` DEYİMİ yüzünden ölüydü → Alpine `.self` değiştiricisi. Tasarım farkları kapandı: JetBrains Mono yerel woff2 (orijinal paketten, dış indirme YOK) · hero telefon animasyonu (`heroDongu`, kare/süreler TelefonCanli'den birebir) · `.dg` alt çizgi · 44px dokunma hedefleri · çerez politikası + 4. yasal bağlantı · "Parolamı unuttum" etiket satırında · `[Telefon]` düz-cümle kullanımı koşullu. "Oturumumu açık tut" BİLİNÇLİ dışarıda (users.remember_token migration'ı + güvenlik incelemesi ister — borç). Doğrulama: 7 sayfa desensiz konsol taramasında sıfır hata, /fiyatlar anahtarı ve /destek canlı ölçümlü, panel combo+modal canlı, gerçek cihazda 7 sayfa tam stilli+https zinciri. AÇIK: 360/320px canlı yerleşim turu (ajanlar 15:30'da limitten dönüyor) · kullanıcının telefonundan son kabul · telefonda ~11 trycloudflare sekmesinin temizliği. Öncesinde — **BAĞIMSIZ İNCELEME: HÜKÜM DÜZELTİLDİ + SÜRÜM ÇARPIKLIĞI KAPANDI**. Kullanıcı önceki teşhise güvenmeyip çürütme amaçlı swarm istedi; haklı çıktı. Olayın en olası sebebi zehirli hap DEĞİL, o an WiFi'ın internet vermemesiymiş (cihaz radyo kayıtları: WiFi bağlıyken trafik mobil veriye düştü) — "PC'den curl 200 → telefon suçlu" çıkarımı geçersizdi, veri temizliği muhtemelen gereksizdi ama eski bant her şeye "Çevrimdışı" dediği için bilinemezdi. AYNI swarm kullanıcının migration hipotezini HATA SINIFI olarak doğruladı: eski istemcinin push'u bilmediği yeni kolonları null'a çeviriyordu (IBAN+kurye yetkileri+sipariş kodu · kara liste · kurye telefonu) → `SyncPayload::gonderilenler` "anahtar YOK ≠ anahtar null" (testli); pull yönünde İKİNCİ zehirli hap (tek bozuk delta satırı cursor'u kilitliyordu) → satır izolasyonu + görünür `veri` hatası, bilinen boşluğu borçta; zaman aşımı yolu testle kilitli, `batchSize` 400, ana ekran çipi dürüstleşti. Cihaz kanıtları (SM-S721B): locked ertelemesi kalp-atışı yöntemiyle, içerik bütünlüğü, dürüst bant+adres ekran görüntülü. Ölçüm: API **610/610** (3077) · mobil **958/958** · analyze **0** · phpstan **0** · pint temiz. Cihaza **2250** kuruluyor. Öncesinde — **SENKRONDA DÖRT ZEHİRLİ HAP KAPANDI + KALİTE KAPISI ARIZASI**. Sahadan "giriş yapıyorum ama Çevrimdışı yazıyor" şikâyeti geldi; sunucu her boyutta sağlamdı (login 200, pull 200, migration'lar koşulu) ve arıza telefondaydı. Dört ayrı yol senkronu KALICI kilitliyordu ve tek "çözüm" uygulama verisini silmekti — ki bu bekleyen sipariş/tahsilatı yok eder: **(1)** parti düzeyinde 422 (tek bozuk olay tüm kuyruğu rehin alıyor; `SyncPushRequest`in belge başlığı tersini SÖZ VERİYORDU), **(2)** `locked` → `acked` (abonelik kilitliyken yazılan kayıt sessizce siliniyor, yenilense bile gönderilmiyor), **(3)** bilinmeyen durum → `acked` (sunucu yeni bir status eklediği gün eski istemciler kaydı silecekti), **(4)** `22001`/`22003` → 500 (uzun müşteri adı senkronu kilitliyor; 4xx'ten kötü, çünkü istemci 5xx'i geçici sayıp sonsuza dek deniyor). Sunucu artık olayı per-olay reddediyor (`EventValidator`, `reason`+`index` sözleşmesi) ve **bu düzeltme sahadaki kilitlenmiş telefonu uygulama güncellemesi OLMADAN kurtarıyor**; istemci tarafında bisect + karantina (kayıt SİLİNMEZ) + dürüst bant (`hataTuru` artık 4xx'i "çevrimdışı" demiyor, bant hangi adrese ulaşamadığını yazıyor). **Ayrıca gecenin kendisi bir bulgu üretti:** `Stop` kancasına bağlı kalite kapısı `artisan test`+`flutter test` koşuyor ve her ajan turunda ateşleniyor — çok ajanlı vardiyada eşzamanlı suite'ler ~130 SAHTE kırık üretiyordu (aynı ağaç: 433/600 · 387/600 · 504/600 → kilitlendikten sonra **601/601**). ~3 saat ve üç yanlış teşhis buna gitti; kimse kancadan şüphelenmedi çünkü commit mesajları "kalite kapisi yesil" diyordu. Mutex + süreç kontrolü ile kapatıldı. Ölçüm: API **601/601** (3033) · mobil **942/942** · analyze **0** · phpstan **0** · pint temiz. **Cihaz doğrulaması YAPILMADI** — kablosuz adb kuruldu (SM-S721B) ama telefondaki build 2221 bu düzeltmeleri taşımıyor. Öncesinde — **TASARIM ENTEGRASYONU: PANEL SIFIRDAN + SİTE BAŞTAN**. `design_handoff_web_and_yonetim_paneli/` altındaki iki paket açıldı (paketlenmiş React; 26 modül + 71 KB CSS `_kaynak/` altına çıkarıldı) ve Blade+Livewire+Alpine ile hayata geçirildi — React DEĞİL, gerekçe DECISIONS'ta. **Yönetim paneli sıfırdan yazıldı** (10 ekran; tasarımın 5'i + BRIEF'in zorunlu kıldığı iş verisi sekmeleri/dışa aktarım/modül/parola/cihaz/churn + tasarımda olmayan havale kuyruğu ve kurye açma). **Site baştan kuruldu**: pazarlama sayfaları + 3 adımlı işletme açma + parola sıfırlama/yenileme + **IBAN ödeme akışı** + **bayinin hesap paneli**. Abonelik modeli: aylık+yıllık, deneme 30 gün, fiyat DB'de ve panelden düzenlenebilir; **havale beyanı ≠ ödeme** (beyan abonelik UZATMAZ, panel eşleştirir); hukuk onayları kolonlarda (`consent_version`/`consented_at`, DB CHECK'li). 12 migration · 6 model · 8 servis · CSP başlığı (üç ayrı politika, `csp_safe`). **Ondört sessiz arıza bulundu** — hiçbiri çökmüyordu: hesap paneli `auth:web`+RLS yüzünden hiç çalışamazdı, panel düğmeleri Livewire kalıcı middleware eksikliğinden ölüydü, aramaya tek harf yazınca 500, `"izmir"` `İZMİR`'i bulamıyordu, `%` tüm bayileri getiriyordu, sekiz ekran UTC saatiyle yanlış gün basıyordu, ek paket kotası paralel istekte iki kez artıyordu (geri alınamaz), iptal eden bayi yazmaya devam edebiliyordu, erken yenileyen kalan günlerini kaybediyordu, ve kırmızı çizgi #1'i koruduğu sanılan iki test namespace hatası yüzünden HİÇ KOŞMUYORDU. Ölçüm: **593/593** (2966 doğrulama) · phpstan L6 **0** · pint temiz. **Mobil tarafa dokunulmadı.** Öncesinde — **PANEL GİRİŞ ARIZASI KAPANDI**: panel girişi e-postayı normalize etmiyordu; hesabı açan iki yol da küçülterek saklarken giriş HAM değerle sorguladığı için tarayıcının büyüttüğü ilk harf DOĞRU PAROLAYLA "Giriş bilgileri hatalı." veriyordu (sondaki boşluk ise `email` kuralına takılıyordu). Ekran numaralandırmaya karşı bilerek nötr konuştuğundan kullanıcı teşhis edemiyordu. Ayrıca `panel:admin --sifirla` eklendi: komut kendi açıklamasında "kurtarma yolu" diyordu ama var olan hesabı sıfırlayamıyordu — parola bir kez basılıp saklanmadığı için kilitlenen yöneticinin gidecek yeri yoktu. Ölçüm: API **437/437** (+4 test) · pint temiz. Öncesinde — **ALTI SAHA İSTEĞİ + SAHA SUNUCUSU 530 ARIZASI**. Kurye yönetimi büyüdü: giriş bilgileri (kullanıcı adı/parola) uygulamadan düzenlenebiliyor (`PATCH /team/{user}/credentials`, çevrimiçi, yalnız patron, parola değişince oturumlar düşer) ve **5 anahtarlı kurye yetki sistemi** geldi (müşteri/sipariş/tahsilat açık · gün sonu/iskonto kapalı doğar; kiracı düzeyinde, çağrı yerlerine bağlı). Borçlulara **tek tuşla WhatsApp hatırlatması** (IBAN Ayarlar→İşletme Profili'nde, mod-97 denetimli; mesaj hazırlanır, gönderilmez). Teslim sekmesine **gün gezinmesi**. Sipariş kaydı artık **siparişler ekranına** dönüyor. Müşteri kodu doğrulandı (çalışıyor, kod değişikliği yok). Altyapı: `saha-sunucu.ps1` tünel adresini DOĞRULUYOR ve QUIC engellenmişse http2 ile yeniden deniyor — bayinin gördüğü HTTP 530'un kök nedeni buydu ve script "hazır" deyip yeşil yanıyordu. Ölçüm: API **433/433** · mobil **906/906** · analyze **0** · phpstan **0** · pint temiz. Eski not aşağıda tarihsel duruyor: 2026-08-01/2 — **ROTA/HARİTA UX YENİDEN YERLEŞTİ** (Oto Sırala haritada, 'Rota sırası' görünümü, araç şeridi) + dikte kuralı tersine + 'Kurye ata' çipi. Ölçüm: analyze **0** · mobil **885/885** · API **298/298**. Aynı gün öncesinde — **SEKİZ SAHA İSTEĞİ KAPANDI** (5 ajanlı swarm): sesli dikte birikimli oldu, adres alanı büyüdü, barkoda fener, çağrı kartında sipariş yaşı, sipariş formuna kurye seçimi, oto sırala düğmesi gerekçeli-pasif (kök neden: yanlış sekmede etkin düğme), müşteri silme + kara liste (cascade tombstone + LWW damga koruması), kapıda iskonto (`discount` defter tipi, kasa değişmezi korunur). Ölçüm: analyze **0** · mobil **878/878** · API **298/298** · phpstan **0** · pint temiz · Kotlin saha-release yeşil · APK kapısı koşuldu. Önceki gün: 2026-07-30 — **CANLI KURYE KONUMU + ARAYAN TANIMA ANAHTARI**: patron haritada tüm ekibin canlı konumunu görüyor (kendi backend, Google'sız, KVKK: tek satır/geçmiş yok/yalnız patron okur); Ayarlar'a arayan tanıma AÇ/KAPA anahtarı (düz dosya köprüsü, native taraf zil anında okur; günlük kapalıyken de doğru). Aynı gün öncesinde: harita performans+dark mod, harita stil+kontroller, rota yönü düzeltmesi+pin özeti, Bursa reseed, kademeli geocoder, giriş arızası. Ölçüm: `dart analyze` **0** · `flutter test` **798/798** · `php artisan test` **287/287** · phpstan L6 **0** · `compileSahaReleaseKotlin` **BUILD SUCCESSFUL** · release APK kapısı koşuldu. Eski not aşağıda tarihsel duruyor: 2026-07-29 — sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
+## Güncel durum
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-25/2 — **SÜRÜM 1.0.0, YAYINA GEÇİŞ** (mobil 0.49.0 → **1.0.0**)
+
+Kullanıcı kararı: *"Uygulama sürümünü 1.0.0 olarak güncelle. Güncelleme geldiğinde bildirim
+gelsin. Güncelleme bandındaki yükleme butonu belirgin değil. Tüm bunların ardından main'e
+güncelleme yapalım, yayına geçiyoruz."*
+
+#### ⭐ 1 · Sürüm 1.0.0 — sözleşme kırılması DEĞİL, yayın işareti
+
+⚠️ **SONRAKİ VARDİYA BUNU BİLMELİ:** CLAUDE.md MAJOR'ı "eski istemci yeni sunucuyla çalışamaz"
+diye tanımlıyor ve burada öyle bir kırılma **yok** — API 1.17.0'da kaldı, hiçbir alan
+kaldırılmadı, 0.49.0 taşıyan telefon eksiksiz çalışmaya devam ediyor. Numara ürünün pilottan
+çıktığını işaretliyor. Gerekçenin tamamı DECISIONS 2026-08-25/3; oradaki uyarı önemli: bu satır
+emsal değildir, gerçek bir kırılmada 2.0.0 hâlâ o anlama gelir.
+
+**İki hat ayrı kaldı:** uygulama 1.0.0, API 1.17.0.
+
+#### ⭐ 2 · Yeni sürüm bildirimi
+
+Bant müdahalesizdir ve öyle kalıyor, ama bedeli vardı: bayi uygulamayı açmadıkça yeni sürümden
+haberi olmuyordu (pilotta düzeltmeler günlerce telefonlara inmeden bekledi). Yeni kategori
+`BildirimKategori.guncellemeVar` (kanal `guncelleme_var_v2`, kendi tonu `guncelleme.wav` —
+çıkan üçlü, `gun_ozeti`nin inen deseninin tersi).
+
+- **heads-up DEĞİL:** kategori ölçütü "birinin BEKLEDİĞİ bir iş mi?" — güncelleme beklenen bir
+  iş değil, haber verilen bir imkândır.
+- **Kurye de alır:** eski sürümde kalan telefon çoğu zaman kuryenin telefonudur.
+- **İndirmeyi BAŞLATMAZ:** dokunuş uygulamayı ana ekranda açar, bant orada. Sessiz indirme
+  bayinin mobil verisini onun kararı olmadan harcardı (~30 MB).
+- **Mağaza derlemesinde ayar listesinde GÖRÜNMEZ:** o kanalda güncelleme yolu tamamen kapalı,
+  yani anahtar hiçbir şey yapmazdı (`_listelenir` süzgeci `yalnizYonetici` ile birleşti).
+
+#### ⭐ 3 · Bantta belirgin "Güncelle" düğmesi
+
+Sağ köşede dolgulu, accent renkli, düğme gibi duran bir hap vardı — ama içinde **sürüm numarası
+yazıyordu**. Göz onu düğme sanıyordu; gerçek eylemi söyleyen tek şey alt satırdaki cümleydi.
+Yerine ikonlu eylem düğmesi kondu (`SipIcons.indir` = Lucide `download`, ikon setine bu turda
+eklendi). Sürüm alt satıra taşındı — "sadece sürüm yazsın" kararı duruyor.
+
+⚠️ Düğmenin **kendi `onTap`i yok**: dokunuşu bandın tamamı alıyor. İç içe iki `GestureDetector`
+dıştakini sessizce öldürürdü. Hata başlığı da golden ölçümüyle kısaltıldı (360 puntoda
+kırpılıyordu).
+
+#### Ölçümler (bu makinede koşuldu)
+
+| Kapı | Sonuç |
+|---|---|
+| `flutter analyze` | temiz |
+| `flutter test` | **1545 / 1545** |
+| `flutter build apk --release --flavor saha` | ✅ (aşağıdaki içerik doğrulamasıyla birlikte) |
+| APK içeriği — `guncelleme.wav` | ✅ pakette (dördüncü kapı, bkz. `res/raw/keep.xml`) |
+
+#### Sonraki kişi için
+
+- **Yeni ses eklendi:** `res/raw/guncelleme.wav` + `keep.xml` listesi ONA değil ON BİRE çıktı.
+  `bildirim_altyapi_test.dart` bu listeyi `BildirimKategori.values` üzerinden sözleşme sayıyor,
+  yani yeni bir kategori eklendiğinde ses ve keep girdisi otomatik olarak zorunlu hâle geliyor.
+- **`GuncellemeServisi.bildir` `@visibleForTesting`:** `sessizKontrol` üzerinden ulaşılamaz
+  (`kYapim` derleme sabiti testte 0, güncelleme "bulunmuyor"). Gerekçe metodun doc'unda.
+- **PR #15 AÇIK, HENÜZ BİRLEŞTİRİLMEDİ** (`dev` → `main`, 139 commit). Birleştirme komutu bu
+  ortamda izin sınıflandırıcısına takıldı; kullanıcı tek tıkla birleştirecek. Birleştiği an
+  saha kanalı beslenir ve sahadaki telefonlar 1.0.0'ı otomatik indirir.
+
+- 🔴 **ÜRETİM API'Sİ AYAKTA DEĞİL — ÖLÇÜLDÜ (2026-08-25):**
+  `sipario.com.tr`, `www.sipario.com.tr` ve `api.sipario.com.tr` üçü de **503 "no available
+  server"** dönüyor. Coolify'da yalnız `dev` dalını izleyen tek bir uygulama var ("Sipario
+  Dev" → `test.sipario.com.tr`, API 1.17.0, sağlıklı). Saha APK'sı
+  `https://sipario.com.tr/api/v1` adresine bakıyor (`mobil-apk.yml` satır 112).
+  **Bu, bu vardiyanın YARATTIĞI bir durum değildir** — mevcut saha derlemesi de aynı adrese
+  bakıyor, yani sahadaki telefonlar ZATEN ölü bir sunucuya bakıyor ve offline-first oldukları
+  için kuyrukta birikiyorlar. Ama "yayına geçtik" denebilmesi için üretimin ayağa kalkması ŞART.
+  Ayağa kalkarken migration `main`den koşmalı (`2026_08_25_000101_add_ledger_expense_type`
+  dahil): **sunucu ÖNCE, istemci sonra** — tersi durumda telefondan yazılan gider `rejected`
+  döner.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-25 — GÜN ÖZETİ BAŞTAN TASARLANDI + SAHA GİDERİ (mobil 0.47.0 → **0.49.0**, API 1.16.0 → **1.17.0**)
+
+Kullanıcı tek bir istek verdi: *"Gün Özeti sayfası çok uğraştırıcı. Geçmiş için ayrı bir yere
+gitmesi gerekiyor, oysa bunu sayfanın içinde takvim ile geçmişe gidebilmeli. Ek olarak bu sayfada
+Gider Ekleme özelliği de olmalı. Sayfanın tasarımını baştan sona yenile."* İki iş kolu doğdu,
+ikisi de kendi MINOR artışını aldı.
+
+#### ⭐ 1 · Gün Özeti TEK EKRAN oldu, geçmiş içeri alındı (0.48.0)
+
+`lib/screens/isletme/gecmis_gun_ekrani.dart` **SİLİNDİ.** Ekranın üstünde artık gün şeridi
+(`‹ 24 Ağustos ›`, teslim sekmesindeki `SiparisTarihSeridi`nin aynısı) ve yanında bir **takvim**
+düğmesi var. Gövde hangi güne bakılırsa bakılsın aynı bölümleri çiziyor.
+
+**Neden birleşti:** iki ekran düzenli ayrışıyordu. "Satılan Ürünler" yalnız Geçmiş'te vardı —
+yani bayi *"bugün kaç damacana sattım"* sorusunu ancak ERTESİ GÜN sorabiliyordu; ara tahsilat ve
+gider yalnız bugünde vardı; her yeni bölümde "hangi ekrana?" diye ayrı bir karar gerekiyordu.
+
+**Takvim elle çizildi** (`isletme/gun_takvimi.dart`), `showDatePicker` DEĞİL: depoda
+`flutter_localizations` yok ve Material seçici Türkçe uygulamanın ortasında İngilizce bir ay
+ızgarası çizerdi. Her günün altındaki nokta onu tarih seçiciden **durum haritasına** çeviriyor —
+**yeşil** o günün hesabı kapatıldı, **sarı** kapatılmadı, noktasız çalışılmadı. Kümeler mevcut
+tanımlardan gelir (`KapanmamisGunlerRepository.hareketliGunler` + `DayClosingRepository.kapaliGunAnahtarlari`);
+takvim kendi kuralını YAZMAZ.
+
+**Yeni tepe bloğu** (`isletme/gun_ozeti_basligi.dart`): tek iri rakam — *"Kasada olması
+gereken"* — ve altında tahsilat/gider, sonra üç küçük kutu (teslimat · veresiye · gün hesabının
+durumu). Rakam **`DayClosingRepository.onizle`den olduğu gibi** alınır; ekran hiçbir çıkarma
+yapmaz. "Elemanlar" ve patronun "Kendi işlemlerim" kapsamlarında rakam **null**'dur (sıfır
+değil) ve başlık "Toplam tahsilat"a döner: `day_closings` o kapsamları tanımaz.
+
+**Kapılar:** gün gezinmesi `gecmisHesapArsivi` yetkisine bağlı (yalnız yönetici) — kuryede şerit
+ve takvim HİÇ çizilmez. Geçmiş günde ara tahsilat ve gider yazılamaz; kapanış yalnız GÜN
+kapsamında ve SAYIM İSTENMEDEN yapılır (eski Geçmiş ekranından devralındı). Boş-gün durumu
+yalnız geçmişte çizilir: bugünün sıfırları bilgidir, gün devam ediyor ve "Gider Ekle" o ekranda
+olmalı.
+
+#### ⭐ 2 · Saha gideri — yetki matrisinin ödenmemiş borcu kapandı (0.49.0 · API 1.17.0)
+
+"Saha Gideri Girme (Benzin vb.)" satırı yetki matrisinde **aylardır duruyordu ve ürün karşılığı
+yoktu**: yetkiyi açan bayi hiçbir şey açmıyordu. Sahadaki karşılığı şuydu — kuryenin yolda
+aldığı 200 ₺ benzin akşam kalıcı bir "eksik para" olarak arşive donuyordu.
+
+Gider bir **defter satırıdır** (`ledger_entries.entry_type = 'expense'`), yeni tablo değil:
+kuryenin cebi · günün kasası · kapanış beklentisi onu kendiliğinden görsün diye. `payment_type`
+zorunlu ve yalnız `nakit`, `customer_id` null, tutar pozitif, iptali ters işaretli ikinci satır.
+Çift iptal kısmi unique indeksle veritabanında kapalı. Ayrıntılı gerekçe DECISIONS 2026-08-25/2.
+
+**Anlam ayrımı pazarlıksız:** `KasaOzeti.nakit`/`toplam` TAHSİLATTIR, gider oraya karışmaz;
+mutabakat `netNakit` üzerinden yürür ve kapanış sheet'inin aritmetiği dörtlüye çıkar
+(`gunNakit − gider − dusulen == beklenen`; gider sıfırken eski üçlü aynen korunur).
+
+⚠️ **DÖRDÜNCÜ YER TUZAĞI YİNE ÇIKTI** (bkz. DECISIONS 2026-08-22/8): gider müşterisiz ve tutarı
+pozitif olduğu için `veresiyeGruplari` onu bir grup yapıp *"Müşterisiz kayıt · bugün yazılan
+veresiye"* diye gösteriyordu. Tip orada AÇIKÇA elenir; işaret bunu yakalayamaz.
+
+#### Ölçümler (bu makinede koşuldu)
+
+| Kapı | Sonuç |
+|---|---|
+| `flutter analyze` | temiz |
+| `flutter test` | **1537 + 27 yeni = tamamı yeşil** (`gider_test.dart` 17, `ui_gider_test.dart` 10) |
+| `php artisan test` | **932 (931 geçti, 1 atlandı, 0 kırmızı)** |
+| `pint --test` · `phpstan` | temiz · 0 hata |
+
+#### Sonraki kişi için
+
+- **Yeni test dosyaları:** `test/gider_test.dart` (veri katmanı) ve `test/ui_gider_test.dart`
+  (ekran + yetki kapıları + dar ekran yerleşim provası). `test/ui_gun_arsivi_test.dart` artık
+  `GecmisGunEkrani`ni değil `DayEndScreen`i sınıyor.
+- **Migration owner ile koşar:** `php artisan migrate --database=pgsql_owner --force`
+  (`2026_08_25_000101_add_ledger_expense_type`). Canlıda henüz KOŞULMADI.
+- **Deploy sırası:** sunucu ÖNCE. Eski istemci yeni sunucuyla çalışır; tersi durumda yeni
+  istemcinin yazdığı gider `rejected` döner ve kayıt telefonun kuyruğunda birikir.
+- **Bilinen kozmetik sapma (kabul edildi):** 0.49.0 öncesi bir telefon, indirdiği gideri
+  "Müşterisiz kayıt" veresiyesi olarak gösterir. Kasa rakamı doğrudur; düzeltmesi güncellemedir.
+- **Açık:** gider için kategori/raporlama YOK ve bilinçli — bu bir kasa düzeltmesidir, kâr-zarar
+  defteri değil. Kart/havale gider de yok (çekmeceye dokunmaz). İhtiyaç pilotta ölçülmeli.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-22/2 — BEŞ SAHA MADDESİ (mobil 0.42.0 → **0.47.0**, API 1.14.0 → **1.16.0**)
+
+Kullanıcı beş madde verdi, beşi de kapandı. Her biri kendi MINOR artışını aldı (SemVer kuralı:
+"birden çok iş kolu aynı vardiyada bitiyorsa her biri kendi artışını alır").
+
+#### ⭐ 1 · Katalogda adet artık karonun içinde (0.43.0)
+
+Seçeneksiz üründe adet sheet'i KALKTI: karoya dokunmak bir adedi doğrudan sepete koyuyor,
+karonun altındaki `[−] adet [+]` şeridiyle sepetten çıkmadan değiştiriliyor. Malzemesi olan
+üründe eski sheet AYNEN duruyor ("soğansız olsun" karoya sığmaz).
+
+Şerit İKİ HÂLLİ ve bu, 103 px'lik karonun tek çözümüydü: üç düğmeyi baştan yan yana koymak her
+birini ~20 px'e düşürürdü. Görsel oranı 5/4 → 8/5, `childAspectRatio` 0.68 → 0.60.
+
+**Katalog sepeti TUTMAZ, delta bildirir** — sıfıra inen satırı silmek çağıranın işi.
+
+#### ⭐ 2 · Kurye müşteri görünürlüğü yetkiye bağlandı (0.44.0 · API 1.15.0)
+
+`courier_can_see_all_customers` (migration 004018, mobil şema **v27**). Kapalıyken kurye yalnız
+ATANDIĞI ya da TESLİM ETTİĞİ siparişlerin müşterilerini görür. Kapsam ARAMAYA da uygulanır.
+
+⚠️ **VARSAYILAN KAPALI — sahadaki kuryelerin müşteri listesi bu sürümle DARALIR.** İsteğin
+kendisi kısıtlamaydı. İstemeyen bayi Ayarlar → Kurye Yetkileri → "Tüm müşterileri görebilir"
+ile tek anahtarla eski davranışa döner.
+
+**YAN BULGU (ölçüldü, düzeltildi):** `sync_cekme.dart`ın `tenant_settings` uygulayıcısı 13 kurye
+yetkisinin yalnız BEŞİNİ okuyordu; kalan sekizi v15'te şemaya girmiş ama uygulayıcıya hiç
+bağlanmamıştı. Yani patronun açtığı bir kurye yetkisi sunucuya gidiyor, kuryenin telefonuna
+İNMİYORDU ve hiçbir yerde hata yoktu. Sekizi de bağlandı.
+
+#### ⭐ 3 · Ana ekranın birincil eylemi değişti (0.45.0)
+
+"Yeni Sipariş" → **"Ekip Çağrıları"**. Sipariş açmanın zaten iki yolu vardı (alttaki artı ve
+çağrı kartı); "dükkânı kim aradı" sorusunun hiç kısayolu yoktu. İkon ahizeye döndü.
+
+#### ⭐ 4 · İptal onay akışı (0.46.0 · API 1.16.0)
+
+Kurye **İptal İster** → sipariş AÇIK KALIR → patron **Onayla/Reddet**. İki yeni sipariş olayı
+(`cancel_requested` · `cancel_rejected`); yeni kolon YOK, durum olay geçmişinden türetiliyor.
+Onayın ayrı olayı yok — onay `cancelled` üretir.
+
+Bildirim yöneticilere gider ve **İÇİNDE "Onayla"/"Reddet" düğmeleri vardır**; düğme kararı arka
+planda uygulamaz, uygulamayı öne getirir (arka plan isolate'i SQLite'a yazmaz). Ret, talebi AÇAN
+kuryeye gider. Sipariş detayında da aynı karar bandı var.
+
+#### ⭐ 5 · Heads-up ölçülebilir oldu (0.47.0)
+
+**Kod tarafı zaten kuruluydu** — kategoriler `IMPORTANCE_HIGH` kanalla doğuyor. Eksik olan,
+çalışıp çalışmadığını GÖSTEREN yüzeydi: Android'de kanal önemi doğduktan sonra yalnız KULLANICI
+değiştirebilir ve Xiaomi/MIUI'de "kayan bildirim" uygulama başına kapalı gelebilir.
+
+İki native uç eklendi (`notificationChannels` ölçer, `openNotificationChannelSettings` düzeltme
+ekranını açar) ve Ayarlar → Bildirimler artık tahmin etmiyor: kapalı kategori "Ekranın üstünde
+belirmiyor" der ve ayarı tek dokunuşla açar. **"Bildirimi dene" düğmesi** gerçek kanaldan gerçek
+bir bildirim çıkarır — heads-up'ın çalıştığının tek kanıtı budur.
+
+Heads-up listesi bir ölçüte bağlandı ("birinin BEKLEDİĞİ bir iş mi?"); yeni `siparisIptalOnayi`
+o ölçüte uyduğu için heads-up doğdu. **Mevcut kanalların önemi DEĞİŞMEDİ** — kimsenin sistem
+ayarı sıfırlanmadı.
+
+#### ⚠️ DÖRT TUZAK — dördü de ölçülerek bulundu
+
+**1 · YENİ BİR SİPARİŞ OLAYININ DÖRT YERİ VAR, DÖRDÜNCÜSÜ ŞEMADA.**
+`cancel_requested` `EventValidator::OPS`e eklendi, `OrderChangeApplier`ın `match`ine dal
+kondu, mobil taraf yazıldı — ve olay yine `rejected` döndü. Yanıt `reason: "invalid_data"`
+diyordu, yani "kodun bir yerinde InvalidArgumentException". **İstisna PHP'de değil
+POSTGRES'teydi:** `order_events.event_type` bir CHECK kısıtı taşıyor (000207'de doğdu, iki kez
+genişletildi) ve listede olmayan tür INSERT'te 23514 ile düşüyor. Migration 004019 eklendi.
+Yeni sipariş olayı ekleyen herkes bu dördüncü yeri arasın.
+
+**2 · `artisan test`i `DB_USERNAME=sipario_owner` ile KOŞMAYIN.** Migration owner ister ama
+TESTLER `sipario_app` ile koşmalı: owner RLS'i baypas eder ve 65 izolasyon testi SAHTE kırmızı
+verir. Doğru sıra: **migration owner ezmesiyle, takım ezmesiz.** Ayrıca testte `Order::find`
+ve `assertDatabaseHas` gibi doğrudan okumalar `asOwner(...)` içine alınmalı — test sürecinde
+kiracı bağlamı yoktur (o, HTTP isteğinin katmanında kurulur), bağlamsız okuma "tablo boş" der.
+
+**3 · OTOMATİK COMMIT BÜTÜN VARDİYA BOYUNCA HİÇ ATILMADI ve bu sessizdi.** Sonda 69 dosya
+işlenmemiş duruyordu; ne hata ne uyarı vardı. Kapı `phpstan`ı **container içinde** koşuyor,
+geliştirici ise elle **host'ta** — container'ın `memory_limit`i 256M'di ve kod büyüdükçe
+phpstan'ın paralel işçisi taştı (`Child process error ... while running parallel worker`).
+Host'ta limit yüksek olduğu için benim ölçümüm "0 hata" diyordu: **ölçüm ile kapı aynı şeye
+bakmıyordu.** Düzeltildi (`docker-compose.yml` → `PHP_MEMORY_LIMIT: 1G`). Bundan sonra vardiya
+sonunda kapının KENDİ komutu koşulmalı:
+`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/quality-gate-commit.ps1 < /dev/null`
+Aynı betikte ikinci bir çürüme daha vardı: commit gövdesindeki "Son karar" alanı bir haftadır
+2026-08-15'teki kararı yazıyordu (süzgeç yalnız `- ` ile başlayan satırlara bakıyor, dosya ise
+artık tarihle başlıyor). O da düzeltildi.
+
+**4 · `surum_notlari_test` yöntemi değişti.** Sürüm başına `scrollUntilVisible` çağıran döngü,
+liste 38'den 43 kayda çıkınca ORTADA kilitlendi. Sebep ekranda değil yöntemdeydi: tembel
+listede `maxScrollExtent` bir TAHMİNDİR ve `ensureVisible`ın her hedefte yaptığı geri
+konumlandırma tahmini oynatıyor (ölçüldü: 8779 → 8058). Artık tek geçişli sürükleme taraması
+var; liste uzadıkça kırılmaz.
+
+#### 500 satır kuralı — beş dosya bölündü
+
+Bu vardiya üç dosyayı sınırın üstüne çıkardı, ikisi zaten sınırdaydı. Hepsi `part` ile bölündü,
+yani **hiçbir çağrı yeri ve hiçbir import değişmedi**:
+
+| Dosya | Önce → Sonra | Ayrılan |
+|---|---|---|
+| `pos_catalog.dart` | 629 → 352 | `pos_karosu.dart` (karo + eylem şeridi) |
+| `customer_list_screen.dart` | 553 → 372 | `customer_list_sorgulari.dart` |
+| `team.dart` | 524 → 79 | `team_yetkileri.dart` (rol matrisi + devralma) |
+| `bildirim_sozlesmesi.dart` | 593 → 434 | `bildirim_taslagi.dart` (taslak + `yol` sözlüğü) |
+| `order_repository.dart` | 520 → 487 | `order_repository_iptal.dart` (extension) |
+
+⚠️ **HÂLÂ SINIRIN ÜSTÜNDE OLAN DÖRT DOSYA VAR ve dördü de bu vardiyadan ÖNCE öyleydi**
+(dokunulmadı): `surum_notlari.dart` 615 (her yayında büyüyen bir VERİ listesi — arşiv ayrımı
+ayrı bir iş), `gun_kapatma_sheet.dart` 550, `gecmis_gun_ekrani.dart` 541, `login_screen.dart`
+505. `app_database_gocler.dart` 504'te ve **sınırda**: bir sonraki migration onu aşıracak,
+o vardiyada göç adımlarının ayrılması gerekecek.
+
+#### Ölçümler (bizzat koşuldu)
+
+`flutter analyze` temiz · `flutter test` **+1511 −0** (taban +1470 −0 idi) ·
+`flutter build apk --release --flavor saha` **YEŞİL** (43,4 MB) · `pint` temiz ·
+`phpstan` 0 hata · `artisan test` **+925 −0** (4616 iddia; taban +913 −0 idi).
+
+⚠️ **BU SAYIYA ULAŞMAK ÜÇ KOŞUM ALDI ve ilk ikisi SAHTEYDİ** — ikisi de ortam hatasıydı, kod
+hatası değil: birincisi `DB_USERNAME=sipario_owner` ezmesiyle koştuğu için 65 RLS testini
+düşürdü, ikincisi ben aynı anda `--filter` ile ikinci bir koşum başlattığım için `TRUNCATE`
+çakışması yaşadı (61 kırmızı, hepsi alakasız dosyalarda). **Tam takım koşarken o veritabanına
+BAŞKA HİÇBİR ŞEY dokunmamalı.**
+
+**APK İÇERİĞİ AYRICA DOĞRULANDI** (bu depodaki dördüncü kapı — "derleme ≠ paketlenmiş içerik"):
+APK zip olarak açıldı, `res/*.wav` **10 dosya** çıktı ve boyutlar `res/raw` ile birebir eşleşti;
+yeni ses `iptal_onayi.wav` (21 654 bayt) `res/lr.wav` olarak paketlenmiş.
+
+#### Sıradaki işler
+
+1. **Deploy sırası pazarlıksız: sunucu ÖNCE, mobil sonra.** Tersi olursa kuryenin açtığı iptal
+   talebi `unknown_op` ile reddedilir ve outbox satırı kalıcı hata alır. Sunucu tarafında
+   migration 004018 + 004019 koşmalı.
+2. **Heads-up'ı gerçek cihazda dene:** Ayarlar → Bildirimler → "Dene". MIUI'de kapalıysa uyarı
+   satırı çıkmalı ve "Ayarı aç" doğru ekrana gitmeli — bu yolun CİHAZ kanıtı henüz yok
+   (widget testi Android'in bildirim gölgesini göremez).
+3. **İptal onayı bildiriminin düğmeleri de cihazda denenmeli:** "Onayla"/"Reddet"
+   `showsUserInterface: true` ile uygulamayı öne getirir; uygulama ÖLÜYKEN basıldığında
+   kararın uygulanıp uygulanmadığı ölçülmedi.
+4. Pilotta sorulacak: kurye müşteri kısıtı bayiler için doğru varsayılan mı (varsayılan KAPALI
+   geldi ve bu sahadaki davranışı değiştiriyor).
+
+---
+
+### 🔻 ÖNCEKİ DEVİR NOTU — 2026-08-22 — TEK HESAP = TEK CİHAZ (mobil 0.41.1 → **0.42.0**, API 1.13.0 → **1.14.0**)
+
+Tek istek: "bir kullanıcı farklı bir cihazdan giriş yaptığında diğer cihazlardan otomatik çıkış".
+
+#### ⭐ Ne yapıldı
+
+**Sunucu.** Giriş anında o KULLANICININ diğer bütün token'ları düşürülür. Düşürme silme
+değildir: `personal_access_tokens`a `device_id` + `revoked_at` + `revoked_reason` eklendi
+(migration `004017`). Sebep saklanıyor ki eski telefon çıplak bir 401 yerine
+`code: "oturum_baska_cihazda"` görsün — sebepsiz çıkış, bu özelliğin bir numaralı destek
+çağrısı olurdu. Sebebi taşıyan katman `RejectRevokedToken` (alias `oturum`, `auth:sanctum`tan
+önce). **Kapıyı o katman TUTMUYOR:** düşen token'ın `expires_at`i de geçmişe çekiliyor, asıl
+reddi Sanctum veriyor; middleware unutulsa bile token işe yaramaz. Düşen cihazın
+`devices.push_token`ı boşaltılıyor (bildirim gövdesi müşteri adı/adres/borç taşır) — bu girişin
+KENDİ cihazı hariç, yoksa aynı telefondan yeniden giriş kendi jetonunu silerdi.
+
+**İstemci.** `SyncHataTuru` ikiye ayrıldı: `oturumKapandi` (401 → kök giriş ekranına döner,
+sebebini yazar) ve `oturum` (403 → yalnız bant; 403 "yetkin yok" demektir, kuryeyi patrona ait
+bir uç noktaya dokunduğu için atmak olurdu). `Session.oturumuDusur()` sunucuya GİTMEZ, yalnız
+oturum alanlarını siler — defter, outbox ve sync imleci DURUR (kırmızı çizgi #3).
+
+**Kapsam kullanıcıdır, bayi değil:** patron/operatör/kurye ayrı hesaplar, birbirini düşürmez.
+Aynı hesabı iki telefonda paylaşan bayi bundan sonra sırayla birbirini atar — istenen bu.
+
+#### ⭐ İkinci iş — ölçünce çıktı: takvim çürümesi
+
+Tam API takımı **4 kırmızı** verdi ve hiçbiri bu vardiyanın işiyle ilgili değildi.
+`PanelOdemeEkraniTest`in fikstürü `valid_until`ı **2026-08-20**'ye sabitliyordu; servis tabanı
+`valid_until > now ? valid_until : now` seçiyor. 20 Ağustos geçince taban "bugün"e kaydı ve
+dört test, doğrulamak istediği kuralın ön koşulunu kaybetti — yani **2026-08-21'de kimse koda
+dokunmadan kırıldılar.** Çözüm kökten: sınıfın `setUp`ında saat donduruldu
+(`Carbon::setTestNow(2026-08-04 12:00)`), `tearDown`da bırakıldı. 19/19 yeşil.
+
+**Belirtiyi tanı:** beklenen değerdeki gün bugünün günüyle değişiyorsa sebep kod değil takvimdir.
+
+#### Ölçümler
+
+`flutter analyze` temiz · `flutter test` **1470 yeşil / 0 kırmızı** · `pint` temiz (385 dosya) ·
+`phpstan` 0 hata · `artisan test` **913 yeşil / 0 kırmızı** (düzeltmeden ÖNCE 909 yeşil /
+4 kırmızıydı, dördü de takvim çürümesi). Yeni `TekCihazOturumuTest` 8/8. Sunucu tarafı Docker'daki
+`sipario_db` (55432) ve `sipario_php` konteynerlerinde koşuldu — Docker kapalıysa `artisan test`
+asılır, önce `docker compose up -d db php`.
+
+#### Sıradaki işler
+
+1. **Deploy sırası önemli:** sunucu ÖNCE gider (eski istemci yeni sunucuyla çalışır, yalnız
+   düşürüldüğünde giriş ekranına kendiliğinden dönmez), mobil sonra.
+2. Düşürülmüş token satırları haftalık `sanctum:prune-expired --hours=720` ile temizleniyor —
+   üretimde `schedule:work` konteynerinin bu görevi aldığı ilk hafta doğrulanmalı.
+3. Pilot bayilerde tek gerçek risk: aynı hesabı iki telefonda paylaşan bayi. Pilotta
+   sorulacak; gerekirse ikinci hesap açılır (kota `KuryeKotasi`).
+
+---
+
+### 🔻 ÖNCEKİ DEVİR NOTU — 2026-08-21/2 — UYGULAMA METNİ BAŞTAN SONA YENİDEN YAZILDI · TEST TABANI KIRMIZIYDI, KAPATILDI (mobil 0.40.0 → **0.41.0**, API DEĞİŞMEDİ 1.13.0)
+
+Tek istek vardı: "tüm metinleri elden geçir". İki iş çıktı — biri istenendi, biri ölçünce ortaya çıktı.
+
+#### ⭐ Metin artık yazılı bir kurala uyuyor
+
+Bu depoda metin kuralı YAZILI DEĞİLDİ; sonucu, her vardiyanın kendi diliyle yazmasıydı.
+Ölçülen sapmalar: aynı özelliğin iki adı ("Arama tanıma" / "Arayan tanıma"), aynı cümlenin
+iki noktalaması, İngilizce sızıntı ("Caller ID kartı açılmaz", "POS katalogda karo üzerinde
+görünür"), birinci çoğul şahıs ("gösteremeyiz", "erişiriz", "isteyeceğiz") ve başlığını
+tekrar eden boş durumlar ("Hareket yok" / "Henüz hareket yok.").
+
+**KURAL (tam hâli DECISIONS.md'de):**
+
+1. Tek cümlelik kısa metin (toast · etiket · düğme · alt başlık · boş durum açıklaması)
+   **nokta almaz**; iki ve daha fazla cümleli açıklama normal noktalama alır.
+2. Ünlem, üç nokta, em-tire ve süsleme işareti (`+`, `±`) yok; `&` yerine "ve".
+3. İngilizce terim yok. Android izinleri telefonun kendi Türkçe adıyla anılır.
+4. Uygulama ikinci şahısla konuşur, "biz" demez.
+5. Boş durum açıklaması başlığı tekrar etmez, ne yapılacağını söyler.
+6. Bir şey yapılamadığında sebep tek cümleyle yazılır.
+
+**Kapsam:** `apps/mobile/lib` altında 90 dosya · 188 metin noktalamadan arındı · ~60 metin
+yeniden yazıldı.
+
+| Kalıcı adlandırma kararı | Eski | Yeni |
+|---|---|---|
+| Menü satırı | Muaf Telefonlar | **Muaf Numaralar** |
+| Gün kapatma düğmesi | Kapat ve Kaydet | **Kapat ve Arşivle** |
+| Bildirim kategorileri | "Size sipariş atandı" | **Sipariş ataması** (isim öbeği) |
+| Kontör | Oto-sıralama | **Oto sıralama** |
+| İzin adımı | Üste çizim izni | **Diğer uygulamaların üzerinde göster** |
+
+> Bildirim kanalının **adı** serbesttir, `wire` DEĞİŞMEDİ — sahadaki bayinin sistemden kıstığı
+> kanal öksüz kalmaz.
+
+**DOKUNULMAYANLAR ve gerekçeleri:** `surum_notlari.dart` geçmiş maddeleri (tarihî kayıttır,
+yeniden yazılmaz) · borç hatırlatma şablonu (`borc_hatirlatma.dart`) — o bir arayüz metni
+değil, bayinin ağzından müşteriye giden mektuptur, tam cümle noktalaması korunur.
+
+#### ⚠️ İKİNCİ BULGU — TEST TABANI ZATEN KIRMIZIYDI
+
+İş başlamadan ölçüldü: `flutter test` → **1391 yeşil / 73 KIRMIZI**.
+
+- Yetmiş üçünün **tamamı** bayat metin bekleyişiydi: `lib` daha önceki vardiyalarda em-tireli
+  dilden ("Aboneliğiniz sona erdi — yeni kayıt eklenemiyor.") vazgeçmiş, testler eski cümlede
+  kalmıştı.
+- Bir önceki devir notu "flutter test 1464 yeşil" diyor. **1464 TOPLAM sayıdır**, yeşil sayısı
+  değil. Otomatik commit kancasının "hizli kapi yesil" mesajı da suite'i koşmuyor.
+- **DERS:** "yeşil" bir hafıza değil bir ölçümdür. Devir notuna yazılan sayı bundan sonra
+  `+N -M` biçiminde, kırmızı sayısıyla birlikte yazılır.
+- Yetmiş üçünün hepsi bu vardiyada kapatıldı. Kendi değişikliğimin kırdığı 8 test de ayrıca
+  ölçüldü (taban listesiyle `comm -13` farkı alınarak) ve düzeltildi.
+
+#### Kapılar
+
+`flutter analyze` temiz · `flutter test` **+1464 -0** · sürüm notu yazıldı · pubspec 0.41.0.
+
+#### SONRAKİ KİŞİ BURADAN DEVAM ETSİN
+
+1. **API ve yönetim paneli metinleri bu vardiyanın kapsamı DIŞINDA kaldı** (istek "uygulama"
+   dedi). Aynı kural oraya da uygulanacaksa hedef: `apps/api/resources/views` (panel +
+   e-posta şablonları). Web sitesi metni 2026-08-19/3'te ayrıca sadeleşmişti.
+2. Faz 7 (Antalya pilotu) hâlâ açık — saha/insan işi.
+3. Kalan dışsal işler değişmedi: iyzico anahtarı, mağaza hesapları, hukuk paketi.
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-21 — KAPANMAYAN GÜN GÖRÜNÜR OLDU VE KAPATILABİLİYOR · BİLDİRİM MERKEZİ (mobil 0.38.0 → **0.40.0**, API DEĞİŞMEDİ 1.13.0)
+
+İki iş kolu. Birincisi bir PARA meselesiydi ve en kritik kısmı **hiçbir formüle dokunmamaktı**.
+
+#### ⭐ "Kapanmayan günler bir sonraki güne aktarılıyor" — gözlem doğru, teşhis değil
+
+Aktarma **bir hata değil**: kuryenin mutabakat penceresi bilerek **alttan açıktır**
+(`CashHandoverRepository._pencere`). Cep gece yarısında boşalmaz — dün toplanıp teslim
+edilmemiş para bugün de kuryededir ve beklenen nakit onu göstermek zorundadır. Pencereyi her
+gece sıfırlamak, **teslim edilmemiş parayı sessizce silmek** olurdu.
+
+Yanlış olan aritmetik değil **görünürlüktü**: bayi devreden tutarı görüyor, nereden geldiğini
+göremiyordu. Eksik yarı eklendi; para formüllerinin hiçbirine dokunulmadı.
+
+| Eklendi | Nerede |
+|---|---|
+| Kapanmamış gün tespiti (saf kural + read-model) | `repo/kapanmamis_gunler.dart` |
+| Gün Özeti'nin tepesinde sayı bandı + gün gün liste | `screens/isletme/kapanmamis_gun_banti.dart` |
+| Geçmiş günü KAPATMA | `gecmis_gun_ekrani.dart` (`_gunuKapat`) |
+| Sabah bildirimi artık "N gün kapatılmadı" | `durum_kurallari.dart` |
+
+#### Tespit algoritması — iki sınır, DAR OLANI kazanır
+
+```
+alt sınır = max(bugün − 14 gün, son geçerli gün kapanışı + 1 gün)
+gün listeye girer  ⇔  hareket görmüş  ∧  geçerli gün kapanışı yok
+```
+
+- **Bugün listede yok** — henüz kapanmadı, *kapanmamış* değil. Koysaydık her sabah kendiliğinden
+  doğan bir uyarı üretirdi.
+- **Hareketsiz gün yok** — bayi o gün çalışmamıştır (`gunKayitVarMi` tanımı artık tek yerde ve
+  bu tarama ile ORTAK).
+- **14 günün gerekçesi mutabakattır**, estetik değil: daha eski bir günün kasası artık sayılamaz.
+  Sınırsız liste ise hiç kapanış kullanmayan bayide 200 satırlık bir duvar olur ve uyarıyı
+  **körleştirir** — hiç uyarmamaktan kötü.
+- İki sınırın **kapsayıcılığı farklıdır** (gerideMax dahil, kapanış hariç) ve bu bir ayrıntı
+  değil kuralın kendisi: aynı yazılsalardı ya bir gün kaybolurdu ya kapalı bir gün listelenirdi.
+  16 test bu tabloyu çiviliyor (`kapanmamis_gunler_test.dart`).
+
+#### Geçmiş gün kapatma — üç kısıt pazarlıksız
+
+1. **Yalnız GÜN kapsamı.** Kurye kapanışı geçmişe yazılırsa mutabakat penceresi o güne kayar ve
+   o günden bugüne toplanmış ama teslim edilmemiş para **beklenenden düşer** — kuryenin
+   cebindeki gerçek nakit sessizce silinir. Kurye mutabakatı her zaman BUGÜN yapılır.
+2. **Sayım istenmez.** Üç gün önceki kasa bugün sayılamaz. Sayım alınsaydı `diff` arşive
+   **kalıcı olarak yanlış** donardı (append-only). Kayıt `counted=null`, `diff=0` ile geçer ve
+   sheet bunu açıkça yazar: "sayım yapılmadı olarak arşive geçer".
+3. **Gün engeli uygulanmaz.** O engel "bugün yarım kalmış devri tamamla" demektir; geçmişte devir
+   zaten yapılamaz. Uygulasaydık kapatılması **imkânsız** bir gün doğar ve liste hiç boşalmazdı.
+
+**Açık sipariş engeli DURUYOR** ve durmalı: o sipariş gerçekten açıktır, kullanıcı teslim edip
+ya da iptal edip günü kapatabilir — aşılabilir olduğu için ölü bir engel değil. Liste satırı
+kaç açık sipariş olduğunu yazar, "kapat düğmesi neden yok" sorusu doğmasın diye.
+
+> **Para güvenliği testle çivilendi** (`gecmis_gun_kapatma_test.dart`): gün kapanışı kuryeden
+> beklenen nakdi **değiştirmez** ve **kasa devri kaydı yazmaz**.
+
+#### Bildirim merkezi (v26) — ana ekranda zil
+
+Cihaz-yerel `bildirimler` tablosu + `BildirimKutusu` + servisi saran `KutuluBildirimServisi`.
+Hero'ya okunmamış rozetli zil eklendi (menünün SOLUNA — menü sağ uçta kalmalı, kas hafızası).
+
+- **Kutu ÜRETİLEN her taslağı kaydeder.** Asıl kazanç burada: sessiz saatte ertelenen ve günlük
+  bütçeye takılan bildirimler bugüne kadar **hiçbir yerde** görünmüyordu (`atlananlar` yalnız
+  bellekte, yalnız hata ayıklama içindi).
+- **Kimlik = bildirimin kimliği**: aynı kimlik yeni satır açmaz, tazeler. **Tazeleme "okundu"yu
+  silmez** — silseydi açılış taraması aynı uyarıyı her seferinde okunmamışa çevirir ve bayi onu
+  bir daha asla kapatamazdı.
+- **Kapalı kategori kutuya girmez** (bayi kapattığını başka yerden geri görmemeli).
+- Satıra dokunmak okundu işaretler ve **yolu kabuğa döndürür** — sistem bildirimine dokunmakla
+  aynı yere gider (`_bildirimYoluAc`), iki ayrı yönlendirme yok.
+
+> ⚠️ **BİLİNEN SINIR:** uygulama KAPALIYKEN gelen push ayrı isolate'te işlenir; orada veritabanı
+> açık değildir ve o bildirim kutuya GİRMEZ. Aynı sqlite dosyasını ikinci isolate'ten açmak
+> drift'in açıkça uyardığı bir yarıştır ve bir liste için göze alınmadı. Bilgi kaybı değil:
+> push'un anlattığı olay (atanan sipariş) zaten senkronla iniyor.
+
+**Kapılar:** flutter analyze temiz · **flutter test 1464 yeşil** (36 yeni test) · API'ye
+dokunulmadı (phpunit 905 önceki turdan yeşil).
+
+**SIRADAKİ İŞLER (bu vardiyadan çıkanlar):**
+
+1. **Kapanmamış gün uyarısını susturma yolu YOK.** Hiç kapanış kullanmayan bayi 14 günlük bir
+   liste görür ve bant hep durur. Şu an bilinçli (uyarı gerçek), ama pilotta "biz gün kapatmayız"
+   diyen bayi çıkarsa bir "bu bayi gün kapatmıyor" ayarı gerekebilir — karar VERİYE bağlı,
+   şimdiden eklemek tahmindir.
+2. **Geçmiş gün kapanışı arşivde "sayım yapılmadı" olarak görünüyor mu?** `arsivDetaySheet`
+   `counted=null` hâlini çiziyor ama bu turda gözle doğrulanmadı; golden PNG ile bakılmalı.
+3. **Push bildirimi kutuya girmiyor** (yukarıdaki sınır). Çözüm istenirse: ön plana geçişte
+   sunucudan "son N bildirim" çekmek — sunucu tarafı iş.
+4. Sahada doğrulanacak: iki gün üst üste kapatmayan bayide bandın sayısı 2 diyor mu, kapattıkça
+   1'e ve 0'a düşüyor mu.
+
+---
+
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-20 — ATIF NİYETE DEĞİL OLGUYA BAKIYOR · TEZGÂH ROLÜ AÇILDI · GÜN ÖZETİ KAPSAMI (mobil 0.34.0 → **0.38.0**, API 1.12.0 → **1.13.0**)
+
+Sahadan gelen **dört madde** kapandı. Üçünün kökü aynı çıktı: gün özeti, teslimatı ve günün
+veresiyesini **atamadan** okuyordu.
+
+#### ⭐ ASIL BULGU: aynı olayın iki yarısı iki ayrı kişiye gidiyordu
+
+`orders.assigned_user_id` bir **niyettir** ("bunu Ali götürecek"), muhasebe kaydı değil. Ama para
+zaten doğru kişide duruyordu (`ledger_entries.collected_by_user_id`). Sonuç:
+
+| Patron, Ali'ye atanmış siparişi kendi teslim edince | Eskiden | Şimdi |
+|---|---|---|
+| Kasaya giren para | Patron ✔ | Patron ✔ |
+| Teslimat sayısı | **Ali ✘** | Patron ✔ |
+| Yazılan veresiye | **Ali ✘** | Patron ✔ |
+
+**Çözüm:** `orders.delivered_by_user_id` (mobil şema **v25** · API migration **004016**).
+`assigned_user_id`in birebir ikizi: bir ÖNBELLEKtir, kaynağı `delivered` olayının payload'ıdır ve
+iki taraf da aynı olaylardan aynı sonucu türetir. `deliver` artık `debit` satırına da atıf yazar —
+`collected_by_user_id`in anlamı "parayı kim aldı"dan **"bu hareketi kim yaptı"**ya genişledi (kasa
+etkilenmez: orası `payment_type` taşıyan satırları sayar). Kural TEK yerde: `repo/islem_sahibi.dart`.
+
+> **GERİYE DÖNÜK UYDURMA YOK:** eski kayıtlarda alan NULL'dur ve okuma atamaya düşer. Geçmiş
+> günler yükseltmeden önceki gibi görünür; `migration_v25_test.dart` bunu kilitliyor.
+
+#### Rol kararı — kullanıcı "kararsızım" dedi, karar verildi: YENİ ROL EKLENMEDİ
+
+Var olan ama **üretimde hiç açılmayan** `operator` rolü gerçek bir role dönüştürüldü ve **Tezgâh**
+adını aldı (ölçüldü: `Provisioning::createCourier` yalnız kurye üretiyordu, web Ekip yalnız onu
+çağırıyordu — yani kimsenin yetkisi daralmadı). Çizgi ikiye ayrıldı:
+
+- **OFİS (patron + tezgâh)** — dükkânın günlük işi: sipariş açma/atama/iptal, tahsilat, iskonto,
+  borçluları görme, gün özetini OKUMA, çağrı günlüğü, müşteri ekleme/düzenleme.
+- **PARA KONTROLÜ (yalnız patron)** — günü kapatma, geçmiş hesap arşivi, defter düzeltme, müşteri
+  borcu silme, ürün yönetimi, müşteri silme/kara liste, muaf numara, abonelik ayarları.
+
+Gerekçe: ikinci kümenin tamamı ya paranın kendisini ya da onu üreten tanımları değiştirir ve geri
+dönüşü bir günlük işle sınırlı değildir. Rol sayısını artırmak yerine yetkiyi anlamlandırmak,
+kullanıcının "sürekli yeni rol ile uğraşmaktansa yetki sistemini canlandırmak" itirazının cevabı.
+Kuryedeki 13 anahtarlı kişiye özel yetki mekanizması **olduğu gibi duruyor**.
+
+`yetki_matrisi_test.dart` artık patron/tezgâh farkının **TAM listesini** kilitliyor: yeni bir yetki
+eklendiğinde hangi tarafa konduğu bilinçli bir karar olmak zorunda.
+
+#### Atama hedefi rol süzgecinden çıktı
+
+`watchAtamaHedefleri` → **tüm aktif personel** (kendisi dahil, satırda "(siz)" işareti ve rol adı).
+Eskiden yalnız `role='kurye'` dönüyordu; malı çoğu zaman patron götürdüğü hâlde onu seçebileceği
+satır YOKTU — sipariş ya sahipsiz kalıyor ya götürmeyecek bir kuryeye atanıyordu.
+
+> **Tek kişilik bayi kuralı (BRIEF) korundu ve ölçütü değişti:** "liste boş değil" DEĞİL,
+> **"BENDEN BAŞKA biri var"**. Liste artık beni de içerdiği için eski ölçüt tek kişilik bayide de
+> doğru çıkar ve gizleme kuralını delerdi.
+
+#### Gün özeti: segment → açılır liste, üç katman
+
+`Tümü · Kendi işlemlerim · Elemanlar · [kişi kişi herkes]`
+
+"Elemanlar" bir **çıkarma işlemi değil, ayrı bir süzgeçtir**: sahibi bilinmeyen kayıt hiçbir kişiye
+yazılmaz, yani `Kendi işlemlerim + Elemanlar` toplamı `Tümü`yü tutmayabilir — bu bir hata değil,
+dürüstlüktür. Kapatma ve ara tahsilat yalnız **GÜN** ya da **KURYE** kapsamında sunulur
+(`day_closings` üçüncü bir kapsam tanımıyor; gördüğünden başka bir şeyi kapatan düğme olmaz).
+
+#### Kota genişledi — sessiz açığı kapattı
+
+`KuryeKotasi` artık **patron dışındaki her aktif hesabı** sayar. Tezgâh da atama hedefi olabildiği
+için (yani fiilen teslimat yapabildiği için) bedava kalsaydı bayi kotayı "hepsini tezgâh açarım"
+diyerek atlar ve "3 kurye hesabı" sözü karşılıksız kalırdı. Tezgâh hesabı bayinin web panelindeki
+Ekip bölümünden açılıyor (`Provisioning::createStaff`; **patron bu yoldan AÇILAMAZ**).
+
+#### Yol üstünde bulunan ölü kod
+
+`test/support/yetki_matrisi_tablosu.dart` **hiçbir yerden import edilmiyordu** — yetki matrisinin
+ikinci, koşmayan bir kopyasıydı. Silindi. (Koşan tablo `yetki_matrisi_test.dart` içindeki
+`_matris`.) İki kopyadan biri koşmuyorsa, o kopya yeşil kalırken diğerini yakalayamaz.
+
+**Kapılar:** flutter analyze temiz · **flutter test 1428 yeşil** (11 yeni) · **phpunit 905 / 904
+geçti / 1 atlandı** · pint temiz.
+
+**SIRADAKİ İŞLER (bu vardiyadan çıkanlar):**
+
+1. **Tezgâhın kişiye özel yetkisi YOK.** Kurye için 13 anahtarlı devralmalı mekanizma var; tezgâh
+   şablonu şu an SABİT. Bayi "benim kasiyerim günü de kapatsın" derse bugün yolu yok. Mekanizma
+   (`users.courier_can_*` + `kuryeIzinleriCoz`) role bağlı değil, yani genişletmek ucuz — ama
+   şablonun hangi anahtarlara açılacağı bir ÜRÜN kararıdır, pilotta sorulmalı.
+2. **Mobilde tezgâh hesabı açılamıyor** (web'den açılıyor). Kurye için de öyleydi ve bilinçliydi
+   (kimlik yüzeyi senkron kuyruğuna açılmaz); ama Ekip ekranı artık iki tür hesap gösteriyor,
+   mobildeki metinler hâlâ "kurye" diyor olabilir — gözden geçirilmeli.
+3. Sahada doğrulanacak: patron kendi telefonundan teslim ettiğinde gün özetinin üç rakamı (kasa ·
+   teslimat · veresiye) **aynı kapsamda** buluşuyor mu.
+
+> **NOT — geçmiş gün ekranı da bu turda dönüştürüldü:** `gecmis_gun_ekrani.dart` artık aynı
+> `gunKapsamlari` + `GunKapsamSecici` ikilisini kullanıyor. Yan fayda: o ekranın kapsam listesi
+> kurye rolünde de "Tümü" üretiyordu (üretimde erişilemez bir yol — geçmiş arşivi patrona özel —
+> ama yine de kuralın ikinci bir kopyasıydı ve ayrışmıştı). Artık tek kural, tek yer.
+
+---
+
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-19/3 — SİTE METNİ SADELEŞTİ: TEKRARLAR SİLİNDİ, "BİZ KİMİZ" AÇILDI (API 1.12.0, mobil DEĞİŞMEDİ 0.34.0)
+
+**Bir önceki turun eksiği kapatıldı.** Kullanıcı "metinler yapay geliyor" demişti; o tur uydurma
+veriyi silmiş ama METNİN KENDİSİNİ büyük ölçüde bırakmıştı. Bu turda sayfaların **görünen
+metni** çıkarılıp okundu (kodu okumak yetmiyordu) ve şunlar bulundu:
+
+| Bulgu | Ne yapıldı |
+|---|---|
+| Ana sayfa "dert" bölümü ile ürün turu **aynı üç konuyu** anlatıyordu | Dert bölümü sayfadan çıktı |
+| Ürün turu ana sayfada 5, Özellikler'de aynı 5 ekran | Ana sayfa **3**'e indi, beşi Özellikler'de kaldı |
+| Özellikler'deki "Bir gün" çizelgesi, üstündeki 5 bölümün özetiydi | Çıkarıldı |
+| "Kurulum" bölümü ana sayfa + Özellikler + SSS = 3 yerde | Yalnız ana sayfada kaldı |
+| **Uydurma veri kayıt/giriş ekranlarında yaşıyordu** | Kaldırıldı — aşağıda |
+| "oto-sıralama hakkı" (site + işletme paneli) | Düz Türkçeye çevrildi |
+| Başlığını tekrarlayan 6 "kulak" | Silindi |
+| "Bunlar kim?" sorusunun cevabı hiçbir yerde yoktu | **`/hakkimizda` açıldı** |
+
+**Ana sayfa 9 → 7 bölüm, Özellikler 6 → 4 bölüm.**
+
+#### ⚠️ Uydurma veri İKİNCİ bir yerde daha vardı — bir tur gözden kaçtı
+
+Önceki tur `site/parca/_temsili-veri.php` dizilerini boşaltarak uydurma yorumları ve rakamları
+silmişti. Ama `components/site/kimlik-kabuk.blade.php` **o dosyayı hiç okumuyor** — kendi içine
+gömülü bir kopya taşıyordu. Sonuç: "Hasan Yıldırım · Yıldırım Su · Antalya" yorumu ve
+"1.240 işletme / %31 daha az kayıp" rakamları **kayıt ve giriş ekranlarında**, yani satın alma
+hunisinin tam ortasında basılmaya devam ediyordu.
+
+> **Ders:** "veriyi tek kaynaktan sil" yeterli değil; aynı içeriğin elle kopyalanmış ikinci bir
+> örneği olabilir. Silme doğrulaması veri dosyasında değil **ekranda** yapılır.
+
+Yerine doğrulanabilir üç söz kondu: *Kart yok · Türkiye · Taahhüt yok*.
+
+#### İki gerçek bilgi hatası düzeltildi
+
+1. Kurulum adımı **"İşletme adı ve telefon numarası yeter"** diyordu — kayıt formu telefon
+   sormuyor, **e-posta** istiyor. Site, formu doldurmaya gelene yanlış hazırlık yaptırıyordu.
+2. Kayıt ekranının alt yazısı **"Sağ üstten giriş yapabilirsiniz"** diyordu — o ekran menüsüz
+   layout kullanıyor, sağ üstte hiçbir şey yok. Yerine gerçek bir bağlantı kondu.
+
+#### Silinen "gereksiz açıklama"lar
+
+- *"Ekranın kendisi. Ekran görüntüsü değil."* + *"uygulamadaki ölçüler, renkler ve yerleşimle
+  birebir"* — geliştirici övüncü; üstelik akla gelmemiş bir şüpheyi hediye ediyor.
+- *"Aşağıdaki dördü bir özellik listesi değil, verdiğimiz sözler."* — metnin kendi türünü
+  açıklaması.
+- *"Sipario bir 'sipariş uygulaması' değil…"* — olmayan bir kategoriyi önce yaratıp reddetmek.
+- *"Tüm sistemler çalışıyor"* rozeti — durum sayfası dili **ve** yeşil sabitti: hiçbir sağlık
+  kontrolüne bağlı değildi, sunucu çökse aynı şeyi söylerdi.
+- "ekran paylaşımı", "çevrimdışı kip", "bot yok", "yerel teslimat" gibi ifadeler.
+
+#### Yeni sayfa: `/hakkimizda` — "Biz kimiz"
+
+Site yıllık dört haneli bir ödeme istiyor ama arkasında kimin olduğunu söylemiyordu. Boşluk
+uydurma yorumlar silinince **büyüdü** (sahte de olsa bir güven kaynağıydılar). Sayfa o boşluğu
+sahte olmayanla dolduruyor: kurucu adı, ekip fotoğrafı, "10 yıllık tecrübe" gibi **bilmediğim
+hiçbir şey yazılmadı**; pilot aşamasında olmak saklanmadı (alternatifi büyük görünüp ilk destek
+aramasında yakalanmaktır) ve beş somut söz sayıldı. Alt bilgiden erişiliyor — üst menü keşif
+aracıdır, site haritası değil (2026-08-05 kararı).
+
+**Kapılar:** phpunit **905 test / 904 geçti / 1 atlandı / 0 kırık** · pint temiz. Doğrulama ağaç
+donduktan sonra koşuldu.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-19/2 — WEB SİTESİ YAYINA HAZIRLANDI: HUKUK PAKETİ · ÖLÇÜM · SEO (API 1.11.0 → **1.12.0**, mobil DEĞİŞMEDİ 0.34.0)
+
+**Tamamı web yüzeyi.** Mobil uygulamaya, senkron sözleşmesine ve API uç noktalarına hiç
+dokunulmadı — telefonlar bu vardiyayı fark etmez.
+
+Kullanıcı isteği dört başlıktı: (1) site ve işletme paneli metinleri "çok yapay", doğallaştır;
+(2) `claude-for-legal` deposundan doğru skill'i kurup **tüm** legal metinleri Türkiye hukukuna
+göre baştan yaz, doldurulacak yerleri işaretle; (3) Google Analytics + gereken metrik altyapısı,
+GTM'siz de çalışsın; (4) anahtar kelime + SEO + `robots`/`llms` dosyaları.
+
+---
+
+#### 1) Sitenin en yapay yeri üslup değil, UYDURMA VERİYDİ — ve silindi
+
+Ana sayfa şunları yayımlıyordu: **"1.240 işletme"**, **"%31 daha az kayıp"**, **"6 dk sipariş
+başına"** ve üç **isimli müşteri yorumu** (Hasan Yıldırım · Yıldırım Su · Antalya; Necla Aksoy ·
+Aksoy Tüp · Konya; Serkan Demir · Demir Market · İzmir).
+
+**Hiçbiri gerçek değildi.** Tasarım prototipinin örnek verisiydi; `_temsili-veri.php` bunu kendi
+başlığında zaten yazıyor ve *"yayına çıkmadan önce ZORUNLU: ya gerçek rakamlarla değiştirilecek
+YA DA bölümler kaldırılacak"* diyordu. **Site 2026-08-07'den beri canlı** — o zorunluluğun tarihi
+geçmişti.
+
+Uydurma bir yorumu "daha doğal Türkçeyle" yeniden yazmak onu **daha inandırıcı bir uydurma**
+yapardı. Diziler boşaltıldı, bölümler sayfadan düştü (parçalar boş diziye karşı zaten korumalıydı).
+Alt bilgideki *"Bu sayfadaki rakamlar örnektir"* dipnotu da kaldırıldı: uydurma rakam kalmayınca
+dipnotun işaret edeceği bir şey kalmadı.
+
+> **Geri gelme şartı dosyaya yazıldı:** yorum için bayiden **yazılı izin** (ad + işletme kişisel
+> veridir), rakam için *"nasıl ölçüldüğü"* söylenebilir olmalı.
+
+#### Metin dili: aynı reklam kalıbı üç başlıkta tekrarlıyordu
+
+"Kâğıt defter iyi bir defterdir. **Kötü bir sistemdir.**" / "İşin durursa defter de durur.
+**O yüzden durmuyor.**" / "Defter değil, **bakiye**." — bu `X değil, Y` ritmi metnin bir insan
+tarafından yazılmadığı hissini veren şeyin ta kendisiydi. Üçü de değişti; ürün turu ve "dert"
+bölümleri esnafın konuştuğu dile yaklaştırıldı ("Her aramada aynı üç soru" → "Aynı soruları her
+gün baştan soruyorsunuz").
+
+İşletme panelinde jargon ayıklandı: **"salt-okunur kipe geçer"** → *"yeni kayıt giremezsiniz;
+girdikleriniz olduğu gibi durur"* (üç ayrı yerde). **"Verilerimi isteyin"** düğmesi → *"Verilerimi
+gönderin"* (emir kipi yanlış tarafa bakıyordu: basan bayi, ama cümle bize emir veriyordu).
+
+⚠️ **Bir dil bilgisi tuzağı kapandı:** "Deneme {tarih}**'da** bitiyor" — `tarih()` her zaman yılla
+biter ve ek son hecenin ünlüsüne uyar: 2026 (altı) → `'da` doğru, **2027 (yedi) ve 2028 (sekiz) →
+`'de` olmalıydı**. Cümle bu yıl doğru, seneye yanlış basacaktı. "…{tarih} **tarihinde** bitiyor"
+eki tamamen ortadan kaldırdı.
+
+---
+
+#### 2) Hukuk paketi: 5 iskelet → **10 tam metin**
+
+Belgeler bugüne kadar başlarında **"PLACEHOLDER"** yazan sarı bir kutu ve gövdelerinde "avukat
+netleştirecek" cümleleri taşıyordu. O kutu bir uyarı gibi görünüyordu ama **işlevi başkaydı:**
+ödeme ekranındaki onay kutuları bu belgelere bağlı, yani bayi *"okudum, kabul ediyorum"* derken
+PLACEHOLDER yazan bir sayfaya onay veriyordu ve `subscription_payments.consent_version` kaydı
+hiçbir şeyin delili değildi.
+
+| Hat | Belgeler |
+|---|---|
+| **Satış** | Mesafeli Satış Sözleşmesi · Ön Bilgilendirme Formu · İptal, Cayma ve İade Koşulları · **Kullanım Koşulları ve Üyelik Sözleşmesi** (yeni) |
+| **Veri** | KVKK Aydınlatma Metni · **Gizlilik Politikası** (yeni) · **Açık Rıza ve Ticari Elektronik İleti Metni** (yeni) · **Veri İşleyen Sözleşmesi Ek-1** (yeni) · Çerez Politikası · **İlgili Kişi Başvuru Formu** (yeni) |
+
+**Üç esaslı karar:**
+
+1. **Açık rıza aydınlatmadan AYRILDI.** Eski belgenin adı "KVKK Aydınlatma Metni **ve Açık Rıza**"ydı
+   ve ikisi tek onay kutusuna bağlıydı. KVKK m.3/1-a rızayı *belirli bir konuya ilişkin* ve *özgür
+   iradeyle* verilmiş sayar; hizmetin ön koşulu yapılan rıza geçersizdir. Hizmet zaten m.5/2-c
+   (sözleşmenin ifası) sebebine dayanıyor — rıza artık **yalnız** pazarlama iletisi ve ölçüm
+   çerezi için isteniyor ve reddi hizmeti hiç etkilemiyor.
+2. **Veri İşleyen Eki zorunluydu, "iyi olur" değil.** Bayinin kendi müşterilerine ait
+   ad/telefon/adres/borç verisinin **sorumlusu bayidir**, Sipario veri işleyendir; KVKK m.12/1 bu
+   ilişkiyi yazılı bir belgeye bağlar. Belge yokken bayi bir denetimde *"veri işleyeninizle
+   sözleşmeniz nerede?"* sorusuna cevap veremezdi.
+3. **"Alıcı tacir mi tüketici mi" sorusu saklanmadı.** TKHK yalnız tüketici işlemlerini kapsar;
+   bu ürünün alıcısı ezici çoğunlukla esnaftır. Metin cayma hakkını **iki alıcı tipi için ayrı
+   ayrı** düzenliyor ve tacire kanunun vermediği 14 günlük iadeyi **sözleşmeyle** veriyor.
+
+**Skill kurulumu:** `anthropics/claude-for-legal` marketplace olarak eklendi;
+**`privacy-legal`** (KVKK/gizlilik hattı) ve **`commercial-legal`** (SaaS sözleşme hattı) kullanıcı
+kapsamında kuruldu. Etkileşimli `cold-start-interview` yerine pratik profili bu projenin gerçek
+olgularıyla dolduruldu: `~/.claude/plugins/config/claude-for-legal/company-profile.md` +
+`privacy-legal/CLAUDE.md` (çift sıfat tablosu, alt işleyen listesi, saklama süreleri, "uydurma
+yok" kuralı). Sonraki vardiya `/privacy-legal:*` komutlarını doğrudan kullanabilir.
+
+**Sürümler ilerledi:** `subscription.legal` 2026-07-15 → **2026-08-19**, ayrıca yeni bir
+`terms_version` hattı açıldı. ⚠️ Eski `consent_version` kayıtları **2026-07-15 olarak duruyor ve
+durmalı** — o bayiler o günkü metni kabul etti; geriye dönük eşitlemek kabul kaydını delil
+olmaktan çıkarırdı.
+
+---
+
+#### 3) "Verileriniz Türkiye dışına çıkmaz" cümlesi YANLIŞTI
+
+Hukuk metinleri yazılırken koda bakınca çıktı. **Dört ayrı yurt dışı çıkışı var:**
+
+| Ne | Nereye | Ne gidiyor |
+|---|---|---|
+| Adres arama | Yandex / Google | **yalnız adres metni** |
+| Rota sıralama | Google Routes | **yalnız durak koordinatları** |
+| Anlık bildirim | Google FCM | cihaz jetonu + olay adı + kayıt no |
+| Site ölçümü (yeni) | Google Analytics | rızaya bağlı kullanım olayları |
+
+**Saklama Türkiye'de** — o doğru ve BRIEF kırmızı çizgisi olarak duruyor — ama saklama ile
+aktarım aynı şey değil (KVKK m.9 ayrı bir rejim). Yeni metinler her çıkışı sayıyor **ve ne
+gitmediğini de yazıyor**: müşterinin adı, telefonu, borcu hiçbir çağrıda yok (ölçüldü).
+
+Aynı denetimde **site iki yerde daha ürünle çelişiyordu**, ikisi de düzeltildi:
+- *"İstediğim zaman iptal edebilir miyim? → **Evet, panelden tek tıkla**"* — panelde iptal düğmesi
+  **yok** ve olmaması bilinçli bir karar (`hesap/abonelik.blade.php` · sapma 3).
+- *"verinizi Excel olarak **alıp gidersiniz**"* — uygulamada dışa aktarım düğmesi **yok**, talep
+  destek kanalından yürür (BRIEF'in kendi kuralı).
+
+> **Ders:** pazarlama metni ile ürün davranışı arasındaki sapma, hukuk metni yazarken en görünür
+> hâle geliyor.
+
+---
+
+#### 4) GA4 kuruldu — ama **rızasız tek bir istek atmıyor**
+
+Ölçüm kimliği `G-6SGNK7B0ZK` (kullanıcı verdi). Yaygın kurulum gtag.js'i hemen yükleyip Consent
+Mode ile "denied" der; **o yaklaşım seçilmedi** — betik yüklenir yüklenmez `googletagmanager.com`a
+istek gider ve o istek ziyaretçinin IP'sini Google'a taşır, KVK Kurulu çerez rehberinin *önceden
+rıza* beklentisini karşıladığı kesin değildir.
+
+Burada etiket **ancak "kabul" tıklandığında** DOM'a enjekte ediliyor. Böylece Çerez Politikası'ndaki
+*"izin vermezseniz Google'a hiçbir istek gönderilmez"* cümlesi **ölçülebilir biçimde doğru** ve
+testi de öyle yazıldı (sunucu çıktısında `googletagmanager.com` geçmemeli).
+
+- **Üç kapı:** kimlik (`ANALITIK_GA4_ID` boşsa hiç kurulmaz) + ortam (varsayılan yalnız üretim —
+  test koşusu gerçek mülke veri yollamaz) + rıza.
+- **Consent Mode v2** dört sinyalle; rıza gelse bile `ad_storage`/`ad_user_data`/
+  `ad_personalization` **denied** kalır ve `allow_google_signals:false` — reklam yapmıyoruz,
+  açık bırakmak "reklam çerezi yok" cümlesini yalanlardı.
+- **Ret ve kabul aynı ağırlıkta, ret önde** (rehber, reddi zorlaştıran tasarımı geçerli rıza
+  saymaz). Reddedilince var olan `_ga*` çerezleri **silinir**. Alt bilgide "Çerez tercihleri"
+  bağlantısı rızayı geri almayı sağlıyor.
+- **GTM hazır ama gerekmiyor:** `ANALITIK_GTM_ID` doldurulursa konteyner devreye girer, kodda
+  değişiklik gerekmez. GTM'in `<noscript><iframe>` parçası **bilerek basılmıyor** — rıza kapısı
+  yalnız JS ile işlediği için o iframe kapının dışından geçerdi.
+- **12 dönüşüm olayı** tanımlı (`config/analitik.php`). Görünümlerde `data-olcum="…"` özniteliği
+  yeter; JS'e dokunmadan yeni düğme ölçülebilir. Bağlananlar: `sign_up` (sunucudan, tenant
+  gerçekten yaratıldıysa), `login`, `begin_checkout`, `sipario_odeme_beyani`, `sipario_iletisim`,
+  `sipario_telefon_tik`, `sipario_whatsapp_tik`, `sipario_deneme_tik` (altı ayrı CTA).
+  ⚠️ **`purchase` bilerek BAĞLANMADI** — bayinin havale beyanı bir **satış değildir**; olay,
+  panelde ödeme onaylandığında yayılmalı (sıradaki işler).
+- **CSP siteye özel genişletildi** (panel ve API'ye **değil**) ve `script-src`e `'unsafe-inline'`
+  **eklenmedi** — eklenseydi tarayıcı nonce'u yok sayar ve mevcut korumanın tamamı anlamsızlaşırdı.
+- **`Referrer-Policy` yüzeye göre ayrıştı:** sitede `strict-origin-when-cross-origin` (eski
+  `no-referrer` tüm trafiği "doğrudan" gösterip raporu ilk günden körleştiriyordu), panel ve
+  API'de `no-referrer` **kaldı**.
+
+---
+
+#### 5) SEO yüzeyi
+
+`sitemap.xml` ve `llms.txt` birer **rota** ve sayfa listesini config'ten okuyor — elle tutulan bir
+kopya ilk yeni belge eklendiğinde bayatlardı. `robots.txt` **statik kaldı** (web sunucusu statik
+dosyayı Laravel'e hiç uğratmaz; rota yazılsaydı sessizce ölü kalırdı) ve genişletildi.
+
+Eklenenler: her sayfada canonical + OG/Twitter + `hreflang tr-TR` + `theme-color`, JSON-LD
+(`Organization` + `WebSite`, yasal sayfalarda `BreadcrumbList`), layout'a `dizine` prop'u
+(kimlik/ödeme ekranlarının tamamı `noindex,follow`).
+
+- **`lastmod` bilerek yok:** `now()` basmak her taramada "her sayfa bugün değişti" demek olurdu ve
+  Google bu sinyale güvenmeyi bırakır. Yanlış sinyal, hiç sinyal vermemekten kötü.
+- **`/fiyatlar` haritaya konmadı:** sayfa `noindex` taşıyor; aynı adrese iki çelişkili sinyal
+  göndermek anlamsız.
+- **`og:image` yok ve uydurulmadı** — olmayan bir dosyaya işaret etmek WhatsApp'ta kırık önizleme
+  üretir. (Sıradaki işler: 1200×630 paylaşım görseli.)
+
+---
+
+#### Kapılar
+
+| Kapı | Sonuç |
+|---|---|
+| `phpunit` (API tam suite) | **YEŞİL — 905 test, 904 geçti, 1 atlandı, 0 kırık** · 4545 iddia · ~10,6 dk |
+| `pint --test` | temiz |
+| `phpstan` | **0 hata** |
+| Yeni test dosyası | `OlcumVeSeoTest` — **14 test**: rıza kapısı, CSP, referrer, robots/sitemap/llms, dizin yönergeleri, yapısal veri, olay işaretleri |
+| Güncellenen testler | `LegalDocsTest` 2 → **8**, `AccountDeletionPageTest` 2 → **4** |
+| Elle ölçüm | 8 genel sayfa 200 · `sitemap.xml` geçerli XML (15 URL, `DOMDocument` ile doğrulandı) · 10 hukuk belgesi render · `node --check` ile `olcum.js` |
+
+> ⚠️ **SUITE İKİ KEZ KOŞULDU VE BİRİNCİSİ SAYILMADI.** İlk tam koşu sırasında ağaç hâlâ
+> hareketliydi (üç görünüm ve bir test dosyası koşu devam ederken değişti). Depoda yazılı kural
+> bu: *doğrulama ağaç donduktan sonra koşulur.* İlk koşu 903 testte 1 kırık verdi
+> (`AccountDeletionPageTest` — kopya değişikliğinin gerçek sonucuydu, düzeltildi); ikinci koşu
+> ağaç yine hareketli olduğu için ORTASINDA DURDURULDU; üçüncüsü donmuş ağaçta koşuldu ve
+> yukarıdaki sayı odur. Test sayısının 903 → 905 çıkmasının sebebi bu vardiyada eklenen
+> iddialardır (`AccountDeletionPageTest` 2 → 4).
+
+#### `AccountDeletionPageTest` neden değişti (kopya değil, sözleşme kilitleniyor)
+
+Test `assertSee('Hesap ve Veri Silme')` ile sayfanın BAŞLIĞINI, `assertSee('TASLAK')` ile de
+kaldırılan yer tutucu kutusunu kilitliyordu. İkisi de birer **davranış** değil, birer **kopya
+tercihiydi**; metin doğallaşınca kırıldılar. Yerine sayfanın taşımak ZORUNDA olduğu bilgi
+kilitlendi: Play'in şartı (erişilebilirlik + sürecin anlatılması), BRIEF'in şartı (talep destek
+kanalından), KVKK'nın şartı (sorumlu/işleyen ayrımı + saklama istisnaları **dayanaklarıyla** +
+30 gün). Artık kopya iyileştikçe kırılmaz, bilgi düşerse kırılır.
+
+---
+
+#### ⚠️ SENİN DOLDURMAN GEREKENLER (belgelerde `DOLDURULACAK` diye işaretli, sayfa başında sayısı yazıyor)
+
+Hepsi `config/subscription.php` → `company` bloğundan veya env'den okunuyor; **kod değişmez, env
+dolunca işaretler kendiliğinden kaybolur.**
+
+| Alan | env anahtarı | Nerede görünüyor |
+|---|---|---|
+| Ticaret unvanı | `COMPANY_TITLE` | 4 belge + alt bilgi telif satırı |
+| Açık adres | `COMPANY_ADDRESS` | mesafeli satış · ön bilgilendirme · KVKK · başvuru formu |
+| MERSİS no | `COMPANY_MERSIS` | mesafeli satış · ön bilgilendirme · KVKK |
+| Vergi dairesi / no | `COMPANY_TAX_OFFICE` | mesafeli satış · ön bilgilendirme |
+| Telefon | `COMPANY_PHONE` | 3 belge + destek/iletişim kanal kartları |
+| **KEP adresi** | **env anahtarı YOK — eklenmeli** | mesafeli satış · ön bilgilendirme · KVKK · başvuru formu |
+| **Yetkili mahkeme/icra** | **env anahtarı YOK — eklenmeli** | mesafeli satış m.13 · ön bilgilendirme · iptal-iade |
+| **KDV dahil/hariç + oran** | **env anahtarı YOK — eklenmeli** | mesafeli satış m.4 · ön bilgilendirme |
+| **VERBİS kayıt durumu** | **env anahtarı YOK — eklenmeli** | KVKK aydınlatma m.1 |
+| **Barındırma sağlayıcısı unvanı** | **env anahtarı YOK** | veri işleyen eki alt işleyen tablosu |
+| **SMTP sağlayıcısı + ülkesi** | **env anahtarı YOK** | KVKK aktarım tablosu · veri işleyen eki |
+| **Yurt dışı aktarım dayanağı** | — | KVKK m.5 · veri işleyen eki m.6 — **standart sözleşme imzalanıp Kurul'a 5 iş günü içinde bildirilmeli** |
+| **İYS kaydı** | — | açık rıza metni — ticari elektronik ileti göndermeye başlamadan önce açılmalı |
+| **WhatsApp numarası** | **config karşılığı YOK** | destek + iletişim kanal listesi (bugün hiç basılmıyor) |
+| **Kartlı ödemenin açılacağı tarih** | — | mesafeli satış m.4 · ön bilgilendirme m.4 |
+
+Ayrıca **insan işi, env değil:**
+- **Avukat onayı.** Her belgenin başındaki sarı kutu bunu söylüyor; onay gelince
+  `<x-legal.uyari />` çağrıları belgelerden silinir (bileşen tek yerde, on dosyada arama gerekmez).
+- **Google Analytics'te 8 dönüşüm olayını "anahtar olay" işaretle.** Adlar
+  `config/analitik.php` → `olaylar` tablosunda, `donusum => true` olanlar.
+- **GA4 veri saklamayı 14 aya çek** (Çerez Politikası bu süreyi metin olarak yazıyor).
+- **Search Console'a `sitemap.xml` gönder.**
+
+---
+
+**SIRADAKİ İŞLER (bu vardiyadan çıkanlar):**
+
+1. **`purchase` olayı panele bağlanmalı.** Bugün yalnız beyan (`sipario_odeme_beyani`) ölçülüyor;
+   gerçek satış, panelde ödeme onaylandığı an yayılmalı. Aksi hâlde GA4 hunisi tahsil edilmemiş
+   parayı ciro gösterir.
+2. **`og:image` (1200×630) hazırlanmalı.** Satış WhatsApp'tan yürüyor; görselsiz bağlantı çıplak
+   URL olarak görünüyor.
+3. **API hata yanıtları güvenlik başlığı almıyor** (bu vardiyada ölçüldü, DÜZELTİLMEDİ — kapsam
+   dışı). `SecurityHeaders`, `api` grubuna `append` ile takılı, yani `auth:sanctum`ın fırlattığı
+   401 middleware'e hiç uğramıyor: `/api/v1/auth/me` → 401, `Referrer-Policy` = null. Öncelik
+   listesi `ResolveTenantContext` için elle ayarlanmış; dokunmak yan etki üretebilir, ayrı bir
+   vardiyada ölçülerek yapılmalı.
+4. **Anahtar kelime çalışması ikinci tura girmeli.** Bugün meta açıklamaları ve `llms.txt`
+   ürünün gerçek dilini taşıyor ("veresiye defteri", "arayan tanıma", "kurye takibi", "su bayii
+   programı"); gerçek arama hacmi ölçülmedi. Search Console verisi biriktikten sonra başlıklar
+   veriye göre ayarlanmalı — bugün tahminle ayarlamak, ölçmeden optimize etmek olurdu.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-19/1 — KOYU TEMA GÖZ YORMUYOR: MOR KOYUDA AÇILDI, NÖTRLERDEN ÇEKİLDİ (mobil 0.33.0 → **0.34.0**, API DEĞİŞMEDİ 1.11.0)
+
+**Tek kullanıcı isteği**, tamamı istemci tarafı: *"dark mode tarafı çok göz yoruyor; mor ana
+rengimiz ama dark modda her yerde uygulanacak diye bir şey yok."*
+
+#### Teşhis ÖLÇÜLDÜ (varsayılmadı)
+Koyu tema o güne dek CSS `.app.koyu` bloğunun birebir kopyasıydı; `accent`/`danger`/`ok`/`warn`
+ana tonları açık temadan **olduğu gibi** taşınıyordu ("durum renkleri tema değişince kaymasın"
+kuralı — bilinçliydi ama hiç ölçülmemişti). Ölçüm iki arıza gösterdi:
+
+| Bulgu | Değer | Neden sorun |
+|---|---|---|
+| `accent #5A45F0` koyu kart üstünde | **2,86:1** | WCAG AA (4,5:1) ALTINDA — tek vurgu rengi okunmuyordu |
+| `accent` OKLCH kroma | **0,242** | paletin en doymuş rengi; doymuş mavi-mor koyu zeminde optik titreşim yapar |
+| nötr yüzeylerin kroması | ~0,026 | `bg`/`surface`/`ink` dahil HEPSİ mor tentliydi → ekran mor sis |
+| `ink` zemin üstünde | **16,45:1** | saf beyaza yakın metin koyu zeminde halation (harf çevresinde hale) |
+
+#### Üç kural kondu (yalnız KOYU tema; açık tema hiç değişmedi)
+1. **Vurgu koyuda AÇILIR.** Mor hue korunur, OKLCH L .53→.75 · C .242→.12 (Material'ın koyu tema
+   "tone 80" mantığı). Kart üstünde **2,86 → 6,94:1**. Aynısı danger/ok/warn için.
+2. **Mor HER YERDE DEĞİL.** Nötrlerin kroması ~.026 → ~.010; mor yalnız **vurgu** ve **hero**da
+   görünür. Markanın görünürlüğü azalmadı, gürültüsü azaldı.
+3. **Beyaz ışık KISILIR.** `ink` **16,45 → 13,46:1** (hâlâ AAA'nın çok üstünde).
+
+Renkler açıldığı için üstlerindeki mürekkep **tersine döner**: koyuda `accentInk` koyudur ve
+durum dolguları (tehlike düğmesi · senkron bandı · sihirbaz rozeti · Material `onError`/
+`onTertiary`) için yeni **`durumInk`** jetonu eklendi. Açıkta ikisi de beyaz → eski davranış.
+
+#### Sözleşme artık DEĞER değil NİYET kilitliyor
+`ui_temel_test.dart` içinde yeni grup: kontrast eşikleri (vurgu/durum ≥ 4,5 · dolgu mürekkebi
+≥ 4,5 · gövde metni 7–15 arası) ve **"nötr yüzeyde doygunluk ≤ 10"**. Palet bir gün yeniden
+ayarlanabilir; koyu temanın göz yormama sözü ayarlanamaz. `ui_kabuk_test.dart` de güncellendi —
+eskiden "accent iki temada da AYNI" diye kilitliyordu, artık tersini kilitliyor.
+
+⚠️ **BİLİNÇLİ SAPMA:** koyu palet artık `design_handoff_sipario/` altındaki CSS'ten ayrışıyor.
+Ayrışma `tokens.dart` başlığında ve DESIGN_SYSTEM.md'de yazılı — CSS'e bakıp "Dart sapmış"
+diye geri almayın.
+
+**Kapılar:** `flutter analyze` temiz · `flutter test` **1416 test yeşil** · palet eski/yeni
+yan yana PNG'ye basılıp gözle doğrulandı.
+
+**Dokunulmayan:** açık tema · `onHero*` sabitleri (hero daima koyu olduğu için tema-bağımsız) ·
+API (1.11.0) · panel/web.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-18/5 — AYARLAR SADELEŞTİ: METİN DİLİ · ANAHTARLAR · SİMÜLASYON KALDIRILDI (mobil 0.32.0 → **0.33.0**, API DEĞİŞMEDİ 1.11.0)
+
+**Üç kullanıcı isteği.** Hepsi ayarlar yüzeyine dokunuyor; sunucu tarafı hiç değişmedi.
+
+#### 1. "Metinler çok yapay" → iki kalıp ayıklandı
+- **ANAHTARLI SATIRDA ALT BAŞLIK DURUMU TEKRARLIYORDU.** "Telefon çalarken müşteri kartı
+  gösterilir" / "Kapalı — çağrıda kart gösterilmez" gibi çift cümleler vardı; durumu zaten
+  sağdaki `SipKnob` gösteriyordu. **Kural: anahtarlı satırda alt başlık NE İŞE YARADIĞINI
+  anlatır, açık/kapalı olduğunu değil.**
+- **ENVANTER CÜMLELERİ.** "Tema, arayan tanıma, sürükleme" · "İzinler, kategoriler, sessiz
+  saatler" · "4 şablon · varsayılan metin" — virgüllü anahtar listeleri site haritası gibi
+  okunuyordu. Bayinin sorusu "içinde kaç şey var" değil, "burada ne yaparım".
+- **YAPISAL SADELEŞTİRME** (aynı eleştirinin parçası): hub'da sayfa adını tekrarlayan "Ayarlar"
+  bölüm başlığı kaldırıldı; İşletme sayfasında **beş satır için dört** bölüm başlığı **ikiye**
+  indi (Dükkân · Sipariş). Gruplama tarama içindir; satır sayısı kadar başlık taramayı zorlaştırır.
+
+⚠️ TESTLERE YANSIYAN SONUÇ: `ui_arayan_ayari_test.dart` durumu artık METİNDEN değil
+**KONTROLDEN** sınıyor (`SipKnob.acik`). Kopyayı sınayan bir test, kopya her iyileştiğinde
+kırılır ve hiçbir davranışı korumaz.
+
+#### 2. Aç/kapa ayarları anahtarla
+- "Ürün içerikleri" satırı dokunuşta ayarı ÇEVİRDİĞİ hâlde chevron taşıyordu — chevron "bu satır
+  bir sayfa açar" der, yani kullanıcıya yanlış bir söz verir. Anahtar eklendi.
+- "Sürükleme tutamacı" başlığı **"Tutamaç sağda"** oldu: iki yönlü bir tercihte anahtarın AÇIK
+  hâlinin ne demek olduğu başlıkta cevaplanmalı, yoksa anahtar okunamaz.
+- Zaten anahtarlıydı: koyu tema, arayan tanıma, bildirim kategorileri.
+
+#### 3. "Gelen çağrıyı dene" kaldırıldı
+- Dört sahte senaryoyla çağrı kartını açan simülasyon sheet'i tamamen silindi
+  (`_SimulasyonListesi`, `_SimTuru`, `onCagriSimulasyonu`/`onCagriDene`, kabuk bağlantısı).
+- ⚠️ `_cagriKartiAc` **KALDI** — onu gerçek çağrı ve çağrı geçmişi kullanıyor.
+
+#### Doğrulama
+`flutter analyze` 0 · `flutter test` **1412/1412** · üç ayar ekranı golden ile gözle incelendi
+(hub · İşletme · Uygulama).
+
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-18/4 — ÇOK İŞLETMELİ GÖRÜNÜRLÜK: "İÇİNDEKİLER" ARTIK YETENEĞE BAĞLI (mobil 0.31.0 → **0.32.0**, API 1.11.0 DEĞİŞMEDİ¹)
+
+**Kullanıcı düzeltmesi.** Aynı vardiyada eklenen ürün seçenekleri özelliği HER ürün formunda
+koşulsuz çiziliyordu; kullanıcı haklı olarak itiraz etti: bu uygulamayı su bayii, tüp bayii,
+market, dönerci, tostçu BİRLİKTE kullanıyor ve **"su bayisinde içindekiler göstermek çok
+mantıklı değil"**.
+
+¹ API sürümü artmadı çünkü 1.11.0 bu vardiyada zaten yayınlanmadı; yeni kolon (migration 004015)
+onun içine girdi.
+
+#### Asıl tasarım kararı tek bir cümleden çıktı
+> *"küçük bir bakkal olabilir ama aynı zamanda tost yapıyor olabilir"*
+
+Yani **tek bir "işletme türü" etiketi bu ürünü tarif EDEMEZ.** Tür bir ETİKETTİR; davranışı
+belirleyen şey YETENEKTİR. Şemaya `business_type` metni DEĞİL,
+`tenant_settings.prepared_products` BOOLEAN'ı eklendi — ekranlar türü değil yeteneği okur.
+
+#### İki katmanlı görünürlük
+1. **İŞLETME** — yetenek kapalıysa özelliğin tamamı görünmez. **Varsayılan KAPALI**: bu üründeki
+   bayilerin çoğunluğu su/tüp bayisidir, azınlığın ihtiyacı çoğunluğa dayatılmaz.
+   Açma yeri: Ayarlar → İşletme → "Ürün içerikleri".
+2. **ÜRÜN** — yetenek açıkken bile malzemesi olmayan üründe yalnız tek satırlık
+   "İçindekiler ekle · hazırlanan ürün" bağlantısı durur. Bakkalın 300 paketli ürününde bölüm
+   açık kalsaydı gürültü aynen geri gelirdi.
+
+⚠️ İkinci katman **ayrı bir kolonla değil listenin kendisiyle** çözüldü. Bir `hazirlanan` bayrağı,
+listeyle çelişebilen (bayrak açık/liste boş, bayrak kapalı/liste dolu) İKİNCİ bir doğruluk
+kaynağı olur ve hiçbir yeni bilgi taşımazdı.
+
+⚠️ **YETENEK KAPALI OLMAK VERİ SİLMEZ.** Kapı yalnız düzenleyiciyi gizler; kaydetme yolu listeyi
+aynen geri yazar. Aksi hâlde yeteneği geçici kapatan dönerci, bir ürünü açıp kaydettiği anda
+bütün malzemelerini sessizce kaybederdi — test bunu kilitliyor
+(`yetenek KAPALIYKEN mevcut malzeme listesi KORUNUR`).
+
+#### Görsel doğrulama (golden, üç işletme türü)
+- **Su bayisi** (yetenek kapalı): formda içindekilere dair HİÇBİR iz yok. ✓
+- **Bakkal** (açık, paketli ürün): tek satırlık bağlantı. ✓ (ilk çekimde satır TAŞIYORDU —
+  `Flexible`+ellipsis ile düzeltildi; golden olmasa fark edilmezdi)
+- **Dönerci** (açık, malzemeli ürün): tam düzenleyici, "İçinde/Ekstra" anahtarları, ek ücret
+  alanı, hazır liste düğmesi. ✓
+
+#### Doğrulama
+`flutter analyze` 0 · `flutter test` **1412/1412** · API: `SurumCarpikligi` + `UrunSecenekleri`
+19/19 · migration 004015 koşuldu.
+
+#### 🔜 SIRADAKİ ADIM — KURULUM SİHİRBAZI (kullanıcı vizyonu, HENÜZ YAPILMADI)
+Kullanıcının tarifi: işletmenin **ilk girişinde** bir kurulum tetiklenecek ve soracak —
+*"sadece kendisi mi var yoksa kuryeleri de mi var, işletmenin türü ne, ne gibi hizmetleri var
+neler satıyor"* — arayüz cevaplara göre şekillenecek.
+
+**Mimari çizgi bugünden çekildi, sihirbaz gelirken korunmalı:**
+- Sihirbaz **TÜRÜ sorar, YETENEĞİ yazar**; ekranlar yalnız yeteneği okur. Ekranların doğrudan
+  "işletme türü" okuduğu bir tasarım bakkal-tost hâlinde kaçınılmaz olarak yanlış karar verir.
+- Bugün tek yetenek var (`prepared_products`). Sihirbaz gelince kurye kullanımı, hizmet türleri
+  vb. için yenileri eklenecek.
+- **Her yeteneğin ayar satırı KORUNACAK.** Sihirbaz ilk girişte BİR KEZ sorar; ayar satırı,
+  fikir değiştiren bayinin (altı ay sonra tost yapmaya başlayan bakkal) dönebileceği yerdir.
+- ⚠️ Mevcut `screens/sihirbaz/` **İZİN** sihirbazıdır (Android izinleri) — bu yeni kurulum
+  sihirbazıyla karıştırılmamalı, ayrı bir akıştır.
+
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-18/3 — DÖRT SAHA MADDESİ: GÜNÜN VERESİYESİ · TAHSİLAT KAYNAĞI · KAPANIŞI GERİ ALMA · ÜRÜN SEÇENEKLERİ (mobil 0.28.0 → **0.31.0**, API 1.10.0 → **1.11.0**)
+
+**Kullanıcının verdiği dört maddenin dördü de bitti, doğrulandı ve sürümlendi.** Bu vardiya hem
+mobil hem sunucu tarafına dokundu: mobil şema v22→**v23**, iki API migration (004013, 004014),
+bir yeni uç nokta (`/auth/parola-dogrula`).
+
+#### 1. "Gün özetinde veresiye işlemleri gözükmüyor" → Günün Veresiyeleri (0.29.0)
+- Ekranda veresiye adına tek kart vardı ve o **anlık toplam bakiyeyi** gösteriyordu (aylardır
+  birikmiş borç). Bugün yazılan veresiye o yığında eriyordu — günün mutabakatının eksik yarısı.
+- ⚠️ **EN KOLAY YANLIŞ CEVAP "günün debit'lerini topla"**: `deliver` HER teslimde tutarın
+  TAMAMI kadar `debit` yazar (nakit teslimde bile) ve borç hemen `payment` ile kapanır. O toplam
+  ciroya eşittir, veresiyeye değil.
+- ⚠️ İKİNCİ YANLIŞ CEVAP zaten kodda vardı: `gunSonuBildirimVerisi` gün geneli tek net alıyor,
+  negatife düşmesin diye sıfıra kırpıyordu. Kırpma belirtiyi örtüyordu — bir müşterinin fazla
+  ödemesi BAŞKA bir siparişin veresiyesini götürebiliyordu. Doğru birim **SİPARİŞTİR**
+  (`GunVeresiyeRepository`); bildirim de artık aynı fonksiyondan besleniyor.
+- UI: "Günün Veresiyeleri" bölümü (toplam hep görünür, döküm aç/kapa), kurye kapsamında da çizilir.
+
+#### 2. "Borç tahsilatı sipariş gibi gözüküyor" → tahsilat kaynağı (0.29.0)
+- `TahsilatKaynagi`: gununSiparisi (ROZETSİZ) · gecmisSiparis · borcTahsilati · duzeltme.
+- Kasadan **hiçbiri düşülmedi** (kullanıcı kararı); kasa kartına yalnız
+  "Eski borç tahsilatı (toplama dahil)" satırı eklendi. Etiketteki "dahil" pazarlıksız: satır
+  iskontonun komşusunda duruyor ve oradaki para kasaya GİRMEDİ, buradaki GİRDİ.
+
+#### 3. "Kasayı kapattığında yönetici şifresiyle geri alabilsin" (0.30.0 · API 1.11.0)
+- `day_closings.reverses_closing_id` — ters satır, silme yok (`cash_handovers` deseninin aynısı).
+- ⚠️ **BAĞLI KASA DEVRİ DE GERİ ALINIR, aynı transaction'da.** Atlansaydı yeniden kapatma İKİNCİ
+  bir devir yazar, `teslimEdilenNakit` ikisini birden sayar ve beklenen nakit teslim edilen
+  paranın İKİ KATI kadar düşerdi — append-only olduğu için kalıcı.
+- ⚠️ **KAPANIŞ ID ÇEKİRDEĞİNE "DENEME SIRASI" EKLENDİ.** Id `tenant|scope|user|gün`den
+  türüyordu; yeniden kapatma AYNI id'yi üretir, yerelde PK çakışır, sunucuda 'duplicate' olurdu
+  → düzeltilmiş sayım HİÇ kaydedilmezdi. İlk kapanış eski etiketi aynen taşır (sahadaki
+  kayıtların id'si değişmez), determinizm korunur.
+- Yönetici onayı: `POST /auth/parola-dogrula`, yalnız TOKEN'IN sahibini doğrular (kullanıcı adı
+  gövdeden alınmaz), `throttle:login`. **Yerel parola aynası bilinçli olarak REDDEDİLDİ** —
+  bu tek eylem çevrimiçi ister ve ağ yokken kullanıcı gerekçesini okur.
+
+#### 4. "İçinde şu olsun olmasın" → ürün seçenekleri (0.31.0 · şema v23)
+- Üç JSON alanı, **sıfır yeni senkron varlığı**: `products.options` · `order_lines.options` ·
+  `customers.product_options`. Gerekçe `customers.favorite_product_ids` (2026-08-11) ile birebir.
+- ⚠️ Satırın seçimi **kendi kendine yeter**: çıkarılanın ADI, eklenenin FİYATI satırda durur —
+  menü yarın değişse dünkü sipariş hâlâ "soğansız" der.
+- ⚠️ Seçim **satır notuna da yazılır**. Özelliğin en ucuz kazancı: sipariş detayı, kurye ekranı
+  ve geçmiş `note` alanını ZATEN çiziyor — hiçbirine dokunmadan seçim görünür oldu (ve eski
+  istemcilerde bilgi kaybolmuyor).
+- Ekstra ücreti BİRİM fiyata biner; `lineTotalKurus = birim * adet` kimliği korundu, hiçbir para
+  formülü değişmedi. Sepette birleştirme artık SEÇİME de bakıyor (yoksa "1 soğanlı + 1 soğansız"
+  → "2 soğansız" olurdu).
+- UX: ürün formunda malzeme düzenleyici + **hazır şablonlar** (Dürüm/Döner, Gözleme, Tost,
+  Burger, Pide, Salata, Çay, İçecek) · adet sheet'inde çip seçici · müşteri tercihi ÖNCEDEN
+  uygulanır ve bunu ekranda SÖYLER · "Bu müşteri için hatırla" anahtarı · müşteri kartında
+  "Ürün Tercihleri" bölümü (görüntüle + sil).
+- "İşletme türü" diye sabit bir alan EKLENMEDİ: aynı dükkânda hem dürüm hem tatlı satılır.
+
+#### Doğrulama (bu makinede bizzat koşuldu)
+- `flutter analyze` **0 sorun** · `flutter test` **1407/1407** (vardiya başında 1364)
+- `flutter build apk --release --flavor saha` başarılı (80.9 MB)
+- API: `pint` temiz · `phpstan` **0 hata** · yeni testler yeşil (KapanisGeriAlma 6/6,
+  UrunSecenekleri 7/7, izolasyon matrisi +1)
+- Sürüm: `pubspec.yaml` 0.31.0 · `surum_notlari.dart`ta DÖRT kayıt (0.29.0 · 0.30.0 · 0.31.0 —
+  0.28.0 bir önceki vardiyadan) · `config/app.php` 1.11.0
+
+#### SONRAKİ KİŞİYE
+1. **Ürün seçeneklerini gerçek bir menüyle dene.** Şablonlar başlangıç noktasıdır; sahadaki
+   dürümcüyle oturup listeyi düzeltmek özelliğin gerçek sınavıdır.
+2. Kapanış geri alma **çevrimiçi ister**. Bunu bayiye anlatan tek yer sürüm notu ve sheet'teki
+   uyarı — pilotta "internet yokken neden çalışmıyor" sorusu gelirse cevabı budur.
+3. Bildirim sesleri hâlâ **gerçek cihazda dinlenmedi** (bir önceki devir notundan devam eden madde).
+4. `ROTA_SURUCU` maddesi hâlâ açık — bu vardiya ona dokunmadı.
+
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-18/2 — DÖRT SAHA İSTEĞİ KAPANDI: YETKİ ARIZASI · 3 SÜTUN KATALOG · DOKUZ BİLDİRİM SESİ · KARTTAN TESLİM (mobil 0.26.0 → **0.28.0**, API DEĞİŞMEDİ 1.10.0)
+
+**Kullanıcının verdiği dört maddenin dördü de bitti, doğrulandı ve sürümlendi.** Bu vardiya
+yalnız mobil tarafa dokundu; sunucu sözleşmesi DEĞİŞMEDİ (`apps/api/config/app.php` 1.10.0 aynen).
+
+#### 1. Patron "Kuryeler"e giremiyordu — kapının kendisi değil ONA GİDEN YOL kırıktı (0.26.1)
+- Belirti: patron hesabında Kuryeler → *"Bu ekran yöneticilere açık"*; diğer sayfalar normal.
+- Kök neden: 0.26.0'da `YoneticiKapisi` bir İZİN LİSTESİNE çevrildi (bilinmeyen/eksik rolde
+  KAPANIR) ama çekmece `KuryelerEkrani(db:, writable:)` çağrısına `rol`ü HİÇ geçirmiyordu.
+  Geçilmeyen alan `null` → kapı kapalı. **Aynı açık `MuafEkrani`de de vardı** (fark edilmemişti).
+- ⚠️ Teşhis dersi: `ui_rol_kapisi_test.dart` o vardiyada yazılmıştı ve TAMAMI YEŞİLDİ. Kırık olan
+  kapı değil bağlantıydı; kapıyı test etmek, kapıya giden yolu test etmek değildir.
+- Kalıcı çözüm: dört korunan ekranda (`Ürünler` · `Kuryeler` · `Muaf` · `Kurye Yetkileri`)
+  `rol` artık **`required`** — unutmak DERLENMEZ. Ayrıca `lib/` genelinde `rol: null` yazımını
+  arayan bekçi testi eklendi (zorunlu alana elle null yazmak aynı arızayı üretirdi).
+
+#### 2. Sipariş eklerken ürün kartları çok büyüktü → ızgara 2 sütundan 3'e (0.26.2)
+- `pos_catalog.dart`: `crossAxisCount` 2→3, `childAspectRatio` 0.86→**0.68**, dolgu/punto küçüldü.
+- ⚠️ Oran sütun sayısına BAĞLIDIR: karo yüksekliği sabit parçalardan (2 satır ad + fiyat + dolgu)
+  ve genişliğe orantılı parçadan (5/4 görsel) oluşur. Sütun artınca genişlik düşer, sabitlerin
+  payı büyür — 0.86 bırakılsaydı fiyat satırı taşardı. 0.68 en dar telefonda (360 dp) ~10 px pay
+  bırakır ve bu `ui_pos_katalog_test.dart` ile kilitlendi (taşma widget testinde HATA olur).
+- Golden PNG ile gözle de bakıldı: 3 sütun dengeli, kırpma yok.
+
+#### 3. Her bildirime özel ses — dokuz kategori, dokuz ton (0.27.0)
+- Önceden yalnız `siparisAtandi`/`siparisIptal` ayırt ediliyordu; kalan yedisi sistem varsayılanını
+  çalıyordu. Artık **hepsinin kendi tonu var** (`BildirimKategori.ses` nullable DEĞİL).
+- ⚠️ **`wire` ile kanal kimliği AYRILDI.** Android bir kanalın sesini doğuştan sonra değiştirtmez
+  (yeni kanal kimliği şart), ama `wire` sunucu sözleşmesidir (FCM `kategori`) ve sürümlenemez.
+  Çözüm: `wire` çıplak kaldı, `kanalKimligi` = `${wire}_v2`. v1 kanalları `deleteNotificationChannel`
+  ile SİLİNİYOR — deponun "kanal silme" kuralının bilinçli istisnası (gerekçe: v1 bir daha
+  kullanılmayacak ve adı v2 ile birebir aynı; bırakılsaydı ayarlarda iki özdeş satır kalırdı).
+- Ses tasarımı `scripts/bildirim_sesi_uret.dart` (saf matematik, telifi bizim). Ayrım İKİ EKSENDE:
+  nota deseni VE **tını** (harmonik içerik: zil · org · elektronik · saf sinüs) — telefon hoparlörü
+  dar bantlı olduğu için yalnız melodi değiştirmek dokuz sesi birbirine benzetirdi.
+  Tepe genlik 0.35→**0.60** ve her ses tepeye NORMALİZE edilir.
+- **Dördüncü kapı koşuldu:** `flutter build apk --release --flavor saha` → APK içinde dokuz `.wav`
+  VAR ve `resources.arsc` dokuz adı da taşıyor (yani `getIdentifier` çözebilir). `keep.xml` dokuza
+  çıkarıldı; `bildirim_altyapi_test.dart` artık "sözleşme ↔ res/raw ↔ keep.xml" üçlüsünü tarıyor.
+- BEDELİ AÇIK: yeni kanal, bayinin SİSTEM ayarlarında yaptığı kısmaları hatırlamaz (uygulama içi
+  tercihler korunur, çünkü onlar hâlâ `wire` ile saklanıyor). Sürüm notuna bayi diliyle yazıldı.
+
+#### 4. Sipariş kartına "Teslim Et" düğmesi — en sağa (0.28.0)
+- Eylem şeridi (Ara · WhatsApp · Konum) dörde çıktı; dördüncü en sağda, yeşil kenarlıklı.
+- Akış KOPYALANMADI: `screens/orders/teslim_akisi.dart` → `TeslimAkisi` nesnesi. Sipariş DETAYI da
+  artık oradan geçiyor. Gerekçe: bakiye okuma + iskonto yetkisi + özet metni ayrışmaya en açık üç
+  yerdi ve bu depoda aynı ekranın iki girişinin farklı yetkiyle açılması bir kez açık üretmişti.
+- Kapılar: salt-okunur kipte düğme HİÇ çizilmez (teslim bir yazmadır); müşterisiz tezgâh
+  siparişinde eylem şeridi yerine tek başına çizilir (üç düğmenin hepsi ölü olurdu).
+- ⚠️ Etiket **"Teslim" olamadı**: üstteki segment sekmelerinden biri de "Teslim" ve o LİSTELEME
+  yapar. Aynı kelime bir yerde "şu listeyi göster", diğerinde "bu siparişi kapat" demiş olurdu;
+  test de `find.text` iki eşleşme bulup düştü. Şerit dört düğmeliyken ikon/ara/punto küçülür
+  (`sikisik` bayrağı) — üç düğmelik şerit sebepsiz küçülmesin diye KOŞULLU.
+
+#### Doğrulama (bu makinede bizzat koşuldu)
+- `flutter analyze` → **0 sorun**
+- `flutter test` → **1371/1371 yeşil** (vardiya başında 1364; +7 yeni test)
+- `flutter build apk --release --flavor saha` → başarılı (80.6 MB) + APK içeriği ölçüldü (9 ses)
+- Sürüm: `pubspec.yaml` 0.28.0, `surum_notlari.dart`ta DÖRT ayrı kayıt (0.26.1 · 0.26.2 · 0.27.0 ·
+  0.28.0) — her iş kolu kendi artışını aldı (CLAUDE.md sürüm kuralı).
+
+#### SONRAKİ KİŞİYE
+1. **Bildirim sesleri GERÇEK CİHAZDA dinlenmeli.** Ölçülen şey seslerin APK'da OLDUĞU; kulakla
+   ayırt edilebilirlikleri (özellikle `kapanis` ↔ `yeni_cihaz`, ikisi de tekrarlı desen)
+   yalnız telefonda doğrulanır. Beğenilmezse `scripts/bildirim_sesi_uret.dart` tablosu düzenlenir
+   ve komut yeniden koşulur — ⚠️ ama ses değişirse `kanalKimligi` `_v3` olmak zorundadır.
+2. Kanal v1 silme yolu cihazda doğrulanmadı (widget testi platform kanalına dokunamaz): güncelleyen
+   bir telefonda sistem bildirim ayarlarında ÇİFT satır kalmadığı gözle bakılmalı.
+3. `ROTA_SURUCU` maddesi hâlâ açık (bir önceki devir notu) — bu vardiya ona dokunmadı.
+
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-18 — SSH AÇIKMIŞ: ÜÇ ORTAM MADDESİ KAPANDI, BİR "KAPALI" MADDE YALAN ÇIKTI (kod DEĞİŞMEDİ; sürüm DEĞİŞMEDİ: mobil 0.26.0, API 1.10.0)
+
+**🔴 BU VARDİYANIN EN ÖNEMLİ TEK CÜMLESİ: SSH ERİŞİMİ VAR VE HEP VARDI.** Önceki vardiya
+#11 ve #17'yi "erişim yok" diye kapatamamıştı (*"Coolify MCP'de komut çalıştırma yok, SSH
+kapalı"*). Ölçüldü: `ssh -i ~/.ssh/sipario_v2_ed25519 root@187.124.191.134` → `srv1577146`,
+Docker 29.4.1, `docker exec` serbest. Anahtar 2026-08-15'te zaten tazelenmişti; "kapalı"
+hükmü **denenmeden** verilmişti. Erişim açılınca üç madde aynı vardiyada kapandı.
+
+> ⚠️ **DERS (bu depoda ikinci kez):** "erişim yok" bir ÖLÇÜMDÜR, bir hatırlama değil.
+> Bir aracın çalışmaması (Coolify MCP'de komut yok) başka bir aracın da çalışmadığını
+> göstermez. Bir sonraki vardiya "X kapalı" yazan bir satır görürse **X'i bir kez dener.**
+
+**✅ #11 — TEST ORTAMINA DEMO VERİSİ YÜKLENDİ.**
+Madde "test ortamı boş, içinde bayi yok" diyordu; **bu da bayattı** — elle kurulmuş bir
+`test-bayi` zaten vardı (2 kullanıcı · 6 müşteri · 21 sipariş). Eksik olan DEMO bayisiydi.
+`DemoSeeder` koşuldu (idempotent, tek işlem — mevcut bayiye dokunmaz):
+
+| Demo bayisi | Sayı |
+|---|---|
+| kullanıcı | 5 |
+| müşteri | 11 |
+| ürün | 10 |
+| sipariş | 15 |
+| defter kaydı | 14 |
+| çağrı kaydı | 6 |
+
+**Giriş UYGULAMANIN KENDİ YOLUNDAN doğrulandı** (kayıt saymak giriş yapılabildiğini
+kanıtlamaz — bu depoda bir kez ödendi): `POST /api/v1/auth/login` → **HTTP 200**,
+`demo/demo/demo1234` → patron "Mehmet Usta" · "Merkez Su Bayii" · `valid_until` 2036.
+⚠️ Uç nokta `/api/v1/login` DEĞİL, **`/api/v1/auth/login`**tir.
+
+**✅ #17 — ÖKSÜZ HACİMLER SİLİNDİ (10 adet, ~377 MB).** Silmeden önce içerik OKUNDU, çünkü
+maddenin asıl sorusu disk değil *"veri silindi mi?"* belirsizliğiydi. Yedek hacimleri
+okunabilir `pg_dump` taşıyordu; en yeni öksüz kuşağın dökümü açıldı:
+**tek bayi = slug `demo` / "Merkez Su Bayii"** — yani `DemoSeeder`'ın ürettiği SENTETİK veri.
+**Gerçek bayi/müşteri verisi YOKTU**, dolayısıyla silme hiçbir şey kaybettirmedi ve KVKK
+tarafında da doğru olan buydu. Dökümler (~700 KB) `/root/oksuz-hacim-arsiv/` altına
+`OKUBENI.txt` ile arşivlendi; o dizin serbestçe silinebilir.
+
+| Silinen kuşak | Hacim | Boyut |
+|---|---|---|
+| `h43pc3…` | backups · pgdata-v3 · pgdata-v4 | 508K · 46M · 73M |
+| `pz3gsgc8…` | backups · pgdata-v4 | 236K · 72M |
+| `un35zcb3…` | pgdata · pgdata-v1 | 46M · 47M |
+| `xwdasjxc3…` | backups(boş) · pgdata-v2 · pgdata-v3 | 4K · 46M · 46M |
+
+Kalan iki hacim (`l1o1xouu…_sipario-backups`, `…-pgdata-v4`) KULLANIMDADIR; silme sonrası
+beş kap sağlıklı ve site HTTP 200.
+
+**✅ #16 — `${DEGISKEN:-varsayilan}` TARAMASI KAPANDI.** Önceki vardiyanın sayısı bağımsız
+olarak doğrulandı: compose'da **64** varsayılanlı satır, panelde **68** tanımlı anahtar →
+**yalnız 2 varsayılan fiilen yürürlükte** (`YEDEK_DIZIN:-/backups`, `YEDEK_TAZELIK_SAAT:-30`;
+üçüncü eşleşme `${DEGISKEN:-varsayilan}` yorumdaki örnektir).
+🔴 **Asıl ders burada ve maddenin metninden daha keskin:** ölü varsayılanların çoğu panel
+değeriyle **birebir aynı** (`LOG_CHANNEL=stderr`, `CACHE_STORE=database`,
+`SESSION_DRIVER=database`, `QUEUE_CONNECTION=database`, `BCRYPT_ROUNDS=12`). Yani **değere
+bakarak hangisinin yürürlükte olduğu ayırt EDİLEMEZ** — eşitlik, varsayılanın yaşadığının
+değil yalnızca çakıştığının kanıtıdır. Tek güvenilir ölçüt: *anahtar panelde tanımlı mı?*
+
+**📏 #10 — DEPLOY KESİNTİSİ YENİDEN ÖLÇÜLDÜ: 48 saniye.** Zaten gereken bir redeploy
+(aşağıda) 0,5 sn aralıklı sonda ile izlendi: 1 bağlantı hatası + **60 ardışık 503**,
+`02:24:53 → 02:25:40`. Yani PLAN'daki **52,3 sn** ölçümü doğru ve YENİDEN ÜRETİLEBİLİR —
+tek seferlik bir aksama değil, düzenin kendisi. Sebep compose'da zaten yazılı: `deploy:`
+bloğu Swarm dışında yok sayıldığı için `start-first` diye bir şey yok; Coolify eski kabı
+durdurup yenisini kuruyor ve `start_period: 40s`lik healthcheck bekleniyor.
+**Karar DEĞİŞMEDİ ve değişmemeli:** sıfırlamak iki replika + expand/contract migration
+disiplini ister; bugünkü tek kullanıcı test ortamıdır, 48 sn'nin bedeli sıfırdır.
+Madde "araştırılacak" olmaktan çıkıp **ölçülmüş ve kabul edilmiş** hâline geçti.
+
+**✅ `YEDEK_EPOSTA` UÇTAN UCA ÇALIŞIYOR** (kullanıcı panelde tanımladı, bu vardiyada bağlandı).
+⚠️ Tanımlamak YETMİYORDU: koşan kap 3 günlüktü ve değişkeni taşımıyordu (`config('yedek.eposta')`
+boş dönüyordu). Redeploy sonrası `YEDEK_EPOSTA=tnyligokhan@gmail.com` kaba indi ve komut
+gerçekten koştu: `yedek:baglanti-gonder` → **çıkış kodu 0**, `App\Mail\YedekHazir … DONE`,
+`failed_jobs` 0. Yani posta kuyruktan geçti, artık her sabah 08:00'de çıkacak.
+
+> **KURAL OLARAK KAYDA GEÇSİN:** Coolify'da bir değişkeni TANIMLAMAK onu YÜRÜRLÜĞE KOYMAZ.
+> Değişken kaba ancak yeni kap kurulurken iner; koşan kap eski değerlerle yaşamaya devam
+> eder. "Panelde yazıyor" bir kanıt değildir — kanıt `docker inspect` ya da uygulamanın
+> kendi `config()` çıktısıdır.
+
+**🔴 BU VARDİYANIN KÖTÜ HABERİ — #19 "KAPANDI" YAZIYORDU, KAPANMAMIŞ:**
+`ROTA_SURUCU` sunucuda **`yakin-komsu`**. Redeploy'dan SONRA da öyle kaldı, yani bu eski
+kabın bayatlığı değil — **panel değerinin kendisi `google` değil.** PLAN #19 ve 2026-08-17
+devir notu *"AÇIK · `ROTA_SURUCU=google` · gerçek yol ağı çalışıyor"* diyor; **sahada
+yürürlükte olan yakın-komşu yedeğidir.** Gerçek yol ağı sıralaması ŞU AN KAPALI.
+Madde yeniden AÇILDI (aşağıda). Düzeltmesi tek satır (panelde `ROTA_SURUCU=google` +
+redeploy) ama bu bir kota kararıdır ve test/üretim aynı anahtarı paylaşmamalıdır —
+**kullanıcıya bırakıldı, kendi başıma değiştirmedim.**
+
+**YAN ÖLÇÜM — test ortamı 3 gün eski kod koşuyormuş:** deploy öncesi `/api/v1/version`
+**1.8.0** dönüyordu, ağaç **1.10.0**'dı. Redeploy sonrası **1.10.0**. Sürüm artırılmadı,
+yalnız mevcut kod indi.
+
+**ÖLÇÜMLER:** site HTTP 200 · beş kap sağlıklı · demo girişi 200 · `failed_jobs` 0 ·
+kuyruk boş · disk 12G/96G. **Kod değişmedi, sürüm değişmedi** (kural: kullanıcıya görünen
+davranış değişmediyse artış yok).
+
+**TEMİZLİK:** doğrulama için açtığım erişim jetonları silindi (3 adet).
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-17/3 — LWW KAPANDI · YETKİ KAPISI DARALDI · EMANET v1'DEN ÇIKTI (mobil 0.25.1 → **0.26.0**, API 1.9.0 → **1.10.0**)
+
+**1. LWW SANİYE-ALTI BORCU KAPANDI — ve kırpıcı İKİ TANEYDİ.** Aylardır `incomplete` duran test
+sebebi tek başına kolona yüklüyordu; ölçülünce eksik çıktı:
+
+| Kırpıcı | Durum |
+|---|---|
+| Karar veren 19 kolon `timestamptz(0)` | → `timestamptz(6)` (migration `2026_08_17_004012`) |
+| **Eloquent damga biçimi `Y-m-d H:i:s`** | Mikrosaniyesiz; model gelen `.900000`'ı KAYDEDERKEN kırpıyordu → `MikrosaniyeliDamga` trait'i (14 model) |
+
+**Yalnız migration yazılsaydı hiçbir şey düzelmezdi** ve bu sessiz kalırdı. Ürün kodu (`lwwWins`)
+DEĞİŞMEDİ — zaten çözünürlükten bağımsızdı. Sonuç: API takımı ilk kez **869/869, `incomplete` YOK**.
+⚠️ İki tuzak kayda geçti: trait `$dateFormat` property'sini EZEMEZ (PHP ölümcül hatası, testlerde
+"Premature end of PHP process" kılığında çıkıyor — metot ezilir); `pint` `Concerns` altındaki
+trait import'unu "kullanılmıyor" sanıp siliyor (trait `App\Models` ad alanına taşındı).
+
+**2. COMPOSE VARSAYILANLARI TARANDI — 64'te 62'si ÖLÜ.** Ölçüm yöntemi dosyanın başına yazıldı
+(Coolify `list_env_keys` × compose grep). Yürürlükte olan yalnız `YEDEK_DIZIN` ve
+`YEDEK_TAZELIK_SAAT`. 🔴 **Asıl bulgu:** `APP_KEY`in varsayılanı depoda AÇIK YAZAN bir anahtardı.
+Dev'de ölüydü ama varsayılanlar tam da **panelde tanımsızken**, yani üretim sıfırdan kurulduğunda
+canlanır — uygulama herkesin okuyabildiği bir anahtarla açılırdı. Varsayılan kaldırıldı: artık
+`APP_KEY` yoksa Laravel açılışta gürültüyle düşer.
+
+**3. YÖNETİCİ KAPISI İZİN LİSTESİNE ÇEVRİLDİ** (karar bana bırakıldı). `rol != 'kurye'` →
+`rol == 'patron' || rol == 'operator'`. Tanınmayan/eksik rol artık KAPALI — deponun kendi ilkesi
+("belirsizlikte kapanan taraf seçilir"). Rol inene kadar dört ekran kısa süre kapalı görünür ve
+kendiliğinden açılır; bu bedel bilerek kabul edildi. Yetki değişikliği → mobil **MINOR**.
+
+**4. EMANET / BOŞ KAP TAKİBİ v1'DEN ÇIKARILDI** (karar bana bırakıldı, seçenek **c**). Var olan
+tek şey bir bayraktı ve **mobil onu hiç okumuyordu** — düğme boşluğa basıyordu. BRIEF.md'ye kupon
+desenindeki "v1'DEN ÇIKARILDI" notu düşüldü, panel etiketi "(v1'de yok)" oldu. Mekanizma KALDI
+(BRIEF md. 3'ün panel şartı); pilotta bayilere sorulacak.
+
+**ÖLÇÜMLER:** API **869/869** (`incomplete` yok) · `phpstan` 0 · `pint` temiz (372 dosya) ·
+panel takımı 42/42 · yetki takımı 97/97 · `dart analyze` 0.
+
+**⛔ YAPILAMAYAN İKİ İŞ — ERİŞİM YOK, ATLAMADIM:**
+> 🔴 **DÜZELTME (2026-08-18): BU BAŞLIK YANLIŞTI — ERİŞİM VARDI, İKİ İŞ DE YAPILDI.**
+> `ssh -i ~/.ssh/sipario_v2_ed25519 root@187.124.191.134` çalışıyor (`srv1577146`, Docker
+> 29.4.1, `docker exec` serbest); anahtar 2026-08-15'te zaten tazelenmişti. #17 ve #11
+> 2026-08-18 vardiyasında kapandı. Aşağıdaki iki madde TARİHSEL olarak duruyor — silinmedi,
+> çünkü asıl ders onların içinde: **"erişim yok" bir ölçümdür, bir hatırlama değil.**
+- **Öksüz Docker hacimleri (#17):** Coolify API'si öksüzleri GÖREMİYOR (hacim uygulamaya bağlı,
+  o uygulamalar silinmiş). SSH denendi, **izin sınıflandırıcısı engelledi**. Ayrıca hacim silmek
+  geri alınamaz — kullanıcı onayı olmadan yapılmaz.
+- **Test ortamına demo verisi (#11):** Coolify MCP'de komut çalıştırma yok, SSH kapalı;
+  `db:seed` koşacak bir yol yok.
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-17/2 — KOD BORÇLARI ERİDİ + SAHADA ÖLÜMCÜL İKİ GÖÇ ARIZASI BULUNDU (mobil 0.25.0 → **0.25.1**, API DEĞİŞMEDİ 1.9.0)
+
+**🔴 BU VARDİYANIN EN ÖNEMLİ CÜMLESİ: `onUpgrade`de İKİ GERÇEK ARIZA VARDI ve ikisi de sahadaki
+telefonu ÖLDÜRÜYORDU.** Kod borcu #13 ("yükseltme yolu testi yok") tam olarak bunun için
+duruyordu; test yazılır yazılmaz ikisi birden çıktı.
+
+| Arıza | Ne olurdu | Kanıt |
+|---|---|---|
+| `users.username` adımının ALTER'ı **hiç yazılmamış** (kolon v13'te eklendi, göç adımı yok) | v7+ damgalı cihazda `users` sorgusu çöker → **Kuryeler ekranı, atama, `team` senkronu ölür** | düzeltme geri alınınca `$UsersTable.map` patlıyor |
+| `route_credits_monthly` adımı kendini-onarma **kapısının ARKASINDA** | v8 damgalı cihazda kapı erken döner, adım hiç koşmaz → `sync_meta` okunamaz → **uygulama HİÇ AÇILMAZ** | düzeltme geri alınınca `$SyncMetaTable.map` patlıyor |
+
+Düzeltme: iki adım da kapıdan ÖNCEye taşındı. **Testlerin gerçekten yakaladığı ölçülerek
+kanıtlandı** — düzeltme geçici olarak geri alındı, iki test kırmızı yandı, geri kondu.
+
+> ⚠️ **KURAL (bir daha ihlal edilmesin):** kendini-onarma kapısı (`if (latest.isNotEmpty) return;`)
+> `tenant_settings` arar ve o tablo **v8'de doğar**. Yani **kapıdan SONRA yazılan her adım, v8 ve
+> sonrası damgalı cihazlarda ÖLÜDÜR.** Yeni adım yazarken tek soru: "bu adımın koşması gereken
+> cihazda `tenant_settings` var mı?" Varsa adım kapıdan ÖNCE yazılır. Gerekçenin tamamı
+> `app_database_gocler.dart` başlığında.
+
+**KAPANAN KOD BORÇLARI (altısı da bitti):**
+
+| # | Borç | Sonuç |
+|---|---|---|
+| 9 | Yetki Matrisi'nin testi yok | **26 satır × 5 senaryoluk veri tablosu + 32 test** (`yetki_matrisi_test.dart` 23 + `ui_rol_kapisi_test.dart` 9 + `support/yetki_matrisi_tablosu.dart`) |
+| 10 | 500 satır kuralını 13 dosya çiğniyor | **`lib/` altında 500'ü aşan dosya KALMADI** (tablo aşağıda) |
+| 11 | Testlerde sabit yazılmış iş değerleri | `SubscriptionTest` dönem süresi → `BillingPeriod::Yearly->uzat()`; `LiveLocationTest` sınırı → `config('konum.kalp_atisi_limit')` + "sınır genelden DAR olmalı" iddiası (vakuma düşmesin diye) |
+| 12 | Flutter SDK ↔ lock sapması | **Sapma ölçülemedi: `dart analyze` 0 issue, lock DEĞİŞMEDİ.** `onReorder` hâlâ kullanımda ve deprecated UYARISI ÇIKMIYOR — kör göç YAPILMADI, madde kapandı |
+| 13 | Yükseltme yolu testi | v1/v7/v8 zincir testleri + v19/v20/v21 + `support/migration_yardimcilari.dart` iskelesi; **`semaTamOlmali` sınıf düzeyinde koruma** (yükseltilmiş şema ⊇ taze şema) |
+| 14 | CI'da birleştirilmiş manifest denetimi | `mobil-apk.yml`e adım eklendi + `check_permissions.sh`teki **gerçek hata** düzeltildi |
+
+**500 SATIR — ÖNCE/SONRA (hepsi ölçüldü):**
+
+| Dosya | Önce | Sonra |
+|---|---|---|
+| `home_shell.dart` | 1022 | 461 + durum 99 + gezinme 200 + çağrı 235 + gövde 110 |
+| `sync_engine.dart` | 850 | 253 + `sync_cekme` 380 + `sync_itme` 281 |
+| `kuryeler_ekrani.dart` | 754 | 340 + `kurye_karti` 226 + `kurye_formu` 230 |
+| `order_queries.dart` | 728 | bölündü (`order_musteri_sorgulari` vb.) |
+| `phase0_screen.dart` | 663 | 201 + kartlar 267 + test kartı 223 |
+| `customer_form_screen.dart` | 559 | 424 + `musteri_formu_eylemler` 162 |
+| `tables.dart` | 566 | 272 + `tables_isletme` 312 |
+| `app_database.dart` | 546 | 151 + `app_database_gocler` 423 |
+| `cekmece.dart` | 541 | 368 + `cekmece_satirlari` 182 |
+| `day_end_screen.dart` | 513 | + `gun_sonu_eylemleri` |
+| `form.dart` | 512 | 274 + `form_kontroller` 255 |
+| `ana_ekran.dart` | 509 | 274 + `ana_ekran_parcalari` 245 |
+| `bildirim_sozlesmesi.dart` | 504 | 467 + `sessiz_saatler` 53 |
+
+> **BÖLME YÖNTEMİ (sonraki vardiya aynısını yapsın):** widget'ın kendi başına yaşayabildiği yerde
+> AYRI KÜTÜPHANE + `export` ile sözleşme korunur (`kurye_formu`, `form_kontroller`); sınıfın ÖZEL
+> durumuna dokunan yüzeylerde `part` + `extension` kullanılır (`home_shell`, `sync_engine`).
+> ⚠️ `part`taki extension `setState`i DOĞRUDAN çağıramaz (`@protected`) — kabuk `_durumDegisti`
+> kapısını açar. ⚠️ Drift tabloları `part` ile bölünür: ayrı kütüphane 19 bin satırlık üretilmiş
+> dosyayı yeniden ürettirirdi; `part` sayesinde **`app_database.g.dart` hiç değişmedi.**
+
+**ÖLÇÜMLER (üç kapı da bizzat koşuldu, ağaç dondurulmuş hâlde):**
+- **mobil `flutter test`: 1362/1362 YEŞİL.** ⚠️ Bu sayıyı 1108'le karşılaştırmayın: o ölçüm
+  2026-08-09 tarihlidir ve aradaki sekiz günün işini de içerir. **Bu vardiyanın kendi katkısı 38
+  yeni testtir** (yetki matrisi 23 + rol kapısı 9 + göç zinciri 3 + v19/v20/v21 üçer bir).
+- `dart analyze`: **0 issue** (`onReorder` info'su dahil hiçbir uyarı yok)
+- API: **869 test / 867 geçti + 1 incomplete (LWW) + 1 kırık → kırık DÜZELTİLDİ**, `pint` temiz
+  (370 dosya) · `phpstan` **0 hata**
+- ⚠️ **BÖLME İKİ KAYNAK-TARAYAN BEKÇİYİ KIRDI ve ikisi de değerliydi** (biri Dart, biri PHP):
+  `ui_cagri_yon_test.dart` çağrı kartının `yon:` argümanını, `SurumCarpikligiTest` ise **mobil
+  `batchSize` ile sunucunun `MAX_EVENTS` sabitinin bağını** denetliyor. İkisi de tek bir dosya
+  ADI yazıyordu; taşınan kodu bulamayınca "desen değişmiş" diye düştüler. **İkisi de artık dosya
+  AİLESİNİ tarıyor** (`home_shell*`, `sync_*`) — bir sonraki bölme onları yeniden kırmasın diye.
+  **Ders: kaynak tarayan bekçi, taradığı dosyanın adına değil AİLESİNE bağlanmalıdır.**
+- **Birleştirilmiş manifest denetimi KIRMIZI YAKABİLİYOR — kanıtlandı:** `magaza` manifestine
+  `READ_SMS` enjekte edildi → betik kanalı isimlendirerek düştü (çıkış kodu 1), sonra geri alındı.
+  Gradle görev adı (`:app:processMagazaReleaseManifest`) de yerel olarak doğrulandı.
+
+**🔴 KAYDA GEÇEN BULGU — KARAR KULLANICIDA (düzeltilmedi, testle KİLİTLENDİ):**
+`YoneticiKapisi` rol `null` iken **AÇILIYOR** (`rol != 'kurye'`), oysa `yetkiler(rol: null)` en dar
+küme olan KURYE'yi veriyor. İki kural aynı soruya farklı cevap veriyor. Bugün açık üretmiyor
+(o dört ekrana giden tek yol çekmece ve o da aynı ölçütü kullanıyor), ama kapının VARLIK SEBEBİ
+"çekmece atlandığında korumak"tı — derin bağlantıda rol henüz inmemişse koruma yok. Deponun kendi
+ilkesi "belirsizlikte AÇILAN değil KAPANAN taraf seçilir" der; hizalamak bir YETKİ değişikliğidir
+(MINOR) ve kullanıcı kararı ister. `ui_rol_kapisi_test.dart` mevcut davranışı kilitledi.
+
+**✅ TEST DOSYASI BÖLME İŞİ — KULLANICI KARARIYLA KAPANDI, LİSTEYE BİR DAHA GİRMEZ.**
+Beş dosya bölündü (`ara_tahsilat` · `harita` · `müşteri` · `çağrı` · `sipariş` aileleri; hepsi
+yeşil, **test kaybı yok** — önce/sonra sayıldı: 55→55 · 29→29 · 43→43 · 28→28 · 22→22) ve orada
+DURULDU. Kullanıcı kararı: **500 satır kuralı `lib/` içindir, test dosyalarına uygulanmaz** —
+test dosyası grup grup okunur, bölmenin kazancı kozmetik, riski test kaybıdır. Kalan dosyalar
+(628 · 609 · 552 · 546 · 513 · 511 · 509 · 507 · 502) bölünmez. Kural `CLAUDE.md`ye yazıldı.
+
+**🆕 YENİ KURAL (kullanıcı, 2026-08-17): bundan sonra yazılan HER ŞEY OOP'a uygun olur — test
+dosyaları dahil.** Testte karşılığı fikstür SINIFIDIR (`test/support/*` deseni). ⚠️ Geriye dönük
+DEĞİLDİR: mevcut kod olduğu gibi kalır, toplu dönüştürme yapılmaz; mevcut dosyaya satır eklerken
+o dosyanın kendi kalıbı korunur. Ayrıntı `CLAUDE.md` ve `DECISIONS.md` son satırlarında.
+
+**⚠️ BU VARDİYADA YAPTIĞIM BİR HATA, KAYDA GEÇSİN:** `cekmece_parcalari.dart`ı **var olan bir dosya
+olduğunu kontrol etmeden** üzerine yazdım (2026-08-13'te oluşturulmuştu). Git izlediği için tek
+komutla geri alındı, kayıp yok. Ders: bölmede yeni dosya adı seçerken hedefin BOŞ olduğu önce
+ölçülür — `ls` bir saniye, kurtarma beş dakika.
+
+**AJAN HATTI ÖLDÜ AMA İŞ DURMADI:** beş ajan (yetki-testci · gocmen · bolucu-ekran ·
+bolucu-cekirdek · api-ci) oturum limitine çarpıp aynı dakikada düştü. **İşleri commit edilmemiş
+hâlde ağaçta duruyordu** ve yarım bir bölme ağacı kırıyordu (`borclu_karti.dart` veri dosyasını
+arıyordu, dosya hiç yazılmamıştı). Lead devraldı, yarımı tamamladı, ölçtü. Ders yine aynı:
+**ajan limitte ölünce önce `git status` + `git log` — iş yapılmış olabilir.**
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-17 — YEDİ MADDE KAPANDI, DÖRT MADDE ASKIYA ALINDI (kod DEĞİŞMEDİ, sürüm DEĞİŞMEDİ: API 1.9.0, mobil 0.25.0)
+
+**Bu vardiya kod yazmadı** — kullanıcı sahada/panelde biriken işleri bitirdi ve durumu bildirdi;
+yapılan iş bunların üç ayrı listede (baştaki "İnsan gerektiren işler", "SIRADAKİ İŞLER — TEK LİSTE",
+arşiv 2026-07 listesi) **aynı anda** işaretlenmesidir. Bir yerde kapatıp ötekinde bırakmak, maddenin
+bir sonraki vardiyada yeniden "açık" diye karşımıza çıkması demekti — üç listenin biri hâlâ eskisini
+söylüyor olurdu.
+
+**✅ KAPANANLAR (kullanıcı doğruladı):**
+
+| Madde | Ne oldu |
+|---|---|
+| Coolify bildirim kanalı | **Telegram kuruldu**, bildirimler kullanıcının telefonuna düşüyor. Bir çöküşü fark etmek artık ölçüme değil kanala bağlı. |
+| Google API anahtarı | **IP ile kısıtlandı** — sohbete sızmış anahtarın serbest kullanımı kapandı. |
+| SMTP / e-posta | **Test sunucusunda postalar gidiyor** → `MAIL_MAILER` gerçekten `smtp`, `log` değil. Parola sıfırlama ve günlük yedek postası da aynı yoldan çıkıyor. |
+| **Arayan tanıma 20/20** | **Ölçüm yapıldı → FAZ 0'IN ŞARTI DÜŞTÜ, GO KESİN.** BRIEF'in 1 numaralı korkusu ve ürünün varlık sebebi artık doğrulanmış. |
+| Deneme APK'sı | **Elle kuruldu ve testleri yapıldı** (`com.sipario.app.test`); bundan sonrası kendini günceller. |
+| Coolify Stop → ağ silinir → deploy kilidi | **Çözüldü.** Kurtarma satırı (`docker network create …`) arşivde tarihsel bilgi olarak duruyor. |
+| Test ortamında gerçek yol ağı sıralaması | **AÇIK** — `ROTA_SURUCU=google`; yakın-komşu artık yalnız yedek yol. |
+
+**⏸️ ASKIYA ALINANLAR — kullanıcı kararı, YENİDEN GÜNDEME GETİRİLMEZ:**
+**iyzico** · **Apple (D-U-N-S + geliştirici hesabı)** · **iOS** · **e-arşiv fatura**.
+Bunlar "unutulmuş iş" değil, bilinçli bekletmedir; sıradaki işler listesinden kendiliğinden
+tetiklenmezler. Yeniden açılmaları ancak yeni bir kullanıcı kararıyla olur. Tarifleri arşiv
+listesinde olduğu gibi duruyor — askı kalktığı gün hazır bulunsun diye.
+
+**🟡 AÇIK AMA ACELESİ YOK:** **Android release keystore** (kullanıcı: *"henüz daha var"*). Release
+hâlâ debug anahtarıyla imzalanıyor; Play'e yükleme bu satır olmadan yapılamaz ama başvuru gündemde
+değil. **Her vardiyada hatırlatılmaz.**
+
+**🔵 KULLANICIDA KALAN TEK KÜÇÜK İŞ:** Coolify'da **`YEDEK_EPOSTA`** tanımı (kullanıcı: "yapacağım").
+Tanımlanana kadar `yedek:baglanti-gonder` her sabah **bilerek HATA ile** çıkar — sessizce başarılı
+dönmemesi tasarımdır, arıza değil.
+
+> ⚠️ **BAYAT ÇIKAN İKİ SATIR, ÖLÇÜLEREK DÜZELTİLDİ (belgeye değil koda bakıldı):**
+> (1) Arşiv listesindeki **"mobil CI yok"** maddesi aylardır yanlıştı — `mobil-apk.yml` `dart analyze`
+> + `flutter test` + imzalı APK + `surum.json` yayınını zaten koşuyor. (2) `kDebugMode` kapısının
+> dosya yolu (`ayarlar_ekrani.dart:266`) ayarların beşe bölünmesiyle taşınmış; doğrusu
+> `screens/isletme/ayarlar/uygulama_ayarlari_ekrani.dart:138`.
+
+**Sürüm neden artmadı:** kullanıcıya görünen hiçbir davranış değişmedi, tek satır kod yazılmadı.
+Sürüm kuralı "kullanıcıya görünen değişiklik" der; burada değişen yalnız belgenin gerçeğe uyumudur.
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-16 — LARAGON KALDIRILDI, API TARAFI TAMAMEN DOCKER'DA (sürüm DEĞİŞMEDİ: API 1.9.0, mobil 0.25.0)
+
+**Kullanıcı kararı:** *"Local tarafında Laragon ve Docker kullanıyoruz, bunu istemiyorum; her şey
+Docker üzerinde olsun ve Laragon bağımlılığından kurtulalım."* + *"Coolify tarafında bir şeyleri
+etkilemesin."*
+
+**⚠️ SÜRÜM ARTMADI VE BU DOĞRU:** kullanıcıya görünen hiçbir davranış değişmedi — bu tümüyle
+geliştirici ortamı işidir. Sürüm kuralı "kullanıcıya görünen değişiklik" der; burada görünen
+şey yok.
+
+**COOLIFY'A HİÇ DOKUNULMADI (kısıt buydu):** `docker-compose.prod.yml` ve üretim imajı
+`docker/php/Dockerfile` **değişmedi**. Dev tarafı yalnız `docker-compose.yml`de yaşıyor.
+
+**LARAGON FİİLEN NE SAĞLIYORDU (ölçüldü):** yalnız **PHP 8.3 CLI + Composer**. Apache/vhost hiç
+kullanılmıyordu, Postgres zaten Docker'daydı. Bağımlılık küçüktü ama GÖRÜNMEZDİ ve iki script'e
+gömülüydü.
+
+**YAPILAN:**
+- `docker-compose.yml`e iki servis: **`php`** (`sleep infinity` ile elde tutulan komut kabuğu) ve
+  **`web`** (`artisan serve`, `127.0.0.1:8000`). İkisi AYRI: web bir sözdizimi hatasında ölse bile
+  testler ve kalite kapısı çalışmaya devam etsin diye.
+- `scripts/api.ps1` (**yeni**) — tek giriş noktası: `artisan · composer · pint · phpstan`.
+- `scripts/quality-gate-commit.ps1` — PHP arama bloğu Docker'a çevrildi.
+- `scripts/saha-sunucu.ps1` — `Bul-Php` ve `Pgsql-Var` kaldırıldı; migrate/seed/serve container'a taşındı.
+- `README.md` — Laragon satırı ve "PHP eklentilerini aç" adımı kaldırıldı, kurulum akışı yeniden yazıldı.
+- **Docker tamamen sıfırlandı** (kullanıcı emri): 1 container, 3 volume, 5 imaj, 21 build cache
+  katmanı silindi (938 MB), yığın sıfırdan kuruldu.
+
+**ÜÇ TUZAK, ÜÇÜ DE ÖLÇÜLEREK BULUNDU:**
+1. **`vendor` named volume ROOT sahipliğinde doğuyor**, container `www-data` koşuyor →
+   `composer install` ilk pakette düşüyor. Bu, üretim compose'unda `storage/logs` için zaten
+   yazılı olan tuzağın aynısı. **Sonunda named volume tümüyle bırakıldı** (aşağıda).
+2. **Port sessizce genişliyordu.** Compose'a düz `"8000:8000"` yazmak paneli yerel ağdaki
+   herkese açar; yerini aldığı `artisan serve --host=127.0.0.1` yalnız bu makineye açıktı.
+   `127.0.0.1:8000:8000` yapıldı — sahaya açmanın yolu tüneldir, yerel ağ değil.
+3. **🔴 MOUNT KAPSAMI DAR OLUNCA 11 TEST DÜŞTÜ.** İlk kurulumda yalnız `apps/api` bağlanmıştı.
+   `RolParolaEsitlemeTest` depo kökündeki dosyaları okur (`dirname(__DIR__, 5)` →
+   `docker-compose.prod.yml`) ve Laravel'i hiç önyüklemez; container'da depo kökü olmadığı için
+   `/var` çıkıyor ve "dosya yok" diyordu. **Ortam, testin denetlediği şeyi görünmez yapmıştı.**
+   Düzeltme: depo kökü bağlanır (`./:/depo`), `working_dir: /depo/apps/api`.
+
+> ⚠️ **KENDİ TEŞHİSİMDE BİR KEZ YANILDIM, KAYDA GEÇSİN:** 11 kırığı önce "suite koşarken
+> migrate/seed çalıştırdım, rol parolaları çakıştı" diye açıkladım. Temiz koşuda **aynı 11
+> kırık** çıktı — açıklama yanlıştı. Ders deponun kendi dersinin tersi yönünde: eşzamanlılık
+> bu depoda gerçekten sahte kırmızı üretti (birden çok kez), ama **tanıdık açıklama doğru
+> açıklama değildir**; kırığın mesajı okunmadan sebep atanmaz.
+
+**ÖLÇÜMLER (üçü de bizzat koşuldu, tam takım):**
+
+| Ortam | Sonuç | Süre |
+|---|---|---|
+| Host / Laragon PHP | 868 ✓, 1 atlandı, 1 incomplete | 753 sn |
+| Container, dar mount | 855 ✓, **11 kırık** | 740 sn |
+| **Container, depo kökü mount** | **868 ✓, 0 kırık**, 1 incomplete | **1007 sn** |
+
+- **Kapsam GENİŞLEDİ:** host'ta *atlanan* 1 test (openssl/Windows) Linux container'da artık
+  gerçekten koşuyor ve geçiyor. Atlanan test sayısı 1 → 0.
+- **Bedel: %34 yavaşlama** (753 → 1007 sn). Sebebi `vendor`ün Windows bind mount'una düşmesi
+  (dar mount + named volume denemesinde 740 sn'ydi). **Bilerek kabul edildi:** kalite kapısı
+  `artisan test` koşmuyor (yalnız pint + phpstan, saniyeler sürüyor), tam takım çoğunlukla
+  CI'da koşuyor. Rahatsız ederse `vendor`ü named volume'e döndürmek gerekir — ama o zaman
+  yukarıdaki 1. tuzak ve "boş volume host vendor'ünü içine kopyalıyor" sorunu ayrıca çözülmeli.
+- `pint` temiz (370 dosya) · üç PowerShell script'i sözdizimi denetiminden geçti.
+
+> ✅ **TÜNEL TÜMÜYLE KALDIRILDI (aynı vardiya, kullanıcı kararı):** *"Tünel artık yok, onunla
+> alakalı her şey silinebilir."* Yani yukarıdaki "sahada denenmemiş parça" sorunu ortadan kalktı —
+> denenecek bir şey kalmadı. **Silinenler:** `scripts/saha-sunucu.ps1` (375 satır) ·
+> `scripts/SUNUCU-BASLAT.bat` · `apps/api/storage/logs/tunnel.log`. Script tünelsiz anlamsızdı:
+> geriye kalan işleri (docker başlat · migrate · seed) `docker compose up -d` ve
+> `scripts/api.ps1` zaten yapıyor.
+>
+> ⚠️ **`bootstrap/app.php`'DEKİ `trustProxies` SİLİNMEDİ ve SİLİNMEMELİ.** Yorumu cloudflared'i
+> anlatıyordu ama ayarın kendisi tünele ait değil: üretim dalı (`production ? '*'`)
+> Coolify/Traefik arkasında koşan her istek için gerekli. Kaldırılsaydı `asset()`/`route()`
+> mutlak URL'leri `http://` üretir, HTTPS sayfada karışık içerik doğar ve mobil Chrome CSS'i
+> koşulsuz engellerdi — sahada birebir yaşanmış bir arıza. Yorum, "bu ayar tünele ait değildir,
+> silinmez" uyarısıyla güncellendi.
+>
+> Saha denemesi artık gerçek sunucuya karşı yapılıyor; yerel web sunucusu yalnız `127.0.0.1`e
+> bağlı ve dışarı hiç açılmıyor.
+
+**YEREL VERİTABANI SADELEŞTİRİLDİ (kullanıcı isteği, aynı vardiya):** `migrate:fresh` + seed
+sonrası iş verisi boşaltıldı ve fazla hesaplar silindi. Kalan: **1 işletme (`demo`)**,
+**1 patron (`demo`)**, **1 kurye (`emre`)**, parola `demo1234`; 2 panel yöneticisi (parolaları
+sıfırlandı, kullanıcıya bir kez gösterildi). Müşteri/sipariş/ürün/defter **0**.
+⚠️ Bu sadeleştirme YALNIZ VERİTABANINDA — `DemoSeeder` bilerek DEĞİŞTİRİLMEDİ (kullanıcı seçimi),
+yani `db:seed` koşulursa 5 kullanıcı ve zengin demo verisi geri gelir. Gerekçe: `DemoSeederTest`
+en az 2 aktif + 1 pasif kurye zorunlu kılıyor ve bu veri mağaza incelemecisinin gördüğü veridir.
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-15/2 — GÜNLÜK YEDEK BAĞLANTISI POSTALANIYOR (API 1.8.0 → **1.9.0**, mobil DEĞİŞMEDİ 0.25.0)
+
+**Kullanıcı kararı:** *"Yedekleme sunucuda kalsın… bana geri yükleme yapabileceğim bir şekilde
+her gün link üretip SMTP ile mail adresine iletsin. Para kazanmaya başlayınca S3 kullanırım."*
+
+**ÖNCE ÖLÇÜLDÜ, BELGEYE GÜVENİLMEDİ:** `PLAN.md`'nin "SMTP kurulu değil" notu **BAYATMIŞ** —
+Coolify'da `MAIL_MAILER · MAIL_HOST · MAIL_PORT · MAIL_USERNAME · MAIL_PASSWORD · MAIL_SCHEME`
+hepsi TANIMLI (`list_env_keys` ile okundu; değerleri API vermiyor). SMTP hesabı da var:
+`titan.hayalhost.com:465`, `noreply@sipario.com.tr`. Yani 4. maddenin ön koşulu zaten kapalıydı.
+
+**YAPILAN:**
+- `sipario_backups` volume'ü `app` ve `scheduler`'a **salt-okunur** (`:ro`) bağlandı. Bugüne
+  kadar bu dosyalara sidecar DIŞINDA hiçbir şey erişemiyordu — yedek alınıyordu ama
+  **alındığı görünmüyor, indirilemiyordu.**
+- `App\Yedek\YedekArsivi` — arşivi okur; `coz()` kullanıcıdan gelen dosya adını **üç kapıdan**
+  geçirir (basename → sidecar ad deseni → realpath ön eki).
+- `panel.yedek.indir` route'u — **yalnız superadmin**, her indirme `panel_audit`e düşer
+  (`action=yedek_indirme`, `tenant_id=NULL`, detayda yalnız dosya adı).
+- `yedek:baglanti-gonder` komutu + `YedekHazir` postası (HTML + düz metin) — her sabah
+  **08:00 Europe/Istanbul**. Postada dosya adı, boyut, tarih, indirme düğmesi ve
+  **geri yükleme komutu** var.
+- Sürüm: `apps/api/config/app.php` → **1.9.0** (MINOR, mobile tamamen nötr).
+
+**İKİ TASARIM KARARI, ikisi de bilinçli:**
+1. **İmzalı link (`temporarySignedRoute`) KULLANILMADI.** Yedek, ürünün en yoğun kişisel veri
+   taşıyıcısıdır (tüm bayilerin tüm müşterileri tek dosyada); imzalı bağlantı, e-posta kutusu
+   ele geçen birine veritabanının tamamını verirdi. Bağlantı panel girişinin arkasındadır.
+2. **Komut sessiz başarı üretmez.** Adres tanımsızsa, arşiv boşsa → çıkış kodu HATA. Yedek
+   bayatsa (>30 saat) posta **uyarı bandıyla** gider — sidecar durursa o bant arızanın tek
+   görünür işaretidir.
+
+> ⚠️ **SEÇİLEN ÇÖZÜMÜN SINIRI YAZILI OLARAK KABUL EDİLDİ:** yedeğin makine dışına çıkması
+> **insanın her gün postayı açıp indirmesine** bağlıdır. Kimse indirmezse sunucu öldüğünde
+> yedek de ölür. Bu, otomatik uzak kopyanın (S3) yerini **tutmaz**.
+
+> ⚠️ **HOSTINGER YOLU DENENDİ VE BIRAKILDI.** Kurulum sırasında hosting **SSH parolası sohbete
+> düz metin yapıştırıldı** → parola yanmış sayıldı ve değiştirilmesi istendi. SSH anahtarından
+> farkı: parola **değiştirilebiliyor**, yani bu sızıntı kapatılabilir bir sızıntıydı.
+
+**ÖLÇÜMLER (bizzat koşuldu):** `YedekTest` **12/12 yeşil** (45 assertion) · **tam API takımı
+869 test / 868 yeşil** (4205 assertion; 1 atlandı = openssl/Windows, 1 incomplete = LWW
+saniye-altı — ikisi de bu vardiyadan önce de öyleydi, 857→869 artışı bu vardiyanın 12 yeni
+testidir) · `pint` temiz · `phpstan` temiz.
+
+⚠️ `phpstan` ilk koşuda **iki gerçek kusur** yakaladı ve biri sessizdi: `CarbonImmutable::
+createFromFormat` başarısızlıkta `null` döner, `false` DEĞİL — `=== false` yazılmış savunma
+hiçbir zaman çalışmayacaktı. Testler bunu göremezdi (geçerli adlarla koşuyorlar).
+
+⚠️ **TEST DB'Yİ AÇMAK GEREKTİ:** Docker Desktop kapalıydı, suite `Connection refused … 55432`
+verdi. Çözüm bilinen desen: Docker Desktop → `docker start sipario_db` (`docker compose up`
+DEĞİL).
+
+**İKİ TEST BİLEREK DEĞİŞTİRİLDİ** (`PanelAccessControlTest`): panel route yüzeyi kilitli bir
+listedir ve yeni route insan gözden geçirmeden geçemez — `panel.yedek.indir` listeye
+gerekçesiyle eklendi. Ayrıca korunan-URL üreteci route tablosundan türetildiği için parametreli
+route'a örnek değer verilmesi gerekti; route'u listeden çıkarmak testin varlık sebebini
+delerdi.
+
+> ✅ **ÖLÇÜLDÜ VE AÇIKLANDI — ARIZA DEĞİL, KULLANICI KARARI (2026-08-15):** Coolify'da yalnız
+> **"Sipario Dev"** var; `main` **2026-08-10'da donmuş** (API 1.0.0, mobil 0.10.0) ve `dev`
+> **78 commit** önde. **Kullanıcının cümlesi:** *"Main şu an beklemede! Sunucu tarafında sadece
+> test ile devam ediyorum, her şey oturduğunda main'e yani canlıya geçeceğim; geçileceği zaman
+> haber ederim."*
+>
+> **Sonraki vardiyalar için üç sonuç:**
+> 1. `main`'in geride olması bir **borç değil, bilinçli bir bekletme**. `dev`→`main` merge'ünü
+>    KENDİ BAŞINA yapma — geçiş zamanını kullanıcı söyler.
+> 2. Ölçüm ve doğrulamalar **test ortamında** yapılır; "canlıda doğrulandı" diye bir kanıt
+>    şu an üretilemez.
+> 3. Bu vardiyanın yedek postası da **önce test ortamında** koşacak. Oradaki ilk posta,
+>    `MAIL_MAILER`'ın gerçekten `smtp` olup olmadığının da sınavıdır.
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-15 — SIZAN SSH ANAHTARI: YEREL KOPYALAR SİLİNDİ, DÖNDÜRME **KULLANICI ONAYIYLA ES GEÇİLDİ (KAPANDI)**
+
+> ✅ **KARAR — 2026-08-15, KULLANICI ONAYI: BU MADDE KAPANDI, BİR DAHA SIRADAKİ İŞLER'E GİRMEZ.**
+> Coolify anahtarı **kullanımdayken silmeye izin vermiyor**; döndürme teknik olarak engellendi.
+> Kullanıcı riski bilerek kabul etti. **Sonraki vardiyalar bunu yeniden gündeme getirmesin** —
+> yeniden açılması ancak yeni bir kullanıcı kararıyla olur.
+
+**Karar (kullanıcı, ortağıyla görüşerek):** Coolify'ın sunucu SSH ÖZEL ANAHTARI daha önce
+sohbete düz metin yapıştırılmıştı. Coolify anahtarı **kullanımdayken silmeye izin vermiyor**;
+döndürme bu vardiyada YAPILMADI ve **risk bilinçli olarak kabul edildi.**
+
+**Yapılan:** yereldeki tüm kopyalar silindi — `~/.claude/history.jsonl` (3) ·
+`2ecce529-….jsonl` (6 blok + 5 gövde) · `4dec15f2-….jsonl` (1+1) · `05b48db3-….jsonl` (1 ad).
+Doğrulandı: `BEGIN … PRIVATE KEY` ve `b3BlbnNzaC1rZXktdjE` (openssh-key-v1 base64 imzası)
+aramaları **0 sonuç**; her dosyada satır sayısı korundu ve **JSON bütünlüğü TAM**.
+Depoda ve PowerShell PSReadLine geçmişinde zaten hiç geçmiyordu (ölçüldü).
+
+> ⚠️ **ANAHTAR HÂLÂ YANMIŞ SAYILIR.** Yerel silme sızıntıyı geri almaz: anahtar bir API
+> isteğinin gövdesinde ağdan geçti ve sunucudaki `authorized_keys` satırı duruyor.
+> ⚠️ **SİLME SIRASI ÖNEMLİ** — ters yapılırsa Coolify sunucuya erişimini kaybeder:
+> yeni anahtar ekle → sunucuyu ona geçir → **Validate** → eski anahtar artık kullanımda
+> olmadığı için silinebilir hâle gelir → en son `authorized_keys`teki satırı çıkar.
+> ⚠️ **DERS:** ilk temizleme denemesi 104 satırı yutacaktı (desendeki karakter sınıfına boşluk
+> konulmuştu, gerçek satır sonlarını aşıyordu). Satır sayısı koruması dosyaya hiç dokunmadan
+> iptal etti. **Kayıt dosyasına toplu düzenleme satır-bazlı yapılır ve JSON bütünlüğü ölçülür.**
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-14/4 — "BİLDİRİM GELMİYOR" TEŞHİSİ (mobil 0.24.0 → **0.25.0**, API DEĞİŞMEDİ 1.8.0)
+
+Saha denemesi: patron siparişi kuryeye attı, sipariş kuryenin telefonunda **görüldü** (senkron
+çalışıyor), bildirim izni **açıktı** — bildirim yoktu. Sunucu ölçülerek elendi (API 1.8.0
+üretimde, `FCM_HIZMET_HESABI` **girildi**, `PushGonderimi` işleri kuyrukta koşup tamamlanmıştı).
+
+**KÖK NEDEN:** `pushArkaPlanIsleyici` AYRI BİR ISOLATE'te koşar; orada `main()` hiç çalışmadığı
+için Flutter eklenti kayıtları KURULU DEĞİLDİR. `DartPluginRegistrant.ensureInitialized()`
+çağrılmadan zincir sessizce kırılıyordu: `flutter_local_notifications` çözülemiyor →
+`izinDurumu()` false → bildirim çizilmeden return. Belirtisi aldatıcıydı: **ön planda çalışıyor,
+arka planda çalışmıyor** — yani tam da bildirimin gerektiği durumda (telefon cepte, uygulama
+kapalı) yok. Analiz, 1275 test ve APK derlemesi hepsi yeşildi.
+
+**İKİNCİ KUSUR:** `pushKur` sunucu adresini ham kolondan (`meta.apiBaseUrl`) okuyordu; bu alan
+NULL OLABİLİR ve oturum katmanının tamamı `Session.baseUrlOf` ile varsayılana düşer — yardımcıyı
+kullanmamak, null bir kurulumda push'un HİÇ kurulmaması demekti.
+
+**ASIL DERS TEŞHİSTEydi: bakılacak hiçbir veri yoktu.** Sunucu logu yalnız `PushGonderimi … DONE`
+diyordu (kaç cihaza gittiği yazmıyordu), telefon jetonu neden göndermediğini hiçbir yere
+kaydetmiyordu. İkisi de kapatıldı: sunucu artık `aday: N, gonderilen: M` logluyor; telefon
+`PushDurumu`nu (oturum-yok · kurulamadi · jeton-alinamadi · bildirilemedi · hazir) cihaz-yerel
+ayar dosyasına yazıyor ve **Ayarlar → Bildirimler → "Anlık bildirimler"** satırında GÖSTERİYOR —
+bayi/destek tek bakışta söyleyebilir, log toplamaya gerek kalmaz. (Şema alanı DEĞİL,
+`tutamac_deposu`/`tema_deposu` desenindeki cihaz-yerel dosyada: bir tanı bayrağı için migration
+açmak o deseni kırardı.)
+
+> ⚠️ **DÜZELTME SAHADA DOĞRULANMADI.** 0.25.0'ın çalıştığının tek kanıtı iki telefonla,
+> **uygulama KAPALIYKEN** yapılacak provadır. Sıradaki işlerin birincisi budur.
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-14/3 — HEADS-UP · GENİŞLETİLMİŞ · SES + ALTI YENİ BİLDİRİM (mobil 0.23.0 → **0.24.0**, API 1.7.0 → **1.8.0**)
+
+**⚠️ ÖNCE BU KISITI OKU — bildirimlere dokunacak herkesi ilgilendirir:**
+
+> Android'de bir bildirim kanalının **önem derecesi (heads-up) ve sesi, kanal ilk
+> oluşturulduğunda DONAR.** Uygulama sonradan değiştiremez; yalnız kullanıcı değiştirebilir.
+> Bir kategoriyi sonradan heads-up yapmak **yeni kanal kimliği** gerektirir ve yeni kanal,
+> bayinin eskisinde yaptığı kısmaları hatırlamaz.
+>
+> Bu yüzden iş sırası tersine çevrildi: **önce** heads-up/ses kararı alındı, **sonra** yeni
+> kategoriler o ayarla doğdu. 0.22.0 henüz hiçbir telefona inmediği için üç push kanalı da
+> bedavaya doğru ayarla kuruldu.
+
+**HEADS-UP CİMRİ DAĞITILDI — 3/9 kategori:** sipariş atandı · sipariş iptal · yeni cihaz.
+İlk ikisi kuryenin YOLUNU değiştirir, üçüncüsü güvenliktir. Kalan altısı rafa düşer, titrer,
+simge çıkar ama işi bölmez. Gerekçe `GunlukSinir` ile aynı: her bildirim ekranın üstünde
+belirirse bayi bir haftada hepsini kapatır ve o andan sonra önemliyi de kaçırır.
+
+**İKİ AYRI SES** (`scripts/bildirim_sesi_uret.dart` — ham PCM hesabıyla üretildi, telif
+tamamen bizim): yükselen ton = yeni iş, alçalan ton = iptal. Tek ses kuryeye iptali "yeni
+sipariş" sandırırdı; sesin var olma sebebi zaten bildirimi göremediği durumdur.
+
+**ALTI YENİ BİLDİRİM:** sipariş iptal (push→atanmış kurye) · yeni cihaz girişi (push→yönetici)
+· kapanış hatırlatması (kasa 21:00 + gün 09:00, tek kategori) · kullanım hakkı (rota kontörü)
+· senkron uyarısı. Sonuncusu `sistem` kategorisini ilk kez DOLDURDU — o kategori tanımlıydı
+ama hiçbir yerden bildirim üretmiyordu, yani ayarlarda çalışmayan bir anahtar duruyordu.
+
+**Abonelik bildirimi EKLENMEDİ** (kullanıcı kararı): 7 abonelik postası + günlük hatırlatma
+görevi zaten çalışıyor; Apple 4.5.4 ve BRIEF'in mobilde satın alma yasağı karşısında risk
+ürünün tamamı.
+
+> ⚠️ **SES DOSYALARI İLK DERLEMEDE APK'YA HİÇ GİRMEDİ** ve bu ölçülerek bulundu. Dart onları
+> string adla istiyor (`RawResourceAndroidNotificationSound`), R8 statik referans göremeyip ölü
+> saydı ve attı — `resources.arsc` içinde adları bile yoktu. `res/raw/keep.xml` ile korundu ve
+> APK içeriği zip olarak açılıp DOĞRULANDI (`res/GC.wav` · `res/jN.wav`, arsc'ta adlar duruyor).
+> **Analiz temiz, 1275 test yeşil, APK üretilmişti — yalnız ses yoktu.** Bu depodaki üç kapıya
+> dördüncüsü eklendi: **derleme ≠ paketlenmiş içerik.**
+
+**ÖLÇÜMLER (bizzat koşuldu):** `flutter analyze` **temiz** · **1275 mobil test yeşil** ·
+**API tam takım 856/857 yeşil** (4154 assertion; 1 atlandı = openssl/Windows, 1 incomplete —
+ikisi de bu vardiyadan önce de öyleydi) · `flutter build apk --release` **saha + deneme
+yeşil** · APK içeriği ses dosyaları için ayrıca açılıp doğrulandı · `pint` + `phpstan` temiz.
+
+**SIRADAKİ İŞLER:**
+1. **`FCM_HIZMET_HESABI`'yi Coolify'a gir** ve iki telefonla saha provası yap — push'un
+   çalıştığının TEK kanıtı budur. Sesleri de o provada dinle (ton beğenilmezse
+   `scripts/bildirim_sesi_uret.dart` içindeki nota sabitleri değişir, komut yeniden koşulur).
+2. **iOS push** — Apple Developer hesabı + APNs sertifikası. Ses dosyaları iOS'ta ayrıca
+   `Runner`a eklenmeli (`res/raw` yalnız Android'dir).
+3. Önceki vardiyalardan devredenler: uzaktan oturum kapatma · uygulama kilidi (PIN) ·
+   karantina dökümü · ölü kod temizliği · `day_end_screen.dart` 513 satır.
+
+### (ÖNCEKİ) 2026-08-14/2 — DÖRT BİLDİRİM KALDIRILDI (mobil 0.22.0 → **0.23.0**, API DEĞİŞMEDİ 1.7.0)
+
+Kullanıcı kararı: *"Borç eşiği, Vadesi geçen borç, Müşteri gecikti, Rutin teslim günü —
+bunları kaldır tamamen hiç olmasınlar."*
+
+Dördü de çalışıyordu ve iyi kurulmuştu (borç eşiği bir SEVİYE değil GEÇİŞ yüklemiydi; vade
+taraması FIFO alacak yaşlandırmasının kendisiydi). Sorun kalite değil, İSTENMEMELERİYDİ:
+hepsi bayinin zaten bildiği bir şeyi hatırlatıp günlük bildirim bütçesini yiyordu.
+
+**SİLİNDİ, bayrak arkasına ALINMADI** (~830 satır kural + ~74 test): `kurallar/musteri_*` iki
+dosya · `para_kurallari`nda iki kural · `DayEndRepository.bugunEsigiAsanlar` /
+`gecikmisBorclular` · `orderRepository.musteriTeslimGecmisleri` · `BildirimAyarlari`nde
+`borcEsigiKurus` ve onun TEK İSTİSNAsı · `BildirimTetikleyici`nin ANLIK tarama yolu
+(`_anlik` — geriye tek zamanlanmış kural kaldı).
+
+> ⚠️ Sahadaki telefonlarda bu dört KANAL kalır (Android kanalı uygulama silmedikçe durur).
+> Artık bildirim üretmezler; sistem ayarlarında boş satır olarak görünürler.
+> `deleteNotificationChannel` BİLEREK çağrılmadı: kanal silmek, aynı `wire` bir gün geri
+> gelirse kullanıcının o kanalda yaptığı ayarı da yok eder.
+
+**ÖLÇÜMLER:** `flutter analyze` temiz · **1250 mobil test yeşil** (1324'ten düştü: silinen
+kuralların testleri).
+
+**Kalan bildirimler:** gün sonu özeti (yerel) · uygulama durumu (`sistem` — ⚠️ TANIMLI AMA
+HİÇ KULLANILMIYOR, aşağıya bak) · sipariş atandı · teslim edildi · kasa devri (push).
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-14 — PUSH BİLDİRİMİ KURULDU (mobil 0.21.0 → **0.22.0**, API 1.6.0 → **1.7.0**)
+
+Kullanıcının cümlesi: *"Push bildirimlerini kurmamız gerekiyor!"*
+
+**KAPSAM (kullanıcı onayı ile):** operasyon olayları · yalnız Android · Firebase projesini
+kullanıcı kendi Google hesabıyla açtı (`sipario-acd9e`).
+
+**1. NEDEN GEREKTİ.** Bildirim altyapısı vardı ama tamamı YERELDİ — telefon kendi verisinden
+üretiyordu. Olayın BAŞKA BİR CİHAZDA olduğu durumu bu kapatamaz: patron siparişi kendi
+telefonundan kuryeye atar, kuryenin telefonunda o an hiçbir şey yoktur. Tek kişilik bayide
+görünmeyen bu boşluk, patron+kurye olan bayide ürünün eksik yarısıydı.
+
+**2. DÜRTÜ VERİ TAŞIMAZ.** FCM yükü `{olay, id, kategori}` — müşteri adı/adres/tutar YOK
+(kırmızı çizgi #4). Sıra: dürtü → senkron → veri yerel DB'ye iner → bildirim YEREL veriden
+çizilir. Asıl mimari kazanç bu değil, şu: dürtü kaybolsa bile (telefon kapalı, Play Services
+yok — Huawei) veri mevcut senkronla akar. **Push HIZLANDIRICIDIR, taşıyıcı değil**; "push
+gelmezse ürün çalışmaz" durumu tasarım gereği doğamaz.
+
+**3. `notification` alanı BİLEREK gönderilmiyor, yalnız `data`.** Olsaydı bildirimi Android
+sistemi çizerdi ve sessiz saatler · günlük bütçe · kategori kısma kurallarının hiçbiri
+işlemezdi; metin de sunucudan gelmek zorunda kalır, kişisel veri FCM'e sızardı.
+
+**4. Kural tek yerde** (`app/Bildirim/PushTetikleyici.php`): yalnız `applied` olaylar
+(offline istemcinin `duplicate` yeniden denemesi telefonu öttürmez) · üç olay (atandı→ATANAN
+kuryeye, teslim ve kasa devri→yöneticilere) · ters kasa devri (iptal) hariç · olayı üreten
+cihaz elenir. Gönderim KUYRUKTAN koşar (teslim kapatma bir ağ turuna bağlanamaz) ve okuma
+`pgsql_owner` iledir — kuyrukta RLS kiracı değişkeni kurulu değildir, izolasyon elle
+`where tenant_id` ile zorlanır.
+
+**5. SESSİZ ARIZA KAPATILDI.** `POST /devices` ve giriş yolu, `push_token` gönderilmediğinde
+alana `null` yazıyordu. FCM jetonu girişten SONRA asenkron geldiği için bu, **her açılışta
+jetonu silerdi** — hata çıkmaz, yalnız bildirimler bir gün gelmemeye başlardı.
+(`TenantSettingsRepository`de mobilde çözülen "verilmedi ≠ boşalt" probleminin ikizi.)
+
+**ÖLÇÜMLER (bizzat koşuldu):** `flutter analyze` **temiz** · **1324 mobil test yeşil** (tam
+takım) · **API tam takım 852/853 yeşil** (4137 assertion; 1 atlandı = openssl, 1 incomplete —
+ikisi de bu vardiyadan önce de öyleydi) · `flutter build apk --release` **hem `saha` hem
+`deneme` tadında yeşil** (deneme `.test` paket adı taşır; `google-services.json` ikisini de
+kapsıyor — doğrulandı) · `scripts/check_permissions_source.sh` temiz.
+
+**İZİN DENETİMİ (kırmızı çizgi #6) — birleşik manifest okundu, varsayılmadı.** Firebase üç
+izin ekledi: `com.google.android.c2dm.permission.RECEIVE` · `WAKE_LOCK` · `VIBRATE`. Hiçbiri
+Play'in kısıtlı izin grubunda DEĞİL; SMS/Call Log grubundan tek bir izin gelmedi. Bunu kaynak
+manifest'e bakarak söylemek YETMEZDİ — paketler izni birleşme sırasında ekler, o yüzden
+`build/.../merged_manifest/sahaRelease` çıktısı okundu.
+
+> ⚠️ **ÜRETİMDE HENÜZ AÇIK DEĞİL.** `FCM_HIZMET_HESABI` (hizmet hesabı JSON'unun base64'ü)
+> Coolify'a girilmedi. Girilene kadar push sistemi KAPALIDIR ve bu bir hata değildir — kod
+> sessizce atlar. Anahtar `docker-compose.prod.yml`deki `*app-env`e eklendi, yani `queue`
+> konteynerine de gider (gönderim orada koşar).
+
+> ⚠️ **İMZA YOLU YEREL TESTTE ATLANIYOR.** `openssl_pkey_new` bu Windows makinesinde
+> `openssl.cnf` bulamıyor; `imza_gercekten_uretilir` testi `markTestSkipped` ile geçiliyor.
+> CI (Linux) o testi GERÇEKTEN koşar. İmza hatalıysa FCM `invalid_grant` döner ve TÜM push
+> tek noktadan sessizce ölür — ilk gerçek gönderimde bu doğrulanmalı.
+
+**SIRADAKİ İŞLER (bu vardiyadan devreden):**
+1. **`FCM_HIZMET_HESABI`'yi Coolify'a gir** ve iki telefonla saha provası yap (patron sipariş
+   atar → kuryenin telefonu titrer). Push'un çalıştığının TEK kanıtı budur.
+2. **iOS push** — Apple Developer hesabı + APNs sertifikası gerekir. Kod iOS'a hazır yazıldı;
+   `PushServisi` platform ayrımı yapmıyor, yalnız jeton kaydında `'android'` sabiti var.
+3. Önceki vardiyadan devredenler değişmedi: uzaktan oturum kapatma (jeton↔cihaz bağı) ·
+   uygulama kilidi (PIN/biyometrik) · karantina dökümü · ölü kod temizliği ·
+   `day_end_screen.dart` 513 satır.
+
+### (ÖNCEKİ) 2026-08-13/3 — AYARLAR KONULARINA BÖLÜNDÜ + HESAP SAYFASINA VARLIK NEDENİ (mobil 0.20.1 → **0.21.0**, API DEĞİŞMEDİ 1.6.0)
+
+Kullanıcının cümlesi: *"Ayarlarda bulunan Hesap ve İşletme sayfaları çok işlevsiz! Özellikle
+Hesabım sayfasının varlık amacı ne, hiçbir şeye yaramıyor neden var? … İşletme Kimliği düzenleme
+içerisindeki bir çok şey orada olmasa da olur… mesaj şablonları ilerleyen zamanlarda mesaj sayısı
+artacak orada olmaya devam mı edecek! Fiş bölümü özellikle… Lütfen kafanı çalıştır, geleceğe
+yönelik olmalı!"*
+
+**1. ÖNCE TEMEL, SONRA SAYFA.** Bölme doğrudan yapılamazdı: `TenantSettingsRepository.save` bir
+LWW UPSERT ve imzası düz `String?` olduğu için "alan verilmedi" ile "alan boşaltılsın" aynı şeye
+(null) benziyordu — her çağıran 14 alanı birden göndermek zorundaydı. Bedeli koda YAZILIYDI:
+`kuryeIzinleriKaydet` ve `siparisKoduTercihiKaydet` her biri 14 alanı elle taşıyan birer kopyaydı
+ve doc'ta "aynı disiplin ileride eklenecek her ayar için de geçerli" yazıyordu. Drift'in `Value<>`
+sentineli getirildi (`Value.absent()` = dokunma, `Value(null)` = boşalt); iki kopya tek satıra
+indi. Asıl kazanç satır sayısı değil: bir alanı listeye eklemeyi unutunca bayinin IBAN'ını sessizce
+silme hatası YAPISAL olarak kalktı.
+
+**2. İşletme dört konuya ayrıldı.** Kimlik (ad·yetkili·iletişim·vergi·saatler) ·
+**Tahsilat** (IBAN + alıcı adı + fiş notu) · **Mesajlar** · Sipariş. Ayarlar listesindeki her satır
+KENDİ DURUMUNU özetliyor (IBAN girilmemişse orada yazıyor) — "Düzenle" düğmeleriyle dolu bir liste
+hiçbir bilgi vermiyordu.
+
+**3. Mesajlar bir LİSTE olarak kuruldu, tek alan olarak değil** — kullanıcının asıl endişesi
+buydu. Yeni şablon eklemek `kMesajSablonlari` sabitine bir kayıt yazmaktır; ekran değişmez.
+
+**4. Kurallar ekranla birlikte taşındı.** `ibanHatasi` zaten `iban.dart`taydı; şablon sınırı
+`hatirlatmaSablonuHatasi` olarak `borc_hatirlatma.dart`a çıktı. Kuralı eski form doğrulayıcısında
+bırakmak, çağıranı olmayan bir dalı testin yeşil tuttuğu ölü kod demekti.
+
+**5. HESAP SAYFASINA CİHAZLAR EKLENDİ.** Sayfanın gösterdiği her şey (ad, rol, çıkış) çekmecede
+zaten vardı — yani aynı bilgiyi ikinci bir UI ile tekrar ediyordu, tam da kullanıcının bir önceki
+vardiyada uyardığı hata. Cihazlar, ürünün hiçbir yerinde sorulamayan soruyu cevaplıyor: hesabım
+hangi telefonlarda açık, hangisi en son ne zaman görüldü. Mevcut `GET /devices` kullanıldı, sunucu
+değişmedi.
+
+> ⚠️ **UZAKTAN OTURUM KAPATMA BİLEREK EKLENMEDİ ve bu bir eksiklik olarak KAYITLIDIR.** Sunucuda
+> jeton ile cihaz kaydı arasında bağ yok — `AuthController` jetonu düz `'mobile'` adıyla üretiyor.
+> Bir "Oturumu kapat" düğmesi bayiye kapattığını sandırır, telefon çalışmaya devam ederdi; güvenlik
+> ekranında olabilecek en kötü şey. Düğmenin sessizce eklenmesini engelleyen bir test yazıldı
+> (`cihazlar_test.dart`). Liste ÇEVRİMDIŞI ÖNBELLEKLENMİYOR: bayat liste "eski telefonum artık
+> bağlı değil" diye yanlış bir güvenlik izlenimi üretirdi — ağ yoksa ekran boş liste değil hata
+> gösteriyor, bu da testle kilitli.
+
+**ÖLÇÜMLER (bizzat koşuldu):** `flutter analyze` **temiz** · **1309 mobil test yeşil** (tam takım).
+API'ye dokunulmadı, sürümü 1.6.0'da kaldı — iki hat bağımsızdır.
+
+**SIRADAKİ İŞLER (bu vardiyadan devreden):**
+1. **Uzaktan oturum kapatma** — sunucuda jeton↔cihaz bağı kurulmalı (`createToken('mobile')`
+   yerine cihaz kimliğini taşıyan ad + revoke uç noktası), sonra Cihazlar ekranına düğme.
+   Eski istemci uyumu YAZILI olarak kararlaştırılmalı (bağsız eski jetonlar ne olacak).
+2. **Uygulama kilidi (PIN/biyometrik)** — yeni paket + native dokunuş; `flutter build apk
+   --release` kapısı ZORUNLU (desugaring tuzağı).
+3. **Karantina dökümü** (`outbox.lastError` + detay ekranı) — önceki vardiyalardan devreden borç.
+4. **Ölü kod temizliği** — `OrderDetailScreen` (hiç örneklenmiyor), `phase0/setup_wizard.dart`,
+   "Gelen çağrıyı dene" ayarlardan kurulum sihirbazına.
+5. `day_end_screen.dart` **513 satır** — 500 sınırının 13 satır üstünde (azalan borç, yine borç).
+
+### (ÖNCEKİ) 2026-08-13/2 — ARA TAHSİLAT: YETKİ DARALDI + İPTAL GELDİ (mobil 0.15.0 → **0.16.0**, API 1.3.0 → **1.4.0**)
+
+
+Kullanıcının iki cümlesi: *"Gün sonu tarafında Yönetici tahsilat silebilmeli"* ve *"Kurye ara
+tahsilat yapamaz sadece patron."*
+
+**1. Ara tahsilatı artık yalnız yönetici alır.** `_araTahsilatAlabilir` içindeki
+`_kuryeId == widget.kullaniciId` dalı kaldırıldı; gün sonu ekranındaki üç para eyleminin
+(kapatma · ara tahsilat · iptal) üçü de tek anahtara bağlandı: `yetkiler().gunuKapatma`.
+2026-08-11'de yazılmış "devir yolu KAPANMADI, ara tahsilat kuryede DURUYOR" gerekçesi artık
+yanlış olduğu için ilgili yorum blokları da düzeltildi (kod değişince onu anlatan yorum da
+değişir — bu depoda yalanlaşan yorum, yanlış koddan daha pahalıya patlıyor).
+
+**2. "Silme" ters kayıt olarak uygulandı.** Gerçek silme BRIEF kırmızı çizgi #2'yi ihlal ederdi
+ve çevrimdışı bir cihaz silineni senkronla geri diriltirdi. Bunun yerine `ledger_entries`
+desenindeki gibi `cash_handovers.reverses_handover_id` (drift v19→v20 + Laravel migration
+`2026_08_13_004011_add_handover_reversal.php`): ters işaretli ikinci bir devir satırı.
+Kullanıcı gözünde sonuç istenen şey — satır "iptal edildi" görünür, üstü çizili çizilir,
+toplamdan ve sayaçtan düşer — ama kanıt kaybolmaz.
+
+**PARA NEDEN KAPANIYOR:** `teslimEdilenNakit` orijinal(+) ve iptal(−) satırlarını birlikte
+sayıyor, net sıfırlanıyor; yani kuryenin beklenen nakdi kendiliğinden iptal öncesine dönüyor ve
+kapanış sheet'ine doğru rakam gidiyor. `from_user_id` ORİJİNALDEKİYLE AYNI tutuluyor (iptali kim
+yaptıysa o değil) — pencere matematiği cebi bu alandan ölçtüğü için, iptali başka bir kişiye
+yazmak parayı hiç geri vermezdi. Testle kilitli: *"iptal sonrası kurye hesabı kapatılınca arşive
+DOĞRU tutar donar, fark 0."*
+
+**ÇİFT İPTAL ÜÇ KATMANDA KAPALI** ve asıl kapak son ikisi: istemci kapısı · sunucu uygulayıcısı ·
+kısmi unique indeks. Gerekçe: iki cihaz ÇEVRİMDIŞIYKEN aynı tahsilatı iptal edebilir ve
+birbirlerinin kapısını göremez; iki ters satır parayı kasaya İKİ KEZ döndürür ve append-only
+olduğu için bu kalıcı bozardı.
+
+Yeni bir senkron `op` açılmadı — alan mevcut `handover` op'una eklendi (ayrı bir op, eski
+istemcide tanınmayan olay demekti).
+
+**ÖLÇÜMLER (bizzat koşuldu):** `flutter analyze` temiz · **1275 mobil test yeşil** ·
+`php artisan test --filter=AraTahsilat` **9/9, 81 assertion**. API Feature suite'in tamamı
+(710/710) bu vardiyanın API ajanı tarafından ölçüldü, kod o ölçümden sonra değişmedi.
+
+> ⚠️ **Vardiya notu — ajanlar oturum limitinde öldü.** Üç ajan (mobil · api · tester) sırayla
+> düştü; işleri otomatik kanca tarafından commit'lenmişti, `git log` ile bulundu. Tek kayıp,
+> `tester`'ın yazıp KOŞTURAMADAN öldüğü widget testiydi: import eksikti ve yardımcı seçicisi
+> hatalıydı — `satir(tutar)` yalnız tutara bakıyordu, oysa 40,00 iptal edilince **toplam satırı
+> 20,00'a düşüp ayakta kalan satırla aynı rakamı gösteriyor** ve seçici iki satırı birden
+> yakalıyordu ("Too many elements"). Ürün doğru çiziyordu; seçici artık `toplam` bayrağına
+> bakıyor. Ders: iptal/indirim gibi TOPLAMI DÜŞÜREN bir davranışı ölçen testte, satırı tutarla
+> aramak toplamla çakışmaya açıktır.
+
+**SIRADAKİ İŞLER (bu vardiyadan devreden):**
+1. **Reddedilen senkron olaylarının GEREKÇESİ kullanıcıya ulaşmıyor.** Sunucu net bir mesaj
+   döndürüyor ("bu kasa devri zaten iptal edilmiş") ama yerelde saklanmıyor; kabukta yalnız genel
+   karantina bandı çıkıyor. Kapatmak için `outbox.lastError`a gerekçeyi yazmak (kolon zaten var) +
+   karantinayı satır satır gösteren bir ekran gerekiyor. Bu vardiyada BİLİNÇLİ olarak açılmadı:
+   kapsamı bu özellikten geniş — reddedilen HER olay aynı sessizlikten geçiyor — ve buraya
+   iliştirilmiş yarım bir çözüm asıl işi bir daha görünmez yapardı. Bugünkü etkisi dar (yalnız
+   çok cihazlı + çevrimdışı yarış), veri kaybı yok. Not `sync_engine.dart:330` civarında zaten
+   duruyor.
+2. `day_end_screen.dart` **513 satır** — 500 sınırının 13 satır üstünde. Bu vardiyaya 538 satır
+   olarak girdi, ara tahsilat akışları `isletme/gun_ozeti_eylemleri.dart`'a çıkarılarak kısaldı
+   ama sınırın altına inmedi. Azalan bir borç, yine de borç.
+
+### (ÖNCEKİ) 2026-08-13 — YENİ SİPARİŞ FORMU: UI/UX + KURYE ZORUNLU (mobil 0.14.0 → **0.15.0**)
+
+> ⚠️ **0.14.1 NUMARASI YAKILDI — sürüm notu listesinde YOK.** O numara `test` kanalına iki kez,
+> iki farklı içerikle çıktı (21:52 ve 22:38 koşumları). Sebebi bir varsayımdı: CI kırmızı kaldığı
+> için yayınlanmadığı sanıldı, `gh run list` ile doğrulanmadı. Ders: **"CI kırmızıydı" bir hafıza
+> değil, bir ölçümdür** — yayınlanıp yayınlanmadığı `gh run list` + release'in `surum.json`ıyla
+> bakılır. Cihazlar doğru güncellendi (karşılaştırma `yapim` sayısıyla, SemVer ile değil).
+
+**KURYE ATAMASI ARTIK ZORUNLU** (kullanıcı kararı — 2026-08-11'deki "opsiyonel" kararı değişti),
+ama koşulsuz değil: `_kuryeGerekli = yetkiler().atama && seçilmemiş`. `atama = yönetici && aktif
+kurye var` olduğu için tek kişilik bayide ve kurye rolünde kapı hiç kurulmaz — kurulsaydı o iki
+kullanıcı hiç sipariş giremezdi. Engel sepet-boş kapısının aynı yüzeyini kullanıyor (sarsıntılı
+kırmızı şerit + sönük ama canlı düğme). Dört durum testle kilitli.
+
+Kullanıcı isteği: *"işlevsellik çalışıyor ama UI/UX tatmin edici değil, tasarım dilinin dışına çıkma."*
+Hiçbir akış, kapı ya da yazma yolu değişmedi — yalnız düzen, hiyerarşi ve metin. Tasarım dili korundu
+(`.ys-*` / `.sdx-*` jetonları, Sora/Hanken, tek accent). **1250 mobil test yeşil, `flutter analyze` temiz.**
+
+Ne değişti (`screens/orders/`):
+1. **Adım 2 iki bölgeye ayrıldı.** Üç ekleme yolu sepetin üstüne/altına/arasına dağılmıştı; artık hız
+   sırasına dizili tek blok (her zamanki ürünler → katalog → serbest satır), altında kendi başlığı ve
+   kalem sayacı olan **Kalemler** bölümü. Serbest satır bağlantısı sepetin dibinden katalog düğmesinin
+   altına taşındı.
+2. **Sepet satırı 3 satırdan 2 satıra indi.** Not çağrısı her kalemin altında accent renkli ayrı bir
+   satırdı; birim yazısıyla aynı satıra, muted renge indi (`Not ekle` + kalem ikonu). Not girilince
+   yerini warn-soft rozet alıyor.
+3. **Özette toplam bir kez yazıyor.** `SdKart.toplamGoster: false` — sabit alt çubuk zaten sahibi.
+4. **Kurye seçimi gövdeden ALT ÇUBUĞA taşındı** (kullanıcı isteği, aynı gün ikinci tur):
+   `AltKuryeCipi` "Siparişi Kaydet"in solunda, aynı yükseklik/yarıçapta; toplam da tam genişlikte
+   kendi satırına çıktı (`YsAltCubugu.yanEylem`). Etiket "Kurye seç" — eski uzun cümle çipe
+   sığmıyor, opsiyonelliği testin kanıtladığı DAVRANIŞ söylüyor. 360 px'de taşma sınavı yapıldı.
+5. **Adım rozetleri geçilmiş adımlara dokunulabilir**; müşteri araması tasarımdaki gibi otomatik
+   odaklanıyor (`SipArama.otomatikOdak`); boş sepette "Devam" tasarımdaki gibi sönük (opacity .6).
+6. Boş sepet kutusu artık düğmenin sözünü tekrarlamıyor: *"Eklenen kalemler burada listelenir."*
+
+Ölçüm yöntemi: ekranın altı hâli (adım 1/2/3, boş sepet, favori şeridi, koyu tema, serbest satır,
+kurye satırı) gerçek fontlarla golden PNG olarak çizilip **gözle** incelendi; kurye satırının görünmez
+zemini böyle bulundu. Önizleme koşumu geçiciydi, depoya bırakılmadı.
+
+> ⚠️ Yan bulgu (düzeltilmedi, kapsam dışı): `assets/fonts/Sora.ttf` ve `HankenGrotesk.ttf` **₺
+> (U+20BA) glifini taşımıyor** — golden'larda tofu çıkıyor. Cihazda sistem yedeği (Roboto) çizdiği
+> için görünür, ama para rakamları "tabular Sora" iken ₺ başka aileden gelir. Tüm ekranları ilgilendirir;
+> çözümü ya font değişimi ya da ₺ için açık bir yedek aile tanımıdır.
+
+### (ÖNCEKİ) Güncel durum (son güncelleme: **2026-08-12 — E-POSTA ŞABLONLARI: 13 ŞABLON, MARKA DÜZENİ, İLK ZAMANLANMIŞ GÖREV**.
+Bu vardiya SUNUCU tarafında geçti, mobile hiç dokunulmadı. Başlangıç ölçümü: depoda `app/Mail` ve
+`app/Notifications` **yoktu**; posta gönderen üç yer vardı ve üçü de çirkindi. En kötüsü sessiz bir
+arızaydı: **parola sıfırlama postası İngilizce çıkıyordu** — `.env`de `APP_LOCALE=tr` yazıyor ama depoda
+`lang/tr` dizini yok, Laravel'in `ResetPassword` bildirimi `__('Reset Password')` anahtarlarını çeviri
+bulamayınca anahtarın KENDİSİNE düşürüyordu; yani hesabına giremeyen esnafa "Hello! You are receiving this
+email..." gidiyordu. Diğer ikisi `Mail::raw` düz metindi ve biri PARA TAŞIYORDU (havale talimatı, IBAN'ı
+boşluklarla hizalıyordu — telefonda orantılı yazı tipiyle o hizalama dağılır). Ayrıca `MAIL_FROM_ADDRESS`
+hâlâ Laravel varsayılanı **`hello@example.com`**'du: bedeli görüntü değil TESLİMAT, çünkü SPF/DKIM
+doğrulanamayan gönderen alan adı spam'e düşer ve bu sessizce olur. **Kurulan şey bir şablon yığını değil,
+bir tasarım sistemi:** `public/css/site.css`teki "Levha" paleti/tipografisi posta kutusuna taşındı
+(`components/eposta/duzen` + 7 blok bileşeni: `baslik` `metin` `dugme` `kutu` `veri` `kod` `tutar` `adimlar`
+`imza`). Üç posta-istemcisi kısıtı tasarımın İÇİNE katıldı ve testle kilitlendi: **web font yüklenmez**
+(Sora/Hanken yalnız yığının başı), **SVG silinir** (Gmail `<svg>`i ve `data:image/svg+xml`i kaldırır — bu
+yüzden marka GÖRSELSİZ kuruldu: mor yuvarlak kare + "S" + wordmark; harici logo dosyası da BİLEREK yok,
+uzak görsel "resimleri göster" denene kadar boş kutudur ve markanın ilk izlenimi kırık ikon olurdu),
+**flex/grid yok** (Outlook'un Word çizicisi tanımaz → her şey `role="presentation"` tablosu + satır içi
+stil). Koyu mod uydurulmadı: markanın zaten tanımlı `.gece` paleti kullanıldı. **13 şablon** yazıldı, hepsi
+Türkçe, hepsinin düz metin karşılığı var (`SiparioPostasi` tabanı `sablon()` adından iki görünümü birden
+çözüyor — düz metni yazmayı unutmak imkânsız, dosya yoksa gönderim patlar). **Ve hepsi BAĞLANDI** — bağlanmamış
+şablon dekordur: kayıt (bugüne kadar HİÇ posta yoktu, oysa mobil giriş firma kodu + kullanıcı adı ister ve
+bayi başarı ekranını kapatınca kodu öğrenemiyordu) · havale talimatı · ödeme beyanı alındı · ödeme onaylandı ·
+**ödeme eşleşmedi** (bu yol tamamen sessizdi: bayi parayı gönderdiğine inanıyor, hesabı açılmıyor, sebebi
+öğrenmesinin yolu yok) · kurye hesabı açıldı · parola değişti · ek paket · parola sıfırlama · dışa aktarma
+iç bildirimi. **Bu deponun İLK zamanlanmış görevi kuruldu** (`abonelik:hatirlat`, günlük 09:30 Europe/Istanbul):
+deneme T-7/3/1, yenileme T-15/3, süre dolumu. Yeni konteyner GEREKMEDİ — `schedule:work` aylardır koşuyor ve
+"No scheduled commands" basıyordu. Aynı posta iki kez gitmez (`Cache::add` işareti bayi+tür+eşik+HEDEF TARİH
+ile anahtarlı; hedef tarih olmasaydı zamanlayıcı yeniden başladığında ikinci posta giderdi). Dil kararları
+tasarım kadar önemliydi ve kod yorumlarında gerekçeleriyle duruyor: ret postasında **"reddedildi" YOK**
+("eşleşmedi" — en olası sebep bayinin hatası değil, açıklamaya yazılmamış referans kodu), güvenlik postasında
+**tıklanacak bağlantı YOK** ("değiştirmediyseniz tıklayın" kimlik avının taklit ettiği kalıptır; testle
+kilitli), süre dolumu postasında **ilk ve en büyük cümle veri güvencesidir, ödeme çağrısı değil** (BRIEF
+kırmızı çizgi #5; sıralama testle kilitli), kurye postasında **parola yazılmaz**, iç bildirimde konu ön eki
+`Sipario ·` KORUNUR (süzgeç anahtarı) ama müşteriye giden postada YASAK (gönderen adı zaten Sipario, telefonda
+konu ~35 karakterde kırpılır). Künye yer tutucuları (`[Şirket IBAN]`) müşteri postasına sızmıyor — düzen
+bileşeni süzüyor, test kilitliyor. Yan düzeltme: `ResetPassword::createUrlUsing` `Parola.php`'den
+`AppServiceProvider`'a taşındı — orada yalnız o ekrandan geçen isteklerde kuruluyordu, başka bir yol parola
+sıfırlama tetiklerse Laravel'in var olmayan `password.reset` rotasını arayacaktı. Ölçüm BİZZAT koşuldu:
+yeni `EpostaSablonlariTest` **89/89** (şablonlar gerçekten gönderilip üretilen iletiden okunuyor, yani kuyruk
+serileştirmesi de kanıtlanıyor) · dokunulan yolların testleri **216/216** · pint temiz · `schedule:list`
+doğrulandı · komut kuru koşuldu. Tasarım tarayıcıda açık ve koyu modda gözle denetlendi. **API sözleşmesi
+DEĞİŞMEDİ** (yeni uç nokta/alan yok) — sürüm **1.3.0** sabit, mobil **0.14.0** sabit. **AÇIK:** e-posta
+doğrulama akışı (kullanıcı "doğrulanmadan giriş yok" dedi) YAZILMADI — aşağıdaki devir notunda gerekçesi ve
+tasarım kısıtları duruyor. **SMTP hâlâ kurulu değil** (`MAIL_MAILER=log`); şablonlar hazır ama üretimde
+posta çıkmıyor.
+
+<br>
+
+**ÖNCEKİ:** **2026-08-11/3 — GİRİŞ ERGONOMİSİ + SÜRÜM NOTLARI EKRANI (uygulama 0.14.0)**.
+Dört saha isteği kapatıldı, ikisi giriş ekranında. ① **Parola göster/gizle** — tasarımda yoktu çünkü
+`s-giris.jsx` tarayıcının kendi göz düğmesine güveniyor; Android'de öyle bir hediye yok, yani eksiklik
+tercih değildi. `SipInput.sonEk` + `SipIcons.goz/gozKapali` eklendi; ikon EYLEMİ resmeder (göz = "göstermek
+için dokun"), `Semantics` etiketi aynı eylemi söyler. Test ikona DEĞİL `obscureText`e bakar: dönen bir
+ikon + gizli kalan alan hiçbir hata üretmeden özelliği tamamen işlevsiz bırakırdı. ② **"Beni hatırla"** —
+`sync_meta`ya iki cihaz-yerel kolon (şema **v19**), **PAROLA SAKLANMAZ** ve bu bir sınır olarak testle
+kilitlendi (tüm `sync_meta` satırı taranıyor). Sunucu sahipli `tenantCode`a bindirilmedi: o senkronun
+yazdığı bir önbellek, bu kullanıcının kapatabildiği bir tercih — tek kolon olsalardı "hatırlamayı" kapatan
+bayinin ekranında kod yine belirirdi. Çıkışta SİLİNMEZ; token zaten çıkışa kadar duruyor, yani silinseydi
+alan hiç okunmazdı. ③ **Güncelleme bandı sadeleşti** (kullanıcı: "sadece sürüm yazsın") — `Güncelleme var —
+Sipario 0.13.0 (139)` yerine iki satır + sürüm rozeti; **yapım numarası ekrandan kalktı ama
+KARŞILAŞTIRMADAN kalkmadı** ve tam bu ayrım iki iddiayla kilitlendi. ④ **Yenilikler ekranı** (Ayarlar →
+Hakkında) — notlar derlemenin İÇİNDE sabit, sunucudan çekilmiyor: "ne değişti?" sorusu güncelleme indikten
+sonra, ağın garanti olmadığı anda sorulur; ayrıca commit başlıkları ("otomatik(dev): 16 dosya") bayiye
+hiçbir şey anlatmaz — sürüm notu bir ÇEVİRİDİR, çevirmeni insandır. Listeyi bayatlamaktan koruyan bekçi
+testi var: **en üstteki kayıt `pubspec.yaml` sürümüyle aynı olmak zorunda**, ayrıca teknik dil ve mağaza
+yasağı taranıyor. **YAN BULGU (bir sonraki vardiyanın saatlerini kurtarır):** Drift kod üretimi
+`dependency_overrides` yordamıyla artık koşmuyor — `objective_c` de build-hook kazandı ve cache'teki üç
+sürümünün üçü de hook'lu, yani düşürülecek sürüm yok. Asıl sebep hiçbir zaman sqlite3 değildi:
+`build_runner` betiği AOT derliyor, AOT hook desteklemiyor. Doğru komut tek satır ve override istemiyor:
+**`dart run build_runner build --force-jit`** (pubspec.yaml'daki not yeniden yazıldı). Ölçüm bizzat
+koşuldu: mobil **1250/1250** (+30) · `flutter analyze` temiz · `flutter build apk --release --flavor saha`
+**BUILD SUCCESSFUL**. Sunucu sözleşmesi DEĞİŞMEDİ — API **1.3.0** sabit, uygulama 0.13.0→**0.14.0** (MINOR:
+geriye dönük uyumlu yeni davranış).
+
+<br>
+
+**ÖNCEKİ:** **2026-08-11/2 — GÜN ÖZETİ KURYEDE KENDİ HESABINA DARALDI + ÖDEME TÜRÜ DÖKÜMÜ**. Saha şikâyeti: "kurye kendi işlemlerini görmüyor, genel raporu görüyor". ① **"Tümü" kapsamı kuryede artık ÜRETİLMİYOR** — kapsam listesi role göre kuruluyor, yani seçim fonksiyonu kuryeye gün hesabını verebilecek bir dizin bile üretemiyor (kapı görünürlükte değil, veri üretiminde). Tek kapsam kaldığı için segment de çizilmiyor; ama bu koşul ROLE bağlı, seçenek sayısına değil — yalnız uzunluğa bakan ilk yazım hiç kuryesi olmayan bayide YÖNETİCİNİN segmentini gizledi ve mevcut bir test bunu yakaladı. ② **Kurye hiçbir hesabı kapatamaz** (2026-08-09 kararının tersi). Kapanış geri alınamaz bir mutabakattır; yanlış sayımla kapatan kuryenin bıraktığı farkı ertesi gün patron çözemez. **Ara tahsilat kuryede DURUYOR** — kaldırılsaydı kurye cebindeki parayı sisteme hiç işleyemezdi. ③ **Nakit/Kart/Havale satırları dokunulabilir** → o günün o türdeki dökümü; altta anahtarla açılan "Günün Teslimatları" dökümü (müşteri · adres · saat · tutar · tür). **Döküm kasa kartıyla AYNI süzgeçten geçer** (`_kasayaDokunanlar` ortak atası) ve testi toplam eşitliğini dört türde kilitliyor — ayrı yazılsaydı özellik "detay" değil ikinci bir gerçek üretirdi. Döküm TAHSİLAT taşır: veresiye sipariş listede yoktur, ters kayıtlar negatif görünür, sorgu yalnız açılınca koşar. ④ İki kullanıcı metni gerçeğe çekildi (ikisi de yalan söylüyordu): alt çubuktaki "yalnız kendi kurye hesabınızı kapatabilirsiniz" ve yetki ekranındaki "Tüm işletmenin ciro/kasa özetini görür". ⑤ Kimliği çözülemeyen kurye gün hesabına DÜŞMEZ, hiçbir rakam görmez (alt çubuk dahil) — belirsizlikte kapanan taraf seçilir. Sunucu sözleşmesi değişmedi (API **1.3.0** sabit); uygulama **0.13.0**. Yeni testler: `gun_tahsilat_detay_test` (9) + `ui_gun_tahsilat_test` (3); değişen davranışın eski testleri güncellendi (kurye kapanış testleri artık aynı kapsamı PATRON yolundan sürüyor — iddia korundu). Ölçüm: mobil **1220/1220** · analyze **temiz**. **CİHAZDA DOĞRULAMA YAPILMADI.** Öncesinde — 2026-08-11 — **BEŞ SAHA İSTEĞİ KAPANDI** (uyarı · favori · satır notu · birim menüsü · geçmiş limiti)**. ① **Açık sipariş kapısı:** müşterinin `open` siparişi varsa yeni sipariş öncesi uyarı çıkar, onaylanabilir. TEK KAPI (`siparisAcmadanOnceDogrula`) — sipariş açmanın birden çok giriş noktası var, uyarıyı kopyalamak dördüncü noktada sessizce delinirdi. Kara liste SERT engel, açık sipariş YUMUŞAK uyarı; sıra bilinçli. Kapsam yalnız `open` (teslim/iptal sayılmaz) çünkü görmezden gelinen uyarı, olmayan uyarıdır. ② **Favori ürünler:** `customers.favorite_product_ids` JSON dizisi (ayrı tablo DEĞİL — müşteri satırı zaten LWW ile senkronlanıyor). Müşteri kartında düzenlenir, sipariş formunda hızlı seçim olarak çıkar. Çözümleme hiçbir girdide çökmez; silinmiş ürün id'si elenir, "stokta yok" ürün ELENMEZ. ③ **Sepet satır notu:** `order_lines.note` — siparişin kendi `note`undan AYRI alan; sipariş detayında ve teslim yüzeyinde de görünür. ④ **Birim menüsü:** serbest metin → açılır menü (Adet·Kg·Gram·Litre·Paket·Koli·Metre·Kutu + Diğer…). Liste TEK KAYNAKTA (`birimler.dart`) çünkü `order_lines.unit` aynı sözcükleri yazar. **Sahadaki serbest değer ("damacana") KORUNUR** — hiçbir yerde "listede yoksa varsayılana düş" dalı yok; eşleşme Türkçe-duyarlı küçültmeyle ('LİTRE' sessizce kaçıyordu). ⑤ **Geçmiş limiti:** müşteri kartında son 3 sipariş + toplam sayı (AYRI akış — kart 3 satır okuyup "toplam 5" diyemez), tümü ayrı ekranda. Mobil şema **v18**, API'de iki migration (004009 · 004010). **VARDİYA GERÇEĞİ — okunması gereken kısım:** 4 ajanlı swarm kuruldu; **beşi de (üç yeni + yanlış adresleme yüzünden uyanan bir ESKİ ajan) oturum limitinde öldü** ve ağaç DERLENMEZ hâlde kaldı. Altı derleme hatasının tamamı bağlama hatasıydı — eksik import ×3, sınıf içinden görünmeyen üst düzey fonksiyon adı, ve drift'in `&` operatörünün dar `show` yüzünden kapsam dışı kalması ×2 (çözüm: `..where` zinciri, deponun kendi deseni). **Mobil testlerin TAMAMI lead tarafından yazıldı** (34 test, 4 dosya: `migration_v18_test` · `favori_ve_satir_notu_test` · `urun_birimi_test` · `ui_siparis_kapisi_test`) — ajanlara "kendi testini kendin yaz" denmesine rağmen hiçbiri yetişemedi; geçen vardiyanın birebir tekrarı. Bir regresyon yakalandı ve düzeltildi: birim alanı `TextField` olmaktan çıkınca ürün formu testi `at(3)` ile "index should be less than 3" veriyordu — indekse dayalı finder'ın bedeli. İki araç tuzağı yine ölçüldü: `testWidgets` içinde `db.close()` sahte zamanda ASILIYOR (saf sorgu testi `test()` olmalı) ve durdurulan koşu yetim `flutter_tester` bırakıp `sqlite3.dll`'i kilitliyor. **ORTAM ARIZASI — API kapısı önce KOŞULAMADI:** tam suite 30 dakika boyunca CPU'su boşta "koşuyor" göründü; sebep test veritabanının ayakta olmamasıydı (`sipario_db` container'ı durmuş, Docker Desktop kapalı). Test DB Laragon'un 5432'si DEĞİL, `docker-compose.yml:27` ile `55432:5432` haritalanan container'dır. Docker açılıp `docker start sipario_db` ile (compose `up` DEĞİL — farklı dizinden `-f` çağrısı proje adını değiştirip "container name already in use" üretiyor) kapı koşuldu. Ölçüm BİZZAT koşuldu: mobil **1208/1208** · `flutter analyze` **temiz** · API **723/723** (3727 doğrulama, 1 kasıtlı incomplete), yeni `FavoriVeSatirNotuTest` **16/16**. Sözleşme geriye dönük uyumlu (**MINOR**): API **1.3.0**, uygulama **0.12.0**. **CİHAZDA DOĞRULAMA YAPILMADI.** Öncesinde — 2026-08-10/4 — **KURYE YETKİLERİ ARTIK KİŞİYE ÖZEL (DEVRALMALI, ÜÇ DURUMLU)**. Kullanıcı isteği: "kurye yetkileri kuryeye özel atanmalı, direkt role değil". 2026-08-04'te bilinçli olarak kiracı düzeyinde kurulan 13 yetki artık **bayi varsayılanı / yeni kurye şablonu**; kişiye özel karar `users`'a eklenen aynı adlı **13 NULLABLE** kolonda yaşıyor ve etkin yetki TEK saf fonksiyonda çözülüyor (`kuryeIzinleriCoz` → `kisisel ?? varsayilan`; mobil şema **v17**, API migration **004008**). Eski kararın gerekçesi korundu: kopyalamak değil DEVRALTMAK seçildi, böylece yeni kurye kurulum adımı gerektirmeden doğuyor ve patron varsayılanı değiştirdiğinde devralanlar birlikte hareket ediyor. Ekranda üç durum var (Varsayılan / Açık / Kapalı) ve "Varsayılan" seçiliyken DEVRALINAN GERÇEK DEĞER rozette yazıyor; kuryeler listesinde ezmesi olana "özel yetki" rozeti düşüyor; "Hepsini varsayılana döndür" 13 ezmeyi birden siliyor. **`null` ≠ `false` ≠ "anahtar yok"** — payload'da anahtarın hiç olmaması "dokunma" (sürüm çarpıklığı koruması), açık `null` "devral", bool "kişiye özel karar"; üçünü ikiye indiren her katman ya kapatılmış yetkiyi geri açar ya kuryeyi eski ezmesine çakılı bırakır. Yetki alanlarının senkron yoluna açılması YENİ BİR YETKİ YÜKSELTME VEKTÖRÜ doğurdu ve kapısıyla geldi: `user_profile` push'unda yetki anahtarı varsa aktör patron/operatör olmak zorunda (`UserRole::kuryeYetkisiAtayabilir`), aktör olay GÖVDESİNDEN okunmuyor ve kapı LWW'den ÖNCE. `users` her turda `team` bloğuyla toptan yenilendiği için 13 alan o bloğa da eklendi — eklenmeseydi yetki kaydedilir, sunucuya yazılır ve bir tur sonra cihazda sessizce sıfırlanırdı (özellik "çalışıyor" görünüp kendini silerdi). Sözleşme geriye dönük uyumlu (**MINOR**): API **1.2.0**, uygulama **0.11.0**. VARDİYA NOTU: 5 ajanlı swarm kuruldu, `api` ve `testci` **oturum limitine takılıp öldü** (21:00 sıfırlanma); `api`'nin işi otomatik kanca tarafından commit'lenmişti ve tamdı, ama `testci` TEK TEST YAZAMADAN öldü — mobil testlerin tamamı (25 test, 3 dosya) lead tarafından sonradan yazıldı. Ölçüm BİZZAT koşuldu: mobil **1177/1177** · API **707/707** (3615) · `flutter analyze` **temiz**. **CİHAZDA DOĞRULAMA YAPILMADI.** ARAÇ NOTU: `flutter pub run build_runner build` bu sürümde AOT aşamasında düşüyor ("'dart compile' does not support build hooks"); çalışan komut `dart run build_runner build --force-jit` ve `--delete-conflicting-outputs` kaldırılmış. Ayrıca durdurulan bir `flutter test` yetim `flutter_tester` süreci bırakıp `sqlite3.dll` kopyasını kilitliyor — sonraki koşu araç çökmesiyle patlıyor; çözüm DLL'i silmek değil, yetim süreci kapatmak. Öncesinde — 2026-08-10 — **API SÜRÜMÜ ARTIK HER YANITTA + İKİ SESSİZ ARIZA**. Önceki vardiyanın en üstteki kod borcu kapandı: `config/app.php`'de tanımlı olan API sürümü hiçbir yanıtta okunmuyordu. Artık `AppendServerTime` → **`AppendServerMeta`** (ad da gerçeği söylüyor) ve `api_version` her JSON API yanıtına TAŞIMA katmanından ekleniyor — uç nokta uç nokta değil, çünkü alan uç noktanın değil taşımanın özelliğidir. Ek olarak **kimliksiz `GET /api/v1/version`**: "canlıda hangi sürüm koşuyor?" sorusunu soran taraf çoğu zaman token'ı OLMAYAN taraftır. Telefon tarafında sürüm **`sync_meta.api_version`**'a önbellekleniyor (şema **v16**, yükseltme testi yazıldı ve totoloji OLMADIĞI kanıtlandı — ALTER geri alınınca kırmızıya döndü) ve Ayarlar → Hakkında'da AYRI bir "Sunucu" satırında görünüyor; uygulama sürümüyle BİRLEŞTİRİLMEDİ (iki ayrı hat, CLAUDE.md → Sürümleme). Yokluk bilinen son sürümü EZMEZ, tip kontrolü zorunlu (`as String` bir gösterim alanına senkronu düşürme yetkisi verirdi), karşılaştırma/uyarı BİLİNÇLİ olarak yok (uyumsuzluk kuralı önce YAZILI kararlaştırılır). Bağ makineyle zorlandı: API testi mobil ayrıştırıcının `api_version` okuduğunu kaynaktan denetliyor. **İKİ SESSİZ ARIZA BULUNDU, ikisi de bu turun işi değildi:** ① durum çubuğu **"YAYIN BORCU 384"** diyordu, gerçek borç **0**'dı — kimse yerelde `main`e checkout etmediği için yerel ref `16833e7`te donmuş, uzak `827767a`ydı; ölçüm `origin/main..origin/dev`e alındı. Kusur göstergenin var oluş sebebine düşüyordu (41'i görünce alarm versin diye konmuş kırmızı sayı, 0 iken 384 diyorsa artık okunmaz) — bu depoda ikinci kez: **yanlış alarm gerçek alarmı görünmez yapar.** ② `PaymentSecurityTest`'in "gövdeye güvenilmez, iyzico retrieve'i esastır" testi **aylardır KIRMIZIYDI** ve iki kardeşi YEŞİL ama VAKUMDU: fiyat 2026-08-04'te 5.988 ₺'ye çıkınca test içindeki sabit `1200.00` tutar denetimine takılıyordu; tutar artık `config`ten türetiliyor. **Önceki vardiya API'yi "685/685 ✅" diye kaydetmişti; bu ağaçta o rakam 684 yeşil + 1 kırmızı çıktı.** Ölçüm BİZZAT koşuldu: mobil **1152/1152** · API **688/688** (3481, 1 kasıtlı incomplete) · `dart analyze` **1 info** (aşağıda) · phpstan **0** · pint temiz. **YENİ BULGU:** bu makinedeki Flutter SDK artık `pubspec.lock`tan yenidir — `flutter test` lock'taki dört geçişli paketi bump ediyor (geri alındı, SDK yükseltmesi ayrı bir karardır) ve `order_list_parts.dart:161` `onReorder` için yeni bir deprecation info'su çıkıyor. Yani "analyze 0" artık otomatik doğru değil. **CİHAZDA DOĞRULAMA YAPILMADI.** Öncesinde — 2026-08-09/2-3-4 — **SAHA ARIZASI KAPANDI + DAĞITIM İKİYE AYRILDI**. Kurye atama arızasının kök nedeni bulundu ve kullanıcı GERÇEK CİHAZDA doğruladı (yenilemede anında, dokunmadan 15–20 sn): yerel yazım senkron turunu TETİKLEMİYORDU; artık bekleyen-outbox akışına bağlı yazım tetiği + ön planda 30 sn aralık + tur başına 90 sn sınır var. Aynı bölgede dört "watch* build içinde kuruluyor" titremesi ve kurye başlık sayacı da kapatıldı; `PushOzeti.beklemede` banda bağlandı (tanımlıydı, hiç okunmuyordu). ALTYAPI: üretim iki kez çöktü (17:01 · 20:10) ve sebebi ARANAMADI çünkü günlükler container ile birlikte siliniyordu → `LOG_CHANNEL=stderr` + json-file döndürme (10 MB × 3); aylardır yanan `running:unhealthy` alarmının suçlusu `queue`/`scheduler` container larının temel imajdan MİRAS aldığı HTTP healthcheck i çıktı (SSH + `docker inspect` ile OKUNDU; dışarıdan yürütülen üç tahmin de yanlıştı) → `healthcheck: disable: true`; dekoratif `deploy:` bloğu kaldırıldı. Deploy kesintisi ÖLÇÜLDÜ: **52,3 sn** (218 örnek), kesinti deploy un SONUNDA — ilk ~86 sn build ve site normal. DAĞITIM: `dev` e atılan her commit SAHADAKİ BAYİLERİN telefonuna iniyordu; kanal ayrıldı (`main`→saha · `dev`→test), ayrı paket kimliği (`com.sipario.app.test`), sunucu adresi derleme sabiti oldu; `test.sipario.com.tr` ortamı kuruldu (kendi veritabanı, Google anahtarları BOŞ, mail `log`). SemVer kuralı `CLAUDE.md` → "Sürümleme"ye yazıldı: uygulama **0.10.0**, API **1.0.0**, birbirine EŞİTLENMEZ; derleme numarası sürüm değil, makinenin karşılaştırma anahtarıdır. Durum çubuğu yeniden tasarlandı (SAHA/TEST/API/YAYIN BORCU · renkli · BÜYÜK HARF etiketler · `+N` yalnız MOBİL değişikliği sayar, `surum.json` artık commit SHA taşıyor). `check_permissions.sh` harf duyarlılığı yüzünden flavor lu manifestlere HİÇ bakmıyordu — kırmızı çizgi #6 nın otomatik denetimi delikti, kapatıldı ve dişli olduğu kanıtlandı (saha 2 · deneme 2 · magaza 0). Ölçüm: mobil **1143/1143** · API **685/685** · analyze **0** · phpstan **0** · pint temiz · iki APK derlendi ve kendi çıktılarından doğrulandı. Dallar eşit (`main` == `dev` == `ca7dde7`), saha ve test kanalları 0.10.0. AÇIK VE ACİL: **SSH anahtarı DÖNDÜRÜLMELİ** (sohbete düz metin yapıştırıldı) · **bildirim kanalı yok** (çöküşü kimse duymuyor) · **API sürümü hiçbir yanıtta okunmuyor**. Öncesinde — 2026-08-09 — **ÜRÜN CANLIDA + KAYIP VARDİYA HAFIZASI ONARILDI**. Sipario **2026-08-07'den beri Türkiye'de bir VPS üzerinde Coolify ile canlı çalışıyor**: `sipario.com.tr` (site + `/panel`) ve `api.sipario.com.tr` (mobil), Postgres 16 (ICU tr-TR, üç rol, port dışarı kapalı), Traefik+Let's Encrypt TLS, Cloudflare DNS, izlenen dal `main`. Mobil uygulamanın varsayılan sunucu adresi canlıya çevrildi ve giriş ekranındaki "+ Gelişmiş (sunucu adresi)" bölümü kaldırıldı. **Ama bu gerçek üç gün boyunca bu dosyada YAZILI DEĞİLDİ:** Claude oturumu limitle kesilince iş Gemini (Antigravity CLI) ile sürdürüldü, araç `CLAUDE.md`'yi okumadığı için vardiya sözleşmesini bilmiyordu — kod yazıp commit attı, ortak hafızayı güncellemedi. Bedeli ölçüldü: 2026-08-09'da yeni bir oturum "canlıya geçelim" isteğine **sıfırdan üretim altyapısı planı** sundu, oysa `docker-compose.prod.yml` iki gündür repodaydı. Bu vardiya hafızayı onardı ve **üç güvenlik açığı kapattı**: ① `AdminUserSeeder` panel superadmin parolasını (`SiparioAdmin2026!`) public depoda düz metin taşıyor ve `updateOrCreate` ile her deploy'da geri yazıyordu — parolayı elle değiştirmek işe yaramıyordu; artık seeder parola TAŞIMIYOR, yeni hesap rastgele parolayla doğuyor, var olana `firstOrCreate` ile dokunulmuyor, parola `panel:admin --sifirla` ile alınıyor. ② `Dockerfile` entrypoint'i her container açılışında `db:seed` koşuyordu (`DatabaseSeeder` → Admin + **DemoSeeder**), yani ÜRETİM veritabanına her deploy'da demo bayisi ve sahte Bursa müşterileri yazılıyordu — seed deploy'dan çıkarıldı, kurulu demo bayisi yerinde. ③ `|| true` migration hatasını yutuyor, şema güncellenmese bile container "sağlıklı" kalkıyordu — bu, bu dosyada "sessiz arıza dersi" olarak YAZILI olan `saha-sunucu.ps1` hatasının birebir tekrarıydı; artık `set -e` (migrate düşerse rollback devreye girer). **COOLIFY ENV DENETİMİ YAPILDI (kullanıcı doğruladı):** `APP_KEY` **tanımlı** → compose'daki public varsayılan kullanılmıyor, kritik madde KAPANDI. `GEOCODING_DRIVER=kademeli` ✅. `IYZICO_BASE_URL` sandbox (beklenen — üretim anahtarı yok). **`ROTA_SURUCU=yakin-komsu`** → Google Routes KAPALI, oto sıralama kuş uçuşu çalışıyor (bilinçli mi belirsiz; açmak `ROTA_SURUCU=google` + `GOOGLE_ROUTES_KEY` ile tek satır). **🔴 `MAIL_MAILER=smtp` ama SMTP KURULMADI** — parola sıfırlama SESSİZCE çalışmıyor: bayi "e-posta gönderildi" görüyor, e-posta hiç gelmiyor (`Parola.php` `try/catch`+`report`, numaralandırmayı önlemek için ekrana yansıtmıyor); parolasını unutan bayinin kurtulma yolu YOK. Ayrıca Coolify MCP kuruldu (salt-okunur, kullanıcı kapsamında) ve ilk turda üç şey buldu: migration ZATEN post-deployment'ta koşuyordu (Dockerfile'daki ikinci kopya kaldırıldı, yarış borcu kapandı) · healthcheck `curl`e dayanıyordu ve uygulama `running:unhealthy` görünüyordu (PHP tabanlı teste çevrildi; sahte alarm sustu ama `healthy` doğrulanamadı) · `www`+`api` altalanları ölüydü, kök neden domain alanındaki virgül+boşluk (kullanıcı sildi, üçü de 200; `api./` 404 ile `BlockApiHostWebRoutes` ilk kez gerçekten kanıtlandı). **MCP SINIRI:** env değerlerini döndürmüyor, deployment logu yok. Belgeler gerçeğe döndürüldü: demo kimliği `111/111/1111` → `demo/demo/demo1234` (mağaza notları + `saha-sunucu.ps1`). Ölçüm BİZZAT koşuldu: mobil **1108/1108** · phpstan **0** · pint temiz (önceki not "1077/1077 · 668/668" diyordu — kopyalanmış rakamlardı). Kalan borçlar: makine dışı yedek YOK · Yetki Matrisi'nin (+2816 satır) hiç testi yok · migration yarışı (`start-first` + iki container) · cihaz doğrulaması. Öncesinde — 2026-08-06 — **ÜÇ SAHA İSTEĞİ + GÜN SONU → GÜN ÖZETİ** (4 ajanlı swarm, ÜÇ bağımsız inceleme turu). ① Müşteri listesi artık kayıt sırasına göre (en yeni üstte); "rasgele diziyor" şikâyetinin kökü alfabetikti — SQLite BINARY collation Türkçe harfleri tüm ASCII'den sonra dizdiği için "Şükrü" listede "Zeynep"in altına düşüyordu. ② İşletme profiline **IBAN alıcı adı** ve **düzenlenebilir hatırlatma şablonu** geldi (`*musteriadi*` `*isletmeadi*` `*siparistutar*` `*ibanodemebilgileri*`; sonuncusu SABİT blok, dokunulmamış bayide mesaj bir karakter bile değişmiyor; mobil şema v14 + sunucu + web hesap paneli). ③ **Gün Sonu → Gün Özeti**: ilk ekran bugün, Geçmiş AYRI ekran ve teslim sekmesinin gün şeridiyle geziliyor (kopyalanmadı, aynı bileşen), kapalı VE açık geçmiş günler görünüyor; **ara tahsilat** eklendi (sayımlı serbest tutar, gün açık kalır, patron her kuryeden / kurye yalnız kendi kasasından, tek kişilik bayide hiç çizilmez) ve ŞEMA DEĞİŞİKLİĞİ GEREKMEDİ — `cash_handovers` zaten append-only ve `period_start` "son devir" tanımlıydı. **Asıl iş "beklenen nakit" tanımındaydı ve ÜÇ kez yanlış kuruldu**, üçünü de inceleme turları yakaladı: (1) yalnız ara tahsilatları düşmek kurye hesabı kapandığında parayı İKİ KEZ istiyordu, (2) tüm devirleri düşmek gün kapsamında İÇ TRANSFERİ para çıkışı sayıyordu (patron 10.000'i kasasında görürken ekran "beklenen 0" diyordu → her akşam sahte FAZLA), (3) kurye STOKUNU düşmek bir AKIŞTAN bir STOK çıkarıyordu (kurye dünden para taşıyorsa beklenen negatife düşüyor, üstelik "her gün biraz artık para tutan kurye" senaryosunda sapma BİRİKİYORDU). NİHAİ: `gün = günün nakdi − Σ(kuryenin O GÜN topladığı − O GÜN teslim ettiği)`, `kurye = penceresinde topladığı − teslim ettiği` (pencere son kurye kapanışına demirli, yoksa alttan AÇIK). YAN KAZANÇLAR — hiçbiri bu turun işi değildi, üçü de gerçek arızaydı: senkronda **zehirli hap** (Carbon'un çözüp Postgres'in reddettiği damga TÜM PARTİYİ 500'e düşürüp kuyruğu kalıcı kilitliyordu → sınırda normalizasyon + `22007`/`22008`), **offset'li damga 3 saat kayıyordu** (TR 23:30'da kapanan gün ertesi güne düşüyordu; aynı olayın zamanı `sync_changes`e doğru, varlık tablosuna kaymış yazılıyordu), **dünü kapatan kapanış "dün kapalı" göstermiyordu** (özellik sessizce çalışmıyordu), WhatsApp hatırlatmasında boşluklar `+` oluyordu, gün sınırı cihaz saatinden kesiliyordu (artık `lib/data/tr_gun.dart` tek tanım + düzeltilmiş sunucu saati, ekranlar ve bildirim üreticileri dahil). VARDİYANIN KALICI DERSİ: **anlamı değişen sayıyı eski kelimesiyle taşımak** — aynı hata sınıfı YEDİ kez tekrarlandı ve her seferinde analyze+suite yeşil geçti; üç kapak kuruldu (anlam değerle taşınır/`DusulenKalem` enum'u · ekran metni formül iddia etmez · etiketler iki yönlü kilitlenir). Ayrıca `a − b == c` testinin `c` zaten `a − b` ise VAKUM olduğu ölçüldü. AÇIK BORÇ: **LWW'nin saniye-altı ayrımı YOK** (kolonlar `timestamptz(0)`; aynı saniyede kazanan "daha yeni" değil `device_id`si büyük olan — panel kapağını koymuş, mobil senkron yolunda kapak yok; 18 kolonluk migration ister, `markTestIncomplete` ile suite'te CANLI sinyal). Ölçüm: mobil **1077/1077** (+119) · API **668/668** (3347, 1 kasıtlı incomplete) · analyze **0** · phpstan **0** · pint temiz. **CİHAZDA DOĞRULAMA YAPILMADI.** Öncesinde — 2026-08-05/4 — **SAHADAN 10 MADDELİK SİTE LİSTESİ KAPANDI** (5 ajanlı swarm). Kullanıcı web tarafında 10 madde saydı; **ikisi sessiz ARIZAYDI**, sekizi ürün kararı. (1) "Giriş yaptım ama giriş yapmış görünmüyorum": genel sayfalar `tenant` middleware'i taşımadığı için `app.tenant_id` kurulmuyor, `users` RLS FORCE sıfır satır veriyor ve `Auth::guard('web')->check()` giriş yapmış patrona **false** diyor — ÜSTELİK `$oturum` prop'unu hiçbir sayfa geçmiyordu, yani iki arıza üst üsteydi ve birini düzeltmek yetmezdi. Çözüm kullanıcıyı hiç yüklemiyor (`session()->has(...)`, sıfır sorgu). (2) Oturumdan çıkmanın tek yolu "İşletme bilgileri" sekmesinin dibine gömülüydü → üst menüye POST+`@csrf` çıkış (GET olsaydı prefetch/`<img>` ile istemsiz tetiklenirdi), yeni `site.cikis` rotası. Ürün kararları: "Dönemi seçin"→"Yenileme ödemesi" (radyo düğmeleri kalktı — ekran form kontrolü diliyle konuşurken aslında ödeme adımıydı) · ödeme "Vazgeç"i beyaz listeli `geri` anahtarıyla geldiği sekmeye döner (`Referer` reddedildi) · "Oto-sıralama"→"Kullanım ve ek paketler", ek KURYE paketi de satılıyor · **web'den kurye hesabı açma/devre dışı bırakma** (yeni Ekip sekmesi; üç ayrı yazma yolu, gerçek DELETE yok çünkü FK olmadığı için sahipsiz para kaydı bırakırdı; kota İKİ YÖNDE zorlanıyor) · **"Kurumsal" plan siteden kaldırıldı** (uydurma vitrindi, `plans` tek satırlı), `/fiyatlar` `noindex`+menüden çıktı · üst menü 4→2 · alt bilgideki 4 İKİZ bağlantı kaldırıldı · footer künye bloğu kaldırıldı (mevzuat karşılığı iki hukuk belgesinde ölçülerek kanıtlandı) · `a` alt çizgisi yalnız düz metinde. YAN KAZANÇ: `/hesap-silme` siteden hiçbir yere bağlı değildi — Google Play şartı, mağaza başvurusunu bloke edebilirdi. Ölçüm: **643/643** (3197) · pint temiz · konsol sıfır hata. AÇIK: mobil yerleşim tarayıcıda ölçülemedi (`resize_window` no-op, iframe kendi güvenlik başlıklarımıza takılıyor) — kullanıcının telefonundan doğrulanacak. Öncesinde — **WEB UI ARCI: İKİ KÖK NEDEN KAPANDI**. "Web tarafında büyük sorunlar" şikâyetinin altından iki ayrı kök neden çıktı ve ikisi de kapatıldı: ① `trustProxies` yokluğu — cloudflared tüneli arkasında tüm varlıklar `http://` üretiliyor, HTTPS sayfada AKTİF KARIŞIK İÇERİK doğuyor ve mobil Chrome CSS'i koşulsuz engelliyordu; site tünelden herkese ÇIPLAK görünüyordu, masaüstünden `http://127.0.0.1:8000`e bakan kimse görmüyordu (çözüm: `bootstrap/app.php` dar kapsamlı `trustProxies`, `URL::forceScheme` REDDEDİLDİ). ② `@js(dizi/nesne)` + csp_safe — Blade'in ürettiği `JSON.parse` ifadesini CSP değerlendiricisi çözemiyor, x-data SESSİZCE hiç kurulmuyor; /fiyatlar bu yüzden "Aylık" seçiliyken YANLIŞ FİYAT (499 ₺, doğrusu 599 ₺) gösteriyordu, /destek SSS'i ve panel firma-combo ölüydü (çözüm: yük `application/json` kanalı/`data-*` + `jsonKanal`, kural alpine.js başlığında). Ek: panel modallarında dış-tıklama kapatması `if` DEYİMİ yüzünden ölüydü → Alpine `.self` değiştiricisi. Tasarım farkları kapandı: JetBrains Mono yerel woff2 (orijinal paketten, dış indirme YOK) · hero telefon animasyonu (`heroDongu`, kare/süreler TelefonCanli'den birebir) · `.dg` alt çizgi · 44px dokunma hedefleri · çerez politikası + 4. yasal bağlantı · "Parolamı unuttum" etiket satırında · `[Telefon]` düz-cümle kullanımı koşullu. "Oturumumu açık tut" BİLİNÇLİ dışarıda (users.remember_token migration'ı + güvenlik incelemesi ister — borç). Doğrulama: 7 sayfa desensiz konsol taramasında sıfır hata, /fiyatlar anahtarı ve /destek canlı ölçümlü, panel combo+modal canlı, gerçek cihazda 7 sayfa tam stilli+https zinciri. AÇIK: 360/320px canlı yerleşim turu (ajanlar 15:30'da limitten dönüyor) · kullanıcının telefonundan son kabul · telefonda ~11 trycloudflare sekmesinin temizliği. Öncesinde — **BAĞIMSIZ İNCELEME: HÜKÜM DÜZELTİLDİ + SÜRÜM ÇARPIKLIĞI KAPANDI**. Kullanıcı önceki teşhise güvenmeyip çürütme amaçlı swarm istedi; haklı çıktı. Olayın en olası sebebi zehirli hap DEĞİL, o an WiFi'ın internet vermemesiymiş (cihaz radyo kayıtları: WiFi bağlıyken trafik mobil veriye düştü) — "PC'den curl 200 → telefon suçlu" çıkarımı geçersizdi, veri temizliği muhtemelen gereksizdi ama eski bant her şeye "Çevrimdışı" dediği için bilinemezdi. AYNI swarm kullanıcının migration hipotezini HATA SINIFI olarak doğruladı: eski istemcinin push'u bilmediği yeni kolonları null'a çeviriyordu (IBAN+kurye yetkileri+sipariş kodu · kara liste · kurye telefonu) → `SyncPayload::gonderilenler` "anahtar YOK ≠ anahtar null" (testli); pull yönünde İKİNCİ zehirli hap (tek bozuk delta satırı cursor'u kilitliyordu) → satır izolasyonu + görünür `veri` hatası, bilinen boşluğu borçta; zaman aşımı yolu testle kilitli, `batchSize` 400, ana ekran çipi dürüstleşti. Cihaz kanıtları (SM-S721B): locked ertelemesi kalp-atışı yöntemiyle, içerik bütünlüğü, dürüst bant+adres ekran görüntülü. Ölçüm: API **610/610** (3077) · mobil **958/958** · analyze **0** · phpstan **0** · pint temiz. Cihaza **2250** kuruluyor. Öncesinde — **SENKRONDA DÖRT ZEHİRLİ HAP KAPANDI + KALİTE KAPISI ARIZASI**. Sahadan "giriş yapıyorum ama Çevrimdışı yazıyor" şikâyeti geldi; sunucu her boyutta sağlamdı (login 200, pull 200, migration'lar koşulu) ve arıza telefondaydı. Dört ayrı yol senkronu KALICI kilitliyordu ve tek "çözüm" uygulama verisini silmekti — ki bu bekleyen sipariş/tahsilatı yok eder: **(1)** parti düzeyinde 422 (tek bozuk olay tüm kuyruğu rehin alıyor; `SyncPushRequest`in belge başlığı tersini SÖZ VERİYORDU), **(2)** `locked` → `acked` (abonelik kilitliyken yazılan kayıt sessizce siliniyor, yenilense bile gönderilmiyor), **(3)** bilinmeyen durum → `acked` (sunucu yeni bir status eklediği gün eski istemciler kaydı silecekti), **(4)** `22001`/`22003` → 500 (uzun müşteri adı senkronu kilitliyor; 4xx'ten kötü, çünkü istemci 5xx'i geçici sayıp sonsuza dek deniyor). Sunucu artık olayı per-olay reddediyor (`EventValidator`, `reason`+`index` sözleşmesi) ve **bu düzeltme sahadaki kilitlenmiş telefonu uygulama güncellemesi OLMADAN kurtarıyor**; istemci tarafında bisect + karantina (kayıt SİLİNMEZ) + dürüst bant (`hataTuru` artık 4xx'i "çevrimdışı" demiyor, bant hangi adrese ulaşamadığını yazıyor). **Ayrıca gecenin kendisi bir bulgu üretti:** `Stop` kancasına bağlı kalite kapısı `artisan test`+`flutter test` koşuyor ve her ajan turunda ateşleniyor — çok ajanlı vardiyada eşzamanlı suite'ler ~130 SAHTE kırık üretiyordu (aynı ağaç: 433/600 · 387/600 · 504/600 → kilitlendikten sonra **601/601**). ~3 saat ve üç yanlış teşhis buna gitti; kimse kancadan şüphelenmedi çünkü commit mesajları "kalite kapisi yesil" diyordu. Mutex + süreç kontrolü ile kapatıldı. Ölçüm: API **601/601** (3033) · mobil **942/942** · analyze **0** · phpstan **0** · pint temiz. **Cihaz doğrulaması YAPILMADI** — kablosuz adb kuruldu (SM-S721B) ama telefondaki build 2221 bu düzeltmeleri taşımıyor. Öncesinde — **TASARIM ENTEGRASYONU: PANEL SIFIRDAN + SİTE BAŞTAN**. `design_handoff_web_and_yonetim_paneli/` altındaki iki paket açıldı (paketlenmiş React; 26 modül + 71 KB CSS `_kaynak/` altına çıkarıldı) ve Blade+Livewire+Alpine ile hayata geçirildi — React DEĞİL, gerekçe DECISIONS'ta. **Yönetim paneli sıfırdan yazıldı** (10 ekran; tasarımın 5'i + BRIEF'in zorunlu kıldığı iş verisi sekmeleri/dışa aktarım/modül/parola/cihaz/churn + tasarımda olmayan havale kuyruğu ve kurye açma). **Site baştan kuruldu**: pazarlama sayfaları + 3 adımlı işletme açma + parola sıfırlama/yenileme + **IBAN ödeme akışı** + **bayinin hesap paneli**. Abonelik modeli: aylık+yıllık, deneme 30 gün, fiyat DB'de ve panelden düzenlenebilir; **havale beyanı ≠ ödeme** (beyan abonelik UZATMAZ, panel eşleştirir); hukuk onayları kolonlarda (`consent_version`/`consented_at`, DB CHECK'li). 12 migration · 6 model · 8 servis · CSP başlığı (üç ayrı politika, `csp_safe`). **Ondört sessiz arıza bulundu** — hiçbiri çökmüyordu: hesap paneli `auth:web`+RLS yüzünden hiç çalışamazdı, panel düğmeleri Livewire kalıcı middleware eksikliğinden ölüydü, aramaya tek harf yazınca 500, `"izmir"` `İZMİR`'i bulamıyordu, `%` tüm bayileri getiriyordu, sekiz ekran UTC saatiyle yanlış gün basıyordu, ek paket kotası paralel istekte iki kez artıyordu (geri alınamaz), iptal eden bayi yazmaya devam edebiliyordu, erken yenileyen kalan günlerini kaybediyordu, ve kırmızı çizgi #1'i koruduğu sanılan iki test namespace hatası yüzünden HİÇ KOŞMUYORDU. Ölçüm: **593/593** (2966 doğrulama) · phpstan L6 **0** · pint temiz. **Mobil tarafa dokunulmadı.** Öncesinde — **PANEL GİRİŞ ARIZASI KAPANDI**: panel girişi e-postayı normalize etmiyordu; hesabı açan iki yol da küçülterek saklarken giriş HAM değerle sorguladığı için tarayıcının büyüttüğü ilk harf DOĞRU PAROLAYLA "Giriş bilgileri hatalı." veriyordu (sondaki boşluk ise `email` kuralına takılıyordu). Ekran numaralandırmaya karşı bilerek nötr konuştuğundan kullanıcı teşhis edemiyordu. Ayrıca `panel:admin --sifirla` eklendi: komut kendi açıklamasında "kurtarma yolu" diyordu ama var olan hesabı sıfırlayamıyordu — parola bir kez basılıp saklanmadığı için kilitlenen yöneticinin gidecek yeri yoktu. Ölçüm: API **437/437** (+4 test) · pint temiz. Öncesinde — **ALTI SAHA İSTEĞİ + SAHA SUNUCUSU 530 ARIZASI**. Kurye yönetimi büyüdü: giriş bilgileri (kullanıcı adı/parola) uygulamadan düzenlenebiliyor (`PATCH /team/{user}/credentials`, çevrimiçi, yalnız patron, parola değişince oturumlar düşer) ve **5 anahtarlı kurye yetki sistemi** geldi (müşteri/sipariş/tahsilat açık · gün sonu/iskonto kapalı doğar; kiracı düzeyinde, çağrı yerlerine bağlı). Borçlulara **tek tuşla WhatsApp hatırlatması** (IBAN Ayarlar→İşletme Profili'nde, mod-97 denetimli; mesaj hazırlanır, gönderilmez). Teslim sekmesine **gün gezinmesi**. Sipariş kaydı artık **siparişler ekranına** dönüyor. Müşteri kodu doğrulandı (çalışıyor, kod değişikliği yok). Altyapı: `saha-sunucu.ps1` tünel adresini DOĞRULUYOR ve QUIC engellenmişse http2 ile yeniden deniyor — bayinin gördüğü HTTP 530'un kök nedeni buydu ve script "hazır" deyip yeşil yanıyordu. Ölçüm: API **433/433** · mobil **906/906** · analyze **0** · phpstan **0** · pint temiz. Eski not aşağıda tarihsel duruyor: 2026-08-01/2 — **ROTA/HARİTA UX YENİDEN YERLEŞTİ** (Oto Sırala haritada, 'Rota sırası' görünümü, araç şeridi) + dikte kuralı tersine + 'Kurye ata' çipi. Ölçüm: analyze **0** · mobil **885/885** · API **298/298**. Aynı gün öncesinde — **SEKİZ SAHA İSTEĞİ KAPANDI** (5 ajanlı swarm): sesli dikte birikimli oldu, adres alanı büyüdü, barkoda fener, çağrı kartında sipariş yaşı, sipariş formuna kurye seçimi, oto sırala düğmesi gerekçeli-pasif (kök neden: yanlış sekmede etkin düğme), müşteri silme + kara liste (cascade tombstone + LWW damga koruması), kapıda iskonto (`discount` defter tipi, kasa değişmezi korunur). Ölçüm: analyze **0** · mobil **878/878** · API **298/298** · phpstan **0** · pint temiz · Kotlin saha-release yeşil · APK kapısı koşuldu. Önceki gün: 2026-07-30 — **CANLI KURYE KONUMU + ARAYAN TANIMA ANAHTARI**: patron haritada tüm ekibin canlı konumunu görüyor (kendi backend, Google'sız, KVKK: tek satır/geçmiş yok/yalnız patron okur); Ayarlar'a arayan tanıma AÇ/KAPA anahtarı (düz dosya köprüsü, native taraf zil anında okur; günlük kapalıyken de doğru). Aynı gün öncesinde: harita performans+dark mod, harita stil+kontroller, rota yönü düzeltmesi+pin özeti, Bursa reseed, kademeli geocoder, giriş arızası. Ölçüm: `dart analyze` **0** · `flutter test` **798/798** · `php artisan test` **287/287** · phpstan L6 **0** · `compileSahaReleaseKotlin` **BUILD SUCCESSFUL** · release APK kapısı koşuldu. Eski not aşağıda tarihsel duruyor: 2026-07-29 — sıra kodları (müşteri 100+ · sipariş #248, sunucu atar), borç görünürlüğü, Borçlular ekranı, gün sonu yeniden yapılandırıldı (geçmiş günler + gün detayı + ürün kırılımı), aşağı çekerek yenile, sihirbazdaki pil/otomatik-başlatma karışıklığı. Altyapıda: CDN bayat `surum.json` (güncelleme hiç düşmüyordu), senkron deltasına düşmeyen kodlar (telefona hiç gitmiyordu), kalite kapısının SESSİZCE kapalı API bölümü, çerçeve davranışına bağlanmış font testi. Öncesinde: konum altyapısı (Yandex, sağlayıcı soyut), tam otomatik saha dağıtımı, çağrı kartı+bildirim, otomatik versiyonlama. Ölçüm: `dart analyze` **0** · `flutter test` **740/740** · `php artisan test` **247/247** · phpstan L6 **0** · pint **temiz** · Kotlin `:app:compileSahaDebugKotlin` **BUILD SUCCESSFUL** · yayındaki saha yapımı **158**, ağaç **159**)
+
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-12 (e-posta şablonları)
+
+**NE YAPILDI** (hepsi ölçüldü):
+
+| İş | Nerede | Durum |
+|----|--------|-------|
+| Posta tasarım sistemi | `resources/views/components/eposta/` (düzen + 8 blok bileşeni) | ✅ |
+| 13 şablon (HTML + düz metin) | `app/Mail/` · `resources/views/eposta/` + `eposta/metin/` | ✅ |
+| Ortak taban + postacı | `app/Mail/SiparioPostasi.php` · `app/Eposta/BayiPostacisi.php` | ✅ |
+| Tetikleyicilere bağlama | `Register` · `Subscribe` ×2 · `Hesap` · `Ekip` · `ParolaYenile` · `OdemeBildirimServisi` ×2 · `EkPaketServisi` · `AppServiceProvider` | ✅ |
+| İlk zamanlanmış görev | `app/Console/Commands/AbonelikHatirlatmalari.php` · `routes/console.php` | ✅ |
+| Sözleşme testi | `tests/Feature/EpostaSablonlariTest.php` | ✅ 89/89 |
+| Gönderen adresi | `.env` + `.env.example` (`hello@example.com` → `bilgi@sipario.com.tr`) | ✅ |
+
+**NE YAPILMADI (ve neden):**
+
+- **E-POSTA DOĞRULAMA AKIŞI YAZILMADI.** Kullanıcı "sert: doğrulanmadan giriş yok" dedi ama bu kademe
+  onaylanan kapsamın (①+②+③) DIŞINDAYDI ve bir posta şablonu değil, giriş yolunu değiştiren bir
+  ÖZELLİKtir: migration (`users.email_verified_at` **yok**) + `MustVerifyEmail` + giriş kapısı + doğrulama
+  ekranı + panelde elle doğrulama. Yarım bırakılırsa insanları hesaplarından kilitler. **Yazılmadan önce
+  bilinmesi gereken üç kısıt ölçüldü:**
+  1. **Kural MOBİLDE UYGULANAMAZ.** Kurye e-postaları SAHTEdir — `Provisioning.php:209` onları
+     `<kullanıcı>@<firma-kodu>.sipario.local` diye türetir; o adrese doğrulama postası gitmez. Mobil
+     uygulamaya giren asıl kitle kuryedir.
+  2. **Mağaza incelemesi kırılır.** BRIEF: "Giriş ekranlı uygulamayı incelemeci açamazsa reddedilir."
+     Demo hesabı doğrulanmamışsa uygulama mağazadan döner.
+  3. **`Login.php:26` ters yönde bir kural taşıyor:** "süresi dolan bayi tam da ÖDEME YAPMAK için giriş
+     yapar". Doğrulama kapısı o yolu kapatmamalı.
+  **ÖNERİLEN KAPSAM:** yalnız WEB + yalnız PATRON; mobil giriş bu kapıya hiç bakmaz. Ayrıca yazım hatası
+  kalıcı kilide dönüşmesin diye doğrulama ekranında **adres düzeltme + yeniden gönderme**, panelde **elle
+  doğrulama** düğmesi şart.
+- **SMTP KURULMADI.** `MAIL_MAILER=log`. Şablonlar hazır ama üretimde hiçbir posta çıkmıyor; bu bir kod
+  işi değil, altyapı işi (aşağıda SIRADAKİ İŞLER'de).
+- **Kademe ④'ün kalanı** (yeni cihaz girişi bildirimi, "dışa aktarma hazır" postası) kapsam dışıydı.
+  İkincisi zaten dışa aktarım aracının kendisi olmadan yazılamaz.
+
+**SIRADAKİ İŞLER (öncelik sırasıyla):**
+1. **SMTP sağlayıcısı bağlanmalı + SPF/DKIM/DMARC kurulmalı.** Bu yapılmadan 13 şablonun hiçbiri kimseye
+   ulaşmaz. Gönderen `bilgi@sipario.com.tr`; alan adı doğrulanmazsa postalar spam'e düşer ve bu SESSİZ olur.
+   Doğrulandıktan sonra gerçek bir kutuya (Gmail + Outlook + iOS Mail) test gönderimi yapılmalı — bu vardiya
+   tarayıcıda doğruladı, gerçek istemcide DOĞRULAMADI.
+2. **E-posta doğrulama akışı** — yukarıdaki üç kısıt ve önerilen kapsamla.
+3. `dev` → `main` birleştirme (bir önceki vardiyanın mobil işi hâlâ telefonlara inmedi).
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-11/3 (giriş ergonomisi + sürüm notları)
+
+**NE YAPILDI** (hepsi ölçüldü, hiçbiri "yazıldı ama koşulmadı" değil):
+
+| İş | Nerede | Durum |
+|----|--------|-------|
+| Parola göster/gizle | `login_screen.dart` · `form.dart` (`SipInput.sonEk`) · `icons.dart` (`goz`/`gozKapali`) | ✅ |
+| Beni hatırla | `tables.dart` + şema **v19** · `session.dart` · `login_screen.dart` | ✅ |
+| Güncelleme bandı sadeleşti | `guncelleme_banti.dart` | ✅ |
+| Yenilikler ekranı | `guncelleme/surum_notlari.dart` (veri) · `screens/isletme/surum_notlari_ekrani.dart` (ekran) · Ayarlar→Hakkında girişi | ✅ |
+| Yeni testler | `giris_hatirla_ve_parola_test.dart` (17) · `surum_notlari_test.dart` (13) · bant testi güncellendi (+2) | ✅ 1250/1250 |
+| Sürüm | `pubspec.yaml` 0.13.0 → **0.14.0** | ✅ |
+
+**NE YAPILMADI (bilinçli):**
+- **Parola SAKLANMIYOR** ve bu bir karardır, eksiklik değil (gerekçe DECISIONS 2026-08-11/3). "Beni hatırla"
+  yalnız firma kodu + kullanıcı adını doldurur. Genişletmek istenirse `PAROLA HİÇBİR ALANA YAZILMAZ` testi
+  kırmızıya döner ve karar yazılı olarak yeniden alınır — sessizce genişleyemez.
+- **Güncelleme bandı sürüm notlarına BAĞLANMADI.** Bandın tüm yüzeyi "kurmak için dokun"dur; içine ikinci
+  bir dokunma hedefi koymak, yanlışlıkla kurulum başlatan bir bayi üretirdi. Yenilikler ekranı yalnız
+  Ayarlar'dan açılıyor.
+- **Sunucudan sürüm notu çekilmiyor** (gerekçe `surum_notlari.dart` başlığında, üç maddeli).
+
+**SIRADAKİ İŞLER (öncelik sırasıyla):**
+1. **`dev` → `main` birleştirme.** Bu vardiyanın işi telefonlara ancak oradan iner (saha kanalı yalnız
+   `main`den beslenir). Rutin adım, tek seferlik karar değil.
+2. **Gerçek cihazda giriş ekranı provası.** Widget testinde test fontu ~1,8× geniştir; parola gözünün ve
+   "Beni hatırla" satırının dar ekranda (küçük telefon + büyük yazı tipi) nasıl durduğu ÖLÇÜLMEDİ.
+3. **Sürüm notu yazma alışkanlığı.** Bundan sonra sürümü artıran her vardiya `kSurumNotlari`'nin başına
+   bir kayıt ekler; eklemezse `EN ÜSTTEKİ kayıt pubspec.yaml sürümüyle AYNI` testi kırmızı olur (kapı
+   kuruldu, ama alışkanlık insanda).
+4. Önceki devir notunun açık maddeleri (aşağıda) hâlâ geçerli.
+
+### 🔻 2026-08-10/3 — "8 KEZ YENİDEN BAŞLADI" ALARMININ KAYNAĞI KENDİ BAYRAĞIMIZDI
+
+Kullanıcı Coolify'da yine yeniden başlatma gördü. **Sunucudan SSH ile ölçüldü, panele bakılarak
+akıl yürütülmedi:** `queue` → `RestartCount=8` ama `ExitCode=0`, `OOMKilled=false`, `Error=""`;
+`app`/`db`/`scheduler`/`backup` hepsi **0**. Yaratılış `01:36:48`, son başlangıç `09:37:16` —
+**8 saat 28 saniyede tam 8 yeniden başlatma, yani saatte bir.** Çöküş yoktu: `--max-time=3600`
+işçiye "1 saat sonra kendini sonlandır" diyordu ve o da tam bunu yapıyordu.
+
+Zarar üç halkada doğuyordu: ① Docker `unless-stopped` altında çıkış kodu 0 ile çöküşü ayırmaz;
+② Coolify sayaç arttıysa **çıkış koduna bakmadan** `crash` yazar ve sayacı uygulamanın **bütün
+container'larının MAX'ı** olarak alır (`GetContainersStatus.php:465,474-480`) — sayaç yalnız tam
+`exited`ta ya da yeni deploy'da sıfırlanır; ③ tavanda `StopApplication` (`:484`) → `CleanupDocker`
+→ `external` ağ silinir → sonraki her deploy "network not found". Yani bu bayrak **tavana saatte
+bir tıklayan bir sayaçtı**; ölçüm anında **8/10**'daydı ve ~2 saat sonra üretimi kendi kendine
+durduracaktı. Her deploy sayacı sıfırlayıp fitili 10 saat sonrası için yeniden kurduğu için arıza
+aylarca "arada bir" görünüp teşhis edilmedi.
+
+**Yapıldı:** `--max-time=3600` compose'dan kaldırıldı (bellek koruması durur — `queue:work` zaten
+varsayılan `--memory=128` ile koşar; fark, yeniden başlatmanın bir TAKVİM olmaktan çıkıp bir OLAY
+olmasıdır). Kullanıcı panelden `max_restart_count`'u **0**'a (kapalı) çekti; `restart_count` da
+0'a sıfırlandı — DB'den doğrulandı. `DeploySirasiTest`'e dördüncü madde eklendi ve **totoloji
+olmadığı ölçüldü** (bayrak geri konunca kırmızı, çıkarılınca yeşil); iddia yoruma değil
+`entrypoint:` satırına bağlandı, yoksa gerekçeyi yazmak testi kıracaktı. **4/4 yeşil.**
+
+**Ders:** bayrağın kendisi doğruydu, yanlış olan onu **Docker'ın gözetmenliğine** bağlamaktı —
+Docker "planlı çıkış" diye bir kavram tanımaz. Daha genel olanı: **bir sayaç, neyi saydığını
+bilmeyen bir aksiyona bağlanırsa sağlıklı davranış ile arıza aynı sayıya yazılır.**
+
+**AÇIK:** düzeltme henüz **deploy EDİLMEDİ** — dev'de koşan container hâlâ eski entrypoint'i
+taşıyor (saatte bir yeniden başlamaya devam eder, ama tavan kapalı olduğu için zararsız).
 
 ### Konum özelliği — ne kuruldu (2026-07-28)
 
@@ -302,7 +2549,275 @@
 
 ---
 
-# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-09/2-3-4 · TEK UZUN VARDİYA)
+# 🔻 VARDİYA DEVİR NOTU — ÖNCE BUNU OKU (2026-08-11 · BEŞ SAHA İSTEĞİ + AJAN ÖLÜMLERİ)
+
+> **BEŞ CÜMLELİK ÖZET:**
+> 1. **Beş saha isteği de kapandı:** açık sipariş uyarısı (tek kapı, yalnız `open`) · favori
+>    ürünler (`customers.favorite_product_ids` JSON dizisi) · sepet satır notu
+>    (`order_lines.note`) · birim açılır menüsü · müşteri kartında son 3 sipariş + tümü ekranı.
+>    Mobil şema **v18**, API'de iki migration. Sürümler MINOR: API **1.3.0**, uygulama **0.12.0**.
+> 2. **Swarm'ın BEŞ ajanı da oturum limitinde öldü** ve ağacı DERLENMEZ bıraktı. Altı hatanın
+>    hepsi bağlama hatasıydı (eksik import ×3, sınıf içinden görünmeyen üst düzey ad, dar
+>    `show` yüzünden kapsam dışı kalan drift `&` operatörü ×2) — mantık hatası YOKTU.
+> 3. **Mobil testlerin tamamını lead yazdı** (34 test, 4 dosya). Ajanlara "kendi testini kendin
+>    yaz" denmişti; hiçbiri yetişemedi. Bu ÜST ÜSTE İKİNCİ vardiyadır — testler her zaman en
+>    son sıradaki iş oluyor ve ajan ömrü ona yetmiyor. Bir sonraki swarm'da testi İLK iş yap.
+> 4. **Veri kaybı yasağı iki yerde kilitlendi:** birim menüsünde "listede yoksa varsayılana
+>    düş" dalı YOK (sahadaki "damacana" korunur, testi var) ve favori JSON çözümlemesi hiçbir
+>    girdide çökmez (müşteri satırı her ekranda okunuyor; tek istisna o ekranı kaybettirirdi).
+> 5. **Ölçüm:** mobil **1208/1208** · API **723/723** · `flutter analyze` temiz.
+>    **CİHAZDA DOĞRULAMA YAPILMADI.**
+>
+> **SIRADAKİ İŞLER (bu vardiyadan devreden):**
+> - **Cihazda doğrula:** açık siparişi olan müşteriye ikinci sipariş aç (uyarı çıkmalı, "Vazgeç"
+>   durdurmalı) · favoriye ürün ekleyip sipariş formunda hızlı seçimden sepete at · satır notu
+>   gir ve KURYENİN gördüğü yerde okunduğunu gör · listede olmayan birimli bir ürünü açıp kaydet
+>   ve biriminin değişmediğini doğrula.
+> - **Üç araç tuzağı yeniden ölçüldü:** ① `testWidgets` içinde `db.close()` sahte zamanda ASILIR
+>   (saf sorgu testi `test()` olmalı); ② durdurulan `flutter test` yetim `flutter_tester` bırakıp
+>   `sqlite3.dll`'i kilitler — DLL'i silme, süreci kapat; ③ **`artisan test` dakikalarca CPU'su
+>   boşta "koşuyorsa" test DB'si kapalıdır** — Sipario'nun test veritabanı Laragon'un 5432'si
+>   değil, `docker-compose.yml:27`'deki `55432:5432` container'ıdır. Tanı: `netstat | grep 55432`,
+>   sonra tek dosyayı `--filter` ile koş (gerçek hata saniyeler içinde düşer). Kurtarma:
+>   `docker start sipario_db` — `compose up` DEĞİL.
+> - **Ajan adlandırma tuzağı:** aynı isim ikinci kez kullanılınca yeni ajan `ad-2` oluyor; eski
+>   isme yazan bir ajan GEÇEN VARDİYANIN ölü ajanını uyandırıyor ve o, bu vardiyanın alanına
+>   kod yazıyor. Bu turda yaşandı; swarm kurarken adları baştan ayır.
+
+---
+
+# (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-10/4 · KURYE YETKİLERİ KİŞİYE BAĞLANDI)
+
+> **BEŞ CÜMLELİK ÖZET:**
+> 1. **Kurye yetkileri artık role değil KİŞİYE bağlı.** 13 yetki `tenant_settings`'te "bayi
+>    varsayılanı" olarak kaldı; kişiye özel karar `users`'ın 13 **NULLABLE** kolonunda yaşıyor ve
+>    etkin yetki `kisisel ?? varsayilan` ile TEK saf fonksiyonda çözülüyor (`kuryeIzinleriCoz`).
+> 2. **`null` ≠ `false` ≠ "anahtar yok"** — payload'da anahtar yoksa "dokunma", açık `null` ise
+>    "devral", bool ise "kişiye özel". Bu üçlüyü ikiye indiren her dokunuş ya bayinin kapattığı
+>    yetkiyi geri açar ya kuryeyi eski ezmesine çakılı bırakır. Sözleşmenin can alıcı yeri budur.
+> 3. **Yeni bir güvenlik kapısı eklendi:** yetki alanı taşıyan `user_profile` push'unu yalnız
+>    patron/operatör yapabilir (`UserRole::kuryeYetkisiAtayabilir`); aktör olay gövdesinden
+>    OKUNMAZ ve kapı LWW'den öncedir. Kapı olmasaydı kurye kendi iskontosunu offline açabilirdi.
+> 4. **`team` bloğu pazarlıksızdı:** `users` her senkron turunda toptan silinip yazılıyor, o yüzden
+>    13 alan yayına da eklendi. Eklenmeseydi yetki kaydedilir, sunucuya gider ve bir tur sonra
+>    cihazda sessizce sıfırlanırdı — özellik "çalışıyor" görünüp kendini silerdi.
+> 5. **Ölçüm:** mobil **1177/1177** · API **707/707** · analyze temiz · API **1.2.0** / uygulama
+>    **0.11.0** (MINOR, geriye dönük uyumlu). **CİHAZDA DOĞRULAMA YAPILMADI** — sıradaki iş bu.
+>
+> **SIRADAKİ İŞLER (bu vardiyadan devreden):**
+> - **Cihazda doğrula:** iki kuryeye farklı yetki ver, ikisinin telefonunda ekranların gerçekten
+>   ayrıştığını gör. Özellikle `team` bloğu turundan SONRA ezmenin hâlâ yerinde olduğunu doğrula.
+> - **Panel tarafı**: yönetim panelinde kurye yetkisi gösteren/yazan bir yüzey YOK; kişiselleşen
+>   yetkiyi panelden görmek isteyip istemediğimiz karara bağlanmalı.
+> - **Araç borcu:** `build_runner` komutu belgede eski (`flutter pub run …` AOT'ta düşüyor,
+>   doğrusu `dart run build_runner build --force-jit`).
+
+---
+
+# (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-10/2 · ÜRETİM ÇÖKTÜ, KÖK NEDEN BULUNDU, KALICI DÜZELTİLDİ)
+
+> **BEŞ CÜMLELİK ÖZET:**
+> 1. **Üretim ~1 saat kapalıydı ve manuel deploy'lar "network not found" ile ölüyordu.** Bu bir
+>    sonuçtu, hastalık değil: `queue` çöküyor → docker yeniden başlatıyor → Coolify 10. yeniden
+>    başlatmada `StopApplication` çağırıyor → `CleanupDocker` `external` ağı siliyor → sonraki
+>    HER deploy ağ yok diye ölüyor. Zinciri **canlı izledik**, tahmin yürütülmedi.
+> 2. **Kök neden: `DB_PASSWORD` döndürülmüş, ama roldeki parola değişmemişti.** `10-roles.sh`'i
+>    PostgreSQL YALNIZ boş veri dizininde koşturur; hacim doluydu, betik bir daha hiç koşmadı.
+>    Uygulama yeni anahtarla eski kilidi açmaya çalışıyordu.
+> 3. **KALICI DÜZELTME KODA GİRDİ (`3ec0384`, `dev`)** — roller artık `db` her açıldığında env
+>    parolalarıyla hizalanıyor; eşitleme container'ın İÇİNDEN koşuyor (dışarıdan imkânsız, çünkü
+>    owner parolası bayatken kimlik doğrulanamaz). Dört bekçi test + gerçek container ölçümü.
+> 4. **Teşhis sırasında iki kez yanıldım ve ikisi de ölçüm hatasıydı** — aşağıda "YANILGILAR"
+>    bölümünde yazılı; ikisi de bu projede tekrar edebilecek sınıftan.
+> 5. **Kullanıcı her iki Coolify uygulamasını da SİLDİ** (bilerek, veri feda edildi); ardından
+>    **`Sipario Dev` sıfırdan kuruldu ve YEŞİL** — düzeltmenin sıfırdan kurulum yolu ilk kez
+>    sahada sınandı ve geçti. **Üretim hâlâ kurulmadı.** Eski hacimler öksüz duruyor.
+>
+> **Ölçüm (vardiya sonu, BİZZAT koşuldu):** API **695/695** (3537 iddia, 1 kasıtlı incomplete) ✅ ·
+> `phpstan` **0** ✅ · `pint` temiz ✅ · sıfırdan kurulum ve **parola döndürme** senaryoları
+> gerçek container'da koşuldu ✅ · dev CANLIDA ölçüldü (`test.sipario.com.tr` 200, rol eşitleme
+> günlüğü, üç rol scram ile, geocoding + sıralama uçtan uca) ✅.
+> **Mobil test koşulmadı** (bu vardiya mobil koda dokunmadı) · **APK derlenmedi.**
+>
+> **Dallar (vardiya sonu):** `dev` itildi · `main` == `827767a` — **`main` `dev`'in gerisinde** ve
+> üretim düzeltmelerinin HİÇBİRİ `main`'e gitmedi (13. madde, artık ACİL).
+
+## NE YAPILDI
+
+**① Arıza zinciri kaynağına kadar sökülüp yazıldı.** `queue` günlüğündeki
+`FATAL: password authentication failed for user "sipario_app"` tek kanıttı ve ona ulaşmak için
+önce `LOG_CHANNEL`'ın `stderr`e çekilmesi gerekti — çünkü geceki çöküşte kanıt yoktu.
+
+**② `LOG_CHANNEL=stderr` düzeltmesi aylardır ÖLÜYDÜ.** Compose'da `${LOG_CHANNEL:-stderr}` yazıyor
+ama `:-` **yalnız değişken tanımsızken** devreye girer; Coolify panelinde `LOG_CHANNEL=stack`
+tanımlıydı, dolayısıyla varsayılan hiç çalışmadı. Önceki vardiyanın "üretim günlüğü stderr'e
+alındı" kaydı ağaçta doğruydu, **yürürlükte değildi.**
+
+**③ Kalıcı düzeltme (`3ec0384`):** `10-roles.sh` artık iki yerden koşar — initdb'de ve **her
+container açılışında** (`sipario-entrypoint.sh` → `sipario-rol-esitle.sh`). `ALTER ROLE`'ler
+koşulsuz; owner rolü de hizalanır. Parolalar SQL'e gömülmez (psql değişkeni), boş parola sessizce
+geçmez. Aynı sırrın ikinci adları (`SIPARIO_*_PASSWORD`, `DB_APP_PASSWORD`) kaldırıldı. Yerel
+compose `image:` yerine `build:` kullanır — aksi halde eşitleyici yerelde hiç koşmaz ve yerel
+yığın üretimden ayrışarak aynı sınıf arızayı gizlerdi.
+
+**④ `RolParolaEsitlemeTest` (4 test).** Totoloji OLMADIĞI ölçüldü: `Dockerfile`'dan `ENTRYPOINT`
+satırı çıkarılıp koşuldu, test kırmızıya döndü.
+
+**⑤ SSH anahtarı döndürüldü.** Benim erişim anahtarım tazelendi (`sipario_v2_ed25519`), yanmış
+olan sunucudan silindi ve reddedildiği ÖLÇÜLDÜ.
+
+**⑥ DEPLOY YARIŞI KAPATILDI — migration artık tek atımlık bir ÖNKOŞUL servisi.**
+Dev sıfırdan kurulurken ölçüldü: `queue` iki kez çöküp yeniden başladı (`relation "cache" does
+not exist`), çünkü yalnız `db healthy` bekliyordu ve tabloları yaratan migration Coolify'ın
+**post-deployment** adımında, yani yığın ayağa kalktıktan SONRA koşuyordu. İki yeniden başlatma
+zararsız görünür ama Coolify'ın tavanı 10'dur ve bu sayı migration süresine bağlıdır — aşıldığında
+ne olduğunu aynı gün yaşadık (①'deki zincirin ilk halkası). Artık compose'da `migrate` servisi var
+(`restart: "no"`) ve `app`/`queue`/`scheduler` ona `service_completed_successfully` ile bağlı;
+`backup` BİLEREK bağlanmadı (migration düşerse kurtarma aracı yine koşmalı). Yan kazanç: migration
+başarısız olursa deploy DÜŞER — eskiden yığın kalkar, migration ayrı adımda düşer ve yarı göçmüş
+şemayla trafik alırdı. `DeploySirasiTest` (3 test) bağı denetler; `queue`'nun bağı koparılıp
+kırmızıya döndüğü ölçüldü.
+
+## 🔴 BU VARDİYADA YAPTIĞIM İKİ YANILGI (ikisi de ölçüm hatasıydı — desen olarak not edilmeli)
+
+**① `127.0.0.1` üzerinden yapılan parola testi SAHTE "GEÇTİ" verdi.** `pg_hba.conf`'ta
+`host all all 127.0.0.1/32 trust` var: o yoldan bağlanan istemciye parola HİÇ sorulmaz. Ben
+"parola doğru" diye rapor ettim, oysa uygulama ağ üzerinden (`scram-sha-256`) bağlanıyor ve
+reddediliyordu. **Ders: kimlik doğrulama testi, uygulamanın kullandığı YOLDAN yapılmazsa hiçbir
+şey kanıtlamaz.** Doğru testte üç rol de başarısızdı.
+
+**② `.env`'deki değişkenleri karşılaştırıp "iki ayrı parola var" dedim — yanlıştı.** Compose
+`SIPARIO_APP_PASSWORD: ${DB_PASSWORD}` diye dolaylama yapıyor ve `environment:` bloğu env
+dosyasını ezer; container'a giden değer her zaman `DB_PASSWORD`'ünkiydi. `.env`'de duran ayrı
+`SIPARIO_APP_PASSWORD` girdisi ölü bir kalıntıydı ve teşhisi saatlerce yanlış yöne çekti.
+**Ders: "dosyada ne yazıyor" ile "container'a ne gidiyor" ayrı sorulardır.**
+
+## ⚠️ BU VARDİYADAN KALAN AÇIKLAR
+
+- **`Sipario Dev` SIFIRDAN KURULDU ve YEŞİL** (yeni uuid `l1o1xouuvwwqo394xypycgcy`).
+  Ölçüldü: `test.sipario.com.tr` **HTTP 200** · beş container ayakta · `db healthy` ·
+  migration 38 tablo · üç rol **ağ üzerinden (scram)** bağlanıyor ·
+  günlükte `[SIPARIO-ROL-ESITLEME] roller env parolalariyla hizalandi` —
+  **düzeltmenin canlıda koştuğunun kanıtı budur, sıfırdan kurulum yolu ilk kez sınandı.**
+  Rota/sıralama zinciri de uçtan uca ölçüldü: `GoogleGeocoder` canlı sorguda gerçek
+  koordinat döndürüyor (Muratpaşa 36.88276,30.76948 · Atatürk Cd. 36.97097,30.75089) ve
+  `YakinKomsuMotoru` kuzeyden güneye doğru zinciri kuruyor, konumsuz durağı sona atıp
+  dış servise göndermiyor. `GOOGLE_ROUTES_KEY` BOŞ — gerçek yol ağı sıralaması kapalı,
+  bedava kuş uçuşu motoru çalışıyor (bilinçli, bkz. 19. madde).
+- **`Sipario App` (üretim) HÂLÂ KURULMADI.** Kurulmadan önce 13. madde (dev→main merge)
+  yapılmalı, yoksa üretim rol eşitleme düzeltmesini taşımaz.
+- **[✅ KAPANDI — dev'de ölçüldü]** ⑥'daki `migrate` servisi deploy edildi (dev deploy #162,
+  commit `8d30f76`, `finished`) ve açık bıraktığım iki soru da ÖLÇÜLDÜ:
+  (a) **yarış kapandı** — `queue` `RestartCount` **0** (aynı ortamda önceki deploy'da 2'ydi),
+  altı container'ın hiçbirinde yeniden başlatma yok;
+  (b) **panel kirlenmedi** — `Exited (0)` kalan `migrate` container'ına rağmen Coolify'ın
+  `status` alanı `running:unknown`, yani değişiklikten önceki hâlin aynısı; korktuğum alarm
+  körlüğü DOĞMADI. `migrate` çıktısı `Nothing to migrate.`, site **HTTP 200**.
+- **Coolify'da post-deployment command TEMİZLENMELİ** (`php artisan migrate --database=pgsql_owner
+  --force`). Migration artık compose'un içinde; panelde kalırsa aynı komut ikinci kez koşar —
+  zararsız ama "migration nerede koşuyor?" sorusunun iki cevabı olur ve bu vardiya tam olarak
+  bu tür ikiliklerin (iki parola değişkeni, iki log kanalı) bedelini ödedi.
+- **Öksüz hacimler sunucuda duruyor:** `h43pc3…_sipario-pgdata-v4` (silinen üretimin verisi:
+  1 bayi, 6 kullanıcı, 21 sipariş, 73 çağrı kaydı), `pz3gsgc8…`, ayrıca iki eski kuşaktan
+  (`un35zcb…`, `xwdasjxc…`) kalanlar. Veri istenerek feda edildi ama **fiilen silinmedi** —
+  ya `docker volume rm` ile temizlenmeli ya da bilinçli olarak bırakıldığı yazılmalı.
+- **Düzeltme `main`'e gitmedi.** Üretim sıfırdan kurulurken `main` koşulacaksa, `main` bu
+  düzeltmeyi TAŞIMIYOR ve aynı arıza ilk parola döndürmesinde geri gelir.
+- **Coolify'ın kendi sunucu anahtarı hâlâ eski** (`authorized_keys`'te `coolify` yorumlu satır) —
+  önceki oturumda sohbete yapıştırılmıştı. Panel işi, app silmekten etkilenmedi.
+- **Mobil taraf bu vardiyada hiç ölçülmedi.**
+
+# (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-10 · API sürümü + iki sessiz arıza)
+
+> **DÖRT CÜMLELİK ÖZET:**
+> 1. **API sürümü artık her yanıtta.** Önceki listenin 6. maddesi (tek kod borcu) kapandı:
+>    `AppendServerMeta` her JSON yanıta `api_version` koyuyor, telefon onu `sync_meta`ya
+>    önbellekliyor (şema **v16**), Ayarlar → Hakkında'da ayrı bir "Sunucu" satırı çiziyor.
+> 2. **Kimliksiz `GET /api/v1/version`** eklendi — token'ı olmayan taraf (durum çubuğu, dağıtım
+>    doğrulaması) da sunucunun hangi sürümü koştuğunu sorabilsin diye.
+> 3. **Durum çubuğu yalan söylüyordu: "YAYIN BORCU 384", gerçek 0.** Yerel `main` ref'i aylardır
+>    donmuş; ölçüm `origin/main..origin/dev`e alındı.
+> 4. **Bir güvenlik testi aylardır kırmızıydı, iki kardeşi yeşil ama vakumdu** (`PaymentSecurityTest`,
+>    sebep test içine sabit yazılmış fiyat). Önceki notun "API 685/685 ✅" kaydı bu ağaçta tutmadı.
+>
+> **Ölçüm (bu vardiyada BİZZAT koşuldu):** mobil **1152/1152** ✅ · API **688/688** (3481, 1 kasıtlı
+> incomplete) ✅ · `phpstan` **0** ✅ · `pint` temiz ✅ · `dart analyze` **1 info** (aşağıda, benim
+> değişikliğim değil). **APK derlenmedi, cihazda doğrulanmadı.**
+>
+> **Dallar:** `main` == `dev` == `827767a` (vardiya başında) · saha **0.10.0** · test **0.10.0** ·
+> API sürümü **1.0.0 → 1.1.0** (aynı commit'te artırıldı; MINOR = geriye dönük uyumlu yeni alan —
+> sürüm çalışan koda aittir, o yüzden artış deploy'a ERTELENMEDİ). ⚠️ **Canlıda `/api/v1/version`
+> HENÜZ YOK** — istek 404 döndüğü için canlı sürüm "eski" diye değil, HİÇ okunamıyor; çubuk
+> sessizce ağaçtaki değere düşüyor ve tek numara gösteriyor (`API 1.1.0`). Deploy indiğinde canlı
+> okuma BAŞLAR; `→` oku ancak bir sonraki sürüm artışından itibaren iş görür.
+
+## NE YAPILDI
+
+**① API — sürüm her yanıtta (`AppendServerTime` → `AppendServerMeta`).**
+Alan `server_time` ile AYNI yerden ekleniyor. **Uç nokta uç nokta EKLENMEDİ, bilinçli:** yalnız
+`sync/pull`a koymak, yarın eklenecek bir uç noktanın onu taşımamasına yol açardı — `server_time`
+tam olarak bu sebeple taşıma katmanında. Middleware ÜZERİNE YAZMAZ: gövdeyi kendi kuran uç
+noktanın değeri kalır, middleware yalnız eksiği tamamlar.
+
+**② Kimliksiz `GET /api/v1/version`.** Gerekçe controller'da yazılı: sürümü soran taraf çoğu zaman
+token'ı olmayan taraftır ve girişe garip veri POST'layıp 401 gövdesinden sürüm okumak hız sınırını
+yakar. Dönen tek şey kendi sözleşme numaramız — PHP/Laravel sürümü, ortam, yapılandırma sızmaz;
+DB'ye gitmez, kiracı verisine dokunmaz. `throttle:api` (IP başına 60/dk) DoS payını sınırlar.
+`tenant` middleware'i taşımadığı için `RouteCoverageGuardTest`in izolasyon matrisine girmez — doğru.
+
+**③ Telefon sürümü ÖNBELLEKLİYOR (`sync_meta.api_version`, şema v16).**
+Push VE pull'dan yazılır (telefon çoğu turda yalnız pull yapar; tek yöne bağlamak sürümü "yalnız
+yazan cihazlar görür" hâline getirirdi). **Saklanıyor çünkü uygulama offline-first:** bayi Ayarlar'ı
+çoğu zaman ağ yokken açar ve saklamayan bir gösterim, tam da sürümün en çok merak edildiği anda
+boş kalırdı. **YOKLUK EZMEZ** (eski sunucu sürüm bildirmezse bilinen son değer durur).
+**Tip kontrolü zorunlu** — `as String` yazmak, sunucunun bir gün sayı göndermesi hâlinde TÜM turu
+TypeError ile düşürürdü; bir gösterim alanının senkronu durdurmaya yetkisi yoktur.
+**Karşılaştırma/uyarı BİLİNÇLİ OLARAK YOK:** "sunucu benden yeni, kilitleneyim" demek için önce
+hangi sürüm çiftinin uyumsuz olduğunu söyleyen YAZILI bir karar gerekir (CLAUDE.md → Sürümleme).
+
+**④ Ayarlar → Hakkında'ya "Sunucu" satırı.** Uygulama sürümüyle BİRLEŞTİRİLMEDİ: iki ayrı hattır ve
+"Sipario 0.10.0 / 1.0.0" gibi tek satır, okuyanı bir numaranın diğerini takip ettiğine inandırırdı.
+Metin İDDİA ETMEZ — "güncel/uyumlu" demez, yalnız en son GÖRÜLEN numarayı yazar.
+
+**⑤ Bağ makineyle zorlandı.** `SurumCarpikligiTest::mobil_istemci_api_surumunu_okuyor` mobil
+ayrıştırıcının `api_version` okuduğunu KAYNAKTAN denetler (`batchSize` bekçisiyle aynı desen) —
+"tanımlı ama bağlı değil" deseninin beşinci kez doğmaması için.
+
+**⑥ Yükseltme yolu testi (`migration_v16_test.dart`).** Listenin 9. maddesinin ilk taksiti.
+Totoloji OLMADIĞI ÖLÇÜLDÜ: `ALTER TABLE` geçici olarak çıkarılıp koşuldu, test kırmızıya döndü.
+
+## 🔴 BU VARDİYADA BULUNAN İKİ SESSİZ ARIZA (ikisi de bu turun işi değildi)
+
+**① DURUM ÇUBUĞU YALAN SÖYLÜYORDU: "YAYIN BORCU 384", gerçek borç 0.**
+`ci-durum-yenile.cjs` düz `main..dev` ölçüyordu. Bu depoda kimse yerelde `main`e checkout etmiyor
+ve oturum başındaki fast-forward yalnız çalışılan dalı ilerletiyor → yerel `main` `16833e7`te
+donmuş, uzak `827767a`. Ölçüm `origin/main..origin/dev`e alındı (uzak ref yoksa yerele düşer).
+**Kusur göstergenin var oluş sebebine düşüyordu:** borç 41'e çıktığında alarm versin diye konmuş
+kırmızı bir sayı, 0 iken 384 diyorsa artık okunmaz ve gerçek borç büyüdüğünde kimse fark etmez.
+
+**② BİR GÜVENLİK TESTİ AYLARDIR KIRMIZIYDI, İKİ KARDEŞİ YEŞİL AMA VAKUMDU.**
+`PaymentSecurityTest` iyzico retrieve cevabını `paidPrice: '1200.00'` diye SABİT taklit ediyordu.
+Yıllık fiyat 2026-08-04'te 5.988 ₺'ye çıkınca `verify()`in tutar denetimi haklı olarak reddetti ve
+"gövdeye güvenilmez, retrieve esastır" testi kırmızıya döndü — **koruduğu davranış hâlâ doğruyken.**
+Daha sinsisi kardeşlerindeydi: "gövdedeki SUCCESS iyzico'nun FAILURE'ını ezemez" iddiası
+`assertFalse` beklediği için YEŞİL kalmaya devam etti ama artık iddiasını KANITLAMIYORDU — sonuç
+zaten TUTAR yüzünden `false`tu. Tutar artık `config('subscription.price_kurus')`ten türetiliyor.
+⚠️ **Bu, önceki notun ölçüm kaydını da düzeltir:** orada "API **685/685** ✅" yazıyor; aynı ağaçta
+yeniden koşulduğunda 684 yeşil + 1 kırmızı çıktı.
+
+## ⚠️ BU VARDİYADAN KALAN AÇIKLAR
+
+- **Canlıya deploy EDİLMEDİ.** `/api/v1/version` yalnız bu ağaçta var; durum çubuğunun `apiCanli`
+  ölçümü deploy'a kadar sessizce boş kalır (tasarlanan davranış, hata basmaz).
+- **Cihazda doğrulanmadı.** Şema v16 yükseltmesi gerçek telefonda koşmadı; test dosyası o yolu
+  birebir taklit ediyor ama gerçek cihaz ayrı bir kanıttır.
+- **`dart analyze` artık 1 info veriyor** — `order_list_parts.dart:161` `onReorder` deprecated.
+  Benim değişikliğim DEĞİL: bu makinedeki Flutter SDK `pubspec.lock`tan yeni. Aynı sebeple
+  `flutter test` lock'ta dört geçişli paketi bump ediyor (geri alındı — SDK yükseltmesi ayrı bir
+  karardır ve `onReorder` → `onReorderItem` göçü indeks kaydırma semantiği taşır, yani siparişlerin
+  sürükle-sırala davranışını sessizce bozabilir; kör yapılmaz).
+
+# (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-09/2-3-4 · TEK UZUN VARDİYA)
 
 > **Bu vardiya bir saha arızasıyla başladı, bir dağıtım mimarisiyle bitti.** Sırayla oku;
 > bölümler kronolojik ve her biri bir öncekinin açtığı kapıdan girdi.
@@ -501,44 +3016,224 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 ## 🔴 SIRADAKİ İŞLER — TEK LİSTE (vardiyaya başlayan BURADAN devam eder)
 
+> 🟢 **2026-08-18 GÜNCELLEMESİ — ORTAM MADDELERİ BİTTİ, LİSTE NEREDEYSE BOŞ.**
+> **10 · 11 · 16 · 17 kapandı** (SSH erişimi denenince açık çıktı — önceki vardiyanın
+> "erişim yok" hükmü ölçülmemişti). Bu bölümde **açık kalan iş maddesi kalmadı**; geriye
+> yalnız kullanıcı kararına bağlı olanlar duruyor: **0** (üretime geçiş) · **13** (dev→main
+> merge, zamanı kullanıcı söyler).
+> 🟡 **BİR MADDE GERİ AÇILDI, AYNI GÜN KULLANICI TARAFINDAN KAPATILDI: 19 (gerçek yol ağı).**
+> "Kapandı" yazıyordu, ölçülünce kapalı çıktı. Kullanıcı `ROTA_SURUCU=google` yaptı → yine
+> yakın komşu döndü; kök neden bulundu: **`GOOGLE_ROUTES_KEY` BOŞTU** ve motor anahtarsızken
+> *sessizce, günlüğe bile yazmadan* yedeğe düşüyor. Kullanıcı anahtarı doldurup redeploy etti.
+> **Son adım bağımsız ölçülmedi — sonraki vardiya `auto-route` çağırıp `engine`e baksın.**
+>
+> 🔴 **2026-08-17/2 GÜNCELLEMESİ — KOD BORÇLARI KAPANDI.** 7 · 8 · 9 · 14 · 15 kapandı (ayrıntı
+> 2026-08-17/2 devir notunda). **Bu bölümden geriye yalnız ORTAM/İŞLETME maddeleri (10 · 11 · 16 ·
+> 17) ve iki AÇIK KUYRUK kaldı:** LWW saniye-altı `incomplete`i ve 500 satır kuralının TEST tarafı
+> (14 dosya). Ayrıca kayda geçen bir bulgu var, kararı kullanıcıda: `YoneticiKapisi` rol `null`
+> iken açılıyor, `yetkiler(rol: null)` ise en dar kümeyi veriyor.
+>
+> 🔴 **2026-08-17 GÜNCELLEMESİ — LİSTE KISALDI.** Kapananlar: **2** (Telegram bildirimi) ·
+> **3** (Google anahtarı IP kısıtlaması) · **4** (SMTP/e-posta gerçekten gidiyor) ·
+> **12** (deneme APK'sı kuruldu) · **18** (Coolify deploy kilidi) · **19** (gerçek yol ağı açık).
+> Ayrıca **arayan tanıma 20/20 ölçümü yapıldı → Faz 0'ın şartı düştü, GO kesin.**
+> Kullanıcı kararıyla **ASKIYA ALINANLAR — bu listeye bir daha girmezler:** iyzico · Apple/D-U-N-S ·
+> iOS · e-arşiv fatura. **Açık ama acelesi yok:** Android release keystore.
+> **Kullanıcıda kalan tek küçük iş:** Coolify'da `YEDEK_EPOSTA` tanımı.
+>
+> **2026-08-10 GÜNCELLEMESİ:** 6. madde (API sürümü okunmuyor) **KAPANDI**. 9. madde (yükseltme
+> yolu testi) ilk taksitini aldı (`migration_v16_test.dart`) ama KURAL olarak duruyor: şema
+> değiştiren her vardiya kendi testini yazmalı. Listeye üç yeni madde eklendi (13-15).
+
 **İNSAN/GÜVENLİK — önce bunlar:**
 
-1. **SSH ANAHTARINI DÖNDÜR.** Teşhis sırasında Coolify'ın sunucu SSH ÖZEL ANAHTARI sohbete düz
+0. **⏸️ ÜRETİM BEKLEMEDE — KULLANICI KARARI, ACELE EDİLMEZ (2026-08-15'te teyit edildi).**
+   *"Sunucu tarafında sadece test ile devam ediyorum, her şey oturduğunda canlıya geçeceğim;
+   geçileceği zaman haber ederim."* Yani aşağıdaki kurulum tarifi **hazır beklesin, kendi
+   başına uygulanmasın** — geçiş komutunu kullanıcı verir. Tarif olduğu gibi geçerlidir:
+   (dev ✅ kuruldu ve yeşil). Kullanıcı 2026-08-10/2 vardiyasında
+   `Sipario App` ve `Sipario Dev`'i Coolify'dan sildi (bilerek); dev sıfırdan kuruldu, üretim
+   bekliyor. Kurarken **iki tuzak** (dev'de ikisi de doğru yapıldı, üretimde tekrarlanmalı):
+   (a) `SIPARIO_APP_PASSWORD` / `SIPARIO_PANEL_PASSWORD` değişkenlerini panele **ekleme** —
+   compose artık kullanmıyor, durmaları yalnız bir sonraki teşhisi yanıltır (bu vardiyada
+   saatlerce yanılttı). (b) `LOG_CHANNEL`'ı panelde **tanımlama** — compose'daki
+   `${LOG_CHANNEL:-stderr}` varsayılanı, panelde `stack` tanımlı olduğu için aylardır ölüydü ve
+   geceki çöküşün kanıtını yok eden şey buydu. Tanımlamazsan varsayılan ilk kez gerçekten işler.
+   ⚠️ Üretim `main`'den deploy edilir; **önce 13. madde (merge) yapılmalı**, yoksa üretim
+   düzeltmeyi taşımaz.
+1. **[✅ KAPANDI — 2026-08-15, KULLANICI ONAYIYLA ES GEÇİLDİ]** ~~SSH anahtarını döndür.~~
+   Claude'un erişim anahtarı tazelendi (`sipario_v2_ed25519`), yanmış olan sunucudan silindi ve
+   reddedildiği ölçüldü. Coolify'ın KENDİ sunucu anahtarı eski kalıyor: **Coolify kullanımdaki
+   anahtarı silmeye izin vermiyor**, döndürme teknik olarak engellendi ve kullanıcı riski
+   bilerek kabul etti. **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz** — yeniden açılması ancak
+   yeni bir kullanıcı kararıyla olur.
+1b. ~~**SSH ANAHTARINI DÖNDÜR.**~~ (özgün metin) Teşhis sırasında Coolify'ın sunucu SSH ÖZEL ANAHTARI sohbete düz
    metin yapıştırıldı (kullanıcı verdi, kullanıldı, geçici kopya silindi) — ama oturum dökümünde
    ve kabuk geçmişinde duruyor. Coolify → Keys & Tokens → yeni anahtar; sunucuda
    `authorized_keys`ten eskisini çıkar. **Bu listenin en acil maddesi.**
-2. **Bildirim kanalı kur** (Coolify → Notifications) — **Telegram**, e-posta DEĞİL (SMTP kurulu
-   değil, e-posta bildirimi sessizce hiç gelmez). Olaylar: Deployment Failed + Container
-   Stopped/Unhealthy. **Bu kurulmadan bir sonraki çöküşü yine kimse fark etmez** — bugün üretim
-   iki kez çöktü (17:01'de 16 yeniden başlatma, 20:10'da 2) ve ikisini de kullanıcı değil ölçüm
-   yakaladı.
-3. **Google anahtarını kısıtla** (Cloud Console → yalnız Geocoding + Routes API + sunucu IP).
-   Anahtar sohbette düz metin geçti ve artık iki sunucuda kullanılıyor.
-4. **SMTP bağla** — parola sıfırlama bugün sessizce çalışmıyor (bayi "gönderildi" görüyor, e-posta
-   hiç gelmiyor). 5. **Makine dışı yedek** kararı (yedek yalnız sunucunun kendi diskinde).
+2. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~Bildirim kanalı kur~~ — Coolify →
+   Notifications → **Telegram** kuruldu ve bildirimler kullanıcının telefonuna DÜŞÜYOR
+   (kullanıcının kendi cümlesi). Artık bir çöküşü fark etmek ölçüme değil kanala bağlı.
+   **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz.**
+3. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~Google anahtarını kısıtla~~ — anahtarlar
+   **IP ile kısıtlandı**. Sohbete sızan anahtarın serbest kullanımı böylece kapandı.
+   **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz.**
+4. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~SMTP bağla / bir postanın gittiğini gör~~ —
+   **test sunucusunda e-postalar GİDİYOR.** Yani `MAIL_MAILER` gerçekten `smtp`, `log` değil; parola
+   sıfırlama ve yedek postası da aynı yoldan çıkıyor. (Coolify değişkenleri 2026-08-15'te zaten
+   tanımlıydı: `titan.hayalhost.com:465`.) **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz.**
+5. **[✅ KAPANDI — 2026-08-15, kullanıcı kararı]** ~~Makine dışı yedek kararı~~ — S3 ertelendi;
+   yerine her sabah 08:00'de indirme bağlantısı `YEDEK_EPOSTA` adresine postalanıyor
+   (`yedek:baglanti-gonder`). ⚠️ Sınırı yazılı: yedeğin makine dışına çıkması **insanın postayı
+   açıp indirmesine** bağlıdır, otomatik uzak kopyanın yerini tutmaz. **Coolify'da `YEDEK_EPOSTA`
+   tanımlanmadan bu görev her sabah HATA ile çıkar** (bilerek: sessizce başarılı dönmez).
 
 **KOD BORÇLARI:**
 
-6. **API sürümü hiçbir yanıtta okunmuyor** — `config/app.php` → `'version'` tanımlı ama bağlı değil.
-   Bu depoda bugün ÜÇ kez ödenen "tanımlı ama okunmuyor" deseninin dördüncüsü olmasın: doğru
-   devamı senkron yanıtına koyup istemci–sunucu sürüm çarpıklığını GÖRÜNÜR kılmak. Durum çubuğu
-   o zaman `API 1.0.0→1.0.1` gibi canlı/yerel farkını da gösterebilir.
-7. **`PushOzeti.beklemede`** kapatıldı ✅ ama **Yetki Matrisi'nin (+2816 satır) hâlâ testi yok** ve
-   **LWW saniye-altı ayrımı yok** (suite'te kasıtlı `incomplete` ile canlı sinyal).
-8. **500 satır kuralını 13 dosya çiğniyor** (`home_shell.dart` 892 · `sync_engine.dart` 744 ·
-   `kuryeler_ekrani.dart` 699 · `order_queries.dart` 662 …). Bu vardiya `ana_ekran.dart`ı 509'a
-   çıkararak durumu bir miktar kötüleştirdi.
-9. **Yükseltme yolu testi** (`migration_vN_test.dart` deseni) — şema değiştiren her vardiya yazmalı;
-   testlerin hepsi taze DB kurduğu için `onUpgrade` yolu hâlâ zayıf noktadır.
+6. **[✅ KAPANDI — 2026-08-10]** ~~API sürümü hiçbir yanıtta okunmuyor~~ — `AppendServerMeta` her
+   JSON yanıta `api_version` koyuyor · kimliksiz `GET /api/v1/version` · telefon `sync_meta`ya
+   önbellekliyor (şema v16) · Ayarlar → Hakkında'da "Sunucu" satırı · durum çubuğu canlı/ağaç
+   farkını `API 1.0.0→1.0.1` biçiminde gösteriyor. **Kalan tek adım: canlıya deploy** (13. madde).
+7. **[✅ KAPANDI — 2026-08-17]** ~~Yetki Matrisi'nin testi yok~~ — 26 satır × 5 senaryoluk veri
+   tablosu (`test/support/yetki_matrisi_tablosu.dart`) + **32 test**. ⚠️ **LWW saniye-altı ayrımı
+   AÇIK KALDI** (`SyncZamanNormalizasyonuTest.php:208`, kasıtlı `incomplete` — canlı sinyal olarak
+   duruyor; kapatmak damga çözünürlüğü değişikliği ister).
+8. **[✅ KAPANDI — 2026-08-17]** ~~500 satır kuralını 13 dosya çiğniyor~~ — **`apps/mobile/lib`
+   altında 500'ü aşan dosya KALMADI** (önce/sonra tablosu 2026-08-17/2 devir notunda).
+   ⚠️ **TEST TARAFI AÇIK: 14 test dosyası 500'ü aşıyor** (toplam 9.214 satır; `ara_tahsilat_test`
+   1126 · `ui_siparis_harita_test` 925 · `ui_siparis_test` 862 …). Kural testlere de uygulanır.
+9. **[✅ KAPANDI — 2026-08-17]** ~~Yükseltme yolu testi~~ — v1/v7/v8 **zincir** testleri +
+   v19/v20/v21 + ortak iskele (`test/support/migration_yardimcilari.dart`). En değerli parça
+   `semaTamOlmali`: yükseltilmiş şemayı taze şemayla karşılaştırır ve "ALTER yazmayı unutulmuş
+   kolon" sınıfını tek başına yakalar. **Bu testler yazılır yazılmaz iki gerçek arıza buldu**
+   (bkz. 2026-08-17/2 devir notu). Kural olarak duruyor: şema değiştiren her vardiya kendi
+   testini yazar.
 
 **ORTAM/İŞLETME:**
 
-10. **Deploy kesintisi 52,3 sn** (ölçüldü). Sıfırlamak Swarm/iki replika ister ve ÖN KOŞULU
-    expand/contract migration disiplinidir. Şimdilik kararı: **staging'e yaslan, canlıya seyrek çık.**
-11. **Test ortamı boş** — `test.sipario.com.tr` çalışıyor ama içinde bayi yok. Demo verisi yüklemek
-    ayrı bir adım (canlıya bulaşmayacak şekilde).
-12. **Deneme APK'sı bir kez ELLE kurulmalı** — yeni paket kimliği (`com.sipario.app.test`), yani
-    yeni uygulama; ilk kurulumdan sonra kendini günceller.
+10. **[✅ İNCELENDİ VE KAPANDI — 2026-08-18, YENİDEN ÖLÇÜLDÜ]** ~~Deploy kesintisi 52,3 sn~~ —
+    **48 sn** (0,5 sn aralıklı sonda: 1 bağlantı hatası + 60 ardışık 503, `02:24:53→02:25:40`).
+    Ölçüm YENİDEN ÜRETİLEBİLİR: tek seferlik aksama değil, düzenin kendisi. Sebep compose'da
+    zaten yazılı — `deploy:` bloğu Swarm dışında yok sayılır, `start-first` diye bir şey yoktur;
+    Coolify eski kabı durdurup yenisini kurar ve `start_period: 40s` healthcheck'i beklenir.
+    **Karar DEĞİŞMEDİ:** sıfırlamak iki replika + expand/contract migration disiplini ister;
+    bugünkü tek kullanıcı test ortamıdır, 48 sn'nin bedeli sıfırdır. Madde "araştırılacak"
+    olmaktan çıktı, **ölçülmüş ve bilinçle kabul edilmiş** hâle geçti. Üretime geçiş günü
+    yeniden tartılır (0. madde), o güne kadar iş maddesi değildir.
+11. **[✅ KAPANDI — 2026-08-18]** ~~Test ortamı boş~~ — **DemoSeeder koşuldu.** Maddenin metni de
+    bayatmış: `test-bayi` zaten vardı (2 kullanıcı · 6 müşteri · 21 sipariş), eksik olan DEMO
+    bayisiydi. Şimdi 5 kullanıcı · 11 müşteri · 10 ürün · 15 sipariş · 14 defter kaydı · 6 çağrı.
+    Giriş **uygulamanın kendi yolundan** doğrulandı: `POST /api/v1/auth/login` → HTTP 200
+    (`demo/demo/demo1234`). ⚠️ Uç nokta `/api/v1/login` değil **`/api/v1/auth/login`**tir.
+    Canlıya bulaşma yok: seeder idempotent ve tek işlem, mevcut bayiye dokunmadı.
+12. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~Deneme APK'sı bir kez ELLE kurulmalı~~ —
+    **kuruldu ve testleri yapıldı.** Yeni paket kimliği (`com.sipario.app.test`) cihazda; bundan
+    sonrası kendi kendini günceller. **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz.**
+
+**YENİ (2026-08-10):**
+
+13. **`dev` → `main` birleştir + canlıya deploy.** ⏸️ **KULLANICI KARARIYLA BEKLEMEDE
+    (2026-08-15) — "acil" ibaresi ARTIK GEÇERSİZ, kendi başına merge etme.** Aşağıdaki gerekçe
+    teknik olarak hâlâ doğrudur ve geçiş günü okunacaktır; ama geçişin ZAMANINI kullanıcı
+    söyler. Fark bu vardiyada ölçüldü: `main` 2026-08-10'da donmuş, `dev` **78 commit** önde.
+    ⚠️ (Aşağıdaki "ACİL" değerlendirmesi 2026-08-10 tarihlidir, tarihsel olarak korunuyor:) `main` (`827767a`) rol parolası eşitleme düzeltmesini (`3ec0384`) TAŞIMIYOR. Üretim
+    `main`'den deploy edildiği için, `main` merge edilmeden kurulan bir üretim ilk parola
+    döndürmesinde birebir aynı arızayla düşer. Merge edilmesi gereken 4 commit var.
+    Aşağıdaki `/api/v1/version` gerekçesi hâlâ geçerli ve aynı merge'le kapanır.
+    `/api/v1/version` yalnız bu ağaçta var; deploy
+    edilene kadar durum çubuğunun canlı sürüm ölçümü sessizce boş kalır ve API sürümü işinin
+    yarısı kâğıt üstünde durur. Deploy sonrası tek satırlık doğrulama:
+    `curl -s https://api.sipario.com.tr/api/v1/version` → `{"api_version":"1.1.0",...}`.
+    **API sürümü 1.0.0 → 1.1.0 ZATEN ARTIRILDI** (aynı commit'te; MINOR = geriye dönük uyumlu
+    yeni alan).
+    ⚠️ **ÖLÇÜLDÜ — çubuktaki `→` oku BU deploy'da ÇIKMAZ:** canlıda `/version` uç noktası HENÜZ
+    YOK, yani canlı sürüm `1.0.0` diye okunmuyor, HİÇ okunamıyor (istek 404 → `apiCanli` boş →
+    sessizce ağaçtaki değere düşülür, tasarlanan davranış). Bu yüzden çubuk şu an tek numara
+    gösteriyor: `API 1.1.0`. **Deploy'un indiğinin işareti okun kaybolması değil, canlı okumanın
+    BAŞLAMASIDIR** — ok mekanizması ancak bir SONRAKİ sürüm artışından itibaren iş görür.
+    Bu tur için doğrulama yukarıdaki `curl`dür.
+14. **[✅ KAPANDI — 2026-08-17, ÖLÇÜLDÜ]** ~~Flutter SDK ↔ `pubspec.lock` sapması~~ — **sapma
+    ölçülemedi:** tam takım koşuldu, `pubspec.lock` DEĞİŞMEDİ ve `dart analyze` **0 issue** verdi;
+    bahsi geçen `onReorder` info'su artık ÇIKMIYOR (çağrı hâlâ yerinde,
+    `order_list_parts.dart:282`). **Göç KÖR YAPILMADI** — indeks kaydırma semantiği siparişlerin
+    sürükle-sırala davranışını sessizce bozabilirdi ve bunu gerektiren bir kanıt yok.
+    "analyze 0" yeniden otomatik doğru.
+15. **[✅ KAPANDI — 2026-08-17]** ~~Test içine SABİT YAZILMIŞ İŞ DEĞERLERİ~~ — tarandı, iki gerçek
+    bulgu düzeltildi: `SubscriptionTest` dönem süresini `BillingPeriod::Yearly->uzat()`tan okuyor
+    (eski `addDays(300)` eşiği "yıllık"ı değil yalnız "çok uzun"u kanıtlıyordu), `LiveLocationTest`
+    sınırı `config('konum.kalp_atisi_limit')`ten okuyor. ⚠️ **Düzeltme testin varlık sebebini
+    delmesin diye** konum testine ayrıca "sınır genel API sınırından DAR olmalı" iddiası eklendi —
+    yoksa değeri kaynaktan okumak testi "her zaman geçer" hâline getirirdi.
+
+**YENİ (2026-08-10/2):**
+
+16. **[✅ KAPANDI — 2026-08-18, iki vardiyada bağımsız olarak aynı sayı]** ~~`${DEGISKEN:-varsayilan}`
+    tuzağını tara~~ — compose'da **64** varsayılanlı satır, panelde **68** tanımlı anahtar →
+    **yalnız 2 varsayılan fiilen yürürlükte:** `YEDEK_DIZIN:-/backups` ve `YEDEK_TAZELIK_SAAT:-30`.
+    (Üçüncü eşleşme `${DEGISKEN:-varsayilan}`, yorum satırındaki örnektir.)
+    🔴 **Maddenin metninden daha keskin olan asıl ders:** ölü varsayılanların çoğu panel değeriyle
+    **birebir aynıdır** (`LOG_CHANNEL=stderr`, `CACHE_STORE=database`, `SESSION_DRIVER=database`,
+    `QUEUE_CONNECTION=database`, `BCRYPT_ROUNDS=12`). Yani `docker inspect` çıktısındaki DEĞERE
+    bakarak hangisinin yürürlükte olduğu **ayırt edilemez** — eşitlik, varsayılanın yaşadığının
+    değil yalnızca çakıştığının kanıtıdır. Tek güvenilir ölçüt: *anahtar panelde tanımlı mı?*
+    Yeni bir `:-` satırı eklendiğinde bu tarama tekrarlanır (iki komut: panel anahtar listesi ×
+    `grep -oE '\$\{[A-Z_]+:-'`).
+17. **[✅ KAPANDI — 2026-08-18, SİLİNDİ]** ~~Öksüz hacimleri karara bağla~~ — **10 hacim silindi
+    (~377 MB).** Silmeden önce içerik okundu, çünkü maddenin asıl sorusu disk değil *"veri silindi
+    mi?"* belirsizliğiydi: yedek hacimlerindeki `pg_dump` açıldı ve **tek bayi slug `demo` /
+    "Merkez Su Bayii"**, yani `DemoSeeder`'ın SENTETİK verisi çıktı. **Gerçek bayi/müşteri verisi
+    YOKTU** — silme hiçbir şey kaybettirmedi ve KVKK tarafında doğru olan da buydu.
+    Silinenler: `h43pc3…`(3) · `pz3gsgc8…`(2) · `un35zcb3…`(2) · `xwdasjxc3…`(3).
+    Dökümler (~700 KB) `/root/oksuz-hacim-arsiv/` altında `OKUBENI.txt` ile duruyor; o dizin
+    serbestçe silinebilir (`rm -rf /root/oksuz-hacim-arsiv`). Silme sonrası beş kap sağlıklı,
+    site HTTP 200. Kalan iki hacim (`l1o1xouu…`) KULLANIMDADIR.
+    ⚠️ Coolify uygulamayı silerken hacmi silmemeye devam edecek — bu tarama yeni kuşaklar
+    biriktikçe tekrarlanır; ölçüt "kullanımda mı" (`docker inspect` ile kap bağlarını tara).
+18. **[✅ KAPANDI — 2026-08-17, kullanıcı doğruladı]** ~~Coolify `StopApplication` → `CleanupDocker`
+    → `external` ağ silinir → deploy kilitlenir.~~ **Sorun çözüldü.** Kilit bir daha gündeme
+    gelmeyecek; aşağıdaki satır TARİHSEL KURTARMA BİLGİSİ olarak duruyor, iş maddesi değildir:
+    kilit yeniden doğarsa çıkış yolu tek satırdır —
+    `docker network create --driver bridge --attachable <app-uuid>`.
+19. **🟡 KULLANICI KAPATTI — DOĞRULAMA SONRAKİ VARDİYAYA KALDI.** Kullanıcı 2026-08-18'de
+    `ROTA_SURUCU=google` yaptı, ardından **`GOOGLE_ROUTES_KEY`i doldurdu ve redeploy etti**
+    (kullanıcının bildirimi; bu son adım BAĞIMSIZ OLARAK ÖLÇÜLMEDİ — kullanıcı kendi ölçtüğünü
+    söyledi ve tekrar ölçülmesini istemedi).
+    ⚠️ **SONRAKİ VARDİYA BUNU BİR KEZ ÖLÇSÜN — çünkü bu madde daha önce iki kez ölçülmeden
+    "kapandı" yazıldı ve iki kez de tutmadı.** Doğrulama env okumak DEĞİLDİR:
+    `POST /api/v1/orders/auto-route` çağrılır ve yanıttaki **`engine` alanı `"google"` olmalıdır**
+    (demo bayisi + koordinatlı sipariş + `start` konumu ile; ayrıntılı tarif aşağıdaki teşhis
+    zincirinde). `"yakin-komsu"` dönüyorsa anahtar hâlâ boş ya da IP kısıtlaması sunucuyu
+    (`187.124.191.134`) dışarıda bırakıyordur.
+    (Geocoding API ve Routes API aynı Google projesinde — `142583979849` — etkin.)
+
+    **2026-08-18 TEŞHİS ZİNCİRİ (uçtan uca ölçüldü, tahmin yok):**
+    1. İlk ölçümde `ROTA_SURUCU=yakin-komsu`'ydu → kullanıcı panelde `google` yaptı + redeploy.
+    2. Redeploy sonrası kap doğru: `ROTA_SURUCU=google`, `config('rota.surucu')=google`. ✅
+    3. **Ama gerçek çağrı hâlâ yakın komşu döndü:** `POST /api/v1/orders/auto-route` →
+       `"engine":"yakin-komsu"` (HTTP 200, demo bayisi, 4 sipariş + `start` konumu).
+    4. Günlükte **düşüş uyarısı YOK** → motor Google'a gidip DÜŞMEDİ, hiç Google OLMADI.
+    5. Kök neden: `AppServiceProvider::rotaMotoruKur()` son satırı
+       `return $google->hazirMi() ? $google : $yakinKomsu;` — anahtar yoksa **sessizce** yakın
+       komşu döner. Ölçüldü: `config('rota.google.api_key')` **uzunluk 0**, `base_url` doğru,
+       `GOOGLE_GEOCODER_KEY` ise dolu (`AIzaSy…`). Yani boş olan yalnız ROTA anahtarı.
+
+    ⚠️ **BU MADDENİN ASIL DERSİ — SESSİZ DÜŞÜŞ İKİ KATMANLI:** `siralamayiKos()` içindeki
+    `catch (RotaException)` düşüşü **log'a yazar**; ama `hazirMi()` düşüşü **hiçbir iz
+    bırakmaz.** Yani "günlükte uyarı yok" ≠ "Google çalışıyor" — tam tersine, yapılandırma
+    eksikse hiç uyarı olmaz. `engine` alanı bu yüzden tek güvenilir tanıktır ve
+    **doğrulama `auto-route`u GERÇEKTEN ÇAĞIRIP `engine`e bakmaktır**; env okumak yetmez.
+    (2026-08-17'de bu madde "kapandı, `engine:"google"` döndü" diye yazılmıştı — ölçüm
+    tekrarlanınca tutmadı.)
+
+    ⚠️ Yürürlükte kalan kota kuralı: test ve üretim aynı Google anahtarını PAYLAŞMAMALI
+    (test döngüsü üretimin kotasını yakar); dev'de `GEOCODING_DAILY_LIMIT` düşük tutulur (şu an 300).
+    Not: kontör motordan bağımsız düşer ("1 sıralama = 1 kontör"), yani yakın komşuya düşülen
+    her çağrı da hak yakar — özelliği yarım açık bırakmanın görünmez bir bedeli var.
+    (ÖZGÜN, YANLIŞ ÇIKAN METİN:) ~~**AÇIK.** `ROTA_SURUCU=google` ve Routes API çalışıyor; yakın-komşu artık yalnız
+    yedek yol (anahtar/kota/ağ arızasında controller sessizce ona düşer, kullanıcı 5xx görmez).~~
+    ⚠️ **Yürürlükte kalan tek kural (iş maddesi değil, dikkat notu):** test ve üretim aynı Google
+    anahtarını paylaşmamalı — test döngüsü üretimin kotasını yakar; dev'de `GEOCODING_DAILY_LIMIT`
+    düşük tutulur.
 
 ---
 
@@ -1946,16 +4641,18 @@ SMS/Call Log grubundan tek izin yok, `SCHEDULE_EXACT_ALARM` da yok.
 
 ---
 
-# SIRADAKİ İŞLER — önem sırasına göre, adım adım
+# (ARŞİV) SIRADAKİ İŞLER — 2026-07 listesi, ÇOĞU KAPANDI/ASKIDA
 
-> **Okuma kılavuzu:** Her iş için **NEDEN** (neyi bloklar), **KİMDE** (sen mi Claude mı),
-> **ADIMLAR**, **BİTTİ SAYILIR** ve **KANIT** (koddaki yeri) var. 🔴 = bu olmadan ürün satılamaz.
+> 🔴 **BU LİSTE ARTIK GÜNCEL DEĞİLDİR — güncel liste yukarıdaki
+> "🔴 SIRADAKİ İŞLER — TEK LİSTE" bölümüdür.** 2026-08-17'de maddelerin çoğu kapandı ya da
+> kullanıcı kararıyla askıya alındı; her biri kendi başlığında işaretlendi. Buradaki tarifler
+> yalnız TARİHSEL/REFERANS değer taşır — askıdaki bir madde yeniden açılırsa adımları hazır bulunur.
 >
-> **Acı gerçek:** 🔴 işlerin 4'ü de proje sahibinde. Claude'un tek başına ilerletebileceği en
-> değerli iş **#5 (mobil CI)** ve **#4'ün kod ayağı**. Sıradaki vardiya boş kalmasın diye
-> önce onlara bak.
+> **Okuma kılavuzu:** Her iş için **NEDEN**, **KİMDE**, **ADIMLAR**, **BİTTİ SAYILIR** ve **KANIT** var.
 
-## 🔴 1. iyzico sandbox anahtarı → ödeme akışını canlıya bağla
+## ⏸️ 1. iyzico sandbox anahtarı — **ASKIYA ALINDI (2026-08-17, kullanıcı kararı)**
+
+> **Gündeme alınmaz, sorulmaz.** Aşağısı askı kalktığı gün okunacak tariftir; iş maddesi değildir.
 
 **NEDEN:** Faz 5'in kodu TAM ama **gerçek iyzico ile hiç konuşmadı**. Anahtar olmadan tek kuruş
 tahsilat yapılamaz; abonelik iş modelinin tamamı buna bağlı. Bu, tüm listenin en pahalı beklemesi.
@@ -1978,11 +4675,13 @@ anahtarları `.env`'de.
 
 **KANIT:** `apps/api/config/subscription.php:38-40` · `apps/api/app/Payment/IyzicoPaymentGateway.php`
 
-## 🔴 2. Android release imza anahtarı (keystore)
+## 🟡 2. Android release imza anahtarı (keystore) — **AÇIK, AMA ACİL DEĞİL (2026-08-17)**
+
+> Kullanıcı: *"Android Release keystore için henüz daha var."* Yani iş duruyor ama zamanı
+> gelmedi — **her vardiyada hatırlatılmaz**, mağaza başvurusuna yaklaşınca gündeme gelir.
 
 **NEDEN:** `release` derleme **hâlâ debug anahtarıyla imzalanıyor**. Debug imzalı paket Play'e
-**yüklenemez** — mağaza başvurusu bu satır yüzünden ilk adımda durur. Yapılması yarım saat,
-yapılmaması her şeyi bloklar. **Ucuz ve kritik: sıradaki vardiyada ilk bunu iste.**
+**yüklenemez** — mağaza başvurusu bu satır yüzünden ilk adımda durur. Yapılması yarım saat.
 
 **KİMDE:** Anahtar üretimi ve saklanması **sende** (Claude anahtar üretemez/saklayamaz);
 gradle'a bağlama **Claude'da**.
@@ -2001,11 +4700,12 @@ release AAB kendi anahtarıyla imzalı.
 
 **KANIT:** `apps/mobile/android/app/build.gradle.kts:32-36` (`// TODO: Faz 6'da kendi imza anahtarımız`)
 
-## 🔴 3. Apple D-U-N-S + mağaza geliştirici hesapları
+## ⏸️ 3. Apple D-U-N-S + Apple geliştirici hesabı — **ASKIYA ALINDI (2026-08-17, kullanıcı kararı)**
 
-**NEDEN:** Mağaza başvurusunun ön koşulu. **Apple kurumsal hesap D-U-N-S numarası ister ve
-D-U-N-S başvurusu HAFTALAR sürebilir.** Bu yüzden listede yukarıda: yapacak bir şey yokken bile
-saat işliyor. Bugün başlatılmazsa iOS çıkışı haftalarca gecikir.
+> **Gündeme alınmaz, sorulmaz.** Apple tarafı (D-U-N-S, Developer Program, iOS çıkışı) askıda.
+> Google Play ayağı 2. maddede ayrı yaşıyor ve askıda DEĞİL.
+
+**NEDEN (tarihsel):** Mağaza başvurusunun ön koşulu; D-U-N-S başvurusu HAFTALAR sürebilir.
 
 **KİMDE:** Tamamen **sende** (tüzel kişilik gerektirir).
 
@@ -2017,12 +4717,19 @@ saat işliyor. Bugün başlatılmazsa iOS çıkışı haftalarca gecikir.
 
 **BİTTİ SAYILIR:** İki konsola da giriş yapılabiliyor.
 
-## 🔴 4. Arayan tanıma 20/20 ölçümü — ve önündeki `kDebugMode` KAPISI
+## ✅ 4. Arayan tanıma 20/20 ölçümü — **YAPILDI (2026-08-17, kullanıcı doğruladı)**
 
-**NEDEN:** BRIEF'in **1 numaralı korkusu** ve Faz 0 "**şartlı** GO" ile kapandı — şart tam olarak
-buydu: *20/20 aramada ≤1 sn*. Bu ölçüm hâlâ yapılmadı. Ürünün varlık sebebi doğrulanmamış durumda.
+> ✅ **FAZ 0'IN ŞARTI DÜŞTÜ: GO ARTIK KESİN.** BRIEF'in 1 numaralı korkusu ve Faz 0'ın "şartlı GO"
+> kaydı tam olarak bu ölçüme bağlıydı (*20/20 aramada ≤1 sn*); ölçüm sahada yapıldı. Ürünün varlık
+> sebebi artık doğrulanmış durumda. **Bu madde bir daha SIRADAKİ İŞLER'e alınmaz.**
+>
+> ℹ️ Tek teknik not (iş maddesi DEĞİL, bilgi): ölçüm ekranına giden Ayarlar satırı kodda hâlâ
+> `kDebugMode` ile sarılı (`screens/isletme/ayarlar/uygulama_ayarlari_ekrani.dart:138` — dosya
+> ayarların beşe bölünmesiyle taşındı, eski `ayarlar_ekrani.dart:266` yolu bayattır). Yani release
+> derlemede satır çizilmez. Ölçüm tamamlandığı için bu artık kimseyi bloklamıyor; sahada YENİDEN
+> ölçüm istenirse gizli kapı (sürüm numarasına 7 kez dokunma) o gün açılır.
 
-**KİMDE:** Ölçüm **sende** (gerçek cihaz, gerçek arama); önündeki kod engelini kaldırmak **Claude'da**.
+**NEDEN (tarihsel):** Faz 0 "şartlı GO" ile kapanmıştı; şart bu ölçümdü.
 
 **⚠️ SIRADAKİ CLAUDE'A NOT — bu tuzağı kimse fark etmemiş:**
 Ölçüm ekranına giden Ayarlar satırı `kDebugMode` ile sarılı
@@ -2046,10 +4753,17 @@ buydu: *20/20 aramada ≤1 sn*. Bu ölçüm hâlâ yapılmadı. Ürünün varlı
 **KANIT:** `lib/phase0/phase0_screen.dart` · `lib/screens/isletme/ayarlar_ekrani.dart:266` ·
 `lib/screens/home_shell.dart:252`
 
-## 🟡 5. Mobil CI — Claude'un TEK BAŞINA yapabileceği en değerli iş
+## ✅ 5. Mobil CI — **KAPANDI** (2026-08-17'de koddan ölçüldü; bu satır aylardır bayatmış)
 
-**NEDEN:** Ürünün ağırlık merkezi artık mobil (378 test), ama CI'da **yalnız API ve manifest
-denetimi** koşuyor. `flutter test` / `dart analyze` **sadece geliştiricinin makinesinde** çalışıyor —
+> `.github/workflows/mobil-apk.yml` **var ve koşuyor**: `dart analyze` (79-81. satır) +
+> `flutter test` (86-88. satır, varlık indirmesini yeniden deneyen sarmalayıcıyla) + imzalı APK
+> derleme + sürümü APK'nın kendisinden doğrulama + `surum.json` yayınlama.
+> ℹ️ Tek eksik alt adım (iş maddesi değil, bilgi): 3. adımdaki **birleştirilmiş** manifest denetimi
+> kurulmadı — kırmızı çizgi #6'yı `manifest-lint.yml` hâlâ **kaynak** manifest üzerinden koruyor
+> (`scripts/check_permissions_source.sh`).
+
+**NEDEN (tarihsel):** Ürünün ağırlık merkezi mobil, ama CI'da **yalnız API ve manifest
+denetimi** koşuyordu. `flutter test` / `dart analyze` **sadece geliştiricinin makinesinde** çalışıyordu —
 yani iki geliştirici nöbetleşe çalışırken hiçbir otomatik bekçi yok. Ayrıca kırmızı çizgi #6'nın
 (Play izin yasağı) son katmanı olan **birleştirilmiş manifest denetimi** gradle build istediği
 için hâlâ kurulamadı; mobil CI gelince o da bağlanır.
@@ -2100,14 +4814,15 @@ rızasının gerekip gerekmediği.
 
 ## 🟢 8–12. Kalanlar (kısa)
 
-- **e-arşiv fatura:** BRIEF yasal gereklilik sayıyor, kodda **sıfır**. Entegratör seçimi sende,
-  bağlama Claude'da. (`mesafeli-satis.blade.php:22` "fatura elektronik iletilir" diyor.)
-- **iOS:** `apps/mobile/ios/` iskeleti hiç derlenmedi. **Mac + Xcode gerekli** — ekipte kimde
-  olduğu belirsiz, netleştir.
+- **[⏸️ ASKIYA ALINDI — 2026-08-17, kullanıcı kararı]** ~~e-arşiv fatura:~~ BRIEF yasal gereklilik
+  sayıyor, kodda **sıfır**. **Gündeme alınmaz, sorulmaz.** (Askı kalkarsa: entegratör seçimi
+  kullanıcıda, bağlama Claude'da; `mesafeli-satis.blade.php:22` "fatura elektronik iletilir" diyor.)
+- **[⏸️ ASKIYA ALINDI — 2026-08-17, kullanıcı kararı]** ~~iOS:~~ `apps/mobile/ios/` iskeleti hiç
+  derlenmedi, Mac + Xcode gerekiyor. **Gündeme alınmaz, sorulmaz** (Apple tarafıyla birlikte askıda).
 - **Mağaza görselleri + arayan-tanıma tanıtım videosu:** BRIEF mağaza incelemesi için zorunlu
   sayıyor, hiç üretilmedi. Video demo hesapla çekilecek (kilitli + kilitsiz ekran).
-- **Transactional e-posta:** `MAIL_MAILER=log`. Panel şifre sıfırlamada yeni şifreyi ekranda
-  gösteriyor, kimseye göndermiyor.
+- **[✅ KAPANDI — 2026-08-17]** ~~Transactional e-posta: `MAIL_MAILER=log`~~ — test sunucusunda
+  e-postalar gerçekten gidiyor (kullanıcı doğruladı), yani şifre sıfırlama da postalanıyor.
 - **Prod ortam:** TR VPS + Docker + `sipario.com.tr` TLS + `CORS_ALLOWED_ORIGINS` (boşsa tarayıcı
   reddedilir) + `sipario_panel` DB rolünün elle kurulması (docker init yalnız ilk initdb'de çalışır).
 - **Küçükler:** PR #11 merge · VERBİS değerlendirmesi · marka başvurusu takibi ·

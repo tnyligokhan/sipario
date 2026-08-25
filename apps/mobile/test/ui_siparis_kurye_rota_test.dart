@@ -1,9 +1,13 @@
 // İKİ SAHA İSTEĞİ, tek dosya — ikisi de "sipariş ekranında ne görünüyor, ne oluyor" sorusu.
 //
 //  A. YENİ SİPARİŞTE KURYE SEÇİMİ. Siparişi girerken kimin götüreceği çoğu zaman bellidir;
-//     onu atamak için kaydedip listeye dönüp detayı açmak üç fazladan dokunuştu. Seçim
-//     OPSİYONELDİR ve atama MEVCUT yoldan (`assign` → `assigned` olayı → outbox) yazılır —
-//     formun kendine ait bir yazma yolu YOKTUR.
+//     onu atamak için kaydedip listeye dönüp detayı açmak üç fazladan dokunuştu. Atama MEVCUT
+//     yoldan (`assign` → `assigned` olayı → outbox) yazılır — formun kendine ait bir yazma yolu
+//     YOKTUR.
+//     ⚠️ SEÇİM 2026-08-13'TEN İTİBAREN ZORUNLU (kullanıcı kararı; önce opsiyoneldi). Zorunluluk
+//     KOŞULSUZ DEĞİL: yalnız atama YAPILABİLDİĞİNDE geçer (`yetkiler().atama` =
+//     `yönetici && aktif kurye var`). Tek kişilik bayide ve kurye rolünde kapı hiç kurulmaz —
+//     kurulsaydı o iki kullanıcı hiç sipariş giremezdi. Üç test bu üç durumu birlikte kilitler.
 //
 //  B. ARAÇ ŞERİDİ (2026-08-01): harita ve kurye süzgeci başlıktaki çıplak ikon düğmelerinden
 //     sekmelerin altındaki ETİKETLİ çiplere indi.
@@ -20,10 +24,11 @@ import 'package:sipario/data/app_database.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/repo/product_repository.dart';
+import 'package:sipario/screens/orders/order_form_parts.dart'
+    show AltKuryeCipi, kuryeZorunluUyarisi;
 import 'package:sipario/screens/orders/order_form_screen.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
 import 'package:sipario/screens/orders/siparis_harita.dart';
-import 'package:sipario/theme/components/atoms.dart';
 
 import 'support/siparis_yardimci.dart';
 
@@ -32,20 +37,23 @@ void main() {
   // A. Yeni sipariş formunda KURYE SEÇİMİ
   // ═════════════════════════════════════════════════════════════════════════════════════════
 
-  group('OrderFormScreen — kurye seçimi (opsiyonel)', () {
-    /// Katalogda tek ürün, tek müşteri, tek AKTİF kurye. [rol] `sync_meta.user_role`e yazılır:
-    /// satırın görünürlüğü K2 matrisinden (`yetkiler().atama`) türer, ekranın kendi kararı değil.
-    Future<AppDatabase> kur({required String rol}) async {
+  group('OrderFormScreen — kurye seçimi (ZORUNLU, atama yapılabildiğinde)', () {
+    /// Katalogda tek ürün, tek müşteri, [kuryeVar] ise tek AKTİF kurye. [rol]
+    /// `sync_meta.user_role`e yazılır: çipin görünürlüğü K2 matrisinden (`yetkiler().atama`
+    /// = `yönetici && kuryeVar`) türer, ekranın kendi kararı değil.
+    Future<AppDatabase> kur({required String rol, bool kuryeVar = true}) async {
       final db = AppDatabase(NativeDatabase.memory());
       await ProductRepository(db)
           .create(name: 'Damacana 19 L', unitPriceKurus: 4500, unit: 'adet');
       await CustomerRepository(db).create(name: 'Ayşe Yılmaz');
-      await db.into(db.users).insert(UsersCompanion.insert(
-            id: 'k1',
-            name: 'Kurye Ali',
-            role: 'kurye',
-            status: 'active',
-          ));
+      if (kuryeVar) {
+        await db.into(db.users).insert(UsersCompanion.insert(
+              id: 'k1',
+              name: 'Kurye Ali',
+              role: 'kurye',
+              status: 'active',
+            ));
+      }
       await (db.update(db.syncMeta)..where((t) => t.id.equals(1)))
           .write(SyncMetaCompanion(userRole: Value(rol)));
       return db;
@@ -57,11 +65,10 @@ void main() {
       await akisiBekle(tester);
       await tester.tap(find.text('Katalogdan ürün ekle'));
       await akisiBekle(tester);
+      // Seçeneksiz üründe karoya dokunmak bir adedi doğrudan sepete koyar (2026-08-22).
       await tester.tap(find.text('Damacana 19 L'));
       await akisiBekle(tester);
-      await tester.tap(find.text('Sepete Ekle · ${sipTutar(4500)}'));
-      await akisiBekle(tester);
-      await tester.tap(find.text('Bitti · 1 kalem eklendi'));
+      await tester.tap(find.text('1 kalem eklendi'));
       await akisiBekle(tester);
       await tester.tap(find.text('Devam'));
       await akisiBekle(tester);
@@ -77,15 +84,15 @@ void main() {
       await akisiBekle(tester);
       await ozeteKadar(tester);
 
-      // Satır BOŞ başlar: seçim zorunlu değil, metin de bunu söyler.
-      expect(find.text('Atama yok — sonra da atanabilir'), findsOneWidget);
+      // Çip BOŞ başlar ve doldurulması gerekir (bir sonraki test kapıyı kanıtlıyor).
+      expect(find.text(AltKuryeCipi.bosEtiket), findsOneWidget);
 
-      await tester.tap(find.text('Atama yok — sonra da atanabilir'));
+      await tester.tap(find.text(AltKuryeCipi.bosEtiket));
       await akisiBekle(tester);
-      await tester.tap(find.text('Kurye Ali'));
+      await tester.tap(find.text('Kurye Ali (Kurye)'));
       await akisiBekle(tester);
 
-      // Seçim satıra yansır — kullanıcı kaydetmeden önce kime gittiğini görür.
+      // Seçim çipe yansır — kullanıcı kaydetmeden önce kime gittiğini görür.
       expect(find.text('Kurye Ali'), findsOneWidget);
 
       await tester.tap(find.text('Siparişi Kaydet'));
@@ -108,8 +115,11 @@ void main() {
       await ekraniKapat(tester);
     });
 
-    testWidgets('kurye seçilmezse atama olayı YAZILMAZ (seçim gerçekten opsiyonel)',
+    testWidgets('kurye seçilmeden SİPARİŞ OLUŞMAZ — sebebi yazılır (kullanıcı kararı)',
         (tester) async {
+      // KURAL 2026-08-13'te DEĞİŞTİ: seçim opsiyoneldi, artık zorunlu. Gerekçe kullanıcının:
+      // atanmamış sipariş sahipsiz kalıyor. Engel SESSİZ OLAMAZ — dokunan kişi neden
+      // kaydedilmediğini ekranda okumalı, yoksa "uygulama bozuk" der.
       genisYuzey(tester);
       late AppDatabase db;
       await tester.runAsync(() async => db = await kur(rol: 'patron'));
@@ -118,24 +128,69 @@ void main() {
       await akisiBekle(tester);
       await ozeteKadar(tester);
 
-      // Satıra HİÇ dokunulmaz — sipariş atamasız kaydedilmeli.
+      // Çipe HİÇ dokunulmadan kaydet.
+      await tester.tap(find.text('Siparişi Kaydet'));
+      await akisiBekle(tester, ms: 300);
+
+      late List<Order> siparisler;
+      await tester.runAsync(() async => siparisler = await db.select(db.orders).get());
+      expect(siparisler, isEmpty, reason: 'atamasız sipariş YAZILMAZ');
+      expect(find.text(kuryeZorunluUyarisi), findsOneWidget,
+          reason: 'engel sebebini söylemeli');
+
+      // Kurye seçilince aynı düğme çalışır — kapı kilit değil, eksik alan.
+      await tester.tap(find.text(AltKuryeCipi.bosEtiket));
+      await akisiBekle(tester);
+      await tester.tap(find.text('Kurye Ali (Kurye)'));
+      await akisiBekle(tester);
       await tester.tap(find.text('Siparişi Kaydet'));
       await akisiBekle(tester, ms: 300);
 
       late List<OrderEvent> olaylar;
-      late List<Order> siparisler;
       await tester.runAsync(() async {
-        olaylar = await db.select(db.orderEvents).get();
         siparisler = await db.select(db.orders).get();
+        olaylar = await db.select(db.orderEvents).get();
       });
-
-      expect(olaylar.where((e) => e.eventType == 'assigned'), isEmpty);
-      expect(siparisler.single.assignedUserId, isNull);
+      expect(siparisler, hasLength(1));
+      expect(siparisler.single.assignedUserId, 'k1');
+      expect(olaylar.where((e) => e.eventType == 'assigned'), hasLength(1));
 
       await ekraniKapat(tester);
     });
 
-    testWidgets('KURYE rolünde kurye satırı hiç çizilmez (K2: atama yöneticinin işi)',
+    testWidgets('TEK KİŞİLİK BAYİDE kural GEÇMEZ — aktif kurye yokken sipariş kaydedilir',
+        (tester) async {
+      // ZORUNLULUĞUN SINIRI. `yetkiler().atama` = `yönetici && kuryeVar`; kurye yoksa çip hiç
+      // çizilmez. Zorunluluk koşulsuz olsaydı BRIEF'in "tek kişilik bayi çoktur" dediği
+      // işletme HİÇ sipariş giremezdi — seçemeyeceği bir alan yüzünden kaydı kapanırdı.
+      genisYuzey(tester);
+      late AppDatabase db;
+      await tester.runAsync(() async => db = await kur(rol: 'patron', kuryeVar: false));
+
+      await tester.pumpWidget(sipKabuk(OrderFormScreen(db: db, writable: true)));
+      await akisiBekle(tester);
+      await ozeteKadar(tester);
+
+      expect(find.text(AltKuryeCipi.bosEtiket), findsNothing, reason: 'atanacak kimse yok');
+
+      await tester.tap(find.text('Siparişi Kaydet'));
+      await akisiBekle(tester, ms: 300);
+
+      late List<Order> siparisler;
+      late List<OrderEvent> olaylar;
+      await tester.runAsync(() async {
+        siparisler = await db.select(db.orders).get();
+        olaylar = await db.select(db.orderEvents).get();
+      });
+      expect(siparisler, hasLength(1), reason: 'malı patron kendi götürür, sipariş yazılmalı');
+      expect(siparisler.single.assignedUserId, isNull);
+      expect(olaylar.where((e) => e.eventType == 'assigned'), isEmpty);
+      expect(find.text(kuryeZorunluUyarisi), findsNothing);
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('KURYE rolünde kurye çipi hiç çizilmez (K2: atama yöneticinin işi)',
         (tester) async {
       genisYuzey(tester);
       late AppDatabase db;
@@ -145,10 +200,20 @@ void main() {
       await akisiBekle(tester);
       await ozeteKadar(tester);
 
-      // Özet adımının kendisi çizildi (bölüm başlıkları yerinde) — yalnız Kurye bölümü yok.
+      // Özet adımının kendisi çizildi (bölüm başlıkları yerinde) ve alt çubuk da çizildi
+      // (kaydet düğmesi duruyor) — yalnız kurye çipi yok.
       expect(find.text('Sipariş Notu'), findsOneWidget);
-      expect(find.text('Kurye'), findsNothing);
-      expect(find.text('Atama yok — sonra da atanabilir'), findsNothing);
+      expect(find.text('Siparişi Kaydet'), findsOneWidget);
+      expect(find.text(AltKuryeCipi.bosEtiket), findsNothing);
+
+      // ZORUNLULUK KURYEYE İŞLEMEZ: kurye kendine iş atayamaz (K2), o yüzden kapı da açılmaz.
+      // İşlemiş olsaydı kurye rolündeki kullanıcı hiç sipariş giremezdi.
+      await tester.tap(find.text('Siparişi Kaydet'));
+      await akisiBekle(tester, ms: 300);
+      late List<Order> siparisler;
+      await tester.runAsync(() async => siparisler = await db.select(db.orders).get());
+      expect(siparisler, hasLength(1));
+      expect(find.text(kuryeZorunluUyarisi), findsNothing);
 
       await ekraniKapat(tester);
     });
@@ -292,9 +357,9 @@ void main() {
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.text('Oto Sırala · 34 hak'), findsOneWidget);
+      expect(find.text('Oto Sırala (34 hak)'), findsOneWidget);
       expect(find.textContaining('en az iki açık sipariş'), findsNothing);
-      expect(find.textContaining('Salt-okunur'), findsNothing);
+      expect(find.textContaining('Aboneliğiniz sona erdi'), findsNothing);
 
       await ekraniKapat(tester);
     });
@@ -309,8 +374,8 @@ void main() {
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: false)));
       await akisiBekle(tester);
 
-      expect(find.text('Oto Sırala · 34 hak'), findsOneWidget);
-      expect(find.text('Salt-okunur kip: sıra kaydedilemez.'), findsOneWidget);
+      expect(find.text('Oto Sırala (34 hak)'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için sıra kaydedilemiyor'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -323,8 +388,8 @@ void main() {
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.text('Oto Sırala · 0 hak'), findsOneWidget);
-      expect(find.text('Oto sıralama hakkı kalmadı.'), findsOneWidget);
+      expect(find.text('Oto Sırala (0 hak)'), findsOneWidget);
+      expect(find.text('Oto sıralama hakkı kalmadı'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -341,7 +406,7 @@ void main() {
 
       // TAM eşleşme: etikette " · N hak" eki YOK.
       expect(find.text('Oto Sırala'), findsOneWidget);
-      expect(find.text('Hak bilgisi bekleniyor — ilk senkrondan sonra kullanılabilir.'),
+      expect(find.text('Kullanım hakkınız henüz görünmüyor. Sunucuya bağlanınca kullanabilirsiniz.'),
           findsOneWidget);
 
       await ekraniKapat(tester);
@@ -355,7 +420,7 @@ void main() {
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.text('Rota için en az iki açık sipariş gerekir.'), findsOneWidget);
+      expect(find.text('Rota için en az iki açık sipariş gerekir'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -371,7 +436,7 @@ void main() {
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
-      expect(find.text('Oto Sırala · 0 hak'), findsOneWidget);
+      expect(find.text('Oto Sırala (0 hak)'), findsOneWidget);
 
       await tester.runAsync(() async {
         await (db.update(db.syncMeta)..where((t) => t.id.equals(1)))
@@ -379,9 +444,9 @@ void main() {
       });
       await akisiBekle(tester);
 
-      expect(find.text('Oto Sırala · 34 hak'), findsOneWidget,
+      expect(find.text('Oto Sırala (34 hak)'), findsOneWidget,
           reason: 'kontör senkronla gelince düğme tazelenmeli — "0 hak"ta donmamalı');
-      expect(find.text('Oto sıralama hakkı kalmadı.'), findsNothing);
+      expect(find.text('Oto sıralama hakkı kalmadı'), findsNothing);
 
       await ekraniKapat(tester);
     });

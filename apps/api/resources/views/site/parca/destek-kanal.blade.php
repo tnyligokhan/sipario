@@ -26,8 +26,19 @@
                 <x-site.pano class="kanal" :ince="! $loop->first">
                     <span class="kanal-ik"><x-site.ikon :ad="$k['ik']" boy="21" kalin="2" renk="var(--mor)" /></span>
                     <span class="mn">{{ $k['t'] }}</span>
+                    {{--
+                        Telefon ve WhatsApp tıklamaları ÖLÇÜLÜR (2026-08-19). Bu ürünün satışı
+                        birebir yürüyor; "kaç kişi siteden numarayı tıkladı" sorusu, sayfa
+                        görüntülemeden daha anlamlı bir dönüşüm sinyali. Olay adı ikonun
+                        adından türüyor — kanal listesi büyüdüğünde burada değişiklik gerekmez.
+                    --}}
                     <b class="h3 kanal-v">
-                        @if ($k['href'])<a href="{{ $k['href'] }}">{{ $k['deger'] }}</a>@else{{ $k['deger'] }}@endif
+                        @if ($k['href'])<a href="{{ $k['href'] }}"
+                            @if(in_array($k['ik'], ['telefon', 'sohbet'], true))
+                                data-olcum="{{ $k['ik'] === 'telefon' ? 'sipario_telefon_tik' : 'sipario_whatsapp_tik' }}"
+                                data-olcum-etiket="destek-sayfasi"
+                            @endif
+                        >{{ $k['deger'] }}</a>@else{{ $k['deger'] }}@endif
                     </b>
                     <p class="kucuk">{{ $k['a'] }}</p>
                 </x-site.pano>

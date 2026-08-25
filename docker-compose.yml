@@ -1,16 +1,23 @@
 services:
   db:
-    image: postgres:16
+    # `image:` DEĞİL `build:` — rol eşitleyicisi imajın entrypoint'inde yaşıyor ve hazır
+    # postgres imajı onu taşımaz. Yerel yığın üretimden ayrılırsa, üretimi düşüren sınıftan
+    # bir arıza burada bir daha ölçülemez hâle gelir.
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
     container_name: sipario_db
     environment:
       POSTGRES_DB: sipario
       # DB sahibi + migration rolü (imajda superuser). Runtime app rolü init betiğinde kurulur.
       POSTGRES_USER: sipario_owner
       POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:-sipario_owner_dev}
-      # Runtime uygulama rolünün parolası — init betiği (10-roles.sh) bunu okur.
-      SIPARIO_APP_PASSWORD: ${DB_APP_PASSWORD:-sipario_app_dev}
-      # Yönetim paneli rolünün parolası (Faz 5c) — init betiği bunu okur (cross-tenant SELECT + tenants UPDATE).
-      SIPARIO_PANEL_PASSWORD: ${DB_PANEL_PASSWORD:-sipario_panel_dev}
+      # Rol parolaları, uygulamanın BAĞLANDIĞI adlarla birebir aynı (config/database.php).
+      # Eski adlar (SIPARIO_APP_PASSWORD, DB_APP_PASSWORD) kaldırıldı: aynı sır için üç ayrı
+      # ad vardı ve hangisinin yürürlükte olduğu ancak container'ın içine bakınca anlaşılıyordu.
+      DB_PASSWORD: ${DB_PASSWORD:-sipario_app_dev}
+      DB_PANEL_PASSWORD: ${DB_PANEL_PASSWORD:-sipario_panel_dev}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:-sipario_owner_dev}
       # Postgres 16 ICU: Türkçe sıralama/case (ç,ş,ğ,ı,ö,ü). libc tr_TR.UTF-8 imajda yok, ICU var.
       POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=tr-TR --lc-collate=C.UTF-8 --lc-ctype=C.UTF-8 --encoding=UTF8"
     ports:
@@ -20,13 +27,132 @@ services:
       - "55432:5432"
     volumes:
       - sipario_pgdata:/var/lib/postgresql/data
-      # Rol kurulumu — yalnız volume boşken (ilk initdb'de) koşar.
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      # init betikleri artık imajın İÇİNDE (bkz. docker/postgres/Dockerfile). Bind-mount
+      # kaldırıldı: mount, imajdaki dizini gölgeleyip yerelde üretimden farklı bir betik
+      # kümesinin koşmasına yol açıyordu.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sipario_owner -d sipario"]
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # ── PHP çalışma ortamı (2026-08-16) — Laragon'un yerine geçer ────────────────
+  #
+  # NEDEN VAR: bu depoda PHP tarafı bugüne kadar Laragon'un `C:\laragon\bin\php`ine
+  # bağlıydı ve bağımlılık iki script'e gömülüydü (`quality-gate-commit.ps1`,
+  # `saha-sunucu.ps1`). Laragon'un sağladığı TEK şey PHP 8.3 CLI + Composer'dı
+  # (Apache/vhost hiç kullanılmıyordu, Postgres zaten burada koşuyor) — yani
+  # bağımlılık büyük değil, ama görünmezdi: PHP bulunamadığında kalite kapısı
+  # API bölümünü SESSİZCE atlıyor ve yine de "yeşil" diyordu.
+  #
+  # ⚠️ BU SERVİS COOLIFY'I ETKİLEMEZ. Coolify yalnız `docker-compose.prod.yml`i
+  # okur; bu dosya (dev compose) oraya hiç girmez. Üretim imajı
+  # (`docker/php/Dockerfile`) da değiştirilmedi.
+  #
+  # İMAJ SEÇİMİ ÜRETİMLE AYNI AİLEDEN (`serversideup/php`): üretim
+  # `8.3-fpm-nginx` kullanıyor, burada `8.3-cli` yeter (web sunucusu gerekmiyor,
+  # yalnız artisan/composer/pint/phpstan koşacak). Aynı aile olması, `db`
+  # servisindeki ilkenin devamıdır — yerel yığın üretimden ayrılırsa, üretimi
+  # düşüren sınıftan bir arıza burada bir daha ölçülemez hâle gelir.
+  php:
+    image: serversideup/php:8.3-cli
+    container_name: sipario_php
+    # ⚠️ DEPO KÖKÜ BAĞLANIR, `apps/api` DEĞİL — ve bu ÖLÇÜLEREK öğrenildi.
+    # İlk kurulumda yalnız `apps/api` bağlanmıştı; tam takım 11 test düştü.
+    # Sebep: `RolParolaEsitlemeTest` depo kökündeki dosyaları okur
+    # (`dirname(__DIR__, 5)` → `docker-compose.prod.yml`, `docker/postgres/*`) ve
+    # bu testin varlık sebebi tam olarak budur — depodaki dosyaların birbiriyle
+    # tutarlılığını denetler, Laravel'i hiç önyüklemez. Dar bir mount o testi
+    # "dosya yok" diye kırıyordu; yani ortam, testin denetlediği şeyi görünmez
+    # yapıyordu. Dizin yapısı host'takiyle AYNI olmalı ki yol hesabı da aynı çıksın.
+    working_dir: /depo/apps/api
+    environment:
+      # ⚠️ BU İKİ SATIR `phpunit.xml`E VE `.env`E DOKUNMADAN ÇALIŞIR ve sebebi
+      # ikisinin de aynı kuralı izlemesidir:
+      #   · `phpunit.xml`de `force` YOKTUR (dosyada yazılı: "CI kendi env
+      #     değerleriyle bunları geçersiz kılar") → ortamda tanımlı değer kazanır.
+      #   · Laravel dotenv'i `createImmutable` ile yükler → `.env` zaten tanımlı
+      #     bir ortam değişkeninin üzerine YAZMAZ.
+      # Yani host'tan bakınca DB hâlâ `127.0.0.1:55432`, container'dan bakınca
+      # `db:5432` — iki dünya aynı veritabanını farklı adresten görür ve hiçbir
+      # dosyada çift kayıt tutulmaz.
+      DB_HOST: db
+      DB_PORT: 5432
+      # ⚠️ PHPSTAN İÇİN (2026-08-22, ölçülerek bulundu). İmajın varsayılanı 256M ve kod
+      # büyüdükçe phpstan'ın PARALEL İŞÇİSİ o tavanı aştı:
+      #   "Child process error (exit code 255): Allowed memory size of 268435456 bytes
+      #    exhausted ... while running parallel worker"
+      #
+      # ARIZANIN GÖRÜNÜŞÜ YANILTICIYDI ve bir vardiya boyunca sessiz kaldı: kalite kapısı
+      # (`scripts/quality-gate-commit.ps1`) phpstan'ı CONTAINER İÇİNDE koşar, geliştirici ise
+      # elle HOST'ta koşar. Host'un limiti yüksek olduğu için elle ölçüm "0 hata" diyor, kapı
+      # ise kırmızı yanıp COMMIT ATMIYORDU — yani ölçüm ile kapı aynı şeye bakmıyordu.
+      # Belirtisi: hiç commit yok, ağaç kirli, ortada hata mesajı da yok.
+      #
+      # 1G BOL BİR TAVAN, KEYFİ DEĞİL: phpstan her paralel işçi için ayrı süreç açar ve
+      # sınırı süreç BAŞINA uygular; 256M'yi aşan tek bir işçi tüm koşumu düşürür. Bu bir
+      # geliştirme container'ıdır, üretim ayarı değildir.
+      PHP_MEMORY_LIMIT: 1G
+    volumes:
+      # `vendor` İÇİN AYRI VOLUME YOK — bilinçli, ve bir denemeden sonra.
+      # Önce named volume kullanıldı (host'un Windows `vendor`ünü bozmamak için);
+      # iki sorun çıkardı: (1) volume ROOT sahipliğinde doğuyor, container
+      # `www-data` olarak koşuyor ve `composer install` yazamadan düşüyordu,
+      # (2) depo kökü bağlanınca volume'ün mount noktası bind mount'un ALTINA
+      # düşüyor ve boş volume host'taki Windows `vendor`ünü içine kopyalıyordu —
+      # yani izole ettiği şeyi geri getiriyordu.
+      # Tek bind mount daha öngörülebilir: TEK bir `vendor` var, container onu
+      # kurar, IDE de aynısını okur. Sürüm sapması diye bir şey kalmaz.
+      - ./:/depo
+    depends_on:
+      db:
+        condition: service_healthy
+    # Servis bir sunucu değil, ELDE TUTULAN bir kabuktur: komutlar
+    # `docker compose exec php ...` ile içeri gönderilir (bkz. scripts/api.ps1).
+    # Uyumasaydı container her komuttan sonra ölür, her komut yeniden başlatma
+    # bekler ve kalite kapısı saniyeler yerine dakikalar sürerdi.
+    command: ["sleep", "infinity"]
+
+  # ── Yerel web sunucusu (site + yönetim paneli) ───────────────────────────────
+  #
+  # ⚠️ `php` SERVİSİNDEN AYRI, BİLEREK. İkisini tek container'da birleştirmek
+  # cazipti (aynı imaj, aynı vendor) ama web sunucusu bir SÜREÇTİR ve çökebilir:
+  # `artisan serve` bir sözdizimi hatasında ölürse container da ölür, ve o anda
+  # `exec` ile koşan HER ŞEY — kalite kapısı, testler, composer — erişilemez hâle
+  # gelirdi. Yani web'in çökmesi, web'le ilgisi olmayan işleri de durdururdu.
+  # Ayrı servis bu bağı koparır: `web` ölse bile `php` ayakta kalır.
+  #
+  # `artisan serve` KULLANILDI, üretimdeki nginx+fpm DEĞİL: yereldeki iş tek
+  # kişilik geliştirmedir ve `serve` sıfır yapılandırma ister. Üretime benzerlik
+  # burada PHP'nin kendisinde aranıyor (aynı imaj ailesi, aynı sürüm), web
+  # sunucusu katmanında değil — o katmanın yereldeki tek işi sayfayı açmaktır.
+  web:
+    image: serversideup/php:8.3-cli
+    container_name: sipario_web
+    working_dir: /depo/apps/api
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      # `serve` varsayılan olarak 127.0.0.1'e bağlanır ve container içindeki bir
+      # 127.0.0.1, host'tan ERİŞİLEMEZ — port haritalansa bile sayfa açılmaz.
+      # `0.0.0.0` şart; bu satır olmadan aşağıdaki `ports` hiçbir işe yaramaz.
+      APP_URL: http://localhost:8000
+    volumes:
+      - ./:/depo
+    ports:
+      # ⚠️ `127.0.0.1:` ÖN EKİ BİLİNÇLİ — düz `"8000:8000"` yazmak portu makinenin
+      # TÜM ağ arayüzlerine açar, yani aynı wifi'daki herkes panele ve API'ye
+      # erişebilir. Bunun yerini alan eski kurulum (`artisan serve
+      # --host=127.0.0.1`) yalnız bu makineye açıktı; Docker'a taşırken o sınırı
+      # kaybetmek, kimsenin istemediği sessiz bir genişleme olurdu.
+      # Bu sunucu YEREL geliştirme içindir ve dışarı açılmaz; saha denemesi artık
+      # gerçek sunucuya (test.sipario.com.tr) karşı yapılıyor — tünel 2026-08-16'da
+      # kaldırıldı.
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
 
 volumes:
   sipario_pgdata:

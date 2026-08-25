@@ -145,7 +145,7 @@ String cagriSiparisOzeti(List<OrderLine> satirlar) {
     for (final l in satirlar)
       (l.isCustom || l.productId == null) ? l.productName : '${l.productName} ×${l.qty}',
   ];
-  return parcalar.isEmpty ? '—' : parcalar.join(' · ');
+  return parcalar.isEmpty ? '—' : parcalar.join(', ');
 }
 
 /// Defter hareketinin kart üzerindeki sözcüğü — s-musteriler.jsx `HAREKET_META` etiketleri
@@ -164,4 +164,4 @@ String cagriSonHareketMetni({
   required String govde,
   required String saat,
 }) =>
-    saat.isEmpty ? '$onEk: $govde' : '$onEk: $govde · $saat';
+    saat.isEmpty ? '$onEk: $govde' : '$onEk: $govde ($saat)';

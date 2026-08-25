@@ -16,6 +16,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/app_database.dart';
+import '../repo/bildirim_kutusu.dart';
 import '../guncelleme/guncelleme_servisi.dart';
 import '../sync/sync_service.dart';
 import '../sync/yenileme.dart';
@@ -28,6 +29,10 @@ import 'shell/alt_nav.dart';
 import 'shell/ana_bento.dart';
 import 'shell/ana_ozet.dart';
 
+// EKRAN İKİYE BÖLÜNDÜ (2026-08-17, 500 satır kuralı — 509 satırdı): hero ve çipler ayrı
+// parçada. Ekranın özel widget'ları oldukları için `part`tır.
+part 'ana_ekran_parcalari.dart';
+
 class AnaEkran extends StatefulWidget {
   const AnaEkran({
     super.key,
@@ -35,10 +40,11 @@ class AnaEkran extends StatefulWidget {
     required this.sahipAdi,
     required this.onMenu,
     required this.onSekme,
-    required this.onYeniSiparis,
+    required this.onCagrilar,
     required this.onArama,
     required this.onSiparisAc,
     required this.onBorclular,
+    required this.onBildirimler,
     this.borclulariGoster = true,
     this.acikSiparisKullanicisi,
     this.sonSenkron,
@@ -52,7 +58,18 @@ class AnaEkran extends StatefulWidget {
 
   final VoidCallback onMenu;
   final ValueChanged<SipSekme> onSekme;
-  final VoidCallback onYeniSiparis;
+
+  /// Ana ekrandaki BİRİNCİL EYLEM — ekibin çağrı geçmişi (kullanıcı kararı 2026-08-22).
+  ///
+  /// ESKİDEN "Yeni Sipariş"Tİ ve değişmesinin sebebi bir tercih değil, bir ÖLÇÜ: sipariş
+  /// açmanın zaten iki ayrı yolu vardı (alttaki artı düğmesi → "Sipariş Ekle", ve çağrı
+  /// kartındaki "Sipariş Oluştur"), ama "dükkânı kim aradı, kim karşıladı" sorusunun tek yolu
+  /// çekmeceyi açıp satır aramaktı. Bu üründe telefon çalmak ana olaydır (BRIEF: "siparişin
+  /// ezici çoğunluğu telefonla gelir"), yani ana ekranın birincil eylemi de o olmalı.
+  ///
+  /// KAPI KABUKTA: `yetkiler().cagriGunlugu` kapalı olan kurye dokunduğunda sebebini okur.
+  /// Bu ekran yetkiyi bilmez — `onArama`, `onSiparisAc`, `onBorclular` deseninin aynısı.
+  final VoidCallback onCagrilar;
 
   /// "Son Arama" kutusuna dokunulduğunda. Kayıtlı/kayıtsız ayrımını kabuk yapar.
   final ValueChanged<AramaKaydi> onArama;
@@ -65,6 +82,10 @@ class AnaEkran extends StatefulWidget {
   /// "Borçlular" bento kutusu — borçlu müşteriler ekranını kabuk açar (yazma yetkisi orada
   /// bilinir; bu ekran yalnız niyeti devreder, `onArama`/`onSiparisAc` deseninin aynısı).
   final VoidCallback onBorclular;
+
+  /// Zil düğmesi — bildirim kutusunu KABUK açar (gezinme kararı onundur; `onArama`,
+  /// `onSiparisAc`, `onBorclular` deseninin aynısı).
+  final VoidCallback onBildirimler;
 
   /// Borçlular kutusu çizilsin mi (`yetkiler().toplamBorclulariGorme`). Kurye için kapalıdır:
   /// kutu çizilmezse toplam borç tutarı ve borçlu müşteri sayısı ekranda hiç görünmez.
@@ -125,15 +146,28 @@ class _AnaEkranState extends State<AnaEkran> {
     return _ozetAkisi!;
   }
 
+  /// Okunmamış bildirim akışı — BİR KEZ kurulur ([_ozetAkisi] ile AYNI gerekçe: build içinde
+  /// yaratılan akış her karede aboneliği koparır ve rozet ara ara sıfıra düşerdi).
+  late final Stream<int> _okunmamisAkisi =
+      BildirimKutusu(widget.db).watchOkunmamisSayisi();
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _Hero(
-          sahipAdi: widget.sahipAdi,
-          onMenu: widget.onMenu,
-          sonSenkron: widget.sonSenkron,
-          sonSenkronAt: widget.sonSenkronAt,
+        // ROZET AKIŞTAN OKUNUR, tek atış değil: bildirim uygulama AÇIKKEN de doğar (açılış
+        // taramaları, push) ve rozet o an artmalı. Tek atış okuma, bayinin bir sonraki ekran
+        // geçişine kadar "hiç bildirim yok" görmesi demekti.
+        StreamBuilder<int>(
+          stream: _okunmamisAkisi,
+          builder: (context, snap) => _Hero(
+            sahipAdi: widget.sahipAdi,
+            onMenu: widget.onMenu,
+            sonSenkron: widget.sonSenkron,
+            sonSenkronAt: widget.sonSenkronAt,
+            okunmamisBildirim: snap.data ?? 0,
+            onBildirimler: widget.onBildirimler,
+          ),
         ),
         Expanded(
           child: StreamBuilder<AnaOzet>(
@@ -161,7 +195,7 @@ class _AnaEkranState extends State<AnaEkran> {
                     borclulariGoster: widget.borclulariGoster,
                   ),
                   const SizedBox(height: SipSpace.xl),
-                  _Cta(onTap: widget.onYeniSiparis),
+                  _Cta(onTap: widget.onCagrilar),
                   SipBolumBaslik('Son aktivite', ustBosluk: SipSpace.x4),
                   _SonAktivite(db: widget.db, onSiparisAc: widget.onSiparisAc),
                 ],
@@ -171,241 +205,6 @@ class _AnaEkranState extends State<AnaEkran> {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// CSS `.ana-hero` — alt köşeleri r4 yuvarlak koyu blok.
-class _Hero extends StatelessWidget {
-  const _Hero({
-    required this.sahipAdi,
-    required this.onMenu,
-    required this.sonSenkron,
-    required this.sonSenkronAt,
-  });
-
-  final String sahipAdi;
-  final VoidCallback onMenu;
-  final SyncOutcome? sonSenkron;
-  final DateTime? sonSenkronAt;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        SipSpace.x5,
-        SipSpace.x6 + MediaQuery.paddingOf(context).top,
-        SipSpace.x5,
-        SipSpace.x4,
-      ),
-      decoration: BoxDecoration(color: t.hero, borderRadius: SipRadius.heroEtek),
-      child: DefaultTextStyle(
-        style: TextStyle(color: SipTokens.onHero, fontFamily: sipFontBody),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        AnaEkran.selam(DateTime.now()),
-                        style: SipText.selam.copyWith(color: SipTokens.onHeroMid),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        sahipAdi,
-                        style: SipText.isletme.copyWith(color: SipTokens.onHero),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: SipSpace.xl),
-                SipIkonButon(
-                  ikon: SipIcons.menu,
-                  cap: 40,
-                  ikonBoyut: 20,
-                  kalinlik: 2,
-                  zemin: SipTokens.onHeroFill,
-                  renk: SipTokens.onHero,
-                  etiket: 'Menü',
-                  onTap: onMenu,
-                ),
-              ],
-            ),
-            const SizedBox(height: SipSpace.x3),
-            // İki çip yan yana; dar ekranda alt satıra sarar (Wrap) — hero'nun tek satırlık
-            // yüksekliği sabit değil ve taşan bir çip metni kırpardı.
-            Wrap(
-              spacing: SipSpace.sm,
-              runSpacing: SipSpace.sm,
-              children: [
-                _SyncCipi(sonuc: sonSenkron, zaman: sonSenkronAt),
-                const _SurumCipi(),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// CSS `.ana-sync` — renkli nokta + durum metni.
-class _SyncCipi extends StatelessWidget {
-  const _SyncCipi({required this.sonuc, required this.zaman});
-
-  final SyncOutcome? sonuc;
-  final DateTime? zaman;
-
-  /// Başarısız turun çipteki KISA karşılığı — bandın (`SipBant`) uzun metinlerinin özeti,
-  /// AYNI ayrımlarla.
-  ///
-  /// NEDEN AYRIŞTIRILDI (2026-08-05, cihaz doğrulaması): çip bütün hataları
-  /// "Bağlantı yok · tekrar denenecek"e indirgiyordu. Cihaz testinde bant doğru şekilde
-  /// "Sunucu yanıt veremiyor" derken çip aynı ekranda "Bağlantı yok" dedi — o an bağlantı
-  /// VARDI. Bu, bandın dün kapatılan günahının (ulaşılan sunucuya "çevrimdışı" demek) çipteki
-  /// kopyasıydı ve daha kötüsü: aynı ekran iki farklı hikâye anlatıyordu, yani kullanıcı
-  /// hangisine inanacağını bilemiyordu.
-  ///
-  /// "Tekrar denenecek" YALNIZ kendiliğinden düzelecek hâllerde yazılır (`ag`/`sunucu`);
-  /// `veri` ve `oturum` beklemekle geçmez, kullanıcı eylemi gerekir — oraya söz verilmez.
-  static String _hataMetni(SyncHataTuru tur) => switch (tur) {
-        SyncHataTuru.sunucu => 'Sunucu yanıt vermiyor · tekrar denenecek',
-        SyncHataTuru.veri => 'Kayıtlar gönderilemiyor · destekle görüşün',
-        SyncHataTuru.oturum => 'Oturum doğrulanmadı',
-        // `ag` ve `yok`: gerçekten ulaşılamadı — "çevrimdışı" demenin doğru olduğu TEK hâl.
-        SyncHataTuru.ag || SyncHataTuru.yok => 'Bağlantı yok · tekrar denenecek',
-      };
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    final ok = sonuc?.ok ?? false;
-    final saat = zaman == null
-        ? ''
-        : ' · ${zaman!.hour.toString().padLeft(2, '0')}:'
-            '${zaman!.minute.toString().padLeft(2, '0')}';
-    final metin = sonuc == null
-        ? 'Senkron bekleniyor'
-        : (ok ? 'Senkron güncel$saat' : _hataMetni(sonuc!.tur));
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: SipSpace.xl, vertical: SipSpace.sm),
-      decoration: const BoxDecoration(
-        color: SipTokens.onHeroFill,
-        borderRadius: SipRadius.brHap,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              color: sonuc == null
-                  ? SipTokens.onHeroSoft
-                  : (ok ? SipTokens.heroDot : t.danger),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 7),
-          Text(metin, style: SipText.syncCip.copyWith(color: SipTokens.onHeroMid)),
-        ],
-      ),
-    );
-  }
-}
-
-/// "Sürüm güncel" çipi — YALNIZ sunucuya gerçekten ulaşılmış bir kontrolden sonra çizilir
-/// (kullanıcı isteği 2026-07-29: "gelmediyse senkron güncelin yanında sürüm güncel yazabilir").
-///
-/// ÜÇ DURUMDA HİÇ ÇİZİLMEZ ve üçü de bilinçli:
-///  • Henüz kontrol yapılmadıysa — hiç sorulmamış bir soruya "güncel" diye cevap vermek olurdu.
-///  • Çevrimdışı denemede — ulaşılamayan sunucu hakkında "güncelsiniz" demek yanlış bilgidir.
-///  • Güncelleme BULUNDUYSA — o durumu güncelleme bandı anlatır; iki yüzey çelişemez.
-/// Mağaza derlemesinde kontrol hiç koşmaz, dolayısıyla çip de hiç görünmez (kanal kapısı).
-class _SurumCipi extends StatelessWidget {
-  const _SurumCipi();
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<DateTime?>(
-      valueListenable: guncellemeServisi.sonBasariliKontrol,
-      builder: (context, kontrol, _) {
-        if (kontrol == null) return const SizedBox.shrink();
-        return ValueListenableBuilder<GuncellemeDurumu>(
-          valueListenable: guncellemeServisi.durum,
-          builder: (context, durum, _) {
-            if (durum != GuncellemeDurumu.yok) return const SizedBox.shrink();
-            return Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: SipSpace.xl, vertical: SipSpace.sm),
-              decoration: const BoxDecoration(
-                color: SipTokens.onHeroFill,
-                borderRadius: SipRadius.brHap,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SipIcon(SipIcons.check,
-                      boyut: 12, kalinlik: 2.4, renk: SipTokens.onHeroMid),
-                  const SizedBox(width: 6),
-                  Text('Sürüm güncel',
-                      style: SipText.syncCip.copyWith(color: SipTokens.onHeroMid)),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-}
-
-/// CSS `.ana-cta` — hero zeminli birincil eylem.
-class _Cta extends StatelessWidget {
-  const _Cta({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return SipDokun(
-      onTap: onTap,
-      zemin: t.hero,
-      basiliZemin: t.hero2,
-      radius: SipRadius.br3,
-      padding: const EdgeInsets.symmetric(horizontal: SipSpace.x3, vertical: 15),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: t.accent, shape: BoxShape.circle),
-            child: SipIcon(SipIcons.plus, boyut: 20, kalinlik: 2.4, renk: t.accentInk),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Text(
-              'Yeni Sipariş',
-              style: SipText.anaCta.copyWith(color: SipTokens.onHero),
-            ),
-          ),
-          const SipIcon(SipIcons.chevR,
-              boyut: 18, kalinlik: 2.2, renk: SipTokens.onHeroMid),
-        ],
-      ),
     );
   }
 }
@@ -439,7 +238,7 @@ class _SonAktiviteState extends State<_SonAktivite> {
           return Padding(
             padding: const EdgeInsets.fromLTRB(2, SipSpace.md, 2, SipSpace.md),
             child: Text(
-              'Bugün henüz hareket yok.',
+              'Bugün henüz hareket yok',
               style: SipText.metin(13).copyWith(color: t.muted),
             ),
           );
@@ -484,7 +283,7 @@ class _SonAktiviteState extends State<_SonAktivite> {
                             Text(
                               [h.satirOzeti, odemeEtiketi(h.odemeTipi)]
                                   .where((s) => s.isNotEmpty)
-                                  .join(' · '),
+                                  .join(', '),
                               style: SipText.metin(11.5).copyWith(color: t.muted),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

@@ -2,8 +2,9 @@
 #
 # Akış: mobil dokunuşlu her push → arm64 + evrensel APK derlenir, kanalın YUVARLANAN release'inin
 # varlıkları değiştirilir (tek release, çok sürüm ÇÖPÜ yok). Uygulama açılışta kendi kanalının
-# surum.json'ına bakar, yenisini görünce kendini günceller. Bu yol tünelden ve API'den bağımsızdır —
-# geliştirici makinesi kapalıyken de çalışır.
+# surum.json'ına bakar, yenisini görünce kendini günceller. Bu yol API'den bağımsızdır —
+# geliştirici makinesi kapalıyken de çalışır. (2026-08-16'ya kadar "tünelden de bağımsız"
+# yazıyordu; tünel o tarihte tümüyle kaldırıldı.)
 #
 # ⚠️ KANAL AYRIMI 2026-08-09'DA EKLENDİ VE BİR ARIZAYI KAPATTI.
 # Öncesinde bu iş akışı YALNIZ `dev` dalını dinliyor ve `saha` release'ini güncelliyordu;
@@ -79,9 +80,12 @@ jobs:
         working-directory: apps/mobile
         run: dart analyze
 
+      # `flutter test` DOĞRUDAN ÇAĞRILMAZ: `sqlite3` paketi her koşumda GitHub Releases'ten hazır
+      # kütüphane indirir ve indirme koptuğunda iş, testler yeşilken kırmızı olur (2026-08-13'te
+      # oldu). Sarmalayıcı YALNIZ ağ şekilli arızayı tekrarlar; test hatası ilk turda düşer.
       - name: Testler
         working-directory: apps/mobile
-        run: flutter test
+        run: bash ../../scripts/ci-varlik-indirmesini-yeniden-dene.sh flutter test
 
   derle-ve-yayinla:
     needs: test
@@ -149,16 +153,53 @@ jobs:
           # SIPARIO_API define'ı kanalın sunucusunu belirler: saha canlıya, deneme test
           # sunucusuna bakar. Adres kullanıcıya SORULMAZ — yanlış sunucuya bağlanmış bir bayi
           # veri karışması demektir (giriş ekranındaki adres alanı bu yüzden kaldırılmıştı).
+          #
+          # Derleme de aynı yerel varlık indirmesine bağlı (Android hedefi için de bir
+          # kütüphane iner) — testlerdeki sarmalayıcının aynısı burada da kullanılır.
           YAPIM=$(git rev-list --count HEAD)
+          YENIDEN=../../scripts/ci-varlik-indirmesini-yeniden-dene.sh
           flutter pub get
-          flutter build apk --release --flavor "$FLAVOR" \
+          bash "$YENIDEN" flutter build apk --release --flavor "$FLAVOR" \
             --dart-define=SIPARIO_KANAL="$KANAL" \
             --dart-define=SIPARIO_YAPIM="$YAPIM" \
             --dart-define=SIPARIO_API="$API" --split-per-abi
-          flutter build apk --release --flavor "$FLAVOR" \
+          bash "$YENIDEN" flutter build apk --release --flavor "$FLAVOR" \
             --dart-define=SIPARIO_KANAL="$KANAL" \
             --dart-define=SIPARIO_YAPIM="$YAPIM" \
             --dart-define=SIPARIO_API="$API"
+
+      # BİRLEŞTİRİLMİŞ MANİFEST İZİN DENETİMİ (kırmızı çizgi #6) — 2026-08-17'de eklendi.
+      #
+      # NEDEN AYRI BİR ADIM: `manifest-lint.yml` yalnız KAYNAK manifest'i okur. Üçüncü parti
+      # paketlerin manifest merger üzerinden ENJEKTE ettiği izinler o denetimden KAÇAR ve
+      # yalnız build çıktısında görünür — yani yasağın en olası ihlal yolu (bir paket
+      # güncellemesinin sessizce READ_PHONE_STATE getirmesi) tam da denetimsiz olan yoldu.
+      # `scripts/check_permissions.sh` bunun için yazılmıştı ama HİÇBİR iş akışı çağırmıyordu.
+      #
+      # `magaza` AYRICA ÜRETİLİR ve bu pazarlıksız: kanal DAL ADINDAN gelir (main→saha,
+      # diğer→deneme), yani mağaza kanalı bu iş akışında hiç derlenmez. Oysa
+      # REQUEST_INSTALL_PACKAGES yasağının ASIL adresi orasıdır — "geçici saha özelliği Play
+      # sürümüne sızmasın" güvencesi yalnız magaza çıktısı denetlenirse gerçektir. Tam APK
+      # gerekmez: manifest birleştirme tek gradle görevidir ve derlemeden sonra bağımlı
+      # görevlerin çoğu zaten güncel olduğu için saniyeler sürer.
+      #
+      # `android/gradlew` depoda YOKTUR (`android/.gitignore`), ama `flutter build` çalışırken
+      # sarmalayıcıyı SDK önbelleğinden kopyalar ve çalıştırılabilir yapar
+      # (`gradle_utils.dart::injectGradleWrapperIfNeeded`). Bu yüzden adım derlemeden SONRA
+      # gelmek zorunda. Yoksa AÇIKÇA düşer — sessizce atlamak, denetimin olmamasından beterdir.
+      - name: Birleştirilmiş manifest izin denetimi (kırmızı çizgi #6)
+        working-directory: apps/mobile
+        env:
+          SAHA_KEYSTORE_SIFRE: ${{ secrets.SAHA_KEYSTORE_SIFRE }}
+          SAHA_ANAHTAR_SIFRE: ${{ secrets.SAHA_ANAHTAR_SIFRE }}
+        run: |
+          if [ ! -x android/gradlew ]; then
+            echo "HATA: android/gradlew yok — flutter sarmalayıcıyı enjekte etmemiş." >&2
+            echo "      Bu adım 'APK derle'den SONRA gelmeli." >&2
+            exit 1
+          fi
+          (cd android && ./gradlew --console=plain :app:processMagazaReleaseManifest)
+          bash ../../scripts/check_permissions.sh release
 
       - name: Sürümü APK'nın KENDİSİNDEN doğrula
         run: |

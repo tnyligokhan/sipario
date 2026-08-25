@@ -1,7 +1,24 @@
 {{--
-    KimlikKabuk — giriş/kayıt/parola sıfırlama sayfalarının iki panelli kabuğu. site-ciplak layout'u
-    içinde kullanılır (menüsüz). Soldaki istatistikler SW_KANIT ile birebir aynıdır (design_handoff
-    _kaynak/web/05-sw-veri.jsx) — sayfa içeriği değil, bileşenin kendi içine gömülü tasarım verisidir.
+    KimlikKabuk — giriş/kayıt/parola sıfırlama sayfalarının iki panelli kabuğu. site-ciplak
+    layout'u içinde kullanılır (menüsüz).
+
+    ── ⚠️ UYDURMA VERİ BURADA DA VARDI VE BİR TUR GÖZDEN KAÇTI (2026-08-19) ─────────────────
+    Sol panel şunları basıyordu: "Defteri bıraktık. Ay sonunda tahsil edemediğimiz para 12
+    binden 3 bine düştü." — Hasan Yıldırım, Yıldırım Su · Antalya; ve altında "1.240 işletme /
+    6 dk sipariş başına / %31 daha az kayıp".
+
+    Bunlar ana sayfadan silinen uydurma verinin TA KENDİSİYDİ. Silme işlemi
+    `site/parca/_temsili-veri.php` dizilerini boşaltarak yapılmıştı; ama bu bileşen o dosyayı
+    HİÇ OKUMUYOR — kendi içine gömülü bir kopya taşıyordu (yukarıdaki eski belge başlığı bunu
+    açıkça yazıyordu: "bileşenin kendi içine gömülü tasarım verisidir"). Sonuç: ana sayfa
+    temizlendi, ama uydurma yorum ve rakamlar KAYIT ve GİRİŞ ekranlarında yaşamaya devam etti —
+    yani satın alma hunisinin tam ortasında, en kritik iki ekranda.
+
+    DERS: "veriyi tek kaynaktan sil" yeterli değil; aynı içeriğin ELLE KOPYALANMIŞ ikinci bir
+    örneği olabilir. Silme sonrası doğrulama, veri dosyasında değil EKRANDA yapılmalı.
+
+    Yerine ne kondu: uydurma sosyal kanıt yerine, sahibi olduğumuz ve doğrulanabilir üç söz.
+    Bunlar bir "istatistik" gibi görünmüyor çünkü değiller — ürünün kendi kuralları.
 --}}
 @props(['kulak' => null, 'baslik', 'aciklama' => null, 'genis' => false, 'altYazi' => null])
 <main class="kimlik">
@@ -10,14 +27,17 @@
             <x-site.marka boy="38" koyu />
         </a>
         <div class="kimlik-govde">
-            <p class="h2 kimlik-soz">"Defteri bıraktık. Ay sonunda tahsil edemediğimiz para 12 binden 3 bine düştü."</p>
+            <p class="h2 kimlik-soz">Telefon çaldığında müşteriniz ekranda: adı, adresi, borcu ve en son ne aldığı.</p>
             <div class="kimlik-kim">
-                <b>Hasan Yıldırım</b>
-                <span class="kucuk">Yıldırım Su · Antalya</span>
+                <span class="kucuk">Bayiler ve esnaf için sipariş, veresiye ve kurye defteri.</span>
             </div>
         </div>
         <div class="kimlik-alt">
-            @foreach ([['1.240', 'işletme'], ['6 dk', 'sipariş başına'], ['%31', 'daha az kayıp']] as [$v, $b])
+            {{-- Üçü de doğrulanabilir ve bizim elimizde: kart istemiyoruz (ödeme akışı
+                 havale/elden), veri Türkiye'de saklanıyor (kırmızı çizgi), otomatik yenileme
+                 yok (sözleşmede yazılı). Uydurma bir orana benzemesinler diye yüzde/adet
+                 biçiminde DEĞİL, düz ifade olarak yazıldılar. --}}
+            @foreach ([['Kart yok', 'denemede istemiyoruz'], ['Türkiye', 'veriler burada durur'], ['Taahhüt yok', 'istediğinizde bırakın']] as [$v, $b])
                 <div class="kimlik-k">
                     <b>{{ $v }}</b><span class="mn k">{{ $b }}</span>
                 </div>

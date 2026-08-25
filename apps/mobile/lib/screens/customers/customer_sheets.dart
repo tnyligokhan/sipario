@@ -176,7 +176,7 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
         ),
         if (_borc == 0)
           SipDurumSeridi(
-            metin: 'Bu müşterinin açık borcu yok.',
+            metin: 'Bu müşterinin açık borcu yok',
             ikon: SipIcons.check,
             renk: t.ok,
             zemin: t.okSoft,
@@ -207,7 +207,7 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
               children: [
                 Expanded(
                   child: SipCip(
-                    etiket: 'Tamamı · ${sipTutar(_borc)}',
+                    etiket: 'Tamamı (${sipTutar(_borc)})',
                     // "Tamamı" KURUŞUYLA doldurur — adı bir kesinlik iddiası: tam liraya
                     // yuvarlasaydı 85,50 ₺ borçta 85 yazıp borcu kapatmazdı (ve çip, kendi
                     // yazdığı değerle `secili` görünmezdi).
@@ -238,8 +238,8 @@ class _TahsilatGovdeState extends State<_TahsilatGovde> {
           ),
           if (alacakKurus > 0)
             SipHataSatiri(
-              metin: 'Bu tahsilat açık borcu aşıyor — müşteri '
-                  '${sipTutar(alacakKurus)} alacaklı duruma geçecek.',
+              metin: 'Tahsilat açık borçtan fazla. Müşteri ${sipTutar(alacakKurus)} alacaklı '
+                  'duruma geçecek.',
               renk: t.warn,
               ikon: SipIcons.info,
             ),
@@ -296,7 +296,7 @@ class _DuzeltmeGovdeState extends State<_DuzeltmeGovde> {
     setState(() {
       _tutarHatasi = kurus <= 0 ? 'Tutar 0’dan büyük olmalı' : null;
       _notHatasi =
-          not.length < 2 ? 'Açıklama girin — düzeltmenin nedeni deftere yazılır' : null;
+          not.length < 2 ? 'Düzeltmenin nedenini yazın, deftere kaydedilir' : null;
     });
     if (_tutarHatasi != null || _notHatasi != null) return;
 
@@ -364,7 +364,7 @@ class _DuzeltmeGovdeState extends State<_DuzeltmeGovde> {
         const SipFormEtiket('Açıklama (zorunlu)'),
         SipInput(
           controller: _not,
-          ipucu: 'Ör. eksik yazılan tutar, iade, pazarlık…',
+          ipucu: 'Ör. eksik yazılan tutar, iade, pazarlık',
           hata: _notHatasi != null,
           onChanged: (_) => setState(() => _notHatasi = null),
         ),
@@ -373,7 +373,7 @@ class _DuzeltmeGovdeState extends State<_DuzeltmeGovde> {
           Padding(
             padding: const EdgeInsets.only(top: SipSpace.md),
             child: SipHataSatiri(
-              metin: 'Bu düzeltmeyle müşteri alacaklı duruma geçecek.',
+              metin: 'Bu düzeltmeyle müşteri alacaklı duruma geçecek',
               renk: t.warn,
               ikon: SipIcons.info,
             ),

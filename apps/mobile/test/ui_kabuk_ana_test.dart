@@ -49,8 +49,9 @@ void main() {
           sahipAdi: 'Mehmet Usta',
           onMenu: () {},
           onSekme: (_) {},
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onBorclular: () {},
+          onBildirimler: () {},
           onArama: (_) {},
           onSiparisAc: (_) {},
         ),
@@ -90,8 +91,9 @@ void main() {
           sahipAdi: 'Bayi',
           onMenu: () {},
           onSekme: gidilen.add,
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onBorclular: () => borclular++,
+          onBildirimler: () {},
           onArama: (_) {},
           onSiparisAc: (_) {},
         ),
@@ -126,8 +128,9 @@ void main() {
           sahipAdi: 'Bayi',
           onMenu: () {},
           onSekme: (_) {},
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onBorclular: () {},
+          onBildirimler: () {},
           onArama: (_) {},
           onSiparisAc: (_) {},
         ),
@@ -183,15 +186,16 @@ void main() {
           sahipAdi: 'Bayi',
           onMenu: () {},
           onSekme: gidilen.add,
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onBorclular: () {},
+          onBildirimler: () {},
           onArama: (_) {},
           onSiparisAc: (id) => acilan = id,
         ),
       );
 
       // Alt satır ÜRÜN DÖKÜMÜ + ödeme tipidir (`siparisOzet(o) · ODEME_TIPLERI[...]`), SAAT DEĞİL.
-      expect(find.text('19 L damacana ×2 · Tüp ×1 · Nakit'), findsOneWidget);
+      expect(find.text('19 L damacana ×2, Tüp ×1, Nakit'), findsOneWidget);
 
       await tester.tap(find.text('Ayşe Yılmaz'));
       await tester.pump();
@@ -217,8 +221,9 @@ void main() {
             sahipAdi: 'Bayi',
             onMenu: () {},
             onSekme: (_) {},
-            onYeniSiparis: () {},
+            onCagrilar: () {},
             onBorclular: () {},
+          onBildirimler: () {},
             onArama: yakalanan.add,
             onSiparisAc: (_) {},
           ),
@@ -244,7 +249,7 @@ void main() {
       expect(find.text('Son Arama'), findsOneWidget);
       expect(find.text('Ayşe Yılmaz'), findsOneWidget,
           reason: 'kayıtlı numarada ad baskın gösterilir (tasarım: ad || no)');
-      expect(find.textContaining('gelen · '), findsOneWidget);
+      expect(find.textContaining('gelen, '), findsOneWidget);
 
       await kapat(tester);
     });
@@ -261,14 +266,14 @@ void main() {
       await anaEkraniKur(tester, db, yakalanan: yakalanan);
 
       expect(find.text(sipTelefon('+905324152290')), findsOneWidget);
-      expect(find.textContaining('cevapsız · '), findsOneWidget);
+      expect(find.textContaining('cevapsız, '), findsOneWidget);
 
       // CEVAPSIZ ALT SATIRI KIRMIZI. `Sipario.html`de `.bento-alt.eksi` kuralı yok ama
       // `s-ana.jsx:48` sınıfı koşullu ekliyor; lead kararı (2026-07-26): eksik kural, tercih
       // değil — cevapsız çağrı "kaçırılmış sipariş"tir, dikkat çekmelidir.
       // Bu test o kararı kilitler: "CSS'te yok" denip sessizce geri alınmasın.
       final cevapsizSatiri =
-          tester.widget<Text>(find.textContaining('cevapsız · '));
+          tester.widget<Text>(find.textContaining('cevapsız, '));
       expect(cevapsizSatiri.style?.color, SipTokens.acik.danger);
 
       await kapat(tester);
@@ -285,7 +290,7 @@ void main() {
       final yakalanan = <AramaKaydi>[];
       await anaEkraniKur(tester, db, yakalanan: yakalanan);
 
-      final gelenSatiri = tester.widget<Text>(find.textContaining('gelen · '));
+      final gelenSatiri = tester.widget<Text>(find.textContaining('gelen, '));
       expect(gelenSatiri.style?.color, isNot(SipTokens.acik.danger));
 
       await kapat(tester);
@@ -368,8 +373,9 @@ void main() {
             sahipAdi: 'Mehmet Usta',
             onMenu: () {},
             onSekme: (_) {},
-            onYeniSiparis: () {},
+            onCagrilar: () {},
             onBorclular: () {},
+          onBildirimler: () {},
             onArama: (_) {},
             onSiparisAc: (_) {},
             sonSenkron: sonuc,
@@ -384,9 +390,9 @@ void main() {
         const SyncOutcome(ok: false, error: '5xx', tur: SyncHataTuru.sunucu),
       );
 
-      expect(find.text('Bağlantı yok · tekrar denenecek'), findsNothing,
+      expect(find.text('Bağlantı yok, tekrar denenecek'), findsNothing,
           reason: 'sunucuya ULAŞILDI — "bağlantı yok" demek yalan');
-      expect(find.text('Sunucu yanıt vermiyor · tekrar denenecek'), findsOneWidget);
+      expect(find.text('Sunucu yanıt vermiyor, tekrar denenecek'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -400,7 +406,7 @@ void main() {
         const SyncOutcome(ok: false, error: 'red', tur: SyncHataTuru.veri),
       );
 
-      expect(find.text('Kayıtlar gönderilemiyor · destekle görüşün'), findsOneWidget);
+      expect(find.text('Kayıtlar gönderilemiyor, destekle görüşün'), findsOneWidget);
       expect(find.textContaining('tekrar denenecek'), findsNothing);
 
       await kapat(tester);
@@ -414,7 +420,7 @@ void main() {
         const SyncOutcome(ok: false, error: 'ağ', tur: SyncHataTuru.ag),
       );
 
-      expect(find.text('Bağlantı yok · tekrar denenecek'), findsOneWidget);
+      expect(find.text('Bağlantı yok, tekrar denenecek'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -423,7 +429,7 @@ void main() {
       // Ekran metni sözleşmedir: bu iki metne dokunulmadı.
       final db = AppDatabase(NativeDatabase.memory());
       await cipiKur(tester, db, const SyncOutcome(ok: true));
-      expect(find.textContaining('Senkron güncel'), findsOneWidget);
+      expect(find.textContaining('Her şey güncel'), findsOneWidget);
       await kapat(tester);
 
       final db2 = AppDatabase(NativeDatabase.memory());
@@ -434,13 +440,51 @@ void main() {
           sahipAdi: 'Mehmet Usta',
           onMenu: () {},
           onSekme: (_) {},
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onBorclular: () {},
+          onBildirimler: () {},
           onArama: (_) {},
           onSiparisAc: (_) {},
         ),
       );
-      expect(find.text('Senkron bekleniyor'), findsOneWidget);
+      expect(find.text('Bağlantı kontrol ediliyor'), findsOneWidget);
+      await kapat(tester);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════════════════
+  // BİRİNCİL EYLEM — "Yeni Sipariş" değil "Ekip Çağrıları" (kullanıcı kararı 2026-08-22)
+  // ═══════════════════════════════════════════════════════════════════════════════════════
+
+  group('Ana ekran birincil eylemi', () {
+    testWidgets('düğme EKİP ÇAĞRILARINA gider, sipariş formuna DEĞİL', (tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      var cagrilar = 0;
+
+      await ekranaKoy(
+        tester,
+        AnaEkran(
+          db: db,
+          sahipAdi: 'Mehmet Usta',
+          onMenu: () {},
+          onSekme: (_) {},
+          onCagrilar: () => cagrilar++,
+          onBorclular: () {},
+          onBildirimler: () {},
+          onArama: (_) {},
+          onSiparisAc: (_) {},
+        ),
+      );
+
+      // ESKİ ETİKET GERİ GELMEMELİ: sipariş açmanın iki yolu zaten var (alttaki artı düğmesi
+      // ve çağrı kartı), çağrı geçmişinin hiç kısayolu yoktu.
+      expect(find.text('Yeni Sipariş'), findsNothing);
+      expect(find.text('Ekip Çağrıları'), findsOneWidget);
+
+      await tester.tap(find.text('Ekip Çağrıları'));
+      await tester.pump();
+      expect(cagrilar, 1);
+
       await kapat(tester);
     });
   });

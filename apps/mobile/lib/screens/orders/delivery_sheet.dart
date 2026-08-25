@@ -95,7 +95,7 @@ Future<TeslimSonucu?> teslimSheetAc(
 }) =>
     sipSheet<TeslimSonucu>(
       context,
-      baslik: 'Teslim & Ödeme',
+      baslik: 'Teslim ve Ödeme',
       govde: (ctx) => _TeslimGovde(
         toplamKurus: toplamKurus,
         musteriVar: musteriVar,
@@ -275,7 +275,7 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
                 // "ve eksik tahsilat" eklemiştim — mevcut testi kırdı ve gereksizdi. Alanın
                 // müşterisizken kilitli olması zaten hemen altında görünüyor.
                 child: Text(
-                  'Tezgâh satışında veresiye kullanılamaz — kayıtlı müşteri gerekir.',
+                  'Tezgâh satışında veresiye yazılamaz, kayıtlı müşteri gerekir',
                   style: SipText.metin(12, w: 600).copyWith(color: t.muted),
                 ),
               ),
@@ -311,7 +311,7 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
           // terimi ya da belirsiz bir emir olurdu.
           SipToggle(
             etiket: 'Kalanı borç yazma (iskonto)',
-            altEtiket: 'İşaretlenirse ${sipTutar(fark)} kırılır; müşteri borçlu görünmez.',
+            altEtiket: 'İşaretlenirse ${sipTutar(fark)} kırılır; müşteri borçlu görünmez',
             acik: _borcYazma,
             onDegis: (v) => setState(() => _borcYazma = v),
           ),
@@ -343,7 +343,7 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
       return [
         const SizedBox(height: SipSpace.xl),
         _Uyari(
-          metin: 'İskonto — kalan ${sipTutar(iskonto)} borç yazılmayacak, sipariş kapanacak.',
+          metin: 'Kalan ${sipTutar(iskonto)} borç yazılmayacak, sipariş kapanacak',
           renk: t.accent,
           zemin: t.accentSoft,
           ikon: SipIcons.check,
@@ -358,7 +358,7 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
       return [
         const SizedBox(height: SipSpace.xl),
         _Uyari(
-          metin: 'Tutar müşterinin borcuna eklenecek.',
+          metin: 'Tutar müşterinin borcuna eklenecek',
           renk: t.danger,
           zemin: t.dangerSoft,
           ikon: SipIcons.alert,
@@ -369,7 +369,7 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
       return [
         const SizedBox(height: SipSpace.xl),
         _Uyari(
-          metin: 'Kısmi tahsilat — kalan ${sipTutar(fark)} müşterinin borcuna yazılacak.',
+          metin: 'Kalan ${sipTutar(fark)} müşterinin borcuna yazılacak',
           renk: t.warn,
           zemin: t.warnSoft,
           ikon: SipIcons.alert,
@@ -379,9 +379,9 @@ class _TeslimGovdeState extends State<_TeslimGovde> {
     if (fark < 0) {
       // Fazla ödeme: önce varsa önceki borcu kapatır, artarsa müşteri alacaklı kalır.
       final metin = sonrakiBakiye < 0
-          ? 'Fazla ödeme — önceki borç kapanıyor, müşteri ${sipTutar(-sonrakiBakiye)} '
-              'alacaklı duruma geçecek.'
-          : 'Fazla ödeme — aradaki ${sipTutar(-fark)} müşterinin önceki borcundan düşülecek.';
+          ? 'Önceki borç kapanıyor, müşteri ${sipTutar(-sonrakiBakiye)} alacaklı duruma '
+              'geçecek.'
+          : 'Aradaki ${sipTutar(-fark)} müşterinin önceki borcundan düşülecek';
       return [
         const SizedBox(height: SipSpace.xl),
         _Uyari(metin: metin, renk: t.accent, zemin: t.accentSoft, ikon: SipIcons.info),

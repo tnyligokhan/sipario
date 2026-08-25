@@ -59,7 +59,7 @@ class SenkronTazeligiSeridi extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.only(top: SipSpace.sm, bottom: 2),
         child: Text(
-          'Sunucuya son ulaşma: ${senkronSuresi(tazelik.gecenSure!)}',
+          'Bilgiler ${senkronSuresi(tazelik.gecenSure!)} güncellendi',
           style: SipText.yardimci.copyWith(color: t.muted),
         ),
       );
@@ -68,9 +68,9 @@ class SenkronTazeligiSeridi extends StatelessWidget {
     // "Hiç temas yok" ile "eski temas" AYRI cümlelerdir: birincisinde yazacak bir süre YOKTUR ve
     // "0 dk önce" demek, bilmediğimizi bildiğimiz sanmaktır.
     final metin = tazelik.hicTemasYok
-        ? 'Bu cihaz sunucuya hiç ulaşmadı. Başka bir telefondan alınmış ara tahsilat varsa '
-            'buradaki tutar onu görmüyor olabilir.'
-        : 'Sunucuya son ulaşma: ${senkronSuresi(tazelik.gecenSure!)}. Başka bir telefondan '
+        ? 'Bu telefon sunucuya henüz hiç bağlanmadı. Başka bir telefondan alınmış ara '
+            'tahsilat varsa buradaki tutar onu görmüyor olabilir.'
+        : 'Bilgiler ${senkronSuresi(tazelik.gecenSure!)} güncellendi. Başka bir telefondan '
             'alınmış ara tahsilat henüz inmemiş olabilir.';
 
     return Padding(

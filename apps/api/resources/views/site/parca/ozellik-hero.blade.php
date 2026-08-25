@@ -7,11 +7,21 @@
 <section class="blm ic-hero">
     <div class="kap ic-hero-ic">
         <div>
-            <span class="blm-kulak mn"><i></i>Özellikler</span>
+            {{--
+                GİRİŞ CÜMLESİ DEĞİŞTİ (2026-08-19). Eskisi: "Sipario bir 'sipariş uygulaması'
+                değil. Telefonu açtığınız andan akşam kasayı kapattığınız ana kadar geçen işin
+                tamamı." — kendini bir şeyin OLMADIĞINI söyleyerek tanıtan bir cümleydi. Bu
+                kalıp, okurun aklında olmayan bir karşılaştırmayı önce yaratıp sonra reddediyor;
+                esnaf "sipariş uygulaması" diye bir kategori düşünmüyor ki ondan ayrılalım.
+                Yeni cümle doğrudan sayfanın ne göstereceğini söylüyor.
+
+                Kulak ("Özellikler") kaldırıldı: hemen altındaki H1 ve sekmedeki sayfa adı zaten
+                aynı şeyi söylüyor.
+            --}}
             <h1 class="h1 ic-h1">Tezgâhın arkasındaki<br>bütün defterler, tek ekranda.</h1>
-            <p class="gvd b ic-lead">Sipario bir “sipariş uygulaması” değil. Telefonu açtığınız andan akşam kasayı kapattığınız ana kadar geçen işin tamamı.</p>
+            <p class="gvd b ic-lead">Telefon çaldığı andan akşam kasayı kapattığınız ana kadar ne oluyorsa, aşağıda ekran ekran duruyor.</p>
             <div class="dg-grup" style="margin-top:30px">
-                <a class="dg dg-a" href="{{ route('subscription.register') }}">{{ $fiyat['deneme'] }} gün ücretsiz dene<x-site.ikon ad="ok" boy="18" kalin="2.2" /></a>
+                <a class="dg dg-a" href="{{ route('subscription.register') }}" data-olcum="sipario_deneme_tik" data-olcum-etiket="ozellik-hero">{{ $fiyat['deneme'] }} gün ücretsiz dene<x-site.ikon ad="ok" boy="18" kalin="2.2" /></a>
                 <a class="dg dg-c" href="{{ route('site.ana') }}#fiyat">Fiyata bak</a>
             </div>
         </div>

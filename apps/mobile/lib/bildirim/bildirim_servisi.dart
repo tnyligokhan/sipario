@@ -6,9 +6,14 @@
 // Bildirim CİHAZDAN ÇIKMAZ — sunucu, hesap, push altyapısı YOK (KVKK açısından sessiz).
 //
 // KANALLAR: kategori başına AYRI kanal. Bayi sistemden tek tek kısabilmeli. Kanal kimlikleri
-// `BildirimKategori.wire`dan gelir ve MAĞAZADA DEĞİŞMEZ — değişirse kullanıcının kapattığı
-// kanal yeni kanal olarak geri açılır. Arayan kartının kanalı (`sipario_caller`, native
-// tarafta) buraya HİÇ dokunmaz: ayrı kimlik, ayrı önem derecesi, ayrı yaşam döngüsü.
+// `BildirimKategori.kanalKimligi`den gelir — `wire`dan DEĞİL (2026-08-18). `wire` sunucuyla
+// paylaşılan sözleşmedir ve sürümlenemez; kanal kimliği ise kanalın SESİ değiştiğinde değişmek
+// ZORUNDADIR, çünkü Android var olan bir kanalın sesini uygulamanın değiştirmesine izin vermez.
+// Sürüm artışının bedeli, bayinin o kanalda yaptığı SİSTEM kısmalarının sıfırlanmasıdır; bu
+// yüzden ucuz bir hareket değildir ve gerekçesi sözleşme dosyasında yazılıdır.
+//
+// Arayan kartının kanalı (`sipario_caller`, native tarafta) buraya HİÇ dokunmaz: ayrı kimlik,
+// ayrı önem derecesi, ayrı yaşam döngüsü.
 //
 // TAM ZAMANLI ALARM İZNİ ALINMIYOR: `AndroidScheduleMode.inexactAllowWhileIdle` kullanılıyor,
 // bu `SCHEDULE_EXACT_ALARM`/`USE_EXACT_ALARM` GEREKTİRMEZ. Bizim bildirimlerimiz alarm değil
@@ -82,7 +87,7 @@ class YerelBildirimServisi implements BildirimServisi {
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         ),
         onDidReceiveNotificationResponse: (yanit) {
-          dokunulanYol.value = yanit.payload;
+          dokunulanYol.value = _yolaEylemEkle(yanit.payload, yanit.actionId);
         },
       );
       await _kanallariKur();
@@ -106,17 +111,46 @@ class YerelBildirimServisi implements BildirimServisi {
     }
   }
 
+  /// ⚠️ KANAL AYARLARI İLK DOĞUŞTA DONAR — bu metodun en önemli gerçeği budur.
+  ///
+  /// Android, var olan bir kanalın ÖNEM DERECESİNİ ve SESİNİ uygulamanın değiştirmesine izin
+  /// vermez; bu çağrı ikinci kez koştuğunda yalnız AD ve AÇIKLAMA güncellenir. Bilinçli bir
+  /// kural: uygulamanın, kullanıcının kıstığı bildirimi arkadan dolanıp geri açmasını
+  /// engelliyor.
+  ///
+  /// PRATİK SONUCU: bir kategoriyi sonradan heads-up yapmak ya da sesini değiştirmek YENİ BİR
+  /// `wire` (kanal kimliği) gerektirir — ve yeni kanal, bayinin eskisinde yaptığı kısmaları
+  /// hatırlamaz, açık gelir. Bu yüzden yeni bir kategori eklerken [BildirimKategori.headsUp]
+  /// ve [BildirimKategori.ses] İLK SEFERDE doğru verilmelidir.
   Future<void> _kanallariKur() async {
     final android = _android();
     if (android == null) return;
+
+    // ÖNCE SİL, SONRA KUR (2026-08-18). Sıra önemlidir: v1 ile v2 aynı ADI ve AÇIKLAMAYI
+    // taşıyor, yani bir an bile yan yana durdukları bir liste bayiyi yanıltır. Gerekçenin
+    // tamamı `BildirimKategori.kanalKimligiV1` üzerinde.
+    //
+    // Silme İDEMPOTENTTİR: olmayan kanalı silmek Android'de sessizce hiçbir şey yapmaz, yani
+    // uygulamayı ilk kez kuran telefonda da güvenle koşar. İkinci açılışta v1 zaten yoktur.
+    for (final k in BildirimKategori.values) {
+      await android.deleteNotificationChannel(channelId: k.kanalKimligiV1);
+    }
+
     for (final k in BildirimKategori.values) {
       await android.createNotificationChannel(
         AndroidNotificationChannel(
-          k.wire,
+          // ⚠️ `wire` DEĞİL `kanalKimligi`: sesi değiştirmenin tek yolu yeni kanal kimliğidir
+          // ve `wire` sunucu sözleşmesi olduğu için sürümlenemez (gerekçe sözleşme dosyasında).
+          k.kanalKimligi,
           k.ad,
           description: k.aciklama,
-          // ARAYAN KARTI DEĞİL: bu bildirimler işi bölmez, sesli/heads-up gelmez.
-          importance: Importance.defaultImportance,
+          // HEADS-UP YALNIZ ÜÇ KATEGORİDE (gerekçe: `BildirimKategori.headsUp`). Kalanlar
+          // rafa düşer, titrer, simge çıkar — ama işi bölmez. Kanal sürümü artarken bu değer
+          // BİLEREK DEĞİŞTİRİLMEDİ: kullanıcının istediği ayırt edici SESTİ, daha çok ekran
+          // kesintisi değil.
+          importance: k.headsUp ? Importance.high : Importance.defaultImportance,
+          // Artık her kategorinin kendi tonu var — sistem varsayılanına düşen kategori YOK.
+          sound: RawResourceAndroidNotificationSound(k.ses),
         ),
       );
     }
@@ -202,7 +236,7 @@ class YerelBildirimServisi implements BildirimServisi {
         id: bildirimSayisalKimlik(t.kimlik),
         title: t.baslik,
         body: t.govde,
-        notificationDetails: _ayrinti(t.kategori),
+        notificationDetails: _ayrinti(t),
         payload: t.yol,
       );
       await _a.kimlikIsaretle(t.kimlik, an);
@@ -233,7 +267,7 @@ class YerelBildirimServisi implements BildirimServisi {
         title: t.baslik,
         body: t.govde,
         scheduledDate: tz.TZDateTime.from(hedef, tz.local),
-        notificationDetails: _ayrinti(t.kategori),
+        notificationDetails: _ayrinti(t),
         // TAM ZAMANLI ALARM İZNİ İSTEMİYORUZ (dosya başındaki gerekçe): birkaç dakika kayma
         // hatırlatma için zararsız, kısıtlı izin beyanı ise Play riski.
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -260,16 +294,73 @@ class YerelBildirimServisi implements BildirimServisi {
     return gunlukSinir.yerVarMi(t.kategori, gunluk, t.kimlik);
   }
 
-  NotificationDetails _ayrinti(BildirimKategori k) => NotificationDetails(
-        android: AndroidNotificationDetails(
-          k.wire,
-          k.ad,
-          channelDescription: k.aciklama,
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
-          visibility: _kilitEkraniGorunurlugu(k),
-        ),
-      );
+  /// Tek bir bildirimin çizim ayrıntıları.
+  ///
+  /// `importance`/`priority` BURADA DA VERİLİR ama belirleyici olan KANALDIR (Android 8+):
+  /// kanal `high` değilse bu alanlar heads-up üretmez. Yine de tutarlı yazılıyor — Android
+  /// 7 ve altı yalnız bunlara bakar ve `minSdk 29` bugün için o cihazları dışarıda bırakıyor
+  /// olsa da, iki yerde çelişkili değer bırakmak ileride yanlış teşhise yol açar.
+  ///
+  /// GENİŞLETİLMİŞ BİLDİRİM (`BigTextStyle`) KANALA BAĞLI DEĞİLDİR: bildirim başına verilir,
+  /// yani geriye dönük ve serbestçe eklenebilir — kanal donması kısıtı buraya İŞLEMEZ.
+  /// [BildirimTaslagi.detay] boşsa stil hiç verilmez: açılacak bir şeyi olmayan bildirimi
+  /// genişletilebilir göstermek, bayiye boş bir hareket yaptırmaktır.
+  NotificationDetails _ayrinti(BildirimTaslagi t) {
+    final k = t.kategori;
+    final detay = t.detay;
+
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        // Kanal kimliği `_kanallariKur` ile AYNI kaynaktan okunur. İkisi ayrışırsa bildirim
+        // hiç var olmayan bir kanala düşer ve Android onu sessizce yok sayar.
+        k.kanalKimligi,
+        k.ad,
+        channelDescription: k.aciklama,
+        importance: k.headsUp ? Importance.high : Importance.defaultImportance,
+        priority: k.headsUp ? Priority.high : Priority.defaultPriority,
+        visibility: _kilitEkraniGorunurlugu(k),
+        sound: RawResourceAndroidNotificationSound(k.ses),
+        styleInformation: detay == null
+            ? null
+            : BigTextStyleInformation(
+                detay,
+                // Başlık genişletilmiş hâlde de AYNI kalır: `contentTitle` verilmezse Android
+                // zaten `title`ı kullanır. Farklı bir başlık koymak, bildirimi açan bayiye
+                // başka bir şeye baktığını düşündürürdü.
+                summaryText: null,
+              ),
+        /*
+         * KARAR DÜĞMELERİ (kullanıcı isteği 2026-08-22): "Onayla" · "Reddet".
+         *
+         * ⚠️ `showsUserInterface: true` PAZARLIKSIZ. `false` olsaydı Android düğmeyi ARKA PLAN
+         * isolate'inde karşılardı ve karar oradan uygulanmak zorunda kalırdı — bu depoda arka
+         * plan isolate'inin SQLite'a yazması yasaktır (`push_servisi.dart` başlığı: para ve
+         * defter kayıtlarında yarış riski). `true` ile uygulama öne gelir, kararı ön plandaki
+         * tek isolate uygular ve bayi sonucu ekranda görür.
+         *
+         * `cancelNotification` VARSAYILAN (true) BIRAKILIR: karar verildikten sonra bildirim
+         * rafta durursa aynı talep ikinci kez onaylanmaya çalışılır.
+         *
+         * KANAL DONMASI BURAYA İŞLEMEZ: eylemler bildirim başına verilir, kanal ayarı değildir
+         * (genişletilmiş metinle aynı sınıf).
+         */
+        actions: t.kararIster
+            ? const [
+                AndroidNotificationAction(
+                  BildirimEylemi.iptalOnay,
+                  BildirimEylemi.iptalOnayEtiketi,
+                  showsUserInterface: true,
+                ),
+                AndroidNotificationAction(
+                  BildirimEylemi.iptalRet,
+                  BildirimEylemi.iptalRetEtiketi,
+                  showsUserInterface: true,
+                ),
+              ]
+            : null,
+      ),
+    );
+  }
 }
 
 /// Kategorinin kilit ekranı görünürlüğü.
@@ -292,6 +383,21 @@ NotificationVisibility _kilitEkraniGorunurlugu(BildirimKategori k) =>
     k == BildirimKategori.sistem
         ? NotificationVisibility.public
         : NotificationVisibility.private;
+
+/// Dokunulan yola, basılan DÜĞMENİN kimliğini `#eylem` eki olarak ekler.
+///
+/// Gövdeye dokunulduğunda `actionId` boştur ve yol olduğu gibi döner — yani mevcut davranış
+/// değişmez. Ek, `bildirimYoluCoz` tarafından çözülür; iki uç aynı biçimi bilir.
+///
+/// SAF ve GÖRÜNÜR (private değil, test edilebilir): bu iki satır "Onayla düğmesine basıldığında
+/// ne oluyor" sorusunun tamamıdır ve sessizce yanlış olması en pahalı yer burasıdır.
+String? _yolaEylemEkle(String? yol, String? eylemId) {
+  final y = yol?.trim();
+  if (y == null || y.isEmpty) return yol;
+  final e = eylemId?.trim();
+  if (e == null || e.isEmpty) return y;
+  return '$y#$e';
+}
 
 /// Kimlik dizesinden KARARLI 31 bitlik bildirim kimliği (Android bildirim id'si `int`tir).
 ///

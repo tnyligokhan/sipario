@@ -17,6 +17,26 @@ abstract final class SipIcons {
       'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z';
   static const String phoneCall =
       'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z|M14.05 2a9 9 0 0 1 8 7.94|M14.05 6A5 5 0 0 1 18 10';
+  /// Çağrı YÖNÜ ikonları — Lucide `phone-incoming` / `phone-outgoing` (2026-08-13).
+  ///
+  /// SAHA BULGUSU: çağrı geçmişinde gelen çağrı `phone`, giden çağrı `phoneCall` çiziliyordu ve
+  /// ikisi AYNI ahize yolunu paylaşıyor — `phoneCall`ın tek farkı sağ üstteki iki minik sinyal
+  /// yayı. 15 punto'da o yaylar görünmüyor, yani iki yön fiilen aynı ikonla gösteriliyordu
+  /// (kullanıcı: "giden gelen çağrı ikonları belli değil"). Renk de ayırt etmiyordu: ikisi de
+  /// nötr, yalnız cevapsız kırmızıydı.
+  ///
+  /// OK, YAYDAN OKUNAKLIDIR: aşağı-sola gelen ok "bana geldi", yukarı-sağa giden ok "ben
+  /// yaptım" der ve bu, çağrı listelerinin evrensel dilidir. Ahize gövdesi aynı kalır — satırın
+  /// bir ÇAĞRI olduğu ilk bakışta anlaşılsın.
+  static const String _ahize =
+      'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z';
+
+  /// Gelen çağrı: ahize + sağ üstten içeri (aşağı-sola) bakan ok.
+  static const String phoneIn = '$_ahize|M16 2v6h6|M22 2l-6 6';
+
+  /// Giden çağrı: ahize + sağ üste (dışarı) çıkan ok.
+  static const String phoneOut = '$_ahize|M23 7V1h-6|M16 8l7-7';
+
   static const String user = 'M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z|M20 21a8 8 0 0 0-16 0';
   static const String users =
       'M10 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z|M2 21a8 8 0 0 1 16 0|M16.5 3.5a5 5 0 0 1 0 9|M19.5 15.5c1.9 1.2 2.5 3.3 2.5 5.5';
@@ -42,6 +62,14 @@ abstract final class SipIcons {
       'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z|M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z';
   static const String sync =
       'M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8|M21 3v5h-5|M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16|M3 21v-5h5';
+  /// Lucide `download` — kutuya İNEN ok. Güncelleme bandındaki eylem düğmesinin ikonu.
+  ///
+  /// NEDEN EKLENDİ (kullanıcı isteği 2026-08-25: *"orada güncelle şeklinde bir ikon olmalı ya
+  /// da indirme gibi"*): bant o güne kadar sağ köşesinde yalnız bir SÜRÜM ROZETİ taşıyordu —
+  /// bilgi veriyordu ama dokunulacak bir şey gibi durmuyordu. Eylem ikonu olarak `sync`
+  /// (döngüsel ok) kullanılıyordu ve o, bu üründe "senkron" demek; aynı ikonu "indir" anlamında
+  /// ikinci kez kullanmak iki farklı işi tek işarete bindirirdi.
+  static const String indir = 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4|M7 10l5 5 5-5|M12 15V3';
   static const String ticket =
       'M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z|M13 5v2|M13 17v2|M13 11v2';
   static const String truck =
@@ -81,6 +109,18 @@ abstract final class SipIcons {
   /// Kara liste (yasak işareti).
   static const String ban = 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z|m4.9 4.9 14.2 14.2';
 
+  /// Parola göster/gizle (giriş ekranı). Lucide `eye` / `eye-off`.
+  ///
+  /// Tasarım sözlüğünde YOK ve olmaması bir eksiklikti, tercih değil: `s-giris.jsx` parolayı
+  /// düz `type="password"` ile çiziyor, çünkü tarayıcı alanı zaten kendi göz düğmesiyle
+  /// donatır. Android'de öyle bir hediye yoktur — ikon eklenmezse özellik hiç var olamaz.
+  /// Set'in çizgi dili korundu (Lucide, 24×24, yuvarlak uç); daire alt-yolu diğer ikonlarla
+  /// aynı biçimde `a` yaylarıyla yazıldı (`<circle>` bu ayrıştırıcıda desteklenmiyor).
+  static const String goz =
+      'M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0|M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z';
+  static const String gozKapali =
+      'M10.73 5.08a10.74 10.74 0 0 1 11.2 6.57 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-1.44 2.49|M14.08 14.16a3 3 0 0 1-4.24-4.24|M17.48 17.5A10.75 10.75 0 0 1 2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 4.45-5.14|m2 2 20 20';
+
   /// Gün gezinmesi (teslim sekmesindeki tarih şeridi).
   static const String takvim =
       'M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z|M16 2v4|M8 2v4|M3 10h18';
@@ -90,8 +130,12 @@ abstract final class SipIcons {
     'trash': trash,
     'ban': ban,
     'takvim': takvim,
+    'goz': goz,
+    'gozKapali': gozKapali,
     'phone': phone,
     'phoneCall': phoneCall,
+    'phoneIn': phoneIn,
+    'phoneOut': phoneOut,
     'user': user,
     'users': users,
     'list': list,
@@ -111,6 +155,7 @@ abstract final class SipIcons {
     'receipt': receipt,
     'settings': settings,
     'sync': sync,
+    'indir': indir,
     'ticket': ticket,
     'truck': truck,
     'power': power,

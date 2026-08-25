@@ -6,6 +6,9 @@ class FakeSyncApi implements SyncApi {
   final List<PullResponse> pullQueue = [];
   String? serverTime;
 
+  /// Sunucunun bildirdiği sözleşme sürümü. null = "bu sunucu sürümünü söylemiyor" (eski sunucu).
+  String? apiSurum;
+
   /// Özel push yanıtı; null ise varsayılan olarak tüm olaylar 'applied' + artan seq.
   PushResponse Function(List<Map<String, Object?>> events)? pushHandler;
 
@@ -22,13 +25,15 @@ class FakeSyncApi implements SyncApi {
               serverSeq: ++seq,
             ))
         .toList();
-    return PushResponse(results: results, currentSeq: seq, serverTime: serverTime);
+    return PushResponse(
+        results: results, currentSeq: seq, serverTime: serverTime, apiSurum: apiSurum);
   }
 
   @override
   Future<PullResponse> pull({required int since, int limit = 500}) async {
     if (pullQueue.isEmpty) {
-      return PullResponse(mode: 'delta', cursor: since, hasMore: false, currentSeq: since);
+      return PullResponse(
+          mode: 'delta', cursor: since, hasMore: false, currentSeq: since, apiSurum: apiSurum);
     }
     return pullQueue.removeAt(0);
   }

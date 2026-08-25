@@ -17,6 +17,7 @@ import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/screens/customers/customer_detail_screen.dart';
 import 'package:sipario/screens/orders/musteri_eylemleri.dart';
 import 'package:sipario/theme/app_theme.dart';
+import 'support/yetki_yardimcilari.dart';
 
 class SahteAcici {
   SahteAcici({this.acilir = true});
@@ -75,7 +76,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MaterialApp(
       theme: SipTheme.acik(),
-      home: CustomerDetailScreen(db: db, customerId: id, writable: true),
+      home: CustomerDetailScreen(db: db, customerId: id, writable: true, yetki: tamYetki),
     ));
     await tester.pumpAndSettle();
   }
@@ -155,7 +156,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(sahte.denenen, isEmpty);
-    expect(find.text('Konum kayıtlı değil — müşteri detayından alın'), findsOneWidget);
+    expect(find.text('Konum kayıtlı değil. Müşteri detayından alabilirsiniz'), findsOneWidget);
 
     await kapat(tester);
   });
@@ -171,7 +172,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(sahte.denenen.length, 2, reason: 'whatsapp:// sonra wa.me denenmeli');
-    expect(find.text('WhatsApp açılamadı — telefonda yüklü değil'), findsOneWidget);
+    expect(find.text('WhatsApp bu telefonda yüklü değil'), findsOneWidget);
 
     await kapat(tester);
   });

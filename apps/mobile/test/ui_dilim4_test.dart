@@ -45,18 +45,36 @@ void main() {
   // K2 rol matrisi — tek kişilik gizleme regresyonu (pazarlıksız, BRIEF)
   // ---------------------------------------------------------------------------
   group('yetkiler() — K2 rol matrisi', () {
-    test('patron/operator: ürün+gün-sonu+düzeltme AÇIK', () {
-      for (final rol in ['patron', 'operator']) {
-        final y = yetkiler(rol: rol, kuryeVar: true);
-        expect(y.urunYonetimi, isTrue, reason: '$rol ürün yönetir');
-        expect(y.gunSonu, isTrue);
-        expect(y.defterDuzeltme, isTrue);
-        expect(y.tahsilat, isTrue);
-      }
+    test('patron: ürün+gün-sonu+düzeltme AÇIK', () {
+      final y = yetkiler(rol: 'patron', atamaHedefiVar: true);
+      expect(y.urunYonetimi, isTrue);
+      expect(y.gunSonu, isTrue);
+      expect(y.defterDuzeltme, isTrue);
+      expect(y.tahsilat, isTrue);
+    });
+
+    test('TEZGÂH: dükkânı çevirir ama PARA KONTROLÜNE dokunamaz (2026-08-20)', () {
+      final y = yetkiler(rol: 'operator', atamaHedefiVar: true);
+      // Dükkânın günlük işi AÇIK — telefona bakan kişi bunları yapamazsa rolün anlamı kalmaz.
+      expect(y.siparisAcma, isTrue);
+      expect(y.atama, isTrue);
+      expect(y.siparisIptal, isTrue);
+      expect(y.tahsilat, isTrue);
+      expect(y.gunSonu, isTrue, reason: 'kasayı OKUR');
+      expect(y.toplamBorclulariGorme, isTrue);
+      // Defterin ve katalogun sahibi TEKTİR: bunlar patronda kalır.
+      expect(y.gunuKapatma, isFalse);
+      expect(y.defterDuzeltme, isFalse);
+      expect(y.gecmisHesapArsivi, isFalse);
+      expect(y.musteriBorcSilme, isFalse);
+      expect(y.urunYonetimi, isFalse);
+      expect(y.musteriYonetimi, isFalse);
+      expect(y.muafTelefonYonetimi, isFalse);
+      expect(y.isletmeAbonelikAyarlari, isFalse);
     });
 
     test('KURYE: yönetici işleri KAPALI; tahsilat AÇIK (kuryeVar önemsiz)', () {
-      final y = yetkiler(rol: 'kurye', kuryeVar: false);
+      final y = yetkiler(rol: 'kurye', atamaHedefiVar: false);
       expect(y.urunYonetimi, isFalse);
       expect(y.gunSonu, isFalse);
       expect(y.defterDuzeltme, isFalse);
@@ -65,7 +83,7 @@ void main() {
     });
 
     test('TEK KİŞİLİK BAYİ (patron, aktif kurye YOK): atama GİZLİ', () {
-      final y = yetkiler(rol: 'patron', kuryeVar: false);
+      final y = yetkiler(rol: 'patron', atamaHedefiVar: false);
       expect(y.atama, isFalse, reason: 'tek kişilikte atama görünmez (BRIEF)');
       // İş yönetimi yine açık.
       expect(y.urunYonetimi, isTrue);
@@ -73,12 +91,12 @@ void main() {
     });
 
     test('patron + aktif kurye VAR: atama AÇILIR', () {
-      final y = yetkiler(rol: 'patron', kuryeVar: true);
+      final y = yetkiler(rol: 'patron', atamaHedefiVar: true);
       expect(y.atama, isTrue);
     });
 
     test('rol null (giriş öncesi): yönetici/atama kapalı, tahsilat açık', () {
-      final y = yetkiler(rol: null, kuryeVar: true);
+      final y = yetkiler(rol: null, atamaHedefiVar: true);
       expect(y.urunYonetimi, isFalse);
       expect(y.atama, isFalse);
       expect(y.tahsilat, isTrue);
@@ -302,9 +320,12 @@ void main() {
       // kalır ve dokunuş sessizce ıskalar (ölçüldü: hedef y=2490 > 2400).
       await sheetAnimasyonu(tester);
       await tester.pump(const Duration(milliseconds: 600));
-      expect(find.text('Emre'), findsOneWidget, reason: 'seçim sheet\'i aktif kuryeleri listeler');
+      // SATIRDA ROL DE YAZAR (2026-08-20): liste artık kuryelerle sınırlı değil, tüm aktif
+      // personeli içeriyor — "Emre" ile "Mehmet"i ayıran şey ad değil görevdir.
+      expect(find.text('Emre (Kurye)'), findsOneWidget,
+          reason: 'seçim sheet\'i aktif personeli rolüyle listeler');
 
-      await tester.tap(find.text('Emre'));
+      await tester.tap(find.text('Emre (Kurye)'));
       await sheetAnimasyonu(tester);
 
       final atanmis = await tester.runAsync(
@@ -469,7 +490,7 @@ void main() {
 
       await pumpShell(tester, db);
 
-      for (final giris in ['Ürünler', 'Kuryeler', 'Muaf Telefonlar', 'Ayarlar']) {
+      for (final giris in ['Ürünler', 'Kuryeler', 'Muaf Numaralar', 'Ayarlar']) {
         expect(find.text(giris), findsOneWidget, reason: '$giris çekmecede yok');
       }
 
@@ -478,12 +499,14 @@ void main() {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
     });
 
-    // AYRI KASA DEVRİ EKRANI KALDIRILDI (2026-07-26): çekmecedeki satır artık Gün Özeti sekmesine
-    // gider ve rolüne göre ETİKETLENİR — kuryede "Kasa Devri" (kendi işinin adı), yöneticide
-    // tasarımın birleşik etiketi "Gün Özeti & Kasa Devri". Bu testler kabuğun tamamı üzerinden
-    // (HomeShell) bakar; çekmecenin kendi sözleşmesi test/ui_kabuk_test.dart'ta.
-    testWidgets('kurye kabuğu: Ürünler/Gün sonu YOK, satır "Kasa Devri" adıyla VAR',
-        (tester) async {
+    // ÇEKMECE 2026-08-13'TE YENİDEN KURULDU: alt navigasyonu tekrarlayan dört satır (Ana Sayfa ·
+    // Müşteriler · Siparişler · Gün Özeti) kaldırıldı — alt bar o hedeflere zaten tek dokunuşla
+    // gidiyordu. Dolayısıyla "Kasa Devri" / "Gün Özeti & Kasa Devri" etiketleri artık YOK.
+    //
+    // BU TESTLERİN KORUDUĞU ŞEY DEĞİŞMEDİ ve etiket değildi: ROL KAPISININ KABUĞUN TAMAMINDA
+    // çalıştığı. Çekmecenin kendi sözleşmesi test/ui_kabuk_test.dart'ta; burası kapının
+    // gerçek `HomeShell` içinde, gerçek yetki çözümüyle kurulduğunu doğrular.
+    testWidgets('kurye kabuğu: YÖNETİM girişleri YOK, kendi iş ekranları VAR', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await setUser(db, id: 'k1', role: 'kurye');
@@ -493,9 +516,10 @@ void main() {
       await pumpShell(tester, db);
 
       expect(find.text('Ürünler'), findsNothing);
-      expect(find.text('Gün Özeti & Kasa Devri'), findsNothing,
-          reason: 'kuryede birleşik yönetici etiketi kullanılmaz');
-      expect(find.text('Kasa Devri'), findsOneWidget);
+      expect(find.text('Kuryeler'), findsNothing);
+      expect(find.text('Sipariş Haritası'), findsOneWidget,
+          reason: 'kuryenin kendi iş ekranı — YÖNETİM kapısıyla ilgisi yok');
+      expect(find.text('Hesap'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
@@ -511,18 +535,21 @@ void main() {
       await pumpShell(tester, db);
 
       expect(find.text('Ürünler'), findsOneWidget);
-      expect(find.text('Gün Özeti & Kasa Devri'), findsOneWidget);
-      expect(find.text('Kasa Devri'), findsNothing,
-          reason: 'kuryeye özgü etiket yöneticide çizilmez — tek satır, tek hedef');
+      // İKİ TANE olması DOĞRUDUR ve bilinçlidir: biri ana ekrandaki bento kutusu (bir RAKAM
+      // gösterir, rakama dokunmak doğal), diğeri çekmece satırı (hangi sekmede olursan ol
+      // ulaşılabilir). İkisi kabukta AYNI fonksiyonu çağırır, yani tek yetki kapısından geçer.
+      expect(find.text('Borçlular'), findsNWidgets(2),
+          reason: 'tek kişilik bayide de günlük iş ekranları menüden ulaşılabilir');
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
     });
 
-    testWidgets('patron kabuğu + aktif kurye VAR: etiket kuryeVar\'a göre DEĞİŞMEZ',
+    testWidgets('patron kabuğu + aktif kurye VAR: menü kuryeVar\'a göre DEĞİŞMEZ',
         (tester) async {
-      // Eski davranış: kasa devri girişi yöneticide yalnız aktif kurye varken açılıyordu. Artık
-      // ayrı ekran yok — satır Gün Özeti'ne gidiyor ve yönetici onu her hâlde görüyor.
+      // Eski davranış: kasa devri girişi yöneticide yalnız aktif kurye varken açılıyordu.
+      // Menü artık kurye SAYISINA göre değişmiyor — yönetici girişlerini her hâlde görür.
+      // (Değişen tek şey rol kapılarıdır, kadro değil.)
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await setUser(db, id: 'p', role: 'patron');
@@ -533,8 +560,8 @@ void main() {
       await pumpShell(tester, db);
 
       expect(find.text('Ürünler'), findsOneWidget);
-      expect(find.text('Gün Özeti & Kasa Devri'), findsOneWidget);
-      expect(find.text('Kasa Devri'), findsNothing);
+      expect(find.text('Borçlular'), findsNWidgets(2)); // bento kutusu + çekmece satırı
+      expect(find.text('Kuryeler'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));

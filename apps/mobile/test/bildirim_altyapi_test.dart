@@ -5,6 +5,8 @@
 // (kanal kurulumu, izin ve zamanlama cihazda doğrulanır) — ama kararların TAMAMI saf
 // fonksiyonlara çekildi, o yüzden kurallar burada çivileniyor.
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/bildirim/bildirim_ayarlari.dart';
 import 'package:sipario/bildirim/bildirim_servisi.dart';
@@ -12,15 +14,13 @@ import 'package:sipario/bildirim/bildirim_tetikleyici.dart';
 import 'package:sipario/bildirim/bildirim_sozlesmesi.dart';
 
 void main() {
+  _sesVarliklari();
+
   group('BildirimKategori.wire — MAĞAZADA DEĞİŞMEZ', () {
     test('kanal kimlikleri sabittir', () {
       // Bu değerler sistem bildirim kanalının kimliğidir. Değişirse bayinin KAPATTIĞI kanal
       // yeni bir kanal olarak geri açılır ve kapattığı bildirimi yeniden almaya başlar.
       expect(BildirimKategori.gunSonuOzeti.wire, 'gun_sonu_ozeti');
-      expect(BildirimKategori.borcEsigi.wire, 'borc_esigi');
-      expect(BildirimKategori.vadesiGecenBorc.wire, 'vadesi_gecen_borc');
-      expect(BildirimKategori.musteriGecikti.wire, 'musteri_gecikti');
-      expect(BildirimKategori.rutinTeslimGunu.wire, 'rutin_teslim_gunu');
       expect(BildirimKategori.sistem.wire, 'sistem');
     });
 
@@ -42,7 +42,7 @@ void main() {
 
   group('Kimlik üretimi', () {
     test('kimlik kategori önekini taşır — bütçe sayacı kategoriyi ondan çözer', () {
-      expect(bildirimKimligi(BildirimKategori.borcEsigi, 'm1'), 'borc_esigi:m1');
+      expect(bildirimKimligi(BildirimKategori.siparisAtandi, 'm1'), 'siparis_atandi:m1');
       expect(
         bildirimKimligi(BildirimKategori.gunSonuOzeti, bildirimGunAnahtari(DateTime(2026, 7, 27))),
         'gun_sonu_ozeti:2026-07-27',
@@ -57,9 +57,9 @@ void main() {
     test('sayısal kimlik KARARLI, pozitif ve ayrışıyor', () {
       // Android bildirim id'si int'tir; aynı kimlik HER ZAMAN aynı sayıyı vermeli, yoksa
       // "aynı kimlik üzerine yazar" sözleşmesi kırılır ve bayi iki kopya görür.
-      expect(bildirimSayisalKimlik('borc_esigi:m1'), bildirimSayisalKimlik('borc_esigi:m1'));
-      expect(bildirimSayisalKimlik('borc_esigi:m1'), isNot(bildirimSayisalKimlik('borc_esigi:m2')));
-      for (final k in ['a', 'borc_esigi:m1', 'gun_sonu_ozeti:2026-07-27', 'çğüşiö']) {
+      expect(bildirimSayisalKimlik('siparis_atandi:m1'), bildirimSayisalKimlik('siparis_atandi:m1'));
+      expect(bildirimSayisalKimlik('siparis_atandi:m1'), isNot(bildirimSayisalKimlik('borc_esigi:m2')));
+      for (final k in ['a', 'siparis_atandi:m1', 'gun_sonu_ozeti:2026-07-27', 'çğüşiö']) {
         expect(bildirimSayisalKimlik(k), greaterThanOrEqualTo(0));
       }
     });
@@ -67,20 +67,43 @@ void main() {
 
   group('bildirimYoluCoz — dokunma sözlüğü', () {
     test('Faz 1 sözlüğü çözülür', () {
-      expect(bildirimYoluCoz('gunsonu'), (tur: 'gunsonu', id: null));
-      expect(bildirimYoluCoz('musteri/m1'), (tur: 'musteri', id: 'm1'));
+      expect(bildirimYoluCoz('gunsonu'), (tur: 'gunsonu', id: null, eylem: null));
+      expect(bildirimYoluCoz('musteri/m1'), (tur: 'musteri', id: 'm1', eylem: null));
       // Kimlikler UUID; içinde tire var, ilk `/`den sonrası olduğu gibi alınmalı.
       expect(bildirimYoluCoz('musteri/019fa40a-986c-7000-adef-8f3953e64487'),
-          (tur: 'musteri', id: '019fa40a-986c-7000-adef-8f3953e64487'));
+          (tur: 'musteri', id: '019fa40a-986c-7000-adef-8f3953e64487', eylem: null));
+    });
+
+    test('TEK SİPARİŞ yolu çözülür (2026-08-22 — iptal onayı bildirimi)', () {
+      // Eskiden `siparis/<id>` BİLEREK tanınmıyordu ("tüketecek detay ekranı yok"). Gerekçe
+      // düştü: `siparisDetaySheetAc` var ve iptal onayı bildirimi kimliği taşımak ZORUNDA —
+      // karar düğmesinin uygulayacağı kayıt odur.
+      expect(bildirimYoluCoz('siparis/s1'), (tur: 'siparis', id: 's1', eylem: null));
+      expect(bildirimYoluCoz('siparis/019fa40a-986c-7000-adef-8f3953e64487'),
+          (tur: 'siparis', id: '019fa40a-986c-7000-adef-8f3953e64487', eylem: null));
+    });
+
+    test('EYLEM EKİ (#) çözülür — bildirimin İÇİNDEKİ düğme', () {
+      // "Onayla"/"Reddet" düğmeleri Android'e ayrı bir alan olarak GİDER ama geriye tek bir
+      // `payload` dizesiyle döner; ek o yüzden yolun içinde taşınır.
+      expect(bildirimYoluCoz('siparis/s1#iptal_onay'),
+          (tur: 'siparis', id: 's1', eylem: 'iptal_onay'));
+      expect(bildirimYoluCoz('siparis/s1#iptal_ret'),
+          (tur: 'siparis', id: 's1', eylem: 'iptal_ret'));
+      // Boş ek YOK SAYILIR — gövdeye dokunmakla aynı anlama gelir.
+      expect(bildirimYoluCoz('siparis/s1#'), (tur: 'siparis', id: 's1', eylem: null));
+      // Ek, YOLU BOZMAZ: gövdeye dokunuş eski davranışını korur.
+      expect(bildirimYoluCoz('gunsonu#'), (tur: 'gunsonu', id: null, eylem: null));
     });
 
     test('TANINMAYAN yol null döner, İSTİSNA ATMAZ', () {
       // Sözlük Faz 2'de büyüyecek; zamanlanmış eski bir bildirim yeni bir yol taşıyabilir ya da
       // tersi. Bilinmeyen hedef bir hata değil — kullanıcı bulunduğu yerde kalır.
       expect(bildirimYoluCoz('musteriler?suzgec=gecikmis'), isNull);
-      expect(bildirimYoluCoz('siparis/s1'), isNull, reason: 'Faz 1de bağlı değil');
       expect(bildirimYoluCoz('zort'), isNull);
       expect(bildirimYoluCoz('musteri/'), isNull, reason: 'kimliksiz müşteri yolu');
+      expect(bildirimYoluCoz('siparis/'), isNull, reason: 'kimliksiz sipariş yolu');
+      expect(bildirimYoluCoz('#iptal_onay'), isNull, reason: 'yolu olmayan eylem');
     });
 
     test('boş ve null yol null döner', () {
@@ -134,35 +157,35 @@ void main() {
     const sinir = GunlukSinir(); // toplam 6, kategori başına 2
 
     test('boş günde yer var', () {
-      expect(sinir.yerVarMi(BildirimKategori.borcEsigi, {}, 'borc_esigi:a'), isTrue);
+      expect(sinir.yerVarMi(BildirimKategori.siparisAtandi, {}, 'borc_esigi:a'), isTrue);
     });
 
     test('kategori başına sınır dolunca YENİ kimlik geçmez', () {
       final gunluk = {
-        BildirimKategori.borcEsigi: {'borc_esigi:a', 'borc_esigi:b'},
+        BildirimKategori.siparisAtandi: {'borc_esigi:a', 'borc_esigi:b'},
       };
-      expect(sinir.yerVarMi(BildirimKategori.borcEsigi, gunluk, 'borc_esigi:c'), isFalse);
+      expect(sinir.yerVarMi(BildirimKategori.siparisAtandi, gunluk, 'borc_esigi:c'), isFalse);
       // Ama BAŞKA kategori hâlâ geçer — tek kategori bütçeyi tek başına tüketmez.
       expect(sinir.yerVarMi(BildirimKategori.sistem, gunluk, 'sistem:a'), isTrue);
     });
 
     test('ZATEN GÖSTERİLMİŞ kimliğin tazelenmesi her zaman serbest', () {
       final gunluk = {
-        BildirimKategori.borcEsigi: {'borc_esigi:a', 'borc_esigi:b'},
+        BildirimKategori.siparisAtandi: {'borc_esigi:a', 'borc_esigi:b'},
       };
       // Sınır dolu olsa bile aynı bildirimin güncellenmesi geçer: üzerine yazılır, yeni
       // satır açmaz, bütçe yemez.
-      expect(sinir.yerVarMi(BildirimKategori.borcEsigi, gunluk, 'borc_esigi:a'), isTrue);
+      expect(sinir.yerVarMi(BildirimKategori.siparisAtandi, gunluk, 'borc_esigi:a'), isTrue);
     });
 
     test('toplam sınır kategori sınırından ÖNCE devreye girebilir', () {
       final gunluk = {
-        BildirimKategori.borcEsigi: {'borc_esigi:a', 'borc_esigi:b'},
+        BildirimKategori.siparisAtandi: {'borc_esigi:a', 'borc_esigi:b'},
         BildirimKategori.gunSonuOzeti: {'gun_sonu_ozeti:a', 'gun_sonu_ozeti:b'},
         BildirimKategori.sistem: {'sistem:a', 'sistem:b'},
       };
       // Toplam 6 doldu; dördüncü kategorinin İLK bildirimi bile geçmez.
-      expect(sinir.yerVarMi(BildirimKategori.musteriGecikti, gunluk, 'musteri_gecikti:a'), isFalse);
+      expect(sinir.yerVarMi(BildirimKategori.siparisTeslim, gunluk, 'musteri_gecikti:a'), isFalse);
     });
   });
 
@@ -174,28 +197,21 @@ void main() {
       await ayarlar.yukle();
     });
 
-    test('varsayılan: borç eşiği HARİÇ tüm kategoriler AÇIK', () {
-      // Borç eşiği tek istisnadır ve bu bilinçlidir: eşik bayiye özeldir, uydurulmuş bir
-      // varsayılan ya bildirimi hiç çıkarmaz ya her gün çıkarır. Ayrıntı ve gerekçe için
-      // aşağıdaki "Borç eşiği — eşik girilmeden kategori PASİF" öbeği.
+    test('varsayılan: TÜM kategoriler AÇIK — istisna yok', () {
+      // Borç eşiğinin "eşik girilmeden pasif" istisnası, kategoriyle birlikte 2026-08-14'te
+      // kaldırıldı. Artık tek kural geçerli: bayi kapatmadıysa bildirim gelir.
       for (final k in BildirimKategori.values) {
-        expect(
-          ayarlar.kategoriAcik(k),
-          k == BildirimKategori.borcEsigi ? isFalse : isTrue,
-          reason: '${k.wire} varsayılanı',
-        );
+        expect(ayarlar.kategoriAcik(k), isTrue, reason: '${k.wire} varsayılanı');
       }
     });
 
     test('kapatılan kategori kapalı kalır, diğerleri etkilenmez', () async {
-      // Eşik kapısı OLMAYAN bir kategori seçildi: bu test anahtarın kendisini sınıyor,
-      // borç eşiğinin ikinci kapısını değil.
-      await ayarlar.kategoriYaz(BildirimKategori.musteriGecikti, false);
-      expect(ayarlar.kategoriAcik(BildirimKategori.musteriGecikti), isFalse);
+      await ayarlar.kategoriYaz(BildirimKategori.siparisTeslim, false);
+      expect(ayarlar.kategoriAcik(BildirimKategori.siparisTeslim), isFalse);
       expect(ayarlar.kategoriAcik(BildirimKategori.gunSonuOzeti), isTrue);
 
-      await ayarlar.kategoriYaz(BildirimKategori.musteriGecikti, true);
-      expect(ayarlar.kategoriAcik(BildirimKategori.musteriGecikti), isTrue);
+      await ayarlar.kategoriYaz(BildirimKategori.siparisTeslim, true);
+      expect(ayarlar.kategoriAcik(BildirimKategori.siparisTeslim), isTrue);
     });
 
     test('varsayılan sessiz saat 22–08', () {
@@ -205,24 +221,24 @@ void main() {
 
     test('işaretlenen kimlik günlük sayaca girer, kategorisi önekten çözülür', () async {
       final an = DateTime(2026, 7, 27, 10);
-      await ayarlar.kimlikIsaretle('borc_esigi:m1', an);
-      await ayarlar.kimlikIsaretle('borc_esigi:m2', an);
+      await ayarlar.kimlikIsaretle('siparis_atandi:m1', an);
+      await ayarlar.kimlikIsaretle('siparis_atandi:m2', an);
       await ayarlar.kimlikIsaretle('sistem:x', an);
 
       final gunluk = ayarlar.gunlukKimlikler(an);
-      expect(gunluk[BildirimKategori.borcEsigi], {'borc_esigi:m1', 'borc_esigi:m2'});
+      expect(gunluk[BildirimKategori.siparisAtandi], {'siparis_atandi:m1', 'siparis_atandi:m2'});
       expect(gunluk[BildirimKategori.sistem], {'sistem:x'});
     });
 
     test('aynı kimlik iki kez işaretlenirse sayaç ARTMAZ', () async {
       final an = DateTime(2026, 7, 27, 10);
-      await ayarlar.kimlikIsaretle('borc_esigi:m1', an);
-      await ayarlar.kimlikIsaretle('borc_esigi:m1', an);
-      expect(ayarlar.gunlukKimlikler(an)[BildirimKategori.borcEsigi], hasLength(1));
+      await ayarlar.kimlikIsaretle('siparis_atandi:m1', an);
+      await ayarlar.kimlikIsaretle('siparis_atandi:m1', an);
+      expect(ayarlar.gunlukKimlikler(an)[BildirimKategori.siparisAtandi], hasLength(1));
     });
 
     test('gün değişince sayaç KENDİLİĞİNDEN sıfırlanır', () async {
-      await ayarlar.kimlikIsaretle('borc_esigi:m1', DateTime(2026, 7, 27, 23));
+      await ayarlar.kimlikIsaretle('siparis_atandi:m1', DateTime(2026, 7, 27, 23));
       // Ertesi gün sorulduğunda dünün kayıtları sayılmaz — ayrı bir temizlik işi yok.
       expect(ayarlar.gunlukKimlikler(DateTime(2026, 7, 28, 9)), isEmpty);
     });
@@ -238,10 +254,10 @@ void main() {
     test('gösterilen taslak kaydedilir', () async {
       final servis = SahteBildirimServisi();
       const t = BildirimTaslagi(
-        kategori: BildirimKategori.borcEsigi,
+        kategori: BildirimKategori.siparisAtandi,
         baslik: 'Borç eşiği aşıldı',
-        govde: 'Ahmet Yılmaz · 12.340,00 ₺',
-        kimlik: 'borc_esigi:m1',
+        govde: 'Ahmet Yılmaz, 12.340,00 ₺',
+        kimlik: 'siparis_atandi:m1',
         yol: 'musteri/m1',
       );
       await servis.goster(t);
@@ -251,10 +267,10 @@ void main() {
     test('AYNI KİMLİK üzerine yazar, yeni satır AÇMAZ', () async {
       final servis = SahteBildirimServisi();
       const ilk = BildirimTaslagi(
-        kategori: BildirimKategori.borcEsigi,
+        kategori: BildirimKategori.siparisAtandi,
         baslik: 'Borç eşiği aşıldı',
         govde: 'eski',
-        kimlik: 'borc_esigi:m1',
+        kimlik: 'siparis_atandi:m1',
       );
       await servis.goster(ilk);
       await servis.goster(ilk.kopyala(govde: 'yeni'));
@@ -276,16 +292,16 @@ void main() {
 
     test('kapalı kategori sessizce atlanır', () async {
       final servis = SahteBildirimServisi(
-        kapaliKategoriler: {BildirimKategori.borcEsigi},
+        kapaliKategoriler: {BildirimKategori.siparisAtandi},
       );
       await servis.goster(const BildirimTaslagi(
-        kategori: BildirimKategori.borcEsigi,
+        kategori: BildirimKategori.siparisAtandi,
         baslik: 'a',
         govde: 'b',
-        kimlik: 'borc_esigi:m1',
+        kimlik: 'siparis_atandi:m1',
       ));
       expect(servis.gosterilenler, isEmpty);
-      expect(await servis.kategoriAcikMi(BildirimKategori.borcEsigi), isFalse);
+      expect(await servis.kategoriAcikMi(BildirimKategori.siparisAtandi), isFalse);
       expect(await servis.kategoriAcikMi(BildirimKategori.sistem), isTrue);
     });
 
@@ -307,7 +323,7 @@ void main() {
     test('iptal hem gösterileni hem zamanlananı düşürür', () async {
       final servis = SahteBildirimServisi();
       const t = BildirimTaslagi(
-        kategori: BildirimKategori.rutinTeslimGunu,
+        kategori: BildirimKategori.sistem,
         baslik: 'a',
         govde: 'b',
         kimlik: 'rutin_teslim_gunu:m1',
@@ -336,121 +352,123 @@ void main() {
   });
 
   group('BildirimTetikleyici — zamanlama hesapları', () {
-    test('gün sonu: saat GEÇMEDİYSE bugün, geçtiyse yarın', () {
-      // kGunSonuSaati = 20 (odeme ajanının sabiti).
-      expect(BildirimTetikleyici.gunSonuAni(DateTime(2026, 7, 27, 9)),
+    BildirimTaslagi taslak(BildirimKategori k, String kimlik) =>
+        BildirimTaslagi(kategori: k, baslik: 'x', govde: 'y', kimlik: kimlik);
+
+    ZamanlanmisIs is_(String ad, int saat, TaslakUretici u) => ZamanlanmisIs(
+          ad: ad,
+          uretici: u,
+          an: (simdi) => BildirimTetikleyici.gunlukAn(simdi, saat),
+        );
+
+    test('günlük an: saat GEÇMEDİYSE bugün, geçtiyse yarın', () {
+      expect(BildirimTetikleyici.gunlukAn(DateTime(2026, 7, 27, 9), 20),
           DateTime(2026, 7, 27, 20));
-      // 21:00'de açılışta GEÇMİŞ bir ana zamanlamak bildirimi anında ateşlerdi.
-      expect(BildirimTetikleyici.gunSonuAni(DateTime(2026, 7, 27, 21)),
+      // 21:00'de açılışta GEÇMİŞ bir ana zamanlamak bildirimi ANINDA ateşlerdi.
+      expect(BildirimTetikleyici.gunlukAn(DateTime(2026, 7, 27, 21), 20),
           DateTime(2026, 7, 28, 20));
+      // Sabah hatırlatması (09:00) aynı hesabı kullanır — saat parametre olduğu için
+      // her zamanlanmış iş bu tek dalı paylaşır.
+      expect(BildirimTetikleyici.gunlukAn(DateTime(2026, 7, 27, 21), 9),
+          DateTime(2026, 7, 28, 9));
     });
 
-    test('vade taraması sıradaki Pazartesi 10:00', () {
-      // 2026-07-27 Pazartesi.
-      expect(BildirimTetikleyici.vadeTaramaAni(DateTime(2026, 7, 27, 9)),
-          DateTime(2026, 7, 27, 10));
-      // Aynı gün saat geçtiyse HAFTAYA.
-      expect(BildirimTetikleyici.vadeTaramaAni(DateTime(2026, 7, 27, 11)),
-          DateTime(2026, 8, 3, 10));
-      // Çarşamba → sıradaki Pazartesi.
-      expect(BildirimTetikleyici.vadeTaramaAni(DateTime(2026, 7, 29, 15)),
-          DateTime(2026, 8, 3, 10));
-    });
-
-    test('açılışta anlık kurallar gösterilir, zamanlananlar kurulur', () async {
+    test('anlık taramalar GÖSTERİLİR, zamanlananlar KURULUR', () async {
       final servis = SahteBildirimServisi();
-      const anlik = BildirimTaslagi(
-        kategori: BildirimKategori.musteriGecikti,
-        baslik: '2 müşteri gecikti',
-        govde: 'ayrıntı',
-        kimlik: 'musteri_gecikti:2026-07-27',
-      );
-      const gunSonu = BildirimTaslagi(
-        kategori: BildirimKategori.gunSonuOzeti,
-        baslik: 'Gün sonu özeti',
-        govde: 'ayrıntı',
-        kimlik: 'gun_sonu_ozeti:2026-07-27',
-      );
+      final anlik = taslak(BildirimKategori.sistem, 'sistem:2026-07-27');
+      final gunSonu = taslak(BildirimKategori.gunSonuOzeti, 'gun_sonu_ozeti:2026-07-27');
 
-      final tetik = BildirimTetikleyici(
+      await BildirimTetikleyici(
         servis: servis,
-        gecikmisMusteri: () async => anlik,
-        gunSonu: () async => gunSonu,
-      );
-      await tetik.acilistaKos(simdi: DateTime(2026, 7, 27, 9));
+        anlik: [() async => anlik],
+        zamanlanan: [is_('gunSonu', 20, () async => gunSonu)],
+      ).acilistaKos(simdi: DateTime(2026, 7, 27, 9));
 
       expect(servis.gosterilenler, [anlik]);
       expect(servis.zamanlananlar.single.$2, DateTime(2026, 7, 27, 20));
     });
 
-    test('bir üretici patlarsa diğerleri koşmaya DEVAM eder', () async {
+    test('BİR üretici patlarsa diğerleri koşmaya DEVAM eder', () async {
+      // İstisna DIŞARI SIZMAMALI: bu çağrı `main`de açılış yolunda koşuyor. Ayrıca bir
+      // kuralın patlaması diğerlerini düşüremez — üçü de aynı listede.
       final servis = SahteBildirimServisi();
-      const saglam = BildirimTaslagi(
-        kategori: BildirimKategori.rutinTeslimGunu,
-        baslik: 'Bugün 3 rutin teslim var',
-        govde: 'ayrıntı',
-        kimlik: 'rutin_teslim_gunu:2026-07-27',
-      );
-      final tetik = BildirimTetikleyici(
+      final saglam = taslak(BildirimKategori.kullanimHakki, 'kullanim_hakki:2026-07-27');
+
+      await BildirimTetikleyici(
         servis: servis,
-        gecikmisMusteri: () async => throw StateError('defter okunamadı'),
-        rutinTeslim: () async => saglam,
-      );
-      await tetik.acilistaKos(simdi: DateTime(2026, 7, 27, 9));
+        anlik: [
+          () async => throw StateError('defter okunamadı'),
+          () async => saglam,
+        ],
+        zamanlanan: [
+          is_('patlak', 20, () async => throw StateError('bozuk')),
+          is_(
+            'saglam',
+            21,
+            () async => taslak(BildirimKategori.gunKapanisHatirlatma, 'gun_kapanis:x'),
+          ),
+        ],
+      ).acilistaKos(simdi: DateTime(2026, 7, 27, 9));
 
       expect(servis.gosterilenler, [saglam]);
+      expect(servis.zamanlananlar.single.$2, DateTime(2026, 7, 27, 21));
     });
 
     test('kural null dönerse bildirim ÜRETİLMEZ (sessizlik de bir cevaptır)', () async {
       final servis = SahteBildirimServisi();
-      final tetik = BildirimTetikleyici(
+      await BildirimTetikleyici(
         servis: servis,
-        gecikmisMusteri: () async => null,
-        gunSonu: () async => null,
-      );
-      await tetik.acilistaKos(simdi: DateTime(2026, 7, 27, 9));
+        anlik: [() async => null],
+        zamanlanan: [is_('gunSonu', 20, () async => null)],
+      ).acilistaKos(simdi: DateTime(2026, 7, 27, 9));
 
       expect(servis.gosterilenler, isEmpty);
       expect(servis.zamanlananlar, isEmpty);
     });
   });
+}
 
-  group('Borç eşiği — eşik girilmeden kategori PASİF', () {
-    test('eşik yokken kapalı, girilince açılır, silinince kapanır', () async {
-      final ayarlar = BildirimAyarlari.bellek();
-      await ayarlar.yukle();
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+// SES VARLIKLARI — "APK derlendi" ile "APK doğru içeriği taşıyor" ayrı sorulardır
+// ═══════════════════════════════════════════════════════════════════════════════════════════
 
-      expect(ayarlar.borcEsigiBelirlendi, isFalse);
-      expect(ayarlar.kategoriAcik(BildirimKategori.borcEsigi), isFalse,
-          reason: 'uydurulmuş varsayılan eşik YOK — bayi sayıyı girene kadar pasif');
+/// `BildirimKategori.ses` değerlerinin GERÇEKTEN paketlenebilir olduğunu doğrular.
+///
+/// NEDEN VAR (2026-08-14'te ölçüldü, 2026-08-18'de dokuz sese genişledi): ses dosyalarına
+/// Android tarafından hiçbir statik referans YOKTUR — onları Dart kodu çalışma anında string
+/// adıyla ister (`RawResourceAndroidNotificationSound('yeni_is')`). Kaynak kısaltıcı,
+/// göremediği referansı ölü sayıp atar. Bir kez tam olarak bu oldu: `flutter analyze` temiz,
+/// 1275 test yeşil, release APK derlemesi başarılı — ve APK'nın içinde ses YOK.
+///
+/// Bu bekçi iki ayrı sessiz kaybı yakalar:
+///   1. Sözleşmede adı geçen ama `res/raw` altında OLMAYAN dosya (üreticiyi koşmayı unutmak).
+///   2. Var olan ama `keep.xml`e YAZILMAYAN dosya (kısaltıcı onu APK'dan atar).
+///
+/// ⚠️ SINIRI AÇIKÇA YAZILIYOR: bu test APK'yı AÇMAZ, kaynak ağacını okur. Paketlenmiş içeriğin
+/// kendisi hâlâ dördüncü kapıdır (`flutter build apk --release` + APK'yı zip olarak ölçmek).
+void _sesVarliklari() {
+  group('Ses varlıkları — sözleşme ↔ res/raw ↔ keep.xml', () {
+    // `flutter test` çalışma dizini paket kökü (`apps/mobile`) olduğundan yol görelidir.
+    final rawDizin = Directory('android/app/src/main/res/raw');
 
-      await ayarlar.borcEsigiYaz(200000); // 2.000 ₺
-      expect(ayarlar.borcEsigiKurus, 200000);
-      expect(ayarlar.kategoriAcik(BildirimKategori.borcEsigi), isTrue);
-
-      await ayarlar.borcEsigiYaz(0);
-      expect(ayarlar.kategoriAcik(BildirimKategori.borcEsigi), isFalse);
+    test('her kategorinin ses dosyası res/raw altında GERÇEKTEN var', () {
+      for (final k in BildirimKategori.values) {
+        final dosya = File('${rawDizin.path}/${k.ses}.wav');
+        expect(dosya.existsSync(), isTrue,
+            reason: '${k.wire} → ${k.ses}.wav yok. '
+                '`dart run scripts/bildirim_sesi_uret.dart` koşuldu mu?');
+        expect(dosya.lengthSync(), greaterThan(1000),
+            reason: '${k.ses}.wav neredeyse boş — üretici yarıda kalmış olabilir');
+      }
     });
 
-    test('negatif eşik sıfıra çekilir', () async {
-      final ayarlar = BildirimAyarlari.bellek();
-      await ayarlar.yukle();
-      await ayarlar.borcEsigiYaz(-5);
-      expect(ayarlar.borcEsigiKurus, 0);
-    });
-
-    test('eşik yokken kategori anahtarı açık olsa bile geçmez', () async {
-      final ayarlar = BildirimAyarlari.bellek();
-      await ayarlar.yukle();
-      await ayarlar.kategoriYaz(BildirimKategori.borcEsigi, true);
-      expect(ayarlar.kategoriAcik(BildirimKategori.borcEsigi), isFalse);
-    });
-
-    test('diğer kategoriler eşikten ETKİLENMEZ', () async {
-      final ayarlar = BildirimAyarlari.bellek();
-      await ayarlar.yukle();
-      expect(ayarlar.kategoriAcik(BildirimKategori.vadesiGecenBorc), isTrue);
-      expect(ayarlar.kategoriAcik(BildirimKategori.gunSonuOzeti), isTrue);
+    test('keep.xml sesleri kısaltıcıdan KORUYOR — biri eksikse sahada sessizlik olur', () {
+      final keep = File('${rawDizin.path}/keep.xml').readAsStringSync();
+      for (final k in BildirimKategori.values) {
+        expect(keep, contains('@raw/${k.ses}'),
+            reason: '${k.ses} keep.xml listesinde yok: R8 onu APK\'dan atar ve '
+                'derleme de testler de YEŞİL kalır. Kayıp yalnız sahada duyulur.');
+      }
     });
   });
 }

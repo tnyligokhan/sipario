@@ -47,6 +47,16 @@ final class EventValidator
     public const OPS = [
         'upsert', 'delete', 'created', 'line_added', 'line_removed', 'delivered', 'cancelled',
         'payment_set', 'note_set', 'assigned', 'unassigned', 'sort_set', 'entry', 'handover', 'closing',
+        // İPTAL ONAY AKIŞI (2026-08-22): kurye iptal İSTER, yönetici onaylar ya da reddeder.
+        // Onay ayrı bir op DEĞİLDİR — iptalin tek kaydı `cancelled`tır; ikinci bir "approved"
+        // olayı, siparişin durumunu türeten iki ayrı kural demekti.
+        //
+        // ⚠️ YENİ BİR SİPARİŞ OLAYI EKLERKEN BU LİSTE DÖRTTE BİRİDİR ve dördüncüsü en kolay
+        // unutulanıdır (2026-08-22'de ölçülerek bulundu): (1) burası, (2) `OrderChangeApplier`
+        // `match` dalı, (3) mobil taraf, (4) **`order_events.event_type` CHECK kısıtı**.
+        // Dördüncüsü eksikse olay PHP'den geçer, POSTGRES 23514 ile düşer ve yanıt
+        // `reason: "invalid_data"` der — yani hata koda bakarken aranır, oysa şemadadır.
+        'cancel_requested', 'cancel_rejected',
     ];
 
     /**

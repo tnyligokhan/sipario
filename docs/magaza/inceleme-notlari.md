@@ -19,7 +19,8 @@ Giriş ekranı **üç alan** ister (e-posta İSTEMEZ):
 > ✅ **GEÇİCİ KISALTMA GERİ ALINDI (2026-08-07).** Saha testi kolaylığı için 2026-07-29'da
 > `111/111/1111`'e indirilen kimlik, canlı sunucuya geçişte `demo/demo/demo1234`'e döndürüldü.
 > Değerlerin tek kaynağı `DemoSeeder::DEMO_TENANT_CODE / DEMO_USERNAME / DEMO_PASSWORD`'dür;
-> bu belge ve `scripts/saha-sunucu.ps1` oradan güncellenir.
+> bu belge oradan güncellenir. (Eskiden `scripts/saha-sunucu.ps1` de aynı kaynaktan
+> güncellenirdi; o script 2026-08-16'da tünelle birlikte kaldırıldı.)
 >
 > ⚠️ Bu hesap **doğası gereği paylaşılan** bir inceleme hesabıdır ve parolası depoda açıkça
 > yazılıdır — mağaza incelemecisinin girebilmesi için başka yolu yok. Riski sınırlayan şey

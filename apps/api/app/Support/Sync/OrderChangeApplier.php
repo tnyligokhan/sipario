@@ -35,7 +35,12 @@ class OrderChangeApplier
             'created' => $this->orderCreated($tenantId, $event, $payload),
             'line_added' => $this->orderLineAdded($tenantId, $event, $payload),
             'line_removed' => $this->orderLineRemoved($tenantId, $event, $payload),
-            'delivered', 'cancelled', 'payment_set', 'note_set' => $this->orderStatusEvent($tenantId, $op, $event, $payload),
+            // `cancel_requested` / `cancel_rejected` (2026-08-22) BU DALA DÜŞER ve bu bilinçli:
+            // ikisi de yalnız bir olay EKLER, siparişin durumunu DEĞİŞTİRMEZ. `recomputeOrder`
+            // status'ü yalnız `cancelled`/`delivered`tan türetir, yani talep açıkken sipariş
+            // `open` kalır ve teslim edilebilir — müşteri kapıda fikir değiştirebilir.
+            'delivered', 'cancelled', 'payment_set', 'note_set',
+            'cancel_requested', 'cancel_rejected' => $this->orderStatusEvent($tenantId, $op, $event, $payload),
             'assigned', 'unassigned' => $this->orderAssignEvent($tenantId, $op, $event, $payload),
             'sort_set' => $this->orderSortEvent($tenantId, $event, $payload),
             default => throw new InvalidArgumentException("Geçersiz sipariş op: {$op}"),
@@ -155,6 +160,35 @@ class OrderChangeApplier
             $order->note = isset($payload['note']) ? (string) $payload['note'] : null;
         }
 
+        // TESLİM EDEN — `assigned_user_id` ile AYNI kapı: yazımdan (türetmeden) ÖNCE RLS-kapsamlı
+        // varlık kontrolü. Kapı olmasaydı bir istemci başka bayinin kullanıcı kimliğini teslim
+        // payload'ına koyup siparişi ona atfedebilirdi (kırmızı çizgi #1).
+        //
+        // ALAN OPSİYONELDİR ve öyle kalmalı: sahadaki eski uygulama sürümleri `delivered` olayını
+        // bu anahtar OLMADAN gönderiyor ve onların teslimatı reddedilemez (offline-first: telefon
+        // günlerce eski sürümde kalabilir). Anahtar yoksa türetme null bırakır, okuma katmanı
+        // atamaya düşer — yani eski istemci bugünkü davranışını sürdürür.
+        if ($op === 'delivered' && isset($payload['delivered_by_user_id'])) {
+            $teslimEden = (string) $payload['delivered_by_user_id'];
+            if (! User::query()->whereKey($teslimEden)->exists()) {
+                throw new InvalidArgumentException('delivered_by_user_id bu bayide bulunamadı');
+            }
+        }
+
+        // İPTAL TALEBİNİ AÇAN — `delivered_by_user_id` ile AYNI kapı: yazımdan ÖNCE RLS-kapsamlı
+        // varlık kontrolü. Kapı olmasaydı bir istemci başka bayinin kullanıcı kimliğini yüke
+        // koyar ve reddi o kişiye bildirtebilirdi (kırmızı çizgi #1).
+        //
+        // ALAN OPSİYONELDİR: talebi açan cihazda oturum kimliği henüz inmemiş olabilir
+        // (`sync_meta.user_id` null). O zaman ret bildirimi kimseye gitmez ve talep yine de
+        // geçerlidir — reddin duyurulamaması, talebin hiç açılamamasından iyidir.
+        if ($op === 'cancel_requested' && isset($payload['requested_by_user_id'])) {
+            $isteyen = (string) $payload['requested_by_user_id'];
+            if (! User::query()->whereKey($isteyen)->exists()) {
+                throw new InvalidArgumentException('requested_by_user_id bu bayide bulunamadı');
+            }
+        }
+
         $orderEvent = $this->appendOrderEvent($tenantId, $order->id, $op, $event, $payload);
         $this->recomputeOrder($order); // status/total olaylardan türer + $order'ı kaydeder
 
@@ -256,6 +290,21 @@ class OrderChangeApplier
             'unit_price_kurus' => $price,
             // Birim satırda saklanır (unit_price/product_name deseni: siparişin çekildiği andaki gerçek).
             'unit' => $ln['unit'] ?? null,
+            // Satır notu (kullanıcı isteği 2026-08-11): "buzlu olsun", "ayrı poşete". `unit` ile
+            // AYNI desen — satırın kendi gerçeği satırda durur. `orders.note`tan ayrıdır.
+            'note' => self::satirNotu($ln['note'] ?? null),
+            // SEÇİLEN SEÇENEKLER (kullanıcı isteği 2026-08-18) — "soğansız, ekstra peynirli".
+            //
+            // Notun YANINDA durur, yerine değil: not metni ekranların okuduğu hâl, bu alan
+            // makinenin okuduğu hâl. İkisi aynı gerçeğin iki okuyucusuna bakar ve istemci ikisini
+            // birlikte yazar (`LineInput.satirNotu`). Yalnız biri saklansaydı ya eski istemciler
+            // seçimi hiç göremezdi (yalnız yapılandırılmış hâl) ya da "aynı seçimle tekrarla"
+            // gibi işler metin ayrıştırmak zorunda kalırdı (yalnız not).
+            //
+            // ⚠️ FİYAT BURADAN TÜRETİLMEZ: `unit_price_kurus` istemcide ekstralarla birlikte
+            // hesaplanıp gönderilir ve satır toplamı ondan çıkar. Sunucunun ekstraları yeniden
+            // toplaması, aynı formülün ikinci bir kopyası olurdu ve ikisi bir gün ayrışırdı.
+            'options' => UrunSecenekleri::secim($ln['options'] ?? null),
             // "Serbest satır" AÇIK bayrakla işaretlenir; product_id IS NULL'a bel bağlamak kırılgan
             // olurdu (silinmiş ürünün satırı da null olabilir) — tasarım bu ikisini ayrı gösteriyor.
             'is_custom' => (bool) ($ln['is_custom'] ?? false),
@@ -265,6 +314,45 @@ class OrderChangeApplier
         ])->save();
 
         return $line;
+    }
+
+    /**
+     * Satır notu kapısı — 500 karakter, KIRPMA YOK (`iban`/`reminder_template` deseniyle aynı çizgi).
+     *
+     * NEDEN UYGULAYICIDA: kolon `varchar(500)`dür ve sınıra dayanan bir yazım 22001 üretir. 22001
+     * `CLIENT_DATA_SQLSTATES` beyaz listesinde olduğu için parti bugün ölmez ama olayı 'invalid_data'
+     * ile reddeder — yani bayi "kayıt reddedildi (geçersiz veri)" görür ve NEDENİNİ öğrenemez.
+     * Buradan fırlayan istisna savepoint ile yalnız BU olayı 'rejected' işaretler ve nedeni
+     * ('domain_rejected' + metin) taşır; partinin geri kalanı yazılır.
+     *
+     * KIRPMA REDDİN YERİNE GEÇEMEZ: yarım kalmış bir not kuryeye YANLIŞ talimat verir ("buzlu
+     * olmasın" → "buzlu ol"). Sessiz "en iyi çaba" bu alanda kabul edilemez.
+     *
+     * Boş/yalnız-boşluk metin `null`dur: "not yok" tek bir hâl olmalı, yoksa istemcideki "not var
+     * mı" kapısı iki dala ayrılır.
+     */
+    private static function satirNotu(mixed $ham): ?string
+    {
+        if ($ham === null) {
+            return null;
+        }
+        // SKALER OLMAYAN DEĞER ÖNDEN REDDEDİLİR: `(string) $nesne` __toString'i olmayan bir nesnede
+        // ÖLÜMCÜL Error atar ve Error bir Exception DEĞİLDİR — SyncService'in InvalidArgument/
+        // QueryException kapanları onu yakalayamaz, parti 500'e düşer ve kuyruk kilitlenir
+        // (zehirli hap). Dizi ise sessizce "Array" metnine dönerdi, ki bu daha da kötü: bayi
+        // notunun yerinde "Array" yazdığını ancak kurye kapıda okuduğunda öğrenir.
+        if (! is_scalar($ham)) {
+            throw new InvalidArgumentException('satır notu metin olmalı');
+        }
+        $s = trim((string) $ham);
+        if ($s === '') {
+            return null;
+        }
+        if (mb_strlen($s) > 500) {
+            throw new InvalidArgumentException('satır notu 500 karakterden uzun olamaz');
+        }
+
+        return $s;
     }
 
     /**
@@ -296,8 +384,36 @@ class OrderChangeApplier
         $order->total_kurus = (int) OrderLine::query()
             ->where('order_id', $order->id)->whereNull('deleted_at')->sum('line_total_kurus');
         $order->assigned_user_id = $this->deriveAssignedUserId($order->id);
+        $order->delivered_by_user_id = $this->deriveDeliveredByUserId($order->id);
         $order->sort_index = $this->deriveSortIndex($order->id);
         $order->save();
+    }
+
+    /**
+     * delivered_by_user_id önbelleğini olaylardan türet (assigned_user_id deseninin ikizi; AYNI
+     * (occurred_at DESC, id DESC) ortak anahtarı → istemci `_deriveDeliveredByUserId` ile birebir
+     * simetrik, ıraksama yok).
+     *
+     * İPTAL EDİLEN SİPARİŞ: alan TEMİZLENMEZ. `delivered` olayı append-only defterde durmaya devam
+     * eder ve gerçekten olmuş bir olayı anlatır; okuma katmanı zaten `status='delivered'` süzgeci
+     * uyguluyor. Burada silmek, olay defterini "ne olduğunu sandığımız" hâline çevirirdi.
+     */
+    private function deriveDeliveredByUserId(string $orderId): ?string
+    {
+        /** @var OrderEvent|null $latest */
+        $latest = OrderEvent::query()
+            ->where('order_id', $orderId)
+            ->where('event_type', 'delivered')
+            ->orderByDesc('occurred_at')->orderByDesc('id')
+            ->first();
+
+        if ($latest === null) {
+            return null;
+        }
+
+        $userId = ($latest->payload ?? [])['delivered_by_user_id'] ?? null;
+
+        return $userId !== null ? (string) $userId : null;
     }
 
     /**

@@ -39,7 +39,7 @@ class GeocodeApi {
           )
           .timeout(const Duration(seconds: 20));
     } on Exception {
-      throw GeocodeException('İnternete ulaşılamadı — konumu sonra alabilirsiniz.');
+      throw GeocodeException('İnternete ulaşılamadı. Konumu sonra alabilirsiniz.');
     }
 
     final body = _decode(resp.body);
@@ -48,7 +48,7 @@ class GeocodeApi {
       throw GeocodeException(
         mesaj is String && mesaj.isNotEmpty
             ? mesaj
-            : 'Adres araması yapılamadı (HTTP ${resp.statusCode}).',
+            : 'Adres araması yapılamadı (kod ${resp.statusCode})',
       );
     }
 

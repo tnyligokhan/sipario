@@ -1,5 +1,9 @@
 import 'package:drift/drift.dart';
 
+// TABLOLAR İKİYE BÖLÜNDÜ (2026-08-17, 500 satır kuralı — 566 satırdı): işletme/altyapı
+// tabloları ayrı parçada. `part` seçildi ki üretilmiş `.g.dart` hiç değişmesin.
+part 'tables_isletme.dart';
+
 /// Yerel Drift şeması — sunucu tablolarının istemci aynası. İstemci TEK KİRACIDIR (cihazda tek
 /// bayi oturur), bu yüzden tablolarda tenant_id YOKtur; izolasyon sunucuda RLS ile, istemcide
 /// oturumla sağlanır.
@@ -30,6 +34,30 @@ class Customers extends Table {
 
   /// OKUMA-MODELİ ÖNBELLEĞİ (DECISIONS: kaynak defterdir). Native arayan-tanıma bunu tek satır okur.
   IntColumn get balanceKurus => integer().withDefault(const Constant(0))();
+
+  /// FAVORİ ÜRÜNLER — bu müşterinin "her zamanki" ürünleri (kullanıcı isteği 2026-08-11).
+  /// İçerik JSON DİZİDİR: `["urun-1","urun-2"]`. null/boş = favori yok.
+  ///
+  /// NEDEN AYRI TABLO DEĞİL (karar verildi): müşteri satırı zaten LWW ile senkronlanıyor ve
+  /// favori listesi tam olarak "bu müşterinin bir alanı"dır — iki cihaz farklı liste yazarsa
+  /// çözüm LWW'nin kendisidir. Ayrı bir senkron varlığı (yeni entity_type, yeni tombstone,
+  /// yeni çakışma kuralı, yeni pull dalı) bu bayi ölçeğinde taşınmayacak bir maliyettir.
+  ///
+  /// SIRA BAYİNİN TERCİHİDİR ve korunur (küme değil, DİZİ): bayi en çok sattığını başa alır.
+  /// Çözümleme TEK yerdedir (`customer_repository.dart::favoriIdleriCoz`) ve bozuk/eski metinde
+  /// çökmez, boş listeye düşer — sahadaki bir cihazda elle bozulmuş bir alan, müşteri ekranının
+  /// tamamını açılmaz yapamaz.
+  TextColumn get favoriteProductIds => text().nullable()();
+
+  /// ÜRÜN TERCİHLERİ (kullanıcı isteği 2026-08-18) — JSON nesne: `{urunId: {cikarilan, eklenen}}`.
+  ///
+  /// "İşletmede her seferinde bunu sormak istemeyebilir": aynı müşteri her hafta "soğansız"
+  /// diyor. Tercih burada durur ve o ürün o müşteriye eklenirken KENDİLİĞİNDEN uygulanır.
+  ///
+  /// [favoriteProductIds] ile AYNI gerekçeyle müşterinin bir ALANIDIR (ayrı senkron varlığı
+  /// değil): tam olarak "bu müşterinin bir tercihi"dir ve iki cihaz farklı yazarsa çözüm LWW'nin
+  /// kendisidir. Çözümleme TEK yerdedir (`data/urun_secenekleri.dart`) ve bozuk metinde çökmez.
+  TextColumn get productOptionsJson => text().nullable()();
 
   /// KARA LİSTE damgası (null = kara listede değil) — v12.
   ///
@@ -102,6 +130,15 @@ class Products extends Table {
   /// (sunucu payload'ında karşılığı yok) — imageUrl gelene kadar POS karosunu doldurur.
   TextColumn get imageLocalPath => text().nullable()();
 
+  /// SEÇENEK LİSTESİ (kullanıcı isteği 2026-08-18) — JSON dizi: `[{ad, varsayilan, ekKurus}]`.
+  ///
+  /// Ürünün İÇİNDEKİLERİ + eklenebilir ekstralar. "Dürümde soğan var mı?" sorusunun cevabı
+  /// burada durur ve sipariş alan kişi tek dokunuşla çıkarır. null = ürünün seçeneği yok — su
+  /// bayisi gibi işletmelerde ürünlerin çoğu böyledir ve hiçbir ekranda ek gürültü doğurmaz.
+  ///
+  /// Gerekçe ve biçim `data/urun_secenekleri.dart` başlığında.
+  TextColumn get optionsJson => text().nullable()();
+
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   TextColumn get updatedOccurredAt => text()();
   TextColumn get updatedDeviceId => text().nullable()();
@@ -122,6 +159,19 @@ class Orders extends Table {
   /// ÖNBELLEK — kaynak assigned/unassigned order_events (FAZ 4). Hangi kuryeye atandığı; en son
   /// atama olayından türer. Tek kişilik bayide UI'da hiç görünmez (BRIEF), sunucu her zaman destekler.
   TextColumn get assignedUserId => text().nullable()();
+
+  /// ÖNBELLEK — kaynak `delivered` order olayının payload'ı. TESLİMİ FİİLEN KİM YAPTI
+  /// (2026-08-20 kullanıcı kararı: "uygulamada yapılan her işlem giriş yapılan hesaba bağlanır").
+  ///
+  /// [assignedUserId] İLE KARIŞTIRILMAZ ve ikisi de gereklidir: atama bir NİYETTİR ("bunu Ali
+  /// götürecek"), bu alan bir OLGUDUR ("götüren patron oldu"). Gün özeti teslimat sayısını ve
+  /// günün veresiyesini atamadan okuduğu sürece, patronun kendi yaptığı teslimat Ali'nin
+  /// hesabına yazılıyordu — üstelik parası (`ledger_entries.collected_by_user_id`) patronda
+  /// kalarak: aynı olayın iki yarısı iki ayrı kişiye gidiyordu.
+  ///
+  /// ESKİ SATIRLARDA NULL'dur ve okuma katmanı null'da atamaya düşer: o teslimlerin kim
+  /// tarafından yapıldığı kayıtlı DEĞİLDİR ve uydurulmaz — geçmiş günler eskisi gibi görünür.
+  TextColumn get deliveredByUserId => text().nullable()();
 
   /// ÖNBELLEK — kaynak order_events (DECISIONS). status: open|delivered|cancelled.
   TextColumn get status => text().withDefault(const Constant('open'))();
@@ -152,6 +202,25 @@ class OrderLines extends Table {
 
   /// Birim de satırda saklanır (fiyat/ad ile aynı gerekçe: o anki gerçek).
   TextColumn get unit => text().nullable()();
+
+  /// SATIR NOTU (kullanıcı isteği 2026-08-11) — "buzlu olsun", "kapıya bırak", "faturalı".
+  ///
+  /// `Orders.note` İLE KARIŞTIRILMAMALI: o siparişin tamamına ait tek nottur ("zili çalma"),
+  /// bu ise TEK KALEME aittir. İkisini aynı alana yazmak, üç kalemlik bir siparişte hangi
+  /// kalemin notlu olduğunu kaybettirirdi — kurye kapıda yanlış ürünü teslim eder.
+  /// Satırda saklanır (ad/fiyat/birim ile aynı gerekçe: siparişin çekildiği andaki gerçek).
+  TextColumn get note => text().nullable()();
+
+  /// SEÇİLEN SEÇENEKLER (kullanıcı isteği 2026-08-18) — JSON: `{cikarilan:[…], eklenen:[…]}`.
+  ///
+  /// SATIRDA saklanır ve KENDİ KENDİNE YETER: çıkarılan malzemenin adı ve eklenenin FİYATI
+  /// burada durur, ürüne bakılarak çözülmez ([unitPriceKurus]/[productName] ile aynı kural —
+  /// "siparişin çekildiği andaki gerçek"). Menü yarın değişse bile dünkü sipariş "soğansız" der.
+  ///
+  /// ⚠️ [note] ALANI DA DOLDURULUR: seçimin insan okunur özeti oraya yazılır, çünkü sipariş
+  /// detayı, kurye ekranı ve geçmiş o alanı ZATEN çiziyor. Yapılandırılmış veri makine için,
+  /// not metni ekranlar için — ikisi aynı gerçeğin iki okuyucusuna bakar.
+  TextColumn get optionsJson => text().nullable()();
 
   /// "Serbest satır" (katalogda olmayan tek seferlik iş). AÇIK bayrak: productId'nin null olması
   /// yeterli ayırt edici değildir (silinmiş ürünün satırı da null olabilir).
@@ -221,6 +290,21 @@ class CashHandovers extends Table {
   IntColumn get expectedCashKurus => integer()();
   IntColumn get diffKurus => integer()();
   TextColumn get periodStart => text().nullable()();
+
+  /// İPTAL KAYDI (kullanıcı kararı 2026-08-13): dolu ise bu satır bir devri GERİ ALIR ve iptal
+  /// edilen devrin id'sini taşır. `ledger_entries.reversesEntryId` deseninin birebir aynısı.
+  ///
+  /// NEDEN KOLON, NEDEN SİLME DEĞİL: BRIEF kırmızı çizgi #2 — para kayıtları silinmez/ezilmez.
+  /// Yanlış alınmış bir ara tahsilat gerçekten OLMUŞ bir olaydır (patron kuryeden para aldı,
+  /// sonra iade etti); satırı yok etmek defterin "ne olduğunu" değil "ne olduğunu sandığımızı"
+  /// anlatır hâle getirirdi. İptal, ters işaretli İKİNCİ bir satırdır: orijinal kanıt olarak
+  /// yerinde durur, toplam kendiliğinden düzelir.
+  ///
+  /// NEDEN `day_closings.cash_handover_id` gibi İLİŞKİDEN türetilemedi: orada ilişkinin sahibi
+  /// KARŞI TARAFTIR (kapanış deviri işaret eder) ve o yüzden kolon gereksizdi. Burada geri alan
+  /// da alınan da aynı tablodadır; ilişkiyi taşıyacak başka bir yer yok.
+  TextColumn get reversesHandoverId => text().nullable()();
+
   TextColumn get occurredAt => text()();
   TextColumn get deviceId => text().nullable()();
   TextColumn get note => text().nullable()();
@@ -229,232 +313,3 @@ class CashHandovers extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Sunucu `users` aynası (FAZ 4b Dilim 4 — team bloğu). PII ASGARİ: yalnız id/name/role/status;
-/// email/parola/telefon YOK (sunucu da göndermez). LWW/tombstone YOK — bu tablo salt sunucu-kaynaklı
-/// önbellektir: her `team` bloğunda TOPTAN değiştirilir (delete-all + insert).
-/// Kullanıcı istemciden ASLA push edilmez; atama hedefi ve atanan kurye adı çözümü için tutulur.
-class Users extends Table {
-  TextColumn get id => text()();
-  TextColumn get name => text()();
-  TextColumn get role => text()(); // patron|operator|kurye
-  TextColumn get status => text()(); // active|disabled
-
-  /// Kullanıcının GİRİŞ ADI (kullanıcı isteği 2026-08-04 — Kuryeler ekranı gösterir ve düzenler).
-  /// Sır değildir: patron kuryeye zaten kendisi söyler, unuttuğunda soracağı yer burasıdır.
-  /// PAROLA BURADA YOK ve hiç olmayacak — parola yalnız YAZILIR (`/team/{id}/credentials`),
-  /// hiçbir yönde okunmaz. Eski sunucu alanı göndermezse boş kalır.
-  TextColumn get username => text().withDefault(const Constant(''))();
-
-  /// Kurye telefonu (tasarım: Kuryeler ekranı gösterir/düzenler). Bayinin KENDİ personel iletişim
-  /// bilgisidir; e-posta/parola hâlâ sunucuda kalır ve team bloğuna hiç girmez.
-  TextColumn get phone => text().nullable()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-/// İşletme profili (tasarım: "İşletme Profili") — cihazda TEK SATIR (id=1, sync_meta deseni).
-/// Sunucuda anahtar tenant_id'dir; istemci tek kiracı olduğu için tenant_id BURADA YOK (DECISIONS).
-/// Push payload'ında id GÖNDERİLMEZ — sunucu oturumdaki tenant'ı anahtar olarak kullanır, böylece
-/// iki cihazın çevrimdışı yazımı aynı satırda LWW ile birleşir (çakışıp reddedilemez).
-class TenantSettings extends Table {
-  IntColumn get id => integer().withDefault(const Constant(1))();
-  TextColumn get businessName => text().nullable()();
-  TextColumn get ownerName => text().nullable()();
-  TextColumn get phone => text().nullable()();
-  TextColumn get whatsapp => text().nullable()();
-  TextColumn get addressText => text().nullable()();
-  TextColumn get taxOffice => text().nullable()();
-  TextColumn get taxNumber => text().nullable()();
-  TextColumn get opensAt => text().nullable()();  // 'SS:DD'
-  TextColumn get closesAt => text().nullable()();
-  TextColumn get receiptNote => text().nullable()();
-
-  /// Bayinin KENDİ IBAN'ı (kullanıcı isteği 2026-08-04) — borçluya gönderilen WhatsApp
-  /// hatırlatmasında geçer. Boşluksuz ve BÜYÜK harf saklanır (sunucu da normalleştirir);
-  /// null = tanımlı değil, hatırlatma düğmesi o zaman nedenini söyleyip durur.
-  TextColumn get iban => text().nullable()();
-
-  /// IBAN ALICI ADI (kullanıcı isteği 2026-08-06) — hesap sahibinin AD SOYADI.
-  ///
-  /// NEDEN AYRI ALAN: hesap sahibi çoğu zaman ŞAHIS adıdır ("Mehmet Yılmaz"), işletme adıyla
-  /// ("Merkez Su Bayii") aynı değildir; banka uygulaması havale ekranında ad soyad ister ve
-  /// işletme adını yazan müşteri işlemi tamamlayamaz. Boşsa mesajda işletme adına DÜŞÜLÜR —
-  /// güncelleme öncesi davranış budur, hiçbir bayi "Alıcı" satırını bu sürümle kaybetmemeli.
-  TextColumn get ibanOwnerName => text().nullable()();
-
-  /// BORÇ HATIRLATMA ŞABLONU (kullanıcı isteği 2026-08-06) — bayinin kendi mesaj metni.
-  ///
-  /// null/boş = VARSAYILAN metin (`borc_hatirlatma.dart`). Varsayılanı buraya kopyalamak,
-  /// metni ileride iyileştirdiğimizde şablona hiç dokunmamış bayilerde eski metni dondururdu.
-  /// Yer tutucular (`*musteriadi*`, `*siparistutar*`, `*ibanodemebilgileri*` …) gönderim anında
-  /// çözülür; IBAN ve alıcı adı SABİT bloktur, metnin içinde düzenlenemez.
-  TextColumn get reminderTemplate => text().nullable()();
-
-  /// KURYE VE ROL YETKİ MATRİSİ — bayinin açıp kapatabildiği dinamik yetkiler.
-  /// KİRACI düzeyindedir (kurye başına değil): 1–3 kişilik bayide kişi bazlı yetki, her yeni
-  /// kuryede unutulan bir kurulum adımı doğururdu. Varsayılanlar sunucudakiyle AYNI olmalı —
-  /// senkron gelmeden önce ekran bir kare boyunca bu değerleri gösterir.
-  BoolColumn get courierCanCustomers => boolean().withDefault(const Constant(true))();
-  BoolColumn get courierCanOrders => boolean().withDefault(const Constant(true))();
-  BoolColumn get courierCanCollect => boolean().withDefault(const Constant(true))();
-  BoolColumn get courierCanDiscount => boolean().withDefault(const Constant(false))();
-  BoolColumn get courierCanDayEnd => boolean().withDefault(const Constant(false))();
-  BoolColumn get courierCanSeeAllOrders => boolean().withDefault(const Constant(false))();
-  BoolColumn get courierCanViewHistory => boolean().withDefault(const Constant(false))();
-  BoolColumn get courierCanExpense => boolean().withDefault(const Constant(false))();
-  BoolColumn get courierPhoneMask => boolean().withDefault(const Constant(true))();
-  BoolColumn get courierCanCustomerLedger => boolean().withDefault(const Constant(false))();
-  BoolColumn get courierCanDebtReminder => boolean().withDefault(const Constant(false))();
-  BoolColumn get courierCanToggleStock => boolean().withDefault(const Constant(true))();
-  BoolColumn get courierCanCallLog => boolean().withDefault(const Constant(false))();
-
-  /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
-  /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
-  /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.
-  TextColumn get orderCodeDisplay =>
-      text().withDefault(const Constant('musteri'))();
-
-  TextColumn get updatedOccurredAt => text().nullable()();
-  TextColumn get updatedDeviceId => text().nullable()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-/// Muaf telefonlar (tasarım: "Muaf Telefonlar") — bu numaralar aradığında çağrı kartı ÇIKMAZ.
-/// `phone_last10` indeksi customer_phones ile aynı sözleşmedir: native taraf kartı çizmeden ÖNCE
-/// bu tabloyu salt-okunur sorgular, bu yüzden tablo cihazda BULUNMAK ZORUNDA.
-@TableIndex(name: 'idx_exempt_last10', columns: {#phoneLast10})
-class ExemptNumbers extends Table {
-  TextColumn get id => text()();
-  TextColumn get phoneE164 => text()();
-  TextColumn get phoneLast10 => text()();
-  TextColumn get label => text().nullable()();
-  TextColumn get updatedOccurredAt => text()();
-  TextColumn get updatedDeviceId => text().nullable()();
-  TextColumn get deletedAt => text().nullable()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-/// Çağrı günlüğü (tasarım: "Son Aramalar"). direction: incoming|missed|outgoing.
-/// APPEND-ONLY DEĞİL: `outcome`/`customerId` çağrıdan sonra zenginleşir (karttan sipariş açılınca);
-/// para kaydı olmadığından kırmızı çizgi #2 kapsamı dışında — standart LWW + tombstone.
-@TableIndex(name: 'idx_call_logs_occurred', columns: {#occurredAt})
-class CallLogs extends Table {
-  TextColumn get id => text()();
-  TextColumn get customerId => text().nullable()(); // kayıtsız numarada null
-  TextColumn get phoneE164 => text()();
-  TextColumn get phoneLast10 => text()();
-  TextColumn get direction => text()();
-  TextColumn get outcome => text().nullable()();
-  TextColumn get relatedOrderId => text().nullable()();
-  TextColumn get occurredAt => text()();
-  TextColumn get deviceId => text().nullable()();
-  TextColumn get updatedOccurredAt => text()();
-  TextColumn get updatedDeviceId => text().nullable()();
-  TextColumn get deletedAt => text().nullable()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-/// Gün sonu kapanış arşivi (tasarım: "Gün Sonu → Hesabı Kapat" + "Arşiv") — APPEND-ONLY ayna.
-/// scope: day (günün tamamı, userId null) | courier (kurye hesabı, userId dolu). Özet tutarlar
-/// kapatıldığı ANDAKİ gerçeği taşır; geç senkron arşivi değiştirmez. diffKurus fark KANITIdır.
-class DayClosings extends Table {
-  TextColumn get id => text()();
-  TextColumn get scope => text()();
-  TextColumn get userId => text().nullable()();
-  TextColumn get periodStart => text().nullable()();
-  IntColumn get deliveryCount => integer().withDefault(const Constant(0))();
-  IntColumn get totalCollectedKurus => integer().withDefault(const Constant(0))();
-  IntColumn get cashNakitKurus => integer().withDefault(const Constant(0))();
-  IntColumn get cashKartKurus => integer().withDefault(const Constant(0))();
-  IntColumn get cashHavaleKurus => integer().withDefault(const Constant(0))();
-  IntColumn get openCreditKurus => integer().withDefault(const Constant(0))();
-  IntColumn get expectedCashKurus => integer().withDefault(const Constant(0))();
-  IntColumn get countedCashKurus => integer().nullable()();
-  IntColumn get diffKurus => integer().withDefault(const Constant(0))();
-  TextColumn get cashHandoverId => text().nullable()();
-  TextColumn get note => text().nullable()();
-  TextColumn get occurredAt => text()();
-  TextColumn get deviceId => text().nullable()();
-
-  @override
-  Set<Column> get primaryKey => {id};
-}
-
-/// Giden kutusu (DECISIONS: yazma yolu outbox üzerinden). Yerel yazma + outbox AYNI transaction'da.
-/// client_event_id tenant-içi tekil idempotency anahtarı; retry her zaman güvenli.
-class Outbox extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  TextColumn get clientEventId => text()();
-  TextColumn get entityType => text()();
-  TextColumn get op => text()();
-  TextColumn get entityId => text().nullable()();
-  TextColumn get payload => text()(); // json
-  TextColumn get occurredAt => text()();
-  TextColumn get deviceId => text().nullable()();
-  TextColumn get createdAt => text()();
-  TextColumn get status => text().withDefault(const Constant('pending'))(); // pending|acked|failed
-  IntColumn get attempts => integer().withDefault(const Constant(0))();
-  TextColumn get lastError => text().nullable()();
-
-  @override
-  List<Set<Column>> get uniqueKeys => [
-        {clientEventId},
-      ];
-}
-
-/// Senkron durumu (tek satır, id=1). Delta imleci + saat offset + ileri-sadece saat çıpası (Faz 5).
-class SyncMeta extends Table {
-  IntColumn get id => integer().withDefault(const Constant(1))();
-  IntColumn get lastPulledSeq => integer().withDefault(const Constant(0))();
-  TextColumn get lastServerTimeIso => text().nullable()();
-  IntColumn get serverTimeOffsetMs => integer().withDefault(const Constant(0))();
-  IntColumn get elapsedAnchorMs => integer().nullable()();
-  BoolColumn get snapshotDone => boolean().withDefault(const Constant(false))();
-  TextColumn get deviceId => text().nullable()();
-
-  /// Oturumdaki kullanıcı (FAZ 4): teslim/tahsilatta collected_by_user_id ve kasa devrinde from_user_id
-  /// kaynağı. Login akışı doldurur (Faz 5); yoksa null → nakit atfı boş, kasa devri opsiyonel.
-  TextColumn get userId => text().nullable()();
-
-  /// Abonelik durumu ÖNBELLEĞİ (FAZ 5a — DECISIONS: tek doğru kaynak sunucu, istemci önbellekler).
-  /// Sunucunun her push/pull yanıtındaki `subscription` bloğundan yazılır. İstemci ileri-sadece saatle
-  /// (lastServerTimeIso + elapsedAnchorMs) kilit/grace kararını bu değerlerden verir.
-  TextColumn get validUntilIso => text().nullable()();
-  TextColumn get lockedAtIso => text().nullable()();
-  TextColumn get subscriptionStatus => text().nullable()(); // trial|active|locked|suspended
-
-  /// Oturum (DİLİM 1 — Saha UI). Sanctum bearer token'ı uygulama-özel sandbox'taki bu DB'de durur;
-  /// cihaz bayinindir, DB dosyasına başka uygulama erişemez (Android app-private). Token NULL = çıkış.
-  /// Çıkışta yalnız token silinir — yerel iş verisi KALIR (offline-first; veri kaybettirme yok).
-  TextColumn get authToken => text().nullable()();
-  TextColumn get userName => text().nullable()();
-  TextColumn get userRole => text().nullable()(); // patron|operator|kurye
-  TextColumn get tenantName => text().nullable()();
-
-  /// API taban adresi (varsayılan üretim; geliştirmede login ekranından değiştirilebilir).
-  TextColumn get apiBaseUrl => text().nullable()();
-
-  /// SUNUCU SAHİPLİ, salt-okunur önbellek (subscription bloğundan): tasarımdaki "Firma Kodu"
-  /// (değiştirilemez) ve "Oto Sırala (rota) · N hak" sayacı. İstemci bunları YAZAMAZ.
-  TextColumn get tenantCode => text().nullable()();
-  IntColumn get routeCredits => integer().withDefault(const Constant(0))();
-
-  /// Aylık oto-sıralama kotası (çekmecedeki "Aylık 50"). Kalan/kota oranı ilerleme çubuğunu
-  /// çizer; kota bilinmezse çubuk çizilemez, o yüzden ayrı alan olarak saklanır.
-  IntColumn get routeCreditsMonthly => integer().withDefault(const Constant(0))();
-
-  /// CİHAZ-YEREL tercihler (senkronlanmaz): izin sihirbazının tamamlanma damgası ve tema seçimi.
-  /// İzinler cihaza özgüdür — başka cihaza taşınmaları yanlış olurdu.
-  TextColumn get setupCompletedAt => text().nullable()();
-  TextColumn get themeMode => text().nullable()(); // koyu|acik
-
-  @override
-  Set<Column> get primaryKey => {id};
-}

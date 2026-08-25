@@ -21,6 +21,7 @@ import 'package:sipario/screens/orders/gecen_sure_pili.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
 
 import 'support/siparis_yardimci.dart';
+import 'support/yetki_yardimcilari.dart';
 
 void main() {
   group('gecenSure — açık siparişin bekleme süresi', () {
@@ -105,7 +106,7 @@ void main() {
       });
 
       genisYuzey(tester);
-      await tester.pumpWidget(sipKabuk(CustomerListScreen(db: db, writable: true)));
+      await tester.pumpWidget(sipKabuk(CustomerListScreen(db: db, writable: true, yetki: tamYetki)));
       await akisiBekle(tester);
 
       expect(find.text('102'), findsOneWidget);
@@ -169,7 +170,8 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         final repo = TenantSettingsRepository(db);
-        await repo.save(businessName: 'Öz Pınar Su', phone: '02422222222');
+        await repo.save(
+            businessName: const Value('Öz Pınar Su'), phone: const Value('02422222222'));
         await repo.siparisKoduTercihiKaydet('siparis');
 
         final kuyruk = await db.select(db.outbox).get();

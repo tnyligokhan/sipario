@@ -113,21 +113,26 @@ void main() {
     Widget cekmece(
       String rol, {
       DateTime? lisansBitisi,
-      ValueChanged<SipSekme>? onTab,
+      ValueChanged<CekmeceGiris>? onGiris,
+      bool borclularGorunur = true,
+      bool cagriGunluguGorunur = true,
     }) =>
         SipCekmece(
           acik: true,
           onKapat: () {},
           isletmeAdi: 'Öz Pınar Su',
           rol: rol,
-          aktif: SipSekme.ana,
-          onTab: onTab ?? (_) {},
-          onGiris: (_) {},
+          onGiris: onGiris ?? (_) {},
           onCikis: () {},
           onDestek: () {},
+          // Senkron damgası VERİLİR: durum şeridi çekmecenin yeni omurgası ve gerçek kullanımda
+          // dolu olur. null bırakmak "henüz senkron olmadı" dalını sınardı — o ayrı bir hâl.
+          sonSenkron: DateTime(2026, 8, 13, 10, 32),
           lisansBitisi:
               lisansBitisi ?? DateTime.now().toUtc().add(const Duration(days: 90)),
           urunlerGorunur: rol != 'kurye',
+          borclularGorunur: borclularGorunur,
+          cagriGunluguGorunur: cagriGunluguGorunur,
         );
 
     testWidgets('patron rolünde YÖNETİM bölümü ve istatistik kartları VAR', (tester) async {
@@ -136,15 +141,26 @@ void main() {
       expect(find.text('YÖNETİM'), findsOneWidget);
       expect(find.text('Ürünler'), findsOneWidget);
       expect(find.byType(CekmeceIstatistikleri), findsOneWidget);
-      expect(find.text('AKTİF'), findsOneWidget,
-          reason: 'lisans pili Türkçe büyük harf (trBuyuk) — "AKTIF" değil');
-      expect(find.text('Yönetici'), findsNothing); // rol satırı "Yönetici · senkron …" birleşiktir
-      expect(find.textContaining('Yönetici'), findsOneWidget);
+      // LİSANS ARTIK PİLLİ BÜYÜK KART DEĞİL, İNCE ÇİP (2026-08-13 yeniden tasarımı): "AKTİF"
+      // pili kaldırıldı çünkü çip yüksekliği ~44 punto ve pil için yer yok. Durum RENKLE ve
+      // ikonla söyleniyor; kilitlenen şey pilin metni değil, KALAN GÜNÜN yazıyor olmasıdır.
+      expect(find.textContaining('gün'), findsWidgets,
+          reason: 'kalan gün çipte yazmalı — lisans durumu boş çekmeceden okunamaz');
+      // ROL SATIRI ARTIK SENKRONLA BİRLEŞİK DEĞİL (2026-08-13): eskiden "Patron, senkron
+      // 10:32" tek satırdı ve senkron bilgisi %55 opaklıkta bir ek cümleydi. Senkron kendi
+      // DURUM ŞERİDİNE çıktı; rol satırı artık kişiyi anlatıyor ("Patron, Gökhan").
+      expect(find.text('Patron'), findsOneWidget,
+          reason: 'kullanıcı adı verilmediğinde satır yalnız rolü yazar');
+      expect(find.textContaining('Son güncelleme'), findsOneWidget,
+          reason: 'senkron tazeliği kendi şeridinde, okunabilir bir yerde');
 
-      // MENÜ dördüncü satırı: yöneticide tasarımdaki birleşik etiket, AYRI kasa devri satırı YOK
-      // (kullanıcı kararı 2026-07-26 — yöneticiden kalkıyor).
-      expect(find.text('Gün Özeti & Kasa Devri'), findsOneWidget);
-      expect(find.text('Kasa Devri'), findsNothing);
+      // BÖLÜM ETİKETLERİ AZALTILDI (2026-08-13 yeniden tasarımı): dokuz satır için dört büyük
+      // harf başlık ("İŞ", "YÖNETİM", "HIZLI AYARLAR", "UYGULAMA") vardı ve üçü ayırt edici
+      // bilgi taşımıyordu — yalnız dikey alan yiyip taramayı yavaşlatıyorlardı. Tek etiket
+      // YÖNETİM'de kaldı, çünkü o ROL sinyali taşır; ayrım artık boşluk ve ayraçla yapılıyor.
+      expect(find.text('İŞ'), findsNothing);
+      expect(find.text('UYGULAMA'), findsNothing);
+      expect(find.text('Borçlular'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -156,35 +172,68 @@ void main() {
       expect(find.text('YÖNETİM'), findsNothing);
       expect(find.text('Ürünler'), findsNothing);
       expect(find.text('Kuryeler'), findsNothing);
-      expect(find.text('Muaf Telefonlar'), findsNothing);
+      expect(find.text('Muaf Numaralar'), findsNothing);
       expect(find.byType(CekmeceIstatistikleri), findsNothing,
           reason: 'koşullu görünürlük değil — kuryede hiç kurulmaz');
 
-      // Kuryeye açık kalanlar:
-      expect(find.text('Müşteriler'), findsOneWidget);
-      expect(find.text('Siparişler'), findsOneWidget);
-      // UYGULAMA bölümü tasarımda TEK satırdır: Ayarlar (s-bilesenler.jsx). Tema anahtarı bir
-      // ara sürümde burada duruyordu; Ayarlar ekranı yazılınca oraya taşındı.
+      // Kuryeye açık kalanlar. Müşteriler/Siparişler artık ÇEKMECEDE DEĞİL — alt navigasyonda
+      // (ikisi de tek dokunuş uzakta); çekmece yalnız orada olmayanları taşır.
+      expect(find.text('Sipariş Haritası'), findsOneWidget);
+      // HIZLI AYARLAR kuryede de vardır: bunlar kendi CİHAZ tercihleridir, dükkân verisi değil.
+      expect(find.text('Arayan Tanıma'), findsOneWidget);
+      expect(find.text('Hesap'), findsOneWidget);
       expect(find.text('Ayarlar'), findsOneWidget);
       expect(find.textContaining('Kurye'), findsOneWidget);
 
       await kapat(tester);
     });
 
-    testWidgets('kuryenin dördüncü MENÜ satırı "Kasa Devri" ve Gün Özeti sekmesine gider',
-        (tester) async {
-      // Kasa devri EKRANI kaldırıldı; satırın hedefi Gün Özeti sekmesidir. Kuryede satır
-      // adıyla kendi işini söyler, yöneticide tasarımın birleşik etiketi kalır — iki satır
-      // aynı yere gitmesin diye tek satır role göre etiketlenir.
-      final gidilen = <SipSekme>[];
-      await ekranaKoy(tester, cekmece('kurye', onTab: gidilen.add));
+    testWidgets('ALT NAVİGASYONUN KOPYASI satırlar çekmecede YOK', (tester) async {
+      // 2026-08-13 yeniden düzeni. Eski çekmecenin ilk bölümü ("MENÜ") alt navigasyonun
+      // birebir kopyasıydı: Ana Sayfa · Müşteriler · Siparişler · Gün Özeti. Alt bar her
+      // ekranda görünür ve o dört hedefe TEK dokunuşla gider; çekmecedeki kopyaları İKİ
+      // dokunuş istiyordu. Menünün en değerli alanı hiçbir yere götürmeyen bir tekrardaydı.
+      await ekranaKoy(tester, cekmece('patron'));
 
-      expect(find.text('Kasa Devri'), findsOneWidget);
+      expect(find.text('Ana Sayfa'), findsNothing);
+      expect(find.text('Müşteriler'), findsNothing);
+      expect(find.text('Siparişler'), findsNothing);
       expect(find.text('Gün Özeti & Kasa Devri'), findsNothing);
+      expect(find.text('Kasa Devri'), findsNothing);
 
-      await tester.tap(find.text('Kasa Devri'));
+      await kapat(tester);
+    });
+
+    testWidgets('İŞ bölümü menüden ulaşılamayan üç ekranı taşır', (tester) async {
+      // Bu üçü eskiden çekmeceden HİÇ açılamıyordu: Borçlular yalnız ana ekrandaki bento
+      // kutusundan, Sipariş Haritası yalnız sipariş listesinin üst çubuğundan, Çağrı Geçmişi
+      // ise AYARLARIN üç kat dibinden (bir iş kaydı, ayar değil).
+      final gidilen = <CekmeceGiris>[];
+      await ekranaKoy(tester, cekmece('patron', onGiris: gidilen.add));
+
+      expect(find.text('Borçlular'), findsOneWidget);
+      expect(find.text('Çağrı Geçmişi'), findsOneWidget);
+      expect(find.text('Sipariş Haritası'), findsOneWidget);
+
+      await tester.tap(find.text('Çağrı Geçmişi'));
       await tester.pump();
-      expect(gidilen, [SipSekme.gunSonu]);
+      expect(gidilen, [CekmeceGiris.cagriGunlugu]);
+
+      await kapat(tester);
+    });
+
+    testWidgets('YETKİSİ KAPALI satır HİÇ çizilmez (pasif değil)', (tester) async {
+      // Kalıcı olarak kapalı bir kapıyı göstermek, kullanıcıya olmayan bir yol tarif etmektir
+      // — bu dosyanın ve çekmecenin genel kuralı.
+      await ekranaKoy(
+        tester,
+        cekmece('kurye', borclularGorunur: false, cagriGunluguGorunur: false),
+      );
+
+      expect(find.text('Borçlular'), findsNothing);
+      expect(find.text('Çağrı Geçmişi'), findsNothing);
+      // Kendi cihaz tercihleri KURYEDE DE açık: kapatılan hep DÜKKÂN VERİSİDİR.
+      expect(find.text('Arayan Tanıma'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -199,8 +248,6 @@ void main() {
           onKapat: () {},
           isletmeAdi: 'Öz Pınar Su',
           rol: 'patron',
-          aktif: SipSekme.ana,
-          onTab: (_) {},
           onGiris: (_) {},
           onCikis: () {},
           onDestek: () {},
@@ -208,9 +255,9 @@ void main() {
       );
 
       expect(find.byType(CekmeceIstatistikleri), findsOneWidget);
-      expect(find.text('BİLİNMİYOR'), findsOneWidget);
-      expect(find.text('—'), findsOneWidget, reason: 'kalan gün uydurulmaz');
-      expect(find.textContaining('Lisans · '), findsOneWidget);
+      expect(find.text('—'), findsOneWidget, reason: 'kalan gün UYDURULMAZ');
+      expect(find.text('Bitiş tarihi bilinmiyor'), findsOneWidget,
+          reason: 'çip bilinmediğini SÖYLER; boş bırakmak "lisansım ne oldu"yu cevapsız bırakır');
 
       await kapat(tester);
     });
@@ -357,8 +404,10 @@ void main() {
 
       expect(jeton().koyu, isTrue);
       expect(jeton().bg, isNot(acikBg), reason: 'ekran zemini koyu tabloya geçmeli');
-      expect(jeton().accent, SipTokens.acik.accent,
-          reason: 'accent iki temada da AYNI — durum renkleri tema değişince kaymaz');
+      expect(jeton().accent, SipTokens.koyuTema.accent,
+          reason: 'vurgu da koyu tabloya geçmeli — koyuda mor açılır (karar 2026-08-19)');
+      expect(jeton().accent, isNot(SipTokens.acik.accent),
+          reason: 'açık temanın doymuş moru koyu zemine taşınmaz');
 
       await tema.ayarla(false);
       await tester.pump();

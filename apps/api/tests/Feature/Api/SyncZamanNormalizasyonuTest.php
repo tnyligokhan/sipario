@@ -205,10 +205,12 @@ class SyncZamanNormalizasyonuTest extends ApiTestCase
         //
         // Düzeltme geldiğinde tek yapılacak şey aşağıdaki satırı silmektir; testin gövdesi zaten
         // doğru kazananı bekliyor.
-        $this->markTestIncomplete(
-            'LWW saniye-altı ayrımı yok: kolonlar timestamptz(0), kapatmak migration ister.'
-        );
-
+        // ✅ KAPANDI (2026-08-17): karar veren 19 damga `timestamptz(6)`ya çevrildi
+        // (`2026_08_17_004012_lww_damgalarina_saniye_alti_cozunurluk`). `markTestIncomplete`
+        // buradan kaldırıldı; testin gövdesi zaten doğru kazananı bekliyordu.
+        //
+        // Kod DEĞİŞMEDİ: `lwwWins()` gelen ISO'yu Carbon'a çevirip karşılaştırıyordu, yani
+        // çözünürlükten bağımsızdı — saniye-altını yok eden tek şey kolon tipiydi.
         $a = $this->makeTenant('a');
         $token = $this->tokenFor($a['patron']);
         $musteriId = (string) Str::uuid7();

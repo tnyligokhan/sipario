@@ -1,8 +1,9 @@
 <?php
 
-use App\Http\Middleware\AppendServerTime;
+use App\Http\Middleware\AppendServerMeta;
 use App\Http\Middleware\BlockApiHostWebRoutes;
 use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\RejectRevokedToken;
 use App\Http\Middleware\ResolveTenantContext;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -20,26 +21,31 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         /*
-         * YALNIZ LOOPBACK'TEN GELEN X-Forwarded-* BAŞLIKLARINA GÜVEN (2026-08-05).
+         * X-Forwarded-* BAŞLIKLARINA GÜVEN — ÜRETİMDE ZORUNLU (2026-08-05).
          *
-         * Saha sunucusu tarayıcıya cloudflared tüneliyle (HTTPS) çıkar; cloudflared yerelde koşar
-         * ve 127.0.0.1:8000'e DÜZ HTTP ile bağlanıp gerçek şemayı `X-Forwarded-Proto: https` ile
-         * söyler. Bu satır olmadan Laravel o başlığı YOK SAYAR ve `asset()`/`route()` her mutlak
-         * URL'i `http://` üretir. Sonuç: HTTPS sayfada HTTP stylesheet = AKTİF KARIŞIK İÇERİK —
-         * mobil Chrome bunu istisnasız engeller (izin verme seçeneği de yoktur) ve site tünelden
-         * açan herkese TAMAMEN STİLSİZ görünür. Sahada birebir yaşandı: kullanıcı "büyük sorunlar
-         * var" dedi, sayfa çıplak HTML'di; masaüstünde `http://127.0.0.1:8000` ile bakan herkes
-         * ise hiçbir şey görmedi (şema uyuşuyor, karışık içerik doğmuyor).
+         * ⚠️ BU AYAR TÜNELE AİT DEĞİLDİR, SİLİNMEZ. Aşağıdaki hikâye onu doğuran olaydır ve
+         * kayıt olarak duruyor; ama üretim dalı (`production ? '*'`) Coolify/Traefik arkasında
+         * koşan HER istek için gereklidir. Tünel 2026-08-16'da kaldırıldı, bu satır kalmalı.
          *
-         * Güven kapsamı BİLİNÇLİ dar: yalnız loopback. cloudflared'in tek meşru sıçrama noktası
-         * localhost'tur; '*' güvenmek, LAN'dan doğrudan gelen bir isteğin sahte X-Forwarded-*
-         * başlıklarıyla şema/istemci-IP yalanı söyleyebilmesi demektir (hız sınırı anahtarları
-         * istemci IP'sinden türetiliyor — bkz. AppServiceProvider::limitler).
-         */
-        /*
+         * DOĞURAN OLAY: saha sunucusu tarayıcıya cloudflared tüneliyle (HTTPS) çıkıyordu;
+         * cloudflared yerelde koşar ve 127.0.0.1:8000'e DÜZ HTTP ile bağlanıp gerçek şemayı
+         * `X-Forwarded-Proto: https` ile söylerdi. Bu satır olmadan Laravel o başlığı YOK SAYAR
+         * ve `asset()`/`route()` her mutlak URL'i `http://` üretir. Sonuç: HTTPS sayfada HTTP
+         * stylesheet = AKTİF KARIŞIK İÇERİK — mobil Chrome bunu istisnasız engeller (izin verme
+         * seçeneği de yoktur) ve site açan herkese TAMAMEN STİLSİZ görünür. Sahada birebir
+         * yaşandı: kullanıcı "büyük sorunlar var" dedi, sayfa çıplak HTML'di; masaüstünde
+         * `http://127.0.0.1:8000` ile bakan herkes ise hiçbir şey görmedi (şema uyuşuyor,
+         * karışık içerik doğmuyor). Aynı sınıf arıza üretimde de mümkündür — orada proxy
+         * Traefik'tir.
+         *
          * Üretimde (Coolify/Traefik arkası) proxy Docker iç ağından gelir (172.x.x.x) —
          * loopback DEĞİL. Container doğrudan internete açık olmadığı için '*' güvenlidir.
-         * Geliştirmede cloudflared yalnız loopback'ten bağlanır.
+         *
+         * Geliştirme dalı BİLİNÇLİ dar tutuldu (yalnız loopback): '*' güvenmek, LAN'dan
+         * doğrudan gelen bir isteğin sahte X-Forwarded-* başlıklarıyla şema/istemci-IP yalanı
+         * söyleyebilmesi demektir (hız sınırı anahtarları istemci IP'sinden türetiliyor —
+         * bkz. AppServiceProvider::limitler). Yerelde şu an araya giren bir proxy yok, ama
+         * kapsamı daraltan bu satırın maliyeti sıfır; genişletmenin maliyeti yukarıdaki yalandır.
          */
         $middleware->trustProxies(
             at: env('APP_ENV') === 'production' ? '*' : ['127.0.0.1', '::1'],
@@ -48,6 +54,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant' => ResolveTenantContext::class,
             'role' => EnsureRole::class,
+            // Düşürülmüş token'a SEBEBİNİ söyler (tek hesap = tek cihaz). Kapıyı Sanctum tutar;
+            // bu yalnız açıklama katmanıdır — gerekçe RejectRevokedToken başlığında.
+            'oturum' => RejectRevokedToken::class,
         ]);
 
         // Kiracı bağlamı, auth:sanctum kullanıcıyı RLS altında yüklemeden ÖNCE kurulmalı.
@@ -58,9 +67,18 @@ return Application::configure(basePath: dirname(__DIR__))
             prepend: ResolveTenantContext::class,
         );
 
-        // Tüm api yanıtlarına: server_time (DECISIONS: sunucu her yanıtta saatini döner) + güvenlik başlıkları (F3).
+        // Aynı gerekçe: düşürülmüş token'a sebebini söyleyen katman da auth'tan ÖNCE koşmalı,
+        // yoksa Sanctum çıplak 401 ile sırayı ona hiç bırakmaz. Rota grubunda zaten doğru sırada
+        // yazılı; buradaki satır önceliklendiricinin onu auth'ın arkasına atmayacağını GARANTİLER.
+        $middleware->prependToPriorityList(
+            before: AuthenticatesRequests::class,
+            prepend: RejectRevokedToken::class,
+        );
+
+        // Tüm api yanıtlarına: server_time (DECISIONS: sunucu her yanıtta saatini döner) +
+        // api_version (sözleşme sürümü — istemci çarpıklığı görünür olsun) + güvenlik başlıkları (F3).
         $middleware->api(append: [
-            AppendServerTime::class,
+            AppendServerMeta::class,
             SecurityHeaders::class,
         ]);
 

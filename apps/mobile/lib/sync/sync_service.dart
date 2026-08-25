@@ -15,8 +15,22 @@ enum SyncHataTuru {
   /// burada doğrudur. Bekle, kendiliğinden gidecek.
   ag,
 
-  /// 401/403 ya da yerelde token yok. BEKLEMEK ÇÖZMEZ; yeniden giriş gerekir.
+  /// 403 ya da yerelde token yok. BEKLEMEK ÇÖZMEZ; yeniden giriş gerekir — ama kullanıcıyı
+  /// giriş ekranına ATMAYIZ: 403 "kimliğin geçersiz" demez, "bu isteğe yetkin yok" der
+  /// (rol kapısı). Oturumu kendiliğinden kapatmak, kuryeyi patrona ait bir uç noktaya
+  /// dokunduğu için dışarı atmak olurdu.
   oturum,
+
+  /// 401 — SUNUCU KİMLİĞİMİZİ TANIMIYOR. Token düşürülmüş (aynı hesap başka bir cihazda
+  /// açıldı — 2026-08-22 "tek hesap tek cihaz") ya da sunucuda hiç yok.
+  ///
+  /// [oturum]dan AYRI DURMASININ SEBEBİ: yalnız bu cins giriş ekranına dönmeyi gerektirir.
+  /// İkisi tek kefede kalsaydı kök ya 403'te de kullanıcıyı atardı ya da düşürülen cihaz
+  /// sonsuza dek "Oturum doğrulanmadı" bandıyla oturur, hiçbir kaydı gitmezdi.
+  ///
+  /// ⚠️ YEREL VERİ SİLİNMEZ (kırmızı çizgi #3): gönderilmemiş outbox kayıtları yerinde durur,
+  /// aynı kullanıcı bu cihaza tekrar girdiğinde kaldığı yerden akar.
+  oturumKapandi,
 
   /// Sunucuya ULAŞILDI ama o veremedi: 5xx (arıza) ya da geçici 4xx (408/425/429). Ağ sorunu
   /// DEĞİLDİR — "çevrimdışısın" demek kullanıcıyı telefonunu/wifi'sini kurcalamaya yollardı —
@@ -38,6 +52,7 @@ class SyncOutcome {
     this.beklemede = 0,
     this.error,
     this.tur = SyncHataTuru.yok,
+    this.kod,
   });
   final bool ok;
   final int pushed;
@@ -57,6 +72,13 @@ class SyncOutcome {
 
   /// [ok] false ise başarısızlığın CİNSİ. Bant hangi gerçeği yazacağını bundan öğrenir.
   final SyncHataTuru tur;
+
+  /// Sunucunun yanıt gövdesindeki makine kodu (`code`) — bugün yalnız 401'de dolu olur.
+  ///
+  /// NEDEN METİN DEĞİL KOD: sunucunun cümlesini olduğu gibi ekrana basmak, iki tarafın metin
+  /// kurallarını (bkz. depo metin kuralı) birbirine bağlar ve sunucudaki bir kelime değişikliği
+  /// uygulamanın diline sızar. Kod sözleşmedir, cümle uygulamanındır.
+  final String? kod;
 }
 
 /// Senkron servisini oturuma bağlar ve periyodik koşturur. Motor (SyncEngine) saf kalır;
@@ -165,7 +187,15 @@ class SyncService {
       // değildir: eski `on Exception catch` onu yakalamıyor, hata `syncNow`dan kaçıyor ve durum
       // akışına HİÇBİR ŞEY yazılmıyordu — gösterge son bilinen değerinde donuyordu. Ağ hatası
       // zaten normal işleyiştir (bodrum/asansör); kısa özet, PII yok (yalnız istisna tipi).
-      outcome = SyncOutcome(ok: false, error: e.runtimeType.toString(), tur: hataTuru(e));
+      outcome = SyncOutcome(
+        ok: false,
+        error: e.runtimeType.toString(),
+        tur: hataTuru(e),
+        // Yalnız MAKİNE KODU taşınır, gövdenin kendisi değil: yanıt gövdesi sunucunun
+        // cümlesini içerir ve o cümle bu akıştan ekrana kaçarsa PII taşıma riski (ve dil
+        // kuralı ihlali) doğar.
+        kod: e is SyncApiException ? e.kod : null,
+      );
     }
     // HER yolda yayınlanır (başarı, ağ hatası, tip hatası, oturumsuzluk). Gösterge yalnız bu
     // akıştan besleniyor; bir yolda sessiz kalmak "çevrimiçiyken çevrimdışı" demektir.
@@ -286,13 +316,15 @@ class SyncService {
   /// gerçekleşmeyecek bir söz veriyordu — 2026-08-05'te teşhis edilen kalıcı-çevrimdışı
   /// arızasının aylarca görünmemesinin sebebi tam olarak buydu.
   ///
-  /// • 401/403 → `oturum` (yeniden giriş gerekir, beklemek çözmez)
+  /// • 401 → `oturumKapandi` (sunucu kimliğimizi TANIMIYOR; kök giriş ekranına döner)
+  /// • 403 → `oturum` (yetki reddi; oturum kendiliğinden KAPATILMAZ)
   /// • kalıcı 4xx → `veri` (istek geri çevrildi; kullanıcı bekleyerek çözemez)
   /// • 5xx + geçici 4xx → `sunucu` (ayakta ama veremiyor; otomatik yeniden denenir)
   /// • diğer Exception (soket/zaman aşımı) → `ag`
   /// • Error (Exception DEĞİL) → `veri` (beklenmedik payload → tip hatası)
   static SyncHataTuru hataTuru(Object e) {
     if (e is SyncApiException) {
+      if (e.statusCode == 401) return SyncHataTuru.oturumKapandi;
       if (e.oturumHatasi) return SyncHataTuru.oturum;
       return e.kaliciRed ? SyncHataTuru.veri : SyncHataTuru.sunucu;
     }

@@ -9,6 +9,6 @@
 
 export 'bicim.dart'; // sipTutar · sipSayi · sipTelefon · trBuyuk · trKucuk
 export 'dokunma.dart'; // SipDokun · SipButon · SipMetinButon · SipIkonButon
-export 'form.dart'; // SipInputOlcu · SipFormEtiket · SipInput · SipArama · SipSegment · SipToggle · SipKnob
+export 'form.dart'; // SipInputOlcu · SipFormEtiket · SipInput · SipArama · SipSegment · SipToggle · SipKnob · SipOnayKutusu
 export 'rozetler.dart'; // SipPil · SipDurumPili · SipBakiyeCipi · SipAvatar · SipIkonKutu
 export 'yerlesim.dart'; // SipKart · SipBolumBaslik · SipNotKutusu

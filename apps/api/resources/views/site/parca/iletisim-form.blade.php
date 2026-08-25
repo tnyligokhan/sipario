@@ -68,8 +68,22 @@
             </div>
 
             @if ($hedef)
-                <button class="dg dg-a tam" type="submit">Gönder, beni arayın</button>
-                <p class="od-kucuk">“Gönder”e bastığınızda e-posta uygulamanız hazırlanmış bir mesajla açılır; göndermeden önce okuyabilirsiniz. Bilgileriniz yalnızca bu talebe dönmek için kullanılır. <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">KVKK aydınlatma metni</a>.</p>
+                {{--
+                    ÖLÇÜM `data-olcum` ile, `submit` DİNLEYİCİSİYLE DEĞİL (2026-08-19).
+                    Form `@submit.prevent="gonder()"` ile çalışıyor ve `gonder()` doğrulama
+                    düşerse e-posta uygulamasını hiç açmıyor. Tıklamayı saymak "form gönderdi"
+                    demek değil — ama bu formun gerçek gönderimi TARAYICI DIŞINDA (kullanıcının
+                    e-posta uygulamasında) bitiyor ve oradan geri sinyal gelmiyor. Yani ölçülen
+                    şey "gönderme niyeti"dir; olay adı da bunu söylemek zorunda değil, ama
+                    raporu okuyan kişi bu notu bilmeli: `sipario_iletisim` sayısı, bize ULAŞAN
+                    e-posta sayısından her zaman FAZLA olur.
+                --}}
+                <button class="dg dg-a tam" type="submit" data-olcum="sipario_iletisim" data-olcum-etiket="iletisim-formu">Gönder, beni arayın</button>
+                {{-- Metin kısaldı (2026-08-19). Eskisi üç cümleydi ve ilki teknik bir süreci
+                     tarif ediyordu ("e-posta uygulamanız hazırlanmış bir mesajla açılır").
+                     Ziyaretçinin bilmesi gereken tek şey, düğmeye basınca ne olacağı — o da
+                     bir cümleyle söylenebiliyor. KVKK bağlantısı mevzuat gereği duruyor. --}}
+                <p class="od-kucuk">Düğmeye bastığınızda mesajınız e-posta olarak hazırlanır, göndermeden önce görürsünüz. Bilgilerinizi yalnızca size dönmek için kullanıyoruz — <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">KVKK aydınlatma metni</a>.</p>
             @else
                 {{-- "Soldaki kanallardan ulaşın" cümlesi KOŞULLU: hedef adres yer tutucuysa e-posta
                      kanalı da süzülüp listeden düşer (ikisi de `support_email`ten besleniyor), telefon

@@ -180,7 +180,7 @@ void main() {
     test('yetersiz örnekle GO verilmez', () {
       final v = Verdict(Measurement.parse(_log(List.generate(19, (_) => _m(ms: 100)))));
       expect(v.pass, isFalse);
-      expect(v.label, 'Ölçüm sürüyor — 19/20 arama');
+      expect(v.label, 'Ölçüm sürüyor, 19/20 arama');
     });
 
     test('tam hedef sınırı (1000 ms) geçerli sayılır', () {

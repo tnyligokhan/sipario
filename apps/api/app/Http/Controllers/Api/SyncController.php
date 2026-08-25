@@ -13,7 +13,8 @@ use Illuminate\Http\JsonResponse;
  * Senkron uç noktaları — istemcinin sunucuyla konuştuğu TEK yazma ve TEK okuma yüzeyi.
  * "Müşteri/sipariş CRUD" istemcide yerel Drift işlemidir; sunucuya yalnız push/pull ile yansır.
  *
- * server_time yanıta AppendServerTime middleware'i tarafından eklenir (istemci saat offset'i).
+ * server_time ve api_version yanıta AppendServerMeta middleware'i tarafından eklenir
+ * (istemci saat offset'i + istemci-sunucu sürüm çarpıklığının görünürlüğü).
  */
 class SyncController extends Controller
 {

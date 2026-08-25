@@ -122,9 +122,9 @@ class Verdict {
       enoughSamples && enoughLocked && missed == 0 && withinTarget == total;
 
   String get label {
-    if (!enoughSamples) return 'Ölçüm sürüyor — $total/$requiredCalls arama';
+    if (!enoughSamples) return 'Ölçüm sürüyor, $total/$requiredCalls arama';
     if (!enoughLocked) {
-      return 'Kilit ekranı sınanmadı — ${lockedCalls.length}/$requiredLockedCalls';
+      return 'Kilit ekranı sınanmadı, ${lockedCalls.length}/$requiredLockedCalls';
     }
     return pass ? 'GO' : 'NO-GO';
   }

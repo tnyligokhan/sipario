@@ -7,8 +7,11 @@ use App\Abonelik\GecersizTutarException;
 use App\Abonelik\OdemeBildirimServisi;
 use App\Abonelik\PlanDeposu;
 use App\Enums\BillingPeriod;
+use App\Eposta\BayiPostacisi;
 use App\Livewire\Site\Forms\ParaBicimi;
 use App\Livewire\Site\Forms\SirketKunyesi;
+use App\Mail\HavaleTalimati;
+use App\Mail\OdemeBeyaniAlindi;
 use App\Models\AddonPackage;
 use App\Models\Tenant;
 use App\Payment\ConsentRequiredException;
@@ -170,20 +173,19 @@ class Subscribe extends Component
             return;
         }
 
-        $govde = implode("\n", [
-            'Sipario abonelik ödemesi — havale/EFT bilgileri',
-            '',
-            'Alıcı ünvanı : '.$this->sirket()['unvan'],
-            'Banka        : '.$this->sirket()['banka'],
-            'IBAN         : '.$this->sirket()['iban'],
-            'Tutar        : '.$this->tl($this->tutarKurus),
-            'Referans kodu: '.$this->referans,
-            '',
-            'Açıklama alanına referans kodunu yazmayı unutmayın; dekont ulaştığı gün hesabınız açılır.',
-        ]);
-
+        // Düz metin `Mail::raw` bloğu KALDIRILDI (2026-08-12). Boşluklarla hizalanmış "IBAN :
+        // TR.." satırları telefonda orantılı yazı tipiyle dağılıyor ve bu posta PARA TAŞIYOR —
+        // bayi IBAN'ı ya elle bankacılık uygulamasına yazacak ya kopyalayacak. `HavaleTalimati`
+        // aynı bilgiyi mono, kopyalanabilir bloklarda verir ve referans kodunu ayrıca tek başına
+        // tekrarlar (kod açıklamaya yazılmazsa ödeme elle eşleştirilir, hesap geç açılır).
         try {
-            Mail::raw($govde, fn ($m) => $m->to($adres)->subject('Sipario · havale bilgileri'));
+            Mail::to($adres)->send(new HavaleTalimati(
+                unvan: $this->sirket()['unvan'],
+                banka: $this->sirket()['banka'],
+                iban: $this->sirket()['iban'],
+                tutarKurus: $this->tutarKurus,
+                referans: $this->referans,
+            ));
             $this->dispatch('bildir', detail: 'Talimat e-postanıza gönderildi');
         } catch (Throwable $e) {
             report($e);
@@ -266,6 +268,21 @@ class Subscribe extends Component
 
             return;
         }
+
+        // BEYAN ALINDI POSTASI (2026-08-12). Beyan aboneliği UZATMAZ — parayı gördüğümüzde biz
+        // eşleştiririz. Yani bayi düğmeye basar, bir toast görür ve sonra hiçbir şey olmaz;
+        // hesabı hâlâ kapalıdır. O sessiz pencerede en olası davranışı ikinci kez ödeme yapmaya
+        // kalkışmaktır. Posta beklentiyi yazılı hâle getirir ve "tekrar ödemeyin" der.
+        //
+        // Ekran akışını DÜŞÜRMEZ: `BayiPostacisi` istisnayı yutar ve raporlar. Teşekkür ekranı
+        // bir posta arızası yüzünden gösterilmemezlik edemez — beyan kaydı zaten yazıldı.
+        BayiPostacisi::gonder($this->tenant()->id, fn (Tenant $bayi): OdemeBeyaniAlindi => new OdemeBeyaniAlindi(
+            isletme: $bayi->name,
+            tutarKurus: $this->tutarKurus,
+            referans: $this->referans,
+            yontem: $yontem,
+            beyanTarihi: now()->translatedFormat('j F Y'),
+        ));
 
         $this->tesekkurYol = $yontem;
         $this->tesekkur = true;

@@ -5,7 +5,7 @@
 // KULLANILMAZ — tasarımın hap navigasyonu ve hero zeminli çekmecesi onlarla kurulamıyor.
 //
 // KAPILAR:
-//  • Rol (K2): `yetkiler(rol:, kuryeVar:)` — ürün yönetimi yalnız yöneticide (çekmecenin YÖNETİM
+//  • Rol (K2): `yetkiler(rol:, atamaHedefiVar:)` — ürün yönetimi yalnız yöneticide (çekmecenin YÖNETİM
 //    bölümü), atama yalnız yönetici + aktif kurye varken.
 //  • Abonelik: salt-okunur kipte gövde `SubscriptionLockedScreen`e düşer; çekmece ve navigasyon
 //    erişilebilir kalır (mevcut veri okunabilir), FAB çizilir ama pasiftir.
@@ -45,22 +45,30 @@ import '../theme/typography.dart';
 import 'ana_ekran.dart';
 import 'cagri/cagri_cozumleyici.dart';
 import 'cagri/cagri_eylem_kanali.dart';
+import 'cagri/cagri_gunlugu.dart';
 import 'cagri/cagri_karti.dart';
+import '../repo/call_log_repository.dart';
+import '../repo/order_repository.dart';
 import 'cagri/cagri_kuyrugu.dart';
 import 'cagri/cagri_model.dart';
 import 'customers/borclular_ekrani.dart';
 import 'customers/customer_detail_screen.dart';
 import 'customers/customer_form_screen.dart' show musteriEkleSheet;
 import 'customers/customer_list_screen.dart';
+import 'isletme/ayarlar/cihazlar_ekrani.dart';
+import 'isletme/ayarlar/hesap_ekrani.dart';
 import 'isletme/ayarlar_ekrani.dart';
 import 'isletme/kuryeler_ekrani.dart';
 import 'isletme/muaf_ekrani.dart';
 import 'day_end_screen.dart';
+import 'bildirimler_ekrani.dart';
 import 'orders/order_detail_screen.dart';
+import 'orders/order_queries.dart' show watchIptalTalebi;
 import '../phase0/phase0_screen.dart';
 import 'orders/order_form_screen.dart';
 import 'orders/order_sheets.dart' show SecimSatiri;
 import 'orders/order_list_screen.dart';
+import 'orders/siparis_harita.dart';
 import 'products/product_list_screen.dart';
 import 'shell/alt_nav.dart';
 import 'shell/cekmece.dart';
@@ -68,6 +76,14 @@ import 'shell/sekme_yonlendirme.dart';
 import 'sihirbaz/izin_sihirbazi.dart';
 import 'team.dart';
 
+// KABUK DÖRDE BÖLÜNDÜ (2026-08-17, 500 satır kuralı — 1022 satırdı). Bölme sınırları keyfi
+// değil, kabuğun dört ayrı işi: durumu çevirmek · bir yere gitmek · çağrıya cevap vermek ·
+// gövdeyi kurmak. Dördü de kabuğun ÖZEL alanlarını okuduğu için `part`tır (gerekçe
+// `home_shell_cagri.dart` başlığında).
+part 'home_shell_durum.dart';
+part 'home_shell_gezinme.dart';
+part 'home_shell_cagri.dart';
+part 'home_shell_govde.dart';
 /// Kurulum sihirbazının "görüldü" damgası — CİHAZ-YEREL (`sync_meta.setup_completed_at`,
 /// sunucuya gitmez). Sihirbaz bittiğinde VE atlandığında yazılır: atlamak da bir karardır,
 /// yazılmazsa sihirbaz her açılışta önüne dikilirdi. Kapıyı kilitlemez — sihirbaz Ayarlar'dan
@@ -109,7 +125,9 @@ class HomeShell extends StatefulWidget {
 /// widget kurmadan test edilir ve tema katmanı `sync` paketine bağımlı olmaz (bağımlılık yönü
 /// ekran → tema + ekran → sync olarak kalır).
 SipBantTuru bantTuru(SyncHataTuru tur) => switch (tur) {
-      SyncHataTuru.oturum => SipBantTuru.oturum,
+      // `oturumKapandi` da OTURUM bandına düşer: kök zaten giriş ekranına dönüyor, ama bandın
+      // o kareyi doğru anlatması gerekir (dönüş bir sonraki karede olur).
+      SyncHataTuru.oturum || SyncHataTuru.oturumKapandi => SipBantTuru.oturum,
       SyncHataTuru.sunucu => SipBantTuru.sunucu,
       SyncHataTuru.veri => SipBantTuru.hata,
       SyncHataTuru.ag || SyncHataTuru.yok => SipBantTuru.cevrimdisi,
@@ -165,11 +183,21 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int? _otoHak;
   int? _otoAylik;
 
+  /// ATANABİLECEK aktif personel (kendim dahil) — `watchAtamaHedefleri`. "Tek kişilik bayi"
+  /// kararının dayanağı buradan çıkar ([_atamaHedefiVar]).
   List<User> _kuryeler = const [];
 
-  /// Bayinin açıp kapattığı kurye yetkileri (2026-08-04). Ayar satırı senkronla iner ve bayi
-  /// Kuryeler ekranından değiştirir; AKIŞTAN okunur çünkü tek atış okuma, ayar değiştikten
-  /// sonra kuryenin ekranını bir sonraki açılışa kadar eski yetkiyle bırakırdı.
+  /// Bu bayide BENDEN BAŞKA atanabilecek biri var mı?
+  ///
+  /// KENDİM SAYILMAM ve bu, BRIEF'in tek kişilik bayi kuralının tamamıdır: liste artık patronu
+  /// da içerdiği için "liste boş değil" ölçütü tek kişilik bayide de doğru çıkardı ve malı zaten
+  /// kendi götüren bayiye her siparişte anlamsız bir "kime atansın" adımı eklerdi.
+  bool get _atamaHedefiVar => _kuryeler.any((u) => u.id != _userId);
+
+  /// BU OTURUMUN ETKİN kurye yetkileri (2026-08-04; kişiselleştirme 2026-08-10). Bayi
+  /// varsayılanı ile kullanıcının kendi ezmeleri çözülmüş hâlde gelir. AKIŞTAN okunur çünkü
+  /// tek atış okuma, ayar değiştikten sonra kuryenin ekranını bir sonraki açılışa kadar eski
+  /// yetkiyle bırakırdı.
   KuryeIzinleri _kuryeIzin = KuryeIzinleri.varsayilan;
 
   StreamSubscription<SyncOutcome>? _syncSub;
@@ -183,6 +211,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   /// Karantinadaki (sunucunun kabul etmediği) outbox kaydı sayısı — akıştan gelir, tur bitince
   /// kaybolmaz. Sıfırdan büyükse bant durur.
   int _karantina = 0;
+
+  /// Borçlu müşteri sayısı — çekmecedeki "Borçlular" satırının rozeti. AKIŞTAN okunur:
+  /// tahsilat yapıldığında sayı düşmeli, tek atış okuma menüyü bayat bir sayıyla bırakırdı.
+  /// null iken rozet çizilmez (uydurma sayı basmaktansa hiç basmamak).
+  int? _borcluSayisi;
+  StreamSubscription<int>? _borcluSub;
 
   /// Bandın alt satırında gösterilecek sunucu adresi (sync_meta akışından).
   String? _apiAdres;
@@ -219,6 +253,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     _karantinaSub = widget.db.watchKarantinaSayisi().listen((n) {
       if (mounted) setState(() => _karantina = n);
     });
+    _borcluSub = watchDebtCount(widget.db).listen((n) {
+      if (mounted) setState(() => _borcluSayisi = n);
+    });
     // Telefon çalarken Flutter motoru başlamadığından native, çağrıyı düz metin bir kuyruğa
     // yazar; DB'ye ancak burada geçer. Açılışta boşaltılmazsa ana ekrandaki "Son Arama" kutusu
     // bayi Ayarlar'a girene kadar BAYAT kalırdı (kutu dosyayı değil DB'yi okuyor).
@@ -234,12 +271,17 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // yokluyoruz (çağrı kartı köprüsünün `bekleyen` deseninin aynısı).
     YerelBildirimServisi.dokunulanYol.addListener(_bildirimDokunusu);
     _bildirimDokunusu();
-    // Aktif kurye varlığı "tek kişilik bayi" kararının dayanağıdır (K2 kuryeVar).
-    _kuryeSub = watchAktifKuryeler(widget.db).listen((k) {
+    // Atanabilecek personel varlığı "tek kişilik bayi" kararının dayanağıdır (K2 atamaHedefiVar).
+    // ROL SÜZGECİ YOK: siparişi oluşturan kişi kendisini de seçebilmeli (2026-08-20).
+    _kuryeSub = watchAtamaHedefleri(widget.db).listen((k) {
       if (!mounted) return;
       setState(() => _kuryeler = k);
     });
-    _izinSub = watchKuryeIzinleri(widget.db).listen((i) {
+    // OTURUMUN ETKİN izinleri (2026-08-10): bayi varsayılanı DEĞİL, bu kullanıcının kişisel
+    // ezmeleriyle çözülmüş hâli. `watchKuryeIzinleri` artık yalnız şablonu verir; kabuk onu
+    // dinlemeye devam etseydi, kişiye özel olarak KAPATILAN bir yetki kuryenin kendi
+    // telefonunda açık görünürdü.
+    _izinSub = watchOturumKuryeIzinleri(widget.db).listen((i) {
       if (!mounted) return;
       setState(() => _kuryeIzin = i);
     });
@@ -290,6 +332,18 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // ATMAZ — aşağıdaki satır zaten atıyor, çift istek olmasın.
     widget.sync.aralikDegistir(SyncService.onPlanAralik);
     unawaited(widget.sync.syncNow());
+    // ÇAĞRI KUYRUĞU ÖNE GELİŞTE BOŞALTILIR (2026-08-13 saha bulgusu: "arama yaptım, Son
+    // Aramalar'a girdiğimde biraz geç geldi").
+    //
+    // Telefon çalarken/aranırken Flutter motoru çalışmaz; native, çağrıyı düz metin bir dosyaya
+    // yazar. Kuyruğu YALNIZ çağrı geçmişi ekranı boşaltıyordu — yani kayıt, kullanıcı o ekranı
+    // AÇTIKTAN SONRA yazılıyordu ve liste ilk karede onsuz çiziliyordu. Oysa uygulamaya dönüş
+    // ANI, kuyruğun taze olduğu andır: görüşme biter, kullanıcı uygulamaya döner, satır çoktan
+    // yerindedir.
+    //
+    // Ekrandaki boşaltma KALDI (ikinci güvence): dosya taşıma atomik ve kayıt kimlikleri
+    // deterministik olduğu için iki kez boşaltmak çift satır üretmez (`insertOnConflictUpdate`).
+    unawaited(CagriKuyrugu(CallLogRepository(widget.db)).bosalt());
     // Güncelleme kontrolü de öne gelmede koşar. Yalnız açılışa bağlıydı ve saha bulgusu şuydu
     // (2026-07-28): son kullanılanlardan kaydırmak süreci ÖLDÜRMÜYOR, `initState` bir daha
     // koşmuyor ve bant ancak "zorla durdur"dan sonra çıkıyordu. Servis kendi aralığını
@@ -306,6 +360,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     _izinSub?.cancel();
     _metaSub?.cancel();
     _karantinaSub?.cancel();
+    _borcluSub?.cancel();
     _konumBildirici.durdur();
     cagriEylemDurtusunuBirak();
     sekmeYonlendirmeyiCoz();
@@ -314,64 +369,17 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  /// Bir iş bittiğinde (ör. sipariş kaydı) kabuğu hedef sekmeye alır ve ÜSTÜNDEKİ push'ları
-  /// kapatır. `popUntil` şart: müşteri kartından açılan formda yalnız sekmeyi değiştirmek,
-  /// altta duran siparişler sekmesini kullanıcıya hiç göstermezdi (üstte kart durmaya devam
-  /// ederdi) — ve geri tuşu onu yeni bitirdiği forma değil ama bitirdiği işin BAŞLANGICINA
-  /// döndürürdü.
-  void _sekmeyeYonlendir(SipSekme sekme) {
-    if (!mounted) return;
-    Navigator.of(context).popUntil((r) => r.isFirst);
-    _sekmeSec(sekme);
-  }
-
-  /// sync_meta satırından rol/abonelik/kontör türevlerini hesaplayıp duruma yazar.
-  /// TEK çağıran akış aboneliğidir — ikinci bir tazeleme yolu bilinçli olarak yok.
-  void _metaUygula(SyncMetaData meta) {
-    final now = SubscriptionState.estimateServerNow(
-      serverTimeOffsetMs: meta.serverTimeOffsetMs,
-      lastServerTimeIso: meta.lastServerTimeIso,
-    );
-    final gecerli =
-        meta.validUntilIso != null ? DateTime.tryParse(meta.validUntilIso!) : null;
-    // Konum bildirimi OTURUMA bağlıdır: giriş yapılınca sayaç döner, çıkışta durur. Kabuğun
-    // `initState`inde koşulsuz başlatılsaydı, oturumsuz açılan uygulamada (giriş ekranı arkası,
-    // testler) 30 sn'de bir boşuna uyanan bir zamanlayıcı kalırdı. `_oturumVar` aynı kapının
-    // yaşam döngüsü tarafı: öne gelişte yeniden başlatma kararı bu son değeri okur.
-    _oturumVar = meta.authToken != null;
-    if (_oturumVar) {
-      _konumBildirici.baslat();
-    } else {
-      _konumBildirici.durdur();
-    }
-    final level = SubscriptionState.evaluate(
-      estimatedServerNow: now,
-      validUntil: gecerli,
-      status: meta.subscriptionStatus,
-    );
-    if (!mounted) return;
-    setState(() {
-      _access = level;
-      _userRole = meta.userRole;
-      _userId = meta.userId;
-      _tenantName = meta.tenantName;
-      _userName = meta.userName;
-      _validUntil = gecerli;
-      // Bandın adres satırı. `Session.baseUrlOf` varsayılana düşer → adres HER ZAMAN yazılır;
-      // "hiçbir adres yok" da bir bilgi olurdu ama gerçekte olmayan bir durum.
-      _apiAdres = bantAdresi(Session.baseUrlOf(meta));
-      // Çekmecedeki "Oto sıralama bakiyesi" kartı (tasarım `.lst-kart`). Kota 0 ise sunucu
-      // henüz bildirmemiş demektir → kart çizilmez (oran hesaplanamaz, uydurma çubuk çizmeyiz).
-      _otoHak = meta.routeCreditsMonthly > 0 ? meta.routeCredits : null;
-      _otoAylik = meta.routeCreditsMonthly > 0 ? meta.routeCreditsMonthly : null;
-    });
-  }
-
+  /// Durum değişiminin TEK KAPISI — `part` dosyalarındaki yüzeyler buradan geçer.
+  ///
+  /// NEDEN VAR: `setState` `@protected`tır ve bir extension, sınıfın kendisi değildir; parça
+  /// dosyalardan doğrudan çağrılsaydı analizci `invalid_use_of_protected_member` derdi. Kapıyı
+  /// daraltmak ayrıca şunu sağlıyor: kabuğun durumunu değiştiren her yol tek satırdan geçiyor.
+  void _durumDegisti(VoidCallback f) => setState(f);
   bool get _yazilabilir => SubscriptionState.writable(_access);
   bool get _kilit => _access == AccessLevel.readOnly;
 
   RolYetkileri get _yetki =>
-      yetkiler(rol: _userRole, kuryeVar: _kuryeler.isNotEmpty, izin: _kuryeIzin);
+      yetkiler(rol: _userRole, atamaHedefiVar: _atamaHedefiVar, izin: _kuryeIzin);
 
   /// ÇEKMECE başlığı: işletme (firma) adı — tasarım `s-bilesenler.jsx:100` `{isletme.ad}`.
   String get _isletmeAdi => _tenantName ?? 'Sipario';
@@ -379,120 +387,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   /// ANA EKRAN hero'su: kullanıcının kendi adı — tasarım `s-ana.jsx:21` `{ISLETME.sahip}`.
   /// İkisine aynı değeri vermek (eski hâl) selamın altına firma unvanı bastırıyordu.
   String get _sahipAdi => _userName ?? _tenantName ?? 'Sipario';
-
-  void _sekmeSec(SipSekme s) {
-    setState(() {
-      _sekme = s;
-      _cekmece = false;
-    });
-  }
-
-  Future<void> _git(Widget ekran) async {
-    setState(() => _cekmece = false);
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ekran));
-    // Dönüşte elle tazeleme YOK: sync_meta akışı, açılan ekranın yaptığı her yazımı zaten
-    // yakalar (tema, profil, kontör…). İki yol tutmak ikisinin ayrışması demekti.
-  }
-
-  void _cekmeceGirisi(CekmeceGiris g) {
-    switch (g) {
-      case CekmeceGiris.urunler:
-        if (!_yetki.urunYonetimi) {
-          SipToast.goster(context, 'Ürün yönetimi yalnız yöneticilere açıktır.');
-          return;
-        }
-        _git(ProductListScreen(db: widget.db, writable: _yazilabilir, rol: _userRole));
-      case CekmeceGiris.kuryeler:
-        _git(KuryelerEkrani(db: widget.db, writable: _yazilabilir));
-      case CekmeceGiris.muaf:
-        if (!_yetki.muafTelefonYonetimi) {
-          SipToast.goster(context, 'Muaf telefon yönetimi yalnız yöneticilere açıktır.');
-          return;
-        }
-        _git(MuafEkrani(db: widget.db, writable: _yazilabilir));
-      case CekmeceGiris.ayarlar:
-        _git(AyarlarEkrani(
-          db: widget.db,
-          rol: _userRole,
-          yetki: _yetki,
-          writable: _yazilabilir,
-          onSihirbaz: _sihirbaziAc,
-          onCagriSimulasyonu: _cagriKartiAc,
-          koyuTema: _tema,
-          onTema: _tema.ayarla,
-          // Faz 0 gecikme ölçüm ekranı: TASARIMDA YOK ama arayan-tanımanın 1 sn bütçesini
-          // (kırmızı çizgi) ölçen tek araç. Ayarlar satırı `kDebugMode` ile sarmalı, yani
-          // üretimde esnafın menüsünde görünmez. Bu geri çağrım OLMADAN satır hiç çizilmez
-          // ve `Phase0Screen` erişilemeyen dosyaya döner (çekmece ölü dalı dersi).
-          onOlcumler: () => _git(Phase0Screen(db: widget.db)),
-        ));
-      case CekmeceGiris.sihirbaz:
-        _sihirbaziAc();
-    }
-  }
-
-  /// Sihirbazı push eder ve BİTİRİLDİYSE tasarımdaki toast'ı basar
-  /// (`s-uygulama.jsx:61` `ping('Kurulum tamamlandı')`). Kapatılırsa (çarpı) toast yok.
-  Future<void> _sihirbaziAc() async {
-    setState(() => _cekmece = false);
-    var bitti = false;
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (rotaCtx) => IzinSihirbazi(
-        onBitti: () {
-          bitti = true;
-          Navigator.of(rotaCtx).pop();
-        },
-      ),
-    ));
-    await kurulumuDamgala(widget.db);
-    if (!mounted || !bitti) return;
-    SipToast.goster(context, 'Kurulum tamamlandı');
-  }
-
-  Future<void> _cikis() async {
-    setState(() => _cekmece = false);
-    // Tasarımda onay yalnız başlık + "Çıkış" düğmesidir (`s-uygulama.jsx:108`), mesaj YOK:
-    // "kayıtlarınız cihazda kalır" cümlesi kullanıcının sormadığı bir soruyu cevaplıyordu.
-    final ok = await sipOnay(
-      context,
-      baslik: 'Çıkış yapılsın mı?',
-      onayEtiketi: 'Çıkış',
-      tehlike: true,
-    );
-    if (!ok) return;
-    await widget.session.logout();
-    widget.onLoggedOut();
-  }
-
-  /// En üstteki senkron bandının türü — çizilecek bant yoksa null.
-  ///
-  /// ÖNCELİK canlı tur hatasındadır: o AN ne olduğunu anlatır ve genelde eylem gerektirir
-  /// (yeniden giriş / bekleme). Karantina uyarısı kalıcıdır, bir sonraki temiz turda zaten
-  /// görünür — iki bandı üst üste çizmek ise durum çubuğunu ve yerleşimi bozardı.
-  /// ÜÇÜNCÜ SIRA `bekleyen` (2026-08-09 borcu kapatıldı): sunucunun BİLEREK ertelediği kayıtlar
-  /// (`locked` = abonelik kilitli · bilinmeyen durum = sürüm çarpıklığı). Karantinanın ALTINDA
-  /// çünkü karantina eylem gerektirir (destek), bu ise kendiliğinden çözülür. Ama sessiz de
-  /// kalamazdı: sayı hesaplanıp taşınıyordu, hiçbir yüzey OKUMUYORDU — tur "başarılı" sayıldığı
-  /// için çip "güncel" derken kayıtlar cihazda birikiyordu. Kilitli bayide zaten kilit ekranı var;
-  /// asıl korunan senaryo SÜRÜM ÇARPIKLIĞI — orada hiçbir başka sinyal yok.
-  SipBantTuru? get _senkronBandi {
-    final o = _sonSenkron;
-    if (o != null && !o.ok) return bantTuru(o.tur);
-    if (_karantina > 0) return SipBantTuru.karantina;
-    return (o?.beklemede ?? 0) > 0 ? SipBantTuru.bekleyen : null;
-  }
-
-  /// Güncelleme bandının ÜSTÜNDE çizilen bir bant var mı (senkron / grace)? Durum çubuğu
-  /// boşluğunu yalnız EN ÜSTTEKİ bant ekler.
-  bool get _ustBantVar => _senkronBandi != null || _access == AccessLevel.grace;
-
-  /// Güncelleme bandı göründüğünde/kaybolduğunda kabuk YENİDEN ÇİZİLMELİ: durum çubuğu ikon
-  /// rengi bandın varlığına bakıyor. Bant kendi `ValueListenableBuilder`ıyla tazeleniyor ama
-  /// onu saran `AnnotatedRegion` kabuğun `build`inde — dinlemezse ikonlar bandın altında
-  /// beyaz kalırdı.
-  void _guncellemeBandiDegisti() {
-    if (mounted) setState(() {});
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -547,16 +441,28 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               onKapat: () => setState(() => _cekmece = false),
               isletmeAdi: _isletmeAdi,
               rol: _userRole,
-              aktif: sekme,
-              onTab: _sekmeSec,
               onGiris: _cekmeceGirisi,
               onCikis: _cikis,
               onDestek: () {
                 setState(() => _cekmece = false);
-                SipToast.goster(context, 'Destek sohbeti · yakında');
+                SipToast.goster(context, 'Destek sohbeti yakında açılacak');
               },
+              kullaniciAdi: _userName,
               sonSenkron: _sonSenkronAt,
+              // Karantina sayısı çekmecenin DURUM şeridine geçer: "bazı kayıtlar
+              // gönderilemedi" bandı ekranın tepesinde çıkıyor ama menüde hiçbir izi yoktu.
+              karantina: _karantina,
+              // Borçlu sayısı satırda rozet olur — menü "nereye giderim" listesinden
+              // "neye bakmam gerek" yüzeyine dönüyor.
+              borcluSayisi: _borcluSayisi,
               urunlerGorunur: yetki.urunYonetimi,
+              // GÖRÜNÜRLÜK KARARLARI KABUKTA (çekmece hiçbir yetki KARARI vermez, verileni
+              // çizer): bento kutusuyla çekmece satırı AYNI kapıdan geçsin diye ölçüt burada
+              // tek yerde okunuyor.
+              borclularGorunur: yetki.toplamBorclulariGorme,
+              cagriGunluguGorunur: yetki.cagriGunlugu,
+              koyuTema: _tema,
+              onTema: _tema.ayarla,
               lisansBitisi: _validUntil,
               otoSiralamaHakki: _otoHak,
               otoSiralamaAylik: _otoAylik,
@@ -567,326 +473,4 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     );
   }
 
-  void _yeniSiparis() =>
-      _git(OrderFormScreen(db: widget.db, writable: _yazilabilir));
-
-  /// FAB menüsü (kullanıcı kararı 2026-07-29): "Müşteri Ekle" · "Sipariş Ekle".
-  ///
-  /// Eskiden FAB doğrudan sipariş formunu açıyordu ve müşteri ekleme yalnız Müşteriler
-  /// ekranının "Yeni"sinde yaşıyordu. Menü İKİ SATIRDIR, üçüncü bir şey EKLENMEZ: FAB'ın değeri
-  /// bir dokunuşla en sık iki işi başlatmasıdır, dolan bir menü onu bir alt menüye çevirir.
-  ///
-  /// Kapı `_yazilabilir` üzerinden ÇAĞIRANDA (FAB pasif çizilir); burada ikinci bir kontrol
-  /// yapılmaz — iki yerde ayrı koşul, ayrışabilen iki kural demektir.
-  Future<void> _ekleMenusu() async {
-    // KURYE YETKİLERİ (2026-08-04): bayi kapattıysa satır HİÇ ÇİZİLMEZ — gizlemek burada
-    // doğrudur çünkü yetki kalıcı olarak kapalıdır; her dokunuşta aynı reddi okutmak gürültü
-    // olurdu (BRIEF'in "tek kişilik bayide o adım hiç görünmesin" ilkesinin aynısı). İkisi de
-    // kapalıysa menü hiç açılmaz, tek bir cümleyle sebep söylenir.
-    final yetki = _yetki;
-    if (!yetki.musteriDuzenleme && !yetki.siparisAcma) {
-      SipToast.goster(context, 'Bu hesap yeni kayıt ekleyemez — bayi yetkisi kapalı.');
-      return;
-    }
-
-    final secim = await sipSheet<String>(
-      context,
-      baslik: 'Yeni Ekle',
-      govde: (ctx) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (yetki.musteriDuzenleme)
-            SecimSatiri(
-              etiket: 'Müşteri Ekle',
-              ikon: SipIcons.user,
-              secili: false,
-              onTap: () => Navigator.of(ctx).pop('musteri'),
-            ),
-          if (yetki.siparisAcma)
-            SecimSatiri(
-              etiket: 'Sipariş Ekle',
-              ikon: SipIcons.list,
-              secili: false,
-              onTap: () => Navigator.of(ctx).pop('siparis'),
-            ),
-        ],
-      ),
-    );
-    if (secim == null || !mounted) return;
-    if (secim == 'siparis') return _yeniSiparis();
-    final eklendi = await musteriEkleSheet(context, db: widget.db);
-    if (eklendi == true && mounted) SipToast.goster(context, 'Müşteri kaydedildi');
-  }
-
-  /// "Borçlular" bento kutusu — Genel Yetki Matrisinde kuryelere kısıtlıdır.
-  void _borclularAc() {
-    if (!_yetki.toplamBorclulariGorme) {
-      SipToast.goster(context, 'Toplam borçlular listesi yalnız yöneticilere açıktır.');
-      return;
-    }
-    _git(BorclularEkrani(
-      db: widget.db,
-      writable: _yazilabilir,
-      yetki: _yetki,
-      canAssign: _yetki.atama,
-    ));
-  }
-
-  /// "Son aktivite" satırı: sekmeyi siparişe alır VE detayı açar (`s-uygulama.jsx:89`).
-  /// Detay sheet'i sipariş katmanının yüzeyidir — buradan yalnız çağrılır.
-  Future<void> _siparisAc(String siparisId) async {
-    setState(() => _sekme = SipSekme.siparis);
-    await siparisDetaySheetAc(
-      context,
-      db: widget.db,
-      orderId: siparisId,
-      writable: _yazilabilir,
-      canAssign: _yetki.atama,
-    );
-  }
-
-  /// Çağrı kartını HAM numaradan açar. Kartın modelini `cagriKisiCoz` kurar (defterden çözer);
-  /// kabuk numarayı kendisi yorumlamaz. Çözücü null/hata döndürmez — kayıtsızda kart
-  /// "Müşteri Olarak Kaydet" varyantına düşer.
-  ///
-  /// ESKİDEN doğrudan `CagriKisi.kayitsiz(no)` geçiliyordu: kart HER ZAMAN "Kayıtsız" çıkıyor,
-  /// bakiye şeridi / müşteri kodu / adres / "Defteri Aç" dalları hiç çizilemiyordu.
-  Future<void> _cagriKartiAc(String numara) async {
-    final kisi = await cagriKisiCoz(widget.db, numara);
-    if (!mounted) return;
-    final eylem = await cagriKartiGoster(context, kisi: kisi);
-    if (eylem == null || !mounted) return;
-    await _cagriEylemiUygula(eylem, kisi);
-  }
-
-  /// Kart KAPANDIKTAN sonra çalışan gezinme. Tasarım `s-uygulama.jsx:111-113`: her eylem
-  /// önce `setCagri(null)` ile kartı kapatır, sonra hedefe gider — kart kendini pop ederek
-  /// kapandığı için burada kapatacak bir şey kalmaz, yalnız hedefe gidilir.
-  ///
-  /// ESKİDEN dönen eylem ATILIYORDU (`await cagriKartiGoster(...)`, sonuç kullanılmadan):
-  /// "Sipariş Oluştur", "Defteri Aç" ve "Müşteri Olarak Kaydet" yalnız kartı kapatıyor,
-  /// hiçbiri bir yere gitmiyordu. Cihazda görüldü, 2026-07-26.
-  Future<void> _cagriEylemiUygula(CagriEylemi eylem, CagriKisi kisi) async {
-    switch (eylem) {
-      case CagriEylemi.kapat:
-        return;
-
-      case CagriEylemi.siparis:
-        if (!_yazilabilir) {
-          SipToast.goster(context, 'Salt-okunur kip: yeni sipariş oluşturulamaz.');
-          return;
-        }
-        // Çağrı kartı native taraftan da gelebilir ve yetkiyi bilmez; kapı BURADA (2026-08-04).
-        if (!_yetki.siparisAcma) {
-          SipToast.goster(context, 'Bu hesap sipariş oluşturamaz — bayi yetkisi kapalı.');
-          return;
-        }
-        setState(() => _sekme = SipSekme.siparis);
-        // Kayıtsız numarada `initialCustomerId` null kalır: form müşteri SEÇİMİ adımıyla
-        // açılır. Düğme kayıtsız kartta zaten çizilmez ama native köprüsünden bayat bir
-        // istek gelebilir (kart çizildikten sonra müşteri silinmiş olabilir).
-        await _git(OrderFormScreen(
-          db: widget.db,
-          writable: _yazilabilir,
-          initialCustomerId: kisi.musteriId,
-        ));
-
-      case CagriEylemi.defter:
-        final musteriId = kisi.musteriId;
-        // Numara artık deftere bağlı değilse defter açılamaz — sessiz kalmak yerine kartı
-        // gösteriyoruz, bayi oradan "Müşteri Olarak Kaydet"e geçebilir.
-        if (musteriId == null) return _cagriKartiAc(kisi.numara);
-        setState(() => _sekme = SipSekme.musteri);
-        await _git(CustomerDetailScreen(
-          db: widget.db,
-          customerId: musteriId,
-          writable: _yazilabilir,
-          yetki: _yetki,
-        ));
-
-      case CagriEylemi.kaydet:
-        if (!_yazilabilir) {
-          SipToast.goster(context, 'Salt-okunur kip: yeni müşteri eklenemez.');
-          return;
-        }
-        final eklendi =
-            await musteriEkleSheet(context, db: widget.db, onTel: kisi.numara);
-        if (eklendi != true || !mounted) return;
-        // Tasarım `s-uygulama.jsx:116`: kayıttan sonra müşteri sekmesine geçilir ve YENİ
-        // müşterinin defteri açılır. Kimliği çözücüden yeniden okuyoruz — sheet yalnız
-        // "kaydedildi" bilgisini döndürür, numara ise az önce deftere yazıldı.
-        final yeni = await cagriKisiCoz(widget.db, kisi.numara);
-        final yeniId = yeni.musteriId;
-        if (yeniId == null || !mounted) return;
-        setState(() => _sekme = SipSekme.musteri);
-        await _git(CustomerDetailScreen(
-          db: widget.db,
-          customerId: yeniId,
-          writable: _yazilabilir,
-          yetki: _yetki,
-        ));
-    }
-  }
-
-  /// Native kartın (telefon çalarken çizilen Kotlin kartı) bekleyen eylemini alır ve
-  /// Flutter kartıyla AYNI gezinmeyi uygular — iki kartın davranışı tek yerde tanımlı.
-  Future<void> _nativeCagriEylemi() async {
-    final istek = await bekleyenCagriEylemi();
-    if (istek == null || !mounted) return;
-    // Numara kart çizildiği andan beri değişmiş olabilir (o çağrıdan sonra kaydedilmiş
-    // ya da silinmiş): karar ANLIK defterden verilir, native'in gördüğüne güvenilmez.
-    final kisi = await cagriKisiCoz(widget.db, istek.numara);
-    if (!mounted) return;
-    await _cagriEylemiUygula(istek.eylem, kisi);
-  }
-
-  /// "Son Arama" bento kutusuna dokunma (`s-uygulama.jsx:90` `onAramaAc`): numara KAYITLIYSA
-  /// müşteri sekmesine geçilip detayı açılır, KAYITSIZSA çağrı kartı gösterilir. Kararı çağrı
-  /// günlüğü değil kabuk verir — o katman ne müşteri ekranını ne çağrı kartını tanır.
-  Future<void> _aramaAc(AramaKaydi arama) async {
-    final musteriId = arama.musteriId;
-    if (musteriId == null) {
-      // Çağrı günlüğünde eşleşme yoktu ama numara O ARADAN SONRA kaydedilmiş olabilir —
-      // çözücü defteri yeniden okur, o hâlde kart dolu varyanta düşer.
-      await _cagriKartiAc(arama.numara);
-      return;
-    }
-    setState(() => _sekme = SipSekme.musteri);
-    await _git(CustomerDetailScreen(
-      db: widget.db,
-      customerId: musteriId,
-      writable: _yazilabilir,
-      yetki: _yetki,
-    ));
-  }
-
-  /// Bildirime dokunulduğunda gidilecek yer (Faz 1 sözlüğü: `gunsonu` · `musteri/<id>`).
-  ///
-  /// NEDEN BURADA: `yol` bildirim yükünde zaten taşınıyordu ama tüketen uç yoktu — bayi
-  /// bildirime dokunuyor, uygulama ana ekranda açılıyor ve "ne vardı?" diye arıyordu.
-  /// Taşınan bilgi kullanılmıyorsa taşınmıyor demektir.
-  ///
-  /// TANINMAYAN YOLDA SESSİZCE ANA EKRAN: sözlük ileride büyüyecek (bkz. çok-müşterili liste
-  /// rotası, Faz 2) ve eski sürüm yeni bir yolu görebilir. Bilinmeyen yol bir hata değil,
-  /// yalnız bilinmeyen bir hedeftir — patlamak yerine kullanıcıyı bulunduğu yerde bırakır.
-  Future<void> _bildirimYoluAc(String yol) async {
-    // Sözlüğün ÇÖZÜMÜ sözleşmede (`bildirimYoluCoz`): taslağı üreten kural ile onu tüketen
-    // kabuk aynı tanıma bakmalı, iki ayrı ayrıştırma olmamalı.
-    final hedef = bildirimYoluCoz(yol);
-    if (hedef == null) return;
-    if (hedef.tur == 'gunsonu') {
-      setState(() => _sekme = SipSekme.gunSonu);
-      return;
-    }
-    setState(() => _sekme = SipSekme.musteri);
-    await _git(CustomerDetailScreen(
-      db: widget.db,
-      customerId: hedef.id!,
-      writable: _yazilabilir,
-      yetki: _yetki,
-    ));
-  }
-
-  /// [YerelBildirimServisi.dokunulanYol] dinleyicisi. Değer tüketildikten sonra SIFIRLANIR:
-  /// aksi hâlde aynı yol, sonraki her dinleyici kurulumunda yeniden açılırdı.
-  void _bildirimDokunusu() {
-    final yol = YerelBildirimServisi.dokunulanYol.value;
-    if (yol == null || yol.isEmpty || !mounted) return;
-    YerelBildirimServisi.dokunulanYol.value = null;
-    unawaited(_bildirimYoluAc(yol));
-  }
-
-  Widget _govde(SipSekme sekme, RolYetkileri yetki) {
-    if (_kilit) {
-      return Column(
-        children: [
-          SipUst(baslik: 'Sipario', onMenu: () => setState(() => _cekmece = true)),
-          Expanded(child: SubscriptionLockedScreen(bitis: _validUntil)),
-        ],
-      );
-    }
-    return switch (sekme) {
-      SipSekme.ana => AnaEkran(
-          db: widget.db,
-          sahipAdi: _sahipAdi,
-          onMenu: () => setState(() => _cekmece = true),
-          onSekme: _sekmeSec,
-          onYeniSiparis: _yeniSiparis,
-          onArama: _aramaAc,
-          onSiparisAc: _siparisAc,
-          onBorclular: _borclularAc,
-          borclulariGoster: yetki.toplamBorclulariGorme,
-          // Sipariş listesiyle AYNI kapsam: kurye kilitliyse bento de yalnız ona atananları sayar.
-          acikSiparisKullanicisi: yetki.tumSiparisleriGorme ? null : _userId,
-          sonSenkron: _sonSenkron,
-          sonSenkronAt: _sonSenkronAt,
-        ),
-      // onMenu HER sekmeye geçilir (s-uygulama.jsx: dört ana ekranın dördü de
-      // `onMenu={() => setCekmece(true)}` alır). Geçilmezse `SipUst` hamburger yerine ya hiçbir şey
-      // ya da geri oku çizer ve çekmece — Ürünler/Kuryeler/Muaf/Ayarlar/çıkış oradadır — yalnız Ana
-      // sekmesinden açılabilir hâle gelir.
-      SipSekme.musteri => CustomerListScreen(
-          db: widget.db,
-          writable: _yazilabilir,
-          yetki: yetki,
-          onMenu: () => setState(() => _cekmece = true),
-        ),
-      SipSekme.siparis => OrderListScreen(
-          db: widget.db,
-          writable: _yazilabilir,
-          userId: _userId,
-          // Kurye kısıtlamalarının kaynağı (2026-08-09): `tumSiparisleriGorme` kapalıysa liste
-          // oturum kullanıcısına kilitlenir, `gecmisTeslimatlariGorme` kapalıysa gün şeridi
-          // çizilmez. İkisi de burada verilir ki rol yorumu TEK yerde kalsın.
-          yetki: yetki,
-          canAssign: yetki.atama,
-          onMenu: () => setState(() => _cekmece = true),
-        ),
-      SipSekme.gunSonu =>
-        // `rol` ZORUNLU GİBİ davranılmalı: verilmezse ekran "yetki bilinmiyor" sayar ve HİÇ
-        // kapatma sunmaz (`yetkiler(rol: null).gunSonu == false` — K2 sözleşmesi, permissive
-        // değil). `kullaniciId` iki iş yapar: kurye ekranı KENDİ kapsamında açar, ve kapatma
-        // yetkisinin sahibi odur. Çekmecenin kuryedeki "Kasa Devri" satırı buraya geliyor.
-        DayEndScreen(
-          db: widget.db,
-          onMenu: () => setState(() => _cekmece = true),
-          rol: _userRole,
-          kullaniciId: _userId,
-          // Kurye izinleri de geçer (2026-08-09): ekran `gunuKapatma` ve `gecmisHesapArsivi`
-          // kapılarını buradan türetiyor. Geçilmezse varsayılan izinlerle karar verir ve
-          // bayinin kendi ayarı yok sayılırdı.
-          kuryeIzin: _kuryeIzin,
-        ),
-    };
-  }
-}
-
-/// Abonelik süresi dolmuş ama lütuf penceresi sürüyor — NÖTR bilgi şeridi
-/// (mağaza kuralı: fiyat/abone-ol/link YOK).
-class _GraceBandi extends StatelessWidget {
-  const _GraceBandi();
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Container(
-      width: double.infinity,
-      color: t.warnSoft,
-      padding: const EdgeInsets.symmetric(horizontal: SipSpace.x2, vertical: 7),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SipIcon(SipIcons.info, boyut: 15, kalinlik: 2.2, renk: t.warn),
-          const SizedBox(width: 7),
-          Flexible(
-            child: Text(
-              'Abonelik süreniz doldu görünüyor; bağlantı kurulunca netleşecek.',
-              style: SipText.metin(11.5, w: 600).copyWith(color: t.warn),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

@@ -62,7 +62,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField).first, '120');
       await akislariBekle(tester);
-      expect(find.textContaining('kalan'), findsOneWidget,
+      expect(find.textContaining('borcuna yazılacak'), findsOneWidget,
           reason: 'kısmi tahsilatta kalanın borca yazılacağı kullanıcıya söylenir');
 
       await dokun(tester, find.text('Teslim Et ve Kaydet'));
@@ -248,7 +248,7 @@ void main() {
 
       // Düğme TUTARI DA YAZAR (2026-07-29): eskiden borcu görmenin tek yolu düğmeye basıp
       // sheet'i açmaktı — bayi rakamı öğrenmek için bir para yazma akışına giriyordu.
-      expect(find.text('Tahsilat Al · 200,00 ₺'), findsOneWidget,
+      expect(find.text('Tahsilat Al (200,00 ₺)'), findsOneWidget,
           reason: 'teslim edilmiş siparişte de görünür — tahsilat sipariş durumundan bağımsız');
       // Kalan borç ayrıca kutuda yazar (`.sd-odendi`nin borç eşi).
       expect(find.text('Bu siparişten kalan borç 200,00 ₺'), findsOneWidget);
@@ -309,11 +309,11 @@ void main() {
       await akisiBekle(tester);
 
       // Düğme GÖRÜNÜR kalır ve kilidin sebebini söyler (Dilim 3 kararı: ana eylemler gizlenmez).
-      expect(find.text('Tahsilat Al · 500,00 ₺'), findsOneWidget);
+      expect(find.text('Tahsilat Al (500,00 ₺)'), findsOneWidget);
       await tester.tap(find.textContaining('Tahsilat Al'));
       await akisiBekle(tester, ms: 300);
 
-      expect(find.text('Salt-okunur kip: yeni kayıt eklenemez.'), findsOneWidget);
+      expect(find.text('Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor'), findsOneWidget);
       expect(find.text('Tahsilatı Kaydet'), findsNothing, reason: 'sheet hiç açılmamalı');
 
       await tester.runAsync(() async {
@@ -350,7 +350,7 @@ void main() {
       await dokun(tester, find.text('tahsilat-ac'));
       await sheetAnimasyonu(tester);
 
-      expect(find.text('Bu müşterinin açık borcu yok.'), findsOneWidget);
+      expect(find.text('Bu müşterinin açık borcu yok'), findsOneWidget);
       expect(find.text('Tahsilatı Kaydet'), findsNothing);
       await kapat(tester);
     });

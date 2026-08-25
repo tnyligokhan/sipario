@@ -16,7 +16,7 @@ publish_to: 'none'
 # git commit sayısından türetir; makinenin karşılaştırma anahtarıdır (Play daha küçük
 # versionCode'u reddeder, uygulama içi güncelleme "uzaktaki benden yeni mi?"yi tam sayıyla çözer).
 # Buradaki +1 yalnız git'in bulunamadığı durumda (depo dışı derleme) yedek değerdir.
-version: 0.10.0+1
+version: 1.0.0+1
 
 environment:
   sdk: ^3.10.7
@@ -88,6 +88,21 @@ dependencies:
   # eder ve kuyruk ana iş parçacığını boğar. Bu resmî tamamlayıcı, kadraj dışına düşen karonun
   # isteğini ANINDA iptal eder (flutter_map belgelerinin performans önerisi).
   flutter_map_cancellable_tile_provider: ^3.1.1
+  # PUSH BİLDİRİMİ — sunucunun telefonu dürtmesi (yeni sipariş kuryeye atandı, teslim edildi,
+  # kasa devredildi). Yerel bildirim altyapısı (`lib/bildirim/`) bunun YERİNE GEÇMEZ: o telefonun
+  # KENDİ verisinden üretir, bu ise başka bir cihazda olan bir şeyi haber verir.
+  #
+  # NEDEN FCM, NEDEN KENDİ SOKETİMİZ DEĞİL: kendi sunucumuzdan kalıcı bağlantı (WebSocket) tutmak
+  # Android'de çalışmaz — Xiaomi/Redmi'nin pil yönetimi arka plandaki bağlantıyı dakikalar içinde
+  # öldürür (BRIEF korku #1'in ta kendisi). Google Play Services zaten her telefonda TEK bir
+  # kalıcı hat tutar; FCM mesajı o hatta biner ve pil yönetimi uygulamayı öldürse bile geçer.
+  # Bedeli: Play Services'i olmayan cihaz (Huawei) push almaz — ürün orada mevcut senkronla
+  # çalışmaya devam eder, çünkü push TAŞIYICI DEĞİL HIZLANDIRICIDIR.
+  #
+  # ⚠️ YÜKTE KİŞİSEL VERİ TAŞINMAZ (kırmızı çizgi #4): Google'ın sunucularından yalnız olay türü
+  # ve bir UUID geçer; bildirimin metni telefonda, telefonun kendi veritabanından üretilir.
+  firebase_core: ^4.13.0
+  firebase_messaging: ^16.5.0
 
 dev_dependencies:
   flutter_test:
@@ -119,12 +134,23 @@ flutter:
       fonts:
         - asset: assets/fonts/HankenGrotesk.ttf
 
-# Codegen notu (KOD ÜRETİMİ İÇİN GEÇİCİ): sqlite3'ün native build-hook'u (hook/build.dart) Dart
-# 3.10'da `dart run build_runner`ın AOT derlemesini kırıyor ("dart compile does not support build
-# hooks"). Faz 3'te doğrulandı: hook'suz SON sürüm 2.9.4 (3.2.0 ve 3.4.0 hook'lu) — bu yüzden sınır
-# `<3.0.0` (eski not `<3.3` yanılıyordu, 3.2.0 sonradan hook kazandı). Drift .g.dart'ı yeniden üretmen
-# gerekirse ÖNCE aşağıdaki override'ı aç, `flutter pub get && dart run build_runner build`, SONRA
-# override'ı yine kapat ve `flutter pub get` (runtime + flutter test sqlite3 3.x ister).
-# Üretilen kod sqlite3 sürümünden bağımsızdır; override'ı kapalı bırakmak normal durumdur.
+# ══ KOD ÜRETİMİ (DRIFT .g.dart) — TEK KOMUT, OVERRIDE'A GEREK YOK ═══════════════════════════
+#
+#     dart run build_runner build --force-jit
+#
+# 2026-08-11'de ölçüldü ve aşağıdaki override yordamı BUNUNLA DEĞİŞTİ. Eski not "sqlite3'ü
+# 2.9.4'e düşür, üret, geri al" diyordu; o yordam artık YETMİYOR: `objective_c` (yolu
+# path_provider_foundation) da build-hook kazandı ve cache'teki ÜÇ sürümünün (9.3.0/9.4.1/9.5.0)
+# ÜÇÜ DE hook'lu, yani düşürülecek bir sürüm yok. Hata mesajı ("dart compile does not support
+# build hooks") aynı kaldığı için sqlite3 sanılıp saatler harcanabilir — sebep artık ikinci
+# pakettir ve yarın üçüncüsü çıkacaktır.
+#
+# ASIL SEBEP HİÇBİR ZAMAN SQLITE3 DEĞİLDİ: `build_runner` derleme betiğini AOT derliyor ve AOT
+# build-hook'u desteklemiyor. `--force-jit` betiği JIT koşturur, yani hook'lu paket sayısı ne
+# olursa olsun sorun doğmaz. Üretilen kod ikisinde de aynıdır (78 sn/JIT — AOT'tan yavaş ama
+# kod üretimi vardiyada bir kez koşar).
+#
+# Bu yüzden `dependency_overrides` KAPALI ve öyle kalmalı: runtime + `flutter test` sqlite3 3.x
+# ister, override açık unutulursa testler yanlış native sürümle koşar.
 # dependency_overrides:
 #   sqlite3: ">=2.4.0 <3.0.0"

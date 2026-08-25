@@ -93,12 +93,49 @@ class DayClosingChangeApplier
             throw new InvalidArgumentException('cash_handover_id bu bayide bulunamadı');
         }
 
+        // ── KAPANIŞI GERİ ALMA (2026-08-18) — `reverses_closing_id` ─────────────────────────
+        //
+        // `CashHandoverChangeApplier`daki iptal dalının birebir eşi. Üç kapı, üçü de FARKLI bir
+        // sessiz bozulmayı kapatıyor:
+        //
+        //  1. HEDEF VAR MI — RLS kapsamında sorulur, yani başka bayinin kapanışı GÖRÜNMEZ ve
+        //     "bulunamadı" reddi alır (kırmızı çizgi #1). FK son kapıdır; bu, GÖRÜNÜR reddi
+        //     üretir (istemcide karantina) — ikisi farklı şeyleri korur.
+        //  2. ZATEN GERİ ALINMIŞ MI — kısmi unique indeks bunu DB'de de kapatıyor ama indeks
+        //     23505 üretir ve olay 'rejected' olur; buradaki kontrol AYNI sonucu TÜRKÇE bir
+        //     gerekçeyle verir. İndeks yarışı kapatır, bu kapı hatayı AÇIKLAR.
+        //  3. GERİ ALMANIN GERİ ALINMASI YASAK — ters satırın tersi, "kapanış yeniden geçerli"
+        //     demek olurdu ve o an arşivde iki geçerli kapanış görünürdü. Düzeltmenin yolu
+        //     yeniden KAPATMAKTIR (yeni bir kapanış satırı), eskiyi diriltmek değil.
+        $reversesId = isset($payload['reverses_closing_id'])
+            ? (string) $payload['reverses_closing_id']
+            : null;
+
+        if ($reversesId !== null) {
+            $hedef = DayClosing::query()->find($reversesId);
+            if ($hedef === null) {
+                throw new InvalidArgumentException('reverses_closing_id bu bayide bulunamadı');
+            }
+            if ($hedef->reverses_closing_id !== null) {
+                throw new InvalidArgumentException('bu satır zaten bir geri alma kaydı; geri alınamaz');
+            }
+            if (DayClosing::query()->where('reverses_closing_id', $reversesId)->exists()) {
+                throw new InvalidArgumentException('bu kapanış zaten geri alınmış');
+            }
+            // KAPSAM HEDEFLE AYNI OLMAK ZORUNDA: gün kapanışını bir kurye kapanışıyla geri almak,
+            // arşivde birbirini işaret eden ama aynı hesabı konuşmayan iki satır bırakırdı.
+            if ($hedef->scope !== $scope || $hedef->user_id !== $userId) {
+                throw new InvalidArgumentException('geri alma kaydı, kapanışla aynı kapsamda olmalı');
+            }
+        }
+
         $closing = new DayClosing;
         $closing->forceFill([
             'id' => $id,
             'tenant_id' => $tenantId,
             'scope' => $scope,
             'user_id' => $userId,
+            'reverses_closing_id' => $reversesId,
             'period_start' => SyncPayload::zaman($payload['period_start'] ?? null),
             'delivery_count' => (int) ($payload['delivery_count'] ?? 0),
             'total_collected_kurus' => (int) ($payload['total_collected_kurus'] ?? 0),

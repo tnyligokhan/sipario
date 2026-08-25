@@ -12,6 +12,7 @@ use App\Models\OrderLine;
 use App\Models\Product;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
@@ -296,6 +297,44 @@ class TenantIsolationTest extends ApiTestCase
         $this->asToken($this->tokenFor($a['patron']))
             ->patchJson("/api/v1/team/{$b['kurye']->id}/credentials", ['username' => 'devralindi'])
             ->assertNotFound();
+    }
+
+    #[Test]
+    public function parola_dogrulama_yalniz_oturumdaki_kullaniciya_sorulur(): void
+    {
+        // Matris satırı: `api.auth.parola-dogrula` (2026-08-18). Uç nokta gövdeden KULLANICI ADI
+        // ALMAZ ve bu, kiracı izolasyonunun kendisidir: alsaydı A'nın kuryesi kendi geçerli
+        // token'ıyla B'nin patronunun parolasını deneyebilirdi — kimliği doğrulanmış, hız sınırı
+        // dışında hiçbir engeli olmayan bir kaba kuvvet yüzeyi.
+        //
+        // "Gövdede kullanıcı adı yok" bir KOD DETAYIDIR; bu test onu DAVRANIŞA çevirir: fazladan
+        // alan gönderilse bile doğrulanan parola HER ZAMAN oturumun sahibinindir.
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+
+        // B'nin patronuna FARKLI bir parola verilir ki "yanlışlıkla doğru" olmasın.
+        $this->asOwner(function () use ($b) {
+            $u = User::query()->findOrFail($b['patron']->id);
+            $u->password = Hash::make('bninParolasi9');
+            $u->save();
+        });
+
+        // A'nın kuryesi, B'nin parolasını kendi oturumundan denerse: doğrulama A'nın kuryesine
+        // sorulur ve BAŞARISIZ olur — B'nin parolası doğru olsa bile.
+        $this->asToken($this->tokenFor($a['kurye']))
+            ->postJson('/api/v1/auth/parola-dogrula', [
+                'password' => 'bninParolasi9',
+                'username' => 'patron',      // görmezden gelinmeli
+                'user_id' => $b['patron']->id, // görmezden gelinmeli
+            ])
+            ->assertStatus(422);
+
+        // Kendi parolası ise geçer — uç noktanın çalıştığı da kanıtlanmalı, yoksa yukarıdaki
+        // 422 "her şeye 422 dönüyor" olabilirdi.
+        $this->asToken($this->tokenFor($a['kurye']))
+            ->postJson('/api/v1/auth/parola-dogrula', ['password' => 'password'])
+            ->assertOk()
+            ->assertJsonPath('ok', true);
     }
 
     #[Test]

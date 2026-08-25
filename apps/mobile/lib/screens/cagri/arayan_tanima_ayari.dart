@@ -119,11 +119,10 @@ class _ArayanTanimaSatiriState extends State<ArayanTanimaSatiri> {
     return AyarSatiri(
       ikon: SipIcons.phone,
       baslik: 'Arayan tanıma',
-      // Alt başlık SEÇİLİ durumu yazar (sipariş kodu satırındaki kural): kapatan bayi
-      // "kart neden çıkmıyor" diye aramadan önce cevabı burada görmeli.
-      altBaslik: acik
-          ? 'Telefon çalarken müşteri kartı gösterilir'
-          : 'Kapalı — çağrıda kart gösterilmez',
+      // ALT BAŞLIK DURUMU DEĞİL İŞLEVİ YAZAR (2026-08-18). Eskiden açık/kapalı hâline göre
+      // iki ayrı cümle vardı; anahtar zaten yanında duruyor ve durumu ondan daha net söylüyor.
+      // Aynı bilgiyi iki kez yazmak, satırı okumak yerine çözmeyi gerektiriyordu.
+      altBaslik: 'Telefon çalınca müşteri kartı çıkar',
       onTap: _cevir,
       sag: SipKnob(acik: acik),
     );

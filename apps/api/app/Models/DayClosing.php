@@ -18,6 +18,7 @@ use Illuminate\Support\Carbon;
  * @property string $tenant_id
  * @property string $scope
  * @property string|null $user_id
+ * @property string|null $reverses_closing_id
  * @property Carbon|null $period_start
  * @property int $delivery_count
  * @property int $total_collected_kurus
@@ -37,13 +38,14 @@ use Illuminate\Support\Carbon;
  */
 class DayClosing extends Model
 {
-    use HasUuids;
+    use HasUuids, MikrosaniyeliDamga;
 
     protected $fillable = [
         'id',
         'tenant_id',
         'scope',
         'user_id',
+        'reverses_closing_id',
         'period_start',
         'delivery_count',
         'total_collected_kurus',

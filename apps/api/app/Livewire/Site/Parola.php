@@ -4,7 +4,6 @@ namespace App\Livewire\Site;
 
 use App\Enums\UserRole;
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -120,14 +119,13 @@ class Parola extends Component
                 return;
             }
 
-            // Bağlantı ADRESİ: Laravel'in varsayılanı `route('password.reset')`tir, bizde o ad yok
-            // (`site.parola.yenile` → /parola/yenile/{token}). E-posta parametresi ŞART: token tek
-            // başına hangi hesaba ait olduğunu söylemez, `ParolaYenile` kullanıcıyı adresten bulur.
-            ResetPassword::createUrlUsing(fn (User $kullanici, string $token): string => route(
-                'site.parola.yenile',
-                ['token' => $token, 'email' => $kullanici->getEmailForPasswordReset()],
-            ));
-
+            // Bağlantı adresi ve postanın kendisi ARTIK BURADA KURULMUYOR — ikisi de
+            // `AppServiceProvider::parolaSifirlamaPostasiniKur()` içinde, boot'ta bir kez
+            // kuruluyor (`ResetPassword::createUrlUsing` + `toMailUsing`). Taşınma sebebi:
+            // burada kurulduğunda ayar YALNIZ bu ekrandan geçen isteklerde geçerliydi; parola
+            // sıfırlamayı başka bir yol tetiklerse Laravel varsayılan `password.reset` route
+            // adını arar ve o ad bu depoda yoktur. Ayrıca posta o yolda İngilizce çıkıyordu
+            // (APP_LOCALE=tr ama `lang/tr` yok — çeviri anahtarı kendine düşüyordu).
             $patron->sendPasswordResetNotification($depo->create($patron));
         } catch (Throwable $e) {
             // Posta/altyapı hatası EKRANA YANSIMAZ (numaralandırma), ama sessizce de kaybolmaz.

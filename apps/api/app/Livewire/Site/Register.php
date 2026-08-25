@@ -3,6 +3,8 @@
 namespace App\Livewire\Site;
 
 use App\Abonelik\PlanDeposu;
+use App\Eposta\BayiPostacisi;
+use App\Mail\Hosgeldiniz;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Payment\ConsentRequiredException;
@@ -190,6 +192,26 @@ class Register extends Component
         // göstermek en kötü yalan olurdu.
         $this->olusanKod = $tenant->slug;
 
+        /*
+         * HOŞ GELDİNİZ POSTASI (2026-08-12). Bu akış bugüne kadar HİÇ posta göndermiyordu ve
+         * bıraktığı boşluk doğrudan BRIEF'in üçüncü korkusuna değiyordu ("kurulum→ilk tanıma
+         * 10 dakikanın altında kalmalı"): mobil giriş FİRMA KODU + KULLANICI ADI ister, e-posta
+         * kabul etmez. Bayi bu başarı ekranını kapattığı an kodu başka hiçbir yerden öğrenemezdi.
+         *
+         * Kayıt akışını DÜŞÜRMEZ: `postala()` istisnayı yutup raporlar. Bir SMTP arızası
+         * yüzünden yeni açılmış bir bayiyi geri almak, çözdüğünden çok sorun yaratırdı — hesap
+         * zaten transaction içinde yazıldı ve ekranda kod görünüyor.
+         */
+        BayiPostacisi::postala($patron->email, $patron->name, new Hosgeldiniz(
+            isletme: $tenant->name,
+            yetkili: $patron->name,
+            firmaKodu: $tenant->slug,
+            kullaniciAdi: $patron->username,
+            denemeBitisi: $tenant->trial_ends_at?->translatedFormat('j F Y') ?? '',
+            denemeGun: $this->denemeGun(),
+            hesapUrl: route('site.hesap'),
+        ));
+
         session()->regenerate();
         Auth::guard('web')->login($patron);
         session([
@@ -198,6 +220,29 @@ class Register extends Component
         ]);
 
         $this->adim = 3;
+
+        /*
+         * ── DÖNÜŞÜM ÖLÇÜMÜ (2026-08-19) ────────────────────────────────────────────────
+         * `sign_up`, GA4'ün ÖNERİLEN olay adlarından biridir ve raporlarda özel yer alır;
+         * bu yüzden Türkçeleştirilmedi (config/analitik.php'de gerekçesi yazılı).
+         *
+         * NEDEN SUNUCUDAN YAYILIYOR: kayıt üç adımlı bir Livewire sihirbazı; tarayıcı
+         * tarafında "kayıt gerçekten tamamlandı" anını yakalayabilecek bir tıklama YOK
+         * (son adımdaki düğme tıklandığında doğrulama hâlâ düşebilir). Olayı buradan
+         * yaymak, yalnız tenant GERÇEKTEN yaratıldıysa sayılmasını garanti eder.
+         *
+         * KİŞİSEL VERİ TAŞINMAZ: e-posta, işletme adı ve firma kodu YOK — yalnız deneme
+         * gün sayısı. Ölçüm aracına kişisel veri göndermek hem KVKK aydınlatma metnimizle
+         * (m.3 tablosu: "adınız, e-postanız ölçüm sistemine gönderilmez") hem Google'ın
+         * kendi şartlarıyla çelişirdi.
+         *
+         * Rıza yoksa tarayıcı tarafındaki `siparioOlay()` bunu sessizce düşürür — sunucu
+         * rızayı bilmek zorunda değil, kapı tek yerde (public/js/olcum.js).
+         */
+        $this->dispatch('sipario-olcum', ad: 'sign_up', veri: [
+            'yontem' => 'web',
+            'deneme_gun' => $this->denemeGun(),
+        ]);
     }
 
     /**

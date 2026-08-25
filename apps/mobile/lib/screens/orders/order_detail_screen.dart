@@ -8,11 +8,14 @@
 // Teslim, ödeme tipini sorar ve `OrderRepository.deliver` ile parayı deftere TEK
 // transaction'da düşürür (FAZ 3/4). İnternetsiz saniyeler içinde biter — hiçbir ağ çağrısı
 // beklenmez (BRIEF); kayıt outbox'a düşer, senkron sonra taşır.
+//
+// Üst şerit (`.sdx-head`: kod rozetleri · durum pili · kurye çipi) `order_detail_basligi.dart`ta,
+// eylem düğmeleri `order_detail_eylemler.dart`ta — ikisi de 500 satır kuralı için ayrıldı.
+// Bu dosya GÖVDEYİ kurar: kalemler · not · adres · geçmiş · teslim/iptal.
 
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
-import '../../repo/order_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
@@ -20,15 +23,14 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../customers/customer_form_screen.dart' show musteriDuzenleSheet;
-import '../team.dart';
-import 'delivery_sheet.dart';
-import 'gecen_sure_pili.dart';
+import 'iptal_onayi.dart';
+import 'order_detail_basligi.dart';
 import 'order_detail_eylemler.dart';
 import 'order_detail_parts.dart';
 import 'order_edit_sheet.dart';
 import 'order_parts.dart';
 import 'order_queries.dart';
-import 'order_sheets.dart';
+import 'teslim_akisi.dart';
 
 export 'order_queries.dart'
     show
@@ -178,12 +180,16 @@ class _Govde extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // ── .sdx-head ─────────────────────────────────────────────────────────────────────
-        _Baslik(
+        SiparisDetayBasligi(
           db: db,
           order: order,
           canAssign: canAssign,
           duzenlenebilir: _duzenlenebilir,
         ),
+
+        // ── Bekleyen iptal talebi (2026-08-22) ────────────────────────────────────────────
+        // BANT EN ÜSTTE: bildirime dokunup gelen patronun karar düğmesini araması gerekmez.
+        IptalTalebiBandi(db: db, order: order, writable: writable),
 
         // ── Kalemler ──────────────────────────────────────────────────────────────────────
         SdxSec(
@@ -217,6 +223,10 @@ class _Govde extends StatelessWidget {
                     ? 'tek seferlik'
                     : '${l.qty} ${l.unit ?? 'adet'} × ${sipTutar(l.unitPriceKurus)}',
                 tutarKurus: l.lineTotalKurus,
+                // SATIR NOTU burada görünmek ZORUNDA: siparişi hazırlayan/götüren kişi kalemleri
+                // bu ekrandan okur. Not girilip okunmadığı bir yer, notun hiç girilmemesiyle
+                // aynı kapıya çıkar.
+                not: l.note,
               ),
           ],
         ),
@@ -278,10 +288,14 @@ class _Govde extends StatelessWidget {
           const SizedBox(height: 18),
           Row(
             children: [
+              // ETİKET VE DAVRANIŞ YETKİYE BAĞLI (2026-08-22): yönetici "İptal Et" görür ve
+              // iptal eder, kurye "İptal İste" görür ve patronun onayına düşen bir talep
+              // açar. Karar `iptal_onayi.dart`ta — bu ekran yalnız yerini verir.
               Expanded(
-                child: YumusakTehlikeButonu(
-                  etiket: 'İptal Et',
-                  onTap: () => _iptalEt(context),
+                child: IptalButonu(
+                  db: db,
+                  orderId: order.id,
+                  onBitti: () => Navigator.of(context).maybePop(),
                 ),
               ),
               const SizedBox(width: SipSpace.md),
@@ -298,7 +312,7 @@ class _Govde extends StatelessWidget {
         ] else if (!writable && _acik) ...[
           const SizedBox(height: 18),
           const SipNotKutusu(
-            metin: 'Salt-okunur kip: teslim ve iptal yapılamaz.',
+            metin: 'Aboneliğiniz sona erdiği için teslim ve iptal yapılamıyor',
             ikon: SipIcons.lock,
             tur: SipNotTuru.hata,
           ),
@@ -310,40 +324,14 @@ class _Govde extends StatelessWidget {
   /// Teslim + KISMİ ÖDEME + İSKONTO: sheet ne kadar tahsil edildiğini VE ne kadar kırıldığını
   /// döner. `deliver` alınan parayı `payment`, kırılanı `discount` olarak yazar; ikisinden de
   /// artan fark ödenmemiş `debit` olarak borçta durur (kalan borç için ayrı kayıt YOK).
+  ///
+  /// AKIŞIN KENDİSİ ARTIK BURADA DEĞİL ([TeslimAkisi], 2026-08-18): aynı teslim liste
+  /// kartındaki dördüncü eylem düğmesinden de başlatılıyor. İki giriş, TEK kapı — ayrı
+  /// yazılsalardı bakiye okuma, iskonto yetkisi ve özet metni zamanla ayrışırdı.
   Future<void> _teslimEt(BuildContext context) async {
-    final musteriId = order.customerId;
-    final toplam = satirlarToplami(satirlar);
-    // Teslimden ÖNCEKİ bakiye tek atış okunur: sheet yalnız sipariş tutarını görür, "fazla ödemede
-    // müşteri ne kadar alacaklı kalacak" sorusunu bu olmadan yanıtlayamaz (akış beklenemez).
-    final oncekiBakiye =
-        musteriId == null ? 0 : (await musteriOku(db, musteriId))?.balanceKurus ?? 0;
-    // İskonto yetkisi EYLEM ANINDA okunur (2026-08-04): bu sheet kabuktan bağımsız açılıyor ve
-    // yetkileri taşımıyor; patron ayarı az önce kapatmış olabilir.
-    final yetki = await oturumYetkileri(db);
-    if (!context.mounted) return;
-
-    final sonuc = await teslimSheetAc(context,
-        toplamKurus: toplam,
-        musteriVar: musteriId != null,
-        oncekiBakiyeKurus: oncekiBakiye,
-        iskontoYetkisi: yetki.iskonto);
-    if (sonuc == null || !context.mounted) return;
-
-    await OrderRepository(db).deliver(order.id,
-        paymentType: sonuc.odemeTipi,
-        tahsilKurus: sonuc.tahsilKurus,
-        iskontoKurus: sonuc.iskontoKurus);
-    if (!context.mounted) return;
-
-    // Bayi teslim anında en çok "borç kaldı mı" diye merak eder — kısmi teslimde toast onu söyler.
-    // İskontoda borç KALMAZ, o yüzden toast borcu değil kırılan tutarı yazar: aynı farkın iki ayrı
-    // anlamı var ve hangisinin kaydedildiği teslimden sonra da okunabilmeli.
-    final kalan = teslimBorcFarki(toplamKurus: toplam, tahsilKurus: sonuc.tahsilKurus) -
-        sonuc.iskontoKurus;
-    final ek = sonuc.iskontoKurus > 0
-        ? ' · ${sipTutar(sonuc.iskontoKurus)} iskonto'
-        : (kalan > 0 && sonuc.odemeTipi != 'veresiye' ? ' · ${sipTutar(kalan)} borç' : '');
-    SipToast.goster(context, 'Sipariş teslim edildi · ${odemeTipiEtiketi(sonuc.odemeTipi)}$ek');
+    final yazildi = await TeslimAkisi.satirdan(db: db, siparis: order, satirlar: satirlar)
+        .calistir(context);
+    if (!yazildi || !context.mounted) return;
     Navigator.of(context).maybePop();
   }
 
@@ -368,187 +356,7 @@ class _Govde extends StatelessWidget {
     }
   }
 
-  Future<void> _iptalEt(BuildContext context) async {
-    final yetki = await oturumYetkileri(db);
-    if (!context.mounted) return;
-    if (!yetki.siparisIptal) {
-      SipToast.goster(context, 'Sipariş iptali yalnız yöneticilere açıktır.');
-      return;
-    }
-    final onay = await sipOnay(
-      context,
-      baslik: 'Sipariş iptal edilsin mi?',
-      mesaj: 'Kayıt silinmez, iptal olarak işaretlenir.',
-      onayEtiketi: 'İptal Et',
-      tehlike: true,
-    );
-    if (!onay || !context.mounted) return;
-    await OrderRepository(db).cancel(order.id);
-    if (!context.mounted) return;
-    SipToast.goster(context, 'Sipariş iptal edildi');
-    Navigator.of(context).maybePop();
-  }
-}
-
-/// CSS `.sdx-head` — kod rozeti · durum pili · kurye · saat.
-class _Baslik extends StatelessWidget {
-  const _Baslik({
-    required this.db,
-    required this.order,
-    required this.canAssign,
-    required this.duzenlenebilir,
-  });
-
-  final AppDatabase db;
-  final Order order;
-  final bool canAssign;
-  final bool duzenlenebilir;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    // DETAYDA İKİ KOD DA GÖRÜNÜR — ayar yalnız LİSTEDEKİ dar alanı paylaştırır. Burada yer var
-    // ve bayi tam olarak "hangi sipariş, kimin" sorusunu sormak için bu ekrana giriyor; birini
-    // ayara feda etmek, tercihini değiştirmeden ulaşamayacağı bir bilgi yaratırdı.
-    final siparisKod = siparisKodu(order.code);
-
-    return StreamBuilder<List<User>>(
-      stream: watchTeam(db),
-      initialData: const [],
-      builder: (context, snap) {
-        final ekip = snap.data ?? const <User>[];
-        final kuryeAd = kullaniciAdi(ekip, order.assignedUserId);
-        return Row(
-          children: [
-            Expanded(
-              child: Wrap(
-                spacing: 7,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (siparisKod != null) _KodRozeti(metin: siparisKod),
-                  // Müşteri kodu canlı okunur: müşteri kaydı senkronla sonradan kod alabilir
-                  // (çevrimdışı eklenmiş müşteri) ve detay açıkken tazelenmelidir.
-                  if (order.customerId != null)
-                    StreamBuilder<Customer?>(
-                      stream: watchMusteri(db, order.customerId!),
-                      builder: (context, mSnap) {
-                        final mKod = musteriKodu(mSnap.data?.code);
-                        return mKod == null
-                            ? const SizedBox.shrink()
-                            : _KodRozeti(metin: mKod, sonuk: true);
-                      },
-                    ),
-                  if (order.status == 'open')
-                    GecenSurePili(occurredAt: order.occurredAt)
-                  else
-                    SipDurumPili(durum: order.status),
-                  if (kuryeAd != null)
-                    SipDokun(
-                      onTap: duzenlenebilir && canAssign ? () => _kuryeSec(context, ekip) : null,
-                      zemin: t.surface2,
-                      basiliZemin: t.line,
-                      radius: SipRadius.brHap,
-                      kenarlik: Border.all(color: t.line2),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: SipSpace.lg, vertical: SipSpace.xs),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SipIcon(SipIcons.truck, boyut: 13, kalinlik: 2.2, renk: t.ink2),
-                          const SizedBox(width: 5),
-                          Text(kuryeAd, style: SipText.kuryeCip.copyWith(color: t.ink2)),
-                          if (duzenlenebilir && canAssign) ...[
-                            const SizedBox(width: 5),
-                            SipIcon(SipIcons.down, boyut: 12, kalinlik: 2.4, renk: t.muted),
-                          ],
-                        ],
-                      ),
-                    )
-                  // ATANMAMIŞ açık siparişte "Kurye ata" çipi (saha 2026-08-01: "açık siparişe
-                  // kurye ataması yapamıyorum"). Önceki karar çipi yalnız DOLUYKEN çiziyordu
-                  // ("kurye adı yoksa bu bayi atama kullanmıyor demektir") — ama form "sonra da
-                  // atanabilir" der oldu ve atanmamış siparişin hiçbir yüzeyinde atama yolu
-                  // kalmamıştı. Tek-kişilik ilkesi DURUYOR: [canAssign] `yetkiler().atama`dan
-                  // gelir (yönetici VE aktif kurye var) — kuryesiz bayide bu çip hiç çizilmez.
-                  else if (order.status == 'open' && duzenlenebilir && canAssign)
-                    SipDokun(
-                      onTap: () => _kuryeSec(context, ekip),
-                      zemin: t.surface2,
-                      basiliZemin: t.line,
-                      radius: SipRadius.brHap,
-                      kenarlik: Border.all(color: t.line2),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: SipSpace.lg, vertical: SipSpace.xs),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SipIcon(SipIcons.truck, boyut: 13, kalinlik: 2.2, renk: t.muted),
-                          const SizedBox(width: 5),
-                          Text('Kurye ata',
-                              style: SipText.kuryeCip.copyWith(color: t.muted)),
-                          const SizedBox(width: 5),
-                          SipIcon(SipIcons.down, boyut: 12, kalinlik: 2.4, renk: t.muted),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: SipSpace.sm),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SipIcon(SipIcons.clock, boyut: 12, kalinlik: 2, renk: t.muted),
-                const SizedBox(width: SipSpace.xs),
-                Text(saatBicimi(order.occurredAt),
-                    style: SipText.saat.copyWith(color: t.muted)),
-              ],
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _kuryeSec(BuildContext context, List<User> ekip) async {
-    final kuryeler = await watchAktifKuryeler(db).first;
-    if (!context.mounted) return;
-    if (kuryeler.isEmpty) {
-      SipToast.goster(context, 'Atanacak aktif kurye yok');
-      return;
-    }
-    final secili = await kuryeSecSheet(
-      context,
-      kuryeler: kuryeler,
-      seciliId: order.assignedUserId,
-    );
-    if (secili == null || secili == order.assignedUserId || !context.mounted) return;
-    await OrderRepository(db).assign(order.id, secili);
-    if (!context.mounted) return;
-    SipToast.goster(context, 'Kurye değiştirildi: ${kullaniciAdi(kuryeler, secili) ?? ''}');
-  }
-}
-
-/// Kod rozeti — sipariş kodu (#248) ve müşteri kodu (102) aynı kalıptan çizilir.
-/// [sonuk] ikinci kodu (müşteri) hafifletir: bu ekranın konusu SİPARİŞTİR, müşteri kodu bağlamdır.
-class _KodRozeti extends StatelessWidget {
-  const _KodRozeti({required this.metin, this.sonuk = false});
-
-  final String metin;
-  final bool sonuk;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: sonuk ? t.surface2 : t.accentSoft,
-        borderRadius: BorderRadius.circular(7),
-      ),
-      child: Text(metin,
-          style: SipText.siparisKod.copyWith(color: sonuk ? t.muted : t.accent)),
-    );
-  }
+  // `_iptalEt` BURADAN KALKTI (2026-08-22) → `iptal_onayi.dart` → [IptalButonu]. Yetki kapısı
+  // artık DÜĞMENİN ETİKETİNDE de yaşıyor: yapamayacağı işi vaat eden bir düğmeye dokunup
+  // reddi okumak, kuryeye "uygulama bozuk" dedirtiyordu.
 }

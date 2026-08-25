@@ -29,27 +29,93 @@ return [
     'route_credits_monthly' => (int) env('SUBSCRIPTION_ROUTE_CREDITS_MONTHLY', 50),
     'courier_limit' => (int) env('SUBSCRIPTION_COURIER_LIMIT', 3),
 
-    // Hukuk metni SÜRÜMLERİ (5d ile örtüşür; tam metin insan/hukuk onayı — PLACEHOLDER). Kabul edilen
-    // sürüm + zaman subscription_payments'a yazılır (KVKK: kart verisi ASLA; yalnız onay sürümü + zaman).
+    /*
+     * Hukuk metni SÜRÜMLERİ. Kabul edilen sürüm + zaman `subscription_payments`a yazılır (KVKK:
+     * kart verisi ASLA; yalnız onay sürümü + zaman).
+     *
+     * 2026-08-19 — TÜM METİNLER BAŞTAN YAZILDI, sürümler bu tarihe çekildi. Eski değer 2026-07-15
+     * bir İSKELETİ işaretliyordu ("PLACEHOLDER", hukuk onayı bekliyor); bugünkü metinler
+     * mevzuata göre yazılmış TAM metinlerdir ve yalnız künye alanları eksiktir. Aynı sürüm
+     * numarasını taşımaya devam etselerdi, 2026-07-15'te onay veren bir bayinin kabul ettiği
+     * belge ile bugün kabul edilen belge kayıtta ayırt edilemez olurdu — onay kaydının tek işi
+     * bu ayrımı yapabilmek.
+     *
+     * ⚠️ SÜRÜM ARTIRMA KURALI: metnin ANLAMI değişince (madde eklendi/çıktı, süre/koşul değişti)
+     * sürüm ilerletilir. Yazım düzeltmesi sürümü değiştirmez — değiştirirse her tipo, sahadaki
+     * her bayinin onayını "eski sürüme verilmiş" hâle getirir.
+     */
     'legal' => [
-        'distance_sales_version' => env('LEGAL_DISTANCE_SALES_VERSION', '2026-07-15'),
-        'preinfo_version' => env('LEGAL_PREINFO_VERSION', '2026-07-15'),
-        'kvkk_version' => env('LEGAL_KVKK_VERSION', '2026-07-15'),
+        'distance_sales_version' => env('LEGAL_DISTANCE_SALES_VERSION', '2026-08-19'),
+        'preinfo_version' => env('LEGAL_PREINFO_VERSION', '2026-08-19'),
+        'kvkk_version' => env('LEGAL_KVKK_VERSION', '2026-08-19'),
+        // Üyelik/kullanım sözleşmesi ve veri işleyen eki AYRI sürüm hattı taşır: mesafeli satış
+        // mevzuatı değişmeden bu ikisi değişebilir (ör. yeni bir alt işleyen eklenmesi).
+        'terms_version' => env('LEGAL_TERMS_VERSION', '2026-08-19'),
     ],
 
-    // Hukuk BELGELERİ (5d iskeleti): slug → başlık + sürüm anahtarı (yukarıdaki 'legal'den çözülür) + içerik
-    // partial'i (resources/views/legal/docs/<slug>.blade.php). Metinler PLACEHOLDER — TAM METİN + HUKUK ONAYI
-    // İNSAN İŞİDİR (PLAN "SENİN SIRAN"). Checkout onay kutuları bu belgelere link verir; kabul edilen sürüm
-    // subscription_payments'a yazılır. Yeni belge = buraya satır + bir partial (route/view otomatik).
+    /*
+     * Hukuk BELGELERİ: slug → başlık + sürüm anahtarı + (varsa) kısa açıklama. İçerik
+     * `resources/views/legal/docs/<slug>.blade.php` partial'idir; route ve görünüm otomatik
+     * (routes/web.php · legal.show). Yeni belge = buraya satır + bir partial.
+     *
+     * SIRA ÖNEMLİDİR: belge sayfasının sol sütunu ve alt bilginin "Yasal" sütunu bu sırayı
+     * kullanır. Satış hattı (sözleşme → ön bilgi → iptal → kullanım) önce, veri hattı
+     * (aydınlatma → gizlilik → açık rıza → veri işleyen → çerez → başvuru) sonra.
+     *
+     * `ozet` alanı iki yerde birden çalışır: belge sayfasının meta açıklaması (SEO) ve sol
+     * sütundaki bağlantının `title`ı. İkinci bir yerde tekrar yazılmasın diye burada duruyor.
+     */
     'legal_docs' => [
-        'mesafeli-satis' => ['title' => 'Mesafeli Satış Sözleşmesi', 'version_key' => 'distance_sales_version'],
-        'on-bilgilendirme' => ['title' => 'Ön Bilgilendirme Formu', 'version_key' => 'preinfo_version'],
-        'iptal-iade' => ['title' => 'İptal ve İade Koşulları', 'version_key' => 'preinfo_version'],
-        'kvkk-aydinlatma' => ['title' => 'KVKK Aydınlatma Metni ve Açık Rıza', 'version_key' => 'kvkk_version'],
-        // Tasarımın alt bilgisi 4 yasal bağlantı içeriyor; bu belge olmadan sütun 3'te kalıyordu
-        // ve ızgara altı tırtıklıydı (piksel denetimi 2026-08-05). Metin PLACEHOLDER — hukuk onayı
-        // diğer belgelerle aynı pakette (SENİN SIRAN listesinde).
-        'cerez-politikasi' => ['title' => 'Çerez Politikası', 'version_key' => 'kvkk_version'],
+        'mesafeli-satis' => [
+            'title' => 'Mesafeli Satış Sözleşmesi',
+            'version_key' => 'distance_sales_version',
+            'ozet' => 'Sipario aboneliğinin satışına ilişkin mesafeli sözleşme: taraflar, bedel, ifa, cayma ve fesih koşulları.',
+        ],
+        'on-bilgilendirme' => [
+            'title' => 'Ön Bilgilendirme Formu',
+            'version_key' => 'preinfo_version',
+            'ozet' => 'Satıcı künyesi, hizmetin nitelikleri, toplam bedel, ödeme ve ifa şekli ile cayma hakkına ilişkin ön bilgilendirme.',
+        ],
+        'iptal-iade' => [
+            'title' => 'İptal, Cayma ve İade Koşulları',
+            'version_key' => 'preinfo_version',
+            'ozet' => 'Aboneliği nasıl iptal edersiniz, cayma hakkı hangi hâlde işler, iade nasıl ve ne sürede yapılır.',
+        ],
+        'kullanim-kosullari' => [
+            'title' => 'Kullanım Koşulları ve Üyelik Sözleşmesi',
+            'version_key' => 'terms_version',
+            'ozet' => 'Sipario hesabını kullanmanın kuralları: hesap güvenliği, kabul edilebilir kullanım, hizmet seviyesi, sorumluluk ve fesih.',
+        ],
+        'kvkk-aydinlatma' => [
+            'title' => 'KVKK Aydınlatma Metni',
+            'version_key' => 'kvkk_version',
+            'ozet' => '6698 sayılı KVKK m.10 kapsamında aydınlatma: hangi kişisel veri, hangi amaçla, hangi hukuki sebeple işlenir ve kime aktarılır.',
+        ],
+        'gizlilik-politikasi' => [
+            'title' => 'Gizlilik Politikası',
+            'version_key' => 'kvkk_version',
+            'ozet' => 'Verilerinizi nerede tutuyoruz, kim görebiliyor, ne kadar saklıyoruz ve nasıl koruyoruz — teknik ve idari tedbirler.',
+        ],
+        'acik-riza' => [
+            'title' => 'Açık Rıza ve Ticari Elektronik İleti Metni',
+            'version_key' => 'kvkk_version',
+            'ozet' => 'Yalnız pazarlama iletileri ve isteğe bağlı ölçüm için istenen açık rıza — hizmetin kendisi rızaya bağlı değildir.',
+        ],
+        'veri-isleyen' => [
+            'title' => 'Veri İşleyen Sözleşmesi (Ek-1)',
+            'version_key' => 'terms_version',
+            'ozet' => 'Bayinin kendi müşterilerine ait veriler için veri sorumlusu–veri işleyen ilişkisini kuran ek: talimat, güvenlik, alt işleyenler, ihlal bildirimi.',
+        ],
+        'cerez-politikasi' => [
+            'title' => 'Çerez Politikası',
+            'version_key' => 'kvkk_version',
+            'ozet' => 'Sitede hangi çerezler kullanılıyor, hangileri zorunlu, hangileri açık rızaya bağlı ve tercihinizi nasıl değiştirirsiniz.',
+        ],
+        'kvkk-basvuru' => [
+            'title' => 'İlgili Kişi Başvuru Formu',
+            'version_key' => 'kvkk_version',
+            'ozet' => 'KVKK m.11 haklarınızı kullanmak için başvuru yolu, zorunlu bilgiler ve 30 günlük yanıt süresi.',
+        ],
     ],
 
     /*

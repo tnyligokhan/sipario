@@ -147,12 +147,12 @@ class _KonumCipi extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (calisiyor)
-                Text('Konum alınıyor…',
+                Text('Konum alınıyor',
                     style: SipText.metin(12, w: 600).copyWith(color: SipTokens.onHeroStrong))
               else if (varMi) ...[
                 const SipIcon(SipIcons.check, boyut: 13, kalinlik: 2.6, renk: SipTokens.heroDot),
                 const SizedBox(width: SipSpace.sm),
-                Text('Konum kayıtlı · ',
+                Text('Konum kayıtlı: ',
                     style: SipText.metin(12, w: 600).copyWith(color: SipTokens.onHeroStrong)),
                 Flexible(
                   child: Text(koordinat!,
@@ -167,7 +167,7 @@ class _KonumCipi extends StatelessWidget {
                   const SipIcon(SipIcons.sync, boyut: 12, kalinlik: 2.2, renk: SipTokens.onHeroMid),
                 ],
               ] else ...[
-                Text('Konum alınmamış — ',
+                Text('Konum kayıtlı değil. ',
                     style: SipText.metin(12, w: 600).copyWith(color: SipTokens.onHeroStrong)),
                 Text('Konum Al',
                     style: SipText.metin(12, w: 800).copyWith(color: SipTokens.onHeroWarn)),

@@ -1,7 +1,11 @@
 // ARA TAHSİLAT + KALAN NAKİT (kullanıcı kararı 2026-08-06).
 //
 // "Ara tahsilat: sayımlı serbest tutar, gün açık kalır · kapanışta beklenen = KALAN nakit ·
-// patron her kuryeden alır, kurye yalnız kendi kasasını · tek kişilik bayide hiç görünmez."
+// patron her kuryeden alır · tek kişilik bayide hiç görünmez."
+//
+// ⚠️ "kurye yalnız kendi kasasını" MADDESİ KALDIRILDI (kullanıcı kararı 2026-08-13): ara
+// tahsilatı artık YALNIZ yönetici alır. Kayıt, kuryenin cebindeki nakdin patrona geçtiğini
+// söyler; onu parayı fiilen ALAN taraf girmelidir.
 //
 // Burada çivilenen kararlar:
 //  1. Ekranın adı "Gün Özeti"dir (iç tanımlayıcılar `gunSonu` / `day_end_*` DEĞİŞMEZ).
@@ -33,6 +37,8 @@ import 'package:sipario/theme/components/atoms.dart';
 
 import 'support/ara_tahsilat_yardimcilari.dart';
 import 'support/ekran_yardimcilari.dart';
+// Yalnız `semantikDugme`: iki yardımcı dosya da `kapat` tanımlıyor, tam import belirsizlik olur.
+import 'support/kabuk_yardimcilari.dart' show semantikDugme;
 
 
 void main() {
@@ -50,16 +56,22 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('başlıkta "Geçmiş" düğmesi durur — gövdede geçmiş listesi YOK', (tester) async {
-      // Geçmiş ayrı ekrana taşındı: bu ekranın işi BUGÜNDÜR ve geçmiş listesi onu her açılışta
-      // aşağı itiyordu.
+    testWidgets('geçmişe GÜN ŞERİDİYLE gidilir — ayrı bir "Geçmiş" düğmesi YOK',
+        (tester) async {
+      // ÜÇ HÂLDEN ÜÇÜNCÜSÜ (2026-08-25). Geçmiş sırasıyla: (1) bu ekranın gövdesinde bir liste,
+      // (2) başlıktaki "Geçmiş" düğmesiyle açılan AYRI bir ekran, (3) artık bu ekranın kendi
+      // gün şeridi. Kullanıcı ikinci hâl için *"ayrı bir yere gitmesi gerekiyor, oysa sayfanın
+      // içinde takvim ile geçmişe gidebilmeli"* dedi.
       final db = AppDatabase(NativeDatabase.memory());
 
       await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
 
-      expect(find.text('Geçmiş'), findsOneWidget, reason: 'başlıktaki düğme');
+      expect(find.text('Geçmiş'), findsNothing,
+          reason: 'ayrı ekrana açılan düğme kaldırıldı');
       expect(find.textContaining('Henüz geçmiş gün yok'), findsNothing,
-          reason: 'gövdedeki geçmiş listesi kaldırıldı');
+          reason: 'gövdedeki geçmiş listesi de yok');
+      expect(semantikDugme('Önceki gün'), findsOneWidget, reason: 'gün şeridi burada');
+      expect(semantikDugme('Takvimden gün seç'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -141,8 +153,15 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('KURYE kendi kapsamında düğmeyi görür', (tester) async {
-      // Kurye kendi kasasını patrona devrediyor — kendi kasasının kanıtı odur.
+    testWidgets('KURYE kendi kapsamında bile düğmeyi GÖREMEZ', (tester) async {
+      // KARAR TERSİNE DÖNDÜ (kullanıcı, 2026-08-13). Bu test bir tur önce "kurye kendi kapsamında
+      // düğmeyi görür" diyordu ve gerekçesi "kendi kasasının kanıtı odur"du. Artık ara tahsilatı
+      // YALNIZ yönetici alır: kayıt, kuryenin cebindeki nakdin patrona GEÇTİĞİNİ söyler ve onu
+      // parayı fiilen ALAN taraf girmelidir. Kurye kendi teslimini kendi yazabildiği sürece kayıt
+      // tek taraflı bir beyandı.
+      //
+      // DÜĞME PASİF DEĞİL, HİÇ ÇİZİLMEZ: kalıcı olarak kapalı bir düğme kuryeye her gün
+      // dokunamayacağı bir kapı gösterirdi (aynı gerekçeyle "Geçmiş" düğmesi de gizleniyor).
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await kuryeEkle(db, id: 'k1', ad: 'Emre');
@@ -151,8 +170,10 @@ void main() {
 
       await ekranaKoy(tester, DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'));
 
-      expect(find.text('Ara Tahsilat'), findsOneWidget,
-          reason: 'kurye kendi kapsamında açılır');
+      expect(find.text('Ara Tahsilat'), findsNothing,
+          reason: 'ara tahsilatı yalnız yönetici alır');
+      // Ekranın geri kalanı kuryeye AÇIK kalır — kaldırılan yetki, kapatılan ekran değil.
+      expect(find.text('Emre için kasa özeti'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -175,6 +196,11 @@ void main() {
 
     testWidgets('KAPATILMIŞ kapsamda ara tahsilat alınamaz', (tester) async {
       // Kapanmış bir hesaba sonradan para eklemek mutabakatı bozar.
+      //
+      // ROL PATRON'A ÇEVRİLDİ (2026-08-13): eskiden kurye görünümünden bakılıyordu, ama ara
+      // tahsilat artık kuryede HİÇ çizilmiyor — o hâlde bu test yetki kapısını ölçer, KİLİT
+      // kapısını değil ve kilit bozulsa bile yeşil kalırdı. Kilidi ölçmek için düğmeyi normalde
+      // GÖREN rolden bakmak şart.
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await kuryeEkle(db, id: 'k1', ad: 'Emre');
@@ -186,7 +212,12 @@ void main() {
         );
       });
 
-      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'kurye', kullaniciId: 'k1'));
+      await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
+      // `kapsamaGec` ARTIK KULLANILABİLİYOR (2026-08-20): kapsam bir sheet'te seçiliyor ve
+      // seçenek satırı "Emre · Kurye" yazıyor — arşivdeki düz "Emre" satırıyla çakışmıyor.
+      // Eskiden `find.text('Emre')` iki widget bulup çuvalladığı için segmente daraltmak
+      // gerekiyordu.
+      await kapsamaGec(tester, 'Emre');
 
       expect(find.text('Ara Tahsilat'), findsNothing);
       expect(find.textContaining('kapatıldı'), findsWidgets);
@@ -240,7 +271,7 @@ void main() {
       // sayar, kapanış sheet'indeki orta satır ise bambaşka bir büyüklüktür (kurye kapsamında
       // teslim edilen, gün kapsamında kuryelerde kalan). Üçünü de "alınan" diye anmak, bayiye
       // birbirini tutmayan üç rakam gösterip hangisinin doğru olduğunu sordururdu.
-      expect(find.textContaining('Ara tahsilat toplamı · 1 tahsilat'), findsOneWidget);
+      expect(find.textContaining('1 ara tahsilatın toplamı'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -295,7 +326,7 @@ void main() {
       expect(find.text(sipTutar(3000)), findsWidgets, reason: 'arkadaki kasa kartı GÜNÜ yazar');
       expect(
         find.text(
-            'Önceki günden devreden nakit dahil — ekrandaki gün toplamıyla aynı aralık değil.'),
+            'Önceki günlerden devreden nakit dahil'),
         findsOneWidget,
       );
 

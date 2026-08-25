@@ -7,6 +7,10 @@ import '../data/tr_gun.dart';
 import 'cash_handover_repository.dart';
 import 'day_end_repository.dart';
 
+// KAPANIŞI GERİ ALMA yüzeyi buradan ayrıldı — 500 satır sınırı. AYNI KÜTÜPHANEDİR (`part`):
+// gerekçe o dosyanın başlığında.
+part 'day_closing_geri_alma.dart';
+
 /// Kapanış kapsamı: günün tamamı ya da tek kurye (tasarım: "Tümü" sekmesi vs kurye sekmesi).
 enum ClosingScope { day, courier }
 
@@ -50,22 +54,79 @@ class DayClosingRepository {
         ..limit(limit))
       .watch();
 
+  /// GERİ ALINMIŞ kapanışların id kümesi — bir satırın hâlâ GEÇERLİ olup olmadığının tek ölçüsü.
+  ///
+  /// Geri alma, tabloya yazılan TERS BİR SATIRdır (`reverses_closing_id` dolu). Yani bir kapanışın
+  /// "iptal edilmiş" olduğu, kendi satırında DEĞİL başka bir satırda yazar — append-only defterin
+  /// doğal sonucu ([DayClosings.reversesClosingId] gerekçesi).
+  Future<Set<String>> _geriAlinmisIdler() async {
+    final rows = await (db.select(db.dayClosings)
+          ..where((t) => t.reversesClosingId.isNotNull()))
+        .get();
+    return {for (final r in rows) r.reversesClosingId!};
+  }
+
   /// Bu kapsam bugün kapatıldı mı? (Kapatılmışsa ekran kilitlenir — tasarım.)
+  ///
+  /// ⚠️ İKİ ELEME ŞART (2026-08-18, geri alma özelliğiyle geldi) ve ikisini de atlamak farklı
+  /// biçimlerde bozar:
+  ///  • GERİ ALMA SATIRLARI kapanış SAYILMAZ. Sayılsaydı geri alma işlemi günü kapatır ve
+  ///    kullanıcı "geri aldım ama hâlâ kilitli" derdi — özellik kendi kendini iptal ederdi.
+  ///  • GERİ ALINMIŞ KAPANIŞLAR da sayılmaz. Sayılsaydı geri almanın hiçbir görünür etkisi olmaz,
+  ///    gün yine kilitli kalırdı.
   Future<bool> kapaliMi(ClosingScope scope, {String? userId, DateTime? localDate}) async {
     final date = localDate ?? await bugunTrDuzeltilmis(db);
-    final rows = await (db.select(db.dayClosings)..where((t) => t.scope.equals(scope.name))).get();
+    final rows = await _gecerliKapanislar(scope);
     return rows.any((r) =>
-        r.userId == (scope == ClosingScope.courier ? userId : null) && _sameTrDay(r.occurredAt, date));
+        r.userId == (scope == ClosingScope.courier ? userId : null) &&
+        _sameTrDay(r.occurredAt, date));
+  }
+
+  /// Bir kapsamın GEÇERLİ (hâlâ ayakta) kapanış satırları — iki elemenin TEK yeri.
+  ///
+  /// [kapaliMi] ve [kapaliGunAnahtarlari] bunu paylaşır. Ayrı yazılsalardı "geçerli kapanış"
+  /// tanımı iki kopya olurdu ve bu tanım tam olarak iki kez ısırmış bir tanımdır (geri alma
+  /// satırının kendisi kapanış sanılması · geri alınmış kapanışın hâlâ kapatıyor sayılması).
+  Future<List<DayClosing>> _gecerliKapanislar(ClosingScope scope) async {
+    final geriAlinmis = await _geriAlinmisIdler();
+    final rows = await (db.select(db.dayClosings)..where((t) => t.scope.equals(scope.name))).get();
+    return rows
+        .where((r) => r.reversesClosingId == null && !geriAlinmis.contains(r.id))
+        .toList();
+  }
+
+  /// GÜN hesabı kapatılmış TR günlerinin anahtar kümesi (`2026-08-20` biçiminde) —
+  /// `kapaliMi(ClosingScope.day, localDate: …)`ın TOPLU hâli.
+  ///
+  /// NEDEN TOPLU: "kapanmamış günler" taraması 14 güne kadar bakar; her gün için `kapaliMi`
+  /// çağırmak aynı iki sorguyu 14 kez koşturmak demekti. Aynı kuralı paylaşırlar
+  /// ([_gecerliKapanislar]), yani ikisi ASLA farklı cevap veremez.
+  Future<Set<String>> kapaliGunAnahtarlari() async {
+    final rows = await _gecerliKapanislar(ClosingScope.day);
+    return {
+      for (final r in rows)
+        if (DateTime.tryParse(r.occurredAt) != null)
+          trGunAnahtari(trGunu(DateTime.parse(r.occurredAt).toUtc())),
+    };
   }
 
   /// [localDate] TR gününe düşen kapanış kayıtları (yeni üstte). Arşivin GÜN SÜZGEÇLİ hâli —
   /// geçmiş gün ekranı "o gün kim kapattı" sorusunu tüm arşivi taramadan sorabilsin diye.
+  ///
+  /// GERİ ALMA SATIRLARI DA DÖNER ve bu bilinçlidir: liste bir ARŞİVDİR, olan biteni anlatır.
+  /// Geri alınmış kapanışı gizlemek, "5.000 ₺ teslim alındı" diye bir kaydın hiç olmamış gibi
+  /// yok olması demekti — oysa olay olmuştu ve düzeltildiği de görünmeli (BRIEF: "eksik para
+  /// kanıt olarak görünür kalmalı"). Hangi satırın geçersiz olduğunu [geriAlinmisIdler] söyler.
   Future<List<DayClosing>> gununKapanislari(DateTime localDate) async {
     final rows = await (db.select(db.dayClosings)
           ..orderBy([(t) => OrderingTerm.desc(t.occurredAt)]))
         .get();
     return rows.where((r) => _sameTrDay(r.occurredAt, localDate)).toList();
   }
+
+  /// Ekranın "bu satır geri alınmış" rozetini çizebilmesi için — [_geriAlinmisIdler]in genel
+  /// yüzeyi. Ekran kendi sorgusunu yazmaz: "geçerli kapanış" tanımı TEK yerde durmalı.
+  Future<Set<String>> geriAlinmisIdler() => _geriAlinmisIdler();
 
   /// Kapanış ÖNİZLEMESİ — ekranın gösterdiği rakamlar. `kapat()` submit anında bunu YENİDEN çağırır,
   /// böylece gösterilen ile yazılan aynı koddan çıkar (devir önizlemesiyle aynı desen).
@@ -91,9 +152,11 @@ class DayClosingRepository {
   /// `beklenen = patronun bugün doğrudan topladığı + bugün alınan devirlerin SAYILAN toplamı`
   /// — yani "bugün kasaya fiilen giren para".
   ///
-  /// Üç sayı ARİTMETİK OLARAK KAPANIR ve ekran farkı açıklayabilsin diye üçü de taşınır:
-  /// `gunNakitKurus − dusulenKurus == expectedCashKurus`. Kapanmayan bir üçlü, patronun toplamdan
-  /// küçük bir rakam görüp sebebini soramaması demekti.
+  /// Sayılar ARİTMETİK OLARAK KAPANIR ve ekran farkı açıklayabilsin diye hepsi taşınır:
+  /// `gunNakitKurus − giderKurus − dusulenKurus == expectedCashKurus`. Kapanmayan bir hesap,
+  /// patronun toplamdan küçük bir rakam görüp sebebini soramaması demekti. (Gider 2026-08-25'te
+  /// eklendi; sıfır olduğu her gün — yani giderin hiç kullanılmadığı bayilerde — eski üçlü
+  /// kimliği harfiyen aynı kalır.)
   Future<ClosingOnizleme> onizle(ClosingScope scope, {String? userId, DateTime? localDate}) async {
     final date = localDate ?? await bugunTrDuzeltilmis(db);
     final courierId = scope == ClosingScope.courier ? userId : null;
@@ -123,15 +186,26 @@ class DayClosingRepository {
     // toplam bu nesneden türer — arşivi okuyan üç sayıyı toplayıp dördüncüyü bulabilir.
     final cerceveKasa = handover == null
         ? kasa
-        : KasaOzeti(nakit: handover.toplananKurus, kart: kasa.kart, havale: kasa.havale);
+        : KasaOzeti(
+            nakit: handover.toplananKurus,
+            kart: kasa.kart,
+            havale: kasa.havale,
+            // Gider de kapsamın ÇERÇEVESİNDEN gelir: kurye kapsamında pencere gideri, gün
+            // kapsamında takvim günü gideri. Karışsalardı üçlü kimliği kapanmazdı.
+            gider: handover.giderKurus,
+          );
 
     return ClosingOnizleme(
       kasa: kasa,
       cerceveKasa: cerceveKasa,
       deliveryCount: teslimat,
       openCreditKurus: borc.toplamAcikBorc,
-      expectedCashKurus: handover?.expectedKurus ?? (kasa.nakit - dusulen),
+      // NET NAKİT (gider düşülmüş, 2026-08-25): sayılacak para giderden SONRAKİ paradır. Brüt
+      // nakit beklenirse her benzin masrafı kapanışta "EKSİK" olarak arşive KALICI donar —
+      // giderin varlık sebebi tam olarak bu yanlış farkı ortadan kaldırmaktır.
+      expectedCashKurus: handover?.expectedKurus ?? (kasa.netNakit - dusulen),
       gunNakitKurus: cerceveKasa.nakit,
+      giderKurus: cerceveKasa.gider,
       dusulenKurus: dusulen,
       dusulenKalem: courierId != null
           ? DusulenKalem.teslimEdilen
@@ -199,11 +273,11 @@ class DayClosingRepository {
     // KAPI, KAPATILAN GÜNE sorulur ("bugün"e değil): geçmiş bir günü kapatan çağrı da o günün
     // kapanışına takılmalı, yoksa dün iki kez kapatılabilirdi.
     if (await kapaliMi(ClosingScope.day, localDate: gun)) {
-      throw StateError('Gün hesabı kapandı; yeniden kapatılamaz.');
+      throw StateError('Gün hesabı kapandı; yeniden kapatılamaz');
     }
     if (scope == ClosingScope.courier &&
         await kapaliMi(ClosingScope.courier, userId: userId, localDate: gun)) {
-      throw StateError('Bu kuryenin hesabı kapandı; yeniden kapatılamaz.');
+      throw StateError('Bu kuryenin hesabı kapandı; yeniden kapatılamaz');
     }
 
     final on = await onizle(scope, userId: userId, localDate: localDate);
@@ -222,6 +296,27 @@ class DayClosingRepository {
         : simdi;
     // Çekirdek KAPATILAN GÜNE demirlenir (`gun`), "şimdi"ye değil: dünü kapatan iki cihaz da aynı
     // id'yi üretmeli. Gün metni `tr_gun.dart`taki tek tanımdan gelir — burada elle +3 YOK.
+    // ⚠️ DENEME SIRASI ÇEKİRDEĞE GİRER (2026-08-18, geri alma özelliğiyle zorunlu oldu).
+    //
+    // Kapanış id'si `tenant|scope|user|gün` çekirdeğinden TÜRETİLİR — aynı kapanışın iki cihazda
+    // aynı satır olması için. Ama gün geri alınıp YENİDEN kapatılınca ikinci kapanış AYNI
+    // çekirdeği üretirdi: yerelde birincil anahtar çakışır, sunucuda uygulayıcı 'duplicate' der
+    // ve DÜZELTİLMİŞ SAYIM HİÇ KAYDEDİLMEZDİ. Yani özellik, sessizce hiçbir şey yapmayan bir
+    // düğmeye dönüşürdü — üstelik kullanıcı "geri aldım, düzelttim, kapattım" sanarak.
+    //
+    // Sıra, O KAPSAMIN O GÜNDEKİ mevcut kapanış sayısıdır (geri alma satırları hariç). İki cihaz
+    // aynı geçmişi gördüğü sürece aynı sayıyı bulur, yani DETERMİNİZM KORUNUR — çekirdek
+    // "kaçıncı deneme" bilgisiyle zenginleşti, rastgeleliğe düşmedi.
+    final oncekiler = await (db.select(db.dayClosings)
+          ..where((t) => t.scope.equals(scope.name))
+          ..where((t) => t.reversesClosingId.isNull()))
+        .get();
+    final deneme = oncekiler
+        .where((r) =>
+            r.userId == (scope == ClosingScope.courier ? userId : null) &&
+            _sameTrDay(r.occurredAt, gun))
+        .length;
+
     final tenant = meta.tenantCode;
     String? olayId(String tag) => tenant == null
         ? null
@@ -230,7 +325,9 @@ class DayClosingRepository {
             scope: scope.name,
             userId: userId,
             gunAnahtari: trGunAnahtari(gun),
-            tag: tag,
+            // İlk kapanış eski etiketi AYNEN taşır: sahadaki kayıtların id'si değişmemeli,
+            // yoksa aynı kapanış eski ve yeni sürümde iki ayrı satır olurdu.
+            tag: deneme == 0 ? tag : '$tag-${deneme + 1}',
           );
     final id = olayId('closing') ?? newId();
     final diff = countedCashKurus == null ? 0 : countedCashKurus - on.expectedCashKurus;
@@ -317,6 +414,7 @@ class ClosingOnizleme {
     required this.openCreditKurus,
     required this.expectedCashKurus,
     required this.gunNakitKurus,
+    this.giderKurus = 0,
     this.dusulenKurus = 0,
     this.dusulenKalem = DusulenKalem.kuryelerdeKalan,
     this.periodStartIso,
@@ -346,9 +444,16 @@ class ClosingOnizleme {
   /// aksi hâlde farkı ekran kendi çıkarır ve iki yerde iki formül olurdu.
   final int gunNakitKurus;
 
-  /// [gunNakitKurus]tan DÜŞÜLEN tutar. `gunNakitKurus − dusulenKurus == expectedCashKurus`
-  /// her zaman, her kapsamda tutar. NE OLDUĞUNU [dusulenKalem] söyler — ekran kapsamdan çıkarım
-  /// yapmaz, etiketi o enum'dan seçer.
+  /// Kapsamın çerçevesinde KASADAN ÇIKAN gider (POZİTİF kuruş; 2026-08-25).
+  ///
+  /// ARİTMETİK ARTIK DÖRTLÜDÜR: `gunNakitKurus − giderKurus − dusulenKurus == expectedCashKurus`.
+  /// Gider sıfırken üçlü kimliği aynen korunur, yani eski davranış değişmez. Sıfır değilken satır
+  /// ekranda YAZILMAK ZORUNDA: yazılmazsa beklenen tutar sebepsiz küçülür ve bayi kasayı eksik
+  /// sayıldı sanır — bu depoda kapanmayan bir üçlü tam olarak bu şikâyeti üretmişti.
+  final int giderKurus;
+
+  /// [gunNakitKurus]tan DÜŞÜLEN tutar (gider HARİÇ — o ayrı taşınır). NE OLDUĞUNU [dusulenKalem]
+  /// söyler; ekran kapsamdan çıkarım yapmaz, etiketi o enum'dan seçer.
   ///
   /// Tek sayı tutuluyor çünkü kimliği kapatan sayı BUDUR; iki ayrı alan olsaydı ekran yanlışını
   /// seçebilirdi (bu vardiyada `kalanNakitKurus` tam olarak böyle yanılttı).

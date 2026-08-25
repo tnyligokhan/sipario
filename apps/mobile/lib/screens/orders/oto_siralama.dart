@@ -45,15 +45,15 @@ String? otoKilitNedeni({
   required int? hak,
   required int durakSayisi,
 }) {
-  if (!yazilabilir) return 'Salt-okunur kip: sıra kaydedilemez.';
-  if (hak == null) return 'Hak bilgisi bekleniyor — ilk senkrondan sonra kullanılabilir.';
-  if (hak <= 0) return 'Oto sıralama hakkı kalmadı.';
+  if (!yazilabilir) return 'Aboneliğiniz sona erdiği için sıra kaydedilemiyor';
+  if (hak == null) return 'Kullanım hakkınız henüz görünmüyor. Sunucuya bağlanınca kullanabilirsiniz.';
+  if (hak <= 0) return 'Oto sıralama hakkı kalmadı';
   if (durakSayisi < 2) return kOtoKumeYetersiz;
   return null;
 }
 
 /// Küme yetersizken yazılan gerekçe. Metin SÖZLEŞMEDİR (testler bu cümleyi arar).
-const String kOtoKumeYetersiz = 'Rota için en az iki açık sipariş gerekir.';
+const String kOtoKumeYetersiz = 'Rota için en az iki açık sipariş gerekir';
 
 /// Sunucudan SIRA ÖNERİSİ ister, dönen sırayı normal yazma yolundan (`sort_set` olayı) kalıcılar.
 /// Kontörü SUNUCU düşer; istemci yalnız onun bildirdiği kalanı önbelleğe yazar.
@@ -124,13 +124,15 @@ Future<OtoSiralamaSonucu> otoSiralaKos(AppDatabase db) async {
 
   // Koordinatsız duraklar sona atıldı — bunu SÖYLEMEK zorundayız, yoksa "sıraladım" demek
   // yanıltıcı olur (kullanıcı o siparişlerin neden sonda olduğunu anlamaz).
-  final ek = sonuc.konumsuz > 0 ? ' · ${sonuc.konumsuz} sipariş konumsuz, sona alındı' : '';
+  final ek = sonuc.konumsuz > 0
+      ? ' ${sonuc.konumsuz} siparişin konumu olmadığı için sona alındı.'
+      : '';
   // Hangi KİPTE sıralandığı da söylenir: kurye "benim konumumdan başladı" sanıp ilk durağa
   // gitmemeyi seçebilir. Sessiz bozulma yasak — konum alınamadıysa cümlenin sonunda yazar.
-  final kip = baslangic == null ? ' · konum alınamadı, ilk duraktan' : '';
+  final kip = baslangic == null ? ' Konumunuz alınamadığı için ilk duraktan başlandı.' : '';
   return OtoSiralamaSonucu(
     basarili: true,
-    mesaj: 'Rota otomatik sıralandı · ${sonuc.kalanHak} hak kaldı$ek$kip',
+    mesaj: 'Rota sıralandı, ${sonuc.kalanHak} hakkınız kaldı.$ek$kip',
   );
 }
 

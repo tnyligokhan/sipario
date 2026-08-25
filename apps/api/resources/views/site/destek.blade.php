@@ -9,9 +9,11 @@
         = (require resource_path('views/site/parca/_kur.php'))($planlar, $ekPaketler);
 @endphp
 
+{{-- Birincil kelime: "veresiye takip programı" (docs/seo-anahtar-kelimeler.md). Sayfanın SSS
+     içeriği zaten bu kelimenin etrafında dönüyor; başlık onu görünür kılıyor. --}}
 <x-layouts.site
-    baslik="Destek ve sık sorulan sorular · Sipario"
-    aciklama="Sipario destek: telefon, WhatsApp ve e-posta ile gerçek insan. Kurulum, ödeme, iptal ve teknik konularda sık sorulan sorular ve cevapları.">
+    baslik="Veresiye takip programı — destek ve sık sorulanlar · Sipario"
+    aciklama="Kurulum, ödeme, iptal ve teknik sorularınızın cevapları. Veresiye defteri nasıl işler, internet kesilince ne olur, müşteri listesi nasıl aktarılır — telefonu bot değil insan açıyor.">
     @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
     @include('site.parca.destek-kanal')
     @include('site.parca.destek-sss')

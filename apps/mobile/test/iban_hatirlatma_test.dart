@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/screens/customers/borc_hatirlatma.dart';
 import 'package:sipario/screens/isletme/hatirlatma_sablonu_alani.dart' show jetonEkle;
 import 'package:sipario/screens/isletme/iban.dart';
-import 'package:sipario/screens/isletme/isletme_profili_ekrani.dart' show isletmeProfilHatalari;
 import 'package:sipario/screens/orders/musteri_eylemleri.dart' show whatsappUriler;
 import 'package:sipario/screens/orders/siparis_tarih_seridi.dart' show tarihEtiketi;
 
@@ -42,20 +41,13 @@ void main() {
       expect(ibanHatasi('TR330006100519786457841326'), isNull);
     });
 
-    test('işletme profili formu bozuk IBANı reddeder, boşu kabul eder', () {
-      const temel = {
-        'ad': 'Merkez Su',
-        'sahip': 'Mehmet Usta',
-        'telefon': '02421112233',
-        'acilis': '08:00',
-        'kapanis': '19:00',
-      };
-      expect(isletmeProfilHatalari({...temel, 'iban': ''}), isNot(contains('iban')));
-      expect(isletmeProfilHatalari({...temel, 'iban': 'TR33'}), contains('iban'));
-      expect(
-        isletmeProfilHatalari({...temel, 'iban': 'TR33 0006 1005 1978 6457 8413 26'}),
-        isNot(contains('iban')),
-      );
+    test('form kuralı: boş kabul, bozuk ret, doğru kabul', () {
+      // KURAL ARTIK EKRANDAN BAĞIMSIZ (2026-08-13): IBAN, İşletme Profili formundan çıkıp
+      // Ayarlar · Tahsilat ekranına taşındı. Test o formun doğrulayıcısına bağlı kalsaydı,
+      // taşınmayla birlikte ürünü hiç sınamayan bir kabuğu sınamaya devam ederdi.
+      expect(ibanHatasi(''), isNull);
+      expect(ibanHatasi('TR33'), isNotNull);
+      expect(ibanHatasi('TR33 0006 1005 1978 6457 8413 26'), isNull);
     });
   });
 
@@ -314,22 +306,14 @@ void main() {
     });
 
     test('şablon uzunluk sınırı formda söylenir (sunucu sınırıyla aynı)', () {
-      const temel = {
-        'ad': 'Merkez Su',
-        'sahip': 'Mehmet Usta',
-        'telefon': '02421112233',
-        'acilis': '08:00',
-        'kapanis': '19:00',
-      };
-      // Sınır SUNUCUDAKİ kolonla aynı; formda söylenmezse hata senkron partisine kaçar.
-      expect(
-        isletmeProfilHatalari({...temel, 'sablon': 'ş' * hatirlatmaSablonuAzamiUzunluk}),
-        isNot(contains('sablon')),
-      );
-      expect(
-        isletmeProfilHatalari({...temel, 'sablon': 'ş' * (hatirlatmaSablonuAzamiUzunluk + 1)}),
-        contains('sablon'),
-      );
+      // Sınır SUNUCUDAKİ kolonla aynı; formda söylenmezse hata senkron partisine kaçar ve bayi
+      // kaydettiğini sanıp günler sonra "mesajım eski" der.
+      //
+      // KURAL EKRANDAN BAĞIMSIZ (2026-08-13): şablon düzenleme kendi ekranına taşındı, kural da
+      // onunla birlikte `borc_hatirlatma.dart`a geçti — ekranla birlikte kaybolmasın diye.
+      expect(hatirlatmaSablonuHatasi(null), isNull);
+      expect(hatirlatmaSablonuHatasi('ş' * hatirlatmaSablonuAzamiUzunluk), isNull);
+      expect(hatirlatmaSablonuHatasi('ş' * (hatirlatmaSablonuAzamiUzunluk + 1)), isNotNull);
     });
   });
 
@@ -438,8 +422,8 @@ void main() {
     final bugun = DateTime(2026, 8, 4); // Salı
 
     test('bugün ve dün ANLAMIYLA yazılır, diğerleri gün adıyla', () {
-      expect(tarihEtiketi(bugun, bugun: bugun), 'Bugün · 4 Ağustos');
-      expect(tarihEtiketi(DateTime(2026, 8, 3), bugun: bugun), 'Dün · 3 Ağustos');
+      expect(tarihEtiketi(bugun, bugun: bugun), 'Bugün, 4 Ağustos');
+      expect(tarihEtiketi(DateTime(2026, 8, 3), bugun: bugun), 'Dün, 3 Ağustos');
       expect(tarihEtiketi(DateTime(2026, 8, 1), bugun: bugun), '1 Ağustos Cumartesi');
       expect(tarihEtiketi(DateTime(2026, 7, 30), bugun: bugun), '30 Temmuz Perşembe');
     });

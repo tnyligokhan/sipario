@@ -1,28 +1,62 @@
-// Çekmece menü — s-bilesenler.jsx `Cekmece` + Sipario.html `.cek*`, `.lst-*`.
+// Çekmece menü — hero zeminli, soldan açılan panel. Material `Drawer` KULLANILMAZ: tasarımın
+// perde tonu, köşe yarıçapı ve alt eylem çubuğu onunla kurulamıyor.
 //
-// Hero zeminli, soldan açılan panel; sağ köşeleri 26 yuvarlak. Material `Drawer` KULLANILMAZ:
-// tasarımın perde tonu, köşe yarıçapı ve alt eylem çubuğu onunla kurulamıyor.
+// ══════════════════════════════════════════════════════════════════════════════════════════
+// ÇEKMECE NE İŞE YARAR — 2026-08-13 YENİDEN TASARIMI
+// ══════════════════════════════════════════════════════════════════════════════════════════
+// Bu uygulamada ALT NAVİGASYON var (Ana · Müşteri · Sipariş · Gün Özeti + ekle düğmesi) ve o,
+// günlük dört yüzeyi HER EKRANDAN tek dokunuşla veriyor. Dolayısıyla çekmece BİRİNCİL GEZİNME
+// DEĞİLDİR ve öyle davranmamalıdır: alt barın taşıdığı hedefleri tekrarlamak, menünün alanını
+// hiçbir yere götürmeyen satırlara harcamaktır (eski hâlde ilk dört satır tam olarak buydu).
 //
-// ROL KAPISI (K2 — pazarlıksız): `kurye` rolünde YÖNETİM bölümü ve istatistik kartları HİÇ
-// çizilmez (koşullu görünürlük değil, hiç render edilmez).
+// Çekmecenin işi ÜÇ TANEDİR ve panel bu üçe göre ÜÇ BÖLGEYE ayrılmıştır:
 //
-// MENÜ bölümü DAİMA dört satırdır (`s-bilesenler.jsx:77-82`). Dördüncü satırın yalnız ETİKETİ
-// role göre değişir: yöneticide "Gün Özeti & Kasa Devri", kuryede "Kasa Devri".
-// Gerekçe: kullanıcı kararı (2026-07-26) kasa devri satırının yalnız kuryede kalmasıydı; ayrı
-// bir satır olarak bırakılsaydı kuryede iki satır AYNI yere (Gün Özeti sekmesi) gidecekti —
-// kasa devri ekranı kaldırıldığından ayrı bir hedefi kalmadı.
+//   1. KİMLİK + DURUM (üst)  — "kimim, hangi firmadayım, verim sunucuya gitti mi, aboneliğim
+//      ne durumda". Okunur, nadiren dokunulur. En üstte olması doğrudur: okuma yukarıdan başlar.
+//
+//   2. HEDEFLER (orta)  — alt barda OLMAYAN ekranlar. Buraya bir satır ancak "başka türlü
+//      ulaşılamıyor ya da çok derinde" ise girer.
+//
+//   3. KİŞİSEL KONTROLLER (alt)  — sık çevrilen cihaz tercihleri ve seyrek sistem eylemleri.
+//
+// ⚠️ SIRALAMA GEREKÇESİ — BAŞPARMAK: çekmece tam boy bir paneldir; telefonu tek elle tutan
+// başparmak ALTTA durur ve panelin üst üçte biri en zor erişilen bölgedir. Bu yüzden sık
+// çevrilen anahtarlar (koyu tema, arayan tanıma) ayağa alındı; üstte yalnız OKUNAN şeyler var.
+// Eski düzende tam tersiydi: en nadir ve en riskli eylem (Çıkış) en erişilebilir köşedeydi.
+//
+// ⚠️ TASARIM DOSYASINDAN BİLİNÇLİ SAPMA: `s-bilesenler.jsx:77-82` MENÜ bölümünü alt barın
+// kopyası dört satır olarak öngörür. O prototip alt navigasyonla birlikte tasarlanmamıştı.
+// Gerekçe DECISIONS.md'de.
+//
+// ROL KAPISI (K2 — pazarlıksız): `kurye` rolünde YÖNETİM bölümü ve lisans kartları HİÇ
+// çizilmez (koşullu görünürlük değil, hiç render edilmez). Çekmece hiçbir yetki KARARI VERMEZ:
+// görünürlük ölçütlerini kabuk hesaplar, burası yalnız çizer.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/components/atoms.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
-import 'alt_nav.dart';
 import 'cekmece_istatistik.dart';
+import 'cekmece_parcalari.dart';
+
+// ÜÇÜNCÜ BÖLGE AYRILDI (2026-08-17, 500 satır kuralı — 541 satırdı): satırı çizen atomlar
+// `cekmece_satirlari.dart`ta. Özel kaldıkları için `part`tır — dışarıdan kullanılmazlar.
+part 'cekmece_satirlari.dart';
 
 /// Çekmeceden açılan tam-sayfa hedefler (sekme DEĞİL — üstüne push edilirler).
-enum CekmeceGiris { urunler, kuryeler, muaf, ayarlar, sihirbaz }
+enum CekmeceGiris {
+  borclular,
+  cagriGunlugu,
+  harita,
+  urunler,
+  kuryeler,
+  muaf,
+  hesap,
+  ayarlar,
+}
 
 class SipCekmece extends StatelessWidget {
   const SipCekmece({
@@ -31,13 +65,18 @@ class SipCekmece extends StatelessWidget {
     required this.onKapat,
     required this.isletmeAdi,
     required this.rol,
-    required this.aktif,
-    required this.onTab,
     required this.onGiris,
     required this.onCikis,
     required this.onDestek,
+    this.kullaniciAdi,
     this.sonSenkron,
+    this.karantina = 0,
+    this.borcluSayisi,
     this.urunlerGorunur = true,
+    this.borclularGorunur = true,
+    this.cagriGunluguGorunur = true,
+    this.koyuTema,
+    this.onTema,
     this.lisansBitisi,
     this.otoSiralamaHakki,
     this.otoSiralamaAylik,
@@ -48,32 +87,53 @@ class SipCekmece extends StatelessWidget {
 
   final String isletmeAdi;
 
+  /// Oturumdaki kişinin adı — rol satırında firmanın ALTINDA yazar.
+  ///
+  /// NEDEN EKLENDİ: eski başlık "Yönetici · senkron 10:32" diyordu, yani kişinin KİM olduğunu
+  /// hiçbir yerde söylemiyordu. Tek telefonu birden çok kişinin kullandığı bayilerde (patron
+  /// sabah, operatör akşam) "ben kim olarak girmişim" günlük bir sorudur.
+  final String? kullaniciAdi;
+
   /// `patron` | `operator` | `kurye` | null.
   final String? rol;
 
-  final SipSekme aktif;
-  final ValueChanged<SipSekme> onTab;
   final ValueChanged<CekmeceGiris> onGiris;
   final VoidCallback onCikis;
   final VoidCallback onDestek;
 
   final DateTime? sonSenkron;
 
+  /// Sunucunun kabul etmediği, cihazda bekleyen kayıt sayısı — durum şeridinde uyarı olur.
+  final int karantina;
+
+  /// Borçlu müşteri sayısı; null ise sayaç çizilmez (henüz okunmadı).
+  final int? borcluSayisi;
+
   final bool urunlerGorunur;
+
+  /// `toplamBorclulariGorme` — kapalıysa satır HİÇ çizilmez. Kalıcı olarak kapalı bir kapıyı
+  /// göstermek, kullanıcıya olmayan bir yol tarif etmektir.
+  final bool borclularGorunur;
+
+  /// `cagriGunlugu` — dükkânın çağrı günlüğü kuryeye kapatılabilir.
+  final bool cagriGunluguGorunur;
+
+  /// Geçerli tema — DEĞER değil DİNLENEBİLİR kaynak (sahibi kabuk). null ise anahtar çizilmez.
+  final ValueListenable<bool>? koyuTema;
+  final ValueChanged<bool>? onTema;
 
   /// Abonelik bitişi (SyncMeta `validUntilIso`). null iken kart "bilinmiyor" hâlinde çizilir.
   final DateTime? lisansBitisi;
 
-  /// Oto-sıralama hakkı. Sunucu bu alanı henüz göndermiyor; null iken kart çizilmez
-  /// (uydurma veri basılmaz).
+  /// Oto-sıralama hakkı. Sunucu bu alanı henüz göndermiyor; null iken kart çizilmez.
   final int? otoSiralamaHakki;
   final int? otoSiralamaAylik;
 
   bool get _kurye => rol == 'kurye';
 
   static String rolAdi(String? rol) => switch (rol) {
-        'patron' => 'Yönetici',
-        'operator' => 'Operatör',
+        'patron' => 'Patron',
+        'operator' => 'Tezgâh',
         'kurye' => 'Kurye',
         _ => 'Tek kişilik',
       };
@@ -128,81 +188,81 @@ class _Panel extends StatelessWidget {
         style: TextStyle(color: SipTokens.onHero, fontFamily: sipFontBody),
         child: Column(
           children: [
+            // ── BÖLGE 1: KİMLİK + DURUM ────────────────────────────────────────────────
             _Baslik(cekmece: c),
+
+            // ── BÖLGE 2: HEDEFLER ──────────────────────────────────────────────────────
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(SipSpace.x2, SipSpace.sm, SipSpace.x2, SipSpace.x2),
+                padding: const EdgeInsets.fromLTRB(
+                    SipSpace.x2, SipSpace.lg, SipSpace.x2, SipSpace.lg),
                 children: [
-                  const _Bolum('Menü'),
+                  // BÖLÜM ETİKETİ YOK ve bilinçli: eski düzende dokuz satır için dört büyük
+                  // harf başlık vardı ("İŞ", "YÖNETİM", "HIZLI AYARLAR", "UYGULAMA") ve hiçbiri
+                  // ayırt edici bilgi taşımıyordu — yalnız dikey alan yiyip taramayı
+                  // yavaşlatıyorlardı. Ayrım artık boşluk ve ayraçla yapılıyor; tek etiket
+                  // YÖNETİM'de kalıyor, çünkü o ROL sinyali taşır ("burası patron işi").
+                  if (c.borclularGorunur)
+                    _Satir(
+                      ikon: SipIcons.wallet,
+                      etiket: 'Borçlular',
+                      // SAYAÇ: menüyü "nereye gidebilirim" listesinden "neye bakmam gerek"
+                      // yüzeyine çeviren tek ekleme. Bayi için borçlu sayısı günün en sık
+                      // sorduğu sorudur ve veri zaten var (`watchDebtCount`).
+                      sayac: c.borcluSayisi,
+                      onTap: () => c.onGiris(CekmeceGiris.borclular),
+                    ),
+                  if (c.cagriGunluguGorunur)
+                    _Satir(
+                      ikon: SipIcons.clock,
+                      etiket: 'Çağrı Geçmişi',
+                      onTap: () => c.onGiris(CekmeceGiris.cagriGunlugu),
+                    ),
                   _Satir(
-                    ikon: SipIcons.home,
-                    etiket: 'Ana Sayfa',
-                    secili: c.aktif == SipSekme.ana,
-                    onTap: () => c.onTab(SipSekme.ana),
+                    ikon: SipIcons.pin,
+                    etiket: 'Sipariş Haritası',
+                    onTap: () => c.onGiris(CekmeceGiris.harita),
                   ),
-                  _Satir(
-                    ikon: SipIcons.users,
-                    etiket: 'Müşteriler',
-                    secili: c.aktif == SipSekme.musteri,
-                    onTap: () => c.onTab(SipSekme.musteri),
-                  ),
-                  _Satir(
-                    ikon: SipIcons.list,
-                    etiket: 'Siparişler',
-                    secili: c.aktif == SipSekme.siparis,
-                    onTap: () => c.onTab(SipSekme.siparis),
-                  ),
-                  // Dördüncü MENÜ satırı: kuryede kendi devri, yöneticide tasarımdaki birleşik
-                  // etiket. İkisi de AYNI sekmeye gider (dosya başındaki gerekçe).
-                  _Satir(
-                    ikon: c._kurye ? SipIcons.hand : SipIcons.wallet,
-                    etiket: c._kurye ? 'Kasa Devri' : 'Gün Özeti & Kasa Devri',
-                    secili: c.aktif == SipSekme.gunSonu,
-                    onTap: () => c.onTab(SipSekme.gunSonu),
-                  ),
-                  // ROL KAPISI: kuryede YÖNETİM bölümü ve istatistik kartları HİÇ çizilmez.
+
+                  // ROL KAPISI: kuryede bu bölüm ve lisans kartları HİÇ çizilmez.
                   if (!c._kurye) ...[
                     const _Bolum('Yönetim'),
                     if (c.urunlerGorunur)
                       _Satir(
                         ikon: SipIcons.box,
                         etiket: 'Ürünler',
-                        git: true,
                         onTap: () => c.onGiris(CekmeceGiris.urunler),
                       ),
                     _Satir(
                       ikon: SipIcons.truck,
                       etiket: 'Kuryeler',
-                      git: true,
                       onTap: () => c.onGiris(CekmeceGiris.kuryeler),
                     ),
                     _Satir(
                       ikon: SipIcons.phoneOff,
-                      etiket: 'Muaf Telefonlar',
-                      git: true,
+                      etiket: 'Muaf Numaralar',
                       onTap: () => c.onGiris(CekmeceGiris.muaf),
                     ),
-                    CekmeceIstatistikleri(
-                      lisansBitisi: c.lisansBitisi,
-                      otoSiralamaHakki: c.otoSiralamaHakki,
-                      otoSiralamaAylik: c.otoSiralamaAylik,
-                    ),
                   ],
-                  // Tasarımda UYGULAMA bölümü TEK satırdır: Ayarlar (s-bilesenler.jsx `Cekmece`).
-                  // Tema anahtarı, arayan-tanıma kurulumu ve gecikme ölçümleri bir süre burada
-                  // geçici olarak duruyordu (Ayarlar ekranı henüz yazılmamıştı); hepsi artık
-                  // Ayarlar'ın kendi bölümlerinde yaşıyor, çekmece tasarıma döndü.
-                  const _Bolum('Uygulama'),
+
+                  const _Ayrac(),
+                  _Satir(
+                    ikon: SipIcons.user,
+                    etiket: 'Hesap',
+                    onTap: () => c.onGiris(CekmeceGiris.hesap),
+                  ),
                   _Satir(
                     ikon: SipIcons.settings,
                     etiket: 'Ayarlar',
-                    git: true,
                     onTap: () => c.onGiris(CekmeceGiris.ayarlar),
                   ),
+
                 ],
               ),
             ),
-            _AltCubuk(onDestek: c.onDestek, onCikis: c.onCikis),
+
+            // ── BÖLGE 3: KİŞİSEL KONTROLLER (başparmak bölgesi) ────────────────────────
+            _AltCubuk(cekmece: c),
           ],
         ),
       ),
@@ -210,7 +270,12 @@ class _Panel extends StatelessWidget {
   }
 }
 
-/// CSS `.cek-head` — logo + işletme adı + rol/senkron + kapat.
+/// CSS `.cek-head` — logo + işletme + rol/kullanıcı + kapat, ALTINDA durum şeridi ve lisans.
+///
+/// LİSANS KARTLARI BURAYA TAŞINDI (2026-08-13): eskiden gezinme satırlarının ORTASINDA,
+/// Muaf Telefonlar ile Ayarlar arasında duruyorlardı. İki büyük kart, bir hedef listesinin
+/// içinde tarama akışını kesiyordu — oysa onlar bir HEDEF değil DURUMDUR ("aboneliğim ne
+/// oldu"). Kartların kendisi değişmedi; yalnız ait oldukları bölgeye alındılar.
 class _Baslik extends StatelessWidget {
   const _Baslik({required this.cekmece});
 
@@ -218,219 +283,88 @@ class _Baslik extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.sip;
     final c = cekmece;
-    final saat = c.sonSenkron == null
-        ? 'senkron bekliyor'
-        : 'senkron ${_ss(c.sonSenkron!)}';
+    final ad = (c.kullaniciAdi ?? '').trim();
+    final altSatir =
+        ad.isEmpty ? SipCekmece.rolAdi(c.rol) : '$ad (${SipCekmece.rolAdi(c.rol)})';
+
     return Container(
       padding: EdgeInsets.fromLTRB(
         SipSpace.govde,
-        SipSpace.x6 + MediaQuery.paddingOf(context).top,
+        SipSpace.x4 + MediaQuery.paddingOf(context).top,
         SipSpace.govde,
-        SipSpace.x3,
+        SipSpace.lg,
       ),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: SipTokens.onHeroLine)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: t.accent,
-              borderRadius: BorderRadius.circular(SipSpace.x2),
-            ),
-            child: SipIcon(SipIcons.phoneCall, boyut: 21, kalinlik: 2.2, renk: t.accentInk),
-          ),
-          const SizedBox(width: SipSpace.xl),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  c.isletmeAdi,
-                  style: SipText.cekmeceIsletme.copyWith(color: SipTokens.onHero),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: context.sip.accent,
+                  borderRadius: BorderRadius.circular(SipSpace.x2),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '${SipCekmece.rolAdi(c.rol)} · $saat',
-                  style: SipText.cekmeceRol.copyWith(color: SipTokens.onHeroMid),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          SipIkonButon(
-            ikon: SipIcons.x,
-            cap: 34,
-            ikonBoyut: 19,
-            kalinlik: 2.2,
-            zemin: SipTokens.onHeroFill,
-            renk: SipTokens.onHeroStrong,
-            etiket: 'Kapat',
-            onTap: c.onKapat,
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _ss(DateTime d) =>
-      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-}
-
-/// CSS `.cek-sec` — bölüm etiketi (BÜYÜK HARF).
-class _Bolum extends StatelessWidget {
-  const _Bolum(this.etiket);
-
-  final String etiket;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(SipSpace.lg, SipSpace.x3, SipSpace.lg, 7),
-      child: Text(
-        trBuyuk(etiket),
-        style: SipText.cekmeceBolum.copyWith(color: SipTokens.onHeroSoft),
-      ),
-    );
-  }
-}
-
-/// CSS `.cekr` — menü satırı. [secili] accent dolgulu; [git] sağda chevron gösterir.
-class _Satir extends StatelessWidget {
-  const _Satir({
-    required this.ikon,
-    required this.etiket,
-    required this.onTap,
-    this.secili = false,
-    this.git = false,
-  });
-
-  final String ikon;
-  final String etiket;
-  final VoidCallback onTap;
-  final bool secili;
-  final bool git;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: SipDokun(
-        onTap: onTap,
-        zemin: secili ? t.accent : Colors.transparent,
-        basiliZemin: secili ? t.accent : SipTokens.onHeroFill,
-        radius: BorderRadius.circular(13),
-        padding: const EdgeInsets.all(SipSpace.xl),
-        child: Row(
-          children: [
-            SipIcon(
-              ikon,
-              boyut: 19,
-              kalinlik: secili ? 2.3 : 1.9,
-              renk: secili ? SipTokens.onHero : SipTokens.onHeroMid,
-            ),
-            const SizedBox(width: SipSpace.xl),
-            Expanded(
-              child: Text(
-                etiket,
-                style: SipText.cekmeceSatir.copyWith(
-                  color: secili ? SipTokens.onHero : SipTokens.onHeroStrong,
-                  fontWeight: secili ? FontWeight.w800 : null,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                child: SipIcon(SipIcons.phoneCall,
+                    boyut: 21, kalinlik: 2.2, renk: context.sip.accentInk),
               ),
-            ),
-            if (git)
-              const SipIcon(SipIcons.chevR,
-                  boyut: 16, kalinlik: 2, renk: SipTokens.onHeroFaint),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Tema anahtarı — tasarımda Ayarlar ekranındaydı; o ekran henüz yok, tercih burada yaşıyor.
-
-/// CSS `.cek-alt` — destek düğmesi + çıkış.
-class _AltCubuk extends StatelessWidget {
-  const _AltCubuk({required this.onDestek, required this.onCikis});
-
-  final VoidCallback onDestek;
-  final VoidCallback onCikis;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        SipSpace.x2,
-        SipSpace.lg,
-        SipSpace.x2,
-        SipSpace.x3 + MediaQuery.paddingOf(context).bottom,
-      ),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: SipTokens.onHeroLine)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: SipDokun(
-              onTap: onDestek,
-              zemin: t.accent,
-              basiliZemin: t.accent,
-              radius: BorderRadius.circular(13),
-              olcekle: true,
-              padding: const EdgeInsets.all(13),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SipIcon(SipIcons.chat, boyut: 17, kalinlik: 2, renk: t.accentInk),
-                  const SizedBox(width: SipSpace.md),
-                  // Çekmece en fazla 330 geniş; metin ölçeği büyütülmüş cihazda etiket
-                  // düğmeyi taşırıyor — esnek bırakılır, kesilirse üç noktayla biter.
-                  Flexible(
-                    child: Text(
-                      'Sipario Destek Hattı',
-                      style: SipText.metin(13, w: 700).copyWith(color: t.accentInk),
+              const SizedBox(width: SipSpace.xl),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      c.isletmeAdi,
+                      style: SipText.cekmeceIsletme.copyWith(color: SipTokens.onHero),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: SipSpace.md),
-          Semantics(
-            button: true,
-            label: 'Çıkış Yap',
-            child: SipDokun(
-              onTap: onCikis,
-              zemin: SipTokens.heroCikisFill,
-              basiliZemin: SipTokens.heroCikisFill2,
-              radius: BorderRadius.circular(13),
-              child: const SizedBox(
-                width: 46,
-                height: 46,
-                child: Center(
-                  child: SipIcon(SipIcons.power,
-                      boyut: 18, kalinlik: 2.1, renk: SipTokens.heroCikisInk),
+                    const SizedBox(height: 2),
+                    Text(
+                      altSatir,
+                      style: SipText.cekmeceRol.copyWith(color: SipTokens.onHeroMid),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
-            ),
+              // ÇARPI KALDIRILDI, YERİNE ÇIKIŞ (kullanıcı kararı 2026-08-13). Çekmece zaten
+              // perdeye dokununca kapanıyor (ve geri tuşuyla da) — yani "Kapat" düğmesi, var
+              // olan iki yolu üçüncü kez tekrarlayıp panelin en değerli köşesini işgal
+              // ediyordu. Aynı köşe artık, çekmecenin ayağında etiketsiz bir güç simgesi
+              // olarak duran Çıkış'a ait: eylem hem adıyla anılıyor hem parmağın doğal
+              // olarak aradığı yerde.
+              SipIkonButon(
+                ikon: SipIcons.power,
+                cap: 34,
+                ikonBoyut: 18,
+                kalinlik: 2.1,
+                zemin: SipTokens.heroCikisFill,
+                renk: SipTokens.heroCikisInk,
+                etiket: 'Çıkış Yap',
+                onTap: c.onCikis,
+              ),
+            ],
           ),
+          const SizedBox(height: SipSpace.lg),
+          CekmeceDurumSeridi(sonSenkron: c.sonSenkron, karantina: c.karantina),
+          // LİSANS ŞERİDİ DURUM BÖLGESİNDE (kullanıcı kararı 2026-08-13: "üstte olmaları sorun
+          // değil ama bu kadar büyük olmalarına gerek yok"). Artık ~44 punto: senkron
+          // şeridiyle birlikte tek bir "durum" bloğu kuruyor, hedef listesini itmiyor.
+          if (!c._kurye)
+            CekmeceIstatistikleri(
+              lisansBitisi: c.lisansBitisi,
+              otoSiralamaHakki: c.otoSiralamaHakki,
+              otoSiralamaAylik: c.otoSiralamaAylik,
+            ),
         ],
       ),
     );

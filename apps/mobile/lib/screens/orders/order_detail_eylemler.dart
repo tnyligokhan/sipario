@@ -139,7 +139,7 @@ class SiparisTahsilatButonu extends StatelessWidget {
 
   Future<void> _ac(BuildContext context) async {
     if (!writable) {
-      SipToast.goster(context, 'Salt-okunur kip: yeni kayıt eklenemez.');
+      SipToast.goster(context, 'Aboneliğiniz sona erdiği için yeni kayıt eklenemiyor');
       return;
     }
     final ok = await borcTahsilatiAc(context, db: db, customerId: customerId);
@@ -172,7 +172,7 @@ class SiparisTahsilatButonu extends StatelessWidget {
                   SipIcon(SipIcons.wallet, boyut: 16, kalinlik: 2.2, renk: t.ink2),
                   const SizedBox(width: 7),
                   Text(
-                    bakiye > 0 ? 'Tahsilat Al · ${sipTutar(bakiye)}' : 'Tahsilat Al',
+                    bakiye > 0 ? 'Tahsilat Al (${sipTutar(bakiye)})' : 'Tahsilat Al',
                     style: SipText.metin(13.5, w: 700).copyWith(color: t.ink2),
                   ),
                 ],

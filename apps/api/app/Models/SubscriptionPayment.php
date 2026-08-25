@@ -31,7 +31,7 @@ use Illuminate\Support\Carbon;
  */
 class SubscriptionPayment extends Model
 {
-    use HasUuids;
+    use HasUuids, MikrosaniyeliDamga;
 
     public $timestamps = false; // yalnız created_at (DB useCurrent); append-only
 

@@ -89,6 +89,7 @@ class _Bant extends StatelessWidget {
     final iniyor = durum == GuncellemeDurumu.iniyor;
     final kuruluyor = durum == GuncellemeDurumu.kuruluyor;
     final hata = durum == GuncellemeDurumu.hata;
+    final renk = hata ? t.danger : t.accent;
 
     return SipDokun(
       // İndirme sürerken dokunuş yok: ikinci bir indirme başlatmak dosyayı bozar.
@@ -97,44 +98,131 @@ class _Bant extends StatelessWidget {
       radius: SipRadius.br2,
       padding: const EdgeInsets.symmetric(
         horizontal: SipSpace.x2,
-        vertical: SipSpace.xl,
+        vertical: SipSpace.md,
       ),
       child: Row(
         children: [
           SipIcon(
-            // İkon setinde "indir" YOK. Yeni varlık eklemek yerine mevcut sözlükten en yakın
-            // anlam seçildi: `sync` (yenileme/güncelleme), hatada `alert`.
             hata ? SipIcons.alert : SipIcons.sync,
-            boyut: 16,
+            boyut: 17,
             kalinlik: 2.2,
-            renk: hata ? t.danger : t.accent,
+            renk: renk,
           ),
-          const SizedBox(width: SipSpace.md),
+          const SizedBox(width: SipSpace.lg),
           Expanded(
-            child: Text(
-              _metin(),
-              style: SipText.govdeKalin.copyWith(color: hata ? t.danger : t.accent),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _baslik(),
+                  style: SipText.govdeKalin.copyWith(color: renk),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Text(
+                    _altBaslik(),
+                    style: SipText.yardimci.copyWith(color: renk.withValues(alpha: 0.75)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ),
+          const SizedBox(width: SipSpace.lg),
           if (iniyor)
             ValueListenableBuilder<double>(
               valueListenable: servis.ilerleme,
               builder: (context, o, _) => Text(
                 '%${(o * 100).round()}',
-                style: SipText.yardimci.copyWith(color: t.accent),
+                style: SipText.govdeKalin.copyWith(color: t.accent),
               ),
-            ),
+            )
+          else if (!kuruluyor)
+            // EYLEM DÜĞMESİ — kullanıcı isteği 2026-08-25: *"yükleme butonu pek belirgin
+            // değil, orada güncelle şeklinde bir ikon olmalı ya da indirme gibi"*.
+            //
+            // BURADA ESKİDEN SÜRÜM ROZETİ VARDI ve şikâyetin kaynağı oydu: dolgulu, accent
+            // renkli, dokunulacakmış gibi duran bir hap — ama içinde "0.9.0" yazıyordu, yani
+            // BİLGİ taşıyordu, EYLEM değil. Bandın tamamı dokunulabilirdi ve bunu söyleyen tek
+            // şey alt satırdaki "Kurmak için dokunun" cümlesiydi. Bayi rozete basıyor, bir şey
+            // olmuyor sanıyordu (aslında oluyordu — bant zaten dokunuşu alıyor).
+            //
+            // Sürüm KAYBOLMADI, alt satıra taşındı ([_altBaslik]): 2026-08-11 kararı "sadece
+            // sürüm yazsın" diyordu ve o karar duruyor; değişen, sürümün EYLEMİN YERİNİ İŞGAL
+            // ETMEMESİ.
+            _EylemDugmesi(hata: hata)
         ],
       ),
     );
   }
 
-  String _metin() => switch (durum) {
-        GuncellemeDurumu.iniyor => 'İndiriliyor…',
-        GuncellemeDurumu.kuruluyor => 'Kurulum başlatılıyor…',
-        GuncellemeDurumu.hata => 'Güncelleme tamamlanamadı — tekrar denemek için dokunun',
-        _ => 'Güncelleme var — Sipario ${bilgi.surum} (${bilgi.yapim})',
+  /// Üst satır — NE OLDUĞU.
+  ///
+  /// HATA BAŞLIĞI KISALTILDI (2026-08-25): "Güncelleme tamamlanamadı" 360 punto genişlikte,
+  /// yanına "Tekrar Dene" düğmesi geldikten sonra "Güncelleme tamamlan…" diye kırpılıyordu
+  /// (golden ile ölçüldü). Kırpılan bir hata başlığı, hatanın kendisinden daha çok
+  /// endişelendirir; ne olduğunu alt satır zaten söylüyor.
+  String _baslik() => switch (durum) {
+        GuncellemeDurumu.iniyor => 'İndiriliyor',
+        GuncellemeDurumu.kuruluyor => 'Kurulum başlıyor',
+        GuncellemeDurumu.hata => 'Güncellenemedi',
+        _ => 'Yeni sürüm hazır',
+      };
+
+  /// Alt satır — NE YAPILACAĞI. Kısa tutulur: bant tek satır yüksekliğinde kalmalı.
+  ///
+  /// SÜRÜM ADI BURADA (2026-08-25): sağ köşe artık eyleme ait. "Kurmak için dokunun" cümlesi
+  /// de KALKTI ve gerekmiyor — yanında duran düğme zaten ne yapılacağını söylüyor; cümle,
+  /// düğmesiz hâlin kalıntısıydı. Yapım numarası yine YAZILMAZ (2026-08-11 kararı).
+  String _altBaslik() => switch (durum) {
+        GuncellemeDurumu.iniyor => 'İndirme sürüyor',
+        GuncellemeDurumu.kuruluyor => 'Kurulum ekranı birazdan açılacak',
+        GuncellemeDurumu.hata => 'İndirme yarım kaldı',
+        _ => '${bilgi.surum} sürümü indirilebilir',
       };
 }
+
+/// Bandın sağındaki EYLEM DÜĞMESİ — dolgulu, ikonlu, tek bakışta düğme.
+///
+/// ⚠️ KENDİ `onTap`İ YOK ve bu bilinçli: dokunuşu BANDIN TAMAMI alıyor (`SipDokun`), yani
+/// düğmenin yanına, metnine ya da ikonuna basmak da işe yarar. Düğmeye ayrı bir dokunma
+/// yüzeyi vermek iki hedefi üst üste bindirir; iç içe iki `GestureDetector`da dıştaki sessizce
+/// devre dışı kalır ve bandın geri kalanı ölürdü. Görev paylaşımı nettir: bant DOKUNULUR,
+/// düğme SÖYLER.
+class _EylemDugmesi extends StatelessWidget {
+  const _EylemDugmesi({required this.hata});
+
+  final bool hata;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    final zemin = hata ? t.danger : t.accent;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+      decoration: BoxDecoration(color: zemin, borderRadius: SipRadius.brHap),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SipIcon(
+            hata ? SipIcons.sync : SipIcons.indir,
+            boyut: 14,
+            kalinlik: 2.4,
+            renk: t.accentInk,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            hata ? 'Tekrar Dene' : 'Güncelle',
+            style: SipText.yardimci
+                .copyWith(color: t.accentInk, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

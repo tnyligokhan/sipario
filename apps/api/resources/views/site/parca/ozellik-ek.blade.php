@@ -1,7 +1,8 @@
 {{-- Özellikler · ek özellikler ızgarası (10-sw-ozellik.jsx · EkBlm). --}}
 <section class="blm">
     <div class="kap">
-        <x-site.blm-bas kulak="Ayrıca" baslik="Küçük ama her gün lazım olanlar." />
+        {{-- Kulak "Ayrıca" ile başlık aynı işi görüyordu; tek başlık yeterli. --}}
+        <x-site.blm-bas baslik="Küçük ama her gün lazım olanlar" />
         <div class="ek-grid">
             @foreach ($sw['ek'] as $e)
                 <div class="ek">

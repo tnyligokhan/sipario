@@ -15,6 +15,7 @@ import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../money.dart';
 import 'order_parts.dart' show LineDraft;
+import 'satir_notu.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Detay kartı — CSS `.sd-kart`, `.sd-satir`, `.sd-toplam`
@@ -26,11 +27,20 @@ class SdKart extends StatelessWidget {
     required this.satirlar,
     required this.toplamKurus,
     this.toplamEtiketi = 'Toplam',
+    this.toplamGoster = true,
   });
 
   final List<Widget> satirlar;
   final int toplamKurus;
   final String toplamEtiketi;
+
+  /// Kartın kendi toplam satırı çizilsin mi?
+  ///
+  /// VARSAYILAN AÇIK — sipariş detayında ve düzenleme sheet'inde toplamı söyleyen başka bir
+  /// yüzey yok. KAPATILDIĞI tek yer yeni sipariş ÖZETİ: orada ekranın altında sabit duran
+  /// `.ys-alt` çubuğu zaten aynı sayıyı, daha büyük puntoyla yazıyor. Aynı rakamın iki parmak
+  /// arayla iki kez görünmesi kullanıcıya "bunlar farklı iki toplam mı?" diye baktırıyordu.
+  final bool toplamGoster;
 
   @override
   Widget build(BuildContext context) {
@@ -43,18 +53,19 @@ class SdKart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ...satirlar,
-          Padding(
-            padding: const EdgeInsets.fromLTRB(0, 13, 0, 11),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(toplamEtiketi,
-                      style: SipText.metin(13, w: 600).copyWith(color: t.ink2)),
-                ),
-                Text(sipTutar(toplamKurus), style: SipText.tutar19.copyWith(color: t.ink)),
-              ],
+          if (toplamGoster)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 13, 0, 11),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(toplamEtiketi,
+                        style: SipText.metin(13, w: 600).copyWith(color: t.ink2)),
+                  ),
+                  Text(sipTutar(toplamKurus), style: SipText.tutar19.copyWith(color: t.ink)),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -69,14 +80,24 @@ class SdSatiri extends StatelessWidget {
     required this.altMetin,
     required this.tutarKurus,
     this.orta,
+    this.not,
+    this.ayrac = true,
   });
 
   final String ad;
   final String altMetin;
   final int tutarKurus;
 
+  /// Alttaki ince ayraç. Toplam satırı gizlenen kartta (bkz. [SdKart.toplamGoster]) SON satırda
+  /// kapatılır — yoksa kartın dibinde hiçbir şeyi ayırmayan bir çizgi asılı kalır.
+  final bool ayrac;
+
   /// Düzenleme kipinde araya giren stepper / sil düğmesi.
   final Widget? orta;
+
+  /// SATIR NOTU — doluysa alt metnin altında rozet çizilir. Sipariş DETAYINDA görünmesi
+  /// pazarlıksızdır: notu okuyacak kişi (kalemi hazırlayan / götüren) siparişi buradan açar.
+  final String? not;
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +105,7 @@ class SdSatiri extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: SipSpace.xl),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: t.line)),
+        border: ayrac ? Border(bottom: BorderSide(color: t.line)) : null,
       ),
       child: Row(
         children: [
@@ -95,6 +116,10 @@ class SdSatiri extends StatelessWidget {
                 Text(ad, style: SipText.metin(13.5, w: 600).copyWith(color: t.ink)),
                 const SizedBox(height: 2),
                 Text(altMetin, style: SipText.metin(11, w: 500).copyWith(color: t.muted)),
+                if (notuNormalle(not) != null) ...[
+                  const SizedBox(height: 4),
+                  SatirNotuRozeti(metin: notuNormalle(not)!),
+                ],
               ],
             ),
           ),
@@ -172,6 +197,20 @@ class SdxLink extends StatelessWidget {
   }
 }
 
+/// CSS `.sdx-adet` (_sayfa.html:566) — bölüm başlığının sağındaki sönük sayaç. Bağlantı DEĞİL:
+/// dokunulmaz, yalnız bölümün kaç şey içerdiğini söyler ("2 kalem"). Başlıkla aynı satırda
+/// durduğu için sepetin uzunluğu kaydırmadan okunur.
+class SdxAdet extends StatelessWidget {
+  const SdxAdet(this.metin, {super.key});
+  final String metin;
+
+  @override
+  Widget build(BuildContext context) => Text(
+        metin,
+        style: SipText.metin(11, w: 700).copyWith(color: context.sip.muted),
+      );
+}
+
 /// CSS `.sdx-bos` — bölümün boş olduğunu söyleyen sönük tek satır.
 class SdxBos extends StatelessWidget {
   const SdxBos(this.metin, {super.key});
@@ -240,7 +279,7 @@ class _SerbestFormState extends State<_SerbestForm> {
         const SipFormEtiket('Açıklama', ustBosluk: 2),
         SipInput(
           controller: _ad,
-          ipucu: 'Ör. Nakliye, montaj, ek iş',
+          ipucu: 'Ör. nakliye, montaj, ek iş',
           otomatikOdak: true,
           hata: _adHata != null,
           onChanged: (_) {

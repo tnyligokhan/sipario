@@ -107,10 +107,11 @@ void main() {
           sahipAdi: 'Mehmet Usta',
           onMenu: () {},
           onSekme: (_) {},
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onArama: (_) {},
           onSiparisAc: (_) {},
           onBorclular: () {},
+          onBildirimler: () {},
         );
 
     testWidgets('kontrol YAPILMAMIŞKEN çip çizilmez', (tester) async {
@@ -164,10 +165,11 @@ void main() {
           sahipAdi: 'Bayi',
           onMenu: () {},
           onSekme: (_) {},
-          onYeniSiparis: () {},
+          onCagrilar: () {},
           onArama: (_) {},
           onSiparisAc: (_) {},
           onBorclular: () {},
+          onBildirimler: () {},
         ),
       );
 

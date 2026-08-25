@@ -39,7 +39,7 @@ const _ahmet = CagriKisi(
   ad: 'Ahmet Yılmaz',
   bakiyeKurus: 34000,
   adres: 'Cumhuriyet Mah. 5. Sk. No:12/4',
-  sonHareket: 'Son sipariş: Damacana 19 L ×2 · 10:24',
+  sonHareket: 'Son sipariş: Damacana 19 L ×2 (10:24)',
   sonSiparisDurumu: 'Yolda',
 );
 
@@ -160,9 +160,20 @@ void main() {
     // yani davranışla kilitlenemiyor. Argümanın silinmesi sessiz bir gerileme olurdu: kart yine
     // açılır, yalnız yanlış yönü yazar. Kaynak taraması bu deseni yakalayan tek ucuz kapı —
     // ekran metni taramalarıyla (mağaza-kuralı testleri) aynı gerekçe.
-    test('ayarlar_ekrani çağrı kartını AÇARKEN yönü geçirir', () {
-      final kaynak =
-          File('lib/screens/isletme/ayarlar_ekrani.dart').readAsStringSync();
+    // AKIŞ KABUĞA TAŞINDI (2026-08-13): çağrı geçmişinden kart açma mantığı ayarlar
+    // ekranından `HomeShell`e geçti (çağrı geçmişinin girişi artık çekmecede). Taranan dosya
+    // değişti, KORUNAN KURAL AYNI: yön geçilmezse kart "GELEN ÇAĞRI" varsayar ve bayi kendi
+    // yaptığı aramanın kartında gelen çağrı görür (2026-07-27 saha bulgusu).
+    // KABUK DÖRDE BÖLÜNDÜ (2026-08-17, 500 satır kuralı): çağrı yüzeyi
+    // `home_shell_cagri.dart`a taşındı. Tek dosya adı yazmak yerine kabuğun TÜM parçaları
+    // taranıyor — bir sonraki bölme bu testi yine kırmasın diye. Korunan kural değişmedi.
+    test('home_shell çağrı kartını AÇARKEN yönü geçirir', () {
+      final kaynak = Directory('lib/screens')
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.contains('home_shell'))
+          .map((f) => f.readAsStringSync())
+          .join('\n');
       final cagri = kaynak.indexOf('cagriKartiGoster(');
       expect(cagri, isNot(-1), reason: 'çağrı kartı bu ekrandan açılıyor olmalı');
 
@@ -180,7 +191,7 @@ void main() {
     testWidgets('durum rozeti son hareket satırının yanında görünür', (tester) async {
       await tester.pumpWidget(_kabuk(const CagriKarti(kisi: _ahmet)));
 
-      expect(find.text('Son sipariş: Damacana 19 L ×2 · 10:24'), findsOneWidget);
+      expect(find.text('Son sipariş: Damacana 19 L ×2 (10:24)'), findsOneWidget);
       expect(find.text('Yolda'), findsOneWidget);
     });
 
@@ -190,12 +201,12 @@ void main() {
           numara: '0532 415 22 90',
           musteriId: 'm1',
           ad: 'Defterli',
-          sonHareket: 'Son hareket: Elden borç · 10:24',
+          sonHareket: 'Son hareket: Elden borç (10:24)',
           sonHareketTuru: SonHareketTuru.defter,
         ),
       )));
 
-      expect(find.text('Son hareket: Elden borç · 10:24'), findsOneWidget);
+      expect(find.text('Son hareket: Elden borç (10:24)'), findsOneWidget);
       expect(find.text('Yolda'), findsNothing);
       expect(find.text('Teslim edildi'), findsNothing);
     });
@@ -240,7 +251,7 @@ void main() {
       await tester.pumpWidget(_kabuk(const CagriGunluguEkrani(aramalar: aramalar)));
 
       // Numara ve sonuç eskisi gibi tek metinde durur (yön ayrı bir metindir).
-      expect(find.text('0532 415 22 90 · Sipariş alındı'), findsOneWidget);
+      expect(find.text('0532 415 22 90, Sipariş alındı'), findsOneWidget);
       expect(find.text('0533 220 78 41'), findsOneWidget);
     });
   });

@@ -210,7 +210,7 @@ void main() {
     await formuAc(tester, db);
 
     for (final alan in ['Ad Soyad', 'Adres', 'Not']) {
-      expect(find.bySemanticsLabel('Sesle yaz · $alan'), findsOneWidget,
+      expect(find.bySemanticsLabel('Sesle yaz ($alan)'), findsOneWidget,
           reason: '$alan alanında mikrofon olmalı');
     }
     // Sesle rakam dikte etmek yanlış numara üretir ve arayan tanımayı kör eder — bilinçli yokluk.
@@ -236,11 +236,11 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'Ayşe');
     await tester.pump();
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Ad Soyad'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Ad Soyad)'));
     await kare(tester);
 
     // Kullanıcı dinlendiğini GÖRMELİ — sessiz mikrofon güven sorunudur.
-    expect(find.text('Dinleniyor… konuşun'), findsOneWidget);
+    expect(find.text('Dinleniyor, konuşun'), findsOneWidget);
     expect(ses.dinlemeSayisi, 1);
 
     ses.soyle('Kaya');
@@ -271,7 +271,7 @@ void main() {
     await tester.enterText(adres, 'eski yanlış adres');
     await tester.pump();
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Adres'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Adres)'));
     await kare(tester);
 
     ses.soyle('Atatürk caddesi', nihai: true);
@@ -297,7 +297,7 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Adres'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Adres)'));
     await kare(tester);
 
     ses.soyle('Atatürk caddesi', nihai: true);
@@ -307,7 +307,7 @@ void main() {
     // 1. duraklama: motor sessizlik sınırında KENDİ kapanır — kullanıcı düğmeye DOKUNMADI.
     ses.motorKendiKapandi();
     await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Dinleniyor… konuşun'), findsOneWidget,
+    expect(find.text('Dinleniyor, konuşun'), findsOneWidget,
         reason: 'kullanıcı kapatmadıkça düğme aktif kalmalı');
     expect(ses.dinlemeSayisi, 2, reason: 'motor yeniden başlatılmalı');
 
@@ -335,7 +335,7 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Not'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Not)'));
     await kare(tester);
 
     for (var i = 0; i < 9; i++) {
@@ -344,9 +344,9 @@ void main() {
     }
 
     expect(ses.dinlemeSayisi, 9, reason: '1 ilk oturum + 8 yenileme');
-    expect(find.text('Dinleniyor… konuşun'), findsNothing, reason: 'sınırda dinleme biter');
+    expect(find.text('Dinleniyor, konuşun'), findsNothing, reason: 'sınırda dinleme biter');
     // Sessizce sönen düğme, kullanıcının yazılmadığını sonradan fark etmesi demektir.
-    expect(find.text('Dinleme süresi doldu — devam etmek için mikrofona dokunun'),
+    expect(find.text('Dinleme süresi doldu. Devam etmek için mikrofona dokunun'),
         findsOneWidget);
 
     await kapat(tester);
@@ -356,16 +356,16 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Adres'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Adres)'));
     await kare(tester);
-    expect(find.text('Dinleniyor… konuşun'), findsOneWidget);
+    expect(find.text('Dinleniyor, konuşun'), findsOneWidget);
 
     // Dinlerken etiket "durdur"a döner — düğme kendi durumunu anlatır.
     await tester.tap(find.bySemanticsLabel('Dinlemeyi durdur'));
     await kare(tester);
 
     expect(ses.durdurmaSayisi, 1);
-    expect(find.text('Dinleniyor… konuşun'), findsNothing);
+    expect(find.text('Dinleniyor, konuşun'), findsNothing);
 
     // Kullanıcının kapattığı mikrofon KAPALI kalır: otomatik devam YALNIZ motorun kendi
     // kapanışında çalışır, kullanıcının kararını geri almaz.
@@ -379,14 +379,14 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Ad Soyad'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Ad Soyad)'));
     await kare(tester);
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Not'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Not)'));
     await kare(tester);
 
     expect(ses.durdurmaSayisi, 1, reason: 'önceki alan kapatılmalı');
     expect(ses.dinlemeSayisi, 2);
-    expect(find.text('Dinleniyor… konuşun'), findsOneWidget, reason: 'tek bant görünür');
+    expect(find.text('Dinleniyor, konuşun'), findsOneWidget, reason: 'tek bant görünür');
 
     await kapat(tester);
   });
@@ -405,10 +405,10 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    expect(find.bySemanticsLabel('Sesle yaz · Ad Soyad'), findsOneWidget,
+    expect(find.bySemanticsLabel('Sesle yaz (Ad Soyad)'), findsOneWidget,
         reason: 'pasif ≠ gizli (Oto Sırala / Ara düğmeleriyle aynı desen)');
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Ad Soyad'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Ad Soyad)'));
     await kare(tester);
 
     expect(find.text('Mikrofon izni verilmedi — telefon ayarlarından açın'), findsOneWidget);
@@ -423,14 +423,14 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Adres'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Adres)'));
     await kare(tester);
     ses.hataylaBitir('Ses tanıma için internet gerekiyor — çevrimdışıyken elle yazın');
     await kare(tester);
 
     expect(find.text('Ses tanıma için internet gerekiyor — çevrimdışıyken elle yazın'),
         findsOneWidget);
-    expect(find.text('Dinleniyor… konuşun'), findsNothing);
+    expect(find.text('Dinleniyor, konuşun'), findsNothing);
 
     await kapat(tester);
   });
@@ -440,7 +440,7 @@ void main() {
     final db = AppDatabase(NativeDatabase.memory());
     await formuAc(tester, db);
 
-    await tester.tap(find.bySemanticsLabel('Sesle yaz · Ad Soyad'));
+    await tester.tap(find.bySemanticsLabel('Sesle yaz (Ad Soyad)'));
     await kare(tester);
 
     await tester.pumpWidget(const SizedBox.shrink());

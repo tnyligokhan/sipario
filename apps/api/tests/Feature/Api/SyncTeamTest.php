@@ -11,12 +11,15 @@ use Tests\Feature\Api\Concerns\BuildsSyncEvents;
 /**
  * 4b Dilim 4 — sync yanıtındaki `team` bloğu (K1). Bayinin kullanıcıları mobil önbelleğe iner
  * (atama hedefi + atanan kurye adı çözümü). İki güvence sürekli kanıtlanır:
- *  - PII ASGARİ (kırmızı çizgi #4): yalnız {id,name,role,status,phone,username} — e-posta, PAROLA
- *    ve last_login_at SIZMAZ. `phone` tasarım gereği (Kuryeler ekranı) eklendi: bayinin KENDİ
- *    personel iletişim bilgisidir. `username` de 2026-08-04'te eklendi (patron kuryenin giriş
- *    adını görüp düzenleyebilsin) — kullanıcı adı bir sır değildir, patron onu kuryeye zaten
- *    kendisi söyler. Kimlik yüzeyinin GİZLİ yarısı (e-posta, parola hash'i) hâlâ payload dışında;
- *    parola hiçbir yönde OKUNMAZ, yalnız yazılır (`/team/{id}/credentials`).
+ *  - PII ASGARİ (kırmızı çizgi #4): yalnız {id,name,role,status,phone,username} + 13 kişiye özel
+ *    kurye yetkisi — e-posta, PAROLA ve last_login_at SIZMAZ. `phone` tasarım gereği (Kuryeler
+ *    ekranı) eklendi: bayinin KENDİ personel iletişim bilgisidir. `username` de 2026-08-04'te
+ *    eklendi (patron kuryenin giriş adını görüp düzenleyebilsin) — kullanıcı adı bir sır değildir,
+ *    patron onu kuryeye zaten kendisi söyler. Yetki alanları 2026-08-10'da eklendi (migration
+ *    004008): PII DEĞİLLER, bayinin KENDİ yapılandırmasıdır ve her cihaz kendi yetkisini yalnız
+ *    bu bloktan öğrenebilir (`users` senkron delta günlüğünde hiç yer almaz). Kimlik yüzeyinin
+ *    GİZLİ yarısı (e-posta, parola hash'i) hâlâ payload dışında; parola hiçbir yönde OKUNMAZ,
+ *    yalnız yazılır (`/team/{id}/credentials`).
  *  - KİRACI İZOLASYONU (kırmızı çizgi #1): A'nın team'inde B'nin hiçbir kullanıcısı YOK (RLS).
  */
 class SyncTeamTest extends ApiTestCase
@@ -38,13 +41,16 @@ class SyncTeamTest extends ApiTestCase
             array_column($team, 'role')
         );
 
-        // PII kanıtı: her eleman TAM OLARAK {id,name,role,status,phone,username} — başka anahtar
-        // yok. Bu katı eşitlik kasıtlıdır: yeni bir kolon payload'a sızarsa test kırmızı yanar.
+        // PII kanıtı: her eleman TAM OLARAK {id,name,role,status,phone,username} + 13 kurye yetkisi
+        // — başka anahtar yok. Bu katı eşitlik kasıtlıdır: yeni bir kolon payload'a sızarsa test
+        // kırmızı yanar. Yetki listesi tek doğru kaynaktan TÜRETİLİR (elle sayılsaydı bu bekçi
+        // listenin kendisinden bağımsız bir üçüncü kopya olurdu).
+        $beklenen = array_merge(
+            ['id', 'name', 'role', 'status', 'phone', 'username'],
+            User::kuryeIzinKolonlari(),
+        );
         foreach ($team as $member) {
-            $this->assertEqualsCanonicalizing(
-                ['id', 'name', 'role', 'status', 'phone', 'username'],
-                array_keys($member)
-            );
+            $this->assertEqualsCanonicalizing($beklenen, array_keys($member));
             $this->assertArrayNotHasKey('password', $member);
             $this->assertArrayNotHasKey('email', $member);
             $this->assertArrayNotHasKey('password', $member);

@@ -5,9 +5,13 @@ name: Manifest Lint (Kırmızı Çizgi #6)
 # AndroidManifest.xml'imizde bir yasaklı SMS/Call Log izni plain beyan edilirse (tools:node="remove"
 # olmadan) ya da READ_CONTACTS / CallScreeningService düşerse build'i kırar.
 #
-# NOT: 3. parti paketlerin manifest-merger ile enjekte ettiği izinler yalnız BİRLEŞTİRİLMİŞ manifest'te
-# görünür; onu scripts/check_permissions.sh (build sonrası) denetler ve tam mobil CI kurulunca (partnerin
-# Flutter'lı makinesi / codegen işiyle birlikte) eklenir. Bu workflow o gelene dek tek otomatik bekçidir.
+# İKİNCİ KATMAN ARTIK BAĞLI (2026-08-17): 3. parti paketlerin manifest-merger ile enjekte ettiği izinler
+# yalnız BİRLEŞTİRİLMİŞ manifest'te görünür ve onları `scripts/check_permissions.sh` denetler. O betik
+# aylarca YAZILI AMA ÇAĞRILMAMIŞ durdu; şimdi `mobil-apk.yml` içinde APK derlemesinden sonra koşuyor ve
+# `magaza` kanalının manifest'ini de ayrıca üretip denetliyor (o kanal hiçbir dalda derlenmiyor).
+#
+# BU WORKFLOW YİNE DE GEREKLİ: build'siz, saniyeler sürüyor ve mobil derleme hiç başlamadan PR'da
+# kırmızı yakıyor. İkisi farklı soruyu soruyor — burası "biz mi yazdık?", öteki "birleşince ne oldu?".
 
 on:
   push:

@@ -17,12 +17,14 @@ use App\Livewire\Site\Parola;
 use App\Livewire\Site\ParolaYenile;
 use App\Livewire\Site\Register;
 use App\Livewire\Site\Subscribe;
+use App\Models\AdminUser;
 use App\Panel\Csv;
 use App\Panel\PanelCsvExportService;
 use App\Panel\PanelExportService;
 use App\Panel\PanelImportService;
 use App\Panel\TenantAdminService;
 use App\Payment\SubscriptionService;
+use App\Yedek\YedekArsivi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -38,6 +40,84 @@ Route::view('ozellikler', 'site.ozellikler')->name('site.ozellikler');
 Route::view('fiyatlar', 'site.fiyatlar')->name('site.fiyatlar');
 Route::view('destek', 'site.destek')->name('site.destek');
 Route::view('iletisim', 'site.iletisim')->name('site.iletisim');
+
+/*
+ * "Biz kimiz" (2026-08-19). Tasarım kaynağında yoktu ve eksikliği ölçülebilirdi: site yıllık
+ * dört haneli bir ödeme istiyor ama arkasında kimin olduğunu hiçbir yerde söylemiyordu.
+ * Boşluk bu vardiyada BÜYÜDÜ — uydurma müşteri yorumları kaldırıldı ve yerlerine gerçek
+ * referans konamadı (ürün pilotta, izin alınmış yorum yok). Sayfa o güven boşluğunu sahte
+ * olmayan bir şeyle dolduruyor.
+ */
+Route::view('hakkimizda', 'site.hakkimizda')->name('site.hakkimizda');
+
+/*
+ * ── ARAMA MOTORU + YAPAY ZEKÂ KEŞİF DOSYALARI (2026-08-19) ──────────────────────────────────
+ *
+ * `robots.txt` BURADA DEĞİL: o statik bir dosyadır (public/robots.txt) ve web sunucusu onu
+ * Laravel'e hiç uğratmadan döndürür — rota yazmak ölü kod olurdu. Aşağıdaki ikisi ise
+ * ÜRETİLMESİ gereken dosyalar: sayfa listesi ve hukuk belgeleri config'ten geliyor, elle
+ * yazılan bir kopya ilk belge eklendiğinde bayatlardı.
+ *
+ * Rotaların `tenant` middleware'i YOK ve olmamalı — içerik kiracıdan bağımsız, üstelik her
+ * bot isteğine bir DB transaction'ı bindirmek boşuna maliyet (aynı gerekçe genel site
+ * sayfaları için de geçerli; bkz. components/layouts/site.blade.php başlığı).
+ */
+Route::get('sitemap.xml', function () {
+    /*
+     * Sayfa → değişim sıklığı + öncelik. `lastmod` BİLEREK YOK: doğru bir lastmod ancak
+     * içeriğin gerçekten ne zaman değiştiği biliniyorsa verilebilir. `now()` basmak her tarama
+     * turunda "her sayfa bugün değişti" demek olurdu ve Google bunu fark edip lastmod'a
+     * tamamen güvenmeyi bırakır — yanlış sinyal, hiç sinyal vermemekten kötüdür.
+     */
+    $sayfalar = [
+        ['site.ana', 'weekly', '1.0'],
+        ['site.ozellikler', 'monthly', '0.9'],
+        ['site.destek', 'monthly', '0.7'],
+        ['site.hakkimizda', 'yearly', '0.6'],
+        ['site.iletisim', 'monthly', '0.6'],
+        ['account.deletion', 'yearly', '0.3'],
+    ];
+
+    $adresler = [];
+
+    foreach ($sayfalar as [$ad, $siklik, $oncelik]) {
+        $adresler[] = ['loc' => route($ad), 'changefreq' => $siklik, 'priority' => $oncelik];
+    }
+
+    /*
+     * Hukuk belgeleri haritadan gelir — yeni bir belge eklendiğinde site haritasına elle
+     * eklenmesi gerekmez. Bu sayfalar dizine AÇIKTIR ve açık kalmalı: "sipario kvkk",
+     * "sipario iptal" aramaları gerçek ve bu sayfalar o aramanın doğru cevabı.
+     */
+    foreach (array_keys((array) config('subscription.legal_docs')) as $slug) {
+        $adresler[] = ['loc' => route('legal.show', $slug), 'changefreq' => 'yearly', 'priority' => '0.4'];
+    }
+
+    // `/fiyatlar` BİLEREK YOK: sayfa `noindex` (2026-08-05 kararı). Site haritasına koyup
+    // aynı sayfaya noindex vermek Google'a çelişkili iki sinyal göndermektir.
+
+    return response()
+        ->view('seo.sitemap', ['adresler' => $adresler])
+        ->header('Content-Type', 'application/xml; charset=utf-8');
+})->name('seo.sitemap');
+
+/*
+ * llms.txt — yapay zekâ araçlarına sitenin ne olduğunu ve hangi sayfanın neyi anlattığını
+ * anlatan düz metin özet (llmstxt.org önerisi).
+ *
+ * NEDEN: bu ürün hakkında bir dil modeline soru sorulduğunda, model sayfaları tek tek
+ * tarayıp çıkarım yapmak yerine burayı okur. Bir SaaS için bu artık markdown bir "hakkımızda"
+ * kadar sıradan bir dosyadır ve maliyeti bir rotadır.
+ *
+ * ⚠️ İÇERİK PAZARLAMA DİLİ TAŞIMAZ. Modeli ikna etmeye çalışan bir metin, modelin ürünü
+ * yanlış anlatmasına yol açar. Burada yalnız DOĞRULANABİLİR olgular var — ne yapar, ne
+ * yapmaz, hangi platformda çalışır, fiyat nereden okunur.
+ */
+Route::get('llms.txt', function () {
+    return response()
+        ->view('seo.llms')
+        ->header('Content-Type', 'text/plain; charset=utf-8');
+})->name('seo.llms');
 
 /*
  * Public abonelik/ödeme sitesi (Faz 5b) — WEB, mağaza kuralı gereği mobil DIŞI. auth YOK; üyelik
@@ -203,5 +283,40 @@ Route::prefix('panel')->group(function () {
          */
         Route::get('denetim', AuditLog::class)->name('panel.audit');
         Route::get('yoneticiler', AdminUsers::class)->name('panel.admins');
+
+        /*
+         * VERİTABANI YEDEĞİ İNDİRME — panelin EN YÜKSEK riskli çıkışı.
+         *
+         * Yukarıdaki export route'ları TEK bayinin verisini verir; bu route TÜM bayilerin
+         * TÜM verisini tek dosyada verir. Bu yüzden üç fark taşır:
+         *
+         *  1. YALNIZ SUPERADMIN. `support` rolü bayi destekler, veritabanı taşımaz. Kapı
+         *     route'un İÇİNDEdir — `auth:admin` middleware'i yalnız "giriş yapmış mı"
+         *     sorusunu cevaplar, "hangi rol" sorusunu değil.
+         *  2. Dosya adı KULLANICIDAN gelir; `YedekArsivi::coz()` onu üç kapıdan geçirir
+         *     (basename → desen → realpath ön eki). Buraya `file_get_contents($dosya)`
+         *     yazmak, container'ın tüm dosya sistemini panele açardı.
+         *  3. Her indirme `panel_audit`e düşer. İz olmadan bu route'un varlığı,
+         *     "veriyi kim ne zaman aldı" sorusunu cevapsız bırakırdı.
+         *
+         * Bağlantı günlük e-posta ile gelir (`yedek:baglanti-gonder`). İmzalı-link
+         * (`temporarySignedRoute`) BİLEREK kullanılmadı: e-posta kutusu ele geçen biri,
+         * imzalı bağlantıyla veritabanının tamamını indirirdi.
+         */
+        Route::get('yedek/{dosya}', function (string $dosya, TenantAdminService $admin) {
+            $yonetici = Auth::guard('admin')->user();
+
+            abort_unless($yonetici instanceof AdminUser && $yonetici->isSuperadmin(), 403);
+
+            $yol = YedekArsivi::varsayilan()->coz($dosya);
+
+            abort_if($yol === null, 404);
+
+            $admin->auditYedekIndirme((string) $yonetici->id, basename($yol));
+
+            return response()->download($yol, basename($yol), [
+                'Content-Type' => 'application/gzip',
+            ]);
+        })->name('panel.yedek.indir');
     });
 });

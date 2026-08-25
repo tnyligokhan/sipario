@@ -25,7 +25,7 @@ use Illuminate\Support\Carbon;
  */
 class ExemptNumber extends Model
 {
-    use HasUuids;
+    use HasUuids, MikrosaniyeliDamga;
 
     protected $fillable = [
         'id',

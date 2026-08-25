@@ -9,6 +9,7 @@ import '../../data/app_database.dart';
 import '../../sync/yenileme.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
+import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
@@ -26,8 +27,12 @@ const String kTumKuryeler = '__tumu__';
 /// `watchAktifKuryeler` (team.dart) YALNIZ `role = 'kurye'` döner; kullanıcının açık notu ise
 /// "patronun kendisi de aslında bir kurye olarak görünmeli" — tek/iki kişilik bayide teslimatı
 /// patron yapar ve siparişler ona atanır. Bu yüzden süzgeç adayları aktif patron/operator/kurye
-/// kullanıcılarının HEPSİDİR; ATAMA sorgusu (kurye seçme sheet'i) DEĞİŞMEDİ — orada hâlâ yalnız
-/// kuryeler var, bu yalnız GÖRÜNTÜLEME süzgecidir.
+/// kullanıcılarının HEPSİDİR.
+///
+/// ATAMA SORGUSU DA ARTIK AYNI KÜMEYE BAKIYOR (2026-08-20, `watchAtamaHedefleri`): bu doc bir
+/// tur boyunca "atama hâlâ yalnız kuryeler" diyordu ve o cümle artık yanlış. İki sorgu ayrı
+/// duruyor çünkü biri PASİFLERİ de kapsayabilecek bir görüntüleme süzgeci, öteki bir yazma
+/// hedefidir; ama ikisi de rolle sınırlı değildir.
 Stream<List<User>> watchKuryeSuzgecAdaylari(AppDatabase db) => (db.select(db.users)
       ..where((t) => t.status.equals('active'))
       ..where((t) => t.role.isIn(const ['kurye', 'patron', 'operator']))
@@ -65,6 +70,131 @@ String kuryeSuzgecEtiketi(String? seciliId, List<User> adaylar) {
 bool tutamacSagdaTercihi = true;
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
+// Gövde — yedi akış tek listede birleşir
+// ═══════════════════════════════════════════════════════════════════════════════════════════
+
+/// Sipariş akışını YARDIMCI akışlarla (ekip · satırlar · tahsilatlar · kod tercihi · adresler ·
+/// telefonlar) birleştirip [SiparisListesi]ye verir.
+///
+/// NEDEN STATEFUL: yardımcı akışlar `late final` alanlarda BİR KEZ kurulur. `build` içinde
+/// kurulsalardı her `setState`te yeni birer Stream nesnesi doğar, StreamBuilder aboneliği
+/// koparır ve liste bir kare iskelete inerdi (ekranda ödenen ders; sipariş akışının önbelleği
+/// de aynı sebeple var). Widget yeniden kurulsa da State aynı kaldığı için alanlar korunur.
+///
+/// Sipariş akışı DIŞARIDAN gelir ([siparisler]): filtre/kurye/gün değişince onu yeniden kurmak
+/// ekranın işidir — kapsamı bilen odur.
+class SiparisListesiGovdesi extends StatefulWidget {
+  const SiparisListesiGovdesi({
+    super.key,
+    required this.db,
+    required this.siparisler,
+    required this.sirala,
+    required this.bos,
+    required this.elle,
+    required this.tutamacSagda,
+    required this.onAc,
+    required this.onKuryeAc,
+    required this.onBildir,
+    required this.onSirala,
+    required this.onTekrar,
+    this.onTeslim,
+  });
+
+  final AppDatabase db;
+
+  /// Filtre/kurye/gün kapsamındaki sipariş akışı — ekran önbellekler.
+  final Stream<List<OrderListItem>> siparisler;
+
+  /// Ham listeyi seçili kipe göre sıralar (`siparisleriSirala` + elle sırası) — kip ve sürükleme
+  /// sırası ekranın durumudur, bu yüzden karar dışarıda verilir.
+  final List<OrderListItem> Function(List<OrderListItem> ham) sirala;
+
+  /// Boş durum. Metni ekran kurar: süzgece ve sekmeye bağlıdır.
+  final Widget bos;
+
+  final bool elle;
+  final bool tutamacSagda;
+  final void Function(OrderListItem) onAc;
+  final void Function(OrderListItem)? onKuryeAc;
+  final void Function(String mesaj) onBildir;
+  final Future<void> Function(List<OrderListItem>) onSirala;
+
+  /// "Tekrar dene" — ekran akışı YENİDEN KURMALI (önbellekli akışa boş bir setState ile geri
+  /// abone olmak aynı ölü akışa dönmek olurdu; düğme hiçbir şey yapmazdı).
+  final VoidCallback onTekrar;
+
+  /// Satırın "Teslim" düğmesi — akışı EKRAN yürütür (yetki okuma, sheet, toast oradadır).
+  final void Function(OrderListItem)? onTeslim;
+
+  @override
+  State<SiparisListesiGovdesi> createState() => _SiparisListesiGovdesiState();
+}
+
+class _SiparisListesiGovdesiState extends State<SiparisListesiGovdesi> {
+  late final Stream<List<User>> _ekip = watchTeam(widget.db);
+  late final Stream<Map<String, List<OrderLine>>> _satirlar =
+      watchOrderLinesByOrder(widget.db);
+  late final Stream<Map<String, int>> _tahsilatlar = watchSiparisTahsilatlari(widget.db);
+  late final Stream<String> _kodTercihi = watchSiparisKoduTercihi(widget.db);
+  late final Stream<Map<String, AdresBilgi>> _adresler = watchBirincilAdresler(widget.db);
+  late final Stream<Map<String, String>> _telefonlar = watchBirincilTelefonlar(widget.db);
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<User>>(
+      stream: _ekip,
+      initialData: const [],
+      builder: (context, ekipSnap) => StreamBuilder<Map<String, List<OrderLine>>>(
+        stream: _satirlar,
+        initialData: const {},
+        builder: (context, satirSnap) => StreamBuilder<String>(
+          stream: _kodTercihi,
+          initialData: 'musteri',
+          builder: (context, kodSnap) => StreamBuilder<Map<String, int>>(
+            stream: _tahsilatlar,
+            initialData: const {},
+            builder: (context, tahsilatSnap) => StreamBuilder<Map<String, AdresBilgi>>(
+              stream: _adresler,
+              initialData: const {},
+              builder: (context, adresSnap) => StreamBuilder<Map<String, String>>(
+                stream: _telefonlar,
+                initialData: const {},
+                builder: (context, telSnap) => StreamBuilder<List<OrderListItem>>(
+                  stream: widget.siparisler,
+                  builder: (context, snap) {
+                    if (snap.hasError) return SipHataEkran(onTekrar: widget.onTekrar);
+                    final ham = snap.data;
+                    if (ham == null) return const SipIskelet(adet: 4);
+                    if (ham.isEmpty) return widget.bos;
+
+                    return SiparisListesi(
+                      liste: widget.sirala(ham),
+                      satirlar: satirSnap.data ?? const {},
+                      tahsilatlar: tahsilatSnap.data ?? const {},
+                      kodTercihi: kodSnap.data ?? 'musteri',
+                      adresler: adresSnap.data ?? const {},
+                      telefonlar: telSnap.data ?? const {},
+                      ekip: ekipSnap.data ?? const [],
+                      elle: widget.elle,
+                      tutamacSagda: widget.tutamacSagda,
+                      onAc: widget.onAc,
+                      onKuryeAc: widget.onKuryeAc,
+                      onBildir: widget.onBildir,
+                      onSirala: widget.onSirala,
+                      onTeslim: widget.onTeslim,
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════
 // Liste — CSS `.sliste`
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 
@@ -86,6 +216,7 @@ class SiparisListesi extends StatelessWidget {
     required this.onKuryeAc,
     required this.onBildir,
     required this.onSirala,
+    this.onTeslim,
   });
 
   final List<OrderListItem> liste;
@@ -107,6 +238,9 @@ class SiparisListesi extends StatelessWidget {
   final ValueChanged<OrderListItem>? onKuryeAc;
   final ValueChanged<String> onBildir;
   final ValueChanged<List<OrderListItem>> onSirala;
+
+  /// Satırın "Teslim" düğmesi. `null` = salt-okunur kip (düğme hiç çizilmez).
+  final ValueChanged<OrderListItem>? onTeslim;
 
   static const _dolgu = EdgeInsets.fromLTRB(SipSpace.govde, 0, SipSpace.govde, 96);
 
@@ -133,6 +267,7 @@ class SiparisListesi extends StatelessWidget {
         onAc: () => onAc(item),
         onKuryeAc: onKuryeAc == null ? null : () => onKuryeAc!(item),
         onBildir: onBildir,
+        onTeslim: onTeslim == null ? null : () => onTeslim!(item),
       ),
     );
   }
@@ -199,7 +334,7 @@ class ElleBant extends StatelessWidget {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  'Tutamaçtan sürükleyip bırak, bitince “Bitti”ye bas.',
+                  'Tutamaçtan sürükleyip bırakın, bitince "Bitti"ye dokunun',
                   style: SipText.metin(12, w: 600).copyWith(color: t.accent),
                 ),
               ),

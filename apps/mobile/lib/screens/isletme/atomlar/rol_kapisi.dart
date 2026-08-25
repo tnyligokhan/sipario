@@ -10,6 +10,13 @@ import '../../../theme/typography.dart';
 
 /// Kurye rolü Ürünler / Kuryeler / Muaf telefonlar ekranlarını GÖREMEZ. Çekmece bu girişleri
 /// zaten gizler; bu ekranın doğrudan (derin bağlantı, geri yığını) açılmasına karşı ikinci kapı.
+///
+/// ⚠️ KAPIYI SARAN DÖRT EKRANDA `rol` ZORUNLU ALANDIR (2026-08-18) ve bu bilinçlidir: kapı bir
+/// İZİN LİSTESİ olduğu için bilinmeyen rolde KAPANIR, `rol` geçilmeyen bir çağrı da null
+/// gönderir — yani "unutmak", ekranı HERKESE kapatmak demektir. Tam olarak bu yaşandı: çekmece
+/// `KuryelerEkrani`ye `rol` geçmiyordu ve PATRON kendi kuryelerini yönetemiyordu. Kapının kendi
+/// testleri yeşildi, çünkü kırık olan kapı değil BAĞLANTIYDI. Alanı zorunlu yapmak o bağlantıyı
+/// derleyicinin sorumluluğuna verir — yeni bir giriş noktası eklendiğinde derlenmez.
 class YoneticiKapisi extends StatelessWidget {
   const YoneticiKapisi({super.key, required this.rol, required this.child, this.baslik});
 
@@ -19,7 +26,21 @@ class YoneticiKapisi extends StatelessWidget {
   /// Kapı kapalıyken üstte gösterilecek başlık.
   final String? baslik;
 
-  bool get acik => rol != 'kurye';
+  /// Kapı YALNIZ tanınan yönetici rollerine açılır — İZİN LİSTESİ, yasak listesi değil.
+  ///
+  /// ⚠️ ESKİDEN `rol != 'kurye'` YAZIYORDU ve bu, kapının kendi varlık sebebini deliyordu:
+  /// `rol` null iken (oturum açıldı ama ilk senkron henüz inmedi) ya da sunucu ileride yeni bir
+  /// rol adı gönderdiğinde kapı AÇILIYORDU. Oysa aynı soruya cevap veren `yetkiler(rol: null)`
+  /// EN DAR kümeyi (kurye) veriyor — iki kural aynı soruya ters cevap veriyordu.
+  ///
+  /// Açık üretmesi çekmecenin de aynı `rol == 'kurye'` ölçütünü kullanmasıyla engelleniyordu,
+  /// ama kapı tam olarak "ÇEKMECE ATLANDIĞINDA" (derin bağlantı, geri yığını) korumak için var;
+  /// yani korumasının gerektiği tek senaryoda korumuyordu.
+  ///
+  /// Deponun yazılı ilkesi uygulandı (bkz. `day_end_screen.dart` — `_kapsamsizKurye`):
+  /// **belirsizlikte AÇILAN değil KAPANAN taraf seçilir.** Tanınmayan/eksik rol artık kapalıdır;
+  /// rol indiğinde ekran zaten yeniden çizilir.
+  bool get acik => rol == 'patron' || rol == 'operator';
 
   @override
   Widget build(BuildContext context) {
@@ -94,13 +115,13 @@ class KapaliKapiMetni extends StatelessWidget {
           ),
           const SizedBox(height: SipSpace.x3),
           Text(
-            'Bu ekran yöneticilere açık',
+            'Bu ekran size kapalı',
             style: SipText.bosBaslik.copyWith(color: t.ink),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: SipSpace.sm),
           Text(
-            'Kurye hesabıyla ürün, kurye ve muaf numara yönetimi görülemez.',
+            'Açtırmak için işletme yöneticinizle görüşün',
             style: SipText.bosAciklama.copyWith(color: t.muted),
             textAlign: TextAlign.center,
           ),

@@ -33,6 +33,9 @@ use InvalidArgumentException;
  */
 class ChangeApplier
 {
+    /** Push'u YAPAN oturum kullanıcısı; yalnız `user_profile` yetki kapısı okur (ProfileChangeApplier). */
+    public function __construct(private readonly User $aktor) {}
+
     /**
      * LWW ile yönetilen basit varlıklar (upsert/delete). exempt_number ve call_log tasarım
      * boşluğundan gelir (muaf numaralar / çağrı günlüğü): ikisi de düzenlenebilir varlıktır,
@@ -71,7 +74,7 @@ class ChangeApplier
             'order' => (new OrderChangeApplier)->apply($tenantId, $event),
             'ledger' => $this->applyLedger($tenantId, $event),
             'cash_handover' => (new CashHandoverChangeApplier)->apply($tenantId, $event),
-            'tenant_settings', 'user_profile' => (new ProfileChangeApplier)->apply($tenantId, $event),
+            'tenant_settings', 'user_profile' => (new ProfileChangeApplier($this->aktor))->apply($tenantId, $event),
             'day_closing' => (new DayClosingChangeApplier)->apply($tenantId, $event),
             default => throw new InvalidArgumentException("Bilinmeyen entity_type: {$type}"),
         };
@@ -238,6 +241,21 @@ class ChangeApplier
                 // hâliyle, `blacklisted_at`i bilmeyen bir build (2026-08-01 öncesi) müşterinin
                 // adını düzeltince kara listeyi sessizce kaldırıyordu.
                 'blacklisted_at' => SyncPayload::zaman($p['blacklisted_at'] ?? null),
+                // FAVORİ ÜRÜNLER (kullanıcı isteği 2026-08-11): sık alınan ürünlerin kimlik listesi;
+                // sipariş ekranında hızlı seçim. Ayrı bir senkron varlığı DEĞİL, müşterinin bir
+                // ALANI (lead kararı — gerekçe migration 004010'da). `blacklisted_at` ile aynı
+                // sözleşme: anahtar VARSA yazılır (null = "favorisi yok"), anahtar HİÇ YOKSA
+                // mevcut liste KORUNUR (SyncPayload::gonderilenler). Bu koruma pazarlıksız —
+                // alanı bilmeyen sahadaki bir build müşterinin adını düzeltirken listeyi silerdi
+                // ve bunu kimse görmezdi (2026-08-05'te iki kez yaşanan sınıf).
+                // Biçim/tekillik/sayı kuralları FavoriUrunler'da (bu sınıf 500 satır sınırında).
+                'favorite_product_ids' => FavoriUrunler::dogrula($p['favorite_product_ids'] ?? null),
+                // ÜRÜN TERCİHLERİ (kullanıcı isteği 2026-08-18): "her seferinde sormak
+                // istemeyebilir" — bu müşterinin hangi üründe neyi istemediği. Favori listesiyle
+                // AYNI sözleşme: anahtar VARSA yazılır (null = tercih yok), anahtar HİÇ YOKSA
+                // mevcut değer KORUNUR. Koruma pazarlıksız — alanı bilmeyen bir build müşterinin
+                // adını düzeltirken bütün tercihlerini silerdi ve bunu kimse görmezdi.
+                'product_options' => UrunSecenekleri::tercihler($p['product_options'] ?? null),
             ],
             'customer_phone' => [
                 'customer_id' => SyncPayload::req($p, 'customer_id'),
@@ -264,6 +282,10 @@ class ChangeApplier
                 'barcode' => $p['barcode'] ?? null,
                 'image_url' => $p['image_url'] ?? null,
                 'is_active' => (bool) ($p['is_active'] ?? true),
+                // SEÇENEK LİSTESİ (2026-08-18) — ürünün içindekileri + eklenebilir ekstralar.
+                // Biçim/tekillik/sayı/fiyat kuralları UrunSecenekleri'nde (bu sınıf 500 satır
+                // sınırında ve FavoriUrunler ile aynı gerekçeyle ayrıldı).
+                'options' => UrunSecenekleri::liste($p['options'] ?? null),
             ],
             'exempt_number' => [
                 'phone_e164' => SyncPayload::req($p, 'phone_e164'),
@@ -277,6 +299,17 @@ class ChangeApplier
                 'direction' => self::direction($p),
                 'outcome' => $p['outcome'] ?? null,
                 'related_order_id' => $p['related_order_id'] ?? null,
+                // ÇAĞRIYI KİM KARŞILADI (2026-08-13). `device_id` CİHAZI anlatır, kişiyi değil.
+                //
+                // ⚠️ BU SATIR OLMADAN ALAN SESSİZCE DÜŞER: `simpleColumns` açık bir BEYAZ
+                // LİSTEDİR — payload'da olsa bile burada adı geçmeyen anahtar yazılmaz. İlk
+                // denemede migration, model `$fillable`'ı ve istemci tarafı hazırdı ama bu satır
+                // eksikti; sonuç "applied" dönüyor, kolon NULL kalıyordu. Dahası, değer düştüğü
+                // için ÇAPRAZ BAYİ KORUMASI da devreye girmiyordu: başka bayinin kullanıcısına
+                // atıf yazan olay reddedilmesi gerekirken kabul ediliyor gibi görünüyordu
+                // (bileşik FK ancak DEĞER yazıldığında tetiklenir). Beyaz listeye eklemek
+                // yalnız bir özelliği değil, o özelliğin güvenlik kapısını da açar.
+                'user_id' => $p['user_id'] ?? null,
                 // Çağrının GERÇEKLEŞTİĞİ an; LWW'nin updated_occurred_at'inden ayrıdır (sonuç sonradan
                 // yazılınca LWW damgası ilerler ama çağrı saati sabit kalmalı).
                 'occurred_at' => SyncPayload::zaman((string) ($p['occurred_at'] ?? $event['occurred_at'] ?? '')),
@@ -350,9 +383,13 @@ class ChangeApplier
         $entryType = (string) SyncPayload::req($payload, 'entry_type');
         $amount = (int) SyncPayload::req($payload, 'amount_kurus');
         $paymentType = isset($payload['payment_type']) ? (string) $payload['payment_type'] : null;
-        $this->validateLedgerEntry($entryType, $amount, $paymentType);
-
         $customerId = isset($payload['customer_id']) ? (string) $payload['customer_id'] : null;
+        // reverses_entry_id BURADA ÇÖZÜLÜR (aşağıdaki RLS aramasından ÖNCE): gider iptalinin
+        // işaret kuralı ona bakıyor ve doğrulama, veritabanına gitmeden yapılabilecek her şeyi
+        // önce yapmalı — geçersiz bir yük için sorgu açmak gereksiz.
+        $reversesEntryId = isset($payload['reverses_entry_id']) ? (string) $payload['reverses_entry_id'] : null;
+        $this->validateLedgerEntry($entryType, $amount, $paymentType, $customerId, $reversesEntryId);
+
         if ($customerId !== null && ! Customer::query()->whereKey($customerId)->exists()) {
             throw new InvalidArgumentException('customer_id bu bayide bulunamadı');
         }
@@ -368,10 +405,25 @@ class ChangeApplier
         // Satırın KENDİSİ çekiliyor (`exists()` değil): aşağıdaki atıf kapısı ters çevrilen kaydın
         // `collected_by_user_id`sini karşılaştırmak zorunda. Sorgu RLS altında koştuğu için
         // bulunamama hem "yok" hem "başka bayinin" hâlini kapsar.
-        $reversesEntryId = isset($payload['reverses_entry_id']) ? (string) $payload['reverses_entry_id'] : null;
         $reversed = $reversesEntryId === null ? null : LedgerEntry::query()->find($reversesEntryId);
         if ($reversesEntryId !== null && $reversed === null) {
             throw new InvalidArgumentException('reverses_entry_id bu bayide bulunamadı');
+        }
+
+        // GİDER İPTALİ, GİDERDEN BAŞKA BİR ŞEYİ GERİ ALAMAZ ve tutarı orijinalin TAM TERSİ
+        // olmalıdır (2026-08-25). İkisi de kasa aritmetiğini korur: serbest bırakılsaydı bir
+        // "iptal" satırı, geri aldığı giderden büyük bir tutarla kasaya para EKLEYEBİLİRDİ ve
+        // kayıt append-only olduğu için düzeltmesi ancak üçüncü bir satırla olurdu.
+        //
+        // ÇİFT İPTAL burada DEĞİL, kısmi unique indekste kapanır: iki çevrimdışı cihaz aynı
+        // gideri iptal ettiğinde ikisi de bu kapıdan geçer, ama ikincisi indekse takılır.
+        if ($entryType === 'expense' && $reversed !== null) {
+            if ($reversed->entry_type !== 'expense') {
+                throw new InvalidArgumentException('gider iptali yalnız bir gideri geri alabilir');
+            }
+            if ($amount !== -((int) $reversed->amount_kurus)) {
+                throw new InvalidArgumentException('gider iptali, iptal ettiği tutarın tam tersi olmalı');
+            }
         }
 
         // collected_by_user_id (FAZ 4): tahsilatı KİM aldı — kasa devri mutabakatının dayanağı.
@@ -446,12 +498,33 @@ class ChangeApplier
      * discount = KAPIDA KIRILAN tutar (2026-07-30). Borcu payment gibi düşürür ama kasaya HİÇ
      * girmez; payment_type yasağı bunun teminatıdır ve aşağıdaki mevcut kural onu zaten kapsar —
      * yeni tip kasa sorgularına kendiliğinden sızamaz.
+     *
+     * expense = SAHA GİDERİ (2026-08-25) ve öbür tiplerin TERSİ yönde çalışır: kasadan ÇIKAN
+     * nakit. Üç kuralı vardır ve üçü de bu kapıda durur:
+     *  1. `payment_type` ZORUNLU ve yalnız 'nakit'. Taşımasaydı kasa sorguları onu HİÇ görmez,
+     *     kasadan çıkan para görünmez bir kayda dönerdi — yani özelliğin tek amacı boşa çıkardı.
+     *     'kart'/'havale' gider kabul edilmez: bu özelliğin sorusu "ÇEKMECEDE ne kalmalı"dır ve
+     *     karttan ödenen bir masraf çekmeceye dokunmaz. Kâr-zarar defteri ayrı bir iştir.
+     *  2. `customer_id` NULL olmalı. Tüm entry_type'lar borç-deltası taşır ve dolu bir müşteriyle
+     *     yazılan gider, `applyLedger`in bakiye yeniden hesabında o müşterinin borcunu benzin
+     *     parası kadar ŞİŞİRİRDİ. Bu, tek bir alan unutulduğunda sessizce yanlış bakiye üreten
+     *     türden bir hatadır; kapı o yüzden sunucudadır.
+     *  3. İşaret POZİTİF — İPTAL SATIRI HARİÇ. İptal, ters işaretli ikinci bir 'expense'tir
+     *     (`reverses_entry_id` dolu) ve o satırın tutarı NEGATİF olmak ZORUNDADIR; `correction`
+     *     gibi serbest bırakmak, iptal adıyla ikinci bir gider yazmaya kapı açardı.
      */
-    private function validateLedgerEntry(string $entryType, int $amount, ?string $paymentType): void
-    {
+    private function validateLedgerEntry(
+        string $entryType,
+        int $amount,
+        ?string $paymentType,
+        ?string $customerId = null,
+        ?string $reversesEntryId = null,
+    ): void {
         $signOk = match ($entryType) {
             'debit' => $amount >= 0,
             'payment', 'credit', 'discount' => $amount <= 0,
+            // Ters satır NEGATİF, olağan gider POZİTİF (bkz. doc kural 3).
+            'expense' => $reversesEntryId !== null ? $amount < 0 : $amount > 0,
             'correction' => true,
             default => throw new InvalidArgumentException("Geçersiz entry_type: {$entryType}"),
         };
@@ -459,9 +532,18 @@ class ChangeApplier
             throw new InvalidArgumentException("{$entryType} için tutar işareti geçersiz");
         }
 
+        if ($entryType === 'expense') {
+            if ($paymentType !== 'nakit') {
+                throw new InvalidArgumentException('gider kaydı yalnız nakit olabilir');
+            }
+            if ($customerId !== null) {
+                throw new InvalidArgumentException('gider kaydı bir müşteriye bağlanamaz');
+            }
+        }
+
         if ($paymentType !== null) {
-            if (! in_array($entryType, ['payment', 'correction'], true)) {
-                throw new InvalidArgumentException('payment_type yalnız payment/correction kaydında olabilir');
+            if (! in_array($entryType, ['payment', 'correction', 'expense'], true)) {
+                throw new InvalidArgumentException('payment_type yalnız payment/correction/expense kaydında olabilir');
             }
             if (! in_array($paymentType, ['nakit', 'kart', 'havale'], true)) {
                 throw new InvalidArgumentException("Geçersiz payment_type: {$paymentType}");

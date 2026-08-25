@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/app_database.dart';
+import '../../data/urun_secenekleri.dart';
 import '../../repo/product_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
@@ -19,6 +20,8 @@ import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../isletme/isletme_atomlari.dart';
 import '../barkod/barkod_kamera.dart';
+import 'birimler.dart';
+import 'urun_secenek_alani.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Barkod / görsel
@@ -77,8 +80,17 @@ class _UrunFormuState extends State<_UrunFormu> {
   late final TextEditingController _fiyat = TextEditingController(
     text: widget.urun == null ? '' : _fiyatMetni(widget.urun!.unitPriceKurus),
   );
-  late final TextEditingController _birim =
-      TextEditingController(text: widget.urun?.unit ?? 'adet');
+  /// KAYITTAKİ birim metni. Menü bunu DEĞİŞTİRMEZ, yalnız gösterir: sahadaki serbest değer
+  /// ("damacana") kullanıcı başka bir şey seçmedikçe olduğu gibi geri yazılır.
+  late String _birim = widget.urun?.unit ?? kVarsayilanBirim;
+
+  /// "Diğer…" seçildi — alan menü yerine serbest metin girişi çizer.
+  bool _birimSerbest = false;
+  late final TextEditingController _birimMetni = TextEditingController(text: _birim);
+
+  /// Ürünün malzeme listesi (2026-08-18). Kaynak doğruluk BURASI — alt bileşen durum tutmaz.
+  late List<UrunSecenegi> _secenekler = secenekleriCoz(widget.urun?.optionsJson);
+
   late final TextEditingController _barkod =
       TextEditingController(text: widget.urun == null ? '' : (urunBarkodu(widget.urun!) ?? ''));
 
@@ -101,7 +113,7 @@ class _UrunFormuState extends State<_UrunFormu> {
   void dispose() {
     _ad.dispose();
     _fiyat.dispose();
-    _birim.dispose();
+    _birimMetni.dispose();
     _barkod.dispose();
     super.dispose();
   }
@@ -145,7 +157,9 @@ class _UrunFormuState extends State<_UrunFormu> {
 
     setState(() => _kaydediyor = true);
     final repo = ProductRepository(widget.db);
-    final birim = _birim.text.trim().isEmpty ? 'adet' : _birim.text.trim();
+    // Boş birim (serbest metin silinip kaydedildi) bugünkü davranışın aynısıyla varsayılana
+    // düşer; DOLU olan hiçbir değer dönüştürülmez.
+    final birim = _birim.trim().isEmpty ? kVarsayilanBirim : _birim.trim();
     if (widget.urun == null) {
       await repo.create(
         name: ad,
@@ -153,6 +167,7 @@ class _UrunFormuState extends State<_UrunFormu> {
         unit: birim,
         barcode: barkod.isEmpty ? null : barkod,
         imageLocalPath: _gorsel,
+        secenekler: _secenekler,
       );
     } else {
       // `update` TÜM alanları yazar (verilmeyen null olur): sunucudan inen `imageUrl`
@@ -166,6 +181,7 @@ class _UrunFormuState extends State<_UrunFormu> {
         barcode: barkod.isEmpty ? null : barkod,
         imageUrl: widget.urun!.imageUrl,
         imageLocalPath: _gorsel,
+        secenekler: _secenekler,
       );
     }
     if (!mounted) return;
@@ -201,7 +217,7 @@ class _UrunFormuState extends State<_UrunFormu> {
   Future<void> _gorselSec() async {
     final secici = urunGorselSecici;
     if (secici == null) {
-      SipToast.goster(context, 'Görsel seçimi cihaz galerisi eklentisiyle gelecek.');
+      SipToast.goster(context, 'Ürün görseli yakında eklenecek');
       return;
     }
     final yol = await secici();
@@ -272,7 +288,35 @@ class _UrunFormuState extends State<_UrunFormu> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SipFormEtiket('BİRİM'),
-                  SipInput(controller: _birim, ipucu: 'adet / kg / koli…'),
+                  if (_birimSerbest)
+                    SipInput(
+                      controller: _birimMetni,
+                      ipucu: 'Birimi yazın',
+                      otomatikOdak: true,
+                      onChanged: (v) => _birim = v,
+                    )
+                  else
+                    BirimAlani(
+                      deger: _birim,
+                      onSec: (v) => setState(() => _birim = v),
+                      onDiger: () => setState(() {
+                        _birimSerbest = true;
+                        // Mevcut değerle DOLU açılır: "Diğer…"e basan bayi çoğu zaman var olanı
+                        // düzeltmek ister, sıfırdan yazmak değil.
+                        _birimMetni.text = _birim;
+                      }),
+                    ),
+                  if (_birimSerbest)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: SipMetinButon(
+                        etiket: 'Listeden seç',
+                        onTap: () => setState(() {
+                          _birimSerbest = false;
+                          _birim = _birimMetni.text;
+                        }),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -280,7 +324,7 @@ class _UrunFormuState extends State<_UrunFormu> {
         ),
         if (_hata['fiyat'] != null) AlanNotu(_hata['fiyat']!),
 
-        const SipFormEtiket('BARKOD · OPSİYONEL'),
+        const SipFormEtiket('Barkod (isteğe bağlı)'),
         Row(
           children: [
             Expanded(
@@ -313,20 +357,34 @@ class _UrunFormuState extends State<_UrunFormu> {
         ),
         if (_hata['barkod'] != null) AlanNotu(_hata['barkod']!),
         const _SilmeNotu(
-          'Barkodsuz ürünler katalogda aramayla seçilir; barkodlular POS’ta okutarak eklenir.',
+          'Barkodsuz ürünler katalogda aramayla bulunur, barkodlular okutularak eklenir',
           hizala: TextAlign.start,
+        ),
+
+        // İÇİNDEKİLER — kapısı bileşenin İÇİNDE (kullanıcı eleştirisi 2026-08-18: "su bayisinde
+        // içindekiler göstermek çok mantıklı değil"). Bölüm iki katmanlıdır: işletmenin
+        // "hazırlanan ürün" yeteneği + ürünün kendi malzeme listesi.
+        //
+        // ⚠️ YETENEK KAPALIYKEN DE MEVCUT LİSTE KORUNUR: `_secenekler` kayıttan okundu ve
+        // `_kaydet` onu aynen geri yazıyor. Kapı yalnız DÜZENLEYİCİYİ gizler — aksi hâlde
+        // yeteneği geçici kapatan bir dönerci, bir ürünü açıp kaydettiği anda o ürünün bütün
+        // malzemelerini sessizce kaybederdi.
+        UrunSecenekBolumu(
+          db: widget.db,
+          secenekler: _secenekler,
+          onDegis: (l) => setState(() => _secenekler = l),
         ),
 
         AktifToggle(
           acik: _aktif,
-          etiket: _aktif ? 'Aktif — siparişte görünür' : 'Pasif — siparişte gizli',
+          etiket: _aktif ? 'Aktif, siparişte görünür' : 'Pasif, siparişte görünmez',
           onDegis: (v) => setState(() => _aktif = v),
         ),
 
         const SizedBox(height: SipSpace.x3),
         SipButon(etiket: 'Kaydet', onTap: _kaydet, yukleniyor: _kaydediyor),
         if (widget.urun != null)
-          const _SilmeNotu('Ürünler silinmez; kullanılmayanı Pasif yap.'),
+          const _SilmeNotu('Ürünler silinmez; kullanılmayanı Pasif yap'),
       ],
     );
   }
@@ -390,7 +448,7 @@ class _GorselAlani extends StatelessWidget {
               children: [
                 Text(
                   gorsel == null
-                      ? 'POS katalogda karo üzerinde görünür'
+                      ? 'Sipariş alırken ürün kartında görünür'
                       : 'Görsel yüklendi',
                   style: SipText.yardimci.copyWith(color: t.muted),
                 ),

@@ -79,7 +79,7 @@ void main() {
         bakiyeKurus: 1234567,
         adres: 'Cumhuriyet Mahallesi 5. Sokak Numara 12 Daire 4 Zemin Kat Sarı Bina',
         not: 'Zil çalışmıyor, gelince arayın; köpek var, bahçe kapısından girmeyin.',
-        sonHareket: 'Son sipariş: Damacana 19 L ×2 · Pet Su 0,5 L ×24 · 10:24',
+        sonHareket: 'Son sipariş: Damacana 19 L ×2, Pet Su 0,5 L ×24 (10:24)',
         sonSiparisDurumu: 'Teslim edildi',
       ),
     );

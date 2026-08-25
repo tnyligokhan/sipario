@@ -21,6 +21,7 @@ import 'package:sipario/screens/orders/order_queries.dart';
 
 import 'support/kabuk_yardimcilari.dart';
 import 'support/siparis_yardimci.dart';
+import 'support/yetki_yardimcilari.dart';
 
 void main() {
   group('siparisKalanBorcu — saf kural', () {
@@ -190,15 +191,15 @@ void main() {
         await OrderRepository(db).deliver(oid2, paymentType: 'nakit', tahsilKurus: 5000);
       });
 
-      await ekranaKoy(tester, BorclularEkrani(db: db, writable: true));
+      await ekranaKoy(tester, BorclularEkrani(db: db, writable: true, yetki: tamYetki));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 250)));
       await tester.pump();
 
       expect(find.text('Borçlu Bayi'), findsOneWidget);
       expect(find.text('Temiz Hesap'), findsNothing,
           reason: 'ekranın tamamı borçlulara ayrılmıştır');
-      expect(find.text('1 müşteri · 200,00 ₺'), findsOneWidget);
-      expect(find.text('Tahsilat Al · 200,00 ₺'), findsOneWidget);
+      expect(find.text('1 müşteri, toplam 200,00 ₺'), findsOneWidget);
+      expect(find.text('Tahsilat Al (200,00 ₺)'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -210,18 +211,18 @@ void main() {
         await LedgerRepository(db).borcEkle(cid, 7500);
       });
 
-      await ekranaKoy(tester, BorclularEkrani(db: db, writable: true));
+      await ekranaKoy(tester, BorclularEkrani(db: db, writable: true, yetki: tamYetki));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 250)));
       await tester.pump();
 
-      expect(find.text('Ödenmemiş sipariş yok — borç defter kaydından geliyor.'), findsOneWidget);
+      expect(find.text('Ödenmemiş sipariş yok; borç elle girilmiş'), findsOneWidget);
 
       await kapat(tester);
     });
 
     testWidgets('borçlu yokken nötr boş durum çizilir', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
-      await ekranaKoy(tester, BorclularEkrani(db: db, writable: true));
+      await ekranaKoy(tester, BorclularEkrani(db: db, writable: true, yetki: tamYetki));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 250)));
       await tester.pump();
 

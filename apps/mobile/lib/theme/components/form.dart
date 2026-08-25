@@ -11,7 +11,7 @@ import '../icons.dart';
 import '../tokens.dart';
 import '../typography.dart';
 import 'bicim.dart';
-import 'dokunma.dart';
+export 'form_kontroller.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Girdi ölçüleri — TEK KAYNAK
@@ -104,6 +104,7 @@ class SipInput extends StatelessWidget {
     this.hizalama = TextAlign.start,
     this.buyukHarfKipi = TextCapitalization.sentences,
     this.otomatikOdak = false,
+    this.sonEk,
   });
 
   final TextEditingController? controller;
@@ -128,6 +129,14 @@ class SipInput extends StatelessWidget {
   final TextAlign hizalama;
   final TextCapitalization buyukHarfKipi;
   final bool otomatikOdak;
+
+  /// Alanın SAĞ İÇİNE yerleşen eylem (parolayı göster/gizle gibi).
+  ///
+  /// Yükseklik sözleşmesi (46 px) korunmak ZORUNDA: `suffixIcon` kısıtsız bırakılırsa
+  /// Material varsayılanı 48×48 dayatır ve kutu iki piksel uzayarak yanındaki alanlarla
+  /// hizasını kaybeder. Kısıt aşağıda `yukseklik`e bağlanır — çağıran kutuyu büyütürse
+  /// son ek de onunla büyür.
+  final Widget? sonEk;
 
   @override
   Widget build(BuildContext context) {
@@ -166,6 +175,12 @@ class SipInput extends StatelessWidget {
         // `max(ipucuYüksekliği, metinYüksekliği)` (`input_decorator.dart` :1080-1083), yani
         // ipucuya çarpan verilmezse kutu yazmaya başlayınca zıplar.
         hintStyle: etkin.copyWith(color: t.muted),
+        suffixIcon: sonEk,
+        suffixIconConstraints: BoxConstraints(
+          minWidth: 40,
+          minHeight: 0,
+          maxHeight: yukseklik ?? SipInputOlcu.yukseklik,
+        ),
         filled: true,
         fillColor: hata ? t.dangerSoft : t.surface2,
         isDense: true,
@@ -193,12 +208,20 @@ class SipArama extends StatelessWidget {
     this.ipucu = 'Ara',
     this.onChanged,
     this.onTemizle,
+    this.otomatikOdak = false,
   });
 
   final TextEditingController controller;
   final String ipucu;
   final ValueChanged<String>? onChanged;
   final VoidCallback? onTemizle;
+
+  /// Ekran açılır açılmaz klavyeyi getirir. VARSAYILAN KAPALI: aramanın ekranın tek işi
+  /// olmadığı yerlerde (liste ekranları) açılışta yükselen klavye içeriğin yarısını yer.
+  /// Yalnız aramanın ekranın TEK işi olduğu yerde açılır — sipariş formunun müşteri adımı
+  /// gibi (tasarım `autoFocus`, s-siparisler.jsx:305): telefonu elinde tutan kullanıcı adı
+  /// duyduğu anda yazmaya başlar, önce alana dokunmak zorunda kalmaz.
+  final bool otomatikOdak;
 
   @override
   Widget build(BuildContext context) {
@@ -218,6 +241,7 @@ class SipArama extends StatelessWidget {
             child: TextField(
               controller: controller,
               onChanged: onChanged,
+              autofocus: otomatikOdak,
               cursorColor: t.accent,
               style: SipText.aramaInput.copyWith(color: t.ink),
               textInputAction: TextInputAction.search,
@@ -248,167 +272,3 @@ class SipArama extends StatelessWidget {
     );
   }
 }
-
-/// CSS `.segtab` — surface-2 ray üzerinde hero dolgulu seçim.
-class SipSegment extends StatelessWidget {
-  const SipSegment({
-    super.key,
-    required this.secenekler,
-    required this.secili,
-    required this.onSec,
-  });
-
-  /// Sırayla gösterilecek etiketler.
-  final List<String> secenekler;
-
-  /// [secenekler] içindeki dizin.
-  final int secili;
-
-  final ValueChanged<int> onSec;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: t.surface2,
-        borderRadius: SipRadius.brHap,
-      ),
-      child: Row(
-        children: [
-          for (var i = 0; i < secenekler.length; i++)
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(left: i == 0 ? 0 : 4),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onSec(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    height: 34,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: i == secili ? t.hero : Colors.transparent,
-                      borderRadius: SipRadius.brHap,
-                    ),
-                    child: Text(
-                      secenekler[i],
-                      style: SipText.metin(
-                        12.5,
-                        w: i == secili ? 700 : 600,
-                      ).copyWith(
-                        color: i == secili ? SipTokens.onHero : t.muted,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// CSS `.aktif-toggle` + `.aktif-knob` — etiketli açma/kapama satırı.
-class SipToggle extends StatelessWidget {
-  const SipToggle({
-    super.key,
-    required this.etiket,
-    required this.acik,
-    required this.onDegis,
-    this.ikon,
-    this.altEtiket,
-  });
-
-  final String etiket;
-  final bool acik;
-  final ValueChanged<bool> onDegis;
-  final String? ikon;
-  final String? altEtiket;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return SipDokun(
-      onTap: () => onDegis(!acik),
-      zemin: t.surface2,
-      radius: SipRadius.br2,
-      padding: const EdgeInsets.symmetric(horizontal: SipSpace.x2, vertical: SipSpace.xl),
-      child: Row(
-        children: [
-          if (ikon != null) ...[
-            SipIcon(ikon!, boyut: 18, kalinlik: 2, renk: t.ink2),
-            const SizedBox(width: 11),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(etiket, style: SipText.gsSatirEtiket.copyWith(color: t.ink2)),
-                if (altEtiket != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      altEtiket!,
-                      style: SipText.yardimci.copyWith(color: t.muted),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: SipSpace.lg),
-          SipKnob(acik: acik),
-        ],
-      ),
-    );
-  }
-}
-
-/// CSS `.aktif-knob` — 40×24 ray, 20 topuz.
-class SipKnob extends StatelessWidget {
-  const SipKnob({super.key, required this.acik});
-
-  final bool acik;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      width: 40,
-      height: 24,
-      decoration: BoxDecoration(
-        color: acik ? t.accent : t.line2,
-        borderRadius: SipRadius.brHap,
-      ),
-      child: AnimatedAlign(
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOut,
-        alignment: acik ? Alignment.centerRight : Alignment.centerLeft,
-        child: Padding(
-          padding: const EdgeInsets.all(2),
-          child: Container(
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(
-              color: t.knob,
-              shape: BoxShape.circle,
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x38000000),
-                  blurRadius: 3,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-

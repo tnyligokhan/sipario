@@ -32,7 +32,7 @@ use Illuminate\Support\Carbon;
  */
 class CallLog extends Model
 {
-    use HasUuids;
+    use HasUuids, MikrosaniyeliDamga;
 
     protected $fillable = [
         'id',
@@ -43,6 +43,7 @@ class CallLog extends Model
         'direction',
         'outcome',
         'related_order_id',
+        'user_id',
         'occurred_at',
         'device_id',
         'updated_occurred_at',

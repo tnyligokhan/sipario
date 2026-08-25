@@ -89,9 +89,7 @@ class HatirlatmaSablonuAlani extends StatelessWidget {
         // düşer. Blok tek satıra sıkıştırılmıyor — IBAN'ın dörderli gruplar hâlinde kendi
         // satırında durması, müşterinin bankadaki biçimle karşılaştırmasının tek güvencesi.
         const AlanNotu(
-          'Çiplere dokununca imlecin olduğu yere eklenir. IBAN ve alıcı adı sabittir; '
-          'metnin içinde değiştirilemez, yalnız yeri seçilir — birkaç satır kapladığı için '
-          'kendi satırına koyun.',
+          'Çipe dokununca imlecin olduğu yere eklenir. IBAN\'ı kendi satırına koyun.',
           tur: AlanNotuTuru.bilgi,
         ),
       ],

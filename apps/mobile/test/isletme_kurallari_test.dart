@@ -336,7 +336,7 @@ void main() {
           meta(bitis: '2026-08-05T00:00:00Z', hak: 34, aylik: 50),
           simdi: DateTime.utc(2026, 7, 26),
         ),
-        '10 gün kaldı · oto sıralama 34 hak',
+        '10 gün kaldı, oto sıralama 34 hak',
       );
     });
 
@@ -357,7 +357,7 @@ void main() {
           meta(bitis: '2026-07-01T00:00:00Z'),
           simdi: DateTime.utc(2026, 7, 26),
         ),
-        'Süre doldu — kayıtlar salt-okunur',
+        'Süre doldu, yeni kayıt eklenemiyor',
       );
       expect(lisansMetni(null), 'Durum bilinmiyor');
       expect(lisansMetni(meta()), 'Durum bilinmiyor');
@@ -385,10 +385,10 @@ void main() {
     test('bildirim gerekçesi tasarımın cümlesidir (anlam kayması regresyonu)', () {
       final bildirim = izinAdimlari.firstWhere((i) => i.anahtar == 'bildirim');
       expect(bildirim.neden,
-          'Yeni sipariş, senkron ve borç hatırlatmalarını size iletebilmek için.',
+          'Yeni sipariş ve borç hatırlatmalarını size iletebilmek için',
           reason: 'kilit ekranı gerekçesi buraya yazılmıştı — o ayrı bir adımın işi');
       expect(izinAdimlari.firstWhere((i) => i.anahtar == 'kilit').neden,
-          'Telefon kilitliyken bile çağrı kartının çıkması için.');
+          'Telefon kilitliyken bile çağrı kartının çıkması için');
     });
   });
 
