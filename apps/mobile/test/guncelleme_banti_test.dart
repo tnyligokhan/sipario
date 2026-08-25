@@ -19,12 +19,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/auth/session.dart';
 import 'package:sipario/data/app_database.dart';
+import 'package:sipario/bildirim/bildirim_sozlesmesi.dart';
 import 'package:sipario/guncelleme/guncelleme_banti.dart';
 import 'package:sipario/guncelleme/guncelleme_servisi.dart';
 import 'package:sipario/guncelleme/guncelleme_sozlesmesi.dart';
 import 'package:sipario/screens/home_shell.dart';
 import 'package:sipario/sync/sync_service.dart';
 import 'package:sipario/theme/app_theme.dart';
+import 'package:sipario/theme/icons.dart';
 
 const _bilgi = SurumBilgisi(
   yapim: 139,
@@ -229,8 +231,44 @@ void main() {
       await tester.pump();
 
       expect(find.text('Yeni sürüm hazır'), findsOneWidget);
-      expect(find.text('Kurmak için dokunun'), findsOneWidget);
       expect(tester.getSize(find.byType(GuncellemeBanti)).height, greaterThan(0));
+
+      await _kapat(tester);
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    // 2026-08-25 kullanıcı isteği: "yükleme butonu pek belirgin değil, orada güncelle
+    // şeklinde bir ikon olmalı ya da indirme gibi"
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    //
+    // Sağ köşede eskiden SÜRÜM ROZETİ vardı: dolgulu, accent renkli, düğme gibi duran ama
+    // içinde "0.9.0" yazan bir hap. Bilgi taşıyordu, eylem değil — ve bandın dokunulabilir
+    // olduğunu söyleyen tek şey alt satırdaki cümleydi.
+    testWidgets('sağ köşede İKONLU "Güncelle" düğmesi durur', (tester) async {
+      await bandiKur(tester);
+      servis.bulunan.value = _bilgi;
+      servis.durum.value = GuncellemeDurumu.bulundu;
+      await tester.pump();
+
+      expect(find.text('Güncelle'), findsOneWidget, reason: 'eylem sözcüğü görünmeli');
+      expect(
+        find.byWidgetPredicate((w) => w is SipIcon && w.ad == SipIcons.indir),
+        findsOneWidget,
+        reason: 'indirme ikonu (aşağı ok) düğmenin içinde olmalı',
+      );
+
+      await _kapat(tester);
+    });
+
+    testWidgets('HATA hâlinde düğme "Tekrar Dene" der', (tester) async {
+      await bandiKur(tester);
+      servis.bulunan.value = _bilgi;
+      servis.durum.value = GuncellemeDurumu.hata;
+      await tester.pump();
+
+      expect(find.text('Tekrar Dene'), findsOneWidget);
+      expect(find.text('Güncelle'), findsNothing,
+          reason: 'yarım kalmış bir indirmeden sonra "Güncelle" demek ne olduğunu gizler');
 
       await _kapat(tester);
     });
@@ -244,12 +282,15 @@ void main() {
     // şey söylemeyen bir git sayacı. Ekrandan kalktı ama KARŞILAŞTIRMADAN kalkmadı — o
     // ayrım tam olarak bu iki iddiadır ve ikisi birlikte anlamlıdır.
     testWidgets('SÜRÜM yazar, YAPIM numarasını YAZMAZ', (tester) async {
+      // ⚠️ SÜRÜM 2026-08-25'TE ALT SATIRA TAŞINDI (sağ köşe artık eyleme ait), ama KARARIN
+      // KENDİSİ DURUYOR: sürüm adı görünür, yapım numarası görünmez. İddia bu yüzden
+      // "hangi widget"a değil METNİN VARLIĞINA bakar.
       await bandiKur(tester);
       servis.bulunan.value = _bilgi;
       servis.durum.value = GuncellemeDurumu.bulundu;
       await tester.pump();
 
-      expect(find.text(_bilgi.surum), findsOneWidget, reason: 'sürüm rozeti çizilmeli');
+      expect(find.textContaining(_bilgi.surum), findsOneWidget, reason: 'sürüm adı yazmalı');
       expect(find.textContaining('${_bilgi.yapim}'), findsNothing,
           reason: 'yapım numarası (139) bayiye gösterilmez — makine anahtarıdır');
       expect(find.textContaining('Sipario'), findsNothing,
@@ -258,16 +299,17 @@ void main() {
       await _kapat(tester);
     });
 
-    testWidgets('rozet YALNIZ "bulundu" hâlinde çizilir', (tester) async {
-      // İnerken yüzde, hata varken hiçbir şey: aynı köşede iki farklı anlam taşıyan bir
-      // rozet, bayiye indirmenin bittiğini sandırırdı.
+    testWidgets('sürüm YALNIZ "bulundu" hâlinde yazar', (tester) async {
+      // İnerken yüzde, hata varken "İndirme yarım kaldı": aynı yerde iki farklı anlam taşıyan
+      // bir metin, bayiye indirmenin bittiğini sandırırdı.
       await bandiKur(tester);
       servis.bulunan.value = _bilgi;
 
       for (final durum in [GuncellemeDurumu.iniyor, GuncellemeDurumu.hata]) {
         servis.durum.value = durum;
         await tester.pump();
-        expect(find.text(_bilgi.surum), findsNothing, reason: '$durum hâlinde rozet olmamalı');
+        expect(find.textContaining(_bilgi.surum), findsNothing,
+            reason: '$durum hâlinde sürüm yazmamalı');
       }
 
       await _kapat(tester);
@@ -315,6 +357,93 @@ void main() {
       }
 
       await _kapat(tester);
+    });
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  // YENİ SÜRÜM BİLDİRİMİ (kullanıcı isteği 2026-08-25)
+  // ═════════════════════════════════════════════════════════════════════════════════════════
+  //
+  // Bandın bedeli: bayi uygulamayı AÇMADIĞI sürece yeni sürümden haberi olmuyordu. Bildirim o
+  // boşluğu kapatır. Burada kilitlenen şey "gerçekten üretiliyor mu" — bandın aylarca ağaca
+  // bağlanmamış olması (yukarıdaki ilk grup) tam olarak bu tür bir sessiz kopukluktu.
+  group('Güncelleme bildirimi', () {
+    /// Sahte bildirim servisiyle kurulmuş güncelleme servisi.
+    ({GuncellemeServisi servis, SahteBildirimServisi sahte}) kur() {
+      final sahte = SahteBildirimServisi();
+      final servis = GuncellemeServisi(bildirim: sahte);
+      addTearDown(servis.durum.dispose);
+      addTearDown(servis.bulunan.dispose);
+      addTearDown(servis.ilerleme.dispose);
+      addTearDown(servis.sonBasariliKontrol.dispose);
+      return (servis: servis, sahte: sahte);
+    }
+
+    test('ÜRETİLEN TASLAK — kategori, kimlik ve metin sözleşmesi', () async {
+      final (:servis, :sahte) = kur();
+
+      await servis.bildir(_bilgi);
+
+      expect(sahte.gosterilenler, hasLength(1), reason: 'bildirim gerçekten üretilmeli');
+      final t = sahte.gosterilenler.single;
+      expect(t.kategori, BildirimKategori.guncellemeVar);
+      expect(t.kimlik, 'guncelleme_var:139',
+          reason: 'kimlik YAPIMA bağlı: aynı sürüm için ikinci bildirim doğmaz, üzerine yazar');
+      expect(t.govde, contains(_bilgi.surum), reason: 'sürüm adı gövdede yazar');
+      expect('${t.baslik} ${t.govde} ${t.detay}', isNot(contains('${_bilgi.yapim}')),
+          reason: 'yapım numarası makine anahtarıdır, bayiye hiçbir yerde gösterilmez');
+      expect(t.yol, isNull,
+          reason: 'dokunuş uygulamayı ANA EKRANDA açar; bant zaten orada duruyor');
+    });
+
+    test('AYNI SÜRÜM iki kez bildirmez — kimlik üzerine yazar', () async {
+      final (:servis, :sahte) = kur();
+
+      await servis.bildir(_bilgi);
+      await servis.bildir(_bilgi);
+
+      expect(sahte.gosterilenler, hasLength(1),
+          reason: 'uygulama gün içinde birkaç kez yeniden başlasa bile bayi tek satır görür');
+    });
+
+    test('kategori ayarları — işi BÖLMEZ, kurye de ALIR', () {
+      expect(BildirimKategori.guncellemeVar.headsUp, isFalse,
+          reason: 'güncelleme beklenen bir iş değil; ekranın üstünde belirip işi bölmemeli');
+      expect(BildirimKategori.guncellemeVar.yalnizYonetici, isFalse,
+          reason: 'eski sürümde kalan telefon çoğu zaman kuryenin telefonudur');
+    });
+
+    test('bayi kategoriyi KAPATTIYSA bildirim çıkmaz', () async {
+      // Ayar ekranındaki anahtarın gerçekten bir şey yapması: kapatınca hiçbir şey
+      // değişmeyen bir anahtar, ayarların tamamına olan güveni bozar.
+      final sahte = SahteBildirimServisi(
+        kapaliKategoriler: {BildirimKategori.guncellemeVar},
+      );
+      final servis = GuncellemeServisi(bildirim: sahte);
+      addTearDown(servis.durum.dispose);
+      addTearDown(servis.bulunan.dispose);
+      addTearDown(servis.ilerleme.dispose);
+      addTearDown(servis.sonBasariliKontrol.dispose);
+
+      await servis.bildir(_bilgi);
+
+      expect(sahte.gosterilenler, isEmpty);
+    });
+
+    test('KAPALI derlemede bildirim HİÇ üretilmez — ağa bile çıkılmaz', () async {
+      // Mağaza kanalının garantisi: uygulama içi güncelleme yolu tamamen kapalı olduğu için
+      // bu bildirim de doğmaz. Ayar listesinde de görünmez (bkz. `_listelenir`).
+      final sahte = SahteBildirimServisi();
+      final servis = GuncellemeServisi(bildirim: sahte);
+      addTearDown(servis.durum.dispose);
+      addTearDown(servis.bulunan.dispose);
+      addTearDown(servis.ilerleme.dispose);
+      addTearDown(servis.sonBasariliKontrol.dispose);
+
+      await servis.sessizKontrol(kapali: true, zorla: true);
+
+      expect(sahte.gosterilenler, isEmpty);
+      expect(servis.durum.value, GuncellemeDurumu.yok);
     });
   });
 }

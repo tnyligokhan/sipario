@@ -103,8 +103,6 @@ class _Bant extends StatelessWidget {
       child: Row(
         children: [
           SipIcon(
-            // İkon setinde "indir" YOK. Yeni varlık eklemek yerine mevcut sözlükten en yakın
-            // anlam seçildi: `sync` (yenileme/güncelleme), hatada `alert`.
             hata ? SipIcons.alert : SipIcons.sync,
             boyut: 17,
             kalinlik: 2.2,
@@ -143,55 +141,88 @@ class _Bant extends StatelessWidget {
                 style: SipText.govdeKalin.copyWith(color: t.accent),
               ),
             )
-          else if (!hata && !kuruluyor)
-            _SurumRozeti(surum: bilgi.surum),
+          else if (!kuruluyor)
+            // EYLEM DÜĞMESİ — kullanıcı isteği 2026-08-25: *"yükleme butonu pek belirgin
+            // değil, orada güncelle şeklinde bir ikon olmalı ya da indirme gibi"*.
+            //
+            // BURADA ESKİDEN SÜRÜM ROZETİ VARDI ve şikâyetin kaynağı oydu: dolgulu, accent
+            // renkli, dokunulacakmış gibi duran bir hap — ama içinde "0.9.0" yazıyordu, yani
+            // BİLGİ taşıyordu, EYLEM değil. Bandın tamamı dokunulabilirdi ve bunu söyleyen tek
+            // şey alt satırdaki "Kurmak için dokunun" cümlesiydi. Bayi rozete basıyor, bir şey
+            // olmuyor sanıyordu (aslında oluyordu — bant zaten dokunuşu alıyor).
+            //
+            // Sürüm KAYBOLMADI, alt satıra taşındı ([_altBaslik]): 2026-08-11 kararı "sadece
+            // sürüm yazsın" diyordu ve o karar duruyor; değişen, sürümün EYLEMİN YERİNİ İŞGAL
+            // ETMEMESİ.
+            _EylemDugmesi(hata: hata)
         ],
       ),
     );
   }
 
   /// Üst satır — NE OLDUĞU.
+  ///
+  /// HATA BAŞLIĞI KISALTILDI (2026-08-25): "Güncelleme tamamlanamadı" 360 punto genişlikte,
+  /// yanına "Tekrar Dene" düğmesi geldikten sonra "Güncelleme tamamlan…" diye kırpılıyordu
+  /// (golden ile ölçüldü). Kırpılan bir hata başlığı, hatanın kendisinden daha çok
+  /// endişelendirir; ne olduğunu alt satır zaten söylüyor.
   String _baslik() => switch (durum) {
         GuncellemeDurumu.iniyor => 'İndiriliyor',
-        GuncellemeDurumu.kuruluyor => 'Kurulum başlatılıyor',
-        GuncellemeDurumu.hata => 'Güncelleme tamamlanamadı',
+        GuncellemeDurumu.kuruluyor => 'Kurulum başlıyor',
+        GuncellemeDurumu.hata => 'Güncellenemedi',
         _ => 'Yeni sürüm hazır',
       };
 
   /// Alt satır — NE YAPILACAĞI. Kısa tutulur: bant tek satır yüksekliğinde kalmalı.
+  ///
+  /// SÜRÜM ADI BURADA (2026-08-25): sağ köşe artık eyleme ait. "Kurmak için dokunun" cümlesi
+  /// de KALKTI ve gerekmiyor — yanında duran düğme zaten ne yapılacağını söylüyor; cümle,
+  /// düğmesiz hâlin kalıntısıydı. Yapım numarası yine YAZILMAZ (2026-08-11 kararı).
   String _altBaslik() => switch (durum) {
         GuncellemeDurumu.iniyor => 'İndirme sürüyor',
         GuncellemeDurumu.kuruluyor => 'Kurulum ekranı birazdan açılacak',
-        GuncellemeDurumu.hata => 'Tekrar denemek için dokunun',
-        _ => 'Kurmak için dokunun',
+        GuncellemeDurumu.hata => 'İndirme yarım kaldı',
+        _ => '${bilgi.surum} sürümü indirilebilir',
       };
 }
 
-/// Sürüm numarasını taşıyan hap. YALNIZ SÜRÜM ADI yazar — yapı numarası (`bilgi.yapim`) YOK.
+/// Bandın sağındaki EYLEM DÜĞMESİ — dolgulu, ikonlu, tek bakışta düğme.
 ///
-/// 2026-08-11 kullanıcı kararı: "sadece sürüm yazsın". Eski metin `Sipario 0.13.0 (412)` idi ve
-/// parantez içindeki sayı bayiye hiçbir şey söylemiyordu — o, makinenin karşılaştırma anahtarıdır
-/// (CLAUDE.md → Sürümleme: "SemVer insan içindir, derleme numarası makine içindir") ve bandın
-/// okuru insandır. Sayı ATILMADI, yalnız bu yüzeyden kalktı: karşılaştırma hâlâ ona dayanıyor
-/// ve Ayarlar → Sürüm satırı teşhis için ikisini birden yazmaya devam ediyor.
-class _SurumRozeti extends StatelessWidget {
-  const _SurumRozeti({required this.surum});
+/// ⚠️ KENDİ `onTap`İ YOK ve bu bilinçli: dokunuşu BANDIN TAMAMI alıyor (`SipDokun`), yani
+/// düğmenin yanına, metnine ya da ikonuna basmak da işe yarar. Düğmeye ayrı bir dokunma
+/// yüzeyi vermek iki hedefi üst üste bindirir; iç içe iki `GestureDetector`da dıştaki sessizce
+/// devre dışı kalır ve bandın geri kalanı ölürdü. Görev paylaşımı nettir: bant DOKUNULUR,
+/// düğme SÖYLER.
+class _EylemDugmesi extends StatelessWidget {
+  const _EylemDugmesi({required this.hata});
 
-  final String surum;
+  final bool hata;
 
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
+    final zemin = hata ? t.danger : t.accent;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: SipSpace.md, vertical: 3),
-      decoration: BoxDecoration(
-        color: t.accent,
-        borderRadius: SipRadius.brHap,
-      ),
-      child: Text(
-        surum,
-        style: SipText.yardimci.copyWith(color: t.accentInk, fontWeight: FontWeight.w700),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+      decoration: BoxDecoration(color: zemin, borderRadius: SipRadius.brHap),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SipIcon(
+            hata ? SipIcons.sync : SipIcons.indir,
+            boyut: 14,
+            kalinlik: 2.4,
+            renk: t.accentInk,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            hata ? 'Tekrar Dene' : 'Güncelle',
+            style: SipText.yardimci
+                .copyWith(color: t.accentInk, fontWeight: FontWeight.w800),
+          ),
+        ],
       ),
     );
   }
 }
+

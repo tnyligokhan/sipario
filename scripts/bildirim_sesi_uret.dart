@@ -293,6 +293,16 @@ const sesler = <BildirimSesi>[
     tini: Tini.saf,
     notalar: [Nota(f5, saniye: 0.22, araSaniye: 0)],
   ),
+  BildirimSesi(
+    dosyaAdi: 'guncelleme',
+    aciklama: 'guncellemeVar — yeni sürüm hazır. ÇIKAN üçlü, yumuşak tını: `gun_ozeti`nin '
+        'İNEN deseninin tam tersi. İnen desen kapanış duygusu verir, çıkan desen "bir şey '
+        'hazır" der ve ikisi aynı tınıda oldukları için yan yana duyulduğunda YÖN farkı '
+        'okunur. ⚠️ İŞİ BÖLMEZ (kategori heads-up DEĞİL): güncelleme beklenen bir iş değil, '
+        'haber verilen bir imkândır — ton da onu iddia etmemeli.',
+    tini: Tini.yumusak,
+    notalar: [Nota(e5, saniye: 0.12), Nota(a5, saniye: 0.12), Nota(cs6, saniye: 0.26, araSaniye: 0)],
+  ),
 ];
 
 void main() {

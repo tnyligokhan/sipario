@@ -11,6 +11,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import '../bildirim/bildirim_servisi.dart' show bildirimServisi;
+import '../bildirim/bildirim_sozlesmesi.dart';
 import 'guncelleme_sozlesmesi.dart';
 
 /// Native köprü — kurulum izni, ABI listesi ve kurulum niyeti.
@@ -49,9 +51,20 @@ bool kontrolGerekli({
 final GuncellemeServisi guncellemeServisi = GuncellemeServisi();
 
 class GuncellemeServisi {
-  GuncellemeServisi({http.Client? istemci}) : _istemci = istemci;
+  GuncellemeServisi({http.Client? istemci, BildirimServisi? bildirim})
+      : _istemci = istemci,
+        _bildirim = bildirim;
 
   final http.Client? _istemci;
+
+  /// Yeni sürüm bulunduğunda bildirimi çizecek servis; verilmezse uygulamanın tekili.
+  ///
+  /// ENJEKTE EDİLEBİLİR OLMASI TEST İÇİN ŞART: tekil `bildirimServisi` gerçek uygulamada
+  /// platform kanalına bağlı ve widget testinde eklenti kaydı yoktur. Sahte servisle
+  /// değiştirilebilmesi, "bildirim gerçekten üretildi mi" sorusunun ağ ve platform olmadan
+  /// cevaplanmasını sağlar — bandın aylarca ağaca bağlanmamış olması tam da bu tür bir
+  /// boşluktu (bkz. `guncelleme_banti.dart` kill-switch notu).
+  final BildirimServisi? _bildirim;
 
   /// Bulunan sürüm; yoksa null. Bant bu iki bildirimi dinler.
   final ValueNotifier<SurumBilgisi?> bulunan = ValueNotifier<SurumBilgisi?>(null);
@@ -129,9 +142,52 @@ class GuncellemeServisi {
       if (!guncellemeVarMi(yerelYapim: kYapim, uzakYapim: bilgi.yapim)) return;
       bulunan.value = bilgi;
       durum.value = GuncellemeDurumu.bulundu;
+      await bildir(bilgi);
     } on Object catch (e) {
       // Çevrimdışı, DNS yok, zaman aşımı, bozuk JSON — hepsi aynı: sessizlik.
       debugPrint('Güncelleme kontrolü yapılamadı: $e');
+    }
+  }
+
+  /// YENİ SÜRÜM BİLDİRİMİ (kullanıcı isteği 2026-08-25).
+  ///
+  /// NEDEN GEREKLİ: bant müdahalesizdir ve öyle kalmalı, ama bedeli şu — bayi uygulamayı
+  /// AÇMADIĞI sürece yeni sürümden haberi olmaz. Bildirim o boşluğu kapatır.
+  ///
+  /// BİLDİRİM İNDİRMEYİ BAŞLATMAZ, yalnız haber verir. Dokunuş uygulamayı açar ve bandın
+  /// "Güncelle" düğmesi orada durur. Sessizce indirmeye başlamak, bayinin mobil verisini
+  /// onun kararı olmadan harcamak olurdu (APK ~30 MB).
+  ///
+  /// KİMLİK YAPIM NUMARASINA BAĞLI: aynı sürüm için ikinci bir bildirim doğmaz, üzerine yazar
+  /// (`bildirimKimligi` sözleşmesi). Uygulama gün içinde birkaç kez yeniden başlasa bile bayi
+  /// tek satır görür.
+  ///
+  /// HATA YUTAR: bildirim bir kolaylıktır ve güncelleme akışını düşüremez. `saha` kanalında
+  /// izin verilmemiş olabilir, sessiz saat olabilir, bütçe dolmuş olabilir — hiçbiri bandın
+  /// çizilmesini engellemez, o zaten `durum` üzerinden çoktan görünür oldu.
+  ///
+  /// ⚠️ NEDEN `@visibleForTesting` (private değil): `sessizKontrol` üzerinden ulaşılamaz.
+  /// `kYapim` bir DERLEME SABİTİDİR ve varsayılan `flutter test` altında 0'dır; `guncellemeVarMi`
+  /// yerel yapım 0 iken her zaman false döner (yerel/geliştirme derlemesi bilerek dürtülmez).
+  /// Yani taslak testte ancak buradan sınanabilir — ve sınanmalı: bandın aylarca ağaca hiç
+  /// bağlanmamış olması, tam olarak "ulaşılamayan yol test edilemez" boşluğundan doğmuştu.
+  @visibleForTesting
+  Future<void> bildir(SurumBilgisi bilgi) async {
+    try {
+      await (_bildirim ?? bildirimServisi).goster(BildirimTaslagi(
+        kategori: BildirimKategori.guncellemeVar,
+        baslik: 'Yeni sürüm hazır',
+        // SÜRÜM ADI GÖVDEDE, YAPIM NUMARASI HİÇBİR YERDE — banttaki kuralın aynısı
+        // (2026-08-11 kullanıcı kararı: "sadece sürüm yazsın").
+        govde: '${bilgi.surum} sürümü indirilebilir',
+        detay: 'Uygulamayı açın; en üstteki şeritten "Güncelle" ile kurabilirsiniz.',
+        kimlik: bildirimKimligi(BildirimKategori.guncellemeVar, '${bilgi.yapim}'),
+        // YOL YOK ve bu bilinçli: bildirime dokunmak uygulamayı ANA EKRANDA açar, bandın
+        // tam da durduğu yerde. Sözlüğe yalnız bu bildirim için bir "guncelleme" rotası
+        // eklemek, hedefi zaten açılışta görünen bir şey için ikinci bir yol kurmak olurdu.
+      ));
+    } on Object catch (e) {
+      debugPrint('Güncelleme bildirimi gösterilemedi: $e');
     }
   }
 

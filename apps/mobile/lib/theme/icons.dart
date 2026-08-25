@@ -62,6 +62,14 @@ abstract final class SipIcons {
       'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z|M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z';
   static const String sync =
       'M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8|M21 3v5h-5|M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16|M3 21v-5h5';
+  /// Lucide `download` — kutuya İNEN ok. Güncelleme bandındaki eylem düğmesinin ikonu.
+  ///
+  /// NEDEN EKLENDİ (kullanıcı isteği 2026-08-25: *"orada güncelle şeklinde bir ikon olmalı ya
+  /// da indirme gibi"*): bant o güne kadar sağ köşesinde yalnız bir SÜRÜM ROZETİ taşıyordu —
+  /// bilgi veriyordu ama dokunulacak bir şey gibi durmuyordu. Eylem ikonu olarak `sync`
+  /// (döngüsel ok) kullanılıyordu ve o, bu üründe "senkron" demek; aynı ikonu "indir" anlamında
+  /// ikinci kez kullanmak iki farklı işi tek işarete bindirirdi.
+  static const String indir = 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4|M7 10l5 5 5-5|M12 15V3';
   static const String ticket =
       'M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z|M13 5v2|M13 17v2|M13 11v2';
   static const String truck =
@@ -147,6 +155,7 @@ abstract final class SipIcons {
     'receipt': receipt,
     'settings': settings,
     'sync': sync,
+    'indir': indir,
     'ticket': ticket,
     'truck': truck,
     'power': power,

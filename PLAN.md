@@ -269,7 +269,70 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-25 — GÜN ÖZETİ BAŞTAN TASARLANDI + SAHA GİDERİ (mobil 0.47.0 → **0.49.0**, API 1.16.0 → **1.17.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-25/2 — **SÜRÜM 1.0.0, YAYINA GEÇİŞ** (mobil 0.49.0 → **1.0.0**)
+
+Kullanıcı kararı: *"Uygulama sürümünü 1.0.0 olarak güncelle. Güncelleme geldiğinde bildirim
+gelsin. Güncelleme bandındaki yükleme butonu belirgin değil. Tüm bunların ardından main'e
+güncelleme yapalım, yayına geçiyoruz."*
+
+#### ⭐ 1 · Sürüm 1.0.0 — sözleşme kırılması DEĞİL, yayın işareti
+
+⚠️ **SONRAKİ VARDİYA BUNU BİLMELİ:** CLAUDE.md MAJOR'ı "eski istemci yeni sunucuyla çalışamaz"
+diye tanımlıyor ve burada öyle bir kırılma **yok** — API 1.17.0'da kaldı, hiçbir alan
+kaldırılmadı, 0.49.0 taşıyan telefon eksiksiz çalışmaya devam ediyor. Numara ürünün pilottan
+çıktığını işaretliyor. Gerekçenin tamamı DECISIONS 2026-08-25/3; oradaki uyarı önemli: bu satır
+emsal değildir, gerçek bir kırılmada 2.0.0 hâlâ o anlama gelir.
+
+**İki hat ayrı kaldı:** uygulama 1.0.0, API 1.17.0.
+
+#### ⭐ 2 · Yeni sürüm bildirimi
+
+Bant müdahalesizdir ve öyle kalıyor, ama bedeli vardı: bayi uygulamayı açmadıkça yeni sürümden
+haberi olmuyordu (pilotta düzeltmeler günlerce telefonlara inmeden bekledi). Yeni kategori
+`BildirimKategori.guncellemeVar` (kanal `guncelleme_var_v2`, kendi tonu `guncelleme.wav` —
+çıkan üçlü, `gun_ozeti`nin inen deseninin tersi).
+
+- **heads-up DEĞİL:** kategori ölçütü "birinin BEKLEDİĞİ bir iş mi?" — güncelleme beklenen bir
+  iş değil, haber verilen bir imkândır.
+- **Kurye de alır:** eski sürümde kalan telefon çoğu zaman kuryenin telefonudur.
+- **İndirmeyi BAŞLATMAZ:** dokunuş uygulamayı ana ekranda açar, bant orada. Sessiz indirme
+  bayinin mobil verisini onun kararı olmadan harcardı (~30 MB).
+- **Mağaza derlemesinde ayar listesinde GÖRÜNMEZ:** o kanalda güncelleme yolu tamamen kapalı,
+  yani anahtar hiçbir şey yapmazdı (`_listelenir` süzgeci `yalnizYonetici` ile birleşti).
+
+#### ⭐ 3 · Bantta belirgin "Güncelle" düğmesi
+
+Sağ köşede dolgulu, accent renkli, düğme gibi duran bir hap vardı — ama içinde **sürüm numarası
+yazıyordu**. Göz onu düğme sanıyordu; gerçek eylemi söyleyen tek şey alt satırdaki cümleydi.
+Yerine ikonlu eylem düğmesi kondu (`SipIcons.indir` = Lucide `download`, ikon setine bu turda
+eklendi). Sürüm alt satıra taşındı — "sadece sürüm yazsın" kararı duruyor.
+
+⚠️ Düğmenin **kendi `onTap`i yok**: dokunuşu bandın tamamı alıyor. İç içe iki `GestureDetector`
+dıştakini sessizce öldürürdü. Hata başlığı da golden ölçümüyle kısaltıldı (360 puntoda
+kırpılıyordu).
+
+#### Ölçümler (bu makinede koşuldu)
+
+| Kapı | Sonuç |
+|---|---|
+| `flutter analyze` | temiz |
+| `flutter test` | **1545 / 1545** |
+| `flutter build apk --release --flavor saha` | ✅ (aşağıdaki içerik doğrulamasıyla birlikte) |
+| APK içeriği — `guncelleme.wav` | ✅ pakette (dördüncü kapı, bkz. `res/raw/keep.xml`) |
+
+#### Sonraki kişi için
+
+- **Yeni ses eklendi:** `res/raw/guncelleme.wav` + `keep.xml` listesi ONA değil ON BİRE çıktı.
+  `bildirim_altyapi_test.dart` bu listeyi `BildirimKategori.values` üzerinden sözleşme sayıyor,
+  yani yeni bir kategori eklendiğinde ses ve keep girdisi otomatik olarak zorunlu hâle geliyor.
+- **`GuncellemeServisi.bildir` `@visibleForTesting`:** `sessizKontrol` üzerinden ulaşılamaz
+  (`kYapim` derleme sabiti testte 0, güncelleme "bulunmuyor"). Gerekçe metodun doc'unda.
+- **main'e geçildi:** bu vardiyanın sonunda `dev` → `main` birleştirildi ve saha kanalı
+  `main`den besleniyor — yani sahadaki telefonlar bu sürümü görecek.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-25 — GÜN ÖZETİ BAŞTAN TASARLANDI + SAHA GİDERİ (mobil 0.47.0 → **0.49.0**, API 1.16.0 → **1.17.0**)
 
 Kullanıcı tek bir istek verdi: *"Gün Özeti sayfası çok uğraştırıcı. Geçmiş için ayrı bir yere
 gitmesi gerekiyor, oysa bunu sayfanın içinde takvim ile geçmişe gidebilmeli. Ek olarak bu sayfada

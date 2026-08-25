@@ -27,6 +27,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../guncelleme/guncelleme_sozlesmesi.dart' show guncellemeKapaliMi;
 import '../screens/isletme/atomlar/form_atomlari.dart';
 import '../screens/isletme/atomlar/kart_atomlari.dart';
 import '../theme/components/dokunma.dart';
@@ -228,7 +229,7 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
           // Boş bir widget eklemek yerine atlanır: kart satırlarının arasına ayırıcı çiziyor,
           // görünmez bir satır görünür bir boşluk bırakırdı.
           for (final k in BildirimKategori.values)
-            if (!k.yalnizYonetici || widget.yoneticiMi)
+            if (_listelenir(k))
               AyarSatiri(
                 ikon: _ikon(k),
                 baslik: k.ad,
@@ -253,7 +254,7 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
         _HeadsUpBolumu(
           kapaliOlanlar: [
             for (final k in BildirimKategori.values)
-              if ((!k.yalnizYonetici || widget.yoneticiMi) && _headsUpKapali(k)) k,
+              if (_listelenir(k) && _headsUpKapali(k)) k,
           ],
           olculebildi: _kanallar.values.any((d) => d.onem != null),
           onAyarAc: (k) async {
@@ -269,6 +270,24 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
     );
   }
 
+  /// Bu kategori AYARLAR LİSTESİNDE görünsün mü?
+  ///
+  /// TEK KURAL, İKİ KAYNAK: kapatınca hiçbir şey değişmeyen bir anahtar, ayarların tamamına
+  /// olan güveni bozar. İki hâl var ve ikisi de aynı cümleden çıkar:
+  ///  • [BildirimKategori.yalnizYonetici] — kuryede o dürtü sunucudan HİÇ gelmez.
+  ///  • [BildirimKategori.guncellemeVar] — mağaza derlemesinde uygulama içi güncelleme yolu
+  ///    tamamen kapalıdır (`guncellemeKapaliMi`), yani o bildirim hiç doğmaz. `saha`/`test`
+  ///    derlemesinde satır görünür ve gerçekten çalışır.
+  ///
+  /// SÜZGEÇ TEK FONKSİYONDA: liste iki yerde kuruluyor (kategori satırları + heads-up ölçümü)
+  /// ve koşul kopyalandığı gün ikisi ayrışır — ölçüm, listede olmayan bir kategori için uyarı
+  /// üretirdi.
+  bool _listelenir(BildirimKategori k) {
+    if (k.yalnizYonetici && !widget.yoneticiMi) return false;
+    if (k == BildirimKategori.guncellemeVar && guncellemeKapaliMi) return false;
+    return true;
+  }
+
   static String _sessizMetin(SessizSaatler s) {
     if (s.kapali) return 'Kapalı, her saat bildirim gelir';
     String iki(int x) => x.toString().padLeft(2, '0');
@@ -280,6 +299,7 @@ class _BildirimAyarBolumuState extends State<BildirimAyarBolumu> {
         BildirimKategori.gunKapanisHatirlatma => SipIcons.clock,
         BildirimKategori.kullanimHakki => SipIcons.info,
         BildirimKategori.sistem => SipIcons.settings,
+        BildirimKategori.guncellemeVar => SipIcons.indir,
         BildirimKategori.siparisAtandi => SipIcons.box,
         BildirimKategori.siparisIptal => SipIcons.alert,
         BildirimKategori.siparisTeslim => SipIcons.check,

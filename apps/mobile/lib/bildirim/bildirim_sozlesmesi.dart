@@ -55,6 +55,24 @@ enum BildirimKategori {
   /// ABONELİK/ÖDEME İÇİN KULLANILMAZ — mağaza kuralı.
   sistem,
 
+  /// YENİ SÜRÜM İNDİRİLEBİLİR (kullanıcı isteği 2026-08-25).
+  ///
+  /// ⚠️ YALNIZ `saha`/`test` KANALINDA DOĞAR. Uygulama içi güncelleme geçici bir özelliktir
+  /// (`guncelleme/guncelleme_sozlesmesi.dart`): mağaza derlemesinde güncellemeyi Play yapar ve
+  /// o kanalda bu bildirim HİÇ üretilmez. Ayar listesinde de gösterilmez — kapatınca hiçbir şey
+  /// değişmeyen bir anahtar, ayarların tamamına olan güveni bozar (`yalnizYonetici` süzgeciyle
+  /// aynı gerekçe).
+  ///
+  /// NEDEN GEREKLİ: güncelleme bandı MÜDAHALESİZDİR ve bilinçli olarak öyle — bayi uygulamayı
+  /// sipariş girmek için açar, ortasına çıkan bir diyalog işi böler. Ama bandın bedeli şu:
+  /// bayi uygulamayı AÇMADIĞI sürece yeni sürümden haberi olmaz. Pilotta düzeltmeler günlerce
+  /// telefonlara inmeden bekledi. Bildirim o boşluğu kapatır; bandın yerini ALMAZ, ona işaret
+  /// eder.
+  ///
+  /// KURYE DE ALIR ([yalnizYonetici] false): eski sürümde kalan telefon kuryenin telefonudur ve
+  /// düzeltmelerin çoğu onun ekranlarındadır.
+  guncellemeVar,
+
   // ── SUNUCUDAN İTİLENLER (push) ────────────────────────────────────────────────────────
   //
   // Yukarıdakilerden FARKI kaynaktır, biçimi değil: bunları telefon kendi verisinden
@@ -108,6 +126,7 @@ enum BildirimKategori {
         BildirimKategori.gunKapanisHatirlatma => 'gun_kapanis_hatirlatma',
         BildirimKategori.kullanimHakki => 'kullanim_hakki',
         BildirimKategori.sistem => 'sistem',
+        BildirimKategori.guncellemeVar => 'guncelleme_var',
         // Aşağıdaki beş değer SUNUCUYLA PAYLAŞILAN SÖZLEŞMEDİR (`app/Bildirim/PushOlayi.php`):
         // FCM yükünde `kategori` alanı olarak taşınır. Değiştirmek yalnız bayinin kıstığı
         // kanalı öksüz bırakmaz — sahadaki eski istemcinin gelen dürtüyü TANIMAMASINA yol açar.
@@ -130,6 +149,7 @@ enum BildirimKategori {
         BildirimKategori.gunKapanisHatirlatma => 'Kapanış hatırlatması',
         BildirimKategori.kullanimHakki => 'Kullanım hakkı',
         BildirimKategori.sistem => 'Uygulama durumu',
+        BildirimKategori.guncellemeVar => 'Yeni sürüm',
         BildirimKategori.siparisAtandi => 'Sipariş ataması',
         BildirimKategori.siparisIptal => 'Sipariş iptali',
         BildirimKategori.siparisTeslim => 'Teslimat',
@@ -144,6 +164,7 @@ enum BildirimKategori {
         BildirimKategori.gunKapanisHatirlatma => 'Gün kapatılmadığında ya da kasa devredilmediğinde',
         BildirimKategori.kullanimHakki => 'Oto sıralama hakkınız azaldığında',
         BildirimKategori.sistem => 'Bağlantı kesildiğinde ya da bir sorun çıktığında',
+        BildirimKategori.guncellemeVar => 'Uygulamanın yeni bir sürümü hazır olduğunda',
         BildirimKategori.siparisAtandi => 'Bir sipariş size atandığında',
         BildirimKategori.siparisIptal => 'Size atanan sipariş iptal edildiğinde',
         BildirimKategori.siparisTeslim => 'Kurye bir siparişi teslim ettiğinde',
@@ -237,6 +258,7 @@ enum BildirimKategori {
         BildirimKategori.gunKapanisHatirlatma => 'kapanis',
         BildirimKategori.kullanimHakki => 'kontor',
         BildirimKategori.sistem => 'sistem',
+        BildirimKategori.guncellemeVar => 'guncelleme',
       };
 
   /// ANDROID KANAL KİMLİĞİ — [wire]dan AYRI TUTULUR ve SÜRÜMLENİR.
