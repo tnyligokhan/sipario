@@ -108,11 +108,22 @@ class GunVeresiyeBolumu extends StatefulWidget {
     required this.gun,
     required this.toplamKurus,
     this.kuryeId,
+    this.haric,
+    this.bugunMu = true,
   });
 
   final AppDatabase db;
   final DateTime gun;
   final String? kuryeId;
+
+  /// "Elemanlar" kapsamı (bu kişi HARİÇ herkes) — kasa kartıyla AYNI süzgeç. Biri geçilip
+  /// diğeri unutulursa başlıktaki toplam ile dökümün toplamı ayrışır.
+  final String? haric;
+
+  /// Görüntülenen gün bugün mü? Yalnız KELİMEYİ değiştirir ("Bugün" / "Bu gün"); rakamların
+  /// hiçbirine dokunmaz. Gün Özeti 2026-08-25'te gün gezinmesi kazandı ve aynı bölüm artık
+  /// geçmiş bir günü de gösteriyor — orada "Bugün yazılan veresiye" yazmak yanlış olurdu.
+  final bool bugunMu;
 
   /// Gün özetinin ZATEN hesapladığı toplam. Bölüm kendi toplamını ÇIKARMAZ: aynı sayının iki
   /// yerde hesaplanması, bu depoda gün sonu tanımında üç kez ayrışma üretti.
@@ -126,12 +137,26 @@ class _GunVeresiyeBolumuState extends State<GunVeresiyeBolumu> {
   bool _acik = false;
   Future<List<VeresiyeSatiri>>? _veri;
 
+  Future<List<VeresiyeSatiri>> _oku() => GunVeresiyeRepository(widget.db)
+      .gununVeresiyeleri(widget.gun, userId: widget.kuryeId, haric: widget.haric);
+
   void _degistir(bool acik) {
     setState(() {
       _acik = acik;
-      _veri ??= GunVeresiyeRepository(widget.db)
-          .gununVeresiyeleri(widget.gun, userId: widget.kuryeId);
+      _veri ??= _oku();
     });
+  }
+
+  @override
+  void didUpdateWidget(GunVeresiyeBolumu eski) {
+    super.didUpdateWidget(eski);
+    // GÜN/KAPSAM DEĞİŞTİYSE AÇIK DÖKÜM BAYATTIR (2026-08-25 gün gezinmesi): aynı widget artık
+    // dün ile bugün arasında gidip geliyor ve liste bir kez okunup duruyordu.
+    if (eski.gun != widget.gun ||
+        eski.kuryeId != widget.kuryeId ||
+        eski.haric != widget.haric) {
+      _veri = _acik ? _oku() : null;
+    }
   }
 
   @override
@@ -170,14 +195,16 @@ class _GunVeresiyeBolumuState extends State<GunVeresiyeBolumu> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        varMi ? 'Bugün yazılan veresiye' : 'Bugün veresiye yazılmadı',
+                        varMi
+                            ? '${widget.bugunMu ? 'Bugün' : 'Bu gün'} yazılan veresiye'
+                            : '${widget.bugunMu ? 'Bugün' : 'Bu gün'} veresiye yazılmadı',
                         style: SipText.metin(13, w: 700).copyWith(color: t.ink),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         varMi
                             ? 'Kasaya girmedi, müşterinin borcuna eklendi'
-                            : 'Bugünkü satışların tamamı tahsil edildi',
+                            : '${widget.bugunMu ? 'Bugünkü' : 'Bu günkü'} satışların tamamı tahsil edildi',
                         style: SipText.metin(11, w: 500).copyWith(color: t.muted),
                       ),
                     ],

@@ -152,9 +152,11 @@ class DayClosingRepository {
   /// `beklenen = patronun bugün doğrudan topladığı + bugün alınan devirlerin SAYILAN toplamı`
   /// — yani "bugün kasaya fiilen giren para".
   ///
-  /// Üç sayı ARİTMETİK OLARAK KAPANIR ve ekran farkı açıklayabilsin diye üçü de taşınır:
-  /// `gunNakitKurus − dusulenKurus == expectedCashKurus`. Kapanmayan bir üçlü, patronun toplamdan
-  /// küçük bir rakam görüp sebebini soramaması demekti.
+  /// Sayılar ARİTMETİK OLARAK KAPANIR ve ekran farkı açıklayabilsin diye hepsi taşınır:
+  /// `gunNakitKurus − giderKurus − dusulenKurus == expectedCashKurus`. Kapanmayan bir hesap,
+  /// patronun toplamdan küçük bir rakam görüp sebebini soramaması demekti. (Gider 2026-08-25'te
+  /// eklendi; sıfır olduğu her gün — yani giderin hiç kullanılmadığı bayilerde — eski üçlü
+  /// kimliği harfiyen aynı kalır.)
   Future<ClosingOnizleme> onizle(ClosingScope scope, {String? userId, DateTime? localDate}) async {
     final date = localDate ?? await bugunTrDuzeltilmis(db);
     final courierId = scope == ClosingScope.courier ? userId : null;
@@ -184,15 +186,26 @@ class DayClosingRepository {
     // toplam bu nesneden türer — arşivi okuyan üç sayıyı toplayıp dördüncüyü bulabilir.
     final cerceveKasa = handover == null
         ? kasa
-        : KasaOzeti(nakit: handover.toplananKurus, kart: kasa.kart, havale: kasa.havale);
+        : KasaOzeti(
+            nakit: handover.toplananKurus,
+            kart: kasa.kart,
+            havale: kasa.havale,
+            // Gider de kapsamın ÇERÇEVESİNDEN gelir: kurye kapsamında pencere gideri, gün
+            // kapsamında takvim günü gideri. Karışsalardı üçlü kimliği kapanmazdı.
+            gider: handover.giderKurus,
+          );
 
     return ClosingOnizleme(
       kasa: kasa,
       cerceveKasa: cerceveKasa,
       deliveryCount: teslimat,
       openCreditKurus: borc.toplamAcikBorc,
-      expectedCashKurus: handover?.expectedKurus ?? (kasa.nakit - dusulen),
+      // NET NAKİT (gider düşülmüş, 2026-08-25): sayılacak para giderden SONRAKİ paradır. Brüt
+      // nakit beklenirse her benzin masrafı kapanışta "EKSİK" olarak arşive KALICI donar —
+      // giderin varlık sebebi tam olarak bu yanlış farkı ortadan kaldırmaktır.
+      expectedCashKurus: handover?.expectedKurus ?? (kasa.netNakit - dusulen),
       gunNakitKurus: cerceveKasa.nakit,
+      giderKurus: cerceveKasa.gider,
       dusulenKurus: dusulen,
       dusulenKalem: courierId != null
           ? DusulenKalem.teslimEdilen
@@ -401,6 +414,7 @@ class ClosingOnizleme {
     required this.openCreditKurus,
     required this.expectedCashKurus,
     required this.gunNakitKurus,
+    this.giderKurus = 0,
     this.dusulenKurus = 0,
     this.dusulenKalem = DusulenKalem.kuryelerdeKalan,
     this.periodStartIso,
@@ -430,9 +444,16 @@ class ClosingOnizleme {
   /// aksi hâlde farkı ekran kendi çıkarır ve iki yerde iki formül olurdu.
   final int gunNakitKurus;
 
-  /// [gunNakitKurus]tan DÜŞÜLEN tutar. `gunNakitKurus − dusulenKurus == expectedCashKurus`
-  /// her zaman, her kapsamda tutar. NE OLDUĞUNU [dusulenKalem] söyler — ekran kapsamdan çıkarım
-  /// yapmaz, etiketi o enum'dan seçer.
+  /// Kapsamın çerçevesinde KASADAN ÇIKAN gider (POZİTİF kuruş; 2026-08-25).
+  ///
+  /// ARİTMETİK ARTIK DÖRTLÜDÜR: `gunNakitKurus − giderKurus − dusulenKurus == expectedCashKurus`.
+  /// Gider sıfırken üçlü kimliği aynen korunur, yani eski davranış değişmez. Sıfır değilken satır
+  /// ekranda YAZILMAK ZORUNDA: yazılmazsa beklenen tutar sebepsiz küçülür ve bayi kasayı eksik
+  /// sayıldı sanır — bu depoda kapanmayan bir üçlü tam olarak bu şikâyeti üretmişti.
+  final int giderKurus;
+
+  /// [gunNakitKurus]tan DÜŞÜLEN tutar (gider HARİÇ — o ayrı taşınır). NE OLDUĞUNU [dusulenKalem]
+  /// söyler; ekran kapsamdan çıkarım yapmaz, etiketi o enum'dan seçer.
   ///
   /// Tek sayı tutuluyor çünkü kimliği kapatan sayı BUDUR; iki ayrı alan olsaydı ekran yanlışını
   /// seçebilirdi (bu vardiyada `kalanNakitKurus` tam olarak böyle yanılttı).

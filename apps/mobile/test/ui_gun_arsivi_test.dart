@@ -1,17 +1,22 @@
-// GÜN ÖZETİ — GEÇMİŞ GÜN EKRANI (kullanıcı kararı 2026-08-06).
+// GÜN ÖZETİ — GEÇMİŞ GÜNLERE GEZİNME (kullanıcı kararı 2026-08-06, yeniden tasarım 2026-08-25).
 //
-// "Geçmişi gün sonu içinden ayrı bir şekilde açalım — aynı teslim edilen siparişlerde yaptığımız
-// gibi tarihten ileri geri yaparak günlere bakmak daha pratik."
-//
-// ÖNCEKİ HÂLİ (2026-07-29): gövdede "hareket olan günler" listesi vardı, bir güne dokunmak ayrı
-// bir detay ekranı açıyordu. Liste + detay iki katmanı, ‹ › oklarıyla TEK katmana indi.
+// ══ EKRAN BİRLEŞTİ ══════════════════════════════════════════════════════════════════════════
+// Bu dosya bir zamanlar AYRI bir `GecmisGunEkrani`ni sınıyordu. O ekran 2026-08-25'te silindi:
+// kullanıcı *"geçmiş için ayrı bir yere gitmek gerekiyor, oysa sayfanın içinde takvimle geçmişe
+// gidebilmeli"* dedi. Artık tek ekran var (`DayEndScreen`) ve gün üstteki şeritten seçiliyor;
+// testler de aynı ekrana bakıyor. Kararların kendisi DEĞİŞMEDİ, yalnız hangi ekranda
+// doğrulandıkları değişti.
 //
 // Burada çivilenen kararlar:
-//  1. Ekran DÜNDE açılır; ileri ok BUGÜNÜ GEÇEMEZ.
-//  2. Kapatılmamış geçmiş gün de gösterilir — ama bant sayım yapılmadığını söyler.
-//  3. Ürün dökümü YALNIZ teslim edilenleri sayar (kasa özetiyle aynı küme).
-//  4. Kapsam segmenti geçmişte de çalışır; kurye YALNIZ kendini görür (K2).
-//  5. Boş gün ile boş KAPSAM ayrı cümlelerdir.
+//  1. Ekran BUGÜNDE açılır (eski Geçmiş ekranı dünde açılıyordu — artık geri gitmek bir dokunuş).
+//  2. İleri ok BUGÜNÜ GEÇEMEZ.
+//  3. Kapatılmamış geçmiş gün de gösterilir — ama bant sayım yapılmadığını söyler.
+//  4. Ürün dökümü YALNIZ teslim edilenleri sayar (kasa özetiyle aynı küme) ve artık BUGÜN için
+//     de var; varsayılan KAPALI (özet bir özettir).
+//  5. Kapsam seçici geçmişte de çalışır; kurye YALNIZ kendini görür (K2).
+//  6. Boş gün ile boş KAPSAM ayrı cümlelerdir.
+//  7. GÜN GEZİNMESİ YETKİYE BAĞLI: `gecmisHesapArsivi` yalnız yöneticidedir, kuryede tarih
+//     şeridi HİÇ çizilmez.
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
@@ -19,7 +24,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/order_repository.dart';
-import 'package:sipario/screens/isletme/gecmis_gun_ekrani.dart';
+import 'package:sipario/screens/day_end_screen.dart';
 import 'package:sipario/screens/isletme/gun_kapsami.dart';
 import 'package:sipario/screens/isletme/gun_arsivi.dart';
 
@@ -66,6 +71,28 @@ void main() {
         .write(LedgerEntriesCompanion(occurredAt: Value(damga)));
   }
 
+  /// Ekranı patron olarak açar — gün gezinmesi `gecmisHesapArsivi` yetkisine bağlıdır ve o
+  /// yalnız yöneticidedir. Rolsüz açılan bir ekranda tarih şeridi HİÇ çizilmez.
+  Future<void> ekraniAc(WidgetTester tester, AppDatabase db) async {
+    await ekranaKoy(
+      tester,
+      DayEndScreen(db: db, bugun: bugun, rol: 'patron', kullaniciId: 'p1'),
+    );
+    await akislariBekle(tester, tur: 6);
+  }
+
+  /// Bir gün geriye gider.
+  Future<void> gerideGit(WidgetTester tester) async {
+    await tester.tap(semantikDugme('Önceki gün'));
+    await akislariBekle(tester, tur: 6);
+  }
+
+  /// "Satılan Ürünler" bölümünün dökümünü açar (varsayılan KAPALI).
+  Future<void> urunDokumunuAc(WidgetTester tester) async {
+    await tester.tap(find.text('Ürün dökümü'));
+    await akislariBekle(tester, tur: 6);
+  }
+
   group('satilanUrunler — yalnız teslim edilenler', () {
     test('çok satandan aza sıralanır, adet ve tutar toplanır', () async {
       final db = AppDatabase(NativeDatabase.memory());
@@ -103,8 +130,8 @@ void main() {
   group('İZİNLİ KURYE — kapsam boş, gün dolu', () {
     // ESKİDEN `gunDetayi()` kurye kartları üretir, o gün işi olmayan kuryenin kartını çizmezdi
     // ("izinli kuryenin sıfırlarla dolu kartı ekranı uzatır"). Kurye kırılımı artık KAPSAM
-    // SEGMENTİNDE; aynı kural boş-durum cümlesine dönüştü. Sıfırlarla dolu bir kasa kartı
-    // çizmek, o kuryenin çalışıp kasayı boş getirdiği izlenimini verirdi.
+    // SEÇİCİDE; aynı kural boş-durum cümlesine dönüştü. Sıfırlarla dolu bir kasa kartı çizmek,
+    // o kuryenin çalışıp kasayı boş getirdiği izlenimini verirdi.
     testWidgets('kasa kartı değil, "bu gün çalışmamış" cümlesi çizilir', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
@@ -117,9 +144,8 @@ void main() {
             urun: 'Damacana', adet: 2, birimKurus: 4500, kuryeId: 'k1');
       });
 
-      await ekranaKoy(tester, GecmisGunEkrani(db: db, bugun: bugun));
-      await akislariBekle(tester, tur: 6);
-      // KAPSAM ARTIK AÇILIR LİSTE (2026-08-20): önce seçici, sonra "Ad · Rol" satırı.
+      await ekraniAc(tester, db);
+      await gerideGit(tester);
       await tester.tap(find.byType(GunKapsamSecici));
       await sheetAnimasyonu(tester);
       await tester.tap(find.text('Hakan (Kurye)'));
@@ -135,29 +161,26 @@ void main() {
     });
   });
 
-  // ═════════════════════════════════════════════════════════════════════════════════════════
-  // GEÇMİŞ EKRANI (kullanıcı kararı 2026-08-06) — liste + detay iki katmanı, TEK katmanlı gün
-  // gezinmesine dönüştü: "aynı teslim edilen siparişlerde yaptığımız gibi tarihten ileri geri
-  // yaparak günlere bakmak daha pratik."
-  // ═════════════════════════════════════════════════════════════════════════════════════════
-
-  group('Geçmiş ekranı — gün gezinmesi', () {
-    testWidgets('DÜNDE açılır; kasa özeti ve ürün dökümü çizilir', (tester) async {
-      // Ekran dünde açılır çünkü BUGÜNÜN özeti zaten bir önceki ekrandır; geçmişe bakmak için
-      // her açılışta bir kez geri okuna basmak angarya olurdu.
+  group('Gün gezinmesi — tek ekran, her gün', () {
+    testWidgets('BUGÜNDE açılır; geriye gidince o günün kasası ve ürünleri gelir',
+        (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await gunEkle(db, dun, urun: 'Damacana', adet: 4, birimKurus: 4500);
       });
 
-      await ekranaKoy(tester, GecmisGunEkrani(db: db, bugun: bugun));
-      await akislariBekle(tester, tur: 6);
+      await ekraniAc(tester, db);
+      expect(find.text('29 Temmuz 2026, Çarşamba'), findsOneWidget,
+          reason: 'ekran BUGÜNDE açılır — geçmiş bir dokunuş uzakta');
 
+      await gerideGit(tester);
       expect(find.text('28 Temmuz 2026, Salı'), findsOneWidget,
           reason: 'başlık altı seçili günü yazar');
+      expect(find.text('Toplam tahsilat (1 teslimat)'), findsOneWidget);
+
+      await urunDokumunuAc(tester);
       expect(find.text('Damacana ×4'), findsOneWidget);
       expect(find.text('Toplam, 4 adet'), findsOneWidget);
-      expect(find.text('Toplam tahsilat (1 teslimat)'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -169,14 +192,16 @@ void main() {
         await gunEkle(db, onceki, urun: 'Bardak Su', adet: 3, birimKurus: 700);
       });
 
-      await ekranaKoy(tester, GecmisGunEkrani(db: db, bugun: bugun));
-      await akislariBekle(tester, tur: 6);
+      await ekraniAc(tester, db);
+      await gerideGit(tester);
+      await urunDokumunuAc(tester);
       expect(find.text('Damacana ×4'), findsOneWidget);
 
-      await tester.tap(semantikDugme('Önceki gün'));
-      await akislariBekle(tester, tur: 6);
-
+      await gerideGit(tester);
       expect(find.text('27 Temmuz 2026, Pazartesi'), findsOneWidget);
+      // AÇIK DÖKÜM GÜN DEĞİŞİNCE TAZELENİR (2026-08-25): eskiden liste bir kez okunup duruyordu
+      // ve tek bir günü gösteren ekranda bu görünmüyordu. Artık aynı widget günler arasında
+      // gidip geliyor — tazelemeseydi bayi dünün gününde bugünün dökümünü okurdu.
       expect(find.text('Bardak Su ×3'), findsOneWidget);
       expect(find.text('Damacana ×4'), findsNothing, reason: 'gün değişti, veri de değişmeli');
 
@@ -197,15 +222,10 @@ void main() {
         await gunEkle(db, bugun, urun: 'Damacana', adet: 1, birimKurus: 4500);
       });
 
-      await ekranaKoy(tester, GecmisGunEkrani(db: db, bugun: bugun));
-      await akislariBekle(tester, tur: 6);
-
-      // Dünden bugüne bir adım: ileri ok hâlâ açık olmalı.
-      await tester.tap(semantikDugme('Sonraki gün'));
-      await akislariBekle(tester, tur: 6);
+      await ekraniAc(tester, db);
       expect(find.text('29 Temmuz 2026, Çarşamba'), findsOneWidget);
 
-      // Bugündeyiz: bir adım daha ileri HİÇBİR ŞEY yapmaz (tarih sabit kalır).
+      // Bugündeyiz: bir adım ileri HİÇBİR ŞEY yapmaz (tarih sabit kalır).
       await tester.tap(semantikDugme('Sonraki gün'));
       await akislariBekle(tester, tur: 6);
       expect(find.text('29 Temmuz 2026, Çarşamba'), findsOneWidget,
@@ -224,8 +244,8 @@ void main() {
         await gunEkle(db, dun, urun: 'Damacana', adet: 2, birimKurus: 4500);
       });
 
-      await ekranaKoy(tester, GecmisGunEkrani(db: db, bugun: bugun));
-      await akislariBekle(tester, tur: 6);
+      await ekraniAc(tester, db);
+      await gerideGit(tester);
 
       expect(find.textContaining('Bu günün hesabı kapatılmadı'), findsOneWidget);
       expect(find.text('Toplam tahsilat (1 teslimat)'), findsOneWidget,
@@ -246,12 +266,13 @@ void main() {
             ));
       });
 
-      await ekranaKoy(tester, GecmisGunEkrani(db: db, bugun: bugun));
-      await akislariBekle(tester, tur: 6);
+      await ekraniAc(tester, db);
+      await gerideGit(tester);
 
       expect(find.textContaining('Bu günün hesabı kapatıldı'), findsOneWidget);
       expect(find.textContaining('Bu günün hesabı kapatılmadı'), findsNothing);
-      expect(find.text('Kapanış Kayıtları'), findsOneWidget);
+      expect(find.text('Kapanış Kayıtları'), findsOneWidget,
+          reason: 'geçmiş günde başlık "Bugünün Kapanışları" olamaz');
 
       await kapat(tester);
     });
@@ -262,9 +283,8 @@ void main() {
         await gunEkle(db, onceki, urun: 'Damacana', adet: 2, birimKurus: 4500);
       });
 
-      // Ekran DÜNDE açılır; hareket bir gün öncesinde, yani dün boş.
-      await ekranaKoy(tester, GecmisGunEkrani(db: db, bugun: bugun));
-      await akislariBekle(tester, tur: 6);
+      await ekraniAc(tester, db);
+      await gerideGit(tester); // dün — hareket bir gün öncesinde
 
       expect(find.text('Bu güne ait hareket yok'), findsOneWidget);
       expect(find.text('Kasa Özeti'), findsNothing,
@@ -273,24 +293,28 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('KURYE kapsam segmentinde YALNIZ kendini görür (K2)', (tester) async {
+    testWidgets('KURYE gün gezinmesini GÖREMEZ — ekran bugüne kilitli (K2)', (tester) async {
+      // `gecmisHesapArsivi` yalnız yöneticidedir (kullanıcı isteği 2026-08-09: "kurye geçmişi
+      // göremeyecek"). Şerit kalıcı olarak kapalı bir kapı göstermek yerine HİÇ çizilmez.
       final db = AppDatabase(NativeDatabase.memory());
       await tester.runAsync(() async {
         await db.into(db.users).insert(UsersCompanion.insert(
             id: 'k1', name: 'Emre', role: 'kurye', status: 'active'));
         await db.into(db.users).insert(UsersCompanion.insert(
             id: 'k2', name: 'Hakan', role: 'kurye', status: 'active'));
-        await gunEkle(db, dun,
+        await gunEkle(db, bugun,
             urun: 'Damacana', adet: 2, birimKurus: 4500, kuryeId: 'k1');
       });
 
       await ekranaKoy(
         tester,
-        GecmisGunEkrani(db: db, bugun: bugun, rol: 'kurye', kullaniciId: 'k1'),
+        DayEndScreen(db: db, bugun: bugun, rol: 'kurye', kullaniciId: 'k1'),
       );
       await akislariBekle(tester, tur: 6);
 
-      expect(find.text('Emre'), findsOneWidget, reason: 'kendi kapsamı segmentte durur');
+      expect(semantikDugme('Önceki gün'), findsNothing,
+          reason: 'kurye geçmiş güne gidemez; şerit hiç çizilmez');
+      expect(semantikDugme('Takvimden gün seç'), findsNothing);
       expect(find.text('Hakan'), findsNothing,
           reason: 'kurye başka kuryenin kasasını OKUYAMAZ — göremediğini de kapatamaz');
 

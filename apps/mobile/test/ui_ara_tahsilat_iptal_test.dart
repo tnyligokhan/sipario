@@ -25,6 +25,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/repo/cash_handover_repository.dart';
 import 'package:sipario/screens/day_end_screen.dart';
+import 'package:sipario/screens/isletme/gun_sonu_kartlari.dart' show AraTahsilatKarti;
 import 'package:sipario/screens/isletme/isletme_atomlari.dart';
 import 'package:sipario/theme/components/atoms.dart';
 import 'package:sipario/theme/icons.dart';
@@ -110,8 +111,15 @@ void main() {
       // SAYAÇ VE TOPLAM AYNI KÜMEYİ SAYAR.
       expect(find.text('1 ara tahsilatın toplamı'), findsOneWidget,
           reason: 'iptalli satır sayaca girmez');
-      expect(find.text(sipTutar(2000)), findsNWidgets(2),
-          reason: 'ayakta duran satır + toplam; iptal edilen 40,00 ₺ toplamdan düştü');
+      // ÖLÇÜM KARTIN İÇİNE DARALTILDI (2026-08-25): ekranın tepesindeki özet bloğu da para
+      // yazıyor ve aynı rakam orada da çıkabiliyor. Bu testin sorusu "ara tahsilat KARTI ne
+      // diyor" — ekranın tamamında kaç kez geçtiği değil.
+      expect(
+        find.descendant(
+            of: find.byType(AraTahsilatKarti), matching: find.text(sipTutar(2000))),
+        findsNWidgets(2),
+        reason: 'ayakta duran satır + toplam; iptal edilen 40,00 ₺ toplamdan düştü',
+      );
 
       await kapat(tester);
     });

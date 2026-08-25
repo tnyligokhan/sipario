@@ -229,9 +229,30 @@ return [
     | NEDEN MINOR: yeni op'lar EKLEMEDİR. Eski istemci onları hiç göndermez ve
     | `order_events` içinde tanımadığı bir satır görürse yok sayar (durum
     | türetmesi yalnız bildiği olaylara bakar).
+    |
+    | ── 1.17.0 (2026-08-25) — SAHA GİDERİ ───────────────────────────────────
+    | `ledger_entries.entry_type` kümesine 'expense' eklendi: kasadan ÇIKAN
+    | nakit. `payment_type` ZORUNLU ve yalnız 'nakit' (kasa değişmezi:
+    | "payment_type taşıyan kayıt kasaya dokundu"); `customer_id` NULL olmalı
+    | (dolu olsaydı bakiye yeniden hesabı o müşterinin borcunu şişirirdi);
+    | tutar POZİTİF, iptalinde `reverses_entry_id` ile NEGATİF ve orijinalin
+    | tam tersi. Çift iptal kısmi unique indeksle kapalı.
+    |
+    | NEDEN MINOR: yeni bir op AÇILMADI (yük yine `ledger`/`entry`) ve
+    | genişleyen tek şey KABUL EDİLEN DEĞER kümesidir. Eski istemci 'expense'
+    | hiç göndermez; sunucudan çekerken de defter satırlarını tipine bakmadan
+    | aynaladığı için yeni satır onu KIRMAZ.
+    |
+    | ⚠️ ESKİ İSTEMCİDE BİLİNEN KOZMETİK SAPMA (ölçüldü, kabul edildi): 0.49.0
+    | ÖNCESİ bir telefon, başka bir cihazdan yazılmış gideri indirir ve gün
+    | özetinde "Müşterisiz kayıt" adıyla bir VERESİYE satırı gösterir (o
+    | sürümün gruplayıcısı müşterisiz + pozitif satırı alacak sanıyor). Kasa
+    | rakamı yine doğrudur; yanlış olan yalnız o satırın adıdır. MAJOR
+    | sayılmadı: eski istemci çalışmaya devam eder, hiçbir kayıt kaybolmaz ve
+    | düzeltmesi uygulamanın güncellenmesidir.
     */
 
-    'version' => '1.16.0',
+    'version' => '1.17.0',
 
     /*
     |--------------------------------------------------------------------------

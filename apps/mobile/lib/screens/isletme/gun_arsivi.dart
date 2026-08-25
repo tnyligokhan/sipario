@@ -1,6 +1,11 @@
-// GEÇMİŞ GÜN VERİSİ — ürün dökümü + tarih biçimleri (`gecmis_gun_ekrani.dart`ın veri katmanı).
+// GÜN VERİSİ — ürün dökümü + tarih biçimleri (Gün Özeti ekranının yardımcı veri katmanı).
 //
-// GEÇMİŞE ERİŞİM ARTIK GÜN GEZİNMESİYLEDİR (kullanıcı kararı 2026-08-06): eskiden burada
+// ⚠️ DOSYA ADI TARİHSELDİR: bir zamanlar ayrı bir "Geçmiş" ekranı vardı ve bu onun veri
+// katmanıydı. O ekran 2026-08-25'te SİLİNDİ — geçmiş artık Gün Özeti'nin kendi gün şeridiyle
+// geziliyor ve `satilanUrunler` BUGÜN için de çiziliyor. Ad değişmedi çünkü değiştirmek, iki
+// çağıran dosyanın import satırını yalnız kozmetik bir sebeple oynatmak olurdu.
+//
+// GEÇMİŞE ERİŞİM GÜN GEZİNMESİYLEDİR (kullanıcı kararı 2026-08-06): eskiden burada
 // "hareket olan günler" listesi (`gecmisGunler`), bir gün satırına dokununca açılan detay ekranı
 // ve onun veri fonksiyonu (`gunDetayi` + `GunDetayi` + `KuryeGunu`) vardı. Liste + detay iki
 // katmanı, ‹ › oklarıyla tek katmana indi — bayi listede tarih aramıyor, "dün ne oldu" diye

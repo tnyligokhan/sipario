@@ -18,6 +18,11 @@ import 'gun_sonu_ozet.dart' show SenkronTazeligi;
 import 'isletme_atomlari.dart';
 import 'senkron_seridi.dart';
 
+// ARŞİV DETAYI AYRI PARÇADA (500 satır kuralı — dosya 569 satıra çıkmıştı): burası bir hesabı
+// KAPATIR, orası KAPANMIŞ bir hesabı geri OKUR. `part` seçildi ki bu dosyayı import eden altı
+// çağrı yeri hiç değişmesin (`cash_handover_ara_tahsilat.dart` ile aynı desen).
+part 'gun_arsiv_detay.dart';
+
 /// Kapatma sheet'inin sonucu: sayılan nakit (girilmediyse null) + not.
 @immutable
 class KapatmaSonucu {
@@ -32,10 +37,11 @@ class KapatmaSonucu {
 /// [beklenen] kasada olması gereken nakittir; sayılan tutar bununla karşılaştırılır.
 ///
 /// ══ SHEET HİÇBİR FORMÜL VE HİÇBİR ANLAM BİLMEZ (lead kararı 2026-08-06) ════════════════════
-/// Üçlü şöyle çizilir ve tek kuralı vardır: **üst − orta == alt**.
-///   • üst  = [tamNakit]   adı [ustEtiket] ile ÇAĞIRANDAN gelir
-///   • orta = [ortaTutar]  adı [ortaEtiket] ile ÇAĞIRANDAN gelir
-///   • alt  = [beklenen]   "Beklenen nakit"
+/// Döküm şöyle çizilir ve tek kuralı vardır: **üst − gider − orta == alt**.
+///   • üst   = [tamNakit]    adı [ustEtiket] ile ÇAĞIRANDAN gelir
+///   • gider = [giderTutar]  "Gider (kasadan çıktı)" — sıfırsa satır HİÇ çizilmez
+///   • orta  = [ortaTutar]   adı [ortaEtiket] ile ÇAĞIRANDAN gelir
+///   • alt   = [beklenen]    "Beklenen nakit"
 ///
 /// İKİ ETİKET DE NEDEN PARAMETRE: her ikisi de kapsama göre BAŞKA BİR ŞEYİ ölçüyor.
 ///   • orta → gün hesabında "Kuryelerde kalan" (henüz teslim EDİLMEMİŞ), kurye hesabında
@@ -71,6 +77,7 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
   String ustEtiket = 'Günün nakdi',
   String? ortaEtiket,
   int ortaTutar = 0,
+  int giderTutar = 0,
   String? cerceveNotu,
   SenkronTazeligi? senkron,
   bool sayimIstenmiyor = false,
@@ -91,6 +98,7 @@ Future<KapatmaSonucu?> gunKapatmaSheet(
       ustEtiket: ustEtiket,
       ortaEtiket: ortaEtiket,
       ortaTutar: ortaTutar,
+      giderTutar: giderTutar,
       cerceveNotu: cerceveNotu,
       senkron: senkron,
       sayimIstenmiyor: sayimIstenmiyor,
@@ -108,6 +116,7 @@ class _KapatmaGovdesi extends StatefulWidget {
     required this.ustEtiket,
     required this.ortaEtiket,
     required this.ortaTutar,
+    required this.giderTutar,
     required this.cerceveNotu,
     required this.senkron,
     this.sayimIstenmiyor = false,
@@ -121,6 +130,11 @@ class _KapatmaGovdesi extends StatefulWidget {
   final String ustEtiket;
   final String? ortaEtiket;
   final int ortaTutar;
+
+  /// KASADAN ÇIKAN gider (POZİTİF kuruş; 2026-08-25). Sıfırsa satır hiç çizilmez — gider
+  /// kullanmayan bayide döküm eskisi gibi ÜÇ satırdır, dördüncü bir "Gider 0,00 ₺" her akşam
+  /// cevapsız bir soru olurdu (iskonto satırıyla aynı kural).
+  final int giderTutar;
 
   /// Sheet'in çerçevesi ekranınkiyle çakışmıyorsa bunu söyleyen kısa satır; null ise çizilmez.
   final String? cerceveNotu;
@@ -195,25 +209,35 @@ class _KapatmaGovdesiState extends State<_KapatmaGovdesi> {
         //
         // Orta satırın ADI çağırandan gelir (dosya başındaki gerekçe): gün hesabında
         // "Kuryelerde kalan", kurye hesabında "Gün içinde alınan" — zıt yönlü iki büyüklük.
-        if (widget.ortaEtiket != null && widget.ortaTutar != 0) ...[
+        // GİDER DÖKÜMÜ TEK BAŞINA DA AÇAR (2026-08-25): kurye hiç devir yapmamışken bile
+        // (orta = 0) yolda 200 ₺ benzin almış olabilir ve beklenen tutar o kadar küçüktür.
+        // Koşul yalnız `ortaTutar`a baksaydı, açıklaması olan tek fark açıklamasız kalırdı.
+        if ((widget.ortaEtiket != null && widget.ortaTutar != 0) || widget.giderTutar != 0) ...[
           DegerKarti(
             satirlar: [
               DegerSatiri(etiket: widget.ustEtiket, deger: sipTutar(widget.tamNakit)),
-              DegerSatiri(
-                etiket: widget.ortaEtiket!,
-                // İŞARET DEĞERDEN TÜRER, SABİT DEĞİLDİR. [ortaTutar] gün kapsamında NEGATİF
-                // olabilir (kurye dünden taşıdığı nakdi bugün teslim ettiyse kasaya günün kendi
-                // nakdinden FAZLASI girer). Sabit "−" ile basıldığında ekran "− -5.000,00 ₺"
-                // yazıyordu: hem bozuk hem yanlış yönlü. `sipTutar` negatifi kendi başına "−"
-                // ile basar; o yüzden mutlak değer verilir ve işareti burası koyar.
-                //
-                // Sheet yine hiçbir ANLAM bilmiyor: işaret aritmetiktir (üst − orta == alt),
-                // kelime değil. Negatifte ETİKETİN de değişmesi gerekir ("kalan" demesin) ama o
-                // karar ÇAĞIRANINDIR — anlamı bilen odur.
-                deger: '${widget.ortaTutar < 0 ? '+' : '−'} '
-                    '${sipTutar(widget.ortaTutar.abs())}',
-                degerRengi: t.ink2,
-              ),
+              if (widget.giderTutar != 0)
+                DegerSatiri(
+                  etiket: 'Gider (kasadan çıktı)',
+                  deger: '− ${sipTutar(widget.giderTutar.abs())}',
+                  degerRengi: t.warn,
+                ),
+              if (widget.ortaEtiket != null && widget.ortaTutar != 0)
+                DegerSatiri(
+                  etiket: widget.ortaEtiket!,
+                  // İŞARET DEĞERDEN TÜRER, SABİT DEĞİLDİR. [ortaTutar] gün kapsamında NEGATİF
+                  // olabilir (kurye dünden taşıdığı nakdi bugün teslim ettiyse kasaya günün kendi
+                  // nakdinden FAZLASI girer). Sabit "−" ile basıldığında ekran "− -5.000,00 ₺"
+                  // yazıyordu: hem bozuk hem yanlış yönlü. `sipTutar` negatifi kendi başına "−"
+                  // ile basar; o yüzden mutlak değer verilir ve işareti burası koyar.
+                  //
+                  // Sheet yine hiçbir ANLAM bilmiyor: işaret aritmetiktir (üst − gider − orta ==
+                  // alt), kelime değil. Negatifte ETİKETİN de değişmesi gerekir ("kalan"
+                  // demesin) ama o karar ÇAĞIRANINDIR — anlamı bilen odur.
+                  deger: '${widget.ortaTutar < 0 ? '+' : '−'} '
+                      '${sipTutar(widget.ortaTutar.abs())}',
+                  degerRengi: t.ink2,
+                ),
             ],
           ),
           const SizedBox(height: SipSpace.md),
@@ -339,133 +363,6 @@ class FarkSeridi extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-// Arşiv detayı
-// ═══════════════════════════════════════════════════════════════════════════════════════════
-
-/// Arşivlenmiş kapanışı kuruşu kuruşuna geri okur. [kapsamAdi] gün hesabında "Gün hesabı",
-/// kurye kapanışında kuryenin adıdır (kayıtta yalnız `user_id` durur, ad `users` aynasından çözülür).
-/// [bugun] "Bugün/Dün" şeridinin referans günüdür — DÜZELTİLMİŞ saatten gelmeli.
-Future<void> arsivDetaySheet(
-  BuildContext context,
-  DayClosing k, {
-  required String kapsamAdi,
-  required DateTime bugun,
-  bool geriAlinmis = false,
-  Future<void> Function()? onGeriAl,
-}) {
-  return sipSheet<void>(
-    context,
-    baslik: '$kapsamAdi arşivi',
-    govde: (ctx) => _ArsivDetay(
-      kapanis: k,
-      bugun: bugun,
-      geriAlinmis: geriAlinmis,
-      onGeriAl: onGeriAl,
-    ),
-  );
-}
-
-class _ArsivDetay extends StatelessWidget {
-  const _ArsivDetay({
-    required this.kapanis,
-    required this.bugun,
-    this.geriAlinmis = false,
-    this.onGeriAl,
-  });
-
-  final DayClosing kapanis;
-  final DateTime bugun;
-
-  /// Bu kapanış SONRADAN geri alındı mı (2026-08-18). Kayıt yerinde durur, geçerliliği düşer.
-  final bool geriAlinmis;
-
-  /// "Hesabı Geri Al" eylemi. `null` ise düğme HİÇ çizilmez — yetki kapısı ÇAĞIRANDADIR
-  /// (`yetkiler().gunuKapatma`), bu sheet karar vermez, yalnız taşır.
-  final Future<void> Function()? onGeriAl;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    final k = kapanis;
-    final fark = k.diffKurus;
-    final farkRengi = fark < 0 ? t.danger : (fark > 0 ? t.warn : t.ok);
-    final not = (k.note ?? '').trim();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        KapaliSerit(
-          metin: '${gunSaatBicimi(k.occurredAt, bugun: bugun)} saatinde kapatıldı, '
-              '${k.deliveryCount} teslimat',
-          ikon: SipIcons.lock,
-        ),
-        const SizedBox(height: SipSpace.xl),
-        DegerKarti(
-          satirlar: [
-            DegerSatiri(etiket: 'Nakit', deger: sipTutar(k.cashNakitKurus)),
-            DegerSatiri(etiket: 'Kart', deger: sipTutar(k.cashKartKurus)),
-            DegerSatiri(etiket: 'Havale', deger: sipTutar(k.cashHavaleKurus)),
-            DegerSatiri(
-              etiket: 'Toplam Tahsilat',
-              deger: sipTutar(k.totalCollectedKurus),
-              toplam: true,
-            ),
-          ],
-        ),
-        const SizedBox(height: SipSpace.lg),
-        DegerKarti(
-          satirlar: [
-            DegerSatiri(etiket: 'Beklenen nakit', deger: sipTutar(k.expectedCashKurus)),
-            DegerSatiri(
-              etiket: 'Sayılan nakit',
-              deger: k.countedCashKurus == null ? '—' : sipTutar(k.countedCashKurus!),
-            ),
-            DegerSatiri(
-              etiket: 'Fark',
-              deger: fark == 0 ? 'Tam' : sipTutar(fark),
-              degerRengi: farkRengi,
-            ),
-          ],
-        ),
-        if (not.isNotEmpty) ...[
-          const SizedBox(height: SipSpace.lg),
-          SipNotKutusu(metin: not),
-        ],
-
-        // GERİ ALINMIŞ KAPANIŞ: kayıt DURUR, geçersizliği yazıyla söylenir (2026-08-18).
-        // Satırı listeden silmek "olay hiç olmadı" demek olurdu; oysa olmuştu ve düzeltildi.
-        if (geriAlinmis) ...[
-          const SizedBox(height: SipSpace.lg),
-          const SipNotKutusu(
-            metin: 'Bu kapanış geri alındı. Rakamlar kapanış anındaki hâli gösterir.',
-            ikon: SipIcons.info,
-            tur: SipNotTuru.uyari,
-          ),
-        ],
-
-        // "HESABI GERİ AL" — yalnız GEÇERLİ bir kapanışta ve yalnız yetkili kullanıcıda.
-        // Geri alınmış bir kaydı ikinci kez geri almak anlamsızdır (repo da reddeder); düğmeyi
-        // çizip dokunuşta reddetmek yerine hiç çizmiyoruz.
-        if (onGeriAl != null && !geriAlinmis) ...[
-          const SizedBox(height: SipSpace.x4),
-          SipButon(
-            etiket: 'Hesabı Geri Al',
-            tur: SipButonTuru.tehlike,
-            onTap: () async {
-              // Sheet ÖNCE kapanır: geri alma akışı kendi onay diyaloğunu ve parola sheet'ini
-              // açıyor, üst üste üç katman modal kullanıcıyı nerede olduğunu bilmez hâle
-              // getirirdi. Ayrıca akış bitince ekranın tazelenmesi gerekiyor ve bu sheet
-              // tazelenmiş veriyi zaten taşımıyor.
-              Navigator.of(context).maybePop();
-              await onGeriAl!();
-            },
-          ),
-        ],
-      ],
     );
   }
 }

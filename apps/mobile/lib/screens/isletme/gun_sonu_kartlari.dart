@@ -358,7 +358,12 @@ class GunOzetiAltCubugu extends StatelessWidget {
     required this.toplam,
     required this.onKapat,
     this.onAraTahsilat,
+    this.bugunMu = true,
   });
+
+  /// Görüntülenen gün bugün mü (2026-08-25 gün gezinmesi)? Yalnız toplam etiketini değiştirir —
+  /// geçmiş bir günde "Bugünkü tahsilat" yazmak, bayiye o anki kasasını okuduğunu sandırırdı.
+  final bool bugunMu;
 
   final bool kapsamKapali;
   final bool gunKapali;
@@ -431,7 +436,9 @@ class GunOzetiAltCubugu extends StatelessWidget {
       SizedBox(
         width: onAraTahsilat == null ? 150 : 108,
         child: AltCubukToplam(
-          etiket: kuryeAdi == null ? 'Bugünkü tahsilat' : '$kuryeAdi için tahsilat',
+          etiket: kuryeAdi == null
+              ? (bugunMu ? 'Bugünkü tahsilat' : 'Günün tahsilatı')
+              : '$kuryeAdi için tahsilat',
           deger: sipTutar(toplam),
         ),
       ),

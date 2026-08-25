@@ -34,9 +34,17 @@ String odemeTuruAdi(String tur) => switch (tur) {
     };
 
 /// Boş durum metni — hem sheet hem bölüm bunu kullanır.
-String tahsilatBosMetni(String? odemeTuru) => odemeTuru == null
-    ? 'Bugün kasaya giren bir tahsilat yok'
-    : 'Bugün ${odemeTuruAdi(odemeTuru).toLowerCase()} tahsilat yok';
+///
+/// [bugunMu] false iken "Bugün" yerine "Bu gün" yazılır: Gün Özeti 2026-08-25'te gün gezinmesi
+/// kazandı ve aynı sheet artık üç gün önceki günü de gösteriyor. "Bugün havale tahsilat yok"
+/// cümlesi orada düpedüz yanlış olurdu — bayi geçmişe bakarken bugünün bilgisini okuduğunu
+/// sanırdı.
+String tahsilatBosMetni(String? odemeTuru, {bool bugunMu = true}) {
+  final ne = bugunMu ? 'Bugün' : 'Bu gün';
+  return odemeTuru == null
+      ? '$ne kasaya giren bir tahsilat yok'
+      : '$ne ${odemeTuruAdi(odemeTuru).toLowerCase()} tahsilat yok';
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Satır
@@ -172,12 +180,20 @@ class _KaynakRozeti extends StatelessWidget {
 
 /// Satır listesi + toplam. Boşsa tek satırlık açıklama çizer.
 class TahsilatListesi extends StatelessWidget {
-  const TahsilatListesi({super.key, required this.satirlar, this.odemeTuru});
+  const TahsilatListesi({
+    super.key,
+    required this.satirlar,
+    this.odemeTuru,
+    this.bugunMu = true,
+  });
 
   final List<TahsilatSatiri> satirlar;
 
   /// Tür süzgeci uygulandıysa hangi tür (rozet gizlenir, boş metni ona göre yazılır).
   final String? odemeTuru;
+
+  /// Gösterilen gün bugün mü — yalnız BOŞ DURUM cümlesini etkiler.
+  final bool bugunMu;
 
   @override
   Widget build(BuildContext context) {
@@ -186,7 +202,7 @@ class TahsilatListesi extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: SipSpace.md),
         child: Text(
-          tahsilatBosMetni(odemeTuru),
+          tahsilatBosMetni(odemeTuru, bugunMu: bugunMu),
           style: SipText.metin(12.5, w: 600).copyWith(color: t.muted),
         ),
       );
@@ -232,7 +248,9 @@ Future<void> tahsilatTuruSheetAc(
   required DateTime gun,
   required String odemeTuru,
   String? kuryeId,
+  String? haric,
   String? kapsamAdi,
+  bool bugunMu = true,
 }) {
   return sipSheet<void>(
     context,
@@ -240,11 +258,19 @@ Future<void> tahsilatTuruSheetAc(
         ? '${odemeTuruAdi(odemeTuru)} Tahsilatlar'
         : '$kapsamAdi için ${odemeTuruAdi(odemeTuru).toLowerCase()} tahsilat',
     govde: (ctx) => FutureBuilder<List<TahsilatSatiri>>(
+      // KAPSAM SÜZGECİ TAM GEÇİLİR ([haric] dahil, 2026-08-25): "Elemanlar" kapsamındayken
+      // kartta 3 satır, dökümde 12 satır görünüyordu — sheet yalnız `userId`yi taşıdığı için
+      // "ben hariç herkes" süzgeci yolda düşüyordu. Kartın rakamı ile listenin toplamı
+      // birbirini tutmak ZORUNDA; dökümün tek varlık sebebi budur.
       future: DayEndRepository(db)
-          .tahsilatDetaylari(gun, userId: kuryeId, odemeTuru: odemeTuru),
+          .tahsilatDetaylari(gun, userId: kuryeId, haric: haric, odemeTuru: odemeTuru),
       builder: (ctx, snap) {
         if (!snap.hasData) return const SipIskelet(adet: 3);
-        return TahsilatListesi(satirlar: snap.data!, odemeTuru: odemeTuru);
+        return TahsilatListesi(
+          satirlar: snap.data!,
+          odemeTuru: odemeTuru,
+          bugunMu: bugunMu,
+        );
       },
     ),
   );
@@ -267,11 +293,20 @@ class GunTeslimatlariBolumu extends StatefulWidget {
     required this.db,
     required this.gun,
     this.kuryeId,
+    this.haric,
+    this.bugunMu = true,
   });
 
   final AppDatabase db;
   final DateTime gun;
   final String? kuryeId;
+
+  /// "Elemanlar" kapsamı (bu kişi HARİÇ herkes). Kasa kartıyla aynı süzgeç — biri geçilip
+  /// diğeri unutulursa kartın rakamı ile listenin toplamı ayrışır.
+  final String? haric;
+
+  /// Yalnız boş durum cümlesini etkiler ("Bugün" / "Bu gün").
+  final bool bugunMu;
 
   @override
   State<GunTeslimatlariBolumu> createState() => _GunTeslimatlariBolumuState();
@@ -281,12 +316,27 @@ class _GunTeslimatlariBolumuState extends State<GunTeslimatlariBolumu> {
   bool _acik = false;
   Future<List<TahsilatSatiri>>? _veri;
 
+  Future<List<TahsilatSatiri>> _oku() => DayEndRepository(widget.db)
+      .tahsilatDetaylari(widget.gun, userId: widget.kuryeId, haric: widget.haric);
+
   void _degistir(bool acik) {
     setState(() {
       _acik = acik;
-      _veri ??= DayEndRepository(widget.db)
-          .tahsilatDetaylari(widget.gun, userId: widget.kuryeId);
+      _veri ??= _oku();
     });
+  }
+
+  @override
+  void didUpdateWidget(GunTeslimatlariBolumu eski) {
+    super.didUpdateWidget(eski);
+    // GÜN/KAPSAM DEĞİŞTİYSE AÇIK DÖKÜM BAYATTIR (2026-08-25 gün gezinmesi). Eskiden bu ekran tek
+    // bir günü gösteriyordu ve liste bir kez okunup duruyordu; artık aynı widget dün ile bugün
+    // arasında gidip geliyor. Tazelemeseydik bayi dünün gününde bugünün dökümünü okurdu.
+    if (eski.gun != widget.gun ||
+        eski.kuryeId != widget.kuryeId ||
+        eski.haric != widget.haric) {
+      _veri = _acik ? _oku() : null;
+    }
   }
 
   @override
@@ -347,7 +397,7 @@ class _GunTeslimatlariBolumuState extends State<GunTeslimatlariBolumu> {
                   child: SipIskelet(adet: 2),
                 );
               }
-              return TahsilatListesi(satirlar: snap.data!);
+              return TahsilatListesi(satirlar: snap.data!, bugunMu: widget.bugunMu);
             },
           ),
       ],

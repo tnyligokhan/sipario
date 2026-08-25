@@ -52,8 +52,21 @@ class DayEndRepository {
   Future<KasaOzeti> kasaOzeti(DateTime localDate, {String? userId, String? haric}) async {
     final tillEntries = await _kasayaDokunanlar(localDate, userId, haric);
 
-    var nakit = 0, kart = 0, havale = 0;
+    var nakit = 0, kart = 0, havale = 0, gider = 0;
     for (final e in tillEntries) {
+      // GİDER AYRI KOVAYA DÜŞER, tahsilat kovalarına DEĞİL (2026-08-25). İkisi de kasaya dokunur
+      // ama zıt yönde ve farklı soruların cevabıdır: "bugün ne tahsil ettim" ile "kasada ne
+      // kalmalı". Gideri `nakit`in içine eritseydik üstteki satır "Nakit" derken NET rakamı
+      // gösterir, "Toplam tahsilat" etiketi de düpedüz yalan olurdu — bu depoda tam olarak bu
+      // hata sınıfı (anlamı değişen sayıyı eski kelimesiyle taşımak) gün sonu tanımında üç kez
+      // tekrarlandı. Net rakam [KasaOzeti.netNakit] ile AYRI ve ADIYLA taşınır.
+      //
+      // TERS GİDER SATIRI (iptal) NEGATİF tutarlıdır ve aynı kovada netlenir: iptal edilmiş bir
+      // gider toplamdan kendiliğinden düşer, ikinci bir küme sorgusu gerekmez.
+      if (e.entryType == 'expense') {
+        gider += e.amountKurus; // gider POZİTİF yazılır (kasadan çıkan); iptali NEGATİF
+        continue;
+      }
       final giren = -e.amountKurus; // payment(−)→kasaya girer(+); ters correction(+)→kasadan çıkar(−)
       switch (e.paymentType) {
         case 'nakit':
@@ -64,7 +77,7 @@ class DayEndRepository {
           havale += giren;
       }
     }
-    return KasaOzeti(nakit: nakit, kart: kart, havale: havale);
+    return KasaOzeti(nakit: nakit, kart: kart, havale: havale, gider: gider);
   }
 
   /// Günün TAHSİLAT DETAYLARI — kasa kartındaki rakamların satır satır dökümü
@@ -74,6 +87,11 @@ class DayEndRepository {
   /// [kasaOzeti] İLE AYNI SÜZGEÇTEN geçer ([_kasayaDokunanlar]) — yani bu listenin toplamı
   /// kartın rakamına EŞİTTİR. Ayrı bir sorgu yazmak, ekranın iki yerinde iki farklı para
   /// göstermek demekti.
+  ///
+  /// GİDER SATIRLARI BU LİSTEDE YOKTUR (2026-08-25) ve olmamalı: liste "Nakit 8.000 ₺" satırının
+  /// dökümüdür ve o rakam tahsilattır. Gider satırları girseydi listenin toplamı kartın rakamını
+  /// TUTMAZDI — dökümün tek varlık sebebi ise toplamı doğrulatabilmektir. Giderlerin kendi
+  /// dökümü ayrıdır (`GiderRepository.gunGiderleri`).
   ///
   /// [odemeTuru] verilirse yalnız o tür (`nakit`/`kart`/`havale`) döner.
   ///
@@ -89,7 +107,8 @@ class DayEndRepository {
     String? haric,
     String? odemeTuru,
   }) async {
-    var kayitlar = await _kasayaDokunanlar(localDate, userId, haric);
+    var kayitlar = await _kasayaDokunanlar(localDate, userId, haric)
+      ..removeWhere((e) => e.entryType == 'expense'); // gider bir tahsilat değildir
     if (odemeTuru != null) {
       kayitlar = kayitlar.where((e) => e.paymentType == odemeTuru).toList();
     }
@@ -349,12 +368,38 @@ class TahsilatSatiri {
 }
 
 /// Gün sonu kasa özeti (kuruş). Salt-okunur değer nesnesi.
+///
+/// ÜÇ TAHSİLAT KOVASI + BİR GİDER KOVASI (2026-08-25). Ayrım pazarlıksız: [nakit] "bugün nakit
+/// olarak ne TAHSİL ETTİM", [netNakit] ise "kasada ne KALMALI". Tek bir sayı ikisine birden cevap
+/// veremez ve bu depoda aynı sayıyı iki anlamda taşımak gün sonu tanımında üç kez ayrışma üretti.
 class KasaOzeti {
-  KasaOzeti({required this.nakit, required this.kart, required this.havale});
+  KasaOzeti({
+    required this.nakit,
+    required this.kart,
+    required this.havale,
+    this.gider = 0,
+  });
+
+  /// Nakit TAHSİLAT (gider HARİÇ).
   final int nakit;
   final int kart;
   final int havale;
+
+  /// Kasadan ÇIKAN nakit — saha gideri (benzin, tamir…), POZİTİF kuruş. İptal edilmiş giderler
+  /// ters satırla netlenmiş hâlde gelir, yani bu sayı "fiilen çıkan"dır.
+  ///
+  /// [toplam]IN İÇİNDE DEĞİLDİR (iskontoyla aynı kural): toplam bir TAHSİLAT toplamıdır ve
+  /// gider bir tahsilat değildir. Kasa mutabakatına [netNakit] üzerinden girer.
+  final int gider;
+
+  /// Günün TAHSİLAT toplamı (üç ödeme türü). Gider bunun içinde DEĞİLDİR.
   int get toplam => nakit + kart + havale;
+
+  /// Kasada FİİLEN kalması gereken nakit: tahsil edilen nakit − gider.
+  ///
+  /// Kapanış/devir mutabakatı BU rakamdan türer, [nakit]ten değil — sayılan para giderden
+  /// sonraki paradır ve gider düşülmezse her gider kalıcı bir "EKSİK" olarak arşive donardı.
+  int get netNakit => nakit - gider;
 }
 
 class BorcDurumu {

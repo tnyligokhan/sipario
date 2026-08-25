@@ -269,7 +269,87 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-22/2 — BEŞ SAHA MADDESİ (mobil 0.42.0 → **0.47.0**, API 1.14.0 → **1.16.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-25 — GÜN ÖZETİ BAŞTAN TASARLANDI + SAHA GİDERİ (mobil 0.47.0 → **0.49.0**, API 1.16.0 → **1.17.0**)
+
+Kullanıcı tek bir istek verdi: *"Gün Özeti sayfası çok uğraştırıcı. Geçmiş için ayrı bir yere
+gitmesi gerekiyor, oysa bunu sayfanın içinde takvim ile geçmişe gidebilmeli. Ek olarak bu sayfada
+Gider Ekleme özelliği de olmalı. Sayfanın tasarımını baştan sona yenile."* İki iş kolu doğdu,
+ikisi de kendi MINOR artışını aldı.
+
+#### ⭐ 1 · Gün Özeti TEK EKRAN oldu, geçmiş içeri alındı (0.48.0)
+
+`lib/screens/isletme/gecmis_gun_ekrani.dart` **SİLİNDİ.** Ekranın üstünde artık gün şeridi
+(`‹ 24 Ağustos ›`, teslim sekmesindeki `SiparisTarihSeridi`nin aynısı) ve yanında bir **takvim**
+düğmesi var. Gövde hangi güne bakılırsa bakılsın aynı bölümleri çiziyor.
+
+**Neden birleşti:** iki ekran düzenli ayrışıyordu. "Satılan Ürünler" yalnız Geçmiş'te vardı —
+yani bayi *"bugün kaç damacana sattım"* sorusunu ancak ERTESİ GÜN sorabiliyordu; ara tahsilat ve
+gider yalnız bugünde vardı; her yeni bölümde "hangi ekrana?" diye ayrı bir karar gerekiyordu.
+
+**Takvim elle çizildi** (`isletme/gun_takvimi.dart`), `showDatePicker` DEĞİL: depoda
+`flutter_localizations` yok ve Material seçici Türkçe uygulamanın ortasında İngilizce bir ay
+ızgarası çizerdi. Her günün altındaki nokta onu tarih seçiciden **durum haritasına** çeviriyor —
+**yeşil** o günün hesabı kapatıldı, **sarı** kapatılmadı, noktasız çalışılmadı. Kümeler mevcut
+tanımlardan gelir (`KapanmamisGunlerRepository.hareketliGunler` + `DayClosingRepository.kapaliGunAnahtarlari`);
+takvim kendi kuralını YAZMAZ.
+
+**Yeni tepe bloğu** (`isletme/gun_ozeti_basligi.dart`): tek iri rakam — *"Kasada olması
+gereken"* — ve altında tahsilat/gider, sonra üç küçük kutu (teslimat · veresiye · gün hesabının
+durumu). Rakam **`DayClosingRepository.onizle`den olduğu gibi** alınır; ekran hiçbir çıkarma
+yapmaz. "Elemanlar" ve patronun "Kendi işlemlerim" kapsamlarında rakam **null**'dur (sıfır
+değil) ve başlık "Toplam tahsilat"a döner: `day_closings` o kapsamları tanımaz.
+
+**Kapılar:** gün gezinmesi `gecmisHesapArsivi` yetkisine bağlı (yalnız yönetici) — kuryede şerit
+ve takvim HİÇ çizilmez. Geçmiş günde ara tahsilat ve gider yazılamaz; kapanış yalnız GÜN
+kapsamında ve SAYIM İSTENMEDEN yapılır (eski Geçmiş ekranından devralındı). Boş-gün durumu
+yalnız geçmişte çizilir: bugünün sıfırları bilgidir, gün devam ediyor ve "Gider Ekle" o ekranda
+olmalı.
+
+#### ⭐ 2 · Saha gideri — yetki matrisinin ödenmemiş borcu kapandı (0.49.0 · API 1.17.0)
+
+"Saha Gideri Girme (Benzin vb.)" satırı yetki matrisinde **aylardır duruyordu ve ürün karşılığı
+yoktu**: yetkiyi açan bayi hiçbir şey açmıyordu. Sahadaki karşılığı şuydu — kuryenin yolda
+aldığı 200 ₺ benzin akşam kalıcı bir "eksik para" olarak arşive donuyordu.
+
+Gider bir **defter satırıdır** (`ledger_entries.entry_type = 'expense'`), yeni tablo değil:
+kuryenin cebi · günün kasası · kapanış beklentisi onu kendiliğinden görsün diye. `payment_type`
+zorunlu ve yalnız `nakit`, `customer_id` null, tutar pozitif, iptali ters işaretli ikinci satır.
+Çift iptal kısmi unique indeksle veritabanında kapalı. Ayrıntılı gerekçe DECISIONS 2026-08-25/2.
+
+**Anlam ayrımı pazarlıksız:** `KasaOzeti.nakit`/`toplam` TAHSİLATTIR, gider oraya karışmaz;
+mutabakat `netNakit` üzerinden yürür ve kapanış sheet'inin aritmetiği dörtlüye çıkar
+(`gunNakit − gider − dusulen == beklenen`; gider sıfırken eski üçlü aynen korunur).
+
+⚠️ **DÖRDÜNCÜ YER TUZAĞI YİNE ÇIKTI** (bkz. DECISIONS 2026-08-22/8): gider müşterisiz ve tutarı
+pozitif olduğu için `veresiyeGruplari` onu bir grup yapıp *"Müşterisiz kayıt · bugün yazılan
+veresiye"* diye gösteriyordu. Tip orada AÇIKÇA elenir; işaret bunu yakalayamaz.
+
+#### Ölçümler (bu makinede koşuldu)
+
+| Kapı | Sonuç |
+|---|---|
+| `flutter analyze` | temiz |
+| `flutter test` | **1537 + 27 yeni = tamamı yeşil** (`gider_test.dart` 17, `ui_gider_test.dart` 10) |
+| `php artisan test` | **932 (931 geçti, 1 atlandı, 0 kırmızı)** |
+| `pint --test` · `phpstan` | temiz · 0 hata |
+
+#### Sonraki kişi için
+
+- **Yeni test dosyaları:** `test/gider_test.dart` (veri katmanı) ve `test/ui_gider_test.dart`
+  (ekran + yetki kapıları + dar ekran yerleşim provası). `test/ui_gun_arsivi_test.dart` artık
+  `GecmisGunEkrani`ni değil `DayEndScreen`i sınıyor.
+- **Migration owner ile koşar:** `php artisan migrate --database=pgsql_owner --force`
+  (`2026_08_25_000101_add_ledger_expense_type`). Canlıda henüz KOŞULMADI.
+- **Deploy sırası:** sunucu ÖNCE. Eski istemci yeni sunucuyla çalışır; tersi durumda yeni
+  istemcinin yazdığı gider `rejected` döner ve kayıt telefonun kuyruğunda birikir.
+- **Bilinen kozmetik sapma (kabul edildi):** 0.49.0 öncesi bir telefon, indirdiği gideri
+  "Müşterisiz kayıt" veresiyesi olarak gösterir. Kasa rakamı doğrudur; düzeltmesi güncellemedir.
+- **Açık:** gider için kategori/raporlama YOK ve bilinçli — bu bir kasa düzeltmesidir, kâr-zarar
+  defteri değil. Kart/havale gider de yok (çekmeceye dokunmaz). İhtiyaç pilotta ölçülmeli.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-22/2 — BEŞ SAHA MADDESİ (mobil 0.42.0 → **0.47.0**, API 1.14.0 → **1.16.0**)
 
 Kullanıcı beş madde verdi, beşi de kapandı. Her biri kendi MINOR artışını aldı (SemVer kuralı:
 "birden çok iş kolu aynı vardiyada bitiyorsa her biri kendi artışını alır").

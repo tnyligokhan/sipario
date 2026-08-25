@@ -126,12 +126,17 @@ class CashHandoverRepository {
   Future<HandoverOnizleme> onizle(String fromUserId, {DateTime? localDate}) async {
     final gun = localDate ?? await bugunTrDuzeltilmis(db);
     final pencere = await _pencere(fromUserId, gun);
-    final toplanan = await _pencerede(fromUserId, pencere);
+    final nakit = await _pencerede(fromUserId, pencere);
     final teslimEdilen = await _teslimEdilen(kuryeId: fromUserId, pencere: pencere);
     return HandoverOnizleme(
       periodStartIso: await _periodStart(fromUserId),
-      expectedKurus: toplanan - teslimEdilen,
-      toplananKurus: toplanan,
+      // GİDER DE DÜŞÜLÜR (2026-08-25): cepteki para, toplanandan hem TESLİM EDİLENİ hem de
+      // YOLDA HARCANANI çıkardıktan sonra kalandır. Düşmeseydik kuryenin aldığı her benzin
+      // kapanışta "EKSİK" olarak arşive KALICI donardı — giderin varlık sebebi tam olarak
+      // bu farkın adını koymaktır.
+      expectedKurus: nakit.toplanan - nakit.gider - teslimEdilen,
+      toplananKurus: nakit.toplanan,
+      giderKurus: nakit.gider,
       teslimEdilenKurus: teslimEdilen,
     );
   }
@@ -178,9 +183,13 @@ class CashHandoverRepository {
     final dayEnd = DayEndRepository(db);
     var toplam = 0;
     for (final id in adaylar) {
-      final toplanan = (await dayEnd.kasaOzeti(gun, userId: id)).nakit;
+      // NET NAKİT (gider düşülmüş, 2026-08-25): kuryenin cebinde kalan para, topladığından hem
+      // teslim ettiğini hem YOLDA HARCADIĞINI çıkardıktan sonra kalandır. Brüt tahsilatı
+      // kullansaydık gün kapsamında patronun beklenen kasası kuryenin benzin parası kadar
+      // DÜŞÜK çıkardı — gider iki kez düşülmüş olurdu (bir kez burada, bir kez `netNakit`te).
+      final kalan = (await dayEnd.kasaOzeti(gun, userId: id)).netNakit;
       final teslim = await teslimEdilenNakit(gun, kuryeId: id);
-      toplam += toplanan - teslim;
+      toplam += kalan - teslim;
     }
     return toplam;
   }
@@ -238,18 +247,29 @@ class CashHandoverRepository {
     return _Pencere(baslangic: sonKapanis, bitis: bitis);
   }
 
-  /// Penceredeki NAKİT kasa katkısı (payment(−)→giren(+); nakit correction(+)→çıkan(−)).
-  Future<int> _pencerede(String fromUserId, _Pencere pencere) async {
+  /// Penceredeki NAKİT kasa katkısı (payment(−)→giren(+); nakit correction(+)→çıkan(−)) ve
+  /// penceredeki GİDER (kasadan çıkan, POZİTİF).
+  ///
+  /// İKİSİ AYRI DÖNER, tek bir "net" olarak değil — `DayEndRepository.kasaOzeti` ile AYNI
+  /// gerekçe: "topladığı" ile "cebinde kalması gereken" farklı sorulardır ve ekran ikisini de
+  /// ayrı ayrı yazar. Tek sayıya indirseydik sheet'teki "Topladığı" satırı giderden sonraki
+  /// rakamı gösterip kelimesiyle çelişirdi.
+  Future<({int toplanan, int gider})> _pencerede(
+      String fromUserId, _Pencere pencere) async {
     final satirlar = await (db.select(db.ledgerEntries)
           ..where((t) => t.paymentType.equals('nakit') & t.collectedByUserId.equals(fromUserId)))
         .get();
-    var toplam = 0;
+    var toplanan = 0, gider = 0;
     for (final e in satirlar) {
       final t = DateTime.tryParse(e.occurredAt)?.toUtc();
       if (t == null || !pencere.icinde(t)) continue;
-      toplam += -e.amountKurus;
+      if (e.entryType == 'expense') {
+        gider += e.amountKurus; // pozitif çıkan; iptal satırı negatiftir ve kendiliğinden netler
+        continue;
+      }
+      toplanan += -e.amountKurus;
     }
-    return toplam;
+    return (toplanan: toplanan, gider: gider);
   }
 
   /// [gun] TR gününde teslim edilen nakdin SAYILAN toplamı. [kuryeId] verilmezse tüm kuryeler.
@@ -325,14 +345,20 @@ class HandoverOnizleme {
     required this.periodStartIso,
     required this.expectedKurus,
     this.toplananKurus = 0,
+    this.giderKurus = 0,
     this.teslimEdilenKurus = 0,
   });
 
   /// Denetim izi — hesaba GİRMEZ (bkz. sınıf notu).
   final String periodStartIso;
 
-  /// Kuryenin cebinde kalan = [toplananKurus] − [teslimEdilenKurus].
+  /// Kuryenin cebinde kalan = [toplananKurus] − [giderKurus] − [teslimEdilenKurus].
   final int expectedKurus;
+
+  /// PENCEREDE kasadan çıkan gider (POZİTİF kuruş; 2026-08-25). Ekranda AYRI satır olarak yazılır:
+  /// üç sayının aritmetiği kapanmazsa bayi beklenen tutarın neden küçüldüğünü soramaz — bu
+  /// depoda kapanmayan üçlü bir kez fiilen "açıklanamaz eksik" olarak arşive donmuştu.
+  final int giderKurus;
 
   /// PENCEREDE toplanan nakit (son kapanıştan beri). Ekran üçlüsünün ilk sayısı; kimliğin
   /// tutması için gün toplamı DEĞİL pencere toplamı taşınır — kurye gün içinde bir kez

@@ -97,6 +97,12 @@ class VeresiyeGrubu {
 List<VeresiyeGrubu> veresiyeGruplari(List<LedgerEntry> kayitlar) {
   final gruplar = <String, VeresiyeGrubu>{};
   for (final e in kayitlar) {
+    // ⚠️ GİDER BURAYA GİREMEZ (2026-08-25) ve bu satır bir savunma değil, ZORUNLULUKTUR: gider
+    // satırının müşterisi de siparişi de YOKTUR ve tutarı POZİTİFTİR — yani aşağıdaki gruplama
+    // onu kendi başına bir gruba koyar, `net > 0` çıkar ve akşam benzin parası bayiye
+    // "Müşterisiz kayıt · bugün yazılan veresiye" diye görünürdü. Kasadan çıkan para bir alacak
+    // değildir; tipin kendisi elenir, tutarın işareti bunu yakalayamaz.
+    if (e.entryType == 'expense') continue;
     // Kasaya dokunmayan `debit`/`credit`/`discount` ve siparişe bağlı `payment` hepsi girer;
     // ayrım grubun netinde kendiliğinden oluşur.
     final orderId = e.relatedOrderId;

@@ -37,6 +37,8 @@ import 'package:sipario/theme/components/atoms.dart';
 
 import 'support/ara_tahsilat_yardimcilari.dart';
 import 'support/ekran_yardimcilari.dart';
+// Yalnız `semantikDugme`: iki yardımcı dosya da `kapat` tanımlıyor, tam import belirsizlik olur.
+import 'support/kabuk_yardimcilari.dart' show semantikDugme;
 
 
 void main() {
@@ -54,16 +56,22 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('başlıkta "Geçmiş" düğmesi durur — gövdede geçmiş listesi YOK', (tester) async {
-      // Geçmiş ayrı ekrana taşındı: bu ekranın işi BUGÜNDÜR ve geçmiş listesi onu her açılışta
-      // aşağı itiyordu.
+    testWidgets('geçmişe GÜN ŞERİDİYLE gidilir — ayrı bir "Geçmiş" düğmesi YOK',
+        (tester) async {
+      // ÜÇ HÂLDEN ÜÇÜNCÜSÜ (2026-08-25). Geçmiş sırasıyla: (1) bu ekranın gövdesinde bir liste,
+      // (2) başlıktaki "Geçmiş" düğmesiyle açılan AYRI bir ekran, (3) artık bu ekranın kendi
+      // gün şeridi. Kullanıcı ikinci hâl için *"ayrı bir yere gitmesi gerekiyor, oysa sayfanın
+      // içinde takvim ile geçmişe gidebilmeli"* dedi.
       final db = AppDatabase(NativeDatabase.memory());
 
       await ekranaKoy(tester, DayEndScreen(db: db, rol: 'patron', kullaniciId: 'p1'));
 
-      expect(find.text('Geçmiş'), findsOneWidget, reason: 'başlıktaki düğme');
+      expect(find.text('Geçmiş'), findsNothing,
+          reason: 'ayrı ekrana açılan düğme kaldırıldı');
       expect(find.textContaining('Henüz geçmiş gün yok'), findsNothing,
-          reason: 'gövdedeki geçmiş listesi kaldırıldı');
+          reason: 'gövdedeki geçmiş listesi de yok');
+      expect(semantikDugme('Önceki gün'), findsOneWidget, reason: 'gün şeridi burada');
+      expect(semantikDugme('Takvimden gün seç'), findsOneWidget);
 
       await kapat(tester);
     });

@@ -176,9 +176,44 @@ class GunSonuGorunumu {
     this.gunKapanislari = const [],
     this.araTahsilatMumkun = false,
     this.araTahsilatToplamiKurus = 0,
+    this.bugunMu = true,
+    this.kayitVar = true,
+    this.beklenenNakit,
     this.senkron = const SenkronTazeligi(),
     this.geriAlinmisKapanislar = const {},
   });
+
+  /// Görüntülenen gün BUGÜN mü (düzeltilmiş sunucu saatine göre)?
+  ///
+  /// Gün Özeti ekranı 2026-08-25'te gün gezinmesi kazandı; artık AYNI ekran hem bugünü hem
+  /// geçmişi gösteriyor ve yazma yolları buna göre kapanıyor: ara tahsilat, gider ekleme ve
+  /// SAYIMLI kapanış yalnız bugün mümkündür. Geçmiş bir güne bugünün parasını yazmak, kapanmış
+  /// ya da kapanmaya hazır bir günün kasasını geriye dönük değiştirmek olurdu.
+  ///
+  /// Anlık bakiye gösteren "Açık Veresiye" kartı da buna bağlıdır: `customers.balance_kurus` ŞU
+  /// ANIN durumudur, geçmişe sarılamaz — geçmiş bir günde çizmek, o günün borcu sanılacak bir
+  /// rakamı basmak olurdu.
+  final bool bugunMu;
+
+  /// O GÜNDE (kapsamdan bağımsız) herhangi bir kayıt var mı? "0 ₺" ile "o gün çalışılmadı" aynı
+  /// şey değildir ve sıfırlarla dolu bir kasa kartı bayiyi kasa eksik sandırır.
+  ///
+  /// Görünümün İÇİNDE taşınır, ekranın ikinci bir future'ından değil: ayrı olsaydı gövde bir kare
+  /// boyunca kartları çizip sonra boş duruma atlardı (ya da tersi) — geçmiş bir günde bu titreme,
+  /// bayiye rakamların oynadığını düşündürürdü.
+  final bool kayitVar;
+
+  /// KASADA OLMASI GEREKEN nakit — ekranın en üstündeki iri rakam.
+  ///
+  /// `DayClosingRepository.onizle`den OLDUĞU GİBİ alınır: kapanış sheet'inde yazan tutarla aynı
+  /// koddan çıkmak zorunda, yoksa bayi kapatmaya bastığında başka bir rakam görür.
+  ///
+  /// NULL = BU KAPSAMDA TANIMLI DEĞİL, "sıfır" değil. `day_closings` yalnız iki kapsam tanır
+  /// (gün · kurye); "Elemanlar" ve patronun "Kendi işlemlerim" kapsamları birer okuma
+  /// kapsamıdır ve orada "kasada olması gereken" diye bir büyüklük yoktur — patronun kendi
+  /// topladığı para zaten kasanın kendisidir. Sıfır yazmak, olmayan bir mutabakat iddia etmek
+  /// olurdu; ekran o kapsamlarda başlığı da rakamı da değiştirir.
+  final int? beklenenNakit;
 
   /// GERİ ALINMIŞ kapanışların id'leri (2026-08-18).
   ///
@@ -255,6 +290,7 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
   DateTime localDate, {
   String? kuryeId,
   String? haric,
+  bool devirKapsami = false,
 }) async {
   final kapanislar = DayClosingRepository(db);
   final gunKapali = await kapanislar.kapaliMi(ClosingScope.day, localDate: localDate);
@@ -266,6 +302,22 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
   final acikKuryeler = await acikKuryeAdlari(db, localDate);
   final aktifSayi = await _aktifKuryeSayisi(db);
   final bugun = localDate == await bugunTrDuzeltilmis(db);
+
+  // BEKLENEN NAKİT — ekranın en üstündeki iri rakam. HER KAPSAMDA TANIMLI DEĞİLDİR ve
+  // tanımsızken null kalır (bkz. [GunSonuGorunumu.beklenenNakit]). Kapsam süzgeci burada
+  // `ClosingScope`a çevrilir; "Elemanlar" ve patronun "Kendi işlemlerim" kapsamları birer OKUMA
+  // kapsamıdır, `day_closings` onları hiç tanımaz.
+  //
+  // FORMÜL BURADA YAZILMAZ, `DayClosingRepository.onizle`den ALINIR: kapanış sheet'inde yazan
+  // rakam ile ekranın en üstündeki rakam AYNI koddan çıkmak zorunda. İkisini ayrı hesaplamak,
+  // bu depoda gün sonu tanımında üç kez ayrışma üreten hata sınıfının ta kendisi.
+  final beklenen = haric != null || (kuryeId != null && !devirKapsami)
+      ? null
+      : (await kapanislar.onizle(
+          kuryeId == null ? ClosingScope.day : ClosingScope.courier,
+          userId: kuryeId,
+          localDate: localDate,
+        ));
 
   return GunSonuGorunumu(
     ozet: GunBorcOzeti(borc: await DayEndRepository(db).borcDurumu()),
@@ -281,6 +333,9 @@ Future<GunSonuGorunumu> gunSonuGorunumu(
     // Geçmiş gün için de FALSE: dünün kasasını bugün "ara" tahsilat diye almak, parayı dünün
     // hesabına yazmak olurdu.
     araTahsilatMumkun: bugun && !gunKapali && aktifSayi > 0,
+    bugunMu: bugun,
+    kayitVar: await gunKayitVarMi(db, localDate),
+    beklenenNakit: beklenen?.expectedCashKurus,
     senkron: await senkronTazeligi(db),
     acikKuryeAdlari: acikKuryeler,
     gunEngeli: kuryeId == null &&

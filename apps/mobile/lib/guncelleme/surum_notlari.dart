@@ -51,6 +51,35 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '0.49.0',
+    tarih: '25 Ağustos 2026',
+    maddeler: [
+      'Gün Özeti\'ne "Gider Ekle" geldi. Benzin, tamir, yemek gibi kasadan çıkan masrafları '
+          'yazarsınız; akşam sayacağınız nakit o kadar azalır ve kasa artık boşuna eksik '
+          'görünmez.',
+      'Bir kuryenin yolda yaptığı masrafı da yazabilirsiniz: üstteki kapsamı o kişiye çevirip '
+          'gideri girin, tutar onun hesabından düşülür.',
+      'Yanlış yazdığınız bir gideri iptal edebilirsiniz. Kayıt silinmez; üstü çizili olarak '
+          'yerinde kalır ve o para yine kasada sayılır.',
+      'Kuryelerin gider girebilmesi Kurye Yetkileri ekranından açılır, başlangıçta kapalıdır.',
+    ],
+  ),
+  SurumNotu(
+    surum: '0.48.0',
+    tarih: '25 Ağustos 2026',
+    maddeler: [
+      'Gün Özeti baştan sona yenilendi. En üstte artık tek bir iri rakam var: kasada olması '
+          'gereken nakit. Eskiden bunu kendiniz hesaplamak zorundaydınız.',
+      'Geçmiş günler için ayrı bir ekrana gitmek gerekmiyor. Sayfanın üstündeki oklarla gün gün '
+          'geriye gider, takvim düğmesiyle istediğiniz güne tek dokunuşla atlarsınız.',
+      'Takvimde her günün altında bir nokta var: yeşil o günün hesabı kapatıldı, sarı '
+          'kapatılmadı. Atladığınız günü aramak yerine görüyorsunuz.',
+      'Satılan ürün dökümü artık bugün için de açılıyor; eskiden yalnız geçmiş günlerde vardı.',
+      'Teslimat sayısı, o günün veresiyesi ve gün hesabının durumu üstteki üç kutuda '
+          'özetleniyor.',
+    ],
+  ),
+  SurumNotu(
     surum: '0.47.0',
     tarih: '22 Ağustos 2026',
     maddeler: [

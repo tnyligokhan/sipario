@@ -1,4 +1,4 @@
-// GÜN SONU EKRANININ PARA EYLEMLERİ — ara tahsilat · ara tahsilat iptali · günü kapatma.
+// GÜN SONU EKRANININ PARA EYLEMLERİ — ara tahsilat · iptali · gider · iptali · günü kapatma.
 //
 // NEDEN AYRI DOSYA: `day_end_screen.dart` 513 satıra çıkmıştı (500 satır kuralı). Bölme çizgisi
 // para ile çizim arasından geçiyor: buradaki üç eylem DEFTERE YAZAR (kasa devri, iptal kaydı,
@@ -40,6 +40,75 @@ extension _GunSonuEylemleri on _DayEndScreenState {
     if (tazelensin && mounted) _tazele();
   }
 
+  /// SAHA GİDERİ EKLER (kullanıcı isteği 2026-08-25) — kasadan çıkan nakdin defter kaydı.
+  ///
+  /// KAYIT SEÇİLİ KAPSAMA YAZILIR: kişi kapsamındaysa o kişiye, gün hesabındaysa oturumdaki
+  /// kullanıcıya. Ayrı bir "kim harcadı" seçicisi YOK — patron Ali'nin benzinini yazmak istiyorsa
+  /// kapsamı Ali'ye çevirir, tıpkı ondan ara tahsilat alırken yaptığı gibi. İki ayrı yol açmak,
+  /// aynı kararın iki yerden verilmesi olurdu.
+  ///
+  /// ⚠️ YETKİ KAPISI ÇİFTTİR (K2 pazarlıksız): düğme zaten çizilmedi, eylem yine sorar.
+  Future<void> _giderEkle(List<User> kuryeler, GunSonuGorunumu g) async {
+    if (!_giderEkleyebilir(g)) return;
+    final harcayan = _kuryeId ?? widget.kullaniciId;
+
+    final sonuc = await giderSheet(
+      context,
+      kapsamAdi: _kuryeId == null ? 'Gün' : _kapsamAdi(kuryeler),
+      // Kapsamda ŞU AN görünen nakit — yalnız "bu tutar kasadakinden fazla" uyarısı için.
+      // Kayda giden hiçbir rakam bundan türemez.
+      mevcutNakit: g.kapsam.kasa.netNakit,
+    );
+    if (sonuc == null || !mounted) return;
+
+    // ÜÇÜNCÜ KAPI REPODA (ara tahsilattaki desenin aynısı): sheet AÇIKKEN senkron başka bir
+    // cihazdan gelen kapanışı indirebilir ve o an ekranın bildiği durum bayattır. Mesaj repo'dan
+    // geldiği gibi basılır — NE olduğunu bilirken "bir şeyler ters gitti" demek bilgi saklamaktır.
+    try {
+      await GiderRepository(widget.db).ekle(
+        kurus: sonuc.kurus,
+        aciklama: sonuc.aciklama,
+        harcayanId: harcayan,
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      SipToast.goster(context, e.message);
+      _tazele(); // ekranı gerçeğe döndür: kapanmış kapsam artık kilitli görünsün
+      return;
+    }
+    if (!mounted) return;
+
+    SipToast.goster(context, '${sipTutar(sonuc.kurus)} gider kaydedildi');
+    _giderTazele();
+  }
+
+  /// Bir gideri İPTAL eder. Kayıt SİLİNMEZ — repo ters işaretli ikinci bir gider satırı yazar
+  /// (BRIEF kırmızı çizgi #2). Onay adımı ZORUNLU: satır kaydırılan bir listenin ortasında duruyor
+  /// ve kazara dokunuş kalıcı bir düzeltme kaydı yazardı.
+  Future<void> _giderIptalEt(GiderSatiri s) async {
+    if (!_giderIptalEdebilir) return; // satır zaten dokunulamaz; çift kapı
+    final onay = await giderIptalOnayi(
+      context,
+      tutarKurus: s.kurus,
+      aciklama: s.aciklama,
+    );
+    if (!onay || !mounted) return;
+
+    try {
+      await GiderRepository(widget.db)
+          .iptal(giderId: s.id, iptalEdenUserId: widget.kullaniciId);
+    } on StateError catch (e) {
+      if (!mounted) return;
+      SipToast.goster(context, e.message);
+      _giderTazele();
+      return;
+    }
+    if (!mounted) return;
+
+    SipToast.goster(context, '${sipTutar(s.kurus)} gider iptal edildi');
+    _giderTazele();
+  }
+
   /// Kapatılmış bir hesabı GERİ ALIR (kullanıcı kararı 2026-08-18). Kayıt SİLİNMEZ — repo ters
   /// bir kapanış satırı yazar ve varsa bağlı kasa devrini de aynı transaction'da geri alır
   /// (BRIEF kırmızı çizgi #2).
@@ -60,7 +129,65 @@ extension _GunSonuEylemleri on _DayEndScreenState {
     if (tazelensin && mounted) _tazele();
   }
 
+  /// GEÇMİŞ BİR GÜNÜ KAPATIR — sayım İSTENMEDEN (kullanıcı isteği 2026-08-21).
+  ///
+  /// ══ NEDEN YALNIZ GÜN KAPSAMI ═══════════════════════════════════════════════════════════
+  /// Kurye kapanışı bir MUTABAKAT PENCERESİNİ kapatır (`CashHandoverRepository._pencere` son
+  /// kurye kapanışından başlar). Geçmiş bir güne kurye kapanışı yazmak pencereyi o güne taşır ve
+  /// o günden bugüne toplanmış ama teslim edilmemiş para BEKLENENDEN DÜŞER — yani kuryenin
+  /// cebindeki gerçek nakit sessizce silinir.
+  ///
+  /// ══ NEDEN SAYIM YOK ════════════════════════════════════════════════════════════════════
+  /// Üç gün önceki kasa bugün sayılamaz. Sayım alınsaydı `diff` arşive KALICI olarak yanlış
+  /// donardı (append-only). Kayıt "sayım yapılmadı" (counted=null, fark 0) olarak geçer.
+  ///
+  /// AÇIK SİPARİŞ ENGELİ DURUYOR ve durmalı: o sipariş hâlâ gerçekten açıktır ve kullanıcı onu
+  /// teslim edip ya da iptal edip günü kapatabilir. Aşılabilir olduğu için ölü bir engel değil.
+  Future<void> _gecmisGunuKapat(GunSonuGorunumu g) async {
+    if (!_kapatmaCubugu(g)) return; // çift kapı (K2 pazarlıksız)
+
+    final onizleme =
+        await DayClosingRepository(widget.db).onizle(ClosingScope.day, localDate: _gun);
+    if (!mounted) return;
+
+    final sonuc = await gunKapatmaSheet(
+      context,
+      kapsamAdi: gunTamBasligi(_gun),
+      gunHesabi: true,
+      beklenen: onizleme.expectedCashKurus,
+      tamNakit: onizleme.gunNakitKurus,
+      teslimat: onizleme.deliveryCount,
+      ortaEtiket:
+          onizleme.dusulenKurus < 0 ? 'Kuryelerden devir' : 'Kuryelerde kalan',
+      ortaTutar: onizleme.dusulenKurus,
+      giderTutar: onizleme.giderKurus,
+      sayimIstenmiyor: true,
+    );
+    if (sonuc == null || !mounted) return;
+
+    try {
+      await DayClosingRepository(widget.db).kapat(
+        scope: ClosingScope.day,
+        countedCashKurus: null, // sayım YOK — sheet de istemedi
+        note: sonuc.not.isEmpty ? null : sonuc.not,
+        localDate: _gun,
+      );
+    } on StateError catch (e) {
+      if (!mounted) return;
+      SipToast.goster(context, e.message);
+      _tazele();
+      return;
+    }
+    if (!mounted) return;
+    SipToast.goster(context, '${gunTamBasligi(_gun)} kapatıldı');
+    _kapanistanSonraTazele();
+  }
+
   Future<void> _kapat(List<User> kuryeler, GunSonuGorunumu g) async {
+    // GEÇMİŞ GÜN AYRI BİR AKIŞTIR ve burada AYRIŞIR: sayım istenmez, yalnız gün kapsamı
+    // kapatılır ve damga seçili güne yazılır (gerekçeler [_gecmisGunuKapat] üzerinde).
+    if (!g.bugunMu) return _gecmisGunuKapat(g);
+
     if (!_kapatabilir) return; // düğme zaten kapalı; çift kapı (K2 pazarlıksız)
     final kapsamAdi = _kapsamAdi(kuryeler);
     final scope = _kuryeId == null ? ClosingScope.day : ClosingScope.courier;
@@ -135,6 +262,9 @@ extension _GunSonuEylemleri on _DayEndScreenState {
             : 'Kuryelerde kalan',
       },
       ortaTutar: onizleme.dusulenKurus,
+      // GİDER SATIRI (2026-08-25): beklenen tutar giderden sonraki paradır ve döküm bunu
+      // yazmazsa bayi sebepsiz küçülmüş bir rakam görür. Sıfırken satır hiç çizilmez.
+      giderTutar: onizleme.giderKurus,
       cerceveNotu: not,
       // TAZELİK HER İKİ KAPSAMA DA geçilir (lead kararı 2026-08-06): kurye kendi telefonundan
       // da ara tahsilat teslim edebildiği için "günü kapatan cihaz zaten tahsilatı alan
@@ -177,6 +307,8 @@ extension _GunSonuEylemleri on _DayEndScreenState {
           ? 'Gün kapatıldı ve arşivlendi'
           : '$kapsamAdi hesabı kapatıldı ve arşivlendi',
     );
-    _tazele();
+    // BANT DA TAZELENİR: bugün kapatıldığında "kapanmamış günler" sayacı bir azalır ve eskiden
+    // bunu ancak ekran yeniden açıldığında öğreniyordu.
+    _kapanistanSonraTazele();
   }
 }
