@@ -51,6 +51,28 @@ return Application::configure(basePath: dirname(__DIR__))
             at: env('APP_ENV') === 'production' ? '*' : ['127.0.0.1', '::1'],
         );
 
+        /*
+         * ÇEREZ RIZA TERCİHİ ŞİFRELENMEZ (2026-08-28) — ve bu bir gevşetme değil, ONARIM.
+         *
+         * Laravel gelen her çerezi çözmeye çalışır; çözemediğini SESSİZCE `null` yapar. Rıza
+         * çerezini tarayıcıdaki JS yazar (public/js/cerez.js) ve Laravel'in imzasını taşımaz —
+         * yani muafiyet olmadan `request()->cookie('sipario_cerez_izni')` GERÇEK TARAYICIDA
+         * HER ZAMAN null döner. Sonuç görünür bir hata değildi, sessiz bir kusurdu: bandı
+         * gizleyen sunucu kapısı hiç işlemiyor, tercihini çoktan bildirmiş ziyaretçi her sayfa
+         * yüklemesinde bandı bir an görüp JS'in onu kapatmasını izliyordu (FOUC).
+         *
+         * ⚠️ Testler bu kusuru GÖREMEZDİ: `$this->withCookie()` çerezi Laravel'in kendi
+         * şifrelemesiyle gönderir, yani test ortamında çerez hep okunabiliyordu.
+         *
+         * Şifrelemenin burada koruduğu bir şey yok: değer ziyaretçinin kendi tercihidir
+         * ("1|olcum"), kimlik taşımaz ve kurcalanırsa en kötü ihtimalle pencere yeniden sorar
+         * (CerezEnvanteri bilinmeyen kategori adlarını atar).
+         *
+         * Ad LİTERAL yazılı: bu closure config yüklenmeden ÖNCE koşar, `config()` burada
+         * çalışmaz. config/cerezler.php ile eşliğini CerezYonetimiTest kilitler.
+         */
+        $middleware->encryptCookies(except: ['sipario_cerez_izni']);
+
         $middleware->alias([
             'tenant' => ResolveTenantContext::class,
             'role' => EnsureRole::class,

@@ -34,7 +34,10 @@
 
     // Dizi `@json`ın içinde kurulmaz — Blade yönergesi argümanı parantez sayarak keser ve çok
     // satırlı dizi literalini yanlış yerden böler (legal/show.blade.php'de 500'le ölçüldü).
-    $ayar = ['ga4' => $ga4, 'gtm' => $gtm, 'cerez' => (string) config('analitik.riza_cerezi'), 'gun' => (int) config('analitik.riza_gun')];
+    // Rıza çerezi BU YÜKTE YOK (2026-08-28): rızayı cerez.js yönetir ve kendi `cerez-ayar`
+    // kanalını okur. Buraya kopyalamak, aynı ayarın iki kanaldan taşınması ve ilk değişiklikte
+    // birinin bayat kalması demekti.
+    $ayar = ['ga4' => $ga4, 'gtm' => $gtm];
 @endphp
 
 @if ($acik)

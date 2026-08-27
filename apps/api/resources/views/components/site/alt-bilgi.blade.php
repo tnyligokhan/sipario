@@ -201,12 +201,16 @@
             --}}
             <span class="kucuk">Destek: {{ $sirket['hours'] }}</span>
             {{--
-                Çerez tercihi geri alma yolu. `<button>` bilerek — `<a href="#">` olsaydı
-                "alt bilgideki her bağlantı benzersiz bir hedefe gider" sözleşmesine sahte bir
-                hedefle girerdi (SiteGezinmeTest). Ölçüm kapalıysa hiç basılmaz: olmayan bir
-                çerez için tercih düğmesi göstermek ziyaretçiyi yanıltırdı.
+                Çerez tercihi geri alma yolu — tercih penceresini açar (public/js/cerez.js).
+                `<button>` bilerek — `<a href="#">` olsaydı "alt bilgideki her bağlantı benzersiz
+                bir hedefe gider" sözleşmesine sahte bir hedefle girerdi (SiteGezinmeTest).
+
+                Koşul ENVANTERDEN sorulur, doğrudan ölçüm ayarından değil (2026-08-28): rızaya
+                bağlı hiçbir kategori yoksa değiştirilecek bir tercih de yoktur ve düğme
+                ziyaretçiyi yanıltırdı. Yarın ölçüm dışında bir kategori eklenirse bu satır
+                kendiliğinden doğru kalır.
             --}}
-            @if ((bool) config('analitik.enabled') && (string) config('analitik.measurement_id') !== '')
+            @if ((new \App\Support\Cerez\CerezEnvanteri)->rizaGerekiyorMu())
                 <button type="button" class="kucuk alt-cerez" data-cerez-ac>Çerez tercihleri</button>
             @endif
         </div>

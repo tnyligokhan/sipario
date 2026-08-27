@@ -269,7 +269,69 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-27 — **PANELDEN ELLE ÜYE AÇMA** (API 1.17.0 → **1.18.0**, mobil sabit)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-28 — **KVKK ÇEREZ TERCİH MERKEZİ** (API 1.18.0 → **1.19.0**, mobil sabit)
+
+Kullanıcı isteği: *"Çerez yönetimi için düzgün bir arayüz… KVKK uyumlu… CookieYes gibi bir popup,
+bir kere tıklandı mı bir daha gelmemeli, hangi çerezleri topluyorsak onları görebilmeli."*
+
+#### ⭐ Ne yapıldı
+
+Bant üç düğmeli oldu (**Yalnız zorunlu · Çerezleri yönet · Ölçüme izin ver**) ve arkasına bir
+**tercih merkezi** açıldı: kategori kategori açılan bir pencere, her kategoride o kategorinin
+çerez tablosu (**ad · ne işe yarar · süre · kim yerleştirir**), hukuki dayanağı ve zorunlu
+olmayanlarda gerçek bir açma/kapama anahtarı. Zorunlu kategoride anahtar YOK, "Her zaman açık"
+yazıyor. Tercih `sipario_cerez_izni` çerezinde 6 ay saklanır; karar verildikten sonra bant bir
+daha açılmaz. Geri alma yolu iki yerde: alt bilgideki "Çerez tercihleri" ve Çerez Politikası
+metnindeki bağlantı.
+
+#### 🔴 ÜÇ SESSİZ ARIZA — hepsi bu vardiyada bulundu ve kapandı
+
+1. **Rıza çerezi sunucuda HİÇ OKUNAMIYORDU.** Laravel gelen her çerezi çözmeye çalışır ve
+   çözemediğini sessizce `null` yapar; bu çerezi tarayıcıdaki JS yazıyor, yani bandı gizleyen
+   sunucu kapısı gerçek tarayıcıda hiç işlemiyordu — tercihini bildirmiş ziyaretçi her sayfa
+   yüklemesinde bandı bir an görüyordu (FOUC). ⚠️ **Testler bunu göremezdi:** `withCookie()`
+   çerezi Laravel'in kendi şifrelemesiyle gönderiyor. Çözüm: `bootstrap/app.php`de
+   `encryptCookies(except: [...])` + testler `withUnencryptedCookie`a çevrildi.
+2. **Belge yanlış çerez adı yazıyordu.** Politikada `sipario_session` yazılıydı, tarayıcıya
+   yazılan gerçek ad `sipario-session` (APP_NAME slug'ı + "-session"). Ziyaretçi politikadaki adı
+   tarayıcısında **arasa bulamazdı**. Sebep listenin iki yerde elle tutulmasıydı; artık tek
+   kaynak var (`config/cerezler.php` → `CerezEnvanteri`) ve dinamik değerler çalışma anında
+   çözülüyor.
+3. **Bant düğmesi ile ayar JSON kanalı aynı `cerez-ayar` kimliğini taşıyordu.**
+   `getElementById` ilkini döndürür → betik bir düğmenin metnini `JSON.parse`layıp düşüyor ve
+   **sessizce hiç kurulmuyordu**; bant ekranda duruyor, hiçbir düğme çalışmıyordu. Sunucu
+   çıktısını okuyan test bunu göremez (iki kimlik de "var"). Düğme `cerez-yonet` oldu ve test
+   artık kimliklerin varlığını değil **çakışmamasını** ölçüyor.
+
+#### 🧪 Nasıl doğrulandı
+
+Sunucu tarafı: `CerezYonetimiTest` (8) + `CerezEnvanteriTest` (8) + mevcut `OlcumVeSeoTest` /
+`LegalDocsTest` → 38 test yeşil; `Site*` ailesi 95 test yeşil; pint + phpstan temiz.
+Tarayıcı davranışı (tıklama, akordeon, anahtar, Esc, geri alma, rıza sonrası etiket yüklenmesi)
+`jsdom` ile gerçek `cerez.js`/`olcum.js` üzerinde 19 kontrolle ölçüldü — **3 numaralı arızayı
+bulan da bu oldu.** ⚠️ Chrome eklentisi bu makinede bağlı değildi; **pencere GÖZLE
+İNCELENMEDİ** — CSS'in gerçek cihazda nasıl durduğu bir sonraki vardiyada bakılacak tek açık.
+
+#### 📁 Dokunulan yerler
+
+`config/cerezler.php` (yeni) · `app/Support/Cerez/CerezEnvanteri.php` (yeni) ·
+`public/js/cerez.js` (yeni) · `public/js/olcum.js` (rıza kısmı çıktı, müşteri oldu) ·
+`resources/views/components/site/cerez-onay.blade.php` · `.../site/olcum.blade.php` ·
+`.../site/alt-bilgi.blade.php` · `resources/views/legal/docs/cerez-politikasi.blade.php` ·
+`public/css/site.css` · `bootstrap/app.php` · `config/analitik.php` (rıza ayarı taşındı) ·
+`config/app.php` (1.19.0) · `tests/Feature/Api/CerezYonetimiTest.php` (yeni) ·
+`tests/Unit/CerezEnvanteriTest.php` (yeni).
+
+#### ⏭️ Sıradaki işler
+
+Tek açık: **tercih penceresini gerçek tarayıcıda gözle incele** (masaüstü + dar ekran). Bunun
+dışında liste değişmedi — aşağıdaki notlar ve `## 🔴 SIRADAKİ İŞLER — TEK LİSTE` geçerlidir.
+⚠️ Çerez listesine yeni bir madde eklenirse `config/cerezler.php`de **`surum` artırılmalıdır**;
+artırılmazsa eski rıza yeni maddeyi kapsamış sayılır ve rıza hukuken sakatlanır.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-27 — **PANELDEN ELLE ÜYE AÇMA** (API 1.17.0 → **1.18.0**, mobil sabit)
 
 Kullanıcı isteği: *"Yönetim panelinden yeni üye ekleyebilmeliyim."*
 
