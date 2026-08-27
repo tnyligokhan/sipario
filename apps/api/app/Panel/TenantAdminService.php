@@ -7,7 +7,10 @@ use App\Enums\UserRole;
 use App\Models\Device;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Payment\DuplicateEmailException;
+use App\Support\DuplicateSlugException;
 use App\Support\Provisioning;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +27,9 @@ use Illuminate\Support\Str;
  */
 class TenantAdminService
 {
+    /** Elle bayi açarken e-posta çakışmasının TEK cümlesi (ön kontrol ve yarış aynı şeyi desin). */
+    private const EPOSTA_ALINMIS = 'Bu e-posta adresi başka bir hesapta kayıtlı.';
+
     public function __construct(private readonly string $connection = 'pgsql_panel') {}
 
     /**
@@ -184,11 +190,58 @@ class TenantAdminService
      * Elle bayi aç (siteden gelmeyen, birebir satış bayisi). Provisioning owner ile INSERT eder
      * (panel rolü tenants'a INSERT edemez — bilinçli); denetim kaydı panel bağlantısıyla.
      *
+     * FİRMA KODU, YETKİLİ ve TELEFON İMZADA (2026-08-27): eskiden yalnız ad/e-posta/parola
+     * alınıyordu ve geri kalanı `Provisioning`in varsayılanlarına düşüyordu — elle açılan bayi
+     * addan türetilmiş bir kodla, `contact_name`i NULL ve telefonu boş doğuyordu. Panelin
+     * "Firma, yetkili veya il ara" araması `contact_name` okur; yani elle açılan bayi kendi
+     * yetkilisinin adıyla ARANAMIYORDU. Kod da öyle: bayiye telefonda söylenen kod ile sistemin
+     * ürettiği kod ayrışırsa mobil giriş ilk denemede tutmaz.
+     *
+     * E-POSTA ÇAKIŞMASI TİPLİ İSTİSNAYA ÇEVRİLİR. `users.email` global tekildir; ön kontrol
+     * (form `unique` kuralı) yarışa karşı yetmez ve kaybeden taraf ham `23505` ile 500 alırdı.
+     * Mesaj — `SubscriptionService::register`in aksine — AÇIK konuşur: burası kimliği doğrulanmış
+     * bir iç araçtır, kullanıcı numaralandırma yüzeyi değil; operatör "neden açılmadı" sorusunun
+     * cevabını görmezse aynı kaydı tekrar tekrar dener.
+     *
      * @return array{tenant: Tenant, patron: User}
+     *
+     * @throws DuplicateEmailException e-posta başka bir hesapta
+     * @throws DuplicateSlugException istenen firma kodu başka bir bayide
      */
-    public function createTenant(string $name, string $email, string $password, ?string $adminId = null): array
-    {
-        $result = Provisioning::createTenantWithPatron($name, $email, $password);
+    public function createTenant(
+        string $name,
+        string $email,
+        string $password,
+        ?string $adminId = null,
+        ?string $slug = null,
+        ?string $yetkili = null,
+        ?string $telefon = null,
+    ): array {
+        $email = mb_strtolower(trim($email));
+
+        if (User::on($this->connection)->where('email', $email)->exists()) {
+            throw new DuplicateEmailException(self::EPOSTA_ALINMIS);
+        }
+
+        try {
+            $result = Provisioning::createTenantWithPatron(
+                tenantName: $name,
+                patronEmail: $email,
+                patronPassword: $password,
+                patronName: $yetkili,
+                slug: $slug,
+                phone: $telefon,
+            );
+        } catch (QueryException $e) {
+            // 23505 = unique_violation. Kod çakışması Provisioning'te zaten tiplenir; buraya
+            // yalnız E-POSTA yarışı düşer. Kısıt adına bakılır: "bir yerde 23505 oldu" demek,
+            // ileride eklenecek başka bir tekil indeksi de e-posta hatası göstermek olurdu.
+            if ((string) $e->getCode() === '23505' && str_contains($e->getMessage(), 'users_email_unique')) {
+                throw new DuplicateEmailException(self::EPOSTA_ALINMIS);
+            }
+            throw $e;
+        }
+
         $this->audit($adminId, $result['tenant']->id, 'create_tenant');
 
         return $result;

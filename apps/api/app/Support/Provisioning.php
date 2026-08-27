@@ -69,6 +69,11 @@ class Provisioning
      *
      * @throws DuplicateSlugException istenen firma kodu başka bir bayide
      * @throws InvalidArgumentException istenen firma kodu biçime uymuyor (arayüz zaten doğrular)
+     * @throws QueryException slug DIŞINDAKİ bir tekillik/kısıt ihlali (aşağıdaki catch onu
+     *                        olduğu gibi yeniden fırlatır) — pratikte `users_email_unique`:
+     *                        e-posta global tekildir ve iki eşzamanlı açılış yarışabilir.
+     *                        Çağıran onu anlamlı bir cümleye çevirmek isteyebilir
+     *                        (bkz. `TenantAdminService::createTenant`).
      */
     public static function createTenantWithPatron(
         string $tenantName,

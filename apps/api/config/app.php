@@ -250,9 +250,28 @@ return [
     | rakamı yine doğrudur; yanlış olan yalnız o satırın adıdır. MAJOR
     | sayılmadı: eski istemci çalışmaya devam eder, hiçbir kayıt kaybolmaz ve
     | düzeltmesi uygulamanın güncellenmesidir.
+    |
+    | ── 1.18.0 (2026-08-27) — PANELDEN ELLE ÜYE AÇMA ────────────────────────
+    | Yönetim panelinin Üyeler ekranına "Yeni Üye" geldi: işletme adı, firma
+    | kodu, yetkili, e-posta, telefon ve patron parolası ile bayi + patron tek
+    | transaction'da açılır (`TenantAdminService::createTenant`, owner
+    | bağlantısı). BRIEF md. 3'ün ilk maddesiydi ve panelde karşılığı olmayan
+    | TEK yetenekti — servis ve konsol komutu vardı, ama satıştaki kişi
+    | sunucuya SSH ile giremez.
+    |
+    | Servisin imzası genişledi: firma kodu, yetkili adı ve telefon artık
+    | geçiliyor. Öncesinde elle açılan bayi addan TÜRETİLMİŞ bir kodla,
+    | `contact_name`i NULL ve telefonu boş doğuyordu; panelin "Firma, yetkili
+    | veya il ara" araması `contact_name` okuduğu için o bayi kendi
+    | yetkilisiyle ARANAMIYORDU.
+    |
+    | NEDEN MINOR (VE NEDEN API HATTI): istemci sözleşmesinde tek bir alan bile
+    | değişmedi — bu bir PANEL yeteneği. Ama sürüm ayrımı hat bazındadır ve
+    | panel API uygulamasının içinde yaşar; site tarafındaki hukuk paketi de
+    | (1.12.0) aynı hattan numara almıştı. Mobil sürüm bu yüzden SABİT kalır.
     */
 
-    'version' => '1.17.0',
+    'version' => '1.18.0',
 
     /*
     |--------------------------------------------------------------------------
