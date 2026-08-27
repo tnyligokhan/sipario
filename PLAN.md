@@ -269,6 +269,63 @@
 >
 ## Güncel durum
 
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-27 — **PANELDEN ELLE ÜYE AÇMA** (API 1.17.0 → **1.18.0**, mobil sabit)
+
+Kullanıcı isteği: *"Yönetim panelinden yeni üye ekleyebilmeliyim."*
+
+#### ⭐ Ne yapıldı
+
+Panelin **Üyeler** ekranına sağ üstte **Yeni Üye** düğmesi ve modalı geldi: işletme adı · firma
+kodu · yetkili · e-posta · telefon · patron parolası. Bayi + patron **tek transaction'da** açılır,
+deneme süresiyle doğar, denetime `create_tenant` düşer.
+
+⚠️ **BU BİR "EKSİK MOTOR" DEĞİL, EKSİK ARAYÜZDÜ.** `TenantAdminService::createTenant` Faz 5c'den
+beri duruyordu ve `PanelTest` onu test ediyordu — kod yeşildi. Çalıştırmanın tek yolu sunucuya
+SSH ile girip `sipario:tenant` komutunu koşmaktı; satıştaki kişi bunu yapamaz. BRIEF md. 3'ün
+ilk maddesi ("gerektiğinde elle açma — birebir satışla kazanılan bayiler için") bu yüzden
+panelde karşılığı olmayan SON madde olarak duruyordu. Bu tür boşluklar "yapıldı" listelerinde
+yeşil görünür: sonraki vardiya, panelin bir yeteneğinin testi varsa DÜĞMESİNİN de olduğunu
+varsaymasın.
+
+#### 🔴 Yolda bulunan sessiz arıza — servis imzası dardı
+
+Eski imza yalnız ad/e-posta/parola alıyordu; geri kalanı `Provisioning`in varsayılanlarına
+düşüyordu. Sonuç: elle açılan bayi **addan türetilmiş** bir firma koduyla, `contact_name`i NULL
+ve telefonu boş doğuyordu. İki bedeli vardı — (1) panelin kendi araması (*"Firma, yetkili veya
+il ara"*) `contact_name` okur, yani o bayi **kendi yetkilisinin adıyla aranamıyordu**;
+(2) telefonda bayiye söylenen kod ile sistemin ürettiği kod ayrışabildiği için mobil giriş ilk
+denemede tutmayabiliyordu. İmza artık firma kodu · yetkili · telefon taşıyor.
+
+E-posta çakışması da ham `23505` (500) yerine `DuplicateEmailException`. Mesajı — sitedeki nötr
+cümlenin aksine — **açık konuşur**: burası kimliği doğrulanmış bir iç araçtır, kullanıcı
+numaralandırma yüzeyi değil.
+
+#### 🔐 Yetki ve kurulum bilgisi
+
+Eylem `superadmin` kapılıdır (hesap yönetimi hattı, `TenantDetail`in çizgisiyle aynı) ve kapı
+**her eylemde** tekrarlanır; reddedilen deneme `create_tenant_denied` ile denetime düşer. Düğmeyi
+gizlemek yetki denetimi değildir — test bunu bileşen meşru açıldıktan SONRA rol düşürerek ölçer.
+
+Kurulum bilgisi (firma kodu · kullanıcı adı `patron` · parola) modal kapandıktan **sonra da**
+listenin üstünde durur: operatör onları telefondaki bayiye okuyacak, kaybolsaydı yeni açılan
+hesabın parolasını sıfırlamak gerekirdi. Hoş geldiniz postası işaretli kutuyla gider ve kaydı
+düşürmez (`SiparioPostasi` ShouldQueue'dur — testte `assertSent` değil **`assertQueued`**).
+
+#### 📁 Dokunulan yerler
+
+`app/Livewire/Panel/TenantList.php` · `app/Livewire/Panel/Forms/UyeForm.php` (yeni) ·
+`app/Panel/TenantAdminService.php` · `app/Support/Provisioning.php` (yalnız `@throws`) ·
+`resources/views/livewire/panel/tenant-list.blade.php` ·
+`resources/views/livewire/panel/_uye-modal.blade.php` (yeni) · `config/app.php` (1.18.0) ·
+`tests/Feature/Api/PanelUyeAcmaTest.php` (yeni, 10 test).
+
+#### ⏭️ Sıradaki işler
+
+Bu vardiya yeni bir açık bırakmadı. Sıradaki iş listesi **değişmedi** — aşağıdaki
+2026-08-25/2 notu ve `## 🔴 SIRADAKİ İŞLER — TEK LİSTE` geçerlidir.
+
+---
+
 ### 🔻 VARDİYA DEVİR NOTU — 2026-08-25/2 — **SÜRÜM 1.0.0, YAYINA GEÇİŞ** (mobil 0.49.0 → **1.0.0**)
 
 Kullanıcı kararı: *"Uygulama sürümünü 1.0.0 olarak güncelle. Güncelleme geldiğinde bildirim

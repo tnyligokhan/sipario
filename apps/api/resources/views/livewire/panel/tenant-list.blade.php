@@ -1,7 +1,8 @@
 {{--
     Üyeler (tasarım `07-Uyeler.jsx` · Uyeler). Arama + durum çipleri + tablo, birebir.
-    Tasarımdan farklar bileşenin belge başlığında; ekranda görünen tek fark 6. çip
-    ("Süresi doldu" = sunucudaki `locked`) ve tablonun altındaki sayfalayıcıdır.
+    Tasarımdan farklar bileşenin belge başlığında; ekranda görünen farklar 6. çip
+    ("Süresi doldu" = sunucudaki `locked`), tablonun altındaki sayfalayıcı ve sağ üstteki
+    "Yeni Üye" düğmesidir (elle bayi açma — BRIEF md. 3; tasarımda yoktu).
 --}}
 @use('App\Livewire\Panel\Concerns\Bicim')
 
@@ -16,8 +17,36 @@
                     wire:model.live.debounce.400ms="arama"
                     yertut="Firma, yetkili veya il ara…"
                 />
+                {{-- Düğmenin gizlenmesi bir kolaylıktır, yetki denetimi DEĞİL: kapı
+                     `TenantList::superadminZorunlu()` içinde, her eylemde. --}}
+                @if ($superadmin)
+                    <button type="button" class="btn birincil" wire:click="uyeAc">
+                        <x-panel.ikon ad="arti" boy="15" /> Yeni Üye
+                    </button>
+                @endif
             </x-slot:sag>
         </x-panel.ust>
+
+        {{-- KURULUM BİLGİSİ — modal kapandıktan sonra da durur; operatör bunları telefondaki
+             bayiye okuyacak. Parola yalnız burada görünür, hiçbir yere kaydedilmez. --}}
+        @if ($acilan)
+            <div class="modal-bilgi" style="margin-bottom:14px" role="status">
+                <x-panel.ikon ad="bilgi" boy="15" />
+                <span>
+                    <b>{{ $acilan['isletme'] }}</b> açıldı — deneme bitişi
+                    <b class="tab">{{ $acilan['bitis'] }}</b>.
+                    Firma kodu <b class="tab">{{ $acilan['kod'] }}</b> ·
+                    kullanıcı adı <b class="tab">{{ $acilan['kullanici'] }}</b> ·
+                    parola <b class="tab">{{ $acilan['parola'] }}</b>.
+                    @if ($acilan['posta'])
+                        Bilgiler <b>{{ $acilan['posta'] }}</b> adresine de gönderildi.
+                    @else
+                        <b>E-posta gönderilmedi</b>; bu bilgileri siz iletin.
+                    @endif
+                    <button type="button" class="link-btn" wire:click="acilanKapat">Kapat</button>
+                </span>
+            </div>
+        @endif
 
         <x-panel.cipler
             :secenekler="$durumlar"
@@ -92,5 +121,9 @@
         </x-panel.kart>
 
         {{ $uyeler->links('vendor.pagination.panel-basit') }}
+
+        @if ($uyeAcik)
+            @include('livewire.panel._uye-modal')
+        @endif
     </x-panel.layout>
 </div>
