@@ -106,7 +106,10 @@ class OlcumVeSeoTest extends TestCase
         // Titreme (FOUC) önlemesi: kararı bilen taraf sunucudur, çerez zaten istekte geliyor.
         config(['analitik.enabled' => true, 'analitik.measurement_id' => 'G-TEST00000']);
 
-        $govde = $this->withCookie((string) config('analitik.riza_cerezi'), 'ret')
+        // ⚠️ ŞİFRELENMEMİŞ çerez: rıza çerezini tarayıcıdaki JS yazar, Laravel'in imzasını
+        // taşımaz (bkz. bootstrap/app.php muafiyeti). `withCookie()` kullanmak, gerçek
+        // tarayıcıda çalışmayan bir kodu yeşil gösterirdi — 2026-08-28'e kadar öyle oldu.
+        $govde = $this->withUnencryptedCookie((string) config('cerezler.cerez'), 'ret')
             ->get('/')->assertOk()->getContent();
 
         $this->assertMatchesRegularExpression(

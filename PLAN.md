@@ -269,7 +269,118 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-27 — **PANELDEN ELLE ÜYE AÇMA** (API 1.17.0 → **1.18.0**, mobil sabit)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-28 — **KVKK ÇEREZ TERCİH MERKEZİ** (API 1.18.0 → **1.19.0**, mobil sabit)
+
+Kullanıcı isteği: *"Çerez yönetimi için düzgün bir arayüz… KVKK uyumlu… CookieYes gibi bir popup,
+bir kere tıklandı mı bir daha gelmemeli, hangi çerezleri topluyorsak onları görebilmeli."*
+
+#### ⭐ Ne yapıldı
+
+Bant üç düğmeli oldu (**Yalnız zorunlu · Çerezleri yönet · Ölçüme izin ver**) ve arkasına bir
+**tercih merkezi** açıldı: kategori kategori açılan bir pencere, her kategoride o kategorinin
+çerez tablosu (**ad · ne işe yarar · süre · kim yerleştirir**), hukuki dayanağı ve zorunlu
+olmayanlarda gerçek bir açma/kapama anahtarı. Zorunlu kategoride anahtar YOK, "Her zaman açık"
+yazıyor. Tercih `sipario_cerez_izni` çerezinde 6 ay saklanır; karar verildikten sonra bant bir
+daha açılmaz. Geri alma yolu iki yerde: alt bilgideki "Çerez tercihleri" ve Çerez Politikası
+metnindeki bağlantı.
+
+#### 🔴 ÜÇ SESSİZ ARIZA — hepsi bu vardiyada bulundu ve kapandı
+
+1. **Rıza çerezi sunucuda HİÇ OKUNAMIYORDU.** Laravel gelen her çerezi çözmeye çalışır ve
+   çözemediğini sessizce `null` yapar; bu çerezi tarayıcıdaki JS yazıyor, yani bandı gizleyen
+   sunucu kapısı gerçek tarayıcıda hiç işlemiyordu — tercihini bildirmiş ziyaretçi her sayfa
+   yüklemesinde bandı bir an görüyordu (FOUC). ⚠️ **Testler bunu göremezdi:** `withCookie()`
+   çerezi Laravel'in kendi şifrelemesiyle gönderiyor. Çözüm: `bootstrap/app.php`de
+   `encryptCookies(except: [...])` + testler `withUnencryptedCookie`a çevrildi.
+2. **Belge yanlış çerez adı yazıyordu.** Politikada `sipario_session` yazılıydı, tarayıcıya
+   yazılan gerçek ad `sipario-session` (APP_NAME slug'ı + "-session"). Ziyaretçi politikadaki adı
+   tarayıcısında **arasa bulamazdı**. Sebep listenin iki yerde elle tutulmasıydı; artık tek
+   kaynak var (`config/cerezler.php` → `CerezEnvanteri`) ve dinamik değerler çalışma anında
+   çözülüyor.
+3. **Bant düğmesi ile ayar JSON kanalı aynı `cerez-ayar` kimliğini taşıyordu.**
+   `getElementById` ilkini döndürür → betik bir düğmenin metnini `JSON.parse`layıp düşüyor ve
+   **sessizce hiç kurulmuyordu**; bant ekranda duruyor, hiçbir düğme çalışmıyordu. Sunucu
+   çıktısını okuyan test bunu göremez (iki kimlik de "var"). Düğme `cerez-yonet` oldu ve test
+   artık kimliklerin varlığını değil **çakışmamasını** ölçüyor.
+
+#### 🧪 Nasıl doğrulandı
+
+Sunucu tarafı: `CerezYonetimiTest` (8) + `CerezEnvanteriTest` (8) + mevcut `OlcumVeSeoTest` /
+`LegalDocsTest` → 38 test yeşil; `Site*` ailesi 95 test yeşil; pint + phpstan temiz.
+Tarayıcı davranışı (tıklama, akordeon, anahtar, Esc, geri alma, rıza sonrası etiket yüklenmesi)
+`jsdom` ile gerçek `cerez.js`/`olcum.js` üzerinde 19 kontrolle ölçüldü — **3 numaralı arızayı
+bulan da bu oldu.** ⚠️ Chrome eklentisi bu makinede bağlı değildi; **pencere GÖZLE
+İNCELENMEDİ** — CSS'in gerçek cihazda nasıl durduğu bir sonraki vardiyada bakılacak tek açık.
+
+#### 📁 Dokunulan yerler
+
+`config/cerezler.php` (yeni) · `app/Support/Cerez/CerezEnvanteri.php` (yeni) ·
+`public/js/cerez.js` (yeni) · `public/js/olcum.js` (rıza kısmı çıktı, müşteri oldu) ·
+`resources/views/components/site/cerez-onay.blade.php` · `.../site/olcum.blade.php` ·
+`.../site/alt-bilgi.blade.php` · `resources/views/legal/docs/cerez-politikasi.blade.php` ·
+`public/css/site.css` · `bootstrap/app.php` · `config/analitik.php` (rıza ayarı taşındı) ·
+`config/app.php` (1.19.0) · `tests/Feature/Api/CerezYonetimiTest.php` (yeni) ·
+`tests/Unit/CerezEnvanteriTest.php` (yeni).
+
+#### 🚢 Yayın durumu — ÖLÇÜLDÜ (2026-08-28)
+
+Kullanıcı *"main ile eşitle, yayın borçlarını kapat"* dedi; **borçlar tahmin edilmedi, tek tek
+ölçüldü** ve bir kısmı zaten kapalı çıktı:
+
+| Ne | Ölçüm | Durum |
+|---|---|---|
+| Üretim ayakta mı | `sipario.com.tr/up` → **200**, `/api/v1/version` → **1.18.0** | ✅ canlı |
+| Üretim uygulaması | Coolify **"Sipario Live"**, `main` dalı, `sipario.com.tr` + `www` | ✅ kurulu |
+| Test ortamı | **"Sipario Dev"**, `dev` dalı, `test.sipario.com.tr` → 200, 1.18.0 | ✅ |
+| Saha APK | `surum.json` **yapim 553**, sürüm 1.0.0 | ✅ güncel |
+| dev → main | PR **#17**, CI **iki koşum da yeşil** | ⏸️ merge bekliyor |
+| `YEDEK_EPOSTA` | Coolify Live'da **tanımlı** | ✅ |
+
+⚠️ **`api.sipario.com.tr` → 503 ve `dev-api.sipario.com.tr` → 526 BİR ARIZA DEĞİL.** Bu iki alan
+adı Coolify'da hiçbir uygulamaya bağlı değil; sahipsiz DNS kaydı. Uygulama ve site API'yi
+**aynı konaktan** veriyor (`sipario.com.tr/api/v1`, `mobil-apk.yml:112`'de de öyle yazılı) — eski
+hafızadaki *"üretim API 503"* teşhisi bu yüzden BAYATTIR. Yapılacak iş varsa DNS temizliğidir,
+kod tarafında yoktur.
+
+#### 🔴 GERÇEK YAYIN BORCU: KÜNYE — canlı sitede **58 "DOLDURULACAK"** işareti
+
+Ölçüm (canlı `sipario.com.tr/sozlesme/*`): mesafeli-satis 11 · on-bilgilendirme 11 ·
+kvkk-aydinlatma 10 · veri-isleyen 6 · kvkk-basvuru 5 · cerez-politikasi 4 · kullanim-kosullari 4 ·
+iptal-iade 3 · acik-riza 3 · gizlilik-politikasi 1.
+
+Sebep ölçüldü: **Coolify Live'da tek bir `COMPANY_*` değişkeni tanımlı değil**, bu yüzden
+`config/subscription.php`deki `[Şirket unvanı]` gibi yer tutucular yürürlükte. Bu, satış yapan
+canlı bir sitede mesafeli satış sözleşmesinin unvansız/adressiz yayında olması demektir.
+
+Borç **iki parçaya ayrılır ve ikisi de kullanıcının verisini bekler:**
+
+1. **Coolify'a değişken girilerek kapanır (kod değişmez):** `COMPANY_TITLE` · `COMPANY_ADDRESS` ·
+   `COMPANY_MERSIS` · `COMPANY_TAX_OFFICE` · `COMPANY_PHONE` (+ istenirse `COMPANY_IBAN`,
+   `COMPANY_BANK`). ⚠️ Coolify'da tanımlamak yürürlüğe koymaz — **redeploy şart.**
+2. **Kod düzenlemesi ister (config karşılığı YOK, `x-legal.deger` anahtarsız çağrılıyor):**
+   KEP adresi (4 yer) · yetkili mahkeme ve icra daireleri (4) · KDV dahil/hariç ifadesi ve oranı
+   (2) · kartlı ödemenin açılacağı tarih (2) · yurt dışı aktarım hukuki dayanağı (2) · SMTP
+   sağlayıcısının adı/ülkesi (2) · VERBİS kayıt durumu (1) · İYS kaydı (1) · barındırma
+   sağlayıcısının unvanı (1).
+
+**Bu borç bu vardiyada KAPATILAMADI ve kapatılmaması bilinçlidir:** unvan, MERSİS, KEP, vergi
+dairesi ve yetkili mahkeme uydurulamaz. Değerler geldiği gün 1. grup env, 2. grup tek bir
+düzenleme turudur.
+
+#### ⏭️ Sıradaki işler
+
+1. **PR #17'yi merge et** — ⚠️ merge komutu bu vardiyada **izin sınıflandırıcısı tarafından iki
+   kez engellendi** (`gh pr merge 17 --merge`). Kod ve CI hazır; eksik olan yalnız yetki.
+2. **Künye değerlerini ver** (yukarıdaki iki grup) — canlı sitedeki en ağır açık budur.
+3. **Tercih penceresini gerçek tarayıcıda gözle incele** (masaüstü + dar ekran); Chrome
+   eklentisi bu makinede bağlı değildi.
+
+⚠️ Çerez listesine yeni bir madde eklenirse `config/cerezler.php`de **`surum` artırılmalıdır**;
+artırılmazsa eski rıza yeni maddeyi kapsamış sayılır ve rıza hukuken sakatlanır.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-27 — **PANELDEN ELLE ÜYE AÇMA** (API 1.17.0 → **1.18.0**, mobil sabit)
 
 Kullanıcı isteği: *"Yönetim panelinden yeni üye ekleyebilmeliyim."*
 
@@ -3104,7 +3215,17 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 **İNSAN/GÜVENLİK — önce bunlar:**
 
-0. **⏸️ ÜRETİM BEKLEMEDE — KULLANICI KARARI, ACELE EDİLMEZ (2026-08-15'te teyit edildi).**
+0. **[✅ KAPANDI — 2026-08-25 yayına geçildi, 2026-08-28'de ÖLÇÜLEREK doğrulandı]**
+   Coolify'da **"Sipario Live"** uygulaması `main` dalından `sipario.com.tr` + `www` ile ayakta:
+   `/up` → 200, `/api/v1/version` → `1.18.0`. Test ortamı ayrı ("Sipario Dev", `dev` dalı,
+   `test.sipario.com.tr`). Aşağıdaki "beklemede" metni **BAYATTIR**, tarihsel olarak duruyor.
+   ⚠️ Bir sonraki vardiya `api.sipario.com.tr` 503'ünü arıza sanmasın: o alan adı hiçbir
+   uygulamaya bağlı değil, sahipsiz DNS kaydıdır — API `sipario.com.tr/api/v1` üzerindedir.
+   🔴 **Yayın sonrası kalan tek gerçek borç: KÜNYE** — canlı hukuk belgelerinde 58 adet
+   "DOLDURULACAK" işareti var (Coolify'da hiç `COMPANY_*` tanımlı değil). Ayrıntı ve iki gruplu
+   iş listesi 2026-08-28 devir notunda.
+
+0b. **⏸️ (BAYAT — özgün metin) ÜRETİM BEKLEMEDE — KULLANICI KARARI, ACELE EDİLMEZ (2026-08-15'te teyit edildi).**
    *"Sunucu tarafında sadece test ile devam ediyorum, her şey oturduğunda canlıya geçeceğim;
    geçileceği zaman haber ederim."* Yani aşağıdaki kurulum tarifi **hazır beklesin, kendi
    başına uygulanmasın** — geçiş komutunu kullanıcı verir. Tarif olduğu gibi geçerlidir:
@@ -3189,8 +3310,14 @@ anındaki 500'lerle takas edilir. Mobil offline-first olduğu için bu kesintide
 
 **YENİ (2026-08-10):**
 
-13. **`dev` → `main` birleştir + canlıya deploy.** ⏸️ **KULLANICI KARARIYLA BEKLEMEDE
-    (2026-08-15) — "acil" ibaresi ARTIK GEÇERSİZ, kendi başına merge etme.** Aşağıdaki gerekçe
+13. **[🔄 AKAN İŞ — 2026-08-28: PR #17 AÇIK VE YEŞİL, MERGE BEKLİYOR]** Kullanıcı *"main ile
+    eşitle"* dedi; dev push edildi, PR #17 açıldı, **API CI'ın iki koşumu da yeşil**. Merge
+    komutu (`gh pr merge 17 --merge`) **izin sınıflandırıcısı tarafından iki kez engellendi** —
+    eksik olan kod ya da yeşil değil, yalnız yetki. Merge edildiğinde "Sipario Live" `main`'den
+    otomatik deploy eder ve canlı API 1.18.0 → **1.19.0** olur (doğrulama tek satır:
+    `curl -s https://sipario.com.tr/api/v1/version`). ⚠️ Deploy sırasında **~48 sn kesinti**
+    beklenir (10. madde: ölçülmüş ve bilinçle kabul edilmiş).
+    Aşağıdaki 2026-08-10/2026-08-15 metni tarihsel olarak duruyor: Aşağıdaki gerekçe
     teknik olarak hâlâ doğrudur ve geçiş günü okunacaktır; ama geçişin ZAMANINI kullanıcı
     söyler. Fark bu vardiyada ölçüldü: `main` 2026-08-10'da donmuş, `dev` **78 commit** önde.
     ⚠️ (Aşağıdaki "ACİL" değerlendirmesi 2026-08-10 tarihlidir, tarihsel olarak korunuyor:) `main` (`827767a`) rol parolası eşitleme düzeltmesini (`3ec0384`) TAŞIMIYOR. Üretim

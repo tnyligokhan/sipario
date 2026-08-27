@@ -1,5 +1,5 @@
 /**
- * ÖLÇÜM VE ÇEREZ RIZASI (2026-08-19).
+ * ÖLÇÜM — GA4/GTM KURULUMU (2026-08-19; rıza kısmı 2026-08-28'de cerez.js'e taşındı).
  *
  * ── BU DOSYA NEDEN VAR (ve neden satır içi <script> değil) ───────────────────────────────────
  * Sitenin CSP'si `script-src 'self' 'nonce-…'`. Google'ın verdiği hazır parça satır içi bir
@@ -8,6 +8,13 @@
  *      bir örnek bırakır. Ölçüm mantığı 'self' bir dosyada durursa nonce'a hiç ihtiyaç kalmaz.
  *   2. Mantık burada büyüdü: rıza kapısı, olay yardımcıları, dış bağlantı işaretleme. Bunlar
  *      layout'un içine gömülseydi her sayfada yeniden okunan 4 KB'lık bir blok olurdu.
+ *
+ * ── RIZA BU DOSYADA YÖNETİLMEZ (2026-08-28) ─────────────────────────────────────────────────
+ * Çerez rızası ve tercih penceresi `public/js/cerez.js`e taşındı; burası onun MÜŞTERİSİDİR:
+ * `window.siparioCerez.izin('olcum')` diye sorar ve `dinle()` ile karar değişikliğini bekler.
+ * Ayrım keyfi değil — rıza altyapısı ölçüm dışında kategoriler de taşır (bugün taşımıyor, ama
+ * eklendiği gün bu dosyaya dokunulmayacak). Çerezi burada okumak, ikinci bir ayrıştırıcı ve
+ * ilk biçim değişikliğinde sessizce sapan bir kopya demekti.
  *
  * ── RIZA KAPISI: ETİKET RIZADAN ÖNCE HİÇ YÜKLENMEZ ──────────────────────────────────────────
  * Yaygın kurulum, gtag.js'i hemen yükleyip Consent Mode ile "denied" demektir. O yaklaşım
@@ -26,7 +33,7 @@
  *
  * ── SAYFA YAPILANDIRMASI NEREDEN GELİYOR ────────────────────────────────────────────────────
  * Layout, `<script type="application/json" id="olcum-ayar">` içinde ölçüm kimliğini, GTM
- * kimliğini ve rıza çerezinin adını basar. Bu, alpine.js dosyasının belge başlığında anlatılan
+ * kimliğini basar (rıza çerezi ARTIK BURADA DEĞİL — cerez.js kendi kanalını okur). Bu, alpine.js
  * "dizi/nesne yükü JSON kanalıyla taşınır" deseninin aynısıdır — burada Alpine yok ama desen
  * aynı sebeple doğru: veri, öznitelik dizesine sıkıştırılmaz.
  */
@@ -49,7 +56,7 @@
     }
     window.gtag = gtag;
 
-    var rizaVar = okuCerez(ayar.cerez) === 'kabul';
+    var rizaVar = izinVar();
 
     /*
      * Consent Mode v2 — VARSAYILAN REDDEDİLMİŞ.
@@ -72,10 +79,50 @@
         rizayiUygula();
     }
 
-    bandKur();
+    rizayiDinle();
     olaylariBagla();
 
     /* ─────────────────────────── Rıza ─────────────────────────── */
+
+    /** Rıza deposuna tek soru noktası. Depo yoksa (betik yüklenmediyse) cevap HAYIR'dır. */
+    function izinVar() {
+        return !!(window.siparioCerez && window.siparioCerez.izin('olcum'));
+    }
+
+    /**
+     * Karar değiştiğinde ölçümü açar ya da kapatır. `cerez.js` bu dosyadan ÖNCE çalışır
+     * (ikisi de `defer`, belge sırası korunur), bu yüzden `dinle()` burada hazırdır; yine de
+     * `sipario-cerez` olayı yedek yol olarak dinlenir — dosya sırası bir gün değişirse ölçüm
+     * sessizce sağır kalmasın.
+     */
+    function rizayiDinle() {
+        if (window.siparioCerez && window.siparioCerez.dinle) {
+            window.siparioCerez.dinle(rizayiUygulaVeyaKaldir);
+
+            return;
+        }
+
+        window.addEventListener('sipario-cerez', function () {
+            rizayiUygulaVeyaKaldir();
+        });
+    }
+
+    function rizayiUygulaVeyaKaldir() {
+        if (izinVar()) {
+            rizayiUygula();
+
+            return;
+        }
+
+        /*
+         * REDDEDİLDİĞİNDE VAR OLAN ÇEREZLER SİLİNİR. Ziyaretçi önce kabul edip sonra
+         * reddettiyse `_ga` çerezleri tarayıcıda kalmaya devam ederdi — Çerez Politikası
+         * "reddettiğiniz anda ölçüm durur ve ilgili çerezler silinir" diyor; burası o cümlenin
+         * karşılığı. Alan adı ön eki, `_ga_G-XXXX` biçimindeki mülke özel çerezi de yakalar.
+         */
+        silCerezOnEki('_ga');
+        gtag('consent', 'update', { analytics_storage: 'denied' });
+    }
 
     function rizayiUygula() {
         gtag('consent', 'update', {
@@ -127,67 +174,6 @@
         });
     }
 
-    function rizaVer(karar) {
-        yazCerez(ayar.cerez, karar, ayar.gun);
-        gizleBand();
-
-        if (karar === 'kabul') {
-            rizayiUygula();
-        } else {
-            /*
-             * REDDEDİLDİĞİNDE VAR OLAN ÇEREZLER SİLİNİR. Ziyaretçi önce kabul edip sonra
-             * reddettiyse `_ga` çerezleri tarayıcıda kalmaya devam ederdi — Çerez Politikası
-             * "reddettiğiniz anda ölçüm durur ve ilgili çerezler silinir" diyor; burası o cümlenin
-             * karşılığı. Alan adı ön eki, `_ga_G-XXXX` biçimindeki mülke özel çerezi de yakalar.
-             */
-            silCerezOnEki('_ga');
-            gtag('consent', 'update', { analytics_storage: 'denied' });
-        }
-    }
-
-    /* ─────────────────────────── Band ─────────────────────────── */
-
-    function bandKur() {
-        var band = document.getElementById('cerez-band');
-
-        // Tercih zaten kayıtlıysa band hiç gösterilmez (sunucu da basmaz; bu ikinci kapı).
-        if (band && !okuCerez(ayar.cerez)) {
-            band.hidden = false;
-        }
-
-        tikla('cerez-kabul', function () { rizaVer('kabul'); });
-        tikla('cerez-ret', function () { rizaVer('ret'); });
-
-        /*
-         * "Çerez tercihleri" bağlantısı alt bilgide durur ve bandı geri açar. Rızanın GERİ
-         * ALINABİLİR olması KVKK m.11 gereğidir; geri alma yolu göstermeyen bir rıza geçersizdir.
-         */
-        var yeniden = document.querySelectorAll('[data-cerez-ac]');
-        for (var i = 0; i < yeniden.length; i++) {
-            yeniden[i].addEventListener('click', function (e) {
-                e.preventDefault();
-                if (band) {
-                    band.hidden = false;
-                    band.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                }
-            });
-        }
-    }
-
-    function gizleBand() {
-        var band = document.getElementById('cerez-band');
-        if (band) {
-            band.hidden = true;
-        }
-    }
-
-    function tikla(id, fn) {
-        var el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('click', fn);
-        }
-    }
-
     /* ─────────────────────────── Olaylar ─────────────────────────── */
 
     /**
@@ -195,7 +181,7 @@
      * Dışarıya açılır ki Livewire tarafındaki `$dispatch('olcum', …)` da buraya bağlanabilsin.
      */
     function siparioOlay(ad, veri) {
-        if (!ad || okuCerez(ayar.cerez) !== 'kabul') {
+        if (!ad || !izinVar()) {
             return;
         }
         gtag('event', ad, veri || {});
@@ -270,20 +256,6 @@
         s.async = true;
         s.src = src;
         document.head.appendChild(s);
-    }
-
-    function okuCerez(ad) {
-        var m = document.cookie.match('(^|;)\\s*' + ad + '\\s*=\\s*([^;]+)');
-
-        return m ? decodeURIComponent(m[2]) : null;
-    }
-
-    function yazCerez(ad, deger, gun) {
-        var son = new Date();
-        son.setTime(son.getTime() + gun * 86400000);
-        // SameSite=Lax + Secure: çerez yalnız kendi sitemizde ve yalnız HTTPS üzerinde taşınır.
-        document.cookie = ad + '=' + encodeURIComponent(deger) + ';expires=' + son.toUTCString() +
-            ';path=/;SameSite=Lax' + (location.protocol === 'https:' ? ';Secure' : '');
     }
 
     function silCerezOnEki(onEk) {

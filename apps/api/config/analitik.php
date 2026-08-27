@@ -45,11 +45,16 @@ return [
     'enabled' => (bool) env('ANALITIK_ETKIN', env('APP_ENV') === 'production'),
 
     /*
-     * Rıza çerezinin adı ve ömrü. Çerez Politikası bu iki değeri metin olarak yazıyor —
-     * burada değişirse orada da değişmelidir (CerezPolitikasiTest bağı kilitler).
+     * ⚠️ RIZA ÇEREZİ BURADA DEĞİL — `config/cerezler.php`de (taşındı: 2026-08-28).
+     *
+     * Buraya geri KONULMAMALI. Rıza yönetimi ölçümün alt başlığı değildir: zorunlu çerezler
+     * (oturum, CSRF, rızanın kendisi) ölçüm kapalıyken de vardır ve aynı rıza altyapısı yarın
+     * ölçüm dışında bir kategori de taşıyabilir. Ayarı burada tutmak "ölçüm yoksa çerez de yok"
+     * denklemini kurardı ve o denklem yanlıştır.
+     *
+     * Okuma yolu: App\Support\Cerez\CerezEnvanteri (hem pencere, hem belge, hem JS aynı kaynağı
+     * kullanır).
      */
-    'riza_cerezi' => 'sipario_cerez_izni',
-    'riza_gun' => 180,
 
     /*
      * İZLENEN DÖNÜŞÜMLER. Ad → ne anlama geldiği. GA4'te "anahtar olay" (conversion) olarak
