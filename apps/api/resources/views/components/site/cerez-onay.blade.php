@@ -25,13 +25,24 @@
     bağlıdır — çerezi tarayıcıdaki JS yazar, Laravel onu çözemez ve muafiyet olmadan `null`
     görürdü (yani kapı sessizce hiç işlemezdi).
 
+    ── TASARIM BAŞTAN YAZILDI (2026-08-28, kullanıcı reddetti) ─────────────────────────────
+    İlk hâli sayfanın altına yapışan TAM GENİŞLİKTE KOYU bir banttı: 40 kelime + alt alta üç
+    düğme, 390x844 telefonda ölçüldü ~330 piksel — ekranın yarısından fazlası. Kullanıcının
+    cümlesi: *"Ekranı kaplıyor ve bu çok sinir bozucu."* Araştırma da aynı yeri işaretliyor:
+    mobil görüntü alanının %30'unu aşan banner terk oranını sıçratıyor.
+    Şimdi sol alt köşede küçük bir levha (telefonda alttan ince bir kart). Metin 12 kelime,
+    düğmeler tek sırada. Görsel gerekçenin tamamı public/css/site.css'te.
+
     ── KABUL VE RET AYNI AĞIRLIKTA ─────────────────────────────────────────────────────────
     KVK Kurulu'nun çerez rehberi, reddi zorlaştıran tasarımı geçerli rıza saymaz. İki düğme de
-    aynı boyda, aynı satırda ve ret düğmesi ilk sırada. "Yalnız zorunlu çerezler" metni, ret
-    seçeneğinin ne anlama geldiğini de söylüyor — "Reddet" tek başına ziyaretçiye neyi
-    kaybettiğini sormaya bırakır. Üçüncü düğme ("Çerezleri yönet") pencereyi açar ve ne kabulün ne de
-    reddin önüne geçer: ikisi de tek tıklık kalır. Rehberin karşı olduğu desen, reddi ayarların
-    ARKASINA saklamaktır — burada saklanan bir şey yok.
+    aynı satırda, aynı boyda ve `flex:1 1 0` ile BİREBİR aynı genişlikte; ret ilk sırada.
+    "Yalnız zorunlu" metni ret seçeneğinin ne anlama geldiğini de söylüyor — "Reddet" tek başına
+    ziyaretçiye neyi kaybettiğini sormaya bırakır.
+    ⚠️ "Neler toplanıyor?" ARTIK DÜĞME DEĞİL, düğmelerin altında bir bağlantı. Bu karartma
+    deseni DEĞİLDİR: rehberin yasakladığı şey REDDİ kabulden zorlaştırmaktır ve ret hâlâ tek
+    tıklık, kabulle aynı boyutta. Saklanan bir seçenek yok; ayrıntıyı görmek bir KARAR değil bir
+    YÖN olduğu için bağlantı biçimini aldı. Üçüncü eşit düğme, üç eşit ağırlıklı seçenek
+    göstererek asıl kararı da bulanıklaştırıyordu.
 
     ── ERİŞİLEBİLİRLİK ─────────────────────────────────────────────────────────────────────
     Bant: `role="region"` + `aria-label` → ekran okuyucu gezinilebilir bir bölge olarak duyurur.
@@ -53,19 +64,21 @@
 
 @if ($sor)
     <div id="cerez-band" class="cerez" role="region" aria-label="Çerez tercihleri" @if($kararVerilmis) hidden @endif>
-        <div class="kap cerez-ic">
-            <p class="cerez-m">
-                Sitenin çalışması için gereken çerezleri kullanıyoruz. Bunun dışında, hangi sayfaların
-                işe yaradığını görebilmek için <strong>ölçüm çerezi</strong> kullanmak istiyoruz —
-                ama yalnız siz izin verirseniz. İzin vermezseniz site aynen çalışır, hiçbir şey
-                eksilmez. Ayrıntı: <a href="{{ route('legal.show', 'cerez-politikasi') }}">Çerez Politikası</a>.
-            </p>
-            <div class="cerez-dg">
-                <button type="button" id="cerez-ret" class="dg dg-c">Yalnız zorunlu çerezler</button>
-                <button type="button" id="cerez-yonet" class="dg dg-c">Çerezleri yönet</button>
-                <button type="button" id="cerez-kabul" class="dg dg-a">Ölçüme izin ver</button>
-            </div>
+        {{--
+            Mikro etiket, gövde metninden bir satır kazandırır: kutunun NE OLDUĞUNU o söylediği
+            için metin "çerez kullanıyoruz" demek zorunda kalmaz, doğrudan sorulan izne geçer.
+        --}}
+        <p class="cerez-et">Çerezler</p>
+        <p class="cerez-m">Hangi sayfaların işe yaradığını ölçmek istiyoruz. İzin vermezseniz site aynen çalışır.</p>
+        <div class="cerez-dg">
+            <button type="button" id="cerez-ret" class="dg dg-c">Yalnız zorunlu</button>
+            <button type="button" id="cerez-kabul" class="dg dg-a">Ölçüme izin ver</button>
         </div>
+        <p class="cerez-alt">
+            <button type="button" id="cerez-yonet" class="cerez-bag">Neler toplanıyor?</button>
+            <span aria-hidden="true">·</span>
+            <a href="{{ route('legal.show', 'cerez-politikasi') }}">Çerez Politikası</a>
+        </p>
     </div>
 
     {{--
@@ -84,7 +97,10 @@
             </div>
 
             <div class="diyalog-ic cerez-p-ic">
-                <p class="gvd cz-giris">Aşağıda bu sitede kullanılan çerezlerin tamamı yazılıdır. Zorunlu olanlar sitenin çalışması için gereklidir ve kapatılamaz; diğerleri <strong>yalnız siz açarsanız</strong> çalışır. Tercihinizi istediğiniz an bu pencereden değiştirebilir veya geri alabilirsiniz.</p>
+                {{-- Kısa tutuldu: uzun giriş paragrafı telefonda ilk ekranı tek başına yiyordu ve
+                     asıl iş olan listeyi aşağı itiyordu. "İstediğiniz an değiştirebilirsiniz"
+                     bilgisi düşmedi, alt bilgideki düğmede zaten yaşıyor. --}}
+                <p class="gvd cz-giris">Bu sitede kullanılan çerezlerin tamamı aşağıda. Zorunlu olanlar kapatılamaz; diğerleri <strong>yalnız siz açarsanız</strong> çalışır.</p>
 
                 @foreach ($kategoriler as $anahtar => $kategori)
                     <section class="cz-kat">
@@ -158,5 +174,5 @@
     </script>
     {{-- `defer`: sayfanın çizilmesini geciktirmez. Ölçüm betiğinden ÖNCE gelmesi zorunludur
          (defer'li betikler belge sırasına göre çalışır) — olcum.js rıza durumunu buradan sorar. --}}
-    <script src="{{ asset('js/cerez.js') }}" defer></script>
+    <script src="{{ \App\Support\Varlik::url('js/cerez.js') }}" defer></script>
 @endif

@@ -1146,86 +1146,132 @@ main.ic{padding-top:74px}
 
 .ys-alt{margin-top:20px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
 
-/* ── ÇEREZ ONAY BANDI ──────────────────────────────────────────────────────────────────────
-   Sayfanın altına sabitlenir. `position:fixed` bilinçli: ziyaretçi aşağı kaydırırken bandı
-   kaybederse rıza istenmiş sayılmaz ama ölçüm de başlamaz — yani kaybolan bir band sessizce
-   "reddedildi" demektir. Görünür kalması ziyaretçinin lehinedir.
 
-   Z-DÜZENİ: 60 — üst menü 50, modal 100 (ölçüldü). Band menüyü örter, modalın altında kalır. */
-.cerez{position:fixed;left:0;right:0;bottom:0;z-index:60;padding:14px 0;
-  background:var(--gece);color:#F3F0EC;border-top:2px solid var(--mor);
-  box-shadow:0 -8px 28px rgba(22,19,28,.22)}
-.cerez-ic{display:flex;align-items:center;gap:16px 22px;flex-wrap:wrap}
-.cerez-m{flex:1 1 380px;font-size:14.8px;line-height:1.55;color:rgba(243,240,236,.82)}
-.cerez-m a{color:#C3B8FF;text-decoration:underline}
-.cerez-dg{display:flex;gap:9px;flex-wrap:wrap}
-/* Reddet ve kabul et AYNI görsel ağırlıkta. KVK Kurulu çerez rehberi, reddi zorlaştıran
-   tasarımı (karanlık desen) geçerli rıza saymaz: kabul yeşil-büyük, ret gri-küçük olamaz. */
-.cerez-dg .dg{min-height:42px;padding:0 18px;font-size:14.5px}
-.cerez .dg-a{background:var(--mor);color:#fff}
-.cerez .dg-c{background:transparent;color:#F3F0EC;border:var(--kalem) solid rgba(243,240,236,.34)}
-.cerez .dg-c:hover{border-color:rgba(243,240,236,.7)}
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+   ÇEREZ RIZASI — "KÜÇÜK LEVHA" (2026-08-28, ilk tasarım REDDEDİLDİKTEN sonra baştan yazıldı)
+
+   ── NEDEN BAŞTAN YAZILDI ────────────────────────────────────────────────────────────────
+   İlk deneme, sayfanın altına yapışan TAM GENİŞLİKTE KOYU bir banttı: 40 kelimelik metin +
+   alt alta üç düğme. Ölçüldü (390x844 telefon): ~330 piksel, yani ekranın yarısından fazlası.
+   Yayınlanmış araştırma bu eşiği açıkça işaretliyor: banner mobil görüntü alanının %30'unu
+   aştığında ziyaretçilerin ezici çoğunluğu siteyi terk ediyor. Üstelik kâğıt zeminli bu sitede
+   tam genişlikte koyu bir şerit TEK YABANCI NESNEYDİ; sayfanın kendi diline ait değildi.
+
+   ── YENİ FİKİR ──────────────────────────────────────────────────────────────────────────
+   Rıza kutusu artık bir bariyer değil, sayfanın kendi dilinden KÜÇÜK BİR LEVHA: mürekkep
+   konturlu kâğıt, sert ofset gölge, sol kenarında mor bir şerit. Sitenin geri kalanı zaten bu
+   panellerden kurulu; rıza kutusu da onlardan biri oluyor.
+   Masaüstünde sol alt köşede 340 piksellik bir kart, içeriği örtmüyor. Telefonda alttan 10
+   piksel boşlukla tam genişliğe açılıyor ama YÜKSEK DEĞİL: metin iki satır, düğmeler TEK
+   SIRADA yan yana.
+
+   ── DÜĞME SAYISI ÜÇTEN İKİYE İNDİ ───────────────────────────────────────────────────────
+   "Çerezleri yönet" artık düğme değil, düğmelerin ALTINDA bir bağlantı ("Neler toplanıyor?").
+   Bu bir karartma deseni DEĞİLDİR ve ayrımı korumak önemli: KVK Kurulu rehberinde yasak olan
+   şey REDDİ kabulden zorlaştırmaktır. Ret ve kabul hâlâ aynı satırda, aynı boyda, `flex:1 1 0`
+   ile birebir aynı genişlikte. Saklanan bir seçenek yok; yalnız "ayrıntıyı göster" bir eylem
+   değil bir yön olduğu için bağlantı biçimini aldı.
+   ══════════════════════════════════════════════════════════════════════════════════════════ */
+/* SOL DEĞİL SAĞ ALT KÖŞE — bu sayfaya BAKARAK verilmiş bir karar. Araştırma "sol alt köşe"yi
+   genel öneri olarak veriyor ama Sipario'nun düzeni metni SOLA, görseli SAĞA koyuyor: sol alt
+   köşedeki kart 1440x900'de birincil "30 gün ücretsiz dene" düğmesinin üstüne biniyordu
+   (ölçüldü). Sağ alt köşede yalnız dekoratif telefon görselinin bir kısmını örtüyor. */
+.cerez{position:fixed;right:20px;bottom:20px;z-index:60;width:340px;max-width:calc(100vw - 40px);
+  background:var(--yuzey);color:var(--murekkep);
+  border:var(--kalem) solid var(--murekkep);border-left:4px solid var(--mor);
+  border-radius:var(--r);padding:15px 17px 13px;
+  box-shadow:8px 8px 0 rgba(22,19,28,.13);
+  animation:cerez-gir .18s ease-out both}
+@keyframes cerez-gir{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* Mikro etiket, sitenin `.mn` deyimi. Kutunun ne olduğunu tek kelimede söyler; böylece gövde
+   metni "çerez kullanıyoruz" demek zorunda kalmaz ve bir satır kısalır. */
+.cerez-et{font:500 11.5px/1 var(--m);text-transform:uppercase;letter-spacing:.08em;color:var(--sonuk)}
+.cerez-m{margin-top:9px;font-size:14.5px;line-height:1.45;color:var(--murekkep-2)}
+
+/* Ret ve kabul: aynı satır, `flex:1 1 0` ile birebir aynı genişlik. Farklı olan tek şey dolgu
+   rengi; boy, genişlik ve yerleşim eşit (KVK Kurulu çerez rehberi). */
+.cerez-dg{display:flex;gap:8px;margin-top:13px}
+.cerez-dg .dg{flex:1 1 0;min-width:0;height:42px;padding:0 10px;font-size:13.5px}
+.cerez-alt{margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;
+  color:var(--sonuk)}
+.cerez-bag,.cerez-alt a{color:var(--mor);text-decoration:underline;text-underline-offset:2px;
+  font:inherit;padding:0;background:none}
+.cerez-bag:hover,.cerez-alt a:hover{color:var(--mor-2)}
+
 @media(max-width:700px){
-.cerez-ic{flex-direction:column;align-items:stretch}
-.cerez-dg{width:100%}
-.cerez-dg .dg{flex:1}
+/* Telefonda köşe kartı alt şeride açılır (araştırmanın önerdiği uyarlama) ama düğmeler ALT ALTA
+   GEÇMEZ: yığılma, yüksekliği tek başına 84 piksel artırıp %30 eşiğini deldiriyordu. */
+.cerez{left:10px;right:10px;bottom:10px;width:auto;max-width:none;padding:13px 14px 11px;
+  box-shadow:5px 5px 0 rgba(22,19,28,.13)}
+.cerez-m{font-size:14px}
+.cerez-dg .dg{font-size:13px;padding:0 6px}
+}
+@media(max-width:340px){
+/* Yalnız çok dar cihazda yığ: bu genişlikte iki etiket yan yana okunaksız kırpılıyor. */
+.cerez-dg{flex-direction:column}
 }
 
 /* Alt bilgideki "Çerez tercihleri" düğmesi. `<a>` DEĞİL `<button>` (gerekçe: alt-bilgi.blade.php),
-   ama görsel olarak bir bağlantı gibi durmalı — ziyaretçi onu tıklanabilir bir metin olarak arar.
-   `.alt-son`daki diğer iki metinle aynı puntoda, alt çizgi tıklanabilirliği belli ediyor. */
+   ama görsel olarak bir bağlantı gibi durmalı: ziyaretçi onu tıklanabilir bir metin olarak arar. */
 .alt-cerez{color:rgba(243,240,236,.62);text-decoration:underline;text-underline-offset:2px;
   padding:0;font:inherit;font-size:14px}
 .alt-cerez:hover{color:#F3F0EC}
 
 /* ══════════════════════════════════════════════════════════════════════════════════════════
-   ÇEREZ TERCİH MERKEZİ (2026-08-28)
+   ÇEREZ TERCİH MERKEZİ (pencere)
 
-   Bandın üç düğmesi ve kategori kategori açılan pencere. Pencere, sitenin kendi diyalog
-   dilini (`.diyalog-fon`/`.diyalog`) devralır — çerez penceresi için AYRI bir modal görünümü
-   icat etmek, ziyaretçinin sitede öğrendiği kalıbı bozardı. Değişen tek şey genişlik
-   (tablolar 480px'e sığmıyor) ve gövdenin yoğunluğu.
+   Sitenin kendi diyalog dilini (`.diyalog-fon`/`.diyalog`) devralır; çerez penceresi için ayrı
+   bir modal görünümü icat etmek, ziyaretçinin sitede öğrendiği kalıbı bozardı.
+
+   🔴 `[hidden]` BU KAPTA TEK BAŞINA İŞE YARAMAZ, ÖLÇÜLDÜ VE SAHADA GÖRÜLDÜ.
+   `.diyalog-fon` bir sınıf seçicisiyle `display:flex` veriyor; tarayıcının `[hidden]{display:none}`
+   varsayılanı KULLANICI AJANI katmanındadır ve sınıf seçicisi onu ezer. Sonuç: `hidden` yazılmış
+   pencere HER SAYFA AÇILIŞINDA tam ekran açılıyordu, kullanıcının "ekranı kaplıyor" şikâyetinin
+   birebir sebebi buydu. jsdom bunu göremezdi (düzen ve kaskad hesaplamaz); headless Chrome ekran
+   görüntüsü ilk karede gösterdi.
+   Aşağıdaki tek satır kuralı geri koyar. Kural bilerek DAR: genel bir
+   `[hidden]{display:none!important}` bu dosyadaki başka bileşenleri sessizce etkilerdi.
    ══════════════════════════════════════════════════════════════════════════════════════════ */
+.cerez-fon[hidden]{display:none}
+.cerez-fon{z-index:100}          /* Bant 60, diyalog 90; pencere ikisinin de üstünde. */
 
-/* Bandın düğme satırı üçe çıktı ve YENİ KURAL GEREKMEDİ: `.cerez .dg-c` ile `.cerez-dg .dg`
-   üç düğmeye de aynı şekilde uygulanıyor, ≤700px'te `flex:1` üçünü eşit genişliğe getiriyor.
-   Reddi daraltmamak KVK Kurulu rehberinin şartıdır; üçüncü düğme o dengeyi bozmuyor. */
+/* `min-width:0` ZORUNLU: `.diyalog` bir esnek öğedir ve varsayılan `min-width:auto` onu
+   içeriğinin en dar hâlinin altına inmeye bırakmaz. İçeride `min-width` taşıyan bir tablo olduğu
+   için pencere telefonda ekranın dışına taşıyordu (ilk ölçümde sağ kenar kırpıktı). */
+.cerez-pencere{max-width:680px;min-width:0}
+.cerez-p-ic{padding:18px 20px 20px}
+.cz-giris{font-size:15px;line-height:1.55;max-width:none;margin-bottom:4px}
 
-/* ── Pencere ── */
-.cerez-fon{z-index:100}          /* Band 60, diyalog 90; pencere ikisinin de üstünde. */
-.cerez-pencere{max-width:760px}
-.cerez-p-ic{padding:20px 22px 22px}
-.cz-giris{font-size:15.5px;line-height:1.6;max-width:none;margin-bottom:6px}
-
-/* Gövde kaydırılırken arkadaki sayfanın kaymaması için. Modal açıkken sayfa kaydırmak,
-   ziyaretçinin okuduğu tabloyu ekrandan kaçırır. */
+/* Pencere açıkken arkadaki sayfa kaymaz; okunan tablo ekrandan kaçardı. */
 body.cerez-kilit{overflow:hidden}
 
 /* ── Kategori (akordeon) ── */
 .cz-kat{border:var(--kalem) solid var(--cizgi);border-radius:var(--r);background:var(--yuzey);
-  margin-top:12px;overflow:hidden}
-.cz-kat-bas{display:flex;align-items:center;gap:12px;padding:12px 14px}
-/* Başlık düğmesi kalan genişliğin tamamını alır ki tıklama hedefi satırın tamamı olsun —
-   küçük bir üçgene nişan almak dokunmatik ekranda başarısız olur. */
-.cz-kat-ac{flex:1;display:flex;align-items:center;gap:10px;text-align:left;padding:4px 0;
+  margin-top:10px;overflow:hidden}
+.cz-kat-bas{display:flex;align-items:center;gap:12px;padding:11px 13px}
+/* Başlık düğmesi kalan genişliğin tamamını alır ki tıklama hedefi satırın tamamı olsun; küçük
+   bir üçgene nişan almak dokunmatik ekranda başarısız olur. */
+.cz-kat-ac{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;padding:4px 0;
   min-height:36px;font:inherit;color:var(--murekkep)}
-.cz-kat-ad{font:700 16px/1.3 var(--d);letter-spacing:-.01em}
+.cz-kat-ad{font:700 15.5px/1.3 var(--d);letter-spacing:-.01em}
 .cz-rozet{font:500 11.5px/1 var(--m);text-transform:uppercase;letter-spacing:.04em;
   color:var(--sonuk);background:var(--kagit-2);padding:5px 8px;border-radius:999px;white-space:nowrap}
-/* Ok işareti CSS ile çizilir — ikon dosyası yüklemek bir çerez penceresi için abartı olurdu. */
+/* Ok işareti CSS ile çizilir; ikon dosyası yüklemek bir çerez penceresi için abartı olurdu. */
 .cz-ok{width:9px;height:9px;flex-shrink:0;border-right:2px solid var(--sonuk);
   border-bottom:2px solid var(--sonuk);transform:rotate(-45deg);transition:transform .16s}
 .cz-kat-ac[aria-expanded="true"] .cz-ok{transform:rotate(45deg)}
 .cz-kat-ac:hover .cz-ok{border-color:var(--mor)}
 
-.cz-govde{padding:0 14px 14px;border-top:1px solid var(--cizgi);margin-top:2px}
-.cz-ozet{font-size:15px;line-height:1.6;color:var(--murekkep-2);padding-top:12px}
-.cz-dayanak{font-size:13.5px;line-height:1.55;color:var(--sonuk);margin-top:8px}
+.cz-govde{padding:0 13px 13px;border-top:1px solid var(--cizgi);margin-top:2px}
+.cz-ozet{font-size:14.5px;line-height:1.55;color:var(--murekkep-2);padding-top:11px}
+.cz-dayanak{font-size:13px;line-height:1.5;color:var(--sonuk);margin-top:7px}
 .cz-dayanak b{color:var(--murekkep-2)}
 /* Pencere içindeki tablo, belge sayfasındakinden dar bir asgariyle çalışır: 520px bir modalda
-   her ekranda yatay kaydırma üretirdi. Kaydırma yine mümkün, ama artık istisna. */
-.cz-tablo{min-width:420px;font-size:14px}
-.cz-tablo th,.cz-tablo td{padding:8px 11px}
+   her ekranda yatay kaydırma üretirdi. Kaydırma yine mümkün ama artık istisna. */
+.cz-tablo-sar{max-width:100%}
+.cz-tablo{min-width:360px;font-size:13.5px}
+.cz-tablo th,.cz-tablo td{padding:8px 10px}
 .cz-taraf{color:var(--sonuk);white-space:nowrap}
 
 /* ── Zorunlu kategori işareti ── */
@@ -1245,8 +1291,8 @@ body.cerez-kilit{overflow:hidden}
   border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(22,19,28,.32);transition:transform .16s}
 .cz-svc-g:checked + .cz-svc-y{background:var(--mor)}
 .cz-svc-g:checked + .cz-svc-y::after{transform:translateX(18px)}
-/* Klavye odağı GÖRÜNÜR olmalı — kutu görsel olarak gizli olduğu için odak halkasını anahtarın
-   kendisine taşıyoruz; yoksa Tab'la gezen kullanıcı nerede olduğunu göremez. */
+/* Klavye odağı GÖRÜNÜR olmalı: kutu görsel olarak gizli olduğu için odak halkasını anahtarın
+   kendisine taşıyoruz, yoksa Tab ile gezen kullanıcı nerede olduğunu göremez. */
 .cz-svc-g:focus-visible + .cz-svc-y{box-shadow:0 0 0 3px var(--mor-sis),0 0 0 var(--kalem) var(--mor)}
 .cz-svc-m{font:500 12.5px/1 var(--m);text-transform:uppercase;letter-spacing:.04em;
   color:var(--sonuk);min-width:44px}
@@ -1255,13 +1301,11 @@ body.cerez-kilit{overflow:hidden}
 .cz-svc-g:checked ~ .cz-svc-m::after{content:attr(data-acik)}
 
 /* ── Alt notlar ── */
-.cz-yok{font-size:13.5px;line-height:1.6;color:var(--sonuk);margin-top:18px}
+.cz-yok{font-size:13px;line-height:1.55;color:var(--sonuk);margin-top:16px}
 .cz-yok b{color:var(--murekkep-2)}
-.cz-alt-baglanti{font-size:13.5px;margin-top:8px}
+.cz-alt-baglanti{font-size:13px;margin-top:7px}
 .cz-alt-baglanti a{color:var(--mor)}
 
-/* Alt sıra: ret ve kabul AYNI genişlikte (.diyalog-alt .dg{flex:1} miras). "Seçimimi kaydet"
-   ortada durur — ziyaretçi anahtarlarla oynadıysa aradığı düğme odur. */
 .cerez-p-alt{flex-wrap:wrap}
 
 @media(max-width:640px){
@@ -1270,6 +1314,11 @@ body.cerez-kilit{overflow:hidden}
 .cerez-p-alt .dg{flex:1 1 100%}
 }
 
+/* Hareket azaltma isteğine saygı: tek yerde, bütün çerez arayüzü için. */
+@media(prefers-reduced-motion:reduce){
+.cerez{animation:none}
+.cz-ok,.cz-svc-y,.cz-svc-y::after{transition:none}
+}
 /* Belge metni içindeki "pencereyi aç" düğmesi. `<button>` — `<a href="#">` olsaydı sahte bir
    hedefe giderdi; ama cümlenin içinde bir bağlantı gibi okunmalı, o yüzden görünüm bağlantı. */
 .ys-cerez-ac{color:var(--mor);text-decoration:underline;text-underline-offset:2px;padding:0;
