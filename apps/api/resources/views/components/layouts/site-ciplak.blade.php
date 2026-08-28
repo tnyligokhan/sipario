@@ -28,7 +28,7 @@
     <meta name="theme-color" content="#16131C" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#F5F2EE" media="(prefers-color-scheme: light)">
     <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
-    <link rel="stylesheet" href="{{ asset('css/site.css') }}">
+    <link rel="stylesheet" href="{{ \App\Support\Varlik::url('css/site.css') }}">
     @stack('bas')
     @livewireStyles
 </head>
@@ -36,7 +36,7 @@
     {{ $slot }}
     <x-site.bildirim />
     {{-- bkz. layouts/site.blade.php — sıra ve gerekçe aynı. --}}
-    <script src="{{ asset('js/alpine.js') }}"></script>
+    <script src="{{ \App\Support\Varlik::url('js/alpine.js') }}"></script>
     @livewireScripts
     <x-site.olcum />
 </body>

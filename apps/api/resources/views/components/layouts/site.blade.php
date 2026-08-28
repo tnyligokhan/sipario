@@ -98,7 +98,7 @@
         <meta name="twitter:description" content="{{ $aciklama }}">
     @endif
 
-    <link rel="stylesheet" href="{{ asset('css/site.css') }}">
+    <link rel="stylesheet" href="{{ \App\Support\Varlik::url('css/site.css') }}">
     {{--
         Sayfaya özel <head> içeriği: canonical, sayfaya özel og:/twitter kartları, yapısal veri.
         Bu bir SATIŞ sitesidir — her sayfanın kendi meta açıklaması ve kanonik adresi olmalı.
@@ -171,7 +171,7 @@
         ÖNCE durmalı ki `alpine:init` dinleyicisi Alpine başlamadan kurulmuş olsun (bkz. dosyanın
         kendi belge başlığı: csp_safe sıkılaştırması, 2026-08-04).
     --}}
-    <script src="{{ asset('js/alpine.js') }}"></script>
+    <script src="{{ \App\Support\Varlik::url('js/alpine.js') }}"></script>
     @livewireScripts
     {{--
         Ölçüm EN SONDA ve `defer`li: sayfanın çizilmesini geciktirmez, Livewire/Alpine

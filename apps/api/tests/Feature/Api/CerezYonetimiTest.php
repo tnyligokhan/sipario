@@ -231,6 +231,36 @@ class CerezYonetimiTest extends TestCase
     }
 
     #[Test]
+    public function pencere_gizliyken_gorunmez_kalir(): void
+    {
+        /*
+         * ⚠️ BU TESTİ DOĞURAN ARIZA SAHADA GÖRÜLDÜ ve ilk sürümün en ağır kusuruydu.
+         *
+         * Pencere `hidden` özniteliğiyle basılıyor ama kabı `.diyalog-fon` bir SINIF seçicisiyle
+         * `display:flex` alıyor. Tarayıcının `[hidden]{display:none}` kuralı kullanıcı ajanı
+         * katmanındadır ve sınıf seçicisi onu ezer — yani pencere HER SAYFA AÇILIŞINDA tam ekran
+         * açılıyordu. Kullanıcının "ekranı kaplıyor, rezalet" dediği şey buydu.
+         *
+         * Sunucu çıktısını okuyan testler bunu göremez (işaretleme doğruydu, `hidden` oradaydı)
+         * ve jsdom da göremez (düzen/kaskad hesaplamaz). Görülebilen tek yer gerçek bir
+         * tarayıcının hesaplanmış biçemidir; burada onun CSS tarafındaki KAYNAĞI kilitleniyor:
+         * `hidden`i geri getiren kuralın dosyada bulunması. Kural silinirse bu test kırılır.
+         */
+        $css = (string) file_get_contents(public_path('css/site.css'));
+
+        $this->assertMatchesRegularExpression(
+            '/\.cerez-fon\[hidden\]\s*\{[^}]*display:\s*none/',
+            $css,
+            '.cerez-fon[hidden] kuralı silinmiş — `.diyalog-fon{display:flex}` `hidden`i eziyor '.
+            've tercih penceresi her sayfa açılışında tam ekran açılır.'
+        );
+
+        // Pencere HTML'de gerçekten `hidden` basılmalı; kural tek başına yetmez.
+        $govde = $this->sayfa();
+        $this->assertMatchesRegularExpression('/<div id="cerez-pencere"[^>]*\shidden/', $govde);
+    }
+
+    #[Test]
     public function bant_metni_envanterle_tutarli_kalir(): void
     {
         /*

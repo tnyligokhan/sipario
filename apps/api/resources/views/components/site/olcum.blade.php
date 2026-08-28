@@ -44,5 +44,5 @@
     <script type="application/json" id="olcum-ayar" nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
         @json($ayar, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
     </script>
-    <script src="{{ asset('js/olcum.js') }}" defer></script>
+    <script src="{{ \App\Support\Varlik::url('js/olcum.js') }}" defer></script>
 @endif

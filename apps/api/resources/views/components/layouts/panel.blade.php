@@ -18,14 +18,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'Sipario Yönetim Paneli' }}</title>
-    <link rel="stylesheet" href="{{ asset('css/panel.css') }}">
+    <link rel="stylesheet" href="{{ \App\Support\Varlik::url('css/panel.css') }}">
     @livewireStyles
 </head>
 <body>
     {{ $slot }}
     <x-panel.tost />
     {{-- bkz. layouts/site.blade.php — sıra ve gerekçe aynı; panel `satirLink` bileşenini kullanır. --}}
-    <script src="{{ asset('js/alpine.js') }}"></script>
+    <script src="{{ \App\Support\Varlik::url('js/alpine.js') }}"></script>
     @livewireScripts
 </body>
 </html>

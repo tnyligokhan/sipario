@@ -269,7 +269,83 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-28 — **KVKK ÇEREZ TERCİH MERKEZİ** (API 1.18.0 → **1.19.0**, mobil sabit)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-28/2 — **ÇEREZ KUTUSU BAŞTAN TASARLANDI + BAYAT CSS ARIZASI** (API 1.19.0 → **1.19.1**, mobil sabit)
+
+Kullanıcı, canlıya çıkan çerez arayüzünü gördü ve reddetti: *"Tasarım olarak çok kötü ve UX
+açısından da çok başarısız olmuş. Ekranı kaplıyor ve bu çok sinir bozucu. Rezalet olmuş."*
+
+#### 🔴 ŞİKÂYETİN ASIL SEBEBİ TASARIM DEĞİLDİ — İKİ ARIZA ÜST ÜSTE BİNMİŞTİ
+
+**1 · Tercih penceresi HER SAYFA AÇILIŞINDA tam ekran açılıyordu.**
+Pencere `hidden` ile basılıyor ama kabı `.diyalog-fon` bir SINIF seçicisiyle `display:flex`
+alıyor; tarayıcının `[hidden]{display:none}` kuralı kullanıcı ajanı katmanındadır ve sınıf
+seçicisi onu ezer. ⚠️ **Bunu ne sunucu testi ne jsdom görebilirdi** — işaretleme doğruydu,
+`hidden` oradaydı; jsdom ise düzen ve kaskad hesaplamaz. Görülebildiği tek yer gerçek tarayıcının
+hesaplanmış biçemiydi. Çözüm tek satır: `.cerez-fon[hidden]{display:none}`. Testi CSS'te o kuralı
+arıyor (`CerezYonetimiTest::pencere_gizliyken_gorunmez_kalir`).
+
+**2 · Canlıda 47 SAATLİK BAYAT CSS servis ediliyordu.**
+Ölçüm: `sipario.com.tr/css/site.css` → `Cache-Control: public, max-age=31536000, immutable`,
+`cf-cache-status: HIT`, `Age: 168463`. Görünümler dosyayı SORGUSUZ basıyordu. Yani **deploy
+HTML'i yeniliyor, CSS'i yenilemiyordu**: kullanıcı yeni işaretlemeyi eski biçemle gördü, pencere
+biçemsiz hâlde ekranı kapladı. Bu, çerezlerle ilgili DEĞİL — sitenin tamamını, her ön yüz
+değişikliğini etkileyen bir üretim arızası.
+Çözüm: `App\Support\Varlik::url()` dosyanın değişiklik zamanını adrese damgalıyor
+(`css/site.css?s=6a90cbc0`). `immutable` başlığı YANLIŞ DEĞİL, yalnız bir söz veriyor —
+"bu adres değişmez"; sözü tutmanın yolu dosya değişince ADRESİ değiştirmek.
+⚠️ Damga uygulama sürümü DEĞİL dosya zamanı: yalnız CSS düzelten bir vardiya sürümü
+artırmayabilir ve o gün damga sabit kalıp arıza geri gelirdi.
+`VarlikSurumuTest` görünümleri **desenle** tarıyor (dosya adıyla değil): `asset('css/…')` ya da
+`asset('js/…')` yazan tek bir görünüm kalırsa test kırılır.
+
+#### 🎨 Tasarım baştan yazıldı — "küçük levha"
+
+Önceki bant: tam genişlikte koyu şerit, 40 kelime, alt alta üç düğme. Ölçüldü (390x844):
+**~330 piksel, ekranın yarısından fazlası.** Araştırma aynı yeri işaretliyor: mobil görüntü
+alanının %30'unu aşan banner terk oranını sıçratıyor. Üstelik kâğıt zeminli bu sitede tam
+genişlikte koyu bir şerit tek yabancı nesneydi.
+
+Yeni hâli sayfanın kendi dilinden **küçük bir levha**: mürekkep konturlu kâğıt, sert ofset gölge,
+sol kenarında mor şerit. Masaüstünde **sağ alt köşede** 340 piksellik kart, telefonda alttan ince
+bir kart. Metin 12 kelime, düğmeler tek sırada.
+
+| Ölçüm (gerçek tarayıcı, CDP) | Önce | Sonra |
+|---|---|---|
+| 390x844 telefonda kapladığı alan | ~%39 | **%21,7** (173 px) |
+| 360x640 küçük telefon | >%50 | **%28,6** |
+| Yatay taşma | — | **0** |
+| Pencere ilk açılışta | **tam ekran açık** | `display:none` |
+
+⚠️ **Sağ alt köşe, sol değil** — araştırma "sol alt"ı genel öneri veriyor ama Sipario'nun düzeni
+metni SOLA görseli SAĞA koyuyor; sol alttaki kart 1440x900'de birincil "30 gün ücretsiz dene"
+düğmesinin üstüne biniyordu (ölçüldü).
+
+⚠️ **Düğme sayısı üçten ikiye indi.** "Neler toplanıyor?" artık bağlantı. Bu karartma deseni
+DEĞİLDİR: rehberin yasakladığı şey REDDİ kabulden zorlaştırmaktır, ret hâlâ kabulle aynı satırda
+ve `flex:1 1 0` ile birebir aynı genişlikte. Üçüncü eşit düğme asıl kararı bulanıklaştırıyordu.
+
+#### 🧪 Nasıl doğrulandı — bu kez GERÇEK TARAYICIDA
+
+Önceki vardiyanın jsdom kontrolleri yetmedi ve bunu göstermek önemli: **ikisi de "yeşil"di ve
+ikisi de yukarıdaki iki arızayı göremezdi.** Bu turda Chrome DevTools protokolüyle gerçek
+tarayıcı sürüldü: ekran görüntüsü + hesaplanmış biçem + kutu ölçüleri, 10 adımlık uçtan uca akış
+(ilk ziyaret → kabul → sayfa yenileme → alt bilgiden geri alma), hepsi geçti. Sunucu tarafı:
+44 test yeşil, phpstan ve pint temiz.
+
+#### 📁 Dokunulan yerler
+
+`public/css/site.css` (çerez bölümü baştan) · `resources/views/components/site/cerez-onay.blade.php` ·
+`app/Support/Varlik.php` (yeni) · üç layout + iki bileşen (damgalı varlık adresi) ·
+`config/app.php` (1.19.1) · `tests/Feature/Api/VarlikSurumuTest.php` (yeni) ·
+`tests/Feature/Api/CerezYonetimiTest.php` (pencere gizliliği testi eklendi).
+
+#### ⏭️ Sıradaki işler
+
+Değişmedi: **künye** (aşağıdaki 2026-08-28 notu) ve `## 🔴 SIRADAKİ İŞLER — TEK LİSTE`.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-28 — **KVKK ÇEREZ TERCİH MERKEZİ** (API 1.18.0 → **1.19.0**, mobil sabit)
 
 Kullanıcı isteği: *"Çerez yönetimi için düzgün bir arayüz… KVKK uyumlu… CookieYes gibi bir popup,
 bir kere tıklandı mı bir daha gelmemeli, hangi çerezleri topluyorsak onları görebilmeli."*
