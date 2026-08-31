@@ -49,6 +49,18 @@ class Register extends Component
     #[Locked]
     public string $olusanKod = '';
 
+    /**
+     * Başarı ekranında gösterilen GERÇEK kullanıcı adı (DB'de oluşan `users.username`).
+     *
+     * NEDEN EKRANDA (2026-08-31): mobil giriş FİRMA KODU + KULLANICI ADI + parola ister; bu ekran
+     * bugüne kadar üçünden yalnız birini gösteriyordu. Kullanıcı adı sabit 'patron' olduğu sürece
+     * eksiklik gizliydi — artık girilen bilgilerden türetiliyor, dolayısıyla bayinin onu ilk kez
+     * BURADA görmesi zorunlu. `#[Locked]`: istemci başarı ekranındaki adı değiştiremesin, ekran
+     * DB'de ne yazdığını söylesin.
+     */
+    #[Locked]
+    public string $olusanKullanici = '';
+
     public string $isletme = '';
 
     public string $eposta = '';
@@ -191,6 +203,7 @@ class Register extends Component
         // Ekranda GERÇEK kod gösterilir (DB'de oluşan slug) — bayiye vermediğimiz bir kodu
         // göstermek en kötü yalan olurdu.
         $this->olusanKod = $tenant->slug;
+        $this->olusanKullanici = (string) $patron->username;
 
         /*
          * HOŞ GELDİNİZ POSTASI (2026-08-12). Bu akış bugüne kadar HİÇ posta göndermiyordu ve

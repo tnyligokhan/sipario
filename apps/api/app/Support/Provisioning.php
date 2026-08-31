@@ -47,8 +47,14 @@ class Provisioning
      * Yeni bir bayi + patron kullanıcı oluşturur (deneme süresi plandan).
      *
      * [$patronUsername] mobil girişin kimliğidir (tasarım `s-giris.jsx`: firma kodu + kullanıcı
-     * adı). Verilmezse 'patron' kullanılır — kullanıcı adı TENANT İÇİNDE tekil olduğu için
-     * her bayide aynı varsayılan meşrudur ve kurulum sonrası akılda kalıcıdır.
+     * adı). VERİLMEZSE ARTIK GİRİLEN BİLGİLERDEN TÜRETİLİR (`KullaniciAdiUretici`): yetkilinin
+     * adı → e-postanın yerel kısmı → 'patron'. Öncesinde sabit 'patron'du; teknik olarak meşrudu
+     * (ad bayi içinde tekildir) ama bayiye kendi adını söylemiyordu ve ekranda hiç görünmüyordu.
+     * Gerekçesi ve türetme sırası üreticinin belge başlığında.
+     *
+     * ⚠️ GERİYE DÖNÜK DEĞİL: hâlihazırda 'patron' adıyla yaşayan bayiler olduğu gibi kalır.
+     * Kullanıcı adı mobil girişin kimliğidir; yaşayan bir hesabın giriş adını bir deploy'la
+     * değiştirmek, sahadaki telefonları kilitlemek demekti.
      *
      * [$slug] KULLANICININ SEÇTİĞİ firma kodu. Verilmezse eski davranış sürer (addan türetilir +
      * çakışırsa sayaç). Verilirse AYNI TRANSACTION içinde benzersizliği doğrulanır ve çakışmada
@@ -80,7 +86,7 @@ class Provisioning
         string $patronEmail,
         string $patronPassword,
         ?string $patronName = null,
-        string $patronUsername = 'patron',
+        ?string $patronUsername = null,
         ?string $slug = null,
         ?string $phone = null,
     ): array {
@@ -130,11 +136,20 @@ class Provisioning
                     throw $e;
                 }
 
+                // KULLANICI ADI BURADA, TENANT YAZILDIKTAN SONRA türetilir: üretici tekilliği
+                // BU bayinin içinde sorar ve bayi henüz yokken soracak bir yer de yoktur.
+                // Açıkça geçilen ad aynen kullanılır (yalnız küçük harfe iner) — çağıranın
+                // seçtiği adı sessizce başkasıyla değiştirmek, ekranda gösterilen ile
+                // veritabanındakini ayırırdı.
+                $kullaniciAdi = $patronUsername !== null && trim($patronUsername) !== ''
+                    ? mb_strtolower(trim($patronUsername))
+                    : (new KullaniciAdiUretici('pgsql_owner'))->patronIcin($tenant->id, $patronName, $patronEmail);
+
                 $patron = User::create([
                     'tenant_id' => $tenant->id,
                     'name' => $patronName ?? 'Patron',
                     'email' => mb_strtolower($patronEmail),
-                    'username' => mb_strtolower($patronUsername),
+                    'username' => $kullaniciAdi,
                     'password' => $patronPassword, // 'hashed' cast'i bcrypt'ler
                     'role' => UserRole::Patron->value,
                     'status' => 'active',

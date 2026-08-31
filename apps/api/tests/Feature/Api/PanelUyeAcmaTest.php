@@ -72,7 +72,11 @@ class PanelUyeAcmaTest extends ApiTestCase
 
         $patron = Provisioning::asOwner(fn () => User::query()->where('tenant_id', $bayi->id)->first());
         $this->assertNotNull($patron);
-        $this->assertSame('patron', $patron->username, 'Mobil giriş kullanıcı adı her bayide patron.');
+        // Mobil giriş adı YETKİLİNİN ADINDAN türetilir (2026-08-31): "Hasan Aslan" → hasan.aslan.
+        // Öncesinde her bayide sabit 'patron'du; ayırt edici değildi ve bayiye kendi adını
+        // söylemiyordu. Operatör bunu formda YAZMAZ — aynı bilgiyi iki kez sormak, ekranda
+        // gösterilen adla giriş adının ayrışmasına kapı açardı.
+        $this->assertSame('hasan.aslan', $patron->username);
         $this->assertSame('hasan@aslansu.test', $patron->email);
         $this->assertSame('Hasan Aslan', $patron->name);
         $this->assertSame('patron', $patron->role->value);
@@ -203,7 +207,7 @@ class PanelUyeAcmaTest extends ApiTestCase
         Mail::fake();
         $this->form()->call('uyeKaydet')->assertHasNoErrors();
         Mail::assertQueued(Hosgeldiniz::class, fn (Hosgeldiniz $m) => $m->firmaKodu === 'aslansu'
-            && $m->kullaniciAdi === 'patron'
+            && $m->kullaniciAdi === 'hasan.aslan'
             && $m->hasTo('hasan@aslansu.test'));
 
         Mail::fake();

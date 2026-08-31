@@ -16,10 +16,14 @@ use Livewire\Form;
  * ile "elle açılan bayi" diye iki sınıf yaratırdı ve panelin ikinci sınıfı sonradan
  * tamamlaması gerekirdi.
  *
- * ⚠️ KULLANICI ADI BURADA YOK. Patronun mobil kullanıcı adı her bayide 'patron'dur
- * (`Provisioning`'in varsayılanı) — kullanıcı adı TENANT İÇİNDE tekildir, yani her bayide aynı
- * varsayılan meşrudur ve kurulumda akılda kalır. Operatöre seçtirmek, telefonda "kullanıcı adın
- * neydi" sorusunu doğurur.
+ * ⚠️ KULLANICI ADI BURADA YOK ÇÜNKÜ TÜRETİLİR — 2026-08-31'e kadar sabit 'patron'du, artık
+ * yetkilinin adından üretiliyor ("Hasan Aslan" → `hasan.aslan`; `KullaniciAdiUretici`). Operatör
+ * ayrıca yazmaz: form zaten yetkilinin adını topluyor ve aynı bilgiyi ikinci kez sormak,
+ * ekrandaki adla giriş adının ayrışmasına açık kapı bırakırdı.
+ *
+ * Üretilen ad kayıttan sonra KURULUM BANDINDA gösterilir (`TenantList::$acilan`) ve hoş geldiniz
+ * postasında yazılıdır; ayrıca üye detayının "Firma Bilgileri" kartında kalıcı olarak durur —
+ * operatör "kullanıcı adım neydi" diye arayan bayiye her zaman cevap verebilmeli.
  *
  * Parola OPERATÖRDEN alınır, üretilmez: bu hesap telefonda birebir devredilir; ekranda bir kez
  * gösterilen rastgele parolayı operatörün karşı tarafa doğru okuması, kendi yazdığı parolayı

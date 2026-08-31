@@ -58,6 +58,18 @@ class TenantAdminService
             'tenant' => $tenant,
             'user_count' => User::on($this->connection)->where('tenant_id', $tenantId)->count(),
             'device_count' => Device::on($this->connection)->where('tenant_id', $tenantId)->count(),
+            // PATRONUN MOBİL GİRİŞ ADI (2026-08-31). Panelde bugüne kadar hiç görünmüyordu:
+            // operatör bayiyi açtıktan sonraki kurulum bandında bir kez görüyor, o bant kapanınca
+            // bilgi kayboluyordu. "Kullanıcı adım neydi" diye arayan bayiye cevap verebilmek için
+            // operatörün bunu HER ZAMAN görebilmesi gerekir — ad artık bayiden bayiye değiştiği
+            // için (sabit 'patron' değil) ezberlenebilir bir varsayım da yok.
+            // `orderBy(created_at)`: patron tektir, ama sıralamasız bir `value()` "ilk satır"ı
+            // veritabanının keyfine bırakırdı.
+            'patron_username' => (string) (User::on($this->connection)
+                ->where('tenant_id', $tenantId)
+                ->where('role', UserRole::Patron->value)
+                ->orderBy('created_at')
+                ->value('username') ?? ''),
         ];
     }
 
