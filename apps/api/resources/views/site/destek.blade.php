@@ -12,7 +12,7 @@
 {{-- Başlık sadeleşti (2026-09-01; gerekçe site/ana.blade.php'de). Sayfanın adı "Destek" —
      başlığa üç anahtar kelime daha sıkıştırmak, arama sonucunda sayfanın ne olduğunu gizliyordu. --}}
 <x-layouts.site
-    baslik="Destek ve sık sorulanlar · Sipario"
+    baslik="Destek ve sık sorulanlar | Sipario"
     aciklama="Kurulum, ödeme ve teknik sorularınızın cevapları: veresiye defteri nasıl işler, internet kesilince ne olur, müşteri listesi nasıl aktarılır. Yanıtı insan yazıyor.">
     @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
     @include('site.parca.destek-kanal')

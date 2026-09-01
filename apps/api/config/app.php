@@ -311,9 +311,20 @@ return [
     | ⚠️ Hukuk belgelerinin KENDİ sürüm anahtarları da ayrıca duruyor
     | (config/subscription.php · legal) — bu satır uygulamanın sürümüdür,
     | belgenin değil. İkisi karıştırılmaz.
+    |
+    | ── 1.22.0 (2026-09-01) — ÜRÜN YENİDEN KONUMLANDI ─────────────────────────
+    | Sipario bir "su bayii uygulaması" değil, PAKET SERVİSİ YAPAN KÜÇÜK VE ORTA
+    | İŞLETMELER için bir uygulamadır (kullanıcı kararı). Site metinlerinin
+    | tamamı, ekran maketlerindeki temsili sepet ve hukuk belgelerindeki dil bu
+    | tanıma göre yeniden yazıldı. Ayrıca: Özellikler ve Hakkımızda sayfaları
+    | baştan tasarlandı, menü sırası ve başlık kalıbı değişti.
+    |
+    | NEDEN MINOR: mobil istemci sözleşmesinde alan değişmedi (mobil sürüm SABİT),
+    | ama ürünün KİME satıldığı bir davranış değişikliğinden hafif değildir ve
+    | hukuk metinlerindeki "alıcı" tanımı da bununla birlikte güncellendi.
     */
 
-    'version' => '1.21.0',
+    'version' => '1.22.0',
 
     /*
     |--------------------------------------------------------------------------

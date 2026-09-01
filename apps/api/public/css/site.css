@@ -637,7 +637,6 @@ main.ic{padding-top:72px}
 .yplan-liste>li>span{display:flex;flex-direction:column;gap:2px;min-width:0}
 .yplan-liste b{font-size:15.5px;font-weight:700}
 .yplan-liste small{font-size:13.5px;color:var(--sonuk);line-height:1.4}
-.yplan-kopru{margin-top:20px}
 
 /* ── İpucu (saf CSS) ──────────────────────────────────────────────────────────────────────
    Ek kurye notu bölümün altındaki mor kutudan buraya taşındı (kullanıcı: "içerisine göm ve
@@ -652,7 +651,10 @@ main.ic{padding-top:72px}
 .ipucu:hover .ipucu-k,.ipucu-d:focus+.ipucu-k{opacity:1;visibility:visible}
 
 /* ── SSS ── */
-.sss-kap{max-width:860px;margin:0 auto}
+/* SSS bloğu SOLA yaslı. `margin:0 auto` ile ortalanmıştı; sayfadaki her başlık, paragraf ve kart
+   sol kenardan başlarken tek bir bölümün ortalanması hizayı bozuyordu. Genişlik sınırı DURUYOR
+   (uzun satır okunmaz), yalnız kutu artık kabın soluna oturuyor. */
+.sss-kap{max-width:860px}
 .sss{border-top:var(--kalem) solid var(--murekkep)}
 .sss-satir{border-bottom:1px solid var(--cizgi)}
 .sss-bas{display:flex;align-items:center;gap:18px;width:100%;padding:22px 4px;text-align:left}
@@ -799,10 +801,14 @@ main.ic{padding-top:72px}
    ⚠️ `.oz-split`, `.oz-metin`, `.oz-tel`, `.oz-bas` KURALLARI SİLİNDİ ve bu güvenli: tek
    kullanıcıları bu sayfaydı (ölçüldü). `.ic-hero*` DURUYOR — iletişim ve hakkımızda sayfaları
    onu kullanmaya devam ediyor. */
-/* Üst boşluk `.blm.kisa`dan (68px) geliyor; burada `padding-top` tanımlamak ÖLÜ KURAL olurdu —
-   `.blm.kisa` (0,2,0) `.oz-hero`yu (0,1,0) sıra ne olursa olsun yener. Sabit menünün altına
-   girmeyi ise `main.ic{padding-top:72px}` engelliyor, bölüm dolgusu değil. */
-.oz-hero-ic{display:flex;flex-direction:column;align-items:flex-start;max-width:720px}
+/* ⚠️ GENİŞLİK SINIRI `.kap`A KONMAZ. `.oz-hero-ic` aynı zamanda `.kap` sınıfını taşıyor ve `.kap`
+   `margin:0 auto` uyguluyor — buraya `max-width` yazmak kabı daraltıp TÜM BLOĞU EKRANIN ORTASINA
+   alıyordu (hero ortalanmış görünüyordu, hizasız duruyordu). Kap tam genişlikte kalır; satır
+   uzunluğu sınırı içerideki metne verilir. Aynı tuzak `.kap` sınıfı taşıyan her sarmalayıcıda var.
+   Üst boşluk `.blm.kisa`dan (68px) gelir; sabit menüyü `main.ic{padding-top:72px}` karşılar. */
+.oz-hero-ic{display:flex;flex-direction:column;align-items:flex-start}
+.oz-hero-ic>.h1{max-width:18ch}
+.oz-hero-ic>.gvd{max-width:54ch}
 .oz-hero-ic .h1{margin-top:16px}
 .oz-hero-alt{margin-top:20px;max-width:52ch}
 .oz-hero-dg{margin-top:30px}
@@ -812,9 +818,19 @@ main.ic{padding-top:72px}
 .oz-capa a{display:inline-flex;align-items:center;gap:8px;padding:9px 15px;border:1px solid var(--cizgi-2);border-radius:999px;background:var(--yuzey);font:600 14px var(--g);color:var(--murekkep-2);transition:border-color .14s,color .14s,background .14s}
 .oz-capa a:hover{border-color:var(--murekkep);color:var(--murekkep);background:var(--kagit)}
 
-.oz-alanlar{display:flex;flex-direction:column;gap:20px}
+/* ── Yığılan levhalar ────────────────────────────────────────────────────────────────────
+   Her levha üstte tutunur, tutunma noktası sırayla 16px aşağı kayar (`--i` HTML'den gelir).
+   Kaydırdıkça kartlar üst üste birikir ve altta kalanların yalnız üst kenarı görünür.
+
+   ⚠️ `gap` DEĞİL `margin-bottom` kullanılıyor: sticky öge kendi akış kutusunda tutunur, yani
+   her karta "kaydırılacak yol" bırakmak gerekir. Flex `gap` bunu vermez — kartlar arasında
+   boşluk açar ama kartın kendi kutusunu uzatmaz, yığılma da hiç başlamaz.
+
+   ⚠️ Ata öge `overflow:hidden` taşımamalı; sticky sessizce ölür, konsola bir şey düşmez. */
+.oz-alanlar{display:flex;flex-direction:column}
 /* `scroll-margin-top`: sabit üst menü 72px; çapayla gelen bölüm menünün altına gizlenmesin. */
-.oz-k{scroll-margin-top:96px;display:grid;grid-template-columns:minmax(0,236px) minmax(0,1fr);gap:36px;padding:34px 36px;background:var(--yuzey);border:var(--kalem) solid var(--murekkep);border-radius:var(--r)}
+.oz-k{position:sticky;top:calc(96px + var(--i, 0) * 16px);margin-bottom:26px;scroll-margin-top:96px;display:grid;grid-template-columns:minmax(0,236px) minmax(0,1fr);gap:36px;padding:34px 36px;background:var(--yuzey);border:var(--kalem) solid var(--murekkep);border-radius:var(--r);box-shadow:0 -14px 34px -26px rgba(22,19,28,.55)}
+.oz-k:last-child{margin-bottom:0}
 .oz-k-kimlik{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
 .oz-k-ik{width:46px;height:46px;border-radius:var(--rs);background:var(--mor-sis);display:flex;align-items:center;justify-content:center}
 .oz-k-no{color:var(--sonuk)}
@@ -898,8 +914,9 @@ main.ic{padding-top:72px}
    mobil davranış değişmedi. */
 .hak-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
 /* Katalogda tek paket kalırsa auto-fit onu kabın tamamına yayardı (/fiyatlar'da 1124px'lik dev
-   kart). Karar .fo-grid.tek ile aynı: kartı büyütme, üçlü dizilimdeki ölçüsünde bırak, ortala. */
-.hak-grid:has(>*:only-child){grid-template-columns:minmax(0,360px);justify-content:center}
+   kart). Kart büyütülmez, dizilimdeki ölçüsünde kalır — ama ORTALANMAZ: sayfadaki her başlık,
+   paragraf ve kart sol kenardan başlıyor, tek kalan kartın ortaya kaçması hizayı bozuyordu. */
+.hak-grid:has(>*:only-child){grid-template-columns:minmax(0,360px)}
 .hak{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:26px 22px 22px;background:var(--yuzey);border:1px solid var(--cizgi-2);border-radius:var(--r)}
 .hak.iyi{border:var(--kalem) solid var(--murekkep);box-shadow:5px 5px 0 var(--murekkep)}
 .hak-rzt{position:absolute;top:-9px;left:20px;background:var(--mor);color:#fff;padding:4px 10px;border-radius:999px}
@@ -1169,6 +1186,27 @@ main.ic{padding-top:72px}
 .il-form .pano-ic{display:flex;flex-direction:column}
 .il-form .od-kucuk{text-align:center}
 
+/* ── Hakkımızda ───────────────────────────────────────────────────────────────────────────
+   Hepsi SOLA yaslı. Genişlik sınırı `.kap`a değil içindeki öğelere verilir — `.kap` zaten
+   `margin:0 auto` taşıyor ve ona `max-width` yazmak bloğu ekranın ortasına alır. */
+.hk-hero-ic{display:flex;flex-direction:column;align-items:flex-start}
+.hk-hero-ic .h1{margin-top:16px;max-width:17ch}
+.hk-lead{margin-top:20px;max-width:56ch}
+.hk-neden{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:48px;align-items:start}
+.hk-neden-bas .h1{position:sticky;top:104px}
+.hk-neden-metin{display:flex;flex-direction:column;gap:16px;max-width:66ch}
+.hk-soz-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.hk-soz{display:flex;flex-direction:column;gap:10px;padding:24px;background:var(--yuzey);border:1px solid var(--cizgi-2);border-radius:var(--r)}
+.hk-soz-ik{width:40px;height:40px;border-radius:var(--rs);background:var(--mor-sis);display:flex;align-items:center;justify-content:center;margin-bottom:2px}
+.hk-kunye{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;padding-bottom:22px;border-bottom:1px solid var(--cizgi)}
+.hk-kunye>div{display:flex;flex-direction:column;gap:8px}
+.hk-kunye dt{color:var(--sonuk)}
+.hk-kunye-not{margin-top:18px;max-width:70ch}
+.hk-son{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:center}
+.hk-son .h1{max-width:18ch}
+.hk-son .gvd{margin-top:14px;max-width:62ch}
+.hk-son .dg-grup{flex-direction:column;align-items:stretch}
+
 /* ── Yasal ── */
 .ys-ic{display:grid;grid-template-columns:250px 1fr;gap:34px;align-items:start}
 .ys-nav{position:sticky;top:96px}
@@ -1180,11 +1218,17 @@ main.ic{padding-top:72px}
 @media(max-width:1080px){
 .ic-hero-ic{grid-template-columns:1fr;gap:40px}
 .ic-hero-sag{justify-content:flex-start}
-/* Özellik levhası dar ekranda yığılır: kimlik üstte yatay bir şerit, anlatı altında. */
-.oz-k{grid-template-columns:1fr;gap:22px;padding:28px 24px}
+/* Dar ekranda YIĞILMA KAPALI: telefonda levha zaten ekran boyu, üst üste binen kart okumayı
+   bitirir. Yerleşim de tek sütuna iner — kimlik üstte yatay şerit, anlatı altında. */
+.oz-k{position:static;grid-template-columns:1fr;gap:22px;padding:28px 24px;box-shadow:none}
 .oz-k-kimlik{flex-direction:row;align-items:center;gap:14px}
 .oz-k-no{margin-left:auto}
 .ek-grid{grid-template-columns:1fr 1fr}
+.hk-neden{grid-template-columns:1fr;gap:22px}
+.hk-neden-bas .h1{position:static}
+.hk-soz-grid{grid-template-columns:1fr 1fr}
+.hk-kunye{grid-template-columns:1fr 1fr;gap:20px}
+.hk-son{grid-template-columns:1fr;gap:26px;align-items:start}
 .od-ic{grid-template-columns:1fr;gap:32px}
 .od-sag{position:static;order:-1}
 .hs-ic,.ys-ic{grid-template-columns:1fr;gap:24px}
@@ -1209,7 +1253,7 @@ main.ic{padding-top:72px}
    "Kullanım ve ek paketler" kartlarını hem /fiyatlar'daki paket kartlarını (fiyat-hak.blade.php)
    kapsar — ikisi de para düğmesidir. Masaüstü görünümü değişmez (kural yalnız ≤900px'te). */
 .hak .dg{min-height:44px}
-.ek-grid{grid-template-columns:1fr}
+.ek-grid,.hk-soz-grid{grid-template-columns:1fr}
 .gun-s{grid-template-columns:70px 24px 1fr;gap:12px}
 .kimlik-alt{gap:18px}
 .kimlik-k b{font-size:20px}

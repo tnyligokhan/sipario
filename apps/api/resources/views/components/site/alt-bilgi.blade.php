@@ -107,7 +107,7 @@
         <div class="alt-ust">
             <div class="alt-marka">
                 <x-site.marka boy="38" koyu />
-                <p class="alt-slogan">Telefon çaldığında müşteriniz ekranda. Bayiler ve esnaf için sipariş, veresiye ve kurye defteri.</p>
+                <p class="alt-slogan">Telefon çaldığında müşteriniz ekranda. Paket servisi yapan işletmeler için sipariş, kurye ve veresiye defteri.</p>
                 {{--
                     "Tüm sistemler çalışıyor" ROZETİ KALDIRILDI (2026-08-19). İki sebep:
 

@@ -226,4 +226,47 @@ class SiteIcerikTest extends TestCase
         $this->get('/ozellikler')->assertOk()->assertDontSee('t-cerceve', false);
         $this->get('/')->assertOk()->assertSee('t-cerceve', false);
     }
+
+    #[Test]
+    public function urun_tek_bir_sektorun_uygulamasi_gibi_anlatilmaz(): void
+    {
+        /*
+         * ⚠️ SİPARIO BİR "SU BAYİİ UYGULAMASI" DEĞİLDİR. Paket servisi yapan küçük ve orta
+         * işletmelerin tamamı için: restoran, kafe, pastane, fırın, market, manav, şarküteri,
+         * çiçekçi, su ve tüp bayii.
+         *
+         * Bu bir kopya tercihi değil KAPSAM meselesi: tek bir sektörün adıyla yazılmış bir site,
+         * o sektörün dışındaki ziyaretçiye "bu benim için değil" dedirtir ve hedef kitlenin
+         * büyük kısmını daha ilk ekranda kaybeder. Metin ilk dikeyin (su bayii) diliyle
+         * yazılmıştı ve bu, sayfa sayfa sızarak ürünü olduğundan dar gösteriyordu.
+         *
+         * Test iki şeyi ölçüyor:
+         *   1. Arama sonucunda görünen yüzey (title + description) tek bir sektörü ürünün
+         *      KATEGORİSİ gibi göstermemeli.
+         *   2. Ana sayfa kapsamı GERÇEKTEN göstermeli — sektör şeridinde birbirinden farklı
+         *      alanlardan örnekler bulunmalı. Yalnız "yasak kelime" aramak, listeyi boşaltarak
+         *      da geçilebilirdi.
+         */
+        foreach (self::PAZARLAMA_SAYFALARI as $adres) {
+            $govde = $this->get($adres)->assertOk()->getContent();
+
+            preg_match('#<title>(.*?)</title>#su', $govde, $baslik);
+            preg_match('/<meta name="description" content="([^"]*)"/u', $govde, $aciklama);
+            $yuzey = ($baslik[1] ?? '').' '.($aciklama[1] ?? '');
+
+            foreach (['su bayii', 'su bayisi', 'damacana', 'tüp bayii'] as $dar) {
+                $this->assertStringNotContainsString(
+                    $dar,
+                    mb_strtolower($yuzey, 'UTF-8'),
+                    $adres.' başlık/açıklaması ürünü tek bir sektöre daraltıyor: "'.$dar.'".'
+                );
+            }
+        }
+
+        // Kapsam ana sayfada görünür olmalı: yemek, market ve bayi tarafından birer örnek.
+        $ana = strip_tags($this->get('/')->assertOk()->getContent());
+        foreach (['Restoran', 'Market', 'Paket servisi yapan işletmeler için'] as $kanit) {
+            $this->assertStringContainsString($kanit, $ana, 'Ana sayfa ürünün kapsamını göstermiyor: '.$kanit);
+        }
+    }
 }

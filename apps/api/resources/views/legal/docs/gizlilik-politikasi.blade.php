@@ -26,7 +26,7 @@
 
 <div class="ys-b">
     <h2 class="h3">Kısaca</h2>
-    <p class="gvd">Verileriniz Almanya'daki (Frankfurt) sunucularımızda durur ve KVKK kapsamında işlenir. Her işletmenin verisi veritabanı seviyesinde birbirinden ayrılmıştır — bir bayi diğerinin kaydını teknik olarak göremez. Biz de göremeyiz: destek ekibimizin panelinde işletmenizin iş verisini <em>değiştirme</em> yetkisi yoktur, bakılan her kayıt iz bırakır. Veriniz satılmaz, reklam için paylaşılmaz, yapay zekâ eğitiminde kullanılmaz.</p>
+    <p class="gvd">Verileriniz Almanya'daki (Frankfurt) sunucularımızda durur ve KVKK kapsamında işlenir. Her işletmenin verisi veritabanı seviyesinde birbirinden ayrılmıştır — bir işletme diğerinin kaydını teknik olarak göremez. Biz de göremeyiz: destek ekibimizin panelinde işletmenizin iş verisini <em>değiştirme</em> yetkisi yoktur, bakılan her kayıt iz bırakır. Veriniz satılmaz, reklam için paylaşılmaz, yapay zekâ eğitiminde kullanılmaz.</p>
     <p class="gvd">Aşağıdaki bölümler bunun nasıl sağlandığını anlatır. Hangi verinin hangi amaçla işlendiğini öğrenmek için <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">KVKK Aydınlatma Metni</a>'ne bakın.</p>
 </div>
 

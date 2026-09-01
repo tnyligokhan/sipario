@@ -74,7 +74,14 @@ Türkiye'de eve servis yapan mikro esnaf (ilk hedef: su/damacana bayileri) için
 
 ## Verilmiş kararlar (değiştirme)
 - İsim: **Sipario**. Domain sipario.com.tr alındı; marka başvurusu (9/35/42 sınıfları) süreçte.
-- İlk dikey su bayileri; çekirdek sektör-bağımsız kurgulanır (manav/tüpçü ileriki aday).
+- **Hedef kitle: paket servisi yapan tüm küçük ve orta işletmeler** — restoran, kafe, pastane,
+  fırın, market, manav, şarküteri, çiçekçi, su ve tüp bayii. (Kullanıcı kararı 2026-09-01:
+  *"Bu bir su bayisi uygulaması değil."*) Eski satır "ilk dikey su bayileri" diyordu ve bu bir
+  PİLOT SIRASIYDI, ürünün tanımı değil; ama site metinleri o dili benimseyip ürünü olduğundan
+  dar göstermeye başlamıştı. Sipario sektöre göre değil **işin akışına** göre kurgulanır:
+  telefonla sipariş → kurye → tahsilat → gün sonu. Hiçbir yüzeyde tek bir sektörün adı ürünün
+  kategorisi gibi kullanılmaz (`SiteIcerikTest` kilitliyor). Antalya pilotu bu kararla
+  değişmez — pilot bir saha testidir, konumlandırma değil.
 - Platform: Android birincil (+iOS, çağrı özellikleri hariç).
 - Pilot: Antalya'da 2–3 gerçek bayi ile saha testi.
 

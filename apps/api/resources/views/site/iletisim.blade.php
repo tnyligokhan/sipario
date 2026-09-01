@@ -27,7 +27,7 @@
 @endphp
 
 <x-layouts.site
-    baslik="İletişim · Sipario"
+    baslik="İletişim | Sipario"
     aciklama="İşletmenizi anlatın, Sipario size uyar mı dürüstçe söyleyelim. Demo, fiyat, çok şubeli işletme ve teknik sorular için bize yazın.">
     @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
     <section class="blm">

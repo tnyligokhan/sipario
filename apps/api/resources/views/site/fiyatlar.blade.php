@@ -26,7 +26,7 @@
 @endphp
 
 <x-layouts.site
-    baslik="Fiyatlar · Sipario"
+    baslik="Fiyatlar | Sipario"
     :aciklama="'Tek plan, tek fiyat. Müşteri ve sipariş sınırı yok, ek kalem çıkmaz. '.$fiyat['deneme'].' gün ücretsiz deneme, kart bilgisi istemiyoruz.'">
     @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
     @include('site.parca.fiyat-planlar')

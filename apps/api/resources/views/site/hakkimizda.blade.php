@@ -1,104 +1,106 @@
 {{--
-    sipario.com.tr · HAKKIMIZDA — 2026-08-19'da eklendi, tasarım kaynağında YOKTU.
+    sipario.com.tr · HAKKIMIZDA
 
-    ── NEDEN BU SAYFA GEREKLİ ───────────────────────────────────────────────────────────────
-    Site, esnaftan yılda dört haneli bir ödeme istiyor ve karşısındaki kişi bunu bir telefon
-    ekranından, kimseyle görüşmeden yapacak. Böyle bir kararın önündeki en büyük engel fiyat
-    değil, GÜVEN: "bunlar kim, yarın kapanırlarsa defterim ne olacak?"
+    Bu sayfanın işi tek bir soruyu cevaplamak: "bunlar kim, yarın kapanırlarsa defterim ne olacak?"
+    Ürün ödemeyi kimseyle görüşmeden isteyen bir üründür; o soru sorulmadan para ödenmiyor.
 
-    Bu soru siteye hiçbir yerde sorulmuyordu. Üstelik güven boşluğu bu vardiyada BÜYÜDÜ: ana
-    sayfadaki üç müşteri yorumu uydurma olduğu için kaldırıldı (DECISIONS 2026-08-19) ve
-    yerlerine gerçek referans konamadı — ürün pilot aşamasında, henüz izin alınmış bir yorum
-    yok. Yorumlar bir güven kaynağıydı (sahte de olsa); onları silip yerine hiçbir şey
-    koymamak, sayfayı daha dürüst ama daha soğuk bırakırdı.
+    ⚠️ UYDURULMAYAN ŞEYLER: kurucu adı, ekip fotoğrafı, "10 yıllık tecrübe", çalışan sayısı,
+    kuruluş yılı, ofis adresi, müşteri sayısı. Hiçbiri bilinmiyor ve uydurulmuş bir "hakkımızda"
+    tam da güven kazanmaya çalıştığı yerde güveni bitirir. Sayfa yalnız doğrulanabilir şeyler
+    üzerine kuruldu; şirket künyesi netleştiğinde buraya eklenecek olan bir cümlelik iştir.
 
-    Bu sayfanın işi o boşluğu SAHTE OLMAYAN bir şeyle doldurmak: kim olduğumuzu, neden
-    yaptığımızı ve nerede olduğumuzu söylemek.
-
-    ── NE YAZILMADI VE NEDEN ────────────────────────────────────────────────────────────────
-    Kurucu adı, ekip fotoğrafı, "10 yıllık sektör tecrübesi", "20 yazılımcı", ofis adresi,
-    kuruluş yılı — HİÇBİRİ. Bunları bilmiyorum ve uydurmak, aynı vardiyada uydurma müşteri
-    yorumlarını silmiş olmakla açıkça çelişirdi.
-
-    Ayrıca köşeli parantezli yer tutucu da KULLANILMADI: bu bir pazarlama sayfası ve
-    `SiteIcerikTest` genel sayfalarda yer tutucuyu yasaklıyor (gerekçe: ziyaretçi "[Şirket
-    unvanı]" görürse site yarım kalmış görünür). Sayfa, künye olmadan da doğru olan şeyler
-    üzerine kuruldu; şirket kurulduğunda buraya unvan/adres eklemek bir cümle işidir.
-
-    ── PİLOT AŞAMASINI SAKLAMAMAK BİR SATIŞ RİSKİ DEĞİL ─────────────────────────────────────
-    "Yeniyiz" demek ilk bakışta zayıflık gibi durur. Ama alternatifi, büyük görünmeye çalışıp
-    ilk destek aramasında yakalanmaktır — esnaf küçük bir ekibi arayıp sahibine ulaşmayı
-    zaten sever. Dürüstlük burada satış argümanının kendisi.
+    Yerleşim: hero → neden yaptık (iki sütun anlatı) → sözler (kart ızgarası) → künye şeridi → CTA.
+    Hukuk belgesi görünümlü `.ys-b` blokları KULLANILMIYOR: burası bir pazarlama sayfası, sözleşme
+    değil.
 --}}
 @inject('planlar', 'App\Abonelik\PlanDeposu')
 @inject('ekPaketler', 'App\Abonelik\EkPaketServisi')
 @php
     ['sw' => $sw, 'tmsl' => $tmsl, 'tl' => $tl, 'fiyat' => $fiyat]
         = (require resource_path('views/site/parca/_kur.php'))($planlar, $ekPaketler);
+
+    $sozler = [
+        ['indir', 'Defteriniz sizin', 'Aboneliğiniz bitse bile kayıtlarınız silinmez. “Verilerimi gönderin” deyin, Excel olarak yollayalım. Tahsilat için verinizi rehin almayız.'],
+        ['para', 'Sürpriz ücret yok', 'Ödediğiniz dönemin fiyatı sabittir. Yeni dönemde fiyat değişecekse en az 30 gün önce haber veririz.'],
+        ['kart', 'Kendiliğinden para çekmeyiz', 'Otomatik yenileme diye bir şey yok. Devam etmek istemezseniz hiçbir şey yapmanız gerekmez.'],
+        ['kalkan', 'Veriniz satılmaz', 'Müşteri listenizi kimseye vermeyiz, reklam için kullanmayız, yapay zekâ eğitiminde kullanmayız.'],
+        ['soru', 'Bilmediğimizi bilmiyoruz deriz', 'Yapamayacağımız bir şeye “yaparız” demeyiz. İşinize uymuyorsa satmayız.'],
+        ['kulaklik', 'Cevabı yazan kişi ürünü yazan kişi', 'Çağrı merkezi yok. Yazdığınızda ürünü geliştiren ekip okuyor.'],
+    ];
+
+    $kunyeSerit = [
+        ['Ekip', 'Türkiye'],
+        ['Sunucular', 'Almanya · Frankfurt'],
+        ['Ürünün yaşı', 'Yeni — sahada geliştiriliyor'],
+        ['Destek', 'Hafta içi 09:00 – 19:00'],
+    ];
 @endphp
 
 <x-layouts.site
-    baslik="Hakkımızda · Sipario"
-    aciklama="Sipario'yu kimler yapıyor, neden yaptık ve size ne söz veriyoruz. Küçük bir ekibiz, sahadaki bayilerle birlikte geliştiriyoruz.">
+    baslik="Hakkımızda | Sipario"
+    aciklama="Sipario'yu kimler yapıyor, neden yaptık ve size ne söz veriyoruz.">
     @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
 
-    <section class="blm ic-hero">
-        <div class="kap">
-            <div class="blm-bas">
-                <h1 class="h1 ic-h1">Biz kimiz?</h1>
-                <p class="gvd b">Küçük bir ekibiz. Sipario'yu, defteri elinde tutan esnafın işini kolaylaştırsın diye yazıyoruz.</p>
-            </div>
+    <section class="blm kisa hk-hero">
+        <div class="kap hk-hero-ic">
+            <span class="blm-kulak mn"><i></i>Hakkımızda</span>
+            <h1 class="h1">Küçük bir ekibiz ve bunu saklamıyoruz.</h1>
+            <p class="gvd b hk-lead">Sipario'yu, siparişi telefondan alıp kapıya gönderen işletmelerin işini kolaylaştırsın diye yazıyoruz. Başka bir işimiz yok.</p>
         </div>
     </section>
 
     <section class="blm kagit2">
-        <div class="kap sss-kap">
-            <div class="ys-b">
-                <h2 class="h2">Neden yaptık?</h2>
-                <p class="gvd">Su bayilerinde, tüpçülerde, manavlarda hep aynı manzarayı gördük: telefon çalıyor, karşıdaki kendini anlatıyor, esnaf bir yandan yazıyor. Akşam kasa tutmuyor. Kimin ne kadar borcu olduğunu bir tek defteri tutan kişi biliyor, o da izne çıkınca tahsilat duruyor.</p>
-                <p class="gvd">Bunun için piyasada program vardı ama çoğu ya bilgisayara kurulan ağır muhasebe yazılımlarıydı ya da internet kesilince duran uygulamalar. Oysa tezgâhın arkasındakinin istediği şey basitti: telefon çaldığında kimin aradığını görmek, üç dokunuşta siparişi kaydetmek, akşam kasayı tutturmak.</p>
-                <p class="gvd">Sipario tam bunu yapıyor. Fazlasını yapmıyor — muhasebe programı değil, e-fatura kesmiyor, beyanname doldurmuyor.</p>
+        <div class="kap hk-neden">
+            <div class="hk-neden-bas">
+                <h2 class="h1">Neden yaptık?</h2>
             </div>
-
-            {{--
-                ⚠️ 2026-09-01'DE DÜZELTİLDİ. Bu bölüm "Sunucularımız da Türkiye'de. Bu bir tercih
-                değil, baştan çizdiğimiz bir sınır" diyordu. Sunucu ölçüldü: Hostinger, Frankfurt
-                (`srv1577146.hstgr.cloud`, AS47583) — yani cümle yanlıştı ve tam da bu sayfanın
-                iddiasının (dürüstlük) altını oyuyordu. Kullanıcı kararı: Türkiye'de barındırma
-                şartı kaldırıldı (maliyet). Yeni metin nerede olduğunu söylüyor ve KVKK'nın
-                gerçekten sorduğu şeye — kimin erişebildiğine — cevap veriyor.
-            --}}
-            <div class="ys-b">
-                <h2 class="h2">Nerede olduğumuz</h2>
-                <p class="gvd">Ekip Türkiye'de. Sunucularımız Almanya'da, Frankfurt'ta duruyor — Avrupa Birliği veri koruma rejiminin geçerli olduğu bir veri merkezinde. Verileriniz KVKK kapsamında işleniyor; nereye ne gittiği <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">Aydınlatma Metni'nde</a> tek tek yazılı.</p>
-                <p class="gvd">Önemli olan yalnız ülke değil, kimin görebildiği: her işletmenin verisi veritabanı düzeyinde ayrılmıştır, bir bayi diğerininkini teknik olarak göremez. Biz de göremeyiz — destek panelimizde iş verinizi değiştirme yetkisi yoktur ve bakılan her kayıt iz bırakır.</p>
-                <p class="gvd">Desteğe de biz bakıyoruz. Yazdığınızda çağrı merkezi değil, ürünü yazan ekip cevap veriyor.</p>
+            <div class="hk-neden-metin">
+                <p class="gvd b">Paket servisi yapan yerlerde hep aynı manzarayı gördük: telefon çalıyor, karşıdaki kendini baştan anlatıyor, biri bir kâğıda yazıyor. Akşam kasa tutmuyor. Kimin ne kadar borcu olduğunu yalnız defteri tutan kişi biliyor — o kişi izne çıkınca tahsilat da izne çıkıyor.</p>
+                <p class="gvd">Piyasada program vardı ama çoğu ya bilgisayara kurulan ağır muhasebe yazılımlarıydı ya da internet kesilince duran uygulamalar. Oysa istenen şey basitti: telefon çaldığında kimin aradığını görmek, üç dokunuşta siparişi kaydetmek, kuryeyi doğru sıraya sokmak, akşam kasayı tutturmak.</p>
+                <p class="gvd">Sipario tam bunu yapıyor. Fazlasını yapmıyor: muhasebe programı değil, e-fatura kesmiyor, beyanname doldurmuyor, yazar kasayla konuşmuyor.</p>
             </div>
+        </div>
+    </section>
 
-            <div class="ys-b">
-                <h2 class="h2">Yeniyiz, saklamıyoruz</h2>
-                <p class="gvd">Sipario yeni bir ürün. Şu an sahadaki bayilerle birlikte geliştiriyoruz; her hafta gelen geri bildirimle bir şeyler değişiyor. Size "binlerce işletme kullanıyor" demiyoruz — çünkü doğru olmaz.</p>
-                <p class="gvd">Bunun sizin için iki anlamı var. Birincisi: söylediğiniz şey gerçekten dinleniyor, istediğiniz bir özellik haftalar içinde gelebiliyor. İkincisi: eksik bulduğunuz bir yer olursa bize söyleyin — büyük bir şirkete yazıyor gibi değil, sahibine söylüyor gibi olun.</p>
+    <section class="blm">
+        <div class="kap">
+            <x-site.blm-bas baslik="Size ne söz veriyoruz?"
+                aciklama="Altısı da yazılı: sözleşmede, kullanım koşullarında ya da ürünün davranışında karşılığı var." />
+            <div class="hk-soz-grid">
+                @foreach ($sozler as [$ik, $baslik, $metin])
+                    <div class="hk-soz">
+                        <span class="hk-soz-ik"><x-site.ikon :ad="$ik" boy="20" kalin="1.9" renk="var(--mor)" /></span>
+                        <h3 class="h4">{{ $baslik }}</h3>
+                        <p class="kucuk">{{ $metin }}</p>
+                    </div>
+                @endforeach
             </div>
+        </div>
+    </section>
 
-            <div class="ys-b">
-                <h2 class="h2">Size ne söz veriyoruz?</h2>
-                <ul class="ys-liste">
-                    <li><b>Defteriniz sizin.</b> Aboneliğiniz bitse bile kayıtlarınız silinmez. İstediğiniz an "verilerimi gönderin" deyin, Excel olarak yollayalım. Parayı tahsil etmek için verinizi rehin almayız.</li>
-                    <li><b>Sürpriz ücret yok.</b> Ödediğiniz dönemin fiyatı sabittir. Yeni dönemde fiyat değişecekse en az 30 gün önce haber veririz.</li>
-                    <li><b>Kendiliğinden para çekmeyiz.</b> Otomatik yenileme diye bir şey yok. Devam etmek istemezseniz hiçbir şey yapmanıza gerek kalmaz.</li>
-                    <li><b>Veriniz satılmaz.</b> Müşteri listenizi kimseye vermeyiz, reklam için kullanmayız, yapay zekâ eğitiminde kullanmayız.</li>
-                    <li><b>Bilmediğimizi bilmiyoruz deriz.</b> Yapamayacağımız bir şeyi "yaparız" demeyiz; uymuyorsa satmayız.</li>
-                </ul>
+    <section class="blm kisa kagit2">
+        <div class="kap">
+            <dl class="hk-kunye">
+                @foreach ($kunyeSerit as [$etiket, $deger])
+                    <div>
+                        <dt class="mn">{{ $etiket }}</dt>
+                        <dd class="h4">{{ $deger }}</dd>
+                    </div>
+                @endforeach
+            </dl>
+            <p class="kucuk hk-kunye-not">Verilerinizin nerede tutulduğu, nereye ne gittiği ve kimin görebildiği <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">Aydınlatma Metni'nde</a> tek tek yazılı.</p>
+        </div>
+    </section>
+
+    <section class="blm">
+        <div class="kap hk-son">
+            <div>
+                <h2 class="h1">Yeni bir ürünüz. Bu sizin lehinize.</h2>
+                <p class="gvd b">Size “binlerce işletme kullanıyor” demiyoruz, çünkü doğru olmaz. Bunun karşılığında söylediğiniz şey gerçekten dinleniyor: istediğiniz bir özellik haftalar içinde gelebiliyor, eksik bulduğunuz yeri büyük bir şirkete değil sahibine söylüyorsunuz.</p>
             </div>
-
-            <div class="ys-b">
-                <h2 class="h2">Konuşalım</h2>
-                <p class="gvd">İşletmenizi anlatın, Sipario size uyar mı dürüstçe söyleyelim. Sormak istediğiniz her şeyi sorabilirsiniz.</p>
-                <div class="dg-grup" style="margin-top:18px">
-                    <a class="dg dg-a" href="{{ route('site.iletisim') }}">Bize yazın<x-site.ikon ad="ok" boy="18" kalin="2.2" /></a>
-                    <a class="dg dg-c" href="{{ route('subscription.register') }}" data-olcum="sipario_deneme_tik" data-olcum-etiket="hakkimizda">{{ $fiyat['deneme'] }} gün ücretsiz deneyin</a>
-                </div>
+            <div class="dg-grup">
+                <a class="dg dg-a dev" href="{{ route('subscription.register') }}" data-olcum="sipario_deneme_tik" data-olcum-etiket="hakkimizda">{{ $fiyat['deneme'] }} gün ücretsiz deneyin<x-site.ikon ad="ok" boy="19" kalin="2.2" /></a>
+                <a class="dg dg-c dev" href="{{ route('site.iletisim') }}">Önce bir konuşalım</a>
             </div>
         </div>
     </section>

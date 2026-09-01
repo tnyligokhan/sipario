@@ -1,41 +1,43 @@
 {{--
-    Özellikler · beş alan.
+    Özellikler · beş alan, kaydırdıkça biriken levhalar.
 
-    ── DÖNÜŞÜMLÜ MAKET YERLEŞİMİ KALDIRILDI (2026-09-01, kullanıcı kararı) ──────────────────
-    Eski hâli: her alan için tam yükseklikte bir bölüm, bir yanında metin, öbür yanında telefon
-    maketi; tek numaralı bölümlerde taraflar yer değiştiriyor, zemin de kâğıt/kâğıt-2 arasında
-    gidip geliyordu. Beş kez tekrarlanınca ortaya çıkan şey ritim değil YORGUNLUK: sayfa beş
-    ekran boyu uzuyor, göz her bölümde metnin hangi tarafta olduğunu yeniden arıyor ve her
-    duraklamada aynı telefon çerçevesini bir kez daha görüyordu.
+    ── YIĞILMA NASIL ÇALIŞIYOR ──────────────────────────────────────────────────────────────
+    Her levha `position:sticky` ile üstte tutunuyor ve tutunma noktası sırayla biraz daha
+    aşağıda (`--i`). Sayfa kaydıkça bir sonraki levha bir öncekinin üstüne biniyor, altındakinin
+    yalnız üst kenarı görünür kalıyor — beş kart sonunda üst üste birikmiş bir deste oluyor.
 
-    Yeni yerleşim tek sütun, sabit yön, sabit zemin — beş levha alt alta. Her levhanın solunda
-    KİMLİK (sıra numarası · ikon · alanın adı), sağında ANLATI (başlık · paragraf · üç maddelik
-    liste). Göz sol sütunu tarayarak sayfanın tamamını saniyeler içinde çıkarabiliyor; ayrıntı
-    isteyen sağa geçiyor. Maket yok: bu sayfanın işi ekran göstermek değil, NE YAPTIĞINI anlatmak
-    — ekranların yeri ana sayfanın hero'su ve mağaza sayfasıdır.
+    ⚠️ ÜÇ ŞART, üçü de sessizce bozulabilir:
+      1. Levhalar OPAK olmalı (`background:var(--yuzey)`), yoksa altındaki metin üstündekinden
+         okunur ve yığın çamura döner.
+      2. Hiçbir ata öge `overflow:hidden` taşımamalı — `position:sticky` o anda sessizce
+         `static` gibi davranır ve efekt hiç görünmez, hata da vermez.
+      3. `--i` sırası HTML'den gelir; CSS'te `:nth-child` ile yazmak beş kartla sınırlı bir
+         kural olurdu, alan sayısı veriden geliyor.
 
-    `id` çapaları hero'daki bölüm şeridinden gelir (`$t['k']` — _veri.php'deki alan anahtarı).
-    `scroll-margin-top` sabit üst menünün altına gizlenmeyi önler.
+    Dar ekranda yığılma KAPALI (CSS'te `position:static`): telefonda levhalar zaten ekran boyu
+    ve üst üste binen kartlar okumayı bitirir.
 --}}
 <section class="blm kagit2">
-    <div class="kap oz-alanlar">
-        @foreach ($sw['tur'] as $i => $t)
-            <article class="oz-k" id="{{ $t['k'] }}">
-                <div class="oz-k-kimlik">
-                    <span class="oz-k-ik"><x-site.ikon :ad="$t['ik']" boy="21" kalin="1.9" renk="var(--mor)" /></span>
-                    <span class="mn oz-k-no">{{ str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT) }}</span>
-                    <span class="h3 oz-k-ad">{{ $t['ad'] }}</span>
-                </div>
-                <div class="oz-k-anlati">
-                    <h2 class="h2">{{ $t['bas'] }}</h2>
-                    <p class="gvd">{{ $t['a'] }}</p>
-                    <ul class="oz-k-liste">
-                        @foreach ($t['ozet'] as $o)
-                            <li><x-site.ikon ad="onay" boy="15" kalin="2.8" renk="var(--yesil)" />{{ $o }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            </article>
-        @endforeach
+    <div class="kap">
+        <div class="oz-alanlar">
+            @foreach ($sw['tur'] as $i => $t)
+                <article class="oz-k" id="{{ $t['k'] }}" style="--i:{{ $i }}">
+                    <div class="oz-k-kimlik">
+                        <span class="oz-k-ik"><x-site.ikon :ad="$t['ik']" boy="21" kalin="1.9" renk="var(--mor)" /></span>
+                        <span class="mn oz-k-no">{{ str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT) }}</span>
+                        <span class="h3 oz-k-ad">{{ $t['ad'] }}</span>
+                    </div>
+                    <div class="oz-k-anlati">
+                        <h2 class="h2">{{ $t['bas'] }}</h2>
+                        <p class="gvd">{{ $t['a'] }}</p>
+                        <ul class="oz-k-liste">
+                            @foreach ($t['ozet'] as $o)
+                                <li><x-site.ikon ad="onay" boy="15" kalin="2.8" renk="var(--yesil)" />{{ $o }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </article>
+            @endforeach
+        </div>
     </div>
 </section>

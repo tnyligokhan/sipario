@@ -15,8 +15,8 @@
 
     ── ALICI TACİRSE? — bu belgenin en zor sorusu ve saklanmıyor ────────────────────────────
     TKHK yalnız TÜKETİCİ işlemlerini kapsar; "tüketici", ticari veya mesleki olmayan amaçla
-    hareket eden kişidir (TKHK m.3/k). Sipario'nun alıcısı su bayii, tüpçü, manav — yani ezici
-    çoğunlukla ESNAF/TACİR ve aldığı hizmeti işinde kullanıyor. Böyle bir alıcı tüketici
+    hareket eden kişidir (TKHK m.3/k). Sipario'nun alıcısı paket servisi yapan bir işletmedir —
+    yani ezici çoğunlukla ESNAF/TACİR ve aldığı hizmeti işinde kullanıyor. Böyle bir alıcı tüketici
     değildir; sözleşmeye TKHK değil, 6098 sayılı TBK'nın genel hükümleri uygulanır.
 
     İki yol vardı. (a) Sözleşmeyi yalnız TBK'ya göre yazmak — o zaman gerçek kişi olarak

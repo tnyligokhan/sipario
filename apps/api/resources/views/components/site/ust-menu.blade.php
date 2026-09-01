@@ -31,11 +31,19 @@
      * `/fiyatlar` bu kararla birlikte `noindex`ten de çıktı (bkz. site/fiyatlar.blade.php):
      * menüde duran bir sayfayı arama motoruna kapatmak kendi içinde çelişkiliydi.
      */
+    /*
+     * SIRA, ZİYARETÇİNİN SORU SIRASIDIR — alfabe ya da sayfa yaşı değil:
+     *   Ne yapıyor? (Özellikler) → Kaç para? (Fiyatlar) → Bunlar kim? (Hakkımızda)
+     *   → Bir şey olursa? (Destek)
+     * Destek sona konur çünkü satın alma kararından SONRAKİ soruya bakar; Hakkımızda ise
+     * karardan önceki güven sorusudur ve fiyatı gören kişinin bir sonraki adımıdır.
+     * İletişim menüye girmez: Destek sayfası zaten iletişim kanallarını taşıyor.
+     */
     $menu = [
         ['site.ozellikler', 'Özellikler'],
         ['site.fiyatlar', 'Fiyatlar'],
-        ['site.destek', 'Destek'],
         ['site.hakkimizda', 'Hakkımızda'],
+        ['site.destek', 'Destek'],
     ];
     $anaHref = Route::has('site.ana') ? route('site.ana') : url('/');
 @endphp

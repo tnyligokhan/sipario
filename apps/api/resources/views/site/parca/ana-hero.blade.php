@@ -10,12 +10,12 @@
     <div class="hero-isik"></div>
     <div class="kap hero-ic">
         <div class="hero-sol">
-            {{-- "yerel teslimat" pazarlama sözlüğüydü; esnaf kendi işini "eve servis" diye
-                 anlatır. Kulak, ziyaretçinin "bu benim için mi" sorusunu ilk saniyede
-                 cevaplıyor — o yüzden burada duruyor, süs değil. --}}
-            <span class="blm-kulak mn"><i></i>Eve servis yapan bayiler ve esnaf için</span>
+            {{-- Kulak, ziyaretçinin "bu benim için mi" sorusunu ilk saniyede cevaplıyor —
+                 süs değil. Tek bir sektörün adı geçmez: ürün paket servisi olan her işletme
+                 için (restoran, market, pastane, bayi…), sektöre göre değil işin akışına göre. --}}
+            <span class="blm-kulak mn"><i></i>Paket servisi yapan işletmeler için</span>
             <h1 class="h-dev">Telefon çaldığında<br>müşteriniz<br><em>ekranda.</em></h1>
-            <p class="gvd b hero-alt">Sipario, gelen numarayı müşteri defterinizle eşleştirir: kim aradı, nerede oturuyor, ne kadar borcu var, en son ne almıştı — daha “alo” demeden ekranda.</p>
+            <p class="gvd b hero-alt">Sipario gelen numarayı müşteri defterinizle eşleştirir: kim aradı, nerede oturuyor, ne kadar borcu var, en son ne sipariş etmişti — daha “alo” demeden ekranda.</p>
             <div class="dg-grup hero-dg">
                 <a class="dg dg-a dev" href="{{ route('subscription.register') }}" data-olcum="sipario_deneme_tik" data-olcum-etiket="hero">{{ $fiyat['deneme'] }} gün ücretsiz dene<x-site.ikon ad="ok" boy="19" kalin="2.2" /></a>
                 <a class="dg dg-c dev" href="{{ route('site.ozellikler') }}">Nasıl çalıştığını gör</a>

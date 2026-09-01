@@ -1,23 +1,17 @@
 {{--
-    Özellikler · hero. Deneme süresi PlanDeposu'dan.
+    Özellikler · hero. Sola yaslı, maketsiz.
 
-    ── TELEFON MAKETİ KALDIRILDI (2026-09-01, kullanıcı kararı) ────────────────────────────
-    Kullanıcının sözü: *"Özellikler sayfası da hiç hoşuma gitmiyor. Sayfa tasarım olarak baştan
-    sona rezalet. Uygulama içinden görüntülerin sürekli gösteriliyor olması çok kötü."*
+    Maket YOK ve bu bilinçli: ekran görüntüsünün yeri ana sayfanın hero'su ve ürün turu. Bu sayfa
+    ne yaptığını anlatır; her bölümün yanına bir telefon çerçevesi koymak aynı nesneyi altı kez
+    göstermekten başka bir şey yapmıyordu.
 
-    Sayfada ALTI telefon maketi vardı: hero'da bir, beş anlatı bölümünün her birinde bir. Hepsi
-    aynı çerçeve, aynı ölçek, aynı sahte veri — yani sayfa boyunca göz aynı nesneyi altı kez
-    görüyordu ve hiçbirinde yeni bir şey öğrenmiyordu. Maket bir kez, ANA SAYFANIN HERO'SUNDA
-    anlamlı: orada iddianın kanıtı (telefon çalıyor, kart ekranda). Beşinci tekrarında dekor.
-
-    Yeni hero ortalanmış ve tek işi var: sayfanın ne anlatacağını söylemek, sonra okuru beş
-    alanın üstünden geçirmek. Alt şerit çapa bağlantılarıdır — sayfa uzun, giriş noktası lazım.
+    Alt şerit, beş alanın çapaları — sayfa uzun, giriş noktası gerekiyor.
 --}}
 <section class="blm kisa oz-hero">
     <div class="kap oz-hero-ic">
-        <span class="blm-kulak mn"><i></i>Ne yapıyor</span>
-        <h1 class="h1">Tezgâhın arkasındaki<br>bütün defterler, tek ekranda.</h1>
-        <p class="gvd b oz-hero-alt">Telefon çaldığı andan akşam kasayı kapattığınız ana kadar ne oluyorsa, aşağıda beş başlıkta yazıyor.</p>
+        <span class="blm-kulak mn"><i></i>Özellikler</span>
+        <h1 class="h1">Siparişi alan da, yolu düzenleyen de, defteri tutan da aynı uygulama.</h1>
+        <p class="gvd b oz-hero-alt">Telefon çaldığı andan kasayı kapattığınız ana kadar geçen işin tamamı beş başlıkta.</p>
         <div class="dg-grup oz-hero-dg">
             <a class="dg dg-a" href="{{ route('subscription.register') }}" data-olcum="sipario_deneme_tik" data-olcum-etiket="ozellik-hero">{{ $fiyat['deneme'] }} gün ücretsiz dene<x-site.ikon ad="ok" boy="18" kalin="2.2" /></a>
             <a class="dg dg-c" href="{{ route('site.fiyatlar') }}">Fiyata bak</a>

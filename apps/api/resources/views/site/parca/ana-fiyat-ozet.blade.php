@@ -25,10 +25,5 @@
             aciklama="Kaç müşteriniz olduğuna ya da kaç sipariş girdiğinize bakmıyoruz. Ek kalem çıkmaz." />
 
         <x-site.plan-yatay :plan="$p" :fiyat="$fiyat" kimlik="ana" />
-
-        <p class="kucuk yplan-kopru">
-            Aylık ödeme, ek paketler ve ödeme yöntemlerinin tamamı
-            <a href="{{ route('site.fiyatlar') }}">fiyat sayfasında</a>.
-        </p>
     </div>
 </section>

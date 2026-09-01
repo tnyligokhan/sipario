@@ -7,9 +7,9 @@
     verir; açıkça true/false geçen sayfa kararı devralır.
 --}}
 @props([
-    // Varsayılan başlık: kendi başlığını geçmeyen sayfalar için (ör. /hesap-silme). Ana sayfanın
-    // başlığıyla AYNI olması bilinçli — marka + ne olduğu, kelime yığmadan (2026-09-01).
-    'baslik' => 'Sipario — su bayii ve esnaf için sipariş ve veresiye programı',
+    // Varsayılan başlık: kendi başlığını geçmeyen sayfalar için (ör. /hesap-silme).
+    // Kalıp bütün sitede aynı: "<Sayfa adı> | Sipario".
+    'baslik' => 'Paket servisi için sipariş, kurye ve veresiye uygulaması | Sipario',
     'aciklama' => null,
     'koyu' => false,
     'oturum' => null,

@@ -29,7 +29,7 @@
         <div class="kimlik-govde">
             <p class="h2 kimlik-soz">Telefon çaldığında müşteriniz ekranda: adı, adresi, borcu ve en son ne aldığı.</p>
             <div class="kimlik-kim">
-                <span class="kucuk">Bayiler ve esnaf için sipariş, veresiye ve kurye defteri.</span>
+                <span class="kucuk">Paket servisi yapan işletmeler için sipariş, kurye ve veresiye defteri.</span>
             </div>
         </div>
         <div class="kimlik-alt">

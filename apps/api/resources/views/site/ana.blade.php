@@ -17,25 +17,13 @@
 @endphp
 
 {{--
-    ── BAŞLIK 2026-09-01'DE SADELEŞTİRİLDİ (kullanıcı kararı) ──────────────────────────────
-    Kullanıcının sözü: *"Sayfa meta başlıklarını daha düzgün bir şekilde yaz. SEO odaklı olacak
-    dedik diye bokunu çıkartmışsın."*
-
-    2026-08-19'da başlık anahtar kelimeye göre yeniden yazılmıştı ve o kararın MANTIĞI hâlâ
-    doğru: `<title>` etiketinin işi çağrışım değil eşleşmedir, kimse "telefon çaldığında müşterim
-    ekranda" diye aramaz. Ama uygulaması aşırıya kaçmıştı — "Su bayii ve esnaf programı: sipariş,
-    veresiye, kurye · Sipario" bir cümle değil VİRGÜLLE AYRILMIŞ BİR ANAHTAR KELİME LİSTESİYDİ.
-    İki bedeli var: (1) insan gözü arama sonucunda bunu okumaz, tarar ve geçer — Google'ın
-    ölçtüğü şey de zaten tıklanma oranıdır; (2) kelime yığmak 2010'ların tekniğidir ve bugün
-    sıralamayı yükseltmez.
-
-    Yeni başlık aynı birincil kelimeyi ("su bayii … programı") TAŞIYOR ama bir kez ve doğal
-    bir cümlenin içinde. Diğer sayfalar "<Sayfa adı> · Sipario" kalıbına indi: bir iç sayfanın
-    başlığında ürünün tamamını anlatmaya çalışmak, o sayfanın ne olduğunu gizler.
+    BAŞLIK KALIBI — bütün site aynı: "<Sayfa adı> | Sipario". Ana sayfada sayfa adının yerini
+    ürünün tek cümlelik tanımı alır. Başlık bir anahtar kelime listesi DEĞİLDİR: insan gözü arama
+    sonucunda virgülle dizilmiş kelimeleri okumaz, tarar ve geçer.
 --}}
 <x-layouts.site koyu
-    baslik="Sipario — su bayii ve esnaf için sipariş ve veresiye programı"
-    :aciklama="'Telefon çaldığında müşteriniz ekranda: kim aradı, nerede oturuyor, ne kadar borcu var. Sipariş, veresiye defteri ve kurye takibi tek uygulamada — internet gitse de çalışır. '.$fiyat['deneme'].' gün ücretsiz.'">
+    baslik="Paket servisi için sipariş, kurye ve veresiye uygulaması | Sipario"
+    :aciklama="'Telefon çaldığında müşteriniz ekranda: kim aradı, nerede oturuyor, ne kadar borcu var. Restoran, market, pastane ve bayiler için sipariş, kurye takibi ve veresiye defteri — internet gitse de çalışır. '.$fiyat['deneme'].' gün ücretsiz.'">
     @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
     {{--
         ── SAYFA SIRASI, ZİYARETÇİNİN SORU SIRASIDIR (2026-08-19) ──────────────────────────
