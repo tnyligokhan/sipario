@@ -95,19 +95,31 @@ class SiteGezinmeTest extends TestCase
     }
 
     #[Test]
-    public function ust_menu_yalnizca_ozellikler_ve_destek_tasir(): void
+    public function ust_menu_sitenin_gercek_sayfalarini_tasir(): void
     {
-        // Kullanıcı kararı 2026-08-05: menü keşif aracıdır, site haritası değil. Fiyatlandırma ve
-        // İletişim SAYFA OLARAK DURUR, menüden alt bilgiye indi.
+        /*
+         * ⚠️ BU TEST 2026-09-01'DE TERS ÇEVRİLDİ ve sebebi kayda değer.
+         *
+         * Eski hâli (`ust_menu_yalnizca_ozellikler_ve_destek_tasir`) 2026-08-05 kararını
+         * kilitliyordu: menüde yalnız iki bağlantı, Fiyatlandırma ve İletişim alt bilgide.
+         * Kullanıcı o düzeni reddetti — *"menü hiç mantıklı değil, onepage bir tasarım değil
+         * zaten bu"*. Menü artık sitenin gerçek yapısını gösteriyor.
+         *
+         * Kilitlenen şey bir ETİKET LİSTESİ değil, bir KURAL: menüdeki her bağlantı kendi
+         * adresi olan gerçek bir sayfaya gitmeli — sayfanın ortasındaki bir çapaya değil.
+         * Eski düzenin asıl arızası buydu: "Fiyat" bağlantısı `/#fiyat`e iniyordu.
+         */
         $govde = $this->get('/hesap-silme')->assertOk()->getContent();
 
         preg_match('/<nav class="ust-nav".*?<\/nav>/s', $govde, $nav);
         $this->assertNotEmpty($nav, 'Üst menü <nav class="ust-nav"> bulunamadı.');
 
-        $this->assertStringContainsString('Özellikler', $nav[0]);
-        $this->assertStringContainsString('Destek', $nav[0]);
-        $this->assertStringNotContainsString('Fiyatlandırma', $nav[0]);
-        $this->assertStringNotContainsString('İletişim', $nav[0]);
+        foreach (['Özellikler', 'Fiyatlar', 'Destek', 'Hakkımızda'] as $etiket) {
+            $this->assertStringContainsString($etiket, $nav[0], "Menüde eksik sayfa: {$etiket}");
+        }
+
+        // Çapa yasağı: menü gezinir, kaydırmaz.
+        $this->assertStringNotContainsString('#', $nav[0], 'Üst menüde sayfa içi çapa var — menü gezinme aracıdır.');
     }
 
     #[Test]
@@ -124,18 +136,25 @@ class SiteGezinmeTest extends TestCase
     }
 
     #[Test]
-    public function fiyat_baglantisi_gizlenen_sayfaya_degil_ana_sayfadaki_ozete_gider(): void
+    public function fiyat_baglantisi_capaya_degil_fiyat_sayfasina_gider(): void
     {
-        // `fiyat` ajanıyla ortak karar (2026-08-05): /fiyatlar rotası ve sayfası DURUYOR ama
-        // `noindex` ile arama motorlarına kapatıldı ve siteden gelen bütün çağrılar ana sayfanın
-        // `#fiyat` özetine çevrildi. Alt bilgi, o karara açılan tek delik olarak kalmamalı.
+        /*
+         * ⚠️ 2026-09-01'DE TERS ÇEVRİLDİ (kullanıcı kararı). 2026-08-05'te /fiyatlar menüden
+         * çıkarılıp `noindex` yapılmış, alt bilgideki bağlantı da ana sayfanın `#fiyat`
+         * ÇAPASINA çevrilmişti; bu test o kararı kilitliyordu.
+         *
+         * Kullanıcı düzeni reddetti: çok sayfalı bir siteyi tek sayfa gibi davranmaya zorlayan
+         * şey tam olarak buydu. Test artık ters yönü koruyor — alt bilgi, üst menüyle AYNI
+         * hedefe gitmeli. İkisinin ayrışması, aynı kararın yalnız yarısının uygulanması demektir
+         * ve tam da 2026-08-05'te bu şekilde bir delik doğmuştu.
+         */
         $govde = $this->get('/hesap-silme')->assertOk()->getContent();
 
         preg_match('/<div class="alt-baglanti">.*?<\/div>\s*<\/div>\s*<\/div>/s', $govde, $blok);
         $this->assertNotEmpty($blok);
 
-        $this->assertStringContainsString(route('site.ana').'#fiyat', $blok[0]);
-        $this->assertStringNotContainsString(route('site.fiyatlar'), $blok[0]);
+        $this->assertStringContainsString(route('site.fiyatlar'), $blok[0]);
+        $this->assertStringNotContainsString(route('site.ana').'#fiyat', $blok[0]);
     }
 
     #[Test]

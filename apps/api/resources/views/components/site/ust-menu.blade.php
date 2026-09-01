@@ -11,23 +11,31 @@
 @props(['koyu' => false, 'oturum' => false])
 @php
     /*
-     * MENÜDE YALNIZ İKİ SAYFA (2026-08-05 kullanıcı kararı: "gereksiz sayfaları menüde değil
-     * altbilgide gösterelim"). Menü bir keşif aracıdır, site haritası değil: dört eşit ağırlıklı
-     * bağlantı ziyaretçinin dikkatini sağdaki "Ücretsiz dene" düğmesinden çalıyordu.
+     * ── MENÜ 2026-09-01'DE YENİDEN KURULDU (kullanıcı kararı) ────────────────────────────
+     * Kullanıcının sözü: *"Sitedeki header hiç hoşuma gitmiyor. Menü hiç mantıklı değil.
+     * Onepage bir tasarım değil zaten bu."*
      *
-     * ÇIKARILANLAR ve neden:
-     *  - Fiyatlandırma: sayfa DURUYOR, menüden kalktı. Fiyat zaten ana sayfanın kendi özet
-     *    bölümünde ve alt bilgide; menüde ikinci kez durması, ziyaretçiyi ürünü tanımadan
-     *    fiyat sayfasına yolluyordu (bu kararın ikinci yarısı `fiyat` ajanında).
-     *  - İletişim: alt bilgiye indi. İletişim bir SONUÇ sayfasıdır (ürünü beğendikten sonra
-     *    aranır); alt bilgi tam olarak orada, sayfanın sonundadır.
+     * ⚠️ ASIL ARIZA MENÜNÜN KISALIĞI DEĞİL, MENÜNÜN SİTEYE UYMAMASIYDI. 2026-08-05'te menü iki
+     * satıra indirilmiş (Özellikler + Destek), "Fiyatlandırma" ve "İletişim" alt bilgiye
+     * gönderilmişti; fiyat çağrıları da /fiyatlar sayfasına DEĞİL ana sayfanın `#fiyat`
+     * çapasına bağlanmıştı. Bu, TEK SAYFALIK bir sitenin menü davranışıdır: gezinme yerine
+     * kaydırma. Oysa burada kendi adresi, kendi başlığı ve kendi içeriği olan altı sayfa var —
+     * ziyaretçi "Fiyat" diye tıklayıp bir sayfaya değil, sayfanın ortasına düşüyordu.
      *
-     * KALANLAR: Özellikler (ürün ne yapıyor) + Destek (satın almadan önceki asıl itiraz:
-     * "bozulursa kim bakacak"). İkisi de satın alma kararının önündeki engeli kaldırır.
+     * Yeni menü sitenin gerçek yapısını gösteriyor — dört sayfa, dördü de gerçek:
+     *   Özellikler (ürün ne yapıyor) · Fiyatlar (kaç para) · Destek (bozulursa kim bakacak)
+     *   · Hakkımızda (bunlar kim)
+     * İletişim alt bilgide KALIYOR: Destek sayfası zaten iletişim kanallarını taşıyor; ikisini
+     * birden menüye koymak aynı soruya iki kapı açardı.
+     *
+     * `/fiyatlar` bu kararla birlikte `noindex`ten de çıktı (bkz. site/fiyatlar.blade.php):
+     * menüde duran bir sayfayı arama motoruna kapatmak kendi içinde çelişkiliydi.
      */
     $menu = [
         ['site.ozellikler', 'Özellikler'],
+        ['site.fiyatlar', 'Fiyatlar'],
         ['site.destek', 'Destek'],
+        ['site.hakkimizda', 'Hakkımızda'],
     ];
     $anaHref = Route::has('site.ana') ? route('site.ana') : url('/');
 @endphp
@@ -36,10 +44,19 @@
         <a class="ust-marka" href="{{ $anaHref }}" aria-label="Sipario ana sayfa">
             <x-site.marka :koyu="$koyu" />
         </a>
+        {{--
+            Menü ORTALANMIŞ, markanın dibinde değil (2026-09-01). Eski yerleşim `margin-left:14px`
+            ile bağlantıları logonun hemen sağına yapıştırıyordu: logo + bağlantılar tek bulanık bir
+            öbek gibi okunuyor, sağdaki eylem düğmeleriyle arasında kalan geniş boşluk başlığı
+            dengesiz gösteriyordu. Artık üç bölge var ve üçü de kendi işini yapıyor:
+            sol = kimlik · orta = gezinme · sağ = eylem. Ortalama CSS'te mutlak konumla yapılıyor
+            (`.ust-nav`), böylece marka ya da düğme genişliği değişince menü kaymaz.
+        --}}
         <nav class="ust-nav" aria-label="Ana menü">
             @foreach($menu as [$ad, $etiket])
                 @if(Route::has($ad))
-                    <a href="{{ route($ad) }}" class="ust-l @if(request()->routeIs($ad)) on @endif">{{ $etiket }}</a>
+                    <a href="{{ route($ad) }}" class="ust-l @if(request()->routeIs($ad)) on @endif"
+                        @if(request()->routeIs($ad)) aria-current="page" @endif>{{ $etiket }}</a>
                 @endif
             @endforeach
         </nav>
@@ -84,7 +101,8 @@
     <div class="ust-mobil">
         @foreach($menu as [$ad, $etiket])
             @if(Route::has($ad))
-                <a href="{{ route($ad) }}" class="ust-ml">{{ $etiket }}<x-site.ikon ad="sag" boy="18" kalin="2" /></a>
+                <a href="{{ route($ad) }}" class="ust-ml @if(request()->routeIs($ad)) on @endif"
+                    @if(request()->routeIs($ad)) aria-current="page" @endif>{{ $etiket }}<x-site.ikon ad="sag" boy="18" kalin="2" /></a>
             @endif
         @endforeach
         <div class="ust-mobil-alt">

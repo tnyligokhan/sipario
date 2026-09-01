@@ -38,8 +38,8 @@
 @endphp
 
 <x-layouts.site
-    baslik="Biz kimiz · Sipario"
-    aciklama="Sipario'yu kimler yapıyor, neden yaptık ve size ne söz veriyoruz. Küçük bir ekibiz, Türkiye'deyiz, sahadaki bayilerle birlikte geliştiriyoruz.">
+    baslik="Hakkımızda · Sipario"
+    aciklama="Sipario'yu kimler yapıyor, neden yaptık ve size ne söz veriyoruz. Küçük bir ekibiz, sahadaki bayilerle birlikte geliştiriyoruz.">
     @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
 
     <section class="blm ic-hero">
@@ -60,10 +60,19 @@
                 <p class="gvd">Sipario tam bunu yapıyor. Fazlasını yapmıyor — muhasebe programı değil, e-fatura kesmiyor, beyanname doldurmuyor.</p>
             </div>
 
+            {{--
+                ⚠️ 2026-09-01'DE DÜZELTİLDİ. Bu bölüm "Sunucularımız da Türkiye'de. Bu bir tercih
+                değil, baştan çizdiğimiz bir sınır" diyordu. Sunucu ölçüldü: Hostinger, Frankfurt
+                (`srv1577146.hstgr.cloud`, AS47583) — yani cümle yanlıştı ve tam da bu sayfanın
+                iddiasının (dürüstlük) altını oyuyordu. Kullanıcı kararı: Türkiye'de barındırma
+                şartı kaldırıldı (maliyet). Yeni metin nerede olduğunu söylüyor ve KVKK'nın
+                gerçekten sorduğu şeye — kimin erişebildiğine — cevap veriyor.
+            --}}
             <div class="ys-b">
                 <h2 class="h2">Nerede olduğumuz</h2>
-                <p class="gvd">Türkiye'deyiz. Sunucularımız da Türkiye'de. Bu bir tercih değil, baştan çizdiğimiz bir sınır: müşterilerinizin adı, telefonu ve adresi yurt dışında bir sunucuda durmuyor.</p>
-                <p class="gvd">Destek hattını da biz açıyoruz. Aradığınızda çağrı merkezi değil, ürünü yazan ekip cevap veriyor.</p>
+                <p class="gvd">Ekip Türkiye'de. Sunucularımız Almanya'da, Frankfurt'ta duruyor — Avrupa Birliği veri koruma rejiminin geçerli olduğu bir veri merkezinde. Verileriniz KVKK kapsamında işleniyor; nereye ne gittiği <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">Aydınlatma Metni'nde</a> tek tek yazılı.</p>
+                <p class="gvd">Önemli olan yalnız ülke değil, kimin görebildiği: her işletmenin verisi veritabanı düzeyinde ayrılmıştır, bir bayi diğerininkini teknik olarak göremez. Biz de göremeyiz — destek panelimizde iş verinizi değiştirme yetkisi yoktur ve bakılan her kayıt iz bırakır.</p>
+                <p class="gvd">Desteğe de biz bakıyoruz. Yazdığınızda çağrı merkezi değil, ürünü yazan ekip cevap veriyor.</p>
             </div>
 
             <div class="ys-b">

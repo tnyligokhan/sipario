@@ -84,7 +84,7 @@
         <table class="ys-tablo">
             <thead><tr><th>Alt işleyen</th><th>Hizmet</th><th>Veri</th><th>Konum</th></tr></thead>
             <tbody>
-                <tr><td><x-legal.deger ad="barındırma sağlayıcısının unvanı" /></td><td>Sunucu barındırma</td><td>Sistemdeki tüm veri</td><td><b>Türkiye</b></td></tr>
+                <tr><td>Hostinger International Ltd.</td><td>Sunucu barındırma</td><td>Sistemdeki tüm veri</td><td><b>Almanya (Frankfurt) — yurt dışı</b></td></tr>
                 <tr><td><x-legal.deger ad="SMTP/e-posta sağlayıcısının unvanı" /></td><td>E-posta gönderimi</td><td>Alıcı adresi ve ileti içeriği</td><td><x-legal.deger ad="SMTP sağlayıcısının sunucu ülkesi" /></td></tr>
                 <tr><td>Google LLC</td><td>Anlık bildirim (FCM)</td><td>Cihaz jetonu, olay adı, kayıt numarası</td><td>Yurt dışı</td></tr>
                 <tr><td>Google LLC / Yandex</td><td>Adres → koordinat (isteğe bağlı)</td><td>Yalnız adres metni</td><td>Yurt dışı</td></tr>
@@ -98,8 +98,8 @@
 
 <div class="ys-b">
     <h2 class="h3">6. Yurt dışına aktarım</h2>
-    <p class="gvd">Kişisel veriler <strong>Türkiye'deki sunucuda saklanır</strong>. Yukarıdaki tabloda "yurt dışı" olarak işaretli alt işleyenlere, yalnız o işlevin çalışması için gereken asgari veri gönderilir; müşterinin adı, telefonu veya borcu bu çağrılarda yer almaz.</p>
-    <p class="gvd">Bu aktarımlar KVKK m.9 kapsamındadır. Aktarımın hukuki dayanağının (yeterlilik kararı, standart sözleşme veya taahhütname) tamamlanması ve gerekiyorsa Kurul'a bildirilmesi Sipario'nun sorumluluğundadır: <x-legal.deger ad="yurt dışı aktarım hukuki dayanağı — standart sözleşme metni ve Kurul bildirimi" /></p>
+    <p class="gvd">Kişisel veriler <strong>Almanya'daki (Frankfurt) sunucularda saklanır</strong>; barındırmanın kendisi de KVKK anlamında bir yurt dışı aktarımdır ve yukarıdaki tabloda böyle gösterilmiştir. Tabloda "yurt dışı" olarak işaretli diğer alt işleyenlere ise yalnız o işlevin çalışması için gereken asgari veri gönderilir; müşterinin adı, telefonu veya borcu bu çağrılarda yer almaz.</p>
+    <p class="gvd">Bu aktarımlar KVKK m.9 kapsamındadır. Aktarımın hukuki dayanağının (yeterlilik kararı, standart sözleşme veya taahhütname) tamamlanması ve gerekiyorsa Kurul'a bildirilmesi Sipario'nun sorumluluğundadır: <x-legal.deger ad="yurt dışı aktarım hukuki dayanağı — barındırma dahil, standart sözleşme metni ve Kurul bildirimi" /></p>
 </div>
 
 <div class="ys-b">

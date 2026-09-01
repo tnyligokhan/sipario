@@ -26,14 +26,14 @@
 
 <div class="ys-b">
     <h2 class="h3">Kısaca</h2>
-    <p class="gvd">Verileriniz Türkiye'deki sunucuda durur. Her işletmenin verisi veritabanı seviyesinde birbirinden ayrılmıştır — bir bayi diğerinin kaydını teknik olarak göremez. Biz de göremeyiz: destek ekibimizin panelinde işletmenizin iş verisini <em>değiştirme</em> yetkisi yoktur, bakılan her kayıt iz bırakır. Veriniz satılmaz, reklam için paylaşılmaz, yapay zekâ eğitiminde kullanılmaz.</p>
+    <p class="gvd">Verileriniz Almanya'daki (Frankfurt) sunucularımızda durur ve KVKK kapsamında işlenir. Her işletmenin verisi veritabanı seviyesinde birbirinden ayrılmıştır — bir bayi diğerinin kaydını teknik olarak göremez. Biz de göremeyiz: destek ekibimizin panelinde işletmenizin iş verisini <em>değiştirme</em> yetkisi yoktur, bakılan her kayıt iz bırakır. Veriniz satılmaz, reklam için paylaşılmaz, yapay zekâ eğitiminde kullanılmaz.</p>
     <p class="gvd">Aşağıdaki bölümler bunun nasıl sağlandığını anlatır. Hangi verinin hangi amaçla işlendiğini öğrenmek için <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">KVKK Aydınlatma Metni</a>'ne bakın.</p>
 </div>
 
 <div class="ys-b">
     <h2 class="h3">1. Verileriniz nerede duruyor?</h2>
-    <p class="gvd">Sipario'nun veritabanı ve dosyaları <strong>Türkiye'de bulunan sunucularda</strong> barındırılır. Bu, ürünün başından beri değişmeyen bir kuralıdır ve müşteri verisinin (ad, telefon, adres, konum) yurt dışında saklanmaması anlamına gelir.</p>
-    <p class="gvd">Bazı işlevler çalışabilmek için yurt dışındaki servislere sınırlı veri gönderir (adres arama, rota sıralama, anlık bildirim, isteğe bağlı site ölçümü). Bunların her biri, ne gönderdiği ve ne göndermediğiyle birlikte <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}#">Aydınlatma Metni'nin 5. bölümünde</a> tek tek sayılmıştır. Bu çağrılarda müşterinizin adı, telefonu veya borcu hiçbir zaman yer almaz.</p>
+    <p class="gvd">Sipario'nun veritabanı ve dosyaları <strong>Almanya'nın Frankfurt şehrindeki bir veri merkezinde</strong>, Hostinger International Ltd. altyapısında barındırılır. Burası Avrupa Birliği veri koruma rejiminin geçerli olduğu bir ülkedir; barındırma KVKK anlamında bir yurt dışı aktarımdır ve <a href="{{ route('legal.show', 'kvkk-aydinlatma') }}">Aydınlatma Metni'nin 5. bölümünde</a> böyle gösterilmiştir.</p>
+    <p class="gvd">Barındırmanın dışında bazı işlevler de çalışabilmek için yurt dışındaki servislere sınırlı veri gönderir (adres arama, rota sıralama, anlık bildirim, isteğe bağlı site ölçümü). Bunların her biri, ne gönderdiği ve ne göndermediğiyle birlikte aynı bölümde tek tek sayılmıştır. Bu çağrılarda müşterinizin adı, telefonu veya borcu hiçbir zaman yer almaz.</p>
 </div>
 
 <div class="ys-b">

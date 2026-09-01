@@ -17,19 +17,25 @@
 @endphp
 
 {{--
-    ── BAŞLIK ANAHTAR KELİMEYE GÖRE YENİDEN YAZILDI (2026-08-19) ───────────────────────────
-    Eski başlık "Sipario — Telefon çaldığında müşteriniz ekranda" idi: markayı ve vaadi güzel
-    anlatıyordu ama İÇİNDE HİÇBİR ARAMA TERİMİ YOKTU. Kimse "telefon çaldığında müşterim
-    ekranda" diye aramaz; "su bayii programı" diye arar. Marka çağrışımı hero başlığında ve
-    alt bilgide zaten yaşıyor — <title> etiketinin işi çağrışım değil, EŞLEŞMEDİR.
+    ── BAŞLIK 2026-09-01'DE SADELEŞTİRİLDİ (kullanıcı kararı) ──────────────────────────────
+    Kullanıcının sözü: *"Sayfa meta başlıklarını daha düzgün bir şekilde yaz. SEO odaklı olacak
+    dedik diye bokunu çıkartmışsın."*
 
-    Birincil kelime `su bayii programı` (bkz. docs/seo-anahtar-kelimeler.md): ilk dikey su
-    bayileri ve bu, en dar/en niyetli arama. "Esnaf" ikincil olarak aynı başlıkta duruyor
-    çünkü ürün sektör-bağımsız kurgulandı ve tüpçü/manav da hedefte.
+    2026-08-19'da başlık anahtar kelimeye göre yeniden yazılmıştı ve o kararın MANTIĞI hâlâ
+    doğru: `<title>` etiketinin işi çağrışım değil eşleşmedir, kimse "telefon çaldığında müşterim
+    ekranda" diye aramaz. Ama uygulaması aşırıya kaçmıştı — "Su bayii ve esnaf programı: sipariş,
+    veresiye, kurye · Sipario" bir cümle değil VİRGÜLLE AYRILMIŞ BİR ANAHTAR KELİME LİSTESİYDİ.
+    İki bedeli var: (1) insan gözü arama sonucunda bunu okumaz, tarar ve geçer — Google'ın
+    ölçtüğü şey de zaten tıklanma oranıdır; (2) kelime yığmak 2010'ların tekniğidir ve bugün
+    sıralamayı yükseltmez.
+
+    Yeni başlık aynı birincil kelimeyi ("su bayii … programı") TAŞIYOR ama bir kez ve doğal
+    bir cümlenin içinde. Diğer sayfalar "<Sayfa adı> · Sipario" kalıbına indi: bir iç sayfanın
+    başlığında ürünün tamamını anlatmaya çalışmak, o sayfanın ne olduğunu gizler.
 --}}
 <x-layouts.site koyu
-    baslik="Su bayii ve esnaf programı: sipariş, veresiye, kurye · Sipario"
-    :aciklama="'Telefon çaldığında müşteriniz ekranda: kim aradı, nerede oturuyor, ne kadar borcu var. Su bayii ve esnaf için sipariş, veresiye defteri ve kurye takibi — internetsiz de çalışır. '.$fiyat['deneme'].' gün ücretsiz.'">
+    baslik="Sipario — su bayii ve esnaf için sipariş ve veresiye programı"
+    :aciklama="'Telefon çaldığında müşteriniz ekranda: kim aradı, nerede oturuyor, ne kadar borcu var. Sipariş, veresiye defteri ve kurye takibi tek uygulamada — internet gitse de çalışır. '.$fiyat['deneme'].' gün ücretsiz.'">
     @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
     {{--
         ── SAYFA SIRASI, ZİYARETÇİNİN SORU SIRASIDIR (2026-08-19) ──────────────────────────

@@ -133,4 +133,97 @@ class SiteIcerikTest extends TestCase
             ->assertSee('ilk aramada')
             ->assertDontSee('Bot yok, otomatik yanıt yok.');
     }
+
+    /*
+     * ══════════════════════════════════════════════════════════════════════════════════════
+     * 2026-09-01 — ÜÇ YENİ SÖZLEŞME
+     *
+     * Üçü de aynı türden: sitenin, ürünün GERÇEĞİYLE çelişen bir şey söylememesi. Bu dosyanın
+     * kuruluş gerekçesiyle birebir aynı ("sayfa ziyaretçiye yalan söylemesin") — yalnız bu kez
+     * yalanı doğuran şey eksik veri değil, DEĞİŞEN KARARLARDI.
+     * ══════════════════════════════════════════════════════════════════════════════════════
+     */
+
+    /** Ziyaretçiye görünen metni okuyan sayfalar — üç iddianın ortak tarama alanı. */
+    private const PAZARLAMA_SAYFALARI = ['/', '/ozellikler', '/fiyatlar', '/destek', '/hakkimizda'];
+
+    #[Test]
+    public function hicbir_sayfa_verinin_turkiyede_saklandigini_soylemez(): void
+    {
+        /*
+         * ⚠️ SUNUCU TÜRKİYE'DE DEĞİL — ÖLÇÜLDÜ (2026-09-01): Hostinger, Frankfurt / Almanya
+         * (`srv1577146.hstgr.cloud`, AS47583). BRIEF md.4'teki "veri Türkiye'de" kırmızı çizgisi
+         * kullanıcı tarafından açıkça kaldırıldı (gerekçe: Türkiye'de sunucu maliyeti).
+         *
+         * İddia SEKİZ AYRI YERDE yaşıyordu: ana sayfa güvence kartı, alt bilgi rozeti, giriş
+         * ekranı kutusu, destek SSS'i, Hakkımızda, gizlilik politikası, aydınlatma metni ve
+         * veri işleyen eki. Sekizini birden elle takip etmek, birini unutmak demektir — bu test
+         * onların hepsini tek desenle tarıyor.
+         *
+         * ⚠️ HUKUK BELGELERİ DE TARANIYOR ve bu kasıtlı: yanlış barındırma beyanı bir pazarlama
+         * hatası değil, KVKK aydınlatma yükümlülüğünün ihlalidir.
+         */
+        $sayfalar = array_merge(self::PAZARLAMA_SAYFALARI, array_map(
+            fn (string $slug): string => route('legal.show', $slug, false),
+            ['kvkk-aydinlatma', 'gizlilik-politikasi', 'veri-isleyen', 'iptal-iade', 'mesafeli-satis', 'on-bilgilendirme'],
+        ));
+
+        foreach ($sayfalar as $adres) {
+            $metin = strip_tags($this->get($adres)->assertOk()->getContent());
+
+            // Apostrof iki biçimde de yazılabiliyor (' ve ’) — desen ikisini de kapsamalı.
+            $this->assertDoesNotMatchRegularExpression(
+                '/Türkiye[\'’]de(ki)?\s+(bulunan\s+)?sunucu/u',
+                $metin,
+                $adres.' hâlâ verinin Türkiye\'deki sunucuda durduğunu söylüyor — sunucu Frankfurt\'ta.'
+            );
+            $this->assertStringNotContainsString('Veriler Türkiye', $metin, $adres.' eski rozeti/kartı basıyor.');
+        }
+    }
+
+    #[Test]
+    public function pazarlama_sayfalari_odenmis_donem_icin_iade_vaat_etmez(): void
+    {
+        /*
+         * Kullanıcı kararı 2026-09-01: *"İptal ve iade diye bir şey yok zaten 30 günlük deneme
+         * süresi var."* Kaldırılan iki taahhüt (ilk 14 gün koşulsuz tam iade · sonrasında
+         * kullanılmayan aylar oranında iade) satış sayfalarında üç yerde geçiyordu: ödeme
+         * güvencesi kartı ve iki SSS cevabı.
+         *
+         * ⚠️ TARAMA YALNIZ PAZARLAMA SAYFALARINDA. Hukuk belgeleri BİLEREK dışarıda: iade
+         * hâlâ üç durumda yapılıyor (hatalı/mükerrer tahsilat, hizmetin durdurulması, satın
+         * alınan bir işlevin kaldırılması) ve o cümleler /yasal/iptal-iade'de yazılı olmak
+         * ZORUNDA. Deseni oraya da uygulamak, kendi kusurumuzun bedelini üstlendiğimiz
+         * maddeleri sildirirdi.
+         */
+        foreach (self::PAZARLAMA_SAYFALARI as $adres) {
+            $metin = strip_tags($this->get($adres)->assertOk()->getContent());
+
+            foreach (['koşulsuz iade', 'iade ediyoruz', 'oranında iade', 'tamamını iade'] as $vaat) {
+                $this->assertStringNotContainsString(
+                    $vaat,
+                    $metin,
+                    $adres.' hâlâ iade vaat ediyor ("'.$vaat.'") — taahhüt 2026-09-01'."'".'de kaldırıldı.'
+                );
+            }
+        }
+    }
+
+    #[Test]
+    public function ozellikler_sayfasi_uygulama_maketi_basmaz(): void
+    {
+        /*
+         * Kullanıcı: *"Uygulama içinden görüntülerin sürekli gösteriliyor olması çok kötü."*
+         * Sayfada ALTI telefon maketi vardı (hero + beş anlatı bölümü). Hepsi kaldırıldı.
+         *
+         * Ölçüt maketin kök sınıfı: `x-site.telefon` her zaman `<div class="t-cerceve">` basar.
+         * Metne değil YAPIYA bakmak önemli — bileşen yeniden kullanıldığı an test kırılır,
+         * kopya değişse de.
+         *
+         * ⚠️ ANA SAYFA BİLEREK KAPSAM DIŞI: orada maket iddianın kanıtıdır (telefon çalıyor,
+         * kart ekranda). Kaldırılan şey görsel değil, aynı görselin altıncı kez tekrarıydı.
+         */
+        $this->get('/ozellikler')->assertOk()->assertDontSee('t-cerceve', false);
+        $this->get('/')->assertOk()->assertSee('t-cerceve', false);
+    }
 }

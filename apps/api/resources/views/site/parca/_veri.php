@@ -97,21 +97,25 @@ return function (array $d): array {
 
         /*
          * ── Güvenceler ──────────────────────────────────────────────────────────────────
-         * "İstanbul'daki sunucularda" İFADESİ KALDIRILDI (2026-08-19). Şehir adı, kanıtı
-         * olmayan bir ayrıntıydı: sunucu Türkiye'de ama hangi ilde olduğu bir barındırma
-         * sağlayıcısı kararıdır ve yarın değişebilir. Ülke bir kırmızı çizgidir (BRIEF md.4)
-         * ve o duruyor; şehir bir varsayımdı. Ayrıca "veriniz sizin" maddesindeki "istediğiniz
-         * an Excel olarak indirin" cümlesi, uygulamada BÖYLE BİR DÜĞME OLMADIĞI için düzeltildi
-         * — dışa aktarım destek kanalından yürüyor (BRIEF: "uygulamada buton yok"). Ziyaretçiye
-         * var olmayan bir düğme vaat etmek, ilk kullanımda güveni bitiren türden bir küçük yalan.
+         * ⚠️ "VERİLER TÜRKİYE'DE" KARTI KALDIRILDI (2026-09-01, kullanıcı kararı + ölçüm).
+         * Sunucu ölçüldü: Hostinger, Frankfurt / Almanya (`srv1577146.hstgr.cloud`, AS47583).
+         * Yani kart doğru değildi. BRIEF md.4'teki "veri Türkiye'de" kırmızı çizgisi kullanıcı
+         * tarafından açıkça kaldırıldı (gerekçe: Türkiye'de sunucu maliyeti). Yerine gelen kart
+         * BİLİNENİ söylüyor: nerede durduğunu, kimin göremediğini, satılmadığını.
+         *
+         * Bu bir kopya tercihi değil, doğruluk sorunudur: aynı sitede yayımlanan aydınlatma
+         * metni barındırmayı yurt dışı aktarım olarak sayarken, ana sayfanın "Türkiye'de" demesi
+         * iki metinden birini yalancı çıkarırdı.
+         *
+         * "Telefonu insan açıyor" da düştü: künyede gerçek bir telefon numarası YOK, kanal
+         * listesi onu zaten süzüyor (aşağıda) — sayfanın telefon vaat edip destek sayfasında
+         * telefon göstermemesi aynı türden bir çelişkiydi.
          */
         'guvence' => [
             ['ik' => 'cevrimdisi', 't' => 'İnternet gitse de çalışır', 'a' => 'Sipariş ve tahsilat telefonda tutulur, bağlantı gelince kendi kendine yerine oturur.'],
-            ['ik' => 'kalkan', 't' => 'Veriler Türkiye’de', 'a' => 'Türkiye’deki sunucularda saklanır, KVKK kapsamında işlenir.'],
+            ['ik' => 'kalkan', 't' => 'Defteriniz size özel', 'a' => 'Her işletmenin verisi veritabanı düzeyinde ayrıdır. Satılmaz, reklama verilmez, yapay zekâ eğitiminde kullanılmaz.'],
             ['ik' => 'indir', 't' => 'Veriniz sizin', 'a' => 'Müşteri, sipariş ve defter kaydınızı isteyin, Excel olarak gönderelim. Abonelik bitse de bu kapı açık.'],
-            // "Bot yok" kaldırıldı: "bot" kelimesini bilmeyen için boşluk, bilen için de zaten
-            // "insan açıyor" başlığında söylenmiş bir şeyin tekrarı.
-            ['ik' => 'kulaklik', 't' => 'Telefonu insan açıyor', 'a' => 'Hafta içi 09:00–19:00 arası hep aynı ekip, hep aynı numara.'],
+            ['ik' => 'kulaklik', 't' => 'Cevabı insan yazıyor', 'a' => 'Hafta içi 09:00–19:00 arası aynı ekip. Otomatik yanıt yollamıyoruz.'],
         ],
 
         /*
@@ -147,8 +151,19 @@ return function (array $d): array {
             ['g' => 'Ödeme', 'l' => [
                 ['s' => 'Hangi ödeme yöntemlerini kabul ediyorsunuz?', 'c' => 'Şimdilik havale/EFT ve elden ödeme. Kartla online ödeme üzerinde çalışıyoruz; açıldığında hesap panelinizde göreceksiniz.'],
                 ['s' => 'Fatura kesiyor musunuz?', 'c' => 'Evet, her ödeme için e-arşiv fatura düzenleyip e-posta ile gönderiyoruz. Ödeme geçmişinizin tamamı hesap panelinizdeki Faturalar bölümünde duruyor.'],
-                ['s' => 'İstediğim zaman bırakabilir miyim?', 'c' => 'Evet ve bunun için bir şey yapmanız bile gerekmiyor: otomatik yenileme diye bir şey yok, kartınızdan kendiliğinden para çekilmez. Ödemezseniz dönem sonunda hesap yeni kayıt almayı durdurur, o kadar. Erken ayrılmak isterseniz kalan aylarınızın parasını iade ediyoruz.'],
-                ['s' => 'Yıllık ödedim, vazgeçersem param yanar mı?', 'c' => 'Hayır. İlk 14 gün içinde vazgeçerseniz tamamını, sonrasında kullanmadığınız aylar oranında iade ediyoruz. Sebep sormuyoruz.'],
+                /*
+                 * ── İADE VAADİ KALDIRILDI (2026-09-01, kullanıcı kararı) ────────────────
+                 * "İptal ve iade diye bir şey yok zaten 30 günlük deneme süresi var." Eski iki
+                 * cevap ("kalan ayları iade ediyoruz" · "ilk 14 gün koşulsuz iade") bir SATIŞ
+                 * TAAHHÜDÜYDÜ ve artık verilmiyor. Yerine geçen mantık daha dürüst: parayı
+                 * denemeden ödemiyorsunuz — karar noktası ödemeden ÖNCE, deneme süresinde.
+                 *
+                 * İptal sorusunun cevabı DEĞİŞMEDİ ve bu önemli: iptal etmek için bir şey
+                 * yapmak zaten gerekmiyor (otomatik yenileme yok). Değişen tek şey, ödenmiş
+                 * dönemin geri alınmaması.
+                 */
+                ['s' => 'İstediğim zaman bırakabilir miyim?', 'c' => 'Evet ve bunun için bir şey yapmanız gerekmiyor: otomatik yenileme diye bir şey yok, kartınızdan kendiliğinden para çekilmez. Ödemezseniz dönem sonunda hesap yeni kayıt almayı durdurur, o kadar. Kayıtlarınız silinmez.'],
+                ['s' => 'Ödedikten sonra vazgeçersem param geri gelir mi?', 'c' => 'Ödenmiş dönem için iade yapmıyoruz. Bunun yerine '.$d['deneme'].' gün ücretsiz deneme var: kart bilgisi vermeden, tam sürümle, kendi müşterilerinizle deniyorsunuz. Ödeme kararını ancak ürünü gördükten sonra veriyorsunuz.'],
                 ['s' => 'Fiyat sonradan artar mı?', 'c' => 'Ödediğiniz dönemin fiyatı sabittir, dönem ortasında değişmez. Yeni dönemde fiyat değişecekse en az 30 gün önce haber veriyoruz — sürpriz zam yok.'],
             ]],
             /*
@@ -159,10 +174,11 @@ return function (array $d): array {
              *   • Rota sıralama, durak koordinatlarını Google Routes'a yolluyor (config/rota.php)
              *   • Anlık bildirim, cihaz jetonunu Google FCM'e yolluyor (app/Bildirim/FcmIstemcisi.php)
              *   • Bu vardiyada siteye Google Analytics eklendi (rızaya bağlı)
-             * SAKLAMA Türkiye'de — o doğru ve kırmızı çizgi. Ama "saklama" ile "aktarım" aynı
-             * şey değil ve ziyaretçiye ikisini birbirine karıştıran bir cümle kurulamaz; aynı
-             * sitede yayımlanan aydınlatma metni her çıkışı tek tek sayarken SSS'in tersini
-             * söylemesi, iki metinden birini yalancı çıkarırdı.
+             * ⚠️ 2026-09-01 GÜNCELLEMESİ: o gün "SAKLAMA Türkiye'de" diye yazılan cümle de
+             * yanlıştı — sunucu ölçüldü, Hostinger/Frankfurt. Cevap artık gerçek ülkeyi söylüyor.
+             * Ama "saklama" ile "aktarım" hâlâ ayrı iki şey ve ziyaretçiye ikisini birbirine
+             * karıştıran bir cümle kurulamaz; aynı sitede yayımlanan aydınlatma metni her çıkışı
+             * tek tek sayarken SSS'in tersini söylemesi, iki metinden birini yalancı çıkarırdı.
              *
              * Yeni cevap ne gittiğini VE ne gitmediğini söylüyor — ikincisi olmadan cümle
              * ziyaretçiyi gereksiz yere ürkütürdü, çünkü müşteri adı ve borcu gerçekten hiçbir
@@ -180,7 +196,7 @@ return function (array $d): array {
                  * (aydınlatma metni) zaten var ve oradaki tablo her çıkışı tek tek sayıyor.
                  * Buradaki iş, esnafın gerçekten sorduğu şeyi cevaplamak: "verim bende kalır mı".
                  */
-                ['s' => 'Verilerim nerede duruyor?', 'c' => 'Müşteri listeniz, siparişleriniz ve defteriniz Türkiye’deki sunucularda saklanır. Sadece adres ararken ve kurye yolunu sıralarken adres bilgisi harita servisine gider; müşterinizin adı, telefonu ve borcu hiçbir zaman dışarı çıkmaz.'],
+                ['s' => 'Verilerim nerede duruyor?', 'c' => 'Müşteri listeniz, siparişleriniz ve defteriniz Almanya’daki (Frankfurt) sunucularımızda saklanır ve KVKK kapsamında işlenir. Her işletmenin verisi veritabanı düzeyinde ayrıdır; biz de iş verinizi değiştiremeyiz. Adres ararken ve kurye yolunu sıralarken yalnız adres metni harita servisine gider — müşterinizin adı, telefonu ve borcu hiçbir çağrıda yer almaz.'],
             ]],
         ],
 
@@ -202,7 +218,18 @@ return function (array $d): array {
                     ['t' => 'Arayan tanıma', 'a' => 'Telefon çaldığı anda kart ekrana gelir'],
                     ['t' => 'Veresiye defteri', 'a' => 'Bakiye, tahsilat, hareket geçmişi'],
                     ['t' => 'Gün sonu kasa', 'a' => 'Nakit · kart · veresiye ayrımıyla devir'],
-                    ['t' => $d['kurye'].' kurye hesabı', 'a' => 'Ek kurye '.$d['ekKuryeTl']],
+                    /*
+                     * `k` anahtarı bir GÖRÜNÜM KANCASIDIR (2026-09-01): plan levhası bu satırı
+                     * tanısın ve ek kurye paketlerini bir İPUCU olarak buraya gömsün diye var
+                     * (bkz. components/site/plan-yatay.blade.php). Satırın metnini "kurye" diye
+                     * ARAMAK da işe yarardı ama metin bir kopya kararıdır ve yarın değişebilir;
+                     * anahtar sözleşmedir.
+                     *
+                     * Alt satır katalogda paket VARKEN boş: fiyat artık ipucunun içinde ve iki
+                     * yerde iki kez yazmak, tam da kullanıcının "gereksiz" dediği tekrardı.
+                     * Katalog boşsa ipucu hiç kurulmaz — o zaman alt satır bilgiyi taşıyor.
+                     */
+                    ['t' => $d['kurye'].' kurye hesabı', 'a' => $d['ekKuryeVar'] ? null : 'Ek kurye '.$d['ekKuryeTl'], 'k' => 'kurye'],
                     /*
                      * "Ayda 50 oto-sıralama hakkı" SATIRI DEĞİŞTİ (2026-08-19). Fiyat kartındaki
                      * sekiz satır içinde en anlaşılmazı buydu: "oto-sıralama" bizim iç adımız,
@@ -213,7 +240,9 @@ return function (array $d): array {
                      */
                     ['t' => 'Kuryenin yolunu uygulama sıralasın', 'a' => 'Ayda '.$d['kontor'].' kez'],
                     ['t' => 'Ürün kataloğu ve barkod', 'a' => 'Fotoğraflı, birimli, çok fiyatlı'],
-                    ['t' => 'Telefon + WhatsApp destek', 'a' => 'Hafta içi 09:00–19:00, gerçek insan'],
+                    // Künyede gerçek telefon/WhatsApp numarası olmadığı sürece burada da vaat
+                    // edilmez — destek sayfası o kanalları basmıyor (2026-09-01).
+                    ['t' => 'Gerçek insandan destek', 'a' => 'Hafta içi 09:00–19:00, aynı gün yanıt'],
                 ],
             ],
         ],
@@ -240,9 +269,10 @@ return function (array $d): array {
                 ['Çevrimdışı çalışma', true],
             ]],
             ['g' => 'Destek', 's' => [
-                ['Telefon + WhatsApp', 'Hafta içi 09–19'],
+                ['Destek kanalı', 'E-posta'],
                 ['Yanıt süresi', 'Aynı gün'],
                 ['Kurulum', 'Uzaktan, ücretsiz'],
+                ['Müşteri listesi aktarımı', 'Biz giriyoruz, ücretsiz'],
             ]],
         ],
 
@@ -251,7 +281,10 @@ return function (array $d): array {
             ['ik' => 'para', 't' => 'Havale / EFT', 'a' => 'Banka havalesiyle ödeyin; dekont ulaştığı gün hesabınız açılır. IBAN ve referans kodu ödeme adımında çıkar.'],
             ['ik' => 'elpara', 't' => 'Elden ödeme', 'a' => 'Bölgenizdeyse uğrayıp elden alıyoruz. Makbuzu yerinde veriyoruz, hesap aynı gün açılıyor.'],
             ['ik' => 'kart', 't' => 'Kartla ödeme yakında', 'a' => 'Kredi ve banka kartıyla online ödeme üzerinde çalışıyoruz. Açıldığında panelinizden duyuracağız.'],
-            ['ik' => 'geri', 't' => '14 gün koşulsuz iade', 'a' => 'İlk iki hafta içinde vazgeçerseniz tutarın tamamı iade edilir. Sebep sormuyoruz.'],
+            // "14 gün koşulsuz iade" kartı kaldırıldı (2026-09-01): iade taahhüdü verilmiyor.
+            // Yerine geçen güvence ÖDEMEDEN ÖNCE duruyor — deneme süresi ve otomatik yenilemenin
+            // yokluğu. Bir riski geri ödemeyle değil, hiç aldırmayarak kaldırıyoruz.
+            ['ik' => 'geri', 't' => 'Önce deneyin, sonra ödeyin', 'a' => $d['deneme'].' gün ücretsiz, kart bilgisi istemeden. Otomatik yenileme yok; ödemeyi her dönem siz başlatırsınız.'],
         ],
 
         /*
@@ -295,8 +328,11 @@ return function (array $d): array {
          * tutucu sayar). Yer tutucunun üzerine tel:/mailto: basmak, tıklanınca hiçbir yere gitmeyen
          * bir bağlantı üretirdi.
          *
-         * WhatsApp'ın config karşılığı yok (company bloğunda böyle bir anahtar bulunmuyor), o yüzden
-         * elle yer tutucu — gerçek numara netleşince config'e bir anahtar eklenip buraya bağlanmalı.
+         * ⚠️ WHATSAPP SATIRI KALDIRILDI (2026-09-01). Elle yazılmış "[WhatsApp numarası]" yer
+         * tutucusuydu; `bos()` süzgeci onu HER ZAMAN düşürüyordu, yani listede hiç görünmeyen ama
+         * kodda duran ölü bir satırdı ve "WhatsApp desteği var" izlenimini kod okuyanda bırakıyordu.
+         * Gerçek numara geldiği gün geri gelmesinin yolu config'e bir anahtar eklemekten geçer
+         * (COMPANY_WHATSAPP), yer tutucu satırı canlandırmaktan değil.
          *
          * Tasarımdaki "sırada ortalama 40 saniye" ölçüm iddiası ÇIKARILDI: ürün pilot aşamasında,
          * böyle bir ölçüm yok (SW_KANIT ile aynı gerekçe).
@@ -313,11 +349,6 @@ return function (array $d): array {
                 'deger' => $d['kunye']['phone'] ?? '[Telefon]',
                 'href' => $d['bos']($d['kunye']['phone'] ?? null) ? null : 'tel:'.preg_replace('/\s+/', '', $d['kunye']['phone']),
                 'a' => $d['kunye']['hours'] ?? 'Hafta içi 09:00 – 19:00',
-            ],
-            [
-                'ik' => 'sohbet', 't' => 'WhatsApp', 'dg' => 'Yaz',
-                'deger' => '[WhatsApp numarası]', 'href' => null,
-                'a' => 'Ekran görüntüsü gönderin, birlikte bakalım',
             ],
             [
                 'ik' => 'posta', 't' => 'E-posta', 'dg' => 'Gönder',

@@ -9,11 +9,12 @@
         = (require resource_path('views/site/parca/_kur.php'))($planlar, $ekPaketler);
 @endphp
 
-{{-- Birincil kelime: "arayan tanıma programı" (docs/seo-anahtar-kelimeler.md). Ürünün varlık
-     sebebi ve rakiplerde olmayan tek şey; başlıkta ÖNDE durması bu yüzden. --}}
+{{-- Başlık sadeleşti (2026-09-01, bkz. site/ana.blade.php'deki gerekçe): üç anahtar kelimeyi
+     virgülle dizen bir başlık, sayfanın NE OLDUĞUNU gizliyordu. Kelimeler açıklamada duruyor —
+     orası zaten cümle kurulacak yer. --}}
 <x-layouts.site
-    baslik="Arayan tanıma programı, veresiye defteri ve kurye takibi · Sipario"
-    aciklama="Gelen aramada müşteri kartı ekranda: adı, adresi, borcu, son siparişi. Veresiye defteri, sipariş akışı, kurye ve rota, gün sonu kasa — internet gitse de çalışır.">
+    baslik="Özellikler · Sipario"
+    aciklama="Arayan tanıma, veresiye defteri, sipariş akışı, kurye ve rota, gün sonu kasa. Beş başlıkta ne yaptığı — internet gitse de çalışır.">
     @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
     {{--
         ── İKİ BÖLÜM ÇIKARILDI (2026-08-19) ────────────────────────────────────────────────

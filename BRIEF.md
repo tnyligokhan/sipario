@@ -60,7 +60,15 @@ Türkiye'de eve servis yapan mikro esnaf (ilk hedef: su/damacana bayileri) için
 1. Çok kiracılı sistemde bir bayi başka bayinin verisini ASLA göremez/değiştiremez. İzolasyonu sen tasarla ve otomatik testlerle sürekli kanıtla.
 2. Para ve hareket kayıtları silinmez/ezilmez (append-only mantık); bakiyeler kayıtlardan türetilir.
 3. Uygulama internetsiz TAM çalışır (okuma+yazma); bağlantı gelince otomatik senkronlanır. Beklenen kopukluk süresi kısadır — tipik olarak 10 dakika, azami birkaç saat (asansör, bodrum, sinyal çukuru); istisnaen bir gün. Kullanıcı normalde çevrimiçidir. Yine de kesinti anında hiçbir işlem engellenmez ve hiçbir kayıt kaybolmaz; senkron çakışmaları veri kaybetmeden çözülür.
-4. KVKK: müşteri verisi (ad, telefon, adres, konum) Türkiye'deki sunucuda tutulur; loglara ve crash raporlarına kişisel veri yazılmaz.
+4. KVKK: loglara ve crash raporlarına kişisel veri yazılmaz.
+> **DEĞİŞTİ (2026-09-01 kullanıcı kararı):** bu madde eskiden "müşteri verisi Türkiye'deki sunucuda
+> tutulur" diyordu. Kullanıcı bu şartı kaldırdı (*"Türkiye'de sunucu maliyetleri çok yüksek"*).
+> ⚠️ Şart kaldırılmadan ÖNCE de tutulmuyordu: ölçüldü, sunucu **Hostinger / Frankfurt, Almanya**
+> (`srv1577146.hstgr.cloud`, AS47583) ve site sekiz ayrı yerde aksini söylüyordu. Barındırma artık
+> KVKK m.9 anlamında bir **yurt dışı aktarımdır** ve aydınlatma metninde böyle gösterilir; m.9
+> hukuki dayanağı (standart sözleşme) barındırmayı da kapsamak zorunda — hâlâ açık bir iştir.
+> Maddenin geri kalanı (log/crash'e kişisel veri yazılmaması) aynen kırmızı çizgi olarak durur.
+> Gerekçenin tamamı `DECISIONS.md` 2026-09-01/5.
 5. Veri rehin alınmaz: abonelik bitse ve sistem kilitlense bile bayinin verisi silinmez, sunucuda saklanır, abonelik yenilendiğinde eksiksiz geri gelir; bayi destek kanalıyla her zaman dışa aktarım talep edebilir.
 6. Google Play uyumu: Arayan tanıma **yalnız Android 10+ `CallScreeningService` ile** yapılacak. Manifest'te SMS/Call Log izin grubundan (`READ_CALL_LOG`, `PROCESS_OUTGOING_CALLS`, `READ_PHONE_STATE` vb.) hiçbir izin bulunmayacak — üçüncü parti paketlerin manifest'e eklediklerini de temizle. Sebep: bu izinler Play'in kısıtlı izin beyan formunu tetikler ve red riskini doğurur; Android 10 API'si bu izinler olmadan arayan tanımaya izin verir. Ayrıca Google'ın geliştirici doğrulama zorunluluğu APK ile doğrudan dağıtımı da kapsayacak (2027 küresel) — dağıtım stratejisi buna göre planlanmalı.
 
