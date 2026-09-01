@@ -18,6 +18,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'Sipario Yönetim Paneli' }}</title>
+    <x-favicon />
     <link rel="stylesheet" href="{{ \App\Support\Varlik::url('css/panel.css') }}">
     @livewireStyles
 </head>

@@ -423,8 +423,7 @@ body{font-size:16.5px}
 
 /* ── Marka ── */
 .marka{display:inline-flex;align-items:center;gap:11px}
-.marka-ik{background:var(--mor);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.marka-ad{font:800 21px/1 var(--d);letter-spacing:-.035em;color:var(--murekkep)}
+.marka-logo{display:block;flex-shrink:0}
 
 /* ── Üst menü ── */
 .ust{position:fixed;inset:0 0 auto;z-index:60;background:var(--kagit);border-bottom:1px solid var(--cizgi);transition:background .22s,border-color .22s,box-shadow .22s}
@@ -437,7 +436,6 @@ body{font-size:16.5px}
 .ust-sag{margin-left:auto;display:flex;align-items:center;gap:8px}
 .ust-acar{display:none;margin-left:auto;width:46px;height:46px;align-items:center;justify-content:center;border-radius:var(--rs)}
 body[data-koyu="1"] .ust{background:transparent;border-bottom-color:transparent;color:#F3F0EC}
-body[data-koyu="1"] .ust .marka-ad{color:#F3F0EC}
 body[data-koyu="1"] .ust .ust-l{color:rgba(243,240,236,.7)}
 body[data-koyu="1"] .ust .ust-l:hover,body[data-koyu="1"] .ust .ust-l.on{color:#fff;background:rgba(255,255,255,.09)}
 body[data-koyu="1"] .ust .dg-d{color:rgba(243,240,236,.85)}

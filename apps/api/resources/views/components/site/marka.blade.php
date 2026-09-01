@@ -1,8 +1,11 @@
-{{-- Marka — Sipario logosu (ikon rozeti + wordmark). koyu: koyu zemin üstünde açık metin. --}}
+{{-- Marka — Sipario logosu: S işareti + wordmark, TEK GÖRSEL.
+     `koyu`: koyu zemin varyantı (yazı krem, harflerin içi saydam). Zemin sunucu tarafında
+     belirlenir (`body[data-koyu]`), istemcide dönmez — bu yüzden iki görseli birden basıp
+     CSS ile gizlemeye gerek yok, doğru dosya baştan seçilir. --}}
 @props(['boy' => 34, 'koyu' => false])
 <span class="marka">
-    <span class="marka-ik" style="width:{{ $boy }}px;height:{{ $boy }}px;border-radius:{{ $boy * 0.3 }}px">
-        <x-site.ikon ad="cagri" :boy="$boy * 0.56" kalin="2.3" renk="#fff" />
-    </span>
-    <span class="marka-ad" @if($koyu) style="color:#F3F0EC" @endif>Sipario</span>
+    <img class="marka-logo"
+         src="{{ \App\Support\Varlik::url($koyu ? 'img/sipario-logo-acik.png' : 'img/sipario-logo.png') }}"
+         alt="Sipario"
+         width="{{ (int) round($boy * 697 / 199) }}" height="{{ (int) $boy }}">
 </span>
