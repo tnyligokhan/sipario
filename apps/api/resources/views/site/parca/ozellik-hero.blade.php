@@ -1,32 +1,25 @@
 {{--
-    Özellikler · hero (10-sw-ozellik.jsx · OzellikHero). Deneme süresi PlanDeposu'dan.
+    Özellikler · hero. Sola yaslı, maketsiz.
 
-    İkinci düğme eskiden /fiyatlar'a gidiyordu; tek pakete geçişte o sayfa gösterilmiyor
-    (bkz. site/fiyatlar.blade.php başlığı). Fiyat artık ana sayfadaki `#fiyat` bölümünde.
+    Maket YOK ve bu bilinçli: ekran görüntüsünün yeri ana sayfanın hero'su ve ürün turu. Bu sayfa
+    ne yaptığını anlatır; her bölümün yanına bir telefon çerçevesi koymak aynı nesneyi altı kez
+    göstermekten başka bir şey yapmıyordu.
+
+    Alt şerit, beş alanın çapaları — sayfa uzun, giriş noktası gerekiyor.
 --}}
-<section class="blm ic-hero">
-    <div class="kap ic-hero-ic">
-        <div>
-            {{--
-                GİRİŞ CÜMLESİ DEĞİŞTİ (2026-08-19). Eskisi: "Sipario bir 'sipariş uygulaması'
-                değil. Telefonu açtığınız andan akşam kasayı kapattığınız ana kadar geçen işin
-                tamamı." — kendini bir şeyin OLMADIĞINI söyleyerek tanıtan bir cümleydi. Bu
-                kalıp, okurun aklında olmayan bir karşılaştırmayı önce yaratıp sonra reddediyor;
-                esnaf "sipariş uygulaması" diye bir kategori düşünmüyor ki ondan ayrılalım.
-                Yeni cümle doğrudan sayfanın ne göstereceğini söylüyor.
-
-                Kulak ("Özellikler") kaldırıldı: hemen altındaki H1 ve sekmedeki sayfa adı zaten
-                aynı şeyi söylüyor.
-            --}}
-            <h1 class="h1 ic-h1">Tezgâhın arkasındaki<br>bütün defterler, tek ekranda.</h1>
-            <p class="gvd b ic-lead">Telefon çaldığı andan akşam kasayı kapattığınız ana kadar ne oluyorsa, aşağıda ekran ekran duruyor.</p>
-            <div class="dg-grup" style="margin-top:30px">
-                <a class="dg dg-a" href="{{ route('subscription.register') }}" data-olcum="sipario_deneme_tik" data-olcum-etiket="ozellik-hero">{{ $fiyat['deneme'] }} gün ücretsiz dene<x-site.ikon ad="ok" boy="18" kalin="2.2" /></a>
-                <a class="dg dg-c" href="{{ route('site.ana') }}#fiyat">Fiyata bak</a>
-            </div>
+<section class="blm kisa oz-hero">
+    <div class="kap oz-hero-ic">
+        <span class="blm-kulak mn"><i></i>Özellikler</span>
+        <h1 class="h1">Siparişi alan da, yolu düzenleyen de, defteri tutan da aynı uygulama.</h1>
+        <p class="gvd b oz-hero-alt">Telefon çaldığı andan kasayı kapattığınız ana kadar geçen işin tamamı beş başlıkta.</p>
+        <div class="dg-grup oz-hero-dg">
+            <a class="dg dg-a" href="{{ route('subscription.register') }}" data-olcum="sipario_deneme_tik" data-olcum-etiket="ozellik-hero">{{ $fiyat['deneme'] }} gün ücretsiz dene<x-site.ikon ad="ok" boy="18" kalin="2.2" /></a>
+            <a class="dg dg-c" href="{{ route('site.fiyatlar') }}">Fiyata bak</a>
         </div>
-        <div class="ic-hero-sag">
-            <x-site.telefon ekran="ana" :oran="0.56" />
-        </div>
+        <nav class="oz-capa" aria-label="Sayfa içi bölümler">
+            @foreach ($sw['tur'] as $t)
+                <a href="#{{ $t['k'] }}"><x-site.ikon :ad="$t['ik']" boy="16" kalin="2" />{{ $t['ad'] }}</a>
+            @endforeach
+        </nav>
     </div>
 </section>

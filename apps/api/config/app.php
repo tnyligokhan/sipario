@@ -294,9 +294,37 @@ return [
     | zaten vardı ve giriş uç noktası her zaman serbest bir ad kabul ediyordu.
     | Değişen şey yeni açılan bayinin o alana yazılan DEĞERİdir. Mobil sürüm
     | SABİT kalır (uygulamada tek satır değişmedi).
+    |
+    | ── 1.21.0 (2026-09-01) — GENEL SİTE YENİDEN DÜZENLENDİ ────────────────────
+    | Kullanıcının yedi maddelik geri bildirimi: üst menü ve başlık, tek plan
+    | bölümünün yatay olması, Özellikler sayfasının baştan tasarlanması, verinin
+    | Türkiye'de olmadığının kabulü, iade taahhüdünün kaldırılması, destek
+    | sayfasının kanalsız kurulması, meta başlıkların sadeleştirilmesi.
+    |
+    | NEDEN MINOR VE NEDEN API HATTINDA: mobil istemci sözleşmesinde tek bir alan
+    | değişmedi — mobil sürüm SABİT kalır (uygulamada tek satır değişmedi). Ama
+    | bu vardiya KULLANICIYA GÖRÜNEN yüzeyleri değiştirdi ve o yüzeylerin bir
+    | kısmı SÖZLEŞME METNİDİR: iptal/iade koşulları, aydınlatma metnindeki yurt
+    | dışı aktarım tablosu, ön bilgilendirme formu. Bunlar sürümlenmeden giderse
+    | "hangi bayi hangi metni onayladı" sorusu cevapsız kalır.
+    |
+    | ⚠️ Hukuk belgelerinin KENDİ sürüm anahtarları da ayrıca duruyor
+    | (config/subscription.php · legal) — bu satır uygulamanın sürümüdür,
+    | belgenin değil. İkisi karıştırılmaz.
+    |
+    | ── 1.22.0 (2026-09-01) — ÜRÜN YENİDEN KONUMLANDI ─────────────────────────
+    | Sipario bir "su bayii uygulaması" değil, PAKET SERVİSİ YAPAN KÜÇÜK VE ORTA
+    | İŞLETMELER için bir uygulamadır (kullanıcı kararı). Site metinlerinin
+    | tamamı, ekran maketlerindeki temsili sepet ve hukuk belgelerindeki dil bu
+    | tanıma göre yeniden yazıldı. Ayrıca: Özellikler ve Hakkımızda sayfaları
+    | baştan tasarlandı, menü sırası ve başlık kalıbı değişti.
+    |
+    | NEDEN MINOR: mobil istemci sözleşmesinde alan değişmedi (mobil sürüm SABİT),
+    | ama ürünün KİME satıldığı bir davranış değişikliğinden hafif değildir ve
+    | hukuk metinlerindeki "alıcı" tanımı da bununla birlikte güncellendi.
     */
 
-    'version' => '1.20.1',
+    'version' => '1.22.0',
 
     /*
     |--------------------------------------------------------------------------

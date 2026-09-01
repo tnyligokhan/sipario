@@ -7,7 +7,9 @@
     verir; açıkça true/false geçen sayfa kararı devralır.
 --}}
 @props([
-    'baslik' => 'Sipario — Telefon çaldığında müşteriniz ekranda',
+    // Varsayılan başlık: kendi başlığını geçmeyen sayfalar için (ör. /hesap-silme).
+    // Kalıp bütün sitede aynı: "<Sayfa adı> | Sipario".
+    'baslik' => 'Paket servisi için sipariş, kurye ve veresiye uygulaması | Sipario',
     'aciklama' => null,
     'koyu' => false,
     'oturum' => null,

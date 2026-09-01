@@ -72,6 +72,11 @@ Route::get('sitemap.xml', function () {
     $sayfalar = [
         ['site.ana', 'weekly', '1.0'],
         ['site.ozellikler', 'monthly', '0.9'],
+        // 2026-09-01: /fiyatlar haritaya GERİ KONDU. 2026-08-05'te sayfa `noindex` yapıldığı için
+        // buradan çıkarılmıştı (haritaya koyup indekslememek Google'a çelişkili iki sinyaldir).
+        // Kullanıcı sayfayı menüye geri aldı ve `noindex` kalktı — iki karar tek commit'te
+        // yürümek zorunda, yoksa çelişki ters yönden geri gelir.
+        ['site.fiyatlar', 'monthly', '0.8'],
         ['site.destek', 'monthly', '0.7'],
         ['site.hakkimizda', 'yearly', '0.6'],
         ['site.iletisim', 'monthly', '0.6'],

@@ -48,11 +48,11 @@
     ];
 @endphp
 
-<x-layouts.site :baslik="$title.' · Sipario'" :aciklama="$ozet">
+<x-layouts.site :baslik="$title.' | Sipario'" :aciklama="$ozet">
     @push('bas')
         <link rel="canonical" href="{{ url()->current() }}">
         <meta property="og:type" content="article">
-        <meta property="og:title" content="{{ $title }} · Sipario">
+        <meta property="og:title" content="{{ $title }} | Sipario">
         <meta property="og:description" content="{{ $ozet }}">
         <meta property="og:url" content="{{ url()->current() }}">
         <script type="application/ld+json" nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">

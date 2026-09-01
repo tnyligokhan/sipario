@@ -38,7 +38,7 @@
 <section class="blm tur-blm" x-data="{ sekme: 'cagri' }">
     <div class="kap">
         <x-site.blm-bas baslik="Uygulama böyle görünüyor."
-            aciklama="Üç ekrana bakın; işin çoğu bu üçünde geçiyor." />
+            aciklama="Günün büyük kısmı bu üç ekranda geçiyor." />
 
         {{-- varsayilan, yukarıdaki x-data'nın başlangıç değeriyle AYNI olmalı: ilk boyamada
              (Alpine yüklenmeden) da doğru sekme seçili görünsün. --}}
@@ -70,12 +70,5 @@
             </div>
         </div>
 
-        {{-- Kalan iki ekranı arayan için kapı. Bu bağlantı olmadan "sipariş nasıl giriliyor,
-             kurye nasıl çalışıyor" sorusu ana sayfada cevapsız kalıyordu ve ziyaretçi
-             Özellikler sayfasının orada olduğunu ancak menüden anlıyordu. --}}
-        <p class="kucuk tur-daha">
-            Sipariş girme ve kurye ekranlarını da görmek isterseniz
-            <a href="{{ route('site.ozellikler') }}">özelliklere göz atın</a>.
-        </p>
     </div>
 </section>

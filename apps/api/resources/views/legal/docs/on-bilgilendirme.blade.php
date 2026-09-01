@@ -62,8 +62,8 @@
     <h2 class="h3">6. Cayma hakkı</h2>
     <p class="gvd">Tüketici sıfatıyla alım yapıyorsanız, kural olarak sözleşmenin kurulmasından itibaren 14 gün içinde cayma hakkınız bulunur. Ancak Mesafeli Sözleşmeler Yönetmeliği m.15/1-ğ uyarınca <strong>elektronik ortamda anında ifa edilen hizmetlerde cayma hakkı kullanılamaz.</strong> Sipario ödemenin teyidiyle derhal aktive edildiğinden bu istisna kapsamındadır.</p>
     <p class="gvd">Bu nedenle ödeme adımında, hizmetin derhal ifasına başlanmasını talep ettiğinizi ve bu hâlde cayma hakkınızı kaybedeceğinizi bildiğinizi ayrıca onaylamanız istenir. Onay vermezseniz hizmet aktive edilmez.</p>
-    <p class="gvd"><strong>Buna rağmen:</strong> Satıcı, kanunen zorunlu olmadığı hâlde, aboneliğin başlamasından itibaren 14 gün içinde talep edilmesi hâlinde ödenen bedelin tamamını iade etmeyi taahhüt eder. Ayrıntı için <a href="{{ route('legal.show', 'iptal-iade') }}">İptal, Cayma ve İade Koşulları</a> belgesine bakınız.</p>
-    <p class="gvd">Ticari veya mesleki amaçla alım yapan tacir/esnaf alıcılar bakımından kanundan doğan bir cayma hakkı bulunmaz; yukarıdaki 14 günlük iade taahhüdü onlar için de aynen geçerlidir.</p>
+    <p class="gvd"><strong>Ödenmiş dönem için iade yapılmaz.</strong> Bunun yerine ödemeden önce hizmetin tamamı ücretsiz denenir: {{ (int) config('subscription.trial_days') }} gün boyunca ödeme bilgisi istenmez ve süre sonunda kendiliğinden tahsilat yapılmaz. İadenin yapıldığı hâller (hatalı ya da mükerrer tahsilat, hizmetin tamamen durdurulması, satın alma sırasında var olan bir işlevin kaldırılması) <a href="{{ route('legal.show', 'iptal-iade') }}">İptal, Cayma ve İade Koşulları</a> belgesinde sayılmıştır.</p>
+    <p class="gvd">Ticari veya mesleki amaçla alım yapan tacir/esnaf alıcılar bakımından kanundan doğan bir cayma hakkı bulunmaz; ücretsiz deneme ve iade düzeni onlar için de aynen geçerlidir.</p>
 </div>
 
 <div class="ys-b">
@@ -73,7 +73,7 @@
 
 <div class="ys-b">
     <h2 class="h3">8. Verilerinizin akıbeti</h2>
-    <p class="gvd">Abonelik sona erse veya iptal edilse dahi verileriniz silinmez; Türkiye'deki sunucuda saklanmaya devam eder ve abonelik yenilendiğinde eksiksiz geri gelir. Süre dolduğunda yalnız yeni kayıt girişi (yazma) durur.</p>
+    <p class="gvd">Abonelik sona erse veya iptal edilse dahi verileriniz silinmez; sunucularımızda saklanmaya devam eder ve abonelik yenilendiğinde eksiksiz geri gelir. Süre dolduğunda yalnız yeni kayıt girişi (yazma) durur.</p>
     <p class="gvd">Destek kanalı üzerinden her zaman verilerinizin dışa aktarımını (export) talep edebilirsiniz. Verilerinizin silinmesini istiyorsanız <a href="{{ route('account.deletion') }}">Hesap ve Veri Silme</a> sayfasındaki yolu izleyebilirsiniz.</p>
 </div>
 

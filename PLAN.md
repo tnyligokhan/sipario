@@ -269,7 +269,115 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-31 — **GİRİŞ ADI TÜRETİLİR VE ARTIK GÖRÜNÜR** (API 1.19.1 → **1.20.0**, mobil sabit)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-01/2 — **ÜRÜN YENİDEN KONUMLANDI** (API 1.21.0 → **1.22.0**, mobil sabit)
+
+#### 🔴 EN ÖNEMLİ SATIR: SİPARIO BİR SU BAYİİ UYGULAMASI DEĞİL
+
+Kullanıcı: *"Bu bir su bayisi uygulaması değil. Paket servisi yapan tüm küçük/orta işletmeler
+için geliştirilmiş bir uygulama."* Hedef kitle **restoran, kafe, pastane, fırın, market, manav,
+şarküteri, çiçekçi, su ve tüp bayii** — telefonla sipariş alıp adrese gönderen her işletme.
+
+Hata tek bir cümlede değil DİLİN TAMAMINDAYDI: hero kulağı, sektör şeridi, SSS cevapları, alt
+bilgi sloganı, giriş ekranı, ekran maketlerinin içindeki temsili sepet ("Damacana 19 L ×2") ve
+hukuk belgelerinin "alıcı" tanımı. Kaynağı BRIEF'in "ilk dikey su bayileri" satırıydı — o bir
+PİLOT SIRASI, ürünün tanımı değil; BRIEF de düzeltildi. **Antalya pilotu değişmedi:** pilot bir
+saha testidir, konumlandırma değil.
+
+Kural artık testle kilitli (`SiteIcerikTest::urun_tek_bir_sektorun_uygulamasi_gibi_anlatilmaz`):
+arama sonucunda görünen yüzeyde dar sektör adı geçemez **ve** ana sayfa kapsamı gerçekten
+göstermeli (ikincisi olmadan test, sektör listesini boşaltarak da geçilebilirdi).
+
+#### ⚠️ SIRADAKİ VARDİYA İÇİN BİR CSS TUZAĞI
+
+"Bölüm ortalanmış görünüyor" şikâyetinin sebebi tasarım değildi: `.kap` sınıfı `margin:0 auto`
+taşıyor, dolayısıyla **`.kap` taşıyan bir öğeye `max-width` yazmak bloğu ekranın ortasına alır.**
+Satır uzunluğu sınırı sanılıp yazılan şey, gerçekte bir hizalama değişikliği yapıyor.
+**Kural: genişlik sınırı `.kap`a değil içindeki öğelere verilir.**
+
+#### Diğer beş madde
+
+- **Özellikler:** beş alan artık kaydırdıkça üst üste birikiyor (`position:sticky`, `--i`
+  HTML'den). Üç sessiz şart CSS'te yazılı — opaklık, ata ögede `overflow:hidden` olmaması ve
+  boşluğun `gap` yerine `margin-bottom` ile verilmesi (`gap` ile yığılma hiç başlamaz).
+- **Hakkımızda** baştan yazıldı: hukuk belgesi görünümündeki `.ys-b` blokları gitti, yerine
+  hero → anlatı → söz kartları → künye şeridi → CTA geldi.
+- **Başlık kalıbı** tek: `<Sayfa adı> | Sipario`.
+- **Menü sırası** ziyaretçinin soru sırası oldu: Özellikler → Fiyatlar → Hakkımızda → Destek.
+- **Yönlendirme cümleleri silindi** ("…özelliklere göz atın" gibi metnin kendi yapısını anlatan
+  iç sesler).
+
+**Kapılar:** pint yeşil · phpstan 0 · site testleri 55/55 (553 iddia) · tam API takımı koşuldu.
+
+#### ⏭️ Sıradaki işler
+
+Bir önceki nottaki iki madde aynen duruyor (KVKK m.9 standart sözleşme · destek telefonu).
+Ek olarak: bu iki turun değişiklikleri **gerçek tarayıcıda görülmedi** — eklenti bağlı değildi.
+Deploy sonrası bir kez gözle bakılmalı, özellikle yığılan levhalar ve ipucu kutusu.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-01 — **SİTE YEDİ MADDEDE YENİDEN DÜZENLENDİ** (API 1.20.1 → **1.21.0**, mobil sabit)
+
+> ⚠️ **BU NOT BİR BOŞLUĞUN ÜSTÜNE YAZILIYOR.** PLAN'daki bir önceki devir notu 2026-08-31'e ait,
+> ama `DECISIONS.md` o tarihten sonra dört karar daha taşıyor (2026-09-01/1..4: uygulama ikonu,
+> bildirim ikonu, marka varlıklarının web'e konması, depo kökü + CI temizliği). Yani bu dosyanın
+> devir notu bir vardiya değil BEŞ vardiya geride kalmıştı. Kaynak sırası her zaman olduğu gibi:
+> `git log` > `DECISIONS.md` > `PLAN.md`.
+
+Kullanıcı siteyi gezip yedi madde sıraladı. İkisi tasarım değil **doğruluk** meselesi çıktı ve
+hukuk metinlerine kadar indi. Tam gerekçeler `DECISIONS.md` 2026-09-01/5 kaydında; buradaki özet
+sıradaki vardiyanın bilmesi gerekenler.
+
+#### 🔴 İKİ MADDE TASARIM DEĞİLDİ
+
+**1 · "Veriler Türkiye'de" YANLIŞTI.** Sunucu ölçüldü: `srv1577146.hstgr.cloud` → **Hostinger,
+Frankfurt / Almanya**, AS47583. BRIEF md.4'ün kırmızı çizgisi yalnız kaldırılmadı — **zaten
+tutulmuyordu** ve site sekiz ayrı yerde bunun aksini söylüyordu. En ağır sonucu pazarlama değil
+hukuk: barındırmanın kendisi KVKK m.9 anlamında yurt dışı aktarımdır ve aydınlatma metninin
+aktarım tablosunda "Türkiye" yazıyordu. Sekiz yüzey de düzeltildi, bir test hepsini tek desenle
+tarıyor. ⚠️ **AÇIK KALAN İŞ SENDE:** m.9 dayanağı (standart sözleşme) artık barındırmayı da
+kapsamak zorunda ve hâlâ yer tutucu — `x-legal.deger` ile sarı işaretli, belgede görünüyor.
+
+**2 · İade taahhüdü kaldırıldı, belge kaldı.** *"İptal ve iade diye bir şey yok zaten 30 günlük
+deneme süresi var."* İki gönüllü taahhüt (14 gün koşulsuz tam iade · sonrasında oransal iade)
+geri alındı. Belge silinmedi: MSY m.5 iptal/iade koşullarının ilanını zorunlu tutar, "iade yok"
+da bir koşuldur. **İadenin kalkmadığı üç hâl bilerek duruyor** ve üçü de bizden kaynaklanır:
+hatalı/mükerrer tahsilat, hizmetin durdurulması, satın alınan bir işlevin kaldırılması.
+
+#### Tasarım tarafı
+
+- **Menü** dört gerçek sayfaya çıktı (Özellikler · Fiyatlar · Destek · Hakkımızda). Asıl arıza
+  kısalık değil, çok sayfalı bir sitenin tek sayfa gibi davranmasıydı: "Fiyat" bağlantısı
+  `/fiyatlar`a değil `/#fiyat` çapasına gidiyordu. `/fiyatlar` üç yerde birden geri açıldı
+  (robots · site haritası · alt bilgi) — üçü tek commit'te, biri unutulursa Google'a çelişkili
+  sinyal gider. Başlık üç bölgeye ayrıldı, menü ortalandı, etkin sayfa işareti alt çizgi oldu.
+- **Tek plan yatay levha oldu** (`x-site.plan-yatay`, ana sayfa + /fiyatlar ortak). Ek kurye notu
+  bölüm altındaki mor kutudan çıkıp "N kurye hesabı" satırının **ipucusuna** gömüldü — saf CSS,
+  `<button>` tetikleyici (dokunmatikte `:hover` yok).
+- **Özellikler sayfası baştan kuruldu:** altı telefon maketi ve dönüşümlü yerleşim gitti, yerine
+  beş levhalık tek sütun geldi. Ana sayfanın hero maketi DURUYOR (test ayrıca kilitliyor).
+- **Destek sayfası kanalsız kuruldu** (kullanıcı kararı: numara uydurma). Sabit üçlü ızgara yerine
+  satır yığını + taahhüt bloğu. Numara `COMPANY_PHONE`a girdiği gün kanal kendiliğinden döner.
+- **Meta başlıklar** anahtar kelime listesi olmaktan çıkıp cümleye döndü.
+
+#### Kapılar
+
+pint yeşil · phpstan **0** · site/gezinme/SEO/hukuk dörtlüsü **40/40** (444 iddia) · tam API takımı
+koşuldu. Hukuk belgelerinin dört sürüm anahtarı 2026-08-19 → **2026-09-01** (onay kayıtları sürüm
+anahtarını saklar; artırmamak, bayinin onayladığı metinle yayındakini ayrıştırırdı).
+
+#### ⏭️ Sıradaki işler
+
+1. **Yurt dışı aktarım için standart sözleşme** (KVKK m.9) — barındırma dahil. Yer tutucu belgede
+   sarı işaretli duruyor, insan işidir.
+2. **Destek telefonu / WhatsApp numarası.** `COMPANY_PHONE` ve (eklenecek) `COMPANY_WHATSAPP`
+   girildiği gün destek sayfası, SSS'in "sonuç yok" kartı ve iletişim sayfası kendiliğinden
+   canlanır — kodda yapılacak bir şey yok.
+3. Aşağıdaki `## 🔴 SIRADAKİ İŞLER — TEK LİSTE` bölümü değişmedi.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-31 — **GİRİŞ ADI TÜRETİLİR VE ARTIK GÖRÜNÜR** (API 1.19.1 → **1.20.0**, mobil sabit)
 
 Kullanıcı sordu: *"Yönetim panelinden kullanıcı eklediğimizde kullanıcı adı ne oluyor?"* — cevap
 **sabit `patron`**du. Ardından kararı verdi: *"Kullanıcı adı girdiği bilgiler ile üretilsin ve bu

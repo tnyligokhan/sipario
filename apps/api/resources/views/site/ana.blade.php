@@ -17,19 +17,13 @@
 @endphp
 
 {{--
-    ── BAŞLIK ANAHTAR KELİMEYE GÖRE YENİDEN YAZILDI (2026-08-19) ───────────────────────────
-    Eski başlık "Sipario — Telefon çaldığında müşteriniz ekranda" idi: markayı ve vaadi güzel
-    anlatıyordu ama İÇİNDE HİÇBİR ARAMA TERİMİ YOKTU. Kimse "telefon çaldığında müşterim
-    ekranda" diye aramaz; "su bayii programı" diye arar. Marka çağrışımı hero başlığında ve
-    alt bilgide zaten yaşıyor — <title> etiketinin işi çağrışım değil, EŞLEŞMEDİR.
-
-    Birincil kelime `su bayii programı` (bkz. docs/seo-anahtar-kelimeler.md): ilk dikey su
-    bayileri ve bu, en dar/en niyetli arama. "Esnaf" ikincil olarak aynı başlıkta duruyor
-    çünkü ürün sektör-bağımsız kurgulandı ve tüpçü/manav da hedefte.
+    BAŞLIK KALIBI — bütün site aynı: "<Sayfa adı> | Sipario". Ana sayfada sayfa adının yerini
+    ürünün tek cümlelik tanımı alır. Başlık bir anahtar kelime listesi DEĞİLDİR: insan gözü arama
+    sonucunda virgülle dizilmiş kelimeleri okumaz, tarar ve geçer.
 --}}
 <x-layouts.site koyu
-    baslik="Su bayii ve esnaf programı: sipariş, veresiye, kurye · Sipario"
-    :aciklama="'Telefon çaldığında müşteriniz ekranda: kim aradı, nerede oturuyor, ne kadar borcu var. Su bayii ve esnaf için sipariş, veresiye defteri ve kurye takibi — internetsiz de çalışır. '.$fiyat['deneme'].' gün ücretsiz.'">
+    baslik="Paket servisi için sipariş, kurye ve veresiye uygulaması | Sipario"
+    :aciklama="'Telefon çaldığında müşteriniz ekranda: kim aradı, nerede oturuyor, ne kadar borcu var. Restoran, market, pastane ve bayiler için sipariş, kurye takibi ve veresiye defteri — internet gitse de çalışır. '.$fiyat['deneme'].' gün ücretsiz.'">
     @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
     {{--
         ── SAYFA SIRASI, ZİYARETÇİNİN SORU SIRASIDIR (2026-08-19) ──────────────────────────

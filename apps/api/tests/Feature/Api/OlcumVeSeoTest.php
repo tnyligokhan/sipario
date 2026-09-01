@@ -189,7 +189,9 @@ class OlcumVeSeoTest extends TestCase
     #[Test]
     public function genel_sayfalar_dizine_acik_ve_kanoniktir(): void
     {
-        foreach (['/', '/ozellikler', '/destek', '/iletisim'] as $adres) {
+        // /fiyatlar ve /hakkimizda 2026-09-01'de listeye eklendi: ikisi de artık üst menüde
+        // (kullanıcı kararı). Menüde duran bir sayfanın dizine kapalı olması çelişkidir.
+        foreach (['/', '/ozellikler', '/fiyatlar', '/destek', '/hakkimizda', '/iletisim'] as $adres) {
             $govde = $this->get($adres)->assertOk()->getContent();
 
             $this->assertStringContainsString('content="index,follow', $govde, $adres.' dizine kapalı.');
@@ -200,11 +202,21 @@ class OlcumVeSeoTest extends TestCase
     }
 
     #[Test]
-    public function gizlenen_fiyat_sayfasi_dizine_kapali_kalir(): void
+    public function fiyat_sayfasi_dizine_acik_ve_haritada(): void
     {
-        // 2026-08-05 kararı: /fiyatlar rotası duruyor ama `noindex`. Layout'a `dizine` prop'u
-        // eklenirken bu kararın kazara geri alınmadığını kilitler.
-        $this->get('/fiyatlar')->assertOk()->assertSee('content="noindex,follow', false);
+        /*
+         * ⚠️ 2026-09-01'DE TERS ÇEVRİLDİ. Bu test 2026-08-05'te `noindex`i kilitliyordu;
+         * kullanıcı sayfayı menüye geri aldı. Kilitlenen şey artık bir BAYRAK değil bir
+         * TUTARLILIK: menüde duran sayfa dizine açık olmalı VE site haritasında bulunmalı.
+         * Üçünden biri geri alınırsa (menü · robots · harita) test kırılır — 2026-08-05'te
+         * tam olarak böyle bir yarım uygulama olmuştu.
+         */
+        $this->get('/fiyatlar')
+            ->assertOk()
+            ->assertSee('content="index,follow', false)
+            ->assertDontSee('content="noindex', false);
+
+        $this->assertStringContainsString(route('site.fiyatlar'), $this->get('/sitemap.xml')->assertOk()->getContent());
     }
 
     #[Test]
@@ -219,10 +231,25 @@ class OlcumVeSeoTest extends TestCase
         $this->assertTrue($belge->loadXML($xml), 'Site haritası geçerli XML değil.');
 
         /*
-         * `/fiyatlar` haritada OLMAMALI: sayfa `noindex` taşıyor ve aynı adresi haritaya koymak
-         * Google'a çelişkili iki sinyal göndermektir ("bunu indeksle" + "bunu indeksleme").
+         * KURAL: haritadaki hiçbir adres `noindex` OLMAMALI — aynı adresi haritaya koyup
+         * indekslememek Google'a çelişkili iki sinyal göndermektir.
+         *
+         * ⚠️ Eskiden burada `/fiyatlar` adresinin haritada OLMADIĞI iddia ediliyordu; sayfa
+         * 2026-09-01'de dizine açıldığı için o iddia artık yanlış olurdu. Yerine kuralın
+         * KENDİSİ ölçülüyor: haritadaki her site sayfası gerçekten dizine açık mı. Bu, bir
+         * sonraki `noindex` kararında adres adı ezberlemeden kendiliğinden çalışır.
          */
-        $this->assertStringNotContainsString(route('site.fiyatlar'), $xml);
+        preg_match_all('/<loc>([^<]+)<\/loc>/', $xml, $m);
+        $this->assertNotEmpty($m[1]);
+
+        foreach ($m[1] as $adres) {
+            $yol = (string) parse_url($adres, PHP_URL_PATH);
+            $this->assertStringNotContainsString(
+                'content="noindex',
+                $this->get($yol)->getContent(),
+                "Site haritasındaki adres `noindex` taşıyor: {$adres}"
+            );
+        }
 
         // Hukuk belgeleri haritadan gelir; yeni belge eklendiğinde elle güncelleme gerekmemeli.
         foreach (array_keys((array) config('subscription.legal_docs')) as $slug) {

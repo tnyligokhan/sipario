@@ -29,15 +29,21 @@
         <div class="kimlik-govde">
             <p class="h2 kimlik-soz">Telefon çaldığında müşteriniz ekranda: adı, adresi, borcu ve en son ne aldığı.</p>
             <div class="kimlik-kim">
-                <span class="kucuk">Bayiler ve esnaf için sipariş, veresiye ve kurye defteri.</span>
+                <span class="kucuk">Paket servisi yapan işletmeler için sipariş, kurye ve veresiye defteri.</span>
             </div>
         </div>
         <div class="kimlik-alt">
             {{-- Üçü de doğrulanabilir ve bizim elimizde: kart istemiyoruz (ödeme akışı
-                 havale/elden), veri Türkiye'de saklanıyor (kırmızı çizgi), otomatik yenileme
-                 yok (sözleşmede yazılı). Uydurma bir orana benzemesinler diye yüzde/adet
-                 biçiminde DEĞİL, düz ifade olarak yazıldılar. --}}
-            @foreach ([['Kart yok', 'denemede istemiyoruz'], ['Türkiye', 'veriler burada durur'], ['Taahhüt yok', 'istediğinizde bırakın']] as [$v, $b])
+                 havale/elden), veri silinmiyor (sözleşmede yazılı), otomatik yenileme yok
+                 (sözleşmede yazılı). Uydurma bir orana benzemesinler diye yüzde/adet
+                 biçiminde DEĞİL, düz ifade olarak yazıldılar.
+
+                 ⚠️ ORTADAKİ KUTU DEĞİŞTİ (2026-09-01): "Türkiye / veriler burada durur"
+                 yazıyordu ve YANLIŞTI — sunucu Hostinger'da, Frankfurt'ta (ölçüldü). Yerine
+                 aynı korkuya cevap veren ama doğru olan bir söz kondu: veri silinmiyor.
+                 Barındırmanın nerede olduğu bir giriş ekranı rozetine sığmaz; yeri hukuk
+                 metinleri ve Hakkımızda sayfası. --}}
+            @foreach ([['Kart yok', 'denemede istemiyoruz'], ['Veri silinmez', 'abonelik bitse de durur'], ['Taahhüt yok', 'istediğinizde bırakın']] as [$v, $b])
                 <div class="kimlik-k">
                     <b>{{ $v }}</b><span class="mn k">{{ $b }}</span>
                 </div>

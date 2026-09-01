@@ -30,7 +30,7 @@
     <p class="gvd">Bu ayrım önemlidir, çünkü yanlış muhataba yapılan başvuru sizi zaman kaybettirir.</p>
     <ul class="ys-liste">
         <li><b>Sipario'ya abone bir işletme veya çalışanıysanız</b> ve <em>kendi</em> hesap verileriniz hakkında talepte bulunuyorsanız, doğru muhatap <strong>Sipario'dur</strong>. Aşağıdaki yolu izleyin.</li>
-        <li><b>Sipario kullanan bir işletmenin müşterisiyseniz</b> (ör. su siparişi verdiğiniz bayi sizi sisteme kaydetmişse), o veriler bakımından veri sorumlusu <strong>bayinin kendisidir</strong>, Sipario değil. Talebinizi doğrudan o işletmeye iletmelisiniz. Sipario, o işletmenin talimatıyla çalışan "veri işleyen"dir ve verinizi kendi kararıyla silemez veya paylaşamaz.</li>
+        <li><b>Sipario kullanan bir işletmenin müşterisiyseniz</b> (ör. sipariş verdiğiniz işletme sizi sisteme kaydetmişse), o veriler bakımından veri sorumlusu <strong>o işletmenin kendisidir</strong>, Sipario değil. Talebinizi doğrudan o işletmeye iletmelisiniz. Sipario, o işletmenin talimatıyla çalışan "veri işleyen"dir ve verinizi kendi kararıyla silemez veya paylaşamaz.</li>
     </ul>
     <p class="gvd">İkinci gruptaysanız ve işletmeye ulaşamıyorsanız yine de bize yazabilirsiniz: talebinizi ilgili işletmeye yönlendirir ve size bilgi veririz.</p>
 </div>

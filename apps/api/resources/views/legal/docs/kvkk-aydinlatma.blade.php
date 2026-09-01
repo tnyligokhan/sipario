@@ -22,9 +22,16 @@
        Yandex/Google'a yolluyor (config/geocoding.php), rota sıralaması koordinatları Google
        Routes'a yolluyor (config/rota.php), anlık bildirim cihaz jetonunu Google FCM'e yolluyor
        (app/Bildirim/FcmIstemcisi.php) ve bu vardiyada siteye Google Analytics eklendi.
-       SAKLAMA Türkiye'dedir — bu doğru ve kırmızı çizgi olarak duruyor — ama saklama ile
-       aktarım aynı şey değildir. Metin artık her çıkışı tek tek sayıyor ve ne gitmediğini de
-       yazıyor (ad, telefon, tutar hiçbir çağrıda yok — ölçüldü).
+       Metin artık her çıkışı tek tek sayıyor ve ne gitmediğini de yazıyor (ad, telefon, tutar
+       hiçbir çağrıda yok — ölçüldü).
+
+       ⚠️ 2026-09-01 DÜZELTMESİ — BARINDIRMANIN KENDİSİ DE YURT DIŞI AKTARIMDIR. Yukarıdaki
+       notta "SAKLAMA Türkiye'dedir, bu doğru ve kırmızı çizgi" yazıyordu; ölçüldü ve YANLIŞ
+       çıktı: sunucu Hostinger'ın Frankfurt veri merkezinde (`srv1577146.hstgr.cloud`, AS47583).
+       Yani belgenin en can alıcı cümlesi, düzeltmek için yazıldığı hatanın aynısını taşıyordu.
+       Kullanıcı Türkiye'de barındırma şartını kaldırdı (gerekçe: maliyet). Aktarım tablosundaki
+       barındırma satırı ve "açık söz" paragrafı buna göre düzeltildi. Hukuki dayanak (m.9
+       standart sözleşme) artık BARINDIRMAYI DA kapsamak zorunda — yer tutucu bunu söylüyor.
 
     3) SAKLAMA SÜRELERİ SAYIYA BAĞLANDI. "İlgili mevzuattaki zamanaşımı süreleri" cümlesi
        hiçbir soruyu cevaplamıyordu. Süreler artık kanun maddesine bağlı olarak yazılı.
@@ -128,10 +135,10 @@
             </thead>
             <tbody>
                 <tr>
-                    <td>Barındırma (hosting) sağlayıcısı</td>
-                    <td>Sunucuda saklanan tüm veri (şifreli disk üzerinde)</td>
+                    <td>Barındırma (hosting) sağlayıcısı — Hostinger International Ltd.</td>
+                    <td>Sunucuda saklanan tüm veri</td>
                     <td>Uygulamanın çalışması</td>
-                    <td><b>Türkiye</b></td>
+                    <td><b>Almanya (Frankfurt) — yurt dışı</b></td>
                 </tr>
                 <tr>
                     <td>E-posta gönderim sağlayıcısı</td>
@@ -180,8 +187,9 @@
     </div>
 
     <h3 class="h4">Yurt dışına aktarım hakkında açık söz</h3>
-    <p class="gvd"><strong>Verileriniz Türkiye'deki sunucuda saklanır.</strong> Bu bir tercihe değil, ürünün kırmızı çizgisine dayanır ve değişmeyecektir. Ancak "saklama" ile "aktarım" farklı şeylerdir: yukarıdaki tabloda görüldüğü gibi bazı işlevler, çalışabilmek için yurt dışındaki servislere sınırlı veri gönderir. Bu çağrılarda gönderilen veri, işlevin çalışması için gereken en az veriyle sınırlı tutulmuştur — adres metni gider, o adresin kime ait olduğu gitmez.</p>
-    <p class="gvd">Yurt dışına aktarımlar KVKK m.9 kapsamında değerlendirilir. Bu aktarımların hukuki dayanağının (yeterlilik kararı, standart sözleşme veya taahhütname) tamamlanması <x-legal.deger ad="yurt dışı aktarım hukuki dayanağı — standart sözleşme imzalanacak ve KVK Kurulu'na 5 iş günü içinde bildirilecek" /> ile sağlanacaktır.</p>
+    <p class="gvd"><strong>Verileriniz Almanya'da (Frankfurt) bulunan sunucularda saklanır.</strong> Barındırma hizmeti Hostinger International Ltd. tarafından, Avrupa Birliği veri koruma rejiminin geçerli olduğu bir veri merkezinde verilir. Bu, KVKK anlamında bir <strong>yurt dışına aktarımdır</strong> ve yukarıdaki tabloda böyle gösterilmiştir.</p>
+    <p class="gvd">Barındırmanın yanı sıra bazı işlevler de çalışabilmek için yurt dışındaki servislere sınırlı veri gönderir. Bu çağrılarda gönderilen veri, işlevin çalışması için gereken en az veriyle sınırlı tutulmuştur — adres metni gider, o adresin kime ait olduğu gitmez.</p>
+    <p class="gvd">Yurt dışına aktarımlar KVKK m.9 kapsamında değerlendirilir. Bu aktarımların hukuki dayanağının (yeterlilik kararı, standart sözleşme veya taahhütname) tamamlanması <x-legal.deger ad="yurt dışı aktarım hukuki dayanağı — barındırma dahil tüm aktarımlar için standart sözleşme imzalanacak ve KVK Kurulu'na 5 iş günü içinde bildirilecek" /> ile sağlanacaktır.</p>
     <p class="gvd"><strong>Bu işlevleri kullanmak zorunda değilsiniz.</strong> Adres arama ve rota sıralama isteğe bağlıdır; kullanmadığınızda hiçbir veri yurt dışına çıkmaz. Analitik çerezler için ise çerez izniniz alınmadan hiçbir veri gönderilmez.</p>
 </div>
 

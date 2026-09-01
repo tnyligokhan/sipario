@@ -22,21 +22,14 @@
     $urun = [
         ['Özellikler', 'site.ozellikler', ''],
         /*
-         * FİYAT BAĞLANTISI /fiyatlar'a DEĞİL, ana sayfanın fiyat özetine gider (2026-08-05,
-         * `fiyat` ajanıyla teyitleşilerek). Önce alt bilgide /fiyatlar'ı bırakmıştım; ajanın
-         * ölçümü kararı değiştirdi: sayfa `noindex` ile arama motorlarına kapatıldı, ana
-         * sayfadaki "Paketleri karşılaştır" kaldırıldı ve "Fiyatlara bak" düğmesi de bu çapaya
-         * çevrildi. Yani alt bilgi, kullanıcının "göstermeyelim" dediği sayfaya işaret eden TEK
-         * yer olarak kalıyordu — kararın her yerde uygulanıp yalnız burada delinmesi olurdu.
-         *
-         * Fiyat bilgisi KAYBOLMUYOR: `#fiyat` çapası ana sayfanın fiyat özeti bölümüdür
-         * (site/parca/ana-fiyat-ozet.blade.php, `id="fiyat"` — ölçüldü). Yani bağlantı gerçek
-         * fiyatın göründüğü yere iniyor. `/fiyatlar` rotası ve sayfası DURUYOR; birebir satışta
-         * adresi doğrudan paylaşılabilir, sadece siteden kendini göstermiyor.
+         * ⚠️ FİYAT BAĞLANTISI SAYFAYA GERİ DÖNDÜ (2026-09-01, kullanıcı kararı). 2026-08-05'te
+         * bu satır ana sayfanın `#fiyat` ÇAPASINA bağlanmıştı, çünkü o gün /fiyatlar menüden
+         * çıkarılıp `noindex` yapılmıştı. Kullanıcı bu düzeni reddetti ("onepage bir tasarım
+         * değil zaten bu"): sitenin kendi sayfası varken bağlantının sayfanın ortasına inmesi,
+         * çok sayfalı bir siteyi tek sayfa gibi davranmaya zorluyordu. Sayfa artık menüde,
+         * dizine açık ve site haritasında — alt bilgi de aynı yere gidiyor.
          */
-        // "Fiyatlandırma" → "Fiyat": aynı yere gidiyor, iki hece kısa ve daha sık kullanılan
-        // kelime. Alt bilgi sütunları tarama içindir; uzun kelime taramayı yavaşlatır.
-        ['Fiyat', 'site.ana', '#fiyat'],
+        ['Fiyatlar', 'site.fiyatlar', ''],
     ];
     $destek = [
         // Tek satır: /destek sayfası zaten "Destek ve sık sorulan sorular" — kanallar ve SSS aynı
@@ -47,7 +40,9 @@
         // 2026-08-19: "Biz kimiz" sayfası. Alt bilgideki yeri bilinçli — üst menüye koymak
         // menüyü şişirirdi (menü keşif aracıdır, site haritası değil; 2026-08-05 kararı), ama
         // "bunlar kim" sorusu para ödemeden önce sorulan bir sorudur ve bir yerden erişilmeli.
-        ['Biz kimiz', 'site.hakkimizda'],
+        // Etiket "Biz kimiz" → "Hakkımızda" (2026-09-01): sayfa artık üst menüde de var ve orada
+        // "Hakkımızda" yazıyor. Aynı sayfaya iki ad vermek, ikisini iki sayfa sanmaya yol açar.
+        ['Hakkımızda', 'site.hakkimizda'],
     ];
     // Üçüncü öge route parametresidir (yoksa boş dizi) — `Hesap` sütununda sekme anahtarı taşır.
     $hesap = $oturum
@@ -112,7 +107,7 @@
         <div class="alt-ust">
             <div class="alt-marka">
                 <x-site.marka boy="38" koyu />
-                <p class="alt-slogan">Telefon çaldığında müşteriniz ekranda. Bayiler ve esnaf için sipariş, veresiye ve kurye defteri.</p>
+                <p class="alt-slogan">Telefon çaldığında müşteriniz ekranda. Paket servisi yapan işletmeler için sipariş, kurye ve veresiye defteri.</p>
                 {{--
                     "Tüm sistemler çalışıyor" ROZETİ KALDIRILDI (2026-08-19). İki sebep:
 
@@ -125,11 +120,17 @@
                        demeye devam ederdi. Gerçek bir durum sayfası olmadan bu rozet bir ölçüm
                        değil, bir dekordur.
 
-                    "Veriler Türkiye'de" DURUYOR: doğrulanabilir bir olgu ve esnafın gerçekten
-                    önemsediği bir şey.
+                    ⚠️ "Veriler Türkiye'de" ROZETİ DE KALDIRILDI (2026-09-01). O gün "doğrulanabilir
+                    bir olgu" diye yazılmıştı; doğrulandı ve YANLIŞ çıktı — sunucu Hostinger'da,
+                    Frankfurt'ta. Kullanıcı Türkiye'de barındırma şartını kaldırdı (maliyet).
+                    Yerine ülke adı yazan yeni bir rozet KONMADI: bir rozet slogandır, "Almanya'da"
+                    yazan bir slogan bu sitede kimseye bir şey satmaz. Barındırmanın nerede olduğu
+                    bir dipnot değil, bir olgu — yeri Aydınlatma Metni, Gizlilik Politikası,
+                    Hakkımızda sayfası ve destek SSS'i; dördünde de yazılı.
                 --}}
                 <div class="alt-rzt">
-                    <x-site.rozet tur="notr">Veriler Türkiye'de</x-site.rozet>
+                    <x-site.rozet tur="notr">KVKK uyumlu</x-site.rozet>
+                    <x-site.rozet tur="notr">İnternetsiz çalışır</x-site.rozet>
                 </div>
             </div>
             <div class="alt-baglanti">

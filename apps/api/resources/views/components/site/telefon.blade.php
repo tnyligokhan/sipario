@@ -7,7 +7,7 @@
     cagri (bool): true ise seçili ekranın ÜSTÜNE gelen çağrı kartı biner (kaynaktaki gibi bağımsız).
 --}}
 @props(['ekran' => 'ana', 'oran' => 0.72, 'cagri' => false, 'bildirim' => null,
-    'ciro' => '12.480', 'acik' => 7, 'isletme' => 'Merkez Su Bayii'])
+    'ciro' => '12.480', 'acik' => 7, 'isletme' => 'Merkez Şube'])
 @php
     $nav = [['k' => 'ana', 'ik' => 'ev', 'ad' => 'Ana'], ['k' => 'mus', 'ik' => 'musteriler', 'ad' => 'Müşteri'],
         ['k' => 'sip', 'ik' => 'liste', 'ad' => 'Sipariş'], ['k' => 'urn', 'ik' => 'kutu', 'ad' => 'Ürün']];
@@ -39,7 +39,7 @@
                             </div>
                             <div class="t-bas">Defter</div>
                             <div class="t-defter">
-                                @foreach ([['borc','Damacana 19 L ×2','Bugün 10:24','+90,00 ₺','veresiye'],['odeme','Tahsilat · nakit','Dün 18:02','−250,00 ₺',null],['borc','Paket Su ×3 koli','12 Tem 09:15','+270,00 ₺','veresiye'],['borc','Kuruyemiş 1 kg','8 Tem 16:40','+320,00 ₺','veresiye']] as [$tur, $ad, $tar, $tut, $etk])
+                                @foreach ([['borc','Karışık pide ×2 · ayran ×2','Bugün 12:24','+430,00 ₺','veresiye'],['odeme','Tahsilat · nakit','Dün 18:02','−250,00 ₺',null],['borc','Kahvaltı tabağı ×3','12 Tem 09:15','+780,00 ₺','veresiye'],['borc','Öğle menüsü ×2','8 Tem 13:40','+320,00 ₺','veresiye']] as [$tur, $ad, $tar, $tut, $etk])
                                     <div class="t-dh">
                                         <span class="t-dh-ic" style="background:{{ $tur === 'odeme' ? '#E3F4EC' : '#FCE9EA' }}"><x-site.ikon :ad="$tur === 'odeme' ? 'okYukari' : 'ok'" boy="14" kalin="2.4" :renk="$tur === 'odeme' ? '#1E9E6A' : '#DF3F45'" /></span>
                                         <span class="t-dh-m"><b>{{ $ad }}@if($etk)<em>{{ $etk }}</em>@endif</b><small>{{ $tar }}</small></span>
@@ -62,7 +62,7 @@
                         <div class="t-seg">@foreach (['Açık','Teslim','İptal'] as $i => $x)<button type="button" class="t-seg-b @if($i === 0) on @endif">{{ $x }}</button>@endforeach</div>
                         <div class="t-govde">
                             <div class="t-sliste">
-                                @foreach ([['k'=>'#1043','ad'=>'Ahmet Yılmaz','s'=>'10:24','u'=>['Damacana 19 L ×2'],'adr'=>'Şirinyalı Mah. 42. Sk. No:9','kur'=>'Kurye 1','tut'=>'90,00 ₺','not'=>'Zil çalışmıyor'],['k'=>'#1042','ad'=>'Hatice Demir','s'=>'10:02','u'=>['Paket Su 0.5L ×1 koli','Merdiven çıkışı'],'adr'=>'Meltem Mah. 3. Cd. No:14/B','kur'=>'Ben','tut'=>'110,00 ₺','not'=>null]] as $s)
+                                @foreach ([['k'=>'#1043','ad'=>'Ahmet Yılmaz','s'=>'10:24','u'=>['Karışık pide ×2 · ayran ×2'],'adr'=>'Şirinyalı Mah. 42. Sk. No:9','kur'=>'Kurye 1','tut'=>'90,00 ₺','not'=>'Zil çalışmıyor'],['k'=>'#1042','ad'=>'Hatice Demir','s'=>'10:02','u'=>['Öğle menüsü ×3','Çatal-bıçak koysun'],'adr'=>'Meltem Mah. 3. Cd. No:14/B','kur'=>'Ben','tut'=>'110,00 ₺','not'=>null]] as $s)
                                     <div class="t-srow">
                                         <div class="t-srow-h"><span class="t-srow-k">{{ $s['k'] }}</span><span class="t-srow-n">{{ $s['ad'] }}</span><span class="t-srow-s"><x-site.ikon ad="saat" boy="12" kalin="2.1" renk="#8B8794" />{{ $s['s'] }}</span></div>
                                         <div class="t-srow-u">@foreach($s['u'] as $u)<span><i></i>{{ $u }}</span>@endforeach</div>
@@ -174,7 +174,7 @@
                             </button>
                             <div class="t-bas">Son hareketler</div>
                             <div class="t-akt">
-                                @foreach ([['Selin Kaya','Kasa Domates ×1 · kart','160,00 ₺'],['Tezgâh Satışı','Kuruyemiş 1 kg · nakit','320,00 ₺'],['Murat Öz','Damacana ×1 · nakit','45,00 ₺']] as [$ad, $ay, $tut])
+                                @foreach ([['Selin Kaya','Öğle menüsü ×2 · kart','360,00 ₺'],['Tezgâh Satışı','Paket sipariş · nakit','320,00 ₺'],['Murat Öz','Tatlı tabağı ×1 · nakit','145,00 ₺']] as [$ad, $ay, $tut])
                                     <div class="t-akt-r"><span class="t-akt-ic"><x-site.ikon ad="onay" boy="14" kalin="2.8" renk="#1E9E6A" /></span><span class="t-akt-m"><b>{{ $ad }}</b><small>{{ $ay }}</small></span><span class="t-akt-t tab">{{ $tut }}</span></div>
                                 @endforeach
                             </div>
@@ -198,7 +198,7 @@
                         <div class="t-cagri-bal"><span>AÇIK BORÇ</span><b class="tab">8.550,00 ₺</b></div>
                         <div class="t-cagri-bilgi">
                             <div class="t-cagri-b"><x-site.ikon ad="konum" boy="15" kalin="2" renk="#47434F" /><span>Şirinyalı Mah. 42. Sk. No:9 · Muratpaşa</span></div>
-                            <div class="t-cagri-b"><x-site.ikon ad="geri" boy="15" kalin="2" renk="#47434F" /><span>Son sipariş: Damacana 19 L ×2 · dün 10:24</span></div>
+                            <div class="t-cagri-b"><x-site.ikon ad="geri" boy="15" kalin="2" renk="#47434F" /><span>Son sipariş: Karışık pide ×2 · dün 12:24</span></div>
                             <div class="t-cagri-b uy"><x-site.ikon ad="uyari" boy="15" kalin="2.2" renk="#C08415" /><span>Zil çalışmıyor — arayın</span></div>
                         </div>
                         <div class="t-cagri-akt">

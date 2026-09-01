@@ -44,13 +44,28 @@ return [
      * sürüm ilerletilir. Yazım düzeltmesi sürümü değiştirmez — değiştirirse her tipo, sahadaki
      * her bayinin onayını "eski sürüme verilmiş" hâle getirir.
      */
+    /*
+     * ── DÖRT SÜRÜM DE 2026-09-01'E ÇIKTI ────────────────────────────────────────────────
+     * Bu vardiyada belgelerin ESASA İLİŞKİN hükümleri değişti; sürüm artırmamak, bayinin
+     * onayladığı metinle yayında duran metnin farklı olması demekti (onay kayıtları sürüm
+     * anahtarını saklıyor — hangi bayinin neyi kabul ettiği ancak bu numaradan okunur).
+     *
+     * Hangi belge, ne değişti:
+     *  · distance_sales — 14 günlük iade taahhüdü kaldırıldı (md. 8/9).
+     *  · preinfo — aynı taahhüt ön bilgilendirmede ve İPTAL/İADE belgesinde kaldırıldı;
+     *    iptal-iade belgesi bu anahtarı paylaşıyor ve baştan yazıldı.
+     *  · kvkk — barındırmanın Almanya'da (Frankfurt) olduğu ve bunun bir YURT DIŞI AKTARIM
+     *    sayıldığı, aydınlatma metnine ve gizlilik politikasına işlendi. Eski metin "veriler
+     *    Türkiye'deki sunucuda" diyordu ve bu ölçülerek yanlışlandı.
+     *  · terms — veri işleyen ekindeki alt işleyen tablosunda barındırma satırı düzeltildi.
+     */
     'legal' => [
-        'distance_sales_version' => env('LEGAL_DISTANCE_SALES_VERSION', '2026-08-19'),
-        'preinfo_version' => env('LEGAL_PREINFO_VERSION', '2026-08-19'),
-        'kvkk_version' => env('LEGAL_KVKK_VERSION', '2026-08-19'),
+        'distance_sales_version' => env('LEGAL_DISTANCE_SALES_VERSION', '2026-09-01'),
+        'preinfo_version' => env('LEGAL_PREINFO_VERSION', '2026-09-01'),
+        'kvkk_version' => env('LEGAL_KVKK_VERSION', '2026-09-01'),
         // Üyelik/kullanım sözleşmesi ve veri işleyen eki AYRI sürüm hattı taşır: mesafeli satış
         // mevzuatı değişmeden bu ikisi değişebilir (ör. yeni bir alt işleyen eklenmesi).
-        'terms_version' => env('LEGAL_TERMS_VERSION', '2026-08-19'),
+        'terms_version' => env('LEGAL_TERMS_VERSION', '2026-09-01'),
     ],
 
     /*

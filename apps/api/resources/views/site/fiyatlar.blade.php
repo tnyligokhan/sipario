@@ -5,11 +5,18 @@
     kataloğundan okunur (bkz. site/parca/_kur.php). Panelden fiyat değişince bu sayfa kendiliğinden
     güncellenir.
 
-    GÖSTERİLMİYOR AMA SİLİNMEDİ (2026-08-05 kararı): tek pakete geçildiği için ayrı bir
-    "fiyatlandırma" sayfasına gerek kalmadı — fiyat ana sayfada duruyor. Sayfa ve rota çalışır
-    halde bırakıldı (linki bilen/kaydeden ulaşabilsin, hesap panelinden gelen bağlantılar kırılmasın)
-    ama menüden çıkarıldı ve `noindex` ile arama motorlarına kapatıldı. `follow` bilinçlidir: sayfadan
-    çıkan iç bağlantıların değeri korunsun, yalnız bu sayfa dizine girmesin.
+    ── SAYFA GERİ AÇILDI (2026-09-01, kullanıcı kararı) ────────────────────────────────────
+    2026-08-05'te bu sayfa menüden çıkarılmış ve `noindex` ile arama motorlarına kapatılmıştı;
+    fiyat çağrıları ana sayfanın `#fiyat` çapasına bağlanmıştı. Kullanıcı bu düzeni reddetti
+    ("menü hiç mantıklı değil, onepage bir tasarım değil zaten bu") — bkz. components/site/
+    ust-menu.blade.php. Sayfa artık menüde duruyor, dizine açık ve site haritasında.
+
+    ⚠️ `noindex` KALDIRILIRKEN İKİ YER BİRLİKTE DEĞİŞTİ: `robots` etiketi ve `routes/web.php`
+    içindeki site haritası listesi. Biri kalırsa Google'a çelişkili iki sinyal gider ("haritada
+    var ama indeksleme") — OlcumVeSeoTest bunu kilitliyor.
+
+    Ana sayfadaki fiyat ÖZETİ duruyor ve bu sayfayla çakışmıyor: özet tek soruyu cevaplıyor
+    ("kaç para"), bu sayfa kalanını (aylık/yıllık, ek paketler, kapsam tablosu, ödeme yolları).
 --}}
 @inject('planlar', 'App\Abonelik\PlanDeposu')
 @inject('ekPaketler', 'App\Abonelik\EkPaketServisi')
@@ -19,9 +26,9 @@
 @endphp
 
 <x-layouts.site
-    baslik="Fiyatlandırma — tek plan, açık fiyat · Sipario"
-    :aciklama="'Tek plan, açık fiyat: aylık ya da yıllık. Müşteri ve sipariş sınırı yok. Havale/EFT ve elden ödeme. '.$fiyat['deneme'].' gün ücretsiz deneme, kart bilgisi istemiyoruz.'">
-    @push('bas')<meta name="robots" content="noindex,follow"><link rel="canonical" href="{{ url()->current() }}">@endpush
+    baslik="Fiyatlar | Sipario"
+    :aciklama="'Tek plan, tek fiyat. Müşteri ve sipariş sınırı yok, ek kalem çıkmaz. '.$fiyat['deneme'].' gün ücretsiz deneme, kart bilgisi istemiyoruz.'">
+    @push('bas')<link rel="canonical" href="{{ url()->current() }}">@endpush
     @include('site.parca.fiyat-planlar')
     @include('site.parca.fiyat-hak')
     @include('site.parca.fiyat-karsilastir')
