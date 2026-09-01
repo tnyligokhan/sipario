@@ -82,9 +82,18 @@ class YerelBildirimServisi implements BildirimServisi {
     try {
       await _eklenti.initialize(
         settings: const InitializationSettings(
-          // Uygulama ikonu; ayrı bir bildirim ikonu varlığı EKLENMEDİ (kaynak dizini bu
-          // vardiyada başka bir ajanın sahasında değil ama gereksiz varlık da üretmiyoruz).
-          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+          // KÜÇÜK İKON AYRI BİR VARLIKTIR — launcher ikonu BURAYA VERİLEMEZ.
+          //
+          // Android 5'ten beri küçük ikonu renkleriyle çizmez: yalnız SAYDAMLIK kanalını
+          // okur, elde ettiği siluetı temaya göre boyar. Launcher ikonu baştan sona opaktır
+          // (mor zemin dahil), yani sistemin gördüğü siluet S değil DOLU BİR KAREDİR.
+          // Sahada görülen belirti buydu (2026-09-01): aydınlık temada koyu leke, karanlık
+          // temada beyaz leke; ikonun kendisi hiç görünmüyordu.
+          //
+          // ⚠️ Bu ad bir STRING'dir: Android tarafında statik referansı yoktur ve kaynak
+          // kısaltıcı onu ölü sayabilir. `res/raw/keep.xml` listesinde tutulur; oradan
+          // silinirse bildirimler sahada sessizce ikonsuz kalır.
+          android: AndroidInitializationSettings('@drawable/ic_stat_sipario'),
         ),
         onDidReceiveNotificationResponse: (yanit) {
           dokunulanYol.value = _yolaEylemEkle(yanit.payload, yanit.actionId);

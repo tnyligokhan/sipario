@@ -27,7 +27,10 @@
 
   ⚠️ Bu dosya XML YORUMU taşır: içinde iki ardışık tire karakteri BULUNAMAZ (XML kuralı).
   Bir kez ihlal edildi ve R8 derlemeyi `ParseError` ile düşürdü.
+  ⚠️ 2026-09-01: liste artık YALNIZ ses değil. `@drawable/ic_stat_sipario` (bildirim küçük ikonu)
+  da buraya yazıldı, aynı sebeple: onu Dart string adıyla istiyor
+  (`AndroidInitializationSettings`), yani Android tarafında statik referansı yok.
 -->
 <resources
     xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@raw/yeni_is,@raw/iptal,@raw/iptal_onayi,@raw/teslim,@raw/kasa,@raw/yeni_cihaz,@raw/gun_ozeti,@raw/kapanis,@raw/kontor,@raw/sistem,@raw/guncelleme" />
+    tools:keep="@raw/yeni_is,@raw/iptal,@raw/iptal_onayi,@raw/teslim,@raw/kasa,@raw/yeni_cihaz,@raw/gun_ozeti,@raw/kapanis,@raw/kontor,@raw/sistem,@raw/guncelleme,@drawable/ic_stat_sipario" />

@@ -379,7 +379,7 @@ object CallerOverlay {
         } ?: phone
 
         val builder = Notification.Builder(context, if (kartVar) CHANNEL_ID_SESSIZ else CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.sym_action_call)
+            .setSmallIcon(R.drawable.ic_stat_sipario)
             .setContentTitle(title)
             .setContentText(body)
             // Yön bildirimde de görünür: kart çağrı ekranının altında kaldığında bayinin
