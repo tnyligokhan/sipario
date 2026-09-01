@@ -68,7 +68,7 @@
     <meta name="theme-color" content="#16131C" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#F5F2EE" media="(prefers-color-scheme: light)">
     <meta name="author" content="Sipario">
-    <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+    <x-favicon />
 
     {{--
         ── OG / TWITTER ─────────────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sipario Yönetim Paneli</title>
+    <x-favicon />
     <style>
         body { font-family: system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #1a1a1a; }
         main { max-width: 1100px; margin: 1.5rem auto; padding: 0 1rem; }

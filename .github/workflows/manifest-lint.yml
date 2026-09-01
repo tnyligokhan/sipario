@@ -13,6 +13,10 @@ name: Manifest Lint (Kırmızı Çizgi #6)
 # BU WORKFLOW YİNE DE GEREKLİ: build'siz, saniyeler sürüyor ve mobil derleme hiç başlamadan PR'da
 # kırmızı yakıyor. İkisi farklı soruyu soruyor — burası "biz mi yazdık?", öteki "birleşince ne oldu?".
 
+concurrency:
+  group: manifest-lint-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     paths:

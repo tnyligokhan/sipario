@@ -1,0 +1,13 @@
+{
+  "name": "Sipario",
+  "short_name": "Sipario",
+  "description": "Sipariş, veresiye defteri ve kurye takibi.",
+  "lang": "tr-TR",
+  "icons": [
+    { "src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "theme_color": "#5A45F0",
+  "background_color": "#F5F2EE",
+  "display": "standalone"
+}

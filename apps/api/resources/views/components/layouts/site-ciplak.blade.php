@@ -27,7 +27,7 @@
     <meta name="robots" content="noindex,follow">
     <meta name="theme-color" content="#16131C" media="(prefers-color-scheme: dark)">
     <meta name="theme-color" content="#F5F2EE" media="(prefers-color-scheme: light)">
-    <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+    <x-favicon />
     <link rel="stylesheet" href="{{ \App\Support\Varlik::url('css/site.css') }}">
     @stack('bas')
     @livewireStyles

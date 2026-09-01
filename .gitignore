@@ -63,3 +63,12 @@ Desktop.ini
 .DS_Store
 *.log
 *.tmp
+
+# Marka kaynak klasoru — gecici calisma alani, ASLA commit edilmez (kullanici karari 2026-09-01).
+# Gerekli varliklar buradan cikarilip yerlerine konur, klasorun kendisi silinir.
+sipario-marka-images/
+
+# Ruflo/claude-flow calisma durumu — arac uretir, her oturumda degisir, urun kodu degildir.
+# Diskte kalir (yuklenmis desenler korunur) ama her commit e kirlilik olarak girmez.
+.swarm/
+.tab-navigation

@@ -51,6 +51,15 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '1.0.2',
+    tarih: '1 Eylül 2026',
+    maddeler: [
+      'Bildirimlerin simgesi düzeldi. Üstteki durum çubuğunda artık Sipario\'nun işareti '
+          'görünüyor; eskiden orada yalnız içi dolu bir kare çıkıyordu.',
+      'Gelen arama bildiriminde de aynı işaret var, telefonun kendi simgesi değil.',
+    ],
+  ),
+  SurumNotu(
     surum: '1.0.1',
     tarih: '1 Eylül 2026',
     maddeler: [

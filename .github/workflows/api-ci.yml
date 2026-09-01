@@ -1,7 +1,26 @@
 name: API CI
 
+# GEÇERSİZ KALMIŞ KOŞUMU İPTAL ET (2026-09-01'de ÖLÇÜLDÜ, varsayılmadı).
+#
+# Bu depoda otomatik commit kancası çalışıyor ve `dev`e arka arkaya push atılıyor. Ölçüm:
+# 31 Ağustos 18:46 ve 18:47'de iki API CI koşumu başladı, İKİSİ DE sonuna kadar koştu
+# (182 sn + 189 sn) — oysa ilki bittiğinde zaten geçersizdi. Aynı ikili 22:02, 21:55 ve
+# 28 Ağustos 00:19'da da tekrarlıyor: ~184 sn'lik takım boşuna dönüyor.
+#
+# `mobil-apk.yml` bu bloğu zaten taşıyor ve işe yaradığı aynı tabloda görünüyor: 11:28'deki
+# koşum 854 sn yerine 130 sn'de `cancelled` oldu.
+#
+# ⚠️ Dal başına AYRI kuyruk: `main` koşumu `dev` koşumunu iptal ETMEMELİ — sahaya çıkan bir
+# doğrulama, ekip dev'e push attı diye yarıda kesilemez.
+concurrency:
+  group: api-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
+    # Dal süzgeci: geçici/deneme dallarına atılan push tam takımı koşturmasın. PR açılınca
+    # `pull_request` zaten koşar, yani kapsam daralmıyor.
+    branches: [main, dev]
     paths:
       - 'apps/api/**'
       - '.github/workflows/api-ci.yml'
@@ -74,6 +93,16 @@ jobs:
             -c "GRANT USAGE ON SCHEMA public TO sipario_app;" \
             -c "GRANT CONNECT ON DATABASE sipario_test TO sipario_panel;" \
             -c "GRANT USAGE ON SCHEMA public TO sipario_panel;"
+
+      # Composer indirme önbelleği: paketler her koşumda sıfırdan çekiliyordu. Anahtar
+      # composer.lock'a bağlı — kilit değişirse önbellek kendiliğinden tazelenir.
+      - name: Composer önbelleği
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-php83-${{ hashFiles('apps/api/composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-php83-
 
       - name: Composer bağımlılıkları
         run: composer install --no-interaction --prefer-dist --no-progress

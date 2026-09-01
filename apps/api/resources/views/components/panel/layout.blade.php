@@ -28,7 +28,7 @@
 <div class="yp">
     <aside class="yk">
         <div class="yk-logo">
-            <div class="yk-mark"><x-panel.ikon ad="damla" boy="16" /></div>
+            <img class="yk-mark" src="{{ \App\Support\Varlik::url('android-chrome-192x192.png') }}" alt="" width="30" height="30">
             <div>
                 <div class="yk-ad">{{ $baslik }}</div>
                 <div class="yk-tag">{{ $etiket }}</div>
