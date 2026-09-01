@@ -51,6 +51,15 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '1.0.1',
+    tarih: '1 Eylül 2026',
+    maddeler: [
+      'Uygulamanın simgesi yenilendi. Telefonun ana ekranında artık Sipario\'nun kendi '
+          'işareti duruyor.',
+      'Telefonunuz simgeleri duvar kâğıdının rengine boyuyorsa Sipario da o renge uyuyor.',
+    ],
+  ),
+  SurumNotu(
     surum: '1.0.0',
     tarih: '25 Ağustos 2026',
     maddeler: [
