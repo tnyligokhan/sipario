@@ -269,7 +269,65 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-08-28/2 — **ÇEREZ KUTUSU BAŞTAN TASARLANDI + BAYAT CSS ARIZASI** (API 1.19.0 → **1.19.1**, mobil sabit)
+### 🔻 VARDİYA DEVİR NOTU — 2026-08-31 — **GİRİŞ ADI TÜRETİLİR VE ARTIK GÖRÜNÜR** (API 1.19.1 → **1.20.0**, mobil sabit)
+
+Kullanıcı sordu: *"Yönetim panelinden kullanıcı eklediğimizde kullanıcı adı ne oluyor?"* — cevap
+**sabit `patron`**du. Ardından kararı verdi: *"Kullanıcı adı girdiği bilgiler ile üretilsin ve bu
+görebileceği bir yerde olsun! Çünkü hesap bilgileri hiçbir şekilde görünmüyor."*
+
+#### 🔴 ASIL ARIZA AD DEĞİL GÖRÜNÜRLÜKTÜ
+
+Sabit ad teknik olarak meşrudu (kullanıcı adı bayi İÇİNDE tekildir), ama bayi kendi giriş adını
+**yalnız hoş geldiniz postasında bir kez** görüyordu — ve o posta kayıt akışını DÜŞÜRMEDEN
+başarısız olabiliyor (`BayiPostacisi::postala` istisnayı yutar, bilinçli karar). Yani postayı
+almayan ya da silen bayi için giriş adı **öğrenilemez** bir bilgiydi; cevabı yalnız destek
+verebiliyordu. Mobil giriş üç bilgi ister (firma kodu + kullanıcı adı + parola) ve kayıt başarı
+ekranı bunlardan yalnız birini gösteriyordu.
+
+#### Ne yapıldı
+
+**1 · Türetme** — `App\Support\KullaniciAdiUretici` (yeni). Sıra: yetkilinin adı → e-postanın
+yerel kısmı → `patron`. "Hasan Aslan" → `hasan.aslan`. Türkçe harfler ASCII'ye iner (DB CHECK
+`^[a-z0-9._-]{3,60}$` — sızan bir harf INSERT'i 23514 ile düşürür ve kayıt akışı kullanıcı hatası
+olmadan 500 verirdi). Hedef uzunluk 24: ad telefonda söylenir ve küçük ekrana elle yazılır.
+Tekillik bayi içinde sorulur, çakışırsa sayaç eklenir. `Provisioning::createTenantWithPatron`ın
+`$patronUsername` parametresi artık `?string = null`; **açıkça verilen ad aynen kullanılır.**
+
+**2 · Görünürlük — üç yüzey:**
+- **Kayıt başarı ekranı** (`site/register.blade.php`): "Firma kodunuz" panosu → **"Giriş
+  bilgileriniz"**, ikisi de kopyalanabilir.
+- **Bayinin hesap paneli → Genel Bakış** (kullanıcının işaret ettiği yer): en üstte, **deneme/abone
+  ayrımı OLMADAN** — bu bir abonelik durumu değil kimliktir; deneme dalına koymak aboneye "artık
+  öğrenemezsin" demek olurdu. Oturumdaki kullanıcının adını okur; oturumsuz girişte (ödeme akışının
+  `subscription_tenant_id` kapısı) patrona düşer.
+- **Yönetim paneli → üye detayı → Firma Bilgileri** (`patron_username`): kurulum bandı kapandıktan
+  SONRA da operatör "kullanıcı adım neydi" diye arayan bayiye cevap verebilmeli.
+
+İki ekran **aynı bileşeni** basar (`components/site/giris-bilgisi.blade.php`) — bayi aynı soruyu
+iki ekrana sorup aynı cevabı almalı.
+
+#### ⚠️ GERİYE DÖNÜK DEĞİL
+
+Yaşayan bayilerin adı `patron` olarak **kalır**. Kullanıcı adı mobil girişin kimliğidir; onu bir
+deploy'la değiştirmek sahadaki telefonları kilitlemek olurdu. Testle kilitli
+(`KullaniciAdiTest::mevcut_bayilerin_adi_degismez`).
+
+#### Bilinen boşluk (kapsam dışı bırakıldı, karar gerekiyor)
+
+**Patron kendi kullanıcı adını hiçbir yerden değiştiremiyor.** Mobil uç (`TeamController`) patron
+rolünü açıkça reddediyor (gerekçesi kendi belge başlığında: kendini kilitleme riski), panelde de
+yalnız parola sıfırlama var. Bugün sorun değil — ad artık anlamlı ve bayiye özgü — ama "adımı
+değiştirmek istiyorum" talebi gelirse elle SQL dışında yolu yok.
+
+**Kapılar:** pint yeşil · phpstan 0 hata · **tam API suite 976 test / 975 geçti / 1 atlandı /
+0 kırık** (4856 iddia, 12,8 dk). Yeni testler `KullaniciAdiTest`te (12 test): türetme kuralları
+(ad soyad, Türkçe harf, kısa ad → e-posta yedeği, kırpma, tekillik sayacı, açık ad) ve
+görünürlüğün ÜÇ yüzeyi. Görünürlük testleri alan değerine değil EKRAN METNİNE bakar — `username`
+sütununu doğru yazıp ekrana basmamak bu vardiyanın derdini çözmezdi.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-28/2 — **ÇEREZ KUTUSU BAŞTAN TASARLANDI + BAYAT CSS ARIZASI** (API 1.19.0 → **1.19.1**, mobil sabit)
 
 Kullanıcı, canlıya çıkan çerez arayüzünü gördü ve reddetti: *"Tasarım olarak çok kötü ve UX
 açısından da çok başarısız olmuş. Ekranı kaplıyor ve bu çok sinir bozucu. Rezalet olmuş."*

@@ -217,7 +217,9 @@ class AbonelikOnayTest extends ApiTestCase
 
         $this->assertSame('elle-su-bayii', $sonuc['tenant']->slug);
         $this->assertSame('Patron', $sonuc['patron']->name);
-        $this->assertSame('patron', $sonuc['patron']->username);
+        // Yetkili adı verilmedi → kullanıcı adı E-POSTANIN yerel kısmından türer. 'Patron'
+        // varsayılanından türetmek eski sabit adı geri getirirdi (bkz. KullaniciAdiUretici).
+        $this->assertSame('elle', $sonuc['patron']->username);
     }
 
     // ── Yardımcılar ──────────────────────────────────────────────────────────

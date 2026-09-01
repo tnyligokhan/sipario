@@ -867,6 +867,18 @@ main.ic{padding-top:74px}
 .kod-pano{margin-bottom:22px}
 .kod-v{display:block;font:700 30px var(--m);letter-spacing:-.01em;color:var(--mor);word-break:break-all}
 
+/* Giriş kimliği (firma kodu + kullanıcı adı) — kayıt başarı ekranı ve hesap panelinde AYNI
+   bileşen (components/site/giris-bilgisi). İki sütun, dar ekranda alt alta: kullanıcı adı
+   firma kodundan uzun olabilir ve yan yana sıkışırsa ikisi de okunmaz olur. */
+.giris-kimlik{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.giris-k{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.giris-k .kod-v{font-size:26px}
+.giris-k-e{color:var(--sonuk)}
+.giris-k .dg{margin-top:4px}
+/* Metin içine gömülü, bağlantı gibi görünen düğme (wire:click hedefi bir <a> olamaz). */
+.bag-dg{color:var(--mor);font-weight:600;text-decoration:underline;text-underline-offset:2px}
+.bag-dg:hover{color:var(--murekkep)}
+
 .ozet-pano{display:flex;flex-direction:column}
 .ozet-r{display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:11px 0;border-bottom:1px solid var(--cizgi);font-size:14.5px}
 .ozet-r:last-child{border-bottom:none}
@@ -1078,7 +1090,7 @@ main.ic{padding-top:74px}
 .kimlik-sag{padding:40px 24px}
 }
 @media(max-width:900px){
-.plan-grid,.hak-grid,.kanal-grid,.hb-ikili{grid-template-columns:1fr}
+.plan-grid,.hak-grid,.kanal-grid,.hb-ikili,.giris-kimlik{grid-template-columns:1fr}
 /* .az (0,2,0) yukarıdaki .kanal-grid'i (0,1,0) yenerdi ve 2 kart bu genişlikte yan yana kalırdı.
    Burada bilerek geri alıyoruz: bu kırılmada tasarımın kuralı "kartlar tek sütun, tam genişlik"
    ve tek kalan kartın 360px'e kısılıp diğer sayfalardaki yığılmış kartlardan dar görünmesi

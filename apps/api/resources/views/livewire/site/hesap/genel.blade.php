@@ -2,9 +2,29 @@
 @php
     $hak = $this->hakKotasi();
     $kurye = $this->kuryeKotasi();
+    $giris = $this->girisBilgileri;
 @endphp
 
 <div class="hb">
+    {{--
+        GİRİŞ BİLGİLERİ EN ÜSTTE VE İKİ DURUMDA DA (2026-08-31). Panonun `@if ($deneme)` dışında
+        durması bilinçli: bu bilgi bir abonelik durumu değil KİMLİKtir — bayi onu denemede de,
+        abone olduktan sonra da, telefonunu değiştirdiği gün de arar. Deneme dalına koymak,
+        aboneye "artık öğrenemezsin" demek olurdu.
+
+        En üstte çünkü aranan bilgi budur: bu ekrana çoğu zaman "kullanıcı adım neydi" diye
+        gelinir; kotaların altına gömülü bir satır, sorunun cevabını yine gizlerdi.
+    --}}
+    <x-site.pano etiket="Giriş bilgileriniz">
+        <x-site.giris-bilgisi :kod="$giris['kod']" :kullanici="$giris['kullanici']" />
+        <p class="kucuk" style="margin-top:14px">
+            Mobil uygulamanın giriş ekranı bu ikisini ve parolanızı ister. Parolanızı unuttuysanız
+            <a href="{{ route('site.parola') }}">parolamı unuttum</a> bağlantısından yenileyebilirsiniz.
+            Ekibinizin kullanıcı adlarını <button type="button" class="bag-dg" wire:click="bolumSec('ekip')">Ekip</button>
+            bölümünden görebilir ve değiştirebilirsiniz.
+        </p>
+    </x-site.pano>
+
     @if ($deneme)
         @php $kurulum = $this->kurulum; $bitti = collect($kurulum)->where('bitti', true)->count(); @endphp
 

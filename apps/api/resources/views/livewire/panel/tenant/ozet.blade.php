@@ -36,6 +36,11 @@
             <div class="bilgi-satirlar">
                 <x-panel.bilgi-satir k="Firma adı">{{ $tenant->name }}</x-panel.bilgi-satir>
                 <x-panel.bilgi-satir k="Firma kodu"><span class="tab">{{ $tenant->slug }}</span></x-panel.bilgi-satir>
+                {{-- Patronun mobil giriş adı. Firma kodunun HEMEN ALTINDA çünkü giriş ekranı
+                     ikisini birlikte ister; ayrı yerlere koymak operatöre iki kez baktırırdı. --}}
+                <x-panel.bilgi-satir k="Kullanıcı adı">
+                    <span class="tab">{{ $detail['patron_username'] ?: '—' }}</span>
+                </x-panel.bilgi-satir>
                 <x-panel.bilgi-satir k="Yetkili">{{ $tenant->contact_name ?: '—' }}</x-panel.bilgi-satir>
                 <x-panel.bilgi-satir k="Telefon"><span class="tab">{{ $tenant->phone ?: '—' }}</span></x-panel.bilgi-satir>
                 <x-panel.bilgi-satir k="İl / İlçe">

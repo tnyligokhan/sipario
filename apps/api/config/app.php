@@ -269,9 +269,34 @@ return [
     | değişmedi — bu bir PANEL yeteneği. Ama sürüm ayrımı hat bazındadır ve
     | panel API uygulamasının içinde yaşar; site tarafındaki hukuk paketi de
     | (1.12.0) aynı hattan numara almıştı. Mobil sürüm bu yüzden SABİT kalır.
+    |
+    | ── 1.20.0 (2026-08-31) — GİRİŞ ADI TÜRETİLİR VE GÖRÜNÜR ────────────────
+    | Patronun mobil kullanıcı adı artık sabit 'patron' değil: kayıtta girilen
+    | yetkili adından türetiliyor ("Hasan Aslan" → `hasan.aslan`), ad yetersizse
+    | e-postanın yerel kısmından, o da olmazsa eski sabitten
+    | (`App\Support\KullaniciAdiUretici`).
+    |
+    | ASIL ARIZA AD DEĞİL GÖRÜNÜRLÜKTÜ: bayi kendi giriş adını yalnız hoş
+    | geldiniz postasında bir kez görüyordu ve o posta kayıt akışını DÜŞÜRMEDEN
+    | başarısız olabiliyor (`BayiPostacisi::postala` istisnayı yutar). Postayı
+    | almayan bayi için giriş adı öğrenilemez bir bilgiydi; cevabı yalnız destek
+    | verebiliyordu. Üç yüzeye birden kondu: kayıt başarı ekranı, bayinin hesap
+    | panelindeki Genel Bakış (en üstte, deneme/abone AYRIMI OLMADAN — bu bir
+    | abonelik durumu değil kimliktir) ve yönetim panelinde üye detayının
+    | "Firma Bilgileri" kartı (operatör kurulum bandı kapandıktan sonra da cevap
+    | verebilmeli).
+    |
+    | ⚠️ GERİYE DÖNÜK DEĞİL: yaşayan bayilerin adı 'patron' olarak KALIR. Ad
+    | mobil girişin kimliğidir; onu bir deploy'la değiştirmek sahadaki
+    | telefonları kilitlemek olurdu.
+    |
+    | NEDEN MINOR: istemci sözleşmesinde tek bir alan değişmedi — `username`
+    | zaten vardı ve giriş uç noktası her zaman serbest bir ad kabul ediyordu.
+    | Değişen şey yeni açılan bayinin o alana yazılan DEĞERİdir. Mobil sürüm
+    | SABİT kalır (uygulamada tek satır değişmedi).
     */
 
-    'version' => '1.19.1',
+    'version' => '1.20.0',
 
     /*
     |--------------------------------------------------------------------------

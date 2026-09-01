@@ -279,6 +279,42 @@ class Hesap extends Component
         return $this->isVerisinde(fn (): array => (new KuryeKotasi('pgsql'))->kullanim($this->bayi()));
     }
 
+    /**
+     * MOBİL GİRİŞ KİMLİĞİ — firma kodu + kullanıcı adı (2026-08-31, kullanıcı isteği: "hesap
+     * bilgileri hiçbir şekilde görünmüyor, kullanıcı adı ne belli değil").
+     *
+     * Bugüne kadar bayinin kendi giriş adını görebildiği TEK yer hoş geldiniz postasıydı ve o
+     * posta kayıt akışını düşürmeden başarısız olabiliyor (`BayiPostacisi::postala` istisnayı
+     * yutar). Yani postayı almayan ya da silen bayi için giriş adı öğrenilemez bir bilgiydi;
+     * cevabı yalnız destek verebiliyordu. Bu, BRIEF'in "kurulum→ilk tanıma 10 dakikanın altında"
+     * hedefine doğrudan çarpıyordu.
+     *
+     * ADI OTURUMDAKİ KULLANICIDAN OKUR, patron satırını aramaz — panele giren kişi kendi giriş
+     * adını görmeli. Oturum yoksa (bu panele ödeme akışının ortasındaki `subscription_tenant_id`
+     * anahtarıyla da girilebiliyor — bkz. `mount`) bayinin patronuna düşülür; o kapıdan giren
+     * zaten bayinin sahibidir ve gösterilecek başka bir kimlik yoktur.
+     *
+     * `users` RLS'li bağlantıda okunur (`isVerisinde`): tabloda `sipario_app`in izni var,
+     * dolayısıyla veritabanının kendi zorlaması bedava gelir.
+     *
+     * @return array{kod: string, kullanici: string}
+     */
+    #[Computed]
+    public function girisBilgileri(): array
+    {
+        $oturum = Auth::guard('web')->user();
+
+        $kullanici = $oturum instanceof User && (string) $oturum->tenant_id === $this->bayiId
+            ? (string) $oturum->username
+            : (string) $this->isVerisinde(fn () => User::query()
+                ->where('tenant_id', $this->bayiId)
+                ->where('role', UserRole::Patron->value)
+                ->orderBy('created_at')
+                ->value('username'));
+
+        return ['kod' => (string) $this->bayi()->slug, 'kullanici' => $kullanici];
+    }
+
     // ── Para hareketleri ─────────────────────────────────────────────────────
 
     /**

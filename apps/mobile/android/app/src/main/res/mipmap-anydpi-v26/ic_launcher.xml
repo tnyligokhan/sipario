@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UYGULAMA İKONU — uyarlanabilir (adaptive) ikon tanımı.
+
+  Manifest `@mipmap/ic_launcher` der; API 26 ve üstünde Android bu XML'i, altında ise
+  `mipmap-*/ic_launcher.webp` dosyalarını okur. Projenin en düşük sürümü API 29 olduğu için
+  pratikte HER cihaz bu dosyayı görür, webp'ler yalnız paylaşım sayfası gibi eski yüzeyler
+  içindir.
+
+  ÜÇ KATMAN, ÜÇÜ DE 108 dp:
+    background — mor degrade (tasarımın vurgu rengi #5A45F0'dan #7C00F7'ye).
+    foreground — beyaz S işareti, 42,9 x 48,0 dp, tuvalin tam ortasında. Dış 18 dp'lik çerçeve
+                 sisteme aittir; maske onu keser, garanti görünen alan ortadaki 66 dp dairedir.
+                 S'in köşegeni 64,4 dp, yani o dairenin içinde kalır.
+    monochrome — ön yüzün ta kendisi. Sistem yalnız SAYDAMLIK kanalını okuyup duvar kâğıdına
+                 göre boyadığı için beyaz S doğrudan siluet olarak kullanılabilir; ayrı bir
+                 dosya tutmak aynı şeklin iki kopyasını bakımda ayrı düşürürdü.
+
+  Monokrom katman olmasa da Android 16 QPR 2 ikonu kendiliğinden renklendirir, ama kenar payını
+  tahmin ederek. Kendi katmanını veren ikon temiz çıkar.
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+    <monochrome android:drawable="@drawable/ic_launcher_foreground"/>
+</adaptive-icon>

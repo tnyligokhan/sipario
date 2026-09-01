@@ -16,17 +16,18 @@
 
 @if ($adim === 3)
     <x-site.kimlik-kabuk kulak="Hazır" baslik="İşletmeniz açıldı." :genis="true"
-        aciklama="Deneme süreniz bugün başladı. Aşağıdaki firma kodunu ekibinize verin — mobil uygulamaya bu kodla girecekler.">
+        aciklama="Deneme süreniz bugün başladı. Aşağıdaki giriş bilgileriyle mobil uygulamaya girebilirsiniz.">
 
-        <x-site.pano etiket="Firma kodunuz" class="kod-pano"
-            x-data="kopyalaKutusu(@js($olusanKod))">
-            <x-slot:sag>
-                <button type="button" class="dg dg-d gk" @click="kopyala('Firma kodu kopyalandı')">
-                    <x-site.ikon ad="kopyala" boy="15" kalin="2" />Kopyala
-                </button>
-            </x-slot:sag>
-            <span class="kod-v">{{ $olusanKod }}</span>
-            <p class="kucuk" style="margin-top:10px">Bu kod işletmenizin kimliğidir. Uygulamaya giriş ekranında firma kodu + kullanıcı adı + parola istenir.</p>
+        {{--
+            ÜÇ BİLGİNİN İKİSİ ARTIK BURADA (2026-08-31). Bu ekran daha önce yalnız firma kodunu
+            gösteriyordu; kullanıcı adı sabit 'patron' olduğu için eksiklik gizliydi. Ad artık
+            girilen bilgilerden türetiliyor (`KullaniciAdiUretici`), yani bayinin onu ilk kez
+            gördüğü yer BURASI. Üçüncüsü — parola — kayıtta kendi yazdığıdır ve saklanmadığı için
+            gösterilemez.
+        --}}
+        <x-site.pano etiket="Giriş bilgileriniz" class="kod-pano">
+            <x-site.giris-bilgisi :kod="$olusanKod" :kullanici="$olusanKullanici" />
+            <p class="kucuk" style="margin-top:14px">Uygulamanın giriş ekranı bu ikisini ve kayıtta belirlediğiniz parolayı ister. Aynı bilgiler hesap panelinizde de duruyor — buradan not almasanız da kaybolmaz.</p>
         </x-site.pano>
 
         <div class="kayit-sonraki">
