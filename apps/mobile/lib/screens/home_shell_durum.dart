@@ -54,6 +54,10 @@ extension _DurumYuzeyi on _HomeShellState {
       _access = level;
       _userRole = meta.userRole;
       _userId = meta.userId;
+      // REHBERİN ANLATI SEÇİMİ — tek yazan burasıdır. Rehberin `?` düğmesi sekiz ayrı ekranın
+      // üst çubuğunda yaşıyor ve hiçbiri rolü taşımıyor; rolü sekiz yere ayrı ayrı geçirmek
+      // sekiz unutma yeri demekti. YETKİ KARARI DEĞİLDİR (`rehber_sahne.dart` gerekçesi).
+      rehberKuryeKipi = meta.userRole == 'kurye';
       _tenantName = meta.tenantName;
       _userName = meta.userName;
       _validUntil = gecerli;

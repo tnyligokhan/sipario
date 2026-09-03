@@ -45,6 +45,7 @@ void main() {
       await ekranaKoy(
         tester,
         AnaEkran(
+          onGorev: (_) {},
           db: db,
           sahipAdi: 'Mehmet Usta',
           onMenu: () {},
@@ -87,6 +88,7 @@ void main() {
       await ekranaKoy(
         tester,
         AnaEkran(
+          onGorev: (_) {},
           db: db,
           sahipAdi: 'Bayi',
           onMenu: () {},
@@ -124,6 +126,7 @@ void main() {
       await ekranaKoy(
         tester,
         AnaEkran(
+          onGorev: (_) {},
           db: db,
           sahipAdi: 'Bayi',
           onMenu: () {},
@@ -182,6 +185,7 @@ void main() {
       await ekranaKoy(
         tester,
         AnaEkran(
+          onGorev: (_) {},
           db: db,
           sahipAdi: 'Bayi',
           onMenu: () {},
@@ -217,6 +221,7 @@ void main() {
         ekranaKoy(
           tester,
           AnaEkran(
+          onGorev: (_) {},
             db: db,
             sahipAdi: 'Bayi',
             onMenu: () {},
@@ -369,6 +374,7 @@ void main() {
     Future<void> cipiKur(WidgetTester tester, AppDatabase db, SyncOutcome sonuc) => ekranaKoy(
           tester,
           AnaEkran(
+          onGorev: (_) {},
             db: db,
             sahipAdi: 'Mehmet Usta',
             onMenu: () {},
@@ -436,6 +442,7 @@ void main() {
       await ekranaKoy(
         tester,
         AnaEkran(
+          onGorev: (_) {},
           db: db2,
           sahipAdi: 'Mehmet Usta',
           onMenu: () {},
@@ -464,6 +471,7 @@ void main() {
       await ekranaKoy(
         tester,
         AnaEkran(
+          onGorev: (_) {},
           db: db,
           sahipAdi: 'Mehmet Usta',
           onMenu: () {},

@@ -38,6 +38,9 @@
 
 import 'package:flutter/material.dart';
 
+import '../rehber/rehber_modeli.dart';
+import '../rehber/rehber_sahne.dart';
+
 import '../data/app_database.dart';
 import '../auth/session.dart';
 import '../sync/yenileme.dart';
@@ -328,6 +331,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
                       onGeri: widget.onMenu == null
                           ? () => Navigator.of(context).maybePop()
                           : null,
+                      sag: const [RehberYardimDugmesi(yuzey: RehberYuzey.gunSonu)],
                     ),
 
                     // ══ GÜN GEZİNMESİ ═══════════════════════════════════════════════════

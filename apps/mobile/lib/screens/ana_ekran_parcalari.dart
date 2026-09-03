@@ -75,15 +75,18 @@ class _Hero extends StatelessWidget {
                 // menüye uzanan eli bildirimlere götürürdü.
                 _ZilButonu(okunmamis: okunmamisBildirim, onTap: onBildirimler),
                 const SizedBox(width: SipSpace.sm),
-                SipIkonButon(
-                  ikon: SipIcons.menu,
-                  cap: 40,
-                  ikonBoyut: 20,
-                  kalinlik: 2,
-                  zemin: SipTokens.onHeroFill,
-                  renk: SipTokens.onHero,
-                  etiket: 'Menü',
-                  onTap: onMenu,
+                RehberHedef(
+                  id: 'ana.menu',
+                  child: SipIkonButon(
+                    ikon: SipIcons.menu,
+                    cap: 40,
+                    ikonBoyut: 20,
+                    kalinlik: 2,
+                    zemin: SipTokens.onHeroFill,
+                    renk: SipTokens.onHero,
+                    etiket: 'Menü',
+                    onTap: onMenu,
+                  ),
                 ),
               ],
             ),

@@ -22,6 +22,9 @@ import '../../sync/yenileme.dart';
 import 'package:drift/drift.dart' show OrderingTerm, leftOuterJoin;
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
 import '../../data/app_database.dart';
 import '../../repo/call_log_repository.dart';
 import '../../theme/components/atoms.dart';
@@ -204,7 +207,11 @@ class CagriGunluguEkrani extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            SipUst(baslik: 'Son Aramalar', onGeri: onGeri),
+            SipUst(
+              baslik: 'Son Aramalar',
+              onGeri: onGeri,
+              sag: const [RehberYardimDugmesi(yuzey: RehberYuzey.cagriGunlugu)],
+            ),
             if (_suzgecVar)
               Padding(
                 padding: const EdgeInsets.fromLTRB(

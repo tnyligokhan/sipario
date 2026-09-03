@@ -269,7 +269,56 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-01/2 — **ÜRÜN YENİDEN KONUMLANDI** (API 1.21.0 → **1.22.0**, mobil sabit)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-03 — **UYGULAMA İÇİ REHBER (A+B+C)** (mobil 1.0.2 → **1.1.0**, API sabit 1.22.0)
+
+#### Neden ve ne yapıldı
+
+Kullanıcı: *"Uygulamada neyin ne olduğunu, nasıl kullanılacağını geliştirici anlatmadan
+öğrenmesi için zaman gerekiyor."* Onaylanan çözüm TEK BİR AÇILIŞ TURU DEĞİL, üç katman —
+kurye dahil, yalnız mobil:
+
+- **A — ana ekranda "İlk adımlar" kartı** (`lib/rehber/gorev_karti.dart`). Yöneticide beş
+  madde (arayan tanıma · ürün · müşteri · sipariş · kurye), kuryede üç (teslimat · tahsilat ·
+  kasa devri). **Maddeler elle işaretlenmez, VERİDEN okunur** (`gorev_ilerlemesi.dart`) —
+  elle işaretlenen liste iş yapılmadan da "bitti" gösterilebilirdi. Zorunlular bitince kart
+  kaybolur; "kurye ekle" isteğe bağlıdır (BRIEF: tek kişilik bayi çoktur).
+- **B — ekran başına ilk giriş turu** (`rehber_sahne.dart`): gerçek widget'ın üstünde spot +
+  balon. On iki yüzeyin turu var (`rehber_turlari.dart`).
+- **C — kalıcı yardım**: çekmecede **Yardım** → aranabilir "nasıl yapılır" (26 tarif,
+  `rehber_nasil.dart`), ekranların üst çubuğunda **?** düğmesi (o ekranın turunu yeniden
+  oynatır), Ayarlar → Uygulama → **Rehberi baştan göster**.
+
+#### 🔴 SIRADAKİ VARDİYANIN BİLMESİ GEREKEN İKİ ŞEY
+
+1. **Hedefi ağaçta olmayan adım SESSİZCE atlanır** — ve rol/özellik filtresi tam olarak
+   bundan doğar. Ekranlar `RehberHedef(id: 'ana.bento', child: ...)` ile sarılır; kuryede
+   çizilmeyen kutuyu anlatan adım kendiliğinden düşer, turda ayrıca rol koşulu YAZILMAZ.
+   Bekçisi var: `rehber_test.dart` bütün `lib/`i tarayıp her `hedef`in gerçekten bir
+   `RehberHedef` ile sarılmış olduğunu doğruluyor (yanlış ad yazmak sahada görünmez bir
+   eksilme, testte kırmızıdır).
+2. **`rehberDeposu.yukle()` çağrılmadan hiçbir tur kendiliğinden oynamaz.** `main.dart`
+   açılışta çağırır; widget testleri çağırmaz, bu yüzden rehber mevcut testlere SIZMAZ.
+   Yeni bir rehber widget testi yazan `setUp`ta `await rehberDeposu.yukle()` demeli.
+
+Ek notlar: spot yalnız KÜÇÜK ve açılışta görünen kutuya konur (koca liste alanına delik
+açmak balona yer bırakmaz) — büyük alanlar bağsız kartla anlatılır. Kaydırma DESTEKLENMEZ:
+görünür alan dışındaki hedef atlanır (`scrollUntilVisible` tembel listede kilitliyor). "Atla"
+BÜTÜN turları kapatır ama `?` ve sıfırlama her zaman çalışır. Yeni paket EKLENMEDİ.
+
+**Kapılar:** `flutter analyze` temiz · `flutter test` **1594/1594** yeşil (48'i yeni).
+APK derlemesi koşulmadı — paket/native dokunuşu yok.
+
+#### ⏭️ Sıradaki işler
+
+Önceki nottakiler aynen duruyor (KVKK m.9 standart sözleşme · destek telefonu · site
+değişikliklerinin gerçek tarayıcıda gözle görülmesi). Rehber tarafında açık kalan tek şey:
+sipariş formu ve müşteri formu gibi SHEET yüzeylerinin turu yok — sheet açılış animasyonu
+sürerken hedef dikdörtgeni yanlış yeri işaret ettiği için sipariş detayında bile yalnız
+bağsız adımlar kullanıldı; form içi ipuçları (alan başına `?`) ayrı bir iş kolu.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-01/2 — **ÜRÜN YENİDEN KONUMLANDI** (API 1.21.0 → **1.22.0**, mobil sabit)
 
 #### 🔴 EN ÖNEMLİ SATIR: SİPARIO BİR SU BAYİİ UYGULAMASI DEĞİL
 

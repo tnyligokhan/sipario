@@ -16,6 +16,9 @@
 import 'package:flutter/material.dart';
 
 import '../data/app_database.dart';
+import '../rehber/gorev_karti.dart';
+import '../rehber/rehber_hedef.dart';
+import '../rehber/rehber_modeli.dart';
 import '../repo/bildirim_kutusu.dart';
 import '../guncelleme/guncelleme_servisi.dart';
 import '../sync/sync_service.dart';
@@ -45,8 +48,11 @@ class AnaEkran extends StatefulWidget {
     required this.onSiparisAc,
     required this.onBorclular,
     required this.onBildirimler,
+    required this.onGorev,
     this.borclulariGoster = true,
     this.acikSiparisKullanicisi,
+    this.kuryeMi = false,
+    this.kullaniciId,
     this.sonSenkron,
     this.sonSenkronAt,
   });
@@ -86,6 +92,15 @@ class AnaEkran extends StatefulWidget {
   /// Zil düğmesi — bildirim kutusunu KABUK açar (gezinme kararı onundur; `onArama`,
   /// `onSiparisAc`, `onBorclular` deseninin aynısı).
   final VoidCallback onBildirimler;
+
+  /// "İlk adımlar" kartındaki maddeye dokunulduğunda — hangi ekranın hangi yetkiyle
+  /// açılacağını KABUK bilir (`onArama`, `onBorclular` deseninin aynısı).
+  final ValueChanged<RehberGorev> onGorev;
+
+  /// "İlk adımlar" kartının hangi madde kümesini göstereceği. Kuryede maddeler kurulum
+  /// değil iş adımlarıdır ve kendi işine bakar — bu yüzden [kullaniciId] de gerekir.
+  final bool kuryeMi;
+  final String? kullaniciId;
 
   /// Borçlular kutusu çizilsin mi (`yetkiler().toplamBorclulariGorme`). Kurye için kapalıdır:
   /// kutu çizilmezse toplam borç tutarı ve borçlu müşteri sayısı ekranda hiç görünmez.
@@ -186,16 +201,28 @@ class _AnaEkranState extends State<AnaEkran> {
                 padding: const EdgeInsets.fromLTRB(
                     SipSpace.govde, SipSpace.x3, SipSpace.govde, SipSpace.x4),
                 children: [
-                  AnaBento(
+                  // REHBER KATMAN A — kurulum bittiyse ya da kullanıcı kapattıysa kendisi
+                  // hiçbir şey çizmez. Koşulla sarılmıyor (güncelleme bandıyla aynı gerekçe):
+                  // `if` ile gizlenen bir yüzeyin ağaca hiç bağlanmadığı fark edilmez.
+                  GorevKarti(
                     db: widget.db,
-                    ozet: o,
-                    onSekme: widget.onSekme,
-                    onArama: widget.onArama,
-                    onBorclular: widget.onBorclular,
-                    borclulariGoster: widget.borclulariGoster,
+                    kuryeMi: widget.kuryeMi,
+                    kullaniciId: widget.kullaniciId,
+                    onGorev: widget.onGorev,
+                  ),
+                  RehberHedef(
+                    id: 'ana.bento',
+                    child: AnaBento(
+                      db: widget.db,
+                      ozet: o,
+                      onSekme: widget.onSekme,
+                      onArama: widget.onArama,
+                      onBorclular: widget.onBorclular,
+                      borclulariGoster: widget.borclulariGoster,
+                    ),
                   ),
                   const SizedBox(height: SipSpace.xl),
-                  _Cta(onTap: widget.onCagrilar),
+                  RehberHedef(id: 'ana.cta', child: _Cta(onTap: widget.onCagrilar)),
                   SipBolumBaslik('Son aktivite', ustBosluk: SipSpace.x4),
                   _SonAktivite(db: widget.db, onSiparisAc: widget.onSiparisAc),
                 ],

@@ -13,6 +13,8 @@ import 'dart:io';
 import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
 import '../../data/app_database.dart';
 import '../../repo/product_repository.dart';
 import '../../theme/components/atoms.dart';
@@ -67,6 +69,9 @@ class ProductListScreen extends StatelessWidget {
                         ? null
                         : '${urunler.length} ürün, $aktif aktif',
                     onGeri: () => Navigator.of(context).maybePop(),
+                    // Turu yeniden oynatır. Rol geçilmiyor — `rehberKuryeKipi` okunur
+                    // (gerekçe `rehber_sahne.dart`: sekiz ekrana rol taşımak sekiz unutma yeri).
+                    sag: const [RehberYardimDugmesi(yuzey: RehberYuzey.urunler)],
                   ),
                   Expanded(
                     child: urunler == null

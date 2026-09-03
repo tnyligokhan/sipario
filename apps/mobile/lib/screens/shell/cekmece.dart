@@ -56,6 +56,7 @@ enum CekmeceGiris {
   muaf,
   hesap,
   ayarlar,
+  yardim,
 }
 
 class SipCekmece extends StatelessWidget {
@@ -255,6 +256,14 @@ class _Panel extends StatelessWidget {
                     ikon: SipIcons.settings,
                     etiket: 'Ayarlar',
                     onTap: () => c.onGiris(CekmeceGiris.ayarlar),
+                  ),
+                  // YARDIM HER ROLE AÇIKTIR ve Ayarlar'ın ALTINDA durur: bir hedef değil,
+                  // hedefleri anlatan yerdir. Ekran turları atlanabildiği için kalıcı bir
+                  // giriş kapısı ZORUNLU — atlanan şey kaybolmamalı (`rehber_sahne.dart`).
+                  _Satir(
+                    ikon: SipIcons.info,
+                    etiket: 'Yardım',
+                    onTap: () => c.onGiris(CekmeceGiris.yardim),
                   ),
 
                 ],

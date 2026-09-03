@@ -22,6 +22,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
 import '../../auth/session.dart';
 import '../../data/app_database.dart';
 import '../../theme/components/states.dart';
@@ -112,7 +115,11 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SipUst(baslik: 'Ayarlar', onGeri: () => Navigator.of(context).maybePop()),
+            SipUst(
+              baslik: 'Ayarlar',
+              onGeri: () => Navigator.of(context).maybePop(),
+              sag: const [RehberYardimDugmesi(yuzey: RehberYuzey.ayarlar)],
+            ),
             Expanded(
               child: SipGovde(children: [
                 // BÖLÜM BAŞLIĞI KALDIRILDI (kullanıcı eleştirisi 2026-08-18): sayfanın adı

@@ -9,6 +9,10 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
+import '../../rehber/rehber_hedef.dart';
 import '../../data/app_database.dart';
 import '../../sync/yenileme.dart';
 import '../../data/outbox.dart' show phoneLast10;
@@ -137,20 +141,24 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                       ikon: SipIcons.plus,
                       onTap: _yeniMusteri,
                     ),
+                    const RehberYardimDugmesi(yuzey: RehberYuzey.musteriler),
                   ],
                 );
               },
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(SipSpace.govde, SipSpace.xs, SipSpace.govde, SipSpace.xl),
-              child: SipArama(
-                controller: _arama,
-                ipucu: 'Ad veya telefon ara',
-                onChanged: (v) => setState(() => _sorgu = v),
-                onTemizle: () {
-                  _arama.clear();
-                  setState(() => _sorgu = '');
-                },
+              child: RehberHedef(
+                id: 'musteri.arama',
+                child: SipArama(
+                  controller: _arama,
+                  ipucu: 'Ad veya telefon ara',
+                  onChanged: (v) => setState(() => _sorgu = v),
+                  onTemizle: () {
+                    _arama.clear();
+                    setState(() => _sorgu = '');
+                  },
+                ),
               ),
             ),
             Expanded(

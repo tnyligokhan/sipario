@@ -20,6 +20,7 @@ import '../../../theme/components/overlays.dart';
 import '../../../theme/components/states.dart';
 import '../../../theme/icons.dart';
 import '../../../theme/tokens.dart';
+import '../../../rehber/rehber_deposu.dart';
 import '../../cagri/arayan_tanima_ayari.dart';
 import '../../orders/order_list_parts.dart' show tutamacSagdaTercihi;
 import '../../orders/tutamac_deposu.dart';
@@ -136,11 +137,34 @@ class _UygulamaAyarlariEkraniState extends State<UygulamaAyarlariEkrani> {
                       onTap: widget.onOlcumler,
                     ),
                 ]),
+
+                // ── REHBER ────────────────────────────────────────────────────────────────
+                //
+                // KENDİ BÖLÜMÜ VAR ve bilinçli: rehber bir görünüm tercihi de, arayan tanımanın
+                // parçası da değil. Buraya konmasının sebebi, turların ATLANABİLİR olmasıdır —
+                // atlanan şey kaybolmamalı ve geri çağrılacağı yer aranmadan bulunmalı.
+                const SipBolumBaslik('Rehber', ustBosluk: 18),
+                AyarKarti(satirlar: [
+                  AyarSatiri(
+                    ikon: SipIcons.info,
+                    baslik: 'Rehberi baştan göster',
+                    altBaslik: 'Ekran turları ve ilk adımlar listesi geri gelir',
+                    onTap: _rehberiSifirla,
+                  ),
+                ]),
               ]),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _rehberiSifirla() async {
+    await rehberDeposu.sifirla();
+    if (!mounted) return;
+    // ONAY SORULMAZ: geri alınabilir ve zararsız bir işlem (hiçbir iş verisine dokunmuyor).
+    // Bu depoda onay yalnız tehlikeli eylemlerde vardır — çıkış, silme, iptal.
+    SipToast.goster(context, 'Rehber baştan gösterilecek');
   }
 }

@@ -7,6 +7,9 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
 import '../../data/app_database.dart';
 import '../../konum/cihaz_konumu.dart';
 import '../../repo/customer_repository.dart';
@@ -333,6 +336,7 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     etiket: 'Müşteriyi düzenle',
                     onTap: () => _duzenle(c, telefonlar, adres),
                   ),
+                const RehberYardimDugmesi(yuzey: RehberYuzey.musteriDetay),
               ],
             ),
             Expanded(

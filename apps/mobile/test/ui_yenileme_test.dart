@@ -103,6 +103,7 @@ void main() {
 
   group('Ana ekran — Sürüm güncel çipi', () {
     Widget anaEkran(AppDatabase db) => AnaEkran(
+          onGorev: (_) {},
           db: db,
           sahipAdi: 'Mehmet Usta',
           onMenu: () {},
@@ -161,6 +162,7 @@ void main() {
       await ekranaKoy(
         tester,
         AnaEkran(
+          onGorev: (_) {},
           db: db,
           sahipAdi: 'Bayi',
           onMenu: () {},

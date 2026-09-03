@@ -15,6 +15,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
+import '../../rehber/rehber_hedef.dart';
 import '../../data/app_database.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
@@ -277,6 +281,9 @@ class _OrderListScreenState extends State<OrderListScreen> {
                       zemin: t.surface,
                       onTap: _siralamaAc,
                     ),
+                  // Elle sıralama kipinde YARDIM ÇİZİLMEZ: o kip tek işlidir ("sırayı yaz,
+                  // Bitti'ye bas") ve şeridin ikinci bir düğmesi orada dikkati bölerdi.
+                  if (!_elle) const RehberYardimDugmesi(yuzey: RehberYuzey.siparisler),
                 ],
               ),
             ),
@@ -292,10 +299,13 @@ class _OrderListScreenState extends State<OrderListScreen> {
             Padding(
               padding: EdgeInsets.fromLTRB(SipSpace.govde, 0, SipSpace.govde,
                   _elle ? SipSpace.xl : SipSpace.lg),
-              child: SipSegment(
-                secenekler: [for (final f in sekmeler) _sekmeEtiketi(f)],
-                secili: sekmeler.indexOf(_filtre).clamp(0, sekmeler.length - 1),
-                onSec: (i) => setState(() => _filtre = sekmeler[i]),
+              child: RehberHedef(
+                id: 'siparis.filtre',
+                child: SipSegment(
+                  secenekler: [for (final f in sekmeler) _sekmeEtiketi(f)],
+                  secili: sekmeler.indexOf(_filtre).clamp(0, sekmeler.length - 1),
+                  onSec: (i) => setState(() => _filtre = sekmeler[i]),
+                ),
               ),
             ),
 

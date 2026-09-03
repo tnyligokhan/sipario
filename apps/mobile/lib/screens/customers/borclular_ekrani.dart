@@ -16,6 +16,9 @@
 
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
 import '../../data/app_database.dart';
 import '../../sync/yenileme.dart';
 import '../../theme/components/atoms.dart';
@@ -69,6 +72,7 @@ class BorclularEkrani extends StatelessWidget {
                   baslik: 'Borçlular',
                   alt: _altBaslik(musteriler),
                   onGeri: () => Navigator.of(context).maybePop(),
+                  sag: const [RehberYardimDugmesi(yuzey: RehberYuzey.borclular)],
                 ),
                 Expanded(
                   child: musteriler == null

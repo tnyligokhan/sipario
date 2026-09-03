@@ -23,8 +23,21 @@ extension _GovdeYuzeyi on _HomeShellState {
         ],
       );
     }
+    // REHBER KATMAN B — her sekme kendi turunu taşır (`RehberSahne`). Sekme değişince eski
+    // ekran ağaçtan düşer, yenisi `initState`ten geçer ve turu bir kez oynar.
+    //
+    // ⚠️ `aktif: !_kilit` DEĞİL, çünkü kilitli dal zaten yukarıda dönüyor — buraya gelen her
+    // ekran kullanılabilir durumda. Kilitliyken tur anlatmak, kullanamayacağı bir şeyi tarif
+    // etmek olurdu.
+    //
+    // ROL ASENKRON İNER (`sync_meta.user_role`): ilk karede `_userRole` null'dır ve o an
+    // `_kuryeMi` false döner. Tur `rehberGecikmesi` kadar beklediği için pratikte rol yerine
+    // oturmuş oluyor; oturmazsa gösterilen anlatı yöneticininkidir (bkz. `_kuryeMi` gerekçesi).
     return switch (sekme) {
-      SipSekme.ana => AnaEkran(
+      SipSekme.ana => RehberSahne(
+        yuzey: RehberYuzey.ana,
+        kuryeMi: _kuryeMi,
+        child: AnaEkran(
           db: widget.db,
           sahipAdi: _sahipAdi,
           onMenu: () => _durumDegisti(() => _cekmece = true),
@@ -37,17 +50,25 @@ extension _GovdeYuzeyi on _HomeShellState {
           onSiparisAc: _siparisAc,
           onBorclular: _borclularAc,
           onBildirimler: _bildirimleriAc,
+          // "İlk adımlar" kartı — kapılar `_gorevAc` içinde, kartta değil.
+          onGorev: _gorevAc,
+          kuryeMi: _kuryeMi,
+          kullaniciId: _userId,
           borclulariGoster: yetki.toplamBorclulariGorme,
           // Sipariş listesiyle AYNI kapsam: kurye kilitliyse bento de yalnız ona atananları sayar.
           acikSiparisKullanicisi: yetki.tumSiparisleriGorme ? null : _userId,
           sonSenkron: _sonSenkron,
           sonSenkronAt: _sonSenkronAt,
         ),
+      ),
       // onMenu HER sekmeye geçilir (s-uygulama.jsx: dört ana ekranın dördü de
       // `onMenu={() => setCekmece(true)}` alır). Geçilmezse `SipUst` hamburger yerine ya hiçbir şey
       // ya da geri oku çizer ve çekmece — Ürünler/Kuryeler/Muaf/Ayarlar/çıkış oradadır — yalnız Ana
       // sekmesinden açılabilir hâle gelir.
-      SipSekme.musteri => CustomerListScreen(
+      SipSekme.musteri => RehberSahne(
+        yuzey: RehberYuzey.musteriler,
+        kuryeMi: _kuryeMi,
+        child: CustomerListScreen(
           db: widget.db,
           writable: _yazilabilir,
           yetki: yetki,
@@ -57,7 +78,11 @@ extension _GovdeYuzeyi on _HomeShellState {
           userId: _userId,
           onMenu: () => _durumDegisti(() => _cekmece = true),
         ),
-      SipSekme.siparis => OrderListScreen(
+      ),
+      SipSekme.siparis => RehberSahne(
+        yuzey: RehberYuzey.siparisler,
+        kuryeMi: _kuryeMi,
+        child: OrderListScreen(
           db: widget.db,
           writable: _yazilabilir,
           userId: _userId,
@@ -68,12 +93,15 @@ extension _GovdeYuzeyi on _HomeShellState {
           canAssign: yetki.atama,
           onMenu: () => _durumDegisti(() => _cekmece = true),
         ),
-      SipSekme.gunSonu =>
+      ),
+      SipSekme.gunSonu => RehberSahne(
+        yuzey: RehberYuzey.gunSonu,
+        kuryeMi: _kuryeMi,
         // `rol` ZORUNLU GİBİ davranılmalı: verilmezse ekran "yetki bilinmiyor" sayar ve HİÇ
         // kapatma sunmaz (`yetkiler(rol: null).gunSonu == false` — K2 sözleşmesi, permissive
         // değil). `kullaniciId` iki iş yapar: kurye ekranı KENDİ kapsamında açar, ve kapatma
         // yetkisinin sahibi odur. Çekmecenin kuryedeki "Kasa Devri" satırı buraya geliyor.
-        DayEndScreen(
+        child: DayEndScreen(
           db: widget.db,
           onMenu: () => _durumDegisti(() => _cekmece = true),
           rol: _userRole,
@@ -85,6 +113,7 @@ extension _GovdeYuzeyi on _HomeShellState {
           // Oturum YALNIZ yönetici parolası doğrulaması için geçer (kapanışı geri alma).
           session: widget.session,
         ),
+      ),
     };
   }
 }

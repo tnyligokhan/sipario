@@ -12,6 +12,9 @@
 
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
 import '../../auth/session.dart';
 import '../../data/app_database.dart';
 import '../../repo/courier_repository.dart';
@@ -122,6 +125,7 @@ class KuryelerEkrani extends StatelessWidget {
                         ikon: SipIcons.lock,
                         onTap: () => _yetkileriAc(context),
                       ),
+                      const RehberYardimDugmesi(yuzey: RehberYuzey.kuryeler),
                     ],
                   ),
                   Expanded(
