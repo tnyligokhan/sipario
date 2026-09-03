@@ -25,12 +25,13 @@
 import 'package:flutter/material.dart';
 
 import '../theme/components/atoms.dart';
-import '../theme/icons.dart';
 import '../theme/tokens.dart';
-import '../theme/typography.dart';
+
+import '../theme/icons.dart';
 import 'rehber_deposu.dart';
 import 'rehber_hedef.dart';
 import 'rehber_modeli.dart';
+import 'rehber_spot.dart';
 import 'rehber_turlari.dart';
 
 /// Ekran açıldıktan sonra tur başlamadan önce beklenen süre.
@@ -99,7 +100,7 @@ Future<void> rehberiOynat(
   }
 
   giris = OverlayEntry(
-    builder: (_) => _Sahne(
+    builder: (_) => RehberSahnesi(
       adimlar: adimlar,
       onBitti: () {
         kapat();
@@ -208,202 +209,3 @@ class RehberYardimDugmesi extends StatelessWidget {
   }
 }
 
-// ── Sahne ────────────────────────────────────────────────────────────────────────────────
-
-class _Sahne extends StatefulWidget {
-  const _Sahne({required this.adimlar, required this.onBitti, required this.onAtla});
-
-  final List<RehberAdim> adimlar;
-  final VoidCallback onBitti;
-  final VoidCallback onAtla;
-
-  @override
-  State<_Sahne> createState() => _SahneState();
-}
-
-class _SahneState extends State<_Sahne> {
-  int _i = 0;
-  bool _gorunur = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Sönümlenerek girsin: karartma bir karede sertçe düşünce ekran "hata verdi" gibi duruyor.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _gorunur = true);
-    });
-  }
-
-  void _ileri() {
-    if (_i >= widget.adimlar.length - 1) {
-      widget.onBitti();
-      return;
-    }
-    setState(() => _i++);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final adim = widget.adimlar[_i];
-    final ekran = MediaQuery.sizeOf(context);
-    // Hedef tur BAŞLADIKTAN SONRA da kaybolabilir (liste kaydı, akış tazelemesi). O anda adım
-    // bağsıza döner — spot kaybolur ama anlatı ekranda kalır.
-    final kutu = adim.bagsiz ? null : RehberKayit.kutu(adim.hedef);
-    final delik = (kutu != null && _gorunurAlanda(kutu, ekran))
-        ? kutu.inflate(6)
-        : null;
-
-    return AnimatedOpacity(
-      opacity: _gorunur ? 1 : 0,
-      duration: const Duration(milliseconds: 140),
-      child: Material(
-        type: MaterialType.transparency,
-        child: Stack(
-          children: [
-            // Karartma TÜM ekranı kaplar ve dokunuşu yutar: turun altındaki ekrana yanlışlıkla
-            // dokunulup sipariş açılması/kaydedilmesi engellenir. Dokunmak adımı ilerletir.
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _ileri,
-                child: CustomPaint(painter: _KarartmaBoyaci(delik: delik)),
-              ),
-            ),
-            _balon(context, ekran, delik, adim),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Balonu deliğin altına ya da üstüne yerleştirir; delik yoksa ekranın ortasına.
-  ///
-  /// YÜKSEKLİK ÖLÇÜLMEZ: `top` yerine `bottom` verilerek üstte konumlandırma yapılır, böylece
-  /// kartın kaç piksel olduğunu önceden bilmek gerekmez (metin uzunluğuna göre değişir).
-  Widget _balon(BuildContext context, Size ekran, Rect? delik, RehberAdim adim) {
-    final kart = _Balon(
-      adim: adim,
-      sira: _i + 1,
-      toplam: widget.adimlar.length,
-      onIleri: _ileri,
-      onAtla: widget.onAtla,
-    );
-    final genislik = ekran.width - 2 * SipSpace.govde;
-    final en = genislik > 360 ? 360.0 : genislik;
-
-    if (delik == null) {
-      return Center(child: SizedBox(width: en, child: kart));
-    }
-
-    final sol = ((delik.center.dx - en / 2)
-        .clamp(SipSpace.govde, (ekran.width - en - SipSpace.govde).clamp(SipSpace.govde, double.infinity)));
-    // Delik ekranın üst yarısındaysa balon ALTINA, alt yarısındaysa ÜSTÜNE gelir — balonun
-    // deliği örtmemesi tek koşul; ölçüsüz bir karar olduğu için oran yeterli.
-    final alta = delik.bottom < ekran.height * 0.55;
-    return Positioned(
-      left: sol.toDouble(),
-      width: en,
-      top: alta ? delik.bottom + SipSpace.xl : null,
-      bottom: alta ? null : ekran.height - delik.top + SipSpace.xl,
-      child: kart,
-    );
-  }
-
-  /// Hedef görünür alanın içinde mi (kaydırılıp ekrandan çıkmamış).
-  static bool _gorunurAlanda(Rect r, Size ekran) =>
-      r.bottom > 0 && r.top < ekran.height && r.right > 0 && r.left < ekran.width;
-}
-
-/// Ekranı karartır, [delik] varsa oraya yuvarlatılmış bir pencere açar.
-class _KarartmaBoyaci extends CustomPainter {
-  const _KarartmaBoyaci({this.delik});
-
-  final Rect? delik;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final boya = Paint()..color = SipTokens.scrim;
-    final tam = Path()..addRect(Offset.zero & size);
-    final d = delik;
-    if (d == null) {
-      canvas.drawPath(tam, boya);
-      return;
-    }
-    final pencere = Path()
-      ..addRRect(RRect.fromRectAndRadius(d, const Radius.circular(SipRadius.r2)));
-    canvas.drawPath(Path.combine(PathOperation.difference, tam, pencere), boya);
-    // İnce kenarlık: koyu temada delik ile karartma arasındaki sınır kayboluyordu.
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(d, const Radius.circular(SipRadius.r2)),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = SipTokens.onHeroStrong,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_KarartmaBoyaci eski) => eski.delik != delik;
-}
-
-/// Anlatı kartı — sayaç · başlık · metin · [Atla] [Sonraki].
-class _Balon extends StatelessWidget {
-  const _Balon({
-    required this.adim,
-    required this.sira,
-    required this.toplam,
-    required this.onIleri,
-    required this.onAtla,
-  });
-
-  final RehberAdim adim;
-  final int sira;
-  final int toplam;
-  final VoidCallback onIleri;
-  final VoidCallback onAtla;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    final son = sira == toplam;
-    // Karta dokunmak adımı İLERLETMEZ: karartmanın `onTap`i kartın altında kalıyor ve düğmeye
-    // nişan alırken ıskalayan parmak turu bir adım atlatırdı.
-    return GestureDetector(
-      onTap: () {},
-      child: SipKart(
-        padding: const EdgeInsets.fromLTRB(SipSpace.x3, SipSpace.x3, SipSpace.x3, SipSpace.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Adım $sira/$toplam',
-              style: SipText.metin(11, w: 700).copyWith(color: t.accent),
-            ),
-            const SizedBox(height: SipSpace.sm),
-            Text(adim.baslik, style: SipText.metin(15.5, w: 700).copyWith(color: t.ink)),
-            const SizedBox(height: SipSpace.sm),
-            Text(
-              adim.metin,
-              style: SipText.metin(13, h: 1.45).copyWith(color: t.ink2),
-            ),
-            const SizedBox(height: SipSpace.x3),
-            Row(
-              children: [
-                SipMetinButon(etiket: 'Rehberi kapat', onTap: onAtla),
-                const Spacer(),
-                SipButon(
-                  etiket: son ? 'Bitti' : 'Sonraki',
-                  genisle: false,
-                  yukseklik: 40,
-                  yatayPadding: 20,
-                  onTap: onIleri,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

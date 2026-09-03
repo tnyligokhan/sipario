@@ -132,7 +132,7 @@ void main() {
     testWidgets('ekran açılınca tur kendiliğinden oynar', (tester) async {
       await _turuKoy(tester);
 
-      expect(find.text('Adım 1/3'), findsOneWidget);
+      expect(find.text('1/3'), findsOneWidget);
       expect(find.text('Sipario kullanmaya başlıyorsun'), findsOneWidget);
       expect(find.text('Sonraki'), findsOneWidget);
 
@@ -144,12 +144,12 @@ void main() {
 
       await tester.tap(find.text('Sonraki'));
       await tester.pump();
-      expect(find.text('Adım 2/3'), findsOneWidget);
-      expect(find.text('Günün özeti'), findsOneWidget);
+      expect(find.text('2/3'), findsOneWidget);
+      expect(find.text('Günün dört rakamı'), findsOneWidget);
 
       await tester.tap(find.text('Sonraki'));
       await tester.pump();
-      expect(find.text('Adım 3/3'), findsOneWidget);
+      expect(find.text('3/3'), findsOneWidget);
       expect(find.text('Dükkânı kim aradı'), findsOneWidget);
       // Son adımda düğme "Bitti" olur — kaç adım kaldığı düğmeden de okunur.
       expect(find.text('Bitti'), findsOneWidget);
@@ -157,8 +157,28 @@ void main() {
       await tester.tap(find.text('Bitti'));
       await akislariBekle(tester);
 
-      expect(find.text('Adım 3/3'), findsNothing);
+      expect(find.text('3/3'), findsNothing);
       expect(rehberDeposu.gorulduMu(RehberYuzey.ana), isTrue);
+      await kapat(tester);
+    });
+
+    testWidgets('GERİ düğmesi bir önceki adıma döner', (tester) async {
+      // Tur tek yönlü bir slayt gösterisi DEĞİLDİR: okuduğunu kaçıran kullanıcı geri
+      // dönebilmeli, yoksa turu baştan açmaktan başka yolu kalmaz.
+      await _turuKoy(tester);
+      // İlk adımda geri YOK — dönülecek bir yer olmadığında düğmeyi göstermek yalan olur.
+      expect(find.text('Geri'), findsNothing);
+
+      await tester.tap(find.text('Sonraki'));
+      await tester.pump();
+      expect(find.text('2/3'), findsOneWidget);
+      expect(find.text('Geri'), findsOneWidget);
+
+      await tester.tap(find.text('Geri'));
+      await tester.pump();
+      expect(find.text('1/3'), findsOneWidget);
+      expect(find.text('Sipario kullanmaya başlıyorsun'), findsOneWidget);
+
       await kapat(tester);
     });
 
@@ -179,14 +199,14 @@ void main() {
       // Rol ve özellik görünürlüğü filtresi bu davranıştan BEDAVA gelir: kuryede çizilmeyen
       // kutuyu anlatan adım kendiliğinden düşer. Turda ayrıca rol koşulu yazmak gerekmez.
       //
-      // Burada `ana.cta` monte EDİLMİYOR: altı adımlık ana turundan yalnız giriş + bento kalır.
+      // Burada `ana.cta` monte EDİLMİYOR: ana turundan yalnız giriş + bento kalır.
       await _turuKoy(tester, ctaCiz: false);
 
-      expect(find.text('Adım 1/2'), findsOneWidget);
+      expect(find.text('1/2'), findsOneWidget);
       await tester.tap(find.text('Sonraki'));
       await tester.pump();
 
-      expect(find.text('Günün özeti'), findsOneWidget);
+      expect(find.text('Günün dört rakamı'), findsOneWidget);
       expect(find.text('Dükkânı kim aradı'), findsNothing);
       expect(find.text('Bitti'), findsOneWidget);
 
@@ -197,21 +217,98 @@ void main() {
       // `?` düğmesi her koşulda bir şey göstermeli — turun ilk adımının bağsız olmasının sebebi.
       await _turuKoy(tester, bentoCiz: false, ctaCiz: false);
 
-      expect(find.text('Adım 1/1'), findsOneWidget);
+      expect(find.text('1/1'), findsOneWidget);
       expect(find.text('Bitti'), findsOneWidget);
       await kapat(tester);
     });
+  });
+
+  group('Katman B — ETKİLEŞİMLİ adım', () {
+    testWidgets('delik gerçekten deliktir: altındaki düğme dokunuşu ALIR', (tester) async {
+      // BU TESTİN KONUSU TURUN KALBİDİR. Karartma tek parça olsaydı dokunuş yutulur ve
+      // "şimdi sen dene" adımı yapılamaz bir çağrıya dönüşürdü — kullanıcı basar, hiçbir şey
+      // olmaz. Perde deliğin ÇEVRESİNİ kapatır, ortası boştur.
+      var basildi = false;
+      await _turuKoy(
+        tester,
+        bentoCiz: false,
+        ctaCiz: false,
+        navMusteri: () => basildi = true,
+      );
+
+      // Ana turdan kalan iki adım: giriş (bağsız) + "Şimdi müşterilere bakalım" (etkileşimli).
+      expect(find.text('1/2'), findsOneWidget);
+      await tester.tap(find.text('Sonraki'));
+      await tester.pump();
+
+      expect(find.text('Şimdi müşterilere bakalım'), findsOneWidget);
+      // Etkileşimli adımda "Sonraki" YERİNE "Geç" yazar: asıl yol hedefe dokunmaktır.
+      expect(find.text('Sonraki'), findsNothing);
+      expect(find.text('Geç'), findsOneWidget);
+      expect(find.text('Müşteri sekmesine bas'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('sahte-nav-musteri')));
+      await akislariBekle(tester);
+
+      expect(basildi, isTrue, reason: 'karartma dokunuşu yuttu — delik delik değil');
+      // Son adım olduğu için dokunuş turu BİTİRİR (zincirin halkası: ekran değişir ve
+      // sıradaki ekranın turu kendiliğinden başlayabilir).
+      expect(find.text('Şimdi müşterilere bakalım'), findsNothing);
+      expect(rehberDeposu.gorulduMu(RehberYuzey.ana), isTrue);
+
+      await kapat(tester);
+    });
+
+    testWidgets('"Geç" hedefe dokunmadan da ilerletir', (tester) async {
+      // Kaçış kapısı ŞART: hedefe basmak istemeyen ya da basamayan kullanıcı turda kilitlenmemeli.
+      var basildi = false;
+      await _turuKoy(
+        tester,
+        bentoCiz: false,
+        ctaCiz: false,
+        navMusteri: () => basildi = true,
+      );
+      await tester.tap(find.text('Sonraki'));
+      await tester.pump();
+
+      await tester.tap(find.text('Geç'));
+      await akislariBekle(tester);
+
+      expect(basildi, isFalse);
+      expect(rehberDeposu.gorulduMu(RehberYuzey.ana), isTrue);
+      await kapat(tester);
+    });
+
+    testWidgets('etkileşimsiz adımda hedefe dokunmak ilerletir ama TETİKLEMEZ', (tester) async {
+      // Anlatı adımında delik KAPALIDIR: rehberi okuyan parmağın yanlışlıkla sipariş
+      // açması ya da bir şey kaydetmesi engellenir.
+      var basildi = false;
+      await _turuKoy(tester, ctaCiz: false, bentoOnTap: () => basildi = true);
+
+      await tester.tap(find.text('Sonraki'));
+      await tester.pump();
+      expect(find.text('Günün dört rakamı'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('sahte-bento')));
+      await tester.pump();
+
+      expect(basildi, isFalse, reason: 'anlatı adımında delik dokunuşu geçirmemeli');
+      await kapat(tester);
+    });
+  });
+
+  group('Katman B — açılma kuralları', () {
 
     testWidgets('görülmüş tur kendiliğinden AÇILMAZ, ? düğmesi yine açar', (tester) async {
       await rehberDeposu.goruldu(RehberYuzey.ana);
       await _turuKoy(tester);
-      expect(find.text('Adım 1/3'), findsNothing);
+      expect(find.text('1/3'), findsNothing);
 
       await tester.tap(find.bySemanticsLabel('Yardım'));
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('Adım 1/3'), findsOneWidget);
+      expect(find.text('1/3'), findsOneWidget);
       await kapat(tester);
     });
 
@@ -219,20 +316,20 @@ void main() {
       // Kapanan yalnız KENDİLİĞİNDEN açılmadır — atlanan şey kaybolmaz.
       await rehberDeposu.tumunuAtla();
       await _turuKoy(tester);
-      expect(find.text('Adım 1/3'), findsNothing);
+      expect(find.text('1/3'), findsNothing);
 
       await tester.tap(find.bySemanticsLabel('Yardım'));
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('Adım 1/3'), findsOneWidget);
+      expect(find.text('1/3'), findsOneWidget);
       await kapat(tester);
     });
 
     testWidgets('aktif olmayan ekranda tur oynamaz', (tester) async {
       // Abonelik kilitliyken kullanamayacağı bir şeyi tarif etmek yanlış olurdu.
       await _turuKoy(tester, aktif: false);
-      expect(find.text('Adım 1/3'), findsNothing);
+      expect(find.text('1/3'), findsNothing);
       await kapat(tester);
     });
   });
@@ -315,21 +412,29 @@ class _KartOrtami extends StatelessWidget {
 
 /// Ana ekranın GERÇEK turunu, seçilen hedefleri monte ederek kurar.
 ///
-/// Ana turu altı adımdır; burada yalnız `ana.bento` ve `ana.cta` ağaca konur, kalan üç bağlı
-/// adım (görev kartı, menü, alt gezinme) hedefsiz kaldığı için elenir. Kalan üç adım:
-/// giriş (bağsız) → "Günün özeti" → "Dükkânı kim aradı".
+/// Ana tur on altı adımdır; hedefi ağaçta olmayan adım elendiği için testin gördüğü tur
+/// yalnız burada monte edilen kutulardan oluşur. Varsayılan (`ana.bento` + `ana.cta`) üç
+/// adım verir: giriş (bağsız) → "Günün dört rakamı" → "Dükkânı kim aradı".
 Future<void> _turuKoy(
   WidgetTester tester, {
   bool bentoCiz = true,
   bool ctaCiz = true,
   bool aktif = true,
+  VoidCallback? navMusteri,
+  VoidCallback? bentoOnTap,
 }) async {
   tester.view.physicalSize = const Size(800, 2400);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(MaterialApp(
     theme: SipTheme.acik(),
-    home: _TurOrtami(bentoCiz: bentoCiz, ctaCiz: ctaCiz, aktif: aktif),
+    home: _TurOrtami(
+      bentoCiz: bentoCiz,
+      ctaCiz: ctaCiz,
+      aktif: aktif,
+      navMusteri: navMusteri,
+      bentoOnTap: bentoOnTap,
+    ),
   ));
   // postFrame + `rehberGecikmesi` (sıfır) + sahnenin ilk karesi.
   await tester.pump();
@@ -342,11 +447,20 @@ class _TurOrtami extends StatelessWidget {
     required this.bentoCiz,
     required this.ctaCiz,
     required this.aktif,
+    this.navMusteri,
+    this.bentoOnTap,
   });
 
   final bool bentoCiz;
   final bool ctaCiz;
   final bool aktif;
+
+  /// Verilirse `nav.musteri` hedefi çizilir — ana turun ETKİLEŞİMLİ son adımı için.
+  final VoidCallback? navMusteri;
+
+  /// Verilirse bento kutusu dokunulabilir olur (deliğin dokunuş geçirip geçirmediğini ölçen
+  /// testler için).
+  final VoidCallback? bentoOnTap;
 
   @override
   Widget build(BuildContext context) => RehberSahne(
@@ -360,15 +474,37 @@ class _TurOrtami extends StatelessWidget {
           body: Column(
             children: [
               if (bentoCiz)
-                const RehberHedef(
+                RehberHedef(
                   id: 'ana.bento',
-                  child: SizedBox(width: 200, height: 90),
+                  child: GestureDetector(
+                    key: const ValueKey('sahte-bento'),
+                    onTap: bentoOnTap ?? () {},
+                    child: Container(
+                      width: 200,
+                      height: 90,
+                      color: const Color(0xFFEEEEEE),
+                    ),
+                  ),
                 ),
               const SizedBox(height: 40),
               if (ctaCiz)
                 const RehberHedef(
                   id: 'ana.cta',
                   child: SizedBox(width: 200, height: 50),
+                ),
+              const SizedBox(height: 40),
+              if (navMusteri != null)
+                RehberHedef(
+                  id: 'nav.musteri',
+                  child: GestureDetector(
+                    key: const ValueKey('sahte-nav-musteri'),
+                    onTap: navMusteri,
+                    child: Container(
+                      width: 120,
+                      height: 60,
+                      color: const Color(0xFFDDDDDD),
+                    ),
+                  ),
                 ),
             ],
           ),

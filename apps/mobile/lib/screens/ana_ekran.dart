@@ -224,7 +224,10 @@ class _AnaEkranState extends State<AnaEkran> {
                   const SizedBox(height: SipSpace.xl),
                   RehberHedef(id: 'ana.cta', child: _Cta(onTap: widget.onCagrilar)),
                   SipBolumBaslik('Son aktivite', ustBosluk: SipSpace.x4),
-                  _SonAktivite(db: widget.db, onSiparisAc: widget.onSiparisAc),
+                  RehberHedef(
+                    id: 'ana.aktivite',
+                    child: _SonAktivite(db: widget.db, onSiparisAc: widget.onSiparisAc),
+                  ),
                 ],
                 ),
               );

@@ -22,6 +22,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_hedef.dart';
 import '../../rehber/rehber_modeli.dart';
 import '../../rehber/rehber_sahne.dart';
 
@@ -126,7 +127,9 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
                 // zaten "Ayarlar" ve hemen altında ikinci kez "Ayarlar" yazıyordu. Tek kartlı
                 // bir sayfada bölüm başlığı hiçbir şeyi ayırmaz, yalnız yer kaplar.
                 const SizedBox(height: SipSpace.xl),
-                AyarKarti(satirlar: [
+                RehberHedef(
+                  id: 'ayarlar.kart',
+                  child: AyarKarti(satirlar: [
                   if (session != null && onCikis != null)
                     AyarSatiri(
                       ikon: SipIcons.user,
@@ -179,7 +182,8 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
                     altBaslik: 'Sürüm bilgisi ve yenilikler',
                     onTap: () => _ac(HakkindaEkrani(db: widget.db)),
                   ),
-                ]),
+                  ]),
+                ),
               ]),
             ),
           ],

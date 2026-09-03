@@ -38,6 +38,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../rehber/rehber_hedef.dart';
 import '../rehber/rehber_modeli.dart';
 import '../rehber/rehber_sahne.dart';
 
@@ -345,10 +346,13 @@ class _DayEndScreenState extends State<DayEndScreen> {
                         child: Row(
                           children: [
                             Expanded(
-                              child: SiparisTarihSeridi(
-                                gun: _gun,
-                                bugun: _bugun,
-                                onDegis: _gunSec,
+                              child: RehberHedef(
+                                id: 'gunsonu.gun',
+                                child: SiparisTarihSeridi(
+                                  gun: _gun,
+                                  bugun: _bugun,
+                                  onDegis: _gunSec,
+                                ),
                               ),
                             ),
                             const SizedBox(width: SipSpace.md),
@@ -381,10 +385,13 @@ class _DayEndScreenState extends State<DayEndScreen> {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(
                             SipSpace.govde, 0, SipSpace.govde, SipSpace.xl),
-                        child: GunKapsamSecici(
-                          secenekler: kapsamlar,
-                          secili: _secili,
-                          onSec: _kapsamSec,
+                        child: RehberHedef(
+                          id: 'gunsonu.kapsam',
+                          child: GunKapsamSecici(
+                            secenekler: kapsamlar,
+                            secili: _secili,
+                            onSec: _kapsamSec,
+                          ),
                         ),
                       ),
 
@@ -400,7 +407,11 @@ class _DayEndScreenState extends State<DayEndScreen> {
                             ])
                           : g == null
                               ? const SipGovde(children: [SipIskelet(adet: 3)])
-                              : GunOzetiGovdesi(
+                              : RehberHedef(
+
+                                  id: 'gunsonu.ozet',
+
+                                  child: GunOzetiGovdesi(
                                   db: widget.db,
                                   gorunum: g,
                                   kapsamAdi: _kapsamAdi(kuryeler),
@@ -428,6 +439,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
                                       ? (k) => _kapanisiGeriAl(k, kuryeler)
                                       : null,
                                 ),
+                                ),
                     ),
 
                     // ALT ÇUBUK KAPSAMSIZ KURYEDE ÇİZİLMEZ: gövdeyi gizleyip çubuğu bırakmak,
@@ -435,7 +447,9 @@ class _DayEndScreenState extends State<DayEndScreen> {
                     // KAYITSIZ GEÇMİŞ GÜNDE DE ÇİZİLMEZ: hiç çalışılmamış bir günü "kapatmak"
                     // boş bir arşiv kaydı üretirdi.
                     if (g != null && !_kapsamsizKurye && (g.bugunMu || g.kayitVar))
-                      GunOzetiAltCubugu(
+                      RehberHedef(
+                        id: 'gunsonu.altCubuk',
+                        child: GunOzetiAltCubugu(
                         kapsamKapali: g.kapsamKapali,
                         gunKapali: g.gunKapali,
                         bugunMu: g.bugunMu,
@@ -453,6 +467,7 @@ class _DayEndScreenState extends State<DayEndScreen> {
                         onAraTahsilat: _araTahsilatAlabilir(g)
                             ? () => _araTahsilat(kuryeler, g)
                             : null,
+                        ),
                       ),
                   ],
                 );

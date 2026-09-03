@@ -22,6 +22,7 @@ import '../../sync/yenileme.dart';
 import 'package:drift/drift.dart' show OrderingTerm, leftOuterJoin;
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_hedef.dart';
 import '../../rehber/rehber_modeli.dart';
 import '../../rehber/rehber_sahne.dart';
 
@@ -216,10 +217,15 @@ class CagriGunluguEkrani extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                     SipSpace.govde, 0, SipSpace.govde, SipSpace.lg),
-                child: _KullaniciSuzgeci(
-                  kisiler: kisiler,
-                  secili: seciliKullaniciId,
-                  onSec: onKullaniciSec!,
+                child: RehberHedef(
+
+                  id: 'cagri.suzgec',
+
+                  child: _KullaniciSuzgeci(
+                    kisiler: kisiler,
+                    secili: seciliKullaniciId,
+                    onSec: onKullaniciSec!,
+                  ),
                 ),
               ),
             Expanded(child: _govde(context)),
@@ -258,7 +264,8 @@ class CagriGunluguEkrani extends StatelessWidget {
       children: [
         for (var i = 0; i < aramalar.length; i++) ...[
           if (i > 0) const SizedBox(height: SipSpace.sm),
-          AramaSatiri(arama: aramalar[i], onAc: onAc),
+          rehberSar(i == 0 ? 'cagri.satir' : null,
+              AramaSatiri(arama: aramalar[i], onAc: onAc)),
         ],
       ],
     );

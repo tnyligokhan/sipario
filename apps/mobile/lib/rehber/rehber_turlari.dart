@@ -1,44 +1,53 @@
-// KATMAN B'NİN METNİ — ekran başına tur adımları.
+// KATMAN B'NİN METNİ — ANA EKRAN VE KABUK turları.
+//
+// Diğer ekranların turları `rehber_turlari_ekranlar.dart`ta (500 satır kuralı).
 //
 // ⚠️ BU DOSYA SÖZLEŞMEDİR. Başlıklar ve cümleler testlerle kilitli; kopyayı "iyileştirmek"
-// testi kırar (bu depoda ekran metnini iyileştirmek birden çok kez kırmızıya sebep oldu).
-// Yazım kuralı: tek cümle nokta almaz, süsleme işareti yok, İngilizce terim yok.
+// testi kırar. Yazım kuralı: tek cümle nokta almaz, süsleme işareti yok, İngilizce terim yok.
 //
-// ── SPOT NEREYE KONUR (kural) ────────────────────────────────────────────────────────────
-// Bir adım ancak KÜÇÜK ve ekran açılır açılmaz GÖRÜNEN bir kutuya bağlanır. Bütün bir liste
-// alanına delik açmak ekranın neredeyse tamamını aydınlatır — balonun sığacağı yer kalmaz ve
-// spot hiçbir şeyi işaret etmemiş olur. Büyük alanları anlatan adım BAĞSIZ yazılır (ekranın
-// ortasında kart). Bağsız adım zayıf bir çözüm değil: bağlam yine doğrudur, çünkü kullanıcı
-// o ekranda durmaktadır.
+// ══ 2026-09-04'TE BAŞTAN YAZILDI ═══════════════════════════════════════════════════════════
+// Kullanıcı: *"Turlar rezalet, çok yüzeysel kalmış, sayfalara girdiğimde bir şeyleri
+// işaretleyerek gösteriyor olmalıydı, mala anlatır gibi anlatmamız lazım."* Eleştiri
+// doğruydu ve sebebi ölçülebilir: on iki yüzeyin YALNIZ YEDİSİNDE gerçek bir kutu işaret
+// ediliyordu, geri kalanı ekranın ortasında duran karttı. Yani tur değil, özet geçiyordu.
 //
-// ── HEDEF ADLARI ─────────────────────────────────────────────────────────────────────────
-// Kalıp `<ekran>.<parça>`. Karşılıkları (`RehberHedef` sarmalayıcıları):
-//   ana.bento    → screens/ana_ekran.dart          (özet ızgarası)
-//   ana.cta      → screens/ana_ekran.dart          (birincil eylem: çağrı geçmişi)
-//   ana.gorev    → rehber/gorev_karti.dart         (ilk adımlar listesi)
-//   ana.menu     → screens/ana_ekran_parcalari.dart(hero'daki menü düğmesi)
-//   ana.altnav   → screens/home_shell.dart         (alt gezinme + artı)
-//   musteri.arama→ screens/customers/customer_list_screen.dart
-//   siparis.filtre→screens/orders/order_list_screen.dart (durum segmenti)
+// ÜÇ ŞEY DEĞİŞTİ:
+//  1. **Çapa sayısı 7 → 35.** Bento tek parça yerine kutu kutu, alt gezinme tek parça yerine
+//     sekme sekme işaret ediliyor. Bir ekranda kaç ayrı SORU cevaplanıyorsa o kadar adım var.
+//  2. **Adım sayısı ~40 → ~85.** "Şurada rakamlar var" değil, "bu rakam nereden geliyor,
+//     dokununca ne olur, tutmadığında nereye bakılır".
+//  3. **Adımlar ETKİLEŞİMLİ olabiliyor** (`RehberAdim.dene`): delik gerçekten dokunulabilir
+//     kalıyor ve kullanıcı hedefe kendi eliyle bastığında tur ilerliyor.
 //
-// Hedefi ağaçta olmayan adım sessizce atlanır — rol ve özellik filtresi böyle çalışır.
+// ══ TURLAR BİRBİRİNE BAĞLANIR ══════════════════════════════════════════════════════════════
+// Ana turun SON adımı "Müşteri sekmesine bas"tır ve etkileşimlidir: kullanıcı bastığında ana
+// turu biter (görüldü yazılır), sekme değişir ve müşteriler turu kendiliğinden başlar. Aynı
+// zincir müşteriler → siparişler → gün sonu diye sürer. Böylece rehber ekran ekran kopuk
+// parçalar değil, tek bir gezinti oluyor.
+//
+// ⚠️ ETKİLEŞİMLİ ADIM YALNIZ SON ADIMDA EKRAN DEĞİŞTİREBİLİR. Ortada bir yerde ekran
+// değiştiren bir `dene` konursa tur, yeni ekranın üstünde eski ekranın adımlarını anlatmaya
+// devam eder (tur katmanı rotaların ÜSTÜNDE yaşıyor). Ekran içinde kalan eylemler —
+// süzgeç çevirmek, gün değiştirmek, arama kutusuna dokunmak — her yerde kullanılabilir.
 
 import 'rehber_modeli.dart';
+import 'rehber_turlari_ekranlar.dart';
+import 'rehber_turlari_kartlar.dart';
 
 /// Bir yüzeyin tur adımları; turu olmayan yüzey boş liste döner.
 List<RehberAdim> rehberTuru(RehberYuzey y) => switch (y) {
       RehberYuzey.ana => _ana,
-      RehberYuzey.musteriler => _musteriler,
-      RehberYuzey.siparisler => _siparisler,
-      RehberYuzey.gunSonu => _gunSonu,
-      RehberYuzey.musteriDetay => _musteriDetay,
-      RehberYuzey.siparisDetay => _siparisDetay,
-      RehberYuzey.urunler => _urunler,
-      RehberYuzey.kuryeler => _kuryeler,
-      RehberYuzey.borclular => _borclular,
-      RehberYuzey.cagriGunlugu => _cagriGunlugu,
-      RehberYuzey.harita => _harita,
-      RehberYuzey.ayarlar => _ayarlar,
+      RehberYuzey.musteriler => musterilerTuru,
+      RehberYuzey.siparisler => siparislerTuru,
+      RehberYuzey.gunSonu => gunSonuTuru,
+      RehberYuzey.musteriDetay => musteriDetayTuru,
+      RehberYuzey.siparisDetay => siparisDetayTuru,
+      RehberYuzey.urunler => urunlerTuru,
+      RehberYuzey.kuryeler => kuryelerTuru,
+      RehberYuzey.borclular => borclularTuru,
+      RehberYuzey.cagriGunlugu => cagriGunluguTuru,
+      RehberYuzey.harita => haritaTuru,
+      RehberYuzey.ayarlar => ayarlarTuru,
     };
 
 // ── ANA EKRAN ────────────────────────────────────────────────────────────────────────────
@@ -49,287 +58,129 @@ List<RehberAdim> rehberTuru(RehberYuzey y) => switch (y) {
 const List<RehberAdim> _ana = [
   RehberAdim(
     baslik: 'Sipario kullanmaya başlıyorsun',
-    metin: 'Bu kısa tur ekranda neyin ne işe yaradığını gösterir; canın istemezse '
-        'Rehberi kapat düğmesine bas, hepsi kapanır ve Ayarlar sayfasından geri açılır',
+    metin: 'Şimdi ekranı birlikte gezeceğiz ve her düğmenin ne işe yaradığını tek tek '
+        'göstereceğim; işaretlenen yere bakman yeterli\n\n'
+        'Canın istemezse Rehberi kapat düğmesine bas, hepsi kapanır ve '
+        'Ayarlar sayfasından istediğin an geri açılır',
   ),
+
+  // ── İlk adımlar kartı ──────────────────────────────────────────────────────────────────
   RehberAdim(
     hedef: 'ana.gorev',
     baslik: 'İlk adımlar listesi',
-    metin: 'Buradaki maddeleri sen işaretlemezsin, yaptıkça kendiliğinden dolar; '
-        'hepsi bitince liste ekrandan kalkar',
+    metin: 'Uygulamayı kurar kurmaz yapman gereken işler burada sırayla yazıyor\n\n'
+        'Bu maddeleri sen işaretlemezsin: ürünü eklediğin an ürün satırı, '
+        'ilk müşteriyi kaydettiğin an müşteri satırı kendiliğinden çizilir '
+        've hepsi bitince liste ekrandan tamamen kalkar',
   ),
+
+  // ── Bento ızgarası — önce bütün, sonra kutu kutu ───────────────────────────────────────
   RehberAdim(
     hedef: 'ana.bento',
-    baslik: 'Günün özeti',
-    metin: 'Açık sipariş sayısı, bugünkü ciro, borçlular ve son gelen arama tek bakışta '
-        'burada; her kutuya dokununca ilgili ekran açılır',
+    baslik: 'Günün dört rakamı',
+    metin: 'Şu dört kutu dükkânın o anki hâlini gösterir\n\n'
+        'Dördü de canlıdır: bir sipariş girdiğinde ya da para aldığında '
+        'rakamlar kendiliğinden değişir, yenilemen gerekmez\n\n'
+        'Şimdi dördünü tek tek anlatacağım',
   ),
+  RehberAdim(
+    hedef: 'ana.acikSiparis',
+    baslik: 'Açık Sipariş',
+    metin: 'Henüz teslim edilmemiş sipariş sayısıdır\n\n'
+        'Bu rakam gün içinde bakacağın en önemli sayıdır: sıfırsa elinde iş kalmamış demektir\n\n'
+        'Kutuya dokununca sipariş listesi açılır',
+  ),
+  RehberAdim(
+    hedef: 'ana.kasa',
+    baslik: 'Bugün Kasa',
+    metin: 'Bugün eline geçen paradır: nakit, kart ve havale toplamı\n\n'
+        'Veresiye BU RAKAMA GİRMEZ, çünkü henüz para almadın; '
+        'veresiye yandaki Borçlular kutusunda sayılır\n\n'
+        'Altındaki küçük yazı bugün kaç teslimat yaptığını söyler',
+  ),
+  RehberAdim(
+    hedef: 'ana.borclular',
+    baslik: 'Borçlular',
+    metin: 'Müşterilerin sana olan toplam borcudur\n\n'
+        'Rakam her zaman kırmızıdır ve bu bir uyarı değildir: kırmızı burada '
+        '"tahsil edilmemiş para" anlamına gelen bir renktir\n\n'
+        'Dokununca yalnız borcu olan müşterileri gösteren liste açılır',
+  ),
+  RehberAdim(
+    hedef: 'ana.sonArama',
+    baslik: 'Son Arama',
+    metin: 'Dükkânı en son kim aradıysa burada yazar\n\n'
+        'Numara kayıtlıysa müşterinin adı görünür ve dokununca kartı açılır; '
+        'kayıtsızsa yalnız numara yazar ve dokununca oradan yeni müşteri açabilirsin',
+  ),
+
+  // ── Birincil eylem ve aktivite ─────────────────────────────────────────────────────────
   RehberAdim(
     hedef: 'ana.cta',
     baslik: 'Dükkânı kim aradı',
-    metin: 'Telefonla gelen her çağrı buraya düşer, kimin karşıladığı da yazar; '
-        'kayıtsız numaradan gelen çağrıdan tek dokunuşla müşteri kaydı açabilirsin',
+    metin: 'Telefonla gelen bütün çağrılar bu düğmenin altında toplanır\n\n'
+        'Bu ekranın en çok kullanacağın yeridir: siparişlerin çoğu telefonla gelir ve '
+        'kimin aradığını, kimin karşıladığını buradan görürsün',
+  ),
+  RehberAdim(
+    hedef: 'ana.aktivite',
+    baslik: 'Son aktivite',
+    metin: 'Bugün teslim ettiğin siparişler en yeniden eskiye doğru sıralanır\n\n'
+        'Her satırda müşterinin adı, ne aldığı, nasıl ödediği ve tutarı yazar; '
+        'satıra dokununca siparişin kendisi açılır\n\n'
+        'Bugün hiç teslimat yoksa burası boş görünür ve bu bir hata değildir',
+  ),
+
+  // ── Hero yüzeyi ────────────────────────────────────────────────────────────────────────
+  RehberAdim(
+    hedef: 'ana.zil',
+    baslik: 'Bildirimler',
+    metin: 'Zilin üstündeki kırmızı rakam kaç okunmamış bildirimin olduğunu söyler\n\n'
+        'Buraya kurye teslimatı, kasa devri ve borç uyarıları düşer; '
+        'rakam yoksa okunmamış bildirim yok demektir',
+  ),
+  RehberAdim(
+    hedef: 'ana.senkron',
+    baslik: 'Senkron ve sürüm',
+    metin: 'Soldaki çip telefonun sunucuyla en son ne zaman konuştuğunu söyler\n\n'
+        'İnternet yokken uygulama TAM ÇALIŞIR, kayıtların telefonda birikir ve '
+        'bağlantı gelince kendiliğinden gider; o yüzden burada eski bir saat görmek '
+        'panik sebebi değildir\n\n'
+        'Sağdaki çip kullandığın sürümü gösterir',
   ),
   RehberAdim(
     hedef: 'ana.menu',
     baslik: 'Menü',
-    metin: 'Ürünler, kuryeler, borçlular, sipariş haritası ve ayarlar bu düğmenin altında',
+    metin: 'Ürünler, kuryeler, borçlular, sipariş haritası, çağrı geçmişi, '
+        'ayarlar ve yardım bu düğmenin altında\n\n'
+        'Ana ekranda olmayan her şeyi buradan bulursun',
   ),
-  RehberAdim(
-    hedef: 'ana.altnav',
-    baslik: 'Alt menü ve artı düğmesi',
-    metin: 'Dört ana ekran arasında buradan geçersin; ortadaki artı yeni sipariş, '
-        'yeni müşteri ve tahsilat girişini açar',
-  ),
-];
 
-// ── MÜŞTERİLER ───────────────────────────────────────────────────────────────────────────
-const List<RehberAdim> _musteriler = [
+  // ── Alt gezinme ────────────────────────────────────────────────────────────────────────
   RehberAdim(
-    baslik: 'Müşteriler',
-    metin: 'Telefon defterin burası; arayan tanıma da bu kayıtlardan çalışır, '
-        'yani müşteriyi kaydettiğin an telefon çaldığında adı ekrana gelir',
+    hedef: 'nav.fab',
+    baslik: 'Artı düğmesi',
+    metin: 'Yeni bir şey eklemenin ana yolu budur\n\n'
+        'Basınca iki satır çıkar: Müşteri Ekle ve Sipariş Ekle\n\n'
+        'Hangi ekranda olursan ol bu düğme hep aynı yerde durur',
   ),
   RehberAdim(
-    hedef: 'musteri.arama',
-    baslik: 'Aramak yazmaktan hızlıdır',
-    metin: 'Ada, telefon numarasına ya da bölgeye göre süzebilirsin; '
-        'numaranın son dört hanesini yazmak çoğu zaman yeter',
+    hedef: 'nav.siparis',
+    baslik: 'Sipariş sekmesi',
+    metin: 'Bütün siparişler burada: teslim bekleyenler, yolda olanlar ve bitenler',
   ),
   RehberAdim(
-    baslik: 'Bakiye rengi ne anlatır',
-    metin: 'Kırmızı rakam müşterinin sana borcu, yeşil rakam senin ona borcun demek; '
-        'sıfırsa hesap kapalıdır',
+    hedef: 'nav.gunSonu',
+    baslik: 'Gün Özeti sekmesi',
+    metin: 'Akşam hesabını buradan yaparsın: günün cirosu, tahsilatı, veresiyesi ve gideri',
   ),
+  // SON ADIM ETKİLEŞİMLİ VE ZİNCİRİN HALKASI: kullanıcı sekmeye bastığında bu tur biter,
+  // ekran değişir ve müşteriler turu kendiliğinden başlar.
   RehberAdim(
-    baslik: 'Müşteri kartını aç',
-    metin: 'Satıra dokununca geçmiş siparişleri, adresleri, defteri ve '
-        'ara, yol tarifi al gibi düğmeler çıkar',
-  ),
-];
-
-// ── SİPARİŞLER ───────────────────────────────────────────────────────────────────────────
-const List<RehberAdim> _siparisler = [
-  RehberAdim(
-    baslik: 'Siparişler',
-    metin: 'Açık, yolda ve teslim edilmiş bütün siparişler bu ekranda toplanır',
-    kitle: RehberKitle.yonetici,
-  ),
-  RehberAdim(
-    baslik: 'Sana atanan işler',
-    metin: 'Bu listede yalnız sana verilen siparişler görünür; '
-        'sırayı patron değiştirirse liste kendiliğinden güncellenir',
-    kitle: RehberKitle.kurye,
-  ),
-  RehberAdim(
-    hedef: 'siparis.filtre',
-    baslik: 'Durum süzgeci',
-    metin: 'Açık, yolda ve teslim edildi arasında geçiş yapar; '
-        'gün boyunca en çok bakacağın yer açık siparişlerdir',
-  ),
-  RehberAdim(
-    baslik: 'Siparişi teslim etmek',
-    metin: 'Satıra dokun, açılan kartta teslim edildi işaretle ve tahsilatı gir; '
-        'internet yoksa da çalışır, bağlantı gelince kendiliğinden gönderilir',
-  ),
-  RehberAdim(
-    baslik: 'Sırayı elle değiştirmek',
-    metin: 'Satırdaki tutamacı basılı tutup sürükleyerek teslim sırasını değiştirebilirsin; '
-        'tutamacın sağda mı solda mı duracağını Ayarlar sayfasından seçersin',
-    kitle: RehberKitle.yonetici,
-  ),
-];
-
-// ── GÜN SONU ─────────────────────────────────────────────────────────────────────────────
-//
-// AYNI EKRAN İKİ ROLE FARKLI ŞEY ANLATIR — burası `RehberKitle` filtresinin gerçekten
-// gerektiği yerdir: kart ikisinde de çizilir, anlamı değişir.
-const List<RehberAdim> _gunSonu = [
-  RehberAdim(
-    baslik: 'Gün sonu',
-    metin: 'Günün cirosu, tahsilatı, veresiyesi ve giderleri burada toplanır',
-    kitle: RehberKitle.yonetici,
-  ),
-  RehberAdim(
-    baslik: 'Kasa devri',
-    metin: 'Gün boyunca topladığın parayı buradan patrona devredersin; '
-        'saydığın tutarı girersin, fark varsa kayıtta görünür',
-    kitle: RehberKitle.kurye,
-  ),
-  RehberAdim(
-    baslik: 'Rakamlar nereden geliyor',
-    metin: 'Hiçbir rakam elle yazılmaz, hepsi girdiğin siparişlerden ve tahsilatlardan '
-        'türetilir; tutmayan bir sayı görürsen kaydın kendisine bak',
-  ),
-  RehberAdim(
-    baslik: 'Günü kapatmak',
-    metin: 'Gün kapandığında o günün hesabı arşive geçer; yanlışlık olursa kapanış '
-        'geri alınabilir, kayıtlar silinmez',
-    kitle: RehberKitle.yonetici,
-  ),
-  RehberAdim(
-    baslik: 'Yanlış devir olursa',
-    metin: 'Yapılmış bir devir silinmez, ters kayıtla geri alınır; '
-        'böylece akşam ne olduğu defterde görünür kalır',
-    kitle: RehberKitle.kurye,
-  ),
-];
-
-// ── MÜŞTERİ KARTI ────────────────────────────────────────────────────────────────────────
-const List<RehberAdim> _musteriDetay = [
-  RehberAdim(
-    baslik: 'Müşteri kartı',
-    metin: 'Bu müşterinin bütün geçmişi tek ekranda: siparişler, ödemeler, '
-        'adresler ve borç durumu',
-  ),
-  RehberAdim(
-    baslik: 'Üstteki düğmeler',
-    metin: 'Ara düğmesi telefonu açar, mesaj düğmesi yazışmayı, '
-        'konum düğmesi ise adresin haritasını açar',
-  ),
-  RehberAdim(
-    baslik: 'Defter ne demek',
-    metin: 'Defter, bu müşteriyle aranızdaki bütün para hareketidir; '
-        'her satır bir sipariş ya da bir ödemedir ve silinmez',
-  ),
-  RehberAdim(
-    baslik: 'Konumu düzeltmek',
-    metin: 'Kuryeyken müşterinin kapısındaysan Konumu güncelle düğmesine bas, '
-        'adresin gerçek noktası kaydedilsin; sonraki teslimatlar oraya gider',
-  ),
-];
-
-// ── SİPARİŞ KARTI ────────────────────────────────────────────────────────────────────────
-const List<RehberAdim> _siparisDetay = [
-  RehberAdim(
-    baslik: 'Sipariş kartı',
-    metin: 'Siparişin kalemleri, tutarı, adresi ve durumu burada; '
-        'yapılan her işlem kartın altına kayıt olarak düşer',
-  ),
-  RehberAdim(
-    baslik: 'Teslim etmek',
-    metin: 'Teslim edildi düğmesine bastığında ödeme tipini sorar: '
-        'nakit, kart, havale ya da veresiye',
-  ),
-  RehberAdim(
-    baslik: 'Veresiye yazmak',
-    metin: 'Veresiye seçersen tutar müşterinin borcuna eklenir; '
-        'sonra tahsil ettiğinde müşteri kartından ödeme girersin',
-  ),
-  RehberAdim(
-    baslik: 'İnternet yokken',
-    metin: 'Bodrumda ya da sinyalsiz yerde de her şey çalışır; '
-        'kayıt telefonda durur ve bağlantı gelince kendiliğinden gider',
-  ),
-];
-
-// ── ÜRÜNLER ──────────────────────────────────────────────────────────────────────────────
-const List<RehberAdim> _urunler = [
-  RehberAdim(
-    baslik: 'Ürünler',
-    metin: 'Sattığın kalemler ve fiyatları burada durur; '
-        'sipariş girerken bu listeden seçersin',
-  ),
-  RehberAdim(
-    baslik: 'Stokta yok demek',
-    metin: 'Biten bir ürünü silmek yerine stokta yok işaretle; '
-        'sipariş ekranında görünmez olur ama geçmiş siparişlerde adı kalır',
-  ),
-  RehberAdim(
-    baslik: 'Seçenekler',
-    metin: 'Bir ürünün boy, porsiyon ya da ek malzeme gibi seçenekleri varsa '
-        'onları da burada tanımlarsın',
-  ),
-];
-
-// ── KURYELER ─────────────────────────────────────────────────────────────────────────────
-const List<RehberAdim> _kuryeler = [
-  RehberAdim(
-    baslik: 'Kuryeler',
-    metin: 'Ekibindeki kişileri buradan eklersin; her birine kendi giriş adı '
-        've parolası verilir',
-  ),
-  RehberAdim(
-    baslik: 'Kim neyi görebilir',
-    metin: 'Her kurye için ayrı ayrı yetki verebilirsin: tahsilat alsın mı, '
-        'iskonto yapabilsin mi, bütün müşterileri görsün mü',
-  ),
-  RehberAdim(
-    baslik: 'Tek başına çalışıyorsan',
-    metin: 'Kurye eklemek zorunda değilsin; ekip olmadan da bütün ekranlar çalışır',
-  ),
-];
-
-// ── BORÇLULAR ────────────────────────────────────────────────────────────────────────────
-const List<RehberAdim> _borclular = [
-  RehberAdim(
-    baslik: 'Borçlular',
-    metin: 'Sana borcu olan müşteriler, borcu büyükten küçüğe sıralı',
-  ),
-  RehberAdim(
-    baslik: 'Tahsilat girmek',
-    metin: 'Satıra dokunup müşteri kartına gir, ödeme aldığında oradan kaydet; '
-        'borç kendiliğinden düşer',
-  ),
-  RehberAdim(
-    baslik: 'Hatırlatma göndermek',
-    metin: 'Müşteri kartındaki hatırlatma düğmesi borcu yazan hazır bir mesaj açar; '
-        'göndermeden önce metni değiştirebilirsin',
-  ),
-];
-
-// ── ÇAĞRI GEÇMİŞİ ────────────────────────────────────────────────────────────────────────
-const List<RehberAdim> _cagriGunlugu = [
-  RehberAdim(
-    baslik: 'Çağrı geçmişi',
-    metin: 'Dükkânı arayan herkes buraya düşer; kayıtlı müşteriyse adı, '
-        'değilse yalnız numarası yazar',
-  ),
-  RehberAdim(
-    baslik: 'Kim karşıladı',
-    metin: 'Bir çağrıdan sipariş açıldıysa satırda görünür; '
-        'böylece hangi çağrının işe döndüğü belli olur',
-  ),
-  RehberAdim(
-    baslik: 'Çağrı ekranda çıkmıyorsa',
-    metin: 'Telefonun pil ayarları uygulamayı arka planda kapatıyor olabilir; '
-        'Ayarlar sayfasındaki kurulum ve izinler adımını yeniden çalıştır',
-  ),
-];
-
-// ── SİPARİŞ HARİTASI ─────────────────────────────────────────────────────────────────────
-const List<RehberAdim> _harita = [
-  RehberAdim(
-    baslik: 'Sipariş haritası',
-    metin: 'Açık siparişlerin nerede olduğunu tek ekranda gösterir',
-  ),
-  RehberAdim(
-    baslik: 'Numaralar ne demek',
-    metin: 'Oto sıralama çalıştırıldıysa pinlerdeki numara teslim sırasıdır; '
-        'sırayı sipariş listesinden elle de değiştirebilirsin',
-  ),
-  RehberAdim(
-    baslik: 'Pin yanlış yerdeyse',
-    metin: 'Adresten bulunan nokta sokağı gösterir, kapıyı değil; '
-        'kurye oradayken müşteri kartından konumu güncellerse pin düzelir',
-  ),
-];
-
-// ── AYARLAR ──────────────────────────────────────────────────────────────────────────────
-const List<RehberAdim> _ayarlar = [
-  RehberAdim(
-    baslik: 'Ayarlar',
-    metin: 'Beş sayfa var: hesabın, işletmen, uygulama tercihleri, '
-        'bildirimler ve sürüm bilgisi',
-  ),
-  RehberAdim(
-    baslik: 'Arayan tanıma buradan açılır',
-    metin: 'Uygulama sayfasındaki kurulum ve izinler adımı telefonun izinlerini '
-        'baştan ayarlar; çağrı ekranı gelmiyorsa ilk bakılacak yer orasıdır',
-  ),
-  RehberAdim(
-    baslik: 'Rehberi yeniden açmak',
-    metin: 'Uygulama sayfasının en altındaki rehberi baştan göster satırı '
-        'bütün turları sıfırlar',
+    hedef: 'nav.musteri',
+    baslik: 'Şimdi müşterilere bakalım',
+    metin: 'Alt menüdeki dört sekme uygulamanın dört ana ekranıdır\n\n'
+        'Müşteri sekmesine bas, gezmeye oradan devam edelim',
+    dene: 'Müşteri sekmesine bas',
   ),
 ];

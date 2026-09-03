@@ -269,7 +269,59 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-03 — **UYGULAMA İÇİ REHBER (A+B+C)** (mobil 1.0.2 → **1.1.0**, API sabit 1.22.0)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-04 — **REHBER TURLARI BAŞTAN YAZILDI** (mobil 1.1.0 → **1.2.0**, API sabit 1.22.0)
+
+#### 🔴 EN ÖNEMLİ SATIR: İLK SÜRÜM TUR DEĞİL SLAYT GÖSTERİSİYDİ
+
+Kullanıcı: *"Turlar rezalet, daha interaktif olmalı, sayfalara girdiğimde bir şeyleri
+işaretleyerek gösteriyor olmalıydı, mala anlatır gibi anlatmamız lazım."* Eleştiri doğruydu ve
+sebebi ÖLÇÜLEBİLİR: on iki yüzeyin yalnız yedisinde gerçek bir kutu işaret ediliyordu, geri
+kalanı ekranın ortasında duran karttı. Yani rehber ekranı göstermiyor, özetliyordu.
+
+**Üç şey değişti:**
+
+1. **Çapa 7 → 35.** Bento tek parça yerine kutu kutu (`ana.acikSiparis`, `ana.kasa`,
+   `ana.borclular`, `ana.sonArama`), alt gezinme tek parça yerine sekme sekme
+   (`nav.ana`, `nav.musteri`, `nav.siparis`, `nav.gunSonu`, `nav.fab`). Bir ekranda kaç ayrı
+   SORU cevaplanıyorsa o kadar adım var.
+2. **Adım ~40 → ~90.** "Şurada rakamlar var" değil: bu rakam nereden geliyor, dokununca ne
+   olur, tutmadığında nereye bakılır. Örnek — "Bugün Kasa" adımı veresiyenin neden o rakama
+   girmediğini ayrıca söylüyor.
+3. **Adımlar ETKİLEŞİMLİ olabiliyor** (`RehberAdim.dene`): karartmanın deliği gerçekten
+   dokunulabilir kalıyor, kullanıcı hedefe kendi eliyle basıyor ve tur o dokunuşla ilerliyor.
+
+Ayrıca: spot artık **nabız atıyor** (üç kez, sonra duruyor), balondan hedefe **ok** çıkıyor,
+**Geri** düğmesi ve ilerleme noktaları eklendi.
+
+#### ⚠️ SIRADAKİ VARDİYANIN BİLMESİ GEREKEN ÜÇ ŞEY
+
+1. **"HEM GÖR HEM GEÇİR" OVERLAY'DE MÜMKÜN DEĞİL.** Flutter'ın isabet testi bir katman kendini
+   hedef olarak eklediğinde alttaki rotaya inmeyi bırakır — yani karartmanın üstüne geçirgen
+   bir dinleyici koyup dokunuşu hem görüp hem geçiremezsin. Çözüm ikiye bölündü: **geçirme
+   YERLEŞİMLE** (karartma tek parça değil, deliğin çevresindeki dört perde parçası; delik boş
+   bırakılıyor), **görme HEDEFİN KENDİ AĞACINDAKİ `Listener` ile** (`RehberKayit.sonDokunus`).
+2. **EKRAN DEĞİŞTİREN `dene` YALNIZ SON ADIMDA OLABİLİR.** Tur katmanı rotaların üstünde
+   yaşıyor; ortada bir yerde sekme değiştiren bir adım, turu yeni ekranın üstünde eski ekranın
+   adımlarını anlatır hâlde bırakır. Son adımda ise dokunuş turu BİTİRİR ve sıradaki ekranın
+   turu kendiliğinden başlar — **turlar böyle zincirlendi** (ana → müşteriler → siparişler →
+   gün sonu). Testle kilitli.
+3. **NABIZ SINIRLI OLMAK ZORUNDA.** Bu depoda 77 test `pumpAndSettle` çağırıyor; hiç durmayan
+   bir animasyon o çağrıları sonsuz döngüye sokar. Halka üç kez atıp duruyor.
+
+**Kapılar:** `flutter analyze` temiz · `flutter test` **1603/1603** yeşil (57'si rehber).
+APK derlemesi koşulmadı — paket/native dokunuşu yok.
+
+#### ⏭️ Sıradaki işler
+
+Önceki nottakiler duruyor (KVKK m.9 standart sözleşme · destek telefonu · site değişikliklerinin
+gerçek tarayıcıda görülmesi). Rehber tarafında açık kalan: **turlar gerçek cihazda gözle
+görülmedi** — balonun konumu, okun hizası ve nabzın okunurluğu ancak sahada ölçülür
+(`ekrani-golden-png-ile-gozle-incele` dersi). Ayrıca form yüzeylerinin (sipariş formu, müşteri
+formu) turu hâlâ yok; alan başına ipucu ayrı bir iş kolu.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-03 — **UYGULAMA İÇİ REHBER (A+B+C)** (mobil 1.0.2 → **1.1.0**, API sabit 1.22.0)
 
 #### Neden ve ne yapıldı
 

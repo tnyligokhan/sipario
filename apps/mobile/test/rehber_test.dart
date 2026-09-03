@@ -102,11 +102,21 @@ void main() {
       // eksik anlatır. Tek dosya adı yerine BÜTÜN `lib/` taranır (bu depoda yapısal kilitler
       // tek dosyaya bağlandığı için bölünmede susmuştu).
       final kayitli = <String>{};
-      final desen = RegExp(r"RehberHedef\(\s*(?://[^\n]*\n\s*)*id:\s*'([^']+)'");
+      final aileler = <String>{};
+      // İki sarmalama biçimi de taranır: doğrudan `RehberHedef(id: '...')` ve liste
+      // kurucularındaki `rehberSar('...' , ...)`.
+      final duz = RegExp(r"(?:RehberHedef\(|rehberSar\()[\s\S]{0,240}?'([a-z]+\.[a-zA-Z]+)'");
+      // Ad çalışma anında kuruluyorsa (alt gezinme sekmeleri: `id: 'nav.${sekme.name}'`)
+      // tek tek adlar kaynakta YAZMAZ; o durumda AİLE ÖNEKİ kaydedilir.
+      final aile = RegExp(r"id: '([a-z]+)\.\$");
       await for (final e in Directory('lib').list(recursive: true)) {
         if (e is! File || !e.path.endsWith('.dart')) continue;
-        for (final m in desen.allMatches(await e.readAsString())) {
+        final kaynak = await e.readAsString();
+        for (final m in duz.allMatches(kaynak)) {
           kayitli.add(m.group(1)!);
+        }
+        for (final m in aile.allMatches(kaynak)) {
+          aileler.add('${m.group(1)!}.');
         }
       }
       expect(kayitli, isNotEmpty, reason: 'hiç RehberHedef bulunamadı — tarama deseni bozuk');
@@ -114,11 +124,85 @@ void main() {
       for (final y in RehberYuzey.values) {
         for (final a in rehberTuru(y)) {
           if (a.bagsiz) continue;
-          expect(kayitli, contains(a.hedef),
+          final tanindi = kayitli.contains(a.hedef) ||
+              aileler.any((o) => a.hedef.startsWith(o));
+          expect(tanindi, isTrue,
               reason: '${y.anahtar} · "${a.baslik}" adımı "${a.hedef}" hedefini işaret ediyor '
                   'ama hiçbir ekran o adı RehberHedef ile sarmıyor');
         }
       }
+    });
+
+    test('TURLAR YÜZEYSEL DEĞİL — her ekran en az beş şey anlatır', () {
+      // BU TEST BİR REGRESYON BEKÇİSİDİR (kullanıcı eleştirisi 2026-09-04: "çok yüzeysel
+      // kalmış"). İlk sürümde bazı turlar iki adımlıktı ve ekranı anlatmıyor, özet geçiyordu.
+      // Alt sınır keyfi değil: bir ekranın ne olduğu, neyi gösterdiği, neye dokunulduğunda
+      // ne olduğu ve nerede yanlış gidebileceği en az dört ayrı cümledir.
+      for (final y in RehberYuzey.values) {
+        expect(rehberTuru(y).length, greaterThanOrEqualTo(5),
+            reason: '${y.anahtar} turu yalnız ${rehberTuru(y).length} adım');
+      }
+      // Ana ekran uygulamanın yüzüdür ve en çok anlatılması gereken yerdir.
+      expect(rehberTuru(RehberYuzey.ana).length, greaterThanOrEqualTo(12));
+    });
+
+    test('TURLAR GERÇEK BİR ŞEYİ İŞARET EDER — bağsız adım azınlıktadır', () {
+      // Aynı eleştirinin ikinci yarısı: "sayfalara girdiğimde bir şeyleri işaretleyerek
+      // gösteriyor olmalıydı". Ekranın ortasında duran kart bağlamı taşır ama hiçbir yeri
+      // GÖSTERMEZ; turun ağırlığı işaretlenmiş adımlarda olmalı.
+      var bagli = 0;
+      var toplam = 0;
+      for (final y in RehberYuzey.values) {
+        for (final a in rehberTuru(y)) {
+          toplam++;
+          if (!a.bagsiz) bagli++;
+        }
+      }
+      expect(bagli, greaterThanOrEqualTo(toplam ~/ 2),
+          reason: 'adımların yarısından azı bir şeyi işaret ediyor ($bagli/$toplam)');
+    });
+
+    test('EKRAN DEĞİŞTİREN "dene" adımı yalnız turun SONUNDA olabilir', () {
+      // Tur katmanı rotaların ÜSTÜNDE yaşıyor: ortada bir yerde sekme değiştiren bir adım,
+      // turu yeni ekranın üstünde eski ekranın adımlarını anlatır hâlde bırakır. Son adımda
+      // ise dokunuş turu BİTİRİR ve sıradaki ekranın turu kendiliğinden başlar (zincir).
+      for (final y in RehberYuzey.values) {
+        final adimlar = rehberTuru(y);
+        for (var i = 0; i < adimlar.length; i++) {
+          if (!adimlar[i].hedef.startsWith('nav.')) continue;
+          if (!adimlar[i].etkilesimli) continue;
+          expect(i, adimlar.length - 1,
+              reason: '${y.anahtar} · "${adimlar[i].baslik}" ekran değiştiriyor '
+                  'ama turun son adımı değil');
+        }
+      }
+    });
+
+    test('ETKİLEŞİMLİ adımın hedefi ve çağrısı birlikte bulunur', () {
+      for (final y in RehberYuzey.values) {
+        for (final a in rehberTuru(y)) {
+          if (a.dene.isEmpty) continue;
+          expect(a.hedef, isNotEmpty,
+              reason: '${y.anahtar} · "${a.baslik}" dene diyor ama hedefi yok — '
+                  'kullanıcıya neye dokunacağını söylemeyen bir çağrı');
+          expect(a.etkilesimli, isTrue);
+        }
+      }
+    });
+
+    test('dört ana sekmenin turu birbirine ZİNCİRLENİR', () {
+      // Rehber ekran ekran kopuk parçalar değil tek bir gezinti olmalı: her turun son adımı
+      // kullanıcıyı bir sonrakine götürür.
+      const zincir = {
+        RehberYuzey.ana: 'nav.musteri',
+        RehberYuzey.musteriler: 'nav.siparis',
+        RehberYuzey.siparisler: 'nav.gunSonu',
+      };
+      zincir.forEach((yuzey, hedef) {
+        final son = rehberTuru(yuzey).last;
+        expect(son.hedef, hedef, reason: '${yuzey.anahtar} turu zinciri kopmuş');
+        expect(son.etkilesimli, isTrue);
+      });
     });
 
     test('gün sonu turu iki role AYRI cümleler söyler', () {

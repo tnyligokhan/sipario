@@ -60,10 +60,39 @@ abstract final class RehberKayit {
   /// Ad kayıtlı ve ölçülebilir mi.
   static bool varMi(String id) => kutu(id) != null;
 
+  /// Bir hedefe DOKUNULDUĞUNDA bildiren kanal — etkileşimli tur adımı bunu dinler
+  /// ("artı düğmesine bas" adımı, kullanıcı gerçekten bastığında ilerler).
+  ///
+  /// NEDEN HEDEFİN KENDİSİ BİLDİRİYOR, TUR DİNLEMİYOR: tur katmanı `Overlay`de yaşıyor ve
+  /// oradaki bir dinleyici dokunuşu YUTARDI — Flutter'ın isabet testi, bir katman kendini
+  /// hedef olarak eklediğinde alttaki rotaya inmeyi bırakır. Yani "hem gör hem geçir" overlay
+  /// tarafında mümkün değil. Hedefin kendi ağacındaki `Listener` ise geçirgendir: gerçek
+  /// düğme de olayı alır, biz de haberdar oluruz.
+  static final ValueNotifier<String?> sonDokunus = ValueNotifier<String?>(null);
+
+  static void dokunuldu(String id) {
+    // Önce null: aynı hedefe arka arkaya dokunmak da bildirim üretmeli (ValueNotifier aynı
+    // değeri yeniden atayınca dinleyicilere haber vermez).
+    sonDokunus.value = null;
+    sonDokunus.value = id;
+  }
+
   /// Yalnız test: kayıt tablosunu boşaltır.
   @visibleForTesting
-  static void temizle() => _kayit.clear();
+  static void temizle() {
+    _kayit.clear();
+    sonDokunus.value = null;
+  }
 }
+
+/// [id] null ise [cocuk] olduğu gibi döner, değilse [RehberHedef] ile sarılır.
+///
+/// LİSTE KURUCULARI İÇİN: rehber bir liste satırını işaret ederken YALNIZ İLK SATIRI sarar
+/// (`i == 0 ? 'musteri.satir' : null`). İki gerekçe: (1) rehberin anlatmak istediği şey "bir
+/// satır nasıl okunur", hepsi değil; (2) aynı adı taşıyan birden çok hedefte kayıt SON monte
+/// edileni seçer, yani kaydırılan bir listede spot her karede başka satıra atlardı.
+Widget rehberSar(String? id, Widget cocuk) =>
+    id == null ? cocuk : RehberHedef(id: id, child: cocuk);
 
 /// Turun işaret edebileceği bir yüzeyi [id] adıyla kaydeder.
 ///
@@ -107,6 +136,13 @@ class _RehberHedefState extends State<RehberHedef> {
 
   // KeyedSubtree: anahtar ÇOCUĞUN kendisine takılır, araya bir kutu girmez — yerleşim
   // (Expanded/Flexible gibi ata beklentileri dahil) hiç değişmez.
+  //
+  // `Listener` GEÇİRGENDİR (`translucent`): kendini isabet listesine ekler AMA çocuğu da
+  // ekler, yani asıl düğme dokunuşu aynen alır. Hiçbir jesti çalmaz, yalnız haber verir.
   @override
-  Widget build(BuildContext context) => KeyedSubtree(key: _anahtar, child: widget.child);
+  Widget build(BuildContext context) => Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => RehberKayit.dokunuldu(widget.id),
+        child: KeyedSubtree(key: _anahtar, child: widget.child),
+      );
 }

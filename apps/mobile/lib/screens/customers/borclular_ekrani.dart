@@ -16,6 +16,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_hedef.dart';
 import '../../rehber/rehber_modeli.dart';
 import '../../rehber/rehber_sahne.dart';
 
@@ -159,7 +160,7 @@ class _Liste extends StatelessWidget {
                   itemCount: liste.length,
                   itemBuilder: (context, i) => Padding(
                     padding: EdgeInsets.only(top: i == 0 ? 0 : SipSpace.md),
-                    child: BorcluKarti(
+                    child: rehberSar(i == 0 ? 'borclu.kart' : null, BorcluKarti(
                       db: db,
                       veri: liste[i],
                       writable: writable,
@@ -170,7 +171,7 @@ class _Liste extends StatelessWidget {
                       isletmeAdi: ayar?.businessName,
                       ibanAliciAdi: ayar?.ibanOwnerName,
                       sablon: ayar?.reminderTemplate,
-                    ),
+                    )),
                   ),
                 ),
               );

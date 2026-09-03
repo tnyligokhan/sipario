@@ -275,11 +275,14 @@ class _OrderListScreenState extends State<OrderListScreen> {
                   if (_elle)
                     SipMetinButon(etiket: 'Bitti', onTap: _elleBitir)
                   else
-                    SipMetinButon(
-                      etiket: 'Sırala',
-                      ikon: SipIcons.sirala,
-                      zemin: t.surface,
-                      onTap: _siralamaAc,
+                    RehberHedef(
+                      id: 'siparis.sirala',
+                      child: SipMetinButon(
+                        etiket: 'Sırala',
+                        ikon: SipIcons.sirala,
+                        zemin: t.surface,
+                        onTap: _siralamaAc,
+                      ),
                     ),
                   // Elle sıralama kipinde YARDIM ÇİZİLMEZ: o kip tek işlidir ("sırayı yaz,
                   // Bitti'ye bas") ve şeridin ikinci bir düğmesi orada dikkati bölerdi.
@@ -336,16 +339,19 @@ class _OrderListScreenState extends State<OrderListScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                     SipSpace.govde, 0, SipSpace.govde, SipSpace.xl),
-                child: SiparisAracSeridi(
+                child: RehberHedef(
+                  id: 'siparis.arac',
+                  child: SiparisAracSeridi(
                   onHarita: _haritaAc,
                   // Süzgeç yalnız PATRONA çıkar (K2 dışı bir GÖRÜNÜM kapısı; kurye kendi işini
                   // görür, ona süzgeç gürültüdür).
                   onKurye: kuryeSuzgeciGorunur(_rol) ? _kuryeSuzgeciAc : null,
                   kuryeAdi: _kuryeId == null ? null : (_kuryeAdi ?? 'Kurye'),
+                  ),
                 ),
               ),
 
-            Expanded(child: _govde()),
+            Expanded(child: RehberHedef(id: 'siparis.liste', child: _govde())),
           ],
         ),
       ),

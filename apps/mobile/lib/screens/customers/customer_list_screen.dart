@@ -183,10 +183,17 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemCount: rows.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 7),
-                      itemBuilder: (context, i) => _MusteriSatiri(
-                        satir: rows[i],
-                        maskeli: widget.yetki.telefonMaskeleme,
-                        onAc: () => _ac(rows[i].customer),
+                      // REHBER YALNIZ İLK SATIRI İŞARET EDER (`i == 0`): rehber "bir müşteri
+                      // satırı" göstermek istiyor, hepsini değil — ve hedef adı tek olmalı
+                      // (kayıt aynı adı taşıyan son monte edileni seçer, kaydırılan bir
+                      // listede bu her karede başka satır demek olurdu).
+                      itemBuilder: (context, i) => rehberSar(
+                        i == 0 ? 'musteri.satir' : null,
+                        _MusteriSatiri(
+                          satir: rows[i],
+                          maskeli: widget.yetki.telefonMaskeleme,
+                          onAc: () => _ac(rows[i].customer),
+                        ),
                       ),
                     ),
                   );

@@ -12,6 +12,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_hedef.dart';
 import '../../rehber/rehber_modeli.dart';
 import '../../rehber/rehber_sahne.dart';
 
@@ -120,10 +121,15 @@ class KuryelerEkrani extends StatelessWidget {
                         : '${kuryeler.length} kayıtlı, $aktif aktif',
                     onGeri: () => Navigator.of(context).maybePop(),
                     sag: [
-                      SipMetinButon(
-                        etiket: 'Varsayılan Yetkiler',
-                        ikon: SipIcons.lock,
-                        onTap: () => _yetkileriAc(context),
+                      RehberHedef(
+
+                        id: 'kurye.varsayilan',
+
+                        child: SipMetinButon(
+                          etiket: 'Varsayılan Yetkiler',
+                          ikon: SipIcons.lock,
+                          onTap: () => _yetkileriAc(context),
+                        ),
                       ),
                       const RehberYardimDugmesi(yuzey: RehberYuzey.kuryeler),
                     ],
@@ -253,10 +259,13 @@ class _Liste extends StatelessWidget {
             for (var i = 0; i < kuryeler.length; i++)
               Padding(
                 padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
-                child: KuryeKarti(
-                  kurye: kuryeler[i],
-                  onTap: () => _ac(context, kuryeler[i]),
-                  onYetkiler: () => onKuryeYetkileriAc(kuryeler[i]),
+                child: rehberSar(
+                  i == 0 ? 'kurye.kart' : null,
+                  KuryeKarti(
+                    kurye: kuryeler[i],
+                    onTap: () => _ac(context, kuryeler[i]),
+                    onYetkiler: () => onKuryeYetkileriAc(kuryeler[i]),
+                  ),
                 ),
               ),
           ],

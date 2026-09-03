@@ -67,6 +67,7 @@ class RehberAdim {
     required this.metin,
     this.hedef = '',
     this.kitle = RehberKitle.hepsi,
+    this.dene = '',
   });
 
   /// İşaret edilecek [RehberHedef] kimliği. BOŞSA adım bir hedefe bağlanmaz ve ekranın
@@ -80,7 +81,24 @@ class RehberAdim {
   final String metin;
   final RehberKitle kitle;
 
+  /// DOLUYSA ADIM ETKİLEŞİMLİDİR: karartmanın deliği gerçekten dokunulabilir kalır, kullanıcı
+  /// hedefe kendi eliyle dokunur ve tur o dokunuşla ilerler. Metin çağrının kendisidir
+  /// ("Artı düğmesine bas").
+  ///
+  /// NEDEN İZLEMEK YERİNE YAPTIRIYORUZ: anlatılan adım unutulur, yapılan adım kalır. Bu üründe
+  /// hedef kitle teknoloji toleransı düşük bir esnaf (BRIEF) — "şuraya basılır" cümlesi ile
+  /// "şuraya bas" çağrısı arasındaki fark, turun izlenmesi ile öğrenilmesi arasındaki farktır.
+  ///
+  /// ⚠️ EKRAN DEĞİŞTİREN EYLEME KONMAZ: tur katmanı rotaların ÜSTÜNDE yaşıyor, dokunuş yeni bir
+  /// sayfa ya da alt sayfa açarsa tur onun üstünde asılı kalır. Bu yüzden `dene` yalnız aynı
+  /// ekranda kalan eylemlerde kullanılır (sekme değiştirmek, süzgeç çevirmek, arama kutusuna
+  /// dokunmak); bir şey AÇAN adımlar düz anlatı olarak yazılır.
+  final String dene;
+
   bool get bagsiz => hedef.isEmpty;
+
+  /// Kullanıcının kendi eliyle yapması beklenen adım mı.
+  bool get etkilesimli => dene.isNotEmpty && hedef.isNotEmpty;
 }
 
 /// KATMAN C — tek bir görev tarifi ("nasıl yapılır" listesinin bir maddesi).
