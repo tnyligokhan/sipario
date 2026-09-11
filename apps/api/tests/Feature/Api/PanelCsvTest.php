@@ -439,7 +439,18 @@ class PanelCsvTest extends ApiTestCase
         // Önizleme hiçbir şey yazmadı.
         $this->assertSame(0, Provisioning::asOwner(fn () => Customer::query()->count()));
 
+        // AKTARIM ADIM ADIM KOŞAR (2026-09-11): `uygula` yalnız ilerleme kartını açar, yazma
+        // `adim`da olur. Gerekçe: 9.000 satırlık gerçek bir dosya tek istekte ~7,5 dakika sürüyor
+        // ve nginx 60 sn'de keser. Düğmenin yazmaması bu tasarımın GÖRÜNÜR yüzüdür.
         $bilesen->call('uygula')
+            ->assertSet('devam', true)
+            ->assertSee('Aktarılıyor');
+
+        $this->assertSame(0, Provisioning::asOwner(fn () => Customer::query()->count()),
+            'Düğme hâlâ hiçbir şey yazmamalı.');
+
+        $bilesen->call('adim')
+            ->assertSet('devam', false)
             ->assertSee('1 müşteri eklendi')
             ->assertSee('Hatalı satırlar');
 

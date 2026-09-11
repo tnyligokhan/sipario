@@ -269,7 +269,75 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-04 — **REHBER TURLARI BAŞTAN YAZILDI** (mobil 1.1.0 → **1.2.0**, API sabit 1.22.0)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-11 — **GERÇEK BAYİ VERİSİ ÜRÜNE TAŞINDI** (API 1.22.0 → **1.23.0**, mobil sabit)
+
+#### NE YAPILDI
+
+Kullanıcı bir müşterisinin **Google Kişiler dökümünü** (`musteri-verisi/contacts.csv`, 9.057 kişi)
+verdi ve "içeri aktarabileceğimiz bir formata getir, hiçbir veri kaybolmasın" dedi.
+
+1. **`scripts/musteri-donustur.js`** — dökümü panel şablonuna çeviren tek seferlik taşıma betiği.
+   Çıktı `musteri-verisi/cikti/`: `musteriler.csv` (9.048 satır), `urunler.csv`, `kod-cakismalari.csv`.
+2. **`PanelImportService` genişletildi** — `kod` + `favoriler` sütunları, `:::` ile çoklu
+   telefon/adres, eksik ürünlerin otomatik açılması, satır tavanı 10.000.
+   Yeni sınıflar: `AktarimSatiri`, `AktarimDurumu`, `AktarimUrunleri`.
+3. **`ChangeApplier`** — `customers.code` yalnız panelin sentetik cihazından kabul edilir.
+
+#### 🔴 EN ÖNEMLİ SATIR: İKİ HATA ANCAK GERÇEK DOSYAYLA UÇTAN UCA KOŞUNCA ÇIKTI
+
+Birim testleri yeşilken 9.057 satırlık gerçek dosya İKİ KEZ tamamen reddedildi:
+
+- Kodsuz satıra sunucunun verdiği `max(code)+1`, dosyada **daha sonra gelen** açık bir kodu
+  kapıyordu → `23505` → tüm parti geri sarılıyordu. Çözüm: kodlu satırlar ÖNCE yazılır.
+- ~31.000 olayın savepoint'i Postgres kilit tablosunu taşırıyordu (`53200 out of shared memory`).
+  Çözüm: **parti başına transaction** — "hepsi ya da hiçbiri" garantisi bilerek bırakıldı
+  (gerekçe DECISIONS'ta; kurtarma dedup sayesinde tek adım).
+
+**Ders: küçük fikstürle yeşil olan toplu yazma, gerçek hacimde yeşil olduğu anlamına gelmez.**
+
+#### KAPILAR
+
+`pint` temiz · `phpstan` temiz · `PanelImport*` + `PanelCsv*` **46/46** yeşil (yeni:
+`PanelImportGenisSutunTest` 15, `PanelImportAdimliUiTest` 5) · gerçek dosya uçtan uca (adımlı):
+9.048 müşteri, 13.263 telefon, 8.868 adres, 6 ürün, 8.104 favorili. Dönüştürücü doğrulaması:
+ada uydurulan kelime 0, addan kaybolan sayı-dışı kelime 0, adres farkı 0, kaybolan telefon 0.
+
+#### ZAMAN AŞIMI ÇÖZÜLDÜ — AKTARIM ADIM ADIM KOŞUYOR
+
+Kullanıcı: *"Parçalamak ile uğraşamam ki ben!"* — haklıydı. `uygula()` artık isteğe bağlı bir
+**süre bütçesi** alıyor: bütçe dolunca durur, elindeki partiyi yazar, `kalan` ile kaç satırın
+beklediğini söyler. Panel ekranı `wire:poll.2s.keep-alive` ile bitene kadar `adim()` çağırır,
+ilerleme çubuğu gösterir.
+
+**ÖLÇÜLEN TAVANLAR** (tahmin değil, imajdan okundu): PHP `max_execution_time` **99 sn**,
+nginx `fastcgi_read_timeout` **60 sn**. **Gerçek dosyayla uçtan uca: 36 adım · en uzun adım
+17,2 sn · toplam 484 sn · 9.048/9.048.** En dar tavana 3,5 kat pay; tek çağrıdaki 450 sn ise
+60 sn'de kesilirdi. Adımlamanın toplam süreye maliyeti %8.
+
+⚠️ **Üç kusur bu iş sırasında bulundu ve teste bağlandı:**
+1. **İlerleme garantisi yoktu** — bütçe küçükse adım hiçbir şey yazmadan dönüyor, `kalan`
+   azalmıyor, ekran sonsuza kadar dönüyordu. Artık her adım EN AZ bir parti yazar.
+2. **`keep-alive` şart** — Livewire sekme arka plana geçince poll'ü durduruyor; 7 dakikalık
+   bir işte aktarım sessizce donardı.
+3. **Kurtarma yolu bozuktu** — kod bayide kayıtlıysa satır koşulsuz 'hatali' sayılıyordu, yani
+   yarıda kalan aktarımı sürdürmek için aynı dosyayı yükleyen kullanıcı "9.000 satır hatalı"
+   görüyordu. Artık kod AYNI müşteride ise 'atlanacak', BAŞKA müşteride ise 'hatali'.
+
+Eşzamanlı adım `Cache::lock` ile engellendi (ikinci sekme aynı müşteriyi iki kez yazabilirdi).
+
+Kuyruğa verilmedi çünkü `app` ile `queue` container'ları arasında **paylaşılan depolama yok** —
+işçi, panele yüklenen geçici dosyayı göremez.
+
+#### ⚠️ AÇIK İŞ
+
+- Aktarım gerçek bir bayi hesabına HENÜZ UYGULANMADI; yalnız test veritabanında koşuldu.
+- Panel ekranı gerçek tarayıcıda GÖRÜLMEDİ — ilerleme çubuğu ve `wire:poll` akışı yalnız
+  sunucu tarafında sınandı ([[arayuz-gorunurlugu-gercek-tarayicida-olculur]]).
+- `ChangeApplier` 616 satır (zaten 581'di, sınırın üstünde) — bölme bu vardiyada yapılmadı.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-04 — **REHBER TURLARI BAŞTAN YAZILDI** (mobil 1.1.0 → **1.2.0**, API sabit 1.22.0)
 
 #### 🔴 EN ÖNEMLİ SATIR: İLK SÜRÜM TUR DEĞİL SLAYT GÖSTERİSİYDİ
 

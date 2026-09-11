@@ -72,3 +72,10 @@ sipario-marka-images/
 # Diskte kalir (yuklenmis desenler korunur) ama her commit e kirlilik olarak girmez.
 .swarm/
 .tab-navigation
+
+# Bir bayinin GERCEK musteri dokumu — ad, telefon, adres (KVKK kisisel verisi).
+# Bu depoda Stop kancasi otomatik commit atiyor; klasor ignore edilmezse bir sonraki
+# supurumde 9.000 kisinin verisi git gecmisine kalici olarak girerdi (marka klasoruyle
+# ayni gerekce, 2026-09-01). Tasima betigi girdiyi buradan okur, ciktiyi buraya yazar;
+# ikisi de depoya ait degildir. Dogrulandi: gecmiste hic commit edilmemis.
+musteri-verisi/
