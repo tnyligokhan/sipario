@@ -341,6 +341,20 @@ extension _GocMerdiveni on AppDatabase {
           // BOŞ DOĞMASI DOĞRU BAŞLANGIÇTIR: yükseltmeden önce gösterilmiş bildirimlerin kaydı
           // hiçbir yerde YOK. Geriye dönük satır uydurmak, hiç okunmamış 40 satırlık bir kutuyla
           // karşılamak olurdu.
+          // v28 — TÜRKÇE ARAMA/SIRALAMA ANAHTARI (2026-09-12, SAHA ARIZASI).
+          //
+          // Yerleşim gerekçesi v11..v27 ile AYNI (kapıdan ÖNCE, koşulsuz): aşağıdaki
+          // kendini-onarma kapısı `tenant_settings`i görünce erken döner, yani `if (from < 28)`
+          // yazsaydık adım sahadaki HİÇBİR telefonda koşmazdı.
+          //
+          // BEDELİ ÖLÇÜLDÜ: kolon eksikken müşteri listesi ve arama "no such column:
+          // name_folded" ile düşer — yani uygulama günlük işini hiç yapamaz.
+          if (await AppDatabase._tabloVar(m, 'customers')) {
+            await AppDatabase._addColumnIfMissing(
+                m, "ALTER TABLE customers ADD COLUMN name_folded TEXT NOT NULL DEFAULT ''");
+            await AppDatabase._adAnahtarlariniDoldur(m);
+          }
+
           if (!await AppDatabase._tabloVar(m, 'bildirimler')) {
             await m.createTable(bildirimler);
           }

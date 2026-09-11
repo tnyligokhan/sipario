@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart' show getDatabasesPath;
 
+import 'ad_anahtari.dart';
 import 'tables.dart';
 
 part 'app_database.g.dart';
@@ -52,7 +53,7 @@ class AppDatabase extends _$AppDatabase {
   /// yani `onCreate` yolundan geçer ve şema her zaman tamdır. 1109 yeşil testin hiçbiri
   /// YÜKSELTME yolundan geçmiyordu. Kusur yalnız "önceki sürümü kurulu olan cihazda" görünür.
   @override
-  int get schemaVersion => 27; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN · v14 IBAN alıcı adı + hatırlatma şablonu · v15 kurye yetki matrisi 13 kolonu (SÜRÜM ARTIŞI UNUTULMUŞTU) · v16 sync_meta.api_version (sunucu sözleşme sürümü önbelleği) · v17 users'a kişiye özel kurye yetkileri (13 NULLABLE kolon — null = bayi varsayılanını devral) · v18 order_lines.note (satır notu) + customers.favorite_product_ids (JSON dizi) · v19 sync_meta "beni hatırla" (saved_tenant_code + saved_username) · v20 cash_handovers.reverses_handover_id (ara tahsilat iptal kaydı) · v21 call_logs.user_id (çağrıyı kim karşıladı) · v22 day_closings.reverses_closing_id (kapanışı geri alma kaydı) · v23 ürün seçenekleri (products.options_json + order_lines.options_json + customers.product_options_json) · v24 tenant_settings.prepared_products (hazırlanan ürün yeteneği) · v25 orders.delivered_by_user_id (teslimi fiilen kim yaptı) · v26 bildirimler (cihaz-yerel bildirim kutusu) · v27 kurye müşteri görünürlüğü (tenant_settings + users courier_can_see_all_customers)
+  int get schemaVersion => 28; // v1 Faz0 · v2 Faz2 · v3 Faz3 · v4 Faz4 kurye · v5 Faz5a abonelik · v6 Dilim1 oturum · v7 Dilim4 ekip(users) · v8 tasarım boşluğu · v9 oto-sıralama kotası · v10 kupon kaldırıldı · v11 sıra kodları (müşteri/sipariş) · v12 müşteri kara listesi · v13 IBAN · v14 IBAN alıcı adı + hatırlatma şablonu · v15 kurye yetki matrisi 13 kolonu (SÜRÜM ARTIŞI UNUTULMUŞTU) · v16 sync_meta.api_version (sunucu sözleşme sürümü önbelleği) · v17 users'a kişiye özel kurye yetkileri (13 NULLABLE kolon — null = bayi varsayılanını devral) · v18 order_lines.note (satır notu) + customers.favorite_product_ids (JSON dizi) · v19 sync_meta "beni hatırla" (saved_tenant_code + saved_username) · v20 cash_handovers.reverses_handover_id (ara tahsilat iptal kaydı) · v21 call_logs.user_id (çağrıyı kim karşıladı) · v22 day_closings.reverses_closing_id (kapanışı geri alma kaydı) · v23 ürün seçenekleri (products.options_json + order_lines.options_json + customers.product_options_json) · v24 tenant_settings.prepared_products (hazırlanan ürün yeteneği) · v25 orders.delivered_by_user_id (teslimi fiilen kim yaptı) · v26 bildirimler (cihaz-yerel bildirim kutusu) · v27 kurye müşteri görünürlüğü (tenant_settings + users courier_can_see_all_customers) · v28 customers.name_folded (Türkçe arama/sıralama anahtarı — saha: büyük harfli adlar küçük harfle ARANINCA HİÇ ÇIKMIYORDU)
 
   @override
   /// Göç merdiveni AYRI DOSYADA (`app_database_gocler.dart`, 500 satır kuralı): bu getter
@@ -133,6 +134,37 @@ class AppDatabase extends _$AppDatabase {
     } on Exception catch (e) {
       if (!e.toString().contains('duplicate column')) rethrow;
     }
+  }
+
+  /// v28 — `customers.name_folded`ı DOLDURUR (boş kalan satırlar için).
+  ///
+  /// NEDEN DART'TA, SQL'DE DEĞİL: katlama Türkçeye özgüdür ve SQLite'ta karşılığı yoktur
+  /// (`lower()` de `LIKE` da yalnız ASCII'yi katlar). SQL'de iç içe `replace()` zinciriyle
+  /// taklit edilebilirdi ama o zaman AYNI KURALIN İKİNCİ BİR KOPYASI doğardı — yazma yolu
+  /// Dart'taki `adAnahtari`yi, göç ise SQL'dekini kullanır ve ikisi er geç ayrışırdı. Tek
+  /// ayrıştırıcı kuralı burada da geçerli.
+  ///
+  /// YALNIZ BOŞ OLANLAR: adım her açılışta koşar (kapıdan önce, koşulsuz). Tüm tabloyu her
+  /// seferinde yeniden yazmak 9.000 müşterili bir cihazda açılışı gereksiz yavaşlatırdı.
+  /// Boş süzgeci aynı zamanda KENDİNİ ONARIR: ileride bir yazma yolu anahtarı atlarsa bir
+  /// sonraki açılışta tamamlanır.
+  ///
+  /// PARTİ HÂLİNDE: tek tek UPDATE, 9.047 satırda binlerce ayrı statement demekti.
+  static Future<void> _adAnahtarlariniDoldur(Migrator m) async {
+    final db = m.database;
+    final satirlar = await db
+        .customSelect("SELECT id, name FROM customers WHERE name_folded = ''")
+        .get();
+    if (satirlar.isEmpty) return;
+
+    await db.batch((b) {
+      for (final satir in satirlar) {
+        b.customStatement('UPDATE customers SET name_folded = ? WHERE id = ?', [
+          adAnahtari(satir.read<String>('name')),
+          satir.read<String>('id'),
+        ]);
+      }
+    });
   }
 }
 

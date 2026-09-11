@@ -11,6 +11,7 @@
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sipario/data/ad_anahtari.dart';
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/repo/customer_repository.dart';
 import 'package:sipario/repo/ledger_repository.dart';
@@ -72,9 +73,13 @@ void main() {
           occurredAt: '2026-07-29T10:00:00Z',
         );
 
+    // `nameFolded` v28'de eklendi (Türkçe arama/sıralama anahtarı). Bu test satırları elle
+    // kurduğu için gerçek yazma yolundan geçmez; anahtar `adAnahtari` ile ÜRETİLİR, sabit
+    // yazılmaz — yoksa kural değiştiğinde test sessizce eski davranışı savunmaya devam ederdi.
     Customer musteri(String id, String ad, int bakiye) => Customer(
           id: id,
           name: ad,
+          nameFolded: adAnahtari(ad),
           balanceKurus: bakiye,
           updatedOccurredAt: '2026-07-29T10:00:00Z',
         );

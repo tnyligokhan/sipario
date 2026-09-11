@@ -27,6 +27,18 @@ class $CustomersTable extends Customers
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _nameFoldedMeta = const VerificationMeta(
+    'nameFolded',
+  );
+  @override
+  late final GeneratedColumn<String> nameFolded = GeneratedColumn<String>(
+    'name_folded',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _noteMeta = const VerificationMeta('note');
   @override
   late final GeneratedColumn<String> note = GeneratedColumn<String>(
@@ -128,6 +140,7 @@ class $CustomersTable extends Customers
   List<GeneratedColumn> get $columns => [
     id,
     name,
+    nameFolded,
     note,
     code,
     balanceKurus,
@@ -162,6 +175,12 @@ class $CustomersTable extends Customers
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
+    }
+    if (data.containsKey('name_folded')) {
+      context.handle(
+        _nameFoldedMeta,
+        nameFolded.isAcceptableOrUnknown(data['name_folded']!, _nameFoldedMeta),
+      );
     }
     if (data.containsKey('note')) {
       context.handle(
@@ -254,6 +273,10 @@ class $CustomersTable extends Customers
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      nameFolded: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name_folded'],
+      )!,
       note: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}note'],
@@ -302,6 +325,17 @@ class $CustomersTable extends Customers
 class Customer extends DataClass implements Insertable<Customer> {
   final String id;
   final String name;
+
+  /// ARAMA VE SIRALAMA ANAHTARI (v28, 2026-09-12) — `name`in Türkçe katlanmış ASCII karşılığı.
+  ///
+  /// NEDEN AYRI KOLON, sorgu anında `lower()` DEĞİL: SQLite'ın `lower()`ı da `LIKE`ı da yalnız
+  /// ASCII'yi katlar; Türkçe harfler için hiçbir yerleşik çözüm YOKTUR. Katlamayı Dart'ta bir kez
+  /// yapıp SAKLAMAK, her sorguda yapılamayacak olanı mümkün kılar (gerekçe ve saha ölçümü
+  /// `ad_anahtari.dart`ta).
+  ///
+  /// NOT NULL DEFAULT '': yükseltmede kolon boş doğar, göç adımı Dart tarafında DOLDURUR.
+  /// Nullable bırakmak "boş mu, henüz hesaplanmadı mı" ayrımını her sorguya taşırdı.
+  final String nameFolded;
   final String? note;
 
   /// MÜŞTERİ KODU (100, 101, 102…) — kiracı içinde sıralı, SUNUCU atar (v11, 2026-07-29).
@@ -353,6 +387,7 @@ class Customer extends DataClass implements Insertable<Customer> {
   const Customer({
     required this.id,
     required this.name,
+    required this.nameFolded,
     this.note,
     this.code,
     required this.balanceKurus,
@@ -368,6 +403,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['name'] = Variable<String>(name);
+    map['name_folded'] = Variable<String>(nameFolded);
     if (!nullToAbsent || note != null) {
       map['note'] = Variable<String>(note);
     }
@@ -398,6 +434,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     return CustomersCompanion(
       id: Value(id),
       name: Value(name),
+      nameFolded: Value(nameFolded),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       code: code == null && nullToAbsent ? const Value.absent() : Value(code),
       balanceKurus: Value(balanceKurus),
@@ -428,6 +465,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     return Customer(
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
+      nameFolded: serializer.fromJson<String>(json['nameFolded']),
       note: serializer.fromJson<String?>(json['note']),
       code: serializer.fromJson<int?>(json['code']),
       balanceKurus: serializer.fromJson<int>(json['balanceKurus']),
@@ -449,6 +487,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
+      'nameFolded': serializer.toJson<String>(nameFolded),
       'note': serializer.toJson<String?>(note),
       'code': serializer.toJson<int?>(code),
       'balanceKurus': serializer.toJson<int>(balanceKurus),
@@ -464,6 +503,7 @@ class Customer extends DataClass implements Insertable<Customer> {
   Customer copyWith({
     String? id,
     String? name,
+    String? nameFolded,
     Value<String?> note = const Value.absent(),
     Value<int?> code = const Value.absent(),
     int? balanceKurus,
@@ -476,6 +516,7 @@ class Customer extends DataClass implements Insertable<Customer> {
   }) => Customer(
     id: id ?? this.id,
     name: name ?? this.name,
+    nameFolded: nameFolded ?? this.nameFolded,
     note: note.present ? note.value : this.note,
     code: code.present ? code.value : this.code,
     balanceKurus: balanceKurus ?? this.balanceKurus,
@@ -498,6 +539,9 @@ class Customer extends DataClass implements Insertable<Customer> {
     return Customer(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
+      nameFolded: data.nameFolded.present
+          ? data.nameFolded.value
+          : this.nameFolded,
       note: data.note.present ? data.note.value : this.note,
       code: data.code.present ? data.code.value : this.code,
       balanceKurus: data.balanceKurus.present
@@ -527,6 +571,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     return (StringBuffer('Customer(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('nameFolded: $nameFolded, ')
           ..write('note: $note, ')
           ..write('code: $code, ')
           ..write('balanceKurus: $balanceKurus, ')
@@ -544,6 +589,7 @@ class Customer extends DataClass implements Insertable<Customer> {
   int get hashCode => Object.hash(
     id,
     name,
+    nameFolded,
     note,
     code,
     balanceKurus,
@@ -560,6 +606,7 @@ class Customer extends DataClass implements Insertable<Customer> {
       (other is Customer &&
           other.id == this.id &&
           other.name == this.name &&
+          other.nameFolded == this.nameFolded &&
           other.note == this.note &&
           other.code == this.code &&
           other.balanceKurus == this.balanceKurus &&
@@ -574,6 +621,7 @@ class Customer extends DataClass implements Insertable<Customer> {
 class CustomersCompanion extends UpdateCompanion<Customer> {
   final Value<String> id;
   final Value<String> name;
+  final Value<String> nameFolded;
   final Value<String?> note;
   final Value<int?> code;
   final Value<int> balanceKurus;
@@ -587,6 +635,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
   const CustomersCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
+    this.nameFolded = const Value.absent(),
     this.note = const Value.absent(),
     this.code = const Value.absent(),
     this.balanceKurus = const Value.absent(),
@@ -601,6 +650,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
   CustomersCompanion.insert({
     required String id,
     required String name,
+    this.nameFolded = const Value.absent(),
     this.note = const Value.absent(),
     this.code = const Value.absent(),
     this.balanceKurus = const Value.absent(),
@@ -617,6 +667,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
   static Insertable<Customer> custom({
     Expression<String>? id,
     Expression<String>? name,
+    Expression<String>? nameFolded,
     Expression<String>? note,
     Expression<int>? code,
     Expression<int>? balanceKurus,
@@ -631,6 +682,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
+      if (nameFolded != null) 'name_folded': nameFolded,
       if (note != null) 'note': note,
       if (code != null) 'code': code,
       if (balanceKurus != null) 'balance_kurus': balanceKurus,
@@ -649,6 +701,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
   CustomersCompanion copyWith({
     Value<String>? id,
     Value<String>? name,
+    Value<String>? nameFolded,
     Value<String?>? note,
     Value<int?>? code,
     Value<int>? balanceKurus,
@@ -663,6 +716,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     return CustomersCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
+      nameFolded: nameFolded ?? this.nameFolded,
       note: note ?? this.note,
       code: code ?? this.code,
       balanceKurus: balanceKurus ?? this.balanceKurus,
@@ -684,6 +738,9 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (nameFolded.present) {
+      map['name_folded'] = Variable<String>(nameFolded.value);
     }
     if (note.present) {
       map['note'] = Variable<String>(note.value);
@@ -723,6 +780,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     return (StringBuffer('CustomersCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('nameFolded: $nameFolded, ')
           ..write('note: $note, ')
           ..write('code: $code, ')
           ..write('balanceKurus: $balanceKurus, ')
@@ -14480,6 +14538,7 @@ typedef $$CustomersTableCreateCompanionBuilder =
     CustomersCompanion Function({
       required String id,
       required String name,
+      Value<String> nameFolded,
       Value<String?> note,
       Value<int?> code,
       Value<int> balanceKurus,
@@ -14495,6 +14554,7 @@ typedef $$CustomersTableUpdateCompanionBuilder =
     CustomersCompanion Function({
       Value<String> id,
       Value<String> name,
+      Value<String> nameFolded,
       Value<String?> note,
       Value<int?> code,
       Value<int> balanceKurus,
@@ -14523,6 +14583,11 @@ class $$CustomersTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nameFolded => $composableBuilder(
+    column: $table.nameFolded,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14591,6 +14656,11 @@ class $$CustomersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get nameFolded => $composableBuilder(
+    column: $table.nameFolded,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get note => $composableBuilder(
     column: $table.note,
     builder: (column) => ColumnOrderings(column),
@@ -14651,6 +14721,11 @@ class $$CustomersTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get nameFolded => $composableBuilder(
+    column: $table.nameFolded,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get note =>
       $composableBuilder(column: $table.note, builder: (column) => column);
@@ -14722,6 +14797,7 @@ class $$CustomersTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String> nameFolded = const Value.absent(),
                 Value<String?> note = const Value.absent(),
                 Value<int?> code = const Value.absent(),
                 Value<int> balanceKurus = const Value.absent(),
@@ -14735,6 +14811,7 @@ class $$CustomersTableTableManager
               }) => CustomersCompanion(
                 id: id,
                 name: name,
+                nameFolded: nameFolded,
                 note: note,
                 code: code,
                 balanceKurus: balanceKurus,
@@ -14750,6 +14827,7 @@ class $$CustomersTableTableManager
               ({
                 required String id,
                 required String name,
+                Value<String> nameFolded = const Value.absent(),
                 Value<String?> note = const Value.absent(),
                 Value<int?> code = const Value.absent(),
                 Value<int> balanceKurus = const Value.absent(),
@@ -14763,6 +14841,7 @@ class $$CustomersTableTableManager
               }) => CustomersCompanion.insert(
                 id: id,
                 name: name,
+                nameFolded: nameFolded,
                 note: note,
                 code: code,
                 balanceKurus: balanceKurus,

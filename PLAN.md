@@ -269,7 +269,46 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-11 — **GERÇEK BAYİ VERİSİ ÜRÜNE TAŞINDI** (API 1.22.0 → **1.23.0**, mobil sabit)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-12 — **TÜRKÇE ARAMA KIRIKMIŞ** (mobil 1.2.0 → **1.3.0**, API sabit)
+
+#### 🔴 EN ÖNEMLİ SATIR: "MÜŞTERİ TELEFONDA YOK" ŞİKÂYETİ SENKRON DEĞİLDİ
+
+Aktarım sonrası kullanıcı *"panelde var, mobilde arattığımda çıkmıyor"* dedi. İlk şüphe
+(31.183 senkron değişikliğinin inmemesi) **ölçülerek elendi** — sunucuda 9.047 müşteri,
+`sync_changes` 31.183 satır, indeks yerinde, mobil sayfalama yeterli.
+
+Gerçek sebep: **SQLite'ın `LIKE`'ı büyük/küçük harfi yalnız ASCII'de eşler.**
+`ara("şerife")` → boş · `ara("ŞERİFE")` → bulur. Aktarılan adların hepsi BÜYÜK HARFTİ.
+
+**Hata aktarımdan önce de vardı; 16 müşteriyle kimse fark etmemişti — aktarım onu
+yaratmadı, GÖRÜNÜR kıldı.**
+
+#### ÇÖZÜM: TEK KOLON İKİ SORUNU BİRDEN KAPATTI
+
+`customers.name_folded` (şema v28) — adın Türkçe katlanmış ASCII karşılığı. Arama da sıra da
+bundan okur. Alfabetik sıra 2026-08-06'da aynı kök yüzünden kaldırılmıştı; artık geri geldi.
+
+- Küçük harf araması çalışıyor · şapkasız yazım da buluyor ("serife" → ŞERİFE)
+- **Sıralama özelliği eklendi:** Eklenme (varsayılan) · Ada göre · Koda göre · Çok borçlu
+
+⚠️ Katlama sırası şart: Dart'ın `'İ'.toLowerCase()` çıktısı `i` + birleştiren nokta (U+0307);
+ters sırada anahtar görünmez bir karakter taşır ve hiçbir sorguyla eşleşmez (teste bağlandı).
+
+#### KAPILAR
+
+`flutter analyze` temiz · `flutter test` **1619/1619** yeşil (yeni `musteri_turkce_arama_test`
+16 test). APK derlenmedi — paket/native dokunuşu yok.
+
+#### ⚠️ AÇIK İŞ
+
+- Sıralama seçicisi **gerçek cihazda görülmedi**.
+- Göç yolu (v27 → v28) yalnız taze veritabanıyla sınandı; **yükseltme yolu gerçek cihazda
+  koşulmadı** — bu depoda daha önce tam olarak bu sınıfta bir arıza yaşandı (v15 dersi,
+  `app_database.dart` başlığında yazılı).
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-11 — **GERÇEK BAYİ VERİSİ ÜRÜNE TAŞINDI** (API 1.22.0 → **1.23.0**, mobil sabit)
 
 #### NE YAPILDI
 

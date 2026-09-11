@@ -45,6 +45,65 @@ final List<OrderClauseGenerator<$CustomersTable>> _enYeniOnce = [
   (t) => OrderingTerm.desc(t.rowId),
 ];
 
+/// Kullanıcının seçebildiği SIRA (kullanıcı isteği 2026-09-12).
+///
+/// NEDEN ARTIK SEÇİLEBİLİR: tek sabit sıra ("en son kaydedilen en üstte") 16 müşterilik bir
+/// bayide doğru cevaptı — az önce kaydettiğini arayan kullanıcı onu tepede bulur. 9.047
+/// müşteri aktarıldığında o kural ANLAMINI YİTİRDİ: hepsi aynı anda yazıldığı için tepedeki
+/// sıra bayiye rasgele görünüyor ve listede gezinerek müşteri bulmak imkânsızlaşıyor.
+///
+/// ALFABETİK SIRA 2026-08-06'DA KALDIRILMIŞTI ve gerekçesi hâlâ geçerliydi: SQLite'ın BINARY
+/// collation'ında Türkçe harfler tüm ASCII'den sonra dizilir ("Şükrü" Zeynep'in de altına
+/// düşer). Geri getirilebilmesinin TEK sebebi `customers.name_folded`dır — katlanmış ad saf
+/// ASCII olduğu için BINARY karşılaştırma artık Türkçe'de de doğru dizer.
+enum MusteriSirasi {
+  /// Varsayılan — "en son kaydedilen en üstte" (2026-08-06 sözleşmesi korunur).
+  eklenme,
+
+  /// Ada göre A→Z. Türkçe doğru: `name_folded` üzerinden (bkz. enum açıklaması).
+  ad,
+
+  /// Müşteri koduna göre artan — bayinin eski sisteminden taşınan numara (2–9852).
+  kod,
+
+  /// Bakiyeye göre azalan: en çok borçlu üstte. Veresiye takibi için.
+  bakiye,
+}
+
+/// Seçilen sıranın ORDER BY terimleri.
+///
+/// HER DALIN SONUNDA `rowId` VAR ve bu şart: eşit değerli satırlar (aynı ad, kodsuz müşteriler,
+/// sıfır bakiye) arasında SQLite'ın döndürdüğü sıra garanti DEĞİLDİR. Deterministik bir kuyruk
+/// terimi olmadan liste her tazelemede kendi içinde yer değiştirir ve kullanıcı "sıralama
+/// bozuk" der — düzeltmeye çalıştığımız şikâyetin ta kendisi.
+///
+/// KODSUZ MÜŞTERİ `kod` SIRASINDA SONA ATILIR: kodu sunucu atar, yani kodsuz kayıt henüz
+/// senkronlanmamıştır. Başa koymak, numara arayan bayiye önce numarasızları göstermek olurdu.
+List<OrderClauseGenerator<$CustomersTable>> _siraTerimleri(MusteriSirasi sira) =>
+    switch (sira) {
+      MusteriSirasi.eklenme => _enYeniOnce,
+      MusteriSirasi.ad => [
+          (t) => OrderingTerm.asc(t.nameFolded),
+          (t) => OrderingTerm.asc(t.rowId),
+        ],
+      MusteriSirasi.kod => [
+          (t) => OrderingTerm.asc(t.code.isNull()),
+          (t) => OrderingTerm.asc(t.code),
+          (t) => OrderingTerm.asc(t.rowId),
+        ],
+      MusteriSirasi.bakiye => [
+          (t) => OrderingTerm.desc(t.balanceKurus),
+          (t) => OrderingTerm.asc(t.rowId),
+        ],
+    };
+
+/// Ad araması için WHERE — katlanmış ad üzerinden (bkz. `ad_anahtari.dart`).
+///
+/// SORGU DA KATLANIR: kullanıcı "şerife" de yazsa "SERIFE" de yazsa aynı anahtara iner. Yalnız
+/// kolonu katlayıp sorguyu ham bırakmak, arızanın yarısını çözüp diğer yarısını bırakmak olurdu.
+Expression<bool> _adEslesmesi(AppDatabase db, String q) =>
+    db.customers.nameFolded.like('%${adAnahtari(q)}%');
+
 /// KURYE KAPSAMI (kullanıcı kararı 2026-08-22) — [kullaniciId] verilirse müşteri listesi
 /// YALNIZ o kullanıcının işi olan müşterilerle sınırlanır.
 ///
@@ -75,7 +134,7 @@ Expression<bool> _kuryeKapsami(AppDatabase db, String kullaniciId) {
 /// [kullaniciId] verilirse liste o kullanıcının kapsamına kısılır ([_kuryeKapsami]); null =
 /// bayinin tamamı. Kararı ekran değil YETKİ verir (`yetkiler().tumMusterileriGorme`).
 Stream<List<CustomerRow>> watchCustomerRows(AppDatabase db, String query,
-    {String? kullaniciId}) {
+    {String? kullaniciId, MusteriSirasi sira = MusteriSirasi.eklenme}) {
   final q = query.trim();
   final kapsam =
       kullaniciId == null ? const Constant(true) : _kuryeKapsami(db, kullaniciId);
@@ -108,7 +167,7 @@ Stream<List<CustomerRow>> watchCustomerRows(AppDatabase db, String query,
       // görmemesi gereken müşteriye ulaşması demekti — yetkiyi arama kutusuyla atlatmak.
       sel.where(db.customers.deletedAt.isNull() & existsQuery(match) & kapsam);
     } else {
-      sel.where(db.customers.deletedAt.isNull() & db.customers.name.like('%$q%') & kapsam);
+      sel.where(db.customers.deletedAt.isNull() & _adEslesmesi(db, q) & kapsam);
     }
   }
 
@@ -116,7 +175,7 @@ Stream<List<CustomerRow>> watchCustomerRows(AppDatabase db, String query,
   // tekilleştirme "ilk gelen satır kazanır" der, yani müşterinin hangi telefon/adresinin
   // görüneceğini bu iki terim seçer. Önlerine geçselerdi yanlış telefon çizilirdi.
   sel.orderBy([
-    ..._enYeniOnce.map((f) => f(db.customers)),
+    ..._siraTerimleri(sira).map((f) => f(db.customers)),
     OrderingTerm.desc(db.customerPhones.isPrimary),
     OrderingTerm.desc(db.customerAddresses.isPrimary),
   ]);
@@ -159,12 +218,15 @@ Stream<int> watchDebtCount(AppDatabase db, {String? kullaniciId}) {
 /// Liste ekranı artık [watchCustomerRows]'u kullanır; bu fonksiyon KORUNDU çünkü
 /// arama/normalizasyon sözleşmesi doğrudan onun üzerinden test ediliyor. Sıra kuralı ikisinde
 /// AYNI olmalı — arama sonucu da aynı mantıkla dizilir.
-Stream<List<Customer>> watchCustomers(AppDatabase db, String query) {
+Stream<List<Customer>> watchCustomers(AppDatabase db, String query,
+    {MusteriSirasi sira = MusteriSirasi.eklenme}) {
   final q = query.trim();
+  final terimler = _siraTerimleri(sira);
+
   if (q.isEmpty) {
     return (db.select(db.customers)
           ..where((t) => t.deletedAt.isNull())
-          ..orderBy(_enYeniOnce))
+          ..orderBy(terimler))
         .watch();
   }
 
@@ -174,7 +236,7 @@ Stream<List<Customer>> watchCustomers(AppDatabase db, String query) {
       innerJoin(db.customerPhones, db.customerPhones.customerId.equalsExp(db.customers.id)),
     ])
       ..where(db.customers.deletedAt.isNull() & db.customerPhones.phoneLast10.like('%$digits%'))
-      ..orderBy(_enYeniOnce.map((f) => f(db.customers)).toList());
+      ..orderBy(terimler.map((f) => f(db.customers)).toList());
     return join.watch().map((rows) =>
         {for (final r in rows) r.readTable(db.customers).id: r.readTable(db.customers)}
             .values
@@ -182,8 +244,8 @@ Stream<List<Customer>> watchCustomers(AppDatabase db, String query) {
   }
 
   return (db.select(db.customers)
-        ..where((t) => t.deletedAt.isNull() & t.name.like('%$q%'))
-        ..orderBy(_enYeniOnce))
+        ..where((t) => t.deletedAt.isNull() & _adEslesmesi(db, q))
+        ..orderBy(terimler))
       .watch();
 }
 

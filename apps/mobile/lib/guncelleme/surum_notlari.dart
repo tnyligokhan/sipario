@@ -51,6 +51,19 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '1.3.0',
+    tarih: '12 Eylül 2026',
+    maddeler: [
+      'Müşteri araması artık küçük harfle de buluyor. Önceden kayıt büyük harfle '
+          'yazılmışsa "şerife" aratınca çıkmıyordu; şimdi çıkıyor.',
+      'Şapkasız yazsanız da buluyor: "serife" yazınca ŞERİFE, "caglayan" yazınca '
+          'ÇAĞLAYAN geliyor.',
+      'Müşteri listesine sıralama eklendi. Arama kutusunun altındaki düğmelerden '
+          'seçiyorsunuz: Eklenme, Ada göre, Koda göre, Çok borçlu.',
+      '"Ada göre" sıralamada Türkçe harfler doğru yerde diziliyor.',
+    ],
+  ),
+  SurumNotu(
     surum: '1.2.0',
     tarih: '4 Eylül 2026',
     maddeler: [

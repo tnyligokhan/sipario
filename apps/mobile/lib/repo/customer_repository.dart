@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
+import '../data/ad_anahtari.dart';
 import '../data/app_database.dart';
 import '../data/ids.dart';
 import '../data/outbox.dart';
@@ -160,6 +161,7 @@ class CustomerRepository {
       await db.into(db.customers).insert(CustomersCompanion.insert(
             id: customerId,
             name: name,
+            nameFolded: Value(adAnahtari(name)),
             note: Value(note),
             updatedOccurredAt: at,
             updatedDeviceId: Value(device),
@@ -202,6 +204,7 @@ class CustomerRepository {
       await (db.update(db.customers)..where((t) => t.id.equals(customerId))).write(
         CustomersCompanion(
           name: Value(name),
+          nameFolded: Value(adAnahtari(name)),
           note: Value(note),
           updatedOccurredAt: Value(at),
           updatedDeviceId: Value(device),
