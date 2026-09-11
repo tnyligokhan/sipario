@@ -54,6 +54,32 @@ class PanelImportAdimliUiTest extends ApiTestCase
     }
 
     #[Test]
+    public function bilesen_durumu_dosya_buyudukce_buyumez(): void
+    {
+        // ÜRETİMDE YAŞANDI (2026-09-11): bileşen 9.048 satırlık önizlemenin TAMAMINI durumda
+        // tutuyordu; Livewire her turda bütün public özellikleri isteğe koyduğu için yük
+        // 2.997 KB'a çıktı ve "Aktar" düğmesi 500 verdi (PayloadTooLargeException, tavan 1 MB).
+        //
+        // Livewire'ın test koşumu HTTP yük sınırını UYGULAMAZ — o yüzden burada sınanan şey
+        // hatanın kendisi değil SEBEBİ: durumun dosya boyutuyla büyümemesi. Ölçüt satır
+        // sayısıdır, bayt değil: bayt eşiği makineye/veriye göre oynar ve bekçiyi kırılgan yapar.
+        $a = $this->makeTenant('a');
+        $this->actingAs($this->admin(), 'admin');
+
+        $kucuk = $this->ekran($a['tenant']->id, $this->icerik(10));
+        $buyuk = $this->ekran($a['tenant']->id, $this->icerik(900));
+
+        $this->assertCount(10, $kucuk->get('onizleme')['satirlar']);
+        $this->assertCount(200, $buyuk->get('onizleme')['satirlar'],
+            'Durumda ONIZLEME_TAVANI kadar satır tutulmalı — dosya büyüdükçe durum büyümemeli.');
+
+        // Sayılar TÜM dosyayı kapsamaya devam etmeli; kesilen şey yalnız GÖSTERİMDİR.
+        $this->assertSame(900, $buyuk->get('onizleme')['ozet']['eklenecek']);
+        $this->assertSame(900, $buyuk->get('onizleme')['toplam']);
+        $buyuk->assertSee('700 satır daha');
+    }
+
+    #[Test]
     public function aktar_dugmesi_hicbir_sey_yazmadan_ilerleme_kartini_acar(): void
     {
         // Düğmeye basınca tarayıcı onlarca saniye taş gibi durmamalı: ilk adımı `wire:poll`
