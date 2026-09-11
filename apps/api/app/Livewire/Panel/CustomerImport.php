@@ -47,6 +47,9 @@ class CustomerImport extends Component
      */
     private const ADIM_SANIYE = 8.0;
 
+    /** Durumda taşınan azami hata satırı (Livewire yük sınırı — bkz. onizle()). */
+    private const HATA_TAVANI = 100;
+
     /** Kilitli: toplu yazmanın hedef bayisi route'tan gelir, istemciden değiştirilemez. */
     #[Locked]
     public string $tenantId;
@@ -60,7 +63,12 @@ class CustomerImport extends Component
     #[Validate('required|file|max:8192|mimes:csv,txt')]
     public mixed $dosya = null;
 
-    /** @var array{satirlar: list<array<string, mixed>>, ozet: array<string, int>}|null */
+    /**
+     * Önizleme — YALNIZ ekrana çizilen satırlar (bkz. onizle(): Livewire yük sınırı).
+     * `toplam` dosyadaki gerçek satır sayısıdır; `satirlar` en fazla ONIZLEME_TAVANI tanedir.
+     *
+     * @var array{ozet: array<string, int>, satirlar: list<array<string, mixed>>, toplam: int}|null
+     */
     public ?array $onizleme = null;
 
     /** @var array<string, mixed>|null */
@@ -116,8 +124,34 @@ class CustomerImport extends Component
         $this->hata = null;
 
         try {
-            $this->onizleme = app(PanelImportService::class)
+            $tam = app(PanelImportService::class)
                 ->onizleme($this->tenantId, (string) $this->dosya->get());
+
+            /**
+             * BİLEŞEN DURUMUNDA YALNIZ EKRANA ÇİZİLEN SATIRLAR TUTULUR — ÜRETİMDE ÖLÇÜLDÜ
+             * (2026-09-11): 9.048 satırlık gerçek dosyada tam önizlemeyi durumda tutmak
+             * Livewire yükünü **2.997 KB**'a çıkardı ve "Aktar" düğmesi 500 verdi
+             * (`PayloadTooLargeException`, tavan 1.024 KB).
+             *
+             * Livewire HER tur BÜTÜN public özellikleri isteğe koyar. Tam önizleme yalnız 500
+             * hatası değil, çok daha kötüsü demekti: adımlı aktarım iki saniyede bir yoklama
+             * yapıyor, yani 8 dakikalık bir aktarımda ~240 turda yüzlerce megabayt gidip
+             * gelirdi. Sınırı büyütmek (config/livewire.php `payload.max_size`) belirtiyi
+             * susturur, maliyeti kaldırmaz.
+             *
+             * Ekran zaten yalnız ilk ONIZLEME_TAVANI satırı çiziyordu; geri kalanı taşımanın
+             * hiçbir karşılığı yoktu. Kararlar dosyadan YENİDEN türetilir (`uygula()` servisi
+             * dosyayı baştan çözümler), bu yüzden kesilen satırların kaybı yoktur.
+             *
+             * TESTLER BUNU GÖREMEDİ: Livewire'ın test koşumu HTTP yük sınırını uygulamıyor.
+             * Bu yüzden aşağıdaki `toplam` alanı bir gerileme bekçisiyle kilitlendi
+             * (PanelImportAdimliUiTest: durum boyutu dosya boyutuyla BÜYÜMEMELİ).
+             */
+            $this->onizleme = [
+                'ozet' => $tam['ozet'],
+                'satirlar' => array_slice($tam['satirlar'], 0, self::ONIZLEME_TAVANI),
+                'toplam' => count($tam['satirlar']),
+            ];
         } catch (RuntimeException $e) {
             $this->onizleme = null;
             $this->hata = $e->getMessage();
@@ -148,6 +182,11 @@ class CustomerImport extends Component
             'hatalar' => [],
         ];
         $this->devam = $this->ilerleme['toplam'] > 0;
+
+        // Önizleme durumu BURADA BIRAKILIR: ilerleme kartı onun yerini aldı ve aktarım boyunca
+        // iki saniyede bir yoklama var — 200 satırlık tabloyu yüzlerce turda taşımanın hiçbir
+        // karşılığı yok (aynı yük gerekçesi: bkz. onizle()).
+        $this->onizleme = null;
 
         if (! $this->devam) {
             $this->bitir('applied', null);
@@ -203,7 +242,11 @@ class CustomerImport extends Component
             $this->ilerleme['acilan_urunler'], $sonuc['acilan_urunler'],
         )));
         if ($sonuc['hatalar'] !== []) {
-            $this->ilerleme['hatalar'] = $sonuc['hatalar'];
+            // Önizleme satırlarıyla AYNI gerekçe: liste durumda taşınır ve her turda isteğe
+            // girer. Bozuk bir dosyada binlerce hata satırı yükü yine 1 MB tavanının üstüne
+            // çıkarırdı. Kullanıcı ilk yüz satırı düzeltip yeniden yükler.
+            $this->ilerleme['hatalar'] = array_slice($sonuc['hatalar'], 0, self::HATA_TAVANI);
+            $this->ilerleme['hata_toplam'] = count($sonuc['hatalar']);
         }
 
         // Durum 'applied' değilse (kilitli bayi / reddedilen parti) DEVAM ETME: aynı hata her
@@ -230,11 +273,10 @@ class CustomerImport extends Component
 
         return view('livewire.panel.customer-import', [
             'sayilar' => $detay->sayilar($this->tenantId),
-            'gosterilecek' => $this->onizleme !== null
-                ? array_slice($this->onizleme['satirlar'], 0, self::ONIZLEME_TAVANI)
-                : [],
+            // Kesme `onizle()`de yapıldı (yük sınırı gerekçesi orada); burada yalnız çizilir.
+            'gosterilecek' => $this->onizleme['satirlar'] ?? [],
             'gizlenen' => $this->onizleme !== null
-                ? max(0, count($this->onizleme['satirlar']) - self::ONIZLEME_TAVANI)
+                ? max(0, $this->onizleme['toplam'] - count($this->onizleme['satirlar']))
                 : 0,
         ]);
     }
