@@ -17,6 +17,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_hedef.dart';
+
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
@@ -63,7 +65,9 @@ class SipAltNav extends StatelessWidget {
             ),
           ),
           const SizedBox(width: SipSpace.sm),
-          _Fab(onTap: onEkle),
+          // Rehberin en çok işaret ettiği düğme: sipariş ve müşteri eklemenin ana yolu bu ve
+          // yeni bayinin ilk aradığı şey "nereden ekliyorum" oluyor.
+          RehberHedef(id: 'nav.fab', child: _Fab(onTap: onEkle)),
           const SizedBox(width: SipSpace.sm),
           Expanded(
             child: _Grup(
@@ -103,10 +107,15 @@ class _Grup extends StatelessWidget {
                 width: !seciliVar
                     ? kullanilabilir / 2
                     : (sekmeler[i] == aktif ? kullanilabilir * 2 / 3 : kullanilabilir / 3),
-                child: _Sekme(
-                  sekme: sekmeler[i],
-                  secili: sekmeler[i] == aktif,
-                  onSec: onSec,
+                // Her sekme AYRI hedeftir: rehber "buradan geçilir" demek yerine dört
+                // sekmenin dördünü tek tek gösterip ne işe yaradığını söylüyor.
+                child: RehberHedef(
+                  id: 'nav.${sekmeler[i].name}',
+                  child: _Sekme(
+                    sekme: sekmeler[i],
+                    secili: sekmeler[i] == aktif,
+                    onSec: onSec,
+                  ),
                 ),
               ),
             ],

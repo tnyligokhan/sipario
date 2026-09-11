@@ -16,6 +16,10 @@
 
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_hedef.dart';
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
 import '../../data/app_database.dart';
 import '../../sync/yenileme.dart';
 import '../../theme/components/atoms.dart';
@@ -69,6 +73,7 @@ class BorclularEkrani extends StatelessWidget {
                   baslik: 'Borçlular',
                   alt: _altBaslik(musteriler),
                   onGeri: () => Navigator.of(context).maybePop(),
+                  sag: const [RehberYardimDugmesi(yuzey: RehberYuzey.borclular)],
                 ),
                 Expanded(
                   child: musteriler == null
@@ -155,7 +160,7 @@ class _Liste extends StatelessWidget {
                   itemCount: liste.length,
                   itemBuilder: (context, i) => Padding(
                     padding: EdgeInsets.only(top: i == 0 ? 0 : SipSpace.md),
-                    child: BorcluKarti(
+                    child: rehberSar(i == 0 ? 'borclu.kart' : null, BorcluKarti(
                       db: db,
                       veri: liste[i],
                       writable: writable,
@@ -166,7 +171,7 @@ class _Liste extends StatelessWidget {
                       isletmeAdi: ayar?.businessName,
                       ibanAliciAdi: ayar?.ibanOwnerName,
                       sablon: ayar?.reminderTemplate,
-                    ),
+                    )),
                   ),
                 ),
               );

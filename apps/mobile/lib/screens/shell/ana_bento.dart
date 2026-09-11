@@ -6,6 +6,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_hedef.dart';
+
 import '../../data/app_database.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/tokens.dart';
@@ -56,17 +58,25 @@ class AnaBento extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: _Kutu(
-                  etiket: 'Açık Sipariş',
-                  deger: sipSayi(o.acikSiparis),
-                  alt: o.acikSiparis > 0 ? 'teslim bekliyor' : 'hepsi tamam',
-                  birincil: true,
-                  onTap: () => onSekme(SipSekme.siparis),
+                // Rehber KUTU KUTU anlatır: ızgaranın tamamına tek delik açmak "burada
+                // rakamlar var" demekten öteye geçmiyordu. Dört kutunun dördü de ayrı bir
+                // soruyu cevaplıyor ve ayrı bir ekrana gidiyor, yani ayrı ayrı anlatılmalı.
+                child: RehberHedef(
+                  id: 'ana.acikSiparis',
+                  child: _Kutu(
+                    etiket: 'Açık Sipariş',
+                    deger: sipSayi(o.acikSiparis),
+                    alt: o.acikSiparis > 0 ? 'teslim bekliyor' : 'hepsi tamam',
+                    birincil: true,
+                    onTap: () => onSekme(SipSekme.siparis),
+                  ),
                 ),
               ),
               const SizedBox(width: SipSpace.lg),
               Expanded(
-                child: _Kutu(
+                child: RehberHedef(
+                  id: 'ana.kasa',
+                  child: _Kutu(
                   etiket: 'Bugün Kasa',
                   deger: sipTutar(o.bugunTahsilatKurus),
                   kucuk: true,
@@ -74,6 +84,7 @@ class AnaBento extends StatelessWidget {
                   // Tasarım koşulsuz gün sonuna gider (`s-ana.jsx:35`). Gün Özeti sekmesi artık
                   // kuryede de açık (alt navigasyon 5 yuva) — rol dalı gerekmiyor.
                   onTap: () => onSekme(SipSekme.gunSonu),
+                  ),
                 ),
               ),
             ],
@@ -86,7 +97,9 @@ class AnaBento extends StatelessWidget {
             children: [
               if (borclulariGoster)
                 Expanded(
-                  child: _Kutu(
+                  child: RehberHedef(
+                    id: 'ana.borclular',
+                    child: _Kutu(
                   // "Açık Veresiye" → "Borçlular" (kullanıcı kararı 2026-07-29). Rakam aynı
                   // (tahsil edilmemiş toplam) ama kutunun VAADİ değişti: dokununca müşteriler
                   // sekmesine değil, yalnız borçluları ve ödenmemiş siparişlerini listeleyen
@@ -104,10 +117,16 @@ class AnaBento extends StatelessWidget {
                       ? '${o.borcluMusteri} borçlu müşteri'
                       : 'tüm hesaplar temiz',
                   onTap: onBorclular,
+                    ),
                   ),
                 ),
               if (borclulariGoster) const SizedBox(width: SipSpace.lg),
-              Expanded(child: _SonAramaKutusu(db: db, onArama: onArama)),
+              Expanded(
+                child: RehberHedef(
+                  id: 'ana.sonArama',
+                  child: _SonAramaKutusu(db: db, onArama: onArama),
+                ),
+              ),
             ],
           ),
         ),

@@ -212,8 +212,13 @@ class PanelImportEdgeTest extends ApiTestCase
     public function sutunu_eksik_ve_fazla_satirlar_okunabildigi_kadar_okunur(): void
     {
         // Elden gelen dosyada satırların sütun sayısı tutmaz: kimi satırda yalnız ad+telefon,
-        // kiminde fazladan sütun vardır. Eksik sütun hata DEĞİLDİR (adres opsiyoneldir); fazlası
-        // yok sayılmalıdır. İkisi de dosyayı düşürmemeli.
+        // kiminde fazladan sütun vardır. Eksik sütun hata DEĞİLDİR (adres opsiyoneldir); ŞEMA
+        // DIŞINDAKİ fazlalık yok sayılmalıdır. İkisi de dosyayı düşürmemeli.
+        //
+        // ŞEMA 2026-09-11'DE BÜYÜDÜ: 6. ve 7. sütunlar artık `kod` ve `favoriler`dir, yani o
+        // konumlardaki bir değer "fazlalık" değil VERİDİR ve okunamıyorsa satır hatalı sayılır
+        // (sessizce yutmak bayinin müşteri numarasını kaybederdi — aktarımın bütün amacı odur).
+        // Bu testin sınadığı şey 8. sütundan sonrasıdır.
         $a = $this->makeTenant('a');
         $admin = $this->makeAdmin();
 
@@ -221,7 +226,7 @@ class PanelImportEdgeTest extends ApiTestCase
             'ad;telefon;adres;bolge;not',
             'Yalnız Ad',
             'Ad Ve Telefon;0532 111 22 33',
-            'Fazla Sutun;0533 222 33 44;Adres;Kepez;Not;FAZLA;DAHA FAZLA',
+            'Fazla Sutun;0533 222 33 44;Adres;Kepez;Not;;;FAZLA;DAHA FAZLA',
         ]);
 
         $sonuc = $this->servis()->uygula($a['tenant']->id, $icerik, $admin->id);

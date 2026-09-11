@@ -21,9 +21,12 @@
             <x-panel.kart baslik="1 · Şablonu indir" ikon="indir">
                 <div class="modal-bilgi" style="margin:14px 18px">
                     <x-panel.ikon ad="bilgi" boy="15" />
-                    <span>Sütunlar: <b class="tab">ad · telefon · adres · bolge · not</b>.
-                        Yalnız <b>ad</b> zorunludur. Dosya Excel'de düzenlenebilir; ayırıcı
-                        <b class="tab">;</b> ya da <b class="tab">,</b> olabilir, Türkçe karakterler desteklenir.
+                    <span>Sütunlar: <b class="tab">ad · telefon · adres · bolge · not · kod · favoriler</b>.
+                        Yalnız <b>ad</b> zorunludur. <b>kod</b> bayinin eski müşteri numarasıdır
+                        (boş bırakılırsa sıradaki numara atanır). <b>telefon</b>, <b>adres</b> ve
+                        <b>favoriler</b> hücrelerinde birden çok değer <b class="tab">:::</b> ile ayrılır.
+                        Dosya Excel'de düzenlenebilir; ayırıcı <b class="tab">;</b> ya da
+                        <b class="tab">,</b> olabilir, Türkçe karakterler desteklenir.
                         Aktarılan müşteriler bayinin cihazlarına senkronla düşer.</span>
                 </div>
                 <x-slot:aksiyonlar>
@@ -67,14 +70,16 @@
                     <div class="modal-bilgi" style="margin:14px 18px">
                         <x-panel.ikon ad="bilgi" boy="15" />
                         <span>Hiçbir şey yazılmadı. Onaylayana kadar bayinin verisi değişmez.
-                            Atlanan satırlar telefon numarası tekrarıdır — çift müşteri kaydı oluşmaz.</span>
+                            Atlanan satırlar tekrar eden kayıtlardır (müşteri kodu varsa koda, yoksa
+                            telefona bakılır) — çift müşteri kaydı oluşmaz. Favori sütunundaki ürün
+                            bayide yoksa aktarım sırasında açılır, fiyatı sıfır başlar.</span>
                     </div>
 
                     <x-panel.tablo>
                         <thead>
                             <tr>
-                                <th>Satır</th><th>Durum</th><th>Ad</th>
-                                <th>Telefon</th><th>Adres</th><th>Açıklama</th>
+                                <th>Satır</th><th>Durum</th><th>Kod</th><th>Ad</th>
+                                <th>Telefon</th><th>Adres</th><th>Favoriler</th><th>Açıklama</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -90,9 +95,11 @@
                                             <span class="rozet kilitli">hatalı</span>
                                         @endif
                                     </td>
+                                    <td class="tab">{{ $satir['kod'] ?? '—' }}</td>
                                     <td class="kalin">{{ $satir['ad'] }}</td>
                                     <td class="tab">{{ $satir['telefon'] }}</td>
                                     <td>{{ $satir['adres'] }}</td>
+                                    <td class="soluk">{{ $satir['favoriler'] }}</td>
                                     <td class="soluk">{{ $satir['aciklama'] }}</td>
                                 </tr>
                             @endforeach
@@ -117,9 +124,61 @@
                             class="btn birincil"
                             wire:click="uygula"
                             @disabled($onizleme['ozet']['eklenecek'] === 0)
-                        >{{ $onizleme['ozet']['eklenecek'] }} müşteriyi aktar</button>
+                        >{{ number_format($onizleme['ozet']['eklenecek'], 0, ',', '.') }} müşteriyi aktar</button>
                         <button type="button" class="btn" wire:click="sifirla">Vazgeç</button>
+                        @if ($onizleme['ozet']['eklenecek'] > 1000)
+                            {{-- Ölçüldü: ~9.000 müşteri ≈ 7,5 dakika. Kullanıcı ne kadar
+                                 bekleyeceğini ÖNCEDEN bilmeli; sürprizi sonra yaşamamalı. --}}
+                            <span class="soluk" style="font-size:12px">
+                                Bu boyuttaki bir dosya birkaç dakika sürer; sayfayı açık bırakın.
+                            </span>
+                        @endif
                     </x-slot:aksiyonlar>
+                </x-panel.kart>
+            @endif
+
+            {{--
+                İLERLEME KARTI — aktarım adım adım koşarken görünür.
+                `wire:poll` her turda `adim()`ı çağırır; `devam` false olunca poll susar ve
+                sonuç kartı belirir.
+
+                `.keep-alive` ZORUNLU: Livewire, sekme arka plana geçtiğinde poll'ü DURDURUR
+                (`theDirectiveIsMissingKeepAlive`). 7 dakikalık bir aktarımda kullanıcı mutlaka
+                başka sekmeye geçer ve aktarım sessizce donardı.
+
+                Üst üste binme sunucuda KİLİTLE engellenir (bkz. CustomerImport::adim) — tarayıcı
+                tarafındaki istek sıralamasına güvenmek yetmez, kullanıcı sayfayı ikinci bir
+                sekmede de açabilir.
+            --}}
+            @if ($devam)
+                <x-panel.kart baslik="Aktarılıyor…" ikon="yukle" wire:poll.2s.keep-alive="adim">
+                    @php
+                        $toplam = max(1, (int) ($ilerleme['toplam'] ?? 1));
+                        $yuzde = min(100, (int) round(($ilerleme['yazilan'] ?? 0) * 100 / $toplam));
+                    @endphp
+
+                    <div style="padding:18px">
+                        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+                            <span class="kalin">{{ number_format($ilerleme['yazilan'], 0, ',', '.') }}
+                                / {{ number_format($ilerleme['toplam'], 0, ',', '.') }} müşteri</span>
+                            <span class="tab soluk">%{{ $yuzde }}</span>
+                        </div>
+
+                        <div
+                            role="progressbar"
+                            aria-valuenow="{{ $yuzde }}" aria-valuemin="0" aria-valuemax="100"
+                            style="height:8px;border-radius:999px;background:var(--line);overflow:hidden"
+                        >
+                            <div style="height:100%;width:{{ $yuzde }}%;background:var(--accent);transition:width .4s ease"></div>
+                        </div>
+                    </div>
+
+                    <div class="modal-bilgi" style="margin:0 18px 14px">
+                        <x-panel.ikon ad="bilgi" boy="15" />
+                        <span>Bu sayfa açık kalsın — aktarım kendi kendine devam ediyor.
+                            Sayfayı kapatırsanız o ana kadar yazılanlar KALIR; aynı dosyayı
+                            yeniden yükleyip kaldığı yerden sürdürebilirsiniz.</span>
+                    </div>
                 </x-panel.kart>
             @endif
 
@@ -130,6 +189,15 @@
                             <x-panel.ikon ad="bilgi" boy="15" />
                             <span>{{ $sonuc['eklenen'] }} müşteri eklendi · {{ $sonuc['atlanan'] }} satır atlandı · {{ $sonuc['hatali'] }} satır hatalı.</span>
                         </div>
+
+                        @if ($sonuc['acilan_urunler'] ?? [])
+                            <div class="modal-bilgi" style="margin:14px 18px" role="status">
+                                <x-panel.ikon ad="bilgi" boy="15" />
+                                <span>Favori listelerinde geçtiği için {{ count($sonuc['acilan_urunler']) }} ürün
+                                    kataloğa eklendi: {{ implode(', ', $sonuc['acilan_urunler']) }}.
+                                    <strong>Fiyatları sıfır başlar</strong> — ürün ekranından güncelleyin.</span>
+                            </div>
+                        @endif
                     @else
                         <div
                             class="modal-bilgi"
@@ -137,7 +205,22 @@
                             role="status"
                         >
                             <x-panel.ikon ad="uyari" boy="15" />
-                            <span>Aktarım uygulanamadı: {{ $sonuc['mesaj'] }} — hiçbir satır yazılmadı.</span>
+                            {{--
+                                KISMİ YAZMA GERÇEKTİR: aktarım parti parti yazılır, duran partiden
+                                öncekiler diskte kalır. "Hiçbir satır yazılmadı" demek kullanıcıyı
+                                dosyayı sıfırdan yüklemeye iter ve yazılanları görmediği için
+                                paniğe düşürür. Ne yazıldığını SAYIYLA söyle, kurtarmayı da.
+                            --}}
+                            <span>
+                                Aktarım yarıda durdu: {{ $sonuc['mesaj'] }}
+                                @if ($sonuc['eklenen'] > 0)
+                                    <strong>{{ $sonuc['eklenen'] }} müşteri yazıldı</strong>, kalanı yazılamadı.
+                                    Aynı dosyayı yeniden yükleyin — yazılmış müşteriler atlanır,
+                                    yalnız eksik kalanlar girer.
+                                @else
+                                    Hiçbir satır yazılmadı.
+                                @endif
+                            </span>
                         </div>
                     @endif
 
@@ -157,7 +240,7 @@
                         <div class="modal-bilgi" style="margin:14px 18px">
                             <x-panel.ikon ad="bilgi" boy="15" />
                             <span>Bu satırları dosyada düzeltip yeniden yükleyebilirsiniz;
-                                aktarılmış müşteriler telefon tekrarından atlanır.</span>
+                                aktarılmış müşteriler kod (kodu yoksa telefon) tekrarından atlanır.</span>
                         </div>
                     @endif
 

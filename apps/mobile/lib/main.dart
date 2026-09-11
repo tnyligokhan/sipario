@@ -17,6 +17,7 @@ import 'bildirim/push/push_servisi.dart';
 import 'repo/day_end_repository.dart';
 import 'data/app_database.dart';
 import 'guncelleme/guncelleme_servisi.dart';
+import 'rehber/rehber_deposu.dart';
 import 'repo/bildirim_kutusu.dart';
 import 'screens/home_shell.dart';
 import 'screens/login_screen.dart';
@@ -108,6 +109,11 @@ class _SiparioAppState extends State<SiparioApp> {
     // aynı yerde, aynı desenle yüklenir. Beklenmez: sipariş listesi açılmadan çok önce biter,
     // okunamazsa varsayılan SAĞ kalır.
     tutamacDeposu.yukle();
+    // Rehberin "görüldü" durumu da cihaz-yerel bir tercihtir; temayla ve tutamaçla aynı
+    // yerde, aynı desenle yüklenir. Beklenmez ve BEKLENEMEZ: tur oynatma kararı bir karenin
+    // içinde senkron verilir. Yükleme yetişmezse depo "hiçbir şey görülmemiş" der — en kötü
+    // hâlde bir tur bir kez fazla oynar (ilk ekran zaten `rehberGecikmesi` kadar bekliyor).
+    rehberDeposu.yukle();
     // Bildirim altyapısı: kanalları kurar, saat dilimini bağlar, kayıtlı tercihleri okur.
     // İZİN İSTEMEZ — izin, bayi Ayarlar'dan bildirimleri açtığında istenir; açılışta izin
     // diyaloğu göstermek kurulum sürtünmesini artırır (BRIEF korku #3). Beklenmez: kurulum

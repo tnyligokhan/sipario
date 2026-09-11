@@ -83,6 +83,7 @@ void main() {
       await ekranaKoy(
         tester,
         AnaEkran(
+          onGorev: (_) {},
           db: db,
           sahipAdi: 'Mehmet Usta',
           onMenu: () {},

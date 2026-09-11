@@ -31,6 +31,10 @@ import '../data/app_database.dart';
 import '../guncelleme/guncelleme_banti.dart';
 import '../guncelleme/guncelleme_servisi.dart';
 import '../konum/konum_bildirici.dart';
+import '../rehber/nasil_yapilir_ekrani.dart';
+import '../rehber/rehber_hedef.dart';
+import '../rehber/rehber_modeli.dart';
+import '../rehber/rehber_sahne.dart';
 import '../subscription/subscription_locked_screen.dart';
 import '../subscription/subscription_state.dart';
 import '../sync/sync_service.dart';
@@ -427,12 +431,17 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 // boşluğunu yalnız üstünde başka bant yokken kendisi ekler.
                 GuncellemeBanti(ustBosluk: !_ustBantVar),
                 Expanded(child: _govde(sekme, yetki)),
-                SipAltNav(
-                  aktif: sekme,
-                  onSec: _sekmeSec,
-                  // Kilit kipinde FAB çizilir ama pasif (tasarım kilit dalında da AltNav'ı tam
-                  // çizer); silinseydi hap navigasyon yeniden yerleşip atlıyordu.
-                  onEkle: _yazilabilir ? _ekleMenusu : null,
+                // Rehber hedefi KABUKTA: alt gezinme her sekmede aynı yerde durur, bir ekrana
+                // ait değildir. `RehberHedef` yalnız anahtar takar — yerleşim değişmez.
+                RehberHedef(
+                  id: 'ana.altnav',
+                  child: SipAltNav(
+                    aktif: sekme,
+                    onSec: _sekmeSec,
+                    // Kilit kipinde FAB çizilir ama pasif (tasarım kilit dalında da AltNav'ı tam
+                    // çizer); silinseydi hap navigasyon yeniden yerleşip atlıyordu.
+                    onEkle: _yazilabilir ? _ekleMenusu : null,
+                  ),
                 ),
               ],
             ),

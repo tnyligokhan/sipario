@@ -15,6 +15,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
+import '../../rehber/rehber_hedef.dart';
 import '../../data/app_database.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
@@ -271,12 +275,18 @@ class _OrderListScreenState extends State<OrderListScreen> {
                   if (_elle)
                     SipMetinButon(etiket: 'Bitti', onTap: _elleBitir)
                   else
-                    SipMetinButon(
-                      etiket: 'Sırala',
-                      ikon: SipIcons.sirala,
-                      zemin: t.surface,
-                      onTap: _siralamaAc,
+                    RehberHedef(
+                      id: 'siparis.sirala',
+                      child: SipMetinButon(
+                        etiket: 'Sırala',
+                        ikon: SipIcons.sirala,
+                        zemin: t.surface,
+                        onTap: _siralamaAc,
+                      ),
                     ),
+                  // Elle sıralama kipinde YARDIM ÇİZİLMEZ: o kip tek işlidir ("sırayı yaz,
+                  // Bitti'ye bas") ve şeridin ikinci bir düğmesi orada dikkati bölerdi.
+                  if (!_elle) const RehberYardimDugmesi(yuzey: RehberYuzey.siparisler),
                 ],
               ),
             ),
@@ -292,10 +302,13 @@ class _OrderListScreenState extends State<OrderListScreen> {
             Padding(
               padding: EdgeInsets.fromLTRB(SipSpace.govde, 0, SipSpace.govde,
                   _elle ? SipSpace.xl : SipSpace.lg),
-              child: SipSegment(
-                secenekler: [for (final f in sekmeler) _sekmeEtiketi(f)],
-                secili: sekmeler.indexOf(_filtre).clamp(0, sekmeler.length - 1),
-                onSec: (i) => setState(() => _filtre = sekmeler[i]),
+              child: RehberHedef(
+                id: 'siparis.filtre',
+                child: SipSegment(
+                  secenekler: [for (final f in sekmeler) _sekmeEtiketi(f)],
+                  secili: sekmeler.indexOf(_filtre).clamp(0, sekmeler.length - 1),
+                  onSec: (i) => setState(() => _filtre = sekmeler[i]),
+                ),
               ),
             ),
 
@@ -326,16 +339,19 @@ class _OrderListScreenState extends State<OrderListScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                     SipSpace.govde, 0, SipSpace.govde, SipSpace.xl),
-                child: SiparisAracSeridi(
+                child: RehberHedef(
+                  id: 'siparis.arac',
+                  child: SiparisAracSeridi(
                   onHarita: _haritaAc,
                   // Süzgeç yalnız PATRONA çıkar (K2 dışı bir GÖRÜNÜM kapısı; kurye kendi işini
                   // görür, ona süzgeç gürültüdür).
                   onKurye: kuryeSuzgeciGorunur(_rol) ? _kuryeSuzgeciAc : null,
                   kuryeAdi: _kuryeId == null ? null : (_kuryeAdi ?? 'Kurye'),
+                  ),
                 ),
               ),
 
-            Expanded(child: _govde()),
+            Expanded(child: RehberHedef(id: 'siparis.liste', child: _govde())),
           ],
         ),
       ),

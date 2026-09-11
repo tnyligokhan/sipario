@@ -22,6 +22,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_hedef.dart';
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
 import '../../auth/session.dart';
 import '../../data/app_database.dart';
 import '../../theme/components/states.dart';
@@ -112,14 +116,20 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SipUst(baslik: 'Ayarlar', onGeri: () => Navigator.of(context).maybePop()),
+            SipUst(
+              baslik: 'Ayarlar',
+              onGeri: () => Navigator.of(context).maybePop(),
+              sag: const [RehberYardimDugmesi(yuzey: RehberYuzey.ayarlar)],
+            ),
             Expanded(
               child: SipGovde(children: [
                 // BÖLÜM BAŞLIĞI KALDIRILDI (kullanıcı eleştirisi 2026-08-18): sayfanın adı
                 // zaten "Ayarlar" ve hemen altında ikinci kez "Ayarlar" yazıyordu. Tek kartlı
                 // bir sayfada bölüm başlığı hiçbir şeyi ayırmaz, yalnız yer kaplar.
                 const SizedBox(height: SipSpace.xl),
-                AyarKarti(satirlar: [
+                RehberHedef(
+                  id: 'ayarlar.kart',
+                  child: AyarKarti(satirlar: [
                   if (session != null && onCikis != null)
                     AyarSatiri(
                       ikon: SipIcons.user,
@@ -172,7 +182,8 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
                     altBaslik: 'Sürüm bilgisi ve yenilikler',
                     onTap: () => _ac(HakkindaEkrani(db: widget.db)),
                   ),
-                ]),
+                  ]),
+                ),
               ]),
             ),
           ],

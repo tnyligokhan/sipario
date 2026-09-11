@@ -13,6 +13,9 @@ import 'dart:io';
 import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_hedef.dart';
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
 import '../../data/app_database.dart';
 import '../../repo/product_repository.dart';
 import '../../theme/components/atoms.dart';
@@ -67,6 +70,9 @@ class ProductListScreen extends StatelessWidget {
                         ? null
                         : '${urunler.length} ürün, $aktif aktif',
                     onGeri: () => Navigator.of(context).maybePop(),
+                    // Turu yeniden oynatır. Rol geçilmiyor — `rehberKuryeKipi` okunur
+                    // (gerekçe `rehber_sahne.dart`: sekiz ekrana rol taşımak sekiz unutma yeri).
+                    sag: const [RehberYardimDugmesi(yuzey: RehberYuzey.urunler)],
                   ),
                   Expanded(
                     child: urunler == null
@@ -107,7 +113,10 @@ class _Liste extends StatelessWidget {
       // Aşağı çekerek yenile: liste sunucudan senkronla besleniyor (kullanıcı isteği 2026-07-29).
       onYenile: yenile,
       children: [
-        EkleSatiri(etiket: 'Yeni ürün ekle', onTap: () => _ac(context, null)),
+        RehberHedef(
+          id: 'urun.ekle',
+          child: EkleSatiri(etiket: 'Yeni ürün ekle', onTap: () => _ac(context, null)),
+        ),
         if (urunler.isEmpty)
           const SipBosDurum(
             ikon: SipIcons.box,
@@ -122,9 +131,12 @@ class _Liste extends StatelessWidget {
                 for (var i = 0; i < urunler.length; i++)
                   Padding(
                     padding: EdgeInsets.only(top: i == 0 ? 0 : 7),
-                    child: _UrunSatiri(
-                      urun: urunler[i],
-                      onTap: () => _ac(context, urunler[i]),
+                    child: rehberSar(
+                      i == 0 ? 'urun.satir' : null,
+                      _UrunSatiri(
+                        urun: urunler[i],
+                        onTap: () => _ac(context, urunler[i]),
+                      ),
                     ),
                   ),
               ],

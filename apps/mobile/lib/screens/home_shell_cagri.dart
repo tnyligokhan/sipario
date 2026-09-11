@@ -27,11 +27,14 @@ extension _CagriYuzeyi on _HomeShellState {
       SipToast.goster(context, 'Çağrı geçmişi size kapalı');
       return;
     }
-    _git(CagriGunluguSayfasi(
-      db: widget.db,
-      onGeri: () => Navigator.of(context).maybePop(),
-      onAc: _aramayiAc,
-    ));
+    _git(
+      CagriGunluguSayfasi(
+        db: widget.db,
+        onGeri: () => Navigator.of(context).maybePop(),
+        onAc: _aramayiAc,
+      ),
+      rehber: RehberYuzey.cagriGunlugu,
+    );
   }
 
   /// Bir arama satırına dokunulduğunda (s-uygulama.jsx:90 kuralı): kayıtlıysa müşteri defteri,

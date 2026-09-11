@@ -21,9 +21,17 @@ extension _GezinmeYuzeyi on _HomeShellState {
     });
   }
 
-  Future<void> _git(Widget ekran) async {
+  Future<void> _git(Widget ekran, {RehberYuzey? rehber}) async {
     _durumDegisti(() => _cekmece = false);
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => ekran));
+    await Navigator.of(context).push(MaterialPageRoute(
+      // REHBER TURU BURADA SARILIR, ekranların İÇİNDE değil: sekiz ekranın her birine
+      // `RehberSahne` eklemek sekiz ayrı yerde unutulabilecek bir bağ demekti ve bu depoda
+      // tam olarak öyle bir unutma yaşandı (`rol` geçilmeyen `KuryelerEkrani`). Tek kapıdan
+      // geçen gezinmenin tek avantajı budur — turu da tek yerden takıyoruz.
+      builder: (_) => rehber == null
+          ? ekran
+          : RehberSahne(yuzey: rehber, kuryeMi: _kuryeMi, child: ekran),
+    ));
     // Dönüşte elle tazeleme YOK: sync_meta akışı, açılan ekranın yaptığı her yazımı zaten
     // yakalar (tema, profil, kontör…). İki yol tutmak ikisinin ayrışması demekti.
   }
@@ -39,7 +47,8 @@ extension _GezinmeYuzeyi on _HomeShellState {
       case CekmeceGiris.cagriGunlugu:
         _cagriGecmisiAc();
       case CekmeceGiris.harita:
-        _git(SiparisHaritaEkrani(db: widget.db, writable: _yazilabilir));
+        _git(SiparisHaritaEkrani(db: widget.db, writable: _yazilabilir),
+            rehber: RehberYuzey.harita);
       case CekmeceGiris.hesap:
         _git(HesapEkrani(db: widget.db, session: widget.session, onCikis: _cikis));
       case CekmeceGiris.urunler:
@@ -47,14 +56,16 @@ extension _GezinmeYuzeyi on _HomeShellState {
           SipToast.goster(context, 'Ürünleri yalnız patron düzenler');
           return;
         }
-        _git(ProductListScreen(db: widget.db, writable: _yazilabilir, rol: _userRole));
+        _git(ProductListScreen(db: widget.db, writable: _yazilabilir, rol: _userRole),
+            rehber: RehberYuzey.urunler);
       case CekmeceGiris.kuryeler:
         // ⚠️ `rol` GEÇİLMEZSE PATRON DA GİREMEZ. Kapı (`YoneticiKapisi`) izin listesidir ve
         // bilinmeyen rolde KAPANIR (2026-08-17 kararı); geçilmeyen `rol` null demektir, null da
         // "kurye" ile aynı kovada. Bu satır bir vardiya boyunca rolsüz kaldı ve patron kendi
         // kuryelerini yönetemedi. Artık dört korunan ekranda da `rol` ZORUNLU alandır —
         // unutulursa derlenmez, sahada değil burada patlar.
-        _git(KuryelerEkrani(db: widget.db, writable: _yazilabilir, rol: _userRole));
+        _git(KuryelerEkrani(db: widget.db, writable: _yazilabilir, rol: _userRole),
+            rehber: RehberYuzey.kuryeler);
       case CekmeceGiris.muaf:
         if (!_yetki.muafTelefonYonetimi) {
           SipToast.goster(context, 'Muaf numaraları yalnız patron düzenler');
@@ -80,16 +91,67 @@ extension _GezinmeYuzeyi on _HomeShellState {
           // üretimde esnafın menüsünde görünmez. Bu geri çağrım OLMADAN satır hiç çizilmez
           // ve `Phase0Screen` erişilemeyen dosyaya döner (çekmece ölü dalı dersi).
           onOlcumler: () => _git(Phase0Screen(db: widget.db)),
-        ));
+        ), rehber: RehberYuzey.ayarlar);
+      case CekmeceGiris.yardim:
+        // KAPI YOK ve olmayacak: yardım her role açıktır. Ekran zaten role göre süzülür
+        // (kurye yapamayacağı işin tarifini görmez) — o karar `NasilYapilirEkrani`nin işi.
+        _git(NasilYapilirEkrani(kuryeMi: _kuryeMi));
     }
   }
 
-  Future<void> _musteriAc(String musteriId) => _git(CustomerDetailScreen(
-        db: widget.db,
-        customerId: musteriId,
-        writable: _yazilabilir,
-        yetki: _yetki,
-      ));
+  /// Kurye kipinde miyiz — rehberin (görev kartı + turlar) hangi anlatıyı kuracağını belirler.
+  ///
+  /// ⚠️ `RolYetkileri` DEĞİL ROL sorulur ve bu bilinçli: rehber bir YETKİ kapısı değil, bir
+  /// ANLATI seçimidir. Yetkisi genişletilmiş bir kurye yine kuryedir ve gün sonunda kasa
+  /// devreder; ona "günü kapat" anlatmak yanlış olurdu. Bilinmeyen rol yönetici sayılır —
+  /// yetki kapılarının tersine, çünkü burada yanlış tarafın bedeli bir güvenlik açığı değil,
+  /// bir yanlış cümledir ve yöneticinin anlatısı ikisini de kapsar.
+  bool get _kuryeMi => _userRole == 'kurye';
+
+  /// "İlk adımlar" kartındaki maddeye dokunulduğunda nereye gidilir.
+  ///
+  /// KAPILAR BURADA, KARTTA DEĞİL: kart yalnız niyeti devreder (`onArama`, `onBorclular`
+  /// deseninin aynısı). Var olan girişler YENİDEN YAZILMAZ, aynı fonksiyonlar çağrılır —
+  /// bu depoda aynı ekranın iki girişinin ayrı yazılması bir yetki açığına dönüşmüştü.
+  Future<void> _gorevAc(RehberGorev g) async {
+    switch (g) {
+      case RehberGorev.arayanTanima:
+        await _sihirbaziAc();
+      case RehberGorev.urun:
+        _cekmeceGirisi(CekmeceGiris.urunler);
+      case RehberGorev.kurye:
+        _cekmeceGirisi(CekmeceGiris.kuryeler);
+      case RehberGorev.musteri:
+        if (!_yazilabilir || !_yetki.musteriDuzenleme) {
+          SipToast.goster(context, 'Müşteri ekleme yetkiniz yok');
+          return;
+        }
+        final eklendi = await musteriEkleSheet(context, db: widget.db);
+        if (eklendi == true && mounted) SipToast.goster(context, 'Müşteri kaydedildi');
+      case RehberGorev.siparis:
+        if (!_yazilabilir || !_yetki.siparisAcma) {
+          SipToast.goster(context, 'Sipariş açma yetkiniz yok');
+          return;
+        }
+        _yeniSiparis();
+      // Kuryenin maddeleri bir KURULUM adımı değil bir İŞ adımıdır; açılacak bir form yok,
+      // yalnız işin yapıldığı sekmeye götürülür.
+      case RehberGorev.teslimat || RehberGorev.tahsilat:
+        _sekmeSec(SipSekme.siparis);
+      case RehberGorev.kasaDevri:
+        _sekmeSec(SipSekme.gunSonu);
+    }
+  }
+
+  Future<void> _musteriAc(String musteriId) => _git(
+        CustomerDetailScreen(
+          db: widget.db,
+          customerId: musteriId,
+          writable: _yazilabilir,
+          yetki: _yetki,
+        ),
+        rehber: RehberYuzey.musteriDetay,
+      );
 
   /// Sihirbazı push eder ve BİTİRİLDİYSE tasarımdaki toast'ı basar
   /// (`s-uygulama.jsx:61` `ping('Kurulum tamamlandı')`). Kapatılırsa (çarpı) toast yok.
@@ -181,12 +243,15 @@ extension _GezinmeYuzeyi on _HomeShellState {
       SipToast.goster(context, 'Borçlular listesi size kapalı');
       return;
     }
-    _git(BorclularEkrani(
-      db: widget.db,
-      writable: _yazilabilir,
-      yetki: _yetki,
-      canAssign: _yetki.atama,
-    ));
+    _git(
+      BorclularEkrani(
+        db: widget.db,
+        writable: _yazilabilir,
+        yetki: _yetki,
+        canAssign: _yetki.atama,
+      ),
+      rehber: RehberYuzey.borclular,
+    );
   }
 
   /// "Son aktivite" satırı: sekmeyi siparişe alır VE detayı açar (`s-uygulama.jsx:89`).

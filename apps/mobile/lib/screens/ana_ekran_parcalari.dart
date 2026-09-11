@@ -73,30 +73,39 @@ class _Hero extends StatelessWidget {
                 // ZİL MENÜNÜN SOLUNDA (2026-08-21): menü hero'nun sağ ucunda kalmalı — bayi
                 // onu aylardır orada arıyor. Yeni bir düğmeyi o köşeye koymak, kas hafızasıyla
                 // menüye uzanan eli bildirimlere götürürdü.
-                _ZilButonu(okunmamis: okunmamisBildirim, onTap: onBildirimler),
+                RehberHedef(
+                  id: 'ana.zil',
+                  child: _ZilButonu(okunmamis: okunmamisBildirim, onTap: onBildirimler),
+                ),
                 const SizedBox(width: SipSpace.sm),
-                SipIkonButon(
-                  ikon: SipIcons.menu,
-                  cap: 40,
-                  ikonBoyut: 20,
-                  kalinlik: 2,
-                  zemin: SipTokens.onHeroFill,
-                  renk: SipTokens.onHero,
-                  etiket: 'Menü',
-                  onTap: onMenu,
+                RehberHedef(
+                  id: 'ana.menu',
+                  child: SipIkonButon(
+                    ikon: SipIcons.menu,
+                    cap: 40,
+                    ikonBoyut: 20,
+                    kalinlik: 2,
+                    zemin: SipTokens.onHeroFill,
+                    renk: SipTokens.onHero,
+                    etiket: 'Menü',
+                    onTap: onMenu,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: SipSpace.x3),
             // İki çip yan yana; dar ekranda alt satıra sarar (Wrap) — hero'nun tek satırlık
             // yüksekliği sabit değil ve taşan bir çip metni kırpardı.
-            Wrap(
-              spacing: SipSpace.sm,
-              runSpacing: SipSpace.sm,
-              children: [
-                _SyncCipi(sonuc: sonSenkron, zaman: sonSenkronAt),
-                const _SurumCipi(),
-              ],
+            RehberHedef(
+              id: 'ana.senkron',
+              child: Wrap(
+                spacing: SipSpace.sm,
+                runSpacing: SipSpace.sm,
+                children: [
+                  _SyncCipi(sonuc: sonSenkron, zaman: sonSenkronAt),
+                  const _SurumCipi(),
+                ],
+              ),
             ),
           ],
         ),

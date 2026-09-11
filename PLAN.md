@@ -269,7 +269,176 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-01/2 — **ÜRÜN YENİDEN KONUMLANDI** (API 1.21.0 → **1.22.0**, mobil sabit)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-11 — **GERÇEK BAYİ VERİSİ ÜRÜNE TAŞINDI** (API 1.22.0 → **1.23.0**, mobil sabit)
+
+#### NE YAPILDI
+
+Kullanıcı bir müşterisinin **Google Kişiler dökümünü** (`musteri-verisi/contacts.csv`, 9.057 kişi)
+verdi ve "içeri aktarabileceğimiz bir formata getir, hiçbir veri kaybolmasın" dedi.
+
+1. **`scripts/musteri-donustur.js`** — dökümü panel şablonuna çeviren tek seferlik taşıma betiği.
+   Çıktı `musteri-verisi/cikti/`: `musteriler.csv` (9.048 satır), `urunler.csv`, `kod-cakismalari.csv`.
+2. **`PanelImportService` genişletildi** — `kod` + `favoriler` sütunları, `:::` ile çoklu
+   telefon/adres, eksik ürünlerin otomatik açılması, satır tavanı 10.000.
+   Yeni sınıflar: `AktarimSatiri`, `AktarimDurumu`, `AktarimUrunleri`.
+3. **`ChangeApplier`** — `customers.code` yalnız panelin sentetik cihazından kabul edilir.
+
+#### 🔴 EN ÖNEMLİ SATIR: İKİ HATA ANCAK GERÇEK DOSYAYLA UÇTAN UCA KOŞUNCA ÇIKTI
+
+Birim testleri yeşilken 9.057 satırlık gerçek dosya İKİ KEZ tamamen reddedildi:
+
+- Kodsuz satıra sunucunun verdiği `max(code)+1`, dosyada **daha sonra gelen** açık bir kodu
+  kapıyordu → `23505` → tüm parti geri sarılıyordu. Çözüm: kodlu satırlar ÖNCE yazılır.
+- ~31.000 olayın savepoint'i Postgres kilit tablosunu taşırıyordu (`53200 out of shared memory`).
+  Çözüm: **parti başına transaction** — "hepsi ya da hiçbiri" garantisi bilerek bırakıldı
+  (gerekçe DECISIONS'ta; kurtarma dedup sayesinde tek adım).
+
+**Ders: küçük fikstürle yeşil olan toplu yazma, gerçek hacimde yeşil olduğu anlamına gelmez.**
+
+#### KAPILAR
+
+`pint` temiz · `phpstan` temiz · `PanelImport*` + `PanelCsv*` **46/46** yeşil (yeni:
+`PanelImportGenisSutunTest` 15, `PanelImportAdimliUiTest` 5) · gerçek dosya uçtan uca (adımlı):
+9.048 müşteri, 13.263 telefon, 8.868 adres, 6 ürün, 8.104 favorili. Dönüştürücü doğrulaması:
+ada uydurulan kelime 0, addan kaybolan sayı-dışı kelime 0, adres farkı 0, kaybolan telefon 0.
+
+#### ZAMAN AŞIMI ÇÖZÜLDÜ — AKTARIM ADIM ADIM KOŞUYOR
+
+Kullanıcı: *"Parçalamak ile uğraşamam ki ben!"* — haklıydı. `uygula()` artık isteğe bağlı bir
+**süre bütçesi** alıyor: bütçe dolunca durur, elindeki partiyi yazar, `kalan` ile kaç satırın
+beklediğini söyler. Panel ekranı `wire:poll.2s.keep-alive` ile bitene kadar `adim()` çağırır,
+ilerleme çubuğu gösterir.
+
+**ÖLÇÜLEN TAVANLAR** (tahmin değil, imajdan okundu): PHP `max_execution_time` **99 sn**,
+nginx `fastcgi_read_timeout` **60 sn**. **Gerçek dosyayla uçtan uca: 36 adım · en uzun adım
+17,2 sn · toplam 484 sn · 9.048/9.048.** En dar tavana 3,5 kat pay; tek çağrıdaki 450 sn ise
+60 sn'de kesilirdi. Adımlamanın toplam süreye maliyeti %8.
+
+⚠️ **Üç kusur bu iş sırasında bulundu ve teste bağlandı:**
+1. **İlerleme garantisi yoktu** — bütçe küçükse adım hiçbir şey yazmadan dönüyor, `kalan`
+   azalmıyor, ekran sonsuza kadar dönüyordu. Artık her adım EN AZ bir parti yazar.
+2. **`keep-alive` şart** — Livewire sekme arka plana geçince poll'ü durduruyor; 7 dakikalık
+   bir işte aktarım sessizce donardı.
+3. **Kurtarma yolu bozuktu** — kod bayide kayıtlıysa satır koşulsuz 'hatali' sayılıyordu, yani
+   yarıda kalan aktarımı sürdürmek için aynı dosyayı yükleyen kullanıcı "9.000 satır hatalı"
+   görüyordu. Artık kod AYNI müşteride ise 'atlanacak', BAŞKA müşteride ise 'hatali'.
+
+Eşzamanlı adım `Cache::lock` ile engellendi (ikinci sekme aynı müşteriyi iki kez yazabilirdi).
+
+Kuyruğa verilmedi çünkü `app` ile `queue` container'ları arasında **paylaşılan depolama yok** —
+işçi, panele yüklenen geçici dosyayı göremez.
+
+#### ⚠️ AÇIK İŞ
+
+- Aktarım gerçek bir bayi hesabına HENÜZ UYGULANMADI; yalnız test veritabanında koşuldu.
+- Panel ekranı gerçek tarayıcıda GÖRÜLMEDİ — ilerleme çubuğu ve `wire:poll` akışı yalnız
+  sunucu tarafında sınandı ([[arayuz-gorunurlugu-gercek-tarayicida-olculur]]).
+- `ChangeApplier` 616 satır (zaten 581'di, sınırın üstünde) — bölme bu vardiyada yapılmadı.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-04 — **REHBER TURLARI BAŞTAN YAZILDI** (mobil 1.1.0 → **1.2.0**, API sabit 1.22.0)
+
+#### 🔴 EN ÖNEMLİ SATIR: İLK SÜRÜM TUR DEĞİL SLAYT GÖSTERİSİYDİ
+
+Kullanıcı: *"Turlar rezalet, daha interaktif olmalı, sayfalara girdiğimde bir şeyleri
+işaretleyerek gösteriyor olmalıydı, mala anlatır gibi anlatmamız lazım."* Eleştiri doğruydu ve
+sebebi ÖLÇÜLEBİLİR: on iki yüzeyin yalnız yedisinde gerçek bir kutu işaret ediliyordu, geri
+kalanı ekranın ortasında duran karttı. Yani rehber ekranı göstermiyor, özetliyordu.
+
+**Üç şey değişti:**
+
+1. **Çapa 7 → 35.** Bento tek parça yerine kutu kutu (`ana.acikSiparis`, `ana.kasa`,
+   `ana.borclular`, `ana.sonArama`), alt gezinme tek parça yerine sekme sekme
+   (`nav.ana`, `nav.musteri`, `nav.siparis`, `nav.gunSonu`, `nav.fab`). Bir ekranda kaç ayrı
+   SORU cevaplanıyorsa o kadar adım var.
+2. **Adım ~40 → ~90.** "Şurada rakamlar var" değil: bu rakam nereden geliyor, dokununca ne
+   olur, tutmadığında nereye bakılır. Örnek — "Bugün Kasa" adımı veresiyenin neden o rakama
+   girmediğini ayrıca söylüyor.
+3. **Adımlar ETKİLEŞİMLİ olabiliyor** (`RehberAdim.dene`): karartmanın deliği gerçekten
+   dokunulabilir kalıyor, kullanıcı hedefe kendi eliyle basıyor ve tur o dokunuşla ilerliyor.
+
+Ayrıca: spot artık **nabız atıyor** (üç kez, sonra duruyor), balondan hedefe **ok** çıkıyor,
+**Geri** düğmesi ve ilerleme noktaları eklendi.
+
+#### ⚠️ SIRADAKİ VARDİYANIN BİLMESİ GEREKEN ÜÇ ŞEY
+
+1. **"HEM GÖR HEM GEÇİR" OVERLAY'DE MÜMKÜN DEĞİL.** Flutter'ın isabet testi bir katman kendini
+   hedef olarak eklediğinde alttaki rotaya inmeyi bırakır — yani karartmanın üstüne geçirgen
+   bir dinleyici koyup dokunuşu hem görüp hem geçiremezsin. Çözüm ikiye bölündü: **geçirme
+   YERLEŞİMLE** (karartma tek parça değil, deliğin çevresindeki dört perde parçası; delik boş
+   bırakılıyor), **görme HEDEFİN KENDİ AĞACINDAKİ `Listener` ile** (`RehberKayit.sonDokunus`).
+2. **EKRAN DEĞİŞTİREN `dene` YALNIZ SON ADIMDA OLABİLİR.** Tur katmanı rotaların üstünde
+   yaşıyor; ortada bir yerde sekme değiştiren bir adım, turu yeni ekranın üstünde eski ekranın
+   adımlarını anlatır hâlde bırakır. Son adımda ise dokunuş turu BİTİRİR ve sıradaki ekranın
+   turu kendiliğinden başlar — **turlar böyle zincirlendi** (ana → müşteriler → siparişler →
+   gün sonu). Testle kilitli.
+3. **NABIZ SINIRLI OLMAK ZORUNDA.** Bu depoda 77 test `pumpAndSettle` çağırıyor; hiç durmayan
+   bir animasyon o çağrıları sonsuz döngüye sokar. Halka üç kez atıp duruyor.
+
+**Kapılar:** `flutter analyze` temiz · `flutter test` **1603/1603** yeşil (57'si rehber).
+APK derlemesi koşulmadı — paket/native dokunuşu yok.
+
+#### ⏭️ Sıradaki işler
+
+Önceki nottakiler duruyor (KVKK m.9 standart sözleşme · destek telefonu · site değişikliklerinin
+gerçek tarayıcıda görülmesi). Rehber tarafında açık kalan: **turlar gerçek cihazda gözle
+görülmedi** — balonun konumu, okun hizası ve nabzın okunurluğu ancak sahada ölçülür
+(`ekrani-golden-png-ile-gozle-incele` dersi). Ayrıca form yüzeylerinin (sipariş formu, müşteri
+formu) turu hâlâ yok; alan başına ipucu ayrı bir iş kolu.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-03 — **UYGULAMA İÇİ REHBER (A+B+C)** (mobil 1.0.2 → **1.1.0**, API sabit 1.22.0)
+
+#### Neden ve ne yapıldı
+
+Kullanıcı: *"Uygulamada neyin ne olduğunu, nasıl kullanılacağını geliştirici anlatmadan
+öğrenmesi için zaman gerekiyor."* Onaylanan çözüm TEK BİR AÇILIŞ TURU DEĞİL, üç katman —
+kurye dahil, yalnız mobil:
+
+- **A — ana ekranda "İlk adımlar" kartı** (`lib/rehber/gorev_karti.dart`). Yöneticide beş
+  madde (arayan tanıma · ürün · müşteri · sipariş · kurye), kuryede üç (teslimat · tahsilat ·
+  kasa devri). **Maddeler elle işaretlenmez, VERİDEN okunur** (`gorev_ilerlemesi.dart`) —
+  elle işaretlenen liste iş yapılmadan da "bitti" gösterilebilirdi. Zorunlular bitince kart
+  kaybolur; "kurye ekle" isteğe bağlıdır (BRIEF: tek kişilik bayi çoktur).
+- **B — ekran başına ilk giriş turu** (`rehber_sahne.dart`): gerçek widget'ın üstünde spot +
+  balon. On iki yüzeyin turu var (`rehber_turlari.dart`).
+- **C — kalıcı yardım**: çekmecede **Yardım** → aranabilir "nasıl yapılır" (26 tarif,
+  `rehber_nasil.dart`), ekranların üst çubuğunda **?** düğmesi (o ekranın turunu yeniden
+  oynatır), Ayarlar → Uygulama → **Rehberi baştan göster**.
+
+#### 🔴 SIRADAKİ VARDİYANIN BİLMESİ GEREKEN İKİ ŞEY
+
+1. **Hedefi ağaçta olmayan adım SESSİZCE atlanır** — ve rol/özellik filtresi tam olarak
+   bundan doğar. Ekranlar `RehberHedef(id: 'ana.bento', child: ...)` ile sarılır; kuryede
+   çizilmeyen kutuyu anlatan adım kendiliğinden düşer, turda ayrıca rol koşulu YAZILMAZ.
+   Bekçisi var: `rehber_test.dart` bütün `lib/`i tarayıp her `hedef`in gerçekten bir
+   `RehberHedef` ile sarılmış olduğunu doğruluyor (yanlış ad yazmak sahada görünmez bir
+   eksilme, testte kırmızıdır).
+2. **`rehberDeposu.yukle()` çağrılmadan hiçbir tur kendiliğinden oynamaz.** `main.dart`
+   açılışta çağırır; widget testleri çağırmaz, bu yüzden rehber mevcut testlere SIZMAZ.
+   Yeni bir rehber widget testi yazan `setUp`ta `await rehberDeposu.yukle()` demeli.
+
+Ek notlar: spot yalnız KÜÇÜK ve açılışta görünen kutuya konur (koca liste alanına delik
+açmak balona yer bırakmaz) — büyük alanlar bağsız kartla anlatılır. Kaydırma DESTEKLENMEZ:
+görünür alan dışındaki hedef atlanır (`scrollUntilVisible` tembel listede kilitliyor). "Atla"
+BÜTÜN turları kapatır ama `?` ve sıfırlama her zaman çalışır. Yeni paket EKLENMEDİ.
+
+**Kapılar:** `flutter analyze` temiz · `flutter test` **1594/1594** yeşil (48'i yeni).
+APK derlemesi koşulmadı — paket/native dokunuşu yok.
+
+#### ⏭️ Sıradaki işler
+
+Önceki nottakiler aynen duruyor (KVKK m.9 standart sözleşme · destek telefonu · site
+değişikliklerinin gerçek tarayıcıda gözle görülmesi). Rehber tarafında açık kalan tek şey:
+sipariş formu ve müşteri formu gibi SHEET yüzeylerinin turu yok — sheet açılış animasyonu
+sürerken hedef dikdörtgeni yanlış yeri işaret ettiği için sipariş detayında bile yalnız
+bağsız adımlar kullanıldı; form içi ipuçları (alan başına `?`) ayrı bir iş kolu.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-01/2 — **ÜRÜN YENİDEN KONUMLANDI** (API 1.21.0 → **1.22.0**, mobil sabit)
 
 #### 🔴 EN ÖNEMLİ SATIR: SİPARIO BİR SU BAYİİ UYGULAMASI DEĞİL
 

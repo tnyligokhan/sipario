@@ -11,6 +11,7 @@ use App\Models\LedgerEntry;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
+use App\Panel\PanelSyncYazici;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use InvalidArgumentException;
@@ -256,7 +257,7 @@ class ChangeApplier
                 // mevcut değer KORUNUR. Koruma pazarlıksız — alanı bilmeyen bir build müşterinin
                 // adını düzeltirken bütün tercihlerini silerdi ve bunu kimse görmezdi.
                 'product_options' => UrunSecenekleri::tercihler($p['product_options'] ?? null),
-            ],
+            ] + $this->aktarimKodu($p, $event),
             'customer_phone' => [
                 'customer_id' => SyncPayload::req($p, 'customer_id'),
                 'phone_e164' => SyncPayload::req($p, 'phone_e164'),
@@ -317,6 +318,39 @@ class ChangeApplier
             ],
             default => throw new InvalidArgumentException("Bilinmeyen varlık: {$type}"),
         };
+    }
+
+    /**
+     * MÜŞTERİ KODU — normalde SUNUCU atar (`Customer::booted`, migration 801) ve istemci ezemez.
+     * TEK İSTİSNA: panelin toplu içe aktarımı, bayinin eski sisteminden gelen numarayı KORUMAK
+     * zorundadır; bayi o numarayı kâğıda yazmış, müşteriye söylemiş, telefonda onunla arıyor.
+     * Yeniden numaralamak, taşımanın kendisini işe yaramaz kılardı.
+     *
+     * NEDEN CİHAZ KİMLİĞİNE BAĞLI: kodu her istemciye açmak migration 801'in çözdüğü sorunu geri
+     * getirirdi — çevrimdışı iki cihaz aynı numarayı üretir, biri kısmi unique indekse çarpar ve
+     * olay 'rejected' olur (kırmızı çizgi #3: kayıt kaybolmaz). Panelin sentetik cihazı TEK bir
+     * dağıtıcıdır ve dosyayı bütün olarak görür; tekilliği yazmadan ÖNCE denetleyebilen tek yer
+     * orasıdır (PanelImportService::kodCakismasi). Mobil push bu anahtarı gönderse bile yok sayılır.
+     *
+     * Anahtar YOKSA dizi boş döner; mevcut satırın kodu `SyncPayload::gonderilenler` sayesinde
+     * korunur, yeni satırda `Customer::booted` sıradaki numarayı atar. "Anahtar yok ≠ null" dersi
+     * (2026-08-05) burada da geçerlidir.
+     *
+     * @param  array<string, mixed>  $p
+     * @param  array<string, mixed>  $event
+     * @return array<string, int>
+     */
+    private function aktarimKodu(array $p, array $event): array
+    {
+        if (($event['device_id'] ?? null) !== PanelSyncYazici::PANEL_DEVICE_ID) {
+            return [];
+        }
+        if (! isset($p['code']) || ! is_numeric($p['code'])) {
+            return [];
+        }
+        $kod = (int) $p['code'];
+
+        return $kod > 0 ? ['code' => $kod] : [];
     }
 
     /**

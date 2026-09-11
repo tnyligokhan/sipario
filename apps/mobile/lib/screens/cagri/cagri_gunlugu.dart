@@ -22,6 +22,10 @@ import '../../sync/yenileme.dart';
 import 'package:drift/drift.dart' show OrderingTerm, leftOuterJoin;
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_hedef.dart';
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
 import '../../data/app_database.dart';
 import '../../repo/call_log_repository.dart';
 import '../../theme/components/atoms.dart';
@@ -204,15 +208,24 @@ class CagriGunluguEkrani extends StatelessWidget {
         bottom: false,
         child: Column(
           children: [
-            SipUst(baslik: 'Son Aramalar', onGeri: onGeri),
+            SipUst(
+              baslik: 'Son Aramalar',
+              onGeri: onGeri,
+              sag: const [RehberYardimDugmesi(yuzey: RehberYuzey.cagriGunlugu)],
+            ),
             if (_suzgecVar)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                     SipSpace.govde, 0, SipSpace.govde, SipSpace.lg),
-                child: _KullaniciSuzgeci(
-                  kisiler: kisiler,
-                  secili: seciliKullaniciId,
-                  onSec: onKullaniciSec!,
+                child: RehberHedef(
+
+                  id: 'cagri.suzgec',
+
+                  child: _KullaniciSuzgeci(
+                    kisiler: kisiler,
+                    secili: seciliKullaniciId,
+                    onSec: onKullaniciSec!,
+                  ),
                 ),
               ),
             Expanded(child: _govde(context)),
@@ -251,7 +264,8 @@ class CagriGunluguEkrani extends StatelessWidget {
       children: [
         for (var i = 0; i < aramalar.length; i++) ...[
           if (i > 0) const SizedBox(height: SipSpace.sm),
-          AramaSatiri(arama: aramalar[i], onAc: onAc),
+          rehberSar(i == 0 ? 'cagri.satir' : null,
+              AramaSatiri(arama: aramalar[i], onAc: onAc)),
         ],
       ],
     );

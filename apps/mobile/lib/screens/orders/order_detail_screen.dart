@@ -15,6 +15,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
 import '../../data/app_database.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
@@ -60,11 +62,22 @@ Future<void> siparisDetaySheetAc(
     context,
     tam: true,
     baslik: ad,
-    govde: (ctx) => SiparisDetayGovde(
-      db: db,
-      orderId: orderId,
-      writable: writable,
-      canAssign: canAssign,
+    // REHBER TURU SHEET'İN GÖVDESİNE SARILIR, `OrderDetailScreen`e değil: sahada detay HER
+    // ZAMAN sheet olarak açılıyor (tam sayfa sarmalayıcı yalnız test/derin bağlantı yolu).
+    // Turu yalnız sınıfa bağlasaydık hiç oynamazdı — bu depoda güncelleme bandı tam olarak
+    // böyle aylarca ağaca bağlanmadan durdu.
+    //
+    // Bu turun adımlarının hepsi BAĞSIZDIR (ekranın ortasında kart): sheet açılış animasyonu
+    // sürerken alınan bir dikdörtgen yanlış yeri işaret ederdi.
+    govde: (ctx) => RehberSahne(
+      yuzey: RehberYuzey.siparisDetay,
+      kuryeMi: rehberKuryeKipi,
+      child: SiparisDetayGovde(
+        db: db,
+        orderId: orderId,
+        writable: writable,
+        canAssign: canAssign,
+      ),
     ),
   );
 }

@@ -7,6 +7,10 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_hedef.dart';
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
 import '../../data/app_database.dart';
 import '../../konum/cihaz_konumu.dart';
 import '../../repo/customer_repository.dart';
@@ -333,14 +337,17 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     etiket: 'Müşteriyi düzenle',
                     onTap: () => _duzenle(c, telefonlar, adres),
                   ),
+                const RehberYardimDugmesi(yuzey: RehberYuzey.musteriDetay),
               ],
             ),
             Expanded(
               child: SipGovde(
                 altBosluk: 104,
                 children: [
-                  MusteriHeroKart(
-                    adres: adresGosterimi(adres?.addressText),
+                  RehberHedef(
+                    id: 'musteridetay.kart',
+                    child: MusteriHeroKart(
+                      adres: adresGosterimi(adres?.addressText),
                     telefon: telGoster,
                     koordinat: koordinat,
                     onKonumAl: () => _konumAl(adres),
@@ -355,7 +362,8 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     onKonum: () => _eylem(
                       () => konumuHaritadaAc(_adresBilgisi(adres), etiket: c.name),
                     ),
-                    onKonumGuncelle: adres == null ? null : () => _konumGuncelle(adres),
+                      onKonumGuncelle: adres == null ? null : () => _konumGuncelle(adres),
+                    ),
                   ),
                   if (karaListede(c))
                     SipDurumSeridi(
@@ -364,14 +372,20 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       renk: context.sip.danger,
                       zemin: context.sip.dangerSoft,
                     ),
-                  MusteriBakiyeKarti(kurus: c.balanceKurus),
-                  MusteriAksiyonlari(
-                    eylemler: [
+                  RehberHedef(
+                    id: 'musteridetay.bakiye',
+                    child: MusteriBakiyeKarti(kurus: c.balanceKurus),
+                  ),
+                  RehberHedef(
+                    id: 'musteridetay.eylemler',
+                    child: MusteriAksiyonlari(
+                      eylemler: [
                       MusteriEylemi(
                           ikon: SipIcons.plus, etiket: 'Sipariş', onTap: () => _siparis(c)),
                       MusteriEylemi(
                           ikon: SipIcons.wallet, etiket: 'Tahsilat', onTap: () => _tahsilat(c)),
-                    ],
+                      ],
+                    ),
                   ),
                   if (not != null && not.trim().isNotEmpty)
                     Padding(
@@ -407,10 +421,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                       writable: widget.writable,
                     ),
                   if (widget.yetki.musteriGecmisDefteri)
-                    CustomerLedgerSection(
-                      db: widget.db,
-                      customerId: widget.customerId,
-                      onDuzelt: () => _duzeltme(c),
+                    RehberHedef(
+                      id: 'musteridetay.defter',
+                      child: CustomerLedgerSection(
+                        db: widget.db,
+                        customerId: widget.customerId,
+                        onDuzelt: () => _duzeltme(c),
+                      ),
                     )
                   else
                     const Padding(

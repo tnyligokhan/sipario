@@ -51,6 +51,35 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '1.2.0',
+    tarih: '4 Eylül 2026',
+    maddeler: [
+      'Rehber baştan yazıldı. Artık ekranın ortasında yazı göstermek yerine '
+          'anlattığı yeri işaretliyor ve etrafında halka çiziyor.',
+      'Her ekranda çok daha ayrıntılı anlatım var: kutular tek tek, '
+          'sekmeler tek tek gösteriliyor.',
+      'Bazı adımlarda sizden denemenizi istiyor. İşaretlenen yere kendiniz '
+          'basabilirsiniz, rehber siz bastığınızda devam ediyor.',
+      'Adımlar arasında geri gidebilirsiniz.',
+      'Turlar birbirine bağlandı: ana ekranda biten anlatım müşterilerden, '
+          'oradan siparişlerden devam ediyor.',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.1.0',
+    tarih: '3 Eylül 2026',
+    maddeler: [
+      'Uygulamaya rehber geldi. Ana ekranda ilk adımlar listesi var; yaptıkça kendiliğinden '
+          'işaretlenir ve hepsi bitince kaybolur.',
+      'Bir ekranı ilk kez açtığınızda kısa bir tanıtım çıkıyor. Canınız istemezse '
+          'Rehberi kapat düğmesiyle hepsini kapatabilirsiniz.',
+      'Menüye Yardım eklendi. Aradığınız işi yazın, adım adım nasıl yapıldığını gösterir.',
+      'Ekranların üstündeki soru işareti o ekranın tanıtımını yeniden açar.',
+      'Kuryeler kendi işine göre ayrı bir rehber görür.',
+      'Ayarlar sayfasındaki Rehberi baştan göster satırı her şeyi ilk günkü hâline döndürür.',
+    ],
+  ),
+  SurumNotu(
     surum: '1.0.2',
     tarih: '1 Eylül 2026',
     maddeler: [

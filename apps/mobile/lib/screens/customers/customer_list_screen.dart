@@ -9,6 +9,10 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
+import '../../rehber/rehber_modeli.dart';
+import '../../rehber/rehber_sahne.dart';
+
+import '../../rehber/rehber_hedef.dart';
 import '../../data/app_database.dart';
 import '../../sync/yenileme.dart';
 import '../../data/outbox.dart' show phoneLast10;
@@ -137,20 +141,24 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                       ikon: SipIcons.plus,
                       onTap: _yeniMusteri,
                     ),
+                    const RehberYardimDugmesi(yuzey: RehberYuzey.musteriler),
                   ],
                 );
               },
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(SipSpace.govde, SipSpace.xs, SipSpace.govde, SipSpace.xl),
-              child: SipArama(
-                controller: _arama,
-                ipucu: 'Ad veya telefon ara',
-                onChanged: (v) => setState(() => _sorgu = v),
-                onTemizle: () {
-                  _arama.clear();
-                  setState(() => _sorgu = '');
-                },
+              child: RehberHedef(
+                id: 'musteri.arama',
+                child: SipArama(
+                  controller: _arama,
+                  ipucu: 'Ad veya telefon ara',
+                  onChanged: (v) => setState(() => _sorgu = v),
+                  onTemizle: () {
+                    _arama.clear();
+                    setState(() => _sorgu = '');
+                  },
+                ),
               ),
             ),
             Expanded(
@@ -175,10 +183,17 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemCount: rows.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 7),
-                      itemBuilder: (context, i) => _MusteriSatiri(
-                        satir: rows[i],
-                        maskeli: widget.yetki.telefonMaskeleme,
-                        onAc: () => _ac(rows[i].customer),
+                      // REHBER YALNIZ İLK SATIRI İŞARET EDER (`i == 0`): rehber "bir müşteri
+                      // satırı" göstermek istiyor, hepsini değil — ve hedef adı tek olmalı
+                      // (kayıt aynı adı taşıyan son monte edileni seçer, kaydırılan bir
+                      // listede bu her karede başka satır demek olurdu).
+                      itemBuilder: (context, i) => rehberSar(
+                        i == 0 ? 'musteri.satir' : null,
+                        _MusteriSatiri(
+                          satir: rows[i],
+                          maskeli: widget.yetki.telefonMaskeleme,
+                          onAc: () => _ac(rows[i].customer),
+                        ),
                       ),
                     ),
                   );
