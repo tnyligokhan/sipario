@@ -13,6 +13,7 @@ import '../../rehber/rehber_modeli.dart';
 import '../../rehber/rehber_sahne.dart';
 
 import '../../rehber/rehber_hedef.dart';
+import '../../data/ad_anahtari.dart';
 import '../../data/app_database.dart';
 import '../../sync/yenileme.dart';
 import '../../data/outbox.dart' show phoneLast10;
@@ -72,6 +73,11 @@ class CustomerListScreen extends StatefulWidget {
 class _CustomerListScreenState extends State<CustomerListScreen> {
   final _arama = TextEditingController();
   String _sorgu = '';
+
+  /// Seçili sıra. EKRAN DURUMUNDA tutulur, ayara yazılmaz (kullanıcı isteği 2026-09-12'nin
+  /// kapsamı): sıra tercihi anlıktır — bayi bir müşteriyi ada göre arar, sonra borçluya bakar.
+  /// Kalıcı bir ayar yapmak, dün seçtiği sırayı bugün hatırlamayan kullanıcıyı şaşırtırdı.
+  MusteriSirasi _sira = MusteriSirasi.eklenme;
 
   /// Sorguya gidecek kapsam: kısıtlıysa oturum kullanıcısı, değilse null (bayinin tamamı).
   String? get _kapsamKullanicisi =>
@@ -161,10 +167,11 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                 ),
               ),
             ),
+            _siraSecici(),
             Expanded(
               child: StreamBuilder<List<CustomerRow>>(
                 stream: watchCustomerRows(widget.db, _sorgu,
-                    kullaniciId: _kapsamKullanicisi),
+                    kullaniciId: _kapsamKullanicisi, sira: _sira),
                 builder: (context, snap) {
                   if (snap.hasError) return const SipHataEkran();
                   final rows = snap.data;
@@ -202,6 +209,41 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// SIRA SEÇİCİ (kullanıcı isteği 2026-09-12) — yatay kaydırılabilir çip satırı.
+  ///
+  /// NEDEN ÇİP, NEDEN `SipSegment` DEĞİL: segment sabit genişlikte eşit dilimler çizer; dört
+  /// etiketin en uzunu ("Çok borçlu") dar telefonda kırpılırdı. Aynı gerekçe çağrı günlüğünde
+  /// de yazılı.
+  ///
+  /// NEDEN YATAY KAYDIRMA: büyük yazı tipi ayarında dört çip satıra sığmaz ve taşma hatası
+  /// verirdi (bu depoda widget testi ~1.8x geniş font kullanır, yani taşma testte görünür).
+  Widget _siraSecici() {
+    const secenekler = [
+      (MusteriSirasi.eklenme, 'Eklenme'),
+      (MusteriSirasi.ad, 'Ada göre'),
+      (MusteriSirasi.kod, 'Koda göre'),
+      (MusteriSirasi.bakiye, 'Çok borçlu'),
+    ];
+
+    return SizedBox(
+      height: 48,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(SipSpace.govde, 0, SipSpace.govde, SipSpace.md),
+        itemCount: secenekler.length,
+        separatorBuilder: (_, _) => const SizedBox(width: SipSpace.sm),
+        itemBuilder: (context, i) {
+          final (deger, etiket) = secenekler[i];
+          return SipCip(
+            etiket: etiket,
+            secili: _sira == deger,
+            onTap: () => setState(() => _sira = deger),
+          );
+        },
       ),
     );
   }

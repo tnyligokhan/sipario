@@ -233,13 +233,29 @@ jobs:
           CIKTI=apps/mobile/build/app/outputs/flutter-apk
           ARM="$CIKTI/app-arm64-v8a-$FLAVOR-release.apk"
           FAT="$CIKTI/app-$FLAVOR-release.apk"
-          # Varlık adları SABİTLENİR — surum.json'daki indirme adresleri bu adlara bakar;
-          # flutter çıktı adı değişse bile uygulama tarafı etkilenmez.
-          cp "$ARM" "$ETIKET-arm64.apk"
-          cp "$FAT" "$ETIKET-evrensel.apk"
           YAPIM=$(git rev-list --count HEAD)
           SURUM=$(grep -m1 '^version:' apps/mobile/pubspec.yaml | sed 's/version: *//; s/+.*//' | tr -d ' ')
           DEPO="${{ github.repository }}"
+
+          # VARLIK ADI: uygulama · sürüm · kanal · mimari (kullanıcı isteği 2026-09-12).
+          #
+          # Eskiden ad yalnız `saha-arm64.apk` idi: indirilen dosya hangi sürüm, hangi kanal
+          # belli olmuyordu. İndirilenler klasöründe iki APK yan yana durunca hangisinin yeni
+          # olduğu ancak tarihe bakarak anlaşılıyordu — ve saha/test karışması bu depoda zaten
+          # bir kez yaşanmış bir sınıftır (bkz. `guncelleme_sozlesmesi.dart`, 2026-08-09).
+          #
+          # KANAL ADA GİRER: iki kanal ayrı release'lerdedir, yani ad çakışmaz — ama dosya
+          # indirildiği an release bağlamını KAYBEDER. "Sipario-1.3.0-arm64.apk" tek başına
+          # sahaya mı deneme sunucusuna mı baktığını söylemez; bunu bir bayinin telefonuna
+          # kurmadan önce bilmek gerekir.
+          #
+          # SÜRÜMÜN ADA GİRMESİ GÜVENLİDİR: uygulama indirme adresini surum.json'dan OKUR
+          # (`apk_arm64`/`apk_evrensel`), ada göre KURMAZ. Sabit olması gereken tek ad
+          # `surum.json`dur ve o değişmiyor.
+          DOSYA_ARM="Sipario-$SURUM-$KANAL-arm64.apk"
+          DOSYA_FAT="Sipario-$SURUM-$KANAL-evrensel.apk"
+          cp "$ARM" "$DOSYA_ARM"
+          cp "$FAT" "$DOSYA_FAT"
           # boyut alanları: indirme bütünlüğü kontrolü — yarım inen APK kurulmaya çalışılmaz.
           # `commit`: bu APK'nın DERLENDİĞİ commit. Durum çubuğu "kaç MOBİL değişikliği
           # yayınlanmadı"ı bununla hesaplıyor. Yalnız `yapim` (git commit sayısı) yetmiyordu:
@@ -252,10 +268,10 @@ jobs:
             "yapim": $YAPIM,
             "commit": "$(git rev-parse HEAD)",
             "surum": "$SURUM",
-            "apk_arm64": "https://github.com/$DEPO/releases/download/$ETIKET/$ETIKET-arm64.apk",
-            "apk_evrensel": "https://github.com/$DEPO/releases/download/$ETIKET/$ETIKET-evrensel.apk",
-            "boyut_arm64": $(stat -c%s "$ETIKET-arm64.apk"),
-            "boyut_evrensel": $(stat -c%s "$ETIKET-evrensel.apk")
+            "apk_arm64": "https://github.com/$DEPO/releases/download/$ETIKET/$DOSYA_ARM",
+            "apk_evrensel": "https://github.com/$DEPO/releases/download/$ETIKET/$DOSYA_FAT",
+            "boyut_arm64": $(stat -c%s "$DOSYA_ARM"),
+            "boyut_evrensel": $(stat -c%s "$DOSYA_FAT")
           }
           JSON
           cat surum.json
@@ -263,5 +279,27 @@ jobs:
           gh release view "$ETIKET" >/dev/null 2>&1 || gh release create "$ETIKET" --prerelease \
             --title "$BASLIK" \
             --notes "Bu release CI tarafından güncellenir (kanal: $KANAL, dal: ${{ github.ref_name }}). Uygulamanın $KANAL kanalı surum.json üzerinden kendini günceller."
-          gh release upload "$ETIKET" "$ETIKET-arm64.apk" "$ETIKET-evrensel.apk" surum.json --clobber
+          gh release upload "$ETIKET" "$DOSYA_ARM" "$DOSYA_FAT" surum.json --clobber
+
+          # ESKİ SÜRÜMLERİN APK'LARINI SİL — ad artık sürüm taşıdığı için `--clobber` onları
+          # EZMEZ, yanına yığar. Yuvarlanan release birkaç sürüm sonra "hangisi güncel?"
+          # sorusunu yeniden doğururdu; kanalın release'i TEK bir sürümü temsil etmelidir.
+          #
+          # `surum.json` ve az önce yüklenen iki dosya korunur. Silme YÜKLEMEDEN SONRA yapılır:
+          # ters sırada, yükleme başarısız olursa release APK'sız kalırdı.
+          # ⚠️ `|| true` PAZARLIKSIZ: Actions kabuğu `-o pipefail` ile koşar ve `grep` eşleşme
+          # bulamayınca 1 döner. Silinecek eski varlık olmaması NORMAL durumdur (ilk koşum ve
+          # ardından her sürümsüz koşum) — guard olmadan adım tam da her şey yolundayken düşerdi.
+          ESKILER=$(gh release view "$ETIKET" --json assets --jq '.assets[].name' \
+            | grep '\.apk$' \
+            | grep -vx -e "$DOSYA_ARM" -e "$DOSYA_FAT" || true)
+          if [ -n "$ESKILER" ]; then
+            printf '%s\n' "$ESKILER" | while read -r ESKI; do
+              [ -z "$ESKI" ] && continue
+              echo "Eski varlık siliniyor: $ESKI"
+              gh release delete-asset "$ETIKET" "$ESKI" -y || true
+            done
+          fi
+
           echo "Yayınlandı: kanal=$KANAL sürüm=$SURUM yapım=$YAPIM"
+          echo "Dosyalar: $DOSYA_ARM · $DOSYA_FAT"

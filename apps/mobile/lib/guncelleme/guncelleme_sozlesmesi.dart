@@ -12,12 +12,17 @@
 // {
 //   "yapim": 128,
 //   "surum": "0.9.0",
-//   "apk_arm64": "https://.../saha-arm64.apk",
-//   "apk_evrensel": "https://.../saha-evrensel.apk",
+//   "apk_arm64": "https://.../Sipario-0.9.0-saha-arm64.apk",
+//   "apk_evrensel": "https://.../Sipario-0.9.0-saha-evrensel.apk",
 //   "boyut_arm64": 30204268,
 //   "boyut_evrensel": 79600000
 // }
 // ```
+//
+// ⚠️ DOSYA ADI SÖZLEŞMENİN PARÇASI DEĞİLDİR — yalnız `surum.json`un ADI sabittir. İstemci
+// indirme adresini bu alanlardan OKUR, kurmaz; CI adları 2026-09-12'de sürüm ve kanal taşıyacak
+// biçimde değiştirildi ve istemci tarafında tek satır kod değişmedi. Adı burada okuyup
+// kendisi kuran bir istemci yazılsaydı o değişiklik sahadaki her telefonu kırardı.
 
 import 'dart:convert';
 

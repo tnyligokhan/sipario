@@ -107,6 +107,9 @@ extension SyncCekme on SyncEngine {
         await db.into(db.customers).insertOnConflictUpdate(CustomersCompanion(
               id: Value(_s(m['id'])),
               name: Value(_s(m['name'])),
+              // Katlanmış ad SUNUCUDAN GELMEZ, cihazda türetilir: anahtar SQLite'ın Türkçe
+              // katlayamamasını telafi eder, sunucu sözleşmesinin parçası değildir.
+              nameFolded: Value(adAnahtari(_s(m['name']))),
               note: Value(_sN(m['note'])),
               // Kodu SUNUCU üretir; istemci hiç göndermez (bkz. Customers.code). Eski sunucu
               // sürümü alanı hiç göndermezse `null` yazılır ve arayüz kodsuz gösterir —

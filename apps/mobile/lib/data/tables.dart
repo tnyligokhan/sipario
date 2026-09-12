@@ -21,6 +21,18 @@ part 'tables_isletme.dart';
 class Customers extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
+
+  /// ARAMA VE SIRALAMA ANAHTARI (v28, 2026-09-12) — `name`in Türkçe katlanmış ASCII karşılığı.
+  ///
+  /// NEDEN AYRI KOLON, sorgu anında `lower()` DEĞİL: SQLite'ın `lower()`ı da `LIKE`ı da yalnız
+  /// ASCII'yi katlar; Türkçe harfler için hiçbir yerleşik çözüm YOKTUR. Katlamayı Dart'ta bir kez
+  /// yapıp SAKLAMAK, her sorguda yapılamayacak olanı mümkün kılar (gerekçe ve saha ölçümü
+  /// `ad_anahtari.dart`ta).
+  ///
+  /// NOT NULL DEFAULT '': yükseltmede kolon boş doğar, göç adımı Dart tarafında DOLDURUR.
+  /// Nullable bırakmak "boş mu, henüz hesaplanmadı mı" ayrımını her sorguya taşırdı.
+  TextColumn get nameFolded => text().withDefault(const Constant(''))();
+
   TextColumn get note => text().nullable()();
 
   /// MÜŞTERİ KODU (100, 101, 102…) — kiracı içinde sıralı, SUNUCU atar (v11, 2026-07-29).
