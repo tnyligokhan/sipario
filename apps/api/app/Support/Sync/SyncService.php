@@ -264,8 +264,13 @@ class SyncService
     /**
      * @return array{mode: string, cursor: int, has_more: bool, current_seq: int, subscription: array<string, mixed>, team: list<array<string, mixed>>, changes?: list<array<string, mixed>>, entities?: array<string, mixed>}
      */
-    public function pull(User $user, int $since, int $limit): array
-    {
+    public function pull(
+        User $user,
+        int $since,
+        int $limit,
+        bool $snapshotSayfali = false,
+        string $snapshotImleci = '',
+    ): array {
         $tenantId = (string) $user->tenant_id;
         $now = now();
         // Okuma ASLA kilitlenmez (kırmızı çizgi #5); pull yalnız abonelik durumunu YAYINLAR (istemci
@@ -277,7 +282,11 @@ class SyncService
             ->where('tenant_id', $tenantId)->value('last_seq') ?? 0);
 
         if ($since <= 0) {
-            return $this->snapshot($currentSeq) + ['subscription' => $subscription, 'team' => $this->teamPayload()];
+            $snapshot = $snapshotSayfali
+                ? SnapshotSayfalayici::sayfa($currentSeq, $limit, $snapshotImleci)
+                : $this->snapshot($currentSeq);
+
+            return $snapshot + ['subscription' => $subscription, 'team' => $this->teamPayload()];
         }
 
         $rows = DB::select(

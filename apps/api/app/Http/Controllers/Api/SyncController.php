@@ -35,7 +35,13 @@ class SyncController extends Controller
         return response()->json($sync->push($user, $events));
     }
 
-    /** GET /api/v1/sync/pull?since=&limit= — since=0 tam snapshot, since>0 delta değişiklikler. */
+    /**
+     * GET /api/v1/sync/pull?since=&limit=&snapshot_cursor= — since=0 snapshot, since>0 delta.
+     *
+     * `snapshot_cursor` verilirse snapshot SAYFALANIR (2026-09-12 saha arızası: 9.047 müşterili
+     * bir bayide tek parça snapshot 15,3 MB tutuyor ve telefonun 25 sn'lik zaman aşımına
+     * sığmıyordu). Parametresiz istek eski davranışı görür — gerekçe SyncPullRequest'te.
+     */
     public function pull(SyncPullRequest $request, SyncService $sync): JsonResponse
     {
         /** @var User $user */
@@ -43,7 +49,9 @@ class SyncController extends Controller
         $validated = $request->validated();
         $since = (int) ($validated['since'] ?? 0);
         $limit = (int) ($validated['limit'] ?? 500);
+        $sayfali = (bool) ($validated['sayfali'] ?? false);
+        $snapshotImleci = (string) ($validated['snapshot_cursor'] ?? '');
 
-        return response()->json($sync->pull($user, $since, $limit));
+        return response()->json($sync->pull($user, $since, $limit, $sayfali, $snapshotImleci));
     }
 }
