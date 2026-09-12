@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import '../data/ad_anahtari.dart';
 import '../data/app_database.dart';
 import 'sync_api.dart';
+import 'yenileme.dart' show senkronBastanIndir;
 
 // İKİ TUR, İKİ DOSYA (500 satır sınırı — bölme 2026-08-17). Motor 850 satıra çıkmıştı ve
 // içindeki iki iş birbirine hiç bakmıyordu: giden kutusunu İTMEK ile sunucudan ÇEKMEK ayrı

@@ -44,7 +44,7 @@ class _ArizaliApi implements SyncApi {
       PushResponse(results: const [], currentSeq: 0);
 
   @override
-  Future<PullResponse> pull({required int since, int limit = 500}) {
+  Future<PullResponse> pull({required int since, int limit = 500, String? snapshotImleci}) {
     turSayaci++;
     PullResponse basarili() =>
         PullResponse(mode: 'delta', cursor: since, hasMore: false, currentSeq: since);

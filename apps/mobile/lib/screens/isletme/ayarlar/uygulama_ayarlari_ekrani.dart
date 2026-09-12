@@ -33,6 +33,7 @@ class UygulamaAyarlariEkrani extends StatefulWidget {
     this.onTema,
     this.onSihirbaz,
     this.onOlcumler,
+    this.onBastanIndir,
   });
 
   /// Geçerli tema — DEĞER değil DİNLENEBİLİR kaynak (sahibi kabuk). Düz `bool` geçmek yetmez:
@@ -46,6 +47,12 @@ class UygulamaAyarlariEkrani extends StatefulWidget {
 
   /// Faz 0 gecikme ölçüm ekranı — satır YALNIZ hata ayıklama derlemesinde çizilir.
   final VoidCallback? onOlcumler;
+
+  /// VERİYİ SUNUCUDAN BAŞTAN İNDİR — sıkışmış senkronun tek kurtarma yolu (2026-09-12).
+  ///
+  /// null ise satır ÇİZİLMEZ: kabuk bu geri çağrımı veremiyorsa (senkron motoru yoksa) düğmeyi
+  /// göstermek, basınca hiçbir şey olmayan bir düğme göstermek olurdu.
+  final Future<void> Function()? onBastanIndir;
 
   @override
   State<UygulamaAyarlariEkrani> createState() => _UygulamaAyarlariEkraniState();
@@ -152,12 +159,49 @@ class _UygulamaAyarlariEkraniState extends State<UygulamaAyarlariEkrani> {
                     onTap: _rehberiSifirla,
                   ),
                 ]),
+
+                // ── VERİ ──────────────────────────────────────────────────────────────────
+                //
+                // NEDEN VAR (saha arızası 2026-09-12): senkron imleci ilerleyip satırlar bir
+                // şekilde uygulanmazsa o satırlar BİR DAHA gelmez — sunucu yalnız imleçten
+                // sonrasını gönderir. Çıkış+giriş de çözmez (`logout` imlece bilerek dokunmaz).
+                // Panelde 9.047 müşteri duruyordu, telefonda bir avuç; kullanıcının
+                // yapabileceği HİÇBİR ŞEY yoktu. Bu satır o çıkmazın kapısıdır.
+                if (widget.onBastanIndir != null) ...[
+                  const SipBolumBaslik('Veri', ustBosluk: 18),
+                  AyarKarti(satirlar: [
+                    AyarSatiri(
+                      ikon: SipIcons.indir,
+                      baslik: 'Verileri baştan indir',
+                      altBaslik: 'Müşteri ya da ürünler eksik görünüyorsa kullanın',
+                      onTap: _bastanIndir,
+                    ),
+                  ]),
+                ],
               ]),
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// ONAY SORULUR — rehber sıfırlamadan FARKLI olarak: bu işlem bütün veriyi sunucudan yeniden
+  /// indirir, büyük bir bayide dakikalar sürer ve mobil veri harcar. Bu depoda onay yalnız
+  /// bedeli olan eylemlerde vardır; buranın bedeli zamandır.
+  Future<void> _bastanIndir() async {
+    final onay = await sipOnay(
+      context,
+      baslik: 'Verileri baştan indir',
+      mesaj: 'Bütün müşteri, ürün ve sipariş bilgileri sunucudan yeniden indirilecek. '
+          'Büyük bir listede bu birkaç dakika sürebilir. Kaydettiğiniz hiçbir şey silinmez.',
+      onayEtiketi: 'İndir',
+    );
+    if (!onay || !mounted) return;
+
+    await widget.onBastanIndir!.call();
+    if (!mounted) return;
+    SipToast.goster(context, 'Veriler yeniden indiriliyor…');
   }
 
   Future<void> _rehberiSifirla() async {

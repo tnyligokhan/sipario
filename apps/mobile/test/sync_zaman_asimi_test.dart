@@ -60,7 +60,7 @@ class _SiraliApi implements SyncApi {
   }
 
   @override
-  Future<PullResponse> pull({required int since, int limit = 500}) async =>
+  Future<PullResponse> pull({required int since, int limit = 500, String? snapshotImleci}) async =>
       PullResponse(mode: 'delta', cursor: since, hasMore: false, currentSeq: since);
 }
 

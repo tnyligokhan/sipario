@@ -63,7 +63,7 @@ class _KayitliApi implements SyncApi {
   }
 
   @override
-  Future<PullResponse> pull({required int since, int limit = 500}) async {
+  Future<PullResponse> pull({required int since, int limit = 500, String? snapshotImleci}) async {
     pullSayaci++;
     final d = pullDavranis?.call(pullSayaci);
     if (d is Completer<void>) {

@@ -9,7 +9,10 @@ abstract interface class SyncApi {
   Future<PushResponse> push(List<Map<String, Object?>> events);
 
   /// GET /api/v1/sync/pull?since=&limit=
-  Future<PullResponse> pull({required int since, int limit});
+  /// [snapshotImleci] verilirse sunucudan SAYFALI snapshot istenir (2026-09-12): tek parça
+  /// snapshot 9.047 müşterili bir bayide 15,3 MB tutuyor ve 25 sn'lik zaman aşımına sığmıyor.
+  /// null = yetenek bildirilmez, sunucu eski (tek parça) davranışı verir.
+  Future<PullResponse> pull({required int since, int limit, String? snapshotImleci});
 }
 
 class EventResult {
@@ -178,6 +181,7 @@ class PullResponse {
     this.team,
     this.changes = const [],
     this.entities = const {},
+    this.snapshotImleci,
   });
   final String mode; // snapshot|delta
   final int cursor;
@@ -191,6 +195,10 @@ class PullResponse {
   final List<Map<String, dynamic>>? team;
   final List<Map<String, dynamic>> changes; // delta
   final Map<String, List<Map<String, dynamic>>> entities; // snapshot
+
+  /// Sayfalı snapshot`ın DEVAM imleci (`tip:son-id` biçimi). null = bu sayfa sonuncusuydu.
+  /// Sunucu yalnız `sayfali=1` ile sorulduğunda doldurur (bkz. [SyncApi.pull]).
+  final String? snapshotImleci;
 
   factory PullResponse.fromJson(Map<String, dynamic> j) {
     final rawEntities = (j['entities'] as Map<String, dynamic>?) ?? const {};
@@ -210,6 +218,7 @@ class PullResponse {
       team: _parseTeam(j['team']),
       changes: _mapListesi(j['changes']),
       entities: rawEntities.map((k, v) => MapEntry(k, _mapListesi(v))),
+      snapshotImleci: j['snapshot_cursor'] as String?,
     );
   }
 }
@@ -262,10 +271,20 @@ class HttpSyncApi implements SyncApi {
   }
 
   @override
-  Future<PullResponse> pull({required int since, int limit = 500}) async {
+  Future<PullResponse> pull({
+    required int since,
+    int limit = 500,
+    String? snapshotImleci,
+  }) async {
+    // `sayfali=1` bir YETENEK BİLDİRİMİDİR; göndermeyen istemci tek parça snapshot alır.
+    // İmleç ilk sayfada BOŞTUR — bu yüzden bayrak imlecin varlığından AYRIDIR (sunucu tarafında
+    // boş metin `null`a çevrildiği için bildirim aksi hâlde sessizce kaybolurdu).
+    final sayfaParam = snapshotImleci == null
+        ? ''
+        : '&sayfali=1&snapshot_cursor=${Uri.encodeQueryComponent(snapshotImleci)}';
     final res = await _client
         .get(
-          Uri.parse('$baseUrl/sync/pull?since=$since&limit=$limit'),
+          Uri.parse('$baseUrl/sync/pull?since=$since&limit=$limit$sayfaParam'),
           headers: await _headers(),
         )
         .timeout(zamanAsimi);

@@ -28,6 +28,7 @@ import '../../rehber/rehber_sahne.dart';
 
 import '../../auth/session.dart';
 import '../../data/app_database.dart';
+import '../../sync/yenileme.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
@@ -162,6 +163,13 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
                       onTema: widget.onTema,
                       onSihirbaz: widget.onSihirbaz,
                       onOlcumler: widget.onOlcumler,
+                      // KURTARMA (2026-09-12): imleci sıfırla, sonra HEMEN bir tur aç. Turu
+                      // açmasaydık kullanıcı "indiriliyor" mesajını görür ama iki dakikalık
+                      // zamanlayıcıyı beklerdi — düğmenin işe yaradığına dair hiçbir işaret olmaz.
+                      onBastanIndir: () async {
+                        await senkronBastanIndir(widget.db);
+                        await yenile();
+                      },
                     )),
                   ),
                   AyarSatiri(

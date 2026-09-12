@@ -29,8 +29,12 @@ class FakeSyncApi implements SyncApi {
         results: results, currentSeq: seq, serverTime: serverTime, apiSurum: apiSurum);
   }
 
+  /// Motorun gönderdiği pull parametreleri — sayfalı snapshot testleri bunu okur.
+  final List<({int since, String? snapshotImleci})> pullCagrilari = [];
+
   @override
-  Future<PullResponse> pull({required int since, int limit = 500}) async {
+  Future<PullResponse> pull({required int since, int limit = 500, String? snapshotImleci}) async {
+    pullCagrilari.add((since: since, snapshotImleci: snapshotImleci));
     if (pullQueue.isEmpty) {
       return PullResponse(
           mode: 'delta', cursor: since, hasMore: false, currentSeq: since, apiSurum: apiSurum);
