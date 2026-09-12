@@ -17,6 +17,9 @@
 // bandını/çipini zaten gösteriyor (çevrimdışı bandı, senkron çipi). Bu modül hata YUTMAZ,
 // yalnız sonucu döndürür.
 
+import 'package:drift/drift.dart';
+
+import '../data/app_database.dart';
 import '../guncelleme/guncelleme_servisi.dart';
 import 'sync_service.dart';
 
@@ -51,4 +54,23 @@ Future<bool> anaEkranYenile() async {
   final ok = await yenile();
   await guncellemeServisi.sessizKontrol(zorla: true);
   return ok;
+}
+
+/// VERİYİ SUNUCUDAN BAŞTAN İNDİR — sıkışmış bir cihazın TEK kurtarma yolu (2026-09-12).
+///
+/// NEDEN GEREKLİ: senkron imleci ilerlediyse ve satırlar bir şekilde uygulanmadıysa, o satırlar
+/// BİR DAHA GELMEZ — sunucu yalnız imleçten SONRASINI gönderir. Çıkış+giriş de çözmez, çünkü
+/// `logout` imlece bilerek dokunmaz (offline-first). Sahada yaşandı: panelde 9.047 müşteri ve
+/// 6 ürün, telefonda bir avuç; kullanıcının yapabileceği HİÇBİR ŞEY yoktu.
+///
+/// YALNIZ İMLECİ SIFIRLAR, YEREL VERİYİ SİLMEZ. Silmek, henüz gönderilmemiş giden-kutusu
+/// kayıtlarını (kırmızı çizgi #3: hiçbir kayıt kaybolmaz) ve cihaz-yerel alanları (ürün görseli
+/// gibi) yok ederdi. Sunucudan gelen satırlar `insertOnConflictUpdate` ile ÜSTÜNE yazılır.
+///
+/// TEK GERÇEKLEME BURADADIR; `SyncEngine.bastanIndir()` buna devreder. Ayarlar ekranının senkron
+/// motoruna erişimi yok (yalnız `db` var) — kuralı iki yere kopyalamak yerine motor buraya bakar.
+Future<void> senkronBastanIndir(AppDatabase db) async {
+  await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(
+    const SyncMetaCompanion(lastPulledSeq: Value(0), snapshotDone: Value(false)),
+  );
 }

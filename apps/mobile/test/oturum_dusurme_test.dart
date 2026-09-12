@@ -35,7 +35,7 @@ class _RedApi implements SyncApi {
   }
 
   @override
-  Future<PullResponse> pull({required int since, int limit = 500}) async {
+  Future<PullResponse> pull({required int since, int limit = 500, String? snapshotImleci}) async {
     turSayaci++;
     throw SyncApiException('pull', durum, govde);
   }

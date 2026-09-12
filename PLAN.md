@@ -269,7 +269,55 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-12 — **TÜRKÇE ARAMA KIRIKMIŞ** (mobil 1.2.0 → **1.3.0**, API sabit)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-13 — **İLK SENKRON BÜYÜK BAYİDE ÇALIŞMIYORDU** (API 1.23.1 → **1.24.0**, mobil 1.3.0 → **1.4.0**)
+
+#### 🔴 EN ÖNEMLİ SATIR: TEŞHİS ÖLÇÜMLE YAPILDI, İLK ŞÜPHE YANLIŞTI
+
+Kullanıcı: *"Panelde 6 ürün 9047 müşteri, uygulamada 1 ürün."* Sunucu sanık değildi:
+
+| Ölçüm | Sonuç |
+|---|---|
+| Sunucudaki veri | 9.047 müşteri · 13.263 telefon · 8.867 adres · 6 ürün — **tam** |
+| Snapshot üretimi (üretim kabında) | **15,3 MB · 8,5 sn · 92 MB** (limit 256M — sağlam) |
+| Jeton doğumu | 11 Eylül 23:10 → aktarımdan SONRA → `since=0` → **snapshot yolu** |
+| nginx logu | her 30 sn `pull?since=31183` → **463 bayt boş cevap** |
+
+**Kök neden boyut değil, imlecin erken damgalanmasıydı:** `_applySnapshot` satırlar uygulanmasa
+bile `lastPulledSeq`i sona yazıyordu. Depo bu boşluğu `sync_engine.dart` docblock'unda **zaten
+yazmıştı** — bilinen boşluk üretimde ısırdı.
+
+#### ÜÇ DÜZELTME
+
+1. **Sunucu snapshot'ı sayfalıyor** (`SnapshotSayfalayici`) — sıra sabit, `id` ile sürdürülebilir.
+2. **İmleç YALNIZ son sayfada damgalanıyor** — yarıda kopan snapshot `lastPulledSeq`i 0'da bırakır.
+3. **`Ayarlar > Uygulama > Veri > Verileri baştan indir`** — sıkışmış cihazın tek kurtarma yolu.
+   Yalnız imleci sıfırlar; yerel veriyi ve gönderilmemiş kayıtları SİLMEZ.
+
+⚠️ Sayfalama **isteğe bağlı**: istemci `sayfali=1` ile yeteneğini bildirir. Sahadaki 1.2.0/1.3.0
+telefonları eski davranışı görür — koşulsuz açmak onları kırardı.
+
+⚠️ Bayrak neden ayrı: ilk sayfada imleç boştur ve Laravel boş metni `null`a çevirir; bildirim
+sessizce kaybolurdu (ölçüldü).
+
+**Şema göçü YOK** — imleç tur boyunca bellekte taşınır. Yarım bir ilk senkron zaten baştan
+alınmalıdır; "tamamlandı" diye damgalanamaz.
+
+#### KAPILAR
+
+`flutter analyze` temiz · `flutter test` **1627/1627** · `pint` + `phpstan` temiz ·
+`SnapshotSayfalamaTest` 7/7 · `sync_sayfali_snapshot_test` 8/8
+
+#### ⚠️ AÇIK İŞ
+
+- Kullanıcının telefonu düzeltmeyi **almadı** — yeni APK kurulup `Verileri baştan indir`e
+  basılması gerekiyor.
+- Atlanan satır varsa imleci geri sarma (`_guvenliUygula` boşluğunun tam kapağı) **yapılmadı**;
+  şema sürümü işi. Bugünkü düzeltme snapshot yolunu kapatıyor, delta yolundaki boşluk duruyor.
+- Sıralama seçicisi ve bu ekran gerçek cihazda GÖRÜLMEDİ.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-12 — **TÜRKÇE ARAMA KIRIKMIŞ** (mobil 1.2.0 → **1.3.0**, API sabit)
 
 #### 🔴 EN ÖNEMLİ SATIR: "MÜŞTERİ TELEFONDA YOK" ŞİKÂYETİ SENKRON DEĞİLDİ
 

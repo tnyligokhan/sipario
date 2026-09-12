@@ -38,22 +38,65 @@ extension SyncCekme on SyncEngine {
   /// kaybı olamaz.
   Future<int> pull({int limit = 500, int maxPages = 100}) async {
     var atlanan = 0;
+
+    /// SAYFALI SNAPSHOT İMLECİ — tur boyunca bellekte taşınır, diske YAZILMAZ.
+    ///
+    /// Diske yazmak yeni bir şema sürümü isterdi; yarıda kalan bir snapshot ise zaten baştan
+    /// alınmalıdır (yarım bir ilk senkron, tamamlanmış gibi damgalanamaz — 2026-09-12 arızasının
+    /// çekirdeği tam olarak buydu). Tur koparsa `lastPulledSeq` 0'da kalır ve sonraki tur
+    /// snapshot'ı BAŞTAN çeker: yavaş ama doğru.
+    String? snapshotImleci = '';
+
     for (var page = 0; page < maxPages; page++) {
       final meta = await db.syncState();
-      final resp = await api.pull(since: meta.lastPulledSeq, limit: limit);
+      final resp = await api.pull(
+        since: meta.lastPulledSeq,
+        limit: limit,
+        // Yetenek yalnız İLK SENKRONDA bildirilir; delta turunda snapshot imleci anlamsızdır.
+        snapshotImleci: meta.lastPulledSeq <= 0 ? (snapshotImleci ?? '') : null,
+      );
       await _applyServerTime(resp.serverTime);
       await _applyApiSurumu(resp.apiSurum);
       await _applySubscription(resp.subscription);
       atlanan += await _applyTeam(resp.team);
 
-      atlanan += resp.mode == 'snapshot' ? await _applySnapshot(resp) : await _applyDelta(resp);
+      if (resp.mode == 'snapshot') {
+        // SON SAYFA MI? Sunucu sayfalamayı desteklemiyorsa (eski sürüm) `has_more` false gelir
+        // ve tek parça snapshot olduğu gibi uygulanır — sözleşme geriye uyumludur.
+        final sonSayfa = !resp.hasMore;
+        atlanan += await _applySnapshot(resp, damgala: sonSayfa);
+        snapshotImleci = resp.snapshotImleci;
+      } else {
+        atlanan += await _applyDelta(resp);
+      }
+
       if (!resp.hasMore) break;
     }
 
     return atlanan;
   }
 
-  Future<int> _applySnapshot(PullResponse resp) async {
+  /// VERİYİ SUNUCUDAN BAŞTAN İNDİR — sıkışmış bir cihazın TEK kurtarma yolu (2026-09-12).
+  ///
+  /// NEDEN GEREKLİ: senkron imleci ilerlediyse ve satırlar bir şekilde uygulanmadıysa, o satırlar
+  /// BİR DAHA GELMEZ — sunucu yalnız imleçten SONRASINI gönderir. Çıkış+giriş de çözmez, çünkü
+  /// `logout` imlece bilerek dokunmaz (offline-first). Sahada yaşandı: panelde 9.047 müşteri,
+  /// telefonda bir avuç; kullanıcının yapabileceği HİÇBİR ŞEY yoktu.
+  ///
+  /// YALNIZ İMLECİ SIFIRLAR, YEREL VERİYİ SİLMEZ. Silmek, henüz gönderilmemiş giden-kutusu
+  /// kayıtlarını (kırmızı çizgi #3) ve cihaz-yerel alanları (ürün görseli gibi) yok ederdi.
+  /// Sunucudan gelen satırlar `insertOnConflictUpdate` ile ÜSTÜNE yazılır; fazlalık varsa bir
+  /// sonraki gerçek silme olayıyla temizlenir.
+  Future<void> bastanIndir() => senkronBastanIndir(db);
+
+  /// Bir snapshot SAYFASINI uygular.
+  ///
+  /// [damgala] YALNIZ SON SAYFADA true olur ve bu ayrım arızanın çekirdeğidir (2026-09-12):
+  /// eskiden her snapshot uygulaması `lastPulledSeq`i kiracının GÜNCEL seq'ine yazıyordu. Sayfalı
+  /// snapshotta ilk sayfada damgalamak, kalan 30.000 satırı bir daha HİÇ istememek demektir —
+  /// telefon "her şeyi çektim" sanır, sunucu boş delta döndürür ve veri kalıcı olarak gelmez.
+  /// Sahada tam olarak bu yaşandı: panelde 9.047 müşteri, telefonda bir avuç.
+  Future<int> _applySnapshot(PullResponse resp, {bool damgala = true}) async {
     var atlanan = 0;
     await db.transaction(() async {
       for (final entry in resp.entities.entries) {
@@ -61,9 +104,11 @@ extension SyncCekme on SyncEngine {
           if (!await _guvenliUygula(() => _applyEntity(entry.key, row))) atlanan++;
         }
       }
-      await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(
-        SyncMetaCompanion(lastPulledSeq: Value(resp.cursor), snapshotDone: const Value(true)),
-      );
+      if (damgala) {
+        await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(
+          SyncMetaCompanion(lastPulledSeq: Value(resp.cursor), snapshotDone: const Value(true)),
+        );
+      }
     });
 
     return atlanan;
