@@ -269,7 +269,30 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-13 — **İLK SENKRON BÜYÜK BAYİDE ÇALIŞMIYORDU** (API 1.23.1 → **1.24.0**, mobil 1.3.0 → **1.4.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-15 — **BİLDİRİMDEN KART GERİ GELİYOR** (mobil 1.4.0 → **1.5.0**, API sabit 1.24.0)
+
+Kullanıcı isteği: *"Popup'ı kapattığımızda bildirime tıklandığında tekrar açılmasını istiyorum."*
+
+**NE YAPILDI**
+
+| Dosya | Değişiklik |
+|---|---|
+| `CallerOverlay.kt` | Bildirime `contentIntent` eklendi, `autoCancel` **kapatıldı** (kart istendiği kadar geri getirilsin); `reshow` artık numarayı niyetten de alabiliyor — süreç ölmüş olsa bile kart açılır |
+| `KartiAcActivity.kt` (**yeni**) | Bildirimden gelen dokunuşu karşılayan, hiçbir şey çizmeyen ince Activity. Android 12+ "notification trampoline" kısıtı yüzünden BroadcastReceiver kullanılamaz — kilitli ekranda kart bir Activity'dir |
+| `AndroidManifest.xml` | Yeni Activity kaydı (`noHistory`, `excludeFromRecents`, `taskAffinity=".caller"`) |
+
+Kilitli/kilitsiz ayrımı tek yerde (`CallerOverlay.reshow`) kaldı. Üstte çizme izni yoksa
+kart Activity yoluna düşülür — yoksa bildirime dokunmak sessizce hiçbir şey yapardı.
+
+**ÖLÇÜLDÜ:** `flutter analyze` temiz · `surum_notlari_test.dart` 13/13 yeşil ·
+`:app:compileSahaReleaseKotlin` yeşil · `flutter build apk --release --flavor saha` başarılı,
+yeni sınıf `classes.dex` ve birleşik manifest içinde doğrulandı.
+
+**CİHAZDA DENENMEDİ** — bu katmanın Kotlin testi yok, doğrulama derleme düzeyinde.
+Sahada bakılacak tek şey: bildirime dokununca kartın gerçekten geri gelmesi (kilitli ve
+kilitsiz ekran ayrı ayrı; MIUI'de kilitli ekran yolu tarihsel olarak en kırılgan olan).
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-13 — **İLK SENKRON BÜYÜK BAYİDE ÇALIŞMIYORDU** (API 1.23.1 → **1.24.0**, mobil 1.3.0 → **1.4.0**)
 
 #### 🔴 EN ÖNEMLİ SATIR: TEŞHİS ÖLÇÜMLE YAPILDI, İLK ŞÜPHE YANLIŞTI
 

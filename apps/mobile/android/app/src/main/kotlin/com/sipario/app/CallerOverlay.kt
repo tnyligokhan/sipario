@@ -40,6 +40,9 @@ object CallerOverlay {
     /** Bildirim eylem düğmelerinin PendingIntent istek kodu tabanı (sıra numarası eklenir). */
     private const val EYLEM_ISTEK_KODU = 6200
 
+    /** Bildirimin gövdesine dokunma (kartı yeniden aç) PendingIntent istek kodu. */
+    private const val KART_ISTEK_KODU = 6150
+
     /**
      * Kart dokunulmadan kapanmaz; bu yalnız unutulan kartlara karşı emniyet süresi.
      * Saha geri bildirimi: 12 sn'lik otomatik kapanma, adres konuşma sırasında lazımken
@@ -129,13 +132,21 @@ object CallerOverlay {
      *  - En son başlayan showWhenLocked Activity en üstte çizilir. Çağrı ekranından SONRA
      *    başlarsak onun üstüne çıkarız — rakip uygulamanın yanıt anında yaptığı tam bu.
      */
-    fun reshow(context: Context, yon: CagriYonu? = null) {
-        val phone = lastPhone ?: return
-        val customer = lastCustomer
+    fun reshow(context: Context, yon: CagriYonu? = null, numara: String? = null) {
+        // [numara] yalnız bildirimden gelen yeniden gösterimde doludur. Süreç çağrıdan sonra
+        // ölmüş olabilir (bildirim gölgede yaşamaya devam eder, statik alanlar ölür); numara
+        // bildirimin kendi niyetinde taşındığı için kart o durumda da açılabilir.
+        val app = context.applicationContext
+        val phone = numara ?: lastPhone ?: return
+        // Numara elimizdekiyle aynıysa müşteri de elimizdedir; farklıysa (süreç ölmüş, alanlar
+        // boşalmış) yeniden aranır. Arama uygulama bağlamıyla yapılır — çağıran, kendisi ölmek
+        // üzere olan ince bir Activity olabilir.
+        val customer = if (phone == lastPhone) lastCustomer else CustomerLookup.find(app, phone)
+        lastPhone = phone
+        lastCustomer = customer
         // Cevapsıza dönen çağrıda yön DEĞİŞİR; verilmezse çağrının kendi yönü korunur.
         val etkinYon = yon ?: lastYon
         lastYon = etkinYon
-        val app = context.applicationContext
         val locked = (app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
         main.post {
             if (locked) {
@@ -390,7 +401,26 @@ object CallerOverlay {
             // Kilit ekranında içerik gizlenmesin: kart çağrı ekranının altında kalırsa
             // müşteriyi ve borcu gösteren tek yer bu bildirim olur.
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setAutoCancel(true)
+            // BİLDİRİME DOKUNMAK KARTI GERİ GETİRİR (2026-09-15 saha isteği). Kart dokunulunca
+            // kapanıyor ama çağrı sürerken adres/borç yeniden lazım olabiliyordu; o ana kadar
+            // bildirimin gövdesine dokunmak HİÇBİR ŞEY yapmıyordu (contentIntent yoktu).
+            //
+            // `autoCancel` KAPALI: açık olsaydı ilk dokunuşta bildirim de silinir ve kart bir
+            // daha geri getirilemezdi — istenen tam tersi, kart istendiği kadar açılıp kapanır.
+            // Bildirimi [kapat] temizler (bayi bir eylem seçtiğinde) ya da bayi kendisi kaydırır.
+            .setAutoCancel(false)
+            .setContentIntent(
+                PendingIntent.getActivity(
+                    context,
+                    KART_ISTEK_KODU,
+                    // Numara ve yön niyette TAŞINIR: süreç ölmüş olsa bile kart açılabilsin.
+                    Intent(context, KartiAcActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        .putExtra(KartiAcActivity.EXTRA_PHONE, phone)
+                        .putExtra(KartiAcActivity.EXTRA_DIRECTION, yon.kuyrukKodu),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+            )
 
         // ÇİFT SES/TİTREŞİM YOK: telefon zaten ÇALIYOR. Sessizlik KANAL üzerinden sağlanıyor
         // (bkz. [ensureChannel]) — Android 8+'da ses ve titreşim kanalın işidir, bildirim
