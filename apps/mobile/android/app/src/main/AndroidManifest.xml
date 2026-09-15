@@ -154,6 +154,22 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!--
+          Bildirime dokunulduğunda kartı geri getiren ince geçiş. Hiçbir şey çizmez, açılır
+          kapanır: noHistory + excludeFromRecents ile geçmişte iz bırakmaz, kart task'ıyla
+          aynı taskAffinity'de durur ki uygulamanın ana yığınını kaydırmasın.
+        -->
+        <activity
+            android:name=".KartiAcActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=".caller"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!--
           Sistem, çağrı geldiğinde bu servisi uygulama süreci ölü olsa bile ayağa kaldırır.
           BIND_SCREENING_SERVICE izni servisi KORUR (biz talep etmiyoruz, sistem sağlıyor);
           yalnız Telecom bu servise bağlanabilir.
