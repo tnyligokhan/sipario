@@ -284,8 +284,9 @@ Kullanıcı bir saha listesi verdi; altısı da kapatıldı. Gerekçeler DECISIO
 
 **KAPILAR (bizzat ölçüldü):** `flutter analyze` temiz · `flutter test` **1656/1656** ·
 pint temiz · phpstan 0 · etkilenen API sınıfları 48/48 (yeni `YeniBayiRotaKontoruTest` 4,
-`SnapshotSayfalamaTest` +1). Tam API takımı sonucu aşağıda. APK DERLENMEDİ — paket/native
-dokunuşu yok.
+`SnapshotSayfalamaTest` +1). **Tam API takımı YARIM KALDI:** makinede bellek daraldığı için
+Claude Code arka plan sürecini durdurdu; durduğu ana kadar 425 test yeşil, kırmızı yoktu.
+Sonraki vardiya tam takımı bir kez koşmalı. APK DERLENMEDİ — paket/native dokunuşu yok.
 
 ⚠️ **DEPLOY SIRASI:** göç (`2026_09_26_000101_seed_missing_route_credits`) owner ile koşar.
 Mevcut bayilerin hakkı ancak deploy'dan SONRA dolar; kullanıcının şikâyet ettiği bayi o ana dek
