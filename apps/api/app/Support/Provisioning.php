@@ -123,6 +123,12 @@ class Provisioning
                         'trial_ends_at' => $trialEnds,
                         'valid_until' => $trialEnds,
                         'route_credits_monthly' => $plan->rotaKontoruAylik(),
+                        // KALAN HAK da aylık kotayla başlar (saha şikâyeti 2026-09-26: "Yeni açılan
+                        // üyeye Oto-Sıralama hakkı tanımlaması yapmıyor"). Yalnız kota yazılıyordu;
+                        // `route_credits` kolon varsayılanı 0'da kalıyor ve yeni bayi daha ilk
+                        // denemede "Oto sıralama hakkınız kalmadı" görüyordu — mobil ise sayaç 0
+                        // olduğu için "Oto Sırala" düğmesini hiç çizmiyordu.
+                        'route_credits' => $plan->rotaKontoruAylik(),
                         'courier_limit' => $plan->kuryeLimiti(),
                         'contact_name' => $patronName,
                         'phone' => $phone,

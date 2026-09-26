@@ -188,6 +188,30 @@ class _UrunFormuState extends State<_UrunFormu> {
     Navigator.of(context).pop(true);
   }
 
+  /// Ürünü siler — onay sorulur (bu depoda onay yalnız bedeli olan eylemlerdedir; silme geri
+  /// alınamaz). Liste akışı ürünü kendiliğinden düşürür.
+  ///
+  /// Form `false` ile kapanır ve bildirimi KENDİSİ verir: `true` "kaydedildi" demektir ve
+  /// liste ona "Ürün kaydedildi" diye cevap verir — silinen ürün için yanlış cümle.
+  Future<void> _sil() async {
+    final urun = widget.urun;
+    if (urun == null || _kaydediyor) return;
+    final onay = await sipOnay(
+      context,
+      baslik: 'Ürünü sil',
+      mesaj: '"${urun.name}" katalogdan kaldırılacak ve yeni siparişte seçilemeyecek. '
+          'Geçmiş siparişler olduğu gibi kalır.',
+      onayEtiketi: 'Sil',
+      tehlike: true,
+    );
+    if (!onay || !mounted) return;
+    setState(() => _kaydediyor = true);
+    await ProductRepository(widget.db).delete(urun.id);
+    if (!mounted) return;
+    SipToast.goster(context, 'Ürün silindi');
+    Navigator.of(context).pop(false);
+  }
+
   /// Aynı adı/barkodu taşıyan BAŞKA ürün var mı? (düzenlenen ürün hariç, silinmişler hariç)
   Future<List<Product>> _digerUrunler() async {
     final hepsi = await (widget.db.select(widget.db.products)
@@ -383,8 +407,18 @@ class _UrunFormuState extends State<_UrunFormu> {
 
         const SizedBox(height: SipSpace.x3),
         SipButon(etiket: 'Kaydet', onTap: _kaydet, yukleniyor: _kaydediyor),
-        if (widget.urun != null)
-          const _SilmeNotu('Ürünler silinmez; kullanılmayanı Pasif yap'),
+        // SİLME (kullanıcı kararı 2026-09-26): eskiden "Ürünler silinmez; Pasif yap" yazıyordu.
+        // Pasifleme duruyor — geri açılabilir rafa kaldırma odur; silme kalıcı temizliktir.
+        if (widget.urun != null) ...[
+          const SizedBox(height: SipSpace.md),
+          SipButon(
+            etiket: 'Ürünü sil',
+            ikon: SipIcons.trash,
+            tur: SipButonTuru.tehlike,
+            onTap: _kaydediyor ? null : _sil,
+          ),
+          const _SilmeNotu('Geçmiş siparişlerdeki ürün adı ve tutarı değişmez'),
+        ],
       ],
     );
   }

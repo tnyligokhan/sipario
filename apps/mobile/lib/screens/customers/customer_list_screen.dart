@@ -13,10 +13,9 @@ import '../../rehber/rehber_modeli.dart';
 import '../../rehber/rehber_sahne.dart';
 
 import '../../rehber/rehber_hedef.dart';
-import '../../data/ad_anahtari.dart';
+import '../../data/musteri_aramasi.dart';
 import '../../data/app_database.dart';
 import '../../sync/yenileme.dart';
-import '../../data/outbox.dart' show phoneLast10;
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
@@ -158,7 +157,7 @@ class _CustomerListScreenState extends State<CustomerListScreen> {
                 id: 'musteri.arama',
                 child: SipArama(
                   controller: _arama,
-                  ipucu: 'Ad veya telefon ara',
+                  ipucu: 'Ad, telefon ya da kod ara',
                   onChanged: (v) => setState(() => _sorgu = v),
                   onTemizle: () {
                     _arama.clear();

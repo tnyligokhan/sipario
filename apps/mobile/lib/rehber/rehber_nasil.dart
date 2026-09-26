@@ -148,7 +148,7 @@ const List<NasilYapilir> kNasilYapilir = [
       'Ürünler sayfasını aç',
       'Ürünün stokta yok anahtarını çevir',
       'Sipariş ekranında görünmez olur, geçmiş siparişlerde adı kalır',
-      'Ürünü silme, silinen ürün geçmiş siparişlerden de kaybolur',
+      'Hiç kullanmayacağın ürünü formun altındaki Ürünü sil düğmesiyle silebilirsin',
     ],
   ),
 

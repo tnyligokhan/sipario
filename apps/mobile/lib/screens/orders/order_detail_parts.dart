@@ -10,12 +10,15 @@ import 'package:flutter/material.dart';
 import '../../data/app_database.dart';
 import '../../konum/cihaz_konumu.dart';
 import '../../repo/order_repository.dart';
+import '../../sync/geocode_api.dart' show GeocodeException;
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../customers/customer_form_ops.dart' show konumKaydet;
+import '../customers/customer_location_picker.dart'
+    show AdresAdayi, adresAdaylariGetir, konumBulunamadiMesaji, konumSecSheet;
 import '../team.dart';
 import 'order_parts.dart';
 import 'order_queries.dart';
@@ -124,17 +127,22 @@ class _NotBolumuState extends State<NotBolumu> {
   }
 }
 
-/// CSS `.sdx-adres` + `.sdx-konum` — adres metni, konum durumu ve "Konum Güncelle".
+/// CSS `.sdx-adres` + `.sdx-konum` — adres metni, konum durumu ve konum düğmeleri.
 ///
-/// "KONUM AL" (adresten kodlama) BURADA YOKTUR, "KONUM GÜNCELLE" (cihaz GPS'i) VARDIR — ikisi
-/// ayrı işlerdir (2026-07-28 kararı): kodlama sokağı bulur ve bir ADAY listesi döndürür, doğrusunu
-/// kullanıcı seçer; bu ekranda aday seçtirmek teslimatın ortasındaki kuryeyi bir karar ekranına
-/// sokardı. Cihaz konumu ise ÖLÇÜMDÜR ve tam bu anda en doğrudur.
+/// İKİ AYRI İŞ, İKİ AYRI DÜĞME (kullanıcı şikâyeti 2026-09-26: "Aktif siparişte adres konumunu
+/// bulmuyor, güncel konumu kaydediyor"):
+///  • ADRESTEN KONUM BUL — adres metni sunucuda kodlanır, adaylar listelenir, doğrusunu
+///    kullanıcı seçer (müşteri detayındaki akışın aynısı). Siparişi dükkânda giren patron için
+///    tek doğru yol budur.
+///  • BULUNDUĞUM YERİ KAYDET / KONUM GÜNCELLE — cihazın GPS ölçümü (kullanıcı isteği
+///    2026-07-29). Kurye kapıyı ilk kez bulduğunda oradadır; o an kaydedilen pin bir daha
+///    hiçbir kuryenin aynı kapıyı aramamasını sağlar.
 ///
-/// Kullanıcı isteği (2026-07-29): "aktif bir siparişe tıkladığımızda çıkan menüde teslimat
-/// adresinin yakınında konum güncelle diye bir buton olmalı, anlık işlem yapan cihazın konumunu
-/// oraya kaydetmeli." Sahadaki değeri şudur: kurye kapıyı İLK KEZ bulduğunda oradadır; o an tek
-/// dokunuşla kaydedilen pin, bir daha hiçbir kuryenin aynı kapıyı aramamasını sağlar.
+/// ESKİDEN tek düğme vardı ve konumsuz adreste de GPS yazıyordu: dükkânda basan patron
+/// müşterinin kapısına DÜKKÂNIN konumunu kaydediyordu. 2026-07-28 kararı (aday seçtirmek
+/// kuryeyi karar ekranına sokar) kullanıcı tarafından tersine çevrildi. Konum kayıtlıysa
+/// yalnız GPS düzeltmesi kalır — kayıtlı pini adres aramasıyla ezmek sokak kesinliğine geri
+/// dönmek olurdu.
 class AdresBolumu extends StatefulWidget {
   const AdresBolumu({
     super.key,
@@ -160,17 +168,17 @@ class _AdresBolumuState extends State<AdresBolumu> {
   AppDatabase get db => widget.db;
   String get musteriId => widget.musteriId;
 
-  /// Cihazın bulunduğu noktayı müşterinin BİRİNCİL adresine yazar.
-  ///
-  /// Adres metni/etiket DEĞİŞMEZ — bu akış yalnız koordinat ekler (`konumKaydet` sözleşmesi).
-  /// Zayıf ölçüm sessizce kaydedilmez: kurye "konum kayıtlı" yazısına güveniyor.
-  Future<void> _konumGuncelle() async {
-    if (_calisiyor) return;
+  /// Tek müşterinin adres akışı — bütün adres tablosu okunmaz (bkz. [watchBirincilAdresler]).
+  late final Stream<Map<String, AdresBilgi>> _adresler =
+      watchBirincilAdresler(db, musteriId: musteriId);
+
+  /// Konumun yazılacağı BİRİNCİL adres; yazma kapısı kapalıysa ya da adres yoksa sebebini
+  /// söyler ve null döner.
+  Future<CustomerAddressesData?> _hedefAdres() async {
     if (!widget.writable) {
       SipToast.goster(context, 'Aboneliğiniz sona erdiği için konum kaydedilemiyor');
-      return;
+      return null;
     }
-
     // İki ayrı `where` AND ile birleşir; `&` operatörü drift'in tam import'unu gerektirir ve
     // bu dosya yalnız `OrderingTerm` alıyor (ekran katmanı sözleşmesi).
     final sorgu = db.select(db.customerAddresses)
@@ -178,16 +186,60 @@ class _AdresBolumuState extends State<AdresBolumu> {
       ..where((t) => t.deletedAt.isNull())
       ..orderBy([(t) => OrderingTerm.desc(t.isPrimary), (t) => OrderingTerm.asc(t.id)]);
     final adresler = await sorgu.get();
-    if (!mounted) return;
+    if (!mounted) return null;
     if (adresler.isEmpty) {
       SipToast.goster(context, 'Önce müşteriye adres ekleyin');
+      return null;
+    }
+    return adresler.first;
+  }
+
+  /// Adres metninden aday bulur; doğrusunu KULLANICI seçer (otomatik atama yok).
+  ///
+  /// "Bulunamadı" ile "servis arızası" AYRI cümlelerdir: ilkinde adres metni düzeltilmeli,
+  /// ikincisinde beklenmeli (müşteri detayıyla aynı kural).
+  Future<void> _adrestenBul() async {
+    if (_calisiyor) return;
+    final adres = await _hedefAdres();
+    if (adres == null) return;
+
+    setState(() => _calisiyor = true);
+    final List<AdresAdayi> adaylar;
+    try {
+      adaylar = await adresAdaylariGetir(db, adres.addressText);
+    } on GeocodeException catch (e) {
+      if (mounted) {
+        setState(() => _calisiyor = false);
+        SipToast.goster(context, e.message);
+      }
       return;
     }
+    if (!mounted) return;
+    setState(() => _calisiyor = false);
+
+    if (adaylar.isEmpty) {
+      SipToast.goster(context, konumBulunamadiMesaji);
+      return;
+    }
+    final secim = await konumSecSheet(context, adaylar);
+    if (secim == null) return;
+    await konumKaydet(db, adres, secim.lat, secim.lng);
+    if (mounted) SipToast.goster(context, 'Konum kaydedildi');
+  }
+
+  /// Cihazın bulunduğu noktayı müşterinin BİRİNCİL adresine yazar.
+  ///
+  /// Adres metni/etiket DEĞİŞMEZ — bu akış yalnız koordinat ekler (`konumKaydet` sözleşmesi).
+  /// Zayıf ölçüm sessizce kaydedilmez: kurye "konum kayıtlı" yazısına güveniyor.
+  Future<void> _konumGuncelle() async {
+    if (_calisiyor) return;
+    final adres = await _hedefAdres();
+    if (adres == null) return;
 
     setState(() => _calisiyor = true);
     try {
       final konum = await cihazKonumuOku();
-      await konumKaydet(db, adresler.first, konum.lat, konum.lng);
+      await konumKaydet(db, adres, konum.lat, konum.lng);
       if (!mounted) return;
       SipToast.goster(
         context,
@@ -206,7 +258,7 @@ class _AdresBolumuState extends State<AdresBolumu> {
   Widget build(BuildContext context) {
     final t = context.sip;
     return StreamBuilder<Map<String, AdresBilgi>>(
-      stream: watchBirincilAdresler(db),
+      stream: _adresler,
       initialData: const {},
       builder: (context, snap) {
         final adres = (snap.data ?? const {})[musteriId];
@@ -240,15 +292,26 @@ class _AdresBolumuState extends State<AdresBolumu> {
                           .copyWith(color: adres.konumVar ? t.ok : t.warn),
                     ),
                     const SizedBox(height: SipSpace.md),
-                    // Düğme HER İKİ durumda da çizilir: konumu olan bir adres de yanlış olabilir
-                    // (kodlamadan gelen "sokak" kesinliği) ve kurye kapının önündeyken onu
-                    // düzeltebilmeli. Metin duruma göre değişir — "Güncelle" ile "Kaydet"
-                    // farklı işler yapıyormuş gibi görünmesin diye tek eylem, tek ad.
-                    _KonumGuncelleButonu(
-                      calisiyor: _calisiyor,
-                      ilk: !adres.konumVar,
-                      onTap: _konumGuncelle,
-                    ),
+                    if (_calisiyor)
+                      const _KonumButonu(etiket: 'Konum alınıyor', calisiyor: true)
+                    else
+                      Wrap(
+                        spacing: SipSpace.md,
+                        runSpacing: SipSpace.md,
+                        children: [
+                          if (!adres.konumVar)
+                            _KonumButonu(
+                              etiket: 'Adresten Konum Bul',
+                              ikon: SipIcons.search,
+                              onTap: _adrestenBul,
+                            ),
+                          _KonumButonu(
+                            etiket:
+                                adres.konumVar ? 'Konum Güncelle' : 'Bulunduğum Yeri Kaydet',
+                            onTap: _konumGuncelle,
+                          ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -373,50 +436,44 @@ class _GecmisSatiri extends StatelessWidget {
   }
 }
 
-/// "Konum Güncelle" — cihazın bulunduğu noktayı teslimat adresine yazar.
+/// Adres bölümündeki hap düğme (adresten bul · bulunduğum yer · güncelle).
 ///
-/// Çalışırken metin DEĞİŞİR ve dokunuş kabul edilmez: GPS okuması saniyeler sürebilir ve
-/// tepki vermeyen bir düğme sahada "bozuk" sayılıp üst üste dokunulur (her dokunuş yeni bir
-/// konum isteği açardı).
-class _KonumGuncelleButonu extends StatelessWidget {
-  const _KonumGuncelleButonu({
-    required this.calisiyor,
-    required this.ilk,
-    required this.onTap,
+/// Çalışırken metin DEĞİŞİR ve dokunuş kabul edilmez: GPS okuması ve adres araması saniyeler
+/// sürebilir ve tepki vermeyen bir düğme sahada "bozuk" sayılıp üst üste dokunulur (her dokunuş
+/// yeni bir istek açardı).
+class _KonumButonu extends StatelessWidget {
+  const _KonumButonu({
+    required this.etiket,
+    this.onTap,
+    this.ikon = SipIcons.pin,
+    this.calisiyor = false,
   });
 
+  final String etiket;
+  final VoidCallback? onTap;
+  final String ikon;
   final bool calisiyor;
-
-  /// Adreste henüz konum yok — metin "Konumu Kaydet" olur; "Güncelle" olmayan bir şeyi
-  /// güncelliyormuş gibi okunurdu.
-  final bool ilk;
-
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: SipDokun(
-        onTap: calisiyor ? null : onTap,
-        zemin: t.surface,
-        basiliZemin: t.line,
-        radius: SipRadius.brHap,
-        padding: const EdgeInsets.symmetric(horizontal: SipSpace.lg, vertical: 7),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SipIcon(calisiyor ? SipIcons.clock : SipIcons.pin,
-                boyut: 13, kalinlik: 2.2, renk: calisiyor ? t.muted : t.accent),
-            const SizedBox(width: 6),
-            Text(
-              calisiyor ? 'Konum alınıyor' : (ilk ? 'Konumu Kaydet' : 'Konum Güncelle'),
-              style: SipText.metin(12, w: 800)
-                  .copyWith(color: calisiyor ? t.muted : t.accent),
-            ),
-          ],
-        ),
+    return SipDokun(
+      onTap: calisiyor ? null : onTap,
+      zemin: t.surface,
+      basiliZemin: t.line,
+      radius: SipRadius.brHap,
+      padding: const EdgeInsets.symmetric(horizontal: SipSpace.lg, vertical: 7),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SipIcon(calisiyor ? SipIcons.clock : ikon,
+              boyut: 13, kalinlik: 2.2, renk: calisiyor ? t.muted : t.accent),
+          const SizedBox(width: 6),
+          Text(
+            etiket,
+            style: SipText.metin(12, w: 800).copyWith(color: calisiyor ? t.muted : t.accent),
+          ),
+        ],
       ),
     );
   }

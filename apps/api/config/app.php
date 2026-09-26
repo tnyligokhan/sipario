@@ -322,9 +322,15 @@ return [
     | NEDEN MINOR: mobil istemci sözleşmesinde alan değişmedi (mobil sürüm SABİT),
     | ama ürünün KİME satıldığı bir davranış değişikliğinden hafif değildir ve
     | hukuk metinlerindeki "alıcı" tanımı da bununla birlikte güncellendi.
+    |
+    | ── 1.25.0 (2026-09-26) — İLK SENKRON TOPLAMI + YENİ BAYİYE OTO-SIRALAMA HAKKI ──
+    | MINOR: sayfalı snapshot'ın İLK sayfası `snapshot_total` taşır (istemcinin
+    | ilerleme çubuğu). Yeni ve isteğe bağlı alan; eski istemci görmezden gelir.
+    | Aynı turda düzeltme: yeni bayi `route_credits` = aylık kota ile açılır (0'da
+    | kalıyordu); hiç kontör paketi almamış 0 haklı bayiler göçle onarıldı.
     */
 
-    'version' => '1.24.0',
+    'version' => '1.25.0',
 
     /*
     |--------------------------------------------------------------------------

@@ -115,7 +115,7 @@ final class SnapshotSayfalayici
          */
         $devamVar = $kalan <= 0;
 
-        return [
+        $yanit = [
             'mode' => 'snapshot',
             'cursor' => $currentSeq,
             'has_more' => $devamVar,
@@ -123,6 +123,37 @@ final class SnapshotSayfalayici
             'current_seq' => $currentSeq,
             'entities' => $varliklar,
         ];
+
+        // İLERLEME (kullanıcı isteği 2026-09-26: "verileri çekerken ne kadar kaldığını gösteren
+        // bir şey olmalı"). Toplam YALNIZ İLK SAYFADA sayılır: istemci onu tur boyunca bellekte
+        // taşır, her sayfada 13 sayım sorgusu koşmaya gerek yok. Yeni ve isteğe bağlı bir alandır —
+        // onu tanımayan eski istemci görmezden gelir (API MINOR).
+        if ($baslangicTipi === null) {
+            $yanit['snapshot_total'] = self::toplam();
+        }
+
+        return $yanit;
+    }
+
+    /**
+     * Snapshot'ın indireceği toplam satır sayısı — sayfalar ile AYNI küme ve süzgeç.
+     *
+     * Yaklaşık bir sayıdır ve bu yeterlidir: sayım ile sayfalar arasında başka bir cihaz satır
+     * ekleyebilir. İstemci bunu yalnız ilerleme çubuğu için kullanır; tamamlanma kararını
+     * `has_more` verir, bu sayı değil.
+     */
+    private static function toplam(): int
+    {
+        $toplam = 0;
+        foreach (self::SIRA as [, $sinif, $tombstoneSuz]) {
+            $sorgu = $sinif::query();
+            if ($tombstoneSuz) {
+                $sorgu->whereNull('deleted_at');
+            }
+            $toplam += $sorgu->count();
+        }
+
+        return $toplam;
     }
 
     // ------------------------------------------------------------------------------------

@@ -182,6 +182,7 @@ class PullResponse {
     this.changes = const [],
     this.entities = const {},
     this.snapshotImleci,
+    this.snapshotToplam,
   });
   final String mode; // snapshot|delta
   final int cursor;
@@ -199,6 +200,10 @@ class PullResponse {
   /// Sayfalı snapshot`ın DEVAM imleci (`tip:son-id` biçimi). null = bu sayfa sonuncusuydu.
   /// Sunucu yalnız `sayfali=1` ile sorulduğunda doldurur (bkz. [SyncApi.pull]).
   final String? snapshotImleci;
+
+  /// Snapshot'ın TOPLAM satır sayısı — yalnız İLK sayfada gelir (2026-09-26, ilerleme çubuğu).
+  /// Eski sunucu göndermez: null = toplam bilinmiyor.
+  final int? snapshotToplam;
 
   factory PullResponse.fromJson(Map<String, dynamic> j) {
     final rawEntities = (j['entities'] as Map<String, dynamic>?) ?? const {};
@@ -219,6 +224,7 @@ class PullResponse {
       changes: _mapListesi(j['changes']),
       entities: rawEntities.map((k, v) => MapEntry(k, _mapListesi(v))),
       snapshotImleci: j['snapshot_cursor'] as String?,
+      snapshotToplam: (j['snapshot_total'] as num?)?.toInt(),
     );
   }
 }

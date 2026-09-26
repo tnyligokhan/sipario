@@ -15,11 +15,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../../sync/indirme_ilerlemesi.dart';
 import '../../../theme/components/atoms.dart';
 import '../../../theme/components/overlays.dart';
 import '../../../theme/components/states.dart';
 import '../../../theme/icons.dart';
 import '../../../theme/tokens.dart';
+import '../../../theme/typography.dart';
 import '../../../rehber/rehber_deposu.dart';
 import '../../cagri/arayan_tanima_ayari.dart';
 import '../../orders/order_list_parts.dart' show tutamacSagdaTercihi;
@@ -52,7 +54,9 @@ class UygulamaAyarlariEkrani extends StatefulWidget {
   ///
   /// null ise satır ÇİZİLMEZ: kabuk bu geri çağrımı veremiyorsa (senkron motoru yoksa) düğmeyi
   /// göstermek, basınca hiçbir şey olmayan bir düğme göstermek olurdu.
-  final Future<void> Function()? onBastanIndir;
+  ///
+  /// Dönen değer: indirme turu BAŞARIYLA bitti mi (sonuç bildirimi buna göre yazılır).
+  final Future<bool> Function()? onBastanIndir;
 
   @override
   State<UygulamaAyarlariEkrani> createState() => _UygulamaAyarlariEkraniState();
@@ -177,6 +181,7 @@ class _UygulamaAyarlariEkraniState extends State<UygulamaAyarlariEkrani> {
                       onTap: _bastanIndir,
                     ),
                   ]),
+                  const IndirmeGostergesi(),
                 ],
               ]),
             ),
@@ -190,6 +195,11 @@ class _UygulamaAyarlariEkraniState extends State<UygulamaAyarlariEkrani> {
   /// indirir, büyük bir bayide dakikalar sürer ve mobil veri harcar. Bu depoda onay yalnız
   /// bedeli olan eylemlerde vardır; buranın bedeli zamandır.
   Future<void> _bastanIndir() async {
+    // İkinci dokunuş ikinci bir tur açmaz; kullanıcıya zaten sürdüğü söylenir.
+    if (indirmeIlerlemesi.suruyor) {
+      SipToast.goster(context, 'İndirme sürüyor');
+      return;
+    }
     final onay = await sipOnay(
       context,
       baslik: 'Verileri baştan indir',
@@ -199,9 +209,18 @@ class _UygulamaAyarlariEkraniState extends State<UygulamaAyarlariEkrani> {
     );
     if (!onay || !mounted) return;
 
-    await widget.onBastanIndir!.call();
+    // Bildirim İŞ BAŞLARKEN verilir: eskiden tur BİTTİKTEN sonra "indiriliyor" deniyordu ve
+    // dakikalar süren bekleyişte ekran hiçbir şey söylemiyordu. Süreç artık altta ilerleme
+    // çubuğuyla görünür; sonuç ayrıca bildirilir.
+    SipToast.goster(context, 'Veriler indiriliyor');
+    final basarili = await widget.onBastanIndir!.call();
     if (!mounted) return;
-    SipToast.goster(context, 'Veriler yeniden indiriliyor…');
+    SipToast.goster(
+      context,
+      basarili
+          ? 'Veriler indirildi'
+          : 'İndirme tamamlanamadı. İnternet bağlantınızı kontrol edip yeniden deneyin.',
+    );
   }
 
   Future<void> _rehberiSifirla() async {
@@ -210,5 +229,53 @@ class _UygulamaAyarlariEkraniState extends State<UygulamaAyarlariEkrani> {
     // ONAY SORULMAZ: geri alınabilir ve zararsız bir işlem (hiçbir iş verisine dokunmuyor).
     // Bu depoda onay yalnız tehlikeli eylemlerde vardır — çıkış, silme, iptal.
     SipToast.goster(context, 'Rehber baştan gösterilecek');
+  }
+}
+
+/// "Verileri baştan indir"in ilerlemesi (kullanıcı isteği 2026-09-26: "ne kadar kaldığını
+/// gösteren bir şey olmalı"). Yalnız indirme sürerken çizilir; boşken yer kaplamaz.
+///
+/// Toplam biliniyorsa dolan çubuk + "3.200 / 31.400 kayıt, yüzde 10"; eski sunucu toplam
+/// göndermezse belirsiz çubuk + inen sayı. Uydurma yüzde gösterilmez.
+class IndirmeGostergesi extends StatelessWidget {
+  const IndirmeGostergesi({super.key, this.ilerleme});
+
+  /// Test dikişi; verilmezse uygulamanın tek ilerleme durumu dinlenir.
+  final IndirmeIlerlemesi? ilerleme;
+
+  @override
+  Widget build(BuildContext context) {
+    final kaynak = ilerleme ?? indirmeIlerlemesi;
+    return ListenableBuilder(
+      listenable: kaynak,
+      builder: (context, _) {
+        if (!kaynak.suruyor) return const SizedBox.shrink();
+        final t = context.sip;
+        final oran = kaynak.oran;
+        final toplam = kaynak.toplam;
+        final metin = toplam == null || oran == null
+            ? '${sipSayi(kaynak.inen)} kayıt indirildi'
+            : '${sipSayi(kaynak.inen)} / ${sipSayi(toplam)} kayıt, yüzde ${(oran * 100).floor()}';
+        return Padding(
+          padding: const EdgeInsets.only(top: SipSpace.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ClipRRect(
+                borderRadius: SipRadius.brHap,
+                child: LinearProgressIndicator(
+                  value: oran,
+                  minHeight: 6,
+                  backgroundColor: t.surface2,
+                  color: t.accent,
+                ),
+              ),
+              const SizedBox(height: SipSpace.sm),
+              Text(metin, style: SipText.metin(12, w: 600).copyWith(color: t.muted)),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
