@@ -269,7 +269,7 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET** (mobil 1.5.0 → **1.8.0**, API 1.24.0 → **1.25.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI** (mobil 1.5.0 → **1.8.0**, API 1.24.0 → **1.26.0**)
 
 Kullanıcı bir saha listesi verdi; altısı da kapatıldı. Gerekçeler DECISIONS.md 2026-09-26/1–6.
 
@@ -294,9 +294,10 @@ Mevcut bayilerin hakkı ancak deploy'dan SONRA dolar; kullanıcının şikâyet 
 
 #### ⚠️ AÇIK İŞ
 
-- **Oto-sıralama AYLIK YENİLEMESİ YOK.** `route_credits_monthly` adı "her ay yenilenir" diyor
-  ama hiçbir zamanlanmış iş `route_credits`i yenilemiyor; bayi ilk ayın hakkını bitirince paket
-  almadan bir daha alamaz. Ürün kararı gerekir (yenileme mi, birikme mi, dönem başı mı).
+- ~~Oto-sıralama aylık yenilemesi yok~~ → **KAPANDI aynı gün (API 1.26.0, DECISIONS 2026-09-26/7):**
+  ücretsiz hak her ay başı yenilenir, satın alınan hak korunur. Deploy sonrası
+  `scheduler` kabının `rota:aylik-yenile`yi listelediği `php artisan schedule:list` ile
+  doğrulanmalı. Göç `000102` owner ile koşar.
 - **Sipariş listesi** (`order_list_parts.dart:139`) hâlâ bütün telefon ve adres tablolarını
   haritalıyor; bu turda dokunulmadı. Büyük bayide sipariş sekmesi yavaşsa ilk bakılacak yer.
 - Hiçbir değişiklik **gerçek cihazda görülmedi** (özellikle konum düğmelerinin dar ekranda

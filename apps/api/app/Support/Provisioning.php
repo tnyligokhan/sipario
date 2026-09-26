@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Abonelik\KotaDoluException;
 use App\Abonelik\KuryeKotasi;
 use App\Abonelik\PlanDeposu;
+use App\Abonelik\RotaKontoru;
 use App\Enums\TenantStatus;
 use App\Enums\UserRole;
 use App\Models\Tenant;
@@ -129,6 +130,9 @@ class Provisioning
                         // denemede "Oto sıralama hakkınız kalmadı" görüyordu — mobil ise sayaç 0
                         // olduğu için "Oto Sırala" düğmesini hiç çizmiyordu.
                         'route_credits' => $plan->rotaKontoruAylik(),
+                        // Açılış bu ayın hakkını VERMİŞ sayılır; yenileme gelecek ay başında
+                        // (ve deneme bittikten sonra) devreye girer — bkz. RotaKontoru.
+                        'route_credits_renewed_on' => RotaKontoru::donemBasi(),
                         'courier_limit' => $plan->kuryeLimiti(),
                         'contact_name' => $patronName,
                         'phone' => $phone,
