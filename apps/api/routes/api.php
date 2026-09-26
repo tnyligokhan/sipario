@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\GeocodeController;
+use App\Http\Controllers\Api\HaritaController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\SyncController;
@@ -106,5 +107,16 @@ Route::prefix('v1')->group(function () {
         Route::get('/locations/live', [LocationController::class, 'live'])
             ->middleware('role:patron')
             ->name('api.locations.live');
+    });
+
+    // HARİTA KAROSU (2026-09-26) — CARTO anahtarı sunucuda kalır. AYRI GRUP ve bilerek: genel
+    // `throttle:api` (60/dk) tek bir harita açılışını yarım bırakırdı (ekran başına 20-40 karo).
+    // `tenant` + `auth:sanctum` yine şart: kimlik `users` üzerinden çözülür ve RLS kiracı
+    // bağlamı olmadan kullanıcıyı göremez. Kiracı verisi TAŞIMAZ — izolasyon matrisinde karşılığı
+    // "karo kiracıdan bağımsızdır, kotayı paylaşmaz" senaryosudur.
+    Route::middleware(['throttle:harita', 'tenant', 'oturum', 'auth:sanctum'])->group(function () {
+        Route::get('/harita/karo/{stil}/{z}/{x}/{dosya}', [HaritaController::class, 'karo'])
+            ->whereNumber(['z', 'x'])
+            ->name('api.harita.karo');
     });
 });

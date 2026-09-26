@@ -318,6 +318,14 @@ class AppServiceProvider extends ServiceProvider
         // döngüsü o payı tek başına yer ve aynı kullanıcının gerçek isteklerini (senkron, rota)
         // 429'a düşürürdü. Sınır KULLANICI başınadır, kiracı başına DEĞİL: beş cihazlı bir bayide
         // kiracı sınırı olsaydı beş kuryeden biri hakkı tüketip diğer dördünü haritadan silerdi.
+        // Harita karosu: parayla ölçülür (CARTO aylık kotası) ama ekran başına YÜZLERCE istek
+        // meşrudur. Sınır KULLANICI başınadır: bir kuryenin hızlı kaydırması diğerinin haritasını
+        // boşaltmamalı. Asıl kota koruyucusu sunucudaki disk önbelleğidir, bu sınır yalnız bozuk
+        // bir istemci döngüsüne tavandır.
+        RateLimiter::for('harita', fn (Request $request) => Limit::perMinute(
+            max(1, (int) config('harita.dakika_limit', 900))
+        )->by('harita:'.($request->user()?->id ?: $request->ip())));
+
         RateLimiter::for('konum', fn (Request $request) => Limit::perMinute(
             max(1, (int) config('konum.kalp_atisi_limit', 6))
         )->by('konum:'.($request->user()?->id ?: $request->ip())));

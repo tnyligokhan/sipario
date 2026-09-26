@@ -334,9 +334,14 @@ return [
     | yenilenir ve devretmez; satın alınan hak ayrı sayaçta korunur ve devreder;
     | harcamada önce ücretsiz hak düşer; deneme yenilenmez. Mobil sözleşmesi
     | değişmedi (`route_credits` yine kalan toplam).
+    |
+    | ── 1.27.0 (2026-09-26) — HARİTA KAROSU SUNUCUDAN ────────────────────────
+    | MINOR: `GET /api/v1/harita/karo/{stil}/{z}/{x}/{dosya}` — CARTO anahtarı
+    | (`CARTO_BASEMAPS_KEY`) yalnız sunucuda; karo 30 gün disk önbelleğinde,
+    | filigran asla önbelleğe girmez. CARTO anahtarsız karo vermeyi kesmişti.
     */
 
-    'version' => '1.26.0',
+    'version' => '1.27.0',
 
     /*
     |--------------------------------------------------------------------------

@@ -15,8 +15,10 @@ import 'package:drift/native.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sipario/auth/session.dart' show kDefaultApiBaseUrl;
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/konum/cihaz_konumu.dart';
+import 'package:sipario/screens/orders/harita_karo_kaynagi.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
 import 'package:sipario/screens/orders/siparis_harita.dart';
 
@@ -59,9 +61,10 @@ void main() {
       await akisiBekle(tester);
 
       final katman = tester.widget<TileLayer>(find.byType(TileLayer));
-      expect(katman.urlTemplate,
-          'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
-      expect(katman.subdomains, ['a', 'b', 'c', 'd']);
+      // Karo KENDİ SUNUCUMUZDAN gelir (2026-09-26): CARTO anahtarsız karo vermeyi kesti ve
+      // anahtar APK'ya gömülmez. Doğrudan CARTO adresi "API KEY REQUIRED" filigranı döndürür.
+      expect(katman.urlTemplate, '$kDefaultApiBaseUrl/harita/karo/light_all/{z}/{x}/{y}{r}.png');
+      expect(katman.urlTemplate, isNot(contains('cartocdn')));
       // Atıf HUKUKİ ZORUNLULUK — kaldırılamaz, metni sözleşmedir.
       expect(find.text('© OpenStreetMap, © CARTO'), findsOneWidget);
 
@@ -79,8 +82,7 @@ void main() {
       await akisiBekle(tester);
 
       final katman = tester.widget<TileLayer>(find.byType(TileLayer));
-      expect(katman.urlTemplate,
-          'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+      expect(katman.urlTemplate, '$kDefaultApiBaseUrl/harita/karo/dark_all/{z}/{x}/{y}{r}.png');
       // Atıf koyuda da durur — hukuki zorunluluk temayla pazarlık etmez.
       expect(find.text('© OpenStreetMap, © CARTO'), findsOneWidget);
 
@@ -93,6 +95,21 @@ void main() {
       // varsayılanı ayrı fonksiyonda durur ki bu söz, testlerin dikişi sahteyle değiştirdiği
       // durumdan bağımsız sınanabilsin.
       expect(varsayilanKaroSaglayici(), isA<CancellableNetworkTileProvider>());
+    });
+
+    test('karo isteği oturum jetonunu taşır, jeton yoksa başlık da yok', () {
+      // Sunucu aracısı oturum ister: açık bir aracı CARTO kotamızı herkese açardı.
+      const oturumlu = HaritaKaroKaynagi(apiTaban: 'https://x.test/api/v1', jeton: 'j1');
+      expect(oturumlu.basliklar, {'Authorization': 'Bearer j1'});
+      expect(const HaritaKaroKaynagi(apiTaban: 'https://x.test/api/v1').basliklar, isEmpty);
+      expect(oturumlu.sablon(koyu: false),
+          'https://x.test/api/v1/harita/karo/light_all/{z}/{x}/{y}{r}.png');
+    });
+
+    test('jeton değişince kaynak değişir — katman yeni jetonla yeniden kurulur', () {
+      const a = HaritaKaroKaynagi(apiTaban: 'https://x.test', jeton: 'j1');
+      expect(a, const HaritaKaroKaynagi(apiTaban: 'https://x.test', jeton: 'j1'));
+      expect(a == const HaritaKaroKaynagi(apiTaban: 'https://x.test', jeton: 'j2'), isFalse);
     });
 
     testWidgets('+ / − düğmeleri kamerayı yakınlaştırır ve uzaklaştırır', (tester) async {

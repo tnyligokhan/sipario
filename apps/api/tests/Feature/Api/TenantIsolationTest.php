@@ -14,6 +14,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
@@ -236,6 +237,26 @@ class TenantIsolationTest extends ApiTestCase
         $this->asToken($tokenB)->postJson('/api/v1/geocode', [
             'query' => 'Izolasyon Sk. no:'.Str::uuid(),
         ])->assertOk();
+    }
+
+    #[Test]
+    public function harita_karosu_kiraci_verisi_tasimaz_ve_siniri_paylastirmaz(): void
+    {
+        // Matris satırı: `api.harita.karo`. Taşıdığı veri KİRACIYA AİT DEĞİLDİR (kamuya açık
+        // harita görseli) ve önbellek bilerek ortaktır. İzolasyonun anlamlı karşılığı: A'nın
+        // hız sınırını tüketmesi B'nin haritasını BOŞALTMAZ.
+        Storage::fake('local');
+        config()->set('harita.carto_key', 'test-anahtari');
+        config()->set('harita.dakika_limit', 1);
+        Http::fake(['*.basemaps.cartocdn.com/*' => Http::response('png', 200)]);
+
+        $tokenA = $this->tokenFor($this->makeTenant('a')['patron']);
+        $tokenB = $this->tokenFor($this->makeTenant('b')['patron']);
+
+        $this->asToken($tokenA)->get('/api/v1/harita/karo/light_all/5/10/12.png')->assertOk();
+        $this->asToken($tokenA)->get('/api/v1/harita/karo/light_all/5/10/13.png')->assertStatus(429);
+
+        $this->asToken($tokenB)->get('/api/v1/harita/karo/light_all/5/10/12.png')->assertOk();
     }
 
     #[Test]
