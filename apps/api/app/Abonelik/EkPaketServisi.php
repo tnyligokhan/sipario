@@ -261,8 +261,13 @@ class EkPaketServisi extends AbonelikServisi
 
             // KOTA: sunucuda gerçek olan kısım. Ham SQL increment değil forceFill — kolon adı
             // türe göre değiştiği için tek yerde toplanıyor ve yanlış kolona yazma ihtimali kalmıyor.
-            $kolon = $paket->type === AddonPackage::TYPE_CREDITS ? 'route_credits' : 'courier_limit';
-            $tenant->forceFill([$kolon => $tenant->{$kolon} + $paket->quantity])->save();
+            // Kontör paketi SATIN ALINAN hak olarak işlenir: ay başı yenilemesi onu silmez, aydan
+            // aya devreder (bkz. RotaKontoru). Kurye kotası tek sayaçtır.
+            if ($paket->type === AddonPackage::TYPE_CREDITS) {
+                (new RotaKontoru($this->connection))->satinAlindi($tenant, $paket->quantity);
+            } else {
+                $tenant->forceFill(['courier_limit' => $tenant->courier_limit + $paket->quantity])->save();
+            }
 
             $this->denetle($adminId, $tenantId, 'addon_grant', $paket->type.':'.$collectionMethod);
 

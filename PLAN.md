@@ -269,7 +269,43 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-15 — **BİLDİRİMDEN KART GERİ GELİYOR** (mobil 1.4.0 → **1.5.0**, API sabit 1.24.0)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI** (mobil 1.5.0 → **1.8.0**, API 1.24.0 → **1.26.0**)
+
+Kullanıcı bir saha listesi verdi; altısı da kapatıldı. Gerekçeler DECISIONS.md 2026-09-26/1–6.
+
+| # | Şikâyet | Kök neden | Düzeltme | Sürüm |
+|---|---|---|---|---|
+| 1 | Müşteri koduna göre arama çalışmıyor | Rakam yazılınca telefon/ad aranıyordu, `code` hiç sorulmuyordu | Ortak kural `lib/data/musteri_aramasi.dart`; kod tam eşleşir, en üstte çıkar | 1.5.1 |
+| 4 | Sipariş aramada program hantallaşıyor | Sipariş eklemenin müşteri adımı 9.047 müşteriyi + tüm telefon/adres tablolarını her tuşta çekiyordu | SQL'de süzme, en fazla 50 müşteri (sınır alt sorguyla MÜŞTERİYE), tek müşteri akışları | 1.5.1 |
+| 2 | Yönetici ürün silebilmeli | Bilinçli olarak kapalıydı (2026-07-21) | Ürün formunda "Ürünü sil" + onay; tombstone, sunucu zaten destekliyordu | 1.6.0 |
+| 3 | Aktif siparişte adresi bulmuyor, güncel konumu kaydediyor | Sipariş detayında tek düğme GPS yazıyordu (dükkânda basan patron kapıya dükkânı yazıyordu) | Konumsuz adreste "Adresten Konum Bul" (aday seçtirir) + "Bulunduğum Yeri Kaydet" | 1.7.0 |
+| 5 | Yeni üyeye oto-sıralama hakkı verilmiyor | `Provisioning` yalnız aylık kotayı yazıyordu, kalan hak 0 | Açılışta hak = kota; paketsiz 0 haklı bayiler göçle onarıldı | API |
+| 6 | Tüm verileri çekerken ne kadar kaldığı görünmeli | Sunucu toplam söylemiyordu, ekran sessizdi | İlk sayfada `snapshot_total`; ayarlarda ilerleme çubuğu + sonuç bildirimi | 1.8.0 + API |
+
+**KAPILAR (bizzat ölçüldü):** `flutter analyze` temiz · `flutter test` **1656/1656** ·
+pint temiz · phpstan 0 · etkilenen API sınıfları 48/48 (yeni `YeniBayiRotaKontoruTest` 4,
+`SnapshotSayfalamaTest` +1). **Tam API takımı YARIM KALDI:** makinede bellek daraldığı için
+Claude Code arka plan sürecini durdurdu; durduğu ana kadar 425 test yeşil, kırmızı yoktu.
+Sonraki vardiya tam takımı bir kez koşmalı. APK DERLENMEDİ — paket/native dokunuşu yok.
+
+⚠️ **DEPLOY SIRASI:** göç (`2026_09_26_000101_seed_missing_route_credits`) owner ile koşar.
+Mevcut bayilerin hakkı ancak deploy'dan SONRA dolar; kullanıcının şikâyet ettiği bayi o ana dek
+0 görür.
+
+#### ⚠️ AÇIK İŞ
+
+- ~~Oto-sıralama aylık yenilemesi yok~~ → **KAPANDI aynı gün (API 1.26.0, DECISIONS 2026-09-26/7):**
+  ücretsiz hak her ay başı yenilenir, satın alınan hak korunur. Deploy sonrası
+  `scheduler` kabının `rota:aylik-yenile`yi listelediği `php artisan schedule:list` ile
+  doğrulanmalı. Göç `000102` owner ile koşar.
+- **Sipariş listesi** (`order_list_parts.dart:139`) hâlâ bütün telefon ve adres tablolarını
+  haritalıyor; bu turda dokunulmadı. Büyük bayide sipariş sekmesi yavaşsa ilk bakılacak yer.
+- Hiçbir değişiklik **gerçek cihazda görülmedi** (özellikle konum düğmelerinin dar ekranda
+  iki satıra kırılması ve 9.047 müşterili bayide müşteri adımının hızı).
+- Kurye kapsamı sipariş eklemenin müşteri adımına uygulanmıyor (öncesinde de uygulanmıyordu);
+  Müşteriler listesi kapsamlı, sipariş adımı bayinin tamamını arar.
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-15 — **BİLDİRİMDEN KART GERİ GELİYOR** (mobil 1.4.0 → **1.5.0**, API sabit 1.24.0)
 
 Kullanıcı isteği: *"Popup'ı kapattığımızda bildirime tıklandığında tekrar açılmasını istiyorum."*
 

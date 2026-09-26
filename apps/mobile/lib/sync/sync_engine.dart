@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 
 import '../data/ad_anahtari.dart';
 import '../data/app_database.dart';
+import 'indirme_ilerlemesi.dart';
 import 'sync_api.dart';
 import 'yenileme.dart' show senkronBastanIndir;
 

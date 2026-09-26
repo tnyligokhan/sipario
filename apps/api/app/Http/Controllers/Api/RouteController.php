@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Abonelik\RotaKontoru;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AutoRouteRequest;
 use App\Models\Tenant;
@@ -49,6 +50,10 @@ class RouteController extends Controller
         /** @var list<string> $istenen */
         $istenen = $dogrulanmis['order_ids'];
 
+        // AY BAŞI YENİLEMESİ burada da denenir (idempotent, ay başına bir kez etki eder): günlük
+        // iş bir gün aksasa bile hakkı yenilenmiş bayi "hakkınız kalmadı" görmesin.
+        $kontor = new RotaKontoru;
+        $kontor->yenile((string) $user->tenant_id);
         $tenant = Tenant::query()->find($user->tenant_id);
         abort_if($tenant === null, 409, 'Hesabınızın kiracı bağlamı bulunamadı, destek alın.');
 
@@ -85,7 +90,8 @@ class RouteController extends Controller
 
         // Kontör MOTOR FARK ETMEKSİZİN 1 düşer: ürün kuralı "1 sıralama = 1 kontör". Google'a
         // düşüp yakın komşuya geri dönmüş olmak kullanıcının sorunu değildir; ikinci kez de yanmaz.
-        $kilitli->decrement('route_credits');
+        // Önce ücretsiz aylık hak düşer, satın alınan hak en sona kalır (bkz. RotaKontoru).
+        $kontor->harca($kilitli);
 
         return response()->json([
             'order' => $sonuc['order'],

@@ -4,8 +4,9 @@
 // (+ barkod) · fiyat · chevron. Pasif ürün satırı sönükleşir ama FİYATI OKUNUR KALIR — bilgi
 // kaybolmaz, yalnız geri plana düşer.
 //
-// Ürün SİLİNMEZ, pasifleşir: geçmiş sipariş satırları ad/fiyatı kendi içinde taşıdığından
-// silme veriyi bozmaz ama katalog geçmişini yalanlar. Form `product_form_sheet.dart` içinde.
+// Pasifleme geri açılabilir rafa kaldırmadır; SİLME (2026-09-26'dan beri, formun altında)
+// kalıcıdır ve tombstone'dur. Geçmiş sipariş satırları ad/fiyatı kendi içinde taşıdığından
+// ikisi de geçmişi bozmaz. Form `product_form_sheet.dart` içinde.
 
 import '../../sync/yenileme.dart';
 import 'dart:io';

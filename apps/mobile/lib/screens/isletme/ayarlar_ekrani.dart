@@ -168,7 +168,7 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
                       // zamanlayıcıyı beklerdi — düğmenin işe yaradığına dair hiçbir işaret olmaz.
                       onBastanIndir: () async {
                         await senkronBastanIndir(widget.db);
-                        await yenile();
+                        return yenile();
                       },
                     )),
                   ),

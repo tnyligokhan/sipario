@@ -28,6 +28,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $phone
  * @property int $route_credits
  * @property int $route_credits_monthly
+ * @property int $route_credits_purchased
+ * @property Carbon|null $route_credits_renewed_on
  * @property string|null $contact_name
  * @property string|null $city
  * @property string|null $district
@@ -52,6 +54,8 @@ class Tenant extends Model
         'phone',
         'route_credits',
         'route_credits_monthly',
+        'route_credits_purchased',
+        'route_credits_renewed_on',
         'contact_name',
         'city',
         'district',
@@ -69,6 +73,8 @@ class Tenant extends Model
             'modules' => 'array',
             'route_credits' => 'integer',
             'route_credits_monthly' => 'integer',
+            'route_credits_purchased' => 'integer',
+            'route_credits_renewed_on' => 'date',
             'courier_limit' => 'integer',
             'billing_period' => BillingPeriod::class,
         ];

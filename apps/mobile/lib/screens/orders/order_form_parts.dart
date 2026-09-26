@@ -14,6 +14,7 @@ import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import '../customers/customer_list_screen.dart' show CustomerRow, MusteriSirasi, watchCustomerRows;
 import 'order_parts.dart';
 import 'order_queries.dart';
 
@@ -201,22 +202,23 @@ class MusteriSecimAdimi extends StatelessWidget {
     required this.db,
     required this.arama,
     required this.sorgu,
-    required this.telefonlar,
-    required this.adresler,
     required this.onSorgu,
     required this.onTemizle,
     required this.onSec,
     this.onYeniMusteri,
   });
 
+  /// Listede en fazla bu kadar müşteri çizilir (kullanıcı şikâyeti 2026-09-26: "sipariş
+  /// aramada bütün veriyi getirdiği için program çok hantallaşıyor"). Eskiden 9.047 müşterinin
+  /// HEPSİ belleğe alınıp Dart'ta süzülüyor ve tembel olmayan listeye tek tek çiziliyordu;
+  /// üstüne her tuşta bütün telefon ve adres tabloları yeniden okunuyordu. Aranan müşteri
+  /// ilk ekranda çıkmıyorsa bayi yazmaya devam eder — 50'yi aşan liste kimsenin kaydırmadığı
+  /// bir listedir.
+  static const sinir = 50;
+
   final AppDatabase db;
   final TextEditingController arama;
   final String sorgu;
-
-  /// Satırdaki telefon ve adres TEK sorgudur, satır sayısıyla çoğalmaz — akışlar ekranda bir kez
-  /// kurulur ve buraya verilir (arama yazılırken yeniden abone olup titremesinler).
-  final Stream<Map<String, String>> telefonlar;
-  final Stream<Map<String, AdresBilgi>> adresler;
 
   final ValueChanged<String> onSorgu;
   final VoidCallback onTemizle;
@@ -235,7 +237,7 @@ class MusteriSecimAdimi extends StatelessWidget {
               const EdgeInsets.fromLTRB(SipSpace.govde, SipSpace.md, SipSpace.govde, SipSpace.xl),
           child: SipArama(
             controller: arama,
-            ipucu: 'İsim ya da telefon ara',
+            ipucu: 'Ad, telefon ya da kod ara',
             onChanged: onSorgu,
             onTemizle: onTemizle,
             // Tasarımdaki `autoFocus` (s-siparisler.jsx:305). Bu adımın TEK işi müşteriyi
@@ -245,64 +247,69 @@ class MusteriSecimAdimi extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: StreamBuilder<Map<String, String>>(
-            stream: telefonlar,
-            initialData: const {},
-            builder: (context, telSnap) => StreamBuilder<Map<String, AdresBilgi>>(
-              stream: adresler,
-              initialData: const {},
-              builder: (context, adresSnap) => StreamBuilder<List<Customer>>(
-                stream: watchMusteriArama(db, sorgu),
-                builder: (context, snap) {
-                  final liste = snap.data;
-                  final tel = telSnap.data ?? const <String, String>{};
-                  final adr = adresSnap.data ?? const <String, AdresBilgi>{};
-                  return SipGovde(
-                    altBosluk: SipSpace.x4,
-                    children: [
-                      // Tasarım `.ys-ekle` + `YeniMusteri` (s-siparisler.jsx:311). Buradaki
-                      // "müşterisiz devam et (tezgâh satışı)" kapısı 2026-07-26'da kaldırıldı;
-                      // müşterisiz siparişin GÖRÜNTÜLENMESİ duruyor (senkronla gelebilir),
-                      // yalnız oluşturma yolu gitti.
-                      YsEkleDugmesi(
-                        etiket: 'Yeni müşteri ekle',
-                        ikon: SipIcons.userPlus,
-                        onTap: onYeniMusteri,
+          child: StreamBuilder<List<CustomerRow>>(
+            stream: watchCustomerRows(db, sorgu, sira: MusteriSirasi.ad, limit: sinir),
+            builder: (context, snap) {
+              final liste = snap.data;
+              return SipGovde(
+                altBosluk: SipSpace.x4,
+                children: [
+                  // Tasarım `.ys-ekle` + `YeniMusteri` (s-siparisler.jsx:311). Buradaki
+                  // "müşterisiz devam et (tezgâh satışı)" kapısı 2026-07-26'da kaldırıldı;
+                  // müşterisiz siparişin GÖRÜNTÜLENMESİ duruyor (senkronla gelebilir),
+                  // yalnız oluşturma yolu gitti.
+                  YsEkleDugmesi(
+                    etiket: 'Yeni müşteri ekle',
+                    ikon: SipIcons.userPlus,
+                    onTap: onYeniMusteri,
+                  ),
+                  const SizedBox(height: SipSpace.xl),
+                  if (liste == null)
+                    const SipIskelet(adet: 4)
+                  else if (liste.isEmpty)
+                    YsBosDurum(
+                      ikon: SipIcons.users,
+                      metin: sorgu.trim().isEmpty
+                          ? 'Henüz müşteri yok. Yukarıdan ekleyebilirsiniz'
+                          : '"$sorgu" için müşteri yok',
+                    )
+                  else ...[
+                    for (final r in liste)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 7),
+                        child: MusteriSecimSatiri(
+                          musteri: r.customer,
+                          telefon: r.phone,
+                          adres: _mrowAdres(r.adres),
+                          onTap: () => onSec(r.customer),
+                        ),
                       ),
-                      const SizedBox(height: SipSpace.xl),
-                      if (liste == null)
-                        const SipIskelet(adet: 4)
-                      else if (liste.isEmpty)
-                        YsBosDurum(
-                          ikon: SipIcons.users,
-                          metin: sorgu.trim().isEmpty
-                              ? 'Henüz müşteri yok. Yukarıdan ekleyebilirsiniz'
-                              : '"$sorgu" için müşteri yok',
-                        )
-                      else
-                        for (final c in liste)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 7),
-                            child: MusteriSecimSatiri(
-                              musteri: c,
-                              telefon: tel[c.id],
-                              adres: _mrowAdres(adr[c.id]),
-                              onTap: () => onSec(c),
-                            ),
-                          ),
-                    ],
-                  );
-                },
-              ),
-            ),
+                    // Sınır dolduysa listenin eksik olduğu SÖYLENİR: aranan müşteri görünmüyor
+                    // diye "kayıtlı değil" sanıp ikinci bir kayıt açmasın.
+                    if (liste.length >= sinir)
+                      Padding(
+                        padding: const EdgeInsets.only(top: SipSpace.md),
+                        child: Text(
+                          'Aradığınızı bulamadıysanız ad, telefon ya da kod yazın',
+                          textAlign: TextAlign.center,
+                          style: SipText.metin(12, w: 600).copyWith(color: context.sip.muted),
+                        ),
+                      ),
+                  ],
+                ],
+              );
+            },
           ),
         ),
       ],
     );
   }
 
-  static MrowAdres? _mrowAdres(AdresBilgi? a) =>
-      a == null ? null : MrowAdres(metin: a.tamMetin, konumVar: a.konumVar);
+  static MrowAdres? _mrowAdres(CustomerAddressesData? a) {
+    if (a == null) return null;
+    final bilgi = AdresBilgi(metin: a.addressText, bolge: a.region, lat: a.lat, lng: a.lng);
+    return MrowAdres(metin: bilgi.tamMetin, konumVar: bilgi.konumVar);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════

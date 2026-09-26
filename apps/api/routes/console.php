@@ -65,3 +65,16 @@ Schedule::command('sanctum:prune-expired --hours=720')
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping()
     ->onOneServer();
+
+/*
+ * OTO-SIRALAMA AYLIK HAKKI — ücretsiz hak her ayın başında yenilenir, satın alınan hak korunur
+ * (kullanıcı kararı 2026-09-26; kural `App\Abonelik\RotaKontoru`).
+ *
+ * HER GÜN 00:05 ve bilerek: iş idempotenttir (ay başına bir kez etki eder). Yalnız ayın 1'inde
+ * kurulsaydı, o gece zamanlayıcı ayakta değilse bütün bayiler o ayı hakkı yenilenmeden geçirirdi.
+ */
+Schedule::command('rota:aylik-yenile')
+    ->dailyAt('00:05')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping()
+    ->onOneServer();

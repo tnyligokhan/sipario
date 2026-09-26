@@ -443,9 +443,20 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     );
   }
 
-  // Yardımcı akışlar bir kez abone edilir — arama yazılırken yeniden abone olup titremesinler.
-  late final Stream<Map<String, String>> _telefonlar = watchBirincilTelefonlar(widget.db);
-  late final Stream<Map<String, AdresBilgi>> _adresler = watchBirincilAdresler(widget.db);
+  // Özet adımının telefon/adres akışları — YALNIZ seçili müşteriyi okur ve müşteri değişene dek
+  // aynı akış korunur (her çizimde yeniden abone olup titremesin). Eskiden bütün telefon ve
+  // adres tabloları okunuyordu; büyük bayide özet adımı bu yüzden takılıyordu.
+  String? _akisMusteriId;
+  Stream<Map<String, String>> _telefonlar = const Stream.empty();
+  Stream<Map<String, AdresBilgi>> _adresler = const Stream.empty();
+
+  void _akislariHazirla() {
+    final id = _musteri?.id;
+    if (id == null || id == _akisMusteriId) return;
+    _akisMusteriId = id;
+    _telefonlar = watchBirincilTelefonlar(widget.db, musteriId: id);
+    _adresler = watchBirincilAdresler(widget.db, musteriId: id);
+  }
 
   // ── Adım 1 — müşteri seç ────────────────────────────────────────────────────────────────
   // Çizim `order_form_parts.dart`ta; ekran yalnız DURUMU (arama sorgusu, seçim) tutar.
@@ -453,8 +464,6 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
         db: widget.db,
         arama: _arama,
         sorgu: _sorgu,
-        telefonlar: _telefonlar,
-        adresler: _adresler,
         onSorgu: (v) => setState(() => _sorgu = v),
         onTemizle: () => setState(() {
           _arama.clear();
@@ -482,13 +491,16 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
 
   // ── Adım 3 — özet ───────────────────────────────────────────────────────────────────────
   // Çizim `order_form_parts.dart`ta.
-  Widget _adim3() => SiparisOzetiAdimi(
-        musteri: _musteri,
-        satirlar: _satirlar,
-        toplamKurus: _toplam,
-        not: _not,
-        telefonlar: _telefonlar,
-        adresler: _adresler,
-        onKalemleriDuzenle: () => setState(() => _adim = 2),
-      );
+  Widget _adim3() {
+    _akislariHazirla();
+    return SiparisOzetiAdimi(
+      musteri: _musteri,
+      satirlar: _satirlar,
+      toplamKurus: _toplam,
+      not: _not,
+      telefonlar: _telefonlar,
+      adresler: _adresler,
+      onKalemleriDuzenle: () => setState(() => _adim = 2),
+    );
+  }
 }

@@ -130,7 +130,36 @@ class ProductRepository {
         'options': optionsJson == null ? null : jsonDecode(optionsJson),
       };
 
-  /// Pasifle (silme yerine — geçmiş siparişler satırda fiyat/adı taşıdığından bozulmaz).
+  /// Sil (tombstone) — kullanıcı kararı 2026-09-26: "Yönetici ürün silebiliyor olmalı".
+  ///
+  /// Silme fiziksel değildir: `deleted_at` işaretlenir ve senkronla yayılır (müşteri arşivinin
+  /// aynısı). Geçmiş siparişler BOZULMAZ — sipariş satırı ürünün adını ve birim fiyatını kendi
+  /// içinde taşır; ürün kataloğu yalnız YENİ siparişin kaynağıdır.
+  ///
+  /// Yetki kapısı ÇAĞIRANDADIR: ürün ekranına yalnız `urunYonetimi` yetkisi olan (patron)
+  /// ulaşır.
+  Future<void> delete(String id) async {
+    final meta = await db.syncState();
+    final at = correctedNowIso(meta.serverTimeOffsetMs);
+    final device = meta.deviceId;
+
+    await db.transaction(() async {
+      await (db.update(db.products)..where((t) => t.id.equals(id))).write(ProductsCompanion(
+        deletedAt: Value(at),
+        updatedOccurredAt: Value(at),
+        updatedDeviceId: Value(device),
+      ));
+      await enqueueOutbox(db,
+          entityType: 'product',
+          op: 'delete',
+          entityId: id,
+          occurredAt: at,
+          deviceId: device,
+          payload: {'id': id});
+    });
+  }
+
+  /// Pasifle (silmeden rafa kaldırır — ürün geri açılabilir).
   Future<void> deactivate(String id) async {
     final meta = await db.syncState();
     final at = correctedNowIso(meta.serverTimeOffsetMs);

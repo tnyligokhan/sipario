@@ -214,4 +214,25 @@ class SnapshotSayfalamaTest extends ApiTestCase
         $this->assertCount(4, $toplanan['product'] ?? [],
             'Ürünler müşterilerin ARDINDAN gelir; sayfalama onları düşürmemeli.');
     }
+
+    #[Test]
+    public function ilk_sayfa_toplam_satir_sayisini_tasir_digerleri_tasimaz(): void
+    {
+        // İLERLEME ÇUBUĞU (kullanıcı isteği 2026-09-26): istemci "ne kadar kaldı" diyebilmek
+        // için toplamı ilk sayfada alır. Sayı sayfaların getirdiğiyle AYNI küme olmalı ve
+        // BAŞKA BAYİNİN satırını saymamalı (kırmızı çizgi #1 — sayı da veridir).
+        [$a, $token] = $this->bayi();
+        $this->musteriUret($a['tenant']->id, 12);
+        $b = $this->makeTenant('b');
+        $this->musteriUret($b['tenant']->id, 30);
+
+        $ilk = $this->sayfa($token, '', 5);
+        $this->assertArrayHasKey('snapshot_total', $ilk);
+        $ikinci = $this->sayfa($token, (string) $ilk['snapshot_cursor'], 5);
+        $this->assertArrayNotHasKey('snapshot_total', $ikinci, 'sayım yalnız ilk sayfada koşar');
+
+        [$toplanan] = $this->tumSayfalar($token, limit: 5);
+        $gelen = array_sum(array_map('count', $toplanan));
+        $this->assertSame($gelen, $ilk['snapshot_total']);
+    }
 }

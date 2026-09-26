@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Abonelik\RotaKontoru;
 use App\Enums\TenantStatus;
 use App\Models\Tenant;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -25,6 +26,9 @@ class TenantFactory extends Factory
             'trial_ends_at' => now()->addDays(30),
             'valid_until' => null,
             'phone' => fake()->numerify('05#########'),
+            // Açılışla (Provisioning) tutarlı: yeni bayi bu ayın oto-sıralama hakkını almış sayılır.
+            // Boş kalsaydı uç noktadaki ay başı yenilemesi testin ayarladığı hakkı ezerdi.
+            'route_credits_renewed_on' => RotaKontoru::donemBasi(),
         ];
     }
 

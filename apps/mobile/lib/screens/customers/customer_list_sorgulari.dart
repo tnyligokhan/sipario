@@ -97,12 +97,15 @@ List<OrderClauseGenerator<$CustomersTable>> _siraTerimleri(MusteriSirasi sira) =
         ],
     };
 
-/// Ad araması için WHERE — katlanmış ad üzerinden (bkz. `ad_anahtari.dart`).
-///
-/// SORGU DA KATLANIR: kullanıcı "şerife" de yazsa "SERIFE" de yazsa aynı anahtara iner. Yalnız
-/// kolonu katlayıp sorguyu ham bırakmak, arızanın yarısını çözüp diğer yarısını bırakmak olurdu.
-Expression<bool> _adEslesmesi(AppDatabase db, String q) =>
-    db.customers.nameFolded.like('%${adAnahtari(q)}%');
+/// Aramanın sıra terimleri: kod aranıyorsa tam eşleşen müşteri EN ÜSTE, ardından seçili sıra.
+List<OrderClauseGenerator<$CustomersTable>> _aramaSirasi(
+  MusteriAramasi arama,
+  MusteriSirasi sira,
+) =>
+    [
+      if (arama.kod != null) (t) => arama.oncelik(t)!,
+      ..._siraTerimleri(sira),
+    ];
 
 /// KURYE KAPSAMI (kullanıcı kararı 2026-08-22) — [kullaniciId] verilirse müşteri listesi
 /// YALNIZ o kullanıcının işi olan müşterilerle sınırlanır.
@@ -128,14 +131,17 @@ Expression<bool> _kuryeKapsami(AppDatabase db, String kullaniciId) {
 }
 
 /// Liste akışı. Telefon ve adres LEFT JOIN'dir — ikisi de olmayan müşteri de listede kalır.
-/// Sorguda 3+ rakam varsa telefon araması (son-10 normalizasyonu — arayan tanımanın kuralı),
-/// yoksa ad araması.
+/// Eşleşme kuralı (kod · telefon · ad) [MusteriAramasi]'dadır.
 ///
 /// [kullaniciId] verilirse liste o kullanıcının kapsamına kısılır ([_kuryeKapsami]); null =
 /// bayinin tamamı. Kararı ekran değil YETKİ verir (`yetkiler().tumMusterileriGorme`).
+///
+/// [limit] verilirse en fazla o kadar MÜŞTERİ döner (seçim listeleri için — sipariş ekranı
+/// 9.047 müşterinin hepsini çizmeye çalışırken donuyordu). null = sınırsız.
 Stream<List<CustomerRow>> watchCustomerRows(AppDatabase db, String query,
-    {String? kullaniciId, MusteriSirasi sira = MusteriSirasi.eklenme}) {
-  final q = query.trim();
+    {String? kullaniciId, MusteriSirasi sira = MusteriSirasi.eklenme, int? limit}) {
+  final arama = MusteriAramasi(query);
+  final siraTerimleri = _aramaSirasi(arama, sira);
   final kapsam =
       kullaniciId == null ? const Constant(true) : _kuryeKapsami(db, kullaniciId);
 
@@ -152,30 +158,28 @@ Stream<List<CustomerRow>> watchCustomerRows(AppDatabase db, String query,
     ),
   ]);
 
-  if (q.isEmpty) {
-    sel.where(db.customers.deletedAt.isNull() & kapsam);
+  // ⚠️ KAPSAM ARAMAYA DA UYGULANIR: yalnız boş sorguda süzmek, kuryenin numarayı yazarak
+  // görmemesi gereken müşteriye ulaşması demekti — yetkiyi arama kutusuyla atlatmak.
+  final kosul = db.customers.deletedAt.isNull() & arama.eslesme(db) & kapsam;
+  if (limit == null) {
+    sel.where(kosul);
   } else {
-    final digits = _numaraGovdesi(q);
-    if (digits != null) {
-      // EXISTS: herhangi bir telefonu eşleşen müşteri (görüntü telefonu yine birincil kalır).
-      final match = db.selectOnly(db.customerPhones)
-        ..addColumns([db.customerPhones.id])
-        ..where(db.customerPhones.customerId.equalsExp(db.customers.id) &
-            db.customerPhones.deletedAt.isNull() &
-            db.customerPhones.phoneLast10.like('%$digits%'));
-      // ⚠️ KAPSAM ARAMAYA DA UYGULANIR: yalnız boş sorguda süzmek, kuryenin numarayı yazarak
-      // görmemesi gereken müşteriye ulaşması demekti — yetkiyi arama kutusuyla atlatmak.
-      sel.where(db.customers.deletedAt.isNull() & existsQuery(match) & kapsam);
-    } else {
-      sel.where(db.customers.deletedAt.isNull() & _adEslesmesi(db, q) & kapsam);
-    }
+    // SINIR MÜŞTERİ SAYISINA uygulanır, JOIN satırına değil: üç numaralı bir müşteri üç satır
+    // üretir ve düz `LIMIT` o yüzden eksik müşteri döndürürdü. Alt sorgu sıralı ilk N kimliği
+    // seçer, dış sorgu yalnız onların telefon/adresini birleştirir.
+    final ilkler = db.selectOnly(db.customers)
+      ..addColumns([db.customers.id])
+      ..where(kosul)
+      ..orderBy(siraTerimleri.map((f) => f(db.customers)).toList())
+      ..limit(limit);
+    sel.where(db.customers.id.isInQuery(ilkler));
   }
 
   // isPrimary terimleri SİLİNEMEZ ve sıra kuralının ARDINDA kalmak zorundadır: aşağıdaki
   // tekilleştirme "ilk gelen satır kazanır" der, yani müşterinin hangi telefon/adresinin
   // görüneceğini bu iki terim seçer. Önlerine geçselerdi yanlış telefon çizilirdi.
   sel.orderBy([
-    ..._siraTerimleri(sira).map((f) => f(db.customers)),
+    ...siraTerimleri.map((f) => f(db.customers)),
     OrderingTerm.desc(db.customerPhones.isPrimary),
     OrderingTerm.desc(db.customerAddresses.isPrimary),
   ]);
@@ -220,43 +224,9 @@ Stream<int> watchDebtCount(AppDatabase db, {String? kullaniciId}) {
 /// AYNI olmalı — arama sonucu da aynı mantıkla dizilir.
 Stream<List<Customer>> watchCustomers(AppDatabase db, String query,
     {MusteriSirasi sira = MusteriSirasi.eklenme}) {
-  final q = query.trim();
-  final terimler = _siraTerimleri(sira);
-
-  if (q.isEmpty) {
-    return (db.select(db.customers)
-          ..where((t) => t.deletedAt.isNull())
-          ..orderBy(terimler))
-        .watch();
-  }
-
-  final digits = _numaraGovdesi(q);
-  if (digits != null) {
-    final join = db.select(db.customers).join([
-      innerJoin(db.customerPhones, db.customerPhones.customerId.equalsExp(db.customers.id)),
-    ])
-      ..where(db.customers.deletedAt.isNull() & db.customerPhones.phoneLast10.like('%$digits%'))
-      ..orderBy(terimler.map((f) => f(db.customers)).toList());
-    return join.watch().map((rows) =>
-        {for (final r in rows) r.readTable(db.customers).id: r.readTable(db.customers)}
-            .values
-            .toList());
-  }
-
+  final arama = MusteriAramasi(query);
   return (db.select(db.customers)
-        ..where((t) => t.deletedAt.isNull() & _adEslesmesi(db, q))
-        ..orderBy(terimler))
+        ..where((t) => t.deletedAt.isNull() & arama.eslesme(db))
+        ..orderBy(_aramaSirasi(arama, sira)))
       .watch();
-}
-
-/// Kullanıcı yazımını numara gövdesine indirir; 3'ten az rakam varsa null (= ad araması).
-/// DB'de phone_last10 '5321112233' biçimindedir; '+90'/'90' ve baştaki 0 atılmazsa eşleşme kaçar.
-String? _numaraGovdesi(String query) {
-  var digits = query.replaceAll(RegExp(r'\D'), '');
-  if (digits.length < 3) return null;
-  if (digits.startsWith('90') && digits.length > 10) digits = digits.substring(2);
-  while (digits.startsWith('0')) {
-    digits = digits.substring(1);
-  }
-  return phoneLast10(digits);
 }

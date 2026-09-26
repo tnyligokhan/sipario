@@ -44,9 +44,14 @@ class AdresBilgi {
 }
 
 /// customerId → birincil adres. `isPrimary` işaretlisi varsa o, yoksa ilk kayıt.
-Stream<Map<String, AdresBilgi>> watchBirincilAdresler(AppDatabase db) {
+///
+/// [musteriId] verilirse yalnız o müşterinin adresleri okunur. Tek müşteri gösteren ekran
+/// (sipariş özeti, sipariş detayı) bütün tabloyu okumamalı — 8.867 adreslik bayide her
+/// adres değişikliğinde hepsi yeniden haritalanıyordu.
+Stream<Map<String, AdresBilgi>> watchBirincilAdresler(AppDatabase db, {String? musteriId}) {
   final q = db.select(db.customerAddresses)
     ..where((t) => t.deletedAt.isNull())
+    ..where((t) => musteriId == null ? const Constant(true) : t.customerId.equals(musteriId))
     ..orderBy([(t) => OrderingTerm.desc(t.isPrimary), (t) => OrderingTerm.asc(t.id)]);
   return q.watch().map((rows) {
     final map = <String, AdresBilgi>{};
@@ -66,9 +71,13 @@ Stream<Map<String, AdresBilgi>> watchBirincilAdresler(AppDatabase db) {
 }
 
 /// customerId → birincil telefon (E.164 saklanır, gösterimde `sipTelefon` biçimlenir).
-Stream<Map<String, String>> watchBirincilTelefonlar(AppDatabase db) {
+///
+/// [musteriId] verilirse yalnız o müşterinin numaraları okunur ([watchBirincilAdresler] ile
+/// aynı gerekçe).
+Stream<Map<String, String>> watchBirincilTelefonlar(AppDatabase db, {String? musteriId}) {
   final q = db.select(db.customerPhones)
     ..where((t) => t.deletedAt.isNull())
+    ..where((t) => musteriId == null ? const Constant(true) : t.customerId.equals(musteriId))
     ..orderBy([(t) => OrderingTerm.desc(t.isPrimary), (t) => OrderingTerm.asc(t.id)]);
   return q.watch().map((rows) {
     final map = <String, String>{};
@@ -223,33 +232,8 @@ Future<Set<String>> musteriKimlikleri(AppDatabase db) async {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-// Yeni sipariş adım 1 — müşteri arama · katalog
+// Yeni sipariş — katalog (müşteri araması `customer_list_sorgulari.dart`ta, iki ekran ortak)
 // ═══════════════════════════════════════════════════════════════════════════════════════════
-
-/// Yeni sipariş adım 1 — müşteri arama. Ad VEYA telefonun son 10 hanesi eşleşir (müşteri liste
-/// ekranıyla aynı kural; oradan sembol ödünç ALMADAN, çünkü o dosya eşzamanlı yeniden yazılıyor).
-Stream<List<Customer>> watchMusteriArama(AppDatabase db, String sorgu) {
-  final q = sorgu.trim();
-  final sel = db.select(db.customers)
-    ..where((t) => t.deletedAt.isNull())
-    ..orderBy([(t) => OrderingTerm.asc(t.name)]);
-  if (q.isEmpty) return sel.watch();
-
-  final rakam = q.replaceAll(RegExp(r'\D'), '');
-  return sel.watch().asyncMap((liste) async {
-    final adEsleme = liste
-        .where((c) => c.name.toLowerCase().contains(q.toLowerCase()))
-        .map((c) => c.id)
-        .toSet();
-    if (rakam.length >= 3) {
-      final telefonlar = await (db.select(db.customerPhones)
-            ..where((t) => t.deletedAt.isNull() & t.phoneLast10.like('%$rakam%')))
-          .get();
-      adEsleme.addAll(telefonlar.map((p) => p.customerId));
-    }
-    return liste.where((c) => adEsleme.contains(c.id)).toList();
-  });
-}
 
 /// Katalog — aktif ürünler, ada göre. (Ürün ekranı başka ajanın; sorguyu kendimiz kuruyoruz.)
 Stream<List<Product>> watchKatalogUrunleri(AppDatabase db) => (db.select(db.products)

@@ -37,6 +37,15 @@ extension SyncCekme on SyncEngine {
   /// "başarılı" sayılmamalıdır (bkz. [SyncService]) — kuyruğu açık tutmanın bedeli sessiz veri
   /// kaybı olamaz.
   Future<int> pull({int limit = 500, int maxPages = 100}) async {
+    // Tur yarıda koparsa da (ağ, zaman aşımı) ilerleme göstergesi "sürüyor"da ASILI KALMAMALI.
+    try {
+      return await _sayfalariCek(limit, maxPages);
+    } finally {
+      indirmeIlerlemesi.bitti();
+    }
+  }
+
+  Future<int> _sayfalariCek(int limit, int maxPages) async {
     var atlanan = 0;
 
     /// SAYFALI SNAPSHOT İMLECİ — tur boyunca bellekte taşınır, diske YAZILMAZ.
@@ -64,7 +73,11 @@ extension SyncCekme on SyncEngine {
         // SON SAYFA MI? Sunucu sayfalamayı desteklemiyorsa (eski sürüm) `has_more` false gelir
         // ve tek parça snapshot olduğu gibi uygulanır — sözleşme geriye uyumludur.
         final sonSayfa = !resp.hasMore;
+        // İLERLEME: turun ilk sayfası toplamı taşır (eski sunucuda null → yalnız sayaç).
+        if (page == 0) indirmeIlerlemesi.basla(resp.snapshotToplam);
         atlanan += await _applySnapshot(resp, damgala: sonSayfa);
+        indirmeIlerlemesi.sayfaIslendi(
+            resp.entities.values.fold<int>(0, (toplam, satirlar) => toplam + satirlar.length));
         snapshotImleci = resp.snapshotImleci;
       } else {
         atlanan += await _applyDelta(resp);

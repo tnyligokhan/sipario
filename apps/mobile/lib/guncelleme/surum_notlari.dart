@@ -51,6 +51,45 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '1.8.0',
+    tarih: '26 Eylül 2026',
+    maddeler: [
+      'Ayarlar > Uygulama > Veri bölümünde "Verileri baştan indir"e bastığınızda '
+          'artık bir çubuk ne kadarının indiğini ve ne kadar kaldığını gösteriyor.',
+      'İndirme bitince ya da yarıda kalınca ayrıca haber veriliyor.',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.7.0',
+    tarih: '26 Eylül 2026',
+    maddeler: [
+      'Sipariş detayında konumu olmayan adres için "Adresten Konum Bul" eklendi. '
+          'Adresi arar, çıkan seçeneklerden doğrusunu siz seçersiniz.',
+      'Önceki tek düğme, siparişi dükkândan açtığınızda müşterinin kapısına dükkânın '
+          'konumunu yazıyordu. O düğme artık "Bulunduğum Yeri Kaydet" adıyla ayrı duruyor; '
+          'kapıdaki kurye için.',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.6.0',
+    tarih: '26 Eylül 2026',
+    maddeler: [
+      'Yönetici artık ürün silebiliyor: Ürünler sayfasında ürüne dokunun, formun altındaki '
+          '"Ürünü sil" düğmesine basın.',
+      'Silinen ürün yeni siparişte seçilemez. Geçmiş siparişlerde ürünün adı ve tutarı '
+          'olduğu gibi kalır.',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.5.1',
+    tarih: '26 Eylül 2026',
+    maddeler: [
+      'Müşteriyi koduyla arayabiliyorsunuz. Hem Müşteriler sayfasında hem yeni sipariş '
+          'eklerken kodu yazmanız yeterli; kodu tutan müşteri en üstte çıkar.',
+      'Yeni sipariş eklerken müşteri listesi çok müşterisi olan bayilerde artık takılmıyor.',
+    ],
+  ),
+  SurumNotu(
     surum: '1.5.0',
     tarih: '15 Eylül 2026',
     maddeler: [

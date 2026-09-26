@@ -125,10 +125,11 @@ const List<RehberAdim> urunlerTuru = [
         'Eski siparişler kendi fiyatını içinde taşır, yani geçmiş hesaplar aynı kalır',
   ),
   RehberAdim(
-    baslik: 'Biten ürünü silme, stokta yok yap',
-    metin: 'Ürün formundaki stok anahtarını kapatırsan ürün sipariş ekranında görünmez olur '
-        'ama geçmiş siparişlerde adı durmaya devam eder\n\n'
-        'Silmek ise geçmişi de bozar, o yüzden ürün silmek yerine kapatılır',
+    baslik: 'Biten ürünü kapat, hiç satmayacağını sil',
+    metin: 'Ürün formundaki stok anahtarını kapatırsan ürün sipariş ekranında görünmez olur, '
+        'yeniden açtığında geri gelir\n\n'
+        'Hiç satmayacağın ürünü formun altındaki Ürünü sil düğmesiyle silebilirsin. '
+        'Geçmiş siparişlerde ürünün adı ve tutarı olduğu gibi kalır',
   ),
   RehberAdim(
     baslik: 'Seçenekler',
