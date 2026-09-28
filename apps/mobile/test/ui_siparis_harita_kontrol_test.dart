@@ -13,10 +13,11 @@
 
 import 'package:drift/native.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sipario/auth/session.dart' show kDefaultApiBaseUrl;
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/konum/cihaz_konumu.dart';
+import 'package:sipario/screens/orders/harita_karo_kaynagi.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
 import 'package:sipario/screens/orders/siparis_harita.dart';
 
@@ -59,9 +60,10 @@ void main() {
       await akisiBekle(tester);
 
       final katman = tester.widget<TileLayer>(find.byType(TileLayer));
-      expect(katman.urlTemplate,
-          'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
-      expect(katman.subdomains, ['a', 'b', 'c', 'd']);
+      // Karo KENDİ SUNUCUMUZDAN gelir (2026-09-26): CARTO anahtarsız karo vermeyi kesti ve
+      // anahtar APK'ya gömülmez. Doğrudan CARTO adresi "API KEY REQUIRED" filigranı döndürür.
+      expect(katman.urlTemplate, '$kDefaultApiBaseUrl/harita/karo/light_all/{z}/{x}/{y}{r}.png');
+      expect(katman.urlTemplate, isNot(contains('cartocdn')));
       // Atıf HUKUKİ ZORUNLULUK — kaldırılamaz, metni sözleşmedir.
       expect(find.text('© OpenStreetMap, © CARTO'), findsOneWidget);
 
@@ -79,20 +81,69 @@ void main() {
       await akisiBekle(tester);
 
       final katman = tester.widget<TileLayer>(find.byType(TileLayer));
-      expect(katman.urlTemplate,
-          'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png');
+      expect(katman.urlTemplate, '$kDefaultApiBaseUrl/harita/karo/dark_all/{z}/{x}/{y}{r}.png');
       // Atıf koyuda da durur — hukuki zorunluluk temayla pazarlık etmez.
       expect(find.text('© OpenStreetMap, © CARTO'), findsOneWidget);
 
       await ekraniKapat(tester);
     });
 
-    test('üretim karo sağlayıcısının varsayılanı İPTAL EDİLEBİLİR indirmedir', () {
+    test('üretim karo sağlayıcısı İPTAL EDER ve DİSKTE ÖNBELLEKLER', () {
       // Saha bulgusu (2026-07-29): "harita çok kasıyor". Kaydırmada görünürlükten çıkan
-      // karoların istekleri iptal edilmezse kuyruk ana iş parçacığını boğar. Dikişin
-      // varsayılanı ayrı fonksiyonda durur ki bu söz, testlerin dikişi sahteyle değiştirdiği
-      // durumdan bağımsız sınanabilsin.
-      expect(varsayilanKaroSaglayici(), isA<CancellableNetworkTileProvider>());
+      // karoların istekleri iptal edilmezse kuyruk ana iş parçacığını boğar.
+      // Saha bulgusu (2026-09-28): "gri kareler uzun süre boş kalıyor". Önceki
+      // CancellableNetworkTileProvider'ın disk önbelleği yoktu; her açılış bütün karoları
+      // yeniden indiriyordu. `cachingProvider: null` = flutter_map'in yerleşik disk önbelleği.
+      final s = varsayilanKaroSaglayici();
+      expect(s, isA<NetworkTileProvider>());
+      s as NetworkTileProvider;
+      expect(s.abortObsoleteRequests, isTrue);
+      expect(s.cachingProvider, isNull);
+    });
+
+    testWidgets('yeniden çizimde karo sağlayıcı KORUNUR, tema değişince yenilenir',
+        (tester) async {
+      // 2026-09-28'e dek her build yeni bir sağlayıcı (ve yeni bir HTTP istemcisi) üretiyordu:
+      // bağlantı yeniden kullanılmıyor, eski istemciler hiç kapatılmıyordu.
+      genisYuzey(tester);
+      final db = await ikiDurak(tester);
+      var uretilen = 0;
+      haritaKaroSaglayici = () {
+        uretilen++;
+        return SahteKaroSaglayici();
+      };
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await akisiBekle(tester);
+      final ilk = tester.widget<TileLayer>(find.byType(TileLayer)).tileProvider;
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await tester.pump();
+      expect(tester.widget<TileLayer>(find.byType(TileLayer)).tileProvider, same(ilk));
+      expect(uretilen, 1);
+
+      await tester.pumpWidget(sipKabukKoyu(SiparisHaritaEkrani(db: db, writable: true)));
+      // MaterialApp tema değişimini ~200 ms'lik animasyonla uygular; sonuna taşınır.
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tester.widget<TileLayer>(find.byType(TileLayer)).tileProvider, isNot(same(ilk)));
+      expect(uretilen, 2);
+
+      await ekraniKapat(tester);
+    });
+
+    test('karo isteği oturum jetonunu taşır, jeton yoksa başlık da yok', () {
+      // Sunucu aracısı oturum ister: açık bir aracı CARTO kotamızı herkese açardı.
+      const oturumlu = HaritaKaroKaynagi(apiTaban: 'https://x.test/api/v1', jeton: 'j1');
+      expect(oturumlu.basliklar, {'Authorization': 'Bearer j1'});
+      expect(const HaritaKaroKaynagi(apiTaban: 'https://x.test/api/v1').basliklar, isEmpty);
+      expect(oturumlu.sablon(koyu: false),
+          'https://x.test/api/v1/harita/karo/light_all/{z}/{x}/{y}{r}.png');
+    });
+
+    test('jeton değişince kaynak değişir — katman yeni jetonla yeniden kurulur', () {
+      const a = HaritaKaroKaynagi(apiTaban: 'https://x.test', jeton: 'j1');
+      expect(a, const HaritaKaroKaynagi(apiTaban: 'https://x.test', jeton: 'j1'));
+      expect(a == const HaritaKaroKaynagi(apiTaban: 'https://x.test', jeton: 'j2'), isFalse);
     });
 
     testWidgets('+ / − düğmeleri kamerayı yakınlaştırır ve uzaklaştırır', (tester) async {

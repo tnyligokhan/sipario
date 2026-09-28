@@ -17,7 +17,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../data/app_database.dart';
@@ -27,6 +26,7 @@ import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import 'harita_isaretler.dart';
+import 'harita_karo_kaynagi.dart';
 import 'harita_kontrolleri.dart';
 import 'harita_kurye_katmani.dart';
 import 'harita_sorgulari.dart';
@@ -38,51 +38,30 @@ import 'siparis_harita_ozet.dart';
 // YÜZEYİ değişmez — çağıranlar ve testler onları hâlâ bu dosyadan tanır (sözleşme).
 export 'harita_isaretler.dart' show CihazPini, DurakPini, KonumsuzBant;
 
-/// Karo adresi — CARTO **Positron** (gri-minimal OSM tabanı), ANAHTARSIZ.
-///
-/// HAM OSM KAROSUNDAN NEDEN VAZGEÇİLDİ (cihazda ekran görüntüsüyle görüldü): standart `tile.
-/// openstreetmap.org` katmanı kırmızı otoyollar, yol numarası etiketleri ve yoğun POI
-/// simgeleriyle geliyor. Uygulamanın sade/aydınlık dilinin yanında gürültü gibi duruyordu ve
-/// asıl iş olan MOR PİNLER bu kalabalıkta kayboluyordu. Positron ana yolları nötr griyle çizer,
-/// POI basmaz — pinler tek bakışta öne çıkar.
-///
-/// Anahtar İSTEMEZ: APK'ya gömülecek sır yok (kırmızı çizgi korunur), sağlayıcı değişimi de tek
-/// satırlık bir iş kalır.
-///
-/// `{s}` alt alan adı (a–d), `{r}` retina ölçeği ("@2x"). `{r}` yalnız yüksek yoğunluklu
-/// ekranlarda doldurulur — `retinaMode` kapalıyken flutter_map onu BOŞ metinle değiştirir,
-/// yani düşük yoğunluklu cihazlarda ve testlerde adres kendiliğinden sade hâline döner.
-const String kHaritaKaroUrlAcik =
-    'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-
-/// KOYU temanın karosu — CARTO **Dark Matter**, Positron'un birebir karanlık kardeşi (aynı
-/// sunucu, aynı şartlar, yine ANAHTARSIZ). Saha bulgusu (2026-07-29): uygulama koyu temadayken
-/// haritanın bembeyaz açılması hem göz alıyor hem "bozuk" izlenimi veriyordu — karo stili artık
-/// temanın parlaklığını İZLER.
-const String kHaritaKaroUrlKoyu =
-    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-
-/// Temaya göre karo adresi. Seçim TEK yerde dursun: hem TileLayer hem testler bunu kullanır.
-String haritaKaroUrl({required bool koyu}) =>
-    koyu ? kHaritaKaroUrlKoyu : kHaritaKaroUrlAcik;
-
-/// Positron'un alt alan adları. OSM'in kendi sunucusunda subdomain KULLANILMAZ (flutter_map
-/// uyarır), CARTO'da ise beklenen kullanım budur.
-const List<String> kHaritaAltAlanlar = ['a', 'b', 'c', 'd'];
+// KARO STİLİ — CARTO **Positron** (açık) / **Dark Matter** (koyu), gri-minimal OSM tabanı.
+//
+// HAM OSM KAROSUNDAN NEDEN VAZGEÇİLDİ (cihazda ekran görüntüsüyle görüldü): standart `tile.
+// openstreetmap.org` katmanı kırmızı otoyollar, yol numarası etiketleri ve yoğun POI
+// simgeleriyle geliyor. Uygulamanın sade/aydınlık dilinin yanında gürültü gibi duruyordu ve
+// asıl iş olan MOR PİNLER bu kalabalıkta kayboluyordu. Positron ana yolları nötr griyle çizer,
+// POI basmaz — pinler tek bakışta öne çıkar. Koyu tema Dark Matter'a geçer (saha bulgusu
+// 2026-07-29: koyu temada bembeyaz harita "bozuk" izlenimi veriyordu).
+//
+// ADRES ARTIK KENDİ SUNUCUMUZ (2026-09-26): CARTO anahtarsız karo vermeyi kesti ve her karonun
+// yerinde "API KEY REQUIRED" filigranı çıktı. Anahtar sunucuda kalır; şablon ve jeton
+// [HaritaKaroKaynagi]'ndadır.
 
 /// Kullanım şartı: istekler uygulamayı TANITMALI. Gerçek applicationId
 /// (`android/app/build.gradle.kts`) yazılır — uydurma bir ad, kotanın kime ait olduğunu gizler.
 const String kHaritaUygulamaAdi = 'com.sipario.app';
 
-/// Üretim karo sağlayıcısı — İPTAL EDİLEBİLİR indirme (saha bulgusu 2026-07-29: "harita çok
-/// kasıyor"). Varsayılan `NetworkTileProvider` bir karo istemeye başladıysa BİTİRİR: hızlı
-/// kaydırma/zoom'da görünürlükten çoktan çıkmış onlarca karo inip çözülmeye devam eder, kuyruk
-/// ana iş parçacığını boğar. `CancellableNetworkTileProvider` kadraj dışına düşen karonun
-/// isteğini ANINDA keser — flutter_map'in kendi belgelerinin performans için önerdiği yol.
-///
-/// Ayrı bir fonksiyon olarak duruyor ki "üretimin varsayılanı iptal edilebilir sağlayıcıdır"
-/// sözü dikişten bağımsız test edilebilsin (dikiş testlerde sahteyle değiştirilir).
-TileProvider varsayilanKaroSaglayici() => CancellableNetworkTileProvider();
+/// Üretim karo sağlayıcısı — İPTAL + DİSK ÖNBELLEĞİ. İptal (2026-07-29 "harita çok kasıyor"):
+/// kadraj dışı karonun isteği kesilir (`abortObsoleteRequests`, varsayılan açık). Önbellek
+/// (2026-09-28 "gri kareler uzun süre boş kalıyor"): önceki `CancellableNetworkTileProvider`
+/// eklentisinin diske önbelleği YOKTU, her açılışta bütün karolar sıfırdan iniyordu. Çekirdek
+/// sağlayıcı `BuiltInMapCachingProvider` kullanır, tazeliği sunucunun `max-age`inden okur.
+/// Ayrı fonksiyon: bu söz, testlerin sahteyle değiştirdiği dikişten bağımsız sınanır.
+TileProvider varsayilanKaroSaglayici() => NetworkTileProvider();
 
 /// Karo sağlayıcının TEK dikişi. Üretimde ağdan indirir; widget testleri bunu sahtesiyle
 /// değiştirir ve test hiçbir zaman ağa çıkmaz (`adresAdaylariGetir` / `cihazKonumuOku` deseni).
@@ -120,6 +99,9 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
   /// düğme kontör YAZMADAN, PASİF çizilir. Uydurma bir sayı göstermek yasak: kullanıcı
   /// "34 hakkım var" deyip tıkladığında sunucu 409 dönerse güven kaybolur.
   int? _otoHak;
+
+  /// Karo adresi + jeton — ilk senkron durumu okunana dek null (karo katmanı henüz çizilmez).
+  HaritaKaroKaynagi? _karo;
   StreamSubscription<SyncMetaData>? _metaAbone;
 
   /// İstek yolda mı — kontörlü eylemde ikinci dokunuş ikinci hak demektir.
@@ -140,8 +122,13 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
     _metaAbone = widget.db.watchSyncState().listen((meta) {
       // Oturum yoksa (token null) çevrimiçi eylem hiç sunulmaz.
       final yeni = meta.authToken == null ? null : meta.routeCredits;
-      if (!mounted || yeni == _otoHak) return;
-      setState(() => _otoHak = yeni);
+      // Karo kaynağı da buradan: API adresi ve oturum jetonu senkron durumundadır.
+      final karo = HaritaKaroKaynagi.meta(meta);
+      if (!mounted || (yeni == _otoHak && karo == _karo)) return;
+      setState(() {
+        _otoHak = yeni;
+        _karo = karo;
+      });
     });
   }
 
@@ -304,6 +291,7 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
       // `if (patron)` yazmak, rolü ikinci bir yerde daha yorumlamak ve özelliğin ağaca hiç
       // bağlanmadığı hâli testlerden gizlemek olurdu.
       kuryeKatmani: KuryeKatmani(db: widget.db),
+      karoKaynagi: _karo,
     );
   }
 
@@ -337,7 +325,11 @@ class SiparisHaritaGorunumu extends StatefulWidget {
     this.onKonumum,
     this.kuryeKatmani,
     this.otoDugmesi,
+    this.karoKaynagi,
   });
+
+  /// Karo adresi ve jetonu. null = henüz bilinmiyor → karo katmanı çizilmez, pinler yine çizilir.
+  final HaritaKaroKaynagi? karoKaynagi;
 
   final List<HaritaDuragi> duraklar;
   final LatLng? cihaz;
@@ -371,6 +363,18 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
   /// her build'de yeni bir nesne üretmek MapOptions'ı boş yere değiştirirdi. "Duraklara sığdır"
   /// düğmesi de aynı kadrajı yeniden kurar — açılışa dönmek tek dokunuş olsun.
   late final CameraFit _acilisKadraji = _kadraj();
+
+  /// Sağlayıcı yalnız (kaynak, koyu) değişince kurulur: 2026-09-28'e dek her build yeni bir HTTP
+  /// istemcisi açıyor, eskisini hiç kapatmıyordu. Eskisini `TileLayer` dispose'unda kapatır.
+  TileProvider? _saglayici;
+  Object? _saglayiciAnahtari;
+  TileProvider _karoSaglayici(HaritaKaroKaynagi karo, bool koyu) {
+    if (_saglayici == null || (karo, koyu) != _saglayiciAnahtari) {
+      _saglayici = haritaKaroSaglayici()..headers.addAll(karo.basliklar);
+      _saglayiciAnahtari = (karo, koyu);
+    }
+    return _saglayici!;
+  }
 
   @override
   void dispose() {
@@ -410,6 +414,7 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
   Widget build(BuildContext context) {
     final t = context.sip;
     final duraklar = widget.duraklar;
+    final karo = widget.karoKaynagi;
 
     return Stack(
       children: [
@@ -420,23 +425,23 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
             backgroundColor: t.surface2,
           ),
           children: [
-            TileLayer(
-              // Tema değişince şablon değişir; ValueKey katmanı KOMPLE değiştirir — eski stilin
-              // önbellekteki karoları yeni stille karışıp "yarı aydınlık yarı karanlık" bir
-              // yama haritası bırakmasın.
-              key: ValueKey(haritaKaroUrl(koyu: t.koyu)),
-              urlTemplate: haritaKaroUrl(koyu: t.koyu),
-              subdomains: kHaritaAltAlanlar,
-              userAgentPackageName: kHaritaUygulamaAdi,
-              tileProvider: haritaKaroSaglayici(),
-              // Yüksek yoğunluklu ekranda "@2x" karo istenir (`{r}`); düşük yoğunlukta ve
-              // testlerde flutter_map yer tutucuyu BOŞ metinle doldurur, yani ek istek yok.
-              retinaMode: RetinaMode.isHighDensity(context),
-              // ÇEVRİMDIŞI: karo inmezse harita gri kalır ve PİNLER durur. Geri çağrı SESSİZDİR —
-              // ekranda kaydırma başına onlarca karo denenir; her biri için toast göstermek
-              // uygulamayı kullanılamaz hâle getirirdi.
-              errorTileCallback: (_, _, _) {},
-            ),
+            if (karo != null)
+              TileLayer(
+                // Tema ya da oturum değişince ValueKey katmanı KOMPLE değiştirir: eski stilin
+                // karoları yeni stille karışıp yama gibi bir harita bırakmasın.
+                key: ValueKey((karo, t.koyu)),
+                urlTemplate: karo.sablon(koyu: t.koyu),
+                userAgentPackageName: kHaritaUygulamaAdi,
+                // Oturum jetonu sağlayıcının başlıklarında (sunucu aracısı oturum ister).
+                tileProvider: _karoSaglayici(karo, t.koyu),
+                // Yüksek yoğunluklu ekranda "@2x" karo istenir (`{r}`); düşük yoğunlukta ve
+                // testlerde flutter_map yer tutucuyu BOŞ metinle doldurur, yani ek istek yok.
+                retinaMode: RetinaMode.isHighDensity(context),
+                // ÇEVRİMDIŞI: karo inmezse harita gri kalır ve PİNLER durur. Geri çağrı SESSİZDİR —
+                // ekranda kaydırma başına onlarca karo denenir; her biri için toast göstermek
+                // uygulamayı kullanılamaz hâle getirirdi.
+                errorTileCallback: (_, _, _) {},
+              ),
             MarkerLayer(
               markers: [
                 for (var i = 0; i < duraklar.length; i++)

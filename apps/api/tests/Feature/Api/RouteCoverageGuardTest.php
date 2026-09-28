@@ -43,6 +43,7 @@ class RouteCoverageGuardTest extends TestCase
         'api.locations.heartbeat',
         'api.locations.live',
         'api.team.credentials',
+        'api.harita.karo',
 
         /*
          * Matristeki ilk TARAYICI route'u (2026-08-04): bayinin hesap paneli. Yukarıdakiler
