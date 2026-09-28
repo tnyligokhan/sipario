@@ -269,7 +269,16 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA KAROSU** (mobil 1.5.0 → **1.8.1**, API 1.24.0 → **1.27.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA KAROSU** (mobil 1.5.0 → **1.8.2**, API 1.24.0 → **1.27.0**)
+
+> **EK (2026-09-28) — HARİTA "GRİ KARELER UZUN SÜRE BOŞ" (mobil 1.8.2, DECISIONS 2026-09-28/1):**
+> telefonda karo DİSK ÖNBELLEĞİ yoktu (`flutter_map_cancellable_tile_provider` tutmuyor) ve her
+> build yeni HTTP istemcisi açıyordu. Eklenti kaldırıldı, çekirdek `NetworkTileProvider` (iptal +
+> yerleşik disk önbelleği) kullanılıyor, sağlayıcı State'te tutuluyor. Kapılar: analyze temiz ·
+> flutter test **1659/1659** · `flutter build apk --release --flavor saha` derlendi. Gerçek cihazda
+> GÖRÜLMEDİ. Hâlâ yavaşsa sıradaki adım MapLibre + OpenFreeMap (çizim yerel, anahtar/aracı yok).
+> Sunucu aracısının eşzamanlı yük altındaki davranışı (PHP işçi sayısı) ÖLÇÜLEMEDİ — SSH okuması
+> izin almadı.
 
 > **SON İŞ — HARİTA "API Key Required" (mobil 1.8.1, API 1.27.0, DECISIONS 2026-09-26/8):** CARTO
 > anahtarsız karo vermeyi kesti. Karo artık `GET /api/v1/harita/karo/...` üzerinden gelir, anahtar

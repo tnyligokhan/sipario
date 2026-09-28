@@ -16,7 +16,7 @@ publish_to: 'none'
 # git commit sayısından türetir; makinenin karşılaştırma anahtarıdır (Play daha küçük
 # versionCode'u reddeder, uygulama içi güncelleme "uzaktaki benden yeni mi?"yi tam sayıyla çözer).
 # Buradaki +1 yalnız git'in bulunamadığı durumda (depo dışı derleme) yedek değerdir.
-version: 1.8.1+1
+version: 1.8.2+1
 
 environment:
   sdk: ^3.10.7
@@ -83,11 +83,9 @@ dependencies:
   # latlong2 flutter_map'in koordinat tipidir (LatLng) — ayrı bir seçim değil, zorunlu eşlikçi.
   flutter_map: ^8.3.1
   latlong2: ^0.10.1
-  # Saha bulgusu (2026-07-29): "harita çok kasıyor". Varsayılan sağlayıcı başladığı karo
-  # indirmesini bitirir; hızlı kaydırmada görünürlükten çıkmış onlarca karo inip çözülmeye devam
-  # eder ve kuyruk ana iş parçacığını boğar. Bu resmî tamamlayıcı, kadraj dışına düşen karonun
-  # isteğini ANINDA iptal eder (flutter_map belgelerinin performans önerisi).
-  flutter_map_cancellable_tile_provider: ^3.1.1
+  # flutter_map_cancellable_tile_provider KALDIRILDI (2026-09-28): karo iptali 8.2'den beri
+  # çekirdek NetworkTileProvider'da, üstelik eklentinin DİSK ÖNBELLEĞİ yoktu ("gri kareler uzun
+  # süre boş kalıyor"). Ayrıntı: `varsayilanKaroSaglayici`.
   # PUSH BİLDİRİMİ — sunucunun telefonu dürtmesi (yeni sipariş kuryeye atandı, teslim edildi,
   # kasa devredildi). Yerel bildirim altyapısı (`lib/bildirim/`) bunun YERİNE GEÇMEZ: o telefonun
   # KENDİ verisinden üretir, bu ise başka bir cihazda olan bir şeyi haber verir.

@@ -17,7 +17,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../data/app_database.dart';
@@ -56,15 +55,13 @@ export 'harita_isaretler.dart' show CihazPini, DurakPini, KonumsuzBant;
 /// (`android/app/build.gradle.kts`) yazılır — uydurma bir ad, kotanın kime ait olduğunu gizler.
 const String kHaritaUygulamaAdi = 'com.sipario.app';
 
-/// Üretim karo sağlayıcısı — İPTAL EDİLEBİLİR indirme (saha bulgusu 2026-07-29: "harita çok
-/// kasıyor"). Varsayılan `NetworkTileProvider` bir karo istemeye başladıysa BİTİRİR: hızlı
-/// kaydırma/zoom'da görünürlükten çoktan çıkmış onlarca karo inip çözülmeye devam eder, kuyruk
-/// ana iş parçacığını boğar. `CancellableNetworkTileProvider` kadraj dışına düşen karonun
-/// isteğini ANINDA keser — flutter_map'in kendi belgelerinin performans için önerdiği yol.
-///
-/// Ayrı bir fonksiyon olarak duruyor ki "üretimin varsayılanı iptal edilebilir sağlayıcıdır"
-/// sözü dikişten bağımsız test edilebilsin (dikiş testlerde sahteyle değiştirilir).
-TileProvider varsayilanKaroSaglayici() => CancellableNetworkTileProvider();
+/// Üretim karo sağlayıcısı — İPTAL + DİSK ÖNBELLEĞİ. İptal (2026-07-29 "harita çok kasıyor"):
+/// kadraj dışı karonun isteği kesilir (`abortObsoleteRequests`, varsayılan açık). Önbellek
+/// (2026-09-28 "gri kareler uzun süre boş kalıyor"): önceki `CancellableNetworkTileProvider`
+/// eklentisinin diske önbelleği YOKTU, her açılışta bütün karolar sıfırdan iniyordu. Çekirdek
+/// sağlayıcı `BuiltInMapCachingProvider` kullanır, tazeliği sunucunun `max-age`inden okur.
+/// Ayrı fonksiyon: bu söz, testlerin sahteyle değiştirdiği dikişten bağımsız sınanır.
+TileProvider varsayilanKaroSaglayici() => NetworkTileProvider();
 
 /// Karo sağlayıcının TEK dikişi. Üretimde ağdan indirir; widget testleri bunu sahtesiyle
 /// değiştirir ve test hiçbir zaman ağa çıkmaz (`adresAdaylariGetir` / `cihazKonumuOku` deseni).
@@ -367,6 +364,18 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
   /// düğmesi de aynı kadrajı yeniden kurar — açılışa dönmek tek dokunuş olsun.
   late final CameraFit _acilisKadraji = _kadraj();
 
+  /// Sağlayıcı yalnız (kaynak, koyu) değişince kurulur: 2026-09-28'e dek her build yeni bir HTTP
+  /// istemcisi açıyor, eskisini hiç kapatmıyordu. Eskisini `TileLayer` dispose'unda kapatır.
+  TileProvider? _saglayici;
+  Object? _saglayiciAnahtari;
+  TileProvider _karoSaglayici(HaritaKaroKaynagi karo, bool koyu) {
+    if (_saglayici == null || (karo, koyu) != _saglayiciAnahtari) {
+      _saglayici = haritaKaroSaglayici()..headers.addAll(karo.basliklar);
+      _saglayiciAnahtari = (karo, koyu);
+    }
+    return _saglayici!;
+  }
+
   @override
   void dispose() {
     _kontrolcu.dispose();
@@ -418,14 +427,13 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
           children: [
             if (karo != null)
               TileLayer(
-                // Tema ya da oturum değişince şablon/jeton değişir; ValueKey katmanı KOMPLE
-                // değiştirir — eski stilin önbellekteki karoları yeni stille karışıp "yarı aydınlık
-                // yarı karanlık" bir yama haritası bırakmasın.
+                // Tema ya da oturum değişince ValueKey katmanı KOMPLE değiştirir: eski stilin
+                // karoları yeni stille karışıp yama gibi bir harita bırakmasın.
                 key: ValueKey((karo, t.koyu)),
                 urlTemplate: karo.sablon(koyu: t.koyu),
                 userAgentPackageName: kHaritaUygulamaAdi,
-                // Oturum jetonu her karo isteğine eklenir (sunucu aracısı oturum ister).
-                tileProvider: haritaKaroSaglayici()..headers.addAll(karo.basliklar),
+                // Oturum jetonu sağlayıcının başlıklarında (sunucu aracısı oturum ister).
+                tileProvider: _karoSaglayici(karo, t.koyu),
                 // Yüksek yoğunluklu ekranda "@2x" karo istenir (`{r}`); düşük yoğunlukta ve
                 // testlerde flutter_map yer tutucuyu BOŞ metinle doldurur, yani ek istek yok.
                 retinaMode: RetinaMode.isHighDensity(context),

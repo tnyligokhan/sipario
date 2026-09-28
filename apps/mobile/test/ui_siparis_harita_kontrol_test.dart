@@ -13,7 +13,6 @@
 
 import 'package:drift/native.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/auth/session.dart' show kDefaultApiBaseUrl;
 import 'package:sipario/data/app_database.dart';
@@ -89,12 +88,47 @@ void main() {
       await ekraniKapat(tester);
     });
 
-    test('üretim karo sağlayıcısının varsayılanı İPTAL EDİLEBİLİR indirmedir', () {
+    test('üretim karo sağlayıcısı İPTAL EDER ve DİSKTE ÖNBELLEKLER', () {
       // Saha bulgusu (2026-07-29): "harita çok kasıyor". Kaydırmada görünürlükten çıkan
-      // karoların istekleri iptal edilmezse kuyruk ana iş parçacığını boğar. Dikişin
-      // varsayılanı ayrı fonksiyonda durur ki bu söz, testlerin dikişi sahteyle değiştirdiği
-      // durumdan bağımsız sınanabilsin.
-      expect(varsayilanKaroSaglayici(), isA<CancellableNetworkTileProvider>());
+      // karoların istekleri iptal edilmezse kuyruk ana iş parçacığını boğar.
+      // Saha bulgusu (2026-09-28): "gri kareler uzun süre boş kalıyor". Önceki
+      // CancellableNetworkTileProvider'ın disk önbelleği yoktu; her açılış bütün karoları
+      // yeniden indiriyordu. `cachingProvider: null` = flutter_map'in yerleşik disk önbelleği.
+      final s = varsayilanKaroSaglayici();
+      expect(s, isA<NetworkTileProvider>());
+      s as NetworkTileProvider;
+      expect(s.abortObsoleteRequests, isTrue);
+      expect(s.cachingProvider, isNull);
+    });
+
+    testWidgets('yeniden çizimde karo sağlayıcı KORUNUR, tema değişince yenilenir',
+        (tester) async {
+      // 2026-09-28'e dek her build yeni bir sağlayıcı (ve yeni bir HTTP istemcisi) üretiyordu:
+      // bağlantı yeniden kullanılmıyor, eski istemciler hiç kapatılmıyordu.
+      genisYuzey(tester);
+      final db = await ikiDurak(tester);
+      var uretilen = 0;
+      haritaKaroSaglayici = () {
+        uretilen++;
+        return SahteKaroSaglayici();
+      };
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await akisiBekle(tester);
+      final ilk = tester.widget<TileLayer>(find.byType(TileLayer)).tileProvider;
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await tester.pump();
+      expect(tester.widget<TileLayer>(find.byType(TileLayer)).tileProvider, same(ilk));
+      expect(uretilen, 1);
+
+      await tester.pumpWidget(sipKabukKoyu(SiparisHaritaEkrani(db: db, writable: true)));
+      // MaterialApp tema değişimini ~200 ms'lik animasyonla uygular; sonuna taşınır.
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tester.widget<TileLayer>(find.byType(TileLayer)).tileProvider, isNot(same(ilk)));
+      expect(uretilen, 2);
+
+      await ekraniKapat(tester);
     });
 
     test('karo isteği oturum jetonunu taşır, jeton yoksa başlık da yok', () {
