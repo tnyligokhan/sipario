@@ -269,8 +269,19 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA KAROSU** (mobil 1.5.0 → **1.8.2**, API 1.24.0 → **1.27.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.9.0**, API 1.24.0 → **1.27.0**)
 
+> **SON İŞ (2026-09-28) — HARİTA MAPLIBRE + OPENFREEMAP (mobil 1.9.0, DECISIONS 2026-09-28/2):**
+> "yakınlaştırınca pikselleşiyor" → yerel vektör motor. Yeni: kesikli rota çizgisi, yakınlaşınca
+> müşteri adı, seçili durak vurgusu, Türkçe ve doğru harfli yer adları, çevrimdışı açılış (stil
+> diskte + yedek stil). Kapılar: analyze temiz · flutter test **1693/1693** · release APK (saha,
+> split) derlendi · **emülatörde (Pixel_7, `-gpu host`) test sunucusu demo bayisiyle görüldü**:
+> pinler/rota/dokunuş/özet/vurgu/zoom/sığdır/koyu tema/uçak modunda açılış. Gerçek telefonda
+> GÖRÜLMEDİ. ⚠️ CI JDK 17→21 (maplibre_gl şartı) — ilk CI koşusu izlenmeli. ⚠️ Sunucu karo
+> aracısı (`/harita/karo`, `CARTO_BASEMAPS_KEY`) ≤1.8.2 için duruyor; sahadakiler 1.9.0'a geçince
+> kaldırılacak (borç). Kurye pinleri motor katmanına taşındı ama canlı kurye verisiyle cihazda
+> DENENMEDİ (demo bayisinde kalp atışı yok).
+>
 > **EK (2026-09-28) — HARİTA "GRİ KARELER UZUN SÜRE BOŞ" (mobil 1.8.2, DECISIONS 2026-09-28/1):**
 > telefonda karo DİSK ÖNBELLEĞİ yoktu (`flutter_map_cancellable_tile_provider` tutmuyor) ve her
 > build yeni HTTP istemcisi açıyordu. Eklenti kaldırıldı, çekirdek `NetworkTileProvider` (iptal +

@@ -7,15 +7,13 @@
 //     HİÇ çağrılmaz — "görünmüyor ama istek gidiyor" bir gizlilik sızıntısıdır, kapı gerçek olmalı.
 //
 // Bu dosyadaki testler AĞA ve PLATFORM KANALINA hiç uzanmaz: `konumApiUret`, `sessizKonumOku`,
-// `cihazKonumuOku` ve `haritaKaroSaglayici` dikişleri sahtelenir ve hepsi tearDown'da GERİ ALINIR
+// `cihazKonumuOku` ve `haritaTuvaliUret` dikişleri sahtelenir ve hepsi tearDown'da GERİ ALINIR
 // (sızan bir sahte, bir sonraki testte sessizce yanlış sonuç üretir).
 
 import 'dart:convert';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -27,16 +25,8 @@ import 'package:sipario/repo/order_repository.dart';
 import 'package:sipario/screens/orders/harita_kurye_katmani.dart';
 import 'package:sipario/screens/orders/siparis_harita.dart';
 import 'package:sipario/sync/konum_api.dart';
-import 'package:sipario/theme/tokens.dart';
 
 import 'support/siparis_yardimci.dart';
-
-/// Testte kullanılan karo sağlayıcı: her karo için TEK saydam görsel döner, hiçbir istek atmaz.
-class SahteKaro extends TileProvider {
-  @override
-  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) =>
-      MemoryImage(TileProvider.transparentImage);
-}
 
 /// Sahte sunucuya giden tek istek — yol, yöntem ve (varsa) gövde.
 class Istek {
@@ -277,16 +267,9 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════════════════════
 
   group('Kurye katmanı', () {
-    setUp(() {
-      final eskiKaro = haritaKaroSaglayici;
-      haritaKaroSaglayici = SahteKaro.new;
-      addTearDown(() => haritaKaroSaglayici = eskiKaro);
-
-      // Cihaz konumu alınamaz (eklentisiz ortamın gerçeği) — kurye katmanı ondan bağımsızdır.
-      final eskiKonum = cihazKonumuOku;
-      cihazKonumuOku = () async => throw const KonumHatasi('Konum alınamadı');
-      addTearDown(() => cihazKonumuOku = eskiKonum);
-    });
+    // Cihaz konumu alınamaz (eklentisiz ortamın gerçeği) — kurye katmanı ondan bağımsızdır.
+    late SahteHaritaTuvali harita;
+    setUp(() => harita = haritaDikisleriniSahtele());
 
     /// Bir koordinatlı açık sipariş (harita ancak durak varken kurulur) + verilen rol/oturum.
     Future<AppDatabase> haritaDbKur({
@@ -330,7 +313,7 @@ void main() {
 
       await haritayiAc(tester, db);
 
-      expect(find.byType(KuryePini), findsOneWidget);
+      expect(harita.kuryeler, findsOneWidget);
       expect(find.text('Ahmet Kurye'), findsOneWidget);
       expect(istekler.map((i) => i.yol), everyElement(endsWith('/locations/live')));
 
@@ -347,10 +330,10 @@ void main() {
 
       await haritayiAc(tester, db);
 
-      expect(find.byType(KuryePini), findsNothing);
+      expect(harita.kuryeler, findsNothing);
       expect(istekler, isEmpty);
       // Harita YİNE çalışır — kapı yalnız kurye katmanını kapatır.
-      expect(find.byType(DurakPini), findsOneWidget);
+      expect(harita.duraklar, findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -364,7 +347,7 @@ void main() {
 
       await haritayiAc(tester, db);
 
-      expect(find.byType(KuryePini), findsNothing);
+      expect(harita.kuryeler, findsNothing);
       expect(istekler, isEmpty);
 
       await ekraniKapat(tester);
@@ -383,7 +366,7 @@ void main() {
 
       await haritayiAc(tester, db);
 
-      expect(find.byType(KuryePini), findsOneWidget);
+      expect(harita.kuryeler, findsOneWidget);
       expect(find.text('Kendim'), findsNothing);
       expect(find.text('Ahmet Kurye'), findsOneWidget);
 
@@ -403,11 +386,12 @@ void main() {
       expect(find.text('Ahmet Kurye'), findsOneWidget);
       expect(find.text('7 dk önce'), findsOneWidget);
 
-      final daire = tester.widget<Container>(
-        find.descendant(of: find.byType(KuryePini), matching: find.byType(Container)),
-      );
-      expect((daire.decoration! as BoxDecoration).color, SipTokens.acik.muted,
-          reason: 'bayat pin vurgu moruyla çizilmez');
+      // Soluk renk haritanın kendi katmanında `taze` özelliğinden seçilir (`harita_maplibre.dart`).
+      final isaret = harita.icerik.kuryeler.single;
+      expect(isaret.taze, isFalse, reason: 'bayat pin vurgu moruyla çizilmez');
+      expect(isaret.etiket, 'Ahmet Kurye\n7 dk önce');
+      final ozellik = (harita.icerik.kuryelerGeoJson['features'] as List).single as Map;
+      expect(ozellik['properties']['taze'], isFalse);
 
       await ekraniKapat(tester);
     });
@@ -420,10 +404,9 @@ void main() {
 
       await haritayiAc(tester, db);
 
-      final daire = tester.widget<Container>(
-        find.descendant(of: find.byType(KuryePini), matching: find.byType(Container)),
-      );
-      expect((daire.decoration! as BoxDecoration).color, SipTokens.acik.accent);
+      final isaret = harita.icerik.kuryeler.single;
+      expect(isaret.taze, isTrue);
+      expect(isaret.etiket, 'Ahmet Kurye');
       // Süre yalnız BAYAT pinde yazar: taze bir pinde her pinin altına saat asmak haritayı
       // okunmaz hâle getirirdi.
       expect(find.text('2 dk önce'), findsNothing);
@@ -440,7 +423,7 @@ void main() {
       await haritayiAc(tester, db);
       expect(find.byType(KuryeOzetGovde), findsNothing);
 
-      await tester.tap(find.byType(KuryePini));
+      await tester.tap(harita.kurye('Ahmet Kurye'));
       await akisiBekle(tester, ms: 400);
 
       expect(find.byType(KuryeOzetGovde), findsOneWidget);
@@ -459,7 +442,7 @@ void main() {
       await tester.runAsync(() async => db = await haritaDbKur(rol: 'patron'));
 
       await haritayiAc(tester, db);
-      await tester.tap(find.byType(KuryePini));
+      await tester.tap(harita.kurye('Ahmet Kurye'));
       await akisiBekle(tester, ms: 400);
 
       expect(find.byType(KuryeOzetGovde), findsOneWidget);

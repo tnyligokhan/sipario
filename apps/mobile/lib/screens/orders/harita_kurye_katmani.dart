@@ -1,4 +1,4 @@
-// CANLI KURYE KATMANI — sipariş haritasının üstünde, hareket eden kurye pinleri.
+// CANLI KURYE KATMANI — sipariş haritasının üstünde, hareket eden kurye işaretleri.
 //
 // NEDEN AYRI DOSYA: `siparis_harita.dart` açık siparişlerin DURAKLARINI çiziyor; bunlar ise
 // tamamen başka bir veri kaynağından (sunucudan, 25 sn'de bir) gelen ve zamanla BAYATLAYAN
@@ -19,8 +19,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../auth/session.dart';
 import '../../data/app_database.dart';
@@ -29,6 +27,7 @@ import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import 'harita_icerigi.dart';
 
 /// Lucide `bike` — iki tekerlek + kadro, tek seferlik path (`harita_kontrolleri.dart` deseni).
 ///
@@ -65,15 +64,31 @@ String kuryeSonGorulme(String iso, {DateTime? simdi}) {
   return '${fark.inDays} gün önce';
 }
 
-/// Haritanın canlı kurye katmanı. `FlutterMap` çocuğu olarak mount edilir; kapıyı KENDİ açar.
+/// Canlı konumun haritadaki işareti. Bayatlık etiketi BURADA hesaplanır: katman her tazelemede
+/// (25 sn) yeniden kurulur, "7 dk önce" kendiliğinden ilerler.
+KuryeIsareti kuryeIsareti(CanliKonum k, {DateTime? simdi}) => KuryeIsareti(
+      id: k.userId,
+      nokta: HaritaNoktasi(k.lat, k.lng),
+      ad: k.ad,
+      taze: k.taze,
+      bayatlik: k.taze ? '' : kuryeSonGorulme(k.bildirilenIso, simdi: simdi),
+    );
+
+/// Haritanın canlı kurye katmanı — VERİ sağlar, çizmez. Kapıyı KENDİ açar ve konumları
+/// [builder]a verir; harita onları kendi vektör katmanında çizer (`harita_maplibre.dart`).
+/// Kapı kapalıyken (patron değil, oturum yok) liste BOŞTUR ve istek hiç atılmaz.
 class KuryeKatmani extends StatefulWidget {
   const KuryeKatmani({
     super.key,
     required this.db,
+    required this.builder,
     this.aralik = const Duration(seconds: 25),
   });
 
   final AppDatabase db;
+
+  /// Konumlar her değiştiğinde çağrılır (kendi konumun ÇIKARILMIŞ olarak).
+  final Widget Function(BuildContext context, List<CanliKonum> konumlar) builder;
 
   /// Tazeleme aralığı. 25 sn: bildirici 30 sn'de bir yazıyor, biraz daha sık okumak pinin
   /// bir tur boyunca donmuş kalmasını engeller.
@@ -149,118 +164,7 @@ class _KuryeKatmaniState extends State<KuryeKatmani> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (_konumlar.isEmpty) return const SizedBox.shrink();
-    return MarkerLayer(
-      markers: [
-        for (final k in _konumlar)
-          Marker(
-            point: LatLng(k.lat, k.lng),
-            width: 108,
-            height: 66,
-            child: KuryePini(
-              konum: k,
-              onTap: () => kuryeOzetSheetAc(context, konum: k),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-/// Tek kurye işaretçisi — motor ikonu + altında ad.
-///
-/// BAYAT (is_fresh=false) pin SOLUK GRİ çizilir ve adın altına "X dk önce" yazar. Taze pinle
-/// aynı görünseydi patron 40 dakika önceki bir noktaya bakıp kuryenin orada olduğunu sanırdı;
-/// pini gizlemek ise kuryenin hiç çalışmadığını söylerdi. İkisi de yalan, bu ise gerçek.
-class KuryePini extends StatelessWidget {
-  const KuryePini({super.key, required this.konum, required this.onTap});
-
-  final CanliKonum konum;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    final taze = konum.taze;
-    final zemin = taze ? t.accent : t.muted;
-    final etiketRenk = taze ? t.ink : t.muted;
-    final gecen = kuryeSonGorulme(konum.bildirilenIso);
-
-    return Semantics(
-      button: true,
-      label: '${konum.ad} (${kuryeRolEtiketi(konum.rol)})',
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: zemin,
-                shape: BoxShape.circle,
-                // İnce açık halka: koyu karoların üstünde pin kaybolmasın (durak pininin kuralı).
-                border: Border.all(color: t.accentInk, width: 2),
-              ),
-              child: SipIcon.yolIle(kKuryeMotorYolu,
-                  boyut: 17, kalinlik: 2.2, renk: t.accentInk),
-            ),
-            const SizedBox(height: 2),
-            // Ad ve süre KIRPILIR (ellipsis): uzun bir ad pinin kutusunu taşırsa harita
-            // taşma çizgileriyle dolar. Metin ağaçta tam durur, yalnız görüntüsü kısalır.
-            Flexible(
-              child: _Etiket(
-                metin: konum.ad,
-                stil: SipText.metin(10.5, w: 700).copyWith(color: etiketRenk),
-                zemin: t.surface.withValues(alpha: 0.86),
-              ),
-            ),
-            if (!taze && gecen.isNotEmpty) ...[
-              const SizedBox(height: 1),
-              Flexible(
-                child: _Etiket(
-                  metin: gecen,
-                  stil: SipText.metin(9.5, w: 600).copyWith(color: t.muted),
-                  zemin: t.surface.withValues(alpha: 0.86),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Pinin altındaki yazı — karoların üstünde okunabilmesi için yarı saydam yüzeyin üstünde
-/// durur (`HaritaAtfi` ile aynı gerekçe: çıplak gri metin açık/koyu bölgelerde kayboluyordu).
-class _Etiket extends StatelessWidget {
-  const _Etiket({required this.metin, required this.stil, required this.zemin});
-
-  final String metin;
-  final TextStyle stil;
-  final Color zemin;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(color: zemin, borderRadius: SipRadius.brHap),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: SipSpace.sm, vertical: 1),
-        child: Text(
-          metin,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: stil,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => widget.builder(context, _konumlar);
 }
 
 /// Pine dokununca açılan küçük özet (`durakOzetSheetAc` ile aynı aile).

@@ -121,10 +121,12 @@ jobs:
             echo "BASLIK=Deneme sürümü (otomatik)"        >> "$GITHUB_ENV"
           fi
 
+      # JDK 21: harita motoru maplibre_gl (0.27+) Android derlemesi için 21 ister (2026-09-28).
+      # Yerel geliştirmede Android Studio'nun JBR'ı zaten 21'dir.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - uses: subosito/flutter-action@v2
         with:

@@ -7,15 +7,15 @@
 //  B. Harita ekranı açık siparişleri rota sırasında numaralı pinlerle çizer.
 //
 // Bu dosyadaki widget testleri AĞA ve PLATFORM KANALINA hiç uzanmaz: `cihazKonumuOku`,
-// `rotaApiUret` ve `haritaKaroSaglayici` dikişleri sahtelenir. Sızan bir sahte bir sonraki testte
+// `rotaApiUret` ve `haritaTuvaliUret` dikişleri sahtelenir. Sızan bir sahte bir sonraki testte
 // sessizce yanlış sonuç üretir — üçü de tearDown'da geri alınır.
 
 
 import 'package:drift/native.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/konum/cihaz_konumu.dart';
+import 'package:sipario/screens/orders/harita_icerigi.dart';
 import 'package:sipario/screens/orders/musteri_eylemleri.dart';
 import 'package:sipario/screens/orders/order_detail_screen.dart';
 import 'package:sipario/screens/orders/siparis_harita.dart';
@@ -26,17 +26,18 @@ import 'support/harita_ortami.dart';
 import 'support/siparis_yardimci.dart';
 
 
-/// HARİTA EKRANI — pinler · kurye katmanı · karo sağlayıcı · boş durum.
+/// HARİTA EKRANI — pinler · kurye katmanı · boş durum.
 ///
 /// Bölme gerekçesi: `ui_siparis_harita_test.dart` başlığı.
 
 /// HARİTA EKRANI — PİNLER ve ÖZET SAYFASI.
 ///
-/// Bölme gerekçesi: `ui_siparis_harita_test.dart` başlığı. Karo/kamera kontrolleri
+/// Bölme gerekçesi: `ui_siparis_harita_test.dart` başlığı. Stil/kamera kontrolleri
 /// `ui_siparis_harita_kontrol_test.dart`ta; ortak fikstür `support/harita_ortami.dart`.
 void main() {
   group('Sipariş haritası — pinler ve özet', () {
-    setUp(haritaDikisleriniSahtele);
+    late SahteHaritaTuvali harita;
+    setUp(() => harita = haritaDikisleriniSahtele());
 
 
     testWidgets('koordinatlı AÇIK siparişler numaralı pin olur; teslim edilen olmaz',
@@ -53,10 +54,10 @@ void main() {
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.byType(DurakPini), findsNWidgets(2));
-      expect(find.widgetWithText(DurakPini, '1'), findsOneWidget);
-      expect(find.widgetWithText(DurakPini, '2'), findsOneWidget);
-      expect(find.widgetWithText(DurakPini, '3'), findsNothing,
+      expect(harita.duraklar, findsNWidgets(2));
+      expect(harita.durak(1), findsOneWidget);
+      expect(harita.durak(2), findsOneWidget);
+      expect(harita.durak(3), findsNothing,
           reason: 'teslim edilmiş sipariş rotada bir durak değildir');
       // Üst başlıkta durak sayısı — kullanıcı haritayı saymak zorunda kalmasın.
       expect(find.text('2 durak, rota sırasıyla'), findsOneWidget);
@@ -77,7 +78,7 @@ void main() {
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.byType(DurakPini), findsOneWidget);
+      expect(harita.duraklar, findsOneWidget);
       // Metin SÖZLEŞMEDİR: sessizce yutulan sipariş, eksik koşulan rota demektir.
       expect(find.text('1 siparişin konumu yok, haritada görünmüyor'), findsOneWidget);
 
@@ -105,7 +106,7 @@ void main() {
 
       // Harita müşteri ADI yazmaz — başlığın belirmesi sayfanın açıldığının kanıtıdır.
       expect(find.byType(DurakOzetGovde), findsNothing);
-      await tester.tap(find.widgetWithText(DurakPini, '2'));
+      await tester.tap(harita.durak(2));
       await akisiBekle(tester, ms: 400);
 
       // Başlık dokunulan PİNİN numarasını taşır: yanlış pine dokunmak sık ve sessiz bir hatadır.
@@ -128,7 +129,7 @@ void main() {
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
-      await tester.tap(find.widgetWithText(DurakPini, '1'));
+      await tester.tap(harita.durak(1));
       await akisiBekle(tester, ms: 400);
 
       await tester.tap(find.text('Sipariş Detayı'));
@@ -159,7 +160,7 @@ void main() {
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
-      await tester.tap(find.widgetWithText(DurakPini, '1'));
+      await tester.tap(harita.durak(1));
       await akisiBekle(tester, ms: 400);
 
       await tester.tap(find.text('Yol Tarifi'));
@@ -197,7 +198,7 @@ void main() {
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
-      await tester.tap(find.widgetWithText(DurakPini, '1'));
+      await tester.tap(harita.durak(1));
       await akisiBekle(tester, ms: 400);
 
       await tester.tap(find.text('Ara'));
@@ -220,7 +221,7 @@ void main() {
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
-      await tester.tap(find.widgetWithText(DurakPini, '1'));
+      await tester.tap(harita.durak(1));
       await akisiBekle(tester, ms: 400);
 
       expect(find.text('Ara'), findsNothing);
@@ -230,23 +231,32 @@ void main() {
       await ekraniKapat(tester);
     });
 
-    testWidgets('cihaz konumu pini özet AÇMAZ (o bir durak değil)', (tester) async {
-      cihazKonumuOku =
-          () async => const CihazKonumu(lat: 36.8850, lng: 30.7060, dogrulukM: 15);
-
+    testWidgets('özet AÇIKKEN dokunulan durak vurgulu, kapanınca vurgu kalkar', (tester) async {
+      // Özet sayfası haritanın yarısını örter; hangi pine dokunulduğu haritada da görünmeli
+      // (pin büyür ve halelenir). Vurgu özet kapanınca KALKMALI — kalırsa bir sonraki bakışta
+      // kullanıcı o durağı hâlâ seçili sanır.
       genisYuzey(tester);
       final db = AppDatabase(NativeDatabase.memory());
+      late String ikinci;
       await tester.runAsync(() async {
         await siparisEkle(db, ad: 'Ayşe Yılmaz', lat: 36.8841, lng: 30.7056, sira: 0);
+        ikinci = await siparisEkle(db, ad: 'Mehmet Kaya', lat: 36.8900, lng: 30.7100, sira: 10);
       });
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
+      expect(harita.icerik.seciliDurakId, isNull);
 
-      await tester.tap(find.byType(CihazPini));
+      await tester.tap(harita.durak(2));
       await akisiBekle(tester, ms: 400);
+      expect(find.byType(DurakOzetGovde), findsOneWidget);
+      expect(harita.icerik.seciliDurakId, ikinci);
 
+      // Sayfayı aşağı kaydırarak değil, sistem geri tuşuyla kapat — en yaygın kapanış.
+      await tester.binding.handlePopRoute();
+      await akisiBekle(tester, ms: 400);
       expect(find.byType(DurakOzetGovde), findsNothing);
+      expect(harita.icerik.seciliDurakId, isNull);
 
       await ekraniKapat(tester);
     });
@@ -262,7 +272,7 @@ void main() {
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.byType(FlutterMap), findsNothing);
+      expect(harita.sonAyar, isNull, reason: 'harita tuvali hiç kurulmadı');
       expect(find.text('Haritada gösterilecek sipariş yok'), findsOneWidget);
       expect(find.text('1 siparişin konumu yok, haritada görünmüyor'), findsOneWidget);
 
@@ -282,9 +292,17 @@ void main() {
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      expect(find.byType(CihazPini), findsOneWidget);
+      expect(harita.cihaz, findsOneWidget);
+      expect(harita.icerik.cihaz, const HaritaNoktasi(36.8850, 30.7060));
       // Cihaz bir DURAK değildir: numara almaz, durak sayısını da değiştirmez.
+      expect(harita.duraklar, findsOneWidget);
       expect(find.text('1 durak, rota sırasıyla'), findsOneWidget);
+      // Rota çizgisi CİHAZDAN başlar: oto sıralama da oradan başlıyor.
+      final cizgi = harita.icerik.rotaGeoJson['features'] as List;
+      expect((cizgi.single as Map)['geometry']['coordinates'], [
+        [30.7060, 36.8850],
+        [30.7056, 36.8841],
+      ]);
 
       await ekraniKapat(tester);
     });

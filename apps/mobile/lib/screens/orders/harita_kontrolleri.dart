@@ -12,6 +12,7 @@ import '../../theme/components/atoms.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
+import 'harita_stili.dart';
 
 /// Lucide `minus` — ikon SÖZLÜĞÜNDE yok, çünkü tasarımda harita hiç yoktu. `SipIcon` ham path
 /// kabul eder (setin dışındaki tek seferlik şekiller için açık kapı); sözlüğe tasarımda
@@ -117,7 +118,7 @@ class _Dugme extends StatelessWidget {
 ///
 /// Düğme HER ZAMAN çizilir; kullanılamıyorsa PASİF olur ve [neden] hemen ÜSTÜNDE yazar
 /// (görünürlük ≠ kullanılabilirlik — kapı korunur, yetenek gizlenmez). Gerekçe düğmenin ALTINA
-/// değil üstüne konur: altta karo atfı durur ve ikisi üst üste binerdi.
+/// değil üstüne konur: düğme ekranın alt kenarına yakındır, altına yazılan metin sığmazdı.
 class HaritaOtoDugmesi extends StatelessWidget {
   const HaritaOtoDugmesi({
     super.key,
@@ -177,14 +178,15 @@ class HaritaOtoDugmesi extends StatelessWidget {
   }
 }
 
-/// Karo sağlayıcı atfı — HUKUKİ ZORUNLULUK, kaldırılamaz (OSM ODbL + CARTO kullanım şartları).
+/// Harita verisi atfı — HUKUKİ ZORUNLULUK, kaldırılamaz (OSM ODbL + OpenFreeMap şartı).
 ///
-/// Metin SÖZLEŞMEDİR. Sönük ve küçüktür ama okunur: yarı saydam bir yüzeyin üstünde durur, çünkü
-/// karoların üstüne doğrudan yazılan gri metin açık/koyu bölgelerde kayboluyordu.
+/// Metin SÖZLEŞMEDİR ve tek kaynaktan gelir ([HaritaStili.atif]). Sönük ve küçüktür ama okunur:
+/// yarı saydam bir yüzeyin üstünde durur, çünkü haritanın üstüne doğrudan yazılan gri metin
+/// açık/koyu bölgelerde kayboluyordu.
 class HaritaAtfi extends StatelessWidget {
   const HaritaAtfi({super.key});
 
-  static const String metin = '© OpenStreetMap, © CARTO';
+  static const String metin = HaritaStili.atif;
 
   @override
   Widget build(BuildContext context) {

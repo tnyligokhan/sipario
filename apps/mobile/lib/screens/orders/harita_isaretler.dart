@@ -1,11 +1,10 @@
-// HARİTANIN İŞARETLERİ — numaralı durak pini, cihaz pini ve konumsuz siparişler bandı.
+// HARİTANIN BANTLARI — konumsuz siparişler bandı.
 //
-// NEDEN AYRI DOSYA: `siparis_harita.dart` verinin, kameranın ve "Oto Sırala" akışının yeri;
-// bunlar ise saf çizimdir (durumları yok, yalnız çizerler). "Oto Sırala" düğmesi haritaya
-// taşınınca ekran dosyası 500 satırı aştı — bölünme oradan geldi. `harita_kontrolleri.dart`a
-// konmadılar: orası KONTROL düğmelerinin yeri, bunlar ise haritanın İÇERİĞİ.
+// Durak ve cihaz pinleri 2026-09-28'e dek bu dosyada Flutter widget'ı olarak dururdu; harita
+// MapLibre'ye geçince motorun kendi vektör katmanları oldular (`harita_maplibre.dart`). Bant
+// haritanın DIŞINDA, başlığın altında durduğu için widget olarak kaldı.
 //
-// Bu semboller `siparis_harita.dart` üzerinden de dışa verilir (`export`): mevcut testler ve
+// Bu sembol `siparis_harita.dart` üzerinden de dışa verilir (`export`): mevcut testler ve
 // çağıranlar harita ekranını tek dosyadan tanıyor, o yüzey SÖZLEŞMEDİR.
 
 import 'package:flutter/material.dart';
@@ -47,66 +46,3 @@ class KonumsuzBant extends StatelessWidget {
   }
 }
 
-/// Numaralı durak işaretçisi — accent zemin, accentInk rakam (tasarımın vurgu jetonları).
-class DurakPini extends StatelessWidget {
-  const DurakPini({
-    super.key,
-    required this.sira,
-    required this.baslik,
-    required this.onTap,
-  });
-
-  final int sira;
-
-  /// Erişilebilirlik etiketi: ekran okuyucu "3. durak · Ayşe Yılmaz" der. Sayı tek başına
-  /// haritada hangi müşteriyi işaret ettiğini söylemez.
-  final String baslik;
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Semantics(
-      button: true,
-      label: '$sira. durak: $baslik',
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: t.accent,
-            shape: BoxShape.circle,
-            // İnce açık halka: koyu karoların üstünde pin kaybolmasın.
-            border: Border.all(color: t.accentInk, width: 2),
-          ),
-          child: Text(
-            '$sira',
-            style: SipText.tutar(13, w: 800).copyWith(color: t.accentInk),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Cihazın bulunduğu nokta — duraklardan AYRI görünür (içi dolu küçük nokta, halkalı).
-/// Numarası yoktur: rota duraklardan oluşur, kurye bir durak değildir.
-class CihazPini extends StatelessWidget {
-  const CihazPini({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return Semantics(
-      label: 'Bulunduğunuz konum',
-      child: Container(
-        decoration: BoxDecoration(
-          color: t.ok,
-          shape: BoxShape.circle,
-          border: Border.all(color: SipTokens.onHero, width: 3),
-        ),
-      ),
-    );
-  }
-}

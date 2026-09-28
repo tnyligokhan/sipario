@@ -7,38 +7,30 @@
 //  B. Harita ekranı açık siparişleri rota sırasında numaralı pinlerle çizer.
 //
 // Bu dosyadaki widget testleri AĞA ve PLATFORM KANALINA hiç uzanmaz: `cihazKonumuOku`,
-// `rotaApiUret` ve `haritaKaroSaglayici` dikişleri sahtelenir. Sızan bir sahte bir sonraki testte
+// `rotaApiUret` ve `haritaTuvaliUret` dikişleri sahtelenir. Sızan bir sahte bir sonraki testte
 // sessizce yanlış sonuç üretir — üçü de tearDown'da geri alınır.
 
-
 import 'package:drift/native.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sipario/auth/session.dart' show kDefaultApiBaseUrl;
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/konum/cihaz_konumu.dart';
-import 'package:sipario/screens/orders/harita_karo_kaynagi.dart';
+import 'package:sipario/screens/orders/harita_icerigi.dart';
+import 'package:sipario/screens/orders/harita_kontrolleri.dart';
+import 'package:sipario/screens/orders/harita_stili.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
 import 'package:sipario/screens/orders/siparis_harita.dart';
 
 import 'support/harita_ortami.dart';
 import 'support/siparis_yardimci.dart';
 
-
-/// HARİTA EKRANI — pinler · kurye katmanı · karo sağlayıcı · boş durum.
+/// HARİTA EKRANI — STİL ve KAMERA KONTROLLERİ.
 ///
-/// Bölme gerekçesi: `ui_siparis_harita_test.dart` başlığı.
-
-/// HARİTA EKRANI — KARO KATMANI ve KAMERA KONTROLLERİ.
-///
-/// Bölme gerekçesi: `ui_siparis_harita_test.dart` başlığı.
+/// Bölme gerekçesi: `ui_siparis_harita_test.dart` başlığı. Kamera yerel motordadır ve widget
+/// testinde çizilemez; testler kameraya verilen KOMUTLARI sahte tuvalden okur.
 void main() {
-  group('Sipariş haritası — karo ve kamera', () {
-    setUp(haritaDikisleriniSahtele);
-
-    /// Haritanın kamerası — kontrolcü `FlutterMap`e verildiği için testten okunabilir.
-    MapController kamera(WidgetTester tester) =>
-        tester.widget<FlutterMap>(find.byType(FlutterMap)).mapController!;
+  group('Sipariş haritası — stil ve kamera', () {
+    late SahteHaritaTuvali harita;
+    setUp(() => harita = haritaDikisleriniSahtele());
 
     Future<AppDatabase> ikiDurak(WidgetTester tester) async {
       final db = AppDatabase(NativeDatabase.memory());
@@ -49,153 +41,95 @@ void main() {
       return db;
     }
 
-
-    testWidgets('karo katmanı CARTO Positron şablonunu kullanır', (tester) async {
-      // STİL SÖZLEŞMESİ: ham OSM karosu (kırmızı otoyollar, yol kodu etiketleri, POI seli)
-      // uygulamanın sade dilinin yanında gürültü gibi duruyordu ve mor pinler kayboluyordu.
+    testWidgets('AÇIK temada harita açık stille, atfıyla çizilir', (tester) async {
       genisYuzey(tester);
       final db = await ikiDurak(tester);
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      final katman = tester.widget<TileLayer>(find.byType(TileLayer));
-      // Karo KENDİ SUNUCUMUZDAN gelir (2026-09-26): CARTO anahtarsız karo vermeyi kesti ve
-      // anahtar APK'ya gömülmez. Doğrudan CARTO adresi "API KEY REQUIRED" filigranı döndürür.
-      expect(katman.urlTemplate, '$kDefaultApiBaseUrl/harita/karo/light_all/{z}/{x}/{y}{r}.png');
-      expect(katman.urlTemplate, isNot(contains('cartocdn')));
+      expect(harita.sonAyar!.koyu, isFalse);
       // Atıf HUKUKİ ZORUNLULUK — kaldırılamaz, metni sözleşmedir.
-      expect(find.text('© OpenStreetMap, © CARTO'), findsOneWidget);
+      expect(find.text('© OpenFreeMap © OpenMapTiles © OpenStreetMap'), findsOneWidget);
+      expect(HaritaAtfi.metin, HaritaStili.atif);
 
       await ekraniKapat(tester);
     });
 
-    testWidgets('KOYU temada karo Dark Matter şablonuna geçer', (tester) async {
+    testWidgets('KOYU temada harita koyu stile geçer', (tester) async {
       // Saha bulgusu (2026-07-29): uygulama koyu temadayken harita bembeyaz açılıyordu —
-      // hem göz alıyor hem "bozuk" izlenimi veriyordu. Karo stili temayı İZLER; seçim
-      // `haritaKaroUrl(koyu:)` tek yerinde durur, bu test o sözleşmeyi kilitler.
+      // hem göz alıyor hem "bozuk" izlenimi veriyordu. Stil temayı İZLER.
       genisYuzey(tester);
       final db = await ikiDurak(tester);
 
       await tester.pumpWidget(sipKabukKoyu(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      final katman = tester.widget<TileLayer>(find.byType(TileLayer));
-      expect(katman.urlTemplate, '$kDefaultApiBaseUrl/harita/karo/dark_all/{z}/{x}/{y}{r}.png');
+      expect(harita.sonAyar!.koyu, isTrue);
+      expect(HaritaStili.adres(koyu: true), endsWith('/styles/dark'));
+      expect(HaritaStili.adres(koyu: false), endsWith('/styles/positron'));
       // Atıf koyuda da durur — hukuki zorunluluk temayla pazarlık etmez.
-      expect(find.text('© OpenStreetMap, © CARTO'), findsOneWidget);
+      expect(find.text(HaritaStili.atif), findsOneWidget);
 
       await ekraniKapat(tester);
     });
 
-    test('üretim karo sağlayıcısı İPTAL EDER ve DİSKTE ÖNBELLEKLER', () {
-      // Saha bulgusu (2026-07-29): "harita çok kasıyor". Kaydırmada görünürlükten çıkan
-      // karoların istekleri iptal edilmezse kuyruk ana iş parçacığını boğar.
-      // Saha bulgusu (2026-09-28): "gri kareler uzun süre boş kalıyor". Önceki
-      // CancellableNetworkTileProvider'ın disk önbelleği yoktu; her açılış bütün karoları
-      // yeniden indiriyordu. `cachingProvider: null` = flutter_map'in yerleşik disk önbelleği.
-      final s = varsayilanKaroSaglayici();
-      expect(s, isA<NetworkTileProvider>());
-      s as NetworkTileProvider;
-      expect(s.abortObsoleteRequests, isTrue);
-      expect(s.cachingProvider, isNull);
+    testWidgets('kadraj üstteki düğmelerin payını bırakır', (tester) async {
+      // Sağda kontrol sütunu, altta "Oto Sırala" var: sığdırılan bir pin onların altında
+      // kalırsa dokunulamaz.
+      genisYuzey(tester);
+      final db = await ikiDurak(tester);
+
+      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
+      await akisiBekle(tester);
+
+      final pay = harita.sonAyar!.kenarBoslugu;
+      expect(pay.right, greaterThan(12 + 40));
+      expect(pay.bottom, greaterThan(pay.top));
+
+      await ekraniKapat(tester);
     });
 
-    testWidgets('yeniden çizimde karo sağlayıcı KORUNUR, tema değişince yenilenir',
+    testWidgets('+ / − düğmeleri kamerayı birer kademe yakınlaştırır ve uzaklaştırır',
         (tester) async {
-      // 2026-09-28'e dek her build yeni bir sağlayıcı (ve yeni bir HTTP istemcisi) üretiyordu:
-      // bağlantı yeniden kullanılmıyor, eski istemciler hiç kapatılmıyordu.
-      genisYuzey(tester);
-      final db = await ikiDurak(tester);
-      var uretilen = 0;
-      haritaKaroSaglayici = () {
-        uretilen++;
-        return SahteKaroSaglayici();
-      };
-
-      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
-      await akisiBekle(tester);
-      final ilk = tester.widget<TileLayer>(find.byType(TileLayer)).tileProvider;
-
-      await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
-      await tester.pump();
-      expect(tester.widget<TileLayer>(find.byType(TileLayer)).tileProvider, same(ilk));
-      expect(uretilen, 1);
-
-      await tester.pumpWidget(sipKabukKoyu(SiparisHaritaEkrani(db: db, writable: true)));
-      // MaterialApp tema değişimini ~200 ms'lik animasyonla uygular; sonuna taşınır.
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(tester.widget<TileLayer>(find.byType(TileLayer)).tileProvider, isNot(same(ilk)));
-      expect(uretilen, 2);
-
-      await ekraniKapat(tester);
-    });
-
-    test('karo isteği oturum jetonunu taşır, jeton yoksa başlık da yok', () {
-      // Sunucu aracısı oturum ister: açık bir aracı CARTO kotamızı herkese açardı.
-      const oturumlu = HaritaKaroKaynagi(apiTaban: 'https://x.test/api/v1', jeton: 'j1');
-      expect(oturumlu.basliklar, {'Authorization': 'Bearer j1'});
-      expect(const HaritaKaroKaynagi(apiTaban: 'https://x.test/api/v1').basliklar, isEmpty);
-      expect(oturumlu.sablon(koyu: false),
-          'https://x.test/api/v1/harita/karo/light_all/{z}/{x}/{y}{r}.png');
-    });
-
-    test('jeton değişince kaynak değişir — katman yeni jetonla yeniden kurulur', () {
-      const a = HaritaKaroKaynagi(apiTaban: 'https://x.test', jeton: 'j1');
-      expect(a, const HaritaKaroKaynagi(apiTaban: 'https://x.test', jeton: 'j1'));
-      expect(a == const HaritaKaroKaynagi(apiTaban: 'https://x.test', jeton: 'j2'), isFalse);
-    });
-
-    testWidgets('+ / − düğmeleri kamerayı yakınlaştırır ve uzaklaştırır', (tester) async {
       genisYuzey(tester);
       final db = await ikiDurak(tester);
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      final onceki = kamera(tester).camera.zoom;
       await tester.tap(find.bySemanticsLabel('Yakınlaş'));
       await akisiBekle(tester);
-      expect(kamera(tester).camera.zoom, closeTo(onceki + 1, 0.001));
-
       await tester.tap(find.bySemanticsLabel('Uzaklaş'));
       await akisiBekle(tester);
-      expect(kamera(tester).camera.zoom, closeTo(onceki, 0.001));
+
+      expect(
+        [for (final k in harita.komutlar.whereType<YakinlastirKomutu>()) k.fark],
+        [1, -1],
+      );
 
       await ekraniKapat(tester);
     });
 
-    testWidgets('"Duraklara sığdır" açılış kadrajına döndürür', (tester) async {
+    testWidgets('"Duraklara sığdır" bütün durakları kadraja alır', (tester) async {
       genisYuzey(tester);
       final db = await ikiDurak(tester);
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
 
-      final acilis = kamera(tester).camera;
-      final acilisZoom = acilis.zoom;
-      final acilisMerkez = acilis.center;
-
-      // Kullanıcı elle yakınlaşıp kayboldu…
-      await tester.tap(find.bySemanticsLabel('Yakınlaş'));
-      await akisiBekle(tester);
-      await tester.tap(find.bySemanticsLabel('Yakınlaş'));
-      await akisiBekle(tester);
-      expect(kamera(tester).camera.zoom, greaterThan(acilisZoom));
-
-      // …tek dokunuşla bütün duraklar yine kadrajda.
       await tester.tap(find.bySemanticsLabel('Duraklara sığdır'));
       await akisiBekle(tester);
-      expect(kamera(tester).camera.zoom, closeTo(acilisZoom, 0.001));
-      expect(kamera(tester).camera.center.latitude,
-          closeTo(acilisMerkez.latitude, 0.0001));
-      expect(kamera(tester).camera.center.longitude,
-          closeTo(acilisMerkez.longitude, 0.0001));
+
+      final kadraj = harita.komutlar.whereType<KadrajlaKomutu>().single.kadraj;
+      expect(kadraj.kutuMu, isTrue);
+      expect(kadraj.guneyBati, const HaritaNoktasi(36.8841, 30.7056));
+      expect(kadraj.kuzeyDogu, const HaritaNoktasi(36.9200, 30.7600));
 
       await ekraniKapat(tester);
     });
 
-    testWidgets('"Konumum" kamerayı cihaz konumuna taşır', (tester) async {
+    testWidgets('"Konumum" kamerayı cihaz konumuna sokak ölçeğinde taşır', (tester) async {
       // Açılışta konum YOK (setUp hata fırlatıyor), düğmeye basınca gelir: düğmenin TAZE
       // okuduğunun kanıtı bu — açılıştaki tek denemeyi tekrar kullansaydı hiçbir şey olmazdı.
       genisYuzey(tester);
@@ -203,18 +137,18 @@ void main() {
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
-      expect(find.byType(CihazPini), findsNothing);
+      expect(harita.cihaz, findsNothing);
 
       cihazKonumuOku =
           () async => const CihazKonumu(lat: 36.7000, lng: 30.5000, dogrulukM: 20);
       await tester.tap(find.bySemanticsLabel('Konumum'));
       await akisiBekle(tester, ms: 300);
 
-      expect(kamera(tester).camera.center.latitude, closeTo(36.7000, 0.0001));
-      expect(kamera(tester).camera.center.longitude, closeTo(30.5000, 0.0001));
-      expect(kamera(tester).camera.zoom, closeTo(15, 0.001));
+      final odak = harita.komutlar.whereType<OdaklaKomutu>().single;
+      expect(odak.nokta, const HaritaNoktasi(36.7000, 30.5000));
+      expect(odak.zoom, 15);
       // Pin de güncellenir: kamera oraya gitti ama kuryenin kendisi görünmeseydi eksik olurdu.
-      expect(find.byType(CihazPini), findsOneWidget);
+      expect(harita.cihaz, findsOneWidget);
 
       await ekraniKapat(tester);
     });
@@ -230,15 +164,13 @@ void main() {
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
-      final onceki = kamera(tester).camera;
 
       await tester.tap(find.bySemanticsLabel('Konumum'));
       await akisiBekle(tester, ms: 300);
 
       expect(find.text('Konum servisi kapalı — telefonun konum ayarını açın.'), findsOneWidget);
-      expect(kamera(tester).camera.zoom, closeTo(onceki.zoom, 0.001));
-      expect(kamera(tester).camera.center.latitude, closeTo(onceki.center.latitude, 0.0001));
-      expect(find.byType(CihazPini), findsNothing);
+      expect(harita.komutlar, isEmpty);
+      expect(harita.cihaz, findsNothing);
 
       await ekraniKapat(tester);
     });
@@ -257,18 +189,12 @@ void main() {
 
       await tester.tap(find.text('Harita'));
       await akisiBekle(tester, ms: 400);
+      await akisiBekle(tester, ms: 400);
 
       expect(find.byType(SiparisHaritaEkrani), findsOneWidget);
-      // İKİNCİ TUR ŞART: sayfa geçişi biterken harita henüz ölçüsünü almamış oluyor, kamera
-      // (`initialCameraFit`) bir kare sonra oturuyor ve işaretçiler ancak o zaman çiziliyor.
-      await akisiBekle(tester, ms: 400);
-      expect(find.byType(DurakPini), findsOneWidget);
+      expect(harita.duraklar, findsOneWidget);
 
       await ekraniKapat(tester);
     });
   });
-
-  // ═════════════════════════════════════════════════════════════════════════════════════════
-  // B2. Harita sorgusu — ekran kurmadan (saf async, drift gerçek zamanında)
-  // ═════════════════════════════════════════════════════════════════════════════════════════
 }

@@ -2,70 +2,44 @@
 //
 // NEDEN VAR: "Oto Sırala (rota)" bir SIRA üretiyordu ama kurye o sıranın yeryüzünde neye
 // benzediğini göremiyordu. Liste "1, 2, 3" der; harita "önce şu mahalle, sonra dönüp bu sokak"
-// der ve saçma bir rotayı kurye tek bakışta yakalar.
+// der ve saçma bir rotayı kurye tek bakışta yakalar. Duraklar kesikli bir ROTA ÇİZGİSİYLE
+// sırayla bağlanır (cihaz konumu biliniyorsa oradan başlar) — sıra okunmak zorunda kalmaz.
 //
 // ÜÇ KURAL:
 //  • VERİ yalnız AÇIK siparişlerdir (teslim edileni haritada göstermek yapılacak işi şişirir).
 //    Koordinatı olmayan açık sipariş haritaya GİRMEZ ama SAYISI üstte yazar — sessizce yutmak
 //    kuryeye eksik rota koşturur.
-//  • KARO SAĞLAYICI tek dikişten geçer ([haritaKaroSaglayici]): üretimde ağ, testte sahte.
-//    Widget testi ağa ASLA çıkmaz (`adresAdaylariGetir` deseninin aynısı).
-//  • KARO YÜKLENEMEZSE (çevrimdışı) harita gri kalır, PİNLER YİNE ÇİZİLİR. Offline-first sözü
-//    burada da geçerli: internet yoksa özellik kapanmaz, zemin kaybolur.
+//  • HARİTA MOTORU tek dikişten geçer ([haritaTuvaliUret]): üretimde MapLibre (vektör, her
+//    yakınlıkta keskin — 2026-09-28'e dek resim karolar yakınlaşınca pikselleşiyordu), testte
+//    içeriği widget olarak çizen sahte. Widget testi ağa ve platform görünümüne ASLA uzanmaz.
+//  • ZEMİN YÜKLENEMEZSE (çevrimdışı) harita düz renk kalır, PİNLER YİNE ÇİZİLİR. Offline-first
+//    sözü burada da geçerli: internet yoksa özellik kapanmaz, zemin kaybolur
+//    (`harita_stili.dart` — stil diskte saklanır, en kötü ihtimalle yedek stile düşülür).
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../../data/app_database.dart';
 import '../../konum/cihaz_konumu.dart';
+import '../../sync/konum_api.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
+import 'harita_icerigi.dart';
 import 'harita_isaretler.dart';
-import 'harita_karo_kaynagi.dart';
 import 'harita_kontrolleri.dart';
 import 'harita_kurye_katmani.dart';
 import 'harita_sorgulari.dart';
+import 'harita_tuvali.dart';
 import 'order_detail_screen.dart';
 import 'oto_siralama.dart';
 import 'siparis_harita_ozet.dart';
 
-// Pinler ve konumsuz bandı 500 satır sınırı için ayrı dosyaya taşındı; harita ekranının DIŞ
-// YÜZEYİ değişmez — çağıranlar ve testler onları hâlâ bu dosyadan tanır (sözleşme).
-export 'harita_isaretler.dart' show CihazPini, DurakPini, KonumsuzBant;
-
-// KARO STİLİ — CARTO **Positron** (açık) / **Dark Matter** (koyu), gri-minimal OSM tabanı.
-//
-// HAM OSM KAROSUNDAN NEDEN VAZGEÇİLDİ (cihazda ekran görüntüsüyle görüldü): standart `tile.
-// openstreetmap.org` katmanı kırmızı otoyollar, yol numarası etiketleri ve yoğun POI
-// simgeleriyle geliyor. Uygulamanın sade/aydınlık dilinin yanında gürültü gibi duruyordu ve
-// asıl iş olan MOR PİNLER bu kalabalıkta kayboluyordu. Positron ana yolları nötr griyle çizer,
-// POI basmaz — pinler tek bakışta öne çıkar. Koyu tema Dark Matter'a geçer (saha bulgusu
-// 2026-07-29: koyu temada bembeyaz harita "bozuk" izlenimi veriyordu).
-//
-// ADRES ARTIK KENDİ SUNUCUMUZ (2026-09-26): CARTO anahtarsız karo vermeyi kesti ve her karonun
-// yerinde "API KEY REQUIRED" filigranı çıktı. Anahtar sunucuda kalır; şablon ve jeton
-// [HaritaKaroKaynagi]'ndadır.
-
-/// Kullanım şartı: istekler uygulamayı TANITMALI. Gerçek applicationId
-/// (`android/app/build.gradle.kts`) yazılır — uydurma bir ad, kotanın kime ait olduğunu gizler.
-const String kHaritaUygulamaAdi = 'com.sipario.app';
-
-/// Üretim karo sağlayıcısı — İPTAL + DİSK ÖNBELLEĞİ. İptal (2026-07-29 "harita çok kasıyor"):
-/// kadraj dışı karonun isteği kesilir (`abortObsoleteRequests`, varsayılan açık). Önbellek
-/// (2026-09-28 "gri kareler uzun süre boş kalıyor"): önceki `CancellableNetworkTileProvider`
-/// eklentisinin diske önbelleği YOKTU, her açılışta bütün karolar sıfırdan iniyordu. Çekirdek
-/// sağlayıcı `BuiltInMapCachingProvider` kullanır, tazeliği sunucunun `max-age`inden okur.
-/// Ayrı fonksiyon: bu söz, testlerin sahteyle değiştirdiği dikişten bağımsız sınanır.
-TileProvider varsayilanKaroSaglayici() => NetworkTileProvider();
-
-/// Karo sağlayıcının TEK dikişi. Üretimde ağdan indirir; widget testleri bunu sahtesiyle
-/// değiştirir ve test hiçbir zaman ağa çıkmaz (`adresAdaylariGetir` / `cihazKonumuOku` deseni).
-TileProvider Function() haritaKaroSaglayici = varsayilanKaroSaglayici;
+// Konumsuz bandı 500 satır sınırı için ayrı dosyada; harita ekranının DIŞ YÜZEYİ değişmez —
+// çağıranlar ve testler onu hâlâ bu dosyadan tanır (sözleşme).
+export 'harita_isaretler.dart' show KonumsuzBant;
 
 /// Açık siparişlerin haritası. Pin numaraları listedeki sırayı (oto sıralamadan sonra ROTA
 /// sırasını) taşır ve "Oto Sırala" düğmesi de burada durur — sıra üretildiği ekranda görünür.
@@ -93,15 +67,12 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
 
   /// Cihazın konumu — alınabildiyse ayrı bir işaretle çizilir. Alınamazsa harita ENGELLENMEZ:
   /// kuryenin nerede olduğu bir kolaylıktır, durakların yeri ise asıl iştir.
-  LatLng? _cihaz;
+  HaritaNoktasi? _cihaz;
 
   /// Kalan oto-sıralama hakkı (sunucu sahipli, senkronla iner). null = HENÜZ BİLİNMİYOR →
   /// düğme kontör YAZMADAN, PASİF çizilir. Uydurma bir sayı göstermek yasak: kullanıcı
   /// "34 hakkım var" deyip tıkladığında sunucu 409 dönerse güven kaybolur.
   int? _otoHak;
-
-  /// Karo adresi + jeton — ilk senkron durumu okunana dek null (karo katmanı henüz çizilmez).
-  HaritaKaroKaynagi? _karo;
   StreamSubscription<SyncMetaData>? _metaAbone;
 
   /// İstek yolda mı — kontörlü eylemde ikinci dokunuş ikinci hak demektir.
@@ -122,13 +93,8 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
     _metaAbone = widget.db.watchSyncState().listen((meta) {
       // Oturum yoksa (token null) çevrimiçi eylem hiç sunulmaz.
       final yeni = meta.authToken == null ? null : meta.routeCredits;
-      // Karo kaynağı da buradan: API adresi ve oturum jetonu senkron durumundadır.
-      final karo = HaritaKaroKaynagi.meta(meta);
-      if (!mounted || (yeni == _otoHak && karo == _karo)) return;
-      setState(() {
-        _otoHak = yeni;
-        _karo = karo;
-      });
+      if (!mounted || yeni == _otoHak) return;
+      setState(() => _otoHak = yeni);
     });
   }
 
@@ -142,7 +108,7 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
     try {
       final k = await cihazKonumuOku();
       if (!mounted) return;
-      setState(() => _cihaz = LatLng(k.lat, k.lng));
+      setState(() => _cihaz = HaritaNoktasi(k.lat, k.lng));
     } on Object {
       // İzin yok / GPS kapalı / eklenti yok: SESSİZ. Kullanıcı buraya duraklarını görmeye geldi,
       // konum uyarısı almaya değil (o uyarıyı "Konum Güncelle" akışı zaten veriyor).
@@ -154,11 +120,11 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
   ///
   /// Dönen değer kamerayı taşımak için görünüme geri verilir; `null` = konum yok, kamera oynamaz
   /// (kuryeyi bilmediğimiz bir noktaya götürmek, hiç götürmemekten kötüdür).
-  Future<LatLng?> _konumumaGit() async {
+  Future<HaritaNoktasi?> _konumumaGit() async {
     try {
       final k = await cihazKonumuOku();
       if (!mounted) return null;
-      final nokta = LatLng(k.lat, k.lng);
+      final nokta = HaritaNoktasi(k.lat, k.lng);
       setState(() => _cihaz = nokta);
       return nokta;
     } on Object catch (e) {
@@ -281,17 +247,20 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
             : 'Açık sipariş yok. Yeni sipariş girildiğinde durağı burada görünür.',
       );
     }
-    return SiparisHaritaGorunumu(
-      duraklar: veri.duraklar,
-      cihaz: _cihaz,
-      onDurak: _durakAc,
-      onKonumum: _konumumaGit,
-      otoDugmesi: _otoDugmesi(veri.duraklar.length),
-      // KOŞULSUZ verilir: rol kapısı katmanın İÇİNDEDİR (`harita_kurye_katmani.dart`). Burada
-      // `if (patron)` yazmak, rolü ikinci bir yerde daha yorumlamak ve özelliğin ağaca hiç
-      // bağlanmadığı hâli testlerden gizlemek olurdu.
-      kuryeKatmani: KuryeKatmani(db: widget.db),
-      karoKaynagi: _karo,
+    // Kurye katmanı KOŞULSUZ sarılır: rol kapısı katmanın İÇİNDEDİR (`harita_kurye_katmani.dart`).
+    // Burada `if (patron)` yazmak, rolü ikinci bir yerde daha yorumlamak ve özelliğin ağaca hiç
+    // bağlanmadığı hâli testlerden gizlemek olurdu.
+    return KuryeKatmani(
+      db: widget.db,
+      builder: (context, kuryeler) => SiparisHaritaGorunumu(
+        duraklar: veri.duraklar,
+        cihaz: _cihaz,
+        kuryeler: kuryeler,
+        onDurak: _durakAc,
+        onKurye: (k) => kuryeOzetSheetAc(context, konum: k),
+        onKonumum: _konumumaGit,
+        otoDugmesi: _otoDugmesi(veri.duraklar.length),
+      ),
     );
   }
 
@@ -312,175 +281,137 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
   }
 }
 
-/// Haritanın kendisi — karo katmanı + numaralı duraklar + (varsa) cihaz konumu.
+/// Haritanın kendisi — tuval (MapLibre) + üstündeki kontroller, atıf ve "Oto Sırala".
 ///
 /// Ekranın DURUMUNDAN ayrı bir widget: böylece harita tek başına (sahte duraklarla) test
-/// edilebilir ve veri akışı ile çizim birbirine karışmaz.
+/// edilebilir ve veri akışı ile çizim birbirine karışmaz. Görünüm motoru tanımaz; içeriği
+/// [HaritaIcerigi] olarak kurar ve kamerayı [HaritaKamerasi] üzerinden sürer.
 class SiparisHaritaGorunumu extends StatefulWidget {
   const SiparisHaritaGorunumu({
     super.key,
     required this.duraklar,
     required this.onDurak,
     this.cihaz,
+    this.kuryeler = const [],
+    this.onKurye,
     this.onKonumum,
-    this.kuryeKatmani,
     this.otoDugmesi,
-    this.karoKaynagi,
   });
 
-  /// Karo adresi ve jetonu. null = henüz bilinmiyor → karo katmanı çizilmez, pinler yine çizilir.
-  final HaritaKaroKaynagi? karoKaynagi;
-
   final List<HaritaDuragi> duraklar;
-  final LatLng? cihaz;
+  final HaritaNoktasi? cihaz;
+
+  /// Canlı kuryeler — kapıyı [KuryeKatmani] açar; kapalıysa liste boştur.
+  final List<CanliKonum> kuryeler;
 
   /// Alt ORTADAKİ birincil eylem ("Oto Sırala"). Widget olarak alınır ki bu görünüm ne kontörü
-  /// ne de rota API'sini tanısın — çizim ile eylem ayrı kalır ([kuryeKatmani] ile aynı gerekçe).
+  /// ne de rota API'sini tanısın — çizim ile eylem ayrı kalır.
   final Widget? otoDugmesi;
 
-  /// Canlı kurye pinleri — haritanın ÜSTÜNDE ayrı bir `FlutterMap` çocuğu olarak çizilir.
-  /// Widget olarak alınır ki bu görünüm ne `sync_meta`yı ne de konum API'sini tanısın:
-  /// duraklar ile kuryeler iki ayrı dünya, tek harita.
-  final Widget? kuryeKatmani;
-
   /// Dokunulan durak ve GÖRÜNEN numarası (1'den başlar) — özet sayfası başlığında aynı sayı
-  /// yazar, kullanıcı hangi pine dokunduğunu doğrulayabilsin.
-  final void Function(HaritaDuragi durak, int sira) onDurak;
+  /// yazar, kullanıcı hangi pine dokunduğunu doğrulayabilsin. Dönen iş bitene (özet kapanana)
+  /// dek durak haritada VURGULU kalır.
+  final Future<void> Function(HaritaDuragi durak, int sira) onDurak;
 
-  /// "Konumum" düğmesi: TAZE konum okur, bulduğunu döner. Kamerayı bu widget taşır (kontrolcü
-  /// burada), konumu okumak ve pini güncellemek ekranın işi — iki sorumluluk ayrı kalsın.
-  /// `null` dönerse kamera OYNAMAZ.
-  final Future<LatLng?> Function()? onKonumum;
+  final void Function(CanliKonum kurye)? onKurye;
+
+  /// "Konumum" düğmesi: TAZE konum okur, bulduğunu döner. Kamerayı bu widget taşır, konumu
+  /// okumak ve pini güncellemek ekranın işi — iki sorumluluk ayrı kalsın. `null` dönerse kamera
+  /// OYNAMAZ.
+  final Future<HaritaNoktasi?> Function()? onKonumum;
+
+  /// Kadraja sığdırırken üstteki düğmelerin payı: sağda kontrol sütunu (12 + 40 çap), altta
+  /// "Oto Sırala" ve gerekçesi. Pin bir düğmenin altında kalırsa dokunulamaz.
+  static const EdgeInsets kenarBoslugu = EdgeInsets.fromLTRB(48, 56, 72, 120);
 
   @override
   State<SiparisHaritaGorunumu> createState() => _SiparisHaritaGorunumuState();
 }
 
 class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
-  final MapController _kontrolcu = MapController();
+  /// Tuval hazır olunca gelir; o ana dek düğmeler sessizce hiçbir şey yapmaz (motor stilini
+  /// yüklerken kamerayı oynatmak kayıp bir komuttur).
+  HaritaKamerasi? _kamera;
 
-  /// Açılış kadrajı BİR KEZ hesaplanır: `initialCameraFit` yalnız ilk yerleşimde uygulanır ve
-  /// her build'de yeni bir nesne üretmek MapOptions'ı boş yere değiştirirdi. "Duraklara sığdır"
-  /// düğmesi de aynı kadrajı yeniden kurar — açılışa dönmek tek dokunuş olsun.
-  late final CameraFit _acilisKadraji = _kadraj();
+  /// Özeti açık olan durak — pini büyür ve halelenir.
+  String? _seciliId;
 
-  /// Sağlayıcı yalnız (kaynak, koyu) değişince kurulur: 2026-09-28'e dek her build yeni bir HTTP
-  /// istemcisi açıyor, eskisini hiç kapatmıyordu. Eskisini `TileLayer` dispose'unda kapatır.
-  TileProvider? _saglayici;
-  Object? _saglayiciAnahtari;
-  TileProvider _karoSaglayici(HaritaKaroKaynagi karo, bool koyu) {
-    if (_saglayici == null || (karo, koyu) != _saglayiciAnahtari) {
-      _saglayici = haritaKaroSaglayici()..headers.addAll(karo.basliklar);
-      _saglayiciAnahtari = (karo, koyu);
-    }
-    return _saglayici!;
-  }
-
-  @override
-  void dispose() {
-    _kontrolcu.dispose();
-    super.dispose();
-  }
-
-  /// Tüm duraklar + (varsa) cihaz konumu. Tek pin varsa kutu sıfır alanlıdır; `maxZoom` onu
-  /// sokak ölçeğinde tutar (yoksa kamera dünyanın sonuna kadar yakınlaşırdı).
-  CameraFit _kadraj() => CameraFit.coordinates(
-        coordinates: [
-          for (final d in widget.duraklar) LatLng(d.lat, d.lng),
-          ?widget.cihaz,
+  HaritaIcerigi _icerik() => HaritaIcerigi(
+        duraklar: [
+          for (var i = 0; i < widget.duraklar.length; i++)
+            DurakIsareti(
+              id: widget.duraklar[i].orderId,
+              no: i + 1,
+              nokta: HaritaNoktasi(widget.duraklar[i].lat, widget.duraklar[i].lng),
+              ad: widget.duraklar[i].baslik,
+            ),
         ],
-        padding: const EdgeInsets.all(48),
-        maxZoom: 16,
+        cihaz: widget.cihaz,
+        kuryeler: [for (final k in widget.kuryeler) kuryeIsareti(k)],
+        seciliDurakId: _seciliId,
       );
 
-  /// Zoom ±1 — ANİMASYONSUZ. flutter_map'in kendi animasyonu yok, `TickerProvider` ile elle
-  /// yazmak dokunma başına bir kare gecikme katardı; harita zaten kaydırmada anlık tepki veriyor.
-  void _zoom(double fark) => _kontrolcu.move(
-        _kontrolcu.camera.center,
-        (_kontrolcu.camera.zoom + fark).clamp(2.0, 18.0),
-      );
+  Future<void> _dokunuldu(HaritaDokunusu dokunus) async {
+    switch (dokunus) {
+      case DurakDokunusu(:final id):
+        final i = widget.duraklar.indexWhere((d) => d.orderId == id);
+        if (i < 0 || _seciliId != null) return; // bayat dokunuş ya da özet zaten açık
+        setState(() => _seciliId = id);
+        try {
+          await widget.onDurak(widget.duraklar[i], i + 1);
+        } finally {
+          if (mounted) setState(() => _seciliId = null);
+        }
+      case KuryeDokunusu(:final id):
+        for (final k in widget.kuryeler) {
+          if (k.userId == id) return widget.onKurye?.call(k);
+        }
+    }
+  }
 
-  void _sigdir() => _kontrolcu.fitCamera(_kadraj());
+  /// "Duraklara sığdır" — ŞU ANKİ duraklar + cihaz. Açılıştan bu yana yeni sipariş geldiyse
+  /// o da kadraja girer.
+  void _sigdir() {
+    final kadraj = _icerik().kadraj;
+    if (kadraj != null) unawaited(_kamera?.kadrajla(kadraj));
+  }
 
   Future<void> _konumum() async {
     final nokta = await widget.onKonumum?.call();
     if (nokta == null || !mounted) return;
     // Sokak ölçeği: kurye "ben neredeyim" derken kapı numarası değil, çevresindeki birkaç sokak
     // görmek ister.
-    _kontrolcu.move(nokta, 15);
+    await _kamera?.odakla(nokta, 15);
   }
 
   @override
   Widget build(BuildContext context) {
-    final t = context.sip;
-    final duraklar = widget.duraklar;
-    final karo = widget.karoKaynagi;
-
     return Stack(
       children: [
-        FlutterMap(
-          mapController: _kontrolcu,
-          options: MapOptions(
-            initialCameraFit: _acilisKadraji,
-            backgroundColor: t.surface2,
-          ),
-          children: [
-            if (karo != null)
-              TileLayer(
-                // Tema ya da oturum değişince ValueKey katmanı KOMPLE değiştirir: eski stilin
-                // karoları yeni stille karışıp yama gibi bir harita bırakmasın.
-                key: ValueKey((karo, t.koyu)),
-                urlTemplate: karo.sablon(koyu: t.koyu),
-                userAgentPackageName: kHaritaUygulamaAdi,
-                // Oturum jetonu sağlayıcının başlıklarında (sunucu aracısı oturum ister).
-                tileProvider: _karoSaglayici(karo, t.koyu),
-                // Yüksek yoğunluklu ekranda "@2x" karo istenir (`{r}`); düşük yoğunlukta ve
-                // testlerde flutter_map yer tutucuyu BOŞ metinle doldurur, yani ek istek yok.
-                retinaMode: RetinaMode.isHighDensity(context),
-                // ÇEVRİMDIŞI: karo inmezse harita gri kalır ve PİNLER durur. Geri çağrı SESSİZDİR —
-                // ekranda kaydırma başına onlarca karo denenir; her biri için toast göstermek
-                // uygulamayı kullanılamaz hâle getirirdi.
-                errorTileCallback: (_, _, _) {},
-              ),
-            MarkerLayer(
-              markers: [
-                for (var i = 0; i < duraklar.length; i++)
-                  Marker(
-                    point: LatLng(duraklar[i].lat, duraklar[i].lng),
-                    width: 34,
-                    height: 34,
-                    child: DurakPini(
-                      sira: i + 1,
-                      baslik: duraklar[i].baslik,
-                      onTap: () => widget.onDurak(duraklar[i], i + 1),
-                    ),
-                  ),
-                if (widget.cihaz != null)
-                  Marker(
-                    point: widget.cihaz!,
-                    width: 22,
-                    height: 22,
-                    child: const CihazPini(),
-                  ),
-              ],
+        Positioned.fill(
+          child: haritaTuvaliUret(
+            HaritaTuvaliAyari(
+              icerik: _icerik(),
+              koyu: context.sip.koyu,
+              kenarBoslugu: SiparisHaritaGorunumu.kenarBoslugu,
+              onDokunus: (d) => unawaited(_dokunuldu(d)),
+              onHazir: (k) => _kamera = k,
             ),
-            // Kurye pinleri duraklardan SONRA: hareket eden nokta, sabit duraklardan daha
-            // acil bir bilgidir ve üst üste düştüklerinde görünen o olmalı.
-            ?widget.kuryeKatmani,
-          ],
+          ),
         ),
         Positioned(
           right: SipSpace.xl,
           bottom: SipSpace.x4,
           child: HaritaKontrolleri(
-            onYakinlas: () => _zoom(1),
-            onUzaklas: () => _zoom(-1),
+            onYakinlas: () => unawaited(_kamera?.yakinlastir(1)),
+            onUzaklas: () => unawaited(_kamera?.yakinlastir(-1)),
             onSigdir: _sigdir,
-            onKonumum: _konumum,
+            onKonumum: () => unawaited(_konumum()),
           ),
         ),
-        // Atıf SOL ALTTA: sağ alt kontrol sütununun altına girmez, dokunma hedeflerini kapatmaz.
-        const Positioned(left: SipSpace.md, bottom: SipSpace.md, child: HaritaAtfi()),
+        // Atıf SOL ÜSTTE (2026-09-28): altta "Oto Sırala" ile çakışıyordu (cihazda görüldü —
+        // OpenFreeMap atfı öncekinden uzun). Sağ üstte yerel atıf düğmesi (ⓘ) durur.
+        const Positioned(left: SipSpace.md, top: SipSpace.md, child: HaritaAtfi()),
         // "Oto Sırala" ALT ORTADA. Yatay iç boşluk 64: sağdaki kontrol sütunu (12 + 40 çap)
         // ile çakışmasın — ortalanmış düğme dar telefonda o sütunun altına girerdi.
         if (widget.otoDugmesi != null)
