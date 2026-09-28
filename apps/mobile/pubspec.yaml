@@ -16,7 +16,7 @@ publish_to: 'none'
 # git commit sayısından türetir; makinenin karşılaştırma anahtarıdır (Play daha küçük
 # versionCode'u reddeder, uygulama içi güncelleme "uzaktaki benden yeni mi?"yi tam sayıyla çözer).
 # Buradaki +1 yalnız git'in bulunamadığı durumda (depo dışı derleme) yedek değerdir.
-version: 1.9.0+1
+version: 1.10.0+1
 
 environment:
   sdk: ^3.10.7
@@ -73,15 +73,16 @@ dependencies:
   geolocator: ^14.0.3
 
   # Sipariş haritası — açık siparişlerin pinleri, oto sıralama sonrası rota sırasıyla numaralı.
-  # MOTOR MapLibre (2026-09-28): yerel VEKTÖR çizim, her yakınlıkta keskin. Önceki flutter_map
-  # resim karo döşüyordu ve iki parmakla yakınlaştırınca pikselleşiyordu (resim karonun doğası).
-  # Zemin OpenFreeMap: ticari kullanıma açık, API ANAHTARI YOK, kota yok — APK'ya sır girmez,
-  # sunucumuz karo aracısı olmaktan çıkar. Google Maps SDK seçilmedi (Play Hizmetleri olmayan
-  # telefonda boş harita + APK'da anahtar); Yandex MapKit seçilmedi (ücretsiz lisans kurye/araç
-  # takibini ve çevrimdışı kullanımı yasaklıyor, trafik Rusya'daki sunuculara gider — KVKK).
+  # MOTOR Yandex MapKit (kullanıcı kararı 2026-09-28, resmî `yandex_maps_mapkit_lite`): yerel
+  # VEKTÖR çizim, her yakınlıkta keskin (önceki flutter_map resim karosu yakınlaşınca
+  # pikselleşiyordu), yer adları Türkçe, koyu temada gece modu. Aynı gün MapLibre+OpenFreeMap
+  # denendi ve kullanıcı tarafından reddedildi.
+  # ⚠️ API ANAHTARI derlemeye `--dart-define=YANDEX_MAPKIT_KEY` ile girer (CI secret).
+  # ⚠️ LİSANS: ücretsiz MapKit araç/kurye takibini ve çevrimdışı kullanımı yasaklar; canlı
+  # kurye katmanı bu kapsamdadır — DECISIONS 2026-09-28/3.
   # ⚠️ Platform görünümüdür, widget testinde ÇİZİLMEZ: testler `haritaTuvaliUret` dikişini
-  # sahteyle değiştirir. Android derlemesi JDK 21 ister (CI: mobil-apk.yml).
-  maplibre_gl: ^0.27.1
+  # sahteyle değiştirir.
+  yandex_maps_mapkit_lite: ^4.45.0
   # PUSH BİLDİRİMİ — sunucunun telefonu dürtmesi (yeni sipariş kuryeye atandı, teslim edildi,
   # kasa devredildi). Yerel bildirim altyapısı (`lib/bildirim/`) bunun YERİNE GEÇMEZ: o telefonun
   # KENDİ verisinden üretir, bu ise başka bir cihazda olan bir şeyi haber verir.

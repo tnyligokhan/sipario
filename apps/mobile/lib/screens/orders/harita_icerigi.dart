@@ -1,13 +1,12 @@
 // HARİTANIN İÇERİĞİ — motordan BAĞIMSIZ, saf Dart değer nesneleri (2026-09-28).
 //
-// NEDEN VAR: harita artık yerel bir vektör motoruyla (MapLibre) çiziliyor ve pinler Flutter
-// widget'ı değil, motorun kendi katmanları. "Ne çizilecek" sorusunun cevabı bu dosyada, "nasıl
-// çizilecek" sorusunun cevabı `harita_maplibre.dart`ta durur. Ayrılmasının iki kazancı var:
+// NEDEN VAR: harita yerel bir motorla (Yandex MapKit) çiziliyor ve pinler Flutter widget'ı
+// değil, motorun kendi nesneleri. "Ne çizilecek" sorusunun cevabı bu dosyada, "nasıl çizilecek"
+// sorusunun cevabı `harita_yandex.dart`ta durur. Ayrılmasının iki kazancı var:
 //  1. İçerik (numaralar, rota sırası, seçili durak, bayat kurye) widget testine gerek kalmadan
 //     birim testiyle sınanır — yerel harita widget testinde çizilemez.
-//  2. Motor bir gün yine değişirse ekran ve testler bu tipleri konuşmaya devam eder.
-//
-// GeoJSON KOORDİNAT SIRASI [boylam, enlem]'dir (RFC 7946) — ters yazmak pinleri okyanusa atar.
+//  2. Motor değişirse ekran ve testler bu tipleri konuşmaya devam eder (2026-09-28'de aynı gün
+//     MapLibre → Yandex geçişinde bu dosya motorla birlikte DEĞİŞMEDİ, sözleşme işe yaradı).
 
 import 'dart:math' as math;
 
@@ -18,8 +17,6 @@ class HaritaNoktasi {
 
   final double lat;
   final double lng;
-
-  List<double> get geoJson => [lng, lat];
 
   @override
   bool operator ==(Object other) =>
@@ -214,62 +211,20 @@ class HaritaIcerigi {
     return noktalar.isEmpty ? null : HaritaKadraji.noktalardan(noktalar);
   }
 
-  // ── GeoJSON ──────────────────────────────────────────────────────────────────────────────
+  // ── Çizim verisi (motordan bağımsız) ─────────────────────────────────────────────────────
 
-  static Map<String, dynamic> _koleksiyon(List<Map<String, dynamic>> ozellikler) =>
-      {'type': 'FeatureCollection', 'features': ozellikler};
+  /// Durağın çizim önceliği — büyük olan üstte çizilir: seçili durak en üstte, sonra 1 numara,
+  /// 2 … (küçük numara, yani sıradaki durak, üst üste binen pinlerde görünen olmalı).
+  double oncelik(DurakIsareti d) =>
+      d.id == seciliDurakId ? 1000000 : (duraklar.length - d.no).toDouble();
 
-  static Map<String, dynamic> _nokta(
-    String id,
-    HaritaNoktasi n,
-    Map<String, dynamic> ozellikler,
-  ) =>
-      {
-        'type': 'Feature',
-        // Kimlik ÜST DÜZEYDE: Android/iOS dokunuşu yalnız buradan bildirir.
-        'id': id,
-        'properties': ozellikler,
-        'geometry': {'type': 'Point', 'coordinates': n.geoJson},
-      };
+  bool seciliMi(DurakIsareti d) => d.id == seciliDurakId;
 
-  /// Durak pinleri. `sira` çizim önceliğidir: seçili durak en üstte, sonra 1 numara, 2 …
-  /// (küçük numara, yani sıradaki durak, üst üste binen pinlerde görünen olmalı).
-  Map<String, dynamic> get duraklarGeoJson => _koleksiyon([
-        for (final d in duraklar)
-          _nokta('${HaritaDokunusu.durakOneki}${d.id}', d.nokta, {
-            'no': d.no,
-            'ad': d.ad,
-            'secili': d.id == seciliDurakId,
-            'sira': d.id == seciliDurakId ? 1000000 : duraklar.length - d.no,
-          }),
-      ]);
-
-  /// Rota çizgisi — cihazdan (yakınsa, bkz. [rotaBaslangici]) başlayıp durakları SIRAYLA bağlar.
-  /// Kuş uçuşudur, yol değildir; bu yüzden kesikli çizilir. İki noktadan azsa çizgi yoktur.
-  Map<String, dynamic> get rotaGeoJson {
+  /// Rota çizgisinin noktaları — cihazdan (yakınsa, bkz. [rotaBaslangici]) başlayıp durakları
+  /// SIRAYLA bağlar. Kuş uçuşudur, yol değildir; bu yüzden kesikli çizilir. İki noktadan azsa
+  /// çizgi YOKTUR (boş liste).
+  List<HaritaNoktasi> get rotaNoktalari {
     final noktalar = [?rotaBaslangici, for (final d in duraklar) d.nokta];
-    if (noktalar.length < 2) return _koleksiyon(const []);
-    return _koleksiyon([
-      {
-        'type': 'Feature',
-        'properties': <String, dynamic>{},
-        'geometry': {
-          'type': 'LineString',
-          'coordinates': [for (final n in noktalar) n.geoJson],
-        },
-      },
-    ]);
+    return noktalar.length < 2 ? const [] : noktalar;
   }
-
-  Map<String, dynamic> get cihazGeoJson => _koleksiyon([
-        if (cihaz != null) _nokta('cihaz', cihaz!, const {}),
-      ]);
-
-  Map<String, dynamic> get kuryelerGeoJson => _koleksiyon([
-        for (final k in kuryeler)
-          _nokta('${HaritaDokunusu.kuryeOneki}${k.id}', k.nokta, {
-            'taze': k.taze,
-            'etiket': k.etiket,
-          }),
-      ]);
 }

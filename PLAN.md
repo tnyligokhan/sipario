@@ -269,9 +269,18 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.9.0**, API 1.24.0 → **1.27.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.10.0**, API 1.24.0 → **1.27.0**)
 
-> **SON İŞ (2026-09-28) — HARİTA MAPLIBRE + OPENFREEMAP (mobil 1.9.0, DECISIONS 2026-09-28/2):**
+> **SON İŞ (2026-09-28) — HARİTA YANDEX MAPKIT (mobil 1.10.0, DECISIONS 2026-09-28/3) — KULLANICI
+> KARARI, TARTIŞILMAZ.** MapLibre sürümü aynı gün söküldü. ⚠️ **İNSAN İŞİ (bloklayıcı):** Yandex
+> geliştirici kabininden MapKit Mobile SDK anahtarı alınıp GitHub'a `YANDEX_MAPKIT_KEY` secret'ı
+> olarak girilmeli (paket adı `com.sipario.app` ile kısıtlanmalı); o olmadan APK'da harita
+> "anahtar tanımlı değil" yazar. Yerelde: `--dart-define=YANDEX_MAPKIT_KEY=...`. Kapılar: analyze
+> temiz · harita testleri 82/82 · release APK derlendi (arm64 57,8 MB). Harita GÖRSEL OLARAK HİÇ
+> GÖRÜLMEDİ (anahtar yok) — anahtar gelince emülatörde (`-gpu host`) pin boyutu/ölçeği, dokunuş,
+> gece modu, ad etiketleri doğrulanmalı. ⚠️ Lisans: ücretsiz MapKit kurye takibini yasaklıyor.
+>
+> **(SÖKÜLDÜ) 2026-09-28 — HARİTA MAPLIBRE + OPENFREEMAP (mobil 1.9.0, DECISIONS 2026-09-28/2):**
 > "yakınlaştırınca pikselleşiyor" → yerel vektör motor. Yeni: kesikli rota çizgisi, yakınlaşınca
 > müşteri adı, seçili durak vurgusu, Türkçe ve doğru harfli yer adları, çevrimdışı açılış (stil
 > diskte + yedek stil). Kapılar: analyze temiz · flutter test **1693/1693** · release APK (saha,

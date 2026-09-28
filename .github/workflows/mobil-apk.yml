@@ -121,7 +121,7 @@ jobs:
             echo "BASLIK=Deneme sürümü (otomatik)"        >> "$GITHUB_ENV"
           fi
 
-      # JDK 21: harita motoru maplibre_gl (0.27+) Android derlemesi için 21 ister (2026-09-28).
+      # JDK 21: harita motoru yandex_maps_mapkit_lite Android derlemesi Java 21 hedefler (2026-09-28).
       # Yerel geliştirmede Android Studio'nun JBR'ı zaten 21'dir.
       - uses: actions/setup-java@v4
         with:
@@ -146,7 +146,13 @@ jobs:
         env:
           SAHA_KEYSTORE_SIFRE: ${{ secrets.SAHA_KEYSTORE_SIFRE }}
           SAHA_ANAHTAR_SIFRE: ${{ secrets.SAHA_ANAHTAR_SIFRE }}
+          # Yandex MapKit anahtarı (2026-09-28). Secret yoksa derleme YİNE geçer ama harita
+          # ekranı "harita anahtarı tanımlı değil" yazar — sessiz boş harita yerine görünür sebep.
+          YANDEX_MAPKIT_KEY: ${{ secrets.YANDEX_MAPKIT_KEY }}
         run: |
+          if [ -z "$YANDEX_MAPKIT_KEY" ]; then
+            echo "::warning::YANDEX_MAPKIT_KEY secret tanımlı değil — APK'da harita açılmaz."
+          fi
           # SIPARIO_YAPIM define'ı ŞART: --split-per-abi versionCode'a ABI sapması ekler
           # (arm64 = 2000 + git sayısı). PackageInfo.buildNumber ile surum.json'daki yapim
           # karşılaştırılsaydı arm64 cihaz kendini hep "güncel" sanır ve BİR DAHA
@@ -164,11 +170,13 @@ jobs:
           bash "$YENIDEN" flutter build apk --release --flavor "$FLAVOR" \
             --dart-define=SIPARIO_KANAL="$KANAL" \
             --dart-define=SIPARIO_YAPIM="$YAPIM" \
-            --dart-define=SIPARIO_API="$API" --split-per-abi
+            --dart-define=SIPARIO_API="$API" \
+            --dart-define=YANDEX_MAPKIT_KEY="$YANDEX_MAPKIT_KEY" --split-per-abi
           bash "$YENIDEN" flutter build apk --release --flavor "$FLAVOR" \
             --dart-define=SIPARIO_KANAL="$KANAL" \
             --dart-define=SIPARIO_YAPIM="$YAPIM" \
-            --dart-define=SIPARIO_API="$API"
+            --dart-define=SIPARIO_API="$API" \
+            --dart-define=YANDEX_MAPKIT_KEY="$YANDEX_MAPKIT_KEY"
 
       # BİRLEŞTİRİLMİŞ MANİFEST İZİN DENETİMİ (kırmızı çizgi #6) — 2026-08-17'de eklendi.
       #

@@ -1,4 +1,4 @@
-// HARİTANIN ÜSTÜNDEKİ KATMAN — kontrol düğmeleri ve atıf şeridi.
+// HARİTANIN ÜSTÜNDEKİ KATMAN — kontrol düğmeleri ve "Oto Sırala".
 //
 // NEDEN AYRI DOSYA: `siparis_harita.dart` haritanın VERİ ve KAMERA akışını yönetiyor; bunlar ise
 // saf çizimdir (durumları yok, callback alırlar). Ayrı durunca 500 satır sınırı da korunuyor.
@@ -12,7 +12,6 @@ import '../../theme/components/atoms.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
-import 'harita_stili.dart';
 
 /// Lucide `minus` — ikon SÖZLÜĞÜNDE yok, çünkü tasarımda harita hiç yoktu. `SipIcon` ham path
 /// kabul eder (setin dışındaki tek seferlik şekiller için açık kapı); sözlüğe tasarımda
@@ -149,8 +148,8 @@ class HaritaOtoDugmesi extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: SipSpace.md),
             child: DecoratedBox(
-              // Atıf şeridiyle aynı yarı saydam yüzey: karoların üstüne doğrudan yazılan gri
-              // metin açık/koyu bölgelerde kayboluyordu.
+              // Yarı saydam yüzey: haritanın üstüne doğrudan yazılan gri metin açık/koyu
+              // bölgelerde kayboluyordu.
               decoration: BoxDecoration(
                 color: t.surface.withValues(alpha: 0.92),
                 borderRadius: SipRadius.brHap,
@@ -174,32 +173,6 @@ class HaritaOtoDugmesi extends StatelessWidget {
           onTap: kilitli ? null : onTap,
         ),
       ],
-    );
-  }
-}
-
-/// Harita verisi atfı — HUKUKİ ZORUNLULUK, kaldırılamaz (OSM ODbL + OpenFreeMap şartı).
-///
-/// Metin SÖZLEŞMEDİR ve tek kaynaktan gelir ([HaritaStili.atif]). Sönük ve küçüktür ama okunur:
-/// yarı saydam bir yüzeyin üstünde durur, çünkü haritanın üstüne doğrudan yazılan gri metin
-/// açık/koyu bölgelerde kayboluyordu.
-class HaritaAtfi extends StatelessWidget {
-  const HaritaAtfi({super.key});
-
-  static const String metin = HaritaStili.atif;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.sip;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: t.surface.withValues(alpha: 0.82),
-        borderRadius: SipRadius.brHap,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: SipSpace.md, vertical: 3),
-        child: Text(metin, style: SipText.metin(10, w: 600).copyWith(color: t.muted)),
-      ),
     );
   }
 }

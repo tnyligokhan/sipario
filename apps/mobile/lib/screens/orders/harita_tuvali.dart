@@ -1,7 +1,7 @@
 // HARİTA TUVALİ — ekran ile harita motoru arasındaki DAR sözleşme (2026-09-28).
 //
 // Ekran motoru tanımaz: ona "şu içeriği çiz, şu dokunuşları bana bildir" der ve hazır olunca
-// eline bir [HaritaKamerasi] geçer. Üretimde tuval MapLibre'dir (`harita_maplibre.dart`).
+// eline bir [HaritaKamerasi] geçer. Üretimde tuval Yandex MapKit'tir (`harita_yandex.dart`).
 //
 // DİKİŞ ([haritaTuvaliUret]): yerel harita bir platform görünümüdür ve widget testinde
 // ÇİZİLEMEZ. Testler dikişi bir sahteyle değiştirir; sahte, içeriği sıradan widget'lar olarak
@@ -11,7 +11,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'harita_icerigi.dart';
-import 'harita_maplibre.dart';
+import 'harita_yandex.dart';
 
 /// Kameranın ekrana açık yüzü. Komutlar ANİMASYONLUDUR — ani sıçrama kullanıcının nerede
 /// olduğunu kaybettirir.
@@ -54,5 +54,6 @@ class HaritaTuvaliAyari {
 
 typedef HaritaTuvaliUretici = Widget Function(HaritaTuvaliAyari ayar);
 
-/// Tuvalin TEK dikişi. Üretimde MapLibre; testler sahteyle değiştirir ve tearDown'da geri alır.
-HaritaTuvaliUretici haritaTuvaliUret = MapLibreTuvali.new;
+/// Tuvalin TEK dikişi. Üretimde Yandex MapKit; testler sahteyle değiştirir ve tearDown'da
+/// geri alır.
+HaritaTuvaliUretici haritaTuvaliUret = YandexTuvali.new;

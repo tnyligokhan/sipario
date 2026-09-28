@@ -15,8 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/konum/cihaz_konumu.dart';
 import 'package:sipario/screens/orders/harita_icerigi.dart';
-import 'package:sipario/screens/orders/harita_kontrolleri.dart';
-import 'package:sipario/screens/orders/harita_stili.dart';
+import 'package:sipario/screens/orders/harita_yandex.dart';
 import 'package:sipario/screens/orders/order_list_screen.dart';
 import 'package:sipario/screens/orders/siparis_harita.dart';
 
@@ -41,7 +40,7 @@ void main() {
       return db;
     }
 
-    testWidgets('AÇIK temada harita açık stille, atfıyla çizilir', (tester) async {
+    testWidgets('AÇIK temada harita gündüz kipinde açılır', (tester) async {
       genisYuzey(tester);
       final db = await ikiDurak(tester);
 
@@ -49,16 +48,13 @@ void main() {
       await akisiBekle(tester);
 
       expect(harita.sonAyar!.koyu, isFalse);
-      // Atıf HUKUKİ ZORUNLULUK — kaldırılamaz, metni sözleşmedir.
-      expect(find.text('© OpenFreeMap © OpenMapTiles © OpenStreetMap'), findsOneWidget);
-      expect(HaritaAtfi.metin, HaritaStili.atif);
 
       await ekraniKapat(tester);
     });
 
-    testWidgets('KOYU temada harita koyu stile geçer', (tester) async {
+    testWidgets('KOYU temada harita gece kipine geçer', (tester) async {
       // Saha bulgusu (2026-07-29): uygulama koyu temadayken harita bembeyaz açılıyordu —
-      // hem göz alıyor hem "bozuk" izlenimi veriyordu. Stil temayı İZLER.
+      // hem göz alıyor hem "bozuk" izlenimi veriyordu. Harita temayı İZLER (MapKit gece modu).
       genisYuzey(tester);
       final db = await ikiDurak(tester);
 
@@ -66,12 +62,15 @@ void main() {
       await akisiBekle(tester);
 
       expect(harita.sonAyar!.koyu, isTrue);
-      expect(HaritaStili.adres(koyu: true), endsWith('/styles/dark'));
-      expect(HaritaStili.adres(koyu: false), endsWith('/styles/positron'));
-      // Atıf koyuda da durur — hukuki zorunluluk temayla pazarlık etmez.
-      expect(find.text(HaritaStili.atif), findsOneWidget);
 
       await ekraniKapat(tester);
+    });
+
+    test('MapKit Türkçe yerel ayarla kurulur ve anahtar derlemeden gelir', () {
+      // Yer adları Türkçe olmalı; anahtar kaynak koda YAZILMAZ (dart-define). Testte anahtar
+      // verilmediği için boştur — üretim tuvali bu durumda sebebi ekrana yazar.
+      expect(YandexHaritaMotoru.yerelAyar, 'tr_TR');
+      expect(YandexHaritaMotoru.anahtar, isEmpty);
     });
 
     testWidgets('kadraj üstteki düğmelerin payını bırakır', (tester) async {

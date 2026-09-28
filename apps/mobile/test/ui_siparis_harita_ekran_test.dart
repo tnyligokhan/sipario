@@ -298,10 +298,9 @@ void main() {
       expect(harita.duraklar, findsOneWidget);
       expect(find.text('1 durak, rota sırasıyla'), findsOneWidget);
       // Rota çizgisi CİHAZDAN başlar: oto sıralama da oradan başlıyor.
-      final cizgi = harita.icerik.rotaGeoJson['features'] as List;
-      expect((cizgi.single as Map)['geometry']['coordinates'], [
-        [30.7060, 36.8850],
-        [30.7056, 36.8841],
+      expect(harita.icerik.rotaNoktalari, const [
+        HaritaNoktasi(36.8850, 30.7060),
+        HaritaNoktasi(36.8841, 30.7056),
       ]);
 
       await ekraniKapat(tester);

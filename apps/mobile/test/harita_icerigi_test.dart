@@ -1,8 +1,9 @@
-// HARİTA İÇERİĞİ — motora giden GeoJSON'un ve kadrajın saf birim testleri (2026-09-28).
+// HARİTA İÇERİĞİ — motora giden verinin ve kadrajın saf birim testleri (2026-09-28).
 //
-// Yerel harita widget testinde çizilemez; pinlerin numarası, çizim önceliği, rota çizgisinin
-// sırası ve seçili durak ancak motora giden veriden sınanabilir. Bir hata burada sessizdir:
-// ters koordinat pini okyanusa atar, yanlış öncelik sıradaki durağı başka pinin altına gömer.
+// Yerel harita widget testinde çizilemez; pinlerin çizim önceliği, rota çizgisinin sırası,
+// seçili durak ve uzak cihaz kuralı ancak motora giden veriden sınanabilir. Bir hata burada
+// sessizdir: yanlış öncelik sıradaki durağı başka pinin altına gömer, uzak cihaz haritayı ülke
+// ölçeğine uzaklaştırır.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/screens/orders/harita_icerigi.dart';
@@ -21,60 +22,31 @@ class _Rota {
   static const b = HaritaNoktasi(40.2100, 29.0200);
   static const c = HaritaNoktasi(40.1800, 29.1000);
 
+  static const s1 = DurakIsareti(id: 's1', no: 1, nokta: a, ad: 'Ayşe');
+  static const s2 = DurakIsareti(id: 's2', no: 2, nokta: b, ad: 'Mehmet');
+  static const s3 = DurakIsareti(id: 's3', no: 3, nokta: c, ad: 'Şükrü');
+
   late final HaritaIcerigi icerik = HaritaIcerigi(
-    duraklar: const [
-      DurakIsareti(id: 's1', no: 1, nokta: a, ad: 'Ayşe'),
-      DurakIsareti(id: 's2', no: 2, nokta: b, ad: 'Mehmet'),
-      DurakIsareti(id: 's3', no: 3, nokta: c, ad: 'Şükrü'),
-    ],
+    duraklar: const [s1, s2, s3],
     cihaz: cihaz,
     seciliDurakId: secili,
   );
-
-  List<Map<String, dynamic>> get ozellikler =>
-      (icerik.duraklarGeoJson['features'] as List).cast<Map<String, dynamic>>();
-
-  Map<String, dynamic> ozellik(String id) =>
-      ozellikler.singleWhere((f) => f['id'] == 'd:$id');
 }
 
 void main() {
-  group('durak GeoJSON', () {
-    test('koordinat sırası [boylam, enlem] — ters yazılsa pin başka yere düşer', () {
-      final f = _Rota().ozellik('s1');
-      expect(f['geometry'], {
-        'type': 'Point',
-        'coordinates': [29.0600, 40.1950],
-      });
-    });
-
-    test('kimlik ÜST DÜZEYDE ve önekli — dokunuş yalnız buradan geri gelir', () {
-      final ids = [for (final f in _Rota().ozellikler) f['id']];
-      expect(ids, ['d:s1', 'd:s2', 'd:s3']);
-    });
-
-    test('numara ve ad özellik olarak taşınır', () {
-      final p = _Rota().ozellik('s3')['properties'] as Map;
-      expect(p['no'], 3);
-      expect(p['ad'], 'Şükrü');
-      expect(p['secili'], isFalse);
-    });
-
+  group('durak çizimi', () {
     test('çizim önceliği: 1 numara EN ÜSTTE (üst üste binen pinlerde sıradaki durak görünür)',
         () {
-      final r = _Rota();
-      int sira(String id) => (r.ozellik(id)['properties'] as Map)['sira'] as int;
-      expect(sira('s1'), greaterThan(sira('s2')));
-      expect(sira('s2'), greaterThan(sira('s3')));
+      final i = _Rota().icerik;
+      expect(i.oncelik(_Rota.s1), greaterThan(i.oncelik(_Rota.s2)));
+      expect(i.oncelik(_Rota.s2), greaterThan(i.oncelik(_Rota.s3)));
     });
 
-    test('seçili durak HER ŞEYİN üstüne çıkar ve işaretlenir', () {
-      final r = _Rota(secili: 's3');
-      final p3 = r.ozellik('s3')['properties'] as Map;
-      final p1 = r.ozellik('s1')['properties'] as Map;
-      expect(p3['secili'], isTrue);
-      expect(p1['secili'], isFalse);
-      expect(p3['sira'] as int, greaterThan(p1['sira'] as int));
+    test('seçili durak HER ŞEYİN üstüne çıkar ve yalnız o seçilidir', () {
+      final i = _Rota(secili: 's3').icerik;
+      expect(i.seciliMi(_Rota.s3), isTrue);
+      expect(i.seciliMi(_Rota.s1), isFalse);
+      expect(i.oncelik(_Rota.s3), greaterThan(i.oncelik(_Rota.s1)));
     });
 
     test('kopyala seçimi değiştirir, null ile TEMİZLER, verilmezse korur', () {
@@ -86,23 +58,15 @@ void main() {
   });
 
   group('rota çizgisi', () {
-    List<dynamic> koordinatlar(HaritaIcerigi i) {
-      final ozellikler = i.rotaGeoJson['features'] as List;
-      return (ozellikler.single as Map)['geometry']['coordinates'] as List;
-    }
-
     test('durakları SIRAYLA bağlar', () {
-      expect(koordinatlar(_Rota().icerik), [
-        _Rota.a.geoJson,
-        _Rota.b.geoJson,
-        _Rota.c.geoJson,
-      ]);
+      expect(_Rota().icerik.rotaNoktalari, [_Rota.a, _Rota.b, _Rota.c]);
     });
 
     test('cihaz biliniyorsa çizgi ORADAN başlar (oto sıralama da oradan başlıyor)', () {
       const cihaz = HaritaNoktasi(40.2000, 29.0000);
-      expect(koordinatlar(_Rota(cihaz: cihaz).icerik).first, cihaz.geoJson);
-      expect(koordinatlar(_Rota(cihaz: cihaz).icerik), hasLength(4));
+      final noktalar = _Rota(cihaz: cihaz).icerik.rotaNoktalari;
+      expect(noktalar.first, cihaz);
+      expect(noktalar, hasLength(4));
     });
 
     test('UZAKTAKİ cihaz rotanın başı DEĞİLDİR — çizgiye de kadraja da girmez', () {
@@ -111,10 +75,10 @@ void main() {
       const uzak = HaritaNoktasi(37.42, -122.08);
       final i = _Rota(cihaz: uzak).icerik;
       expect(i.rotaBaslangici, isNull);
-      expect(koordinatlar(i), hasLength(3), reason: 'çizgi yalnız durakları bağlar');
+      expect(i.rotaNoktalari, hasLength(3), reason: 'çizgi yalnız durakları bağlar');
       expect(i.kadraj!.kuzeyDogu!.lng, lessThan(30), reason: 'kadraj Bursa\'da kalır');
       // Nokta yine ÇİZİLİR — cihazın nerede olduğu gizlenmez.
-      expect(i.cihazGeoJson['features'], hasLength(1));
+      expect(i.cihaz, uzak);
     });
 
     test('30 km sınırı: sınırın içindeki cihaz rotanın başıdır', () {
@@ -127,29 +91,19 @@ void main() {
       expect(_Rota(cihaz: uzak).icerik.rotaBaslangici, isNull);
     });
 
-    test('durak yokken cihaz tek başına kadrajdır', () {
-      const i = HaritaIcerigi(cihaz: HaritaNoktasi(37.42, -122.08));
-      expect(i.kadraj!.merkez, const HaritaNoktasi(37.42, -122.08));
+    test('tek nokta çizgi DEĞİLDİR — boş liste', () {
+      const tek = HaritaIcerigi(duraklar: [_Rota.s1]);
+      expect(tek.rotaNoktalari, isEmpty);
     });
 
-    test('tek nokta çizgi DEĞİLDİR — boş koleksiyon', () {
-      const tek = HaritaIcerigi(duraklar: [
-        DurakIsareti(id: 'x', no: 1, nokta: _Rota.a, ad: 'Tek'),
-      ]);
-      expect(tek.rotaGeoJson['features'], isEmpty);
-    });
-
-    test('tek durak + cihaz = iki nokta, çizgi VAR', () {
-      const i = HaritaIcerigi(
-        duraklar: [DurakIsareti(id: 'x', no: 1, nokta: _Rota.a, ad: 'Tek')],
-        cihaz: _Rota.b,
-      );
-      expect(i.rotaGeoJson['features'], hasLength(1));
+    test('tek durak + yakın cihaz = iki nokta, çizgi VAR', () {
+      const i = HaritaIcerigi(duraklar: [_Rota.s1], cihaz: _Rota.b);
+      expect(i.rotaNoktalari, [_Rota.b, _Rota.a]);
     });
   });
 
   group('kadraj', () {
-    test('duraklar + cihaz kutuyu belirler', () {
+    test('duraklar + yakın cihaz kutuyu belirler', () {
       const cihaz = HaritaNoktasi(40.3000, 28.9000);
       final k = _Rota(cihaz: cihaz).icerik.kadraj!;
       expect(k.kutuMu, isTrue);
@@ -158,9 +112,9 @@ void main() {
     });
 
     test('kuryeler kadraja GİRMEZ — şehrin öbür ucundaki kurye rotayı okunmaz kılardı', () {
-      final i = HaritaIcerigi(
-        duraklar: const [DurakIsareti(id: 'x', no: 1, nokta: _Rota.a, ad: 'A')],
-        kuryeler: const [
+      const i = HaritaIcerigi(
+        duraklar: [_Rota.s1],
+        kuryeler: [
           KuryeIsareti(id: 'k', nokta: HaritaNoktasi(41.0, 30.0), ad: 'Uzak', taze: true),
         ],
       );
@@ -185,7 +139,9 @@ void main() {
       expect(k.orta.lat, closeTo(40.19525, 1e-9));
     });
 
-    test('durak ve cihaz yoksa kadraj yok', () {
+    test('durak yokken cihaz tek başına kadrajdır; ikisi de yoksa kadraj yok', () {
+      const i = HaritaIcerigi(cihaz: HaritaNoktasi(37.42, -122.08));
+      expect(i.kadraj!.merkez, const HaritaNoktasi(37.42, -122.08));
       expect(const HaritaIcerigi().kadraj, isNull);
       expect(() => HaritaKadraji.noktalardan(const []), throwsArgumentError);
     });
@@ -197,8 +153,8 @@ void main() {
       expect(HaritaDokunusu.coz('k:u1'), isA<KuryeDokunusu>().having((d) => d.id, 'id', 'u1'));
     });
 
-    test('cihaz ve taban haritanın öğeleri dokunuş SAYILMAZ', () {
-      // Cihaz bir durak değildir, özet açmaz; sokak adına dokunmak hiçbir şey yapmamalı.
+    test('cihaz ve tanınmayan kimlik dokunuş SAYILMAZ', () {
+      // Cihaz bir durak değildir, özet açmaz; tanınmayan kimliğe dokunmak hiçbir şey yapmamalı.
       expect(HaritaDokunusu.coz('cihaz'), isNull);
       expect(HaritaDokunusu.coz('123456'), isNull);
       expect(HaritaDokunusu.coz(''), isNull);
@@ -225,6 +181,8 @@ void main() {
       );
       expect(i.taze, isFalse);
       expect(i.etiket, 'Ahmet Kurye\n7 dk önce');
+      expect(i.id, 'u1');
+      expect(i.nokta, const HaritaNoktasi(40.2, 29.0));
     });
 
     test('taze konumun etiketi yalnız ad — her pine saat asmak haritayı okunmaz kılar', () {
@@ -234,15 +192,6 @@ void main() {
         simdi: simdi,
       );
       expect(i.etiket, 'Ahmet Kurye');
-    });
-
-    test('GeoJSON kimliği önekli, taze bayrağı katmanın rengini seçer', () {
-      const i = HaritaIcerigi(kuryeler: [
-        KuryeIsareti(id: 'u9', nokta: _Rota.a, ad: 'Ali', taze: false, bayatlik: '3 sa önce'),
-      ]);
-      final f = (i.kuryelerGeoJson['features'] as List).single as Map;
-      expect(f['id'], 'k:u9');
-      expect(f['properties'], {'taze': false, 'etiket': 'Ali\n3 sa önce'});
     });
   });
 }

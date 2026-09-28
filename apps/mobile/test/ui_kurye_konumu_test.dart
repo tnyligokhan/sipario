@@ -386,12 +386,10 @@ void main() {
       expect(find.text('Ahmet Kurye'), findsOneWidget);
       expect(find.text('7 dk önce'), findsOneWidget);
 
-      // Soluk renk haritanın kendi katmanında `taze` özelliğinden seçilir (`harita_maplibre.dart`).
+      // Soluk görsel haritanın kendi nesnesinde `taze` bayrağından seçilir (`harita_yandex.dart`).
       final isaret = harita.icerik.kuryeler.single;
       expect(isaret.taze, isFalse, reason: 'bayat pin vurgu moruyla çizilmez');
       expect(isaret.etiket, 'Ahmet Kurye\n7 dk önce');
-      final ozellik = (harita.icerik.kuryelerGeoJson['features'] as List).single as Map;
-      expect(ozellik['properties']['taze'], isFalse);
 
       await ekraniKapat(tester);
     });

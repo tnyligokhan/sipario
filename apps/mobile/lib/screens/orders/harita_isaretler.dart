@@ -1,8 +1,8 @@
 // HARİTANIN BANTLARI — konumsuz siparişler bandı.
 //
 // Durak ve cihaz pinleri 2026-09-28'e dek bu dosyada Flutter widget'ı olarak dururdu; harita
-// MapLibre'ye geçince motorun kendi vektör katmanları oldular (`harita_maplibre.dart`). Bant
-// haritanın DIŞINDA, başlığın altında durduğu için widget olarak kaldı.
+// yerel motora geçince motorun kendi nesneleri oldular (`harita_yandex.dart`). Bant haritanın
+// DIŞINDA, başlığın altında durduğu için widget olarak kaldı.
 //
 // Bu sembol `siparis_harita.dart` üzerinden de dışa verilir (`export`): mevcut testler ve
 // çağıranlar harita ekranını tek dosyadan tanıyor, o yüzey SÖZLEŞMEDİR.

@@ -9,12 +9,11 @@
 //  • VERİ yalnız AÇIK siparişlerdir (teslim edileni haritada göstermek yapılacak işi şişirir).
 //    Koordinatı olmayan açık sipariş haritaya GİRMEZ ama SAYISI üstte yazar — sessizce yutmak
 //    kuryeye eksik rota koşturur.
-//  • HARİTA MOTORU tek dikişten geçer ([haritaTuvaliUret]): üretimde MapLibre (vektör, her
+//  • HARİTA MOTORU tek dikişten geçer ([haritaTuvaliUret]): üretimde Yandex MapKit (vektör, her
 //    yakınlıkta keskin — 2026-09-28'e dek resim karolar yakınlaşınca pikselleşiyordu), testte
 //    içeriği widget olarak çizen sahte. Widget testi ağa ve platform görünümüne ASLA uzanmaz.
-//  • ZEMİN YÜKLENEMEZSE (çevrimdışı) harita düz renk kalır, PİNLER YİNE ÇİZİLİR. Offline-first
-//    sözü burada da geçerli: internet yoksa özellik kapanmaz, zemin kaybolur
-//    (`harita_stili.dart` — stil diskte saklanır, en kötü ihtimalle yedek stile düşülür).
+//  • ZEMİN YÜKLENEMEZSE (çevrimdışı) PİNLER YİNE ÇİZİLİR: pinler motorun kendi nesneleridir,
+//    zeminden bağımsızdır. MapKit daha önce bakılan bölgeyi kendi önbelleğinden gösterir.
 
 import 'dart:async';
 
@@ -281,7 +280,7 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
   }
 }
 
-/// Haritanın kendisi — tuval (MapLibre) + üstündeki kontroller, atıf ve "Oto Sırala".
+/// Haritanın kendisi — tuval (Yandex MapKit) + üstündeki kontroller ve "Oto Sırala".
 ///
 /// Ekranın DURUMUNDAN ayrı bir widget: böylece harita tek başına (sahte duraklarla) test
 /// edilebilir ve veri akışı ile çizim birbirine karışmaz. Görünüm motoru tanımaz; içeriği
@@ -409,9 +408,8 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
             onKonumum: () => unawaited(_konumum()),
           ),
         ),
-        // Atıf SOL ÜSTTE (2026-09-28): altta "Oto Sırala" ile çakışıyordu (cihazda görüldü —
-        // OpenFreeMap atfı öncekinden uzun). Sağ üstte yerel atıf düğmesi (ⓘ) durur.
-        const Positioned(left: SipSpace.md, top: SipSpace.md, child: HaritaAtfi()),
+        // Atıf ayrı bir şerit DEĞİL: Yandex logosu (lisans gereği) haritanın kendisinde, sol
+        // üstte durur (`harita_yandex.dart`) — altta "Oto Sırala", sağda kontroller var.
         // "Oto Sırala" ALT ORTADA. Yatay iç boşluk 64: sağdaki kontrol sütunu (12 + 40 çap)
         // ile çakışmasın — ortalanmış düğme dar telefonda o sütunun altına girerdi.
         if (widget.otoDugmesi != null)
