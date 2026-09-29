@@ -269,8 +269,12 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.14.0**, API 1.24.0 → **1.28.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.14.1**, API 1.24.0 → **1.28.0**)
 
+> **EK (1.14.1, DECISIONS 2026-09-29/5):** gruplu haritada da her kişinin rotası gerçek
+> yoldan (kişi başına bir yol isteği); ilk sürümdeki kuş uçuşu tasarrufu geri alındı.
+> flutter test **1747/1747**, analyze temiz.
+>
 > **SON İŞ (2026-09-29, 3. oturum) — HARİTA KİŞİYE GÖRE (mobil 1.13.0 → 1.14.0, API
 > DEĞİŞMEDİ, DECISIONS 2026-09-29/4).** Kurye haritada yalnız kendi siparişlerini görür;
 > patron "Siz" + her kurye ayrı renk/numara/kişi şeridi; oto sıralama kişi kişi (kurye rotası

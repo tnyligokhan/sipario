@@ -224,11 +224,12 @@ class YandexCizici {
       ..setStrokeColor((icerik.rotaRengi ?? _renkler.vurgu).withValues(alpha: 0.6));
   }
 
-  /// Gruplu haritada her kişinin rotası KENDİ RENGİNDE kesikli çizgi. Pinlerin ALTINDA.
+  /// Gruplu haritada her kişinin rotası KENDİ RENGİNDE: gerçek yol düz, başlangıç bacağı (ya da
+  /// yol gelmediyse bütün rota) kesikli. Pinlerin ALTINDA.
   void _grupRotalariniCiz(HaritaIcerigi icerik) {
+    String nk(List<HaritaNoktasi>? l) => (l ?? const []).map((n) => '${n.lat},${n.lng}').join(';');
     final anahtar = [
-      for (final r in icerik.rotalar)
-        '${r.renk?.toARGB32()}:${r.noktalar.map((n) => '${n.lat},${n.lng}').join(';')}',
+      for (final r in icerik.rotalar) '${r.renk?.toARGB32()}:${nk(r.noktalar)}:${nk(r.yol)}',
     ].join('|');
     if (anahtar == _grupRotalariSon) return;
     _grupRotalariSon = anahtar;
@@ -237,6 +238,15 @@ class YandexCizici {
     }
     _grupRotalari.clear();
     for (final r in icerik.rotalar) {
+      final renk = r.renk ?? _renkler.vurgu;
+      // GERÇEK YOL: düz ve kalın, kesikliden üstte (tek kişilik haritanın yol çizgisiyle aynı).
+      if (r.yolVar) {
+        _grupRotalari.add(_kok.addPolylineWithGeometry(
+            y.Polyline([for (final n in r.yol!) _nokta(n)]))
+          ..style = const y.LineStyle(strokeWidth: 4)
+          ..zIndex = 1
+          ..setStrokeColor(renk.withValues(alpha: 0.8)));
+      }
       if (r.noktalar.length < 2) continue;
       _grupRotalari.add(_kok.addPolylineWithGeometry(
           y.Polyline([for (final n in r.noktalar) _nokta(n)]))

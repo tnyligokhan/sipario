@@ -58,12 +58,19 @@ class DurakIsareti {
   final String grup;
 }
 
-/// Tek bir kişinin kuş uçuşu rota çizgisi — gruplu haritada her grup kendi renginde çizilir.
+/// Tek bir kişinin rotası — gruplu haritada her grup kendi renginde çizilir.
+///
+/// [yol] varsa rota GERÇEK YOLDAN düz çizilir ve [noktalar] yalnız başlangıçtan ilk durağa
+/// kadarki kesikli bacaktır (tek kişilik haritanın kuralının aynısı). [yol] yoksa (çevrimdışı,
+/// servis kapalı, henüz gelmedi) [noktalar] bütün durakları kuş uçuşu kesikli bağlar.
 class HaritaRotasi {
-  const HaritaRotasi({required this.noktalar, this.renk});
+  const HaritaRotasi({required this.noktalar, this.renk, this.yol});
 
   final List<HaritaNoktasi> noktalar;
   final Color? renk;
+  final List<HaritaNoktasi>? yol;
+
+  bool get yolVar => (yol?.length ?? 0) >= 2;
 }
 
 /// Canlı kurye. [bayatlik] boş değilse konum bayattır ("7 dk önce") ve pin soluk çizilir.

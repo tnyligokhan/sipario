@@ -131,3 +131,53 @@ class _YolCizgisiKatmaniState extends State<YolCizgisiKatmani> {
   @override
   Widget build(BuildContext context) => widget.builder(context, _yol);
 }
+
+/// KİŞİ BAŞINA GERÇEK YOL (kullanıcı düzeltmesi 2026-09-29: "Neden kuş bakışı şeklinde rotayı
+/// çizdin? Yol rotası olması gerekiyordu!"). Gruplu haritada her kişinin rotası ayrı bir
+/// [YolCizgisiKatmani] ile istenir; sonuçlar grup anahtarıyla birleştirilip tek builder'a verilir.
+///
+/// İlk sürümde çok grupta yol hiç istenmiyor, kuş uçuşu çiziliyordu ("grup başına paralı çağrı
+/// açılmasın" diye). Yanlış tasarruftu: sunucu çizgiyi 7 gün önbellekler, kontör harcamaz ve
+/// kişi başına tek istek, patronun gördüğü rotanın kuryenin gideceği yol olmasına değer.
+///
+/// Katmanlar grup anahtarıyla ANAHTARLANIR: şeritten bir kişi seçilince ya da bir kişinin
+/// siparişleri bitince kalan katmanlar durumlarını (bellek, yolda istek) kaybetmez.
+class GrupYollariKatmani extends StatelessWidget {
+  const GrupYollariKatmani({
+    super.key,
+    required this.db,
+    required this.gruplar,
+    required this.builder,
+  });
+
+  final AppDatabase db;
+
+  /// Grup anahtarı → o kişinin durakları (rota sırasında).
+  final Map<String, List<HaritaDuragi>> gruplar;
+
+  final Widget Function(BuildContext context, Map<String, List<HaritaNoktasi>> yollar) builder;
+
+  @override
+  Widget build(BuildContext context) => _katman(context, gruplar.entries.toList(), 0, const {});
+
+  Widget _katman(
+    BuildContext context,
+    List<MapEntry<String, List<HaritaDuragi>>> liste,
+    int i,
+    Map<String, List<HaritaNoktasi>> toplanan,
+  ) {
+    if (i == liste.length) return builder(context, toplanan);
+    final g = liste[i];
+    return YolCizgisiKatmani(
+      key: ValueKey('yol-${g.key}'),
+      db: db,
+      duraklar: g.value,
+      builder: (context, yol) => _katman(
+        context,
+        liste,
+        i + 1,
+        yol == null ? toplanan : {...toplanan, g.key: yol},
+      ),
+    );
+  }
+}

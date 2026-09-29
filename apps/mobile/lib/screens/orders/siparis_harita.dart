@@ -276,9 +276,8 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
             : 'Açık sipariş yok. Yeni sipariş girildiğinde durağı burada görünür.',
       );
     }
-    // KİŞİ GRUPLARI: görünen gruplar (şeritte seçili olan ya da hepsi) çizilir. Gerçek yol
-    // çizgisi yalnız TEK grup gösterilirken istenir — çok grupta her grup kendi kesikli
-    // çizgisiyle yetinir, grup başına paralı çağrı açılmaz.
+    // KİŞİ GRUPLARI: görünen gruplar (şeritte seçili olan ya da hepsi) çizilir. Her grubun
+    // rotası GERÇEK YOLDAN istenir (`GrupYollariKatmani`, kişi başına bir istek).
     final gorunen = _gorunenGruplar(veri);
     final duraklar = [for (final g in gorunen) ...g.ogeler];
     final renkler = _grupRenkleri(veri);
@@ -295,10 +294,12 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
     // Yol çizgisi katmanı da KOŞULSUZ sarılır: oturum/servis kapısı katmanın içindedir.
     return KuryeKatmani(
       db: widget.db,
-      builder: (context, kuryeler) => YolCizgisiKatmani(
+      builder: (context, kuryeler) => GrupYollariKatmani(
         db: widget.db,
-        duraklar: tekGrup ? duraklar : const [],
-        builder: (context, yol) => SiparisHaritaGorunumu(
+        gruplar: gorunen.isEmpty
+            ? {'': duraklar}
+            : {for (final g in gorunen) g.anahtar: g.ogeler},
+        builder: (context, yollar) => SiparisHaritaGorunumu(
           duraklar: duraklar,
           gruplar: veri.gruplar.isEmpty ? null : gorunen,
           grupRenkleri: renkler,
@@ -308,7 +309,8 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
             for (final k in kuryeler)
               if (odakKurye == null || k.userId == odakKurye) k,
           ],
-          yol: tekGrup ? yol : null,
+          yol: tekGrup && yollar.isNotEmpty ? yollar.values.single : null,
+          grupYollari: yollar,
           onDurak: _durakAc,
           onKurye: (k) => kuryeOzetSheetAc(context, konum: k),
           onKonumum: _konumumaGit,

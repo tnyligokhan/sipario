@@ -37,7 +37,11 @@ class SiparisHaritaGorunumu extends StatefulWidget {
     this.gruplar,
     this.grupRenkleri = const {},
     this.kuryeRengi,
+    this.grupYollari = const {},
   });
+
+  /// Grup anahtarı → o kişinin gerçek yol çizgisi (gelenler; gelmeyen grup kuş uçuşuna düşer).
+  final Map<String, List<HaritaNoktasi>> grupYollari;
 
   /// Kişi grupları (2026-09-29). null = tek renk, tek sıra (eski davranış); verilirse her
   /// grup kendi renginde ve kendi numarasıyla çizilir (`harita_gruplari.dart`).
@@ -106,6 +110,7 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
         kuryeler: _kuryeIsaretleri,
         seciliDurakId: _seciliId,
         yol: widget.yol,
+        yollar: widget.grupYollari,
       );
     }
     return _tekIcerik();

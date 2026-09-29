@@ -6,9 +6,9 @@
 //    Patron "mavi pinler Ali'nin" diye okur, pine dokunmadan kimde olduğunu bilir.
 //  • NUMARA: her kişinin rotası 1'den başlar. Tek sıra (1..20) üç kişinin rotasını tek rota
 //    gibi gösterirdi; oysa Ali'nin 1. durağı ile Veli'nin 1. durağı aynı anda gidilecek yerlerdir.
-//  • ÇİZGİ: her kişinin kesikli rotası kendi renginde, kendi başlangıcından (patron: telefonu,
-//    kurye: canlı konumu). Gerçek yol çizgisi yalnız TEK kişi gösterilirken istenir — her grup
-//    için ayrı paralı çağrı açmamak için.
+//  • ÇİZGİ: her kişinin rotası kendi renginde GERÇEK YOLDAN çizilir (`GrupYollariKatmani`,
+//    kişi başına bir istek); başlangıçtan (patron: telefonu, kurye: canlı konumu) ilk durağa
+//    kadarki bacak kesiklidir. Yol gelmezse (çevrimdışı) duraklar kuş uçuşu kesikli bağlanır.
 //  • ŞERİT: üstte kişi çipleri. Dokunulan çip haritayı yalnız o kişiye indirger; "Hepsi" geri
 //    açar. Oto sıralama da seçili çipe uyar (`oto_siralama.dart`).
 //
@@ -35,6 +35,7 @@ HaritaIcerigi grupluIcerik({
   List<KuryeIsareti> kuryeler = const [],
   String? seciliDurakId,
   List<HaritaNoktasi>? yol,
+  Map<String, List<HaritaNoktasi>> yollar = const {},
 }) {
   HaritaNoktasi? basi(SiparisGrubu<HaritaDuragi> g) {
     if (g.kendi) return null; // cihaz — HaritaIcerigi.rotaBaslangici kendisi seçer
@@ -74,7 +75,8 @@ HaritaIcerigi grupluIcerik({
 
   // Çok grup: her grubun başlangıcı + durakları. Kendi grubunun başı cihazdır ama yalnız
   // duraklara yakınsa (evdeki patron rotanın başı değildir, `rotaBaslangici` kuralı).
-  List<HaritaNoktasi> cizgi(SiparisGrubu<HaritaDuragi> g) {
+  // Grubun GERÇEK YOLU geldiyse kesikli çizgi yalnız baştan ilk durağa kadardır.
+  HaritaRotasi rota(SiparisGrubu<HaritaDuragi> g) {
     final noktalar = [for (final d in g.ogeler) HaritaNoktasi(d.lat, d.lng)];
     final bas = g.kendi
         ? HaritaIcerigi(
@@ -85,7 +87,15 @@ HaritaIcerigi grupluIcerik({
             ],
           ).rotaBaslangici
         : basi(g);
-    return [?bas, ...noktalar];
+    final gercek = HaritaRotasi(noktalar: const [], yol: yollar[g.anahtar]);
+    final kesikli = gercek.yolVar
+        ? [?bas, if (noktalar.isNotEmpty) noktalar.first]
+        : [?bas, ...noktalar];
+    return HaritaRotasi(
+      noktalar: kesikli.length < 2 ? const [] : kesikli,
+      renk: renkler[g.anahtar],
+      yol: gercek.yolVar ? yollar[g.anahtar] : null,
+    );
   }
 
   return HaritaIcerigi(
@@ -94,9 +104,7 @@ HaritaIcerigi grupluIcerik({
     kuryeler: kuryeler,
     seciliDurakId: seciliDurakId,
     cokluRota: true,
-    rotalar: [
-      for (final g in gruplar) HaritaRotasi(noktalar: cizgi(g), renk: renkler[g.anahtar]),
-    ],
+    rotalar: [for (final g in gruplar) rota(g)],
   );
 }
 
