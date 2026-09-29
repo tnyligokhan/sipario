@@ -91,6 +91,38 @@ void main() {
       expect(_Rota(cihaz: uzak).icerik.rotaBaslangici, isNull);
     });
 
+    test('YOL VARSA kesikli çizgi yalnız cihaz → ilk durak bacağıdır, yol düz çizilir', () {
+      // Cihaz bacağı için yol istenmez: cihaz hareket ettikçe her seferinde paralı çağrı gerekirdi.
+      const cihaz = HaritaNoktasi(40.2000, 29.0000);
+      const yol = [_Rota.a, HaritaNoktasi(40.20, 29.04), _Rota.b, _Rota.c];
+      final i = HaritaIcerigi(
+        duraklar: const [_Rota.s1, _Rota.s2, _Rota.s3],
+        cihaz: cihaz,
+        yol: yol,
+      );
+      expect(i.yolVar, isTrue);
+      expect(i.yolNoktalari, yol);
+      expect(i.rotaNoktalari, [cihaz, _Rota.a]);
+    });
+
+    test('YOL VARSA ve cihaz yoksa kesikli çizgi HİÇ yoktur', () {
+      const i = HaritaIcerigi(duraklar: [_Rota.s1, _Rota.s2], yol: [_Rota.a, _Rota.b]);
+      expect(i.rotaNoktalari, isEmpty);
+      expect(i.yolNoktalari, [_Rota.a, _Rota.b]);
+    });
+
+    test('tek noktalı "yol" çizgi sayılmaz — kuş uçuşuna düşülür', () {
+      const i = HaritaIcerigi(duraklar: [_Rota.s1, _Rota.s2], yol: [_Rota.a]);
+      expect(i.yolVar, isFalse);
+      expect(i.yolNoktalari, isEmpty);
+      expect(i.rotaNoktalari, [_Rota.a, _Rota.b]);
+    });
+
+    test('kopyala yol çizgisini korur', () {
+      const i = HaritaIcerigi(duraklar: [_Rota.s1, _Rota.s2], yol: [_Rota.a, _Rota.b]);
+      expect(i.kopyala(seciliDurakId: () => 's1').yol, [_Rota.a, _Rota.b]);
+    });
+
     test('tek nokta çizgi DEĞİLDİR — boş liste', () {
       const tek = HaritaIcerigi(duraklar: [_Rota.s1]);
       expect(tek.rotaNoktalari, isEmpty);

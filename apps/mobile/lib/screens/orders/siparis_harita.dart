@@ -32,6 +32,7 @@ import 'harita_kontrolleri.dart';
 import 'harita_kurye_katmani.dart';
 import 'harita_sorgulari.dart';
 import 'harita_tuvali.dart';
+import 'harita_yol_cizgisi.dart';
 import 'order_detail_screen.dart';
 import 'oto_siralama.dart';
 import 'siparis_harita_ozet.dart';
@@ -249,16 +250,22 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
     // Kurye katmanı KOŞULSUZ sarılır: rol kapısı katmanın İÇİNDEDİR (`harita_kurye_katmani.dart`).
     // Burada `if (patron)` yazmak, rolü ikinci bir yerde daha yorumlamak ve özelliğin ağaca hiç
     // bağlanmadığı hâli testlerden gizlemek olurdu.
+    // Yol çizgisi katmanı da KOŞULSUZ sarılır: oturum/servis kapısı katmanın içindedir.
     return KuryeKatmani(
       db: widget.db,
-      builder: (context, kuryeler) => SiparisHaritaGorunumu(
+      builder: (context, kuryeler) => YolCizgisiKatmani(
+        db: widget.db,
         duraklar: veri.duraklar,
-        cihaz: _cihaz,
-        kuryeler: kuryeler,
-        onDurak: _durakAc,
-        onKurye: (k) => kuryeOzetSheetAc(context, konum: k),
-        onKonumum: _konumumaGit,
-        otoDugmesi: _otoDugmesi(veri.duraklar.length),
+        builder: (context, yol) => SiparisHaritaGorunumu(
+          duraklar: veri.duraklar,
+          cihaz: _cihaz,
+          kuryeler: kuryeler,
+          yol: yol,
+          onDurak: _durakAc,
+          onKurye: (k) => kuryeOzetSheetAc(context, konum: k),
+          onKonumum: _konumumaGit,
+          otoDugmesi: _otoDugmesi(veri.duraklar.length),
+        ),
       ),
     );
   }
@@ -295,7 +302,12 @@ class SiparisHaritaGorunumu extends StatefulWidget {
     this.onKurye,
     this.onKonumum,
     this.otoDugmesi,
+    this.yol,
   });
+
+  /// Durakları gerçek yollardan bağlayan çizgi — [YolCizgisiKatmani] sağlar; yoksa null ve
+  /// harita kuş uçuşu kesikli çizgiye düşer.
+  final List<HaritaNoktasi>? yol;
 
   final List<HaritaDuragi> duraklar;
   final HaritaNoktasi? cihaz;
@@ -348,6 +360,7 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
         cihaz: widget.cihaz,
         kuryeler: [for (final k in widget.kuryeler) kuryeIsareti(k)],
         seciliDurakId: _seciliId,
+        yol: widget.yol,
       );
 
   Future<void> _dokunuldu(HaritaDokunusu dokunus) async {

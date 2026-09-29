@@ -39,6 +39,7 @@ class RouteCoverageGuardTest extends TestCase
         'api.sync.push',
         'api.sync.pull',
         'api.orders.auto-route',
+        'api.rota.cizgi',
         'api.geocode.search',
         'api.locations.heartbeat',
         'api.locations.live',

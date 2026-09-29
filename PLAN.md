@@ -269,9 +269,18 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.10.0**, API 1.24.0 → **1.27.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.11.0**, API 1.24.0 → **1.28.0**)
 
-> **SON İŞ (2026-09-28) — HARİTA YANDEX MAPKIT (mobil 1.10.0, DECISIONS 2026-09-28/3) — KULLANICI
+> **SON İŞ (2026-09-29) — YOL ÇİZGİSİ + BOŞ KARO DÜZELTMESİ (mobil 1.10.1 → 1.11.0, API 1.28.0,
+> DECISIONS 2026-09-29/1-2).** (1) Yandex haritası boş karo gösteriyordu: MapKit `onStart` hiç
+> çağrılmıyordu (sıralama hatası) → `HaritaYasami`. (2) Duraklar arası çizgi artık gerçek yollardan:
+> `POST /api/v1/rota/cizgi` (Google Routes, sunucuda, kontörsüz, 7 gün önbellek). ⚠️ DEPLOY: test
+> sunucusunda `ROTA_SURUCU=google` + `GOOGLE_ROUTES_KEY` zaten tanımlı (Coolify env adları görüldü);
+> değilse uç 503 verir ve harita kuş uçuşuna düşer — kırılmaz. Gerçek cihazda GÖRÜLMEDİ.
+> ⚠️ Bu makinede yerel PHP YOK (Laragon'daki `php.exe` silinmiş): API testleri Docker `sipario_php`
+> kabında `MSYS_NO_PATHCONV=1 docker exec -w /depo/apps/api sipario_php php artisan test` ile koşar.
+>
+> **(ÖNCEKİ) 2026-09-28 — HARİTA YANDEX MAPKIT (mobil 1.10.0, DECISIONS 2026-09-28/3) — KULLANICI
 > KARARI, TARTIŞILMAZ.** MapLibre sürümü aynı gün söküldü. ⚠️ **İNSAN İŞİ (bloklayıcı):** Yandex
 > geliştirici kabininden MapKit Mobile SDK anahtarı alınıp GitHub'a `YANDEX_MAPKIT_KEY` secret'ı
 > olarak girilmeli (paket adı `com.sipario.app` ile kısıtlanmalı); o olmadan APK'da harita

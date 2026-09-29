@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\GeocodeController;
 use App\Http\Controllers\Api\HaritaController;
 use App\Http\Controllers\Api\LocationController;
+use App\Http\Controllers\Api\RotaCizgisiController;
 use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\SyncController;
 use App\Http\Controllers\Api\TeamController;
@@ -77,6 +78,14 @@ Route::prefix('v1')->group(function () {
         Route::post('/orders/auto-route', [RouteController::class, 'autoRoute'])
             ->middleware('throttle:rota')
             ->name('api.orders.auto-route');
+
+        // Haritadaki durakları GERÇEK YOLLARDAN bağlayan çizgi (2026-09-29). Kontör düşmez
+        // (çizim, sıralama değil); maliyeti önbellek + kiracı başına dakikalık sınır tutar.
+        // Koordinat değil sipariş kimliği alır — ham koordinat alan bir uç bedava bir Google
+        // aracısı olurdu.
+        Route::post('/rota/cizgi', [RotaCizgisiController::class, 'ciz'])
+            ->middleware('throttle:rota-cizgi')
+            ->name('api.rota.cizgi');
 
         // "Adresten Konum Al" — serbest adres metnini ADAY koordinatlara çevirir; hiçbir şey
         // YAZMAZ (seçilen koordinat yine sync push ile gider). Sağlayıcı anahtarı yalnız

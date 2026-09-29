@@ -339,9 +339,14 @@ return [
     | MINOR: `GET /api/v1/harita/karo/{stil}/{z}/{x}/{dosya}` — CARTO anahtarı
     | (`CARTO_BASEMAPS_KEY`) yalnız sunucuda; karo 30 gün disk önbelleğinde,
     | filigran asla önbelleğe girmez. CARTO anahtarsız karo vermeyi kesmişti.
+    |
+    | ── 1.28.0 (2026-09-29) — YOL ÇİZGİSİ ───────────────────────────────────
+    | MINOR: `POST /api/v1/rota/cizgi` — sıralı sipariş kimliklerinden gerçek yol
+    | çizgisi (Google Routes, sıralama YAPMAZ). Kontör düşmez; 7 gün önbellek +
+    | kiracı başına dakikalık sınır. Eski istemci etkilenmez (yeni uç).
     */
 
-    'version' => '1.27.0',
+    'version' => '1.28.0',
 
     /*
     |--------------------------------------------------------------------------

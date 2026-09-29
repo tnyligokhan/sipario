@@ -25,4 +25,9 @@ return [
 
     // Saniye. Sıralama kullanıcı BEKLERKEN olur; sunucu geç kalmaktansa yakın komşuya düşmeli.
     'timeout' => (int) env('ROTA_TIMEOUT', 8),
+    // YOL ÇİZGİSİ (2026-09-29): aynı durak dizisinin yol çizgisi bu kadar gün önbellekte kalır.
+    // Yol ağı günler içinde değişmez; her harita açılışında Google'a gitmek boşa paradır.
+    'cizgi_onbellek_gun' => (int) env('ROTA_CIZGI_ONBELLEK_GUN', 7),
+    // Kiracı başına dakikalık yol çizgisi isteği tavanı (önbellek ıskası başına bir Google çağrısı).
+    'cizgi_dakika_limit' => (int) env('ROTA_CIZGI_DAKIKA_LIMIT', 30),
 ];

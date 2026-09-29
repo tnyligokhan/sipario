@@ -203,6 +203,52 @@ class TenantIsolationTest extends ApiTestCase
     }
 
     #[Test]
+    public function yol_cizgisi_baska_bayinin_siparisinin_konumunu_cizgiye_katmaz(): void
+    {
+        // Matris satırı: `api.rota.cizgi`. B'nin sipariş kimliği A'nın isteğine konsa bile RLS onu
+        // görünmez kılar → B'nin müşterisinin KAPISI ne Google'a gider ne yanıttaki `duraklar`a
+        // girer (bir sipariş kimliği bilmek, o bayinin müşterisinin adresini sızdırmamalı).
+        config()->set('rota.surucu', 'google');
+        config()->set('rota.google.api_key', 'test-anahtari');
+        Http::fake(['routes.googleapis.com/*' => Http::response([
+            'routes' => [['polyline' => ['encodedPolyline' => '_p~iF~ps|U_ulLnnqC_mqNvxq`@']]],
+        ])]);
+
+        $a = $this->makeTenant('a');
+        $b = $this->makeTenant('b');
+        $tokenA = $this->tokenFor($a['patron']);
+        $tokenB = $this->tokenFor($b['patron']);
+
+        $siparis = function (string $token, string $ad, float $lat, float $lng): string {
+            $musteriId = (string) Str::uuid7();
+            $siparisId = (string) Str::uuid7();
+            $this->pushEvents($token, [
+                $this->customerUpsert(['id' => $musteriId, 'name' => $ad]),
+                $this->event('customer_address', 'upsert', [
+                    'id' => (string) Str::uuid7(),
+                    'customer_id' => $musteriId,
+                    'address_text' => $ad.' Sk.',
+                    'lat' => $lat,
+                    'lng' => $lng,
+                    'is_primary' => true,
+                ]),
+                $this->orderCreated([$this->line()], ['id' => $siparisId, 'customer_id' => $musteriId]),
+            ])->assertOk();
+
+            return $siparisId;
+        };
+        $a1 = $siparis($tokenA, 'A Bir', 36.90, 30.70);
+        $a2 = $siparis($tokenA, 'A İki', 36.88, 30.72);
+        $b1 = $siparis($tokenB, 'B Gizli', 41.01, 28.97);
+
+        $yanit = $this->asToken($tokenA)->postJson('/api/v1/rota/cizgi', ['order_ids' => [$a1, $b1, $a2]]);
+
+        $yanit->assertOk();
+        $this->assertSame([[36.9, 30.7], [36.88, 30.72]], $yanit->json('duraklar'));
+        Http::assertSent(fn ($istek) => ! str_contains(json_encode($istek->data()) ?: '', '41.01'));
+    }
+
+    #[Test]
     public function geocode_kiraci_verisi_tasimaz_ve_kotayi_paylastirmaz(): void
     {
         // Matris satırı: `api.geocode.search`. Bu uç noktanın taşıdığı veri KİRACIYA AİT DEĞİLDİR

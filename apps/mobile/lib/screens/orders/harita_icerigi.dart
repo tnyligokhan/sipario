@@ -155,6 +155,7 @@ class HaritaIcerigi {
     this.cihaz,
     this.kuryeler = const [],
     this.seciliDurakId,
+    this.yol,
   });
 
   /// Rota sırasında.
@@ -167,11 +168,16 @@ class HaritaIcerigi {
   /// Özeti açık olan durak — pin büyür ve diğerlerinin üstüne çıkar.
   final String? seciliDurakId;
 
+  /// Durakları SIRAYLA gerçek yollardan bağlayan çizgi (sunucudan, 2026-09-29). null = yok
+  /// (henüz gelmedi, çevrimdışı, servis kapalı) → kuş uçuşu kesikli çizgiye düşülür.
+  final List<HaritaNoktasi>? yol;
+
   HaritaIcerigi kopyala({String? Function()? seciliDurakId}) => HaritaIcerigi(
         duraklar: duraklar,
         cihaz: cihaz,
         kuryeler: kuryeler,
         seciliDurakId: seciliDurakId == null ? this.seciliDurakId : seciliDurakId(),
+        yol: yol,
       );
 
   /// Cihazın rotaya dahil sayılacağı en uzak mesafe (en yakın durağa).
@@ -220,11 +226,22 @@ class HaritaIcerigi {
 
   bool seciliMi(DurakIsareti d) => d.id == seciliDurakId;
 
-  /// Rota çizgisinin noktaları — cihazdan (yakınsa, bkz. [rotaBaslangici]) başlayıp durakları
-  /// SIRAYLA bağlar. Kuş uçuşudur, yol değildir; bu yüzden kesikli çizilir. İki noktadan azsa
-  /// çizgi YOKTUR (boş liste).
+  /// Yol çizgisi var mı? Tek noktalı bir "yol" çizgi değildir.
+  bool get yolVar => (yol?.length ?? 0) >= 2;
+
+  /// Gerçek yol çizgisinin noktaları — DÜZ çizilir. Yoksa boş.
+  List<HaritaNoktasi> get yolNoktalari => yolVar ? yol! : const [];
+
+  /// KUŞ UÇUŞU kesikli çizginin noktaları. İki kip:
+  ///  • Yol çizgisi VARSA yalnız cihazdan (yakınsa) ilk durağa kadar: o bacak için yol
+  ///    istenmez — cihaz hareket ettikçe her seferinde yeni bir paralı çağrı gerekirdi.
+  ///  • Yol çizgisi YOKSA (çevrimdışı, servis kapalı, henüz gelmedi) cihazdan başlayıp bütün
+  ///    durakları SIRAYLA bağlar — rotanın sırası yine okunur.
+  /// İki noktadan azsa çizgi YOKTUR (boş liste).
   List<HaritaNoktasi> get rotaNoktalari {
-    final noktalar = [?rotaBaslangici, for (final d in duraklar) d.nokta];
+    final noktalar = yolVar
+        ? [?rotaBaslangici, if (duraklar.isNotEmpty) duraklar.first.nokta]
+        : [?rotaBaslangici, for (final d in duraklar) d.nokta];
     return noktalar.length < 2 ? const [] : noktalar;
   }
 }

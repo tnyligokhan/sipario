@@ -51,6 +51,14 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '1.11.0',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Haritada duraklar arası çizgi artık gerçek yollardan geçiyor, kurye gideceği yolu görüyor',
+      'İnternet yokken çizgi eskisi gibi duraklar arasında düz kesikli çizgiyle gösteriliyor',
+    ],
+  ),
+  SurumNotu(
     surum: '1.10.1',
     tarih: '29 Eylül 2026',
     maddeler: [

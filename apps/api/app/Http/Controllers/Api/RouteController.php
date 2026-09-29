@@ -9,9 +9,9 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Route\RotaException;
 use App\Support\Route\RotaMotoru;
+use App\Support\Route\SiparisDuraklari;
 use App\Support\Route\YakinKomsuMotoru;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -57,7 +57,7 @@ class RouteController extends Controller
         $tenant = Tenant::query()->find($user->tenant_id);
         abort_if($tenant === null, 409, 'Hesabınızın kiracı bağlamı bulunamadı, destek alın.');
 
-        $duraklar = $this->duraklar($istenen);
+        $duraklar = SiparisDuraklari::oku($istenen);
         if ($duraklar === []) {
             // Sıralanacak hiçbir geçerli sipariş yok — HAK DÜŞÜRÜLMEZ. Boş bir işlem için
             // kontör yakmak kullanıcıya haksızlık olurdu.
@@ -153,47 +153,5 @@ class RouteController extends Controller
         }
 
         return ['lat' => (float) $lat, 'lng' => (float) $lng];
-    }
-
-    /**
-     * İstenen siparişlerin durak noktaları. RLS altında sorgulanır: başka bayinin kimliği
-     * listeye konsa sıfır satır döner ve sıralamaya hiç girmez.
-     *
-     * Konum müşterinin BİRİNCİL adresinden gelir; adresi ya da koordinatı olmayan sipariş
-     * `lat/lng = null` ile döner (motorlar onları sona atar). İstemcinin gönderdiği SIRA korunur:
-     * `start` gelmediğinde zincir bu sıradaki ilk siparişten başlar.
-     *
-     * @param  list<string>  $istenen
-     * @return list<array{id: string, lat: float|null, lng: float|null}>
-     */
-    private function duraklar(array $istenen): array
-    {
-        $satirlar = DB::table('orders as o')
-            ->leftJoin('customer_addresses as a', function ($join) {
-                $join->on('a.customer_id', '=', 'o.customer_id')
-                    ->where('a.is_primary', '=', true)
-                    ->whereNull('a.deleted_at');
-            })
-            ->whereIn('o.id', $istenen)
-            ->whereNull('o.deleted_at')
-            ->where('o.status', '=', 'open')
-            ->select('o.id', 'a.lat', 'a.lng')
-            ->get()
-            ->keyBy('id');
-
-        $duraklar = [];
-        foreach ($istenen as $id) {
-            $satir = $satirlar->get($id);
-            if ($satir === null) {
-                continue; // başka bayinin / silinmiş / kapanmış sipariş
-            }
-            $duraklar[] = [
-                'id' => $id,
-                'lat' => $satir->lat === null ? null : (float) $satir->lat,
-                'lng' => $satir->lng === null ? null : (float) $satir->lng,
-            ];
-        }
-
-        return $duraklar;
     }
 }
