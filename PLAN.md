@@ -269,9 +269,17 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.13.0**, API 1.24.0 → **1.28.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.14.0**, API 1.24.0 → **1.28.0**)
 
-> **SON İŞ (2026-09-29, 2. oturum) — SAHADAN ALTI MADDE (mobil 1.11.0 → 1.13.0, API
+> **SON İŞ (2026-09-29, 3. oturum) — HARİTA KİŞİYE GÖRE (mobil 1.13.0 → 1.14.0, API
+> DEĞİŞMEDİ, DECISIONS 2026-09-29/4).** Kurye haritada yalnız kendi siparişlerini görür;
+> patron "Siz" + her kurye ayrı renk/numara/kişi şeridi; oto sıralama kişi kişi (kurye rotası
+> kuryenin canlı konumundan, her rota 1 hak). Kurye pini de ad çipi aldı (1.13.1). Kapılar:
+> analyze temiz · flutter test **1745/1745**. GERÇEK CİHAZDA GÖRÜLMEDİ (renkler, şerit, çoklu
+> kesikli çizgiler yalnız sahte tuval + PNG ile sınandı). ⚠️ Açık soru sahada doğrulanmalı:
+> "her rota 1 hak" kararı patronun beklentisiyle uyuşuyor mu (tek dokunuş = N hak).
+>
+> **(ÖNCEKİ) 2026-09-29, 2. oturum — SAHADAN ALTI MADDE (mobil 1.11.0 → 1.13.0, API
 > DEĞİŞMEDİ 1.28.0, şema v29, DECISIONS 2026-09-29/3).** (1) Giriş: klavye otomatik
 > düzeltmesi kimlik alanlarında kapalı + kurye parolası büyük harfe kaçmıyor + geçici arızada
 > 2 yeniden deneme (1.11.1). (2) Bildirim kutusu: "Temizle" + sola kaydır (1.12.0). (3)

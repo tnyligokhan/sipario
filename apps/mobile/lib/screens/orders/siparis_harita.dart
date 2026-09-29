@@ -21,25 +21,27 @@ import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
 import '../../konum/cihaz_konumu.dart';
-import '../../sync/konum_api.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/components/states.dart';
 import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import 'harita_icerigi.dart';
+import 'harita_gruplari.dart';
 import 'harita_isaretler.dart';
 import 'harita_kontrolleri.dart';
 import 'harita_kurye_katmani.dart';
 import 'harita_sorgulari.dart';
-import 'harita_tuvali.dart';
 import 'harita_yol_cizgisi.dart';
 import 'order_detail_screen.dart';
 import 'oto_siralama.dart';
+import 'siparis_gruplari.dart';
+import 'siparis_harita_gorunumu.dart';
 import 'siparis_harita_ozet.dart';
 
 // Konumsuz bandı 500 satır sınırı için ayrı dosyada; harita ekranının DIŞ YÜZEYİ değişmez —
 // çağıranlar ve testler onu hâlâ bu dosyadan tanır (sözleşme).
 export 'harita_isaretler.dart' show KonumsuzBant;
+export 'siparis_harita_gorunumu.dart';
 
 /// Açık siparişlerin haritası. Pin numaraları listedeki sırayı (oto sıralamadan sonra ROTA
 /// sırasını) taşır ve "Oto Sırala" düğmesi de burada durur — sıra üretildiği ekranda görünür.
@@ -77,6 +79,10 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
 
   /// İstek yolda mı — kontörlü eylemde ikinci dokunuş ikinci hak demektir.
   bool _otoKosuyor = false;
+
+  /// Kişi şeridinde seçili grup (`SiparisGrubu.anahtar`); null = hepsi. Oto sıralama da buna
+  /// uyar: "Ali" seçiliyken yalnız Ali'nin rotası sıralanır.
+  String? _seciliGrup;
 
   /// Bu ekranda EN AZ BİR kez sıra yazıldı mı. Geri dönerken listeye sinyal olarak verilir;
   /// liste bunu görünce "Rota sırası" kipine geçer. Sinyal Navigator sonucudur: iki ekran
@@ -140,7 +146,7 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
   Future<void> _otoSirala() async {
     if (_otoKosuyor) return;
     setState(() => _otoKosuyor = true);
-    final sonuc = await otoSiralaKos(widget.db);
+    final sonuc = await otoSiralaKos(widget.db, grup: _seciliGrup);
     if (!mounted) return;
     setState(() {
       _otoKosuyor = false;
@@ -183,11 +189,20 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
                         ? 'Yüklenemedi'
                         : veri == null
                             ? 'Yükleniyor'
-                            : '${veri.duraklar.length} durak, rota sırasıyla',
+                            : veri.gruplu
+                                ? '${veri.duraklar.length} durak, ${veri.gruplar.length} kişi'
+                                : '${veri.duraklar.length} durak, rota sırasıyla',
                     onGeri: () => Navigator.of(context).maybePop(),
                   ),
                   if (!hata && veri != null && veri.konumsuz > 0)
                     KonumsuzBant(adet: veri.konumsuz),
+                  if (!hata && veri != null && veri.gruplu)
+                    HaritaGrupSeridi(
+                      gruplar: veri.gruplar,
+                      renkler: _grupRenkleri(veri),
+                      secili: _seciliGrup,
+                      onSec: (g) => setState(() => _seciliGrup = g),
+                    ),
                   Expanded(
                     child: hata ? _hataGovdesi(snap.error) : _govde(veri),
                   ),
@@ -198,6 +213,18 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
         ),
       ),
     );
+  }
+
+  /// Grup anahtarı → renk. "Siz" temanın vurgusu, kuryeler kişiye bağlı sabit renk.
+  Map<String, Color> _grupRenkleri(HaritaVerisi veri) => {
+        for (final g in veri.gruplar)
+          g.anahtar: grupRengi(g, vurgu: context.sip.accent, kisiSirasi: veri.kisiSirasi),
+      };
+
+  /// Şeritte seçili olanlar; seçili grup artık yoksa (siparişleri bitti) hepsi.
+  List<SiparisGrubu<HaritaDuragi>> _gorunenGruplar(HaritaVerisi veri) {
+    final secili = [for (final g in veri.gruplar) if (g.anahtar == _seciliGrup) g];
+    return secili.isEmpty ? veri.gruplar : secili;
   }
 
   /// Alt ortadaki birincil eylem. Kontör bilinmiyorsa etikette SAYI YAZMAZ (sahte sayı yasağı).
@@ -249,6 +276,19 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
             : 'Açık sipariş yok. Yeni sipariş girildiğinde durağı burada görünür.',
       );
     }
+    // KİŞİ GRUPLARI: görünen gruplar (şeritte seçili olan ya da hepsi) çizilir. Gerçek yol
+    // çizgisi yalnız TEK grup gösterilirken istenir — çok grupta her grup kendi kesikli
+    // çizgisiyle yetinir, grup başına paralı çağrı açılmaz.
+    final gorunen = _gorunenGruplar(veri);
+    final duraklar = [for (final g in gorunen) ...g.ogeler];
+    final renkler = _grupRenkleri(veri);
+    final tekGrup = gorunen.length <= 1;
+    // Kuryeye odaklanıldıysa yalnız o kuryenin pini kalır.
+    final odakKurye = tekGrup && gorunen.isNotEmpty && !gorunen.single.kendi
+        ? gorunen.single.kullaniciId
+        : null;
+    final enBuyukGrup =
+        gorunen.fold<int>(0, (m, g) => g.ogeler.length > m ? g.ogeler.length : m);
     // Kurye katmanı KOŞULSUZ sarılır: rol kapısı katmanın İÇİNDEDİR (`harita_kurye_katmani.dart`).
     // Burada `if (patron)` yazmak, rolü ikinci bir yerde daha yorumlamak ve özelliğin ağaca hiç
     // bağlanmadığı hâli testlerden gizlemek olurdu.
@@ -257,16 +297,22 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
       db: widget.db,
       builder: (context, kuryeler) => YolCizgisiKatmani(
         db: widget.db,
-        duraklar: veri.duraklar,
+        duraklar: tekGrup ? duraklar : const [],
         builder: (context, yol) => SiparisHaritaGorunumu(
-          duraklar: veri.duraklar,
+          duraklar: duraklar,
+          gruplar: veri.gruplar.isEmpty ? null : gorunen,
+          grupRenkleri: renkler,
+          kuryeRengi: (id) => kisiRengi(id, kisiSirasi: veri.kisiSirasi),
           cihaz: _cihaz,
-          kuryeler: kuryeler,
-          yol: yol,
+          kuryeler: [
+            for (final k in kuryeler)
+              if (odakKurye == null || k.userId == odakKurye) k,
+          ],
+          yol: tekGrup ? yol : null,
           onDurak: _durakAc,
           onKurye: (k) => kuryeOzetSheetAc(context, konum: k),
           onKonumum: _konumumaGit,
-          otoDugmesi: _otoDugmesi(veri.duraklar.length),
+          otoDugmesi: _otoDugmesi(enBuyukGrup),
         ),
       ),
     );
@@ -289,155 +335,3 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
   }
 }
 
-/// Haritanın kendisi — tuval (Yandex MapKit) + üstündeki kontroller ve "Oto Sırala".
-///
-/// Ekranın DURUMUNDAN ayrı bir widget: böylece harita tek başına (sahte duraklarla) test
-/// edilebilir ve veri akışı ile çizim birbirine karışmaz. Görünüm motoru tanımaz; içeriği
-/// [HaritaIcerigi] olarak kurar ve kamerayı [HaritaKamerasi] üzerinden sürer.
-class SiparisHaritaGorunumu extends StatefulWidget {
-  const SiparisHaritaGorunumu({
-    super.key,
-    required this.duraklar,
-    required this.onDurak,
-    this.cihaz,
-    this.kuryeler = const [],
-    this.onKurye,
-    this.onKonumum,
-    this.otoDugmesi,
-    this.yol,
-  });
-
-  /// Durakları gerçek yollardan bağlayan çizgi — [YolCizgisiKatmani] sağlar; yoksa null ve
-  /// harita kuş uçuşu kesikli çizgiye düşer.
-  final List<HaritaNoktasi>? yol;
-
-  final List<HaritaDuragi> duraklar;
-  final HaritaNoktasi? cihaz;
-
-  /// Canlı kuryeler — kapıyı [KuryeKatmani] açar; kapalıysa liste boştur.
-  final List<CanliKonum> kuryeler;
-
-  /// Alt ORTADAKİ birincil eylem ("Oto Sırala"). Widget olarak alınır ki bu görünüm ne kontörü
-  /// ne de rota API'sini tanısın — çizim ile eylem ayrı kalır.
-  final Widget? otoDugmesi;
-
-  /// Dokunulan durak ve GÖRÜNEN numarası (1'den başlar) — özet sayfası başlığında aynı sayı
-  /// yazar, kullanıcı hangi pine dokunduğunu doğrulayabilsin. Dönen iş bitene (özet kapanana)
-  /// dek durak haritada VURGULU kalır.
-  final Future<void> Function(HaritaDuragi durak, int sira) onDurak;
-
-  final void Function(CanliKonum kurye)? onKurye;
-
-  /// "Konumum" düğmesi: TAZE konum okur, bulduğunu döner. Kamerayı bu widget taşır, konumu
-  /// okumak ve pini güncellemek ekranın işi — iki sorumluluk ayrı kalsın. `null` dönerse kamera
-  /// OYNAMAZ.
-  final Future<HaritaNoktasi?> Function()? onKonumum;
-
-  /// Kadraja sığdırırken üstteki düğmelerin payı: sağda kontrol sütunu (12 + 40 çap), altta
-  /// "Oto Sırala" ve gerekçesi. Pin bir düğmenin altında kalırsa dokunulamaz.
-  static const EdgeInsets kenarBoslugu = EdgeInsets.fromLTRB(48, 56, 72, 120);
-
-  @override
-  State<SiparisHaritaGorunumu> createState() => _SiparisHaritaGorunumuState();
-}
-
-class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
-  /// Tuval hazır olunca gelir; o ana dek düğmeler sessizce hiçbir şey yapmaz (motor stilini
-  /// yüklerken kamerayı oynatmak kayıp bir komuttur).
-  HaritaKamerasi? _kamera;
-
-  /// Özeti açık olan durak — pini büyür ve halelenir.
-  String? _seciliId;
-
-  HaritaIcerigi _icerik() => HaritaIcerigi(
-        duraklar: [
-          for (var i = 0; i < widget.duraklar.length; i++)
-            DurakIsareti(
-              id: widget.duraklar[i].orderId,
-              no: i + 1,
-              nokta: HaritaNoktasi(widget.duraklar[i].lat, widget.duraklar[i].lng),
-              ad: widget.duraklar[i].baslik,
-            ),
-        ],
-        cihaz: widget.cihaz,
-        kuryeler: [for (final k in widget.kuryeler) kuryeIsareti(k)],
-        seciliDurakId: _seciliId,
-        yol: widget.yol,
-      );
-
-  Future<void> _dokunuldu(HaritaDokunusu dokunus) async {
-    switch (dokunus) {
-      case DurakDokunusu(:final id):
-        final i = widget.duraklar.indexWhere((d) => d.orderId == id);
-        if (i < 0 || _seciliId != null) return; // bayat dokunuş ya da özet zaten açık
-        setState(() => _seciliId = id);
-        try {
-          await widget.onDurak(widget.duraklar[i], i + 1);
-        } finally {
-          if (mounted) setState(() => _seciliId = null);
-        }
-      case KuryeDokunusu(:final id):
-        for (final k in widget.kuryeler) {
-          if (k.userId == id) return widget.onKurye?.call(k);
-        }
-    }
-  }
-
-  /// "Duraklara sığdır" — ŞU ANKİ duraklar + cihaz. Açılıştan bu yana yeni sipariş geldiyse
-  /// o da kadraja girer.
-  void _sigdir() {
-    final kadraj = _icerik().kadraj;
-    if (kadraj != null) unawaited(_kamera?.kadrajla(kadraj));
-  }
-
-  Future<void> _konumum() async {
-    final nokta = await widget.onKonumum?.call();
-    if (nokta == null || !mounted) return;
-    // Sokak ölçeği: kurye "ben neredeyim" derken kapı numarası değil, çevresindeki birkaç sokak
-    // görmek ister.
-    await _kamera?.odakla(nokta, 15);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: haritaTuvaliUret(
-            HaritaTuvaliAyari(
-              icerik: _icerik(),
-              koyu: context.sip.koyu,
-              kenarBoslugu: SiparisHaritaGorunumu.kenarBoslugu,
-              onDokunus: (d) => unawaited(_dokunuldu(d)),
-              onHazir: (k) => _kamera = k,
-            ),
-          ),
-        ),
-        Positioned(
-          right: SipSpace.xl,
-          bottom: SipSpace.x4,
-          child: HaritaKontrolleri(
-            onYakinlas: () => unawaited(_kamera?.yakinlastir(1)),
-            onUzaklas: () => unawaited(_kamera?.yakinlastir(-1)),
-            onSigdir: _sigdir,
-            onKonumum: () => unawaited(_konumum()),
-          ),
-        ),
-        // Atıf ayrı bir şerit DEĞİL: Yandex logosu (lisans gereği) haritanın kendisinde, sol
-        // üstte durur (`harita_yandex.dart`) — altta "Oto Sırala", sağda kontroller var.
-        // "Oto Sırala" ALT ORTADA. Yatay iç boşluk 64: sağdaki kontrol sütunu (12 + 40 çap)
-        // ile çakışmasın — ortalanmış düğme dar telefonda o sütunun altına girerdi.
-        if (widget.otoDugmesi != null)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: SipSpace.x4,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 64),
-              child: widget.otoDugmesi!,
-            ),
-          ),
-      ],
-    );
-  }
-}

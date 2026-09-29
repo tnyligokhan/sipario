@@ -326,7 +326,11 @@ void main() {
       genisYuzey(tester);
       final istekler = konumApisiniSahtele(liste: [canliKayit()]);
       late AppDatabase db;
-      await tester.runAsync(() async => db = await haritaDbKur(rol: 'kurye'));
+      await tester.runAsync(() async {
+        db = await haritaDbKur(rol: 'kurye', kendiId: 'u-kurye');
+        // Kurye haritada YALNIZ KENDİ siparişlerini görür (2026-09-29) — durak kuryeye atanır.
+        await db.update(db.orders).write(const OrdersCompanion(assignedUserId: Value('u-kurye')));
+      });
 
       await haritayiAc(tester, db);
 

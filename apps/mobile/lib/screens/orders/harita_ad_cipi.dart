@@ -1,4 +1,4 @@
-// HARİTA DURAK PİNİ + AD ÇİPİ — yakınlaşınca müşterinin adı pinin SAĞINDA, zeminli bir çipte
+// HARİTA PİNİ + AD ÇİPİ — yakınlaşınca müşterinin adı pinin SAĞINDA, zeminli bir çipte
 // (kullanıcı geri bildirimi 2026-09-29: "haritada yakınlaşınca müşterinin adı gözüküyor fakat
 // konumlandırması ve görünümü hoşuma gitmedi").
 //
@@ -15,6 +15,11 @@
 // zemin ve ince kenar haritanın yazısından ayrışır. Görselin çapası pinin MERKEZİDİR — ad
 // açılıp kapanırken pin yerinden oynamaz.
 //
+// KURYE DE AYNI DİLİ KONUŞUR (kullanıcı geri bildirimi 2026-09-29: "müşteri adını güncelledin
+// fakat kuryeyi yapmamışsın"): kurye pini motor ikonlu dairedir, adı aynı çipte yazar. Konumu
+// bayatsa pin ve ad soluklaşır, "7 dk önce" çipin içinde ikinci, soluk bir parça olarak durur.
+// İki çizim TEK TABANI paylaşır ([PinCipi]) — biri güncellenip öteki unutulmasın diye.
+//
 // SAF ÇİZİM: MapKit'e bağlı değildir; ölçü ve çapa eşzamanlı hesaplanır (görsel tembel çizilir
 // ama çapa ondan önce gerekir), `flutter test` içinde gerçek resim olarak üretilip sınanır.
 
@@ -23,6 +28,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../theme/svg_path.dart';
 import '../../theme/tokens.dart' show sipFontBody;
 
 /// Çizimin renkleri — temadan gelir, çağıran verir.
@@ -33,54 +39,74 @@ class DurakCipRenkleri {
     required this.yuzey,
     required this.metin,
     required this.cizgi,
+    this.sonuk = const Color(0xFF8A8894),
   });
 
-  final Color vurgu, vurguUstu, yuzey, metin, cizgi;
+  final Color vurgu, vurguUstu, yuzey, metin, cizgi, sonuk;
+
+  /// Aynı renkler, yalnız pinin rengi [renk] (grup rengi). null = değişmez.
+  DurakCipRenkleri pinRengiyle(Color? renk) => renk == null
+      ? this
+      : DurakCipRenkleri(
+          vurgu: renk,
+          vurguUstu: vurguUstu,
+          yuzey: yuzey,
+          metin: metin,
+          cizgi: cizgi,
+          sonuk: sonuk,
+        );
 }
 
-/// Numaralı durak pini; [ad] verilirse sağında ad çipiyle birlikte. Ölçüler mantıksal
-/// pikseldir (dp), görsel [dpr] yoğunluğunda çizilir.
-class DurakAdCipi {
-  DurakAdCipi({
-    required this.no,
-    required this.secili,
-    required this.renkler,
-    required this.dpr,
-    String? ad,
-  }) : ad = (ad ?? '').trim();
+/// Pin + (varsa) sağındaki ad çipi. Ölçüler mantıksal pikseldir (dp), görsel [dpr]
+/// yoğunluğunda çizilir. Alt sınıf yalnız pinin kendisini çizer.
+abstract class PinCipi {
+  PinCipi({required this.renkler, required this.dpr, String? ad, this.ek = ''})
+      : ad = (ad ?? '').trim();
 
-  final int no;
-  final bool secili;
   final DurakCipRenkleri renkler;
   final double dpr;
 
   /// Boşsa çip çizilmez, yalnız pin.
   final String ad;
 
+  /// Adın ardından SOLUK yazılan ikinci parça ("7 dk önce"); boşsa yok.
+  final String ek;
+
   /// Çipin boyu ve adın en fazla kaplayacağı genişlik. 150 dp: iki kelimelik bir ad sığar,
   /// uzun unvanlar kısaltılır — çip komşu pinin üstüne uzanmamalı.
   static const double cipYuksekligi = 24;
   static const double azamiAdGenisligi = 150;
 
-  /// Gölge taşması için sağ ve alt pay.
+  /// Gölge taşması için sağ pay.
   static const double _golgePayi = 3;
 
   bool get cipVar => ad.isNotEmpty;
 
-  /// Pinin kare kutusu — seçiliyken hale sığsın diye büyür.
-  double get pinKutusu => secili ? 56 : 32;
-  double get pinYaricapi => secili ? 19 : 15;
+  /// Pinin kare kutusu ve dairesinin yarıçapı.
+  double get pinKutusu;
+  double get pinYaricapi;
+
+  /// Ad soluk mu (bayat konum)?
+  bool get sonuk => false;
+
+  /// Pini [m] merkezine çizer (dp birimleri; tuval zaten [dpr] ile ölçeklenmiş).
+  void pinCiz(Canvas c, Offset m);
+
+  TextStyle _stil(Color renk, double agirlik) => TextStyle(
+        fontFamily: sipFontBody,
+        fontSize: 12.5,
+        fontVariations: [FontVariation('wght', agirlik)],
+        color: renk,
+        height: 1.1,
+      );
 
   late final TextPainter _yazi = TextPainter(
     text: TextSpan(
       text: ad,
-      style: TextStyle(
-        fontFamily: sipFontBody,
-        fontSize: 12.5,
-        fontVariations: const [FontVariation('wght', 700)],
-        color: renkler.metin,
-        height: 1.1,
-      ),
+      style: _stil(sonuk ? renkler.sonuk : renkler.metin, 700),
+      children: [
+        if (ek.isNotEmpty) TextSpan(text: '  $ek', style: _stil(renkler.sonuk, 600)),
+      ],
     ),
     textDirection: TextDirection.ltr,
     maxLines: 1,
@@ -103,7 +129,7 @@ class DurakAdCipi {
     final c = Canvas(kaydedici)..scale(dpr);
     final m = Offset(pinKutusu / 2, pinKutusu / 2);
     if (cipVar) _cipCiz(c, m);
-    _pinCiz(c, m);
+    pinCiz(c, m);
     return kaydedici
         .endRecording()
         .toImage((genislik * dpr).ceil(), (yukseklik * dpr).ceil());
@@ -137,21 +163,47 @@ class DurakAdCipi {
     _yazi.paint(c, Offset(_adSol, m.dy - _yazi.height / 2));
   }
 
-  void _pinCiz(Canvas c, Offset m) {
-    if (secili) {
-      c.drawCircle(m, 28, Paint()..color = renkler.vurgu.withValues(alpha: 0.22)..isAntiAlias = true);
-    }
-    c.drawCircle(m, pinYaricapi, Paint()..color = renkler.vurgu..isAntiAlias = true);
-    final kenar = secili ? 3.0 : 2.0;
+  /// Dolgu + kenar halkası.
+  static void daire(Canvas c, Offset m, double r, Color dolgu, Color kenar, double kalinlik) {
+    c.drawCircle(m, r, Paint()..color = dolgu..isAntiAlias = true);
     c.drawCircle(
       m,
-      pinYaricapi - kenar / 2,
+      r - kalinlik / 2,
       Paint()
-        ..color = renkler.vurguUstu
+        ..color = kenar
         ..style = PaintingStyle.stroke
-        ..strokeWidth = kenar
+        ..strokeWidth = kalinlik
         ..isAntiAlias = true,
     );
+  }
+}
+
+/// Numaralı durak pini; [ad] verilirse sağında ad çipiyle birlikte.
+class DurakAdCipi extends PinCipi {
+  DurakAdCipi({
+    required this.no,
+    required this.secili,
+    required super.renkler,
+    required super.dpr,
+    super.ad,
+  });
+
+  final int no;
+  final bool secili;
+
+  /// Seçiliyken hale sığsın diye büyür.
+  @override
+  double get pinKutusu => secili ? 56 : 32;
+  @override
+  double get pinYaricapi => secili ? 19 : 15;
+
+  @override
+  void pinCiz(Canvas c, Offset m) {
+    if (secili) {
+      c.drawCircle(
+          m, 28, Paint()..color = renkler.vurgu.withValues(alpha: 0.22)..isAntiAlias = true);
+    }
+    PinCipi.daire(c, m, pinYaricapi, renkler.vurgu, renkler.vurguUstu, secili ? 3.0 : 2.0);
     final numara = TextPainter(
       text: TextSpan(
         text: '$no',
@@ -165,5 +217,52 @@ class DurakAdCipi {
       textDirection: TextDirection.ltr,
     )..layout();
     numara.paint(c, m - Offset(numara.width / 2, numara.height / 2));
+  }
+}
+
+/// Kurye pini: motor ikonlu daire + adı; konum bayatsa soluk ve "X dk önce" ekiyle.
+class KuryeAdCipi extends PinCipi {
+  KuryeAdCipi({
+    required this.taze,
+    required this.motorYolu,
+    required super.renkler,
+    required super.dpr,
+    super.ad,
+    super.ek,
+  });
+
+  final bool taze;
+
+  /// Motor ikonunun SVG yolları (`|` ile ayrılmış, 24 birimlik kutu).
+  final String motorYolu;
+
+  @override
+  double get pinKutusu => 36;
+  @override
+  double get pinYaricapi => 16;
+  @override
+  bool get sonuk => !taze;
+
+  @override
+  void pinCiz(Canvas c, Offset m) {
+    // Dış yüzey halkası: kurye pini durak pininden AYRIŞMALI (hareket eden bir kişidir).
+    c.drawCircle(m, pinYaricapi + 2, Paint()..color = renkler.yuzey..isAntiAlias = true);
+    PinCipi.daire(c, m, pinYaricapi, taze ? renkler.vurgu : renkler.sonuk, renkler.vurguUstu, 2);
+    const ikon = 17.0;
+    c
+      ..save()
+      ..translate(m.dx - ikon / 2, m.dy - ikon / 2)
+      ..scale(ikon / 24);
+    final firca = Paint()
+      ..style = PaintingStyle.stroke
+      ..color = renkler.vurguUstu
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true;
+    for (final d in motorYolu.split('|')) {
+      c.drawPath(svgYoluCoz(d), firca);
+    }
+    c.restore();
   }
 }

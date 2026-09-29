@@ -58,6 +58,9 @@ class SahteHaritaTuvali implements HaritaKamerasi {
   /// [no] numaralı durak düğmesi.
   Finder durak(int no) => find.byKey(ValueKey('sahte-durak-$no'));
 
+  /// Gruplu haritada [grup] anahtarlı kişinin [no] numaralı durağı.
+  Finder grupDuragi(String grup, int no) => find.byKey(ValueKey('sahte-durak-$grup-$no'));
+
   /// Çizilen bütün durak düğmeleri.
   Finder get duraklar =>
       find.byWidgetPredicate((w) => w.key is ValueKey<String> &&
@@ -125,7 +128,7 @@ class _SahteTuvalState extends State<_SahteTuval> {
         children: [
           for (final d in icerik.duraklar)
             GestureDetector(
-              key: ValueKey('sahte-durak-${d.no}'),
+              key: ValueKey(d.grup.isEmpty ? 'sahte-durak-${d.no}' : 'sahte-durak-${d.grup}-${d.no}'),
               onTap: () => dokun(DurakDokunusu(d.id)),
               child: SizedBox(width: 40, height: 40, child: Center(child: Text('${d.no}'))),
             ),

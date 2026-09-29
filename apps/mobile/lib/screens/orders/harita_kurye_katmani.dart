@@ -66,12 +66,13 @@ String kuryeSonGorulme(String iso, {DateTime? simdi}) {
 
 /// Canlı konumun haritadaki işareti. Bayatlık etiketi BURADA hesaplanır: katman her tazelemede
 /// (25 sn) yeniden kurulur, "7 dk önce" kendiliğinden ilerler.
-KuryeIsareti kuryeIsareti(CanliKonum k, {DateTime? simdi}) => KuryeIsareti(
+KuryeIsareti kuryeIsareti(CanliKonum k, {DateTime? simdi, Color? renk}) => KuryeIsareti(
       id: k.userId,
       nokta: HaritaNoktasi(k.lat, k.lng),
       ad: k.ad,
       taze: k.taze,
       bayatlik: k.taze ? '' : kuryeSonGorulme(k.bildirilenIso, simdi: simdi),
+      renk: renk,
     );
 
 /// Haritanın canlı kurye katmanı — VERİ sağlar, çizmez. Kapıyı KENDİ açar ve konumları

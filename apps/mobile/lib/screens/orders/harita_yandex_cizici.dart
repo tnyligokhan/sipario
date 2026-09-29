@@ -15,7 +15,6 @@ import 'package:flutter/material.dart';
 import 'package:yandex_maps_mapkit_lite/image.dart' as yimg;
 import 'package:yandex_maps_mapkit_lite/mapkit.dart' as y;
 
-import '../../theme/svg_path.dart';
 import '../../theme/tokens.dart';
 import 'harita_ad_cipi.dart';
 import 'harita_icerigi.dart';
@@ -132,6 +131,11 @@ class YandexCizici {
   y.PlacemarkMapObject? _cihaz;
   y.PolylineMapObject? _rota;
   List<HaritaNoktasi> _rotaSon = const [];
+
+  /// Gruplu haritada kişi başına kesikli rota çizgileri. Değişince hepsi yeniden kurulur
+  /// (birkaç çizgidir; tek tek eşlemek kazandırmaz).
+  final List<y.PolylineMapObject> _grupRotalari = [];
+  String _grupRotalariSon = '';
   y.PolylineMapObject? _yol;
   List<HaritaNoktasi> _yolSon = const [];
   HaritaIcerigi _icerik = const HaritaIcerigi();
@@ -151,6 +155,7 @@ class YandexCizici {
     _durakIkonu.clear();
     _kuryeIkonu.clear();
     _cihaz?.setIcon(_ikonlar.cihaz());
+    _grupRotalariSon = '';
     _rota?.setStrokeColor(renkler.vurgu.withValues(alpha: 0.6));
     _yol?.setStrokeColor(renkler.vurgu.withValues(alpha: 0.8));
     ciz(_icerik);
@@ -170,6 +175,7 @@ class YandexCizici {
     _icerik = icerik;
     _yoluCiz(icerik);
     _rotayiCiz(icerik);
+    _grupRotalariniCiz(icerik);
     _cihaziCiz(icerik);
     _duraklariCiz(icerik);
     _kuryeleriCiz(icerik);
@@ -192,6 +198,7 @@ class YandexCizici {
       ..style = const y.LineStyle(strokeWidth: 4)
       ..zIndex = 1
       ..setStrokeColor(_renkler.vurgu.withValues(alpha: 0.8));
+    cizgi.setStrokeColor((icerik.rotaRengi ?? _renkler.vurgu).withValues(alpha: 0.8));
     cizgi.geometry = geometri;
   }
 
@@ -212,7 +219,31 @@ class YandexCizici {
       ..style = const y.LineStyle(strokeWidth: 3, dashLength: 8, gapLength: 6)
       ..zIndex = 0
       ..setStrokeColor(_renkler.vurgu.withValues(alpha: 0.6));
-    r.geometry = geometri;
+    r
+      ..geometry = geometri
+      ..setStrokeColor((icerik.rotaRengi ?? _renkler.vurgu).withValues(alpha: 0.6));
+  }
+
+  /// Gruplu haritada her kişinin rotası KENDİ RENGİNDE kesikli çizgi. Pinlerin ALTINDA.
+  void _grupRotalariniCiz(HaritaIcerigi icerik) {
+    final anahtar = [
+      for (final r in icerik.rotalar)
+        '${r.renk?.toARGB32()}:${r.noktalar.map((n) => '${n.lat},${n.lng}').join(';')}',
+    ].join('|');
+    if (anahtar == _grupRotalariSon) return;
+    _grupRotalariSon = anahtar;
+    for (final eski in _grupRotalari) {
+      _kok.remove(eski);
+    }
+    _grupRotalari.clear();
+    for (final r in icerik.rotalar) {
+      if (r.noktalar.length < 2) continue;
+      _grupRotalari.add(_kok.addPolylineWithGeometry(
+          y.Polyline([for (final n in r.noktalar) _nokta(n)]))
+        ..style = const y.LineStyle(strokeWidth: 3, dashLength: 8, gapLength: 6)
+        ..zIndex = 0
+        ..setStrokeColor((r.renk ?? _renkler.vurgu).withValues(alpha: 0.7)));
+    }
   }
 
   void _cihaziCiz(HaritaIcerigi icerik) {
@@ -243,9 +274,9 @@ class YandexCizici {
       // (`harita_ad_cipi.dart`). Çapa her iki hâlde de pinin merkezidir; ad açılıp kapanınca
       // pin yerinden oynamaz.
       final ad = _adlarAcik ? d.ad.trim() : '';
-      final ikon = '${d.no}-$secili-$ad';
+      final ikon = '${d.no}-$secili-$ad-${d.renk?.toARGB32()}';
       if (_durakIkonu[d.id] != ikon) {
-        final (gorsel, capa) = _ikonlar.durak(d.no, secili: secili, ad: ad);
+        final (gorsel, capa) = _ikonlar.durak(d.no, secili: secili, ad: ad, renk: d.renk);
         p.setIconWithStyle(gorsel, y.IconStyle(anchor: capa));
         _durakIkonu[d.id] = ikon;
       }
@@ -256,7 +287,9 @@ class YandexCizici {
     }
   }
 
-  /// Kurye: motor ikonlu daire + adı. Bayat konum SÖNÜK çizilir ve altına "X dk önce" yazar.
+  /// Kurye: motor ikonlu daire + ad çipi (durakla aynı dil). Bayat konum SÖNÜK çizilir ve
+  /// çipte "X dk önce" yazar. Ad yakınlığa bakmaksızın HEP yazar: kurye az sayıdadır ve patron
+  /// haritaya çoğu zaman "kim nerede" sorusuyla gelir.
   void _kuryeleriCiz(HaritaIcerigi icerik) {
     final kalan = {..._kuryeler.keys};
     for (final k in icerik.kuryeler) {
@@ -266,12 +299,13 @@ class YandexCizici {
         // Kurye duraklardan ÜSTTE: hareket eden nokta daha acil bir bilgidir.
         ..zIndex = 2000000;
       p.geometry = _nokta(k.nokta);
-      final ikon = '${k.taze}';
+      final ek = k.taze ? '' : k.bayatlik;
+      final ikon = '${k.taze}-${k.ad}-$ek-${k.renk?.toARGB32()}';
       if (_kuryeIkonu[k.id] != ikon) {
-        p.setIcon(_ikonlar.kurye(taze: k.taze));
+        final (gorsel, capa) = _ikonlar.kurye(taze: k.taze, ad: k.ad, ek: ek, renk: k.renk);
+        p.setIconWithStyle(gorsel, y.IconStyle(anchor: capa));
         _kuryeIkonu[k.id] = ikon;
       }
-      p.setTextWithStyle(_ikonlar.adStili(sonuk: !k.taze), text: k.etiket);
     }
     for (final id in kalan) {
       _kok.remove(_kuryeler.remove(id)!);
@@ -323,10 +357,13 @@ class YandexIkonlar {
 
   /// Numaralı durak; [ad] doluysa sağında ad çipiyle. Seçiliyken büyür ve yarı saydam bir hale
   /// alır. Görselle birlikte ÇAPASI döner (pinin merkezi) — çip görseli sağa genişletir.
+  /// [renk] grup rengidir (gruplu harita); null = temanın vurgusu.
   (yimg.ImageProvider, math.Point<double>) durak(int no,
-      {required bool secili, String ad = ''}) {
-    final cizim = DurakAdCipi(no: no, secili: secili, ad: ad, renkler: _r.durak, dpr: dpr);
-    return (_saglayici('durak-$no-$secili-$ad', cizim.ciz), cizim.capa);
+      {required bool secili, String ad = '', Color? renk}) {
+    final cizim = DurakAdCipi(
+        no: no, secili: secili, ad: ad, renkler: _r.durak.pinRengiyle(renk), dpr: dpr);
+    final anahtar = 'durak-$no-$secili-$ad-${renk?.toARGB32() ?? 0}';
+    return (_saglayici(anahtar, cizim.ciz), cizim.capa);
   }
 
   /// Cihaz: yumuşak hale + içi dolu nokta (numarasız — kurye bir durak değildir).
@@ -339,42 +376,19 @@ class YandexIkonlar {
         });
       });
 
-  /// Kurye: motor ikonlu daire; bayatsa sönük renk.
-  yimg.ImageProvider kurye({required bool taze}) => _saglayici('kurye-$taze', () {
-        const dp = 32.0;
-        return _resim(dp, (c, o) {
-          final m = Offset(dp * o / 2, dp * o / 2);
-          _daire(c, m, 15 * o, taze ? _r.vurgu : _r.sonuk,
-              kenar: _r.vurguUstu, kenarKalinlik: 2 * o);
-          // Lucide `bike` — 24 birimlik kutu, 17 dp'ye ölçeklenir ve ortalanır.
-          const ikon = 17.0;
-          c
-            ..save()
-            ..translate(m.dx - ikon * o / 2, m.dy - ikon * o / 2)
-            ..scale(ikon * o / 24);
-          final firca = Paint()
-            ..style = PaintingStyle.stroke
-            ..color = _r.vurguUstu
-            ..strokeWidth = 2.2
-            ..strokeCap = StrokeCap.round
-            ..strokeJoin = StrokeJoin.round
-            ..isAntiAlias = true;
-          for (final d in kKuryeMotorYolu.split('|')) {
-            c.drawPath(svgYoluCoz(d), firca);
-          }
-          c.restore();
-        });
-      });
-
-  /// Pinin altındaki ad — yüzey renginde dış çizgiyle, haritanın her renginde okunur.
-  y.TextStyle adStili({bool sonuk = false}) => y.TextStyle(
-        size: 11,
-        color: sonuk ? _r.sonuk : _r.metin,
-        outlineColor: _r.yuzey,
-        outlineWidth: 2,
-        placement: y.TextStylePlacement.Bottom,
-        offset: 2,
-        // Çakışan ad düşer, pin her zaman kalır.
-        textOptional: true,
-      );
+  /// Kurye: motor ikonlu daire + sağında ad çipi (duraklarla AYNI dil, 2026-09-29). Bayat
+  /// konumda pin ve ad soluk, "X dk önce" çipin içinde soluk ikinci parça.
+  (yimg.ImageProvider, math.Point<double>) kurye(
+      {required bool taze, required String ad, String ek = '', Color? renk}) {
+    final cizim = KuryeAdCipi(
+      taze: taze,
+      motorYolu: kKuryeMotorYolu,
+      ad: ad,
+      ek: ek,
+      renkler: _r.durak.pinRengiyle(renk),
+      dpr: dpr,
+    );
+    final anahtar = 'kurye-$taze-$ad-$ek-${renk?.toARGB32() ?? 0}';
+    return (_saglayici(anahtar, cizim.ciz), cizim.capa);
+  }
 }

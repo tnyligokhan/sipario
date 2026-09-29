@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show FontLoader;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/screens/orders/harita_ad_cipi.dart';
+import 'package:sipario/screens/orders/harita_kurye_katmani.dart' show kKuryeMotorYolu;
 import 'package:sipario/theme/tokens.dart';
 
 /// Çizim fikstürü: temanın renkleri + yazı tipi yüklü bir ortamda pin/çip üretir.
@@ -32,6 +33,16 @@ class _CipOrtami {
 
   DurakAdCipi pin({int no = 3, bool secili = false, String? ad, double dpr = 3}) =>
       DurakAdCipi(no: no, secili: secili, ad: ad, renkler: renkler, dpr: dpr);
+
+  KuryeAdCipi kurye({bool taze = true, String ad = 'Ali', String ek = '', Color? renk}) =>
+      KuryeAdCipi(
+        taze: taze,
+        motorYolu: kKuryeMotorYolu,
+        ad: ad,
+        ek: ek,
+        renkler: renkler.pinRengiyle(renk),
+        dpr: 3,
+      );
 }
 
 void main() {
@@ -70,7 +81,29 @@ void main() {
       final uzun = o.pin(ad: 'Anadolu Su ve Tüp Dağıtım Sanayi Ticaret Limited Şirketi');
       expect(uzun.genislik, greaterThan(kisa.genislik));
       expect(uzun.genislik,
-          lessThanOrEqualTo(16 + 15 + 7 + DurakAdCipi.azamiAdGenisligi + 11 + 3 + 0.01));
+          lessThanOrEqualTo(16 + 15 + 7 + PinCipi.azamiAdGenisligi + 11 + 3 + 0.01));
+    });
+  });
+
+  // 2026-09-29: "müşteri adını güncelledin fakat kuryeyi yapmamışsın" — kurye de aynı çipte.
+  group('kurye çipi', () {
+    test('kurye adı pinin sağında çipte, çapa pinin merkezi', () {
+      final k = o.kurye(ad: 'Ali Kurye');
+      expect(k.cipVar, isTrue);
+      expect(k.capa.x * k.genislik, closeTo(k.pinKutusu / 2, 0.001));
+    });
+
+    test('bayat konumda süre çipin İÇİNDE, çip süre kadar uzar', () {
+      final taze = o.kurye(ad: 'Veli');
+      final bayat = o.kurye(ad: 'Veli', taze: false, ek: '12 dk önce');
+      expect(bayat.sonuk, isTrue);
+      expect(bayat.genislik, greaterThan(taze.genislik));
+    });
+
+    test('grup rengi yalnız pini boyar', () {
+      final k = o.kurye(renk: const Color(0xFF0EA5E9));
+      expect(k.renkler.vurgu, const Color(0xFF0EA5E9));
+      expect(k.renkler.yuzey, _CipOrtami.renkler.yuzey);
     });
   });
 
@@ -104,6 +137,8 @@ void main() {
         'adli': o.pin(ad: 'Ahmet Yılmaz'),
         'secili': o.pin(ad: 'Mehmet Kaya', secili: true, no: 12),
         'uzun': o.pin(ad: 'Anadolu Su ve Tüp Dağıtım Sanayi Ticaret', no: 104),
+        'kurye': o.kurye(ad: 'Ali Kurye', renk: const Color(0xFF0EA5E9)),
+        'kurye_bayat': o.kurye(ad: 'Veli', taze: false, ek: '12 dk önce'),
       };
       for (final e in ornekler.entries) {
         final resim = await e.value.ciz();

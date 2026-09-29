@@ -9,6 +9,7 @@
 //     MapLibre → Yandex geçişinde bu dosya motorla birlikte DEĞİŞMEDİ, sözleşme işe yaradı).
 
 import 'dart:math' as math;
+import 'dart:ui' show Color;
 
 /// Haritadaki bir nokta. Motorun kendi `LatLng`i KULLANILMAZ: ekran ve testler motoru
 /// tanımasın (bkz. dosya başlığı).
@@ -36,15 +37,33 @@ class DurakIsareti {
     required this.no,
     required this.nokta,
     required this.ad,
+    this.renk,
+    this.grup = '',
   });
 
   /// Sipariş kimliği — dokunuş bununla geri bildirilir.
   final String id;
+
+  /// Pinin numarası. Gruplu haritada GRUBUN İÇİNDEKİ sıradır: her kişinin rotası 1'den başlar.
   final int no;
   final HaritaNoktasi nokta;
 
-  /// Yakınlaşınca pinin altında yazan müşteri adı.
+  /// Yakınlaşınca pinin yanında yazan müşteri adı.
   final String ad;
+
+  /// Grubun rengi (2026-09-29); null = temanın vurgu rengi.
+  final Color? renk;
+
+  /// Grubun anahtarı (`SiparisGrubu.anahtar`); tek gruplu haritada boş.
+  final String grup;
+}
+
+/// Tek bir kişinin kuş uçuşu rota çizgisi — gruplu haritada her grup kendi renginde çizilir.
+class HaritaRotasi {
+  const HaritaRotasi({required this.noktalar, this.renk});
+
+  final List<HaritaNoktasi> noktalar;
+  final Color? renk;
 }
 
 /// Canlı kurye. [bayatlik] boş değilse konum bayattır ("7 dk önce") ve pin soluk çizilir.
@@ -55,6 +74,7 @@ class KuryeIsareti {
     required this.ad,
     required this.taze,
     this.bayatlik = '',
+    this.renk,
   });
 
   final String id;
@@ -62,6 +82,10 @@ class KuryeIsareti {
   final String ad;
   final bool taze;
   final String bayatlik;
+
+  /// Kuryenin sipariş grubunun rengi — pini ve durakları aynı renkte olur, patron hangi
+  /// siparişin kimde olduğunu renkten okur. null = temanın vurgu rengi.
+  final Color? renk;
 
   /// Pinin altındaki yazı: taze konumda yalnız ad, bayatta ad + ne kadar eski olduğu. Bayat
   /// konum taze gibi görünseydi patron 40 dakika önceki noktaya bakıp kuryeyi orada sanırdı.
@@ -156,7 +180,27 @@ class HaritaIcerigi {
     this.kuryeler = const [],
     this.seciliDurakId,
     this.yol,
+    this.rotalar = const [],
+    this.cokluRota = false,
+    this.rotaBasi,
+    this.rotaRengi,
   });
+
+  /// Tek rotanın (yol + kesikli çizgi) rengi — patron bir kuryenin grubuna odaklandığında o
+  /// kuryenin rengi. null = temanın vurgusu.
+  final Color? rotaRengi;
+
+  /// Gruplu haritada her kişinin kendi kesikli rota çizgisi.
+  final List<HaritaRotasi> rotalar;
+
+  /// Birden çok kişinin durakları birlikte mi çiziliyor? O zaman tek bir "bütün durakları
+  /// sırayla bağlayan" çizgi ANLAMSIZDIR (Ali'nin son durağı Veli'nin ilk durağına bağlanırdı);
+  /// çizgiler [rotalar]dan gelir.
+  final bool cokluRota;
+
+  /// Rotanın başlangıcı cihaz DEĞİLSE (patron bir kuryenin grubuna odaklandığında kuryenin
+  /// konumu) buradadır. null = cihaz.
+  final HaritaNoktasi? rotaBasi;
 
   /// Rota sırasında.
   final List<DurakIsareti> duraklar;
@@ -178,6 +222,10 @@ class HaritaIcerigi {
         kuryeler: kuryeler,
         seciliDurakId: seciliDurakId == null ? this.seciliDurakId : seciliDurakId(),
         yol: yol,
+        rotalar: rotalar,
+        cokluRota: cokluRota,
+        rotaBasi: rotaBasi,
+        rotaRengi: rotaRengi,
       );
 
   /// Cihazın rotaya dahil sayılacağı en uzak mesafe (en yakın durağa).
@@ -188,7 +236,7 @@ class HaritaIcerigi {
   /// haritayı ülke ölçeğine uzaklaştırır, rota bir nokta kadar kalırdı (emülatörde görüldü:
   /// Kaliforniya'daki cihaz Bursa rotasına çizgi çekiyordu). Cihaz noktası yine ÇİZİLİR.
   HaritaNoktasi? get rotaBaslangici {
-    final c = cihaz;
+    final c = rotaBasi ?? cihaz;
     if (c == null || duraklar.isEmpty) return c;
     for (final d in duraklar) {
       if (mesafeKm(c, d.nokta) <= rotaYaricapiKm) return c;
@@ -239,6 +287,7 @@ class HaritaIcerigi {
   ///    durakları SIRAYLA bağlar — rotanın sırası yine okunur.
   /// İki noktadan azsa çizgi YOKTUR (boş liste).
   List<HaritaNoktasi> get rotaNoktalari {
+    if (cokluRota) return const [];
     final noktalar = yolVar
         ? [?rotaBaslangici, if (duraklar.isNotEmpty) duraklar.first.nokta]
         : [?rotaBaslangici, for (final d in duraklar) d.nokta];

@@ -17,8 +17,10 @@ import '../../auth/session.dart';
 import '../../data/app_database.dart';
 import '../../konum/cihaz_konumu.dart';
 import '../../repo/order_repository.dart';
+import '../../sync/konum_api.dart';
 import '../../sync/route_api.dart';
 import 'order_queries.dart';
+import 'siparis_gruplari.dart';
 
 /// Oto sıralamanın sonucu: kullanıcıya söylenecek TEK cümle + başarılı mı.
 ///
@@ -61,18 +63,25 @@ const String kOtoKumeYetersiz = 'Rota için en az iki açık sipariş gerekir';
 /// Bu, uygulamanın TEK çevrimİÇİ zorunlu eylemidir. Başarısızlıkta mevcut sıra AYNEN kalır;
 /// yarım uygulanmış bir rota bırakmaz.
 ///
-/// KÜME BURADA OKUNUR, çağırandan alınmaz: rotaya AÇIK siparişlerin TAMAMI girer. Eskiden
-/// listedeki görünen küme gönderiliyordu ve kurye süzgeci/sekme seçimi rotayı sessizce
-/// daraltabiliyordu. Ayrıca gönderilmeyen bir açık siparişin `sort_index`i eski değerinde
-/// kalır ve rota görünümünde yeni sıranın ORTASINA düşerdi — sıralamanın kendisi bozulurdu.
-Future<OtoSiralamaSonucu> otoSiralaKos(AppDatabase db) async {
-  final liste = await watchOrders(db, OrderFilter.acik).first;
-  // EMNİYET AĞI: düğme küme yetersizken zaten pasif çizilir ([otoKilitNedeni]), ama ekran
-  // açıkken senkron listeyi değiştirmiş olabilir. Cümle düğmenin altındakiyle AYNIDIR.
-  if (liste.length < 2) {
-    return const OtoSiralamaSonucu(basarili: false, mesaj: kOtoKumeYetersiz);
-  }
-
+/// KİŞİ KİŞİ ROTA (kullanıcı kararı 2026-09-29): "patron oto sıralama yaptığında hem kendi
+/// siparişlerini hem de kuryelerin konumlarına göre onların siparişlerini sıralayabilmeli."
+///  • KURYE yalnız KENDİSİNE ATANMIŞ siparişleri, kendi konumundan sıralar.
+///  • Diğer roller her kişinin grubunu AYRI rota olarak sıralar (`siparis_gruplari.dart`):
+///    "Siz" grubu telefonun konumundan, her kurye grubu KURYENİN CANLI KONUMUNDAN başlar.
+///    Kuryenin konumu taze değilse onun rotası ilk duraktan başlar ve bu söylenir.
+///  • [grup] verilirse (haritadaki kişi şeridinde seçili olan) yalnız o grup sıralanır.
+///  • HER ROTA BİR HAK: ürün kuralı "1 sıralama = 1 kontör" ve her rota ayrı bir sıralamadır
+///    (sunucuda ayrı bir paralı çağrı). Hak ortada biterse kalan gruplar sıralanmaz ve
+///    hangileri olduğu SÖYLENİR; sıralanmış olanlar geri alınmaz.
+///
+/// KÜME BURADA OKUNUR, çağırandan alınmaz: gruba AÇIK siparişlerin TAMAMI girer (konumsuzlar
+/// dahil — sunucu onları sona atar). Gönderilmeyen bir açık siparişin `sort_index`i eski
+/// değerinde kalır ve rota görünümünde yeni sıranın ORTASINA düşerdi.
+///
+/// SIRA NUMARALARI GRUP GRUP AYRILIR: her grubun `sort_index`i kendi bandında (grup sırası ×
+/// [kGrupSiraBandi]) yazılır. Böylece patronun "Rota sırası" listesi kişi kişi okunur, kuryenin
+/// kendi listesi ise yalnız kendi bandını görür ve sırası bozulmaz.
+Future<OtoSiralamaSonucu> otoSiralaKos(AppDatabase db, {String? grup}) async {
   final meta = await db.syncState();
   final token = meta.authToken;
   if (token == null) {
@@ -80,60 +89,149 @@ Future<OtoSiralamaSonucu> otoSiralaKos(AppDatabase db) async {
         basarili: false, mesaj: 'Oto sıralama için oturum gerekir');
   }
 
-  // ROTA NEREDEN BAŞLAR: kuryenin BULUNDUĞU nokta. Konum alınamazsa (izin yok, GPS kapalı,
-  // kapalı alan) ya da ölçüm güvenilmezse (`guvenilir` kuralı — ±100 m üstü bir başlangıç
-  // noktası rotayı yanlış şehir köşesinden kurabilir) `start` HİÇ gönderilmez; sunucu eski
-  // davranışıyla ilk duraktan sıralar. Fark kullanıcıya SÖYLENİR (aşağıdaki mesaj eki):
-  // sessizce başka bir kipte sıralamak, kuryeye yanlış bir rotaya güvenmesini söylemek olurdu.
-  ({double lat, double lng})? baslangic;
+  final liste = await watchOrders(db, OrderFilter.acik).first;
+  final users = await db.select(db.users).get();
+  final tumGruplar = siparisleriGrupla<OrderListItem>(
+    liste,
+    atanan: (e) => e.order.assignedUserId,
+    kendiId: meta.userId,
+    adlar: {for (final u in users) u.id: u.name},
+    kuryeKipi: meta.userRole == 'kurye',
+  );
+  final hedef = [
+    for (var i = 0; i < tumGruplar.length; i++)
+      if (grup == null || tumGruplar[i].anahtar == grup) (bant: i, grup: tumGruplar[i]),
+  ];
+  // Tek siparişli grubun sıralanacak bir şeyi yoktur; hak harcanmaz.
+  final siralanacak = [for (final h in hedef) if (h.grup.ogeler.length >= 2) h];
+  // EMNİYET AĞI: düğme küme yetersizken zaten pasif çizilir ([otoKilitNedeni]), ama ekran
+  // açıkken senkron listeyi değiştirmiş olabilir. Cümle düğmenin altındakiyle AYNIDIR.
+  if (siralanacak.isEmpty) {
+    return const OtoSiralamaSonucu(basarili: false, mesaj: kOtoKumeYetersiz);
+  }
+
+  final baseUrl = Session.baseUrlOf(meta);
+  final cihaz = await _cihazBaslangici();
+  final kuryeKonumlari = siralanacak.any((h) => !h.grup.kendi)
+      ? await _kuryeKonumlari(baseUrl, token)
+      : const <String, ({double lat, double lng})>{};
+
+  final api = rotaApiUret(baseUrl, token);
+  final repo = OrderRepository(db);
+  var sirali = 0;
+  var konumsuz = 0;
+  int? kalanHak;
+  final konumsuzBaslayan = <String>[];
+  final hakYetmeyen = <String>[];
+  String? ariza;
+
+  for (final h in siralanacak) {
+    if (ariza != null || kalanHak == 0) {
+      hakYetmeyen.add(h.grup.ad);
+      continue;
+    }
+    final baslangic = h.grup.kendi ? cihaz : kuryeKonumlari[h.grup.kullaniciId];
+    final AutoRouteResult sonuc;
+    try {
+      sonuc = await api.autoRoute(
+        [for (final e in h.grup.ogeler) e.order.id],
+        baslangic: baslangic,
+      );
+    } on RouteException catch (e) {
+      // Sunucu güncel hakkı bildirdiyse ÖNBELLEĞİ düzelt: "34 hak" yazan düğmeye basıp
+      // "hakkınız kalmadı" duymak, sonra hâlâ 34 görmek kullanıcıyı ikinci kez yanıltırdı.
+      if (e.kalanHak != null) {
+        kalanHak = e.kalanHak;
+        await hakkiYaz(db, e.kalanHak!);
+      }
+      if (sirali == 0) return OtoSiralamaSonucu(basarili: false, mesaj: e.message);
+      ariza = e.message;
+      hakYetmeyen.add(h.grup.ad);
+      continue;
+    }
+
+    // Dönen sırayı gruba eşle; sunucunun tanımadığı kimlik (silinmiş/kapanmış) sessizce düşer.
+    final indeks = {for (final e in h.grup.ogeler) e.order.id: e};
+    final yeniSira = [
+      for (final id in sonuc.sira)
+        if (indeks[id] != null) indeks[id]!,
+    ];
+    for (final girdi in elleSiraYazimi(yeniSira).entries) {
+      await repo.setSortIndex(girdi.key, girdi.value + h.bant * kGrupSiraBandi);
+    }
+    await hakkiYaz(db, sonuc.kalanHak);
+    kalanHak = sonuc.kalanHak;
+    sirali++;
+    konumsuz += sonuc.konumsuz;
+    if (baslangic == null) konumsuzBaslayan.add(h.grup.kendi ? 'sizin' : h.grup.ad);
+  }
+
+  return OtoSiralamaSonucu(
+    basarili: true,
+    mesaj: otoSonucMetni(
+      rotaSayisi: sirali,
+      kalanHak: kalanHak ?? 0,
+      konumsuzSiparis: konumsuz,
+      konumsuzBaslayan: konumsuzBaslayan,
+      yarimKalan: hakYetmeyen,
+    ),
+  );
+}
+
+/// Grup başına ayrılan `sort_index` bandı. `elleSiraYazimi` 10'ar adımla yazar; 100.000'lik bant
+/// 10.000 siparişe kadar komşu grupla çakışmaz.
+const int kGrupSiraBandi = 100000;
+
+/// Sonuç cümlesi — saf, doğrudan testlenir. Ne olduysa SÖYLENİR: kaç rota, kalan hak,
+/// sona atılan konumsuz siparişler, kimin rotasının konumsuz başladığı, hangilerinin
+/// yapılamadığı.
+String otoSonucMetni({
+  required int rotaSayisi,
+  required int kalanHak,
+  int konumsuzSiparis = 0,
+  List<String> konumsuzBaslayan = const [],
+  List<String> yarimKalan = const [],
+}) {
+  final parcalar = <String>[
+    rotaSayisi == 1
+        ? 'Rota sıralandı, $kalanHak hakkınız kaldı.'
+        : '$rotaSayisi rota sıralandı, $kalanHak hakkınız kaldı.',
+    if (konumsuzSiparis > 0) '$konumsuzSiparis siparişin konumu olmadığı için sona alındı.',
+    if (konumsuzBaslayan.length == 1 && konumsuzBaslayan.single == 'sizin')
+      'Konumunuz alınamadığı için ilk duraktan başlandı.'
+    else if (konumsuzBaslayan.isNotEmpty)
+      'Konumu bilinmediği için ilk duraktan başlanan rota: ${konumsuzBaslayan.join(', ')}.',
+    if (yarimKalan.isNotEmpty) 'Sıralanamayan rota: ${yarimKalan.join(', ')}.',
+  ];
+  return parcalar.join(' ');
+}
+
+/// ROTA NEREDEN BAŞLAR: telefonun BULUNDUĞU nokta. Konum alınamazsa (izin yok, GPS kapalı,
+/// kapalı alan) ya da ölçüm güvenilmezse (±100 m üstü) başlangıç HİÇ gönderilmez; sunucu ilk
+/// duraktan sıralar ve bu kullanıcıya söylenir.
+Future<({double lat, double lng})?> _cihazBaslangici() async {
   try {
     final konum = await cihazKonumuOku();
-    if (konum.guvenilir) baslangic = (lat: konum.lat, lng: konum.lng);
+    if (konum.guvenilir) return (lat: konum.lat, lng: konum.lng);
   } on Object {
     // Konum bir KOLAYLIKTIR, ön koşul değil: okunamadıysa sıralama yine yapılır.
   }
+  return null;
+}
 
-  final api = rotaApiUret(Session.baseUrlOf(meta), token);
-  final AutoRouteResult sonuc;
+/// Kuryelerin TAZE canlı konumları (kimlik → nokta). Bayat konum rotanın başı olamaz: 40 dakika
+/// önceki nokta kuryeyi şehrin öbür ucundan başlatırdı. Okunamazsa boş — rotalar ilk duraktan.
+Future<Map<String, ({double lat, double lng})>> _kuryeKonumlari(
+    String baseUrl, String token) async {
   try {
-    sonuc = await api.autoRoute(
-      [for (final e in liste) e.order.id],
-      baslangic: baslangic,
-    );
-  } on RouteException catch (e) {
-    // Sunucu güncel hakkı bildirdiyse ÖNBELLEĞİ düzelt: "34 hak" yazan düğmeye basıp
-    // "hakkınız kalmadı" duymak, sonra hâlâ 34 görmek kullanıcıyı ikinci kez yanıltırdı.
-    // Yerel alana değil sync_meta'ya yazılır — çekmecedeki kart da aynı kaynağı okur.
-    if (e.kalanHak != null) await hakkiYaz(db, e.kalanHak!);
-    return OtoSiralamaSonucu(basarili: false, mesaj: e.message);
+    final konumlar = await konumApiUret(baseUrl, token).canliKonumlar();
+    return {
+      for (final k in konumlar)
+        if (k.taze) k.userId: (lat: k.lat, lng: k.lng),
+    };
+  } on Object {
+    return const {};
   }
-
-  // Dönen sırayı okunan kümeye eşle; sunucunun tanımadığı kimlik varsa (silinmiş/kapanmış)
-  // sessizce düşer, kalanlar sırayı korur.
-  final indeks = {for (final e in liste) e.order.id: e};
-  final yeniSira = [
-    for (final id in sonuc.sira)
-      if (indeks[id] != null) indeks[id]!,
-  ];
-
-  final repo = OrderRepository(db);
-  for (final girdi in elleSiraYazimi(yeniSira).entries) {
-    await repo.setSortIndex(girdi.key, girdi.value);
-  }
-  await hakkiYaz(db, sonuc.kalanHak);
-
-  // Koordinatsız duraklar sona atıldı — bunu SÖYLEMEK zorundayız, yoksa "sıraladım" demek
-  // yanıltıcı olur (kullanıcı o siparişlerin neden sonda olduğunu anlamaz).
-  final ek = sonuc.konumsuz > 0
-      ? ' ${sonuc.konumsuz} siparişin konumu olmadığı için sona alındı.'
-      : '';
-  // Hangi KİPTE sıralandığı da söylenir: kurye "benim konumumdan başladı" sanıp ilk durağa
-  // gitmemeyi seçebilir. Sessiz bozulma yasak — konum alınamadıysa cümlenin sonunda yazar.
-  final kip = baslangic == null ? ' Konumunuz alınamadığı için ilk duraktan başlandı.' : '';
-  return OtoSiralamaSonucu(
-    basarili: true,
-    mesaj: 'Rota sıralandı, ${sonuc.kalanHak} hakkınız kaldı.$ek$kip',
-  );
 }
 
 /// Sunucunun bildirdiği güncel kontörü ÖNBELLEĞE yazar. Tek doğru kaynak sunucudur; burada
