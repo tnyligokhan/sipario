@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'api_hata_metni.dart';
+
 /// EKİP KİMLİK BİLGİLERİ istemcisi — kuryenin giriş adı/parolası
 /// (`PATCH /team/{id}/credentials`, kullanıcı isteği 2026-08-04).
 ///
@@ -47,7 +49,8 @@ class TeamApi {
           )
           .timeout(const Duration(seconds: 20));
     } on Exception {
-      throw TeamApiException('İnternete ulaşılamadı. Giriş bilgileri yalnız çevrimiçiyken değiştirilebilir.');
+      throw TeamApiException(
+          'İnternet bağlantısı kurulamadı. Giriş bilgileri yalnız internet varken değiştirilebilir.');
     }
 
     final body = _decode(resp.body);
@@ -57,16 +60,10 @@ class TeamApi {
 
     // 422'de alan hatalarını kullanıcıya AYNEN gösteriyoruz: sunucunun mesajı ("Bu kullanıcı adı
     // bu bayide zaten kullanılıyor") kendi yazacağımız genel bir cümleden daha yardımcı.
-    final alanlar = body['errors'];
-    if (alanlar is Map && alanlar.isNotEmpty) {
-      final ilk = alanlar.values.first;
-      if (ilk is List && ilk.isNotEmpty) throw TeamApiException('${ilk.first}');
-    }
-    final mesaj = body['message'];
+    // 403/404 de bu uçta denetleyicinin kendi Türkçe cümlesidir.
     throw TeamApiException(
-      mesaj is String && mesaj.isNotEmpty
-          ? mesaj
-          : 'Giriş bilgileri güncellenemedi (kod ${resp.statusCode})',
+      const ApiHataMetni('Giriş bilgileri güncellenemedi', guvenilen: {403, 404, 409, 422})
+          .yanit(resp.statusCode, body),
     );
   }
 

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 
+import 'api_hata_metni.dart';
+
 /// CİHAZ LİSTESİ istemcisi — `GET /devices`.
 ///
 /// NEDEN VAR (kullanıcı eleştirisi 2026-08-13): "Hesabım sayfasının varlık amacı ne, hiçbir şeye
@@ -35,11 +37,15 @@ class CihazApi {
         },
       ).timeout(const Duration(seconds: 20));
     } on Exception {
-      throw CihazApiException('İnternete ulaşılamadı. Cihaz listesi yalnız çevrimiçiyken görünür.');
+      throw CihazApiException(
+          'İnternet bağlantısı kurulamadı. Cihaz listesi yalnız internet varken görünür.');
     }
 
     if (resp.statusCode != 200) {
-      throw CihazApiException('Cihaz listesi alınamadı (kod ${resp.statusCode})');
+      throw CihazApiException(
+        const ApiHataMetni('Cihaz listesi alınamadı', guvenilen: {})
+            .yanit(resp.statusCode, const {}),
+      );
     }
 
     final govde = jsonDecode(resp.body);

@@ -61,9 +61,6 @@ extension _DurumYuzeyi on _HomeShellState {
       _tenantName = meta.tenantName;
       _userName = meta.userName;
       _validUntil = gecerli;
-      // Bandın adres satırı. `Session.baseUrlOf` varsayılana düşer → adres HER ZAMAN yazılır;
-      // "hiçbir adres yok" da bir bilgi olurdu ama gerçekte olmayan bir durum.
-      _apiAdres = bantAdresi(Session.baseUrlOf(meta));
       // Çekmecedeki "Oto sıralama bakiyesi" kartı (tasarım `.lst-kart`). Kota 0 ise sunucu
       // henüz bildirmemiş demektir → kart çizilmez (oran hesaplanamaz, uydurma çubuk çizmeyiz).
       _otoHak = meta.routeCreditsMonthly > 0 ? meta.routeCredits : null;

@@ -121,7 +121,7 @@ void main() {
 
       await kuryeKapanisiAc(tester, db);
 
-      expect(find.textContaining('sunucuya henüz hiç bağlanmadı'), findsOneWidget);
+      expect(find.textContaining('henüz hiç güncellenmedi'), findsOneWidget);
       expect(find.textContaining('0 dk önce'), findsNothing);
 
       await kapat(tester);

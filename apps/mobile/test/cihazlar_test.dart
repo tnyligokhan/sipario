@@ -159,7 +159,8 @@ void main() {
       );
 
       expect(find.text('Liste okunamadı'), findsOneWidget);
-      expect(find.textContaining('kod 401'), findsOneWidget);
+      expect(find.textContaining('Oturumunuzun süresi doldu'), findsOneWidget);
+      expect(find.textContaining('401'), findsNothing, reason: 'durum kodu ekrana yazılmaz');
 
       await kapat(tester);
     });

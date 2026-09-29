@@ -188,11 +188,11 @@ class _SyncCipi extends StatelessWidget {
   /// "Tekrar denenecek" YALNIZ kendiliğinden düzelecek hâllerde yazılır (`ag`/`sunucu`);
   /// `veri` ve `oturum` beklemekle geçmez, kullanıcı eylemi gerekir — oraya söz verilmez.
   static String _hataMetni(SyncHataTuru tur) => switch (tur) {
-        SyncHataTuru.sunucu => 'Sunucu yanıt vermiyor, tekrar denenecek',
-        SyncHataTuru.veri => 'Kayıtlar gönderilemiyor, destekle görüşün',
-        SyncHataTuru.oturum || SyncHataTuru.oturumKapandi => 'Oturum doğrulanmadı',
+        SyncHataTuru.sunucu => 'Bağlantı kurulamıyor, tekrar denenecek',
+        SyncHataTuru.veri => 'Kayıtlar gönderilemiyor, destek ekibiyle görüşün',
+        SyncHataTuru.oturum || SyncHataTuru.oturumKapandi => 'Oturum kapandı, yeniden giriş yapın',
         // `ag` ve `yok`: gerçekten ulaşılamadı — "çevrimdışı" demenin doğru olduğu TEK hâl.
-        SyncHataTuru.ag || SyncHataTuru.yok => 'Bağlantı yok, tekrar denenecek',
+        SyncHataTuru.ag || SyncHataTuru.yok => 'İnternet yok, tekrar denenecek',
       };
 
   @override

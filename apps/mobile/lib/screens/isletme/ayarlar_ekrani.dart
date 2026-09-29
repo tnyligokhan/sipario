@@ -45,7 +45,7 @@ import 'isletme_atomlari.dart';
 // bölünme testlerin import yollarını kırmak için bir sebep değil (aynı desen:
 // `day_end_screen.dart` veri katmanını böyle yeniden dışa veriyor).
 export 'ayarlar/hakkinda_ekrani.dart'
-    show lisansMetni, sunucuSurumuMetni, siparioSurumunuOku, HakkindaKarti;
+    show lisansMetni, siparioSurumunuOku, HakkindaKarti;
 
 class AyarlarEkrani extends StatefulWidget {
   const AyarlarEkrani({

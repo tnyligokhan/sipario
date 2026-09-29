@@ -386,13 +386,13 @@ void main() {
     testWidgets('oturum bandı bekleme sözü VERMEZ, yeniden giriş ister', (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant(tur: SipBantTuru.oturum)));
       expect(find.textContaining('bağlantı gelince gönderilecek'), findsNothing);
-      expect(find.textContaining('yeniden girin'), findsOneWidget);
+      expect(find.textContaining('Çıkış yapıp yeniden giriş yapın'), findsOneWidget);
     });
 
     testWidgets('veri hatası bandı kayıtların güvende olduğunu söyler', (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant(tur: SipBantTuru.hata)));
       expect(find.textContaining('bağlantı gelince gönderilecek'), findsNothing);
-      expect(find.textContaining('Telefonda güvende'), findsOneWidget);
+      expect(find.textContaining('Telefonda duruyor, kaybolmaz'), findsOneWidget);
     });
 
     testWidgets('iskelet istenen sayıda satır çizer', (tester) async {

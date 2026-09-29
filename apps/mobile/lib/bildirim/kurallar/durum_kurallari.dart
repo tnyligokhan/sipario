@@ -52,12 +52,40 @@ BildirimTaslagi? senkronUyarisi({
 
   return BildirimTaslagi(
     kategori: BildirimKategori.sistem,
-    baslik: 'Sunucuya bağlanılamıyor',
-    govde: '$gun gündür sunucuya bağlanılamadı',
-    // DETAY YALNIZ İÇİ RAHATLATIR: bu uyarıyı gören esnafın ilk düşüncesi "verilerim gitti mi?"
-    // olur. Gövdeyi tekrar etmez — bildirim açıldığında zaten görünüyor.
-    detay: 'Kayıtlarınız telefonda duruyor, kaybolmaz. Bağlantı gelince kendiliğinden gider.',
+    baslik: 'Kayıtlar gönderilemiyor',
+    govde: '$gun gündür bilgiler güncellenemedi',
+    // DETAY İÇİ RAHATLATIR VE ÇARE SÖYLER: bu uyarıyı gören esnafın ilk düşüncesi "verilerim
+    // gitti mi?" olur. İkinci sorusu "ne yapayım?"dır; iki günü aşan kopukluk artık bodrum ya
+    // da asansör değildir, internet ayarına bakmak gerekir.
+    detay: 'Kayıtlarınız telefonda duruyor, kaybolmaz. İnternet bağlantınızı kontrol edin; '
+        'bağlantı gelince kayıtlar kendiliğinden gönderilir.',
     kimlik: bildirimKimligi(BildirimKategori.sistem, bildirimGunAnahtari(simdi)),
+  );
+}
+
+/// Kalıcı olarak GÖNDERİLEMEYEN kayıt uyarısı (2026-09-29, kullanıcı isteği: "bazı durumlar
+/// için uyarı metinleri yok"). Karantinada kayıt yoksa `null`.
+///
+/// NEDEN AYRI BİR UYARI: karantinadaki kayıt (sunucunun kabul etmediği sipariş/tahsilat) bu
+/// telefonda VAR, başka hiçbir yerde YOK. Bugüne kadar bunu yalnız ana ekrandaki kırmızı bant
+/// söylüyordu; uygulamayı açmayan patron, kasasında görünmeyen bir tahsilatın varlığından
+/// habersiz kalıyordu. Kendiliğinden düzelmez — destek gerekir; bu yüzden metin çare söyler.
+BildirimTaslagi? gonderilemeyenKayitUyarisi({
+  required int karantinaSayisi,
+  required DateTime gun,
+}) {
+  if (karantinaSayisi <= 0) return null;
+
+  return BildirimTaslagi(
+    kategori: BildirimKategori.sistem,
+    baslik: 'Bazı kayıtlar gönderilemedi',
+    govde: karantinaSayisi == 1
+        ? '1 kayıt bu telefonda bekliyor'
+        : '$karantinaSayisi kayıt bu telefonda bekliyor',
+    detay: 'Kayıtlar telefonda duruyor, kaybolmaz. Diğer telefonlarda ve gün özetinde '
+        'görünmezler; düzeltilmesi için destek ekibiyle görüşün.',
+    // Gün damgalı: her açılışta aynı gün aynı satır tazelenir, ertesi gün yeniden hatırlatır.
+    kimlik: bildirimKimligi(BildirimKategori.sistem, 'karantina-${bildirimGunAnahtari(gun)}'),
   );
 }
 
@@ -87,11 +115,11 @@ BildirimTaslagi? kullanimHakkiUyarisi({
     kategori: BildirimKategori.kullanimHakki,
     baslik: bitti ? 'Oto sıralama hakkınız bitti' : 'Oto sıralama hakkınız azaldı',
     govde: bitti
-        ? 'Bu ayki $aylik hakkın tamamı kullanıldı'
-        : 'Bu ay $kalan hakkınız kaldı',
+        ? 'Bu ayın $aylik hakkının tamamını kullandınız'
+        : 'Bu ay $kalan oto sıralama hakkınız kaldı',
     detay: bitti
-        ? 'Siparişleri elle sıralayabilirsiniz. Hak ay başında yenilenir.'
-        : null,
+        ? 'Siparişleri elle sıralayabilirsiniz. Hakkınız ay başında yenilenir.'
+        : 'Hakkınız ay başında yenilenir.',
     // GÜN DAMGALI: gün içinde birkaç rota çalıştırılırsa aynı bildirim tazelenir, yenisi
     // doğmaz. Ay damgası YETMEZDİ — hak azalırken tek bir uyarı verip susardı.
     kimlik: bildirimKimligi(BildirimKategori.kullanimHakki, bildirimGunAnahtari(gun)),
@@ -116,11 +144,14 @@ BildirimTaslagi? kasaDevriHatirlatmasi({
 
   return BildirimTaslagi(
     kategori: BildirimKategori.gunKapanisHatirlatma,
-    baslik: 'Kasa devredilmedi',
+    baslik: 'Kasa devri bekliyor',
     // TUTAR GÖVDEDE, BAŞLIK NÖTR: kilit ekranı kuralı (para başkasının gözüne çarpmamalı).
     govde: kuryeSayisi == 1
-        ? 'Kuryede ${sipTutar(kuryedeKalanKurus)} görünüyor'
-        : '$kuryeSayisi kuryede toplam ${sipTutar(kuryedeKalanKurus)} görünüyor',
+        ? 'Kuryede ${sipTutar(kuryedeKalanKurus)} nakit var, henüz kasaya devredilmedi'
+        : '$kuryeSayisi kuryede toplam ${sipTutar(kuryedeKalanKurus)} nakit var, henüz '
+            'kasaya devredilmedi',
+    detay: 'Gün Özeti\'nden kuryeyi seçerek nakdi teslim alabilirsiniz. Teslim alınmayan '
+        'nakit kuryenin hesabında kalır.',
     kimlik: bildirimKimligi(
       BildirimKategori.gunKapanisHatirlatma,
       'kasa-${bildirimGunAnahtari(gun)}',

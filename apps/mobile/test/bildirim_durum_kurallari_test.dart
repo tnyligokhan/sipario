@@ -52,7 +52,7 @@ void main() {
 
       expect(t.detay, isNotNull);
       expect(t.detay, contains('kaybolmaz'));
-      expect(t.detay!.indexOf('kaybolmaz'), lessThan(t.detay!.indexOf('Bağlantı')));
+      expect(t.detay!.indexOf('kaybolmaz'), lessThan(t.detay!.indexOf('İnternet bağlantınızı kontrol edin')));
     });
 
     test('kimlik GÜN bazlı — gün içinde tekrar koşmak yeni bildirim doğurmaz', () {
@@ -63,6 +63,34 @@ void main() {
           simdi: DateTime(2026, 8, 14, 18))!;
 
       expect(a.kimlik, b.kimlik);
+    });
+  });
+
+  // 2026-09-29: "bazı durumlar için uyarı metinleri yok" — gönderilemeyen kayıt yalnız ana
+  // ekrandaki bantta görünüyordu, uygulamayı açmayan patron habersiz kalıyordu.
+  group('gonderilemeyenKayitUyarisi', () {
+    final gun = DateTime(2026, 9, 29);
+
+    test('karantina boşken susar', () {
+      expect(gonderilemeyenKayitUyarisi(karantinaSayisi: 0, gun: gun), isNull);
+    });
+
+    test('kayıt varsa sayısını söyler, kaybolmadığını ve çareyi yazar', () {
+      final t = gonderilemeyenKayitUyarisi(karantinaSayisi: 3, gun: gun)!;
+      expect(t.kategori, BildirimKategori.sistem);
+      expect(t.govde, '3 kayıt bu telefonda bekliyor');
+      expect(t.detay, contains('kaybolmaz'));
+      expect(t.detay, contains('destek'));
+      expect('${t.baslik} ${t.govde} ${t.detay}'.toLowerCase(), isNot(contains('sunucu')));
+    });
+
+    test('aynı gün aynı kimlik, senkron uyarısıyla çakışmaz', () {
+      final a = gonderilemeyenKayitUyarisi(karantinaSayisi: 1, gun: gun)!;
+      final b = gonderilemeyenKayitUyarisi(karantinaSayisi: 2, gun: gun)!;
+      expect(a.kimlik, b.kimlik);
+      final s = senkronUyarisi(
+          sonBasariliSenkron: gun.subtract(const Duration(days: 3)), simdi: gun)!;
+      expect(a.kimlik, isNot(s.kimlik));
     });
   });
 

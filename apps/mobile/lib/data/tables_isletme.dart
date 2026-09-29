@@ -405,6 +405,15 @@ class Bildirimler extends Table {
   /// Okunma anı (UTC ISO); null = OKUNMAMIŞ. Rozet bu alanı sayar.
   TextColumn get okunduAt => text().nullable()();
 
+  /// Bayinin listeden TEMİZLEDİĞİ an (UTC ISO); null = listede görünür (v29, 2026-09-29,
+  /// kullanıcı isteği: "bildirimleri temizleme özelliği gerekiyor").
+  ///
+  /// ⚠️ SATIR SİLİNMEZ, DAMGALANIR. Kurallar gün damgalı kimliklerle AÇILIŞTA yeniden koşar;
+  /// silinen satır bir sonraki açılışta aynı kimlikle yeniden doğar ve bayi temizlediği uyarıyı
+  /// dakikalar sonra okunmamış olarak geri görürdü. Damga kimliği hatırlar, tazeleme onu korur
+  /// (`okundu_at` ile aynı kural). Temizlenen satırlar da 200 satırlık budamaya tabidir.
+  TextColumn get temizlendiAt => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

@@ -14033,6 +14033,17 @@ class $BildirimlerTable extends Bildirimler
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _temizlendiAtMeta = const VerificationMeta(
+    'temizlendiAt',
+  );
+  @override
+  late final GeneratedColumn<String> temizlendiAt = GeneratedColumn<String>(
+    'temizlendi_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -14043,6 +14054,7 @@ class $BildirimlerTable extends Bildirimler
     yol,
     occurredAt,
     okunduAt,
+    temizlendiAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -14111,6 +14123,15 @@ class $BildirimlerTable extends Bildirimler
         okunduAt.isAcceptableOrUnknown(data['okundu_at']!, _okunduAtMeta),
       );
     }
+    if (data.containsKey('temizlendi_at')) {
+      context.handle(
+        _temizlendiAtMeta,
+        temizlendiAt.isAcceptableOrUnknown(
+          data['temizlendi_at']!,
+          _temizlendiAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -14152,6 +14173,10 @@ class $BildirimlerTable extends Bildirimler
         DriftSqlType.string,
         data['${effectivePrefix}okundu_at'],
       ),
+      temizlendiAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}temizlendi_at'],
+      ),
     );
   }
 
@@ -14182,6 +14207,15 @@ class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
 
   /// Okunma anı (UTC ISO); null = OKUNMAMIŞ. Rozet bu alanı sayar.
   final String? okunduAt;
+
+  /// Bayinin listeden TEMİZLEDİĞİ an (UTC ISO); null = listede görünür (v29, 2026-09-29,
+  /// kullanıcı isteği: "bildirimleri temizleme özelliği gerekiyor").
+  ///
+  /// ⚠️ SATIR SİLİNMEZ, DAMGALANIR. Kurallar gün damgalı kimliklerle AÇILIŞTA yeniden koşar;
+  /// silinen satır bir sonraki açılışta aynı kimlikle yeniden doğar ve bayi temizlediği uyarıyı
+  /// dakikalar sonra okunmamış olarak geri görürdü. Damga kimliği hatırlar, tazeleme onu korur
+  /// (`okundu_at` ile aynı kural). Temizlenen satırlar da 200 satırlık budamaya tabidir.
+  final String? temizlendiAt;
   const BildirimlerData({
     required this.id,
     required this.kategori,
@@ -14191,6 +14225,7 @@ class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
     this.yol,
     required this.occurredAt,
     this.okunduAt,
+    this.temizlendiAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -14209,6 +14244,9 @@ class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
     if (!nullToAbsent || okunduAt != null) {
       map['okundu_at'] = Variable<String>(okunduAt);
     }
+    if (!nullToAbsent || temizlendiAt != null) {
+      map['temizlendi_at'] = Variable<String>(temizlendiAt);
+    }
     return map;
   }
 
@@ -14226,6 +14264,9 @@ class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
       okunduAt: okunduAt == null && nullToAbsent
           ? const Value.absent()
           : Value(okunduAt),
+      temizlendiAt: temizlendiAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(temizlendiAt),
     );
   }
 
@@ -14243,6 +14284,7 @@ class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
       yol: serializer.fromJson<String?>(json['yol']),
       occurredAt: serializer.fromJson<String>(json['occurredAt']),
       okunduAt: serializer.fromJson<String?>(json['okunduAt']),
+      temizlendiAt: serializer.fromJson<String?>(json['temizlendiAt']),
     );
   }
   @override
@@ -14257,6 +14299,7 @@ class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
       'yol': serializer.toJson<String?>(yol),
       'occurredAt': serializer.toJson<String>(occurredAt),
       'okunduAt': serializer.toJson<String?>(okunduAt),
+      'temizlendiAt': serializer.toJson<String?>(temizlendiAt),
     };
   }
 
@@ -14269,6 +14312,7 @@ class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
     Value<String?> yol = const Value.absent(),
     String? occurredAt,
     Value<String?> okunduAt = const Value.absent(),
+    Value<String?> temizlendiAt = const Value.absent(),
   }) => BildirimlerData(
     id: id ?? this.id,
     kategori: kategori ?? this.kategori,
@@ -14278,6 +14322,7 @@ class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
     yol: yol.present ? yol.value : this.yol,
     occurredAt: occurredAt ?? this.occurredAt,
     okunduAt: okunduAt.present ? okunduAt.value : this.okunduAt,
+    temizlendiAt: temizlendiAt.present ? temizlendiAt.value : this.temizlendiAt,
   );
   BildirimlerData copyWithCompanion(BildirimlerCompanion data) {
     return BildirimlerData(
@@ -14291,6 +14336,9 @@ class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
           ? data.occurredAt.value
           : this.occurredAt,
       okunduAt: data.okunduAt.present ? data.okunduAt.value : this.okunduAt,
+      temizlendiAt: data.temizlendiAt.present
+          ? data.temizlendiAt.value
+          : this.temizlendiAt,
     );
   }
 
@@ -14304,7 +14352,8 @@ class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
           ..write('detay: $detay, ')
           ..write('yol: $yol, ')
           ..write('occurredAt: $occurredAt, ')
-          ..write('okunduAt: $okunduAt')
+          ..write('okunduAt: $okunduAt, ')
+          ..write('temizlendiAt: $temizlendiAt')
           ..write(')'))
         .toString();
   }
@@ -14319,6 +14368,7 @@ class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
     yol,
     occurredAt,
     okunduAt,
+    temizlendiAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -14331,7 +14381,8 @@ class BildirimlerData extends DataClass implements Insertable<BildirimlerData> {
           other.detay == this.detay &&
           other.yol == this.yol &&
           other.occurredAt == this.occurredAt &&
-          other.okunduAt == this.okunduAt);
+          other.okunduAt == this.okunduAt &&
+          other.temizlendiAt == this.temizlendiAt);
 }
 
 class BildirimlerCompanion extends UpdateCompanion<BildirimlerData> {
@@ -14343,6 +14394,7 @@ class BildirimlerCompanion extends UpdateCompanion<BildirimlerData> {
   final Value<String?> yol;
   final Value<String> occurredAt;
   final Value<String?> okunduAt;
+  final Value<String?> temizlendiAt;
   final Value<int> rowid;
   const BildirimlerCompanion({
     this.id = const Value.absent(),
@@ -14353,6 +14405,7 @@ class BildirimlerCompanion extends UpdateCompanion<BildirimlerData> {
     this.yol = const Value.absent(),
     this.occurredAt = const Value.absent(),
     this.okunduAt = const Value.absent(),
+    this.temizlendiAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BildirimlerCompanion.insert({
@@ -14364,6 +14417,7 @@ class BildirimlerCompanion extends UpdateCompanion<BildirimlerData> {
     this.yol = const Value.absent(),
     required String occurredAt,
     this.okunduAt = const Value.absent(),
+    this.temizlendiAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        kategori = Value(kategori),
@@ -14379,6 +14433,7 @@ class BildirimlerCompanion extends UpdateCompanion<BildirimlerData> {
     Expression<String>? yol,
     Expression<String>? occurredAt,
     Expression<String>? okunduAt,
+    Expression<String>? temizlendiAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -14390,6 +14445,7 @@ class BildirimlerCompanion extends UpdateCompanion<BildirimlerData> {
       if (yol != null) 'yol': yol,
       if (occurredAt != null) 'occurred_at': occurredAt,
       if (okunduAt != null) 'okundu_at': okunduAt,
+      if (temizlendiAt != null) 'temizlendi_at': temizlendiAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -14403,6 +14459,7 @@ class BildirimlerCompanion extends UpdateCompanion<BildirimlerData> {
     Value<String?>? yol,
     Value<String>? occurredAt,
     Value<String?>? okunduAt,
+    Value<String?>? temizlendiAt,
     Value<int>? rowid,
   }) {
     return BildirimlerCompanion(
@@ -14414,6 +14471,7 @@ class BildirimlerCompanion extends UpdateCompanion<BildirimlerData> {
       yol: yol ?? this.yol,
       occurredAt: occurredAt ?? this.occurredAt,
       okunduAt: okunduAt ?? this.okunduAt,
+      temizlendiAt: temizlendiAt ?? this.temizlendiAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -14445,6 +14503,9 @@ class BildirimlerCompanion extends UpdateCompanion<BildirimlerData> {
     if (okunduAt.present) {
       map['okundu_at'] = Variable<String>(okunduAt.value);
     }
+    if (temizlendiAt.present) {
+      map['temizlendi_at'] = Variable<String>(temizlendiAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -14462,6 +14523,7 @@ class BildirimlerCompanion extends UpdateCompanion<BildirimlerData> {
           ..write('yol: $yol, ')
           ..write('occurredAt: $occurredAt, ')
           ..write('okunduAt: $okunduAt, ')
+          ..write('temizlendiAt: $temizlendiAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -20708,6 +20770,7 @@ typedef $$BildirimlerTableCreateCompanionBuilder =
       Value<String?> yol,
       required String occurredAt,
       Value<String?> okunduAt,
+      Value<String?> temizlendiAt,
       Value<int> rowid,
     });
 typedef $$BildirimlerTableUpdateCompanionBuilder =
@@ -20720,6 +20783,7 @@ typedef $$BildirimlerTableUpdateCompanionBuilder =
       Value<String?> yol,
       Value<String> occurredAt,
       Value<String?> okunduAt,
+      Value<String?> temizlendiAt,
       Value<int> rowid,
     });
 
@@ -20769,6 +20833,11 @@ class $$BildirimlerTableFilterComposer
 
   ColumnFilters<String> get okunduAt => $composableBuilder(
     column: $table.okunduAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get temizlendiAt => $composableBuilder(
+    column: $table.temizlendiAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -20821,6 +20890,11 @@ class $$BildirimlerTableOrderingComposer
     column: $table.okunduAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get temizlendiAt => $composableBuilder(
+    column: $table.temizlendiAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$BildirimlerTableAnnotationComposer
@@ -20857,6 +20931,11 @@ class $$BildirimlerTableAnnotationComposer
 
   GeneratedColumn<String> get okunduAt =>
       $composableBuilder(column: $table.okunduAt, builder: (column) => column);
+
+  GeneratedColumn<String> get temizlendiAt => $composableBuilder(
+    column: $table.temizlendiAt,
+    builder: (column) => column,
+  );
 }
 
 class $$BildirimlerTableTableManager
@@ -20898,6 +20977,7 @@ class $$BildirimlerTableTableManager
                 Value<String?> yol = const Value.absent(),
                 Value<String> occurredAt = const Value.absent(),
                 Value<String?> okunduAt = const Value.absent(),
+                Value<String?> temizlendiAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BildirimlerCompanion(
                 id: id,
@@ -20908,6 +20988,7 @@ class $$BildirimlerTableTableManager
                 yol: yol,
                 occurredAt: occurredAt,
                 okunduAt: okunduAt,
+                temizlendiAt: temizlendiAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -20920,6 +21001,7 @@ class $$BildirimlerTableTableManager
                 Value<String?> yol = const Value.absent(),
                 required String occurredAt,
                 Value<String?> okunduAt = const Value.absent(),
+                Value<String?> temizlendiAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BildirimlerCompanion.insert(
                 id: id,
@@ -20930,6 +21012,7 @@ class $$BildirimlerTableTableManager
                 yol: yol,
                 occurredAt: occurredAt,
                 okunduAt: okunduAt,
+                temizlendiAt: temizlendiAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

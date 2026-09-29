@@ -359,6 +359,13 @@ extension _GocMerdiveni on AppDatabase {
             await m.createTable(bildirimler);
           }
 
+          // v29 — BİLDİRİM TEMİZLEME (2026-09-29). Yerleşim v11..v28 ile AYNI (kapıdan ÖNCE,
+          // koşulsuz). Tablo yukarıda yeni doğduysa kolon zaten vardır; "duplicate column"
+          // toleransı o durumu karşılar. NULLABLE: yükseltmeden önce hiçbir bildirim
+          // temizlenmemiştir, `null` tam olarak bunu söyler.
+          await AppDatabase._addColumnIfMissing(
+              m, 'ALTER TABLE bildirimler ADD COLUMN temizlendi_at TEXT');
+
           // v27 — KURYE MÜŞTERİ GÖRÜNÜRLÜĞÜ (2026-08-22). Yerleşim ve bedel v11..v26 ile AYNI.
           // İKİ TABLODA İKİ FARKLI VARSAYILAN, üç durumlu modelin ta kendisi: `tenant_settings`
           // NOT NULL DEFAULT 0 (bayi varsayılanı: kapalı), `users` NULLABLE (null = devral).

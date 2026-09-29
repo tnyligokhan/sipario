@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'api_hata_metni.dart';
+
 /// "Oto Sırala (rota)" istemcisi — tasarım `s-siparisler.jsx` sıralama sayfasındaki
 /// kontörlü eylem (`POST /orders/auto-route`).
 ///
@@ -44,16 +46,13 @@ class RouteApi {
           )
           .timeout(const Duration(seconds: 20));
     } on Exception {
-      throw RouteException('Sunucuya ulaşılamadı, sıra değişmedi');
+      throw RouteException('İnternet bağlantısı kurulamadı, sıra değişmedi');
     }
 
     final body = _decode(resp.body);
     if (resp.statusCode != 200) {
-      final mesaj = body['message'];
       throw RouteException(
-        mesaj is String && mesaj.isNotEmpty
-            ? mesaj
-            : 'Oto sıralama yapılamadı (kod ${resp.statusCode})',
+        const ApiHataMetni('Oto sıralama yapılamadı').yanit(resp.statusCode, body),
         // 409 = hak bitti; çağıran bunu ayırt edip kalan hakkı sıfırlayabilsin.
         kalanHak: (body['route_credits'] as num?)?.toInt(),
       );

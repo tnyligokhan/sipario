@@ -137,19 +137,6 @@ SipBantTuru bantTuru(SyncHataTuru tur) => switch (tur) {
       SyncHataTuru.ag || SyncHataTuru.yok => SipBantTuru.cevrimdisi,
     };
 
-/// Bandın alt satırında yazacak SUNUCU ADI — taban adresin ana bilgisayar kısmı (varsa portuyla).
-///
-/// Tam URL yazılmaz: `https://…/api/v1` bandı iki katına çıkarır ve bayiye hiçbir şey katmaz;
-/// arızayı ayırt eden kısım ana bilgisayardır (tünel adresi her açılışta değişiyor). Şema
-/// çözülemezse ham metin döner — yanlış adresin kendisi zaten aranan kanıttır. Saf fonksiyon.
-String? bantAdresi(String? baseUrl) {
-  final ham = baseUrl?.trim();
-  if (ham == null || ham.isEmpty) return null;
-  final u = Uri.tryParse(ham);
-  if (u == null || u.host.isEmpty) return ham;
-  return u.hasPort ? '${u.host}:${u.port}' : u.host;
-}
-
 /// Durum çubuğu ikonları BEYAZ mı çizilsin (koyu hero'nun üstündeler mi)?
 ///
 /// Ana ekranın tepesi koyu bir hero'dur ve ikonlar orada beyaz olmalıdır. AMA üstte bir BANT
@@ -221,9 +208,6 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   /// null iken rozet çizilmez (uydurma sayı basmaktansa hiç basmamak).
   int? _borcluSayisi;
   StreamSubscription<int>? _borcluSub;
-
-  /// Bandın alt satırında gösterilecek sunucu adresi (sync_meta akışından).
-  String? _apiAdres;
 
   late final TemaKontrol _tema =
       widget.tema ?? TemaKontrol(depo: TemaDeposu.bellek());
@@ -417,7 +401,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                 if (_senkronBandi != null)
                   SafeArea(
                     bottom: false,
-                    child: SipCevrimdisiBant(tur: _senkronBandi!, adres: _apiAdres),
+                    child: SipCevrimdisiBant(tur: _senkronBandi!),
                   ),
                 if (_access == AccessLevel.grace)
                   const SafeArea(bottom: false, child: _GraceBandi()),

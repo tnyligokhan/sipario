@@ -68,7 +68,7 @@ class SenkronTazeligiSeridi extends StatelessWidget {
     // "Hiç temas yok" ile "eski temas" AYRI cümlelerdir: birincisinde yazacak bir süre YOKTUR ve
     // "0 dk önce" demek, bilmediğimizi bildiğimiz sanmaktır.
     final metin = tazelik.hicTemasYok
-        ? 'Bu telefon sunucuya henüz hiç bağlanmadı. Başka bir telefondan alınmış ara '
+        ? 'Bu telefonda bilgiler henüz hiç güncellenmedi. Başka bir telefondan alınmış ara '
             'tahsilat varsa buradaki tutar onu görmüyor olabilir.'
         : 'Bilgiler ${senkronSuresi(tazelik.gecenSure!)} güncellendi. Başka bir telefondan '
             'alınmış ara tahsilat henüz inmemiş olabilir.';

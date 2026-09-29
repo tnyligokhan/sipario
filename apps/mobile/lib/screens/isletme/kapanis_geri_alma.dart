@@ -131,6 +131,7 @@ class _OnayGovdesiState extends State<_OnayGovdesi> {
           gizli: true,
           aktif: !_calisiyor,
           buyukHarfKipi: TextCapitalization.none,
+          klavyeOnerisi: false,
           onSubmitted: (_) => _dogrula(),
         ),
         if (_hata != null) ...[

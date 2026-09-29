@@ -219,16 +219,18 @@ class _SiparisHaritaEkraniState extends State<SiparisHaritaEkrani> {
   /// KAYDIRILABİLİR ve KIRPILMIŞ olması şart — ilk yazımda ikisi de yoktu ve widget testi
   /// **3864 piksellik taşma** ile kırmızı yandı. Yani "hatayı göster" düzeltmesinin kendisi
   /// ikinci bir arıza üretiyordu: uzun bir yığın izi ekranı taşırıp okunamaz hâle getiriyordu.
+  /// Ham hata metni EKRANA YAZILMAZ (kullanıcı kararı 2026-09-29: teknik ayrıntı ve sunucu
+  /// bilgisi hiçbir koşulda gösterilmez). Eskiden istisnanın ilk 400 karakteri "destekle
+  /// paylaşın" diye basılıyordu; bayiye bir şey anlatmıyor, iç yapıyı ise açığa çıkarıyordu.
+  /// Ayrıntı geliştirici günlüğüne gider.
   Widget _hataGovdesi(Object? hata) {
-    final metin = hata.toString();
-    final kisa = metin.length > 400 ? '${metin.substring(0, 400)}…' : metin;
-
-    return SingleChildScrollView(
+    debugPrint('Harita verisi okunamadı: $hata');
+    return const SingleChildScrollView(
       child: SipBosDurum(
         ikon: SipIcons.pin,
         baslik: 'Harita yüklenemedi',
-        aciklama: 'Sipariş verisi okunurken bir hata oluştu. Uygulamayı güncellemek çözmezse '
-            'bu mesajı destekle paylaşın:\n\n$kisa',
+        aciklama: 'Siparişler haritaya yerleştirilemedi. Ekrandan çıkıp yeniden açın, sorun '
+            'sürerse uygulamayı güncelleyin.',
       ),
     );
   }

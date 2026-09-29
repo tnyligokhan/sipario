@@ -51,6 +51,50 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '1.13.0',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Uyarı ve bildirim metinleri baştan yazıldı; ne olduğunu ve ne yapmanız gerektiğini '
+          'tek bakışta söylüyor',
+      'Bazı kayıtlar gönderilemediğinde artık bildirim geliyor. Kayıtlar telefonda duruyor, '
+          'kaybolmaz.',
+      'Uyarılarda teknik ayrıntı ve bağlantı adresi artık görünmüyor',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.12.2',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Haritada yakınlaşınca müşterinin adı pinin yanında, okunaklı bir etiketle görünüyor',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.12.1',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Yeni sipariş eklerken müşteri listesinde müşteri kodu adın yanında görünüyor; kodu '
+          'yazıp aradığınızda doğru müşteriyi hemen seçebilirsiniz',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.12.0',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Bildirimleri temizleyebilirsiniz. Bildirimler ekranındaki "Temizle" hepsini kaldırır, '
+          'bir bildirimi sola kaydırmak yalnız onu kaldırır.',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.11.1',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Bilgiler doğru olduğu hâlde girişin bazen reddedilmesi giderildi: giriş alanlarında '
+          'klavyenin otomatik düzeltmesi kapatıldı',
+      'Kurye parolası belirlenirken ilk harfin kendiliğinden büyük yazılması engellendi',
+      'Bağlantı anlık koptuğunda giriş kendiliğinden yeniden deneniyor',
+    ],
+  ),
+  SurumNotu(
     surum: '1.11.0',
     tarih: '29 Eylül 2026',
     maddeler: [

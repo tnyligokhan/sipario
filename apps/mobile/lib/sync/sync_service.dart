@@ -258,8 +258,8 @@ class SyncService {
             karantina: ozet.karantina,
             beklemede: ozet.beklemede,
             error: ozet.kaliciRed
-                ? 'Sunucu bazı kayıtları kabul etmedi'
-                : 'Sunucudan gelen bazı kayıtlar okunamadı',
+                ? 'Bazı kayıtlar kabul edilmedi'
+                : 'Gelen bazı kayıtlar okunamadı',
             tur: SyncHataTuru.veri,
           )
         : SyncOutcome(

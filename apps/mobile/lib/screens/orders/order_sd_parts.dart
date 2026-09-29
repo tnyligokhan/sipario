@@ -376,11 +376,31 @@ class MusteriSecimSatiri extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  musteri.name,
-                  style: SipText.satirAd.copyWith(color: t.ink),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                // KOD ADIN ÖNÜNDE (kullanıcı isteği 2026-09-29: "müşteri kodu ile arama
+                // olmalı"). Kodla arama 1.5.1'den beri çalışıyordu ama satır kodu HİÇ
+                // YAZMIYORDU: bayi "105" yazıp gelen listede 105'in hangisi olduğunu
+                // göremiyor, özelliğin çalışmadığını sanıyordu. Müşteriler listesiyle aynı
+                // yazım (soluk kod + ad); iki ekran aynı müşteriyi aynı biçimde göstermeli.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    if (musteri.code != null) ...[
+                      Text(
+                        '${musteri.code}',
+                        style: SipText.satirAd.copyWith(color: t.muted),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Flexible(
+                      child: Text(
+                        musteri.name,
+                        style: SipText.satirAd.copyWith(color: t.ink),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 3),
                 // .mrow-tel — telefon yoksa tasarım "—" yazar (satır hiç kaybolmaz).

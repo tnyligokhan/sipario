@@ -5,9 +5,13 @@
 // "sipariş aramada bütün veriyi getirdiği için program çok hantallaşıyor" şikâyeti geldi:
 // sipariş ekranı 9.047 müşterinin hepsini belleğe alıp çiziyordu. Bu dosya ikisini kilitler.
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sipario/data/app_database.dart';
 import 'package:sipario/data/musteri_aramasi.dart';
 import 'package:sipario/screens/customers/customer_list_screen.dart';
+import 'package:sipario/screens/orders/order_sd_parts.dart';
+import 'package:sipario/theme/app_theme.dart';
 
 import 'support/musteri_arama_ortami.dart';
 
@@ -101,6 +105,29 @@ void main() {
       }
       expect((await o.satirAra('')).length, 6);
       expect((await o.satirAra('', limit: 3)).length, 3);
+    });
+  });
+
+  // Kodla arama çalışıyordu ama sipariş ekranının seçim satırı kodu YAZMIYORDU (kullanıcı
+  // şikâyeti 2026-09-29): bayi "105" yazınca gelen listede aradığını seçemiyordu.
+  group('Sipariş ekranının seçim satırı kodu gösterir', () {
+    Future<void> ciz(WidgetTester tester, Customer c) => tester.pumpWidget(MaterialApp(
+          theme: SipTheme.acik(),
+          home: Scaffold(body: MusteriSecimSatiri(musteri: c, onTap: () {})),
+        ));
+
+    testWidgets('kodlu müşteride kod adın yanında yazar', (tester) async {
+      final c = await tester.runAsync(() async => o.getir(await o.ekle('MEHMET KAYA', kod: 105)));
+      await ciz(tester, c!);
+      expect(find.text('105'), findsOneWidget);
+      expect(find.text('MEHMET KAYA'), findsOneWidget);
+    });
+
+    testWidgets('kodsuz müşteride kod yeri boş kalır', (tester) async {
+      final c = await tester.runAsync(() async => o.getir(await o.ekle('KODSUZ KİŞİ')));
+      await ciz(tester, c!);
+      expect(find.text('KODSUZ KİŞİ'), findsOneWidget);
+      expect(find.textContaining(RegExp(r'^\d+$')), findsNothing);
     });
   });
 }

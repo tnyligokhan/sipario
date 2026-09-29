@@ -269,9 +269,21 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.11.0**, API 1.24.0 → **1.28.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.13.0**, API 1.24.0 → **1.28.0**)
 
-> **SON İŞ (2026-09-29) — YOL ÇİZGİSİ + BOŞ KARO DÜZELTMESİ (mobil 1.10.1 → 1.11.0, API 1.28.0,
+> **SON İŞ (2026-09-29, 2. oturum) — SAHADAN ALTI MADDE (mobil 1.11.0 → 1.13.0, API
+> DEĞİŞMEDİ 1.28.0, şema v29, DECISIONS 2026-09-29/3).** (1) Giriş: klavye otomatik
+> düzeltmesi kimlik alanlarında kapalı + kurye parolası büyük harfe kaçmıyor + geçici arızada
+> 2 yeniden deneme (1.11.1). (2) Bildirim kutusu: "Temizle" + sola kaydır (1.12.0). (3)
+> Sipariş müşteri seçiminde kod görünüyor (1.12.1). (4) Harita adı zeminli çip, pinin sağında
+> (1.12.2) — GERÇEK CİHAZDA GÖRÜLMEDİ, yalnız PNG ile gözle incelendi. (5-6) Sunucu adresi/kodu
+> hiçbir metinde yok, `ApiHataMetni` tek çeviri noktası; bant/bildirim metinleri yeniden
+> yazıldı, karantina bildirimi eklendi (1.13.0). Kapılar: analyze temiz · flutter test
+> **1726/1726**. Release APK bu oturumda DERLENMEDİ (paket/native dokunuş yok; CI derler).
+> ⚠️ Girişin "bazen" reddedilmesinin kesin kökü sahada ölçülmedi; en güçlü aday klavye
+> düzeltmesi/büyük harf. Sürerse: hangi hata metni göründüğü sorulmalı.
+>
+> **(ÖNCEKİ) 2026-09-29 — YOL ÇİZGİSİ + BOŞ KARO DÜZELTMESİ (mobil 1.10.1 → 1.11.0, API 1.28.0,
 > DECISIONS 2026-09-29/1-2).** (1) Yandex haritası boş karo gösteriyordu: MapKit `onStart` hiç
 > çağrılmıyordu (sıralama hatası) → `HaritaYasami`. (2) Duraklar arası çizgi artık gerçek yollardan:
 > `POST /api/v1/rota/cizgi` (Google Routes, sunucuda, kontörsüz, 7 gün önbellek). ⚠️ DEPLOY: test

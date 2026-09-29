@@ -155,7 +155,7 @@ void main() {
       await servis.onPlandaMesaj({'kategori': 'siparis_teslim', 'id': 's9'});
 
       expect(bildirim.gosterilenler, hasLength(1));
-      expect(bildirim.gosterilenler.single.baslik, 'Teslim edildi');
+      expect(bildirim.gosterilenler.single.baslik, 'Sipariş teslim edildi');
     });
 
     test('ayrıntı okuma patlarsa bildirim jenerik metinle çıkar', () async {

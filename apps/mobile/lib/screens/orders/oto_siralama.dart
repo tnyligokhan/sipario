@@ -46,7 +46,7 @@ String? otoKilitNedeni({
   required int durakSayisi,
 }) {
   if (!yazilabilir) return 'Aboneliğiniz sona erdiği için sıra kaydedilemiyor';
-  if (hak == null) return 'Kullanım hakkınız henüz görünmüyor. Sunucuya bağlanınca kullanabilirsiniz.';
+  if (hak == null) return 'Kullanım hakkınız henüz görünmüyor. İnternete bağlanınca kullanabilirsiniz.';
   if (hak <= 0) return 'Oto sıralama hakkı kalmadı';
   if (durakSayisi < 2) return kOtoKumeYetersiz;
   return null;

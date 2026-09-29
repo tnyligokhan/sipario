@@ -7,6 +7,7 @@
 // referansla saklar. Yerel bir değişkene verilen dinleyici çöp toplayıcıyla silinir ve dokunuşlar
 // sessizce çalışmayı bırakır — bu yüzden dinleyiciler alanlarda durur.
 
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -16,6 +17,7 @@ import 'package:yandex_maps_mapkit_lite/mapkit.dart' as y;
 
 import '../../theme/svg_path.dart';
 import '../../theme/tokens.dart';
+import 'harita_ad_cipi.dart';
 import 'harita_icerigi.dart';
 import 'harita_kurye_katmani.dart' show kKuryeMotorYolu;
 
@@ -28,6 +30,7 @@ class YandexRenkler {
     required this.sonuk,
     required this.yuzey,
     required this.metin,
+    required this.cizgi,
   });
 
   factory YandexRenkler.temadan(SipTokens t) => YandexRenkler(
@@ -37,13 +40,24 @@ class YandexRenkler {
         sonuk: t.muted,
         yuzey: t.surface,
         metin: t.ink,
+        cizgi: t.line,
       );
 
-  final Color vurgu, vurguUstu, tamam, sonuk, yuzey, metin;
+  final Color vurgu, vurguUstu, tamam, sonuk, yuzey, metin, cizgi;
 
-  /// Önbellek anahtarı — aynı renklerle çizilmiş görsel yeniden üretilmez.
-  String get anahtar =>
-      [vurgu, vurguUstu, tamam, sonuk].map((c) => c.toARGB32().toRadixString(16)).join('-');
+  DurakCipRenkleri get durak => DurakCipRenkleri(
+        vurgu: vurgu,
+        vurguUstu: vurguUstu,
+        yuzey: yuzey,
+        metin: metin,
+        cizgi: cizgi,
+      );
+
+  /// Önbellek anahtarı — aynı renklerle çizilmiş görsel yeniden üretilmez. Ad çipinin zemini
+  /// ve yazısı da anahtardadır: koyu temaya geçince çip yeniden çizilmeli.
+  String get anahtar => [vurgu, vurguUstu, tamam, sonuk, yuzey, metin, cizgi]
+      .map((c) => c.toARGB32().toRadixString(16))
+      .join('-');
 }
 
 /// MapKit dokunuş dinleyicisi — nesnenin `userData`sındaki kimliği bildirir.
@@ -98,8 +112,9 @@ class YandexCizici {
   }
 
   /// Müşteri adları bu yakınlıktan itibaren yazılır (sokak ölçeği) — uzak ölçekte adlar
-  /// birbirine biner ve haritayı okunmaz kılar.
-  static const double adEsigi = 13.5;
+  /// birbirine biner ve haritayı okunmaz kılar. 14,5: ad artık zeminli bir çiptir ve çıplak
+  /// yazıdan geniştir; 13,5'te yoğun mahallelerde çipler üst üste biniyordu.
+  static const double adEsigi = 14.5;
 
   final y.Map _harita;
   final y.MapObjectCollection _kok;
@@ -224,12 +239,16 @@ class YandexCizici {
       p
         ..geometry = _nokta(d.nokta)
         ..zIndex = 10 + icerik.oncelik(d);
-      final ikon = '${d.no}-$secili';
+      // Ad, MapKit yazısı olarak DEĞİL pin görselinin parçası olarak çizilir
+      // (`harita_ad_cipi.dart`). Çapa her iki hâlde de pinin merkezidir; ad açılıp kapanınca
+      // pin yerinden oynamaz.
+      final ad = _adlarAcik ? d.ad.trim() : '';
+      final ikon = '${d.no}-$secili-$ad';
       if (_durakIkonu[d.id] != ikon) {
-        p.setIcon(_ikonlar.durak(d.no, secili: secili));
+        final (gorsel, capa) = _ikonlar.durak(d.no, secili: secili, ad: ad);
+        p.setIconWithStyle(gorsel, y.IconStyle(anchor: capa));
         _durakIkonu[d.id] = ikon;
       }
-      p.setTextWithStyle(_ikonlar.adStili(), text: _adlarAcik ? d.ad : '');
     }
     for (final id in kalan) {
       _kok.remove(_duraklar.remove(id)!);
@@ -302,30 +321,13 @@ class YandexIkonlar {
     }
   }
 
-  /// Numaralı durak. Seçiliyken büyür ve yarı saydam bir hale alır.
-  yimg.ImageProvider durak(int no, {required bool secili}) =>
-      _saglayici('durak-$no-$secili', () {
-        final dp = secili ? 56.0 : 32.0;
-        return _resim(dp, (c, o) {
-          final m = Offset(dp * o / 2, dp * o / 2);
-          if (secili) _daire(c, m, 28 * o, _r.vurgu.withValues(alpha: 0.22));
-          final yaricap = (secili ? 19.0 : 15.0) * o;
-          _daire(c, m, yaricap, _r.vurgu,
-              kenar: _r.vurguUstu, kenarKalinlik: (secili ? 3.0 : 2.0) * o);
-          final yazi = TextPainter(
-            text: TextSpan(
-              text: '$no',
-              style: TextStyle(
-                color: _r.vurguUstu,
-                fontSize: (secili ? 15.0 : 13.0) * (no >= 100 ? 0.82 : 1) * o,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            textDirection: TextDirection.ltr,
-          )..layout();
-          yazi.paint(c, m - Offset(yazi.width / 2, yazi.height / 2));
-        });
-      });
+  /// Numaralı durak; [ad] doluysa sağında ad çipiyle. Seçiliyken büyür ve yarı saydam bir hale
+  /// alır. Görselle birlikte ÇAPASI döner (pinin merkezi) — çip görseli sağa genişletir.
+  (yimg.ImageProvider, math.Point<double>) durak(int no,
+      {required bool secili, String ad = ''}) {
+    final cizim = DurakAdCipi(no: no, secili: secili, ad: ad, renkler: _r.durak, dpr: dpr);
+    return (_saglayici('durak-$no-$secili-$ad', cizim.ciz), cizim.capa);
+  }
 
   /// Cihaz: yumuşak hale + içi dolu nokta (numarasız — kurye bir durak değildir).
   yimg.ImageProvider cihaz() => _saglayici('cihaz', () {

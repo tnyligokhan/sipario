@@ -54,5 +54,9 @@ class MusteriAramaOrtami {
   Future<List<String>> ara(String q) async =>
       (await watchCustomers(db, q).first).map((c) => c.name).toList();
 
+  /// Kaydın kendisi (satır bileşenini doğrudan çizmek için).
+  Future<Customer> getir(String id) =>
+      (db.select(db.customers)..where((t) => t.id.equals(id))).getSingle();
+
   Future<void> kapat() => db.close();
 }
