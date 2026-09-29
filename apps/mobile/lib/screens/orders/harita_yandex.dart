@@ -72,6 +72,56 @@ abstract final class YandexHaritaMotoru {
   }
 }
 
+/// Bir haritanın MapKit yaşam döngüsü: kurulum sonucu + görünürlük → onStart/onStop.
+///
+/// TEK KURAL: "hazır VE görünür VE kapanmamış" ⇔ başlamış. Her olayda bu kurala EŞİTLENİR;
+/// olayların sırası sonucu değiştirmez. Saha arızası (2026-09-29, "sadece boş karolar"): önceki
+/// kod başlatmayı `_hazir = true` atamasından ÖNCE deniyor, koşul yanlış çıkıyor ve onStart hiç
+/// çağrılmıyordu — MapKit onStart görmeden karo indirmez, ekranda boş ızgara kalır.
+class HaritaYasami {
+  HaritaYasami({required void Function() basla, required void Function() bitir})
+      : _basla = basla,
+        _bitir = bitir;
+
+  final void Function() _basla;
+  final void Function() _bitir;
+
+  bool? _hazir;
+  bool _gorunur = true; // harita ekranı açılırken görünürdür
+  bool _kapandi = false;
+  bool _basladi = false;
+
+  /// null = kuruluyor, false = kurulamadı (anahtar yok), true = hazır.
+  bool? get hazir => _hazir;
+  bool get basladi => _basladi;
+
+  void hazirlandi(bool ok) {
+    _hazir = ok;
+    _esitle();
+  }
+
+  void gorunurluk(bool acik) {
+    _gorunur = acik;
+    _esitle();
+  }
+
+  void kapat() {
+    _kapandi = true;
+    _esitle();
+  }
+
+  void _esitle() {
+    final olmali = _hazir == true && _gorunur && !_kapandi;
+    if (olmali && !_basladi) {
+      _basla();
+      _basladi = true;
+    } else if (!olmali && _basladi) {
+      _bitir();
+      _basladi = false;
+    }
+  }
+}
+
 /// Üretim tuvali.
 class YandexTuvali extends StatefulWidget {
   const YandexTuvali(this.ayar, {super.key});
@@ -83,15 +133,16 @@ class YandexTuvali extends StatefulWidget {
 }
 
 class _YandexTuvaliState extends State<YandexTuvali> {
-  /// null = kuruluyor, false = kurulamadı (anahtar yok), true = hazır.
-  bool? _hazir;
+  final HaritaYasami _dongu = HaritaYasami(
+    basla: YandexHaritaMotoru.basla,
+    bitir: YandexHaritaMotoru.bitir,
+  );
 
   /// Uygulama arka plana geçince MapKit durur, öne gelince sürer.
   late final AppLifecycleListener _yasam = AppLifecycleListener(
-    onHide: () => _gorunur(false),
-    onShow: () => _gorunur(true),
+    onHide: () => _dongu.gorunurluk(false),
+    onShow: () => _dongu.gorunurluk(true),
   );
-  bool _basladi = false;
 
   y.MapWindow? _pencere;
   _Cizici? _cizici;
@@ -105,8 +156,7 @@ class _YandexTuvaliState extends State<YandexTuvali> {
     _yasam; // dinleyiciyi kur
     unawaited(YandexHaritaMotoru.hazirla().then((ok) {
       if (!mounted) return;
-      if (ok) _gorunur(true);
-      setState(() => _hazir = ok);
+      setState(() => _dongu.hazirlandi(ok));
     }));
   }
 
@@ -132,20 +182,9 @@ class _YandexTuvaliState extends State<YandexTuvali> {
   @override
   void dispose() {
     _yasam.dispose();
-    _gorunur(false);
+    _dongu.kapat();
     _cizici?.birak();
     super.dispose();
-  }
-
-  void _gorunur(bool acik) {
-    if (_hazir != true && acik) return;
-    if (acik && !_basladi) {
-      YandexHaritaMotoru.basla();
-      _basladi = true;
-    } else if (!acik && _basladi) {
-      YandexHaritaMotoru.bitir();
-      _basladi = false;
-    }
   }
 
   void _kuruldu(y.MapWindow pencere) {
@@ -196,7 +235,7 @@ class _YandexTuvaliState extends State<YandexTuvali> {
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    return switch (_hazir) {
+    return switch (_dongu.hazir) {
       null => ColoredBox(color: t.surface2),
       false => ColoredBox(
           color: t.surface2,
