@@ -271,6 +271,11 @@
 
 ### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.14.1**, API 1.24.0 → **1.28.0**)
 
+> **EK (2026-09-30, CI — sürüm değişmedi, DECISIONS 2026-09-30/2):** `mobil-apk.yml`
+> paralelleşti: test 3 parça + derleme aynı anda, yayın ikisini bekler; Gradle önbelleği eklendi.
+> Ölçüm: push→yayın 13-15 dk → **~7,9 dk** (474 sn, önbellek dolu). Test artık kritik yolda
+> değil; darboğaz derleme (~7,5 dk, ilk `assembleRelease` 355→260 sn).
+>
 > **EK (1.14.1, DECISIONS 2026-09-29/5):** gruplu haritada da her kişinin rotası gerçek
 > yoldan (kişi başına bir yol isteği); ilk sürümdeki kuş uçuşu tasarrufu geri alındı.
 > flutter test **1747/1747**, analyze temiz.
