@@ -179,38 +179,36 @@ abstract class PinCipi {
 }
 
 /// Numaralı durak pini; [ad] verilirse sağında ad çipiyle birlikte.
+///
+/// SEÇİLİ HÂLİ YOKTUR (2026-09-30): seçim ayrı bir görsel olarak çizildiğinde MapKit onu
+/// eşzamansız yüklüyor, özet kapanırken geç gelen büyük görsel yanlış çapayla boş bir yere
+/// düşüyordu. Seçim artık görsel değiştirmez: pin stil ölçeğiyle büyür, hale ayrı bir işarettir
+/// (`harita_yandex_cizici.dart`).
 class DurakAdCipi extends PinCipi {
   DurakAdCipi({
     required this.no,
-    required this.secili,
     required super.renkler,
     required super.dpr,
     super.ad,
   });
 
   final int no;
-  final bool secili;
 
-  /// Seçiliyken hale sığsın diye büyür.
   @override
-  double get pinKutusu => secili ? 56 : 32;
+  double get pinKutusu => 32;
   @override
-  double get pinYaricapi => secili ? 19 : 15;
+  double get pinYaricapi => 15;
 
   @override
   void pinCiz(Canvas c, Offset m) {
-    if (secili) {
-      c.drawCircle(
-          m, 28, Paint()..color = renkler.vurgu.withValues(alpha: 0.22)..isAntiAlias = true);
-    }
-    PinCipi.daire(c, m, pinYaricapi, renkler.vurgu, renkler.vurguUstu, secili ? 3.0 : 2.0);
+    PinCipi.daire(c, m, pinYaricapi, renkler.vurgu, renkler.vurguUstu, 2);
     final numara = TextPainter(
       text: TextSpan(
         text: '$no',
         style: TextStyle(
           fontFamily: sipFontBody,
           color: renkler.vurguUstu,
-          fontSize: (secili ? 15.0 : 13.0) * (no >= 100 ? 0.82 : 1),
+          fontSize: 13.0 * (no >= 100 ? 0.82 : 1),
           fontVariations: const [FontVariation('wght', 800)],
         ),
       ),

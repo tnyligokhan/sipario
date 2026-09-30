@@ -31,8 +31,8 @@ class _CipOrtami {
     await yukleyici.load();
   }
 
-  DurakAdCipi pin({int no = 3, bool secili = false, String? ad, double dpr = 3}) =>
-      DurakAdCipi(no: no, secili: secili, ad: ad, renkler: renkler, dpr: dpr);
+  DurakAdCipi pin({int no = 3, String? ad, double dpr = 3}) =>
+      DurakAdCipi(no: no, ad: ad, renkler: renkler, dpr: dpr);
 
   KuryeAdCipi kurye({bool taze = true, String ad = 'Ali', String ek = '', Color? renk}) =>
       KuryeAdCipi(
@@ -68,12 +68,6 @@ void main() {
       expect(p.capa.x * p.genislik, closeTo(p.pinKutusu / 2, 0.001),
           reason: 'ad açılıp kapanırken pin haritada kaymamalı');
       expect(p.capa.y, 0.5);
-    });
-
-    test('seçili pin büyür, çapa yine merkezde', () {
-      final p = o.pin(ad: 'Ahmet Yılmaz', secili: true);
-      expect(p.pinKutusu, 56);
-      expect(p.capa.x * p.genislik, closeTo(28, 0.001));
     });
 
     test('uzun ad kısaltılır, çip sınırsız uzamaz', () {
@@ -135,7 +129,6 @@ void main() {
       final ornekler = {
         'adsiz': o.pin(),
         'adli': o.pin(ad: 'Ahmet Yılmaz'),
-        'secili': o.pin(ad: 'Mehmet Kaya', secili: true, no: 12),
         'uzun': o.pin(ad: 'Anadolu Su ve Tüp Dağıtım Sanayi Ticaret', no: 104),
         'kurye': o.kurye(ad: 'Ali Kurye', renk: const Color(0xFF0EA5E9)),
         'kurye_bayat': o.kurye(ad: 'Veli', taze: false, ek: '12 dk önce'),

@@ -125,7 +125,11 @@ class YandexCizici {
   late final _KameraDinleyici _kamera;
 
   final Map<String, y.PlacemarkMapObject> _duraklar = {};
-  final Map<String, String> _durakIkonu = {};
+  /// Durağa en son verilen görselin anahtarı, çapası ve seçim hâli.
+  final Map<String, ({String ikon, math.Point<double> capa, bool secili})> _durakIkonu = {};
+
+  /// Pin rengi (ARGB) → o rengin hale işareti (bkz. [_haleyiCiz]).
+  final Map<int, y.PlacemarkMapObject> _haleler = {};
   final Map<String, y.PlacemarkMapObject> _kuryeler = {};
   final Map<String, String> _kuryeIkonu = {};
   y.PlacemarkMapObject? _cihaz;
@@ -154,6 +158,11 @@ class YandexCizici {
     _ikonlar = YandexIkonlar(renkler, _ikonlar.dpr);
     _durakIkonu.clear();
     _kuryeIkonu.clear();
+    // Hale rengi temanın vurgusunu izler — eski renkteki haleler yeniden kurulur.
+    for (final h in _haleler.values) {
+      _kok.remove(h);
+    }
+    _haleler.clear();
     _cihaz?.setIcon(_ikonlar.cihaz());
     _grupRotalariSon = '';
     _rota?.setStrokeColor(renkler.vurgu.withValues(alpha: 0.6));
@@ -270,6 +279,15 @@ class YandexCizici {
     p.geometry = _nokta(c);
   }
 
+  /// Seçili pin bu ölçekte çizilir. Büyüme bir STİL değişikliğidir, yeni görsel değil: stil
+  /// eşzamanlı uygulanır, görsel ise eşzamansız yüklenir. Seçim görsel değiştirdiğinde
+  /// (2026-09-30'a dek) ilk dokunuşta hiçbir şey görünmüyor, özet kapanırken geç gelen büyük
+  /// görsel eski çapayla boş bir yere düşüyordu.
+  static const double seciliOlcek = 1.35;
+
+  static y.IconStyle _durakStili(math.Point<double> capa, bool secili) =>
+      y.IconStyle(anchor: capa, scale: secili ? seciliOlcek : 1);
+
   void _duraklariCiz(HaritaIcerigi icerik) {
     final kalan = {..._duraklar.keys};
     for (final d in icerik.duraklar) {
@@ -284,16 +302,51 @@ class YandexCizici {
       // (`harita_ad_cipi.dart`). Çapa her iki hâlde de pinin merkezidir; ad açılıp kapanınca
       // pin yerinden oynamaz.
       final ad = _adlarAcik ? d.ad.trim() : '';
-      final ikon = '${d.no}-$secili-$ad-${d.renk?.toARGB32()}';
-      if (_durakIkonu[d.id] != ikon) {
-        final (gorsel, capa) = _ikonlar.durak(d.no, secili: secili, ad: ad, renk: d.renk);
-        p.setIconWithStyle(gorsel, y.IconStyle(anchor: capa));
-        _durakIkonu[d.id] = ikon;
+      final ikon = '${d.no}-$ad-${d.renk?.toARGB32()}';
+      final son = _durakIkonu[d.id];
+      if (son?.ikon != ikon) {
+        final (gorsel, capa) = _ikonlar.durak(d.no, ad: ad, renk: d.renk);
+        p.setIconWithStyle(gorsel, _durakStili(capa, secili));
+        _durakIkonu[d.id] = (ikon: ikon, capa: capa, secili: secili);
+      } else if (son!.secili != secili) {
+        p.setIconStyle(_durakStili(son.capa, secili));
+        _durakIkonu[d.id] = (ikon: ikon, capa: son.capa, secili: secili);
       }
     }
     for (final id in kalan) {
       _kok.remove(_duraklar.remove(id)!);
       _durakIkonu.remove(id);
+    }
+    _haleyiCiz(icerik);
+  }
+
+  /// Seçili durağın halesi. Her pin rengi için BİR hale işareti vardır ve durakların renkleri
+  /// göründüğü anda GİZLİ olarak kurulur: görseli seçimden önce yüklenmiş olur, seçim yalnız
+  /// konum ve görünürlük değiştirir (eşzamanlı). Dokunuş taşımaz (`userData` yok), altındaki
+  /// pine dokunmak engellenmez.
+  void _haleyiCiz(HaritaIcerigi icerik) {
+    Color renkOf(DurakIsareti d) => d.renk ?? _renkler.vurgu;
+    for (final d in icerik.duraklar) {
+      final renk = renkOf(d);
+      _haleler.putIfAbsent(
+        renk.toARGB32(),
+        () => _kok.addPlacemark()
+          ..visible = false
+          ..setIcon(_ikonlar.hale(renk)),
+      );
+    }
+    final secili = icerik.duraklar.where(icerik.seciliMi).firstOrNull;
+    final gorunen = secili == null ? null : renkOf(secili).toARGB32();
+    for (final e in _haleler.entries) {
+      if (e.key != gorunen) {
+        e.value.visible = false;
+        continue;
+      }
+      e.value
+        ..geometry = _nokta(secili!.nokta)
+        // Seçili pinin hemen ALTINDA, öteki pinlerin üstünde.
+        ..zIndex = 10 + icerik.oncelik(secili) - 0.5
+        ..visible = true;
     }
   }
 
@@ -365,16 +418,26 @@ class YandexIkonlar {
     }
   }
 
-  /// Numaralı durak; [ad] doluysa sağında ad çipiyle. Seçiliyken büyür ve yarı saydam bir hale
-  /// alır. Görselle birlikte ÇAPASI döner (pinin merkezi) — çip görseli sağa genişletir.
-  /// [renk] grup rengidir (gruplu harita); null = temanın vurgusu.
-  (yimg.ImageProvider, math.Point<double>) durak(int no,
-      {required bool secili, String ad = '', Color? renk}) {
-    final cizim = DurakAdCipi(
-        no: no, secili: secili, ad: ad, renkler: _r.durak.pinRengiyle(renk), dpr: dpr);
-    final anahtar = 'durak-$no-$secili-$ad-${renk?.toARGB32() ?? 0}';
+  /// Numaralı durak; [ad] doluysa sağında ad çipiyle. Görselle birlikte ÇAPASI döner (pinin
+  /// merkezi) — çip görseli sağa genişletir. [renk] grup rengidir (gruplu harita); null =
+  /// temanın vurgusu. Seçili hâli yoktur, bkz. [hale].
+  (yimg.ImageProvider, math.Point<double>) durak(int no, {String ad = '', Color? renk}) {
+    final cizim =
+        DurakAdCipi(no: no, ad: ad, renkler: _r.durak.pinRengiyle(renk), dpr: dpr);
+    final anahtar = 'durak-$no-$ad-${renk?.toARGB32() ?? 0}';
     return (_saglayici(anahtar, cizim.ciz), cizim.capa);
   }
+
+  /// Seçili durağın halesi: pin renginde yarı saydam daire + halka. Büyümüş pinin ALTINDA
+  /// durur ve onu çevreler. Kare görsel, çapa varsayılan merkezdir.
+  yimg.ImageProvider hale(Color renk) => _saglayici('hale-${renk.toARGB32()}', () {
+        const dp = 68.0;
+        return _resim(dp, (c, o) {
+          final m = Offset(dp * o / 2, dp * o / 2);
+          _daire(c, m, 33 * o, renk.withValues(alpha: 0.22),
+              kenar: renk.withValues(alpha: 0.85), kenarKalinlik: 2.5 * o);
+        });
+      });
 
   /// Cihaz: yumuşak hale + içi dolu nokta (numarasız — kurye bir durak değildir).
   yimg.ImageProvider cihaz() => _saglayici('cihaz', () {

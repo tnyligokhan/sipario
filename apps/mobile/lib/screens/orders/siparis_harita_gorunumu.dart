@@ -83,6 +83,10 @@ class SiparisHaritaGorunumu extends StatefulWidget {
   /// "Oto Sırala" ve gerekçesi. Pin bir düğmenin altında kalırsa dokunulamaz.
   static const EdgeInsets kenarBoslugu = EdgeInsets.fromLTRB(48, 56, 72, 120);
 
+  /// Durak özetinin ekranın altından örttüğü pay (yaklaşık; sayfa içeriğe göre boylanır).
+  /// Dokunulan pin bunun ÜSTÜNE kaydırılır.
+  static const double ozetOrtusu = 0.55;
+
   @override
   State<SiparisHaritaGorunumu> createState() => _SiparisHaritaGorunumuState();
 }
@@ -140,6 +144,10 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
         // Özetin başlığındaki sayı PİNDE YAZAN sayıdır: gruplu haritada grubun içindeki sıra.
         final isaret = _icerik().duraklar.where((d) => d.id == id).firstOrNull;
         setState(() => _seciliId = id);
+        // Özet alttan açılır; pin onun arkasında kalırsa vurgu hiç görünmez.
+        final durak = widget.duraklar[i];
+        unawaited(_kamera?.gorunurAlanaAl(HaritaNoktasi(durak.lat, durak.lng),
+            ortulenOran: SiparisHaritaGorunumu.ozetOrtusu));
         try {
           await widget.onDurak(widget.duraklar[i], isaret?.no ?? i + 1);
         } finally {

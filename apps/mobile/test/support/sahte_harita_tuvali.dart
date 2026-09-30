@@ -35,6 +35,12 @@ class OdaklaKomutu extends KameraKomutu {
   final double zoom;
 }
 
+class GorunurAlanaAlKomutu extends KameraKomutu {
+  const GorunurAlanaAlKomutu(this.nokta, this.ortulenOran);
+  final HaritaNoktasi nokta;
+  final double ortulenOran;
+}
+
 class SahteHaritaTuvali implements HaritaKamerasi {
   SahteHaritaTuvali._();
 
@@ -85,6 +91,10 @@ class SahteHaritaTuvali implements HaritaKamerasi {
   @override
   Future<void> odakla(HaritaNoktasi nokta, double zoom) async =>
       komutlar.add(OdaklaKomutu(nokta, zoom));
+
+  @override
+  Future<void> gorunurAlanaAl(HaritaNoktasi nokta, {required double ortulenOran}) async =>
+      komutlar.add(GorunurAlanaAlKomutu(nokta, ortulenOran));
 }
 
 class _SahteTuval extends StatefulWidget {

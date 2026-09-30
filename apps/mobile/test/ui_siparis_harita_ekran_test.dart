@@ -251,6 +251,11 @@ void main() {
       await akisiBekle(tester, ms: 400);
       expect(find.byType(DurakOzetGovde), findsOneWidget);
       expect(harita.icerik.seciliDurakId, ikinci);
+      // Özet alttan açılır: dokunulan pin onun ÜSTÜNE kaydırılmalı, yoksa vurgu sayfanın
+      // arkasında kalır (saha bildirimi 2026-09-30).
+      final kaydir = harita.komutlar.whereType<GorunurAlanaAlKomutu>().single;
+      expect(kaydir.nokta, const HaritaNoktasi(36.8900, 30.7100));
+      expect(kaydir.ortulenOran, SiparisHaritaGorunumu.ozetOrtusu);
 
       // Sayfayı aşağı kaydırarak değil, sistem geri tuşuyla kapat — en yaygın kapanış.
       await tester.binding.handlePopRoute();

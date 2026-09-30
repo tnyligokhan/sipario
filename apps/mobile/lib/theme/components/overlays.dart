@@ -21,12 +21,16 @@ import 'atoms.dart';
 /// aksi hâlde içeriğe göre büyür ve %88'de durur.
 ///
 /// Dönüş değeri [Navigator.pop] ile verilen değerdir — `await sipSheet<int>(...)`.
+///
+/// [perde] arkadaki ekranı örten renk. Arkasındakine BAKILAN sayfalarda (haritadaki durak
+/// özeti) saydam verilir; dışarı dokunmak yine sayfayı kapatır.
 Future<T?> sipSheet<T>(
   BuildContext context, {
   String? baslik,
   required WidgetBuilder govde,
   bool tam = false,
   bool disariTiklaKapat = true,
+  Color perde = SipTokens.scrim,
 }) {
   final t = context.sip;
   return showModalBottomSheet<T>(
@@ -36,7 +40,7 @@ Future<T?> sipSheet<T>(
     enableDrag: disariTiklaKapat,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
-    barrierColor: SipTokens.scrim,
+    barrierColor: perde,
     builder: (ctx) => Padding(
       // Klavye açıldığında sheet yukarı taşınır (tasarımdaki form sheet'leri metin alanı taşır).
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),

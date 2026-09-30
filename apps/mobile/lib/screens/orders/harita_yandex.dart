@@ -319,4 +319,40 @@ class _YandexKamerasi implements HaritaKamerasi {
         _konum(y.Point(latitude: nokta.lat, longitude: nokta.lng), zoom),
         animation: _yumusak,
       );
+
+  @override
+  Future<void> gorunurAlanaAl(HaritaNoktasi nokta, {required double ortulenOran}) async {
+    final w = _pencere.width().toDouble(), h = _pencere.height().toDouble();
+    if (w == 0 || h == 0) return;
+    // Görünen bölge (fiziksel piksel): üstte kişi şeridi, altta sayfa, kenarlarda pin payı.
+    final pay = 40 * _dpr;
+    final ust = kenarBoslugu.top * _dpr + pay;
+    final alt = h * (1 - ortulenOran) - pay;
+    if (alt <= ust) return; // sayfa ekranı neredeyse tümüyle örtüyor: kaydırmak işe yaramaz
+    final hedef = y.Point(latitude: nokta.lat, longitude: nokta.lng);
+    final ekran = _pencere.worldToScreen(hedef);
+    if (ekran != null &&
+        ekran.x >= pay &&
+        ekran.x <= w - pay &&
+        ekran.y >= ust &&
+        ekran.y <= alt) {
+      return;
+    }
+    // Kamera hedefi ekranın ortasındadır (pencerede odak dikdörtgeni yok). Pinin görünen
+    // bölgenin ortasına oturması için hedef, pinden (h/2 − bölge ortası) piksel AŞAĞIDA olmalı.
+    // Piksel başına enlem yerel olarak ölçülür: şehir ölçeğinde doğrusal yaklaşım yeterli.
+    final simdi = _harita.cameraPosition;
+    final a = _pencere.screenToWorld(y.ScreenPoint(x: w / 2, y: h / 2));
+    final b = _pencere.screenToWorld(y.ScreenPoint(x: w / 2, y: h / 2 + 100));
+    if (a == null || b == null) return;
+    final enlemPiksel = (b.latitude - a.latitude) / 100;
+    final kayma = h / 2 - (ust + alt) / 2;
+    _harita.move(
+      _konum(
+        y.Point(latitude: nokta.lat + kayma * enlemPiksel, longitude: nokta.lng),
+        simdi.zoom,
+      ),
+      animation: _yumusak,
+    );
+  }
 }
