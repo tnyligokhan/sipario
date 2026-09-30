@@ -69,7 +69,7 @@ class SiparisHaritaGorunumu extends StatefulWidget {
 
   /// Dokunulan durak ve GÖRÜNEN numarası (1'den başlar) — özet sayfası başlığında aynı sayı
   /// yazar, kullanıcı hangi pine dokunduğunu doğrulayabilsin. Dönen iş bitene (özet kapanana)
-  /// dek durak haritada VURGULU kalır.
+  /// dek başka pine dokunmak yok sayılır.
   final Future<void> Function(HaritaDuragi durak, int sira) onDurak;
 
   final void Function(CanliKonum kurye)? onKurye;
@@ -84,7 +84,7 @@ class SiparisHaritaGorunumu extends StatefulWidget {
   static const EdgeInsets kenarBoslugu = EdgeInsets.fromLTRB(48, 56, 72, 120);
 
   /// Durak özetinin ekranın altından örttüğü pay (yaklaşık; sayfa içeriğe göre boylanır).
-  /// Dokunulan pin bunun ÜSTÜNE kaydırılır.
+  /// Dokunulan pine yaklaşılırken pin bunun ÜSTÜNE oturtulur.
   static const double ozetOrtusu = 0.55;
 
   @override
@@ -96,8 +96,9 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
   /// yüklerken kamerayı oynatmak kayıp bir komuttur).
   HaritaKamerasi? _kamera;
 
-  /// Özeti açık olan durak — pini büyür ve halelenir.
-  String? _seciliId;
+  /// Özet açık mı? Açıkken gelen ikinci pin dokunuşu yok sayılır. Durum DEĞİLDİR (setState
+  /// yok): haritada hiçbir şey değişmez, yeniden çizim kasma yapardı.
+  bool _ozetAcik = false;
 
   List<KuryeIsareti> get _kuryeIsaretleri => [
         for (final k in widget.kuryeler)
@@ -112,7 +113,6 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
         renkler: widget.grupRenkleri,
         cihaz: widget.cihaz,
         kuryeler: _kuryeIsaretleri,
-        seciliDurakId: _seciliId,
         yol: widget.yol,
         yollar: widget.grupYollari,
       );
@@ -132,7 +132,6 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
         ],
         cihaz: widget.cihaz,
         kuryeler: _kuryeIsaretleri,
-        seciliDurakId: _seciliId,
         yol: widget.yol,
       );
 
@@ -140,18 +139,18 @@ class _SiparisHaritaGorunumuState extends State<SiparisHaritaGorunumu> {
     switch (dokunus) {
       case DurakDokunusu(:final id):
         final i = widget.duraklar.indexWhere((d) => d.orderId == id);
-        if (i < 0 || _seciliId != null) return; // bayat dokunuş ya da özet zaten açık
+        if (i < 0 || _ozetAcik) return; // bayat dokunuş ya da özet zaten açık
         // Özetin başlığındaki sayı PİNDE YAZAN sayıdır: gruplu haritada grubun içindeki sıra.
         final isaret = _icerik().duraklar.where((d) => d.id == id).firstOrNull;
-        setState(() => _seciliId = id);
-        // Özet alttan açılır; pin onun arkasında kalırsa vurgu hiç görünmez.
+        _ozetAcik = true;
+        // Kamera pine yaklaşır; özet alttan açıldığı için pin açık kalan üst bölgeye oturur.
         final durak = widget.duraklar[i];
-        unawaited(_kamera?.gorunurAlanaAl(HaritaNoktasi(durak.lat, durak.lng),
+        unawaited(_kamera?.durakaYaklas(HaritaNoktasi(durak.lat, durak.lng),
             ortulenOran: SiparisHaritaGorunumu.ozetOrtusu));
         try {
-          await widget.onDurak(widget.duraklar[i], isaret?.no ?? i + 1);
+          await widget.onDurak(durak, isaret?.no ?? i + 1);
         } finally {
-          if (mounted) setState(() => _seciliId = null);
+          _ozetAcik = false;
         }
       case KuryeDokunusu(:final id):
         for (final k in widget.kuryeler) {

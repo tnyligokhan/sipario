@@ -182,8 +182,7 @@ abstract class PinCipi {
 ///
 /// SEÇİLİ HÂLİ YOKTUR (2026-09-30): seçim ayrı bir görsel olarak çizildiğinde MapKit onu
 /// eşzamansız yüklüyor, özet kapanırken geç gelen büyük görsel yanlış çapayla boş bir yere
-/// düşüyordu. Seçim artık görsel değiştirmez: pin stil ölçeğiyle büyür, hale ayrı bir işarettir
-/// (`harita_yandex_cizici.dart`).
+/// düşüyordu. Pine dokunmak artık yalnız özeti açar ve kamerayı pine yaklaştırır.
 class DurakAdCipi extends PinCipi {
   DurakAdCipi({
     required this.no,

@@ -185,7 +185,6 @@ class HaritaIcerigi {
     this.duraklar = const [],
     this.cihaz,
     this.kuryeler = const [],
-    this.seciliDurakId,
     this.yol,
     this.rotalar = const [],
     this.cokluRota = false,
@@ -216,24 +215,9 @@ class HaritaIcerigi {
   final HaritaNoktasi? cihaz;
   final List<KuryeIsareti> kuryeler;
 
-  /// Özeti açık olan durak — pin büyür ve diğerlerinin üstüne çıkar.
-  final String? seciliDurakId;
-
   /// Durakları SIRAYLA gerçek yollardan bağlayan çizgi (sunucudan, 2026-09-29). null = yok
   /// (henüz gelmedi, çevrimdışı, servis kapalı) → kuş uçuşu kesikli çizgiye düşülür.
   final List<HaritaNoktasi>? yol;
-
-  HaritaIcerigi kopyala({String? Function()? seciliDurakId}) => HaritaIcerigi(
-        duraklar: duraklar,
-        cihaz: cihaz,
-        kuryeler: kuryeler,
-        seciliDurakId: seciliDurakId == null ? this.seciliDurakId : seciliDurakId(),
-        yol: yol,
-        rotalar: rotalar,
-        cokluRota: cokluRota,
-        rotaBasi: rotaBasi,
-        rotaRengi: rotaRengi,
-      );
 
   /// Cihazın rotaya dahil sayılacağı en uzak mesafe (en yakın durağa).
   static const double rotaYaricapiKm = 30;
@@ -274,12 +258,12 @@ class HaritaIcerigi {
 
   // ── Çizim verisi (motordan bağımsız) ─────────────────────────────────────────────────────
 
-  /// Durağın çizim önceliği — büyük olan üstte çizilir: seçili durak en üstte, sonra 1 numara,
-  /// 2 … (küçük numara, yani sıradaki durak, üst üste binen pinlerde görünen olmalı).
-  double oncelik(DurakIsareti d) =>
-      d.id == seciliDurakId ? 1000000 : (duraklar.length - d.no).toDouble();
-
-  bool seciliMi(DurakIsareti d) => d.id == seciliDurakId;
+  /// Durağın çizim önceliği — büyük olan üstte çizilir: 1 numara, 2 … (küçük numara, yani
+  /// sıradaki durak, üst üste binen pinlerde görünen olmalı).
+  ///
+  /// SEÇİLİ DURAK YOKTUR (kullanıcı kararı 2026-09-30): pine dokunmak yalnız özeti açar ve
+  /// kamerayı pine yaklaştırır. Pin büyütme ve hale kaldırıldı; haritada kasma yapıyordu.
+  double oncelik(DurakIsareti d) => (duraklar.length - d.no).toDouble();
 
   /// Yol çizgisi var mı? Tek noktalı bir "yol" çizgi değildir.
   bool get yolVar => (yol?.length ?? 0) >= 2;

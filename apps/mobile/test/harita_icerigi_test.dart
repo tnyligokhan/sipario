@@ -1,7 +1,7 @@
 // HARİTA İÇERİĞİ — motora giden verinin ve kadrajın saf birim testleri (2026-09-28).
 //
-// Yerel harita widget testinde çizilemez; pinlerin çizim önceliği, rota çizgisinin sırası,
-// seçili durak ve uzak cihaz kuralı ancak motora giden veriden sınanabilir. Bir hata burada
+// Yerel harita widget testinde çizilemez; pinlerin çizim önceliği, rota çizgisinin sırası ve
+// uzak cihaz kuralı ancak motora giden veriden sınanabilir. Bir hata burada
 // sessizdir: yanlış öncelik sıradaki durağı başka pinin altına gömer, uzak cihaz haritayı ülke
 // ölçeğine uzaklaştırır.
 
@@ -10,13 +10,12 @@ import 'package:sipario/screens/orders/harita_icerigi.dart';
 import 'package:sipario/screens/orders/harita_kurye_katmani.dart';
 import 'package:sipario/sync/konum_api.dart';
 
-/// Üç duraklı örnek rota + isteğe bağlı cihaz/seçim. Fikstür sınıfı: testler aynı rotayı
-/// farklı açılardan okur.
+/// Üç duraklı örnek rota + isteğe bağlı cihaz. Fikstür sınıfı: testler aynı rotayı farklı
+/// açılardan okur.
 class _Rota {
-  _Rota({this.cihaz, this.secili});
+  _Rota({this.cihaz});
 
   final HaritaNoktasi? cihaz;
-  final String? secili;
 
   static const a = HaritaNoktasi(40.1950, 29.0600);
   static const b = HaritaNoktasi(40.2100, 29.0200);
@@ -29,7 +28,6 @@ class _Rota {
   late final HaritaIcerigi icerik = HaritaIcerigi(
     duraklar: const [s1, s2, s3],
     cihaz: cihaz,
-    seciliDurakId: secili,
   );
 }
 
@@ -40,20 +38,6 @@ void main() {
       final i = _Rota().icerik;
       expect(i.oncelik(_Rota.s1), greaterThan(i.oncelik(_Rota.s2)));
       expect(i.oncelik(_Rota.s2), greaterThan(i.oncelik(_Rota.s3)));
-    });
-
-    test('seçili durak HER ŞEYİN üstüne çıkar ve yalnız o seçilidir', () {
-      final i = _Rota(secili: 's3').icerik;
-      expect(i.seciliMi(_Rota.s3), isTrue);
-      expect(i.seciliMi(_Rota.s1), isFalse);
-      expect(i.oncelik(_Rota.s3), greaterThan(i.oncelik(_Rota.s1)));
-    });
-
-    test('kopyala seçimi değiştirir, null ile TEMİZLER, verilmezse korur', () {
-      final r = _Rota(secili: 's2').icerik;
-      expect(r.kopyala(seciliDurakId: () => null).seciliDurakId, isNull);
-      expect(r.kopyala(seciliDurakId: () => 's1').seciliDurakId, 's1');
-      expect(r.kopyala().seciliDurakId, 's2');
     });
   });
 
@@ -116,11 +100,6 @@ void main() {
       expect(i.yolVar, isFalse);
       expect(i.yolNoktalari, isEmpty);
       expect(i.rotaNoktalari, [_Rota.a, _Rota.b]);
-    });
-
-    test('kopyala yol çizgisini korur', () {
-      const i = HaritaIcerigi(duraklar: [_Rota.s1, _Rota.s2], yol: [_Rota.a, _Rota.b]);
-      expect(i.kopyala(seciliDurakId: () => 's1').yol, [_Rota.a, _Rota.b]);
     });
 
     test('tek nokta çizgi DEĞİLDİR — boş liste', () {

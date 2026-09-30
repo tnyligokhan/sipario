@@ -231,37 +231,41 @@ void main() {
       await ekraniKapat(tester);
     });
 
-    testWidgets('özet AÇIKKEN dokunulan durak vurgulu, kapanınca vurgu kalkar', (tester) async {
-      // Özet sayfası haritanın yarısını örter; hangi pine dokunulduğu haritada da görünmeli
-      // (pin büyür ve halelenir). Vurgu özet kapanınca KALKMALI — kalırsa bir sonraki bakışta
-      // kullanıcı o durağı hâlâ seçili sanır.
+    testWidgets('pine dokununca özet açılır ve kamera O PİNE yaklaşır; kapanınca yeniden dokunulur',
+        (tester) async {
+      // Kullanıcı kararı 2026-09-30: dokunuş yalnız özeti açar ve pine yakınlaşıp kaydırır.
+      // Pin büyütme/hale kaldırıldı (kasma ve yanlış yerde beliren hale).
       genisYuzey(tester);
       final db = AppDatabase(NativeDatabase.memory());
-      late String ikinci;
       await tester.runAsync(() async {
         await siparisEkle(db, ad: 'Ayşe Yılmaz', lat: 36.8841, lng: 30.7056, sira: 0);
-        ikinci = await siparisEkle(db, ad: 'Mehmet Kaya', lat: 36.8900, lng: 30.7100, sira: 10);
+        await siparisEkle(db, ad: 'Mehmet Kaya', lat: 36.8900, lng: 30.7100, sira: 10);
       });
 
       await tester.pumpWidget(sipKabuk(SiparisHaritaEkrani(db: db, writable: true)));
       await akisiBekle(tester);
-      expect(harita.icerik.seciliDurakId, isNull);
 
       await tester.tap(harita.durak(2));
       await akisiBekle(tester, ms: 400);
       expect(find.byType(DurakOzetGovde), findsOneWidget);
-      expect(harita.icerik.seciliDurakId, ikinci);
-      // Özet alttan açılır: dokunulan pin onun ÜSTÜNE kaydırılmalı, yoksa vurgu sayfanın
-      // arkasında kalır (saha bildirimi 2026-09-30).
-      final kaydir = harita.komutlar.whereType<GorunurAlanaAlKomutu>().single;
-      expect(kaydir.nokta, const HaritaNoktasi(36.8900, 30.7100));
-      expect(kaydir.ortulenOran, SiparisHaritaGorunumu.ozetOrtusu);
+      // Özet alttan açılır: pin onun ÜSTÜNDE kalan bölgeye oturtulur.
+      final yaklas = harita.komutlar.whereType<DurakaYaklasKomutu>().single;
+      expect(yaklas.nokta, const HaritaNoktasi(36.8900, 30.7100));
+      expect(yaklas.ortulenOran, SiparisHaritaGorunumu.ozetOrtusu);
 
       // Sayfayı aşağı kaydırarak değil, sistem geri tuşuyla kapat — en yaygın kapanış.
       await tester.binding.handlePopRoute();
       await akisiBekle(tester, ms: 400);
       expect(find.byType(DurakOzetGovde), findsNothing);
-      expect(harita.icerik.seciliDurakId, isNull);
+
+      // Kapanıştan sonra başka pine dokunmak yine çalışır (özet kilidi çözülmüş olmalı).
+      await tester.tap(harita.durak(1));
+      await akisiBekle(tester, ms: 400);
+      expect(find.byType(DurakOzetGovde), findsOneWidget);
+      expect(harita.komutlar.whereType<DurakaYaklasKomutu>().last.nokta,
+          const HaritaNoktasi(36.8841, 30.7056));
+      await tester.binding.handlePopRoute();
+      await akisiBekle(tester, ms: 400);
 
       await ekraniKapat(tester);
     });

@@ -33,7 +33,6 @@ HaritaIcerigi grupluIcerik({
   required Map<String, Color> renkler,
   HaritaNoktasi? cihaz,
   List<KuryeIsareti> kuryeler = const [],
-  String? seciliDurakId,
   List<HaritaNoktasi>? yol,
   Map<String, List<HaritaNoktasi>> yollar = const {},
 }) {
@@ -66,7 +65,6 @@ HaritaIcerigi grupluIcerik({
       duraklar: duraklar,
       cihaz: cihaz,
       kuryeler: kuryeler,
-      seciliDurakId: seciliDurakId,
       yol: yol,
       rotaBasi: g == null ? null : basi(g),
       rotaRengi: g == null || g.kendi ? null : renkler[g.anahtar],
@@ -102,7 +100,6 @@ HaritaIcerigi grupluIcerik({
     duraklar: duraklar,
     cihaz: cihaz,
     kuryeler: kuryeler,
-    seciliDurakId: seciliDurakId,
     cokluRota: true,
     rotalar: [for (final g in gruplar) rota(g)],
   );

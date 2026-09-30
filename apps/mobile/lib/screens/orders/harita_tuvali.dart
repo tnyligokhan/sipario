@@ -25,10 +25,10 @@ abstract interface class HaritaKamerasi {
   /// Noktaya [zoom] ölçeğinde gider ("Konumum").
   Future<void> odakla(HaritaNoktasi nokta, double zoom);
 
-  /// Noktayı ekranın ÜST kısmına kaydırır: ekranın altından [ortulenOran] kadarı bir sayfayla
-  /// (durak özeti) örtülecekse pin o sayfanın arkasında kalmasın. Nokta zaten görünen bölgedeyse
-  /// kamera OYNAMAZ; yakınlık değişmez.
-  Future<void> gorunurAlanaAl(HaritaNoktasi nokta, {required double ortulenOran});
+  /// Dokunulan durağa YAKINLAŞIR ve onu ekranın açık kalan kısmının ortasına kaydırır: ekranın
+  /// altından [ortulenOran] kadarını durak özeti örter, pin onun arkasında kalmamalı. Zaten
+  /// daha yakındaysa yakınlık korunur.
+  Future<void> durakaYaklas(HaritaNoktasi nokta, {required double ortulenOran});
 }
 
 /// Tuvalin bütün girdisi. Tek nesne: dikişin imzası yeni bir alan eklendiğinde değişmesin.
