@@ -268,8 +268,13 @@ yukarıda zaten yazılıydı), kuralın İZİNİN olmamasıydı.
 | Yalnız iç düzenleme (kullanıcı hiçbir farkı görmüyor) | artış YOK |
 | Eski istemci yeni sunucuyla çalışamıyor | **MAJOR** — önce yazılı karar |
 
-**Birden çok iş kolu aynı vardiyada bitiyorsa her biri kendi artışını alır**; hepsini tek
-numaraya yığmak, sahada "hangi sürümde neyin geldiğini" yine cevapsız bırakır.
+**Toplu liste = TEK sürüm (kural, 2026-09-30).** Kullanıcı birden çok maddeyi tek bir listede
+verdiğinde bu BİR güncelleme paketidir, maddeler ayrı iş kolu sayılmaz. Sürüm paket bitince
+BİR KEZ artar; artış türü listedeki en yüksek türdür (bir madde MINOR ise paket MINOR, hepsi
+düzeltmeyse PATCH). O sürümün `surum_notlari.dart` notu listedeki kullanıcıya görünen
+maddeleri tek tek sayar; "hangi sürümde ne geldi" sorusu böylece yine cevaplanır.
+Ayrı artış yalnız ayrı zamanlarda verilen, bağımsız işler içindir. Sürümü HİÇ artırmamak
+yasak olmaya devam eder.
 
 Otomatik commit kancası (`scripts/quality-gate-commit.ps1`) `apps/mobile/lib/**` dokunulan her
 commit'in gövdesine `SURUM:` satırını yazar; sürüm bir önceki commit'le aynıysa bunu açıkça
