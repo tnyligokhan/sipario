@@ -433,6 +433,13 @@ void main() {
       await tester.pump();
     }
 
+    /// Ürünler, Kuryeler ve Muaf Numaralar katlanır Tanımlamalar başlığının altındadır (2026-11-05).
+    Future<void> tanimlamalariAc(WidgetTester tester) async {
+      await tester.pumpAndSettle(); // çekmecenin açılış animasyonu bitsin, yoksa dokunuş ıskalar
+      await tester.tap(find.text('Tanımlamalar'));
+      await tester.pumpAndSettle();
+    }
+
     // CİHAZDA YAKALANAN GERİLEME (2026-07-26): kabuk `onMenu`yu YALNIZ ana ekrana geçiyordu.
     // Diğer üç sekmede hamburger hiç çizilmiyordu (Gün Özeti'nde yerine işlevsiz bir geri oku
     // vardı) — yani çekmece, dolayısıyla Ürünler/Kuryeler/Muaf/Ayarlar/çıkış, o sekmelerdeyken
@@ -489,6 +496,7 @@ void main() {
       });
 
       await pumpShell(tester, db);
+      await tanimlamalariAc(tester);
 
       for (final giris in ['Ürünler', 'Kuryeler', 'Muaf Numaralar', 'Ayarlar']) {
         expect(find.text(giris), findsOneWidget, reason: '$giris çekmecede yok');
@@ -534,6 +542,7 @@ void main() {
 
       await pumpShell(tester, db);
 
+      await tanimlamalariAc(tester);
       expect(find.text('Ürünler'), findsOneWidget);
       // İKİ TANE olması DOĞRUDUR ve bilinçlidir: biri ana ekrandaki bento kutusu (bir RAKAM
       // gösterir, rakama dokunmak doğal), diğeri çekmece satırı (hangi sekmede olursan ol
@@ -559,6 +568,7 @@ void main() {
 
       await pumpShell(tester, db);
 
+      await tanimlamalariAc(tester);
       expect(find.text('Ürünler'), findsOneWidget);
       expect(find.text('Borçlular'), findsNWidgets(2)); // bento kutusu + çekmece satırı
       expect(find.text('Kuryeler'), findsOneWidget);

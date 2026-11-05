@@ -232,9 +232,9 @@ class _Govde extends StatelessWidget {
                 ad: l.productName,
                 // Tasarım `{r.adet} {r.birim} × {fmtTL(r.fiyat)}` (s-siparisler.jsx:478) —
                 // BİRİM düşerse "3 × 120,00 ₺" koli mi kg mı adet mi belli olmaz.
-                altMetin: serbestMi(l)
-                    ? 'tek seferlik'
-                    : '${l.qty} ${l.unit ?? 'adet'} × ${sipTutar(l.unitPriceKurus)}',
+                altMetin: '${serbestMi(l) ? 'tek seferlik' : '${l.qty} ${l.unit ?? 'adet'} × '
+                    '${sipTutar(l.unitPriceKurus)}'}'
+                    '${l.discountKurus > 0 ? ', iskonto ${sipTutar(l.discountKurus)}' : ''}',
                 tutarKurus: l.lineTotalKurus,
                 // SATIR NOTU burada görünmek ZORUNDA: siparişi hazırlayan/götüren kişi kalemleri
                 // bu ekrandan okur. Not girilip okunmadığı bir yer, notun hiç girilmemesiyle

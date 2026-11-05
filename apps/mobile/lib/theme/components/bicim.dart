@@ -3,6 +3,8 @@
 //
 // Saf Dart: hiçbir Flutter bağımlılığı yok, bu yüzden testte ve arka plan kodunda da kullanılır.
 
+import '../../data/telefon_numarasi.dart';
+
 /// Kuruş tamsayısını "1.234,50 ₺" biçiminde yazar. Negatifte tasarımdaki gibi TİPOGRAFİK eksi
 /// (U+2212) kullanılır — tabular hizada normal tireden daha temiz oturur.
 String sipTutar(int kurus, {bool simge = true}) {
@@ -43,7 +45,13 @@ String trBuyuk(String s) => s.replaceAll('i', 'İ').replaceAll('ı', 'I').toUppe
 String trKucuk(String s) => s.replaceAll('I', 'ı').replaceAll('İ', 'i').toLowerCase();
 
 /// "0532 415 22 90" — yalnız GÖSTERİM içindir; saklama daima E.164.
+///
+/// Yabancı numara son 10 haneye KIRPILMAZ: kırpılsaydı +49 numarası TR numarası gibi görünür ve
+/// müşteri düzenlenip kaydedilince gerçekten TR numarasına dönerdi.
 String sipTelefon(String ham) {
+  final numara = TelefonNumarasi.coz(ham);
+  if (numara != null && numara.yabanci) return numara.gosterim;
+
   final d = ham.replaceAll(RegExp(r'\D'), '');
   final s = d.length > 10 ? d.substring(d.length - 10) : d;
   if (s.length != 10) return ham;

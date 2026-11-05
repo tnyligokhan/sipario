@@ -260,7 +260,7 @@ const List<RehberAdim> cagriGunluguTuru = [
   RehberAdim(
     baslik: 'Bazı numaralar için ekran çıkmasın',
     metin: 'Tedarikçin ya da kendi numaran her aradığında ekran açılmasını istemezsen '
-        'menüdeki Muaf Numaralar sayfasına ekleyebilirsin',
+        'menüdeki Tanımlamalar başlığından Muaf Numaralar sayfasına ekleyebilirsin',
     kitle: RehberKitle.yonetici,
   ),
 ];

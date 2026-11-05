@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../data/musteri_fiyatlari.dart';
 import '../../data/urun_secenekleri.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/states.dart';
@@ -43,6 +44,8 @@ class KalemlerAdimi extends StatelessWidget {
     required this.onSil,
     required this.onSatirNotu,
     required this.onBildir,
+    this.onIskonto,
+    this.fiyatlar = MusteriFiyatlari.bos,
   });
 
   final AppDatabase db;
@@ -67,6 +70,12 @@ class KalemlerAdimi extends StatelessWidget {
   final void Function(int i, int delta) onAdetDegis;
   final void Function(int i) onSil;
   final void Function(int i) onSatirNotu;
+
+  /// Satır iskontosu; null ise iskonto yetkisi yoktur.
+  final void Function(int i)? onIskonto;
+
+  /// Seçili müşterinin özel fiyatları; katalog ve favoriler bunu gösterir.
+  final MusteriFiyatlari fiyatlar;
 
   /// Toast — ekran gösterir (bu widget `ScaffoldMessenger`ı kendi başına aramaz).
   final void Function(String mesaj) onBildir;
@@ -108,6 +117,7 @@ class KalemlerAdimi extends StatelessWidget {
         FavoriSeridi(
           db: db,
           musteriId: musteri?.id,
+          fiyatlar: fiyatlar,
           onEkle: (u) {
             onUrunEkle(u, 1, const SecenekSecimi());
             onBildir('${u.name} sepete eklendi');
@@ -123,6 +133,7 @@ class KalemlerAdimi extends StatelessWidget {
             onBildir: onBildir,
             musteriId: musteri?.id,
             musteriAdi: musteri?.name,
+            fiyatlar: fiyatlar,
           ),
         ),
         // .ys-serbest — katalog düğmesinin hemen ALTINDA. İkisi de "sepete bir şey koy" demek;
@@ -171,7 +182,9 @@ class KalemlerAdimi extends StatelessWidget {
                     : '${satirlar[i].birimEtiketi}, ${satirlar[i].secimOzeti}',
                 // Ekstralar birim fiyata dahildir (`birimFiyat`) — sepetin gösterdiği tutar,
                 // kaydedilen tutarla AYNI formülden çıkmalı.
-                tutarKurus: satirlar[i].birimFiyat * satirlar[i].qty,
+                tutarKurus: satirlar[i].netKurus,
+                iskontoKurus: satirlar[i].iskontoKurus,
+                onIskonto: onIskonto == null ? null : () => onIskonto!(i),
                 adet: satirlar[i].serbest ? null : satirlar[i].qty,
                 onAzalt: () => onAdetDegis(i, -1),
                 onArtir: () => onAdetDegis(i, 1),

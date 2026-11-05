@@ -14,6 +14,7 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import 'order_queries.dart';
+import 'musteri_numara_secici.dart';
 import 'order_row.dart';
 import 'order_sheets.dart' show SecimSatiri;
 import '../team.dart';
@@ -168,6 +169,7 @@ class _SiparisListesiGovdesiState extends State<SiparisListesiGovdesi> {
                     if (ham.isEmpty) return widget.bos;
 
                     return SiparisListesi(
+                      db: widget.db,
                       liste: widget.sirala(ham),
                       satirlar: satirSnap.data ?? const {},
                       tahsilatlar: tahsilatSnap.data ?? const {},
@@ -203,6 +205,7 @@ class _SiparisListesiGovdesiState extends State<SiparisListesiGovdesi> {
 class SiparisListesi extends StatelessWidget {
   const SiparisListesi({
     super.key,
+    required this.db,
     required this.liste,
     required this.satirlar,
     this.tahsilatlar = const {},
@@ -219,6 +222,7 @@ class SiparisListesi extends StatelessWidget {
     this.onTeslim,
   });
 
+  final AppDatabase db;
   final List<OrderListItem> liste;
   final Map<String, List<OrderLine>> satirlar;
 
@@ -259,6 +263,13 @@ class SiparisListesi extends StatelessWidget {
         kuryeAdi: kullaniciAdi(ekip, item.order.assignedUserId),
         adres: musteriId == null ? null : adresler[musteriId],
         telefon: musteriId == null ? null : telefonlar[musteriId],
+        numaraSecici: musteriId == null
+            ? null
+            : MusteriNumaraSecici(
+                db: db,
+                customerId: musteriId,
+                yedekNumara: telefonlar[musteriId],
+              ),
         elle: elle,
         tutamacSagda: tutamacSagda,
         tutamac: elle

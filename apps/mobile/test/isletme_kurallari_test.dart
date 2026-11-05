@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sipario/data/telefon_numarasi.dart';
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/data/tr_gun.dart';
 import 'package:sipario/repo/cash_handover_repository.dart';
@@ -275,8 +276,7 @@ void main() {
   group('Muaf numara doğrulaması', () {
     test('kısa numara reddedilir, mükerrer kayıt son 10 haneden yakalanır', () {
       expect(muafNumaraHatasi('0532 415 22 90', mevcutSon10: const []), isNull);
-      expect(muafNumaraHatasi('532415', mevcutSon10: const []),
-          'Geçerli telefon girin (10-11 hane)');
+      expect(muafNumaraHatasi('532415', mevcutSon10: const []), TelefonNumarasi.gecersizMetni);
       // Ülke kodu / baştaki sıfır farkı yutulur — native taraf da aynı anahtara bakar.
       expect(
         muafNumaraHatasi('+90 532 415 22 90', mevcutSon10: const ['5324152290']),
@@ -284,13 +284,13 @@ void main() {
       );
     });
 
-    // Sınır METİNLE TUTARLI olmalı: kapı 13 haneye kadar kabul ederken hata "10-11 hane" diyordu.
-    test('sınır hata metniyle tutarlıdır: ülke kodu ayıklanır, fazlası reddedilir', () {
+    // Müşteri formuyla AYNI kapı: ülke kodu ayıklanır, ülke kodsuz fazlası reddedilir.
+    test('ülke kodu ayıklanır, ülke kodsuz fazlası reddedilir', () {
       expect(muafNumaraHatasi('+905324152290', mevcutSon10: const []), isNull,
           reason: 'ülke kodlu giriş 12 hanedir ama 90 ayıklanınca 10 haneye iner');
       expect(muafNumaraHatasi('053241522901', mevcutSon10: const []),
-          'Geçerli telefon girin (10-11 hane)',
-          reason: '12 hane ve ülke kodu değil → metnin söylediği gibi reddedilir');
+          TelefonNumarasi.gecersizMetni,
+          reason: '12 hane ve ülke kodu değil');
     });
   });
 

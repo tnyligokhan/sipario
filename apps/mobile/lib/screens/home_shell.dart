@@ -62,6 +62,8 @@ import 'customers/customer_list_screen.dart';
 import 'isletme/ayarlar/cihazlar_ekrani.dart';
 import 'isletme/ayarlar/hesap_ekrani.dart';
 import 'isletme/ayarlar_ekrani.dart';
+import 'isletme/gider_akisi.dart';
+import 'isletme/gider_kategorileri_ekrani.dart';
 import 'isletme/kuryeler_ekrani.dart';
 import 'isletme/muaf_ekrani.dart';
 import 'day_end_screen.dart';
@@ -161,6 +163,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   /// tek dokunuşla gidilir, tersi ise özeti hiç görmeden çalışmak demekti.
   SipSekme _sekme = SipSekme.ana;
   bool _cekmece = false;
+
+  /// Alt menüden yazılan gider sayısı; Gün Özeti dökümünü tazeler.
+  int _giderSayaci = 0;
 
   AccessLevel _access = AccessLevel.full;
   String? _userRole;
@@ -392,7 +397,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         statusBarIconBrightness: heroluEkran ? Brightness.light : null,
         statusBarBrightness: heroluEkran ? Brightness.dark : null,
       ),
-      child: Scaffold(
+      child: PopScope<Object?>(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _geriTusu();
+        },
+        child: Scaffold(
         backgroundColor: t.bg,
         body: Stack(
           children: [
@@ -462,6 +472,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             ),
           ],
         ),
+      ),
       ),
     );
   }

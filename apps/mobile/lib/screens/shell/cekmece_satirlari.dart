@@ -26,6 +26,55 @@ class _Bolum extends StatelessWidget {
   }
 }
 
+/// Açılıp kapanan satır grubu. Kapalı başlar; durumu kendi tutar ve çekmece ağaçta kaldığı için
+/// oturum boyunca hatırlanır. Kapalıyken satırlar HİÇ kurulmaz: görünmeyen hedef dokunulamaz.
+class _KatlanirGrup extends StatefulWidget {
+  const _KatlanirGrup({required this.ikon, required this.etiket, required this.satirlar});
+
+  final String ikon;
+  final String etiket;
+  final List<Widget> satirlar;
+
+  @override
+  State<_KatlanirGrup> createState() => _KatlanirGrupState();
+}
+
+class _KatlanirGrupState extends State<_KatlanirGrup> {
+  bool _acik = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          expanded: _acik,
+          child: _Satir(
+            ikon: widget.ikon,
+            etiket: widget.etiket,
+            sonIkon: _acik ? SipIcons.up : SipIcons.down,
+            onTap: () => setState(() => _acik = !_acik),
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: _acik
+              ? Padding(
+                  padding: const EdgeInsets.only(left: SipSpace.x2),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: widget.satirlar,
+                  ),
+                )
+              : const SizedBox(width: double.infinity),
+        ),
+      ],
+    );
+  }
+}
+
 /// Hedef öbekleri arasındaki sessiz ayraç — etiket yerine çizgi.
 class _Ayrac extends StatelessWidget {
   const _Ayrac();
@@ -49,11 +98,15 @@ class _Satir extends StatelessWidget {
     required this.etiket,
     required this.onTap,
     this.sayac,
+    this.sonIkon = SipIcons.chevR,
   });
 
   final String ikon;
   final String etiket;
   final VoidCallback onTap;
+
+  /// Sağdaki ok. Rota açan satırda sağa bakar, katlanır başlıkta aşağı/yukarı.
+  final String sonIkon;
 
   /// Rozet sayısı; null ya da 0 ise rozet çizilmez (sıfır bir haber değildir).
   final int? sayac;
@@ -96,7 +149,7 @@ class _Satir extends StatelessWidget {
               ),
               const SizedBox(width: SipSpace.md),
             ],
-            const SipIcon(SipIcons.chevR,
+            SipIcon(sonIkon,
                 boyut: 16, kalinlik: 2, renk: SipTokens.onHeroFaint),
           ],
         ),

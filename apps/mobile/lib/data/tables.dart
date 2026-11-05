@@ -71,6 +71,13 @@ class Customers extends Table {
   /// kendisidir. Çözümleme TEK yerdedir (`data/urun_secenekleri.dart`) ve bozuk metinde çökmez.
   TextColumn get productOptionsJson => text().nullable()();
 
+  /// MÜŞTERİYE ÖZEL BİRİM FİYAT (saha, 2026-11-05) — JSON nesne: `{urunId: kurus}`.
+  ///
+  /// [productOptionsJson] ile aynı gerekçeyle müşterinin bir ALANIDIR. Çözümleme TEK yerdedir
+  /// (`data/musteri_fiyatlari.dart`). Fiyat sipariş anında satıra kopyalanır; bu alanın değişmesi
+  /// eski siparişleri etkilemez.
+  TextColumn get productPricesJson => text().nullable()();
+
   /// KARA LİSTE damgası (null = kara listede değil) — v12.
   ///
   /// `deletedAt` İLE KARIŞTIRILMAMALI, ikisi ayrı karardır: silinen müşteri listeden DÜŞER,
@@ -239,6 +246,11 @@ class OrderLines extends Table {
   BoolColumn get isCustom => boolean().withDefault(const Constant(false))();
 
   IntColumn get qty => integer()();
+
+  /// SATIR İSKONTOSU (saha, 2026-11-05) — satırın tamamından düşülen kuruş.
+  /// [lineTotalKurus] bundan SONRAKİ tutardır: `unitPriceKurus * qty - discountKurus`.
+  IntColumn get discountKurus => integer().withDefault(const Constant(0))();
+
   IntColumn get lineTotalKurus => integer()();
   TextColumn get deletedAt => text().nullable()();
 

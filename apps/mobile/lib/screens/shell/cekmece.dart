@@ -54,6 +54,7 @@ enum CekmeceGiris {
   urunler,
   kuryeler,
   muaf,
+  giderKategorileri,
   hesap,
   ayarlar,
   yardim,
@@ -228,21 +229,34 @@ class _Panel extends StatelessWidget {
                   // ROL KAPISI: kuryede bu bölüm ve lisans kartları HİÇ çizilmez.
                   if (!c._kurye) ...[
                     const _Bolum('Yönetim'),
-                    if (c.urunlerGorunur)
-                      _Satir(
-                        ikon: SipIcons.box,
-                        etiket: 'Ürünler',
-                        onTap: () => c.onGiris(CekmeceGiris.urunler),
-                      ),
-                    _Satir(
-                      ikon: SipIcons.truck,
-                      etiket: 'Kuryeler',
-                      onTap: () => c.onGiris(CekmeceGiris.kuryeler),
-                    ),
-                    _Satir(
-                      ikon: SipIcons.phoneOff,
-                      etiket: 'Muaf Numaralar',
-                      onTap: () => c.onGiris(CekmeceGiris.muaf),
+                    // Seyrek açılan kurulum ekranları katlanır bir başlığın altında durur (saha,
+                    // 2026-11-05): günlük kullanımda listeyi uzatmasınlar.
+                    _KatlanirGrup(
+                      ikon: SipIcons.settings,
+                      etiket: 'Tanımlamalar',
+                      satirlar: [
+                        if (c.urunlerGorunur)
+                          _Satir(
+                            ikon: SipIcons.box,
+                            etiket: 'Ürünler',
+                            onTap: () => c.onGiris(CekmeceGiris.urunler),
+                          ),
+                        _Satir(
+                          ikon: SipIcons.truck,
+                          etiket: 'Kuryeler',
+                          onTap: () => c.onGiris(CekmeceGiris.kuryeler),
+                        ),
+                        _Satir(
+                          ikon: SipIcons.phoneOff,
+                          etiket: 'Muaf Numaralar',
+                          onTap: () => c.onGiris(CekmeceGiris.muaf),
+                        ),
+                        _Satir(
+                          ikon: SipIcons.wallet,
+                          etiket: 'Gider Kategorileri',
+                          onTap: () => c.onGiris(CekmeceGiris.giderKategorileri),
+                        ),
+                      ],
                     ),
                   ],
 

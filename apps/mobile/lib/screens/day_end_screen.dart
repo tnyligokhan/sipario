@@ -53,6 +53,7 @@ import '../theme/components/overlays.dart';
 import '../theme/components/states.dart';
 import '../theme/icons.dart';
 import '../theme/tokens.dart';
+import 'isletme/gider_akisi.dart';
 import 'isletme/gider_sheet.dart';
 import 'isletme/gun_arsivi.dart';
 import 'isletme/gun_kapatma_sheet.dart';
@@ -84,6 +85,7 @@ class DayEndScreen extends StatefulWidget {
     this.rol,
     this.kullaniciId,
     this.kuryeIzin,
+    this.disGiderSayaci = 0,
     this.session,
     this.bugun,
   });
@@ -98,6 +100,9 @@ class DayEndScreen extends StatefulWidget {
   /// Bayinin kurye izin ayarları (`tenant_settings`). Rolle birleşip yetkiyi verir.
   /// Verilmezse `KuryeIzinleri.varsayilan` — ürünün varsayılan davranışı.
   final KuryeIzinleri? kuryeIzin;
+
+  /// Bu ekranın dışından (alt menü) yazılan gider sayısı. Değişince rakamlar ve döküm tazelenir.
+  final int disGiderSayaci;
 
   /// Verilirse üst çubukta hamburger çizilir (sekme olarak açıldığında); yoksa geri oku.
   final VoidCallback? onMenu;
@@ -170,6 +175,12 @@ class _DayEndScreenState extends State<DayEndScreen> {
     setState(() {
       _gorunum = _yukle();
     });
+  }
+
+  @override
+  void didUpdateWidget(DayEndScreen eski) {
+    super.didUpdateWidget(eski);
+    if (eski.disGiderSayaci != widget.disGiderSayaci) _giderTazele();
   }
 
   /// Gider yazıldıktan/iptal edildikten sonra: rakamlar VE açık gider dökümü birlikte tazelenir.

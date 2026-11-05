@@ -156,6 +156,10 @@ class TenantSettings extends Table {
   /// düzenleyici gizlenir. Yeniden açıldığında hepsi geri gelir.
   BoolColumn get preparedProducts => boolean().withDefault(const Constant(false))();
 
+  /// BAYİNİN GİDER KATEGORİLERİ (saha, 2026-11-05) — JSON dizi. null = bayi düzenlemedi, varsayılan
+  /// liste gösterilir. Çözümleme TEK yerdedir (`data/gider_kategorileri.dart`).
+  TextColumn get expenseCategoriesJson => text().nullable()();
+
   /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
   /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
   /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.

@@ -137,6 +137,9 @@ class ProfileChangeApplier
             // gerekçenin tamamı migration 004015'te. NOT NULL olduğu için varsayılan false.
             // (Anahtar HİÇ gelmediğinde varsayılana düşmez, KORUNUR — üstteki filtre kapsar.)
             'prepared_products' => (bool) ($p['prepared_products'] ?? false),
+            // GİDER KATEGORİLERİ (kullanıcı isteği 2026-11-05). null = bayi düzenlemedi, istemci
+            // varsayılan listeyi gösterir. (Anahtar HİÇ gelmediğinde KORUNUR, üstteki filtre kapsar.)
+            'expense_categories' => GiderKategorileri::dogrula($p['expense_categories'] ?? null),
         ];
     }
 

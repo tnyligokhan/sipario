@@ -57,8 +57,48 @@ extension MusteriUrunTercihi on CustomerRepository {
           occurredAt: at,
           deviceId: device,
           payload: CustomerRepository._payload(customerId, mevcut.name, mevcut.note, mevcut.blacklistedAt,
-              favoriIdleriCoz(mevcut.favoriteProductIds), metin));
+              favoriIdleriCoz(mevcut.favoriteProductIds), metin, mevcut.productPricesJson));
     });
+  }
+
+  /// Müşteriye özel birim fiyatı yazar; [kurus] null ise fiyat kaldırılır (2026-11-05).
+  /// Tercihle aynı desen: müşterinin bir ALANI, çakışma LWW ile çözülür, payload tam satırdır.
+  Future<void> musteriFiyatiKaydet(String customerId, String productId, int? kurus) async {
+    final meta = await db.syncState();
+    final at = correctedNowIso(meta.serverTimeOffsetMs);
+    final device = meta.deviceId;
+
+    await db.transaction(() async {
+      final mevcut = await (db.select(db.customers)..where((t) => t.id.equals(customerId)))
+          .getSingleOrNull();
+      if (mevcut == null) return;
+
+      final eski = MusteriFiyatlari.coz(mevcut.productPricesJson);
+      final metin = (kurus == null ? eski.haric(productId) : eski.ile(productId, kurus)).yaz();
+
+      await (db.update(db.customers)..where((t) => t.id.equals(customerId))).write(
+        CustomersCompanion(
+          productPricesJson: Value(metin),
+          updatedOccurredAt: Value(at),
+          updatedDeviceId: Value(device),
+        ),
+      );
+      await enqueueOutbox(db,
+          entityType: 'customer',
+          op: 'upsert',
+          entityId: customerId,
+          occurredAt: at,
+          deviceId: device,
+          payload: CustomerRepository._payload(customerId, mevcut.name, mevcut.note, mevcut.blacklistedAt,
+              favoriIdleriCoz(mevcut.favoriteProductIds), mevcut.productOptionsJson, metin));
+    });
+  }
+
+  /// Müşterinin özel fiyat listesi (tek atış).
+  Future<MusteriFiyatlari> musteriFiyatlariniOku(String customerId) async {
+    final m =
+        await (db.select(db.customers)..where((t) => t.id.equals(customerId))).getSingleOrNull();
+    return MusteriFiyatlari.coz(m?.productPricesJson);
   }
 
   /// Müşterinin tüm ürün tercihleri (tek atış). Bozuk/eski metinde boş harita.

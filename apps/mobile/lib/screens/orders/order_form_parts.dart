@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../data/musteri_fiyatlari.dart';
 import '../../repo/customer_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/states.dart';
@@ -40,12 +41,16 @@ class FavoriSeridi extends StatelessWidget {
     required this.db,
     required this.musteriId,
     required this.onEkle,
+    this.fiyatlar = MusteriFiyatlari.bos,
   });
 
   final AppDatabase db;
 
   /// null = müşteri henüz seçilmedi → bölüm çizilmez.
   final String? musteriId;
+
+  /// Hapta yazan tutar sepete düşecek tutarla aynı olmalı.
+  final MusteriFiyatlari fiyatlar;
 
   /// Sepete ekleme. Adet DAİMA 1'dir: "hızlı seçim"in tanımı tek dokunuştur; adet gerekiyorsa
   /// sepetteki stepper zaten oradadır.
@@ -69,7 +74,14 @@ class FavoriSeridi extends StatelessWidget {
             Wrap(
               spacing: 7,
               runSpacing: 7,
-              children: [for (final u in liste) _FavoriHapi(urun: u, onTap: () => onEkle(u))],
+              children: [
+                for (final u in liste)
+                  _FavoriHapi(
+                    urun: u,
+                    fiyatKurus: fiyatlar.birimFiyat(u.id, u.unitPriceKurus),
+                    onTap: () => onEkle(u),
+                  ),
+              ],
             ),
           ],
         );
@@ -79,9 +91,10 @@ class FavoriSeridi extends StatelessWidget {
 }
 
 class _FavoriHapi extends StatelessWidget {
-  const _FavoriHapi({required this.urun, required this.onTap});
+  const _FavoriHapi({required this.urun, required this.fiyatKurus, required this.onTap});
 
   final Product urun;
+  final int fiyatKurus;
   final VoidCallback onTap;
 
   @override
@@ -109,7 +122,7 @@ class _FavoriHapi extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 7),
-          Text(sipTutar(urun.unitPriceKurus),
+          Text(sipTutar(fiyatKurus),
               style: SipText.tutar(11.5).copyWith(color: t.ink2)),
         ],
       ),
@@ -414,11 +427,11 @@ class SiparisOzetiAdimi extends StatelessWidget {
               SdSatiri(
                 ad: satirlar[i].name,
                 // Tasarım `{r.adet} {r.birim} × {fmtTL(r.fiyat)}` (s-siparisler.jsx:390).
-                altMetin: satirlar[i].serbest
-                    ? 'tek seferlik'
-                    : '${satirlar[i].qty} ${satirlar[i].birimEtiketi} × '
-                        '${sipTutar(satirlar[i].unitPriceKurus)}',
-                tutarKurus: satirlar[i].unitPriceKurus * satirlar[i].qty,
+                altMetin: '${satirlar[i].serbest ? 'tek seferlik' : '${satirlar[i].qty} '
+                    '${satirlar[i].birimEtiketi} × ${sipTutar(satirlar[i].birimFiyat)}'}'
+                    '${satirlar[i].iskontoKurus > 0 ? ', iskonto ${sipTutar(satirlar[i].iskontoKurus)}' : ''}',
+                // Alt çubuktaki toplamla aynı formül: ekstra ve iskonto dahil.
+                tutarKurus: satirlar[i].netKurus,
                 // Satır notu ÖZETTE de görünür: kaydetmeden önceki son kontrol, notun doğru
                 // kaleme yazıldığının tek kanıtıdır.
                 not: satirlar[i].note,

@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../data/app_database.dart';
+import '../data/gider_kategorileri.dart';
 import '../data/ids.dart';
 import '../data/outbox.dart';
 import '../screens/team.dart' show KuryeIzinleri, kuryeIzinleriOku;
@@ -58,6 +61,7 @@ class TenantSettingsRepository {
     Value<String?> reminderTemplate = const Value.absent(),
     Value<String> orderCodeDisplay = const Value.absent(),
     Value<bool> preparedProducts = const Value.absent(),
+    Value<String?> expenseCategoriesJson = const Value.absent(),
     KuryeIzinleri? kuryeIzin,
   }) async {
     final meta = await db.syncState();
@@ -82,6 +86,8 @@ class TenantSettingsRepository {
     final ibanNo = al(iban, mevcut?.iban);
     final ibanAd = al(ibanOwnerName, mevcut?.ibanOwnerName);
     final sablon = al(reminderTemplate, mevcut?.reminderTemplate);
+    // Yalnız kendi ekranı bilir; başka bir ayar yazımı listeyi varsayılana çekmemeli.
+    final giderKategorileri = al(expenseCategoriesJson, mevcut?.expenseCategoriesJson);
     final kodTercihi = orderCodeDisplay.present
         ? orderCodeDisplay.value
         : (mevcut?.orderCodeDisplay ?? 'musteri');
@@ -126,6 +132,7 @@ class TenantSettingsRepository {
       'courier_can_see_all_customers': izin.tumMusteriler,
       'order_code_display': kodTercihi,
       'prepared_products': hazirlanan,
+      'expense_categories': giderKategorileri == null ? null : jsonDecode(giderKategorileri),
     };
 
     await db.transaction(() async {
@@ -160,6 +167,7 @@ class TenantSettingsRepository {
             courierCanSeeAllCustomers: Value(izin.tumMusteriler),
             orderCodeDisplay: Value(kodTercihi),
             preparedProducts: Value(hazirlanan),
+            expenseCategoriesJson: Value(giderKategorileri),
             updatedOccurredAt: Value(at),
             updatedDeviceId: Value(device),
           ));
@@ -186,6 +194,20 @@ class TenantSettingsRepository {
   /// Yalnız sipariş kodu tercihini değiştirir; profilin geri kalanına DOKUNMAZ.
   Future<void> siparisKoduTercihiKaydet(String tercih) =>
       save(orderCodeDisplay: Value(tercih));
+
+  /// Yalnız gider kategorilerini değiştirir; profilin geri kalanına DOKUNMAZ (2026-11-05).
+  Future<void> giderKategorileriKaydet(GiderKategorileri k) =>
+      save(expenseCategoriesJson: Value(k.yaz()));
+
+  /// Bayinin gider kategorileri (tek atış).
+  Future<GiderKategorileri> giderKategorileri() async =>
+      GiderKategorileri.coz((await get())?.expenseCategoriesJson);
+
+  /// Liste ekranı akışla okur: başka cihazın eklediği kategori senkronla düşünce görünsün.
+  Stream<GiderKategorileri> watchGiderKategorileri() =>
+      (db.select(db.tenantSettings)..where((t) => t.id.equals(1)))
+          .watchSingleOrNull()
+          .map((s) => GiderKategorileri.coz(s?.expenseCategoriesJson));
 
   /// Yalnız "hazırlanan ürün" yeteneğini değiştirir (2026-08-18).
   Future<void> hazirlananUrunKaydet(bool acik) => save(preparedProducts: Value(acik));

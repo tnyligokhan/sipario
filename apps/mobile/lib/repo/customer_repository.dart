@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import '../data/ad_anahtari.dart';
 import '../data/app_database.dart';
 import '../data/ids.dart';
+import '../data/musteri_fiyatlari.dart';
 import '../data/outbox.dart';
 import '../data/urun_secenekleri.dart';
 
@@ -217,7 +218,8 @@ class CustomerRepository {
           occurredAt: at,
           deviceId: device,
           payload: _payload(customerId, name, note, mevcut?.blacklistedAt,
-              favoriIdleriCoz(mevcut?.favoriteProductIds), mevcut?.productOptionsJson));
+              favoriIdleriCoz(mevcut?.favoriteProductIds), mevcut?.productOptionsJson,
+              mevcut?.productPricesJson));
     });
   }
 
@@ -251,7 +253,8 @@ class CustomerRepository {
           occurredAt: at,
           deviceId: device,
           payload: _payload(customerId, mevcut.name, mevcut.note, damga,
-              favoriIdleriCoz(mevcut.favoriteProductIds), mevcut.productOptionsJson));
+              favoriIdleriCoz(mevcut.favoriteProductIds), mevcut.productOptionsJson,
+              mevcut.productPricesJson));
     });
   }
 
@@ -292,7 +295,7 @@ class CustomerRepository {
           deviceId: device,
           payload:
               _payload(customerId, mevcut.name, mevcut.note, mevcut.blacklistedAt, favoriler,
-                  mevcut.productOptionsJson));
+                  mevcut.productOptionsJson, mevcut.productPricesJson));
     });
   }
 
@@ -330,6 +333,7 @@ class CustomerRepository {
     String? blacklistedAt,
     List<String> favoriteProductIds, [
     String? productOptionsJson,
+    String? productPricesJson,
   ]) =>
       {
         'id': id,
@@ -343,6 +347,8 @@ class CustomerRepository {
         // SATIR olarak uyguluyor; adı değiştiren bir çağrı tercihi geçmezse müşterinin bütün
         // tercihleri sessizce silinir. Aynı tuzak favori listesinde de yazılı ve bir kez ödendi.
         'product_options': productOptionsJson == null ? null : jsonDecode(productOptionsJson),
+        // MÜŞTERİYE ÖZEL FİYAT (2026-11-05): aynı kural, her çağrı yeri mevcut değeri geri gönderir.
+        'product_prices': MusteriFiyatlari.coz(productPricesJson).toJson(),
       };
 
   /// Arşivle (tombstone). Silme fiziksel değildir; deleted_at işaretlenir + outbox delete.

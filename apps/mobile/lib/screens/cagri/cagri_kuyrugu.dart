@@ -154,16 +154,17 @@ class CagriKuyrugu {
   static String cagriKayitId(String anahtar) =>
       const Uuid().v5(kCagriNamespace, 'sipario:cagri:$anahtar');
 
-  /// Native yalnız haneleri yazar; depoya E.164 biçiminde girsin diye Türkiye önekini kurar.
-  /// Tanımadığı uzunlukta numara (kısa servis numarası, yurt dışı) olduğu gibi saklanır —
-  /// eşleşme zaten `phone_last10` üzerinden yapılır, biçim yalnız gösterim içindir.
+  /// Native yalnız haneleri yazar; depoya E.164 biçiminde girsin diye öneki kurar.
+  /// En az 11 haneli öteki numaralar yurt dışıdır ve `+` alır: almazsa `sipTelefon` onu son 10
+  /// haneye kırpıp TR numarası gibi gösterirdi. Kısa servis numarası olduğu gibi saklanır.
   static String e164(String haneler) {
     if (haneler.length == 10) return '+90$haneler';
     if (haneler.length == 11 && haneler.startsWith('0')) {
       return '+90${haneler.substring(1)}';
     }
     if (haneler.length == 12 && haneler.startsWith('90')) return '+$haneler';
-    return haneler;
+    final ulkeli = haneler.startsWith('00') ? haneler.substring(2) : haneler;
+    return ulkeli.length >= 11 ? '+$ulkeli' : haneler;
   }
 }
 

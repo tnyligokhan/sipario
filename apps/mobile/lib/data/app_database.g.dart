@@ -91,6 +91,18 @@ class $CustomersTable extends Customers
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _productPricesJsonMeta = const VerificationMeta(
+    'productPricesJson',
+  );
+  @override
+  late final GeneratedColumn<String> productPricesJson =
+      GeneratedColumn<String>(
+        'product_prices_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _blacklistedAtMeta = const VerificationMeta(
     'blacklistedAt',
   );
@@ -146,6 +158,7 @@ class $CustomersTable extends Customers
     balanceKurus,
     favoriteProductIds,
     productOptionsJson,
+    productPricesJson,
     blacklistedAt,
     updatedOccurredAt,
     updatedDeviceId,
@@ -218,6 +231,15 @@ class $CustomersTable extends Customers
         productOptionsJson.isAcceptableOrUnknown(
           data['product_options_json']!,
           _productOptionsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('product_prices_json')) {
+      context.handle(
+        _productPricesJsonMeta,
+        productPricesJson.isAcceptableOrUnknown(
+          data['product_prices_json']!,
+          _productPricesJsonMeta,
         ),
       );
     }
@@ -297,6 +319,10 @@ class $CustomersTable extends Customers
         DriftSqlType.string,
         data['${effectivePrefix}product_options_json'],
       ),
+      productPricesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}product_prices_json'],
+      ),
       blacklistedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}blacklisted_at'],
@@ -374,6 +400,13 @@ class Customer extends DataClass implements Insertable<Customer> {
   /// kendisidir. Çözümleme TEK yerdedir (`data/urun_secenekleri.dart`) ve bozuk metinde çökmez.
   final String? productOptionsJson;
 
+  /// MÜŞTERİYE ÖZEL BİRİM FİYAT (saha, 2026-11-05) — JSON nesne: `{urunId: kurus}`.
+  ///
+  /// [productOptionsJson] ile aynı gerekçeyle müşterinin bir ALANIDIR. Çözümleme TEK yerdedir
+  /// (`data/musteri_fiyatlari.dart`). Fiyat sipariş anında satıra kopyalanır; bu alanın değişmesi
+  /// eski siparişleri etkilemez.
+  final String? productPricesJson;
+
   /// KARA LİSTE damgası (null = kara listede değil) — v12.
   ///
   /// `deletedAt` İLE KARIŞTIRILMAMALI, ikisi ayrı karardır: silinen müşteri listeden DÜŞER,
@@ -393,6 +426,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     required this.balanceKurus,
     this.favoriteProductIds,
     this.productOptionsJson,
+    this.productPricesJson,
     this.blacklistedAt,
     required this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -416,6 +450,9 @@ class Customer extends DataClass implements Insertable<Customer> {
     }
     if (!nullToAbsent || productOptionsJson != null) {
       map['product_options_json'] = Variable<String>(productOptionsJson);
+    }
+    if (!nullToAbsent || productPricesJson != null) {
+      map['product_prices_json'] = Variable<String>(productPricesJson);
     }
     if (!nullToAbsent || blacklistedAt != null) {
       map['blacklisted_at'] = Variable<String>(blacklistedAt);
@@ -444,6 +481,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       productOptionsJson: productOptionsJson == null && nullToAbsent
           ? const Value.absent()
           : Value(productOptionsJson),
+      productPricesJson: productPricesJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(productPricesJson),
       blacklistedAt: blacklistedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(blacklistedAt),
@@ -475,6 +515,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       productOptionsJson: serializer.fromJson<String?>(
         json['productOptionsJson'],
       ),
+      productPricesJson: serializer.fromJson<String?>(
+        json['productPricesJson'],
+      ),
       blacklistedAt: serializer.fromJson<String?>(json['blacklistedAt']),
       updatedOccurredAt: serializer.fromJson<String>(json['updatedOccurredAt']),
       updatedDeviceId: serializer.fromJson<String?>(json['updatedDeviceId']),
@@ -493,6 +536,7 @@ class Customer extends DataClass implements Insertable<Customer> {
       'balanceKurus': serializer.toJson<int>(balanceKurus),
       'favoriteProductIds': serializer.toJson<String?>(favoriteProductIds),
       'productOptionsJson': serializer.toJson<String?>(productOptionsJson),
+      'productPricesJson': serializer.toJson<String?>(productPricesJson),
       'blacklistedAt': serializer.toJson<String?>(blacklistedAt),
       'updatedOccurredAt': serializer.toJson<String>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -509,6 +553,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     int? balanceKurus,
     Value<String?> favoriteProductIds = const Value.absent(),
     Value<String?> productOptionsJson = const Value.absent(),
+    Value<String?> productPricesJson = const Value.absent(),
     Value<String?> blacklistedAt = const Value.absent(),
     String? updatedOccurredAt,
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -526,6 +571,9 @@ class Customer extends DataClass implements Insertable<Customer> {
     productOptionsJson: productOptionsJson.present
         ? productOptionsJson.value
         : this.productOptionsJson,
+    productPricesJson: productPricesJson.present
+        ? productPricesJson.value
+        : this.productPricesJson,
     blacklistedAt: blacklistedAt.present
         ? blacklistedAt.value
         : this.blacklistedAt,
@@ -553,6 +601,9 @@ class Customer extends DataClass implements Insertable<Customer> {
       productOptionsJson: data.productOptionsJson.present
           ? data.productOptionsJson.value
           : this.productOptionsJson,
+      productPricesJson: data.productPricesJson.present
+          ? data.productPricesJson.value
+          : this.productPricesJson,
       blacklistedAt: data.blacklistedAt.present
           ? data.blacklistedAt.value
           : this.blacklistedAt,
@@ -577,6 +628,7 @@ class Customer extends DataClass implements Insertable<Customer> {
           ..write('balanceKurus: $balanceKurus, ')
           ..write('favoriteProductIds: $favoriteProductIds, ')
           ..write('productOptionsJson: $productOptionsJson, ')
+          ..write('productPricesJson: $productPricesJson, ')
           ..write('blacklistedAt: $blacklistedAt, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -595,6 +647,7 @@ class Customer extends DataClass implements Insertable<Customer> {
     balanceKurus,
     favoriteProductIds,
     productOptionsJson,
+    productPricesJson,
     blacklistedAt,
     updatedOccurredAt,
     updatedDeviceId,
@@ -612,6 +665,7 @@ class Customer extends DataClass implements Insertable<Customer> {
           other.balanceKurus == this.balanceKurus &&
           other.favoriteProductIds == this.favoriteProductIds &&
           other.productOptionsJson == this.productOptionsJson &&
+          other.productPricesJson == this.productPricesJson &&
           other.blacklistedAt == this.blacklistedAt &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId &&
@@ -627,6 +681,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
   final Value<int> balanceKurus;
   final Value<String?> favoriteProductIds;
   final Value<String?> productOptionsJson;
+  final Value<String?> productPricesJson;
   final Value<String?> blacklistedAt;
   final Value<String> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -641,6 +696,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     this.balanceKurus = const Value.absent(),
     this.favoriteProductIds = const Value.absent(),
     this.productOptionsJson = const Value.absent(),
+    this.productPricesJson = const Value.absent(),
     this.blacklistedAt = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -656,6 +712,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     this.balanceKurus = const Value.absent(),
     this.favoriteProductIds = const Value.absent(),
     this.productOptionsJson = const Value.absent(),
+    this.productPricesJson = const Value.absent(),
     this.blacklistedAt = const Value.absent(),
     required String updatedOccurredAt,
     this.updatedDeviceId = const Value.absent(),
@@ -673,6 +730,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     Expression<int>? balanceKurus,
     Expression<String>? favoriteProductIds,
     Expression<String>? productOptionsJson,
+    Expression<String>? productPricesJson,
     Expression<String>? blacklistedAt,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -690,6 +748,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
         'favorite_product_ids': favoriteProductIds,
       if (productOptionsJson != null)
         'product_options_json': productOptionsJson,
+      if (productPricesJson != null) 'product_prices_json': productPricesJson,
       if (blacklistedAt != null) 'blacklisted_at': blacklistedAt,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -707,6 +766,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     Value<int>? balanceKurus,
     Value<String?>? favoriteProductIds,
     Value<String?>? productOptionsJson,
+    Value<String?>? productPricesJson,
     Value<String?>? blacklistedAt,
     Value<String>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -722,6 +782,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
       balanceKurus: balanceKurus ?? this.balanceKurus,
       favoriteProductIds: favoriteProductIds ?? this.favoriteProductIds,
       productOptionsJson: productOptionsJson ?? this.productOptionsJson,
+      productPricesJson: productPricesJson ?? this.productPricesJson,
       blacklistedAt: blacklistedAt ?? this.blacklistedAt,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -757,6 +818,9 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
     if (productOptionsJson.present) {
       map['product_options_json'] = Variable<String>(productOptionsJson.value);
     }
+    if (productPricesJson.present) {
+      map['product_prices_json'] = Variable<String>(productPricesJson.value);
+    }
     if (blacklistedAt.present) {
       map['blacklisted_at'] = Variable<String>(blacklistedAt.value);
     }
@@ -786,6 +850,7 @@ class CustomersCompanion extends UpdateCompanion<Customer> {
           ..write('balanceKurus: $balanceKurus, ')
           ..write('favoriteProductIds: $favoriteProductIds, ')
           ..write('productOptionsJson: $productOptionsJson, ')
+          ..write('productPricesJson: $productPricesJson, ')
           ..write('blacklistedAt: $blacklistedAt, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId, ')
@@ -3719,6 +3784,18 @@ class $OrderLinesTable extends OrderLines
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _discountKurusMeta = const VerificationMeta(
+    'discountKurus',
+  );
+  @override
+  late final GeneratedColumn<int> discountKurus = GeneratedColumn<int>(
+    'discount_kurus',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _lineTotalKurusMeta = const VerificationMeta(
     'lineTotalKurus',
   );
@@ -3753,6 +3830,7 @@ class $OrderLinesTable extends OrderLines
     optionsJson,
     isCustom,
     qty,
+    discountKurus,
     lineTotalKurus,
     deletedAt,
   ];
@@ -3844,6 +3922,15 @@ class $OrderLinesTable extends OrderLines
     } else if (isInserting) {
       context.missing(_qtyMeta);
     }
+    if (data.containsKey('discount_kurus')) {
+      context.handle(
+        _discountKurusMeta,
+        discountKurus.isAcceptableOrUnknown(
+          data['discount_kurus']!,
+          _discountKurusMeta,
+        ),
+      );
+    }
     if (data.containsKey('line_total_kurus')) {
       context.handle(
         _lineTotalKurusMeta,
@@ -3910,6 +3997,10 @@ class $OrderLinesTable extends OrderLines
         DriftSqlType.int,
         data['${effectivePrefix}qty'],
       )!,
+      discountKurus: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}discount_kurus'],
+      )!,
       lineTotalKurus: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}line_total_kurus'],
@@ -3962,6 +4053,10 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
   /// yeterli ayırt edici değildir (silinmiş ürünün satırı da null olabilir).
   final bool isCustom;
   final int qty;
+
+  /// SATIR İSKONTOSU (saha, 2026-11-05) — satırın tamamından düşülen kuruş.
+  /// [lineTotalKurus] bundan SONRAKİ tutardır: `unitPriceKurus * qty - discountKurus`.
+  final int discountKurus;
   final int lineTotalKurus;
   final String? deletedAt;
   const OrderLine({
@@ -3975,6 +4070,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     this.optionsJson,
     required this.isCustom,
     required this.qty,
+    required this.discountKurus,
     required this.lineTotalKurus,
     this.deletedAt,
   });
@@ -3999,6 +4095,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     }
     map['is_custom'] = Variable<bool>(isCustom);
     map['qty'] = Variable<int>(qty);
+    map['discount_kurus'] = Variable<int>(discountKurus);
     map['line_total_kurus'] = Variable<int>(lineTotalKurus);
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<String>(deletedAt);
@@ -4022,6 +4119,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           : Value(optionsJson),
       isCustom: Value(isCustom),
       qty: Value(qty),
+      discountKurus: Value(discountKurus),
       lineTotalKurus: Value(lineTotalKurus),
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
@@ -4045,6 +4143,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
       optionsJson: serializer.fromJson<String?>(json['optionsJson']),
       isCustom: serializer.fromJson<bool>(json['isCustom']),
       qty: serializer.fromJson<int>(json['qty']),
+      discountKurus: serializer.fromJson<int>(json['discountKurus']),
       lineTotalKurus: serializer.fromJson<int>(json['lineTotalKurus']),
       deletedAt: serializer.fromJson<String?>(json['deletedAt']),
     );
@@ -4063,6 +4162,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
       'optionsJson': serializer.toJson<String?>(optionsJson),
       'isCustom': serializer.toJson<bool>(isCustom),
       'qty': serializer.toJson<int>(qty),
+      'discountKurus': serializer.toJson<int>(discountKurus),
       'lineTotalKurus': serializer.toJson<int>(lineTotalKurus),
       'deletedAt': serializer.toJson<String?>(deletedAt),
     };
@@ -4079,6 +4179,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     Value<String?> optionsJson = const Value.absent(),
     bool? isCustom,
     int? qty,
+    int? discountKurus,
     int? lineTotalKurus,
     Value<String?> deletedAt = const Value.absent(),
   }) => OrderLine(
@@ -4092,6 +4193,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     optionsJson: optionsJson.present ? optionsJson.value : this.optionsJson,
     isCustom: isCustom ?? this.isCustom,
     qty: qty ?? this.qty,
+    discountKurus: discountKurus ?? this.discountKurus,
     lineTotalKurus: lineTotalKurus ?? this.lineTotalKurus,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
   );
@@ -4113,6 +4215,9 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           : this.optionsJson,
       isCustom: data.isCustom.present ? data.isCustom.value : this.isCustom,
       qty: data.qty.present ? data.qty.value : this.qty,
+      discountKurus: data.discountKurus.present
+          ? data.discountKurus.value
+          : this.discountKurus,
       lineTotalKurus: data.lineTotalKurus.present
           ? data.lineTotalKurus.value
           : this.lineTotalKurus,
@@ -4133,6 +4238,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           ..write('optionsJson: $optionsJson, ')
           ..write('isCustom: $isCustom, ')
           ..write('qty: $qty, ')
+          ..write('discountKurus: $discountKurus, ')
           ..write('lineTotalKurus: $lineTotalKurus, ')
           ..write('deletedAt: $deletedAt')
           ..write(')'))
@@ -4151,6 +4257,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
     optionsJson,
     isCustom,
     qty,
+    discountKurus,
     lineTotalKurus,
     deletedAt,
   );
@@ -4168,6 +4275,7 @@ class OrderLine extends DataClass implements Insertable<OrderLine> {
           other.optionsJson == this.optionsJson &&
           other.isCustom == this.isCustom &&
           other.qty == this.qty &&
+          other.discountKurus == this.discountKurus &&
           other.lineTotalKurus == this.lineTotalKurus &&
           other.deletedAt == this.deletedAt);
 }
@@ -4183,6 +4291,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
   final Value<String?> optionsJson;
   final Value<bool> isCustom;
   final Value<int> qty;
+  final Value<int> discountKurus;
   final Value<int> lineTotalKurus;
   final Value<String?> deletedAt;
   final Value<int> rowid;
@@ -4197,6 +4306,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     this.optionsJson = const Value.absent(),
     this.isCustom = const Value.absent(),
     this.qty = const Value.absent(),
+    this.discountKurus = const Value.absent(),
     this.lineTotalKurus = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -4212,6 +4322,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     this.optionsJson = const Value.absent(),
     this.isCustom = const Value.absent(),
     required int qty,
+    this.discountKurus = const Value.absent(),
     required int lineTotalKurus,
     this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -4232,6 +4343,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     Expression<String>? optionsJson,
     Expression<bool>? isCustom,
     Expression<int>? qty,
+    Expression<int>? discountKurus,
     Expression<int>? lineTotalKurus,
     Expression<String>? deletedAt,
     Expression<int>? rowid,
@@ -4247,6 +4359,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
       if (optionsJson != null) 'options_json': optionsJson,
       if (isCustom != null) 'is_custom': isCustom,
       if (qty != null) 'qty': qty,
+      if (discountKurus != null) 'discount_kurus': discountKurus,
       if (lineTotalKurus != null) 'line_total_kurus': lineTotalKurus,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (rowid != null) 'rowid': rowid,
@@ -4264,6 +4377,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     Value<String?>? optionsJson,
     Value<bool>? isCustom,
     Value<int>? qty,
+    Value<int>? discountKurus,
     Value<int>? lineTotalKurus,
     Value<String?>? deletedAt,
     Value<int>? rowid,
@@ -4279,6 +4393,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
       optionsJson: optionsJson ?? this.optionsJson,
       isCustom: isCustom ?? this.isCustom,
       qty: qty ?? this.qty,
+      discountKurus: discountKurus ?? this.discountKurus,
       lineTotalKurus: lineTotalKurus ?? this.lineTotalKurus,
       deletedAt: deletedAt ?? this.deletedAt,
       rowid: rowid ?? this.rowid,
@@ -4318,6 +4433,9 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
     if (qty.present) {
       map['qty'] = Variable<int>(qty.value);
     }
+    if (discountKurus.present) {
+      map['discount_kurus'] = Variable<int>(discountKurus.value);
+    }
     if (lineTotalKurus.present) {
       map['line_total_kurus'] = Variable<int>(lineTotalKurus.value);
     }
@@ -4343,6 +4461,7 @@ class OrderLinesCompanion extends UpdateCompanion<OrderLine> {
           ..write('optionsJson: $optionsJson, ')
           ..write('isCustom: $isCustom, ')
           ..write('qty: $qty, ')
+          ..write('discountKurus: $discountKurus, ')
           ..write('lineTotalKurus: $lineTotalKurus, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('rowid: $rowid')
@@ -7959,6 +8078,17 @@ class $TenantSettingsTable extends TenantSettings
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _expenseCategoriesJsonMeta =
+      const VerificationMeta('expenseCategoriesJson');
+  @override
+  late final GeneratedColumn<String> expenseCategoriesJson =
+      GeneratedColumn<String>(
+        'expense_categories_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _orderCodeDisplayMeta = const VerificationMeta(
     'orderCodeDisplay',
   );
@@ -8025,6 +8155,7 @@ class $TenantSettingsTable extends TenantSettings
     courierCanCallLog,
     courierCanSeeAllCustomers,
     preparedProducts,
+    expenseCategoriesJson,
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
@@ -8272,6 +8403,15 @@ class $TenantSettingsTable extends TenantSettings
         ),
       );
     }
+    if (data.containsKey('expense_categories_json')) {
+      context.handle(
+        _expenseCategoriesJsonMeta,
+        expenseCategoriesJson.isAcceptableOrUnknown(
+          data['expense_categories_json']!,
+          _expenseCategoriesJsonMeta,
+        ),
+      );
+    }
     if (data.containsKey('order_code_display')) {
       context.handle(
         _orderCodeDisplayMeta,
@@ -8424,6 +8564,10 @@ class $TenantSettingsTable extends TenantSettings
         DriftSqlType.bool,
         data['${effectivePrefix}prepared_products'],
       )!,
+      expenseCategoriesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}expense_categories_json'],
+      ),
       orderCodeDisplay: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}order_code_display'],
@@ -8533,6 +8677,10 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
   /// düzenleyici gizlenir. Yeniden açıldığında hepsi geri gelir.
   final bool preparedProducts;
 
+  /// BAYİNİN GİDER KATEGORİLERİ (saha, 2026-11-05) — JSON dizi. null = bayi düzenlemedi, varsayılan
+  /// liste gösterilir. Çözümleme TEK yerdedir (`data/gider_kategorileri.dart`).
+  final String? expenseCategoriesJson;
+
   /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
   /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
   /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.
@@ -8569,6 +8717,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     required this.courierCanCallLog,
     required this.courierCanSeeAllCustomers,
     required this.preparedProducts,
+    this.expenseCategoriesJson,
     required this.orderCodeDisplay,
     this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -8635,6 +8784,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       courierCanSeeAllCustomers,
     );
     map['prepared_products'] = Variable<bool>(preparedProducts);
+    if (!nullToAbsent || expenseCategoriesJson != null) {
+      map['expense_categories_json'] = Variable<String>(expenseCategoriesJson);
+    }
     map['order_code_display'] = Variable<String>(orderCodeDisplay);
     if (!nullToAbsent || updatedOccurredAt != null) {
       map['updated_occurred_at'] = Variable<String>(updatedOccurredAt);
@@ -8700,6 +8852,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       courierCanCallLog: Value(courierCanCallLog),
       courierCanSeeAllCustomers: Value(courierCanSeeAllCustomers),
       preparedProducts: Value(preparedProducts),
+      expenseCategoriesJson: expenseCategoriesJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expenseCategoriesJson),
       orderCodeDisplay: Value(orderCodeDisplay),
       updatedOccurredAt: updatedOccurredAt == null && nullToAbsent
           ? const Value.absent()
@@ -8759,6 +8914,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
         json['courierCanSeeAllCustomers'],
       ),
       preparedProducts: serializer.fromJson<bool>(json['preparedProducts']),
+      expenseCategoriesJson: serializer.fromJson<String?>(
+        json['expenseCategoriesJson'],
+      ),
       orderCodeDisplay: serializer.fromJson<String>(json['orderCodeDisplay']),
       updatedOccurredAt: serializer.fromJson<String?>(
         json['updatedOccurredAt'],
@@ -8803,6 +8961,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
         courierCanSeeAllCustomers,
       ),
       'preparedProducts': serializer.toJson<bool>(preparedProducts),
+      'expenseCategoriesJson': serializer.toJson<String?>(
+        expenseCategoriesJson,
+      ),
       'orderCodeDisplay': serializer.toJson<String>(orderCodeDisplay),
       'updatedOccurredAt': serializer.toJson<String?>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -8839,6 +9000,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     bool? courierCanCallLog,
     bool? courierCanSeeAllCustomers,
     bool? preparedProducts,
+    Value<String?> expenseCategoriesJson = const Value.absent(),
     String? orderCodeDisplay,
     Value<String?> updatedOccurredAt = const Value.absent(),
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -8880,6 +9042,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     courierCanSeeAllCustomers:
         courierCanSeeAllCustomers ?? this.courierCanSeeAllCustomers,
     preparedProducts: preparedProducts ?? this.preparedProducts,
+    expenseCategoriesJson: expenseCategoriesJson.present
+        ? expenseCategoriesJson.value
+        : this.expenseCategoriesJson,
     orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
     updatedOccurredAt: updatedOccurredAt.present
         ? updatedOccurredAt.value
@@ -8959,6 +9124,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       preparedProducts: data.preparedProducts.present
           ? data.preparedProducts.value
           : this.preparedProducts,
+      expenseCategoriesJson: data.expenseCategoriesJson.present
+          ? data.expenseCategoriesJson.value
+          : this.expenseCategoriesJson,
       orderCodeDisplay: data.orderCodeDisplay.present
           ? data.orderCodeDisplay.value
           : this.orderCodeDisplay,
@@ -9003,6 +9171,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           ..write('courierCanCallLog: $courierCanCallLog, ')
           ..write('courierCanSeeAllCustomers: $courierCanSeeAllCustomers, ')
           ..write('preparedProducts: $preparedProducts, ')
+          ..write('expenseCategoriesJson: $expenseCategoriesJson, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
@@ -9041,6 +9210,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     courierCanCallLog,
     courierCanSeeAllCustomers,
     preparedProducts,
+    expenseCategoriesJson,
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
@@ -9078,6 +9248,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           other.courierCanCallLog == this.courierCanCallLog &&
           other.courierCanSeeAllCustomers == this.courierCanSeeAllCustomers &&
           other.preparedProducts == this.preparedProducts &&
+          other.expenseCategoriesJson == this.expenseCategoriesJson &&
           other.orderCodeDisplay == this.orderCodeDisplay &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId);
@@ -9113,6 +9284,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
   final Value<bool> courierCanCallLog;
   final Value<bool> courierCanSeeAllCustomers;
   final Value<bool> preparedProducts;
+  final Value<String?> expenseCategoriesJson;
   final Value<String> orderCodeDisplay;
   final Value<String?> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -9146,6 +9318,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.courierCanCallLog = const Value.absent(),
     this.courierCanSeeAllCustomers = const Value.absent(),
     this.preparedProducts = const Value.absent(),
+    this.expenseCategoriesJson = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -9180,6 +9353,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.courierCanCallLog = const Value.absent(),
     this.courierCanSeeAllCustomers = const Value.absent(),
     this.preparedProducts = const Value.absent(),
+    this.expenseCategoriesJson = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -9214,6 +9388,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Expression<bool>? courierCanCallLog,
     Expression<bool>? courierCanSeeAllCustomers,
     Expression<bool>? preparedProducts,
+    Expression<String>? expenseCategoriesJson,
     Expression<String>? orderCodeDisplay,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -9256,6 +9431,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       if (courierCanSeeAllCustomers != null)
         'courier_can_see_all_customers': courierCanSeeAllCustomers,
       if (preparedProducts != null) 'prepared_products': preparedProducts,
+      if (expenseCategoriesJson != null)
+        'expense_categories_json': expenseCategoriesJson,
       if (orderCodeDisplay != null) 'order_code_display': orderCodeDisplay,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -9292,6 +9469,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Value<bool>? courierCanCallLog,
     Value<bool>? courierCanSeeAllCustomers,
     Value<bool>? preparedProducts,
+    Value<String?>? expenseCategoriesJson,
     Value<String>? orderCodeDisplay,
     Value<String?>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -9332,6 +9510,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       courierCanSeeAllCustomers:
           courierCanSeeAllCustomers ?? this.courierCanSeeAllCustomers,
       preparedProducts: preparedProducts ?? this.preparedProducts,
+      expenseCategoriesJson:
+          expenseCategoriesJson ?? this.expenseCategoriesJson,
       orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -9440,6 +9620,11 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     if (preparedProducts.present) {
       map['prepared_products'] = Variable<bool>(preparedProducts.value);
     }
+    if (expenseCategoriesJson.present) {
+      map['expense_categories_json'] = Variable<String>(
+        expenseCategoriesJson.value,
+      );
+    }
     if (orderCodeDisplay.present) {
       map['order_code_display'] = Variable<String>(orderCodeDisplay.value);
     }
@@ -9484,6 +9669,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
           ..write('courierCanCallLog: $courierCanCallLog, ')
           ..write('courierCanSeeAllCustomers: $courierCanSeeAllCustomers, ')
           ..write('preparedProducts: $preparedProducts, ')
+          ..write('expenseCategoriesJson: $expenseCategoriesJson, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
@@ -14606,6 +14792,7 @@ typedef $$CustomersTableCreateCompanionBuilder =
       Value<int> balanceKurus,
       Value<String?> favoriteProductIds,
       Value<String?> productOptionsJson,
+      Value<String?> productPricesJson,
       Value<String?> blacklistedAt,
       required String updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -14622,6 +14809,7 @@ typedef $$CustomersTableUpdateCompanionBuilder =
       Value<int> balanceKurus,
       Value<String?> favoriteProductIds,
       Value<String?> productOptionsJson,
+      Value<String?> productPricesJson,
       Value<String?> blacklistedAt,
       Value<String> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -14675,6 +14863,11 @@ class $$CustomersTableFilterComposer
 
   ColumnFilters<String> get productOptionsJson => $composableBuilder(
     column: $table.productOptionsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get productPricesJson => $composableBuilder(
+    column: $table.productPricesJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -14748,6 +14941,11 @@ class $$CustomersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get productPricesJson => $composableBuilder(
+    column: $table.productPricesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get blacklistedAt => $composableBuilder(
     column: $table.blacklistedAt,
     builder: (column) => ColumnOrderings(column),
@@ -14810,6 +15008,11 @@ class $$CustomersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get productPricesJson => $composableBuilder(
+    column: $table.productPricesJson,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get blacklistedAt => $composableBuilder(
     column: $table.blacklistedAt,
     builder: (column) => column,
@@ -14865,6 +15068,7 @@ class $$CustomersTableTableManager
                 Value<int> balanceKurus = const Value.absent(),
                 Value<String?> favoriteProductIds = const Value.absent(),
                 Value<String?> productOptionsJson = const Value.absent(),
+                Value<String?> productPricesJson = const Value.absent(),
                 Value<String?> blacklistedAt = const Value.absent(),
                 Value<String> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -14879,6 +15083,7 @@ class $$CustomersTableTableManager
                 balanceKurus: balanceKurus,
                 favoriteProductIds: favoriteProductIds,
                 productOptionsJson: productOptionsJson,
+                productPricesJson: productPricesJson,
                 blacklistedAt: blacklistedAt,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -14895,6 +15100,7 @@ class $$CustomersTableTableManager
                 Value<int> balanceKurus = const Value.absent(),
                 Value<String?> favoriteProductIds = const Value.absent(),
                 Value<String?> productOptionsJson = const Value.absent(),
+                Value<String?> productPricesJson = const Value.absent(),
                 Value<String?> blacklistedAt = const Value.absent(),
                 required String updatedOccurredAt,
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -14909,6 +15115,7 @@ class $$CustomersTableTableManager
                 balanceKurus: balanceKurus,
                 favoriteProductIds: favoriteProductIds,
                 productOptionsJson: productOptionsJson,
+                productPricesJson: productPricesJson,
                 blacklistedAt: blacklistedAt,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -16267,6 +16474,7 @@ typedef $$OrderLinesTableCreateCompanionBuilder =
       Value<String?> optionsJson,
       Value<bool> isCustom,
       required int qty,
+      Value<int> discountKurus,
       required int lineTotalKurus,
       Value<String?> deletedAt,
       Value<int> rowid,
@@ -16283,6 +16491,7 @@ typedef $$OrderLinesTableUpdateCompanionBuilder =
       Value<String?> optionsJson,
       Value<bool> isCustom,
       Value<int> qty,
+      Value<int> discountKurus,
       Value<int> lineTotalKurus,
       Value<String?> deletedAt,
       Value<int> rowid,
@@ -16344,6 +16553,11 @@ class $$OrderLinesTableFilterComposer
 
   ColumnFilters<int> get qty => $composableBuilder(
     column: $table.qty,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get discountKurus => $composableBuilder(
+    column: $table.discountKurus,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16417,6 +16631,11 @@ class $$OrderLinesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get discountKurus => $composableBuilder(
+    column: $table.discountKurus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get lineTotalKurus => $composableBuilder(
     column: $table.lineTotalKurus,
     builder: (column) => ColumnOrderings(column),
@@ -16473,6 +16692,11 @@ class $$OrderLinesTableAnnotationComposer
   GeneratedColumn<int> get qty =>
       $composableBuilder(column: $table.qty, builder: (column) => column);
 
+  GeneratedColumn<int> get discountKurus => $composableBuilder(
+    column: $table.discountKurus,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get lineTotalKurus => $composableBuilder(
     column: $table.lineTotalKurus,
     builder: (column) => column,
@@ -16523,6 +16747,7 @@ class $$OrderLinesTableTableManager
                 Value<String?> optionsJson = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 Value<int> qty = const Value.absent(),
+                Value<int> discountKurus = const Value.absent(),
                 Value<int> lineTotalKurus = const Value.absent(),
                 Value<String?> deletedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -16537,6 +16762,7 @@ class $$OrderLinesTableTableManager
                 optionsJson: optionsJson,
                 isCustom: isCustom,
                 qty: qty,
+                discountKurus: discountKurus,
                 lineTotalKurus: lineTotalKurus,
                 deletedAt: deletedAt,
                 rowid: rowid,
@@ -16553,6 +16779,7 @@ class $$OrderLinesTableTableManager
                 Value<String?> optionsJson = const Value.absent(),
                 Value<bool> isCustom = const Value.absent(),
                 required int qty,
+                Value<int> discountKurus = const Value.absent(),
                 required int lineTotalKurus,
                 Value<String?> deletedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -16567,6 +16794,7 @@ class $$OrderLinesTableTableManager
                 optionsJson: optionsJson,
                 isCustom: isCustom,
                 qty: qty,
+                discountKurus: discountKurus,
                 lineTotalKurus: lineTotalKurus,
                 deletedAt: deletedAt,
                 rowid: rowid,
@@ -18047,6 +18275,7 @@ typedef $$TenantSettingsTableCreateCompanionBuilder =
       Value<bool> courierCanCallLog,
       Value<bool> courierCanSeeAllCustomers,
       Value<bool> preparedProducts,
+      Value<String?> expenseCategoriesJson,
       Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -18082,6 +18311,7 @@ typedef $$TenantSettingsTableUpdateCompanionBuilder =
       Value<bool> courierCanCallLog,
       Value<bool> courierCanSeeAllCustomers,
       Value<bool> preparedProducts,
+      Value<String?> expenseCategoriesJson,
       Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -18238,6 +18468,11 @@ class $$TenantSettingsTableFilterComposer
 
   ColumnFilters<bool> get preparedProducts => $composableBuilder(
     column: $table.preparedProducts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get expenseCategoriesJson => $composableBuilder(
+    column: $table.expenseCategoriesJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18411,6 +18646,11 @@ class $$TenantSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get expenseCategoriesJson => $composableBuilder(
+    column: $table.expenseCategoriesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get orderCodeDisplay => $composableBuilder(
     column: $table.orderCodeDisplay,
     builder: (column) => ColumnOrderings(column),
@@ -18563,6 +18803,11 @@ class $$TenantSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get expenseCategoriesJson => $composableBuilder(
+    column: $table.expenseCategoriesJson,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get orderCodeDisplay => $composableBuilder(
     column: $table.orderCodeDisplay,
     builder: (column) => column,
@@ -18641,6 +18886,7 @@ class $$TenantSettingsTableTableManager
                 Value<bool> courierCanCallLog = const Value.absent(),
                 Value<bool> courierCanSeeAllCustomers = const Value.absent(),
                 Value<bool> preparedProducts = const Value.absent(),
+                Value<String?> expenseCategoriesJson = const Value.absent(),
                 Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -18674,6 +18920,7 @@ class $$TenantSettingsTableTableManager
                 courierCanCallLog: courierCanCallLog,
                 courierCanSeeAllCustomers: courierCanSeeAllCustomers,
                 preparedProducts: preparedProducts,
+                expenseCategoriesJson: expenseCategoriesJson,
                 orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -18709,6 +18956,7 @@ class $$TenantSettingsTableTableManager
                 Value<bool> courierCanCallLog = const Value.absent(),
                 Value<bool> courierCanSeeAllCustomers = const Value.absent(),
                 Value<bool> preparedProducts = const Value.absent(),
+                Value<String?> expenseCategoriesJson = const Value.absent(),
                 Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -18742,6 +18990,7 @@ class $$TenantSettingsTableTableManager
                 courierCanCallLog: courierCanCallLog,
                 courierCanSeeAllCustomers: courierCanSeeAllCustomers,
                 preparedProducts: preparedProducts,
+                expenseCategoriesJson: expenseCategoriesJson,
                 orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,

@@ -22,6 +22,7 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../money.dart';
 import '../orders/musteri_eylemleri.dart';
+import '../orders/musteri_numara_secici.dart';
 import '../orders/order_form_screen.dart';
 import '../orders/order_queries.dart';
 import '../team.dart';
@@ -34,6 +35,7 @@ import 'customer_location_picker.dart';
 import 'customer_sheets.dart';
 import 'customer_widgets.dart';
 import 'musteri_favorileri.dart';
+import 'musteri_ozel_fiyatlari.dart';
 import 'musteri_urun_tercihleri.dart';
 import 'musteri_siparisleri.dart';
 
@@ -44,6 +46,7 @@ class CustomerDetailScreen extends StatefulWidget {
     required this.customerId,
     required this.writable,
     required this.yetki,
+    this.arayanNumara,
   });
 
   final AppDatabase db;
@@ -67,6 +70,10 @@ class CustomerDetailScreen extends StatefulWidget {
   /// HATASINA çevirir: bu ekrana yeni bir giriş noktası açan kişi yetkiyi düşünmek zorunda kalır.
   /// Tam yetkili görünüm isteyen çağıran `yetkiler(rol: 'patron', atamaHedefiVar: true)` geçer.
   final RolYetkileri yetki;
+
+  /// Kart bir çağrıdan açıldıysa o çağrının numarası (2026-11-05). Başlık ve Ara/WhatsApp bu
+  /// numarayı kullanır; verilmezse başlıkta birincil numara yazar, düğmeler numara sorar.
+  final String? arayanNumara;
 
   @override
   State<CustomerDetailScreen> createState() => _CustomerDetailScreenState();
@@ -311,7 +318,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
   }
 
   Widget _govde(Customer c, List<CustomerPhone> telefonlar, CustomerAddressesData? adres) {
-    final tel = telefonlar.isEmpty ? '' : sipTelefon(telefonlar.first.phoneE164);
+    final gosterilen = musteriNumarasiBul(telefonlar, widget.arayanNumara) ?? telefonlar.firstOrNull;
+    final tel = gosterilen == null ? '' : sipTelefon(gosterilen.phoneE164);
+    final numaraSecici = MusteriNumaraSecici(
+      db: widget.db,
+      customerId: widget.customerId,
+      arayanNumara: widget.arayanNumara,
+    );
     final konumVar = adres?.lat != null && adres?.lng != null;
     final koordinat = konumVar ? konumMetni(adres!.lat!, adres.lng!) : null;
     final not = c.note;
@@ -352,12 +365,12 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     koordinat: koordinat,
                     onKonumAl: () => _konumAl(adres),
                     konumCalisiyor: _konumCalisiyor,
-                    onAra: () => _eylem(() => musteriyiAra(telefonlar.firstOrNull?.phoneE164)),
+                    onAra: () => _eylem(() => numaraSecici.ara(context)),
                     onWhatsapp: () => _eylem(() async {
                       if (!(widget.yetki.borcHatirlatma)) {
                         return 'Borç hatırlatma yetkisi kapalıdır';
                       }
-                      return whatsappAc(telefonlar.firstOrNull?.phoneE164);
+                      return numaraSecici.whatsapp(context);
                     }),
                     onKonum: () => _eylem(
                       () => konumuHaritadaAc(_adresBilgisi(adres), etiket: c.name),
@@ -409,6 +422,13 @@ class _CustomerDetailScreenState extends State<CustomerDetailScreen> {
                     customerId: widget.customerId,
                     yazabilir: () => _yazabilir(izin: widget.yetki.musteriDuzenleme),
                   ),
+                  // ÖZEL FİYATLAR (2026-11-05): yalnız fiyat yetkisi olana çizilir.
+                  if (widget.yetki.urunYonetimi)
+                    MusteriOzelFiyatlari(
+                      db: widget.db,
+                      customerId: widget.customerId,
+                      yazabilir: () => _yazabilir(izin: widget.yetki.urunYonetimi),
+                    ),
                   // SİPARİŞ GEÇMİŞİ — `gecmisTeslimatlariGorme` kapısının ARKASINDA. Bu ekran o
                   // kapıyı atlasaydı, geçmiş gün teslimatları kapalı olan kurye aynı bilgiyi
                   // müşteri kartından okurdu; yarısı kapalı bir kapı hiç kapı değildir.

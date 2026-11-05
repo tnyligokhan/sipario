@@ -51,6 +51,25 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '1.15.0',
+    tarih: '5 Kasım 2026',
+    maddeler: [
+      'Müşteriye yabancı numara ekleyebilirsiniz, numarayı +49 gibi ülke koduyla yazın',
+      'İki numarası olan müşteri ikinci numaradan aradığında kart o numarayla açılıyor, Ara ve '
+          'WhatsApp düğmeleri hangi numarayı kullanacağınızı soruyor',
+      'Sipariş girerken sepetteki ürüne tutar ya da yüzde olarak iskonto ekleyebilirsiniz',
+      'Müşteri kartından bir ürüne o müşteriye özel tutar tanımlayabilirsiniz, sipariş girerken '
+          'bu tutar kendiliğinden gelir',
+      'Gider kategorilerini menüden kendiniz ekleyip silebilirsiniz',
+      'Alt menüdeki artı düğmesine Gider Ekle seçeneği geldi',
+      'Menüde Ürünler, Kuryeler, Muaf Numaralar ve Gider Kategorileri, açılıp kapanan '
+          'Tanımlamalar başlığında toplandı',
+      'Borç hatırlatma mesajı yenilendi, bakiye ve son hareket bilgilerini kurumsal bir dille '
+          'içeriyor',
+      'Geri tuşuyla ana ekrana dönüp bir kez daha bastığınızda uygulamadan çıkılsın mı diye soruluyor',
+    ],
+  ),
+  SurumNotu(
     surum: '1.14.3',
     tarih: '30 Eylül 2026',
     maddeler: [

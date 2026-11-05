@@ -50,36 +50,24 @@ extension _GunSonuEylemleri on _DayEndScreenState {
   /// ⚠️ YETKİ KAPISI ÇİFTTİR (K2 pazarlıksız): düğme zaten çizilmedi, eylem yine sorar.
   Future<void> _giderEkle(List<User> kuryeler, GunSonuGorunumu g) async {
     if (!_giderEkleyebilir(g)) return;
-    final harcayan = _kuryeId ?? widget.kullaniciId;
-
-    final sonuc = await giderSheet(
-      context,
+    final sonuc = await GiderAkisi(
+      db: widget.db,
       kapsamAdi: _kuryeId == null ? 'Gün' : _kapsamAdi(kuryeler),
+      harcayanId: _kuryeId ?? widget.kullaniciId,
       // Kapsamda ŞU AN görünen nakit — yalnız "bu tutar kasadakinden fazla" uyarısı için.
       // Kayda giden hiçbir rakam bundan türemez.
       mevcutNakit: g.kapsam.kasa.netNakit,
-    );
-    if (sonuc == null || !mounted) return;
-
-    // ÜÇÜNCÜ KAPI REPODA (ara tahsilattaki desenin aynısı): sheet AÇIKKEN senkron başka bir
-    // cihazdan gelen kapanışı indirebilir ve o an ekranın bildiği durum bayattır. Mesaj repo'dan
-    // geldiği gibi basılır — NE olduğunu bilirken "bir şeyler ters gitti" demek bilgi saklamaktır.
-    try {
-      await GiderRepository(widget.db).ekle(
-        kurus: sonuc.kurus,
-        aciklama: sonuc.aciklama,
-        harcayanId: harcayan,
-      );
-    } on StateError catch (e) {
-      if (!mounted) return;
-      SipToast.goster(context, e.message);
-      _tazele(); // ekranı gerçeğe döndür: kapanmış kapsam artık kilitli görünsün
-      return;
-    }
+    ).calistir(context);
     if (!mounted) return;
 
-    SipToast.goster(context, '${sipTutar(sonuc.kurus)} gider kaydedildi');
-    _giderTazele();
+    switch (sonuc) {
+      case GiderAkisiSonucu.vazgecildi:
+        return;
+      case GiderAkisiSonucu.kaydedildi:
+        _giderTazele();
+      case GiderAkisiSonucu.engellendi:
+        _tazele(); // ekranı gerçeğe döndür: kapanmış kapsam artık kilitli görünsün
+    }
   }
 
   /// Bir gideri İPTAL eder. Kayıt SİLİNMEZ — repo ters işaretli ikinci bir gider satırı yazar

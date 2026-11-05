@@ -171,6 +171,7 @@ class _Liste extends StatelessWidget {
                       isletmeAdi: ayar?.businessName,
                       ibanAliciAdi: ayar?.ibanOwnerName,
                       sablon: ayar?.reminderTemplate,
+                      isletmeTelefonu: ayar?.phone,
                     )),
                   ),
                 ),

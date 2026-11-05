@@ -257,6 +257,9 @@ class ChangeApplier
                 // mevcut değer KORUNUR. Koruma pazarlıksız — alanı bilmeyen bir build müşterinin
                 // adını düzeltirken bütün tercihlerini silerdi ve bunu kimse görmezdi.
                 'product_options' => UrunSecenekleri::tercihler($p['product_options'] ?? null),
+                // MÜŞTERİYE ÖZEL FİYAT (kullanıcı isteği 2026-11-05). Aynı sözleşme: anahtar HİÇ
+                // YOKSA mevcut değer KORUNUR; alanı bilmeyen bir build fiyatları silemez.
+                'product_prices' => MusteriFiyatlari::dogrula($p['product_prices'] ?? null),
             ] + $this->aktarimKodu($p, $event),
             'customer_phone' => [
                 'customer_id' => SyncPayload::req($p, 'customer_id'),

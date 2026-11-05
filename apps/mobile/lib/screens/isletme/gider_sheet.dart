@@ -5,10 +5,10 @@
 // para çekmeceden çıkarken yazılmalı. Kaydın doğduğu yer ile okunduğu yer aynı ekrandır.
 //
 // NEDEN TUTAR + AÇIKLAMA, DAHA FAZLASI DEĞİL: bu bir kâr-zarar defteri değil, bir KASA
-// düzeltmesidir. Kategori kolonu, KDV, fiş görseli ve aylık gider raporu ayrı bir üründür ve
-// hiçbiri "akşam kasa tutmuyor" sorununu çözmez. Sık kullanılan başlıklar hazır dokunuşlar
-// olarak duruyor ama yazdıkları şey yine serbest açıklamadır — şemaya bir alan eklemeden, ve
-// bayinin kendi kelimesini kullanmasına engel olmadan.
+// düzeltmesidir. KDV, fiş görseli ve aylık gider raporu ayrı bir üründür ve hiçbiri "akşam kasa
+// tutmuyor" sorununu çözmez. Kategoriler hazır dokunuşlar olarak duruyor (bayi kendi listesini
+// Gider Kategorileri ekranından kurar, 2026-11-05) ama yazdıkları şey yine serbest açıklamadır:
+// defter satırına alan eklemeden, ve bayinin kendi kelimesini kullanmasına engel olmadan.
 //
 // TUTAR ZORUNLU, AÇIKLAMA DEĞİL: "200 ₺ çıktı" kasa için tamamlanmış bir bilgidir; ne olduğunu
 // yazmayan bayiyi kaydı hiç girmemeye itmek, kasayı açıklanamaz bırakmaktan kötüdür.
@@ -16,6 +16,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../data/gider_kategorileri.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
 import '../../theme/icons.dart';
@@ -33,31 +34,23 @@ class GiderSonucu {
   final String aciklama;
 }
 
-/// Sık kullanılan gider başlıkları — dokunuş açıklama alanını DOLDURUR, kilitlemez.
-///
-/// Sabit bir kategori LİSTESİ değildir ve olmamalı: her bayinin gideri kendine benzer (su
-/// bayiinde "damacana tamiri", dönercide "kömür") ve kapalı bir liste, listede olmayan gideri
-/// "Diğer"e sürerdi — yani en çok açıklama gereken kayıt en az açıklamalı olurdu.
-const List<String> kGiderKisayollari = [
-  'Yakıt',
-  'Tamir',
-  'Yemek',
-  'Nakliye',
-  'Personel avansı',
-];
-
 /// Kasadan nakit çıkışı kaydeder. [kapsamAdi] parayı kimin kasasından çıktığını söyler
 /// (gün hesabında "Kasa", kişi kapsamında o kişinin adı) — kayıt o kişiye yazılacağı için
 /// bayi bunu ONAYLAMADAN önce görmeli.
 Future<GiderSonucu?> giderSheet(
   BuildContext context, {
   required String kapsamAdi,
-  required int mevcutNakit,
+  int? mevcutNakit,
+  GiderKategorileri kategoriler = GiderKategorileri.varsayilan,
 }) {
   return sipSheet<GiderSonucu>(
     context,
     baslik: 'Gider Ekle',
-    govde: (ctx) => _GiderGovdesi(kapsamAdi: kapsamAdi, mevcutNakit: mevcutNakit),
+    govde: (ctx) => _GiderGovdesi(
+      kapsamAdi: kapsamAdi,
+      mevcutNakit: mevcutNakit,
+      kategoriler: kategoriler,
+    ),
   );
 }
 
@@ -85,12 +78,20 @@ Future<bool> giderIptalOnayi(
 }
 
 class _GiderGovdesi extends StatefulWidget {
-  const _GiderGovdesi({required this.kapsamAdi, required this.mevcutNakit});
+  const _GiderGovdesi({
+    required this.kapsamAdi,
+    required this.mevcutNakit,
+    required this.kategoriler,
+  });
 
   final String kapsamAdi;
 
-  /// Kapsamda ŞU AN görünen nakit — girilen tutarın anlık karşılaştırması için.
-  final int mevcutNakit;
+  /// Kapsamda ŞU AN görünen nakit — girilen tutarın anlık karşılaştırması için. Alt menüden
+  /// açılışta bilinmez (null) ve uyarı çizilmez.
+  final int? mevcutNakit;
+
+  /// Dokunuşla açıklamayı dolduran kategoriler; dokunuş DOLDURUR, kilitlemez.
+  final GiderKategorileri kategoriler;
 
   @override
   State<_GiderGovdesi> createState() => _GiderGovdesiState();
@@ -123,6 +124,7 @@ class _GiderGovdesiState extends State<_GiderGovdesi> {
   @override
   Widget build(BuildContext context) {
     final kurus = _kurus;
+    final nakit = widget.mevcutNakit;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -151,7 +153,7 @@ class _GiderGovdesiState extends State<_GiderGovdesi> {
         // olabilir (kurye kendi cebinden ödeyip kasadan almış, ya da bir tahsilat henüz
         // senkronla inmemiş). Engellemek, olmuş bir olayı deftere yazdırmamak olurdu — BRIEF'in
         // "eksik para kanıt olarak görünür kalmalı" kuralının tersi.
-        if (kurus != null && kurus > widget.mevcutNakit)
+        if (kurus != null && nakit != null && kurus > nakit)
           const AlanNotu(
             'Bu tutar kasada görünen nakitten fazla; yine de kaydedilir',
             tur: AlanNotuTuru.uyari,
@@ -170,7 +172,7 @@ class _GiderGovdesiState extends State<_GiderGovdesi> {
             spacing: SipSpace.md,
             runSpacing: SipSpace.md,
             children: [
-              for (final ad in kGiderKisayollari)
+              for (final ad in widget.kategoriler.adlar)
                 _Kisayol(
                   etiket: ad,
                   secili: _aciklama.text.trim() == ad,

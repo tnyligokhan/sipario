@@ -10,7 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/app_database.dart';
+import '../../data/musteri_fiyatlari.dart';
 import '../../data/urun_secenekleri.dart';
+import '../../repo/customer_repository.dart';
 import '../../repo/order_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
@@ -33,6 +35,7 @@ class DuzenSatiri {
     this.unit,
     this.serbestBayrak = false,
     this.note,
+    this.iskontoKurus = 0,
   });
 
   final String? lineId;
@@ -52,7 +55,17 @@ class DuzenSatiri {
   int adet;
 
   bool get serbest => serbestBayrak || productId == null;
-  int get tutar => birimFiyatKurus * adet;
+
+  /// SATIR İSKONTOSU. Adet değişimi satırı yeniden eklediği için burada taşınır; taşınmasaydı
+  /// adedi artıran bayi iskontoyu sessizce kaybederdi. Adet azalınca satırı aşmasın diye kırpılır.
+  final int iskontoKurus;
+
+  int get uygulananIskonto {
+    final brut = birimFiyatKurus * adet;
+    return iskontoKurus > brut ? brut : iskontoKurus;
+  }
+
+  int get tutar => birimFiyatKurus * adet - uygulananIskonto;
 }
 
 /// Sheet'i açar. Kaydedilirse `true` döner (çağıran taraf bildirim gösterir).
@@ -90,8 +103,28 @@ class _DuzenGovdeState extends State<_DuzenGovde> {
             unit: l.unit,
             serbestBayrak: l.isCustom,
             adet: l.qty,
+            iskontoKurus: l.discountKurus,
           ))
       .toList();
+
+  /// Siparişin müşterisinin özel fiyatları; düzenlemede eklenen ürün de bu fiyatla girer.
+  MusteriFiyatlari _fiyatlar = MusteriFiyatlari.bos;
+
+  @override
+  void initState() {
+    super.initState();
+    _fiyatlariOku();
+  }
+
+  Future<void> _fiyatlariOku() async {
+    final db = widget.db;
+    final siparis = await (db.select(db.orders)..where((t) => t.id.equals(widget.orderId)))
+        .getSingleOrNull();
+    final musteriId = siparis?.customerId;
+    if (musteriId == null) return;
+    final fiyatlar = await CustomerRepository(db).musteriFiyatlariniOku(musteriId);
+    if (mounted) setState(() => _fiyatlar = fiyatlar);
+  }
 
   final _sbAd = TextEditingController();
   final _sbTutar = TextEditingController();
@@ -161,6 +194,7 @@ class _DuzenGovdeState extends State<_DuzenGovde> {
               unit: kalan.unit,
               isCustom: kalan.serbest,
               qty: kalan.adet,
+              iskontoKurus: kalan.uygulananIskonto,
             ),
           );
         }
@@ -201,7 +235,7 @@ class _DuzenGovdeState extends State<_DuzenGovde> {
         _taslak.add(DuzenSatiri(
           productId: u.id,
           ad: u.name,
-          birimFiyatKurus: u.unitPriceKurus,
+          birimFiyatKurus: _fiyatlar.birimFiyat(u.id, u.unitPriceKurus),
           unit: u.unit,
           adet: adet,
         ));
@@ -265,7 +299,8 @@ class _DuzenGovdeState extends State<_DuzenGovde> {
         YsEkleDugmesi(
           etiket: 'Katalogdan ürün ekle',
           ikon: SipIcons.plus,
-          onTap: () => posKatalogAc(context, db: widget.db, onEkle: _urunEkle),
+          onTap: () =>
+              posKatalogAc(context, db: widget.db, onEkle: _urunEkle, fiyatlar: _fiyatlar),
         ),
         const SdxSec('Serbest Satır Ekle'),
         // .sdx-sb — açıklama + tutar + Ekle, tek satır.
