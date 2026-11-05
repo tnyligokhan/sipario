@@ -269,7 +269,34 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.14.1**, API 1.24.0 → **1.28.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-11-05 — **SAHA LİSTESİ, DOKUZ MADDE TEK PAKET** (mobil 1.14.3 → **1.15.0**, API 1.28.0 → **1.29.0**, şema v30)
+
+Gerekçeler DECISIONS.md 2026-11-05/1-5.
+
+| # | Madde | Yapılan |
+|---|---|---|
+| 1 | Yabancı numara eklenemiyor | `TelefonNumarasi` tek kapı (form + muaf + gösterim + çağrı kuyruğu + native kart). Ülke koduyla yazılmalı |
+| 2 | İkinci numara | Kök neden müşteri kartı. Çağrıdan açılan kart arayan numarayı kullanır; birden çok numarada Ara/WhatsApp sorar (`MusteriNumaraSecici`) |
+| 3 | Ürün eklerken iskonto | Sepet satırında tutar ya da yüzde, `order_lines.discount_kurus` |
+| 4 | Müşteriye özel fiyat | Müşteri kartında Özel Fiyatlar, `customers.product_prices`; sipariş ve düzenlemede otomatik |
+| 5 | Gider kategorileri | Gider Kategorileri ekranı, `tenant_settings.expense_categories` |
+| 6 | + menüsünde gider | Gider Ekle, `GiderAkisi` (Gün Özeti ile ortak) |
+| 7 | Tanımlamalar | Çekmecede katlanır grup, kapalı başlar |
+| 8 | Borç hatırlatma | Kurumsal varsayılan, beş yeni yer tutucu |
+| 9 | Geri tuşu | Çekmece → ana sekme → çıkış sorusu |
+
+**KAPILAR (bizzat ölçüldü):** `flutter analyze` temiz · `flutter test` **1773/1773** (taban 1743) · API tam takım **1049/1049** · pint temiz · phpstan 0 · `:app:compileSahaReleaseKotlin` derlendi. Release APK derlenmedi (paket dokunuşu yok, CI derler).
+
+⚠️ **DEPLOY SIRASI: API ÖNCE, göç `2026_11_05_000101` owner ile.** API güncellenmeden yeni APK kullanılırsa sunucu `discount_kurus`u yok sayar, satır tam tutarla yazılır ve telefondaki iskonto ilk senkronda kaybolur.
+
+#### ⚠️ AÇIK İŞ
+
+- Hiçbir değişiklik **gerçek cihazda görülmedi**; yalnız widget testleri. Özellikle sepet satırındaki İskonto dokunuşunun dar ekrandaki boyutu ve native kartta yabancı numara.
+- Harita özetindeki Ara düğmesi birincil numarayı kullanıyor; numara seçimi oraya bağlanmadı.
+- Gider kategorileri etiket; kategori bazlı gider raporu yok.
+- Sipariş düzenleme sheet'inde adet değişince satır notu ve seçim taşınmıyor (eski kusur, bu pakette dokunulmadı; iskonto taşınıyor). Düzenlemede var olan satıra iskonto eklenemiyor.
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.14.1**, API 1.24.0 → **1.28.0**)
 
 > **EK (2026-09-30, CI — sürüm değişmedi, DECISIONS 2026-09-30/2):** `mobil-apk.yml`
 > paralelleşti: test 3 parça + derleme aynı anda, yayın ikisini bekler; Gradle önbelleği eklendi.
