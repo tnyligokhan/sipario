@@ -288,7 +288,7 @@ Gerekçeler DECISIONS.md 2026-11-06/5.
 
 #### 🔴 ÜRETİMDE PUSH KAPALI (2026-11-06, ÖLÇÜLDÜ)
 
-Kuyruk günlüğü: `Push atlandı: FCM yapılandırılmamış {"olay":"yeni_surum"}`. Coolify'da `FCM_HIZMET_HESABI` anahtarı üretimde VAR ama değeri BOŞ (`docker exec … printenv | wc -c` → app ve queue 1 bayt, yani yalnız satır sonu). Test sunucusunda dolu (3173 bayt). Sonuç: üretimde sürüm bildirimi dahil HİÇBİR sunucu dürtüsü gitmiyor (sipariş atama, iptal, teslim, kasa devri, yeni cihaz). Değerin ne zamandan beri boş olduğu ölçülmedi. Çare: üretimdeki değeri doldur, ardından yeniden dağıt (env tanımlamak koşan kaba geçmez). Yeniden dağıtım kullanıcı kararı bekliyor.
+Kuyruk günlüğü: `Push atlandı: FCM yapılandırılmamış {"olay":"yeni_surum"}`. Coolify'da `FCM_HIZMET_HESABI` anahtarı üretimde VAR ama değeri BOŞ (`docker exec … printenv | wc -c` → app ve queue 1 bayt, yani yalnız satır sonu). Test sunucusunda dolu (3173 bayt). Sonuç: üretimde sürüm bildirimi dahil HİÇBİR sunucu dürtüsü gitmiyor (sipariş atama, iptal, teslim, kasa devri, yeni cihaz). Değerin ne zamandan beri boş olduğu ölçülmedi. Çare: üretimdeki değeri doldur, ardından yeniden dağıt (env tanımlamak koşan kaba geçmez). Test sunucusundaki değerin `sipario-acd9e` hizmet hesabı olduğu doğrulandı, yani üretime aynen kopyalanabilir. Kopyalama izin katmanında engellendi (gizli anahtar deposuna yazma), değeri Coolify panelinden kullanıcı girecek. Sonra `dev` → `main` birleştirilir: bu birleştirme üretimi yeniden dağıtır ve `SURUM_KANALI` compose satırını da taşır. Kanıt kuyruk günlüğünde `Push gönderildi` satırıdır.
 
 #### ⚠️ AÇIK İŞ
 
@@ -296,7 +296,7 @@ Kuyruk günlüğü: `Push atlandı: FCM yapılandırılmamış {"olay":"yeni_sur
 - Karantina dökümü ekranı hâlâ yok (`onKarantina` null). Yeniden deneme sonrası kalan kayıt yine "destek ekibiyle görüşün" der.
 - Android bazı üreticilerde kapatılmaya zorlanmış uygulamaya FCM iletmez, sürüm bildirimi de onlarda gelmez. Hiçbir değişiklik **gerçek cihazda görülmedi**.
 - Süreç canlı, uygulama arka planda ve son 15 dakikada kontrol yapılmışsa bildirime dokunmak bandı en çok 15 dakika geciktirir.
-- Test sunucusu (`test.sipario.com.tr`) VAR ve `SURUM_KANALI=test` tanımlı DEĞİL: orada `surum:duyur` saha sürümüne bakıyor, test kanalının yeni yapımları dürtü üretmez. Zararsız, ama test telefonunda sürüm bildirimi denenecekse tanımlanmalı.
+- Test sunucusunda `SURUM_KANALI=test` tanımlandı, compose bu değişkeni kaplara geçiriyor (`dev`). Üretim varsayılanı `saha`.
 - Bir önceki notun açık işleri duruyor.
 
 ---
