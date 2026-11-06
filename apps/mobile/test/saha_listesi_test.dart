@@ -214,8 +214,8 @@ void main() {
 
     test('varsayılan metin kapsamlıdır ve kurumsal dille kapanır', () {
       final m = mesaj();
-      expect(m, startsWith('Sayın Ahmet,\n\n05.11.2026 tarihi itibarıyla'));
-      expect(m, contains('Güncel bakiyeniz: 250,00 ₺\n'));
+      expect(m, startsWith('Sayın Ahmet,\n\nMerkez Su olarak bize duyduğunuz güven'));
+      expect(m, contains('05.11.2026 tarihi itibarıyla cari hesabınızda 250,00 ₺ tutarında'));
       expect(m, contains('Ödenmemiş sipariş: 3 adet\n'));
       expect(m, contains('Son sipariş tarihi: 01.11.2026\n'));
       expect(m, contains('Son ödemeniz: 20.10.2026, 500,00 ₺\n'));
@@ -234,14 +234,14 @@ void main() {
       );
       expect(m, isNot(contains('Son ödemeniz')));
       expect(m, isNot(contains('sorularınız')));
-      expect(m, contains('Güncel bakiyeniz: 250,00 ₺\n\nÖdemenizi aşağıdaki'));
-      expect(m, contains('dikkate almayınız.\n\nİş birliğiniz'));
+      expect(m, contains('bulunmaktadır.\n\nÖdemenizi aşağıdaki'));
+      expect(m, contains('rica ederiz.\n\nSaygılarımızla'));
       expect(m, isNot(contains('\n\n\n')));
     });
 
     test('IBAN yokken ödeme cümlesi, ad yokken "Sayın ," yazılmaz', () {
       expect(mesaj(iban: null), isNot(contains('aşağıdaki hesaba')));
-      expect(mesaj(ad: ' '), startsWith('Merhaba,\n'));
+      expect(mesaj(ad: ' '), startsWith('Sayın Müşterimiz,\n'));
     });
 
     test('eski varsayılanı değiştirmeden kaydetmiş bayi yeni metne geçer, kendi metni kalır', () {
@@ -251,7 +251,27 @@ void main() {
           '*ibanodemebilgileri*\n'
           '\n'
           'Teşekkür ederiz.';
+      const surum1150 = 'Sayın *musteriadi*,\n'
+          '\n'
+          '*tarih* tarihi itibarıyla cari hesabınıza ilişkin bilgilendirmemiz aşağıdadır.\n'
+          '\n'
+          'Güncel bakiyeniz: *siparistutar*\n'
+          'Ödenmemiş sipariş: *odenmemissiparis*\n'
+          'Son sipariş tarihi: *sonsiparistarihi*\n'
+          'Son ödemeniz: *sonodeme*\n'
+          '\n'
+          'Ödemenizi aşağıdaki hesaba havale veya EFT yoluyla yapabilirsiniz.\n'
+          '\n'
+          '*ibanodemebilgileri*\n'
+          '\n'
+          'Ödemenizi gerçekleştirdiyseniz bu mesajı dikkate almayınız.\n'
+          'Hesabınızla ilgili sorularınız için *isletmetelefonu* numarasından bize ulaşabilirsiniz.\n'
+          '\n'
+          'İş birliğiniz için teşekkür eder, iyi günler dileriz.\n'
+          'Saygılarımızla,\n'
+          '*isletmeadi*';
       expect(mesaj(sablon: eski), mesaj());
+      expect(mesaj(sablon: surum1150), mesaj());
       expect(mesaj(sablon: '*musteriadi* için *sonodeme*'), 'Ahmet için 20.10.2026, 500,00 ₺');
     });
   });

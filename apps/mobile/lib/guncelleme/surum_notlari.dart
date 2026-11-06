@@ -51,6 +51,21 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '1.16.0',
+    tarih: '6 Kasım 2026',
+    maddeler: [
+      'İşletme ayarları Ayarlar\'dan çıktı, menüde Yönetim başlığının altında',
+      'Mesajlar artık menüde Yönetim başlığının altında ayrı bir sayfa',
+      'Mesajlar sayfasından kendi mesajlarınızı ekleyebilir, düzenleyebilir ve silebilirsiniz',
+      'Yeni hazır mesajlar geldi: Sipariş Alındı, Yola Çıktı, Gecikme Bilgisi, Adreste Ulaşılamadı, '
+          'Teslim Edildi, tahsilat teşekkürü ve Sipariş İptali',
+      'Siparişe dokununca Bilgilendirme Mesajı başlığında siparişin durumuna uyan mesajlar görünür, '
+          'dokunduğunuz mesaj sipariş bilgileriyle dolu olarak WhatsApp\'ta açılır',
+      'Borç hatırlatma mesajının varsayılan metni daha kurumsal bir dille yenilendi',
+      'Hakkında sayfasındaki sürüm satırında yapı numarası yanlış görünüyordu, düzeltildi',
+    ],
+  ),
+  SurumNotu(
     surum: '1.15.0',
     tarih: '5 Kasım 2026',
     maddeler: [

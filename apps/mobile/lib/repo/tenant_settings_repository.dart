@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import '../data/app_database.dart';
 import '../data/gider_kategorileri.dart';
 import '../data/ids.dart';
+import '../data/mesaj_sablonlari.dart';
 import '../data/outbox.dart';
 import '../screens/team.dart' show KuryeIzinleri, kuryeIzinleriOku;
 
@@ -62,6 +63,7 @@ class TenantSettingsRepository {
     Value<String> orderCodeDisplay = const Value.absent(),
     Value<bool> preparedProducts = const Value.absent(),
     Value<String?> expenseCategoriesJson = const Value.absent(),
+    Value<String?> messageTemplatesJson = const Value.absent(),
     KuryeIzinleri? kuryeIzin,
   }) async {
     final meta = await db.syncState();
@@ -88,6 +90,7 @@ class TenantSettingsRepository {
     final sablon = al(reminderTemplate, mevcut?.reminderTemplate);
     // Yalnız kendi ekranı bilir; başka bir ayar yazımı listeyi varsayılana çekmemeli.
     final giderKategorileri = al(expenseCategoriesJson, mevcut?.expenseCategoriesJson);
+    final mesajlar = al(messageTemplatesJson, mevcut?.messageTemplatesJson);
     final kodTercihi = orderCodeDisplay.present
         ? orderCodeDisplay.value
         : (mevcut?.orderCodeDisplay ?? 'musteri');
@@ -133,6 +136,7 @@ class TenantSettingsRepository {
       'order_code_display': kodTercihi,
       'prepared_products': hazirlanan,
       'expense_categories': giderKategorileri == null ? null : jsonDecode(giderKategorileri),
+      'message_templates': mesajlar == null ? null : jsonDecode(mesajlar),
     };
 
     await db.transaction(() async {
@@ -168,6 +172,7 @@ class TenantSettingsRepository {
             orderCodeDisplay: Value(kodTercihi),
             preparedProducts: Value(hazirlanan),
             expenseCategoriesJson: Value(giderKategorileri),
+            messageTemplatesJson: Value(mesajlar),
             updatedOccurredAt: Value(at),
             updatedDeviceId: Value(device),
           ));
@@ -208,6 +213,17 @@ class TenantSettingsRepository {
       (db.select(db.tenantSettings)..where((t) => t.id.equals(1)))
           .watchSingleOrNull()
           .map((s) => GiderKategorileri.coz(s?.expenseCategoriesJson));
+
+  /// Bilgilendirme mesajlarını değiştirir; profilin geri kalanına DOKUNMAZ (2026-11-06).
+  ///
+  /// Dönüşüm EN GÜNCEL kayıt üzerinde koşar, ekranın elindeki kopya üzerinde değil: düzenleme
+  /// sayfası açıkken senkronla inen bir mesaj, kaydetme anında ezilmemeli.
+  Future<void> mesajSablonlariGuncelle(
+    MesajSablonlari Function(MesajSablonlari mevcut) donusum,
+  ) async {
+    final mevcut = MesajSablonlari.coz((await get())?.messageTemplatesJson);
+    await save(messageTemplatesJson: Value(donusum(mevcut).yaz()));
+  }
 
   /// Yalnız "hazırlanan ürün" yeteneğini değiştirir (2026-08-18).
   Future<void> hazirlananUrunKaydet(bool acik) => save(preparedProducts: Value(acik));

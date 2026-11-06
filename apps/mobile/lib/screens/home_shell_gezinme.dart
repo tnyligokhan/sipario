@@ -51,6 +51,18 @@ extension _GezinmeYuzeyi on _HomeShellState {
             rehber: RehberYuzey.harita);
       case CekmeceGiris.hesap:
         _git(HesapEkrani(db: widget.db, session: widget.session, onCikis: _cikis));
+      case CekmeceGiris.isletme:
+        if (!_patronMu) {
+          SipToast.goster(context, 'İşletme ayarlarını yalnız patron düzenler');
+          return;
+        }
+        _git(IsletmeAyarlariEkrani(db: widget.db, writable: _yazilabilir));
+      case CekmeceGiris.mesajlar:
+        if (!_patronMu) {
+          SipToast.goster(context, 'Mesajları yalnız patron düzenler');
+          return;
+        }
+        _git(MesajSablonlariEkrani(db: widget.db, writable: _yazilabilir));
       case CekmeceGiris.urunler:
         if (!_yetki.urunYonetimi) {
           SipToast.goster(context, 'Ürünleri yalnız patron düzenler');
@@ -80,7 +92,6 @@ extension _GezinmeYuzeyi on _HomeShellState {
           db: widget.db,
           rol: _userRole,
           yetki: _yetki,
-          writable: _yazilabilir,
           // Hesap sayfası hem çekmeceden hem ayarlar hub'ından açılır; ikisi de AYNI ekranı
           // ve AYNI çıkış akışını kullanır (çıkış onayı + oturum temizliği tek yerde).
           session: widget.session,
@@ -100,6 +111,10 @@ extension _GezinmeYuzeyi on _HomeShellState {
         _git(NasilYapilirEkrani(kuryeMi: _kuryeMi));
     }
   }
+
+  /// İşletme ve Mesajlar yalnız patronundur. Doğrudan rol sorulur: bu yüzeyin tek ölçütü budur
+  /// (gerekçe `isletme_ayarlari_ekrani.dart` başlığında).
+  bool get _patronMu => _userRole == 'patron';
 
   /// Kurye kipinde miyiz — rehberin (görev kartı + turlar) hangi anlatıyı kuracağını belirler.
   ///

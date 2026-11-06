@@ -119,6 +119,26 @@ const List<NasilYapilir> kNasilYapilir = [
     ],
   ),
   NasilYapilir(
+    baslik: 'Müşteriye sipariş mesajı göndermek',
+    etiketler: ['bilgilendirme', 'whatsapp', 'yola çıktı', 'teslim edildi'],
+    adimlar: [
+      'Siparişe dokun',
+      'Bilgilendirme Mesajı başlığından mesajı seç',
+      'Sipariş bilgileriyle dolu mesaj WhatsApp\'ta açılır, göndermeden önce değiştirebilirsin',
+    ],
+  ),
+  NasilYapilir(
+    baslik: 'Yeni mesaj eklemek',
+    etiketler: ['mesaj şablonu', 'hazır mesaj', 'kampanya'],
+    kitle: RehberKitle.yonetici,
+    adimlar: [
+      'Menüden Mesajlar\'ı aç',
+      'Yeni Mesaj Ekle düğmesine bas',
+      'Mesajın adını ve metnini yaz, kaydet',
+      'Mesaj bundan sonra her siparişin ayrıntısında görünür',
+    ],
+  ),
+  NasilYapilir(
     baslik: 'Müşteriyi kara listeye almak',
     etiketler: ['engelle', 'sipariş almak istemiyorum'],
     kitle: RehberKitle.yonetici,

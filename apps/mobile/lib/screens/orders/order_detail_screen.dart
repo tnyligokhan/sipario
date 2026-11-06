@@ -25,6 +25,7 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../customers/customer_form_screen.dart' show musteriDuzenleSheet;
+import 'bilgilendirme_mesaji.dart';
 import 'iptal_onayi.dart';
 import 'order_detail_basligi.dart';
 import 'order_detail_eylemler.dart';
@@ -265,6 +266,12 @@ class _Govde extends StatelessWidget {
           // KAPALI siparişte de anlamlıdır — kurye teslim ettikten sonra da kapının önündedir
           // ve o pini bir sonraki teslimat için düzeltebilir.
           AdresBolumu(db: db, musteriId: musteriId, writable: writable),
+          BilgilendirmeMesajiBolumu(
+            db: db,
+            order: order,
+            satirlar: satirlar,
+            musteriId: musteriId,
+          ),
           GecmisBolumu(db: db, musteriId: musteriId, orderId: order.id),
         ],
 

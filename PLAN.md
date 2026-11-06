@@ -269,7 +269,36 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-11-05 — **SAHA LİSTESİ, DOKUZ MADDE TEK PAKET** (mobil 1.14.3 → **1.15.0**, API 1.28.0 → **1.29.0**, şema v30)
+### 🔻 VARDİYA DEVİR NOTU — 2026-11-06 — **MESAJLAR YÖNETİME TAŞINDI, BİLGİLENDİRME MESAJI GELDİ** (mobil 1.15.0 → **1.16.0**, API 1.29.0 → **1.30.0**, şema v31)
+
+Gerekçeler DECISIONS.md 2026-11-06/1-3.
+
+| # | Madde | Yapılan |
+|---|---|---|
+| 1 | İşletme Ayarlar'dan çıksın | Çekmecede Yönetim altında, yalnız patron (`isletmeGorunur`). `AyarlarEkrani.writable` kalktı |
+| 2 | Mesajlar İşletme'den çıksın | Çekmecede Yönetim altında ayrı satır, yalnız patron |
+| 3 | Yeni mesaj eklenebilsin | Mesajlar ekranı: ekle, düzenle, sil. `tenant_settings.message_templates` (JSON), en çok 20 |
+| 4 | Birden çok mesaj türü | Yedi hazır tür, sipariş durumuna bağlı (`data/mesaj_sablonlari.dart`) |
+| 5 | Siparişte görünsün | Sipariş ayrıntısında Bilgilendirme Mesajı (`orders/bilgilendirme_mesaji.dart`), WhatsApp'ta hazır metinle açılır |
+| 6 | Kurumsal borç mesajı | Varsayılan yenilendi; 1.15.0 varsayılanını değiştirmeden kaydetmiş bayi yenisine geçer |
+| 7 | Sürüm numarası yanlış | `surumMetni`: ekran ABI sapmalı `versionCode` yerine `kYapim` yazıyor. Ölçüm: yayındaki arm64 APK `versionCode` 2618, `yapim` 618 |
+
+**KAPILAR (bizzat ölçüldü):** `flutter analyze` temiz · `flutter test` **1803/1803** · pint temiz · phpstan 0 · `SahaListesiSozlesmeTest` 9/9 · Mesajlar ve sipariş ayrıntısı açık ve koyu temada golden ile gözle incelendi. Kotlin ve paket dokunuşu yok, release APK CI'da derlenir.
+
+⚠️ **DEPLOY SIRASI: API ÖNCE** (göç `2026_11_06_000101`, `migrate` servisi çalıştırır). API güncellenmeden yeni APK'da eklenen mesajlar sunucuya yazılmaz; telefondaki kayıt korunur (`sync_cekme` alan gelmezse dokunmaz) ama başka cihaza inmez.
+
+**ÖLÇÜLEN KANAL DURUMU (2026-11-06):** `test` kanalı APK 1.15.0 yapım 618, API 1.29.0. `saha` kanalı APK **1.8.2** yapım 606, üretim API **1.27.0**. `dev`, `main`in önünde; saha bayileri bu pakete `dev → main` birleşmeden ulaşmaz.
+
+#### ⚠️ AÇIK İŞ
+
+- Hiçbir değişiklik **gerçek cihazda görülmedi**; widget testi ve golden. WhatsApp'ın uzun metni ve çok satırı gerçek telefonda denenmeli.
+- Hazır türler gizlenemiyor; bayi kullanmadığı türü kapatamıyor, yalnız metnini değiştirebiliyor. İstenirse `message_templates`e alan eklenir.
+- Web panelindeki İşletme formu yalnız Borç Hatırlatma metnini gösteriyor; yeni mesajlar yalnız mobilde düzenlenir.
+- Bir önceki notun açık işleri duruyor.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-11-05 — **SAHA LİSTESİ, DOKUZ MADDE TEK PAKET** (mobil 1.14.3 → **1.15.0**, API 1.28.0 → **1.29.0**, şema v30)
 
 Gerekçeler DECISIONS.md 2026-11-05/1-5.
 

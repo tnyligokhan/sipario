@@ -160,6 +160,11 @@ class TenantSettings extends Table {
   /// liste gösterilir. Çözümleme TEK yerdedir (`data/gider_kategorileri.dart`).
   TextColumn get expenseCategoriesJson => text().nullable()();
 
+  /// MÜŞTERİYE GİDEN BİLGİLENDİRME MESAJLARI (kullanıcı isteği 2026-11-06) — JSON nesne: bayinin
+  /// değiştirdiği hazır metinler ve kendi eklediği mesajlar. null = hiçbirine dokunulmadı. Çözümleme
+  /// TEK yerdedir (`data/mesaj_sablonlari.dart`). Borç hatırlatma burada DEĞİL, [reminderTemplate].
+  TextColumn get messageTemplatesJson => text().nullable()();
+
   /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
   /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
   /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.

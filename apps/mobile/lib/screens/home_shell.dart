@@ -61,6 +61,8 @@ import 'customers/customer_form_screen.dart' show musteriEkleSheet;
 import 'customers/customer_list_screen.dart';
 import 'isletme/ayarlar/cihazlar_ekrani.dart';
 import 'isletme/ayarlar/hesap_ekrani.dart';
+import 'isletme/ayarlar/isletme_ayarlari_ekrani.dart';
+import 'isletme/ayarlar/mesaj_sablonlari_ekrani.dart';
 import 'isletme/ayarlar_ekrani.dart';
 import 'isletme/gider_akisi.dart';
 import 'isletme/gider_kategorileri_ekrani.dart';
@@ -464,6 +466,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               // tek yerde okunuyor.
               borclularGorunur: yetki.toplamBorclulariGorme,
               cagriGunluguGorunur: yetki.cagriGunlugu,
+              isletmeGorunur: _patronMu,
               koyuTema: _tema,
               onTema: _tema.ayarla,
               lisansBitisi: _validUntil,

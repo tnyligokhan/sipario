@@ -17,7 +17,7 @@
 import 'package:drift/drift.dart';
 
 import '../../data/app_database.dart';
-import '../orders/order_queries.dart' show siparisKalanBorcu;
+import '../orders/order_queries.dart' show siparisKalanBorcu, watchSiparisTahsilatlari;
 import 'borc_hatirlatma.dart' show HatirlatmaHesapOzeti;
 
 /// Bir borçlunun ödenmemiş siparişi.
@@ -99,6 +99,14 @@ Future<HatirlatmaHesapOzeti> hatirlatmaHesapOzeti(AppDatabase db, BorcluMusteri 
     sonOdemeAt: sonOdeme?.occurredAt,
     sonOdemeKurus: (sonOdeme?.amountKurus ?? 0).abs(),
   );
+}
+
+/// Tek müşterinin hesap özeti — sipariş ayrıntısındaki mesajlar için. Sayılar Borçlular ekranıyla
+/// aynı kapıdan geçer, iki yüzey aynı müşteri için farklı rakam yazamaz.
+Future<HatirlatmaHesapOzeti> musteriHesapOzeti(AppDatabase db, Customer musteri) async {
+  final siparisler = await watchBorcluSiparisleri(db, [musteri.id]).first;
+  final tahsilatlar = await watchSiparisTahsilatlari(db).first;
+  return hatirlatmaHesapOzeti(db, borcluListesiKur([musteri], siparisler, tahsilatlar).first);
 }
 
 /// İşletme profili satırı (cihazda TEK SATIR, id=1) — hatırlatma metni buradan beslenir.

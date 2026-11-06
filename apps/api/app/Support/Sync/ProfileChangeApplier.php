@@ -140,6 +140,9 @@ class ProfileChangeApplier
             // GİDER KATEGORİLERİ (kullanıcı isteği 2026-11-05). null = bayi düzenlemedi, istemci
             // varsayılan listeyi gösterir. (Anahtar HİÇ gelmediğinde KORUNUR, üstteki filtre kapsar.)
             'expense_categories' => GiderKategorileri::dogrula($p['expense_categories'] ?? null),
+            // BİLGİLENDİRME MESAJLARI (kullanıcı isteği 2026-11-06). null = bayi hiçbirine dokunmadı,
+            // istemci varsayılan metinleri kullanır. (Anahtar HİÇ gelmediğinde KORUNUR.)
+            'message_templates' => MesajSablonlari::dogrula($p['message_templates'] ?? null),
         ];
     }
 

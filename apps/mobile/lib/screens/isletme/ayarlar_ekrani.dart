@@ -7,7 +7,8 @@
 // "çağrı geçmişi sayfası ayarlarda olmamalı, bu çok saçma" — doğruydu ve tek örnek değildi;
 // sorun kategorisizlikti. Çağrı geçmişi ARTIK ÇEKMECEDE (bir iş kaydıdır, bir tercih değil).
 //
-// Yeni yapı beş sayfadır: Hesap · İşletme · Uygulama · Bildirimler · Hakkında.
+// Yeni yapı dört sayfadır: Hesap · Uygulama · Bildirimler · Hakkında. İşletme 2026-11-06'da
+// çekmecenin Yönetim bölümüne taşındı: kişisel tercih değil, dükkânın kendi yapılandırmasıdır.
 //
 // ⚠️ TASARIM DOSYASINDAN BİLİNÇLİ SAPMA: `s-ayarlar.jsx` dört bölümlük tek liste öngörür
 // (Görünüm · Arayan Tanıma · İşletme · Hakkında). O prototip bildirimler, sipariş kodu, kurye
@@ -16,7 +17,7 @@
 // ══ MAĞAZA KURALI (pazarlıksız) ═══════════════════════════════════════════════════════════
 // Ayarların HİÇBİR sayfasında abonelik / ödeme / satın alma / fiyat / üyelik bağlantısı OLAMAZ.
 // Lisans yalnız NÖTR bir bilgi satırıdır (Hakkında) ve hiçbir eyleme bağlanmaz. Yasaklı sözcük
-// testi (`Abone`, `Satın al`, `Üye ol`, `Kaydol`) BEŞ SAYFAYI DA taramalıdır — bölünme, taramanın
+// testi (`Abone`, `Satın al`, `Üye ol`, `Kaydol`) BÜTÜN SAYFALARI taramalıdır — bölünme, taramanın
 // kapsamını daraltmak için bir bahane değildir.
 
 import 'package:flutter/foundation.dart';
@@ -36,7 +37,6 @@ import '../team.dart' show RolYetkileri;
 import 'ayarlar/bildirim_ayarlari_ekrani.dart';
 import 'ayarlar/hakkinda_ekrani.dart';
 import 'ayarlar/hesap_ekrani.dart';
-import 'ayarlar/isletme_ayarlari_ekrani.dart';
 import 'ayarlar/uygulama_ayarlari_ekrani.dart';
 import 'isletme_atomlari.dart';
 
@@ -55,7 +55,6 @@ class AyarlarEkrani extends StatefulWidget {
     this.rol,
     this.session,
     this.onCikis,
-    this.writable = true,
     this.onSihirbaz,
     this.onOlcumler,
     this.koyuTema,
@@ -72,16 +71,12 @@ class AyarlarEkrani extends StatefulWidget {
   /// `yetkiler(rol: ..., atamaHedefiVar: ...)` geçer.
   final RolYetkileri yetki;
 
-  /// `patron|operator|kurye`. İŞLETME satırının kapısı budur ve doğrudan `patron` string'ine
-  /// bakar (operatör dahil DEĞİL) — matristeki `isletmeAbonelikAyarlari` alanı tanımlı ama bu
-  /// yüzeyde hiç kullanılmadı; iki ölçütü birden canlı tutmak birinin sessizce ayrışması demek.
+  /// `patron|operator|kurye`. Bildirimler sayfası role göre kategori listeler.
   final String? rol;
 
   /// Hesap sayfası için — verilmezse HESAP satırı çizilmez (çekmeceden zaten ulaşılıyor).
   final Session? session;
   final VoidCallback? onCikis;
-
-  final bool writable;
 
   /// Kurulum sihirbazını yeniden çalıştırır (Uygulama sayfasına geçer).
   final VoidCallback? onSihirbaz;
@@ -106,7 +101,6 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    final patron = widget.rol == 'patron';
     final session = widget.session;
     final onCikis = widget.onCikis;
 
@@ -140,18 +134,6 @@ class _AyarlarEkraniState extends State<AyarlarEkrani> {
                         db: widget.db,
                         session: session,
                         onCikis: onCikis,
-                      )),
-                    ),
-                  // İŞLETME YALNIZ PATRONDA: satır çizilmez, pasif de değil. Kalıcı olarak
-                  // kapalı bir kapıyı göstermek kullanıcıya olmayan bir yol tarif etmektir.
-                  if (patron)
-                    AyarSatiri(
-                      ikon: SipIcons.home,
-                      baslik: 'İşletme',
-                      altBaslik: 'Dükkân bilgileri ve tercihler',
-                      onTap: () => _ac(IsletmeAyarlariEkrani(
-                        db: widget.db,
-                        writable: widget.writable,
                       )),
                     ),
                   AyarSatiri(

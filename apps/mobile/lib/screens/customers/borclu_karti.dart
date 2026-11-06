@@ -97,7 +97,7 @@ class BorcluKarti extends StatelessWidget {
       return;
     }
     if (ibanNormal(iban) == null) {
-      SipToast.goster(context, 'Önce Ayarlar → İşletme Profili\'nden IBAN tanımlayın');
+      SipToast.goster(context, ibanEksikUyarisi);
       return;
     }
     final mesaj = borcHatirlatmaMesaji(

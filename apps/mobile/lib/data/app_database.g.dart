@@ -8089,6 +8089,17 @@ class $TenantSettingsTable extends TenantSettings
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _messageTemplatesJsonMeta =
+      const VerificationMeta('messageTemplatesJson');
+  @override
+  late final GeneratedColumn<String> messageTemplatesJson =
+      GeneratedColumn<String>(
+        'message_templates_json',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _orderCodeDisplayMeta = const VerificationMeta(
     'orderCodeDisplay',
   );
@@ -8156,6 +8167,7 @@ class $TenantSettingsTable extends TenantSettings
     courierCanSeeAllCustomers,
     preparedProducts,
     expenseCategoriesJson,
+    messageTemplatesJson,
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
@@ -8412,6 +8424,15 @@ class $TenantSettingsTable extends TenantSettings
         ),
       );
     }
+    if (data.containsKey('message_templates_json')) {
+      context.handle(
+        _messageTemplatesJsonMeta,
+        messageTemplatesJson.isAcceptableOrUnknown(
+          data['message_templates_json']!,
+          _messageTemplatesJsonMeta,
+        ),
+      );
+    }
     if (data.containsKey('order_code_display')) {
       context.handle(
         _orderCodeDisplayMeta,
@@ -8568,6 +8589,10 @@ class $TenantSettingsTable extends TenantSettings
         DriftSqlType.string,
         data['${effectivePrefix}expense_categories_json'],
       ),
+      messageTemplatesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_templates_json'],
+      ),
       orderCodeDisplay: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}order_code_display'],
@@ -8681,6 +8706,11 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
   /// liste gösterilir. Çözümleme TEK yerdedir (`data/gider_kategorileri.dart`).
   final String? expenseCategoriesJson;
 
+  /// MÜŞTERİYE GİDEN BİLGİLENDİRME MESAJLARI (kullanıcı isteği 2026-11-06) — JSON nesne: bayinin
+  /// değiştirdiği hazır metinler ve kendi eklediği mesajlar. null = hiçbirine dokunulmadı. Çözümleme
+  /// TEK yerdedir (`data/mesaj_sablonlari.dart`). Borç hatırlatma burada DEĞİL, [reminderTemplate].
+  final String? messageTemplatesJson;
+
   /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
   /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
   /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.
@@ -8718,6 +8748,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     required this.courierCanSeeAllCustomers,
     required this.preparedProducts,
     this.expenseCategoriesJson,
+    this.messageTemplatesJson,
     required this.orderCodeDisplay,
     this.updatedOccurredAt,
     this.updatedDeviceId,
@@ -8787,6 +8818,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     if (!nullToAbsent || expenseCategoriesJson != null) {
       map['expense_categories_json'] = Variable<String>(expenseCategoriesJson);
     }
+    if (!nullToAbsent || messageTemplatesJson != null) {
+      map['message_templates_json'] = Variable<String>(messageTemplatesJson);
+    }
     map['order_code_display'] = Variable<String>(orderCodeDisplay);
     if (!nullToAbsent || updatedOccurredAt != null) {
       map['updated_occurred_at'] = Variable<String>(updatedOccurredAt);
@@ -8855,6 +8889,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       expenseCategoriesJson: expenseCategoriesJson == null && nullToAbsent
           ? const Value.absent()
           : Value(expenseCategoriesJson),
+      messageTemplatesJson: messageTemplatesJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(messageTemplatesJson),
       orderCodeDisplay: Value(orderCodeDisplay),
       updatedOccurredAt: updatedOccurredAt == null && nullToAbsent
           ? const Value.absent()
@@ -8917,6 +8954,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       expenseCategoriesJson: serializer.fromJson<String?>(
         json['expenseCategoriesJson'],
       ),
+      messageTemplatesJson: serializer.fromJson<String?>(
+        json['messageTemplatesJson'],
+      ),
       orderCodeDisplay: serializer.fromJson<String>(json['orderCodeDisplay']),
       updatedOccurredAt: serializer.fromJson<String?>(
         json['updatedOccurredAt'],
@@ -8964,6 +9004,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       'expenseCategoriesJson': serializer.toJson<String?>(
         expenseCategoriesJson,
       ),
+      'messageTemplatesJson': serializer.toJson<String?>(messageTemplatesJson),
       'orderCodeDisplay': serializer.toJson<String>(orderCodeDisplay),
       'updatedOccurredAt': serializer.toJson<String?>(updatedOccurredAt),
       'updatedDeviceId': serializer.toJson<String?>(updatedDeviceId),
@@ -9001,6 +9042,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     bool? courierCanSeeAllCustomers,
     bool? preparedProducts,
     Value<String?> expenseCategoriesJson = const Value.absent(),
+    Value<String?> messageTemplatesJson = const Value.absent(),
     String? orderCodeDisplay,
     Value<String?> updatedOccurredAt = const Value.absent(),
     Value<String?> updatedDeviceId = const Value.absent(),
@@ -9045,6 +9087,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     expenseCategoriesJson: expenseCategoriesJson.present
         ? expenseCategoriesJson.value
         : this.expenseCategoriesJson,
+    messageTemplatesJson: messageTemplatesJson.present
+        ? messageTemplatesJson.value
+        : this.messageTemplatesJson,
     orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
     updatedOccurredAt: updatedOccurredAt.present
         ? updatedOccurredAt.value
@@ -9127,6 +9172,9 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
       expenseCategoriesJson: data.expenseCategoriesJson.present
           ? data.expenseCategoriesJson.value
           : this.expenseCategoriesJson,
+      messageTemplatesJson: data.messageTemplatesJson.present
+          ? data.messageTemplatesJson.value
+          : this.messageTemplatesJson,
       orderCodeDisplay: data.orderCodeDisplay.present
           ? data.orderCodeDisplay.value
           : this.orderCodeDisplay,
@@ -9172,6 +9220,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           ..write('courierCanSeeAllCustomers: $courierCanSeeAllCustomers, ')
           ..write('preparedProducts: $preparedProducts, ')
           ..write('expenseCategoriesJson: $expenseCategoriesJson, ')
+          ..write('messageTemplatesJson: $messageTemplatesJson, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
@@ -9211,6 +9260,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
     courierCanSeeAllCustomers,
     preparedProducts,
     expenseCategoriesJson,
+    messageTemplatesJson,
     orderCodeDisplay,
     updatedOccurredAt,
     updatedDeviceId,
@@ -9249,6 +9299,7 @@ class TenantSetting extends DataClass implements Insertable<TenantSetting> {
           other.courierCanSeeAllCustomers == this.courierCanSeeAllCustomers &&
           other.preparedProducts == this.preparedProducts &&
           other.expenseCategoriesJson == this.expenseCategoriesJson &&
+          other.messageTemplatesJson == this.messageTemplatesJson &&
           other.orderCodeDisplay == this.orderCodeDisplay &&
           other.updatedOccurredAt == this.updatedOccurredAt &&
           other.updatedDeviceId == this.updatedDeviceId);
@@ -9285,6 +9336,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
   final Value<bool> courierCanSeeAllCustomers;
   final Value<bool> preparedProducts;
   final Value<String?> expenseCategoriesJson;
+  final Value<String?> messageTemplatesJson;
   final Value<String> orderCodeDisplay;
   final Value<String?> updatedOccurredAt;
   final Value<String?> updatedDeviceId;
@@ -9319,6 +9371,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.courierCanSeeAllCustomers = const Value.absent(),
     this.preparedProducts = const Value.absent(),
     this.expenseCategoriesJson = const Value.absent(),
+    this.messageTemplatesJson = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -9354,6 +9407,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     this.courierCanSeeAllCustomers = const Value.absent(),
     this.preparedProducts = const Value.absent(),
     this.expenseCategoriesJson = const Value.absent(),
+    this.messageTemplatesJson = const Value.absent(),
     this.orderCodeDisplay = const Value.absent(),
     this.updatedOccurredAt = const Value.absent(),
     this.updatedDeviceId = const Value.absent(),
@@ -9389,6 +9443,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Expression<bool>? courierCanSeeAllCustomers,
     Expression<bool>? preparedProducts,
     Expression<String>? expenseCategoriesJson,
+    Expression<String>? messageTemplatesJson,
     Expression<String>? orderCodeDisplay,
     Expression<String>? updatedOccurredAt,
     Expression<String>? updatedDeviceId,
@@ -9433,6 +9488,8 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       if (preparedProducts != null) 'prepared_products': preparedProducts,
       if (expenseCategoriesJson != null)
         'expense_categories_json': expenseCategoriesJson,
+      if (messageTemplatesJson != null)
+        'message_templates_json': messageTemplatesJson,
       if (orderCodeDisplay != null) 'order_code_display': orderCodeDisplay,
       if (updatedOccurredAt != null) 'updated_occurred_at': updatedOccurredAt,
       if (updatedDeviceId != null) 'updated_device_id': updatedDeviceId,
@@ -9470,6 +9527,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
     Value<bool>? courierCanSeeAllCustomers,
     Value<bool>? preparedProducts,
     Value<String?>? expenseCategoriesJson,
+    Value<String?>? messageTemplatesJson,
     Value<String>? orderCodeDisplay,
     Value<String?>? updatedOccurredAt,
     Value<String?>? updatedDeviceId,
@@ -9512,6 +9570,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
       preparedProducts: preparedProducts ?? this.preparedProducts,
       expenseCategoriesJson:
           expenseCategoriesJson ?? this.expenseCategoriesJson,
+      messageTemplatesJson: messageTemplatesJson ?? this.messageTemplatesJson,
       orderCodeDisplay: orderCodeDisplay ?? this.orderCodeDisplay,
       updatedOccurredAt: updatedOccurredAt ?? this.updatedOccurredAt,
       updatedDeviceId: updatedDeviceId ?? this.updatedDeviceId,
@@ -9625,6 +9684,11 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
         expenseCategoriesJson.value,
       );
     }
+    if (messageTemplatesJson.present) {
+      map['message_templates_json'] = Variable<String>(
+        messageTemplatesJson.value,
+      );
+    }
     if (orderCodeDisplay.present) {
       map['order_code_display'] = Variable<String>(orderCodeDisplay.value);
     }
@@ -9670,6 +9734,7 @@ class TenantSettingsCompanion extends UpdateCompanion<TenantSetting> {
           ..write('courierCanSeeAllCustomers: $courierCanSeeAllCustomers, ')
           ..write('preparedProducts: $preparedProducts, ')
           ..write('expenseCategoriesJson: $expenseCategoriesJson, ')
+          ..write('messageTemplatesJson: $messageTemplatesJson, ')
           ..write('orderCodeDisplay: $orderCodeDisplay, ')
           ..write('updatedOccurredAt: $updatedOccurredAt, ')
           ..write('updatedDeviceId: $updatedDeviceId')
@@ -18276,6 +18341,7 @@ typedef $$TenantSettingsTableCreateCompanionBuilder =
       Value<bool> courierCanSeeAllCustomers,
       Value<bool> preparedProducts,
       Value<String?> expenseCategoriesJson,
+      Value<String?> messageTemplatesJson,
       Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -18312,6 +18378,7 @@ typedef $$TenantSettingsTableUpdateCompanionBuilder =
       Value<bool> courierCanSeeAllCustomers,
       Value<bool> preparedProducts,
       Value<String?> expenseCategoriesJson,
+      Value<String?> messageTemplatesJson,
       Value<String> orderCodeDisplay,
       Value<String?> updatedOccurredAt,
       Value<String?> updatedDeviceId,
@@ -18473,6 +18540,11 @@ class $$TenantSettingsTableFilterComposer
 
   ColumnFilters<String> get expenseCategoriesJson => $composableBuilder(
     column: $table.expenseCategoriesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageTemplatesJson => $composableBuilder(
+    column: $table.messageTemplatesJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18651,6 +18723,11 @@ class $$TenantSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get messageTemplatesJson => $composableBuilder(
+    column: $table.messageTemplatesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get orderCodeDisplay => $composableBuilder(
     column: $table.orderCodeDisplay,
     builder: (column) => ColumnOrderings(column),
@@ -18808,6 +18885,11 @@ class $$TenantSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get messageTemplatesJson => $composableBuilder(
+    column: $table.messageTemplatesJson,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get orderCodeDisplay => $composableBuilder(
     column: $table.orderCodeDisplay,
     builder: (column) => column,
@@ -18887,6 +18969,7 @@ class $$TenantSettingsTableTableManager
                 Value<bool> courierCanSeeAllCustomers = const Value.absent(),
                 Value<bool> preparedProducts = const Value.absent(),
                 Value<String?> expenseCategoriesJson = const Value.absent(),
+                Value<String?> messageTemplatesJson = const Value.absent(),
                 Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -18921,6 +19004,7 @@ class $$TenantSettingsTableTableManager
                 courierCanSeeAllCustomers: courierCanSeeAllCustomers,
                 preparedProducts: preparedProducts,
                 expenseCategoriesJson: expenseCategoriesJson,
+                messageTemplatesJson: messageTemplatesJson,
                 orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,
@@ -18957,6 +19041,7 @@ class $$TenantSettingsTableTableManager
                 Value<bool> courierCanSeeAllCustomers = const Value.absent(),
                 Value<bool> preparedProducts = const Value.absent(),
                 Value<String?> expenseCategoriesJson = const Value.absent(),
+                Value<String?> messageTemplatesJson = const Value.absent(),
                 Value<String> orderCodeDisplay = const Value.absent(),
                 Value<String?> updatedOccurredAt = const Value.absent(),
                 Value<String?> updatedDeviceId = const Value.absent(),
@@ -18991,6 +19076,7 @@ class $$TenantSettingsTableTableManager
                 courierCanSeeAllCustomers: courierCanSeeAllCustomers,
                 preparedProducts: preparedProducts,
                 expenseCategoriesJson: expenseCategoriesJson,
+                messageTemplatesJson: messageTemplatesJson,
                 orderCodeDisplay: orderCodeDisplay,
                 updatedOccurredAt: updatedOccurredAt,
                 updatedDeviceId: updatedDeviceId,

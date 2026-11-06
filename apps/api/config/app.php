@@ -346,7 +346,7 @@ return [
     | kiracı başına dakikalık sınır. Eski istemci etkilenmez (yeni uç).
     */
 
-    'version' => '1.29.0',
+    'version' => '1.30.0',
 
     /*
     |--------------------------------------------------------------------------

@@ -17,6 +17,7 @@ import 'package:sipario/screens/orders/musteri_eylemleri.dart';
 import 'package:sipario/screens/orders/musteri_numara_secici.dart';
 import 'package:sipario/screens/orders/order_form_screen.dart';
 import 'package:sipario/sync/sync_service.dart';
+import 'package:sipario/screens/isletme/ayarlar/isletme_ayarlari_ekrani.dart';
 import 'package:sipario/theme/app_theme.dart';
 
 import 'support/yetki_yardimcilari.dart';
@@ -161,6 +162,47 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Yeni kayıt ekle'));
       await o.bekle();
       expect(find.text('Gider Ekle'), findsNothing);
+
+      await o.kapat();
+    });
+  });
+
+  group('Yönetim — İşletme ve Mesajlar (2026-11-06)', () {
+    testWidgets('patron menüden İşletme ve Mesajlar sayfalarını açar', (tester) async {
+      final o = _KabukOrtami(tester);
+      await o.kur();
+
+      await tester.tap(find.bySemanticsLabel('Menü'));
+      await o.bekle();
+      await tester.tap(find.text('Mesajlar'));
+      await o.bekle();
+      expect(find.text('Yeni Mesaj Ekle'), findsOneWidget);
+      await o.geriBas();
+      await o.bekle();
+
+      await tester.tap(find.bySemanticsLabel('Menü'));
+      await o.bekle();
+      await tester.tap(find.text('İşletme'));
+      await o.bekle();
+      expect(find.text('Tahsilat'), findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(IsletmeAyarlariEkrani), matching: find.text('Mesajlar')),
+        findsNothing,
+        reason: 'İşletme sayfasından çıktı',
+      );
+
+      await o.kapat();
+    });
+
+    testWidgets('operatör menüde ikisini de görmez', (tester) async {
+      final o = _KabukOrtami(tester);
+      await o.kur(rol: 'operator');
+
+      await tester.tap(find.bySemanticsLabel('Menü'));
+      await o.bekle();
+      expect(find.text('Tanımlamalar'), findsOneWidget, reason: 'Yönetim bölümü durur');
+      expect(find.text('İşletme'), findsNothing);
+      expect(find.text('Mesajlar'), findsNothing);
 
       await o.kapat();
     });

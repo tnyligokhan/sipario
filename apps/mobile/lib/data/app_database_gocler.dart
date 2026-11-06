@@ -366,6 +366,13 @@ extension _GocMerdiveni on AppDatabase {
           await AppDatabase._addColumnIfMissing(
               m, 'ALTER TABLE bildirimler ADD COLUMN temizlendi_at TEXT');
 
+          // v31 — BİLGİLENDİRME MESAJLARI (2026-11-06). Yerleşim v11..v30 ile AYNI. Kolon eksik
+          // kalırsa `tenant_settings` okuyan her ekran "no such column" ile düşerdi.
+          if (await AppDatabase._tabloVar(m, 'tenant_settings')) {
+            await AppDatabase._addColumnIfMissing(
+                m, 'ALTER TABLE tenant_settings ADD COLUMN message_templates_json TEXT');
+          }
+
           // v30 — SAHA LİSTESİ (2026-11-05). Yerleşim v11..v29 ile AYNI (kapıdan ÖNCE, koşulsuz).
           // `discount_kurus` eksik kalırsa sipariş yazımı "no such column" ile düşerdi. NOT NULL
           // DEFAULT 0: eski satırların iskontosu yoktur, satır toplamı zaten doğrudur.

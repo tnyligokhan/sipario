@@ -81,6 +81,7 @@ class TenantSetting extends Model
         'order_code_display',
         'prepared_products',
         'expense_categories',
+        'message_templates',
         'updated_occurred_at',
         'updated_device_id',
     ];
@@ -114,6 +115,7 @@ class TenantSetting extends Model
             'updated_occurred_at' => 'datetime',
             'prepared_products' => 'boolean',
             'expense_categories' => 'array',
+            'message_templates' => 'array',
             'courier_can_customers' => 'boolean',
             'courier_can_orders' => 'boolean',
             'courier_can_collect' => 'boolean',

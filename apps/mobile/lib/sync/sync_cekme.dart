@@ -373,6 +373,11 @@ extension SyncCekme on SyncEngine {
               // telefonuna hiç inmez ve iki cihaz farklı bir ürün formu gösterir.
               preparedProducts: Value(_bV(m['prepared_products'], false)),
               expenseCategoriesJson: Value(_jsonMetin(m['expense_categories'])),
+              // Sunucu alanı HİÇ göndermiyorsa (henüz güncellenmemiş API) dokunulmaz: null yazmak
+              // bayinin telefondaki mesajlarını ilk senkronda silerdi.
+              messageTemplatesJson: m.containsKey('message_templates')
+                  ? Value(_jsonMetin(m['message_templates']))
+                  : const Value.absent(),
               updatedOccurredAt: Value(_sN(m['updated_occurred_at'])),
               updatedDeviceId: Value(_sN(m['updated_device_id'])),
             ));

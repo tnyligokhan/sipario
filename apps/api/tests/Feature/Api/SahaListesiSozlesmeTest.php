@@ -169,6 +169,65 @@ class SahaListesiSozlesmeTest extends ApiTestCase
     }
 
     #[Test]
+    public function mesaj_sablonlari_yazilir_inerse_eski_build_silemez(): void
+    {
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+        $mesajlar = [
+            'sistem' => ['yola_cikti' => 'Yoldayız'],
+            'ozel' => [['id' => 'o1', 'baslik' => 'Kampanya', 'metin' => 'İndirim başladı']],
+        ];
+
+        $this->pushEvents($token, [
+            $this->event('tenant_settings', 'upsert', ['business_name' => 'Bayi', 'message_templates' => $mesajlar]),
+        ])->assertJsonPath('results.0.status', 'applied');
+
+        $inen = collect($this->pullSince($token, 0)->json('entities.tenant_settings'))->first();
+        $this->assertSame($mesajlar, $inen['message_templates'] ?? null);
+
+        // Alanı bilmeyen eski build profil yazıyor: mesajlar silinmemeli.
+        $this->pushEvents($token, [
+            $this->event('tenant_settings', 'upsert', ['business_name' => 'Yeni Ad']),
+        ])->assertJsonPath('results.0.status', 'applied');
+
+        $ayar = Provisioning::asOwner(fn () => TenantSetting::query()->find($a['tenant']->id));
+        $this->assertSame('Yeni Ad', $ayar->business_name);
+        $this->assertSame($mesajlar, $ayar->message_templates);
+
+        // Bayi bütün değişikliklerini geri aldı: boş kayıt null iner, varsayılanlar geçerli olur.
+        $this->pushEvents($token, [
+            $this->event('tenant_settings', 'upsert', ['message_templates' => null]),
+        ])->assertJsonPath('results.0.status', 'applied');
+        $ayar = Provisioning::asOwner(fn () => TenantSetting::query()->find($a['tenant']->id));
+        $this->assertNull($ayar->message_templates);
+    }
+
+    #[Test]
+    public function bozuk_mesaj_sablonlari_reddedilir(): void
+    {
+        $a = $this->makeTenant('a');
+        $token = $this->tokenFor($a['patron']);
+        $ozel = fn (array $degisen) => ['ozel' => [$degisen + ['id' => 'o1', 'baslik' => 'A', 'metin' => 'B']]];
+
+        $bozuklar = [
+            'metin',
+            ['liste'],
+            ['sistem' => 'metin'],
+            ['sistem' => ['yola_cikti' => str_repeat('x', 1001)]],
+            ['ozel' => ['a' => 'b']],
+            ['ozel' => array_fill(0, 21, ['id' => 'o', 'baslik' => 'A', 'metin' => 'B'])],
+            $ozel(['id' => '']),
+            $ozel(['baslik' => str_repeat('x', 41)]),
+            $ozel(['metin' => ' ']),
+        ];
+        foreach ($bozuklar as $bozuk) {
+            $this->pushEvents($token, [
+                $this->event('tenant_settings', 'upsert', ['message_templates' => $bozuk]),
+            ])->assertJsonPath('results.0.status', 'rejected');
+        }
+    }
+
+    #[Test]
     public function bozuk_gider_kategorileri_reddedilir(): void
     {
         $a = $this->makeTenant('a');
