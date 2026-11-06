@@ -283,7 +283,7 @@ Gerekçeler DECISIONS.md 2026-11-06/1-3.
 | 6 | Kurumsal borç mesajı | Varsayılan yenilendi; 1.15.0 varsayılanını değiştirmeden kaydetmiş bayi yenisine geçer |
 | 7 | Sürüm numarası yanlış | `surumMetni`: ekran ABI sapmalı `versionCode` yerine `kYapim` yazıyor. Ölçüm: yayındaki arm64 APK `versionCode` 2618, `yapim` 618 |
 
-**KAPILAR (bizzat ölçüldü):** `flutter analyze` temiz · `flutter test` **1803/1803** · pint temiz · phpstan 0 · `SahaListesiSozlesmeTest` 9/9 · Mesajlar ve sipariş ayrıntısı açık ve koyu temada golden ile gözle incelendi. Kotlin ve paket dokunuşu yok, release APK CI'da derlenir.
+**KAPILAR (bizzat ölçüldü):** `flutter analyze` temiz · `flutter test` **1803/1803** · API tam takım **1051/1051** · pint temiz · phpstan 0 · Mesajlar ve sipariş ayrıntısı açık ve koyu temada golden ile gözle incelendi. Kotlin ve paket dokunuşu yok, release APK CI'da derlenir.
 
 ⚠️ **DEPLOY SIRASI: API ÖNCE** (göç `2026_11_06_000101`, `migrate` servisi çalıştırır). API güncellenmeden yeni APK'da eklenen mesajlar sunucuya yazılmaz; telefondaki kayıt korunur (`sync_cekme` alan gelmezse dokunmaz) ama başka cihaza inmez.
 
