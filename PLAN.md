@@ -284,6 +284,12 @@ Gerekçeler DECISIONS.md 2026-11-06/5.
 
 ⚠️ **DEPLOY SIRASI: API ÖNCE.** Göç yok. Zamanlayıcı ilk koşuda yalnız yapımı kaydeder, kimseye göndermez; bu yüzden API, 1.17.0 APK'dan ÖNCE çıkarsa 1.17.0 için dürtü gider ama 1.16.0 telefon onu tanımaz ve bildirim yine uygulama açılınca düşer. Kapalı uygulama bildirimi 1.17.0 kurulduktan SONRAKİ ilk yayında görülür.
 
+**YAYINDA (2026-11-06, kullanıcı onayıyla, `6b706a3`):** üretim API **1.31.0**, `saha` kanalı APK **1.17.0** yapım 629. API önce çıktı, `main` CI yeşil, `/up` 200. `surum:duyur` üretimde koşuyor: APK 17:35:33'te çıktı, iş 17:36:07'de kuyruktan geçti.
+
+#### 🔴 ÜRETİMDE PUSH KAPALI (2026-11-06, ÖLÇÜLDÜ)
+
+Kuyruk günlüğü: `Push atlandı: FCM yapılandırılmamış {"olay":"yeni_surum"}`. Coolify'da `FCM_HIZMET_HESABI` anahtarı üretimde VAR ama değeri BOŞ (`docker exec … printenv | wc -c` → app ve queue 1 bayt, yani yalnız satır sonu). Test sunucusunda dolu (3173 bayt). Sonuç: üretimde sürüm bildirimi dahil HİÇBİR sunucu dürtüsü gitmiyor (sipariş atama, iptal, teslim, kasa devri, yeni cihaz). Değerin ne zamandan beri boş olduğu ölçülmedi. Çare: üretimdeki değeri doldur, ardından yeniden dağıt (env tanımlamak koşan kaba geçmez). Yeniden dağıtım kullanıcı kararı bekliyor.
+
 #### ⚠️ AÇIK İŞ
 
 - **Karantinadaki kayıtların GERÇEK sebebi geriye dönük ölçülemez.** Günlük kullanıcı izniyle okundu (2026-11-06): 1.30.0 kabı ayağa kalktığından beri 59 `sync/push` isteğinin hepsi 200, `sync.event_rejected` sıfır. Karantinadaki kayıt yeniden gönderilmediği için bu sayı eski reddi göstermez ve önceki kapların günlüğü kap ile birlikte gitti; vekilde erişim günlüğü de kapalı. **Ölçüm 1.17.0 kurulunca kendiliğinden gelir:** ilk senkron karantinayı yeniden gönderir, gerçekten reddedilen kayıt o an `sync.event_rejected` satırını sebep koduyla yazar.
