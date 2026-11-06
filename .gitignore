@@ -51,7 +51,8 @@ scripts/.araclar/
 # biçimindedir; kazara `git add .` yapan biri onu buradan yakalanır.
 #
 # ⚠️ `apps/mobile/android/app/google-services.json` BUNUN KAPSAMINDA DEĞİLDİR ve olmamalıdır:
-# o dosya sır DEĞİLDİR (APK'nın içinde zaten dağıtılır, anahtarı paket adına kısıtlıdır) ve
+# o dosya sır DEĞİLDİR (APK'nın içinde zaten dağıtılır; anahtarı API kısıtlıdır, paket kısıtı
+# 2026-11-06 ölçümünde YOKTU, bkz. DECISIONS 2026-11-06/4) ve
 # repoda DURMAK ZORUNDADIR — yoksa CI'ın APK derlemesi kırılır.
 *-firebase-adminsdk-*.json
 sipario-*.json

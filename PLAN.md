@@ -296,6 +296,13 @@ Gerekçeler DECISIONS.md 2026-11-06/1-3.
 - Web panelindeki İşletme formu yalnız Borç Hatırlatma metnini gösteriyor; yeni mesajlar yalnız mobilde düzenlenir.
 - Bir önceki notun açık işleri duruyor.
 
+#### 🔐 GÜVENLİK UYARILARI (2026-11-06)
+
+- 12 Dependabot uyarısının yamaları `dev`'de: `composer audit` ve `npm audit` sıfır. GitHub `main`i okuduğu için uyarılar **dev→main birleşince** kapanır; açık altı Dependabot PR'ı da o zaman gereksiz kalır.
+- Livewire 4.3.4 → 4.4.8 oldu. Panel modallarını **gerçek tarayıcıda** test sunucusunda denemek gerekiyor (CSP kırığı sunucu testinde görünmez).
+- ⚠️ Secret scanning #1 (Firebase anahtarı) AÇIK: Google Cloud Console'da Android uygulama kısıtı eklenmeden kapatılmayacak. Gerekçe DECISIONS 2026-11-06/4.
+- Kod taraması (CodeQL) depoda hiç kurulu değil, uyarısı yok.
+
 ---
 
 ### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-11-05 — **SAHA LİSTESİ, DOKUZ MADDE TEK PAKET** (mobil 1.14.3 → **1.15.0**, API 1.28.0 → **1.29.0**, şema v30)
