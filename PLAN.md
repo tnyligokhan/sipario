@@ -269,7 +269,33 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-11-06 — **MESAJLAR YÖNETİME TAŞINDI, BİLGİLENDİRME MESAJI GELDİ** (mobil 1.15.0 → **1.16.0**, API 1.29.0 → **1.30.0**, şema v31)
+### 🔻 VARDİYA DEVİR NOTU — 2026-11-06 (2) — **TEK MESAJ DÜĞMESİ, KAPALI UYGULAMAYA SÜRÜM BİLDİRİMİ, WHATSAPP BİÇİMLERİ, KARANTİNA ÇIKIŞI** (mobil 1.16.0 → **1.17.0**, API 1.30.0 → **1.31.0**, şema v32)
+
+Gerekçeler DECISIONS.md 2026-11-06/5.
+
+| # | Madde | Yapılan |
+|---|---|---|
+| 1 | Mesajlar tek düğmede | Bilgilendirme Mesajı Gönder düğmesi alttan liste açar. Yeri eylem kümesi: Tahsilat ve Teslim Et'in üstü |
+| 2 | Uygulama kapalıyken sürüm bildirimi | `surum:duyur` iki dakikada bir `surum.json`a bakar, yeni yapımda FCM dürtüsü gider. Güncel telefon ve mağaza derlemesi dürtüyü telefonda eler |
+| 3 | WhatsApp biçimleri | Kalın, italik, üstü çizili, tek aralıklı, madde, numaralı, alıntı düğmeleri + canlı önizleme (`data/whatsapp_metni.dart`) |
+| 4 | "Bazı kayıtlar gönderilemedi" | JSON olmayan 404 artık geçici. Uygulama ya da API sürümü değişince karantina bir kez yeniden denenir (`karantinayiYenidenDene`, `sync_meta.karantina_anahtari`) |
+
+**KAPILAR (bizzat ölçüldü):** `flutter analyze` temiz · `flutter test` **1849/1849** · API tam takım **1059/1059** (CI, `3eb2a36`) · pint temiz · phpstan 0 · sipariş ayrıntısı, liste ve düzenleyici açık ve koyu temada golden ile gözle incelendi. Kotlin ve paket dokunuşu yok, release APK CI'da derlenir.
+
+⚠️ **DEPLOY SIRASI: API ÖNCE.** Göç yok. Zamanlayıcı ilk koşuda yalnız yapımı kaydeder, kimseye göndermez; bu yüzden API, 1.17.0 APK'dan ÖNCE çıkarsa 1.17.0 için dürtü gider ama 1.16.0 telefon onu tanımaz ve bildirim yine uygulama açılınca düşer. Kapalı uygulama bildirimi 1.17.0 kurulduktan SONRAKİ ilk yayında görülür.
+
+#### ⚠️ AÇIK İŞ
+
+- **Karantinadaki kayıtların GERÇEK sebebi geriye dönük ölçülemez.** Günlük kullanıcı izniyle okundu (2026-11-06): 1.30.0 kabı ayağa kalktığından beri 59 `sync/push` isteğinin hepsi 200, `sync.event_rejected` sıfır. Karantinadaki kayıt yeniden gönderilmediği için bu sayı eski reddi göstermez ve önceki kapların günlüğü kap ile birlikte gitti; vekilde erişim günlüğü de kapalı. **Ölçüm 1.17.0 kurulunca kendiliğinden gelir:** ilk senkron karantinayı yeniden gönderir, gerçekten reddedilen kayıt o an `sync.event_rejected` satırını sebep koduyla yazar.
+- Karantina dökümü ekranı hâlâ yok (`onKarantina` null). Yeniden deneme sonrası kalan kayıt yine "destek ekibiyle görüşün" der.
+- Android bazı üreticilerde kapatılmaya zorlanmış uygulamaya FCM iletmez, sürüm bildirimi de onlarda gelmez. Hiçbir değişiklik **gerçek cihazda görülmedi**.
+- Süreç canlı, uygulama arka planda ve son 15 dakikada kontrol yapılmışsa bildirime dokunmak bandı en çok 15 dakika geciktirir.
+- Test sunucusu (`test.sipario.com.tr`) VAR ve `SURUM_KANALI=test` tanımlı DEĞİL: orada `surum:duyur` saha sürümüne bakıyor, test kanalının yeni yapımları dürtü üretmez. Zararsız, ama test telefonunda sürüm bildirimi denenecekse tanımlanmalı.
+- Bir önceki notun açık işleri duruyor.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-11-06 — **MESAJLAR YÖNETİME TAŞINDI, BİLGİLENDİRME MESAJI GELDİ** (mobil 1.15.0 → **1.16.0**, API 1.29.0 → **1.30.0**, şema v31)
 
 Gerekçeler DECISIONS.md 2026-11-06/1-3.
 
@@ -287,7 +313,7 @@ Gerekçeler DECISIONS.md 2026-11-06/1-3.
 
 ⚠️ **DEPLOY SIRASI: API ÖNCE** (göç `2026_11_06_000101`, `migrate` servisi çalıştırır). API güncellenmeden yeni APK'da eklenen mesajlar sunucuya yazılmaz; telefondaki kayıt korunur (`sync_cekme` alan gelmezse dokunmaz) ama başka cihaza inmez.
 
-**ÖLÇÜLEN KANAL DURUMU (2026-11-06):** `test` kanalı APK 1.15.0 yapım 618, API 1.29.0. `saha` kanalı APK **1.8.2** yapım 606, üretim API **1.27.0**. `dev`, `main`in önünde; saha bayileri bu pakete `dev → main` birleşmeden ulaşmaz.
+**YAYINDA (2026-11-06, kullanıcı kararıyla PR'sız, `c5fbca6`):** üretim API **1.30.0**, `saha` kanalı APK **1.16.0** yapım 624 (önceki: API 1.27.0, APK 1.8.2). API önce çıktı, göç servisi tamamlandı, `/up` ve `/giris` 200, `main` CI yeşil. Saha yedi sürüm birden atladı.
 
 #### ⚠️ AÇIK İŞ
 
@@ -298,8 +324,8 @@ Gerekçeler DECISIONS.md 2026-11-06/1-3.
 
 #### 🔐 GÜVENLİK UYARILARI (2026-11-06)
 
-- 12 Dependabot uyarısının yamaları `dev`'de: `composer audit` ve `npm audit` sıfır. GitHub `main`i okuduğu için uyarılar **dev→main birleşince** kapanır; açık altı Dependabot PR'ı da o zaman gereksiz kalır.
-- Livewire 4.3.4 → 4.4.8 oldu. Panel modallarını **gerçek tarayıcıda** test sunucusunda denemek gerekiyor (CSP kırığı sunucu testinde görünmez).
+- 12 Dependabot uyarısı `main`e geçince kapandı, açık uyarı 0. `composer audit` ve `npm audit` sıfır.
+- Livewire 4.3.4 → 4.4.8 oldu ve **üretimde**. Panel modalları gerçek tarayıcıda denenmedi (CSP kırığı sunucu testinde görünmez).
 - ⚠️ Secret scanning #1 (Firebase anahtarı) AÇIK: Google Cloud Console'da Android uygulama kısıtı eklenmeden kapatılmayacak. Gerekçe DECISIONS 2026-11-06/4.
 - Kod taraması (CodeQL) depoda hiç kurulu değil, uyarısı yok.
 

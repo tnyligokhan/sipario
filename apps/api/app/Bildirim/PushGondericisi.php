@@ -77,10 +77,41 @@ class PushGondericisi
          * `kategori` yükte taşınır ki telefon, bayinin o kategoriyi kısıp kısmadığına
          * senkronu koşturduktan SONRA baksın: bildirim çizilmese de veri gelmelidir.
          */
+        return $this->ilet($cihazlar, $olay, $varlikId);
+    }
+
+    /**
+     * Olayı bütün bayilerin bütün cihazlarına gönderir. Yalnız bayiye ait olmayan olaylar içindir.
+     *
+     * KİRACI FİLTRESİ BİLEREK YOK ve bu yüzden kişisel veri kapısı burada daha da katıdır: [$ek]
+     * yalnız yayın bilgisi taşır, bir bayinin verisi bu yoldan asla geçmez.
+     *
+     * @param  array<string,string>  $ek
+     */
+    public function herkese(PushOlayi $olay, string $varlikId, array $ek = []): int
+    {
+        if (! $this->istemci->kurulu()) {
+            Log::info('Push atlandı: FCM yapılandırılmamış', ['olay' => $olay->value]);
+
+            return 0;
+        }
+
+        $cihazlar = Device::on('pgsql_owner')->whereNotNull('push_token')->get();
+
+        return $this->ilet($cihazlar, $olay, $varlikId, $ek);
+    }
+
+    /**
+     * @param  Collection<int,Device>  $cihazlar
+     * @param  array<string,string>  $ek
+     */
+    private function ilet(Collection $cihazlar, PushOlayi $olay, string $varlikId, array $ek = []): int
+    {
         $veri = [
             'olay' => $olay->value,
             'id' => $varlikId,
             'kategori' => $olay->kategori(),
+            ...$ek,
         ];
 
         $gonderilen = 0;

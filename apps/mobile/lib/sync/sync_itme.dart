@@ -141,6 +141,8 @@ extension SyncItme on SyncEngine {
   /// HER push'u kalıcı 422 yapardı; istemcinin bölmesi kuyruğu kurtarır ama her tur boşa giderdi.
   /// 400 o payı açar; bağı `SurumCarpikligiTest` makineyle zorlar.
   Future<PushOzeti> pushPending({int batchSize = 400}) async {
+    await karantinayiYenidenDene();
+
     final pending = await (db.select(db.outbox)
           ..where((t) => t.status.equals('pending'))
           ..orderBy([(t) => OrderingTerm.asc(t.id)])
@@ -156,6 +158,32 @@ extension SyncItme on SyncEngine {
       beklemede: tur.beklemede,
       kaliciRed: tur.kaliciRed,
     );
+  }
+
+  /// SÜRÜM DEĞİŞİNCE KARANTİNADAKİ KAYITLAR BİR KEZ DAHA DENENİR (2026-11-06). Kaç kayıt
+  /// yeniden sıraya girdiğini döner.
+  ///
+  /// NEDEN: karantinadan çıkış yolu yoktu. Sürüm çarpıklığıyla reddedilen kayıt (istemci sunucudan
+  /// önde, ya da doğrulama sonradan gevşedi) sunucu düzelse bile bir daha gönderilmiyor ve bant
+  /// sonsuza dek "destek ekibiyle görüşün" diyordu. Reddin sebebi çoğu zaman tam olarak sürümdür;
+  /// sürüm değişmeden yeniden denemek ise aynı reddi alır, bu yüzden anahtar sürüm çiftine bağlı.
+  ///
+  /// GÜVENLİ: `client_event_id` idempotenttir, reddedilen olay `processed_events`e yazılmaz ve
+  /// LWW varlığın eski olayı `stale` döner. Gerçekten bozuk kayıt yeniden reddedilir, karantinaya
+  /// geri düşer ve bir sonraki sürüme kadar denenmez; kuyruk dönmez, kayıt silinmez.
+  ///
+  /// [yapim] yalnız test içindir; varsayılan `flutter test` altında `kYapim` 0'dır.
+  Future<int> karantinayiYenidenDene({int yapim = kYapim}) async {
+    final meta = await db.syncState();
+    final anahtar = '$yapim|${meta.apiVersion ?? ''}';
+    if (meta.karantinaAnahtari == anahtar) return 0;
+
+    return db.transaction(() async {
+      await (db.update(db.syncMeta)..where((t) => t.id.equals(1)))
+          .write(SyncMetaCompanion(karantinaAnahtari: Value(anahtar)));
+      return (db.update(db.outbox)..where((t) => t.status.equals('rejected')))
+          .write(const OutboxCompanion(status: Value('pending'), attempts: Value(0)));
+    });
   }
 
   /// [rows] partisini gönderir; parti KALICI 4xx alırsa ikiye bölerek suçluyu daraltır.

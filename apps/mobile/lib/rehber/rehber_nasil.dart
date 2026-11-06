@@ -123,7 +123,7 @@ const List<NasilYapilir> kNasilYapilir = [
     etiketler: ['bilgilendirme', 'whatsapp', 'yola çıktı', 'teslim edildi'],
     adimlar: [
       'Siparişe dokun',
-      'Bilgilendirme Mesajı başlığından mesajı seç',
+      'Bilgilendirme Mesajı Gönder düğmesine dokunup mesajı seç',
       'Sipariş bilgileriyle dolu mesaj WhatsApp\'ta açılır, göndermeden önce değiştirebilirsin',
     ],
   ),

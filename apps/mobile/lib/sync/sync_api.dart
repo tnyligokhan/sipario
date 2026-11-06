@@ -335,7 +335,27 @@ class SyncApiException implements Exception {
   /// 425 (çok erken), 429 (çok fazla istek). Tekrar denemek DOĞRU davranıştır; bu yüzden
   /// karantinaya ALINMAZ ve motor bu hatayı yukarı fırlatır (tur düşer, sonraki tur dener).
   bool get gecici =>
-      statusCode >= 500 || statusCode == 408 || statusCode == 425 || statusCode == 429;
+      statusCode >= 500 ||
+      statusCode == 408 ||
+      statusCode == 425 ||
+      statusCode == 429 ||
+      _uygulamaDisi404;
+
+  /// JSON OLMAYAN 404: yanıtı uygulama değil, önündeki vekil verdi (2026-11-06).
+  ///
+  /// API `Accept: application/json` isteğine her 404'ü JSON döner. Düz metin `404 page not found`
+  /// ise dağıtım sırasında kap yönlendirmeden çıktığında vekilin cevabıdır: uygulama bu kaydı hiç
+  /// görmemiştir. Kalıcı red sayıldığında, kesintinin içinde üç tur dönen masum kayıt karantinaya
+  /// düşüyordu ve bayi her güncellemeden sonra "Bazı kayıtlar gönderilemedi" görüyordu.
+  bool get _uygulamaDisi404 {
+    if (statusCode != 404 || body.trim().isEmpty) return false;
+    try {
+      jsonDecode(body);
+      return false;
+    } on FormatException {
+      return true;
+    }
+  }
 
   /// KALICI RED: sunucuya ulaşıldı ve isteğimiz "böyle olmaz" diye geri çevrildi
   /// (400/404/409/413/422…). Aynı partiyi sonsuza dek yollamak kuyruğu kilitler — karantina

@@ -12973,6 +12973,18 @@ class $SyncMetaTable extends SyncMeta
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _karantinaAnahtariMeta = const VerificationMeta(
+    'karantinaAnahtari',
+  );
+  @override
+  late final GeneratedColumn<String> karantinaAnahtari =
+      GeneratedColumn<String>(
+        'karantina_anahtari',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _tenantCodeMeta = const VerificationMeta(
     'tenantCode',
   );
@@ -13070,6 +13082,7 @@ class $SyncMetaTable extends SyncMeta
     tenantName,
     apiBaseUrl,
     apiVersion,
+    karantinaAnahtari,
     tenantCode,
     routeCredits,
     routeCreditsMonthly,
@@ -13216,6 +13229,15 @@ class $SyncMetaTable extends SyncMeta
         apiVersion.isAcceptableOrUnknown(data['api_version']!, _apiVersionMeta),
       );
     }
+    if (data.containsKey('karantina_anahtari')) {
+      context.handle(
+        _karantinaAnahtariMeta,
+        karantinaAnahtari.isAcceptableOrUnknown(
+          data['karantina_anahtari']!,
+          _karantinaAnahtariMeta,
+        ),
+      );
+    }
     if (data.containsKey('tenant_code')) {
       context.handle(
         _tenantCodeMeta,
@@ -13350,6 +13372,10 @@ class $SyncMetaTable extends SyncMeta
         DriftSqlType.string,
         data['${effectivePrefix}api_version'],
       ),
+      karantinaAnahtari: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}karantina_anahtari'],
+      ),
       tenantCode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}tenant_code'],
@@ -13429,6 +13455,12 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
   /// yanıt, bilinen son sürümü silmek için gerekçe değildir.
   final String? apiVersion;
 
+  /// KARANTİNANIN SON YENİDEN DENENDİĞİ SÜRÜM ÇİFTİ: `<yapım>|<api_version>` (şema v32).
+  ///
+  /// Uygulama ya da sunucu değişince reddedilmiş kayıtlar bir kez daha denenir; anahtar aynı
+  /// sürümde ikinci denemeyi engeller. Gerekçe `SyncItme.karantinayiYenidenDene`.
+  final String? karantinaAnahtari;
+
   /// SUNUCU SAHİPLİ, salt-okunur önbellek (subscription bloğundan): tasarımdaki "Firma Kodu"
   /// (değiştirilemez) ve "Oto Sırala (rota) · N hak" sayacı. İstemci bunları YAZAMAZ.
   final String? tenantCode;
@@ -13479,6 +13511,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     this.tenantName,
     this.apiBaseUrl,
     this.apiVersion,
+    this.karantinaAnahtari,
     this.tenantCode,
     required this.routeCredits,
     required this.routeCreditsMonthly,
@@ -13532,6 +13565,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     }
     if (!nullToAbsent || apiVersion != null) {
       map['api_version'] = Variable<String>(apiVersion);
+    }
+    if (!nullToAbsent || karantinaAnahtari != null) {
+      map['karantina_anahtari'] = Variable<String>(karantinaAnahtari);
     }
     if (!nullToAbsent || tenantCode != null) {
       map['tenant_code'] = Variable<String>(tenantCode);
@@ -13598,6 +13634,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       apiVersion: apiVersion == null && nullToAbsent
           ? const Value.absent()
           : Value(apiVersion),
+      karantinaAnahtari: karantinaAnahtari == null && nullToAbsent
+          ? const Value.absent()
+          : Value(karantinaAnahtari),
       tenantCode: tenantCode == null && nullToAbsent
           ? const Value.absent()
           : Value(tenantCode),
@@ -13645,6 +13684,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       tenantName: serializer.fromJson<String?>(json['tenantName']),
       apiBaseUrl: serializer.fromJson<String?>(json['apiBaseUrl']),
       apiVersion: serializer.fromJson<String?>(json['apiVersion']),
+      karantinaAnahtari: serializer.fromJson<String?>(
+        json['karantinaAnahtari'],
+      ),
       tenantCode: serializer.fromJson<String?>(json['tenantCode']),
       routeCredits: serializer.fromJson<int>(json['routeCredits']),
       routeCreditsMonthly: serializer.fromJson<int>(
@@ -13677,6 +13719,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       'tenantName': serializer.toJson<String?>(tenantName),
       'apiBaseUrl': serializer.toJson<String?>(apiBaseUrl),
       'apiVersion': serializer.toJson<String?>(apiVersion),
+      'karantinaAnahtari': serializer.toJson<String?>(karantinaAnahtari),
       'tenantCode': serializer.toJson<String?>(tenantCode),
       'routeCredits': serializer.toJson<int>(routeCredits),
       'routeCreditsMonthly': serializer.toJson<int>(routeCreditsMonthly),
@@ -13705,6 +13748,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     Value<String?> tenantName = const Value.absent(),
     Value<String?> apiBaseUrl = const Value.absent(),
     Value<String?> apiVersion = const Value.absent(),
+    Value<String?> karantinaAnahtari = const Value.absent(),
     Value<String?> tenantCode = const Value.absent(),
     int? routeCredits,
     int? routeCreditsMonthly,
@@ -13738,6 +13782,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     tenantName: tenantName.present ? tenantName.value : this.tenantName,
     apiBaseUrl: apiBaseUrl.present ? apiBaseUrl.value : this.apiBaseUrl,
     apiVersion: apiVersion.present ? apiVersion.value : this.apiVersion,
+    karantinaAnahtari: karantinaAnahtari.present
+        ? karantinaAnahtari.value
+        : this.karantinaAnahtari,
     tenantCode: tenantCode.present ? tenantCode.value : this.tenantCode,
     routeCredits: routeCredits ?? this.routeCredits,
     routeCreditsMonthly: routeCreditsMonthly ?? this.routeCreditsMonthly,
@@ -13793,6 +13840,9 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
       apiVersion: data.apiVersion.present
           ? data.apiVersion.value
           : this.apiVersion,
+      karantinaAnahtari: data.karantinaAnahtari.present
+          ? data.karantinaAnahtari.value
+          : this.karantinaAnahtari,
       tenantCode: data.tenantCode.present
           ? data.tenantCode.value
           : this.tenantCode,
@@ -13835,6 +13885,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           ..write('tenantName: $tenantName, ')
           ..write('apiBaseUrl: $apiBaseUrl, ')
           ..write('apiVersion: $apiVersion, ')
+          ..write('karantinaAnahtari: $karantinaAnahtari, ')
           ..write('tenantCode: $tenantCode, ')
           ..write('routeCredits: $routeCredits, ')
           ..write('routeCreditsMonthly: $routeCreditsMonthly, ')
@@ -13865,6 +13916,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
     tenantName,
     apiBaseUrl,
     apiVersion,
+    karantinaAnahtari,
     tenantCode,
     routeCredits,
     routeCreditsMonthly,
@@ -13894,6 +13946,7 @@ class SyncMetaData extends DataClass implements Insertable<SyncMetaData> {
           other.tenantName == this.tenantName &&
           other.apiBaseUrl == this.apiBaseUrl &&
           other.apiVersion == this.apiVersion &&
+          other.karantinaAnahtari == this.karantinaAnahtari &&
           other.tenantCode == this.tenantCode &&
           other.routeCredits == this.routeCredits &&
           other.routeCreditsMonthly == this.routeCreditsMonthly &&
@@ -13921,6 +13974,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
   final Value<String?> tenantName;
   final Value<String?> apiBaseUrl;
   final Value<String?> apiVersion;
+  final Value<String?> karantinaAnahtari;
   final Value<String?> tenantCode;
   final Value<int> routeCredits;
   final Value<int> routeCreditsMonthly;
@@ -13946,6 +14000,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.tenantName = const Value.absent(),
     this.apiBaseUrl = const Value.absent(),
     this.apiVersion = const Value.absent(),
+    this.karantinaAnahtari = const Value.absent(),
     this.tenantCode = const Value.absent(),
     this.routeCredits = const Value.absent(),
     this.routeCreditsMonthly = const Value.absent(),
@@ -13972,6 +14027,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     this.tenantName = const Value.absent(),
     this.apiBaseUrl = const Value.absent(),
     this.apiVersion = const Value.absent(),
+    this.karantinaAnahtari = const Value.absent(),
     this.tenantCode = const Value.absent(),
     this.routeCredits = const Value.absent(),
     this.routeCreditsMonthly = const Value.absent(),
@@ -13998,6 +14054,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Expression<String>? tenantName,
     Expression<String>? apiBaseUrl,
     Expression<String>? apiVersion,
+    Expression<String>? karantinaAnahtari,
     Expression<String>? tenantCode,
     Expression<int>? routeCredits,
     Expression<int>? routeCreditsMonthly,
@@ -14025,6 +14082,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       if (tenantName != null) 'tenant_name': tenantName,
       if (apiBaseUrl != null) 'api_base_url': apiBaseUrl,
       if (apiVersion != null) 'api_version': apiVersion,
+      if (karantinaAnahtari != null) 'karantina_anahtari': karantinaAnahtari,
       if (tenantCode != null) 'tenant_code': tenantCode,
       if (routeCredits != null) 'route_credits': routeCredits,
       if (routeCreditsMonthly != null)
@@ -14054,6 +14112,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     Value<String?>? tenantName,
     Value<String?>? apiBaseUrl,
     Value<String?>? apiVersion,
+    Value<String?>? karantinaAnahtari,
     Value<String?>? tenantCode,
     Value<int>? routeCredits,
     Value<int>? routeCreditsMonthly,
@@ -14080,6 +14139,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
       tenantName: tenantName ?? this.tenantName,
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
       apiVersion: apiVersion ?? this.apiVersion,
+      karantinaAnahtari: karantinaAnahtari ?? this.karantinaAnahtari,
       tenantCode: tenantCode ?? this.tenantCode,
       routeCredits: routeCredits ?? this.routeCredits,
       routeCreditsMonthly: routeCreditsMonthly ?? this.routeCreditsMonthly,
@@ -14144,6 +14204,9 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
     if (apiVersion.present) {
       map['api_version'] = Variable<String>(apiVersion.value);
     }
+    if (karantinaAnahtari.present) {
+      map['karantina_anahtari'] = Variable<String>(karantinaAnahtari.value);
+    }
     if (tenantCode.present) {
       map['tenant_code'] = Variable<String>(tenantCode.value);
     }
@@ -14188,6 +14251,7 @@ class SyncMetaCompanion extends UpdateCompanion<SyncMetaData> {
           ..write('tenantName: $tenantName, ')
           ..write('apiBaseUrl: $apiBaseUrl, ')
           ..write('apiVersion: $apiVersion, ')
+          ..write('karantinaAnahtari: $karantinaAnahtari, ')
           ..write('tenantCode: $tenantCode, ')
           ..write('routeCredits: $routeCredits, ')
           ..write('routeCreditsMonthly: $routeCreditsMonthly, ')
@@ -20525,6 +20589,7 @@ typedef $$SyncMetaTableCreateCompanionBuilder =
       Value<String?> tenantName,
       Value<String?> apiBaseUrl,
       Value<String?> apiVersion,
+      Value<String?> karantinaAnahtari,
       Value<String?> tenantCode,
       Value<int> routeCredits,
       Value<int> routeCreditsMonthly,
@@ -20552,6 +20617,7 @@ typedef $$SyncMetaTableUpdateCompanionBuilder =
       Value<String?> tenantName,
       Value<String?> apiBaseUrl,
       Value<String?> apiVersion,
+      Value<String?> karantinaAnahtari,
       Value<String?> tenantCode,
       Value<int> routeCredits,
       Value<int> routeCreditsMonthly,
@@ -20652,6 +20718,11 @@ class $$SyncMetaTableFilterComposer
 
   ColumnFilters<String> get apiVersion => $composableBuilder(
     column: $table.apiVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get karantinaAnahtari => $composableBuilder(
+    column: $table.karantinaAnahtari,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -20785,6 +20856,11 @@ class $$SyncMetaTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get karantinaAnahtari => $composableBuilder(
+    column: $table.karantinaAnahtari,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get tenantCode => $composableBuilder(
     column: $table.tenantCode,
     builder: (column) => ColumnOrderings(column),
@@ -20903,6 +20979,11 @@ class $$SyncMetaTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get karantinaAnahtari => $composableBuilder(
+    column: $table.karantinaAnahtari,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get tenantCode => $composableBuilder(
     column: $table.tenantCode,
     builder: (column) => column,
@@ -20985,6 +21066,7 @@ class $$SyncMetaTableTableManager
                 Value<String?> tenantName = const Value.absent(),
                 Value<String?> apiBaseUrl = const Value.absent(),
                 Value<String?> apiVersion = const Value.absent(),
+                Value<String?> karantinaAnahtari = const Value.absent(),
                 Value<String?> tenantCode = const Value.absent(),
                 Value<int> routeCredits = const Value.absent(),
                 Value<int> routeCreditsMonthly = const Value.absent(),
@@ -21010,6 +21092,7 @@ class $$SyncMetaTableTableManager
                 tenantName: tenantName,
                 apiBaseUrl: apiBaseUrl,
                 apiVersion: apiVersion,
+                karantinaAnahtari: karantinaAnahtari,
                 tenantCode: tenantCode,
                 routeCredits: routeCredits,
                 routeCreditsMonthly: routeCreditsMonthly,
@@ -21037,6 +21120,7 @@ class $$SyncMetaTableTableManager
                 Value<String?> tenantName = const Value.absent(),
                 Value<String?> apiBaseUrl = const Value.absent(),
                 Value<String?> apiVersion = const Value.absent(),
+                Value<String?> karantinaAnahtari = const Value.absent(),
                 Value<String?> tenantCode = const Value.absent(),
                 Value<int> routeCredits = const Value.absent(),
                 Value<int> routeCreditsMonthly = const Value.absent(),
@@ -21062,6 +21146,7 @@ class $$SyncMetaTableTableManager
                 tenantName: tenantName,
                 apiBaseUrl: apiBaseUrl,
                 apiVersion: apiVersion,
+                karantinaAnahtari: karantinaAnahtari,
                 tenantCode: tenantCode,
                 routeCredits: routeCredits,
                 routeCreditsMonthly: routeCreditsMonthly,

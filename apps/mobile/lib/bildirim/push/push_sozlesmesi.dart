@@ -12,6 +12,7 @@
 // türü ve bir UUID geçer. Bildirimin okunabilir metni BURADA, telefonun kendi verisinden
 // üretilir — [pushTaslagi] müşteri adını PARAMETRE olarak alır, yükten değil.
 
+import '../../guncelleme/guncelleme_sozlesmesi.dart';
 import '../bildirim_sozlesmesi.dart';
 
 /// Dürtüye YEREL veriden eklenen bilgi. Hepsi telefonun kendi veritabanından okunur —
@@ -34,7 +35,7 @@ class PushEkBilgi {
 
 /// Sunucudan gelen dürtünün çözülmüş hâli.
 class PushMesaji {
-  const PushMesaji({required this.kategori, required this.varlikId, this.olay});
+  const PushMesaji({required this.kategori, required this.varlikId, this.olay, this.surum});
 
   /// Hangi olay — doğrudan bir bildirim kategorisidir (sunucu `kategori` alanında yollar).
   final BildirimKategori kategori;
@@ -54,15 +55,19 @@ class PushMesaji {
   /// düşülür — bilinmeyen bir yön, bildirimi hiç göstermemek için yeterli sebep değildir.
   final String? olay;
 
+  /// Yeni sürüm dürtüsünün sürüm adı ("1.17.0"). Kişisel veri değildir, yalnız o dürtüde gelir.
+  final String? surum;
+
   @override
   bool operator ==(Object other) =>
       other is PushMesaji &&
       other.kategori == kategori &&
       other.varlikId == varlikId &&
-      other.olay == olay;
+      other.olay == olay &&
+      other.surum == surum;
 
   @override
-  int get hashCode => Object.hash(kategori, varlikId, olay);
+  int get hashCode => Object.hash(kategori, varlikId, olay, surum);
 
   @override
   String toString() => 'PushMesaji(${kategori.wire}, $varlikId, ${olay ?? '-'})';
@@ -79,7 +84,13 @@ abstract final class PushOlayAdi {
 /// Gerekçe: bu kod arka planda, kullanıcının göremeyeceği bir bağlamda koşar. Sunucu bir gün
 /// yeni bir olay türü göndermeye başlarsa (ve sahadaki telefon eski sürümdeyse) çökmek değil,
 /// sessizce atlamak doğrudur — dürtüyü anlamayan istemci veriyi yine de senkronla alır.
-PushMesaji? pushMesajiCoz(Map<String, dynamic>? veri) {
+///
+/// [yerelYapim] ve [guncellemeKapali] yalnız test içindir: ikisi de derleme sabitidir.
+PushMesaji? pushMesajiCoz(
+  Map<String, dynamic>? veri, {
+  int yerelYapim = kYapim,
+  bool? guncellemeKapali,
+}) {
   if (veri == null) return null;
 
   final kategori = BildirimKategori.wiredan('${veri['kategori'] ?? ''}');
@@ -92,12 +103,24 @@ PushMesaji? pushMesajiCoz(Map<String, dynamic>? veri) {
   // ya da kötü niyetli bir yüktür. İkisinde de doğru davranış yok saymaktır.
   if (!pushIleGelebilir(kategori)) return null;
 
+  // YENİ SÜRÜM DÜRTÜSÜ HERKESE GİDER, KARARI TELEFON VERİR: sunucu kimin hangi yapımda olduğunu
+  // bilmez. Mağaza derlemesi güncellemeyi Play'den alır ve bu dürtüyü hiç göstermez; o yapımı
+  // zaten kurmuş telefona "yeni sürüm hazır" demek de yanlış olurdu. Bant aynı iki kuralla karar
+  // verir, bildirim banttan farklı bir şey söyleyemez.
+  if (kategori == BildirimKategori.guncellemeVar) {
+    final uzak = int.tryParse(id);
+    if (guncellemeKapali ?? guncellemeKapaliMi) return null;
+    if (uzak == null || !guncellemeVarMi(yerelYapim: yerelYapim, uzakYapim: uzak)) return null;
+  }
+
   final olay = '${veri['olay'] ?? ''}'.trim();
+  final surum = '${veri['surum'] ?? ''}'.trim();
 
   return PushMesaji(
     kategori: kategori,
     varlikId: id,
     olay: olay.isEmpty ? null : olay,
+    surum: surum.isEmpty ? null : surum,
   );
 }
 
@@ -109,7 +132,8 @@ bool pushIleGelebilir(BildirimKategori k) => switch (k) {
       BildirimKategori.siparisTeslim ||
       BildirimKategori.kasaDevri ||
       BildirimKategori.siparisIptalOnayi ||
-      BildirimKategori.yeniCihaz =>
+      BildirimKategori.yeniCihaz ||
+      BildirimKategori.guncellemeVar =>
         true,
       _ => false,
     };
@@ -126,6 +150,10 @@ bool pushIleGelebilir(BildirimKategori k) => switch (k) {
 /// [detaySatiri] GENİŞLETİLMİŞ bildirimde gövdenin altına eklenen ikinci satırdır (teslim
 /// adresi gibi). Yalnız genişleyen kategorilerde anlamlıdır ve o da yerelden okunur.
 BildirimTaslagi pushTaslagi(PushMesaji m, {String? ayrinti, String? detaySatiri}) {
+  if (m.kategori == BildirimKategori.guncellemeVar) {
+    return yeniSurumTaslagi(surum: m.surum, yapim: m.varlikId);
+  }
+
   final ek = (ayrinti ?? '').trim();
   final ikinci = (detaySatiri ?? '').trim();
 
