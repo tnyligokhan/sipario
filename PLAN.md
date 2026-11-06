@@ -269,7 +269,33 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-11-06 — **MESAJLAR YÖNETİME TAŞINDI, BİLGİLENDİRME MESAJI GELDİ** (mobil 1.15.0 → **1.16.0**, API 1.29.0 → **1.30.0**, şema v31)
+### 🔻 VARDİYA DEVİR NOTU — 2026-11-06 (2) — **TEK MESAJ DÜĞMESİ, KAPALI UYGULAMAYA SÜRÜM BİLDİRİMİ, WHATSAPP BİÇİMLERİ, KARANTİNA ÇIKIŞI** (mobil 1.16.0 → **1.17.0**, API 1.30.0 → **1.31.0**, şema v32)
+
+Gerekçeler DECISIONS.md 2026-11-06/5.
+
+| # | Madde | Yapılan |
+|---|---|---|
+| 1 | Mesajlar tek düğmede | Bilgilendirme Mesajı Gönder düğmesi alttan liste açar. Yeri eylem kümesi: Tahsilat ve Teslim Et'in üstü |
+| 2 | Uygulama kapalıyken sürüm bildirimi | `surum:duyur` iki dakikada bir `surum.json`a bakar, yeni yapımda FCM dürtüsü gider. Güncel telefon ve mağaza derlemesi dürtüyü telefonda eler |
+| 3 | WhatsApp biçimleri | Kalın, italik, üstü çizili, tek aralıklı, madde, numaralı, alıntı düğmeleri + canlı önizleme (`data/whatsapp_metni.dart`) |
+| 4 | "Bazı kayıtlar gönderilemedi" | JSON olmayan 404 artık geçici. Uygulama ya da API sürümü değişince karantina bir kez yeniden denenir (`karantinayiYenidenDene`, `sync_meta.karantina_anahtari`) |
+
+**KAPILAR (bizzat ölçüldü):** `flutter analyze` temiz · `flutter test` **1849/1849** · API tam takım **SONUÇLANMADI (bu not yazılırken 454 test geçmiş, kırık yoktu; hedefli SurumDuyurusuTest + PushGonderimiTest 16/16)** · pint temiz · phpstan 0 · sipariş ayrıntısı, liste ve düzenleyici açık ve koyu temada golden ile gözle incelendi. Kotlin ve paket dokunuşu yok, release APK CI'da derlenir.
+
+⚠️ **DEPLOY SIRASI: API ÖNCE.** Göç yok. Zamanlayıcı ilk koşuda yalnız yapımı kaydeder, kimseye göndermez; bu yüzden API, 1.17.0 APK'dan ÖNCE çıkarsa 1.17.0 için dürtü gider ama 1.16.0 telefon onu tanımaz ve bildirim yine uygulama açılınca düşer. Kapalı uygulama bildirimi 1.17.0 kurulduktan SONRAKİ ilk yayında görülür.
+
+#### ⚠️ AÇIK İŞ
+
+- **Karantinadaki kayıtların GERÇEK sebebi ölçülmedi.** Üretim günlüğü okuması bu oturumda izin katmanında engellendi. Kod incelemesi iki yapısal kusur buldu ve ikisi kapandı; yeni doğrulamalarla istemci yükü arasında uyuşmazlık bulunmadı. 1.17.0 sonrası uyarı sürerse kayıt gerçekten reddediliyordur: `sync.event_rejected` satırlarına bakılacak, sebep kodu orada.
+- Karantina dökümü ekranı hâlâ yok (`onKarantina` null). Yeniden deneme sonrası kalan kayıt yine "destek ekibiyle görüşün" der.
+- Android bazı üreticilerde kapatılmaya zorlanmış uygulamaya FCM iletmez, sürüm bildirimi de onlarda gelmez. Hiçbir değişiklik **gerçek cihazda görülmedi**.
+- Süreç canlı, uygulama arka planda ve son 15 dakikada kontrol yapılmışsa bildirime dokunmak bandı en çok 15 dakika geciktirir.
+- Test sunucusu varsa `SURUM_KANALI=test` tanımlanmalı, yoksa saha sürümünü duyurur.
+- Bir önceki notun açık işleri duruyor.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-11-06 — **MESAJLAR YÖNETİME TAŞINDI, BİLGİLENDİRME MESAJI GELDİ** (mobil 1.15.0 → **1.16.0**, API 1.29.0 → **1.30.0**, şema v31)
 
 Gerekçeler DECISIONS.md 2026-11-06/1-3.
 
