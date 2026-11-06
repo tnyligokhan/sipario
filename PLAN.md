@@ -280,17 +280,17 @@ Gerekçeler DECISIONS.md 2026-11-06/5.
 | 3 | WhatsApp biçimleri | Kalın, italik, üstü çizili, tek aralıklı, madde, numaralı, alıntı düğmeleri + canlı önizleme (`data/whatsapp_metni.dart`) |
 | 4 | "Bazı kayıtlar gönderilemedi" | JSON olmayan 404 artık geçici. Uygulama ya da API sürümü değişince karantina bir kez yeniden denenir (`karantinayiYenidenDene`, `sync_meta.karantina_anahtari`) |
 
-**KAPILAR (bizzat ölçüldü):** `flutter analyze` temiz · `flutter test` **1849/1849** · API tam takım **SONUÇLANMADI (bu not yazılırken 454 test geçmiş, kırık yoktu; hedefli SurumDuyurusuTest + PushGonderimiTest 16/16)** · pint temiz · phpstan 0 · sipariş ayrıntısı, liste ve düzenleyici açık ve koyu temada golden ile gözle incelendi. Kotlin ve paket dokunuşu yok, release APK CI'da derlenir.
+**KAPILAR (bizzat ölçüldü):** `flutter analyze` temiz · `flutter test` **1849/1849** · API tam takım **1059/1059** (CI, `3eb2a36`) · pint temiz · phpstan 0 · sipariş ayrıntısı, liste ve düzenleyici açık ve koyu temada golden ile gözle incelendi. Kotlin ve paket dokunuşu yok, release APK CI'da derlenir.
 
 ⚠️ **DEPLOY SIRASI: API ÖNCE.** Göç yok. Zamanlayıcı ilk koşuda yalnız yapımı kaydeder, kimseye göndermez; bu yüzden API, 1.17.0 APK'dan ÖNCE çıkarsa 1.17.0 için dürtü gider ama 1.16.0 telefon onu tanımaz ve bildirim yine uygulama açılınca düşer. Kapalı uygulama bildirimi 1.17.0 kurulduktan SONRAKİ ilk yayında görülür.
 
 #### ⚠️ AÇIK İŞ
 
-- **Karantinadaki kayıtların GERÇEK sebebi ölçülmedi.** Üretim günlüğü okuması bu oturumda izin katmanında engellendi. Kod incelemesi iki yapısal kusur buldu ve ikisi kapandı; yeni doğrulamalarla istemci yükü arasında uyuşmazlık bulunmadı. 1.17.0 sonrası uyarı sürerse kayıt gerçekten reddediliyordur: `sync.event_rejected` satırlarına bakılacak, sebep kodu orada.
+- **Karantinadaki kayıtların GERÇEK sebebi geriye dönük ölçülemez.** Günlük kullanıcı izniyle okundu (2026-11-06): 1.30.0 kabı ayağa kalktığından beri 59 `sync/push` isteğinin hepsi 200, `sync.event_rejected` sıfır. Karantinadaki kayıt yeniden gönderilmediği için bu sayı eski reddi göstermez ve önceki kapların günlüğü kap ile birlikte gitti; vekilde erişim günlüğü de kapalı. **Ölçüm 1.17.0 kurulunca kendiliğinden gelir:** ilk senkron karantinayı yeniden gönderir, gerçekten reddedilen kayıt o an `sync.event_rejected` satırını sebep koduyla yazar.
 - Karantina dökümü ekranı hâlâ yok (`onKarantina` null). Yeniden deneme sonrası kalan kayıt yine "destek ekibiyle görüşün" der.
 - Android bazı üreticilerde kapatılmaya zorlanmış uygulamaya FCM iletmez, sürüm bildirimi de onlarda gelmez. Hiçbir değişiklik **gerçek cihazda görülmedi**.
 - Süreç canlı, uygulama arka planda ve son 15 dakikada kontrol yapılmışsa bildirime dokunmak bandı en çok 15 dakika geciktirir.
-- Test sunucusu varsa `SURUM_KANALI=test` tanımlanmalı, yoksa saha sürümünü duyurur.
+- Test sunucusu (`test.sipario.com.tr`) VAR ve `SURUM_KANALI=test` tanımlı DEĞİL: orada `surum:duyur` saha sürümüne bakıyor, test kanalının yeni yapımları dürtü üretmez. Zararsız, ama test telefonunda sürüm bildirimi denenecekse tanımlanmalı.
 - Bir önceki notun açık işleri duruyor.
 
 ---
