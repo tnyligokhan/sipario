@@ -152,7 +152,9 @@ class GuncellemeServisi {
   /// YENİ SÜRÜM BİLDİRİMİ (kullanıcı isteği 2026-08-25).
   ///
   /// NEDEN GEREKLİ: bant müdahalesizdir ve öyle kalmalı, ama bedeli şu — bayi uygulamayı
-  /// AÇMADIĞI sürece yeni sürümden haberi olmaz. Bildirim o boşluğu kapatır.
+  /// AÇMADIĞI sürece yeni sürümden haberi olmaz. Bu metot o boşluğu yalnız uygulama açıkken
+  /// kapatır: kontrol uygulamanın içinde koşar. Kapalı uygulamaya haberi sunucunun dürtüsü
+  /// getirir (`surum:duyur`) ve aynı taslakla aynı kimlikte çizer, bayi tek satır görür.
   ///
   /// BİLDİRİM İNDİRMEYİ BAŞLATMAZ, yalnız haber verir. Dokunuş uygulamayı açar ve bandın
   /// "Güncelle" düğmesi orada durur. Sessizce indirmeye başlamak, bayinin mobil verisini
@@ -174,18 +176,8 @@ class GuncellemeServisi {
   @visibleForTesting
   Future<void> bildir(SurumBilgisi bilgi) async {
     try {
-      await (_bildirim ?? bildirimServisi).goster(BildirimTaslagi(
-        kategori: BildirimKategori.guncellemeVar,
-        baslik: 'Yeni sürüm hazır',
-        // SÜRÜM ADI GÖVDEDE, YAPIM NUMARASI HİÇBİR YERDE — banttaki kuralın aynısı
-        // (2026-08-11 kullanıcı kararı: "sadece sürüm yazsın").
-        govde: '${bilgi.surum} sürümü indirilebilir',
-        detay: 'Uygulamayı açın; en üstteki şeritten "Güncelle" ile kurabilirsiniz.',
-        kimlik: bildirimKimligi(BildirimKategori.guncellemeVar, '${bilgi.yapim}'),
-        // YOL YOK ve bu bilinçli: bildirime dokunmak uygulamayı ANA EKRANDA açar, bandın
-        // tam da durduğu yerde. Sözlüğe yalnız bu bildirim için bir "guncelleme" rotası
-        // eklemek, hedefi zaten açılışta görünen bir şey için ikinci bir yol kurmak olurdu.
-      ));
+      await (_bildirim ?? bildirimServisi)
+          .goster(yeniSurumTaslagi(surum: bilgi.surum, yapim: '${bilgi.yapim}'));
     } on Object catch (e) {
       debugPrint('Güncelleme bildirimi gösterilemedi: $e');
     }

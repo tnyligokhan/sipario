@@ -92,6 +92,13 @@ typedef PushAyrintiKancasi = Future<PushEkBilgi?> Function(PushMesaji mesaj);
 /// Push jetonunu sunucuya bildiren kanca.
 typedef PushJetonKancasi = Future<void> Function(String jeton);
 
+/// Gelen veriyi çözen işlev. Testte değiştirilir: yerel yapım derleme sabitidir ve `flutter test`
+/// altında 0 olduğu için yeni sürüm dürtüsü başka türlü buraya ulaşamaz.
+typedef PushCozucu = PushMesaji? Function(Map<String, dynamic>? veri);
+
+/// Yeni sürüm dürtüsünde bandı hemen getiren kanca.
+typedef PushSurumKancasi = Future<void> Function();
+
 /// Ön plan dinleyicilerini ve jeton yaşam döngüsünü yöneten servis.
 ///
 /// Bağımlılıklar KANCA olarak alınır (senkron, ayrıntı okuma, jeton bildirimi): böylece bu
@@ -102,6 +109,8 @@ class PushServisi {
     required this.senkronKos,
     required this.jetonBildir,
     this.ayrintiOku,
+    this.surumDenetle,
+    this.coz = pushMesajiCoz,
     BildirimServisi? bildirim,
     FirebaseMessaging? mesajlasma,
   })  : _bildirim = bildirim,
@@ -110,6 +119,8 @@ class PushServisi {
   final PushSenkronKancasi senkronKos;
   final PushJetonKancasi jetonBildir;
   final PushAyrintiKancasi? ayrintiOku;
+  final PushSurumKancasi? surumDenetle;
+  final PushCozucu coz;
 
   final BildirimServisi? _bildirim;
   final FirebaseMessaging? _mesajlasma;
@@ -179,8 +190,15 @@ class PushServisi {
   /// henüz inmemiş bir siparişi arardı; "bildirim geldi ama ekranda yok" güveni en hızlı
   /// bitiren şeydir.
   Future<void> onPlandaMesaj(Map<String, dynamic> veri) async {
-    final coz = pushMesajiCoz(veri);
-    if (coz == null) return;
+    final mesaj = coz(veri);
+    if (mesaj == null) return;
+
+    // YENİ SÜRÜMDE SENKRONLUK VERİ YOKTUR. Uygulama açıkken asıl haber banttır: kontrol bandı
+    // açar ve bildirimi aynı kimlikle kendisi çizer, burada ikinci kez çizilmez.
+    if (mesaj.kategori == BildirimKategori.guncellemeVar && surumDenetle != null) {
+      await surumDenetle!();
+      return;
+    }
 
     // SENKRON KATEGORİ TERCİHİNDEN ÖNCE VE ONDAN BAĞIMSIZ: bayi bildirimi kısmış olabilir,
     // ama verinin gelmesini istememesi diye bir şey yok.
@@ -192,16 +210,16 @@ class PushServisi {
       debugPrint('Push sonrası senkron koşamadı: $e');
     }
 
-    if (!await _b.kategoriAcikMi(coz.kategori)) return;
+    if (!await _b.kategoriAcikMi(mesaj.kategori)) return;
 
     PushEkBilgi? ek;
     try {
-      ek = await ayrintiOku?.call(coz);
+      ek = await ayrintiOku?.call(mesaj);
     } on Object catch (e) {
       debugPrint('Push ayrıntısı okunamadı: $e');
     }
 
-    await _b.goster(pushTaslagi(coz, ayrinti: ek?.ad, detaySatiri: ek?.adres));
+    await _b.goster(pushTaslagi(mesaj, ayrinti: ek?.ad, detaySatiri: ek?.adres));
   }
 
   /// Oturum kapanınca dinleyiciler bırakılır.

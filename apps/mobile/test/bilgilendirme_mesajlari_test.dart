@@ -16,6 +16,7 @@ import 'package:sipario/repo/tenant_settings_repository.dart';
 import 'package:sipario/screens/customers/borc_hatirlatma.dart';
 import 'package:sipario/screens/isletme/ayarlar/hakkinda_ekrani.dart';
 import 'package:sipario/screens/isletme/ayarlar/mesaj_sablonlari_ekrani.dart';
+import 'package:sipario/screens/isletme/whatsapp_bicim_cubugu.dart';
 import 'package:sipario/screens/orders/bilgilendirme_mesaji.dart';
 import 'package:sipario/screens/orders/musteri_eylemleri.dart';
 import 'package:sipario/screens/orders/order_detail_screen.dart';
@@ -133,6 +134,15 @@ class SahteWhatsapp {
 }
 
 MesajTuru _tur(String anahtar) => kMesajTurleri.firstWhere((t) => t.anahtar == anahtar);
+
+const _dugme = 'Bilgilendirme Mesajı Gönder';
+
+/// Tek düğmeye dokunup mesaj listesini açar.
+Future<void> _listeyiAc(WidgetTester tester) async {
+  await tester.ensureVisible(find.text(_dugme));
+  await tester.tap(find.text(_dugme));
+  await akisiBekle(tester);
+}
 
 Future<void> _detayiAc(WidgetTester tester, MesajTezgahi tezgah) async {
   genisYuzey(tester);
@@ -329,11 +339,38 @@ void main() {
     });
     tearDown(() => uriAcici = (_) async => false);
 
-    testWidgets('açık siparişte başlık ve uygun mesajlar görünür, teslim mesajı görünmez',
+    testWidgets('mesajlar ekranda durmaz, tek düğme listeyi açar', (tester) async {
+      final t = MesajTezgahi();
+      await tester.runAsync(() => t.kur());
+      await _detayiAc(tester, t);
+
+      expect(find.text(_dugme), findsOneWidget);
+      expect(find.text('Yola Çıktı'), findsNothing);
+
+      await _listeyiAc(tester);
+      expect(find.text('Yola Çıktı'), findsOneWidget);
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('düğme Teslim Et düğmesinin üstünde, eylemlerin yanında durur', (tester) async {
+      final t = MesajTezgahi();
+      await tester.runAsync(() => t.kur());
+      await _detayiAc(tester, t);
+
+      final mesaj = tester.getCenter(find.text(_dugme)).dy;
+      expect(mesaj, lessThan(tester.getCenter(find.text('Teslim Et')).dy));
+      expect(mesaj, greaterThan(tester.getCenter(find.text('Teslimat Adresi')).dy));
+
+      await ekraniKapat(tester);
+    });
+
+    testWidgets('açık siparişte uygun mesajlar sunulur, teslim mesajı sunulmaz',
         (tester) async {
       final t = MesajTezgahi();
       await tester.runAsync(() => t.kur());
       await _detayiAc(tester, t);
+      await _listeyiAc(tester);
 
       expect(find.text('Bilgilendirme Mesajı'), findsOneWidget);
       expect(find.text('Yola Çıktı'), findsOneWidget);
@@ -348,6 +385,7 @@ void main() {
       final t = MesajTezgahi();
       await tester.runAsync(() => t.kur());
       await _detayiAc(tester, t);
+      await _listeyiAc(tester);
 
       await tester.tap(find.text('Adreste Ulaşılamadı'));
       await ekran.akislariBekle(tester, tur: 12);
@@ -371,6 +409,7 @@ void main() {
             )));
       });
       await _detayiAc(tester, t);
+      await _listeyiAc(tester);
 
       await tester.tap(find.text('Kampanya'));
       await ekran.akislariBekle(tester, tur: 12);
@@ -384,6 +423,7 @@ void main() {
       final t = MesajTezgahi();
       await tester.runAsync(() => t.kur());
       await _detayiAc(tester, t);
+      await _listeyiAc(tester);
 
       await tester.tap(find.text('Borç Hatırlatma'));
       await akisiBekle(tester);
@@ -398,6 +438,7 @@ void main() {
       final t = MesajTezgahi();
       await tester.runAsync(() => t.kur(rol: 'kurye', bakiye: 5000));
       await _detayiAc(tester, t);
+      await _listeyiAc(tester);
 
       expect(find.text('Borç Hatırlatma'), findsNothing);
       expect(find.text('Yola Çıktı'), findsOneWidget);
@@ -405,7 +446,7 @@ void main() {
       await ekraniKapat(tester);
     });
 
-    testWidgets('müşterisiz siparişte bölüm hiç çizilmez', (tester) async {
+    testWidgets('müşterisiz siparişte düğme hiç çizilmez', (tester) async {
       final t = MesajTezgahi();
       await tester.runAsync(() async {
         await t.kur();
@@ -414,13 +455,53 @@ void main() {
       });
       await _detayiAc(tester, t);
 
-      expect(find.text('Bilgilendirme Mesajı'), findsNothing);
+      expect(find.text(_dugme), findsNothing);
 
       await ekraniKapat(tester);
     });
   });
 
   group('Mesajlar ekranı', () {
+    testWidgets('biçim düğmesi seçimi sarar, önizleme işaretsiz gösterir, metin kaydedilir',
+        (tester) async {
+      final t = MesajTezgahi();
+      await tester.runAsync(() => t.kur());
+      genisYuzey(tester);
+      await tester.pumpWidget(sipKabuk(MesajSablonlariEkrani(db: t.db)));
+      await akisiBekle(tester);
+
+      await tester.tap(find.text('Yeni Mesaj Ekle'));
+      await akisiBekle(tester);
+      await tester.enterText(find.byType(TextField).first, 'Kampanya');
+      final metin = find.byType(TextField).last;
+      await tester.enterText(metin, 'Sayın **musteriadi**');
+      await tester.pump();
+
+      final alan = tester.widget<TextField>(metin);
+      alan.controller!.selection = const TextSelection(baseOffset: 0, extentOffset: 5);
+      await tester.tap(find.text('İtalik'));
+      await tester.pump();
+
+      expect(alan.controller!.text, '_Sayın_ **musteriadi**');
+      final onizleme = find.byType(WhatsappOnizleme);
+      await tester.ensureVisible(onizleme);
+      expect(find.text('Önizleme'), findsOneWidget);
+      expect(
+        find.descendant(of: onizleme, matching: find.textContaining('Sayın Müşteri', findRichText: true)),
+        findsOneWidget,
+        reason: 'işaretler önizlemede görünmez, yer tutucu adıyla çözülür',
+      );
+
+      await tester.ensureVisible(find.text('Kaydet'));
+      await tester.tap(find.text('Kaydet'));
+      await akisiBekle(tester);
+
+      final kayit = await tester.runAsync(t.sablonlar);
+      expect(kayit!.ozel.single.metin, '_Sayın_ **musteriadi**');
+
+      await ekraniKapat(tester);
+    });
+
     testWidgets('yeni mesaj eklenir, listede görünür, düzenlenir ve silinir', (tester) async {
       final t = MesajTezgahi();
       await ekran.ekranaKoy(tester, MesajSablonlariEkrani(db: t.db));

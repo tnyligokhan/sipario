@@ -51,6 +51,19 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '1.17.0',
+    tarih: '6 Kasım 2026',
+    maddeler: [
+      'Siparişteki mesajlar tek düğmede toplandı: Bilgilendirme Mesajı Gönder düğmesine dokunup '
+          'mesajı listeden seçin. Düğme Teslim Et\'in üstünde, işlem düğmelerinin yanında duruyor',
+      'Yeni sürüm yayınlandığında uygulama kapalıyken de bildirim geliyor',
+      'Mesajlarda WhatsApp biçimlerini kullanabilirsiniz: kalın, italik, üstü çizili, tek aralıklı, '
+          'madde, numaralı liste ve alıntı. Metni seçip düğmeye dokunun, altta önizlemesini görün',
+      'Güncellemelerden sonra görülen "Bazı kayıtlar gönderilemedi" uyarısı giderildi. Bekleyen '
+          'kayıtlar yeniden gönderiliyor',
+    ],
+  ),
+  SurumNotu(
     surum: '1.16.0',
     tarih: '6 Kasım 2026',
     maddeler: [

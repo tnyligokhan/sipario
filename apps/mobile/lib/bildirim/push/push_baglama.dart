@@ -10,6 +10,7 @@ import 'package:drift/drift.dart';
 
 import '../../data/app_database.dart';
 import '../../auth/session.dart';
+import '../../guncelleme/guncelleme_servisi.dart' show guncellemeServisi;
 import '../../sync/cihaz_api.dart';
 import '../../sync/sync_service.dart';
 import '../bildirim_ayarlari.dart';
@@ -64,6 +65,7 @@ Future<PushServisi?> pushKur(AppDatabase db, SyncService sync) async {
       );
     },
     ayrintiOku: (mesaj) => pushAyrintisi(db, mesaj),
+    surumDenetle: () => guncellemeServisi.sessizKontrol(zorla: true),
   );
 
   await servis.kur();
@@ -85,7 +87,8 @@ Future<PushEkBilgi?> pushAyrintisi(AppDatabase db, PushMesaji mesaj) async {
   // yeni cihazdaki ise bir cihaz kaydının — ikisi de sipariş tablosunda hiçbir zaman
   // bulunmaz. Bu iki bildirimin metni zaten kendi kendine yeter.
   if (mesaj.kategori == BildirimKategori.kasaDevri ||
-      mesaj.kategori == BildirimKategori.yeniCihaz) {
+      mesaj.kategori == BildirimKategori.yeniCihaz ||
+      mesaj.kategori == BildirimKategori.guncellemeVar) {
     return null;
   }
 

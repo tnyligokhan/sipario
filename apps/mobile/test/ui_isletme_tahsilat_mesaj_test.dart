@@ -104,7 +104,8 @@ void main() {
       // Bayi yer tutucuları EZBERLEMEK zorunda kalmamalı — ekranda çip olarak dururlar.
       expect(find.text('Mesaj Metni'), findsOneWidget);
       expect(find.text('Müşteri adı'), findsOneWidget);
-      expect(find.text('IBAN + alıcı'), findsOneWidget);
+      // Önizleme de aynı metni çizebilir: IBAN bloğu kendi satırındadır.
+      expect(find.text('IBAN + alıcı'), findsAtLeastNWidgets(1));
 
       await tester.enterText(find.byType(TextField).first, 'Sayın ');
       await tester.pump();

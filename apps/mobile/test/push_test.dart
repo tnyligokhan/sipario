@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/bildirim/bildirim_sozlesmesi.dart';
 import 'package:sipario/bildirim/push/push_servisi.dart';
 import 'package:sipario/bildirim/push/push_sozlesmesi.dart';
+import 'package:sipario/guncelleme/guncelleme_sozlesmesi.dart' show yeniSurumTaslagi;
 
 void main() {
   group('pushMesajiCoz — yükün çözümü', () {
@@ -47,6 +48,73 @@ void main() {
             reason: '${k.wire} sunucudan itilemez');
         expect(pushIleGelebilir(k), isFalse);
       }
+    });
+  });
+
+  group('Yeni sürüm dürtüsü (2026-11-06)', () {
+    Map<String, dynamic> durtu(String yapim) =>
+        {'olay': 'yeni_surum', 'id': yapim, 'kategori': 'guncelleme_var', 'surum': '1.17.0'};
+    PushMesaji? coz(Map<String, dynamic> v, {int yerel = 618, bool kapali = false}) =>
+        pushMesajiCoz(v, yerelYapim: yerel, guncellemeKapali: kapali);
+
+    test('eski telefonda çözülür, sürüm adı taşınır', () {
+      final m = coz(durtu('630'));
+      expect(m?.kategori, BildirimKategori.guncellemeVar);
+      expect(m?.surum, '1.17.0');
+    });
+
+    test('aynı ya da daha yeni yapımdaki telefon dürtüyü eler', () {
+      expect(coz(durtu('618')), isNull);
+      expect(coz(durtu('600')), isNull);
+    });
+
+    test('mağaza derlemesi dürtüyü eler, güncellemeyi Play yapar', () {
+      expect(coz(durtu('630'), kapali: true), isNull);
+    });
+
+    test('varsayılan olarak derleme sabitine uyar: yerel derleme dürtülmez', () {
+      expect(pushMesajiCoz(durtu('630')), isNull);
+    });
+
+    test('bozuk yapım numarası bildirim üretmez', () {
+      expect(coz(durtu('abc')), isNull);
+    });
+
+    test('bildirim uygulama içi kontrolle AYNI kimliği ve metni taşır, tek satır görünür', () {
+      final t = pushTaslagi(coz(durtu('630'))!);
+      final yerel = yeniSurumTaslagi(surum: '1.17.0', yapim: '630');
+
+      expect(t.kimlik, yerel.kimlik);
+      expect(t.baslik, 'Yeni sürüm hazır');
+      expect(t.govde, '1.17.0 sürümü indirilebilir');
+      expect(t.detay, yerel.detay);
+      expect(t.yol, isNull, reason: 'dokunuş uygulamayı bandın durduğu ana ekranda açar');
+    });
+
+    test('sürüm adı gelmezse gövde genel kalır', () {
+      final t = pushTaslagi(
+        const PushMesaji(kategori: BildirimKategori.guncellemeVar, varlikId: '630'),
+      );
+      expect(t.govde, 'Yeni sürüm indirilebilir');
+    });
+
+    test('uygulama açıkken bandı getirir, senkron koşmaz, ikinci bildirim çizmez', () async {
+      var denetlendi = 0;
+      var senkron = 0;
+      final bildirim = SahteBildirimServisi();
+      final servis = PushServisi(
+        senkronKos: () async => senkron++,
+        jetonBildir: (_) async {},
+        surumDenetle: () async => denetlendi++,
+        coz: (v) => pushMesajiCoz(v, yerelYapim: 618, guncellemeKapali: false),
+        bildirim: bildirim,
+      );
+
+      await servis.onPlandaMesaj(durtu('630'));
+
+      expect(denetlendi, 1);
+      expect(senkron, 0);
+      expect(bildirim.gosterilenler, isEmpty);
     });
   });
 

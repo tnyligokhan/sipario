@@ -266,12 +266,6 @@ class _Govde extends StatelessWidget {
           // KAPALI siparişte de anlamlıdır — kurye teslim ettikten sonra da kapının önündedir
           // ve o pini bir sonraki teslimat için düzeltebilir.
           AdresBolumu(db: db, musteriId: musteriId, writable: writable),
-          BilgilendirmeMesajiBolumu(
-            db: db,
-            order: order,
-            satirlar: satirlar,
-            musteriId: musteriId,
-          ),
           GecmisBolumu(db: db, musteriId: musteriId, orderId: order.id),
         ],
 
@@ -297,6 +291,15 @@ class _Govde extends StatelessWidget {
         // Kalan borç — `.sd-odendi`nin karşılığı. Veresiye/kısmi teslimde ekranda borçtan tek
         // kelime yoktu (saha hatası 2026-07-29); kutu yalnız borç varken çizilir.
         SiparisBorcKutusu(db: db, order: order),
+
+        // Müşteriye mesaj: eylem kümesinin başı. Mesaj, tahsilat ve teslim aynı anın işleridir.
+        if (musteriId != null)
+          BilgilendirmeMesajiBolumu(
+            db: db,
+            order: order,
+            satirlar: satirlar,
+            musteriId: musteriId,
+          ),
 
         // Sipariş DIŞI borç tahsilatı — teslim edilmiş siparişte de görünür (asıl kullanım anı
         // odur: veresiye teslim, sonra tahsilat). Gerekçeler `SiparisTahsilatButonu` başlığında.

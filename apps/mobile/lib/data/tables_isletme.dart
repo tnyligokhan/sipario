@@ -337,6 +337,12 @@ class SyncMeta extends Table {
   /// yanıt, bilinen son sürümü silmek için gerekçe değildir.
   TextColumn get apiVersion => text().nullable()();
 
+  /// KARANTİNANIN SON YENİDEN DENENDİĞİ SÜRÜM ÇİFTİ: `<yapım>|<api_version>` (şema v32).
+  ///
+  /// Uygulama ya da sunucu değişince reddedilmiş kayıtlar bir kez daha denenir; anahtar aynı
+  /// sürümde ikinci denemeyi engeller. Gerekçe `SyncItme.karantinayiYenidenDene`.
+  TextColumn get karantinaAnahtari => text().nullable()();
+
   /// SUNUCU SAHİPLİ, salt-okunur önbellek (subscription bloğundan): tasarımdaki "Firma Kodu"
   /// (değiştirilemez) ve "Oto Sırala (rota) · N hak" sayacı. İstemci bunları YAZAMAZ.
   TextColumn get tenantCode => text().nullable()();

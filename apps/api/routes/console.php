@@ -67,6 +67,15 @@ Schedule::command('sanctum:prune-expired --hours=720')
     ->onOneServer();
 
 /*
+ * YENİ SÜRÜM DUYURUSU (kullanıcı isteği 2026-11-06): uygulama kapalıyken de haber gitsin. Gerekçe
+ * ve "neden yoklama" `App\Bildirim\SurumDuyurucu` başlığında.
+ */
+Schedule::command('surum:duyur')
+    ->everyTwoMinutes()
+    ->withoutOverlapping()
+    ->onOneServer();
+
+/*
  * OTO-SIRALAMA AYLIK HAKKI — ücretsiz hak her ayın başında yenilenir, satın alınan hak korunur
  * (kullanıcı kararı 2026-09-26; kural `App\Abonelik\RotaKontoru`).
  *

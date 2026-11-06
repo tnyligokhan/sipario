@@ -12,11 +12,16 @@
 import 'package:flutter/material.dart';
 
 import '../../screens/customers/borc_hatirlatma.dart'
-    show HatirlatmaYerTutucu, hatirlatmaYerTutuculari, varsayilanHatirlatmaSablonu;
+    show
+        HatirlatmaYerTutucu,
+        hatirlatmaSablonuUygula,
+        hatirlatmaYerTutuculari,
+        varsayilanHatirlatmaSablonu;
 import '../../theme/components/atoms.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import 'isletme_atomlari.dart';
+import 'whatsapp_bicim_cubugu.dart';
 
 /// İmleç konumuna [jeton] ekler; metin seçiliyse SEÇİMİN YERİNE geçer ve imleç eklenen dizinin
 /// sonuna taşınır. SAF — widget kurmadan sınanır.
@@ -88,6 +93,7 @@ class HatirlatmaSablonuAlani extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SipBolumBaslik(baslik, ustBosluk: 20),
+        WhatsappBicimCubugu(controller: controller, onDegis: onDegis),
         SipInput(
           controller: controller,
           ipucu: ipucu,
@@ -109,7 +115,36 @@ class HatirlatmaSablonuAlani extends StatelessWidget {
           'Çipe dokununca imlecin olduğu yere eklenir. IBAN\'ı kendi satırına koyun.',
           tur: AlanNotuTuru.bilgi,
         ),
+        _Onizleme(controller: controller, yerTutucular: yerTutucular),
       ],
+    );
+  }
+}
+
+/// Metnin müşteride nasıl görüneceği. Yer tutucular adlarıyla gösterilir: bayi gerçek bir müşteri
+/// adı beklemez, ama çözüm yine gerçek yoldan geçer ki kalın yer tutucu da doğru çizilsin.
+class _Onizleme extends StatelessWidget {
+  const _Onizleme({required this.controller, required this.yerTutucular});
+
+  final TextEditingController controller;
+  final List<HatirlatmaYerTutucu> yerTutucular;
+
+  @override
+  Widget build(BuildContext context) {
+    final degerler = {for (final y in yerTutucular) y.jeton: y.aciklama};
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: controller,
+      builder: (context, deger, _) {
+        final metin = hatirlatmaSablonuUygula(deger.text, degerler: degerler);
+        if (metin.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SipBolumBaslik('Önizleme', ustBosluk: 18),
+            WhatsappOnizleme(metin: metin),
+          ],
+        );
+      },
     );
   }
 }

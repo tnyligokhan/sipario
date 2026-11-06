@@ -1,7 +1,12 @@
-// SİPARİŞ DETAYININ "BİLGİLENDİRME MESAJI" BÖLÜMÜ (kullanıcı isteği 2026-11-06).
+// SİPARİŞ DETAYININ "BİLGİLENDİRME MESAJI" DÜĞMESİ (kullanıcı isteği 2026-11-06).
 //
-// Bayinin müşteriye siparişle ilgili yazacağı hazır mesajlar burada durur. Düğmeye dokununca metin
+// Bayinin müşteriye siparişle ilgili yazacağı hazır mesajlar burada durur. Mesaj seçilince metin
 // siparişin gerçek bilgileriyle çözülür ve WhatsApp sohbeti hazır metinle açılır.
+//
+// TEK DÜĞME, ALTTAN AÇILAN LİSTE (kullanıcı isteği 2026-11-06, 1.17.0): mesajlar eskiden ekranda
+// hap sırası olarak duruyordu; bayi kendi mesajlarını ekledikçe sıra büyüyor ve aşağıdaki Teslim
+// Et'i itiyordu. Düğmenin yeri eylem kümesidir (`order_detail_screen.dart`): mesaj, tahsilat ve
+// teslim kapıdaki aynı anın işleridir ve baş parmağın ulaştığı yerde birlikte durur.
 //
 // MESAJ GÖNDERİLMEZ, HAZIRLANIR: gönder tuşuna bayi basar (`borc_hatirlatma.dart` ile aynı kural).
 // Bu yüzden bölüm salt-okunur kipte de açıktır: yazma değil, mesaj hazırlama eylemidir.
@@ -27,7 +32,6 @@ import '../isletme/iban.dart' show ibanNormal;
 import '../team.dart';
 import 'musteri_numara_secici.dart';
 import 'order_queries.dart';
-import 'order_sd_parts.dart';
 
 /// Bir siparişin mesajlarını çözer. Ekrandan bağımsızdır, doğrudan sınanır.
 class SiparisMesajHazirlayici {
@@ -146,6 +150,23 @@ class _BilgilendirmeMesajiBolumuState extends State<BilgilendirmeMesajiBolumu> {
 
   bool _calisiyor = false;
 
+  /// Listeyi açar. Gönderim sayfa KAPANDIKTAN sonra başlar: gerekçe bildirimi (borcu yok, IBAN
+  /// eksik) sayfanın arkasında kalmasın.
+  Future<void> _sec(List<BilgilendirmeSecenegi> secenekler) async {
+    final secim = await sipSheet<BilgilendirmeSecenegi>(
+      context,
+      baslik: 'Bilgilendirme Mesajı',
+      govde: (ctx) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final s in secenekler)
+            _MesajSatiri(etiket: s.baslik, onTap: () => Navigator.of(ctx).pop(s)),
+        ],
+      ),
+    );
+    if (secim != null) await _gonder(secim);
+  }
+
   Future<void> _gonder(BilgilendirmeSecenegi s) async {
     if (_calisiyor) return;
     _calisiyor = true;
@@ -191,21 +212,15 @@ class _BilgilendirmeMesajiBolumuState extends State<BilgilendirmeMesajiBolumu> {
               ),
           ];
           if (secenekler.isEmpty) return const SizedBox.shrink();
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SdxSec('Bilgilendirme Mesajı'),
-              // Düğme sıraları, liste satırı DEĞİL: altındaki Teslim Et düğmesi kuryenin en sık
-              // dokunduğu yerdir ve beş tam satır onu ekranın dışına iterdi.
-              Wrap(
-                spacing: SipSpace.sm,
-                runSpacing: SipSpace.sm,
-                children: [
-                  for (final s in secenekler)
-                    _MesajDugmesi(etiket: s.baslik, onTap: () => _gonder(s)),
-                ],
-              ),
-            ],
+          return Padding(
+            padding: const EdgeInsets.only(top: SipSpace.lg),
+            child: SipButon(
+              etiket: 'Bilgilendirme Mesajı Gönder',
+              tur: SipButonTuru.ikincil,
+              ikon: SipIcons.chat,
+              yukseklik: 44,
+              onTap: () => _sec(secenekler),
+            ),
           );
         },
       ),
@@ -213,8 +228,8 @@ class _BilgilendirmeMesajiBolumuState extends State<BilgilendirmeMesajiBolumu> {
   }
 }
 
-class _MesajDugmesi extends StatelessWidget {
-  const _MesajDugmesi({required this.etiket, required this.onTap});
+class _MesajSatiri extends StatelessWidget {
+  const _MesajSatiri({required this.etiket, required this.onTap});
 
   final String etiket;
   final VoidCallback onTap;
@@ -222,24 +237,25 @@ class _MesajDugmesi extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    return Semantics(
-      button: true,
-      child: SipDokun(
-        onTap: onTap,
-        zemin: t.surface2,
-        basiliZemin: t.line,
-        radius: SipRadius.brHap,
-        olcekle: true,
-        padding: const EdgeInsets.symmetric(horizontal: SipSpace.xl, vertical: 9),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SipIcon(SipIcons.chat, boyut: 15, kalinlik: 2.1, renk: t.ink2),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(etiket, style: SipText.metin(12.5, w: 700).copyWith(color: t.ink2)),
-            ),
-          ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: SipSpace.sm),
+      child: Semantics(
+        button: true,
+        child: SipDokun(
+          onTap: onTap,
+          zemin: t.surface2,
+          basiliZemin: t.line,
+          radius: SipRadius.br2,
+          padding: const EdgeInsets.symmetric(horizontal: SipSpace.xl, vertical: 13),
+          child: Row(
+            children: [
+              SipIcon(SipIcons.chat, boyut: 16, kalinlik: 2.1, renk: t.ink2),
+              const SizedBox(width: SipSpace.lg),
+              Expanded(
+                child: Text(etiket, style: SipText.metin(14, w: 700).copyWith(color: t.ink)),
+              ),
+            ],
+          ),
         ),
       ),
     );

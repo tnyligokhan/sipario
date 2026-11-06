@@ -5,7 +5,7 @@
 // arasında duruyordu. Kullanıcının tespiti aynen şuydu: *"mesaj şablonları ilerleyen zamanlarda
 // mesaj sayısı artacak, orada olmaya devam mı edecek?"* Bu sayfa o büyümeye göre kuruldu ve
 // 2026-11-06'da büyüdü: hazır türler `data/mesaj_sablonlari.dart`ta, bayi kendi mesajını ekler.
-// Mesajlar sipariş ayrıntısındaki Bilgilendirme Mesajı bölümünde görünür.
+// Mesajlar sipariş ayrıntısındaki Bilgilendirme Mesajı düğmesinden seçilir.
 //
 // YALNIZ PATRON: kapı çekmecede ve kabukta. Çekmeceye taşınmadan önce de bu ekrana yalnız patron
 // ulaşıyordu; yer değişti, yetki değişmedi.
@@ -233,7 +233,8 @@ class _Liste extends StatelessWidget {
           padding: const EdgeInsets.only(top: SipSpace.xl),
           child: Text(
             'Müşterilerinize gönderilen hazır metinler. Sipariş ayrıntısındaki Bilgilendirme '
-            'Mesajı bölümünde görünürler ve gönderim anında gerçek bilgiyle dolarlar.',
+            'Mesajı düğmesinden seçilirler ve gönderim anında gerçek bilgiyle dolarlar. Kalın, '
+            'italik gibi WhatsApp biçimlerini metin kutusunun üstündeki düğmelerle ekleyin.',
             style: SipText.metin(12.5, w: 500, h: 1.5).copyWith(color: t.ink2),
           ),
         ),

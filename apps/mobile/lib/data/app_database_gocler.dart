@@ -373,6 +373,13 @@ extension _GocMerdiveni on AppDatabase {
                 m, 'ALTER TABLE tenant_settings ADD COLUMN message_templates_json TEXT');
           }
 
+          // v32 — KARANTİNA ANAHTARI (2026-11-06). Yerleşim v11..v31 ile AYNI. `sync_meta` her
+          // senkron turunda okunur; kolon eksik kalırsa senkronun tamamı düşerdi.
+          if (await AppDatabase._tabloVar(m, 'sync_meta')) {
+            await AppDatabase._addColumnIfMissing(
+                m, 'ALTER TABLE sync_meta ADD COLUMN karantina_anahtari TEXT');
+          }
+
           // v30 — SAHA LİSTESİ (2026-11-05). Yerleşim v11..v29 ile AYNI (kapıdan ÖNCE, koşulsuz).
           // `discount_kurus` eksik kalırsa sipariş yazımı "no such column" ile düşerdi. NOT NULL
           // DEFAULT 0: eski satırların iskontosu yoktur, satır toplamı zaten doğrudur.

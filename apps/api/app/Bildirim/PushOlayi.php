@@ -65,6 +65,14 @@ enum PushOlayi: string
     case YeniCihaz = 'yeni_cihaz';
 
     /**
+     * YENİ SÜRÜM YAYINLANDI. Alıcı: bütün cihazlar (`PushGondericisi::herkese`).
+     *
+     * Kiracı olayı DEĞİLDİR, `id` yapım numarasıdır ve yükte sürüm adından başka bir şey yoktur.
+     * Güncel telefon ve mağaza derlemesi dürtüyü telefonda eler (`push_sozlesmesi.dart`).
+     */
+    case YeniSurum = 'yeni_surum';
+
+    /**
      * Telefonun bildirimi çizerken kullanacağı kategori (`bildirim_sozlesmesi.dart` →
      * `BildirimKategori.wire`). Bayi o kategoriyi kısmışsa bildirim ÇİZİLMEZ — ama
      * senkron yine koşar; "bildirim istemiyorum" ile "veri gelmesin" aynı şey değildir.
@@ -81,6 +89,7 @@ enum PushOlayi: string
             // alanıdır — istemci onu okur (`push_sozlesmesi.dart` → `PushMesaji.olay`).
             self::SiparisIptalTalebi, self::SiparisIptalReddedildi => 'siparis_iptal_onayi',
             self::YeniCihaz => 'yeni_cihaz',
+            self::YeniSurum => 'guncelleme_var',
         };
     }
 }

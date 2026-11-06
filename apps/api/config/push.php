@@ -42,4 +42,13 @@ return [
         'jeton_onbellek_sn' => 3300,
     ],
 
+    /*
+     * YENİ SÜRÜM DUYURUSU (`surum:duyur`). `kanal` bu sunucuya bakan APK'nın kanalıdır: üretimde
+     * `saha`. Test sunucusu `SURUM_KANALI=test` ile koşar, yoksa saha sürümünü duyurur.
+     */
+    'surum' => [
+        'kanal' => env('SURUM_KANALI', 'saha'),
+        'adres' => 'https://github.com/tnyligokhan/sipario/releases/download/{kanal}/surum.json',
+    ],
+
 ];

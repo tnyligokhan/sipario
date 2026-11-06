@@ -26,6 +26,8 @@
 
 import 'dart:convert';
 
+import '../bildirim/bildirim_sozlesmesi.dart';
+
 /// Dağıtım kanalı — derleme sabiti (`--dart-define=SIPARIO_KANAL=saha|test`).
 /// Tanımsızsa `magaza` sayılır: güncelleme yolu KAPALI varsayılan güvenlidir.
 const String kKanal = String.fromEnvironment('SIPARIO_KANAL', defaultValue: 'magaza');
@@ -149,6 +151,26 @@ class SurumBilgisi {
         String s => int.tryParse(s),
         _ => null,
       };
+}
+
+/// "Yeni sürüm hazır" bildirimi. Uygulama içi kontrol de sunucu dürtüsü de bunu çizer, kimlik
+/// yapım numarasına bağlı olduğu için ikisi aynı satırın üzerine yazar.
+///
+/// SÜRÜM ADI GÖVDEDE, YAPIM NUMARASI HİÇBİR YERDE — banttaki kuralın aynısı (2026-08-11 kullanıcı
+/// kararı: "sadece sürüm yazsın"). Dürtüde sürüm adı gelmezse gövde genel kalır.
+///
+/// YOL YOK ve bu bilinçli: bildirime dokunmak uygulamayı ANA EKRANDA açar, bandın tam da durduğu
+/// yerde. Yalnız bu bildirim için bir "guncelleme" rotası eklemek, hedefi zaten açılışta görünen
+/// bir şey için ikinci bir yol kurmak olurdu.
+BildirimTaslagi yeniSurumTaslagi({required String? surum, required String yapim}) {
+  final ad = (surum ?? '').trim();
+  return BildirimTaslagi(
+    kategori: BildirimKategori.guncellemeVar,
+    baslik: 'Yeni sürüm hazır',
+    govde: ad.isEmpty ? 'Yeni sürüm indirilebilir' : '$ad sürümü indirilebilir',
+    detay: 'Uygulamayı açın; en üstteki şeritten "Güncelle" ile kurabilirsiniz.',
+    kimlik: bildirimKimligi(BildirimKategori.guncellemeVar, yapim),
+  );
 }
 
 /// Güncelleme var mı? SAF kural, tek karar noktası.
