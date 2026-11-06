@@ -287,7 +287,7 @@ Gerekçeler DECISIONS.md 2026-11-06/1-3.
 
 ⚠️ **DEPLOY SIRASI: API ÖNCE** (göç `2026_11_06_000101`, `migrate` servisi çalıştırır). API güncellenmeden yeni APK'da eklenen mesajlar sunucuya yazılmaz; telefondaki kayıt korunur (`sync_cekme` alan gelmezse dokunmaz) ama başka cihaza inmez.
 
-**ÖLÇÜLEN KANAL DURUMU (2026-11-06):** `test` kanalı APK 1.15.0 yapım 618, API 1.29.0. `saha` kanalı APK **1.8.2** yapım 606, üretim API **1.27.0**. `dev`, `main`in önünde; saha bayileri bu pakete `dev → main` birleşmeden ulaşmaz.
+**YAYINDA (2026-11-06, kullanıcı kararıyla PR'sız, `c5fbca6`):** üretim API **1.30.0**, `saha` kanalı APK **1.16.0** yapım 624 (önceki: API 1.27.0, APK 1.8.2). API önce çıktı, göç servisi tamamlandı, `/up` ve `/giris` 200, `main` CI yeşil. Saha yedi sürüm birden atladı.
 
 #### ⚠️ AÇIK İŞ
 
@@ -298,8 +298,8 @@ Gerekçeler DECISIONS.md 2026-11-06/1-3.
 
 #### 🔐 GÜVENLİK UYARILARI (2026-11-06)
 
-- 12 Dependabot uyarısının yamaları `dev`'de: `composer audit` ve `npm audit` sıfır. GitHub `main`i okuduğu için uyarılar **dev→main birleşince** kapanır; açık altı Dependabot PR'ı da o zaman gereksiz kalır.
-- Livewire 4.3.4 → 4.4.8 oldu. Panel modallarını **gerçek tarayıcıda** test sunucusunda denemek gerekiyor (CSP kırığı sunucu testinde görünmez).
+- 12 Dependabot uyarısı `main`e geçince kapandı, açık uyarı 0. `composer audit` ve `npm audit` sıfır.
+- Livewire 4.3.4 → 4.4.8 oldu ve **üretimde**. Panel modalları gerçek tarayıcıda denenmedi (CSP kırığı sunucu testinde görünmez).
 - ⚠️ Secret scanning #1 (Firebase anahtarı) AÇIK: Google Cloud Console'da Android uygulama kısıtı eklenmeden kapatılmayacak. Gerekçe DECISIONS 2026-11-06/4.
 - Kod taraması (CodeQL) depoda hiç kurulu değil, uyarısı yok.
 
