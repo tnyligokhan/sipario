@@ -27,6 +27,7 @@ Future<_AdetSonucu?> _adetSheetAc(
   BuildContext context,
   Product u, {
   required List<UrunSecenegi> secenekler,
+  required int fiyatKurus,
   required SecenekSecimi baslangic,
   required String? musteriAdi,
   required bool tercihUygulandi,
@@ -36,6 +37,7 @@ Future<_AdetSonucu?> _adetSheetAc(
       baslik: 'Sepete Ekle',
       govde: (ctx) => _AdetGovde(
         urun: u,
+        fiyatKurus: fiyatKurus,
         secenekler: secenekler,
         baslangic: baslangic,
         musteriAdi: musteriAdi,
@@ -46,6 +48,7 @@ Future<_AdetSonucu?> _adetSheetAc(
 class _AdetGovde extends StatefulWidget {
   const _AdetGovde({
     required this.urun,
+    required this.fiyatKurus,
     this.secenekler = const [],
     this.baslangic = const SecenekSecimi(),
     this.musteriAdi,
@@ -53,6 +56,9 @@ class _AdetGovde extends StatefulWidget {
   });
 
   final Product urun;
+
+  /// Bu müşteriye uygulanacak taban fiyat (özel fiyat varsa o).
+  final int fiyatKurus;
   final List<UrunSecenegi> secenekler;
   final SecenekSecimi baslangic;
   final String? musteriAdi;
@@ -77,7 +83,7 @@ class _AdetGovdeState extends State<_AdetGovde> {
   Widget build(BuildContext context) {
     final t = context.sip;
     final u = widget.urun;
-    final birim = u.unitPriceKurus + _secim.ekTutarKurus;
+    final birim = widget.fiyatKurus + _secim.ekTutarKurus;
     final tutar = birim * _adet;
 
     return Column(
@@ -102,7 +108,7 @@ class _AdetGovdeState extends State<_AdetGovde> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 3),
-                    Text('${sipTutar(u.unitPriceKurus)} / ${u.unit}',
+                    Text('${sipTutar(widget.fiyatKurus)} / ${u.unit}',
                         style: SipText.metin(12, w: 600).copyWith(color: t.muted)),
                     if ((u.barcode ?? '').isNotEmpty) ...[
                       const SizedBox(height: 2),

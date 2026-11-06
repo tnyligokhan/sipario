@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../data/satir_iskontosu.dart';
 import '../../data/urun_secenekleri.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/icons.dart';
@@ -39,11 +40,14 @@ class LineDraft {
     this.unit,
     this.note,
     this.secim = const SecenekSecimi(),
+    this.iskonto = SatirIskontosu.yok,
   });
 
   final String? productId;
   final String name;
-  final int unitPriceKurus;
+
+  /// Taban fiyat. Değişebilir: sepet doluyken müşteri değiştirilirse özel fiyat yeniden uygulanır.
+  int unitPriceKurus;
 
   /// Ürün birimi ("adet"/"koli"/"kg") — satırda saklanır (o anki gerçek). Serbest satırda null.
   final String? unit;
@@ -75,6 +79,16 @@ class LineDraft {
   /// ayrışmaması için ikisi de aynı kuralı uygular.
   int get birimFiyat => unitPriceKurus + secim.ekTutarKurus;
 
+  /// SATIR İSKONTOSU (saha, 2026-11-05). Yüzde olarak girildiyse adet değişince kendini günceller.
+  SatirIskontosu iskonto;
+
+  int get brutKurus => birimFiyat * qty;
+
+  int get iskontoKurus => iskonto.kurus(brutKurus);
+
+  /// Sepette ve özette yazılan satır tutarı; kaydedilen `LineInput.satirToplami` ile AYNI.
+  int get netKurus => brutKurus - iskontoKurus;
+
   /// CSS `.ys-birim` / `.sd-birim` — sepet satırının alt yazısı.
   String get birimEtiketi => serbest ? 'tek seferlik' : (unit ?? 'adet');
 
@@ -94,7 +108,7 @@ class LineDraft {
 
 /// Taslak satırların toplamı (int kuruş — kayan nokta YOK). Ekstralar birim fiyata dahildir.
 int toplamKurus(List<LineDraft> lines) =>
-    lines.fold<int>(0, (s, l) => s + l.birimFiyat * l.qty);
+    lines.fold<int>(0, (s, l) => s + l.netKurus);
 
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════

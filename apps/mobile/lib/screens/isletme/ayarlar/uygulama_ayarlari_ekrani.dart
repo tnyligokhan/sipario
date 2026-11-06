@@ -203,7 +203,7 @@ class _UygulamaAyarlariEkraniState extends State<UygulamaAyarlariEkrani> {
     final onay = await sipOnay(
       context,
       baslik: 'Verileri baştan indir',
-      mesaj: 'Bütün müşteri, ürün ve sipariş bilgileri sunucudan yeniden indirilecek. '
+      mesaj: 'Bütün müşteri, ürün ve sipariş bilgileri yeniden indirilecek. '
           'Büyük bir listede bu birkaç dakika sürebilir. Kaydettiğiniz hiçbir şey silinmez.',
       onayEtiketi: 'İndir',
     );

@@ -156,6 +156,15 @@ class TenantSettings extends Table {
   /// düzenleyici gizlenir. Yeniden açıldığında hepsi geri gelir.
   BoolColumn get preparedProducts => boolean().withDefault(const Constant(false))();
 
+  /// BAYİNİN GİDER KATEGORİLERİ (saha, 2026-11-05) — JSON dizi. null = bayi düzenlemedi, varsayılan
+  /// liste gösterilir. Çözümleme TEK yerdedir (`data/gider_kategorileri.dart`).
+  TextColumn get expenseCategoriesJson => text().nullable()();
+
+  /// MÜŞTERİYE GİDEN BİLGİLENDİRME MESAJLARI (kullanıcı isteği 2026-11-06) — JSON nesne: bayinin
+  /// değiştirdiği hazır metinler ve kendi eklediği mesajlar. null = hiçbirine dokunulmadı. Çözümleme
+  /// TEK yerdedir (`data/mesaj_sablonlari.dart`). Borç hatırlatma burada DEĞİL, [reminderTemplate].
+  TextColumn get messageTemplatesJson => text().nullable()();
+
   /// Sipariş SATIRINDA hangi kod görünsün: `musteri` (varsayılan) | `siparis`.
   /// Bayi tercihidir ve KİRACI düzeyindedir — cihaz-yerel olsaydı iki telefonlu bayi aynı
   /// listede iki farklı numara görürdü. Sipariş kodu her hâlükârda DETAYDA görünür.
@@ -404,6 +413,15 @@ class Bildirimler extends Table {
 
   /// Okunma anı (UTC ISO); null = OKUNMAMIŞ. Rozet bu alanı sayar.
   TextColumn get okunduAt => text().nullable()();
+
+  /// Bayinin listeden TEMİZLEDİĞİ an (UTC ISO); null = listede görünür (v29, 2026-09-29,
+  /// kullanıcı isteği: "bildirimleri temizleme özelliği gerekiyor").
+  ///
+  /// ⚠️ SATIR SİLİNMEZ, DAMGALANIR. Kurallar gün damgalı kimliklerle AÇILIŞTA yeniden koşar;
+  /// silinen satır bir sonraki açılışta aynı kimlikle yeniden doğar ve bayi temizlediği uyarıyı
+  /// dakikalar sonra okunmamış olarak geri görürdü. Damga kimliği hatırlar, tazeleme onu korur
+  /// (`okundu_at` ile aynı kural). Temizlenen satırlar da 200 satırlık budamaya tabidir.
+  TextColumn get temizlendiAt => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

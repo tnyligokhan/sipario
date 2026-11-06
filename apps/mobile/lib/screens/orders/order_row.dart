@@ -19,6 +19,7 @@ import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import 'gecen_sure_pili.dart';
 import 'musteri_eylemleri.dart';
+import 'musteri_numara_secici.dart';
 import 'order_queries.dart';
 
 class SiparisSatiri extends StatelessWidget {
@@ -32,6 +33,7 @@ class SiparisSatiri extends StatelessWidget {
     this.kuryeAdi,
     this.adres,
     this.telefon,
+    this.numaraSecici,
     this.onAc,
     this.onKuryeAc,
     this.onBildir,
@@ -65,6 +67,9 @@ class SiparisSatiri extends StatelessWidget {
 
   final AdresBilgi? adres;
   final String? telefon;
+
+  /// Birden çok numaralı müşteride Ara/WhatsApp numara sorar; null ise [telefon] kullanılır.
+  final MusteriNumaraSecici? numaraSecici;
 
   final VoidCallback? onAc;
 
@@ -309,6 +314,8 @@ class SiparisSatiri extends StatelessWidget {
               telefon: telefon,
               adres: adres,
               onBildir: onBildir,
+              araEylemi: numaraSecici?.ara,
+              whatsappEylemi: numaraSecici?.whatsapp,
               // Dördüncü düğme yalnız AÇIK siparişte anlamlıdır; bu blok zaten `_acik` altında.
               onTeslim: onTeslim,
             ),

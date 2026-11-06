@@ -95,7 +95,7 @@ void main() {
       expect(govde['region'], 'Kepez');
     });
 
-    test('sunucunun nötr mesajı aynen taşınır (503)', () async {
+    test('503: sağlayıcı ayrıntısı taşınmaz, genel ve Türkçe cümle gösterilir', () async {
       final api = apiKur(MockClient((_) async => http.Response(
             jsonEncode({'message': 'Adres servisine ulaşılamadı — birazdan tekrar deneyin.'}),
             503,
@@ -105,7 +105,7 @@ void main() {
       expect(
         () => api.ara('Bahçe Sk. no:5'),
         throwsA(isA<GeocodeException>().having(
-          (e) => e.message, 'mesaj', contains('birazdan tekrar deneyin'))),
+          (e) => e.message, 'mesaj', allOf(startsWith('Adres araması yapılamadı'), isNot(contains('servis'))))),
       );
     });
 
@@ -115,7 +115,7 @@ void main() {
       expect(
         () => api.ara('Bahçe Sk. no:5'),
         throwsA(isA<GeocodeException>()
-            .having((e) => e.message, 'mesaj', contains('İnternete ulaşılamadı'))),
+            .having((e) => e.message, 'mesaj', contains('İnternet bağlantısı kurulamadı'))),
       );
     });
   });

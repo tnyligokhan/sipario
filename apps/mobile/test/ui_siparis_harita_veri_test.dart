@@ -7,7 +7,7 @@
 //  B. Harita ekranı açık siparişleri rota sırasında numaralı pinlerle çizer.
 //
 // Bu dosyadaki widget testleri AĞA ve PLATFORM KANALINA hiç uzanmaz: `cihazKonumuOku`,
-// `rotaApiUret` ve `haritaKaroSaglayici` dikişleri sahtelenir. Sızan bir sahte bir sonraki testte
+// `rotaApiUret` ve `haritaTuvaliUret` dikişleri sahtelenir. Sızan bir sahte bir sonraki testte
 // sessizce yanlış sonuç üretir — üçü de tearDown'da geri alınır.
 
 

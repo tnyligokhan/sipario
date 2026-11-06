@@ -51,6 +51,167 @@ class SurumNotu {
 /// sürüm karşılaştırıcısı yazmak, elle korunan 6 satırlık bir liste için fazlasıyla ağırdır.
 const List<SurumNotu> kSurumNotlari = [
   SurumNotu(
+    surum: '1.16.0',
+    tarih: '6 Kasım 2026',
+    maddeler: [
+      'İşletme ayarları Ayarlar\'dan çıktı, menüde Yönetim başlığının altında',
+      'Mesajlar artık menüde Yönetim başlığının altında ayrı bir sayfa',
+      'Mesajlar sayfasından kendi mesajlarınızı ekleyebilir, düzenleyebilir ve silebilirsiniz',
+      'Yeni hazır mesajlar geldi: Sipariş Alındı, Yola Çıktı, Gecikme Bilgisi, Adreste Ulaşılamadı, '
+          'Teslim Edildi, tahsilat teşekkürü ve Sipariş İptali',
+      'Siparişe dokununca Bilgilendirme Mesajı başlığında siparişin durumuna uyan mesajlar görünür, '
+          'dokunduğunuz mesaj sipariş bilgileriyle dolu olarak WhatsApp\'ta açılır',
+      'Borç hatırlatma mesajının varsayılan metni daha kurumsal bir dille yenilendi',
+      'Hakkında sayfasındaki sürüm satırında yapı numarası yanlış görünüyordu, düzeltildi',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.15.0',
+    tarih: '5 Kasım 2026',
+    maddeler: [
+      'Müşteriye yabancı numara ekleyebilirsiniz, numarayı +49 gibi ülke koduyla yazın',
+      'İki numarası olan müşteri ikinci numaradan aradığında kart o numarayla açılıyor, Ara ve '
+          'WhatsApp düğmeleri hangi numarayı kullanacağınızı soruyor',
+      'Sipariş girerken sepetteki ürüne tutar ya da yüzde olarak iskonto ekleyebilirsiniz',
+      'Müşteri kartından bir ürüne o müşteriye özel tutar tanımlayabilirsiniz, sipariş girerken '
+          'bu tutar kendiliğinden gelir',
+      'Gider kategorilerini menüden kendiniz ekleyip silebilirsiniz',
+      'Alt menüdeki artı düğmesine Gider Ekle seçeneği geldi',
+      'Menüde Ürünler, Kuryeler, Muaf Numaralar ve Gider Kategorileri, açılıp kapanan '
+          'Tanımlamalar başlığında toplandı',
+      'Borç hatırlatma mesajı yenilendi, bakiye ve son hareket bilgilerini kurumsal bir dille '
+          'içeriyor',
+      'Geri tuşuyla ana ekrana dönüp bir kez daha bastığınızda uygulamadan çıkılsın mı diye soruluyor',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.14.3',
+    tarih: '30 Eylül 2026',
+    maddeler: [
+      'Haritada bir pine dokunduğunuzda harita o pine yaklaşıyor ve pini alttan açılan bilginin '
+          'üstüne getiriyor',
+      'Pine dokununca pinin büyümesi ve etrafındaki halka kaldırıldı, harita daha akıcı çalışıyor',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.14.2',
+    tarih: '30 Eylül 2026',
+    maddeler: [
+      'Haritada bir pine dokunduğunuzda o pin büyüyor ve etrafında halka çıkıyor; hangi '
+          'müşteriye baktığınız belli oluyor. Önceden bu işaret görünmüyor ya da boş bir yerde '
+          'çıkıyordu.',
+      'Pin alttan açılan bilginin arkasında kalıyorsa harita onu kendiliğinden yukarı kaydırıyor, '
+          'harita da artık kararmıyor',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.14.1',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Haritada birden çok kişinin rotası birlikte gösterilirken de her rota gerçek yollardan '
+          'çiziliyor, kuş uçuşu çizgi yalnız internet yokken kullanılıyor',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.14.0',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Kuryeler haritada yalnız kendilerine atanan siparişleri görüyor',
+      'Yönetici haritada kendi siparişlerini ve her kuryenin siparişlerini ayrı renkte görüyor; '
+          'her kişinin durakları 1\'den başlayarak numaralanıyor',
+      'Haritanın üstündeki kişi şeridinden bir kişiye dokununca yalnız onun siparişleri kalıyor',
+      'Oto sıralama her kişinin rotasını ayrı sıralıyor: sizin rotanız telefonunuzun konumundan, '
+          'kuryelerin rotası kendi konumlarından başlıyor. Her rota bir hak kullanır.',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.13.1',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Haritada kuryenin adı da müşteri adları gibi pinin yanında, okunaklı bir etiketle görünüyor',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.13.0',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Uyarı ve bildirim metinleri baştan yazıldı; ne olduğunu ve ne yapmanız gerektiğini '
+          'tek bakışta söylüyor',
+      'Bazı kayıtlar gönderilemediğinde artık bildirim geliyor. Kayıtlar telefonda duruyor, '
+          'kaybolmaz.',
+      'Uyarılarda teknik ayrıntı ve bağlantı adresi artık görünmüyor',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.12.2',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Haritada yakınlaşınca müşterinin adı pinin yanında, okunaklı bir etiketle görünüyor',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.12.1',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Yeni sipariş eklerken müşteri listesinde müşteri kodu adın yanında görünüyor; kodu '
+          'yazıp aradığınızda doğru müşteriyi hemen seçebilirsiniz',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.12.0',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Bildirimleri temizleyebilirsiniz. Bildirimler ekranındaki "Temizle" hepsini kaldırır, '
+          'bir bildirimi sola kaydırmak yalnız onu kaldırır.',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.11.1',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Bilgiler doğru olduğu hâlde girişin bazen reddedilmesi giderildi: giriş alanlarında '
+          'klavyenin otomatik düzeltmesi kapatıldı',
+      'Kurye parolası belirlenirken ilk harfin kendiliğinden büyük yazılması engellendi',
+      'Bağlantı anlık koptuğunda giriş kendiliğinden yeniden deneniyor',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.11.0',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Haritada duraklar arası çizgi artık gerçek yollardan geçiyor, kurye gideceği yolu görüyor',
+      'İnternet yokken çizgi eskisi gibi duraklar arasında düz kesikli çizgiyle gösteriliyor',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.10.1',
+    tarih: '29 Eylül 2026',
+    maddeler: [
+      'Haritada sokaklar görünmüyor, yalnız boş kareler çıkıyordu. Harita artık açılır açılmaz '
+          'yükleniyor.',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.10.0',
+    tarih: '28 Eylül 2026',
+    maddeler: [
+      'Harita Yandex haritasına geçti, sokaklar ve yer adları daha ayrıntılı görünüyor',
+      'Koyu temada harita da gece görünümüne geçiyor',
+    ],
+  ),
+  SurumNotu(
+    surum: '1.9.0',
+    tarih: '28 Eylül 2026',
+    maddeler: [
+      'Harita yenilendi, yakınlaştırınca bulanıklaşmıyor ve kaydırırken takılmıyor',
+      'Duraklar sırasıyla kesikli bir çizgiyle birbirine bağlanıyor, rotanın gidişi tek bakışta görünüyor',
+      'Haritayı yakınlaştırınca pinlerin altında müşterinin adı yazıyor',
+      'Özetine baktığınız durak haritada büyüyerek işaretleniyor',
+      'Yer adları Türkçe ve doğru harflerle yazılıyor',
+      'İnternet yokken de daha önce baktığınız bölge ve duraklar haritada görünüyor',
+    ],
+  ),
+  SurumNotu(
     surum: '1.8.2',
     tarih: '28 Eylül 2026',
     maddeler: [

@@ -25,6 +25,7 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../customers/customer_form_screen.dart' show musteriDuzenleSheet;
+import 'bilgilendirme_mesaji.dart';
 import 'iptal_onayi.dart';
 import 'order_detail_basligi.dart';
 import 'order_detail_eylemler.dart';
@@ -232,9 +233,9 @@ class _Govde extends StatelessWidget {
                 ad: l.productName,
                 // Tasarım `{r.adet} {r.birim} × {fmtTL(r.fiyat)}` (s-siparisler.jsx:478) —
                 // BİRİM düşerse "3 × 120,00 ₺" koli mi kg mı adet mi belli olmaz.
-                altMetin: serbestMi(l)
-                    ? 'tek seferlik'
-                    : '${l.qty} ${l.unit ?? 'adet'} × ${sipTutar(l.unitPriceKurus)}',
+                altMetin: '${serbestMi(l) ? 'tek seferlik' : '${l.qty} ${l.unit ?? 'adet'} × '
+                    '${sipTutar(l.unitPriceKurus)}'}'
+                    '${l.discountKurus > 0 ? ', iskonto ${sipTutar(l.discountKurus)}' : ''}',
                 tutarKurus: l.lineTotalKurus,
                 // SATIR NOTU burada görünmek ZORUNDA: siparişi hazırlayan/götüren kişi kalemleri
                 // bu ekrandan okur. Not girilip okunmadığı bir yer, notun hiç girilmemesiyle
@@ -265,6 +266,12 @@ class _Govde extends StatelessWidget {
           // KAPALI siparişte de anlamlıdır — kurye teslim ettikten sonra da kapının önündedir
           // ve o pini bir sonraki teslimat için düzeltebilir.
           AdresBolumu(db: db, musteriId: musteriId, writable: writable),
+          BilgilendirmeMesajiBolumu(
+            db: db,
+            order: order,
+            satirlar: satirlar,
+            musteriId: musteriId,
+          ),
           GecmisBolumu(db: db, musteriId: musteriId, orderId: order.id),
         ],
 

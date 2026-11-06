@@ -1,4 +1,4 @@
-// AYARLAR → HAKKINDA — sürüm · sunucu · lisans · yenilikler.
+// AYARLAR → HAKKINDA — sürüm · lisans · yenilikler.
 //
 // ══ MAĞAZA KURALI (pazarlıksız) ════════════════════════════════════════════════════════════
 // Bu sayfada abonelik / ödeme / satın alma / fiyat / üyelik bağlantısı OLAMAZ. Lisans yalnız
@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../data/app_database.dart';
+import '../../../guncelleme/guncelleme_sozlesmesi.dart' show kYapim;
 import '../../../theme/components/states.dart';
 import '../../../theme/tokens.dart';
 import '../isletme_atomlari.dart';
@@ -21,24 +22,34 @@ import '../surum_notlari_ekrani.dart';
 /// bayi hangisini test ettiğini söyleyemiyordu. İki yerde ayrı yazılan bir sayı, biri
 /// güncellenip diğeri unutulduğunda sessizce yalan söyler.
 ///
-/// `package_info_plus` Android'de `PackageManager`dan okur — yani `build.gradle.kts`in git
-/// commit sayısından türettiği yapı numarası ne ise bayi onu görür. YEREL bir sorgudur, ağ
-/// kullanmaz; offline-first çizgisi korunur.
+/// `package_info_plus` Android'de `PackageManager`dan okur. YEREL bir sorgudur, ağ kullanmaz;
+/// offline-first çizgisi korunur.
 ///
 /// YAPI NUMARASI GÖSTERİLMEK ZORUNDA: saha testinde "hangi APK?" sorusunu tek başına o
 /// cevaplıyor. Sürüm adı iki derleme arasında aynı kalabilir, yapı numarası kalamaz.
 Future<String> siparioSurumunuOku() async {
   try {
     final bilgi = await PackageInfo.fromPlatform();
-    final ad = bilgi.version.trim();
-    final yapi = bilgi.buildNumber.trim();
-    if (ad.isEmpty) return 'Sipario';
-    return yapi.isEmpty ? 'Sipario $ad' : 'Sipario $ad ($yapi)';
+    return surumMetni(ad: bilgi.version, paketYapisi: bilgi.buildNumber);
   } catch (_) {
     // Platform kanalı yoksa (test ortamı, iOS'ta eksik kayıt) ÇÖKME — nötr metne düş.
     // Sayfanın tamamı bir sürüm satırı yüzünden açılamaz hâle gelemez.
     return 'Sipario';
   }
+}
+
+/// Sürüm satırının metni. SAF, testle kilitli.
+///
+/// [yapim] ÖNCE GELİR, [paketYapisi] yalnız yedektir (saha, 2026-11-06: "sürüm numarası yanlış
+/// görünüyor"). `--split-per-abi` versionCode'a ABI sapması ekler: yayındaki arm64 APK ölçüldü,
+/// yapım 618 iken `versionCode` 2618 (`guncelleme_sozlesmesi.dart`). Ekran o sayıyı yazınca telefon
+/// "1.15.0 (2618)" diyor ve `surum.json`la hiç tutmuyordu; evrensel APK aynı derlemede 618 yazardı.
+/// Yerel derlemede [yapim] 0'dır, o zaman paketin numarası gösterilir.
+String surumMetni({required String ad, required String paketYapisi, int yapim = kYapim}) {
+  final temizAd = ad.trim();
+  if (temizAd.isEmpty) return 'Sipario';
+  final yapi = yapim > 0 ? '$yapim' : paketYapisi.trim();
+  return yapi.isEmpty ? 'Sipario $temizAd' : 'Sipario $temizAd ($yapi)';
 }
 
 class HakkindaEkrani extends StatelessWidget {
@@ -100,7 +111,9 @@ class HakkindaKarti extends StatelessWidget {
               altBaslik: surum.data ?? 'Sipario',
             ),
           ),
-          AyarSatiri(baslik: 'Sunucu', altBaslik: sunucuSurumuMetni(meta)),
+          // "Sunucu · API x.y.z" satırı KALDIRILDI (kullanıcı kararı 2026-09-29: sunucu bilgisi
+          // hiçbir koşulda gösterilmez). Sözleşme sürümü önbellekte durmaya devam eder
+          // (`sync_meta.api_version`); destek ihtiyacı doğarsa panelden okunur.
           AyarSatiri(baslik: 'Lisans', altBaslik: lisansMetni(meta)),
           // "Yenilikler" AYRI VE ETİKETLİ bir satır; "Sürüm" satırını dokunulabilir yapmak
           // daha az yer kaplardı ama keşfedilebilir olmazdı — bir bayi bilgi satırına
@@ -116,25 +129,6 @@ class HakkindaKarti extends StatelessWidget {
       },
     );
   }
-}
-
-/// "Sunucu" satırının metni — son senkron turunda görülen API sözleşme sürümü.
-///
-/// NEDEN "Sürüm"ÜN YANINDA AYRI BİR SATIR: uygulama sürümü ile API sürümü İKİ AYRI HATTIR ve
-/// birbirine eşitlenmez (kural: CLAUDE.md → "Sürümleme"). İkisini tek satırda birleştirmek —
-/// "Sipario 0.10.0 / 1.0.0" gibi — okuyanı bir numaranın diğerini takip ettiğine inandırırdı;
-/// bu depoda daha önce ödenmiş bir hata sınıfı: **anlamı farklı iki sayıyı aynı kelimeyle
-/// taşımak.** Ayrı etiket, ayrı hat.
-///
-/// Ekran metni İDDİA ETMEZ (aynı yazılı kural): satır "sunucu güncel" ya da "uyumlu" demez —
-/// yalnız en son GÖRÜLEN numarayı yazar. Değer önbellekten okunur, o yüzden ağ yokken de
-/// doludur; hiç senkron olmamış cihazda ise uydurmak yerine bilinmediğini söyler.
-///
-/// Ekrandan BAĞIMSIZ (saf testle sınanır).
-String sunucuSurumuMetni(SyncMetaData? meta) {
-  final surum = meta?.apiVersion;
-  if (surum == null || surum.trim().isEmpty) return 'Henüz bağlanılmadı';
-  return 'API ${surum.trim()}';
 }
 
 /// Lisans satırının metni — tasarım `s-ayarlar.jsx:50` "248 gün kaldı · oto sıralama 34 hak".

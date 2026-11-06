@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'api_hata_metni.dart';
+
 /// "Adresten Konum Al" istemcisi — serbest adres metnini ADAY koordinatlara çevirir
 /// (`POST /geocode`).
 ///
@@ -39,16 +41,13 @@ class GeocodeApi {
           )
           .timeout(const Duration(seconds: 20));
     } on Exception {
-      throw GeocodeException('İnternete ulaşılamadı. Konumu sonra alabilirsiniz.');
+      throw GeocodeException('İnternet bağlantısı kurulamadı. Konumu sonra alabilirsiniz.');
     }
 
     final body = _decode(resp.body);
     if (resp.statusCode != 200) {
-      final mesaj = body['message'];
       throw GeocodeException(
-        mesaj is String && mesaj.isNotEmpty
-            ? mesaj
-            : 'Adres araması yapılamadı (kod ${resp.statusCode})',
+        const ApiHataMetni('Adres araması yapılamadı').yanit(resp.statusCode, body),
       );
     }
 

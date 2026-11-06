@@ -107,7 +107,7 @@ void main() {
       );
 
       expect(find.textContaining('sırada bekliyor'), findsNothing);
-      expect(find.textContaining('yeniden girin'), findsOneWidget,
+      expect(find.textContaining('Çıkış yapıp yeniden giriş yapın'), findsOneWidget,
           reason: 'oturum ölmüşken kullanıcıya söylenecek şey "bekle" değil "giriş yap"tır; '
               'iki bandı üst üste çizmek yerleşimi de bozardı');
 
@@ -120,7 +120,7 @@ void main() {
       const metin = SipCevrimdisiBant(tur: SipBantTuru.bekleyen);
 
       expect(metin.metin, contains('bekliyor'));
-      expect(metin.metin, contains('güvende'),
+      expect(metin.metin, contains('Telefonda duruyor'),
           reason: 'kullanıcı önce veri kaybetmediğini bilmeli (kırmızı çizgi #3)');
       expect(metin.metin.toLowerCase(), isNot(contains('bağlanınca')),
           reason: 'AĞ ZATEN VAR — engel abonelik ya da sürüm. Verilemeyecek bir söz vermek, bu '

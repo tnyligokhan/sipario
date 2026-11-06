@@ -105,6 +105,7 @@ class SipInput extends StatelessWidget {
     this.buyukHarfKipi = TextCapitalization.sentences,
     this.otomatikOdak = false,
     this.sonEk,
+    this.klavyeOnerisi = true,
   });
 
   final TextEditingController? controller;
@@ -138,6 +139,15 @@ class SipInput extends StatelessWidget {
   /// son ek de onunla büyür.
   final Widget? sonEk;
 
+  /// Klavyenin öneri çubuğu ve otomatik düzeltmesi açık mı?
+  ///
+  /// KİMLİK ALANLARINDA KAPALI OLMAK ZORUNDA (saha şikâyeti 2026-09-29: "bazen tüm bilgiler
+  /// doğru olmasına rağmen giriş yapamıyorum"). Açıkken klavye "merkezbayi"yi bir sözlük
+  /// kelimesine düzeltebiliyor, öneriye dokununca sona boşluk ekliyor ve parola göz düğmesiyle
+  /// açıldığında parolayı bile değiştirebiliyordu. Ekranda doğru görünen ama sunucuya farklı
+  /// giden bir metin, bayiye "bilgilerim yanlış" dedirtir.
+  final bool klavyeOnerisi;
+
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
@@ -158,6 +168,8 @@ class SipInput extends StatelessWidget {
       focusNode: odakDugumu,
       enabled: aktif,
       obscureText: gizli,
+      autocorrect: klavyeOnerisi,
+      enableSuggestions: klavyeOnerisi,
       keyboardType: klavye ?? (cokSatir ? TextInputType.multiline : null),
       inputFormatters: girdiFiltreleri,
       onChanged: onChanged,

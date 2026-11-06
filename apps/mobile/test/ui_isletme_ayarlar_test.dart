@@ -240,7 +240,7 @@ void main() {
       }
     }
 
-    testWidgets('AYARLARIN BEŞ SAYFASINDA da abonelik/ödeme/satın alma sözcüğü GEÇMEZ',
+    testWidgets('AYARLARIN VE İŞLETMENİN SAYFALARINDA abonelik/ödeme/satın alma sözcüğü GEÇMEZ',
         (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
@@ -291,7 +291,7 @@ void main() {
     // Eski test "tasarımın dört bölümü"nü kilitliyordu; o prototip bildirimler, sipariş kodu,
     // kurye yetkileri ve hesap kavramı yokken çizilmişti ve uygulama onu çoktan aşmıştı.
     // Kilitlenen şey artık kategori kümesidir — ve hub'ın İÇERİK TAŞIMADIĞI.
-    testWidgets('Ayarlar bir HUB: beş kategori satırı, gövdede ayar YOK', (tester) async {
+    testWidgets('Ayarlar bir HUB: kategori satırları, gövdede ayar YOK', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
       await ekranaKoy(
@@ -299,7 +299,7 @@ void main() {
         AyarlarEkrani(db: db, rol: 'patron', yetki: tamYetki, onOlcumler: () {}),
       );
 
-      for (final kategori in ['İşletme', 'Uygulama', 'Bildirimler', 'Hakkında']) {
+      for (final kategori in ['Uygulama', 'Bildirimler', 'Hakkında']) {
         expect(find.text(kategori), findsOneWidget, reason: '$kategori kategorisi hub\'da VAR');
       }
 
@@ -310,6 +310,7 @@ void main() {
       expect(find.text('Gecikme ölçümleri'), findsNothing);
 
       // Yönetim girişleri ÇEKMECEDE — iki giriş noktası olmaz.
+      expect(find.text('İşletme'), findsNothing, reason: '2026-11-06: Yönetim altına taşındı');
       expect(find.text('Kuryeler'), findsNothing);
       expect(find.text('Muaf telefonlar'), findsNothing);
       // ÇAĞRI GEÇMİŞİ AYARLARDAN ÇIKTI (kullanıcı tespiti): bir iş kaydıdır, tercih değil.
@@ -318,13 +319,11 @@ void main() {
       await kapat(tester);
     });
 
-    testWidgets('İŞLETME satırı yalnız PATRONDA çizilir', (tester) async {
+    testWidgets('kurye kendi cihaz tercihlerine erişir', (tester) async {
       final db = AppDatabase(NativeDatabase.memory());
 
       await ekranaKoy(tester, AyarlarEkrani(db: db, rol: 'kurye', yetki: tamYetki));
 
-      expect(find.text('İşletme'), findsNothing,
-          reason: 'kalıcı kapalı kapı gösterilmez — pasif satır değil, hiç satır');
       expect(find.text('Uygulama'), findsOneWidget, reason: 'kendi cihaz tercihleri açık kalır');
 
       await kapat(tester);

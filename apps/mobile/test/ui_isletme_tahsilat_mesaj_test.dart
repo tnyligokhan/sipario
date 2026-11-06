@@ -96,13 +96,13 @@ void main() {
       await ekranaKoy(tester, MesajSablonlariEkrani(db: db));
 
       expect(find.text('Borç Hatırlatma'), findsOneWidget);
-      expect(find.text('Varsayılan metin'), findsOneWidget,
+      expect(find.text('Varsayılan metin'), findsNWidgets(8),
           reason: 'bayi "ben bunu değiştirmiş miydim" sorusunu listeden cevaplayabilmeli');
 
       await dokun(tester, find.text('Borç Hatırlatma'));
 
       // Bayi yer tutucuları EZBERLEMEK zorunda kalmamalı — ekranda çip olarak dururlar.
-      expect(find.text('Hatırlatma Mesajı'), findsOneWidget);
+      expect(find.text('Mesaj Metni'), findsOneWidget);
       expect(find.text('Müşteri adı'), findsOneWidget);
       expect(find.text('IBAN + alıcı'), findsOneWidget);
 

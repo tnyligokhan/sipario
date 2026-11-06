@@ -1,4 +1,4 @@
-// AYARLAR → İŞLETME — dükkânın kendi ayarları: kimlik, tahsilat, mesajlar, sipariş.
+// YÖNETİM → İŞLETME — dükkânın kendi ayarları: kimlik, tahsilat, sipariş.
 //
 // ══ SAYFA BİR HUB'DIR, FORM DEĞİL (kullanıcı eleştirisi 2026-08-13) ════════════════════════
 // Eskiden buradaki tek satır ("Düzenle") YEDİ konuyu tek forma açıyordu. Kullanıcı haklı olarak
@@ -7,7 +7,6 @@
 //
 //   İşletme bilgileri → ad, yetkili, iletişim, vergi, saatler  (isletme_profili_ekrani.dart)
 //   Tahsilat          → IBAN, alıcı adı, fiş notu (pasif)      (tahsilat_ayarlari_ekrani.dart)
-//   Mesajlar          → müşteriye giden hazır metinler         (mesaj_sablonlari_ekrani.dart)
 //   Sipariş kodu      → satırda hangi kod görünsün             (siparis_kodu_ayari.dart)
 //   Ürün içerikleri   → hazırlanan ürün yeteneği               (hazirlanan_urun_ayari.dart)
 //
@@ -17,7 +16,7 @@
 // YALNIZ PATRON (operatör de dahil DEĞİL). Bu kapı bilinçli olarak `rol == 'patron'` string'ine
 // bakar, `RolYetkileri.isletmeAbonelikAyarlari` alanına değil — matriste o alan TANIMLI ama bu
 // yüzeyde hiç kullanılmıyordu ve iki ölçütü birden canlı tutmak, birinin sessizce ayrışması
-// demekti. Kapı ÇAĞIRANDADIR (ayarlar hub'ı satırı hiç çizmez); burası ikinci kapı değil,
+// demekti. Kapı ÇAĞIRANDADIR (çekmece satırı hiç çizmez); burası ikinci kapı değil,
 // sayfanın kendi sözleşmesidir: bu sayfayı açan patron olmalıdır.
 //
 // MAĞAZA KURALI: abonelik / ödeme / satın alma / fiyat / üyelik bağlantısı OLAMAZ.
@@ -34,7 +33,6 @@ import '../isletme_atomlari.dart';
 import '../isletme_profili_ekrani.dart';
 import '../hazirlanan_urun_ayari.dart';
 import '../siparis_kodu_ayari.dart';
-import 'mesaj_sablonlari_ekrani.dart';
 import 'tahsilat_ayarlari_ekrani.dart';
 
 class IsletmeAyarlariEkrani extends StatelessWidget {
@@ -100,7 +98,6 @@ class _Govde extends StatelessWidget {
     // "Düzenle" düğmeleriyle dolu bir liste bunu yapamaz — hepsi aynı görünür, hiçbiri bilgi
     // vermez.
     final iban = ibanOkunur(profil?.iban);
-    final sablonOzel = (profil?.reminderTemplate ?? '').trim().isNotEmpty;
 
     return SipGovde(
       children: [
@@ -129,21 +126,6 @@ class _Govde extends StatelessWidget {
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => TahsilatAyarlariEkrani(db: db, writable: writable),
-              ),
-            ),
-          ),
-          AyarSatiri(
-            ikon: SipIcons.chat,
-            baslik: 'Mesajlar',
-            // METİN SAYISI DEĞİL DURUMU YAZAR (2026-08-18). "4 şablon · varsayılan metin" bir
-            // envanter cümlesiydi; bayinin sorduğu soru "kaç tane var" değil, "benim yazdığım
-            // metin mi gidiyor, hazır olan mı".
-            altBaslik: sablonOzel
-                ? 'Metinleri siz yazdınız'
-                : 'Hazır metinler kullanılıyor',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => MesajSablonlariEkrani(db: db, writable: writable),
               ),
             ),
           ),

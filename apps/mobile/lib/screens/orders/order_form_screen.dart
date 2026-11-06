@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../data/musteri_fiyatlari.dart';
 import '../../data/urun_secenekleri.dart';
 import '../../repo/order_repository.dart';
 import '../../theme/components/atoms.dart';
@@ -18,6 +19,7 @@ import '../customers/customer_form_screen.dart' show musteriEkleSheet;
 import '../shell/alt_nav.dart' show SipSekme;
 import '../shell/sekme_yonlendirme.dart';
 import '../team.dart';
+import 'iskonto_sheet.dart';
 import 'order_form_kalemler.dart';
 import 'order_form_parts.dart';
 import 'order_parts.dart';
@@ -26,6 +28,8 @@ import 'order_sheets.dart';
 import 'siparis_kapisi.dart';
 
 export 'order_parts.dart' show LineDraft, toplamKurus;
+
+part 'order_form_sepet.dart';
 
 class OrderFormScreen extends StatefulWidget {
   const OrderFormScreen({
@@ -78,6 +82,10 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   List<User> _kuryeler = const [];
   String? _rol;
 
+  /// Satır iskontosu yetkisi (kapıda iskontoyla AYNI yetki). Bayi ayarı ve kişiye özel ezme de
+  /// hesaba katılsın diye `oturumYetkileri`nden okunur; `_rol` tek başına yetmez.
+  bool _iskontoYetkisi = false;
+
   /// Oturumdaki kullanıcı — "(siz)" işareti ve "başka biri var mı" ölçütü için.
   String? _benimId;
   StreamSubscription<SyncMetaData>? _metaAbone;
@@ -120,7 +128,9 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
         _rol = meta.userRole;
         _benimId = meta.userId;
       });
+      _iskontoYetkisiniOku();
     });
+    _iskontoYetkisiniOku();
     _kuryeAbone = watchAtamaHedefleri(widget.db).listen((kuryeler) {
       if (!mounted) return;
       setState(() {
@@ -177,6 +187,9 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     });
   }
 
+  /// Durum değişiminin tek kapısı; `order_form_sepet.dart`taki yüzey buradan geçer.
+  void _durumDegisti(VoidCallback f) => setState(f);
+
   int get _toplam => toplamKurus(_satirlar);
   bool get _sepetBos => _satirlar.isEmpty;
 
@@ -208,6 +221,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       _musteri = c;
       _adim = 2;
     });
+    await _sepetFiyatlariniYenile();
   }
 
   /// "Yeni müşteri ekle" — tasarım `.ys-ekle` + `YeniMusteri` sheet (s-siparisler.jsx:311,414).
@@ -227,64 +241,6 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
     final yeni = await musteriOku(widget.db, yeniId);
     if (!mounted || yeni == null) return;
     _musteriSec(yeni);
-  }
-
-  void _urunEkle(Product u, int adet, SecenekSecimi secim) {
-    setState(() {
-      // ⚠️ BİRLEŞTİRME SEÇİME DE BAKAR (2026-08-18). Yalnız `productId`ye bakan eski kural,
-      // "1 soğanlı + 1 soğansız dürüm" isteğini "2 soğansız dürüm"e çevirirdi — müşterinin
-      // siparişini sessizce değiştirmek, hiç kaydetmemekten kötüdür.
-      final i = _satirlar.indexWhere((l) => l.ayniKalem(u.id, secim));
-      if (i >= 0) {
-        // ADET NEGATİF OLABİLİR (2026-08-22): katalog karosundaki `−` düğmesi sepeti buradan
-        // azaltır. Sıfıra inen satır SİLİNİR — 0 adetli bir kalem sepette anlamsızdır ve
-        // toplamı etkilemeden listeyi kirletirdi.
-        _satirlar[i].qty += adet;
-        if (_satirlar[i].qty <= 0) _satirlar.removeAt(i);
-      } else if (adet > 0) {
-        _satirlar.add(LineDraft(
-          productId: u.id,
-          name: u.name,
-          unitPriceKurus: u.unitPriceKurus,
-          unit: u.unit,
-          qty: adet,
-          secim: secim,
-        ));
-      }
-      _uyari = null;
-    });
-  }
-
-  void _adetDegis(int i, int delta) {
-    setState(() {
-      final yeni = _satirlar[i].qty + delta;
-      if (yeni <= 0) {
-        _satirlar.removeAt(i);
-      } else {
-        _satirlar[i].qty = yeni;
-      }
-    });
-  }
-
-  Future<void> _serbestEkle() async {
-    final draft = await serbestSatirSheetAc(context);
-    if (draft == null || !mounted) return;
-    setState(() {
-      _satirlar.add(draft);
-      _uyari = null;
-    });
-  }
-
-  /// Sepetteki TEK satırın notu. Sheet `null` dönerse vazgeçilmiştir ve mevcut not DEĞİŞMEZ;
-  /// boş dizgi dönerse not silinmiştir ([satirNotuSilindi]).
-  Future<void> _satirNotu(int i) async {
-    final satir = _satirlar[i];
-    final sonuc = await satirNotuSheetAc(context, urunAd: satir.name, mevcut: satir.note);
-    if (sonuc == null || !mounted) return;
-    // Sheet açıkken sepet değişmiş olabilir (kullanıcı arkada bir şey silemez ama savunma ucuz):
-    // satır düştüyse yazacak yer yok.
-    if (i >= _satirlar.length || !identical(_satirlar[i], satir)) return;
-    setState(() => satir.note = notuNormalle(sonuc));
   }
 
   void _devam() {
@@ -331,6 +287,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
                   qty: l.qty,
                   note: l.note,
                   secim: l.secim,
+                  iskontoKurus: l.iskontoKurus,
                 ))
             .toList(),
       );
@@ -486,6 +443,8 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
         onAdetDegis: _adetDegis,
         onSil: (i) => setState(() => _satirlar.removeAt(i)),
         onSatirNotu: _satirNotu,
+        onIskonto: _iskontoYetkisi ? _satirIskontosu : null,
+        fiyatlar: _fiyatlar,
         onBildir: (m) => SipToast.goster(context, m),
       );
 

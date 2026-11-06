@@ -17,7 +17,8 @@
 import 'package:drift/drift.dart';
 
 import '../../data/app_database.dart';
-import '../orders/order_queries.dart' show siparisKalanBorcu;
+import '../orders/order_queries.dart' show siparisKalanBorcu, watchSiparisTahsilatlari;
+import 'borc_hatirlatma.dart' show HatirlatmaHesapOzeti;
 
 /// Bir borçlunun ödenmemiş siparişi.
 class BorcluSiparis {
@@ -79,6 +80,33 @@ Stream<List<Order>> watchBorcluSiparisleri(AppDatabase db, List<String> musteriI
             t.customerId.isIn(musteriIdler))
         ..orderBy([(t) => OrderingTerm.desc(t.occurredAt), (t) => OrderingTerm.desc(t.id)]))
       .watch();
+}
+
+/// Hatırlatma mesajının hesap özeti. Son ödeme yalnız müşterinin parasıdır: iptal satırı ve
+/// tutarı iptal edilmiş bir tahsilat müşteriye "son ödemeniz" diye yazılmamalı.
+Future<HatirlatmaHesapOzeti> hatirlatmaHesapOzeti(AppDatabase db, BorcluMusteri veri) async {
+  final odemeler = await (db.select(db.ledgerEntries)
+        ..where((t) => t.customerId.equals(veri.musteri.id) & t.entryType.equals('payment'))
+        ..orderBy([(t) => OrderingTerm.desc(t.occurredAt), (t) => OrderingTerm.desc(t.id)]))
+      .get();
+  final iptalEdilen = {for (final o in odemeler) ?o.reversesEntryId};
+  final sonOdeme = odemeler
+      .where((o) => o.reversesEntryId == null && !iptalEdilen.contains(o.id))
+      .firstOrNull;
+  return HatirlatmaHesapOzeti(
+    odenmemisSiparis: veri.siparisler.length,
+    sonSiparisAt: veri.siparisler.firstOrNull?.order.occurredAt,
+    sonOdemeAt: sonOdeme?.occurredAt,
+    sonOdemeKurus: (sonOdeme?.amountKurus ?? 0).abs(),
+  );
+}
+
+/// Tek müşterinin hesap özeti — sipariş ayrıntısındaki mesajlar için. Sayılar Borçlular ekranıyla
+/// aynı kapıdan geçer, iki yüzey aynı müşteri için farklı rakam yazamaz.
+Future<HatirlatmaHesapOzeti> musteriHesapOzeti(AppDatabase db, Customer musteri) async {
+  final siparisler = await watchBorcluSiparisleri(db, [musteri.id]).first;
+  final tahsilatlar = await watchSiparisTahsilatlari(db).first;
+  return hatirlatmaHesapOzeti(db, borcluListesiKur([musteri], siparisler, tahsilatlar).first);
 }
 
 /// İşletme profili satırı (cihazda TEK SATIR, id=1) — hatırlatma metni buradan beslenir.

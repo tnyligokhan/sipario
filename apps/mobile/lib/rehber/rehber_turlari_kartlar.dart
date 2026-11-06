@@ -214,7 +214,7 @@ const List<RehberAdim> borclularTuru = [
     metin: 'Karttaki hatırlatma düğmesi borcu ve varsa hesap numaranı yazan '
         'hazır bir mesaj açar\n\n'
         'Göndermeden önce metni değiştirebilirsin; mesajın kalıbını '
-        'Ayarlar sayfasındaki İşletme bölümünden ayarlarsın',
+        'menüdeki Mesajlar bölümünden ayarlarsın',
     kitle: RehberKitle.yonetici,
   ),
 ];
@@ -260,7 +260,7 @@ const List<RehberAdim> cagriGunluguTuru = [
   RehberAdim(
     baslik: 'Bazı numaralar için ekran çıkmasın',
     metin: 'Tedarikçin ya da kendi numaran her aradığında ekran açılmasını istemezsen '
-        'menüdeki Muaf Numaralar sayfasına ekleyebilirsin',
+        'menüdeki Tanımlamalar başlığından Muaf Numaralar sayfasına ekleyebilirsin',
     kitle: RehberKitle.yonetici,
   ),
 ];
@@ -300,13 +300,12 @@ const List<RehberAdim> haritaTuru = [
 const List<RehberAdim> ayarlarTuru = [
   RehberAdim(
     baslik: 'Ayarlar',
-    metin: 'Beş sayfa var ve her biri farklı bir konuya bakar',
+    metin: 'Dört sayfa var ve her biri farklı bir konuya bakar',
   ),
   RehberAdim(
     hedef: 'ayarlar.kart',
-    baslik: 'Beş sayfa',
+    baslik: 'Dört sayfa',
     metin: 'Hesap: oturumun ve bu hesaba bağlı telefonlar\n'
-        'İşletme: dükkân bilgileri, hesap numarası, hatırlatma mesajı\n'
         'Uygulama: görünüm ve arayan tanıma\n'
         'Bildirimler: hangi bildirim gelsin, gece sussun mu\n'
         'Hakkında: sürüm bilgisi ve yenilikler',

@@ -141,8 +141,8 @@ class _IzinSihirbaziState extends State<IzinSihirbazi> with WidgetsBindingObserv
     if (eylem == null) return;
     try {
       await widget.channel.invokeMethod(eylem);
-    } on PlatformException catch (e) {
-      if (mounted) SipToast.goster(context, 'Ayar ekranı açılamadı (${e.code})');
+    } on PlatformException {
+      if (mounted) SipToast.goster(context, "Ayar ekranı açılamadı. Telefonun Ayarlar bölümünden Sipario'yu bulup izni açın.");
     } on MissingPluginException {
       // Kanal yok (test/masaüstü) — akış durmasın.
     }
@@ -156,8 +156,8 @@ class _IzinSihirbaziState extends State<IzinSihirbazi> with WidgetsBindingObserv
   Future<void> _izinIste(IzinAdimi iz) async {
     try {
       await widget.channel.invokeMethod(iz.eylem);
-    } on PlatformException catch (e) {
-      if (mounted) SipToast.goster(context, 'Ayar ekranı açılamadı (${e.code})');
+    } on PlatformException {
+      if (mounted) SipToast.goster(context, "Ayar ekranı açılamadı. Telefonun Ayarlar bölümünden Sipario'yu bulup izni açın.");
       return;
     } on MissingPluginException {
       // Kanal yok (test/masaüstü) — akış durmasın.

@@ -4,7 +4,8 @@
 // (CSS `flex: 1 → 2`, geçiş .26s) ve etiketi görünür olur. Material `NavigationBar` KULLANILMAZ:
 // tasarımın hap gövdesi, ortadaki taşan FAB'ı ve genişleyen sekmesi onunla kurulamıyor.
 //
-// FAB İKİ SEÇENEKLİ BİR MENÜ AÇAR: "Müşteri Ekle" · "Sipariş Ekle" (kullanıcı kararı 2026-07-29).
+// FAB MENÜ AÇAR: "Müşteri Ekle" · "Sipariş Ekle" (kullanıcı kararı 2026-07-29) · "Gider Ekle"
+// (saha, 2026-11-05).
 // Öncesinde tek dokunuşla doğrudan yeni siparişe gidiyordu (`s-bilesenler.jsx:55` — className
 // sabit, durum yok) ve müşteri ekleme YALNIZ Müşteriler ekranının "Yeni"sinde yaşıyordu; yeni
 // müşteri kaydı esnafın en sık ikinci işi ve onu bir sekme değişikliğinin arkasına koymak
@@ -192,7 +193,7 @@ class _Sekme extends StatelessWidget {
   }
 }
 
-/// CSS `.altnav-fab` — accent dolgulu daire; ekleme menüsünü açar (müşteri · sipariş).
+/// CSS `.altnav-fab` — accent dolgulu daire; ekleme menüsünü açar (müşteri · sipariş · gider).
 /// [onTap] null iken sönük ve dokunulamaz çizilir (yerleşim aynı kalır).
 class _Fab extends StatelessWidget {
   const _Fab({required this.onTap});

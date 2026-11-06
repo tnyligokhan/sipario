@@ -177,6 +177,8 @@ class _GovdeState extends State<_Govde> {
           ipucu: 'ozpinar',
           aktif: !_busy,
           buyukHarfKipi: TextCapitalization.none,
+          klavye: TextInputType.visiblePassword,
+          klavyeOnerisi: false,
         ),
         const SipFormEtiket('KULLANICI ADI'),
         SipInput(
@@ -184,6 +186,8 @@ class _GovdeState extends State<_Govde> {
           ipucu: 'patron',
           aktif: !_busy,
           buyukHarfKipi: TextCapitalization.none,
+          klavye: TextInputType.visiblePassword,
+          klavyeOnerisi: false,
           onSubmitted: (_) => _gonder(),
         ),
 

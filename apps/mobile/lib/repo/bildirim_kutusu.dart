@@ -40,24 +40,28 @@ class BildirimKutusu {
 
   /// OKUNMAMIŞ sayısı — ana ekrandaki rozet. Akış: yeni bildirim düşünce rozet kendiliğinden
   /// artar, okununca azalır.
+  ///
+  /// Temizlenmiş satır SAYILMAZ: listede görünmeyen bir bildirim için rozet yanmamalı.
   Stream<int> watchOkunmamisSayisi() {
     final q = db.selectOnly(db.bildirimler)
       ..addColumns([db.bildirimler.id.count()])
-      ..where(db.bildirimler.okunduAt.isNull());
+      ..where(db.bildirimler.okunduAt.isNull() & db.bildirimler.temizlendiAt.isNull());
     return q.map((r) => r.read(db.bildirimler.id.count()) ?? 0).watchSingle();
   }
 
-  /// Tüm kutu, YENİDEN ESKİYE.
+  /// Listede görünen kutu (temizlenmişler hariç), YENİDEN ESKİYE.
   Stream<List<BildirimlerData>> watchHepsi({int limit = 100}) => (db.select(db.bildirimler)
+        ..where((t) => t.temizlendiAt.isNull())
         ..orderBy([(t) => OrderingTerm.desc(t.occurredAt)])
         ..limit(limit))
       .watch();
 
   /// Bir taslağı kutuya yazar.
   ///
-  /// VAR OLAN SATIR TAZELENİR AMA "OKUNDU" VE "DOĞUŞ ANI" KORUNUR (gerekçe tabloda). Metin
-  /// güncellenir çünkü rakam değişmiş olabilir ("3 gün kapatılmadı" → "4 gün kapatılmadı");
-  /// kullanıcı onu okuduysa yine okunmuş kalır.
+  /// VAR OLAN SATIR TAZELENİR AMA "OKUNDU", "TEMİZLENDİ" VE "DOĞUŞ ANI" KORUNUR (gerekçe
+  /// tabloda). Metin güncellenir çünkü rakam değişmiş olabilir ("3 gün kapatılmadı" → "4 gün
+  /// kapatılmadı"); kullanıcı onu okuduysa yine okunmuş kalır. Tek istisna: temizlenmiş bir
+  /// satırın BAŞLIĞI değiştiyse (aşağıda).
   Future<void> yaz(BildirimTaslagi t, {required String occurredAtIso}) async {
     final mevcut =
         await (db.select(db.bildirimler)..where((b) => b.id.equals(t.kimlik))).getSingleOrNull();
@@ -76,6 +80,12 @@ class BildirimKutusu {
       return;
     }
 
+    // TEMİZLENMİŞ SATIR YALNIZ BAŞLIĞI DEĞİŞİNCE GERİ GELİR. Aynı başlık aynı durumdur (açılış
+    // taraması aynı uyarıyı yeniden üretti) ve bayinin kararı korunur. Başlık değiştiyse durum
+    // değişmiştir ("hakkınız azaldı" → "hakkınız bitti") ve bu, bayinin henüz görmediği YENİ
+    // bir bilgidir: okunmamış olarak ve şimdiki anla listeye döner.
+    final geriGelir = mevcut.temizlendiAt != null && mevcut.baslik != t.baslik;
+
     await (db.update(db.bildirimler)..where((b) => b.id.equals(t.kimlik))).write(
       BildirimlerCompanion(
         kategori: Value(t.kategori.name),
@@ -83,6 +93,9 @@ class BildirimKutusu {
         govde: Value(t.govde),
         detay: Value(t.detay),
         yol: Value(t.yol),
+        temizlendiAt: geriGelir ? const Value(null) : const Value.absent(),
+        okunduAt: geriGelir ? const Value(null) : const Value.absent(),
+        occurredAt: geriGelir ? Value(occurredAtIso) : const Value.absent(),
       ),
     );
   }
@@ -97,6 +110,21 @@ class BildirimKutusu {
   Future<void> hepsiniOkunduIsaretle({required String okunduAtIso}) =>
       (db.update(db.bildirimler)..where((b) => b.okunduAt.isNull()))
           .write(BildirimlerCompanion(okunduAt: Value(okunduAtIso)));
+
+  /// Tek bildirimi listeden kaldırır (kaydırarak silme).
+  ///
+  /// SATIR SİLİNMEZ, DAMGALANIR (gerekçe `Bildirimler.temizlendiAt`): silinseydi kural bir
+  /// sonraki açılışta aynı kimlikle onu yeniden doğururdu. Okunmamışsa okundu da sayılır —
+  /// bayi onu gördü ve bilerek kaldırdı.
+  Future<void> temizle(String id, {required String anIso}) =>
+      (db.update(db.bildirimler)..where((b) => b.id.equals(id) & b.temizlendiAt.isNull()))
+          .write(BildirimlerCompanion(temizlendiAt: Value(anIso)));
+
+  /// "Temizle" — listedeki bütün bildirimleri kaldırır. Yeni doğanlar listeye düşmeye devam
+  /// eder; temizlik geçmişe dönüktür, geleceği susturmaz (onun yeri kategori anahtarlarıdır).
+  Future<void> hepsiniTemizle({required String anIso}) =>
+      (db.update(db.bildirimler)..where((b) => b.temizlendiAt.isNull()))
+          .write(BildirimlerCompanion(temizlendiAt: Value(anIso)));
 
   /// Sınırı aşan EN ESKİ satırları siler.
   Future<void> _buda() async {

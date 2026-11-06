@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 
 import '../../data/app_database.dart';
 import '../../data/outbox.dart' show phoneLast10;
+import '../../data/telefon_numarasi.dart';
 import '../../repo/exempt_number_repository.dart';
 import '../../theme/components/atoms.dart';
 import '../../theme/components/overlays.dart';
@@ -336,16 +337,10 @@ class _EklemeGovdesiState extends State<_EklemeGovdesi> {
 ///
 /// Karşılaştırma SON 10 HANE üzerinden: +905321112233 / 05321112233 / 5321112233 aynı numaradır
 /// (DECISIONS arayan tanıma kuralı; native taraf da aynı anahtara bakar).
-/// Üst sınır artık hata metniyle TUTARLIDIR: eskiden 13 haneye kadar kabul ediliyordu ama hata
-/// "10-11 hane" diyordu — kullanıcıya yalan söyleyen bir kapıydı. Ülke kodu sınırdan ÖNCE
-/// ayıklanır, yoksa "+90 532…" (12 hane) yazan kullanıcı, numarası geçerli olduğu hâlde
-/// reddedilirdi.
+/// Geçerlilik müşteri formuyla AYNI kapıdan çözülür ([TelefonNumarasi]): yabancı numara ülke
+/// koduyla yazılırsa kabul edilir.
 String? muafNumaraHatasi(String ham, {required List<String> mevcutSon10}) {
-  var haneler = ham.replaceAll(RegExp(r'\D'), '');
-  if (haneler.length > 11 && haneler.startsWith('90')) haneler = haneler.substring(2);
-  if (haneler.length < 10 || haneler.length > 11) {
-    return 'Geçerli telefon girin (10-11 hane)';
-  }
+  if (TelefonNumarasi.coz(ham) == null) return TelefonNumarasi.gecersizMetni;
   final son10 = phoneLast10(ham);
   if (mevcutSon10.contains(son10)) return 'Bu numara zaten muaf listesinde';
   return null;

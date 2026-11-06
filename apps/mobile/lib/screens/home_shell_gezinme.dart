@@ -51,6 +51,18 @@ extension _GezinmeYuzeyi on _HomeShellState {
             rehber: RehberYuzey.harita);
       case CekmeceGiris.hesap:
         _git(HesapEkrani(db: widget.db, session: widget.session, onCikis: _cikis));
+      case CekmeceGiris.isletme:
+        if (!_patronMu) {
+          SipToast.goster(context, 'İşletme ayarlarını yalnız patron düzenler');
+          return;
+        }
+        _git(IsletmeAyarlariEkrani(db: widget.db, writable: _yazilabilir));
+      case CekmeceGiris.mesajlar:
+        if (!_patronMu) {
+          SipToast.goster(context, 'Mesajları yalnız patron düzenler');
+          return;
+        }
+        _git(MesajSablonlariEkrani(db: widget.db, writable: _yazilabilir));
       case CekmeceGiris.urunler:
         if (!_yetki.urunYonetimi) {
           SipToast.goster(context, 'Ürünleri yalnız patron düzenler');
@@ -73,12 +85,13 @@ extension _GezinmeYuzeyi on _HomeShellState {
         }
         // `rol` zorunlu — gerekçe yukarıda (kuryeler dalı). Bu satır da aynı açığı taşıyordu.
         _git(MuafEkrani(db: widget.db, writable: _yazilabilir, rol: _userRole));
+      case CekmeceGiris.giderKategorileri:
+        _git(GiderKategorileriEkrani(db: widget.db, writable: _yazilabilir, rol: _userRole));
       case CekmeceGiris.ayarlar:
         _git(AyarlarEkrani(
           db: widget.db,
           rol: _userRole,
           yetki: _yetki,
-          writable: _yazilabilir,
           // Hesap sayfası hem çekmeceden hem ayarlar hub'ından açılır; ikisi de AYNI ekranı
           // ve AYNI çıkış akışını kullanır (çıkış onayı + oturum temizliği tek yerde).
           session: widget.session,
@@ -98,6 +111,10 @@ extension _GezinmeYuzeyi on _HomeShellState {
         _git(NasilYapilirEkrani(kuryeMi: _kuryeMi));
     }
   }
+
+  /// İşletme ve Mesajlar yalnız patronundur. Doğrudan rol sorulur: bu yüzeyin tek ölçütü budur
+  /// (gerekçe `isletme_ayarlari_ekrani.dart` başlığında).
+  bool get _patronMu => _userRole == 'patron';
 
   /// Kurye kipinde miyiz — rehberin (görev kartı + turlar) hangi anlatıyı kuracağını belirler.
   ///
@@ -143,12 +160,13 @@ extension _GezinmeYuzeyi on _HomeShellState {
     }
   }
 
-  Future<void> _musteriAc(String musteriId) => _git(
+  Future<void> _musteriAc(String musteriId, {String? arayanNumara}) => _git(
         CustomerDetailScreen(
           db: widget.db,
           customerId: musteriId,
           writable: _yazilabilir,
           yetki: _yetki,
+          arayanNumara: arayanNumara,
         ),
         rehber: RehberYuzey.musteriDetay,
       );
@@ -189,11 +207,12 @@ extension _GezinmeYuzeyi on _HomeShellState {
   void _yeniSiparis() =>
       _git(OrderFormScreen(db: widget.db, writable: _yazilabilir));
 
-  /// FAB menüsü (kullanıcı kararı 2026-07-29): "Müşteri Ekle" · "Sipariş Ekle".
+  /// FAB menüsü: "Müşteri Ekle" · "Sipariş Ekle" (kullanıcı kararı 2026-07-29) · "Gider Ekle"
+  /// (saha, 2026-11-05).
   ///
   /// Eskiden FAB doğrudan sipariş formunu açıyordu ve müşteri ekleme yalnız Müşteriler
-  /// ekranının "Yeni"sinde yaşıyordu. Menü İKİ SATIRDIR, üçüncü bir şey EKLENMEZ: FAB'ın değeri
-  /// bir dokunuşla en sık iki işi başlatmasıdır, dolan bir menü onu bir alt menüye çevirir.
+  /// ekranının "Yeni"sinde yaşıyordu. Gider de yalnız Gün Özeti'ndeydi; para çekmeceden çıkarken
+  /// yazılmalı ve bayi o an hangi sekmedeyse oradan yazabilmeli.
   ///
   /// Kapı `_yazilabilir` üzerinden ÇAĞIRANDA (FAB pasif çizilir); burada ikinci bir kontrol
   /// yapılmaz — iki yerde ayrı koşul, ayrışabilen iki kural demektir.
@@ -203,7 +222,7 @@ extension _GezinmeYuzeyi on _HomeShellState {
     // olurdu (BRIEF'in "tek kişilik bayide o adım hiç görünmesin" ilkesinin aynısı). İkisi de
     // kapalıysa menü hiç açılmaz, tek bir cümleyle sebep söylenir.
     final yetki = _yetki;
-    if (!yetki.musteriDuzenleme && !yetki.siparisAcma) {
+    if (!yetki.musteriDuzenleme && !yetki.siparisAcma && !yetki.sahaGideri) {
       SipToast.goster(context, 'Kayıt ekleme yetkiniz yok');
       return;
     }
@@ -228,13 +247,56 @@ extension _GezinmeYuzeyi on _HomeShellState {
               secili: false,
               onTap: () => Navigator.of(ctx).pop('siparis'),
             ),
+          if (yetki.sahaGideri)
+            SecimSatiri(
+              etiket: 'Gider Ekle',
+              ikon: SipIcons.wallet,
+              secili: false,
+              onTap: () => Navigator.of(ctx).pop('gider'),
+            ),
         ],
       ),
     );
     if (secim == null || !mounted) return;
     if (secim == 'siparis') return _yeniSiparis();
+    if (secim == 'gider') return _giderEkle();
     final eklendi = await musteriEkleSheet(context, db: widget.db);
     if (eklendi == true && mounted) SipToast.goster(context, 'Müşteri kaydedildi');
+  }
+
+  /// Alt menüden gider. Para oturumdaki kişinin kasasından düşer; başkası adına gider yazmak
+  /// isteyen Gün Özeti'nde kapsamı o kişiye çevirir (2026-08-25 kuralı).
+  Future<void> _giderEkle() async {
+    final ad = (_userName ?? '').trim();
+    final sonuc = await GiderAkisi(
+      db: widget.db,
+      kapsamAdi: _kuryeMi && ad.isNotEmpty ? ad : 'Gün',
+      harcayanId: _userId,
+    ).calistir(context);
+    if (sonuc == GiderAkisiSonucu.kaydedildi && mounted) {
+      // Gün Özeti açıksa döküm bu dokunuşla tazelenir; o ekran kendi sayacını bilmez.
+      _durumDegisti(() => _giderSayaci++);
+    }
+  }
+
+  /// Sistem geri tuşu kabuğa ulaştı (üstte açık ekran yok). Sıra: çekmece kapanır, ana sekmeye
+  /// dönülür, ana sekmede çıkış sorulur (saha, 2026-11-05). Soru olmadan art arda geri basan bayi
+  /// uygulamadan düşüyordu; arayan tanıma için uygulama arkada kalır, çıkış yalnız bu ekranı kapatır.
+  Future<void> _geriTusu() async {
+    if (_cekmece) {
+      _durumDegisti(() => _cekmece = false);
+      return;
+    }
+    if (_sekme != SipSekme.ana) {
+      _sekmeSec(SipSekme.ana);
+      return;
+    }
+    final ok = await sipOnay(
+      context,
+      baslik: 'Uygulamadan çıkılsın mı?',
+      onayEtiketi: 'Çık',
+    );
+    if (ok) await SystemNavigator.pop();
   }
 
   /// "Borçlular" bento kutusu — Genel Yetki Matrisinde kuryelere kısıtlıdır.

@@ -396,9 +396,9 @@ void main() {
         const SyncOutcome(ok: false, error: '5xx', tur: SyncHataTuru.sunucu),
       );
 
-      expect(find.text('Bağlantı yok, tekrar denenecek'), findsNothing,
+      expect(find.text('İnternet yok, tekrar denenecek'), findsNothing,
           reason: 'sunucuya ULAŞILDI — "bağlantı yok" demek yalan');
-      expect(find.text('Sunucu yanıt vermiyor, tekrar denenecek'), findsOneWidget);
+      expect(find.text('Bağlantı kurulamıyor, tekrar denenecek'), findsOneWidget);
 
       await kapat(tester);
     });
@@ -412,7 +412,7 @@ void main() {
         const SyncOutcome(ok: false, error: 'red', tur: SyncHataTuru.veri),
       );
 
-      expect(find.text('Kayıtlar gönderilemiyor, destekle görüşün'), findsOneWidget);
+      expect(find.text('Kayıtlar gönderilemiyor, destek ekibiyle görüşün'), findsOneWidget);
       expect(find.textContaining('tekrar denenecek'), findsNothing);
 
       await kapat(tester);
@@ -426,7 +426,7 @@ void main() {
         const SyncOutcome(ok: false, error: 'ağ', tur: SyncHataTuru.ag),
       );
 
-      expect(find.text('Bağlantı yok, tekrar denenecek'), findsOneWidget);
+      expect(find.text('İnternet yok, tekrar denenecek'), findsOneWidget);
 
       await kapat(tester);
     });

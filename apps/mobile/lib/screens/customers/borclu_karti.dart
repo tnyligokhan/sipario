@@ -16,7 +16,7 @@ import '../../theme/icons.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
 import '../isletme/iban.dart' show ibanNormal;
-import '../orders/musteri_eylemleri.dart' show whatsappAc;
+import '../orders/musteri_numara_secici.dart';
 import '../orders/order_detail_screen.dart' show siparisDetaySheetAc;
 import '../orders/order_queries.dart' show saatBicimi;
 import '../team.dart';
@@ -39,6 +39,7 @@ class BorcluKarti extends StatelessWidget {
     this.isletmeAdi,
     this.ibanAliciAdi,
     this.sablon,
+    this.isletmeTelefonu,
   });
 
   final AppDatabase db;
@@ -58,6 +59,9 @@ class BorcluKarti extends StatelessWidget {
   /// (boşsa varsayılan metin) — ikisi de İşletme Profili'nden gelir.
   final String? ibanAliciAdi;
   final String? sablon;
+
+  /// Mesajdaki iletişim numarası (İşletme Profili).
+  final String? isletmeTelefonu;
 
   Future<void> _musteriAc(BuildContext context) => Navigator.of(context).push(
         MaterialPageRoute(
@@ -93,7 +97,7 @@ class BorcluKarti extends StatelessWidget {
       return;
     }
     if (ibanNormal(iban) == null) {
-      SipToast.goster(context, 'Önce Ayarlar → İşletme Profili\'nden IBAN tanımlayın');
+      SipToast.goster(context, ibanEksikUyarisi);
       return;
     }
     final mesaj = borcHatirlatmaMesaji(
@@ -103,8 +107,15 @@ class BorcluKarti extends StatelessWidget {
       isletmeAdi: isletmeAdi,
       ibanAliciAdi: ibanAliciAdi,
       sablon: sablon,
+      isletmeTelefonu: isletmeTelefonu,
+      hesap: await hatirlatmaHesapOzeti(db, veri),
     );
-    final gerekce = await whatsappAc(telefon, mesaj: mesaj);
+    if (!context.mounted) return;
+    final gerekce = await MusteriNumaraSecici(
+      db: db,
+      customerId: veri.musteri.id,
+      yedekNumara: telefon,
+    ).whatsapp(context, mesaj: mesaj);
     if (gerekce != null && context.mounted) SipToast.goster(context, gerekce);
   }
 

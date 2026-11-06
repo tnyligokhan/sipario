@@ -184,6 +184,8 @@ extension SyncCekme on SyncEngine {
               // ÜRÜN TERCİHLERİ (2026-08-18) — haritalanmazsa sunucudaki tercih telefonda
               // HİÇ OLMAMIŞ sayılır ve müşteri her siparişte yeniden sorulur.
               productOptionsJson: Value(_jsonMetin(m['product_options'])),
+              // MÜŞTERİYE ÖZEL FİYAT (2026-11-05): haritalanmazsa bu cihazda katalog fiyatı yazılır.
+              productPricesJson: Value(_jsonMetin(m['product_prices'])),
               updatedOccurredAt: Value(_s(m['updated_occurred_at'])),
               updatedDeviceId: Value(_sN(m['updated_device_id'])),
               deletedAt: Value(_sN(m['deleted_at'])),
@@ -268,6 +270,8 @@ extension SyncCekme on SyncEngine {
               optionsJson: Value(_jsonMetin(m['options'])),
               isCustom: Value(_b(m['is_custom'])),
               qty: Value(_i(m['qty'])),
+              // Eski sunucu alanı göndermezse 0: satır toplamı yine sunucudan gelir.
+              discountKurus: Value(_iN(m['discount_kurus']) ?? 0),
               lineTotalKurus: Value(_i(m['line_total_kurus'])),
               deletedAt: Value(_sN(m['deleted_at'])),
             ));
@@ -368,6 +372,12 @@ extension SyncCekme on SyncEngine {
               // sayılır, yani bugünkü davranış. Haritalanmazsa patronun açtığı ayar kuryenin
               // telefonuna hiç inmez ve iki cihaz farklı bir ürün formu gösterir.
               preparedProducts: Value(_bV(m['prepared_products'], false)),
+              expenseCategoriesJson: Value(_jsonMetin(m['expense_categories'])),
+              // Sunucu alanı HİÇ göndermiyorsa (henüz güncellenmemiş API) dokunulmaz: null yazmak
+              // bayinin telefondaki mesajlarını ilk senkronda silerdi.
+              messageTemplatesJson: m.containsKey('message_templates')
+                  ? Value(_jsonMetin(m['message_templates']))
+                  : const Value.absent(),
               updatedOccurredAt: Value(_sN(m['updated_occurred_at'])),
               updatedDeviceId: Value(_sN(m['updated_device_id'])),
             ));

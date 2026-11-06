@@ -49,6 +49,26 @@ TaslakUretici senkronUyarisiUretici(
 /// `routeCredits` ve `routeCreditsMonthly` SUNUCU SAHİPLİ alanlardır (senkronla iner, istemci
 /// yazamaz). Bu yüzden bildirim de yalnız senkron sonrası doğru olur; açılışta koşması
 /// yeterlidir çünkü açılışta zaten bir senkron turu başlar.
+/// Kalıcı olarak gönderilemeyen kayıt uyarısı — karantinadaki giden-kutusu kayıtlarını sayar.
+/// Açılışta koşar; ana ekrandaki kırmızı bandın bildirim karşılığıdır.
+TaslakUretici gonderilemeyenKayitUretici(
+  AppDatabase db, {
+  DateTime Function()? simdi,
+}) {
+  return () async {
+    try {
+      final sayi = await db.watchKarantinaSayisi().first;
+      return gonderilemeyenKayitUyarisi(
+        karantinaSayisi: sayi,
+        gun: simdi != null ? trGunu(simdi()) : await bugunTrDuzeltilmis(db),
+      );
+    } catch (e) {
+      debugPrint('Gönderilemeyen kayıt uyarısı üretilemedi: ${e.runtimeType}');
+      return null;
+    }
+  };
+}
+
 TaslakUretici kullanimHakkiUretici(
   AppDatabase db, {
   DateTime Function()? simdi,

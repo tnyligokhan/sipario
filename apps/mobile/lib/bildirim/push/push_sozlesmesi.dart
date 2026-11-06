@@ -144,13 +144,13 @@ BildirimTaslagi pushTaslagi(PushMesaji m, {String? ayrinti, String? detaySatiri}
         'siparisler',
       ),
     BildirimKategori.siparisTeslim => (
-        'Teslim edildi',
+        'Sipariş teslim edildi',
         ek.isEmpty ? 'Bir sipariş teslim edildi' : '$ek teslim edildi',
         'siparisler',
       ),
     BildirimKategori.kasaDevri => (
-        'Kasa devri',
-        ek.isEmpty ? 'Kurye kasayı devretti' : '$ek kasayı devretti',
+        'Kasa devri yapıldı',
+        ek.isEmpty ? 'Kurye nakdi kasaya teslim etti' : '$ek nakdi kasaya teslim etti',
         'gunsonu',
       ),
     BildirimKategori.yeniCihaz => (
@@ -183,7 +183,7 @@ BildirimTaslagi pushTaslagi(PushMesaji m, {String? ayrinti, String? detaySatiri}
             ),
     // Beyaz liste dışı kategori buraya ULAŞAMAZ (`pushMesajiCoz` eler); yine de dilin
     // tümlük şartı için nötr bir karşılık — çökmek yerine anlamsız ama zararsız bildirim.
-    _ => ('Sipario', 'Yeni bir işlem var', 'siparisler'),
+    _ => ('Sipario', 'Yeni bir gelişme var, görmek için dokunun', 'siparisler'),
   };
 
   return BildirimTaslagi(

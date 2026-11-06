@@ -39,6 +39,9 @@ Future<DurakOzetSonucu?> durakOzetSheetAc(
       // Başlık SÖZLEŞMEDİR: numara haritadaki pinin üstündeki rakamla aynıdır — kullanıcı
       // hangi pine dokunduğunu sayfada da görmeli (yanlış pine dokunmak sık ve sessiz bir hata).
       baslik: '$sira. durak: ${durak.baslik}',
+      // Harita KARARTILMAZ: dokunulan pin sayfanın üstünde vurgulu durur (haritada hangi
+      // durağa bakıldığı görünsün diye kamera onu oraya kaydırır).
+      perde: Colors.transparent,
       govde: (ctx) => DurakOzetGovde(durak: durak),
     );
 

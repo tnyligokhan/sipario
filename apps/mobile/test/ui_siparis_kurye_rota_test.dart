@@ -406,7 +406,7 @@ void main() {
 
       // TAM eşleşme: etikette " · N hak" eki YOK.
       expect(find.text('Oto Sırala'), findsOneWidget);
-      expect(find.text('Kullanım hakkınız henüz görünmüyor. Sunucuya bağlanınca kullanabilirsiniz.'),
+      expect(find.text('Kullanım hakkınız henüz görünmüyor. İnternete bağlanınca kullanabilirsiniz.'),
           findsOneWidget);
 
       await ekraniKapat(tester);

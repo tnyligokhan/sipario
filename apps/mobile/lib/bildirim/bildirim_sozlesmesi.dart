@@ -332,7 +332,7 @@ enum PushDurumu {
           'Bu telefonda Google Play Hizmetleri olmadığı için kurulamadı. Uygulama normal '
               'çalışır, bildirimler gecikmeli gelir.',
         PushDurumu.jetonAlinamadi => 'Telefon kaydı alınamadı; uygulamayı yeniden açmayı deneyin',
-        PushDurumu.bildirilemedi => 'Sunucuya bildirilemedi; internet gelince yeniden denenecek',
+        PushDurumu.bildirilemedi => 'Telefon kaydı henüz tamamlanmadı, internet gelince yeniden denenecek',
         PushDurumu.hazir => 'Kurulu, anlık bildirimler açık',
       };
 

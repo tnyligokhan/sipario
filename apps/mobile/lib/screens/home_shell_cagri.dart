@@ -52,7 +52,9 @@ extension _CagriYuzeyi on _HomeShellState {
     if (!mounted) return;
 
     final musteriId = arama.musteriId ?? kisi.musteriId;
-    if (musteriId != null) return _musteriAc(musteriId);
+    // Satırın numarası kartta da geçerli kalır: müşterinin ikinci numarasından gelen çağrıda
+    // başlık ve WhatsApp birincil numaraya dönmemeli (saha, 2026-11-05).
+    if (musteriId != null) return _musteriAc(musteriId, arayanNumara: arama.numara);
 
     // Yön GEÇMİŞ SATIRINDAN gelir: kart yönü kendi başına bilemez, verilmezse "GELEN ÇAĞRI"
     // varsayar ve bayi kendi yaptığı aramanın kartında gelen çağrı görürdü.
@@ -129,6 +131,7 @@ extension _CagriYuzeyi on _HomeShellState {
           customerId: musteriId,
           writable: _yazilabilir,
           yetki: _yetki,
+          arayanNumara: kisi.numara,
         ));
 
       case CagriEylemi.kaydet:

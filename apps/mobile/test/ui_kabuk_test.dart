@@ -139,6 +139,8 @@ void main() {
       await ekranaKoy(tester, cekmece('patron'));
 
       expect(find.text('YÖNETİM'), findsOneWidget);
+      await tester.tap(find.text('Tanımlamalar'));
+      await tester.pumpAndSettle();
       expect(find.text('Ürünler'), findsOneWidget);
       expect(find.byType(CekmeceIstatistikleri), findsOneWidget);
       // LİSANS ARTIK PİLLİ BÜYÜK KART DEĞİL, İNCE ÇİP (2026-08-13 yeniden tasarımı): "AKTİF"
@@ -170,6 +172,7 @@ void main() {
       await ekranaKoy(tester, cekmece('kurye'));
 
       expect(find.text('YÖNETİM'), findsNothing);
+      expect(find.text('Tanımlamalar'), findsNothing);
       expect(find.text('Ürünler'), findsNothing);
       expect(find.text('Kuryeler'), findsNothing);
       expect(find.text('Muaf Numaralar'), findsNothing);

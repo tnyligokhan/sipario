@@ -272,6 +272,14 @@ class OrderChangeApplier
         $qty = (int) SyncPayload::req($ln, 'qty');
         $price = (int) SyncPayload::req($ln, 'unit_price_kurus');
 
+        // SATIR İSKONTOSU (kullanıcı isteği 2026-11-05). Anahtar yoksa 0: eski istemci satırı
+        // iskontosuz gönderir ve toplamı değişmez. Brütü aşan iskonto istemci hatasıdır; satır
+        // toplamı eksiye düşerse sipariş borcu alacağa dönerdi. Kırpılmaz, olay reddedilir.
+        $discount = (int) ($ln['discount_kurus'] ?? 0);
+        if ($discount < 0 || $discount > $price * $qty) {
+            throw new InvalidArgumentException('discount_kurus satır tutarını aşamaz');
+        }
+
         // Cross-tenant referans poison'unu ÖNLE: product_id verilmişse RLS kapsamında doğrula
         // (customer_id ile simetrik). Ürün silinse/pasiflense de satır bozulmaz — ama BAŞKA bayinin
         // ürününe bağlanamaz. Serbest satırda product_id null'dur, kontrol atlanır.
@@ -309,7 +317,8 @@ class OrderChangeApplier
             // olurdu (silinmiş ürünün satırı da null olabilir) — tasarım bu ikisini ayrı gösteriyor.
             'is_custom' => (bool) ($ln['is_custom'] ?? false),
             'qty' => $qty,
-            'line_total_kurus' => $price * $qty,
+            'discount_kurus' => $discount,
+            'line_total_kurus' => $price * $qty - $discount,
             'deleted_at' => null,
         ])->save();
 

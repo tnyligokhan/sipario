@@ -51,9 +51,12 @@ enum CekmeceGiris {
   borclular,
   cagriGunlugu,
   harita,
+  isletme,
+  mesajlar,
   urunler,
   kuryeler,
   muaf,
+  giderKategorileri,
   hesap,
   ayarlar,
   yardim,
@@ -76,6 +79,7 @@ class SipCekmece extends StatelessWidget {
     this.urunlerGorunur = true,
     this.borclularGorunur = true,
     this.cagriGunluguGorunur = true,
+    this.isletmeGorunur = false,
     this.koyuTema,
     this.onTema,
     this.lisansBitisi,
@@ -118,6 +122,10 @@ class SipCekmece extends StatelessWidget {
 
   /// `cagriGunlugu` — dükkânın çağrı günlüğü kuryeye kapatılabilir.
   final bool cagriGunluguGorunur;
+
+  /// İşletme ve Mesajlar satırları. YALNIZ PATRON (operatör dahil değil), varsayılan KAPALI: ölçüt
+  /// unutulursa satır görünmez, yetkisiz kişiye açılmaz.
+  final bool isletmeGorunur;
 
   /// Geçerli tema — DEĞER değil DİNLENEBİLİR kaynak (sahibi kabuk). null ise anahtar çizilmez.
   final ValueListenable<bool>? koyuTema;
@@ -228,21 +236,46 @@ class _Panel extends StatelessWidget {
                   // ROL KAPISI: kuryede bu bölüm ve lisans kartları HİÇ çizilmez.
                   if (!c._kurye) ...[
                     const _Bolum('Yönetim'),
-                    if (c.urunlerGorunur)
+                    if (c.isletmeGorunur) ...[
                       _Satir(
-                        ikon: SipIcons.box,
-                        etiket: 'Ürünler',
-                        onTap: () => c.onGiris(CekmeceGiris.urunler),
+                        ikon: SipIcons.home,
+                        etiket: 'İşletme',
+                        onTap: () => c.onGiris(CekmeceGiris.isletme),
                       ),
-                    _Satir(
-                      ikon: SipIcons.truck,
-                      etiket: 'Kuryeler',
-                      onTap: () => c.onGiris(CekmeceGiris.kuryeler),
-                    ),
-                    _Satir(
-                      ikon: SipIcons.phoneOff,
-                      etiket: 'Muaf Numaralar',
-                      onTap: () => c.onGiris(CekmeceGiris.muaf),
+                      _Satir(
+                        ikon: SipIcons.chat,
+                        etiket: 'Mesajlar',
+                        onTap: () => c.onGiris(CekmeceGiris.mesajlar),
+                      ),
+                    ],
+                    // Seyrek açılan kurulum ekranları katlanır bir başlığın altında durur (saha,
+                    // 2026-11-05): günlük kullanımda listeyi uzatmasınlar.
+                    _KatlanirGrup(
+                      ikon: SipIcons.settings,
+                      etiket: 'Tanımlamalar',
+                      satirlar: [
+                        if (c.urunlerGorunur)
+                          _Satir(
+                            ikon: SipIcons.box,
+                            etiket: 'Ürünler',
+                            onTap: () => c.onGiris(CekmeceGiris.urunler),
+                          ),
+                        _Satir(
+                          ikon: SipIcons.truck,
+                          etiket: 'Kuryeler',
+                          onTap: () => c.onGiris(CekmeceGiris.kuryeler),
+                        ),
+                        _Satir(
+                          ikon: SipIcons.phoneOff,
+                          etiket: 'Muaf Numaralar',
+                          onTap: () => c.onGiris(CekmeceGiris.muaf),
+                        ),
+                        _Satir(
+                          ikon: SipIcons.wallet,
+                          etiket: 'Gider Kategorileri',
+                          onTap: () => c.onGiris(CekmeceGiris.giderKategorileri),
+                        ),
+                      ],
                     ),
                   ],
 

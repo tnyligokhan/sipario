@@ -9,14 +9,15 @@
 // müşterisine gider. Widget kurmadan test edilebilmesi bu yüzden önemli; tek bir bozuk satır
 // bayiyi kendi müşterisinin gözünde küçük düşürür.
 //
-// TON: kısa, resmî ama sert değil. Esnaf-müşteri ilişkisi süreklidir; "borcunuzu ödeyin" değil
-// "bakiyeniz görünüyor" denir. Tehdit, gecikme faizi, son tarih YOK — bunlar bayinin kendi
-// kararıdır ve mesaj gönderilmeden önce elle eklenebilir (WhatsApp metni düzenlenebilir gelir).
+// TON: kurumsal, kapsamlı ama sert değil (saha, 2026-11-05: "kapsamlı olmalı, kurumsal bir dilde
+// olmalı"). Müşteri mesajı okuyunca hesabının durumunu, son hareketlerini ve nasıl ödeyeceğini
+// görür. Esnaf-müşteri ilişkisi süreklidir; tehdit, gecikme faizi, son tarih YOK: bunlar bayinin
+// kendi kararıdır ve mesaj gönderilmeden önce elle eklenebilir (WhatsApp metni düzenlenebilir gelir).
 //
 // MESAJ GÖNDERİLMEZ, HAZIRLANIR: `whatsappUriler(..., mesaj:)` sohbeti hazır metinle açar;
 // gönder tuşuna bayi basar. Bayi mesajı görmeden müşterisine para isteyen bir metin gitmemeli.
 
-import '../../theme/components/bicim.dart' show sipTutar;
+import '../../theme/components/bicim.dart' show sipTelefon, sipTutar;
 import '../isletme/iban.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
@@ -41,7 +42,65 @@ const List<HatirlatmaYerTutucu> hatirlatmaYerTutuculari = [
   HatirlatmaYerTutucu('*isletmeadi*', 'İşletme adı'),
   HatirlatmaYerTutucu('*siparistutar*', 'Borç tutarı'),
   HatirlatmaYerTutucu('*ibanodemebilgileri*', 'IBAN + alıcı'),
+  HatirlatmaYerTutucu('*tarih*', 'Bugünün tarihi'),
+  HatirlatmaYerTutucu('*odenmemissiparis*', 'Ödenmemiş sipariş sayısı'),
+  HatirlatmaYerTutucu('*sonsiparistarihi*', 'Son sipariş tarihi'),
+  HatirlatmaYerTutucu('*sonodeme*', 'Son ödeme'),
+  HatirlatmaYerTutucu('*isletmetelefonu*', 'İşletme telefonu'),
 ];
+
+/// Siparişe bağlı mesajlarda kullanılabilen yer tutucular. Çözümü `SiparisMesajHazirlayici`nın işidir.
+const List<HatirlatmaYerTutucu> bilgilendirmeYerTutuculari = [
+  ...hatirlatmaYerTutuculari,
+  HatirlatmaYerTutucu('*siparisno*', 'Sipariş numarası'),
+  HatirlatmaYerTutucu('*siparisozeti*', 'Sipariş içeriği'),
+  HatirlatmaYerTutucu('*siparistoplami*', 'Sipariş tutarı'),
+  HatirlatmaYerTutucu('*teslimatadresi*', 'Teslimat adresi'),
+  HatirlatmaYerTutucu('*kuryeadi*', 'Görevli adı'),
+  HatirlatmaYerTutucu('*odemetipi*', 'Ödeme şekli'),
+];
+
+/// Hatırlatma IBAN'sız gönderilemez; iki giriş (borçlu kartı, sipariş ayrıntısı) aynı cümleyi söyler.
+const String ibanEksikUyarisi = 'Önce Yönetim, İşletme, Tahsilat bölümünden IBAN tanımlayın';
+
+/// Müşterinin hesabından mesaja giren özet. Alanlar boşsa ilgili satır mesajdan düşer.
+class HatirlatmaHesapOzeti {
+  const HatirlatmaHesapOzeti({
+    this.odenmemisSiparis = 0,
+    this.sonSiparisAt,
+    this.sonOdemeAt,
+    this.sonOdemeKurus = 0,
+  });
+
+  final int odenmemisSiparis;
+
+  /// UTC ISO damgaları; mesajda müşterinin göreceği yerel tarihe çevrilir.
+  final String? sonSiparisAt;
+  final String? sonOdemeAt;
+
+  /// Son ödemenin tutarı (pozitif kuruş).
+  final int sonOdemeKurus;
+
+  String get _sonSiparisMetni => _isoTarih(sonSiparisAt);
+
+  String get _sonOdemeMetni {
+    final tarih = _isoTarih(sonOdemeAt);
+    return tarih.isEmpty || sonOdemeKurus <= 0 ? '' : '$tarih, ${sipTutar(sonOdemeKurus)}';
+  }
+
+  String get _odenmemisMetni => odenmemisSiparis > 0 ? '$odenmemisSiparis adet' : '';
+
+  static String _isoTarih(String? iso) {
+    final an = iso == null ? null : DateTime.tryParse(iso);
+    return an == null ? '' : hatirlatmaTarihi(an.toLocal());
+  }
+}
+
+/// "05.11.2026" — mesajda yazan tarih biçimi.
+String hatirlatmaTarihi(DateTime t) {
+  String iki(int n) => n.toString().padLeft(2, '0');
+  return '${iki(t.day)}.${iki(t.month)}.${t.year}';
+}
 
 /// Şablon uzunluk sınırı — sunucudaki `reminder_template` kolonuyla AYNI (1000).
 ///
@@ -67,12 +126,72 @@ String? hatirlatmaSablonuHatasi(String? ham) {
 /// Bu sabit, "şablon boş" hâlinin karşılığı DEĞİLDİR: boş şablonda aşağıdaki [_varsayilanMesaj]
 /// koşar ve o, eksik ad/işletme adı hâllerini de düzgün karşılar ("Sayın , merhaba." yazmaz).
 /// Bayi şablonu düzenlemeye başladığı andan itibaren metnin sorumluluğu onundur.
-const String varsayilanHatirlatmaSablonu = 'Sayın *musteriadi*, merhaba.\n'
-    '*isletmeadi* olarak hesabınızda *siparistutar* tutarında ödenmemiş bakiye görünüyor.\n'
+///
+/// 2026-11-06: müşteri önce kurumsal bir teşekkürle karşılanır, bakiye tek cümleyle bildirilir,
+/// ödeme yolu ve iletişim sonra gelir. Hesap satırları boş kalınca düşer, bu yüzden hiçbir cümle
+/// "aşağıda" diye onlara dayanmaz.
+const String varsayilanHatirlatmaSablonu = 'Sayın *musteriadi*,\n'
+    '\n'
+    '*isletmeadi* olarak bize duyduğunuz güven ve iş birliğiniz için teşekkür ederiz.\n'
+    '\n'
+    '*tarih* tarihi itibarıyla cari hesabınızda *siparistutar* tutarında açık bakiye '
+    'bulunmaktadır.\n'
+    '\n'
+    'Ödenmemiş sipariş: *odenmemissiparis*\n'
+    'Son sipariş tarihi: *sonsiparistarihi*\n'
+    'Son ödemeniz: *sonodeme*\n'
+    '\n'
+    '$_odemeGirisSatiri\n'
     '\n'
     '*ibanodemebilgileri*\n'
     '\n'
-    'Teşekkür ederiz.';
+    'Ödemenizi gerçekleştirmiş iseniz bu bilgilendirmeyi dikkate almamanızı rica ederiz.\n'
+    'Hesabınızla ilgili sorularınız için *isletmetelefonu* numarasından bize ulaşabilirsiniz.\n'
+    '\n'
+    'Saygılarımızla,\n'
+    '*isletmeadi*';
+
+/// IBAN yokken düşer: hesabı göstermeyen bir "aşağıdaki hesaba" cümlesi müşteriyi boşa yollar.
+const String _odemeGirisSatiri = 'Ödemenizi aşağıdaki hesaba havale veya EFT yoluyla '
+    'gerçekleştirebilirsiniz. İşlem açıklamasına adınızı ve soyadınızı yazmanızı rica ederiz.';
+
+/// Geçmiş sürümlerin varsayılan metinleri. Bayi "Varsayılanı yükle" deyip değiştirmeden kaydettiyse
+/// kendi metni değil eski bir varsayılandır ve yenisi uygulanır; bayinin yazdığı metne dokunulmaz.
+const Set<String> _eskiVarsayilanlar = {
+  // 2026-11-05 öncesi.
+  'Sayın *musteriadi*, merhaba.\n'
+      '*isletmeadi* olarak hesabınızda *siparistutar* tutarında ödenmemiş bakiye görünüyor.\n'
+      '\n'
+      '*ibanodemebilgileri*\n'
+      '\n'
+      'Teşekkür ederiz.',
+  // 1.15.0.
+  'Sayın *musteriadi*,\n'
+      '\n'
+      '*tarih* tarihi itibarıyla cari hesabınıza ilişkin bilgilendirmemiz aşağıdadır.\n'
+      '\n'
+      'Güncel bakiyeniz: *siparistutar*\n'
+      'Ödenmemiş sipariş: *odenmemissiparis*\n'
+      'Son sipariş tarihi: *sonsiparistarihi*\n'
+      'Son ödemeniz: *sonodeme*\n'
+      '\n'
+      'Ödemenizi aşağıdaki hesaba havale veya EFT yoluyla yapabilirsiniz.\n'
+      '\n'
+      '*ibanodemebilgileri*\n'
+      '\n'
+      'Ödemenizi gerçekleştirdiyseniz bu mesajı dikkate almayınız.\n'
+      'Hesabınızla ilgili sorularınız için *isletmetelefonu* numarasından bize ulaşabilirsiniz.\n'
+      '\n'
+      'İş birliğiniz için teşekkür eder, iyi günler dileriz.\n'
+      'Saygılarımızla,\n'
+      '*isletmeadi*',
+};
+
+/// [sablon] bayinin kendi metni mi? Boş ve eski varsayılan metinler bayinin yazdığı sayılmaz.
+bool hatirlatmaSablonuOzelMi(String? sablon) {
+  final s = (sablon ?? '').trim();
+  return s.isNotEmpty && s != varsayilanHatirlatmaSablonu && !_eskiVarsayilanlar.contains(s);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════
 // Mesaj kurulumu
@@ -97,22 +216,29 @@ String borcHatirlatmaMesaji({
   String? isletmeAdi,
   String? ibanAliciAdi,
   String? sablon,
+  String? isletmeTelefonu,
+  HatirlatmaHesapOzeti hesap = const HatirlatmaHesapOzeti(),
+  DateTime? tarih,
 }) {
   final ad = musteriAd.trim();
-  final isletme = (isletmeAdi ?? '').trim();
-  final blok = ibanOdemeBlogu(iban: iban, aliciAdi: ibanAliciAdi, isletmeAdi: isletmeAdi);
+  final degerler = hatirlatmaDegerleri(
+    musteriAd: ad,
+    borcKurus: borcKurus,
+    iban: iban,
+    isletmeAdi: isletmeAdi,
+    ibanAliciAdi: ibanAliciAdi,
+    isletmeTelefonu: isletmeTelefonu,
+    hesap: hesap,
+    tarih: tarih,
+  );
+  final blok = degerler['*ibanodemebilgileri*']!;
 
   final ozel = (sablon ?? '').trim();
-  if (ozel.isEmpty) {
-    return _varsayilanMesaj(ad: ad, isletme: isletme, borcKurus: borcKurus, blok: blok);
+  if (!hatirlatmaSablonuOzelMi(ozel)) {
+    return _varsayilanMesaj(ad: ad, blok: blok, degerler: degerler);
   }
 
-  final cozulmus = hatirlatmaSablonuUygula(ozel, degerler: {
-    '*musteriadi*': ad,
-    '*isletmeadi*': isletme,
-    '*siparistutar*': sipTutar(borcKurus),
-    '*ibanodemebilgileri*': blok,
-  });
+  final cozulmus = hatirlatmaSablonuUygula(ozel, degerler: degerler);
 
   // BOŞ MESAJ ÜRETİLMEZ (inceleme bulgusu 2026-08-06). Şablonun tamamı boşa çözülebilir —
   // ör. metin yalnız `*ibanodemebilgileri*` iken IBAN tanımlı değilse. O hâlde WhatsApp BOŞ
@@ -120,10 +246,36 @@ String borcHatirlatmaMesaji({
   // bir mesaj değil, TAM bir mesaj verir; dosyanın açılış ilkesi bunu zaten söylüyor:
   // "yarım bir mesaj, hata fırlatıp bayiyi elleri boş bırakmaktan iyidir".
   if (cozulmus.trim().isEmpty) {
-    return _varsayilanMesaj(ad: ad, isletme: isletme, borcKurus: borcKurus, blok: blok);
+    return _varsayilanMesaj(ad: ad, blok: blok, degerler: degerler);
   }
   return cozulmus;
 }
+
+/// [hatirlatmaYerTutuculari]nın değerleri. Sipariş mesajları da aynı değerleri kullanır.
+Map<String, String> hatirlatmaDegerleri({
+  required String musteriAd,
+  required int borcKurus,
+  String? iban,
+  String? isletmeAdi,
+  String? ibanAliciAdi,
+  String? isletmeTelefonu,
+  HatirlatmaHesapOzeti hesap = const HatirlatmaHesapOzeti(),
+  DateTime? tarih,
+}) =>
+    {
+      '*musteriadi*': musteriAd.trim(),
+      '*isletmeadi*': (isletmeAdi ?? '').trim(),
+      '*siparistutar*': sipTutar(borcKurus),
+      '*ibanodemebilgileri*':
+          ibanOdemeBlogu(iban: iban, aliciAdi: ibanAliciAdi, isletmeAdi: isletmeAdi),
+      '*tarih*': hatirlatmaTarihi(tarih ?? DateTime.now()),
+      '*odenmemissiparis*': hesap._odenmemisMetni,
+      '*sonsiparistarihi*': hesap._sonSiparisMetni,
+      '*sonodeme*': hesap._sonOdemeMetni,
+      '*isletmetelefonu*': isletmeTelefonu == null || isletmeTelefonu.trim().isEmpty
+          ? ''
+          : sipTelefon(isletmeTelefonu.trim()),
+    };
 
 /// Şablondan BAĞIMSIZ, SABİT ödeme bloğu: "Ödeme için IBAN:" + okunur IBAN + "Alıcı: …".
 ///
@@ -210,9 +362,12 @@ String hatirlatmaSablonuUygula(String sablon, {required Map<String, String> dege
     // Kural 3: yer tutucu vardı, hiçbiri değer getirmedi → satır düşer. (Baştan boş olan satır
     // bayinin bilinçli boşluğudur; `ham.trim()` denetimi onu korur.)
     if (bos > 0 && dolu == 0 && ham.trim().isNotEmpty) {
+      // Üstte boş satır varsa o gider. Satır paragrafın içindeyse paragraf ayracına DOKUNULMAZ:
+      // yutulsaydı son satırı düşen paragraf bir sonrakine yapışırdı (2026-11-05). Mesajın en
+      // başında boşluk bırakmamak için yalnız ilk satırda aşağıdaki boşluk yutulur.
       if (satirlar.isNotEmpty && satirlar.last.trim().isEmpty) {
         satirlar.removeLast();
-      } else {
+      } else if (satirlar.isEmpty) {
         bosluguYut = true;
       }
       continue;
@@ -236,30 +391,16 @@ String hatirlatmaSablonuUygula(String sablon, {required Map<String, String> dege
   return satirlar.join('\n').trim();
 }
 
-/// Bayi şablona HİÇ dokunmadıysa koşan kurulum. 2026-08-06 öncesi metnin BİREBİR aynısıdır;
-/// tek fark alıcı adının artık ayrı bir alandan gelebilmesidir (boşsa yine işletme adı yazar).
+/// Bayi şablona HİÇ dokunmadıysa koşan kurulum: [varsayilanHatirlatmaSablonu] çözülür. Tek kaynak
+/// budur, boş kalan değerlerin satırları [hatirlatmaSablonuUygula]nın kuralıyla düşer. Yalnız iki
+/// hâl metni değiştirir: adı olmayan müşteride "Sayın ," yazmamak ve IBAN yokken ödeme cümlesi.
 String _varsayilanMesaj({
   required String ad,
-  required String isletme,
-  required int borcKurus,
   required String blok,
+  required Map<String, String> degerler,
 }) {
-  final satirlar = <String>[
-    ad.isEmpty ? 'Merhaba,' : 'Sayın $ad, merhaba.',
-    isletme.isEmpty
-        ? 'Hesabınızda ${sipTutar(borcKurus)} tutarında ödenmemiş bakiye görünüyor.'
-        : '$isletme olarak hesabınızda ${sipTutar(borcKurus)} tutarında ödenmemiş bakiye görünüyor.',
-  ];
-
-  if (blok.isNotEmpty) {
-    satirlar
-      ..add('')
-      ..add(blok);
-  }
-
-  satirlar
-    ..add('')
-    ..add('Teşekkür ederiz.');
-
-  return satirlar.join('\n');
+  var sablon = varsayilanHatirlatmaSablonu;
+  if (ad.isEmpty) sablon = sablon.replaceFirst('Sayın *musteriadi*,', 'Sayın Müşterimiz,');
+  if (blok.isEmpty) sablon = sablon.replaceFirst('$_odemeGirisSatiri\n\n', '');
+  return hatirlatmaSablonuUygula(sablon, degerler: degerler);
 }

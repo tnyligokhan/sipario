@@ -142,7 +142,7 @@ const List<RehberAdim> _ana = [
   RehberAdim(
     hedef: 'ana.senkron',
     baslik: 'Senkron ve sürüm',
-    metin: 'Soldaki çip telefonun sunucuyla en son ne zaman konuştuğunu söyler\n\n'
+    metin: 'Soldaki çip bilgilerin en son ne zaman güncellendiğini söyler\n\n'
         'İnternet yokken uygulama TAM ÇALIŞIR, kayıtların telefonda birikir ve '
         'bağlantı gelince kendiliğinden gider; o yüzden burada eski bir saat görmek '
         'panik sebebi değildir\n\n'

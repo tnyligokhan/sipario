@@ -27,6 +27,8 @@ class YsSatiri extends StatelessWidget {
     this.zemin,
     this.not,
     this.onNot,
+    this.iskontoKurus = 0,
+    this.onIskonto,
   });
 
   final String ad;
@@ -46,6 +48,12 @@ class YsSatiri extends StatelessWidget {
   /// SATIR NOTU — doluysa rozet çizilir. [onNot] verilmezse not yüzeyi salt-okunurdur.
   final String? not;
   final VoidCallback? onNot;
+
+  /// Satırdan düşülen kuruş; [tutarKurus] bundan sonraki tutardır.
+  final int iskontoKurus;
+
+  /// null ise iskonto yetkisi yoktur ve dokunuş hiç çizilmez; iskonto varsa tutar yine yazılır.
+  final VoidCallback? onIskonto;
 
   @override
   Widget build(BuildContext context) {
@@ -98,14 +106,52 @@ class YsSatiri extends StatelessWidget {
           SizedBox(
             // CSS `.ys-satir-tt { min-width: 66px }` (_sayfa.html:521).
             width: 66,
-            child: Text(
-              sipTutar(tutarKurus),
-              textAlign: TextAlign.right,
-              style: SipText.tutar(13).copyWith(color: t.ink),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  sipTutar(tutarKurus),
+                  textAlign: TextAlign.right,
+                  style: SipText.tutar(13).copyWith(color: t.ink),
+                ),
+                if (iskontoKurus > 0 || onIskonto != null)
+                  _IskontoYuzeyi(kurus: iskontoKurus, onTap: onIskonto),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Satır tutarının altındaki iskonto yüzeyi: boşken "İskonto" bağlantısı, doluyken düşülen tutar.
+/// Tutar sütununda durur çünkü bir tutar kararıdır ve not satırına üçüncü bir öğe sığmaz.
+class _IskontoYuzeyi extends StatelessWidget {
+  const _IskontoYuzeyi({required this.kurus, this.onTap});
+
+  final int kurus;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.sip;
+    final metin = Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Text(
+        kurus > 0 ? sipTutar(-kurus) : 'İskonto',
+        textAlign: TextAlign.right,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: SipText.metin(10.5, w: 700).copyWith(color: kurus > 0 ? t.ok : t.accent),
+      ),
+    );
+    if (onTap == null) return metin;
+    return Semantics(
+      button: true,
+      label: 'İskonto',
+      child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: metin),
     );
   }
 }

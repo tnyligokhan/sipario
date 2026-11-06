@@ -390,83 +390,63 @@ enum SipBantTuru {
 }
 
 class SipCevrimdisiBant extends StatelessWidget {
-  const SipCevrimdisiBant({super.key, this.tur = SipBantTuru.cevrimdisi, this.adres});
+  const SipCevrimdisiBant({super.key, this.tur = SipBantTuru.cevrimdisi});
 
   final SipBantTuru tur;
 
-  /// Konuşulan SUNUCUNUN adı (adresin ana bilgisayar kısmı, gerekirse portuyla). Null ise satır
-  /// hiç çizilmez.
-  ///
-  /// NEDEN BANTTA: saha gerçeği, sunucu adresinin her açılışta değişen bir tünel olabilmesi ve
-  /// bayinin yanlış adresle kalabilmesidir. Bant hangi adrese ulaşmaya çalıştığını yazmadığı
-  /// sürece bu arıza telefonu inceleyen birini gerektiriyordu; yazınca beş saniyede kendi kendini
-  /// teşhis ediyor.
-  final String? adres;
+  // ⚠️ ADRES SATIRI KALDIRILDI (kullanıcı kararı 2026-09-29: "uygulamalarda sunucu bilgisi
+  // hiçbir koşulda geçmemeli"). Bant eskiden altına "sunucu: <adres>" yazıyordu; tünel
+  // adreslerinin değiştiği geliştirme günlerinin teşhis aracıydı. Sahada bayiye hiçbir şey
+  // anlatmıyor, altyapıyı ise herkese gösteriyordu.
 
   /// Metin SÖZLEŞMEDİR (ui_temel_test.dart): `cevrimdisi` metni offline-first sözünü verir,
   /// DİĞERLERİ VERMEZ — verilemeyecek bir söz vermek bayiyi boşuna bekletir.
+  ///
+  /// "Sunucu" sözcüğü GEÇMEZ: bayi için sunucu diye bir şey yoktur. `cevrimdisi` ile `sunucu`
+  /// yine AYRI anlatılır — internet varken "internet yok" demek bayiye modemini kurcalatır.
   String get metin => switch (tur) {
-        SipBantTuru.cevrimdisi => 'İnternet yok. Kayıtlarınız bağlantı gelince gönderilecek.',
-        SipBantTuru.oturum => 'Oturumunuz düştü. Çıkış yapıp yeniden girin.',
-        SipBantTuru.sunucu => 'Sunucuya ulaşılamıyor. Kayıtlarınız telefonda, birazdan '
-            'yeniden denenecek.',
-        // "telefonda güvende" CÜMLEDEN ÇIKARILMADI: bandın işi yalnız arızayı söylemek değil,
+        SipBantTuru.cevrimdisi => 'İnternet bağlantısı yok. Kayıtlarınız telefonda duruyor, '
+            'bağlantı gelince gönderilecek.',
+        SipBantTuru.oturum => 'Oturumunuz kapandı. Çıkış yapıp yeniden giriş yapın.',
+        SipBantTuru.sunucu => 'Şu an bağlantı kurulamıyor. Kayıtlarınız telefonda duruyor, '
+            'birazdan yeniden denenecek.',
+        // "telefonda duruyor" CÜMLEDEN ÇIKARILMADI: bandın işi yalnız arızayı söylemek değil,
         // veri kaybı korkusunu kesmek (BRIEF kırmızı çizgi #3). O ifade çıkarılınca bant
         // kısalıyor ama bayinin ilk sorusu ("kayıtlarım gitti mi?") cevapsız kalıyor.
-        SipBantTuru.hata => 'Kayıtlarınız gönderilemiyor. Telefonda güvende, destekle görüşün.',
-        SipBantTuru.karantina =>
-          'Bazı kayıtlar gönderilemedi. Telefonda duruyor, destekle görüşün.',
+        SipBantTuru.hata => 'Kayıtlarınız gönderilemiyor. Telefonda duruyor, kaybolmaz. '
+            'Destek ekibiyle görüşün.',
+        SipBantTuru.karantina => 'Bazı kayıtlar gönderilemedi. Telefonda duruyor, kaybolmaz. '
+            'Destek ekibiyle görüşün.',
         // "bağlanınca gönderilecek" DEMEZ: ağ zaten var, engel abonelik ya da sürüm. Verilemeyecek
         // bir söz vermemek bu bandın kuruluş ilkesidir (2026-07-27 dersi, dosya başlığı).
-        SipBantTuru.bekleyen => 'Bazı kayıtlar sırada bekliyor. Telefonda güvende; aboneliğiniz '
-            'ya da uygulama güncellenince gönderilecek.',
+        SipBantTuru.bekleyen => 'Bazı kayıtlar sırada bekliyor. Telefonda duruyor; aboneliğiniz '
+            'yenilenince ya da uygulama güncellenince gönderilecek.',
       };
 
   @override
   Widget build(BuildContext context) {
     final t = context.sip;
-    final adresi = adres;
     return Container(
       width: double.infinity,
       color: t.danger,
       padding: const EdgeInsets.symmetric(horizontal: SipSpace.x2, vertical: 7),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SipIcon(
-                SipIcons.sync,
-                boyut: 15,
-                kalinlik: 2.2,
-                renk: t.durumInk,
-              ),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  metin,
-                  style: SipText.metin(11.5, w: 600)
-                      .copyWith(color: t.durumInk),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ],
+          SipIcon(
+            SipIcons.sync,
+            boyut: 15,
+            kalinlik: 2.2,
+            renk: t.durumInk,
           ),
-          // Adres satırı: küçük ve soluk — asıl mesajı bastırmaz ama arıza anında tek bakışta
-          // okunur. Tek satır + üç nokta: uzun tünel adresleri bandı büyütmemeli.
-          if (adresi != null && adresi.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                'sunucu: $adresi',
-                style: SipText.metin(10, w: 500)
-                    .copyWith(color: const Color(0xCCFFFFFF)),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+          const SizedBox(width: 7),
+          Flexible(
+            child: Text(
+              metin,
+              style: SipText.metin(11.5, w: 600).copyWith(color: t.durumInk),
+              textAlign: TextAlign.center,
             ),
+          ),
         ],
       ),
     );

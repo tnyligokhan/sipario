@@ -314,6 +314,8 @@ object CallerCard {
     /** "05327710863" → "0532 771 08 63" (yalnız gösterim; eşleşme phone_last10 ile). */
     fun formatPhone(raw: String): String {
         val haneler = raw.filter(Char::isDigit)
+        // Yabancı numara son 10 haneye indirgenmez: Dart `sipTelefon` ile aynı kural.
+        if (raw.trimStart().startsWith("+") && !haneler.startsWith("90")) return "+$haneler"
         val yerel = when {
             haneler.length == 12 && haneler.startsWith("90") -> "0" + haneler.drop(2)
             haneler.length == 10 -> "0$haneler"

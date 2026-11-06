@@ -359,6 +359,34 @@ extension _GocMerdiveni on AppDatabase {
             await m.createTable(bildirimler);
           }
 
+          // v29 — BİLDİRİM TEMİZLEME (2026-09-29). Yerleşim v11..v28 ile AYNI (kapıdan ÖNCE,
+          // koşulsuz). Tablo yukarıda yeni doğduysa kolon zaten vardır; "duplicate column"
+          // toleransı o durumu karşılar. NULLABLE: yükseltmeden önce hiçbir bildirim
+          // temizlenmemiştir, `null` tam olarak bunu söyler.
+          await AppDatabase._addColumnIfMissing(
+              m, 'ALTER TABLE bildirimler ADD COLUMN temizlendi_at TEXT');
+
+          // v31 — BİLGİLENDİRME MESAJLARI (2026-11-06). Yerleşim v11..v30 ile AYNI. Kolon eksik
+          // kalırsa `tenant_settings` okuyan her ekran "no such column" ile düşerdi.
+          if (await AppDatabase._tabloVar(m, 'tenant_settings')) {
+            await AppDatabase._addColumnIfMissing(
+                m, 'ALTER TABLE tenant_settings ADD COLUMN message_templates_json TEXT');
+          }
+
+          // v30 — SAHA LİSTESİ (2026-11-05). Yerleşim v11..v29 ile AYNI (kapıdan ÖNCE, koşulsuz).
+          // `discount_kurus` eksik kalırsa sipariş yazımı "no such column" ile düşerdi. NOT NULL
+          // DEFAULT 0: eski satırların iskontosu yoktur, satır toplamı zaten doğrudur.
+          for (final (tablo, sql) in const [
+            ('order_lines',
+                'ALTER TABLE order_lines ADD COLUMN discount_kurus INTEGER NOT NULL DEFAULT 0'),
+            ('customers', 'ALTER TABLE customers ADD COLUMN product_prices_json TEXT'),
+            ('tenant_settings', 'ALTER TABLE tenant_settings ADD COLUMN expense_categories_json TEXT'),
+          ]) {
+            if (await AppDatabase._tabloVar(m, tablo)) {
+              await AppDatabase._addColumnIfMissing(m, sql);
+            }
+          }
+
           // v27 — KURYE MÜŞTERİ GÖRÜNÜRLÜĞÜ (2026-08-22). Yerleşim ve bedel v11..v26 ile AYNI.
           // İKİ TABLODA İKİ FARKLI VARSAYILAN, üç durumlu modelin ta kendisi: `tenant_settings`
           // NOT NULL DEFAULT 0 (bayi varsayılanı: kapalı), `users` NULLABLE (null = devral).

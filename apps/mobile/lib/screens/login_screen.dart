@@ -351,6 +351,11 @@ class _Form extends StatelessWidget {
             aktif: !busy,
             hata: hata.containsKey('firma'),
             buyukHarfKipi: TextCapitalization.none,
+            // Kimlik alanı: öneri ve otomatik düzeltme KAPALI (gerekçe `SipInput.klavyeOnerisi`).
+            // `visiblePassword` klavyesi Android'de öneri çubuğunu da kapatır; yalnız
+            // `enableSuggestions: false` bazı Samsung klavyelerinde yetmiyor.
+            klavye: TextInputType.visiblePassword,
+            klavyeOnerisi: false,
             onChanged: (_) => onDegis(),
           ),
           if (hata['firma'] != null) _Hata(hata['firma']!),
@@ -361,6 +366,8 @@ class _Form extends StatelessWidget {
             aktif: !busy,
             hata: hata.containsKey('kullanici'),
             buyukHarfKipi: TextCapitalization.none,
+            klavye: TextInputType.visiblePassword,
+            klavyeOnerisi: false,
             onChanged: (_) => onDegis(),
           ),
           if (hata['kullanici'] != null) _Hata(hata['kullanici']!),
@@ -372,6 +379,10 @@ class _Form extends StatelessWidget {
             aktif: !busy,
             hata: hata.containsKey('parola'),
             buyukHarfKipi: TextCapitalization.none,
+            // Göz düğmesiyle AÇILAN parola düz metin alanına döner ve klavye onu düzeltmeye
+            // başlardı; parola her iki hâlde de öneri almaz.
+            klavye: TextInputType.visiblePassword,
+            klavyeOnerisi: false,
             onChanged: (_) => onDegis(),
             onSubmitted: (_) => onGonder(),
             sonEk: _ParolaGozu(gorunur: parolaGorunur, onTap: onParolaGoruntule),

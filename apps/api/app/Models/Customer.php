@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $code
  * @property int $balance_kurus
  * @property list<string>|null $favorite_product_ids
+ * @property array<string, int>|null $product_prices Müşteriye özel birim fiyat: ürün kimliği → kuruş
  * @property Carbon $updated_occurred_at
  * @property string|null $updated_device_id
  * @property Carbon|null $blacklisted_at
@@ -51,6 +52,7 @@ class Customer extends Model
         'blacklisted_at',
         'favorite_product_ids',
         'product_options',
+        'product_prices',
         'deleted_at',
     ];
 
@@ -69,6 +71,7 @@ class Customer extends Model
             // okunamazdı (mobil ayrıştırıcı sözleşmesi: alan ne ise o).
             'favorite_product_ids' => 'array',
             'product_options' => 'array',
+            'product_prices' => 'array',
             'deleted_at' => 'datetime',
         ];
     }

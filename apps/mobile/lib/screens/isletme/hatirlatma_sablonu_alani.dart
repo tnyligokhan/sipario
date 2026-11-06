@@ -1,4 +1,4 @@
-// HATIRLATMA MESAJI ŞABLONU — İşletme Profili'nin "Hatırlatma Mesajı" bölümü.
+// MESAJ METNİ ALANI — Mesajlar ekranının çok satırlı alanı ve yer tutucu çipleri.
 // Kullanıcı isteği 2026-08-06: "Mesaj şablonunu bu iki sabit bilgi haricinde düzenleyebilmeli."
 //
 // NEDEN AYRI DOSYA: `isletme_profili_ekrani.dart` 500 satır sınırına dayanmıştı ve bu bölüm
@@ -12,7 +12,7 @@
 import 'package:flutter/material.dart';
 
 import '../../screens/customers/borc_hatirlatma.dart'
-    show hatirlatmaYerTutuculari, varsayilanHatirlatmaSablonu;
+    show HatirlatmaYerTutucu, hatirlatmaYerTutuculari, varsayilanHatirlatmaSablonu;
 import '../../theme/components/atoms.dart';
 import '../../theme/tokens.dart';
 import '../../theme/typography.dart';
@@ -43,9 +43,21 @@ class HatirlatmaSablonuAlani extends StatelessWidget {
     required this.controller,
     this.hata,
     this.onDegis,
+    this.baslik = 'Hatırlatma Mesajı',
+    this.yerTutucular = hatirlatmaYerTutuculari,
+    this.varsayilanMetin = varsayilanHatirlatmaSablonu,
+    this.ipucu = 'Boş bırakılırsa varsayılan mesaj gönderilir',
+    this.satirlar = 5,
   });
 
   final TextEditingController controller;
+  final String baslik;
+  final List<HatirlatmaYerTutucu> yerTutucular;
+
+  /// null ise "Varsayılanı yükle" çipi çizilmez: bayinin kendi mesajının varsayılanı yoktur.
+  final String? varsayilanMetin;
+  final String ipucu;
+  final int satirlar;
 
   /// Doğrulama hatası (uzunluk sınırı) — yoksa null.
   final String? hata;
@@ -61,10 +73,11 @@ class HatirlatmaSablonuAlani extends StatelessWidget {
   /// Boş alana varsayılan metni yazar — bayinin sıfırdan cümle kurması gerekmesin.
   /// DOLU alanı EZMEZ: tek dokunuşla bayinin yazdığı metni silmek geri alınamaz bir kayıptır.
   void _varsayilaniYukle() {
-    if (controller.text.trim().isNotEmpty) return;
+    final metin = varsayilanMetin;
+    if (metin == null || controller.text.trim().isNotEmpty) return;
     controller.value = TextEditingValue(
-      text: varsayilanHatirlatmaSablonu,
-      selection: TextSelection.collapsed(offset: varsayilanHatirlatmaSablonu.length),
+      text: metin,
+      selection: TextSelection.collapsed(offset: metin.length),
     );
     onDegis?.call();
   }
@@ -74,16 +87,20 @@ class HatirlatmaSablonuAlani extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SipBolumBaslik('Hatırlatma Mesajı', ustBosluk: 20),
+        SipBolumBaslik(baslik, ustBosluk: 20),
         SipInput(
           controller: controller,
-          ipucu: 'Boş bırakılırsa varsayılan mesaj gönderilir',
-          satirlar: 5,
+          ipucu: ipucu,
+          satirlar: satirlar,
           hata: hata != null,
           onChanged: (_) => onDegis?.call(),
         ),
         if (hata != null) AlanNotu(hata!),
-        _CipSeridi(onSec: _ekle, onVarsayilan: _varsayilaniYukle),
+        _CipSeridi(
+          yerTutucular: yerTutucular,
+          onSec: _ekle,
+          onVarsayilan: varsayilanMetin == null ? null : _varsayilaniYukle,
+        ),
         // "KENDİ SATIRINA koyun" uyarısı bilinçli (inceleme notu 2026-08-06): IBAN + alıcı adı
         // ÇOK SATIRLI bir bloktur, satır içinde kullanılırsa devamındaki metin bloğun altına
         // düşer. Blok tek satıra sıkıştırılmıyor — IBAN'ın dörderli gruplar hâlinde kendi
@@ -100,10 +117,15 @@ class HatirlatmaSablonuAlani extends StatelessWidget {
 /// Yer tutucu çipleri + "Varsayılanı yükle". Sarmalanır (`Wrap`): dört çip dar ekranda tek
 /// satıra sığmaz ve yatay kaydırma, bayinin göremediği bir çipi gizlerdi.
 class _CipSeridi extends StatelessWidget {
-  const _CipSeridi({required this.onSec, required this.onVarsayilan});
+  const _CipSeridi({
+    required this.yerTutucular,
+    required this.onSec,
+    required this.onVarsayilan,
+  });
 
+  final List<HatirlatmaYerTutucu> yerTutucular;
   final ValueChanged<String> onSec;
-  final VoidCallback onVarsayilan;
+  final VoidCallback? onVarsayilan;
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +136,7 @@ class _CipSeridi extends StatelessWidget {
         spacing: SipSpace.sm,
         runSpacing: SipSpace.sm,
         children: [
-          for (final y in hatirlatmaYerTutuculari)
+          for (final y in yerTutucular)
             _Cip(
               etiket: y.aciklama,
               renk: t.accent,
@@ -123,12 +145,13 @@ class _CipSeridi extends StatelessWidget {
             ),
           // Ayrı renkte: yer tutucu EKLEMEZ, alanın tamamını doldurur — aynı görünseydi
           // bayi onu da bir yer tutucu sanıp cümlesinin ortasına dokunurdu.
-          _Cip(
-            etiket: 'Varsayılanı yükle',
-            renk: t.ink2,
-            zemin: t.surface2,
-            onTap: onVarsayilan,
-          ),
+          if (onVarsayilan != null)
+            _Cip(
+              etiket: 'Varsayılanı yükle',
+              renk: t.ink2,
+              zemin: t.surface2,
+              onTap: onVarsayilan!,
+            ),
         ],
       ),
     );

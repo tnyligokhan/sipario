@@ -10,11 +10,13 @@
 //      takılan bildirim bugüne kadar HİÇBİR yerde görünmüyordu; kutunun asıl kazancı budur.
 
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/bildirim/bildirim_sozlesmesi.dart';
 import 'package:sipario/data/app_database.dart';
 import 'package:sipario/repo/bildirim_kutusu.dart';
-import 'package:sipario/screens/bildirimler_ekrani.dart' show bildirimZamanEtiketi;
+import 'package:sipario/screens/bildirimler_ekrani.dart';
+import 'package:sipario/theme/app_theme.dart';
 
 BildirimTaslagi _taslak({
   String kimlik = 'test-1',
@@ -199,6 +201,136 @@ void main() {
       // Devretmek zararsız: iç servis kendi kapısında zaten eleyecek. Sarmalayıcı ürün kararı
       // VERMEZ, yalnız kaydeder.
       expect(ic.gosterilenler, ['test-1']);
+    });
+  });
+
+  // TEMİZLEME (kullanıcı isteği 2026-09-29: "bildirimleri temizleme özelliği gerekiyor").
+  // Kilitlenen tuzak: kurallar gün damgalı kimliklerle AÇILIŞTA yeniden koşar. Satırı silmek
+  // onu bir sonraki açılışta okunmamış olarak geri getirirdi; temizlik bu yüzden damgadır.
+  group('BildirimKutusu — temizleme', () {
+    test('temizlenen satır listeden ve rozetten düşer', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final kutu = BildirimKutusu(db);
+      await kutu.yaz(_taslak(kimlik: 'a'), occurredAtIso: '2026-09-29T10:00:00.000Z');
+      await kutu.yaz(_taslak(kimlik: 'b'), occurredAtIso: '2026-09-29T11:00:00.000Z');
+
+      await kutu.temizle('a', anIso: '2026-09-29T12:00:00.000Z');
+
+      expect((await kutu.watchHepsi().first).map((b) => b.id), ['b']);
+      expect(await kutu.watchOkunmamisSayisi().first, 1,
+          reason: 'listede görünmeyen bildirim için rozet yanmamalı');
+    });
+
+    test('⭐ açılış taraması AYNI bildirimi yeniden yazınca temizlenmiş kalır', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final kutu = BildirimKutusu(db);
+      await kutu.yaz(_taslak(baslik: 'Dün gün kapatılmadı'),
+          occurredAtIso: '2026-09-29T09:00:00.000Z');
+      await kutu.hepsiniTemizle(anIso: '2026-09-29T09:05:00.000Z');
+
+      await kutu.yaz(_taslak(baslik: 'Dün gün kapatılmadı'),
+          occurredAtIso: '2026-09-29T09:30:00.000Z');
+
+      expect(await kutu.watchHepsi().first, isEmpty,
+          reason: 'bayi temizlediği uyarıyı yarım saat sonra geri görmemeli');
+      expect(await kutu.watchOkunmamisSayisi().first, 0);
+    });
+
+    test('başlığı DEĞİŞEN temizlenmiş bildirim okunmamış olarak geri gelir', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final kutu = BildirimKutusu(db);
+      await kutu.yaz(_taslak(baslik: 'Oto sıralama hakkınız azaldı'),
+          occurredAtIso: '2026-09-29T09:00:00.000Z');
+      await kutu.okunduIsaretle('test-1', okunduAtIso: '2026-09-29T09:01:00.000Z');
+      await kutu.temizle('test-1', anIso: '2026-09-29T09:02:00.000Z');
+
+      await kutu.yaz(_taslak(baslik: 'Oto sıralama hakkınız bitti'),
+          occurredAtIso: '2026-09-29T15:00:00.000Z');
+
+      final satir = (await kutu.watchHepsi().first).single;
+      expect(satir.baslik, 'Oto sıralama hakkınız bitti');
+      expect(satir.okunduAt, isNull, reason: 'durum değişti, bu bayi için yeni bir bilgi');
+      expect(satir.occurredAt, '2026-09-29T15:00:00.000Z',
+          reason: 'yeni bilgi listenin başına gelmeli');
+    });
+
+    test('hepsiniTemizle sonrasında gelen yeni bildirim listeye düşer', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final kutu = BildirimKutusu(db);
+      await kutu.yaz(_taslak(kimlik: 'eski'), occurredAtIso: '2026-09-29T09:00:00.000Z');
+      await kutu.hepsiniTemizle(anIso: '2026-09-29T10:00:00.000Z');
+
+      await kutu.yaz(_taslak(kimlik: 'yeni'), occurredAtIso: '2026-09-29T11:00:00.000Z');
+
+      expect((await kutu.watchHepsi().first).map((b) => b.id), ['yeni'],
+          reason: 'temizlik geçmişe dönüktür, geleceği susturmaz');
+    });
+  });
+
+  group('BildirimlerEkrani — temizleme yüzeyi', () {
+    Future<AppDatabase> kur(WidgetTester tester) async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final kutu = BildirimKutusu(db);
+      await kutu.yaz(_taslak(kimlik: 'a', baslik: 'Birinci uyarı'),
+          occurredAtIso: DateTime.now().toUtc().toIso8601String());
+      await kutu.yaz(_taslak(kimlik: 'b', baslik: 'İkinci uyarı'),
+          occurredAtIso: DateTime.now().toUtc().toIso8601String());
+      await tester.pumpWidget(
+        MaterialApp(theme: SipTheme.acik(), home: BildirimlerEkrani(db: db)),
+      );
+      await tester.pumpAndSettle();
+      return db;
+    }
+
+    Future<void> kapat(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    testWidgets('Temizle onay ister, onaylanınca liste boşalır', (tester) async {
+      await kur(tester);
+
+      await tester.tap(find.text('Temizle'));
+      await tester.pumpAndSettle();
+      expect(find.text('Bildirimler temizlensin mi?'), findsOneWidget);
+
+      await tester.tap(find.text('Temizle').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Birinci uyarı'), findsNothing);
+      expect(find.text('İkinci uyarı'), findsNothing);
+      expect(find.text('Bildirim yok'), findsOneWidget);
+      expect(find.text('Temizle'), findsNothing, reason: 'boş listede etkisiz eylem sunulmaz');
+      await kapat(tester);
+    });
+
+    testWidgets('Vazgeç listeye dokunmaz', (tester) async {
+      await kur(tester);
+
+      await tester.tap(find.text('Temizle'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Vazgeç'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Birinci uyarı'), findsOneWidget);
+      expect(find.text('İkinci uyarı'), findsOneWidget);
+      await kapat(tester);
+    });
+
+    testWidgets('satırı sola kaydırmak yalnız o satırı kaldırır', (tester) async {
+      await kur(tester);
+
+      await tester.drag(find.text('İkinci uyarı'), const Offset(-600, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.text('İkinci uyarı'), findsNothing);
+      expect(find.text('Birinci uyarı'), findsOneWidget);
+      await kapat(tester);
     });
   });
 

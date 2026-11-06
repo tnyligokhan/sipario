@@ -15,6 +15,7 @@ use App\Support\Geocoding\YandexGeocoder;
 use App\Support\Konum\KonumDeposu;
 use App\Support\Konum\VeritabaniKonumDeposu;
 use App\Support\Route\GoogleRoutesMotoru;
+use App\Support\Route\GoogleYolCizgisi;
 use App\Support\Route\RotaMotoru;
 use App\Support\Route\YakinKomsuMotoru;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -50,6 +51,17 @@ class AppServiceProvider extends ServiceProvider
         // Oto sıralama motoru SOYUT: Google Routes (gerçek yol ağı, paralı) ya da kuş uçuşu
         // yakın komşu (bedava, saf). Sürücü env'den seçilir; anahtar yoksa yakın komşuya düşer.
         $this->app->singleton(RotaMotoru::class, fn () => $this->rotaMotoruKur());
+
+        // Yol çizgisi (2026-09-29): oto sıralamayla AYNI anahtar ve AYNI anahtar-kapı — sürücü
+        // Google değilse (bayi Google'ı kapattıysa) çizgi için de paralı çağrı yapılmaz;
+        // `hazirMi()` yanlış döner ve uç 503 ile istemciyi düz çizgiye düşürür.
+        $this->app->singleton(GoogleYolCizgisi::class, fn () => new GoogleYolCizgisi(
+            apiKey: (string) config('rota.surucu') === RotaMotoru::GOOGLE
+                ? (string) config('rota.google.api_key', '')
+                : '',
+            baseUrl: (string) config('rota.google.base_url', ''),
+            timeout: max(1, (int) config('rota.timeout', 8)),
+        ));
 
         // Canlı konum deposu SOYUT: bugün tek satırlık bir Postgres tablosu, ama veri uçucu ve
         // yüksek yazma hızlı — yarın Redis'e taşınırsa değişen tek satır burasıdır, controller
@@ -298,6 +310,16 @@ class AppServiceProvider extends ServiceProvider
             $kimlik = (string) ($request->user()?->tenant_id ?: $request->ip());
 
             return [Limit::perMinute(5)->by('rota:dk:'.$kimlik)];
+        });
+
+        // Yol çizgisi: harita her açıldığında sorulur ama sonuç önbellekten gelir; Google'a giden
+        // yalnız önbellek ıskasıdır. KİRACI başına sınır, bozuk bir istemci döngüsünün maliyet
+        // tavanıdır (bir bayinin cihazları aynı kotayı paylaşır).
+        RateLimiter::for('rota-cizgi', function (Request $request) {
+            $kimlik = (string) ($request->user()?->tenant_id ?: $request->ip());
+
+            return [Limit::perMinute(max(1, (int) config('rota.cizgi_dakika_limit', 30)))
+                ->by('rota-cizgi:dk:'.$kimlik)];
         });
 
         // Coğrafi kodlama: parayla ölçülen diğer uç nokta. Sınır KİRACI başınadır (kullanıcı başına

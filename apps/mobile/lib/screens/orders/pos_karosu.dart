@@ -30,13 +30,22 @@ part of 'pos_catalog.dart';
 class _PosKarosu extends StatelessWidget {
   const _PosKarosu({
     required this.urun,
+    required this.fiyatKurus,
     required this.onTap,
+    this.ozelFiyat = false,
     this.adet = 0,
     this.secenekli = false,
     this.onAzalt,
   });
 
   final Product urun;
+
+  /// Karoda yazan birim fiyat: müşteriye özel fiyat varsa o, yoksa katalog fiyatı.
+  final int fiyatKurus;
+
+  /// Fiyat müşteriye özel mi? Özel fiyat vurgulanır: bayi telefonda farkı görebilmeli.
+  final bool ozelFiyat;
+
   final VoidCallback onTap;
 
   /// Bu katalog oturumunda karodan sepete gönderilen adet. 0 = henüz eklenmedi.
@@ -86,8 +95,8 @@ class _PosKarosu extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    sipTutar(urun.unitPriceKurus),
-                    style: SipText.tutar(12.5).copyWith(color: t.ink),
+                    sipTutar(fiyatKurus),
+                    style: SipText.tutar(12.5).copyWith(color: ozelFiyat ? t.accent : t.ink),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

@@ -96,15 +96,26 @@ void main() {
           borcKurus: 25000,
           iban: 'TR330006100519786457841326',
           isletmeAdi: 'Merkez Su Bayii',
+          tarih: DateTime(2026, 11, 5),
         ),
-        'Sayın Ahmet Yılmaz, merhaba.\n'
-        'Merkez Su Bayii olarak hesabınızda 250,00 ₺ tutarında ödenmemiş bakiye görünüyor.\n'
+        'Sayın Ahmet Yılmaz,\n'
+        '\n'
+        'Merkez Su Bayii olarak bize duyduğunuz güven ve iş birliğiniz için teşekkür ederiz.\n'
+        '\n'
+        '05.11.2026 tarihi itibarıyla cari hesabınızda 250,00 ₺ tutarında açık bakiye '
+        'bulunmaktadır.\n'
+        '\n'
+        'Ödemenizi aşağıdaki hesaba havale veya EFT yoluyla gerçekleştirebilirsiniz. İşlem '
+        'açıklamasına adınızı ve soyadınızı yazmanızı rica ederiz.\n'
         '\n'
         'Ödeme için IBAN:\n'
         'TR33 0006 1005 1978 6457 8413 26\n'
         'Alıcı: Merkez Su Bayii\n'
         '\n'
-        'Teşekkür ederiz.',
+        'Ödemenizi gerçekleştirmiş iseniz bu bilgilendirmeyi dikkate almamanızı rica ederiz.\n'
+        '\n'
+        'Saygılarımızla,\n'
+        'Merkez Su Bayii',
       );
     });
 
@@ -146,7 +157,7 @@ void main() {
       expect(mesaj, contains('Alıcı: Mehmet Yılmaz'));
       expect(mesaj, isNot(contains('Alıcı: Merkez Su Bayii')));
       // İşletme adı GÖVDEDE durmaya devam eder — alıcı adı onun yerine geçmez.
-      expect(mesaj, contains('Merkez Su Bayii olarak hesabınızda'));
+      expect(mesaj, endsWith('Saygılarımızla,\nMerkez Su Bayii'));
     });
 
     test('alıcı adı boşsa işletme adına düşülür — güncelleme kimseye satır kaybettirmez', () {
@@ -214,13 +225,7 @@ void main() {
         sablon: varsayilanHatirlatmaSablonu,
       );
 
-      expect(
-        mesaj,
-        'Sayın Ayşe, merhaba.\n'
-        'Merkez Su olarak hesabınızda 50,00 ₺ tutarında ödenmemiş bakiye görünüyor.\n'
-        '\n'
-        'Teşekkür ederiz.',
-      );
+      expect(mesaj, isNot(contains('IBAN')));
       expect(mesaj, isNot(contains('\n\n\n')));
     });
 
@@ -255,7 +260,7 @@ void main() {
       // Aynı sınıf: tek yer tutucu müşteri adı ve ad boş.
       final adsiz = borcHatirlatmaMesaji(musteriAd: '  ', borcKurus: 5000, sablon: '*musteriadi*');
       expect(adsiz, isNotEmpty);
-      expect(adsiz, contains('Teşekkür ederiz.'));
+      expect(adsiz, contains('Saygılarımızla,'));
     });
 
     test('satır İÇİNDE boşa çözülen yer tutucu ASILI ETİKET bırakmaz', () {

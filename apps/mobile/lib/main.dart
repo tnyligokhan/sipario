@@ -177,6 +177,7 @@ class _SiparioAppState extends State<SiparioApp> {
       // AÇILIŞTA koşanlar — kimlikleri gün damgalı, tekrar güvenli.
       anlik: [
         senkronUyarisiUretici(db),
+        gonderilemeyenKayitUretici(db),
         kullanimHakkiUretici(db),
       ],
       // GÜNÜN BELİRLİ ANLARINA kurulanlar. Saatler kuralların yanında sabit duruyor

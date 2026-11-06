@@ -536,58 +536,44 @@ void main() {
     });
   });
 
-  group('BANT — neye ulaşamadığını söylesin', () {
-    test('bantAdresi ana bilgisayarı verir, tam URL\'i değil', () {
-      expect(bantAdresi('https://api.sipario.com.tr/api/v1'), 'api.sipario.com.tr');
-      expect(bantAdresi('https://tunel-3f2a.trycloudflare.com/api/v1'),
-          'tunel-3f2a.trycloudflare.com');
-      expect(bantAdresi('http://192.168.1.5:8000/api/v1'), '192.168.1.5:8000',
-          reason: 'yerel/tünel kurulumunda PORT da ayırt edici');
-      expect(bantAdresi(null), isNull);
-      expect(bantAdresi('  '), isNull);
-      expect(bantAdresi('bozuk adres'), 'bozuk adres',
-          reason: 'çözülemeyen adresin kendisi zaten aranan kanıttır');
-    });
-
-    testWidgets('bant hangi sunucuya ulaşmaya çalıştığını YAZAR', (tester) async {
-      await tester.pumpWidget(_sar(
-        const SipCevrimdisiBant(adres: 'tunel-3f2a.trycloudflare.com'),
-      ));
-      expect(find.textContaining('tunel-3f2a.trycloudflare.com'), findsOneWidget,
-          reason: 'adres her açılışta değişen bir tünel; bant yazmazsa bayi yanlış adresle '
-              'kalır ve arıza ancak telefonu inceleyen biriyle bulunur');
-    });
-
-    testWidgets('adres verilmezse satır hiç çizilmez', (tester) async {
-      await tester.pumpWidget(_sar(const SipCevrimdisiBant()));
-      expect(find.textContaining('sunucu:'), findsNothing);
+  group('BANT — sunucu bilgisi yazmaz, ne yapılacağını söyler', () {
+    // ⚠️ 2026-09-29 KARARI: bant eskiden altına "sunucu: <adres>" yazıyordu. Kullanıcı kararıyla
+    // kaldırıldı ("uygulamalarda sunucu bilgisi hiçbir koşulda geçmemeli"); bu grup artık tersini
+    // kilitler: hiçbir bant türü adres ya da "sunucu" sözcüğü taşımaz.
+    testWidgets('hiçbir bant türü "sunucu" sözcüğü ya da adres yazmaz', (tester) async {
+      for (final tur in SipBantTuru.values) {
+        await tester.pumpWidget(_sar(SipCevrimdisiBant(tur: tur)));
+        expect(find.textContaining(RegExp('sunucu', caseSensitive: false)), findsNothing,
+            reason: '$tur bandı sunucudan söz etmemeli');
+        expect(find.textContaining('://'), findsNothing);
+      }
     });
 
     testWidgets('veri hatası bandında "çevrimdışı" METNİ ÇIKMAZ', (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant(tur: SipBantTuru.hata)));
-      expect(find.textContaining('İnternet yok'), findsNothing);
+      expect(find.textContaining('İnternet bağlantısı yok'), findsNothing);
       expect(find.textContaining('bağlantı gelince gönderilecek'), findsNothing,
           reason: 'sunucuya ULAŞILDI — tutulamayacak bir söz vermek arızayı gizler');
-      expect(find.textContaining('Telefonda güvende'), findsOneWidget);
+      expect(find.textContaining('Telefonda duruyor'), findsOneWidget);
     });
 
     testWidgets('karantina bandı kaydın cihazda DURDUĞUNU söyler, kayıp demez', (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant(tur: SipBantTuru.karantina)));
-      expect(find.textContaining('İnternet yok'), findsNothing);
+      expect(find.textContaining('İnternet bağlantısı yok'), findsNothing);
       expect(find.textContaining('Telefonda duruyor'), findsOneWidget);
-      expect(find.textContaining('destekle görüşün'), findsOneWidget);
+      expect(find.textContaining('Destek ekibiyle görüşün'), findsOneWidget);
     });
 
-    testWidgets('sunucu bandı geçici olduğunu söyler, kullanıcıdan eylem beklemez',
+    testWidgets('bağlantı bandı geçici olduğunu söyler, kullanıcıdan eylem beklemez',
         (tester) async {
       await tester.pumpWidget(_sar(const SipCevrimdisiBant(tur: SipBantTuru.sunucu)));
-      expect(find.textContaining('İnternet yok'), findsNothing);
+      expect(find.textContaining('İnternet bağlantısı yok'), findsNothing);
       expect(find.textContaining('yeniden denenecek'), findsOneWidget);
     });
 
     // KABUĞA BAĞLI MI: bandı doğru kurmak yetmez, birinin onu ÇİZMESİ gerekir. Güncelleme
     // bandı aylarca ağaca hiç bağlanmamıştı ve hiçbir saf-fonksiyon testi bunu göremezdi.
-    testWidgets('KABUK: karantinadaki kayıt varken bant çizilir ve sunucuyu yazar',
+    testWidgets('KABUK: karantinadaki kayıt varken bant çizilir, adresi YAZMAZ',
         (tester) async {
       await (db.update(db.syncMeta)..where((t) => t.id.equals(1))).write(
         const SyncMetaCompanion(
@@ -618,8 +604,8 @@ void main() {
           reason: 'senkron turu hiç düşmese bile karantina uyarısı ekranda DURMALI — '
               'kayıt cihazda, sunucuda yok');
       expect(find.textContaining('Telefonda duruyor'), findsOneWidget);
-      expect(find.textContaining('tunel-3f2a.trycloudflare.com'), findsOneWidget,
-          reason: 'bayi hangi sunucuya gönderemediğini görmeli');
+      expect(find.textContaining('tunel-3f2a'), findsNothing,
+          reason: 'sunucu adresi hiçbir koşulda ekrana yazılmaz (kullanıcı kararı 2026-09-29)');
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 5));

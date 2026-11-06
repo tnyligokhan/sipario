@@ -116,7 +116,7 @@ class KonumApi {
       throw const KonumApiHatasi('Konum bildirilemedi');
     }
     if (resp.statusCode < 200 || resp.statusCode > 299) {
-      throw KonumApiHatasi('Konum bildirilemedi (kod ${resp.statusCode})');
+      throw const KonumApiHatasi('Konum bildirilemedi');
     }
   }
 
@@ -131,7 +131,7 @@ class KonumApi {
       throw const KonumApiHatasi('Canlı konumlar alınamadı');
     }
     if (resp.statusCode != 200) {
-      throw KonumApiHatasi('Canlı konumlar alınamadı (kod ${resp.statusCode})');
+      throw const KonumApiHatasi('Canlı konumlar alınamadı');
     }
 
     final Object? govde;

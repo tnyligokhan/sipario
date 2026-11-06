@@ -158,6 +158,9 @@ class _KuryeFormuState extends State<_KuryeFormu> {
           ipucu: 'Ör. emre',
           hata: _hata.containsKey('kullaniciAdi'),
           girdiFiltreleri: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._-]'))],
+          buyukHarfKipi: TextCapitalization.none,
+          klavye: TextInputType.visiblePassword,
+          klavyeOnerisi: false,
           onChanged: (_) => _temizle(),
         ),
         if (_hata['kullaniciAdi'] != null) AlanNotu(_hata['kullaniciAdi']!),
@@ -167,6 +170,13 @@ class _KuryeFormuState extends State<_KuryeFormu> {
           controller: _parola,
           ipucu: 'Değiştirmeyecekseniz boş bırakın',
           hata: _hata.containsKey('parola'),
+          // PAROLA KLAVYEYE BIRAKILMAZ (saha şikâyeti 2026-09-29, giriş yapamama): alan
+          // varsayılan olarak cümle başını BÜYÜK HARFE çeviriyor ve otomatik düzeltme açıktı.
+          // Patron "emre123" yazdığını sanırken sunucuya "Emre123" gidiyor, kurye girişte
+          // doğru parolayı yazdığı hâlde reddediliyordu.
+          buyukHarfKipi: TextCapitalization.none,
+          klavye: TextInputType.visiblePassword,
+          klavyeOnerisi: false,
           onChanged: (_) => _temizle(),
         ),
         if (_hata['parola'] != null)

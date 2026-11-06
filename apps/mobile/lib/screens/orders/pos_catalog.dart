@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../data/musteri_fiyatlari.dart';
 import '../../data/urun_secenekleri.dart';
 import '../../repo/customer_repository.dart';
 import '../../theme/components/atoms.dart';
@@ -46,6 +47,7 @@ Future<void> posKatalogAc(
   ValueChanged<String>? onBildir,
   String? musteriId,
   String? musteriAdi,
+  MusteriFiyatlari fiyatlar = MusteriFiyatlari.bos,
 }) =>
     sipSheet<void>(
       context,
@@ -57,6 +59,7 @@ Future<void> posKatalogAc(
         onBildir: onBildir,
         musteriId: musteriId,
         musteriAdi: musteriAdi,
+        fiyatlar: fiyatlar,
       ),
     );
 
@@ -67,9 +70,11 @@ class _KatalogGovde extends StatefulWidget {
     this.onBildir,
     this.musteriId,
     this.musteriAdi,
+    this.fiyatlar = MusteriFiyatlari.bos,
   });
 
   final AppDatabase db;
+  final MusteriFiyatlari fiyatlar;
   final void Function(Product urun, int adet, SecenekSecimi secim) onEkle;
   final ValueChanged<String>? onBildir;
 
@@ -118,6 +123,7 @@ class _KatalogGovdeState extends State<_KatalogGovde> {
       context,
       u,
       secenekler: secenekler,
+      fiyatKurus: widget.fiyatlar.birimFiyat(u.id, u.unitPriceKurus),
       baslangic: tercih,
       musteriAdi: musteriId == null ? null : widget.musteriAdi,
       tercihUygulandi: !tercih.bos,
@@ -248,6 +254,8 @@ class _KatalogGovdeState extends State<_KatalogGovde> {
                   for (final u in liste)
                     _PosKarosu(
                       urun: u,
+                      fiyatKurus: widget.fiyatlar.birimFiyat(u.id, u.unitPriceKurus),
+                      ozelFiyat: widget.fiyatlar.ozelMi(u.id),
                       adet: _adetler[u.id] ?? 0,
                       secenekli: secenekleriCoz(u.optionsJson).isNotEmpty,
                       onTap: () => _karoyaDokun(u),

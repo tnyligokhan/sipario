@@ -12,7 +12,6 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sipario/data/app_database.dart';
-import 'package:sipario/screens/isletme/ayarlar_ekrani.dart';
 import 'package:sipario/sync/sync_api.dart';
 import 'package:sipario/sync/sync_engine.dart';
 
@@ -127,20 +126,6 @@ void main() {
     });
   });
 
-  group('ekran metni — Ayarlar → Hakkında → Sunucu', () {
-    test('sürüm biliniyorsa "API <sürüm>" yazar', () async {
-      final db = AppDatabase(NativeDatabase.memory());
-      addTearDown(db.close);
-      await (db.update(db.syncMeta)..where((t) => t.id.equals(1)))
-          .write(const SyncMetaCompanion(apiVersion: Value('1.0.0')));
-
-      expect(sunucuSurumuMetni(await db.syncState()), 'API 1.0.0');
-    });
-
-    test('hiç senkron olmamış cihazda UYDURMAZ', () {
-      // Ekran metni iddia etmez: "güncel" ya da "uyumlu" demek, karşılaştırma yapmadığımız
-      // hâlde yapıyormuş gibi görünmek olurdu.
-      expect(sunucuSurumuMetni(null), 'Henüz bağlanılmadı');
-    });
-  });
+  // "Ayarlar → Hakkında → Sunucu" satırı 2026-09-29'da kaldırıldı (sunucu bilgisi kullanıcıya
+  // gösterilmez); sürüm önbelleği yukarıdaki gruplarda sınanmaya devam eder.
 }

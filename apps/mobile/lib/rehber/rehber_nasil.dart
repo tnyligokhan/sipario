@@ -119,6 +119,26 @@ const List<NasilYapilir> kNasilYapilir = [
     ],
   ),
   NasilYapilir(
+    baslik: 'Müşteriye sipariş mesajı göndermek',
+    etiketler: ['bilgilendirme', 'whatsapp', 'yola çıktı', 'teslim edildi'],
+    adimlar: [
+      'Siparişe dokun',
+      'Bilgilendirme Mesajı başlığından mesajı seç',
+      'Sipariş bilgileriyle dolu mesaj WhatsApp\'ta açılır, göndermeden önce değiştirebilirsin',
+    ],
+  ),
+  NasilYapilir(
+    baslik: 'Yeni mesaj eklemek',
+    etiketler: ['mesaj şablonu', 'hazır mesaj', 'kampanya'],
+    kitle: RehberKitle.yonetici,
+    adimlar: [
+      'Menüden Mesajlar\'ı aç',
+      'Yeni Mesaj Ekle düğmesine bas',
+      'Mesajın adını ve metnini yaz, kaydet',
+      'Mesaj bundan sonra her siparişin ayrıntısında görünür',
+    ],
+  ),
+  NasilYapilir(
     baslik: 'Müşteriyi kara listeye almak',
     etiketler: ['engelle', 'sipariş almak istemiyorum'],
     kitle: RehberKitle.yonetici,
@@ -135,7 +155,7 @@ const List<NasilYapilir> kNasilYapilir = [
     etiketler: ['zam', 'katalog', 'ürün listesi'],
     kitle: RehberKitle.yonetici,
     adimlar: [
-      'Menüden Ürünler sayfasını aç',
+      'Menüden Tanımlamalar başlığını aç, Ürünler sayfasına gir',
       'Yeni ürün için üstteki ekle düğmesine bas',
       'Var olan ürünün fiyatını değiştirmek için satıra dokun',
       'Değişiklik yalnız bundan sonraki siparişleri etkiler, eski siparişler olduğu gibi kalır',
@@ -178,7 +198,7 @@ const List<NasilYapilir> kNasilYapilir = [
     etiketler: ['eleman', 'personel', 'giriş bilgisi'],
     kitle: RehberKitle.yonetici,
     adimlar: [
-      'Menüden Kuryeler sayfasını aç',
+      'Menüden Tanımlamalar başlığını aç, Kuryeler sayfasına gir',
       'Ekle düğmesine basıp adını ve telefonunu gir',
       'Giriş adı kendiliğinden üretilir, parolayı sen belirlersin',
       'Parola bir daha okunamaz, unutulursa yenisini yazarsın',
@@ -233,8 +253,8 @@ const List<NasilYapilir> kNasilYapilir = [
     baslik: 'Saha gideri girmek',
     etiketler: ['benzin', 'masraf', 'harcama'],
     adimlar: [
-      'Gün Sonu ekranını aç',
-      'Gider ekle satırını kullan',
+      'Alt menüdeki artı düğmesine bas ve Gider Ekle satırını seç',
+      'Gün Sonu ekranındaki Gider ekle satırını da kullanabilirsin',
       'Tutarı ve ne için harcandığını yaz',
       'Gider günün kasa hesabından düşülür',
     ],
@@ -256,7 +276,7 @@ const List<NasilYapilir> kNasilYapilir = [
     etiketler: ['muaf', 'tedarikçi', 'kendi numaram'],
     kitle: RehberKitle.yonetici,
     adimlar: [
-      'Menüden Muaf Numaralar sayfasını aç',
+      'Menüden Tanımlamalar başlığını aç, Muaf Numaralar sayfasına gir',
       'Numarayı ekle',
       'O numara aradığında çağrı ekranı gösterilmez',
     ],

@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/app_database.dart';
+import '../../data/telefon_numarasi.dart';
 import '../../konum/cihaz_konumu.dart';
 import '../../sync/geocode_api.dart';
 import '../../theme/components/atoms.dart';
@@ -162,10 +163,11 @@ class _MusteriFormuState extends State<_MusteriFormu> {
     for (var i = 0; i < _teller.length; i++) {
       final ham = _teller[i].text.trim();
       if (i > 0 && ham.isEmpty) continue;
-      final e164 = normalizePhoneTR(ham);
+      // TR ve yabancı numara TEK kapıdan geçer (2026-11-05, saha: "yabancı numara eklenemiyor").
+      final e164 = TelefonNumarasi.coz(ham)?.e164;
       if (e164 == null) {
         _telHatalari[i] = i == 0
-            ? 'Geçerli telefon girin (10-11 hane)'
+            ? TelefonNumarasi.gecersizMetni
             : 'Geçerli telefon girin ya da boş bırakın';
         continue;
       }
@@ -174,7 +176,7 @@ class _MusteriFormuState extends State<_MusteriFormu> {
       if (!numaralar.contains(e164)) numaralar.add(e164);
     }
     if (numaralar.isEmpty && !_telHatalari.containsKey(0)) {
-      _telHatalari[0] = 'Geçerli telefon girin (10-11 hane)';
+      _telHatalari[0] = TelefonNumarasi.gecersizMetni;
     }
 
     if (adHatasi == null && _telHatalari.isEmpty) {

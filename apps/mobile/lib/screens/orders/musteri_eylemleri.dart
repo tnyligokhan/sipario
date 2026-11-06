@@ -40,7 +40,8 @@ String? telefonE164(String? ham) {
   // "+90…" ve "0090…" aynı şeyi söyler: ülke kodu zaten yazılmış.
   final ulkeKoduVar = ham.trimLeft().startsWith('+') || d.startsWith('00');
   if (d.startsWith('00')) d = d.substring(2);
-  if (ulkeKoduVar) return d.length >= 11 ? '+$d' : null;
+  // Alt sınır `TelefonNumarasi.asgariHane` ile AYNI: formun kabul ettiği numara aranabilmeli.
+  if (ulkeKoduVar) return d.length >= 10 ? '+$d' : null;
 
   if (d.startsWith('0')) d = d.substring(1); // TR yerel yazım: 0532…
   if (d.length == 12 && d.startsWith('90')) return '+$d';
@@ -171,11 +172,18 @@ class MusteriEylemSeridi extends StatelessWidget {
     required this.adres,
     this.onBildir,
     this.onTeslim,
+    this.araEylemi,
+    this.whatsappEylemi,
   });
 
   final String musteriAd;
   final String? telefon;
   final AdresBilgi? adres;
+
+  /// Müşterinin birden çok numarası varsa hangisini soran eylemler (`MusteriNumaraSecici`).
+  /// Verilmezse düğmeler doğrudan [telefon]u kullanır.
+  final Future<String?> Function(BuildContext context)? araEylemi;
+  final Future<String?> Function(BuildContext context)? whatsappEylemi;
 
   /// EN SAĞDAKİ dördüncü düğme: "Teslim" (kullanıcı isteği 2026-08-18).
   ///
@@ -219,7 +227,10 @@ class MusteriEylemSeridi extends StatelessWidget {
             etiket: 'Ara',
             soluk: !telVar,
             sikisik: sikisik,
-            onTap: () => _calistir(context, () => musteriyiAra(telefon)),
+            onTap: () => _calistir(
+              context,
+              () => araEylemi?.call(context) ?? musteriyiAra(telefon),
+            ),
           ),
         ),
         const SizedBox(width: 7),
@@ -232,7 +243,10 @@ class MusteriEylemSeridi extends StatelessWidget {
             etiket: 'WhatsApp',
             soluk: !telVar,
             sikisik: sikisik,
-            onTap: () => _calistir(context, () => whatsappAc(telefon)),
+            onTap: () => _calistir(
+              context,
+              () => whatsappEylemi?.call(context) ?? whatsappAc(telefon),
+            ),
           ),
         ),
         const SizedBox(width: 7),

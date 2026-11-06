@@ -269,8 +269,129 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA KAROSU** (mobil 1.5.0 → **1.8.2**, API 1.24.0 → **1.27.0**)
+### 🔻 VARDİYA DEVİR NOTU — 2026-11-06 — **MESAJLAR YÖNETİME TAŞINDI, BİLGİLENDİRME MESAJI GELDİ** (mobil 1.15.0 → **1.16.0**, API 1.29.0 → **1.30.0**, şema v31)
 
+Gerekçeler DECISIONS.md 2026-11-06/1-3.
+
+| # | Madde | Yapılan |
+|---|---|---|
+| 1 | İşletme Ayarlar'dan çıksın | Çekmecede Yönetim altında, yalnız patron (`isletmeGorunur`). `AyarlarEkrani.writable` kalktı |
+| 2 | Mesajlar İşletme'den çıksın | Çekmecede Yönetim altında ayrı satır, yalnız patron |
+| 3 | Yeni mesaj eklenebilsin | Mesajlar ekranı: ekle, düzenle, sil. `tenant_settings.message_templates` (JSON), en çok 20 |
+| 4 | Birden çok mesaj türü | Yedi hazır tür, sipariş durumuna bağlı (`data/mesaj_sablonlari.dart`) |
+| 5 | Siparişte görünsün | Sipariş ayrıntısında Bilgilendirme Mesajı (`orders/bilgilendirme_mesaji.dart`), WhatsApp'ta hazır metinle açılır |
+| 6 | Kurumsal borç mesajı | Varsayılan yenilendi; 1.15.0 varsayılanını değiştirmeden kaydetmiş bayi yenisine geçer |
+| 7 | Sürüm numarası yanlış | `surumMetni`: ekran ABI sapmalı `versionCode` yerine `kYapim` yazıyor. Ölçüm: yayındaki arm64 APK `versionCode` 2618, `yapim` 618 |
+
+**KAPILAR (bizzat ölçüldü):** `flutter analyze` temiz · `flutter test` **1803/1803** · API tam takım **1051/1051** · pint temiz · phpstan 0 · Mesajlar ve sipariş ayrıntısı açık ve koyu temada golden ile gözle incelendi. Kotlin ve paket dokunuşu yok, release APK CI'da derlenir.
+
+⚠️ **DEPLOY SIRASI: API ÖNCE** (göç `2026_11_06_000101`, `migrate` servisi çalıştırır). API güncellenmeden yeni APK'da eklenen mesajlar sunucuya yazılmaz; telefondaki kayıt korunur (`sync_cekme` alan gelmezse dokunmaz) ama başka cihaza inmez.
+
+**ÖLÇÜLEN KANAL DURUMU (2026-11-06):** `test` kanalı APK 1.15.0 yapım 618, API 1.29.0. `saha` kanalı APK **1.8.2** yapım 606, üretim API **1.27.0**. `dev`, `main`in önünde; saha bayileri bu pakete `dev → main` birleşmeden ulaşmaz.
+
+#### ⚠️ AÇIK İŞ
+
+- Hiçbir değişiklik **gerçek cihazda görülmedi**; widget testi ve golden. WhatsApp'ın uzun metni ve çok satırı gerçek telefonda denenmeli.
+- Hazır türler gizlenemiyor; bayi kullanmadığı türü kapatamıyor, yalnız metnini değiştirebiliyor. İstenirse `message_templates`e alan eklenir.
+- Web panelindeki İşletme formu yalnız Borç Hatırlatma metnini gösteriyor; yeni mesajlar yalnız mobilde düzenlenir.
+- Bir önceki notun açık işleri duruyor.
+
+#### 🔐 GÜVENLİK UYARILARI (2026-11-06)
+
+- 12 Dependabot uyarısının yamaları `dev`'de: `composer audit` ve `npm audit` sıfır. GitHub `main`i okuduğu için uyarılar **dev→main birleşince** kapanır; açık altı Dependabot PR'ı da o zaman gereksiz kalır.
+- Livewire 4.3.4 → 4.4.8 oldu. Panel modallarını **gerçek tarayıcıda** test sunucusunda denemek gerekiyor (CSP kırığı sunucu testinde görünmez).
+- ⚠️ Secret scanning #1 (Firebase anahtarı) AÇIK: Google Cloud Console'da Android uygulama kısıtı eklenmeden kapatılmayacak. Gerekçe DECISIONS 2026-11-06/4.
+- Kod taraması (CodeQL) depoda hiç kurulu değil, uyarısı yok.
+
+---
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-11-05 — **SAHA LİSTESİ, DOKUZ MADDE TEK PAKET** (mobil 1.14.3 → **1.15.0**, API 1.28.0 → **1.29.0**, şema v30)
+
+Gerekçeler DECISIONS.md 2026-11-05/1-5.
+
+| # | Madde | Yapılan |
+|---|---|---|
+| 1 | Yabancı numara eklenemiyor | `TelefonNumarasi` tek kapı (form + muaf + gösterim + çağrı kuyruğu + native kart). Ülke koduyla yazılmalı |
+| 2 | İkinci numara | Kök neden müşteri kartı. Çağrıdan açılan kart arayan numarayı kullanır; birden çok numarada Ara/WhatsApp sorar (`MusteriNumaraSecici`) |
+| 3 | Ürün eklerken iskonto | Sepet satırında tutar ya da yüzde, `order_lines.discount_kurus` |
+| 4 | Müşteriye özel fiyat | Müşteri kartında Özel Fiyatlar, `customers.product_prices`; sipariş ve düzenlemede otomatik |
+| 5 | Gider kategorileri | Gider Kategorileri ekranı, `tenant_settings.expense_categories` |
+| 6 | + menüsünde gider | Gider Ekle, `GiderAkisi` (Gün Özeti ile ortak) |
+| 7 | Tanımlamalar | Çekmecede katlanır grup, kapalı başlar |
+| 8 | Borç hatırlatma | Kurumsal varsayılan, beş yeni yer tutucu |
+| 9 | Geri tuşu | Çekmece → ana sekme → çıkış sorusu |
+
+**KAPILAR (bizzat ölçüldü):** `flutter analyze` temiz · `flutter test` **1773/1773** (taban 1743) · API tam takım **1049/1049** · pint temiz · phpstan 0 · `:app:compileSahaReleaseKotlin` derlendi. Release APK derlenmedi (paket dokunuşu yok, CI derler).
+
+⚠️ **DEPLOY SIRASI: API ÖNCE, göç `2026_11_05_000101` owner ile.** API güncellenmeden yeni APK kullanılırsa sunucu `discount_kurus`u yok sayar, satır tam tutarla yazılır ve telefondaki iskonto ilk senkronda kaybolur.
+
+#### ⚠️ AÇIK İŞ
+
+- Hiçbir değişiklik **gerçek cihazda görülmedi**; yalnız widget testleri. Özellikle sepet satırındaki İskonto dokunuşunun dar ekrandaki boyutu ve native kartta yabancı numara.
+- Harita özetindeki Ara düğmesi birincil numarayı kullanıyor; numara seçimi oraya bağlanmadı.
+- Gider kategorileri etiket; kategori bazlı gider raporu yok.
+- Sipariş düzenleme sheet'inde adet değişince satır notu ve seçim taşınmıyor (eski kusur, bu pakette dokunulmadı; iskonto taşınıyor). Düzenlemede var olan satıra iskonto eklenemiyor.
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.14.1**, API 1.24.0 → **1.28.0**)
+
+> **EK (2026-09-30, CI — sürüm değişmedi, DECISIONS 2026-09-30/2):** `mobil-apk.yml`
+> paralelleşti: test 3 parça + derleme aynı anda, yayın ikisini bekler; Gradle önbelleği eklendi.
+> Ölçüm: push→yayın 13-15 dk → **~7,9 dk** (474 sn, önbellek dolu). Test artık kritik yolda
+> değil; darboğaz derleme (~7,5 dk, ilk `assembleRelease` 355→260 sn).
+>
+> **EK (1.14.1, DECISIONS 2026-09-29/5):** gruplu haritada da her kişinin rotası gerçek
+> yoldan (kişi başına bir yol isteği); ilk sürümdeki kuş uçuşu tasarrufu geri alındı.
+> flutter test **1747/1747**, analyze temiz.
+>
+> **SON İŞ (2026-09-29, 3. oturum) — HARİTA KİŞİYE GÖRE (mobil 1.13.0 → 1.14.0, API
+> DEĞİŞMEDİ, DECISIONS 2026-09-29/4).** Kurye haritada yalnız kendi siparişlerini görür;
+> patron "Siz" + her kurye ayrı renk/numara/kişi şeridi; oto sıralama kişi kişi (kurye rotası
+> kuryenin canlı konumundan, her rota 1 hak). Kurye pini de ad çipi aldı (1.13.1). Kapılar:
+> analyze temiz · flutter test **1745/1745**. GERÇEK CİHAZDA GÖRÜLMEDİ (renkler, şerit, çoklu
+> kesikli çizgiler yalnız sahte tuval + PNG ile sınandı). ⚠️ Açık soru sahada doğrulanmalı:
+> "her rota 1 hak" kararı patronun beklentisiyle uyuşuyor mu (tek dokunuş = N hak).
+>
+> **(ÖNCEKİ) 2026-09-29, 2. oturum — SAHADAN ALTI MADDE (mobil 1.11.0 → 1.13.0, API
+> DEĞİŞMEDİ 1.28.0, şema v29, DECISIONS 2026-09-29/3).** (1) Giriş: klavye otomatik
+> düzeltmesi kimlik alanlarında kapalı + kurye parolası büyük harfe kaçmıyor + geçici arızada
+> 2 yeniden deneme (1.11.1). (2) Bildirim kutusu: "Temizle" + sola kaydır (1.12.0). (3)
+> Sipariş müşteri seçiminde kod görünüyor (1.12.1). (4) Harita adı zeminli çip, pinin sağında
+> (1.12.2) — GERÇEK CİHAZDA GÖRÜLMEDİ, yalnız PNG ile gözle incelendi. (5-6) Sunucu adresi/kodu
+> hiçbir metinde yok, `ApiHataMetni` tek çeviri noktası; bant/bildirim metinleri yeniden
+> yazıldı, karantina bildirimi eklendi (1.13.0). Kapılar: analyze temiz · flutter test
+> **1726/1726**. Release APK bu oturumda DERLENMEDİ (paket/native dokunuş yok; CI derler).
+> ⚠️ Girişin "bazen" reddedilmesinin kesin kökü sahada ölçülmedi; en güçlü aday klavye
+> düzeltmesi/büyük harf. Sürerse: hangi hata metni göründüğü sorulmalı.
+>
+> **(ÖNCEKİ) 2026-09-29 — YOL ÇİZGİSİ + BOŞ KARO DÜZELTMESİ (mobil 1.10.1 → 1.11.0, API 1.28.0,
+> DECISIONS 2026-09-29/1-2).** (1) Yandex haritası boş karo gösteriyordu: MapKit `onStart` hiç
+> çağrılmıyordu (sıralama hatası) → `HaritaYasami`. (2) Duraklar arası çizgi artık gerçek yollardan:
+> `POST /api/v1/rota/cizgi` (Google Routes, sunucuda, kontörsüz, 7 gün önbellek). ⚠️ DEPLOY: test
+> sunucusunda `ROTA_SURUCU=google` + `GOOGLE_ROUTES_KEY` zaten tanımlı (Coolify env adları görüldü);
+> değilse uç 503 verir ve harita kuş uçuşuna düşer — kırılmaz. Gerçek cihazda GÖRÜLMEDİ.
+> ⚠️ Bu makinede yerel PHP YOK (Laragon'daki `php.exe` silinmiş): API testleri Docker `sipario_php`
+> kabında `MSYS_NO_PATHCONV=1 docker exec -w /depo/apps/api sipario_php php artisan test` ile koşar.
+>
+> **(ÖNCEKİ) 2026-09-28 — HARİTA YANDEX MAPKIT (mobil 1.10.0, DECISIONS 2026-09-28/3) — KULLANICI
+> KARARI, TARTIŞILMAZ.** MapLibre sürümü aynı gün söküldü. ⚠️ **İNSAN İŞİ (bloklayıcı):** Yandex
+> geliştirici kabininden MapKit Mobile SDK anahtarı alınıp GitHub'a `YANDEX_MAPKIT_KEY` secret'ı
+> olarak girilmeli (paket adı `com.sipario.app` ile kısıtlanmalı); o olmadan APK'da harita
+> "anahtar tanımlı değil" yazar. Yerelde: `--dart-define=YANDEX_MAPKIT_KEY=...`. Kapılar: analyze
+> temiz · harita testleri 82/82 · release APK derlendi (arm64 57,8 MB). Harita GÖRSEL OLARAK HİÇ
+> GÖRÜLMEDİ (anahtar yok) — anahtar gelince emülatörde (`-gpu host`) pin boyutu/ölçeği, dokunuş,
+> gece modu, ad etiketleri doğrulanmalı. ⚠️ Lisans: ücretsiz MapKit kurye takibini yasaklıyor.
+>
+> **(SÖKÜLDÜ) 2026-09-28 — HARİTA MAPLIBRE + OPENFREEMAP (mobil 1.9.0, DECISIONS 2026-09-28/2):**
+> "yakınlaştırınca pikselleşiyor" → yerel vektör motor. Yeni: kesikli rota çizgisi, yakınlaşınca
+> müşteri adı, seçili durak vurgusu, Türkçe ve doğru harfli yer adları, çevrimdışı açılış (stil
+> diskte + yedek stil). Kapılar: analyze temiz · flutter test **1693/1693** · release APK (saha,
+> split) derlendi · **emülatörde (Pixel_7, `-gpu host`) test sunucusu demo bayisiyle görüldü**:
+> pinler/rota/dokunuş/özet/vurgu/zoom/sığdır/koyu tema/uçak modunda açılış. Gerçek telefonda
+> GÖRÜLMEDİ. ⚠️ CI JDK 17→21 (maplibre_gl şartı) — ilk CI koşusu izlenmeli. ⚠️ Sunucu karo
+> aracısı (`/harita/karo`, `CARTO_BASEMAPS_KEY`) ≤1.8.2 için duruyor; sahadakiler 1.9.0'a geçince
+> kaldırılacak (borç). Kurye pinleri motor katmanına taşındı ama canlı kurye verisiyle cihazda
+> DENENMEDİ (demo bayisinde kalp atışı yok).
+>
 > **EK (2026-09-28) — HARİTA "GRİ KARELER UZUN SÜRE BOŞ" (mobil 1.8.2, DECISIONS 2026-09-28/1):**
 > telefonda karo DİSK ÖNBELLEĞİ yoktu (`flutter_map_cancellable_tile_provider` tutmuyor) ve her
 > build yeni HTTP istemcisi açıyordu. Eklenti kaldırıldı, çekirdek `NetworkTileProvider` (iptal +

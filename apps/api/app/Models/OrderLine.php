@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $note
  * @property bool $is_custom
  * @property int $qty
+ * @property int $discount_kurus Satırın tamamından düşülen iskonto; line_total_kurus bundan sonraki tutardır
  * @property int $line_total_kurus
  * @property Carbon|null $deleted_at
  * @property Carbon|null $created_at
@@ -45,6 +46,7 @@ class OrderLine extends Model
         'options',
         'is_custom',
         'qty',
+        'discount_kurus',
         'line_total_kurus',
         'deleted_at',
     ];
@@ -56,6 +58,7 @@ class OrderLine extends Model
             'is_custom' => 'boolean',
             'options' => 'array',
             'qty' => 'integer',
+            'discount_kurus' => 'integer',
             'line_total_kurus' => 'integer',
             'deleted_at' => 'datetime',
         ];

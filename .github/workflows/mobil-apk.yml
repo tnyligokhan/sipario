@@ -55,11 +55,24 @@ jobs:
   # kalmayacaktı ve bu hat bozuk bir APK'yı doğrudan cihaza yollardı — güncelleme kendiliğinden
   # iniyor, kimse "kurma" demiyor.
   #
-  # Bu iş KIRMIZIYSA `derle-ve-yayinla` hiç başlamaz (`needs: test`), yani release varlıkları
+  # Bu iş KIRMIZIYSA `yayinla` hiç başlamaz (`needs: [test, derle]`), yani release varlıkları
   # ellenmez ve telefondaki sürüm olduğu gibi kalır. Testin doğru yeri burası: kimseyi
   # bekletmiyor ve geliştirici makinesi kapalıyken de koşuyor.
+  #
+  # PARALEL HAT (2026-09-30, ÖLÇÜLDÜ): eskiden derleme `needs: test` ile testi BEKLİYORDU —
+  # test ~5 dk + derleme ~8-10 dk = push'tan yayına 13-15 dk. Artık test ve derleme AYNI ANDA
+  # koşar, yalnız yayın ikisini de bekler. Güvence aynıdır (kırmızı test → release'e dokunulmaz);
+  # bedeli test kırıldığında boşa bir derlemedir ve depo PUBLIC olduğu için dakika ücretsizdir.
+  #
+  # PARÇALI TEST: 144 dosyalık `flutter test` tek makinede 277 sn sürüyordu. 3 parçaya
+  # (`--total-shards`) bölünür; bir parça düşerse `fail-fast` diğerlerini keser.
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        parca: [0, 1, 2]
+    name: test (${{ matrix.parca }}/3)
     steps:
       - uses: actions/checkout@v4
 
@@ -76,7 +89,9 @@ jobs:
       # `dart analyze`, `flutter analyze` DEĞİL: yerel kancada da öyle (Türkçe karakterli yol
       # flutter analyze'in LSP kanalını kırıyordu). Aynı aracı kullanmak, CI ile yerelin aynı
       # şeyi ölçmesini sağlar.
+      # Analiz tüm kodu tarar, parçaya bölünmez — üç kez koşmak aynı cevabı üç kez verir.
       - name: Analiz
+        if: matrix.parca == 0
         working-directory: apps/mobile
         run: dart analyze
 
@@ -85,11 +100,22 @@ jobs:
       # oldu). Sarmalayıcı YALNIZ ağ şekilli arızayı tekrarlar; test hatası ilk turda düşer.
       - name: Testler
         working-directory: apps/mobile
-        run: bash ../../scripts/ci-varlik-indirmesini-yeniden-dene.sh flutter test
+        run: >-
+          bash ../../scripts/ci-varlik-indirmesini-yeniden-dene.sh
+          flutter test --total-shards 3 --shard-index ${{ matrix.parca }}
 
-  derle-ve-yayinla:
-    needs: test
+  # DERLEME TESTİ BEKLEMEZ — yayına HAZIRLAR, yayınlamaz. Çıktı (iki APK + surum.json) bir
+  # yapıt olarak `yayinla`ya devredilir; release'e dokunan TEK iş `yayinla`dır.
+  derle:
     runs-on: ubuntu-latest
+    outputs:
+      kanal: ${{ steps.hazirla.outputs.kanal }}
+      etiket: ${{ steps.hazirla.outputs.etiket }}
+      baslik: ${{ steps.hazirla.outputs.baslik }}
+      surum: ${{ steps.hazirla.outputs.surum }}
+      yapim: ${{ steps.hazirla.outputs.yapim }}
+      dosya_arm: ${{ steps.hazirla.outputs.dosya_arm }}
+      dosya_fat: ${{ steps.hazirla.outputs.dosya_fat }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -121,10 +147,26 @@ jobs:
             echo "BASLIK=Deneme sürümü (otomatik)"        >> "$GITHUB_ENV"
           fi
 
+      # JDK 21: harita motoru yandex_maps_mapkit_lite Android derlemesi Java 21 hedefler (2026-09-28).
+      # Yerel geliştirmede Android Studio'nun JBR'ı zaten 21'dir.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
+
+      # GRADLE ÖNBELLEĞİ (2026-09-30): yoktu — her koşum AGP, Kotlin ve MapKit bağımlılıklarını
+      # sıfırdan indiriyordu (ilk `assembleRelease` 355 sn). `setup-java`nın `cache: gradle`i
+      # KULLANILMAZ: depoda `gradlew` yok ve anahtar Flutter eklentilerini (pubspec.lock) görmez.
+      # Anahtar değişince `restore-keys` en yakın eski önbelleği açar, derleme eksiği indirir.
+      - name: Gradle önbelleği
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('apps/mobile/android/**/*.gradle.kts', 'apps/mobile/android/gradle.properties', 'apps/mobile/android/gradle/wrapper/gradle-wrapper.properties', 'apps/mobile/pubspec.lock') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
 
       - uses: subosito/flutter-action@v2
         with:
@@ -144,7 +186,13 @@ jobs:
         env:
           SAHA_KEYSTORE_SIFRE: ${{ secrets.SAHA_KEYSTORE_SIFRE }}
           SAHA_ANAHTAR_SIFRE: ${{ secrets.SAHA_ANAHTAR_SIFRE }}
+          # Yandex MapKit anahtarı (2026-09-28). Secret yoksa derleme YİNE geçer ama harita
+          # ekranı "harita anahtarı tanımlı değil" yazar — sessiz boş harita yerine görünür sebep.
+          YANDEX_MAPKIT_KEY: ${{ secrets.YANDEX_MAPKIT_KEY }}
         run: |
+          if [ -z "$YANDEX_MAPKIT_KEY" ]; then
+            echo "::warning::YANDEX_MAPKIT_KEY secret tanımlı değil — APK'da harita açılmaz."
+          fi
           # SIPARIO_YAPIM define'ı ŞART: --split-per-abi versionCode'a ABI sapması ekler
           # (arm64 = 2000 + git sayısı). PackageInfo.buildNumber ile surum.json'daki yapim
           # karşılaştırılsaydı arm64 cihaz kendini hep "güncel" sanır ve BİR DAHA
@@ -162,11 +210,13 @@ jobs:
           bash "$YENIDEN" flutter build apk --release --flavor "$FLAVOR" \
             --dart-define=SIPARIO_KANAL="$KANAL" \
             --dart-define=SIPARIO_YAPIM="$YAPIM" \
-            --dart-define=SIPARIO_API="$API" --split-per-abi
+            --dart-define=SIPARIO_API="$API" \
+            --dart-define=YANDEX_MAPKIT_KEY="$YANDEX_MAPKIT_KEY" --split-per-abi
           bash "$YENIDEN" flutter build apk --release --flavor "$FLAVOR" \
             --dart-define=SIPARIO_KANAL="$KANAL" \
             --dart-define=SIPARIO_YAPIM="$YAPIM" \
-            --dart-define=SIPARIO_API="$API"
+            --dart-define=SIPARIO_API="$API" \
+            --dart-define=YANDEX_MAPKIT_KEY="$YANDEX_MAPKIT_KEY"
 
       # BİRLEŞTİRİLMİŞ MANİFEST İZİN DENETİMİ (kırmızı çizgi #6) — 2026-08-17'de eklendi.
       #
@@ -226,9 +276,10 @@ jobs:
             case "$PAKET" in *.test) echo "HATA: saha APK'sına '.test' soneki sızmış"; exit 1;; *) ;; esac
           fi
 
-      - name: surum.json üret ve kanalın release'ini güncelle
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # surum.json ÜRETİMİ DERLEMEDE KALIR: yapım sayısı ve commit tam geçmişli klondan okunur,
+      # `yayinla` ise hiç checkout yapmaz — yalnız hazır yapıtı yükler.
+      - name: surum.json üret (yayına hazırla)
+        id: hazirla
         run: |
           CIKTI=apps/mobile/build/app/outputs/flutter-apk
           ARM="$CIKTI/app-arm64-v8a-$FLAVOR-release.apk"
@@ -254,8 +305,9 @@ jobs:
           # `surum.json`dur ve o değişmiyor.
           DOSYA_ARM="Sipario-$SURUM-$KANAL-arm64.apk"
           DOSYA_FAT="Sipario-$SURUM-$KANAL-evrensel.apk"
-          cp "$ARM" "$DOSYA_ARM"
-          cp "$FAT" "$DOSYA_FAT"
+          mkdir -p yayin && cd yayin
+          cp "../$ARM" "$DOSYA_ARM"
+          cp "../$FAT" "$DOSYA_FAT"
           # boyut alanları: indirme bütünlüğü kontrolü — yarım inen APK kurulmaya çalışılmaz.
           # `commit`: bu APK'nın DERLENDİĞİ commit. Durum çubuğu "kaç MOBİL değişikliği
           # yayınlanmadı"ı bununla hesaplıyor. Yalnız `yapim` (git commit sayısı) yetmiyordu:
@@ -275,6 +327,50 @@ jobs:
           }
           JSON
           cat surum.json
+          {
+            echo "kanal=$KANAL"
+            echo "etiket=$ETIKET"
+            echo "baslik=$BASLIK"
+            echo "surum=$SURUM"
+            echo "yapim=$YAPIM"
+            echo "dosya_arm=$DOSYA_ARM"
+            echo "dosya_fat=$DOSYA_FAT"
+          } >> "$GITHUB_OUTPUT"
+
+      # APK'lar zaten sıkıştırılmış — yeniden sıkıştırmak yalnız zaman yer.
+      - name: Yayın yapıtını devret
+        uses: actions/upload-artifact@v4
+        with:
+          name: yayin
+          path: yayin/
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+
+  # RELEASE'E DOKUNAN TEK İŞ. Testlerin TÜM parçaları ve derleme yeşil değilse başlamaz.
+  yayinla:
+    needs: [test, derle]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: yayin
+          path: yayin
+
+      - name: Kanalın release'ini güncelle
+        working-directory: yayin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}   # checkout yok — gh depoyu buradan bilir
+          KANAL: ${{ needs.derle.outputs.kanal }}
+          ETIKET: ${{ needs.derle.outputs.etiket }}
+          BASLIK: ${{ needs.derle.outputs.baslik }}
+          SURUM: ${{ needs.derle.outputs.surum }}
+          YAPIM: ${{ needs.derle.outputs.yapim }}
+          DOSYA_ARM: ${{ needs.derle.outputs.dosya_arm }}
+          DOSYA_FAT: ${{ needs.derle.outputs.dosya_fat }}
+        run: |
+          ls -la
           # Yuvarlanan release: yoksa bir kez yaratılır, sonra yalnız varlıkları değişir.
           gh release view "$ETIKET" >/dev/null 2>&1 || gh release create "$ETIKET" --prerelease \
             --title "$BASLIK" \
