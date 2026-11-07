@@ -2,3 +2,4 @@
 # (Windows'ta autocrlf CRLF'e çevirirse postgres entrypoint betiği "bad interpreter" verir)
 *.sh text eol=lf
 docker/postgres/init/** text eol=lf
+graphify-out/graph.json merge=graphify
