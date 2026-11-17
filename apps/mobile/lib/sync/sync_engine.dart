@@ -7,6 +7,7 @@ import '../data/app_database.dart';
 import '../guncelleme/guncelleme_sozlesmesi.dart' show kYapim;
 import 'indirme_ilerlemesi.dart';
 import 'sync_api.dart';
+import 'yedek_kurtarma.dart' show yedekKaybiniKurtar;
 import 'yenileme.dart' show senkronBastanIndir;
 
 // İKİ TUR, İKİ DOSYA (500 satır sınırı — bölme 2026-08-17). Motor 850 satıra çıkmıştı ve

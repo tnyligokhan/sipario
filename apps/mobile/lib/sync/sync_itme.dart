@@ -181,8 +181,7 @@ extension SyncItme on SyncEngine {
     return db.transaction(() async {
       await (db.update(db.syncMeta)..where((t) => t.id.equals(1)))
           .write(SyncMetaCompanion(karantinaAnahtari: Value(anahtar)));
-      return (db.update(db.outbox)..where((t) => t.status.equals('rejected')))
-          .write(const OutboxCompanion(status: Value('pending'), attempts: Value(0)));
+      return yedekKaybiniKurtar(db);
     });
   }
 

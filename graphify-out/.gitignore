@@ -1,0 +1,5 @@
+# Makineye özel ve yeniden üretilebilir graphify dosyaları — depoya girmez.
+# Paylaşılan: graph.json, GRAPH_REPORT.md, graph.html, manifest.json, .graphify_labels.json
+cache/
+.graphify_python
+.graphify_root

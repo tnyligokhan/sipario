@@ -51,6 +51,26 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Bash|Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graphify hook-guard search",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graphify hook-guard read",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -108,6 +128,16 @@
             "command": "f=\"$CLAUDE_PROJECT_DIR/scripts/shift-sync-check.ps1\"; [ -f \"$f\" ] && powershell -NoProfile -ExecutionPolicy Bypass -File \"$f\" || true",
             "timeout": 60,
             "statusMessage": "Vardiya senkron kontrolu..."
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "graphify hook-guard compact",
+            "timeout": 10
           }
         ]
       }

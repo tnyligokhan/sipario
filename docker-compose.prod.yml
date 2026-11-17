@@ -176,6 +176,8 @@ x-app-env: &app-env
   # (`App\Jobs\PushGonderimi`). Bu anchor (`*app-env`) hem `app` hem `queue` tarafından
   # kullanıldığı için tek yerde tanımlamak yeterli.
   FCM_HIZMET_HESABI: ${FCM_HIZMET_HESABI:-}
+  # Bu sunucuya bakan APK kanalı (`surum:duyur`). Üretim `saha`, test sunucusu `test`.
+  SURUM_KANALI: ${SURUM_KANALI:-saha}
   # Coğrafi kodlama
   GEOCODING_DRIVER: ${GEOCODING_DRIVER:-null}
   GOOGLE_GEOCODER_KEY: ${GOOGLE_GEOCODER_KEY:-}

@@ -58,7 +58,11 @@ class OrderChangeApplier
         $o = (array) ($payload['order'] ?? throw new InvalidArgumentException('payload.order gerekli'));
         $orderId = (string) SyncPayload::req($o, 'id');
         if (Order::query()->find($orderId) !== null) {
-            throw new InvalidArgumentException('Bu sipariş kimliği zaten var');
+            // Aynı bayide (RLS altında) bu sipariş kimliği zaten varsa 'duplicate' ile sessizce
+            // yakınsar (CashHandoverChangeApplier / DayClosingChangeApplier deseni). Başka
+            // bayinin siparişi RLS'te görünmez → null döner → INSERT global PK'da 23505 ile
+            // reddedilir (izolasyon korunur).
+            return ['status' => 'duplicate', 'entity_id' => $orderId, 'changes' => []];
         }
         $customerId = isset($o['customer_id']) ? (string) $o['customer_id'] : null;
         if ($customerId !== null && ! Customer::query()->whereKey($customerId)->exists()) {
