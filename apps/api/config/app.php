@@ -344,9 +344,14 @@ return [
     | MINOR: `POST /api/v1/rota/cizgi` — sıralı sipariş kimliklerinden gerçek yol
     | çizgisi (Google Routes, sıralama YAPMAZ). Kontör düşmez; 7 gün önbellek +
     | kiracı başına dakikalık sınır. Eski istemci etkilenmez (yeni uç).
+    |
+    | ── 1.31.2 (2026-11-17) — YEDEK YÜKLEME ONARIMI SONRASI KARANTİNA TETİĞİ ──
+    | PATCH: kod davranışı değişmedi. Üretim veritabanı onarıldı (13.11 yedeğinin
+    | iş tabloları yüklenmemişti); sürüm değişimi telefonların karantina anahtarını
+    | (`<yapım>|<api_version>`) değiştirir ve reddedilmiş kayıtlar bir kez daha denenir.
     */
 
-    'version' => '1.31.1',
+    'version' => '1.31.2',
 
     /*
     |--------------------------------------------------------------------------

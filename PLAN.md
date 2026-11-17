@@ -269,7 +269,33 @@
 >
 ## Güncel durum
 
-### 🔻 VARDİYA DEVİR NOTU — 2026-11-06 (2) — **TEK MESAJ DÜĞMESİ, KAPALI UYGULAMAYA SÜRÜM BİLDİRİMİ, WHATSAPP BİÇİMLERİ, KARANTİNA ÇIKIŞI** (mobil 1.16.0 → **1.17.0**, API 1.30.0 → **1.31.0**, şema v32)
+### 🔻 VARDİYA DEVİR NOTU — 2026-11-17 — **13.11 YEDEĞİ YÜKLENMEMİŞTİ, ÜRETİM VERİTABANI ONARILDI** (API 1.31.1 → **1.31.2**, mobil 1.17.0 değişmedi)
+
+Gerekçeler DECISIONS.md 2026-11-17.
+
+**Belirti:** bayi "Kayıtlarınız gönderilemiyor. Telefonda duruyor, kaybolmaz. Destek ekibiyle görüşün." bandını gördü. Antigravity düzeltmesi (`23bd181`) işe yaramadı.
+
+**Kök sebep (üretimde ölçüldü):** yeni sunucuya (131.222.220.68, `shogo-ist-01`) yüklenen `sipario_live_yedek.sql.gz` bir `pg_dumpall` küme dökümüydü ve migration'ların kurduğu dolu şemanın üstüne `psql -d sipario` ile basıldı. `DROP/CREATE DATABASE` ve `CREATE TABLE` hata verdi, yalnız `COPY`ler koştu. Alfabetik sırada `customers`/`orders`/`ledger_entries` `tenants`tan önce geldiği için FK ihlaliyle tümden reddedildi. Yalnız `tenants`, `users`, `personal_access_tokens` gibi bağımsız tablolar yüklendi, giriş çalıştığı için sorun görünmedi. Üretimde bugünden önce oluşmuş tek müşteri/sipariş/defter satırı yoktu (yedekte 9.269 müşteri, 514 sipariş, 843 defter). Telefon eski müşteriye sipariş girince `customer_id bu bayide bulunamadı` → `domain_rejected` → zincirleme teslim/defter/arama reddi. 17.11'de 70 ayrı olay reddedildi.
+
+**Onarım (uygulandı, tek atomik işlem, önce deneme kipinde ROLLBACK ile ölçüldü):**
+- Yedeğin `sipario` bölümü ayrı veritabanına (`sipario_kurtarma`) temiz yüklendi, canlıya `yedek` şeması olarak taşındı, eksik satırlar `ON CONFLICT DO NOTHING` ile eklendi. Bugün gelen hiçbir satırın üstüne yazılmadı.
+- `code` (bayi başına sıra numarası) çakışıyordu: sunucu boşken yeniden gelen kayıtlar 100'den başlayan yeni kodlar almıştı. Yedekte de olan kayıtlar eski koduna döndü, yalnız bugün oluşanlar en büyük koddan sonraki numarayı aldı.
+- `balance_kurus` defterden yeniden hesaplandı, `tenant_sync_state` en büyük seq'e hizalandı.
+- 248 müşteri/sipariş satırı `sync_changes`e yayıldı (telefonlar kodu ve bakiyeyi düzeltir).
+- Sonuç: 9.296 müşteri, 628 sipariş, 1.028 defter. Öksüz FK 0, kod çakışması 0, yedekte olup canlıda olmayan satır 0.
+- API 1.31.2: yalnız sürüm. Telefonların karantina anahtarı değişir, reddedilmiş kayıtlar bir kez daha gönderilir.
+
+**Sunucudaki dosyalar (`/root/onarim/`):** `canli_onarim_oncesi_20261117_203207.sql.gz` ve `canli_uygulama_oncesi_20261117_204004.sql.gz` (onarım öncesi canlı), `onarim.php` (uygulanan betik), `ly.sql`/`sipario_bolum.sql`/`yedek_sema.sql` (ara dosyalar). Canlıda `yedek` şeması ve `sipario_kurtarma` veritabanı DURUYOR. Telefonlar 1.31.2 sonrası temiz senkron yapınca silinebilir.
+
+⚠️ Onarım sırasında yanlış satır aralığıyla küme dökümünün başı `sipario_kurtarma`ya koştu, ilk komut `DROP DATABASE sipario` oldu. Veritabanı kullanımda olduğu için silinmedi ama PostgreSQL süreci çöktü ve 1 sn içinde kendini kurtardı. Veri, roller ve tablolar doğrulandı. **Küme dökümü asla doğrudan psql'e verilmez.**
+
+#### ⚠️ AÇIK İŞ
+- **Doğrulama sabah trafiğinde:** `docker logs app-hqhx… | grep sync.event_rejected` 1.31.2 dağıtımından sonra sıfır olmalı. Kalan red gerçek bir veri reddidir.
+- **Test sunucusu (`test.sipario.com.tr`) da aynı şekilde boş** (bugünden önceki müşteri 0). `/root/sipario_dev_yedek.sql.gz` ile aynı betikle onarılabilir.
+- Antigravity'nin `yedekKaybiniKurtar` penceresi her karantina anahtarı değişiminde 12–18 Kasım `acked` olaylarını yeniden gönderir. Artık hepsi `duplicate`/`stale` döner, zararsız ama gereksiz trafik. Pencere bir sonraki mobil sürümde kaldırılmalı.
+- Antigravity mobil değişikliği `pubspec` sürümünü artırmadan çıktı (1.17.0 kaldı, kural ihlali).
+
+### (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-11-06 (2) — **TEK MESAJ DÜĞMESİ, KAPALI UYGULAMAYA SÜRÜM BİLDİRİMİ, WHATSAPP BİÇİMLERİ, KARANTİNA ÇIKIŞI** (mobil 1.16.0 → **1.17.0**, API 1.30.0 → **1.31.0**, şema v32)
 
 Gerekçeler DECISIONS.md 2026-11-06/5.
 
