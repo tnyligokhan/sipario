@@ -48,8 +48,11 @@ do_backup() {
 
     log "Yedekleme başlıyor: ${filename}"
 
-    # pg_dump ile sıkıştırılmış tam yedek
-    if pg_dump --no-owner --no-privileges --clean --if-exists | gzip > "${filepath}"; then
+    # pg_dump ile sıkıştırılmış tam yedek (--no-owner/--no-privileges KULLANILMAZ:
+    # kullanıldığında sipario_login_lookup fonksiyonunun sipario_auth sahipliği ve
+    # sipario_app/sipario_panel GRANT/REVOKE izinleri yedekten düşer ve geri yükleme
+    # sonrası migrate yeniden koşmadığı için giriş/panel kırılır).
+    if pg_dump --clean --if-exists | gzip > "${filepath}"; then
         local size
         size=$(du -h "${filepath}" | cut -f1)
         log "✅ Yedekleme tamamlandı: ${filename} (${size})"

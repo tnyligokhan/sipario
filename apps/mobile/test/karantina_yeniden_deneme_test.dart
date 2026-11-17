@@ -165,5 +165,108 @@ void main() {
       expect(await t.motor.karantinayiYenidenDene(yapim: 630), 0);
       expect((await t.db.syncState()).karantinaAnahtari, '630|');
     });
+
+    test('13.11.2026 yedek kaybı penceresindeki acked olaylar da yeniden kuyruğa alınır', () async {
+      // 12 Kasım öncesi acked kayıt: yedekte zaten var, dokunulmamalı.
+      await enqueueOutbox(
+        t.db,
+        entityType: 'customer',
+        op: 'upsert',
+        entityId: 'eski-musteri',
+        clientEventId: '00000000-0000-7000-8000-000000000001',
+        payload: {'id': 'eski-musteri', 'name': 'Eski Müşteri'},
+        occurredAt: '2026-11-01T10:00:00.000Z',
+      );
+      // 14 Kasım acked müşteri: eski sunucu onayladı ama 13.11 yedeğinde yok.
+      await enqueueOutbox(
+        t.db,
+        entityType: 'customer',
+        op: 'upsert',
+        entityId: 'kayip-musteri',
+        clientEventId: '00000000-0000-7000-8000-000000000002',
+        payload: {'id': 'kayip-musteri', 'name': '14 Kasım Müşterisi'},
+        occurredAt: '2026-11-14T12:00:00.000Z',
+      );
+      await (t.db.update(t.db.outbox)).write(const OutboxCompanion(status: Value('acked')));
+
+      // 17 Kasım'da bu müşteriye açılan sipariş sunucuda ebeveyn olmadığı için rejected olmuş.
+      await enqueueOutbox(
+        t.db,
+        entityType: 'order',
+        op: 'created',
+        entityId: 'yeni-siparis',
+        clientEventId: '00000000-0000-7000-8000-000000000003',
+        payload: {
+          'order': {'id': 'yeni-siparis', 'customer_id': 'kayip-musteri'},
+          'lines': const [],
+        },
+        occurredAt: '2026-11-17T09:00:00.000Z',
+      );
+      await (t.db.update(t.db.outbox)
+            ..where((o) => o.clientEventId.equals('00000000-0000-7000-8000-000000000003')))
+          .write(const OutboxCompanion(status: Value('rejected'), attempts: Value(1)));
+
+      await t.motor.pushPending();
+
+      expect(t.api.pushedBatches, hasLength(1));
+      final gonderilenKimlikler = [
+        for (final o in t.api.pushedBatches.single) o['client_event_id'] as String,
+      ];
+      // Önce 14 Kasım müşterisi, hemen arkasından 17 Kasım siparişi gitmeli; 1 Kasım gitmemeli.
+      expect(gonderilenKimlikler, [
+        '00000000-0000-7000-8000-000000000002',
+        '00000000-0000-7000-8000-000000000003',
+      ]);
+      expect(await t.karantinaSayisi(), 0);
+    });
+
+    test('başka cihazdan inmiş yerel müşteri ve sipariş ebeveynlerini sentetik olarak başa ekler',
+        () async {
+      // Patronun 15 Kasım'da açtığı müşteri ve sipariş bu kurye telefonuna pull ile inmiş
+      // (bu telefonun outbox'ında yok), kurye 17 Kasım'da teslim etmiş ve 'Sipariş bulunamadı'
+      // ile rejected almış.
+      await t.db.into(t.db.customers).insert(CustomersCompanion.insert(
+            id: 'patron-musteri',
+            name: 'Patronun Açtığı Müşteri',
+            updatedOccurredAt: '2026-11-15T10:00:00.000Z',
+          ));
+      await t.db.into(t.db.orders).insert(OrdersCompanion.insert(
+            id: 'patron-siparis',
+            customerId: const Value('patron-musteri'),
+            occurredAt: '2026-11-15T10:05:00.000Z',
+          ));
+      await t.db.into(t.db.orderLines).insert(OrderLinesCompanion.insert(
+            id: 'satir-1',
+            orderId: 'patron-siparis',
+            productName: '19L Damacana',
+            unitPriceKurus: 9000,
+            qty: 2,
+            lineTotalKurus: 18000,
+          ));
+
+      await enqueueOutbox(
+        t.db,
+        entityType: 'order',
+        op: 'delivered',
+        entityId: 'patron-siparis',
+        clientEventId: '00000000-0000-7000-8000-000000000010',
+        payload: {'order_id': 'patron-siparis', 'payment_type': 'nakit'},
+        occurredAt: '2026-11-17T11:00:00.000Z',
+      );
+      await (t.db.update(t.db.outbox)
+            ..where((o) => o.clientEventId.equals('00000000-0000-7000-8000-000000000010')))
+          .write(const OutboxCompanion(status: Value('rejected'), attempts: Value(1)));
+
+      await t.motor.pushPending();
+
+      expect(t.api.pushedBatches, hasLength(1));
+      final parti = t.api.pushedBatches.single;
+      // Sıra: 1) müşteri upsert, 2) sipariş created (satırıyla), 3) sipariş delivered.
+      expect(
+        parti.map((e) => '${e['entity_type']}:${e['op']}').toList(),
+        ['customer:upsert', 'order:created', 'order:delivered'],
+      );
+      expect(await t.karantinaSayisi(), 0);
+    });
   });
 }

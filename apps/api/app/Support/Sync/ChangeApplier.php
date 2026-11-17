@@ -414,7 +414,10 @@ class ChangeApplier
         $payload = (array) ($event['payload'] ?? []);
         $id = (string) SyncPayload::req($payload, 'id');
         if (LedgerEntry::query()->find($id) !== null) {
-            throw new InvalidArgumentException('Bu defter kaydı zaten var');
+            // Aynı bayide (RLS altında) bu defter satırı zaten varsa 'duplicate' ile yakınsar
+            // (deterministik teslim/kapanış kimliği veya yedek dönüşü tekrar gönderimi). Başka
+            // bayinin kaydı RLS altında görünmez → null → INSERT 23505 ile reddedilir.
+            return ['status' => 'duplicate', 'entity_id' => $id, 'changes' => []];
         }
 
         $entryType = (string) SyncPayload::req($payload, 'entry_type');

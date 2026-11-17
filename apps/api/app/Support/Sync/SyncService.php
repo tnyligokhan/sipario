@@ -289,11 +289,23 @@ class SyncService
             return $snapshot + ['subscription' => $subscription, 'team' => $this->teamPayload()];
         }
 
-        $rows = DB::select(
-            'SELECT seq, entity_type, entity_id, op, payload, occurred_at
-             FROM sync_changes WHERE tenant_id = ? AND seq > ? ORDER BY seq ASC LIMIT ?',
-            [$tenantId, $since, $limit]
-        );
+        // İstemcinin imleci sunucunun güncel sayacından İLERİDEYSE ($since > $currentSeq),
+        // sunucu veritabanı eski bir yedeğe geri dönmüş demektir (normal işleyişte seq
+        // monoton artar ve imleç asla sunucuyu geçemez). Bu durumda `seq > $since` sorgusu
+        // sunucu sayacı eski değere yetişene kadar boş döner ve istemci yeni deltaları alamaz.
+        // Son 7 günün değişikliklerini sırayla döndürüp imleci $currentSeq'e hizalıyoruz.
+        $imlecIleride = $since > $currentSeq;
+        $rows = $imlecIleride
+            ? DB::select(
+                'SELECT seq, entity_type, entity_id, op, payload, occurred_at
+                 FROM sync_changes WHERE tenant_id = ? AND occurred_at >= ? ORDER BY seq ASC LIMIT ?',
+                [$tenantId, $now->copy()->subDays(7)->utc()->toIso8601String(), $limit]
+            )
+            : DB::select(
+                'SELECT seq, entity_type, entity_id, op, payload, occurred_at
+                 FROM sync_changes WHERE tenant_id = ? AND seq > ? ORDER BY seq ASC LIMIT ?',
+                [$tenantId, $since, $limit]
+            );
 
         $changes = array_map(fn ($r) => [
             'seq' => (int) $r->seq,
@@ -304,12 +316,15 @@ class SyncService
             'occurred_at' => $r->occurred_at,
         ], $rows);
 
-        $nextCursor = $changes !== [] ? (int) end($changes)['seq'] : $since;
+        $tamSayfa = count($changes) === $limit;
+        $nextCursor = $changes !== []
+            ? ($imlecIleride && ! $tamSayfa ? $currentSeq : (int) end($changes)['seq'])
+            : ($imlecIleride ? $currentSeq : $since);
 
         return [
             'mode' => 'delta',
             'cursor' => $nextCursor,
-            'has_more' => count($changes) === $limit,
+            'has_more' => $tamSayfa,
             'current_seq' => $currentSeq,
             'subscription' => $subscription,
             'team' => $this->teamPayload(),
