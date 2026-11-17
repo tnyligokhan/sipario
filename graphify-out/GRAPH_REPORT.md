@@ -1,55 +1,62 @@
-# Graph Report - sipario  (2026-11-07)
+# Graph Report - sipario  (2026-11-17)
 
 ## Corpus Check
-- Large corpus: 1377 files · ~1,135,360 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
+- 1335 files · ~1,138,318 words
+- Verdict: corpus is large enough that graph structure adds value.
+- Unclassified: 86 file(s) not represented in the graph (top: (none) 27, .xml 25, .woff2 6)
 
 ## Summary
-- 13580 nodes · 24075 edges · 656 communities (344 shown, 312 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 198 edges (avg confidence: 0.85)
+- 13960 nodes · 24897 edges · 674 communities (352 shown, 322 thin omitted)
+- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 638 edges (avg confidence: 0.92)
 - Token cost: 0 input · 0 output
+
+## Graph Freshness
+- Built from commit: `e16e06a8`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - Drift Veritabanı Şeması
 - Panel Admin ve Giriş Testleri
 - Mobil Ekran Yardımcıları
-- Müşteri Detay Kartları
+- StatelessWidget
 - Eloquent Modelleri
 - Ara Tahsilat Senkron Testleri
 - Kota ve Tutar İstisnaları
 - Ek Paket ve Rota Kontörü
-- Nasıl Yapılır Rehberi
-- Drift Oturum ve Bildirimler
-- Ödeme Bildirim Servisi
+- State
+- VoidCallback?
+- BillingPeriod
 - Gelir Gider Raporu
 - Çağrı Kartı Gövdesi
 - Senkron API ve Karantina Testleri
 - Mobil Test Veritabanı Kurulumu
 - Ortak UI Bileşen Testleri
-- Harita Grupları ve Rehber
+- List
 - İşletme Tabloları
 - Tipografi
 - Gider Kategorileri
 - Sipariş Düzenleme
 - Tasarım Tokenları
-- Migration ve Depo Testleri
+- package:drift/native.dart
 - Ana Drift Tabloları
 - Prod Compose Ortamı
 - Abonelik Servisi
 - Ana Kabuk
 - RLS Migrationları
 - Prod Ortak Ortam Değişkenleri
-- Bayi Detay Paneli
+- TenantDetail
 - Kurye Yetki Bölümü
 - İkon Seti
 - Senkron Değişiklik Uygulayıcıları
-- Kabuk Test Yardımcıları
-- Müşteri İçe Aktarma
+- package:flutter/material.dart
+- web.php
 - Ekip Yönetimi
 - İşletme Formu
 - Gün Sonu Ekranı
 - Kapanış Bütünlüğü Testleri
 - Sipariş Detay Parçaları
-- Destek Eşleştirme
+- EpostaSablonlariTest.php
 - Ürün Deposu Testleri
 - Müşteri Konum Seçici
 - Oturum ve Giriş Testleri
@@ -62,13 +69,13 @@
 - Harita Etiketleri
 - Node Betikleri
 - Yandex Harita
-- Push Tetikleyici
+- SyncPoisonPillTest.php
 - Gün Sonu Özeti
-- Kullanıcı Adı Üretici
+- .createTenantWithPatron
 - Bildirim Sözleşmesi
 - Gider Formu
-- Çağrı Kuyruğu
-- Geçmiş Gün Kapatma Testleri
+- cagri_kuyrugu.dart
+- ../theme/components/atoms.dart
 - Sipariş Listesi
 - HTTP Ara Katmanı ve Token
 - Seeder'lar
@@ -76,13 +83,13 @@
 - Sipariş Formu
 - Ana Ekran
 - Müşteri Listesi
-- Gün Sonu Kartları
+- PLAN.md
 - Senkron Motoru
 - İptal Onay Akışı Testleri
 - Sipariş Sorguları
 - Çekmece Menü
 - API CI İş Akışı
-- Ekip ve Rota Paneli
+- User
 - Faz 0 Teşhis Ekranı
 - Gün Kapatma ve Arşiv
 - Senkron API İstemcisi
@@ -106,7 +113,7 @@
 - Müşteri Favorileri
 - İşletme Profili
 - Ürün Formu
-- Atom Bileşenler
+- form.dart
 - Bildirim Ayarları
 - Uygulama Açılışı
 - Dış Servis İstemcileri
@@ -126,8 +133,8 @@
 - ayarlar_ekrani
 - order_list_parts
 - order_parts
-- ui_iskonto_test
-- ui_saha_listesi_test
+- ui_iskonto_test.dart
+- ProfileChangeApplier
 - SurumDuyurusuTest
 - PanelPaketGelirEkraniTest
 - GeocodeTest
@@ -144,7 +151,7 @@
 - bildirim_servisi
 - order_musteri_sorgulari
 - ana_ozet
-- dokunma
+- states.dart
 - CallerCardViews
 - measurements
 - sahte_harita_tuvali
@@ -153,24 +160,24 @@
 - siparis_harita
 - oturum_dusurme_test
 - overlays
-- GeocodeController
+- Güncel durum
 - PanelAdminTest
 - CerezEnvanteri
-- RolParolaEsitlemeTest
+- DeploySirasiTest
 - mesaj_sablonlari
 - urun_secenekleri
 - whatsapp_metni
 - day_closing_repository
-- barkod_kamera
-- gun_takvimi
-- musteri_arama_ortami
+- saha_listesi_test.dart
+- BayiIsVerisi
+- musteri_arama_ortami.dart
 - ui_rehber_test
 - rehber_hedef
-- CallJournal
+- .onScreenCall
 - rehber_deposu
 - gun_tahsilat_detay
 - hakkinda_ekrani
-- hatirlatma_sablonu_alani
+- hatirlatma_sablonu_alani.dart
 - ana_bento
 - bildirim_ayarlari
 - push_servisi
@@ -179,19 +186,19 @@
 - iskonto_sheet
 - rehber_sahne
 - rehber_spot
-- bilgilendirme_mesaji
+- bilgilendirme_mesaji.dart
 - siparis_harita_gorunumu
 - AktarimSatiri
 - IyzicoPaymentGateway
 - push_sozlesmesi
-- form_atomlari
-- sihirbaz_parcalari
+- cagri_karti_baslik.dart
+- borclular_verisi.dart
 - sync_yazim_tetigi_test
 - PanelOdemeEkraniTest
 - TenantIsolationTest
 - rehber_modeli
 - order_repository
-- kuryeler_ekrani
+- TenantList
 - harita_yol_cizgisi
 - PanelCsvExportService
 - KuryeIzinKisisellestirmeTest
@@ -199,24 +206,24 @@
 - setup_wizard
 - customer_form_ops
 - satir_notu
-- product_list_screen
-- migration_yardimcilari
+- PanelTenantDataService
+- migration_yardimcilari.dart
 - PanelCsvTest
 - SiteHesapTest
-- gider_kategorileri
+- bool get
 - gorev_karti
 - rehber_balon
 - PanelImportService
-- SyncDesignGapTest
+- customer_ledger.dart
 - guncelleme_sozlesmesi
 - ui_musteri_sesli_test
 - bildirim_tetikleyici
-- DenemeBitiyor
+- SureDoldu
 - cerez
 - gun_veresiye_repository
 - musteri_siparisleri
 - pos_karosu
-- RotaKontoruYenilemeTest
+- harita_gruplari.dart
 - EpostaSablonlariTest
 - package
 - SiteEkipTest
@@ -228,7 +235,7 @@
 - app_database.g
 - musteri_aramasi
 - HaritaKaroTest
-- LocationController
+- SnapshotSayfalayici
 - FavoriVeSatirNotuTest
 - HatirlatmaSablonuTest
 - MainActivity
@@ -248,13 +255,13 @@
 - siparis_gruplari
 - ara_tahsilat_yardimcilari
 - app_database.g
-- Subscribe
-- LedgerExpenseTest
+- CustomerLifecycleTest.php
+- RolParolaEsitlemeTest
 - session
-- surum_notlari
+- AccountDeletionPageTest
 - gider_repository
 - cagri_cozumleyici
-- harita_ad_cipi_test
+- static const
 - cihaz_api
 - svg_path
 - EkPaketTanimlandi
@@ -265,12 +272,13 @@
 - PanelTest
 - PanelWriteTest
 - SubscriptionTest
+- CallerCardViews.kt
 - courier_repository
 - harita_tuvali
 - bicim
 - browser-agent
 - manifest-lint
-- AraTahsilatIptalTest
+- PanelTenantTabsTest
 - AuthFlowTest
 - OlcumVeSeoTest
 - SiteKimlikTest
@@ -279,30 +287,30 @@
 - musteri_fiyatlari
 - geocode_api
 - PanelUyeAcmaTest
-- phase0_test_karti
-- tenant_settings_repository
-- arayan_tanima_ayari
-- home_shell_gezinme
+- FakePaymentGateway
+- AbonelikOnayTest
+- AraTahsilatSyncTest.php
+- SyncZamanNormalizasyonuTest
 - gun_arsivi
-- surum_notlari_test
+- harita_icerigi_test.dart
 - AppDelegate
 - KuryeHesabiAcildi
 - CerezYonetimiTest
 - RotaMotoruTest
-- SurumCarpikligiTest
+- 🟢 8–12. Kalanlar (kısa)
 - TeamCredentialsTest
 - LatencyLog
 - kanal_durumu
 - siparis_satiri_girdisi
 - konum_bildirici
 - cagri_eylem_kanali
-- home_shell_durum
+- (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-09/2-3-4 · TEK UZUN VARDİYA)
 - gun_ozeti_eylemleri
 - money
 - izin_adimlari
-- docker-compose.prod
+- scheduler
 - mobil-apk
-- RoleMiddlewareTest
+- IptalOnayAkisiTest
 - PanelIsolationTest
 - SiteGezinmeTest
 - SiteIcerikTest
@@ -310,22 +318,22 @@
 - cihaz_konumu
 - route_api
 - sync_cekme
-- icon_paint_test
-- siparis_yardimci
-- whatsapp_metni_test
+- yenileme.dart
+- tema_deposu.dart
+- Set
 - browser-agent
 - mobil-apk
 - AdminUsers
 - olcum
-- PanelAccessControlTest
+- CustomerImport
 - PanelDashboardTest
 - PanelGuvenlikTest
 - PanelWriteGuardTest
 - PushGonderimiTest
 - SahaListesiSozlesmeTest
 - GuncellemeKoprusu
-- tr_gun
-- gorev_ilerlemesi
+- KullaniciAdiUretici
+- PaymentSecurityTest
 - rota_cizgisi_api
 - mobil-apk
 - team_api
@@ -333,28 +341,27 @@
 - AbonelikGuvenlikTest
 - PanelExpansionTest
 - PanelWriteUiTest
-- telefon_numarasi
-- call_log_repository
-- home_shell_cagri
+- CallJournal.kt
+- YeniBayiRotaKontoruTest
+- (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-07-29 kapandı)
 - iban
-- indirme_ilerlemesi
+- order_sepet_satiri.dart
 - heads_up_olcumu_test
 - ozet.blade
 - PanelImportAdimliUiTest
 - PanelImportEdgeTest
 - TekCihazOturumuTest
 - phase0_screen
-- rehber_turlari_ekranlar
-- font_variable_test
-- sekme_yonlendirme
+- SubscriptionLockTest
+- harita_ortami.dart
 - composer
 - composer
 - composer
 - 2026_07_26_000701_add_username_login
 - rehber_turlari_kartlar
 - ledger_repository
-- order_form_sepet
-- docker-compose.prod
+- (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-22/2 — BEŞ SAHA MADDESİ (mobil 0.42.0 → **0.47.0**, API 1.14.0 → **1.16.0**)
+- Telefon
 - .mcp
 - mobil-apk
 - ParolaDegisti
@@ -366,10 +373,10 @@
 - auth_api
 - harita_yasami_test
 - browser-agent
+- PaymentInitiation
+- PostaYapilandirmaTest
 - docker-compose.prod
-- docker-compose.prod
-- docker-compose.prod
-- docker-compose.prod
+- (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-28 — **KVKK ÇEREZ TERCİH MERKEZİ** (API 1.18.0 → **1.19.0**, mobil sabit)
 - mobil-apk
 - OdemeEslesmedi
 - PushSonucu
@@ -377,9 +384,9 @@
 - composer
 - 2026_08_22_004018_add_courier_can_see_all_customers
 - musteriler.blade
-- ParolaSifirlamaApiTest
+- OdemeOnaylandi
 - browser-agent
-- docker-compose.prod
+- environment
 - mobil-apk
 - yonetim.blade
 - 0001_01_01_000002_create_jobs_table
@@ -467,9 +474,10 @@
 - _uye-modal.blade
 - hesap.blade
 - isletme.blade
+- Tasarım boşluğu — veri katmanı (backend, 2026-07-25/26)
 - app_database_gocler
-- phase0_screen
-- order_form_screen
+- SecurityHardeningTest
+- .sablonlar
 - auto-commit
 - tablo.blade
 - parola.blade
@@ -491,103 +499,121 @@
 - check_permissions
 - check_permissions_source
 - ci-varlik-indirmesini-yeniden-dene
+- gun_arsiv_detay.dart
+- 🔻 VARDİYA DEVİR NOTU — 2026-08-18/3 — DÖRT SAHA MADDESİ: GÜNÜN VERESİYESİ · TAHSİLAT KAYNAĞI · KAPANIŞI GERİ ALMA · ÜRÜN SEÇENEKLERİ (mobil 0.28.0 → **0.31.0**, API 1.10.0 → **1.11.0**)
+- 🔻 VARDİYA DEVİR NOTU — 2026-08-18/2 — DÖRT SAHA İSTEĞİ KAPANDI: YETKİ ARIZASI · 3 SÜTUN KATALOG · DOKUZ BİLDİRİM SESİ · KARTTAN TESLİM (mobil 0.26.0 → **0.28.0**, API DEĞİŞMEDİ 1.10.0)
+- ParolaSifirlama
+- YenilemeHatirlatmasi
+- 🔻 VARDİYA DEVİR NOTU — 2026-08-25/2 — **SÜRÜM 1.0.0, YAYINA GEÇİŞ** (mobil 0.49.0 → **1.0.0**)
+- (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-20 — ATIF NİYETE DEĞİL OLGUYA BAKIYOR · TEZGÂH ROLÜ AÇILDI · GÜN ÖZETİ KAPSAMI (mobil 0.34.0 → **0.38.0**, API 1.12.0 → **1.13.0**)
+- 🔻 VARDİYA DEVİR NOTU — 2026-08-18/4 — ÇOK İŞLETMELİ GÖRÜNÜRLÜK: "İÇİNDEKİLER" ARTIK YETENEĞE BAĞLI (mobil 0.31.0 → **0.32.0**, API 1.11.0 DEĞİŞMEDİ¹)
+- CerezEnvanteri.php
+- (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-18/5 — AYARLAR SADELEŞTİ: METİN DİLİ · ANAHTARLAR · SİMÜLASYON KALDIRILDI (mobil 0.32.0 → **0.33.0**, API DEĞİŞMEDİ 1.11.0)
+- (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-12 — **TÜRKÇE ARAMA KIRIKMIŞ** (mobil 1.2.0 → **1.3.0**, API sabit)
+- (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-19/3 — SİTE METNİ SADELEŞTİ: TEKRARLAR SİLİNDİ, "BİZ KİMİZ" AÇILDI (API 1.12.0, mobil DEĞİŞMEDİ 0.34.0)
+- (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-01 — **SİTE YEDİ MADDEDE YENİDEN DÜZENLENDİ** (API 1.20.1 → **1.21.0**, mobil sabit)
+- 🔻 ÖNCEKİ DEVİR NOTU — 2026-08-21/2 — UYGULAMA METNİ BAŞTAN SONA YENİDEN YAZILDI · TEST TABANI KIRMIZIYDI, KAPATILDI (mobil 0.40.0 → **0.41.0**, API DEĞİŞMEDİ 1.13.0)
+- (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-21 — KAPANMAYAN GÜN GÖRÜNÜR OLDU VE KAPATILABİLİYOR · BİLDİRİM MERKEZİ (mobil 0.38.0 → **0.40.0**, API DEĞİŞMEDİ 1.13.0)
+- (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-03 — **UYGULAMA İÇİ REHBER (A+B+C)** (mobil 1.0.2 → **1.1.0**, API sabit 1.22.0)
+- SyncEngine
+- _KapatmaGovdesi
 
 ## God Nodes (most connected - your core abstractions)
 1. `Tenant` - 233 edges
 2. `ApiTestCase` - 168 edges
-3. `AppDatabase` - 121 edges
-4. `User` - 109 edges
-5. `BuildsSyncEvents` - 108 edges
-6. `AdminUser` - 95 edges
-7. `http` - 87 edges
-8. `x-app-env` - 74 edges
+3. `Tasarım boşluğu — veri katmanı (backend, 2026-07-25/26)` - 156 edges
+4. `AppDatabase` - 121 edges
+5. `User` - 109 edges
+6. `BuildsSyncEvents` - 108 edges
+7. `AdminUser` - 97 edges
+8. `http` - 87 edges
 9. `environment` - 74 edges
 10. `environment` - 74 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `{closure#2}()` --calls--> `GecersizTutarException`  [INFERRED]
-  apps/api/app/Abonelik/EkPaketServisi.php → apps/api/app/Abonelik/GecersizTutarException.php
-- `{closure#2}()` --calls--> `RotaKontoru`  [INFERRED]
-  apps/api/app/Abonelik/EkPaketServisi.php → apps/api/app/Abonelik/RotaKontoru.php
-- `{closure#1}()` --calls--> `OdemeKayitServisi`  [INFERRED]
-  apps/api/app/Abonelik/OdemeBildirimServisi.php → apps/api/app/Abonelik/OdemeKayitServisi.php
-- `{closure#6}()` --references--> `AddonPackage`  [EXTRACTED]
-  apps/api/tests/Feature/Api/AbonelikIdempotensTest.php → apps/api/app/Models/AddonPackage.php
-- `{closure#1}()` --references--> `AdminUser`  [EXTRACTED]
-  apps/api/tests/Feature/Api/PanelCekirdekUiTest.php → apps/api/app/Models/AdminUser.php
+- `Tasarım boşluğu — veri katmanı (backend, 2026-07-25/26)` --references--> `goster()`  [INFERRED]
+  DECISIONS.md → apps/api/public/js/alpine.js
+- `KAPILAR` --references--> `SnapshotSayfalamaTest`  [INFERRED]
+  PLAN.md → apps/api/tests/Feature/Api/SnapshotSayfalamaTest.php
+- `⚠️ AÇIK İŞ` --references--> `ChangeApplier`  [INFERRED]
+  PLAN.md → apps/api/app/Support/Sync/ChangeApplier.php
+- `🔴 ÜÇ SESSİZ ARIZA — hepsi bu vardiyada bulundu ve kapandı` --references--> `CerezEnvanteri`  [INFERRED]
+  PLAN.md → apps/api/app/Support/Cerez/CerezEnvanteri.php
+- `⭐ Ne yapıldı` --references--> `RejectRevokedToken`  [INFERRED]
+  PLAN.md → apps/api/app/Http/Middleware/RejectRevokedToken.php
 
 ## Import Cycles
 - None detected.
 
-## Communities (656 total, 312 thin omitted)
+## Communities (674 total, 322 thin omitted)
 
 ### Community 0 - "Drift Veritabanı Şeması"
 Cohesion: 0.01
-Nodes (311): _adAnahtarlariniDoldur, _addColumnIfMissing, migration, _openOnDevice, schemaVersion, syncState, _tabloVar, watchBekleyenSayisi (+303 more)
+Nodes (310): _adAnahtarlariniDoldur, _addColumnIfMissing, migration, _openOnDevice, schemaVersion, syncState, _tabloVar, watchKarantinaSayisi (+302 more)
 
 ### Community 1 - "Panel Admin ve Giriş Testleri"
 Cohesion: 0.02
-Nodes (45): PanelAdmin, Login, AdminUser, PanelAdminService, Provisioning, ApiTestCase, AppendOnlyLedgerTest, {closure#8}() (+37 more)
+Nodes (43): PanelAdmin, RotaKontoruYenile, Login, AdminUser, PanelAdminService, PanelWriteService, Provisioning, ApiTestCase (+35 more)
 
 ### Community 2 - "Mobil Ekran Yardımcıları"
-Cohesion: 0.01
-Nodes (172): adAnahtari, characters8, _Harfler, _katlama, tampon, toString, karaListede, karaListedenCikarEtiketi (+164 more)
+Cohesion: 0.02
+Nodes (128): karaListede, karaListedenCikarEtiketi, karaListeRozeti, karaListeSiparisMesaji, karaListeyeEkleEtiketi, musteriyiSilEtiketi, _basHarfler, build (+120 more)
 
-### Community 3 - "Müşteri Detay Kartları"
+### Community 3 - "StatelessWidget"
 Cohesion: 0.01
-Nodes (159): adres, _AksiyonKutusu, build, calisiyor, etiket, eylem, eylemler, ikon (+151 more)
+Nodes (151): adres, _AksiyonKutusu, build, calisiyor, etiket, eylem, eylemler, ikon (+143 more)
 
 ### Community 4 - "Eloquent Modelleri"
 Cohesion: 0.03
-Nodes (18): CallLog, CashHandover, {closure#1}(), Customer, CustomerAddress, CustomerPhone, DayClosing, ExemptNumber (+10 more)
+Nodes (22): {closure#1}(), CallLog, CashHandover, {closure#1}(), Customer, CustomerAddress, CustomerPhone, DayClosing (+14 more)
 
 ### Community 5 - "Ara Tahsilat Senkron Testleri"
 Cohesion: 0.01
-Nodes (12): AraTahsilatSyncTest, CagriAtfiSyncTest, BuildsSyncEvents, CourierSyncTest, {closure#2}(), CustomerLifecycleTest, KapanisGeriAlmaTest, KapanisYakinsamaTest (+4 more)
+Nodes (10): AraTahsilatIptalTest, {closure#8}(), BuildsSyncEvents, CourierSyncTest, KapanisGeriAlmaTest, KapanisYakinsamaTest, LedgerDiscountTest, LedgerExpenseTest (+2 more)
 
 ### Community 6 - "Kota ve Tutar İstisnaları"
-Cohesion: 0.03
-Nodes (31): GecersizTutarException, KotaDoluException, KuryeKotasi, UserRole, Kurye, Operator, Patron, BayiPostacisi (+23 more)
+Cohesion: 0.05
+Nodes (16): GecersizTutarException, KotaDoluException, UserRole, Kurye, Operator, Patron, BayiPostacisi, AuditLog (+8 more)
 
 ### Community 7 - "Ek Paket ve Rota Kontörü"
 Cohesion: 0.02
-Nodes (66): {closure#1}(), {closure#2}(), AbonelikHatirlatmalari, {closure#1}(), TenantStatus, Active, Cancelled, Locked (+58 more)
+Nodes (78): {closure#1}(), {closure#3}(), AbonelikHatirlatmalari, {closure#1}(), {closure#2}(), {closure#3}(), TenantStatus, Active (+70 more)
 
-### Community 8 - "Nasıl Yapılır Rehberi"
+### Community 8 - "State"
 Cohesion: 0.02
-Nodes (117): _acik, _arama, _Bos, build, createState, dispose, kuryeMi, madde (+109 more)
+Nodes (114): RehberSahnesi, _RehberSahnesiState, acik, BarkodFenerDugmesi, barkodKabulEt, barkodKameraAc, build, cap (+106 more)
 
-### Community 9 - "Drift Oturum ve Bildirimler"
+### Community 9 - "VoidCallback?"
 Cohesion: 0.02
-Nodes (105): Session, AppDatabase, KapanmamisGun, an, BildirimlerEkrani, bildirimZamanEtiketi, build, db (+97 more)
+Nodes (72): an, BildirimlerEkrani, bildirimZamanEtiketi, build, db, fark, _govde, _hepsiniTemizle (+64 more)
 
-### Community 10 - "Ödeme Bildirim Servisi"
-Cohesion: 0.03
-Nodes (60): {closure#1}(), {closure#2}(), OdemeBildirimServisi, {closure#1}(), {closure#2}(), BillingPeriod, Monthly, Yearly (+52 more)
+### Community 10 - "BillingPeriod"
+Cohesion: 0.07
+Nodes (12): OdemeBildirimServisi, BillingPeriod, Monthly, Yearly, Bildirimler, Subscribe, {closure#1}(), SubscriptionService (+4 more)
 
 ### Community 11 - "Gelir Gider Raporu"
 Cohesion: 0.03
-Nodes (18): GelirGiderRaporu, PlanDeposu, TenantNotServisi, ParaEkrani, Dashboard, GelirGider, Odemeler, {closure#1}() (+10 more)
+Nodes (33): EkPaketServisi, GelirGiderRaporu, PlanDeposu, {closure#1}(), Bicim, {closure#1}(), Dashboard, MasrafForm (+25 more)
 
 ### Community 12 - "Çağrı Kartı Gövdesi"
 Cohesion: 0.02
-Nodes (104): _BilgiSatiri, build, CagriBakiyeSeridi, CagriBilgiSatirlari, CagriEylemler, _durumRenk, _durumZemin, ikon (+96 more)
+Nodes (86): _BilgiSatiri, build, CagriBakiyeSeridi, CagriBilgiSatirlari, CagriEylemler, _durumRenk, _durumZemin, ikon (+78 more)
 
 ### Community 13 - "Senkron API ve Karantina Testleri"
-Cohesion: 0.03
-Nodes (72): HttpSyncApi, SyncApi, _bilgi, _ekranaKoy, _kapat, main, pump, pumpWidget (+64 more)
+Cohesion: 0.02
+Nodes (71): defterKapsamSuzgeci, kapsamaDusuyor, null, siparisKapsamSuzgeci, siparisSahibi, siparisSahibiEsit, true, _bilgi (+63 more)
 
 ### Community 14 - "Mobil Test Veritabanı Kurulumu"
-Cohesion: 0.03
-Nodes (56): SecimSatiri, db, into, main, _oturumluDb, SocketExceptionBenzeri, _BayiOrtami, canli (+48 more)
+Cohesion: 0.04
+Nodes (41): db, into, main, _oturumluDb, _BayiOrtami, canli, db, _durak (+33 more)
 
 ### Community 15 - "Ortak UI Bileşen Testleri"
-Cohesion: 0.03
-Nodes (42): ArayanTanimaDeposu, SipButon, SipKnob, main, main, kur, main, main (+34 more)
+Cohesion: 0.04
+Nodes (39): SipButon, diyalogAnimasyonu, main, satir, main, giderYaz, main, nakitliEkran (+31 more)
 
-### Community 16 - "Harita Grupları ve Rehber"
+### Community 16 - "List"
 Cohesion: 0.02
-Nodes (77): kNasilYapilir, nasilYapilirListesi, basi, build, duraklar, etiket, _GrupCipi, gruplar (+69 more)
+Nodes (89): kSurumNotlari, maddeler, null, s, surum, SurumNotu, surumNotuBul, tarih (+81 more)
 
 ### Community 17 - "İşletme Tabloları"
 Cohesion: 0.02
@@ -598,8 +624,8 @@ Cohesion: 0.02
 Nodes (84): adet24, anaCta, aramaInput, avatar, _b, bakiyeDeger, bakiyeDurum, bakiyeEtiket (+76 more)
 
 ### Community 19 - "Gider Kategorileri"
-Cohesion: 0.02
-Nodes (73): ad, build, createState, db, dispose, _ekle, GiderKategorileriEkrani, giderKategoriSaltOkunurUyarisi (+65 more)
+Cohesion: 0.04
+Nodes (45): build, db, devralinan, ezme, _EzmeSatiri, _Govde, KisiselYetkiGovdesi, kuryeAdi (+37 more)
 
 ### Community 20 - "Sipariş Düzenleme"
 Cohesion: 0.03
@@ -609,25 +635,25 @@ Nodes (76): ad, adet, _adetDegis, birimFiyatKurus, _bos, build, createState, db 
 Cohesion: 0.02
 Nodes (79): accent, accentInk, accentSoft, acik, bakiyeEtiket, bakiyeRenk, bakiyeSoft, bg (+71 more)
 
-### Community 22 - "Migration ve Depo Testleri"
-Cohesion: 0.04
-Nodes (40): main, main, db, main, db, kapat, main, _Ortam (+32 more)
+### Community 22 - "package:drift/native.dart"
+Cohesion: 0.03
+Nodes (70): db, main, repo, main, bugun, main, siparis, main (+62 more)
 
 ### Community 23 - "Ana Drift Tabloları"
 Cohesion: 0.02
 Nodes (77): amountKurus, assignedUserId, balanceKurus, barcode, blacklistedAt, code, collectedByUserId, createdDeviceId (+69 more)
 
 ### Community 24 - "Prod Compose Ortamı"
-Cohesion: 0.09
-Nodes (82): environment, environment, APP_DEBUG, APP_ENV, APP_FAKER_LOCALE, APP_FALLBACK_LOCALE, APP_KEY, APP_LOCALE (+74 more)
+Cohesion: 0.10
+Nodes (74): environment, APP_DEBUG, APP_ENV, APP_FAKER_LOCALE, APP_FALLBACK_LOCALE, APP_KEY, APP_LOCALE, APP_NAME (+66 more)
 
 ### Community 25 - "Abonelik Servisi"
-Cohesion: 0.05
-Nodes (32): AbonelikServisi, EkPaketServisi, {closure#1}(), MasrafServisi, OdemeKayitServisi, AddonGrant, Expense, AbonelikIdempotensTest (+24 more)
+Cohesion: 0.03
+Nodes (62): AbonelikServisi, {closure#1}(), {closure#2}(), {closure#1}(), MasrafServisi, {closure#1}(), OdemeKayitServisi, TenantNotServisi (+54 more)
 
 ### Community 26 - "Ana Kabuk"
-Cohesion: 0.03
-Nodes (46): _access, _atamaHedefiVar, bantTuru, _borcluSayisi, _borcluSub, _cekmece, createState, build (+38 more)
+Cohesion: 0.02
+Nodes (83): _access, _atamaHedefiVar, bantTuru, _borcluSayisi, _borcluSub, _cekmece, createState, build (+75 more)
 
 ### Community 27 - "RLS Migrationları"
 Cohesion: 0.03
@@ -636,10 +662,6 @@ Nodes (3): cozunurlugeCevir(), down(), up()
 ### Community 28 - "Prod Ortak Ortam Değişkenleri"
 Cohesion: 0.03
 Nodes (74): x-app-env, APP_DEBUG, APP_ENV, APP_FAKER_LOCALE, APP_FALLBACK_LOCALE, APP_KEY, APP_LOCALE, APP_NAME (+66 more)
-
-### Community 29 - "Bayi Detay Paneli"
-Cohesion: 0.06
-Nodes (3): TenantDetail, PanelTenantDataService, PanelTenantTabsTest
 
 ### Community 30 - "Kurye Yetki Bölümü"
 Cohesion: 0.03
@@ -650,16 +672,16 @@ Cohesion: 0.03
 Nodes (68): ad, _ahize, alert, ay, ban, barkod, batarya, bolt (+60 more)
 
 ### Community 32 - "Senkron Değişiklik Uygulayıcıları"
-Cohesion: 0.07
-Nodes (11): CashHandoverChangeApplier, ChangeApplier, DayClosingChangeApplier, GiderKategorileri, MesajSablonlari, MusteriFiyatlari, OrderChangeApplier, ProfileChangeApplier (+3 more)
+Cohesion: 0.10
+Nodes (13): CashHandoverChangeApplier, ChangeApplier, DayClosingChangeApplier, MusteriFiyatlari, OrderChangeApplier, SyncPayload, {closure#2}(), UrunSecenekleri (+5 more)
 
-### Community 33 - "Kabuk Test Yardımcıları"
-Cohesion: 0.04
-Nodes (42): DegerSatiri, SipIcon, ekranaKoy, kapat, pump, pumpWidget, runAsync, semantikDugme (+34 more)
+### Community 33 - "package:flutter/material.dart"
+Cohesion: 0.02
+Nodes (86): SipIcon, dosya, _fontYukle, _genislik, load, main, stil, tp (+78 more)
 
-### Community 34 - "Müşteri İçe Aktarma"
-Cohesion: 0.05
-Nodes (10): CustomerImport, Login, Parola, ParolaYenile, PanelExportService, {closure#1}(), TenantAdminService, {closure#13}() (+2 more)
+### Community 34 - "web.php"
+Cohesion: 0.06
+Nodes (10): Login, Parola, ParolaYenile, Register, {closure#1}(), {closure#2}(), {closure#3}(), {closure#4}() (+2 more)
 
 ### Community 35 - "Ekip Yönetimi"
 Cohesion: 0.05
@@ -667,43 +689,43 @@ Nodes (66): kullaniciAdi, null, rolEtiketi, _rolSirasi, watchAktifKuryeler, watc
 
 ### Community 36 - "İşletme Formu"
 Cohesion: 0.05
-Nodes (7): {closure#1}(), {closure#1}(), {closure#2}(), IsletmeFormu, Hesap, PanelDashboardService, PanelStatsService
+Nodes (9): {closure#1}(), {closure#1}(), {closure#2}(), IsletmeFormu, {closure#1}(), Hesap, PanelDashboardService, PanelStatsService (+1 more)
 
 ### Community 37 - "Gün Sonu Ekranı"
 Cohesion: 0.04
 Nodes (50): _araTahsilatAlabilir, _araTahsilatIptalEdebilir, bugun, build, createState, DayEndScreen, _DayEndScreenState, db (+42 more)
 
 ### Community 38 - "Kapanış Bütünlüğü Testleri"
-Cohesion: 0.04
-Nodes (51): bugun, db, main, bugun, db, gunBasiUtc, kurye, main (+43 more)
+Cohesion: 0.03
+Nodes (77): AppDatabase, bugun, db, main, bugun, db, gunBasiUtc, kurye (+69 more)
 
 ### Community 39 - "Sipariş Detay Parçaları"
-Cohesion: 0.03
-Nodes (61): ad, _adHata, adres, altBosluk, altMetin, ayrac, build, createState (+53 more)
-
-### Community 40 - "Destek Eşleştirme"
 Cohesion: 0.05
-Nodes (10): UyeForm, TenantList, Register, Hosgeldiniz, IcBildirim, {closure#1}(), {closure#3}(), {closure#5}() (+2 more)
+Nodes (39): ad, _adHata, adres, altBosluk, altMetin, ayrac, build, createState (+31 more)
+
+### Community 40 - "EpostaSablonlariTest.php"
+Cohesion: 0.07
+Nodes (8): Hosgeldiniz, IcBildirim, {closure#1}(), {closure#3}(), {closure#5}(), EpostaCagriYerleriTest, {closure#7}(), ParolaSifirlamaApiTest
 
 ### Community 41 - "Ürün Deposu Testleri"
 Cohesion: 0.04
-Nodes (42): ProductRepository, gun, kur, main, tahsilat, tarih, main, main (+34 more)
+Nodes (49): ProductRepository, gun, kur, main, tahsilat, tarih, aliId, aliyeAtanmisSiparis (+41 more)
 
 ### Community 42 - "Müşteri Konum Seçici"
 Cohesion: 0.03
 Nodes (55): aday, AdayBilgi, adaylar, AdaySatiri, AdresAdayi, build, child, kaynak (+47 more)
 
 ### Community 43 - "Oturum ve Giriş Testleri"
-Cohesion: 0.04
-Nodes (51): AuthApi, LoginResult, api, basarili, girisDene, istekSayisi, json, main (+43 more)
+Cohesion: 0.03
+Nodes (52): AuthApi, LoginResult, Session, api, basarili, girisDene, istekSayisi, json (+44 more)
 
 ### Community 44 - "Cihaz Kaydı"
 Cohesion: 0.04
-Nodes (18): {closure#1}(), {closure#3}(), Device, {closure#1}(), {closure#2}(), {closure#3}(), {closure#4}(), {closure#5}() (+10 more)
+Nodes (18): {closure#1}(), Device, {closure#1}(), {closure#2}(), {closure#3}(), {closure#4}(), {closure#5}(), {closure#1}() (+10 more)
 
 ### Community 45 - "Bildirim Kutusu Testleri"
 Cohesion: 0.04
-Nodes (36): DayEndRepository, main, simdi, goster, gosterilenler, iptal, izinDurumu, izinIste (+28 more)
+Nodes (34): main, _sesVarliklari, main, simdi, goster, gosterilenler, iptal, izinDurumu (+26 more)
 
 ### Community 46 - "API Sürümü ve Karantina Testleri"
 Cohesion: 0.04
@@ -718,8 +740,8 @@ Cohesion: 0.04
 Nodes (55): UrunSecenegi, create, db, deactivate, delete, findByBarcode, _payload, update (+47 more)
 
 ### Community 49 - "Harita İçeriği"
-Cohesion: 0.04
-Nodes (57): _, ad, bayatlik, cihaz, cokluRota, coz, DurakDokunusu, DurakIsareti (+49 more)
+Cohesion: 0.05
+Nodes (45): _, ad, bayatlik, cihaz, cokluRota, coz, DurakDokunusu, DurakIsareti (+37 more)
 
 ### Community 50 - "Harita Etiketleri"
 Cohesion: 0.03
@@ -733,17 +755,17 @@ Nodes (50): { execFileSync }, fs, hedef, path, sonuc, args, C, clearScreen() (+4
 Cohesion: 0.04
 Nodes (47): _acik, anahtar, ayar, basla, _basladi, bitir, build, createState (+39 more)
 
-### Community 53 - "Push Tetikleyici"
-Cohesion: 0.05
-Nodes (10): PushTetikleyici, {closure#3}(), PanelSyncYazici, EventValidator, SnapshotSayfalayici, {closure#1}(), SyncService, {closure#7}() (+2 more)
+### Community 53 - "SyncPoisonPillTest.php"
+Cohesion: 0.12
+Nodes (3): {closure#7}(), {closure#8}(), SyncPoisonPillTest
 
 ### Community 54 - "Gün Sonu Özeti"
 Cohesion: 0.03
 Nodes (55): acik, acikKuryeAdlari, acikKuryeler, acikSiparis, acikSiparisSayisi, _aktifKuryeler, _aktifKuryeSayisi, aktifSayi (+47 more)
 
-### Community 55 - "Kullanıcı Adı Üretici"
-Cohesion: 0.06
-Nodes (7): KullaniciAdiUretici, AbonelikOnayTest, {closure#1}(), {closure#3}(), KullaniciAdiTest, SubscriptionLockTest, YeniBayiRotaKontoruTest
+### Community 55 - ".createTenantWithPatron"
+Cohesion: 0.14
+Nodes (5): KullaniciAdiTest, 🔴 ASIL ARIZA AD DEĞİL GÖRÜNÜRLÜKTÜ, ⚠️ GERİYE DÖNÜK DEĞİL, Ne yapıldı, (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-31 — **GİRİŞ ADI TÜRETİLİR VE ARTIK GÖRÜNÜR** (API 1.19.1 → **1.20.0**, mobil sabit)
 
 ### Community 56 - "Bildirim Sözleşmesi"
 Cohesion: 0.05
@@ -751,27 +773,27 @@ Nodes (52): aciklama, ad, BildirimEylemi, goster, gosterilenler, hazir, headsUp,
 
 ### Community 57 - "Gider Formu"
 Cohesion: 0.04
-Nodes (49): aciklama, build, createState, dispose, etiket, _GiderGovdesi, _GiderGovdesiState, giderIptalOnayi (+41 more)
+Nodes (50): ad, aktif, build, createState, digerleri, dispose, haneler, _hata (+42 more)
 
-### Community 58 - "Çağrı Kuyruğu"
-Cohesion: 0.04
-Nodes (42): bosalt, cagriKayitId, CagriKuyrugu, cagriKuyrugunuBosalt, _cozumle, e164, kayitId, kCagriKuyrukDosyasi (+34 more)
+### Community 58 - "cagri_kuyrugu.dart"
+Cohesion: 0.07
+Nodes (26): CallDirection, CallLogRepository, db, log, parse, _payload, _resolveCustomer, setOutcome (+18 more)
 
-### Community 59 - "Geçmiş Gün Kapatma Testleri"
-Cohesion: 0.04
-Nodes (43): bugun, _damga, db, GecmisBayi, gunOnce, kapanis, kur, kuryedenBeklenen (+35 more)
+### Community 59 - "../theme/components/atoms.dart"
+Cohesion: 0.03
+Nodes (61): db, _Govde, IsletmeAyarlariEkrani, profil, writable, calistir, db, GiderAkisi (+53 more)
 
 ### Community 60 - "Sipariş Listesi"
 Cohesion: 0.04
 Nodes (47): _acikSayisiniIzle, _akisFiltre, _akisGun, _akisKurye, _aktifGun, _bos, build, canAssign (+39 more)
 
 ### Community 61 - "HTTP Ara Katmanı ve Token"
-Cohesion: 0.08
-Nodes (22): TokenDusmeSebebi, BaskaCihaz, AppendServerMeta, BlockApiHostWebRoutes, EnsureRole, RejectRevokedToken, ResolveTenantContext, SecurityHeaders (+14 more)
+Cohesion: 0.07
+Nodes (24): TokenDusmeSebebi, BaskaCihaz, AppendServerMeta, BlockApiHostWebRoutes, EnsureRole, RejectRevokedToken, ResolveTenantContext, SecurityHeaders (+16 more)
 
 ### Community 62 - "Seeder'lar"
-Cohesion: 0.07
-Nodes (11): AdminUserSeeder, DatabaseSeeder, DemoFabrika, {closure#1}(), {closure#2}(), DemoSeeder, {closure#1}(), TenantSeeder (+3 more)
+Cohesion: 0.10
+Nodes (8): DemoFabrika, {closure#1}(), {closure#2}(), DemoSeeder, {closure#1}(), TenantSeeder, ⚠️ BU İŞTEN KALAN AÇIK BORÇLAR, 🔐 KURYE YETKİLERİ GERÇEKTEN BAĞLANDI (2026-08-09, saha raporu üzerine)
 
 ### Community 63 - "İptal Onayı"
 Cohesion: 0.04
@@ -779,7 +801,7 @@ Nodes (40): _BantState, build, createState, db, denetleyici, initState, IptalBut
 
 ### Community 64 - "Sipariş Formu"
 Cohesion: 0.04
-Nodes (46): _adim, _adim1, _adim2, _adim3, _adimaGit, _adimlar, _adresler, _akislariHazirla (+38 more)
+Nodes (57): _adim, _adim1, _adim2, _adim3, _adimaGit, _adimlar, _adresler, _akislariHazirla (+49 more)
 
 ### Community 65 - "Ana Ekran"
 Cohesion: 0.05
@@ -789,17 +811,17 @@ Nodes (45): acikSiparisKullanicisi, _akisKullanici, AnaEkran, _AnaEkranState, bo
 Cohesion: 0.05
 Nodes (47): _AltSatir, _borcluSayisi, _bosDurum, build, createState, CustomerListScreen, _CustomerListScreenState, _arama (+39 more)
 
-### Community 67 - "Gün Sonu Kartları"
+### Community 67 - "PLAN.md"
 Cohesion: 0.04
-Nodes (43): acikKuryeAdlari, acikKuryeler, acikSiparis, araTahsilatFarki, AraTahsilatKarti, araTahsilatSaati, ArsivSatiri, borc (+35 more)
+Nodes (47): ⏸️ 1. iyzico sandbox anahtarı — **ASKIYA ALINDI (2026-08-17, kullanıcı kararı)**, 🟡 2. Android release imza anahtarı (keystore) — **AÇIK, AMA ACİL DEĞİL (2026-08-17)**, ⏸️ 3. Apple D-U-N-S + Apple geliştirici hesabı — **ASKIYA ALINDI (2026-08-17, kullanıcı kararı)**, ✅ 4. Arayan tanıma 20/20 ölçümü — **YAPILDI (2026-08-17, kullanıcı doğruladı)**, ✅ 5. Mobil CI — **KAPANDI** (2026-08-17'de koddan ölçüldü; bu satır aylardır bayatmış), 🟡 6. Emanet / boş damacana takibi — KARAR BEKLİYOR, kod yazma, 🟡 7. Hukuk metinlerinin avukat onayı, 🔴 `APP_DEBUG=true` — ÜRETİMDE, EN YÜKSEK ETKİLİ AÇIK (+39 more)
 
 ### Community 68 - "Senkron Motoru"
 Cohesion: 0.06
-Nodes (45): api, _applyApiSurumu, _applyServerTime, _applySubscription, _applyTeam, _b, _bN, _bV (+37 more)
+Nodes (42): api, _applyApiSurumu, _applyServerTime, _applySubscription, _applyTeam, _b, _bN, _bV (+34 more)
 
 ### Community 69 - "İptal Onay Akışı Testleri"
-Cohesion: 0.07
-Nodes (16): PushGonderimi, {closure#10}(), {closure#7}(), {closure#8}(), {closure#9}(), IptalOnayAkisiTest, {closure#1}(), {closure#10}() (+8 more)
+Cohesion: 0.09
+Nodes (15): PushGonderimi, {closure#10}(), {closure#7}(), {closure#8}(), {closure#9}(), {closure#1}(), {closure#10}(), {closure#2}() (+7 more)
 
 ### Community 70 - "Sipariş Sorguları"
 Cohesion: 0.04
@@ -813,57 +835,57 @@ Nodes (45): _Baslik, borclularGorunur, borcluSayisi, cagriGunluguGorunur, Cekmec
 Cohesion: 0.04
 Nodes (48): concurrency, cancel-in-progress, group, defaults, run, DB_CONNECTION, DB_DATABASE, DB_HOST (+40 more)
 
-### Community 73 - "Ekip ve Rota Paneli"
-Cohesion: 0.08
-Nodes (5): {closure#2}(), Ekip, KuryeFormu, User, {closure#4}()
+### Community 73 - "User"
+Cohesion: 0.05
+Nodes (11): KuryeKotasi, {closure#2}(), Ekip, KuryeFormu, User, {closure#3}(), UserFactory, {closure#2}() (+3 more)
 
 ### Community 74 - "Faz 0 Teşhis Ekranı"
-Cohesion: 0.07
-Nodes (43): batterySteps, build, status, _addPhone, _bootstrap, _call, _channel, _batterySteps (+35 more)
+Cohesion: 0.05
+Nodes (57): batterySteps, build, status, _addPhone, _bootstrap, _call, _channel, _batterySteps (+49 more)
 
 ### Community 75 - "Gün Kapatma ve Arşiv"
 Cohesion: 0.05
-Nodes (42): build, beklenen, cerceveNotu, createState, build, dispose, fark, FarkSeridi (+34 more)
+Nodes (34): beklenen, cerceveNotu, createState, build, dispose, fark, FarkSeridi, giderTutar (+26 more)
 
 ### Community 76 - "Senkron API İstemcisi"
 Cohesion: 0.04
 Nodes (47): apiSurum, baseUrl, body, changes, _client, clientEventId, currentSeq, cursor (+39 more)
 
 ### Community 77 - "Borçlu Kartı"
-Cohesion: 0.04
-Nodes (38): BorcluKarti, build, canAssign, db, _hatirlat, iban, ibanAliciAdi, isletmeAdi (+30 more)
+Cohesion: 0.08
+Nodes (19): BorcluKarti, build, canAssign, db, _hatirlat, iban, ibanAliciAdi, isletmeAdi (+11 more)
 
 ### Community 78 - "Yerel Docker Compose"
 Cohesion: 0.05
 Nodes (46): context, dockerfile, build, condition, container_name, environment, healthcheck, ports (+38 more)
 
 ### Community 79 - "Artisan Komutları"
-Cohesion: 0.08
-Nodes (8): CreateTenant, SurumDuyur, YedekBaglantisiGonder, YedekHazir, YedekArsivi, {closure#2}(), {closure#3}(), YedekTest
+Cohesion: 0.07
+Nodes (8): YedekBaglantisiGonder, YedekHazir, YedekArsivi, PanelAccessControlTest, {closure#2}(), {closure#3}(), YedekTest, 🔻 VARDİYA DEVİR NOTU — 2026-08-15/2 — GÜNLÜK YEDEK BAĞLANTISI POSTALANIYOR (API 1.8.0 → **1.9.0**, mobil DEĞİŞMEDİ 0.25.0)
 
 ### Community 80 - "Senkron Denetleyicisi"
-Cohesion: 0.06
-Nodes (9): SyncController, AutoRouteRequest, GeocodeRequest, LocationHeartbeatRequest, LoginRequest, RotaCizgisiRequest, SyncPullRequest, SyncPushRequest (+1 more)
+Cohesion: 0.04
+Nodes (18): SyncController, AutoRouteRequest, DeviceRegisterRequest, GeocodeRequest, LoginRequest, RotaCizgisiRequest, SyncPullRequest, SyncPushRequest (+10 more)
 
 ### Community 81 - "Müşteri Formu"
 Cohesion: 0.05
 Nodes (43): _ad, _adaylar, _adHatasi, adres, _adresHatasi, build, _bulunamadiMesaji, _calisiyor (+35 more)
 
 ### Community 82 - "Müşteri Özel Fiyatları"
-Cohesion: 0.05
-Nodes (42): _akis, _arama, build, createState, customerId, db, dispose, _duzenle (+34 more)
+Cohesion: 0.07
+Nodes (27): _akis, _arama, build, createState, customerId, db, dispose, _duzenle (+19 more)
 
 ### Community 83 - "Ara Tahsilat Formu"
-Cohesion: 0.05
-Nodes (36): _AraTahsilatGovdesi, _AraTahsilatGovdesiState, araTahsilatIptalOnayi, araTahsilatSheet, beklenen, build, cerceveNotu, createState (+28 more)
+Cohesion: 0.02
+Nodes (75): adAnahtari, characters8, _Harfler, _katlama, tampon, toString, _AraTahsilatGovdesi, _AraTahsilatGovdesiState (+67 more)
 
 ### Community 84 - "Mesaj Şablonları"
 Cohesion: 0.05
 Nodes (42): _ac, aciklama, _ad, adDuzenlenir, _adHata, adHatasi, baslangic, baslik (+34 more)
 
 ### Community 85 - "Kimlik Doğrulama Denetleyicisi"
-Cohesion: 0.08
-Nodes (11): AuthController, DeviceController, HaritaController, RotaCizgisiController, TeamController, VersionController, Controller, DeviceRegisterRequest (+3 more)
+Cohesion: 0.05
+Nodes (19): AuthController, DeviceController, HaritaController, {closure#1}(), LocationController, RotaCizgisiController, TeamController, VersionController (+11 more)
 
 ### Community 86 - "Müşteri Deposu"
 Cohesion: 0.05
@@ -886,12 +908,12 @@ Cohesion: 0.04
 Nodes (44): a5, a6, aciklama, araSaniye, b5, bayt, BildirimSesi, c6 (+36 more)
 
 ### Community 91 - "Rota Motoru"
-Cohesion: 0.08
-Nodes (9): RouteController, {closure#3}(), {closure#4}(), GoogleRoutesMotoru, GoogleYolCizgisi, RotaException, RotaMotoru, SiparisDuraklari (+1 more)
+Cohesion: 0.06
+Nodes (11): RotaKontoru, RouteController, {closure#3}(), {closure#4}(), GoogleRoutesMotoru, GoogleYolCizgisi, RotaException, RotaMotoru (+3 more)
 
 ### Community 92 - "Güncelleme Bandı"
 Cohesion: 0.05
-Nodes (36): _altBaslik, _Bant, _baslik, bilgi, build, durum, _EylemDugmesi, guncellemeBandiGorunurMu (+28 more)
+Nodes (35): _altBaslik, _Bant, _baslik, bilgi, build, durum, _EylemDugmesi, guncellemeBandiGorunurMu (+27 more)
 
 ### Community 93 - "Borç Hatırlatma"
 Cohesion: 0.05
@@ -899,19 +921,19 @@ Nodes (42): aciklama, ad, alici, anahtarlar, bilgilendirmeYerTutuculari, blok, b
 
 ### Community 94 - "Müşteri Favorileri"
 Cohesion: 0.05
-Nodes (39): _ara, baslangic, bosDavet, build, _cikar, createState, customerId, db (+31 more)
+Nodes (41): _ara, baslangic, bosDavet, build, _cikar, createState, customerId, db (+33 more)
 
 ### Community 95 - "İşletme Profili"
 Cohesion: 0.05
 Nodes (43): acilis, al, _alan, _alanlar, _bosNull, build, createState, dakika (+35 more)
 
 ### Community 96 - "Ürün Formu"
-Cohesion: 0.05
-Nodes (40): _ad, _aktif, _barkod, _barkodOkut, basHarf, _birim, _birimMetni, _birimSerbest (+32 more)
+Cohesion: 0.02
+Nodes (75): _acik, acikMi, ArayanTanimaSatiri, _ArayanTanimaSatiriState, _bellek, build, _cevir, createState (+67 more)
 
-### Community 97 - "Atom Bileşenler"
-Cohesion: 0.05
-Nodes (32): aktif, build, buyukHarfKipi, cokSatirDikeyDolgu, controller, dikeyDolgu, girdiFiltreleri, gizli (+24 more)
+### Community 97 - "form.dart"
+Cohesion: 0.02
+Nodes (121): acik, koyu, _kur, SipTheme, sistemCubuklari, _ayarla, _basili, basiliOlcek (+113 more)
 
 ### Community 98 - "Bildirim Ayarları"
 Cohesion: 0.05
@@ -922,8 +944,8 @@ Cohesion: 0.05
 Nodes (27): _Acilis, _AcilisHatasi, _bildirimKurallariniKos, build, _cikisMesaji, createState, db, dispose (+19 more)
 
 ### Community 100 - "Dış Servis İstemcileri"
-Cohesion: 0.07
-Nodes (7): {closure#1}(), SyncRejectionLog, BuildsRouteStops, {closure#1}(), {closure#1}(), {closure#2}(), {closure#1}()
+Cohesion: 0.13
+Nodes (5): BuildsRouteStops, {closure#1}(), {closure#1}(), {closure#2}(), {closure#1}()
 
 ### Community 101 - "FCM İstemcisi"
 Cohesion: 0.08
@@ -931,11 +953,11 @@ Nodes (13): FcmIstemcisi, PushGondericisi, PushOlayi, KasaDevri, SiparisAtandi, 
 
 ### Community 102 - "Uygulama Ayarları"
 Cohesion: 0.05
-Nodes (34): _bastanIndir, build, createState, ilerleme, IndirmeGostergesi, koyuTema, onOlcumler, onSihirbaz (+26 more)
+Nodes (35): _bastanIndir, build, createState, ilerleme, IndirmeGostergesi, koyuTema, onOlcumler, onSihirbaz (+27 more)
 
 ### Community 103 - "Gider Akışı"
-Cohesion: 0.05
-Nodes (36): calistir, db, GiderAkisi, GiderAkisiSonucu, harcayanId, kapsamAdi, mevcutNakit, _acik (+28 more)
+Cohesion: 0.10
+Nodes (21): _acik, adYaz, bugunMu, build, createState, db, _degistir, didUpdateWidget (+13 more)
 
 ### Community 104 - "Müşteri Eylemleri"
 Cohesion: 0.05
@@ -943,7 +965,7 @@ Nodes (40): acildi, ad, adres, build, _calistir, d, etiket, _EylemDugmesi (+32 m
 
 ### Community 105 - "Senkron Servisi"
 Cohesion: 0.05
-Nodes (39): _aralik, aralikDegistir, arkaPlanAralik, _baseUrl, beklemede, configure, db, dispose (+31 more)
+Nodes (38): _aralik, aralikDegistir, arkaPlanAralik, _baseUrl, beklemede, configure, db, dispose (+30 more)
 
 ### Community 106 - "Çağrı Modeli"
 Cohesion: 0.05
@@ -951,7 +973,7 @@ Nodes (40): ad, adres, an, anahtar, any, AramaKaydi, aramaTipiCoz, aramaTipiSozc
 
 ### Community 107 - "Bilgilendirme Mesajı Testleri"
 Cohesion: 0.05
-Nodes (26): SipInput, ac, acilanlar, akisiBekle, damga, db, depo, _detayiAc (+18 more)
+Nodes (33): ac, acilanlar, akisiBekle, damga, db, depo, _detayiAc, _dugme (+25 more)
 
 ### Community 108 - "Pubspec Bağımlılıkları"
 Cohesion: 0.05
@@ -964,10 +986,6 @@ Nodes (15): {closure#1}(), {closure#3}(), {closure#4}(), {closure#5}(), {closure
 ### Community 110 - "Müşteri Detay Ekranı"
 Cohesion: 0.05
 Nodes (27): _adresBilgisi, _adresler, arayanNumara, build, createState, CustomerDetailScreen, _CustomerDetailScreenState, customerId (+19 more)
-
-### Community 111 - "CallerCard"
-Cohesion: 0.09
-Nodes (5): CallerCard, Eylem, Customer, CustomerLookup, SonSiparis
 
 ### Community 112 - "2026_08_01_003001_add_admin_user_disabled_at"
 Cohesion: 0.05
@@ -989,17 +1007,17 @@ Nodes (36): _adresler, bos, build, createState, db, _dolgu, _ekip, elle (+28 mor
 Cohesion: 0.05
 Nodes (34): adim, AdimGostergesi, adimlar, _AdimRozeti, aktif, ayniKalem, birimEtiketi, birimFiyat (+26 more)
 
-### Community 117 - "ui_iskonto_test"
-Cohesion: 0.06
-Nodes (28): cid, db, _defter, dokun, ekranaKoy, _iskonto, main, _musteri (+20 more)
+### Community 117 - "ui_iskonto_test.dart"
+Cohesion: 0.09
+Nodes (18): kur, main, cid, db, _defter, dokun, ekranaKoy, _iskonto (+10 more)
 
-### Community 118 - "ui_saha_listesi_test"
-Cohesion: 0.06
-Nodes (27): main, ac, acilir, denenen, ekranaKoy, _hicbirSey, kapat, main (+19 more)
+### Community 118 - "ProfileChangeApplier"
+Cohesion: 0.08
+Nodes (12): GiderKategorileri, MesajSablonlari, ProfileChangeApplier, {closure#4}(), SyncTeamTest, 4b Dilim 4 — kurye + kasa devri (4 ajanlı hat + lead, 2026-07-21), BİLİNEN TUZAKLAR (bu vardiyada öğrenilenler + duranlar), Bu vardiyada NE YAPILDI (+4 more)
 
 ### Community 119 - "SurumDuyurusuTest"
 Cohesion: 0.10
-Nodes (9): SurumDuyurucu, YeniSurumGonderimi, {closure#1}(), {closure#5}(), SurumDuyurusuTest, entrypoint, restart, queue (+1 more)
+Nodes (9): SurumDuyurucu, SurumDuyur, YeniSurumGonderimi, {closure#1}(), SurumDuyurusuTest, entrypoint, restart, queue (+1 more)
 
 ### Community 122 - "customer_sheets"
 Cohesion: 0.06
@@ -1011,15 +1029,15 @@ Nodes (33): _acik, basla, birak, _birikim, _bitir, DikteBirikimi, DikteSurucusu,
 
 ### Community 124 - "oto_siralama"
 Cohesion: 0.06
-Nodes (32): api, ariza, basarili, baseUrl, cihaz, hakkiYaz, hakYetmeyen, hedef (+24 more)
+Nodes (33): OrderListItem, api, ariza, basarili, baseUrl, cihaz, hakkiYaz, hakYetmeyen (+25 more)
 
 ### Community 125 - "harita_sorgulari"
 Cohesion: 0.06
 Nodes (31): adres, atananId, baslik, c, duraklar, gruplar, gruplu, _HamHarita (+23 more)
 
 ### Community 126 - "YandexGeocoder"
-Cohesion: 0.10
-Nodes (7): {closure#5}(), {closure#6}(), GeoAday, GeocodingException, GoogleGeocoder, {closure#1}(), YandexGeocoder
+Cohesion: 0.04
+Nodes (20): {closure#1}(), GeocodeController, AppServiceProvider, {closure#2}(), {closure#5}(), {closure#6}(), GeoAday, Geocoder (+12 more)
 
 ### Community 127 - "day_end_repository"
 Cohesion: 0.06
@@ -1034,8 +1052,8 @@ Cohesion: 0.06
 Nodes (33): _borcYazma, build, createState, dispose, etiket, _hata, ikon, _iskonto (+25 more)
 
 ### Community 130 - "push_baglama"
-Cohesion: 0.06
-Nodes (25): ad, adres, adresler, api, baseUrl, cihazId, kur, meta (+17 more)
+Cohesion: 0.10
+Nodes (15): ad, adres, adresler, api, baseUrl, cihazId, kur, meta (+7 more)
 
 ### Community 131 - "harita_ad_cipi"
 Cohesion: 0.06
@@ -1053,9 +1071,9 @@ Nodes (32): acikSiparisler, adres, AdresBilgi, adresler, bolge, katalogSuz, konu
 Cohesion: 0.06
 Nodes (31): acikSiparis, acikVeresiyeKurus, bas, borcluMusteri, bugunSiparis, bugunTahsilatKurus, bugunTeslim, db (+23 more)
 
-### Community 136 - "dokunma"
+### Community 136 - "states.dart"
 Cohesion: 0.06
-Nodes (31): _ayarla, _basili, basiliOlcek, basiliZemin, build, cap, child, createState (+23 more)
+Nodes (33): aciklama, adet, aksiyon, alt, altBosluk, baslik, build, _c (+25 more)
 
 ### Community 137 - "CallerCardViews"
 Cohesion: 0.20
@@ -1067,7 +1085,7 @@ Nodes (31): at, direction, enoughLocked, enoughSamples, fromJson, locked, locked
 
 ### Community 139 - "sahte_harita_tuvali"
 Cohesion: 0.06
-Nodes (28): HaritaKadraji, ayar, build, cihaz, createState, didUpdateWidget, durak, durakaYaklas (+20 more)
+Nodes (33): HaritaKadraji, ayar, build, cihaz, createState, didUpdateWidget, durak, durakaYaklas (+25 more)
 
 ### Community 140 - "harita_kurye_katmani"
 Cohesion: 0.06
@@ -1089,17 +1107,13 @@ Nodes (24): SipSekme, SihirbazIlerleme, db, durum, govde, _kapat, _kokuKur, kuru
 Cohesion: 0.06
 Nodes (26): _acik, baslik, build, _c, createState, disariTiklaKapat, dispose, false (+18 more)
 
-### Community 145 - "GeocodeController"
-Cohesion: 0.10
-Nodes (7): {closure#1}(), GeocodeController, AppServiceProvider, {closure#2}(), Geocoder, KademeliGeocoder, NullGeocoder
+### Community 145 - "Güncel durum"
+Cohesion: 0.06
+Nodes (35): ⚠️ AÇIK İŞ, ⚠️ AÇIK İŞ, ⚠️ AÇIK İŞ, ⚠️ AÇIK İŞ, Canlı ölçüm — İKİ SAĞLAYICI AÇIKKEN (2026-07-29, gerçek istekler), 📁 Dokunulan yerler, 🔴 EN ÖNEMLİ SATIR: İLK SÜRÜM TUR DEĞİL SLAYT GÖSTERİSİYDİ, Güncel durum (+27 more)
 
-### Community 147 - "CerezEnvanteri"
-Cohesion: 0.14
-Nodes (3): CerezEnvanteri, {closure#2}(), CerezEnvanteriTest
-
-### Community 148 - "RolParolaEsitlemeTest"
-Cohesion: 0.11
-Nodes (4): DeploySirasiTest, PostaYapilandirmaTest, RolParolaEsitlemeTest, ExampleTest
+### Community 148 - "DeploySirasiTest"
+Cohesion: 0.18
+Nodes (3): DeploySirasiTest, ExampleTest, 🔻 2026-08-10/3 — "8 KEZ YENİDEN BAŞLADI" ALARMININ KAYNAĞI KENDİ BAYRAĞIMIZDI
 
 ### Community 149 - "mesaj_sablonlari"
 Cohesion: 0.06
@@ -1110,24 +1124,24 @@ Cohesion: 0.06
 Nodes (30): ad, bos, cikarilan, coz, cozulen, ekKurus, eklenen, ekTutarKurus (+22 more)
 
 ### Community 151 - "whatsapp_metni"
-Cohesion: 0.06
-Nodes (29): _, ayir, bas, bicimle, bicimler, _bosluk, deger, _desen (+21 more)
+Cohesion: 0.05
+Nodes (38): _, ayir, bas, bicimle, bicimler, _bosluk, deger, _desen (+30 more)
 
 ### Community 152 - "day_closing_repository"
 Cohesion: 0.07
-Nodes (28): cerceveKasa, ClosingOnizleme, ClosingScope, DayClosingRepository, _dayEnd, db, deliveryCount, DusulenKalem (+20 more)
+Nodes (29): cerceveKasa, ClosingOnizleme, ClosingScope, DayClosingRepository, _dayEnd, db, deliveryCount, DusulenKalem (+21 more)
 
-### Community 153 - "barkod_kamera"
-Cohesion: 0.07
-Nodes (27): acik, BarkodFenerDugmesi, barkodKabulEt, barkodKameraAc, build, cap, createState, dispose (+19 more)
+### Community 153 - "saha_listesi_test.dart"
+Cohesion: 0.08
+Nodes (11): ArayanTanimaDeposu, SipKnob, main, db, kapat, main, _Ortam, sonYuk (+3 more)
 
-### Community 154 - "gun_takvimi"
-Cohesion: 0.07
-Nodes (30): _Anahtar, _ay, _ayDegis, _aylar, _AyOku, bugun, build, createState (+22 more)
+### Community 154 - "BayiIsVerisi"
+Cohesion: 0.11
+Nodes (5): BayiIsVerisi, {closure#1}(), {closure#2}(), {closure#3}(), {closure#4}()
 
-### Community 155 - "musteri_arama_ortami"
-Cohesion: 0.07
-Nodes (22): main, o, adlar, db, kodAta, main, repo, satirAdlari (+14 more)
+### Community 155 - "musteri_arama_ortami.dart"
+Cohesion: 0.22
+Nodes (8): ara, db, ekle, getir, kapat, MusteriAramaOrtami, _repo, satirAra
 
 ### Community 156 - "ui_rehber_test"
 Cohesion: 0.07
@@ -1137,41 +1151,37 @@ Nodes (20): companion, db, main, UrunOrnegi, aktif, bentoCiz, bentoOnTap, build 
 Cohesion: 0.07
 Nodes (25): bildir, _anahtar, build, child, cikar, createState, didUpdateWidget, dispose (+17 more)
 
-### Community 158 - "CallJournal"
-Cohesion: 0.10
-Nodes (6): ArayanAyari, CagriOturumu, cagriYonuBelirle(), sesOturumuAcik(), CallJournal, SiparioCallScreeningService
+### Community 158 - ".onScreenCall"
+Cohesion: 0.21
+Nodes (5): CagriOturumu, cagriYonuBelirle(), sesOturumuAcik(), SiparioCallScreeningService, Arayan tanıma (Faz 0)
 
 ### Community 159 - "rehber_deposu"
 Cohesion: 0.07
-Nodes (27): _atlandi, _dosya, _gorevKartiAcik, gorevKartiniKapat, goruldu, gorulduMu, _gorulen, hazir (+19 more)
+Nodes (24): _atlandi, _dosya, _gorevKartiAcik, gorevKartiniKapat, goruldu, gorulduMu, _gorulen, hazir (+16 more)
 
 ### Community 160 - "gun_tahsilat_detay"
 Cohesion: 0.07
 Nodes (28): TahsilatKaynagi, TahsilatSatiri, _acik, bugunMu, build, createState, db, _degistir (+20 more)
 
 ### Community 161 - "hakkinda_ekrani"
-Cohesion: 0.07
-Nodes (24): bitis, db, HakkindaEkrani, HakkindaKarti, join, kalan, _kalanSureMetni, lisansMetni (+16 more)
+Cohesion: 0.12
+Nodes (14): bitis, db, HakkindaEkrani, HakkindaKarti, join, kalan, _kalanSureMetni, lisansMetni (+6 more)
 
-### Community 162 - "hatirlatma_sablonu_alani"
-Cohesion: 0.07
-Nodes (27): bas, baslik, build, _Cip, _CipSeridi, controller, _ekle, etiket (+19 more)
+### Community 162 - "hatirlatma_sablonu_alani.dart"
+Cohesion: 0.03
+Nodes (53): _acik, _arama, _Bos, build, createState, dispose, kuryeMi, madde (+45 more)
 
 ### Community 163 - "ana_bento"
-Cohesion: 0.07
-Nodes (25): alt, altEksi, AnaBento, birincil, borclulariGoster, build, createState, db (+17 more)
+Cohesion: 0.05
+Nodes (32): alt, altEksi, AnaBento, birincil, borclulariGoster, build, createState, db (+24 more)
 
 ### Community 164 - "bildirim_ayarlari"
-Cohesion: 0.07
-Nodes (24): _dosya, _gosterilen, _gun, gunlukKimlikler, _kapaliWire, kategoriAcik, kategoriYaz, kBildirimDosyaAdi (+16 more)
+Cohesion: 0.10
+Nodes (18): _dosya, _gosterilen, _gun, gunlukKimlikler, _kapaliWire, kategoriAcik, kategoriYaz, kBildirimDosyaAdi (+10 more)
 
 ### Community 165 - "push_servisi"
 Cohesion: 0.07
 Nodes (20): ayrintiOku, _b, _bildirim, coz, _jetonAboneligi, jetonBildir, kapat, kur (+12 more)
-
-### Community 166 - "LegalDocsTest"
-Cohesion: 0.08
-Nodes (5): AccountDeletionPageTest, LegalDocsTest, RouteCoverageGuardTest, ExampleTest, TestCase
 
 ### Community 167 - "bildirim_kutusu"
 Cohesion: 0.07
@@ -1189,49 +1199,49 @@ Nodes (23): _acikSahne, adimlar, aktif, _belkiOynat, build, child, createState, 
 Cohesion: 0.07
 Nodes (24): adimlar, _balon, build, createState, delik, dispose, _geri, _gorunur (+16 more)
 
-### Community 171 - "bilgilendirme_mesaji"
-Cohesion: 0.07
-Nodes (24): _ayar, bilgilendirme, BilgilendirmeMesajiBolumu, _BilgilendirmeMesajiBolumuState, _borcAnahtari, build, _calisiyor, createState (+16 more)
+### Community 171 - "bilgilendirme_mesaji.dart"
+Cohesion: 0.02
+Nodes (73): KapanmamisGun, _acik, build, createState, db, _degistir, didUpdateWidget, gun (+65 more)
 
 ### Community 172 - "siparis_harita_gorunumu"
 Cohesion: 0.07
 Nodes (22): build, cihaz, createState, _dokunuldu, duraklar, gruplar, grupRenkleri, grupYollari (+14 more)
 
 ### Community 173 - "AktarimSatiri"
-Cohesion: 0.12
-Nodes (5): AktarimDurumu, AktarimSatiri, {closure#1}(), Telefon, FavoriUrunler
+Cohesion: 0.13
+Nodes (8): AktarimDurumu, AktarimSatiri, FavoriUrunler, ⚠️ AÇIK İŞ, 🔴 EN ÖNEMLİ SATIR: İKİ HATA ANCAK GERÇEK DOSYAYLA UÇTAN UCA KOŞUNCA ÇIKTI, KAPILAR, NE YAPILDI, (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-11 — **GERÇEK BAYİ VERİSİ ÜRÜNE TAŞINDI** (API 1.22.0 → **1.23.0**, mobil sabit)
 
 ### Community 174 - "IyzicoPaymentGateway"
-Cohesion: 0.12
-Nodes (5): IyzicoPaymentGateway, PaymentInitiation, PaymentInitiationRequest, {closure#1}(), PaymentSecurityTest
+Cohesion: 0.33
+Nodes (4): IyzicoPaymentGateway, {closure#1}(), Faz 5 — inceleme (reviewer + lead, 2026-07-15), Faz 5b — güvenlik sertleştirme (coder + lead doğrulama, 2026-07-15)
 
 ### Community 175 - "push_sozlesmesi"
 Cohesion: 0.07
 Nodes (26): BildirimKategori, ad, adres, baslik, _detay, ek, govde, hashCode (+18 more)
 
-### Community 176 - "form_atomlari"
-Cohesion: 0.07
-Nodes (26): acik, ad, AktifToggle, AlanNotu, AlanNotuTuru, altEk, altEtiket, altSatir (+18 more)
+### Community 176 - "cagri_karti_baslik.dart"
+Cohesion: 0.09
+Nodes (21): _BakiyePili, baslangic, build, _c, CagriCanliNokta, _CagriCanliNoktaState, CagriKimSatiri, CagriSure (+13 more)
 
-### Community 177 - "sihirbaz_parcalari"
-Cohesion: 0.08
-Nodes (26): build, buyukHarf, _c, createState, didUpdateWidget, dispose, etiket, ikon (+18 more)
+### Community 177 - "borclular_verisi.dart"
+Cohesion: 0.10
+Nodes (19): borcKurus, borcluListesiKur, BorcluMusteri, BorcluSiparis, gruplu, hatirlatmaHesapOzeti, iptalEdilen, kalanKurus (+11 more)
 
 ### Community 178 - "sync_yazim_tetigi_test"
-Cohesion: 0.08
-Nodes (20): main, _msOneki, db, main, _bekle, _bekleyenSatir, db, gonderilenler (+12 more)
+Cohesion: 0.04
+Nodes (41): HttpSyncApi, SyncApi, main, _msOneki, _RedApi, db, main, _ArizaliApi (+33 more)
+
+### Community 180 - "TenantIsolationTest"
+Cohesion: 0.06
+Nodes (3): AppendOnlyLedgerTest, TenantIsolationTest, Faz 3 — inceleme (reviewer, 2026-07-14)
 
 ### Community 181 - "rehber_modeli"
-Cohesion: 0.08
-Nodes (24): adimlar, altBaslik, anahtar, anahtardan, b, bagsiz, baslik, dene (+16 more)
+Cohesion: 0.07
+Nodes (25): adimlar, altBaslik, anahtar, anahtardan, b, bagsiz, baslik, dene (+17 more)
 
 ### Community 182 - "order_repository"
 Cohesion: 0.09
 Nodes (23): _activeLines, addLine, _appendEvent, assign, cancel, create, db, deliver (+15 more)
-
-### Community 183 - "kuryeler_ekrani"
-Cohesion: 0.08
-Nodes (21): _ac, aktifSayi, build, db, kuryeAktifMi, kuryeler, KuryelerEkrani, kuryeleriAyikla (+13 more)
 
 ### Community 184 - "harita_yol_cizgisi"
 Cohesion: 0.08
@@ -1239,11 +1249,11 @@ Nodes (23): anahtar, _baseUrl, _bellek, _bellekTavani, build, createState, db, d
 
 ### Community 185 - "PanelCsvExportService"
 Cohesion: 0.13
-Nodes (7): Csv, {closure#1}(), {closure#4}(), PanelCsvExportService, {closure#10}(), {closure#11}(), {closure#12}()
+Nodes (8): Csv, {closure#1}(), {closure#4}(), PanelCsvExportService, {closure#10}(), {closure#11}(), Bu vardiyada NE YAPILMADI / SIRADAKİ, (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-01 kapandı)
 
 ### Community 188 - "setup_wizard"
-Cohesion: 0.08
-Nodes (23): actionLabel, actionMethod, _batterySteps, build, channel, checklist, createState, description (+15 more)
+Cohesion: 0.07
+Nodes (25): Phase0Screen, _Phase0ScreenState, actionLabel, actionMethod, _batterySteps, build, channel, checklist (+17 more)
 
 ### Community 189 - "customer_form_ops"
 Cohesion: 0.08
@@ -1253,33 +1263,37 @@ Nodes (24): ad, adres, at, eski, girdi, konumKaydet, last10, lat (+16 more)
 Cohesion: 0.08
 Nodes (24): build, createState, dispose, _kaydet, metin, mevcut, not, notuNormalle (+16 more)
 
-### Community 191 - "product_list_screen"
-Cohesion: 0.08
-Nodes (22): _ac, ad, build, context, db, gorsel, _Kucuk, _Liste (+14 more)
+### Community 192 - "migration_yardimcilari.dart"
+Cohesion: 0.04
+Nodes (46): main, map, rows, _tablolar, main, kuryeKolonlari, main, main (+38 more)
 
-### Community 192 - "migration_yardimcilari"
-Cohesion: 0.08
-Nodes (24): beklenen, close, db, dosyayiAc, eksikler, eskiCihaziYukselt, f, faz0V1DosyasiKur (+16 more)
+### Community 194 - "SiteHesapTest"
+Cohesion: 0.06
+Nodes (7): SiteHesapTest, AÇIK BORÇLAR (bu turdan), KAPANANLAR (madde numaraları kullanıcının listesinden), OTOMATİK COMMIT ZİNCİRİ ONARILDI (2026-08-06), TESTLE KİLİTLENEN KARARLAR (sessizce geri kaymasınlar diye), YAN KAZANÇ, (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-05/4 · sahadan 10 maddelik site listesi — HEPSİ KAPANDI)
 
-### Community 195 - "gider_kategorileri"
-Cohesion: 0.09
-Nodes (20): bosGun, gun, gunSonuOzeti, GunSonuVerisi, kGunSonuSaati, tahsilatKurus, teslimatSayisi, veresiyeKurus (+12 more)
+### Community 195 - "bool get"
+Cohesion: 0.06
+Nodes (27): baslangicSaat, bitisSaat, ertelenmisAn, icindeMi, kapali, _, adlar, azamiHane (+19 more)
 
 ### Community 196 - "gorev_karti"
 Cohesion: 0.09
 Nodes (21): _akis, _akisKullanici, _akisKurye, _Baslik, bitti, build, createState, db (+13 more)
 
 ### Community 197 - "rehber_balon"
-Cohesion: 0.08
-Nodes (23): adim, build, _DeneSeridi, etkilesim, _Ilerleme, merkez, metin, _OkUcu (+15 more)
+Cohesion: 0.09
+Nodes (22): adim, build, _DeneSeridi, etkilesim, _Ilerleme, merkez, metin, _OkUcu (+14 more)
 
 ### Community 198 - "PanelImportService"
-Cohesion: 0.15
-Nodes (3): AktarimDurduruldu, AktarimUrunleri, PanelImportService
+Cohesion: 0.14
+Nodes (4): AktarimDurduruldu, AktarimUrunleri, PanelImportService, {closure#12}()
+
+### Community 199 - "customer_ledger.dart"
+Cohesion: 0.10
+Nodes (18): build, customerId, CustomerLedgerSection, db, defterHareketEtiketi, defterTipEtiketi, e, hareketIkonu (+10 more)
 
 ### Community 200 - "guncelleme_sozlesmesi"
-Cohesion: 0.09
-Nodes (22): ad, apkArm64, apkEvrensel, boyutArm64, boyutEvrensel, cozumle, guncellemeKapaliMi, guncellemeVarMi (+14 more)
+Cohesion: 0.08
+Nodes (23): ad, apkArm64, apkEvrensel, boyutArm64, boyutEvrensel, cozumle, guncellemeKapaliMi, guncellemeVarMi (+15 more)
 
 ### Community 201 - "ui_musteri_sesli_test"
 Cohesion: 0.09
@@ -1287,11 +1301,7 @@ Nodes (20): SesDurumu, acilir, birak, birakildi, dinle, dinlemeSayisi, durdur, d
 
 ### Community 202 - "bildirim_tetikleyici"
 Cohesion: 0.09
-Nodes (19): GunlukSinir, acilistaKos, ad, anlik, BildirimTetikleyici, gunlukAn, servis, TaslakUretici (+11 more)
-
-### Community 203 - "DenemeBitiyor"
-Cohesion: 0.10
-Nodes (5): {closure#2}(), {closure#3}(), DenemeBitiyor, SureDoldu, YenilemeHatirlatmasi
+Nodes (20): GunlukSinir, acilistaKos, ad, anlik, BildirimTetikleyici, gunlukAn, servis, TaslakUretici (+12 more)
 
 ### Community 204 - "cerez"
 Cohesion: 0.19
@@ -1309,9 +1319,9 @@ Nodes (19): canAssign, customerId, db, kalan, kKartSiparisLimiti, musteriAdi, mu
 Cohesion: 0.09
 Nodes (21): adet, build, ikon, urun, etiket, fiyatKurus, onTap, etiketi (+13 more)
 
-### Community 208 - "RotaKontoruYenilemeTest"
-Cohesion: 0.23
-Nodes (3): RotaKontoru, RotaKontoruYenile, RotaKontoruYenilemeTest
+### Community 208 - "harita_gruplari.dart"
+Cohesion: 0.10
+Nodes (17): basi, build, duraklar, etiket, _GrupCipi, gruplar, grupluIcerik, HaritaGrupSeridi (+9 more)
 
 ### Community 210 - "package"
 Cohesion: 0.13
@@ -1322,8 +1332,8 @@ Cohesion: 0.10
 Nodes (19): baseUrl, _client, _decode, _geciciMi, _girisHatasi, login, logout, message (+11 more)
 
 ### Community 213 - "durum_kurallari"
-Cohesion: 0.10
-Nodes (17): bitti, dunSayilir, esik, esikGun, gonderilemeyenKayitUyarisi, gun, gunKapatilmadiHatirlatmasi, kasaDevriHatirlatmasi (+9 more)
+Cohesion: 0.06
+Nodes (25): bitti, dunSayilir, esik, esikGun, gonderilemeyenKayitUyarisi, gun, gunKapatilmadiHatirlatmasi, kasaDevriHatirlatmasi (+17 more)
 
 ### Community 214 - "kapanmamis_gunler"
 Cohesion: 0.10
@@ -1349,9 +1359,9 @@ Nodes (14): bos, eslesme, kod, _kodCoz, metin, MusteriAramasi, _numaraGovdesi, o
 Cohesion: 0.14
 Nodes (3): KaroAracisi, HaritaKaroTest, storage
 
-### Community 220 - "LocationController"
+### Community 220 - "SnapshotSayfalayici"
 Cohesion: 0.15
-Nodes (5): {closure#1}(), LocationController, CanliKonum, KonumDeposu, VeritabaniKonumDeposu
+Nodes (12): SnapshotSayfalayici, ⭐ 1 · Gün Özeti TEK EKRAN oldu, geçmiş içeri alındı (0.48.0), ⭐ 2 · Saha gideri — yetki matrisinin ödenmemiş borcu kapandı (0.49.0 · API 1.17.0), ⚠️ AÇIK İŞ, 🔴 EN ÖNEMLİ SATIR: TEŞHİS ÖLÇÜMLE YAPILDI, İLK ŞÜPHE YANLIŞTI, KAPILAR, Sonraki kişi için, Ölçümler (bu makinede koşuldu) (+4 more)
 
 ### Community 224 - "ids"
 Cohesion: 0.10
@@ -1373,9 +1383,13 @@ Nodes (19): ad, _anahtarEslemesi, _f, _hepsiAcik, _hepsiKapali, _kume, _kur, kur
 Cohesion: 0.12
 Nodes (17): CashHandovers, CustomerAddresses, CustomerPhones, Customers, LedgerEntries, OrderEvents, OrderLines, Orders (+9 more)
 
+### Community 233 - "SyncTest"
+Cohesion: 0.06
+Nodes (12): {closure#2}(), {closure#1}(), TurkceArama, SyncTest, BİLİNEN TUZAKLAR (bu vardiyada öğrenilenler), Bu vardiyada NE YAPILDI, Bu vardiyada NE YAPILMADI / SIRADAKİ, BULUNAN GERÇEK ARIZALAR (hiçbiri çökmüyordu, hiçbiri günlüğe yazmıyordu) (+4 more)
+
 ### Community 235 - "ui_sessiz_saatler_test"
-Cohesion: 0.11
-Nodes (13): BildirimAyarlari, main, _sesVarliklari, ayarlar, bolumuKur, goster, iptal, izinDurumu (+5 more)
+Cohesion: 0.15
+Nodes (11): BildirimAyarlari, ayarlar, bolumuKur, goster, iptal, izinDurumu, izinIste, kategoriAcikMi (+3 more)
 
 ### Community 236 - "cagri_karti"
 Cohesion: 0.11
@@ -1393,13 +1407,17 @@ Nodes (15): akislariBekle, b, cid, damga, db, devirlerDe, dun, duneKaydir (+7 mo
 Cohesion: 0.20
 Nodes (18): BildirimlerData, CallLog, CashHandover, Customer, CustomerAddressesData, CustomerPhone, DataClass, DayClosing (+10 more)
 
+### Community 241 - "RolParolaEsitlemeTest"
+Cohesion: 0.16
+Nodes (7): DemoSeederTest, RolParolaEsitlemeTest, 🔴 BU VARDİYADA YAPTIĞIM İKİ YANILGI (ikisi de ölçüm hatasıydı — desen olarak not edilmeli), ⚠️ BU VARDİYADAN KALAN AÇIKLAR, NE YAPILDI, 🔻 VARDİYA DEVİR NOTU — 2026-08-16 — LARAGON KALDIRILDI, API TARAFI TAMAMEN DOCKER'DA (sürüm DEĞİŞMEDİ: API 1.9.0, mobil 0.25.0), (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-10/2 · ÜRETİM ÇÖKTÜ, KÖK NEDEN BULUNDU, KALICI DÜZELTİLDİ)
+
 ### Community 242 - "session"
 Cohesion: 0.11
 Nodes (16): baseUrlOf, db, firma, HatirlananKimlik, hatirlananKimlikCoz, isLoggedIn, kDefaultApiBaseUrl, kullanici (+8 more)
 
-### Community 243 - "surum_notlari"
-Cohesion: 0.11
-Nodes (15): kSurumNotlari, maddeler, null, s, surum, SurumNotu, surumNotuBul, tarih (+7 more)
+### Community 243 - "AccountDeletionPageTest"
+Cohesion: 0.13
+Nodes (11): AccountDeletionPageTest, Faz 6 — hesap-silme sayfası + uçtan-uca denetim + YAPILACAKLAR.md (lead + 3 ajan, 2026-07-16), 1) Sitenin en yapay yeri üslup değil, UYDURMA VERİYDİ — ve silindi, 2) Hukuk paketi: 5 iskelet → **10 tam metin**, 3) "Verileriniz Türkiye dışına çıkmaz" cümlesi YANLIŞTI, 5) SEO yüzeyi, `AccountDeletionPageTest` neden değişti (kopya değil, sözleşme kilitleniyor), Kapılar (+3 more)
 
 ### Community 244 - "gider_repository"
 Cohesion: 0.11
@@ -1409,9 +1427,9 @@ Nodes (15): aciklama, db, ekle, GiderRepository, GiderSatiri, gunGiderleri, harc
 Cohesion: 0.11
 Nodes (16): adres, anahtar, cagriHareketEtiketi, cagriKisiCoz, cagriSiparisOzeti, cagriSonHareketMetni, hareket, musteri (+8 more)
 
-### Community 246 - "harita_ad_cipi_test"
-Cohesion: 0.11
-Nodes (13): AccessLevel, estimateServerNow, evaluate, graceDuration, SubscriptionState, writable, _CipOrtami, kurye (+5 more)
+### Community 246 - "static const"
+Cohesion: 0.25
+Nodes (6): AccessLevel, estimateServerNow, evaluate, graceDuration, SubscriptionState, writable
 
 ### Community 247 - "cihaz_api"
 Cohesion: 0.11
@@ -1422,16 +1440,16 @@ Cohesion: 0.11
 Nodes (17): akimX, baslangicX, _bosluk, _bosluklariAtla, _e, _eksi, _i, komutOku (+9 more)
 
 ### Community 249 - "EkPaketTanimlandi"
-Cohesion: 0.13
+Cohesion: 0.14
 Nodes (3): ParaBicimi, EkPaketTanimlandi, OdemeBeyaniAlindi
 
 ### Community 251 - "alpine"
-Cohesion: 0.18
-Nodes (10): ara(), bulunan(), dogrula(), esles(), gonder(), grupta(), grupVar(), init() (+2 more)
+Cohesion: 0.17
+Nodes (12): ara(), bulunan(), dogrula(), esles(), gonder(), goster(), grupta(), grupVar() (+4 more)
 
 ### Community 258 - "courier_repository"
-Cohesion: 0.12
-Nodes (12): CourierRepository, db, kuryeIzinEzmeleriKaydet, updateProfile, watchAktifKuryeler, watchAll, add, db (+4 more)
+Cohesion: 0.07
+Nodes (24): CourierRepository, db, kuryeIzinEzmeleriKaydet, updateProfile, watchAktifKuryeler, watchAll, add, db (+16 more)
 
 ### Community 259 - "harita_tuvali"
 Cohesion: 0.12
@@ -1450,8 +1468,8 @@ Cohesion: 0.12
 Nodes (16): concurrency, cancel-in-progress, group, jobs, manifest-lint, runs-on, steps, name (+8 more)
 
 ### Community 267 - "CallerOverlay"
-Cohesion: 0.31
-Nodes (5): CagriYonu, CEVAPSIZ, GELEN, GIDEN, CallerOverlay
+Cohesion: 0.20
+Nodes (8): CagriYonu, CEVAPSIZ, GELEN, GIDEN, CallerOverlay, Customer, CustomerLookup, SonSiparis
 
 ### Community 268 - "durum_ureticileri"
 Cohesion: 0.14
@@ -1465,33 +1483,25 @@ Nodes (14): _, azamiUrun, birimFiyat, bos, bosMu, coz, _fiyatlar, haric (+6 more
 Cohesion: 0.12
 Nodes (15): ara, ayristir, baseUrl, _client, _decode, GeoAday, GeocodeApi, kaynak (+7 more)
 
-### Community 272 - "phase0_test_karti"
-Cohesion: 0.14
-Nodes (14): build, createState, dispose, measurements, phones, loadTestPhones, _LogCard, _name (+6 more)
-
-### Community 273 - "tenant_settings_repository"
-Cohesion: 0.13
-Nodes (12): db, giderKategorileri, giderKategorileriKaydet, hazirlananUrunKaydet, kuryeIzinleriKaydet, mesajSablonlariGuncelle, save, siparisKoduTercihiKaydet (+4 more)
-
-### Community 274 - "arayan_tanima_ayari"
-Cohesion: 0.14
-Nodes (13): _acik, acikMi, ArayanTanimaSatiri, _ArayanTanimaSatiriState, _bellek, build, _cevir, createState (+5 more)
-
-### Community 275 - "home_shell_gezinme"
-Cohesion: 0.13
-Nodes (14): _borclularAc, _cekmeceGirisi, _cikis, _ekleMenusu, _geriTusu, _giderEkle, _git, _gorevAc (+6 more)
+### Community 272 - "FakePaymentGateway"
+Cohesion: 0.16
+Nodes (5): FakePaymentGateway, PaymentGateway, PaymentResult, {closure#4}(), Faz 5b — uygulama (coder + lead doğrulama, 2026-07-15)
 
 ### Community 276 - "gun_arsivi"
-Cohesion: 0.13
+Cohesion: 0.12
 Nodes (14): ad, adet, _aylar, _gunAdi, _gunler, gunlukIdler, gunTamBasligi, liste (+6 more)
 
-### Community 277 - "surum_notlari_test"
-Cohesion: 0.13
-Nodes (11): _ekranaKoy, eslesme, gorulen, kaydirici, konum, main, metin, _pubspecSurumu (+3 more)
+### Community 277 - "harita_icerigi_test.dart"
+Cohesion: 0.14
+Nodes (12): HaritaIcerigi, HaritaNoktasi, a, b, c, cihaz, icerik, main (+4 more)
 
 ### Community 278 - "AppDelegate"
 Cohesion: 0.15
 Nodes (5): AppDelegate, RunnerTests, Flutter, UIKit, XCTest
+
+### Community 282 - "🟢 8–12. Kalanlar (kısa)"
+Cohesion: 0.04
+Nodes (39): RouteCoverageGuardTest, SurumCarpikligiTest, 🟢 8–12. Kalanlar (kısa), BİLİNEN TUZAKLAR (bu vardiya), BİLİNEN TUZAKLAR (bu vardiya — sonraki kişi dikkat), BİLİNEN TUZAKLAR (bu vardiya — sonraki kişi dikkat), BİLİNEN TUZAKLAR (bu vardiya — YENİ ders), BİLİNEN TUZAKLAR (bu vardiya — YENİ dersler) (+31 more)
 
 ### Community 284 - "LatencyLog"
 Cohesion: 0.18
@@ -1502,23 +1512,23 @@ Cohesion: 0.14
 Nodes (13): acik, bilinmiyor, ham, kanal, kanalAyariniAc, kanalDurumlariniOku, KanalDurumu, kBildirimKanali (+5 more)
 
 ### Community 286 - "siparis_satiri_girdisi"
-Cohesion: 0.14
-Nodes (13): SecenekSecimi, birimFiyat, isCustom, iskontoKurus, LineInput, note, productId, productName (+5 more)
+Cohesion: 0.07
+Nodes (24): SecenekSecimi, bitenler, bittiMi, db, GorevDurumu, kitle, _kurye, sayac (+16 more)
 
 ### Community 287 - "konum_bildirici"
-Cohesion: 0.14
-Nodes (10): aralik, baslat, calisiyor, db, durdur, gercekSessizKonum, KonumBildirici, tur (+2 more)
+Cohesion: 0.08
+Nodes (20): ayniTrGunAn, ayniTrGunIso, bugunTrDuzeltilmis, kTrOffset, meta, t, tr, trGunAnahtari (+12 more)
 
 ### Community 288 - "cagri_eylem_kanali"
 Cohesion: 0.14
 Nodes (12): bekleyenCagriEylemi, cagriEylemDurtusunuBirak, cagriEylemDurtusunuDinle, cagriEylemiCoz, cagriKopruAcik, eylem, ham, kanal (+4 more)
 
-### Community 289 - "home_shell_durum"
-Cohesion: 0.14
-Nodes (13): _govde, build, HomeShell, _HomeShellState, _CagriYuzeyi, _DurumYuzeyi, _GezinmeYuzeyi, _GovdeYuzeyi (+5 more)
+### Community 289 - "(ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-09/2-3-4 · TEK UZUN VARDİYA)"
+Cohesion: 0.17
+Nodes (12): watchBekleyenSayisi, yazimTetigiBagla, 🔧 ALTYAPI — AYNI VARDİYADA ÜÇ İŞ (2026-08-09/3, hepsi CANLIDA ÖLÇÜLDÜ), ARIZA VE KÖK NEDEN, ✅ BORÇ AYNI VARDİYADA KAPATILDI — bekleyen kayıt bandı, ✅ BU VARDİYADA KAPANANLAR (sıradaki işler için AŞAĞIDAKİ tek listeye bak), 🚀 DAĞITIM DÜZENİ YENİDEN KURULDU (2026-08-09/4), SUNUCU TEMİZ ÇIKTI — KOŞUMLA (+4 more)
 
 ### Community 290 - "gun_ozeti_eylemleri"
-Cohesion: 0.14
+Cohesion: 0.15
 Nodes (10): araTahsilatAl, araTahsilatIptalEt, cerceveNotu, gunTeslim, not, onay, onizleme, repo (+2 more)
 
 ### Community 291 - "money"
@@ -1529,13 +1539,17 @@ Nodes (13): abs, digits, formatKurus, frac, kr, lastComma, lastDot, lira (+5 mor
 Cohesion: 0.14
 Nodes (13): ad, anahtar, birincilEtiket, durumAnahtari, eylem, ikincilEtiket, ikincilEylem, ikincilVarlikAnahtari (+5 more)
 
-### Community 293 - "docker-compose.prod"
-Cohesion: 0.20
-Nodes (14): build, build, context, dockerfile, build, restart, volumes, build (+6 more)
+### Community 293 - "scheduler"
+Cohesion: 0.06
+Nodes (43): build, depends_on, restart, volumes, build, depends_on, environment, restart (+35 more)
 
 ### Community 294 - "mobil-apk"
 Cohesion: 0.14
 Nodes (14): B64, BASLIK, DOSYA_ARM, DOSYA_FAT, ETIKET, GH_REPO, GH_TOKEN, KANAL (+6 more)
+
+### Community 298 - "SiteIcerikTest"
+Cohesion: 0.13
+Nodes (6): SiteIcerikTest, Diğer beş madde, 🔴 EN ÖNEMLİ SATIR: SİPARIO BİR SU BAYİİ UYGULAMASI DEĞİL, ⚠️ SIRADAKİ VARDİYA İÇİN BİR CSS TUZAĞI, ⏭️ Sıradaki işler, (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-01/2 — **ÜRÜN YENİDEN KONUMLANDI** (API 1.21.0 → **1.22.0**, mobil sabit)
 
 ### Community 300 - "cihaz_konumu"
 Cohesion: 0.15
@@ -1549,17 +1563,17 @@ Nodes (12): autoRoute, AutoRouteResult, baseUrl, _client, _decode, kalanHak, kon
 Cohesion: 0.15
 Nodes (12): _applyDelta, _applyEntity, _applySnapshot, bastanIndir, _conflictTypes, _insertCashHandoverIfAbsent, _insertDayClosingIfAbsent, _insertLedgerIfAbsent (+4 more)
 
-### Community 303 - "icon_paint_test"
+### Community 303 - "yenileme.dart"
 Cohesion: 0.15
-Nodes (9): anahtar, baytlar, _boyananPiksel, main, pumpAndSettle, pumpWidget, runAsync, sayac (+1 more)
+Nodes (10): anaEkranYenile, ok, s, senkronBastanIndir, _servis, sessizKontrol, sonuc, yenile (+2 more)
 
-### Community 304 - "siparis_yardimci"
+### Community 304 - "tema_deposu.dart"
 Cohesion: 0.15
-Nodes (11): akisiBekle, ekraniKapat, eskiKonum, genisYuzey, haritaDikisleriniSahtele, pump, pumpWidget, runAsync (+3 more)
+Nodes (11): ayarla, _bellek, _depo, _dosya, koyuMu, kTemaDosyaAdi, TemaDeposu, TemaKontrol (+3 more)
 
-### Community 305 - "whatsapp_metni_test"
-Cohesion: 0.15
-Nodes (9): bicimle, BicimTezgahi, deger, main, metin, ozet, satirBicimle, secili (+1 more)
+### Community 305 - "Set"
+Cohesion: 0.17
+Nodes (10): ApiHataMetni, baglantiYok, cokFazlaDeneme, eylem, gosterilebilirMi, guvenilen, oturumBitti, _sunucuCumlesi (+2 more)
 
 ### Community 306 - "browser-agent"
 Cohesion: 0.15
@@ -1577,13 +1591,13 @@ Nodes (4): AdminUsers, {closure#1}(), {closure#2}(), {closure#3}()
 Cohesion: 0.35
 Nodes (10): ekleBetik(), etiketiYukle(), gtag(), izinVar(), olaylariBagla(), rizayiDinle(), rizayiUygula(), rizayiUygulaVeyaKaldir() (+2 more)
 
-### Community 317 - "tr_gun"
-Cohesion: 0.17
-Nodes (10): ayniTrGunAn, ayniTrGunIso, bugunTrDuzeltilmis, kTrOffset, meta, t, tr, trGunAnahtari (+2 more)
+### Community 317 - "KullaniciAdiUretici"
+Cohesion: 0.25
+Nodes (3): KullaniciAdiUretici, {closure#1}(), {closure#3}()
 
-### Community 318 - "gorev_ilerlemesi"
-Cohesion: 0.17
-Nodes (11): bitenler, bittiMi, db, GorevDurumu, kitle, _kurye, sayac, tamamlandi (+3 more)
+### Community 318 - "PaymentSecurityTest"
+Cohesion: 0.33
+Nodes (4): PaymentSecurityTest, 🔴 BU VARDİYADA BULUNAN İKİ SESSİZ ARIZA (ikisi de bu turun işi değildi), ⚠️ BU VARDİYADAN KALAN AÇIKLAR, (ÖNCEKİ) VARDİYA DEVİR NOTU (2026-08-10 · API sürümü + iki sessiz arıza)
 
 ### Community 319 - "rota_cizgisi_api"
 Cohesion: 0.17
@@ -1594,28 +1608,28 @@ Cohesion: 0.17
 Nodes (11): concurrency, cancel-in-progress, group, name, on, push, workflow_dispatch, permissions (+3 more)
 
 ### Community 321 - "team_api"
-Cohesion: 0.18
+Cohesion: 0.20
 Nodes (8): baseUrl, _client, _decode, kimlikGuncelle, mesaj, TeamApi, token, toString
 
-### Community 326 - "telefon_numarasi"
-Cohesion: 0.18
-Nodes (10): _, asgariHane, azamiHane, coz, e164, gecersizMetni, TelefonNumarasi, _ulusal (+2 more)
+### Community 322 - "VarlikSurumuTest"
+Cohesion: 0.14
+Nodes (8): Varlik, VarlikSurumuTest, 📁 Dokunulan yerler, 🧪 Nasıl doğrulandı — bu kez GERÇEK TARAYICIDA, ⏭️ Sıradaki işler, 🎨 Tasarım baştan yazıldı — "küçük levha", (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-28/2 — **ÇEREZ KUTUSU BAŞTAN TASARLANDI + BAYAT CSS ARIZASI** (API 1.19.0 → **1.19.1**, mobil sabit), 🔴 ŞİKÂYETİN ASIL SEBEBİ TASARIM DEĞİLDİ — İKİ ARIZA ÜST ÜSTE BİNMİŞTİ
 
-### Community 327 - "call_log_repository"
-Cohesion: 0.18
-Nodes (10): CallDirection, CallLogRepository, db, log, parse, _payload, _resolveCustomer, setOutcome (+2 more)
+### Community 327 - "YeniBayiRotaKontoruTest"
+Cohesion: 0.42
+Nodes (3): YeniBayiRotaKontoruTest, ⚠️ AÇIK İŞ, (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-26 — **SAHADAN ALTI ŞİKÂYET + AYLIK OTO-SIRALAMA HAKKI + HARİTA** (mobil 1.5.0 → **1.14.1**, API 1.24.0 → **1.28.0**)
 
-### Community 328 - "home_shell_cagri"
-Cohesion: 0.18
-Nodes (10): _aramaAc, _aramayiAc, _bildirimDokunusu, _bildirimleriAc, _bildirimYoluAc, _cagriEylemiUygula, _cagriGecmisiAc, _cagriKartiAc (+2 more)
+### Community 328 - "(ÖNCEKİ) VARDİYA DEVİR NOTU (2026-07-29 kapandı)"
+Cohesion: 0.20
+Nodes (10): Bu vardiyada NE YAPILDI, Bu vardiyada NE YAPILDI, Bu vardiyada NE YAPILMADI (bilerek ya da bloklu), Bu vardiyada NE YAPILMADI / YARIM KALDI, FAZ 1 YEREL BİLDİRİMLER (aynı gün, kullanıcı onayıyla), İkinci tur geri bildirim (aynı gün, bayi 3 madde daha bildirdi), SAHA KONTROL LİSTESİ (cihazda bakılacaklar), Sonraki kişi NEREDEN devam etmeli (+2 more)
 
 ### Community 329 - "iban"
 Cohesion: 0.18
 Nodes (10): ibanGecerliMi, ibanHatasi, ibanNormal, ibanOkunur, join, kalan, null, parcalar (+2 more)
 
-### Community 330 - "indirme_ilerlemesi"
-Cohesion: 0.18
-Nodes (7): basla, bitti, IndirmeIlerlemesi, _inen, sayfaIslendi, _suruyor, _toplam
+### Community 330 - "order_sepet_satiri.dart"
+Cohesion: 0.04
+Nodes (46): ad, adet, altMetin, build, etiket, ikon, iskontoKurus, _IskontoYuzeyi (+38 more)
 
 ### Community 331 - "heads_up_olcumu_test"
 Cohesion: 0.18
@@ -1625,21 +1639,17 @@ Nodes (8): acilanAyarlar, kanal, KanalTezgahi, kur, main, onemler, platformYok, 
 Cohesion: 0.20
 Nodes (9): iptalEt, livewire.panel.tenant.kullanim, livewire.panel.tenant.modal-kurye, livewire.panel.tenant.modal-uzat, livewire.panel.tenant.yonetim, notEkle, suspend, unlock (+1 more)
 
+### Community 335 - "TekCihazOturumuTest"
+Cohesion: 0.19
+Nodes (6): TekCihazOturumuTest, ⭐ İkinci iş — ölçünce çıktı: takvim çürümesi, ⭐ Ne yapıldı, Sıradaki işler, Ölçümler, 🔻 ÖNCEKİ DEVİR NOTU — 2026-08-22 — TEK HESAP = TEK CİHAZ (mobil 0.41.1 → **0.42.0**, API 1.13.0 → **1.14.0**)
+
 ### Community 336 - "phase0_screen"
 Cohesion: 0.20
 Nodes (9): build, _maybeOpenWizard, _siparis, _ac, build, build, build, build (+1 more)
 
-### Community 337 - "rehber_turlari_ekranlar"
-Cohesion: 0.20
-Nodes (5): _ana, gunSonuTuru, musterilerTuru, siparislerTuru, rehberTuru
-
-### Community 338 - "font_variable_test"
-Cohesion: 0.20
-Nodes (8): dosya, _fontYukle, _genislik, load, main, stil, tp, yukleyici
-
-### Community 339 - "sekme_yonlendirme"
+### Community 339 - "harita_ortami.dart"
 Cohesion: 0.22
-Nodes (7): f, sekmeyeGit, SekmeYonlendirici, sekmeYonlendirmeyiBagla, sekmeYonlendirmeyiCoz, true, _yonlendirici
+Nodes (6): cid, oid, repo, siparisEkle, teslim, tutarKurus
 
 ### Community 340 - "composer"
 Cohesion: 0.22
@@ -1665,13 +1675,9 @@ Nodes (8): ayarlarTuru, borclularTuru, cagriGunluguTuru, haritaTuru, kuryelerTur
 Cohesion: 0.22
 Nodes (7): alacak, borcEkle, db, duzeltme, LedgerRepository, tahsilat, _write
 
-### Community 346 - "order_form_sepet"
+### Community 346 - "(ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-22/2 — BEŞ SAHA MADDESİ (mobil 0.42.0 → **0.47.0**, API 1.14.0 → **1.16.0**)"
 Cohesion: 0.22
-Nodes (8): _adetDegis, _fiyatlar, _iskontoYetkisiniOku, _satirIskontosu, _satirNotu, _sepetFiyatlariniYenile, _serbestEkle, _urunEkle
-
-### Community 347 - "docker-compose.prod"
-Cohesion: 0.22
-Nodes (9): depends_on, environment, restart, volumes, PGDATABASE, PGHOST, PGPASSWORD, PGUSER (+1 more)
+Nodes (9): ⭐ 1 · Katalogda adet artık karonun içinde (0.43.0), ⭐ 2 · Kurye müşteri görünürlüğü yetkiye bağlandı (0.44.0 · API 1.15.0), ⭐ 3 · Ana ekranın birincil eylemi değişti (0.45.0), ⭐ 4 · İptal onay akışı (0.46.0 · API 1.16.0), 500 satır kuralı — beş dosya bölündü, ⭐ 5 · Heads-up ölçülebilir oldu (0.47.0), Sıradaki işler, Ölçümler (bizzat koşuldu) (+1 more)
 
 ### Community 348 - ".mcp"
 Cohesion: 0.22
@@ -1690,8 +1696,8 @@ Cohesion: 0.25
 Nodes (7): site.parca.son-cagri, site.parca.adim, site.parca.ana-fiyat-ozet, site.parca.ana-guvence, site.parca.ana-hero, site.parca.ana-sss-ozet, site.parca.ana-tur
 
 ### Community 357 - "auth_api"
-Cohesion: 0.25
-Nodes (7): AuthException, CihazApiException, GeocodeException, KonumApiHatasi, RouteException, SyncApiException, TeamApiException
+Cohesion: 0.22
+Nodes (8): AuthException, CihazApiException, GeocodeException, KonumApiHatasi, RouteException, SyncApiException, TeamApiException, SocketExceptionBenzeri
 
 ### Community 358 - "harita_yasami_test"
 Cohesion: 0.25
@@ -1701,21 +1707,13 @@ Nodes (6): HaritaYasami, baslat, _Dongu, durdur, main, yasam
 Cohesion: 0.25
 Nodes (7): capabilities, description, hooks, post_task, pre_task, name, version
 
-### Community 360 - "docker-compose.prod"
-Cohesion: 0.25
-Nodes (7): restart, volumes, services, app, volumes, sipario_backups, sipario_pgdata_v4
-
-### Community 361 - "docker-compose.prod"
-Cohesion: 0.32
-Nodes (8): depends_on, condition, db, migrate, condition, depends_on, depends_on, depends_on
-
 ### Community 362 - "docker-compose.prod"
 Cohesion: 0.36
 Nodes (8): logging, driver, options, logging, max-file, max-size, logging, logging
 
-### Community 363 - "docker-compose.prod"
+### Community 363 - "(ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-28 — **KVKK ÇEREZ TERCİH MERKEZİ** (API 1.18.0 → **1.19.0**, mobil sabit)"
 Cohesion: 0.25
-Nodes (8): disable, healthcheck, healthcheck, entrypoint, healthcheck, restart, volumes, scheduler
+Nodes (8): 📁 Dokunulan yerler, 🔴 GERÇEK YAYIN BORCU: KÜNYE — canlı sitede **58 "DOLDURULACAK"** işareti, 🧪 Nasıl doğrulandı, ⭐ Ne yapıldı, ⏭️ Sıradaki işler, 🚢 Yayın durumu — ÖLÇÜLDÜ (2026-08-28), (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-28 — **KVKK ÇEREZ TERCİH MERKEZİ** (API 1.18.0 → **1.19.0**, mobil sabit), 🔴 ÜÇ SESSİZ ARIZA — hepsi bu vardiyada bulundu ve kapandı
 
 ### Community 364 - "mobil-apk"
 Cohesion: 0.25
@@ -1745,9 +1743,9 @@ Nodes (6): formlariKapat, livewire.panel.tenant.musteri-detay, musteriAc, muster
 Cohesion: 0.29
 Nodes (7): description, description, description, workflows, form_submit, login, scrape_list
 
-### Community 373 - "docker-compose.prod"
-Cohesion: 0.43
-Nodes (7): healthcheck, healthcheck, interval, retries, start_period, test, timeout
+### Community 373 - "environment"
+Cohesion: 0.13
+Nodes (18): healthcheck, environment, healthcheck, restart, volumes, DB_OWNER_PASSWORD, DB_PANEL_PASSWORD, DB_PASSWORD (+10 more)
 
 ### Community 374 - "mobil-apk"
 Cohesion: 0.29
@@ -1893,29 +1891,89 @@ Nodes (3): autoload-dev, psr-4, Tests\\
 Cohesion: 0.67
 Nodes (3): extra, laravel, dont-discover
 
-### Community 469 - "order_form_screen"
+### Community 466 - "Tasarım boşluğu — veri katmanı (backend, 2026-07-25/26)"
+Cohesion: 0.04
+Nodes (43): PushTetikleyici, EventValidator, SyncRejectionLog, {closure#1}(), AdminUserSeeder, DatabaseSeeder, gitCommitSayisi(), 4b Dilim 2 — sipariş ekranları (lead solo, 2026-07-21) (+35 more)
+
+### Community 468 - "SecurityHardeningTest"
+Cohesion: 0.29
+Nodes (3): CreateTenant, SecurityHardeningTest, Faz 1 — güvenlik denetimi (2026-07-13)
+
+### Community 656 - "gun_arsiv_detay.dart"
+Cohesion: 0.29
+Nodes (6): build, _ArsivDetay, arsivDetaySheet, bugun, geriAlinmis, kapanis
+
+### Community 657 - "🔻 VARDİYA DEVİR NOTU — 2026-08-18/3 — DÖRT SAHA MADDESİ: GÜNÜN VERESİYESİ · TAHSİLAT KAYNAĞI · KAPANIŞI GERİ ALMA · ÜRÜN SEÇENEKLERİ (mobil 0.28.0 → **0.31.0**, API 1.10.0 → **1.11.0**)"
+Cohesion: 0.29
+Nodes (7): 1. "Gün özetinde veresiye işlemleri gözükmüyor" → Günün Veresiyeleri (0.29.0), 2. "Borç tahsilatı sipariş gibi gözüküyor" → tahsilat kaynağı (0.29.0), 3. "Kasayı kapattığında yönetici şifresiyle geri alabilsin" (0.30.0 · API 1.11.0), 4. "İçinde şu olsun olmasın" → ürün seçenekleri (0.31.0 · şema v23), Doğrulama (bu makinede bizzat koşuldu), SONRAKİ KİŞİYE, 🔻 VARDİYA DEVİR NOTU — 2026-08-18/3 — DÖRT SAHA MADDESİ: GÜNÜN VERESİYESİ · TAHSİLAT KAYNAĞI · KAPANIŞI GERİ ALMA · ÜRÜN SEÇENEKLERİ (mobil 0.28.0 → **0.31.0**, API 1.10.0 → **1.11.0**)
+
+### Community 658 - "🔻 VARDİYA DEVİR NOTU — 2026-08-18/2 — DÖRT SAHA İSTEĞİ KAPANDI: YETKİ ARIZASI · 3 SÜTUN KATALOG · DOKUZ BİLDİRİM SESİ · KARTTAN TESLİM (mobil 0.26.0 → **0.28.0**, API DEĞİŞMEDİ 1.10.0)"
+Cohesion: 0.29
+Nodes (7): 1. Patron "Kuryeler"e giremiyordu — kapının kendisi değil ONA GİDEN YOL kırıktı (0.26.1), 2. Sipariş eklerken ürün kartları çok büyüktü → ızgara 2 sütundan 3'e (0.26.2), 3. Her bildirime özel ses — dokuz kategori, dokuz ton (0.27.0), 4. Sipariş kartına "Teslim Et" düğmesi — en sağa (0.28.0), Doğrulama (bu makinede bizzat koşuldu), SONRAKİ KİŞİYE, 🔻 VARDİYA DEVİR NOTU — 2026-08-18/2 — DÖRT SAHA İSTEĞİ KAPANDI: YETKİ ARIZASI · 3 SÜTUN KATALOG · DOKUZ BİLDİRİM SESİ · KARTTAN TESLİM (mobil 0.26.0 → **0.28.0**, API DEĞİŞMEDİ 1.10.0)
+
+### Community 661 - "🔻 VARDİYA DEVİR NOTU — 2026-08-25/2 — **SÜRÜM 1.0.0, YAYINA GEÇİŞ** (mobil 0.49.0 → **1.0.0**)"
+Cohesion: 0.33
+Nodes (6): ⭐ 1 · Sürüm 1.0.0 — sözleşme kırılması DEĞİL, yayın işareti, ⭐ 2 · Yeni sürüm bildirimi, ⭐ 3 · Bantta belirgin "Güncelle" düğmesi, Sonraki kişi için, 🔻 VARDİYA DEVİR NOTU — 2026-08-25/2 — **SÜRÜM 1.0.0, YAYINA GEÇİŞ** (mobil 0.49.0 → **1.0.0**), Ölçümler (bu makinede koşuldu)
+
+### Community 662 - "(ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-20 — ATIF NİYETE DEĞİL OLGUYA BAKIYOR · TEZGÂH ROLÜ AÇILDI · GÜN ÖZETİ KAPSAMI (mobil 0.34.0 → **0.38.0**, API 1.12.0 → **1.13.0**)"
+Cohesion: 0.33
+Nodes (6): ⭐ ASIL BULGU: aynı olayın iki yarısı iki ayrı kişiye gidiyordu, Atama hedefi rol süzgecinden çıktı, Gün özeti: segment → açılır liste, üç katman, Rol kararı — kullanıcı "kararsızım" dedi, karar verildi: YENİ ROL EKLENMEDİ, Yol üstünde bulunan ölü kod, (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-20 — ATIF NİYETE DEĞİL OLGUYA BAKIYOR · TEZGÂH ROLÜ AÇILDI · GÜN ÖZETİ KAPSAMI (mobil 0.34.0 → **0.38.0**, API 1.12.0 → **1.13.0**)
+
+### Community 663 - "🔻 VARDİYA DEVİR NOTU — 2026-08-18/4 — ÇOK İŞLETMELİ GÖRÜNÜRLÜK: "İÇİNDEKİLER" ARTIK YETENEĞE BAĞLI (mobil 0.31.0 → **0.32.0**, API 1.11.0 DEĞİŞMEDİ¹)"
+Cohesion: 0.33
+Nodes (6): Asıl tasarım kararı tek bir cümleden çıktı, Doğrulama, Görsel doğrulama (golden, üç işletme türü), İki katmanlı görünürlük, 🔜 SIRADAKİ ADIM — KURULUM SİHİRBAZI (kullanıcı vizyonu, HENÜZ YAPILMADI), 🔻 VARDİYA DEVİR NOTU — 2026-08-18/4 — ÇOK İŞLETMELİ GÖRÜNÜRLÜK: "İÇİNDEKİLER" ARTIK YETENEĞE BAĞLI (mobil 0.31.0 → **0.32.0**, API 1.11.0 DEĞİŞMEDİ¹)
+
+### Community 665 - "(ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-18/5 — AYARLAR SADELEŞTİ: METİN DİLİ · ANAHTARLAR · SİMÜLASYON KALDIRILDI (mobil 0.32.0 → **0.33.0**, API DEĞİŞMEDİ 1.11.0)"
+Cohesion: 0.40
+Nodes (5): 1. "Metinler çok yapay" → iki kalıp ayıklandı, 2. Aç/kapa ayarları anahtarla, 3. "Gelen çağrıyı dene" kaldırıldı, Doğrulama, (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-18/5 — AYARLAR SADELEŞTİ: METİN DİLİ · ANAHTARLAR · SİMÜLASYON KALDIRILDI (mobil 0.32.0 → **0.33.0**, API DEĞİŞMEDİ 1.11.0)
+
+### Community 666 - "(ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-12 — **TÜRKÇE ARAMA KIRIKMIŞ** (mobil 1.2.0 → **1.3.0**, API sabit)"
+Cohesion: 0.40
+Nodes (5): ⚠️ AÇIK İŞ, 🔴 EN ÖNEMLİ SATIR: "MÜŞTERİ TELEFONDA YOK" ŞİKÂYETİ SENKRON DEĞİLDİ, KAPILAR, ÇÖZÜM: TEK KOLON İKİ SORUNU BİRDEN KAPATTI, (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-12 — **TÜRKÇE ARAMA KIRIKMIŞ** (mobil 1.2.0 → **1.3.0**, API sabit)
+
+### Community 667 - "(ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-19/3 — SİTE METNİ SADELEŞTİ: TEKRARLAR SİLİNDİ, "BİZ KİMİZ" AÇILDI (API 1.12.0, mobil DEĞİŞMEDİ 0.34.0)"
+Cohesion: 0.40
+Nodes (5): İki gerçek bilgi hatası düzeltildi, Silinen "gereksiz açıklama"lar, ⚠️ Uydurma veri İKİNCİ bir yerde daha vardı — bir tur gözden kaçtı, Yeni sayfa: `/hakkimizda` — "Biz kimiz", (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-19/3 — SİTE METNİ SADELEŞTİ: TEKRARLAR SİLİNDİ, "BİZ KİMİZ" AÇILDI (API 1.12.0, mobil DEĞİŞMEDİ 0.34.0)
+
+### Community 668 - "(ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-01 — **SİTE YEDİ MADDEDE YENİDEN DÜZENLENDİ** (API 1.20.1 → **1.21.0**, mobil sabit)"
+Cohesion: 0.40
+Nodes (5): 🔴 İKİ MADDE TASARIM DEĞİLDİ, Kapılar, ⏭️ Sıradaki işler, Tasarım tarafı, (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-01 — **SİTE YEDİ MADDEDE YENİDEN DÜZENLENDİ** (API 1.20.1 → **1.21.0**, mobil sabit)
+
+### Community 669 - "🔻 ÖNCEKİ DEVİR NOTU — 2026-08-21/2 — UYGULAMA METNİ BAŞTAN SONA YENİDEN YAZILDI · TEST TABANI KIRMIZIYDI, KAPATILDI (mobil 0.40.0 → **0.41.0**, API DEĞİŞMEDİ 1.13.0)"
+Cohesion: 0.40
+Nodes (5): ⚠️ İKİNCİ BULGU — TEST TABANI ZATEN KIRMIZIYDI, Kapılar, ⭐ Metin artık yazılı bir kurala uyuyor, SONRAKİ KİŞİ BURADAN DEVAM ETSİN, 🔻 ÖNCEKİ DEVİR NOTU — 2026-08-21/2 — UYGULAMA METNİ BAŞTAN SONA YENİDEN YAZILDI · TEST TABANI KIRMIZIYDI, KAPATILDI (mobil 0.40.0 → **0.41.0**, API DEĞİŞMEDİ 1.13.0)
+
+### Community 670 - "(ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-21 — KAPANMAYAN GÜN GÖRÜNÜR OLDU VE KAPATILABİLİYOR · BİLDİRİM MERKEZİ (mobil 0.38.0 → **0.40.0**, API DEĞİŞMEDİ 1.13.0)"
+Cohesion: 0.50
+Nodes (4): Geçmiş gün kapatma — üç kısıt pazarlıksız, ⭐ "Kapanmayan günler bir sonraki güne aktarılıyor" — gözlem doğru, teşhis değil, Tespit algoritması — iki sınır, DAR OLANI kazanır, (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-08-21 — KAPANMAYAN GÜN GÖRÜNÜR OLDU VE KAPATILABİLİYOR · BİLDİRİM MERKEZİ (mobil 0.38.0 → **0.40.0**, API DEĞİŞMEDİ 1.13.0)
+
+### Community 671 - "(ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-03 — **UYGULAMA İÇİ REHBER (A+B+C)** (mobil 1.0.2 → **1.1.0**, API sabit 1.22.0)"
+Cohesion: 0.50
+Nodes (4): Neden ve ne yapıldı, 🔴 SIRADAKİ VARDİYANIN BİLMESİ GEREKEN İKİ ŞEY, ⏭️ Sıradaki işler, (ÖNCEKİ) VARDİYA DEVİR NOTU — 2026-09-03 — **UYGULAMA İÇİ REHBER (A+B+C)** (mobil 1.0.2 → **1.1.0**, API sabit 1.22.0)
+
+### Community 672 - "SyncEngine"
 Cohesion: 0.67
-Nodes (3): OrderFormScreen, _OrderFormScreenState, _SepetYuzeyi
+Nodes (3): SyncEngine, SyncCekme, SyncItme
 
 ## Knowledge Gaps
-- **5779 isolated node(s):** `cmd`, `npm_config_update_notifier`, `CLAUDE_FLOW_MODE`, `CLAUDE_FLOW_HOOKS_ENABLED`, `CLAUDE_FLOW_TOPOLOGY` (+5774 more)
-  These have ≤1 connection - possible missing edges. (Counts symbols only; 8082 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **312 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **5775 isolated node(s):** `_adAnahtarlariniDoldur`, `_addColumnIfMissing`, `migration`, `_openOnDevice`, `schemaVersion` (+5770 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 8272 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **322 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ApiTestCase` connect `Panel Admin ve Giriş Testleri` to `SubscriptionTest`, `Eloquent Modelleri`, `Ara Tahsilat Senkron Testleri`, `Kota ve Tutar İstisnaları`, `Ek Paket ve Rota Kontörü`, `AraTahsilatIptalTest`, `AuthFlowTest`, `Ödeme Bildirim Servisi`, `SiteKimlikTest`, `SyncTest`, `PanelUyeAcmaTest`, `PanelAdminTest`, `Abonelik Servisi`, `RotaMotoruTest`, `SurumCarpikligiTest`, `TeamCredentialsTest`, `Bayi Detay Paneli`, `Müşteri İçe Aktarma`, `LegalDocsTest`, `Destek Eşleştirme`, `PanelIsolationTest`, `SnapshotSayfalamaTest`, `Cihaz Kaydı`, `IyzicoPaymentGateway`, `PanelOdemeEkraniTest`, `TenantIsolationTest`, `Push Tetikleyici`, `PanelAccessControlTest`, `Kullanıcı Adı Üretici`, `PanelDashboardTest`, `PanelGuvenlikTest`, `KuryeIzinKisisellestirmeTest`, `PanelWriteGuardTest`, `PushGonderimiTest`, `SahaListesiSozlesmeTest`, `Seeder'lar`, `PanelCsvTest`, `SiteHesapTest`, `AbonelikGuvenlikTest`, `PanelExpansionTest`, `İptal Onay Akışı Testleri`, `PanelWriteUiTest`, `SyncDesignGapTest`, `Ekip ve Rota Paneli`, `PanelImportAdimliUiTest`, `PanelImportEdgeTest`, `TekCihazOturumuTest`, `RotaKontoruYenilemeTest`, `Artisan Komutları`, `SiteEkipTest`, `HaritaKaroTest`, `FavoriVeSatirNotuTest`, `HatirlatmaSablonuTest`, `DuzeltmeAtfiTest`, `Dış Servis İstemcileri`, `PanelSyncVisibilityTest`, `PanelImportGenisSutunTest`, `PanelImportGenisSutunTest`, `PanelUyeDetayUiTest`, `FCM İstemcisi`, `RotaCizgisiTest`, `SyncTest`, `RLS Tasarım Testleri`, `LedgerExpenseTest`, `ParolaSifirlamaApiTest`, `SurumDuyurusuTest`, `PanelPaketGelirEkraniTest`, `GeocodeTest`, `AutoRouteTest`, `LiveLocationTest`, `PanelCekirdekUiTest`, `PanelTest`, `PanelWriteTest`?**
-  _High betweenness centrality (0.034) - this node is a cross-community bridge._
-- **What connects `cmd`, `npm_config_update_notifier`, `CLAUDE_FLOW_MODE` to the rest of the system?**
-  _5779 weakly-connected nodes found - possible missing edges._
+- **Why does `Tasarım boşluğu — veri katmanı (backend, 2026-07-25/26)` connect `Tasarım boşluğu — veri katmanı (backend, 2026-07-25/26)` to `Panel Admin ve Giriş Testleri`, `Eloquent Modelleri`, `Kota ve Tutar İstisnaları`, `Ek Paket ve Rota Kontörü`, `AuthFlowTest`, `CallerCardViews`, `BillingPeriod`, `Gelir Gider Raporu`, `CallerOverlay`, `CerezEnvanteri`, `DeploySirasiTest`, `SyncZamanNormalizasyonuTest`, `Abonelik Servisi`, `🟢 8–12. Kalanlar (kısa)`, `LatencyLog`, `TenantDetail`, `.onScreenCall`, `Senkron Değişiklik Uygulayıcıları`, `package:flutter/material.dart`, `web.php`, `EpostaSablonlariTest.php`, `SiteIcerikTest`, `Cihaz Kaydı`, `IyzicoPaymentGateway`, `PanelOdemeEkraniTest`, `TenantIsolationTest`, `Node Betikleri`, `CustomerImport`, `.createTenantWithPatron`, `CallerActivity`, `HTTP Ara Katmanı ve Token`, `KullaniciAdiUretici`, `Seeder'lar`, `PaymentSecurityTest`, `VarlikSurumuTest`, `PLAN.md`, `SiteHesapTest`, `İptal Onay Akışı Testleri`, `PanelImportService`, `User`, `Senkron Denetleyicisi`, `EpostaSablonlariTest`, `Kimlik Doğrulama Denetleyicisi`, `HaritaKaroTest`, `Rota Motoru`, `SnapshotSayfalayici`, `MainActivity`, `SyncTest`, `PostaYapilandirmaTest`, `OemBatteryGuide`, `RLS Tasarım Testleri`, `CallerCard`, `RolParolaEsitlemeTest`, `ProfileChangeApplier`, `PanelTest`, `alpine`, `YandexGeocoder`?**
+  _High betweenness centrality (0.451) - this node is a cross-community bridge._
+- **What connects `_adAnahtarlariniDoldur`, `_addColumnIfMissing`, `migration` to the rest of the system?**
+  _5775 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Drift Veritabanı Şeması` be split into smaller, more focused modules?**
-  _Cohesion score 0.011925237931429881 - nodes in this community are weakly interconnected._
-- **Why does `AppDatabase` connect `Drift Oturum ve Bildirimler` to `Drift Veritabanı Şeması`, `Mobil Ekran Yardımcıları`, `Nasıl Yapılır Rehberi`, `Senkron API ve Karantina Testleri`, `Mobil Test Veritabanı Kurulumu`, `Gider Kategorileri`, `Sipariş Düzenleme`, `Migration ve Depo Testleri`, `Ana Kabuk`, `Kurye Yetki Bölümü`, `Gün Sonu Ekranı`, `Kapanış Bütünlüğü Testleri`, `Ürün Deposu Testleri`, `Müşteri Konum Seçici`, `Oturum ve Giriş Testleri`, `Bildirim Kutusu Testleri`, `API Sürümü ve Karantina Testleri`, `Ürün Deposu`, `Gider Formu`, `Geçmiş Gün Kapatma Testleri`, `Sipariş Listesi`, `İptal Onayı`, `Sipariş Formu`, `Ana Ekran`, `Müşteri Listesi`, `Senkron Motoru`, `Faz 0 Teşhis Ekranı`, `Borçlu Kartı`, `Müşteri Formu`, `Müşteri Özel Fiyatları`, `Ara Tahsilat Formu`, `Mesaj Şablonları`, `Müşteri Deposu`, `Müşteri Favorileri`, `İşletme Profili`, `Ürün Formu`, `Uygulama Açılışı`, `Gider Akışı`, `Senkron Servisi`, `Bilgilendirme Mesajı Testleri`, `Müşteri Detay Ekranı`, `cash_handover_repository`, `ayarlar_ekrani`, `order_list_parts`, `ui_saha_listesi_test`, `customer_sheets`, `day_end_repository`, `cagri_gunlugu`, `harita_kurye_katmani`, `pos_catalog`, `siparis_harita`, `day_closing_repository`, `gun_takvimi`, `musteri_arama_ortami`, `ui_rehber_test`, `gun_tahsilat_detay`, `hakkinda_ekrani`, `ana_bento`, `bildirim_kutusu`, `bilgilendirme_mesaji`, `sync_yazim_tetigi_test`, `order_repository`, `kuryeler_ekrani`, `harita_yol_cizgisi`, `product_list_screen`, `gorev_karti`, `gun_veresiye_repository`, `musteri_siparisleri`, `kapanmamis_gunler`, `session`, `gider_repository`, `courier_repository`, `tenant_settings_repository`, `konum_bildirici`, `call_log_repository`, `ledger_repository`, `app_database_gocler`?**
-  _High betweenness centrality (0.022) - this node is a cross-community bridge._
+  _Cohesion score 0.011980078072418899 - nodes in this community are weakly interconnected._
+- **Why does `ekranaKoy` connect `package:flutter/material.dart` to `Tasarım boşluğu — veri katmanı (backend, 2026-07-25/26)`?**
+  _High betweenness centrality (0.411) - this node is a cross-community bridge._
 - **Should `Panel Admin ve Giriş Testleri` be split into smaller, more focused modules?**
-  _Cohesion score 0.015793385358602748 - nodes in this community are weakly interconnected._
-- **Why does `queue` connect `SurumDuyurusuTest` to `docker-compose.prod`, `docker-compose.prod`, `docker-compose.prod`, `docker-compose.prod`, `docker-compose.prod`, `Prod Compose Ortamı`?**
-  _High betweenness centrality (0.012) - this node is a cross-community bridge._
+  _Cohesion score 0.01661024599413225 - nodes in this community are weakly interconnected._
+- **Why does `ApiTestCase` connect `Panel Admin ve Giriş Testleri` to `SubscriptionTest`, `Eloquent Modelleri`, `Ara Tahsilat Senkron Testleri`, `SyncTest`, `Ek Paket ve Rota Kontörü`, `AuthFlowTest`, `PanelTenantTabsTest`, `SiteKimlikTest`, `Gelir Gider Raporu`, `PanelUyeAcmaTest`, `AbonelikOnayTest`, `AraTahsilatSyncTest.php`, `SyncZamanNormalizasyonuTest`, `PanelAdminTest`, `Abonelik Servisi`, `RotaMotoruTest`, `🟢 8–12. Kalanlar (kısa)`, `TeamCredentialsTest`, `web.php`, `IptalOnayAkisiTest`, `EpostaSablonlariTest.php`, `PanelIsolationTest`, `SnapshotSayfalamaTest`, `Cihaz Kaydı`, `PanelOdemeEkraniTest`, `TenantIsolationTest`, `SyncPoisonPillTest.php`, `.createTenantWithPatron`, `PanelDashboardTest`, `PanelGuvenlikTest`, `KuryeIzinKisisellestirmeTest`, `PanelWriteGuardTest`, `PushGonderimiTest`, `SahaListesiSozlesmeTest`, `PaymentSecurityTest`, `PanelCsvTest`, `SiteHesapTest`, `AbonelikGuvenlikTest`, `PanelExpansionTest`, `İptal Onay Akışı Testleri`, `PanelWriteUiTest`, `YeniBayiRotaKontoruTest`, `User`, `PanelImportAdimliUiTest`, `PanelImportEdgeTest`, `Artisan Komutları`, `TekCihazOturumuTest`, `SubscriptionLockTest`, `SiteEkipTest`, `PanelTest`, `SecurityHardeningTest`, `HaritaKaroTest`, `Rota Motoru`, `FavoriVeSatirNotuTest`, `HatirlatmaSablonuTest`, `DuzeltmeAtfiTest`, `Dış Servis İstemcileri`, `PanelSyncVisibilityTest`, `PanelImportGenisSutunTest`, `PanelImportGenisSutunTest`, `PanelUyeDetayUiTest`, `FCM İstemcisi`, `RotaCizgisiTest`, `SyncTest`, `RLS Tasarım Testleri`, `CustomerLifecycleTest.php`, `RolParolaEsitlemeTest`, `ProfileChangeApplier`, `SurumDuyurusuTest`, `PanelPaketGelirEkraniTest`, `GeocodeTest`, `AutoRouteTest`, `LiveLocationTest`, `PanelCekirdekUiTest`, `YandexGeocoder`, `PanelWriteTest`?**
+  _High betweenness centrality (0.091) - this node is a cross-community bridge._
 - **Should `Mobil Ekran Yardımcıları` be split into smaller, more focused modules?**
-  _Cohesion score 0.011723560415743068 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.015278838808250574 - nodes in this community are weakly interconnected._
